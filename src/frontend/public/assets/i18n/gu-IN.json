@@ -1264,6 +1264,14 @@
   "discounts": {
     "title": "છૂટ નિયમો",
     "subtitle": "હાલના છૂટ નિયમોની સમીક્ષા, ફિલ્ટર અને નિષ્ક્રિય કરો.",
+    "showingCount": "{{total}} માંથી {{visible}} નિયમો બતાવી રહ્યા છીએ",
+    "summary": {
+      "totalRules": "કુલ નિયમો",
+      "activeOnPage": "પૃષ્ઠ પર સક્રિય",
+      "disabledOnPage": "પૃષ્ઠ પર નિષ્ક્રિય",
+      "expiredOnPage": "પૃષ્ઠ પર સમાપ્ત",
+      "onThisPage": "આ પૃષ્ઠ પર"
+    },
     "actions": {
       "disable": "નિષ્ક્રિય કરો"
     },
@@ -1345,6 +1353,12 @@
         "expiry": "સમાપ્તિ: {{date}}"
       },
       "subtitle": "નવો નિયમ બનાવો અથવા હાલનો નિયમ રિપ્લેસમેન્ટ વર્ઝન તરીકે સંપાદિત કરો.",
+      "sections": {
+        "ruleDetails": "નિયમ વિગતો",
+        "discountTerms": "છૂટની શરતો",
+        "safety": "સુરક્ષા પુષ્ટિ",
+        "targetBatch": "લક્ષ્ય બેચ"
+      },
       "createTitle": "છૂટ નિયમ બનાવો",
       "editTitle": "છૂટ નિયમ સંપાદિત કરો",
       "fields": {

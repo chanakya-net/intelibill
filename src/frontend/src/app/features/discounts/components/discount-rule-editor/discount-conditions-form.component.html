@@ -1,107 +1,167 @@
-<div class="editor-grid" [formGroup]="form">
-  <div class="field">
-    <label for="discount-rule-type">{{ 'discounts.editor.fields.ruleType' | transloco }}</label>
-    <p-select
-      inputId="discount-rule-type"
-      [options]="ruleTypeOptions"
-      optionLabel="label"
-      optionValue="value"
-      appendTo="body"
-      formControlName="ruleType"
-      class="w-full"
-    >
-      <ng-template pTemplate="selectedItem" let-option>
-        @if (option) {
-          {{ option.label | transloco }}
-        }
-      </ng-template>
-      <ng-template pTemplate="item" let-option>
-        {{ option.label | transloco }}
-      </ng-template>
-    </p-select>
-  </div>
+<div class="conditions-form" [formGroup]="form">
+  <section class="form-section">
+    <p class="section-label">{{ 'discounts.editor.sections.ruleDetails' | transloco }}</p>
 
-  <div class="field">
-    <label for="discount-rule-name">{{ 'discounts.editor.fields.name' | transloco }}</label>
-    <input id="discount-rule-name" pInputText type="text" class="w-full" formControlName="name" />
-  </div>
+    <div class="editor-grid">
+      <div class="field">
+        <label for="discount-rule-type">{{ 'discounts.editor.fields.ruleType' | transloco }}</label>
+        <p-select
+          inputId="discount-rule-type"
+          [options]="ruleTypeOptions"
+          optionLabel="label"
+          optionValue="value"
+          appendTo="body"
+          formControlName="ruleType"
+          styleClass="editor-control"
+        >
+          <ng-template pTemplate="selectedItem" let-option>
+            @if (option) {
+              {{ option.label | transloco }}
+            }
+          </ng-template>
+          <ng-template pTemplate="item" let-option>
+            {{ option.label | transloco }}
+          </ng-template>
+        </p-select>
+      </div>
 
-  <div class="field wide">
-    <label for="discount-rule-description">{{ 'discounts.editor.fields.description' | transloco }}</label>
-    <textarea id="discount-rule-description" pInputTextarea rows="3" class="w-full" formControlName="description"></textarea>
-  </div>
+      <div class="field">
+        <label for="discount-rule-name">{{ 'discounts.editor.fields.name' | transloco }}</label>
+        <p-iconfield iconPosition="right" class="editor-iconfield">
+          <input id="discount-rule-name" pInputText type="text" class="w-full" formControlName="name" />
+          <p-inputicon>
+            <i class="pi pi-tag" aria-hidden="true"></i>
+          </p-inputicon>
+        </p-iconfield>
+      </div>
 
-  <div class="field">
-    <label for="discount-rule-percentage">{{ 'discounts.editor.fields.percentage' | transloco }}</label>
-    <input
-      id="discount-rule-percentage"
-      pInputText
-      type="number"
-      min="0.01"
-      max="100"
-      step="0.01"
-      class="w-full"
-      formControlName="percentage"
-    />
-  </div>
-
-  @if (isThresholdRule()) {
-    <div class="field">
-      <label for="discount-rule-threshold">{{ 'discounts.editor.fields.thresholdAmount' | transloco }}</label>
-      <input
-        id="discount-rule-threshold"
-        pInputText
-        type="number"
-        min="0.01"
-        step="0.01"
-        class="w-full"
-        formControlName="thresholdAmount"
-      />
+      <div class="field wide">
+        <label for="discount-rule-description">{{ 'discounts.editor.fields.description' | transloco }}</label>
+        <textarea
+          id="discount-rule-description"
+          pInputTextarea
+          rows="3"
+          class="w-full"
+          formControlName="description"
+        ></textarea>
+      </div>
     </div>
-  }
+  </section>
 
-  <div class="field">
-    <label for="discount-rule-starts-at">{{ 'discounts.editor.fields.startsAt' | transloco }}</label>
-    <input id="discount-rule-starts-at" pInputText type="datetime-local" class="w-full" formControlName="startsAt" />
-  </div>
+  <section class="form-section">
+    <p class="section-label">{{ 'discounts.editor.sections.discountTerms' | transloco }}</p>
 
-  <div class="field">
-    <label for="discount-rule-ends-at">{{ 'discounts.editor.fields.endsAt' | transloco }}</label>
-    <input id="discount-rule-ends-at" pInputText type="datetime-local" class="w-full" formControlName="endsAt" />
-  </div>
+    <div class="editor-grid">
+      <div class="field">
+        <label for="discount-rule-percentage">{{ 'discounts.editor.fields.percentage' | transloco }}</label>
+        <p-inputNumber
+          inputId="discount-rule-percentage"
+          formControlName="percentage"
+          mode="decimal"
+          [min]="0.01"
+          [max]="100"
+          [maxFractionDigits]="2"
+          suffix="%"
+          [fluid]="true"
+          styleClass="editor-control"
+        />
+      </div>
 
-  <div class="field checkbox-field wide">
-    <label>
-      <input type="checkbox" formControlName="belowCostConfirmed" />
-      <span>{{ 'discounts.editor.fields.belowCostConfirmed' | transloco }}</span>
-    </label>
-  </div>
+      @if (isThresholdRule()) {
+        <div class="field">
+          <label for="discount-rule-threshold">{{ 'discounts.editor.fields.thresholdAmount' | transloco }}</label>
+          <p-inputNumber
+            inputId="discount-rule-threshold"
+            formControlName="thresholdAmount"
+            mode="decimal"
+            [min]="0.01"
+            [maxFractionDigits]="2"
+            [fluid]="true"
+            styleClass="editor-control"
+          />
+        </div>
+      }
 
-  @if (shouldShowBelowCostReason) {
-    <div class="field wide">
-      <label for="discount-rule-below-cost-reason">
-        {{ 'discounts.editor.fields.belowCostConfirmationReason' | transloco }}
-      </label>
-      <textarea
-        id="discount-rule-below-cost-reason"
-        pInputTextarea
-        rows="3"
-        class="w-full"
-        formControlName="belowCostConfirmationReason"
-      ></textarea>
+      <div class="field">
+        <label for="discount-rule-starts-at">{{ 'discounts.editor.fields.startsAt' | transloco }}</label>
+        <p-datepicker
+          ngSkipHydration
+          inputId="discount-rule-starts-at"
+          formControlName="startsAt"
+          dateFormat="dd/mm/yy"
+          [showTime]="true"
+          hourFormat="24"
+          [showIcon]="true"
+          iconDisplay="input"
+          appendTo="body"
+          [fluid]="true"
+          styleClass="editor-control"
+          [maxDate]="form.controls.endsAt.value ?? undefined"
+        />
+      </div>
+
+      <div class="field">
+        <label for="discount-rule-ends-at">{{ 'discounts.editor.fields.endsAt' | transloco }}</label>
+        <p-datepicker
+          ngSkipHydration
+          inputId="discount-rule-ends-at"
+          formControlName="endsAt"
+          dateFormat="dd/mm/yy"
+          [showTime]="true"
+          hourFormat="24"
+          [showIcon]="true"
+          iconDisplay="input"
+          appendTo="body"
+          [fluid]="true"
+          styleClass="editor-control"
+          [minDate]="form.controls.startsAt.value ?? undefined"
+        />
+      </div>
     </div>
-  }
+  </section>
 
-  @if (mode === 'edit') {
-    <div class="field wide">
-      <label for="discount-rule-disabled-reason">{{ 'discounts.editor.fields.disabledReason' | transloco }}</label>
-      <textarea
-        id="discount-rule-disabled-reason"
-        pInputTextarea
-        rows="2"
-        class="w-full"
-        formControlName="disabledReason"
-      ></textarea>
+  <section class="form-section">
+    <p class="section-label">{{ 'discounts.editor.sections.safety' | transloco }}</p>
+
+    <div class="editor-grid">
+      <div class="field checkbox-field wide">
+        <p-checkbox
+          inputId="discount-below-cost-confirmed"
+          formControlName="belowCostConfirmed"
+          [binary]="true"
+        />
+        <label for="discount-below-cost-confirmed">
+          {{ 'discounts.editor.fields.belowCostConfirmed' | transloco }}
+        </label>
+      </div>
+
+      @if (shouldShowBelowCostReason) {
+        <div class="field wide">
+          <label for="discount-rule-below-cost-reason">
+            {{ 'discounts.editor.fields.belowCostConfirmationReason' | transloco }}
+          </label>
+          <textarea
+            id="discount-rule-below-cost-reason"
+            pInputTextarea
+            rows="3"
+            class="w-full"
+            formControlName="belowCostConfirmationReason"
+          ></textarea>
+        </div>
+      }
+
+      @if (mode === 'edit') {
+        <div class="field wide">
+          <label for="discount-rule-disabled-reason">{{ 'discounts.editor.fields.disabledReason' | transloco }}</label>
+          <textarea
+            id="discount-rule-disabled-reason"
+            pInputTextarea
+            rows="2"
+            class="w-full"
+            formControlName="disabledReason"
+          ></textarea>
+        </div>
+      }
     </div>
-  }
+  </section>
 </div>

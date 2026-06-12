@@ -4,6 +4,8 @@ import { ReactiveFormsModule, Validators, FormBuilder } from '@angular/forms';
 import { finalize, Subject, debounceTime, EMPTY, switchMap, takeUntil } from 'rxjs';
 import { TranslocoPipe } from '@ngneat/transloco';
 import { ButtonModule } from 'primeng/button';
+import { IconFieldModule } from 'primeng/iconfield';
+import { InputIconModule } from 'primeng/inputicon';
 import { InputTextModule } from 'primeng/inputtext';
 
 import { InventoryService } from '../../../inventory/services/inventory.service';
@@ -13,8 +15,18 @@ import { DateOnlyPipe } from '../../../../shared/pipes/date-only.pipe';
 @Component({
   selector: 'app-discount-target-items',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, TranslocoPipe, ButtonModule, InputTextModule, DateOnlyPipe],
+  imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    TranslocoPipe,
+    ButtonModule,
+    IconFieldModule,
+    InputIconModule,
+    InputTextModule,
+    DateOnlyPipe,
+  ],
   templateUrl: './discount-target-items.component.html',
+  styleUrl: './discount-target-items.component.scss',
 })
 export class DiscountTargetItemsComponent implements OnDestroy {
   private readonly destroy$ = new Subject<void>();
@@ -132,5 +144,9 @@ export class DiscountTargetItemsComponent implements OnDestroy {
     this.batchSearchResults.set([]);
     this.batchSearchNoResults.set(false);
     this.selectionChange.emit([batch.inventoryBatchId]);
+  }
+
+  clearBatchSearch(): void {
+    this.onBatchSearchTermChange('');
   }
 }

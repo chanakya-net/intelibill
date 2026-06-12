@@ -1264,6 +1264,14 @@
   "discounts": {
     "title": "छूट नियम",
     "subtitle": "मौजूदा छूट नियमों की समीक्षा, फिल्टर और निष्क्रिय करें.",
+    "showingCount": "{{total}} में से {{visible}} नियम दिखाए जा रहे हैं",
+    "summary": {
+      "totalRules": "कुल नियम",
+      "activeOnPage": "पृष्ठ पर सक्रिय",
+      "disabledOnPage": "पृष्ठ पर निष्क्रिय",
+      "expiredOnPage": "पृष्ठ पर समाप्त",
+      "onThisPage": "इस पृष्ठ पर"
+    },
     "actions": {
       "disable": "निष्क्रिय करें"
     },
@@ -1345,6 +1353,12 @@
         "expiry": "समाप्ति: {{date}}"
       },
       "subtitle": "नया नियम बनाएं या मौजूदा नियम को रिप्लेसमेंट वर्जन के रूप में संपादित करें.",
+      "sections": {
+        "ruleDetails": "नियम विवरण",
+        "discountTerms": "छूट शर्तें",
+        "safety": "सुरक्षा पुष्टि",
+        "targetBatch": "लक्ष्य बैच"
+      },
       "createTitle": "छूट नियम बनाएं",
       "editTitle": "छूट नियम संपादित करें",
       "fields": {

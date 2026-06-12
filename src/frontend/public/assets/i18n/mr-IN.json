@@ -1264,6 +1264,14 @@
   "discounts": {
     "title": "सवलत नियम",
     "subtitle": "विद्यमान सवलत नियम तपासा, फिल्टर करा आणि निष्क्रिय करा.",
+    "showingCount": "{{total}} पैकी {{visible}} नियम दाखवत आहोत",
+    "summary": {
+      "totalRules": "एकूण नियम",
+      "activeOnPage": "पृष्ठावर सक्रिय",
+      "disabledOnPage": "पृष्ठावर निष्क्रिय",
+      "expiredOnPage": "पृष्ठावर कालबाह्य",
+      "onThisPage": "या पृष्ठावर"
+    },
     "actions": {
       "disable": "निष्क्रिय करा"
     },
@@ -1345,6 +1353,12 @@
         "expiry": "समाप्ती: {{date}}"
       },
       "subtitle": "नवीन नियम तयार करा किंवा सध्याचा नियम बदल आवृत्ती म्हणून संपादित करा.",
+      "sections": {
+        "ruleDetails": "नियम तपशील",
+        "discountTerms": "सवलत अटी",
+        "safety": "सुरक्षा पुष्टी",
+        "targetBatch": "लक्ष्य बॅच"
+      },
       "createTitle": "सवलत नियम तयार करा",
       "editTitle": "सवलत नियम संपादित करा",
       "fields": {

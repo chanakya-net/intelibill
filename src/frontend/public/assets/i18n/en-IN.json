@@ -1271,6 +1271,14 @@
   "discounts": {
     "title": "Discount Rules",
     "subtitle": "Review, filter, and disable existing discount rules.",
+    "showingCount": "Showing {{visible}} of {{total}} rules",
+    "summary": {
+      "totalRules": "Total rules",
+      "activeOnPage": "Active on page",
+      "disabledOnPage": "Disabled on page",
+      "expiredOnPage": "Expired on page",
+      "onThisPage": "On this page"
+    },
     "actions": {
       "disable": "Disable"
     },
@@ -1352,6 +1360,12 @@
         "expiry": "Exp: {{date}}"
       },
       "subtitle": "Create a new rule or edit the current one as a replacement version.",
+      "sections": {
+        "ruleDetails": "Rule details",
+        "discountTerms": "Discount terms",
+        "safety": "Safety confirmation",
+        "targetBatch": "Target batch"
+      },
       "createTitle": "Create discount rule",
       "editTitle": "Edit discount rule",
       "fields": {

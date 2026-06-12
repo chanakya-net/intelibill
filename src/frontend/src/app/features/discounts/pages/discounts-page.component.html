@@ -1,290 +1,276 @@
 <section class="discounts-page">
-  <header class="page-header">
-    <div>
+  <header class="discounts-hero">
+    <div class="discounts-hero__copy">
       <p class="eyebrow">{{ 'shell.manageDiscounts' | transloco }}</p>
       <h1>{{ 'discounts.title' | transloco }}</h1>
       <p class="subtitle">{{ 'discounts.subtitle' | transloco }}</p>
+      <div class="discounts-hero__meta">
+        <span class="meta-chip meta-chip--primary">
+          {{ 'discounts.showingCount' | transloco:{ visible: listItems().length, total: totalCount() } }}
+        </span>
+        @if (selectedRule()) {
+          <span class="meta-chip">{{ selectedRuleTitle() }}</span>
+        }
+        <span class="meta-chip">
+          {{ 'discounts.pagination.pageInfo' | transloco:{ page: pageNumber(), total: totalCount() } }}
+        </span>
+      </div>
+    </div>
+
+    <div class="discounts-hero__actions">
+      <button
+        pButton
+        type="button"
+        icon="pi pi-plus"
+        [label]="'discounts.editor.actions.createRule' | transloco"
+        (click)="onOpenCreateRule()"
+        data-testid="discounts-create-rule"
+      ></button>
     </div>
   </header>
+
+  <div class="summary-grid" aria-label="Discount rules summary">
+    @for (card of summaryCards(); track card.labelKey) {
+      <article class="summary-card" [ngClass]="'summary-card--' + card.tone">
+        <div class="summary-card__label">{{ card.labelKey | transloco }}</div>
+        <div class="summary-card__value">{{ card.value | number:'1.0-0' }}</div>
+      </article>
+    }
+  </div>
+
   @if (listError()) {
     <p class="error">{{ listError() | transloco }}</p>
   }
-  <div class="discounts-grid">
-    <p-card class="list-card">
-      <ng-template pTemplate="header">
-        <div class="card-header">
+
+  @if (listLoading()) {
+    <section class="directory-panel directory-panel--loading" aria-busy="true">
+      <div class="directory-panel__header">
+        <div>
+          <p class="directory-panel__eyebrow">{{ 'shell.manageDiscounts' | transloco }}</p>
           <h2>{{ 'discounts.list.title' | transloco }}</h2>
-          <div class="header-actions">
-            <button
-              pButton
-              type="button"
-              icon="pi pi-plus"
-              [label]="'discounts.editor.actions.createRule' | transloco"
-              (click)="onOpenCreateRule()"
-              data-testid="discounts-create-rule"
-            ></button>
-          </div>
-        </div>
-      </ng-template>
-
-      <div class="filter-row">
-        <div class="filter-field">
-          <label for="discounts-status">{{ 'discounts.filters.status.label' | transloco }}</label>
-          <p-select
-            inputId="discounts-status"
-            [options]="statusOptions"
-            optionLabel="label"
-            optionValue="value"
-            [ngModel]="statusFilter()"
-            (ngModelChange)="statusFilter.set($event); pageNumber.set(1)"
-            class="w-full"
-            appendTo="body"
-            data-testid="discounts-status-filter"
-          >
-            <ng-template #selectedItem let-option>
-              @if (option) {
-                {{ option.label | transloco }}
-              }
-            </ng-template>
-            <ng-template #item let-option>
-              {{ option.label | transloco }}
-            </ng-template>
-          </p-select>
-        </div>
-
-        <div class="filter-field">
-          <label for="discounts-type">{{ 'discounts.filters.type.label' | transloco }}</label>
-          <p-select
-            inputId="discounts-type"
-            [options]="ruleTypeOptions"
-            optionLabel="label"
-            optionValue="value"
-            [ngModel]="ruleTypeFilter()"
-            (ngModelChange)="ruleTypeFilter.set($event); pageNumber.set(1)"
-            class="w-full"
-            appendTo="body"
-            data-testid="discounts-type-filter"
-          >
-            <ng-template #selectedItem let-option>
-              @if (option) {
-                {{ option.label | transloco }}
-              }
-            </ng-template>
-            <ng-template #item let-option>
-              {{ option.label | transloco }}
-            </ng-template>
-          </p-select>
-        </div>
-
-        <div class="filter-field">
-          <label for="discounts-sort">{{ 'discounts.filters.sort.label' | transloco }}</label>
-          <p-select
-            inputId="discounts-sort"
-            [options]="sortOptions"
-            optionLabel="label"
-            optionValue="value"
-            [ngModel]="sortValue()"
-            (ngModelChange)="sortValue.set($event); pageNumber.set(1)"
-            class="w-full"
-            appendTo="body"
-            data-testid="discounts-sort-filter"
-          >
-            <ng-template #selectedItem let-option>
-              @if (option) {
-                {{ option.label | transloco }}
-              }
-            </ng-template>
-            <ng-template #item let-option>
-              {{ option.label | transloco }}
-            </ng-template>
-          </p-select>
         </div>
       </div>
-
-      <div class="search-row">
-        <label class="sr-only" for="discounts-search">{{ 'discounts.filters.search.label' | transloco }}</label>
-        <input
-          id="discounts-search"
-          pInputText
-          type="text"
-          class="w-full"
-          [placeholder]="'discounts.filters.search.placeholder' | transloco"
-          [ngModel]="searchValue()"
-          (ngModelChange)="searchValue.set($event); pageNumber.set(1)"
-          data-testid="discounts-search"
-        />
+      <div class="loading-shell">
+        <p-skeleton width="100%" height="3.25rem" styleClass="rounded-lg"></p-skeleton>
+        <div class="loading-grid">
+          @for (i of [1, 2, 3, 4]; track i) {
+            <p-skeleton width="100%" height="7rem" styleClass="rounded-2xl"></p-skeleton>
+          }
+        </div>
+        <p-skeleton width="100%" height="25rem" styleClass="rounded-2xl"></p-skeleton>
       </div>
+    </section>
+  }
 
-      <app-discounts-table
-        [listItems]="listItems()"
-        [listLoading]="listLoading()"
-        [selectedRuleId]="selectedRuleId()"
-        [totalCount]="totalCount()"
-        [pageNumber]="pageNumber()"
-        [pageSize]="pageSize()"
-        [statusKey]="listStatusKey.bind(this)"
-        [statusSeverity]="listStatusSeverity.bind(this)"
-        [formatDate]="formatDate"
-        (selectRule)="onSelectRule($event)"
-        (pageChange)="pageNumber.set($event)"
+  @if (!listLoading()) {
+    <section class="directory-panel">
+      <header class="directory-panel__header">
+        <div>
+          <p class="directory-panel__eyebrow">{{ 'shell.manageDiscounts' | transloco }}</p>
+          <h2>{{ 'discounts.list.title' | transloco }}</h2>
+          <p class="directory-panel__subtitle">{{ 'discounts.subtitle' | transloco }}</p>
+        </div>
+
+        <div class="directory-panel__metrics" aria-label="Discount rules metrics">
+          @for (metric of directoryMetrics(); track metric.labelKey) {
+            <span class="metric-chip">
+              <strong>{{ metric.value | number:'1.0-0' }}</strong>
+              <span>{{ metric.labelKey | transloco }}</span>
+            </span>
+          }
+        </div>
+      </header>
+
+      <app-discounts-filter-bar
+        [searchValue]="searchValue()"
+        [statusFilter]="statusFilter()"
+        [ruleTypeFilter]="ruleTypeFilter()"
+        [sortValue]="sortValue()"
+        (searchValueChange)="onSearchChange($event)"
+        (statusFilterChange)="onStatusFilterChange($event)"
+        (ruleTypeFilterChange)="onRuleTypeFilterChange($event)"
+        (sortValueChange)="onSortChange($event)"
       />
-    </p-card>
-    <p-card class="detail-card">
-      <ng-template pTemplate="header">
-        <div class="card-header">
-          <h2>{{ 'discounts.detail.title' | transloco }}</h2>
-          <div class="header-actions">
+
+      <div class="discounts-workspace">
+        <div class="directory-panel__surface discounts-list-surface">
+          <app-discounts-table
+            [listItems]="listItems()"
+            [listLoading]="listLoading()"
+            [selectedRuleId]="selectedRuleId()"
+            [totalCount]="totalCount()"
+            [pageNumber]="pageNumber()"
+            [pageSize]="pageSize()"
+            [statusKey]="listStatusKey.bind(this)"
+            [statusSeverity]="listStatusSeverity.bind(this)"
+            [formatDate]="formatDate"
+            (selectRule)="onSelectRule($event)"
+            (pageChange)="pageNumber.set($event)"
+          />
+        </div>
+
+        <aside class="detail-panel">
+          <header class="detail-panel__header">
+            <div>
+              <p class="detail-panel__eyebrow">{{ 'discounts.detail.title' | transloco }}</p>
+              <h3>{{ selectedRule() ? selectedRuleTitle() : ('discounts.detail.emptyTitle' | transloco) }}</h3>
+            </div>
+
             @if (selectedRule() && selectedRule()?.isActive) {
-              <button
-                pButton
-                type="button"
-                icon="pi pi-pen-to-square"
-                severity="secondary"
-                [outlined]="true"
-                [label]="'discounts.editor.actions.editRule' | transloco"
-                (click)="onOpenEditRule()"
-                data-testid="discounts-edit-rule"
-              ></button>
-              <button
-                pButton
-                type="button"
-                icon="pi pi-ban"
-                severity="danger"
-                [label]="'discounts.actions.disable' | transloco"
-                (click)="onOpenDisableDialog()"
-                data-testid="discounts-disable"
-              ></button>
+              <div class="detail-panel__actions">
+                <button
+                  pButton
+                  type="button"
+                  icon="pi pi-pen-to-square"
+                  severity="secondary"
+                  [outlined]="true"
+                  [label]="'discounts.editor.actions.editRule' | transloco"
+                  (click)="onOpenEditRule()"
+                  data-testid="discounts-edit-rule"
+                ></button>
+                <button
+                  pButton
+                  type="button"
+                  icon="pi pi-ban"
+                  severity="danger"
+                  [label]="'discounts.actions.disable' | transloco"
+                  (click)="onOpenDisableDialog()"
+                  data-testid="discounts-disable"
+                ></button>
+              </div>
             }
-          </div>
-        </div>
-      </ng-template>
-      @if (detailError()) {
-        <p class="error">{{ detailError() | transloco }}</p>
-      }
-      @if (detailLoading()) {
-        <div class="loading">
-          <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
-        </div>
-      }
-      @if (!detailLoading() && selectedRule()) {
-        <div class="detail-header">
-          <div>
-            <h3 class="rule-name">{{ selectedRuleTitle() }}</h3>
-            <p class="rule-type">{{ ('discounts.ruleType.' + selectedRule()!.ruleType) | transloco }}</p>
-          </div>
-          <p-tag
-            [value]="selectedRuleStatusKey() | transloco"
-            [severity]="detailStatusSeverity(selectedRule())"
-          ></p-tag>
-        </div>
-        <div class="detail-grid">
-          <div class="detail-field">
-            <p class="label">{{ 'discounts.detail.validity' | transloco }}</p>
-            <p class="value">
-              {{ formatDate(selectedRule()!.startsAt) }} → {{ formatDate(selectedRule()!.endsAt) }}
-            </p>
-          </div>
+          </header>
 
-          <div class="detail-field">
-            <p class="label">{{ 'discounts.detail.discountValue' | transloco }}</p>
-            <p class="value">
-              @if (selectedRule()!.ruleType === 'SaleThresholdPercentage') {
-                {{ selectedRule()!.percentage }}% (≥ {{ selectedRule()!.thresholdAmount ?? 0 }})
-              } @else {
-                {{ selectedRule()!.percentage }}%
-              }
-            </p>
-          </div>
+          @if (detailError()) {
+            <p class="error">{{ detailError() | transloco }}</p>
+          }
 
-          <div class="detail-field">
-            <p class="label">{{ 'discounts.detail.belowCostConfirmed' | transloco }}</p>
-            <p class="value">
-              @if (selectedRule()!.belowCostConfirmed) {
-                {{ 'discounts.detail.belowCostYes' | transloco }}
-              } @else {
-                {{ 'discounts.detail.belowCostNo' | transloco }}
-              }
-            </p>
-            @if (selectedRule()!.belowCostConfirmationReason) {
-              <p class="hint">{{ selectedRule()!.belowCostConfirmationReason }}</p>
-            }
-          </div>
+          @if (detailLoading()) {
+            <div class="loading">
+              <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
+            </div>
+          }
 
-          <div class="detail-field">
-            <p class="label">{{ 'discounts.detail.versionLinks' | transloco }}</p>
-            <div class="value space-y-1">
+          @if (!detailLoading() && selectedRule()) {
+            <div class="detail-header">
               <div>
-                <span class="hint">{{ 'discounts.detail.replaces' | transloco }}:</span>
-                @if (selectedRule()!.replacesRuleId) {
-                  <button
-                    pButton
-                    type="button"
-                    severity="secondary"
-                    [text]="true"
-                    class="link-btn"
-                    (click)="onNavigateRule(selectedRule()!.replacesRuleId)"
-                    data-testid="discounts-link-replaces"
-                  >
-                    {{ selectedRule()!.replacesRuleId }}
-                  </button>
-                } @else {
-                  <span class="hint">-</span>
+                <p class="rule-type">{{ ('discounts.ruleType.' + selectedRule()!.ruleType) | transloco }}</p>
+              </div>
+              <p-tag
+                [value]="selectedRuleStatusKey() | transloco"
+                [severity]="detailStatusSeverity(selectedRule())"
+              ></p-tag>
+            </div>
+
+            <div class="detail-grid">
+              <div class="detail-field">
+                <p class="label">{{ 'discounts.detail.validity' | transloco }}</p>
+                <p class="value">
+                  {{ formatDate(selectedRule()!.startsAt) }} → {{ formatDate(selectedRule()!.endsAt) }}
+                </p>
+              </div>
+
+              <div class="detail-field">
+                <p class="label">{{ 'discounts.detail.discountValue' | transloco }}</p>
+                <p class="value">
+                  @if (selectedRule()!.ruleType === 'SaleThresholdPercentage') {
+                    {{ selectedRule()!.percentage }}% (≥ {{ selectedRule()!.thresholdAmount ?? 0 }})
+                  } @else {
+                    {{ selectedRule()!.percentage }}%
+                  }
+                </p>
+              </div>
+
+              <div class="detail-field">
+                <p class="label">{{ 'discounts.detail.belowCostConfirmed' | transloco }}</p>
+                <p class="value">
+                  @if (selectedRule()!.belowCostConfirmed) {
+                    {{ 'discounts.detail.belowCostYes' | transloco }}
+                  } @else {
+                    {{ 'discounts.detail.belowCostNo' | transloco }}
+                  }
+                </p>
+                @if (selectedRule()!.belowCostConfirmationReason) {
+                  <p class="hint">{{ selectedRule()!.belowCostConfirmationReason }}</p>
                 }
               </div>
-              <div>
-                <span class="hint">{{ 'discounts.detail.replacedBy' | transloco }}:</span>
-                @if (selectedRule()!.replacedByRuleId) {
-                  <button
-                    pButton
-                    type="button"
-                    severity="secondary"
-                    [text]="true"
-                    class="link-btn"
-                    (click)="onNavigateRule(selectedRule()!.replacedByRuleId)"
-                    data-testid="discounts-link-replacedBy"
-                  >
-                    {{ selectedRule()!.replacedByRuleId }}
-                  </button>
-                } @else {
-                  <span class="hint">-</span>
-                }
+
+              <div class="detail-field">
+                <p class="label">{{ 'discounts.detail.versionLinks' | transloco }}</p>
+                <div class="value">
+                  <div>
+                    <span class="hint">{{ 'discounts.detail.replaces' | transloco }}:</span>
+                    @if (selectedRule()!.replacesRuleId) {
+                      <button
+                        pButton
+                        type="button"
+                        severity="secondary"
+                        [text]="true"
+                        class="link-btn"
+                        (click)="onNavigateRule(selectedRule()!.replacesRuleId)"
+                        data-testid="discounts-link-replaces"
+                      >
+                        {{ selectedRule()!.replacesRuleId }}
+                      </button>
+                    } @else {
+                      <span class="hint">-</span>
+                    }
+                  </div>
+                  <div>
+                    <span class="hint">{{ 'discounts.detail.replacedBy' | transloco }}:</span>
+                    @if (selectedRule()!.replacedByRuleId) {
+                      <button
+                        pButton
+                        type="button"
+                        severity="secondary"
+                        [text]="true"
+                        class="link-btn"
+                        (click)="onNavigateRule(selectedRule()!.replacedByRuleId)"
+                        data-testid="discounts-link-replacedBy"
+                      >
+                        {{ selectedRule()!.replacedByRuleId }}
+                      </button>
+                    } @else {
+                      <span class="hint">-</span>
+                    }
+                  </div>
+                </div>
+              </div>
+
+              <div class="detail-field">
+                <p class="label">{{ 'discounts.detail.audit' | transloco }}</p>
+                <div class="value">
+                  <div>
+                    <span class="hint">{{ 'discounts.detail.createdAt' | transloco }}:</span>
+                    <span>{{ formatDate(selectedRule()!.createdAt) }}</span>
+                  </div>
+                  <div>
+                    <span class="hint">{{ 'discounts.detail.updatedAt' | transloco }}:</span>
+                    <span>{{ formatDate(selectedRule()!.updatedAt) }}</span>
+                  </div>
+                  <div>
+                    <span class="hint">{{ 'discounts.detail.disabledAt' | transloco }}:</span>
+                    <span>{{ formatDate(selectedRule()!.disabledAt) }}</span>
+                  </div>
+                  <div>
+                    <span class="hint">{{ 'discounts.detail.disabledReason' | transloco }}:</span>
+                    <span>{{ selectedRule()!.disabledReason || '-' }}</span>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
+          }
 
-          <div class="detail-field">
-            <p class="label">{{ 'discounts.detail.audit' | transloco }}</p>
-            <div class="value space-y-1">
-              <div>
-                <span class="hint">{{ 'discounts.detail.createdAt' | transloco }}:</span>
-                <span>{{ formatDate(selectedRule()!.createdAt) }}</span>
-              </div>
-              <div>
-                <span class="hint">{{ 'discounts.detail.updatedAt' | transloco }}:</span>
-                <span>{{ formatDate(selectedRule()!.updatedAt) }}</span>
-              </div>
-              <div>
-                <span class="hint">{{ 'discounts.detail.disabledAt' | transloco }}:</span>
-                <span>{{ formatDate(selectedRule()!.disabledAt) }}</span>
-              </div>
-              <div>
-                <span class="hint">{{ 'discounts.detail.disabledReason' | transloco }}:</span>
-                <span>{{ selectedRule()!.disabledReason || '-' }}</span>
-              </div>
+          @if (!detailLoading() && !selectedRule()) {
+            <div class="empty-state">
+              <h2>{{ 'discounts.detail.emptyTitle' | transloco }}</h2>
+              <p>{{ 'discounts.detail.emptySubtitle' | transloco }}</p>
             </div>
-          </div>
-        </div>
-
-      }
-
-      @if (!detailLoading() && !selectedRule()) {
-        <div class="empty-state">
-          <p class="empty-title">{{ 'discounts.detail.emptyTitle' | transloco }}</p>
-          <p class="empty-subtitle">{{ 'discounts.detail.emptySubtitle' | transloco }}</p>
-        </div>
-      }
-    </p-card>
-  </div>
+          }
+        </aside>
+      </div>
+    </section>
+  }
 
   <app-discounts-disable-dialog
     [visible]="showDisableDialog()"
