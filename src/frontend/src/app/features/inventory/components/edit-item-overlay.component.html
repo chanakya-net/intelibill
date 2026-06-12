@@ -1,115 +1,130 @@
-<section
-  class="overlay"
-  aria-modal="true"
-  role="dialog"
+<p-dialog
+  [visible]="true"
+  [modal]="true"
+  [dismissableMask]="true"
+  [closable]="true"
+  [draggable]="false"
+  [resizable]="false"
+  styleClass="product-form-dialog"
+  [style]="{ width: 'min(640px, 96vw)' }"
+  (onHide)="onClose()"
   [attr.aria-label]="'inventory.editProduct' | transloco"
 >
-  <div class="overlay-backdrop" (click)="onClose()"></div>
+  <ng-template pTemplate="header">
+    <div class="dialog-header">
+      <p class="eyebrow">{{ 'inventory.title' | transloco }}</p>
+      <h2>{{ 'inventory.editProduct' | transloco }}</h2>
+      <p class="subtitle">{{ 'inventory.editProductDescription' | transloco }}</p>
+    </div>
+  </ng-template>
 
-  <div class="overlay-card">
-    <header class="overlay-header">
-      <div>
-        <p class="eyebrow">{{ 'inventory.title' | transloco }}</p>
-        <h2>{{ 'inventory.editProduct' | transloco }}</h2>
-        <p class="description">{{ 'inventory.editProductDescription' | transloco }}</p>
-      </div>
-      <button
-        type="button"
-        class="close-button"
-        [attr.aria-label]="'common.close' | transloco"
-        (click)="onClose()"
-      >
-        <i class="pi pi-times" aria-hidden="true"></i>
-      </button>
-    </header>
+  <form class="product-form" [formGroup]="form" (ngSubmit)="onSubmit()">
+    @if (serverError()) {
+      <div class="error-banner" role="alert">{{ serverError() | transloco }}</div>
+    }
 
-    <form class="overlay-form" [formGroup]="form" (ngSubmit)="onSubmit()">
-      <label>
-        <span>{{ 'inventory.name' | transloco }}</span>
-        <input pInputText type="text" formControlName="name" />
-      </label>
+    <section class="form-section">
+      <p class="section-label">{{ 'inventory.productFormSections.details' | transloco }}</p>
 
-      <label>
-        <span>{{ 'inventory.barcode' | transloco }}</span>
-        <div class="barcode-field-row">
-          <input pInputText type="text" formControlName="barcode" />
-          <button
-            pButton
-            type="button"
-            [label]="'inventory.generateBarcode' | transloco"
-            severity="secondary"
-            [loading]="barcodeGenerating()"
-            (click)="onGenerateBarcode()"
-            class="generate-barcode-btn"
-          ></button>
+      <div class="editor-grid">
+        <div class="field wide">
+          <label for="edit-product-name">{{ 'inventory.name' | transloco }}</label>
+          <input id="edit-product-name" pInputText type="text" class="w-full" formControlName="name" />
         </div>
-        @if (barcodeGenerateError()) {
-          <p class="error-message">{{ barcodeGenerateError() | transloco }}</p>
-        }
-        @if (barcodeReplaceConfirmVisible()) {
-          <div class="barcode-replace-confirm">
-            <span>{{ 'inventory.generateBarcodeReplaceConfirmEdit' | transloco }}</span>
-            <button pButton type="button" [label]="'inventory.confirmReplace' | transloco" severity="warn" (click)="confirmBarcodeReplace()"></button>
-            <button pButton type="button" [label]="'inventory.keepCurrentBarcode' | transloco" severity="secondary" (click)="cancelBarcodeReplace()"></button>
-          </div>
-        }
-      </label>
 
-      <label>
-        <span>{{ 'inventory.description' | transloco }}</span>
-        <textarea pInputTextarea formControlName="description" rows="3"></textarea>
-      </label>
+        <div class="field wide">
+          <app-inventory-barcode-field
+            [control]="form.controls.barcode"
+            [suggestions]="barcodeSuggestions"
+            [barcodeGenerating]="barcodeGenerating()"
+            [barcodeGenerateError]="barcodeGenerateError()"
+            [barcodeReplaceConfirmVisible]="barcodeReplaceConfirmVisible()"
+            [showScanner]="false"
+            replaceConfirmKey="inventory.generateBarcodeReplaceConfirmEdit"
+            (filterRequested)="onFilterBarcode($event)"
+            (generateRequested)="onGenerateBarcode()"
+            (confirmReplace)="confirmBarcodeReplace()"
+            (cancelReplace)="cancelBarcodeReplace()"
+          />
+        </div>
 
-      <label>
-        <span>{{ 'inventory.uom' | transloco }}</span>
-        <input pInputText type="text" formControlName="uom" />
-      </label>
+        <div class="field wide">
+          <label for="edit-product-description">{{ 'inventory.description' | transloco }}</label>
+          <textarea
+            id="edit-product-description"
+            pInputTextarea
+            rows="3"
+            class="w-full"
+            formControlName="description"
+          ></textarea>
+        </div>
+      </div>
+    </section>
 
-      <label>
-        <span>{{ 'hsn.hsnCode' | transloco }}</span>
-        <input pInputText type="text" formControlName="hsnCode" />
-      </label>
+    <section class="form-section">
+      <p class="section-label">{{ 'inventory.productFormSections.classification' | transloco }}</p>
 
-      <label>
-        <span>{{ 'inventory.taxRatePercent' | transloco }}</span>
-        <input pInputText type="number" min="0" max="100" step="0.01" formControlName="defaultTaxRatePercent" />
-      </label>
+      <div class="editor-grid">
+        <div class="field">
+          <label for="edit-product-uom">{{ 'inventory.uom' | transloco }}</label>
+          <input id="edit-product-uom" pInputText type="text" class="w-full" formControlName="uom" />
+        </div>
+
+        <div class="field">
+          <label for="edit-product-hsn">{{ 'hsn.hsnCode' | transloco }}</label>
+          <input id="edit-product-hsn" pInputText type="text" class="w-full" formControlName="hsnCode" />
+        </div>
+
+        <div class="field">
+          <label for="edit-product-tax">{{ 'inventory.taxRatePercent' | transloco }}</label>
+          <p-inputNumber
+            inputId="edit-product-tax"
+            formControlName="defaultTaxRatePercent"
+            mode="decimal"
+            [min]="0"
+            [max]="100"
+            [maxFractionDigits]="2"
+            suffix="%"
+            [fluid]="true"
+            styleClass="editor-control"
+          />
+        </div>
+      </div>
+    </section>
+
+    <section class="form-section stock-section">
+      <p class="section-label">{{ 'inventory.productFormSections.stock' | transloco }}</p>
 
       <div class="stock-display">
-        <span class="label">{{ 'inventory.currentStock' | transloco }}</span>
+        <span class="stock-label">{{ 'inventory.currentStock' | transloco }}</span>
         <p-badge
           [value]="item.currentStock | number"
           [severity]="getStockSeverity()"
           class="stock-badge"
-        ></p-badge>
+        />
       </div>
+    </section>
+  </form>
 
-      @if (serverError()) {
-        <p class="error-message">{{ serverError() | transloco }}</p>
-      }
-
-      <div class="actions">
-        <button
-          pButton
-          type="button"
-          [label]="'common.cancel' | transloco"
-          severity="secondary"
-          [disabled]="isSubmitting()"
-          (click)="onClose()"
-        ></button>
-        <button
-          pButton
-          type="submit"
-          [label]="'common.save' | transloco"
-          [disabled]="isSubmitting()"
-        ></button>
-      </div>
-    </form>
-
-    @if (isSubmitting()) {
-      <div class="submit-overlay">
-        <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
-      </div>
-    }
-  </div>
-</section>
+  <ng-template pTemplate="footer">
+    <div class="dialog-actions">
+      <button
+        pButton
+        type="button"
+        severity="secondary"
+        [outlined]="true"
+        [label]="'common.cancel' | transloco"
+        [disabled]="isSubmitting()"
+        (click)="onClose()"
+      ></button>
+      <button
+        pButton
+        type="button"
+        icon="pi pi-check"
+        [label]="'common.save' | transloco"
+        [loading]="isSubmitting()"
+        (click)="onSubmit()"
+      ></button>
+    </div>
+  </ng-template>
+</p-dialog>

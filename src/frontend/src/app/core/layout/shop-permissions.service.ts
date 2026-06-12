@@ -16,7 +16,7 @@ export class ShopPermissionsService {
 
     const activeShopId = session?.activeShopId ?? null;
     if (activeShopId) {
-      return shops.find((shop) => shop.shopId === activeShopId) ?? null;
+      return shops.find((shop) => shop.shopId === activeShopId) ?? shops.find((shop) => shop.isDefault) ?? shops[0] ?? null;
     }
 
     return shops.find((shop) => shop.isDefault) ?? shops[0] ?? null;

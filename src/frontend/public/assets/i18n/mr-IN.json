@@ -475,6 +475,12 @@
     "supplierIdOptional": "पुरवठादार ID (पर्यायी)",
     "addNewProduct": "नवीन उत्पादन जोडा",
     "addNewProductDescription": "तुमच्या सध्याच्या सक्रिय दुकानाशी जोडलेले उत्पादन तयार करा.",
+    "productFormSections": {
+      "details": "उत्पादन तपशील",
+      "classification": "वर्गीकरण आणि कर",
+      "status": "स्थिती",
+      "stock": "स्टॉक पातळी"
+    },
     "editProduct": "उत्पादन संपादित करा",
     "editProductDescription": "तुमच्या सध्याच्या सक्रिय दुकानासाठी उत्पादन तपशील अपडेट करा.",
     "batchInboundTitle": "इन्व्हेंटरी जोडा",

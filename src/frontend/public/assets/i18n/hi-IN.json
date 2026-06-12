@@ -475,6 +475,12 @@
     "supplierIdOptional": "आपूर्तिकर्ता ID (वैकल्पिक)",
     "addNewProduct": "नया उत्पाद जोड़ें",
     "addNewProductDescription": "वर्तमान सक्रिय दुकान से जुड़ा उत्पाद बनाएं।",
+    "productFormSections": {
+      "details": "उत्पाद विवरण",
+      "classification": "वर्गीकरण और कर",
+      "status": "स्थिति",
+      "stock": "स्टॉक स्तर"
+    },
     "editProduct": "उत्पाद संपादित करें",
     "editProductDescription": "वर्तमान सक्रिय दुकान के लिए उत्पाद विवरण अपडेट करें।",
     "batchInboundTitle": "इन्वेंटरी जोड़ें",

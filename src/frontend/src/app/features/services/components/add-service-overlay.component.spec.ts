@@ -57,6 +57,24 @@ describe('AddServiceOverlayComponent', () => {
     });
   });
 
+  it('renders through the shared PrimeNG editor dialog controls', async () => {
+    const fixture = TestBed.createComponent(AddServiceOverlayComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    component.form.controls.name.setValue('Installation');
+    component.onNameBlur();
+    await Promise.resolve();
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+
+    expect(host.querySelector('p-dialog')).toBeTruthy();
+    expect(host.querySelector('.overlay')).toBeFalsy();
+    expect(host.querySelectorAll('p-inputnumber')).toHaveLength(2);
+    expect(host.querySelectorAll('button[pbutton].suggestion-chip')).toHaveLength(2);
+  });
+
   it('submits a create payload without a service code', async () => {
     const fixture = TestBed.createComponent(AddServiceOverlayComponent);
     const component = fixture.componentInstance;

@@ -1,97 +1,158 @@
-<section class="overlay" aria-modal="true" role="dialog" [attr.aria-label]="'services.serviceForm' | transloco">
-  <div class="overlay-backdrop" (click)="onClose()"></div>
+<p-dialog
+  [visible]="true"
+  [modal]="true"
+  [dismissableMask]="!isSubmitting()"
+  [closable]="!isSubmitting()"
+  [draggable]="false"
+  [resizable]="false"
+  styleClass="service-editor-dialog"
+  [style]="{ width: 'min(760px, 96vw)' }"
+  (onHide)="onClose()"
+  [attr.aria-label]="'services.serviceForm' | transloco"
+>
+  <ng-template pTemplate="header">
+    <div class="editor-header">
+      <p class="eyebrow">{{ 'services.title' | transloco }}</p>
+      <h2>{{ 'services.editService' | transloco }}</h2>
+      <p class="subtitle">{{ 'services.editServiceDescription' | transloco }}</p>
+    </div>
+  </ng-template>
 
-  <div class="overlay-card">
-    <header class="overlay-header">
-      <div>
-        <p class="eyebrow">{{ 'services.title' | transloco }}</p>
-        <h2>{{ 'services.editService' | transloco }}</h2>
-        <p class="description">{{ 'services.editServiceDescription' | transloco }}</p>
-      </div>
-      <button
-        type="button"
-        class="close-button"
-        [attr.aria-label]="'common.close' | transloco"
-        (click)="onClose()"
-      >
-        <i class="pi pi-times" aria-hidden="true"></i>
-      </button>
-    </header>
+  <div class="editor-shell">
+    @if (serverError()) {
+      <div class="error-banner" role="alert">{{ serverError() | transloco }}</div>
+    }
 
-    <form class="overlay-form" [formGroup]="form" (ngSubmit)="onSubmit()">
-      <label>
-        <span>{{ 'services.code' | transloco }}</span>
-        <input pInputText type="text" [value]="service.code" readonly />
-      </label>
+    <form id="edit-service-form" class="editor-form" [formGroup]="form" (ngSubmit)="onSubmit()">
+      <section class="form-section">
+        <p class="section-label">{{ 'services.title' | transloco }}</p>
 
-      <label>
-        <span>{{ 'services.name' | transloco }}</span>
-        <input pInputText type="text" formControlName="name" (blur)="onNameBlur()" />
-      </label>
+        <div class="editor-grid">
+          <div class="field">
+            <label for="edit-service-code">{{ 'services.code' | transloco }}</label>
+            <input id="edit-service-code" pInputText type="text" class="w-full" [value]="service.code" readonly />
+          </div>
 
-      <label>
-        <span>{{ 'services.description' | transloco }}</span>
-        <textarea pInputTextarea rows="3" formControlName="description"></textarea>
-      </label>
+          <div class="field">
+            <label for="edit-service-name">{{ 'services.name' | transloco }}</label>
+            <input
+              id="edit-service-name"
+              pInputText
+              type="text"
+              class="w-full"
+              formControlName="name"
+              (blur)="onNameBlur()"
+            />
+          </div>
 
-      <label>
-        <span>{{ 'services.price' | transloco }}</span>
-        <input pInputText type="number" min="0" step="0.01" formControlName="price" />
-      </label>
+          <div class="field">
+            <label for="edit-service-price">{{ 'services.price' | transloco }}</label>
+            <p-inputNumber
+              inputId="edit-service-price"
+              formControlName="price"
+              mode="decimal"
+              [min]="0"
+              [maxFractionDigits]="2"
+              [fluid]="true"
+              styleClass="editor-control"
+            />
+          </div>
 
-      <label class="toggle-row">
-        <p-checkbox inputId="taxIncluded" formControlName="taxIncluded" [binary]="true"></p-checkbox>
-        <span>{{ 'services.taxIncluded' | transloco }}</span>
-      </label>
+          <div class="field wide">
+            <label for="edit-service-description">{{ 'services.description' | transloco }}</label>
+            <textarea
+              id="edit-service-description"
+              pInputTextarea
+              rows="3"
+              class="w-full"
+              formControlName="description"
+            ></textarea>
+          </div>
+        </div>
+      </section>
 
-      <label>
-        <span>{{ 'services.taxRatePercent' | transloco }}</span>
-        <input pInputText type="number" min="0" max="100" step="0.01" formControlName="taxRatePercent" />
-        @if (suggestedTaxSlabs().length > 0) {
-          <div class="suggestion-list" aria-label="Tax suggestions">
-            @for (taxPercentage of suggestedTaxSlabs(); track taxPercentage) {
-              <button type="button" class="suggestion-chip" (click)="selectSuggestedTaxSlab(taxPercentage)">
-                {{ taxPercentage }}
-              </button>
+      <section class="form-section">
+        <p class="section-label">{{ 'services.hsnSac' | transloco }}</p>
+
+        <div class="editor-grid">
+          <div class="field">
+            <label for="edit-service-tax">{{ 'services.taxRatePercent' | transloco }}</label>
+            <p-inputNumber
+              inputId="edit-service-tax"
+              formControlName="taxRatePercent"
+              mode="decimal"
+              [min]="0"
+              [max]="100"
+              [maxFractionDigits]="2"
+              suffix="%"
+              [fluid]="true"
+              styleClass="editor-control"
+            />
+            @if (suggestedTaxSlabs().length > 0) {
+              <div class="suggestion-list" aria-label="Tax suggestions">
+                @for (taxPercentage of suggestedTaxSlabs(); track taxPercentage) {
+                  <button
+                    pButton
+                    type="button"
+                    class="suggestion-chip"
+                    severity="secondary"
+                    [outlined]="true"
+                    [label]="taxPercentage"
+                    (click)="selectSuggestedTaxSlab(taxPercentage)"
+                  ></button>
+                }
+              </div>
             }
           </div>
-        }
-      </label>
 
-      <label>
-        <span>{{ 'services.hsnSac' | transloco }}</span>
-        <input pInputText type="text" formControlName="hsnCode" />
-        @if (suggestedHsnCodes().length > 0) {
-          <div class="suggestion-list" aria-label="HSN suggestions">
-            @for (hsnCode of suggestedHsnCodes(); track hsnCode) {
-              <button type="button" class="suggestion-chip" (click)="selectSuggestedHsnCode(hsnCode)">
-                {{ hsnCode }}
-              </button>
+          <div class="field">
+            <label for="edit-service-hsn">{{ 'services.hsnSac' | transloco }}</label>
+            <input id="edit-service-hsn" pInputText type="text" class="w-full" formControlName="hsnCode" />
+            @if (suggestedHsnCodes().length > 0) {
+              <div class="suggestion-list" aria-label="HSN suggestions">
+                @for (hsnCode of suggestedHsnCodes(); track hsnCode) {
+                  <button
+                    pButton
+                    type="button"
+                    class="suggestion-chip"
+                    severity="secondary"
+                    [outlined]="true"
+                    [label]="hsnCode"
+                    (click)="selectSuggestedHsnCode(hsnCode)"
+                  ></button>
+                }
+              </div>
             }
           </div>
-        }
-      </label>
 
-      @if (serverError()) {
-        <p class="error-message">{{ serverError() | transloco }}</p>
-      }
-
-      <div class="actions">
-        <button
-          pButton
-          type="button"
-          [label]="'common.cancel' | transloco"
-          severity="secondary"
-          [disabled]="isSubmitting()"
-          (click)="onClose()"
-        ></button>
-        <button
-          pButton
-          type="submit"
-          [label]="'services.saveChanges' | transloco"
-          [loading]="isSubmitting()"
-        ></button>
-      </div>
+          <div class="field checkbox-field wide">
+            <p-checkbox inputId="edit-service-tax-included" formControlName="taxIncluded" [binary]="true" />
+            <label for="edit-service-tax-included">{{ 'services.taxIncluded' | transloco }}</label>
+          </div>
+        </div>
+      </section>
     </form>
   </div>
-</section>
+
+  <ng-template pTemplate="footer">
+    <div class="editor-actions">
+      <button
+        pButton
+        type="button"
+        severity="secondary"
+        [outlined]="true"
+        [label]="'common.cancel' | transloco"
+        [disabled]="isSubmitting()"
+        (click)="onClose()"
+      ></button>
+      <button
+        pButton
+        type="submit"
+        form="edit-service-form"
+        icon="pi pi-check"
+        [label]="'services.saveChanges' | transloco"
+        [loading]="isSubmitting()"
+      ></button>
+    </div>
+  </ng-template>
+</p-dialog>

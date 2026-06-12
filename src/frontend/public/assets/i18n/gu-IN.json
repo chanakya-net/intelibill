@@ -475,6 +475,12 @@
     "supplierIdOptional": "સપ્લાયર ID (વૈકલ્પિક)",
     "addNewProduct": "નવું ઉત્પાદન ઉમેરો",
     "addNewProductDescription": "તમારી વર્તમાન સક્રિય દુકાન સાથે જોડાયેલ ઉત્પાદન બનાવો.",
+    "productFormSections": {
+      "details": "ઉત્પાદન વિગતો",
+      "classification": "વર્ગીકરણ અને કર",
+      "status": "સ્થિતિ",
+      "stock": "સ્ટોક સ્તર"
+    },
     "editProduct": "ઉત્પાદન સંપાદિત કરો",
     "editProductDescription": "તમારી વર્તમાન સક્રિય દુકાન માટે ઉત્પાદન વિગતો અપડેટ કરો.",
     "batchInboundTitle": "ઇન્વેન્ટરી ઉમેરો",

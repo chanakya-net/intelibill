@@ -475,6 +475,12 @@
     "supplierIdOptional": "ప్రాధాన్య సరఫరాదారు ఐడి (ఐచ్చికం)",
     "addNewProduct": "కొత్త ఉత్పత్తి జోడించండి",
     "addNewProductDescription": "ప్రస్తుతం యాక్టివ్ షాప్‌కు అనుసంధానించిన ఉత్పత్తిని సృష్టించండి.",
+    "productFormSections": {
+      "details": "ఉత్పత్తి వివరాలు",
+      "classification": "వర్గీకరణ & పన్ను",
+      "status": "స్థితి",
+      "stock": "స్టాక్ స్థాయి"
+    },
     "editProduct": "ఉత్పత్తి సవరించండి",
     "editProductDescription": "ప్రస్తుతం యాక్టివ్ షాప్ కోసం ఉత్పత్తి వివరాలను నవీకరించండి.",
     "batchInboundTitle": "ఇన్వెంటరీ జోడించండి",

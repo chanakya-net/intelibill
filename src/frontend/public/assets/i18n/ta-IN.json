@@ -475,6 +475,12 @@
     "supplierIdOptional": "முன்னுரிமை வழங்குநர் ஐடி (விருப்பம்)",
     "addNewProduct": "புதிய பொருள் சேர்க்க",
     "addNewProductDescription": "தற்போதைய செயலில் உள்ள கடையுடன் இணைக்கப்பட்ட பொருளை உருவாக்கவும்.",
+    "productFormSections": {
+      "details": "பொருள் விவரங்கள்",
+      "classification": "வகைப்பாடு மற்றும் வரி",
+      "status": "நிலை",
+      "stock": "இருப்பு நிலை"
+    },
     "editProduct": "பொருளை திருத்து",
     "editProductDescription": "தற்போதைய செயலில் உள்ள கடைக்கான பொருள் விவரங்களை புதுப்பிக்கவும்.",
     "batchInboundTitle": "சரக்கு சேர்க்க",

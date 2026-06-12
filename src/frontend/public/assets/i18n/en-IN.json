@@ -482,6 +482,12 @@
     "supplierIdOptional": "Supplier ID (Optional)",
     "addNewProduct": "Add New Product",
     "addNewProductDescription": "Create a product linked to your current active shop.",
+    "productFormSections": {
+      "details": "Product details",
+      "classification": "Classification & tax",
+      "status": "Status",
+      "stock": "Stock level"
+    },
     "editProduct": "Edit Product",
     "editProductDescription": "Update product details for your current active shop.",
     "batchInboundTitle": "Add Inventory",

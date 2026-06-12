@@ -5,6 +5,8 @@ import { firstValueFrom } from 'rxjs';
 
 import { ButtonModule } from 'primeng/button';
 import { CheckboxModule } from 'primeng/checkbox';
+import { DialogModule } from 'primeng/dialog';
+import { InputNumberModule } from 'primeng/inputnumber';
 import { InputTextModule } from 'primeng/inputtext';
 import { TextareaModule } from 'primeng/textarea';
 
@@ -14,7 +16,16 @@ import { ServiceService } from '../services/service.service';
 @Component({
   selector: 'app-add-service-overlay',
   standalone: true,
-  imports: [ReactiveFormsModule, ButtonModule, CheckboxModule, InputTextModule, TextareaModule, TranslocoPipe],
+  imports: [
+    ReactiveFormsModule,
+    ButtonModule,
+    CheckboxModule,
+    DialogModule,
+    InputNumberModule,
+    InputTextModule,
+    TextareaModule,
+    TranslocoPipe,
+  ],
   templateUrl: './add-service-overlay.component.html',
   styleUrl: './add-service-overlay.component.scss',
 })

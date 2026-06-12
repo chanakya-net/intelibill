@@ -4,10 +4,15 @@ import { Store } from '@ngrx/store';
 import { TranslocoPipe } from '@ngneat/transloco';
 import { firstValueFrom } from 'rxjs';
 
-import { AutoCompleteModule, AutoCompleteCompleteEvent } from 'primeng/autocomplete';
+import { AutoCompleteCompleteEvent, AutoCompleteModule } from 'primeng/autocomplete';
 import { ButtonModule } from 'primeng/button';
 import { CheckboxModule } from 'primeng/checkbox';
+import { DialogModule } from 'primeng/dialog';
+import { InputNumberModule } from 'primeng/inputnumber';
 import { InputTextModule } from 'primeng/inputtext';
+import { TextareaModule } from 'primeng/textarea';
+
+import { InventoryBarcodeFieldComponent } from './barcode-field.component';
 
 import { RootState } from '../../../core/state/app.state';
 import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
@@ -24,9 +29,13 @@ import {
   imports: [
     ReactiveFormsModule,
     AutoCompleteModule,
+    DialogModule,
+    InputNumberModule,
     InputTextModule,
+    TextareaModule,
     CheckboxModule,
     ButtonModule,
+    InventoryBarcodeFieldComponent,
     TranslocoPipe,
   ],
   templateUrl: './add-product-overlay.component.html',

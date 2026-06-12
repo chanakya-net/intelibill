@@ -64,6 +64,36 @@ describe('EditServiceOverlayComponent', () => {
     expect(codeInput.value).toBe('SRV-0001');
   });
 
+  it('renders through the shared PrimeNG editor dialog controls', async () => {
+    const fixture = TestBed.createComponent(EditServiceOverlayComponent);
+    const component = fixture.componentInstance;
+    component.service = {
+      serviceId: 'srv-1',
+      code: 'SRV-0001',
+      name: 'Installation',
+      description: 'On-site install',
+      price: 250,
+      hsnCode: '9987',
+      taxRatePercent: 18,
+      taxIncluded: true,
+      isActive: true,
+    };
+    component.ngOnInit();
+    fixture.detectChanges();
+
+    component.form.controls.name.setValue('Support plan');
+    component.onNameBlur();
+    await Promise.resolve();
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+
+    expect(host.querySelector('p-dialog')).toBeTruthy();
+    expect(host.querySelector('.overlay')).toBeFalsy();
+    expect(host.querySelectorAll('p-inputnumber')).toHaveLength(2);
+    expect(host.querySelectorAll('button[pbutton].suggestion-chip')).toHaveLength(2);
+  });
+
   it('submits an update payload without changing the code', async () => {
     const fixture = TestBed.createComponent(EditServiceOverlayComponent);
     const component = fixture.componentInstance;

@@ -5,11 +5,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { authGuard } from './core/guards/auth.guard';
 import { dashboardGuard } from './core/guards/dashboard.guard';
-import { servicesGuard } from './core/guards/services.guard';
+import { discountsGuard } from './core/guards/discounts.guard';
 import { AuthService } from './core/auth/auth.service';
 import { routes } from './app.routes';
 import { shellRoutes } from './core/layout/shell.routes';
 import { DashboardPageComponent } from './features/dashboard/pages/dashboard-page/dashboard-page.component';
+import { ServicesPageComponent } from './features/services/pages/services-page.component';
 
 describe('app routes', () => {
   const authService = {
@@ -92,14 +93,23 @@ describe('app routes', () => {
     await expect(dashboardRoute?.loadComponent?.()).resolves.toBe(DashboardPageComponent);
   });
 
-  it('blocks other protected shell URLs when API is unreachable', async () => {
-    const shellRoute = routes.find((route) => route.path === '');
+  it('lets the services route render its own permission-aware page', async () => {
     const shellRoot = shellRoutes.find((route) => route.path === '');
     const servicesRoute = shellRoot?.children?.find((route) => route.path === 'services');
 
-    expect(shellRoute).toBeDefined();
     expect(servicesRoute).toBeDefined();
-    expect(servicesRoute?.canActivate).toContain(servicesGuard);
+    expect(servicesRoute?.canActivate).toBeUndefined();
+    await expect(servicesRoute?.loadComponent?.()).resolves.toBe(ServicesPageComponent);
+  });
+
+  it('blocks other protected shell URLs when API is unreachable', async () => {
+    const shellRoute = routes.find((route) => route.path === '');
+    const shellRoot = shellRoutes.find((route) => route.path === '');
+    const discountsRoute = shellRoot?.children?.find((route) => route.path === 'discounts');
+
+    expect(shellRoute).toBeDefined();
+    expect(discountsRoute).toBeDefined();
+    expect(discountsRoute?.canActivate).toContain(discountsGuard);
 
     authService.isAuthenticated.mockReturnValue(false);
     authService.bootstrapSessionWithStatus.mockReturnValue(of('API_UNREACHABLE'));

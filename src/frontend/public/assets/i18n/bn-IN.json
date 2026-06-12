@@ -475,6 +475,12 @@
     "supplierIdOptional": "সরবরাহকারী ID (ঐচ্ছিক)",
     "addNewProduct": "নতুন পণ্য যোগ করুন",
     "addNewProductDescription": "বর্তমান সক্রিয় শপের সাথে সংযুক্ত একটি পণ্য তৈরি করুন।",
+    "productFormSections": {
+      "details": "পণ্যের বিবরণ",
+      "classification": "শ্রেণিবিন্যাস ও কর",
+      "status": "স্থিতি",
+      "stock": "স্টক স্তর"
+    },
     "editProduct": "পণ্য সম্পাদনা করুন",
     "editProductDescription": "বর্তমান সক্রিয় শপের জন্য পণ্যের বিবরণ আপডেট করুন।",
     "batchInboundTitle": "ইনভেন্টরি যোগ করুন",

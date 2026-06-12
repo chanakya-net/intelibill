@@ -475,6 +475,12 @@
     "supplierIdOptional": "ಆದ್ಯತೆ ಪೂರೈಕೆದಾರ ಐಡಿ (ಐಚ್ಛಿಕ)",
     "addNewProduct": "ಹೊಸ ಉತ್ಪನ್ನ ಸೇರಿಸಿ",
     "addNewProductDescription": "ನಿಮ್ಮ ಪ್ರಸ್ತುತ ಸಕ್ರಿಯ ಅಂಗಡಿಗೆ ಸಂಬಂಧಿಸಿದ ಉತ್ಪನ್ನವನ್ನು ರಚಿಸಿ.",
+    "productFormSections": {
+      "details": "ಉತ್ಪನ್ನ ವಿವರಗಳು",
+      "classification": "ವರ್ಗೀಕರಣ ಮತ್ತು ತೆರಿಗೆ",
+      "status": "ಸ್ಥಿತಿ",
+      "stock": "ಸ್ಟಾಕ್ ಮಟ್ಟ"
+    },
     "editProduct": "ಉತ್ಪನ್ನ ಸಂಪಾದಿಸಿ",
     "editProductDescription": "ನಿಮ್ಮ ಪ್ರಸ್ತುತ ಸಕ್ರಿಯ ಅಂಗಡಿಗಾಗಿ ಉತ್ಪನ್ನ ವಿವರಗಳನ್ನು ನವೀಕರಿಸಿ.",
     "batchInboundTitle": "ಇನ್‌ವೆಂಟರಿ ಸೇರಿಸಿ",
