@@ -308,6 +308,13 @@
     "staff": "कर्मचारी",
     "noUsersFound": "कोणतेही वापरकर्ते आढळले नाहीत",
     "noUsersDescription": "या दुकानासाठी व्यवस्थापक किंवा विक्री व्यक्ती जोडून सुरुवात करा.",
+    "showingCount": "Showing {{visible}} of {{total}} members",
+    "summary": {
+      "totalUsers": "Total Members",
+      "managers": "Managers",
+      "staff": "Staff",
+      "loginEnabled": "Login Enabled"
+    },
     "validation": {
       "passwordConfirmationMustMatch": "पासवर्ड आणि पुष्टी पासवर्ड जुळणे आवश्यक आहे.",
       "selectAtLeastOneShop": "किमान एक दुकान निवडा."

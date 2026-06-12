@@ -308,6 +308,13 @@
     "staff": "స్టాఫ్",
     "noUsersFound": "వినియోగదారులు లేరు",
     "noUsersDescription": "ఈ దుకాణానికి మేనేజర్ లేదా సేల్స్ పర్సన్‌ని జోడించడం ద్వారా ప్రారంభించండి.",
+    "showingCount": "Showing {{visible}} of {{total}} members",
+    "summary": {
+      "totalUsers": "Total Members",
+      "managers": "Managers",
+      "staff": "Staff",
+      "loginEnabled": "Login Enabled"
+    },
     "validation": {
       "passwordConfirmationMustMatch": "పాస్‌వర్డ్ మరియు నిర్ధారణ పాస్‌వర్డ్ సరిపోవాలి.",
       "selectAtLeastOneShop": "కనీసం ఒక దుకాణాన్ని ఎంచుకోండి."

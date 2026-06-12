@@ -308,6 +308,13 @@
     "staff": "ஸ்டாஃப்",
     "noUsersFound": "பயனர்கள் இல்லை",
     "noUsersDescription": "இந்த கடைக்காக மேலாளர் அல்லது விற்பனையாளரைச் சேர்த்து தொடங்கவும்.",
+    "showingCount": "Showing {{visible}} of {{total}} members",
+    "summary": {
+      "totalUsers": "Total Members",
+      "managers": "Managers",
+      "staff": "Staff",
+      "loginEnabled": "Login Enabled"
+    },
     "validation": {
       "passwordConfirmationMustMatch": "கடவுச்சொல் மற்றும் உறுதிப்படுத்தல் பொருந்த வேண்டும்.",
       "selectAtLeastOneShop": "குறைந்தது ஒரு கடையைத் தேர்ந்தெடுக்கவும்."

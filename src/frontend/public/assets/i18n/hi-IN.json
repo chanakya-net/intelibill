@@ -308,6 +308,13 @@
     "staff": "स्टाफ",
     "noUsersFound": "कोई उपयोगकर्ता नहीं मिला",
     "noUsersDescription": "इस दुकान के लिए मैनेजर या सेल्स पर्सन जोड़कर शुरू करें।",
+    "showingCount": "Showing {{visible}} of {{total}} members",
+    "summary": {
+      "totalUsers": "Total Members",
+      "managers": "Managers",
+      "staff": "Staff",
+      "loginEnabled": "Login Enabled"
+    },
     "validation": {
       "passwordConfirmationMustMatch": "पासवर्ड और पुष्टि पासवर्ड समान होने चाहिए।",
       "selectAtLeastOneShop": "कम से कम एक दुकान चुनें।"

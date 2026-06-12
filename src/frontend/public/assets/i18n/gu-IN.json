@@ -308,6 +308,13 @@
     "staff": "સ્ટાફ",
     "noUsersFound": "કોઈ વપરાશકર્તા મળ્યા નહીં",
     "noUsersDescription": "આ દુકાન માટે મેનેજર અથવા સેલ્સ પર્સન ઉમેરીને શરૂ કરો.",
+    "showingCount": "Showing {{visible}} of {{total}} members",
+    "summary": {
+      "totalUsers": "Total Members",
+      "managers": "Managers",
+      "staff": "Staff",
+      "loginEnabled": "Login Enabled"
+    },
     "validation": {
       "passwordConfirmationMustMatch": "પાસવર્ડ અને પુષ્ટિ પાસવર્ડ મેળ ખાવા જોઈએ.",
       "selectAtLeastOneShop": "ઓછામાં ઓછી એક દુકાન પસંદ કરો."

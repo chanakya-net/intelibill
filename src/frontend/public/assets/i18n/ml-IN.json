@@ -308,6 +308,13 @@
     "staff": "സ്റ്റാഫ്",
     "noUsersFound": "ഉപയോക്താക്കളൊന്നും കണ്ടെത്തിയില്ല",
     "noUsersDescription": "ഈ കടയ്ക്ക് മാനേജർ അല്ലെങ്കിൽ സെയിൽസ് വ്യക്തിയെ ചേർത്ത് ആരംഭിക്കുക.",
+    "showingCount": "Showing {{visible}} of {{total}} members",
+    "summary": {
+      "totalUsers": "Total Members",
+      "managers": "Managers",
+      "staff": "Staff",
+      "loginEnabled": "Login Enabled"
+    },
     "validation": {
       "passwordConfirmationMustMatch": "പാസ്‌വേഡും സ്ഥിരീകരണ പാസ്‌വേഡും പൊരുത്തപ്പെടണം.",
       "selectAtLeastOneShop": "കുറഞ്ഞത് ഒരു കടയെങ്കിലും തിരഞ്ഞെടുക്കുക."

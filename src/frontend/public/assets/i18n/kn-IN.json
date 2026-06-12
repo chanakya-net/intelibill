@@ -308,6 +308,13 @@
     "staff": "ಸ್ಟಾಫ್",
     "noUsersFound": "ಯಾವುದೇ ಬಳಕೆದಾರರು ಕಂಡುಬಂದಿಲ್ಲ",
     "noUsersDescription": "ಈ ಅಂಗಡಿಗಾಗಿ ಮ್ಯಾನೇಜರ್ ಅಥವಾ ಮಾರಾಟಗಾರರನ್ನು ಸೇರಿಸುವ ಮೂಲಕ ಪ್ರಾರಂಭಿಸಿ.",
+    "showingCount": "Showing {{visible}} of {{total}} members",
+    "summary": {
+      "totalUsers": "Total Members",
+      "managers": "Managers",
+      "staff": "Staff",
+      "loginEnabled": "Login Enabled"
+    },
     "validation": {
       "passwordConfirmationMustMatch": "ಪಾಸ್‌ವರ್ಡ್ ಮತ್ತು ದೃಢೀಕರಣ ಪಾಸ್‌ವರ್ಡ್ ಹೊಂದಿಕೆಯಾಗಬೇಕು.",
       "selectAtLeastOneShop": "ಕನಿಷ್ಠ ಒಂದು ಅಂಗಡಿಯನ್ನು ಆಯ್ಕೆ ಮಾಡಿ."

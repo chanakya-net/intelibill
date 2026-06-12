@@ -308,6 +308,13 @@
     "staff": "স্টাফ",
     "noUsersFound": "কোনো ব্যবহারকারী পাওয়া যায়নি",
     "noUsersDescription": "এই দোকানের জন্য ম্যানেজার বা সেলস পার্সন যোগ করে শুরু করুন।",
+    "showingCount": "Showing {{visible}} of {{total}} members",
+    "summary": {
+      "totalUsers": "Total Members",
+      "managers": "Managers",
+      "staff": "Staff",
+      "loginEnabled": "Login Enabled"
+    },
     "validation": {
       "passwordConfirmationMustMatch": "পাসওয়ার্ড ও কনফার্ম পাসওয়ার্ড মিলতে হবে।",
       "selectAtLeastOneShop": "কমপক্ষে একটি দোকান নির্বাচন করুন।"
