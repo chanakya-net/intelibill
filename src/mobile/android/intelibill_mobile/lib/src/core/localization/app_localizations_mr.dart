@@ -224,6 +224,159 @@ class AppLocalizationsMr extends AppLocalizations {
       'Unable to load customers. Please try again.';
 
   @override
+  String get usersTitle => 'Shop Users';
+
+  @override
+  String get usersSubtitle =>
+      'View all members in the active shop and manage role assignments.';
+
+  @override
+  String get usersAddUser => 'Add User';
+
+  @override
+  String get usersAddUserDescription =>
+      'Create a manager or sales person for the active shop.';
+
+  @override
+  String get usersEditUser => 'Edit User';
+
+  @override
+  String get usersEditUserDescription =>
+      'Update role and login access for this user.';
+
+  @override
+  String get usersSearchPlaceholder => 'Search users...';
+
+  @override
+  String get usersNoUsersFound => 'No users found';
+
+  @override
+  String get usersNoUsersDescription =>
+      'Start by adding a manager or sales person for this shop.';
+
+  @override
+  String get usersUnableToLoad => 'Unable to load users';
+
+  @override
+  String get usersRetry => 'Retry';
+
+  @override
+  String get usersShopsLabel => 'Shops';
+
+  @override
+  String get usersSelectShopsDescription =>
+      'Select one or more shops for this user.';
+
+  @override
+  String get usersSelectShopsForAccess =>
+      'Select the shops this user should have access to.';
+
+  @override
+  String get usersDefaultShop => 'Default';
+
+  @override
+  String get usersSelectAtLeastOneShop => 'Select at least one shop.';
+
+  @override
+  String get usersFirstNameLabel => 'First Name';
+
+  @override
+  String get usersFirstNameRequired => 'First name is required.';
+
+  @override
+  String get usersFirstNameMax => 'First name must be 100 characters or fewer.';
+
+  @override
+  String get usersLastNameLabel => 'Last Name';
+
+  @override
+  String get usersLastNameRequired => 'Last name is required.';
+
+  @override
+  String get usersLastNameMax => 'Last name must be 100 characters or fewer.';
+
+  @override
+  String get usersEmailLabel => 'Email';
+
+  @override
+  String get usersEmailRequired => 'Email is required.';
+
+  @override
+  String get usersEmailMax => 'Email must be 256 characters or fewer.';
+
+  @override
+  String get usersPhoneLabel => 'Mobile Number';
+
+  @override
+  String get usersPhoneRequired => 'Mobile number is required.';
+
+  @override
+  String get usersPhoneMax => 'Mobile number must be 32 characters or fewer.';
+
+  @override
+  String get usersPhoneInvalid => 'Enter a valid phone number.';
+
+  @override
+  String get usersConfirmPasswordLabel => 'Confirm Password';
+
+  @override
+  String get usersConfirmPasswordRequired => 'Confirm password is required.';
+
+  @override
+  String get usersPasswordMismatch =>
+      'Password and confirm password must match.';
+
+  @override
+  String get usersPasswordMin => 'Password must be at least 8 characters.';
+
+  @override
+  String get usersPasswordMax => 'Password must be 100 characters or fewer.';
+
+  @override
+  String get usersRoleLabel => 'Role';
+
+  @override
+  String get usersRoleOwner => 'Owner';
+
+  @override
+  String get usersRoleManager => 'Manager';
+
+  @override
+  String get usersRoleStaff => 'Staff';
+
+  @override
+  String get usersAllowLoginLabel => 'Allow this user to login';
+
+  @override
+  String get usersLoginEnabled => 'Enabled';
+
+  @override
+  String get usersLoginDisabled => 'Disabled';
+
+  @override
+  String get usersAddSuccess => 'User added successfully.';
+
+  @override
+  String get usersEditSuccess => 'User updated successfully.';
+
+  @override
+  String get usersErrorNetwork =>
+      'Unable to connect. Please check your network.';
+
+  @override
+  String get usersErrorTimeout => 'Request timed out. Please try again.';
+
+  @override
+  String get usersErrorUnauthorized => 'Session expired. Please log in again.';
+
+  @override
+  String get usersErrorForbidden =>
+      'You do not have permission to manage users.';
+
+  @override
+  String get usersErrorGeneric => 'Unable to load users. Please try again.';
+
+  @override
   String get suppliersTitle => 'पुरवठादार';
 
   @override
