@@ -14,7 +14,7 @@ import { UsersActions } from '../../features/users/state/users.actions';
 import { LocalizationService } from '../i18n/localization.service';
 import { DEFAULT_LANGUAGE, SupportedLanguage } from '../i18n/language.constants';
 import { ShellComponent } from './shell.component';
-import { selectSidebarCollapsed } from '../state/app-shell.selectors';
+import { selectSidebarCollapsed, selectSidebarPinned } from '../state/app-shell.selectors';
 
 beforeAll(() => {
   Object.defineProperty(window, 'matchMedia', {
@@ -82,6 +82,7 @@ describe('ShellComponent', () => {
 
   const shopsSubmittingSignal = signal(false);
   const sidebarCollapsedSignal = signal(false);
+  const sidebarPinnedSignal = signal(false);
   const currentLanguage = signal(DEFAULT_LANGUAGE);
 
   const localizationService = {
@@ -110,6 +111,10 @@ describe('ShellComponent', () => {
 
       if (selector === selectSidebarCollapsed) {
         return sidebarCollapsedSignal;
+      }
+
+      if (selector === selectSidebarPinned) {
+        return sidebarPinnedSignal;
       }
 
       return signal(false);
@@ -235,11 +240,34 @@ describe('ShellComponent', () => {
     const component = setup();
     store.dispatch.mockClear();
     sidebarCollapsedSignal.set(false);
+    sidebarPinnedSignal.set(false);
 
     component.onAutoHideSidebar();
 
     expect(store.dispatch).toHaveBeenCalledWith(
       expect.objectContaining({ collapsed: true, type: '[App Shell] Set Sidebar Collapsed' }),
+    );
+  });
+
+  it('does not auto-hide the sidebar when it is pinned', () => {
+    const component = setup();
+    store.dispatch.mockClear();
+    sidebarCollapsedSignal.set(false);
+    sidebarPinnedSignal.set(true);
+
+    component.onAutoHideSidebar();
+
+    expect(store.dispatch).not.toHaveBeenCalled();
+  });
+
+  it('toggles sidebar pin state', () => {
+    const component = setup();
+    store.dispatch.mockClear();
+
+    component.onToggleSidebarPin();
+
+    expect(store.dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ type: '[App Shell] Toggle Sidebar Pinned' }),
     );
   });
 });

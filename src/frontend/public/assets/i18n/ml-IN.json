@@ -119,7 +119,9 @@
     "purchaseOrders": "Manage Purchase Orders",
     "offlineSalesEnabled": "Offline sales enabled. Click to disable.",
     "offlineSalesDisabled": "Offline sales disabled. Click to enable.",
-    "offlineSalesEnabling": "Enabling offline sales…"
+    "offlineSalesEnabling": "Enabling offline sales…",
+    "pinSidebar": "സൈഡ്‌ബാർ പിൻ ചെയ്യുക",
+    "unpinSidebar": "സൈഡ്‌ബാർ അൺപിൻ ചെയ്യുക"
   },
   "dashboard": {
     "header": {

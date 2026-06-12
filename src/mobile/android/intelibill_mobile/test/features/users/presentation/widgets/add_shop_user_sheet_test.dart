@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -75,7 +77,9 @@ void main() {
         addShopUserUseCaseProvider.overrideWithValue(addShopUser),
         editShopUserUseCaseProvider.overrideWithValue(editShopUser),
         authControllerProvider.overrideWith(
-          () => _StubAuthController(AuthControllerState(session: _ownerSession())),
+          () => _StubAuthController(
+            AuthControllerState(session: _ownerSession()),
+          ),
         ),
       ],
       child: const MaterialApp(
@@ -237,10 +241,12 @@ void main() {
                 body: Center(
                   child: ElevatedButton(
                     onPressed: () {
-                      showModalBottomSheet<bool>(
-                        context: context,
-                        isScrollControlled: true,
-                        builder: (context) => const AddShopUserSheet(),
+                      unawaited(
+                        showModalBottomSheet<bool>(
+                          context: context,
+                          isScrollControlled: true,
+                          builder: (context) => const AddShopUserSheet(),
+                        ),
                       );
                     },
                     child: const Text('Open'),

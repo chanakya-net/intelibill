@@ -119,7 +119,9 @@
     "purchaseOrders": "Manage Purchase Orders",
     "offlineSalesEnabled": "Offline sales enabled. Click to disable.",
     "offlineSalesDisabled": "Offline sales disabled. Click to enable.",
-    "offlineSalesEnabling": "Enabling offline sales…"
+    "offlineSalesEnabling": "Enabling offline sales…",
+    "pinSidebar": "பக்கப்பட்டியை பின் செய்",
+    "unpinSidebar": "பக்கப்பட்டியை அன்பின் செய்"
   },
   "dashboard": {
     "header": {

@@ -12,21 +12,37 @@
           }
         </div>
 
-        <button
-          type="button"
-          class="sidebar-collapse-toggle"
-          [class.is-collapsed]="sidebarCollapsed()"
-          [attr.aria-label]="sidebarCollapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
-          [attr.title]="sidebarCollapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
-          (click)="onToggleSidebar()"
-        >
-          <i
-            class="pi"
-            [class.pi-angle-double-right]="sidebarCollapsed()"
-            [class.pi-angle-double-left]="!sidebarCollapsed()"
-            aria-hidden="true"
-          ></i>
-        </button>
+        <div class="shell-sidebar-controls">
+          @if (!sidebarCollapsed()) {
+            <button
+              type="button"
+              class="sidebar-pin-toggle"
+              [class.is-pinned]="sidebarPinned()"
+              [attr.aria-label]="sidebarPinned() ? ('shell.unpinSidebar' | transloco) : ('shell.pinSidebar' | transloco)"
+              [attr.title]="sidebarPinned() ? ('shell.unpinSidebar' | transloco) : ('shell.pinSidebar' | transloco)"
+              [attr.aria-pressed]="sidebarPinned()"
+              (click)="onToggleSidebarPin()"
+            >
+              <i class="pi pi-thumbtack" aria-hidden="true"></i>
+            </button>
+          }
+
+          <button
+            type="button"
+            class="sidebar-collapse-toggle"
+            [class.is-collapsed]="sidebarCollapsed()"
+            [attr.aria-label]="sidebarCollapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
+            [attr.title]="sidebarCollapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
+            (click)="onToggleSidebar()"
+          >
+            <i
+              class="pi"
+              [class.pi-angle-double-right]="sidebarCollapsed()"
+              [class.pi-angle-double-left]="!sidebarCollapsed()"
+              aria-hidden="true"
+            ></i>
+          </button>
+        </div>
       </div>
 
       <div class="shell-sidebar-body">

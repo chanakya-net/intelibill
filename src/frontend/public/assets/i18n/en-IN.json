@@ -119,7 +119,9 @@
     "purchaseOrders": "Manage Purchase Orders",
     "offlineSalesEnabled": "Offline sales enabled. Click to disable.",
     "offlineSalesDisabled": "Offline sales disabled. Click to enable.",
-    "offlineSalesEnabling": "Enabling offline sales…"
+    "offlineSalesEnabling": "Enabling offline sales…",
+    "pinSidebar": "Pin sidebar",
+    "unpinSidebar": "Unpin sidebar"
   },
   "dashboard": {
     "header": {
@@ -306,6 +308,13 @@
     "staff": "Staff",
     "noUsersFound": "No users found",
     "noUsersDescription": "Start by adding a manager or sales person for this shop.",
+    "showingCount": "Showing {{visible}} of {{total}} members",
+    "summary": {
+      "totalUsers": "Total Members",
+      "managers": "Managers",
+      "staff": "Staff",
+      "loginEnabled": "Login Enabled"
+    },
     "validation": {
       "passwordConfirmationMustMatch": "Password and confirm password must match.",
       "selectAtLeastOneShop": "Select at least one shop."

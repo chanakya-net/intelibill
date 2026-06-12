@@ -68,7 +68,7 @@ To find your machine's LAN IP:
 
 ### Flutter version
 
-Mobile CI pins Flutter via `.flutter-version` (currently **3.41.9**). Use the same version locally to avoid codegen drift:
+Mobile CI pins Flutter via `.flutter-version` (currently **3.44.2**). Use the same version locally to avoid codegen drift:
 
 ```bash
 # Optional but recommended: install FVM, then from this directory:
@@ -77,7 +77,7 @@ fvm use
 fvm flutter --version
 ```
 
-Without FVM, install Flutter **3.41.9** stable and verify with `flutter --version`.
+Without FVM, install Flutter **3.44.2** stable and verify with `flutter --version`.
 
 ### Code generation
 

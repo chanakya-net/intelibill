@@ -14,8 +14,18 @@ else
   DART=(dart)
 fi
 
-echo "Using Flutter: $("${FLUTTER[@]}" --version | head -1)"
-echo "Expected Flutter: $(cat .flutter-version) (see .flutter-version)"
+FLUTTER_VERSION_OUTPUT="$("${FLUTTER[@]}" --version | head -1)"
+ACTUAL_FLUTTER_VERSION="$(awk '{print $2}' <<<"$FLUTTER_VERSION_OUTPUT")"
+EXPECTED_FLUTTER_VERSION="$(tr -d '[:space:]' < .flutter-version)"
+
+echo "Using Flutter: $FLUTTER_VERSION_OUTPUT"
+echo "Expected Flutter: $EXPECTED_FLUTTER_VERSION (see .flutter-version)"
+
+if [[ "$ACTUAL_FLUTTER_VERSION" != "$EXPECTED_FLUTTER_VERSION" ]]; then
+  echo "Flutter version mismatch: expected $EXPECTED_FLUTTER_VERSION, got $ACTUAL_FLUTTER_VERSION." >&2
+  echo "Run 'fvm install && fvm use' or install Flutter $EXPECTED_FLUTTER_VERSION stable." >&2
+  exit 1
+fi
 
 "${FLUTTER[@]}" pub get
 "${FLUTTER[@]}" gen-l10n
