@@ -119,7 +119,9 @@
     "purchaseOrders": "Manage Purchase Orders",
     "offlineSalesEnabled": "Offline sales enabled. Click to disable.",
     "offlineSalesDisabled": "Offline sales disabled. Click to enable.",
-    "offlineSalesEnabling": "Enabling offline sales…"
+    "offlineSalesEnabling": "Enabling offline sales…",
+    "pinSidebar": "સાઇડબાર પિન કરો",
+    "unpinSidebar": "સાઇડબાર અનપિન કરો"
   },
   "dashboard": {
     "header": {
@@ -306,6 +308,13 @@
     "staff": "સ્ટાફ",
     "noUsersFound": "કોઈ વપરાશકર્તા મળ્યા નહીં",
     "noUsersDescription": "આ દુકાન માટે મેનેજર અથવા સેલ્સ પર્સન ઉમેરીને શરૂ કરો.",
+    "showingCount": "Showing {{visible}} of {{total}} members",
+    "summary": {
+      "totalUsers": "Total Members",
+      "managers": "Managers",
+      "staff": "Staff",
+      "loginEnabled": "Login Enabled"
+    },
     "validation": {
       "passwordConfirmationMustMatch": "પાસવર્ડ અને પુષ્ટિ પાસવર્ડ મેળ ખાવા જોઈએ.",
       "selectAtLeastOneShop": "ઓછામાં ઓછી એક દુકાન પસંદ કરો."
@@ -473,6 +482,12 @@
     "supplierIdOptional": "સપ્લાયર ID (વૈકલ્પિક)",
     "addNewProduct": "નવું ઉત્પાદન ઉમેરો",
     "addNewProductDescription": "તમારી વર્તમાન સક્રિય દુકાન સાથે જોડાયેલ ઉત્પાદન બનાવો.",
+    "productFormSections": {
+      "details": "ઉત્પાદન વિગતો",
+      "classification": "વર્ગીકરણ અને કર",
+      "status": "સ્થિતિ",
+      "stock": "સ્ટોક સ્તર"
+    },
     "editProduct": "ઉત્પાદન સંપાદિત કરો",
     "editProductDescription": "તમારી વર્તમાન સક્રિય દુકાન માટે ઉત્પાદન વિગતો અપડેટ કરો.",
     "batchInboundTitle": "ઇન્વેન્ટરી ઉમેરો",
@@ -1262,6 +1277,14 @@
   "discounts": {
     "title": "છૂટ નિયમો",
     "subtitle": "હાલના છૂટ નિયમોની સમીક્ષા, ફિલ્ટર અને નિષ્ક્રિય કરો.",
+    "showingCount": "{{total}} માંથી {{visible}} નિયમો બતાવી રહ્યા છીએ",
+    "summary": {
+      "totalRules": "કુલ નિયમો",
+      "activeOnPage": "પૃષ્ઠ પર સક્રિય",
+      "disabledOnPage": "પૃષ્ઠ પર નિષ્ક્રિય",
+      "expiredOnPage": "પૃષ્ઠ પર સમાપ્ત",
+      "onThisPage": "આ પૃષ્ઠ પર"
+    },
     "actions": {
       "disable": "નિષ્ક્રિય કરો"
     },
@@ -1343,6 +1366,12 @@
         "expiry": "સમાપ્તિ: {{date}}"
       },
       "subtitle": "નવો નિયમ બનાવો અથવા હાલનો નિયમ રિપ્લેસમેન્ટ વર્ઝન તરીકે સંપાદિત કરો.",
+      "sections": {
+        "ruleDetails": "નિયમ વિગતો",
+        "discountTerms": "છૂટની શરતો",
+        "safety": "સુરક્ષા પુષ્ટિ",
+        "targetBatch": "લક્ષ્ય બેચ"
+      },
       "createTitle": "છૂટ નિયમ બનાવો",
       "editTitle": "છૂટ નિયમ સંપાદિત કરો",
       "fields": {

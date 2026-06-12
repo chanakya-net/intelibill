@@ -15,6 +15,14 @@ describe('DiscountsPageComponent', () => {
     discounts: {
       title: 'Discount Rules',
       subtitle: 'Review, filter, and disable existing discount rules.',
+      showingCount: 'Showing {{visible}} of {{total}} rules',
+      summary: {
+        totalRules: 'Total rules',
+        activeOnPage: 'Active on page',
+        disabledOnPage: 'Disabled on page',
+        expiredOnPage: 'Expired on page',
+        onThisPage: 'On this page',
+      },
       actions: {
         disable: 'Disable',
       },
@@ -230,7 +238,7 @@ describe('DiscountsPageComponent', () => {
     fixture.detectChanges();
 
     const selectedLabels = Array.from(
-      fixture.nativeElement.querySelectorAll('.filter-row .p-select-label'),
+      fixture.nativeElement.querySelectorAll('app-discounts-filter-bar .p-select-label'),
       (element) => (element as HTMLElement).textContent?.trim() ?? '',
     );
 
@@ -250,7 +258,7 @@ describe('DiscountsPageComponent', () => {
     fixture.detectChanges();
 
     const selectedLabels = Array.from(
-      fixture.nativeElement.querySelectorAll('.filter-row .p-select-label'),
+      fixture.nativeElement.querySelectorAll('app-discounts-filter-bar .p-select-label'),
       (element) => (element as HTMLElement).textContent?.trim() ?? '',
     );
 
@@ -267,9 +275,7 @@ describe('DiscountsPageComponent', () => {
     const createButton = fixture.nativeElement.querySelector('[data-testid="discounts-create-rule"]');
     const editButton = fixture.nativeElement.querySelector('[data-testid="discounts-edit-rule"]');
     const disableButton = fixture.nativeElement.querySelector('[data-testid="discounts-disable"]');
-    const headerActions = fixture.nativeElement.querySelectorAll('.card-header .header-actions');
 
-    expect(headerActions.length).toBe(2);
     expect(createButton).not.toBeNull();
     expect(editButton).not.toBeNull();
     expect(disableButton).not.toBeNull();

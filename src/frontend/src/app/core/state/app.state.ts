@@ -1,5 +1,6 @@
 export interface AppShellState {
   readonly sidebarCollapsed: boolean;
+  readonly sidebarPinned: boolean;
   readonly currentLanguage: string;
 }
 

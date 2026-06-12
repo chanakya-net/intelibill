@@ -36,6 +36,16 @@ jobs:
       - name: Print Flutter version
         run: flutter --version
 
+      - name: Verify pinned Flutter version
+        run: |
+          set -euo pipefail
+          expected_version="$(tr -d '[:space:]' < .flutter-version)"
+          actual_version="$(flutter --version | awk 'NR == 1 { print $2 }')"
+          if [ "${actual_version}" != "${expected_version}" ]; then
+            echo "Expected Flutter ${expected_version}, got ${actual_version}."
+            exit 1
+          fi
+
       - name: Restore Flutter packages
         run: flutter pub get
 

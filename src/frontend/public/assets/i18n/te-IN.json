@@ -119,7 +119,9 @@
     "purchaseOrders": "Manage Purchase Orders",
     "offlineSalesEnabled": "Offline sales enabled. Click to disable.",
     "offlineSalesDisabled": "Offline sales disabled. Click to enable.",
-    "offlineSalesEnabling": "Enabling offline sales…"
+    "offlineSalesEnabling": "Enabling offline sales…",
+    "pinSidebar": "సైడ్‌బార్‌ను పిన్ చేయండి",
+    "unpinSidebar": "సైడ్‌బార్‌ను అన్‌పిన్ చేయండి"
   },
   "dashboard": {
     "header": {
@@ -306,6 +308,13 @@
     "staff": "స్టాఫ్",
     "noUsersFound": "వినియోగదారులు లేరు",
     "noUsersDescription": "ఈ దుకాణానికి మేనేజర్ లేదా సేల్స్ పర్సన్‌ని జోడించడం ద్వారా ప్రారంభించండి.",
+    "showingCount": "Showing {{visible}} of {{total}} members",
+    "summary": {
+      "totalUsers": "Total Members",
+      "managers": "Managers",
+      "staff": "Staff",
+      "loginEnabled": "Login Enabled"
+    },
     "validation": {
       "passwordConfirmationMustMatch": "పాస్‌వర్డ్ మరియు నిర్ధారణ పాస్‌వర్డ్ సరిపోవాలి.",
       "selectAtLeastOneShop": "కనీసం ఒక దుకాణాన్ని ఎంచుకోండి."
@@ -473,6 +482,12 @@
     "supplierIdOptional": "ప్రాధాన్య సరఫరాదారు ఐడి (ఐచ్చికం)",
     "addNewProduct": "కొత్త ఉత్పత్తి జోడించండి",
     "addNewProductDescription": "ప్రస్తుతం యాక్టివ్ షాప్‌కు అనుసంధానించిన ఉత్పత్తిని సృష్టించండి.",
+    "productFormSections": {
+      "details": "ఉత్పత్తి వివరాలు",
+      "classification": "వర్గీకరణ & పన్ను",
+      "status": "స్థితి",
+      "stock": "స్టాక్ స్థాయి"
+    },
     "editProduct": "ఉత్పత్తి సవరించండి",
     "editProductDescription": "ప్రస్తుతం యాక్టివ్ షాప్ కోసం ఉత్పత్తి వివరాలను నవీకరించండి.",
     "batchInboundTitle": "ఇన్వెంటరీ జోడించండి",
@@ -1262,6 +1277,14 @@
   "discounts": {
     "title": "తగ్గింపు నియమాలు",
     "subtitle": "ఇప్పటికే ఉన్న తగ్గింపు నియమాలను సమీక్షించండి, ఫిల్టర్ చేయండి మరియు నిలిపివేయండి.",
+    "showingCount": "{{total}} లో {{visible}} నియమాలు చూపిస్తున్నాం",
+    "summary": {
+      "totalRules": "మొత్తం నియమాలు",
+      "activeOnPage": "పేజీలో సక్రియం",
+      "disabledOnPage": "పేజీలో నిష్క్రియం",
+      "expiredOnPage": "పేజీలో గడువు ముగిసింది",
+      "onThisPage": "ఈ పేజీలో"
+    },
     "actions": {
       "disable": "ఆపివేయి"
     },
@@ -1343,6 +1366,12 @@
         "expiry": "సమాప్తి: {{date}}"
       },
       "subtitle": "కొత్త నియమాన్ని సృష్టించండి లేదా ప్రస్తుతాన్ని భర్తీ సంస్కరణగా సవరించండి.",
+      "sections": {
+        "ruleDetails": "నియమ వివరాలు",
+        "discountTerms": "తగ్గింపు నిబంధనలు",
+        "safety": "భద్రతా నిర్ధారణ",
+        "targetBatch": "లక్ష్య బ్యాచ్"
+      },
       "createTitle": "తగ్గింపు నియమాన్ని సృష్టించండి",
       "editTitle": "తగ్గింపు నియమాన్ని సవరించండి",
       "fields": {

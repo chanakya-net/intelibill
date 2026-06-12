@@ -1,15 +1,17 @@
 import { CommonModule } from '@angular/common';
 import { Component, ViewChild, computed, effect, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
 
 import { ButtonModule } from 'primeng/button';
-import { CardModule } from 'primeng/card';
-import { InputTextModule } from 'primeng/inputtext';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
-import { SelectModule } from 'primeng/select';
+import { SkeletonModule } from 'primeng/skeleton';
 import { TagModule } from 'primeng/tag';
 
+import {
+  DiscountStatusFilter,
+  DiscountSortOption,
+  DiscountsFilterBarComponent,
+} from '../components/discounts-filter-bar.component';
 import { DiscountRuleEditorDialogComponent } from '../components/discount-rule-editor-dialog.component';
 import { DiscountsTableComponent } from '../components/discounts-table.component';
 import { DiscountsDisableDialogComponent } from '../components/discounts-disable-dialog.component';
@@ -21,27 +23,28 @@ import {
   GetDiscountRulesParams,
 } from '../services/discount.service';
 
-type DiscountStatusFilter = 'active' | 'disabled' | 'expired' | 'all';
-type DiscountSortOption = 'created_desc' | 'created_asc' | 'name_asc' | 'name_desc';
+type DiscountSummaryCard = {
+  labelKey: string;
+  value: number;
+  tone: 'amber' | 'sage' | 'terracotta' | 'ink';
+};
 
-interface SelectOption<T> {
-  readonly label: string;
-  readonly value: T;
-}
+type DiscountDirectoryMetric = {
+  labelKey: string;
+  value: number;
+};
 
 @Component({
   selector: 'app-discounts-page',
   standalone: true,
   imports: [
     CommonModule,
-    FormsModule,
     TranslocoPipe,
     ButtonModule,
-    CardModule,
-    InputTextModule,
     ProgressSpinnerModule,
-    SelectModule,
+    SkeletonModule,
     TagModule,
+    DiscountsFilterBarComponent,
     DiscountsTableComponent,
     DiscountRuleEditorDialogComponent,
     DiscountsDisableDialogComponent,
@@ -57,6 +60,7 @@ export class DiscountsPageComponent {
   readonly statusFilter = signal<DiscountStatusFilter>('active');
   readonly ruleTypeFilter = signal<DiscountRuleType | ''>('');
   readonly searchValue = signal('');
+  readonly sortValue = signal<DiscountSortOption>('created_desc');
 
   readonly listItems = signal<readonly DiscountRuleListItemDto[]>([]);
   readonly totalCount = signal(0);
@@ -74,31 +78,58 @@ export class DiscountsPageComponent {
   readonly disableReason = signal('');
   readonly disableSubmitting = signal(false);
 
-  readonly statusOptions: SelectOption<DiscountStatusFilter>[] = [
-    { label: 'discounts.filters.status.active', value: 'active' },
-    { label: 'discounts.filters.status.disabled', value: 'disabled' },
-    { label: 'discounts.filters.status.expired', value: 'expired' },
-    { label: 'discounts.filters.status.all', value: 'all' },
-  ];
-
-  readonly ruleTypeOptions: SelectOption<DiscountRuleType | ''>[] = [
-    { label: 'discounts.filters.type.all', value: '' },
-    { label: 'discounts.ruleType.BatchPercentage', value: 'BatchPercentage' },
-    { label: 'discounts.ruleType.SalePercentage', value: 'SalePercentage' },
-    { label: 'discounts.ruleType.SaleThresholdPercentage', value: 'SaleThresholdPercentage' },
-  ];
-
-  readonly sortOptions: SelectOption<DiscountSortOption>[] = [
-    { label: 'discounts.filters.sort.createdDesc', value: 'created_desc' },
-    { label: 'discounts.filters.sort.createdAsc', value: 'created_asc' },
-    { label: 'discounts.filters.sort.nameAsc', value: 'name_asc' },
-    { label: 'discounts.filters.sort.nameDesc', value: 'name_desc' },
-  ];
-  readonly sortValue = signal<DiscountSortOption>('created_desc');
-
   readonly selectedRuleTitle = computed(() => this.selectedRule()?.name ?? '');
-  readonly selectedRuleIsExpired = computed(() => this.isExpired(this.selectedRule()?.endsAt ?? null));
   readonly selectedRuleStatusKey = computed(() => this.getRuleStatusKey(this.selectedRule()));
+
+  readonly activeOnPageCount = computed(
+    () =>
+      this.listItems().filter((item) => item.isActive && !this.isExpired(item.endsAt)).length,
+  );
+  readonly disabledOnPageCount = computed(
+    () => this.listItems().filter((item) => !item.isActive).length,
+  );
+  readonly expiredOnPageCount = computed(
+    () =>
+      this.listItems().filter((item) => item.isActive && this.isExpired(item.endsAt)).length,
+  );
+
+  readonly summaryCards = computed<DiscountSummaryCard[]>(() => [
+    {
+      labelKey: 'discounts.summary.totalRules',
+      value: this.totalCount(),
+      tone: 'amber',
+    },
+    {
+      labelKey: 'discounts.summary.activeOnPage',
+      value: this.activeOnPageCount(),
+      tone: 'sage',
+    },
+    {
+      labelKey: 'discounts.summary.disabledOnPage',
+      value: this.disabledOnPageCount(),
+      tone: 'terracotta',
+    },
+    {
+      labelKey: 'discounts.summary.expiredOnPage',
+      value: this.expiredOnPageCount(),
+      tone: 'ink',
+    },
+  ]);
+
+  readonly directoryMetrics = computed<DiscountDirectoryMetric[]>(() => [
+    {
+      labelKey: 'discounts.summary.totalRules',
+      value: this.totalCount(),
+    },
+    {
+      labelKey: 'discounts.summary.activeOnPage',
+      value: this.activeOnPageCount(),
+    },
+    {
+      labelKey: 'discounts.summary.onThisPage',
+      value: this.listItems().length,
+    },
+  ]);
 
   constructor() {
     effect(() => {
@@ -118,6 +149,26 @@ export class DiscountsPageComponent {
       if (!id) return;
       this.loadDetail(id);
     });
+  }
+
+  onSearchChange(value: string): void {
+    this.searchValue.set(value);
+    this.pageNumber.set(1);
+  }
+
+  onStatusFilterChange(value: DiscountStatusFilter): void {
+    this.statusFilter.set(value);
+    this.pageNumber.set(1);
+  }
+
+  onRuleTypeFilterChange(value: DiscountRuleType | ''): void {
+    this.ruleTypeFilter.set(value);
+    this.pageNumber.set(1);
+  }
+
+  onSortChange(value: DiscountSortOption): void {
+    this.sortValue.set(value);
+    this.pageNumber.set(1);
   }
 
   onSelectRule(id: string): void {

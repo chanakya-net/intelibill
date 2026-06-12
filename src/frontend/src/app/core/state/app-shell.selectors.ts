@@ -14,3 +14,8 @@ export const selectSidebarCollapsed = createSelector(
   selectAppShellState,
   (state) => state.sidebarCollapsed
 );
+
+export const selectSidebarPinned = createSelector(
+  selectAppShellState,
+  (state) => state.sidebarPinned
+);

@@ -119,7 +119,9 @@
     "purchaseOrders": "Manage Purchase Orders",
     "offlineSalesEnabled": "Offline sales enabled. Click to disable.",
     "offlineSalesDisabled": "Offline sales disabled. Click to enable.",
-    "offlineSalesEnabling": "Enabling offline sales…"
+    "offlineSalesEnabling": "Enabling offline sales…",
+    "pinSidebar": "সাইডবার পিন করুন",
+    "unpinSidebar": "সাইডবার আনপিন করুন"
   },
   "dashboard": {
     "header": {
@@ -306,6 +308,13 @@
     "staff": "স্টাফ",
     "noUsersFound": "কোনো ব্যবহারকারী পাওয়া যায়নি",
     "noUsersDescription": "এই দোকানের জন্য ম্যানেজার বা সেলস পার্সন যোগ করে শুরু করুন।",
+    "showingCount": "Showing {{visible}} of {{total}} members",
+    "summary": {
+      "totalUsers": "Total Members",
+      "managers": "Managers",
+      "staff": "Staff",
+      "loginEnabled": "Login Enabled"
+    },
     "validation": {
       "passwordConfirmationMustMatch": "পাসওয়ার্ড ও কনফার্ম পাসওয়ার্ড মিলতে হবে।",
       "selectAtLeastOneShop": "কমপক্ষে একটি দোকান নির্বাচন করুন।"
@@ -473,6 +482,12 @@
     "supplierIdOptional": "সরবরাহকারী ID (ঐচ্ছিক)",
     "addNewProduct": "নতুন পণ্য যোগ করুন",
     "addNewProductDescription": "বর্তমান সক্রিয় শপের সাথে সংযুক্ত একটি পণ্য তৈরি করুন।",
+    "productFormSections": {
+      "details": "পণ্যের বিবরণ",
+      "classification": "শ্রেণিবিন্যাস ও কর",
+      "status": "স্থিতি",
+      "stock": "স্টক স্তর"
+    },
     "editProduct": "পণ্য সম্পাদনা করুন",
     "editProductDescription": "বর্তমান সক্রিয় শপের জন্য পণ্যের বিবরণ আপডেট করুন।",
     "batchInboundTitle": "ইনভেন্টরি যোগ করুন",
@@ -1262,6 +1277,14 @@
   "discounts": {
     "title": "ছাড়ের নিয়ম",
     "subtitle": "বিদ্যমান ছাড়ের নিয়ম পর্যালোচনা, ফিল্টার ও নিষ্ক্রিয় করুন.",
+    "showingCount": "{{total}} এর মধ্যে {{visible}}টি নিয়ম দেখানো হচ্ছে",
+    "summary": {
+      "totalRules": "মোট নিয়ম",
+      "activeOnPage": "পৃষ্ঠায় সক্রিয়",
+      "disabledOnPage": "পৃষ্ঠায় নিষ্ক্রিয়",
+      "expiredOnPage": "পৃষ্ঠায় মেয়াদোত্তীর্ণ",
+      "onThisPage": "এই পৃষ্ঠায়"
+    },
     "actions": {
       "disable": "নিষ্ক্রিয় করুন"
     },
@@ -1343,6 +1366,12 @@
         "expiry": "মেয়াদ শেষ: {{date}}"
       },
       "subtitle": "নতুন নিয়ম তৈরি করুন বা বর্তমানটি প্রতিস্থাপন ভার্সন হিসেবে সম্পাদনা করুন.",
+      "sections": {
+        "ruleDetails": "নিয়মের বিবরণ",
+        "discountTerms": "ছাড়ের শর্তাবলী",
+        "safety": "নিরাপত্তা নিশ্চিতকরণ",
+        "targetBatch": "লক্ষ্য ব্যাচ"
+      },
       "createTitle": "ছাড়ের নিয়ম তৈরি করুন",
       "editTitle": "ছাড়ের নিয়ম সম্পাদনা করুন",
       "fields": {

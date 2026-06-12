@@ -1,0 +1,45 @@
+<div class="users-filter-bar">
+  <div class="search-shell">
+    <p-iconfield iconPosition="left" class="mobile-search-field">
+      <p-inputicon>
+        <i class="pi pi-search"></i>
+      </p-inputicon>
+      <input
+        pInputText
+        type="text"
+        [value]="searchValue"
+        (input)="onSearchChange($any($event.target).value)"
+        [placeholder]="'users.searchPlaceholder' | transloco"
+        class="w-full pr-10"
+      />
+      @if (searchValue) {
+        <p-inputicon iconPosition="right" class="cursor-pointer" (click)="clearSearch()">
+          <i class="pi pi-times text-slate-400 hover:text-slate-600"></i>
+        </p-inputicon>
+      }
+    </p-iconfield>
+  </div>
+
+  <label for="users-role-filter" class="sr-only">{{ 'users.role' | transloco }}</label>
+  <span class="sr-only" data-role-filter-value>{{ roleFilter }}</span>
+  <p-select
+    inputId="users-role-filter"
+    [options]="roleOptions"
+    optionLabel="label"
+    optionValue="value"
+    [ngModel]="roleFilter"
+    (ngModelChange)="onRoleChange($event)"
+    [ngModelOptions]="{ standalone: true }"
+    class="w-full"
+    appendTo="body"
+  >
+    <ng-template #selectedItem let-option>
+      @if (option) {
+        {{ option.label | transloco }}
+      }
+    </ng-template>
+    <ng-template #item let-option>
+      {{ option.label | transloco }}
+    </ng-template>
+  </p-select>
+</div>

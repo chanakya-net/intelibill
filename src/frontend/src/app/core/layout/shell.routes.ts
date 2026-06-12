@@ -23,7 +23,6 @@ import { PurchaseOrdersEffects } from '../../features/purchase-orders/state/purc
 import { purchaseOrdersFeature } from '../../features/purchase-orders/state/purchase-orders.reducer';
 import { discountsGuard } from '../guards/discounts.guard';
 import { authGuard } from '../guards/auth.guard';
-import { servicesGuard } from '../guards/services.guard';
 import { dashboardGuard } from '../guards/dashboard.guard';
 import { profitLossGuard } from '../guards/profit-loss.guard';
 
@@ -148,7 +147,6 @@ export const shellRoutes: Routes = [
 			},
 			{
 				path: 'services',
-				canActivate: [servicesGuard],
 				loadComponent: () =>
 					import('../../features/services/pages/services-page.component').then(
 						(m) => m.ServicesPageComponent

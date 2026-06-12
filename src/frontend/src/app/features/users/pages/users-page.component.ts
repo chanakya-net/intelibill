@@ -1,25 +1,20 @@
+import { CommonModule } from '@angular/common';
 import { Component, computed, effect, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { Store } from '@ngrx/store';
 import { TranslocoPipe } from '@ngneat/transloco';
 
 import { ButtonModule } from 'primeng/button';
-import { CardModule } from 'primeng/card';
 import { AvatarModule } from 'primeng/avatar';
-import { TagModule } from 'primeng/tag';
-import { IconFieldModule } from 'primeng/iconfield';
-import { InputIconModule } from 'primeng/inputicon';
-import { InputTextModule } from 'primeng/inputtext';
-import { ProgressSpinnerModule } from 'primeng/progressspinner';
+import { SkeletonModule } from 'primeng/skeleton';
 import { TableModule } from 'primeng/table';
 
 import { AuthService } from '../../../core/auth/auth.service';
 import { RootState } from '../../../core/state/app.state';
 import { AddShopUserOverlayComponent } from '../components/add-shop-user-overlay.component';
 import { EditShopUserOverlayComponent } from '../components/edit-shop-user-overlay.component';
+import { UserRoleFilter, UsersFilterBarComponent } from '../components/users-filter-bar.component';
 import { ShopUser } from '../services/user-account.service';
 import { UsersActions } from '../state/users.actions';
-import { TableFilterBarComponent } from '../../../shared/components/table-filter-bar/table-filter-bar.component';
 import {
   selectShopUsers,
   selectUsersErrorMessage,
@@ -28,23 +23,29 @@ import {
   selectUsersLoadingShopUsers,
 } from '../state/users.selectors';
 
+type UserSummaryCard = {
+  labelKey: string;
+  value: number;
+  tone: 'amber' | 'sage' | 'terracotta' | 'ink';
+};
+
+type UserDirectoryMetric = {
+  labelKey: string;
+  value: number;
+};
+
 @Component({
   selector: 'app-users-page',
   standalone: true,
   imports: [
-    FormsModule,
+    CommonModule,
     ButtonModule,
-    CardModule,
     AvatarModule,
-    TagModule,
-    IconFieldModule,
-    InputIconModule,
-    InputTextModule,
-    ProgressSpinnerModule,
+    SkeletonModule,
     TableModule,
     AddShopUserOverlayComponent,
     EditShopUserOverlayComponent,
-    TableFilterBarComponent,
+    UsersFilterBarComponent,
     TranslocoPipe,
   ],
   templateUrl: './users-page.component.html',
@@ -55,18 +56,29 @@ export class UsersPageComponent {
   private readonly authService = inject(AuthService);
 
   readonly users = this.store.selectSignal(selectShopUsers);
-  readonly tableUsers = computed(() => [...this.users()]);
   readonly searchValue = signal('');
+  readonly roleFilter = signal<UserRoleFilter>('all');
   readonly filteredUsers = computed(() => {
-    const q = this.searchValue().toLowerCase();
-    if (!q) return [...this.users()];
-    return this.users().filter(
-      (u) =>
-        `${u.firstName} ${u.lastName}`.toLowerCase().includes(q) ||
-        (u.phoneNumber ?? '').toLowerCase().includes(q) ||
-        (u.email ?? '').toLowerCase().includes(q),
-    );
+    const q = this.searchValue().toLowerCase().trim();
+    const roleFilter = this.roleFilter();
+
+    return this.users().filter((user) => {
+      if (roleFilter !== 'all' && this.normalizeRole(user.role) !== roleFilter) {
+        return false;
+      }
+
+      if (!q) {
+        return true;
+      }
+
+      return (
+        `${user.firstName} ${user.lastName}`.toLowerCase().includes(q) ||
+        (user.phoneNumber ?? '').toLowerCase().includes(q) ||
+        (user.email ?? '').toLowerCase().includes(q)
+      );
+    });
   });
+  readonly tableUsers = computed(() => [...this.filteredUsers()]);
   readonly isLoading = this.store.selectSignal(selectUsersLoadingShopUsers);
   readonly serverError = this.store.selectSignal(selectUsersErrorMessage);
   readonly lastMutationType = this.store.selectSignal(selectUsersLastMutationType);
@@ -89,6 +101,55 @@ export class UsersPageComponent {
   });
   readonly canAddUsers = computed(() => this.activeShopRole().toLowerCase() === 'owner');
   readonly canEditUsers = computed(() => this.activeShopRole().toLowerCase() === 'owner');
+  readonly totalUsers = computed(() => this.users().length);
+  readonly managerCount = computed(
+    () => this.users().filter((user) => user.role.trim().toLowerCase() === 'manager').length,
+  );
+  readonly staffCount = computed(() =>
+    this.users().filter((user) => {
+      const role = user.role.trim().toLowerCase();
+      return role === 'staff' || role === 'salesperson';
+    }).length,
+  );
+  readonly loginEnabledCount = computed(
+    () => this.users().filter((user) => user.isLoginEnabled).length,
+  );
+  readonly summaryCards = computed<UserSummaryCard[]>(() => [
+    {
+      labelKey: 'users.summary.totalUsers',
+      value: this.totalUsers(),
+      tone: 'amber',
+    },
+    {
+      labelKey: 'users.summary.managers',
+      value: this.managerCount(),
+      tone: 'sage',
+    },
+    {
+      labelKey: 'users.summary.staff',
+      value: this.staffCount(),
+      tone: 'terracotta',
+    },
+    {
+      labelKey: 'users.summary.loginEnabled',
+      value: this.loginEnabledCount(),
+      tone: 'ink',
+    },
+  ]);
+  readonly directoryMetrics = computed<UserDirectoryMetric[]>(() => [
+    {
+      labelKey: 'users.summary.totalUsers',
+      value: this.totalUsers(),
+    },
+    {
+      labelKey: 'users.summary.managers',
+      value: this.managerCount(),
+    },
+    {
+      labelKey: 'users.summary.loginEnabled',
+      value: this.loginEnabledCount(),
+    },
+  ]);
 
   constructor() {
     this.store.dispatch(UsersActions.loadShopUsersRequested());
@@ -177,5 +238,39 @@ export class UsersPageComponent {
 
   canEditRole(role: string): boolean {
     return role.trim().toLowerCase() !== 'owner';
+  }
+
+  rolePillClass(role: string): string {
+    const normalized = this.normalizeRole(role);
+    if (normalized === 'owner') {
+      return 'user-role-pill--owner';
+    }
+
+    if (normalized === 'manager') {
+      return 'user-role-pill--manager';
+    }
+
+    if (normalized === 'staff') {
+      return 'user-role-pill--staff';
+    }
+
+    return 'user-role-pill--default';
+  }
+
+  private normalizeRole(role: string): UserRoleFilter | 'unknown' {
+    const normalized = role.trim().toLowerCase();
+    if (normalized === 'owner') {
+      return 'owner';
+    }
+
+    if (normalized === 'manager') {
+      return 'manager';
+    }
+
+    if (normalized === 'staff' || normalized === 'salesperson') {
+      return 'staff';
+    }
+
+    return 'unknown';
   }
 }

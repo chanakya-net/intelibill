@@ -47,8 +47,7 @@ enum MobileMenuLabelKey {
   inventoryAdjustments('shellInventoryAdjustments'),
   inventoryBatches('shellInventoryBatchesOverview'),
   inventoryBatchInbound('shellBatchInventoryInbound'),
-  addNewProduct('shellAddNewProduct')
-  ;
+  addNewProduct('shellAddNewProduct');
 
   const MobileMenuLabelKey(this.key);
 

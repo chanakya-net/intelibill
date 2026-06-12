@@ -119,7 +119,9 @@
     "purchaseOrders": "Manage Purchase Orders",
     "offlineSalesEnabled": "Offline sales enabled. Click to disable.",
     "offlineSalesDisabled": "Offline sales disabled. Click to enable.",
-    "offlineSalesEnabling": "Enabling offline sales…"
+    "offlineSalesEnabling": "Enabling offline sales…",
+    "pinSidebar": "साइडबार पिन करें",
+    "unpinSidebar": "साइडबार अनपिन करें"
   },
   "dashboard": {
     "header": {
@@ -306,6 +308,13 @@
     "staff": "स्टाफ",
     "noUsersFound": "कोई उपयोगकर्ता नहीं मिला",
     "noUsersDescription": "इस दुकान के लिए मैनेजर या सेल्स पर्सन जोड़कर शुरू करें।",
+    "showingCount": "Showing {{visible}} of {{total}} members",
+    "summary": {
+      "totalUsers": "Total Members",
+      "managers": "Managers",
+      "staff": "Staff",
+      "loginEnabled": "Login Enabled"
+    },
     "validation": {
       "passwordConfirmationMustMatch": "पासवर्ड और पुष्टि पासवर्ड समान होने चाहिए।",
       "selectAtLeastOneShop": "कम से कम एक दुकान चुनें।"
@@ -473,6 +482,12 @@
     "supplierIdOptional": "आपूर्तिकर्ता ID (वैकल्पिक)",
     "addNewProduct": "नया उत्पाद जोड़ें",
     "addNewProductDescription": "वर्तमान सक्रिय दुकान से जुड़ा उत्पाद बनाएं।",
+    "productFormSections": {
+      "details": "उत्पाद विवरण",
+      "classification": "वर्गीकरण और कर",
+      "status": "स्थिति",
+      "stock": "स्टॉक स्तर"
+    },
     "editProduct": "उत्पाद संपादित करें",
     "editProductDescription": "वर्तमान सक्रिय दुकान के लिए उत्पाद विवरण अपडेट करें।",
     "batchInboundTitle": "इन्वेंटरी जोड़ें",
@@ -1262,6 +1277,14 @@
   "discounts": {
     "title": "छूट नियम",
     "subtitle": "मौजूदा छूट नियमों की समीक्षा, फिल्टर और निष्क्रिय करें.",
+    "showingCount": "{{total}} में से {{visible}} नियम दिखाए जा रहे हैं",
+    "summary": {
+      "totalRules": "कुल नियम",
+      "activeOnPage": "पृष्ठ पर सक्रिय",
+      "disabledOnPage": "पृष्ठ पर निष्क्रिय",
+      "expiredOnPage": "पृष्ठ पर समाप्त",
+      "onThisPage": "इस पृष्ठ पर"
+    },
     "actions": {
       "disable": "निष्क्रिय करें"
     },
@@ -1343,6 +1366,12 @@
         "expiry": "समाप्ति: {{date}}"
       },
       "subtitle": "नया नियम बनाएं या मौजूदा नियम को रिप्लेसमेंट वर्जन के रूप में संपादित करें.",
+      "sections": {
+        "ruleDetails": "नियम विवरण",
+        "discountTerms": "छूट शर्तें",
+        "safety": "सुरक्षा पुष्टि",
+        "targetBatch": "लक्ष्य बैच"
+      },
       "createTitle": "छूट नियम बनाएं",
       "editTitle": "छूट नियम संपादित करें",
       "fields": {

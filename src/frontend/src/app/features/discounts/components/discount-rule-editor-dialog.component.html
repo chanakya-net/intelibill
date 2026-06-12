@@ -3,7 +3,10 @@
   [modal]="true"
   [dismissableMask]="true"
   [closable]="true"
-  [style]="{ width: 'min(980px, 96vw)' }"
+  [draggable]="false"
+  [resizable]="false"
+  styleClass="discount-rule-editor-dialog"
+  [style]="{ width: 'min(920px, 96vw)' }"
   (onHide)="close()"
 >
   <ng-template pTemplate="header">
@@ -16,9 +19,9 @@
 
   <div class="editor-shell">
     @if (submitErrorMessage()) {
-      <p class="error">{{ submitErrorMessage() }}</p>
+      <div class="error-banner" role="alert">{{ submitErrorMessage() }}</div>
     } @else if (submitErrorKey()) {
-      <p class="error">{{ submitErrorKey() | transloco }}</p>
+      <div class="error-banner" role="alert">{{ submitErrorKey() | transloco }}</div>
     }
 
     <form class="editor-form" (ngSubmit)="onSubmit()">
@@ -36,31 +39,22 @@
         ></app-discount-target-items>
       }
 
-      <div class="editor-actions">
+      <div class="editor-actions editor-actions--inline">
         <button
           pButton
           type="button"
           severity="secondary"
           [outlined]="true"
+          icon="pi pi-eye"
           [label]="'discounts.editor.actions.preview' | transloco"
           [loading]="previewLoading()"
           (click)="onPreviewRule()"
-        ></button>
-        <button pButton type="submit" [label]="saveLabelKey() | transloco" [loading]="saveLoading()"></button>
-        <button
-          pButton
-          type="button"
-          severity="secondary"
-          [outlined]="true"
-          [label]="'discounts.editor.actions.close' | transloco"
-          [disabled]="saveLoading()"
-          (click)="close()"
         ></button>
       </div>
     </form>
 
     @if (preview()) {
-      <p-card class="preview-card">
+      <p-card styleClass="preview-card">
         <ng-template pTemplate="header">
           <div class="preview-header">
             <h3>{{ 'discounts.editor.preview.title' | transloco }}</h3>
@@ -167,4 +161,26 @@
       </p-card>
     }
   </div>
+
+  <ng-template pTemplate="footer">
+    <div class="editor-actions">
+      <button
+        pButton
+        type="button"
+        severity="secondary"
+        [outlined]="true"
+        [label]="'discounts.editor.actions.close' | transloco"
+        [disabled]="saveLoading()"
+        (click)="close()"
+      ></button>
+      <button
+        pButton
+        type="button"
+        icon="pi pi-check"
+        [label]="saveLabelKey() | transloco"
+        [loading]="saveLoading()"
+        (click)="onSubmit()"
+      ></button>
+    </div>
+  </ng-template>
 </p-dialog>

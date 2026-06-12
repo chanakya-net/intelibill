@@ -119,7 +119,9 @@
     "purchaseOrders": "Manage Purchase Orders",
     "offlineSalesEnabled": "Offline sales enabled. Click to disable.",
     "offlineSalesDisabled": "Offline sales disabled. Click to enable.",
-    "offlineSalesEnabling": "Enabling offline sales…"
+    "offlineSalesEnabling": "Enabling offline sales…",
+    "pinSidebar": "സൈഡ്‌ബാർ പിൻ ചെയ്യുക",
+    "unpinSidebar": "സൈഡ്‌ബാർ അൺപിൻ ചെയ്യുക"
   },
   "dashboard": {
     "header": {
@@ -306,6 +308,13 @@
     "staff": "സ്റ്റാഫ്",
     "noUsersFound": "ഉപയോക്താക്കളൊന്നും കണ്ടെത്തിയില്ല",
     "noUsersDescription": "ഈ കടയ്ക്ക് മാനേജർ അല്ലെങ്കിൽ സെയിൽസ് വ്യക്തിയെ ചേർത്ത് ആരംഭിക്കുക.",
+    "showingCount": "Showing {{visible}} of {{total}} members",
+    "summary": {
+      "totalUsers": "Total Members",
+      "managers": "Managers",
+      "staff": "Staff",
+      "loginEnabled": "Login Enabled"
+    },
     "validation": {
       "passwordConfirmationMustMatch": "പാസ്‌വേഡും സ്ഥിരീകരണ പാസ്‌വേഡും പൊരുത്തപ്പെടണം.",
       "selectAtLeastOneShop": "കുറഞ്ഞത് ഒരു കടയെങ്കിലും തിരഞ്ഞെടുക്കുക."
@@ -473,6 +482,12 @@
     "supplierIdOptional": "മുൻഗണന വിതരണക്കാരന്റെ ഐഡി (ഐച്ഛികം)",
     "addNewProduct": "പുതിയ ഉൽപ്പന്നം ചേർക്കുക",
     "addNewProductDescription": "നിങ്ങളുടെ നിലവിലെ സജീവ ഷോപ്പുമായി ബന്ധിപ്പിച്ച ഒരു ഉൽപ്പന്നം സൃഷ്ടിക്കുക.",
+    "productFormSections": {
+      "details": "ഉൽപ്പന്ന വിവരങ്ങൾ",
+      "classification": "വർഗ്ഗീകരണവും നികുതിയും",
+      "status": "സ്ഥിതി",
+      "stock": "സ്റ്റോക്ക് നില"
+    },
     "editProduct": "ഉൽപ്പന്നം തിരുത്തുക",
     "editProductDescription": "നിങ്ങളുടെ നിലവിലെ സജീവ ഷോപ്പിനായി ഉൽപ്പന്ന വിവരങ്ങൾ അപ്‌ഡേറ്റ് ചെയ്യുക.",
     "batchInboundTitle": "ഇൻവെന്ററി ചേർക്കുക",
@@ -1262,6 +1277,14 @@
   "discounts": {
     "title": "കിഴിവ് നിയമങ്ങൾ",
     "subtitle": "നിലവിലുള്ള കിഴിവ് നിയമങ്ങൾ അവലോകനം ചെയ്യുക, ഫിൽട്ടർ ചെയ്യുക, പ്രവർത്തനരഹിതമാക്കുക.",
+    "showingCount": "{{total}} ൽ {{visible}} നിയമങ്ങൾ കാണിക്കുന്നു",
+    "summary": {
+      "totalRules": "ആകെ നിയമങ്ങൾ",
+      "activeOnPage": "പേജിൽ സജീവം",
+      "disabledOnPage": "പേജിൽ നിഷ്ക്രിയം",
+      "expiredOnPage": "പേജിൽ കാലഹരണപ്പെട്ടത്",
+      "onThisPage": "ഈ പേജിൽ"
+    },
     "actions": {
       "disable": "പ്രവർത്തനരഹിതമാക്കുക"
     },
@@ -1343,6 +1366,12 @@
         "expiry": "കാലാവധി: {{date}}"
       },
       "subtitle": "ഒരു പുതിയ റൂൾ സൃഷ്‌ടിക്കുക അല്ലെങ്കിൽ നിലവിലുള്ളത് ഒരു പകരം പതിപ്പായി എഡിറ്റ് ചെയ്യുക.",
+      "sections": {
+        "ruleDetails": "നിയമ വിശദാംശങ്ങൾ",
+        "discountTerms": "കിഴിവ് നിബന്ധനകൾ",
+        "safety": "സുരക്ഷാ സ്ഥിരീകരണം",
+        "targetBatch": "ലക്ഷ്യ ബാച്ച്"
+      },
       "createTitle": "കിഴിവ് നിയമം സൃഷ്ടിക്കുക",
       "editTitle": "കിഴിവ് നിയമം എഡിറ്റ് ചെയ്യുക",
       "fields": {

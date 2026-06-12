@@ -3,10 +3,14 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TranslocoPipe } from '@ngneat/transloco';
-import { SelectModule } from 'primeng/select';
-import { TextareaModule } from 'primeng/textarea';
+import { CheckboxModule } from 'primeng/checkbox';
+import { DatePickerModule } from 'primeng/datepicker';
+import { IconFieldModule } from 'primeng/iconfield';
+import { InputIconModule } from 'primeng/inputicon';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { InputTextModule } from 'primeng/inputtext';
+import { SelectModule } from 'primeng/select';
+import { TextareaModule } from 'primeng/textarea';
 
 import { DiscountRuleType } from '../../services/discount.service';
 
@@ -46,8 +50,21 @@ const createDefaultConditions = (): DiscountConditions => ({
 @Component({
   selector: 'app-discount-conditions-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, TranslocoPipe, SelectModule, InputNumberModule, InputTextModule, TextareaModule],
+  imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    TranslocoPipe,
+    CheckboxModule,
+    DatePickerModule,
+    IconFieldModule,
+    InputIconModule,
+    InputNumberModule,
+    InputTextModule,
+    SelectModule,
+    TextareaModule,
+  ],
   templateUrl: './discount-conditions-form.component.html',
+  styleUrl: './discount-conditions-form.component.scss',
 })
 export class DiscountConditionsFormComponent {
   private readonly formBuilder = inject(FormBuilder);
@@ -74,8 +91,8 @@ export class DiscountConditionsFormComponent {
       Validators.max(100),
     ]),
     thresholdAmount: this.formBuilder.control<number | null>(null),
-    startsAt: this.formBuilder.nonNullable.control(''),
-    endsAt: this.formBuilder.nonNullable.control(''),
+    startsAt: this.formBuilder.control<Date | null>(null),
+    endsAt: this.formBuilder.control<Date | null>(null),
     belowCostConfirmed: this.formBuilder.nonNullable.control(false),
     belowCostConfirmationReason: this.formBuilder.nonNullable.control(''),
     disabledReason: this.formBuilder.nonNullable.control(''),
@@ -122,8 +139,8 @@ export class DiscountConditionsFormComponent {
         description: next.description ?? '',
         percentage: next.percentage,
         thresholdAmount: next.thresholdAmount,
-        startsAt: next.startsAt,
-        endsAt: next.endsAt,
+        startsAt: this.parseDateTimeInput(next.startsAt),
+        endsAt: this.parseDateTimeInput(next.endsAt),
         belowCostConfirmed: next.belowCostConfirmed,
         belowCostConfirmationReason: next.belowCostConfirmationReason,
         disabledReason: next.disabledReason,
@@ -144,17 +161,14 @@ export class DiscountConditionsFormComponent {
   private buildConditions(): DiscountConditions {
     const name = this.form.controls.name.value.trim();
     const description = this.form.controls.description.value.trim();
-    const startsAt = this.form.controls.startsAt.value.trim();
-    const endsAt = this.form.controls.endsAt.value.trim();
-
     return {
       ruleType: this.form.controls.ruleType.value,
       name,
       description: description.length > 0 ? description : null,
       percentage: this.form.controls.percentage.value,
       thresholdAmount: this.form.controls.thresholdAmount.value,
-      startsAt,
-      endsAt,
+      startsAt: this.formatDateTimeInput(this.form.controls.startsAt.value),
+      endsAt: this.formatDateTimeInput(this.form.controls.endsAt.value),
       belowCostConfirmed: this.form.controls.belowCostConfirmed.value,
       belowCostConfirmationReason: this.form.controls.belowCostConfirmationReason.value.trim(),
       disabledReason: this.form.controls.disabledReason.value.trim(),
@@ -175,5 +189,24 @@ export class DiscountConditionsFormComponent {
 
     thresholdAmount.updateValueAndValidity({ emitEvent: false });
     confirmationReason.updateValueAndValidity({ emitEvent: false });
+  }
+
+  private parseDateTimeInput(value: string): Date | null {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    const date = new Date(trimmed);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  private formatDateTimeInput(value: Date | null): string {
+    if (!value) {
+      return '';
+    }
+
+    const pad = (part: number) => String(part).padStart(2, '0');
+    return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}T${pad(value.getHours())}:${pad(value.getMinutes())}`;
   }
 }

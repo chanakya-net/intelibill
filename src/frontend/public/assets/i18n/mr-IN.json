@@ -119,7 +119,9 @@
     "purchaseOrders": "Manage Purchase Orders",
     "offlineSalesEnabled": "Offline sales enabled. Click to disable.",
     "offlineSalesDisabled": "Offline sales disabled. Click to enable.",
-    "offlineSalesEnabling": "Enabling offline sales…"
+    "offlineSalesEnabling": "Enabling offline sales…",
+    "pinSidebar": "साइडबार पिन करा",
+    "unpinSidebar": "साइडबार अनपिन करा"
   },
   "dashboard": {
     "header": {
@@ -306,6 +308,13 @@
     "staff": "कर्मचारी",
     "noUsersFound": "कोणतेही वापरकर्ते आढळले नाहीत",
     "noUsersDescription": "या दुकानासाठी व्यवस्थापक किंवा विक्री व्यक्ती जोडून सुरुवात करा.",
+    "showingCount": "Showing {{visible}} of {{total}} members",
+    "summary": {
+      "totalUsers": "Total Members",
+      "managers": "Managers",
+      "staff": "Staff",
+      "loginEnabled": "Login Enabled"
+    },
     "validation": {
       "passwordConfirmationMustMatch": "पासवर्ड आणि पुष्टी पासवर्ड जुळणे आवश्यक आहे.",
       "selectAtLeastOneShop": "किमान एक दुकान निवडा."
@@ -473,6 +482,12 @@
     "supplierIdOptional": "पुरवठादार ID (पर्यायी)",
     "addNewProduct": "नवीन उत्पादन जोडा",
     "addNewProductDescription": "तुमच्या सध्याच्या सक्रिय दुकानाशी जोडलेले उत्पादन तयार करा.",
+    "productFormSections": {
+      "details": "उत्पादन तपशील",
+      "classification": "वर्गीकरण आणि कर",
+      "status": "स्थिती",
+      "stock": "स्टॉक पातळी"
+    },
     "editProduct": "उत्पादन संपादित करा",
     "editProductDescription": "तुमच्या सध्याच्या सक्रिय दुकानासाठी उत्पादन तपशील अपडेट करा.",
     "batchInboundTitle": "इन्व्हेंटरी जोडा",
@@ -1262,6 +1277,14 @@
   "discounts": {
     "title": "सवलत नियम",
     "subtitle": "विद्यमान सवलत नियम तपासा, फिल्टर करा आणि निष्क्रिय करा.",
+    "showingCount": "{{total}} पैकी {{visible}} नियम दाखवत आहोत",
+    "summary": {
+      "totalRules": "एकूण नियम",
+      "activeOnPage": "पृष्ठावर सक्रिय",
+      "disabledOnPage": "पृष्ठावर निष्क्रिय",
+      "expiredOnPage": "पृष्ठावर कालबाह्य",
+      "onThisPage": "या पृष्ठावर"
+    },
     "actions": {
       "disable": "निष्क्रिय करा"
     },
@@ -1343,6 +1366,12 @@
         "expiry": "समाप्ती: {{date}}"
       },
       "subtitle": "नवीन नियम तयार करा किंवा सध्याचा नियम बदल आवृत्ती म्हणून संपादित करा.",
+      "sections": {
+        "ruleDetails": "नियम तपशील",
+        "discountTerms": "सवलत अटी",
+        "safety": "सुरक्षा पुष्टी",
+        "targetBatch": "लक्ष्य बॅच"
+      },
       "createTitle": "सवलत नियम तयार करा",
       "editTitle": "सवलत नियम संपादित करा",
       "fields": {

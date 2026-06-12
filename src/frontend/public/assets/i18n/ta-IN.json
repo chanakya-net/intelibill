@@ -119,7 +119,9 @@
     "purchaseOrders": "Manage Purchase Orders",
     "offlineSalesEnabled": "Offline sales enabled. Click to disable.",
     "offlineSalesDisabled": "Offline sales disabled. Click to enable.",
-    "offlineSalesEnabling": "Enabling offline sales…"
+    "offlineSalesEnabling": "Enabling offline sales…",
+    "pinSidebar": "பக்கப்பட்டியை பின் செய்",
+    "unpinSidebar": "பக்கப்பட்டியை அன்பின் செய்"
   },
   "dashboard": {
     "header": {
@@ -306,6 +308,13 @@
     "staff": "ஸ்டாஃப்",
     "noUsersFound": "பயனர்கள் இல்லை",
     "noUsersDescription": "இந்த கடைக்காக மேலாளர் அல்லது விற்பனையாளரைச் சேர்த்து தொடங்கவும்.",
+    "showingCount": "Showing {{visible}} of {{total}} members",
+    "summary": {
+      "totalUsers": "Total Members",
+      "managers": "Managers",
+      "staff": "Staff",
+      "loginEnabled": "Login Enabled"
+    },
     "validation": {
       "passwordConfirmationMustMatch": "கடவுச்சொல் மற்றும் உறுதிப்படுத்தல் பொருந்த வேண்டும்.",
       "selectAtLeastOneShop": "குறைந்தது ஒரு கடையைத் தேர்ந்தெடுக்கவும்."
@@ -473,6 +482,12 @@
     "supplierIdOptional": "முன்னுரிமை வழங்குநர் ஐடி (விருப்பம்)",
     "addNewProduct": "புதிய பொருள் சேர்க்க",
     "addNewProductDescription": "தற்போதைய செயலில் உள்ள கடையுடன் இணைக்கப்பட்ட பொருளை உருவாக்கவும்.",
+    "productFormSections": {
+      "details": "பொருள் விவரங்கள்",
+      "classification": "வகைப்பாடு மற்றும் வரி",
+      "status": "நிலை",
+      "stock": "இருப்பு நிலை"
+    },
     "editProduct": "பொருளை திருத்து",
     "editProductDescription": "தற்போதைய செயலில் உள்ள கடைக்கான பொருள் விவரங்களை புதுப்பிக்கவும்.",
     "batchInboundTitle": "சரக்கு சேர்க்க",
@@ -1262,6 +1277,14 @@
   "discounts": {
     "title": "தள்ளுபடி விதிகள்",
     "subtitle": "ஏற்கனவே உள்ள தள்ளுபடி விதிகளை மதிப்பாய்வு செய்யவும், வடிகட்டவும் மற்றும் முடக்கவும்.",
+    "showingCount": "{{total}} இல் {{visible}} விதிகள் காட்டப்படுகின்றன",
+    "summary": {
+      "totalRules": "மொத்த விதிகள்",
+      "activeOnPage": "பக்கத்தில் செயலில்",
+      "disabledOnPage": "பக்கத்தில் முடக்கப்பட்டது",
+      "expiredOnPage": "பக்கத்தில் காலாவதியானது",
+      "onThisPage": "இந்த பக்கத்தில்"
+    },
     "actions": {
       "disable": "முடக்கு"
     },
@@ -1343,6 +1366,12 @@
         "expiry": "காலாவதி: {{date}}"
       },
       "subtitle": "புதிய விதியை உருவாக்கவும் அல்லது தற்போதைய ஒன்றை மாற்று பதிப்பாக மாற்றவும்.",
+      "sections": {
+        "ruleDetails": "விதி விவரங்கள்",
+        "discountTerms": "தள்ளுபடி விதிமுறைகள்",
+        "safety": "பாதுகாப்பு உறுதிப்படுத்தல்",
+        "targetBatch": "இலக்கு தொகுதி"
+      },
       "createTitle": "தள்ளுபடி விதியை உருவாக்கவும்",
       "editTitle": "தள்ளுபடி விதியைத் திருத்தவும்",
       "fields": {

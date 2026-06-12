@@ -25,7 +25,7 @@ import { SidebarNavComponent } from './sidebar-nav.component';
 import { SidebarProfileMenuComponent } from './sidebar-profile-menu.component';
 import { ShellMenuService } from './shell-menu.service';
 import { AppShellActions } from '../state/app-shell.actions';
-import { selectSidebarCollapsed } from '../state/app-shell.selectors';
+import { selectSidebarCollapsed, selectSidebarPinned } from '../state/app-shell.selectors';
 import { NetworkStatusService } from '../services/network-status.service';
 import {
   OfflineSalesDeviceSettings,
@@ -111,6 +111,7 @@ export class ShellComponent {
     }),
   );
   readonly sidebarCollapsed = this.store.selectSignal(selectSidebarCollapsed);
+  readonly sidebarPinned = this.store.selectSignal(selectSidebarPinned);
   readonly profileInitials = computed(() => {
     const user = this.session()?.user;
     if (!user) {
@@ -283,10 +284,16 @@ export class ShellComponent {
     }
   }
 
+  onToggleSidebarPin(): void {
+    this.store.dispatch(AppShellActions.toggleSidebarPinned());
+  }
+
   onAutoHideSidebar(): void {
-    if (!this.sidebarCollapsed()) {
-      this.store.dispatch(AppShellActions.setSidebarCollapsed({ collapsed: true }));
+    if (this.sidebarPinned() || this.sidebarCollapsed()) {
+      return;
     }
+
+    this.store.dispatch(AppShellActions.setSidebarCollapsed({ collapsed: true }));
   }
 
   onOpenUpdateProfile(): void { this.showUpdateProfileOverlay.set(true); }

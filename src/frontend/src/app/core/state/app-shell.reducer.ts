@@ -7,6 +7,7 @@ export const appShellFeatureKey = 'appShell';
 
 const initialState: AppShellState = {
   sidebarCollapsed: false,
+  sidebarPinned: false,
   currentLanguage: 'en-IN',
 };
 
@@ -19,6 +20,14 @@ export const appShellReducer = createReducer(
   on(AppShellActions.setSidebarCollapsed, (state, { collapsed }) => ({
     ...state,
     sidebarCollapsed: collapsed,
+  })),
+  on(AppShellActions.toggleSidebarPinned, (state) => ({
+    ...state,
+    sidebarPinned: !state.sidebarPinned,
+  })),
+  on(AppShellActions.setSidebarPinned, (state, { pinned }) => ({
+    ...state,
+    sidebarPinned: pinned,
   })),
   on(AppShellActions.setLanguage, (state, { language }) => ({
     ...state,

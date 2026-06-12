@@ -73,7 +73,7 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
       }
       @if (barcodeReplaceConfirmVisible) {
         <div class="barcode-replace-confirm">
-          <span>{{ 'inventory.generateBarcodeReplaceConfirm' | transloco }}</span>
+          <span>{{ replaceConfirmKey | transloco }}</span>
           <button pButton type="button" [label]="'inventory.confirmReplace' | transloco" severity="warn" (click)="confirmReplace.emit()"></button>
           <button pButton type="button" [label]="'inventory.keepCurrentBarcode' | transloco" severity="secondary" (click)="cancelReplace.emit()"></button>
         </div>
@@ -113,6 +113,7 @@ export class InventoryBarcodeFieldComponent {
   @Input() barcodeGenerateError = '';
   @Input() barcodeReplaceConfirmVisible = false;
   @Input() showScanner = true;
+  @Input() replaceConfirmKey = 'inventory.generateBarcodeReplaceConfirm';
 
   @Output() readonly filterRequested = new EventEmitter<AutoCompleteCompleteEvent>();
   @Output() readonly selected = new EventEmitter<string>();

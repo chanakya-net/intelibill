@@ -541,6 +541,294 @@ abstract class AppLocalizations {
   /// **'Unable to load customers. Please try again.'**
   String get customersErrorGeneric;
 
+  /// No description provided for @usersTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Shop Users'**
+  String get usersTitle;
+
+  /// No description provided for @usersSubtitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'View all members in the active shop and manage role assignments.'**
+  String get usersSubtitle;
+
+  /// No description provided for @usersAddUser.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Add User'**
+  String get usersAddUser;
+
+  /// No description provided for @usersAddUserDescription.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Create a manager or sales person for the active shop.'**
+  String get usersAddUserDescription;
+
+  /// No description provided for @usersEditUser.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Edit User'**
+  String get usersEditUser;
+
+  /// No description provided for @usersEditUserDescription.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Update role and login access for this user.'**
+  String get usersEditUserDescription;
+
+  /// No description provided for @usersSearchPlaceholder.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Search users...'**
+  String get usersSearchPlaceholder;
+
+  /// No description provided for @usersNoUsersFound.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No users found'**
+  String get usersNoUsersFound;
+
+  /// No description provided for @usersNoUsersDescription.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Start by adding a manager or sales person for this shop.'**
+  String get usersNoUsersDescription;
+
+  /// No description provided for @usersUnableToLoad.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to load users'**
+  String get usersUnableToLoad;
+
+  /// No description provided for @usersRetry.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Retry'**
+  String get usersRetry;
+
+  /// No description provided for @usersShopsLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Shops'**
+  String get usersShopsLabel;
+
+  /// No description provided for @usersSelectShopsDescription.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Select one or more shops for this user.'**
+  String get usersSelectShopsDescription;
+
+  /// No description provided for @usersSelectShopsForAccess.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Select the shops this user should have access to.'**
+  String get usersSelectShopsForAccess;
+
+  /// No description provided for @usersDefaultShop.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Default'**
+  String get usersDefaultShop;
+
+  /// No description provided for @usersSelectAtLeastOneShop.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Select at least one shop.'**
+  String get usersSelectAtLeastOneShop;
+
+  /// No description provided for @usersFirstNameLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'First Name'**
+  String get usersFirstNameLabel;
+
+  /// No description provided for @usersFirstNameRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'First name is required.'**
+  String get usersFirstNameRequired;
+
+  /// No description provided for @usersFirstNameMax.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'First name must be 100 characters or fewer.'**
+  String get usersFirstNameMax;
+
+  /// No description provided for @usersLastNameLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Last Name'**
+  String get usersLastNameLabel;
+
+  /// No description provided for @usersLastNameRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Last name is required.'**
+  String get usersLastNameRequired;
+
+  /// No description provided for @usersLastNameMax.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Last name must be 100 characters or fewer.'**
+  String get usersLastNameMax;
+
+  /// No description provided for @usersEmailLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Email'**
+  String get usersEmailLabel;
+
+  /// No description provided for @usersEmailRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Email is required.'**
+  String get usersEmailRequired;
+
+  /// No description provided for @usersEmailMax.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Email must be 256 characters or fewer.'**
+  String get usersEmailMax;
+
+  /// No description provided for @usersPhoneLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Mobile Number'**
+  String get usersPhoneLabel;
+
+  /// No description provided for @usersPhoneRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Mobile number is required.'**
+  String get usersPhoneRequired;
+
+  /// No description provided for @usersPhoneMax.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Mobile number must be 32 characters or fewer.'**
+  String get usersPhoneMax;
+
+  /// No description provided for @usersPhoneInvalid.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Enter a valid phone number.'**
+  String get usersPhoneInvalid;
+
+  /// No description provided for @usersConfirmPasswordLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Confirm Password'**
+  String get usersConfirmPasswordLabel;
+
+  /// No description provided for @usersConfirmPasswordRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Confirm password is required.'**
+  String get usersConfirmPasswordRequired;
+
+  /// No description provided for @usersPasswordMismatch.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Password and confirm password must match.'**
+  String get usersPasswordMismatch;
+
+  /// No description provided for @usersPasswordMin.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Password must be at least 8 characters.'**
+  String get usersPasswordMin;
+
+  /// No description provided for @usersPasswordMax.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Password must be 100 characters or fewer.'**
+  String get usersPasswordMax;
+
+  /// No description provided for @usersRoleLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Role'**
+  String get usersRoleLabel;
+
+  /// No description provided for @usersRoleOwner.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Owner'**
+  String get usersRoleOwner;
+
+  /// No description provided for @usersRoleManager.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Manager'**
+  String get usersRoleManager;
+
+  /// No description provided for @usersRoleStaff.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Staff'**
+  String get usersRoleStaff;
+
+  /// No description provided for @usersAllowLoginLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Allow this user to login'**
+  String get usersAllowLoginLabel;
+
+  /// No description provided for @usersLoginEnabled.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Enabled'**
+  String get usersLoginEnabled;
+
+  /// No description provided for @usersLoginDisabled.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Disabled'**
+  String get usersLoginDisabled;
+
+  /// No description provided for @usersAddSuccess.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'User added successfully.'**
+  String get usersAddSuccess;
+
+  /// No description provided for @usersEditSuccess.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'User updated successfully.'**
+  String get usersEditSuccess;
+
+  /// No description provided for @usersErrorNetwork.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to connect. Please check your network.'**
+  String get usersErrorNetwork;
+
+  /// No description provided for @usersErrorTimeout.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Request timed out. Please try again.'**
+  String get usersErrorTimeout;
+
+  /// No description provided for @usersErrorUnauthorized.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Session expired. Please log in again.'**
+  String get usersErrorUnauthorized;
+
+  /// No description provided for @usersErrorForbidden.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'You do not have permission to manage users.'**
+  String get usersErrorForbidden;
+
+  /// No description provided for @usersErrorGeneric.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to load users. Please try again.'**
+  String get usersErrorGeneric;
+
   /// No description provided for @suppliersTitle.
   ///
   /// In en_IN, this message translates to:

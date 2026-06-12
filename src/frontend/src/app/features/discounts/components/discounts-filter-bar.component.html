@@ -1,0 +1,92 @@
+<div class="discounts-filter-bar">
+  <div class="search-shell">
+    <p-iconfield iconPosition="left" class="search-field">
+      <p-inputicon>
+        <i class="pi pi-search"></i>
+      </p-inputicon>
+      <input
+        pInputText
+        type="text"
+        [value]="searchValue"
+        (input)="onSearchChange($any($event.target).value)"
+        [placeholder]="'discounts.filters.search.placeholder' | transloco"
+        class="w-full pr-10"
+        data-testid="discounts-search"
+      />
+      @if (searchValue) {
+        <p-inputicon iconPosition="right" class="cursor-pointer" (click)="clearSearch()">
+          <i class="pi pi-times text-slate-400 hover:text-slate-600"></i>
+        </p-inputicon>
+      }
+    </p-iconfield>
+  </div>
+
+  <label for="discounts-status-filter" class="sr-only">{{ 'discounts.filters.status.label' | transloco }}</label>
+  <p-select
+    inputId="discounts-status-filter"
+    [options]="statusOptions"
+    optionLabel="label"
+    optionValue="value"
+    [ngModel]="statusFilter"
+    (ngModelChange)="onStatusChange($event)"
+    [ngModelOptions]="{ standalone: true }"
+    class="w-full"
+    appendTo="body"
+    data-testid="discounts-status-filter"
+  >
+    <ng-template #selectedItem let-option>
+      @if (option) {
+        {{ option.label | transloco }}
+      }
+    </ng-template>
+    <ng-template #item let-option>
+      {{ option.label | transloco }}
+    </ng-template>
+  </p-select>
+
+  <label for="discounts-type-filter" class="sr-only">{{ 'discounts.filters.type.label' | transloco }}</label>
+  <p-select
+    inputId="discounts-type-filter"
+    [options]="ruleTypeOptions"
+    optionLabel="label"
+    optionValue="value"
+    [ngModel]="ruleTypeFilter"
+    (ngModelChange)="onRuleTypeChange($event)"
+    [ngModelOptions]="{ standalone: true }"
+    class="w-full"
+    appendTo="body"
+    data-testid="discounts-type-filter"
+  >
+    <ng-template #selectedItem let-option>
+      @if (option) {
+        {{ option.label | transloco }}
+      }
+    </ng-template>
+    <ng-template #item let-option>
+      {{ option.label | transloco }}
+    </ng-template>
+  </p-select>
+
+  <label for="discounts-sort-filter" class="sr-only">{{ 'discounts.filters.sort.label' | transloco }}</label>
+  <p-select
+    inputId="discounts-sort-filter"
+    [options]="sortOptions"
+    optionLabel="label"
+    optionValue="value"
+    [ngModel]="sortValue"
+    (ngModelChange)="onSortChange($event)"
+    [ngModelOptions]="{ standalone: true }"
+    class="w-full"
+    appendTo="body"
+    data-testid="discounts-sort-filter"
+  >
+    <ng-template #selectedItem let-option>
+      @if (option) {
+        {{ option.label | transloco }}
+      }
+    </ng-template>
+    <ng-template #item let-option>
+      {{ option.label | transloco }}
+    </ng-template>
+  </p-select>
+</div>

@@ -119,7 +119,9 @@
     "purchaseOrders": "Manage Purchase Orders",
     "offlineSalesEnabled": "Offline sales enabled. Click to disable.",
     "offlineSalesDisabled": "Offline sales disabled. Click to enable.",
-    "offlineSalesEnabling": "Enabling offline sales…"
+    "offlineSalesEnabling": "Enabling offline sales…",
+    "pinSidebar": "ಸೈಡ್‌ಬಾರ್ ಪಿನ್ ಮಾಡಿ",
+    "unpinSidebar": "ಸೈಡ್‌ಬಾರ್ ಅನ್‌ಪಿನ್ ಮಾಡಿ"
   },
   "dashboard": {
     "header": {
@@ -306,6 +308,13 @@
     "staff": "ಸ್ಟಾಫ್",
     "noUsersFound": "ಯಾವುದೇ ಬಳಕೆದಾರರು ಕಂಡುಬಂದಿಲ್ಲ",
     "noUsersDescription": "ಈ ಅಂಗಡಿಗಾಗಿ ಮ್ಯಾನೇಜರ್ ಅಥವಾ ಮಾರಾಟಗಾರರನ್ನು ಸೇರಿಸುವ ಮೂಲಕ ಪ್ರಾರಂಭಿಸಿ.",
+    "showingCount": "Showing {{visible}} of {{total}} members",
+    "summary": {
+      "totalUsers": "Total Members",
+      "managers": "Managers",
+      "staff": "Staff",
+      "loginEnabled": "Login Enabled"
+    },
     "validation": {
       "passwordConfirmationMustMatch": "ಪಾಸ್‌ವರ್ಡ್ ಮತ್ತು ದೃಢೀಕರಣ ಪಾಸ್‌ವರ್ಡ್ ಹೊಂದಿಕೆಯಾಗಬೇಕು.",
       "selectAtLeastOneShop": "ಕನಿಷ್ಠ ಒಂದು ಅಂಗಡಿಯನ್ನು ಆಯ್ಕೆ ಮಾಡಿ."
@@ -473,6 +482,12 @@
     "supplierIdOptional": "ಆದ್ಯತೆ ಪೂರೈಕೆದಾರ ಐಡಿ (ಐಚ್ಛಿಕ)",
     "addNewProduct": "ಹೊಸ ಉತ್ಪನ್ನ ಸೇರಿಸಿ",
     "addNewProductDescription": "ನಿಮ್ಮ ಪ್ರಸ್ತುತ ಸಕ್ರಿಯ ಅಂಗಡಿಗೆ ಸಂಬಂಧಿಸಿದ ಉತ್ಪನ್ನವನ್ನು ರಚಿಸಿ.",
+    "productFormSections": {
+      "details": "ಉತ್ಪನ್ನ ವಿವರಗಳು",
+      "classification": "ವರ್ಗೀಕರಣ ಮತ್ತು ತೆರಿಗೆ",
+      "status": "ಸ್ಥಿತಿ",
+      "stock": "ಸ್ಟಾಕ್ ಮಟ್ಟ"
+    },
     "editProduct": "ಉತ್ಪನ್ನ ಸಂಪಾದಿಸಿ",
     "editProductDescription": "ನಿಮ್ಮ ಪ್ರಸ್ತುತ ಸಕ್ರಿಯ ಅಂಗಡಿಗಾಗಿ ಉತ್ಪನ್ನ ವಿವರಗಳನ್ನು ನವೀಕರಿಸಿ.",
     "batchInboundTitle": "ಇನ್‌ವೆಂಟರಿ ಸೇರಿಸಿ",
@@ -1262,6 +1277,14 @@
   "discounts": {
     "title": "ರಿಯಾಯಿತಿ ನಿಯಮಗಳು",
     "subtitle": "ಅಸ್ತಿತ್ವದಲ್ಲಿರುವ ರಿಯಾಯಿತಿ ನಿಯಮಗಳನ್ನು ಪರಿಶೀಲಿಸಿ, ಫಿಲ್ಟರ್ ಮಾಡಿ ಮತ್ತು ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಿ.",
+    "showingCount": "{{total}} ರಲ್ಲಿ {{visible}} ನಿಯಮಗಳನ್ನು ತೋರಿಸಲಾಗುತ್ತಿದೆ",
+    "summary": {
+      "totalRules": "ಒಟ್ಟು ನಿಯಮಗಳು",
+      "activeOnPage": "ಪುಟದಲ್ಲಿ ಸಕ್ರಿಯ",
+      "disabledOnPage": "ಪುಟದಲ್ಲಿ ನಿಷ್ಕ್ರಿಯ",
+      "expiredOnPage": "ಪುಟದಲ್ಲಿ ಅವಧಿ ಮುಗಿದ",
+      "onThisPage": "ಈ ಪುಟದಲ್ಲಿ"
+    },
     "actions": {
       "disable": "ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಿ"
     },
@@ -1343,6 +1366,12 @@
         "expiry": "ಅಂತ್ಯ: {{date}}"
       },
       "subtitle": "ಹೊಸ ನಿಯಮವನ್ನು ರಚಿಸಿ ಅಥವಾ ಪ್ರಸ್ತುತವನ್ನು ಬದಲಿ ಆವೃತ್ತಿಯಾಗಿ ಸಂಪಾದಿಸಿ.",
+      "sections": {
+        "ruleDetails": "ನಿಯಮ ವಿವರಗಳು",
+        "discountTerms": "ರಿಯಾಯಿತಿ ನಿಯಮಗಳು",
+        "safety": "ಸುರಕ್ಷತಾ ದೃಢೀಕರಣ",
+        "targetBatch": "ಗುರಿ ಬ್ಯಾಚ್"
+      },
       "createTitle": "ರಿಯಾಯಿತಿ ನಿಯಮವನ್ನು ರಚಿಸಿ",
       "editTitle": "ರಿಯಾಯಿತಿ ನಿಯಮವನ್ನು ಸಂಪಾದಿಸಿ",
       "fields": {

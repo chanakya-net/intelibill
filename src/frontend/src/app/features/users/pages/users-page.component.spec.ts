@@ -233,4 +233,115 @@ describe('UsersPageComponent', () => {
 
     expect(component.tableUsers().map((user) => user.userId)).toEqual(['u3']);
   });
+
+  it('filters users by search text', () => {
+    shopUsersSignal.set([
+      {
+        userId: 'u1',
+        firstName: 'Alice',
+        lastName: 'Owner',
+        email: 'alice@test.com',
+        phoneNumber: '+15551111111',
+        role: 'Owner',
+        isLoginEnabled: true,
+        shopIds: ['shop-1'],
+      },
+      {
+        userId: 'u2',
+        firstName: 'Bob',
+        lastName: 'Manager',
+        email: 'bob@test.com',
+        phoneNumber: '+15552222222',
+        role: 'Manager',
+        isLoginEnabled: true,
+        shopIds: ['shop-1'],
+      },
+    ]);
+
+    const fixture = TestBed.createComponent(UsersPageComponent);
+    const component = fixture.componentInstance;
+
+    component.searchValue.set('bob');
+    fixture.detectChanges();
+
+    expect(component.filteredUsers().map((user) => user.userId)).toEqual(['u2']);
+    expect(component.tableUsers().map((user) => user.userId)).toEqual(['u2']);
+  });
+
+  it('filters users by role', () => {
+    shopUsersSignal.set([
+      {
+        userId: 'u1',
+        firstName: 'Alice',
+        lastName: 'Owner',
+        email: 'alice@test.com',
+        phoneNumber: '+15551111111',
+        role: 'Owner',
+        isLoginEnabled: true,
+        shopIds: ['shop-1'],
+      },
+      {
+        userId: 'u2',
+        firstName: 'Bob',
+        lastName: 'Staff',
+        email: 'bob@test.com',
+        phoneNumber: '+15552222222',
+        role: 'SalesPerson',
+        isLoginEnabled: false,
+        shopIds: ['shop-1'],
+      },
+    ]);
+
+    const fixture = TestBed.createComponent(UsersPageComponent);
+    const component = fixture.componentInstance;
+
+    component.roleFilter.set('staff');
+    fixture.detectChanges();
+
+    expect(component.filteredUsers().map((user) => user.userId)).toEqual(['u2']);
+  });
+
+  it('exposes summary counts for the hero and cards', () => {
+    shopUsersSignal.set([
+      {
+        userId: 'u1',
+        firstName: 'Alice',
+        lastName: 'Owner',
+        email: 'alice@test.com',
+        phoneNumber: '+15551111111',
+        role: 'Owner',
+        isLoginEnabled: true,
+        shopIds: ['shop-1'],
+      },
+      {
+        userId: 'u2',
+        firstName: 'Bob',
+        lastName: 'Manager',
+        email: 'bob@test.com',
+        phoneNumber: '+15552222222',
+        role: 'Manager',
+        isLoginEnabled: true,
+        shopIds: ['shop-1'],
+      },
+      {
+        userId: 'u3',
+        firstName: 'Cara',
+        lastName: 'Staff',
+        email: 'cara@test.com',
+        phoneNumber: '+15553333333',
+        role: 'Staff',
+        isLoginEnabled: false,
+        shopIds: ['shop-1'],
+      },
+    ]);
+
+    const fixture = TestBed.createComponent(UsersPageComponent);
+    const component = fixture.componentInstance;
+
+    expect(component.totalUsers()).toBe(3);
+    expect(component.managerCount()).toBe(1);
+    expect(component.staffCount()).toBe(1);
+    expect(component.loginEnabledCount()).toBe(2);
+    expect(component.summaryCards().map((card) => card.value)).toEqual([3, 1, 1, 2]);
+  });
 });

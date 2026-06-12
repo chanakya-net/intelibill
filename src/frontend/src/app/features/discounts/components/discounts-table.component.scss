@@ -12,20 +12,19 @@
   cursor: pointer;
 }
 
-.row-selected {
-  background: var(--surface-100, #f1f5f9);
-}
-
 .pagination {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  margin-top: 0.75rem;
+  padding: 0.65rem 0.8rem;
+  border-top: 1px solid #ead7c1;
+  background: #fff5e7;
 }
 
 .page-info {
   margin: 0;
-  color: var(--text-color-secondary, #64748b);
-  font-size: 0.9rem;
+  color: #8b6e57;
+  font-size: 0.82rem;
+  font-weight: 700;
 }

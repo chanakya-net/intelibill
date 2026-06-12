@@ -86,4 +86,17 @@ describe('ShopPermissionsService', () => {
     expect(service.canManageBankAccounts()).toBe(false);
     expect(service.canViewInventory()).toBe(false);
   });
+
+  it('falls back to the default shop when activeShopId is stale', () => {
+    const service = createService();
+    sessionSignal.set({
+      activeShopId: 'missing-shop',
+      shops: [
+        { shopId: 'shop-1', shopName: 'Main', role: 'Manager', isDefault: true, lastUsedAt: null },
+      ],
+    } as never);
+
+    expect(service.activeShopId()).toBe('shop-1');
+    expect(service.canManageServices()).toBe(true);
+  });
 });

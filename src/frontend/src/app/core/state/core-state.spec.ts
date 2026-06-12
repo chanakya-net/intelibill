@@ -6,8 +6,9 @@ import { httpUiReducer } from './http-ui.reducer';
 describe('appShellReducer', () => {
   const initial = appShellReducer(undefined, { type: '@@INIT' } as never);
 
-  it('initial state has sidebarCollapsed=false', () => {
+  it('initial state has sidebarCollapsed=false and sidebarPinned=false', () => {
     expect(initial.sidebarCollapsed).toBe(false);
+    expect(initial.sidebarPinned).toBe(false);
     expect(initial.currentLanguage).toBe('en-IN');
   });
 
@@ -23,6 +24,18 @@ describe('appShellReducer', () => {
     expect(next.sidebarCollapsed).toBe(true);
   });
 
+  it('toggles sidebarPinned on toggleSidebarPinned', () => {
+    const next = appShellReducer(initial, AppShellActions.toggleSidebarPinned());
+    expect(next.sidebarPinned).toBe(true);
+    const toggled = appShellReducer(next, AppShellActions.toggleSidebarPinned());
+    expect(toggled.sidebarPinned).toBe(false);
+  });
+
+  it('sets sidebarPinned on setSidebarPinned', () => {
+    const next = appShellReducer(initial, AppShellActions.setSidebarPinned({ pinned: true }));
+    expect(next.sidebarPinned).toBe(true);
+  });
+
   it('sets language on setLanguage', () => {
     const next = appShellReducer(initial, AppShellActions.setLanguage({ language: 'hi-IN' }));
     expect(next.currentLanguage).toBe('hi-IN');
@@ -32,7 +45,7 @@ describe('appShellReducer', () => {
 describe('appShellSelectors', () => {
   it('selectCurrentLanguage returns currentLanguage', async () => {
     const { selectCurrentLanguage } = await import('./app-shell.selectors');
-    const state = { appShell: { sidebarCollapsed: false, currentLanguage: 'ta-IN' } };
+    const state = { appShell: { sidebarCollapsed: false, sidebarPinned: false, currentLanguage: 'ta-IN' } };
     expect(selectCurrentLanguage(state as never)).toBe('ta-IN');
   });
 });

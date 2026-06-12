@@ -5,11 +5,15 @@ import { Store } from '@ngrx/store';
 import { TranslocoPipe } from '@ngneat/transloco';
 import { firstValueFrom } from 'rxjs';
 
+import { AutoCompleteCompleteEvent } from 'primeng/autocomplete';
 import { BadgeModule } from 'primeng/badge';
 import { ButtonModule } from 'primeng/button';
+import { DialogModule } from 'primeng/dialog';
+import { InputNumberModule } from 'primeng/inputnumber';
 import { InputTextModule } from 'primeng/inputtext';
 import { TextareaModule } from 'primeng/textarea';
-import { ProgressSpinnerModule } from 'primeng/progressspinner';
+
+import { InventoryBarcodeFieldComponent } from './barcode-field.component';
 
 import { RootState } from '../../../core/state/app.state';
 import { InventoryActions } from '../state/inventory.actions';
@@ -23,11 +27,13 @@ import type { Item } from '../services/inventory.models';
   imports: [
     CommonModule,
     ReactiveFormsModule,
+    DialogModule,
+    InputNumberModule,
     InputTextModule,
     TextareaModule,
     BadgeModule,
     ButtonModule,
-    ProgressSpinnerModule,
+    InventoryBarcodeFieldComponent,
     TranslocoPipe,
   ],
   templateUrl: './edit-item-overlay.component.html',
@@ -47,6 +53,7 @@ export class EditItemOverlayComponent implements OnInit {
   readonly barcodeGenerating = signal(false);
   readonly barcodeGenerateError = signal('');
   readonly barcodeReplaceConfirmVisible = signal(false);
+  readonly barcodeSuggestions: string[] = [];
   private pendingGeneratedBarcode: string | null = null;
 
   readonly form = this.formBuilder.nonNullable.group({
@@ -68,6 +75,10 @@ export class EditItemOverlayComponent implements OnInit {
     this.form.controls.uom.setValue(this.item.uom);
     this.form.controls.hsnCode.setValue(this.item.hsnCode ?? '');
     this.form.controls.defaultTaxRatePercent.setValue(this.item.defaultTaxRatePercent);
+  }
+
+  onFilterBarcode(_event: AutoCompleteCompleteEvent): void {
+    // Edit form uses free-text barcode entry without catalog suggestions.
   }
 
   async onGenerateBarcode(): Promise<void> {

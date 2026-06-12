@@ -1,146 +1,154 @@
-<section
-  class="overlay"
-  aria-modal="true"
-  role="dialog"
+<p-dialog
+  [visible]="true"
+  [modal]="true"
+  [dismissableMask]="true"
+  [closable]="true"
+  [draggable]="false"
+  [resizable]="false"
+  styleClass="product-form-dialog"
+  [style]="{ width: 'min(640px, 96vw)' }"
+  (onHide)="onClose()"
   [attr.aria-label]="'inventory.productForm' | transloco"
 >
-  <div class="overlay-backdrop" (click)="onClose()"></div>
+  <ng-template pTemplate="header">
+    <div class="dialog-header">
+      <p class="eyebrow">{{ 'inventory.title' | transloco }}</p>
+      <h2>{{ 'inventory.addNewProduct' | transloco }}</h2>
+      <p class="subtitle">{{ 'inventory.addNewProductDescription' | transloco }}</p>
+    </div>
+  </ng-template>
 
-  <div class="overlay-card">
-    <header class="overlay-header">
-      <div>
-        <p class="eyebrow">{{ 'inventory.title' | transloco }}</p>
-        <h2>{{ 'inventory.addNewProduct' | transloco }}</h2>
-        <p class="description">{{ 'inventory.addNewProductDescription' | transloco }}</p>
-      </div>
-      <button
-        type="button"
-        class="close-button"
-        [attr.aria-label]="'common.close' | transloco"
-        (click)="onClose()"
-      >
-        <i class="pi pi-times" aria-hidden="true"></i>
-      </button>
-    </header>
+  <form class="product-form" [formGroup]="form" (ngSubmit)="onSubmit()">
+    @if (serverError()) {
+      <div class="error-banner" role="alert">{{ serverError() | transloco }}</div>
+    }
 
-    <form class="overlay-form" [formGroup]="form" (ngSubmit)="onSubmit()">
-      <label>
-        <span>{{ 'inventory.name' | transloco }}</span>
-        <p-autocomplete
-          formControlName="name"
-          [suggestions]="nameSuggestions()"
-          (completeMethod)="onFilterName($event)"
-          (onSelect)="onNameSelected($event.value)"
-          (onBlur)="onNameBlur()"
-          appendTo="body"
-          [fluid]="true"
-        ></p-autocomplete>
-      </label>
+    <section class="form-section">
+      <p class="section-label">{{ 'inventory.productFormSections.details' | transloco }}</p>
 
-      <label>
-        <span>{{ 'inventory.barcode' | transloco }}</span>
-        <div class="barcode-field-row">
+      <div class="editor-grid">
+        <div class="field wide">
+          <label for="add-product-name">{{ 'inventory.name' | transloco }}</label>
           <p-autocomplete
-            formControlName="barcode"
-            [suggestions]="barcodeSuggestions()"
-            (completeMethod)="onFilterBarcode($event)"
-            (onSelect)="onBarcodeSelected($event.value)"
+            inputId="add-product-name"
+            formControlName="name"
+            [suggestions]="nameSuggestions()"
+            (completeMethod)="onFilterName($event)"
+            (onSelect)="onNameSelected($event.value)"
+            (onBlur)="onNameBlur()"
             appendTo="body"
             [fluid]="true"
-          ></p-autocomplete>
-          <button
-            pButton
-            type="button"
-            [label]="'inventory.generateBarcode' | transloco"
-            severity="secondary"
-            [loading]="barcodeGenerating()"
-            (click)="onGenerateBarcode()"
-            class="generate-barcode-btn"
-          ></button>
+            styleClass="editor-control"
+          />
         </div>
-        @if (barcodeGenerateError()) {
-          <p class="error-message">{{ barcodeGenerateError() | transloco }}</p>
-        }
-        @if (barcodeReplaceConfirmVisible()) {
-          <div class="barcode-replace-confirm">
-            <span>{{ 'inventory.generateBarcodeReplaceConfirm' | transloco }}</span>
-            <button pButton type="button" [label]="'inventory.confirmReplace' | transloco" severity="warn" (click)="confirmBarcodeReplace()"></button>
-            <button pButton type="button" [label]="'inventory.keepCurrentBarcode' | transloco" severity="secondary" (click)="cancelBarcodeReplace()"></button>
-          </div>
-        }
-      </label>
 
-      <label>
-        <span>{{ 'inventory.description' | transloco }}</span>
-        <input pInputText type="text" formControlName="description" />
-      </label>
+        <div class="field wide">
+          <app-inventory-barcode-field
+            [control]="form.controls.barcode"
+            [suggestions]="barcodeSuggestions()"
+            [barcodeGenerating]="barcodeGenerating()"
+            [barcodeGenerateError]="barcodeGenerateError()"
+            [barcodeReplaceConfirmVisible]="barcodeReplaceConfirmVisible()"
+            [showScanner]="false"
+            (filterRequested)="onFilterBarcode($event)"
+            (selected)="onBarcodeSelected($event)"
+            (generateRequested)="onGenerateBarcode()"
+            (confirmReplace)="confirmBarcodeReplace()"
+            (cancelReplace)="cancelBarcodeReplace()"
+          />
+        </div>
 
-      <label>
-        <span>{{ 'inventory.uom' | transloco }}</span>
-        <input pInputText type="text" formControlName="uom" />
-      </label>
-
-      <label>
-        <span>{{ 'hsn.hsnCode' | transloco }}</span>
-        <input pInputText type="text" formControlName="hsnCode" />
-        @if (suggestedHsnCodes().length > 0) {
-          <div class="suggestion-list" aria-label="HSN suggestions">
-            @for (hsnCode of suggestedHsnCodes(); track hsnCode) {
-              <button
-                type="button"
-                class="suggestion-chip"
-                (click)="selectSuggestedHsnCode(hsnCode)"
-              >
-                {{ hsnCode }}
-              </button>
-            }
-          </div>
-        }
-      </label>
-
-      <label>
-        <span>{{ 'inventory.taxRatePercent' | transloco }}</span>
-        <input pInputText type="number" min="0" max="100" step="0.01" formControlName="defaultTaxRatePercent" />
-        @if (suggestedTaxSlabs().length > 0) {
-          <div class="suggestion-list" aria-label="Tax suggestions">
-            @for (taxPercentage of suggestedTaxSlabs(); track taxPercentage) {
-              <button
-                type="button"
-                class="suggestion-chip"
-                (click)="selectSuggestedTaxSlab(taxPercentage)"
-              >
-                {{ taxPercentage }}
-              </button>
-            }
-          </div>
-        }
-      </label>
-
-      <label class="toggle-row" for="isActive">
-        <p-checkbox inputId="isActive" formControlName="isActive" [binary]="true"></p-checkbox>
-        <span>{{ 'inventory.isActive' | transloco }}</span>
-      </label>
-
-      @if (serverError()) {
-        <p class="error-message">{{ serverError() | transloco }}</p>
-      }
-
-      <div class="actions">
-        <button
-          pButton
-          type="button"
-          [label]="'common.cancel' | transloco"
-          severity="secondary"
-          [disabled]="isSubmitting()"
-          (click)="onClose()"
-        ></button>
-        <button
-          pButton
-          type="submit"
-          [label]="'inventory.addNewProduct' | transloco"
-          [loading]="isSubmitting()"
-        ></button>
+        <div class="field wide">
+          <label for="add-product-description">{{ 'inventory.description' | transloco }}</label>
+          <textarea
+            id="add-product-description"
+            pInputTextarea
+            rows="3"
+            class="w-full"
+            formControlName="description"
+          ></textarea>
+        </div>
       </div>
-    </form>
-  </div>
-</section>
+    </section>
+
+    <section class="form-section">
+      <p class="section-label">{{ 'inventory.productFormSections.classification' | transloco }}</p>
+
+      <div class="editor-grid">
+        <div class="field">
+          <label for="add-product-uom">{{ 'inventory.uom' | transloco }}</label>
+          <input id="add-product-uom" pInputText type="text" class="w-full" formControlName="uom" />
+        </div>
+
+        <div class="field">
+          <label for="add-product-hsn">{{ 'hsn.hsnCode' | transloco }}</label>
+          <input id="add-product-hsn" pInputText type="text" class="w-full" formControlName="hsnCode" />
+          @if (suggestedHsnCodes().length > 0) {
+            <div class="suggestion-list" aria-label="HSN suggestions">
+              @for (hsnCode of suggestedHsnCodes(); track hsnCode) {
+                <button type="button" class="suggestion-chip" (click)="selectSuggestedHsnCode(hsnCode)">
+                  {{ hsnCode }}
+                </button>
+              }
+            </div>
+          }
+        </div>
+
+        <div class="field">
+          <label for="add-product-tax">{{ 'inventory.taxRatePercent' | transloco }}</label>
+          <p-inputNumber
+            inputId="add-product-tax"
+            formControlName="defaultTaxRatePercent"
+            mode="decimal"
+            [min]="0"
+            [max]="100"
+            [maxFractionDigits]="2"
+            suffix="%"
+            [fluid]="true"
+            styleClass="editor-control"
+          />
+          @if (suggestedTaxSlabs().length > 0) {
+            <div class="suggestion-list" aria-label="Tax suggestions">
+              @for (taxPercentage of suggestedTaxSlabs(); track taxPercentage) {
+                <button type="button" class="suggestion-chip" (click)="selectSuggestedTaxSlab(taxPercentage)">
+                  {{ taxPercentage }}
+                </button>
+              }
+            </div>
+          }
+        </div>
+      </div>
+    </section>
+
+    <section class="form-section">
+      <p class="section-label">{{ 'inventory.productFormSections.status' | transloco }}</p>
+
+      <div class="field checkbox-field">
+        <p-checkbox inputId="isActive" formControlName="isActive" [binary]="true" />
+        <label for="isActive">{{ 'inventory.isActive' | transloco }}</label>
+      </div>
+    </section>
+  </form>
+
+  <ng-template pTemplate="footer">
+    <div class="dialog-actions">
+      <button
+        pButton
+        type="button"
+        severity="secondary"
+        [outlined]="true"
+        [label]="'common.cancel' | transloco"
+        [disabled]="isSubmitting()"
+        (click)="onClose()"
+      ></button>
+      <button
+        pButton
+        type="button"
+        icon="pi pi-plus"
+        [label]="'inventory.addNewProduct' | transloco"
+        [loading]="isSubmitting()"
+        (click)="onSubmit()"
+      ></button>
+    </div>
+  </ng-template>
+</p-dialog>
