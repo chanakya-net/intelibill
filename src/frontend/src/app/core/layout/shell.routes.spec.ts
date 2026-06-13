@@ -18,6 +18,16 @@ describe('shell routes', () => {
     expect(detailRoute?.loadComponent).toBeDefined();
   });
 
+  it('registers the sales credit notes route', () => {
+    const shellRoute = shellRoutes.find((route) => route.path === '');
+    const childRoutes = shellRoute?.children ?? [];
+
+    const creditNotesRoute = childRoutes.find((route) => route.path === 'sales/credit-notes');
+
+    expect(creditNotesRoute).toBeDefined();
+    expect(creditNotesRoute?.loadComponent).toBeDefined();
+  });
+
   it('registers purchase order detail route before list route', () => {
     const shellRoute = shellRoutes.find((route) => route.path === '');
     const childRoutes = shellRoute?.children ?? [];

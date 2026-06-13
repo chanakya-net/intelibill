@@ -99,6 +99,7 @@
     "manageSales": "Sales",
     "newSale": "New Sale",
     "salesHistory": "History",
+    "creditNotes": "Credit Notes",
     "manageInventory": "Inventory",
     "addNewProduct": "Products",
     "manageServices": "Services",
@@ -1218,6 +1219,16 @@
         "recordBtn": "Record return"
       }
     },
+    "creditNotes": {
+      "eyebrow": "Sales Records",
+      "title": "Credit Notes",
+      "subtitle": "Review credit note history for the active shop.",
+      "emptyState": {
+        "title": "No credit notes yet",
+        "description": "Credit notes will appear here once they are created."
+      }
+    },
+
     "searchPlaceholder": "Search sales...",
     "export": {
       "title": "Sales Export",

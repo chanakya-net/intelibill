@@ -99,6 +99,7 @@
     "manageSales": "વેચાણ",
     "newSale": "નવું વેચાણ",
     "salesHistory": "ઇતિહાસ",
+    "creditNotes": "Credit Notes",
     "manageInventory": "ઇન્વેન્ટરી",
     "addNewProduct": "ઉત્પાદનો",
     "manageServices": "Services",
@@ -1218,6 +1219,16 @@
         "recordBtn": "રિટર્ન રેકોર્ડ કરો"
       }
     },
+    "creditNotes": {
+      "eyebrow": "Sales Records",
+      "title": "Credit Notes",
+      "subtitle": "Review credit note history for the active shop.",
+      "emptyState": {
+        "title": "No credit notes yet",
+        "description": "Credit notes will appear here once they are created."
+      }
+    },
+
     "searchPlaceholder": "વેચાણ શોધો...",
     "export": {
       "title": "Sales Export",
