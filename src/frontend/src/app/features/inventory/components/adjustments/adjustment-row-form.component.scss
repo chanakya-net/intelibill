@@ -1,0 +1,193 @@
+:host {
+  display: block;
+}
+
+.dialog-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding-right: 1.5rem;
+
+  .eyebrow {
+    margin: 0;
+    color: #9b5d20;
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  h2 {
+    margin: 0;
+    color: #2a1b12;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 1.45rem;
+    font-weight: 700;
+    line-height: 1.1;
+  }
+
+  .subtitle {
+    margin: 0;
+    color: #6f5a48;
+    font-size: 0.9rem;
+    line-height: 1.35;
+  }
+}
+
+.product-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.form-section {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid #ead7c1;
+  border-radius: 1rem;
+  background: linear-gradient(180deg, rgba(255, 252, 248, 0.98), rgba(255, 245, 232, 0.92));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+}
+
+.section-label {
+  margin: 0;
+  color: #9b5d20;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.editor-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+
+  .wide {
+    grid-column: 1 / -1;
+  }
+
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+
+  &.wide {
+    grid-column: 1 / -1;
+  }
+
+  > label {
+    color: #6f5a48;
+    font-size: 0.82rem;
+    font-weight: 600;
+  }
+}
+
+.batch-option {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+
+  span {
+    color: #8b6e57;
+    font-size: 0.8rem;
+  }
+}
+
+.validation-message {
+  margin: 0;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid #fecaca;
+  border-radius: 0.8rem;
+  background: #fff1f2;
+  color: #b91c1c;
+  font-size: 0.9rem;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+:host ::ng-deep {
+  .product-form-dialog {
+    border: 1px solid #ead7c1;
+    border-radius: 1.2rem;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at top left, rgba(255, 224, 188, 0.35), transparent 34%),
+      linear-gradient(180deg, #fffaf4 0%, #f8efe4 100%);
+    box-shadow: 0 18px 42px rgba(87, 54, 20, 0.12);
+  }
+
+  .product-form-dialog .p-dialog-header {
+    padding: 1rem 1.15rem 0.35rem;
+    border-bottom: 0;
+    background: transparent;
+  }
+
+  .product-form-dialog .p-dialog-content {
+    padding: 0.35rem 1.15rem 1rem;
+    background: transparent;
+  }
+
+  .product-form-dialog .p-dialog-footer {
+    padding: 0.35rem 1.15rem 1rem;
+    border-top: 1px solid #ead7c1;
+    background: rgba(255, 252, 248, 0.72);
+  }
+
+  .editor-control,
+  .p-inputtext,
+  .p-textarea,
+  .p-autocomplete-input {
+    width: 100%;
+    min-height: 2.75rem;
+    border-radius: 0.75rem;
+    border-color: #e7d6c3;
+    background: rgba(255, 255, 255, 0.92);
+  }
+
+  .p-textarea {
+    min-height: 5.5rem;
+    padding-top: 0.65rem;
+  }
+
+  .p-autocomplete,
+  .p-select,
+  .p-datepicker,
+  .p-inputnumber {
+    width: 100%;
+  }
+
+  .p-select-label,
+  .p-datepicker-input,
+  .p-inputnumber-input {
+    min-height: 2.75rem;
+  }
+
+  .p-inputtext:enabled:focus,
+  .p-textarea:enabled:focus,
+  .p-autocomplete:not(.p-disabled).p-focus .p-autocomplete-input,
+  .p-select:not(.p-disabled).p-focus,
+  .p-datepicker:not(.p-disabled).p-focus .p-datepicker-input,
+  .p-inputnumber:not(.p-disabled).p-focus .p-inputnumber-input {
+    border-color: #d97706;
+    box-shadow: 0 0 0 1px rgba(217, 119, 6, 0.18);
+  }
+}
+
+@media (max-width: 640px) {
+  .dialog-actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+}

@@ -1,96 +1,156 @@
-<form [formGroup]="adjustmentForm" class="adjustment-form" (ngSubmit)="onSave()">
-  <div class="field">
-    <label>{{ 'inventory.selectBatch' | transloco }}</label>
-    <p-autocomplete
-      [ngModel]="selectedBatchLabel()"
-      [ngModelOptions]="{ standalone: true }"
-      [suggestions]="batchSuggestions()"
-      (completeMethod)="onBatchSearch($event)"
-      (onSelect)="onSelectBatch($event.value)"
-      optionLabel="batchNumber"
-      [dropdown]="true"
-      [forceSelection]="true"
-      [placeholder]="'inventory.searchBatchPlaceholder' | transloco"
-      [fluid]="true"
-    >
-      <ng-template let-batch pTemplate="item">
-        <div class="batch-option">
-          <strong>{{ batch.itemName }}</strong>
-          <span>{{ batch.batchNumber }} · {{ batch.barcode }} · {{ 'inventory.quantity' | transloco }}: {{ batch.quantity }}</span>
+<p-dialog
+  [visible]="true"
+  [modal]="true"
+  [dismissableMask]="true"
+  [closable]="true"
+  [draggable]="false"
+  [resizable]="false"
+  styleClass="product-form-dialog"
+  [style]="{ width: 'min(560px, 92vw)' }"
+  (onHide)="onCancel()"
+  [attr.aria-label]="'inventory.newAdjustment' | transloco"
+>
+  <ng-template pTemplate="header">
+    <div class="dialog-header">
+      <p class="eyebrow">{{ 'inventory.adjustmentLedger' | transloco }}</p>
+      <h2>{{ 'inventory.newAdjustment' | transloco }}</h2>
+      <p class="subtitle">{{ 'inventory.adjustmentsSubtitle' | transloco }}</p>
+    </div>
+  </ng-template>
+
+  <form [formGroup]="adjustmentForm" class="product-form" (ngSubmit)="onSave()">
+    <section class="form-section">
+      <p class="section-label">{{ 'inventory.selectBatch' | transloco }}</p>
+
+      <div class="field wide">
+        <label for="adjustment-batch">{{ 'inventory.selectBatch' | transloco }}</label>
+        <p-autocomplete
+          inputId="adjustment-batch"
+          [ngModel]="selectedBatch()"
+          (ngModelChange)="onBatchModelChange($event)"
+          [ngModelOptions]="{ standalone: true }"
+          [suggestions]="batchSuggestions()"
+          (completeMethod)="onBatchSearch($event)"
+          (onSelect)="onSelectBatch($event.value)"
+          optionLabel="label"
+          [dropdown]="true"
+          [forceSelection]="true"
+          [placeholder]="'inventory.searchBatchPlaceholder' | transloco"
+          appendTo="body"
+          [fluid]="true"
+          styleClass="editor-control"
+        >
+          <ng-template let-batch pTemplate="item">
+            <div class="batch-option">
+              <strong>{{ batch.itemName }}</strong>
+              <span>{{ batch.batchNumber }} · {{ batch.barcode }} · {{ 'inventory.quantity' | transloco }}: {{ batch.quantity }}</span>
+            </div>
+          </ng-template>
+        </p-autocomplete>
+      </div>
+    </section>
+
+    <section class="form-section">
+      <p class="section-label">{{ 'inventory.adjustmentSummary' | transloco }}</p>
+
+      <div class="editor-grid">
+        <div class="field">
+          <label for="adjustment-direction">{{ 'inventory.adjustmentDirectionLabel' | transloco }}</label>
+          <p-select
+            inputId="adjustment-direction"
+            formControlName="direction"
+            [options]="directionOptions()"
+            optionLabel="label"
+            optionValue="value"
+            appendTo="body"
+            [fluid]="true"
+            styleClass="editor-control"
+          ></p-select>
         </div>
-      </ng-template>
-    </p-autocomplete>
-  </div>
+        <div class="field">
+          <label for="adjustment-reason">{{ 'inventory.adjustmentReasonLabel' | transloco }}</label>
+          <p-select
+            inputId="adjustment-reason"
+            formControlName="reason"
+            [options]="adjustmentReasonOptions()"
+            optionLabel="label"
+            optionValue="value"
+            appendTo="body"
+            [fluid]="true"
+            styleClass="editor-control"
+          ></p-select>
+        </div>
+      </div>
 
-  <div class="form-grid">
-    <div class="field">
-      <label>{{ 'inventory.adjustmentDirectionLabel' | transloco }}</label>
-      <p-select
-        formControlName="direction"
-        [options]="directionOptions()"
-        optionLabel="label"
-        optionValue="value"
-        [fluid]="true"
-      ></p-select>
+      @if (selectedBatchDecreaseBlocked()) {
+        <p class="validation-message">{{ 'inventory.decreaseBlockedForEmptyBatch' | transloco }}</p>
+      }
+
+      <div class="editor-grid">
+        <div class="field">
+          <label for="adjustment-quantity">{{ 'inventory.quantity' | transloco }}</label>
+          <p-inputNumber
+            inputId="adjustment-quantity"
+            formControlName="quantity"
+            [min]="0.01"
+            mode="decimal"
+            [maxFractionDigits]="2"
+            [fluid]="true"
+            styleClass="editor-control"
+          ></p-inputNumber>
+        </div>
+        <div class="field">
+          <label for="adjustment-performed-at">{{ 'inventory.performedAt' | transloco }}</label>
+          <p-datepicker
+            ngSkipHydration
+            inputId="adjustment-performed-at"
+            formControlName="performedAt"
+            dateFormat="dd/mm/yy"
+            [showTime]="true"
+            hourFormat="24"
+            [showIcon]="true"
+            iconDisplay="input"
+            [showButtonBar]="true"
+            appendTo="body"
+            [fluid]="true"
+            styleClass="editor-control"
+          ></p-datepicker>
+        </div>
+      </div>
+
+      <div class="field wide">
+        <label for="adjustment-notes">{{ 'inventory.notes' | transloco }}</label>
+        <textarea
+          id="adjustment-notes"
+          pInputTextarea
+          formControlName="notes"
+          rows="3"
+          class="w-full"
+          [placeholder]="'inventory.adjustmentNotesPlaceholder' | transloco"
+        ></textarea>
+      </div>
+    </section>
+  </form>
+
+  <ng-template pTemplate="footer">
+    <div class="dialog-actions">
+      <button
+        pButton
+        type="button"
+        severity="secondary"
+        [outlined]="true"
+        [label]="'common.cancel' | transloco"
+        [disabled]="saving"
+        (click)="onCancel()"
+      ></button>
+      <button
+        pButton
+        type="button"
+        [label]="'inventory.submitAdjustment' | transloco"
+        [loading]="saving"
+        [disabled]="!selectedBatch() || adjustmentForm.invalid || saving"
+        (click)="onSave()"
+      ></button>
     </div>
-    <div class="field">
-      <label>{{ 'inventory.adjustmentReasonLabel' | transloco }}</label>
-      <p-select
-        formControlName="reason"
-        [options]="adjustmentReasonOptions()"
-        optionLabel="label"
-        optionValue="value"
-        [fluid]="true"
-      ></p-select>
-    </div>
-  </div>
-
-  @if (selectedBatchDecreaseBlocked()) {
-    <p class="validation-message">{{ 'inventory.decreaseBlockedForEmptyBatch' | transloco }}</p>
-  }
-
-  <div class="form-grid">
-    <div class="field">
-      <label>{{ 'inventory.quantity' | transloco }}</label>
-      <p-inputNumber
-        formControlName="quantity"
-        [min]="0.01"
-        mode="decimal"
-        [maxFractionDigits]="2"
-        [fluid]="true"
-      ></p-inputNumber>
-    </div>
-    <div class="field">
-      <label>{{ 'inventory.performedAt' | transloco }}</label>
-      <input pInputText type="datetime-local" formControlName="performedAt" />
-    </div>
-  </div>
-
-  <div class="field">
-    <label>{{ 'inventory.notes' | transloco }}</label>
-    <textarea
-      pTextarea
-      formControlName="notes"
-      rows="3"
-      [placeholder]="'inventory.adjustmentNotesPlaceholder' | transloco"
-    ></textarea>
-  </div>
-
-  <div class="dialog-actions">
-    <button
-      pButton
-      type="button"
-      class="p-button-text"
-      [label]="'common.cancel' | transloco"
-      [disabled]="saving"
-      (click)="onCancel()"
-    ></button>
-    <button
-      pButton
-      type="submit"
-      [label]="'inventory.submitAdjustment' | transloco"
-      [loading]="saving"
-      [disabled]="!selectedBatch() || adjustmentForm.invalid || saving"
-    ></button>
-  </div>
-</form>
+  </ng-template>
+</p-dialog>
