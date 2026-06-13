@@ -60,6 +60,8 @@ public sealed partial class SalesController : AuthenticatedControllerBase
                 request.DueReductionOverrideAmount,
                 request.DueOverrideReason,
                 request.Notes,
+                request.CreditNoteExpiresAt,
+                request.CreditNoteReason,
                 request.Items.Select(i => new RecordSaleReturnItemCommand(
                     i.SaleItemId,
                     i.Quantity,

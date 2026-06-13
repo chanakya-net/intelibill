@@ -130,7 +130,9 @@ public sealed record RecordSaleReturnRequest(
     string? DueOverrideReason,
     string? Notes,
     IReadOnlyList<RecordSaleReturnItemRequest> Items,
-    PaymentMethod? PayoutMethod = null);
+    PaymentMethod? PayoutMethod = null,
+    DateTimeOffset? CreditNoteExpiresAt = null,
+    string? CreditNoteReason = null);
 
 public sealed record RecordSaleReturnItemRequest(
     Guid SaleItemId,

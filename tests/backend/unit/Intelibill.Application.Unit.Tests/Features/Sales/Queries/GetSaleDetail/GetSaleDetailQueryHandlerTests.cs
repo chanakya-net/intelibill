@@ -16,9 +16,10 @@ public class GetSaleDetailQueryHandlerTests
     private readonly ISaleRepository _saleRepository = Substitute.For<ISaleRepository>();
     private readonly ISaleReturnRepository _saleReturnRepository = Substitute.For<ISaleReturnRepository>();
     private readonly IItemRepository _itemRepository = Substitute.For<IItemRepository>();
+    private readonly ICreditNoteRepository _creditNoteRepository = Substitute.For<ICreditNoteRepository>();
 
     private GetSaleDetailQueryHandler CreateHandler() =>
-        new(_userRepository, _shopRepository, _saleRepository, _saleReturnRepository, _itemRepository);
+        new(_userRepository, _shopRepository, _saleRepository, _saleReturnRepository, _itemRepository, _creditNoteRepository);
 
     private static User MakeUser() =>
         User.CreateWithEmail("test@test.com", "hash", "Test", "User");
@@ -239,6 +240,35 @@ public class GetSaleDetailQueryHandlerTests
         Assert.Equal(0m, result.Value.Items[0].ReturnedQuantity);
         Assert.Equal(5m, result.Value.Items[0].ReturnableQuantity);
         Assert.Equal("NotReturned", result.Value.Items[0].ReturnStatus);
+    }
+
+    [Fact]
+    public async Task Handle_WhenReturnHasCreditNote_ReturnsCreditNoteSummary()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var item = Item.Create(shop.Id, "Rice", "desc", "kg", "BC-001", true, Guid.NewGuid());
+        var saleItem = MakeSaleItem(shop.Id, item.Id);
+        var sale = MakeSale(shop.Id, saleItem);
+        var saleReturn = MakeSaleReturn(shop.Id, sale.Id, saleItem.Id, quantity: 1m, payoutDestination: ReturnPayoutDestination.CreditNote);
+        var creditNote = CreditNote.Issue(shop.Id, saleReturn.Id, 100m, "Return credit", "CN-20260614-ABC123", null).Value;
+
+        ArrangeAuthorizedSale(user, shop, sale, item);
+        _saleReturnRepository.GetBySaleAsync(shop.Id, sale.Id, Arg.Any<CancellationToken>()).Returns([saleReturn]);
+        _creditNoteRepository.GetByReturnIdAsync(shop.Id, saleReturn.Id, Arg.Any<CancellationToken>()).Returns([creditNote]);
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(new GetSaleDetailQuery(user.Id, shop.Id, sale.Id), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        var returnDto = Assert.Single(result.Value.Returns);
+        Assert.NotNull(returnDto.CreditNote);
+        Assert.Equal(creditNote.Id, returnDto.CreditNote!.CreditNoteId);
+        Assert.Equal(creditNote.Code, returnDto.CreditNote.Code);
+        Assert.Equal(creditNote.OriginalAmount, returnDto.CreditNote.OriginalAmount);
+        Assert.Equal(creditNote.AvailableBalance, returnDto.CreditNote.AvailableBalance);
+        Assert.Equal(creditNote.ExpiresAt, returnDto.CreditNote.ExpiresAt);
+        Assert.Equal(creditNote.Reason, returnDto.CreditNote.Reason);
     }
 
     [Fact]

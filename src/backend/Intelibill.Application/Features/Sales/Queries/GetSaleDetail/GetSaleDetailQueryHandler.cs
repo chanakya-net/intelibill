@@ -12,7 +12,8 @@ public sealed class GetSaleDetailQueryHandler(
     IShopRepository shopRepository,
     ISaleRepository saleRepository,
     ISaleReturnRepository saleReturnRepository,
-    IItemRepository itemRepository)
+    IItemRepository itemRepository,
+    ICreditNoteRepository creditNoteRepository)
 {
     private const string NotReturned = "NotReturned";
     private const string PartiallyReturned = "PartiallyReturned";
@@ -51,6 +52,7 @@ public sealed class GetSaleDetailQueryHandler(
             .Where(r => !r.IsVoided)
             .OrderBy(r => r.ProcessedAt)
             .ToList();
+        var creditNotesByReturnId = await GetCreditNotesByReturnIdAsync(activeReturns, query.ShopId, cancellationToken);
         var returnedQuantityBySaleItemId = activeReturns
             .SelectMany(r => r.Items)
             .GroupBy(i => i.SaleItemId)
@@ -114,6 +116,7 @@ public sealed class GetSaleDetailQueryHandler(
                 r.PayoutDestination,
                 r.TotalTaxableAmount,
                 r.TotalTaxAmount,
+                creditNotesByReturnId.GetValueOrDefault(r.Id),
                 r.Items.Select(i => new SaleReturnItemDto(
                     i.Id,
                     i.SaleItemId,
@@ -155,6 +158,32 @@ public sealed class GetSaleDetailQueryHandler(
             }
 
             return "Unknown Service";
+        }
+
+        async Task<IReadOnlyDictionary<Guid, SaleReturnCreditNoteSummaryDto?>> GetCreditNotesByReturnIdAsync(
+            IReadOnlyList<SaleReturn> returns,
+            Guid shopId,
+            CancellationToken ct)
+        {
+            var pairs = new List<KeyValuePair<Guid, SaleReturnCreditNoteSummaryDto?>>(returns.Count);
+
+            foreach (var saleReturn in returns)
+            {
+                var note = await creditNoteRepository.GetByReturnIdAsync(shopId, saleReturn.Id, ct);
+                pairs.Add(new KeyValuePair<Guid, SaleReturnCreditNoteSummaryDto?>(
+                    saleReturn.Id,
+                    note.Count > 0 && note[0] is { } creditNote
+                        ? new SaleReturnCreditNoteSummaryDto(
+                            creditNote.Id,
+                            creditNote.Code,
+                            creditNote.OriginalAmount,
+                            creditNote.AvailableBalance,
+                            creditNote.ExpiresAt,
+                            creditNote.Reason)
+                        : null));
+            }
+
+            return pairs.ToDictionary(pair => pair.Key, pair => pair.Value);
         }
     }
 }

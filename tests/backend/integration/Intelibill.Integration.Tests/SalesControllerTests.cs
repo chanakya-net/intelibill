@@ -2971,6 +2971,106 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
     }
 
     [Fact]
+    public async Task RecordSaleReturn_CreditNoteDestination_CreatesFetchableCreditNote()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        var barcode = UniqueBarcode();
+        var inboundBody = await AddInventoryAsync(client, ownerToken, barcode, "B-001", 10m);
+        var itemId = inboundBody.GetProperty("itemId").GetGuid();
+        var batchId = inboundBody.GetProperty("inventoryBatchId").GetGuid();
+
+        using var saleRequest = new HttpRequestMessage(HttpMethod.Post, "/api/sales");
+        saleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        saleRequest.Content = JsonContent.Create(new
+        {
+            idempotencyKey = $"sale-{Guid.NewGuid():N}",
+            customerId = (Guid?)null,
+            customerName = "Credit Note Customer",
+            customerPhone = "+919876543210",
+            paymentMethod = (int)PaymentMethod.Cash,
+            paidAmount = 236m,
+            dueAmount = 0m,
+            items = new[]
+            {
+                new
+                {
+                    barcode,
+                    batchNumber = "B-001",
+                    itemName = "Test Item",
+                    quantity = 2m,
+                    costPrice = 80m,
+                    salesPrice = 100m,
+                    mrp = 120m,
+                    taxRatePercent = 18m,
+                    isPriceIncludingTax = false,
+                    inventoryBatchId = batchId,
+                },
+            },
+        });
+        var saleResponse = await client.SendAsync(saleRequest);
+        Assert.Equal(HttpStatusCode.Created, saleResponse.StatusCode);
+        var saleBody = await saleResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var saleId = saleBody.GetProperty("saleId").GetGuid();
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var sale = await db.Sales.Include(s => s.Items).FirstAsync(s => s.Id == saleId);
+        var saleItemId = sale.Items[0].Id;
+        var creditNoteExpiresAt = DateTimeOffset.UtcNow.AddDays(30);
+
+        using var recordReturnRequest = new HttpRequestMessage(
+            HttpMethod.Post, $"/api/sales/{saleId}/returns");
+        recordReturnRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        recordReturnRequest.Content = JsonContent.Create(new
+        {
+            payoutDestination = (int)ReturnPayoutDestination.CreditNote,
+            dueReductionOverrideAmount = (decimal?)null,
+            dueOverrideReason = (string?)null,
+            notes = "Return for store credit",
+            creditNoteExpiresAt,
+            creditNoteReason = "Store credit issued after return",
+            items = new[]
+            {
+                new
+                {
+                    saleItemId,
+                    quantity = 1m,
+                    condition = (int)SaleReturnCondition.Restockable,
+                    approvedRefundAmount = 118m,
+                    notes = (string?)null,
+                },
+            },
+        });
+
+        var recordResponse = await client.SendAsync(recordReturnRequest);
+        Assert.Equal(HttpStatusCode.OK, recordResponse.StatusCode);
+
+        var recordBody = await recordResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var returnEntry = recordBody.GetProperty("returns").EnumerateArray().Single();
+        var creditNote = returnEntry.GetProperty("creditNote");
+        var code = creditNote.GetProperty("code").GetString();
+
+        Assert.NotNull(code);
+        Assert.Equal(118m, creditNote.GetProperty("originalAmount").GetDecimal());
+        Assert.Equal(118m, creditNote.GetProperty("availableBalance").GetDecimal());
+        Assert.Equal("Store credit issued after return", creditNote.GetProperty("reason").GetString());
+        Assert.Equal(creditNoteExpiresAt.UtcDateTime, creditNote.GetProperty("expiresAt").GetDateTimeOffset().UtcDateTime);
+
+        using var getCreditNoteRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/credit-notes/{code}");
+        getCreditNoteRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var getCreditNoteResponse = await client.SendAsync(getCreditNoteRequest);
+        Assert.Equal(HttpStatusCode.OK, getCreditNoteResponse.StatusCode);
+
+        var fetchedCreditNote = await getCreditNoteResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(code, fetchedCreditNote!.GetProperty("code").GetString());
+        Assert.Equal(118m, fetchedCreditNote.GetProperty("originalAmount").GetDecimal());
+        Assert.Equal("Store credit issued after return", fetchedCreditNote.GetProperty("reason").GetString());
+    }
+
+    [Fact]
     public async Task RecordSaleReturn_Wastage_DoesNotRestock()
     {
         using var client = CreateClient();
