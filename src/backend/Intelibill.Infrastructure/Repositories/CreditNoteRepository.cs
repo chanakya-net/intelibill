@@ -24,6 +24,21 @@ internal sealed class CreditNoteRepository(ApplicationDbContext context)
             .Where(c => c.ShopId == shopId && c.SaleReturnId == saleReturnId)
             .ToListAsync(cancellationToken);
 
+    public async Task<IReadOnlyList<CreditNote>> GetByReturnIdsAsync(
+        Guid shopId,
+        IReadOnlyCollection<Guid> saleReturnIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (saleReturnIds.Count == 0)
+        {
+            return [];
+        }
+
+        return await DbSet
+            .Where(c => c.ShopId == shopId && saleReturnIds.Contains(c.SaleReturnId))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<CreditNote?> GetByIdWithRedemptionsAsync(Guid shopId, Guid id, CancellationToken cancellationToken = default) =>
         await DbSet
             .Include(c => c.Redemptions)

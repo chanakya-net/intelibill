@@ -52,7 +52,10 @@ public sealed class GetSaleDetailQueryHandler(
             .Where(r => !r.IsVoided)
             .OrderBy(r => r.ProcessedAt)
             .ToList();
-        var creditNotesByReturnId = await GetCreditNotesByReturnIdAsync(activeReturns, query.ShopId, cancellationToken);
+        var creditNotesByReturnId = await GetCreditNotesByReturnIdAsync(
+            activeReturns.Select(r => r.Id).ToList(),
+            query.ShopId,
+            cancellationToken);
         var returnedQuantityBySaleItemId = activeReturns
             .SelectMany(r => r.Items)
             .GroupBy(i => i.SaleItemId)
@@ -161,29 +164,31 @@ public sealed class GetSaleDetailQueryHandler(
         }
 
         async Task<IReadOnlyDictionary<Guid, SaleReturnCreditNoteSummaryDto?>> GetCreditNotesByReturnIdAsync(
-            IReadOnlyList<SaleReturn> returns,
+            IReadOnlyList<Guid> returnIds,
             Guid shopId,
             CancellationToken ct)
         {
-            var pairs = new List<KeyValuePair<Guid, SaleReturnCreditNoteSummaryDto?>>(returns.Count);
-
-            foreach (var saleReturn in returns)
+            if (returnIds.Count == 0)
             {
-                var note = await creditNoteRepository.GetByReturnIdAsync(shopId, saleReturn.Id, ct);
-                pairs.Add(new KeyValuePair<Guid, SaleReturnCreditNoteSummaryDto?>(
-                    saleReturn.Id,
-                    note.Count > 0 && note[0] is { } creditNote
-                        ? new SaleReturnCreditNoteSummaryDto(
-                            creditNote.Id,
-                            creditNote.Code,
-                            creditNote.OriginalAmount,
-                            creditNote.AvailableBalance,
-                            creditNote.ExpiresAt,
-                            creditNote.Reason)
-                        : null));
+                return new Dictionary<Guid, SaleReturnCreditNoteSummaryDto?>();
             }
 
-            return pairs.ToDictionary(pair => pair.Key, pair => pair.Value);
+            var notes = await creditNoteRepository.GetByReturnIdsAsync(shopId, returnIds, ct);
+            var noteByReturnId = notes
+                .GroupBy(note => note.SaleReturnId)
+                .ToDictionary(group => group.Key, group => group.First());
+
+            return returnIds.ToDictionary(
+                returnId => returnId,
+                returnId => noteByReturnId.TryGetValue(returnId, out var creditNote)
+                    ? new SaleReturnCreditNoteSummaryDto(
+                        creditNote.Id,
+                        creditNote.Code,
+                        creditNote.OriginalAmount,
+                        creditNote.AvailableBalance,
+                        creditNote.ExpiresAt,
+                        creditNote.Reason)
+                    : null);
         }
     }
 }
