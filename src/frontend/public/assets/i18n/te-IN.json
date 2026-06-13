@@ -903,10 +903,11 @@
       "actions": {
         "viewReceipt": "రసీదు చూడండి"
       },
-      "amount": {
-        "due": "బకాయి",
-        "refund": "వాపసు"
-      },
+  "amount": {
+    "due": "బకాయి",
+    "refund": "వాపసు",
+    "creditNoteApplied": "క్రెడిట్ నోట్ వర్తించింది"
+  },
       "pagination": {
         "ariaLabel": "అమ్మకాల చరిత్ర పేజినేషన్",
         "showing": "{{total}} అమ్మకాలలో {{start}}-{{end}} చూపిస్తున్నాం",

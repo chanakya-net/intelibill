@@ -903,10 +903,11 @@
       "actions": {
         "viewReceipt": "View Receipt"
       },
-      "amount": {
-        "due": "Due",
-        "refund": "Refund"
-      },
+  "amount": {
+    "due": "Due",
+    "refund": "Refund",
+    "creditNoteApplied": "Credit note applied"
+  },
       "pagination": {
         "ariaLabel": "Sales history pagination",
         "showing": "Showing {{start}}-{{end}} of {{total}} sales",

@@ -903,10 +903,11 @@
       "actions": {
         "viewReceipt": "पावती पहा"
       },
-      "amount": {
-        "due": "थकबाकी",
-        "refund": "परतावा"
-      },
+  "amount": {
+    "due": "थकबाकी",
+    "refund": "परतावा",
+    "creditNoteApplied": "क्रेडिट नोट लागू"
+  },
       "pagination": {
         "ariaLabel": "विक्री इतिहास पृष्ठ क्रमांकन",
         "showing": "{{total}} विक्रींपैकी {{start}}-{{end}} दाखवत आहे",
