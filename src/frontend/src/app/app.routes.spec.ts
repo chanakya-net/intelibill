@@ -51,6 +51,18 @@ describe('app routes', () => {
     expect(printRouteIndex).toBeLessThan(shellRouteIndex);
   });
 
+  it('keeps credit note print outside the shell layout', () => {
+    const printRouteIndex = routes.findIndex((route) => route.path === 'sales/credit-notes/:code/print');
+    const shellRouteIndex = routes.findIndex((route) => route.path === '');
+    const printRoute = routes[printRouteIndex];
+
+    expect(printRoute).toBeDefined();
+    expect(printRoute?.canActivate).toContain(authGuard);
+    expect(printRouteIndex).toBeGreaterThanOrEqual(0);
+    expect(shellRouteIndex).toBeGreaterThanOrEqual(0);
+    expect(printRouteIndex).toBeLessThan(shellRouteIndex);
+  });
+
   it('permits /sales/new offline grace through top-level protected route', async () => {
     const shellRoute = routes.find((route) => route.path === '');
     const shellRoot = shellRoutes.find((route) => route.path === '');
