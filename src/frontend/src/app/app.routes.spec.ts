@@ -53,7 +53,7 @@ describe('app routes', () => {
   });
 
   it('keeps credit note print outside the shell layout', () => {
-    const printRouteIndex = routes.findIndex((route) => route.path === 'credit-notes/:code/print');
+    const printRouteIndex = routes.findIndex((route) => route.path === 'sales/credit-notes/:code/print');
     const shellRouteIndex = routes.findIndex((route) => route.path === '');
     const printRoute = routes[printRouteIndex];
 
@@ -64,8 +64,8 @@ describe('app routes', () => {
     expect(printRouteIndex).toBeLessThan(shellRouteIndex);
   });
 
-  it('loads the credit note print component for the top-level print route', async () => {
-    const printRoute = routes.find((route) => route.path === 'credit-notes/:code/print');
+  it('loads the credit note print component for the sales print route', async () => {
+    const printRoute = routes.find((route) => route.path === 'sales/credit-notes/:code/print');
 
     expect(printRoute).toBeDefined();
     await expect(printRoute?.loadComponent?.()).resolves.toBe(CreditNotePrintPageComponent);

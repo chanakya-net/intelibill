@@ -1240,7 +1240,12 @@
         "calculatedEffects": "गणना किए गए प्रभाव",
         "warnings": "चेतावनियां",
         "previewBtn": "प्रीव्यू",
-        "recordBtn": "वापसी रिकॉर्ड करें"
+        "recordBtn": "वापसी रिकॉर्ड करें",
+        "successEyebrow": "Credit note issued",
+        "successTitle": "Credit note created",
+        "successDescription": "The return has been recorded and the credit note is ready to print.",
+        "successCodeLabel": "Credit note code",
+        "printCreditNoteBtn": "Print credit note"
       }
     },
     "creditNotes": {

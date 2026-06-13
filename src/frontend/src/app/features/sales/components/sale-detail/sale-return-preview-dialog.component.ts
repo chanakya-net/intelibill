@@ -25,6 +25,7 @@ import {
 import type {
   PreviewSaleReturnRequest,
   RecordSaleReturnRequest,
+  SaleReturnCreditNoteSummaryDto,
   SaleDto,
   SaleItemDto,
   SaleReturnCondition,
@@ -94,6 +95,9 @@ export class SaleReturnPreviewDialogComponent {
   readonly payoutDestination = signal<number | null>(null);
   readonly creditNoteExpiryMode = signal<'NoExpiry' | '30Days' | '60Days' | '90Days' | 'Custom'>('NoExpiry');
   readonly creditNoteExpiryDate = signal<string | null>(null);
+  readonly recordedCreditNoteSummary = signal<SaleReturnCreditNoteSummaryDto | null>(null);
+  readonly submittedReturnIds = signal<readonly string[]>([]);
+  readonly submittedPayoutDestination = signal<ReturnPayoutDestination | null>(null);
 
   readonly returnConditionOptions = SALE_RETURN_CONDITIONS;
   readonly payoutDestinationOptions = RETURN_PAYOUT_DESTINATION_OPTIONS;
@@ -179,7 +183,18 @@ export class SaleReturnPreviewDialogComponent {
       if (!this.salesFacade.lastMutationSucceeded()) return;
 
       if (this.salesFacade.lastMutationType() === 'record-return') {
-        this.close();
+        if (this.submittedPayoutDestination() !== ReturnPayoutDestination.CreditNote) {
+          this.close();
+          this.salesFacade.clearMutationStatus();
+          return;
+        }
+
+        const creditNoteSummary = this.getRecordedCreditNoteSummary();
+        if (creditNoteSummary) {
+          this.recordedCreditNoteSummary.set(creditNoteSummary);
+        } else {
+          this.close();
+        }
         this.salesFacade.clearMutationStatus();
         return;
       }
@@ -193,6 +208,9 @@ export class SaleReturnPreviewDialogComponent {
     this.payoutDestination.set(null);
     this.creditNoteExpiryMode.set('NoExpiry');
     this.creditNoteExpiryDate.set(null);
+    this.recordedCreditNoteSummary.set(null);
+    this.submittedReturnIds.set([]);
+    this.submittedPayoutDestination.set(null);
     this.salesFacade.clearSaleReturnPreview();
     this.returnDrafts.set([]);
   }
@@ -326,6 +344,13 @@ export class SaleReturnPreviewDialogComponent {
     this.dueOverrideConfirmed.set(confirmed);
   }
 
+  printRecordedCreditNote(): void {
+    const creditNote = this.recordedCreditNoteSummary();
+    if (!creditNote) return;
+
+    window.open(this.getCreditNotePrintUrl(creditNote.code), '_blank');
+  }
+
   submitReturn(): void {
     const sale = this.saleInput();
     if (!sale) return;
@@ -333,6 +358,11 @@ export class SaleReturnPreviewDialogComponent {
     const errors = this.validateSubmit();
     this.validationMessages.set(errors);
     if (errors.length > 0) return;
+
+    this.submittedReturnIds.set(sale.returns.map((saleReturn) => saleReturn.saleReturnId));
+    this.submittedPayoutDestination.set(
+      this.mapSelectedPayoutDestination(this.payoutDestination()),
+    );
 
     const isCreditNote =
       this.mapSelectedPayoutDestination(this.payoutDestination()) ===
@@ -464,6 +494,29 @@ export class SaleReturnPreviewDialogComponent {
       : (grossOriginalValue * item.taxRatePercent) / 100;
 
     return this.roundMoney(taxAmount);
+  }
+
+  private getRecordedCreditNoteSummary(): SaleReturnCreditNoteSummaryDto | null {
+    const sale = this.salesFacade.selectedSale() ?? this.saleInput();
+    const submittedReturnIds = new Set(this.submittedReturnIds());
+    const latestReturn = sale?.returns
+      ?.filter(
+        (saleReturn) =>
+          !saleReturn.isVoided &&
+          saleReturn.creditNote &&
+          !submittedReturnIds.has(saleReturn.saleReturnId),
+      )
+      .slice()
+      .sort(
+        (left, right) =>
+          new Date(right.returnedAt).getTime() - new Date(left.returnedAt).getTime(),
+      )[0];
+
+    return latestReturn?.creditNote ?? null;
+  }
+
+  private getCreditNotePrintUrl(code: string): string {
+    return `/sales/credit-notes/${encodeURIComponent(code)}/print`;
   }
 
   private initializeDrafts(): void {

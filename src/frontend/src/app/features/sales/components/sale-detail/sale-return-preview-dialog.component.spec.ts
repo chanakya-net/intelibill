@@ -7,7 +7,12 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { AuthService } from '../../../../core/auth/auth.service';
 import { ReturnPayoutDestination } from '../../services/sale.models';
-import type { SaleDto, SaleItemDto, SaleReturnPreviewDto } from '../../services/sale.models';
+import type {
+  SaleDto,
+  SaleItemDto,
+  SaleReturnCreditNoteSummaryDto,
+  SaleReturnPreviewDto,
+} from '../../services/sale.models';
 import { SalesFacade } from '../../state/sales.facade';
 import { SaleReturnPreviewDialogComponent } from './sale-return-preview-dialog.component';
 
@@ -22,6 +27,7 @@ class SalesFacadeStub {
   readonly returnPreviewErrorMessage = signal<string | null>(null);
   readonly lastMutationSucceeded = signal(false);
   readonly lastMutationType = signal<string | null>(null);
+  readonly selectedSale = signal<SaleDto | null>(null);
   readonly previewSaleReturn = vi.fn();
   readonly clearSaleReturnPreview = vi.fn();
   readonly recordSaleReturn = vi.fn();
@@ -111,6 +117,18 @@ const makeSale = (): SaleDto => ({
   items: [makeServiceItem()],
   returns: [],
   warnings: [],
+});
+
+const makeCreditNoteSummary = (
+  overrides: Partial<SaleReturnCreditNoteSummaryDto> = {},
+): SaleReturnCreditNoteSummaryDto => ({
+  creditNoteId: 'cn-1',
+  code: 'CN-2026-0007',
+  originalAmount: 242,
+  availableBalance: 242,
+  expiresAt: null,
+  reason: 'Return refund',
+  ...overrides,
 });
 
 async function createComponent() {
@@ -570,5 +588,145 @@ describe('SaleReturnPreviewDialogComponent', () => {
     const payload = facade.recordSaleReturn.mock.calls[0][1];
     expect(payload.creditNoteExpiresAt).toBeTruthy();
     expect(payload.creditNoteExpiresAt).toMatch(/^2026-12-31T/);
+  });
+
+  it('shows credit note code and print action after a successful credit note return', async () => {
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+    const { fixture, component, facade } = await createComponent();
+    component.sale = {
+      ...makeSale(),
+      items: [makeServiceItem()],
+    };
+    component.visible = true;
+    fixture.detectChanges();
+
+    const item = component.sale!.items[0];
+    component.toggleReturnLine(item, true);
+    component.updatePayoutDestination(4);
+    component.submitReturn();
+
+    const updatedSale = {
+      ...component.sale,
+      returns: [
+        {
+          saleReturnId: 'ret-1',
+          returnNumber: 'RET-1',
+          returnedAt: '2026-06-14T08:00:00Z',
+          processedBy: 'user-1',
+          notes: null,
+          totalRefundAmount: 242,
+          dueReductionAmount: 0,
+          payoutAmount: 242,
+          payoutDestination: ReturnPayoutDestination.CreditNote,
+          totalTaxableAmount: 200,
+          totalTaxAmount: 42,
+          creditNote: makeCreditNoteSummary(),
+          isVoided: false,
+          voidedAt: null,
+          voidReason: null,
+          items: [],
+        },
+      ],
+    };
+    component.sale = updatedSale;
+    facade.selectedSale.set(updatedSale);
+    facade.lastMutationType.set('record-return');
+    facade.lastMutationSucceeded.set(true);
+    fixture.detectChanges();
+
+    expect(facade.recordSaleReturn).toHaveBeenCalledTimes(1);
+    const text = fixture.nativeElement.textContent as string;
+    expect(text).toContain('Credit note created');
+    expect(text).toContain('CN-2026-0007');
+
+    const printButton = fixture.nativeElement.querySelector('.return-preview-success-actions .p-button');
+    expect(printButton).not.toBeNull();
+
+    component.printRecordedCreditNote();
+    expect(openSpy).toHaveBeenCalledWith('/sales/credit-notes/CN-2026-0007/print', '_blank');
+    openSpy.mockRestore();
+  });
+
+  it('closes after a non-credit return even when the sale already has an older credit note', async () => {
+    const { fixture, component, facade } = await createComponent();
+    const closeSpy = vi.spyOn(component, 'close');
+    const initialReturn = {
+      saleReturnId: 'ret-old',
+      returnNumber: 'RET-OLD',
+      returnedAt: '2026-06-13T08:00:00Z',
+      processedBy: 'user-1',
+      notes: null,
+      totalRefundAmount: 242,
+      dueReductionAmount: 0,
+      payoutAmount: 242,
+      payoutDestination: ReturnPayoutDestination.CreditNote,
+      totalTaxableAmount: 200,
+      totalTaxAmount: 42,
+      creditNote: makeCreditNoteSummary({ creditNoteId: 'cn-old', code: 'CN-2026-0006' }),
+      isVoided: false,
+      voidedAt: null,
+      voidReason: null,
+      items: [],
+    };
+
+    component.sale = {
+      ...makeSale(),
+      items: [makeServiceItem()],
+      returns: [initialReturn],
+    };
+    component.visible = true;
+    facade.returnPreview.set({
+      saleId: 'sale-1',
+      hasFinancialAccess: true,
+      lines: [],
+      financial: {
+        totalRefundAmount: 242,
+        dueReductionAmount: 0,
+        payoutAmount: 242,
+        totalTaxableAmount: 200,
+        totalTaxAmount: 42,
+        customerBalanceBefore: null,
+        customerBalanceAfter: null,
+      },
+      warnings: [],
+    });
+    fixture.detectChanges();
+
+    component.submittedReturnIds.set([initialReturn.saleReturnId]);
+    component.submittedPayoutDestination.set(ReturnPayoutDestination.Refund);
+
+    const updatedSale = {
+      ...component.sale,
+      returns: [
+        initialReturn,
+        {
+          saleReturnId: 'ret-new',
+          returnNumber: 'RET-NEW',
+          returnedAt: '2026-06-14T08:00:00Z',
+          processedBy: 'user-2',
+          notes: null,
+          totalRefundAmount: 242,
+          dueReductionAmount: 0,
+          payoutAmount: 242,
+          payoutDestination: ReturnPayoutDestination.Refund,
+          totalTaxableAmount: 200,
+          totalTaxAmount: 42,
+          creditNote: null,
+          isVoided: false,
+          voidedAt: null,
+          voidReason: null,
+          items: [],
+        },
+      ],
+    };
+    component.sale = updatedSale;
+    facade.selectedSale.set(updatedSale);
+    facade.lastMutationType.set('record-return');
+    facade.lastMutationSucceeded.set(true);
+    fixture.detectChanges();
+
+    expect(closeSpy).toHaveBeenCalled();
+    expect(fixture.nativeElement.querySelector('.return-preview-success')).toBeNull();
+    expect(component.recordedCreditNoteSummary()).toBeNull();
   });
 });

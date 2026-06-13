@@ -45,7 +45,7 @@ export const routes: Routes = [
 			).then((m) => m.SaleInvoicePrintPageComponent),
 	},
 	{
-		path: 'credit-notes/:code/print',
+		path: 'sales/credit-notes/:code/print',
 		canActivate: [authGuard],
 		loadComponent: () =>
 			import(

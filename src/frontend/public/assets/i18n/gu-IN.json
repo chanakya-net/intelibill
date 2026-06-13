@@ -1239,6 +1239,11 @@
         "warnings": "ચેતવણીઓ",
         "previewBtn": "પ્રીવ્યુ",
         "recordBtn": "રિટર્ન રેકોર્ડ કરો",
+        "successEyebrow": "Credit note issued",
+        "successTitle": "Credit note created",
+        "successDescription": "The return has been recorded and the credit note is ready to print.",
+        "successCodeLabel": "Credit note code",
+        "printCreditNoteBtn": "Print credit note",
         "creditNoteExpiry": "ક્રેડિટ નોટ એક્સપાયરી",
         "creditNoteExpiryDate": "એક્સપાયરી તારીખ"
       }
