@@ -134,7 +134,7 @@ public sealed class GetCreditNotePrintByCodeQueryHandlerTests
             .Returns(fixture.managerMembership);
         _creditNoteRepository.GetByCodeAsync(fixture.shop.Id, "CN-404", Arg.Any<CancellationToken>())
             .Returns((CreditNote?)null);
-        _saleReturnRepository.GetByIdWithItemsAsync(fixture.shop.Id, saleReturn.Id, Arg.Any<CancellationToken>())
+        _saleReturnRepository.GetByIdAsync(fixture.shop.Id, saleReturn.Id, Arg.Any<CancellationToken>())
             .Returns(saleReturn);
         _saleRepository.GetByIdAsync(sale.Id, fixture.shop.Id, Arg.Any<CancellationToken>())
             .Returns(sale);
@@ -145,6 +145,108 @@ public sealed class GetCreditNotePrintByCodeQueryHandlerTests
 
         Assert.True(result.IsError);
         Assert.Equal(Errors.CreditNote.CreditNoteNotFound("CN-404").Code, result.FirstError.Code);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenUserMissing_ReturnsUserNotFound()
+    {
+        var fixture = BuildFixture();
+
+        var result = await CreateHandler().HandleAsync(
+            new GetCreditNotePrintByCodeQuery(fixture.manager.Id, fixture.shop.Id, "CN-001"),
+            CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Auth.UserNotFound.Code, result.FirstError.Code);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenShopMissing_ReturnsShopNotFound()
+    {
+        var fixture = BuildFixture();
+        _userRepository.GetByIdAsync(fixture.manager.Id, Arg.Any<CancellationToken>()).Returns(fixture.manager);
+
+        var result = await CreateHandler().HandleAsync(
+            new GetCreditNotePrintByCodeQuery(fixture.manager.Id, fixture.shop.Id, "CN-001"),
+            CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Shop.ShopNotFound.Code, result.FirstError.Code);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenMembershipMissing_ReturnsMembershipNotFound()
+    {
+        var fixture = BuildFixture();
+        _userRepository.GetByIdAsync(fixture.manager.Id, Arg.Any<CancellationToken>()).Returns(fixture.manager);
+        _shopRepository.GetByIdAsync(fixture.shop.Id, Arg.Any<CancellationToken>()).Returns(fixture.shop);
+
+        var result = await CreateHandler().HandleAsync(
+            new GetCreditNotePrintByCodeQuery(fixture.manager.Id, fixture.shop.Id, "CN-001"),
+            CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Shop.MembershipNotFound.Code, result.FirstError.Code);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenRoleIsCustomer_ReturnsForbidden()
+    {
+        var fixture = BuildFixture();
+        var customer = User.CreateWithEmail("customer@test.com", "hash", "Customer", "User");
+        var customerMembership = ShopMembership.Create(fixture.shop.Id, customer.Id, (ShopRole)999, false);
+        customer.AddShopMembership(customerMembership);
+        fixture.shop.AddMembership(customerMembership);
+
+        _userRepository.GetByIdAsync(customer.Id, Arg.Any<CancellationToken>()).Returns(customer);
+        _shopRepository.GetByIdAsync(fixture.shop.Id, Arg.Any<CancellationToken>()).Returns(fixture.shop);
+        _shopRepository.GetMembershipAsync(customer.Id, fixture.shop.Id, Arg.Any<CancellationToken>())
+            .Returns(customerMembership);
+
+        var result = await CreateHandler().HandleAsync(
+            new GetCreditNotePrintByCodeQuery(customer.Id, fixture.shop.Id, "CN-001"),
+            CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.CreditNote.UserIsNotOwnerManagerOrStaff.Code, result.FirstError.Code);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenSaleReturnMissing_ReturnsCreditNoteNotFound()
+    {
+        var fixture = BuildFixture();
+        var sale = CreateSale(fixture.shop.Id, "INV-006", "Jane Doe");
+        var saleReturn = CreateSaleReturn(fixture.shop.Id, sale.Id, "RET-006");
+        var note = CreateCreditNote(fixture.shop.Id, saleReturn.Id);
+        ArrangeAuthorizedLookup(fixture.manager.Id, fixture.managerMembership, note, saleReturn, sale);
+        _saleReturnRepository.GetByIdAsync(fixture.shop.Id, saleReturn.Id, Arg.Any<CancellationToken>())
+            .Returns((SaleReturn?)null);
+
+        var result = await CreateHandler().HandleAsync(
+            new GetCreditNotePrintByCodeQuery(fixture.manager.Id, fixture.shop.Id, note.Code),
+            CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.CreditNote.CreditNoteNotFound(note.Code).Code, result.FirstError.Code);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenSaleMissing_ReturnsCreditNoteNotFound()
+    {
+        var fixture = BuildFixture();
+        var sale = CreateSale(fixture.shop.Id, "INV-007", "Jane Doe");
+        var saleReturn = CreateSaleReturn(fixture.shop.Id, sale.Id, "RET-007");
+        var note = CreateCreditNote(fixture.shop.Id, saleReturn.Id);
+        ArrangeAuthorizedLookup(fixture.manager.Id, fixture.managerMembership, note, saleReturn, sale);
+        _saleRepository.GetByIdAsync(sale.Id, fixture.shop.Id, Arg.Any<CancellationToken>())
+            .Returns((Sale?)null);
+
+        var result = await CreateHandler().HandleAsync(
+            new GetCreditNotePrintByCodeQuery(fixture.manager.Id, fixture.shop.Id, note.Code),
+            CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.CreditNote.CreditNoteNotFound(note.Code).Code, result.FirstError.Code);
     }
 
     private GetCreditNotePrintByCodeQueryHandler CreateHandler() =>
@@ -163,10 +265,18 @@ public sealed class GetCreditNotePrintByCodeQueryHandlerTests
             .Returns(membership);
         _creditNoteRepository.GetByCodeAsync(membership.ShopId, creditNote.Code, Arg.Any<CancellationToken>())
             .Returns(creditNote);
-        _saleReturnRepository.GetByIdWithItemsAsync(membership.ShopId, saleReturn.Id, Arg.Any<CancellationToken>())
+        _saleReturnRepository.GetByIdAsync(membership.ShopId, saleReturn.Id, Arg.Any<CancellationToken>())
             .Returns(saleReturn);
         _saleRepository.GetByIdAsync(sale.Id, membership.ShopId, Arg.Any<CancellationToken>())
             .Returns(sale);
+    }
+
+    private void ConfigureMembershipLookup(Guid userId, ShopMembership membership)
+    {
+        _userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>()).Returns(membership.User);
+        _shopRepository.GetByIdAsync(membership.ShopId, Arg.Any<CancellationToken>()).Returns(membership.Shop);
+        _shopRepository.GetMembershipAsync(userId, membership.ShopId, Arg.Any<CancellationToken>())
+            .Returns(membership);
     }
 
     private static Fixture BuildFixture()

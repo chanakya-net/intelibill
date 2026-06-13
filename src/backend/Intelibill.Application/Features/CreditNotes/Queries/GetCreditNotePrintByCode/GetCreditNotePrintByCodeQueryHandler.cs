@@ -36,7 +36,7 @@ public sealed class GetCreditNotePrintByCodeQueryHandler(
         if (creditNote is null)
             return Errors.CreditNote.CreditNoteNotFound(query.Code);
 
-        var saleReturn = await saleReturnRepository.GetByIdWithItemsAsync(query.ActiveShopId, creditNote.SaleReturnId, cancellationToken);
+        var saleReturn = await saleReturnRepository.GetByIdAsync(query.ActiveShopId, creditNote.SaleReturnId, cancellationToken);
         if (saleReturn is null)
             return Errors.CreditNote.CreditNoteNotFound(query.Code);
 
