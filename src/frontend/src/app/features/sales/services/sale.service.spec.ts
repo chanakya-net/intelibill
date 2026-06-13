@@ -1,9 +1,11 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
+import { describe, expect, it } from 'vitest';
 
 import { SALE_ENDPOINTS } from '../../../core/auth/auth.constants';
 import { SaleService } from './sale.service';
+import { ReturnPayoutDestination, mapPaymentMethodToPayoutDestination } from './sale.models';
 import type {
   SaleDto,
   SaleListItemDto,
@@ -709,5 +711,23 @@ describe('SaleService', () => {
     expect(req.request.params.keys().length).toBe(0);
     req.flush(result);
     http.verify();
+  });
+});
+
+describe('mapPaymentMethodToPayoutDestination', () => {
+  it('maps Cash (1) to ReturnPayoutDestination.Refund', () => {
+    expect(mapPaymentMethodToPayoutDestination(1)).toBe(ReturnPayoutDestination.Refund);
+  });
+
+  it('maps UPI (2) to ReturnPayoutDestination.Refund', () => {
+    expect(mapPaymentMethodToPayoutDestination(2)).toBe(ReturnPayoutDestination.Refund);
+  });
+
+  it('maps Card (3) to ReturnPayoutDestination.Refund', () => {
+    expect(mapPaymentMethodToPayoutDestination(3)).toBe(ReturnPayoutDestination.Refund);
+  });
+
+  it('returns null for null method', () => {
+    expect(mapPaymentMethodToPayoutDestination(null)).toBeNull();
   });
 });

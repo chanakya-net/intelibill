@@ -863,4 +863,45 @@ public class SalesControllerTests
                 && c.Reason == "Duplicate return"),
             Arg.Any<CancellationToken>());
     }
+
+    [Theory]
+    [InlineData(PaymentMethod.Cash)]
+    [InlineData(PaymentMethod.UPI)]
+    [InlineData(PaymentMethod.Card)]
+    public async Task RecordSaleReturn_WithLegacyPayoutMethod_MapsToRefund(PaymentMethod legacyMethod)
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        var saleId = Guid.NewGuid();
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()));
+
+        var sale = new SaleDto(
+            saleId, "INV-001", null, "Ravi Kumar", null,
+            PaymentMethod.Cash, DateTimeOffset.UtcNow,
+            500m, 0m, 500m, 0m, 500m, 0m, [], []);
+
+        _bus.InvokeAsync<ErrorOr<Success>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<Success>>(Result.Success));
+        _bus.InvokeAsync<ErrorOr<SaleDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<SaleDto>>(sale));
+
+        var result = await _controller.RecordSaleReturn(
+            saleId,
+            new RecordSaleReturnRequest(
+                PayoutDestination: null,
+                DueReductionOverrideAmount: null,
+                DueOverrideReason: null,
+                Notes: null,
+                Items: [],
+                PayoutMethod: legacyMethod),
+            CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        await _bus.Received(1).InvokeAsync<ErrorOr<Success>>(
+            Arg.Is<RecordSaleReturnCommand>(c =>
+                c.PayoutDestination == ReturnPayoutDestination.Refund),
+            Arg.Any<CancellationToken>());
+    }
 }

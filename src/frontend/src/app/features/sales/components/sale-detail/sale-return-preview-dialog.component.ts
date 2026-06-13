@@ -16,7 +16,7 @@ import { CheckboxModule } from 'primeng/checkbox';
 import { DialogModule } from 'primeng/dialog';
 import { SelectModule } from 'primeng/select';
 import { AuthService } from '../../../../core/auth/auth.service';
-import { PAYMENT_METHOD_VALUES, SALE_RETURN_CONDITIONS } from '../../services/sale.models';
+import { PAYMENT_METHOD_VALUES, SALE_RETURN_CONDITIONS, mapPaymentMethodToPayoutDestination } from '../../services/sale.models';
 import type {
   PreviewSaleReturnRequest,
   RecordSaleReturnRequest,
@@ -308,7 +308,9 @@ export class SaleReturnPreviewDialogComponent {
 
     const payload: RecordSaleReturnRequest = {
       payoutDestination:
-        (this.returnPreview()?.financial?.payoutAmount ?? 0) > 0 ? 2 : null,
+        (this.returnPreview()?.financial?.payoutAmount ?? 0) > 0
+          ? mapPaymentMethodToPayoutDestination(this.payoutMethod())
+          : null,
       dueReductionOverrideAmount: this.dueReductionOverrideAmount(),
       dueOverrideReason: this.normalizeOptional(this.dueOverrideReason()),
       notes: null,

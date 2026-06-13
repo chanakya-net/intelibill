@@ -128,7 +128,8 @@ public sealed record RecordSaleReturnRequest(
     decimal? DueReductionOverrideAmount,
     string? DueOverrideReason,
     string? Notes,
-    IReadOnlyList<RecordSaleReturnItemRequest> Items);
+    IReadOnlyList<RecordSaleReturnItemRequest> Items,
+    PaymentMethod? PayoutMethod = null);
 
 public sealed record RecordSaleReturnItemRequest(
     Guid SaleItemId,
