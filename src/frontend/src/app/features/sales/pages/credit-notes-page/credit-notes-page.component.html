@@ -7,9 +7,316 @@
     </div>
   </header>
 
-  <section class="empty-state" aria-live="polite">
-    <i class="pi pi-file-edit empty-icon"></i>
-    <h2>{{ 'sales.creditNotes.emptyState.title' | transloco }}</h2>
-    <p>{{ 'sales.creditNotes.emptyState.description' | transloco }}</p>
+  <section class="command-panel">
+    <div class="command-group">
+      <label class="control-label">{{ 'sales.creditNotes.verify.label' | transloco }}</label>
+      <div class="verify-row">
+        <p-iconfield iconPosition="left" class="search-field">
+          <p-inputicon><i class="pi pi-search"></i></p-inputicon>
+          <input
+            pInputText
+            type="text"
+            [ngModel]="verifyCode()"
+            (ngModelChange)="verifyCode.set($event)"
+            [placeholder]="'sales.creditNotes.verify.placeholder' | transloco"
+          />
+        </p-iconfield>
+        <button
+          pButton
+          type="button"
+          severity="secondary"
+          icon="pi pi-check"
+          [label]="'sales.creditNotes.verify.action' | transloco"
+          (click)="onVerifyCode()"
+          [disabled]="loadingDetail() || !verifyCode().trim()"
+        ></button>
+      </div>
+    </div>
+
+    <div class="command-group">
+      <label class="control-label">{{ 'sales.creditNotes.controls.search' | transloco }}</label>
+      <p-iconfield iconPosition="left" class="search-field">
+        <p-inputicon><i class="pi pi-filter"></i></p-inputicon>
+        <input
+          pInputText
+          type="text"
+          [ngModel]="searchValue()"
+          (ngModelChange)="onSearchChange($event)"
+          [placeholder]="'sales.creditNotes.controls.searchPlaceholder' | transloco"
+        />
+      </p-iconfield>
+    </div>
+
+    <div class="filters-row">
+      <div class="command-group">
+        <label class="control-label">{{ 'sales.creditNotes.controls.status' | transloco }}</label>
+        <p-select
+          [ngModel]="statusFilter()"
+          (ngModelChange)="onStatusChange($event)"
+          [options]="statusOptions"
+          optionLabel="label"
+          optionValue="value"
+        >
+          <ng-template pTemplate="selectedItem" let-option>
+            {{ option.label | transloco }}
+          </ng-template>
+          <ng-template pTemplate="item" let-option>
+            {{ option.label | transloco }}
+          </ng-template>
+        </p-select>
+      </div>
+
+      <div class="command-group">
+        <label class="control-label">{{ 'sales.creditNotes.controls.pageSize' | transloco }}</label>
+        <p-select
+          [ngModel]="pageSize()"
+          (ngModelChange)="onPageSizeChange($event)"
+          [options]="pageSizeOptions"
+          optionLabel="label"
+          optionValue="value"
+        />
+      </div>
+
+      <button
+        pButton
+        type="button"
+        outlined="true"
+        severity="secondary"
+        class="clear-btn"
+        icon="pi pi-undo"
+        [label]="'sales.creditNotes.controls.clear' | transloco"
+        (click)="clearFilters()"
+      ></button>
+    </div>
   </section>
+
+  @if (errorMessage()) {
+    <p class="error">{{ errorMessage() | transloco }}</p>
+  }
+
+  <section class="ledger-panel">
+    <header class="ledger-header">
+      <div>
+        <h2>{{ 'sales.creditNotes.list.title' | transloco }}</h2>
+        <p class="subtitle">{{ 'sales.creditNotes.list.subtitle' | transloco }}</p>
+      </div>
+      <div class="count-pill">
+        {{ 'sales.creditNotes.list.count' | transloco: { total: totalCount() } }}
+      </div>
+    </header>
+
+    @if (loadingNotes()) {
+      <div class="loading-state">{{ 'sales.creditNotes.loading' | transloco }}</div>
+    } @else {
+      <div class="desktop-table">
+        <p-table [value]="notes()" class="p-datatable-sm">
+          <ng-template pTemplate="header">
+            <tr>
+              <th>{{ 'sales.creditNotes.table.code' | transloco }}</th>
+              <th>{{ 'sales.creditNotes.table.status' | transloco }}</th>
+              <th class="text-right">{{ 'sales.creditNotes.table.balance' | transloco }}</th>
+              <th class="text-right">{{ 'sales.creditNotes.table.originalAmount' | transloco }}</th>
+              <th>{{ 'sales.creditNotes.table.customer' | transloco }}</th>
+              <th>{{ 'sales.creditNotes.table.invoice' | transloco }}</th>
+              <th>{{ 'sales.creditNotes.table.returnNumber' | transloco }}</th>
+              <th>{{ 'sales.creditNotes.table.issuedAt' | transloco }}</th>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-note>
+            <tr class="clickable-row" (click)="openCreditNoteFromList(note)">
+              <td class="font-bold">{{ note.code }}</td>
+              <td>
+                <p-tag
+                  [severity]="getStatusSeverity(note.status)"
+                  [value]="getStatusTranslationKey(note.status) | transloco"
+                ></p-tag>
+              </td>
+              <td class="text-right">{{ formatCurrency(note.availableBalance) }}</td>
+              <td class="text-right">{{ formatCurrency(note.originalAmount) }}</td>
+              <td>
+                @if (note.customerName) {
+                  {{ note.customerName }}
+                } @else {
+                  <span class="muted">{{ 'sales.history.walkIn' | transloco }}</span>
+                }
+              </td>
+              <td>{{ note.invoiceNumber }}</td>
+              <td>{{ note.returnNumber }}</td>
+              <td>{{ formatDateTime(note.issuedAt) }}</td>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="emptymessage">
+            <tr>
+              <td colspan="8" class="empty-cell">
+                <div class="empty-state">
+                  <i class="pi pi-file-edit empty-icon"></i>
+                  <h3>{{ 'sales.creditNotes.empty.title' | transloco }}</h3>
+                  <p>{{ 'sales.creditNotes.empty.description' | transloco }}</p>
+                </div>
+              </td>
+            </tr>
+          </ng-template>
+        </p-table>
+      </div>
+
+      <div class="mobile-list">
+        @for (note of notes(); track note.creditNoteId) {
+          <article class="mobile-card" (click)="openCreditNoteFromList(note)">
+            <header>
+              <div>
+                <h3>{{ note.code }}</h3>
+                <p class="mobile-subtitle">{{ formatDateTime(note.issuedAt) }}</p>
+              </div>
+              <p-tag
+                [severity]="getStatusSeverity(note.status)"
+                [value]="getStatusTranslationKey(note.status) | transloco"
+              ></p-tag>
+            </header>
+
+            <div class="mobile-grid">
+              <p><strong>{{ 'sales.creditNotes.table.balance' | transloco }}:</strong> {{ formatCurrency(note.availableBalance) }}</p>
+              <p><strong>{{ 'sales.creditNotes.table.originalAmount' | transloco }}:</strong> {{ formatCurrency(note.originalAmount) }}</p>
+              <p><strong>{{ 'sales.creditNotes.table.customer' | transloco }}:</strong> {{ note.customerName || ('sales.history.walkIn' | transloco) }}</p>
+              <p><strong>{{ 'sales.creditNotes.table.invoice' | transloco }}:</strong> {{ note.invoiceNumber }}</p>
+              <p><strong>{{ 'sales.creditNotes.table.returnNumber' | transloco }}:</strong> {{ note.returnNumber }}</p>
+            </div>
+          </article>
+        }
+
+        @if (notes().length === 0) {
+          <div class="mobile-empty">
+            <i class="pi pi-file-edit empty-icon"></i>
+            <h3>{{ 'sales.creditNotes.empty.title' | transloco }}</h3>
+            <p>{{ 'sales.creditNotes.empty.description' | transloco }}</p>
+          </div>
+        }
+      </div>
+
+      <footer class="pager">
+        <div class="showing">
+          {{ 'sales.creditNotes.pagination.showing' | transloco: { total: totalCount(), page: pageNumber(), pages: totalPages() } }}
+        </div>
+        <div class="pager-actions">
+          <button
+            pButton
+            type="button"
+            outlined="true"
+            severity="secondary"
+            icon="pi pi-chevron-left"
+            (click)="onPageChange(pageNumber() - 1)"
+            [disabled]="pageNumber() === 1"
+          ></button>
+          <span class="page-chip">{{ pageNumber() }}</span>
+          <button
+            pButton
+            type="button"
+            outlined="true"
+            severity="secondary"
+            icon="pi pi-chevron-right"
+            (click)="onPageChange(pageNumber() + 1)"
+            [disabled]="pageNumber() >= totalPages()"
+          ></button>
+        </div>
+      </footer>
+    }
+  </section>
+
+  @if (selectedCreditNote()) {
+    <section class="detail-panel">
+      <header class="detail-header">
+        <div>
+          <p class="eyebrow">{{ 'sales.creditNotes.detail.eyebrow' | transloco }}</p>
+          <h2>{{ selectedSummary()?.code || selectedCreditNote()?.code }}</h2>
+          <p class="subtitle">{{ 'sales.creditNotes.detail.subtitle' | transloco }}</p>
+        </div>
+        <p-tag
+          [severity]="getStatusSeverity(selectedCreditNote()!.status)"
+          [value]="getStatusTranslationKey(selectedCreditNote()!.status) | transloco"
+        ></p-tag>
+      </header>
+
+      <div class="detail-grid">
+        <article class="metric-card">
+          <p>{{ 'sales.creditNotes.detail.balance' | transloco }}</p>
+          <strong>{{ formatCurrency(selectedCreditNote()!.availableBalance) }}</strong>
+        </article>
+        <article class="metric-card">
+          <p>{{ 'sales.creditNotes.detail.originalAmount' | transloco }}</p>
+          <strong>{{ formatCurrency(selectedCreditNote()!.originalAmount ?? selectedSummary()?.originalAmount ?? 0) }}</strong>
+        </article>
+        <article class="metric-card">
+          <p>{{ 'sales.creditNotes.detail.expiresAt' | transloco }}</p>
+          <strong>{{ formatDateTime(selectedCreditNote()!.expiresAt || selectedSummary()?.expiresAt || null) }}</strong>
+        </article>
+        <article class="metric-card">
+          <p>{{ 'sales.creditNotes.detail.customer' | transloco }}</p>
+          <strong>
+            @if (selectedSummary()?.customerName) {
+              {{ selectedSummary()!.customerName }}
+            } @else {
+              {{ 'sales.history.walkIn' | transloco }}
+            }
+          </strong>
+        </article>
+        <article class="metric-card">
+          <p>{{ 'sales.creditNotes.detail.invoice' | transloco }}</p>
+          <strong>{{ selectedSummary()?.invoiceNumber || '--' }}</strong>
+        </article>
+        <article class="metric-card">
+          <p>{{ 'sales.creditNotes.detail.returnNumber' | transloco }}</p>
+          <strong>{{ selectedSummary()?.returnNumber || '--' }}</strong>
+        </article>
+      </div>
+
+      <div class="detail-notes">
+        <article>
+          <p class="control-label">{{ 'sales.creditNotes.detail.reason' | transloco }}</p>
+          <p>{{ selectedCreditNote()!.reason || '--' }}</p>
+        </article>
+        @if (selectedCreditNote()!.voidReason) {
+          <article>
+            <p class="control-label">{{ 'sales.creditNotes.detail.voidReason' | transloco }}</p>
+            <p>{{ selectedCreditNote()!.voidReason }}</p>
+          </article>
+        }
+      </div>
+
+      <section class="redemption-panel">
+        <header class="detail-header compact">
+          <div>
+            <h3>{{ 'sales.creditNotes.redemptions.title' | transloco }}</h3>
+            <p class="subtitle">{{ 'sales.creditNotes.redemptions.subtitle' | transloco }}</p>
+          </div>
+        </header>
+
+        @if (getRedemptions(selectedCreditNote()).length > 0) {
+          <div class="desktop-table">
+            <p-table [value]="getRedemptions(selectedCreditNote())" class="p-datatable-sm">
+              <ng-template pTemplate="header">
+                <tr>
+                  <th>{{ 'sales.creditNotes.redemptions.table.saleId' | transloco }}</th>
+                  <th>{{ 'sales.creditNotes.redemptions.table.invoice' | transloco }}</th>
+                  <th class="text-right">{{ 'sales.creditNotes.redemptions.table.amount' | transloco }}</th>
+                  <th>{{ 'sales.creditNotes.redemptions.table.redeemedAt' | transloco }}</th>
+                </tr>
+              </ng-template>
+              <ng-template pTemplate="body" let-redemption>
+                <tr>
+                  <td>{{ redemption.saleId }}</td>
+                  <td>{{ redemption.invoiceNumber || '--' }}</td>
+                  <td class="text-right">{{ formatCurrency(redemption.amount) }}</td>
+                  <td>{{ formatDateTime(redemption.redeemedAt) }}</td>
+                </tr>
+              </ng-template>
+            </p-table>
+          </div>
+        } @else {
+          <div class="redemption-empty">
+            <i class="pi pi-history empty-icon"></i>
+            <p>{{ 'sales.creditNotes.redemptions.empty' | transloco }}</p>
+          </div>
+        }
+      </section>
+    </section>
+  }
 </section>

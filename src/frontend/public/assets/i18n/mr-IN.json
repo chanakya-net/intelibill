@@ -1234,9 +1234,80 @@
       "eyebrow": "Sales Records",
       "title": "Credit Notes",
       "subtitle": "Review credit note history for the active shop.",
-      "emptyState": {
-        "title": "No credit notes yet",
-        "description": "Credit notes will appear here once they are created."
+      "verify": {
+        "label": "Verify code",
+        "placeholder": "Enter credit note code",
+        "action": "Verify"
+      },
+      "controls": {
+        "search": "Search",
+        "searchPlaceholder": "Search by code, invoice, return number, or customer",
+        "status": "Status",
+        "pageSize": "Rows",
+        "clear": "Clear filters"
+      },
+      "filters": {
+        "all": "All",
+        "active": "Active",
+        "fullyRedeemed": "Fully redeemed",
+        "expired": "Expired",
+        "voided": "Voided"
+      },
+      "list": {
+        "title": "Credit note list",
+        "subtitle": "Browse codes and balances.",
+        "count": "{{total}} notes"
+      },
+      "table": {
+        "code": "Code",
+        "status": "Status",
+        "balance": "Balance",
+        "originalAmount": "Original amount",
+        "customer": "Customer",
+        "invoice": "Invoice",
+        "returnNumber": "Return number",
+        "issuedAt": "Issued at"
+      },
+      "status": {
+        "Active": "Active",
+        "Voided": "Voided",
+        "FullyRedeemed": "Fully redeemed",
+        "Expired": "Expired"
+      },
+      "empty": {
+        "title": "No credit notes found",
+        "description": "Use search or status filters to narrow the list."
+      },
+      "loading": "Loading credit notes...",
+      "pagination": {
+        "showing": "Showing {{total}} notes, page {{page}} of {{pages}}"
+      },
+      "detail": {
+        "eyebrow": "Selected credit note",
+        "subtitle": "Review balance, customer context, and redemption activity.",
+        "balance": "Balance",
+        "originalAmount": "Original amount",
+        "expiresAt": "Expires at",
+        "customer": "Customer",
+        "invoice": "Invoice",
+        "returnNumber": "Return number",
+        "reason": "Reason",
+        "voidReason": "Void reason"
+      },
+      "redemptions": {
+        "title": "Redemption history",
+        "subtitle": "Applications against this credit note.",
+        "empty": "No redemption history available.",
+        "table": {
+          "saleId": "Sale",
+          "invoice": "Invoice",
+          "amount": "Amount",
+          "redeemedAt": "Redeemed at"
+        }
+      },
+      "errors": {
+        "loadFailed": "Unable to load credit notes.",
+        "verifyFailed": "Unable to verify credit note."
       }
     },
 

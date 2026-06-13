@@ -533,12 +533,60 @@ export interface OfflineSalesSyncRequest {
 
 // ─── Credit note verify ───────────────────────────────────────────────────────
 
+export type CreditNoteStatus = 'Active' | 'Voided' | 'FullyRedeemed' | 'Expired';
+
+export type CreditNoteListStatusFilter = 'all' | CreditNoteStatus;
+
+export interface CreditNoteRedemptionDto {
+  readonly saleId: string;
+  readonly amount: number;
+  readonly redeemedAt: string;
+  readonly invoiceNumber?: string | null;
+}
+
 export interface CreditNoteVerifyResponseDto {
   readonly creditNoteId: string;
   readonly code: string;
   readonly availableBalance: number;
   readonly expiresAt: string | null;
-  readonly status: string;
+  readonly status: CreditNoteStatus;
+  readonly originalAmount?: number;
+  readonly isVoided?: boolean;
+  readonly saleReturnId?: string;
+  readonly reason?: string;
+  readonly voidReason?: string | null;
+  readonly redemptions?: readonly CreditNoteRedemptionDto[];
+}
+
+export type CreditNoteDetailDto = CreditNoteVerifyResponseDto;
+
+export interface CreditNoteListItemDto {
+  readonly creditNoteId: string;
+  readonly code: string;
+  readonly status: CreditNoteStatus;
+  readonly originalAmount: number;
+  readonly availableBalance: number;
+  readonly expiresAt: string | null;
+  readonly issuedAt: string;
+  readonly saleReturnId: string;
+  readonly returnNumber: string;
+  readonly saleId: string;
+  readonly invoiceNumber: string;
+  readonly customerName: string | null;
+}
+
+export interface CreditNotesQueryParams {
+  readonly search?: string;
+  readonly status?: CreditNoteStatus;
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export interface CreditNotesResultDto {
+  readonly items: readonly CreditNoteListItemDto[];
+  readonly totalCount: number;
+  readonly pageNumber: number;
+  readonly pageSize: number;
 }
 
 export interface OfflineSaleSyncErrorDto {
