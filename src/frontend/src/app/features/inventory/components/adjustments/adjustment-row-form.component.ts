@@ -11,8 +11,9 @@ import { FormsModule } from '@angular/forms';
 import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import { AutoCompleteCompleteEvent, AutoCompleteModule } from 'primeng/autocomplete';
 import { ButtonModule } from 'primeng/button';
+import { DatePickerModule } from 'primeng/datepicker';
+import { DialogModule } from 'primeng/dialog';
 import { InputNumberModule } from 'primeng/inputnumber';
-import { InputTextModule } from 'primeng/inputtext';
 import { SelectModule } from 'primeng/select';
 import { TextareaModule } from 'primeng/textarea';
 
@@ -38,12 +39,14 @@ interface SelectOption<T extends string> {
     TranslocoPipe,
     AutoCompleteModule,
     ButtonModule,
+    DatePickerModule,
+    DialogModule,
     InputNumberModule,
-    InputTextModule,
     SelectModule,
     TextareaModule,
   ],
   templateUrl: './adjustment-row-form.component.html',
+  styleUrl: './adjustment-row-form.component.scss',
 })
 export class AdjustmentRowFormComponent implements OnInit {
   private readonly formBuilder = inject(FormBuilder);
@@ -61,13 +64,6 @@ export class AdjustmentRowFormComponent implements OnInit {
   readonly selectedBatchDecreaseBlocked = computed(() => {
     const batch = this.selectedBatch();
     return !!batch && batch.quantity <= 0 && this.adjustmentDirectionValue() === 'Decrease';
-  });
-
-  readonly selectedBatchLabel = computed(() => {
-    const batch = this.selectedBatch();
-    return batch
-      ? `${batch.itemName} · ${batch.batchNumber} · ${this.translate('inventory.quantity')}: ${batch.quantity}`
-      : '';
   });
 
   private readonly decreaseReasonOptions: SelectOption<InventoryAdjustmentReason>[] = [
@@ -110,7 +106,7 @@ export class AdjustmentRowFormComponent implements OnInit {
     direction: ['Decrease' as InventoryAdjustmentDirection, [Validators.required]],
     reason: ['Damaged' as InventoryAdjustmentReason, [Validators.required]],
     quantity: [1, [Validators.required, Validators.min(0.01), this.maxFractionDigits(2)]],
-    performedAt: [''],
+    performedAt: [null as Date | null],
     notes: [''],
   });
 
@@ -150,6 +146,18 @@ export class AdjustmentRowFormComponent implements OnInit {
   onSelectBatch(batch: InventoryBatchOption): void {
     this.selectedBatch.set(batch);
     this.updateQuantityValidators();
+  }
+
+  onBatchModelChange(value: InventoryBatchOption | string | null): void {
+    if (value && typeof value === 'object' && 'id' in value) {
+      this.onSelectBatch(value);
+      return;
+    }
+
+    if (value === null || value === '') {
+      this.selectedBatch.set(null);
+      this.updateQuantityValidators();
+    }
   }
 
   onSave(): void {
@@ -225,11 +233,8 @@ export class AdjustmentRowFormComponent implements OnInit {
     return normalized.length > 0 ? normalized : null;
   }
 
-  private toIsoTimestamp(value: string): string | null {
-    const normalized = value.trim();
-    if (!normalized) return null;
-    const date = new Date(normalized);
-    return Number.isNaN(date.getTime()) ? normalized : formatUtcIsoInstant(date);
+  private toIsoTimestamp(value: Date | null): string | null {
+    return value ? formatUtcIsoInstant(value) : null;
   }
 
   private translate(key: string): string {

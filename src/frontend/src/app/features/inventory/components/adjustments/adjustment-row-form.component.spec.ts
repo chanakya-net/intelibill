@@ -72,6 +72,26 @@ describe('AdjustmentRowFormComponent', () => {
     expect(component.batchSuggestions().map((b) => b.id)).toEqual(['batch-1']);
   });
 
+  it('keeps the selected batch visible in the autocomplete after first selection', () => {
+    const fixture = setup();
+    const component = fixture.componentInstance;
+
+    component.onBatchModelChange(batchOptions[0]);
+    fixture.detectChanges();
+
+    expect(component.selectedBatch()).toEqual(batchOptions[0]);
+  });
+
+  it('clears selected batch when autocomplete value is cleared', () => {
+    const fixture = setup();
+    const component = fixture.componentInstance;
+
+    component.onSelectBatch(batchOptions[0]);
+    component.onBatchModelChange(null);
+
+    expect(component.selectedBatch()).toBeNull();
+  });
+
   it('blocks decrease for empty-quantity batch', () => {
     const fixture = setup();
     const component = fixture.componentInstance;

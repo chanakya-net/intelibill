@@ -345,23 +345,14 @@
   }
 </section>
 
-<p-dialog
-  [header]="'inventory.newAdjustment' | transloco"
-  [(visible)]="isAdjustmentDialogOpen"
-  [modal]="true"
-  [style]="{ width: '92vw', maxWidth: '560px' }"
-  [draggable]="false"
-  [resizable]="false"
->
-  @if (isAdjustmentDialogOpen()) {
-    <app-adjustment-row-form
-      [batchOptions]="adjustmentBatchOptions()"
-      [saving]="saving()"
-      (rowChange)="onSaveAdjustment($event)"
-      (cancelled)="isAdjustmentDialogOpen.set(false)"
-    ></app-adjustment-row-form>
-  }
-</p-dialog>
+@if (isAdjustmentDialogOpen()) {
+  <app-adjustment-row-form
+    [batchOptions]="adjustmentBatchOptions()"
+    [saving]="saving()"
+    (rowChange)="onSaveAdjustment($event)"
+    (cancelled)="isAdjustmentDialogOpen.set(false)"
+  ></app-adjustment-row-form>
+}
 
 <p-dialog
   [header]="'inventory.voidAdjustment' | transloco"
