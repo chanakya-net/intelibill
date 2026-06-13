@@ -12,6 +12,9 @@ public sealed class GetCreditNotesQueryHandler(
     IShopRepository shopRepository,
     ICreditNoteRepository creditNoteRepository)
 {
+    private const int DefaultPageSize = 20;
+    private const int MaxPageSize = 100;
+
     public async Task<ErrorOr<PaginatedList<CreditNoteListItemDto>>> Handle(
         GetCreditNotesQuery query,
         CancellationToken cancellationToken)
@@ -28,12 +31,15 @@ public sealed class GetCreditNotesQueryHandler(
         if (membership is null)
             return Errors.Shop.MembershipNotFound;
 
+        var pageNumber = query.PageNumber <= 0 ? 1 : query.PageNumber;
+        var pageSize = query.PageSize <= 0 ? DefaultPageSize : Math.Min(query.PageSize, MaxPageSize);
+
         var (rows, totalCount) = await creditNoteRepository.GetPagedAsync(
             query.ShopId,
             query.SearchTerm,
             query.Status,
-            query.PageNumber,
-            query.PageSize,
+            pageNumber,
+            pageSize,
             cancellationToken);
 
         var dtos = rows.Select(r => new CreditNoteListItemDto(
@@ -50,7 +56,7 @@ public sealed class GetCreditNotesQueryHandler(
             r.InvoiceNumber,
             r.CustomerName)).ToList();
 
-        return new PaginatedList<CreditNoteListItemDto>(dtos, totalCount, query.PageNumber, query.PageSize);
+        return new PaginatedList<CreditNoteListItemDto>(dtos, totalCount, pageNumber, pageSize);
     }
 
     private static CreditNoteStatus ComputeStatus(CreditNoteListRow row)

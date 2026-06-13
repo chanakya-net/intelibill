@@ -238,6 +238,105 @@ public sealed class GetCreditNotesQueryHandlerTests
         Assert.False(result.IsError);
     }
 
+    [Theory]
+    [InlineData(0, 20)]
+    [InlineData(-1, 20)]
+    [InlineData(-99, 20)]
+    public async Task Handle_NormalizesNonPositivePageNumberToOne(int rawPage, int expectedPageSize)
+    {
+        var fixture = BuildFixture();
+
+        _userRepository.GetByIdAsync(fixture.Owner.Id, Arg.Any<CancellationToken>()).Returns(fixture.Owner);
+        _shopRepository.GetByIdAsync(fixture.Shop.Id, Arg.Any<CancellationToken>()).Returns(fixture.Shop);
+        _shopRepository.GetMembershipAsync(fixture.Owner.Id, fixture.Shop.Id, Arg.Any<CancellationToken>())
+            .Returns(fixture.OwnerMembership);
+        _creditNoteRepository.GetPagedAsync(
+            fixture.Shop.Id, null, null, 1, expectedPageSize, Arg.Any<CancellationToken>())
+            .Returns(([], 0));
+
+        var result = await CreateHandler().Handle(
+            new GetCreditNotesQuery(fixture.Owner.Id, fixture.Shop.Id, null, null, rawPage, expectedPageSize),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(1, result.Value.PageNumber);
+        await _creditNoteRepository.Received(1).GetPagedAsync(
+            fixture.Shop.Id, null, null, 1, expectedPageSize, Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-5)]
+    public async Task Handle_NormalizesNonPositivePageSizeToDefault(int rawPageSize)
+    {
+        var fixture = BuildFixture();
+
+        _userRepository.GetByIdAsync(fixture.Owner.Id, Arg.Any<CancellationToken>()).Returns(fixture.Owner);
+        _shopRepository.GetByIdAsync(fixture.Shop.Id, Arg.Any<CancellationToken>()).Returns(fixture.Shop);
+        _shopRepository.GetMembershipAsync(fixture.Owner.Id, fixture.Shop.Id, Arg.Any<CancellationToken>())
+            .Returns(fixture.OwnerMembership);
+        _creditNoteRepository.GetPagedAsync(
+            fixture.Shop.Id, null, null, 1, 20, Arg.Any<CancellationToken>())
+            .Returns(([], 0));
+
+        var result = await CreateHandler().Handle(
+            new GetCreditNotesQuery(fixture.Owner.Id, fixture.Shop.Id, null, null, 1, rawPageSize),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(20, result.Value.PageSize);
+        await _creditNoteRepository.Received(1).GetPagedAsync(
+            fixture.Shop.Id, null, null, 1, 20, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_ClampsOversizedPageSizeToMax()
+    {
+        var fixture = BuildFixture();
+
+        _userRepository.GetByIdAsync(fixture.Owner.Id, Arg.Any<CancellationToken>()).Returns(fixture.Owner);
+        _shopRepository.GetByIdAsync(fixture.Shop.Id, Arg.Any<CancellationToken>()).Returns(fixture.Shop);
+        _shopRepository.GetMembershipAsync(fixture.Owner.Id, fixture.Shop.Id, Arg.Any<CancellationToken>())
+            .Returns(fixture.OwnerMembership);
+        _creditNoteRepository.GetPagedAsync(
+            fixture.Shop.Id, null, null, 1, 100, Arg.Any<CancellationToken>())
+            .Returns(([], 0));
+
+        var result = await CreateHandler().Handle(
+            new GetCreditNotesQuery(fixture.Owner.Id, fixture.Shop.Id, null, null, 1, 9999),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(100, result.Value.PageSize);
+        await _creditNoteRepository.Received(1).GetPagedAsync(
+            fixture.Shop.Id, null, null, 1, 100, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_MapsStatusActiveForNoteExpiringExactlyNow()
+    {
+        var fixture = BuildFixture();
+        // Use a note expiring slightly in the future; ComputeStatus uses strict < so any future
+        // expiry is Active. This pins the boundary: ExpiresAt >= UtcNow means Active, not Expired.
+        var nearFuture = DateTimeOffset.UtcNow.AddMilliseconds(500);
+        var row = MakeRow(fixture.Shop.Id, isVoided: false, balance: 50m, expiresAt: nearFuture);
+
+        _userRepository.GetByIdAsync(fixture.Owner.Id, Arg.Any<CancellationToken>()).Returns(fixture.Owner);
+        _shopRepository.GetByIdAsync(fixture.Shop.Id, Arg.Any<CancellationToken>()).Returns(fixture.Shop);
+        _shopRepository.GetMembershipAsync(fixture.Owner.Id, fixture.Shop.Id, Arg.Any<CancellationToken>())
+            .Returns(fixture.OwnerMembership);
+        _creditNoteRepository.GetPagedAsync(
+            fixture.Shop.Id, null, null, 1, 20, Arg.Any<CancellationToken>())
+            .Returns(([row], 1));
+
+        var result = await CreateHandler().Handle(
+            new GetCreditNotesQuery(fixture.Owner.Id, fixture.Shop.Id, null, null),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(CreditNoteStatus.Active, result.Value.Items[0].Status);
+    }
+
     private sealed record Fixture(
         Shop Shop,
         User Owner,

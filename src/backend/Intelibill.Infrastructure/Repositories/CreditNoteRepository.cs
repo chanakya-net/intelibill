@@ -42,25 +42,25 @@ internal sealed class CreditNoteRepository(ApplicationDbContext context)
 
         if (!string.IsNullOrWhiteSpace(searchTerm))
         {
-            var term = searchTerm.Trim();
+            var pattern = $"%{searchTerm.Trim().ToLowerInvariant()}%";
             query = query.Where(x =>
-                EF.Functions.ILike(x.cn.Code, $"%{term}%") ||
-                EF.Functions.ILike(x.sr.ReturnNumber, $"%{term}%") ||
-                EF.Functions.ILike(x.s.InvoiceNumber, $"%{term}%") ||
-                (x.s.CustomerName != null && EF.Functions.ILike(x.s.CustomerName, $"%{term}%")));
+                EF.Functions.Like(x.cn.Code.ToLowerInvariant(), pattern) ||
+                EF.Functions.Like(x.sr.ReturnNumber.ToLowerInvariant(), pattern) ||
+                EF.Functions.Like(x.s.InvoiceNumber.ToLowerInvariant(), pattern) ||
+                (x.s.CustomerName != null && EF.Functions.Like(x.s.CustomerName.ToLowerInvariant(), pattern)));
         }
 
         query = status switch
         {
             CreditNoteStatus.Active => query.Where(x =>
                 !x.cn.IsVoided && x.cn.AvailableBalance > 0 &&
-                (!x.cn.ExpiresAt.HasValue || x.cn.ExpiresAt > now)),
+                (!x.cn.ExpiresAt.HasValue || x.cn.ExpiresAt >= now)),
             CreditNoteStatus.Voided => query.Where(x => x.cn.IsVoided),
             CreditNoteStatus.FullyRedeemed => query.Where(x =>
                 !x.cn.IsVoided && x.cn.AvailableBalance == 0m),
             CreditNoteStatus.Expired => query.Where(x =>
                 !x.cn.IsVoided && x.cn.AvailableBalance > 0 &&
-                x.cn.ExpiresAt.HasValue && x.cn.ExpiresAt <= now),
+                x.cn.ExpiresAt.HasValue && x.cn.ExpiresAt < now),
             _ => query,
         };
 
