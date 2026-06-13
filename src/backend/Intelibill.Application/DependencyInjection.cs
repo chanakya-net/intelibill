@@ -1,4 +1,5 @@
 using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Features.CreditNotes.Services;
 using Intelibill.Application.Features.Discounts.Services;
 using Intelibill.Application.Features.Exports.Sales;
 using Intelibill.Application.Features.Exports.Sales.Services;
@@ -36,6 +37,8 @@ public static class DependencyInjection
         services.AddScoped<ISaleReturnCalculator, SaleReturnCalculator>();
         services.AddScoped<ISaleReturnValidator, SaleReturnValidator>();
         services.AddScoped<ISalePricingCalculator, SalePricingCalculator>();
+
+        services.AddScoped<ICreditNoteCodeGenerator, CreditNoteCodeGenerator>();
 
         services.AddScoped<SaleDtoBuilder>();
         services.AddScoped<RecordSaleCommandHandler>();
