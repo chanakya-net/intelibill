@@ -7,6 +7,7 @@ import { SALE_ENDPOINTS } from '../../../core/auth/auth.constants';
 import { SaleService } from './sale.service';
 import { ReturnPayoutDestination, mapPaymentMethodToPayoutDestination } from './sale.models';
 import type {
+  CreditNoteVerifyResponseDto,
   SaleDto,
   SaleListItemDto,
   ProfitLossAppliedFiltersDto,
@@ -714,6 +715,29 @@ describe('SaleService', () => {
     expect(req.request.method).toBe('GET');
     expect(req.request.params.keys().length).toBe(0);
     req.flush(result);
+    http.verify();
+  });
+
+  it('sends GET to credit-note by-code endpoint and returns response DTO', () => {
+    const { service, http } = setup();
+    const response: CreditNoteVerifyResponseDto = {
+      creditNoteId: 'cn-1',
+      code: 'CN-ABC-123',
+      availableBalance: 250,
+      expiresAt: '2027-01-01T00:00:00Z',
+      status: 'Active',
+    };
+
+    service.verifyCreditNote('CN-ABC-123').subscribe((result) => {
+      expect(result.creditNoteId).toBe('cn-1');
+      expect(result.availableBalance).toBe(250);
+      expect(result.status).toBe('Active');
+    });
+
+    const req = http.expectOne(SALE_ENDPOINTS.creditNoteByCode('CN-ABC-123'));
+    expect(req.request.method).toBe('GET');
+    expect(req.request.body).toBeNull();
+    req.flush(response);
     http.verify();
   });
 });

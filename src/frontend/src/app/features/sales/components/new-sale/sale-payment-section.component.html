@@ -50,3 +50,49 @@
 @if (isOfflineMode && selectedMethod === 'UPI') {
   <p class="text-xs text-amber-600 mt-1">{{ 'sales.newSale.offline.upiAttestedNote' | transloco }}</p>
 }
+
+@if (!isOfflineMode) {
+  <div class="credit-note-verify mt-3">
+    <label class="text-xs text-slate-500">{{ 'sales.newSale.creditNote.sectionLabel' | transloco }}</label>
+    <div class="flex gap-2 items-start mt-1">
+      <input
+        pInputText
+        class="flex-1"
+        [value]="creditNoteCode"
+        (input)="onCreditNoteCodeChange($any($event.target).value)"
+        [placeholder]="'sales.newSale.creditNote.codePlaceholder' | transloco"
+        [disabled]="isCreditNoteVerifying"
+        aria-label="Credit note code"
+      />
+      <p-button
+        [label]="'sales.newSale.creditNote.verifyBtn' | transloco"
+        [loading]="isCreditNoteVerifying"
+        [disabled]="!creditNoteCode.trim() || isCreditNoteVerifying"
+        (click)="onCreditNoteVerifyClick()"
+        severity="secondary"
+        size="small"
+      />
+    </div>
+
+    @if (verifiedCreditNote) {
+      <div class="credit-note-result mt-2 p-2 bg-emerald-50 border border-emerald-200 rounded text-sm">
+        <p class="text-emerald-700 font-medium">{{ 'sales.newSale.creditNote.verified' | transloco }}</p>
+        <p class="text-slate-600">
+          {{ 'sales.newSale.creditNote.balance' | transloco }}: ₹{{ verifiedCreditNote.availableBalance | number:'1.2-2' }}
+        </p>
+        <p class="text-slate-600">
+          {{ 'sales.newSale.creditNote.status' | transloco }}: {{ verifiedCreditNote.status }}
+        </p>
+        @if (verifiedCreditNote.expiresAt) {
+          <p class="text-slate-500 text-xs">
+            {{ 'sales.newSale.creditNote.expiry' | transloco }}: {{ verifiedCreditNote.expiresAt | date:'mediumDate' }}
+          </p>
+        }
+      </div>
+    }
+
+    @if (creditNoteError) {
+      <p class="error-hint mt-1">{{ creditNoteError | transloco }}</p>
+    }
+  </div>
+}

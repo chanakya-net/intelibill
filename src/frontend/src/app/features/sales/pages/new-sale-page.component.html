@@ -190,9 +190,15 @@
           [canUseCredit]="vm.canUseCredit()"
           [showDueAmount]="vm.canUseCredit()"
           [dueAmountDisabled]="!vm.isOfflineMode() && !vm.canUseCredit()"
+          [creditNoteCode]="vm.creditNoteCode()"
+          [isCreditNoteVerifying]="vm.isCreditNoteVerifying()"
+          [verifiedCreditNote]="vm.verifiedCreditNote()"
+          [creditNoteError]="vm.creditNoteError()"
           (methodChanged)="onPaymentMethodChanged($event)"
           (paidAmountChanged)="onPaymentPaidAmountChanged($event)"
           (dueAmountChanged)="onPaymentDueAmountChanged($event)"
+          (creditNoteCodeChanged)="onCreditNoteCodeChanged($event)"
+          (creditNoteVerifyRequested)="onCreditNoteVerifyRequested()"
         />
 
         <app-cart-checkout-summary
