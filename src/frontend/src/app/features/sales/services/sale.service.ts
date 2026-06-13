@@ -4,6 +4,8 @@ import { Observable } from 'rxjs';
 
 import { SALE_ENDPOINTS } from '../../../core/auth/auth.constants';
 import type {
+  CreditNoteVerifyRequest,
+  CreditNoteVerifyResponseDto,
   InvoiceLeaseDto,
   OfflineSalesSyncRequest,
   OfflineSalesSyncResponseDto,
@@ -89,5 +91,9 @@ export class SaleService {
 
   getSellables(searchTerm: string): Observable<SellableDto[]> {
     return this.http.get<SellableDto[]>(SALE_ENDPOINTS.sellables(searchTerm));
+  }
+
+  verifyCreditNote(request: CreditNoteVerifyRequest): Observable<CreditNoteVerifyResponseDto> {
+    return this.http.post<CreditNoteVerifyResponseDto>(SALE_ENDPOINTS.creditNoteVerify, request);
   }
 }

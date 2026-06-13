@@ -1051,7 +1051,16 @@
       "openPicker": "Open Batch Picker",
       "scanOrSearch": "Scan or search for products",
       "quickAdd": "Quick add",
-      "balanceDue": "Balance Due"
+      "balanceDue": "Balance Due",
+      "creditNote": {
+        "sectionLabel": "Credit Note",
+        "codePlaceholder": "Enter credit note code…",
+        "verifyBtn": "Verify",
+        "verified": "Credit note verified",
+        "balance": "Available balance",
+        "expiry": "Expires",
+        "verifyError": "Unable to verify credit note. Check the code and try again."
+      }
     },
     "detail": {
       "title": "Sale Details",
