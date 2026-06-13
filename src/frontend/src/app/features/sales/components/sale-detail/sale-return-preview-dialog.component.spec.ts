@@ -389,4 +389,185 @@ describe('SaleReturnPreviewDialogComponent', () => {
     const item = component.sale!.items[0];
     expect(component.isFullyReturned(item)).toBe(true);
   });
+
+  it('credit note expiry defaults to no-expiry mode', async () => {
+    const { fixture, component } = await createComponent();
+    component.sale = makeSale();
+    component.visible = true;
+    fixture.detectChanges();
+
+    expect((component as unknown as { creditNoteExpiryMode(): string | null }).creditNoteExpiryMode()).toBe(
+      'NoExpiry',
+    );
+    expect((component as unknown as { creditNoteExpiryDate(): string | null }).creditNoteExpiryDate()).toBeNull();
+  });
+
+  it('credit note expiry controls hidden for non-credit payout', async () => {
+    const { fixture, component, facade } = await createComponent();
+    component.sale = makeSale();
+    component.visible = true;
+    facade.returnPreview.set({
+      saleId: 'sale-1',
+      hasFinancialAccess: true,
+      lines: [],
+      financial: {
+        totalRefundAmount: 100,
+        dueReductionAmount: 0,
+        payoutAmount: 100,
+        totalTaxableAmount: 0,
+        totalTaxAmount: 0,
+        customerBalanceBefore: null,
+        customerBalanceAfter: null,
+      },
+      warnings: [],
+    });
+    fixture.detectChanges();
+
+    component.updatePayoutDestination(1); // Cash
+
+    const expirySection = fixture.nativeElement.querySelector('.return-preview-credit-note-expiry');
+    expect(expirySection).toBeNull();
+  });
+
+  it('credit note expiry controls shown for credit note payout', async () => {
+    const { fixture, component, facade } = await createComponent();
+    component.sale = makeSale();
+    component.visible = true;
+    facade.returnPreview.set({
+      saleId: 'sale-1',
+      hasFinancialAccess: true,
+      lines: [],
+      financial: {
+        totalRefundAmount: 100,
+        dueReductionAmount: 0,
+        payoutAmount: 100,
+        totalTaxableAmount: 0,
+        totalTaxAmount: 0,
+        customerBalanceBefore: null,
+        customerBalanceAfter: null,
+      },
+      warnings: [],
+    });
+    fixture.detectChanges();
+
+    component.updatePayoutDestination(4); // CreditNote
+    fixture.detectChanges();
+
+    const expirySection = fixture.nativeElement.querySelector('.return-preview-credit-note-expiry');
+    expect(expirySection).not.toBeNull();
+  });
+
+  it('credit note quick expiry duration 30 days sets correct date', async () => {
+    const { fixture, component } = await createComponent();
+    component.sale = makeSale();
+    component.visible = true;
+    fixture.detectChanges();
+
+    (component as unknown as { updateCreditNoteExpiryMode(mode: string): void }).updateCreditNoteExpiryMode(
+      '30Days',
+    );
+
+    const mode = (component as unknown as { creditNoteExpiryMode(): string }).creditNoteExpiryMode();
+    expect(mode).toBe('30Days');
+  });
+
+  it('credit note custom expiry date setter works', async () => {
+    const { fixture, component } = await createComponent();
+    component.sale = makeSale();
+    component.visible = true;
+    fixture.detectChanges();
+
+    (component as unknown as { updateCreditNoteExpiryMode(mode: string): void }).updateCreditNoteExpiryMode(
+      'Custom',
+    );
+    (component as unknown as { updateCreditNoteExpiryDate(date: string | null): void }).updateCreditNoteExpiryDate(
+      '2026-12-31',
+    );
+
+    expect(
+      (component as unknown as { creditNoteExpiryMode(): string }).creditNoteExpiryMode(),
+    ).toBe('Custom');
+    expect(
+      (component as unknown as { creditNoteExpiryDate(): string | null }).creditNoteExpiryDate(),
+    ).toBe('2026-12-31');
+  });
+
+  it('payload includes credit note expiry when destination is credit note', async () => {
+    const { fixture, component, facade } = await createComponent();
+    component.sale = {
+      ...makeSale(),
+      items: [makeServiceItem()],
+    };
+    component.visible = true;
+    facade.returnPreview.set({
+      saleId: 'sale-1',
+      hasFinancialAccess: true,
+      lines: [],
+      financial: {
+        totalRefundAmount: 100,
+        dueReductionAmount: 0,
+        payoutAmount: 100,
+        totalTaxableAmount: 0,
+        totalTaxAmount: 0,
+        customerBalanceBefore: null,
+        customerBalanceAfter: null,
+      },
+      warnings: [],
+    });
+    fixture.detectChanges();
+
+    const item = component.sale!.items[0];
+    component.toggleReturnLine(item, true);
+    component.updatePayoutDestination(4); // Credit note
+    (component as unknown as { updateCreditNoteExpiryMode(mode: string): void }).updateCreditNoteExpiryMode(
+      '30Days',
+    );
+    component.submitReturn();
+
+    expect(facade.recordSaleReturn).toHaveBeenCalledTimes(1);
+    const payload = facade.recordSaleReturn.mock.calls[0][1];
+    expect(payload.creditNoteExpiryMode).toBe('30Days');
+    expect(payload.creditNoteExpiryDate).not.toBeDefined();
+  });
+
+  it('payload includes custom expiry date when credit note mode is custom', async () => {
+    const { fixture, component, facade } = await createComponent();
+    component.sale = {
+      ...makeSale(),
+      items: [makeServiceItem()],
+    };
+    component.visible = true;
+    facade.returnPreview.set({
+      saleId: 'sale-1',
+      hasFinancialAccess: true,
+      lines: [],
+      financial: {
+        totalRefundAmount: 100,
+        dueReductionAmount: 0,
+        payoutAmount: 100,
+        totalTaxableAmount: 0,
+        totalTaxAmount: 0,
+        customerBalanceBefore: null,
+        customerBalanceAfter: null,
+      },
+      warnings: [],
+    });
+    fixture.detectChanges();
+
+    const item = component.sale!.items[0];
+    component.toggleReturnLine(item, true);
+    component.updatePayoutDestination(4); // Credit note
+    (component as unknown as { updateCreditNoteExpiryMode(mode: string): void }).updateCreditNoteExpiryMode(
+      'Custom',
+    );
+    (component as unknown as { updateCreditNoteExpiryDate(date: string | null): void }).updateCreditNoteExpiryDate(
+      '2026-12-31',
+    );
+    component.submitReturn();
+
+    expect(facade.recordSaleReturn).toHaveBeenCalledTimes(1);
+    const payload = facade.recordSaleReturn.mock.calls[0][1];
+    expect(payload.creditNoteExpiryMode).toBe('Custom');
+    expect(payload.creditNoteExpiryDate).toBe('2026-12-31');
+  });
 });

@@ -903,11 +903,11 @@
       "actions": {
         "viewReceipt": "రసీదు చూడండి"
       },
-  "amount": {
-    "due": "బకాయి",
-    "refund": "వాపసు",
-    "creditNoteApplied": "క్రెడిట్ నోట్ వర్తించింది"
-  },
+      "amount": {
+        "due": "బకాయి",
+        "refund": "వాపసు",
+        "creditNoteApplied": "క్రెడిట్ నోట్ వర్తించింది"
+      },
       "pagination": {
         "ariaLabel": "అమ్మకాల చరిత్ర పేజినేషన్",
         "showing": "{{total}} అమ్మకాలలో {{start}}-{{end}} చూపిస్తున్నాం",
@@ -1233,7 +1233,9 @@
         "calculatedEffects": "లెక్కించిన ప్రభావాలు",
         "warnings": "హెచ్చరికలు",
         "previewBtn": "ప్రివ్యూ",
-        "recordBtn": "రికార్డ్ రిటర్న్"
+        "recordBtn": "రికార్డ్ రిటర్న్",
+        "creditNoteExpiry": "క్రెడిట్ నోట్ గడువు",
+        "creditNoteExpiryDate": "గడువు తేదీ"
       }
     },
     "creditNotes": {
@@ -1245,7 +1247,6 @@
         "description": "Credit notes will appear here once they are created."
       }
     },
-
     "searchPlaceholder": "విక్రయాలను శోధించండి...",
     "export": {
       "title": "Sales Export",

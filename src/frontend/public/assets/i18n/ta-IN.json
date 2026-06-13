@@ -903,11 +903,11 @@
       "actions": {
         "viewReceipt": "ரசீதைப் பாருங்கள்"
       },
-  "amount": {
-    "due": "நிலுவை",
-    "refund": "திருப்பிக்கொடுப்பு",
-    "creditNoteApplied": "கிரெடிட் நோட் பொருந்தியது"
-  },
+      "amount": {
+        "due": "நிலுவை",
+        "refund": "திருப்பிக்கொடுப்பு",
+        "creditNoteApplied": "கிரெடிட் நோட் பொருந்தியது"
+      },
       "pagination": {
         "ariaLabel": "விற்பனை வரலாறு பக்கமாற்றம்",
         "showing": "{{total}} விற்பனைகளில் {{start}}-{{end}} காட்டுகிறது",
@@ -1233,7 +1233,9 @@
         "calculatedEffects": "கணக்கிடப்பட்ட விளைவுகள்",
         "warnings": "எச்சரிக்கைகள்",
         "previewBtn": "முன்னோட்டம்",
-        "recordBtn": "பதிவு திரும்ப"
+        "recordBtn": "பதிவு திரும்ப",
+        "creditNoteExpiry": "கிரெடிட் நோட் காலாவதி",
+        "creditNoteExpiryDate": "காலாவதி தேதி"
       }
     },
     "creditNotes": {
@@ -1245,7 +1247,6 @@
         "description": "Credit notes will appear here once they are created."
       }
     },
-
     "searchPlaceholder": "விற்பனையைத் தேடு...",
     "export": {
       "title": "Sales Export",

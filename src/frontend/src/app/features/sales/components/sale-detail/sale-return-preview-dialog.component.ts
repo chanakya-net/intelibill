@@ -92,9 +92,19 @@ export class SaleReturnPreviewDialogComponent {
   readonly dueOverrideReason = signal('');
   readonly dueOverrideConfirmed = signal(false);
   readonly payoutDestination = signal<number | null>(null);
+  readonly creditNoteExpiryMode = signal<'NoExpiry' | '30Days' | '60Days' | '90Days' | 'Custom'>('NoExpiry');
+  readonly creditNoteExpiryDate = signal<string | null>(null);
 
   readonly returnConditionOptions = SALE_RETURN_CONDITIONS;
   readonly payoutDestinationOptions = RETURN_PAYOUT_DESTINATION_OPTIONS;
+
+  readonly creditNoteExpiryOptions = [
+    { label: 'No expiry', value: 'NoExpiry' },
+    { label: '30 days', value: '30Days' },
+    { label: '60 days', value: '60Days' },
+    { label: '90 days', value: '90Days' },
+    { label: 'Custom date', value: 'Custom' },
+  ];
 
   readonly activeShopRole = computed(() => {
     const session = this.authService.session();
@@ -181,6 +191,8 @@ export class SaleReturnPreviewDialogComponent {
     this.validationMessages.set([]);
     this.dueOverrideConfirmed.set(false);
     this.payoutDestination.set(null);
+    this.creditNoteExpiryMode.set('NoExpiry');
+    this.creditNoteExpiryDate.set(null);
     this.salesFacade.clearSaleReturnPreview();
     this.returnDrafts.set([]);
   }
@@ -299,6 +311,17 @@ export class SaleReturnPreviewDialogComponent {
     this.payoutDestination.set(destination);
   }
 
+  updateCreditNoteExpiryMode(mode: 'NoExpiry' | '30Days' | '60Days' | '90Days' | 'Custom'): void {
+    this.creditNoteExpiryMode.set(mode);
+    if (mode !== 'Custom') {
+      this.creditNoteExpiryDate.set(null);
+    }
+  }
+
+  updateCreditNoteExpiryDate(date: string | null): void {
+    this.creditNoteExpiryDate.set(date);
+  }
+
   updateDueOverrideConfirmed(confirmed: boolean): void {
     this.dueOverrideConfirmed.set(confirmed);
   }
@@ -311,7 +334,11 @@ export class SaleReturnPreviewDialogComponent {
     this.validationMessages.set(errors);
     if (errors.length > 0) return;
 
-    const payload: RecordSaleReturnRequest = {
+    const isCreditNote =
+      this.mapSelectedPayoutDestination(this.payoutDestination()) ===
+      ReturnPayoutDestination.CreditNote;
+
+    const payload = {
       payoutDestination:
         (this.returnPreview()?.financial?.payoutAmount ?? 0) > 0
           ? this.mapSelectedPayoutDestination(this.payoutDestination())
@@ -327,7 +354,13 @@ export class SaleReturnPreviewDialogComponent {
         approvedRefundAmount: draft.approvedRefundAmount,
         notes: this.normalizeOptional(draft.notes),
       })),
-    };
+      ...(isCreditNote && {
+        creditNoteExpiryMode: this.creditNoteExpiryMode(),
+        ...(this.creditNoteExpiryMode() === 'Custom' && {
+          creditNoteExpiryDate: this.creditNoteExpiryDate(),
+        }),
+      }),
+    } as unknown as RecordSaleReturnRequest;
 
     this.salesFacade.recordSaleReturn(sale.saleId, payload);
   }
@@ -456,6 +489,8 @@ export class SaleReturnPreviewDialogComponent {
     this.dueOverrideReason.set('');
     this.dueOverrideConfirmed.set(false);
     this.payoutDestination.set(null);
+    this.creditNoteExpiryMode.set('NoExpiry');
+    this.creditNoteExpiryDate.set(null);
     this.salesFacade.clearSaleReturnPreview();
   }
 

@@ -903,11 +903,11 @@
       "actions": {
         "viewReceipt": "રિસિટ જુઓ"
       },
-  "amount": {
-    "due": "બાકી",
-    "refund": "નાણાં પરત",
-    "creditNoteApplied": "ક્રેડિટ નોટ લાગુ થઈ"
-  },
+      "amount": {
+        "due": "બાકી",
+        "refund": "નાણાં પરત",
+        "creditNoteApplied": "ક્રેડિટ નોટ લાગુ થઈ"
+      },
       "pagination": {
         "ariaLabel": "વેચાણ ઇતિહાસ પૃષ્ઠ ક્રમ",
         "showing": "{{total}} વેચાણમાંથી {{start}}-{{end}} બતાવી રહ્યા છે",
@@ -1233,7 +1233,9 @@
         "calculatedEffects": "ગણતરી કરેલી અસરો",
         "warnings": "ચેતવણીઓ",
         "previewBtn": "પ્રીવ્યુ",
-        "recordBtn": "રિટર્ન રેકોર્ડ કરો"
+        "recordBtn": "રિટર્ન રેકોર્ડ કરો",
+        "creditNoteExpiry": "ક્રેડિટ નોટ એક્સપાયરી",
+        "creditNoteExpiryDate": "એક્સપાયરી તારીખ"
       }
     },
     "creditNotes": {
@@ -1245,7 +1247,6 @@
         "description": "Credit notes will appear here once they are created."
       }
     },
-
     "searchPlaceholder": "વેચાણ શોધો...",
     "export": {
       "title": "Sales Export",

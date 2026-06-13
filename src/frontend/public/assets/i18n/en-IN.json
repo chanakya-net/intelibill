@@ -1230,6 +1230,8 @@
           "creditNote": "Credit Note"
         },
         "confirmDueOverride": "Confirm due override",
+        "creditNoteExpiry": "Credit note expiry",
+        "creditNoteExpiryDate": "Expiry date",
         "calculatedEffects": "Calculated effects",
         "warnings": "Warnings",
         "previewBtn": "Preview",
