@@ -104,6 +104,7 @@ public static class DependencyInjection
         services.AddScoped<IPurchaseOrderSequenceRepository, PurchaseOrderSequenceRepository>();
         services.AddScoped<IPurchaseOrderReceiptRepository, PurchaseOrderReceiptRepository>();
         services.AddScoped<IPurchaseOrderReceiptSequenceRepository, PurchaseOrderReceiptSequenceRepository>();
+        services.AddScoped<ICreditNoteRepository, CreditNoteRepository>();
 
         // ── Auth services ─────────────────────────────────────────────────────
         services.AddScoped<ITokenService, TokenService>();
