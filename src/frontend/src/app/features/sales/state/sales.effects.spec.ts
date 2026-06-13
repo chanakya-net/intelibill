@@ -235,7 +235,7 @@ describe('SalesEffects', () => {
   it('dispatches recordSaleReturnSucceeded on record return success', async () => {
     const sale = makeSaleDto();
     const payload = {
-      payoutMethod: 1,
+      payoutDestination: 2,
       dueReductionOverrideAmount: null,
       dueOverrideReason: null,
       notes: null,
@@ -251,7 +251,7 @@ describe('SalesEffects', () => {
 
   it('dispatches recordSaleReturnFailed on record return failure', async () => {
     const payload = {
-      payoutMethod: 1,
+      payoutDestination: 2,
       dueReductionOverrideAmount: null,
       dueOverrideReason: null,
       notes: null,

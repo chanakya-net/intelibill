@@ -5,6 +5,7 @@ using Intelibill.Application.Features.Sales.Commands.VoidSaleReturn;
 using Intelibill.Application.Features.Sales.DTOs;
 using Intelibill.Application.Features.Sales.Queries.GetSaleDetail;
 using Intelibill.Application.Features.Sales.Queries.PreviewSaleReturn;
+using Intelibill.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -55,7 +56,7 @@ public sealed partial class SalesController : AuthenticatedControllerBase
                 UserId!.Value,
                 ActiveShopId!.Value,
                 saleId,
-                request.PayoutMethod,
+                ResolvePayoutDestination(request.PayoutDestination, request.PayoutMethod),
                 request.DueReductionOverrideAmount,
                 request.DueOverrideReason,
                 request.Notes,
@@ -98,4 +99,13 @@ public sealed partial class SalesController : AuthenticatedControllerBase
 
         return result.ToActionResult(_ => NoContent());
     }
+
+    private static ReturnPayoutDestination? ResolvePayoutDestination(
+        ReturnPayoutDestination? payoutDestination,
+        PaymentMethod? legacyPayoutMethod) =>
+        payoutDestination ?? legacyPayoutMethod switch
+        {
+            PaymentMethod.Cash or PaymentMethod.UPI or PaymentMethod.Card => ReturnPayoutDestination.Refund,
+            _ => null,
+        };
 }

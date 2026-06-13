@@ -32,7 +32,7 @@ public sealed class GetSaleByReturnNumberQueryHandlerTests
             totalRefundAmount: 0m,
             dueReductionAmount: 0m,
             payoutAmount: 0m,
-            payoutMethod: null,
+            payoutDestination: null,
             totalTaxableAmount: 0m,
             totalTaxAmount: 0m,
             customerBalanceBefore: null,

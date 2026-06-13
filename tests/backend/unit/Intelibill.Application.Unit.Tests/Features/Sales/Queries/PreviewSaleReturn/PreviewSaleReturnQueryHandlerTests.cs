@@ -532,7 +532,7 @@ public class PreviewSaleReturnQueryHandlerTests
             totalRefundAmount: quantity * 110m,
             dueReductionAmount: 0m,
             payoutAmount: quantity * 110m,
-            payoutMethod: PaymentMethod.Cash,
+            payoutDestination: ReturnPayoutDestination.Refund,
             totalTaxableAmount: quantity * 100m,
             totalTaxAmount: quantity * 10m,
             customerBalanceBefore: null,

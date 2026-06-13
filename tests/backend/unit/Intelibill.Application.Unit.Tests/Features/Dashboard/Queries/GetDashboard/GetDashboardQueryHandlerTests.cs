@@ -177,7 +177,7 @@ public sealed class GetDashboardQueryHandlerTests
             30m,
             0m,
             30m,
-            PaymentMethod.Cash,
+            ReturnPayoutDestination.Refund,
             30m,
             0m,
             null,

@@ -236,7 +236,7 @@ public sealed class VoidSaleReturnCommandHandlerTests
             totalRefundAmount: 220m,
             dueReductionAmount: returnDueReductionAmount,
             payoutAmount: 220m - returnDueReductionAmount,
-            payoutMethod: PaymentMethod.Cash,
+            payoutDestination: ReturnPayoutDestination.Refund,
             totalTaxableAmount: 200m,
             totalTaxAmount: 20m,
             customerBalanceBefore: 250m,

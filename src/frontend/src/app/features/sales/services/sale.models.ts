@@ -46,6 +46,16 @@ export interface ServiceCartLine {
 
 // ─── Payment ─────────────────────────────────────────────────────────────────
 
+export enum ReturnPayoutDestination {
+  CreditNote = 1,
+  Refund = 2,
+}
+
+export function mapPaymentMethodToPayoutDestination(method: number | null): ReturnPayoutDestination | null {
+  if (method === null) return null;
+  return ReturnPayoutDestination.Refund;
+}
+
 export type PaymentMethod = 'Cash' | 'UPI' | 'Card' | 'Credit';
 export const PAYMENT_METHOD_VALUES: { value: number; label: PaymentMethod }[] = [
   { value: 1, label: 'Cash' },
@@ -333,7 +343,7 @@ export interface PreviewSaleReturnRequest {
 }
 
 export interface RecordSaleReturnRequest extends PreviewSaleReturnRequest {
-  readonly payoutMethod: number | null;
+  readonly payoutDestination: ReturnPayoutDestination | null;
   readonly notes: string | null;
 }
 

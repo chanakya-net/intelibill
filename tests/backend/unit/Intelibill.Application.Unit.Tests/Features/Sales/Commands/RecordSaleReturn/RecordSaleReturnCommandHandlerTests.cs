@@ -59,7 +59,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
         _returnNumberGenerator.Generate(Arg.Any<DateTimeOffset>()).Returns("RET-20260505-ABC123EF");
 
         var result = await CreateHandler().HandleAsync(
-            Command(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, payoutMethod: PaymentMethod.Cash),
+            Command(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, payoutDestination: ReturnPayoutDestination.Refund),
             CancellationToken.None);
 
         Assert.False(result.IsError);
@@ -93,7 +93,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
                 fixture.Shop.Id,
                 fixture.Sale.Id,
                 fixture.SaleItem.Id,
-                payoutMethod: PaymentMethod.Cash,
+                payoutDestination: ReturnPayoutDestination.Refund,
                 approvedRefundAmount: 200m,
                 lineNotes: null),
             CancellationToken.None);
@@ -115,7 +115,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
                 fixture.Shop.Id,
                 fixture.Sale.Id,
                 fixture.SaleItem.Id,
-                payoutMethod: PaymentMethod.Cash,
+                payoutDestination: ReturnPayoutDestination.Refund,
                 approvedRefundAmount: 200m,
                 lineNotes: "Goodwill"),
             CancellationToken.None);
@@ -138,7 +138,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
         var fixture = ArrangeSale(ShopRole.Staff);
 
         var result = await CreateHandler().HandleAsync(
-            Command(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, payoutMethod: PaymentMethod.Cash),
+            Command(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, payoutDestination: ReturnPayoutDestination.Refund),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -159,7 +159,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
                 fixture.Shop.Id,
                 fixture.Sale.Id,
                 fixture.SaleItem.Id,
-                payoutMethod: PaymentMethod.Cash,
+                payoutDestination: ReturnPayoutDestination.Refund,
                 condition: SaleReturnCondition.Wastage,
                 approvedRefundAmount: 50m,
                 lineNotes: "Damaged after sale"),
@@ -222,7 +222,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
                 fixture.User.Id,
                 fixture.Shop.Id,
                 sale.Id,
-                PaymentMethod.Cash,
+                ReturnPayoutDestination.Refund,
                 DueReductionOverrideAmount: null,
                 DueOverrideReason: null,
                 Notes: "Service refund",
@@ -284,7 +284,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
                 fixture.User.Id,
                 fixture.Shop.Id,
                 sale.Id,
-                PaymentMethod.Cash,
+                ReturnPayoutDestination.Refund,
                 DueReductionOverrideAmount: null,
                 DueOverrideReason: null,
                 Notes: "Mixed return",
@@ -361,7 +361,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
                 user.Id,
                 shop.Id,
                 sale.Id,
-                PaymentMethod.Cash,
+                ReturnPayoutDestination.Refund,
                 DueReductionOverrideAmount: null,
                 DueOverrideReason: null,
                 Notes: "Refund",
@@ -427,7 +427,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
                 fixture.User.Id,
                 fixture.Shop.Id,
                 sale.Id,
-                PaymentMethod.Cash,
+                ReturnPayoutDestination.Refund,
                 DueReductionOverrideAmount: null,
                 DueOverrideReason: null,
                 Notes: null,
@@ -495,7 +495,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
                 fixture.User.Id,
                 fixture.Shop.Id,
                 sale.Id,
-                PaymentMethod.Cash,
+                ReturnPayoutDestination.Refund,
                 DueReductionOverrideAmount: null,
                 DueOverrideReason: null,
                 Notes: "Mixed return",
@@ -539,7 +539,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
         _returnNumberGenerator.Generate(Arg.Any<DateTimeOffset>()).Returns("RET-20260505-DUE001");
 
         var result = await CreateHandler().HandleAsync(
-            Command(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, payoutMethod: PaymentMethod.Cash),
+            Command(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, payoutDestination: ReturnPayoutDestination.Refund),
             CancellationToken.None);
 
         Assert.False(result.IsError);
@@ -569,7 +569,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
         _returnNumberGenerator.Generate(Arg.Any<DateTimeOffset>()).Returns("RET-20260505-PAID001");
 
         var result = await CreateHandler().HandleAsync(
-            Command(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, payoutMethod: PaymentMethod.Cash),
+            Command(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, payoutDestination: ReturnPayoutDestination.Refund),
             CancellationToken.None);
 
         Assert.False(result.IsError);
@@ -597,7 +597,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
                 fixture.Shop.Id,
                 fixture.Sale.Id,
                 fixture.SaleItem.Id,
-                payoutMethod: PaymentMethod.Cash,
+                payoutDestination: ReturnPayoutDestination.Refund,
                 dueReductionOverrideAmount: 25m,
                 dueOverrideReason: null),
             CancellationToken.None);
@@ -622,7 +622,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
                 fixture.Shop.Id,
                 fixture.Sale.Id,
                 fixture.SaleItem.Id,
-                payoutMethod: PaymentMethod.Cash,
+                payoutDestination: ReturnPayoutDestination.Refund,
                 dueReductionOverrideAmount: 25m,
                 dueOverrideReason: "Customer needs cash refund"),
             CancellationToken.None);
@@ -654,7 +654,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
                 fixture.Shop.Id,
                 fixture.Sale.Id,
                 fixture.SaleItem.Id,
-                payoutMethod: PaymentMethod.Cash,
+                payoutDestination: ReturnPayoutDestination.Refund,
                 dueReductionOverrideAmount: 150m,
                 dueOverrideReason: "Too much"),
             CancellationToken.None);
@@ -673,7 +673,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
             .Returns([previousReturn]);
 
         var result = await CreateHandler().HandleAsync(
-            Command(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, payoutMethod: PaymentMethod.Cash),
+            Command(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, payoutDestination: ReturnPayoutDestination.Refund),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -768,7 +768,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
         Guid shopId,
         Guid saleId,
         Guid saleItemId,
-        PaymentMethod? payoutMethod,
+        ReturnPayoutDestination? payoutDestination,
         SaleReturnCondition condition = SaleReturnCondition.Restockable,
         decimal? approvedRefundAmount = null,
         string? lineNotes = "Sealed",
@@ -778,7 +778,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
             userId,
             shopId,
             saleId,
-            payoutMethod,
+            payoutDestination,
             dueReductionOverrideAmount,
             dueOverrideReason,
             Notes: "Customer returned sealed items",
@@ -827,7 +827,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
             totalRefundAmount: quantity * 110m,
             dueReductionAmount: 0m,
             payoutAmount: quantity * 110m,
-            payoutMethod: PaymentMethod.Cash,
+            payoutDestination: ReturnPayoutDestination.Refund,
             totalTaxableAmount: quantity * 100m,
             totalTaxAmount: quantity * 10m,
             customerBalanceBefore: null,
