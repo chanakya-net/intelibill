@@ -226,6 +226,34 @@ public class RecordSaleCommandHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_WhenCreditNoteAppliedAmountHasNoRedemption_ReturnsValidationError()
+    {
+        var shopId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var item = MakeItem(shopId, "BC-001");
+        var batch = MakeBatch(shopId, item.Id, "B-01");
+        var inventory = MakeInventory(shopId, item.Id);
+
+        var command = MakeCommand(shopId, actorId, inventoryBatchId: batch.Id) with
+        {
+            PaidAmount = 68m,
+            CreditNoteAppliedAmount = 50m,
+        };
+        var line = new ValidatedSaleLine(command.Items[0], item, batch, inventory, false);
+        _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>())
+            .Returns(new SaleLineValidationResult([line], new Dictionary<Guid, string> { { item.Id, item.Name } }));
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Sale.CreditNoteRedemptionsSplitMismatch.Code, result.FirstError.Code);
+        await _saleRepository.DidNotReceive().AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>());
+        await _creditNoteRepository.DidNotReceive().GetByCodeAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _creditNoteRedemptionRepository.DidNotReceive().AddAsync(Arg.Any<CreditNoteRedemption>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task HandleAsync_WhenMultipleCreditNoteRedemptions_ReturnsValidationError()
     {
         var shopId = Guid.NewGuid();

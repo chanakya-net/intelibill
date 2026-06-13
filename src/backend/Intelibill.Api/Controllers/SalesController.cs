@@ -119,36 +119,23 @@ public sealed partial class SalesController : AuthenticatedControllerBase
         var saleDiscount = request.SaleDiscount is null
             ? null
             : new InstantDiscount(request.SaleDiscount.Type, request.SaleDiscount.Value);
-        var creditNoteRedemptions = request.CreditNoteRedemptions ?? [];
-        var command = creditNoteRedemptions.Count > 0
-            ? new RecordSaleCommand(
-                UserId!.Value,
-                ActiveShopId!.Value,
-                request.IdempotencyKey,
-                request.CustomerId,
-                request.CustomerName,
-                request.CustomerPhone,
-                request.PaymentMethod,
-                request.PaidAmount,
-                request.DueAmount,
-                items,
-                saleDiscount,
-                creditNoteRedemptions.Sum(redemption => redemption.Amount),
-                creditNoteRedemptions.Select(redemption =>
-                    new CreditNoteRedemptionCommand(redemption.Code, redemption.Amount)).ToList())
-            : new RecordSaleCommand(
-                UserId!.Value,
-                ActiveShopId!.Value,
-                request.IdempotencyKey,
-                request.CustomerId,
-                request.CustomerName,
-                request.CustomerPhone,
-                request.PaymentMethod,
-                request.PaidAmount,
-                request.DueAmount,
-                items,
-                saleDiscount,
-                request.CreditNoteAppliedAmount);
+        var creditNoteRedemptions = request.CreditNoteRedemptions?
+            .Select(redemption => new CreditNoteRedemptionCommand(redemption.Code, redemption.Amount))
+            .ToList() ?? [];
+        var command = new RecordSaleCommand(
+            UserId!.Value,
+            ActiveShopId!.Value,
+            request.IdempotencyKey,
+            request.CustomerId,
+            request.CustomerName,
+            request.CustomerPhone,
+            request.PaymentMethod,
+            request.PaidAmount,
+            request.DueAmount,
+            items,
+            saleDiscount,
+            request.CreditNoteAppliedAmount,
+            creditNoteRedemptions);
         var result = await Bus.InvokeAsync<ErrorOr<SaleDto>>(command, cancellationToken);
         return result.ToActionResult(sale => CreatedAtAction(nameof(RecordSale), sale));
     }

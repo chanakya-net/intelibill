@@ -101,10 +101,16 @@ public sealed class RecordSaleCommandHandler
         var resolvedCustomer = resolvedCustomerOrError.Value;
         if (command.CreditNoteRedemptions is { Count: > 1 })
             return Errors.Sale.CreditNoteRedemptionsLimitExceeded;
-
-        var creditNoteAppliedAmount = GetCreditNoteAppliedAmount(command);
-        if (command.CreditNoteRedemptions is { Count: 1 } && command.CreditNoteAppliedAmount != creditNoteAppliedAmount)
+        if (command.CreditNoteAppliedAmount > 0m && command.CreditNoteRedemptions is not { Count: 1 })
             return Errors.Sale.CreditNoteRedemptionsSplitMismatch;
+
+        var creditNoteAppliedAmount = command.CreditNoteAppliedAmount;
+        var creditNoteRedemptions = command.CreditNoteRedemptions;
+        if (creditNoteRedemptions is { Count: 1 }
+            && creditNoteRedemptions.Sum(redemption => redemption.Amount) != creditNoteAppliedAmount)
+        {
+            return Errors.Sale.CreditNoteRedemptionsSplitMismatch;
+        }
 
         var invoiceNumber = $"INV-{DateTimeOffset.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8].ToUpperInvariant()}";
         var saleLineInputs = validatedLines.Select((line, index) =>
@@ -164,7 +170,7 @@ public sealed class RecordSaleCommandHandler
             return saleOrError.Errors;
 
         var sale = saleOrError.Value;
-        var creditNoteRedemptionOrError = await RedeemCreditNoteAsync(command, sale, creditNoteAppliedAmount, cancellationToken);
+        var creditNoteRedemptionOrError = await RedeemCreditNoteAsync(command, sale, cancellationToken);
         if (creditNoteRedemptionOrError.IsError)
             return creditNoteRedemptionOrError.Errors;
 
@@ -222,28 +228,22 @@ public sealed class RecordSaleCommandHandler
         return saleDtoBuilder.BuildSaleDto(sale, itemNameById, sale.Warnings);
     }
 
-    private static decimal GetCreditNoteAppliedAmount(RecordSaleCommand command) =>
-        command.CreditNoteRedemptions is { Count: > 0 }
-            ? command.CreditNoteRedemptions.Sum(redemption => redemption.Amount)
-            : command.CreditNoteAppliedAmount;
-
     private async Task<ErrorOr<CreditNote?>> RedeemCreditNoteAsync(
         RecordSaleCommand command,
         Sale sale,
-        decimal creditNoteAppliedAmount,
         CancellationToken cancellationToken)
     {
-        if (creditNoteAppliedAmount <= 0m)
+        if (command.CreditNoteAppliedAmount <= 0m)
         {
-            return (CreditNote?)null;
+            return command.CreditNoteRedemptions is { Count: > 0 }
+                ? Errors.Sale.CreditNoteRedemptionsSplitMismatch
+                : (CreditNote?)null;
         }
 
-        if (command.CreditNoteRedemptions is not { Count: > 0 })
-        {
-            return (CreditNote?)null;
-        }
+        if (command.CreditNoteRedemptions is not { Count: 1 } creditNoteRedemptions)
+            return Errors.Sale.CreditNoteRedemptionsSplitMismatch;
 
-        var redemptionRequest = command.CreditNoteRedemptions[0];
+        var redemptionRequest = creditNoteRedemptions[0];
         var creditNote = await creditNoteRepository.GetByCodeAsync(command.ShopId, redemptionRequest.Code, cancellationToken);
         if (creditNote is null)
         {

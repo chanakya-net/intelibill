@@ -106,7 +106,9 @@ public sealed class RecordSaleCommandValidator : AbstractValidator<RecordSaleCom
         });
 
         RuleFor(x => x)
-            .Must(x => x.CreditNoteRedemptions is null || x.CreditNoteRedemptions.Count == 0 || x.CreditNoteRedemptions.Sum(r => r.Amount) == x.CreditNoteAppliedAmount)
+            .Must(x => x.CreditNoteAppliedAmount == 0m
+                || (x.CreditNoteRedemptions is { Count: 1 } redemptions
+                    && redemptions.Sum(r => r.Amount) == x.CreditNoteAppliedAmount))
             .WithErrorCode(Errors.Sale.CreditNoteRedemptionsSplitMismatch.Code)
             .WithMessage(Errors.Sale.CreditNoteRedemptionsSplitMismatch.Description);
 

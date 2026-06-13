@@ -299,7 +299,7 @@ public class SalesControllerTests
     }
 
     [Fact]
-    public async Task RecordSale_WhenCreditNoteRedemptionProvided_PassesRedemptionAndAmount()
+    public async Task RecordSale_WhenCreditNoteRedemptionProvided_PreservesClientAppliedAmount()
     {
         var userId = Guid.NewGuid();
         var shopId = Guid.NewGuid();
@@ -308,7 +308,12 @@ public class SalesControllerTests
             new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
             new Claim("active_shop_id", shopId.ToString()));
 
-        var request = CreateRequest(batchId, [new CreditNoteRedemptionRequest("CN-001", 50m)]);
+        var request = CreateRequest(
+            batchId,
+            [new CreditNoteRedemptionRequest("CN-001", 10m)]) with
+        {
+            CreditNoteAppliedAmount = 50m,
+        };
         var dto = CreateDto();
         _bus.InvokeAsync<ErrorOr<SaleDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
             .Returns(dto);
@@ -323,7 +328,7 @@ public class SalesControllerTests
                 c.CreditNoteAppliedAmount == 50m
                 && c.CreditNoteRedemptions!.Count == 1
                 && c.CreditNoteRedemptions[0].Code == "CN-001"
-                && c.CreditNoteRedemptions[0].Amount == 50m),
+                && c.CreditNoteRedemptions[0].Amount == 10m),
             Arg.Any<CancellationToken>());
     }
 
