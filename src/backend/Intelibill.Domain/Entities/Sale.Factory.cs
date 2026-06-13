@@ -45,6 +45,11 @@ public sealed partial class Sale
             return Errors.Sale.DueAmountInvalid;
         }
 
+        if (creditNoteAppliedAmount < 0)
+        {
+            return Errors.Sale.CreditNoteAppliedAmountInvalid;
+        }
+
         if (paymentMethod == PaymentMethod.Credit && dueAmount <= 0)
         {
             return Errors.Sale.CreditRequiresDueAmount;

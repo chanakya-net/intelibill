@@ -334,6 +334,46 @@ public class SaleTests
     }
 
     [Fact]
+    public void Record_WhenCreditNoteAppliedAmountIsNegative_ReturnsInvalidError()
+    {
+        var shopId = Guid.NewGuid();
+        var line = new SaleLineInput(
+            shopId,
+            SaleLineType.Goods,
+            ItemId: Guid.NewGuid(),
+            InventoryBatchId: Guid.NewGuid(),
+            ServiceId: null,
+            LineName: "Sugar",
+            LineCode: "BC-001",
+            Quantity: 2m,
+            CostPrice: 80m,
+            SalesPrice: 100m,
+            Mrp: 120m,
+            TaxRatePercent: 18m,
+            IsPriceIncludingTax: false,
+            HasPriceMismatch: false);
+
+        var result = Sale.Record(
+            shopId,
+            Guid.NewGuid(),
+            $"sale-{Guid.NewGuid():N}",
+            "HASH-CREDIT-NEG",
+            "INV-20260614-CRED0003",
+            [line],
+            null,
+            null,
+            null,
+            PaymentMethod.Cash,
+            256m,
+            0m,
+            DateTimeOffset.UtcNow,
+            creditNoteAppliedAmount: -20m);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Sale.CreditNoteAppliedAmountInvalid.Code, result.FirstError.Code);
+    }
+
+    [Fact]
     public void Create_IsNotPublic()
     {
         var method = typeof(Sale).GetMethod("Create", BindingFlags.Public | BindingFlags.Static);
