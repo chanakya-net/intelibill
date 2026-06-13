@@ -6,6 +6,7 @@ using Intelibill.Api.Controllers;
 using Intelibill.Application.Features.CreditNotes.DTOs;
 using Intelibill.Application.Features.CreditNotes.Commands.VoidCreditNote;
 using Intelibill.Application.Features.CreditNotes.Queries.GetCreditNoteByCode;
+using Intelibill.Application.Features.CreditNotes.Queries.GetCreditNotePrintByCode;
 using Intelibill.Application.Features.CreditNotes.Queries.GetCreditNotes;
 using Intelibill.Application.Features.Expenses.DTOs;
 using Intelibill.Domain.Enums;
@@ -31,6 +32,17 @@ public class CreditNotesControllerTests
     public void GetCreditNoteByCode_HasOwnerManagerOrStaffPolicy()
     {
         var method = typeof(CreditNotesController).GetMethod(nameof(CreditNotesController.GetCreditNoteByCode));
+        var attr = method?
+            .GetCustomAttributes<AuthorizeAttribute>()
+            .FirstOrDefault(a => a.Policy == "OwnerManagerOrStaff");
+
+        Assert.NotNull(attr);
+    }
+
+    [Fact]
+    public void GetCreditNotePrintByCode_HasOwnerManagerOrStaffPolicy()
+    {
+        var method = typeof(CreditNotesController).GetMethod(nameof(CreditNotesController.GetCreditNotePrintByCode));
         var attr = method?
             .GetCustomAttributes<AuthorizeAttribute>()
             .FirstOrDefault(a => a.Policy == "OwnerManagerOrStaff");
@@ -101,6 +113,48 @@ public class CreditNotesControllerTests
 
         await _bus.Received(1).InvokeAsync<ErrorOr<CreditNoteDto>>(
             Arg.Is<GetCreditNoteByCodeQuery>(q =>
+                q.UserId == userId &&
+                q.ActiveShopId == shopId &&
+                q.Code == " CN-001 "),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GetCreditNotePrintByCode_WhenValid_ReturnsOkAndDispatchesQuery()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()));
+
+        var dto = new CreditNotePrintDto(
+            Guid.NewGuid(),
+            "CN-001",
+            CreditNoteStatus.Active,
+            true,
+            100m,
+            75m,
+            DateTimeOffset.UtcNow,
+            null,
+            Guid.NewGuid(),
+            "INV-001",
+            Guid.NewGuid(),
+            "RET-001",
+            "Jane Doe",
+            "Return reason",
+            null);
+
+        _bus.InvokeAsync<ErrorOr<CreditNotePrintDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(dto);
+
+        var result = await _controller.GetCreditNotePrintByCode(" CN-001 ", CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(dto, ok.Value);
+
+        await _bus.Received(1).InvokeAsync<ErrorOr<CreditNotePrintDto>>(
+            Arg.Is<GetCreditNotePrintByCodeQuery>(q =>
                 q.UserId == userId &&
                 q.ActiveShopId == shopId &&
                 q.Code == " CN-001 "),
