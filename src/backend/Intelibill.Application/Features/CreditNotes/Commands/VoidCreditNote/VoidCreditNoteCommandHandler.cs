@@ -41,7 +41,7 @@ public sealed class VoidCreditNoteCommandHandler(
         if (membership.Role is not (ShopRole.Owner or ShopRole.Manager))
             return Errors.CreditNote.UserIsNotOwnerOrManager;
 
-        var creditNote = await creditNoteRepository.GetByCodeAsync(command.ActiveShopId, command.Code, cancellationToken);
+        var creditNote = await creditNoteRepository.GetByCodeWithRedemptionsAsync(command.ActiveShopId, command.Code, cancellationToken);
         if (creditNote is null)
             return Errors.CreditNote.CreditNoteNotFound(command.Code);
 

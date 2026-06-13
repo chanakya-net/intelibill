@@ -10,6 +10,10 @@ internal sealed class CreditNoteRepository(ApplicationDbContext context)
 {
     public async Task<CreditNote?> GetByCodeAsync(Guid shopId, string code, CancellationToken cancellationToken = default) =>
         await DbSet
+            .FirstOrDefaultAsync(c => c.ShopId == shopId && c.Code == code.Trim(), cancellationToken);
+
+    public async Task<CreditNote?> GetByCodeWithRedemptionsAsync(Guid shopId, string code, CancellationToken cancellationToken = default) =>
+        await DbSet
             .Include(c => c.Redemptions)
             .FirstOrDefaultAsync(c => c.ShopId == shopId && c.Code == code.Trim(), cancellationToken);
 

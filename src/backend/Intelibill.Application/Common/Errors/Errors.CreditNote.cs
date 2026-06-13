@@ -19,7 +19,7 @@ public static partial class Errors
             Error.Validation("CreditNote.VoidReasonRequired", "Void reason is required.");
 
         public static Error AlreadyVoided =>
-            Error.Validation("CreditNote.AlreadyVoided", "Credit note is already voided.");
+            Error.Conflict("CreditNote.AlreadyVoided", "Credit note is already voided.");
 
         public static Error CannotVoidAfterRedemption =>
             Error.Conflict("CreditNote.CannotVoidAfterRedemption", "Cannot void a credit note after it has been redeemed.");

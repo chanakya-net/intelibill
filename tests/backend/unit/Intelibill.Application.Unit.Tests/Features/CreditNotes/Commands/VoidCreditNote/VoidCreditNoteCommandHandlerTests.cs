@@ -79,7 +79,7 @@ public sealed class VoidCreditNoteCommandHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_WhenAlreadyVoided_ReturnsValidationError()
+    public async Task HandleAsync_WhenAlreadyVoided_ReturnsConflict()
     {
         var fixture = Arrange(ShopRole.Owner, voided: true);
         var creditNote = fixture.CreditNote ?? throw new InvalidOperationException("Expected a credit note.");
@@ -136,12 +136,12 @@ public sealed class VoidCreditNoteCommandHandlerTests
                 creditNote.Void("Earlier void");
             }
 
-            _creditNoteRepository.GetByCodeAsync(shop.Id, creditNote.Code, Arg.Any<CancellationToken>())
+            _creditNoteRepository.GetByCodeWithRedemptionsAsync(shop.Id, creditNote.Code, Arg.Any<CancellationToken>())
                 .Returns(creditNote);
         }
         else
         {
-            _creditNoteRepository.GetByCodeAsync(shop.Id, "CN-404", Arg.Any<CancellationToken>())
+            _creditNoteRepository.GetByCodeWithRedemptionsAsync(shop.Id, "CN-404", Arg.Any<CancellationToken>())
                 .Returns((CreditNote?)null);
         }
 
