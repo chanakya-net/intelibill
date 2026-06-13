@@ -331,7 +331,7 @@ export interface PreviewSaleReturnRequest {
 }
 
 export interface RecordSaleReturnRequest extends PreviewSaleReturnRequest {
-  readonly payoutMethod: number | null;
+  readonly payoutDestination: number | null;
   readonly notes: string | null;
 }
 

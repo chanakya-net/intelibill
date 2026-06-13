@@ -752,7 +752,7 @@ public class SalesControllerTests
 
         var result = await _controller.RecordSaleReturn(
             Guid.NewGuid(),
-            new RecordSaleReturnRequest(PaymentMethod.Cash, null, null, null, []),
+            new RecordSaleReturnRequest(ReturnPayoutDestination.Refund, null, null, null, []),
             CancellationToken.None);
 
         Assert.IsType<UnauthorizedResult>(result);
@@ -810,7 +810,7 @@ public class SalesControllerTests
         var result = await _controller.RecordSaleReturn(
             saleId,
             new RecordSaleReturnRequest(
-                PaymentMethod.Cash,
+                ReturnPayoutDestination.Refund,
                 DueReductionOverrideAmount: null,
                 DueOverrideReason: null,
                 Notes: "Customer returned sealed item",
@@ -824,7 +824,7 @@ public class SalesControllerTests
                 c.ActorUserId == userId
                 && c.ShopId == shopId
                 && c.SaleId == saleId
-                && c.PayoutMethod == PaymentMethod.Cash
+                && c.PayoutDestination == ReturnPayoutDestination.Refund
                 && c.Items.Count == 1
                 && c.Items[0].SaleItemId == saleItemId),
             Arg.Any<CancellationToken>());

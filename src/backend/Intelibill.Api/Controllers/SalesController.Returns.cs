@@ -55,7 +55,7 @@ public sealed partial class SalesController : AuthenticatedControllerBase
                 UserId!.Value,
                 ActiveShopId!.Value,
                 saleId,
-                request.PayoutMethod,
+                request.PayoutDestination,
                 request.DueReductionOverrideAmount,
                 request.DueOverrideReason,
                 request.Notes,

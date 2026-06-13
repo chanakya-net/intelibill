@@ -307,8 +307,8 @@ export class SaleReturnPreviewDialogComponent {
     if (errors.length > 0) return;
 
     const payload: RecordSaleReturnRequest = {
-      payoutMethod:
-        (this.returnPreview()?.financial?.payoutAmount ?? 0) > 0 ? this.payoutMethod() : null,
+      payoutDestination:
+        (this.returnPreview()?.financial?.payoutAmount ?? 0) > 0 ? 2 : null,
       dueReductionOverrideAmount: this.dueReductionOverrideAmount(),
       dueOverrideReason: this.normalizeOptional(this.dueOverrideReason()),
       notes: null,

@@ -185,11 +185,11 @@ public static partial class Errors
         public static Error ReturnForbidden =>
             Error.Forbidden("SaleReturn.Forbidden", "Only owners and managers can record sale returns.");
 
-        public static Error ReturnPayoutMethodRequired =>
-            Error.Validation("SaleReturn.PayoutMethodRequired", "Payout method is required when payout amount is greater than zero.");
+        public static Error ReturnPayoutDestinationRequired =>
+            Error.Validation("SaleReturn.PayoutDestinationRequired", "Payout destination is required when payout amount is greater than zero.");
 
-        public static Error ReturnPayoutMethodInvalid =>
-            Error.Validation("SaleReturn.PayoutMethodInvalid", "Return payout method must be Cash, UPI, or Card.");
+        public static Error ReturnPayoutDestinationInvalid =>
+            Error.Validation("SaleReturn.PayoutDestinationInvalid", "Return payout destination must be a recognised value.");
 
         public static Error ReturnCustomerDueNotSupported =>
             Error.Validation("SaleReturn.CustomerDueNotSupported", "Customer due returns are not supported yet.");

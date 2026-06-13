@@ -166,7 +166,7 @@ public class SalesExportDatasetBuilderTests
             150,
             0,
             150,
-            PaymentMethod.Cash,
+            ReturnPayoutDestination.Refund,
             127.12m,
             22.88m,
             null,
@@ -327,7 +327,7 @@ public class SalesExportDatasetBuilderTests
             150,
             0,
             150,
-            PaymentMethod.Cash,
+            ReturnPayoutDestination.Refund,
             127.12m,
             22.88m,
             null,
@@ -378,7 +378,7 @@ public class SalesExportDatasetBuilderTests
             shop.Id, Guid.NewGuid(), 1, SaleReturnCondition.Restockable, 100, 150, 18, true, 150, 150, 127.12m, 22.88m, null);
 
         var saleReturn = SaleReturn.Record(
-            shop.Id, sale.Id, "RET-001", DateTimeOffset.UtcNow, user.Id, null, 150, 0, 150, PaymentMethod.Cash, 127.12m, 22.88m, null, null, new List<SaleReturnLineInput> { returnLine }).Value;
+            shop.Id, sale.Id, "RET-001", DateTimeOffset.UtcNow, user.Id, null, 150, 0, 150, ReturnPayoutDestination.Refund, 127.12m, 22.88m, null, null, new List<SaleReturnLineInput> { returnLine }).Value;
 
         _saleRepository.GetByShopAndDateRangeAsync(shop.Id, startDate, endDate, Arg.Any<CancellationToken>())
             .Returns(new List<Sale> { sale });
@@ -421,7 +421,7 @@ public class SalesExportDatasetBuilderTests
             shop.Id, "INV-001", null, null, null, PaymentMethod.Cash, DateTimeOffset.UtcNow, 100, 0, 100, 0, new List<SaleItem>());
 
         var saleReturn = SaleReturn.Record(
-            shop.Id, sale.Id, "RET-001", DateTimeOffset.UtcNow, user.Id, null, 100, 0, 100, PaymentMethod.Cash, 100, 0, null, null, new List<SaleReturnLineInput>()).Value;
+            shop.Id, sale.Id, "RET-001", DateTimeOffset.UtcNow, user.Id, null, 100, 0, 100, ReturnPayoutDestination.Refund, 100, 0, null, null, new List<SaleReturnLineInput>()).Value;
         saleReturn.Void(DateTimeOffset.UtcNow, user.Id, "Testing");
 
         _saleRepository.GetByShopAndDateRangeAsync(shop.Id, startDate, endDate, Arg.Any<CancellationToken>())

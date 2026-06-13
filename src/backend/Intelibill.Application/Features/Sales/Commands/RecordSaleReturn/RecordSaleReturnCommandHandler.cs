@@ -128,7 +128,7 @@ public sealed class RecordSaleReturnCommandHandler(
             validated.Calculation.TotalRefundAmount,
             validated.Calculation.DueReductionAmount,
             validated.Calculation.PayoutAmount,
-            command.PayoutMethod,
+            command.PayoutDestination,
             validated.Calculation.TotalTaxableAmount,
             validated.Calculation.TotalTaxAmount,
             validated.Calculation.CustomerBalanceBefore,

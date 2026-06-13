@@ -124,7 +124,7 @@ public sealed record PreviewSaleReturnItemRequest(
     SaleLineType LineType = SaleLineType.Goods);
 
 public sealed record RecordSaleReturnRequest(
-    PaymentMethod? PayoutMethod,
+    ReturnPayoutDestination? PayoutDestination,
     decimal? DueReductionOverrideAmount,
     string? DueOverrideReason,
     string? Notes,

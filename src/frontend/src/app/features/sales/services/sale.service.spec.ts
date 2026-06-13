@@ -297,7 +297,7 @@ describe('SaleService', () => {
     const { service, http } = setup();
     const sale = makeSaleDto();
     const payload = {
-      payoutMethod: 1,
+      payoutDestination: 2,
       dueReductionOverrideAmount: null,
       dueOverrideReason: null,
       notes: null,

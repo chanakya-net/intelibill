@@ -38,7 +38,7 @@ public class SaleReturnTests
             totalRefundAmount: 118m,
             dueReductionAmount: 0m,
             payoutAmount: 118m,
-            payoutMethod: PaymentMethod.Cash,
+            payoutDestination: ReturnPayoutDestination.Refund,
             totalTaxableAmount: 100m,
             totalTaxAmount: 18m,
             customerBalanceBefore: 200m,
@@ -83,7 +83,7 @@ public class SaleReturnTests
             totalRefundAmount: 118m,
             dueReductionAmount: 118m,
             payoutAmount: 0m,
-            payoutMethod: null,
+            payoutDestination: null,
             totalTaxableAmount: 100m,
             totalTaxAmount: 18m,
             customerBalanceBefore: null,
@@ -122,7 +122,7 @@ public class SaleReturnTests
             totalRefundAmount: 80m,
             dueReductionAmount: 80m,
             payoutAmount: 0m,
-            payoutMethod: null,
+            payoutDestination: null,
             totalTaxableAmount: 100m,
             totalTaxAmount: 18m,
             customerBalanceBefore: null,
@@ -161,7 +161,7 @@ public class SaleReturnTests
             totalRefundAmount: 0m,
             dueReductionAmount: 0m,
             payoutAmount: 0m,
-            payoutMethod: null,
+            payoutDestination: null,
             totalTaxableAmount: 0m,
             totalTaxAmount: 0m,
             customerBalanceBefore: null,
@@ -188,7 +188,7 @@ public class SaleReturnTests
     }
 
     [Fact]
-    public void Record_WithPayoutAmountAndNoMethod_ReturnsPayoutMethodRequired()
+    public void Record_WithPayoutAmountAndNullDestination_ReturnsPayoutDestinationRequired()
     {
         var result = SaleReturn.Record(
             Guid.NewGuid(),
@@ -200,7 +200,7 @@ public class SaleReturnTests
             totalRefundAmount: 25m,
             dueReductionAmount: 0m,
             payoutAmount: 25m,
-            payoutMethod: null,
+            payoutDestination: null,
             totalTaxableAmount: 20m,
             totalTaxAmount: 5m,
             customerBalanceBefore: null,
@@ -223,11 +223,13 @@ public class SaleReturnTests
             ]);
 
         Assert.True(result.IsError);
-        Assert.Equal("SaleReturn.PayoutMethodRequired", result.FirstError.Code);
+        Assert.Equal("SaleReturn.PayoutDestinationRequired", result.FirstError.Code);
     }
 
-    [Fact]
-    public void Record_WithPayoutAmountAndCreditMethod_ReturnsPayoutMethodInvalid()
+    [Theory]
+    [InlineData(ReturnPayoutDestination.Refund)]
+    [InlineData(ReturnPayoutDestination.CreditNote)]
+    public void Record_WithPayoutAmountAndValidDestination_Succeeds(ReturnPayoutDestination destination)
     {
         var result = SaleReturn.Record(
             Guid.NewGuid(),
@@ -239,7 +241,7 @@ public class SaleReturnTests
             totalRefundAmount: 25m,
             dueReductionAmount: 0m,
             payoutAmount: 25m,
-            payoutMethod: PaymentMethod.Credit,
+            payoutDestination: destination,
             totalTaxableAmount: 20m,
             totalTaxAmount: 5m,
             customerBalanceBefore: null,
@@ -261,8 +263,7 @@ public class SaleReturnTests
                     "ok"),
             ]);
 
-        Assert.True(result.IsError);
-        Assert.Equal("SaleReturn.PayoutMethodInvalid", result.FirstError.Code);
+        Assert.False(result.IsError);
     }
 
     [Fact]
@@ -297,7 +298,7 @@ public class SaleReturnTests
             totalRefundAmount: 118m,
             dueReductionAmount: 50m,
             payoutAmount: 68m,
-            payoutMethod: PaymentMethod.Cash,
+            payoutDestination: ReturnPayoutDestination.Refund,
             totalTaxableAmount: 100m,
             totalTaxAmount: 18m,
             customerBalanceBefore: 200m,
@@ -356,7 +357,7 @@ public class SaleReturnTests
             totalRefundAmount: 200m,
             dueReductionAmount: 0m,
             payoutAmount: 200m,
-            payoutMethod: PaymentMethod.Cash,
+            payoutDestination: ReturnPayoutDestination.Refund,
             totalTaxableAmount: 250m,
             totalTaxAmount: 45m,
             customerBalanceBefore: null,
@@ -396,7 +397,7 @@ public class SaleReturnTests
             totalRefundAmount: 0m,
             dueReductionAmount: 0m,
             payoutAmount: 0m,
-            payoutMethod: null,
+            payoutDestination: null,
             totalTaxableAmount: 0m,
             totalTaxAmount: 0m,
             customerBalanceBefore: null,
