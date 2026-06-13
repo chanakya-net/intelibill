@@ -14,6 +14,7 @@ public sealed class CreditNote : BaseEntity
     public string Reason { get; private set; } = null!;
     public DateTimeOffset? ExpiresAt { get; private set; }
     public bool IsVoided { get; private set; }
+    public string? VoidReason { get; private set; }
 
     private readonly List<CreditNoteRedemption> _redemptions = [];
     public IReadOnlyList<CreditNoteRedemption> Redemptions => _redemptions.AsReadOnly();
@@ -108,7 +109,13 @@ public sealed class CreditNote : BaseEntity
             return Error.Conflict("CreditNote.CannotVoidAfterRedemption", "Cannot void a credit note after it has been redeemed.");
         }
 
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            return Error.Validation("CreditNote.VoidReasonRequired", "Void reason is required.");
+        }
+
         IsVoided = true;
+        VoidReason = reason.Trim();
         return Result.Success;
     }
 
