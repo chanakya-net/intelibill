@@ -96,6 +96,21 @@ public class CreditNoteTests
     }
 
     [Fact]
+    public void Redeem_WithMismatchedShopId_ReturnsError()
+    {
+        var creditNoteShopId = Guid.NewGuid();
+        var differentShopId = Guid.NewGuid();
+        var creditNoteResult = CreditNote.Issue(creditNoteShopId, Guid.NewGuid(), 1000m, "reason", "CN-001", null);
+        var creditNote = creditNoteResult.Value;
+
+        var redeemResult = creditNote.Redeem(differentShopId, Guid.NewGuid(), 300m);
+
+        Assert.True(redeemResult.IsError);
+        Assert.Equal(1000m, creditNote.AvailableBalance);
+        Assert.Empty(creditNote.Redemptions);
+    }
+
+    [Fact]
     public void Redeem_WithAmountExceedingBalance_ReturnsError()
     {
         var creditNoteResult = CreditNote.Issue(
@@ -209,8 +224,9 @@ public class CreditNoteTests
     [Fact]
     public void Redeem_AfterPartialRedemption_BlocksVoid()
     {
+        var shopId = Guid.NewGuid();
         var creditNoteResult = CreditNote.Issue(
-            Guid.NewGuid(),
+            shopId,
             Guid.NewGuid(),
             1000m,
             "reason",
@@ -218,7 +234,7 @@ public class CreditNoteTests
             null);
         var creditNote = creditNoteResult.Value;
 
-        creditNote.Redeem(Guid.NewGuid(), Guid.NewGuid(), 100m);
+        creditNote.Redeem(shopId, Guid.NewGuid(), 100m);
 
         var voidResult = creditNote.Void("voided");
         Assert.True(voidResult.IsError);

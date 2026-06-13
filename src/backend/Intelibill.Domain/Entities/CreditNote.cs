@@ -58,6 +58,11 @@ public sealed class CreditNote : BaseEntity
 
     public ErrorOr<CreditNoteRedemption> Redeem(Guid shopId, Guid saleId, decimal amount)
     {
+        if (shopId != ShopId)
+        {
+            return Error.Conflict("CreditNote.WrongShop", "Redemption must be made by the shop that owns this credit note.");
+        }
+
         if (IsVoided)
         {
             return Error.Conflict("CreditNote.VoidedCannotRedeem", "Cannot redeem a voided credit note.");
