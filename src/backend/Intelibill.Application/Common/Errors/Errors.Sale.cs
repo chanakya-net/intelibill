@@ -54,6 +54,12 @@ public static partial class Errors
         public static Error CreditNoteAppliedAmountInvalid =>
             Error.Validation("Sale.CreditNoteAppliedAmountInvalid", "Credit note applied amount cannot be negative.");
 
+        public static Error CreditNoteRedemptionsLimitExceeded =>
+            Error.Validation("Sale.CreditNoteRedemptionsLimitExceeded", "Only one credit note redemption is supported per sale.");
+
+        public static Error CreditNoteRedemptionsSplitMismatch =>
+            Error.Validation("Sale.CreditNoteRedemptionsSplitMismatch", "Credit note redemption amount must match the applied amount.");
+
         public static Error CreditRequiresDueAmount =>
             Error.Validation("Sale.CreditRequiresDueAmount", "Credit sale must include a due amount greater than zero.");
 

@@ -139,6 +139,38 @@ public class RecordSaleCommandValidatorTests
     }
 
     [Fact]
+    public void Validate_WhenMultipleCreditNoteRedemptions_ReturnsError()
+    {
+        var command = ValidCommand() with
+        {
+            CreditNoteAppliedAmount = 100m,
+            CreditNoteRedemptions =
+            [
+                new CreditNoteRedemptionCommand("CN-001", 50m),
+                new CreditNoteRedemptionCommand("CN-002", 50m),
+            ],
+        };
+
+        var result = _validator.TestValidate(command);
+
+        result.ShouldHaveValidationErrorFor(x => x.CreditNoteRedemptions);
+    }
+
+    [Fact]
+    public void Validate_WhenCreditNoteSplitMismatch_ReturnsError()
+    {
+        var command = ValidCommand() with
+        {
+            CreditNoteAppliedAmount = 100m,
+            CreditNoteRedemptions = [new CreditNoteRedemptionCommand("CN-001", 90m)],
+        };
+
+        var result = _validator.TestValidate(command);
+
+        result.ShouldHaveValidationErrorFor(x => x);
+    }
+
+    [Fact]
     public void Validate_WhenItemDiscountFlatNegative_ReturnsError()
     {
         var command = ValidCommand([ValidItem() with { ItemDiscount = new(InstantDiscountType.Flat, -1m) }]);

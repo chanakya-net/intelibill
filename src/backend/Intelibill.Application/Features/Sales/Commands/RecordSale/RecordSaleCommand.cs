@@ -15,7 +15,8 @@ public sealed record RecordSaleCommand(
     decimal DueAmount,
     IReadOnlyList<RecordSaleItemCommand> Items,
     InstantDiscount? SaleDiscount = null,
-    decimal CreditNoteAppliedAmount = 0m);
+    decimal CreditNoteAppliedAmount = 0m,
+    IReadOnlyList<CreditNoteRedemptionCommand>? CreditNoteRedemptions = null);
 
 public sealed record RecordSaleItemCommand(
     string Barcode,
@@ -37,3 +38,7 @@ public sealed record RecordSaleItemCommand(
     public bool IsGoodsLine => LineType == SaleLineType.Goods;
     public bool IsServiceLine => LineType == SaleLineType.Service;
 }
+
+public sealed record CreditNoteRedemptionCommand(
+    string Code,
+    decimal Amount);

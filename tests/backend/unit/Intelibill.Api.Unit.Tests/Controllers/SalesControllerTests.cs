@@ -49,7 +49,9 @@ public class SalesControllerTests
         };
     }
 
-    private static RecordSaleRequest CreateRequest(Guid? inventoryBatchId = null) =>
+    private static RecordSaleRequest CreateRequest(
+        Guid? inventoryBatchId = null,
+        IReadOnlyList<CreditNoteRedemptionRequest>? creditNoteRedemptions = null) =>
         new(
             null,
             "Ravi Kumar",
@@ -58,7 +60,8 @@ public class SalesControllerTests
             PaymentMethod.Cash,
             500m,
             0m,
-            [new RecordSaleItemRequest("BC-001", "B-01", "Rice", 5m, 80m, 100m, 120m, 18m, false, inventoryBatchId ?? Guid.NewGuid())]);
+            [new RecordSaleItemRequest("BC-001", "B-01", "Rice", 5m, 80m, 100m, 120m, 18m, false, inventoryBatchId ?? Guid.NewGuid())],
+            CreditNoteRedemptions: creditNoteRedemptions ?? []);
 
     private static OfflineSalesSyncRequest CreateOfflineSyncRequest(Guid? batchId = null) =>
         new(
@@ -292,6 +295,35 @@ public class SalesControllerTests
                 && c.Items.Count == 1
                 && c.Items[0].Barcode == "BC-001"
                 && c.Items[0].InventoryBatchId == batchId),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RecordSale_WhenCreditNoteRedemptionProvided_PassesRedemptionAndAmount()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        var batchId = Guid.NewGuid();
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()));
+
+        var request = CreateRequest(batchId, [new CreditNoteRedemptionRequest("CN-001", 50m)]);
+        var dto = CreateDto();
+        _bus.InvokeAsync<ErrorOr<SaleDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(dto);
+
+        var result = await _controller.RecordSale(request, CancellationToken.None);
+
+        var createdResult = Assert.IsType<CreatedAtActionResult>(result);
+        Assert.Equal(dto, createdResult.Value);
+
+        await _bus.Received(1).InvokeAsync<ErrorOr<SaleDto>>(
+            Arg.Is<RecordSaleCommand>(c =>
+                c.CreditNoteAppliedAmount == 50m
+                && c.CreditNoteRedemptions!.Count == 1
+                && c.CreditNoteRedemptions[0].Code == "CN-001"
+                && c.CreditNoteRedemptions[0].Amount == 50m),
             Arg.Any<CancellationToken>());
     }
 

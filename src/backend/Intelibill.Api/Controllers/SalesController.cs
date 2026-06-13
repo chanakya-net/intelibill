@@ -100,8 +100,28 @@ public sealed partial class SalesController : AuthenticatedControllerBase
     {
         var auth = CheckAuthAndShop();
         if (auth is not null) return auth;
-        var result = await Bus.InvokeAsync<ErrorOr<SaleDto>>(
-            new RecordSaleCommand(
+        var items = request.Items.Select(i => new RecordSaleItemCommand(
+            i.Barcode,
+            i.BatchNumber,
+            i.ItemName,
+            i.Quantity,
+            i.CostPrice,
+            i.SalesPrice,
+            i.Mrp,
+            i.TaxRatePercent,
+            i.IsPriceIncludingTax,
+            i.InventoryBatchId,
+            i.ItemDiscount is null ? null : new InstantDiscount(i.ItemDiscount.Type, i.ItemDiscount.Value),
+            i.ClientLineKey,
+            i.HsnCode,
+            i.LineType,
+            i.ServiceId)).ToList();
+        var saleDiscount = request.SaleDiscount is null
+            ? null
+            : new InstantDiscount(request.SaleDiscount.Type, request.SaleDiscount.Value);
+        var creditNoteRedemptions = request.CreditNoteRedemptions ?? [];
+        var command = creditNoteRedemptions.Count > 0
+            ? new RecordSaleCommand(
                 UserId!.Value,
                 ActiveShopId!.Value,
                 request.IdempotencyKey,
@@ -111,27 +131,25 @@ public sealed partial class SalesController : AuthenticatedControllerBase
                 request.PaymentMethod,
                 request.PaidAmount,
                 request.DueAmount,
-                request.Items.Select(i => new RecordSaleItemCommand(
-                    i.Barcode,
-                    i.BatchNumber,
-                    i.ItemName,
-                    i.Quantity,
-                    i.CostPrice,
-                    i.SalesPrice,
-                    i.Mrp,
-                    i.TaxRatePercent,
-                    i.IsPriceIncludingTax,
-                    i.InventoryBatchId,
-                    i.ItemDiscount is null ? null : new InstantDiscount(i.ItemDiscount.Type, i.ItemDiscount.Value),
-                    i.ClientLineKey,
-                    i.HsnCode,
-                    i.LineType,
-                    i.ServiceId)).ToList(),
-                request.SaleDiscount is null
-                    ? null
-                    : new InstantDiscount(request.SaleDiscount.Type, request.SaleDiscount.Value),
-                request.CreditNoteAppliedAmount),
-            cancellationToken);
+                items,
+                saleDiscount,
+                creditNoteRedemptions.Sum(redemption => redemption.Amount),
+                creditNoteRedemptions.Select(redemption =>
+                    new CreditNoteRedemptionCommand(redemption.Code, redemption.Amount)).ToList())
+            : new RecordSaleCommand(
+                UserId!.Value,
+                ActiveShopId!.Value,
+                request.IdempotencyKey,
+                request.CustomerId,
+                request.CustomerName,
+                request.CustomerPhone,
+                request.PaymentMethod,
+                request.PaidAmount,
+                request.DueAmount,
+                items,
+                saleDiscount,
+                request.CreditNoteAppliedAmount);
+        var result = await Bus.InvokeAsync<ErrorOr<SaleDto>>(command, cancellationToken);
         return result.ToActionResult(sale => CreatedAtAction(nameof(RecordSale), sale));
     }
 
