@@ -3,6 +3,7 @@ using Intelibill.Api.Extensions;
 using Intelibill.Application.Features.CreditNotes.Commands.VoidCreditNote;
 using Intelibill.Application.Features.CreditNotes.DTOs;
 using Intelibill.Application.Features.CreditNotes.Queries.GetCreditNoteByCode;
+using Intelibill.Application.Features.CreditNotes.Queries.GetCreditNotePrintByCode;
 using Intelibill.Application.Features.CreditNotes.Queries.GetCreditNotes;
 using Intelibill.Application.Features.Expenses.DTOs;
 using Intelibill.Domain.Enums;
@@ -49,6 +50,20 @@ public sealed class CreditNotesController : AuthenticatedControllerBase
 
         var result = await Bus.InvokeAsync<ErrorOr<CreditNoteDto>>(
             new GetCreditNoteByCodeQuery(UserId!.Value, ActiveShopId!.Value, code),
+            cancellationToken);
+
+        return result.ToActionResult(Ok);
+    }
+
+    [HttpGet("{code}/print")]
+    [Authorize(Policy = "OwnerManagerOrStaff")]
+    public async Task<IActionResult> GetCreditNotePrintByCode(string code, CancellationToken cancellationToken)
+    {
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
+
+        var result = await Bus.InvokeAsync<ErrorOr<CreditNotePrintDto>>(
+            new GetCreditNotePrintByCodeQuery(UserId!.Value, ActiveShopId!.Value, code),
             cancellationToken);
 
         return result.ToActionResult(Ok);
