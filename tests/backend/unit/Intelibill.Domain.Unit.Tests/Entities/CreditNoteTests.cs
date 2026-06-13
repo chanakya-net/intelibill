@@ -256,6 +256,25 @@ public class CreditNoteTests
 
         Assert.False(voidResult.IsError);
         Assert.Equal(CreditNoteStatus.Voided, creditNote.Status);
+        Assert.Equal("voided reason", creditNote.VoidReason);
+    }
+
+    [Fact]
+    public void Void_WithEmptyReason_ReturnsValidationError()
+    {
+        var creditNoteResult = CreditNote.Issue(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            500m,
+            "reason",
+            "CN-001",
+            null);
+        var creditNote = creditNoteResult.Value;
+
+        var result = creditNote.Void(string.Empty);
+
+        Assert.True(result.IsError);
+        Assert.Equal("CreditNote.VoidReasonRequired", result.FirstError.Code);
     }
 
     [Fact]
