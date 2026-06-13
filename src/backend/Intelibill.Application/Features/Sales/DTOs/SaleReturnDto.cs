@@ -11,6 +11,7 @@ public sealed record SaleReturnDto(
     decimal TotalRefundAmount,
     decimal DueReductionAmount,
     decimal PayoutAmount,
+    ReturnPayoutDestination? PayoutDestination,
     decimal TotalTaxableAmount,
     decimal TotalTaxAmount,
     IReadOnlyList<SaleReturnItemDto> Items);

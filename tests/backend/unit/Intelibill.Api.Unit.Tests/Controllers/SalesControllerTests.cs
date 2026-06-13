@@ -796,6 +796,7 @@ public class SalesControllerTests
                     100m,
                     0m,
                     100m,
+                    ReturnPayoutDestination.Refund,
                     90m,
                     10m,
                     [])

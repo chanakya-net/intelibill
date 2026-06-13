@@ -110,6 +110,7 @@ public sealed class GetSaleDetailQueryHandler(
                 r.TotalRefundAmount,
                 r.DueReductionAmount,
                 r.PayoutAmount,
+                r.PayoutDestination,
                 r.TotalTaxableAmount,
                 r.TotalTaxAmount,
                 r.Items.Select(i => new SaleReturnItemDto(

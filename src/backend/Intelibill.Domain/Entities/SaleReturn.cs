@@ -18,6 +18,7 @@ public sealed class SaleReturn : BaseEntity
     public decimal TotalRefundAmount { get; private set; }
     public decimal DueReductionAmount { get; private set; }
     public decimal PayoutAmount { get; private set; }
+    public ReturnPayoutDestination? PayoutDestination { get; private set; }
     public decimal TotalTaxableAmount { get; private set; }
     public decimal TotalTaxAmount { get; private set; }
     public decimal? CustomerBalanceBefore { get; private set; }
@@ -113,6 +114,7 @@ public sealed class SaleReturn : BaseEntity
             TotalRefundAmount = totalRefundAmount,
             DueReductionAmount = dueReductionAmount,
             PayoutAmount = payoutAmount,
+            PayoutDestination = payoutDestination,
             TotalTaxableAmount = totalTaxableAmount,
             TotalTaxAmount = totalTaxAmount,
             CustomerBalanceBefore = customerBalanceBefore,

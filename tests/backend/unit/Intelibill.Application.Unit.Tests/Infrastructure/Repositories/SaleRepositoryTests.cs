@@ -149,6 +149,56 @@ public sealed class SaleRepositoryTests
         Assert.Equal(0m, result[2].ReturnAmount);
     }
 
+    [Fact]
+    public async Task SaleReturn_PersistsPayoutDestination()
+    {
+        await using var context = await CreateContextAsync();
+
+        var actorId = Guid.NewGuid();
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+        var saleItem = SaleItem.CreateGoods(shop.Id, Guid.NewGuid(), Guid.NewGuid(), "Item A", "BC-A", 1m, 80m, 100m, 100m, 0m, false, false);
+        var sale = Sale.Create(shop.Id, actorId, "idem-credit-note", "hash-credit-note", "INV-CN-001", null, null, null, PaymentMethod.Cash, new DateTimeOffset(2026, 5, 4, 9, 0, 0, TimeSpan.Zero), 100m, 0m, 100m, 0m, [saleItem]);
+        var saleReturn = SaleReturn.Record(
+            shop.Id,
+            sale.Id,
+            "RET-CN-001",
+            new DateTimeOffset(2026, 5, 4, 10, 0, 0, TimeSpan.Zero),
+            actorId,
+            null,
+            100m,
+            0m,
+            100m,
+            ReturnPayoutDestination.CreditNote,
+            100m,
+            0m,
+            null,
+            null,
+            [
+                new SaleReturnLineInput(
+                    shop.Id,
+                    saleItem.Id,
+                    1m,
+                    SaleReturnCondition.Restockable,
+                    80m,
+                    100m,
+                    0m,
+                    false,
+                    100m,
+                    100m,
+                    100m,
+                    0m,
+                    "Accepted"),
+            ]).Value;
+
+        await context.AddRangeAsync(shop, sale, saleReturn);
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var persistedReturn = await context.SaleReturns.SingleAsync();
+
+        Assert.Equal(ReturnPayoutDestination.CreditNote, persistedReturn.PayoutDestination);
+    }
+
     private static async Task<ApplicationDbContext> CreateContextAsync()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()

@@ -57,6 +57,7 @@ public class SaleReturnTests
         Assert.Equal(118m, saleReturn.TotalRefundAmount);
         Assert.Equal(0m, saleReturn.DueReductionAmount);
         Assert.Equal(118m, saleReturn.PayoutAmount);
+        Assert.Equal(ReturnPayoutDestination.Refund, saleReturn.PayoutDestination);
         Assert.Equal(100m, saleReturn.TotalTaxableAmount);
         Assert.Equal(18m, saleReturn.TotalTaxAmount);
         Assert.Equal(200m, saleReturn.CustomerBalanceBefore);
@@ -264,6 +265,7 @@ public class SaleReturnTests
             ]);
 
         Assert.False(result.IsError);
+        Assert.Equal(destination, result.Value.PayoutDestination);
     }
 
     [Fact]

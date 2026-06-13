@@ -78,7 +78,8 @@ public class GetSaleDetailQueryHandlerTests
         Guid saleId,
         Guid saleItemId,
         decimal quantity,
-        bool voided = false)
+        bool voided = false,
+        ReturnPayoutDestination payoutDestination = ReturnPayoutDestination.Refund)
     {
         var returnItem = SaleReturnItem.Create(
             shopId,
@@ -121,7 +122,7 @@ public class GetSaleDetailQueryHandlerTests
             totalRefundAmount: quantity * 100m,
             dueReductionAmount: 0m,
             payoutAmount: quantity * 100m,
-            payoutDestination: ReturnPayoutDestination.Refund,
+            payoutDestination: payoutDestination,
             totalTaxableAmount: quantity * 100m,
             totalTaxAmount: quantity * 10m,
             customerBalanceBefore: null,
@@ -436,6 +437,31 @@ public class GetSaleDetailQueryHandlerTests
         Assert.Equal(550m, result.Value.TotalAmount);
         Assert.Equal(50m, result.Value.TotalTaxAmount);
         Assert.Equal(550m, result.Value.PaidAmount);
+    }
+
+    [Fact]
+    public async Task Handle_WhenSaleHasCreditNoteReturn_ExposesPayoutDestination()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var item = Item.Create(shop.Id, "Rice", "desc", "kg", "BC-001", true, Guid.NewGuid());
+        var saleItem = MakeSaleItem(shop.Id, item.Id, quantity: 1m);
+        var sale = MakeSale(shop.Id, saleItem);
+        var saleReturn = MakeSaleReturn(
+            shop.Id,
+            sale.Id,
+            saleItem.Id,
+            quantity: 1m,
+            payoutDestination: ReturnPayoutDestination.CreditNote);
+
+        ArrangeAuthorizedSale(user, shop, sale, item);
+        _saleReturnRepository.GetBySaleAsync(shop.Id, sale.Id, Arg.Any<CancellationToken>()).Returns([saleReturn]);
+
+        var result = await CreateHandler().Handle(new GetSaleDetailQuery(user.Id, shop.Id, sale.Id), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        var returnedSale = Assert.Single(result.Value.Returns);
+        Assert.Equal(ReturnPayoutDestination.CreditNote, returnedSale.PayoutDestination);
     }
 
     [Fact]
