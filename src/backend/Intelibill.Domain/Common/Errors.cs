@@ -24,6 +24,9 @@ public static partial class Errors
         public static Error DueAmountInvalid =>
             Error.Validation("Sale.DueAmountInvalid", "Due amount cannot be negative.");
 
+        public static Error CreditNoteAppliedAmountInvalid =>
+            Error.Validation("Sale.CreditNoteAppliedAmountInvalid", "Credit note applied amount cannot be negative.");
+
         public static Error CreditRequiresDueAmount =>
             Error.Validation("Sale.CreditRequiresDueAmount", "Credit sale must include a due amount greater than zero.");
 

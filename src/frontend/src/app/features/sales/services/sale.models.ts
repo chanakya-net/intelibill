@@ -192,6 +192,7 @@ export interface RecordSaleRequest {
   readonly dueAmount: number;
   readonly items: readonly RecordSaleItemRequest[];
   readonly saleDiscount: InstantDiscountRequest | null;
+  readonly creditNoteAppliedAmount?: number;
 }
 
 export interface ReserveInvoiceLeaseRequest {
@@ -278,6 +279,7 @@ export interface SaleDto {
   readonly totalDiscountAmount: number;
   readonly totalAmount: number;
   readonly totalTaxAmount: number;
+  readonly creditNoteAppliedAmount: number;
   readonly items: readonly SaleItemDto[];
   readonly returns: readonly SaleReturnDto[];
   readonly warnings: readonly string[];
@@ -405,6 +407,7 @@ export interface SaleListItemDto {
   readonly status: SaleHistoryStatus;
   readonly refundAmount: number;
   readonly dueReductionAmount: number;
+  readonly creditNoteAppliedAmount: number;
 }
 
 export type ProfitLossReportRowType = 'Sale' | 'SaleReturn' | 'InventoryAdjustment';

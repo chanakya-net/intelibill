@@ -265,6 +265,7 @@ describe('SalesPageComponent', () => {
       status: 'paid' satisfies SaleHistoryStatus,
       refundAmount: 0,
       dueReductionAmount: 0,
+      creditNoteAppliedAmount: 0,
     };
     salesSignal.set([sale]);
     fixture.detectChanges();

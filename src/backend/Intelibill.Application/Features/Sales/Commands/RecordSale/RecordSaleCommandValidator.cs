@@ -82,6 +82,11 @@ public sealed class RecordSaleCommandValidator : AbstractValidator<RecordSaleCom
             .WithErrorCode(Errors.Sale.DueAmountInvalid.Code)
             .WithMessage(Errors.Sale.DueAmountInvalid.Description);
 
+        RuleFor(x => x.CreditNoteAppliedAmount)
+            .GreaterThanOrEqualTo(0)
+            .WithErrorCode(Errors.Sale.CreditNoteAppliedAmountInvalid.Code)
+            .WithMessage(Errors.Sale.CreditNoteAppliedAmountInvalid.Description);
+
         RuleFor(x => x)
             .Must(x => x.PaymentMethod != PaymentMethod.Credit || x.DueAmount > 0)
             .WithErrorCode(Errors.Sale.CreditRequiresDueAmount.Code)

@@ -106,6 +106,7 @@ const makeSale = (): SaleDto => ({
   totalDiscountAmount: 0,
   totalAmount: 200,
   totalTaxAmount: 0,
+  creditNoteAppliedAmount: 0,
   items: [makeServiceItem()],
   returns: [],
   warnings: [],

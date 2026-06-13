@@ -27,7 +27,8 @@ public sealed partial class Sale
         decimal? configuredSaleRuleThresholdAmount = null,
         InstantDiscountType saleDiscountOverrideType = InstantDiscountType.None,
         decimal saleDiscountOverrideValue = 0m,
-        IReadOnlyList<string>? warnings = null)
+        IReadOnlyList<string>? warnings = null,
+        decimal creditNoteAppliedAmount = 0m)
     {
         if (lines is null || lines.Count == 0)
         {
@@ -42,6 +43,11 @@ public sealed partial class Sale
         if (dueAmount < 0)
         {
             return Errors.Sale.DueAmountInvalid;
+        }
+
+        if (creditNoteAppliedAmount < 0)
+        {
+            return Errors.Sale.CreditNoteAppliedAmountInvalid;
         }
 
         if (paymentMethod == PaymentMethod.Credit && dueAmount <= 0)
@@ -79,7 +85,7 @@ public sealed partial class Sale
         }
 
         if (decimal.Round(totalAmount, 2, MidpointRounding.AwayFromZero) !=
-            decimal.Round(paidAmount + dueAmount, 2, MidpointRounding.AwayFromZero))
+            decimal.Round(paidAmount + dueAmount + creditNoteAppliedAmount, 2, MidpointRounding.AwayFromZero))
         {
             return Errors.Sale.PaidAndDueAmountMismatch;
         }
@@ -114,6 +120,7 @@ public sealed partial class Sale
             ConfiguredSaleRuleThresholdAmount = configuredSaleRuleThresholdAmount,
             SaleDiscountOverrideType = saleDiscountOverrideType,
             SaleDiscountOverrideValue = saleDiscountOverrideValue,
+            CreditNoteAppliedAmount = creditNoteAppliedAmount,
         }.WithItems(saleItems);
     }
 

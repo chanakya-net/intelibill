@@ -48,6 +48,7 @@ describe('SalesEffects', () => {
     status: 'partiallyPaid',
     refundAmount: 0,
     dueReductionAmount: 0,
+    creditNoteAppliedAmount: 0,
   } as SaleListItemDto);
 
   const makeSaleDto = (id = 'sale-1') => ({
@@ -64,6 +65,7 @@ describe('SalesEffects', () => {
     totalDiscountAmount: 0,
     totalAmount: 500,
     totalTaxAmount: 50,
+    creditNoteAppliedAmount: 0,
     items: [],
     returns: [],
     warnings: [],

@@ -239,6 +239,7 @@ internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
                 s.TotalTaxAmount,
                 s.CustomerName,
                 s.CustomerPhone,
+                s.CreditNoteAppliedAmount,
                 ItemCount = _context.SaleItems.Count(i => i.SaleId == s.Id),
             })
             .ToListAsync(cancellationToken);
@@ -281,7 +282,8 @@ internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
                     hasActiveReturn ? returnData.ReturnNumbers : [],
                     DeriveStatus(s.DueAmount, hasActiveReturn),
                     hasActiveReturn ? returnData.RefundAmount : 0m,
-                    hasActiveReturn ? returnData.DueReductionAmount : 0m);
+                    hasActiveReturn ? returnData.DueReductionAmount : 0m,
+                    s.CreditNoteAppliedAmount);
             })
             .ToList();
 

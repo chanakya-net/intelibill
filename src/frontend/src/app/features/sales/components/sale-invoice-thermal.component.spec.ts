@@ -68,6 +68,7 @@ describe('SaleInvoiceThermalComponent', () => {
     totalDiscountAmount: 5,
     totalAmount: 95,
     totalTaxAmount: 12,
+    creditNoteAppliedAmount: 0,
     items: [makeSaleItem()],
     returns: [],
     warnings: [],

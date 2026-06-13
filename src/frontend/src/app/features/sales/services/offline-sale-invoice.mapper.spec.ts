@@ -67,6 +67,7 @@ describe('mapOfflineQueuedSaleToSaleDto', () => {
       totalDiscountAmount: 15,
       totalAmount: 282.3,
       totalTaxAmount: 43.06,
+      creditNoteAppliedAmount: 0,
       returns: [],
       warnings: [],
       items: [
