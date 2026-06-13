@@ -9,7 +9,7 @@ import { vi } from 'vitest';
 
 import { AuthSession, ExternalAuthProvider } from '../../../core/auth/auth.models';
 import { AuthService } from '../../../core/auth/auth.service';
-import { LoginPageComponent } from './login-page.component';
+import { EXTERNAL_LOGIN_REDIRECT, LoginPageComponent } from './login-page.component';
 
 describe('LoginPageComponent', () => {
   const authService = {
@@ -23,6 +23,7 @@ describe('LoginPageComponent', () => {
   const store = {
     selectSignal: vi.fn(() => signal(false)),
   };
+  const externalLoginRedirect = vi.fn<(authorizationUrl: string) => void>();
 
   function setup(
     queryParams: Record<string, string> = {},
@@ -33,6 +34,7 @@ describe('LoginPageComponent', () => {
       providers: [
         { provide: AuthService, useValue: authService },
         { provide: Store, useValue: store },
+        { provide: EXTERNAL_LOGIN_REDIRECT, useValue: externalLoginRedirect },
         {
           provide: ActivatedRoute,
           useValue: {
@@ -65,6 +67,7 @@ describe('LoginPageComponent', () => {
     authService.initializeExternalLogin.mockReturnValue(of('https://provider.example.com/oauth'));
     authService.completeExternalLogin.mockReturnValue(of({} as AuthSession));
     store.selectSignal.mockImplementation(() => signal(false));
+    externalLoginRedirect.mockClear();
     sessionStorage.clear();
   });
 
@@ -159,6 +162,7 @@ describe('LoginPageComponent', () => {
     component.onGoogleLogin();
 
     expect(authService.initializeExternalLogin).toHaveBeenCalledWith(ExternalAuthProvider.Google);
+    expect(externalLoginRedirect).toHaveBeenCalledWith('https://provider.example.com/oauth');
     expect(component.serverError()).toBeNull();
   });
 
