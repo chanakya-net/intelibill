@@ -128,5 +128,53 @@ public sealed class GetSalesQueryHandlerTests
             Arg.Is<SaleHistoryFilter>(f => f.ShopId == shop.Id && f.PageNumber == 1 && f.PageSize == 100),
             Arg.Any<CancellationToken>());
     }
-}
 
+    [Fact]
+    public async Task Handle_MapsCreditNoteAppliedAmountIntoHistoryRows()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var membership = MakeMembership(shop.Id, user.Id);
+        var soldAt = DateTimeOffset.UtcNow;
+
+        _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
+        _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(membership);
+
+        _saleRepository.GetHistoryAsync(Arg.Any<SaleHistoryFilter>(), Arg.Any<CancellationToken>())
+            .Returns((
+                [
+                    new SaleHistoryReadModel(
+                        Guid.NewGuid(),
+                        "INV-123",
+                        null,
+                        PaymentMethod.Cash,
+                        soldAt,
+                        450m,
+                        0m,
+                        500m,
+                        50m,
+                        450m,
+                        45m,
+                        null,
+                        null,
+                        3,
+                        ["RET-001"],
+                        "paid",
+                        0m,
+                        0m,
+                        125m),
+                ],
+                1));
+        _saleRepository.GetHistorySummaryAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+            .Returns(new SalesHistorySummaryReadModel(0m, 1, 0m));
+
+        var result = await CreateHandler().Handle(
+            new GetSalesQuery(user.Id, shop.Id, From: null, To: null, Search: null, Status: null, Page: 1, PageSize: 20),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Single(result.Value.Items);
+        Assert.Equal(125m, result.Value.Items[0].CreditNoteAppliedAmount);
+    }
+}

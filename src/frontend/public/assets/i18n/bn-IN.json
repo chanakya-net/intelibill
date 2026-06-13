@@ -903,10 +903,11 @@
       "actions": {
         "viewReceipt": "রশিদ দেখুন"
       },
-      "amount": {
-        "due": "বকেয়া",
-        "refund": "ফেরত"
-      },
+  "amount": {
+    "due": "বকেয়া",
+    "refund": "ফেরত",
+    "creditNoteApplied": "ক্রেডিট নোট প্রয়োগ করা হয়েছে"
+  },
       "pagination": {
         "ariaLabel": "বিক্রয় ইতিহাস পৃষ্ঠায়ন",
         "showing": "{{total}} বিক্রয়ের মধ্যে {{start}}-{{end}} দেখাচ্ছে",

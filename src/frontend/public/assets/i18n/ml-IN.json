@@ -903,10 +903,11 @@
       "actions": {
         "viewReceipt": "രസീത് കാണുക"
       },
-      "amount": {
-        "due": "ബാക്കി",
-        "refund": "തിരിച്ചടവ്"
-      },
+  "amount": {
+    "due": "ബാക്കി",
+    "refund": "തിരിച്ചടവ്",
+    "creditNoteApplied": "ക്രെഡിറ്റ് നോട്ട് പ്രയോഗിച്ചു"
+  },
       "pagination": {
         "ariaLabel": "വിൽപ്പന ചരിത്ര പേജിനേഷൻ",
         "showing": "{{total}} വിൽപ്പനകളിൽ {{start}}-{{end}} കാണിക്കുന്നു",

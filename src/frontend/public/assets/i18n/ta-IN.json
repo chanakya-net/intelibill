@@ -903,10 +903,11 @@
       "actions": {
         "viewReceipt": "ரசீதைப் பாருங்கள்"
       },
-      "amount": {
-        "due": "நிலுவை",
-        "refund": "திருப்பிக்கொடுப்பு"
-      },
+  "amount": {
+    "due": "நிலுவை",
+    "refund": "திருப்பிக்கொடுப்பு",
+    "creditNoteApplied": "கிரெடிட் நோட் பொருந்தியது"
+  },
       "pagination": {
         "ariaLabel": "விற்பனை வரலாறு பக்கமாற்றம்",
         "showing": "{{total}} விற்பனைகளில் {{start}}-{{end}} காட்டுகிறது",

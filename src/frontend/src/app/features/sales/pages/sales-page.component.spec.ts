@@ -113,6 +113,9 @@ describe('SalesPageComponent', () => {
                   actions: {
                     viewReceipt: 'View Receipt',
                   },
+                  amount: {
+                    creditNoteApplied: 'Credit note applied',
+                  },
                 },
               },
             },
@@ -283,6 +286,38 @@ describe('SalesPageComponent', () => {
     expect(salesFacade.loadSaleDetail).toHaveBeenCalledWith('sale-1');
     expect(component.showDetailOverlay()).toBe(true);
     expect(component.viewingSaleId()).toBe('sale-1');
+  });
+
+  it('shows credit note applied amount in the history row when present', () => {
+    const fixture = TestBed.createComponent(SalesPageComponent);
+
+    const sale: SaleListItemDto = {
+      saleId: 'sale-1',
+      invoiceNumber: 'INV-001',
+      customerId: null,
+      paymentMethod: 1,
+      soldAt: new Date().toISOString(),
+      paidAmount: 100,
+      dueAmount: 0,
+      totalBeforeDiscount: 100,
+      totalDiscountAmount: 0,
+      totalAmount: 100,
+      totalTaxAmount: 0,
+      customerName: null,
+      customerPhone: null,
+      itemCount: 1,
+      returnNumbers: [],
+      status: 'paid' satisfies SaleHistoryStatus,
+      refundAmount: 0,
+      dueReductionAmount: 0,
+      creditNoteAppliedAmount: 25,
+    };
+    salesSignal.set([sale]);
+    fixture.detectChanges();
+
+    const amountCell = fixture.nativeElement.querySelector('.amount-cell');
+    expect(amountCell.textContent).toContain('Credit note applied');
+    expect(amountCell.textContent).toContain('₹25.00');
   });
 
   it('shows pagination label with range', () => {

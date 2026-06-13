@@ -220,6 +220,9 @@
                     @if ((sale.status === 'refunded' || sale.status === 'returned') && sale.refundAmount > 0) {
                       <div class="amount-sub negative">{{ 'sales.history.amount.refund' | transloco }}: ₹{{ sale.refundAmount | number:'1.2-2' }}</div>
                     }
+                    @if (sale.creditNoteAppliedAmount > 0) {
+                      <div class="amount-sub credit-note">{{ 'sales.history.amount.creditNoteApplied' | transloco }}: ₹{{ sale.creditNoteAppliedAmount | number:'1.2-2' }}</div>
+                    }
                   </div>
                   <p-button
                     type="button"

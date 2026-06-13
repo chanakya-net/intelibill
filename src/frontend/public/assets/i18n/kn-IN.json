@@ -903,10 +903,11 @@
       "actions": {
         "viewReceipt": "ರಸೀದಿ ನೋಡಿ"
       },
-      "amount": {
-        "due": "ಬಾಕಿ",
-        "refund": "ಮರುಪಾವತಿ"
-      },
+  "amount": {
+    "due": "ಬಾಕಿ",
+    "refund": "ಮರುಪಾವತಿ",
+    "creditNoteApplied": "ಕ್ರೆಡಿಟ್ ನೋಟ್ ಅನ್ವಯಿಸಲಾಗಿದೆ"
+  },
       "pagination": {
         "ariaLabel": "ಮಾರಾಟ ಇತಿಹಾಸ ಪುಟ ಸಂಖ್ಯೆ",
         "showing": "{{total}} ಮಾರಾಟಗಳಲ್ಲಿ {{start}}-{{end}} ತೋರಿಸಲಾಗುತ್ತಿದೆ",

@@ -903,10 +903,11 @@
       "actions": {
         "viewReceipt": "रसीद देखें"
       },
-      "amount": {
-        "due": "बकाया",
-        "refund": "वापसी"
-      },
+  "amount": {
+    "due": "बकाया",
+    "refund": "वापसी",
+    "creditNoteApplied": "क्रेडिट नोट लागू"
+  },
       "pagination": {
         "ariaLabel": "बिक्री इतिहास पृष्ठ संख्या",
         "showing": "{{total}} बिक्री में से {{start}}-{{end}} दिखाया जा रहा है",
