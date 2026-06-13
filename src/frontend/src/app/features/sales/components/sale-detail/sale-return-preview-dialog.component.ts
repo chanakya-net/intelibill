@@ -96,6 +96,8 @@ export class SaleReturnPreviewDialogComponent {
   readonly creditNoteExpiryMode = signal<'NoExpiry' | '30Days' | '60Days' | '90Days' | 'Custom'>('NoExpiry');
   readonly creditNoteExpiryDate = signal<string | null>(null);
   readonly recordedCreditNoteSummary = signal<SaleReturnCreditNoteSummaryDto | null>(null);
+  readonly submittedReturnIds = signal<readonly string[]>([]);
+  readonly submittedPayoutDestination = signal<ReturnPayoutDestination | null>(null);
 
   readonly returnConditionOptions = SALE_RETURN_CONDITIONS;
   readonly payoutDestinationOptions = RETURN_PAYOUT_DESTINATION_OPTIONS;
@@ -181,7 +183,13 @@ export class SaleReturnPreviewDialogComponent {
       if (!this.salesFacade.lastMutationSucceeded()) return;
 
       if (this.salesFacade.lastMutationType() === 'record-return') {
-        const creditNoteSummary = this.getLatestCreditNoteSummary();
+        if (this.submittedPayoutDestination() !== ReturnPayoutDestination.CreditNote) {
+          this.close();
+          this.salesFacade.clearMutationStatus();
+          return;
+        }
+
+        const creditNoteSummary = this.getRecordedCreditNoteSummary();
         if (creditNoteSummary) {
           this.recordedCreditNoteSummary.set(creditNoteSummary);
         } else {
@@ -201,6 +209,8 @@ export class SaleReturnPreviewDialogComponent {
     this.creditNoteExpiryMode.set('NoExpiry');
     this.creditNoteExpiryDate.set(null);
     this.recordedCreditNoteSummary.set(null);
+    this.submittedReturnIds.set([]);
+    this.submittedPayoutDestination.set(null);
     this.salesFacade.clearSaleReturnPreview();
     this.returnDrafts.set([]);
   }
@@ -349,6 +359,11 @@ export class SaleReturnPreviewDialogComponent {
     this.validationMessages.set(errors);
     if (errors.length > 0) return;
 
+    this.submittedReturnIds.set(sale.returns.map((saleReturn) => saleReturn.saleReturnId));
+    this.submittedPayoutDestination.set(
+      this.mapSelectedPayoutDestination(this.payoutDestination()),
+    );
+
     const isCreditNote =
       this.mapSelectedPayoutDestination(this.payoutDestination()) ===
       ReturnPayoutDestination.CreditNote;
@@ -481,10 +496,16 @@ export class SaleReturnPreviewDialogComponent {
     return this.roundMoney(taxAmount);
   }
 
-  private getLatestCreditNoteSummary(): SaleReturnCreditNoteSummaryDto | null {
+  private getRecordedCreditNoteSummary(): SaleReturnCreditNoteSummaryDto | null {
     const sale = this.salesFacade.selectedSale() ?? this.saleInput();
+    const submittedReturnIds = new Set(this.submittedReturnIds());
     const latestReturn = sale?.returns
-      ?.filter((saleReturn) => !saleReturn.isVoided && saleReturn.creditNote)
+      ?.filter(
+        (saleReturn) =>
+          !saleReturn.isVoided &&
+          saleReturn.creditNote &&
+          !submittedReturnIds.has(saleReturn.saleReturnId),
+      )
       .slice()
       .sort(
         (left, right) =>
