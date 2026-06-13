@@ -86,7 +86,7 @@ class TestCreditNoteService extends NewSalePageCreditNoteService {
 const verifiedNote: CreditNoteVerifyResponseDto = {
   creditNoteId: 'cn-1',
   code: 'CN-ABC-123',
-  balanceAmount: 250,
+  availableBalance: 250,
   expiresAt: '2027-01-01T00:00:00Z',
   status: 'Active',
 };
@@ -194,7 +194,7 @@ describe('NewSalePageCreditNoteService', () => {
 
     await service.onVerifyCreditNote();
 
-    expect(saleService.verifyCreditNote).toHaveBeenCalledWith({ code: 'CN-ABC-123' });
+    expect(saleService.verifyCreditNote).toHaveBeenCalledWith('CN-ABC-123');
     expect(service.verifiedCreditNote()).toEqual(verifiedNote);
     expect(service.creditNoteError()).toBe('');
     expect(service.isCreditNoteVerifying()).toBe(false);

@@ -27,7 +27,7 @@ export abstract class NewSalePageCreditNoteService extends NewSalePageOfflineFlo
     this.verifiedCreditNote.set(null);
 
     try {
-      const result = await firstValueFrom(this.saleService.verifyCreditNote({ code }));
+      const result = await firstValueFrom(this.saleService.verifyCreditNote(code));
       this.verifiedCreditNote.set(result);
     } catch {
       this.creditNoteError.set('sales.newSale.creditNote.verifyError');

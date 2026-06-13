@@ -5,7 +5,6 @@ import { TestBed } from '@angular/core/testing';
 import { SALE_ENDPOINTS } from '../../../core/auth/auth.constants';
 import { SaleService } from './sale.service';
 import type {
-  CreditNoteVerifyRequest,
   CreditNoteVerifyResponseDto,
   SaleDto,
   SaleListItemDto,
@@ -717,26 +716,25 @@ describe('SaleService', () => {
     http.verify();
   });
 
-  it('sends POST to credit-note verify endpoint and returns response DTO', () => {
+  it('sends GET to credit-note by-code endpoint and returns response DTO', () => {
     const { service, http } = setup();
-    const request: CreditNoteVerifyRequest = { code: 'CN-ABC-123' };
     const response: CreditNoteVerifyResponseDto = {
       creditNoteId: 'cn-1',
       code: 'CN-ABC-123',
-      balanceAmount: 250,
+      availableBalance: 250,
       expiresAt: '2027-01-01T00:00:00Z',
       status: 'Active',
     };
 
-    service.verifyCreditNote(request).subscribe((result) => {
+    service.verifyCreditNote('CN-ABC-123').subscribe((result) => {
       expect(result.creditNoteId).toBe('cn-1');
-      expect(result.balanceAmount).toBe(250);
+      expect(result.availableBalance).toBe(250);
       expect(result.status).toBe('Active');
     });
 
-    const req = http.expectOne(SALE_ENDPOINTS.creditNoteVerify);
-    expect(req.request.method).toBe('POST');
-    expect(req.request.body).toEqual({ code: 'CN-ABC-123' });
+    const req = http.expectOne(SALE_ENDPOINTS.creditNoteByCode('CN-ABC-123'));
+    expect(req.request.method).toBe('GET');
+    expect(req.request.body).toBeNull();
     req.flush(response);
     http.verify();
   });

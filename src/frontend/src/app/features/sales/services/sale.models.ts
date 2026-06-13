@@ -523,14 +523,10 @@ export interface OfflineSalesSyncRequest {
 
 // ─── Credit note verify ───────────────────────────────────────────────────────
 
-export interface CreditNoteVerifyRequest {
-  readonly code: string;
-}
-
 export interface CreditNoteVerifyResponseDto {
   readonly creditNoteId: string;
   readonly code: string;
-  readonly balanceAmount: number;
+  readonly availableBalance: number;
   readonly expiresAt: string | null;
   readonly status: string;
 }

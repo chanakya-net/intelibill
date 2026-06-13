@@ -1059,7 +1059,8 @@
         "verified": "Credit note verified",
         "balance": "Available balance",
         "expiry": "Expires",
-        "verifyError": "Unable to verify credit note. Check the code and try again."
+        "verifyError": "Unable to verify credit note. Check the code and try again.",
+        "status": "Status"
       }
     },
     "detail": {

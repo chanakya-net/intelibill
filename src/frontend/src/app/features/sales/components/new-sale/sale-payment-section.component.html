@@ -78,7 +78,10 @@
       <div class="credit-note-result mt-2 p-2 bg-emerald-50 border border-emerald-200 rounded text-sm">
         <p class="text-emerald-700 font-medium">{{ 'sales.newSale.creditNote.verified' | transloco }}</p>
         <p class="text-slate-600">
-          {{ 'sales.newSale.creditNote.balance' | transloco }}: ₹{{ verifiedCreditNote.balanceAmount | number:'1.2-2' }}
+          {{ 'sales.newSale.creditNote.balance' | transloco }}: ₹{{ verifiedCreditNote.availableBalance | number:'1.2-2' }}
+        </p>
+        <p class="text-slate-600">
+          {{ 'sales.newSale.creditNote.status' | transloco }}: {{ verifiedCreditNote.status }}
         </p>
         @if (verifiedCreditNote.expiresAt) {
           <p class="text-slate-500 text-xs">
