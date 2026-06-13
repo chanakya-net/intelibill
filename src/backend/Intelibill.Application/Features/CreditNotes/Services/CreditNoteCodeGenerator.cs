@@ -30,7 +30,7 @@ public sealed class CreditNoteCodeGenerator : ICreditNoteCodeGenerator
     private static string GenerateCode()
     {
         var timestamp = DateTimeOffset.UtcNow;
-        var suffix = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var suffix = Guid.NewGuid().ToString("N")[..6].ToUpperInvariant();
         return $"CN-{timestamp.UtcDateTime:yyyyMMdd}-{suffix}";
     }
 }

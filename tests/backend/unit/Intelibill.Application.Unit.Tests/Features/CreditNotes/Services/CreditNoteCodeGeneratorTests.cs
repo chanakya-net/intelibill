@@ -8,10 +8,10 @@ namespace Intelibill.Application.Unit.Tests.Features.CreditNotes.Services;
 
 public class CreditNoteCodeGeneratorTests
 {
-    private static CreditNote CreateStubCreditNote() => CreditNote.Issue(Guid.NewGuid(), Guid.NewGuid(), 100m, "test", "CN-20260101-12345678", null).Value;
+    private static CreditNote CreateStubCreditNote() => CreditNote.Issue(Guid.NewGuid(), Guid.NewGuid(), 100m, "test", "CN-20260101-123456", null).Value;
 
     [Fact]
-    public async Task GenerateAsync_ReturnsCNPrefixUtcDateAndEightCharacterSuffix()
+    public async Task GenerateAsync_ReturnsCNPrefixUtcDateAndSixCharacterSuffix()
     {
         var repo = Substitute.For<ICreditNoteRepository>();
         repo.GetByCodeAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
@@ -21,7 +21,7 @@ public class CreditNoteCodeGeneratorTests
         var shopId = Guid.NewGuid();
         var code = await generator.GenerateAsync(shopId);
 
-        Assert.Matches("^CN-\\d{8}-[0-9A-F]{8}$", code);
+        Assert.Matches("^CN-\\d{8}-[0-9A-F]{6}$", code);
     }
 
     [Fact]
@@ -50,7 +50,7 @@ public class CreditNoteCodeGeneratorTests
         var shopId = Guid.NewGuid();
         var code = await generator.GenerateAsync(shopId);
 
-        var suffix = code.Substring(12, 8);
+        var suffix = code.Substring(12, 6);
         Assert.Equal(suffix, suffix.ToUpperInvariant());
     }
 
