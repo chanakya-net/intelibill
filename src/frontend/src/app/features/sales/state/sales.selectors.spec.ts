@@ -43,6 +43,7 @@ const makeSale = (id: string): SaleListItemDto => ({
   status: 'partiallyPaid',
   refundAmount: 0,
   dueReductionAmount: 0,
+  creditNoteAppliedAmount: 0,
 });
 
 const makeProfitLossItem = (saleId: string): ProfitLossReportItemDto => ({

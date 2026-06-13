@@ -23,6 +23,7 @@ const makeSale = (overrides: Partial<SaleDto> = {}): SaleDto => ({
   totalDiscountAmount: 0,
   totalAmount: 220,
   totalTaxAmount: 20,
+  creditNoteAppliedAmount: 0,
   items: [],
   returns: [],
   warnings: [],

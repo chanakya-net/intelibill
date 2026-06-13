@@ -72,7 +72,8 @@ public sealed class GetSalesQueryHandler(
             s.ReturnNumbers,
             s.Status,
             s.RefundAmount,
-            s.DueReductionAmount)).ToList();
+            s.DueReductionAmount,
+            s.CreditNoteAppliedAmount)).ToList();
 
         return new SalesHistoryResultDto(
             Items: items,

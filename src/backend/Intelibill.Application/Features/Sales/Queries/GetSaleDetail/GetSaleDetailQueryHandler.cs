@@ -70,6 +70,7 @@ public sealed class GetSaleDetailQueryHandler(
             sale.TotalDiscountAmount,
             sale.TotalAmount,
             sale.TotalTaxAmount,
+            sale.CreditNoteAppliedAmount,
             sale.Items
                 .Select(si => new SaleItemDto(
                 si.Id,

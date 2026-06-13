@@ -16,6 +16,7 @@ export function mapOfflineQueuedSaleToSaleDto(payload: OfflineQueuedSalePayload)
     totalDiscountAmount: payload.pricing.totals.totalDiscount,
     totalAmount: payload.pricing.totals.grandTotal,
     totalTaxAmount: payload.pricing.totals.totalTax,
+    creditNoteAppliedAmount: 0,
     items: payload.pricing.lines.map((line) => ({
       saleItemId: line.clientLineId,
       lineType: 'Goods',

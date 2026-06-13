@@ -145,7 +145,8 @@ public sealed class RecordSaleCommandHandler
             pricing.ConfiguredSaleRule?.ThresholdAmount,
             effectiveSaleDiscount.Type,
             effectiveSaleDiscount.Value,
-            warnings);
+            warnings,
+            command.CreditNoteAppliedAmount);
         if (saleOrError.IsError)
             return saleOrError.Errors;
 

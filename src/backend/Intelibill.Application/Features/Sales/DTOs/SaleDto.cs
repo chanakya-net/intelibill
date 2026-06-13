@@ -16,6 +16,7 @@ public sealed record SaleDto(
     decimal TotalDiscountAmount,
     decimal TotalAmount,
     decimal TotalTaxAmount,
+    decimal CreditNoteAppliedAmount,
     IReadOnlyList<SaleItemDto> Items,
     IReadOnlyList<string> Warnings)
 {

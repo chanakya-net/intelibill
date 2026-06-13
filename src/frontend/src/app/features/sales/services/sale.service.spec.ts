@@ -49,6 +49,7 @@ describe('SaleService', () => {
     totalDiscountAmount: 0,
     totalAmount: 500,
     totalTaxAmount: 50,
+    creditNoteAppliedAmount: 0,
     items: [],
     returns: [],
     warnings: [],
@@ -84,6 +85,7 @@ describe('SaleService', () => {
         status: 'partiallyPaid',
         refundAmount: 0,
         dueReductionAmount: 0,
+        creditNoteAppliedAmount: 0,
       },
       {
         saleId: 'sale-2',
@@ -104,6 +106,7 @@ describe('SaleService', () => {
         status: 'paid',
         refundAmount: 25,
         dueReductionAmount: 5,
+        creditNoteAppliedAmount: 0,
       },
     ];
     const summary: SalesHistorySummaryDto = {
@@ -176,6 +179,7 @@ describe('SaleService', () => {
       totalDiscountAmount: 55,
       totalAmount: 495,
       totalTaxAmount: 45,
+      creditNoteAppliedAmount: 0,
       items: [
         {
           saleItemId: 'line-1',
