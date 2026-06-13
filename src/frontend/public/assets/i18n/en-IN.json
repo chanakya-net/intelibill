@@ -1222,7 +1222,13 @@
         },
         "dueReductionOverride": "Due reduction override",
         "overrideReason": "Override reason",
-        "payoutMethod": "Refund payout method",
+        "payoutDestination": "Refund payout destination",
+        "payoutDestinations": {
+          "cash": "Cash",
+          "upi": "UPI",
+          "card": "Card",
+          "creditNote": "Credit Note"
+        },
         "confirmDueOverride": "Confirm due override",
         "calculatedEffects": "Calculated effects",
         "warnings": "Warnings",

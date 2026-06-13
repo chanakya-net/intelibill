@@ -1,4 +1,9 @@
-import { NO_DISCOUNT, PAYMENT_METHOD_VALUES, SALE_RETURN_CONDITIONS } from './sale.models';
+import {
+  NO_DISCOUNT,
+  PAYMENT_METHOD_VALUES,
+  RETURN_PAYOUT_DESTINATION_OPTIONS,
+  SALE_RETURN_CONDITIONS,
+} from './sale.models';
 
 describe('sale.models', () => {
   describe('NO_DISCOUNT', () => {
@@ -37,6 +42,31 @@ describe('sale.models', () => {
     it('maps condition values to expected labels', () => {
       expect(SALE_RETURN_CONDITIONS[0]).toEqual({ value: 1, label: 'Restockable' });
       expect(SALE_RETURN_CONDITIONS[1]).toEqual({ value: 2, label: 'Wastage' });
+    });
+  });
+
+  describe('RETURN_PAYOUT_DESTINATION_OPTIONS', () => {
+    it('contains 4 entries', () => {
+      expect(RETURN_PAYOUT_DESTINATION_OPTIONS).toHaveLength(4);
+    });
+
+    it('maps values to payout destination labels', () => {
+      expect(RETURN_PAYOUT_DESTINATION_OPTIONS[0]).toEqual({
+        value: 1,
+        labelKey: 'sales.returns.preview.payoutDestinations.cash',
+      });
+      expect(RETURN_PAYOUT_DESTINATION_OPTIONS[1]).toEqual({
+        value: 2,
+        labelKey: 'sales.returns.preview.payoutDestinations.upi',
+      });
+      expect(RETURN_PAYOUT_DESTINATION_OPTIONS[2]).toEqual({
+        value: 3,
+        labelKey: 'sales.returns.preview.payoutDestinations.card',
+      });
+      expect(RETURN_PAYOUT_DESTINATION_OPTIONS[3]).toEqual({
+        value: 4,
+        labelKey: 'sales.returns.preview.payoutDestinations.creditNote',
+      });
     });
   });
 });

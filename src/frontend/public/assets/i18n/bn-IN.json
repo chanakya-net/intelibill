@@ -1222,7 +1222,13 @@
         },
         "dueReductionOverride": "বকেয়া কমানো ওভাররাইড",
         "overrideReason": "ওভাররাইড কারণ",
-        "payoutMethod": "রিফান্ড পেমেন্ট পদ্ধতি",
+        "payoutDestination": "রিফান্ড পেমেন্ট গন্তব্য",
+        "payoutDestinations": {
+          "cash": "Cash",
+          "upi": "UPI",
+          "card": "Card",
+          "creditNote": "Credit Note"
+        },
         "confirmDueOverride": "বকেয়া ওভাররাইড নিশ্চিত করুন",
         "calculatedEffects": "গণনা করা প্রভাব",
         "warnings": "সতর্কতা",

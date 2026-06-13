@@ -1222,7 +1222,13 @@
         },
         "dueReductionOverride": "ಕಾರಣ ಕಡಿತ ಅತಿಕ್ರಮಣ",
         "overrideReason": "ಕಾರಣವನ್ನು ಅತಿಕ್ರಮಿಸಿ",
-        "payoutMethod": "ಮರುಪಾವತಿ ಪಾವತಿ ವಿಧಾನ",
+        "payoutDestination": "ಮರುಪಾವತಿ ಪಾವತಿ ಗುರಿ",
+        "payoutDestinations": {
+          "cash": "Cash",
+          "upi": "UPI",
+          "card": "Card",
+          "creditNote": "Credit Note"
+        },
         "confirmDueOverride": "ಕಾರಣ ಅತಿಕ್ರಮಣವನ್ನು ದೃಢೀಕರಿಸಿ",
         "calculatedEffects": "ಲೆಕ್ಕಾಚಾರದ ಪರಿಣಾಮಗಳು",
         "warnings": "ಎಚ್ಚರಿಕೆಗಳು",

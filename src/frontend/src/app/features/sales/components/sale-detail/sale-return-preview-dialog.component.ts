@@ -16,7 +16,12 @@ import { CheckboxModule } from 'primeng/checkbox';
 import { DialogModule } from 'primeng/dialog';
 import { SelectModule } from 'primeng/select';
 import { AuthService } from '../../../../core/auth/auth.service';
-import { PAYMENT_METHOD_VALUES, SALE_RETURN_CONDITIONS, mapPaymentMethodToPayoutDestination } from '../../services/sale.models';
+import {
+  RETURN_PAYOUT_DESTINATION_OPTIONS,
+  ReturnPayoutDestination,
+  SALE_RETURN_CONDITIONS,
+  mapPayoutDestinationSelectionToReturnPayoutDestination,
+} from '../../services/sale.models';
 import type {
   PreviewSaleReturnRequest,
   RecordSaleReturnRequest,
@@ -86,10 +91,10 @@ export class SaleReturnPreviewDialogComponent {
   readonly dueReductionOverrideAmount = signal<number | null>(null);
   readonly dueOverrideReason = signal('');
   readonly dueOverrideConfirmed = signal(false);
-  readonly payoutMethod = signal<number | null>(null);
+  readonly payoutDestination = signal<number | null>(null);
 
   readonly returnConditionOptions = SALE_RETURN_CONDITIONS;
-  readonly refundPayoutMethodOptions = PAYMENT_METHOD_VALUES.filter((method) => method.value !== 4);
+  readonly payoutDestinationOptions = RETURN_PAYOUT_DESTINATION_OPTIONS;
 
   readonly activeShopRole = computed(() => {
     const session = this.authService.session();
@@ -175,7 +180,7 @@ export class SaleReturnPreviewDialogComponent {
     this.visibleChange.emit(false);
     this.validationMessages.set([]);
     this.dueOverrideConfirmed.set(false);
-    this.payoutMethod.set(null);
+    this.payoutDestination.set(null);
     this.salesFacade.clearSaleReturnPreview();
     this.returnDrafts.set([]);
   }
@@ -290,8 +295,8 @@ export class SaleReturnPreviewDialogComponent {
     this.salesFacade.previewSaleReturn(sale.saleId, payload);
   }
 
-  updatePayoutMethod(method: number | null): void {
-    this.payoutMethod.set(method);
+  updatePayoutDestination(destination: number | null): void {
+    this.payoutDestination.set(destination);
   }
 
   updateDueOverrideConfirmed(confirmed: boolean): void {
@@ -309,7 +314,7 @@ export class SaleReturnPreviewDialogComponent {
     const payload: RecordSaleReturnRequest = {
       payoutDestination:
         (this.returnPreview()?.financial?.payoutAmount ?? 0) > 0
-          ? mapPaymentMethodToPayoutDestination(this.payoutMethod())
+          ? this.mapSelectedPayoutDestination(this.payoutDestination())
           : null,
       dueReductionOverrideAmount: this.dueReductionOverrideAmount(),
       dueOverrideReason: this.normalizeOptional(this.dueOverrideReason()),
@@ -450,7 +455,7 @@ export class SaleReturnPreviewDialogComponent {
     this.dueReductionOverrideAmount.set(null);
     this.dueOverrideReason.set('');
     this.dueOverrideConfirmed.set(false);
-    this.payoutMethod.set(null);
+    this.payoutDestination.set(null);
     this.salesFacade.clearSaleReturnPreview();
   }
 
@@ -513,11 +518,15 @@ export class SaleReturnPreviewDialogComponent {
     }
 
     const payoutAmount = this.returnPreview()?.financial?.payoutAmount ?? 0;
-    if (payoutAmount > 0 && !this.payoutMethod()) {
-      errors.push('Select payout method.');
+    if (payoutAmount > 0 && !this.payoutDestination()) {
+      errors.push('Select payout destination.');
     }
 
     return errors;
+  }
+
+  private mapSelectedPayoutDestination(destination: number | null): ReturnPayoutDestination | null {
+    return mapPayoutDestinationSelectionToReturnPayoutDestination(destination);
   }
 
   private clampNumber(value: number, min: number, max: number): number {

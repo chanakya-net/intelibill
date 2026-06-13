@@ -1222,7 +1222,13 @@
         },
         "dueReductionOverride": "थकबाकी कपात ओव्हरराइड",
         "overrideReason": "ओव्हरराइड कारण",
-        "payoutMethod": "रिफंड पेआउट पद्धत",
+        "payoutDestination": "रिफंड पेआउट गंतव्य",
+        "payoutDestinations": {
+          "cash": "Cash",
+          "upi": "UPI",
+          "card": "Card",
+          "creditNote": "Credit Note"
+        },
         "confirmDueOverride": "थकबाकी ओव्हरराइड पुष्टी करा",
         "calculatedEffects": "गणना केलेले परिणाम",
         "warnings": "इशारे",

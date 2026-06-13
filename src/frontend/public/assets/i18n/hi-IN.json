@@ -1222,7 +1222,13 @@
         },
         "dueReductionOverride": "बकाया कमी ओवरराइड",
         "overrideReason": "ओवरराइड कारण",
-        "payoutMethod": "रिफंड भुगतान तरीका",
+        "payoutDestination": "रिफंड भुगतान गंतव्य",
+        "payoutDestinations": {
+          "cash": "Cash",
+          "upi": "UPI",
+          "card": "Card",
+          "creditNote": "Credit Note"
+        },
         "confirmDueOverride": "बकाया ओवरराइड पुष्टि करें",
         "calculatedEffects": "गणना किए गए प्रभाव",
         "warnings": "चेतावनियां",

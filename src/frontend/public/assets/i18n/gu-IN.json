@@ -1222,7 +1222,13 @@
         },
         "dueReductionOverride": "બાકી ઘટાડો ઓવરરાઇડ",
         "overrideReason": "ઓવરરાઇડ કારણ",
-        "payoutMethod": "રિફંડ પેઆઉટ પદ્ધતિ",
+        "payoutDestination": "રિફંડ પેઆઉટ લક્ષ્ય",
+        "payoutDestinations": {
+          "cash": "Cash",
+          "upi": "UPI",
+          "card": "Card",
+          "creditNote": "Credit Note"
+        },
         "confirmDueOverride": "બાકી ઓવરરાઇડ પુષ્ટિ કરો",
         "calculatedEffects": "ગણતરી કરેલી અસરો",
         "warnings": "ચેતવણીઓ",

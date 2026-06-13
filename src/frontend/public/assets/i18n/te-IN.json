@@ -1222,7 +1222,13 @@
         },
         "dueReductionOverride": "కారణంగా తగ్గింపు భర్తీ",
         "overrideReason": "కారణాన్ని భర్తీ చేయండి",
-        "payoutMethod": "రీఫండ్ చెల్లింపు పద్ధతి",
+        "payoutDestination": "రీఫండ్ చెల్లింపు గమ్యం",
+        "payoutDestinations": {
+          "cash": "Cash",
+          "upi": "UPI",
+          "card": "Card",
+          "creditNote": "Credit Note"
+        },
         "confirmDueOverride": "ఓవర్‌రైడ్ కారణంగా నిర్ధారించండి",
         "calculatedEffects": "లెక్కించిన ప్రభావాలు",
         "warnings": "హెచ్చరికలు",
