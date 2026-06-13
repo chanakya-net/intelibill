@@ -1230,6 +1230,11 @@
           "creditNote": "Credit Note"
         },
         "confirmDueOverride": "બાકી ઓવરરાઇડ પુષ્ટિ કરો",
+        "creditNoteExpiryNoExpiry": "તૈયારી નથી",
+        "creditNoteExpiry30Days": "30 દિવસ",
+        "creditNoteExpiry60Days": "60 દિવસ",
+        "creditNoteExpiry90Days": "90 દિવસ",
+        "creditNoteExpiryCustom": "કસ્ટમ તારીખ",
         "calculatedEffects": "ગણતરી કરેલી અસરો",
         "warnings": "ચેતવણીઓ",
         "previewBtn": "પ્રીવ્યુ",

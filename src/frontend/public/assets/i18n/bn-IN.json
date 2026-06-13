@@ -1235,7 +1235,12 @@
         "previewBtn": "প্রিভিউ",
         "recordBtn": "ফেরত রেকর্ড করুন",
         "creditNoteExpiry": "ক্রেডিট নোট মেয়াদোত্তীর্ণ",
-        "creditNoteExpiryDate": "মেয়াদোত্তীর্ণ তারিখ"
+        "creditNoteExpiryDate": "মেয়াদোত্তীর্ণ তারিখ",
+        "creditNoteExpiryNoExpiry": "কোনো মেয়াদোত্তীর্ণ নেই",
+        "creditNoteExpiry30Days": "30 দিন",
+        "creditNoteExpiry60Days": "60 দিন",
+        "creditNoteExpiry90Days": "90 দিন",
+        "creditNoteExpiryCustom": "কাস্টম তারিখ"
       }
     },
     "creditNotes": {

@@ -288,13 +288,18 @@
                 <span>{{ 'sales.returns.preview.creditNoteExpiry' | transloco }}</span>
                 <p-select
                   [options]="creditNoteExpiryOptions"
-                  optionLabel="label"
                   optionValue="value"
                   appendTo="body"
                   styleClass="return-preview-select"
                   [ngModel]="creditNoteExpiryMode()"
                   (ngModelChange)="updateCreditNoteExpiryMode($event)"
                 >
+                  <ng-template let-option pTemplate="item">
+                    {{ option.labelKey | transloco }}
+                  </ng-template>
+                  <ng-template let-option pTemplate="selectedItem">
+                    {{ option.labelKey | transloco }}
+                  </ng-template>
                 </p-select>
               </label>
 

@@ -526,8 +526,9 @@ describe('SaleReturnPreviewDialogComponent', () => {
 
     expect(facade.recordSaleReturn).toHaveBeenCalledTimes(1);
     const payload = facade.recordSaleReturn.mock.calls[0][1];
-    expect(payload.creditNoteExpiryMode).toBe('30Days');
-    expect(payload.creditNoteExpiryDate).not.toBeDefined();
+    expect(payload.creditNoteExpiresAt).toBeTruthy();
+    expect(payload.creditNoteExpiresAt).toContain('T');
+    expect(payload.creditNoteExpiresAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 
   it('payload includes custom expiry date when credit note mode is custom', async () => {
@@ -567,7 +568,7 @@ describe('SaleReturnPreviewDialogComponent', () => {
 
     expect(facade.recordSaleReturn).toHaveBeenCalledTimes(1);
     const payload = facade.recordSaleReturn.mock.calls[0][1];
-    expect(payload.creditNoteExpiryMode).toBe('Custom');
-    expect(payload.creditNoteExpiryDate).toBe('2026-12-31');
+    expect(payload.creditNoteExpiresAt).toBeTruthy();
+    expect(payload.creditNoteExpiresAt).toMatch(/^2026-12-31T/);
   });
 });

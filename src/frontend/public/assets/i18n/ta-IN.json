@@ -1230,6 +1230,11 @@
           "creditNote": "Credit Note"
         },
         "confirmDueOverride": "மீறப்படுவதை உறுதிப்படுத்தவும்",
+        "creditNoteExpiryNoExpiry": "காலாவதி நீக்கம்",
+        "creditNoteExpiry30Days": "30 நாட்கள்",
+        "creditNoteExpiry60Days": "60 நாட்கள்",
+        "creditNoteExpiry90Days": "90 நாட்கள்",
+        "creditNoteExpiryCustom": "கசטம் தேதி",
         "calculatedEffects": "கணக்கிடப்பட்ட விளைவுகள்",
         "warnings": "எச்சரிக்கைகள்",
         "previewBtn": "முன்னோட்டம்",

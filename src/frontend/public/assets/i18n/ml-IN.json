@@ -1230,6 +1230,11 @@
           "creditNote": "Credit Note"
         },
         "confirmDueOverride": "അസാധുവാക്കൽ സ്ഥിരീകരിക്കുക",
+        "creditNoteExpiryNoExpiry": "കാലാവധി ഇല്ലാതെ",
+        "creditNoteExpiry30Days": "30 ദിവസം",
+        "creditNoteExpiry60Days": "60 ദിവസം",
+        "creditNoteExpiry90Days": "90 ദിവസം",
+        "creditNoteExpiryCustom": "കസ്റ്റം തീയതി",
         "calculatedEffects": "കണക്കാക്കിയ ഇഫക്റ്റുകൾ",
         "warnings": "മുന്നറിയിപ്പുകൾ",
         "previewBtn": "പ്രിവ്യൂ",

@@ -99,11 +99,11 @@ export class SaleReturnPreviewDialogComponent {
   readonly payoutDestinationOptions = RETURN_PAYOUT_DESTINATION_OPTIONS;
 
   readonly creditNoteExpiryOptions = [
-    { label: 'No expiry', value: 'NoExpiry' },
-    { label: '30 days', value: '30Days' },
-    { label: '60 days', value: '60Days' },
-    { label: '90 days', value: '90Days' },
-    { label: 'Custom date', value: 'Custom' },
+    { labelKey: 'sales.returns.preview.creditNoteExpiryNoExpiry', value: 'NoExpiry' },
+    { labelKey: 'sales.returns.preview.creditNoteExpiry30Days', value: '30Days' },
+    { labelKey: 'sales.returns.preview.creditNoteExpiry60Days', value: '60Days' },
+    { labelKey: 'sales.returns.preview.creditNoteExpiry90Days', value: '90Days' },
+    { labelKey: 'sales.returns.preview.creditNoteExpiryCustom', value: 'Custom' },
   ];
 
   readonly activeShopRole = computed(() => {
@@ -355,10 +355,7 @@ export class SaleReturnPreviewDialogComponent {
         notes: this.normalizeOptional(draft.notes),
       })),
       ...(isCreditNote && {
-        creditNoteExpiryMode: this.creditNoteExpiryMode(),
-        ...(this.creditNoteExpiryMode() === 'Custom' && {
-          creditNoteExpiryDate: this.creditNoteExpiryDate(),
-        }),
+        creditNoteExpiresAt: this.computeCreditNoteExpiresAt(),
       }),
     } as unknown as RecordSaleReturnRequest;
 
@@ -557,6 +554,23 @@ export class SaleReturnPreviewDialogComponent {
       errors.push('Select payout destination.');
     }
 
+    const isCreditNote =
+      this.mapSelectedPayoutDestination(this.payoutDestination()) ===
+      ReturnPayoutDestination.CreditNote;
+    if (isCreditNote && this.creditNoteExpiryMode() === 'Custom') {
+      const dateStr = this.creditNoteExpiryDate();
+      if (!dateStr) {
+        errors.push('Select an expiry date for custom credit note expiry.');
+      } else {
+        const selectedDate = new Date(`${dateStr}T00:00:00Z`);
+        const today = new Date();
+        today.setUTCHours(0, 0, 0, 0);
+        if (selectedDate < today) {
+          errors.push('Expiry date cannot be in the past.');
+        }
+      }
+    }
+
     return errors;
   }
 
@@ -589,5 +603,25 @@ export class SaleReturnPreviewDialogComponent {
     condition: SaleReturnCondition | null,
   ): SaleReturnCondition | null {
     return this.getLineType(saleItemId) === 'Service' ? null : (condition ?? 1);
+  }
+
+  private computeCreditNoteExpiresAt(): string | null {
+    const mode = this.creditNoteExpiryMode();
+    if (mode === 'NoExpiry') return null;
+
+    const today = new Date();
+    let expiryDate: Date;
+
+    if (mode === 'Custom') {
+      const dateStr = this.creditNoteExpiryDate();
+      if (!dateStr) return null;
+      expiryDate = new Date(`${dateStr}T23:59:59Z`);
+    } else {
+      const days = mode === '30Days' ? 30 : mode === '60Days' ? 60 : 90;
+      expiryDate = new Date(today);
+      expiryDate.setDate(expiryDate.getDate() + days);
+    }
+
+    return expiryDate.toISOString();
   }
 }

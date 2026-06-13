@@ -1230,6 +1230,11 @@
           "creditNote": "Credit Note"
         },
         "confirmDueOverride": "ఓవర్‌రైడ్ కారణంగా నిర్ధారించండి",
+        "creditNoteExpiryNoExpiry": "గడువు లేనిది",
+        "creditNoteExpiry30Days": "30 రోజులు",
+        "creditNoteExpiry60Days": "60 రోజులు",
+        "creditNoteExpiry90Days": "90 రోజులు",
+        "creditNoteExpiryCustom": "కస్టమ్ తేదీ",
         "calculatedEffects": "లెక్కించిన ప్రభావాలు",
         "warnings": "హెచ్చరికలు",
         "previewBtn": "ప్రివ్యూ",
