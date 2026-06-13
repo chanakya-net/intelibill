@@ -1,4 +1,5 @@
 using Intelibill.Domain.Entities;
+using Intelibill.Domain.Enums;
 using Intelibill.Infrastructure.Data;
 using Intelibill.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
@@ -22,6 +23,28 @@ public sealed class CreditNoteRepositoryTests
     {
         var result = CreditNote.Issue(shopId, saleReturnId, 100m, "Test reason", code, null);
         return result.Value;
+    }
+
+    private static async Task<(Sale sale, SaleReturn saleReturn)> SeedSaleAndReturnAsync(
+        ApplicationDbContext context,
+        Guid shopId,
+        string invoiceNumber = "INV-001",
+        string returnNumber = "RET-001",
+        string? customerName = null)
+    {
+        var sale = Sale.Create(
+            shopId, invoiceNumber, null, customerName, null,
+            PaymentMethod.Cash, DateTimeOffset.UtcNow, 100m, 0m, 100m, 0m, []);
+        await context.Sales.AddAsync(sale);
+
+        var saleReturn = SaleReturn.Record(
+            shopId, sale.Id, returnNumber,
+            DateTimeOffset.UtcNow, Guid.NewGuid(), null,
+            0m, 0m, 0m, null, 0m, 0m, null, null, []).Value;
+        await context.SaleReturns.AddAsync(saleReturn);
+
+        await context.SaveChangesAsync();
+        return (sale, saleReturn);
     }
 
     [Fact]
@@ -169,5 +192,101 @@ public sealed class CreditNoteRepositoryTests
         var found = await repository.GetByIdWithRedemptionsAsync(otherShopId, note.Id);
 
         Assert.Null(found);
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_ReturnsAll_WhenNoFilters()
+    {
+        await using var context = await CreateContextAsync();
+        var shopId = Guid.NewGuid();
+        var (_, saleReturn) = await SeedSaleAndReturnAsync(context, shopId);
+        var note = CreateCreditNote(shopId, saleReturn.Id, "CN-100");
+        await context.CreditNotes.AddAsync(note);
+        await context.SaveChangesAsync();
+
+        var repository = new CreditNoteRepository(context);
+        var (items, totalCount) = await repository.GetPagedAsync(shopId, null, null, 1, 20);
+
+        Assert.Equal(1, totalCount);
+        Assert.Single(items);
+        Assert.Equal("CN-100", items[0].Code);
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_IsolatesOtherShops()
+    {
+        await using var context = await CreateContextAsync();
+        var shopId = Guid.NewGuid();
+        var otherShopId = Guid.NewGuid();
+        var (_, sr1) = await SeedSaleAndReturnAsync(context, shopId);
+        var (_, sr2) = await SeedSaleAndReturnAsync(context, otherShopId, "INV-002", "RET-002");
+        var note1 = CreateCreditNote(shopId, sr1.Id, "CN-001");
+        var note2 = CreateCreditNote(otherShopId, sr2.Id, "CN-002");
+        await context.CreditNotes.AddRangeAsync(note1, note2);
+        await context.SaveChangesAsync();
+
+        var repository = new CreditNoteRepository(context);
+        var (items, totalCount) = await repository.GetPagedAsync(shopId, null, null, 1, 20);
+
+        Assert.Equal(1, totalCount);
+        Assert.Equal("CN-001", items[0].Code);
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_Paginates()
+    {
+        await using var context = await CreateContextAsync();
+        var shopId = Guid.NewGuid();
+        var (_, sr1) = await SeedSaleAndReturnAsync(context, shopId, "INV-001", "RET-001");
+        var (_, sr2) = await SeedSaleAndReturnAsync(context, shopId, "INV-002", "RET-002");
+        var note1 = CreateCreditNote(shopId, sr1.Id, "CN-001");
+        var note2 = CreateCreditNote(shopId, sr2.Id, "CN-002");
+        await context.CreditNotes.AddRangeAsync(note1, note2);
+        await context.SaveChangesAsync();
+
+        var repository = new CreditNoteRepository(context);
+        var (items, totalCount) = await repository.GetPagedAsync(shopId, null, null, 1, 1);
+
+        Assert.Equal(2, totalCount);
+        Assert.Single(items);
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_FiltersVoidedStatus()
+    {
+        await using var context = await CreateContextAsync();
+        var shopId = Guid.NewGuid();
+        var (_, sr1) = await SeedSaleAndReturnAsync(context, shopId, "INV-001", "RET-001");
+        var (_, sr2) = await SeedSaleAndReturnAsync(context, shopId, "INV-002", "RET-002");
+        var active = CreateCreditNote(shopId, sr1.Id, "CN-A01");
+        var voided = CreateCreditNote(shopId, sr2.Id, "CN-V01");
+        voided.Void("test void");
+        await context.CreditNotes.AddRangeAsync(active, voided);
+        await context.SaveChangesAsync();
+
+        var repository = new CreditNoteRepository(context);
+        var (items, totalCount) = await repository.GetPagedAsync(shopId, null, CreditNoteStatus.Voided, 1, 20);
+
+        Assert.Equal(1, totalCount);
+        Assert.Equal("CN-V01", items[0].Code);
+        Assert.True(items[0].IsVoided);
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_IncludesReturnNumberAndInvoiceNumber()
+    {
+        await using var context = await CreateContextAsync();
+        var shopId = Guid.NewGuid();
+        var (_, saleReturn) = await SeedSaleAndReturnAsync(context, shopId, "INV-XYZ", "RET-XYZ");
+        var note = CreateCreditNote(shopId, saleReturn.Id, "CN-X01");
+        await context.CreditNotes.AddAsync(note);
+        await context.SaveChangesAsync();
+
+        var repository = new CreditNoteRepository(context);
+        var (items, _) = await repository.GetPagedAsync(shopId, null, null, 1, 20);
+
+        Assert.Single(items);
+        Assert.Equal("RET-XYZ", items[0].ReturnNumber);
+        Assert.Equal("INV-XYZ", items[0].InvoiceNumber);
     }
 }

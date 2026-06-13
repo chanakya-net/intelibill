@@ -5,6 +5,8 @@ using ErrorOr;
 using Intelibill.Api.Controllers;
 using Intelibill.Application.Features.CreditNotes.DTOs;
 using Intelibill.Application.Features.CreditNotes.Queries.GetCreditNoteByCode;
+using Intelibill.Application.Features.CreditNotes.Queries.GetCreditNotes;
+using Intelibill.Application.Features.Expenses.DTOs;
 using Intelibill.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -28,6 +30,17 @@ public class CreditNotesControllerTests
     public void GetCreditNoteByCode_HasOwnerManagerOrStaffPolicy()
     {
         var method = typeof(CreditNotesController).GetMethod(nameof(CreditNotesController.GetCreditNoteByCode));
+        var attr = method?
+            .GetCustomAttributes<AuthorizeAttribute>()
+            .FirstOrDefault(a => a.Policy == "OwnerManagerOrStaff");
+
+        Assert.NotNull(attr);
+    }
+
+    [Fact]
+    public void GetCreditNotes_HasOwnerManagerOrStaffPolicy()
+    {
+        var method = typeof(CreditNotesController).GetMethod(nameof(CreditNotesController.GetCreditNotes));
         var attr = method?
             .GetCustomAttributes<AuthorizeAttribute>()
             .FirstOrDefault(a => a.Policy == "OwnerManagerOrStaff");
@@ -79,6 +92,69 @@ public class CreditNotesControllerTests
                 q.UserId == userId &&
                 q.ActiveShopId == shopId &&
                 q.Code == " CN-001 "),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GetCreditNotes_WhenNoUserClaim_ReturnsUnauthorized()
+    {
+        SetUserClaims();
+
+        var result = await _controller.GetCreditNotes(null, null, 1, 20, CancellationToken.None);
+
+        Assert.IsType<UnauthorizedResult>(result);
+    }
+
+    [Fact]
+    public async Task GetCreditNotes_WhenValid_ReturnsOkAndDispatchesQuery()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()));
+
+        var page = new PaginatedList<CreditNoteListItemDto>([], 0, 1, 20);
+        _bus.InvokeAsync<ErrorOr<PaginatedList<CreditNoteListItemDto>>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<PaginatedList<CreditNoteListItemDto>>>(page));
+
+        var result = await _controller.GetCreditNotes("CN-", CreditNoteStatus.Active, 2, 10, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(page, ok.Value);
+
+        await _bus.Received(1).InvokeAsync<ErrorOr<PaginatedList<CreditNoteListItemDto>>>(
+            Arg.Is<GetCreditNotesQuery>(q =>
+                q.UserId == userId &&
+                q.ShopId == shopId &&
+                q.SearchTerm == "CN-" &&
+                q.Status == CreditNoteStatus.Active &&
+                q.PageNumber == 2 &&
+                q.PageSize == 10),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GetCreditNotes_WhenNoFilters_PassesNullSearchAndStatus()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()));
+
+        var page = new PaginatedList<CreditNoteListItemDto>([], 0, 1, 20);
+        _bus.InvokeAsync<ErrorOr<PaginatedList<CreditNoteListItemDto>>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<PaginatedList<CreditNoteListItemDto>>>(page));
+
+        await _controller.GetCreditNotes(null, null, 1, 20, CancellationToken.None);
+
+        await _bus.Received(1).InvokeAsync<ErrorOr<PaginatedList<CreditNoteListItemDto>>>(
+            Arg.Is<GetCreditNotesQuery>(q =>
+                q.SearchTerm == null &&
+                q.Status == null &&
+                q.PageNumber == 1 &&
+                q.PageSize == 20),
             Arg.Any<CancellationToken>());
     }
 
