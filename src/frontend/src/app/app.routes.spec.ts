@@ -10,6 +10,7 @@ import { AuthService } from './core/auth/auth.service';
 import { routes } from './app.routes';
 import { shellRoutes } from './core/layout/shell.routes';
 import { DashboardPageComponent } from './features/dashboard/pages/dashboard-page/dashboard-page.component';
+import { CreditNotePrintPageComponent } from './features/sales/pages/credit-note-print-page/credit-note-print-page.component';
 import { ServicesPageComponent } from './features/services/pages/services-page.component';
 
 describe('app routes', () => {
@@ -49,6 +50,25 @@ describe('app routes', () => {
     expect(printRouteIndex).toBeGreaterThanOrEqual(0);
     expect(shellRouteIndex).toBeGreaterThanOrEqual(0);
     expect(printRouteIndex).toBeLessThan(shellRouteIndex);
+  });
+
+  it('keeps credit note print outside the shell layout', () => {
+    const printRouteIndex = routes.findIndex((route) => route.path === 'credit-notes/:code/print');
+    const shellRouteIndex = routes.findIndex((route) => route.path === '');
+    const printRoute = routes[printRouteIndex];
+
+    expect(printRoute).toBeDefined();
+    expect(printRoute?.canActivate).toContain(authGuard);
+    expect(printRouteIndex).toBeGreaterThanOrEqual(0);
+    expect(shellRouteIndex).toBeGreaterThanOrEqual(0);
+    expect(printRouteIndex).toBeLessThan(shellRouteIndex);
+  });
+
+  it('loads the credit note print component for the top-level print route', async () => {
+    const printRoute = routes.find((route) => route.path === 'credit-notes/:code/print');
+
+    expect(printRoute).toBeDefined();
+    await expect(printRoute?.loadComponent?.()).resolves.toBe(CreditNotePrintPageComponent);
   });
 
   it('permits /sales/new offline grace through top-level protected route', async () => {

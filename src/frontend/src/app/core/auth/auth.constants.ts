@@ -69,6 +69,7 @@ export const SALE_ENDPOINTS = {
   offlineSync: `${API_BASE_URL}/sales/offline-sync`,
   sellables: (searchTerm: string) => `${API_BASE_URL}/sales/sellables?searchTerm=${encodeURIComponent(searchTerm)}`,
   creditNoteByCode: (code: string) => `${API_BASE_URL}/credit-notes/${encodeURIComponent(code)}`,
+  creditNotePrintByCode: (code: string) => `${API_BASE_URL}/credit-notes/${encodeURIComponent(code)}/print`,
 } as const;
 
 export const BANK_ACCOUNT_ENDPOINTS = {

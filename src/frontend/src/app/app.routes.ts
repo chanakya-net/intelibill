@@ -45,6 +45,14 @@ export const routes: Routes = [
 			).then((m) => m.SaleInvoicePrintPageComponent),
 	},
 	{
+		path: 'credit-notes/:code/print',
+		canActivate: [authGuard],
+		loadComponent: () =>
+			import(
+				'./features/sales/pages/credit-note-print-page/credit-note-print-page.component'
+			).then((m) => m.CreditNotePrintPageComponent),
+	},
+	{
 		path: 'inventory/purchase-orders/:purchaseOrderId/print',
 		canActivate: [authGuard],
 		loadComponent: () =>

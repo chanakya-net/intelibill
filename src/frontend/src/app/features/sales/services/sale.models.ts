@@ -560,6 +560,24 @@ export interface CreditNoteVerifyResponseDto {
   readonly status: string;
 }
 
+export interface CreditNotePrintDto {
+  readonly creditNoteId: string;
+  readonly code: string;
+  readonly status: string;
+  readonly isUsable: boolean;
+  readonly originalAmount: number;
+  readonly availableBalance: number;
+  readonly issuedAt: string;
+  readonly expiresAt: string | null;
+  readonly saleId: string;
+  readonly invoiceNumber: string;
+  readonly saleReturnId: string;
+  readonly returnNumber: string;
+  readonly customerDisplayName: string;
+  readonly reason: string;
+  readonly voidReason: string | null;
+}
+
 export interface OfflineSaleSyncErrorDto {
   readonly code: string;
   readonly message: string;
