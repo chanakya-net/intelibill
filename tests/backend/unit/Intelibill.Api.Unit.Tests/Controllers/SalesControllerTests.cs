@@ -883,7 +883,7 @@ public class SalesControllerTests
         var sale = new SaleDto(
             saleId, "INV-001", null, "Ravi Kumar", null,
             PaymentMethod.Cash, DateTimeOffset.UtcNow,
-            500m, 0m, 500m, 0m, 500m, 0m, [], []);
+            500m, 0m, 500m, 0m, 500m, 0m, 0m, [], []);
 
         _bus.InvokeAsync<ErrorOr<Success>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<ErrorOr<Success>>(Result.Success));
