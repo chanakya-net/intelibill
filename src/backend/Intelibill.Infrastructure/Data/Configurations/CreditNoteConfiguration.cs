@@ -18,7 +18,7 @@ internal sealed class CreditNoteConfiguration : IEntityTypeConfiguration<CreditN
         builder.HasKey(c => c.Id);
 
         builder.Property(c => c.ShopId).IsRequired();
-        builder.Property(c => c.SaleId).IsRequired();
+        builder.Property(c => c.SaleReturnId).IsRequired();
 
         builder.Property(c => c.Code)
             .IsRequired()
@@ -41,7 +41,7 @@ internal sealed class CreditNoteConfiguration : IEntityTypeConfiguration<CreditN
             .IsRequired();
 
         builder.HasIndex(c => new { c.ShopId, c.Code }).IsUnique();
-        builder.HasIndex(c => new { c.ShopId, c.SaleId });
+        builder.HasIndex(c => new { c.ShopId, c.SaleReturnId });
         builder.HasIndex(c => new { c.ShopId, c.IsVoided });
 
         builder.HasOne<Shop>()
@@ -49,9 +49,9 @@ internal sealed class CreditNoteConfiguration : IEntityTypeConfiguration<CreditN
             .HasForeignKey(c => c.ShopId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        builder.HasOne<Sale>()
+        builder.HasOne<SaleReturn>()
             .WithMany()
-            .HasForeignKey(c => c.SaleId)
+            .HasForeignKey(c => c.SaleReturnId)
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasMany(c => c.Redemptions)

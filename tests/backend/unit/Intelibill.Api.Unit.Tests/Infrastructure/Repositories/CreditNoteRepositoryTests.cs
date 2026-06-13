@@ -18,9 +18,9 @@ public sealed class CreditNoteRepositoryTests
         return context;
     }
 
-    private static CreditNote CreateCreditNote(Guid shopId, Guid saleId, string code = "CN-001")
+    private static CreditNote CreateCreditNote(Guid shopId, Guid saleReturnId, string code = "CN-001")
     {
-        var result = CreditNote.Issue(shopId, saleId, 100m, "Test reason", code, null);
+        var result = CreditNote.Issue(shopId, saleReturnId, 100m, "Test reason", code, null);
         return result.Value;
     }
 
@@ -36,6 +36,23 @@ public sealed class CreditNoteRepositoryTests
 
         var repository = new CreditNoteRepository(context);
         var found = await repository.GetByCodeAsync(shopId, "CN-001");
+
+        Assert.NotNull(found);
+        Assert.Equal(note.Id, found.Id);
+    }
+
+    [Fact]
+    public async Task GetByCodeAsync_ReturnsNote_WhenCodeHasLeadingTrailingWhitespace()
+    {
+        await using var context = await CreateContextAsync();
+        var shopId = Guid.NewGuid();
+        var note = CreateCreditNote(shopId, Guid.NewGuid(), "CN-002");
+
+        await context.CreditNotes.AddAsync(note);
+        await context.SaveChangesAsync();
+
+        var repository = new CreditNoteRepository(context);
+        var found = await repository.GetByCodeAsync(shopId, "  CN-002  ");
 
         Assert.NotNull(found);
         Assert.Equal(note.Id, found.Id);
@@ -59,35 +76,58 @@ public sealed class CreditNoteRepositoryTests
     }
 
     [Fact]
-    public async Task GetBySaleIdAsync_ReturnsNotesForMatchingSale()
+    public async Task GetByReturnIdAsync_ReturnsNotesForMatchingReturn()
     {
         await using var context = await CreateContextAsync();
         var shopId = Guid.NewGuid();
-        var saleId = Guid.NewGuid();
-        var otherSaleId = Guid.NewGuid();
-        var note = CreateCreditNote(shopId, saleId, "CN-001");
-        var other = CreateCreditNote(shopId, otherSaleId, "CN-002");
+        var returnId = Guid.NewGuid();
+        var otherReturnId = Guid.NewGuid();
+        var note = CreateCreditNote(shopId, returnId, "CN-001");
+        var other = CreateCreditNote(shopId, otherReturnId, "CN-002");
 
         await context.CreditNotes.AddRangeAsync(note, other);
         await context.SaveChangesAsync();
 
         var repository = new CreditNoteRepository(context);
-        var results = await repository.GetBySaleIdAsync(shopId, saleId);
+        var results = await repository.GetByReturnIdAsync(shopId, returnId);
 
         Assert.Single(results);
         Assert.Equal(note.Id, results[0].Id);
     }
 
     [Fact]
-    public async Task GetBySaleIdAsync_ReturnsEmpty_WhenNoNotesForSale()
+    public async Task GetByReturnIdAsync_ReturnsEmpty_WhenNoNotesForReturn()
     {
         await using var context = await CreateContextAsync();
         var shopId = Guid.NewGuid();
 
         var repository = new CreditNoteRepository(context);
-        var results = await repository.GetBySaleIdAsync(shopId, Guid.NewGuid());
+        var results = await repository.GetByReturnIdAsync(shopId, Guid.NewGuid());
 
         Assert.Empty(results);
+    }
+
+    [Fact]
+    public async Task GetByReturnIdAsync_IsolatesReturnsSharingSameSale()
+    {
+        await using var context = await CreateContextAsync();
+        var shopId = Guid.NewGuid();
+        var returnId1 = Guid.NewGuid();
+        var returnId2 = Guid.NewGuid();
+        var note1 = CreateCreditNote(shopId, returnId1, "CN-010");
+        var note2 = CreateCreditNote(shopId, returnId2, "CN-011");
+
+        await context.CreditNotes.AddRangeAsync(note1, note2);
+        await context.SaveChangesAsync();
+
+        var repository = new CreditNoteRepository(context);
+        var results1 = await repository.GetByReturnIdAsync(shopId, returnId1);
+        var results2 = await repository.GetByReturnIdAsync(shopId, returnId2);
+
+        Assert.Single(results1);
+        Assert.Equal(note1.Id, results1[0].Id);
+        Assert.Single(results2);
+        Assert.Equal(note2.Id, results2[0].Id);
     }
 
     [Fact]
@@ -95,9 +135,9 @@ public sealed class CreditNoteRepositoryTests
     {
         await using var context = await CreateContextAsync();
         var shopId = Guid.NewGuid();
-        var saleId = Guid.NewGuid();
+        var saleReturnId = Guid.NewGuid();
         var redemptionSaleId = Guid.NewGuid();
-        var note = CreateCreditNote(shopId, saleId, "CN-001");
+        var note = CreateCreditNote(shopId, saleReturnId, "CN-001");
         var redemptionResult = note.Redeem(shopId, redemptionSaleId, 50m);
         Assert.False(redemptionResult.IsError);
 

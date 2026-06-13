@@ -18,7 +18,7 @@ namespace Intelibill.Infrastructure.Migrations
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false),
                     shop_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    sale_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    sale_return_id = table.Column<Guid>(type: "uuid", nullable: false),
                     code = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
                     original_amount = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: false),
                     available_balance = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: false),
@@ -35,9 +35,9 @@ namespace Intelibill.Infrastructure.Migrations
                     table.CheckConstraint("ck_credit_notes_balance_le_original", "available_balance <= original_amount");
                     table.CheckConstraint("ck_credit_notes_original_amount_positive", "original_amount > 0");
                     table.ForeignKey(
-                        name: "fk_credit_notes_sales_sale_id",
-                        column: x => x.sale_id,
-                        principalTable: "sales",
+                        name: "fk_credit_notes_sale_returns_sale_return_id",
+                        column: x => x.sale_return_id,
+                        principalTable: "sale_returns",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
@@ -100,9 +100,9 @@ namespace Intelibill.Infrastructure.Migrations
                 columns: new[] { "shop_id", "sale_id" });
 
             migrationBuilder.CreateIndex(
-                name: "ix_credit_notes_sale_id",
+                name: "ix_credit_notes_sale_return_id",
                 table: "credit_notes",
-                column: "sale_id");
+                column: "sale_return_id");
 
             migrationBuilder.CreateIndex(
                 name: "ix_credit_notes_shop_id_code",
@@ -116,9 +116,9 @@ namespace Intelibill.Infrastructure.Migrations
                 columns: new[] { "shop_id", "is_voided" });
 
             migrationBuilder.CreateIndex(
-                name: "ix_credit_notes_shop_id_sale_id",
+                name: "ix_credit_notes_shop_id_sale_return_id",
                 table: "credit_notes",
-                columns: new[] { "shop_id", "sale_id" });
+                columns: new[] { "shop_id", "sale_return_id" });
 
             migrationBuilder.Sql("""
                 ALTER TABLE credit_notes ENABLE ROW LEVEL SECURITY;
@@ -149,5 +149,3 @@ namespace Intelibill.Infrastructure.Migrations
         }
     }
 }
-
-#pragma warning restore CA1861

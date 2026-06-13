@@ -13,7 +13,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Intelibill.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260613200547_AddCreditNotes")]
+    [Migration("20260613201926_AddCreditNotes")]
     partial class AddCreditNotes
     {
         /// <inheritdoc />
@@ -124,9 +124,9 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("character varying(1000)")
                         .HasColumnName("reason");
 
-                    b.Property<Guid>("SaleId")
+                    b.Property<Guid>("SaleReturnId")
                         .HasColumnType("uuid")
-                        .HasColumnName("sale_id");
+                        .HasColumnName("sale_return_id");
 
                     b.Property<Guid>("ShopId")
                         .HasColumnType("uuid")
@@ -139,8 +139,8 @@ namespace Intelibill.Infrastructure.Migrations
                     b.HasKey("Id")
                         .HasName("pk_credit_notes");
 
-                    b.HasIndex("SaleId")
-                        .HasDatabaseName("ix_credit_notes_sale_id");
+                    b.HasIndex("SaleReturnId")
+                        .HasDatabaseName("ix_credit_notes_sale_return_id");
 
                     b.HasIndex("ShopId", "Code")
                         .IsUnique()
@@ -149,8 +149,8 @@ namespace Intelibill.Infrastructure.Migrations
                     b.HasIndex("ShopId", "IsVoided")
                         .HasDatabaseName("ix_credit_notes_shop_id_is_voided");
 
-                    b.HasIndex("ShopId", "SaleId")
-                        .HasDatabaseName("ix_credit_notes_shop_id_sale_id");
+                    b.HasIndex("ShopId", "SaleReturnId")
+                        .HasDatabaseName("ix_credit_notes_shop_id_sale_return_id");
 
                     b.ToTable("credit_notes", null, t =>
                         {
@@ -3111,12 +3111,12 @@ namespace Intelibill.Infrastructure.Migrations
 
             modelBuilder.Entity("Intelibill.Domain.Entities.CreditNote", b =>
                 {
-                    b.HasOne("Intelibill.Domain.Entities.Sale", null)
+                    b.HasOne("Intelibill.Domain.Entities.SaleReturn", null)
                         .WithMany()
-                        .HasForeignKey("SaleId")
+                        .HasForeignKey("SaleReturnId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
-                        .HasConstraintName("fk_credit_notes_sales_sale_id");
+                        .HasConstraintName("fk_credit_notes_sale_returns_sale_return_id");
 
                     b.HasOne("Intelibill.Domain.Entities.Shop", null)
                         .WithMany()
