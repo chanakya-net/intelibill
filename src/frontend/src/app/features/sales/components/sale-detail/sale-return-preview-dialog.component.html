@@ -282,6 +282,40 @@
             </label>
           }
 
+          @if (payoutDestination() === 4) {
+            <div class="return-preview-credit-note-expiry return-preview-side-card">
+              <label>
+                <span>{{ 'sales.returns.preview.creditNoteExpiry' | transloco }}</span>
+                <p-select
+                  [options]="creditNoteExpiryOptions"
+                  optionValue="value"
+                  appendTo="body"
+                  styleClass="return-preview-select"
+                  [ngModel]="creditNoteExpiryMode()"
+                  (ngModelChange)="updateCreditNoteExpiryMode($event)"
+                >
+                  <ng-template let-option pTemplate="item">
+                    {{ option.labelKey | transloco }}
+                  </ng-template>
+                  <ng-template let-option pTemplate="selectedItem">
+                    {{ option.labelKey | transloco }}
+                  </ng-template>
+                </p-select>
+              </label>
+
+              @if (creditNoteExpiryMode() === 'Custom') {
+                <label>
+                  <span>{{ 'sales.returns.preview.creditNoteExpiryDate' | transloco }}</span>
+                  <input
+                    type="date"
+                    [ngModel]="creditNoteExpiryDate()"
+                    (ngModelChange)="updateCreditNoteExpiryDate($event)"
+                  />
+                </label>
+              }
+            </div>
+          }
+
           @if (dueReductionOverrideAmount() !== null) {
             <div class="return-preview-confirm">
               <p-checkbox

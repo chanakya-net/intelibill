@@ -903,11 +903,11 @@
       "actions": {
         "viewReceipt": "पावती पहा"
       },
-  "amount": {
-    "due": "थकबाकी",
-    "refund": "परतावा",
-    "creditNoteApplied": "क्रेडिट नोट लागू"
-  },
+      "amount": {
+        "due": "थकबाकी",
+        "refund": "परतावा",
+        "creditNoteApplied": "क्रेडिट नोट लागू"
+      },
       "pagination": {
         "ariaLabel": "विक्री इतिहास पृष्ठ क्रमांकन",
         "showing": "{{total}} विक्रींपैकी {{start}}-{{end}} दाखवत आहे",
@@ -1230,10 +1230,17 @@
           "creditNote": "Credit Note"
         },
         "confirmDueOverride": "थकबाकी ओव्हरराइड पुष्टी करा",
+        "creditNoteExpiryNoExpiry": "कोई समाप्तीची तारीख नहीं",
+        "creditNoteExpiry30Days": "30 दिवस",
+        "creditNoteExpiry60Days": "60 दिवस",
+        "creditNoteExpiry90Days": "90 दिवस",
+        "creditNoteExpiryCustom": "कस्टम तारीख",
         "calculatedEffects": "गणना केलेले परिणाम",
         "warnings": "इशारे",
         "previewBtn": "प्रीव्यू",
-        "recordBtn": "परतावा नोंदवा"
+        "recordBtn": "परतावा नोंदवा",
+        "creditNoteExpiry": "क्रेडिट नोट समाप्तीची तारीख",
+        "creditNoteExpiryDate": "समाप्तीची तारीख"
       }
     },
     "creditNotes": {
@@ -1245,7 +1252,6 @@
         "description": "Credit notes will appear here once they are created."
       }
     },
-
     "searchPlaceholder": "विक्री शोधा...",
     "export": {
       "title": "Sales Export",

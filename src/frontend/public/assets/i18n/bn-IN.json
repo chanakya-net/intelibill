@@ -903,11 +903,11 @@
       "actions": {
         "viewReceipt": "রশিদ দেখুন"
       },
-  "amount": {
-    "due": "বকেয়া",
-    "refund": "ফেরত",
-    "creditNoteApplied": "ক্রেডিট নোট প্রয়োগ করা হয়েছে"
-  },
+      "amount": {
+        "due": "বকেয়া",
+        "refund": "ফেরত",
+        "creditNoteApplied": "ক্রেডিট নোট প্রয়োগ করা হয়েছে"
+      },
       "pagination": {
         "ariaLabel": "বিক্রয় ইতিহাস পৃষ্ঠায়ন",
         "showing": "{{total}} বিক্রয়ের মধ্যে {{start}}-{{end}} দেখাচ্ছে",
@@ -1233,7 +1233,14 @@
         "calculatedEffects": "গণনা করা প্রভাব",
         "warnings": "সতর্কতা",
         "previewBtn": "প্রিভিউ",
-        "recordBtn": "ফেরত রেকর্ড করুন"
+        "recordBtn": "ফেরত রেকর্ড করুন",
+        "creditNoteExpiry": "ক্রেডিট নোট মেয়াদোত্তীর্ণ",
+        "creditNoteExpiryDate": "মেয়াদোত্তীর্ণ তারিখ",
+        "creditNoteExpiryNoExpiry": "কোনো মেয়াদোত্তীর্ণ নেই",
+        "creditNoteExpiry30Days": "30 দিন",
+        "creditNoteExpiry60Days": "60 দিন",
+        "creditNoteExpiry90Days": "90 দিন",
+        "creditNoteExpiryCustom": "কাস্টম তারিখ"
       }
     },
     "creditNotes": {
@@ -1245,7 +1252,6 @@
         "description": "Credit notes will appear here once they are created."
       }
     },
-
     "searchPlaceholder": "বিক্রয় খুঁজুন...",
     "export": {
       "title": "Sales Export",

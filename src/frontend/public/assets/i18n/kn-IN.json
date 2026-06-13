@@ -903,11 +903,11 @@
       "actions": {
         "viewReceipt": "ರಸೀದಿ ನೋಡಿ"
       },
-  "amount": {
-    "due": "ಬಾಕಿ",
-    "refund": "ಮರುಪಾವತಿ",
-    "creditNoteApplied": "ಕ್ರೆಡಿಟ್ ನೋಟ್ ಅನ್ವಯಿಸಲಾಗಿದೆ"
-  },
+      "amount": {
+        "due": "ಬಾಕಿ",
+        "refund": "ಮರುಪಾವತಿ",
+        "creditNoteApplied": "ಕ್ರೆಡಿಟ್ ನೋಟ್ ಅನ್ವಯಿಸಲಾಗಿದೆ"
+      },
       "pagination": {
         "ariaLabel": "ಮಾರಾಟ ಇತಿಹಾಸ ಪುಟ ಸಂಖ್ಯೆ",
         "showing": "{{total}} ಮಾರಾಟಗಳಲ್ಲಿ {{start}}-{{end}} ತೋರಿಸಲಾಗುತ್ತಿದೆ",
@@ -1230,10 +1230,17 @@
           "creditNote": "Credit Note"
         },
         "confirmDueOverride": "ಕಾರಣ ಅತಿಕ್ರಮಣವನ್ನು ದೃಢೀಕರಿಸಿ",
+        "creditNoteExpiryNoExpiry": "ಕೊನೆಯಿಲ್ಲದ",
+        "creditNoteExpiry30Days": "30 ದಿನ",
+        "creditNoteExpiry60Days": "60 ದಿನ",
+        "creditNoteExpiry90Days": "90 ದಿನ",
+        "creditNoteExpiryCustom": "ಕಸ್ಟಮ್ ದಿನಾಂಕ",
         "calculatedEffects": "ಲೆಕ್ಕಾಚಾರದ ಪರಿಣಾಮಗಳು",
         "warnings": "ಎಚ್ಚರಿಕೆಗಳು",
         "previewBtn": "ಪೂರ್ವವೀಕ್ಷಣೆ",
-        "recordBtn": "ರೆಕಾರ್ಡ್ ರಿಟರ್ನ್"
+        "recordBtn": "ರೆಕಾರ್ಡ್ ರಿಟರ್ನ್",
+        "creditNoteExpiry": "ಕ್ರೆಡಿಟ್ ನೋಟ್ ಅವಧಿ ಅಂತ್ಯ",
+        "creditNoteExpiryDate": "ಮುಕ್ತಾಯ ದಿನಾಂಕ"
       }
     },
     "creditNotes": {
@@ -1245,7 +1252,6 @@
         "description": "Credit notes will appear here once they are created."
       }
     },
-
     "searchPlaceholder": "ಮಾರಾಟವನ್ನು ಹುಡುಕಿ...",
     "export": {
       "title": "Sales Export",

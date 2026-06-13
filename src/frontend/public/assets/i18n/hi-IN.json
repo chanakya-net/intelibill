@@ -1230,6 +1230,13 @@
           "creditNote": "Credit Note"
         },
         "confirmDueOverride": "बकाया ओवरराइड पुष्टि करें",
+        "creditNoteExpiry": "क्रेडिट नोट समाप्ति",
+        "creditNoteExpiryDate": "समाप्ति तिथि",
+        "creditNoteExpiryNoExpiry": "कोई समाप्ति नहीं",
+        "creditNoteExpiry30Days": "30 दिन",
+        "creditNoteExpiry60Days": "60 दिन",
+        "creditNoteExpiry90Days": "90 दिन",
+        "creditNoteExpiryCustom": "कस्टम तारीख",
         "calculatedEffects": "गणना किए गए प्रभाव",
         "warnings": "चेतावनियां",
         "previewBtn": "प्रीव्यू",

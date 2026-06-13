@@ -903,11 +903,11 @@
       "actions": {
         "viewReceipt": "രസീത് കാണുക"
       },
-  "amount": {
-    "due": "ബാക്കി",
-    "refund": "തിരിച്ചടവ്",
-    "creditNoteApplied": "ക്രെഡിറ്റ് നോട്ട് പ്രയോഗിച്ചു"
-  },
+      "amount": {
+        "due": "ബാക്കി",
+        "refund": "തിരിച്ചടവ്",
+        "creditNoteApplied": "ക്രെഡിറ്റ് നോട്ട് പ്രയോഗിച്ചു"
+      },
       "pagination": {
         "ariaLabel": "വിൽപ്പന ചരിത്ര പേജിനേഷൻ",
         "showing": "{{total}} വിൽപ്പനകളിൽ {{start}}-{{end}} കാണിക്കുന്നു",
@@ -1230,10 +1230,17 @@
           "creditNote": "Credit Note"
         },
         "confirmDueOverride": "അസാധുവാക്കൽ സ്ഥിരീകരിക്കുക",
+        "creditNoteExpiryNoExpiry": "കാലാവധി ഇല്ലാതെ",
+        "creditNoteExpiry30Days": "30 ദിവസം",
+        "creditNoteExpiry60Days": "60 ദിവസം",
+        "creditNoteExpiry90Days": "90 ദിവസം",
+        "creditNoteExpiryCustom": "കസ്റ്റം തീയതി",
         "calculatedEffects": "കണക്കാക്കിയ ഇഫക്റ്റുകൾ",
         "warnings": "മുന്നറിയിപ്പുകൾ",
         "previewBtn": "പ്രിവ്യൂ",
-        "recordBtn": "റെക്കോർഡ് റിട്ടേൺ"
+        "recordBtn": "റെക്കോർഡ് റിട്ടേൺ",
+        "creditNoteExpiry": "ക്രെഡിറ്റ് നോട്ട് ഒഴിവാക്കൽ",
+        "creditNoteExpiryDate": "ഒഴിവാക്കൽ തീയതി"
       }
     },
     "creditNotes": {
@@ -1245,7 +1252,6 @@
         "description": "Credit notes will appear here once they are created."
       }
     },
-
     "searchPlaceholder": "വിൽപ്പന തിരയുക...",
     "export": {
       "title": "Sales Export",
