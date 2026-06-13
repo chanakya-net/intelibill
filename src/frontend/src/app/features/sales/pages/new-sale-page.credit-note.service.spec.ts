@@ -73,7 +73,6 @@ class TestCreditNoteService extends NewSalePageCreditNoteService {
   override applyProductDefaultsForLine(): void {}
   override getEventNotificationKey(): string { return 'test'; }
   override detectAndHighlightChangedRows(): void {}
-  override resetTransientState(): void {}
   override async searchOfflineCatalog(): Promise<void> {}
   override async refreshOfflinePreview(): Promise<void> {}
   override async onOfflineSubmit(): Promise<void> {}
@@ -131,6 +130,7 @@ function buildService(saleServiceOverrides: Partial<{ verifyCreditNote: ReturnTy
           cart: signal([]),
           serviceCart: signal([]),
           cartBootstrapped: signal(false),
+          onClearCart: vi.fn(),
           getServiceLineSubtotal: vi.fn(() => 0),
           getServiceLineTaxAmount: vi.fn(() => 0),
           getServiceLineTotal: vi.fn(() => 0),
@@ -222,17 +222,26 @@ describe('NewSalePageCreditNoteService', () => {
     expect(saleService.verifyCreditNote).not.toHaveBeenCalled();
   });
 
-  it('resets all credit note state', () => {
+  it('clears credit note state when transient checkout state resets', () => {
     const { service } = buildService();
     service.creditNoteCode.set('CN-ABC');
+    service.isCreditNoteVerifying.set(true);
     service.verifiedCreditNote.set(verifiedNote);
     service.creditNoteError.set('err');
+    service.paymentForm.controls.paymentMethod.setValue(4);
+    service.paymentForm.controls.paidAmount.setValue(40);
+    service.paymentForm.controls.dueAmount.setValue(10);
 
-    service.resetCreditNoteState();
+    service.resetTransientState();
 
     expect(service.creditNoteCode()).toBe('');
     expect(service.verifiedCreditNote()).toBeNull();
     expect(service.creditNoteError()).toBe('');
     expect(service.isCreditNoteVerifying()).toBe(false);
+    expect(service.paymentForm.getRawValue()).toEqual({
+      paymentMethod: 1,
+      paidAmount: 0,
+      dueAmount: 0,
+    });
   });
 });

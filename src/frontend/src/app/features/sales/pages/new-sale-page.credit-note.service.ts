@@ -36,7 +36,12 @@ export abstract class NewSalePageCreditNoteService extends NewSalePageOfflineFlo
     }
   }
 
-  resetCreditNoteState(): void {
+  override resetTransientState(): void {
+    super.resetTransientState();
+    this.resetCreditNoteState();
+  }
+
+  private resetCreditNoteState(): void {
     this.creditNoteCode.set('');
     this.isCreditNoteVerifying.set(false);
     this.verifiedCreditNote.set(null);
