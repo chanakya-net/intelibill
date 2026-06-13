@@ -4,6 +4,7 @@ using System.Security.Claims;
 using ErrorOr;
 using Intelibill.Api.Controllers;
 using Intelibill.Application.Features.CreditNotes.DTOs;
+using Intelibill.Application.Features.CreditNotes.Commands.VoidCreditNote;
 using Intelibill.Application.Features.CreditNotes.Queries.GetCreditNoteByCode;
 using Intelibill.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
@@ -31,6 +32,17 @@ public class CreditNotesControllerTests
         var attr = method?
             .GetCustomAttributes<AuthorizeAttribute>()
             .FirstOrDefault(a => a.Policy == "OwnerManagerOrStaff");
+
+        Assert.NotNull(attr);
+    }
+
+    [Fact]
+    public void VoidCreditNote_HasOwnerOrManagerPolicy()
+    {
+        var method = typeof(CreditNotesController).GetMethod(nameof(CreditNotesController.VoidCreditNote));
+        var attr = method?
+            .GetCustomAttributes<AuthorizeAttribute>()
+            .FirstOrDefault(a => a.Policy == "OwnerOrManager");
 
         Assert.NotNull(attr);
     }
@@ -79,6 +91,31 @@ public class CreditNotesControllerTests
                 q.UserId == userId &&
                 q.ActiveShopId == shopId &&
                 q.Code == " CN-001 "),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task VoidCreditNote_WhenValid_ReturnsNoContentAndDispatchesCommand()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()));
+
+        _bus.InvokeAsync<ErrorOr<Success>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(Result.Success);
+
+        var result = await _controller.VoidCreditNote(" CN-001 ", new VoidCreditNoteRequest("Issued in error"), CancellationToken.None);
+
+        Assert.IsType<NoContentResult>(result);
+
+        await _bus.Received(1).InvokeAsync<ErrorOr<Success>>(
+            Arg.Is<VoidCreditNoteCommand>(c =>
+                c.ActorUserId == userId
+                && c.ActiveShopId == shopId
+                && c.Code == " CN-001 "
+                && c.Reason == "Issued in error"),
             Arg.Any<CancellationToken>());
     }
 

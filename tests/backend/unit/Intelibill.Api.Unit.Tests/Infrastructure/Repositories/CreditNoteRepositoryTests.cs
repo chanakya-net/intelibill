@@ -76,6 +76,27 @@ public sealed class CreditNoteRepositoryTests
     }
 
     [Fact]
+    public async Task GetByCodeAsync_IncludesRedemptionsForVoidChecks()
+    {
+        await using var context = await CreateContextAsync();
+        var shopId = Guid.NewGuid();
+        var note = CreateCreditNote(shopId, Guid.NewGuid(), "CN-RED");
+        var redemptionResult = note.Redeem(shopId, Guid.NewGuid(), 25m);
+        Assert.False(redemptionResult.IsError);
+
+        await context.CreditNotes.AddAsync(note);
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var repository = new CreditNoteRepository(context);
+        var found = await repository.GetByCodeAsync(shopId, "CN-RED");
+
+        Assert.NotNull(found);
+        Assert.Single(found.Redemptions);
+        Assert.Equal(25m, found.Redemptions[0].Amount);
+    }
+
+    [Fact]
     public async Task GetByReturnIdAsync_ReturnsNotesForMatchingReturn()
     {
         await using var context = await CreateContextAsync();

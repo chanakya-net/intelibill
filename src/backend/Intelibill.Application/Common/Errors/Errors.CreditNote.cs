@@ -11,5 +11,17 @@ public static partial class Errors
 
         public static Error UserIsNotOwnerManagerOrStaff =>
             Error.Forbidden("CreditNote.UserIsNotOwnerManagerOrStaff", "Only owner, manager, or staff can verify credit notes.");
+
+        public static Error UserIsNotOwnerOrManager =>
+            Error.Forbidden("CreditNote.UserIsNotOwnerOrManager", "Only owner or manager can void credit notes.");
+
+        public static Error VoidReasonRequired =>
+            Error.Validation("CreditNote.VoidReasonRequired", "Void reason is required.");
+
+        public static Error AlreadyVoided =>
+            Error.Validation("CreditNote.AlreadyVoided", "Credit note is already voided.");
+
+        public static Error CannotVoidAfterRedemption =>
+            Error.Conflict("CreditNote.CannotVoidAfterRedemption", "Cannot void a credit note after it has been redeemed.");
     }
 }
