@@ -10,6 +10,8 @@ public sealed record RecordSaleReturnCommand(
     decimal? DueReductionOverrideAmount,
     string? DueOverrideReason,
     string? Notes,
+    DateTimeOffset? CreditNoteExpiresAt,
+    string? CreditNoteReason,
     IReadOnlyList<RecordSaleReturnItemCommand> Items);
 
 public sealed record RecordSaleReturnItemCommand(
