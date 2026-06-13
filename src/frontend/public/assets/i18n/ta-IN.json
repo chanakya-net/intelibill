@@ -99,6 +99,7 @@
     "manageSales": "விற்பனை",
     "newSale": "புதிய விற்பனை",
     "salesHistory": "வரலாறு",
+    "creditNotes": "Credit Notes",
     "manageInventory": "சரக்கு",
     "addNewProduct": "பொருட்கள்",
     "manageServices": "Services",
@@ -1218,6 +1219,16 @@
         "recordBtn": "பதிவு திரும்ப"
       }
     },
+    "creditNotes": {
+      "eyebrow": "Sales Records",
+      "title": "Credit Notes",
+      "subtitle": "Review credit note history for the active shop.",
+      "emptyState": {
+        "title": "No credit notes yet",
+        "description": "Credit notes will appear here once they are created."
+      }
+    },
+
     "searchPlaceholder": "விற்பனையைத் தேடு...",
     "export": {
       "title": "Sales Export",

@@ -99,6 +99,7 @@
     "manageSales": "అమ్మకాలు",
     "newSale": "కొత్త అమ్మకం",
     "salesHistory": "చరిత్ర",
+    "creditNotes": "Credit Notes",
     "manageInventory": "ఇన్వెంటరీ",
     "addNewProduct": "ఉత్పత్తులు",
     "manageServices": "Services",
@@ -1218,6 +1219,16 @@
         "recordBtn": "రికార్డ్ రిటర్న్"
       }
     },
+    "creditNotes": {
+      "eyebrow": "Sales Records",
+      "title": "Credit Notes",
+      "subtitle": "Review credit note history for the active shop.",
+      "emptyState": {
+        "title": "No credit notes yet",
+        "description": "Credit notes will appear here once they are created."
+      }
+    },
+
     "searchPlaceholder": "విక్రయాలను శోధించండి...",
     "export": {
       "title": "Sales Export",

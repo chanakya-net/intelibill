@@ -99,6 +99,7 @@
     "manageSales": "ಮಾರಾಟ",
     "newSale": "ಹೊಸ ಮಾರಾಟ",
     "salesHistory": "ಇತಿಹಾಸ",
+    "creditNotes": "Credit Notes",
     "manageInventory": "ಇನ್‌ವೆಂಟರಿ",
     "addNewProduct": "ಉತ್ಪನ್ನಗಳು",
     "manageServices": "Services",
@@ -1218,6 +1219,16 @@
         "recordBtn": "ರೆಕಾರ್ಡ್ ರಿಟರ್ನ್"
       }
     },
+    "creditNotes": {
+      "eyebrow": "Sales Records",
+      "title": "Credit Notes",
+      "subtitle": "Review credit note history for the active shop.",
+      "emptyState": {
+        "title": "No credit notes yet",
+        "description": "Credit notes will appear here once they are created."
+      }
+    },
+
     "searchPlaceholder": "ಮಾರಾಟವನ್ನು ಹುಡುಕಿ...",
     "export": {
       "title": "Sales Export",

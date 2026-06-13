@@ -79,6 +79,13 @@ export const shellRoutes: Routes = [
 					),
 			},
 			{
+				path: 'sales/credit-notes',
+				loadComponent: () =>
+					import('../../features/sales/pages/credit-notes-page/credit-notes-page.component').then(
+						(m) => m.CreditNotesPageComponent
+					),
+			},
+			{
 				path: 'sales',
 				loadComponent: () =>
 					import('../../features/sales/pages/sales-page.component').then(

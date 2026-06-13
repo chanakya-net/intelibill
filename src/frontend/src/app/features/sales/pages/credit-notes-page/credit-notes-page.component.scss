@@ -1,0 +1,85 @@
+:host {
+  display: block;
+}
+
+.credit-notes-page {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-height: 100%;
+  padding: 0.9rem 1rem 1rem;
+  background:
+    radial-gradient(circle at top left, rgba(255, 224, 188, 0.55), transparent 32%),
+    radial-gradient(circle at right 12rem top 10rem, rgba(209, 184, 159, 0.28), transparent 26%),
+    linear-gradient(180deg, #fbf5ec 0%, #f7efe4 100%);
+}
+
+.credit-notes-hero,
+.empty-state {
+  border: 1px solid #ead7c1;
+  border-radius: 1.25rem;
+  background:
+    linear-gradient(135deg, rgba(255, 250, 243, 0.96), rgba(255, 238, 221, 0.92)),
+    linear-gradient(135deg, rgba(255, 219, 183, 0.7), rgba(255, 251, 246, 0.08));
+  box-shadow: 0 12px 32px rgba(87, 54, 20, 0.07);
+}
+
+.credit-notes-hero {
+  padding: 0.85rem 1rem;
+}
+
+.eyebrow {
+  margin: 0;
+  color: #9b5d20;
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-weight: 800;
+}
+
+h1 {
+  margin: 0.18rem 0 0;
+  color: #2a1b12;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(1.85rem, 3vw, 3.1rem);
+  line-height: 0.98;
+  font-weight: 700;
+}
+
+.subtitle {
+  margin: 0.35rem 0 0;
+  color: #6f655d;
+  font-size: 0.94rem;
+}
+
+.empty-state {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 0.5rem;
+  padding: 2.75rem 1.5rem;
+  min-height: 18rem;
+  text-align: center;
+  color: #6f3c2b;
+  background:
+    linear-gradient(180deg, rgba(255, 251, 247, 0.96), rgba(255, 245, 235, 0.98));
+}
+
+.empty-icon {
+  font-size: 2rem;
+  color: #c56d28;
+}
+
+.empty-state h2 {
+  margin: 0;
+  color: #2a1b12;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 1.45rem;
+}
+
+.empty-state p {
+  margin: 0;
+  max-width: 34rem;
+  color: #6f655d;
+  line-height: 1.55;
+}

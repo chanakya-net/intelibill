@@ -99,6 +99,7 @@
     "manageSales": "വിൽപ്പന",
     "newSale": "പുതിയ വിൽപ്പന",
     "salesHistory": "ചരിത്രം",
+    "creditNotes": "Credit Notes",
     "manageInventory": "ഇൻവെന്ററി",
     "addNewProduct": "ഉൽപ്പന്നങ്ങൾ",
     "manageServices": "Services",
@@ -1218,6 +1219,16 @@
         "recordBtn": "റെക്കോർഡ് റിട്ടേൺ"
       }
     },
+    "creditNotes": {
+      "eyebrow": "Sales Records",
+      "title": "Credit Notes",
+      "subtitle": "Review credit note history for the active shop.",
+      "emptyState": {
+        "title": "No credit notes yet",
+        "description": "Credit notes will appear here once they are created."
+      }
+    },
+
     "searchPlaceholder": "വിൽപ്പന തിരയുക...",
     "export": {
       "title": "Sales Export",

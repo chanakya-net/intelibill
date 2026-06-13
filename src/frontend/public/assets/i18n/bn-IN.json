@@ -99,6 +99,7 @@
     "manageSales": "বিক্রয়",
     "newSale": "নতুন বিক্রয়",
     "salesHistory": "ইতিহাস",
+    "creditNotes": "Credit Notes",
     "manageInventory": "ইনভেন্টরি",
     "addNewProduct": "পণ্য",
     "manageServices": "Services",
@@ -1218,6 +1219,16 @@
         "recordBtn": "ফেরত রেকর্ড করুন"
       }
     },
+    "creditNotes": {
+      "eyebrow": "Sales Records",
+      "title": "Credit Notes",
+      "subtitle": "Review credit note history for the active shop.",
+      "emptyState": {
+        "title": "No credit notes yet",
+        "description": "Credit notes will appear here once they are created."
+      }
+    },
+
     "searchPlaceholder": "বিক্রয় খুঁজুন...",
     "export": {
       "title": "Sales Export",
