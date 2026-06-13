@@ -240,6 +240,10 @@ describe('SalesExportService', () => {
 
       vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock-url');
       vi.spyOn(URL, 'revokeObjectURL');
+      const anchor = document.createElement('a');
+      const anchorClick = vi.fn();
+      anchor.click = anchorClick;
+      vi.spyOn(document, 'createElement').mockReturnValue(anchor);
       const appendSpy = vi.spyOn(document.body, 'appendChild');
       const removeSpy = vi.spyOn(document.body, 'removeChild');
 
@@ -247,6 +251,7 @@ describe('SalesExportService', () => {
 
       expect(URL.createObjectURL).toHaveBeenCalledWith(blob);
       expect(appendSpy).toHaveBeenCalled();
+      expect(anchorClick).toHaveBeenCalledTimes(1);
       expect(removeSpy).toHaveBeenCalled();
       expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:mock-url');
 
@@ -258,10 +263,9 @@ describe('SalesExportService', () => {
       const blob = new Blob(['test'], { type: 'application/vnd.ms-excel' });
       const filename = 'sales-2026-05-13.xlsx';
 
-      const originalCreateElement = document.createElement.bind(document);
-      const createElementSpy = vi.spyOn(document, 'createElement').mockImplementation((tagName: string) => {
-        return originalCreateElement(tagName);
-      });
+      const anchor = document.createElement('a');
+      anchor.click = vi.fn();
+      const createElementSpy = vi.spyOn(document, 'createElement').mockReturnValue(anchor);
 
       vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock-url');
       vi.spyOn(document.body, 'appendChild');
@@ -270,6 +274,8 @@ describe('SalesExportService', () => {
       service.triggerDownload(blob, filename);
 
       expect(createElementSpy).toHaveBeenCalledWith('a');
+      expect(anchor.href).toBe('blob:mock-url');
+      expect(anchor.download).toBe(filename);
 
       vi.restoreAllMocks();
     });

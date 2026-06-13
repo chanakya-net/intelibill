@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, InjectionToken, OnInit, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Store } from '@ngrx/store';
@@ -14,6 +14,17 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { LocalizationService } from '../../../core/i18n/localization.service';
 import { NATIVE_LANGUAGE_NAMES, SupportedLanguage } from '../../../core/i18n/language.constants';
 import { RootState } from '../../../core/state/app.state';
+
+export type ExternalLoginRedirect = (authorizationUrl: string) => void;
+
+export const EXTERNAL_LOGIN_REDIRECT = new InjectionToken<ExternalLoginRedirect>(
+  'EXTERNAL_LOGIN_REDIRECT',
+  {
+    factory: () => (authorizationUrl: string): void => {
+      window.location.assign(authorizationUrl);
+    },
+  },
+);
 
 @Component({
   selector: 'app-login-page',
@@ -40,6 +51,7 @@ export class LoginPageComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly store = inject(Store<RootState>);
   private readonly localizationService = inject(LocalizationService);
+  private readonly externalLoginRedirect = inject(EXTERNAL_LOGIN_REDIRECT);
 
   readonly serverError = signal<string | null>(null);
   readonly successMessage = signal<string | null>(null);
@@ -192,7 +204,7 @@ export class LoginPageComponent implements OnInit {
 
     this.authService.initializeExternalLogin(provider).subscribe({
       next: (authorizationUrl) => {
-        window.location.assign(authorizationUrl);
+        this.externalLoginRedirect(authorizationUrl);
       },
       error: (error: { error?: ApiErrorPayload }) => {
         this.clearExternalPendingMarker();
