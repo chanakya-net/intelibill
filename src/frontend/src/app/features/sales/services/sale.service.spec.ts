@@ -740,6 +740,39 @@ describe('SaleService', () => {
     req.flush(response);
     http.verify();
   });
+
+  it('sends GET to credit-note print endpoint and returns printable DTO', () => {
+    const { service, http } = setup();
+    const response = {
+      creditNoteId: 'cn-1',
+      code: 'CN-ABC-123',
+      status: 'Active',
+      isUsable: true,
+      originalAmount: 250,
+      availableBalance: 180,
+      issuedAt: '2026-05-02T10:00:00Z',
+      expiresAt: '2026-06-02T00:00:00Z',
+      saleId: 'sale-1',
+      invoiceNumber: 'INV-001',
+      saleReturnId: 'return-1',
+      returnNumber: 'RET-001',
+      customerDisplayName: 'Walk-in Customer',
+      reason: 'Damaged item return',
+      voidReason: null,
+    };
+
+    service.getCreditNotePrintByCode('CN-ABC-123').subscribe((result) => {
+      expect(result.code).toBe('CN-ABC-123');
+      expect(result.availableBalance).toBe(180);
+      expect(result.isUsable).toBe(true);
+    });
+
+    const req = http.expectOne(SALE_ENDPOINTS.creditNotePrintByCode('CN-ABC-123'));
+    expect(req.request.method).toBe('GET');
+    expect(req.request.body).toBeNull();
+    req.flush(response);
+    http.verify();
+  });
 });
 
 describe('mapPaymentMethodToPayoutDestination', () => {
