@@ -17,7 +17,6 @@ import type {
   CreditNoteDetailDto,
   CreditNoteListItemDto,
   CreditNoteListStatusFilter,
-  CreditNoteRedemptionDto,
   CreditNotesQueryParams,
   CreditNoteStatus,
 } from '../../services/sale.models';
@@ -168,15 +167,6 @@ export class CreditNotesPageComponent implements OnInit, OnDestroy {
     await this.loadCreditNoteDetail(note.code, note);
   }
 
-  getDisplayedCustomerLabel(note: CreditNoteListItemDto | null): string {
-    if (!note) return '--';
-    return note.customerName?.trim() || 'sales.history.walkIn';
-  }
-
-  getRedemptions(note: CreditNoteDetailDto | null): CreditNoteRedemptionDto[] {
-    return [...(note?.redemptions ?? [])];
-  }
-
   totalPages(): number {
     return Math.max(1, Math.ceil(this.totalCount() / Math.max(1, this.pageSize())));
   }
@@ -232,7 +222,7 @@ export class CreditNotesPageComponent implements OnInit, OnDestroy {
       const response = await firstValueFrom(
         this.saleService.getCreditNotes({ search: code, page: 1, pageSize: 20 }),
       );
-      return response.items.find((item) => item.code.toLowerCase() === code.toLowerCase()) ?? response.items[0] ?? null;
+      return response.items.find((item) => item.code.toLowerCase() === code.toLowerCase()) ?? null;
     } catch {
       return null;
     }

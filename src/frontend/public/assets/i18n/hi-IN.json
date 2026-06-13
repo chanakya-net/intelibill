@@ -1231,83 +1231,72 @@
       }
     },
     "creditNotes": {
-      "eyebrow": "Sales Records",
-      "title": "Credit Notes",
-      "subtitle": "Review credit note history for the active shop.",
+      "eyebrow": "बिक्री अभिलेख",
+      "title": "क्रेडिट नोट्स",
+      "subtitle": "सक्रिय दुकान के क्रेडिट नोट इतिहास की समीक्षा करें।",
       "verify": {
-        "label": "Verify code",
-        "placeholder": "Enter credit note code",
-        "action": "Verify"
+        "label": "कोड सत्यापित करें",
+        "placeholder": "क्रेडिट नोट कोड दर्ज करें",
+        "action": "सत्यापित करें"
       },
       "controls": {
-        "search": "Search",
-        "searchPlaceholder": "Search by code, invoice, return number, or customer",
-        "status": "Status",
-        "pageSize": "Rows",
-        "clear": "Clear filters"
+        "search": "खोज",
+        "searchPlaceholder": "कोड, चालान, रिटर्न संख्या या ग्राहक से खोजें",
+        "status": "स्थिति",
+        "pageSize": "पंक्तियाँ",
+        "clear": "फ़िल्टर साफ़ करें"
       },
       "filters": {
-        "all": "All",
-        "active": "Active",
-        "fullyRedeemed": "Fully redeemed",
-        "expired": "Expired",
-        "voided": "Voided"
+        "all": "सभी",
+        "active": "सक्रिय",
+        "fullyRedeemed": "पूरी तरह भुनाया गया",
+        "expired": "समाप्त",
+        "voided": "रद्द"
       },
       "list": {
-        "title": "Credit note list",
-        "subtitle": "Browse codes and balances.",
-        "count": "{{total}} notes"
+        "title": "क्रेडिट नोट सूची",
+        "subtitle": "कोड और शेष राशि देखें।",
+        "count": "{{total}} नोट"
       },
       "table": {
-        "code": "Code",
-        "status": "Status",
-        "balance": "Balance",
-        "originalAmount": "Original amount",
-        "customer": "Customer",
-        "invoice": "Invoice",
-        "returnNumber": "Return number",
-        "issuedAt": "Issued at"
+        "code": "कोड",
+        "status": "स्थिति",
+        "balance": "शेष राशि",
+        "originalAmount": "मूल राशि",
+        "customer": "ग्राहक",
+        "invoice": "चालान",
+        "returnNumber": "रिटर्न संख्या",
+        "issuedAt": "जारी समय"
       },
       "status": {
-        "Active": "Active",
-        "Voided": "Voided",
-        "FullyRedeemed": "Fully redeemed",
-        "Expired": "Expired"
+        "Active": "सक्रिय",
+        "Voided": "रद्द",
+        "FullyRedeemed": "पूरी तरह भुनाया गया",
+        "Expired": "समाप्त"
       },
       "empty": {
-        "title": "No credit notes found",
-        "description": "Use search or status filters to narrow the list."
+        "title": "कोई क्रेडिट नोट नहीं मिला",
+        "description": "सूची सीमित करने के लिए खोज या स्थिति फ़िल्टर का उपयोग करें।"
       },
-      "loading": "Loading credit notes...",
+      "loading": "क्रेडिट नोट लोड हो रहे हैं...",
       "pagination": {
-        "showing": "Showing {{total}} notes, page {{page}} of {{pages}}"
+        "showing": "{{total}} नोट दिख रहे हैं, पृष्ठ {{page}} / {{pages}}"
       },
       "detail": {
-        "eyebrow": "Selected credit note",
-        "subtitle": "Review balance, customer context, and redemption activity.",
-        "balance": "Balance",
-        "originalAmount": "Original amount",
-        "expiresAt": "Expires at",
-        "customer": "Customer",
-        "invoice": "Invoice",
-        "returnNumber": "Return number",
-        "reason": "Reason",
-        "voidReason": "Void reason"
-      },
-      "redemptions": {
-        "title": "Redemption history",
-        "subtitle": "Applications against this credit note.",
-        "empty": "No redemption history available.",
-        "table": {
-          "saleId": "Sale",
-          "invoice": "Invoice",
-          "amount": "Amount",
-          "redeemedAt": "Redeemed at"
-        }
+        "eyebrow": "चयनित क्रेडिट नोट",
+        "subtitle": "शेष राशि और ग्राहक संदर्भ देखें।",
+        "balance": "शेष राशि",
+        "originalAmount": "मूल राशि",
+        "expiresAt": "समाप्ति तिथि",
+        "customer": "ग्राहक",
+        "invoice": "चालान",
+        "returnNumber": "रिटर्न संख्या",
+        "reason": "कारण",
+        "voidReason": "रद्द करने का कारण"
       },
       "errors": {
-        "loadFailed": "Unable to load credit notes.",
-        "verifyFailed": "Unable to verify credit note."
+        "loadFailed": "क्रेडिट नोट लोड नहीं हो सके।",
+        "verifyFailed": "क्रेडिट नोट सत्यापित नहीं हो सका।"
       }
     },
 

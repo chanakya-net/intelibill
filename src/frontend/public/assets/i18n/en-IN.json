@@ -1282,32 +1282,21 @@
       "pagination": {
         "showing": "Showing {{total}} notes, page {{page}} of {{pages}}"
       },
-      "detail": {
-        "eyebrow": "Selected credit note",
-        "subtitle": "Review balance, customer context, and redemption activity.",
-        "balance": "Balance",
-        "originalAmount": "Original amount",
-        "expiresAt": "Expires at",
-        "customer": "Customer",
-        "invoice": "Invoice",
-        "returnNumber": "Return number",
-        "reason": "Reason",
-        "voidReason": "Void reason"
-      },
-      "redemptions": {
-        "title": "Redemption history",
-        "subtitle": "Applications against this credit note.",
-        "empty": "No redemption history available.",
-        "table": {
-          "saleId": "Sale",
-          "invoice": "Invoice",
-          "amount": "Amount",
-          "redeemedAt": "Redeemed at"
-        }
-      },
-      "errors": {
-        "loadFailed": "Unable to load credit notes.",
-        "verifyFailed": "Unable to verify credit note."
+  "detail": {
+    "eyebrow": "Selected credit note",
+    "subtitle": "Review balance and customer context.",
+    "balance": "Balance",
+    "originalAmount": "Original amount",
+    "expiresAt": "Expires at",
+    "customer": "Customer",
+    "invoice": "Invoice",
+    "returnNumber": "Return number",
+    "reason": "Reason",
+    "voidReason": "Void reason"
+  },
+  "errors": {
+    "loadFailed": "Unable to load credit notes.",
+    "verifyFailed": "Unable to verify credit note."
       }
     },
 

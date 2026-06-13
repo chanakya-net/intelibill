@@ -1231,83 +1231,72 @@
       }
     },
     "creditNotes": {
-      "eyebrow": "Sales Records",
-      "title": "Credit Notes",
-      "subtitle": "Review credit note history for the active shop.",
+      "eyebrow": "વેચાણ રેકોર્ડ",
+      "title": "ક્રેડિટ નોટ્સ",
+      "subtitle": "સક્રિય દુકાનનો ક્રેડિટ નોટ ઇતિહાસ સમીક્ષો.",
       "verify": {
-        "label": "Verify code",
-        "placeholder": "Enter credit note code",
-        "action": "Verify"
+        "label": "કોડ ચકાસો",
+        "placeholder": "ક્રેડિટ નોટ કોડ દાખલ કરો",
+        "action": "ચકાસો"
       },
       "controls": {
-        "search": "Search",
-        "searchPlaceholder": "Search by code, invoice, return number, or customer",
-        "status": "Status",
-        "pageSize": "Rows",
-        "clear": "Clear filters"
+        "search": "શોધ",
+        "searchPlaceholder": "કોડ, ઇન્વૉઇસ, રિટર્ન નંબર અથવા ગ્રાહકથી શોધો",
+        "status": "સ્થિતિ",
+        "pageSize": "પંક્તિઓ",
+        "clear": "ફિલ્ટર સાફ કરો"
       },
       "filters": {
-        "all": "All",
-        "active": "Active",
-        "fullyRedeemed": "Fully redeemed",
-        "expired": "Expired",
-        "voided": "Voided"
+        "all": "બધા",
+        "active": "સક્રિય",
+        "fullyRedeemed": "સંપૂર્ણ વપરાયેલ",
+        "expired": "સમાપ્ત",
+        "voided": "રદ"
       },
       "list": {
-        "title": "Credit note list",
-        "subtitle": "Browse codes and balances.",
-        "count": "{{total}} notes"
+        "title": "ક્રેડિટ નોટ યાદી",
+        "subtitle": "કોડ અને બેલેન્સ જુઓ.",
+        "count": "{{total}} નોંધો"
       },
       "table": {
-        "code": "Code",
-        "status": "Status",
-        "balance": "Balance",
-        "originalAmount": "Original amount",
-        "customer": "Customer",
-        "invoice": "Invoice",
-        "returnNumber": "Return number",
-        "issuedAt": "Issued at"
+        "code": "કોડ",
+        "status": "સ્થિતિ",
+        "balance": "બેલેન્સ",
+        "originalAmount": "મૂળ રકમ",
+        "customer": "ગ્રાહક",
+        "invoice": "ઇન્વૉઇસ",
+        "returnNumber": "રિટર્ન નંબર",
+        "issuedAt": "જારી સમય"
       },
       "status": {
-        "Active": "Active",
-        "Voided": "Voided",
-        "FullyRedeemed": "Fully redeemed",
-        "Expired": "Expired"
+        "Active": "સક્રિય",
+        "Voided": "રદ",
+        "FullyRedeemed": "સંપૂર્ણ વપરાયેલ",
+        "Expired": "સમાપ્ત"
       },
       "empty": {
-        "title": "No credit notes found",
-        "description": "Use search or status filters to narrow the list."
+        "title": "કોઈ ક્રેડિટ નોટ મળી નથી",
+        "description": "યાદી સીમિત કરવા શોધ અથવા સ્થિતિ ફિલ્ટરનો ઉપયોગ કરો."
       },
-      "loading": "Loading credit notes...",
+      "loading": "ક્રેડિટ નોટ લોડ થઈ રહી છે...",
       "pagination": {
-        "showing": "Showing {{total}} notes, page {{page}} of {{pages}}"
+        "showing": "{{total}} નોંધો દર્શાવી રહ્યા છીએ, પેજ {{page}} / {{pages}}"
       },
       "detail": {
-        "eyebrow": "Selected credit note",
-        "subtitle": "Review balance, customer context, and redemption activity.",
-        "balance": "Balance",
-        "originalAmount": "Original amount",
-        "expiresAt": "Expires at",
-        "customer": "Customer",
-        "invoice": "Invoice",
-        "returnNumber": "Return number",
-        "reason": "Reason",
-        "voidReason": "Void reason"
-      },
-      "redemptions": {
-        "title": "Redemption history",
-        "subtitle": "Applications against this credit note.",
-        "empty": "No redemption history available.",
-        "table": {
-          "saleId": "Sale",
-          "invoice": "Invoice",
-          "amount": "Amount",
-          "redeemedAt": "Redeemed at"
-        }
+        "eyebrow": "પસંદ કરેલ ક્રેડિટ નોટ",
+        "subtitle": "બેલેન્સ અને ગ્રાહક સંદર્ભ સમીક્ષો.",
+        "balance": "બેલેન્સ",
+        "originalAmount": "મૂળ રકમ",
+        "expiresAt": "સમાપ્તિ તારીખ",
+        "customer": "ગ્રાહક",
+        "invoice": "ઇન્વૉઇસ",
+        "returnNumber": "રિટર્ન નંબર",
+        "reason": "કારણ",
+        "voidReason": "રદ કરવાનો કારણ"
       },
       "errors": {
-        "loadFailed": "Unable to load credit notes.",
-        "verifyFailed": "Unable to verify credit note."
+        "loadFailed": "ક્રેડિટ નોટ લોડ કરી શકાઈ નહીં.",
+        "verifyFailed": "ક્રેડિટ નોટ ચકાસી શકાઈ નહીં."
       }
     },
 

@@ -1231,83 +1231,72 @@
       }
     },
     "creditNotes": {
-      "eyebrow": "Sales Records",
-      "title": "Credit Notes",
-      "subtitle": "Review credit note history for the active shop.",
+      "eyebrow": "বিক্রয় রেকর্ড",
+      "title": "ক্রেডিট নোট",
+      "subtitle": "সক্রিয় দোকানের ক্রেডিট নোট ইতিহাস পর্যালোচনা করুন।",
       "verify": {
-        "label": "Verify code",
-        "placeholder": "Enter credit note code",
-        "action": "Verify"
+        "label": "কোড যাচাই করুন",
+        "placeholder": "ক্রেডিট নোট কোড লিখুন",
+        "action": "যাচাই করুন"
       },
       "controls": {
-        "search": "Search",
-        "searchPlaceholder": "Search by code, invoice, return number, or customer",
-        "status": "Status",
-        "pageSize": "Rows",
-        "clear": "Clear filters"
+        "search": "অনুসন্ধান",
+        "searchPlaceholder": "কোড, চালান, রিটার্ন নম্বর বা গ্রাহক দিয়ে অনুসন্ধান করুন",
+        "status": "অবস্থা",
+        "pageSize": "সারি",
+        "clear": "ফিল্টার সাফ করুন"
       },
       "filters": {
-        "all": "All",
-        "active": "Active",
-        "fullyRedeemed": "Fully redeemed",
-        "expired": "Expired",
-        "voided": "Voided"
+        "all": "সব",
+        "active": "সক্রিয়",
+        "fullyRedeemed": "সম্পূর্ণ ব্যবহার হয়েছে",
+        "expired": "মেয়াদ শেষ",
+        "voided": "বাতিল"
       },
       "list": {
-        "title": "Credit note list",
-        "subtitle": "Browse codes and balances.",
-        "count": "{{total}} notes"
+        "title": "ক্রেডিট নোট তালিকা",
+        "subtitle": "কোড এবং ব্যালেন্স দেখুন।",
+        "count": "{{total}}টি নোট"
       },
       "table": {
-        "code": "Code",
-        "status": "Status",
-        "balance": "Balance",
-        "originalAmount": "Original amount",
-        "customer": "Customer",
-        "invoice": "Invoice",
-        "returnNumber": "Return number",
-        "issuedAt": "Issued at"
+        "code": "কোড",
+        "status": "অবস্থা",
+        "balance": "ব্যালেন্স",
+        "originalAmount": "মূল পরিমাণ",
+        "customer": "গ্রাহক",
+        "invoice": "চালান",
+        "returnNumber": "রিটার্ন নম্বর",
+        "issuedAt": "ইস্যুর সময়"
       },
       "status": {
-        "Active": "Active",
-        "Voided": "Voided",
-        "FullyRedeemed": "Fully redeemed",
-        "Expired": "Expired"
+        "Active": "সক্রিয়",
+        "Voided": "বাতিল",
+        "FullyRedeemed": "সম্পূর্ণ ব্যবহার হয়েছে",
+        "Expired": "মেয়াদ শেষ"
       },
       "empty": {
-        "title": "No credit notes found",
-        "description": "Use search or status filters to narrow the list."
+        "title": "কোনো ক্রেডিট নোট পাওয়া যায়নি",
+        "description": "তালিকা ছোট করতে অনুসন্ধান বা অবস্থা ফিল্টার ব্যবহার করুন।"
       },
-      "loading": "Loading credit notes...",
+      "loading": "ক্রেডিট নোট লোড হচ্ছে...",
       "pagination": {
-        "showing": "Showing {{total}} notes, page {{page}} of {{pages}}"
+        "showing": "{{total}}টি নোট দেখানো হচ্ছে, পৃষ্ঠা {{page}} / {{pages}}"
       },
       "detail": {
-        "eyebrow": "Selected credit note",
-        "subtitle": "Review balance, customer context, and redemption activity.",
-        "balance": "Balance",
-        "originalAmount": "Original amount",
-        "expiresAt": "Expires at",
-        "customer": "Customer",
-        "invoice": "Invoice",
-        "returnNumber": "Return number",
-        "reason": "Reason",
-        "voidReason": "Void reason"
-      },
-      "redemptions": {
-        "title": "Redemption history",
-        "subtitle": "Applications against this credit note.",
-        "empty": "No redemption history available.",
-        "table": {
-          "saleId": "Sale",
-          "invoice": "Invoice",
-          "amount": "Amount",
-          "redeemedAt": "Redeemed at"
-        }
+        "eyebrow": "নির্বাচিত ক্রেডিট নোট",
+        "subtitle": "ব্যালেন্স এবং গ্রাহক প্রসঙ্গ পর্যালোচনা করুন।",
+        "balance": "ব্যালেন্স",
+        "originalAmount": "মূল পরিমাণ",
+        "expiresAt": "মেয়াদ শেষের তারিখ",
+        "customer": "গ্রাহক",
+        "invoice": "চালান",
+        "returnNumber": "রিটার্ন নম্বর",
+        "reason": "কারণ",
+        "voidReason": "বাতিলের কারণ"
       },
       "errors": {
-        "loadFailed": "Unable to load credit notes.",
-        "verifyFailed": "Unable to verify credit note."
+        "loadFailed": "ক্রেডিট নোট লোড করা যায়নি।",
+        "verifyFailed": "ক্রেডিট নোট যাচাই করা যায়নি।"
       }
     },
 

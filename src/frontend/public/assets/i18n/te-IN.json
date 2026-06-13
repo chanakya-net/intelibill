@@ -1231,83 +1231,72 @@
       }
     },
     "creditNotes": {
-      "eyebrow": "Sales Records",
-      "title": "Credit Notes",
-      "subtitle": "Review credit note history for the active shop.",
+      "eyebrow": "అమ్మకాల రికార్డులు",
+      "title": "క్రెడిట్ నోట్లు",
+      "subtitle": "క్రియాశీల దుకాణానికి చెందిన క్రెడిట్ నోట్ చరిత్రను సమీక్షించండి.",
       "verify": {
-        "label": "Verify code",
-        "placeholder": "Enter credit note code",
-        "action": "Verify"
+        "label": "కోడ్ ధృవీకరించు",
+        "placeholder": "క్రెడిట్ నోట్ కోడ్ నమోదు చేయండి",
+        "action": "ధృవీకరించు"
       },
       "controls": {
-        "search": "Search",
-        "searchPlaceholder": "Search by code, invoice, return number, or customer",
-        "status": "Status",
-        "pageSize": "Rows",
-        "clear": "Clear filters"
+        "search": "వెతుకు",
+        "searchPlaceholder": "కోడ్, ఇన్వాయిస్, రిటర్న్ నంబర్ లేదా కస్టమర్ ద్వారా వెతకండి",
+        "status": "స్థితి",
+        "pageSize": "వరుసలు",
+        "clear": "ఫిల్టర్లను క్లియర్ చేయండి"
       },
       "filters": {
-        "all": "All",
-        "active": "Active",
-        "fullyRedeemed": "Fully redeemed",
-        "expired": "Expired",
-        "voided": "Voided"
+        "all": "అన్నీ",
+        "active": "క్రియాశీలం",
+        "fullyRedeemed": "పూర్తిగా వినియోగించబడింది",
+        "expired": "గడువు ముగిసింది",
+        "voided": "రద్దు"
       },
       "list": {
-        "title": "Credit note list",
-        "subtitle": "Browse codes and balances.",
-        "count": "{{total}} notes"
+        "title": "క్రెడిట్ నోట్ జాబితా",
+        "subtitle": "కోడ్‌లు మరియు నిల్వలను చూడండి.",
+        "count": "{{total}} నోట్స్"
       },
       "table": {
-        "code": "Code",
-        "status": "Status",
-        "balance": "Balance",
-        "originalAmount": "Original amount",
-        "customer": "Customer",
-        "invoice": "Invoice",
-        "returnNumber": "Return number",
-        "issuedAt": "Issued at"
+        "code": "కోడ్",
+        "status": "స్థితి",
+        "balance": "నిల్వ",
+        "originalAmount": "మూల మొత్తం",
+        "customer": "కస్టమర్",
+        "invoice": "ఇన్వాయిస్",
+        "returnNumber": "రిటర్న్ నంబర్",
+        "issuedAt": "జారీ సమయం"
       },
       "status": {
-        "Active": "Active",
-        "Voided": "Voided",
-        "FullyRedeemed": "Fully redeemed",
-        "Expired": "Expired"
+        "Active": "క్రియాశీలం",
+        "Voided": "రద్దు",
+        "FullyRedeemed": "పూర్తిగా వినియోగించబడింది",
+        "Expired": "గడువు ముగిసింది"
       },
       "empty": {
-        "title": "No credit notes found",
-        "description": "Use search or status filters to narrow the list."
+        "title": "క్రెడిట్ నోట్లు కనుగొనబడలేదు",
+        "description": "జాబితాను చిన్నదిగా చేయడానికి వెతకడం లేదా స్థితి ఫిల్టర్లను ఉపయోగించండి."
       },
-      "loading": "Loading credit notes...",
+      "loading": "క్రెడిట్ నోట్లు లోడ్ అవుతున్నాయి...",
       "pagination": {
-        "showing": "Showing {{total}} notes, page {{page}} of {{pages}}"
+        "showing": "{{total}} నోట్లు చూపిస్తున్నాం, పేజీ {{page}} / {{pages}}"
       },
       "detail": {
-        "eyebrow": "Selected credit note",
-        "subtitle": "Review balance, customer context, and redemption activity.",
-        "balance": "Balance",
-        "originalAmount": "Original amount",
-        "expiresAt": "Expires at",
-        "customer": "Customer",
-        "invoice": "Invoice",
-        "returnNumber": "Return number",
-        "reason": "Reason",
-        "voidReason": "Void reason"
-      },
-      "redemptions": {
-        "title": "Redemption history",
-        "subtitle": "Applications against this credit note.",
-        "empty": "No redemption history available.",
-        "table": {
-          "saleId": "Sale",
-          "invoice": "Invoice",
-          "amount": "Amount",
-          "redeemedAt": "Redeemed at"
-        }
+        "eyebrow": "ఎంచుకున్న క్రెడిట్ నోట్",
+        "subtitle": "నిల్వ మరియు కస్టమర్ సందర్భాన్ని సమీక్షించండి.",
+        "balance": "నిల్వ",
+        "originalAmount": "మూల మొత్తం",
+        "expiresAt": "గడువు ముగిసే సమయం",
+        "customer": "కస్టమర్",
+        "invoice": "ఇన్వాయిస్",
+        "returnNumber": "రిటర్న్ నంబర్",
+        "reason": "కారణం",
+        "voidReason": "రద్దు కారణం"
       },
       "errors": {
-        "loadFailed": "Unable to load credit notes.",
-        "verifyFailed": "Unable to verify credit note."
+        "loadFailed": "క్రెడిట్ నోట్లు లోడ్ చేయలేకపోయాం.",
+        "verifyFailed": "క్రెడిట్ నోట్‌ను ధృవీకరించలేకపోయాం."
       }
     },
 

@@ -1231,83 +1231,72 @@
       }
     },
     "creditNotes": {
-      "eyebrow": "Sales Records",
-      "title": "Credit Notes",
-      "subtitle": "Review credit note history for the active shop.",
+      "eyebrow": "விற்பனை பதிவுகள்",
+      "title": "கிரெடிட் குறிப்புகள்",
+      "subtitle": "செயலில் உள்ள கடையின் கிரெடிட் குறிப்பு வரலாற்றை பார்வையிடவும்.",
       "verify": {
-        "label": "Verify code",
-        "placeholder": "Enter credit note code",
-        "action": "Verify"
+        "label": "குறியீட்டை சரிபார்",
+        "placeholder": "கிரெடிட் குறிப்பு குறியீட்டை உள்ளிடவும்",
+        "action": "சரிபார்"
       },
       "controls": {
-        "search": "Search",
-        "searchPlaceholder": "Search by code, invoice, return number, or customer",
-        "status": "Status",
-        "pageSize": "Rows",
-        "clear": "Clear filters"
+        "search": "தேடு",
+        "searchPlaceholder": "குறியீடு, இன்வாய்ஸ், திரும்பும் எண் அல்லது வாடிக்கையாளர் மூலம் தேடவும்",
+        "status": "நிலை",
+        "pageSize": "வரிகள்",
+        "clear": "வடிகட்டிகளை அழிக்கவும்"
       },
       "filters": {
-        "all": "All",
-        "active": "Active",
-        "fullyRedeemed": "Fully redeemed",
-        "expired": "Expired",
-        "voided": "Voided"
+        "all": "அனைத்தும்",
+        "active": "செயலில்",
+        "fullyRedeemed": "முழுவதும் பயன்படுத்தப்பட்டது",
+        "expired": "காலாவதி",
+        "voided": "ரத்து"
       },
       "list": {
-        "title": "Credit note list",
-        "subtitle": "Browse codes and balances.",
-        "count": "{{total}} notes"
+        "title": "கிரெடிட் குறிப்பு பட்டியல்",
+        "subtitle": "குறியீடுகளையும் இருப்புகளையும் பார்வையிடவும்.",
+        "count": "{{total}} குறிப்புகள்"
       },
       "table": {
-        "code": "Code",
-        "status": "Status",
-        "balance": "Balance",
-        "originalAmount": "Original amount",
-        "customer": "Customer",
-        "invoice": "Invoice",
-        "returnNumber": "Return number",
-        "issuedAt": "Issued at"
+        "code": "குறியீடு",
+        "status": "நிலை",
+        "balance": "இருப்பு",
+        "originalAmount": "மூல தொகை",
+        "customer": "வாடிக்கையாளர்",
+        "invoice": "இன்வாய்ஸ்",
+        "returnNumber": "திரும்பும் எண்",
+        "issuedAt": "வெளியிட்ட நேரம்"
       },
       "status": {
-        "Active": "Active",
-        "Voided": "Voided",
-        "FullyRedeemed": "Fully redeemed",
-        "Expired": "Expired"
+        "Active": "செயலில்",
+        "Voided": "ரத்து",
+        "FullyRedeemed": "முழுவதும் பயன்படுத்தப்பட்டது",
+        "Expired": "காலாவதி"
       },
       "empty": {
-        "title": "No credit notes found",
-        "description": "Use search or status filters to narrow the list."
+        "title": "கிரெடிட் குறிப்புகள் எதுவும் இல்லை",
+        "description": "பட்டியலை சுருக்க தேடல் அல்லது நிலை வடிகட்டிகளைப் பயன்படுத்தவும்."
       },
-      "loading": "Loading credit notes...",
+      "loading": "கிரெடிட் குறிப்புகள் ஏற்றப்படுகின்றன...",
       "pagination": {
-        "showing": "Showing {{total}} notes, page {{page}} of {{pages}}"
+        "showing": "{{total}} குறிப்புகள் காட்டப்படுகின்றன, பக்கம் {{page}} / {{pages}}"
       },
       "detail": {
-        "eyebrow": "Selected credit note",
-        "subtitle": "Review balance, customer context, and redemption activity.",
-        "balance": "Balance",
-        "originalAmount": "Original amount",
-        "expiresAt": "Expires at",
-        "customer": "Customer",
-        "invoice": "Invoice",
-        "returnNumber": "Return number",
-        "reason": "Reason",
-        "voidReason": "Void reason"
-      },
-      "redemptions": {
-        "title": "Redemption history",
-        "subtitle": "Applications against this credit note.",
-        "empty": "No redemption history available.",
-        "table": {
-          "saleId": "Sale",
-          "invoice": "Invoice",
-          "amount": "Amount",
-          "redeemedAt": "Redeemed at"
-        }
+        "eyebrow": "தேர்ந்தெடுக்கப்பட்ட கிரெடிட் குறிப்பு",
+        "subtitle": "இருப்பு மற்றும் வாடிக்கையாளர் சூழலை பார்வையிடவும்.",
+        "balance": "இருப்பு",
+        "originalAmount": "மூல தொகை",
+        "expiresAt": "காலாவதி ஆகும் நேரம்",
+        "customer": "வாடிக்கையாளர்",
+        "invoice": "இன்வாய்ஸ்",
+        "returnNumber": "திரும்பும் எண்",
+        "reason": "காரணம்",
+        "voidReason": "ரத்து காரணம்"
       },
       "errors": {
-        "loadFailed": "Unable to load credit notes.",
-        "verifyFailed": "Unable to verify credit note."
+        "loadFailed": "கிரெடிட் குறிப்புகளை ஏற்ற முடியவில்லை.",
+        "verifyFailed": "கிரெடிட் குறிப்பை சரிபார்க்க முடியவில்லை."
       }
     },
 

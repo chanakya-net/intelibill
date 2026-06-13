@@ -537,13 +537,6 @@ export type CreditNoteStatus = 'Active' | 'Voided' | 'FullyRedeemed' | 'Expired'
 
 export type CreditNoteListStatusFilter = 'all' | CreditNoteStatus;
 
-export interface CreditNoteRedemptionDto {
-  readonly saleId: string;
-  readonly amount: number;
-  readonly redeemedAt: string;
-  readonly invoiceNumber?: string | null;
-}
-
 export interface CreditNoteVerifyResponseDto {
   readonly creditNoteId: string;
   readonly code: string;
@@ -555,7 +548,6 @@ export interface CreditNoteVerifyResponseDto {
   readonly saleReturnId?: string;
   readonly reason?: string;
   readonly voidReason?: string | null;
-  readonly redemptions?: readonly CreditNoteRedemptionDto[];
 }
 
 export type CreditNoteDetailDto = CreditNoteVerifyResponseDto;

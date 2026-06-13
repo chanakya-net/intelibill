@@ -45,14 +45,34 @@ describe('CreditNotesPageComponent', () => {
     saleReturnId: 'return-1',
     reason: 'Return adjustment',
     voidReason: null,
-    redemptions: [
-      {
-        saleId: 'sale-2',
-        invoiceNumber: 'INV-002',
-        amount: 200,
-        redeemedAt: '2026-05-25T12:00:00.000Z',
-      },
-    ],
+  };
+
+  const fuzzyDetail: CreditNoteDetailDto = {
+    creditNoteId: 'cn-2',
+    code: 'CN-999',
+    status: 'FullyRedeemed',
+    originalAmount: 750,
+    availableBalance: 0,
+    expiresAt: '2027-03-01T00:00:00Z',
+    isVoided: false,
+    saleReturnId: 'return-2',
+    reason: 'Adjustment',
+    voidReason: null,
+  };
+
+  const fuzzyNote: CreditNoteListItemDto = {
+    creditNoteId: 'cn-2',
+    code: 'CN-009',
+    status: 'FullyRedeemed',
+    originalAmount: 750,
+    availableBalance: 0,
+    expiresAt: '2027-03-01T00:00:00Z',
+    issuedAt: '2026-05-21T10:00:00.000Z',
+    saleReturnId: 'return-2',
+    returnNumber: 'RET-009',
+    saleId: 'sale-9',
+    invoiceNumber: 'INV-009',
+    customerName: 'Ravi',
   };
 
   const saleService = {
@@ -119,7 +139,7 @@ describe('CreditNotesPageComponent', () => {
         },
         detail: {
           eyebrow: 'Selected credit note',
-          subtitle: 'Review balance, customer context, and redemption activity.',
+          subtitle: 'Review balance and customer context.',
           balance: 'Balance',
           originalAmount: 'Original amount',
           expiresAt: 'Expires at',
@@ -128,17 +148,6 @@ describe('CreditNotesPageComponent', () => {
           returnNumber: 'Return number',
           reason: 'Reason',
           voidReason: 'Void reason',
-        },
-        redemptions: {
-          title: 'Redemption history',
-          subtitle: 'Applications against this credit note.',
-          empty: 'No redemption history available.',
-          table: {
-            saleId: 'Sale',
-            invoice: 'Invoice',
-            amount: 'Amount',
-            redeemedAt: 'Redeemed at',
-          },
         },
         errors: {
           loadFailed: 'Unable to load credit notes.',
@@ -157,9 +166,15 @@ describe('CreditNotesPageComponent', () => {
         return of(notesResponse([note]));
       }
 
+      if (params?.['search'] === 'CN-999') {
+        return of(notesResponse([fuzzyNote]));
+      }
+
       return of(notesResponse([note]));
     });
-    saleService.verifyCreditNote.mockReturnValue(of(detail));
+    saleService.verifyCreditNote.mockImplementation((code: string) =>
+      of(code === 'CN-999' ? fuzzyDetail : detail),
+    );
 
     TestBed.configureTestingModule({
       imports: [
@@ -251,8 +266,7 @@ describe('CreditNotesPageComponent', () => {
     expect(text).toContain('Asha');
     expect(text).toContain('INV-001');
     expect(text).toContain('RET-001');
-    expect(text).toContain('Redemption history');
-    expect(text).toContain('INV-002');
+    expect(text).not.toContain('Redemption history');
   });
 
   it('updates selection from a list item action', async () => {
@@ -267,6 +281,39 @@ describe('CreditNotesPageComponent', () => {
 
     expect(saleService.verifyCreditNote).toHaveBeenCalledWith('CN-001');
     expect(fixture.nativeElement.textContent).toContain('Selected credit note');
-    expect(fixture.nativeElement.textContent).toContain('Redemption history');
+    expect(fixture.nativeElement.textContent).toContain('Asha');
+  });
+
+  it('does not hydrate unrelated summary fields when verify search only finds fuzzy matches', async () => {
+    const fixture = TestBed.createComponent(CreditNotesPageComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    await Promise.resolve();
+
+    saleService.getCreditNotes.mockClear();
+    saleService.verifyCreditNote.mockClear();
+
+    component.verifyCode.set('CN-999');
+    await component.onVerifyCode();
+    fixture.detectChanges();
+    await Promise.resolve();
+    fixture.detectChanges();
+
+    expect(saleService.verifyCreditNote).toHaveBeenCalledWith('CN-999');
+    expect(saleService.getCreditNotes).toHaveBeenCalledWith({
+      search: 'CN-999',
+      page: 1,
+      pageSize: 20,
+    });
+
+    const text = fixture.nativeElement.textContent as string;
+    expect(text).toContain('CN-999');
+    expect(text).toContain('₹0.00');
+    expect(text).toContain('Balance');
+    expect(text).toContain('Original amount');
+    expect(text).toContain('₹750.00');
+    expect(text).not.toContain('Ravi');
+    expect(text).not.toContain('INV-009');
+    expect(text).not.toContain('RET-009');
   });
 });
