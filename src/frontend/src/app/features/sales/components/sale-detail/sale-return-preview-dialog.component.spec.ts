@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 
 import { AuthService } from '../../../../core/auth/auth.service';
+import { ReturnPayoutDestination } from '../../services/sale.models';
 import type { SaleDto, SaleItemDto, SaleReturnPreviewDto } from '../../services/sale.models';
 import { SalesFacade } from '../../state/sales.facade';
 import { SaleReturnPreviewDialogComponent } from './sale-return-preview-dialog.component';
@@ -240,6 +241,30 @@ describe('SaleReturnPreviewDialogComponent', () => {
     expect(text).not.toContain('sales.returns.preview.col.returnQty');
   });
 
+  it('shows payout destination selector when preview payout amount exists', async () => {
+    const { fixture, component, facade } = await createComponent();
+    component.sale = makeSale();
+    component.visible = true;
+    facade.returnPreview.set({
+      saleId: 'sale-1',
+      hasFinancialAccess: true,
+      lines: [],
+      financial: {
+        totalRefundAmount: 0,
+        dueReductionAmount: 0,
+        payoutAmount: 125,
+        totalTaxableAmount: 0,
+        totalTaxAmount: 0,
+        customerBalanceBefore: null,
+        customerBalanceAfter: null,
+      },
+      warnings: [],
+    });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.return-preview-payout')).not.toBeNull();
+  });
+
   it('shows the selected quantity inside the return stepper', async () => {
     const { fixture, component } = await createComponent();
     component.sale = {
@@ -316,6 +341,40 @@ describe('SaleReturnPreviewDialogComponent', () => {
     expect(text).toContain('Soap');
     expect(text).toContain('2 qty');
     expect(text).toContain('₹242.00');
+  });
+
+  it('maps the selected payout destination to the record payload', async () => {
+    const { fixture, component, facade } = await createComponent();
+    component.sale = {
+      ...makeSale(),
+      items: [makeServiceItem({ itemName: 'Consultation', quantity: 1, returnableQuantity: 1 })],
+    };
+    component.visible = true;
+    facade.returnPreview.set({
+      saleId: 'sale-1',
+      hasFinancialAccess: true,
+      lines: [],
+      financial: {
+        totalRefundAmount: 100,
+        dueReductionAmount: 0,
+        payoutAmount: 100,
+        totalTaxableAmount: 100,
+        totalTaxAmount: 0,
+        customerBalanceBefore: null,
+        customerBalanceAfter: null,
+      },
+      warnings: [],
+    });
+    fixture.detectChanges();
+
+    const item = component.sale!.items[0];
+    component.toggleReturnLine(item, true);
+    component.updatePayoutDestination(4);
+    component.submitReturn();
+
+    expect(facade.recordSaleReturn).toHaveBeenCalledTimes(1);
+    const payload = facade.recordSaleReturn.mock.calls[0][1];
+    expect(payload.payoutDestination).toBe(ReturnPayoutDestination.CreditNote);
   });
 
   it('service line with zero returnable quantity is fully returned', async () => {

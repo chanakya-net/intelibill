@@ -1222,7 +1222,13 @@
         },
         "dueReductionOverride": "காரணமாக குறைப்பு மேலெழுதல்",
         "overrideReason": "காரணத்தை மீறு",
-        "payoutMethod": "திருப்பிச் செலுத்தும் முறை",
+        "payoutDestination": "திருப்பிச் செலுத்தும் இலக்கு",
+        "payoutDestinations": {
+          "cash": "Cash",
+          "upi": "UPI",
+          "card": "Card",
+          "creditNote": "Credit Note"
+        },
         "confirmDueOverride": "மீறப்படுவதை உறுதிப்படுத்தவும்",
         "calculatedEffects": "கணக்கிடப்பட்ட விளைவுகள்",
         "warnings": "எச்சரிக்கைகள்",

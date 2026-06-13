@@ -261,17 +261,24 @@
             returnPreview()?.financial?.payoutAmount && returnPreview()!.financial!.payoutAmount > 0
           ) {
             <label class="return-preview-side-card return-preview-payout">
-              <span>{{ 'sales.returns.preview.payoutMethod' | transloco }}</span>
+              <span>{{ 'sales.returns.preview.payoutDestination' | transloco }}</span>
               <p-select
-                [options]="refundPayoutMethodOptions"
-                optionLabel="label"
+                [options]="payoutDestinationOptions"
+                optionLabel="labelKey"
                 optionValue="value"
                 appendTo="body"
                 styleClass="return-preview-select"
-                [ngModel]="payoutMethod()"
-                (ngModelChange)="updatePayoutMethod($event)"
+                [ngModel]="payoutDestination()"
+                (ngModelChange)="updatePayoutDestination($event)"
                 placeholder="Required"
-              />
+              >
+                <ng-template pTemplate="selectedItem" let-option>
+                  {{ option?.labelKey | transloco }}
+                </ng-template>
+                <ng-template pTemplate="item" let-option>
+                  {{ option.labelKey | transloco }}
+                </ng-template>
+              </p-select>
             </label>
           }
 

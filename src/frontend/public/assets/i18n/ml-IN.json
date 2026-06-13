@@ -1222,7 +1222,13 @@
         },
         "dueReductionOverride": "കാരണം കുറയ്ക്കൽ അസാധുവാക്കൽ",
         "overrideReason": "കാരണം അസാധുവാക്കുക",
-        "payoutMethod": "റീഫണ്ട് പേഔട്ട് രീതി",
+        "payoutDestination": "റീഫണ്ട് പേഔട്ട് ലക്ഷ്യം",
+        "payoutDestinations": {
+          "cash": "Cash",
+          "upi": "UPI",
+          "card": "Card",
+          "creditNote": "Credit Note"
+        },
         "confirmDueOverride": "അസാധുവാക്കൽ സ്ഥിരീകരിക്കുക",
         "calculatedEffects": "കണക്കാക്കിയ ഇഫക്റ്റുകൾ",
         "warnings": "മുന്നറിയിപ്പുകൾ",

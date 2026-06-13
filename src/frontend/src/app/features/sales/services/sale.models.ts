@@ -51,6 +51,25 @@ export enum ReturnPayoutDestination {
   Refund = 2,
 }
 
+export interface ReturnPayoutDestinationOption {
+  readonly value: number;
+  readonly labelKey: string;
+}
+
+export const RETURN_PAYOUT_DESTINATION_OPTIONS: ReturnPayoutDestinationOption[] = [
+  { value: 1, labelKey: 'sales.returns.preview.payoutDestinations.cash' },
+  { value: 2, labelKey: 'sales.returns.preview.payoutDestinations.upi' },
+  { value: 3, labelKey: 'sales.returns.preview.payoutDestinations.card' },
+  { value: 4, labelKey: 'sales.returns.preview.payoutDestinations.creditNote' },
+];
+
+export function mapPayoutDestinationSelectionToReturnPayoutDestination(
+  destination: number | null,
+): ReturnPayoutDestination | null {
+  if (destination === null) return null;
+  return destination === 4 ? ReturnPayoutDestination.CreditNote : ReturnPayoutDestination.Refund;
+}
+
 export function mapPaymentMethodToPayoutDestination(method: number | null): ReturnPayoutDestination | null {
   if (method === null) return null;
   return ReturnPayoutDestination.Refund;
