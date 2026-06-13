@@ -7,7 +7,7 @@ namespace Intelibill.Domain.Entities;
 public sealed class CreditNote : BaseEntity
 {
     public Guid ShopId { get; private set; }
-    public Guid SaleId { get; private set; }
+    public Guid SaleReturnId { get; private set; }
     public string Code { get; private set; } = null!;
     public decimal OriginalAmount { get; private set; }
     public decimal AvailableBalance { get; private set; }
@@ -22,7 +22,7 @@ public sealed class CreditNote : BaseEntity
 
     public static ErrorOr<CreditNote> Issue(
         Guid shopId,
-        Guid saleId,
+        Guid saleReturnId,
         decimal amount,
         string reason,
         string? code,
@@ -46,7 +46,7 @@ public sealed class CreditNote : BaseEntity
         return new CreditNote
         {
             ShopId = shopId,
-            SaleId = saleId,
+            SaleReturnId = saleReturnId,
             Code = code.Trim(),
             OriginalAmount = amount,
             AvailableBalance = amount,

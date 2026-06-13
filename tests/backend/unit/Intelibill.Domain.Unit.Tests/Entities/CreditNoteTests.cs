@@ -9,17 +9,17 @@ public class CreditNoteTests
     public void Issue_WithValidInputs_ReturnsActiveCreditNote()
     {
         var shopId = Guid.NewGuid();
-        var saleId = Guid.NewGuid();
+        var saleReturnId = Guid.NewGuid();
         var amount = 1000m;
         var reason = "Return reason";
         var code = "CN-2026-001";
 
-        var result = CreditNote.Issue(shopId, saleId, amount, reason, code, null);
+        var result = CreditNote.Issue(shopId, saleReturnId, amount, reason, code, null);
 
         Assert.False(result.IsError);
         var creditNote = result.Value;
         Assert.Equal(shopId, creditNote.ShopId);
-        Assert.Equal(saleId, creditNote.SaleId);
+        Assert.Equal(saleReturnId, creditNote.SaleReturnId);
         Assert.Equal(amount, creditNote.OriginalAmount);
         Assert.Equal(amount, creditNote.AvailableBalance);
         Assert.Equal(reason, creditNote.Reason);
@@ -33,11 +33,11 @@ public class CreditNoteTests
     public void Issue_WithCustomExpiry_SetsExpirationDate()
     {
         var shopId = Guid.NewGuid();
-        var saleId = Guid.NewGuid();
+        var saleReturnId = Guid.NewGuid();
         var amount = 500m;
         var expiryDate = DateTimeOffset.UtcNow.AddDays(30);
 
-        var result = CreditNote.Issue(shopId, saleId, amount, "reason", "CN-001", expiryDate);
+        var result = CreditNote.Issue(shopId, saleReturnId, amount, "reason", "CN-001", expiryDate);
 
         Assert.False(result.IsError);
         var creditNote = result.Value;
