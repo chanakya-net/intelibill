@@ -1239,6 +1239,11 @@
         "warnings": "எச்சரிக்கைகள்",
         "previewBtn": "முன்னோட்டம்",
         "recordBtn": "பதிவு திரும்ப",
+        "successEyebrow": "Credit note issued",
+        "successTitle": "Credit note created",
+        "successDescription": "The return has been recorded and the credit note is ready to print.",
+        "successCodeLabel": "Credit note code",
+        "printCreditNoteBtn": "Print credit note",
         "creditNoteExpiry": "கிரெடிட் நோட் காலாவதி",
         "creditNoteExpiryDate": "காலாவதி தேதி"
       }

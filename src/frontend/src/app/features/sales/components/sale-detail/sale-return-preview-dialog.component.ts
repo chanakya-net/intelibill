@@ -25,6 +25,7 @@ import {
 import type {
   PreviewSaleReturnRequest,
   RecordSaleReturnRequest,
+  SaleReturnCreditNoteSummaryDto,
   SaleDto,
   SaleItemDto,
   SaleReturnCondition,
@@ -94,6 +95,7 @@ export class SaleReturnPreviewDialogComponent {
   readonly payoutDestination = signal<number | null>(null);
   readonly creditNoteExpiryMode = signal<'NoExpiry' | '30Days' | '60Days' | '90Days' | 'Custom'>('NoExpiry');
   readonly creditNoteExpiryDate = signal<string | null>(null);
+  readonly recordedCreditNoteSummary = signal<SaleReturnCreditNoteSummaryDto | null>(null);
 
   readonly returnConditionOptions = SALE_RETURN_CONDITIONS;
   readonly payoutDestinationOptions = RETURN_PAYOUT_DESTINATION_OPTIONS;
@@ -179,7 +181,12 @@ export class SaleReturnPreviewDialogComponent {
       if (!this.salesFacade.lastMutationSucceeded()) return;
 
       if (this.salesFacade.lastMutationType() === 'record-return') {
-        this.close();
+        const creditNoteSummary = this.getLatestCreditNoteSummary();
+        if (creditNoteSummary) {
+          this.recordedCreditNoteSummary.set(creditNoteSummary);
+        } else {
+          this.close();
+        }
         this.salesFacade.clearMutationStatus();
         return;
       }
@@ -193,6 +200,7 @@ export class SaleReturnPreviewDialogComponent {
     this.payoutDestination.set(null);
     this.creditNoteExpiryMode.set('NoExpiry');
     this.creditNoteExpiryDate.set(null);
+    this.recordedCreditNoteSummary.set(null);
     this.salesFacade.clearSaleReturnPreview();
     this.returnDrafts.set([]);
   }
@@ -324,6 +332,13 @@ export class SaleReturnPreviewDialogComponent {
 
   updateDueOverrideConfirmed(confirmed: boolean): void {
     this.dueOverrideConfirmed.set(confirmed);
+  }
+
+  printRecordedCreditNote(): void {
+    const creditNote = this.recordedCreditNoteSummary();
+    if (!creditNote) return;
+
+    window.open(this.getCreditNotePrintUrl(creditNote.code), '_blank');
   }
 
   submitReturn(): void {
@@ -464,6 +479,23 @@ export class SaleReturnPreviewDialogComponent {
       : (grossOriginalValue * item.taxRatePercent) / 100;
 
     return this.roundMoney(taxAmount);
+  }
+
+  private getLatestCreditNoteSummary(): SaleReturnCreditNoteSummaryDto | null {
+    const sale = this.salesFacade.selectedSale() ?? this.saleInput();
+    const latestReturn = sale?.returns
+      ?.filter((saleReturn) => !saleReturn.isVoided && saleReturn.creditNote)
+      .slice()
+      .sort(
+        (left, right) =>
+          new Date(right.returnedAt).getTime() - new Date(left.returnedAt).getTime(),
+      )[0];
+
+    return latestReturn?.creditNote ?? null;
+  }
+
+  private getCreditNotePrintUrl(code: string): string {
+    return `/sales/credit-notes/${encodeURIComponent(code)}/print`;
   }
 
   private initializeDrafts(): void {

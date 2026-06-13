@@ -276,9 +276,15 @@ export interface SaleReturnDto {
   readonly saleReturnId: string;
   readonly returnNumber: string;
   readonly returnedAt: string;
+  readonly processedBy?: string;
+  readonly notes?: string | null;
   readonly totalRefundAmount: number;
   readonly dueReductionAmount: number;
   readonly payoutAmount: number;
+  readonly payoutDestination?: ReturnPayoutDestination | null;
+  readonly totalTaxableAmount?: number;
+  readonly totalTaxAmount?: number;
+  readonly creditNote?: SaleReturnCreditNoteSummaryDto | null;
   readonly isVoided: boolean;
   readonly voidedAt: string | null;
   readonly voidReason: string | null;
@@ -291,7 +297,18 @@ export interface SaleReturnItemDto {
   readonly quantity: number;
   readonly condition: SaleReturnCondition | null;
   readonly approvedRefundAmount: number;
-  readonly notes: string | null;
+  readonly taxableAmount?: number;
+  readonly taxAmount?: number;
+  readonly notes?: string | null;
+}
+
+export interface SaleReturnCreditNoteSummaryDto {
+  readonly creditNoteId: string;
+  readonly code: string;
+  readonly originalAmount: number;
+  readonly availableBalance: number;
+  readonly expiresAt: string | null;
+  readonly reason: string;
 }
 
 export interface SaleDto {

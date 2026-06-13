@@ -1240,7 +1240,12 @@
         "calculatedEffects": "Calculated effects",
         "warnings": "Warnings",
         "previewBtn": "Preview",
-        "recordBtn": "Record return"
+        "recordBtn": "Record return",
+        "successEyebrow": "Credit note issued",
+        "successTitle": "Credit note created",
+        "successDescription": "The return has been recorded and the credit note is ready to print.",
+        "successCodeLabel": "Credit note code",
+        "printCreditNoteBtn": "Print credit note"
       }
     },
     "creditNotes": {

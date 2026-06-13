@@ -1239,6 +1239,11 @@
         "warnings": "മുന്നറിയിപ്പുകൾ",
         "previewBtn": "പ്രിവ്യൂ",
         "recordBtn": "റെക്കോർഡ് റിട്ടേൺ",
+        "successEyebrow": "Credit note issued",
+        "successTitle": "Credit note created",
+        "successDescription": "The return has been recorded and the credit note is ready to print.",
+        "successCodeLabel": "Credit note code",
+        "printCreditNoteBtn": "Print credit note",
         "creditNoteExpiry": "ക്രെഡിറ്റ് നോട്ട് ഒഴിവാക്കൽ",
         "creditNoteExpiryDate": "ഒഴിവാക്കൽ തീയതി"
       }

@@ -1239,6 +1239,11 @@
         "warnings": "హెచ్చరికలు",
         "previewBtn": "ప్రివ్యూ",
         "recordBtn": "రికార్డ్ రిటర్న్",
+        "successEyebrow": "Credit note issued",
+        "successTitle": "Credit note created",
+        "successDescription": "The return has been recorded and the credit note is ready to print.",
+        "successCodeLabel": "Credit note code",
+        "printCreditNoteBtn": "Print credit note",
         "creditNoteExpiry": "క్రెడిట్ నోట్ గడువు",
         "creditNoteExpiryDate": "గడువు తేదీ"
       }

@@ -1239,6 +1239,11 @@
         "warnings": "इशारे",
         "previewBtn": "प्रीव्यू",
         "recordBtn": "परतावा नोंदवा",
+        "successEyebrow": "Credit note issued",
+        "successTitle": "Credit note created",
+        "successDescription": "The return has been recorded and the credit note is ready to print.",
+        "successCodeLabel": "Credit note code",
+        "printCreditNoteBtn": "Print credit note",
         "creditNoteExpiry": "क्रेडिट नोट समाप्तीची तारीख",
         "creditNoteExpiryDate": "समाप्तीची तारीख"
       }

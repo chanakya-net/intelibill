@@ -1239,6 +1239,11 @@
         "warnings": "ಎಚ್ಚರಿಕೆಗಳು",
         "previewBtn": "ಪೂರ್ವವೀಕ್ಷಣೆ",
         "recordBtn": "ರೆಕಾರ್ಡ್ ರಿಟರ್ನ್",
+        "successEyebrow": "Credit note issued",
+        "successTitle": "Credit note created",
+        "successDescription": "The return has been recorded and the credit note is ready to print.",
+        "successCodeLabel": "Credit note code",
+        "printCreditNoteBtn": "Print credit note",
         "creditNoteExpiry": "ಕ್ರೆಡಿಟ್ ನೋಟ್ ಅವಧಿ ಅಂತ್ಯ",
         "creditNoteExpiryDate": "ಮುಕ್ತಾಯ ದಿನಾಂಕ"
       }
