@@ -770,7 +770,7 @@ public sealed class SalesTallyXmlExportRendererTests
 
         var returnRows = new List<SalesExportReturnRowDto>
         {
-            new("R-001", new DateTimeOffset(2026, 5, 2, 10, 0, 0, TimeSpan.Zero), "INV-001", "Alice", 118m, 100m, 18m, returnTaxBreakup)
+            new("R-001", new DateTimeOffset(2026, 5, 2, 10, 0, 0, TimeSpan.Zero), "INV-001", "Alice", 118m, 100m, 18m, returnTaxBreakup, false, "CN-001")
         };
 
         var taxBreakup = new List<SalesExportTaxBreakupDto>
@@ -787,7 +787,7 @@ public sealed class SalesTallyXmlExportRendererTests
         var vouchers = doc.Root!.Descendants("VOUCHER").ToList();
         var creditNote = vouchers.Single(v => v.Element("VOUCHERTYPE")?.Value == "Credit Note");
 
-        Assert.Equal("R-001", creditNote.Element("VOUCHERNUMBER")?.Value);
+        Assert.Equal("CN-001", creditNote.Element("VOUCHERNUMBER")?.Value);
         
         var voucherLines = creditNote.Elements("VOUCHERLINE").ToList();
         
@@ -842,6 +842,49 @@ public sealed class SalesTallyXmlExportRendererTests
         var creditNoteVoucher = vouchers.SingleOrDefault(v => v.Element("VOUCHERTYPE")?.Value == "Credit Note");
         Assert.NotNull(creditNoteVoucher);
         Assert.Equal("RET-001", creditNoteVoucher.Element("VOUCHERNUMBER")?.Value);
+    }
+
+    [Fact]
+    public async Task RenderAsync_WithReturnRowsAndMultipleCreditNotes_UsesIssuedCreditNoteCodesInCreditNoteVoucher()
+    {
+        var metadata = new SalesExportMetadataDto(
+            "Test Shop",
+            "123 Test St",
+            "27ABCDE1234F1Z5",
+            "Test User",
+            DateTimeOffset.UtcNow,
+            new DateOnly(2026, 5, 1),
+            new DateOnly(2026, 5, 31),
+            "summary");
+
+        var returnRows = new List<SalesExportReturnRowDto>
+        {
+            new(
+                "RET-001",
+                new DateTimeOffset(2026, 5, 5, 11, 0, 0, TimeSpan.Zero),
+                "INV-001",
+                "Customer A",
+                200m,
+                100m,
+                18m,
+                new List<SalesExportReturnTaxBreakupDto> { new(18m, 100m, 18m) },
+                false,
+                "CN-001, CN-002")
+        };
+
+        var taxBreakup = new List<SalesExportTaxBreakupDto>
+        {
+            new(18m, 0m, 0m, 100m, 18m)
+        };
+
+        var dataset = new SalesExportDatasetDto(metadata, [], [], taxBreakup, returnRows);
+        var renderer = new SalesTallyXmlExportRenderer();
+
+        var result = await renderer.RenderAsync(dataset, CancellationToken.None);
+        var doc = XDocument.Parse(System.Text.Encoding.UTF8.GetString(result.Content));
+        var creditNoteVoucher = doc.Root!.Descendants("VOUCHER").Single(v => v.Element("VOUCHERTYPE")?.Value == "Credit Note");
+
+        Assert.Equal("CN-001, CN-002", creditNoteVoucher.Element("VOUCHERNUMBER")?.Value);
     }
 
     [Fact]
