@@ -38,7 +38,6 @@ class TestCreditNoteService extends NewSalePageCreditNoteService {
   override getUnitSubtotal(): number { return 0; }
   override getUnitTaxAmount(): number { return 0; }
   override getUnitFinalPrice(): number { return 0; }
-  override async onSubmit(): Promise<void> {}
   override createSaleIdempotencyKey(): string { return 'test-key'; }
   override onCancel(): void {}
   override toggleSaleDiscountEditor(): void {}
@@ -62,10 +61,15 @@ class TestCreditNoteService extends NewSalePageCreditNoteService {
   override revalidateLineOverrides(): boolean { return false; }
   override getBlockingCartValidationErrorKey(): string | null { return null; }
   override normalizeHsnCode(): string | null { return null; }
-  override normalizeAmount(): number { return 0; }
-  override toFiniteAmount(): number { return 0; }
-  override roundAmount(value: number): number { return value; }
-  override areAmountsEqual(left: number, right: number): boolean { return left === right; }
+  override normalizeAmount(value: number | null | undefined, total: number): number {
+    return this.roundAmount(Math.max(0, Math.min(Number(value ?? 0), total)));
+  }
+  override toFiniteAmount(value: number | null | undefined): number {
+    const amount = Number(value ?? 0);
+    return Number.isFinite(amount) ? this.roundAmount(amount) : Number.NaN;
+  }
+  override roundAmount(value: number): number { return Number(value.toFixed(2)); }
+  override areAmountsEqual(left: number, right: number): boolean { return this.roundAmount(left) === this.roundAmount(right); }
   override syncPaymentSplitFromPaid(): void {}
   override syncPaymentSplitFromDue(): void {}
   override enforceNoCustomerCreditRestrictions(): void {}
@@ -90,7 +94,13 @@ const verifiedNote: CreditNoteVerifyResponseDto = {
   status: 'Active',
 };
 
-function buildService(saleServiceOverrides: Partial<{ verifyCreditNote: ReturnType<typeof vi.fn> }> = {}) {
+function buildService(
+  saleServiceOverrides: Partial<{ verifyCreditNote: ReturnType<typeof vi.fn> }> = {},
+  options: {
+    cart?: unknown[];
+    checkoutPreview?: unknown;
+  } = {},
+) {
   TestBed.resetTestingModule();
 
   const saleService = {
@@ -98,6 +108,9 @@ function buildService(saleServiceOverrides: Partial<{ verifyCreditNote: ReturnTy
     ...saleServiceOverrides,
   };
 
+  const recordSale = vi.fn();
+  const cart = signal(options.cart ?? []);
+  const checkoutPreview = signal(options.checkoutPreview ?? null);
   const route = {
     snapshot: { queryParamMap: convertToParamMap({}) },
   };
@@ -122,12 +135,13 @@ function buildService(saleServiceOverrides: Partial<{ verifyCreditNote: ReturnTy
           lastMutationSucceeded: signal(false),
           lastMutationType: signal(null),
           lastRecordedSale: signal(null),
+          recordSale,
         },
       },
       {
         provide: SaleCartStateService,
         useValue: {
-          cart: signal([]),
+          cart,
           serviceCart: signal([]),
           cartBootstrapped: signal(false),
           onClearCart: vi.fn(),
@@ -139,7 +153,7 @@ function buildService(saleServiceOverrides: Partial<{ verifyCreditNote: ReturnTy
       {
         provide: SalePreviewService,
         useValue: {
-          checkoutPreview: signal(null),
+          checkoutPreview,
           isPreviewLoading: signal(false),
           previewError: signal(''),
           beginPreviewRequest: vi.fn(() => 1),
@@ -172,7 +186,7 @@ function buildService(saleServiceOverrides: Partial<{ verifyCreditNote: ReturnTy
     ],
   });
 
-  return { service: TestBed.inject(TestCreditNoteService), saleService };
+  return { service: TestBed.inject(TestCreditNoteService), saleService, recordSale };
 }
 
 describe('NewSalePageCreditNoteService', () => {
@@ -243,5 +257,53 @@ describe('NewSalePageCreditNoteService', () => {
       paidAmount: 0,
       dueAmount: 0,
     });
+  });
+
+  it('posts verified credit note redemption as part of payment split', async () => {
+    const { service, recordSale } = buildService({}, {
+      cart: [
+        {
+          barcode: '8901',
+          batchNumber: 'B1',
+          itemName: 'Rice',
+          quantity: 1,
+          availableQuantity: 5,
+          costPrice: 60,
+          salesPrice: 100,
+          mrp: 100,
+          taxRatePercent: 0,
+          taxIncluded: false,
+          inventoryBatchId: 'batch-1',
+          clientLineKey: 'line-1',
+          itemDiscountType: 0,
+          itemDiscountValue: 0,
+          hsnCode: null,
+        },
+      ],
+      checkoutPreview: {
+        totalAmount: 100,
+        totalTaxableAmount: 100,
+        totalTaxAmount: 0,
+        totalDiscountAmount: 0,
+        saleLevelEligibleSubtotal: 100,
+        configuredSaleRule: null,
+        lines: [],
+        infos: [],
+        warnings: [],
+      },
+    });
+    service.verifiedCreditNote.set({ ...verifiedNote, availableBalance: 40 });
+    service.paymentForm.controls.paidAmount.setValue(60);
+    service.paymentForm.controls.dueAmount.setValue(0);
+
+    await service.onSubmit();
+
+    expect(service.paymentSplitError()).toBe('');
+    expect(recordSale).toHaveBeenCalledWith(expect.objectContaining({
+      paidAmount: 60,
+      dueAmount: 0,
+      creditNoteAppliedAmount: 40,
+      creditNoteRedemptions: [{ code: 'CN-ABC-123', amount: 40 }],
+    }));
   });
 });

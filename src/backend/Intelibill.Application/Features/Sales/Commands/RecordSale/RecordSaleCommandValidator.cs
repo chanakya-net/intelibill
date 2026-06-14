@@ -87,6 +87,33 @@ public sealed class RecordSaleCommandValidator : AbstractValidator<RecordSaleCom
             .WithErrorCode(Errors.Sale.CreditNoteAppliedAmountInvalid.Code)
             .WithMessage(Errors.Sale.CreditNoteAppliedAmountInvalid.Description);
 
+        RuleFor(x => x.CreditNoteRedemptions)
+            .Must(redemptions => redemptions is null || redemptions.Count <= 1)
+            .WithErrorCode(Errors.Sale.CreditNoteRedemptionsLimitExceeded.Code)
+            .WithMessage(Errors.Sale.CreditNoteRedemptionsLimitExceeded.Description);
+
+        RuleForEach(x => x.CreditNoteRedemptions).ChildRules(redemption =>
+        {
+            redemption.RuleFor(r => r.Code)
+                .NotEmpty()
+                .WithErrorCode("Sale.CreditNoteRedemptionCodeRequired")
+                .WithMessage("Credit note code is required.");
+
+            redemption.RuleFor(r => r.Amount)
+                .GreaterThan(0)
+                .WithErrorCode("Sale.CreditNoteRedemptionAmountMustBePositive")
+                .WithMessage("Credit note redemption amount must be greater than zero.");
+        });
+
+        RuleFor(x => x)
+            .Must(x => (x.CreditNoteAppliedAmount == 0m
+                    && (x.CreditNoteRedemptions is null || x.CreditNoteRedemptions.Count == 0))
+                || (x.CreditNoteAppliedAmount > 0m
+                    && x.CreditNoteRedemptions is { Count: 1 } redemptions
+                    && redemptions.Sum(r => r.Amount) == x.CreditNoteAppliedAmount))
+            .WithErrorCode(Errors.Sale.CreditNoteRedemptionsSplitMismatch.Code)
+            .WithMessage(Errors.Sale.CreditNoteRedemptionsSplitMismatch.Description);
+
         RuleFor(x => x)
             .Must(x => x.PaymentMethod != PaymentMethod.Credit || x.DueAmount > 0)
             .WithErrorCode(Errors.Sale.CreditRequiresDueAmount.Code)

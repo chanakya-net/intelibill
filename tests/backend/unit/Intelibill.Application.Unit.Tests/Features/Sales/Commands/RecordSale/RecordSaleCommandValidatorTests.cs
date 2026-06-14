@@ -1,4 +1,5 @@
 using FluentValidation.TestHelper;
+using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Sales.Commands.RecordSale;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.ValueObjects;
@@ -136,6 +137,65 @@ public class RecordSaleCommandValidatorTests
         var command = ValidCommand() with { SaleDiscount = new(InstantDiscountType.Percentage, 150m) };
         var result = _validator.TestValidate(command);
         result.ShouldHaveValidationErrorFor(x => x.SaleDiscount);
+    }
+
+    [Fact]
+    public void Validate_WhenMultipleCreditNoteRedemptions_ReturnsError()
+    {
+        var command = ValidCommand() with
+        {
+            CreditNoteAppliedAmount = 100m,
+            CreditNoteRedemptions =
+            [
+                new CreditNoteRedemptionCommand("CN-001", 50m),
+                new CreditNoteRedemptionCommand("CN-002", 50m),
+            ],
+        };
+
+        var result = _validator.TestValidate(command);
+
+        result.ShouldHaveValidationErrorFor(x => x.CreditNoteRedemptions);
+    }
+
+    [Fact]
+    public void Validate_WhenCreditNoteSplitMismatch_ReturnsError()
+    {
+        var command = ValidCommand() with
+        {
+            CreditNoteAppliedAmount = 100m,
+            CreditNoteRedemptions = [new CreditNoteRedemptionCommand("CN-001", 90m)],
+        };
+
+        var result = _validator.TestValidate(command);
+
+        result.ShouldHaveValidationErrorFor(x => x);
+    }
+
+    [Fact]
+    public void Validate_WhenCreditNoteAppliedAmountHasNoRedemption_ReturnsError()
+    {
+        var command = ValidCommand() with
+        {
+            CreditNoteAppliedAmount = 100m,
+        };
+
+        var result = _validator.TestValidate(command);
+
+        Assert.Contains(result.Errors, error => error.ErrorCode == Errors.Sale.CreditNoteRedemptionsSplitMismatch.Code);
+    }
+
+    [Fact]
+    public void Validate_WhenZeroAppliedAmountWithRedemptions_ReturnsError()
+    {
+        var command = ValidCommand() with
+        {
+            CreditNoteAppliedAmount = 0m,
+            CreditNoteRedemptions = [new CreditNoteRedemptionCommand("CN-001", 50m)],
+        };
+
+        var result = _validator.TestValidate(command);
+
+        Assert.Contains(result.Errors, error => error.ErrorCode == Errors.Sale.CreditNoteRedemptionsSplitMismatch.Code);
     }
 
     [Fact]

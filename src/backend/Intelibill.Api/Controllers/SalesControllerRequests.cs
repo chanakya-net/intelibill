@@ -13,7 +13,8 @@ public sealed record RecordSaleRequest(
     decimal DueAmount,
     IReadOnlyList<RecordSaleItemRequest> Items,
     InstantDiscountRequest? SaleDiscount = null,
-    decimal CreditNoteAppliedAmount = 0m);
+    decimal CreditNoteAppliedAmount = 0m,
+    IReadOnlyList<CreditNoteRedemptionRequest>? CreditNoteRedemptions = null);
 
 public sealed record ReserveInvoiceLeaseRequest(
     string DeviceId,
@@ -110,6 +111,10 @@ public sealed record PreviewSaleItemRequest(
 public sealed record InstantDiscountRequest(
     InstantDiscountType Type,
     decimal Value);
+
+public sealed record CreditNoteRedemptionRequest(
+    string Code,
+    decimal Amount);
 
 public sealed record PreviewSaleReturnRequest(
     decimal? DueReductionOverrideAmount,
