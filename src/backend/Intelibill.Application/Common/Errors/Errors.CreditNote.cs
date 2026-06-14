@@ -9,6 +9,12 @@ public static partial class Errors
         public static Error CreditNoteNotFound(string code) =>
             Error.NotFound("CreditNote.NotFound", $"Credit note '{code}' was not found.");
 
+        public static Error RedeemConflict =>
+            Error.Conflict("CreditNote.RedeemConflict", "Credit note redemption is in progress. Please retry the request.");
+
+        public static Error InsufficientAvailableBalance =>
+            Error.Conflict("CreditNote.InsufficientBalance", "Credit note does not have enough available balance.");
+
         public static Error UserIsNotOwnerManagerOrStaff =>
             Error.Forbidden("CreditNote.UserIsNotOwnerManagerOrStaff", "Only owner, manager, or staff can verify credit notes.");
 

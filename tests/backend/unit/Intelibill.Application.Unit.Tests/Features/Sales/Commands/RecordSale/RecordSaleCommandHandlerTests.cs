@@ -24,6 +24,7 @@ public class RecordSaleCommandHandlerTests
     private readonly IItemRepository _itemRepository = Substitute.For<IItemRepository>();
     private readonly ICustomerLedgerEntryRepository _customerLedgerEntryRepository = Substitute.For<ICustomerLedgerEntryRepository>();
     private readonly IStockTransactionRepository _stockTransactionRepository = Substitute.For<IStockTransactionRepository>();
+    private readonly ICreditNoteRepository _creditNoteRepository = Substitute.For<ICreditNoteRepository>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
 
     public RecordSaleCommandHandlerTests()
@@ -57,7 +58,7 @@ public class RecordSaleCommandHandlerTests
     }
 
     private RecordSaleCommandHandler CreateHandler() =>
-        new(_saleLineValidator, _salePricingCalculator, _customerResolver, _saleRepository, _saleDtoBuilder, _customerLedgerEntryRepository, _stockTransactionRepository, _unitOfWork);
+        new(_saleLineValidator, _salePricingCalculator, _customerResolver, _saleRepository, _saleDtoBuilder, _customerLedgerEntryRepository, _stockTransactionRepository, _creditNoteRepository, _unitOfWork);
 
     private static Item MakeItem(Guid shopId, string barcode, string name = "Rice") =>
         Item.Create(shopId, name, "desc", "kg", barcode, true, Guid.NewGuid());
@@ -93,6 +94,13 @@ public class RecordSaleCommandHandlerTests
         new(actorId, shopId, idempotencyKey ?? $"sale-{Guid.NewGuid():N}", null, "Ravi Kumar", "+919876543210",
             PaymentMethod.Cash, quantity * 118m, 0m,
             [new RecordSaleItemCommand(barcode, batchNumber, "Rice", quantity, 80m, 100m, 120m, 18m, false, inventoryBatchId ?? Guid.NewGuid(), HsnCode: hsnCode)]);
+
+    private static CreditNote CreateCreditNote(Guid shopId, Guid saleReturnId, string code, decimal amount)
+    {
+        var result = CreditNote.Issue(shopId, saleReturnId, amount, "Return refund", code, null);
+        Assert.False(result.IsError);
+        return result.Value;
+    }
 
     private static SalePricingCalculationResult BuildPricingResult(params ValidatedSaleLine[] lines)
     {
@@ -474,6 +482,71 @@ public class RecordSaleCommandHandlerTests
         Assert.Equal(Errors.Sale.IdempotencyConflict.Code, result.FirstError.Code);
         await _itemRepository.DidNotReceive()
             .GetByIdsAsync(Arg.Any<Guid>(), Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenCreditNoteAppliedAndNoRedeemableNote_ReturnsInsufficientBalance()
+    {
+        var shopId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var item = MakeItem(shopId, "BC-001");
+        var batch = MakeBatch(shopId, item.Id, "B-01");
+        var inventory = MakeInventory(shopId, item.Id);
+        var command = MakeCommand(shopId, actorId, inventoryBatchId: batch.Id, quantity: 1m) with
+        {
+            CreditNoteAppliedAmount = 100m,
+            DueAmount = 0m,
+            PaidAmount = 18m,
+        };
+
+        var line = new ValidatedSaleLine(command.Items[0], item, batch, inventory, false);
+        var itemNameById = new Dictionary<Guid, string> { { item.Id, item.Name } };
+        _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>())
+            .Returns(new SaleLineValidationResult(new List<ValidatedSaleLine> { line }, itemNameById));
+
+        _creditNoteRepository.GetForRedemptionAsync(shopId, 100m, Arg.Any<CancellationToken>())
+            .Returns((CreditNote?)null);
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.CreditNote.InsufficientAvailableBalance.Code, result.FirstError.Code);
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenCreditNoteConcurrencyConflict_ReturnsRedeemConflict()
+    {
+        var shopId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var item = MakeItem(shopId, "BC-001");
+        var batch = MakeBatch(shopId, item.Id, "B-01");
+        var inventory = MakeInventory(shopId, item.Id);
+        var command = MakeCommand(shopId, actorId, inventoryBatchId: batch.Id, quantity: 1m) with
+        {
+            CreditNoteAppliedAmount = 100m,
+            DueAmount = 0m,
+            PaidAmount = 18m,
+        };
+
+        var line = new ValidatedSaleLine(command.Items[0], item, batch, inventory, false);
+        var itemNameById = new Dictionary<Guid, string> { { item.Id, item.Name } };
+        _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>())
+            .Returns(new SaleLineValidationResult(new List<ValidatedSaleLine> { line }, itemNameById));
+
+        var note = CreateCreditNote(shopId, Guid.NewGuid(), "CN-001", 200m);
+        _creditNoteRepository.GetForRedemptionAsync(shopId, 100m, Arg.Any<CancellationToken>())
+            .Returns(note);
+        _creditNoteRepository.GetByIdWithRedemptionsAsync(shopId, note.Id, Arg.Any<CancellationToken>())
+            .Returns(note);
+
+        _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<int>(new DbUpdateConcurrencyException("Concurrent update")));
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.CreditNote.RedeemConflict.Code, result.FirstError.Code);
     }
 
     [Fact]

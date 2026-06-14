@@ -41,8 +41,23 @@ internal sealed class CreditNoteRepository(ApplicationDbContext context)
 
     public async Task<CreditNote?> GetByIdWithRedemptionsAsync(Guid shopId, Guid id, CancellationToken cancellationToken = default) =>
         await DbSet
+            .AsNoTracking()
             .Include(c => c.Redemptions)
             .FirstOrDefaultAsync(c => c.ShopId == shopId && c.Id == id, cancellationToken);
+
+    public async Task<CreditNote?> GetForRedemptionAsync(Guid shopId, decimal requestedAmount, CancellationToken cancellationToken = default)
+    {
+        var now = DateTimeOffset.UtcNow;
+
+        return await DbSet
+            .Where(c => c.ShopId == shopId
+                && !c.IsVoided
+                && (c.ExpiresAt == null || c.ExpiresAt >= now)
+                && c.AvailableBalance >= requestedAmount)
+            .OrderBy(c => c.CreatedAt)
+            .ThenBy(c => c.ExpiresAt ?? DateTimeOffset.MaxValue)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
 
     public async Task<(IReadOnlyList<CreditNoteListRow> Items, int TotalCount)> GetPagedAsync(
         Guid shopId,

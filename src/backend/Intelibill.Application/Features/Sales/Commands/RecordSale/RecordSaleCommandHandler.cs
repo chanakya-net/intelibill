@@ -21,6 +21,7 @@ public sealed class RecordSaleCommandHandler
     private readonly SaleDtoBuilder saleDtoBuilder;
     private readonly ICustomerLedgerEntryRepository customerLedgerEntryRepository;
     private readonly IStockTransactionRepository stockTransactionRepository;
+    private readonly ICreditNoteRepository creditNoteRepository;
     private readonly IUnitOfWork unitOfWork;
 
     public RecordSaleCommandHandler(
@@ -31,6 +32,7 @@ public sealed class RecordSaleCommandHandler
         SaleDtoBuilder saleDtoBuilder,
         ICustomerLedgerEntryRepository customerLedgerEntryRepository,
         IStockTransactionRepository stockTransactionRepository,
+        ICreditNoteRepository creditNoteRepository,
         IUnitOfWork unitOfWork)
     {
         this.saleLineValidator = saleLineValidator;
@@ -40,6 +42,7 @@ public sealed class RecordSaleCommandHandler
         this.saleDtoBuilder = saleDtoBuilder;
         this.customerLedgerEntryRepository = customerLedgerEntryRepository;
         this.stockTransactionRepository = stockTransactionRepository;
+        this.creditNoteRepository = creditNoteRepository;
         this.unitOfWork = unitOfWork;
     }
 
@@ -151,6 +154,17 @@ public sealed class RecordSaleCommandHandler
             return saleOrError.Errors;
 
         var sale = saleOrError.Value;
+
+        var hasCreditNoteRedemption = command.CreditNoteAppliedAmount > 0m;
+        Guid? redemptionNoteId = null;
+        if (hasCreditNoteRedemption)
+        {
+            var note = await GetRedeemableCreditNoteAsync(command.ShopId, sale.Id, command.CreditNoteAppliedAmount, cancellationToken);
+            if (note.IsError) return note.Errors;
+
+            redemptionNoteId = note.Value!.Id;
+        }
+
         foreach (var line in validatedLines.Where(x => x.LineType == SaleLineType.Goods))
         {
             var cmdItem = line.Command;
@@ -188,7 +202,28 @@ public sealed class RecordSaleCommandHandler
 
         try
         {
+            if (hasCreditNoteRedemption && redemptionNoteId.HasValue)
+            {
+                var noteForSave = await creditNoteRepository.GetByIdWithRedemptionsAsync(command.ShopId, redemptionNoteId.Value, cancellationToken);
+                if (noteForSave is null || noteForSave.AvailableBalance < command.CreditNoteAppliedAmount)
+                    return Errors.CreditNote.InsufficientAvailableBalance;
+            }
+
             await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            if (!hasCreditNoteRedemption)
+                throw;
+
+            if (redemptionNoteId is not null)
+            {
+                var note = await creditNoteRepository.GetByIdWithRedemptionsAsync(command.ShopId, redemptionNoteId.Value, cancellationToken);
+                if (note is null || note.AvailableBalance < command.CreditNoteAppliedAmount)
+                    return Errors.CreditNote.InsufficientAvailableBalance;
+            }
+
+            return Errors.CreditNote.RedeemConflict;
         }
         catch (DbUpdateException)
         {
@@ -204,4 +239,21 @@ public sealed class RecordSaleCommandHandler
 
         return saleDtoBuilder.BuildSaleDto(sale, itemNameById, sale.Warnings);
     }
+
+    private async Task<ErrorOr<CreditNote>> GetRedeemableCreditNoteAsync(
+        Guid shopId,
+        Guid saleId,
+        decimal requestedAmount,
+        CancellationToken cancellationToken)
+    {
+        var note = await creditNoteRepository.GetForRedemptionAsync(shopId, requestedAmount, cancellationToken);
+        if (note is null)
+            return Errors.CreditNote.InsufficientAvailableBalance;
+
+        var redeemResult = note.Redeem(shopId, saleId, requestedAmount);
+        if (redeemResult.IsError) return redeemResult.Errors;
+
+        return note;
+    }
+
 }
