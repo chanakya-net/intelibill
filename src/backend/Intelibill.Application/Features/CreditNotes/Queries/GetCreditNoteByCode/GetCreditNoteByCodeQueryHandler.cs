@@ -48,8 +48,8 @@ public sealed class GetCreditNoteByCodeQueryHandler(
         if (saleReturn is not null)
         {
             var sale = await saleRepository.GetByIdAsync(
-                query.ActiveShopId,
                 saleReturn.SaleId,
+                query.ActiveShopId,
                 cancellationToken);
 
             if (sale is not null)

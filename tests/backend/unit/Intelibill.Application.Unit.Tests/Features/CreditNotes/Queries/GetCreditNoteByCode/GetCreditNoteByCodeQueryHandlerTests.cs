@@ -143,8 +143,8 @@ public sealed class GetCreditNoteByCodeQueryHandlerTests
                 Arg.Any<CancellationToken>())
             .Returns(saleReturn);
         _saleRepository.GetByIdAsync(
-                membership.ShopId,
                 sale.Id,
+                membership.ShopId,
                 Arg.Any<CancellationToken>())
             .Returns(sale);
     }
