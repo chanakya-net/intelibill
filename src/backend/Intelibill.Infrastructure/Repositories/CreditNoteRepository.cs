@@ -22,6 +22,8 @@ internal sealed class CreditNoteRepository(ApplicationDbContext context)
         bool includeRedemptions,
         CancellationToken cancellationToken)
     {
+        var normalizedCode = NormalizeLookupCode(code);
+
         IQueryable<CreditNote> query = DbSet;
         if (includeRedemptions)
         {
@@ -33,9 +35,12 @@ internal sealed class CreditNoteRepository(ApplicationDbContext context)
                  // The existing unique index is on the stored code value, so normalized lookups
                  // intentionally apply string functions here instead of using the raw index.
                  // Credit note volume is expected to stay low enough that this per-shop scan is acceptable.
-                 EF.Functions.ILike(c.Code.Replace("-", string.Empty).Replace(" ", string.Empty), code),
+                 c.Code.Replace("-", string.Empty).Replace(" ", string.Empty) == normalizedCode,
             cancellationToken);
     }
+
+    private static string NormalizeLookupCode(string code) =>
+        code.Trim().Replace("-", string.Empty, StringComparison.Ordinal).Replace(" ", string.Empty, StringComparison.Ordinal).ToUpperInvariant();
 
     public async Task<IReadOnlyList<CreditNote>> GetByReturnIdAsync(Guid shopId, Guid saleReturnId, CancellationToken cancellationToken = default) =>
         await DbSet
