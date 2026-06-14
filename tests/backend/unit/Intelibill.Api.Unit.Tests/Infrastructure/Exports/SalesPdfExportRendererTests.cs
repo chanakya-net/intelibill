@@ -105,6 +105,41 @@ public sealed class SalesPdfExportRendererTests
         Assert.True(ContainsStreamDifferences(creditResult.Content, baselineResult.Content));
     }
 
+    [Fact]
+    public async Task RenderAsync_WithReturnCreditNotes_IncludesReturnCreditNoteSection()
+    {
+        var metadata = new SalesExportMetadataDto(
+            "Green Mart",
+            "12 Market Lane, Mumbai",
+            "27ABCDE1234F1Z5",
+            "Ravi Kumar",
+            new DateTimeOffset(2026, 5, 20, 10, 0, 0, TimeSpan.Zero),
+            new DateOnly(2026, 5, 1),
+            new DateOnly(2026, 5, 31),
+            SalesExportLevel.Summary);
+
+        var summaryRows = new List<SalesExportSummaryRowDto>
+        {
+            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Cash", 100m, 0m, 100m, 0m, 100m, 18m, 118m, "RET-001", 118m, 100m, 18m, 0m, true, 1, 50m, "CN-001", 50m)
+        };
+
+        var returnRows = new List<SalesExportReturnRowDto>
+        {
+            new("RET-001", new DateTimeOffset(2026, 5, 2, 11, 0, 0, TimeSpan.Zero), "INV-001", "Alice", 118m, 100m, 18m, [], false, "CN-001", 50m, 50m)
+        };
+
+        var baselineDataset = new SalesExportDatasetDto(metadata, summaryRows, [], [], []);
+        var dataset = new SalesExportDatasetDto(metadata, summaryRows, [], [], returnRows);
+        var renderer = new SalesPdfExportRenderer();
+
+        var baselineResult = await renderer.RenderAsync(baselineDataset, CancellationToken.None);
+        var result = await renderer.RenderAsync(dataset, CancellationToken.None);
+
+        Assert.Equal("application/pdf", result.ContentType);
+        Assert.NotEmpty(result.Content);
+        Assert.True(ContainsStreamDifferences(result.Content, baselineResult.Content));
+    }
+
     private static bool ContainsStreamDifferences(byte[] creditResult, byte[] baselineResult) =>
         !string.Equals(
             Convert.ToBase64String(creditResult),

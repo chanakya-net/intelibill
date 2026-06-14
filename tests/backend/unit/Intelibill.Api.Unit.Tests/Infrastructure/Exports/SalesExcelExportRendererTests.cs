@@ -140,7 +140,11 @@ public sealed class SalesExcelExportRendererTests
         var creditNoteAppliedColumn = FindColumn(sheet, headerRow, "Credit Note Applied");
         var issuedCreditNoteColumn = FindColumn(sheet, headerRow, "Credit Note Issued");
         var issuedAmountColumn = FindColumn(sheet, headerRow, "Credit Note Issued Amount");
+        var paidAmountColumn = FindColumn(sheet, headerRow, "Paid Amount");
+        var dueAmountColumn = FindColumn(sheet, headerRow, "Due Amount");
 
+        Assert.Equal(1200m, sheet.Cell(dataRow, paidAmountColumn).GetValue<decimal>());
+        Assert.Equal(40m, sheet.Cell(dataRow, dueAmountColumn).GetValue<decimal>());
         Assert.Equal(200m, sheet.Cell(dataRow, creditNoteAppliedColumn).GetValue<decimal>());
         Assert.Equal("CN-001", sheet.Cell(dataRow, issuedCreditNoteColumn).GetString());
         Assert.Equal(200m, sheet.Cell(dataRow, issuedAmountColumn).GetValue<decimal>());

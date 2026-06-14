@@ -75,6 +75,11 @@ internal sealed class SalesPdfDocument : IDocument
             column.Item().Element(ComposeSummaryMetrics);
 
             column.Item().Element(ComposeTable);
+
+            if (_dataset.ReturnRows.Count > 0)
+            {
+                column.Item().Element(ComposeReturnCreditNoteDetails);
+            }
         });
     }
 
@@ -167,6 +172,45 @@ internal sealed class SalesPdfDocument : IDocument
                 else
                 {
                     ComposeSummaryTable(table);
+                }
+            });
+        });
+    }
+
+    private void ComposeReturnCreditNoteDetails(IContainer container)
+    {
+        container.Column(column =>
+        {
+            column.Item().Text("Return Credit Notes").SemiBold();
+            column.Item().Table(table =>
+            {
+                table.ColumnsDefinition(cols =>
+                {
+                    cols.ConstantColumn(62);
+                    cols.ConstantColumn(62);
+                    cols.RelativeColumn();
+                    cols.ConstantColumn(68);
+                    cols.ConstantColumn(62);
+                    cols.ConstantColumn(62);
+                });
+
+                ComposeTableHeader(table, ["Return #", "Invoice", "Credit Note", "Amount", "Remaining", "Voided"]);
+
+                var rowIndex = 0;
+                foreach (var row in _dataset.ReturnRows)
+                {
+                    rowIndex++;
+                    var background = rowIndex % 2 == 0 ? Colors.Grey.Lighten5 : Colors.White;
+
+                    table.Cell().Element(c => TableCell(c, background)).Text(row.ReturnNumber);
+                    table.Cell().Element(c => TableCell(c, background)).Text(row.InvoiceNumber);
+                    table.Cell().Element(c => TableCell(c, background)).Text(row.CreditNoteCode ?? string.Empty);
+                    table.Cell().Element(c => TableCell(c, background).AlignRight())
+                        .Text(row.CreditNoteAmount.ToString("N2", CultureInfo.InvariantCulture));
+                    table.Cell().Element(c => TableCell(c, background).AlignRight())
+                        .Text(row.CreditNoteRemainingBalance.ToString("N2", CultureInfo.InvariantCulture));
+                    table.Cell().Element(c => TableCell(c, background))
+                        .Text(row.IsVoided ? "Yes" : "No");
                 }
             });
         });
