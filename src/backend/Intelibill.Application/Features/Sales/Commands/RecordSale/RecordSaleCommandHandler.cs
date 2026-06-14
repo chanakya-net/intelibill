@@ -8,14 +8,12 @@ using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Domain.ValueObjects;
-using System.Collections.Concurrent;
 using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Application.Features.Sales.Commands.RecordSale;
 
 public sealed class RecordSaleCommandHandler
 {
-    private static readonly ConcurrentDictionary<Guid, SemaphoreSlim> CreditNoteRedemptionLocks = new();
     private readonly ISaleLineValidator saleLineValidator;
     private readonly ISalePricingCalculator salePricingCalculator;
     private readonly ICustomerResolver customerResolver;
@@ -47,9 +45,6 @@ public sealed class RecordSaleCommandHandler
         this.creditNoteRepository = creditNoteRepository;
         this.unitOfWork = unitOfWork;
     }
-
-    private static SemaphoreSlim GetCreditNoteLock(Guid shopId) =>
-        CreditNoteRedemptionLocks.GetOrAdd(shopId, _ => new SemaphoreSlim(1, 1));
 
     public async Task<ErrorOr<SaleDto>> HandleAsync(RecordSaleCommand command, CancellationToken cancellationToken)
     {
@@ -163,7 +158,6 @@ public sealed class RecordSaleCommandHandler
         var hasCreditNoteRedemption = command.CreditNoteAppliedAmount > 0m;
         var creditNoteTransactionStarted = false;
         var creditNoteTransactionCommitted = false;
-        SemaphoreSlim? creditNoteSemaphore = null;
         CreditNote? creditNote = null;
         foreach (var line in validatedLines.Where(x => x.LineType == SaleLineType.Goods))
         {
@@ -203,9 +197,6 @@ public sealed class RecordSaleCommandHandler
         {
             if (hasCreditNoteRedemption)
             {
-                creditNoteSemaphore = GetCreditNoteLock(command.ShopId);
-                await creditNoteSemaphore.WaitAsync(cancellationToken);
-
                 await unitOfWork.BeginTransactionAsync(cancellationToken);
                 creditNoteTransactionStarted = true;
 
@@ -258,11 +249,6 @@ public sealed class RecordSaleCommandHandler
         }
         finally
         {
-            if (creditNoteSemaphore is not null)
-            {
-                creditNoteSemaphore.Release();
-            }
-
             if (hasCreditNoteRedemption && creditNoteTransactionStarted && !creditNoteTransactionCommitted)
             {
                 await unitOfWork.RollbackTransactionAsync(cancellationToken);

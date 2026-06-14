@@ -47,7 +47,29 @@ internal sealed class CreditNoteRepository(ApplicationDbContext context)
 
     public async Task<CreditNote?> GetForRedemptionForUpdateAsync(Guid shopId, decimal requestedAmount, CancellationToken cancellationToken = default)
     {
-        return await GetForRedemptionAsync(shopId, requestedAmount, cancellationToken);
+        if (!_context.Database.IsNpgsql())
+        {
+            return await GetForRedemptionAsync(shopId, requestedAmount, cancellationToken);
+        }
+
+        var now = DateTimeOffset.UtcNow;
+
+        return await DbSet
+            .FromSqlRaw(
+                """
+                SELECT * FROM credit_notes
+                WHERE shop_id = {0}
+                    AND NOT is_voided
+                    AND (expires_at IS NULL OR expires_at >= {1})
+                    AND available_balance >= {2}
+                ORDER BY created_at, COALESCE(expires_at, 'infinity'::timestamp with time zone)
+                FOR UPDATE
+                """,
+                shopId,
+                now,
+                requestedAmount)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(cancellationToken);
     }
 
     public async Task<bool> TryApplyRedemptionAsync(
@@ -59,13 +81,13 @@ internal sealed class CreditNoteRepository(ApplicationDbContext context)
         CancellationToken cancellationToken = default)
     {
         var note = await DbSet
-            .FirstOrDefaultAsync(c =>
+            .Where(c =>
                 c.ShopId == shopId &&
                 c.Id == creditNoteId &&
                 !c.IsVoided &&
                 (c.ExpiresAt == null || c.ExpiresAt >= redeemedAt) &&
-                c.AvailableBalance >= amount,
-                cancellationToken);
+                c.AvailableBalance >= amount)
+            .FirstOrDefaultAsync(cancellationToken);
 
         if (note is null)
             return false;
