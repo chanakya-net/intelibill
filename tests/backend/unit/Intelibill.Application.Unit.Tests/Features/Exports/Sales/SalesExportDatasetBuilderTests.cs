@@ -12,10 +12,17 @@ public class SalesExportDatasetBuilderTests
 {
     private readonly ISaleRepository _saleRepository = Substitute.For<ISaleRepository>();
     private readonly ISaleReturnRepository _saleReturnRepository = Substitute.For<ISaleReturnRepository>();
+    private readonly ICreditNoteRepository _creditNoteRepository = Substitute.For<ICreditNoteRepository>();
     private readonly IItemRepository _itemRepository = Substitute.For<IItemRepository>();
 
+    public SalesExportDatasetBuilderTests()
+    {
+        _creditNoteRepository.GetByReturnIdsAsync(Arg.Any<Guid>(), Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(new List<CreditNote>());
+    }
+
     private SalesExportDatasetBuilder CreateBuilder() =>
-        new(_saleRepository, _saleReturnRepository, _itemRepository);
+        new(_saleRepository, _saleReturnRepository, _creditNoteRepository, _itemRepository);
 
     private static Shop MakeShop() =>
         Shop.Create("Test Shop", "123 Main St", "City", "State", "560001", null, null, null);
@@ -95,6 +102,123 @@ public class SalesExportDatasetBuilderTests
         Assert.Equal(startDate, result.Metadata.StartDate);
         Assert.Equal(endDate, result.Metadata.EndDate);
         Assert.Equal(SalesExportLevel.Summary, result.Metadata.ExportLevel);
+    }
+
+    [Fact]
+    public async Task BuildAsync_ShouldIncludeCreditNoteAppliedAndIssuedCreditNotes()
+    {
+        // Arrange
+        var shop = MakeShop();
+        var user = MakeUser();
+        var startDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-1));
+        var endDate = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        var item = MakeItem(shop.Id);
+        _itemRepository.GetByIdsAsync(shop.Id, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(new List<Item> { item });
+
+        var saleItem = SaleItem.CreateGoods(
+            shop.Id,
+            item.Id,
+            Guid.NewGuid(),
+            lineName: item.Name,
+            lineCode: item.Barcode,
+            2,
+            100,
+            150,
+            200,
+            18,
+            true,
+            false,
+            taxableAmount: 254.24m,
+            taxAmount: 45.76m,
+            totalAmount: 300m);
+
+        var sale = Sale.Create(
+            shop.Id,
+            actorUserId: user.Id,
+            idempotencyKey: "idem-key",
+            requestHash: "hash",
+            invoiceNumber: "INV-001",
+            customerId: null,
+            customerName: "Customer",
+            customerPhone: null,
+            paymentMethod: PaymentMethod.Cash,
+            soldAt: DateTimeOffset.UtcNow,
+            paidAmount: 300,
+            dueAmount: 0,
+            totalAmount: 300,
+            totalTaxAmount: 45.76m,
+            items: new List<SaleItem> { saleItem },
+            creditNoteAppliedAmount: 50m);
+
+        var returnLine = new SaleReturnLineInput(
+            shop.Id,
+            saleItem.Id,
+            1,
+            SaleReturnCondition.Restockable,
+            100,
+            150,
+            18,
+            true,
+            150,
+            150,
+            127.12m,
+            22.88m,
+            null);
+
+        var saleReturn = SaleReturn.Record(
+            shop.Id,
+            sale.Id,
+            "RET-001",
+            DateTimeOffset.UtcNow,
+            user.Id,
+            null,
+            150,
+            0,
+            150,
+            ReturnPayoutDestination.CreditNote,
+            127.12m,
+            22.88m,
+            null,
+            null,
+            new List<SaleReturnLineInput> { returnLine }).Value;
+
+        var creditNote = CreditNote.Issue(
+            shop.Id,
+            saleReturn.Id,
+            150m,
+            "Return credit",
+            "CN-001",
+            null).Value;
+
+        _saleRepository.GetByShopAndDateRangeAsync(shop.Id, startDate, endDate, Arg.Any<CancellationToken>())
+            .Returns(new List<Sale> { sale });
+
+        _saleReturnRepository.GetBySaleAsync(shop.Id, sale.Id, Arg.Any<CancellationToken>())
+            .Returns(new List<SaleReturn> { saleReturn });
+
+        _creditNoteRepository.GetByReturnIdsAsync(shop.Id, Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(new List<CreditNote> { creditNote });
+
+        var builder = CreateBuilder();
+
+        // Act
+        var result = await builder.BuildAsync(shop, user, startDate, endDate, SalesExportLevel.Summary, CancellationToken.None);
+
+        // Assert
+        Assert.Single(result.SummaryRows);
+        var row = result.SummaryRows[0];
+        Assert.Equal(50m, row.CreditNoteAppliedAmount);
+        Assert.Equal("CN-001", row.IssuedCreditNoteCodes);
+        Assert.Equal(150m, row.IssuedCreditNoteAmount);
+
+        var returnRow = Assert.Single(result.ReturnRows);
+        Assert.Equal("CN-001", returnRow.CreditNoteCode);
+        Assert.Equal(150m, returnRow.CreditNoteAmount);
+        Assert.Equal(150m, returnRow.CreditNoteRemainingBalance);
+        Assert.Equal(300m, row.PaidAmount);
+        Assert.Equal("Customer", row.CustomerName);
     }
 
     [Fact]

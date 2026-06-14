@@ -81,6 +81,75 @@ public sealed class SalesExcelExportRendererTests
     }
 
     [Fact]
+    public async Task RenderAsync_WithCreditNoteFields_ContainsCreditNoteColumns()
+    {
+        var metadata = new SalesExportMetadataDto(
+            "Green Mart",
+            "12 Market Lane, Mumbai",
+            "27ABCDE1234F1Z5",
+            "Ravi Kumar",
+            DateTimeOffset.UtcNow,
+            new DateOnly(2026, 5, 1),
+            new DateOnly(2026, 5, 31),
+            "summary");
+
+        var summaryRows = new List<SalesExportSummaryRowDto>
+        {
+            new(
+                "INV-001",
+                new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero),
+                "Alice",
+                "Cash",
+                1200m,
+                40m,
+                900m,
+                0m,
+                120m,
+                21.6m,
+                1061.6m,
+                null,
+                0m,
+                0m,
+                0m,
+                1061.6m,
+                false,
+                2,
+                200m,
+                "CN-001",
+                200m)
+        };
+
+        var dataset = new SalesExportDatasetDto(metadata, summaryRows, [], [], []);
+        var renderer = new SalesExcelExportRenderer();
+
+        var result = await renderer.RenderAsync(dataset, CancellationToken.None);
+
+        Assert.Equal("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", result.ContentType);
+        Assert.NotEmpty(result.Content);
+
+        using var stream = new MemoryStream(result.Content);
+        using var workbook = new XLWorkbook(stream);
+
+        var sheet = workbook.Worksheet("Sales Summary");
+        Assert.NotNull(sheet);
+
+        var headerRow = FindRow(sheet, "Invoice #");
+        var totalsRow = FindRow(sheet, "TOTALS");
+        var dataRow = headerRow + 1;
+
+        var creditNoteAppliedColumn = FindColumn(sheet, headerRow, "Credit Note Applied");
+        var issuedCreditNoteColumn = FindColumn(sheet, headerRow, "Credit Note Issued");
+        var issuedAmountColumn = FindColumn(sheet, headerRow, "Credit Note Issued Amount");
+
+        Assert.Equal(200m, sheet.Cell(dataRow, creditNoteAppliedColumn).GetValue<decimal>());
+        Assert.Equal("CN-001", sheet.Cell(dataRow, issuedCreditNoteColumn).GetString());
+        Assert.Equal(200m, sheet.Cell(dataRow, issuedAmountColumn).GetValue<decimal>());
+
+        Assert.True(sheet.Cell(totalsRow, creditNoteAppliedColumn).HasFormula);
+        Assert.True(sheet.Cell(totalsRow, issuedAmountColumn).HasFormula);
+    }
+
+    [Fact]
     public async Task RenderAsync_WithLineItemData_CreatesLineItemsWorkbook()
     {
         var metadata = new SalesExportMetadataDto(

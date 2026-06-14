@@ -91,6 +91,8 @@ internal sealed class SalesPdfDocument : IDocument
         var netSales = summaryRows.Sum(r => r.NetSalesAmount);
         var paidAmount = summaryRows.Sum(r => r.PaidAmount);
         var dueAmount = summaryRows.Sum(r => r.DueAmount);
+        var creditNoteAppliedAmount = summaryRows.Sum(r => r.CreditNoteAppliedAmount);
+        var creditNoteIssuedAmount = summaryRows.Sum(r => r.IssuedCreditNoteAmount);
 
         container.Column(column =>
         {
@@ -134,6 +136,12 @@ internal sealed class SalesPdfDocument : IDocument
                 ValueCell(netSales.ToString("N2", culture));
                 LabelCell("Paid amount");
                 ValueCell(paidAmount.ToString("N2", culture));
+
+                LabelCell("Credit note applied");
+                ValueCell(creditNoteAppliedAmount.ToString("N2", culture));
+
+                LabelCell("Credit notes issued");
+                ValueCell(creditNoteIssuedAmount.ToString("N2", culture));
 
                 LabelCell("Due amount");
                 ValueCell(dueAmount.ToString("N2", culture));
