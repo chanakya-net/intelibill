@@ -224,9 +224,9 @@
   @if (selectedCreditNote()) {
     <section class="detail-panel">
       <header class="detail-header">
-        <div>
+      <div>
           <p class="eyebrow">{{ 'sales.creditNotes.detail.eyebrow' | transloco }}</p>
-          <h2>{{ selectedSummary()?.code || selectedCreditNote()?.code }}</h2>
+          <h2>{{ selectedCreditNote()!.code }}</h2>
           <p class="subtitle">{{ 'sales.creditNotes.detail.subtitle' | transloco }}</p>
         </div>
         <p-tag
@@ -242,17 +242,17 @@
         </article>
         <article class="metric-card">
           <p>{{ 'sales.creditNotes.detail.originalAmount' | transloco }}</p>
-          <strong>{{ formatCurrency(selectedCreditNote()!.originalAmount ?? selectedSummary()?.originalAmount ?? 0) }}</strong>
+          <strong>{{ formatCurrency(selectedCreditNote()!.originalAmount ?? 0) }}</strong>
         </article>
         <article class="metric-card">
           <p>{{ 'sales.creditNotes.detail.expiresAt' | transloco }}</p>
-          <strong>{{ formatDateTime(selectedCreditNote()!.expiresAt || selectedSummary()?.expiresAt || null) }}</strong>
+          <strong>{{ formatDateTime(selectedCreditNote()!.expiresAt) }}</strong>
         </article>
         <article class="metric-card">
           <p>{{ 'sales.creditNotes.detail.customer' | transloco }}</p>
           <strong>
-            @if (selectedSummary()?.customerName) {
-              {{ selectedSummary()!.customerName }}
+            @if (selectedCreditNote()!.customerName) {
+              {{ selectedCreditNote()!.customerName }}
             } @else {
               {{ 'sales.history.walkIn' | transloco }}
             }
@@ -260,11 +260,11 @@
         </article>
         <article class="metric-card">
           <p>{{ 'sales.creditNotes.detail.invoice' | transloco }}</p>
-          <strong>{{ selectedSummary()?.invoiceNumber || '--' }}</strong>
+          <strong>{{ selectedCreditNote()!.invoiceNumber || '--' }}</strong>
         </article>
         <article class="metric-card">
           <p>{{ 'sales.creditNotes.detail.returnNumber' | transloco }}</p>
-          <strong>{{ selectedSummary()?.returnNumber || '--' }}</strong>
+          <strong>{{ selectedCreditNote()!.returnNumber || '--' }}</strong>
         </article>
       </div>
 

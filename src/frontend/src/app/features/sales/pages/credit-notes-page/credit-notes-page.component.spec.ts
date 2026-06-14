@@ -44,6 +44,9 @@ describe('CreditNotesPageComponent', () => {
     isVoided: false,
     saleReturnId: 'return-1',
     reason: 'Return adjustment',
+    invoiceNumber: 'INV-001',
+    returnNumber: 'RET-001',
+    customerName: 'Asha',
     voidReason: null,
   };
 
@@ -57,6 +60,9 @@ describe('CreditNotesPageComponent', () => {
     isVoided: false,
     saleReturnId: 'return-2',
     reason: 'Adjustment',
+    invoiceNumber: 'INV-009',
+    returnNumber: 'RET-009',
+    customerName: 'Ravi',
     voidReason: null,
   };
 
@@ -252,11 +258,7 @@ describe('CreditNotesPageComponent', () => {
     fixture.detectChanges();
 
     expect(saleService.verifyCreditNote).toHaveBeenCalledWith('CN-001');
-    expect(saleService.getCreditNotes).toHaveBeenCalledWith({
-      search: 'CN-001',
-      page: 1,
-      pageSize: 20,
-    });
+    expect(saleService.getCreditNotes).not.toHaveBeenCalled();
 
     const text = fixture.nativeElement.textContent as string;
     expect(text).toContain('Balance');
@@ -284,7 +286,7 @@ describe('CreditNotesPageComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Asha');
   });
 
-  it('does not hydrate unrelated summary fields when verify search only finds fuzzy matches', async () => {
+  it('renders required fields from exact verify response when search index is incomplete', async () => {
     const fixture = TestBed.createComponent(CreditNotesPageComponent);
     const component = fixture.componentInstance;
     fixture.detectChanges();
@@ -300,11 +302,7 @@ describe('CreditNotesPageComponent', () => {
     fixture.detectChanges();
 
     expect(saleService.verifyCreditNote).toHaveBeenCalledWith('CN-999');
-    expect(saleService.getCreditNotes).toHaveBeenCalledWith({
-      search: 'CN-999',
-      page: 1,
-      pageSize: 20,
-    });
+    expect(saleService.getCreditNotes).not.toHaveBeenCalled();
 
     const text = fixture.nativeElement.textContent as string;
     expect(text).toContain('CN-999');
@@ -312,8 +310,8 @@ describe('CreditNotesPageComponent', () => {
     expect(text).toContain('Balance');
     expect(text).toContain('Original amount');
     expect(text).toContain('₹750.00');
-    expect(text).not.toContain('Ravi');
-    expect(text).not.toContain('INV-009');
-    expect(text).not.toContain('RET-009');
+    expect(text).toContain('Ravi');
+    expect(text).toContain('INV-009');
+    expect(text).toContain('RET-009');
   });
 });

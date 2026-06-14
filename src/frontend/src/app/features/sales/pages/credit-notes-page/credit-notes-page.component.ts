@@ -56,7 +56,6 @@ export class CreditNotesPageComponent implements OnInit, OnDestroy {
   readonly debouncedSearchValue = signal('');
   readonly statusFilter = signal<CreditNoteListStatusFilter>('all');
   readonly verifyCode = signal('');
-  readonly selectedSummary = signal<CreditNoteListItemDto | null>(null);
   readonly selectedCreditNote = signal<CreditNoteDetailDto | null>(null);
   readonly loadingNotes = signal(false);
   readonly loadingDetail = signal(false);
@@ -164,7 +163,7 @@ export class CreditNotesPageComponent implements OnInit, OnDestroy {
   }
 
   async openCreditNoteFromList(note: CreditNoteListItemDto): Promise<void> {
-    await this.loadCreditNoteDetail(note.code, note);
+    await this.loadCreditNoteDetail(note.code);
   }
 
   totalPages(): number {
@@ -195,36 +194,19 @@ export class CreditNotesPageComponent implements OnInit, OnDestroy {
     }
   }
 
-  private async loadCreditNoteDetail(code: string, summary?: CreditNoteListItemDto): Promise<void> {
+  private async loadCreditNoteDetail(code: string): Promise<void> {
     this.loadingDetail.set(true);
     this.errorMessage.set('');
-
-    if (summary) {
-      this.selectedSummary.set(summary);
-    }
+    this.selectedCreditNote.set(null);
 
     try {
       const detail = await firstValueFrom(this.saleService.verifyCreditNote(code));
-      const noteSummary = summary ?? (await this.findSummaryByCode(code));
-      this.selectedSummary.set(noteSummary);
       this.selectedCreditNote.set(detail);
     } catch {
-      this.selectedSummary.set(summary ?? null);
       this.selectedCreditNote.set(null);
       this.errorMessage.set('sales.creditNotes.errors.verifyFailed');
     } finally {
       this.loadingDetail.set(false);
-    }
-  }
-
-  private async findSummaryByCode(code: string): Promise<CreditNoteListItemDto | null> {
-    try {
-      const response = await firstValueFrom(
-        this.saleService.getCreditNotes({ search: code, page: 1, pageSize: 20 }),
-      );
-      return response.items.find((item) => item.code.toLowerCase() === code.toLowerCase()) ?? null;
-    } catch {
-      return null;
     }
   }
 

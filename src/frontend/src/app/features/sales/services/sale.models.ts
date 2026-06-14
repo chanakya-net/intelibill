@@ -548,6 +548,9 @@ export interface CreditNoteVerifyResponseDto {
   readonly saleReturnId?: string;
   readonly reason?: string;
   readonly voidReason?: string | null;
+  readonly returnNumber?: string;
+  readonly invoiceNumber?: string;
+  readonly customerName?: string | null;
 }
 
 export type CreditNoteDetailDto = CreditNoteVerifyResponseDto;

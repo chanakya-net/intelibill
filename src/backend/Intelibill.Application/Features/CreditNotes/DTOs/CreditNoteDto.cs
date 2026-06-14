@@ -12,4 +12,7 @@ public sealed record CreditNoteDto(
     bool IsVoided,
     Guid SaleReturnId,
     string Reason,
-    string? VoidReason);
+    string? VoidReason,
+    string ReturnNumber,
+    string InvoiceNumber,
+    string? CustomerName);
