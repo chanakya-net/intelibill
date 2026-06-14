@@ -95,11 +95,11 @@ export abstract class NewSalePageCartSelectionService extends NewSalePageSearchC
   }
 
   onPaymentPaidAmountChanged(value: number | null): void {
-    this.paymentForm.controls.paidAmount.setValue(this.normalizeAmount(value, this.totalAmount()), { emitEvent: true });
+    this.paymentForm.controls.paidAmount.setValue(this.normalizeAmount(value, this.getPayableAmount()), { emitEvent: true });
   }
 
   onPaymentDueAmountChanged(value: number | null): void {
-    this.paymentForm.controls.dueAmount.setValue(this.normalizeAmount(value, this.totalAmount()), { emitEvent: true });
+    this.paymentForm.controls.dueAmount.setValue(this.normalizeAmount(value, this.getPayableAmount()), { emitEvent: true });
   }
 
   onPaymentSubmitRequested(): void {

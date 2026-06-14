@@ -46,6 +46,8 @@ export class SalePaymentSectionComponent {
   @Input() canUseCredit = true;
   @Input() showDueAmount = false;
   @Input() dueAmountDisabled = false;
+  @Input() appliedCreditNoteAmount = 0;
+  @Input() maxAppliedCreditNoteAmount = 0;
 
   // Credit note verification inputs
   @Input() creditNoteCode = '';
@@ -56,6 +58,8 @@ export class SalePaymentSectionComponent {
   @Output() methodChanged = new EventEmitter<PaymentMethod>();
   @Output() paidAmountChanged = new EventEmitter<number | null>();
   @Output() dueAmountChanged = new EventEmitter<number | null>();
+  @Output() creditNoteAppliedAmountChanged = new EventEmitter<number | null>();
+  @Output() creditNoteRemovalRequested = new EventEmitter<void>();
 
   // Credit note verification outputs
   @Output() creditNoteCodeChanged = new EventEmitter<string>();
@@ -79,5 +83,13 @@ export class SalePaymentSectionComponent {
 
   onCreditNoteVerifyClick(): void {
     this.creditNoteVerifyRequested.emit();
+  }
+
+  onCreditNoteAppliedAmountChange(value: number | null): void {
+    this.creditNoteAppliedAmountChanged.emit(value);
+  }
+
+  onCreditNoteRemoveClick(): void {
+    this.creditNoteRemovalRequested.emit();
   }
 }

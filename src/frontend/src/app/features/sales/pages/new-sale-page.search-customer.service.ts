@@ -3,11 +3,23 @@ import { effect, runInInjectionContext } from '@angular/core';
 import { AutoCompleteCompleteEvent } from 'primeng/autocomplete';
 import { BarcodeDetection } from '../../../core/services/barcode-detector.service';
 import { AvailableBatchDto } from '../../inventory/services/inventory.models';
-import { SellableDto } from '../services/sale.models';
+import { CreditNoteRedemptionRequest, SellableDto } from '../services/sale.models';
 import { CustomerDto } from '../components/new-sale/sale-customer-section.component';
 import type { Subscription } from 'rxjs';
 
 export abstract class NewSalePageSearchCustomerService extends NewSalePageLifecycleService {
+  protected getPayableAmount(total = this.totalAmount()): number {
+    return this.roundAmount(Math.max(0, total));
+  }
+
+  protected getCreditNoteAppliedAmount(): number {
+    return 0;
+  }
+
+  protected getCreditNoteRedemptions(): readonly CreditNoteRedemptionRequest[] {
+    return [];
+  }
+
   private searchSuggestionsRequestSeq = 0;
   private searchSuggestionsSubscription: Subscription | null = null;
   private routeCustomerPreselectionApplied = false;
