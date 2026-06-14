@@ -523,6 +523,69 @@ public class RecordSaleCommandHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_WhenCreditNoteNotRedeemable_AndSaleAlreadyCreatedWithSameIdempotency_ReturnsSameSale()
+    {
+        var shopId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var idempotencyKey = $"sale-{Guid.NewGuid():N}";
+        var item = MakeItem(shopId, "BC-001");
+        var batch = MakeBatch(shopId, item.Id, "B-01");
+        var inventory = MakeInventory(shopId, item.Id);
+        var command = MakeCommand(shopId, actorId, inventoryBatchId: batch.Id, quantity: 1m, idempotencyKey: idempotencyKey) with
+        {
+            CreditNoteAppliedAmount = 100m,
+            DueAmount = 0m,
+            PaidAmount = 18m,
+        };
+
+        var line = new ValidatedSaleLine(command.Items[0], item, batch, inventory, false);
+        var itemNameById = new Dictionary<Guid, string> { { item.Id, item.Name } };
+        _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>())
+            .Returns(new SaleLineValidationResult(new List<ValidatedSaleLine> { line }, itemNameById));
+
+        var concurrentSale = Sale.Record(
+            shopId,
+            actorId,
+            idempotencyKey,
+            RecordSaleIdempotencyHasher.ComputeHash(command),
+            "INV-TEST-06",
+            [new SaleLineInput(
+                shopId,
+                SaleLineType.Goods,
+                item.Id,
+                batch.Id,
+                ServiceId: null,
+                LineName: item.Name,
+                LineCode: item.Barcode,
+                command.Items[0].Quantity,
+                batch.CostPrice,
+                batch.SalesPrice,
+                batch.Mrp,
+                batch.TaxRatePercent,
+                batch.TaxIncluded,
+                HasPriceMismatch: false)],
+            command.CustomerId,
+            command.CustomerName,
+            command.CustomerPhone,
+            command.PaymentMethod,
+            command.PaidAmount,
+            command.DueAmount,
+            DateTimeOffset.UtcNow,
+            creditNoteAppliedAmount: command.CreditNoteAppliedAmount).Value;
+
+        _saleRepository.GetByIdempotencyKeyAsync(shopId, actorId, idempotencyKey, Arg.Any<CancellationToken>())
+            .Returns((Sale?)null, concurrentSale);
+        _creditNoteRepository.GetForRedemptionForUpdateAsync(shopId, 100m, Arg.Any<CancellationToken>())
+            .Returns((CreditNote?)null);
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(concurrentSale.Id, result.Value.SaleId);
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task HandleAsync_WhenCreditNoteRedemptionFailsAfterReservation_ReturnsInsufficientBalance()
     {
         var shopId = Guid.NewGuid();

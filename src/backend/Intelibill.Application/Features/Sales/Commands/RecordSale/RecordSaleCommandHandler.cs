@@ -206,7 +206,19 @@ public sealed class RecordSaleCommandHandler
                     command.CreditNoteAppliedAmount,
                     cancellationToken);
                 if (noteOrError.IsError)
+                {
+                    var replayResult = await TryGetReplayForIdempotentSaleAsync(
+                        command.ShopId,
+                        command.ActorUserId,
+                        normalizedIdempotencyKey,
+                        requestHash,
+                        cancellationToken);
+
+                    if (replayResult.HasValue)
+                        return replayResult.Value;
+
                     return noteOrError.Errors;
+                }
 
                 creditNote = noteOrError.Value;
             }
@@ -264,6 +276,23 @@ public sealed class RecordSaleCommandHandler
                 await unitOfWork.RollbackTransactionAsync(cancellationToken);
             }
         }
+    }
+
+    private async Task<ErrorOr<SaleDto>?> TryGetReplayForIdempotentSaleAsync(
+        Guid shopId,
+        Guid actorUserId,
+        string idempotencyKey,
+        string requestHash,
+        CancellationToken cancellationToken)
+    {
+        var concurrentSale = await saleRepository.GetByIdempotencyKeyAsync(shopId, actorUserId, idempotencyKey, cancellationToken);
+        if (concurrentSale is null)
+            return null;
+
+        if (!string.Equals(concurrentSale.RequestHash, requestHash, StringComparison.Ordinal))
+            return Errors.Sale.IdempotencyConflict;
+
+        return await saleDtoBuilder.BuildSaleDtoAsync(concurrentSale, concurrentSale.Warnings, cancellationToken);
     }
 
     private async Task<ErrorOr<CreditNote>> GetRedeemableCreditNoteAsync(

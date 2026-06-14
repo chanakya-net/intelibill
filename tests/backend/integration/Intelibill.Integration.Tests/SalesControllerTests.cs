@@ -3310,6 +3310,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         var returnEntry = returnBody.GetProperty("returns").EnumerateArray().Single();
         var creditNoteCode = returnEntry.GetProperty("creditNote").GetProperty("code").GetString();
         Assert.NotNull(creditNoteCode);
+        var customerPhone = $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}";
 
         async Task<HttpResponseMessage> sendConcurrentSale()
         {
@@ -3320,7 +3321,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
                 idempotencyKey,
                 customerId = (Guid?)null,
                 customerName = "Concurrent credit customer",
-                customerPhone = $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}",
+                customerPhone,
                 paymentMethod = (int)PaymentMethod.Cash,
                 paidAmount = 18m,
                 dueAmount = 0m,
@@ -3354,14 +3355,15 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
 
         var statusCodes = responses.Select(response => response.StatusCode).ToList();
         Assert.DoesNotContain(HttpStatusCode.InternalServerError, statusCodes);
-        Assert.Contains(HttpStatusCode.Created, statusCodes);
-        Assert.Contains(HttpStatusCode.Conflict, statusCodes);
-        var failedResponse = responses.First(response => response.StatusCode == HttpStatusCode.Conflict);
-        var failedErrors = await failedResponse.Content.ReadFromJsonAsync<JsonElement>();
-        var failedCodes = failedErrors.GetProperty("errors").EnumerateArray()
-            .Select(error => error.GetProperty("code").GetString())
-            .ToList();
-        Assert.Contains(failedCodes, code => code is "CreditNote.RedeemConflict" or "CreditNote.InsufficientBalance");
+        Assert.All(statusCodes, code => Assert.Equal(HttpStatusCode.Created, code));
+
+        var saleIds = await Task.WhenAll(responses.Select(async response =>
+        {
+            var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+            return body.GetProperty("saleId").GetGuid();
+        }));
+
+        Assert.Single(saleIds.Distinct());
 
         using var verificationScope = _factory.Services.CreateAsyncScope();
         var verificationDb = verificationScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
