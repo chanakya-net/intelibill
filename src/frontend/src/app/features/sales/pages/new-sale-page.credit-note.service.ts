@@ -1,4 +1,4 @@
-import { signal } from '@angular/core';
+import { computed, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
 import { CreditNoteVerifyResponseDto } from '../services/sale.models';
@@ -9,6 +9,14 @@ export abstract class NewSalePageCreditNoteService extends NewSalePageOfflineFlo
   readonly isCreditNoteVerifying = signal(false);
   readonly verifiedCreditNote = signal<CreditNoteVerifyResponseDto | null>(null);
   readonly creditNoteError = signal('');
+  override readonly canApplyCreditNote = computed(() => {
+    const verified = this.verifiedCreditNote();
+    if (!verified) {
+      return false;
+    }
+
+    return !this.hasAppliedCreditNoteCode(verified.code) && this.remainingPayableAmount() > 0;
+  });
 
   onCreditNoteCodeChange(code: string): void {
     this.creditNoteCode.set(code ?? '');

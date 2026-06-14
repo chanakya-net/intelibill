@@ -93,7 +93,8 @@
             [label]="'sales.newSale.creditNote.applyBtn' | transloco"
             severity="success"
             size="small"
-            [disabled]="verifiedCreditNote ? appliedCreditNotes.some((note) => note.code === verifiedCreditNote?.code) : true"
+            [disabled]="!canApplyCreditNote"
+            [attr.aria-disabled]="!canApplyCreditNote"
             (click)="onCreditNoteApplyClick()"
           />
         </div>

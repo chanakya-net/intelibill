@@ -269,6 +269,7 @@ export abstract class NewSalePageStateService {
 
   readonly totalDiscountAmount = computed(() => this.checkoutPreview()?.totalDiscountAmount ?? 0);
   readonly appliedCreditNotes = signal<AppliedCreditNote[]>([]);
+  readonly canApplyCreditNote = computed(() => this.remainingPayableAmount() > 0);
   readonly totalAppliedCreditNoteAmount = computed(() =>
     this.appliedCreditNotes().reduce((sum, note) => sum + note.amount, 0)
   );

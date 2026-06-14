@@ -52,6 +52,7 @@ export class SalePaymentSectionComponent {
   @Input() isCreditNoteVerifying = false;
   @Input() verifiedCreditNote: CreditNoteVerifyResponseDto | null = null;
   @Input() creditNoteError = '';
+  @Input() canApplyCreditNote = false;
   @Input() appliedCreditNotes: readonly AppliedCreditNote[] = [];
   @Input() appliedCreditNotesTotal = 0;
 
