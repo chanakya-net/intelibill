@@ -1170,4 +1170,81 @@ public sealed class SalesTallyXmlExportRendererTests
         Assert.Equal("100.00", creditNoteSalesLine.Element("AMOUNT")?.Value);
     }
 
+    [Fact]
+    public async Task RenderAsync_WithCreditNoteApplied_AddsSeparateCreditNoteVoucherLine()
+    {
+        var metadata = new SalesExportMetadataDto(
+            "Green Mart",
+            "12 Market Lane, Mumbai",
+            "27ABCDE1234F1Z5",
+            "Ravi Kumar",
+            DateTimeOffset.UtcNow,
+            new DateOnly(2026, 5, 1),
+            new DateOnly(2026, 5, 31),
+            "summary");
+
+        const decimal paidAmount = 250m;
+        const decimal creditNoteAppliedAmount = 50m;
+        const decimal dueAmount = 0m;
+        const decimal taxableAmount = 250m;
+        const decimal taxAmount = 50m;
+        const decimal totalAmount = 300m;
+
+        var summaryRows = new List<SalesExportSummaryRowDto>
+        {
+            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Cash", paidAmount, dueAmount, totalAmount, 0m, taxableAmount, taxAmount, totalAmount, null, 0m, 0m, 0m, totalAmount, false, 1, creditNoteAppliedAmount, null, 0m)
+        };
+
+        var lineItems = new List<SalesExportLineItemRowDto>
+        {
+            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Product", 10m, 50m, 0m, 0m, 18m, taxableAmount, taxAmount, totalAmount, false, 0m, null, null)
+        };
+
+        var taxBreakup = new List<SalesExportTaxBreakupDto>
+        {
+            new(18m, taxableAmount, taxAmount, 0m, 0m)
+        };
+
+        var dataset = new SalesExportDatasetDto(metadata, summaryRows, lineItems, taxBreakup, []);
+        var renderer = new SalesTallyXmlExportRenderer();
+
+        var result = await renderer.RenderAsync(dataset, CancellationToken.None);
+        var root = XDocument.Parse(System.Text.Encoding.UTF8.GetString(result.Content)).Root;
+        Assert.NotNull(root);
+
+        var salesVoucher = root!.Descendants("VOUCHER").Single(v => v.Element("VOUCHERTYPE")?.Value == "Sales");
+
+        var debitLines = salesVoucher
+            .Elements("VOUCHERLINE")
+            .Where(line => string.Equals(line.Element("ISDEBIT")?.Value, "Yes", StringComparison.Ordinal))
+            .Select(line => new
+            {
+                Ledger = line.Element("LEDGER")?.Value ?? string.Empty,
+                Amount = decimal.Parse(line.Element("AMOUNT")?.Value ?? "0", System.Globalization.CultureInfo.InvariantCulture)
+            })
+            .ToList();
+
+        var creditLines = salesVoucher
+            .Elements("VOUCHERLINE")
+            .Where(line => string.Equals(line.Element("ISDEBIT")?.Value, "No", StringComparison.Ordinal))
+            .Select(line => new
+            {
+                Ledger = line.Element("LEDGER")?.Value ?? string.Empty,
+                Amount = decimal.Parse(line.Element("AMOUNT")?.Value ?? "0", System.Globalization.CultureInfo.InvariantCulture)
+            })
+            .ToList();
+
+        var paymentLine = Assert.Single(debitLines, line => line.Ledger == "Cash");
+        var creditNoteLine = Assert.Single(debitLines, line => line.Ledger == "Credit Note");
+        var salesLine = Assert.Single(creditLines, line => line.Ledger == "Sales");
+        var gstLine = Assert.Single(creditLines, line => line.Ledger == "Output GST 18%");
+
+        Assert.Equal(paidAmount, paymentLine.Amount);
+        Assert.Equal(creditNoteAppliedAmount, creditNoteLine.Amount);
+        Assert.Equal(taxableAmount, salesLine.Amount);
+        Assert.Equal(taxAmount, gstLine.Amount);
+
+        Assert.Equal(paidAmount + dueAmount + creditNoteAppliedAmount, debitLines.Sum(line => line.Amount));
+        Assert.Equal(taxableAmount + taxAmount, creditLines.Sum(line => line.Amount));
+    }
 }

@@ -145,7 +145,7 @@ public class SalesExportDatasetBuilderTests
             customerPhone: null,
             paymentMethod: PaymentMethod.Cash,
             soldAt: DateTimeOffset.UtcNow,
-            paidAmount: 300,
+            paidAmount: 250,
             dueAmount: 0,
             totalAmount: 300,
             totalTaxAmount: 45.76m,
@@ -212,12 +212,13 @@ public class SalesExportDatasetBuilderTests
         Assert.Equal(50m, row.CreditNoteAppliedAmount);
         Assert.Equal("CN-001", row.IssuedCreditNoteCodes);
         Assert.Equal(150m, row.IssuedCreditNoteAmount);
+        Assert.Equal(250m, row.PaidAmount);
+        Assert.Equal(0m, row.DueAmount);
 
         var returnRow = Assert.Single(result.ReturnRows);
         Assert.Equal("CN-001", returnRow.CreditNoteCode);
         Assert.Equal(150m, returnRow.CreditNoteAmount);
         Assert.Equal(150m, returnRow.CreditNoteRemainingBalance);
-        Assert.Equal(300m, row.PaidAmount);
         Assert.Equal("Customer", row.CustomerName);
     }
 
@@ -262,12 +263,12 @@ public class SalesExportDatasetBuilderTests
             customerPhone: null,
             paymentMethod: PaymentMethod.Cash,
             soldAt: DateTimeOffset.UtcNow,
-            paidAmount: 150,
+            paidAmount: 100,
             dueAmount: 0,
             totalAmount: 150,
             totalTaxAmount: 22.88m,
             items: new List<SaleItem> { saleItem },
-            creditNoteAppliedAmount: 25m);
+            creditNoteAppliedAmount: 50m);
 
         var returnLine = new SaleReturnLineInput(
             shop.Id,
@@ -334,9 +335,11 @@ public class SalesExportDatasetBuilderTests
         // Assert
         Assert.Single(result.SummaryRows);
         var row = result.SummaryRows[0];
-        Assert.Equal(25m, row.CreditNoteAppliedAmount);
+        Assert.Equal(50m, row.CreditNoteAppliedAmount);
         Assert.Equal("CN-001, CN-002", row.IssuedCreditNoteCodes);
         Assert.Equal(150m, row.IssuedCreditNoteAmount);
+        Assert.Equal(100m, row.PaidAmount);
+        Assert.Equal(0m, row.DueAmount);
 
         var returnRow = Assert.Single(result.ReturnRows);
         Assert.Equal("CN-001, CN-002", returnRow.CreditNoteCode);

@@ -55,6 +55,16 @@ internal static class TallyVoucherBuilder
             lineNumber++;
         }
 
+        if (summary.CreditNoteAppliedAmount > 0)
+        {
+            var creditNoteLine = new XElement("VOUCHERLINE", new XAttribute("LINENUMBER", lineNumber.ToString(CultureInfo.InvariantCulture)));
+            creditNoteLine.Add(new XElement("LEDGER", GetCreditNoteLedgerName()));
+            creditNoteLine.Add(new XElement("AMOUNT", summary.CreditNoteAppliedAmount.ToString("F2", CultureInfo.InvariantCulture)));
+            creditNoteLine.Add(new XElement("ISDEBIT", "Yes"));
+            voucher.Add(creditNoteLine);
+            lineNumber++;
+        }
+
         var taxEntries = BuildTaxEntries(summary, lineItems, taxBreakup, hasSingleInvoiceInDataset);
         foreach (var taxGroup in taxEntries.OrderBy(t => t.Rate))
         {
@@ -132,6 +142,8 @@ internal static class TallyVoucherBuilder
         var rate = taxRate == (int)taxRate ? ((int)taxRate).ToString(CultureInfo.InvariantCulture) : taxRate.ToString("F2", CultureInfo.InvariantCulture);
         return $"Output GST {rate}%";
     }
+
+    internal static string GetCreditNoteLedgerName() => "Credit Note";
 
     internal static XElement BuildCreditNoteVoucher(SalesExportReturnRowDto returnRow)
     {
