@@ -143,6 +143,21 @@ function setup() {
 }
 
 describe('NewSalePageCartSubmitService', () => {
+  it('does not include mismatch confirmation flag when mismatch warning is not raised', async () => {
+    const { service, recordSale } = setup();
+    service.paymentForm.controls.paymentMethod.setValue(4);
+    service.paymentForm.controls.paidAmount.setValue(100);
+    service.paymentForm.controls.dueAmount.setValue(0);
+    service.selectedCustomerId.set('cust-1');
+    service.customerForm.controls.customerName.setValue('Acme');
+
+    await service.onSubmit();
+
+    expect(recordSale).toHaveBeenCalledTimes(1);
+    const payload = recordSale.mock.calls[0]?.[0];
+    expect(payload.creditNoteCustomerMismatchConfirmed).toBeUndefined();
+  });
+
   it('includes the mismatch confirmation flag when submitting a confirmed credit-note sale', async () => {
     const { service, recordSale } = setup();
     service.paymentForm.controls.paymentMethod.setValue(4);
