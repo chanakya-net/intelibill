@@ -182,9 +182,14 @@ internal sealed class SalesPdfDocument : IDocument
             cols.ConstantColumn(52); // Paid
             cols.ConstantColumn(52); // Due
             cols.ConstantColumn(70); // Net
+            cols.ConstantColumn(74); // Credit Note Applied
+            cols.ConstantColumn(74); // Credit Note Issued
+            cols.ConstantColumn(80); // Credit Note Issued Amount
         });
 
-        ComposeTableHeader(table, ["Invoice", "Date", "Customer", "Paid", "Due", "Net"]);
+        ComposeTableHeader(
+            table,
+            ["Invoice", "Date", "Customer", "Paid", "Due", "Net", "CN Applied", "CN Issued", "CN Issued Amount"]);
 
         var rowIndex = 0;
         foreach (var row in _dataset.SummaryRows)
@@ -199,6 +204,11 @@ internal sealed class SalesPdfDocument : IDocument
             table.Cell().Element(c => TableCell(c, background).AlignRight()).Text(row.PaidAmount.ToString("N2", CultureInfo.InvariantCulture));
             table.Cell().Element(c => TableCell(c, background).AlignRight()).Text(row.DueAmount.ToString("N2", CultureInfo.InvariantCulture));
             table.Cell().Element(c => TableCell(c, background).AlignRight()).Text(row.NetSalesAmount.ToString("N2", CultureInfo.InvariantCulture));
+            table.Cell().Element(c => TableCell(c, background).AlignRight())
+                .Text(row.CreditNoteAppliedAmount.ToString("N2", CultureInfo.InvariantCulture));
+            table.Cell().Element(c => TableCell(c, background)).Text(row.IssuedCreditNoteCodes ?? string.Empty);
+            table.Cell().Element(c => TableCell(c, background).AlignRight())
+                .Text(row.IssuedCreditNoteAmount.ToString("N2", CultureInfo.InvariantCulture));
         }
     }
 

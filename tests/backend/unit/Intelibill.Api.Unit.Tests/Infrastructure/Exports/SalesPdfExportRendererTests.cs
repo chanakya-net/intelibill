@@ -1,6 +1,7 @@
 using Intelibill.Application.Features.Exports.Sales;
 using Intelibill.Application.Features.Exports.Sales.DTOs;
 using Intelibill.Infrastructure.Services.Exports;
+
 namespace Intelibill.Api.Unit.Tests.Infrastructure.Exports;
 
 public sealed class SalesPdfExportRendererTests
@@ -69,13 +70,12 @@ public sealed class SalesPdfExportRendererTests
     [Fact]
     public async Task RenderAsync_WithCreditNoteFields_IncludesCreditNoteMetricsInSummary()
     {
-        var fixedGeneratedAt = new DateTimeOffset(2026, 5, 20, 10, 0, 0, TimeSpan.Zero);
         var metadata = new SalesExportMetadataDto(
             "Green Mart",
             "12 Market Lane, Mumbai",
             "27ABCDE1234F1Z5",
             "Ravi Kumar",
-            fixedGeneratedAt,
+            new DateTimeOffset(2026, 5, 20, 10, 0, 0, TimeSpan.Zero),
             new DateOnly(2026, 5, 1),
             new DateOnly(2026, 5, 31),
             SalesExportLevel.Summary);
@@ -101,6 +101,10 @@ public sealed class SalesPdfExportRendererTests
         Assert.NotEmpty(creditResult.Content);
         Assert.Equal("application/pdf", baselineResult.ContentType);
         Assert.NotEmpty(baselineResult.Content);
+        Assert.NotEqual(baselineResult.Content.Length, creditResult.Content.Length);
+
+        // Credit-note summary values only appear in report content bytes when added
+        // to invoice rows, so the output should differ from a baseline dataset.
         Assert.NotEqual(baselineResult.Content.Length, creditResult.Content.Length);
     }
 }

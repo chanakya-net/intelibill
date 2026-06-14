@@ -63,7 +63,11 @@ public sealed class SalesExportDatasetBuilder : ISalesExportDatasetBuilder
                 : await _creditNoteRepository.GetByReturnIdsAsync(shop.Id, returnIds, cancellationToken);
             var creditNotesByReturnIdLookup = creditNotesByReturnId
                 .GroupBy(note => note.SaleReturnId)
-                .ToDictionary(group => group.Key, group => group.First());
+                .ToDictionary(
+                    group => group.Key,
+                    group => (IReadOnlyList<CreditNote>)group
+                        .OrderBy(note => note.Code)
+                        .ToList());
 
             var returnNumbers = string.Join(", ", returns.Select(r => r.ReturnNumber));
             var totalReturnAmount = returns.Sum(r => r.TotalRefundAmount);
@@ -72,10 +76,7 @@ public sealed class SalesExportDatasetBuilder : ISalesExportDatasetBuilder
 
             var issuedCreditNotes = allReturns
                 .SelectMany(returnRecord =>
-                    creditNotesByReturnIdLookup
-                        .TryGetValue(returnRecord.Id, out var creditNote)
-                            ? new[] { creditNote }
-                            : Array.Empty<CreditNote>())
+                    GetCreditNotesForReturn(creditNotesByReturnIdLookup, returnRecord.Id))
                 .ToList();
             var issuedCreditNoteCodes = issuedCreditNotes.Count == 0
                 ? null
@@ -126,9 +127,9 @@ public sealed class SalesExportDatasetBuilder : ISalesExportDatasetBuilder
                     returnRecord.TotalTaxAmount,
                     returnTaxBreakup,
                     returnRecord.IsVoided,
-                    creditNotesByReturnIdLookup.GetValueOrDefault(returnRecord.Id)?.Code,
-                    creditNotesByReturnIdLookup.GetValueOrDefault(returnRecord.Id)?.OriginalAmount ?? 0m,
-                    creditNotesByReturnIdLookup.GetValueOrDefault(returnRecord.Id)?.AvailableBalance ?? 0m));
+                    GetCreditNoteCodes(creditNotesByReturnIdLookup, returnRecord.Id),
+                    GetCreditNoteAmount(creditNotesByReturnIdLookup, returnRecord.Id),
+                    GetCreditNoteRemainingBalance(creditNotesByReturnIdLookup, returnRecord.Id)));
             }
 
             foreach (var saleItem in sale.Items)
@@ -220,6 +221,39 @@ public sealed class SalesExportDatasetBuilder : ISalesExportDatasetBuilder
     {
         if (returnedQuantity <= 0) return "NotReturned";
         return returnedQuantity >= soldQuantity ? "FullyReturned" : "PartiallyReturned";
+    }
+
+    private static string? GetCreditNoteCodes(
+        Dictionary<Guid, IReadOnlyList<CreditNote>> creditNotesByReturnIdLookup,
+        Guid returnId)
+    {
+        var noteCodes = GetCreditNotesForReturn(creditNotesByReturnIdLookup, returnId)
+            .Select(note => note.Code)
+            .Where(code => !string.IsNullOrWhiteSpace(code))
+            .ToList();
+
+        return noteCodes.Count == 0
+            ? null
+            : string.Join(", ", noteCodes);
+    }
+
+    private static decimal GetCreditNoteAmount(
+        Dictionary<Guid, IReadOnlyList<CreditNote>> creditNotesByReturnIdLookup,
+        Guid returnId) =>
+        GetCreditNotesForReturn(creditNotesByReturnIdLookup, returnId)
+            .Sum(note => note.OriginalAmount);
+
+    private static decimal GetCreditNoteRemainingBalance(
+        Dictionary<Guid, IReadOnlyList<CreditNote>> creditNotesByReturnIdLookup,
+        Guid returnId) =>
+        GetCreditNotesForReturn(creditNotesByReturnIdLookup, returnId)
+            .Sum(note => note.AvailableBalance);
+
+    private static IReadOnlyList<CreditNote> GetCreditNotesForReturn(
+        Dictionary<Guid, IReadOnlyList<CreditNote>> creditNotesByReturnIdLookup,
+        Guid returnId)
+    {
+        return creditNotesByReturnIdLookup.GetValueOrDefault(returnId, Array.Empty<CreditNote>());
     }
 
     private class TaxBreakupAccumulator
