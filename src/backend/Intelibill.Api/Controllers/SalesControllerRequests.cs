@@ -3,7 +3,7 @@ using Intelibill.Domain.ValueObjects;
 
 namespace Intelibill.Api.Controllers;
 
-public sealed record RecordSaleRequest(
+public sealed partial record RecordSaleRequest(
     Guid? CustomerId,
     string? CustomerName,
     string? CustomerPhone,

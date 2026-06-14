@@ -287,6 +287,35 @@ public class GetSaleDetailQueryHandlerTests
     }
 
     [Fact]
+    public async Task Handle_WhenSaleHasCreditNoteRedemptions_ReturnsRedemptionSummaries()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var item = Item.Create(shop.Id, "Rice", "desc", "kg", "BC-001", true, Guid.NewGuid());
+        var saleItem = MakeSaleItem(shop.Id, item.Id);
+        var sale = MakeSale(shop.Id, saleItem);
+        IReadOnlyList<CreditNoteRedemptionListRow> redemptions =
+            [
+                new CreditNoteRedemptionListRow(Guid.NewGuid(), "CN-001", 60m),
+                new CreditNoteRedemptionListRow(Guid.NewGuid(), "CN-002", 40m),
+            ];
+
+        ArrangeAuthorizedSale(user, shop, sale, item);
+        _saleReturnRepository.GetBySaleAsync(shop.Id, sale.Id, Arg.Any<CancellationToken>()).Returns([]);
+        _creditNoteRepository.GetRedemptionsBySaleIdAsync(shop.Id, sale.Id, Arg.Any<CancellationToken>()).Returns(redemptions);
+
+        var handler = CreateHandler();
+        var result = await handler.Handle(new GetSaleDetailQuery(user.Id, shop.Id, sale.Id), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(2, result.Value.CreditNoteRedemptions.Count);
+        Assert.Equal("CN-001", result.Value.CreditNoteRedemptions[0].Code);
+        Assert.Equal(60m, result.Value.CreditNoteRedemptions[0].AppliedAmount);
+        Assert.Equal("CN-002", result.Value.CreditNoteRedemptions[1].Code);
+        Assert.Equal(40m, result.Value.CreditNoteRedemptions[1].AppliedAmount);
+    }
+
+    [Fact]
     public async Task Handle_WhenSaleContainsServiceLine_ReturnsServiceLineInDto()
     {
         var user = MakeUser();

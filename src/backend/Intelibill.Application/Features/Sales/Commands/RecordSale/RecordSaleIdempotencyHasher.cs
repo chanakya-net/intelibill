@@ -80,9 +80,6 @@ internal sealed record RecordSaleIdempotencyPayload(
     IReadOnlyList<RecordSaleCreditNoteRedemptionIdempotencyPayload> CreditNoteRedemptions,
     IReadOnlyList<RecordSaleItemIdempotencyPayload> Items);
 
-internal sealed record RecordSaleCreditNoteRedemptionIdempotencyPayload(
-    string? Code,
-    decimal Amount);
 
 internal sealed record RecordSaleItemIdempotencyPayload(
     int LineType,
@@ -101,3 +98,7 @@ internal sealed record RecordSaleItemIdempotencyPayload(
     decimal ItemDiscountValue,
     string? ClientLineKey,
     string? HsnCode);
+
+internal sealed record RecordSaleCreditNoteRedemptionIdempotencyPayload(
+    string? Code,
+    decimal Amount);

@@ -1082,7 +1082,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
     }
 
     [Fact]
-    public async Task RecordSale_WithMismatchedCreditNoteSplit_ReturnsValidationError()
+    public async Task RecordSale_WithClientAppliedAmountMismatch_UsesCreditNoteRedemptionTotal()
     {
         using var client = CreateClient();
         var token = await RegisterAsync(client);
@@ -1171,7 +1171,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
             customerName = "Credit Note Customer",
             customerPhone = "+919876543210",
             paymentMethod = (int)PaymentMethod.Cash,
-            paidAmount = 68m,
+            paidAmount = 108m,
             dueAmount = 0m,
             creditNoteAppliedAmount = 50m,
             creditNoteRedemptions = new[]
@@ -1201,10 +1201,12 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         });
 
         var response = await client.SendAsync(creditSaleRequest);
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
 
-        var body = await response.Content.ReadAsStringAsync();
-        Assert.Contains(Errors.Sale.CreditNoteRedemptionsSplitMismatch.Description, body);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(10m, body.GetProperty("creditNoteAppliedAmount").GetDecimal());
+        var updatedCreditNote = await db.CreditNotes.AsNoTracking().SingleAsync(c => c.Id == creditNote.Id);
+        Assert.Equal(90m, updatedCreditNote.AvailableBalance);
     }
 
     [Fact]

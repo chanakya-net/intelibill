@@ -299,7 +299,7 @@ public class SalesControllerTests
     }
 
     [Fact]
-    public async Task RecordSale_WhenCreditNoteRedemptionProvided_PreservesClientAppliedAmount()
+    public async Task RecordSale_WhenCreditNoteRedemptionProvided_UsesRedemptionTotal()
     {
         var userId = Guid.NewGuid();
         var shopId = Guid.NewGuid();
@@ -325,7 +325,7 @@ public class SalesControllerTests
 
         await _bus.Received(1).InvokeAsync<ErrorOr<SaleDto>>(
             Arg.Is<RecordSaleCommand>(c =>
-                c.CreditNoteAppliedAmount == 50m
+                c.CreditNoteAppliedAmount == 10m
                 && c.CreditNoteRedemptions!.Count == 1
                 && c.CreditNoteRedemptions[0].Code == "CN-001"
                 && c.CreditNoteRedemptions[0].Amount == 10m),

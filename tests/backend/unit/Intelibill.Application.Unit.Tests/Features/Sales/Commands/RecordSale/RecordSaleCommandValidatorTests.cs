@@ -140,7 +140,7 @@ public class RecordSaleCommandValidatorTests
     }
 
     [Fact]
-    public void Validate_WhenMultipleCreditNoteRedemptions_ReturnsError()
+    public void Validate_WhenMultipleCreditNoteRedemptionsMatchAppliedAmount_Succeeds()
     {
         var command = ValidCommand() with
         {
@@ -154,7 +154,7 @@ public class RecordSaleCommandValidatorTests
 
         var result = _validator.TestValidate(command);
 
-        result.ShouldHaveValidationErrorFor(x => x.CreditNoteRedemptions);
+        result.ShouldNotHaveAnyValidationErrors();
     }
 
     [Fact]
@@ -220,6 +220,23 @@ public class RecordSaleCommandValidatorTests
         var result = _validator.TestValidate(command);
 
         Assert.Contains(result.Errors, e => e.ErrorCode == "Sale.CreditRequiresDueAmount");
+    }
+
+    [Fact]
+    public void Validate_WhenCreditNoteCodesDuplicate_ReturnsError()
+    {
+        var command = ValidCommand() with
+        {
+            CreditNoteRedemptions =
+            [
+                new RecordSaleCreditNoteRedemptionCommand("CN-001", 60m),
+                new RecordSaleCreditNoteRedemptionCommand("CN-001", 40m),
+            ],
+        };
+
+        var result = _validator.TestValidate(command);
+
+        Assert.Contains(result.Errors, e => e.ErrorCode == Errors.Sale.CreditNoteRedemptionDuplicateCode.Code);
     }
 
     [Fact]

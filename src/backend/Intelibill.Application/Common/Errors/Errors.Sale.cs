@@ -54,14 +54,20 @@ public static partial class Errors
         public static Error CreditNoteAppliedAmountInvalid =>
             Error.Validation("Sale.CreditNoteAppliedAmountInvalid", "Credit note applied amount cannot be negative.");
 
-        public static Error CreditNoteRedemptionsLimitExceeded =>
-            Error.Validation("Sale.CreditNoteRedemptionsLimitExceeded", "Only one credit note redemption is supported per sale.");
-
         public static Error CreditNoteRedemptionsSplitMismatch =>
             Error.Validation("Sale.CreditNoteRedemptionsSplitMismatch", "Credit note redemption amount must match the applied amount.");
 
         public static Error CreditNoteRedemptionConflict =>
             Error.Conflict("Sale.CreditNoteRedemptionConflict", "Credit note was modified concurrently. Please retry the sale.");
+
+        public static Error CreditNoteRedemptionCodeRequired =>
+            Error.Validation("Sale.CreditNoteRedemptionCodeRequired", "Credit note code is required.");
+
+        public static Error CreditNoteRedemptionAmountInvalid =>
+            Error.Validation("Sale.CreditNoteRedemptionAmountInvalid", "Credit note redemption amount must be greater than zero.");
+
+        public static Error CreditNoteRedemptionDuplicateCode =>
+            Error.Validation("Sale.CreditNoteRedemptionDuplicateCode", "Duplicate credit note codes are not allowed.");
 
         public static Error CreditRequiresDueAmount =>
             Error.Validation("Sale.CreditRequiresDueAmount", "Credit sale must include a due amount greater than zero.");
