@@ -142,12 +142,6 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("character varying(500)")
                         .HasColumnName("void_reason");
 
-                    b.Property<uint>("xmin")
-                        .IsConcurrencyToken()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("xid")
-                        .HasColumnName("xmin");
-
                     b.HasKey("Id")
                         .HasName("pk_credit_notes");
 

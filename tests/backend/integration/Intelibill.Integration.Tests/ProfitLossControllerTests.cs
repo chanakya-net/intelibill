@@ -517,7 +517,7 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
         var customerSearch = await GetReportAsync(client, ownerToken, "?search=Customer");
         var returnSearch = await GetReportAsync(client, ownerToken, $"?type=saleReturn&search={returnNumber}");
         var adjustmentSearch = await GetReportAsync(client, ownerToken, $"?type=inventoryAdjustment&search={adjustmentNumber}");
-        var numericSearch = await GetReportAsync(client, ownerToken, "?search=80");
+        var numericSearch = await GetReportAsync(client, ownerToken, "?type=sale&search=80");
 
         Assert.Equal(2, customerSearch.GetProperty("totalCount").GetInt32());
         Assert.True(customerSearch.GetProperty("items").EnumerateArray().All(row => row.GetProperty("referenceNumber").GetString()!.Contains("INV-")));

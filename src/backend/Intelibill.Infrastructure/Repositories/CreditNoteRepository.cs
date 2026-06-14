@@ -16,6 +16,30 @@ internal sealed class CreditNoteRepository(ApplicationDbContext context)
     public Task<CreditNote?> GetByCodeWithRedemptionsAsync(Guid shopId, string code, CancellationToken cancellationToken = default) =>
         FindByCodeAsync(shopId, code, includeRedemptions: true, cancellationToken);
 
+    public async Task<CreditNote?> GetByCodeForUpdateWithRedemptionsAsync(Guid shopId, string code, CancellationToken cancellationToken = default)
+    {
+        if (!_context.Database.IsNpgsql())
+        {
+            return await GetByCodeWithRedemptionsAsync(shopId, code, cancellationToken);
+        }
+
+        var normalizedCode = NormalizeLookupCode(code);
+
+        return await DbSet
+            .FromSqlRaw(
+                """
+                SELECT *
+                FROM credit_notes
+                WHERE shop_id = {0}
+                    AND REPLACE(REPLACE(UPPER(code), '-', ''), ' ', '') = {1}
+                FOR UPDATE
+                """,
+                shopId,
+                normalizedCode)
+            .Include(c => c.Redemptions)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
     private Task<CreditNote?> FindByCodeAsync(
         Guid shopId,
         string code,

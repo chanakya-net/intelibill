@@ -57,6 +57,12 @@ public class RecordSaleCommandHandlerTests
                     null,
                     []));
             });
+        _unitOfWork.BeginTransactionAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
+        _unitOfWork.CommitTransactionAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
+        _unitOfWork.RollbackTransactionAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
     }
 
     private RecordSaleCommandHandler CreateHandler() =>
@@ -211,7 +217,7 @@ public class RecordSaleCommandHandlerTests
         var itemNameById = new Dictionary<Guid, string> { { item.Id, item.Name } };
         _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>())
             .Returns(new SaleLineValidationResult(new List<ValidatedSaleLine> { line }, itemNameById));
-        _creditNoteRepository.GetByCodeWithRedemptionsAsync(shopId, creditNote.Code, Arg.Any<CancellationToken>())
+        _creditNoteRepository.GetByCodeForUpdateWithRedemptionsAsync(shopId, creditNote.Code, Arg.Any<CancellationToken>())
             .Returns(creditNote);
 
         Sale? capturedSale = null;
@@ -251,7 +257,7 @@ public class RecordSaleCommandHandlerTests
         Assert.True(result.IsError);
         Assert.Equal(Errors.Sale.CreditNoteRedemptionsSplitMismatch.Code, result.FirstError.Code);
         await _saleRepository.DidNotReceive().AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>());
-        await _creditNoteRepository.DidNotReceive().GetByCodeWithRedemptionsAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _creditNoteRepository.DidNotReceive().GetByCodeForUpdateWithRedemptionsAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
         await _creditNoteRepository.DidNotReceive().AddRedemptionAsync(Arg.Any<CreditNoteRedemption>(), Arg.Any<CancellationToken>());
         await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
@@ -278,9 +284,9 @@ public class RecordSaleCommandHandlerTests
         var line = new ValidatedSaleLine(command.Items[0], item, batch, inventory, false);
         _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>())
             .Returns(new SaleLineValidationResult([line], new Dictionary<Guid, string> { { item.Id, item.Name } }));
-        _creditNoteRepository.GetByCodeWithRedemptionsAsync(shopId, "CN-001", Arg.Any<CancellationToken>())
+        _creditNoteRepository.GetByCodeForUpdateWithRedemptionsAsync(shopId, "CN-001", Arg.Any<CancellationToken>())
             .Returns(CreditNote.Issue(shopId, Guid.NewGuid(), 50m, "Return", "CN-001", null).Value);
-        _creditNoteRepository.GetByCodeWithRedemptionsAsync(shopId, "CN-002", Arg.Any<CancellationToken>())
+        _creditNoteRepository.GetByCodeForUpdateWithRedemptionsAsync(shopId, "CN-002", Arg.Any<CancellationToken>())
             .Returns(CreditNote.Issue(shopId, Guid.NewGuid(), 50m, "Return", "CN-002", null).Value);
 
         var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
@@ -312,7 +318,7 @@ public class RecordSaleCommandHandlerTests
         var itemNameById = new Dictionary<Guid, string> { { item.Id, item.Name } };
         _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>())
             .Returns(new SaleLineValidationResult(new List<ValidatedSaleLine> { line }, itemNameById));
-        _creditNoteRepository.GetByCodeWithRedemptionsAsync(shopId, creditNote.Code, Arg.Any<CancellationToken>())
+        _creditNoteRepository.GetByCodeForUpdateWithRedemptionsAsync(shopId, creditNote.Code, Arg.Any<CancellationToken>())
             .Returns(creditNote);
 
         var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
@@ -345,7 +351,7 @@ public class RecordSaleCommandHandlerTests
         _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>())
             .Returns(new SaleLineValidationResult(new List<ValidatedSaleLine> { line }, new Dictionary<Guid, string> { { item.Id, item.Name } }));
 
-        _creditNoteRepository.GetByCodeWithRedemptionsAsync(shopId, expiredCreditNote.Code, Arg.Any<CancellationToken>())
+        _creditNoteRepository.GetByCodeForUpdateWithRedemptionsAsync(shopId, expiredCreditNote.Code, Arg.Any<CancellationToken>())
             .Returns(expiredCreditNote);
 
         var expiredResult = await CreateHandler().HandleAsync(command, CancellationToken.None);
@@ -357,7 +363,7 @@ public class RecordSaleCommandHandlerTests
         {
             CreditNoteRedemptions = [new CreditNoteRedemptionCommand(voidedCreditNote.Code, 100m)],
         };
-        _creditNoteRepository.GetByCodeWithRedemptionsAsync(shopId, voidedCreditNote.Code, Arg.Any<CancellationToken>())
+        _creditNoteRepository.GetByCodeForUpdateWithRedemptionsAsync(shopId, voidedCreditNote.Code, Arg.Any<CancellationToken>())
             .Returns(voidedCreditNote);
 
         var voidResult = await CreateHandler().HandleAsync(voidCommand, CancellationToken.None);
@@ -1005,7 +1011,7 @@ public class RecordSaleCommandHandlerTests
         var line = new ValidatedSaleLine(command.Items[0], item, batch, inventory, false);
         _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>())
             .Returns(new SaleLineValidationResult([line], new Dictionary<Guid, string> { { item.Id, item.Name } }));
-        _creditNoteRepository.GetByCodeWithRedemptionsAsync(shopId, creditNote.Code, Arg.Any<CancellationToken>())
+        _creditNoteRepository.GetByCodeForUpdateWithRedemptionsAsync(shopId, creditNote.Code, Arg.Any<CancellationToken>())
             .Returns(creditNote);
         _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>())
             .Returns(Task.FromException<int>(new DbUpdateConcurrencyException("Simulated concurrent update", new List<IUpdateEntry>())));
@@ -1062,7 +1068,7 @@ public class RecordSaleCommandHandlerTests
         var line = new ValidatedSaleLine(command.Items[0], item, batch, inventory, false);
         _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>())
             .Returns(new SaleLineValidationResult([line], new Dictionary<Guid, string> { { item.Id, item.Name } }));
-        _creditNoteRepository.GetByCodeWithRedemptionsAsync(shopId, creditNote.Code, Arg.Any<CancellationToken>())
+        _creditNoteRepository.GetByCodeForUpdateWithRedemptionsAsync(shopId, creditNote.Code, Arg.Any<CancellationToken>())
             .Returns(creditNote);
 
         var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
@@ -1099,7 +1105,7 @@ public class RecordSaleCommandHandlerTests
         var line = new ValidatedSaleLine(command.Items[0], item, batch, inventory, false);
         _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>())
             .Returns(new SaleLineValidationResult([line], new Dictionary<Guid, string> { { item.Id, item.Name } }));
-        _creditNoteRepository.GetByCodeWithRedemptionsAsync(shopId, creditNote.Code, Arg.Any<CancellationToken>())
+        _creditNoteRepository.GetByCodeForUpdateWithRedemptionsAsync(shopId, creditNote.Code, Arg.Any<CancellationToken>())
             .Returns(creditNote);
 
         var result = await CreateHandler().HandleAsync(command, CancellationToken.None);

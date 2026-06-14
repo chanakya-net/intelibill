@@ -66,11 +66,6 @@ public class ApplicationDbContext(
                 .HasColumnName("xmin")
                 .HasColumnType("xid");
 
-            modelBuilder.Entity<CreditNote>()
-                .Property<uint>("xmin")
-                .IsRowVersion()
-                .HasColumnName("xmin")
-                .HasColumnType("xid");
         }
 
         base.OnModelCreating(modelBuilder);

@@ -170,54 +170,85 @@ public sealed class RecordSaleCommandHandler
             return saleOrError.Errors;
 
         var sale = saleOrError.Value;
-        var creditNoteRedemptionsOrError = await RedeemCreditNotesAsync(
-            command.ShopId,
-            sale.Id,
-            command.CreditNoteRedemptions ?? [],
-            resolvedCustomer?.Id ?? command.CustomerId,
-            command.CreditNoteCustomerMismatchConfirmed,
-            cancellationToken);
-        if (creditNoteRedemptionsOrError.IsError)
-            return creditNoteRedemptionsOrError.Errors;
-
-        foreach (var line in validatedLines.Where(x => x.LineType == SaleLineType.Goods))
-        {
-            var cmdItem = line.Command;
-            var item = line.Item!;
-            var batch = line.Batch!;
-            var inventory = line.Inventory!;
-            var batchResult = batch.SubtractQuantity(cmdItem.Quantity, command.ActorUserId);
-            if (batchResult.IsError) return batchResult.Errors;
-
-            var inventoryResult = inventory.SubtractQuantity(cmdItem.Quantity, command.ActorUserId);
-            if (inventoryResult.IsError) return inventoryResult.Errors;
-
-            var txResult = StockTransaction.Create(command.ShopId, item.Id, batch.Id, StockTransactionType.Out, -cmdItem.Quantity, invoiceNumber, null, soldAt, command.ActorUserId, command.ActorUserId);
-            if (txResult.IsError) return txResult.Errors;
-            await stockTransactionRepository.AddAsync(txResult.Value, cancellationToken);
-        }
-
-        await saleRepository.AddAsync(sale, cancellationToken);
-        if (sale.DueAmount > 0 && sale.CustomerId.HasValue)
-        {
-            var ledgerResult = CustomerLedgerEntry.Create(
-                sale.ShopId,
-                sale.CustomerId.Value,
-                sale.Id,
-                CustomerLedgerEntryType.SaleDue,
-                sale.DueAmount,
-                DateOnly.FromDateTime(sale.SoldAt.UtcDateTime),
-                $"Due recorded from sale {sale.InvoiceNumber}",
-                command.ActorUserId);
-            if (ledgerResult.IsError)
-                return ledgerResult.Errors;
-
-            await customerLedgerEntryRepository.AddAsync(ledgerResult.Value, cancellationToken);
-        }
+        var hasCreditNoteRedemption = creditNoteRedemptions.Count > 0;
+        var creditNoteTransactionStarted = false;
+        var creditNoteTransactionCommitted = false;
+        var creditNoteTransactionRolledBack = false;
 
         try
         {
+            if (hasCreditNoteRedemption)
+            {
+                await unitOfWork.BeginTransactionAsync(cancellationToken);
+                creditNoteTransactionStarted = true;
+            }
+
+            var creditNoteRedemptionsOrError = await RedeemCreditNotesAsync(
+                command.ShopId,
+                sale.Id,
+                creditNoteRedemptions,
+                resolvedCustomer?.Id ?? command.CustomerId,
+                command.CreditNoteCustomerMismatchConfirmed,
+                cancellationToken);
+            if (creditNoteRedemptionsOrError.IsError)
+            {
+                var replayResult = await TryGetReplayForIdempotentSaleAsync(
+                    command.ShopId,
+                    command.ActorUserId,
+                    normalizedIdempotencyKey,
+                    requestHash,
+                    cancellationToken);
+
+                if (replayResult.HasValue)
+                    return replayResult.Value;
+
+                return creditNoteRedemptionsOrError.Errors;
+            }
+
+            foreach (var line in validatedLines.Where(x => x.LineType == SaleLineType.Goods))
+            {
+                var cmdItem = line.Command;
+                var item = line.Item!;
+                var batch = line.Batch!;
+                var inventory = line.Inventory!;
+                var batchResult = batch.SubtractQuantity(cmdItem.Quantity, command.ActorUserId);
+                if (batchResult.IsError) return batchResult.Errors;
+
+                var inventoryResult = inventory.SubtractQuantity(cmdItem.Quantity, command.ActorUserId);
+                if (inventoryResult.IsError) return inventoryResult.Errors;
+
+                var txResult = StockTransaction.Create(command.ShopId, item.Id, batch.Id, StockTransactionType.Out, -cmdItem.Quantity, invoiceNumber, null, soldAt, command.ActorUserId, command.ActorUserId);
+                if (txResult.IsError) return txResult.Errors;
+                await stockTransactionRepository.AddAsync(txResult.Value, cancellationToken);
+            }
+
+            await saleRepository.AddAsync(sale, cancellationToken);
+            if (sale.DueAmount > 0 && sale.CustomerId.HasValue)
+            {
+                var ledgerResult = CustomerLedgerEntry.Create(
+                    sale.ShopId,
+                    sale.CustomerId.Value,
+                    sale.Id,
+                    CustomerLedgerEntryType.SaleDue,
+                    sale.DueAmount,
+                    DateOnly.FromDateTime(sale.SoldAt.UtcDateTime),
+                    $"Due recorded from sale {sale.InvoiceNumber}",
+                    command.ActorUserId);
+                if (ledgerResult.IsError)
+                    return ledgerResult.Errors;
+
+                await customerLedgerEntryRepository.AddAsync(ledgerResult.Value, cancellationToken);
+            }
+
             await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            if (hasCreditNoteRedemption)
+            {
+                await unitOfWork.CommitTransactionAsync(cancellationToken);
+                creditNoteTransactionCommitted = true;
+            }
+
+            return saleDtoBuilder.BuildSaleDto(sale, itemNameById, sale.Warnings, creditNoteRedemptionsOrError.Value);
         }
         catch (DbUpdateConcurrencyException exception) when (IsCreditNoteConcurrencyConflict(command, exception))
         {
@@ -225,21 +256,34 @@ public sealed class RecordSaleCommandHandler
         }
         catch (DbUpdateException)
         {
-            var concurrentSale = await saleRepository.GetByIdempotencyKeyAsync(command.ShopId, command.ActorUserId, normalizedIdempotencyKey, cancellationToken);
-            if (concurrentSale is null)
-                throw;
+            if (hasCreditNoteRedemption && creditNoteTransactionStarted && !creditNoteTransactionCommitted)
+            {
+                await unitOfWork.RollbackTransactionAsync(cancellationToken);
+                creditNoteTransactionRolledBack = true;
+            }
 
-            if (!string.Equals(concurrentSale.RequestHash, requestHash, StringComparison.Ordinal))
-                return Errors.Sale.IdempotencyConflict;
+            var replayResult = await TryGetReplayForIdempotentSaleAsync(
+                command.ShopId,
+                command.ActorUserId,
+                normalizedIdempotencyKey,
+                requestHash,
+                cancellationToken);
 
-            var concurrentRedemptions = await LoadCreditNoteRedemptionsAsync(concurrentSale.ShopId, concurrentSale.Id, cancellationToken);
-            if (concurrentRedemptions.IsError)
-                return concurrentRedemptions.Errors;
+            if (replayResult.HasValue)
+                return replayResult.Value;
 
-            return await saleDtoBuilder.BuildSaleDtoAsync(concurrentSale, concurrentSale.Warnings, concurrentRedemptions.Value, cancellationToken);
+            throw;
         }
-
-        return saleDtoBuilder.BuildSaleDto(sale, itemNameById, sale.Warnings, creditNoteRedemptionsOrError.Value);
+        finally
+        {
+            if (hasCreditNoteRedemption
+                && creditNoteTransactionStarted
+                && !creditNoteTransactionCommitted
+                && !creditNoteTransactionRolledBack)
+            {
+                await unitOfWork.RollbackTransactionAsync(cancellationToken);
+            }
+        }
     }
 
     private async Task<ErrorOr<IReadOnlyList<SaleCreditNoteRedemptionSummaryDto>>> LoadCreditNoteRedemptionsAsync(
@@ -272,7 +316,7 @@ public sealed class RecordSaleCommandHandler
         var summaries = new List<SaleCreditNoteRedemptionSummaryDto>(creditNoteRedemptions.Count);
         foreach (var redemption in creditNoteRedemptions)
         {
-            var creditNote = await creditNoteRepository.GetByCodeWithRedemptionsAsync(
+            var creditNote = await creditNoteRepository.GetByCodeForUpdateWithRedemptionsAsync(
                 shopId,
                 redemption.Code,
                 cancellationToken);
@@ -297,6 +341,27 @@ public sealed class RecordSaleCommandHandler
         }
 
         return summaries;
+    }
+
+    private async Task<ErrorOr<SaleDto>?> TryGetReplayForIdempotentSaleAsync(
+        Guid shopId,
+        Guid actorUserId,
+        string idempotencyKey,
+        string requestHash,
+        CancellationToken cancellationToken)
+    {
+        var concurrentSale = await saleRepository.GetByIdempotencyKeyAsync(shopId, actorUserId, idempotencyKey, cancellationToken);
+        if (concurrentSale is null)
+            return null;
+
+        if (!string.Equals(concurrentSale.RequestHash, requestHash, StringComparison.Ordinal))
+            return Errors.Sale.IdempotencyConflict;
+
+        var concurrentRedemptions = await LoadCreditNoteRedemptionsAsync(concurrentSale.ShopId, concurrentSale.Id, cancellationToken);
+        if (concurrentRedemptions.IsError)
+            return concurrentRedemptions.Errors;
+
+        return await saleDtoBuilder.BuildSaleDtoAsync(concurrentSale, concurrentSale.Warnings, concurrentRedemptions.Value, cancellationToken);
     }
 
     private static bool IsCreditNoteConcurrencyConflict(

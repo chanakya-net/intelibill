@@ -1,3 +1,5 @@
+using Intelibill.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -5,6 +7,8 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Intelibill.Infrastructure.Migrations
 {
     /// <inheritdoc />
+    [DbContext(typeof(ApplicationDbContext))]
+    [Migration("20260614000000_AddCreditNoteLinkedCustomerId")]
     public partial class AddCreditNoteLinkedCustomerId : Migration
     {
         /// <inheritdoc />
