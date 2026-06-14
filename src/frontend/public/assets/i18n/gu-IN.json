@@ -1108,6 +1108,8 @@
       "totalAmount": "Total Amount",
       "totalBeforeDiscount": "Subtotal (Before Discount)",
       "discount": "Discount",
+      "creditNoteSettlement": "Credit Note Settlement",
+      "creditNoteSettlementWithCodes": "Credit Note Settlement ({{ codes }})",
       "tax": "Tax",
       "grandTotal": "Grand Total",
       "printAgain": "Print Again",
@@ -1118,7 +1120,8 @@
       "refundAmount": "Refund Amount",
       "voided": "Voided",
       "voidReason": "Void Reason",
-      "hsn": "HSN"
+      "hsn": "HSN",
+      "creditNoteSettlement": "Credit Note Settlement"
     },
     "profitLoss": {
       "eyebrow": "વેચાણ રિપોર્ટ",

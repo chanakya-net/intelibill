@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 
 import { SaleInvoiceThermalComponent } from './sale-invoice-thermal.component';
-import type { SaleDto, SaleItemDto, SaleReturnDto } from '../services/sale.models';
+import type { SaleDto, SaleItemDto } from '../services/sale.models';
 import { ShopDetails } from '../../shops/services/shop.service';
 
 const enIN = JSON.parse(readFileSync(join(process.cwd(), 'public/assets/i18n/en-IN.json'), 'utf-8') as string) as Record<string, unknown>;
@@ -40,20 +40,6 @@ describe('SaleInvoiceThermalComponent', () => {
     ...overrides,
   });
 
-  const makeSaleReturn = (overrides: Partial<SaleReturnDto> = {}): SaleReturnDto => ({
-    saleReturnId: 'return-1',
-    returnNumber: 'RET-001',
-    returnedAt: '2026-05-10T10:00:00Z',
-    totalRefundAmount: 40,
-    dueReductionAmount: 0,
-    payoutAmount: 0,
-    isVoided: false,
-    voidedAt: null,
-    voidReason: null,
-    items: [],
-    ...overrides,
-  });
-
   const makeSale = (overrides: Partial<SaleDto> = {}): SaleDto => ({
     saleId: 'sale-1',
     invoiceNumber: 'INV-001',
@@ -72,6 +58,21 @@ describe('SaleInvoiceThermalComponent', () => {
     items: [makeSaleItem()],
     returns: [],
     warnings: [],
+    ...overrides,
+  });
+
+  const makeSaleReturn = (overrides: Partial<SaleDto['returns'][number]> = {}): SaleDto['returns'][number] => ({
+    saleReturnId: 'return-1',
+    returnNumber: 'RET-001',
+    returnedAt: '2026-05-10T10:00:00Z',
+    totalRefundAmount: 0,
+    dueReductionAmount: 0,
+    payoutAmount: 0,
+    isVoided: false,
+    voidedAt: null,
+    voidReason: null,
+    items: [],
+    creditNote: null,
     ...overrides,
   });
 
@@ -377,6 +378,69 @@ describe('SaleInvoiceThermalComponent', () => {
       fixture.detectChanges();
 
       expect(fixture.nativeElement.textContent).toContain('Tax 18%');
+    });
+  });
+
+  describe('credit note settlement', () => {
+    it('renders credit note settlement line when applied amount > 0', () => {
+      const sale = makeSale({ creditNoteAppliedAmount: 100 });
+      const shop = makeShop();
+
+      component.sale = sale;
+      component.shop = shop;
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.textContent).toContain('Credit Note Settlement');
+      expect(fixture.nativeElement.textContent).toMatch(/100/);
+    });
+
+    it('renders credit note code with settlement line when present', () => {
+      const sale = makeSale({
+        creditNoteAppliedAmount: 100,
+        returns: [makeSaleReturn({ creditNote: { creditNoteId: 'cn-1', code: 'CN-001', originalAmount: 100, availableBalance: 0, expiresAt: null, reason: 'Return' } })],
+      });
+      const shop = makeShop();
+
+      component.sale = sale;
+      component.shop = shop;
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.textContent).toContain('Credit Note Settlement (CN-001)');
+      expect(fixture.nativeElement.textContent).not.toContain('Discount: -₹100.00');
+    });
+
+    it('does not render credit note settlement line when applied amount is 0', () => {
+      const sale = makeSale({ creditNoteAppliedAmount: 0 });
+      const shop = makeShop();
+
+      component.sale = sale;
+      component.shop = shop;
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.textContent).not.toContain('Credit Note Settlement');
+    });
+
+    it('settlement line appears after discount and before grand total', () => {
+      const sale = makeSale({
+        totalBeforeDiscount: 500,
+        totalDiscountAmount: 50,
+        creditNoteAppliedAmount: 75,
+        totalTaxAmount: 81,
+        totalAmount: 506,
+      });
+      const shop = makeShop();
+
+      component.sale = sale;
+      component.shop = shop;
+      fixture.detectChanges();
+
+      const text = fixture.nativeElement.textContent;
+      const discountPos = text.indexOf('Discount');
+      const settlementPos = text.indexOf('Credit Note Settlement');
+      const grandTotalPos = text.indexOf('Grand Total');
+
+      expect(settlementPos).toBeGreaterThan(discountPos);
+      expect(grandTotalPos).toBeGreaterThan(settlementPos);
     });
   });
 });

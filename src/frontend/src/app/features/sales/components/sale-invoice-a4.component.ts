@@ -18,6 +18,22 @@ export class SaleInvoiceA4Component {
   @Input() shop!: ShopDetails;
   @Input() pendingSync = false;
 
+  getCreditNoteSettlementCodes(): string[] {
+    return this.sale.returns
+      .map((saleReturn) => saleReturn.creditNote?.code ?? '')
+      .filter((code): code is string => code.trim().length > 0);
+  }
+
+  getCreditNoteSettlementLabelKey(): string {
+    const codes = this.getCreditNoteSettlementCodes();
+
+    if (codes.length === 0) {
+      return 'sales.invoice.creditNoteSettlement';
+    }
+
+    return 'sales.invoice.creditNoteSettlementWithCodes';
+  }
+
   getPaymentMethodLabel(method: number): string {
     const map: Record<number, string> = { 1: 'Cash', 2: 'UPI', 3: 'Card', 4: 'Credit' };
     return map[method] ?? 'Unknown';

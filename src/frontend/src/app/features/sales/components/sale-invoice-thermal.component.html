@@ -83,6 +83,10 @@
       <span>{{ 'sales.invoice.discount' | transloco }}</span>
       <span>-{{ sale.totalDiscountAmount | currency: 'INR': 'symbol': '1.2-2' }}</span>
     </div>
+    <div *ngIf="sale.creditNoteAppliedAmount > 0" class="thermal-invoice__summary-row">
+      <span>{{ getCreditNoteSettlementLabelKey() | transloco:{ codes: getCreditNoteSettlementCodes().join(', ') } }}</span>
+      <span>-{{ sale.creditNoteAppliedAmount | currency: 'INR': 'symbol': '1.2-2' }}</span>
+    </div>
     <div class="thermal-invoice__summary-row">
       <span>{{ 'sales.invoice.tax' | transloco }}</span>
       <span>{{ sale.totalTaxAmount | currency: 'INR': 'symbol': '1.2-2' }}</span>
