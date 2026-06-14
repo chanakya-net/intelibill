@@ -56,6 +56,10 @@ public sealed class GetSaleDetailQueryHandler(
             activeReturns.Select(r => r.Id).ToList(),
             query.ShopId,
             cancellationToken);
+        var creditNoteRedemptions = await creditNoteRepository.GetRedemptionsBySaleIdAsync(
+            query.ShopId,
+            sale.Id,
+            cancellationToken) ?? [];
         var returnedQuantityBySaleItemId = activeReturns
             .SelectMany(r => r.Items)
             .GroupBy(i => i.SaleItemId)
@@ -104,9 +108,15 @@ public sealed class GetSaleDetailQueryHandler(
                 TotalAmount = si.TotalAmount,
                 HsnCode = si.HsnCode,
                 SavingsAmount = si.ItemDiscountAmount + si.SaleDiscountAmount,
-            }).ToList(),
+                }).ToList(),
             [])
         {
+            CreditNoteRedemptions = creditNoteRedemptions
+                .Select(redemption => new SaleCreditNoteRedemptionSummaryDto(
+                    redemption.CreditNoteId,
+                    redemption.Code,
+                    redemption.Amount))
+                .ToList(),
             Returns = activeReturns.Select(r => new SaleReturnDto(
                 r.Id,
                 r.ReturnNumber,

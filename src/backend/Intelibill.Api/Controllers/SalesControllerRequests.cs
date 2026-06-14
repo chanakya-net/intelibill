@@ -3,7 +3,7 @@ using Intelibill.Domain.ValueObjects;
 
 namespace Intelibill.Api.Controllers;
 
-public sealed record RecordSaleRequest(
+public sealed partial record RecordSaleRequest(
     Guid? CustomerId,
     string? CustomerName,
     string? CustomerPhone,
@@ -14,6 +14,15 @@ public sealed record RecordSaleRequest(
     IReadOnlyList<RecordSaleItemRequest> Items,
     InstantDiscountRequest? SaleDiscount = null,
     decimal CreditNoteAppliedAmount = 0m);
+
+public sealed partial record RecordSaleRequest
+{
+    public IReadOnlyList<RecordSaleCreditNoteRedemptionRequest> CreditNoteRedemptions { get; init; } = [];
+}
+
+public sealed record RecordSaleCreditNoteRedemptionRequest(
+    string Code,
+    decimal Amount);
 
 public sealed record ReserveInvoiceLeaseRequest(
     string DeviceId,

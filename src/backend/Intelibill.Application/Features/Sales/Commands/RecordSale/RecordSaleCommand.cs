@@ -3,7 +3,7 @@ using Intelibill.Domain.ValueObjects;
 
 namespace Intelibill.Application.Features.Sales.Commands.RecordSale;
 
-public sealed record RecordSaleCommand(
+public sealed partial record RecordSaleCommand(
     Guid ActorUserId,
     Guid ShopId,
     string IdempotencyKey,
@@ -16,6 +16,11 @@ public sealed record RecordSaleCommand(
     IReadOnlyList<RecordSaleItemCommand> Items,
     InstantDiscount? SaleDiscount = null,
     decimal CreditNoteAppliedAmount = 0m);
+
+public sealed partial record RecordSaleCommand
+{
+    public IReadOnlyList<RecordSaleCreditNoteRedemptionCommand> CreditNoteRedemptions { get; init; } = [];
+}
 
 public sealed record RecordSaleItemCommand(
     string Barcode,
@@ -37,3 +42,7 @@ public sealed record RecordSaleItemCommand(
     public bool IsGoodsLine => LineType == SaleLineType.Goods;
     public bool IsServiceLine => LineType == SaleLineType.Service;
 }
+
+public sealed record RecordSaleCreditNoteRedemptionCommand(
+    string Code,
+    decimal Amount);

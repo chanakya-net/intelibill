@@ -67,6 +67,24 @@ public sealed class RecordSaleCommandValidator : AbstractValidator<RecordSaleCom
                 .WithMessage(Errors.Sale.ServiceDiscountNotSupported.Description);
         });
 
+        RuleForEach(x => x.CreditNoteRedemptions).ChildRules(redemption =>
+        {
+            redemption.RuleFor(r => r.Code)
+                .NotEmpty()
+                .WithErrorCode(Errors.Sale.CreditNoteRedemptionCodeRequired.Code)
+                .WithMessage(Errors.Sale.CreditNoteRedemptionCodeRequired.Description);
+
+            redemption.RuleFor(r => r.Amount)
+                .GreaterThan(0m)
+                .WithErrorCode(Errors.Sale.CreditNoteRedemptionAmountInvalid.Code)
+                .WithMessage(Errors.Sale.CreditNoteRedemptionAmountInvalid.Description);
+        });
+
+        RuleFor(x => x.CreditNoteRedemptions)
+            .Must(HaveDistinctCreditNoteCodes)
+            .WithErrorCode(Errors.Sale.CreditNoteRedemptionDuplicateCode.Code)
+            .WithMessage(Errors.Sale.CreditNoteRedemptionDuplicateCode.Description);
+
         RuleFor(x => x.SaleDiscount)
             .Must(IsValidDiscount)
             .WithErrorCode(Errors.Sale.InvalidSaleDiscount.Code)
@@ -106,4 +124,19 @@ public sealed class RecordSaleCommandValidator : AbstractValidator<RecordSaleCom
             InstantDiscountType.Flat => discount.Value > 0m,
             _ => false,
         };
+
+    private static bool HaveDistinctCreditNoteCodes(IReadOnlyList<RecordSaleCreditNoteRedemptionCommand> redemptions)
+    {
+        var codes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var redemption in redemptions)
+        {
+            var code = redemption.Code?.Trim() ?? string.Empty;
+            if (!codes.Add(code))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 }

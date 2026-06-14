@@ -1,4 +1,5 @@
 using FluentValidation.TestHelper;
+using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Sales.Commands.RecordSale;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.ValueObjects;
@@ -160,6 +161,23 @@ public class RecordSaleCommandValidatorTests
         var result = _validator.TestValidate(command);
 
         Assert.Contains(result.Errors, e => e.ErrorCode == "Sale.CreditRequiresDueAmount");
+    }
+
+    [Fact]
+    public void Validate_WhenCreditNoteCodesDuplicate_ReturnsError()
+    {
+        var command = ValidCommand() with
+        {
+            CreditNoteRedemptions =
+            [
+                new RecordSaleCreditNoteRedemptionCommand("CN-001", 60m),
+                new RecordSaleCreditNoteRedemptionCommand("CN-001", 40m),
+            ],
+        };
+
+        var result = _validator.TestValidate(command);
+
+        Assert.Contains(result.Errors, e => e.ErrorCode == Errors.Sale.CreditNoteRedemptionDuplicateCode.Code);
     }
 
     [Fact]

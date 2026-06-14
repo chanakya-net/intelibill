@@ -10,6 +10,11 @@ public interface ICreditNoteRepository : IRepository<CreditNote>
     Task<IReadOnlyList<CreditNote>> GetByReturnIdAsync(Guid shopId, Guid saleReturnId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<CreditNote>> GetByReturnIdsAsync(Guid shopId, IReadOnlyCollection<Guid> saleReturnIds, CancellationToken cancellationToken = default);
     Task<CreditNote?> GetByIdWithRedemptionsAsync(Guid shopId, Guid id, CancellationToken cancellationToken = default);
+    Task AddRedemptionAsync(CreditNoteRedemption redemption, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<CreditNoteRedemptionListRow>> GetRedemptionsBySaleIdAsync(
+        Guid shopId,
+        Guid saleId,
+        CancellationToken cancellationToken = default);
 
     Task<(IReadOnlyList<CreditNoteListRow> Items, int TotalCount)> GetPagedAsync(
         Guid shopId,
@@ -33,3 +38,8 @@ public sealed record CreditNoteListRow(
     Guid SaleId,
     string InvoiceNumber,
     string? CustomerName);
+
+public sealed record CreditNoteRedemptionListRow(
+    Guid CreditNoteId,
+    string Code,
+    decimal Amount);

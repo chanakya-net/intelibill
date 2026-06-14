@@ -44,6 +44,22 @@ internal sealed class CreditNoteRepository(ApplicationDbContext context)
             .Include(c => c.Redemptions)
             .FirstOrDefaultAsync(c => c.ShopId == shopId && c.Id == id, cancellationToken);
 
+    public async Task AddRedemptionAsync(CreditNoteRedemption redemption, CancellationToken cancellationToken = default) =>
+        await _context.CreditNoteRedemptions.AddAsync(redemption, cancellationToken);
+
+    public async Task<IReadOnlyList<CreditNoteRedemptionListRow>> GetRedemptionsBySaleIdAsync(
+        Guid shopId,
+        Guid saleId,
+        CancellationToken cancellationToken = default) =>
+        await (from redemption in _context.CreditNoteRedemptions.AsNoTracking()
+               join note in _context.CreditNotes.AsNoTracking() on redemption.CreditNoteId equals note.Id
+               where redemption.ShopId == shopId && redemption.SaleId == saleId
+               orderby redemption.CreatedAt, redemption.Id
+               select new CreditNoteRedemptionListRow(
+                   redemption.CreditNoteId,
+                   note.Code,
+                   redemption.Amount)).ToListAsync(cancellationToken);
+
     public async Task<(IReadOnlyList<CreditNoteListRow> Items, int TotalCount)> GetPagedAsync(
         Guid shopId,
         string? searchTerm,

@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.IdentityModel.Tokens.Jwt;
 using System.Text.Json;
+using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.ValueObjects;
 using Intelibill.Infrastructure.Data;
@@ -100,7 +101,10 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
             performedAt = (DateTimeOffset?)null,
         });
         var response = await client.SendAsync(request);
-        response.EnsureSuccessStatusCode();
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new HttpRequestException($"AddInventoryAsync failed with {(int)response.StatusCode} {response.ReasonPhrase}");
+        }
         return await response.Content.ReadFromJsonAsync<JsonElement>();
     }
 
@@ -342,6 +346,50 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         Assert.Equal(HttpStatusCode.OK, recordResponse.StatusCode);
     }
 
+    private async Task<(string Code, decimal Amount)> RecordCreditNoteReturnAsync(
+        HttpClient client,
+        string token,
+        Guid saleId,
+        decimal refundAmount,
+        string note = "Store credit issued after return")
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var sale = await db.Sales.Include(s => s.Items).FirstAsync(s => s.Id == saleId);
+        var saleItemId = sale.Items[0].Id;
+
+        using var recordReturnRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/sales/{saleId}/returns");
+        recordReturnRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        recordReturnRequest.Content = JsonContent.Create(new
+        {
+            payoutDestination = (int)ReturnPayoutDestination.CreditNote,
+            dueReductionOverrideAmount = (decimal?)null,
+            dueOverrideReason = (string?)null,
+            notes = note,
+            creditNoteExpiresAt = (DateTimeOffset?)null,
+            creditNoteReason = note,
+            items = new[]
+            {
+                new
+                {
+                    saleItemId,
+                    quantity = 1m,
+                    condition = (int)SaleReturnCondition.Restockable,
+                    approvedRefundAmount = refundAmount,
+                    notes = (string?)null,
+                },
+            },
+        });
+
+        var recordResponse = await client.SendAsync(recordReturnRequest);
+        Assert.Equal(HttpStatusCode.OK, recordResponse.StatusCode);
+        var recordBody = await recordResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var creditNote = recordBody!.GetProperty("returns").EnumerateArray().Last().GetProperty("creditNote");
+        return (
+            creditNote.GetProperty("code").GetString()!,
+            creditNote.GetProperty("originalAmount").GetDecimal());
+    }
+
     private static async Task<(Guid UserId, string Email, string Password)> AddShopUserAsync(HttpClient client, string ownerToken, Guid shopId)
     {
         var email = $"member-{Guid.NewGuid():N}@test.com";
@@ -413,7 +461,6 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         using var client = CreateClient();
         var token = await RegisterAsync(client);
         var ownerToken = await CreateShopAsync(client, token);
-
         var shopId = await GetShopIdFromTokenAsync(client, ownerToken);
 
         var barcode = UniqueBarcode();
@@ -483,9 +530,9 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         var (memberUserId, email, password) = await AddShopUserAsync(client, ownerToken, shopId);
         var memberToken = await LoginAsync(client, email, password);
 
-        await using (var scope = _factory.Services.CreateAsyncScope())
+        await using (var setupScope = _factory.Services.CreateAsyncScope())
         {
-            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var db = setupScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
             var memberships = await db.ShopMemberships
                 .Where(sm => sm.UserId == memberUserId && sm.ShopId == shopId)
                 .ToListAsync();
@@ -940,6 +987,124 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         var inventory = await db.Inventory.FirstOrDefaultAsync(i => i.ItemId == itemId);
         Assert.NotNull(inventory);
         Assert.Equal(45m, inventory!.Quantity);
+    }
+
+    [Fact]
+    public async Task RecordSale_WithMultipleCreditNotes_RedeemsBothNotesAndPersistsAppliedAmount()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        var creditNoteBarcode = UniqueBarcode();
+        var creditNoteInbound = await AddInventoryAsync(client, ownerToken, creditNoteBarcode, "CN-BATCH-001", 10m);
+        var creditNoteBatchId = creditNoteInbound.GetProperty("inventoryBatchId").GetGuid();
+
+        using var creditNoteSaleRequest = new HttpRequestMessage(HttpMethod.Post, "/api/sales");
+        creditNoteSaleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        creditNoteSaleRequest.Content = JsonContent.Create(new
+        {
+            idempotencyKey = $"sale-{Guid.NewGuid():N}",
+            customerId = (Guid?)null,
+            customerName = "Credit Note Issuer",
+            customerPhone = "+919876543211",
+            paymentMethod = (int)PaymentMethod.Cash,
+            paidAmount = 236m,
+            dueAmount = 0m,
+            items = new[]
+            {
+                new
+                {
+                    barcode = creditNoteBarcode,
+                    batchNumber = "CN-BATCH-001",
+                    itemName = "Test Item",
+                    quantity = 2m,
+                    costPrice = 80m,
+                    salesPrice = 100m,
+                    mrp = 120m,
+                    taxRatePercent = 18m,
+                    isPriceIncludingTax = false,
+                    inventoryBatchId = creditNoteBatchId,
+                },
+            },
+        });
+        var creditNoteSaleResponse = await client.SendAsync(creditNoteSaleRequest);
+        Assert.Equal(HttpStatusCode.Created, creditNoteSaleResponse.StatusCode);
+        var creditNoteSaleBody = await creditNoteSaleResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var creditNoteSaleId = creditNoteSaleBody!.GetProperty("saleId").GetGuid();
+
+        var firstCreditNote = await RecordCreditNoteReturnAsync(client, ownerToken, creditNoteSaleId, 118m, "First store credit");
+        var secondCreditNote = await RecordCreditNoteReturnAsync(client, ownerToken, creditNoteSaleId, 118m, "Second store credit");
+
+        var serviceId = await AddServiceAsync(client, ownerToken, "Consulting Service", 100m);
+        var redeemBarcode = $"SRV-{Guid.NewGuid():N}";
+
+        using var saleRequest = new HttpRequestMessage(HttpMethod.Post, "/api/sales");
+        saleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        saleRequest.Content = JsonContent.Create(new
+        {
+            idempotencyKey = $"sale-{Guid.NewGuid():N}",
+            customerId = (Guid?)null,
+            customerName = "Multi Note Customer",
+            customerPhone = "+919876543212",
+            paymentMethod = (int)PaymentMethod.Cash,
+            paidAmount = 0m,
+            dueAmount = 0m,
+            creditNoteRedemptions = new[]
+            {
+                new
+                {
+                    code = firstCreditNote.Code,
+                    amount = firstCreditNote.Amount,
+                },
+                new
+                {
+                    code = secondCreditNote.Code,
+                    amount = secondCreditNote.Amount,
+                },
+            },
+            items = new[]
+            {
+                new
+                {
+                    barcode = redeemBarcode,
+                    batchNumber = "",
+                    itemName = "Consulting Service",
+                    quantity = 2m,
+                    costPrice = 0m,
+                    salesPrice = 100m,
+                    mrp = 0m,
+                    taxRatePercent = 18m,
+                    isPriceIncludingTax = false,
+                    inventoryBatchId = Guid.Empty,
+                    lineType = "Service",
+                    serviceId,
+                },
+            },
+        });
+
+        var saleResponse = await client.SendAsync(saleRequest);
+        if (saleResponse.StatusCode != HttpStatusCode.Created)
+        {
+            throw new HttpRequestException($"RecordSale failed with {(int)saleResponse.StatusCode} {saleResponse.ReasonPhrase}");
+        }
+        var saleBody = await saleResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var saleId = saleBody!.GetProperty("saleId").GetGuid();
+
+        Assert.Equal(236m, saleBody.GetProperty("creditNoteAppliedAmount").GetDecimal());
+        var redemptionSummaries = saleBody.GetProperty("creditNoteRedemptions").EnumerateArray().ToList();
+        Assert.Equal(2, redemptionSummaries.Count);
+        Assert.Equal(firstCreditNote.Code, redemptionSummaries[0].GetProperty("code").GetString());
+        Assert.Equal(secondCreditNote.Code, redemptionSummaries[1].GetProperty("code").GetString());
+
+        await using var verificationScope = _factory.Services.CreateAsyncScope();
+        var db = verificationScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var sale = await db.Sales.FirstAsync(s => s.Id == saleId);
+        Assert.Equal(236m, sale.CreditNoteAppliedAmount);
+        Assert.Equal(2, await db.CreditNoteRedemptions.CountAsync(r => r.SaleId == saleId));
+        Assert.All(
+            await db.CreditNotes.Where(n => n.Code == firstCreditNote.Code || n.Code == secondCreditNote.Code).ToListAsync(),
+            note => Assert.Equal(0m, note.AvailableBalance));
     }
 
     [Fact]

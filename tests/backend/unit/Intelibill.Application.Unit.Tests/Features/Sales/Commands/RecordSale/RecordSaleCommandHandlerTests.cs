@@ -20,6 +20,7 @@ public class RecordSaleCommandHandlerTests
     private readonly ISalePricingCalculator _salePricingCalculator = Substitute.For<ISalePricingCalculator>();
     private readonly ICustomerResolver _customerResolver = Substitute.For<ICustomerResolver>();
     private readonly ISaleRepository _saleRepository = Substitute.For<ISaleRepository>();
+    private readonly ICreditNoteRepository _creditNoteRepository = Substitute.For<ICreditNoteRepository>();
     private readonly SaleDtoBuilder _saleDtoBuilder;
     private readonly IItemRepository _itemRepository = Substitute.For<IItemRepository>();
     private readonly ICustomerLedgerEntryRepository _customerLedgerEntryRepository = Substitute.For<ICustomerLedgerEntryRepository>();
@@ -57,7 +58,7 @@ public class RecordSaleCommandHandlerTests
     }
 
     private RecordSaleCommandHandler CreateHandler() =>
-        new(_saleLineValidator, _salePricingCalculator, _customerResolver, _saleRepository, _saleDtoBuilder, _customerLedgerEntryRepository, _stockTransactionRepository, _unitOfWork);
+        new(_saleLineValidator, _salePricingCalculator, _customerResolver, _saleRepository, _creditNoteRepository, _saleDtoBuilder, _customerLedgerEntryRepository, _stockTransactionRepository, _unitOfWork);
 
     private static Item MakeItem(Guid shopId, string barcode, string name = "Rice") =>
         Item.Create(shopId, name, "desc", "kg", barcode, true, Guid.NewGuid());
@@ -82,6 +83,9 @@ public class RecordSaleCommandHandlerTests
         var result = Domain.Entities.Inventory.Create(shopId, itemId, quantity, 10m, 500m, Guid.NewGuid());
         return result.Value;
     }
+
+    private static CreditNote MakeCreditNote(Guid shopId, string code, decimal amount) =>
+        CreditNote.Issue(shopId, Guid.NewGuid(), amount, "Return credit", code, null).Value;
 
     private static RecordSaleCommand MakeCommand(
         Guid shopId, Guid actorId,
@@ -180,6 +184,53 @@ public class RecordSaleCommandHandlerTests
         await _saleRepository.Received(1).AddAsync(
             Arg.Is<Sale>(sale => sale.Items.Single().CostPrice == 100m),
             Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenMultipleCreditNotesProvided_RedeemsEachNoteAndPersistsAppliedTotal()
+    {
+        var shopId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var item = MakeItem(shopId, "BC-001");
+        var batch = MakeBatch(shopId, item.Id, "B-01", quantity: 100m);
+        var inventory = MakeInventory(shopId, item.Id, 100m);
+        var note1 = MakeCreditNote(shopId, "CN-001", 60m);
+        var note2 = MakeCreditNote(shopId, "CN-002", 40m);
+
+        var command = MakeCommand(shopId, actorId, quantity: 2m, inventoryBatchId: batch.Id, idempotencyKey: $"sale-{Guid.NewGuid():N}") with
+        {
+            PaidAmount = 136m,
+            CreditNoteAppliedAmount = 100m,
+            CreditNoteRedemptions =
+            [
+                new RecordSaleCreditNoteRedemptionCommand("CN-001", 60m),
+                new RecordSaleCreditNoteRedemptionCommand("CN-002", 40m),
+            ],
+        };
+        var line = new ValidatedSaleLine(command.Items[0], item, batch, inventory, false);
+        var itemNameById = new Dictionary<Guid, string> { { item.Id, item.Name } };
+        _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>())
+            .Returns(new SaleLineValidationResult(new List<ValidatedSaleLine> { line }, itemNameById));
+        _creditNoteRepository.GetByCodeWithRedemptionsAsync(shopId, "CN-001", Arg.Any<CancellationToken>())
+            .Returns(note1);
+        _creditNoteRepository.GetByCodeWithRedemptionsAsync(shopId, "CN-002", Arg.Any<CancellationToken>())
+            .Returns(note2);
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(100m, result.Value.CreditNoteAppliedAmount);
+        Assert.Equal(2, result.Value.CreditNoteRedemptions.Count);
+        Assert.Equal("CN-001", result.Value.CreditNoteRedemptions[0].Code);
+        Assert.Equal(60m, result.Value.CreditNoteRedemptions[0].AppliedAmount);
+        Assert.Equal("CN-002", result.Value.CreditNoteRedemptions[1].Code);
+        Assert.Equal(40m, result.Value.CreditNoteRedemptions[1].AppliedAmount);
+        Assert.Equal(0m, note1.AvailableBalance);
+        Assert.Equal(0m, note2.AvailableBalance);
+        await _saleRepository.Received(1).AddAsync(
+            Arg.Is<Sale>(sale => sale.CreditNoteAppliedAmount == 100m),
+            Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
