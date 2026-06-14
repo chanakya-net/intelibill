@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Normalization;
 using Intelibill.Domain.Interfaces.Repositories;
 
 namespace Intelibill.Application.Features.CreditNotes.Services;
@@ -17,7 +18,8 @@ public sealed class CreditNoteCodeGenerator : ICreditNoteCodeGenerator
         for (int i = 0; i < MaxRetries; i++)
         {
             var code = GenerateCode();
-            var existing = await _repository.GetByCodeAsync(shopId, code, cancellationToken);
+            var normalizedCode = CreditNoteCodeNormalizer.Normalize(code);
+            var existing = await _repository.GetByCodeAsync(shopId, normalizedCode, cancellationToken);
             if (existing is null)
             {
                 return code;

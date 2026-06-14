@@ -34,7 +34,10 @@ public sealed class GetCreditNotePrintByCodeQueryHandler(
             return Errors.CreditNote.UserIsNotOwnerManagerOrStaff;
 
         var code = CreditNoteCodeNormalizer.Normalize(query.Code);
-        var creditNote = await creditNoteRepository.GetByCodeAsync(query.ActiveShopId, code, cancellationToken);
+        var creditNote = await creditNoteRepository.GetByCodeAsync(
+            query.ActiveShopId,
+            code,
+            cancellationToken);
         if (creditNote is null)
             return Errors.CreditNote.CreditNoteNotFound(query.Code);
 

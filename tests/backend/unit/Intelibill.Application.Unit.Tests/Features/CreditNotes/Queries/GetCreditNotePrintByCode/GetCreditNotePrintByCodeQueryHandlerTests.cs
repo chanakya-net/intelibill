@@ -23,7 +23,13 @@ public sealed class GetCreditNotePrintByCodeQueryHandlerTests
         var sale = CreateSale(fixture.shop.Id, "INV-001", "Jane Doe");
         var saleReturn = CreateSaleReturn(fixture.shop.Id, sale.Id, "RET-001");
         var note = CreateCreditNote(fixture.shop.Id, saleReturn.Id);
-        ArrangeAuthorizedLookup(fixture.manager.Id, fixture.managerMembership, note, saleReturn, sale);
+        ArrangeAuthorizedLookup(
+            fixture.manager.Id,
+            fixture.managerMembership,
+            note,
+            saleReturn,
+            sale,
+            " cn - 001 ");
 
         var result = await CreateHandler().HandleAsync(
             new GetCreditNotePrintByCodeQuery(fixture.manager.Id, fixture.shop.Id, note.Code),
@@ -52,7 +58,13 @@ public sealed class GetCreditNotePrintByCodeQueryHandlerTests
         var sale = CreateSale(fixture.shop.Id, "INV-001", "Jane Doe");
         var saleReturn = CreateSaleReturn(fixture.shop.Id, sale.Id, "RET-001");
         var note = CreateCreditNote(fixture.shop.Id, saleReturn.Id);
-        ArrangeAuthorizedLookup(fixture.manager.Id, fixture.managerMembership, note, saleReturn, sale);
+        ArrangeAuthorizedLookup(
+            fixture.manager.Id,
+            fixture.managerMembership,
+            note,
+            saleReturn,
+            sale,
+            " cn - 001 ");
 
         var result = await CreateHandler().HandleAsync(
             new GetCreditNotePrintByCodeQuery(fixture.manager.Id, fixture.shop.Id, " cn - 001 "),
@@ -293,13 +305,17 @@ public sealed class GetCreditNotePrintByCodeQueryHandlerTests
         ShopMembership membership,
         CreditNote creditNote,
         SaleReturn saleReturn,
-        Sale sale)
+        Sale sale,
+        string? lookupCode = null)
     {
         _userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>()).Returns(membership.User);
         _shopRepository.GetByIdAsync(membership.ShopId, Arg.Any<CancellationToken>()).Returns(membership.Shop);
         _shopRepository.GetMembershipAsync(userId, membership.ShopId, Arg.Any<CancellationToken>())
             .Returns(membership);
-        _creditNoteRepository.GetByCodeAsync(membership.ShopId, CreditNoteCodeNormalizer.Normalize(creditNote.Code), Arg.Any<CancellationToken>())
+        _creditNoteRepository.GetByCodeAsync(
+            membership.ShopId,
+            CreditNoteCodeNormalizer.Normalize(lookupCode ?? creditNote.Code),
+            Arg.Any<CancellationToken>())
             .Returns(creditNote);
         _saleReturnRepository.GetByIdAsync(membership.ShopId, saleReturn.Id, Arg.Any<CancellationToken>())
             .Returns(saleReturn);

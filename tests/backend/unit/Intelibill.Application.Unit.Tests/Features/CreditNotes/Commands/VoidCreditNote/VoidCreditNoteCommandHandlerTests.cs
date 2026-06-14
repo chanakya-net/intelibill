@@ -137,7 +137,10 @@ public sealed class VoidCreditNoteCommandHandlerTests
                 creditNote.Void("Earlier void");
             }
 
-            _creditNoteRepository.GetByCodeWithRedemptionsAsync(shop.Id, CreditNoteCodeNormalizer.Normalize(creditNote.Code), Arg.Any<CancellationToken>())
+            _creditNoteRepository.GetByCodeWithRedemptionsAsync(
+                shop.Id,
+                CreditNoteCodeNormalizer.Normalize(creditNote.Code),
+                Arg.Any<CancellationToken>())
                 .Returns(creditNote);
         }
         else

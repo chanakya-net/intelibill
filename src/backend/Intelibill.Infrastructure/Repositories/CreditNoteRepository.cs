@@ -1,7 +1,6 @@
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
-using Intelibill.Application.Common.Normalization;
 using Intelibill.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -23,7 +22,6 @@ internal sealed class CreditNoteRepository(ApplicationDbContext context)
         bool includeRedemptions,
         CancellationToken cancellationToken)
     {
-        var normalizedCode = CreditNoteCodeNormalizer.Normalize(code);
         IQueryable<CreditNote> query = DbSet;
         if (includeRedemptions)
         {
@@ -32,7 +30,9 @@ internal sealed class CreditNoteRepository(ApplicationDbContext context)
 
         return query.FirstOrDefaultAsync(
             c => c.ShopId == shopId &&
-                 EF.Functions.ILike(c.Code.Replace("-", string.Empty).Replace(" ", string.Empty), normalizedCode),
+                 // Stored codes are generated as CN-YYYYMMDD-XXXXXX in CreditNoteCodeGenerator.
+                 // Replacing '-' and ' ' is sufficient for lookup normalization.
+                 EF.Functions.ILike(c.Code.Replace("-", string.Empty).Replace(" ", string.Empty), code),
             cancellationToken);
     }
 

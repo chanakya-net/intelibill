@@ -43,7 +43,10 @@ public sealed class VoidCreditNoteCommandHandler(
             return Errors.CreditNote.UserIsNotOwnerOrManager;
 
         var code = CreditNoteCodeNormalizer.Normalize(command.Code);
-        var creditNote = await creditNoteRepository.GetByCodeWithRedemptionsAsync(command.ActiveShopId, code, cancellationToken);
+        var creditNote = await creditNoteRepository.GetByCodeWithRedemptionsAsync(
+            command.ActiveShopId,
+            code,
+            cancellationToken);
         if (creditNote is null)
             return Errors.CreditNote.CreditNoteNotFound(command.Code);
 

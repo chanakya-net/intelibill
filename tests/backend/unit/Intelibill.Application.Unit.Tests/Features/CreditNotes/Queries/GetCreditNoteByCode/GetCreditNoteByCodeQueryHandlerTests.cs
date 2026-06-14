@@ -51,7 +51,7 @@ public sealed class GetCreditNoteByCodeQueryHandlerTests
     {
         var fixture = BuildFixture();
         var creditNote = CreateCreditNote(fixture.shop.Id);
-        ArrangeAuthorizedLookup(fixture.manager.Id, fixture.managerMembership, creditNote);
+        ArrangeAuthorizedLookup(fixture.manager.Id, fixture.managerMembership, creditNote, " cn - 001 ");
 
         var result = await CreateHandler().HandleAsync(
             new GetCreditNoteByCodeQuery(fixture.manager.Id, fixture.shop.Id, " cn - 001 "),
@@ -161,14 +161,21 @@ public sealed class GetCreditNoteByCodeQueryHandlerTests
         Assert.Equal(Errors.CreditNote.CreditNoteNotFound("CN-404").Code, result.FirstError.Code);
     }
 
-    private void ArrangeAuthorizedLookup(Guid userId, ShopMembership membership, CreditNote creditNote)
+    private void ArrangeAuthorizedLookup(
+        Guid userId,
+        ShopMembership membership,
+        CreditNote creditNote,
+        string? lookupCode = null)
     {
         var (saleReturn, sale) = CreateSaleContext(membership.ShopId);
         _userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>()).Returns(_ => membership.User);
         _shopRepository.GetByIdAsync(membership.ShopId, Arg.Any<CancellationToken>()).Returns(membership.Shop);
         _shopRepository.GetMembershipAsync(userId, membership.ShopId, Arg.Any<CancellationToken>())
             .Returns(membership);
-        _creditNoteRepository.GetByCodeAsync(membership.ShopId, CreditNoteCodeNormalizer.Normalize(creditNote.Code), Arg.Any<CancellationToken>())
+        _creditNoteRepository.GetByCodeAsync(
+                membership.ShopId,
+                CreditNoteCodeNormalizer.Normalize(lookupCode ?? creditNote.Code),
+                Arg.Any<CancellationToken>())
             .Returns(creditNote);
         _saleReturnRepository.GetByIdWithItemsAsync(
                 membership.ShopId,
