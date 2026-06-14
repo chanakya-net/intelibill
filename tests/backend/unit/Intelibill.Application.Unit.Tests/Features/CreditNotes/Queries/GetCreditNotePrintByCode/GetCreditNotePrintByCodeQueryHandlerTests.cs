@@ -1,4 +1,5 @@
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Normalization;
 using Intelibill.Application.Features.CreditNotes.Queries.GetCreditNotePrintByCode;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
@@ -22,7 +23,13 @@ public sealed class GetCreditNotePrintByCodeQueryHandlerTests
         var sale = CreateSale(fixture.shop.Id, "INV-001", "Jane Doe");
         var saleReturn = CreateSaleReturn(fixture.shop.Id, sale.Id, "RET-001");
         var note = CreateCreditNote(fixture.shop.Id, saleReturn.Id);
-        ArrangeAuthorizedLookup(fixture.manager.Id, fixture.managerMembership, note, saleReturn, sale);
+        ArrangeAuthorizedLookup(
+            fixture.manager.Id,
+            fixture.managerMembership,
+            note,
+            saleReturn,
+            sale,
+            " cn - 001 ");
 
         var result = await CreateHandler().HandleAsync(
             new GetCreditNotePrintByCodeQuery(fixture.manager.Id, fixture.shop.Id, note.Code),
@@ -42,6 +49,29 @@ public sealed class GetCreditNotePrintByCodeQueryHandlerTests
         Assert.Equal("Jane Doe", result.Value.CustomerDisplayName);
         Assert.Equal(note.Reason, result.Value.Reason);
         Assert.Null(result.Value.VoidReason);
+    }
+
+    [Fact]
+    public async Task HandleAsync_NormalizesMixedSeparatorAndCaseCode()
+    {
+        var fixture = BuildFixture();
+        var sale = CreateSale(fixture.shop.Id, "INV-001", "Jane Doe");
+        var saleReturn = CreateSaleReturn(fixture.shop.Id, sale.Id, "RET-001");
+        var note = CreateCreditNote(fixture.shop.Id, saleReturn.Id);
+        ArrangeAuthorizedLookup(
+            fixture.manager.Id,
+            fixture.managerMembership,
+            note,
+            saleReturn,
+            sale,
+            " cn - 001 ");
+
+        var result = await CreateHandler().HandleAsync(
+            new GetCreditNotePrintByCodeQuery(fixture.manager.Id, fixture.shop.Id, " cn - 001 "),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(note.Code, result.Value.Code);
     }
 
     [Fact]
@@ -81,6 +111,24 @@ public sealed class GetCreditNotePrintByCodeQueryHandlerTests
         Assert.Equal(CreditNoteStatus.FullyRedeemed, result.Value.Status);
         Assert.False(result.Value.IsUsable);
         Assert.Equal(0m, result.Value.AvailableBalance);
+    }
+
+    [Fact]
+    public async Task HandleAsync_VoidedCreditNote_ReturnsUnusablePrintContext()
+    {
+        var fixture = BuildFixture();
+        var sale = CreateSale(fixture.shop.Id, "INV-004", "Taylor Customer");
+        var saleReturn = CreateSaleReturn(fixture.shop.Id, sale.Id, "RET-004");
+        var note = CreateCreditNote(fixture.shop.Id, saleReturn.Id, voidReason: "Issued in error");
+        ArrangeAuthorizedLookup(fixture.owner.Id, fixture.ownerMembership, note, saleReturn, sale);
+
+        var result = await CreateHandler().HandleAsync(
+            new GetCreditNotePrintByCodeQuery(fixture.owner.Id, fixture.shop.Id, note.Code),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.False(result.Value.IsUsable);
+        Assert.Equal(CreditNoteStatus.Voided, result.Value.Status);
     }
 
     [Fact]
@@ -132,7 +180,10 @@ public sealed class GetCreditNotePrintByCodeQueryHandlerTests
         _shopRepository.GetByIdAsync(fixture.shop.Id, Arg.Any<CancellationToken>()).Returns(fixture.shop);
         _shopRepository.GetMembershipAsync(fixture.manager.Id, fixture.shop.Id, Arg.Any<CancellationToken>())
             .Returns(fixture.managerMembership);
-        _creditNoteRepository.GetByCodeAsync(fixture.shop.Id, "CN-404", Arg.Any<CancellationToken>())
+        _creditNoteRepository.GetByCodeAsync(
+                fixture.shop.Id,
+                CreditNoteCodeNormalizer.Normalize("CN-404"),
+                Arg.Any<CancellationToken>())
             .Returns((CreditNote?)null);
         _saleReturnRepository.GetByIdAsync(fixture.shop.Id, saleReturn.Id, Arg.Any<CancellationToken>())
             .Returns(saleReturn);
@@ -257,13 +308,17 @@ public sealed class GetCreditNotePrintByCodeQueryHandlerTests
         ShopMembership membership,
         CreditNote creditNote,
         SaleReturn saleReturn,
-        Sale sale)
+        Sale sale,
+        string? lookupCode = null)
     {
         _userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>()).Returns(membership.User);
         _shopRepository.GetByIdAsync(membership.ShopId, Arg.Any<CancellationToken>()).Returns(membership.Shop);
         _shopRepository.GetMembershipAsync(userId, membership.ShopId, Arg.Any<CancellationToken>())
             .Returns(membership);
-        _creditNoteRepository.GetByCodeAsync(membership.ShopId, creditNote.Code, Arg.Any<CancellationToken>())
+        _creditNoteRepository.GetByCodeAsync(
+            membership.ShopId,
+            CreditNoteCodeNormalizer.Normalize(lookupCode ?? creditNote.Code),
+            Arg.Any<CancellationToken>())
             .Returns(creditNote);
         _saleReturnRepository.GetByIdAsync(membership.ShopId, saleReturn.Id, Arg.Any<CancellationToken>())
             .Returns(saleReturn);

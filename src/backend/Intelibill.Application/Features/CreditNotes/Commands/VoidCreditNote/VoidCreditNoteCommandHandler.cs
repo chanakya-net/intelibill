@@ -1,5 +1,6 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Normalization;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
@@ -41,7 +42,11 @@ public sealed class VoidCreditNoteCommandHandler(
         if (membership.Role is not (ShopRole.Owner or ShopRole.Manager))
             return Errors.CreditNote.UserIsNotOwnerOrManager;
 
-        var creditNote = await creditNoteRepository.GetByCodeWithRedemptionsAsync(command.ActiveShopId, command.Code, cancellationToken);
+        var code = CreditNoteCodeNormalizer.Normalize(command.Code);
+        var creditNote = await creditNoteRepository.GetByCodeWithRedemptionsAsync(
+            command.ActiveShopId,
+            code,
+            cancellationToken);
         if (creditNote is null)
             return Errors.CreditNote.CreditNoteNotFound(command.Code);
 

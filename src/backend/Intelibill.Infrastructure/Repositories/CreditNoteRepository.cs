@@ -10,14 +10,32 @@ internal sealed class CreditNoteRepository(ApplicationDbContext context)
     : RepositoryBase<CreditNote>(context), ICreditNoteRepository
 {
     private readonly ApplicationDbContext _context = context;
-    public async Task<CreditNote?> GetByCodeAsync(Guid shopId, string code, CancellationToken cancellationToken = default) =>
-        await DbSet
-            .FirstOrDefaultAsync(c => c.ShopId == shopId && c.Code == code.Trim(), cancellationToken);
+    public Task<CreditNote?> GetByCodeAsync(Guid shopId, string code, CancellationToken cancellationToken = default) =>
+        FindByCodeAsync(shopId, code, includeRedemptions: false, cancellationToken);
 
-    public async Task<CreditNote?> GetByCodeWithRedemptionsAsync(Guid shopId, string code, CancellationToken cancellationToken = default) =>
-        await DbSet
-            .Include(c => c.Redemptions)
-            .FirstOrDefaultAsync(c => c.ShopId == shopId && c.Code == code.Trim(), cancellationToken);
+    public Task<CreditNote?> GetByCodeWithRedemptionsAsync(Guid shopId, string code, CancellationToken cancellationToken = default) =>
+        FindByCodeAsync(shopId, code, includeRedemptions: true, cancellationToken);
+
+    private Task<CreditNote?> FindByCodeAsync(
+        Guid shopId,
+        string code,
+        bool includeRedemptions,
+        CancellationToken cancellationToken)
+    {
+        IQueryable<CreditNote> query = DbSet;
+        if (includeRedemptions)
+        {
+            query = query.Include(c => c.Redemptions);
+        }
+
+        return query.FirstOrDefaultAsync(
+            c => c.ShopId == shopId &&
+                 // The existing unique index is on the stored code value, so normalized lookups
+                 // intentionally apply string functions here instead of using the raw index.
+                 // Credit note volume is expected to stay low enough that this per-shop scan is acceptable.
+                 EF.Functions.ILike(c.Code.Replace("-", string.Empty).Replace(" ", string.Empty), code),
+            cancellationToken);
+    }
 
     public async Task<IReadOnlyList<CreditNote>> GetByReturnIdAsync(Guid shopId, Guid saleReturnId, CancellationToken cancellationToken = default) =>
         await DbSet
