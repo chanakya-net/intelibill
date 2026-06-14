@@ -209,6 +209,9 @@ public static partial class Errors
         public static Error ReturnRefundOverrideReasonRequired =>
             Error.Validation("SaleReturn.RefundOverrideReasonRequired", "Refund override reason is required when approving a refund above the discounted paid amount.");
 
+        public static Error ReturnCreditNoteHasRedemptions =>
+            Error.Conflict("SaleReturn.CreditNoteHasRedemptions", "Cannot void return because its credit note has already been redeemed.");
+
         public static Error ReturnInventoryAggregateNotFound(Guid itemId) =>
             Error.NotFound("SaleReturn.InventoryAggregateNotFound", $"Inventory aggregate was not found for item '{itemId}'.");
 

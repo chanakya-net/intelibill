@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.IdentityModel.Tokens.Jwt;
 using System.Text.Json;
+using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.ValueObjects;
 using Intelibill.Infrastructure.Data;
@@ -3501,5 +3502,184 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         var response = await client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task VoidSaleReturn_WithUnredeemedCreditNote_VoidsNoteAndReturn()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        var barcode = UniqueBarcode();
+        var inboundBody = await AddInventoryAsync(client, ownerToken, barcode, "B-001", 10m);
+        var batchId = inboundBody.GetProperty("inventoryBatchId").GetGuid();
+
+        using var saleRequest = new HttpRequestMessage(HttpMethod.Post, "/api/sales");
+        saleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        saleRequest.Content = JsonContent.Create(new
+        {
+            idempotencyKey = $"sale-{Guid.NewGuid():N}",
+            customerId = (Guid?)null,
+            customerName = "Credit Note Customer",
+            customerPhone = (string?)null,
+            paymentMethod = (int)PaymentMethod.Cash,
+            paidAmount = 118m,
+            dueAmount = 0m,
+            items = new[]
+            {
+                new
+                {
+                    barcode,
+                    batchNumber = "B-001",
+                    itemName = "Test Item",
+                    quantity = 1m,
+                    costPrice = 80m,
+                    salesPrice = 100m,
+                    mrp = 120m,
+                    taxRatePercent = 18m,
+                    isPriceIncludingTax = false,
+                    inventoryBatchId = batchId,
+                },
+            },
+        });
+        var saleResponse = await client.SendAsync(saleRequest);
+        Assert.Equal(HttpStatusCode.Created, saleResponse.StatusCode);
+        var saleId = (await saleResponse.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("saleId").GetGuid();
+
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var sale = await db.Sales.Include(s => s.Items).FirstAsync(s => s.Id == saleId);
+        var saleItemId = sale.Items[0].Id;
+        var shopId = await GetShopIdFromTokenAsync(client, ownerToken);
+
+        using var recordReturnRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/sales/{saleId}/returns");
+        recordReturnRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        recordReturnRequest.Content = JsonContent.Create(new
+        {
+            payoutMethod = (int)PaymentMethod.Cash,
+            dueReductionOverrideAmount = (decimal?)null,
+            dueOverrideReason = (string?)null,
+            notes = "Return for credit note void test",
+            items = new[]
+            {
+                new
+                {
+                    saleItemId,
+                    quantity = 1m,
+                    condition = (int)SaleReturnCondition.Restockable,
+                    approvedRefundAmount = 118m,
+                    notes = (string?)null,
+                },
+            },
+        });
+        var recordResponse = await client.SendAsync(recordReturnRequest);
+        Assert.Equal(HttpStatusCode.OK, recordResponse.StatusCode);
+        var recordBody = await recordResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var saleReturnId = recordBody.GetProperty("returns").EnumerateArray().First().GetProperty("saleReturnId").GetGuid();
+
+        var creditNote = CreditNote.Issue(shopId, saleReturnId, 118m, "Store credit", $"CN-{Guid.NewGuid():N}"[..16], null).Value;
+        db.CreditNotes.Add(creditNote);
+        await db.SaveChangesAsync();
+
+        using var voidRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/sales/returns/{saleReturnId}/void");
+        voidRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        voidRequest.Content = JsonContent.Create(new { reason = "Issued credit note by mistake" });
+
+        var voidResponse = await client.SendAsync(voidRequest);
+        Assert.Equal(HttpStatusCode.NoContent, voidResponse.StatusCode);
+
+        await using var verifyScope = _factory.Services.CreateAsyncScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var voidedNote = await verifyDb.CreditNotes.FirstAsync(cn => cn.Id == creditNote.Id);
+        Assert.True(voidedNote.IsVoided);
+        Assert.Equal("Issued credit note by mistake", voidedNote.VoidReason);
+    }
+
+    [Fact]
+    public async Task VoidSaleReturn_WithRedeemedCreditNote_ReturnsConflict()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        var barcode = UniqueBarcode();
+        var inboundBody = await AddInventoryAsync(client, ownerToken, barcode, "B-001", 10m);
+        var batchId = inboundBody.GetProperty("inventoryBatchId").GetGuid();
+
+        using var saleRequest = new HttpRequestMessage(HttpMethod.Post, "/api/sales");
+        saleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        saleRequest.Content = JsonContent.Create(new
+        {
+            idempotencyKey = $"sale-{Guid.NewGuid():N}",
+            customerId = (Guid?)null,
+            customerName = "Redeemed Note Customer",
+            customerPhone = (string?)null,
+            paymentMethod = (int)PaymentMethod.Cash,
+            paidAmount = 118m,
+            dueAmount = 0m,
+            items = new[]
+            {
+                new
+                {
+                    barcode,
+                    batchNumber = "B-001",
+                    itemName = "Test Item",
+                    quantity = 1m,
+                    costPrice = 80m,
+                    salesPrice = 100m,
+                    mrp = 120m,
+                    taxRatePercent = 18m,
+                    isPriceIncludingTax = false,
+                    inventoryBatchId = batchId,
+                },
+            },
+        });
+        var saleResponse = await client.SendAsync(saleRequest);
+        Assert.Equal(HttpStatusCode.Created, saleResponse.StatusCode);
+        var saleId = (await saleResponse.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("saleId").GetGuid();
+
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var sale = await db.Sales.Include(s => s.Items).FirstAsync(s => s.Id == saleId);
+        var saleItemId = sale.Items[0].Id;
+        var shopId = await GetShopIdFromTokenAsync(client, ownerToken);
+
+        using var recordReturnRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/sales/{saleId}/returns");
+        recordReturnRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        recordReturnRequest.Content = JsonContent.Create(new
+        {
+            payoutMethod = (int)PaymentMethod.Cash,
+            dueReductionOverrideAmount = (decimal?)null,
+            dueOverrideReason = (string?)null,
+            notes = "Return for redeemed note conflict test",
+            items = new[]
+            {
+                new
+                {
+                    saleItemId,
+                    quantity = 1m,
+                    condition = (int)SaleReturnCondition.Restockable,
+                    approvedRefundAmount = 118m,
+                    notes = (string?)null,
+                },
+            },
+        });
+        var recordResponse = await client.SendAsync(recordReturnRequest);
+        Assert.Equal(HttpStatusCode.OK, recordResponse.StatusCode);
+        var recordBody = await recordResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var saleReturnId = recordBody.GetProperty("returns").EnumerateArray().First().GetProperty("saleReturnId").GetGuid();
+
+        var creditNote = CreditNote.Issue(shopId, saleReturnId, 118m, "Store credit", $"CN-{Guid.NewGuid():N}"[..16], null).Value;
+        creditNote.Redeem(shopId, saleId, 50m);
+        db.CreditNotes.Add(creditNote);
+        await db.SaveChangesAsync();
+
+        using var voidRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/sales/returns/{saleReturnId}/void");
+        voidRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        voidRequest.Content = JsonContent.Create(new { reason = "Trying to void but note is redeemed" });
+
+        var voidResponse = await client.SendAsync(voidRequest);
+        Assert.Equal(HttpStatusCode.Conflict, voidResponse.StatusCode);
     }
 }

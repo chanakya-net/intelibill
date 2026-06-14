@@ -16,6 +16,7 @@ public sealed class VoidSaleReturnCommandHandler(
     IInventoryBatchRepository inventoryBatchRepository,
     IStockTransactionRepository stockTransactionRepository,
     ICustomerLedgerEntryRepository customerLedgerEntryRepository,
+    ICreditNoteRepository creditNoteRepository,
     IUnitOfWork unitOfWork)
 {
     public async Task<ErrorOr<Success>> HandleAsync(
@@ -49,6 +50,12 @@ public sealed class VoidSaleReturnCommandHandler(
 
         if (saleReturn.IsVoided)
             return Errors.Sale.ReturnAlreadyVoided;
+
+        var creditNote = await creditNoteRepository.GetBySaleReturnIdWithRedemptionsAsync(
+            command.ShopId, command.SaleReturnId, cancellationToken);
+
+        if (creditNote is not null && creditNote.Redemptions.Count > 0)
+            return Errors.Sale.ReturnCreditNoteHasRedemptions;
 
         var sale = await saleRepository.GetByIdAsync(saleReturn.SaleId, command.ShopId, cancellationToken);
         if (sale is null)
@@ -128,6 +135,14 @@ public sealed class VoidSaleReturnCommandHandler(
         var voidResult = saleReturn.Void(processedAt, command.ActorUserId, command.Reason);
         if (voidResult.IsError)
             return voidResult.Errors;
+
+        if (creditNote is not null)
+        {
+            var noteVoidResult = creditNote.Void(command.Reason);
+            if (noteVoidResult.IsError)
+                return noteVoidResult.Errors;
+            creditNoteRepository.Update(creditNote);
+        }
 
         foreach (var stockReversal in stockReversals)
             await stockTransactionRepository.AddAsync(stockReversal, cancellationToken);
