@@ -168,6 +168,34 @@ public sealed class VoidSaleReturnCommandHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_WithAlreadyVoidedCreditNote_DoesNotFail()
+    {
+        var fixture = Arrange(ShopRole.Owner);
+        var creditNote = CreditNote.Issue(
+            fixture.Shop.Id,
+            fixture.SaleReturn.Id,
+            amount: 200m,
+            reason: "Store credit for return",
+            code: "CN-TEST-003",
+            expiresAt: null).Value;
+        creditNote.Void("Previously voided");
+        _creditNoteRepository
+            .GetBySaleReturnIdWithRedemptionsAsync(fixture.Shop.Id, fixture.SaleReturn.Id, Arg.Any<CancellationToken>())
+            .Returns(creditNote);
+
+        var result = await CreateHandler().HandleAsync(
+            new VoidSaleReturnCommand(fixture.User.Id, fixture.Shop.Id, fixture.SaleReturn.Id, "Duplicate return"),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.True(fixture.SaleReturn.IsVoided);
+        Assert.True(creditNote.IsVoided);
+        Assert.Equal("Previously voided", creditNote.VoidReason);
+        _creditNoteRepository.DidNotReceive().Update(creditNote);
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task HandleAsync_WithRedeemedCreditNote_ReturnsConflict()
     {
         var fixture = Arrange(ShopRole.Owner);

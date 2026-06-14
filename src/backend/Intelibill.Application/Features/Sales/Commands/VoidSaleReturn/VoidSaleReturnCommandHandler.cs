@@ -136,7 +136,7 @@ public sealed class VoidSaleReturnCommandHandler(
         if (voidResult.IsError)
             return voidResult.Errors;
 
-        if (creditNote is not null)
+        if (creditNote is not null && !creditNote.IsVoided)
         {
             var noteVoidResult = creditNote.Void(command.Reason);
             if (noteVoidResult.IsError)
