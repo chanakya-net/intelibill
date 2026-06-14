@@ -180,7 +180,10 @@ public sealed class GetCreditNotePrintByCodeQueryHandlerTests
         _shopRepository.GetByIdAsync(fixture.shop.Id, Arg.Any<CancellationToken>()).Returns(fixture.shop);
         _shopRepository.GetMembershipAsync(fixture.manager.Id, fixture.shop.Id, Arg.Any<CancellationToken>())
             .Returns(fixture.managerMembership);
-        _creditNoteRepository.GetByCodeAsync(fixture.shop.Id, "CN-404", Arg.Any<CancellationToken>())
+        _creditNoteRepository.GetByCodeAsync(
+                fixture.shop.Id,
+                CreditNoteCodeNormalizer.Normalize("CN-404"),
+                Arg.Any<CancellationToken>())
             .Returns((CreditNote?)null);
         _saleReturnRepository.GetByIdAsync(fixture.shop.Id, saleReturn.Id, Arg.Any<CancellationToken>())
             .Returns(saleReturn);

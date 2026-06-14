@@ -30,8 +30,9 @@ internal sealed class CreditNoteRepository(ApplicationDbContext context)
 
         return query.FirstOrDefaultAsync(
             c => c.ShopId == shopId &&
-                 // Stored codes are generated as CN-YYYYMMDD-XXXXXX in CreditNoteCodeGenerator.
-                 // Replacing '-' and ' ' is sufficient for lookup normalization.
+                 // The existing unique index is on the stored code value, so normalized lookups
+                 // intentionally apply string functions here instead of using the raw index.
+                 // Credit note volume is expected to stay low enough that this per-shop scan is acceptable.
                  EF.Functions.ILike(c.Code.Replace("-", string.Empty).Replace(" ", string.Empty), code),
             cancellationToken);
     }
