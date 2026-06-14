@@ -1,4 +1,5 @@
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Normalization;
 using Intelibill.Application.Features.CreditNotes.Commands.VoidCreditNote;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
@@ -136,7 +137,7 @@ public sealed class VoidCreditNoteCommandHandlerTests
                 creditNote.Void("Earlier void");
             }
 
-            _creditNoteRepository.GetByCodeWithRedemptionsAsync(shop.Id, creditNote.Code, Arg.Any<CancellationToken>())
+            _creditNoteRepository.GetByCodeWithRedemptionsAsync(shop.Id, CreditNoteCodeNormalizer.Normalize(creditNote.Code), Arg.Any<CancellationToken>())
                 .Returns(creditNote);
         }
         else

@@ -1,5 +1,6 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Normalization;
 using Intelibill.Application.Features.CreditNotes.DTOs;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
@@ -32,7 +33,8 @@ public sealed class GetCreditNoteByCodeQueryHandler(
         if (membership.Role is not (ShopRole.Owner or ShopRole.Manager or ShopRole.Staff))
             return Errors.CreditNote.UserIsNotOwnerManagerOrStaff;
 
-        var creditNote = await creditNoteRepository.GetByCodeAsync(query.ActiveShopId, query.Code, cancellationToken);
+        var code = CreditNoteCodeNormalizer.Normalize(query.Code);
+        var creditNote = await creditNoteRepository.GetByCodeAsync(query.ActiveShopId, code, cancellationToken);
         if (creditNote is null)
             return Errors.CreditNote.CreditNoteNotFound(query.Code);
 

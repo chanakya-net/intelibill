@@ -1,4 +1,5 @@
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Normalization;
 using Intelibill.Application.Features.CreditNotes.Queries.GetCreditNoteByCode;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
@@ -43,6 +44,21 @@ public sealed class GetCreditNoteByCodeQueryHandlerTests
         Assert.Equal("INV-001", result.Value.InvoiceNumber);
         Assert.Equal("Asha", result.Value.CustomerName);
         Assert.Null(result.Value.VoidReason);
+    }
+
+    [Fact]
+    public async Task HandleAsync_NormalizesMixedSeparatorAndCaseCode()
+    {
+        var fixture = BuildFixture();
+        var creditNote = CreateCreditNote(fixture.shop.Id);
+        ArrangeAuthorizedLookup(fixture.manager.Id, fixture.managerMembership, creditNote);
+
+        var result = await CreateHandler().HandleAsync(
+            new GetCreditNoteByCodeQuery(fixture.manager.Id, fixture.shop.Id, " cn - 001 "),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(creditNote.Code, result.Value.Code);
     }
 
     [Fact]
@@ -109,6 +125,23 @@ public sealed class GetCreditNoteByCodeQueryHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_VoidedCreditNote_ReturnsVoidedStatusWithoutRevealForStaff()
+    {
+        var fixture = BuildFixture();
+        var creditNote = CreateCreditNote(fixture.shop.Id, voidReason: "Issued in error");
+        ArrangeAuthorizedLookup(fixture.staff.Id, fixture.staffMembership, creditNote);
+
+        var result = await CreateHandler().HandleAsync(
+            new GetCreditNoteByCodeQuery(fixture.staff.Id, fixture.shop.Id, creditNote.Code),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(CreditNoteStatus.Voided, result.Value.Status);
+        Assert.True(result.Value.IsVoided);
+        Assert.Null(result.Value.VoidReason);
+    }
+
+    [Fact]
     public async Task HandleAsync_WhenMissing_ReturnsNotFound()
     {
         var fixture = BuildFixture();
@@ -135,7 +168,7 @@ public sealed class GetCreditNoteByCodeQueryHandlerTests
         _shopRepository.GetByIdAsync(membership.ShopId, Arg.Any<CancellationToken>()).Returns(membership.Shop);
         _shopRepository.GetMembershipAsync(userId, membership.ShopId, Arg.Any<CancellationToken>())
             .Returns(membership);
-        _creditNoteRepository.GetByCodeAsync(membership.ShopId, creditNote.Code, Arg.Any<CancellationToken>())
+        _creditNoteRepository.GetByCodeAsync(membership.ShopId, CreditNoteCodeNormalizer.Normalize(creditNote.Code), Arg.Any<CancellationToken>())
             .Returns(creditNote);
         _saleReturnRepository.GetByIdWithItemsAsync(
                 membership.ShopId,

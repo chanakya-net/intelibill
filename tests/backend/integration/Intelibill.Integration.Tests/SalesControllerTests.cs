@@ -3059,7 +3059,8 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         Assert.Equal("Store credit issued after return", creditNote.GetProperty("reason").GetString());
         Assert.Equal(creditNoteExpiresAt.UtcDateTime, creditNote.GetProperty("expiresAt").GetDateTimeOffset().UtcDateTime);
 
-        using var getCreditNoteRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/credit-notes/{code}");
+        var lookupCode = code!.ToLowerInvariant();
+        using var getCreditNoteRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/credit-notes/{lookupCode}");
         getCreditNoteRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         var getCreditNoteResponse = await client.SendAsync(getCreditNoteRequest);
         Assert.Equal(HttpStatusCode.OK, getCreditNoteResponse.StatusCode);
