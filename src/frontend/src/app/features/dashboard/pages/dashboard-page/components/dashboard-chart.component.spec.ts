@@ -30,6 +30,7 @@ const stubDashboard: DashboardDto = {
   creditSalesAmount: 0,
   creditSalesPercentage: 0,
   paymentMix: null,
+  creditNoteSettlementAmount: 0,
   creditShareWarning: false,
   runningLowStockCount: 0,
   lowStockItemCount: 0,
