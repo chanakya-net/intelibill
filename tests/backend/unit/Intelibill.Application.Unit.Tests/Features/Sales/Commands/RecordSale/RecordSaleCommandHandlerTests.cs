@@ -10,6 +10,7 @@ using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Update;
 using NSubstitute;
 
 namespace Intelibill.Application.Unit.Tests.Features.Sales.Commands.RecordSale;
@@ -999,12 +1000,31 @@ public class RecordSaleCommandHandlerTests
         _creditNoteRepository.GetByCodeAsync(shopId, creditNote.Code, Arg.Any<CancellationToken>())
             .Returns(creditNote);
         _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>())
-            .Returns(Task.FromException<int>(new DbUpdateConcurrencyException("Simulated concurrent update")));
+            .Returns(Task.FromException<int>(new DbUpdateConcurrencyException("Simulated concurrent update", new List<IUpdateEntry>())));
 
         var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal(Errors.Sale.CreditNoteRedemptionConflict.Code, result.FirstError.Code);
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenInventoryConcurrencyConflictWithoutCreditNote_RethrowsConcurrencyException()
+    {
+        var shopId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var item = MakeItem(shopId, "BC-001");
+        var batch = MakeBatch(shopId, item.Id, "B-01");
+        var inventory = MakeInventory(shopId, item.Id);
+        var command = MakeCommand(shopId, actorId, inventoryBatchId: batch.Id);
+        var line = new ValidatedSaleLine(command.Items[0], item, batch, inventory, false);
+
+        _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>())
+            .Returns(new SaleLineValidationResult([line], new Dictionary<Guid, string> { { item.Id, item.Name } }));
+        _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<int>(new DbUpdateConcurrencyException("Simulated concurrent update", new List<IUpdateEntry>())));
+
+        await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => CreateHandler().HandleAsync(command, CancellationToken.None));
     }
 }

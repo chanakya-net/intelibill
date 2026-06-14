@@ -213,7 +213,7 @@ public sealed class RecordSaleCommandHandler
         {
             await unitOfWork.SaveChangesAsync(cancellationToken);
         }
-        catch (DbUpdateConcurrencyException)
+        catch (DbUpdateConcurrencyException exception) when (IsCreditNoteConcurrencyConflict(command, exception))
         {
             return Errors.Sale.CreditNoteRedemptionConflict;
         }
@@ -263,4 +263,10 @@ public sealed class RecordSaleCommandHandler
         await creditNoteRedemptionRepository.AddAsync(redemptionResult.Value, cancellationToken);
         return creditNote;
     }
+
+    private static bool IsCreditNoteConcurrencyConflict(
+        RecordSaleCommand command,
+        DbUpdateConcurrencyException exception) =>
+        command.CreditNoteRedemptions is { Count: > 0 }
+        && (exception.Entries.Count == 0 || exception.Entries.Any(entry => entry.Entity is CreditNote));
 }
