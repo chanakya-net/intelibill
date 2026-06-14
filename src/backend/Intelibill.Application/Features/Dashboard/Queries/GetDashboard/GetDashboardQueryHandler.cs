@@ -93,6 +93,7 @@ public sealed class GetDashboardQueryHandler(
             CreditSalesAmount: 0m,
             CreditSalesPercentage: 0m,
             PaymentMix: new PaymentMixDto(0m, 0m, 0m, 0m),
+            CreditNoteSettlementAmount: 0m,
             CreditShareWarning: false,
             RunningLowStockCount: 0,
             LowStockItemCount: lowStockItemCount,

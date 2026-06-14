@@ -95,6 +95,7 @@ export interface DashboardDto {
   creditSalesAmount: number | null;
   creditSalesPercentage: number | null;
   paymentMix: PaymentMixDto | null;
+  creditNoteSettlementAmount: number | null;
   creditShareWarning: boolean | null;
   runningLowStockCount: number;
   lowStockItemCount: number;
