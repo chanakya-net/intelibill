@@ -23,5 +23,8 @@ public static partial class Errors
 
         public static Error CannotVoidAfterRedemption =>
             Error.Conflict("CreditNote.CannotVoidAfterRedemption", "Cannot void a credit note after it has been redeemed.");
+
+        public static Error CustomerMismatchRequiresConfirmation =>
+            Error.Conflict("CreditNote.CustomerMismatchRequiresConfirmation", "Credit note is linked to a different customer. Confirmation is required to redeem.");
     }
 }

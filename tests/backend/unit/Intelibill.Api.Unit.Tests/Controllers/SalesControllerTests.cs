@@ -51,7 +51,8 @@ public class SalesControllerTests
 
     private static RecordSaleRequest CreateRequest(
         Guid? inventoryBatchId = null,
-        IReadOnlyList<CreditNoteRedemptionRequest>? creditNoteRedemptions = null) =>
+        IReadOnlyList<CreditNoteRedemptionRequest>? creditNoteRedemptions = null,
+        bool creditNoteCustomerMismatchConfirmed = false) =>
         new(
             null,
             "Ravi Kumar",
@@ -61,7 +62,8 @@ public class SalesControllerTests
             500m,
             0m,
             [new RecordSaleItemRequest("BC-001", "B-01", "Rice", 5m, 80m, 100m, 120m, 18m, false, inventoryBatchId ?? Guid.NewGuid())],
-            CreditNoteRedemptions: creditNoteRedemptions ?? []);
+            CreditNoteRedemptions: creditNoteRedemptions ?? [],
+            CreditNoteCustomerMismatchConfirmed: creditNoteCustomerMismatchConfirmed);
 
     private static OfflineSalesSyncRequest CreateOfflineSyncRequest(Guid? batchId = null) =>
         new(
@@ -329,6 +331,28 @@ public class SalesControllerTests
                 && c.CreditNoteRedemptions!.Count == 1
                 && c.CreditNoteRedemptions[0].Code == "CN-001"
                 && c.CreditNoteRedemptions[0].Amount == 10m),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RecordSale_WhenCreditNoteCustomerMismatchConfirmed_MapsFlag()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()));
+
+        var request = CreateRequest(
+            creditNoteRedemptions: [new CreditNoteRedemptionRequest("CN-001", 10m)],
+            creditNoteCustomerMismatchConfirmed: true);
+        _bus.InvokeAsync<ErrorOr<SaleDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(CreateDto());
+
+        await _controller.RecordSale(request, CancellationToken.None);
+
+        await _bus.Received(1).InvokeAsync<ErrorOr<SaleDto>>(
+            Arg.Is<RecordSaleCommand>(c => c.CreditNoteCustomerMismatchConfirmed),
             Arg.Any<CancellationToken>());
     }
 

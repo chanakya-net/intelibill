@@ -254,4 +254,5 @@ public class RecordSaleCommandValidatorTests
 
         Assert.Contains(result.Errors, e => e.ErrorCode == "Sale.CustomerIdentityRequiredForDue");
     }
+
 }

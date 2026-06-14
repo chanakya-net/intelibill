@@ -94,12 +94,14 @@ public class RecordSaleCommandHandlerTests
         string? idempotencyKey = null,
         string? hsnCode = null,
         decimal creditNoteAppliedAmount = 0m,
-        IReadOnlyList<CreditNoteRedemptionCommand>? creditNoteRedemptions = null) =>
+        IReadOnlyList<CreditNoteRedemptionCommand>? creditNoteRedemptions = null,
+        bool creditNoteCustomerMismatchConfirmed = false) =>
         new(actorId, shopId, idempotencyKey ?? $"sale-{Guid.NewGuid():N}", null, "Ravi Kumar", "+919876543210",
             PaymentMethod.Cash, quantity * 118m, 0m,
             [new RecordSaleItemCommand(barcode, batchNumber, "Rice", quantity, 80m, 100m, 120m, 18m, false, inventoryBatchId ?? Guid.NewGuid(), HsnCode: hsnCode)],
             CreditNoteAppliedAmount: creditNoteAppliedAmount,
-            CreditNoteRedemptions: creditNoteRedemptions ?? []);
+            CreditNoteRedemptions: creditNoteRedemptions ?? [],
+            CreditNoteCustomerMismatchConfirmed: creditNoteCustomerMismatchConfirmed);
 
     private static SalePricingCalculationResult BuildPricingResult(params ValidatedSaleLine[] lines)
     {
@@ -1032,5 +1034,77 @@ public class RecordSaleCommandHandlerTests
             .Returns(Task.FromException<int>(new DbUpdateConcurrencyException("Simulated concurrent update", new List<IUpdateEntry>())));
 
         await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => CreateHandler().HandleAsync(command, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenCreditNoteLinksMismatchCustomer_WithoutConfirmation_ReturnsError()
+    {
+        var shopId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var saleCustomerId = Guid.NewGuid();
+        var linkedCustomerId = Guid.NewGuid();
+        var item = MakeItem(shopId, "BC-MISMATCH");
+        var batch = MakeBatch(shopId, item.Id, "B-MISMATCH");
+        var inventory = MakeInventory(shopId, item.Id);
+        var creditNote = CreditNote.Issue(shopId, Guid.NewGuid(), 500m, "Return", "CN-MISMATCH", null, linkedCustomerId: linkedCustomerId).Value;
+        var command = MakeCommand(
+            shopId,
+            actorId,
+            barcode: item.Barcode,
+            batchNumber: batch.BatchNumber,
+            inventoryBatchId: batch.Id,
+            creditNoteAppliedAmount: 100m,
+            creditNoteRedemptions: [new CreditNoteRedemptionCommand(creditNote.Code, 100m)]) with
+        {
+            CustomerId = saleCustomerId,
+            PaidAmount = 490m,
+        };
+        var line = new ValidatedSaleLine(command.Items[0], item, batch, inventory, false);
+        _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>())
+            .Returns(new SaleLineValidationResult([line], new Dictionary<Guid, string> { { item.Id, item.Name } }));
+        _creditNoteRepository.GetByCodeWithRedemptionsAsync(shopId, creditNote.Code, Arg.Any<CancellationToken>())
+            .Returns(creditNote);
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.CreditNote.CustomerMismatchRequiresConfirmation.Code, result.FirstError.Code);
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenCreditNoteLinksMismatchCustomer_WithConfirmation_Proceeds()
+    {
+        var shopId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var saleCustomerId = Guid.NewGuid();
+        var linkedCustomerId = Guid.NewGuid();
+        var item = MakeItem(shopId, "BC-CONFIRM");
+        var batch = MakeBatch(shopId, item.Id, "B-CONFIRM");
+        var inventory = MakeInventory(shopId, item.Id);
+        var creditNote = CreditNote.Issue(shopId, Guid.NewGuid(), 500m, "Return", "CN-CONFIRM", null, linkedCustomerId: linkedCustomerId).Value;
+        var command = MakeCommand(
+            shopId,
+            actorId,
+            barcode: item.Barcode,
+            batchNumber: batch.BatchNumber,
+            inventoryBatchId: batch.Id,
+            creditNoteAppliedAmount: 100m,
+            creditNoteRedemptions: [new CreditNoteRedemptionCommand(creditNote.Code, 100m)],
+            creditNoteCustomerMismatchConfirmed: true) with
+        {
+            CustomerId = saleCustomerId,
+            PaidAmount = 490m,
+        };
+        var line = new ValidatedSaleLine(command.Items[0], item, batch, inventory, false);
+        _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>())
+            .Returns(new SaleLineValidationResult([line], new Dictionary<Guid, string> { { item.Id, item.Name } }));
+        _creditNoteRepository.GetByCodeWithRedemptionsAsync(shopId, creditNote.Code, Arg.Any<CancellationToken>())
+            .Returns(creditNote);
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 }

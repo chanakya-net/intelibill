@@ -16,7 +16,8 @@ public sealed partial record RecordSaleCommand(
     IReadOnlyList<RecordSaleItemCommand> Items,
     InstantDiscount? SaleDiscount = null,
     decimal CreditNoteAppliedAmount = 0m,
-    IReadOnlyList<CreditNoteRedemptionCommand>? CreditNoteRedemptions = null);
+    IReadOnlyList<CreditNoteRedemptionCommand>? CreditNoteRedemptions = null,
+    bool CreditNoteCustomerMismatchConfirmed = false);
 
 public sealed record RecordSaleItemCommand(
     string Barcode,

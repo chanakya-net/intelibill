@@ -15,6 +15,7 @@ public sealed class CreditNote : BaseEntity
     public DateTimeOffset? ExpiresAt { get; private set; }
     public bool IsVoided { get; private set; }
     public string? VoidReason { get; private set; }
+    public Guid? LinkedCustomerId { get; private set; }
 
     private readonly List<CreditNoteRedemption> _redemptions = [];
     public IReadOnlyList<CreditNoteRedemption> Redemptions => _redemptions.AsReadOnly();
@@ -27,7 +28,8 @@ public sealed class CreditNote : BaseEntity
         decimal amount,
         string reason,
         string? code,
-        DateTimeOffset? expiresAt)
+        DateTimeOffset? expiresAt,
+        Guid? linkedCustomerId = null)
     {
         if (amount <= 0)
         {
@@ -53,6 +55,7 @@ public sealed class CreditNote : BaseEntity
             AvailableBalance = amount,
             Reason = reason.Trim(),
             ExpiresAt = expiresAt,
+            LinkedCustomerId = linkedCustomerId,
             IsVoided = false,
         };
     }

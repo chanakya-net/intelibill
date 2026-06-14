@@ -34,6 +34,7 @@ internal static class RecordSaleIdempotencyHasher
                         Normalize(redemption.Code),
                         redemption.Amount)).ToList()
                 : [],
+            command.CreditNoteCustomerMismatchConfirmed,
             command.Items.Select(item =>
             {
                 var itemDiscount = item.ItemDiscount ?? new InstantDiscount(InstantDiscountType.None, 0m);
@@ -78,6 +79,7 @@ internal sealed record RecordSaleIdempotencyPayload(
     decimal SaleDiscountValue,
     decimal CreditNoteAppliedAmount,
     IReadOnlyList<RecordSaleCreditNoteRedemptionIdempotencyPayload> CreditNoteRedemptions,
+    bool CreditNoteCustomerMismatchConfirmed,
     IReadOnlyList<RecordSaleItemIdempotencyPayload> Items);
 
 

@@ -174,6 +174,8 @@ public sealed class RecordSaleCommandHandler
             command.ShopId,
             sale.Id,
             command.CreditNoteRedemptions ?? [],
+            resolvedCustomer?.Id ?? command.CustomerId,
+            command.CreditNoteCustomerMismatchConfirmed,
             cancellationToken);
         if (creditNoteRedemptionsOrError.IsError)
             return creditNoteRedemptionsOrError.Errors;
@@ -258,6 +260,8 @@ public sealed class RecordSaleCommandHandler
         Guid shopId,
         Guid saleId,
         IReadOnlyList<CreditNoteRedemptionCommand> creditNoteRedemptions,
+        Guid? saleCustomerId,
+        bool customerMismatchConfirmed,
         CancellationToken cancellationToken)
     {
         if (creditNoteRedemptions.Count == 0)
@@ -275,6 +279,11 @@ public sealed class RecordSaleCommandHandler
             if (creditNote is null)
             {
                 return Errors.CreditNote.CreditNoteNotFound(redemption.Code);
+            }
+
+            if (creditNote.LinkedCustomerId.HasValue && creditNote.LinkedCustomerId.Value != saleCustomerId && !customerMismatchConfirmed)
+            {
+                return Errors.CreditNote.CustomerMismatchRequiresConfirmation;
             }
 
             var redeemResult = creditNote.Redeem(shopId, saleId, redemption.Amount);
