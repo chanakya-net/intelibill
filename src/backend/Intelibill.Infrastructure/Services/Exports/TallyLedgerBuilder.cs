@@ -15,7 +15,8 @@ internal static class TallyLedgerBuilder
             "Cash",
             "UPI",
             "Card",
-            "Customer Receivable"
+            "Customer Receivable",
+            TallyVoucherBuilder.GetCreditNoteLedgerName()
         };
 
         foreach (var row in dataset.SummaryRows)

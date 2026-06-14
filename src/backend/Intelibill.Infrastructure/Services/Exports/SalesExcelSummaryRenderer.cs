@@ -81,6 +81,17 @@ internal static class SalesExcelSummaryRenderer
         plan.ReturnAmountColumn = col;
         plan.TotalFormulaColumns.Add(col++);
 
+        worksheet.Cell(startRow, col).Value = "Credit Note Applied";
+        plan.CreditNoteAppliedAmountColumn = col;
+        plan.TotalFormulaColumns.Add(col++);
+
+        worksheet.Cell(startRow, col).Value = "Credit Note Issued";
+        plan.IssuedCreditNoteCodesColumn = col++;
+
+        worksheet.Cell(startRow, col).Value = "Credit Note Issued Amount";
+        plan.IssuedCreditNoteAmountColumn = col;
+        plan.TotalFormulaColumns.Add(col++);
+
         worksheet.Cell(startRow, col).Value = "Sales Taxable";
         plan.SalesTaxableColumn = col;
         plan.TotalFormulaColumns.Add(col++);
@@ -154,6 +165,14 @@ internal static class SalesExcelSummaryRenderer
 
         worksheet.Cell(rowNum, columnPlan.ReturnAmountColumn).Value = row.ReturnAmount;
         worksheet.Cell(rowNum, columnPlan.ReturnAmountColumn).Style.NumberFormat.Format = "#,##0.00";
+
+        worksheet.Cell(rowNum, columnPlan.CreditNoteAppliedAmountColumn).Value = row.CreditNoteAppliedAmount;
+        worksheet.Cell(rowNum, columnPlan.CreditNoteAppliedAmountColumn).Style.NumberFormat.Format = "#,##0.00";
+
+        worksheet.Cell(rowNum, columnPlan.IssuedCreditNoteCodesColumn).Value = row.IssuedCreditNoteCodes ?? string.Empty;
+
+        worksheet.Cell(rowNum, columnPlan.IssuedCreditNoteAmountColumn).Value = row.IssuedCreditNoteAmount;
+        worksheet.Cell(rowNum, columnPlan.IssuedCreditNoteAmountColumn).Style.NumberFormat.Format = "#,##0.00";
 
         worksheet.Cell(rowNum, columnPlan.SalesTaxableColumn).Value = row.TaxableAmount;
         worksheet.Cell(rowNum, columnPlan.SalesTaxableColumn).Style.NumberFormat.Format = "#,##0.00";
@@ -293,6 +312,9 @@ internal sealed class SummaryColumnPlan
     public int DueAmountColumn { get; set; }
     public int ReturnNumbersColumn { get; set; }
     public int ReturnAmountColumn { get; set; }
+    public int CreditNoteAppliedAmountColumn { get; set; }
+    public int IssuedCreditNoteCodesColumn { get; set; }
+    public int IssuedCreditNoteAmountColumn { get; set; }
     public int SalesTaxableColumn { get; set; }
     public Dictionary<decimal, int> SalesTaxableRateColumns { get; }
     public Dictionary<decimal, int> SalesTaxRateColumns { get; }
