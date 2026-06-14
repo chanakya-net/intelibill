@@ -1066,7 +1066,8 @@
         "customerMismatchWarning": "The credit note belongs to a different customer.",
         "customerMismatchDetails": "Confirm this mismatch before applying the credit note to this sale.",
         "confirmMismatchBtn": "Confirm mismatch",
-        "customerMismatchConfirmed": "Mismatch confirmed. The sale can be submitted."
+        "customerMismatchConfirmed": "Mismatch confirmed. The sale can be submitted.",
+        "customerMismatchConfirmRequired": "Please confirm the customer mismatch before submitting."
       }
     },
     "detail": {

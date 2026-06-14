@@ -1066,7 +1066,8 @@
         "customerMismatchWarning": "क्रेडिट नोट किसी दूसरे ग्राहक का है.",
         "customerMismatchDetails": "इस बिक्री पर क्रेडिट नोट लागू करने से पहले इस mismatch को confirm करें.",
         "confirmMismatchBtn": "Mismatch confirm करें",
-        "customerMismatchConfirmed": "Mismatch confirm हो गया है. बिक्री submit की जा सकती है."
+        "customerMismatchConfirmed": "Mismatch confirm हो गया है. बिक्री submit की जा सकती है.",
+        "customerMismatchConfirmRequired": "Submit करने से पहले customer mismatch को confirm करें."
       }
     },
     "detail": {

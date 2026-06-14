@@ -218,7 +218,7 @@ describe('NewSalePageCreditNoteService', () => {
     expect(service.creditNoteCustomerMismatchConfirmed()).toBe(true);
   });
 
-  it('cancels mismatch confirmation without clearing the verified credit note', async () => {
+  it('cancels mismatch confirmation and clears the verified credit note', async () => {
     const { service } = buildService({
       verifyCreditNote: vi.fn(() => of({ ...verifiedNote, customerName: 'Different Customer' })),
     });
@@ -229,7 +229,7 @@ describe('NewSalePageCreditNoteService', () => {
     service.onCreditNoteCustomerMismatchConfirmedChange(true);
     service.onCreditNoteCustomerMismatchCancelled();
 
-    expect(service.verifiedCreditNote()).toEqual({ ...verifiedNote, customerName: 'Different Customer' });
+    expect(service.verifiedCreditNote()).toBeNull();
     expect(service.creditNoteCustomerMismatchWarning()).toBe(false);
     expect(service.creditNoteCustomerMismatchConfirmed()).toBe(false);
   });

@@ -43,7 +43,7 @@ export abstract class NewSalePageCreditNoteService extends NewSalePageOfflineFlo
   }
 
   onCreditNoteCustomerMismatchCancelled(): void {
-    this.resetCreditNoteMismatchState();
+    this.resetCreditNoteState();
   }
 
   override refreshCreditNoteCustomerMismatchState(): void {
@@ -70,6 +70,7 @@ export abstract class NewSalePageCreditNoteService extends NewSalePageOfflineFlo
       return false;
     }
 
+    // Name-based comparison used as fallback; API does not return customer ID for credit notes.
     const saleCustomerName = this.selectedCustomer()?.name.trim().toLowerCase();
     const creditNoteCustomerName = creditNote.customerName?.trim().toLowerCase();
 
