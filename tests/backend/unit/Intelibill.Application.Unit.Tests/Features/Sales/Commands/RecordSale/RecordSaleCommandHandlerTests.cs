@@ -425,6 +425,25 @@ public class RecordSaleCommandHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_WhenCreditNoteAppliedWithoutCode_ReturnsValidationError()
+    {
+        var shopId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var command = MakeCommand(
+            shopId,
+            actorId,
+            creditNoteAppliedAmount: 100m,
+            creditNoteCode: null);
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Sale.CreditNoteCodeRequired.Code, result.FirstError.Code);
+        await _saleRepository.DidNotReceive().AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task HandleAsync_WhenSaveChangesThrowsAndSameHash_ReturnsExistingSale()
     {
         var shopId = Guid.NewGuid();

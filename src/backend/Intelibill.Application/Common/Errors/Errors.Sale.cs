@@ -54,6 +54,9 @@ public static partial class Errors
         public static Error CreditNoteAppliedAmountInvalid =>
             Error.Validation("Sale.CreditNoteAppliedAmountInvalid", "Credit note applied amount cannot be negative.");
 
+        public static Error CreditNoteCodeRequired =>
+            Error.Validation("Sale.CreditNoteCodeRequired", "Credit note code is required when a credit note amount is applied.");
+
         public static Error CreditRequiresDueAmount =>
             Error.Validation("Sale.CreditRequiresDueAmount", "Credit sale must include a due amount greater than zero.");
 

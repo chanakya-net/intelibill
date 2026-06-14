@@ -52,6 +52,11 @@ public sealed class RecordSaleCommandHandler
         var normalizedIdempotencyKey = command.IdempotencyKey.Trim();
         var requestHash = RecordSaleIdempotencyHasher.ComputeHash(command);
 
+        if (command.CreditNoteAppliedAmount > 0 && string.IsNullOrWhiteSpace(command.CreditNoteCode))
+        {
+            return Errors.Sale.CreditNoteCodeRequired;
+        }
+
         var existingSale = await saleRepository.GetByIdempotencyKeyAsync(command.ShopId, command.ActorUserId, normalizedIdempotencyKey, cancellationToken);
         if (existingSale is not null)
         {

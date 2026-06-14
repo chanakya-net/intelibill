@@ -177,4 +177,18 @@ public class RecordSaleCommandValidatorTests
 
         Assert.Contains(result.Errors, e => e.ErrorCode == "Sale.CustomerIdentityRequiredForDue");
     }
+
+    [Fact]
+    public void Validate_WhenCreditNoteAppliedWithoutCode_ReturnsError()
+    {
+        var command = ValidCommand() with
+        {
+            CreditNoteAppliedAmount = 100m,
+            CreditNoteCode = null,
+        };
+
+        var result = _validator.TestValidate(command);
+
+        Assert.Contains(result.Errors, e => e.ErrorCode == "Sale.CreditNoteCodeRequired");
+    }
 }

@@ -88,6 +88,11 @@ public sealed class RecordSaleCommandValidator : AbstractValidator<RecordSaleCom
             .WithMessage(Errors.Sale.CreditNoteAppliedAmountInvalid.Description);
 
         RuleFor(x => x)
+            .Must(x => x.CreditNoteAppliedAmount <= 0 || !string.IsNullOrWhiteSpace(x.CreditNoteCode))
+            .WithErrorCode(Errors.Sale.CreditNoteCodeRequired.Code)
+            .WithMessage(Errors.Sale.CreditNoteCodeRequired.Description);
+
+        RuleFor(x => x)
             .Must(x => x.PaymentMethod != PaymentMethod.Credit || x.DueAmount > 0)
             .WithErrorCode(Errors.Sale.CreditRequiresDueAmount.Code)
             .WithMessage(Errors.Sale.CreditRequiresDueAmount.Description);
