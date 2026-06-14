@@ -1,4 +1,4 @@
-import { computed, DestroyRef, inject, Injectable, Injector, signal } from '@angular/core';
+import { computed, DestroyRef, effect, inject, Injectable, Injector, signal } from '@angular/core';
 import { FormBuilder, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CURRENCY_ADDON_PT, CURRENCY_INPUT_GROUP_PT, CURRENCY_INPUT_NUMBER_PT } from '../../../shared/primeng-pt.config';
@@ -269,7 +269,7 @@ export abstract class NewSalePageStateService {
 
   readonly totalDiscountAmount = computed(() => this.checkoutPreview()?.totalDiscountAmount ?? 0);
   readonly appliedCreditNotes = signal<AppliedCreditNote[]>([]);
-  readonly canApplyCreditNote = computed(() => this.remainingPayableAmount() > 0);
+  readonly canApplyCreditNote = computed(() => false);
   readonly totalAppliedCreditNoteAmount = computed(() =>
     this.appliedCreditNotes().reduce((sum, note) => sum + note.amount, 0)
   );
@@ -376,6 +376,44 @@ export abstract class NewSalePageStateService {
 
   protected hasAppliedCreditNoteCode(code: string): boolean {
     return this.appliedCreditNotes().some((note) => note.code === code);
+  }
+
+  protected reconcileAppliedCreditNotesAgainstCartTotal(): void {
+    const totalAmount = this.totalAmount();
+    if (this.appliedCreditNotes().length === 0 || totalAmount <= 0) {
+      if (totalAmount <= 0) {
+        this.clearAppliedCreditNotes();
+      }
+      return;
+    }
+
+    this.appliedCreditNotes.update((notes) => {
+      if (notes.length === 0 || totalAmount <= 0) {
+        return notes;
+      }
+
+      let remaining = this.roundAmount(totalAmount);
+      let hasChanged = false;
+      const normalized = notes.map((note) => {
+        const amount = this.roundAmount(Math.max(0, Math.min(note.amount, note.availableBalance, remaining)));
+        remaining = this.roundAmount(Math.max(0, remaining - amount));
+        if (remaining <= 0) {
+          remaining = 0;
+        }
+        if (!this.areAmountsEqual(amount, note.amount)) {
+          hasChanged = true;
+          return { ...note, amount };
+        }
+        return note;
+      });
+
+      if (hasChanged) {
+        return normalized;
+      }
+      return notes;
+    });
+
+    this.reconcilePaymentSplitAfterCreditNoteChange();
   }
 
   protected normalizeCreditNoteAmount(note: AppliedCreditNote, amount: number | null | undefined): number {

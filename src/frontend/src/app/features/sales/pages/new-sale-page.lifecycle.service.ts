@@ -105,6 +105,17 @@ export abstract class NewSalePageLifecycleService extends NewSalePageStateServic
 
     runInInjectionContext(this.injector, () => {
       effect(() => {
+        const total = this.totalAmount();
+        if (this.appliedCreditNotes().length > 0) {
+          if (total <= 0) {
+            this.clearAppliedCreditNotes();
+          } else {
+            this.reconcileAppliedCreditNotesAgainstCartTotal();
+          }
+        }
+      });
+
+      effect(() => {
         if (this.lastMutationSucceeded()) {
           const type = this.lastMutationType();
           if (type === 'record-sale') {
