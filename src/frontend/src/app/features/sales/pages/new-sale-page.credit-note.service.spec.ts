@@ -38,6 +38,7 @@ class TestCreditNoteService extends NewSalePageCreditNoteService {
   override getUnitSubtotal(): number { return 0; }
   override getUnitTaxAmount(): number { return 0; }
   override getUnitFinalPrice(): number { return 0; }
+  override async onSubmit(): Promise<void> {}
   override createSaleIdempotencyKey(): string { return 'test-key'; }
   override onCancel(): void {}
   override toggleSaleDiscountEditor(): void {}
@@ -61,19 +62,10 @@ class TestCreditNoteService extends NewSalePageCreditNoteService {
   override revalidateLineOverrides(): boolean { return false; }
   override getBlockingCartValidationErrorKey(): string | null { return null; }
   override normalizeHsnCode(): string | null { return null; }
-  override normalizeAmount(value: number | null | undefined, total: number): number {
-    return this.roundAmount(Math.max(0, Math.min(Number(value ?? 0), total)));
-  }
-  override toFiniteAmount(value: number | null | undefined): number {
-    const amount = Number(value ?? 0);
-    return Number.isFinite(amount) ? this.roundAmount(amount) : Number.NaN;
-  }
-  override roundAmount(value: number): number { return Number(value.toFixed(2)); }
-  override areAmountsEqual(left: number, right: number): boolean {
-    return this.roundAmount(left) === this.roundAmount(right);
-  }
-  override syncPaymentSplitFromPaid(): void {}
-  override syncPaymentSplitFromDue(): void {}
+  override normalizeAmount(): number { return 0; }
+  override toFiniteAmount(): number { return 0; }
+  override roundAmount(value: number): number { return value; }
+  override areAmountsEqual(left: number, right: number): boolean { return left === right; }
   override enforceNoCustomerCreditRestrictions(): void {}
   override resetSearchAndPickerState(): void {}
   override applyProductDefaultsForLine(): void {}
@@ -96,40 +88,12 @@ const verifiedNote: CreditNoteVerifyResponseDto = {
   status: 'Active',
 };
 
-const verifiedNoteLarge: CreditNoteVerifyResponseDto = {
-  ...verifiedNote,
-  availableBalance: 320,
-};
-
-function buildService(
-  saleServiceOverrides: Partial<{ verifyCreditNote: ReturnType<typeof vi.fn> }> = {},
-  options: {
-    cart?: unknown[];
-    checkoutPreview?: unknown;
-  } = {},
-) {
+function buildService(saleServiceOverrides: Partial<{ verifyCreditNote: ReturnType<typeof vi.fn> }> = {}) {
   TestBed.resetTestingModule();
 
   const saleService = {
     verifyCreditNote: vi.fn(() => of(verifiedNote)),
     ...saleServiceOverrides,
-  };
-
-  const recordSale = vi.fn();
-  const cart = signal(options.cart ?? []);
-  const checkoutPreview = signal(options.checkoutPreview ?? null);
-  const salePreview = {
-    checkoutPreview,
-    isPreviewLoading: signal(false),
-    previewError: signal(''),
-    beginPreviewRequest: vi.fn(() => 1),
-    finishPreviewRequest: vi.fn(),
-    refreshOnlinePreview: vi.fn(),
-    refreshOnServerUpdate: vi.fn(),
-    clearPreviewState: vi.fn(),
-    triggerServerUpdateRefresh: vi.fn(),
-    clearPreviewError: vi.fn(),
-    markPreviewInvalid: vi.fn(),
   };
 
   const route = {
@@ -146,7 +110,7 @@ function buildService(
       { provide: NetworkStatusService, useValue: { canReachApi: vi.fn(() => true) } },
       { provide: ProductCatalogSyncService, useValue: { filterByName: vi.fn(() => []), filterByBarcode: vi.fn(() => []) } },
       { provide: ShopUpdatesSignalRService, useValue: { updates$: EMPTY, startConnection: vi.fn(), stopConnection: vi.fn() } },
-      { provide: CustomersFacade, useValue: { allCustomers: signal([]), loadingCustomers: signal(false) } },
+      { provide: CustomersFacade, useValue: { allCustomers: signal([]), loadingCustomers: signal(false), loadCustomers: vi.fn() } },
       { provide: InventoryService, useValue: {} },
       {
         provide: SalesFacade,
@@ -156,13 +120,12 @@ function buildService(
           lastMutationSucceeded: signal(false),
           lastMutationType: signal(null),
           lastRecordedSale: signal(null),
-          recordSale,
         },
       },
       {
         provide: SaleCartStateService,
         useValue: {
-          cart,
+          cart: signal([]),
           serviceCart: signal([]),
           cartBootstrapped: signal(false),
           onClearCart: vi.fn(),
@@ -173,7 +136,19 @@ function buildService(
       },
       {
         provide: SalePreviewService,
-        useValue: salePreview,
+        useValue: {
+          checkoutPreview: signal(null),
+          isPreviewLoading: signal(false),
+          previewError: signal(''),
+          beginPreviewRequest: vi.fn(() => 1),
+          finishPreviewRequest: vi.fn(),
+          refreshOnlinePreview: vi.fn(),
+          refreshOnServerUpdate: vi.fn(),
+          clearPreviewState: vi.fn(),
+          triggerServerUpdateRefresh: vi.fn(),
+          clearPreviewError: vi.fn(),
+          markPreviewInvalid: vi.fn(),
+        },
       },
       {
         provide: OfflineSaleStateService,
@@ -195,7 +170,7 @@ function buildService(
     ],
   });
 
-  return { service: TestBed.inject(TestCreditNoteService), saleService, salePreview, recordSale };
+  return { service: TestBed.inject(TestCreditNoteService), saleService };
 }
 
 describe('NewSalePageCreditNoteService', () => {
@@ -268,61 +243,228 @@ describe('NewSalePageCreditNoteService', () => {
     });
   });
 
-  it('posts verified credit note redemption as part of payment split', async () => {
-    const { service, recordSale } = buildService({}, {
-      cart: [
-        {
-          barcode: '8901',
-          batchNumber: 'B1',
-          itemName: 'Rice',
-          quantity: 1,
-          availableQuantity: 5,
-          costPrice: 60,
-          salesPrice: 100,
-          mrp: 100,
-          taxRatePercent: 0,
-          taxIncluded: false,
-          inventoryBatchId: 'batch-1',
-          clientLineKey: 'line-1',
-          itemDiscountType: 0,
-          itemDiscountValue: 0,
-          hsnCode: null,
-        },
-      ],
-      checkoutPreview: {
-        totalAmount: 100,
-        totalTaxableAmount: 100,
-        totalTaxAmount: 0,
-        totalDiscountAmount: 0,
-        saleLevelEligibleSubtotal: 100,
-        configuredSaleRule: null,
-        lines: [],
-        infos: [],
-        warnings: [],
+  it('applies verified notes, prevents duplicates, edits amounts, and removes notes', () => {
+    const { service } = buildService();
+    service.checkoutPreview.set({
+      totalAmount: 300,
+      totalTaxableAmount: 300,
+      totalTaxAmount: 0,
+      totalDiscountAmount: 0,
+      saleLevelEligibleSubtotal: 300,
+      configuredSaleRule: null,
+      lines: [],
+      infos: [],
+      warnings: [],
+    });
+    service.verifiedCreditNote.set(verifiedNote);
+    service.onApplyVerifiedCreditNote();
+
+    expect(service.appliedCreditNotes()).toHaveLength(1);
+    expect(service.totalAppliedCreditNoteAmount()).toBe(250);
+    expect(service.verifiedCreditNote()).toBeNull();
+
+    service.verifiedCreditNote.set({ ...verifiedNote, creditNoteId: 'cn-2', code: 'CN-DEF-456', availableBalance: 90 });
+    service.onApplyVerifiedCreditNote();
+    expect(service.appliedCreditNotes()).toHaveLength(2);
+    expect(service.totalAppliedCreditNoteAmount()).toBe(300);
+
+    service.lastEditedPaymentField.set('paid');
+    service.paymentForm.controls.paidAmount.setValue(50);
+    service.paymentForm.controls.dueAmount.setValue(130);
+    service.onAppliedCreditNoteAmountChange('cn-1', 120);
+
+    expect(service.appliedCreditNotes()[0].amount).toBe(120);
+    expect(service.appliedCreditNotes()[1].amount).toBe(50);
+    expect(service.totalAppliedCreditNoteAmount()).toBe(170);
+
+    service.onRemoveAppliedCreditNote('cn-1');
+    expect(service.appliedCreditNotes()).toHaveLength(1);
+    expect(service.appliedCreditNotes()[0].creditNoteId).toBe('cn-2');
+    expect(service.totalAppliedCreditNoteAmount()).toBe(50);
+  });
+
+  it('prevents duplicate code from being applied', () => {
+    const { service } = buildService();
+    service.checkoutPreview.set({
+      totalAmount: 500,
+      totalTaxableAmount: 500,
+      totalTaxAmount: 0,
+      totalDiscountAmount: 0,
+      saleLevelEligibleSubtotal: 500,
+      configuredSaleRule: null,
+      lines: [],
+      infos: [],
+      warnings: [],
+    });
+    service.verifiedCreditNote.set(verifiedNote);
+
+    service.onApplyVerifiedCreditNote();
+
+    service.verifiedCreditNote.set(verifiedNote);
+    service.onApplyVerifiedCreditNote();
+
+    expect(service.appliedCreditNotes().length).toBe(1);
+  });
+
+  it('returns false for canApplyCreditNote when no verified note is selected', () => {
+    const { service } = buildService();
+    service.checkoutPreview.set({
+      totalAmount: 500,
+      totalTaxableAmount: 500,
+      totalTaxAmount: 0,
+      totalDiscountAmount: 0,
+      saleLevelEligibleSubtotal: 500,
+      configuredSaleRule: null,
+      lines: [],
+      infos: [],
+      warnings: [],
+    });
+
+    expect(service.canApplyCreditNote()).toBe(false);
+
+    service.verifiedCreditNote.set(verifiedNote);
+    expect(service.canApplyCreditNote()).toBe(true);
+
+    service.verifiedCreditNote.set({ ...verifiedNote, code: 'CN-USED-001' });
+    service.onApplyVerifiedCreditNote();
+
+    expect(service.canApplyCreditNote()).toBe(false);
+  });
+
+  it('updates payment form controls when credit note amount changes', () => {
+    const { service } = buildService();
+    service.checkoutPreview.set({
+      totalAmount: 500,
+      totalTaxableAmount: 500,
+      totalTaxAmount: 0,
+      totalDiscountAmount: 0,
+      saleLevelEligibleSubtotal: 500,
+      configuredSaleRule: null,
+      lines: [],
+      infos: [],
+      warnings: [],
+    });
+    service.verifiedCreditNote.set(verifiedNote);
+    service.lastEditedPaymentField.set('paid');
+    service.paymentForm.controls.paidAmount.setValue(300);
+    service.onApplyVerifiedCreditNote();
+
+    service.onAppliedCreditNoteAmountChange('cn-1', 100);
+
+    const expectedPayable = 500 - 100;
+    const paid = service.paymentForm.controls.paidAmount.value;
+    const due = service.paymentForm.controls.dueAmount.value;
+    expect(paid + due).toBe(expectedPayable);
+  });
+
+  it('clamps edited credit note amount so total applied does not exceed payable total', () => {
+    const { service } = buildService();
+    service.checkoutPreview.set({
+      totalAmount: 300,
+      totalTaxableAmount: 300,
+      totalTaxAmount: 0,
+      totalDiscountAmount: 0,
+      saleLevelEligibleSubtotal: 300,
+      configuredSaleRule: null,
+      lines: [],
+      infos: [],
+      warnings: [],
+    });
+
+    service.appliedCreditNotes.set([
+      {
+        creditNoteId: 'cn-1',
+        code: 'CN-ONE',
+        availableBalance: 500,
+        expiresAt: null,
+        status: 'Active',
+        amount: 100,
       },
-    });
-    service.verifiedCreditNote.set({ ...verifiedNote, availableBalance: 40 });
-    service.appliedCreditNoteAmount.set(40);
-    service.paymentForm.controls.paidAmount.setValue(60);
-    service.paymentForm.controls.dueAmount.setValue(0);
+      {
+        creditNoteId: 'cn-2',
+        code: 'CN-TWO',
+        availableBalance: 500,
+        expiresAt: null,
+        status: 'Active',
+        amount: 50,
+      },
+    ]);
 
-    await service.onSubmit();
+    service.onAppliedCreditNoteAmountChange('cn-1', 500);
 
-    expect(service.paymentSplitError()).toBe('');
-    expect(recordSale).toHaveBeenCalledWith(expect.objectContaining({
-      paidAmount: 60,
-      dueAmount: 0,
-      creditNoteAppliedAmount: 40,
-      creditNoteRedemptions: [{ code: 'CN-ABC-123', amount: 40 }],
-    }));
+    expect(service.appliedCreditNotes()[0].amount).toBe(250);
+    expect(service.totalAppliedCreditNoteAmount()).toBe(300);
   });
 
-  it('defaults applied amount to verified balance capped by remaining total', async () => {
-    const { service, salePreview } = buildService({
-      verifyCreditNote: vi.fn(() => of(verifiedNoteLarge)),
+  it('reconciles applied credit note amounts and split when cart total decreases', async () => {
+    const { service } = buildService();
+    service.checkoutPreview.set({
+      totalAmount: 300,
+      totalTaxableAmount: 300,
+      totalTaxAmount: 0,
+      totalDiscountAmount: 0,
+      saleLevelEligibleSubtotal: 300,
+      configuredSaleRule: null,
+      lines: [],
+      infos: [],
+      warnings: [],
     });
-    salePreview.checkoutPreview.set({
-      totalAmount: 250,
+
+    service.verifiedCreditNote.set(verifiedNote);
+    service.lastEditedPaymentField.set('paid');
+    service.paymentForm.controls.paidAmount.setValue(180);
+    service.onApplyVerifiedCreditNote();
+
+    service.verifiedCreditNote.set({ ...verifiedNote, creditNoteId: 'cn-2', code: 'CN-ABC-456', availableBalance: 90 });
+    service.onApplyVerifiedCreditNote();
+
+    service.checkoutPreview.set({
+      totalAmount: 120,
+      totalTaxableAmount: 120,
+      totalTaxAmount: 0,
+      totalDiscountAmount: 0,
+      saleLevelEligibleSubtotal: 120,
+      configuredSaleRule: null,
+      lines: [],
+      infos: [],
+      warnings: [],
+    });
+    await Promise.resolve();
+    (service as unknown as { reconcileAppliedCreditNotesAgainstCartTotal: () => void }).reconcileAppliedCreditNotesAgainstCartTotal();
+
+    expect(service.totalAppliedCreditNoteAmount()).toBe(120);
+    expect(service.appliedCreditNotes()[0].amount).toBe(120);
+    expect(service.appliedCreditNotes()[1].amount).toBe(0);
+    expect(
+      (service as unknown as { buildCreditNoteRedemptions: () => Array<{ creditNoteId: string; code: string; amount: number }> })
+        .buildCreditNoteRedemptions(),
+    ).toHaveLength(1);
+    expect(service.paymentForm.controls.paidAmount.value).toBe(0);
+    expect(service.paymentForm.controls.dueAmount.value).toBe(0);
+  });
+
+  it('keeps zero-amount credit notes for lifecycle-driven cleanup', () => {
+    const { service } = buildService();
+    service.checkoutPreview.set({
+      totalAmount: 300,
+      totalTaxableAmount: 300,
+      totalTaxAmount: 0,
+      totalDiscountAmount: 0,
+      saleLevelEligibleSubtotal: 300,
+      configuredSaleRule: null,
+      lines: [],
+      infos: [],
+      warnings: [],
+    });
+
+    service.verifiedCreditNote.set(verifiedNote);
+    service.lastEditedPaymentField.set('paid');
+    service.paymentForm.controls.paidAmount.setValue(200);
+    service.paymentForm.controls.dueAmount.setValue(100);
+    service.onApplyVerifiedCreditNote();
+
+    service.checkoutPreview.set({
+      totalAmount: 0,
       totalTaxableAmount: 0,
       totalTaxAmount: 0,
       totalDiscountAmount: 0,
@@ -332,35 +474,13 @@ describe('NewSalePageCreditNoteService', () => {
       infos: [],
       warnings: [],
     });
+    (service as unknown as { reconcileAppliedCreditNotesAgainstCartTotal: () => void }).reconcileAppliedCreditNotesAgainstCartTotal();
 
-    service.paymentForm.controls.paidAmount.setValue(40);
-    service.paymentForm.controls.dueAmount.setValue(10);
-    service.creditNoteCode.set('CN-ABC-123');
-
-    await service.onVerifyCreditNote();
-
-    expect(service.appliedCreditNoteAmount()).toBe(200);
-  });
-
-  it('reduces applied amount and keeps it bounded by remaining total', () => {
-    const { service, salePreview } = buildService();
-    salePreview.checkoutPreview.set({
-      totalAmount: 180,
-      totalTaxableAmount: 0,
-      totalTaxAmount: 0,
-      totalDiscountAmount: 0,
-      saleLevelEligibleSubtotal: 0,
-      configuredSaleRule: null,
-      lines: [],
-      infos: [],
-      warnings: [],
-    });
-
-    service.paymentForm.controls.paidAmount.setValue(20);
-    service.paymentForm.controls.dueAmount.setValue(10);
-    service.verifiedCreditNote.set(verifiedNoteLarge);
-    service.onCreditNoteAppliedAmountChange(999);
-
-    expect(service.appliedCreditNoteAmount()).toBe(150);
+    expect(service.appliedCreditNotes()).toHaveLength(1);
+    expect(service.appliedCreditNotes()[0].amount).toBe(0);
+    expect(
+      (service as unknown as { buildCreditNoteRedemptions: () => Array<{ creditNoteId: string; code: string; amount: number }> })
+        .buildCreditNoteRedemptions(),
+    ).toHaveLength(0);
   });
 });

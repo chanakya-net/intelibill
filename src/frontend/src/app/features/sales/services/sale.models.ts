@@ -212,7 +212,17 @@ export interface RecordSaleItemRequest {
 }
 
 export interface CreditNoteRedemptionRequest {
+  readonly creditNoteId: string;
   readonly code: string;
+  readonly amount: number;
+}
+
+export interface AppliedCreditNote {
+  readonly creditNoteId: string;
+  readonly code: string;
+  readonly availableBalance: number;
+  readonly expiresAt: string | null;
+  readonly status: CreditNoteStatus;
   readonly amount: number;
 }
 

@@ -193,16 +193,19 @@
           [creditNoteCode]="vm.creditNoteCode()"
           [isCreditNoteVerifying]="vm.isCreditNoteVerifying()"
           [verifiedCreditNote]="vm.verifiedCreditNote()"
-          [appliedCreditNoteAmount]="vm.appliedCreditNoteAmount()"
-          [maxAppliedCreditNoteAmount]="vm.maxAppliedCreditNoteAmount"
+          [canApplyCreditNote]="vm.canApplyCreditNote()"
           [creditNoteError]="vm.creditNoteError()"
+          [appliedCreditNotes]="vm.appliedCreditNotes()"
+          [appliedCreditNotesTotal]="vm.totalAppliedCreditNoteAmount()"
+          [remainingPayableAmount]="vm.remainingPayableAmount()"
           (methodChanged)="onPaymentMethodChanged($event)"
           (paidAmountChanged)="onPaymentPaidAmountChanged($event)"
           (dueAmountChanged)="onPaymentDueAmountChanged($event)"
           (creditNoteCodeChanged)="onCreditNoteCodeChanged($event)"
           (creditNoteVerifyRequested)="onCreditNoteVerifyRequested()"
-          (creditNoteAppliedAmountChanged)="onCreditNoteAppliedAmountChanged($event)"
-          (creditNoteRemovalRequested)="onCreditNoteRemoveRequested()"
+          (creditNoteApplyRequested)="vm.onApplyVerifiedCreditNote()"
+          (appliedCreditNoteAmountChanged)="vm.onAppliedCreditNoteAmountChange($event.creditNoteId, $event.amount)"
+          (appliedCreditNoteRemoved)="vm.onRemoveAppliedCreditNote($event)"
         />
 
         <app-cart-checkout-summary

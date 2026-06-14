@@ -12,6 +12,8 @@ import { InventoryService } from '../../inventory/services/inventory.service';
 import { AvailableBatchDto } from '../../inventory/services/inventory.models';
 import { PAYMENT_METHOD_VALUES, PaymentMethod, SellableDto } from '../services/sale.models';
 import type {
+  AppliedCreditNote,
+  CreditNoteRedemptionRequest,
   SalePreviewDto,
   SalePreviewLineDto,
   ServiceCartLine,
@@ -266,6 +268,11 @@ export abstract class NewSalePageStateService {
   readonly loadingCustomers = computed(() => this.readFacadeValue(this.customersFacade.loadingCustomers));
 
   readonly totalDiscountAmount = computed(() => this.checkoutPreview()?.totalDiscountAmount ?? 0);
+  readonly appliedCreditNotes = signal<AppliedCreditNote[]>([]);
+  readonly canApplyCreditNote = computed(() => false);
+  readonly totalAppliedCreditNoteAmount = computed(() =>
+    this.appliedCreditNotes().reduce((sum, note) => sum + note.amount, 0)
+  );
   readonly batchPickerQuantity = signal(1);
 
   readonly isLineDiscountEditorOpenFn = (itemId: string): boolean => this.isLineDiscountEditorOpen(itemId);
@@ -340,6 +347,79 @@ export abstract class NewSalePageStateService {
     return typeof value === 'function' ? (value as () => T)() : value;
   }
 
+  onApplyVerifiedCreditNote(): void {}
+
+  onAppliedCreditNoteAmountChange(creditNoteId: string, amount: number | null | undefined): void {
+    this.appliedCreditNotes.update((notes) =>
+      notes.map((note) =>
+        note.creditNoteId === creditNoteId
+          ? { ...note, amount: this.normalizeCreditNoteAmount(note, amount) }
+          : note
+      )
+    );
+    this.reconcilePaymentSplitAfterCreditNoteChange();
+  }
+
+  onRemoveAppliedCreditNote(creditNoteId: string): void {
+    this.appliedCreditNotes.update((notes) => notes.filter((note) => note.creditNoteId !== creditNoteId));
+    this.reconcilePaymentSplitAfterCreditNoteChange();
+  }
+
+  protected addAppliedCreditNote(note: AppliedCreditNote): void {
+    this.appliedCreditNotes.update((notes) => [...notes, note]);
+    this.reconcilePaymentSplitAfterCreditNoteChange();
+  }
+
+  protected clearAppliedCreditNotes(): void {
+    this.appliedCreditNotes.set([]);
+    this.reconcilePaymentSplitAfterCreditNoteChange();
+  }
+
+  protected hasAppliedCreditNoteCode(code: string): boolean {
+    return this.appliedCreditNotes().some((note) => note.code === code);
+  }
+
+  protected reconcileAppliedCreditNotesAgainstCartTotal(): void {
+    const totalAmount = this.totalAmount();
+    if (this.appliedCreditNotes().length === 0) {
+      return;
+    }
+
+    const current = this.appliedCreditNotes();
+    let remaining = this.roundAmount(totalAmount);
+    const normalized = current.map((note) => {
+      const amount = this.roundAmount(Math.max(0, Math.min(note.amount, note.availableBalance, remaining)));
+      remaining = this.roundAmount(Math.max(0, remaining - amount));
+      return { ...note, amount };
+    });
+    const hasChanged = normalized.some((note, index) => !this.areAmountsEqual(note.amount, current[index]?.amount));
+
+    if (hasChanged) {
+      this.appliedCreditNotes.set(normalized);
+      this.reconcilePaymentSplitAfterCreditNoteChange();
+    }
+  }
+
+  protected normalizeCreditNoteAmount(note: AppliedCreditNote, amount: number | null | undefined): number {
+    const remainingPayable = this.remainingPayableAmount();
+    return this.roundAmount(
+      Math.max(0, Math.min(Number(amount ?? 0), note.availableBalance, remainingPayable + note.amount)),
+    );
+  }
+
+  remainingPayableAmount(): number {
+    return this.roundAmount(Math.max(0, this.totalAmount() - this.totalAppliedCreditNoteAmount()));
+  }
+
+  protected reconcilePaymentSplitAfterCreditNoteChange(): void {
+    const total = this.remainingPayableAmount();
+    if (this.lastEditedPaymentField() === 'paid') {
+      this.syncPaymentSplitFromPaid(this.paymentForm.controls.paidAmount.value, total);
+      return;
+    }
+    this.syncPaymentSplitFromDue(this.paymentForm.controls.dueAmount.value, total);
+  }
+
   abstract onAddToCart(): void;
   abstract onIncreaseCartItem(index: number): void;
   abstract onDecreaseCartItem(index: number): void;
@@ -399,4 +479,14 @@ export abstract class NewSalePageStateService {
   abstract printThermal(saleId: string): void;
   abstract printOfflineA4(): void;
   abstract printOfflineThermal(): void;
+
+  protected buildCreditNoteRedemptions(): CreditNoteRedemptionRequest[] {
+    return this.appliedCreditNotes()
+      .filter((note) => note.amount > 0)
+      .map((note) => ({
+        creditNoteId: note.creditNoteId,
+        code: note.code,
+        amount: note.amount,
+      }));
+  }
 }

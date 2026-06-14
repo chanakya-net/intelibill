@@ -10,7 +10,7 @@ import { InputTextModule } from 'primeng/inputtext';
 import { SelectModule } from 'primeng/select';
 import { TranslocoPipe } from '@ngneat/transloco';
 
-import { CreditNoteVerifyResponseDto, PaymentMethod } from '../../../../features/sales/services/sale.models';
+import { AppliedCreditNote, CreditNoteVerifyResponseDto, PaymentMethod } from '../../../../features/sales/services/sale.models';
 
 export interface PaymentMethodOption {
   readonly value: number;
@@ -46,24 +46,27 @@ export class SalePaymentSectionComponent {
   @Input() canUseCredit = true;
   @Input() showDueAmount = false;
   @Input() dueAmountDisabled = false;
-  @Input() appliedCreditNoteAmount = 0;
-  @Input() maxAppliedCreditNoteAmount = 0;
 
   // Credit note verification inputs
   @Input() creditNoteCode = '';
   @Input() isCreditNoteVerifying = false;
   @Input() verifiedCreditNote: CreditNoteVerifyResponseDto | null = null;
   @Input() creditNoteError = '';
+  @Input() canApplyCreditNote = false;
+  @Input() appliedCreditNotes: readonly AppliedCreditNote[] = [];
+  @Input() appliedCreditNotesTotal = 0;
+  @Input() remainingPayableAmount = 0;
 
   @Output() methodChanged = new EventEmitter<PaymentMethod>();
   @Output() paidAmountChanged = new EventEmitter<number | null>();
   @Output() dueAmountChanged = new EventEmitter<number | null>();
-  @Output() creditNoteAppliedAmountChanged = new EventEmitter<number | null>();
-  @Output() creditNoteRemovalRequested = new EventEmitter<void>();
 
   // Credit note verification outputs
   @Output() creditNoteCodeChanged = new EventEmitter<string>();
   @Output() creditNoteVerifyRequested = new EventEmitter<void>();
+  @Output() creditNoteApplyRequested = new EventEmitter<void>();
+  @Output() appliedCreditNoteAmountChanged = new EventEmitter<{ creditNoteId: string; amount: number | null }>();
+  @Output() appliedCreditNoteRemoved = new EventEmitter<string>();
 
   onMethodChange(value: PaymentMethod): void {
     this.methodChanged.emit(value);
@@ -85,11 +88,19 @@ export class SalePaymentSectionComponent {
     this.creditNoteVerifyRequested.emit();
   }
 
-  onCreditNoteAppliedAmountChange(value: number | null): void {
-    this.creditNoteAppliedAmountChanged.emit(value);
+  onCreditNoteApplyClick(): void {
+    this.creditNoteApplyRequested.emit();
   }
 
-  onCreditNoteRemoveClick(): void {
-    this.creditNoteRemovalRequested.emit();
+  onAppliedCreditNoteAmountChange(creditNoteId: string, amount: number | null): void {
+    this.appliedCreditNoteAmountChanged.emit({ creditNoteId, amount });
+  }
+
+  getMaxAmountForAppliedCreditNote(note: AppliedCreditNote): number {
+    return Math.min(note.availableBalance, this.remainingPayableAmount + note.amount);
+  }
+
+  onAppliedCreditNoteRemoveClick(creditNoteId: string): void {
+    this.appliedCreditNoteRemoved.emit(creditNoteId);
   }
 }

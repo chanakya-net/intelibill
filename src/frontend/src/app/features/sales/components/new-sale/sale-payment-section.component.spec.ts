@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 import { describe, expect, it, vi } from 'vitest';
 
+import type { AppliedCreditNote } from '../../services/sale.models';
 import { PaymentMethodOption, SalePaymentSectionComponent } from './sale-payment-section.component';
 
 const methods: PaymentMethodOption[] = [
@@ -9,6 +10,25 @@ const methods: PaymentMethodOption[] = [
   { value: 2, label: 'UPI' },
   { value: 3, label: 'Card' },
   { value: 4, label: 'Credit' },
+];
+
+const notes: AppliedCreditNote[] = [
+  {
+    creditNoteId: 'cn-1',
+    code: 'CN-001',
+    availableBalance: 100,
+    expiresAt: null,
+    status: 'Active',
+    amount: 40,
+  },
+  {
+    creditNoteId: 'cn-2',
+    code: 'CN-002',
+    availableBalance: 80,
+    expiresAt: null,
+    status: 'Active',
+    amount: 20,
+  },
 ];
 
 describe('SalePaymentSectionComponent', () => {
@@ -49,30 +69,31 @@ describe('SalePaymentSectionComponent', () => {
     expect(dueSpy).toHaveBeenCalledWith(11);
   });
 
-  it('forwards credit note applied amount changes', () => {
+  it('forwards applied credit note amount changes', () => {
     TestBed.configureTestingModule({
       imports: [SalePaymentSectionComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
     });
 
     const fixture = TestBed.createComponent(SalePaymentSectionComponent);
     const component = fixture.componentInstance;
-    component.verifiedCreditNote = {
+    component.appliedCreditNotes = [{
       creditNoteId: 'cn-1',
       code: 'CN-001',
       availableBalance: 120,
       status: 'Active',
       expiresAt: null,
-    };
+      amount: 40,
+    }];
 
     const spy = vi.fn();
-    component.creditNoteAppliedAmountChanged.subscribe(spy);
+    component.appliedCreditNoteAmountChanged.subscribe(spy);
 
-    component.onCreditNoteAppliedAmountChange(44);
+    component.onAppliedCreditNoteAmountChange('cn-1', 44);
 
-    expect(spy).toHaveBeenCalledWith(44);
+    expect(spy).toHaveBeenCalledWith({ creditNoteId: 'cn-1', amount: 44 });
   });
 
-  it('forwards remove action', () => {
+  it('forwards applied credit note remove action', () => {
     TestBed.configureTestingModule({
       imports: [SalePaymentSectionComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
     });
@@ -81,11 +102,11 @@ describe('SalePaymentSectionComponent', () => {
     const component = fixture.componentInstance;
 
     const spy = vi.fn();
-    component.creditNoteRemovalRequested.subscribe(spy);
+    component.appliedCreditNoteRemoved.subscribe(spy);
 
-    component.onCreditNoteRemoveClick();
+    component.onAppliedCreditNoteRemoveClick('cn-1');
 
-    expect(spy).toHaveBeenCalled();
+    expect(spy).toHaveBeenCalledWith('cn-1');
   });
 
   it('hides the due amount input until a customer can use credit', () => {
@@ -122,5 +143,34 @@ describe('SalePaymentSectionComponent', () => {
 
     expect(inputGroups.length).toBe(2);
     expect(dueInput.disabled).toBe(true);
+  });
+
+  it('renders applied notes and emits add, amount change, and remove actions', () => {
+    TestBed.configureTestingModule({
+      imports: [SalePaymentSectionComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
+    });
+
+    const fixture = TestBed.createComponent(SalePaymentSectionComponent);
+    const component = fixture.componentInstance;
+    component.appliedCreditNotes = notes;
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('CN-001');
+    expect(fixture.nativeElement.textContent).toContain('CN-002');
+
+    const applySpy = vi.fn();
+    const amountSpy = vi.fn();
+    const removeSpy = vi.fn();
+    component.creditNoteApplyRequested.subscribe(applySpy);
+    component.appliedCreditNoteAmountChanged.subscribe(amountSpy);
+    component.appliedCreditNoteRemoved.subscribe(removeSpy);
+
+    component.onCreditNoteApplyClick();
+    component.onAppliedCreditNoteAmountChange('cn-1', 55);
+    component.onAppliedCreditNoteRemoveClick('cn-2');
+
+    expect(applySpy).toHaveBeenCalled();
+    expect(amountSpy).toHaveBeenCalledWith({ creditNoteId: 'cn-1', amount: 55 });
+    expect(removeSpy).toHaveBeenCalledWith('cn-2');
   });
 });

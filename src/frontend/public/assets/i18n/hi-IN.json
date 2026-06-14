@@ -1063,7 +1063,9 @@
         "verifyError": "Unable to verify credit note. Check the code and try again.",
         "status": "Status",
         "appliedAmount": "Apply credit note amount",
-        "remove": "Remove credit note"
+        "remove": "Remove credit note",
+        "applyBtn": "Apply note",
+        "appliedTotal": "Applied credit notes total"
       }
     },
     "detail": {
@@ -1120,8 +1122,7 @@
       "refundAmount": "Refund Amount",
       "voided": "Voided",
       "voidReason": "Void Reason",
-      "hsn": "HSN",
-      "creditNoteSettlement": "Credit Note Settlement"
+      "hsn": "HSN"
     },
     "profitLoss": {
       "eyebrow": "बिक्री रिपोर्ट",
