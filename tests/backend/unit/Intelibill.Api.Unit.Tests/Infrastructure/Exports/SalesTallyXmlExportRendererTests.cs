@@ -791,7 +791,7 @@ public sealed class SalesTallyXmlExportRendererTests
         
         var voucherLines = creditNote.Elements("VOUCHERLINE").ToList();
         
-        var customerLine = voucherLines.Single(l => l.Element("LEDGER")?.Value == "Alice");
+        var customerLine = voucherLines.Single(l => l.Element("LEDGER")?.Value == "Credit Note Liability");
         Assert.Equal("118.00", customerLine.Element("AMOUNT")?.Value);
         Assert.Equal("No", customerLine.Element("ISDEBIT")?.Value);
 
@@ -1278,7 +1278,7 @@ public sealed class SalesTallyXmlExportRendererTests
             .ToList();
 
         var paymentLine = Assert.Single(debitLines, line => line.Ledger == "Cash");
-        var creditNoteLine = Assert.Single(debitLines, line => line.Ledger == "Credit Note");
+        var creditNoteLine = Assert.Single(debitLines, line => line.Ledger == "Credit Note Liability");
         var salesLine = Assert.Single(creditLines, line => line.Ledger == "Sales");
         var gstLine = Assert.Single(creditLines, line => line.Ledger == "Output GST 18%");
 
@@ -1289,5 +1289,89 @@ public sealed class SalesTallyXmlExportRendererTests
 
         Assert.Equal(paidAmount + dueAmount + creditNoteAppliedAmount, debitLines.Sum(line => line.Amount));
         Assert.Equal(taxableAmount + taxAmount, creditLines.Sum(line => line.Amount));
+    }
+
+    [Fact]
+    public async Task RenderAsync_WithCreditNoteRedemption_DoesNotUseCashUpiOrCardForLiabilitySettlement()
+    {
+        var metadata = new SalesExportMetadataDto(
+            "Green Mart",
+            "12 Market Lane, Mumbai",
+            "27ABCDE1234F1Z5",
+            "Ravi Kumar",
+            DateTimeOffset.UtcNow,
+            new DateOnly(2026, 5, 1),
+            new DateOnly(2026, 5, 31),
+            "summary");
+
+        var summaryRows = new List<SalesExportSummaryRowDto>
+        {
+            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Cash", 250m, 0m, 300m, 0m, 250m, 50m, 300m, null, 0m, 0m, 0m, 300m, false, 1, 50m, null, 0m)
+        };
+
+        var lineItems = new List<SalesExportLineItemRowDto>
+        {
+            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Product", 10m, 25m, 0m, 0m, 20m, 250m, 50m, 300m, false, 0m, null, null)
+        };
+
+        var taxBreakup = new List<SalesExportTaxBreakupDto>
+        {
+            new(20m, 250m, 50m, 0m, 0m)
+        };
+
+        var dataset = new SalesExportDatasetDto(metadata, summaryRows, lineItems, taxBreakup, []);
+        var renderer = new SalesTallyXmlExportRenderer();
+
+        var result = await renderer.RenderAsync(dataset, CancellationToken.None);
+        var voucherLines = XDocument.Parse(System.Text.Encoding.UTF8.GetString(result.Content))
+            .Root!
+            .Descendants("VOUCHER")
+            .Single()
+            .Elements("VOUCHERLINE")
+            .ToList();
+
+        Assert.Contains(voucherLines, line => line.Element("LEDGER")?.Value == "Credit Note Liability");
+        var creditNoteLine = Assert.Single(voucherLines, line => line.Element("LEDGER")?.Value == "Credit Note Liability");
+        Assert.Equal("50.00", creditNoteLine.Element("AMOUNT")?.Value);
+        var cashLine = Assert.Single(voucherLines, line => line.Element("LEDGER")?.Value == "Cash");
+        Assert.Equal("250.00", cashLine.Element("AMOUNT")?.Value);
+    }
+
+    [Fact]
+    public async Task RenderAsync_WithCreditNoteIssue_CreatesLiabilityLedgerLine()
+    {
+        var metadata = new SalesExportMetadataDto(
+            "Test Shop",
+            "123 Test St",
+            "27ABCDE1234F1Z5",
+            "Test User",
+            DateTimeOffset.UtcNow,
+            new DateOnly(2026, 5, 1),
+            new DateOnly(2026, 5, 31),
+            "summary");
+
+        var returnRows = new List<SalesExportReturnRowDto>
+        {
+            new("RET-001", new DateTimeOffset(2026, 5, 5, 11, 0, 0, TimeSpan.Zero), "INV-001", "Customer A", 118m, 100m, 18m, new List<SalesExportReturnTaxBreakupDto> { new(18m, 100m, 18m) }, false, "CN-001")
+        };
+
+        var taxBreakup = new List<SalesExportTaxBreakupDto>
+        {
+            new(18m, 0m, 0m, 100m, 18m)
+        };
+
+        var dataset = new SalesExportDatasetDto(metadata, [], [], taxBreakup, returnRows);
+        var renderer = new SalesTallyXmlExportRenderer();
+
+        var result = await renderer.RenderAsync(dataset, CancellationToken.None);
+        var voucherLines = XDocument.Parse(System.Text.Encoding.UTF8.GetString(result.Content))
+            .Root!
+            .Descendants("VOUCHER")
+            .Single(v => v.Element("VOUCHERTYPE")?.Value == "Credit Note")
+            .Elements("VOUCHERLINE")
+            .ToList();
+
+        Assert.Contains(voucherLines, line => line.Element("LEDGER")?.Value == "Credit Note Liability");
+        Assert.DoesNotContain(voucherLines, line => line.Element("LEDGER")?.Value == "Customer A");
     }
 }

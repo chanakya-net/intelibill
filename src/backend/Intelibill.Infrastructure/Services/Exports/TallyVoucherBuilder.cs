@@ -143,7 +143,7 @@ internal static class TallyVoucherBuilder
         return $"Output GST {rate}%";
     }
 
-    internal static string GetCreditNoteLedgerName() => "Credit Note";
+    internal static string GetCreditNoteLedgerName() => "Credit Note Liability";
 
     internal static XElement BuildCreditNoteVoucher(SalesExportReturnRowDto returnRow)
     {
@@ -160,8 +160,11 @@ internal static class TallyVoucherBuilder
 
         var lineNumber = 1;
         var customerName = !string.IsNullOrWhiteSpace(returnRow.CustomerName) ? returnRow.CustomerName : "Walk-in Customer";
+        var settlementLedger = string.IsNullOrWhiteSpace(returnRow.CreditNoteCode)
+            ? customerName
+            : GetCreditNoteLedgerName();
         var customerLine = new XElement("VOUCHERLINE", new XAttribute("LINENUMBER", lineNumber.ToString(CultureInfo.InvariantCulture)));
-        customerLine.Add(new XElement("LEDGER", customerName));
+        customerLine.Add(new XElement("LEDGER", settlementLedger));
         customerLine.Add(new XElement("AMOUNT", returnRow.TotalRefundAmount.ToString("F2", CultureInfo.InvariantCulture)));
         customerLine.Add(new XElement("ISDEBIT", "No"));
         voucher.Add(customerLine);
