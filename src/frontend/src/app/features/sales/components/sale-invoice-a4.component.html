@@ -165,6 +165,12 @@
         -{{ sale.totalDiscountAmount | currency: 'INR': 'symbol': '1.2-2' }}
       </span>
     </div>
+    <div *ngIf="sale.creditNoteAppliedAmount > 0" class="invoice__totals-row">
+      <span class="invoice__totals-label">{{ 'sales.invoice.creditNoteSettlement' | transloco }}</span>
+      <span class="invoice__totals-value">
+        -{{ sale.creditNoteAppliedAmount | currency: 'INR': 'symbol': '1.2-2' }}
+      </span>
+    </div>
     <div class="invoice__totals-row">
       <span class="invoice__totals-label">{{ 'sales.invoice.tax' | transloco }}</span>
       <span class="invoice__totals-value">

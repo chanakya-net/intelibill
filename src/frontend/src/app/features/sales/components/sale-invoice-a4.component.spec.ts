@@ -895,4 +895,54 @@ describe('SaleInvoiceA4Component', () => {
       expect(sectionHeaders.length).toBe(0);
     });
   });
+
+  describe('credit note settlement', () => {
+    it('renders credit note settlement line when applied amount > 0', () => {
+      const sale = makeSale({ creditNoteAppliedAmount: 150 });
+      const shop = makeShop();
+
+      component.sale = sale;
+      component.shop = shop;
+      fixture.detectChanges();
+
+      const totalsElement = fixture.nativeElement.querySelector('.invoice__totals');
+      expect(totalsElement?.textContent).toContain('Credit Note Settlement');
+      expect(totalsElement?.textContent).toMatch(/150/);
+    });
+
+    it('does not render credit note settlement line when applied amount is 0', () => {
+      const sale = makeSale({ creditNoteAppliedAmount: 0 });
+      const shop = makeShop();
+
+      component.sale = sale;
+      component.shop = shop;
+      fixture.detectChanges();
+
+      const totalsElement = fixture.nativeElement.querySelector('.invoice__totals');
+      expect(totalsElement?.textContent).not.toContain('Credit Note Settlement');
+    });
+
+    it('renders settlement line after discount and before tax', () => {
+      const sale = makeSale({
+        totalBeforeDiscount: 1000,
+        totalDiscountAmount: 100,
+        creditNoteAppliedAmount: 50,
+        totalTaxAmount: 100,
+      });
+      const shop = makeShop();
+
+      component.sale = sale;
+      component.shop = shop;
+      fixture.detectChanges();
+
+      const totalsRows = fixture.nativeElement.querySelectorAll('.invoice__totals-row');
+      const texts = Array.from(totalsRows).map((row: unknown) => (row as Element).textContent);
+      const discountIdx = texts.findIndex(t => typeof t === 'string' && t.includes('Discount'));
+      const settlementIdx = texts.findIndex(t => typeof t === 'string' && t.includes('Credit Note Settlement'));
+      const taxIdx = texts.findIndex(t => typeof t === 'string' && t.includes('Tax'));
+
+      expect(settlementIdx).toBeGreaterThan(discountIdx);
+      expect(taxIdx).toBeGreaterThan(settlementIdx);
+    });
+  });
 });

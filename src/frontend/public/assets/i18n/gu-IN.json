@@ -1112,7 +1112,8 @@
       "refundAmount": "Refund Amount",
       "voided": "Voided",
       "voidReason": "Void Reason",
-      "hsn": "HSN"
+      "hsn": "HSN",
+      "creditNoteSettlement": "Credit Note Settlement"
     },
     "profitLoss": {
       "eyebrow": "વેચાણ રિપોર્ટ",

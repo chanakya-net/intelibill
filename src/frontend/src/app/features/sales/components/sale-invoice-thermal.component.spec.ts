@@ -379,4 +379,52 @@ describe('SaleInvoiceThermalComponent', () => {
       expect(fixture.nativeElement.textContent).toContain('Tax 18%');
     });
   });
+
+  describe('credit note settlement', () => {
+    it('renders credit note settlement line when applied amount > 0', () => {
+      const sale = makeSale({ creditNoteAppliedAmount: 100 });
+      const shop = makeShop();
+
+      component.sale = sale;
+      component.shop = shop;
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.textContent).toContain('Credit Note Settlement');
+      expect(fixture.nativeElement.textContent).toMatch(/100/);
+    });
+
+    it('does not render credit note settlement line when applied amount is 0', () => {
+      const sale = makeSale({ creditNoteAppliedAmount: 0 });
+      const shop = makeShop();
+
+      component.sale = sale;
+      component.shop = shop;
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.textContent).not.toContain('Credit Note Settlement');
+    });
+
+    it('settlement line appears after discount and before grand total', () => {
+      const sale = makeSale({
+        totalBeforeDiscount: 500,
+        totalDiscountAmount: 50,
+        creditNoteAppliedAmount: 75,
+        totalTaxAmount: 81,
+        totalAmount: 506,
+      });
+      const shop = makeShop();
+
+      component.sale = sale;
+      component.shop = shop;
+      fixture.detectChanges();
+
+      const text = fixture.nativeElement.textContent;
+      const discountPos = text.indexOf('Discount');
+      const settlementPos = text.indexOf('Credit Note Settlement');
+      const grandTotalPos = text.indexOf('Grand Total');
+
+      expect(settlementPos).toBeGreaterThan(discountPos);
+      expect(grandTotalPos).toBeGreaterThan(settlementPos);
+    });
+  });
 });
