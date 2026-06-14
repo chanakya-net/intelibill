@@ -3586,4 +3586,174 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
+
+    [Fact]
+    public async Task RecordSale_ConcurrentCreditNoteRedemptions_OnlyOneSucceeds()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+        var shopId = await GetShopIdFromTokenAsync(client, ownerToken);
+
+        var barcode = UniqueBarcode();
+        var inboundBody = await AddInventoryAsync(client, ownerToken, barcode, "B-001", 10m);
+        var batchId = inboundBody.GetProperty("inventoryBatchId").GetGuid();
+        var serviceId = await AddServiceAsync(client, ownerToken, "Concurrent Credit Note Service", 100m);
+
+        using var saleRequest = new HttpRequestMessage(HttpMethod.Post, "/api/sales");
+        saleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        saleRequest.Content = JsonContent.Create(new
+        {
+            idempotencyKey = $"sale-{Guid.NewGuid():N}",
+            customerName = "Return Customer",
+            customerPhone = "+919876543210",
+            paymentMethod = (int)PaymentMethod.Cash,
+            paidAmount = 118m,
+            dueAmount = 0m,
+            items = new[]
+            {
+                new
+                {
+                    barcode,
+                    batchNumber = "B-001",
+                    itemName = "Test Item",
+                    quantity = 1m,
+                    costPrice = 80m,
+                    salesPrice = 100m,
+                    mrp = 120m,
+                    taxRatePercent = 18m,
+                    isPriceIncludingTax = false,
+                    inventoryBatchId = batchId,
+                },
+            },
+        });
+        var saleResponse = await client.SendAsync(saleRequest);
+        Assert.Equal(HttpStatusCode.Created, saleResponse.StatusCode);
+        var saleBody = await saleResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var saleId = saleBody.GetProperty("saleId").GetGuid();
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var sale = await db.Sales.Include(s => s.Items).FirstAsync(s => s.Id == saleId);
+        var saleItemId = sale.Items[0].Id;
+
+        using var recordReturnRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/sales/{saleId}/returns");
+        recordReturnRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        recordReturnRequest.Content = JsonContent.Create(new
+        {
+            payoutMethod = (int)PaymentMethod.Cash,
+            dueReductionOverrideAmount = (decimal?)null,
+            dueOverrideReason = (string?)null,
+            notes = "Issue credit note for concurrency test",
+            items = new[]
+            {
+                new
+                {
+                    saleItemId,
+                    quantity = 1m,
+                    condition = (int)SaleReturnCondition.Restockable,
+                    approvedRefundAmount = 118m,
+                    notes = (string?)null,
+                },
+            },
+        });
+        var recordResponse = await client.SendAsync(recordReturnRequest);
+        Assert.Equal(HttpStatusCode.OK, recordResponse.StatusCode);
+        var recordBody = await recordResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var saleReturnId = recordBody.GetProperty("returns").EnumerateArray().Single().GetProperty("saleReturnId").GetGuid();
+
+        var creditNoteResult = CreditNote.Issue(shopId, saleReturnId, 100m, "Concurrency test note", $"CN-{Guid.NewGuid():N}", null);
+        Assert.False(creditNoteResult.IsError);
+        var creditNote = creditNoteResult.Value;
+        await db.CreditNotes.AddAsync(creditNote);
+        await db.SaveChangesAsync();
+
+        // Use distinct inventory rows so credit note remains the only contested write target.
+        using var client2 = CreateClient();
+
+        var task1 = Task.Run(async () =>
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Post, "/api/sales");
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+            req.Content = JsonContent.Create(new
+            {
+                idempotencyKey = $"sale-conc-1-{Guid.NewGuid():N}",
+                customerName = "Concurrent Customer",
+                customerPhone = "+919876543210",
+                paymentMethod = (int)PaymentMethod.Cash,
+                paidAmount = 68m,
+                dueAmount = 0m,
+                creditNoteAppliedAmount = 50m,
+                creditNoteRedemptions = new[] { new { code = creditNote.Code, amount = 50m } },
+                items = new[]
+                {
+                    new
+                    {
+                        barcode,
+                        batchNumber = "B-001",
+                        itemName = "Test Item",
+                        quantity = 1m,
+                        costPrice = 80m,
+                        salesPrice = 100m,
+                        mrp = 120m,
+                        taxRatePercent = 18m,
+                        isPriceIncludingTax = false,
+                        inventoryBatchId = batchId,
+                    },
+                },
+            });
+            return await client.SendAsync(req);
+        });
+
+        var task2 = Task.Run(async () =>
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Post, "/api/sales");
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+            req.Content = JsonContent.Create(new
+            {
+                idempotencyKey = $"sale-conc-2-{Guid.NewGuid():N}",
+                customerName = "Concurrent Customer",
+                customerPhone = "+919876543210",
+                paymentMethod = (int)PaymentMethod.Cash,
+                paidAmount = 68m,
+                dueAmount = 0m,
+                creditNoteAppliedAmount = 50m,
+                creditNoteRedemptions = new[] { new { code = creditNote.Code, amount = 50m } },
+                items = new[]
+                {
+                    new
+                    {
+                        barcode = "SVC-CONC-001",
+                        batchNumber = string.Empty,
+                        itemName = "Concurrent Credit Note Service",
+                        quantity = 1m,
+                        costPrice = 0m,
+                        salesPrice = 100m,
+                        mrp = 0m,
+                        taxRatePercent = 18m,
+                        isPriceIncludingTax = false,
+                        inventoryBatchId = Guid.Empty,
+                        lineType = "Service",
+                        serviceId,
+                    },
+                },
+            });
+            return await client2.SendAsync(req);
+        });
+
+        var responses = await Task.WhenAll(task1, task2);
+        var statuses = responses.Select(r => r.StatusCode).ToList();
+
+        Assert.Equal(1, statuses.Count(status => status == HttpStatusCode.Created));
+        Assert.Equal(1, statuses.Count(status => status == HttpStatusCode.Conflict));
+
+        await using var verificationScope = _factory.Services.CreateAsyncScope();
+        var verificationDb = verificationScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var persistedNote = await verificationDb.CreditNotes
+            .Include(c => c.Redemptions)
+            .SingleAsync(c => c.Id == creditNote.Id);
+
+        Assert.Equal(50m, persistedNote.AvailableBalance);
+        Assert.Single(persistedNote.Redemptions);
+    }
 }

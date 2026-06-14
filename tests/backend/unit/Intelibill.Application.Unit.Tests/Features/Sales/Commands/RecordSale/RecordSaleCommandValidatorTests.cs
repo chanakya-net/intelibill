@@ -185,6 +185,20 @@ public class RecordSaleCommandValidatorTests
     }
 
     [Fact]
+    public void Validate_WhenZeroAppliedAmountWithRedemptions_ReturnsError()
+    {
+        var command = ValidCommand() with
+        {
+            CreditNoteAppliedAmount = 0m,
+            CreditNoteRedemptions = [new CreditNoteRedemptionCommand("CN-001", 50m)],
+        };
+
+        var result = _validator.TestValidate(command);
+
+        Assert.Contains(result.Errors, error => error.ErrorCode == Errors.Sale.CreditNoteRedemptionsSplitMismatch.Code);
+    }
+
+    [Fact]
     public void Validate_WhenItemDiscountFlatNegative_ReturnsError()
     {
         var command = ValidCommand([ValidItem() with { ItemDiscount = new(InstantDiscountType.Flat, -1m) }]);

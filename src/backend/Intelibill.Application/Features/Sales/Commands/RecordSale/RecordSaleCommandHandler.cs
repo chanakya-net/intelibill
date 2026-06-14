@@ -213,6 +213,10 @@ public sealed class RecordSaleCommandHandler
         {
             await unitOfWork.SaveChangesAsync(cancellationToken);
         }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Errors.Sale.CreditNoteRedemptionConflict;
+        }
         catch (DbUpdateException)
         {
             var concurrentSale = await saleRepository.GetByIdempotencyKeyAsync(command.ShopId, command.ActorUserId, normalizedIdempotencyKey, cancellationToken);

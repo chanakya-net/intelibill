@@ -976,4 +976,35 @@ public class RecordSaleCommandHandlerTests
         Assert.Equal(Intelibill.Domain.ValueObjects.InstantDiscountType.Flat, capturedSale.Items[0].ItemDiscountOverrideType);
         Assert.Equal(2m, capturedSale.Items[0].ItemDiscountOverrideValue);
     }
+
+    [Fact]
+    public async Task HandleAsync_WhenCreditNoteConcurrencyConflict_ReturnsConflictError()
+    {
+        var shopId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var item = MakeItem(shopId, "BC-001");
+        var batch = MakeBatch(shopId, item.Id, "B-01");
+        var inventory = MakeInventory(shopId, item.Id);
+        var creditNote = CreditNote.Issue(shopId, Guid.NewGuid(), 500m, "Return", "CN-001", null).Value;
+
+        var command = MakeCommand(shopId, actorId, inventoryBatchId: batch.Id) with
+        {
+            PaidAmount = 490m,
+            CreditNoteAppliedAmount = 100m,
+            CreditNoteRedemptions = [new CreditNoteRedemptionCommand(creditNote.Code, 100m)],
+        };
+        var line = new ValidatedSaleLine(command.Items[0], item, batch, inventory, false);
+        _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>())
+            .Returns(new SaleLineValidationResult([line], new Dictionary<Guid, string> { { item.Id, item.Name } }));
+        _creditNoteRepository.GetByCodeAsync(shopId, creditNote.Code, Arg.Any<CancellationToken>())
+            .Returns(creditNote);
+        _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<int>(new DbUpdateConcurrencyException("Simulated concurrent update")));
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Sale.CreditNoteRedemptionConflict.Code, result.FirstError.Code);
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
 }

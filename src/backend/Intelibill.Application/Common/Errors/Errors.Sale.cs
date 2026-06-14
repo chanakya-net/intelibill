@@ -60,6 +60,9 @@ public static partial class Errors
         public static Error CreditNoteRedemptionsSplitMismatch =>
             Error.Validation("Sale.CreditNoteRedemptionsSplitMismatch", "Credit note redemption amount must match the applied amount.");
 
+        public static Error CreditNoteRedemptionConflict =>
+            Error.Conflict("Sale.CreditNoteRedemptionConflict", "Credit note was modified concurrently. Please retry the sale.");
+
         public static Error CreditRequiresDueAmount =>
             Error.Validation("Sale.CreditRequiresDueAmount", "Credit sale must include a due amount greater than zero.");
 
