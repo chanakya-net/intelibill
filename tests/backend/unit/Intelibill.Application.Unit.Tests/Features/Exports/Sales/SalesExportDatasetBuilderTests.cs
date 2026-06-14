@@ -345,6 +345,124 @@ public class SalesExportDatasetBuilderTests
     }
 
     [Fact]
+    public async Task BuildAsync_WhenReturnIsVoided_DoesNotIncludeIssuedCreditNotesInSummary()
+    {
+        // Arrange
+        var shop = MakeShop();
+        var user = MakeUser();
+        var startDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-1));
+        var endDate = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        var item = MakeItem(shop.Id);
+        _itemRepository.GetByIdsAsync(shop.Id, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(new List<Item> { item });
+
+        var saleItem = SaleItem.CreateGoods(
+            shop.Id,
+            item.Id,
+            Guid.NewGuid(),
+            lineName: item.Name,
+            lineCode: item.Barcode,
+            1,
+            100,
+            150,
+            200,
+            18,
+            true,
+            false,
+            taxableAmount: 127.12m,
+            taxAmount: 22.88m,
+            totalAmount: 150m);
+
+        var sale = Sale.Create(
+            shop.Id,
+            actorUserId: user.Id,
+            idempotencyKey: "idem-key",
+            requestHash: "hash",
+            invoiceNumber: "INV-VOID-001",
+            customerId: null,
+            customerName: "Customer",
+            customerPhone: null,
+            paymentMethod: PaymentMethod.Cash,
+            soldAt: DateTimeOffset.UtcNow,
+            paidAmount: 150,
+            dueAmount: 0,
+            totalAmount: 150,
+            totalTaxAmount: 22.88m,
+            items: new List<SaleItem> { saleItem },
+            creditNoteAppliedAmount: 0m);
+
+        var returnLine = new SaleReturnLineInput(
+            shop.Id,
+            saleItem.Id,
+            1,
+            SaleReturnCondition.Restockable,
+            100,
+            150,
+            18,
+            true,
+            150,
+            150,
+            127.12m,
+            22.88m,
+            null);
+
+        var saleReturn = SaleReturn.Record(
+            shop.Id,
+            sale.Id,
+            "RET-VOID-001",
+            DateTimeOffset.UtcNow,
+            user.Id,
+            null,
+            150,
+            0,
+            150,
+            ReturnPayoutDestination.CreditNote,
+            127.12m,
+            22.88m,
+            null,
+            null,
+            new List<SaleReturnLineInput> { returnLine }).Value;
+        saleReturn.Void(DateTimeOffset.UtcNow, user.Id, "voided for test");
+
+        var creditNote = CreditNote.Issue(
+            shop.Id,
+            saleReturn.Id,
+            150m,
+            "Voided return credit",
+            "CN-VOID-001",
+            null).Value;
+
+        _saleRepository.GetByShopAndDateRangeAsync(shop.Id, startDate, endDate, Arg.Any<CancellationToken>())
+            .Returns(new List<Sale> { sale });
+
+        _saleReturnRepository.GetBySaleAsync(shop.Id, sale.Id, Arg.Any<CancellationToken>())
+            .Returns(new List<SaleReturn> { saleReturn });
+
+        _creditNoteRepository.GetByReturnIdsAsync(shop.Id, Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(new List<CreditNote> { creditNote });
+
+        var builder = CreateBuilder();
+
+        // Act
+        var result = await builder.BuildAsync(shop, user, startDate, endDate, SalesExportLevel.Summary, CancellationToken.None);
+
+        // Assert
+        Assert.Single(result.SummaryRows);
+        var row = result.SummaryRows[0];
+        Assert.Equal("INV-VOID-001", row.InvoiceNumber);
+        Assert.True(string.IsNullOrWhiteSpace(row.ReturnNumbers));
+        Assert.Equal(0m, row.IssuedCreditNoteAmount);
+        Assert.Null(row.IssuedCreditNoteCodes);
+        Assert.False(row.HasReturns);
+
+        var returnRow = Assert.Single(result.ReturnRows);
+        Assert.True(returnRow.IsVoided);
+        Assert.Equal("CN-VOID-001", returnRow.CreditNoteCode);
+        Assert.Equal(150m, returnRow.CreditNoteAmount);
+    }
+
+    [Fact]
     public async Task BuildAsync_ShouldMapLineItemsCorrectly()
     {
         // Arrange

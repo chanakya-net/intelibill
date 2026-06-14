@@ -74,7 +74,7 @@ public sealed class SalesExportDatasetBuilder : ISalesExportDatasetBuilder
             var totalReturnTaxable = returns.Sum(r => r.TotalTaxableAmount);
             var totalReturnTax = returns.Sum(r => r.TotalTaxAmount);
 
-            var issuedCreditNotes = allReturns
+            var issuedCreditNotes = returns
                 .SelectMany(returnRecord =>
                     GetCreditNotesForReturn(creditNotesByReturnIdLookup, returnRecord.Id))
                 .ToList();
