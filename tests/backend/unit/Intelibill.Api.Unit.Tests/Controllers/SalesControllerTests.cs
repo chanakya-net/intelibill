@@ -49,7 +49,10 @@ public class SalesControllerTests
         };
     }
 
-    private static RecordSaleRequest CreateRequest(Guid? inventoryBatchId = null) =>
+    private static RecordSaleRequest CreateRequest(
+        Guid? inventoryBatchId = null,
+        string? creditNoteCode = null,
+        bool creditNoteCustomerMismatchConfirmed = false) =>
         new(
             null,
             "Ravi Kumar",
@@ -58,7 +61,9 @@ public class SalesControllerTests
             PaymentMethod.Cash,
             500m,
             0m,
-            [new RecordSaleItemRequest("BC-001", "B-01", "Rice", 5m, 80m, 100m, 120m, 18m, false, inventoryBatchId ?? Guid.NewGuid())]);
+            [new RecordSaleItemRequest("BC-001", "B-01", "Rice", 5m, 80m, 100m, 120m, 18m, false, inventoryBatchId ?? Guid.NewGuid())],
+            CreditNoteCode: creditNoteCode,
+            CreditNoteCustomerMismatchConfirmed: creditNoteCustomerMismatchConfirmed);
 
     private static OfflineSalesSyncRequest CreateOfflineSyncRequest(Guid? batchId = null) =>
         new(
@@ -291,7 +296,35 @@ public class SalesControllerTests
                 && c.DueAmount == 0m
                 && c.Items.Count == 1
                 && c.Items[0].Barcode == "BC-001"
-                && c.Items[0].InventoryBatchId == batchId),
+                && c.Items[0].InventoryBatchId == batchId
+                && c.CreditNoteCode == null
+                && !c.CreditNoteCustomerMismatchConfirmed),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RecordSale_WithCreditNoteFields_MapsToCommand()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        var batchId = Guid.NewGuid();
+        var creditNoteCode = "CN-TEST-001";
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()));
+
+        var request = CreateRequest(batchId, creditNoteCode, creditNoteCustomerMismatchConfirmed: true);
+        var dto = CreateDto();
+        _bus.InvokeAsync<ErrorOr<SaleDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(dto);
+
+        var result = await _controller.RecordSale(request, CancellationToken.None);
+
+        Assert.IsType<CreatedAtActionResult>(result);
+        await _bus.Received(1).InvokeAsync<ErrorOr<SaleDto>>(
+            Arg.Is<RecordSaleCommand>(c =>
+                c.CreditNoteCode == creditNoteCode
+                && c.CreditNoteCustomerMismatchConfirmed),
             Arg.Any<CancellationToken>());
     }
 

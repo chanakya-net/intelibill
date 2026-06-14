@@ -19,9 +19,20 @@ public sealed class CreditNoteRepositoryTests
         return context;
     }
 
-    private static CreditNote CreateCreditNote(Guid shopId, Guid saleReturnId, string code = "CN-001")
+    private static CreditNote CreateCreditNote(
+        Guid shopId,
+        Guid saleReturnId,
+        string code = "CN-001",
+        Guid? linkedCustomerId = null)
     {
-        var result = CreditNote.Issue(shopId, saleReturnId, 100m, "Test reason", code, null);
+        var result = CreditNote.Issue(
+            shopId,
+            saleReturnId,
+            100m,
+            "Test reason",
+            code,
+            null,
+            linkedCustomerId: linkedCustomerId);
         return result.Value;
     }
 
@@ -96,6 +107,25 @@ public sealed class CreditNoteRepositoryTests
         var found = await repository.GetByCodeAsync(otherShopId, "CN-001");
 
         Assert.Null(found);
+    }
+
+    [Fact]
+    public async Task GetByCodeAsync_PersistsAndReloadsLinkedCustomerId()
+    {
+        await using var context = await CreateContextAsync();
+        var shopId = Guid.NewGuid();
+        var linkedCustomerId = Guid.NewGuid();
+        var note = CreateCreditNote(shopId, Guid.NewGuid(), "CN-LINKED", linkedCustomerId);
+
+        await context.CreditNotes.AddAsync(note);
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var repository = new CreditNoteRepository(context);
+        var found = await repository.GetByCodeAsync(shopId, "CN-LINKED");
+
+        Assert.NotNull(found);
+        Assert.Equal(linkedCustomerId, found.LinkedCustomerId);
     }
 
     [Fact]
