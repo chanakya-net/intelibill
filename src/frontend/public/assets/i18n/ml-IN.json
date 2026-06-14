@@ -1084,7 +1084,11 @@
       "returnable": "തിരികെ നൽകാവുന്നത്",
       "beforeDiscount": "ഡിസ്‌കൗണ്ടിന് മുൻപ്",
       "discount": "ഡിസ്‌കൗണ്ട്",
-      "totalSavings": "മൊത്തം സേവിംഗ്സ്"
+      "totalSavings": "മൊത്തം സേവിംഗ്സ്",
+      "settlement": {
+        "creditNoteApplied": "ക്രെഡിറ്റ് നോട്ട് സെറ്റിൽമെന്റ്",
+        "creditNoteCodes": "ക്രെഡിറ്റ് നോട്ട് കോഡുകൾ"
+      }
     },
     "invoice": {
       "returnItems": "ഇനങ്ങൾ തിരികെ നൽകുക",

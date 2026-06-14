@@ -8,6 +8,12 @@ export interface CreateSaleResponse {
   readonly saleId: string;
   readonly invoiceNumber: string;
   readonly totalAmount: number;
+  readonly creditNoteAppliedAmount?: number;
+  readonly creditNoteRedemptionSummaries?: readonly {
+    readonly creditNoteId: string;
+    readonly code: string;
+    readonly amount: number;
+  }[];
   readonly printTemplate?: 'a4' | 'thermal';
   readonly isOffline?: boolean;
 }

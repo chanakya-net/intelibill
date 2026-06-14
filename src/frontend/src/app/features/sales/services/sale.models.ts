@@ -317,6 +317,12 @@ export interface SaleReturnCreditNoteSummaryDto {
   readonly reason: string;
 }
 
+export interface SaleCreditNoteRedemptionSummaryDto {
+  readonly creditNoteId: string;
+  readonly code: string;
+  readonly amount: number;
+}
+
 export interface SaleDto {
   readonly saleId: string;
   readonly invoiceNumber: string;
@@ -332,6 +338,7 @@ export interface SaleDto {
   readonly totalAmount: number;
   readonly totalTaxAmount: number;
   readonly creditNoteAppliedAmount: number;
+  readonly creditNoteRedemptionSummaries?: readonly SaleCreditNoteRedemptionSummaryDto[];
   readonly items: readonly SaleItemDto[];
   readonly returns: readonly SaleReturnDto[];
   readonly warnings: readonly string[];

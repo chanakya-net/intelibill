@@ -1084,7 +1084,11 @@
       "returnable": "திரும்பப் பெறக்கூடியது",
       "beforeDiscount": "தள்ளுபடிக்கு முன்",
       "discount": "தள்ளுபடி",
-      "totalSavings": "மொத்த சேமிப்பு"
+      "totalSavings": "மொத்த சேமிப்பு",
+      "settlement": {
+        "creditNoteApplied": "கிரெடிட் நோட்டு செட்டில்மென்ட்",
+        "creditNoteCodes": "கிரெடிட் நோட்டு குறியீடுகள்"
+      }
     },
     "invoice": {
       "returnItems": "பொருட்களை திரும்ப கொடு",
