@@ -381,7 +381,7 @@ export abstract class NewSalePageStateService {
     return this.roundAmount(Math.max(0, Math.min(Number(amount ?? 0), note.availableBalance)));
   }
 
-  protected remainingPayableAmount(): number {
+  remainingPayableAmount(): number {
     return this.roundAmount(Math.max(0, this.totalAmount() - this.totalAppliedCreditNoteAmount()));
   }
 

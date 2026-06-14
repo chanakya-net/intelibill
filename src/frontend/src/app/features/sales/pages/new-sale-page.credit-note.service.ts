@@ -36,6 +36,7 @@ export abstract class NewSalePageCreditNoteService extends NewSalePageOfflineFlo
       amount,
     });
     this.verifiedCreditNote.set(null);
+    this.creditNoteCode.set('');
   }
 
   async onVerifyCreditNote(): Promise<void> {

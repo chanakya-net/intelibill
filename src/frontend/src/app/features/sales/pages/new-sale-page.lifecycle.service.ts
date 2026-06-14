@@ -119,7 +119,7 @@ export abstract class NewSalePageLifecycleService extends NewSalePageStateServic
       });
 
       effect(() => {
-        const total = this.totalAmount();
+        const total = this.remainingPayableAmount();
         if (this.lastEditedPaymentField() === 'paid') {
           this.syncPaymentSplitFromPaid(this.paymentForm.controls.paidAmount.value, total);
         } else {

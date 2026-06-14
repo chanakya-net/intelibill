@@ -78,7 +78,7 @@
       <div class="credit-note-result mt-2 p-2 bg-emerald-50 border border-emerald-200 rounded text-sm">
         <p class="text-emerald-700 font-medium">{{ 'sales.newSale.creditNote.verified' | transloco }}</p>
         <p class="text-slate-600">
-          {{ 'sales.newSale.creditNote.balance' | transloco }}: ₹{{ verifiedCreditNote.availableBalance | number:'1.2-2' }}
+          {{ 'sales.newSale.creditNote.balance' | transloco }}: {{ 'common.currencySymbol' | transloco }}{{ verifiedCreditNote.availableBalance | number:'1.2-2' }}
         </p>
         <p class="text-slate-600">
           {{ 'sales.newSale.creditNote.status' | transloco }}: {{ verifiedCreditNote.status }}
@@ -103,7 +103,7 @@
     @if (appliedCreditNotes.length > 0) {
       <div class="credit-note-applied-list mt-3 flex flex-col gap-2">
         <div class="text-xs text-slate-500">
-          {{ 'sales.newSale.creditNote.appliedTotal' | transloco }}: ₹{{ appliedCreditNotes.reduce((sum, note) => sum + note.amount, 0) | number:'1.2-2' }}
+          {{ 'sales.newSale.creditNote.appliedTotal' | transloco }}: {{ 'common.currencySymbol' | transloco }}{{ appliedCreditNotesTotal | number:'1.2-2' }}
         </div>
         @for (note of appliedCreditNotes; track note.creditNoteId) {
           <div class="p-2 rounded border border-slate-200 bg-white flex flex-col gap-2">

@@ -53,6 +53,7 @@ export class SalePaymentSectionComponent {
   @Input() verifiedCreditNote: CreditNoteVerifyResponseDto | null = null;
   @Input() creditNoteError = '';
   @Input() appliedCreditNotes: readonly AppliedCreditNote[] = [];
+  @Input() appliedCreditNotesTotal = 0;
 
   @Output() methodChanged = new EventEmitter<PaymentMethod>();
   @Output() paidAmountChanged = new EventEmitter<number | null>();

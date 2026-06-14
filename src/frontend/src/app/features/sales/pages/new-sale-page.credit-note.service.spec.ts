@@ -282,4 +282,53 @@ describe('NewSalePageCreditNoteService', () => {
     expect(service.appliedCreditNotes()[0].creditNoteId).toBe('cn-2');
     expect(service.totalAppliedCreditNoteAmount()).toBe(50);
   });
+
+  it('prevents duplicate code from being applied', () => {
+    const { service } = buildService();
+    service.checkoutPreview.set({
+      totalAmount: 500,
+      totalTaxableAmount: 500,
+      totalTaxAmount: 0,
+      totalDiscountAmount: 0,
+      saleLevelEligibleSubtotal: 500,
+      configuredSaleRule: null,
+      lines: [],
+      infos: [],
+      warnings: [],
+    });
+    service.verifiedCreditNote.set(verifiedNote);
+
+    service.onApplyVerifiedCreditNote();
+
+    service.verifiedCreditNote.set(verifiedNote);
+    service.onApplyVerifiedCreditNote();
+
+    expect(service.appliedCreditNotes().length).toBe(1);
+  });
+
+  it('updates payment form controls when credit note amount changes', () => {
+    const { service } = buildService();
+    service.checkoutPreview.set({
+      totalAmount: 500,
+      totalTaxableAmount: 500,
+      totalTaxAmount: 0,
+      totalDiscountAmount: 0,
+      saleLevelEligibleSubtotal: 500,
+      configuredSaleRule: null,
+      lines: [],
+      infos: [],
+      warnings: [],
+    });
+    service.verifiedCreditNote.set(verifiedNote);
+    service.lastEditedPaymentField.set('paid');
+    service.paymentForm.controls.paidAmount.setValue(300);
+    service.onApplyVerifiedCreditNote();
+
+    service.onAppliedCreditNoteAmountChange('cn-1', 100);
+
+    const expectedPayable = 500 - 100;
+    const paid = service.paymentForm.controls.paidAmount.value;
+    const due = service.paymentForm.controls.dueAmount.value;
+    expect(paid + due).toBe(expectedPayable);
+  });
 });
