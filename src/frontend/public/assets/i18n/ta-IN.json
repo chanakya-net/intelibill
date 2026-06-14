@@ -1350,16 +1350,16 @@
         "verifyFailed": "கிரெடிட் குறிப்பை சரிபார்க்க முடியவில்லை."
       },
       "void": {
-        "action": "Void credit note",
-        "title": "Void credit note",
-        "description": "This will void the credit note and keep the audit trail intact.",
-        "reasonLabel": "Void reason",
-        "reasonPlaceholder": "Explain why this credit note is being voided",
-        "cancel": "Cancel",
-        "confirm": "Void credit note",
+        "action": "கிரெடிட் நோட்டை ரத்து செய்",
+        "title": "கிரெடிட் நோட்டை ரத்து செய்",
+        "description": "இது கிரெடிட் நோட்டை ரத்து செய்து, தணிக்கை பதிவை அப்படியே வைத்திருக்கும்.",
+        "reasonLabel": "ரத்து காரணம்",
+        "reasonPlaceholder": "இந்த கிரெடிட் நோடு ஏன் ரத்து செய்யப்படுகிறது என்பதை விளக்கவும்",
+        "cancel": "ரத்து செய்",
+        "confirm": "கிரெடிட் நோட்டை ரத்து செய்",
         "errors": {
-          "reasonRequired": "Void reason is required.",
-          "submitFailed": "Unable to void credit note."
+          "reasonRequired": "ரத்து காரணம் தேவை.",
+          "submitFailed": "கிரெடிட் நோட்டை ரத்து செய்ய முடியவில்லை."
         }
       }
     },

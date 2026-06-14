@@ -1350,16 +1350,16 @@
         "verifyFailed": "क्रेडिट नोट पडताळता आली नाही."
       },
       "void": {
-        "action": "Void credit note",
-        "title": "Void credit note",
-        "description": "This will void the credit note and keep the audit trail intact.",
-        "reasonLabel": "Void reason",
-        "reasonPlaceholder": "Explain why this credit note is being voided",
-        "cancel": "Cancel",
-        "confirm": "Void credit note",
+        "action": "क्रेडिट नोट रद्द करा",
+        "title": "क्रेडिट नोट रद्द करा",
+        "description": "यामुळे क्रेडिट नोट रद्द होईल आणि ऑडिट ट्रेल तसाच राहील.",
+        "reasonLabel": "रद्द करण्याचे कारण",
+        "reasonPlaceholder": "हा क्रेडिट नोट का रद्द केला जात आहे ते स्पष्ट करा",
+        "cancel": "रद्द करा",
+        "confirm": "क्रेडिट नोट रद्द करा",
         "errors": {
-          "reasonRequired": "Void reason is required.",
-          "submitFailed": "Unable to void credit note."
+          "reasonRequired": "रद्द करण्याचे कारण आवश्यक आहे.",
+          "submitFailed": "क्रेडिट नोट रद्द करता आली नाही."
         }
       }
     },

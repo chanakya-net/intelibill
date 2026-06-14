@@ -1350,16 +1350,16 @@
         "verifyFailed": "ক্রেডিট নোট যাচাই করা যায়নি।"
       },
       "void": {
-        "action": "Void credit note",
-        "title": "Void credit note",
-        "description": "This will void the credit note and keep the audit trail intact.",
-        "reasonLabel": "Void reason",
-        "reasonPlaceholder": "Explain why this credit note is being voided",
-        "cancel": "Cancel",
-        "confirm": "Void credit note",
+        "action": "ক্রেডিট নোট বাতিল করুন",
+        "title": "ক্রেডিট নোট বাতিল করুন",
+        "description": "এটি ক্রেডিট নোটটি বাতিল করবে এবং অডিট ট্রেইল অক্ষত রাখবে।",
+        "reasonLabel": "বাতিলের কারণ",
+        "reasonPlaceholder": "এই ক্রেডিট নোটটি কেন বাতিল করা হচ্ছে তা ব্যাখ্যা করুন",
+        "cancel": "বাতিল",
+        "confirm": "ক্রেডিট নোট বাতিল করুন",
         "errors": {
-          "reasonRequired": "Void reason is required.",
-          "submitFailed": "Unable to void credit note."
+          "reasonRequired": "বাতিলের কারণ প্রয়োজন।",
+          "submitFailed": "ক্রেডিট নোট বাতিল করা যায়নি।"
         }
       }
     },

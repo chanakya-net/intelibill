@@ -1350,16 +1350,16 @@
         "verifyFailed": "ક્રેડિટ નોટ ચકાસી શકાઈ નહીં."
       },
       "void": {
-        "action": "Void credit note",
-        "title": "Void credit note",
-        "description": "This will void the credit note and keep the audit trail intact.",
-        "reasonLabel": "Void reason",
-        "reasonPlaceholder": "Explain why this credit note is being voided",
-        "cancel": "Cancel",
-        "confirm": "Void credit note",
+        "action": "ક્રેડિટ નોટ રદ કરો",
+        "title": "ક્રેડિટ નોટ રદ કરો",
+        "description": "આ ક્રેડિટ નોટને રદ કરશે અને ઓડિટ ટ્રેલ યથાવત્ રાખશે.",
+        "reasonLabel": "રદ કરવાનો કારણ",
+        "reasonPlaceholder": "આ ક્રેડિટ નોટ કેમ રદ કરવામાં આવી રહી છે તે સમજાવો",
+        "cancel": "રદ કરો",
+        "confirm": "ક્રેડિટ નોટ રદ કરો",
         "errors": {
-          "reasonRequired": "Void reason is required.",
-          "submitFailed": "Unable to void credit note."
+          "reasonRequired": "રદ કરવાનો કારણ જરૂરી છે.",
+          "submitFailed": "ક્રેડિટ નોટ રદ કરી શકાઈ નથી."
         }
       }
     },

@@ -2,7 +2,7 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 
 import { AuthService } from '../../../../core/auth/auth.service';
 import { SaleService } from '../../services/sale.service';
@@ -346,6 +346,14 @@ describe('CreditNotesPageComponent', () => {
 
     authService.session.set({
       ...authService.session(),
+      shops: [{ shopId: 'shop-1', shopName: 'Main', role: 'Manager', isDefault: true, lastUsedAt: null }],
+    });
+    fixture.detectChanges();
+
+    expect(host.querySelector('.detail-actions button')).toBeTruthy();
+
+    authService.session.set({
+      ...authService.session(),
       shops: [{ shopId: 'shop-1', shopName: 'Main', role: 'Staff', isDefault: true, lastUsedAt: null }],
     });
     fixture.detectChanges();
@@ -402,6 +410,33 @@ describe('CreditNotesPageComponent', () => {
     expect(saleService.getCreditNotes).toHaveBeenCalledTimes(1);
     expect(fixture.nativeElement.textContent).toContain('Voided');
     expect(fixture.nativeElement.textContent).toContain('Void reason');
+  });
+
+  it('keeps the void dialog open when submission fails', async () => {
+    const fixture = TestBed.createComponent(CreditNotesPageComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    await Promise.resolve();
+
+    saleService.voidCreditNote.mockReturnValue(throwError(() => new Error('server error')));
+
+    await component.openCreditNoteFromList(note);
+    fixture.detectChanges();
+    await Promise.resolve();
+    fixture.detectChanges();
+
+    component.openVoidDialog();
+    component.updateVoidReason('Issued in error');
+    fixture.detectChanges();
+
+    await component.submitVoidCreditNote();
+    fixture.detectChanges();
+    await Promise.resolve();
+    fixture.detectChanges();
+
+    expect(saleService.voidCreditNote).toHaveBeenCalledWith('CN-001', { reason: 'Issued in error' });
+    expect(component.voidDialogVisible()).toBe(true);
+    expect(fixture.nativeElement.textContent).toContain('Unable to void credit note.');
   });
 
   it('renders required fields from exact verify response when search index is incomplete', async () => {

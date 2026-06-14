@@ -1350,16 +1350,16 @@
         "verifyFailed": "క్రెడిట్ నోట్‌ను ధృవీకరించలేకపోయాం."
       },
       "void": {
-        "action": "Void credit note",
-        "title": "Void credit note",
-        "description": "This will void the credit note and keep the audit trail intact.",
-        "reasonLabel": "Void reason",
-        "reasonPlaceholder": "Explain why this credit note is being voided",
-        "cancel": "Cancel",
-        "confirm": "Void credit note",
+        "action": "క్రెడిట్ నోట్ రద్దు చేయండి",
+        "title": "క్రెడిట్ నోట్ రద్దు చేయండి",
+        "description": "ఇది క్రెడిట్ నోట్‌ను రద్దు చేసి, ఆడిట్ ట్రైల్‌ను అలాగే ఉంచుతుంది.",
+        "reasonLabel": "రద్దు కారణం",
+        "reasonPlaceholder": "ఈ క్రెడిట్ నోట్ ఎందుకు రద్దు చేస్తున్నారో వివరించండి",
+        "cancel": "రద్దు చేయండి",
+        "confirm": "క్రెడిట్ నోట్ రద్దు చేయండి",
         "errors": {
-          "reasonRequired": "Void reason is required.",
-          "submitFailed": "Unable to void credit note."
+          "reasonRequired": "రద్దు కారణం అవసరం.",
+          "submitFailed": "క్రెడిట్ నోట్‌ను రద్దు చేయలేకపోయాము."
         }
       }
     },

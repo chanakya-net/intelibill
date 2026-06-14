@@ -1350,16 +1350,16 @@
         "verifyFailed": "ക്രെഡിറ്റ് നോട്ട് പരിശോധിക്കാൻ കഴിഞ്ഞില്ല."
       },
       "void": {
-        "action": "Void credit note",
-        "title": "Void credit note",
-        "description": "This will void the credit note and keep the audit trail intact.",
-        "reasonLabel": "Void reason",
-        "reasonPlaceholder": "Explain why this credit note is being voided",
-        "cancel": "Cancel",
-        "confirm": "Void credit note",
+        "action": "ക്രെഡിറ്റ് നോട്ട് റദ്ദാക്കുക",
+        "title": "ക്രെഡിറ്റ് നോട്ട് റദ്ദാക്കുക",
+        "description": "ഇത് ക്രെഡിറ്റ് നോട്ടിനെ റദ്ദാക്കുകയും ഓഡിറ്റ് ട്രെയിൽ അപ്രഭവമാകാതെ നിലനിർത്തുകയും ചെയ്യും.",
+        "reasonLabel": "റദ്ദാക്കാനുള്ള കാരണം",
+        "reasonPlaceholder": "ഈ ക്രെഡിറ്റ് നോട്ട് എന്തിനാണ് റദ്ദാക്കുന്നത് എന്ന് വിശദീകരിക്കുക",
+        "cancel": "റദ്ദാക്കുക",
+        "confirm": "ക്രെഡിറ്റ് നോട്ട് റദ്ദാക്കുക",
         "errors": {
-          "reasonRequired": "Void reason is required.",
-          "submitFailed": "Unable to void credit note."
+          "reasonRequired": "റദ്ദാക്കാനുള്ള കാരണം ആവശ്യമാണ്.",
+          "submitFailed": "ക്രെഡിറ്റ് നോട്ട് റദ്ദാക്കാൻ കഴിഞ്ഞില്ല."
         }
       }
     },
