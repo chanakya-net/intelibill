@@ -192,6 +192,11 @@ export interface RecordSaleItemRequest {
   readonly serviceId?: string | null;
 }
 
+export interface CreditNoteRedemptionRequest {
+  readonly code: string;
+  readonly amount: number;
+}
+
 export interface RecordSaleRequest {
   readonly idempotencyKey: string;
   readonly customerId: string | null;
@@ -203,6 +208,7 @@ export interface RecordSaleRequest {
   readonly items: readonly RecordSaleItemRequest[];
   readonly saleDiscount: InstantDiscountRequest | null;
   readonly creditNoteAppliedAmount?: number;
+  readonly creditNoteRedemptions?: readonly CreditNoteRedemptionRequest[];
 }
 
 export interface ReserveInvoiceLeaseRequest {

@@ -41,6 +41,20 @@ export abstract class NewSalePageCreditNoteService extends NewSalePageOfflineFlo
     this.resetCreditNoteState();
   }
 
+  protected override getCreditNoteRedemptionForSubmit(totalAmount: number): { code: string; amount: number } | null {
+    const note = this.verifiedCreditNote();
+    if (!note) {
+      return null;
+    }
+
+    const amount = this.roundAmount(Math.min(note.availableBalance, totalAmount));
+    if (amount <= 0) {
+      return null;
+    }
+
+    return { code: note.code, amount };
+  }
+
   private resetCreditNoteState(): void {
     this.creditNoteCode.set('');
     this.isCreditNoteVerifying.set(false);

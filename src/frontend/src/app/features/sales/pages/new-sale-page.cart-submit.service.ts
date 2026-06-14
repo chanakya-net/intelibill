@@ -205,13 +205,15 @@ export abstract class NewSalePageCartSubmitService extends NewSalePageCartSelect
     const paidAmount = this.toFiniteAmount(this.paymentForm.controls.paidAmount.value);
     const dueAmount = this.toFiniteAmount(this.paymentForm.controls.dueAmount.value);
     const totalAmount = this.roundAmount(this.totalAmount());
+    const creditNoteRedemption = this.getCreditNoteRedemptionForSubmit(totalAmount);
+    const creditNoteAppliedAmount = creditNoteRedemption?.amount ?? 0;
 
     if (
       !Number.isFinite(paidAmount) ||
       !Number.isFinite(dueAmount) ||
       paidAmount < 0 ||
       dueAmount < 0 ||
-      !this.areAmountsEqual(paidAmount + dueAmount, totalAmount)
+      !this.areAmountsEqual(paidAmount + dueAmount + creditNoteAppliedAmount, totalAmount)
     ) {
       this.paymentSplitError.set('sales.newSale.invalidPaymentSplit');
       return;
@@ -237,9 +239,14 @@ export abstract class NewSalePageCartSubmitService extends NewSalePageCartSelect
       dueAmount,
       items,
       saleDiscount: { type: this.saleDiscountType(), value: this.saleDiscountValue() },
+      creditNoteAppliedAmount,
+      creditNoteRedemptions: creditNoteRedemption ? [creditNoteRedemption] : [],
     };
 
     this.salesFacade.recordSale(request);
   }
 
+  protected getCreditNoteRedemptionForSubmit(_totalAmount: number): { code: string; amount: number } | null {
+    return null;
+  }
 }
