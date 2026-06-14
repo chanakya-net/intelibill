@@ -120,11 +120,28 @@ describe('SalePaymentSectionComponent', () => {
     component.creditNoteCustomerMismatchConfirmedChanged.subscribe(confirmSpy);
     component.creditNoteCustomerMismatchCancelled.subscribe(cancelSpy);
 
+    expect(fixture.nativeElement.querySelector('.bg-amber-50')).toBeTruthy();
+
     component.onCreditNoteCustomerMismatchConfirmedChange(true);
     component.onCreditNoteCustomerMismatchCancelClick();
 
-    expect(fixture.nativeElement.textContent).toContain('sales.newSale.creditNote.customerMismatchWarning');
     expect(confirmSpy).toHaveBeenCalledWith(true);
     expect(cancelSpy).toHaveBeenCalled();
+  });
+
+  it('hides mismatch warning when mismatch has already been confirmed', () => {
+    TestBed.configureTestingModule({
+      imports: [SalePaymentSectionComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
+    });
+
+    const fixture = TestBed.createComponent(SalePaymentSectionComponent);
+    const component = fixture.componentInstance;
+    component.verifiedCreditNote = { creditNoteId: 'cn-1', code: 'CN-123', availableBalance: 10, expiresAt: null, status: 'Active', customerName: 'Other customer' };
+    component.creditNoteCustomerMismatchWarning = true;
+    component.creditNoteCustomerMismatchConfirmed = true;
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('sales.newSale.creditNote.customerMismatchConfirmed');
+    expect(fixture.nativeElement.querySelector('.bg-amber-50')).toBeNull();
   });
 });

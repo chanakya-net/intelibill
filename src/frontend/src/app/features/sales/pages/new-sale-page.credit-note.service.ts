@@ -49,7 +49,7 @@ export abstract class NewSalePageCreditNoteService extends NewSalePageOfflineFlo
   override refreshCreditNoteCustomerMismatchState(): void {
     const warning = this.hasCreditNoteCustomerMismatch(this.verifiedCreditNote());
     this.creditNoteCustomerMismatchWarning.set(warning);
-    this.creditNoteCustomerMismatchConfirmed.set(!warning);
+    this.creditNoteCustomerMismatchConfirmed.set(false);
   }
 
   override resetTransientState(): void {

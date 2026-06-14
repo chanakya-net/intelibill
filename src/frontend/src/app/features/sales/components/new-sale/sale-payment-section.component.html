@@ -94,7 +94,7 @@
       </div>
     }
 
-    @if (verifiedCreditNote && creditNoteCustomerMismatchWarning) {
+    @if (verifiedCreditNote && creditNoteCustomerMismatchWarning && !creditNoteCustomerMismatchConfirmed) {
       <div class="mt-2 p-2 bg-amber-50 border border-amber-200 rounded text-sm">
         <p class="text-amber-800 font-medium">{{ 'sales.newSale.creditNote.customerMismatchWarning' | transloco }}</p>
         <p class="text-slate-600">{{ 'sales.newSale.creditNote.customerMismatchDetails' | transloco }}</p>

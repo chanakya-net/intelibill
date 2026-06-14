@@ -198,6 +198,7 @@ describe('NewSalePageCreditNoteService', () => {
     expect(saleService.verifyCreditNote).toHaveBeenCalledWith('CN-ABC-123');
     expect(service.verifiedCreditNote()).toEqual(verifiedNote);
     expect(service.creditNoteError()).toBe('');
+    expect(service.creditNoteCustomerMismatchConfirmed()).toBe(false);
     expect(service.isCreditNoteVerifying()).toBe(false);
   });
 
