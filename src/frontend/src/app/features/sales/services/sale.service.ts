@@ -24,6 +24,7 @@ import type {
   SalePreviewDto,
   SaleReturnPreviewDto,
   SellableDto,
+  VoidCreditNoteRequest,
   VoidSaleReturnRequest,
 } from './sale.models';
 
@@ -76,6 +77,10 @@ export class SaleService {
 
   voidSaleReturn(saleReturnId: string, request: VoidSaleReturnRequest): Observable<void> {
     return this.http.post<void>(`${SALE_ENDPOINTS.record}/returns/${saleReturnId}/void`, request);
+  }
+
+  voidCreditNote(code: string, request: VoidCreditNoteRequest): Observable<void> {
+    return this.http.post<void>(CREDIT_NOTE_ENDPOINTS.void(code), request);
   }
 
   getProfitLossReport(params?: ProfitLossReportQueryParams): Observable<ProfitLossReportResultDto> {

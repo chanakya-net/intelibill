@@ -224,7 +224,7 @@
   @if (selectedCreditNote()) {
     <section class="detail-panel">
       <header class="detail-header">
-      <div>
+        <div>
           <p class="eyebrow">{{ 'sales.creditNotes.detail.eyebrow' | transloco }}</p>
           <h2>{{ selectedCreditNote()!.code }}</h2>
           <p class="subtitle">{{ 'sales.creditNotes.detail.subtitle' | transloco }}</p>
@@ -234,6 +234,20 @@
           [value]="getStatusTranslationKey(selectedCreditNote()!.status) | transloco"
         ></p-tag>
       </header>
+
+      @if (canVoidCreditNote(selectedCreditNote())) {
+        <div class="detail-actions">
+          <button
+            pButton
+            type="button"
+            severity="danger"
+            outlined="true"
+            icon="pi pi-ban"
+            [label]="'sales.creditNotes.void.action' | transloco"
+            (click)="openVoidDialog()"
+          ></button>
+        </div>
+      }
 
       <div class="detail-grid">
         <article class="metric-card">
@@ -284,3 +298,58 @@
     </section>
   }
 </section>
+
+<p-dialog
+  [visible]="voidDialogVisible()"
+  (visibleChange)="closeVoidDialog()"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [style]="{ width: '92vw', maxWidth: '520px' }"
+  [header]="'sales.creditNotes.void.title' | transloco"
+>
+  @if (voidTargetCreditNote()) {
+    <div class="void-dialog">
+      <p class="subtitle">{{ 'sales.creditNotes.void.description' | transloco }}</p>
+      <div class="void-summary">
+        <p class="control-label">{{ 'sales.creditNotes.detail.eyebrow' | transloco }}</p>
+        <strong>{{ voidTargetCreditNote()!.code }}</strong>
+      </div>
+      <label class="void-field">
+        <span class="control-label">{{ 'sales.creditNotes.void.reasonLabel' | transloco }}</span>
+        <textarea
+          pInputTextarea
+          rows="4"
+          [ngModel]="voidReason()"
+          (ngModelChange)="updateVoidReason($event)"
+          [disabled]="voidLoading()"
+          [placeholder]="'sales.creditNotes.void.reasonPlaceholder' | transloco"
+        ></textarea>
+      </label>
+      @if (voidErrorMessage()) {
+        <p class="void-error">{{ voidErrorMessage() | transloco }}</p>
+      }
+    </div>
+  }
+
+  <ng-template pTemplate="footer">
+    <button
+      pButton
+      type="button"
+      severity="secondary"
+      outlined="true"
+      [label]="'sales.creditNotes.void.cancel' | transloco"
+      [disabled]="voidLoading()"
+      (click)="closeVoidDialog()"
+    ></button>
+    <button
+      pButton
+      type="button"
+      severity="danger"
+      [label]="'sales.creditNotes.void.confirm' | transloco"
+      [loading]="voidLoading()"
+      [disabled]="voidLoading() || !voidReason().trim()"
+      (click)="submitVoidCreditNote()"
+    ></button>
+  </ng-template>
+</p-dialog>

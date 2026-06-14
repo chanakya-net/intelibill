@@ -336,6 +336,19 @@ describe('SaleService', () => {
     http.verify();
   });
 
+  it('sends POST request to void credit-note endpoint', () => {
+    const { service, http } = setup();
+    const payload = { reason: 'Issued in error' };
+
+    service.voidCreditNote('CN-001', payload).subscribe();
+
+    const req = http.expectOne(CREDIT_NOTE_ENDPOINTS.void('CN-001'));
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(payload);
+    req.flush(null);
+    http.verify();
+  });
+
   it('loads profit loss report with query params and result metadata', () => {
     const { service, http } = setup();
     const queryParams: ProfitLossReportQueryParams = {
