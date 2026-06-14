@@ -102,10 +102,17 @@ public sealed class RecordSaleCommandHandler
 
         var resolvedCustomer = resolvedCustomerOrError.Value;
 
+        CreditNote? creditNote = null;
         if (command.CreditNoteAppliedAmount > 0 && !string.IsNullOrWhiteSpace(command.CreditNoteCode))
         {
-            var creditNote = await creditNoteRepository.GetByCodeAsync(command.ShopId, command.CreditNoteCode.Trim(), cancellationToken);
-            if (creditNote?.LinkedCustomerId.HasValue == true && creditNote.LinkedCustomerId.Value != (resolvedCustomer?.Id ?? command.CustomerId))
+            var normalizeCreditNoteCode = command.CreditNoteCode.Trim();
+            creditNote = await creditNoteRepository.GetByCodeWithRedemptionsAsync(command.ShopId, normalizeCreditNoteCode, cancellationToken);
+            if (creditNote is null)
+            {
+                return Errors.CreditNote.CreditNoteNotFound(normalizeCreditNoteCode);
+            }
+
+            if (creditNote.LinkedCustomerId.HasValue && creditNote.LinkedCustomerId.Value != (resolvedCustomer?.Id ?? command.CustomerId))
             {
                 if (!command.CreditNoteCustomerMismatchConfirmed)
                     return Errors.CreditNote.CustomerMismatchRequiresConfirmation;
@@ -203,6 +210,15 @@ public sealed class RecordSaleCommandHandler
                 return ledgerResult.Errors;
 
             await customerLedgerEntryRepository.AddAsync(ledgerResult.Value, cancellationToken);
+        }
+
+        if (creditNote is not null)
+        {
+            var redemptionResult = creditNote.Redeem(command.ShopId, sale.Id, command.CreditNoteAppliedAmount);
+            if (redemptionResult.IsError)
+            {
+                return redemptionResult.Errors;
+            }
         }
 
         try

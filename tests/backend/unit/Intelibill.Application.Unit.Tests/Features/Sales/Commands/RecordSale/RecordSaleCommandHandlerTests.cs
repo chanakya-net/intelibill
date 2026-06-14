@@ -890,7 +890,7 @@ public class RecordSaleCommandHandlerTests
             CreditNoteCustomerMismatchConfirmed: false);
 
         var creditNote = CreditNote.Issue(shopId, Guid.NewGuid(), 500m, "Return", noteCode, null, linkedCustomerId: noteLinkedCustomerId).Value;
-        _creditNoteRepository.GetByCodeAsync(shopId, noteCode, Arg.Any<CancellationToken>()).Returns(creditNote);
+        _creditNoteRepository.GetByCodeWithRedemptionsAsync(shopId, noteCode, Arg.Any<CancellationToken>()).Returns(creditNote);
         _customerResolver.ResolveAsync(shopId, saleCustomerId, Arg.Any<string?>(), Arg.Any<bool>(), PaymentMethod.Cash, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<ErrorOr<Customer?>>((Customer?)null));
 
@@ -925,7 +925,7 @@ public class RecordSaleCommandHandlerTests
             CreditNoteCustomerMismatchConfirmed: false);
 
         var creditNote = CreditNote.Issue(shopId, Guid.NewGuid(), 500m, "Return", noteCode, null, linkedCustomerId: customerId).Value;
-        _creditNoteRepository.GetByCodeAsync(shopId, noteCode, Arg.Any<CancellationToken>()).Returns(creditNote);
+        _creditNoteRepository.GetByCodeWithRedemptionsAsync(shopId, noteCode, Arg.Any<CancellationToken>()).Returns(creditNote);
         var line = new ValidatedSaleLine(command.Items[0], item, batch, inventory, false);
         var itemNameById = new Dictionary<Guid, string> { { item.Id, item.Name } };
         _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>())
@@ -957,7 +957,7 @@ public class RecordSaleCommandHandlerTests
             CreditNoteCustomerMismatchConfirmed: false);
 
         var creditNote = CreditNote.Issue(shopId, Guid.NewGuid(), 500m, "Return", noteCode, null).Value;
-        _creditNoteRepository.GetByCodeAsync(shopId, noteCode, Arg.Any<CancellationToken>()).Returns(creditNote);
+        _creditNoteRepository.GetByCodeWithRedemptionsAsync(shopId, noteCode, Arg.Any<CancellationToken>()).Returns(creditNote);
         var line = new ValidatedSaleLine(command.Items[0], item, batch, inventory, false);
         var itemNameById = new Dictionary<Guid, string> { { item.Id, item.Name } };
         _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>())
@@ -990,7 +990,7 @@ public class RecordSaleCommandHandlerTests
             CreditNoteCustomerMismatchConfirmed: true);
 
         var creditNote = CreditNote.Issue(shopId, Guid.NewGuid(), 500m, "Return", noteCode, null, linkedCustomerId: noteLinkedCustomerId).Value;
-        _creditNoteRepository.GetByCodeAsync(shopId, noteCode, Arg.Any<CancellationToken>()).Returns(creditNote);
+        _creditNoteRepository.GetByCodeWithRedemptionsAsync(shopId, noteCode, Arg.Any<CancellationToken>()).Returns(creditNote);
         var line = new ValidatedSaleLine(command.Items[0], item, batch, inventory, false);
         var itemNameById = new Dictionary<Guid, string> { { item.Id, item.Name } };
         _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>())
@@ -1000,6 +1000,155 @@ public class RecordSaleCommandHandlerTests
 
         Assert.False(result.IsError);
         await _saleRepository.Received(1).AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenCreditNoteCodeDoesNotExist_ReturnsNotFound()
+    {
+        var shopId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var noteCode = "CN-MISSING";
+        var item = MakeItem(shopId, "BC-MISS");
+        var batch = MakeBatch(shopId, item.Id, "B-MISS");
+        var inventory = MakeInventory(shopId, item.Id);
+        var command = MakeCommand(
+            shopId,
+            actorId,
+            creditNoteCode: noteCode,
+            creditNoteAppliedAmount: 100m) with { PaidAmount = 490m };
+        var line = new ValidatedSaleLine(command.Items[0], item, batch, inventory, false);
+        var itemNameById = new Dictionary<Guid, string> { { item.Id, item.Name } };
+        _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>())
+            .Returns(new SaleLineValidationResult(new List<ValidatedSaleLine> { line }, itemNameById));
+        _creditNoteRepository.GetByCodeWithRedemptionsAsync(shopId, noteCode, Arg.Any<CancellationToken>()).Returns((CreditNote?)null);
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.CreditNote.CreditNoteNotFound(noteCode).Code, result.FirstError.Code);
+        await _saleRepository.DidNotReceive().AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenCreditNoteIsExpired_ReturnsError()
+    {
+        var shopId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var noteCode = "CN-EXPIRED";
+        var item = MakeItem(shopId, "BC-EXP");
+        var batch = MakeBatch(shopId, item.Id, "B-EXP");
+        var inventory = MakeInventory(shopId, item.Id);
+        var command = MakeCommand(
+            shopId,
+            actorId,
+            creditNoteCode: noteCode,
+            creditNoteAppliedAmount: 100m) with { PaidAmount = 490m };
+        var note = CreditNote.Issue(shopId, Guid.NewGuid(), 500m, "Return", noteCode, DateTimeOffset.UtcNow.AddDays(-1)).Value;
+        var line = new ValidatedSaleLine(command.Items[0], item, batch, inventory, false);
+        var itemNameById = new Dictionary<Guid, string> { { item.Id, item.Name } };
+        _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>())
+            .Returns(new SaleLineValidationResult(new List<ValidatedSaleLine> { line }, itemNameById));
+        _creditNoteRepository.GetByCodeWithRedemptionsAsync(shopId, noteCode, Arg.Any<CancellationToken>()).Returns(note);
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("CreditNote.ExpiredCannotRedeem", result.FirstError.Code);
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenCreditNoteIsVoided_ReturnsError()
+    {
+        var shopId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var noteCode = "CN-VOIDED";
+        var item = MakeItem(shopId, "BC-VOID");
+        var batch = MakeBatch(shopId, item.Id, "B-VOID");
+        var inventory = MakeInventory(shopId, item.Id);
+        var command = MakeCommand(
+            shopId,
+            actorId,
+            creditNoteCode: noteCode,
+            creditNoteAppliedAmount: 100m) with { PaidAmount = 490m };
+        var note = CreditNote.Issue(shopId, Guid.NewGuid(), 500m, "Return", noteCode, null).Value;
+        note.Void("Duplicate refund");
+        var line = new ValidatedSaleLine(command.Items[0], item, batch, inventory, false);
+        var itemNameById = new Dictionary<Guid, string> { { item.Id, item.Name } };
+        _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>())
+            .Returns(new SaleLineValidationResult(new List<ValidatedSaleLine> { line }, itemNameById));
+        _creditNoteRepository.GetByCodeWithRedemptionsAsync(shopId, noteCode, Arg.Any<CancellationToken>()).Returns(note);
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("CreditNote.VoidedCannotRedeem", result.FirstError.Code);
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenCreditNoteHasInsufficientBalance_ReturnsError()
+    {
+        var shopId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var noteCode = "CN-LOWBAL";
+        var item = MakeItem(shopId, "BC-LOW");
+        var batch = MakeBatch(shopId, item.Id, "B-LOW");
+        var inventory = MakeInventory(shopId, item.Id);
+        var command = MakeCommand(
+            shopId,
+            actorId,
+            creditNoteCode: noteCode,
+            creditNoteAppliedAmount: 500m) with { PaidAmount = 90m };
+        var note = CreditNote.Issue(shopId, Guid.NewGuid(), 100m, "Return", noteCode, null).Value;
+        var line = new ValidatedSaleLine(command.Items[0], item, batch, inventory, false);
+        var itemNameById = new Dictionary<Guid, string> { { item.Id, item.Name } };
+        _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>())
+            .Returns(new SaleLineValidationResult(new List<ValidatedSaleLine> { line }, itemNameById));
+        _creditNoteRepository.GetByCodeWithRedemptionsAsync(shopId, noteCode, Arg.Any<CancellationToken>()).Returns(note);
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("CreditNote.InsufficientBalance", result.FirstError.Code);
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenCreditNoteIsRedeemedSuccessfully_PersistsRedemptionAndDecreasesBalance()
+    {
+        var shopId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var noteCode = "CN-REDEEM";
+        var item = MakeItem(shopId, "BC-REDEEM");
+        var batch = MakeBatch(shopId, item.Id, "B-REDEEM");
+        var inventory = MakeInventory(shopId, item.Id);
+        var command = MakeCommand(
+            shopId,
+            actorId,
+            creditNoteCode: noteCode,
+            creditNoteAppliedAmount: 100m) with { PaidAmount = 490m };
+        var note = CreditNote.Issue(shopId, Guid.NewGuid(), 500m, "Return", noteCode, null).Value;
+        var line = new ValidatedSaleLine(command.Items[0], item, batch, inventory, false);
+        var itemNameById = new Dictionary<Guid, string> { { item.Id, item.Name } };
+        _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>())
+            .Returns(new SaleLineValidationResult(new List<ValidatedSaleLine> { line }, itemNameById));
+        _creditNoteRepository.GetByCodeWithRedemptionsAsync(shopId, noteCode, Arg.Any<CancellationToken>()).Returns(note);
+
+        Sale? recordedSale = null;
+        _saleRepository
+            .AddAsync(Arg.Do<Sale>(sale => recordedSale = sale), Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.NotNull(recordedSale);
+        Assert.Single(note.Redemptions);
+        Assert.Equal(400m, note.AvailableBalance);
+        Assert.Equal(recordedSale!.Id, note.Redemptions[0].SaleId);
+        Assert.Equal(command.CreditNoteAppliedAmount, note.Redemptions[0].Amount);
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
 }
