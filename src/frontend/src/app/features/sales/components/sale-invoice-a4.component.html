@@ -166,7 +166,9 @@
       </span>
     </div>
     <div *ngIf="sale.creditNoteAppliedAmount > 0" class="invoice__totals-row">
-      <span class="invoice__totals-label">{{ 'sales.invoice.creditNoteSettlement' | transloco }}</span>
+      <span class="invoice__totals-label">
+        {{ getCreditNoteSettlementLabelKey() | transloco:{ codes: getCreditNoteSettlementCodes().join(', ') } }}
+      </span>
       <span class="invoice__totals-value">
         -{{ sale.creditNoteAppliedAmount | currency: 'INR': 'symbol': '1.2-2' }}
       </span>
