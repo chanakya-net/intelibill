@@ -19,6 +19,7 @@ public sealed class VoidSaleReturnCommandHandlerTests
     private readonly IInventoryBatchRepository _inventoryBatchRepository = Substitute.For<IInventoryBatchRepository>();
     private readonly IStockTransactionRepository _stockTransactionRepository = Substitute.For<IStockTransactionRepository>();
     private readonly ICustomerLedgerEntryRepository _customerLedgerEntryRepository = Substitute.For<ICustomerLedgerEntryRepository>();
+    private readonly ICreditNoteRepository _creditNoteRepository = Substitute.For<ICreditNoteRepository>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
 
     private VoidSaleReturnCommandHandler CreateHandler() =>
@@ -31,6 +32,7 @@ public sealed class VoidSaleReturnCommandHandlerTests
             _inventoryBatchRepository,
             _stockTransactionRepository,
             _customerLedgerEntryRepository,
+            _creditNoteRepository,
             _unitOfWork);
 
     [Theory]
@@ -136,6 +138,88 @@ public sealed class VoidSaleReturnCommandHandlerTests
             Arg.Any<CustomerLedgerEntry>(),
             Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithUnredeemedCreditNote_AutoVoidsNoteAndReturn()
+    {
+        var fixture = Arrange(ShopRole.Owner);
+        var creditNote = CreditNote.Issue(
+            fixture.Shop.Id,
+            fixture.SaleReturn.Id,
+            amount: 200m,
+            reason: "Store credit for return",
+            code: "CN-TEST-001",
+            expiresAt: null).Value;
+        _creditNoteRepository
+            .GetBySaleReturnIdWithRedemptionsAsync(fixture.Shop.Id, fixture.SaleReturn.Id, Arg.Any<CancellationToken>())
+            .Returns(creditNote);
+
+        var result = await CreateHandler().HandleAsync(
+            new VoidSaleReturnCommand(fixture.User.Id, fixture.Shop.Id, fixture.SaleReturn.Id, "Duplicate return"),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.True(fixture.SaleReturn.IsVoided);
+        Assert.True(creditNote.IsVoided);
+        Assert.Equal("Duplicate return", creditNote.VoidReason);
+        _creditNoteRepository.Received(1).Update(creditNote);
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithAlreadyVoidedCreditNote_DoesNotFail()
+    {
+        var fixture = Arrange(ShopRole.Owner);
+        var creditNote = CreditNote.Issue(
+            fixture.Shop.Id,
+            fixture.SaleReturn.Id,
+            amount: 200m,
+            reason: "Store credit for return",
+            code: "CN-TEST-003",
+            expiresAt: null).Value;
+        creditNote.Void("Previously voided");
+        _creditNoteRepository
+            .GetBySaleReturnIdWithRedemptionsAsync(fixture.Shop.Id, fixture.SaleReturn.Id, Arg.Any<CancellationToken>())
+            .Returns(creditNote);
+
+        var result = await CreateHandler().HandleAsync(
+            new VoidSaleReturnCommand(fixture.User.Id, fixture.Shop.Id, fixture.SaleReturn.Id, "Duplicate return"),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.True(fixture.SaleReturn.IsVoided);
+        Assert.True(creditNote.IsVoided);
+        Assert.Equal("Previously voided", creditNote.VoidReason);
+        _creditNoteRepository.DidNotReceive().Update(creditNote);
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithRedeemedCreditNote_ReturnsConflict()
+    {
+        var fixture = Arrange(ShopRole.Owner);
+        var creditNote = CreditNote.Issue(
+            fixture.Shop.Id,
+            fixture.SaleReturn.Id,
+            amount: 200m,
+            reason: "Store credit for return",
+            code: "CN-TEST-002",
+            expiresAt: null).Value;
+        var redemptionSaleId = Guid.NewGuid();
+        creditNote.Redeem(fixture.Shop.Id, redemptionSaleId, 50m);
+        _creditNoteRepository
+            .GetBySaleReturnIdWithRedemptionsAsync(fixture.Shop.Id, fixture.SaleReturn.Id, Arg.Any<CancellationToken>())
+            .Returns(creditNote);
+
+        var result = await CreateHandler().HandleAsync(
+            new VoidSaleReturnCommand(fixture.User.Id, fixture.Shop.Id, fixture.SaleReturn.Id, "Duplicate return"),
+            CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Sale.ReturnCreditNoteHasRedemptions.Code, result.FirstError.Code);
+        Assert.False(fixture.SaleReturn.IsVoided);
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     private VoidSaleReturnFixture Arrange(
@@ -252,6 +336,9 @@ public sealed class VoidSaleReturnCommandHandlerTests
         _saleRepository.GetByIdAsync(sale.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(sale);
         _inventoryBatchRepository.GetByIdAsync(batch.Id, Arg.Any<CancellationToken>()).Returns(batch);
         _inventoryRepository.GetByItemAsync(shop.Id, itemId, Arg.Any<CancellationToken>()).Returns(inventory);
+        _creditNoteRepository
+            .GetBySaleReturnIdWithRedemptionsAsync(shop.Id, saleReturn.Id, Arg.Any<CancellationToken>())
+            .Returns((CreditNote?)null);
 
         return new VoidSaleReturnFixture(user, shop, sale, saleReturn, batch, inventory);
     }
