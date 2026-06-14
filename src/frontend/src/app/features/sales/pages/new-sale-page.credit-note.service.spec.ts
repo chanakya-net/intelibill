@@ -435,11 +435,15 @@ describe('NewSalePageCreditNoteService', () => {
     expect(service.totalAppliedCreditNoteAmount()).toBe(120);
     expect(service.appliedCreditNotes()[0].amount).toBe(120);
     expect(service.appliedCreditNotes()[1].amount).toBe(0);
+    expect(
+      (service as unknown as { buildCreditNoteRedemptions: () => Array<{ creditNoteId: string; code: string; amount: number }> })
+        .buildCreditNoteRedemptions(),
+    ).toHaveLength(1);
     expect(service.paymentForm.controls.paidAmount.value).toBe(0);
     expect(service.paymentForm.controls.dueAmount.value).toBe(0);
   });
 
-  it('clears applied credit notes and payment split when cart total reaches zero', () => {
+  it('keeps zero-amount credit notes for lifecycle-driven cleanup', () => {
     const { service } = buildService();
     service.checkoutPreview.set({
       totalAmount: 300,
@@ -472,8 +476,11 @@ describe('NewSalePageCreditNoteService', () => {
     });
     (service as unknown as { reconcileAppliedCreditNotesAgainstCartTotal: () => void }).reconcileAppliedCreditNotesAgainstCartTotal();
 
-    expect(service.appliedCreditNotes()).toHaveLength(0);
-    expect(service.paymentForm.controls.paidAmount.value).toBe(0);
-    expect(service.paymentForm.controls.dueAmount.value).toBe(0);
+    expect(service.appliedCreditNotes()).toHaveLength(1);
+    expect(service.appliedCreditNotes()[0].amount).toBe(0);
+    expect(
+      (service as unknown as { buildCreditNoteRedemptions: () => Array<{ creditNoteId: string; code: string; amount: number }> })
+        .buildCreditNoteRedemptions(),
+    ).toHaveLength(0);
   });
 });
