@@ -158,6 +158,7 @@ public sealed class RecordSaleCommandHandler
         var hasCreditNoteRedemption = command.CreditNoteAppliedAmount > 0m;
         var creditNoteTransactionStarted = false;
         var creditNoteTransactionCommitted = false;
+        var creditNoteTransactionRolledBack = false;
         CreditNote? creditNote = null;
         foreach (var line in validatedLines.Where(x => x.LineType == SaleLineType.Goods))
         {
@@ -238,6 +239,12 @@ public sealed class RecordSaleCommandHandler
         }
         catch (DbUpdateException)
         {
+            if (hasCreditNoteRedemption && creditNoteTransactionStarted && !creditNoteTransactionCommitted)
+            {
+                await unitOfWork.RollbackTransactionAsync(cancellationToken);
+                creditNoteTransactionRolledBack = true;
+            }
+
             var concurrentSale = await saleRepository.GetByIdempotencyKeyAsync(command.ShopId, command.ActorUserId, normalizedIdempotencyKey, cancellationToken);
             if (concurrentSale is null)
                 throw;
@@ -249,7 +256,10 @@ public sealed class RecordSaleCommandHandler
         }
         finally
         {
-            if (hasCreditNoteRedemption && creditNoteTransactionStarted && !creditNoteTransactionCommitted)
+            if (hasCreditNoteRedemption
+                && creditNoteTransactionStarted
+                && !creditNoteTransactionCommitted
+                && !creditNoteTransactionRolledBack)
             {
                 await unitOfWork.RollbackTransactionAsync(cancellationToken);
             }

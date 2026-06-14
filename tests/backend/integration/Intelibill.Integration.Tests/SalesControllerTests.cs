@@ -3230,6 +3230,153 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
     }
 
     [Fact]
+    public async Task RecordSale_WithCreditNoteAndConcurrentRequestsWithSameIdempotency_DoesNotErrorAndReturnsSameSale()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        var barcode = UniqueBarcode();
+        var inboundBody = await AddInventoryAsync(client, ownerToken, barcode, "B-001", 10m);
+        var batchId = inboundBody.GetProperty("inventoryBatchId").GetGuid();
+        var idempotencyKey = $"sale-{Guid.NewGuid():N}";
+
+        using var scope = _factory.Services.CreateScope();
+        var setupDb = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        using var seedSaleRequest = new HttpRequestMessage(HttpMethod.Post, "/api/sales");
+        seedSaleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        seedSaleRequest.Content = JsonContent.Create(new
+        {
+            idempotencyKey = $"seed-{Guid.NewGuid():N}",
+            customerId = (Guid?)null,
+            customerName = "Seed Customer",
+            customerPhone = "+919876543211",
+            paymentMethod = (int)PaymentMethod.Cash,
+            paidAmount = 236m,
+            dueAmount = 0m,
+            creditNoteAppliedAmount = 0m,
+            items = new[]
+            {
+                new
+                {
+                    barcode,
+                    batchNumber = "B-001",
+                    itemName = "Test Item",
+                    quantity = 2m,
+                    costPrice = 80m,
+                    salesPrice = 100m,
+                    mrp = 120m,
+                    taxRatePercent = 18m,
+                    isPriceIncludingTax = false,
+                    inventoryBatchId = batchId,
+                },
+            }
+        });
+
+        var seedSaleResponse = await client.SendAsync(seedSaleRequest);
+        seedSaleResponse.EnsureSuccessStatusCode();
+        var seedSaleBody = await seedSaleResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var saleId = seedSaleBody.GetProperty("saleId").GetGuid();
+
+        var seededSale = await setupDb.Sales.Include(s => s.Items).FirstAsync(s => s.Id == saleId);
+        var saleItemId = seededSale.Items[0].Id;
+        using var returnRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/sales/{saleId}/returns");
+        var creditNoteServiceId = await AddServiceAsync(client, ownerToken, "Credit Test Service", 100m);
+        returnRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        returnRequest.Content = JsonContent.Create(new
+        {
+            payoutDestination = (int)ReturnPayoutDestination.CreditNote,
+            dueReductionOverrideAmount = (decimal?)null,
+            dueOverrideReason = (string?)null,
+            notes = "Concurrent same-key credit setup",
+            creditNoteExpiresAt = (DateTimeOffset?)null,
+            creditNoteReason = "Concurrent same-key setup",
+            items = new[]
+            {
+                new
+                {
+                    saleItemId,
+                    quantity = 1m,
+                    condition = (int)SaleReturnCondition.Restockable,
+                    approvedRefundAmount = 118m,
+                    notes = (string?)null,
+                },
+            },
+        });
+        var returnResponse = await client.SendAsync(returnRequest);
+        Assert.Equal(HttpStatusCode.OK, returnResponse.StatusCode);
+
+        var returnBody = await returnResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var returnEntry = returnBody.GetProperty("returns").EnumerateArray().Single();
+        var creditNoteCode = returnEntry.GetProperty("creditNote").GetProperty("code").GetString();
+        Assert.NotNull(creditNoteCode);
+
+        async Task<HttpResponseMessage> sendConcurrentSale()
+        {
+            var saleRequest = new HttpRequestMessage(HttpMethod.Post, "/api/sales");
+            saleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+            saleRequest.Content = JsonContent.Create(new
+            {
+                idempotencyKey,
+                customerId = (Guid?)null,
+                customerName = "Concurrent credit customer",
+                customerPhone = $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}",
+                paymentMethod = (int)PaymentMethod.Cash,
+                paidAmount = 18m,
+                dueAmount = 0m,
+                creditNoteAppliedAmount = 100m,
+                items = new[]
+                {
+                    new
+                    {
+                        barcode = "SVC-CRDT",
+                        batchNumber = string.Empty,
+                        itemName = "Credit Test Service",
+                        quantity = 1m,
+                        costPrice = 0m,
+                        salesPrice = 100m,
+                        mrp = 0m,
+                        taxRatePercent = 18m,
+                        isPriceIncludingTax = false,
+                        inventoryBatchId = Guid.Empty,
+                        lineType = "Service",
+                        serviceId = creditNoteServiceId,
+                    }
+                }
+            });
+
+            return await client.SendAsync(saleRequest);
+        }
+
+        var first = Task.Run(sendConcurrentSale);
+        var second = Task.Run(sendConcurrentSale);
+        var responses = await Task.WhenAll(first, second);
+
+        var statusCodes = responses.Select(response => response.StatusCode).ToList();
+        Assert.DoesNotContain(HttpStatusCode.InternalServerError, statusCodes);
+        Assert.Contains(HttpStatusCode.Created, statusCodes);
+        Assert.Contains(HttpStatusCode.Conflict, statusCodes);
+        var failedResponse = responses.First(response => response.StatusCode == HttpStatusCode.Conflict);
+        var failedErrors = await failedResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var failedCodes = failedErrors.GetProperty("errors").EnumerateArray()
+            .Select(error => error.GetProperty("code").GetString())
+            .ToList();
+        Assert.Contains(failedCodes, code => code is "CreditNote.RedeemConflict" or "CreditNote.InsufficientBalance");
+
+        using var verificationScope = _factory.Services.CreateAsyncScope();
+        var verificationDb = verificationScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var dbNote = await verificationDb.CreditNotes.SingleAsync(c => c.Code == creditNoteCode);
+        var dbRedemptions = await verificationDb.CreditNoteRedemptions
+            .Where(r => r.CreditNoteId == dbNote.Id)
+            .ToListAsync();
+        var saleCount = await verificationDb.Sales.CountAsync(s => s.IdempotencyKey == idempotencyKey);
+
+        Assert.Equal(18m, dbNote.AvailableBalance);
+        Assert.Single(dbRedemptions);
+        Assert.Equal(1, saleCount);
+    }
+
+    [Fact]
     public async Task RecordSaleReturn_CreditNoteReasonTooLong_ReturnsValidationError()
     {
         using var client = CreateClient();
