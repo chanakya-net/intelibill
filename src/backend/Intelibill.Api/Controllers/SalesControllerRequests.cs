@@ -13,7 +13,9 @@ public sealed record RecordSaleRequest(
     decimal DueAmount,
     IReadOnlyList<RecordSaleItemRequest> Items,
     InstantDiscountRequest? SaleDiscount = null,
-    decimal CreditNoteAppliedAmount = 0m);
+    decimal CreditNoteAppliedAmount = 0m,
+    string? CreditNoteCode = null,
+    bool CreditNoteCustomerMismatchConfirmed = false);
 
 public sealed record ReserveInvoiceLeaseRequest(
     string DeviceId,

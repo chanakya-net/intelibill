@@ -22,6 +22,7 @@ public sealed class RecordSaleCommandHandler
     private readonly ICustomerLedgerEntryRepository customerLedgerEntryRepository;
     private readonly IStockTransactionRepository stockTransactionRepository;
     private readonly IUnitOfWork unitOfWork;
+    private readonly ICreditNoteRepository creditNoteRepository;
 
     public RecordSaleCommandHandler(
         ISaleLineValidator saleLineValidator,
@@ -31,7 +32,8 @@ public sealed class RecordSaleCommandHandler
         SaleDtoBuilder saleDtoBuilder,
         ICustomerLedgerEntryRepository customerLedgerEntryRepository,
         IStockTransactionRepository stockTransactionRepository,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        ICreditNoteRepository creditNoteRepository)
     {
         this.saleLineValidator = saleLineValidator;
         this.salePricingCalculator = salePricingCalculator;
@@ -41,6 +43,7 @@ public sealed class RecordSaleCommandHandler
         this.customerLedgerEntryRepository = customerLedgerEntryRepository;
         this.stockTransactionRepository = stockTransactionRepository;
         this.unitOfWork = unitOfWork;
+        this.creditNoteRepository = creditNoteRepository;
     }
 
     public async Task<ErrorOr<SaleDto>> HandleAsync(RecordSaleCommand command, CancellationToken cancellationToken)
@@ -93,6 +96,17 @@ public sealed class RecordSaleCommandHandler
             return resolvedCustomerOrError.Errors;
 
         var resolvedCustomer = resolvedCustomerOrError.Value;
+
+        if (command.CreditNoteAppliedAmount > 0 && !string.IsNullOrWhiteSpace(command.CreditNoteCode))
+        {
+            var creditNote = await creditNoteRepository.GetByCodeAsync(command.ShopId, command.CreditNoteCode.Trim(), cancellationToken);
+            if (creditNote?.LinkedCustomerId.HasValue == true && creditNote.LinkedCustomerId.Value != (resolvedCustomer?.Id ?? command.CustomerId))
+            {
+                if (!command.CreditNoteCustomerMismatchConfirmed)
+                    return Errors.CreditNote.CustomerMismatchRequiresConfirmation;
+            }
+        }
+
         var invoiceNumber = $"INV-{DateTimeOffset.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8].ToUpperInvariant()}";
         var saleLineInputs = validatedLines.Select((line, index) =>
         {

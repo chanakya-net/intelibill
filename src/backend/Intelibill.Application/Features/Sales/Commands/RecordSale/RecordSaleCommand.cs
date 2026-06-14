@@ -15,7 +15,9 @@ public sealed record RecordSaleCommand(
     decimal DueAmount,
     IReadOnlyList<RecordSaleItemCommand> Items,
     InstantDiscount? SaleDiscount = null,
-    decimal CreditNoteAppliedAmount = 0m);
+    decimal CreditNoteAppliedAmount = 0m,
+    string? CreditNoteCode = null,
+    bool CreditNoteCustomerMismatchConfirmed = false);
 
 public sealed record RecordSaleItemCommand(
     string Barcode,

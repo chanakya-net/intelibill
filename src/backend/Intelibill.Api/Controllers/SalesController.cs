@@ -130,7 +130,9 @@ public sealed partial class SalesController : AuthenticatedControllerBase
                 request.SaleDiscount is null
                     ? null
                     : new InstantDiscount(request.SaleDiscount.Type, request.SaleDiscount.Value),
-                request.CreditNoteAppliedAmount),
+                request.CreditNoteAppliedAmount,
+                request.CreditNoteCode,
+                request.CreditNoteCustomerMismatchConfirmed),
             cancellationToken);
         return result.ToActionResult(sale => CreatedAtAction(nameof(RecordSale), sale));
     }
