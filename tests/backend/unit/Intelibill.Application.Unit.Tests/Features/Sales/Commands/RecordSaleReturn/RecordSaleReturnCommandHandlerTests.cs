@@ -111,8 +111,38 @@ public sealed class RecordSaleReturnCommandHandlerTests
                 && note.OriginalAmount == 220m
                 && note.AvailableBalance == 220m
                 && note.ExpiresAt == null
-                && note.Reason == "Customer returned sealed items"),
+                && note.Reason == "Customer returned sealed items"
+                && note.LinkedCustomerId == null),
             Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenCreditNoteDestinationAndCustomerSale_CreatesCustomerLinkedCreditNote()
+    {
+        var fixture = ArrangeSale(ShopRole.Owner, hasCustomer: true);
+        CreditNote? savedNote = null;
+        _returnNumberGenerator.Generate(Arg.Any<DateTimeOffset>()).Returns("RET-20260505-CNPOKER");
+        _creditNoteCodeGenerator.GenerateAsync(fixture.Shop.Id, Arg.Any<CancellationToken>()).Returns("CN-20260614-LINK01");
+
+        _creditNoteRepository
+            .AddAsync(Arg.Any<CreditNote>(), Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask)
+            .AndDoes(x => savedNote = x.ArgAt<CreditNote>(0));
+
+        var result = await CreateHandler().HandleAsync(
+            Command(
+                fixture.User.Id,
+                fixture.Shop.Id,
+                fixture.Sale.Id,
+                fixture.SaleItem.Id,
+                payoutDestination: ReturnPayoutDestination.CreditNote),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.NotNull(savedNote);
+        Assert.Equal(fixture.Sale.CustomerId, savedNote!.LinkedCustomerId);
+        Assert.Equal("CN-20260614-LINK01", savedNote.Code);
+        Assert.Equal(220m, savedNote.AvailableBalance);
     }
 
     [Fact]

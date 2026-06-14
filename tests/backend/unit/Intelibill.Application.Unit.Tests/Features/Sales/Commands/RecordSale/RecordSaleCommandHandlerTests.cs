@@ -90,10 +90,17 @@ public class RecordSaleCommandHandlerTests
         decimal quantity = 5m,
         Guid? inventoryBatchId = null,
         string? idempotencyKey = null,
-        string? hsnCode = null) =>
+        string? hsnCode = null,
+        string? creditNoteCode = null,
+        decimal creditNoteAppliedAmount = 0m,
+        bool creditNoteCustomerMismatchConfirmed = false) =>
         new(actorId, shopId, idempotencyKey ?? $"sale-{Guid.NewGuid():N}", null, "Ravi Kumar", "+919876543210",
             PaymentMethod.Cash, quantity * 118m, 0m,
-            [new RecordSaleItemCommand(barcode, batchNumber, "Rice", quantity, 80m, 100m, 120m, 18m, false, inventoryBatchId ?? Guid.NewGuid(), HsnCode: hsnCode)]);
+            [new RecordSaleItemCommand(barcode, batchNumber, "Rice", quantity, 80m, 100m, 120m, 18m, false, inventoryBatchId ?? Guid.NewGuid(), HsnCode: hsnCode)],
+            SaleDiscount: null,
+            CreditNoteAppliedAmount: creditNoteAppliedAmount,
+            CreditNoteCode: creditNoteCode,
+            CreditNoteCustomerMismatchConfirmed: creditNoteCustomerMismatchConfirmed);
 
     private static SalePricingCalculationResult BuildPricingResult(params ValidatedSaleLine[] lines)
     {
@@ -346,6 +353,71 @@ public class RecordSaleCommandHandlerTests
 
         var changedLineCommand = MakeCommand(shopId, actorId, inventoryBatchId: batch.Id, idempotencyKey: idempotencyKey, hsnCode: "0903");
         var result = await CreateHandler().HandleAsync(changedLineCommand, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Sale.IdempotencyConflict.Code, result.FirstError.Code);
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenIdempotencyKeyReusedAndCreditNoteFieldsDiffer_ReturnsConflict()
+    {
+        var shopId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var idempotencyKey = $"sale-{Guid.NewGuid():N}";
+        var item = MakeItem(shopId, "BC-001");
+        var batch = MakeBatch(shopId, item.Id, "B-01");
+        var command = MakeCommand(
+            shopId,
+            actorId,
+            inventoryBatchId: batch.Id,
+            idempotencyKey: idempotencyKey,
+            creditNoteCode: "CN-001",
+            creditNoteAppliedAmount: 100m);
+        var requestHash = RecordSaleIdempotencyHasher.ComputeHash(command);
+
+        var lineInput = new SaleLineInput(
+            shopId,
+            SaleLineType.Goods,
+            item.Id,
+            batch.Id,
+            ServiceId: null,
+            LineName: item.Name,
+            LineCode: item.Barcode,
+            command.Items[0].Quantity,
+            batch.CostPrice,
+            batch.SalesPrice,
+            batch.Mrp,
+            batch.TaxRatePercent,
+            batch.TaxIncluded,
+            HasPriceMismatch: false);
+
+        var sale = Sale.Record(
+            shopId,
+            actorId,
+            idempotencyKey,
+            requestHash,
+            "INV-TEST-06",
+            [lineInput],
+            command.CustomerId,
+            command.CustomerName,
+            command.CustomerPhone,
+            command.PaymentMethod,
+            command.PaidAmount,
+            command.DueAmount,
+            DateTimeOffset.UtcNow).Value;
+
+        _saleRepository.GetByIdempotencyKeyAsync(shopId, actorId, idempotencyKey, Arg.Any<CancellationToken>())
+            .Returns(sale);
+
+        var changedCommand = MakeCommand(
+            shopId,
+            actorId,
+            inventoryBatchId: batch.Id,
+            idempotencyKey: idempotencyKey,
+            creditNoteCode: "CN-002",
+            creditNoteAppliedAmount: 100m);
+        var result = await CreateHandler().HandleAsync(changedCommand, CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal(Errors.Sale.IdempotencyConflict.Code, result.FirstError.Code);

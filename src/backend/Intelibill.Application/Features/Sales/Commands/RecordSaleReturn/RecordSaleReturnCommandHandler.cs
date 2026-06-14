@@ -172,7 +172,8 @@ public sealed class RecordSaleReturnCommandHandler(
                 validated.Calculation.PayoutAmount,
                 reason,
                 code,
-                command.CreditNoteExpiresAt);
+                command.CreditNoteExpiresAt,
+                validated.Sale.CustomerId);
 
             if (creditNoteResult.IsError)
                 return creditNoteResult.Errors;
