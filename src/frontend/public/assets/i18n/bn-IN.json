@@ -1082,7 +1082,11 @@
       "returnable": "ফেরতযোগ্য",
       "beforeDiscount": "ছাড়ের আগে",
       "discount": "ছাড়",
-      "totalSavings": "মোট সাশ্রয়"
+      "totalSavings": "মোট সাশ্রয়",
+      "settlement": {
+        "creditNoteApplied": "ক্রেডিট নোট সেটেলমেন্ট",
+        "creditNoteCodes": "ক্রেডিট নোট কোড"
+      }
     },
     "invoice": {
       "returnItems": "আইটেম ফেরত দিন",

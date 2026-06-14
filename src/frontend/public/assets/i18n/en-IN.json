@@ -1082,7 +1082,11 @@
       "returnable": "Returnable",
       "beforeDiscount": "Before Discount",
       "discount": "Discount",
-      "totalSavings": "Total Savings"
+      "totalSavings": "Total Savings",
+      "settlement": {
+        "creditNoteApplied": "Credit Note Settlement",
+        "creditNoteCodes": "Credit Note Codes"
+      }
     },
     "invoice": {
       "returnItems": "Return items",

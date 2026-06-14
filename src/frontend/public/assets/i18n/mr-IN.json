@@ -1082,7 +1082,11 @@
       "returnable": "परत करण्यायोग्य",
       "beforeDiscount": "सवलतीपूर्वी",
       "discount": "सवलत",
-      "totalSavings": "एकूण बचत"
+      "totalSavings": "एकूण बचत",
+      "settlement": {
+        "creditNoteApplied": "क्रेडिट नोट सेटलमेंट",
+        "creditNoteCodes": "क्रेडिट नोट कोड"
+      }
     },
     "invoice": {
       "returnItems": "आयटम परत करा",

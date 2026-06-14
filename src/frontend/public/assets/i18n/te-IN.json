@@ -1082,7 +1082,11 @@
       "returnable": "తిరిగి ఇవ్వదగినది",
       "beforeDiscount": "తగ్గింపుకు ముందు",
       "discount": "తగ్గింపు",
-      "totalSavings": "మొత్తం ఆదా"
+      "totalSavings": "మొత్తం ఆదా",
+      "settlement": {
+        "creditNoteApplied": "క్రెడిట్ నోట్ సెటిల్‌మెంట్",
+        "creditNoteCodes": "క్రెడిట్ నోట్ కోడ్‌లు"
+      }
     },
     "invoice": {
       "returnItems": "ఐటమ్‌లను తిరిగి ఇవ్వండి",

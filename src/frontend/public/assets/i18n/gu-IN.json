@@ -1082,7 +1082,11 @@
       "returnable": "પરત કરી શકાય તેવું",
       "beforeDiscount": "ડિસ્કાઉન્ટ પહેલા",
       "discount": "ડિસ્કાઉન્ટ",
-      "totalSavings": "કુલ બચત"
+      "totalSavings": "કુલ બચત",
+      "settlement": {
+        "creditNoteApplied": "ક્રેડિટ નોટ સેટલમેન્ટ",
+        "creditNoteCodes": "ક્રેડિટ નોટ કોડ્સ"
+      }
     },
     "invoice": {
       "returnItems": "આઇટમ પરત કરો",

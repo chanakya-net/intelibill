@@ -1082,7 +1082,11 @@
       "returnable": "ಹಿಂತಿರುಗಿಸಬಹುದಾದ",
       "beforeDiscount": "ರಿಯಾಯಿತಿಗೂ ಮೊದಲು",
       "discount": "ರಿಯಾಯಿತಿ",
-      "totalSavings": "ಒಟ್ಟು ಉಳಿತಾಯ"
+      "totalSavings": "ಒಟ್ಟು ಉಳಿತಾಯ",
+      "settlement": {
+        "creditNoteApplied": "ಕ್ರೆಡಿಟ್ ನೋಟ್ ಸೆಟಲ್‌ಮೆಂಟ್",
+        "creditNoteCodes": "ಕ್ರೆಡಿಟ್ ನೋಟ್ ಕೋಡ್‌ಗಳು"
+      }
     },
     "invoice": {
       "returnItems": "ಐಟಂಗಳನ್ನು ಮರಳಿಸಿ",

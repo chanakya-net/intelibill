@@ -38,6 +38,23 @@
       </div>
     }
 
+    @if (hasCreditNoteSettlement()) {
+      <div class="sale-summary-row sale-summary-row-credit-note">
+        <span>{{ 'sales.detail.settlement.creditNoteApplied' | transloco }}</span>
+        <strong>{{ sale.creditNoteAppliedAmount | currency: currency : 'symbol' : '1.2-2' }}</strong>
+      </div>
+      @if (creditNoteRedemptionSummaries().length > 0) {
+        <div class="sale-summary-settlement-codes">
+          <span>{{ 'sales.detail.settlement.creditNoteCodes' | transloco }}</span>
+          <div class="sale-summary-code-list">
+            @for (settlement of creditNoteRedemptionSummaries(); track settlement.creditNoteId) {
+              <span>{{ settlement.code }} · {{ settlement.amount | currency: currency : 'symbol' : '1.2-2' }}</span>
+            }
+          </div>
+        </div>
+      }
+    }
+
     <div class="sale-summary-row">
       <span>{{ 'sales.detail.taxAmount' | transloco }}</span>
       <strong>{{ sale.totalTaxAmount | currency: currency : 'symbol' : '1.2-2' }}</strong>

@@ -1082,7 +1082,11 @@
       "returnable": "वापसी योग्य",
       "beforeDiscount": "छूट से पहले",
       "discount": "छूट",
-      "totalSavings": "कुल बचत"
+      "totalSavings": "कुल बचत",
+      "settlement": {
+        "creditNoteApplied": "क्रेडिट नोट सेटलमेंट",
+        "creditNoteCodes": "क्रेडिट नोट कोड"
+      }
     },
     "invoice": {
       "returnItems": "आइटम वापस करें",

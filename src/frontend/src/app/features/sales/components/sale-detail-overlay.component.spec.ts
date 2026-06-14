@@ -3,7 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 const enIN = JSON.parse(readFileSync(join(process.cwd(), 'public/assets/i18n/en-IN.json'), 'utf-8')) as Record<string, unknown>;
 
