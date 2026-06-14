@@ -1306,7 +1306,7 @@ public sealed class SalesTallyXmlExportRendererTests
 
         var summaryRows = new List<SalesExportSummaryRowDto>
         {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Cash", 300m, 0m, 250m, 0m, 250m, 50m, 300m, null, 0m, 0m, 0m, 300m, false, 1, 50m, null, 0m)
+            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Cash", 250m, 0m, 300m, 0m, 250m, 50m, 300m, null, 0m, 0m, 0m, 300m, false, 1, 50m, null, 0m)
         };
 
         var lineItems = new List<SalesExportLineItemRowDto>
@@ -1331,7 +1331,10 @@ public sealed class SalesTallyXmlExportRendererTests
             .ToList();
 
         Assert.Contains(voucherLines, line => line.Element("LEDGER")?.Value == "Credit Note Liability");
-        Assert.DoesNotContain(voucherLines, line => line.Element("LEDGER")?.Value is "Cash" or "UPI" or "Card" && line.Element("AMOUNT")?.Value == "50.00");
+        var creditNoteLine = Assert.Single(voucherLines, line => line.Element("LEDGER")?.Value == "Credit Note Liability");
+        Assert.Equal("50.00", creditNoteLine.Element("AMOUNT")?.Value);
+        var cashLine = Assert.Single(voucherLines, line => line.Element("LEDGER")?.Value == "Cash");
+        Assert.Equal("250.00", cashLine.Element("AMOUNT")?.Value);
     }
 
     [Fact]
@@ -1349,7 +1352,7 @@ public sealed class SalesTallyXmlExportRendererTests
 
         var returnRows = new List<SalesExportReturnRowDto>
         {
-            new("RET-001", new DateTimeOffset(2026, 5, 5, 11, 0, 0, TimeSpan.Zero), "INV-001", "Customer A", 200m, 100m, 18m, new List<SalesExportReturnTaxBreakupDto> { new(18m, 100m, 18m) }, false, "CN-001")
+            new("RET-001", new DateTimeOffset(2026, 5, 5, 11, 0, 0, TimeSpan.Zero), "INV-001", "Customer A", 118m, 100m, 18m, new List<SalesExportReturnTaxBreakupDto> { new(18m, 100m, 18m) }, false, "CN-001")
         };
 
         var taxBreakup = new List<SalesExportTaxBreakupDto>
