@@ -1249,9 +1249,9 @@
       }
     },
     "creditNotes": {
-      "eyebrow": "Sales Records",
-      "title": "Credit Notes",
-      "subtitle": "Review credit note history for the active shop.",
+      "eyebrow": "વેચાણ રેકોર્ડ",
+      "title": "ક્રેડિટ નોટ્સ",
+      "subtitle": "સક્રિય દુકાનનો ક્રેડિટ નોટ ઇતિહાસ સમીક્ષો.",
       "emptyState": {
         "title": "No credit notes yet",
         "description": "Credit notes will appear here once they are created."
@@ -1284,6 +1284,70 @@
           "FullyRedeemed": "Fully Redeemed",
           "Voided": "Voided"
         }
+      },
+      "verify": {
+        "label": "કોડ ચકાસો",
+        "placeholder": "ક્રેડિટ નોટ કોડ દાખલ કરો",
+        "action": "ચકાસો"
+      },
+      "controls": {
+        "search": "શોધ",
+        "searchPlaceholder": "કોડ, ઇન્વૉઇસ, રિટર્ન નંબર અથવા ગ્રાહકથી શોધો",
+        "status": "સ્થિતિ",
+        "pageSize": "પંક્તિઓ",
+        "clear": "ફિલ્ટર સાફ કરો"
+      },
+      "filters": {
+        "all": "બધા",
+        "active": "સક્રિય",
+        "fullyRedeemed": "સંપૂર્ણ વપરાયેલ",
+        "expired": "સમાપ્ત",
+        "voided": "રદ"
+      },
+      "list": {
+        "title": "ક્રેડિટ નોટ યાદી",
+        "subtitle": "કોડ અને બેલેન્સ જુઓ.",
+        "count": "{{total}} નોંધો"
+      },
+      "table": {
+        "code": "કોડ",
+        "status": "સ્થિતિ",
+        "balance": "બેલેન્સ",
+        "originalAmount": "મૂળ રકમ",
+        "customer": "ગ્રાહક",
+        "invoice": "ઇન્વૉઇસ",
+        "returnNumber": "રિટર્ન નંબર",
+        "issuedAt": "જારી સમય"
+      },
+      "status": {
+        "Active": "સક્રિય",
+        "Voided": "રદ",
+        "FullyRedeemed": "સંપૂર્ણ વપરાયેલ",
+        "Expired": "સમાપ્ત"
+      },
+      "empty": {
+        "title": "કોઈ ક્રેડિટ નોટ મળી નથી",
+        "description": "યાદી સીમિત કરવા શોધ અથવા સ્થિતિ ફિલ્ટરનો ઉપયોગ કરો."
+      },
+      "loading": "ક્રેડિટ નોટ લોડ થઈ રહી છે...",
+      "pagination": {
+        "showing": "{{total}} નોંધો દર્શાવી રહ્યા છીએ, પેજ {{page}} / {{pages}}"
+      },
+      "detail": {
+        "eyebrow": "પસંદ કરેલ ક્રેડિટ નોટ",
+        "subtitle": "બેલેન્સ અને ગ્રાહક સંદર્ભ સમીક્ષો.",
+        "balance": "બેલેન્સ",
+        "originalAmount": "મૂળ રકમ",
+        "expiresAt": "સમાપ્તિ તારીખ",
+        "customer": "ગ્રાહક",
+        "invoice": "ઇન્વૉઇસ",
+        "returnNumber": "રિટર્ન નંબર",
+        "reason": "કારણ",
+        "voidReason": "રદ કરવાનો કારણ"
+      },
+      "errors": {
+        "loadFailed": "ક્રેડિટ નોટ લોડ કરી શકાઈ નહીં.",
+        "verifyFailed": "ક્રેડિટ નોટ ચકાસી શકાઈ નહીં."
       }
     },
     "searchPlaceholder": "વેચાણ શોધો...",

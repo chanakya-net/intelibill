@@ -101,7 +101,10 @@ public class CreditNotesControllerTests
             false,
             Guid.NewGuid(),
             "Return reason",
-            null);
+            null,
+            "RET-001",
+            "INV-001",
+            "Asha");
 
         _bus.InvokeAsync<ErrorOr<CreditNoteDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
             .Returns(dto);

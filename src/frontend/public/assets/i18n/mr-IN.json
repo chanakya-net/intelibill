@@ -1249,9 +1249,9 @@
       }
     },
     "creditNotes": {
-      "eyebrow": "Sales Records",
-      "title": "Credit Notes",
-      "subtitle": "Review credit note history for the active shop.",
+      "eyebrow": "विक्री नोंदी",
+      "title": "क्रेडिट नोट्स",
+      "subtitle": "सक्रिय दुकानाचा क्रेडिट नोट इतिहास पाहा.",
       "emptyState": {
         "title": "No credit notes yet",
         "description": "Credit notes will appear here once they are created."
@@ -1284,6 +1284,70 @@
           "FullyRedeemed": "Fully Redeemed",
           "Voided": "Voided"
         }
+      },
+      "verify": {
+        "label": "कोड पडताळा",
+        "placeholder": "क्रेडिट नोट कोड प्रविष्ट करा",
+        "action": "पडताळा"
+      },
+      "controls": {
+        "search": "शोध",
+        "searchPlaceholder": "कोड, चलन, परतावा क्रमांक किंवा ग्राहकानुसार शोधा",
+        "status": "स्थिती",
+        "pageSize": "ओळी",
+        "clear": "फिल्टर्स साफ करा"
+      },
+      "filters": {
+        "all": "सर्व",
+        "active": "सक्रिय",
+        "fullyRedeemed": "पूर्णपणे वापरले",
+        "expired": "कालबाह्य",
+        "voided": "रद्द"
+      },
+      "list": {
+        "title": "क्रेडिट नोट यादी",
+        "subtitle": "कोड आणि शिल्लक पहा.",
+        "count": "{{total}} नोंदी"
+      },
+      "table": {
+        "code": "कोड",
+        "status": "स्थिती",
+        "balance": "शिल्लक",
+        "originalAmount": "मूळ रक्कम",
+        "customer": "ग्राहक",
+        "invoice": "चलन",
+        "returnNumber": "परतावा क्रमांक",
+        "issuedAt": "जारी वेळ"
+      },
+      "status": {
+        "Active": "सक्रिय",
+        "Voided": "रद्द",
+        "FullyRedeemed": "पूर्णपणे वापरले",
+        "Expired": "कालबाह्य"
+      },
+      "empty": {
+        "title": "कोणतेही क्रेडिट नोट सापडले नाहीत",
+        "description": "यादी अरुंद करण्यासाठी शोध किंवा स्थिती फिल्टर वापरा."
+      },
+      "loading": "क्रेडिट नोट्स लोड होत आहेत...",
+      "pagination": {
+        "showing": "{{total}} नोंदी दाखवत आहोत, पृष्ठ {{page}} / {{pages}}"
+      },
+      "detail": {
+        "eyebrow": "निवडलेले क्रेडिट नोट",
+        "subtitle": "शिल्लक आणि ग्राहक संदर्भ पाहा.",
+        "balance": "शिल्लक",
+        "originalAmount": "मूळ रक्कम",
+        "expiresAt": "कालबाह्य होण्याची वेळ",
+        "customer": "ग्राहक",
+        "invoice": "चलन",
+        "returnNumber": "परतावा क्रमांक",
+        "reason": "कारण",
+        "voidReason": "रद्द करण्याचे कारण"
+      },
+      "errors": {
+        "loadFailed": "क्रेडिट नोट्स लोड करता आल्या नाहीत.",
+        "verifyFailed": "क्रेडिट नोट पडताळता आली नाही."
       }
     },
     "searchPlaceholder": "विक्री शोधा...",

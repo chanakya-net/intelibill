@@ -58,6 +58,11 @@ export const ITEM_BARCODE_ENDPOINTS = {
   printLabels: `${API_BASE_URL}/items/barcodes/labels`,
 } as const;
 
+export const CREDIT_NOTE_ENDPOINTS = {
+  list: `${API_BASE_URL}/credit-notes`,
+  detail: (code: string) => `${API_BASE_URL}/credit-notes/${encodeURIComponent(code)}`,
+} as const;
+
 export const SALE_ENDPOINTS = {
   list: `${API_BASE_URL}/sales`,
   record: `${API_BASE_URL}/sales`,
@@ -68,7 +73,7 @@ export const SALE_ENDPOINTS = {
   offlineSnapshotStream: `${API_BASE_URL}/sales/offline-snapshot/stream`,
   offlineSync: `${API_BASE_URL}/sales/offline-sync`,
   sellables: (searchTerm: string) => `${API_BASE_URL}/sales/sellables?searchTerm=${encodeURIComponent(searchTerm)}`,
-  creditNoteByCode: (code: string) => `${API_BASE_URL}/credit-notes/${encodeURIComponent(code)}`,
+  creditNoteByCode: (code: string) => CREDIT_NOTE_ENDPOINTS.detail(code),
   creditNotePrintByCode: (code: string) => `${API_BASE_URL}/credit-notes/${encodeURIComponent(code)}/print`,
 } as const;
 

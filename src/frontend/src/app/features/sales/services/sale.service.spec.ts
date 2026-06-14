@@ -3,11 +3,12 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { describe, expect, it } from 'vitest';
 
-import { SALE_ENDPOINTS } from '../../../core/auth/auth.constants';
+import { CREDIT_NOTE_ENDPOINTS, SALE_ENDPOINTS } from '../../../core/auth/auth.constants';
 import { SaleService } from './sale.service';
 import { ReturnPayoutDestination, mapPaymentMethodToPayoutDestination } from './sale.models';
 import type {
   CreditNoteVerifyResponseDto,
+  CreditNotesResultDto,
   SaleDto,
   SaleListItemDto,
   ProfitLossAppliedFiltersDto,
@@ -770,6 +771,52 @@ describe('SaleService', () => {
     const req = http.expectOne(SALE_ENDPOINTS.creditNotePrintByCode('CN-ABC-123'));
     expect(req.request.method).toBe('GET');
     expect(req.request.body).toBeNull();
+    req.flush(response);
+    http.verify();
+  });
+
+  it('sends GET to credit-notes list endpoint with query params', () => {
+    const { service, http } = setup();
+    const response: CreditNotesResultDto = {
+      items: [
+        {
+          creditNoteId: 'cn-1',
+          code: 'CN-001',
+          status: 'Active',
+          originalAmount: 500,
+          availableBalance: 300,
+          expiresAt: null,
+          issuedAt: '2026-05-20T00:00:00.000Z',
+          saleReturnId: 'ret-1',
+          returnNumber: 'RET-001',
+          saleId: 'sale-1',
+          invoiceNumber: 'INV-001',
+          customerName: 'Asha',
+        },
+      ],
+      totalCount: 1,
+      pageNumber: 2,
+      pageSize: 10,
+    };
+
+    service.getCreditNotes({
+      search: 'CN-001',
+      status: 'Active',
+      page: 2,
+      pageSize: 10,
+    }).subscribe((result) => {
+      expect(result.items).toHaveLength(1);
+      expect(result.totalCount).toBe(1);
+      expect(result.pageNumber).toBe(2);
+      expect(result.pageSize).toBe(10);
+    });
+
+    const req = http.expectOne((request) => request.url === CREDIT_NOTE_ENDPOINTS.list);
+    expect(req.request.method).toBe('GET');
+    expect(req.request.params.get('search')).toBe('CN-001');
+    expect(req.request.params.get('status')).toBe('Active');
+    expect(req.request.params.get('page')).toBe('2');
+    expect(req.request.params.get('pageSize')).toBe('10');
     req.flush(response);
     http.verify();
   });

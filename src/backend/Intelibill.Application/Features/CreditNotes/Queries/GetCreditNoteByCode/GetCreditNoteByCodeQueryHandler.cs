@@ -9,7 +9,9 @@ namespace Intelibill.Application.Features.CreditNotes.Queries.GetCreditNoteByCod
 public sealed class GetCreditNoteByCodeQueryHandler(
     IUserRepository userRepository,
     IShopRepository shopRepository,
-    ICreditNoteRepository creditNoteRepository)
+    ICreditNoteRepository creditNoteRepository,
+    ISaleReturnRepository saleReturnRepository,
+    ISaleRepository saleRepository)
 {
     public async Task<ErrorOr<CreditNoteDto>> HandleAsync(
         GetCreditNoteByCodeQuery query,
@@ -34,6 +36,29 @@ public sealed class GetCreditNoteByCodeQueryHandler(
         if (creditNote is null)
             return Errors.CreditNote.CreditNoteNotFound(query.Code);
 
+        var saleReturn = await saleReturnRepository.GetByIdWithItemsAsync(
+            query.ActiveShopId,
+            creditNote.SaleReturnId,
+            cancellationToken);
+
+        var invoiceNumber = string.Empty;
+        string? customerName = null;
+        var returnNumber = saleReturn?.ReturnNumber ?? string.Empty;
+
+        if (saleReturn is not null)
+        {
+            var sale = await saleRepository.GetByIdAsync(
+                saleReturn.SaleId,
+                query.ActiveShopId,
+                cancellationToken);
+
+            if (sale is not null)
+            {
+                invoiceNumber = sale.InvoiceNumber;
+                customerName = sale.CustomerName;
+            }
+        }
+
         return new CreditNoteDto(
             creditNote.Id,
             creditNote.Code,
@@ -44,6 +69,9 @@ public sealed class GetCreditNoteByCodeQueryHandler(
             creditNote.IsVoided,
             creditNote.SaleReturnId,
             creditNote.Reason,
-            membership.Role is ShopRole.Owner or ShopRole.Manager ? creditNote.VoidReason : null);
+            membership.Role is ShopRole.Owner or ShopRole.Manager ? creditNote.VoidReason : null,
+            returnNumber,
+            invoiceNumber,
+            customerName);
     }
 }

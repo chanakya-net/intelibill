@@ -12,9 +12,16 @@ public sealed class GetCreditNoteByCodeQueryHandlerTests
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
     private readonly ICreditNoteRepository _creditNoteRepository = Substitute.For<ICreditNoteRepository>();
+    private readonly ISaleReturnRepository _saleReturnRepository = Substitute.For<ISaleReturnRepository>();
+    private readonly ISaleRepository _saleRepository = Substitute.For<ISaleRepository>();
 
     private GetCreditNoteByCodeQueryHandler CreateHandler() =>
-        new(_userRepository, _shopRepository, _creditNoteRepository);
+        new(
+            _userRepository,
+            _shopRepository,
+            _creditNoteRepository,
+            _saleReturnRepository,
+            _saleRepository);
 
     [Fact]
     public async Task HandleAsync_ActiveCreditNote_ReturnsUsableBalanceAndContext()
@@ -32,6 +39,9 @@ public sealed class GetCreditNoteByCodeQueryHandlerTests
         Assert.Equal(creditNote.AvailableBalance, result.Value.AvailableBalance);
         Assert.Equal(creditNote.ExpiresAt, result.Value.ExpiresAt);
         Assert.Equal(creditNote.SaleReturnId, result.Value.SaleReturnId);
+        Assert.Equal("RET-001", result.Value.ReturnNumber);
+        Assert.Equal("INV-001", result.Value.InvoiceNumber);
+        Assert.Equal("Asha", result.Value.CustomerName);
         Assert.Null(result.Value.VoidReason);
     }
 
@@ -120,12 +130,59 @@ public sealed class GetCreditNoteByCodeQueryHandlerTests
 
     private void ArrangeAuthorizedLookup(Guid userId, ShopMembership membership, CreditNote creditNote)
     {
+        var (saleReturn, sale) = CreateSaleContext(membership.ShopId);
         _userRepository.GetByIdAsync(userId, Arg.Any<CancellationToken>()).Returns(_ => membership.User);
         _shopRepository.GetByIdAsync(membership.ShopId, Arg.Any<CancellationToken>()).Returns(membership.Shop);
         _shopRepository.GetMembershipAsync(userId, membership.ShopId, Arg.Any<CancellationToken>())
             .Returns(membership);
         _creditNoteRepository.GetByCodeAsync(membership.ShopId, creditNote.Code, Arg.Any<CancellationToken>())
             .Returns(creditNote);
+        _saleReturnRepository.GetByIdWithItemsAsync(
+                membership.ShopId,
+                creditNote.SaleReturnId,
+                Arg.Any<CancellationToken>())
+            .Returns(saleReturn);
+        _saleRepository.GetByIdAsync(
+                sale.Id,
+                membership.ShopId,
+                Arg.Any<CancellationToken>())
+            .Returns(sale);
+    }
+
+    private static (SaleReturn SaleReturn, Sale Sale) CreateSaleContext(Guid shopId)
+    {
+        var sale = Sale.Create(
+            shopId,
+            "INV-001",
+            null,
+            "Asha",
+            null,
+            PaymentMethod.Cash,
+            DateTimeOffset.UtcNow,
+            100m,
+            0m,
+            100m,
+            0m,
+            []);
+
+        var saleReturn = SaleReturn.Record(
+            shopId,
+            sale.Id,
+            "RET-001",
+            DateTimeOffset.UtcNow,
+            Guid.NewGuid(),
+            null,
+            0m,
+            0m,
+            0m,
+            null,
+            0m,
+            0m,
+            null,
+            null,
+            []).Value;
+
+        return (saleReturn, sale);
     }
 
     private static Fixture BuildFixture()

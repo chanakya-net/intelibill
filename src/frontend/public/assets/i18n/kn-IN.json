@@ -1249,9 +1249,9 @@
       }
     },
     "creditNotes": {
-      "eyebrow": "Sales Records",
-      "title": "Credit Notes",
-      "subtitle": "Review credit note history for the active shop.",
+      "eyebrow": "ಮಾರಾಟ ದಾಖಲೆಗಳು",
+      "title": "ಕ್ರೆಡಿಟ್ ನೋಟ್‌ಗಳು",
+      "subtitle": "ಸಕ್ರಿಯ ಅಂಗಡಿಯ ಕ್ರೆಡಿಟ್ ನೋಟ್ ಇತಿಹಾಸವನ್ನು ಪರಿಶೀಲಿಸಿ.",
       "emptyState": {
         "title": "No credit notes yet",
         "description": "Credit notes will appear here once they are created."
@@ -1284,6 +1284,70 @@
           "FullyRedeemed": "Fully Redeemed",
           "Voided": "Voided"
         }
+      },
+      "verify": {
+        "label": "ಕೋಡ್ ಪರಿಶೀಲಿಸಿ",
+        "placeholder": "ಕ್ರೆಡಿಟ್ ನೋಟ್ ಕೋಡ್ ನಮೂದಿಸಿ",
+        "action": "ಪರಿಶೀಲಿಸಿ"
+      },
+      "controls": {
+        "search": "ಹುಡುಕು",
+        "searchPlaceholder": "ಕೋಡ್, ಇನ್ವಾಯ್ಸ್, ರಿಟರ್ನ್ ಸಂಖ್ಯೆ ಅಥವಾ ಗ್ರಾಹಕರ ಮೂಲಕ ಹುಡುಕಿ",
+        "status": "ಸ್ಥಿತಿ",
+        "pageSize": "ಸಾಲುಗಳು",
+        "clear": "ಫಿಲ್ಟರ್ ತೆರವುಗೊಳಿಸಿ"
+      },
+      "filters": {
+        "all": "ಎಲ್ಲಾ",
+        "active": "ಸಕ್ರಿಯ",
+        "fullyRedeemed": "ಪೂರ್ಣವಾಗಿ ಬಳಕೆಯಾಗಿದೆ",
+        "expired": "ಅವಧಿ ಮುಗಿದಿದೆ",
+        "voided": "ರದ್ದು"
+      },
+      "list": {
+        "title": "ಕ್ರೆಡಿಟ್ ನೋಟ್ ಪಟ್ಟಿ",
+        "subtitle": "ಕೋಡ್‌ಗಳು ಮತ್ತು ಶೇಷವನ್ನು ನೋಡಿ.",
+        "count": "{{total}} ಟಿಪ್ಪಣಿಗಳು"
+      },
+      "table": {
+        "code": "ಕೋಡ್",
+        "status": "ಸ್ಥಿತಿ",
+        "balance": "ಶೇಷ",
+        "originalAmount": "ಮೂಲ ಮೊತ್ತ",
+        "customer": "ಗ್ರಾಹಕ",
+        "invoice": "ಇನ್ವಾಯ್ಸ್",
+        "returnNumber": "ರಿಟರ್ನ್ ಸಂಖ್ಯೆ",
+        "issuedAt": "ನೀಡಿದ ಸಮಯ"
+      },
+      "status": {
+        "Active": "ಸಕ್ರಿಯ",
+        "Voided": "ರದ್ದು",
+        "FullyRedeemed": "ಪೂರ್ಣವಾಗಿ ಬಳಕೆಯಾಗಿದೆ",
+        "Expired": "ಅವಧಿ ಮುಗಿದಿದೆ"
+      },
+      "empty": {
+        "title": "ಯಾವುದೇ ಕ್ರೆಡಿಟ್ ನೋಟ್ ಕಂಡುಬಂದಿಲ್ಲ",
+        "description": "ಪಟ್ಟಿಯನ್ನು ಸೀಮಿತಗೊಳಿಸಲು ಹುಡುಕಾಟ ಅಥವಾ ಸ್ಥಿತಿ ಫಿಲ್ಟರ್ ಬಳಸಿ."
+      },
+      "loading": "ಕ್ರೆಡಿಟ್ ನೋಟ್‌ಗಳು ಲೋಡ್ ಆಗುತ್ತಿವೆ...",
+      "pagination": {
+        "showing": "{{total}} ಟಿಪ್ಪಣಿಗಳನ್ನು ತೋರಿಸಲಾಗುತ್ತಿದೆ, ಪುಟ {{page}} / {{pages}}"
+      },
+      "detail": {
+        "eyebrow": "ಆಯ್ಕೆ ಮಾಡಿದ ಕ್ರೆಡಿಟ್ ನೋಟ್",
+        "subtitle": "ಶೇಷ ಮತ್ತು ಗ್ರಾಹಕ ಸಂದರ್ಭವನ್ನು ಪರಿಶೀಲಿಸಿ.",
+        "balance": "ಶೇಷ",
+        "originalAmount": "ಮೂಲ ಮೊತ್ತ",
+        "expiresAt": "ಅವಧಿ ಮುಗಿಯುವ ಸಮಯ",
+        "customer": "ಗ್ರಾಹಕ",
+        "invoice": "ಇನ್ವಾಯ್ಸ್",
+        "returnNumber": "ರಿಟರ್ನ್ ಸಂಖ್ಯೆ",
+        "reason": "ಕಾರಣ",
+        "voidReason": "ರದ್ದು ಕಾರಣ"
+      },
+      "errors": {
+        "loadFailed": "ಕ್ರೆಡಿಟ್ ನೋಟ್‌ಗಳನ್ನು ಲೋಡ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ.",
+        "verifyFailed": "ಕ್ರೆಡಿಟ್ ನೋಟ್ ಪರಿಶೀಲಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ."
       }
     },
     "searchPlaceholder": "ಮಾರಾಟವನ್ನು ಹುಡುಕಿ...",

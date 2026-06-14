@@ -903,11 +903,11 @@
       "actions": {
         "viewReceipt": "रसीद देखें"
       },
-  "amount": {
-    "due": "बकाया",
-    "refund": "वापसी",
-    "creditNoteApplied": "क्रेडिट नोट लागू"
-  },
+      "amount": {
+        "due": "बकाया",
+        "refund": "वापसी",
+        "creditNoteApplied": "क्रेडिट नोट लागू"
+      },
       "pagination": {
         "ariaLabel": "बिक्री इतिहास पृष्ठ संख्या",
         "showing": "{{total}} बिक्री में से {{start}}-{{end}} दिखाया जा रहा है",
@@ -1249,9 +1249,9 @@
       }
     },
     "creditNotes": {
-      "eyebrow": "Sales Records",
-      "title": "Credit Notes",
-      "subtitle": "Review credit note history for the active shop.",
+      "eyebrow": "बिक्री अभिलेख",
+      "title": "क्रेडिट नोट्स",
+      "subtitle": "सक्रिय दुकान के क्रेडिट नोट इतिहास की समीक्षा करें।",
       "emptyState": {
         "title": "No credit notes yet",
         "description": "Credit notes will appear here once they are created."
@@ -1284,9 +1284,72 @@
           "FullyRedeemed": "Fully Redeemed",
           "Voided": "Voided"
         }
+      },
+      "verify": {
+        "label": "कोड सत्यापित करें",
+        "placeholder": "क्रेडिट नोट कोड दर्ज करें",
+        "action": "सत्यापित करें"
+      },
+      "controls": {
+        "search": "खोज",
+        "searchPlaceholder": "कोड, चालान, रिटर्न संख्या या ग्राहक से खोजें",
+        "status": "स्थिति",
+        "pageSize": "पंक्तियाँ",
+        "clear": "फ़िल्टर साफ़ करें"
+      },
+      "filters": {
+        "all": "सभी",
+        "active": "सक्रिय",
+        "fullyRedeemed": "पूरी तरह भुनाया गया",
+        "expired": "समाप्त",
+        "voided": "रद्द"
+      },
+      "list": {
+        "title": "क्रेडिट नोट सूची",
+        "subtitle": "कोड और शेष राशि देखें।",
+        "count": "{{total}} नोट"
+      },
+      "table": {
+        "code": "कोड",
+        "status": "स्थिति",
+        "balance": "शेष राशि",
+        "originalAmount": "मूल राशि",
+        "customer": "ग्राहक",
+        "invoice": "चालान",
+        "returnNumber": "रिटर्न संख्या",
+        "issuedAt": "जारी समय"
+      },
+      "status": {
+        "Active": "सक्रिय",
+        "Voided": "रद्द",
+        "FullyRedeemed": "पूरी तरह भुनाया गया",
+        "Expired": "समाप्त"
+      },
+      "empty": {
+        "title": "कोई क्रेडिट नोट नहीं मिला",
+        "description": "सूची सीमित करने के लिए खोज या स्थिति फ़िल्टर का उपयोग करें।"
+      },
+      "loading": "क्रेडिट नोट लोड हो रहे हैं...",
+      "pagination": {
+        "showing": "{{total}} नोट दिख रहे हैं, पृष्ठ {{page}} / {{pages}}"
+      },
+      "detail": {
+        "eyebrow": "चयनित क्रेडिट नोट",
+        "subtitle": "शेष राशि और ग्राहक संदर्भ देखें।",
+        "balance": "शेष राशि",
+        "originalAmount": "मूल राशि",
+        "expiresAt": "समाप्ति तिथि",
+        "customer": "ग्राहक",
+        "invoice": "चालान",
+        "returnNumber": "रिटर्न संख्या",
+        "reason": "कारण",
+        "voidReason": "रद्द करने का कारण"
+      },
+      "errors": {
+        "loadFailed": "क्रेडिट नोट लोड नहीं हो सके।",
+        "verifyFailed": "क्रेडिट नोट सत्यापित नहीं हो सका।"
       }
     },
-
     "searchPlaceholder": "बिक्री खोजें...",
     "export": {
       "title": "Sales Export",

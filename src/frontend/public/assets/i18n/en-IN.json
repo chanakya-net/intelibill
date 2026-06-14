@@ -903,11 +903,11 @@
       "actions": {
         "viewReceipt": "View Receipt"
       },
-  "amount": {
-    "due": "Due",
-    "refund": "Refund",
-    "creditNoteApplied": "Credit note applied"
-  },
+      "amount": {
+        "due": "Due",
+        "refund": "Refund",
+        "creditNoteApplied": "Credit note applied"
+      },
       "pagination": {
         "ariaLabel": "Sales history pagination",
         "showing": "Showing {{start}}-{{end}} of {{total}} sales",
@@ -1284,9 +1284,72 @@
           "FullyRedeemed": "Fully Redeemed",
           "Voided": "Voided"
         }
+      },
+      "verify": {
+        "label": "Verify code",
+        "placeholder": "Enter credit note code",
+        "action": "Verify"
+      },
+      "controls": {
+        "search": "Search",
+        "searchPlaceholder": "Search by code, invoice, return number, or customer",
+        "status": "Status",
+        "pageSize": "Rows",
+        "clear": "Clear filters"
+      },
+      "filters": {
+        "all": "All",
+        "active": "Active",
+        "fullyRedeemed": "Fully redeemed",
+        "expired": "Expired",
+        "voided": "Voided"
+      },
+      "list": {
+        "title": "Credit note list",
+        "subtitle": "Browse codes and balances.",
+        "count": "{{total}} notes"
+      },
+      "table": {
+        "code": "Code",
+        "status": "Status",
+        "balance": "Balance",
+        "originalAmount": "Original amount",
+        "customer": "Customer",
+        "invoice": "Invoice",
+        "returnNumber": "Return number",
+        "issuedAt": "Issued at"
+      },
+      "status": {
+        "Active": "Active",
+        "Voided": "Voided",
+        "FullyRedeemed": "Fully redeemed",
+        "Expired": "Expired"
+      },
+      "empty": {
+        "title": "No credit notes found",
+        "description": "Use search or status filters to narrow the list."
+      },
+      "loading": "Loading credit notes...",
+      "pagination": {
+        "showing": "Showing {{total}} notes, page {{page}} of {{pages}}"
+      },
+      "detail": {
+        "eyebrow": "Selected credit note",
+        "subtitle": "Review balance and customer context.",
+        "balance": "Balance",
+        "originalAmount": "Original amount",
+        "expiresAt": "Expires at",
+        "customer": "Customer",
+        "invoice": "Invoice",
+        "returnNumber": "Return number",
+        "reason": "Reason",
+        "voidReason": "Void reason"
+      },
+      "errors": {
+        "loadFailed": "Unable to load credit notes.",
+        "verifyFailed": "Unable to verify credit note."
       }
     },
-
     "searchPlaceholder": "Search sales...",
     "export": {
       "title": "Sales Export",

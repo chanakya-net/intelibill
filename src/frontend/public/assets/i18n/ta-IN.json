@@ -1249,9 +1249,9 @@
       }
     },
     "creditNotes": {
-      "eyebrow": "Sales Records",
-      "title": "Credit Notes",
-      "subtitle": "Review credit note history for the active shop.",
+      "eyebrow": "விற்பனை பதிவுகள்",
+      "title": "கிரெடிட் குறிப்புகள்",
+      "subtitle": "செயலில் உள்ள கடையின் கிரெடிட் குறிப்பு வரலாற்றை பார்வையிடவும்.",
       "emptyState": {
         "title": "No credit notes yet",
         "description": "Credit notes will appear here once they are created."
@@ -1284,6 +1284,70 @@
           "FullyRedeemed": "Fully Redeemed",
           "Voided": "Voided"
         }
+      },
+      "verify": {
+        "label": "குறியீட்டை சரிபார்",
+        "placeholder": "கிரெடிட் குறிப்பு குறியீட்டை உள்ளிடவும்",
+        "action": "சரிபார்"
+      },
+      "controls": {
+        "search": "தேடு",
+        "searchPlaceholder": "குறியீடு, இன்வாய்ஸ், திரும்பும் எண் அல்லது வாடிக்கையாளர் மூலம் தேடவும்",
+        "status": "நிலை",
+        "pageSize": "வரிகள்",
+        "clear": "வடிகட்டிகளை அழிக்கவும்"
+      },
+      "filters": {
+        "all": "அனைத்தும்",
+        "active": "செயலில்",
+        "fullyRedeemed": "முழுவதும் பயன்படுத்தப்பட்டது",
+        "expired": "காலாவதி",
+        "voided": "ரத்து"
+      },
+      "list": {
+        "title": "கிரெடிட் குறிப்பு பட்டியல்",
+        "subtitle": "குறியீடுகளையும் இருப்புகளையும் பார்வையிடவும்.",
+        "count": "{{total}} குறிப்புகள்"
+      },
+      "table": {
+        "code": "குறியீடு",
+        "status": "நிலை",
+        "balance": "இருப்பு",
+        "originalAmount": "மூல தொகை",
+        "customer": "வாடிக்கையாளர்",
+        "invoice": "இன்வாய்ஸ்",
+        "returnNumber": "திரும்பும் எண்",
+        "issuedAt": "வெளியிட்ட நேரம்"
+      },
+      "status": {
+        "Active": "செயலில்",
+        "Voided": "ரத்து",
+        "FullyRedeemed": "முழுவதும் பயன்படுத்தப்பட்டது",
+        "Expired": "காலாவதி"
+      },
+      "empty": {
+        "title": "கிரெடிட் குறிப்புகள் எதுவும் இல்லை",
+        "description": "பட்டியலை சுருக்க தேடல் அல்லது நிலை வடிகட்டிகளைப் பயன்படுத்தவும்."
+      },
+      "loading": "கிரெடிட் குறிப்புகள் ஏற்றப்படுகின்றன...",
+      "pagination": {
+        "showing": "{{total}} குறிப்புகள் காட்டப்படுகின்றன, பக்கம் {{page}} / {{pages}}"
+      },
+      "detail": {
+        "eyebrow": "தேர்ந்தெடுக்கப்பட்ட கிரெடிட் குறிப்பு",
+        "subtitle": "இருப்பு மற்றும் வாடிக்கையாளர் சூழலை பார்வையிடவும்.",
+        "balance": "இருப்பு",
+        "originalAmount": "மூல தொகை",
+        "expiresAt": "காலாவதி ஆகும் நேரம்",
+        "customer": "வாடிக்கையாளர்",
+        "invoice": "இன்வாய்ஸ்",
+        "returnNumber": "திரும்பும் எண்",
+        "reason": "காரணம்",
+        "voidReason": "ரத்து காரணம்"
+      },
+      "errors": {
+        "loadFailed": "கிரெடிட் குறிப்புகளை ஏற்ற முடியவில்லை.",
+        "verifyFailed": "கிரெடிட் குறிப்பை சரிபார்க்க முடியவில்லை."
       }
     },
     "searchPlaceholder": "விற்பனையைத் தேடு...",

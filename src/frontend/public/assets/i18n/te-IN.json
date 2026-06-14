@@ -1249,9 +1249,9 @@
       }
     },
     "creditNotes": {
-      "eyebrow": "Sales Records",
-      "title": "Credit Notes",
-      "subtitle": "Review credit note history for the active shop.",
+      "eyebrow": "అమ్మకాల రికార్డులు",
+      "title": "క్రెడిట్ నోట్లు",
+      "subtitle": "క్రియాశీల దుకాణానికి చెందిన క్రెడిట్ నోట్ చరిత్రను సమీక్షించండి.",
       "emptyState": {
         "title": "No credit notes yet",
         "description": "Credit notes will appear here once they are created."
@@ -1284,6 +1284,70 @@
           "FullyRedeemed": "Fully Redeemed",
           "Voided": "Voided"
         }
+      },
+      "verify": {
+        "label": "కోడ్ ధృవీకరించు",
+        "placeholder": "క్రెడిట్ నోట్ కోడ్ నమోదు చేయండి",
+        "action": "ధృవీకరించు"
+      },
+      "controls": {
+        "search": "వెతుకు",
+        "searchPlaceholder": "కోడ్, ఇన్వాయిస్, రిటర్న్ నంబర్ లేదా కస్టమర్ ద్వారా వెతకండి",
+        "status": "స్థితి",
+        "pageSize": "వరుసలు",
+        "clear": "ఫిల్టర్లను క్లియర్ చేయండి"
+      },
+      "filters": {
+        "all": "అన్నీ",
+        "active": "క్రియాశీలం",
+        "fullyRedeemed": "పూర్తిగా వినియోగించబడింది",
+        "expired": "గడువు ముగిసింది",
+        "voided": "రద్దు"
+      },
+      "list": {
+        "title": "క్రెడిట్ నోట్ జాబితా",
+        "subtitle": "కోడ్‌లు మరియు నిల్వలను చూడండి.",
+        "count": "{{total}} నోట్స్"
+      },
+      "table": {
+        "code": "కోడ్",
+        "status": "స్థితి",
+        "balance": "నిల్వ",
+        "originalAmount": "మూల మొత్తం",
+        "customer": "కస్టమర్",
+        "invoice": "ఇన్వాయిస్",
+        "returnNumber": "రిటర్న్ నంబర్",
+        "issuedAt": "జారీ సమయం"
+      },
+      "status": {
+        "Active": "క్రియాశీలం",
+        "Voided": "రద్దు",
+        "FullyRedeemed": "పూర్తిగా వినియోగించబడింది",
+        "Expired": "గడువు ముగిసింది"
+      },
+      "empty": {
+        "title": "క్రెడిట్ నోట్లు కనుగొనబడలేదు",
+        "description": "జాబితాను చిన్నదిగా చేయడానికి వెతకడం లేదా స్థితి ఫిల్టర్లను ఉపయోగించండి."
+      },
+      "loading": "క్రెడిట్ నోట్లు లోడ్ అవుతున్నాయి...",
+      "pagination": {
+        "showing": "{{total}} నోట్లు చూపిస్తున్నాం, పేజీ {{page}} / {{pages}}"
+      },
+      "detail": {
+        "eyebrow": "ఎంచుకున్న క్రెడిట్ నోట్",
+        "subtitle": "నిల్వ మరియు కస్టమర్ సందర్భాన్ని సమీక్షించండి.",
+        "balance": "నిల్వ",
+        "originalAmount": "మూల మొత్తం",
+        "expiresAt": "గడువు ముగిసే సమయం",
+        "customer": "కస్టమర్",
+        "invoice": "ఇన్వాయిస్",
+        "returnNumber": "రిటర్న్ నంబర్",
+        "reason": "కారణం",
+        "voidReason": "రద్దు కారణం"
+      },
+      "errors": {
+        "loadFailed": "క్రెడిట్ నోట్లు లోడ్ చేయలేకపోయాం.",
+        "verifyFailed": "క్రెడిట్ నోట్‌ను ధృవీకరించలేకపోయాం."
       }
     },
     "searchPlaceholder": "విక్రయాలను శోధించండి...",

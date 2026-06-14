@@ -1249,9 +1249,9 @@
       }
     },
     "creditNotes": {
-      "eyebrow": "Sales Records",
-      "title": "Credit Notes",
-      "subtitle": "Review credit note history for the active shop.",
+      "eyebrow": "വിൽപ്പന രേഖകൾ",
+      "title": "ക്രെഡിറ്റ് നോട്ടുകൾ",
+      "subtitle": "സജീവ കടയിലെ ക്രെഡിറ്റ് നോട്ട് ചരിത്രം പരിശോധിക്കുക.",
       "emptyState": {
         "title": "No credit notes yet",
         "description": "Credit notes will appear here once they are created."
@@ -1284,6 +1284,70 @@
           "FullyRedeemed": "Fully Redeemed",
           "Voided": "Voided"
         }
+      },
+      "verify": {
+        "label": "കോഡ് പരിശോധിക്കുക",
+        "placeholder": "ക്രെഡിറ്റ് നോട്ട് കോഡ് നൽകുക",
+        "action": "പരിശോധിക്കുക"
+      },
+      "controls": {
+        "search": "തിരയുക",
+        "searchPlaceholder": "കോഡ്, ഇൻവോയ്‌സ്, റിട്ടേൺ നമ്പർ അല്ലെങ്കിൽ ഉപഭോക്താവ് വഴി തിരയുക",
+        "status": "സ്ഥിതി",
+        "pageSize": "വരികൾ",
+        "clear": "ഫിൽട്ടറുകൾ മായ്ക്കുക"
+      },
+      "filters": {
+        "all": "എല്ലാം",
+        "active": "സജീവം",
+        "fullyRedeemed": "മുഴുവൻ ഉപയോഗിച്ചു",
+        "expired": "കാലാവധി കഴിഞ്ഞു",
+        "voided": "റദ്ദാക്കി"
+      },
+      "list": {
+        "title": "ക്രെഡിറ്റ് നോട്ട് പട്ടിക",
+        "subtitle": "കോഡുകളും ബാലൻസുകളും കാണുക.",
+        "count": "{{total}} കുറിപ്പുകൾ"
+      },
+      "table": {
+        "code": "കോഡ്",
+        "status": "സ്ഥിതി",
+        "balance": "ബാലൻസ്",
+        "originalAmount": "അസൽ തുക",
+        "customer": "ഉപഭോക്താവ്",
+        "invoice": "ഇൻവോയ്‌സ്",
+        "returnNumber": "റിട്ടേൺ നമ്പർ",
+        "issuedAt": "നൽകിയ സമയം"
+      },
+      "status": {
+        "Active": "സജീവം",
+        "Voided": "റദ്ദാക്കി",
+        "FullyRedeemed": "മുഴുവൻ ഉപയോഗിച്ചു",
+        "Expired": "കാലാവധി കഴിഞ്ഞു"
+      },
+      "empty": {
+        "title": "ക്രെഡിറ്റ് നോട്ടുകൾ ഒന്നും കണ്ടെത്തിയില്ല",
+        "description": "പട്ടിക ചുരുക്കാൻ തിരയൽ അല്ലെങ്കിൽ സ്ഥിതി ഫിൽട്ടർ ഉപയോഗിക്കുക."
+      },
+      "loading": "ക്രെഡിറ്റ് നോട്ടുകൾ ലോഡ് ചെയ്യുന്നു...",
+      "pagination": {
+        "showing": "{{total}} കുറിപ്പുകൾ കാണിക്കുന്നു, പേജ് {{page}} / {{pages}}"
+      },
+      "detail": {
+        "eyebrow": "തിരഞ്ഞെടുത്ത ക്രെഡിറ്റ് നോട്ട്",
+        "subtitle": "ബാലൻസും ഉപഭോക്തൃ പശ്ചാത്തലവും പരിശോധിക്കുക.",
+        "balance": "ബാലൻസ്",
+        "originalAmount": "അസൽ തുക",
+        "expiresAt": "കാലാവധി തീരുന്ന സമയം",
+        "customer": "ഉപഭോക്താവ്",
+        "invoice": "ഇൻവോയ്‌സ്",
+        "returnNumber": "റിട്ടേൺ നമ്പർ",
+        "reason": "കാരണം",
+        "voidReason": "റദ്ദാക്കാനുള്ള കാരണം"
+      },
+      "errors": {
+        "loadFailed": "ക്രെഡിറ്റ് നോട്ടുകൾ ലോഡ് ചെയ്യാൻ കഴിഞ്ഞില്ല.",
+        "verifyFailed": "ക്രെഡിറ്റ് നോട്ട് പരിശോധിക്കാൻ കഴിഞ്ഞില്ല."
       }
     },
     "searchPlaceholder": "വിൽപ്പന തിരയുക...",
