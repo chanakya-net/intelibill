@@ -63,9 +63,14 @@ class TestCreditNoteService extends NewSalePageCreditNoteService {
   override getBlockingCartValidationErrorKey(): string | null { return null; }
   override normalizeHsnCode(): string | null { return null; }
   override normalizeAmount(): number { return 0; }
-  override toFiniteAmount(): number { return 0; }
-  override roundAmount(value: number): number { return value; }
-  override areAmountsEqual(left: number, right: number): boolean { return left === right; }
+  override toFiniteAmount(value: number | null | undefined): number {
+    const amount = Number(value ?? 0);
+    return Number.isFinite(amount) ? this.roundAmount(amount) : Number.NaN;
+  }
+  override roundAmount(value: number): number { return Number(value.toFixed(2)); }
+  override areAmountsEqual(left: number, right: number): boolean {
+    return this.roundAmount(left) === this.roundAmount(right);
+  }
   override syncPaymentSplitFromPaid(): void {}
   override syncPaymentSplitFromDue(): void {}
   override enforceNoCustomerCreditRestrictions(): void {}
@@ -90,12 +95,33 @@ const verifiedNote: CreditNoteVerifyResponseDto = {
   status: 'Active',
 };
 
+const verifiedNoteLarge: CreditNoteVerifyResponseDto = {
+  ...verifiedNote,
+  availableBalance: 320,
+};
+
 function buildService(saleServiceOverrides: Partial<{ verifyCreditNote: ReturnType<typeof vi.fn> }> = {}) {
   TestBed.resetTestingModule();
+
+  const checkoutPreview = signal<any>(null);
 
   const saleService = {
     verifyCreditNote: vi.fn(() => of(verifiedNote)),
     ...saleServiceOverrides,
+  };
+
+  const salePreview = {
+    checkoutPreview,
+    isPreviewLoading: signal(false),
+    previewError: signal(''),
+    beginPreviewRequest: vi.fn(() => 1),
+    finishPreviewRequest: vi.fn(),
+    refreshOnlinePreview: vi.fn(),
+    refreshOnServerUpdate: vi.fn(),
+    clearPreviewState: vi.fn(),
+    triggerServerUpdateRefresh: vi.fn(),
+    clearPreviewError: vi.fn(),
+    markPreviewInvalid: vi.fn(),
   };
 
   const route = {
@@ -138,19 +164,7 @@ function buildService(saleServiceOverrides: Partial<{ verifyCreditNote: ReturnTy
       },
       {
         provide: SalePreviewService,
-        useValue: {
-          checkoutPreview: signal(null),
-          isPreviewLoading: signal(false),
-          previewError: signal(''),
-          beginPreviewRequest: vi.fn(() => 1),
-          finishPreviewRequest: vi.fn(),
-          refreshOnlinePreview: vi.fn(),
-          refreshOnServerUpdate: vi.fn(),
-          clearPreviewState: vi.fn(),
-          triggerServerUpdateRefresh: vi.fn(),
-          clearPreviewError: vi.fn(),
-          markPreviewInvalid: vi.fn(),
-        },
+        useValue: salePreview,
       },
       {
         provide: OfflineSaleStateService,
@@ -172,7 +186,7 @@ function buildService(saleServiceOverrides: Partial<{ verifyCreditNote: ReturnTy
     ],
   });
 
-  return { service: TestBed.inject(TestCreditNoteService), saleService };
+  return { service: TestBed.inject(TestCreditNoteService), saleService, salePreview };
 }
 
 describe('NewSalePageCreditNoteService', () => {
@@ -243,5 +257,52 @@ describe('NewSalePageCreditNoteService', () => {
       paidAmount: 0,
       dueAmount: 0,
     });
+  });
+
+  it('defaults applied amount to verified balance capped by remaining total', async () => {
+    const { service, salePreview } = buildService({
+      verifyCreditNote: vi.fn(() => of(verifiedNoteLarge)),
+    });
+    salePreview.checkoutPreview.set({
+      totalAmount: 250,
+      totalTaxableAmount: 0,
+      totalTaxAmount: 0,
+      totalDiscountAmount: 0,
+      saleLevelEligibleSubtotal: 0,
+      configuredSaleRule: null,
+      lines: [],
+      infos: [],
+      warnings: [],
+    });
+
+    service.paymentForm.controls.paidAmount.setValue(40);
+    service.paymentForm.controls.dueAmount.setValue(10);
+    service.creditNoteCode.set('CN-ABC-123');
+
+    await service.onVerifyCreditNote();
+
+    expect(service.appliedCreditNoteAmount()).toBe(200);
+  });
+
+  it('reduces applied amount and keeps it bounded by remaining total', () => {
+    const { service, salePreview } = buildService();
+    salePreview.checkoutPreview.set({
+      totalAmount: 180,
+      totalTaxableAmount: 0,
+      totalTaxAmount: 0,
+      totalDiscountAmount: 0,
+      saleLevelEligibleSubtotal: 0,
+      configuredSaleRule: null,
+      lines: [],
+      infos: [],
+      warnings: [],
+    });
+
+    service.paymentForm.controls.paidAmount.setValue(20);
+    service.paymentForm.controls.dueAmount.setValue(10);
+    service.verifiedCreditNote.set(verifiedNoteLarge);
+    service.onCreditNoteAppliedAmountChange(999);
+
+    expect(service.appliedCreditNoteAmount()).toBe(150);
   });
 });

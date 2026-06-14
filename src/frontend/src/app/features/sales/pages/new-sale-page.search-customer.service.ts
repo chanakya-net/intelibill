@@ -8,6 +8,18 @@ import { CustomerDto } from '../components/new-sale/sale-customer-section.compon
 import type { Subscription } from 'rxjs';
 
 export abstract class NewSalePageSearchCustomerService extends NewSalePageLifecycleService {
+  protected getPayableAmount(total = this.totalAmount()): number {
+    return this.roundAmount(Math.max(0, total));
+  }
+
+  protected getCreditNoteAppliedAmount(): number {
+    return 0;
+  }
+
+  protected getCreditNoteRedemptions(): ReadonlyArray<{ creditNoteId: string; appliedAmount: number }> {
+    return [];
+  }
+
   private searchSuggestionsRequestSeq = 0;
   private searchSuggestionsSubscription: Subscription | null = null;
   private routeCustomerPreselectionApplied = false;

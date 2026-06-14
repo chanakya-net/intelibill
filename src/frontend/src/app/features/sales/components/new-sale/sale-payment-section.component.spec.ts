@@ -49,6 +49,45 @@ describe('SalePaymentSectionComponent', () => {
     expect(dueSpy).toHaveBeenCalledWith(11);
   });
 
+  it('forwards credit note applied amount changes', () => {
+    TestBed.configureTestingModule({
+      imports: [SalePaymentSectionComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
+    });
+
+    const fixture = TestBed.createComponent(SalePaymentSectionComponent);
+    const component = fixture.componentInstance;
+    component.verifiedCreditNote = {
+      creditNoteId: 'cn-1',
+      code: 'CN-001',
+      availableBalance: 120,
+      status: 'Active',
+      expiresAt: null,
+    };
+
+    const spy = vi.fn();
+    component.creditNoteAppliedAmountChanged.subscribe(spy);
+
+    component.onCreditNoteAppliedAmountChange(44);
+
+    expect(spy).toHaveBeenCalledWith(44);
+  });
+
+  it('forwards remove action', () => {
+    TestBed.configureTestingModule({
+      imports: [SalePaymentSectionComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
+    });
+
+    const fixture = TestBed.createComponent(SalePaymentSectionComponent);
+    const component = fixture.componentInstance;
+
+    const spy = vi.fn();
+    component.creditNoteRemovalRequested.subscribe(spy);
+
+    component.onCreditNoteRemoveClick();
+
+    expect(spy).toHaveBeenCalled();
+  });
+
   it('hides the due amount input until a customer can use credit', () => {
     TestBed.configureTestingModule({
       imports: [SalePaymentSectionComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],

@@ -89,6 +89,26 @@
           </p>
         }
       </div>
+
+      <div class="credit-note-apply mt-2 p-2 bg-slate-50 border border-slate-200 rounded text-sm">
+        <p class="text-slate-600">{{ 'sales.newSale.creditNote.appliedAmount' | transloco }}</p>
+        <div class="flex gap-2 items-start mt-1">
+          <p-inputNumber
+            [ngModel]="appliedCreditNoteAmount"
+            (ngModelChange)="onCreditNoteAppliedAmountChange($event)"
+            [min]="0"
+            [max]="maxAppliedCreditNoteAmount"
+            [pt]="currencyInputPt"
+          />
+          <p-button
+            [label]="'sales.newSale.creditNote.remove' | transloco"
+            severity="secondary"
+            size="small"
+            (click)="onCreditNoteRemoveClick()"
+            [disabled]="!appliedCreditNoteAmount"
+          />
+        </div>
+      </div>
     }
 
     @if (creditNoteError) {

@@ -1,12 +1,13 @@
 import { NewSalePageDiscountValidationService } from './new-sale-page.discount-validation.service';
-import { SalePreviewDto, SalePreviewLineDto } from '../services/sale.models';
+import { CreditNoteRedemptionRequest, SalePreviewDto, SalePreviewLineDto } from '../services/sale.models';
 
 export abstract class NewSalePagePaymentFlowService extends NewSalePageDiscountValidationService {
   syncPaymentSplitFromPaid(rawPaid: number | null, total = this.totalAmount()): void {
     const paidControl = this.paymentForm.controls.paidAmount;
     const dueControl = this.paymentForm.controls.dueAmount;
-    const normalizedPaid = this.normalizeAmount(rawPaid, total);
-    const normalizedDue = this.roundAmount(total - normalizedPaid);
+    const payableTotal = this.getPayableAmount(total);
+    const normalizedPaid = this.normalizeAmount(rawPaid, payableTotal);
+    const normalizedDue = this.roundAmount(payableTotal - normalizedPaid);
 
     this.isSyncingPaymentControls = true;
     try {
@@ -25,8 +26,9 @@ export abstract class NewSalePagePaymentFlowService extends NewSalePageDiscountV
   syncPaymentSplitFromDue(rawDue: number | null, total = this.totalAmount()): void {
     const paidControl = this.paymentForm.controls.paidAmount;
     const dueControl = this.paymentForm.controls.dueAmount;
-    const normalizedDue = this.normalizeAmount(rawDue, total);
-    const normalizedPaid = this.roundAmount(total - normalizedDue);
+    const payableTotal = this.getPayableAmount(total);
+    const normalizedDue = this.normalizeAmount(rawDue, payableTotal);
+    const normalizedPaid = this.roundAmount(payableTotal - normalizedDue);
 
     this.isSyncingPaymentControls = true;
     try {
@@ -40,6 +42,18 @@ export abstract class NewSalePagePaymentFlowService extends NewSalePageDiscountV
     } finally {
       this.isSyncingPaymentControls = false;
     }
+  }
+
+  protected override getPayableAmount(total = this.totalAmount()): number {
+    return this.roundAmount(Math.max(0, total - this.getCreditNoteAppliedAmount()));
+  }
+
+  protected override getCreditNoteAppliedAmount(): number {
+    return 0;
+  }
+
+  protected override getCreditNoteRedemptions(): readonly CreditNoteRedemptionRequest[] {
+    return [];
   }
 
   normalizeAmount(value: number | null | undefined, total: number): number {

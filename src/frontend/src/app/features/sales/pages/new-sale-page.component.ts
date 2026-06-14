@@ -189,4 +189,12 @@ export class NewSalePageComponent implements OnInit, OnDestroy {
   onCreditNoteVerifyRequested(): void {
     void this.vm.onVerifyCreditNote();
   }
+
+  onCreditNoteAppliedAmountChanged(value: number | null): void {
+    this.vm.onCreditNoteAppliedAmountChange(value);
+  }
+
+  onCreditNoteRemoveRequested(): void {
+    this.vm.onCreditNoteRemovalRequested();
+  }
 }

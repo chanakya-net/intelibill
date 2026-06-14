@@ -1,5 +1,6 @@
 import { NewSalePageCartSelectionService } from './new-sale-page.cart-selection.service';
 import type {
+  CreditNoteRedemptionRequest,
   InstantDiscountRequest,
   RecordSaleItemRequest,
   RecordSaleRequest,
@@ -204,14 +205,17 @@ export abstract class NewSalePageCartSubmitService extends NewSalePageCartSelect
     const customerPhone = this.customerForm.controls.customerPhone.value.trim() || null;
     const paidAmount = this.toFiniteAmount(this.paymentForm.controls.paidAmount.value);
     const dueAmount = this.toFiniteAmount(this.paymentForm.controls.dueAmount.value);
+    const creditNoteAppliedAmount = this.toFiniteAmount(this.getCreditNoteAppliedAmount());
     const totalAmount = this.roundAmount(this.totalAmount());
-
+    const creditNoteRedemptions: readonly CreditNoteRedemptionRequest[] = this.getCreditNoteRedemptions();
     if (
       !Number.isFinite(paidAmount) ||
       !Number.isFinite(dueAmount) ||
+      !Number.isFinite(creditNoteAppliedAmount) ||
       paidAmount < 0 ||
       dueAmount < 0 ||
-      !this.areAmountsEqual(paidAmount + dueAmount, totalAmount)
+      creditNoteAppliedAmount < 0 ||
+      !this.areAmountsEqual(paidAmount + dueAmount + creditNoteAppliedAmount, totalAmount)
     ) {
       this.paymentSplitError.set('sales.newSale.invalidPaymentSplit');
       return;
@@ -237,7 +241,15 @@ export abstract class NewSalePageCartSubmitService extends NewSalePageCartSelect
       dueAmount,
       items,
       saleDiscount: { type: this.saleDiscountType(), value: this.saleDiscountValue() },
+      creditNoteAppliedAmount,
     };
+
+    if (creditNoteRedemptions.length > 0) {
+      return void this.salesFacade.recordSale({
+        ...request,
+        creditNoteRedemptions,
+      });
+    }
 
     this.salesFacade.recordSale(request);
   }
