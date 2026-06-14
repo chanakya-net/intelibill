@@ -1348,6 +1348,19 @@
       "errors": {
         "loadFailed": "கிரெடிட் குறிப்புகளை ஏற்ற முடியவில்லை.",
         "verifyFailed": "கிரெடிட் குறிப்பை சரிபார்க்க முடியவில்லை."
+      },
+      "void": {
+        "action": "Void credit note",
+        "title": "Void credit note",
+        "description": "This will void the credit note and keep the audit trail intact.",
+        "reasonLabel": "Void reason",
+        "reasonPlaceholder": "Explain why this credit note is being voided",
+        "cancel": "Cancel",
+        "confirm": "Void credit note",
+        "errors": {
+          "reasonRequired": "Void reason is required.",
+          "submitFailed": "Unable to void credit note."
+        }
       }
     },
     "searchPlaceholder": "விற்பனையைத் தேடு...",

@@ -1348,6 +1348,19 @@
       "errors": {
         "loadFailed": "क्रेडिट नोट्स लोड करता आल्या नाहीत.",
         "verifyFailed": "क्रेडिट नोट पडताळता आली नाही."
+      },
+      "void": {
+        "action": "Void credit note",
+        "title": "Void credit note",
+        "description": "This will void the credit note and keep the audit trail intact.",
+        "reasonLabel": "Void reason",
+        "reasonPlaceholder": "Explain why this credit note is being voided",
+        "cancel": "Cancel",
+        "confirm": "Void credit note",
+        "errors": {
+          "reasonRequired": "Void reason is required.",
+          "submitFailed": "Unable to void credit note."
+        }
       }
     },
     "searchPlaceholder": "विक्री शोधा...",

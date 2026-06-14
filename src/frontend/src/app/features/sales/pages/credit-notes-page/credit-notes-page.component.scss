@@ -336,6 +336,47 @@ h1 {
   background: #fff;
 }
 
+.detail-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.85rem;
+}
+
+.void-dialog {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.void-summary {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.8rem 0.9rem;
+  border-radius: 0.9rem;
+  border: 1px solid #eadccf;
+  background: linear-gradient(180deg, rgba(255, 251, 247, 0.96), rgba(255, 245, 235, 0.98));
+}
+
+.void-summary strong {
+  color: #271911;
+  font-size: 1.02rem;
+}
+
+.void-field {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.void-field textarea[pInputTextarea] {
+  width: 100%;
+}
+
+.void-error {
+  margin: 0;
+  color: #9a3412;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
 .redemption-panel {
   margin-top: 0.85rem;
   display: grid;

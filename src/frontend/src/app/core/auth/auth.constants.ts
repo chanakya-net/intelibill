@@ -61,6 +61,7 @@ export const ITEM_BARCODE_ENDPOINTS = {
 export const CREDIT_NOTE_ENDPOINTS = {
   list: `${API_BASE_URL}/credit-notes`,
   detail: (code: string) => `${API_BASE_URL}/credit-notes/${encodeURIComponent(code)}`,
+  void: (code: string) => `${API_BASE_URL}/credit-notes/${encodeURIComponent(code)}/void`,
 } as const;
 
 export const SALE_ENDPOINTS = {

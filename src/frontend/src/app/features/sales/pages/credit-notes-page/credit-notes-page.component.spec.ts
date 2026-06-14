@@ -1,8 +1,10 @@
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { of } from 'rxjs';
 
+import { AuthService } from '../../../../core/auth/auth.service';
 import { SaleService } from '../../services/sale.service';
 import type {
   CreditNoteDetailDto,
@@ -84,6 +86,26 @@ describe('CreditNotesPageComponent', () => {
   const saleService = {
     getCreditNotes: vi.fn(),
     verifyCreditNote: vi.fn(),
+    voidCreditNote: vi.fn(),
+  };
+
+  const authService = {
+    session: signal({
+      accessToken: 'access-token',
+      refreshToken: 'refresh-token',
+      accessTokenExpiresAt: new Date(Date.now() + 60_000).toISOString(),
+      refreshTokenExpiresAt: new Date(Date.now() + 120_000).toISOString(),
+      rememberMe: true,
+      user: {
+        id: 'owner-1',
+        email: 'owner@test.com',
+        phoneNumber: null,
+        firstName: 'Owner',
+        lastName: 'One',
+      },
+      activeShopId: 'shop-1',
+      shops: [{ shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null }],
+    }),
   };
 
   const translations = {
@@ -155,6 +177,19 @@ describe('CreditNotesPageComponent', () => {
           reason: 'Reason',
           voidReason: 'Void reason',
         },
+        void: {
+          action: 'Void credit note',
+          title: 'Void credit note',
+          description: 'This will void the credit note and keep the audit trail intact.',
+          reasonLabel: 'Void reason',
+          reasonPlaceholder: 'Explain why this credit note is being voided',
+          cancel: 'Cancel',
+          confirm: 'Void credit note',
+          errors: {
+            reasonRequired: 'Void reason is required.',
+            submitFailed: 'Unable to void credit note.',
+          },
+        },
         errors: {
           loadFailed: 'Unable to load credit notes.',
           verifyFailed: 'Unable to verify credit note.',
@@ -166,7 +201,14 @@ describe('CreditNotesPageComponent', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-05-30T10:00:00.000Z'));
+    authService.session.set({
+      ...authService.session(),
+      shops: [{ shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null }],
+    });
 
+    saleService.getCreditNotes.mockReset();
+    saleService.verifyCreditNote.mockReset();
+    saleService.voidCreditNote.mockReset();
     saleService.getCreditNotes.mockImplementation((params?: Record<string, unknown>) => {
       if (params?.['search'] === 'CN-001') {
         return of(notesResponse([note]));
@@ -197,7 +239,10 @@ describe('CreditNotesPageComponent', () => {
           },
         }),
       ],
-      providers: [{ provide: SaleService, useValue: saleService }],
+      providers: [
+        { provide: AuthService, useValue: authService },
+        { provide: SaleService, useValue: saleService },
+      ],
     });
   });
 
@@ -284,6 +329,79 @@ describe('CreditNotesPageComponent', () => {
     expect(saleService.verifyCreditNote).toHaveBeenCalledWith('CN-001');
     expect(fixture.nativeElement.textContent).toContain('Selected credit note');
     expect(fixture.nativeElement.textContent).toContain('Asha');
+  });
+
+  it('shows void action only for owner and manager users', async () => {
+    const fixture = TestBed.createComponent(CreditNotesPageComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await component.openCreditNoteFromList(note);
+    fixture.detectChanges();
+    await Promise.resolve();
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.querySelector('.detail-actions button')).toBeTruthy();
+
+    authService.session.set({
+      ...authService.session(),
+      shops: [{ shopId: 'shop-1', shopName: 'Main', role: 'Staff', isDefault: true, lastUsedAt: null }],
+    });
+    fixture.detectChanges();
+
+    expect(host.querySelector('.detail-actions button')).toBeNull();
+  });
+
+  it('requires a void reason before submission', async () => {
+    const fixture = TestBed.createComponent(CreditNotesPageComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    await Promise.resolve();
+
+    saleService.voidCreditNote.mockClear();
+    await component.openCreditNoteFromList(note);
+    fixture.detectChanges();
+    await Promise.resolve();
+    fixture.detectChanges();
+
+    component.openVoidDialog();
+    fixture.detectChanges();
+
+    await component.submitVoidCreditNote();
+    fixture.detectChanges();
+
+    expect(saleService.voidCreditNote).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.textContent).toContain('Void reason is required.');
+  });
+
+  it('voids the selected credit note and refreshes the list', async () => {
+    const fixture = TestBed.createComponent(CreditNotesPageComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    await Promise.resolve();
+
+    saleService.getCreditNotes.mockClear();
+    saleService.voidCreditNote.mockReturnValue(of(void 0));
+
+    await component.openCreditNoteFromList(note);
+    fixture.detectChanges();
+    await Promise.resolve();
+    fixture.detectChanges();
+
+    component.openVoidDialog();
+    component.updateVoidReason('Issued in error');
+    fixture.detectChanges();
+
+    await component.submitVoidCreditNote();
+    fixture.detectChanges();
+    await Promise.resolve();
+    fixture.detectChanges();
+
+    expect(saleService.voidCreditNote).toHaveBeenCalledWith('CN-001', { reason: 'Issued in error' });
+    expect(saleService.getCreditNotes).toHaveBeenCalledTimes(1);
+    expect(fixture.nativeElement.textContent).toContain('Voided');
+    expect(fixture.nativeElement.textContent).toContain('Void reason');
   });
 
   it('renders required fields from exact verify response when search index is incomplete', async () => {

@@ -1,17 +1,20 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
 import { firstValueFrom } from 'rxjs';
 
 import { ButtonModule } from 'primeng/button';
+import { DialogModule } from 'primeng/dialog';
 import { IconFieldModule } from 'primeng/iconfield';
 import { InputIconModule } from 'primeng/inputicon';
 import { InputTextModule } from 'primeng/inputtext';
 import { SelectModule } from 'primeng/select';
 import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
+import { TextareaModule } from 'primeng/textarea';
 
+import { AuthService } from '../../../../core/auth/auth.service';
 import { SaleService } from '../../services/sale.service';
 import type {
   CreditNoteDetailDto,
@@ -19,6 +22,7 @@ import type {
   CreditNoteListStatusFilter,
   CreditNotesQueryParams,
   CreditNoteStatus,
+  VoidCreditNoteRequest,
 } from '../../services/sale.models';
 
 type CreditNoteStatusOption = {
@@ -33,18 +37,21 @@ type CreditNoteStatusOption = {
     CommonModule,
     FormsModule,
     ButtonModule,
+    DialogModule,
     IconFieldModule,
     InputIconModule,
     InputTextModule,
     SelectModule,
     TableModule,
     TagModule,
+    TextareaModule,
     TranslocoPipe,
   ],
   templateUrl: './credit-notes-page.component.html',
   styleUrl: './credit-notes-page.component.scss',
 })
 export class CreditNotesPageComponent implements OnInit, OnDestroy {
+  private readonly authService = inject(AuthService);
   private readonly saleService = inject(SaleService);
   private searchTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -60,6 +67,26 @@ export class CreditNotesPageComponent implements OnInit, OnDestroy {
   readonly loadingNotes = signal(false);
   readonly loadingDetail = signal(false);
   readonly errorMessage = signal('');
+  readonly voidDialogVisible = signal(false);
+  readonly voidTargetCreditNote = signal<CreditNoteDetailDto | null>(null);
+  readonly voidReason = signal('');
+  readonly voidLoading = signal(false);
+  readonly voidErrorMessage = signal('');
+
+  readonly activeShopRole = computed(() => {
+    const session = this.authService.session();
+    if (!session) return '';
+
+    const activeShop =
+      session.shops.find((shop) => shop.shopId === session.activeShopId) ??
+      session.shops.find((shop) => shop.isDefault);
+
+    return activeShop?.role ?? '';
+  });
+
+  readonly canManageCreditNotes = computed(() =>
+    ['owner', 'manager'].includes(this.activeShopRole().toLowerCase()),
+  );
 
   readonly statusOptions: CreditNoteStatusOption[] = [
     { label: 'sales.creditNotes.filters.all', value: 'all' },
@@ -164,6 +191,61 @@ export class CreditNotesPageComponent implements OnInit, OnDestroy {
 
   async openCreditNoteFromList(note: CreditNoteListItemDto): Promise<void> {
     await this.loadCreditNoteDetail(note.code);
+  }
+
+  canVoidCreditNote(note: CreditNoteDetailDto | null): boolean {
+    return !!note && this.canManageCreditNotes() && note.status === 'Active' && !note.isVoided;
+  }
+
+  openVoidDialog(): void {
+    const note = this.selectedCreditNote();
+    if (!this.canVoidCreditNote(note)) return;
+
+    this.voidTargetCreditNote.set(note);
+    this.voidReason.set('');
+    this.voidErrorMessage.set('');
+    this.voidDialogVisible.set(true);
+  }
+
+  closeVoidDialog(): void {
+    this.voidDialogVisible.set(false);
+    this.voidTargetCreditNote.set(null);
+    this.voidReason.set('');
+    this.voidErrorMessage.set('');
+    this.voidLoading.set(false);
+  }
+
+  updateVoidReason(reason: string): void {
+    this.voidReason.set(reason);
+    if (this.voidErrorMessage()) {
+      this.voidErrorMessage.set('');
+    }
+  }
+
+  async submitVoidCreditNote(): Promise<void> {
+    const note = this.voidTargetCreditNote();
+    if (!note || !this.canVoidCreditNote(note) || this.voidLoading()) return;
+
+    const reason = this.voidReason().trim();
+    if (!reason) {
+      this.voidErrorMessage.set('sales.creditNotes.void.errors.reasonRequired');
+      return;
+    }
+
+    this.voidLoading.set(true);
+    this.voidErrorMessage.set('');
+
+    try {
+      const payload: VoidCreditNoteRequest = { reason };
+      await firstValueFrom(this.saleService.voidCreditNote(note.code, payload));
+      this.selectedCreditNote.set({ ...note, status: 'Voided', isVoided: true, voidReason: reason });
+      this.closeVoidDialog();
+      void this.loadNotes();
+    } catch {
+      this.voidErrorMessage.set('sales.creditNotes.void.errors.submitFailed');
+    } finally {
+      this.voidLoading.set(false);
+    }
   }
 
   totalPages(): number {

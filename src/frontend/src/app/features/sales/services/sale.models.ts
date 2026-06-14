@@ -387,6 +387,10 @@ export interface VoidSaleReturnRequest {
   readonly reason: string;
 }
 
+export interface VoidCreditNoteRequest {
+  readonly reason: string;
+}
+
 export interface SaleReturnPreviewLineFinancialDto {
   readonly originalCostPrice: number;
   readonly originalSalesPrice: number;
