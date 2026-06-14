@@ -1065,7 +1065,13 @@
         "appliedAmount": "Apply credit note amount",
         "remove": "Remove credit note",
         "applyBtn": "Apply note",
-        "appliedTotal": "Applied credit notes total"
+        "appliedTotal": "Applied credit notes total",
+        "offlineDisabled": "ऑफलाइन रहते हुए क्रेडिट नोट रिडेम्प्शन उपलब्ध नहीं है.",
+        "customerMismatchWarning": "क्रेडिट नोट किसी दूसरे ग्राहक का है.",
+        "customerMismatchDetails": "इस बिक्री पर क्रेडिट नोट लागू करने से पहले इस mismatch को confirm करें.",
+        "confirmMismatchBtn": "Confirm mismatch",
+        "customerMismatchConfirmed": "Mismatch confirm हो गया है. बिक्री submit की जा सकती है.",
+        "customerMismatchConfirmRequired": "Submit करने से पहले customer mismatch को confirm करें."
       }
     },
     "detail": {

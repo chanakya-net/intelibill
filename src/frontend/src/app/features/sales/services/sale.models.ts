@@ -238,6 +238,7 @@ export interface RecordSaleRequest {
   readonly saleDiscount: InstantDiscountRequest | null;
   readonly creditNoteAppliedAmount?: number;
   readonly creditNoteRedemptions?: readonly CreditNoteRedemptionRequest[];
+  readonly creditNoteCustomerMismatchConfirmed?: boolean;
 }
 
 export interface ReserveInvoiceLeaseRequest {

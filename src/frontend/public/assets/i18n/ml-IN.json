@@ -1065,7 +1065,13 @@
         "appliedAmount": "Apply credit note amount",
         "remove": "Remove credit note",
         "applyBtn": "Apply note",
-        "appliedTotal": "Applied credit notes total"
+        "appliedTotal": "Applied credit notes total",
+        "offlineDisabled": "Credit note redemption is unavailable while offline.",
+        "customerMismatchWarning": "The credit note belongs to a different customer.",
+        "customerMismatchDetails": "Confirm this mismatch before applying the credit note to this sale.",
+        "confirmMismatchBtn": "Confirm mismatch",
+        "customerMismatchConfirmed": "Mismatch confirmed. The sale can be submitted.",
+        "customerMismatchConfirmRequired": "Please confirm the customer mismatch before submitting."
       }
     },
     "detail": {

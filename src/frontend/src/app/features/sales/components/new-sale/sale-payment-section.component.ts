@@ -56,6 +56,8 @@ export class SalePaymentSectionComponent {
   @Input() appliedCreditNotes: readonly AppliedCreditNote[] = [];
   @Input() appliedCreditNotesTotal = 0;
   @Input() remainingPayableAmount = 0;
+  @Input() creditNoteCustomerMismatchWarning = false;
+  @Input() creditNoteCustomerMismatchConfirmed = false;
 
   @Output() methodChanged = new EventEmitter<PaymentMethod>();
   @Output() paidAmountChanged = new EventEmitter<number | null>();
@@ -67,6 +69,8 @@ export class SalePaymentSectionComponent {
   @Output() creditNoteApplyRequested = new EventEmitter<void>();
   @Output() appliedCreditNoteAmountChanged = new EventEmitter<{ creditNoteId: string; amount: number | null }>();
   @Output() appliedCreditNoteRemoved = new EventEmitter<string>();
+  @Output() creditNoteCustomerMismatchConfirmedChanged = new EventEmitter<boolean>();
+  @Output() creditNoteCustomerMismatchCancelled = new EventEmitter<void>();
 
   onMethodChange(value: PaymentMethod): void {
     this.methodChanged.emit(value);
@@ -102,5 +106,13 @@ export class SalePaymentSectionComponent {
 
   onAppliedCreditNoteRemoveClick(creditNoteId: string): void {
     this.appliedCreditNoteRemoved.emit(creditNoteId);
+  }
+
+  onCreditNoteCustomerMismatchConfirmedChange(confirmed: boolean): void {
+    this.creditNoteCustomerMismatchConfirmedChanged.emit(confirmed);
+  }
+
+  onCreditNoteCustomerMismatchCancelClick(): void {
+    this.creditNoteCustomerMismatchCancelled.emit();
   }
 }

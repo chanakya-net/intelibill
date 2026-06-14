@@ -88,12 +88,36 @@
             {{ 'sales.newSale.creditNote.expiry' | transloco }}: {{ verifiedCreditNote.expiresAt | date:'mediumDate' }}
           </p>
         }
+        @if (creditNoteCustomerMismatchWarning && !creditNoteCustomerMismatchConfirmed) {
+          <div class="mt-2 p-2 bg-amber-50 border border-amber-200 rounded text-sm">
+            <p class="text-amber-800 font-medium">{{ 'sales.newSale.creditNote.customerMismatchWarning' | transloco }}</p>
+            <p class="text-slate-600">{{ 'sales.newSale.creditNote.customerMismatchDetails' | transloco }}</p>
+            <div class="flex gap-2 mt-2">
+              <p-button
+                [label]="'sales.newSale.creditNote.confirmMismatchBtn' | transloco"
+                [outlined]="true"
+                severity="warn"
+                size="small"
+                (click)="onCreditNoteCustomerMismatchConfirmedChange(true)"
+              />
+              <p-button
+                [label]="'common.cancel' | transloco"
+                severity="secondary"
+                size="small"
+                (click)="onCreditNoteCustomerMismatchCancelClick()"
+              />
+            </div>
+          </div>
+        }
+        @if (creditNoteCustomerMismatchConfirmed && creditNoteCustomerMismatchWarning) {
+          <p class="text-xs text-emerald-700 mt-1">{{ 'sales.newSale.creditNote.customerMismatchConfirmed' | transloco }}</p>
+        }
         <div class="mt-2">
           <p-button
             [label]="'sales.newSale.creditNote.applyBtn' | transloco"
             severity="success"
             size="small"
-            [disabled]="!canApplyCreditNote"
+            [disabled]="!canApplyCreditNote || (creditNoteCustomerMismatchWarning && !creditNoteCustomerMismatchConfirmed)"
             (click)="onCreditNoteApplyClick()"
           />
         </div>

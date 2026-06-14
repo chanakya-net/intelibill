@@ -233,6 +233,7 @@ export abstract class NewSalePageSearchCustomerService extends NewSalePageLifecy
       this.selectedCustomerId.set(null);
       this.selectedCustomerName.set(null);
       this.selectedCustomer.set(null);
+      this.refreshCreditNoteCustomerMismatchState();
       return;
     }
 
@@ -245,6 +246,7 @@ export abstract class NewSalePageSearchCustomerService extends NewSalePageLifecy
     );
     this.selectedCustomerId.set(customer.customerId);
     this.selectedCustomerName.set(customer.name.trim().toLowerCase());
+    this.refreshCreditNoteCustomerMismatchState();
   }
 
   protected preselectRouteCustomerIfPossible(): void {
