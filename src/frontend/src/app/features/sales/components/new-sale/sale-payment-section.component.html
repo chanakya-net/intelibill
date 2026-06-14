@@ -126,7 +126,7 @@
                 [ngModel]="note.amount"
                 (ngModelChange)="onAppliedCreditNoteAmountChange(note.creditNoteId, $event)"
                 [min]="0"
-                [max]="note.availableBalance"
+                [max]="getMaxAmountForAppliedCreditNote(note)"
                 [pt]="currencyInputPt"
               />
             </p-inputgroup>

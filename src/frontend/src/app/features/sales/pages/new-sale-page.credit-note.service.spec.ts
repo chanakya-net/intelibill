@@ -357,6 +357,45 @@ describe('NewSalePageCreditNoteService', () => {
     expect(paid + due).toBe(expectedPayable);
   });
 
+  it('clamps edited credit note amount so total applied does not exceed payable total', () => {
+    const { service } = buildService();
+    service.checkoutPreview.set({
+      totalAmount: 300,
+      totalTaxableAmount: 300,
+      totalTaxAmount: 0,
+      totalDiscountAmount: 0,
+      saleLevelEligibleSubtotal: 300,
+      configuredSaleRule: null,
+      lines: [],
+      infos: [],
+      warnings: [],
+    });
+
+    service.appliedCreditNotes.set([
+      {
+        creditNoteId: 'cn-1',
+        code: 'CN-ONE',
+        availableBalance: 500,
+        expiresAt: null,
+        status: 'Active',
+        amount: 100,
+      },
+      {
+        creditNoteId: 'cn-2',
+        code: 'CN-TWO',
+        availableBalance: 500,
+        expiresAt: null,
+        status: 'Active',
+        amount: 50,
+      },
+    ]);
+
+    service.onAppliedCreditNoteAmountChange('cn-1', 500);
+
+    expect(service.appliedCreditNotes()[0].amount).toBe(250);
+    expect(service.totalAppliedCreditNoteAmount()).toBe(300);
+  });
+
   it('reconciles applied credit note amounts and split when cart total decreases', async () => {
     const { service } = buildService();
     service.checkoutPreview.set({

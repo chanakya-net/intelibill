@@ -55,6 +55,7 @@ export class SalePaymentSectionComponent {
   @Input() canApplyCreditNote = false;
   @Input() appliedCreditNotes: readonly AppliedCreditNote[] = [];
   @Input() appliedCreditNotesTotal = 0;
+  @Input() remainingPayableAmount = 0;
 
   @Output() methodChanged = new EventEmitter<PaymentMethod>();
   @Output() paidAmountChanged = new EventEmitter<number | null>();
@@ -93,6 +94,10 @@ export class SalePaymentSectionComponent {
 
   onAppliedCreditNoteAmountChange(creditNoteId: string, amount: number | null): void {
     this.appliedCreditNoteAmountChanged.emit({ creditNoteId, amount });
+  }
+
+  getMaxAmountForAppliedCreditNote(note: AppliedCreditNote): number {
+    return Math.min(note.availableBalance, this.remainingPayableAmount + note.amount);
   }
 
   onAppliedCreditNoteRemoveClick(creditNoteId: string): void {

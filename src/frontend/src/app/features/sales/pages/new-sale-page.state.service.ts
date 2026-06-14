@@ -417,7 +417,10 @@ export abstract class NewSalePageStateService {
   }
 
   protected normalizeCreditNoteAmount(note: AppliedCreditNote, amount: number | null | undefined): number {
-    return this.roundAmount(Math.max(0, Math.min(Number(amount ?? 0), note.availableBalance)));
+    const remainingPayable = this.remainingPayableAmount();
+    return this.roundAmount(
+      Math.max(0, Math.min(Number(amount ?? 0), note.availableBalance, remainingPayable + note.amount)),
+    );
   }
 
   remainingPayableAmount(): number {
