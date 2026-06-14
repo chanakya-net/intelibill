@@ -51,8 +51,7 @@
   <p class="text-xs text-amber-600 mt-1">{{ 'sales.newSale.offline.upiAttestedNote' | transloco }}</p>
 }
 
-@if (!isOfflineMode) {
-  <div class="credit-note-verify mt-3">
+<div class="credit-note-verify mt-3">
     <label class="text-xs text-slate-500">{{ 'sales.newSale.creditNote.sectionLabel' | transloco }}</label>
     <div class="flex gap-2 items-start mt-1">
       <input
@@ -61,18 +60,22 @@
         [value]="creditNoteCode"
         (input)="onCreditNoteCodeChange($any($event.target).value)"
         [placeholder]="'sales.newSale.creditNote.codePlaceholder' | transloco"
-        [disabled]="isCreditNoteVerifying"
+        [disabled]="isOfflineMode || isCreditNoteVerifying"
         aria-label="Credit note code"
       />
       <p-button
         [label]="'sales.newSale.creditNote.verifyBtn' | transloco"
         [loading]="isCreditNoteVerifying"
-        [disabled]="!creditNoteCode.trim() || isCreditNoteVerifying"
+        [disabled]="isOfflineMode || !creditNoteCode.trim() || isCreditNoteVerifying"
         (click)="onCreditNoteVerifyClick()"
         severity="secondary"
         size="small"
       />
     </div>
+
+    @if (isOfflineMode) {
+      <p class="text-xs text-amber-600 mt-1">{{ 'sales.newSale.creditNote.offlineDisabled' | transloco }}</p>
+    }
 
     @if (verifiedCreditNote) {
       <div class="credit-note-result mt-2 p-2 bg-emerald-50 border border-emerald-200 rounded text-sm">
@@ -91,8 +94,33 @@
       </div>
     }
 
+    @if (verifiedCreditNote && creditNoteCustomerMismatchWarning) {
+      <div class="mt-2 p-2 bg-amber-50 border border-amber-200 rounded text-sm">
+        <p class="text-amber-800 font-medium">{{ 'sales.newSale.creditNote.customerMismatchWarning' | transloco }}</p>
+        <p class="text-slate-600">{{ 'sales.newSale.creditNote.customerMismatchDetails' | transloco }}</p>
+        <div class="flex gap-2 mt-2">
+          <p-button
+            [label]="'sales.newSale.creditNote.confirmMismatchBtn' | transloco"
+            [outlined]="true"
+            severity="warn"
+            size="small"
+            (click)="onCreditNoteCustomerMismatchConfirmedChange(true)"
+          />
+          <p-button
+            [label]="'common.cancel' | transloco"
+            severity="secondary"
+            size="small"
+            (click)="onCreditNoteCustomerMismatchCancelClick()"
+          />
+        </div>
+      </div>
+    }
+
+    @if (creditNoteCustomerMismatchConfirmed && creditNoteCustomerMismatchWarning) {
+      <p class="text-xs text-emerald-700 mt-1">{{ 'sales.newSale.creditNote.customerMismatchConfirmed' | transloco }}</p>
+    }
+
     @if (creditNoteError) {
       <p class="error-hint mt-1">{{ creditNoteError | transloco }}</p>
     }
   </div>
-}

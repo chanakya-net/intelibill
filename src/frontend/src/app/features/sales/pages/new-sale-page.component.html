@@ -194,11 +194,15 @@
           [isCreditNoteVerifying]="vm.isCreditNoteVerifying()"
           [verifiedCreditNote]="vm.verifiedCreditNote()"
           [creditNoteError]="vm.creditNoteError()"
+          [creditNoteCustomerMismatchWarning]="vm.creditNoteCustomerMismatchWarning()"
+          [creditNoteCustomerMismatchConfirmed]="vm.creditNoteCustomerMismatchConfirmed()"
           (methodChanged)="onPaymentMethodChanged($event)"
           (paidAmountChanged)="onPaymentPaidAmountChanged($event)"
           (dueAmountChanged)="onPaymentDueAmountChanged($event)"
           (creditNoteCodeChanged)="onCreditNoteCodeChanged($event)"
           (creditNoteVerifyRequested)="onCreditNoteVerifyRequested()"
+          (creditNoteCustomerMismatchConfirmedChanged)="onCreditNoteCustomerMismatchConfirmedChanged($event)"
+          (creditNoteCustomerMismatchCancelled)="onCreditNoteCustomerMismatchCancelled()"
         />
 
         <app-cart-checkout-summary

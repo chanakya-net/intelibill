@@ -190,6 +190,7 @@ describe('NewSalePageCreditNoteService', () => {
 
   it('calls verify API and populates verifiedCreditNote on success', async () => {
     const { service, saleService } = buildService();
+    service.onCustomerSectionSelected({ customerId: 'cust-1', name: 'Acme Stores', phoneNumber: '9999999999' });
     service.creditNoteCode.set('CN-ABC-123');
 
     await service.onVerifyCreditNote();
@@ -198,6 +199,39 @@ describe('NewSalePageCreditNoteService', () => {
     expect(service.verifiedCreditNote()).toEqual(verifiedNote);
     expect(service.creditNoteError()).toBe('');
     expect(service.isCreditNoteVerifying()).toBe(false);
+  });
+
+  it('requires confirmation when verified credit note customer does not match the selected customer', async () => {
+    const { service } = buildService({
+      verifyCreditNote: vi.fn(() => of({ ...verifiedNote, customerName: 'Different Customer' })),
+    });
+    service.onCustomerSectionSelected({ customerId: 'cust-1', name: 'Acme Stores', phoneNumber: '9999999999' });
+    service.creditNoteCode.set('CN-ABC-123');
+
+    await service.onVerifyCreditNote();
+
+    expect(service.creditNoteCustomerMismatchWarning()).toBe(true);
+    expect(service.creditNoteCustomerMismatchConfirmed()).toBe(false);
+
+    service.onCreditNoteCustomerMismatchConfirmedChange(true);
+
+    expect(service.creditNoteCustomerMismatchConfirmed()).toBe(true);
+  });
+
+  it('cancels mismatch confirmation without clearing the verified credit note', async () => {
+    const { service } = buildService({
+      verifyCreditNote: vi.fn(() => of({ ...verifiedNote, customerName: 'Different Customer' })),
+    });
+    service.onCustomerSectionSelected({ customerId: 'cust-1', name: 'Acme Stores', phoneNumber: '9999999999' });
+    service.creditNoteCode.set('CN-ABC-123');
+
+    await service.onVerifyCreditNote();
+    service.onCreditNoteCustomerMismatchConfirmedChange(true);
+    service.onCreditNoteCustomerMismatchCancelled();
+
+    expect(service.verifiedCreditNote()).toEqual({ ...verifiedNote, customerName: 'Different Customer' });
+    expect(service.creditNoteCustomerMismatchWarning()).toBe(false);
+    expect(service.creditNoteCustomerMismatchConfirmed()).toBe(false);
   });
 
   it('sets error signal and clears verifiedCreditNote on API failure', async () => {
@@ -238,6 +272,8 @@ describe('NewSalePageCreditNoteService', () => {
     expect(service.verifiedCreditNote()).toBeNull();
     expect(service.creditNoteError()).toBe('');
     expect(service.isCreditNoteVerifying()).toBe(false);
+    expect(service.creditNoteCustomerMismatchWarning()).toBe(false);
+    expect(service.creditNoteCustomerMismatchConfirmed()).toBe(false);
     expect(service.paymentForm.getRawValue()).toEqual({
       paymentMethod: 1,
       paidAmount: 0,

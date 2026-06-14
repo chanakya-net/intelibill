@@ -227,6 +227,11 @@ export abstract class NewSalePageCartSubmitService extends NewSalePageCartSelect
       return;
     }
 
+    if (this.creditNoteCustomerMismatchWarning() && !this.creditNoteCustomerMismatchConfirmed()) {
+      this.paymentSplitError.set('sales.newSale.creditNote.customerMismatchConfirmRequired');
+      return;
+    }
+
     const request: RecordSaleRequest = {
       idempotencyKey: this.createSaleIdempotencyKey(),
       customerId: this.selectedCustomerId(),
@@ -237,6 +242,7 @@ export abstract class NewSalePageCartSubmitService extends NewSalePageCartSelect
       dueAmount,
       items,
       saleDiscount: { type: this.saleDiscountType(), value: this.saleDiscountValue() },
+      creditNoteCustomerMismatchConfirmed: this.creditNoteCustomerMismatchConfirmed() || undefined,
     };
 
     this.salesFacade.recordSale(request);

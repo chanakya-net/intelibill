@@ -84,4 +84,47 @@ describe('SalePaymentSectionComponent', () => {
     expect(inputGroups.length).toBe(2);
     expect(dueInput.disabled).toBe(true);
   });
+
+  it('disables credit note controls in offline mode', () => {
+    TestBed.configureTestingModule({
+      imports: [SalePaymentSectionComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
+    });
+
+    const fixture = TestBed.createComponent(SalePaymentSectionComponent);
+    const component = fixture.componentInstance;
+    component.isOfflineMode = true;
+    component.creditNoteCode = 'CN-123';
+    fixture.detectChanges();
+
+    const input = fixture.nativeElement.querySelector('input[aria-label="Credit note code"]') as HTMLInputElement;
+    const button = fixture.nativeElement.querySelector('p-button button') as HTMLButtonElement;
+
+    expect(input.disabled).toBe(true);
+    expect(button.disabled).toBe(true);
+    expect(fixture.nativeElement.textContent).toContain('sales.newSale.creditNote.offlineDisabled');
+  });
+
+  it('shows mismatch warning and emits confirm or cancel actions', () => {
+    TestBed.configureTestingModule({
+      imports: [SalePaymentSectionComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
+    });
+
+    const fixture = TestBed.createComponent(SalePaymentSectionComponent);
+    const component = fixture.componentInstance;
+    component.verifiedCreditNote = { creditNoteId: 'cn-1', code: 'CN-123', availableBalance: 10, expiresAt: null, status: 'Active', customerName: 'Other customer' };
+    component.creditNoteCustomerMismatchWarning = true;
+    fixture.detectChanges();
+
+    const confirmSpy = vi.fn();
+    const cancelSpy = vi.fn();
+    component.creditNoteCustomerMismatchConfirmedChanged.subscribe(confirmSpy);
+    component.creditNoteCustomerMismatchCancelled.subscribe(cancelSpy);
+
+    component.onCreditNoteCustomerMismatchConfirmedChange(true);
+    component.onCreditNoteCustomerMismatchCancelClick();
+
+    expect(fixture.nativeElement.textContent).toContain('sales.newSale.creditNote.customerMismatchWarning');
+    expect(confirmSpy).toHaveBeenCalledWith(true);
+    expect(cancelSpy).toHaveBeenCalled();
+  });
 });

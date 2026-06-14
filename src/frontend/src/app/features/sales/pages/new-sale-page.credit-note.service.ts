@@ -14,6 +14,7 @@ export abstract class NewSalePageCreditNoteService extends NewSalePageOfflineFlo
     this.creditNoteCode.set(code ?? '');
     this.verifiedCreditNote.set(null);
     this.creditNoteError.set('');
+    this.resetCreditNoteMismatchState();
   }
 
   async onVerifyCreditNote(): Promise<void> {
@@ -29,11 +30,26 @@ export abstract class NewSalePageCreditNoteService extends NewSalePageOfflineFlo
     try {
       const result = await firstValueFrom(this.saleService.verifyCreditNote(code));
       this.verifiedCreditNote.set(result);
+      this.refreshCreditNoteCustomerMismatchState();
     } catch {
       this.creditNoteError.set('sales.newSale.creditNote.verifyError');
     } finally {
       this.isCreditNoteVerifying.set(false);
     }
+  }
+
+  onCreditNoteCustomerMismatchConfirmedChange(confirmed: boolean): void {
+    this.creditNoteCustomerMismatchConfirmed.set(confirmed);
+  }
+
+  onCreditNoteCustomerMismatchCancelled(): void {
+    this.resetCreditNoteMismatchState();
+  }
+
+  override refreshCreditNoteCustomerMismatchState(): void {
+    const warning = this.hasCreditNoteCustomerMismatch(this.verifiedCreditNote());
+    this.creditNoteCustomerMismatchWarning.set(warning);
+    this.creditNoteCustomerMismatchConfirmed.set(!warning);
   }
 
   override resetTransientState(): void {
@@ -46,5 +62,26 @@ export abstract class NewSalePageCreditNoteService extends NewSalePageOfflineFlo
     this.isCreditNoteVerifying.set(false);
     this.verifiedCreditNote.set(null);
     this.creditNoteError.set('');
+    this.resetCreditNoteMismatchState();
+  }
+
+  private hasCreditNoteCustomerMismatch(creditNote: CreditNoteVerifyResponseDto | null): boolean {
+    if (!creditNote) {
+      return false;
+    }
+
+    const saleCustomerName = this.selectedCustomer()?.name.trim().toLowerCase();
+    const creditNoteCustomerName = creditNote.customerName?.trim().toLowerCase();
+
+    if (!saleCustomerName || !creditNoteCustomerName) {
+      return false;
+    }
+
+    return saleCustomerName !== creditNoteCustomerName;
+  }
+
+  private resetCreditNoteMismatchState(): void {
+    this.creditNoteCustomerMismatchWarning.set(false);
+    this.creditNoteCustomerMismatchConfirmed.set(false);
   }
 }

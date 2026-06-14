@@ -115,6 +115,8 @@ export abstract class NewSalePageStateService {
   protected isSyncingPaymentControls = false;
   readonly paymentMethodsForInput: readonly PaymentMethodOption[] = PAYMENT_METHOD_VALUES;
   readonly selectedCustomer = signal<CustomerDto | null>(null);
+  readonly creditNoteCustomerMismatchWarning = signal(false);
+  readonly creditNoteCustomerMismatchConfirmed = signal(false);
   readonly routeCustomerId = (this.route?.snapshot.queryParamMap.get('customerId') ?? '').trim();
   readonly customerSelectionPool = computed<readonly CustomerDto[]>(() => {
     if (this.isOfflineMode()) {
@@ -399,4 +401,5 @@ export abstract class NewSalePageStateService {
   abstract printThermal(saleId: string): void;
   abstract printOfflineA4(): void;
   abstract printOfflineThermal(): void;
+  refreshCreditNoteCustomerMismatchState(): void {}
 }

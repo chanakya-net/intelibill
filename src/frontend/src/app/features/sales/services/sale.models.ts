@@ -222,6 +222,7 @@ export interface RecordSaleRequest {
   readonly items: readonly RecordSaleItemRequest[];
   readonly saleDiscount: InstantDiscountRequest | null;
   readonly creditNoteAppliedAmount?: number;
+  readonly creditNoteCustomerMismatchConfirmed?: boolean;
 }
 
 export interface ReserveInvoiceLeaseRequest {

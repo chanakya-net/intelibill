@@ -1061,7 +1061,12 @@
         "balance": "Available balance",
         "expiry": "Expires",
         "verifyError": "Unable to verify credit note. Check the code and try again.",
-        "status": "Status"
+        "status": "Status",
+        "offlineDisabled": "Credit note redemption is unavailable while offline.",
+        "customerMismatchWarning": "The credit note belongs to a different customer.",
+        "customerMismatchDetails": "Confirm this mismatch before applying the credit note to this sale.",
+        "confirmMismatchBtn": "Confirm mismatch",
+        "customerMismatchConfirmed": "Mismatch confirmed. The sale can be submitted."
       }
     },
     "detail": {
