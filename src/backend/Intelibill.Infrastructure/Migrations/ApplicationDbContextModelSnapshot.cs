@@ -121,6 +121,10 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("character varying(1000)")
                         .HasColumnName("reason");
 
+                    b.Property<Guid?>("LinkedCustomerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("linked_customer_id");
+
                     b.Property<Guid>("SaleReturnId")
                         .HasColumnType("uuid")
                         .HasColumnName("sale_return_id");

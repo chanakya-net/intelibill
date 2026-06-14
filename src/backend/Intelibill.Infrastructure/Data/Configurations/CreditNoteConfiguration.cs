@@ -36,6 +36,9 @@ internal sealed class CreditNoteConfiguration : IEntityTypeConfiguration<CreditN
             .IsRequired()
             .HasMaxLength(1000);
 
+        builder.Property(c => c.LinkedCustomerId)
+            .HasColumnName("linked_customer_id");
+
         builder.Property(c => c.VoidReason)
             .HasMaxLength(500);
 
