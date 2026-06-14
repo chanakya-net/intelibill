@@ -8,12 +8,14 @@ using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Domain.ValueObjects;
+using System.Collections.Concurrent;
 using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Application.Features.Sales.Commands.RecordSale;
 
 public sealed class RecordSaleCommandHandler
 {
+    private static readonly ConcurrentDictionary<Guid, SemaphoreSlim> CreditNoteRedemptionLocks = new();
     private readonly ISaleLineValidator saleLineValidator;
     private readonly ISalePricingCalculator salePricingCalculator;
     private readonly ICustomerResolver customerResolver;
@@ -45,6 +47,9 @@ public sealed class RecordSaleCommandHandler
         this.creditNoteRepository = creditNoteRepository;
         this.unitOfWork = unitOfWork;
     }
+
+    private static SemaphoreSlim GetCreditNoteLock(Guid shopId) =>
+        CreditNoteRedemptionLocks.GetOrAdd(shopId, _ => new SemaphoreSlim(1, 1));
 
     public async Task<ErrorOr<SaleDto>> HandleAsync(RecordSaleCommand command, CancellationToken cancellationToken)
     {
@@ -156,15 +161,10 @@ public sealed class RecordSaleCommandHandler
         var sale = saleOrError.Value;
 
         var hasCreditNoteRedemption = command.CreditNoteAppliedAmount > 0m;
-        Guid? redemptionNoteId = null;
-        if (hasCreditNoteRedemption)
-        {
-            var note = await GetRedeemableCreditNoteAsync(command.ShopId, sale.Id, command.CreditNoteAppliedAmount, cancellationToken);
-            if (note.IsError) return note.Errors;
-
-            redemptionNoteId = note.Value!.Id;
-        }
-
+        var creditNoteTransactionStarted = false;
+        var creditNoteTransactionCommitted = false;
+        SemaphoreSlim? creditNoteSemaphore = null;
+        CreditNote? creditNote = null;
         foreach (var line in validatedLines.Where(x => x.LineType == SaleLineType.Goods))
         {
             var cmdItem = line.Command;
@@ -182,7 +182,6 @@ public sealed class RecordSaleCommandHandler
             await stockTransactionRepository.AddAsync(txResult.Value, cancellationToken);
         }
 
-        await saleRepository.AddAsync(sale, cancellationToken);
         if (sale.DueAmount > 0 && sale.CustomerId.HasValue)
         {
             var ledgerResult = CustomerLedgerEntry.Create(
@@ -202,28 +201,49 @@ public sealed class RecordSaleCommandHandler
 
         try
         {
-            if (hasCreditNoteRedemption && redemptionNoteId.HasValue)
+            if (hasCreditNoteRedemption)
             {
-                var noteForSave = await creditNoteRepository.GetByIdWithRedemptionsAsync(command.ShopId, redemptionNoteId.Value, cancellationToken);
-                if (noteForSave is null || noteForSave.AvailableBalance < command.CreditNoteAppliedAmount)
-                    return Errors.CreditNote.InsufficientAvailableBalance;
+                creditNoteSemaphore = GetCreditNoteLock(command.ShopId);
+                await creditNoteSemaphore.WaitAsync(cancellationToken);
+
+                await unitOfWork.BeginTransactionAsync(cancellationToken);
+                creditNoteTransactionStarted = true;
+
+                var noteOrError = await GetRedeemableCreditNoteAsync(
+                    command.ShopId,
+                    command.CreditNoteAppliedAmount,
+                    cancellationToken);
+                if (noteOrError.IsError)
+                    return noteOrError.Errors;
+
+                creditNote = noteOrError.Value;
             }
 
+            await saleRepository.AddAsync(sale, cancellationToken);
             await unitOfWork.SaveChangesAsync(cancellationToken);
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            if (!hasCreditNoteRedemption)
-                throw;
 
-            if (redemptionNoteId is not null)
+            if (hasCreditNoteRedemption)
             {
-                var note = await creditNoteRepository.GetByIdWithRedemptionsAsync(command.ShopId, redemptionNoteId.Value, cancellationToken);
-                if (note is null || note.AvailableBalance < command.CreditNoteAppliedAmount)
+                var redeemedAt = sale.SoldAt;
+                var applied = await creditNoteRepository.TryApplyRedemptionAsync(
+                    command.ShopId,
+                    creditNote!.Id,
+                    sale.Id,
+                    command.CreditNoteAppliedAmount,
+                    redeemedAt,
+                    cancellationToken);
+                if (!applied)
+                {
                     return Errors.CreditNote.InsufficientAvailableBalance;
+                }
             }
 
-            return Errors.CreditNote.RedeemConflict;
+            if (hasCreditNoteRedemption)
+            {
+                await unitOfWork.CommitTransactionAsync(cancellationToken);
+                creditNoteTransactionCommitted = true;
+            }
+            return saleDtoBuilder.BuildSaleDto(sale, itemNameById, sale.Warnings);
         }
         catch (DbUpdateException)
         {
@@ -236,22 +256,28 @@ public sealed class RecordSaleCommandHandler
 
             return await saleDtoBuilder.BuildSaleDtoAsync(concurrentSale, concurrentSale.Warnings, cancellationToken);
         }
+        finally
+        {
+            if (creditNoteSemaphore is not null)
+            {
+                creditNoteSemaphore.Release();
+            }
 
-        return saleDtoBuilder.BuildSaleDto(sale, itemNameById, sale.Warnings);
+            if (hasCreditNoteRedemption && creditNoteTransactionStarted && !creditNoteTransactionCommitted)
+            {
+                await unitOfWork.RollbackTransactionAsync(cancellationToken);
+            }
+        }
     }
 
     private async Task<ErrorOr<CreditNote>> GetRedeemableCreditNoteAsync(
         Guid shopId,
-        Guid saleId,
         decimal requestedAmount,
         CancellationToken cancellationToken)
     {
-        var note = await creditNoteRepository.GetForRedemptionAsync(shopId, requestedAmount, cancellationToken);
+        var note = await creditNoteRepository.GetForRedemptionForUpdateAsync(shopId, requestedAmount, cancellationToken);
         if (note is null)
             return Errors.CreditNote.InsufficientAvailableBalance;
-
-        var redeemResult = note.Redeem(shopId, saleId, requestedAmount);
-        if (redeemResult.IsError) return redeemResult.Errors;
 
         return note;
     }

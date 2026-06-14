@@ -43,11 +43,6 @@ internal sealed class CreditNoteConfiguration : IEntityTypeConfiguration<CreditN
             .HasDefaultValue(false)
             .IsRequired();
 
-        builder.Property<uint>("xmin")
-            .IsRowVersion()
-            .HasColumnName("xmin")
-            .HasColumnType("xid");
-
         builder.HasIndex(c => new { c.ShopId, c.Code }).IsUnique();
         builder.HasIndex(c => new { c.ShopId, c.SaleReturnId });
         builder.HasIndex(c => new { c.ShopId, c.IsVoided });

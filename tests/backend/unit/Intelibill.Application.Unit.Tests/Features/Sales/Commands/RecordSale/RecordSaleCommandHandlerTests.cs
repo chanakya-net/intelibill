@@ -504,8 +504,16 @@ public class RecordSaleCommandHandlerTests
         _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>())
             .Returns(new SaleLineValidationResult(new List<ValidatedSaleLine> { line }, itemNameById));
 
-        _creditNoteRepository.GetForRedemptionAsync(shopId, 100m, Arg.Any<CancellationToken>())
+        _creditNoteRepository.GetForRedemptionForUpdateAsync(shopId, 100m, Arg.Any<CancellationToken>())
             .Returns((CreditNote?)null);
+        _creditNoteRepository.TryApplyRedemptionAsync(
+            shopId,
+            Arg.Any<Guid>(),
+            Arg.Any<Guid>(),
+            100m,
+            Arg.Any<DateTimeOffset>(),
+            Arg.Any<CancellationToken>())
+            .Returns(false);
 
         var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
 
@@ -515,7 +523,7 @@ public class RecordSaleCommandHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_WhenCreditNoteConcurrencyConflict_ReturnsRedeemConflict()
+    public async Task HandleAsync_WhenCreditNoteRedemptionFailsAfterReservation_ReturnsInsufficientBalance()
     {
         var shopId = Guid.NewGuid();
         var actorId = Guid.NewGuid();
@@ -535,18 +543,21 @@ public class RecordSaleCommandHandlerTests
             .Returns(new SaleLineValidationResult(new List<ValidatedSaleLine> { line }, itemNameById));
 
         var note = CreateCreditNote(shopId, Guid.NewGuid(), "CN-001", 200m);
-        _creditNoteRepository.GetForRedemptionAsync(shopId, 100m, Arg.Any<CancellationToken>())
+        _creditNoteRepository.GetForRedemptionForUpdateAsync(shopId, 100m, Arg.Any<CancellationToken>())
             .Returns(note);
-        _creditNoteRepository.GetByIdWithRedemptionsAsync(shopId, note.Id, Arg.Any<CancellationToken>())
-            .Returns(note);
-
-        _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>())
-            .Returns(Task.FromException<int>(new DbUpdateConcurrencyException("Concurrent update")));
+        _creditNoteRepository.TryApplyRedemptionAsync(
+            shopId,
+            note.Id,
+            Arg.Any<Guid>(),
+            100m,
+            Arg.Any<DateTimeOffset>(),
+            Arg.Any<CancellationToken>())
+            .Returns(false);
 
         var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
 
         Assert.True(result.IsError);
-        Assert.Equal(Errors.CreditNote.RedeemConflict.Code, result.FirstError.Code);
+        Assert.Equal(Errors.CreditNote.InsufficientAvailableBalance.Code, result.FirstError.Code);
     }
 
     [Fact]

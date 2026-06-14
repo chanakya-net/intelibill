@@ -3151,6 +3151,8 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         var creditNoteCode = returnEntry.GetProperty("creditNote").GetProperty("code").GetString();
         Assert.NotNull(creditNoteCode);
         var creditNoteServiceId = await AddServiceAsync(client, ownerToken, "Credit Test Service", 100m);
+        var setupNote = await db.CreditNotes.SingleAsync(c => c.Code == creditNoteCode);
+        Assert.Equal(118m, setupNote.AvailableBalance);
 
         async Task<HttpResponseMessage> sendConcurrentSale()
         {
@@ -3193,12 +3195,38 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         var second = Task.Run(sendConcurrentSale);
         var responses = await Task.WhenAll(first, second);
 
-        var statusCodes = responses.Select(r => r.StatusCode).ToList();
-        Assert.Contains(HttpStatusCode.Conflict, statusCodes);
-        Assert.All(statusCodes, codeValue => Assert.Equal(HttpStatusCode.Conflict, codeValue));
+        var responseBodies = await Task.WhenAll(responses.Select(async r =>
+            $"{r.StatusCode}:{await r.Content.ReadAsStringAsync()}"));
+        var statusSummary = string.Join(", ", responseBodies);
+        Console.WriteLine(statusSummary);
 
-        var dbNote = await db.CreditNotes.SingleAsync(c => c.Code == creditNoteCode);
-        Assert.InRange(dbNote.AvailableBalance, 0m, 118m);
+        var statusCodes = responses.Select(r => r.StatusCode).ToList();
+        Assert.True(statusCodes.Count(codeValue => codeValue == HttpStatusCode.Created) == 1, statusSummary);
+        Assert.Contains(HttpStatusCode.Created, statusCodes);
+        Assert.True(statusCodes.Count(codeValue => codeValue != HttpStatusCode.Created) == 1, statusSummary);
+
+        var failedResponse = responses.First(r => r.StatusCode != HttpStatusCode.Created);
+        Assert.Equal(HttpStatusCode.Conflict, failedResponse.StatusCode);
+        var failedError = await failedResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.NotEqual(default, failedError);
+        Assert.True(failedError.TryGetProperty("errors", out var failedErrors) && failedErrors.ValueKind == JsonValueKind.Array);
+        var failedErrorCodes = failedErrors.EnumerateArray()
+            .Select(error => error.GetProperty("code").GetString())
+            .ToList();
+        Assert.True(
+            failedErrorCodes.Contains("CreditNote.RedeemConflict") || failedErrorCodes.Contains("CreditNote.InsufficientBalance"),
+            "Expected redemption failure to be clearly reported.");
+        Assert.DoesNotContain("CreditNote.NotFound", failedErrorCodes);
+
+        await using var verificationScope = _factory.Services.CreateAsyncScope();
+        var verificationDb = verificationScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var dbNote = await verificationDb.CreditNotes.SingleAsync(c => c.Code == creditNoteCode);
+        var dbRedemptions = await verificationDb.CreditNoteRedemptions
+            .Where(r => r.CreditNoteId == dbNote.Id)
+            .ToListAsync();
+
+        Assert.Equal(18m, dbNote.AvailableBalance);
+        Assert.Single(dbRedemptions);
     }
 
     [Fact]

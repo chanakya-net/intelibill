@@ -11,6 +11,17 @@ public interface ICreditNoteRepository : IRepository<CreditNote>
     Task<IReadOnlyList<CreditNote>> GetByReturnIdsAsync(Guid shopId, IReadOnlyCollection<Guid> saleReturnIds, CancellationToken cancellationToken = default);
     Task<CreditNote?> GetByIdWithRedemptionsAsync(Guid shopId, Guid id, CancellationToken cancellationToken = default);
     Task<CreditNote?> GetForRedemptionAsync(Guid shopId, decimal requestedAmount, CancellationToken cancellationToken = default);
+    Task<CreditNote?> GetForRedemptionForUpdateAsync(
+        Guid shopId,
+        decimal requestedAmount,
+        CancellationToken cancellationToken = default);
+    Task<bool> TryApplyRedemptionAsync(
+        Guid shopId,
+        Guid creditNoteId,
+        Guid saleId,
+        decimal amount,
+        DateTimeOffset redeemedAt,
+        CancellationToken cancellationToken = default);
 
     Task<(IReadOnlyList<CreditNoteListRow> Items, int TotalCount)> GetPagedAsync(
         Guid shopId,

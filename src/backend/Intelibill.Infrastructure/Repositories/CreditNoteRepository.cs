@@ -45,6 +45,43 @@ internal sealed class CreditNoteRepository(ApplicationDbContext context)
             .Include(c => c.Redemptions)
             .FirstOrDefaultAsync(c => c.ShopId == shopId && c.Id == id, cancellationToken);
 
+    public async Task<CreditNote?> GetForRedemptionForUpdateAsync(Guid shopId, decimal requestedAmount, CancellationToken cancellationToken = default)
+    {
+        return await GetForRedemptionAsync(shopId, requestedAmount, cancellationToken);
+    }
+
+    public async Task<bool> TryApplyRedemptionAsync(
+        Guid shopId,
+        Guid creditNoteId,
+        Guid saleId,
+        decimal amount,
+        DateTimeOffset redeemedAt,
+        CancellationToken cancellationToken = default)
+    {
+        var note = await DbSet
+            .FirstOrDefaultAsync(c =>
+                c.ShopId == shopId &&
+                c.Id == creditNoteId &&
+                !c.IsVoided &&
+                (c.ExpiresAt == null || c.ExpiresAt >= redeemedAt) &&
+                c.AvailableBalance >= amount,
+                cancellationToken);
+
+        if (note is null)
+            return false;
+
+        var redemptionResult = note.Redeem(shopId, saleId, amount);
+        if (redemptionResult.IsError)
+        {
+            return false;
+        }
+
+        _context.CreditNoteRedemptions.Add(redemptionResult.Value);
+
+        var result = await _context.SaveChangesAsync(cancellationToken);
+        return result > 0;
+    }
+
     public async Task<CreditNote?> GetForRedemptionAsync(Guid shopId, decimal requestedAmount, CancellationToken cancellationToken = default)
     {
         var now = DateTimeOffset.UtcNow;
