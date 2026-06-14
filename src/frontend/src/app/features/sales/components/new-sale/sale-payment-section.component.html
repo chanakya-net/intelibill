@@ -88,6 +88,50 @@
             {{ 'sales.newSale.creditNote.expiry' | transloco }}: {{ verifiedCreditNote.expiresAt | date:'mediumDate' }}
           </p>
         }
+        <div class="mt-2">
+          <p-button
+            [label]="'sales.newSale.creditNote.applyBtn' | transloco"
+            severity="success"
+            size="small"
+            [disabled]="verifiedCreditNote ? appliedCreditNotes.some((note) => note.code === verifiedCreditNote?.code) : true"
+            (click)="onCreditNoteApplyClick()"
+          />
+        </div>
+      </div>
+    }
+
+    @if (appliedCreditNotes.length > 0) {
+      <div class="credit-note-applied-list mt-3 flex flex-col gap-2">
+        <div class="text-xs text-slate-500">
+          {{ 'sales.newSale.creditNote.appliedTotal' | transloco }}: ₹{{ appliedCreditNotes.reduce((sum, note) => sum + note.amount, 0) | number:'1.2-2' }}
+        </div>
+        @for (note of appliedCreditNotes; track note.creditNoteId) {
+          <div class="p-2 rounded border border-slate-200 bg-white flex flex-col gap-2">
+            <div class="flex items-center justify-between gap-2">
+              <div>
+                <p class="font-medium text-slate-700">{{ note.code }}</p>
+                <p class="text-xs text-slate-500">{{ note.status }}</p>
+              </div>
+              <p-button
+                [label]="'common.remove' | transloco"
+                severity="secondary"
+                [text]="true"
+                size="small"
+                (click)="onAppliedCreditNoteRemoveClick(note.creditNoteId)"
+              />
+            </div>
+            <p-inputgroup [pt]="currencyGroupPt">
+              <p-inputgroup-addon [pt]="currencyAddonPt">{{ 'common.currencySymbol' | transloco }}</p-inputgroup-addon>
+              <p-inputNumber
+                [ngModel]="note.amount"
+                (ngModelChange)="onAppliedCreditNoteAmountChange(note.creditNoteId, $event)"
+                [min]="0"
+                [max]="note.availableBalance"
+                [pt]="currencyInputPt"
+              />
+            </p-inputgroup>
+          </div>
+        }
       </div>
     }
 

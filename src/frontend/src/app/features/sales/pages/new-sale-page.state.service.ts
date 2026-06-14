@@ -12,6 +12,8 @@ import { InventoryService } from '../../inventory/services/inventory.service';
 import { AvailableBatchDto } from '../../inventory/services/inventory.models';
 import { PAYMENT_METHOD_VALUES, PaymentMethod, SellableDto } from '../services/sale.models';
 import type {
+  AppliedCreditNote,
+  CreditNoteRedemptionRequest,
   SalePreviewDto,
   SalePreviewLineDto,
   ServiceCartLine,
@@ -266,6 +268,10 @@ export abstract class NewSalePageStateService {
   readonly loadingCustomers = computed(() => this.readFacadeValue(this.customersFacade.loadingCustomers));
 
   readonly totalDiscountAmount = computed(() => this.checkoutPreview()?.totalDiscountAmount ?? 0);
+  readonly appliedCreditNotes = signal<AppliedCreditNote[]>([]);
+  readonly totalAppliedCreditNoteAmount = computed(() =>
+    this.appliedCreditNotes().reduce((sum, note) => sum + note.amount, 0)
+  );
   readonly batchPickerQuantity = signal(1);
 
   readonly isLineDiscountEditorOpenFn = (itemId: string): boolean => this.isLineDiscountEditorOpen(itemId);
@@ -338,6 +344,62 @@ export abstract class NewSalePageStateService {
 
   protected readFacadeValue<T>(value: T | (() => T)): T {
     return typeof value === 'function' ? (value as () => T)() : value;
+  }
+
+  onApplyVerifiedCreditNote(): void {}
+
+  onAppliedCreditNoteAmountChange(creditNoteId: string, amount: number | null | undefined): void {
+    this.appliedCreditNotes.update((notes) =>
+      notes.map((note) =>
+        note.creditNoteId === creditNoteId
+          ? { ...note, amount: this.normalizeCreditNoteAmount(note, amount) }
+          : note
+      )
+    );
+    this.reconcilePaymentSplitAfterCreditNoteChange();
+  }
+
+  onRemoveAppliedCreditNote(creditNoteId: string): void {
+    this.appliedCreditNotes.update((notes) => notes.filter((note) => note.creditNoteId !== creditNoteId));
+    this.reconcilePaymentSplitAfterCreditNoteChange();
+  }
+
+  protected addAppliedCreditNote(note: AppliedCreditNote): void {
+    this.appliedCreditNotes.update((notes) => [...notes, note]);
+    this.reconcilePaymentSplitAfterCreditNoteChange();
+  }
+
+  protected clearAppliedCreditNotes(): void {
+    this.appliedCreditNotes.set([]);
+  }
+
+  protected hasAppliedCreditNoteCode(code: string): boolean {
+    return this.appliedCreditNotes().some((note) => note.code === code);
+  }
+
+  protected normalizeCreditNoteAmount(note: AppliedCreditNote, amount: number | null | undefined): number {
+    return this.roundAmount(Math.max(0, Math.min(Number(amount ?? 0), note.availableBalance)));
+  }
+
+  protected remainingPayableAmount(): number {
+    return this.roundAmount(Math.max(0, this.totalAmount() - this.totalAppliedCreditNoteAmount()));
+  }
+
+  protected reconcilePaymentSplitAfterCreditNoteChange(): void {
+    const total = this.remainingPayableAmount();
+    if (this.lastEditedPaymentField() === 'paid') {
+      this.syncPaymentSplitFromPaid(this.paymentForm.controls.paidAmount.value, total);
+      return;
+    }
+    this.syncPaymentSplitFromDue(this.paymentForm.controls.dueAmount.value, total);
+  }
+
+  protected buildCreditNoteRedemptions(): CreditNoteRedemptionRequest[] {
+    return this.appliedCreditNotes().map((note) => ({
+      creditNoteId: note.creditNoteId,
+      code: note.code,
+      amount: note.amount,
+    }));
   }
 
   abstract onAddToCart(): void;

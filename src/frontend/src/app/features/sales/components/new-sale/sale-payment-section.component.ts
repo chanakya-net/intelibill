@@ -10,7 +10,7 @@ import { InputTextModule } from 'primeng/inputtext';
 import { SelectModule } from 'primeng/select';
 import { TranslocoPipe } from '@ngneat/transloco';
 
-import { CreditNoteVerifyResponseDto, PaymentMethod } from '../../../../features/sales/services/sale.models';
+import { AppliedCreditNote, CreditNoteVerifyResponseDto, PaymentMethod } from '../../../../features/sales/services/sale.models';
 
 export interface PaymentMethodOption {
   readonly value: number;
@@ -52,6 +52,7 @@ export class SalePaymentSectionComponent {
   @Input() isCreditNoteVerifying = false;
   @Input() verifiedCreditNote: CreditNoteVerifyResponseDto | null = null;
   @Input() creditNoteError = '';
+  @Input() appliedCreditNotes: readonly AppliedCreditNote[] = [];
 
   @Output() methodChanged = new EventEmitter<PaymentMethod>();
   @Output() paidAmountChanged = new EventEmitter<number | null>();
@@ -60,6 +61,9 @@ export class SalePaymentSectionComponent {
   // Credit note verification outputs
   @Output() creditNoteCodeChanged = new EventEmitter<string>();
   @Output() creditNoteVerifyRequested = new EventEmitter<void>();
+  @Output() creditNoteApplyRequested = new EventEmitter<void>();
+  @Output() appliedCreditNoteAmountChanged = new EventEmitter<{ creditNoteId: string; amount: number | null }>();
+  @Output() appliedCreditNoteRemoved = new EventEmitter<string>();
 
   onMethodChange(value: PaymentMethod): void {
     this.methodChanged.emit(value);
@@ -79,5 +83,17 @@ export class SalePaymentSectionComponent {
 
   onCreditNoteVerifyClick(): void {
     this.creditNoteVerifyRequested.emit();
+  }
+
+  onCreditNoteApplyClick(): void {
+    this.creditNoteApplyRequested.emit();
+  }
+
+  onAppliedCreditNoteAmountChange(creditNoteId: string, amount: number | null): void {
+    this.appliedCreditNoteAmountChanged.emit({ creditNoteId, amount });
+  }
+
+  onAppliedCreditNoteRemoveClick(creditNoteId: string): void {
+    this.appliedCreditNoteRemoved.emit(creditNoteId);
   }
 }

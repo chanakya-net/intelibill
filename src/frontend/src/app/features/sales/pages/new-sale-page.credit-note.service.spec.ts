@@ -66,8 +66,6 @@ class TestCreditNoteService extends NewSalePageCreditNoteService {
   override toFiniteAmount(): number { return 0; }
   override roundAmount(value: number): number { return value; }
   override areAmountsEqual(left: number, right: number): boolean { return left === right; }
-  override syncPaymentSplitFromPaid(): void {}
-  override syncPaymentSplitFromDue(): void {}
   override enforceNoCustomerCreditRestrictions(): void {}
   override resetSearchAndPickerState(): void {}
   override applyProductDefaultsForLine(): void {}
@@ -243,5 +241,45 @@ describe('NewSalePageCreditNoteService', () => {
       paidAmount: 0,
       dueAmount: 0,
     });
+  });
+
+  it('applies verified notes, prevents duplicates, edits amounts, and removes notes', () => {
+    const { service } = buildService();
+    service.checkoutPreview.set({
+      totalAmount: 300,
+      totalTaxableAmount: 300,
+      totalTaxAmount: 0,
+      totalDiscountAmount: 0,
+      saleLevelEligibleSubtotal: 300,
+      configuredSaleRule: null,
+      lines: [],
+      infos: [],
+      warnings: [],
+    });
+    service.verifiedCreditNote.set(verifiedNote);
+    service.onApplyVerifiedCreditNote();
+
+    expect(service.appliedCreditNotes()).toHaveLength(1);
+    expect(service.totalAppliedCreditNoteAmount()).toBe(250);
+    expect(service.verifiedCreditNote()).toBeNull();
+
+    service.verifiedCreditNote.set({ ...verifiedNote, creditNoteId: 'cn-2', code: 'CN-DEF-456', availableBalance: 90 });
+    service.onApplyVerifiedCreditNote();
+    expect(service.appliedCreditNotes()).toHaveLength(2);
+    expect(service.totalAppliedCreditNoteAmount()).toBe(300);
+
+    service.lastEditedPaymentField.set('paid');
+    service.paymentForm.controls.paidAmount.setValue(50);
+    service.paymentForm.controls.dueAmount.setValue(130);
+    service.onAppliedCreditNoteAmountChange('cn-1', 120);
+
+    expect(service.appliedCreditNotes()[0].amount).toBe(120);
+    expect(service.appliedCreditNotes()[1].amount).toBe(50);
+    expect(service.totalAppliedCreditNoteAmount()).toBe(170);
+
+    service.onRemoveAppliedCreditNote('cn-1');
+    expect(service.appliedCreditNotes()).toHaveLength(1);
+    expect(service.appliedCreditNotes()[0].creditNoteId).toBe('cn-2');
+    expect(service.totalAppliedCreditNoteAmount()).toBe(50);
   });
 });

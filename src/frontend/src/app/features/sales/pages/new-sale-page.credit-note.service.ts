@@ -16,6 +16,28 @@ export abstract class NewSalePageCreditNoteService extends NewSalePageOfflineFlo
     this.creditNoteError.set('');
   }
 
+  override onApplyVerifiedCreditNote(): void {
+    const verified = this.verifiedCreditNote();
+    if (!verified || this.hasAppliedCreditNoteCode(verified.code)) {
+      return;
+    }
+
+    const amount = this.roundAmount(Math.max(0, Math.min(verified.availableBalance, this.remainingPayableAmount())));
+    if (amount <= 0) {
+      return;
+    }
+
+    this.addAppliedCreditNote({
+      creditNoteId: verified.creditNoteId,
+      code: verified.code,
+      availableBalance: verified.availableBalance,
+      expiresAt: verified.expiresAt,
+      status: verified.status,
+      amount,
+    });
+    this.verifiedCreditNote.set(null);
+  }
+
   async onVerifyCreditNote(): Promise<void> {
     const code = this.creditNoteCode().trim();
     if (!code) {
@@ -38,13 +60,10 @@ export abstract class NewSalePageCreditNoteService extends NewSalePageOfflineFlo
 
   override resetTransientState(): void {
     super.resetTransientState();
-    this.resetCreditNoteState();
-  }
-
-  private resetCreditNoteState(): void {
     this.creditNoteCode.set('');
     this.isCreditNoteVerifying.set(false);
     this.verifiedCreditNote.set(null);
     this.creditNoteError.set('');
+    this.clearAppliedCreditNotes();
   }
 }
