@@ -1,4 +1,4 @@
-import { effect, runInInjectionContext } from '@angular/core';
+import { effect, runInInjectionContext, untracked } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { NewSalePageStateService } from './new-sale-page.state.service';
@@ -106,7 +106,7 @@ export abstract class NewSalePageLifecycleService extends NewSalePageStateServic
     runInInjectionContext(this.injector, () => {
       effect(() => {
         const total = this.totalAmount();
-        if (this.appliedCreditNotes().length > 0) {
+        if (untracked(() => this.appliedCreditNotes().length) > 0) {
           if (total <= 0) {
             this.clearAppliedCreditNotes();
           } else {

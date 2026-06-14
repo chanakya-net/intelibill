@@ -438,4 +438,42 @@ describe('NewSalePageCreditNoteService', () => {
     expect(service.paymentForm.controls.paidAmount.value).toBe(0);
     expect(service.paymentForm.controls.dueAmount.value).toBe(0);
   });
+
+  it('clears applied credit notes and payment split when cart total reaches zero', () => {
+    const { service } = buildService();
+    service.checkoutPreview.set({
+      totalAmount: 300,
+      totalTaxableAmount: 300,
+      totalTaxAmount: 0,
+      totalDiscountAmount: 0,
+      saleLevelEligibleSubtotal: 300,
+      configuredSaleRule: null,
+      lines: [],
+      infos: [],
+      warnings: [],
+    });
+
+    service.verifiedCreditNote.set(verifiedNote);
+    service.lastEditedPaymentField.set('paid');
+    service.paymentForm.controls.paidAmount.setValue(200);
+    service.paymentForm.controls.dueAmount.setValue(100);
+    service.onApplyVerifiedCreditNote();
+
+    service.checkoutPreview.set({
+      totalAmount: 0,
+      totalTaxableAmount: 0,
+      totalTaxAmount: 0,
+      totalDiscountAmount: 0,
+      saleLevelEligibleSubtotal: 0,
+      configuredSaleRule: null,
+      lines: [],
+      infos: [],
+      warnings: [],
+    });
+    (service as unknown as { reconcileAppliedCreditNotesAgainstCartTotal: () => void }).reconcileAppliedCreditNotesAgainstCartTotal();
+
+    expect(service.appliedCreditNotes()).toHaveLength(0);
+    expect(service.paymentForm.controls.paidAmount.value).toBe(0);
+    expect(service.paymentForm.controls.dueAmount.value).toBe(0);
+  });
 });

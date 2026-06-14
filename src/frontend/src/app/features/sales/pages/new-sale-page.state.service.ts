@@ -1,4 +1,4 @@
-import { computed, DestroyRef, effect, inject, Injectable, Injector, signal } from '@angular/core';
+import { computed, DestroyRef, inject, Injectable, Injector, signal } from '@angular/core';
 import { FormBuilder, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CURRENCY_ADDON_PT, CURRENCY_INPUT_GROUP_PT, CURRENCY_INPUT_NUMBER_PT } from '../../../shared/primeng-pt.config';
@@ -372,6 +372,7 @@ export abstract class NewSalePageStateService {
 
   protected clearAppliedCreditNotes(): void {
     this.appliedCreditNotes.set([]);
+    this.reconcilePaymentSplitAfterCreditNoteChange();
   }
 
   protected hasAppliedCreditNoteCode(code: string): boolean {
@@ -386,14 +387,10 @@ export abstract class NewSalePageStateService {
       }
       return;
     }
+    let hasChanged = false;
 
     this.appliedCreditNotes.update((notes) => {
-      if (notes.length === 0 || totalAmount <= 0) {
-        return notes;
-      }
-
       let remaining = this.roundAmount(totalAmount);
-      let hasChanged = false;
       const normalized = notes.map((note) => {
         const amount = this.roundAmount(Math.max(0, Math.min(note.amount, note.availableBalance, remaining)));
         remaining = this.roundAmount(Math.max(0, remaining - amount));
@@ -413,7 +410,9 @@ export abstract class NewSalePageStateService {
       return notes;
     });
 
-    this.reconcilePaymentSplitAfterCreditNoteChange();
+    if (hasChanged) {
+      this.reconcilePaymentSplitAfterCreditNoteChange();
+    }
   }
 
   protected normalizeCreditNoteAmount(note: AppliedCreditNote, amount: number | null | undefined): number {
