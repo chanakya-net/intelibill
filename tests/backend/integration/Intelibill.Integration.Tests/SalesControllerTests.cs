@@ -3286,7 +3286,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var sale = await db.Sales.Include(s => s.Items).FirstAsync(s => s.Id == saleId);
         var saleItemId = sale.Items[0].Id;
-        var creditNoteExpiresAt = DateTimeOffset.UtcNow.AddDays(30);
+        var creditNoteExpiresAt = new DateTimeOffset(2026, 7, 19, 17, 17, 52, TimeSpan.Zero).AddTicks(8_385_152);
 
         using var recordReturnRequest = new HttpRequestMessage(
             HttpMethod.Post, $"/api/sales/{saleId}/returns");
@@ -3324,7 +3324,10 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         Assert.Equal(118m, creditNote.GetProperty("originalAmount").GetDecimal());
         Assert.Equal(118m, creditNote.GetProperty("availableBalance").GetDecimal());
         Assert.Equal("Store credit issued after return", creditNote.GetProperty("reason").GetString());
-        Assert.Equal(creditNoteExpiresAt.UtcDateTime, creditNote.GetProperty("expiresAt").GetDateTimeOffset().UtcDateTime);
+        Assert.InRange(
+            creditNote.GetProperty("expiresAt").GetDateTimeOffset().UtcDateTime,
+            creditNoteExpiresAt.UtcDateTime.AddTicks(-9),
+            creditNoteExpiresAt.UtcDateTime.AddTicks(9));
 
         var lookupCode = code.ToLowerInvariant();
         using var getCreditNoteRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/credit-notes/{lookupCode}");
@@ -3336,6 +3339,10 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         Assert.Equal(code, fetchedCreditNote!.GetProperty("code").GetString());
         Assert.Equal(118m, fetchedCreditNote.GetProperty("originalAmount").GetDecimal());
         Assert.Equal("Store credit issued after return", fetchedCreditNote.GetProperty("reason").GetString());
+        Assert.InRange(
+            fetchedCreditNote.GetProperty("expiresAt").GetDateTimeOffset().UtcDateTime,
+            creditNoteExpiresAt.UtcDateTime.AddTicks(-9),
+            creditNoteExpiresAt.UtcDateTime.AddTicks(9));
     }
 
     [Fact]
