@@ -99,6 +99,7 @@
     "manageSales": "বিক্রয়",
     "newSale": "নতুন বিক্রয়",
     "salesHistory": "ইতিহাস",
+    "creditNotes": "Credit Notes",
     "manageInventory": "ইনভেন্টরি",
     "addNewProduct": "পণ্য",
     "manageServices": "Services",
@@ -904,7 +905,8 @@
       },
       "amount": {
         "due": "বকেয়া",
-        "refund": "ফেরত"
+        "refund": "ফেরত",
+        "creditNoteApplied": "ক্রেডিট নোট প্রয়োগ করা হয়েছে"
       },
       "pagination": {
         "ariaLabel": "বিক্রয় ইতিহাস পৃষ্ঠায়ন",
@@ -1050,7 +1052,27 @@
       "quickAdd": "Quick add",
       "balanceDue": "Balance Due",
       "goodsSection": "Goods",
-      "servicesSection": "Services"
+      "servicesSection": "Services",
+      "creditNote": {
+        "sectionLabel": "Credit Note",
+        "codePlaceholder": "Enter credit note code…",
+        "verifyBtn": "Verify",
+        "verified": "Credit note verified",
+        "balance": "Available balance",
+        "expiry": "Expires",
+        "verifyError": "Unable to verify credit note. Check the code and try again.",
+        "status": "Status",
+        "appliedAmount": "Apply credit note amount",
+        "remove": "Remove credit note",
+        "applyBtn": "Apply note",
+        "appliedTotal": "Applied credit notes total",
+        "offlineDisabled": "Credit note redemption is unavailable while offline.",
+        "customerMismatchWarning": "The credit note belongs to a different customer.",
+        "customerMismatchDetails": "Confirm this mismatch before applying the credit note to this sale.",
+        "confirmMismatchBtn": "Confirm mismatch",
+        "customerMismatchConfirmed": "Mismatch confirmed. The sale can be submitted.",
+        "customerMismatchConfirmRequired": "Please confirm the customer mismatch before submitting."
+      }
     },
     "detail": {
       "title": "বিক্রয় বিবরণ",
@@ -1070,7 +1092,11 @@
       "returnable": "ফেরতযোগ্য",
       "beforeDiscount": "ছাড়ের আগে",
       "discount": "ছাড়",
-      "totalSavings": "মোট সাশ্রয়"
+      "totalSavings": "মোট সাশ্রয়",
+      "settlement": {
+        "creditNoteApplied": "ক্রেডিট নোট সেটেলমেন্ট",
+        "creditNoteCodes": "ক্রেডিট নোট কোড"
+      }
     },
     "invoice": {
       "returnItems": "আইটেম ফেরত দিন",
@@ -1090,6 +1116,8 @@
       "totalAmount": "Total Amount",
       "totalBeforeDiscount": "Subtotal (Before Discount)",
       "discount": "Discount",
+      "creditNoteSettlement": "Credit Note Settlement",
+      "creditNoteSettlementWithCodes": "Credit Note Settlement ({{ codes }})",
       "tax": "Tax",
       "grandTotal": "Grand Total",
       "printAgain": "Print Again",
@@ -1210,12 +1238,145 @@
         },
         "dueReductionOverride": "বকেয়া কমানো ওভাররাইড",
         "overrideReason": "ওভাররাইড কারণ",
-        "payoutMethod": "রিফান্ড পেমেন্ট পদ্ধতি",
+        "payoutDestination": "রিফান্ড পেমেন্ট গন্তব্য",
+        "payoutDestinations": {
+          "cash": "Cash",
+          "upi": "UPI",
+          "card": "Card",
+          "creditNote": "Credit Note"
+        },
         "confirmDueOverride": "বকেয়া ওভাররাইড নিশ্চিত করুন",
         "calculatedEffects": "গণনা করা প্রভাব",
         "warnings": "সতর্কতা",
         "previewBtn": "প্রিভিউ",
-        "recordBtn": "ফেরত রেকর্ড করুন"
+        "recordBtn": "ফেরত রেকর্ড করুন",
+        "successEyebrow": "Credit note issued",
+        "successTitle": "Credit note created",
+        "successDescription": "The return has been recorded and the credit note is ready to print.",
+        "successCodeLabel": "Credit note code",
+        "printCreditNoteBtn": "Print credit note",
+        "creditNoteExpiry": "ক্রেডিট নোট মেয়াদোত্তীর্ণ",
+        "creditNoteExpiryDate": "মেয়াদোত্তীর্ণ তারিখ",
+        "creditNoteExpiryNoExpiry": "কোনো মেয়াদোত্তীর্ণ নেই",
+        "creditNoteExpiry30Days": "30 দিন",
+        "creditNoteExpiry60Days": "60 দিন",
+        "creditNoteExpiry90Days": "90 দিন",
+        "creditNoteExpiryCustom": "কাস্টম তারিখ"
+      }
+    },
+    "creditNotes": {
+      "eyebrow": "বিক্রয় রেকর্ড",
+      "title": "ক্রেডিট নোট",
+      "subtitle": "সক্রিয় দোকানের ক্রেডিট নোট ইতিহাস পর্যালোচনা করুন।",
+      "emptyState": {
+        "title": "No credit notes yet",
+        "description": "Credit notes will appear here once they are created."
+      },
+      "print": {
+        "controlsLabel": "Credit note print actions",
+        "title": "Credit Note",
+        "printAgain": "Print Again",
+        "close": "Close",
+        "detailsSection": "Credit note details",
+        "customerSection": "Customer details",
+        "statusLabel": "Status",
+        "code": "Credit note code",
+        "issueDate": "Issued on",
+        "expiryDate": "Expires on",
+        "invoiceNumber": "Invoice #",
+        "returnNumber": "Return #",
+        "customer": "Customer",
+        "reason": "Reason",
+        "voidReason": "Void reason",
+        "originalAmount": "Original amount",
+        "availableBalance": "Available balance",
+        "expiredMarker": "Credit note is expired",
+        "voidedMarker": "Credit note is voided",
+        "termsLabel": "Terms",
+        "termsBody": "Credit notes are subject to store policy. Balance is redeemable against future purchases until the expiry date.",
+        "status": {
+          "Active": "Active",
+          "Expired": "Expired",
+          "FullyRedeemed": "Fully Redeemed",
+          "Voided": "Voided"
+        }
+      },
+      "verify": {
+        "label": "কোড যাচাই করুন",
+        "placeholder": "ক্রেডিট নোট কোড লিখুন",
+        "action": "যাচাই করুন"
+      },
+      "controls": {
+        "search": "অনুসন্ধান",
+        "searchPlaceholder": "কোড, চালান, রিটার্ন নম্বর বা গ্রাহক দিয়ে অনুসন্ধান করুন",
+        "status": "অবস্থা",
+        "pageSize": "সারি",
+        "clear": "ফিল্টার সাফ করুন"
+      },
+      "filters": {
+        "all": "সব",
+        "active": "সক্রিয়",
+        "fullyRedeemed": "সম্পূর্ণ ব্যবহার হয়েছে",
+        "expired": "মেয়াদ শেষ",
+        "voided": "বাতিল"
+      },
+      "list": {
+        "title": "ক্রেডিট নোট তালিকা",
+        "subtitle": "কোড এবং ব্যালেন্স দেখুন।",
+        "count": "{{total}}টি নোট"
+      },
+      "table": {
+        "code": "কোড",
+        "status": "অবস্থা",
+        "balance": "ব্যালেন্স",
+        "originalAmount": "মূল পরিমাণ",
+        "customer": "গ্রাহক",
+        "invoice": "চালান",
+        "returnNumber": "রিটার্ন নম্বর",
+        "issuedAt": "ইস্যুর সময়"
+      },
+      "status": {
+        "Active": "সক্রিয়",
+        "Voided": "বাতিল",
+        "FullyRedeemed": "সম্পূর্ণ ব্যবহার হয়েছে",
+        "Expired": "মেয়াদ শেষ"
+      },
+      "empty": {
+        "title": "কোনো ক্রেডিট নোট পাওয়া যায়নি",
+        "description": "তালিকা ছোট করতে অনুসন্ধান বা অবস্থা ফিল্টার ব্যবহার করুন।"
+      },
+      "loading": "ক্রেডিট নোট লোড হচ্ছে...",
+      "pagination": {
+        "showing": "{{total}}টি নোট দেখানো হচ্ছে, পৃষ্ঠা {{page}} / {{pages}}"
+      },
+      "detail": {
+        "eyebrow": "নির্বাচিত ক্রেডিট নোট",
+        "subtitle": "ব্যালেন্স এবং গ্রাহক প্রসঙ্গ পর্যালোচনা করুন।",
+        "balance": "ব্যালেন্স",
+        "originalAmount": "মূল পরিমাণ",
+        "expiresAt": "মেয়াদ শেষের তারিখ",
+        "customer": "গ্রাহক",
+        "invoice": "চালান",
+        "returnNumber": "রিটার্ন নম্বর",
+        "reason": "কারণ",
+        "voidReason": "বাতিলের কারণ"
+      },
+      "errors": {
+        "loadFailed": "ক্রেডিট নোট লোড করা যায়নি।",
+        "verifyFailed": "ক্রেডিট নোট যাচাই করা যায়নি।"
+      },
+      "void": {
+        "action": "ক্রেডিট নোট বাতিল করুন",
+        "title": "ক্রেডিট নোট বাতিল করুন",
+        "description": "এটি ক্রেডিট নোটটি বাতিল করবে এবং অডিট ট্রেইল অক্ষত রাখবে।",
+        "reasonLabel": "বাতিলের কারণ",
+        "reasonPlaceholder": "এই ক্রেডিট নোটটি কেন বাতিল করা হচ্ছে তা ব্যাখ্যা করুন",
+        "cancel": "বাতিল",
+        "confirm": "ক্রেডিট নোট বাতিল করুন",
+        "errors": {
+          "reasonRequired": "বাতিলের কারণ প্রয়োজন।",
+          "submitFailed": "ক্রেডিট নোট বাতিল করা যায়নি।"
+        }
       }
     },
     "searchPlaceholder": "বিক্রয় খুঁজুন...",

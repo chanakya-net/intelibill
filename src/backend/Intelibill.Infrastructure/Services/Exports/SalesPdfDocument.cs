@@ -75,6 +75,11 @@ internal sealed class SalesPdfDocument : IDocument
             column.Item().Element(ComposeSummaryMetrics);
 
             column.Item().Element(ComposeTable);
+
+            if (_dataset.ReturnRows.Count > 0)
+            {
+                column.Item().Element(ComposeReturnCreditNoteDetails);
+            }
         });
     }
 
@@ -91,6 +96,8 @@ internal sealed class SalesPdfDocument : IDocument
         var netSales = summaryRows.Sum(r => r.NetSalesAmount);
         var paidAmount = summaryRows.Sum(r => r.PaidAmount);
         var dueAmount = summaryRows.Sum(r => r.DueAmount);
+        var creditNoteAppliedAmount = summaryRows.Sum(r => r.CreditNoteAppliedAmount);
+        var creditNoteIssuedAmount = summaryRows.Sum(r => r.IssuedCreditNoteAmount);
 
         container.Column(column =>
         {
@@ -135,6 +142,12 @@ internal sealed class SalesPdfDocument : IDocument
                 LabelCell("Paid amount");
                 ValueCell(paidAmount.ToString("N2", culture));
 
+                LabelCell("Credit note applied");
+                ValueCell(creditNoteAppliedAmount.ToString("N2", culture));
+
+                LabelCell("Credit notes issued");
+                ValueCell(creditNoteIssuedAmount.ToString("N2", culture));
+
                 LabelCell("Due amount");
                 ValueCell(dueAmount.ToString("N2", culture));
                 LabelCell(string.Empty);
@@ -164,6 +177,45 @@ internal sealed class SalesPdfDocument : IDocument
         });
     }
 
+    private void ComposeReturnCreditNoteDetails(IContainer container)
+    {
+        container.Column(column =>
+        {
+            column.Item().Text("Return Credit Notes").SemiBold();
+            column.Item().Table(table =>
+            {
+                table.ColumnsDefinition(cols =>
+                {
+                    cols.ConstantColumn(62);
+                    cols.ConstantColumn(62);
+                    cols.RelativeColumn();
+                    cols.ConstantColumn(68);
+                    cols.ConstantColumn(62);
+                    cols.ConstantColumn(62);
+                });
+
+                ComposeTableHeader(table, ["Return #", "Invoice", "Credit Note", "Amount", "Remaining", "Voided"]);
+
+                var rowIndex = 0;
+                foreach (var row in _dataset.ReturnRows)
+                {
+                    rowIndex++;
+                    var background = rowIndex % 2 == 0 ? Colors.Grey.Lighten5 : Colors.White;
+
+                    table.Cell().Element(c => TableCell(c, background)).Text(row.ReturnNumber);
+                    table.Cell().Element(c => TableCell(c, background)).Text(row.InvoiceNumber);
+                    table.Cell().Element(c => TableCell(c, background)).Text(row.CreditNoteCode ?? string.Empty);
+                    table.Cell().Element(c => TableCell(c, background).AlignRight())
+                        .Text(row.CreditNoteAmount.ToString("N2", CultureInfo.InvariantCulture));
+                    table.Cell().Element(c => TableCell(c, background).AlignRight())
+                        .Text(row.CreditNoteRemainingBalance.ToString("N2", CultureInfo.InvariantCulture));
+                    table.Cell().Element(c => TableCell(c, background))
+                        .Text(row.IsVoided ? "Yes" : "No");
+                }
+            });
+        });
+    }
+
     private void ComposeSummaryTable(TableDescriptor table)
     {
         table.ColumnsDefinition(cols =>
@@ -174,9 +226,14 @@ internal sealed class SalesPdfDocument : IDocument
             cols.ConstantColumn(52); // Paid
             cols.ConstantColumn(52); // Due
             cols.ConstantColumn(70); // Net
+            cols.ConstantColumn(74); // Credit Note Applied
+            cols.ConstantColumn(74); // Credit Note Issued
+            cols.ConstantColumn(80); // Credit Note Issued Amount
         });
 
-        ComposeTableHeader(table, ["Invoice", "Date", "Customer", "Paid", "Due", "Net"]);
+        ComposeTableHeader(
+            table,
+            ["Invoice", "Date", "Customer", "Paid", "Due", "Net", "CN Applied", "CN Issued", "CN Issued Amount"]);
 
         var rowIndex = 0;
         foreach (var row in _dataset.SummaryRows)
@@ -191,6 +248,11 @@ internal sealed class SalesPdfDocument : IDocument
             table.Cell().Element(c => TableCell(c, background).AlignRight()).Text(row.PaidAmount.ToString("N2", CultureInfo.InvariantCulture));
             table.Cell().Element(c => TableCell(c, background).AlignRight()).Text(row.DueAmount.ToString("N2", CultureInfo.InvariantCulture));
             table.Cell().Element(c => TableCell(c, background).AlignRight()).Text(row.NetSalesAmount.ToString("N2", CultureInfo.InvariantCulture));
+            table.Cell().Element(c => TableCell(c, background).AlignRight())
+                .Text(row.CreditNoteAppliedAmount.ToString("N2", CultureInfo.InvariantCulture));
+            table.Cell().Element(c => TableCell(c, background)).Text(row.IssuedCreditNoteCodes ?? string.Empty);
+            table.Cell().Element(c => TableCell(c, background).AlignRight())
+                .Text(row.IssuedCreditNoteAmount.ToString("N2", CultureInfo.InvariantCulture));
         }
     }
 

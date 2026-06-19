@@ -1,5 +1,6 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Features.CreditNotes.Services;
 using Intelibill.Application.Features.Sales.Services;
 using Intelibill.Application.Features.Sales.Services.Returns;
 using Intelibill.Domain.Entities;
@@ -13,6 +14,8 @@ namespace Intelibill.Application.Features.Sales.Commands.RecordSaleReturn;
 public sealed class RecordSaleReturnCommandHandler(
     ISaleReturnValidator saleReturnValidator,
     ISaleReturnNumberGenerator saleReturnNumberGenerator,
+    ICreditNoteCodeGenerator creditNoteCodeGenerator,
+    ICreditNoteRepository creditNoteRepository,
     IInventoryRepository inventoryRepository,
     IInventoryBatchRepository inventoryBatchRepository,
     IStockTransactionRepository stockTransactionRepository,
@@ -128,7 +131,7 @@ public sealed class RecordSaleReturnCommandHandler(
             validated.Calculation.TotalRefundAmount,
             validated.Calculation.DueReductionAmount,
             validated.Calculation.PayoutAmount,
-            command.PayoutMethod,
+            command.PayoutDestination,
             validated.Calculation.TotalTaxableAmount,
             validated.Calculation.TotalTaxAmount,
             validated.Calculation.CustomerBalanceBefore,
@@ -157,13 +160,51 @@ public sealed class RecordSaleReturnCommandHandler(
             returnCredit = returnCreditResult.Value;
         }
 
+        CreditNote? creditNote = null;
+        if (command.PayoutDestination == ReturnPayoutDestination.CreditNote
+            && validated.Calculation.PayoutAmount > 0m)
+        {
+            var code = await creditNoteCodeGenerator.GenerateAsync(command.ShopId, cancellationToken);
+            var reason = ResolveCreditNoteReason(command, returnNumber);
+            var creditNoteResult = CreditNote.Issue(
+                command.ShopId,
+                saleReturn.Value.Id,
+                validated.Calculation.PayoutAmount,
+                reason,
+                code,
+                command.CreditNoteExpiresAt,
+                validated.Sale.CustomerId);
+
+            if (creditNoteResult.IsError)
+                return creditNoteResult.Errors;
+
+            creditNote = creditNoteResult.Value;
+        }
+
         await saleReturnRepository.AddAsync(saleReturn.Value, cancellationToken);
         if (returnCredit is not null)
             await customerLedgerEntryRepository.AddAsync(returnCredit, cancellationToken);
+        if (creditNote is not null)
+            await creditNoteRepository.AddAsync(creditNote, cancellationToken);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result.Success;
+    }
+
+    private static string ResolveCreditNoteReason(RecordSaleReturnCommand command, string returnNumber)
+    {
+        if (!string.IsNullOrWhiteSpace(command.CreditNoteReason))
+        {
+            return command.CreditNoteReason.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(command.Notes))
+        {
+            return command.Notes.Trim();
+        }
+
+        return $"Return credit from {returnNumber}";
     }
 
     private static ErrorOr<Success> ValidateWarnings(

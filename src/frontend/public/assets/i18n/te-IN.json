@@ -99,6 +99,7 @@
     "manageSales": "అమ్మకాలు",
     "newSale": "కొత్త అమ్మకం",
     "salesHistory": "చరిత్ర",
+    "creditNotes": "Credit Notes",
     "manageInventory": "ఇన్వెంటరీ",
     "addNewProduct": "ఉత్పత్తులు",
     "manageServices": "Services",
@@ -904,7 +905,8 @@
       },
       "amount": {
         "due": "బకాయి",
-        "refund": "వాపసు"
+        "refund": "వాపసు",
+        "creditNoteApplied": "క్రెడిట్ నోట్ వర్తించింది"
       },
       "pagination": {
         "ariaLabel": "అమ్మకాల చరిత్ర పేజినేషన్",
@@ -1050,7 +1052,27 @@
       "quickAdd": "Quick add",
       "balanceDue": "Balance Due",
       "goodsSection": "Goods",
-      "servicesSection": "Services"
+      "servicesSection": "Services",
+      "creditNote": {
+        "sectionLabel": "Credit Note",
+        "codePlaceholder": "Enter credit note code…",
+        "verifyBtn": "Verify",
+        "verified": "Credit note verified",
+        "balance": "Available balance",
+        "expiry": "Expires",
+        "verifyError": "Unable to verify credit note. Check the code and try again.",
+        "status": "Status",
+        "appliedAmount": "Apply credit note amount",
+        "remove": "Remove credit note",
+        "applyBtn": "Apply note",
+        "appliedTotal": "Applied credit notes total",
+        "offlineDisabled": "Credit note redemption is unavailable while offline.",
+        "customerMismatchWarning": "The credit note belongs to a different customer.",
+        "customerMismatchDetails": "Confirm this mismatch before applying the credit note to this sale.",
+        "confirmMismatchBtn": "Confirm mismatch",
+        "customerMismatchConfirmed": "Mismatch confirmed. The sale can be submitted.",
+        "customerMismatchConfirmRequired": "Please confirm the customer mismatch before submitting."
+      }
     },
     "detail": {
       "title": "అమ్మకం వివరాలు",
@@ -1070,7 +1092,11 @@
       "returnable": "తిరిగి ఇవ్వదగినది",
       "beforeDiscount": "తగ్గింపుకు ముందు",
       "discount": "తగ్గింపు",
-      "totalSavings": "మొత్తం ఆదా"
+      "totalSavings": "మొత్తం ఆదా",
+      "settlement": {
+        "creditNoteApplied": "క్రెడిట్ నోట్ సెటిల్‌మెంట్",
+        "creditNoteCodes": "క్రెడిట్ నోట్ కోడ్‌లు"
+      }
     },
     "invoice": {
       "returnItems": "ఐటమ్‌లను తిరిగి ఇవ్వండి",
@@ -1090,6 +1116,8 @@
       "totalAmount": "Total Amount",
       "totalBeforeDiscount": "Subtotal (Before Discount)",
       "discount": "Discount",
+      "creditNoteSettlement": "Credit Note Settlement",
+      "creditNoteSettlementWithCodes": "Credit Note Settlement ({{ codes }})",
       "tax": "Tax",
       "grandTotal": "Grand Total",
       "printAgain": "Print Again",
@@ -1210,12 +1238,145 @@
         },
         "dueReductionOverride": "కారణంగా తగ్గింపు భర్తీ",
         "overrideReason": "కారణాన్ని భర్తీ చేయండి",
-        "payoutMethod": "రీఫండ్ చెల్లింపు పద్ధతి",
+        "payoutDestination": "రీఫండ్ చెల్లింపు గమ్యం",
+        "payoutDestinations": {
+          "cash": "Cash",
+          "upi": "UPI",
+          "card": "Card",
+          "creditNote": "Credit Note"
+        },
         "confirmDueOverride": "ఓవర్‌రైడ్ కారణంగా నిర్ధారించండి",
+        "creditNoteExpiryNoExpiry": "గడువు లేనిది",
+        "creditNoteExpiry30Days": "30 రోజులు",
+        "creditNoteExpiry60Days": "60 రోజులు",
+        "creditNoteExpiry90Days": "90 రోజులు",
+        "creditNoteExpiryCustom": "కస్టమ్ తేదీ",
         "calculatedEffects": "లెక్కించిన ప్రభావాలు",
         "warnings": "హెచ్చరికలు",
         "previewBtn": "ప్రివ్యూ",
-        "recordBtn": "రికార్డ్ రిటర్న్"
+        "recordBtn": "రికార్డ్ రిటర్న్",
+        "successEyebrow": "Credit note issued",
+        "successTitle": "Credit note created",
+        "successDescription": "The return has been recorded and the credit note is ready to print.",
+        "successCodeLabel": "Credit note code",
+        "printCreditNoteBtn": "Print credit note",
+        "creditNoteExpiry": "క్రెడిట్ నోట్ గడువు",
+        "creditNoteExpiryDate": "గడువు తేదీ"
+      }
+    },
+    "creditNotes": {
+      "eyebrow": "అమ్మకాల రికార్డులు",
+      "title": "క్రెడిట్ నోట్లు",
+      "subtitle": "క్రియాశీల దుకాణానికి చెందిన క్రెడిట్ నోట్ చరిత్రను సమీక్షించండి.",
+      "emptyState": {
+        "title": "No credit notes yet",
+        "description": "Credit notes will appear here once they are created."
+      },
+      "print": {
+        "controlsLabel": "Credit note print actions",
+        "title": "Credit Note",
+        "printAgain": "Print Again",
+        "close": "Close",
+        "detailsSection": "Credit note details",
+        "customerSection": "Customer details",
+        "statusLabel": "Status",
+        "code": "Credit note code",
+        "issueDate": "Issued on",
+        "expiryDate": "Expires on",
+        "invoiceNumber": "Invoice #",
+        "returnNumber": "Return #",
+        "customer": "Customer",
+        "reason": "Reason",
+        "voidReason": "Void reason",
+        "originalAmount": "Original amount",
+        "availableBalance": "Available balance",
+        "expiredMarker": "Credit note is expired",
+        "voidedMarker": "Credit note is voided",
+        "termsLabel": "Terms",
+        "termsBody": "Credit notes are subject to store policy. Balance is redeemable against future purchases until the expiry date.",
+        "status": {
+          "Active": "Active",
+          "Expired": "Expired",
+          "FullyRedeemed": "Fully Redeemed",
+          "Voided": "Voided"
+        }
+      },
+      "verify": {
+        "label": "కోడ్ ధృవీకరించు",
+        "placeholder": "క్రెడిట్ నోట్ కోడ్ నమోదు చేయండి",
+        "action": "ధృవీకరించు"
+      },
+      "controls": {
+        "search": "వెతుకు",
+        "searchPlaceholder": "కోడ్, ఇన్వాయిస్, రిటర్న్ నంబర్ లేదా కస్టమర్ ద్వారా వెతకండి",
+        "status": "స్థితి",
+        "pageSize": "వరుసలు",
+        "clear": "ఫిల్టర్లను క్లియర్ చేయండి"
+      },
+      "filters": {
+        "all": "అన్నీ",
+        "active": "క్రియాశీలం",
+        "fullyRedeemed": "పూర్తిగా వినియోగించబడింది",
+        "expired": "గడువు ముగిసింది",
+        "voided": "రద్దు"
+      },
+      "list": {
+        "title": "క్రెడిట్ నోట్ జాబితా",
+        "subtitle": "కోడ్‌లు మరియు నిల్వలను చూడండి.",
+        "count": "{{total}} నోట్స్"
+      },
+      "table": {
+        "code": "కోడ్",
+        "status": "స్థితి",
+        "balance": "నిల్వ",
+        "originalAmount": "మూల మొత్తం",
+        "customer": "కస్టమర్",
+        "invoice": "ఇన్వాయిస్",
+        "returnNumber": "రిటర్న్ నంబర్",
+        "issuedAt": "జారీ సమయం"
+      },
+      "status": {
+        "Active": "క్రియాశీలం",
+        "Voided": "రద్దు",
+        "FullyRedeemed": "పూర్తిగా వినియోగించబడింది",
+        "Expired": "గడువు ముగిసింది"
+      },
+      "empty": {
+        "title": "క్రెడిట్ నోట్లు కనుగొనబడలేదు",
+        "description": "జాబితాను చిన్నదిగా చేయడానికి వెతకడం లేదా స్థితి ఫిల్టర్లను ఉపయోగించండి."
+      },
+      "loading": "క్రెడిట్ నోట్లు లోడ్ అవుతున్నాయి...",
+      "pagination": {
+        "showing": "{{total}} నోట్లు చూపిస్తున్నాం, పేజీ {{page}} / {{pages}}"
+      },
+      "detail": {
+        "eyebrow": "ఎంచుకున్న క్రెడిట్ నోట్",
+        "subtitle": "నిల్వ మరియు కస్టమర్ సందర్భాన్ని సమీక్షించండి.",
+        "balance": "నిల్వ",
+        "originalAmount": "మూల మొత్తం",
+        "expiresAt": "గడువు ముగిసే సమయం",
+        "customer": "కస్టమర్",
+        "invoice": "ఇన్వాయిస్",
+        "returnNumber": "రిటర్న్ నంబర్",
+        "reason": "కారణం",
+        "voidReason": "రద్దు కారణం"
+      },
+      "errors": {
+        "loadFailed": "క్రెడిట్ నోట్లు లోడ్ చేయలేకపోయాం.",
+        "verifyFailed": "క్రెడిట్ నోట్‌ను ధృవీకరించలేకపోయాం."
+      },
+      "void": {
+        "action": "క్రెడిట్ నోట్ రద్దు చేయండి",
+        "title": "క్రెడిట్ నోట్ రద్దు చేయండి",
+        "description": "ఇది క్రెడిట్ నోట్‌ను రద్దు చేసి, ఆడిట్ ట్రైల్‌ను అలాగే ఉంచుతుంది.",
+        "reasonLabel": "రద్దు కారణం",
+        "reasonPlaceholder": "ఈ క్రెడిట్ నోట్ ఎందుకు రద్దు చేస్తున్నారో వివరించండి",
+        "cancel": "రద్దు చేయండి",
+        "confirm": "క్రెడిట్ నోట్ రద్దు చేయండి",
+        "errors": {
+          "reasonRequired": "రద్దు కారణం అవసరం.",
+          "submitFailed": "క్రెడిట్ నోట్‌ను రద్దు చేయలేకపోయాము."
+        }
       }
     },
     "searchPlaceholder": "విక్రయాలను శోధించండి...",

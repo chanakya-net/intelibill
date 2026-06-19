@@ -1,0 +1,36 @@
+using ErrorOr;
+
+namespace Intelibill.Application.Common.Errors;
+
+public static partial class Errors
+{
+    public static class CreditNote
+    {
+        public static Error CreditNoteNotFound(string code) =>
+            Error.NotFound("CreditNote.NotFound", $"Credit note '{code}' was not found.");
+
+        public static Error RedeemConflict =>
+            Error.Conflict("CreditNote.RedeemConflict", "Credit note redemption is in progress. Please retry the request.");
+
+        public static Error InsufficientAvailableBalance =>
+            Error.Conflict("CreditNote.InsufficientBalance", "Credit note does not have enough available balance.");
+
+        public static Error UserIsNotOwnerManagerOrStaff =>
+            Error.Forbidden("CreditNote.UserIsNotOwnerManagerOrStaff", "Only owner, manager, or staff can verify credit notes.");
+
+        public static Error UserIsNotOwnerOrManager =>
+            Error.Forbidden("CreditNote.UserIsNotOwnerOrManager", "Only owner or manager can void credit notes.");
+
+        public static Error VoidReasonRequired =>
+            Error.Validation("CreditNote.VoidReasonRequired", "Void reason is required.");
+
+        public static Error AlreadyVoided =>
+            Error.Conflict("CreditNote.AlreadyVoided", "Credit note is already voided.");
+
+        public static Error CannotVoidAfterRedemption =>
+            Error.Conflict("CreditNote.CannotVoidAfterRedemption", "Cannot void a credit note after it has been redeemed.");
+
+        public static Error CustomerMismatchRequiresConfirmation =>
+            Error.Conflict("CreditNote.CustomerMismatchRequiresConfirmation", "Credit note is linked to a different customer. Confirmation is required to redeem.");
+    }
+}

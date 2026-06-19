@@ -46,6 +46,35 @@ export interface ServiceCartLine {
 
 // ─── Payment ─────────────────────────────────────────────────────────────────
 
+export enum ReturnPayoutDestination {
+  CreditNote = 1,
+  Refund = 2,
+}
+
+export interface ReturnPayoutDestinationOption {
+  readonly value: number;
+  readonly labelKey: string;
+}
+
+export const RETURN_PAYOUT_DESTINATION_OPTIONS: ReturnPayoutDestinationOption[] = [
+  { value: 1, labelKey: 'sales.returns.preview.payoutDestinations.cash' },
+  { value: 2, labelKey: 'sales.returns.preview.payoutDestinations.upi' },
+  { value: 3, labelKey: 'sales.returns.preview.payoutDestinations.card' },
+  { value: 4, labelKey: 'sales.returns.preview.payoutDestinations.creditNote' },
+];
+
+export function mapPayoutDestinationSelectionToReturnPayoutDestination(
+  destination: number | null,
+): ReturnPayoutDestination | null {
+  if (destination === null) return null;
+  return destination === 4 ? ReturnPayoutDestination.CreditNote : ReturnPayoutDestination.Refund;
+}
+
+export function mapPaymentMethodToPayoutDestination(method: number | null): ReturnPayoutDestination | null {
+  if (method === null) return null;
+  return ReturnPayoutDestination.Refund;
+}
+
 export type PaymentMethod = 'Cash' | 'UPI' | 'Card' | 'Credit';
 export const PAYMENT_METHOD_VALUES: { value: number; label: PaymentMethod }[] = [
   { value: 1, label: 'Cash' },
@@ -182,6 +211,21 @@ export interface RecordSaleItemRequest {
   readonly serviceId?: string | null;
 }
 
+export interface CreditNoteRedemptionRequest {
+  readonly creditNoteId: string;
+  readonly code: string;
+  readonly amount: number;
+}
+
+export interface AppliedCreditNote {
+  readonly creditNoteId: string;
+  readonly code: string;
+  readonly availableBalance: number;
+  readonly expiresAt: string | null;
+  readonly status: CreditNoteStatus;
+  readonly amount: number;
+}
+
 export interface RecordSaleRequest {
   readonly idempotencyKey: string;
   readonly customerId: string | null;
@@ -192,6 +236,9 @@ export interface RecordSaleRequest {
   readonly dueAmount: number;
   readonly items: readonly RecordSaleItemRequest[];
   readonly saleDiscount: InstantDiscountRequest | null;
+  readonly creditNoteAppliedAmount?: number;
+  readonly creditNoteRedemptions?: readonly CreditNoteRedemptionRequest[];
+  readonly creditNoteCustomerMismatchConfirmed?: boolean;
 }
 
 export interface ReserveInvoiceLeaseRequest {
@@ -246,9 +293,15 @@ export interface SaleReturnDto {
   readonly saleReturnId: string;
   readonly returnNumber: string;
   readonly returnedAt: string;
+  readonly processedBy?: string;
+  readonly notes?: string | null;
   readonly totalRefundAmount: number;
   readonly dueReductionAmount: number;
   readonly payoutAmount: number;
+  readonly payoutDestination?: ReturnPayoutDestination | null;
+  readonly totalTaxableAmount?: number;
+  readonly totalTaxAmount?: number;
+  readonly creditNote?: SaleReturnCreditNoteSummaryDto | null;
   readonly isVoided: boolean;
   readonly voidedAt: string | null;
   readonly voidReason: string | null;
@@ -261,7 +314,24 @@ export interface SaleReturnItemDto {
   readonly quantity: number;
   readonly condition: SaleReturnCondition | null;
   readonly approvedRefundAmount: number;
-  readonly notes: string | null;
+  readonly taxableAmount?: number;
+  readonly taxAmount?: number;
+  readonly notes?: string | null;
+}
+
+export interface SaleReturnCreditNoteSummaryDto {
+  readonly creditNoteId: string;
+  readonly code: string;
+  readonly originalAmount: number;
+  readonly availableBalance: number;
+  readonly expiresAt: string | null;
+  readonly reason: string;
+}
+
+export interface SaleCreditNoteRedemptionSummaryDto {
+  readonly creditNoteId: string;
+  readonly code: string;
+  readonly amount: number;
 }
 
 export interface SaleDto {
@@ -278,6 +348,8 @@ export interface SaleDto {
   readonly totalDiscountAmount: number;
   readonly totalAmount: number;
   readonly totalTaxAmount: number;
+  readonly creditNoteAppliedAmount: number;
+  readonly creditNoteRedemptionSummaries?: readonly SaleCreditNoteRedemptionSummaryDto[];
   readonly items: readonly SaleItemDto[];
   readonly returns: readonly SaleReturnDto[];
   readonly warnings: readonly string[];
@@ -331,11 +403,15 @@ export interface PreviewSaleReturnRequest {
 }
 
 export interface RecordSaleReturnRequest extends PreviewSaleReturnRequest {
-  readonly payoutMethod: number | null;
+  readonly payoutDestination: ReturnPayoutDestination | null;
   readonly notes: string | null;
 }
 
 export interface VoidSaleReturnRequest {
+  readonly reason: string;
+}
+
+export interface VoidCreditNoteRequest {
   readonly reason: string;
 }
 
@@ -405,6 +481,7 @@ export interface SaleListItemDto {
   readonly status: SaleHistoryStatus;
   readonly refundAmount: number;
   readonly dueReductionAmount: number;
+  readonly creditNoteAppliedAmount: number;
 }
 
 export type ProfitLossReportRowType = 'Sale' | 'SaleReturn' | 'InventoryAdjustment';
@@ -516,6 +593,77 @@ export interface OfflineSaleSyncRequest {
 export interface OfflineSalesSyncRequest {
   readonly deviceId: string;
   readonly sales: readonly OfflineSaleSyncRequest[];
+}
+
+// ─── Credit note verify ───────────────────────────────────────────────────────
+
+export type CreditNoteStatus = 'Active' | 'Voided' | 'FullyRedeemed' | 'Expired';
+
+export type CreditNoteListStatusFilter = 'all' | CreditNoteStatus;
+
+export interface CreditNoteVerifyResponseDto {
+  readonly creditNoteId: string;
+  readonly code: string;
+  readonly availableBalance: number;
+  readonly expiresAt: string | null;
+  readonly status: CreditNoteStatus;
+  readonly originalAmount?: number;
+  readonly isVoided?: boolean;
+  readonly saleReturnId?: string;
+  readonly reason?: string;
+  readonly voidReason?: string | null;
+  readonly returnNumber?: string;
+  readonly invoiceNumber?: string;
+  readonly customerName?: string | null;
+}
+
+export type CreditNoteDetailDto = CreditNoteVerifyResponseDto;
+
+export interface CreditNoteListItemDto {
+  readonly creditNoteId: string;
+  readonly code: string;
+  readonly status: CreditNoteStatus;
+  readonly originalAmount: number;
+  readonly availableBalance: number;
+  readonly expiresAt: string | null;
+  readonly issuedAt: string;
+  readonly saleReturnId: string;
+  readonly returnNumber: string;
+  readonly saleId: string;
+  readonly invoiceNumber: string;
+  readonly customerName: string | null;
+}
+
+export interface CreditNotesQueryParams {
+  readonly search?: string;
+  readonly status?: CreditNoteStatus;
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export interface CreditNotesResultDto {
+  readonly items: readonly CreditNoteListItemDto[];
+  readonly totalCount: number;
+  readonly pageNumber: number;
+  readonly pageSize: number;
+}
+
+export interface CreditNotePrintDto {
+  readonly creditNoteId: string;
+  readonly code: string;
+  readonly status: string;
+  readonly isUsable: boolean;
+  readonly originalAmount: number;
+  readonly availableBalance: number;
+  readonly issuedAt: string;
+  readonly expiresAt: string | null;
+  readonly saleId: string;
+  readonly invoiceNumber: string;
+  readonly saleReturnId: string;
+  readonly returnNumber: string;
+  readonly customerDisplayName: string;
+  readonly reason: string;
+  readonly voidReason: string | null;
 }
 
 export interface OfflineSaleSyncErrorDto {

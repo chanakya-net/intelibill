@@ -16,10 +16,16 @@ import { CheckboxModule } from 'primeng/checkbox';
 import { DialogModule } from 'primeng/dialog';
 import { SelectModule } from 'primeng/select';
 import { AuthService } from '../../../../core/auth/auth.service';
-import { PAYMENT_METHOD_VALUES, SALE_RETURN_CONDITIONS } from '../../services/sale.models';
+import {
+  RETURN_PAYOUT_DESTINATION_OPTIONS,
+  ReturnPayoutDestination,
+  SALE_RETURN_CONDITIONS,
+  mapPayoutDestinationSelectionToReturnPayoutDestination,
+} from '../../services/sale.models';
 import type {
   PreviewSaleReturnRequest,
   RecordSaleReturnRequest,
+  SaleReturnCreditNoteSummaryDto,
   SaleDto,
   SaleItemDto,
   SaleReturnCondition,
@@ -86,10 +92,23 @@ export class SaleReturnPreviewDialogComponent {
   readonly dueReductionOverrideAmount = signal<number | null>(null);
   readonly dueOverrideReason = signal('');
   readonly dueOverrideConfirmed = signal(false);
-  readonly payoutMethod = signal<number | null>(null);
+  readonly payoutDestination = signal<number | null>(null);
+  readonly creditNoteExpiryMode = signal<'NoExpiry' | '30Days' | '60Days' | '90Days' | 'Custom'>('NoExpiry');
+  readonly creditNoteExpiryDate = signal<string | null>(null);
+  readonly recordedCreditNoteSummary = signal<SaleReturnCreditNoteSummaryDto | null>(null);
+  readonly submittedReturnIds = signal<readonly string[]>([]);
+  readonly submittedPayoutDestination = signal<ReturnPayoutDestination | null>(null);
 
   readonly returnConditionOptions = SALE_RETURN_CONDITIONS;
-  readonly refundPayoutMethodOptions = PAYMENT_METHOD_VALUES.filter((method) => method.value !== 4);
+  readonly payoutDestinationOptions = RETURN_PAYOUT_DESTINATION_OPTIONS;
+
+  readonly creditNoteExpiryOptions = [
+    { labelKey: 'sales.returns.preview.creditNoteExpiryNoExpiry', value: 'NoExpiry' },
+    { labelKey: 'sales.returns.preview.creditNoteExpiry30Days', value: '30Days' },
+    { labelKey: 'sales.returns.preview.creditNoteExpiry60Days', value: '60Days' },
+    { labelKey: 'sales.returns.preview.creditNoteExpiry90Days', value: '90Days' },
+    { labelKey: 'sales.returns.preview.creditNoteExpiryCustom', value: 'Custom' },
+  ];
 
   readonly activeShopRole = computed(() => {
     const session = this.authService.session();
@@ -164,7 +183,18 @@ export class SaleReturnPreviewDialogComponent {
       if (!this.salesFacade.lastMutationSucceeded()) return;
 
       if (this.salesFacade.lastMutationType() === 'record-return') {
-        this.close();
+        if (this.submittedPayoutDestination() !== ReturnPayoutDestination.CreditNote) {
+          this.close();
+          this.salesFacade.clearMutationStatus();
+          return;
+        }
+
+        const creditNoteSummary = this.getRecordedCreditNoteSummary();
+        if (creditNoteSummary) {
+          this.recordedCreditNoteSummary.set(creditNoteSummary);
+        } else {
+          this.close();
+        }
         this.salesFacade.clearMutationStatus();
         return;
       }
@@ -175,7 +205,12 @@ export class SaleReturnPreviewDialogComponent {
     this.visibleChange.emit(false);
     this.validationMessages.set([]);
     this.dueOverrideConfirmed.set(false);
-    this.payoutMethod.set(null);
+    this.payoutDestination.set(null);
+    this.creditNoteExpiryMode.set('NoExpiry');
+    this.creditNoteExpiryDate.set(null);
+    this.recordedCreditNoteSummary.set(null);
+    this.submittedReturnIds.set([]);
+    this.submittedPayoutDestination.set(null);
     this.salesFacade.clearSaleReturnPreview();
     this.returnDrafts.set([]);
   }
@@ -290,12 +325,30 @@ export class SaleReturnPreviewDialogComponent {
     this.salesFacade.previewSaleReturn(sale.saleId, payload);
   }
 
-  updatePayoutMethod(method: number | null): void {
-    this.payoutMethod.set(method);
+  updatePayoutDestination(destination: number | null): void {
+    this.payoutDestination.set(destination);
+  }
+
+  updateCreditNoteExpiryMode(mode: 'NoExpiry' | '30Days' | '60Days' | '90Days' | 'Custom'): void {
+    this.creditNoteExpiryMode.set(mode);
+    if (mode !== 'Custom') {
+      this.creditNoteExpiryDate.set(null);
+    }
+  }
+
+  updateCreditNoteExpiryDate(date: string | null): void {
+    this.creditNoteExpiryDate.set(date);
   }
 
   updateDueOverrideConfirmed(confirmed: boolean): void {
     this.dueOverrideConfirmed.set(confirmed);
+  }
+
+  printRecordedCreditNote(): void {
+    const creditNote = this.recordedCreditNoteSummary();
+    if (!creditNote) return;
+
+    window.open(this.getCreditNotePrintUrl(creditNote.code), '_blank');
   }
 
   submitReturn(): void {
@@ -306,9 +359,20 @@ export class SaleReturnPreviewDialogComponent {
     this.validationMessages.set(errors);
     if (errors.length > 0) return;
 
-    const payload: RecordSaleReturnRequest = {
-      payoutMethod:
-        (this.returnPreview()?.financial?.payoutAmount ?? 0) > 0 ? this.payoutMethod() : null,
+    this.submittedReturnIds.set(sale.returns.map((saleReturn) => saleReturn.saleReturnId));
+    this.submittedPayoutDestination.set(
+      this.mapSelectedPayoutDestination(this.payoutDestination()),
+    );
+
+    const isCreditNote =
+      this.mapSelectedPayoutDestination(this.payoutDestination()) ===
+      ReturnPayoutDestination.CreditNote;
+
+    const payload = {
+      payoutDestination:
+        (this.returnPreview()?.financial?.payoutAmount ?? 0) > 0
+          ? this.mapSelectedPayoutDestination(this.payoutDestination())
+          : null,
       dueReductionOverrideAmount: this.dueReductionOverrideAmount(),
       dueOverrideReason: this.normalizeOptional(this.dueOverrideReason()),
       notes: null,
@@ -320,7 +384,10 @@ export class SaleReturnPreviewDialogComponent {
         approvedRefundAmount: draft.approvedRefundAmount,
         notes: this.normalizeOptional(draft.notes),
       })),
-    };
+      ...(isCreditNote && {
+        creditNoteExpiresAt: this.computeCreditNoteExpiresAt(),
+      }),
+    } as unknown as RecordSaleReturnRequest;
 
     this.salesFacade.recordSaleReturn(sale.saleId, payload);
   }
@@ -429,6 +496,29 @@ export class SaleReturnPreviewDialogComponent {
     return this.roundMoney(taxAmount);
   }
 
+  private getRecordedCreditNoteSummary(): SaleReturnCreditNoteSummaryDto | null {
+    const sale = this.salesFacade.selectedSale() ?? this.saleInput();
+    const submittedReturnIds = new Set(this.submittedReturnIds());
+    const latestReturn = sale?.returns
+      ?.filter(
+        (saleReturn) =>
+          !saleReturn.isVoided &&
+          saleReturn.creditNote &&
+          !submittedReturnIds.has(saleReturn.saleReturnId),
+      )
+      .slice()
+      .sort(
+        (left, right) =>
+          new Date(right.returnedAt).getTime() - new Date(left.returnedAt).getTime(),
+      )[0];
+
+    return latestReturn?.creditNote ?? null;
+  }
+
+  private getCreditNotePrintUrl(code: string): string {
+    return `/sales/credit-notes/${encodeURIComponent(code)}/print`;
+  }
+
   private initializeDrafts(): void {
     const sale = this.saleInput();
     if (!sale) return;
@@ -448,7 +538,9 @@ export class SaleReturnPreviewDialogComponent {
     this.dueReductionOverrideAmount.set(null);
     this.dueOverrideReason.set('');
     this.dueOverrideConfirmed.set(false);
-    this.payoutMethod.set(null);
+    this.payoutDestination.set(null);
+    this.creditNoteExpiryMode.set('NoExpiry');
+    this.creditNoteExpiryDate.set(null);
     this.salesFacade.clearSaleReturnPreview();
   }
 
@@ -511,11 +603,32 @@ export class SaleReturnPreviewDialogComponent {
     }
 
     const payoutAmount = this.returnPreview()?.financial?.payoutAmount ?? 0;
-    if (payoutAmount > 0 && !this.payoutMethod()) {
-      errors.push('Select payout method.');
+    if (payoutAmount > 0 && !this.payoutDestination()) {
+      errors.push('Select payout destination.');
+    }
+
+    const isCreditNote =
+      this.mapSelectedPayoutDestination(this.payoutDestination()) ===
+      ReturnPayoutDestination.CreditNote;
+    if (isCreditNote && this.creditNoteExpiryMode() === 'Custom') {
+      const dateStr = this.creditNoteExpiryDate();
+      if (!dateStr) {
+        errors.push('Select an expiry date for custom credit note expiry.');
+      } else {
+        const selectedDate = new Date(`${dateStr}T00:00:00Z`);
+        const today = new Date();
+        today.setUTCHours(0, 0, 0, 0);
+        if (selectedDate < today) {
+          errors.push('Expiry date cannot be in the past.');
+        }
+      }
     }
 
     return errors;
+  }
+
+  private mapSelectedPayoutDestination(destination: number | null): ReturnPayoutDestination | null {
+    return mapPayoutDestinationSelectionToReturnPayoutDestination(destination);
   }
 
   private clampNumber(value: number, min: number, max: number): number {
@@ -543,5 +656,25 @@ export class SaleReturnPreviewDialogComponent {
     condition: SaleReturnCondition | null,
   ): SaleReturnCondition | null {
     return this.getLineType(saleItemId) === 'Service' ? null : (condition ?? 1);
+  }
+
+  private computeCreditNoteExpiresAt(): string | null {
+    const mode = this.creditNoteExpiryMode();
+    if (mode === 'NoExpiry') return null;
+
+    const today = new Date();
+    let expiryDate: Date;
+
+    if (mode === 'Custom') {
+      const dateStr = this.creditNoteExpiryDate();
+      if (!dateStr) return null;
+      expiryDate = new Date(`${dateStr}T23:59:59Z`);
+    } else {
+      const days = mode === '30Days' ? 30 : mode === '60Days' ? 60 : 90;
+      expiryDate = new Date(today);
+      expiryDate.setDate(expiryDate.getDate() + days);
+    }
+
+    return expiryDate.toISOString();
   }
 }

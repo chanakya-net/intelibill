@@ -100,6 +100,12 @@ public sealed partial class SalesController : AuthenticatedControllerBase
     {
         var auth = CheckAuthAndShop();
         if (auth is not null) return auth;
+        var creditNoteRedemptions = (request.CreditNoteRedemptions ?? []).Select(redemption =>
+            new RecordSaleCreditNoteRedemptionCommand(redemption.Code, redemption.Amount)).ToList();
+        var creditNoteAppliedAmount = creditNoteRedemptions.Count > 0
+            ? creditNoteRedemptions.Sum(redemption => redemption.Amount)
+            : request.CreditNoteAppliedAmount;
+
         var result = await Bus.InvokeAsync<ErrorOr<SaleDto>>(
             new RecordSaleCommand(
                 UserId!.Value,
@@ -129,7 +135,10 @@ public sealed partial class SalesController : AuthenticatedControllerBase
                     i.ServiceId)).ToList(),
                 request.SaleDiscount is null
                     ? null
-                    : new InstantDiscount(request.SaleDiscount.Type, request.SaleDiscount.Value)),
+                    : new InstantDiscount(request.SaleDiscount.Type, request.SaleDiscount.Value),
+                creditNoteAppliedAmount,
+                creditNoteRedemptions,
+                request.CreditNoteCustomerMismatchConfirmed),
             cancellationToken);
         return result.ToActionResult(sale => CreatedAtAction(nameof(RecordSale), sale));
     }

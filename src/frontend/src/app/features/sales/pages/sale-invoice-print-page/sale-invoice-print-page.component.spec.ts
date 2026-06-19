@@ -33,6 +33,7 @@ describe('SaleInvoicePrintPageComponent', () => {
     totalDiscountAmount: 0,
     totalAmount: 100,
     totalTaxAmount: 5,
+    creditNoteAppliedAmount: 0,
     items: [],
     returns: [],
     warnings: [],

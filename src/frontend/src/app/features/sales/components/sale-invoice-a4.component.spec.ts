@@ -55,9 +55,25 @@ describe('SaleInvoiceA4Component', () => {
     totalDiscountAmount: 0,
     totalAmount: 100,
     totalTaxAmount: 5,
+    creditNoteAppliedAmount: 0,
     items: [makeSaleItem()],
     returns: [],
     warnings: [],
+    ...overrides,
+  });
+
+  const makeSaleReturn = (overrides: Partial<SaleDto['returns'][number]> = {}): SaleDto['returns'][number] => ({
+    saleReturnId: 'return-1',
+    returnNumber: 'RET-001',
+    returnedAt: '2026-05-10T10:00:00Z',
+    totalRefundAmount: 0,
+    dueReductionAmount: 0,
+    payoutAmount: 0,
+    isVoided: false,
+    voidedAt: null,
+    voidReason: null,
+    items: [],
+    creditNote: null,
     ...overrides,
   });
 
@@ -892,6 +908,72 @@ describe('SaleInvoiceA4Component', () => {
       const sectionHeaders = fixture.nativeElement.querySelectorAll('.invoice__section-header-row');
       expect(headerText).toContain('HSN/SAC');
       expect(sectionHeaders.length).toBe(0);
+    });
+  });
+
+  describe('credit note settlement', () => {
+    it('renders credit note settlement line when applied amount > 0', () => {
+      const sale = makeSale({ creditNoteAppliedAmount: 150 });
+      const shop = makeShop();
+
+      component.sale = sale;
+      component.shop = shop;
+      fixture.detectChanges();
+
+      const totalsElement = fixture.nativeElement.querySelector('.invoice__totals');
+      expect(totalsElement?.textContent).toContain('Credit Note Settlement');
+      expect(totalsElement?.textContent).toMatch(/150/);
+    });
+
+    it('renders credit note code with settlement line when present', () => {
+      const sale = makeSale({
+        creditNoteAppliedAmount: 150,
+        returns: [makeSaleReturn({ creditNote: { creditNoteId: 'cn-1', code: 'CN-001', originalAmount: 150, availableBalance: 0, expiresAt: null, reason: 'Return' } })],
+      });
+      const shop = makeShop();
+
+      component.sale = sale;
+      component.shop = shop;
+      fixture.detectChanges();
+
+      const totalsElement = fixture.nativeElement.querySelector('.invoice__totals');
+      expect(totalsElement?.textContent).toContain('Credit Note Settlement (CN-001)');
+      expect(totalsElement?.textContent).not.toContain('Discount: -₹150.00');
+    });
+
+    it('does not render credit note settlement line when applied amount is 0', () => {
+      const sale = makeSale({ creditNoteAppliedAmount: 0 });
+      const shop = makeShop();
+
+      component.sale = sale;
+      component.shop = shop;
+      fixture.detectChanges();
+
+      const totalsElement = fixture.nativeElement.querySelector('.invoice__totals');
+      expect(totalsElement?.textContent).not.toContain('Credit Note Settlement');
+    });
+
+    it('renders settlement line after discount and before tax', () => {
+      const sale = makeSale({
+        totalBeforeDiscount: 1000,
+        totalDiscountAmount: 100,
+        creditNoteAppliedAmount: 50,
+        totalTaxAmount: 100,
+      });
+      const shop = makeShop();
+
+      component.sale = sale;
+      component.shop = shop;
+      fixture.detectChanges();
+
+      const totalsRows = fixture.nativeElement.querySelectorAll('.invoice__totals-row');
+      const texts = Array.from(totalsRows).map((row: unknown) => (row as Element).textContent);
+      const discountIdx = texts.findIndex(t => typeof t === 'string' && t.includes('Discount'));
+      const settlementIdx = texts.findIndex(t => typeof t === 'string' && t.includes('Credit Note Settlement'));
+      const taxIdx = texts.findIndex(t => typeof t === 'string' && t.includes('Tax'));
+
+      expect(settlementIdx).toBeGreaterThan(discountIdx);
+      expect(taxIdx).toBeGreaterThan(settlementIdx);
     });
   });
 });

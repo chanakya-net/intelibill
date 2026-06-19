@@ -55,6 +55,16 @@ internal static class TallyVoucherBuilder
             lineNumber++;
         }
 
+        if (summary.CreditNoteAppliedAmount > 0)
+        {
+            var creditNoteLine = new XElement("VOUCHERLINE", new XAttribute("LINENUMBER", lineNumber.ToString(CultureInfo.InvariantCulture)));
+            creditNoteLine.Add(new XElement("LEDGER", GetCreditNoteLedgerName()));
+            creditNoteLine.Add(new XElement("AMOUNT", summary.CreditNoteAppliedAmount.ToString("F2", CultureInfo.InvariantCulture)));
+            creditNoteLine.Add(new XElement("ISDEBIT", "Yes"));
+            voucher.Add(creditNoteLine);
+            lineNumber++;
+        }
+
         var taxEntries = BuildTaxEntries(summary, lineItems, taxBreakup, hasSingleInvoiceInDataset);
         foreach (var taxGroup in taxEntries.OrderBy(t => t.Rate))
         {
@@ -133,10 +143,13 @@ internal static class TallyVoucherBuilder
         return $"Output GST {rate}%";
     }
 
+    internal static string GetCreditNoteLedgerName() => "Credit Note Liability";
+
     internal static XElement BuildCreditNoteVoucher(SalesExportReturnRowDto returnRow)
     {
+        var voucherNumber = BuildCreditNoteVoucherNumber(returnRow.CreditNoteCode, returnRow.ReturnNumber);
         var voucher = new XElement("VOUCHER", new XAttribute("ACTION", "Create"));
-        voucher.Add(new XElement("VOUCHERNUMBER", returnRow.ReturnNumber));
+        voucher.Add(new XElement("VOUCHERNUMBER", voucherNumber));
         voucher.Add(new XElement("VOUCHERTYPE", "Credit Note"));
         voucher.Add(new XElement("DATE", returnRow.ProcessedAt.UtcDateTime.ToString("yyyyMMdd", CultureInfo.InvariantCulture)));
 
@@ -147,8 +160,11 @@ internal static class TallyVoucherBuilder
 
         var lineNumber = 1;
         var customerName = !string.IsNullOrWhiteSpace(returnRow.CustomerName) ? returnRow.CustomerName : "Walk-in Customer";
+        var settlementLedger = string.IsNullOrWhiteSpace(returnRow.CreditNoteCode)
+            ? customerName
+            : GetCreditNoteLedgerName();
         var customerLine = new XElement("VOUCHERLINE", new XAttribute("LINENUMBER", lineNumber.ToString(CultureInfo.InvariantCulture)));
-        customerLine.Add(new XElement("LEDGER", customerName));
+        customerLine.Add(new XElement("LEDGER", settlementLedger));
         customerLine.Add(new XElement("AMOUNT", returnRow.TotalRefundAmount.ToString("F2", CultureInfo.InvariantCulture)));
         customerLine.Add(new XElement("ISDEBIT", "No"));
         voucher.Add(customerLine);
@@ -176,5 +192,24 @@ internal static class TallyVoucherBuilder
         }
 
         return voucher;
+    }
+
+    private static string BuildCreditNoteVoucherNumber(string? creditNoteCode, string fallbackReturnNumber)
+    {
+        if (string.IsNullOrWhiteSpace(creditNoteCode))
+        {
+            return fallbackReturnNumber;
+        }
+
+        var issuedCreditNotes = creditNoteCode
+            .Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(code => code.Trim())
+            .Where(code => !string.IsNullOrWhiteSpace(code))
+            .Distinct()
+            .ToList();
+
+        return issuedCreditNotes.Count > 0
+            ? string.Join(", ", issuedCreditNotes)
+            : fallbackReturnNumber;
     }
 }

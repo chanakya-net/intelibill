@@ -99,6 +99,7 @@
     "manageSales": "விற்பனை",
     "newSale": "புதிய விற்பனை",
     "salesHistory": "வரலாறு",
+    "creditNotes": "Credit Notes",
     "manageInventory": "சரக்கு",
     "addNewProduct": "பொருட்கள்",
     "manageServices": "Services",
@@ -904,7 +905,8 @@
       },
       "amount": {
         "due": "நிலுவை",
-        "refund": "திருப்பிக்கொடுப்பு"
+        "refund": "திருப்பிக்கொடுப்பு",
+        "creditNoteApplied": "கிரெடிட் நோட் பொருந்தியது"
       },
       "pagination": {
         "ariaLabel": "விற்பனை வரலாறு பக்கமாற்றம்",
@@ -1050,7 +1052,27 @@
       "quickAdd": "Quick add",
       "balanceDue": "Balance Due",
       "goodsSection": "Goods",
-      "servicesSection": "Services"
+      "servicesSection": "Services",
+      "creditNote": {
+        "sectionLabel": "Credit Note",
+        "codePlaceholder": "Enter credit note code…",
+        "verifyBtn": "Verify",
+        "verified": "Credit note verified",
+        "balance": "Available balance",
+        "expiry": "Expires",
+        "verifyError": "Unable to verify credit note. Check the code and try again.",
+        "status": "Status",
+        "appliedAmount": "Apply credit note amount",
+        "remove": "Remove credit note",
+        "applyBtn": "Apply note",
+        "appliedTotal": "Applied credit notes total",
+        "offlineDisabled": "Credit note redemption is unavailable while offline.",
+        "customerMismatchWarning": "The credit note belongs to a different customer.",
+        "customerMismatchDetails": "Confirm this mismatch before applying the credit note to this sale.",
+        "confirmMismatchBtn": "Confirm mismatch",
+        "customerMismatchConfirmed": "Mismatch confirmed. The sale can be submitted.",
+        "customerMismatchConfirmRequired": "Please confirm the customer mismatch before submitting."
+      }
     },
     "detail": {
       "title": "விற்பனை விவரங்கள்",
@@ -1070,7 +1092,11 @@
       "returnable": "திரும்பப் பெறக்கூடியது",
       "beforeDiscount": "தள்ளுபடிக்கு முன்",
       "discount": "தள்ளுபடி",
-      "totalSavings": "மொத்த சேமிப்பு"
+      "totalSavings": "மொத்த சேமிப்பு",
+      "settlement": {
+        "creditNoteApplied": "கிரெடிட் நோட்டு செட்டில்மென்ட்",
+        "creditNoteCodes": "கிரெடிட் நோட்டு குறியீடுகள்"
+      }
     },
     "invoice": {
       "returnItems": "பொருட்களை திரும்ப கொடு",
@@ -1090,6 +1116,8 @@
       "totalAmount": "Total Amount",
       "totalBeforeDiscount": "Subtotal (Before Discount)",
       "discount": "Discount",
+      "creditNoteSettlement": "Credit Note Settlement",
+      "creditNoteSettlementWithCodes": "Credit Note Settlement ({{ codes }})",
       "tax": "Tax",
       "grandTotal": "Grand Total",
       "printAgain": "Print Again",
@@ -1210,12 +1238,145 @@
         },
         "dueReductionOverride": "காரணமாக குறைப்பு மேலெழுதல்",
         "overrideReason": "காரணத்தை மீறு",
-        "payoutMethod": "திருப்பிச் செலுத்தும் முறை",
+        "payoutDestination": "திருப்பிச் செலுத்தும் இலக்கு",
+        "payoutDestinations": {
+          "cash": "Cash",
+          "upi": "UPI",
+          "card": "Card",
+          "creditNote": "Credit Note"
+        },
         "confirmDueOverride": "மீறப்படுவதை உறுதிப்படுத்தவும்",
+        "creditNoteExpiryNoExpiry": "காலாவதி நீக்கம்",
+        "creditNoteExpiry30Days": "30 நாட்கள்",
+        "creditNoteExpiry60Days": "60 நாட்கள்",
+        "creditNoteExpiry90Days": "90 நாட்கள்",
+        "creditNoteExpiryCustom": "கசטம் தேதி",
         "calculatedEffects": "கணக்கிடப்பட்ட விளைவுகள்",
         "warnings": "எச்சரிக்கைகள்",
         "previewBtn": "முன்னோட்டம்",
-        "recordBtn": "பதிவு திரும்ப"
+        "recordBtn": "பதிவு திரும்ப",
+        "successEyebrow": "Credit note issued",
+        "successTitle": "Credit note created",
+        "successDescription": "The return has been recorded and the credit note is ready to print.",
+        "successCodeLabel": "Credit note code",
+        "printCreditNoteBtn": "Print credit note",
+        "creditNoteExpiry": "கிரெடிட் நோட் காலாவதி",
+        "creditNoteExpiryDate": "காலாவதி தேதி"
+      }
+    },
+    "creditNotes": {
+      "eyebrow": "விற்பனை பதிவுகள்",
+      "title": "கிரெடிட் குறிப்புகள்",
+      "subtitle": "செயலில் உள்ள கடையின் கிரெடிட் குறிப்பு வரலாற்றை பார்வையிடவும்.",
+      "emptyState": {
+        "title": "No credit notes yet",
+        "description": "Credit notes will appear here once they are created."
+      },
+      "print": {
+        "controlsLabel": "Credit note print actions",
+        "title": "Credit Note",
+        "printAgain": "Print Again",
+        "close": "Close",
+        "detailsSection": "Credit note details",
+        "customerSection": "Customer details",
+        "statusLabel": "Status",
+        "code": "Credit note code",
+        "issueDate": "Issued on",
+        "expiryDate": "Expires on",
+        "invoiceNumber": "Invoice #",
+        "returnNumber": "Return #",
+        "customer": "Customer",
+        "reason": "Reason",
+        "voidReason": "Void reason",
+        "originalAmount": "Original amount",
+        "availableBalance": "Available balance",
+        "expiredMarker": "Credit note is expired",
+        "voidedMarker": "Credit note is voided",
+        "termsLabel": "Terms",
+        "termsBody": "Credit notes are subject to store policy. Balance is redeemable against future purchases until the expiry date.",
+        "status": {
+          "Active": "Active",
+          "Expired": "Expired",
+          "FullyRedeemed": "Fully Redeemed",
+          "Voided": "Voided"
+        }
+      },
+      "verify": {
+        "label": "குறியீட்டை சரிபார்",
+        "placeholder": "கிரெடிட் குறிப்பு குறியீட்டை உள்ளிடவும்",
+        "action": "சரிபார்"
+      },
+      "controls": {
+        "search": "தேடு",
+        "searchPlaceholder": "குறியீடு, இன்வாய்ஸ், திரும்பும் எண் அல்லது வாடிக்கையாளர் மூலம் தேடவும்",
+        "status": "நிலை",
+        "pageSize": "வரிகள்",
+        "clear": "வடிகட்டிகளை அழிக்கவும்"
+      },
+      "filters": {
+        "all": "அனைத்தும்",
+        "active": "செயலில்",
+        "fullyRedeemed": "முழுவதும் பயன்படுத்தப்பட்டது",
+        "expired": "காலாவதி",
+        "voided": "ரத்து"
+      },
+      "list": {
+        "title": "கிரெடிட் குறிப்பு பட்டியல்",
+        "subtitle": "குறியீடுகளையும் இருப்புகளையும் பார்வையிடவும்.",
+        "count": "{{total}} குறிப்புகள்"
+      },
+      "table": {
+        "code": "குறியீடு",
+        "status": "நிலை",
+        "balance": "இருப்பு",
+        "originalAmount": "மூல தொகை",
+        "customer": "வாடிக்கையாளர்",
+        "invoice": "இன்வாய்ஸ்",
+        "returnNumber": "திரும்பும் எண்",
+        "issuedAt": "வெளியிட்ட நேரம்"
+      },
+      "status": {
+        "Active": "செயலில்",
+        "Voided": "ரத்து",
+        "FullyRedeemed": "முழுவதும் பயன்படுத்தப்பட்டது",
+        "Expired": "காலாவதி"
+      },
+      "empty": {
+        "title": "கிரெடிட் குறிப்புகள் எதுவும் இல்லை",
+        "description": "பட்டியலை சுருக்க தேடல் அல்லது நிலை வடிகட்டிகளைப் பயன்படுத்தவும்."
+      },
+      "loading": "கிரெடிட் குறிப்புகள் ஏற்றப்படுகின்றன...",
+      "pagination": {
+        "showing": "{{total}} குறிப்புகள் காட்டப்படுகின்றன, பக்கம் {{page}} / {{pages}}"
+      },
+      "detail": {
+        "eyebrow": "தேர்ந்தெடுக்கப்பட்ட கிரெடிட் குறிப்பு",
+        "subtitle": "இருப்பு மற்றும் வாடிக்கையாளர் சூழலை பார்வையிடவும்.",
+        "balance": "இருப்பு",
+        "originalAmount": "மூல தொகை",
+        "expiresAt": "காலாவதி ஆகும் நேரம்",
+        "customer": "வாடிக்கையாளர்",
+        "invoice": "இன்வாய்ஸ்",
+        "returnNumber": "திரும்பும் எண்",
+        "reason": "காரணம்",
+        "voidReason": "ரத்து காரணம்"
+      },
+      "errors": {
+        "loadFailed": "கிரெடிட் குறிப்புகளை ஏற்ற முடியவில்லை.",
+        "verifyFailed": "கிரெடிட் குறிப்பை சரிபார்க்க முடியவில்லை."
+      },
+      "void": {
+        "action": "கிரெடிட் நோட்டை ரத்து செய்",
+        "title": "கிரெடிட் நோட்டை ரத்து செய்",
+        "description": "இது கிரெடிட் நோட்டை ரத்து செய்து, தணிக்கை பதிவை அப்படியே வைத்திருக்கும்.",
+        "reasonLabel": "ரத்து காரணம்",
+        "reasonPlaceholder": "இந்த கிரெடிட் நோடு ஏன் ரத்து செய்யப்படுகிறது என்பதை விளக்கவும்",
+        "cancel": "ரத்து செய்",
+        "confirm": "கிரெடிட் நோட்டை ரத்து செய்",
+        "errors": {
+          "reasonRequired": "ரத்து காரணம் தேவை.",
+          "submitFailed": "கிரெடிட் நோட்டை ரத்து செய்ய முடியவில்லை."
+        }
       }
     },
     "searchPlaceholder": "விற்பனையைத் தேடு...",

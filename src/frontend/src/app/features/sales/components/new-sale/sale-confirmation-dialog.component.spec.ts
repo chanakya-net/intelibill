@@ -1,8 +1,12 @@
 import { TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@ngneat/transloco';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 
 import { CreateSaleResponse, SaleConfirmationDialogComponent } from './sale-confirmation-dialog.component';
+
+const enIN = JSON.parse(readFileSync(join(process.cwd(), 'public/assets/i18n/en-IN.json'), 'utf-8')) as Record<string, unknown>;
 
 describe('SaleConfirmationDialogComponent', () => {
   const sale: CreateSaleResponse = {
@@ -13,7 +17,10 @@ describe('SaleConfirmationDialogComponent', () => {
 
   it('renders sale details when visible', () => {
     TestBed.configureTestingModule({
-      imports: [SaleConfirmationDialogComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
+      imports: [
+        SaleConfirmationDialogComponent,
+        TranslocoTestingModule.forRoot({ langs: { 'en-IN': enIN }, translocoConfig: { defaultLang: 'en-IN', availableLangs: ['en-IN'] }, preloadLangs: true }),
+      ],
     });
 
     const fixture = TestBed.createComponent(SaleConfirmationDialogComponent);
@@ -26,9 +33,40 @@ describe('SaleConfirmationDialogComponent', () => {
     expect(text).toContain('120.00');
   });
 
+  it('renders credit note settlement details when present', () => {
+    TestBed.configureTestingModule({
+      imports: [
+        SaleConfirmationDialogComponent,
+        TranslocoTestingModule.forRoot({ langs: { 'en-IN': enIN }, translocoConfig: { defaultLang: 'en-IN', availableLangs: ['en-IN'] }, preloadLangs: true }),
+      ],
+    });
+
+    const fixture = TestBed.createComponent(SaleConfirmationDialogComponent);
+    fixture.componentInstance.visible = true;
+    fixture.componentInstance.saleResult = {
+      ...sale,
+      creditNoteAppliedAmount: 25,
+      creditNoteRedemptionSummaries: [
+        { creditNoteId: 'cn-1', code: 'CN-001', amount: 15 },
+        { creditNoteId: 'cn-2', code: 'CN-002', amount: 10 },
+      ],
+    };
+    fixture.detectChanges();
+
+    const text = fixture.nativeElement.textContent as string;
+    expect(text).toContain('Credit Note Settlement');
+    expect(text).toContain('₹25.00');
+    expect(text).toContain('Credit Note Codes');
+    expect(text).toContain('CN-001 · ₹15.00');
+    expect(text).toContain('CN-002 · ₹10.00');
+  });
+
   it('emits closed and print events', () => {
     TestBed.configureTestingModule({
-      imports: [SaleConfirmationDialogComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
+      imports: [
+        SaleConfirmationDialogComponent,
+        TranslocoTestingModule.forRoot({ langs: { 'en-IN': enIN }, translocoConfig: { defaultLang: 'en-IN', availableLangs: ['en-IN'] }, preloadLangs: true }),
+      ],
     });
 
     const fixture = TestBed.createComponent(SaleConfirmationDialogComponent);

@@ -67,6 +67,24 @@ public sealed class RecordSaleCommandValidator : AbstractValidator<RecordSaleCom
                 .WithMessage(Errors.Sale.ServiceDiscountNotSupported.Description);
         });
 
+        RuleForEach(x => x.CreditNoteRedemptions).ChildRules(redemption =>
+        {
+            redemption.RuleFor(r => r.Code)
+                .NotEmpty()
+                .WithErrorCode(Errors.Sale.CreditNoteRedemptionCodeRequired.Code)
+                .WithMessage(Errors.Sale.CreditNoteRedemptionCodeRequired.Description);
+
+            redemption.RuleFor(r => r.Amount)
+                .GreaterThan(0m)
+                .WithErrorCode(Errors.Sale.CreditNoteRedemptionAmountInvalid.Code)
+                .WithMessage(Errors.Sale.CreditNoteRedemptionAmountInvalid.Description);
+        });
+
+        RuleFor(x => x.CreditNoteRedemptions)
+            .Must(HaveDistinctCreditNoteCodes)
+            .WithErrorCode(Errors.Sale.CreditNoteRedemptionDuplicateCode.Code)
+            .WithMessage(Errors.Sale.CreditNoteRedemptionDuplicateCode.Description);
+
         RuleFor(x => x.SaleDiscount)
             .Must(IsValidDiscount)
             .WithErrorCode(Errors.Sale.InvalidSaleDiscount.Code)
@@ -81,6 +99,20 @@ public sealed class RecordSaleCommandValidator : AbstractValidator<RecordSaleCom
             .GreaterThanOrEqualTo(0)
             .WithErrorCode(Errors.Sale.DueAmountInvalid.Code)
             .WithMessage(Errors.Sale.DueAmountInvalid.Description);
+
+        RuleFor(x => x.CreditNoteAppliedAmount)
+            .GreaterThanOrEqualTo(0)
+            .WithErrorCode(Errors.Sale.CreditNoteAppliedAmountInvalid.Code)
+            .WithMessage(Errors.Sale.CreditNoteAppliedAmountInvalid.Description);
+
+        RuleFor(x => x)
+            .Must(x => (x.CreditNoteAppliedAmount == 0m
+                    && (x.CreditNoteRedemptions is null || x.CreditNoteRedemptions.Count == 0))
+                || (x.CreditNoteAppliedAmount > 0m
+                    && x.CreditNoteRedemptions is { Count: > 0 } redemptions
+                    && redemptions.Sum(r => r.Amount) == x.CreditNoteAppliedAmount))
+            .WithErrorCode(Errors.Sale.CreditNoteRedemptionsSplitMismatch.Code)
+            .WithMessage(Errors.Sale.CreditNoteRedemptionsSplitMismatch.Description);
 
         RuleFor(x => x)
             .Must(x => x.PaymentMethod != PaymentMethod.Credit || x.DueAmount > 0)
@@ -101,4 +133,24 @@ public sealed class RecordSaleCommandValidator : AbstractValidator<RecordSaleCom
             InstantDiscountType.Flat => discount.Value > 0m,
             _ => false,
         };
+
+    private static bool HaveDistinctCreditNoteCodes(IReadOnlyList<CreditNoteRedemptionCommand>? redemptions)
+    {
+        if (redemptions is null)
+        {
+            return true;
+        }
+
+        var codes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var redemption in redemptions)
+        {
+            var code = redemption.Code?.Trim() ?? string.Empty;
+            if (!codes.Add(code))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 }

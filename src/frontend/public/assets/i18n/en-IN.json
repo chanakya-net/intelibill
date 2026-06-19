@@ -99,6 +99,7 @@
     "manageSales": "Sales",
     "newSale": "New Sale",
     "salesHistory": "History",
+    "creditNotes": "Credit Notes",
     "manageInventory": "Inventory",
     "addNewProduct": "Products",
     "manageServices": "Services",
@@ -904,7 +905,8 @@
       },
       "amount": {
         "due": "Due",
-        "refund": "Refund"
+        "refund": "Refund",
+        "creditNoteApplied": "Credit note applied"
       },
       "pagination": {
         "ariaLabel": "Sales history pagination",
@@ -1050,7 +1052,27 @@
       "openPicker": "Open Batch Picker",
       "scanOrSearch": "Scan or search for products",
       "quickAdd": "Quick add",
-      "balanceDue": "Balance Due"
+      "balanceDue": "Balance Due",
+      "creditNote": {
+        "sectionLabel": "Credit Note",
+        "codePlaceholder": "Enter credit note code…",
+        "verifyBtn": "Verify",
+        "verified": "Credit note verified",
+        "appliedAmount": "Apply credit note amount",
+        "balance": "Available balance",
+        "remove": "Remove credit note",
+        "expiry": "Expires",
+        "verifyError": "Unable to verify credit note. Check the code and try again.",
+        "status": "Status",
+        "applyBtn": "Apply note",
+        "appliedTotal": "Applied credit notes total",
+        "offlineDisabled": "Credit note redemption is unavailable while offline.",
+        "customerMismatchWarning": "The credit note belongs to a different customer.",
+        "customerMismatchDetails": "Confirm this mismatch before applying the credit note to this sale.",
+        "confirmMismatchBtn": "Confirm mismatch",
+        "customerMismatchConfirmed": "Mismatch confirmed. The sale can be submitted.",
+        "customerMismatchConfirmRequired": "Please confirm the customer mismatch before submitting."
+      }
     },
     "detail": {
       "title": "Sale Details",
@@ -1070,7 +1092,11 @@
       "returnable": "Returnable",
       "beforeDiscount": "Before Discount",
       "discount": "Discount",
-      "totalSavings": "Total Savings"
+      "totalSavings": "Total Savings",
+      "settlement": {
+        "creditNoteApplied": "Credit Note Settlement",
+        "creditNoteCodes": "Credit Note Codes"
+      }
     },
     "invoice": {
       "returnItems": "Return items",
@@ -1090,6 +1116,8 @@
       "totalAmount": "Total Amount",
       "totalBeforeDiscount": "Subtotal (Before Discount)",
       "discount": "Discount",
+      "creditNoteSettlement": "Credit Note Settlement",
+      "creditNoteSettlementWithCodes": "Credit Note Settlement ({{ codes }})",
       "tax": "Tax",
       "grandTotal": "Grand Total",
       "printAgain": "Print Again",
@@ -1210,12 +1238,145 @@
         },
         "dueReductionOverride": "Due reduction override",
         "overrideReason": "Override reason",
-        "payoutMethod": "Refund payout method",
+        "payoutDestination": "Refund payout destination",
+        "payoutDestinations": {
+          "cash": "Cash",
+          "upi": "UPI",
+          "card": "Card",
+          "creditNote": "Credit Note"
+        },
         "confirmDueOverride": "Confirm due override",
+        "creditNoteExpiry": "Credit note expiry",
+        "creditNoteExpiryDate": "Expiry date",
+        "creditNoteExpiryNoExpiry": "No expiry",
+        "creditNoteExpiry30Days": "30 days",
+        "creditNoteExpiry60Days": "60 days",
+        "creditNoteExpiry90Days": "90 days",
+        "creditNoteExpiryCustom": "Custom date",
         "calculatedEffects": "Calculated effects",
         "warnings": "Warnings",
         "previewBtn": "Preview",
-        "recordBtn": "Record return"
+        "recordBtn": "Record return",
+        "successEyebrow": "Credit note issued",
+        "successTitle": "Credit note created",
+        "successDescription": "The return has been recorded and the credit note is ready to print.",
+        "successCodeLabel": "Credit note code",
+        "printCreditNoteBtn": "Print credit note"
+      }
+    },
+    "creditNotes": {
+      "eyebrow": "Sales Records",
+      "title": "Credit Notes",
+      "subtitle": "Review credit note history for the active shop.",
+      "emptyState": {
+        "title": "No credit notes yet",
+        "description": "Credit notes will appear here once they are created."
+      },
+      "print": {
+        "controlsLabel": "Credit note print actions",
+        "title": "Credit Note",
+        "printAgain": "Print Again",
+        "close": "Close",
+        "detailsSection": "Credit note details",
+        "customerSection": "Customer details",
+        "statusLabel": "Status",
+        "code": "Credit note code",
+        "issueDate": "Issued on",
+        "expiryDate": "Expires on",
+        "invoiceNumber": "Invoice #",
+        "returnNumber": "Return #",
+        "customer": "Customer",
+        "reason": "Reason",
+        "voidReason": "Void reason",
+        "originalAmount": "Original amount",
+        "availableBalance": "Available balance",
+        "expiredMarker": "Credit note is expired",
+        "voidedMarker": "Credit note is voided",
+        "termsLabel": "Terms",
+        "termsBody": "Credit notes are subject to store policy. Balance is redeemable against future purchases until the expiry date.",
+        "status": {
+          "Active": "Active",
+          "Expired": "Expired",
+          "FullyRedeemed": "Fully Redeemed",
+          "Voided": "Voided"
+        }
+      },
+      "verify": {
+        "label": "Verify code",
+        "placeholder": "Enter credit note code",
+        "action": "Verify"
+      },
+      "controls": {
+        "search": "Search",
+        "searchPlaceholder": "Search by code, invoice, return number, or customer",
+        "status": "Status",
+        "pageSize": "Rows",
+        "clear": "Clear filters"
+      },
+      "filters": {
+        "all": "All",
+        "active": "Active",
+        "fullyRedeemed": "Fully redeemed",
+        "expired": "Expired",
+        "voided": "Voided"
+      },
+      "list": {
+        "title": "Credit note list",
+        "subtitle": "Browse codes and balances.",
+        "count": "{{total}} notes"
+      },
+      "table": {
+        "code": "Code",
+        "status": "Status",
+        "balance": "Balance",
+        "originalAmount": "Original amount",
+        "customer": "Customer",
+        "invoice": "Invoice",
+        "returnNumber": "Return number",
+        "issuedAt": "Issued at"
+      },
+      "status": {
+        "Active": "Active",
+        "Voided": "Voided",
+        "FullyRedeemed": "Fully redeemed",
+        "Expired": "Expired"
+      },
+      "empty": {
+        "title": "No credit notes found",
+        "description": "Use search or status filters to narrow the list."
+      },
+      "loading": "Loading credit notes...",
+      "pagination": {
+        "showing": "Showing {{total}} notes, page {{page}} of {{pages}}"
+      },
+      "detail": {
+        "eyebrow": "Selected credit note",
+        "subtitle": "Review balance and customer context.",
+        "balance": "Balance",
+        "originalAmount": "Original amount",
+        "expiresAt": "Expires at",
+        "customer": "Customer",
+        "invoice": "Invoice",
+        "returnNumber": "Return number",
+        "reason": "Reason",
+        "voidReason": "Void reason"
+      },
+      "errors": {
+        "loadFailed": "Unable to load credit notes.",
+        "verifyFailed": "Unable to verify credit note."
+      },
+      "void": {
+        "action": "Void credit note",
+        "title": "Void credit note",
+        "description": "This will void the credit note and keep the audit trail intact.",
+        "reasonLabel": "Void reason",
+        "reasonPlaceholder": "Explain why this credit note is being voided",
+        "cancel": "Cancel",
+        "confirm": "Void credit note",
+        "errors": {
+          "reasonRequired": "Void reason is required.",
+          "submitFailed": "Unable to void credit note."
+        }
       }
     },
     "searchPlaceholder": "Search sales...",

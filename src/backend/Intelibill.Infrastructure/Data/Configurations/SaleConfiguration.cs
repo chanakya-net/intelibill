@@ -106,6 +106,11 @@ internal sealed class SaleConfiguration : IEntityTypeConfiguration<Sale>
             .HasPrecision(18, 2)
             .IsRequired();
 
+        builder.Property(s => s.CreditNoteAppliedAmount)
+            .HasPrecision(18, 2)
+            .IsRequired()
+            .HasDefaultValue(0m);
+
         builder.HasIndex(s => new { s.ShopId, s.InvoiceNumber })
             .IsUnique();
 

@@ -51,6 +51,8 @@ public class ApplicationDbContext(
     public DbSet<PurchaseOrderReceipt> PurchaseOrderReceipts => Set<PurchaseOrderReceipt>();
     public DbSet<PurchaseOrderReceiptLine> PurchaseOrderReceiptLines => Set<PurchaseOrderReceiptLine>();
     public DbSet<PurchaseOrderReceiptSequence> PurchaseOrderReceiptSequences => Set<PurchaseOrderReceiptSequence>();
+    public DbSet<CreditNote> CreditNotes => Set<CreditNote>();
+    public DbSet<CreditNoteRedemption> CreditNoteRedemptions => Set<CreditNoteRedemption>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -63,6 +65,7 @@ public class ApplicationDbContext(
                 .IsRowVersion()
                 .HasColumnName("xmin")
                 .HasColumnType("xid");
+
         }
 
         base.OnModelCreating(modelBuilder);

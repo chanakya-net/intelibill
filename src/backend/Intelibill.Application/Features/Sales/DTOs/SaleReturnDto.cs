@@ -11,8 +11,10 @@ public sealed record SaleReturnDto(
     decimal TotalRefundAmount,
     decimal DueReductionAmount,
     decimal PayoutAmount,
+    ReturnPayoutDestination? PayoutDestination,
     decimal TotalTaxableAmount,
     decimal TotalTaxAmount,
+    SaleReturnCreditNoteSummaryDto? CreditNote,
     IReadOnlyList<SaleReturnItemDto> Items);
 
 public sealed record SaleReturnItemDto(
@@ -24,3 +26,11 @@ public sealed record SaleReturnItemDto(
     decimal TaxableAmount,
     decimal TaxAmount,
     string? Notes);
+
+public sealed record SaleReturnCreditNoteSummaryDto(
+    Guid CreditNoteId,
+    string Code,
+    decimal OriginalAmount,
+    decimal AvailableBalance,
+    DateTimeOffset? ExpiresAt,
+    string Reason);

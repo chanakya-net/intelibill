@@ -165,7 +165,7 @@ describe('SalesFacade', () => {
   });
 
   it('recordSaleReturn dispatches recordSaleReturnRequested', () => {
-    const payload = { payoutMethod: 1, dueReductionOverrideAmount: null, dueOverrideReason: null, notes: null, items: [] };
+    const payload = { payoutDestination: 2, dueReductionOverrideAmount: null, dueOverrideReason: null, notes: null, items: [] };
     facade.recordSaleReturn('s1', payload);
     expect(dispatch).toHaveBeenCalledWith(SalesActions.recordSaleReturnRequested({ saleId: 's1', payload }));
   });

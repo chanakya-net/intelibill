@@ -3,7 +3,7 @@ using Intelibill.Domain.ValueObjects;
 
 namespace Intelibill.Api.Controllers;
 
-public sealed record RecordSaleRequest(
+public sealed partial record RecordSaleRequest(
     Guid? CustomerId,
     string? CustomerName,
     string? CustomerPhone,
@@ -12,7 +12,10 @@ public sealed record RecordSaleRequest(
     decimal PaidAmount,
     decimal DueAmount,
     IReadOnlyList<RecordSaleItemRequest> Items,
-    InstantDiscountRequest? SaleDiscount = null);
+    InstantDiscountRequest? SaleDiscount = null,
+    decimal CreditNoteAppliedAmount = 0m,
+    IReadOnlyList<CreditNoteRedemptionRequest>? CreditNoteRedemptions = null,
+    bool CreditNoteCustomerMismatchConfirmed = false);
 
 public sealed record ReserveInvoiceLeaseRequest(
     string DeviceId,
@@ -110,6 +113,10 @@ public sealed record InstantDiscountRequest(
     InstantDiscountType Type,
     decimal Value);
 
+public sealed record CreditNoteRedemptionRequest(
+    string Code,
+    decimal Amount);
+
 public sealed record PreviewSaleReturnRequest(
     decimal? DueReductionOverrideAmount,
     string? DueOverrideReason,
@@ -124,11 +131,14 @@ public sealed record PreviewSaleReturnItemRequest(
     SaleLineType LineType = SaleLineType.Goods);
 
 public sealed record RecordSaleReturnRequest(
-    PaymentMethod? PayoutMethod,
+    ReturnPayoutDestination? PayoutDestination,
     decimal? DueReductionOverrideAmount,
     string? DueOverrideReason,
     string? Notes,
-    IReadOnlyList<RecordSaleReturnItemRequest> Items);
+    IReadOnlyList<RecordSaleReturnItemRequest> Items,
+    PaymentMethod? PayoutMethod = null,
+    DateTimeOffset? CreditNoteExpiresAt = null,
+    string? CreditNoteReason = null);
 
 public sealed record RecordSaleReturnItemRequest(
     Guid SaleItemId,

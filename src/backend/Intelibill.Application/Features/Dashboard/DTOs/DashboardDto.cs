@@ -23,6 +23,7 @@ public sealed record DashboardDto(
     decimal? CreditSalesAmount,
     decimal? CreditSalesPercentage,
     PaymentMixDto? PaymentMix,
+    decimal? CreditNoteSettlementAmount,
     bool? CreditShareWarning,
     int RunningLowStockCount,
     int LowStockItemCount,

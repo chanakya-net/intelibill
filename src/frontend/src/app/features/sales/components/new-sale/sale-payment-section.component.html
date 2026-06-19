@@ -50,3 +50,118 @@
 @if (isOfflineMode && selectedMethod === 'UPI') {
   <p class="text-xs text-amber-600 mt-1">{{ 'sales.newSale.offline.upiAttestedNote' | transloco }}</p>
 }
+
+@if (!isOfflineMode) {
+  <div class="credit-note-verify mt-3">
+    <label class="text-xs text-slate-500">{{ 'sales.newSale.creditNote.sectionLabel' | transloco }}</label>
+    <div class="flex gap-2 items-start mt-1">
+      <input
+        pInputText
+        class="flex-1"
+        [value]="creditNoteCode"
+        (input)="onCreditNoteCodeChange($any($event.target).value)"
+        [placeholder]="'sales.newSale.creditNote.codePlaceholder' | transloco"
+        [disabled]="isCreditNoteVerifying"
+        aria-label="Credit note code"
+      />
+      <p-button
+        [label]="'sales.newSale.creditNote.verifyBtn' | transloco"
+        [loading]="isCreditNoteVerifying"
+        [disabled]="!creditNoteCode.trim() || isCreditNoteVerifying"
+        (click)="onCreditNoteVerifyClick()"
+        severity="secondary"
+        size="small"
+      />
+    </div>
+
+    @if (verifiedCreditNote) {
+      <div class="credit-note-result mt-2 p-2 bg-emerald-50 border border-emerald-200 rounded text-sm">
+        <p class="text-emerald-700 font-medium">{{ 'sales.newSale.creditNote.verified' | transloco }}</p>
+        <p class="text-slate-600">
+          {{ 'sales.newSale.creditNote.balance' | transloco }}: {{ 'common.currencySymbol' | transloco }}{{ verifiedCreditNote.availableBalance | number:'1.2-2' }}
+        </p>
+        <p class="text-slate-600">
+          {{ 'sales.newSale.creditNote.status' | transloco }}: {{ verifiedCreditNote.status }}
+        </p>
+        @if (verifiedCreditNote.expiresAt) {
+          <p class="text-slate-500 text-xs">
+            {{ 'sales.newSale.creditNote.expiry' | transloco }}: {{ verifiedCreditNote.expiresAt | date:'mediumDate' }}
+          </p>
+        }
+        @if (creditNoteCustomerMismatchWarning && !creditNoteCustomerMismatchConfirmed) {
+          <div class="mt-2 p-2 bg-amber-50 border border-amber-200 rounded text-sm">
+            <p class="text-amber-800 font-medium">{{ 'sales.newSale.creditNote.customerMismatchWarning' | transloco }}</p>
+            <p class="text-slate-600">{{ 'sales.newSale.creditNote.customerMismatchDetails' | transloco }}</p>
+            <div class="flex gap-2 mt-2">
+              <p-button
+                [label]="'sales.newSale.creditNote.confirmMismatchBtn' | transloco"
+                [outlined]="true"
+                severity="warn"
+                size="small"
+                (click)="onCreditNoteCustomerMismatchConfirmedChange(true)"
+              />
+              <p-button
+                [label]="'common.cancel' | transloco"
+                severity="secondary"
+                size="small"
+                (click)="onCreditNoteCustomerMismatchCancelClick()"
+              />
+            </div>
+          </div>
+        }
+        @if (creditNoteCustomerMismatchConfirmed && creditNoteCustomerMismatchWarning) {
+          <p class="text-xs text-emerald-700 mt-1">{{ 'sales.newSale.creditNote.customerMismatchConfirmed' | transloco }}</p>
+        }
+        <div class="mt-2">
+          <p-button
+            [label]="'sales.newSale.creditNote.applyBtn' | transloco"
+            severity="success"
+            size="small"
+            [disabled]="!canApplyCreditNote || (creditNoteCustomerMismatchWarning && !creditNoteCustomerMismatchConfirmed)"
+            (click)="onCreditNoteApplyClick()"
+          />
+        </div>
+      </div>
+    }
+
+    @if (appliedCreditNotes.length > 0) {
+      <div class="credit-note-applied-list mt-3 flex flex-col gap-2">
+        <div class="text-xs text-slate-500">
+          {{ 'sales.newSale.creditNote.appliedTotal' | transloco }}: {{ 'common.currencySymbol' | transloco }}{{ appliedCreditNotesTotal | number:'1.2-2' }}
+        </div>
+        @for (note of appliedCreditNotes; track note.creditNoteId) {
+          <div class="p-2 rounded border border-slate-200 bg-white flex flex-col gap-2">
+            <div class="flex items-center justify-between gap-2">
+              <div>
+                <p class="font-medium text-slate-700">{{ note.code }}</p>
+                <p class="text-xs text-slate-500">{{ note.status }}</p>
+              </div>
+              <p-button
+                [label]="'common.remove' | transloco"
+                severity="secondary"
+                [text]="true"
+                size="small"
+                (click)="onAppliedCreditNoteRemoveClick(note.creditNoteId)"
+              />
+            </div>
+            <p-inputgroup [pt]="currencyGroupPt">
+              <p-inputgroup-addon [pt]="currencyAddonPt">{{ 'common.currencySymbol' | transloco }}</p-inputgroup-addon>
+              <p-inputNumber
+                [ngModel]="note.amount"
+                (ngModelChange)="onAppliedCreditNoteAmountChange(note.creditNoteId, $event)"
+                [min]="0"
+                [max]="getMaxAmountForAppliedCreditNote(note)"
+                [pt]="currencyInputPt"
+              />
+            </p-inputgroup>
+          </div>
+        }
+      </div>
+
+    }
+
+    @if (creditNoteError) {
+      <p class="error-hint mt-1">{{ creditNoteError | transloco }}</p>
+    }
+  </div>
+}

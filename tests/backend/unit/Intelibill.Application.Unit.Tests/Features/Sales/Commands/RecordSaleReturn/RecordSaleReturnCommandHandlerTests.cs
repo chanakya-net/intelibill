@@ -1,4 +1,5 @@
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Features.CreditNotes.Services;
 using Intelibill.Application.Features.Sales.Commands.RecordSaleReturn;
 using Intelibill.Application.Features.Sales.Services;
 using Intelibill.Application.Features.Sales.Services.Returns;
@@ -21,6 +22,8 @@ public sealed class RecordSaleReturnCommandHandlerTests
     private readonly IInventoryRepository _inventoryRepository = Substitute.For<IInventoryRepository>();
     private readonly IStockTransactionRepository _stockTransactionRepository = Substitute.For<IStockTransactionRepository>();
     private readonly ICustomerLedgerEntryRepository _customerLedgerEntryRepository = Substitute.For<ICustomerLedgerEntryRepository>();
+    private readonly ICreditNoteRepository _creditNoteRepository = Substitute.For<ICreditNoteRepository>();
+    private readonly ICreditNoteCodeGenerator _creditNoteCodeGenerator = Substitute.For<ICreditNoteCodeGenerator>();
     private readonly ISaleReturnNumberGenerator _returnNumberGenerator = Substitute.For<ISaleReturnNumberGenerator>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
     private readonly ISaleReturnCalculator _calculator = new SaleReturnCalculator();
@@ -42,6 +45,8 @@ public sealed class RecordSaleReturnCommandHandlerTests
                 _customerLedgerEntryRepository,
                 _calculator),
             _returnNumberGenerator,
+            _creditNoteCodeGenerator,
+            _creditNoteRepository,
             _inventoryRepository,
             _inventoryBatchRepository,
             _stockTransactionRepository,
@@ -59,7 +64,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
         _returnNumberGenerator.Generate(Arg.Any<DateTimeOffset>()).Returns("RET-20260505-ABC123EF");
 
         var result = await CreateHandler().HandleAsync(
-            Command(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, payoutMethod: PaymentMethod.Cash),
+            Command(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, payoutDestination: ReturnPayoutDestination.Refund),
             CancellationToken.None);
 
         Assert.False(result.IsError);
@@ -83,6 +88,127 @@ public sealed class RecordSaleReturnCommandHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_WhenCreditNoteDestinationAndPaidReturn_CreatesCreditNoteForPayoutAmount()
+    {
+        var fixture = ArrangeSale(ShopRole.Owner);
+        _returnNumberGenerator.Generate(Arg.Any<DateTimeOffset>()).Returns("RET-20260505-CNPAID1");
+        _creditNoteCodeGenerator.GenerateAsync(fixture.Shop.Id, Arg.Any<CancellationToken>()).Returns("CN-20260614-ABC123");
+
+        var result = await CreateHandler().HandleAsync(
+            Command(
+                fixture.User.Id,
+                fixture.Shop.Id,
+                fixture.Sale.Id,
+                fixture.SaleItem.Id,
+                payoutDestination: ReturnPayoutDestination.CreditNote),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        await _creditNoteRepository.Received(1).AddAsync(
+            Arg.Is<CreditNote>(note =>
+                note.ShopId == fixture.Shop.Id
+                && note.Code == "CN-20260614-ABC123"
+                && note.OriginalAmount == 220m
+                && note.AvailableBalance == 220m
+                && note.ExpiresAt == null
+                && note.Reason == "Customer returned sealed items"
+                && note.LinkedCustomerId == null),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenCreditNoteDestinationAndCustomerSale_CreatesCustomerLinkedCreditNote()
+    {
+        var fixture = ArrangeSale(ShopRole.Owner, hasCustomer: true);
+        CreditNote? savedNote = null;
+        _returnNumberGenerator.Generate(Arg.Any<DateTimeOffset>()).Returns("RET-20260505-CNPOKER");
+        _creditNoteCodeGenerator.GenerateAsync(fixture.Shop.Id, Arg.Any<CancellationToken>()).Returns("CN-20260614-LINK01");
+
+        _creditNoteRepository
+            .AddAsync(Arg.Any<CreditNote>(), Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask)
+            .AndDoes(x => savedNote = x.ArgAt<CreditNote>(0));
+
+        var result = await CreateHandler().HandleAsync(
+            Command(
+                fixture.User.Id,
+                fixture.Shop.Id,
+                fixture.Sale.Id,
+                fixture.SaleItem.Id,
+                payoutDestination: ReturnPayoutDestination.CreditNote),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.NotNull(savedNote);
+        Assert.Equal(fixture.Sale.CustomerId, savedNote!.LinkedCustomerId);
+        Assert.Equal("CN-20260614-LINK01", savedNote.Code);
+        Assert.Equal(220m, savedNote.AvailableBalance);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenCreditNoteDestinationAndDueFirstSplit_CreatesCreditNoteForRemainingPayoutOnly()
+    {
+        var fixture = ArrangeSale(ShopRole.Owner, dueAmount: 300m, hasCustomer: true);
+        _customerLedgerEntryRepository.GetCustomerBalanceAsync(fixture.Shop.Id, fixture.Sale.CustomerId!.Value, Arg.Any<CancellationToken>())
+            .Returns(100m);
+        _returnNumberGenerator.Generate(Arg.Any<DateTimeOffset>()).Returns("RET-20260505-CNDU001");
+        _creditNoteCodeGenerator.GenerateAsync(fixture.Shop.Id, Arg.Any<CancellationToken>()).Returns("CN-20260614-DEF456");
+
+        var result = await CreateHandler().HandleAsync(
+            Command(
+                fixture.User.Id,
+                fixture.Shop.Id,
+                fixture.Sale.Id,
+                fixture.SaleItem.Id,
+                payoutDestination: ReturnPayoutDestination.CreditNote),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        await _customerLedgerEntryRepository.Received(1).AddAsync(
+            Arg.Is<CustomerLedgerEntry>(entry =>
+                entry.CustomerId == fixture.Sale.CustomerId
+                && entry.EntryType == CustomerLedgerEntryType.ReturnCredit
+                && entry.Amount == 100m),
+            Arg.Any<CancellationToken>());
+        await _creditNoteRepository.Received(1).AddAsync(
+            Arg.Is<CreditNote>(note =>
+                note.Code == "CN-20260614-DEF456"
+                && note.OriginalAmount == 120m
+                && note.AvailableBalance == 120m
+                && note.Reason == "Customer returned sealed items"),
+            Arg.Any<CancellationToken>());
+        await _saleReturnRepository.Received(1).AddAsync(
+            Arg.Is<SaleReturn>(r =>
+                r.DueReductionAmount == 100m
+                && r.PayoutAmount == 120m
+                && r.CustomerBalanceBefore == 100m
+                && r.CustomerBalanceAfter == 0m),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenCreditNoteExpiryMissing_PersistsNullExpiry()
+    {
+        var fixture = ArrangeSale(ShopRole.Owner);
+        _returnNumberGenerator.Generate(Arg.Any<DateTimeOffset>()).Returns("RET-20260505-CNEXP01");
+        _creditNoteCodeGenerator.GenerateAsync(fixture.Shop.Id, Arg.Any<CancellationToken>()).Returns("CN-20260614-GHI789");
+
+        var result = await CreateHandler().HandleAsync(
+            Command(
+                fixture.User.Id,
+                fixture.Shop.Id,
+                fixture.Sale.Id,
+                fixture.SaleItem.Id,
+                payoutDestination: ReturnPayoutDestination.CreditNote),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        await _creditNoteRepository.Received(1).AddAsync(
+            Arg.Is<CreditNote>(note => note.ExpiresAt == null),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task HandleAsync_WhenRefundExceedsDiscountedMaxWithoutReason_ReturnsValidationError()
     {
         var fixture = ArrangeSale(ShopRole.Owner, itemDiscountAmount: 50m, saleDiscountAmount: 25m);
@@ -93,7 +219,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
                 fixture.Shop.Id,
                 fixture.Sale.Id,
                 fixture.SaleItem.Id,
-                payoutMethod: PaymentMethod.Cash,
+                payoutDestination: ReturnPayoutDestination.Refund,
                 approvedRefundAmount: 200m,
                 lineNotes: null),
             CancellationToken.None);
@@ -115,7 +241,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
                 fixture.Shop.Id,
                 fixture.Sale.Id,
                 fixture.SaleItem.Id,
-                payoutMethod: PaymentMethod.Cash,
+                payoutDestination: ReturnPayoutDestination.Refund,
                 approvedRefundAmount: 200m,
                 lineNotes: "Goodwill"),
             CancellationToken.None);
@@ -138,7 +264,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
         var fixture = ArrangeSale(ShopRole.Staff);
 
         var result = await CreateHandler().HandleAsync(
-            Command(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, payoutMethod: PaymentMethod.Cash),
+            Command(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, payoutDestination: ReturnPayoutDestination.Refund),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -159,7 +285,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
                 fixture.Shop.Id,
                 fixture.Sale.Id,
                 fixture.SaleItem.Id,
-                payoutMethod: PaymentMethod.Cash,
+                payoutDestination: ReturnPayoutDestination.Refund,
                 condition: SaleReturnCondition.Wastage,
                 approvedRefundAmount: 50m,
                 lineNotes: "Damaged after sale"),
@@ -222,11 +348,13 @@ public sealed class RecordSaleReturnCommandHandlerTests
                 fixture.User.Id,
                 fixture.Shop.Id,
                 sale.Id,
-                PaymentMethod.Cash,
+                ReturnPayoutDestination.Refund,
                 DueReductionOverrideAmount: null,
                 DueOverrideReason: null,
                 Notes: "Service refund",
-                [new RecordSaleReturnItemCommand(serviceItem.Id, 1m, SaleLineType.Service, null, ApprovedRefundAmount: null, Notes: "Not delivered")] ),
+                CreditNoteExpiresAt: null,
+                CreditNoteReason: null,
+                Items: [new RecordSaleReturnItemCommand(serviceItem.Id, 1m, SaleLineType.Service, null, ApprovedRefundAmount: null, Notes: "Not delivered")] ),
             CancellationToken.None);
 
         Assert.False(result.IsError);
@@ -284,11 +412,13 @@ public sealed class RecordSaleReturnCommandHandlerTests
                 fixture.User.Id,
                 fixture.Shop.Id,
                 sale.Id,
-                PaymentMethod.Cash,
+                ReturnPayoutDestination.Refund,
                 DueReductionOverrideAmount: null,
                 DueOverrideReason: null,
                 Notes: "Mixed return",
-                [
+                CreditNoteExpiresAt: null,
+                CreditNoteReason: null,
+                Items: [
                     new RecordSaleReturnItemCommand(fixture.SaleItem.Id, 1m, SaleLineType.Goods, SaleReturnCondition.Restockable, ApprovedRefundAmount: null, Notes: "Sealed"),
                     new RecordSaleReturnItemCommand(serviceItem.Id, 1m, SaleLineType.Service, null, ApprovedRefundAmount: null, Notes: "Not delivered"),
                 ]),
@@ -361,11 +491,13 @@ public sealed class RecordSaleReturnCommandHandlerTests
                 user.Id,
                 shop.Id,
                 sale.Id,
-                PaymentMethod.Cash,
+                ReturnPayoutDestination.Refund,
                 DueReductionOverrideAmount: null,
                 DueOverrideReason: null,
                 Notes: "Refund",
-                [new RecordSaleReturnItemCommand(serviceItem.Id, 1m, SaleLineType.Service, null, ApprovedRefundAmount: null, Notes: null)]),
+                CreditNoteExpiresAt: null,
+                CreditNoteReason: null,
+                Items: [new RecordSaleReturnItemCommand(serviceItem.Id, 1m, SaleLineType.Service, null, ApprovedRefundAmount: null, Notes: null)]),
             CancellationToken.None);
 
         Assert.False(result.IsError);
@@ -427,11 +559,13 @@ public sealed class RecordSaleReturnCommandHandlerTests
                 fixture.User.Id,
                 fixture.Shop.Id,
                 sale.Id,
-                PaymentMethod.Cash,
+                ReturnPayoutDestination.Refund,
                 DueReductionOverrideAmount: null,
                 DueOverrideReason: null,
                 Notes: null,
-                [new RecordSaleReturnItemCommand(serviceItem.Id, 1m, SaleLineType.Service, SaleReturnCondition.Restockable, ApprovedRefundAmount: null, Notes: null)]),
+                CreditNoteExpiresAt: null,
+                CreditNoteReason: null,
+                Items: [new RecordSaleReturnItemCommand(serviceItem.Id, 1m, SaleLineType.Service, SaleReturnCondition.Restockable, ApprovedRefundAmount: null, Notes: null)]),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -495,11 +629,13 @@ public sealed class RecordSaleReturnCommandHandlerTests
                 fixture.User.Id,
                 fixture.Shop.Id,
                 sale.Id,
-                PaymentMethod.Cash,
+                ReturnPayoutDestination.Refund,
                 DueReductionOverrideAmount: null,
                 DueOverrideReason: null,
                 Notes: "Mixed return",
-                [
+                CreditNoteExpiresAt: null,
+                CreditNoteReason: null,
+                Items: [
                     new RecordSaleReturnItemCommand(fixture.SaleItem.Id, 2m, SaleLineType.Goods, SaleReturnCondition.Restockable, ApprovedRefundAmount: null, Notes: "Sealed"),
                     new RecordSaleReturnItemCommand(secondSaleItem.Id, 1m, SaleLineType.Goods, SaleReturnCondition.Wastage, ApprovedRefundAmount: 25m, Notes: "Damaged"),
                 ]),
@@ -539,7 +675,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
         _returnNumberGenerator.Generate(Arg.Any<DateTimeOffset>()).Returns("RET-20260505-DUE001");
 
         var result = await CreateHandler().HandleAsync(
-            Command(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, payoutMethod: PaymentMethod.Cash),
+            Command(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, payoutDestination: ReturnPayoutDestination.Refund),
             CancellationToken.None);
 
         Assert.False(result.IsError);
@@ -569,7 +705,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
         _returnNumberGenerator.Generate(Arg.Any<DateTimeOffset>()).Returns("RET-20260505-PAID001");
 
         var result = await CreateHandler().HandleAsync(
-            Command(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, payoutMethod: PaymentMethod.Cash),
+            Command(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, payoutDestination: ReturnPayoutDestination.Refund),
             CancellationToken.None);
 
         Assert.False(result.IsError);
@@ -597,7 +733,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
                 fixture.Shop.Id,
                 fixture.Sale.Id,
                 fixture.SaleItem.Id,
-                payoutMethod: PaymentMethod.Cash,
+                payoutDestination: ReturnPayoutDestination.Refund,
                 dueReductionOverrideAmount: 25m,
                 dueOverrideReason: null),
             CancellationToken.None);
@@ -622,7 +758,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
                 fixture.Shop.Id,
                 fixture.Sale.Id,
                 fixture.SaleItem.Id,
-                payoutMethod: PaymentMethod.Cash,
+                payoutDestination: ReturnPayoutDestination.Refund,
                 dueReductionOverrideAmount: 25m,
                 dueOverrideReason: "Customer needs cash refund"),
             CancellationToken.None);
@@ -654,7 +790,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
                 fixture.Shop.Id,
                 fixture.Sale.Id,
                 fixture.SaleItem.Id,
-                payoutMethod: PaymentMethod.Cash,
+                payoutDestination: ReturnPayoutDestination.Refund,
                 dueReductionOverrideAmount: 150m,
                 dueOverrideReason: "Too much"),
             CancellationToken.None);
@@ -673,7 +809,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
             .Returns([previousReturn]);
 
         var result = await CreateHandler().HandleAsync(
-            Command(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, payoutMethod: PaymentMethod.Cash),
+            Command(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, payoutDestination: ReturnPayoutDestination.Refund),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -768,21 +904,25 @@ public sealed class RecordSaleReturnCommandHandlerTests
         Guid shopId,
         Guid saleId,
         Guid saleItemId,
-        PaymentMethod? payoutMethod,
+        ReturnPayoutDestination? payoutDestination,
         SaleReturnCondition condition = SaleReturnCondition.Restockable,
         decimal? approvedRefundAmount = null,
         string? lineNotes = "Sealed",
         decimal? dueReductionOverrideAmount = null,
-        string? dueOverrideReason = null) =>
+        string? dueOverrideReason = null,
+        DateTimeOffset? creditNoteExpiresAt = null,
+        string? creditNoteReason = null) =>
         new(
             userId,
             shopId,
             saleId,
-            payoutMethod,
+            payoutDestination,
             dueReductionOverrideAmount,
             dueOverrideReason,
             Notes: "Customer returned sealed items",
-            [new RecordSaleReturnItemCommand(saleItemId, 2m, SaleLineType.Goods, condition, approvedRefundAmount, lineNotes)]);
+            CreditNoteExpiresAt: creditNoteExpiresAt,
+            CreditNoteReason: creditNoteReason,
+            Items: [new RecordSaleReturnItemCommand(saleItemId, 2m, SaleLineType.Goods, condition, approvedRefundAmount, lineNotes)]);
 
     private static SaleReturn MakeSaleReturn(Guid shopId, Guid saleId, Guid saleItemId, decimal quantity)
     {
@@ -827,7 +967,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
             totalRefundAmount: quantity * 110m,
             dueReductionAmount: 0m,
             payoutAmount: quantity * 110m,
-            payoutMethod: PaymentMethod.Cash,
+            payoutDestination: ReturnPayoutDestination.Refund,
             totalTaxableAmount: quantity * 100m,
             totalTaxAmount: quantity * 10m,
             customerBalanceBefore: null,

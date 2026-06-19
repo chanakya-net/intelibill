@@ -179,6 +179,12 @@ export class ShellMenuService {
         routerLink: ['/sales'],
         command: () => this.router.navigate(['/sales']),
       },
+      {
+        label: this.localizationService.translate('shell.creditNotes'),
+        icon: 'pi pi-file-edit',
+        routerLink: ['/sales/credit-notes'],
+        command: () => this.router.navigate(['/sales/credit-notes']),
+      },
     ];
 
     if (this.permissions.isOwnerOrManagerOfActiveShop()) {

@@ -1,0 +1,355 @@
+<section class="credit-notes-page">
+  <header class="credit-notes-hero">
+    <div>
+      <p class="eyebrow">{{ 'sales.creditNotes.eyebrow' | transloco }}</p>
+      <h1>{{ 'sales.creditNotes.title' | transloco }}</h1>
+      <p class="subtitle">{{ 'sales.creditNotes.subtitle' | transloco }}</p>
+    </div>
+  </header>
+
+  <section class="command-panel">
+    <div class="command-group">
+      <label class="control-label">{{ 'sales.creditNotes.verify.label' | transloco }}</label>
+      <div class="verify-row">
+        <p-iconfield iconPosition="left" class="search-field">
+          <p-inputicon><i class="pi pi-search"></i></p-inputicon>
+          <input
+            pInputText
+            type="text"
+            [ngModel]="verifyCode()"
+            (ngModelChange)="verifyCode.set($event)"
+            [placeholder]="'sales.creditNotes.verify.placeholder' | transloco"
+          />
+        </p-iconfield>
+        <button
+          pButton
+          type="button"
+          severity="secondary"
+          icon="pi pi-check"
+          [label]="'sales.creditNotes.verify.action' | transloco"
+          (click)="onVerifyCode()"
+          [disabled]="loadingDetail() || !verifyCode().trim()"
+        ></button>
+      </div>
+    </div>
+
+    <div class="command-group">
+      <label class="control-label">{{ 'sales.creditNotes.controls.search' | transloco }}</label>
+      <p-iconfield iconPosition="left" class="search-field">
+        <p-inputicon><i class="pi pi-filter"></i></p-inputicon>
+        <input
+          pInputText
+          type="text"
+          [ngModel]="searchValue()"
+          (ngModelChange)="onSearchChange($event)"
+          [placeholder]="'sales.creditNotes.controls.searchPlaceholder' | transloco"
+        />
+      </p-iconfield>
+    </div>
+
+    <div class="filters-row">
+      <div class="command-group">
+        <label class="control-label">{{ 'sales.creditNotes.controls.status' | transloco }}</label>
+        <p-select
+          [ngModel]="statusFilter()"
+          (ngModelChange)="onStatusChange($event)"
+          [options]="statusOptions"
+          optionLabel="label"
+          optionValue="value"
+        >
+          <ng-template pTemplate="selectedItem" let-option>
+            {{ option.label | transloco }}
+          </ng-template>
+          <ng-template pTemplate="item" let-option>
+            {{ option.label | transloco }}
+          </ng-template>
+        </p-select>
+      </div>
+
+      <div class="command-group">
+        <label class="control-label">{{ 'sales.creditNotes.controls.pageSize' | transloco }}</label>
+        <p-select
+          [ngModel]="pageSize()"
+          (ngModelChange)="onPageSizeChange($event)"
+          [options]="pageSizeOptions"
+          optionLabel="label"
+          optionValue="value"
+        />
+      </div>
+
+      <button
+        pButton
+        type="button"
+        outlined="true"
+        severity="secondary"
+        class="clear-btn"
+        icon="pi pi-undo"
+        [label]="'sales.creditNotes.controls.clear' | transloco"
+        (click)="clearFilters()"
+      ></button>
+    </div>
+  </section>
+
+  @if (errorMessage()) {
+    <p class="error">{{ errorMessage() | transloco }}</p>
+  }
+
+  <section class="ledger-panel">
+    <header class="ledger-header">
+      <div>
+        <h2>{{ 'sales.creditNotes.list.title' | transloco }}</h2>
+        <p class="subtitle">{{ 'sales.creditNotes.list.subtitle' | transloco }}</p>
+      </div>
+      <div class="count-pill">
+        {{ 'sales.creditNotes.list.count' | transloco: { total: totalCount() } }}
+      </div>
+    </header>
+
+    @if (loadingNotes()) {
+      <div class="loading-state">{{ 'sales.creditNotes.loading' | transloco }}</div>
+    } @else {
+      <div class="desktop-table">
+        <p-table [value]="notes()" class="p-datatable-sm">
+          <ng-template pTemplate="header">
+            <tr>
+              <th>{{ 'sales.creditNotes.table.code' | transloco }}</th>
+              <th>{{ 'sales.creditNotes.table.status' | transloco }}</th>
+              <th class="text-right">{{ 'sales.creditNotes.table.balance' | transloco }}</th>
+              <th class="text-right">{{ 'sales.creditNotes.table.originalAmount' | transloco }}</th>
+              <th>{{ 'sales.creditNotes.table.customer' | transloco }}</th>
+              <th>{{ 'sales.creditNotes.table.invoice' | transloco }}</th>
+              <th>{{ 'sales.creditNotes.table.returnNumber' | transloco }}</th>
+              <th>{{ 'sales.creditNotes.table.issuedAt' | transloco }}</th>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-note>
+            <tr class="clickable-row" (click)="openCreditNoteFromList(note)">
+              <td class="font-bold">{{ note.code }}</td>
+              <td>
+                <p-tag
+                  [severity]="getStatusSeverity(note.status)"
+                  [value]="getStatusTranslationKey(note.status) | transloco"
+                ></p-tag>
+              </td>
+              <td class="text-right">{{ formatCurrency(note.availableBalance) }}</td>
+              <td class="text-right">{{ formatCurrency(note.originalAmount) }}</td>
+              <td>
+                @if (note.customerName) {
+                  {{ note.customerName }}
+                } @else {
+                  <span class="muted">{{ 'sales.history.walkIn' | transloco }}</span>
+                }
+              </td>
+              <td>{{ note.invoiceNumber }}</td>
+              <td>{{ note.returnNumber }}</td>
+              <td>{{ formatDateTime(note.issuedAt) }}</td>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="emptymessage">
+            <tr>
+              <td colspan="8" class="empty-cell">
+                <div class="empty-state">
+                  <i class="pi pi-file-edit empty-icon"></i>
+                  <h3>{{ 'sales.creditNotes.empty.title' | transloco }}</h3>
+                  <p>{{ 'sales.creditNotes.empty.description' | transloco }}</p>
+                </div>
+              </td>
+            </tr>
+          </ng-template>
+        </p-table>
+      </div>
+
+      <div class="mobile-list">
+        @for (note of notes(); track note.creditNoteId) {
+          <article class="mobile-card" (click)="openCreditNoteFromList(note)">
+            <header>
+              <div>
+                <h3>{{ note.code }}</h3>
+                <p class="mobile-subtitle">{{ formatDateTime(note.issuedAt) }}</p>
+              </div>
+              <p-tag
+                [severity]="getStatusSeverity(note.status)"
+                [value]="getStatusTranslationKey(note.status) | transloco"
+              ></p-tag>
+            </header>
+
+            <div class="mobile-grid">
+              <p><strong>{{ 'sales.creditNotes.table.balance' | transloco }}:</strong> {{ formatCurrency(note.availableBalance) }}</p>
+              <p><strong>{{ 'sales.creditNotes.table.originalAmount' | transloco }}:</strong> {{ formatCurrency(note.originalAmount) }}</p>
+              <p><strong>{{ 'sales.creditNotes.table.customer' | transloco }}:</strong> {{ note.customerName || ('sales.history.walkIn' | transloco) }}</p>
+              <p><strong>{{ 'sales.creditNotes.table.invoice' | transloco }}:</strong> {{ note.invoiceNumber }}</p>
+              <p><strong>{{ 'sales.creditNotes.table.returnNumber' | transloco }}:</strong> {{ note.returnNumber }}</p>
+            </div>
+          </article>
+        }
+
+        @if (notes().length === 0) {
+          <div class="mobile-empty">
+            <i class="pi pi-file-edit empty-icon"></i>
+            <h3>{{ 'sales.creditNotes.empty.title' | transloco }}</h3>
+            <p>{{ 'sales.creditNotes.empty.description' | transloco }}</p>
+          </div>
+        }
+      </div>
+
+      <footer class="pager">
+        <div class="showing">
+          {{ 'sales.creditNotes.pagination.showing' | transloco: { total: totalCount(), page: pageNumber(), pages: totalPages() } }}
+        </div>
+        <div class="pager-actions">
+          <button
+            pButton
+            type="button"
+            outlined="true"
+            severity="secondary"
+            icon="pi pi-chevron-left"
+            (click)="onPageChange(pageNumber() - 1)"
+            [disabled]="pageNumber() === 1"
+          ></button>
+          <span class="page-chip">{{ pageNumber() }}</span>
+          <button
+            pButton
+            type="button"
+            outlined="true"
+            severity="secondary"
+            icon="pi pi-chevron-right"
+            (click)="onPageChange(pageNumber() + 1)"
+            [disabled]="pageNumber() >= totalPages()"
+          ></button>
+        </div>
+      </footer>
+    }
+  </section>
+
+  @if (selectedCreditNote()) {
+    <section class="detail-panel">
+      <header class="detail-header">
+        <div>
+          <p class="eyebrow">{{ 'sales.creditNotes.detail.eyebrow' | transloco }}</p>
+          <h2>{{ selectedCreditNote()!.code }}</h2>
+          <p class="subtitle">{{ 'sales.creditNotes.detail.subtitle' | transloco }}</p>
+        </div>
+        <p-tag
+          [severity]="getStatusSeverity(selectedCreditNote()!.status)"
+          [value]="getStatusTranslationKey(selectedCreditNote()!.status) | transloco"
+        ></p-tag>
+      </header>
+
+      @if (canVoidCreditNote(selectedCreditNote())) {
+        <div class="detail-actions">
+          <button
+            pButton
+            type="button"
+            severity="danger"
+            outlined="true"
+            icon="pi pi-ban"
+            [label]="'sales.creditNotes.void.action' | transloco"
+            (click)="openVoidDialog()"
+          ></button>
+        </div>
+      }
+
+      <div class="detail-grid">
+        <article class="metric-card">
+          <p>{{ 'sales.creditNotes.detail.balance' | transloco }}</p>
+          <strong>{{ formatCurrency(selectedCreditNote()!.availableBalance) }}</strong>
+        </article>
+        <article class="metric-card">
+          <p>{{ 'sales.creditNotes.detail.originalAmount' | transloco }}</p>
+          <strong>{{ formatCurrency(selectedCreditNote()!.originalAmount ?? 0) }}</strong>
+        </article>
+        <article class="metric-card">
+          <p>{{ 'sales.creditNotes.detail.expiresAt' | transloco }}</p>
+          <strong>{{ formatDateTime(selectedCreditNote()!.expiresAt) }}</strong>
+        </article>
+        <article class="metric-card">
+          <p>{{ 'sales.creditNotes.detail.customer' | transloco }}</p>
+          <strong>
+            @if (selectedCreditNote()!.customerName) {
+              {{ selectedCreditNote()!.customerName }}
+            } @else {
+              {{ 'sales.history.walkIn' | transloco }}
+            }
+          </strong>
+        </article>
+        <article class="metric-card">
+          <p>{{ 'sales.creditNotes.detail.invoice' | transloco }}</p>
+          <strong>{{ selectedCreditNote()!.invoiceNumber || '--' }}</strong>
+        </article>
+        <article class="metric-card">
+          <p>{{ 'sales.creditNotes.detail.returnNumber' | transloco }}</p>
+          <strong>{{ selectedCreditNote()!.returnNumber || '--' }}</strong>
+        </article>
+      </div>
+
+      <div class="detail-notes">
+        <article>
+          <p class="control-label">{{ 'sales.creditNotes.detail.reason' | transloco }}</p>
+          <p>{{ selectedCreditNote()!.reason || '--' }}</p>
+        </article>
+        @if (selectedCreditNote()!.voidReason) {
+          <article>
+            <p class="control-label">{{ 'sales.creditNotes.detail.voidReason' | transloco }}</p>
+            <p>{{ selectedCreditNote()!.voidReason }}</p>
+          </article>
+        }
+      </div>
+
+    </section>
+  }
+</section>
+
+<p-dialog
+  [visible]="voidDialogVisible()"
+  (visibleChange)="closeVoidDialog()"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [style]="{ width: '92vw', maxWidth: '520px' }"
+  [header]="'sales.creditNotes.void.title' | transloco"
+>
+  @if (voidTargetCreditNote()) {
+    <div class="void-dialog">
+      <p class="subtitle">{{ 'sales.creditNotes.void.description' | transloco }}</p>
+      <div class="void-summary">
+        <p class="control-label">{{ 'sales.creditNotes.detail.eyebrow' | transloco }}</p>
+        <strong>{{ voidTargetCreditNote()!.code }}</strong>
+      </div>
+      <label class="void-field">
+        <span class="control-label">{{ 'sales.creditNotes.void.reasonLabel' | transloco }}</span>
+        <textarea
+          pInputTextarea
+          rows="4"
+          [ngModel]="voidReason()"
+          (ngModelChange)="updateVoidReason($event)"
+          [disabled]="voidLoading()"
+          [placeholder]="'sales.creditNotes.void.reasonPlaceholder' | transloco"
+        ></textarea>
+      </label>
+      @if (voidErrorMessage()) {
+        <p class="void-error">{{ voidErrorMessage() | transloco }}</p>
+      }
+    </div>
+  }
+
+  <ng-template pTemplate="footer">
+    <button
+      pButton
+      type="button"
+      severity="secondary"
+      outlined="true"
+      [label]="'sales.creditNotes.void.cancel' | transloco"
+      [disabled]="voidLoading()"
+      (click)="closeVoidDialog()"
+    ></button>
+    <button
+      pButton
+      type="button"
+      severity="danger"
+      [label]="'sales.creditNotes.void.confirm' | transloco"
+      [loading]="voidLoading()"
+      [disabled]="voidLoading() || !voidReason().trim()"
+      (click)="submitVoidCreditNote()"
+    ></button>
+  </ng-template>
+</p-dialog>

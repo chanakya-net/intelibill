@@ -99,6 +99,7 @@
     "manageSales": "വിൽപ്പന",
     "newSale": "പുതിയ വിൽപ്പന",
     "salesHistory": "ചരിത്രം",
+    "creditNotes": "Credit Notes",
     "manageInventory": "ഇൻവെന്ററി",
     "addNewProduct": "ഉൽപ്പന്നങ്ങൾ",
     "manageServices": "Services",
@@ -904,7 +905,8 @@
       },
       "amount": {
         "due": "ബാക്കി",
-        "refund": "തിരിച്ചടവ്"
+        "refund": "തിരിച്ചടവ്",
+        "creditNoteApplied": "ക്രെഡിറ്റ് നോട്ട് പ്രയോഗിച്ചു"
       },
       "pagination": {
         "ariaLabel": "വിൽപ്പന ചരിത്ര പേജിനേഷൻ",
@@ -1050,7 +1052,27 @@
       "quickAdd": "Quick add",
       "balanceDue": "Balance Due",
       "goodsSection": "Goods",
-      "servicesSection": "Services"
+      "servicesSection": "Services",
+      "creditNote": {
+        "sectionLabel": "Credit Note",
+        "codePlaceholder": "Enter credit note code…",
+        "verifyBtn": "Verify",
+        "verified": "Credit note verified",
+        "balance": "Available balance",
+        "expiry": "Expires",
+        "verifyError": "Unable to verify credit note. Check the code and try again.",
+        "status": "Status",
+        "appliedAmount": "Apply credit note amount",
+        "remove": "Remove credit note",
+        "applyBtn": "Apply note",
+        "appliedTotal": "Applied credit notes total",
+        "offlineDisabled": "Credit note redemption is unavailable while offline.",
+        "customerMismatchWarning": "The credit note belongs to a different customer.",
+        "customerMismatchDetails": "Confirm this mismatch before applying the credit note to this sale.",
+        "confirmMismatchBtn": "Confirm mismatch",
+        "customerMismatchConfirmed": "Mismatch confirmed. The sale can be submitted.",
+        "customerMismatchConfirmRequired": "Please confirm the customer mismatch before submitting."
+      }
     },
     "detail": {
       "title": "വിൽപ്പന വിശദാംശങ്ങൾ",
@@ -1070,7 +1092,11 @@
       "returnable": "തിരികെ നൽകാവുന്നത്",
       "beforeDiscount": "ഡിസ്‌കൗണ്ടിന് മുൻപ്",
       "discount": "ഡിസ്‌കൗണ്ട്",
-      "totalSavings": "മൊത്തം സേവിംഗ്സ്"
+      "totalSavings": "മൊത്തം സേവിംഗ്സ്",
+      "settlement": {
+        "creditNoteApplied": "ക്രെഡിറ്റ് നോട്ട് സെറ്റിൽമെന്റ്",
+        "creditNoteCodes": "ക്രെഡിറ്റ് നോട്ട് കോഡുകൾ"
+      }
     },
     "invoice": {
       "returnItems": "ഇനങ്ങൾ തിരികെ നൽകുക",
@@ -1090,6 +1116,8 @@
       "totalAmount": "Total Amount",
       "totalBeforeDiscount": "Subtotal (Before Discount)",
       "discount": "Discount",
+      "creditNoteSettlement": "Credit Note Settlement",
+      "creditNoteSettlementWithCodes": "Credit Note Settlement ({{ codes }})",
       "tax": "Tax",
       "grandTotal": "Grand Total",
       "printAgain": "Print Again",
@@ -1210,12 +1238,145 @@
         },
         "dueReductionOverride": "കാരണം കുറയ്ക്കൽ അസാധുവാക്കൽ",
         "overrideReason": "കാരണം അസാധുവാക്കുക",
-        "payoutMethod": "റീഫണ്ട് പേഔട്ട് രീതി",
+        "payoutDestination": "റീഫണ്ട് പേഔട്ട് ലക്ഷ്യം",
+        "payoutDestinations": {
+          "cash": "Cash",
+          "upi": "UPI",
+          "card": "Card",
+          "creditNote": "Credit Note"
+        },
         "confirmDueOverride": "അസാധുവാക്കൽ സ്ഥിരീകരിക്കുക",
+        "creditNoteExpiryNoExpiry": "കാലാവധി ഇല്ലാതെ",
+        "creditNoteExpiry30Days": "30 ദിവസം",
+        "creditNoteExpiry60Days": "60 ദിവസം",
+        "creditNoteExpiry90Days": "90 ദിവസം",
+        "creditNoteExpiryCustom": "കസ്റ്റം തീയതി",
         "calculatedEffects": "കണക്കാക്കിയ ഇഫക്റ്റുകൾ",
         "warnings": "മുന്നറിയിപ്പുകൾ",
         "previewBtn": "പ്രിവ്യൂ",
-        "recordBtn": "റെക്കോർഡ് റിട്ടേൺ"
+        "recordBtn": "റെക്കോർഡ് റിട്ടേൺ",
+        "successEyebrow": "Credit note issued",
+        "successTitle": "Credit note created",
+        "successDescription": "The return has been recorded and the credit note is ready to print.",
+        "successCodeLabel": "Credit note code",
+        "printCreditNoteBtn": "Print credit note",
+        "creditNoteExpiry": "ക്രെഡിറ്റ് നോട്ട് ഒഴിവാക്കൽ",
+        "creditNoteExpiryDate": "ഒഴിവാക്കൽ തീയതി"
+      }
+    },
+    "creditNotes": {
+      "eyebrow": "വിൽപ്പന രേഖകൾ",
+      "title": "ക്രെഡിറ്റ് നോട്ടുകൾ",
+      "subtitle": "സജീവ കടയിലെ ക്രെഡിറ്റ് നോട്ട് ചരിത്രം പരിശോധിക്കുക.",
+      "emptyState": {
+        "title": "No credit notes yet",
+        "description": "Credit notes will appear here once they are created."
+      },
+      "print": {
+        "controlsLabel": "Credit note print actions",
+        "title": "Credit Note",
+        "printAgain": "Print Again",
+        "close": "Close",
+        "detailsSection": "Credit note details",
+        "customerSection": "Customer details",
+        "statusLabel": "Status",
+        "code": "Credit note code",
+        "issueDate": "Issued on",
+        "expiryDate": "Expires on",
+        "invoiceNumber": "Invoice #",
+        "returnNumber": "Return #",
+        "customer": "Customer",
+        "reason": "Reason",
+        "voidReason": "Void reason",
+        "originalAmount": "Original amount",
+        "availableBalance": "Available balance",
+        "expiredMarker": "Credit note is expired",
+        "voidedMarker": "Credit note is voided",
+        "termsLabel": "Terms",
+        "termsBody": "Credit notes are subject to store policy. Balance is redeemable against future purchases until the expiry date.",
+        "status": {
+          "Active": "Active",
+          "Expired": "Expired",
+          "FullyRedeemed": "Fully Redeemed",
+          "Voided": "Voided"
+        }
+      },
+      "verify": {
+        "label": "കോഡ് പരിശോധിക്കുക",
+        "placeholder": "ക്രെഡിറ്റ് നോട്ട് കോഡ് നൽകുക",
+        "action": "പരിശോധിക്കുക"
+      },
+      "controls": {
+        "search": "തിരയുക",
+        "searchPlaceholder": "കോഡ്, ഇൻവോയ്‌സ്, റിട്ടേൺ നമ്പർ അല്ലെങ്കിൽ ഉപഭോക്താവ് വഴി തിരയുക",
+        "status": "സ്ഥിതി",
+        "pageSize": "വരികൾ",
+        "clear": "ഫിൽട്ടറുകൾ മായ്ക്കുക"
+      },
+      "filters": {
+        "all": "എല്ലാം",
+        "active": "സജീവം",
+        "fullyRedeemed": "മുഴുവൻ ഉപയോഗിച്ചു",
+        "expired": "കാലാവധി കഴിഞ്ഞു",
+        "voided": "റദ്ദാക്കി"
+      },
+      "list": {
+        "title": "ക്രെഡിറ്റ് നോട്ട് പട്ടിക",
+        "subtitle": "കോഡുകളും ബാലൻസുകളും കാണുക.",
+        "count": "{{total}} കുറിപ്പുകൾ"
+      },
+      "table": {
+        "code": "കോഡ്",
+        "status": "സ്ഥിതി",
+        "balance": "ബാലൻസ്",
+        "originalAmount": "അസൽ തുക",
+        "customer": "ഉപഭോക്താവ്",
+        "invoice": "ഇൻവോയ്‌സ്",
+        "returnNumber": "റിട്ടേൺ നമ്പർ",
+        "issuedAt": "നൽകിയ സമയം"
+      },
+      "status": {
+        "Active": "സജീവം",
+        "Voided": "റദ്ദാക്കി",
+        "FullyRedeemed": "മുഴുവൻ ഉപയോഗിച്ചു",
+        "Expired": "കാലാവധി കഴിഞ്ഞു"
+      },
+      "empty": {
+        "title": "ക്രെഡിറ്റ് നോട്ടുകൾ ഒന്നും കണ്ടെത്തിയില്ല",
+        "description": "പട്ടിക ചുരുക്കാൻ തിരയൽ അല്ലെങ്കിൽ സ്ഥിതി ഫിൽട്ടർ ഉപയോഗിക്കുക."
+      },
+      "loading": "ക്രെഡിറ്റ് നോട്ടുകൾ ലോഡ് ചെയ്യുന്നു...",
+      "pagination": {
+        "showing": "{{total}} കുറിപ്പുകൾ കാണിക്കുന്നു, പേജ് {{page}} / {{pages}}"
+      },
+      "detail": {
+        "eyebrow": "തിരഞ്ഞെടുത്ത ക്രെഡിറ്റ് നോട്ട്",
+        "subtitle": "ബാലൻസും ഉപഭോക്തൃ പശ്ചാത്തലവും പരിശോധിക്കുക.",
+        "balance": "ബാലൻസ്",
+        "originalAmount": "അസൽ തുക",
+        "expiresAt": "കാലാവധി തീരുന്ന സമയം",
+        "customer": "ഉപഭോക്താവ്",
+        "invoice": "ഇൻവോയ്‌സ്",
+        "returnNumber": "റിട്ടേൺ നമ്പർ",
+        "reason": "കാരണം",
+        "voidReason": "റദ്ദാക്കാനുള്ള കാരണം"
+      },
+      "errors": {
+        "loadFailed": "ക്രെഡിറ്റ് നോട്ടുകൾ ലോഡ് ചെയ്യാൻ കഴിഞ്ഞില്ല.",
+        "verifyFailed": "ക്രെഡിറ്റ് നോട്ട് പരിശോധിക്കാൻ കഴിഞ്ഞില്ല."
+      },
+      "void": {
+        "action": "ക്രെഡിറ്റ് നോട്ട് റദ്ദാക്കുക",
+        "title": "ക്രെഡിറ്റ് നോട്ട് റദ്ദാക്കുക",
+        "description": "ഇത് ക്രെഡിറ്റ് നോട്ടിനെ റദ്ദാക്കുകയും ഓഡിറ്റ് ട്രെയിൽ അപ്രഭവമാകാതെ നിലനിർത്തുകയും ചെയ്യും.",
+        "reasonLabel": "റദ്ദാക്കാനുള്ള കാരണം",
+        "reasonPlaceholder": "ഈ ക്രെഡിറ്റ് നോട്ട് എന്തിനാണ് റദ്ദാക്കുന്നത് എന്ന് വിശദീകരിക്കുക",
+        "cancel": "റദ്ദാക്കുക",
+        "confirm": "ക്രെഡിറ്റ് നോട്ട് റദ്ദാക്കുക",
+        "errors": {
+          "reasonRequired": "റദ്ദാക്കാനുള്ള കാരണം ആവശ്യമാണ്.",
+          "submitFailed": "ക്രെഡിറ്റ് നോട്ട് റദ്ദാക്കാൻ കഴിഞ്ഞില്ല."
+        }
       }
     },
     "searchPlaceholder": "വിൽപ്പന തിരയുക...",

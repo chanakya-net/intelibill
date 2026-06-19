@@ -88,6 +88,7 @@ public static class DependencyInjection
         services.AddScoped<IInventoryBatchRepository, InventoryBatchRepository>();
         services.AddScoped<IInventoryAdjustmentRepository, InventoryAdjustmentRepository>();
         services.AddScoped<IStockTransactionRepository, StockTransactionRepository>();
+        services.AddScoped<ICreditNoteRedemptionRepository, CreditNoteRedemptionRepository>();
         services.AddScoped<ISupplierLedgerEntryRepository, SupplierLedgerEntryRepository>();
         services.AddScoped<ISaleRepository, SaleRepository>();
         services.AddScoped<IReconciliationIssueRepository, ReconciliationIssueRepository>();
@@ -104,6 +105,7 @@ public static class DependencyInjection
         services.AddScoped<IPurchaseOrderSequenceRepository, PurchaseOrderSequenceRepository>();
         services.AddScoped<IPurchaseOrderReceiptRepository, PurchaseOrderReceiptRepository>();
         services.AddScoped<IPurchaseOrderReceiptSequenceRepository, PurchaseOrderReceiptSequenceRepository>();
+        services.AddScoped<ICreditNoteRepository, CreditNoteRepository>();
 
         // ── Auth services ─────────────────────────────────────────────────────
         services.AddScoped<ITokenService, TokenService>();

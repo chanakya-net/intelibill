@@ -23,6 +23,7 @@ const makeSale = (overrides: Partial<SaleDto> = {}): SaleDto => ({
   totalDiscountAmount: 0,
   totalAmount: 220,
   totalTaxAmount: 20,
+  creditNoteAppliedAmount: 0,
   items: [],
   returns: [],
   warnings: [],
@@ -47,6 +48,31 @@ describe('SaleSummaryPanelComponent', () => {
     expect(text).toContain('Grand Total');
     expect(text).toContain('Discount');
     expect(text).toContain('Total Savings');
+  });
+
+  it('shows credit note settlement separately from paid and due', async () => {
+    await setup();
+
+    const fixture = TestBed.createComponent(SaleSummaryPanelComponent);
+    fixture.componentInstance.sale = makeSale({
+      paidAmount: 180,
+      dueAmount: 15,
+      creditNoteAppliedAmount: 25,
+      creditNoteRedemptionSummaries: [
+        { creditNoteId: 'cn-1', code: 'CN-001', amount: 15 },
+        { creditNoteId: 'cn-2', code: 'CN-002', amount: 10 },
+      ],
+    });
+    fixture.detectChanges();
+
+    const text = fixture.nativeElement.textContent as string;
+    expect(text).toContain('Credit Note Settlement');
+    expect(text).toContain('₹25.00');
+    expect(text).toContain('Credit Note Codes');
+    expect(text).toContain('CN-001');
+    expect(text).toContain('CN-002');
+    expect(text).not.toContain('discount');
+    expect(text).not.toContain('cash payment');
   });
 });
 

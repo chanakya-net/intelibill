@@ -204,14 +204,15 @@ export abstract class NewSalePageCartSubmitService extends NewSalePageCartSelect
     const customerPhone = this.customerForm.controls.customerPhone.value.trim() || null;
     const paidAmount = this.toFiniteAmount(this.paymentForm.controls.paidAmount.value);
     const dueAmount = this.toFiniteAmount(this.paymentForm.controls.dueAmount.value);
-    const totalAmount = this.roundAmount(this.totalAmount());
+    const creditNoteAmount = this.totalAppliedCreditNoteAmount();
+    const payableAmount = this.roundAmount(Math.max(0, this.totalAmount() - creditNoteAmount));
 
     if (
       !Number.isFinite(paidAmount) ||
       !Number.isFinite(dueAmount) ||
       paidAmount < 0 ||
       dueAmount < 0 ||
-      !this.areAmountsEqual(paidAmount + dueAmount, totalAmount)
+      !this.areAmountsEqual(paidAmount + dueAmount, payableAmount)
     ) {
       this.paymentSplitError.set('sales.newSale.invalidPaymentSplit');
       return;
@@ -227,6 +228,11 @@ export abstract class NewSalePageCartSubmitService extends NewSalePageCartSelect
       return;
     }
 
+    if (this.creditNoteCustomerMismatchWarning() && !this.creditNoteCustomerMismatchConfirmed()) {
+      this.paymentSplitError.set('sales.newSale.creditNote.customerMismatchConfirmRequired');
+      return;
+    }
+
     const request: RecordSaleRequest = {
       idempotencyKey: this.createSaleIdempotencyKey(),
       customerId: this.selectedCustomerId(),
@@ -237,6 +243,9 @@ export abstract class NewSalePageCartSubmitService extends NewSalePageCartSelect
       dueAmount,
       items,
       saleDiscount: { type: this.saleDiscountType(), value: this.saleDiscountValue() },
+      creditNoteAppliedAmount: creditNoteAmount,
+      creditNoteRedemptions: this.buildCreditNoteRedemptions(),
+      creditNoteCustomerMismatchConfirmed: this.creditNoteCustomerMismatchConfirmed() || undefined,
     };
 
     this.salesFacade.recordSale(request);

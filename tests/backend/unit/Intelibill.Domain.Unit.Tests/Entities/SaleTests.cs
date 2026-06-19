@@ -288,6 +288,92 @@ public class SaleTests
     }
 
     [Fact]
+    public void Record_WithCreditNoteApplied_TotalSplitValidatesWhenSumMatches()
+    {
+        var shopId = Guid.NewGuid();
+        SaleLineInput[] lines =
+        [
+            new SaleLineInput(
+                shopId, SaleLineType.Goods, ItemId: Guid.NewGuid(), InventoryBatchId: Guid.NewGuid(),
+                ServiceId: null, LineName: "Sugar", LineCode: "BC-001", Quantity: 2m, CostPrice: 80m,
+                SalesPrice: 100m, Mrp: 120m, TaxRatePercent: 18m, IsPriceIncludingTax: false, HasPriceMismatch: false),
+        ];
+
+        // total = 2*100*(1+0.18) = 236; paid=136, due=0, creditNoteApplied=100 => 136+0+100=236
+        var result = Sale.Record(
+            shopId, Guid.NewGuid(), $"sale-{Guid.NewGuid():N}", "HASH-CREDIT",
+            "INV-20260614-CRED0001", lines, null, null, null,
+            PaymentMethod.Cash, 136m, 0m, DateTimeOffset.UtcNow,
+            creditNoteAppliedAmount: 100m);
+
+        Assert.False(result.IsError);
+        Assert.Equal(100m, result.Value.CreditNoteAppliedAmount);
+    }
+
+    [Fact]
+    public void Record_WithCreditNoteApplied_WhenSumMismatches_ReturnsMismatchError()
+    {
+        var shopId = Guid.NewGuid();
+        SaleLineInput[] lines =
+        [
+            new SaleLineInput(
+                shopId, SaleLineType.Goods, ItemId: Guid.NewGuid(), InventoryBatchId: Guid.NewGuid(),
+                ServiceId: null, LineName: "Sugar", LineCode: "BC-001", Quantity: 2m, CostPrice: 80m,
+                SalesPrice: 100m, Mrp: 120m, TaxRatePercent: 18m, IsPriceIncludingTax: false, HasPriceMismatch: false),
+        ];
+
+        // total = 236; paid=136, due=0, creditNoteApplied=50 => 136+0+50=186 != 236
+        var result = Sale.Record(
+            shopId, Guid.NewGuid(), $"sale-{Guid.NewGuid():N}", "HASH-CREDIT-BAD",
+            "INV-20260614-CRED0002", lines, null, null, null,
+            PaymentMethod.Cash, 136m, 0m, DateTimeOffset.UtcNow,
+            creditNoteAppliedAmount: 50m);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Sale.PaidAndDueAmountMismatch.Code, result.FirstError.Code);
+    }
+
+    [Fact]
+    public void Record_WhenCreditNoteAppliedAmountIsNegative_ReturnsInvalidError()
+    {
+        var shopId = Guid.NewGuid();
+        var line = new SaleLineInput(
+            shopId,
+            SaleLineType.Goods,
+            ItemId: Guid.NewGuid(),
+            InventoryBatchId: Guid.NewGuid(),
+            ServiceId: null,
+            LineName: "Sugar",
+            LineCode: "BC-001",
+            Quantity: 2m,
+            CostPrice: 80m,
+            SalesPrice: 100m,
+            Mrp: 120m,
+            TaxRatePercent: 18m,
+            IsPriceIncludingTax: false,
+            HasPriceMismatch: false);
+
+        var result = Sale.Record(
+            shopId,
+            Guid.NewGuid(),
+            $"sale-{Guid.NewGuid():N}",
+            "HASH-CREDIT-NEG",
+            "INV-20260614-CRED0003",
+            [line],
+            null,
+            null,
+            null,
+            PaymentMethod.Cash,
+            256m,
+            0m,
+            DateTimeOffset.UtcNow,
+            creditNoteAppliedAmount: -20m);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Sale.CreditNoteAppliedAmountInvalid.Code, result.FirstError.Code);
+    }
+
+    [Fact]
     public void Create_IsNotPublic()
     {
         var method = typeof(Sale).GetMethod("Create", BindingFlags.Public | BindingFlags.Static);

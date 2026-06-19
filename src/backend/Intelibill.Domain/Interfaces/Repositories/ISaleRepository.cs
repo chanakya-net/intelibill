@@ -62,7 +62,8 @@ public sealed record SaleHistoryReadModel(
     IReadOnlyList<string> ReturnNumbers,
     string Status,
     decimal RefundAmount,
-    decimal DueReductionAmount);
+    decimal DueReductionAmount,
+    decimal CreditNoteAppliedAmount);
 
 public sealed record SalesHistorySummaryReadModel(
     decimal PeriodSales,

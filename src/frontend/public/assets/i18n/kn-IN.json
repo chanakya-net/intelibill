@@ -99,6 +99,7 @@
     "manageSales": "ಮಾರಾಟ",
     "newSale": "ಹೊಸ ಮಾರಾಟ",
     "salesHistory": "ಇತಿಹಾಸ",
+    "creditNotes": "Credit Notes",
     "manageInventory": "ಇನ್‌ವೆಂಟರಿ",
     "addNewProduct": "ಉತ್ಪನ್ನಗಳು",
     "manageServices": "Services",
@@ -904,7 +905,8 @@
       },
       "amount": {
         "due": "ಬಾಕಿ",
-        "refund": "ಮರುಪಾವತಿ"
+        "refund": "ಮರುಪಾವತಿ",
+        "creditNoteApplied": "ಕ್ರೆಡಿಟ್ ನೋಟ್ ಅನ್ವಯಿಸಲಾಗಿದೆ"
       },
       "pagination": {
         "ariaLabel": "ಮಾರಾಟ ಇತಿಹಾಸ ಪುಟ ಸಂಖ್ಯೆ",
@@ -1050,7 +1052,27 @@
       "quickAdd": "Quick add",
       "balanceDue": "Balance Due",
       "goodsSection": "Goods",
-      "servicesSection": "Services"
+      "servicesSection": "Services",
+      "creditNote": {
+        "sectionLabel": "Credit Note",
+        "codePlaceholder": "Enter credit note code…",
+        "verifyBtn": "Verify",
+        "verified": "Credit note verified",
+        "balance": "Available balance",
+        "expiry": "Expires",
+        "verifyError": "Unable to verify credit note. Check the code and try again.",
+        "status": "Status",
+        "appliedAmount": "Apply credit note amount",
+        "remove": "Remove credit note",
+        "applyBtn": "Apply note",
+        "appliedTotal": "Applied credit notes total",
+        "offlineDisabled": "Credit note redemption is unavailable while offline.",
+        "customerMismatchWarning": "The credit note belongs to a different customer.",
+        "customerMismatchDetails": "Confirm this mismatch before applying the credit note to this sale.",
+        "confirmMismatchBtn": "Confirm mismatch",
+        "customerMismatchConfirmed": "Mismatch confirmed. The sale can be submitted.",
+        "customerMismatchConfirmRequired": "Please confirm the customer mismatch before submitting."
+      }
     },
     "detail": {
       "title": "ಮಾರಾಟ ವಿವರಗಳು",
@@ -1070,7 +1092,11 @@
       "returnable": "ಹಿಂತಿರುಗಿಸಬಹುದಾದ",
       "beforeDiscount": "ರಿಯಾಯಿತಿಗೂ ಮೊದಲು",
       "discount": "ರಿಯಾಯಿತಿ",
-      "totalSavings": "ಒಟ್ಟು ಉಳಿತಾಯ"
+      "totalSavings": "ಒಟ್ಟು ಉಳಿತಾಯ",
+      "settlement": {
+        "creditNoteApplied": "ಕ್ರೆಡಿಟ್ ನೋಟ್ ಸೆಟಲ್‌ಮೆಂಟ್",
+        "creditNoteCodes": "ಕ್ರೆಡಿಟ್ ನೋಟ್ ಕೋಡ್‌ಗಳು"
+      }
     },
     "invoice": {
       "returnItems": "ಐಟಂಗಳನ್ನು ಮರಳಿಸಿ",
@@ -1090,6 +1116,8 @@
       "totalAmount": "Total Amount",
       "totalBeforeDiscount": "Subtotal (Before Discount)",
       "discount": "Discount",
+      "creditNoteSettlement": "Credit Note Settlement",
+      "creditNoteSettlementWithCodes": "Credit Note Settlement ({{ codes }})",
       "tax": "Tax",
       "grandTotal": "Grand Total",
       "printAgain": "Print Again",
@@ -1210,12 +1238,145 @@
         },
         "dueReductionOverride": "ಕಾರಣ ಕಡಿತ ಅತಿಕ್ರಮಣ",
         "overrideReason": "ಕಾರಣವನ್ನು ಅತಿಕ್ರಮಿಸಿ",
-        "payoutMethod": "ಮರುಪಾವತಿ ಪಾವತಿ ವಿಧಾನ",
+        "payoutDestination": "ಮರುಪಾವತಿ ಪಾವತಿ ಗುರಿ",
+        "payoutDestinations": {
+          "cash": "Cash",
+          "upi": "UPI",
+          "card": "Card",
+          "creditNote": "Credit Note"
+        },
         "confirmDueOverride": "ಕಾರಣ ಅತಿಕ್ರಮಣವನ್ನು ದೃಢೀಕರಿಸಿ",
+        "creditNoteExpiryNoExpiry": "ಕೊನೆಯಿಲ್ಲದ",
+        "creditNoteExpiry30Days": "30 ದಿನ",
+        "creditNoteExpiry60Days": "60 ದಿನ",
+        "creditNoteExpiry90Days": "90 ದಿನ",
+        "creditNoteExpiryCustom": "ಕಸ್ಟಮ್ ದಿನಾಂಕ",
         "calculatedEffects": "ಲೆಕ್ಕಾಚಾರದ ಪರಿಣಾಮಗಳು",
         "warnings": "ಎಚ್ಚರಿಕೆಗಳು",
         "previewBtn": "ಪೂರ್ವವೀಕ್ಷಣೆ",
-        "recordBtn": "ರೆಕಾರ್ಡ್ ರಿಟರ್ನ್"
+        "recordBtn": "ರೆಕಾರ್ಡ್ ರಿಟರ್ನ್",
+        "successEyebrow": "Credit note issued",
+        "successTitle": "Credit note created",
+        "successDescription": "The return has been recorded and the credit note is ready to print.",
+        "successCodeLabel": "Credit note code",
+        "printCreditNoteBtn": "Print credit note",
+        "creditNoteExpiry": "ಕ್ರೆಡಿಟ್ ನೋಟ್ ಅವಧಿ ಅಂತ್ಯ",
+        "creditNoteExpiryDate": "ಮುಕ್ತಾಯ ದಿನಾಂಕ"
+      }
+    },
+    "creditNotes": {
+      "eyebrow": "ಮಾರಾಟ ದಾಖಲೆಗಳು",
+      "title": "ಕ್ರೆಡಿಟ್ ನೋಟ್‌ಗಳು",
+      "subtitle": "ಸಕ್ರಿಯ ಅಂಗಡಿಯ ಕ್ರೆಡಿಟ್ ನೋಟ್ ಇತಿಹಾಸವನ್ನು ಪರಿಶೀಲಿಸಿ.",
+      "emptyState": {
+        "title": "No credit notes yet",
+        "description": "Credit notes will appear here once they are created."
+      },
+      "print": {
+        "controlsLabel": "Credit note print actions",
+        "title": "Credit Note",
+        "printAgain": "Print Again",
+        "close": "Close",
+        "detailsSection": "Credit note details",
+        "customerSection": "Customer details",
+        "statusLabel": "Status",
+        "code": "Credit note code",
+        "issueDate": "Issued on",
+        "expiryDate": "Expires on",
+        "invoiceNumber": "Invoice #",
+        "returnNumber": "Return #",
+        "customer": "Customer",
+        "reason": "Reason",
+        "voidReason": "Void reason",
+        "originalAmount": "Original amount",
+        "availableBalance": "Available balance",
+        "expiredMarker": "Credit note is expired",
+        "voidedMarker": "Credit note is voided",
+        "termsLabel": "Terms",
+        "termsBody": "Credit notes are subject to store policy. Balance is redeemable against future purchases until the expiry date.",
+        "status": {
+          "Active": "Active",
+          "Expired": "Expired",
+          "FullyRedeemed": "Fully Redeemed",
+          "Voided": "Voided"
+        }
+      },
+      "verify": {
+        "label": "ಕೋಡ್ ಪರಿಶೀಲಿಸಿ",
+        "placeholder": "ಕ್ರೆಡಿಟ್ ನೋಟ್ ಕೋಡ್ ನಮೂದಿಸಿ",
+        "action": "ಪರಿಶೀಲಿಸಿ"
+      },
+      "controls": {
+        "search": "ಹುಡುಕು",
+        "searchPlaceholder": "ಕೋಡ್, ಇನ್ವಾಯ್ಸ್, ರಿಟರ್ನ್ ಸಂಖ್ಯೆ ಅಥವಾ ಗ್ರಾಹಕರ ಮೂಲಕ ಹುಡುಕಿ",
+        "status": "ಸ್ಥಿತಿ",
+        "pageSize": "ಸಾಲುಗಳು",
+        "clear": "ಫಿಲ್ಟರ್ ತೆರವುಗೊಳಿಸಿ"
+      },
+      "filters": {
+        "all": "ಎಲ್ಲಾ",
+        "active": "ಸಕ್ರಿಯ",
+        "fullyRedeemed": "ಪೂರ್ಣವಾಗಿ ಬಳಕೆಯಾಗಿದೆ",
+        "expired": "ಅವಧಿ ಮುಗಿದಿದೆ",
+        "voided": "ರದ್ದು"
+      },
+      "list": {
+        "title": "ಕ್ರೆಡಿಟ್ ನೋಟ್ ಪಟ್ಟಿ",
+        "subtitle": "ಕೋಡ್‌ಗಳು ಮತ್ತು ಶೇಷವನ್ನು ನೋಡಿ.",
+        "count": "{{total}} ಟಿಪ್ಪಣಿಗಳು"
+      },
+      "table": {
+        "code": "ಕೋಡ್",
+        "status": "ಸ್ಥಿತಿ",
+        "balance": "ಶೇಷ",
+        "originalAmount": "ಮೂಲ ಮೊತ್ತ",
+        "customer": "ಗ್ರಾಹಕ",
+        "invoice": "ಇನ್ವಾಯ್ಸ್",
+        "returnNumber": "ರಿಟರ್ನ್ ಸಂಖ್ಯೆ",
+        "issuedAt": "ನೀಡಿದ ಸಮಯ"
+      },
+      "status": {
+        "Active": "ಸಕ್ರಿಯ",
+        "Voided": "ರದ್ದು",
+        "FullyRedeemed": "ಪೂರ್ಣವಾಗಿ ಬಳಕೆಯಾಗಿದೆ",
+        "Expired": "ಅವಧಿ ಮುಗಿದಿದೆ"
+      },
+      "empty": {
+        "title": "ಯಾವುದೇ ಕ್ರೆಡಿಟ್ ನೋಟ್ ಕಂಡುಬಂದಿಲ್ಲ",
+        "description": "ಪಟ್ಟಿಯನ್ನು ಸೀಮಿತಗೊಳಿಸಲು ಹುಡುಕಾಟ ಅಥವಾ ಸ್ಥಿತಿ ಫಿಲ್ಟರ್ ಬಳಸಿ."
+      },
+      "loading": "ಕ್ರೆಡಿಟ್ ನೋಟ್‌ಗಳು ಲೋಡ್ ಆಗುತ್ತಿವೆ...",
+      "pagination": {
+        "showing": "{{total}} ಟಿಪ್ಪಣಿಗಳನ್ನು ತೋರಿಸಲಾಗುತ್ತಿದೆ, ಪುಟ {{page}} / {{pages}}"
+      },
+      "detail": {
+        "eyebrow": "ಆಯ್ಕೆ ಮಾಡಿದ ಕ್ರೆಡಿಟ್ ನೋಟ್",
+        "subtitle": "ಶೇಷ ಮತ್ತು ಗ್ರಾಹಕ ಸಂದರ್ಭವನ್ನು ಪರಿಶೀಲಿಸಿ.",
+        "balance": "ಶೇಷ",
+        "originalAmount": "ಮೂಲ ಮೊತ್ತ",
+        "expiresAt": "ಅವಧಿ ಮುಗಿಯುವ ಸಮಯ",
+        "customer": "ಗ್ರಾಹಕ",
+        "invoice": "ಇನ್ವಾಯ್ಸ್",
+        "returnNumber": "ರಿಟರ್ನ್ ಸಂಖ್ಯೆ",
+        "reason": "ಕಾರಣ",
+        "voidReason": "ರದ್ದು ಕಾರಣ"
+      },
+      "errors": {
+        "loadFailed": "ಕ್ರೆಡಿಟ್ ನೋಟ್‌ಗಳನ್ನು ಲೋಡ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ.",
+        "verifyFailed": "ಕ್ರೆಡಿಟ್ ನೋಟ್ ಪರಿಶೀಲಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ."
+      },
+      "void": {
+        "action": "ಕ್ರೆಡಿಟ್ ನೋಟ್ ರದ್ದುಮಾಡಿ",
+        "title": "ಕ್ರೆಡಿಟ್ ನೋಟ್ ರದ್ದುಮಾಡಿ",
+        "description": "ಇದರಿಂದ ಕ್ರೆಡಿಟ್ ನೋಟ್ ರದ್ದು ಆಗುತ್ತದೆ ಮತ್ತು ಆಡಿಟ್ ಟ್ರೇಲ್ ಅಕ್ಷುಣ್ಣವಾಗಿರುತ್ತದೆ.",
+        "reasonLabel": "ರದ್ದುಮಾಡುವ ಕಾರಣ",
+        "reasonPlaceholder": "ಈ ಕ್ರೆಡಿಟ್ ನೋಟ್ ಏಕೆ ರದ್ದು ಮಾಡಲಾಗುತ್ತಿದೆ ಎಂಬುದನ್ನು ವಿವರಿಸಿ",
+        "cancel": "ರದ್ದುಮಾಡಿ",
+        "confirm": "ಕ್ರೆಡಿಟ್ ನೋಟ್ ರದ್ದುಮಾಡಿ",
+        "errors": {
+          "reasonRequired": "ರದ್ದುಮಾಡುವ ಕಾರಣ ಅಗತ್ಯವಿದೆ.",
+          "submitFailed": "ಕ್ರೆಡಿಟ್ ನೋಟ್ ಅನ್ನು ರದ್ದು ಮಾಡಲಾಗಲಿಲ್ಲ."
+        }
       }
     },
     "searchPlaceholder": "ಮಾರಾಟವನ್ನು ಹುಡುಕಿ...",

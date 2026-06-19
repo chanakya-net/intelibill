@@ -2,8 +2,12 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
-import { SALE_ENDPOINTS } from '../../../core/auth/auth.constants';
+import { CREDIT_NOTE_ENDPOINTS, SALE_ENDPOINTS } from '../../../core/auth/auth.constants';
 import type {
+  CreditNotePrintDto,
+  CreditNotesQueryParams,
+  CreditNotesResultDto,
+  CreditNoteVerifyResponseDto,
   InvoiceLeaseDto,
   OfflineSalesSyncRequest,
   OfflineSalesSyncResponseDto,
@@ -20,6 +24,7 @@ import type {
   SalePreviewDto,
   SaleReturnPreviewDto,
   SellableDto,
+  VoidCreditNoteRequest,
   VoidSaleReturnRequest,
 } from './sale.models';
 
@@ -74,6 +79,10 @@ export class SaleService {
     return this.http.post<void>(`${SALE_ENDPOINTS.record}/returns/${saleReturnId}/void`, request);
   }
 
+  voidCreditNote(code: string, request: VoidCreditNoteRequest): Observable<void> {
+    return this.http.post<void>(CREDIT_NOTE_ENDPOINTS.void(code), request);
+  }
+
   getProfitLossReport(params?: ProfitLossReportQueryParams): Observable<ProfitLossReportResultDto> {
     let requestParams = new HttpParams();
 
@@ -89,5 +98,24 @@ export class SaleService {
 
   getSellables(searchTerm: string): Observable<SellableDto[]> {
     return this.http.get<SellableDto[]>(SALE_ENDPOINTS.sellables(searchTerm));
+  }
+
+  verifyCreditNote(code: string): Observable<CreditNoteVerifyResponseDto> {
+    return this.http.get<CreditNoteVerifyResponseDto>(CREDIT_NOTE_ENDPOINTS.detail(code));
+  }
+
+  getCreditNotes(params?: CreditNotesQueryParams): Observable<CreditNotesResultDto> {
+    let requestParams = new HttpParams();
+
+    if (params?.search) requestParams = requestParams.set('search', params.search);
+    if (params?.status) requestParams = requestParams.set('status', params.status);
+    if (params?.page !== undefined) requestParams = requestParams.set('page', params.page.toString());
+    if (params?.pageSize !== undefined) requestParams = requestParams.set('pageSize', params.pageSize.toString());
+
+    return this.http.get<CreditNotesResultDto>(CREDIT_NOTE_ENDPOINTS.list, { params: requestParams });
+  }
+
+  getCreditNotePrintByCode(code: string): Observable<CreditNotePrintDto> {
+    return this.http.get<CreditNotePrintDto>(SALE_ENDPOINTS.creditNotePrintByCode(code));
   }
 }

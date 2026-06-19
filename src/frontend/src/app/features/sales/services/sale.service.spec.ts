@@ -1,10 +1,14 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
+import { describe, expect, it } from 'vitest';
 
-import { SALE_ENDPOINTS } from '../../../core/auth/auth.constants';
+import { CREDIT_NOTE_ENDPOINTS, SALE_ENDPOINTS } from '../../../core/auth/auth.constants';
 import { SaleService } from './sale.service';
+import { ReturnPayoutDestination, mapPaymentMethodToPayoutDestination } from './sale.models';
 import type {
+  CreditNoteVerifyResponseDto,
+  CreditNotesResultDto,
   SaleDto,
   SaleListItemDto,
   ProfitLossAppliedFiltersDto,
@@ -49,6 +53,7 @@ describe('SaleService', () => {
     totalDiscountAmount: 0,
     totalAmount: 500,
     totalTaxAmount: 50,
+    creditNoteAppliedAmount: 0,
     items: [],
     returns: [],
     warnings: [],
@@ -84,6 +89,7 @@ describe('SaleService', () => {
         status: 'partiallyPaid',
         refundAmount: 0,
         dueReductionAmount: 0,
+        creditNoteAppliedAmount: 0,
       },
       {
         saleId: 'sale-2',
@@ -104,6 +110,7 @@ describe('SaleService', () => {
         status: 'paid',
         refundAmount: 25,
         dueReductionAmount: 5,
+        creditNoteAppliedAmount: 0,
       },
     ];
     const summary: SalesHistorySummaryDto = {
@@ -176,6 +183,7 @@ describe('SaleService', () => {
       totalDiscountAmount: 55,
       totalAmount: 495,
       totalTaxAmount: 45,
+      creditNoteAppliedAmount: 0,
       items: [
         {
           saleItemId: 'line-1',
@@ -297,7 +305,7 @@ describe('SaleService', () => {
     const { service, http } = setup();
     const sale = makeSaleDto();
     const payload = {
-      payoutMethod: 1,
+      payoutDestination: 2,
       dueReductionOverrideAmount: null,
       dueOverrideReason: null,
       notes: null,
@@ -322,6 +330,19 @@ describe('SaleService', () => {
     service.voidSaleReturn('return-1', payload).subscribe();
 
     const req = http.expectOne(`${SALE_ENDPOINTS.record}/returns/return-1/void`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(payload);
+    req.flush(null);
+    http.verify();
+  });
+
+  it('sends POST request to void credit-note endpoint', () => {
+    const { service, http } = setup();
+    const payload = { reason: 'Issued in error' };
+
+    service.voidCreditNote('CN-001', payload).subscribe();
+
+    const req = http.expectOne(CREDIT_NOTE_ENDPOINTS.void('CN-001'));
     expect(req.request.method).toBe('POST');
     expect(req.request.body).toEqual(payload);
     req.flush(null);
@@ -709,5 +730,125 @@ describe('SaleService', () => {
     expect(req.request.params.keys().length).toBe(0);
     req.flush(result);
     http.verify();
+  });
+
+  it('sends GET to credit-note by-code endpoint and returns response DTO', () => {
+    const { service, http } = setup();
+    const response: CreditNoteVerifyResponseDto = {
+      creditNoteId: 'cn-1',
+      code: 'CN-ABC-123',
+      availableBalance: 250,
+      expiresAt: '2027-01-01T00:00:00Z',
+      status: 'Active',
+    };
+
+    service.verifyCreditNote('CN-ABC-123').subscribe((result) => {
+      expect(result.creditNoteId).toBe('cn-1');
+      expect(result.availableBalance).toBe(250);
+      expect(result.status).toBe('Active');
+    });
+
+    const req = http.expectOne(SALE_ENDPOINTS.creditNoteByCode('CN-ABC-123'));
+    expect(req.request.method).toBe('GET');
+    expect(req.request.body).toBeNull();
+    req.flush(response);
+    http.verify();
+  });
+
+  it('sends GET to credit-note print endpoint and returns printable DTO', () => {
+    const { service, http } = setup();
+    const response = {
+      creditNoteId: 'cn-1',
+      code: 'CN-ABC-123',
+      status: 'Active',
+      isUsable: true,
+      originalAmount: 250,
+      availableBalance: 180,
+      issuedAt: '2026-05-02T10:00:00Z',
+      expiresAt: '2026-06-02T00:00:00Z',
+      saleId: 'sale-1',
+      invoiceNumber: 'INV-001',
+      saleReturnId: 'return-1',
+      returnNumber: 'RET-001',
+      customerDisplayName: 'Walk-in Customer',
+      reason: 'Damaged item return',
+      voidReason: null,
+    };
+
+    service.getCreditNotePrintByCode('CN-ABC-123').subscribe((result) => {
+      expect(result.code).toBe('CN-ABC-123');
+      expect(result.availableBalance).toBe(180);
+      expect(result.isUsable).toBe(true);
+    });
+
+    const req = http.expectOne(SALE_ENDPOINTS.creditNotePrintByCode('CN-ABC-123'));
+    expect(req.request.method).toBe('GET');
+    expect(req.request.body).toBeNull();
+    req.flush(response);
+    http.verify();
+  });
+
+  it('sends GET to credit-notes list endpoint with query params', () => {
+    const { service, http } = setup();
+    const response: CreditNotesResultDto = {
+      items: [
+        {
+          creditNoteId: 'cn-1',
+          code: 'CN-001',
+          status: 'Active',
+          originalAmount: 500,
+          availableBalance: 300,
+          expiresAt: null,
+          issuedAt: '2026-05-20T00:00:00.000Z',
+          saleReturnId: 'ret-1',
+          returnNumber: 'RET-001',
+          saleId: 'sale-1',
+          invoiceNumber: 'INV-001',
+          customerName: 'Asha',
+        },
+      ],
+      totalCount: 1,
+      pageNumber: 2,
+      pageSize: 10,
+    };
+
+    service.getCreditNotes({
+      search: 'CN-001',
+      status: 'Active',
+      page: 2,
+      pageSize: 10,
+    }).subscribe((result) => {
+      expect(result.items).toHaveLength(1);
+      expect(result.totalCount).toBe(1);
+      expect(result.pageNumber).toBe(2);
+      expect(result.pageSize).toBe(10);
+    });
+
+    const req = http.expectOne((request) => request.url === CREDIT_NOTE_ENDPOINTS.list);
+    expect(req.request.method).toBe('GET');
+    expect(req.request.params.get('search')).toBe('CN-001');
+    expect(req.request.params.get('status')).toBe('Active');
+    expect(req.request.params.get('page')).toBe('2');
+    expect(req.request.params.get('pageSize')).toBe('10');
+    req.flush(response);
+    http.verify();
+  });
+});
+
+describe('mapPaymentMethodToPayoutDestination', () => {
+  it('maps Cash (1) to ReturnPayoutDestination.Refund', () => {
+    expect(mapPaymentMethodToPayoutDestination(1)).toBe(ReturnPayoutDestination.Refund);
+  });
+
+  it('maps UPI (2) to ReturnPayoutDestination.Refund', () => {
+    expect(mapPaymentMethodToPayoutDestination(2)).toBe(ReturnPayoutDestination.Refund);
+  });
+
+  it('maps Card (3) to ReturnPayoutDestination.Refund', () => {
+    expect(mapPaymentMethodToPayoutDestination(3)).toBe(ReturnPayoutDestination.Refund);
+  });
+
+  it('returns null for null method', () => {
+    expect(mapPaymentMethodToPayoutDestination(null)).toBeNull();
   });
 });

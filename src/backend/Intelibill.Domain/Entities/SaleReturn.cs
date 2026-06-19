@@ -18,6 +18,7 @@ public sealed class SaleReturn : BaseEntity
     public decimal TotalRefundAmount { get; private set; }
     public decimal DueReductionAmount { get; private set; }
     public decimal PayoutAmount { get; private set; }
+    public ReturnPayoutDestination? PayoutDestination { get; private set; }
     public decimal TotalTaxableAmount { get; private set; }
     public decimal TotalTaxAmount { get; private set; }
     public decimal? CustomerBalanceBefore { get; private set; }
@@ -41,7 +42,7 @@ public sealed class SaleReturn : BaseEntity
         decimal totalRefundAmount,
         decimal dueReductionAmount,
         decimal payoutAmount,
-        PaymentMethod? payoutMethod,
+        ReturnPayoutDestination? payoutDestination,
         decimal totalTaxableAmount,
         decimal totalTaxAmount,
         decimal? customerBalanceBefore,
@@ -69,7 +70,7 @@ public sealed class SaleReturn : BaseEntity
             return noteValidation.Errors;
         }
 
-        var payoutValidation = ValidatePayoutMethod(payoutAmount, payoutMethod);
+        var payoutValidation = ValidatePayoutDestination(payoutAmount, payoutDestination);
         if (payoutValidation.IsError)
         {
             return payoutValidation.Errors;
@@ -113,6 +114,7 @@ public sealed class SaleReturn : BaseEntity
             TotalRefundAmount = totalRefundAmount,
             DueReductionAmount = dueReductionAmount,
             PayoutAmount = payoutAmount,
+            PayoutDestination = payoutDestination,
             TotalTaxableAmount = totalTaxableAmount,
             TotalTaxAmount = totalTaxAmount,
             CustomerBalanceBefore = customerBalanceBefore,
@@ -172,21 +174,21 @@ public sealed class SaleReturn : BaseEntity
         return Result.Success;
     }
 
-    private static ErrorOr<Success> ValidatePayoutMethod(decimal payoutAmount, PaymentMethod? payoutMethod)
+    private static ErrorOr<Success> ValidatePayoutDestination(decimal payoutAmount, ReturnPayoutDestination? payoutDestination)
     {
         if (payoutAmount <= 0m)
         {
             return Result.Success;
         }
 
-        if (!payoutMethod.HasValue)
+        if (!payoutDestination.HasValue)
         {
-            return Errors.Sale.ReturnPayoutMethodRequired;
+            return Errors.Sale.ReturnPayoutDestinationRequired;
         }
 
-        return payoutMethod.Value is PaymentMethod.Cash or PaymentMethod.UPI or PaymentMethod.Card
+        return Enum.IsDefined(payoutDestination.Value)
             ? Result.Success
-            : Errors.Sale.ReturnPayoutMethodInvalid;
+            : Errors.Sale.ReturnPayoutDestinationInvalid;
     }
 
     private static string? NormalizeOptional(string? value) =>

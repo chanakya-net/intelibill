@@ -117,6 +117,7 @@ describe('ShellMenuService', () => {
     expect(ownerSalesItems).toBeDefined();
     expect(hasLabel(ownerSalesItems, 'i18n:shell.newSale')).toBe(true);
     expect(hasLabel(ownerSalesItems, 'i18n:shell.salesHistory')).toBe(true);
+    expect(hasLabel(ownerSalesItems, 'i18n:shell.creditNotes')).toBe(true);
     expect(hasLabel(ownerSalesItems, 'i18n:shell.profitLossReport')).toBe(true);
 
     // Manager
@@ -125,6 +126,7 @@ describe('ShellMenuService', () => {
     expect(managerSalesItems).toBeDefined();
     expect(hasLabel(managerSalesItems, 'i18n:shell.newSale')).toBe(true);
     expect(hasLabel(managerSalesItems, 'i18n:shell.salesHistory')).toBe(true);
+    expect(hasLabel(managerSalesItems, 'i18n:shell.creditNotes')).toBe(true);
     expect(hasLabel(managerSalesItems, 'i18n:shell.profitLossReport')).toBe(true);
 
     // Staff
@@ -133,6 +135,7 @@ describe('ShellMenuService', () => {
     expect(staffSalesItems).toBeDefined();
     expect(hasLabel(staffSalesItems, 'i18n:shell.newSale')).toBe(true);
     expect(hasLabel(staffSalesItems, 'i18n:shell.salesHistory')).toBe(true);
+    expect(hasLabel(staffSalesItems, 'i18n:shell.creditNotes')).toBe(true);
     expect(hasLabel(staffSalesItems, 'i18n:shell.profitLossReport')).toBe(false);
   });
 });

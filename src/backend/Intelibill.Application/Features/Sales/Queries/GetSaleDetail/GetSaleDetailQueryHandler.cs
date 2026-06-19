@@ -12,7 +12,8 @@ public sealed class GetSaleDetailQueryHandler(
     IShopRepository shopRepository,
     ISaleRepository saleRepository,
     ISaleReturnRepository saleReturnRepository,
-    IItemRepository itemRepository)
+    IItemRepository itemRepository,
+    ICreditNoteRepository creditNoteRepository)
 {
     private const string NotReturned = "NotReturned";
     private const string PartiallyReturned = "PartiallyReturned";
@@ -51,6 +52,14 @@ public sealed class GetSaleDetailQueryHandler(
             .Where(r => !r.IsVoided)
             .OrderBy(r => r.ProcessedAt)
             .ToList();
+        var creditNotesByReturnId = await GetCreditNotesByReturnIdAsync(
+            activeReturns.Select(r => r.Id).ToList(),
+            query.ShopId,
+            cancellationToken);
+        var creditNoteRedemptions = await creditNoteRepository.GetRedemptionsBySaleIdAsync(
+            query.ShopId,
+            sale.Id,
+            cancellationToken) ?? [];
         var returnedQuantityBySaleItemId = activeReturns
             .SelectMany(r => r.Items)
             .GroupBy(i => i.SaleItemId)
@@ -70,6 +79,7 @@ public sealed class GetSaleDetailQueryHandler(
             sale.TotalDiscountAmount,
             sale.TotalAmount,
             sale.TotalTaxAmount,
+            sale.CreditNoteAppliedAmount,
             sale.Items
                 .Select(si => new SaleItemDto(
                 si.Id,
@@ -98,9 +108,15 @@ public sealed class GetSaleDetailQueryHandler(
                 TotalAmount = si.TotalAmount,
                 HsnCode = si.HsnCode,
                 SavingsAmount = si.ItemDiscountAmount + si.SaleDiscountAmount,
-            }).ToList(),
+                }).ToList(),
             [])
         {
+            CreditNoteRedemptions = creditNoteRedemptions
+                .Select(redemption => new SaleCreditNoteRedemptionSummaryDto(
+                    redemption.CreditNoteId,
+                    redemption.Code,
+                    redemption.Amount))
+                .ToList(),
             Returns = activeReturns.Select(r => new SaleReturnDto(
                 r.Id,
                 r.ReturnNumber,
@@ -110,8 +126,10 @@ public sealed class GetSaleDetailQueryHandler(
                 r.TotalRefundAmount,
                 r.DueReductionAmount,
                 r.PayoutAmount,
+                r.PayoutDestination,
                 r.TotalTaxableAmount,
                 r.TotalTaxAmount,
+                creditNotesByReturnId.GetValueOrDefault(r.Id),
                 r.Items.Select(i => new SaleReturnItemDto(
                     i.Id,
                     i.SaleItemId,
@@ -153,6 +171,34 @@ public sealed class GetSaleDetailQueryHandler(
             }
 
             return "Unknown Service";
+        }
+
+        async Task<IReadOnlyDictionary<Guid, SaleReturnCreditNoteSummaryDto?>> GetCreditNotesByReturnIdAsync(
+            IReadOnlyList<Guid> returnIds,
+            Guid shopId,
+            CancellationToken ct)
+        {
+            if (returnIds.Count == 0)
+            {
+                return new Dictionary<Guid, SaleReturnCreditNoteSummaryDto?>();
+            }
+
+            var notes = await creditNoteRepository.GetByReturnIdsAsync(shopId, returnIds, ct);
+            var noteByReturnId = notes
+                .GroupBy(note => note.SaleReturnId)
+                .ToDictionary(group => group.Key, group => group.First());
+
+            return returnIds.ToDictionary(
+                returnId => returnId,
+                returnId => noteByReturnId.TryGetValue(returnId, out var creditNote)
+                    ? new SaleReturnCreditNoteSummaryDto(
+                        creditNote.Id,
+                        creditNote.Code,
+                        creditNote.OriginalAmount,
+                        creditNote.AvailableBalance,
+                        creditNote.ExpiresAt,
+                        creditNote.Reason)
+                    : null);
         }
     }
 }

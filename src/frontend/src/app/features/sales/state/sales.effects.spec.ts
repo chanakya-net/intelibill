@@ -48,6 +48,7 @@ describe('SalesEffects', () => {
     status: 'partiallyPaid',
     refundAmount: 0,
     dueReductionAmount: 0,
+    creditNoteAppliedAmount: 0,
   } as SaleListItemDto);
 
   const makeSaleDto = (id = 'sale-1') => ({
@@ -64,6 +65,7 @@ describe('SalesEffects', () => {
     totalDiscountAmount: 0,
     totalAmount: 500,
     totalTaxAmount: 50,
+    creditNoteAppliedAmount: 0,
     items: [],
     returns: [],
     warnings: [],
@@ -233,7 +235,7 @@ describe('SalesEffects', () => {
   it('dispatches recordSaleReturnSucceeded on record return success', async () => {
     const sale = makeSaleDto();
     const payload = {
-      payoutMethod: 1,
+      payoutDestination: 2,
       dueReductionOverrideAmount: null,
       dueOverrideReason: null,
       notes: null,
@@ -249,7 +251,7 @@ describe('SalesEffects', () => {
 
   it('dispatches recordSaleReturnFailed on record return failure', async () => {
     const payload = {
-      payoutMethod: 1,
+      payoutDestination: 2,
       dueReductionOverrideAmount: null,
       dueOverrideReason: null,
       notes: null,

@@ -16,8 +16,15 @@ public sealed record SaleDto(
     decimal TotalDiscountAmount,
     decimal TotalAmount,
     decimal TotalTaxAmount,
+    decimal CreditNoteAppliedAmount,
     IReadOnlyList<SaleItemDto> Items,
     IReadOnlyList<string> Warnings)
 {
     public IReadOnlyList<SaleReturnDto> Returns { get; init; } = [];
+    public IReadOnlyList<SaleCreditNoteRedemptionSummaryDto> CreditNoteRedemptions { get; init; } = [];
 }
+
+public sealed record SaleCreditNoteRedemptionSummaryDto(
+    Guid CreditNoteId,
+    string Code,
+    decimal AppliedAmount);

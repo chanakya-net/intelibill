@@ -17,6 +17,22 @@ export class SaleInvoiceThermalComponent {
   @Input() shop!: ShopDetails;
   @Input() pendingSync = false;
 
+  getCreditNoteSettlementCodes(): string[] {
+    return this.sale.returns
+      .map((saleReturn) => saleReturn.creditNote?.code ?? '')
+      .filter((code): code is string => code.trim().length > 0);
+  }
+
+  getCreditNoteSettlementLabelKey(): string {
+    const codes = this.getCreditNoteSettlementCodes();
+
+    if (codes.length === 0) {
+      return 'sales.invoice.creditNoteSettlement';
+    }
+
+    return 'sales.invoice.creditNoteSettlementWithCodes';
+  }
+
   get shopAddress(): string {
     return [this.shop.address, this.shop.city, this.shop.state, this.shop.pincode].filter(Boolean).join(', ');
   }

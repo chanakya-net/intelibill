@@ -51,6 +51,27 @@ public static partial class Errors
         public static Error DueAmountInvalid =>
             Error.Validation("Sale.DueAmountInvalid", "Due amount cannot be negative.");
 
+        public static Error CreditNoteAppliedAmountInvalid =>
+            Error.Validation("Sale.CreditNoteAppliedAmountInvalid", "Credit note applied amount cannot be negative.");
+
+        public static Error CreditNoteRedemptionsSplitMismatch =>
+            Error.Validation("Sale.CreditNoteRedemptionsSplitMismatch", "Credit note redemption amount must match the applied amount.");
+
+        public static Error CreditNoteRedemptionConflict =>
+            Error.Conflict("Sale.CreditNoteRedemptionConflict", "Credit note was modified concurrently. Please retry the sale.");
+
+        public static Error CreditNoteRedemptionCodeRequired =>
+            Error.Validation("Sale.CreditNoteRedemptionCodeRequired", "Credit note code is required.");
+
+        public static Error CreditNoteRedemptionAmountInvalid =>
+            Error.Validation("Sale.CreditNoteRedemptionAmountInvalid", "Credit note redemption amount must be greater than zero.");
+
+        public static Error CreditNoteRedemptionDuplicateCode =>
+            Error.Validation("Sale.CreditNoteRedemptionDuplicateCode", "Duplicate credit note codes are not allowed.");
+
+        public static Error CreditNoteCodeRequired =>
+            Error.Validation("Sale.CreditNoteCodeRequired", "Credit note code is required when a credit note amount is applied.");
+
         public static Error CreditRequiresDueAmount =>
             Error.Validation("Sale.CreditRequiresDueAmount", "Credit sale must include a due amount greater than zero.");
 
@@ -185,11 +206,11 @@ public static partial class Errors
         public static Error ReturnForbidden =>
             Error.Forbidden("SaleReturn.Forbidden", "Only owners and managers can record sale returns.");
 
-        public static Error ReturnPayoutMethodRequired =>
-            Error.Validation("SaleReturn.PayoutMethodRequired", "Payout method is required when payout amount is greater than zero.");
+        public static Error ReturnPayoutDestinationRequired =>
+            Error.Validation("SaleReturn.PayoutDestinationRequired", "Payout destination is required when payout amount is greater than zero.");
 
-        public static Error ReturnPayoutMethodInvalid =>
-            Error.Validation("SaleReturn.PayoutMethodInvalid", "Return payout method must be Cash, UPI, or Card.");
+        public static Error ReturnPayoutDestinationInvalid =>
+            Error.Validation("SaleReturn.PayoutDestinationInvalid", "Return payout destination must be a recognised value.");
 
         public static Error ReturnCustomerDueNotSupported =>
             Error.Validation("SaleReturn.CustomerDueNotSupported", "Customer due returns are not supported yet.");
@@ -205,6 +226,9 @@ public static partial class Errors
 
         public static Error ReturnRefundOverrideReasonRequired =>
             Error.Validation("SaleReturn.RefundOverrideReasonRequired", "Refund override reason is required when approving a refund above the discounted paid amount.");
+
+        public static Error ReturnCreditNoteHasRedemptions =>
+            Error.Conflict("SaleReturn.CreditNoteHasRedemptions", "Cannot void return because its credit note has already been redeemed.");
 
         public static Error ReturnInventoryAggregateNotFound(Guid itemId) =>
             Error.NotFound("SaleReturn.InventoryAggregateNotFound", $"Inventory aggregate was not found for item '{itemId}'.");

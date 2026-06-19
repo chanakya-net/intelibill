@@ -48,6 +48,10 @@ internal sealed class SaleReturnConfiguration : IEntityTypeConfiguration<SaleRet
             .HasPrecision(18, 2)
             .IsRequired();
 
+        builder.Property(r => r.PayoutDestination)
+            .HasConversion<int?>()
+            .HasColumnName("payout_destination");
+
         builder.Property(r => r.TotalTaxableAmount)
             .HasPrecision(18, 2)
             .IsRequired();

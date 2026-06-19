@@ -181,4 +181,21 @@ export class NewSalePageComponent implements OnInit, OnDestroy {
   onSaleDiscountValueChange(value: number | null | undefined): void {
     this.vm.onSaleDiscountValueChange(value);
   }
+
+  onCreditNoteCodeChanged(code: string): void {
+    this.vm.onCreditNoteCodeChange(code);
+  }
+
+  onCreditNoteVerifyRequested(): void {
+    void this.vm.onVerifyCreditNote();
+  }
+
+  onCreditNoteCustomerMismatchConfirmedChanged(confirmed: boolean): void {
+    this.vm.onCreditNoteCustomerMismatchConfirmedChange(confirmed);
+  }
+
+  onCreditNoteCustomerMismatchCancelled(): void {
+    this.vm.onCreditNoteCustomerMismatchCancelled();
+  }
+
 }

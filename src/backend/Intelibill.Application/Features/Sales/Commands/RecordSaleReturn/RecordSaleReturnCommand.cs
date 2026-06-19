@@ -6,10 +6,12 @@ public sealed record RecordSaleReturnCommand(
     Guid ActorUserId,
     Guid ShopId,
     Guid SaleId,
-    PaymentMethod? PayoutMethod,
+    ReturnPayoutDestination? PayoutDestination,
     decimal? DueReductionOverrideAmount,
     string? DueOverrideReason,
     string? Notes,
+    DateTimeOffset? CreditNoteExpiresAt,
+    string? CreditNoteReason,
     IReadOnlyList<RecordSaleReturnItemCommand> Items);
 
 public sealed record RecordSaleReturnItemCommand(

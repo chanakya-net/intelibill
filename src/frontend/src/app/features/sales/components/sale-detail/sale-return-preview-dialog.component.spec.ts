@@ -6,7 +6,13 @@ import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 
 import { AuthService } from '../../../../core/auth/auth.service';
-import type { SaleDto, SaleItemDto, SaleReturnPreviewDto } from '../../services/sale.models';
+import { ReturnPayoutDestination } from '../../services/sale.models';
+import type {
+  SaleDto,
+  SaleItemDto,
+  SaleReturnCreditNoteSummaryDto,
+  SaleReturnPreviewDto,
+} from '../../services/sale.models';
 import { SalesFacade } from '../../state/sales.facade';
 import { SaleReturnPreviewDialogComponent } from './sale-return-preview-dialog.component';
 
@@ -21,6 +27,7 @@ class SalesFacadeStub {
   readonly returnPreviewErrorMessage = signal<string | null>(null);
   readonly lastMutationSucceeded = signal(false);
   readonly lastMutationType = signal<string | null>(null);
+  readonly selectedSale = signal<SaleDto | null>(null);
   readonly previewSaleReturn = vi.fn();
   readonly clearSaleReturnPreview = vi.fn();
   readonly recordSaleReturn = vi.fn();
@@ -106,9 +113,22 @@ const makeSale = (): SaleDto => ({
   totalDiscountAmount: 0,
   totalAmount: 200,
   totalTaxAmount: 0,
+  creditNoteAppliedAmount: 0,
   items: [makeServiceItem()],
   returns: [],
   warnings: [],
+});
+
+const makeCreditNoteSummary = (
+  overrides: Partial<SaleReturnCreditNoteSummaryDto> = {},
+): SaleReturnCreditNoteSummaryDto => ({
+  creditNoteId: 'cn-1',
+  code: 'CN-2026-0007',
+  originalAmount: 242,
+  availableBalance: 242,
+  expiresAt: null,
+  reason: 'Return refund',
+  ...overrides,
 });
 
 async function createComponent() {
@@ -239,6 +259,30 @@ describe('SaleReturnPreviewDialogComponent', () => {
     expect(text).not.toContain('sales.returns.preview.col.returnQty');
   });
 
+  it('shows payout destination selector when preview payout amount exists', async () => {
+    const { fixture, component, facade } = await createComponent();
+    component.sale = makeSale();
+    component.visible = true;
+    facade.returnPreview.set({
+      saleId: 'sale-1',
+      hasFinancialAccess: true,
+      lines: [],
+      financial: {
+        totalRefundAmount: 0,
+        dueReductionAmount: 0,
+        payoutAmount: 125,
+        totalTaxableAmount: 0,
+        totalTaxAmount: 0,
+        customerBalanceBefore: null,
+        customerBalanceAfter: null,
+      },
+      warnings: [],
+    });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.return-preview-payout')).not.toBeNull();
+  });
+
   it('shows the selected quantity inside the return stepper', async () => {
     const { fixture, component } = await createComponent();
     component.sale = {
@@ -317,6 +361,40 @@ describe('SaleReturnPreviewDialogComponent', () => {
     expect(text).toContain('₹242.00');
   });
 
+  it('maps the selected payout destination to the record payload', async () => {
+    const { fixture, component, facade } = await createComponent();
+    component.sale = {
+      ...makeSale(),
+      items: [makeServiceItem({ itemName: 'Consultation', quantity: 1, returnableQuantity: 1 })],
+    };
+    component.visible = true;
+    facade.returnPreview.set({
+      saleId: 'sale-1',
+      hasFinancialAccess: true,
+      lines: [],
+      financial: {
+        totalRefundAmount: 100,
+        dueReductionAmount: 0,
+        payoutAmount: 100,
+        totalTaxableAmount: 100,
+        totalTaxAmount: 0,
+        customerBalanceBefore: null,
+        customerBalanceAfter: null,
+      },
+      warnings: [],
+    });
+    fixture.detectChanges();
+
+    const item = component.sale!.items[0];
+    component.toggleReturnLine(item, true);
+    component.updatePayoutDestination(4);
+    component.submitReturn();
+
+    expect(facade.recordSaleReturn).toHaveBeenCalledTimes(1);
+    const payload = facade.recordSaleReturn.mock.calls[0][1];
+    expect(payload.payoutDestination).toBe(ReturnPayoutDestination.CreditNote);
+  });
+
   it('service line with zero returnable quantity is fully returned', async () => {
     const { fixture, component } = await createComponent();
     component.sale = {
@@ -328,5 +406,327 @@ describe('SaleReturnPreviewDialogComponent', () => {
 
     const item = component.sale!.items[0];
     expect(component.isFullyReturned(item)).toBe(true);
+  });
+
+  it('credit note expiry defaults to no-expiry mode', async () => {
+    const { fixture, component } = await createComponent();
+    component.sale = makeSale();
+    component.visible = true;
+    fixture.detectChanges();
+
+    expect((component as unknown as { creditNoteExpiryMode(): string | null }).creditNoteExpiryMode()).toBe(
+      'NoExpiry',
+    );
+    expect((component as unknown as { creditNoteExpiryDate(): string | null }).creditNoteExpiryDate()).toBeNull();
+  });
+
+  it('credit note expiry controls hidden for non-credit payout', async () => {
+    const { fixture, component, facade } = await createComponent();
+    component.sale = makeSale();
+    component.visible = true;
+    facade.returnPreview.set({
+      saleId: 'sale-1',
+      hasFinancialAccess: true,
+      lines: [],
+      financial: {
+        totalRefundAmount: 100,
+        dueReductionAmount: 0,
+        payoutAmount: 100,
+        totalTaxableAmount: 0,
+        totalTaxAmount: 0,
+        customerBalanceBefore: null,
+        customerBalanceAfter: null,
+      },
+      warnings: [],
+    });
+    fixture.detectChanges();
+
+    component.updatePayoutDestination(1); // Cash
+
+    const expirySection = fixture.nativeElement.querySelector('.return-preview-credit-note-expiry');
+    expect(expirySection).toBeNull();
+  });
+
+  it('credit note expiry controls shown for credit note payout', async () => {
+    const { fixture, component, facade } = await createComponent();
+    component.sale = makeSale();
+    component.visible = true;
+    facade.returnPreview.set({
+      saleId: 'sale-1',
+      hasFinancialAccess: true,
+      lines: [],
+      financial: {
+        totalRefundAmount: 100,
+        dueReductionAmount: 0,
+        payoutAmount: 100,
+        totalTaxableAmount: 0,
+        totalTaxAmount: 0,
+        customerBalanceBefore: null,
+        customerBalanceAfter: null,
+      },
+      warnings: [],
+    });
+    fixture.detectChanges();
+
+    component.updatePayoutDestination(4); // CreditNote
+    fixture.detectChanges();
+
+    const expirySection = fixture.nativeElement.querySelector('.return-preview-credit-note-expiry');
+    expect(expirySection).not.toBeNull();
+  });
+
+  it('credit note quick expiry duration 30 days sets correct date', async () => {
+    const { fixture, component } = await createComponent();
+    component.sale = makeSale();
+    component.visible = true;
+    fixture.detectChanges();
+
+    (component as unknown as { updateCreditNoteExpiryMode(mode: string): void }).updateCreditNoteExpiryMode(
+      '30Days',
+    );
+
+    const mode = (component as unknown as { creditNoteExpiryMode(): string }).creditNoteExpiryMode();
+    expect(mode).toBe('30Days');
+  });
+
+  it('credit note custom expiry date setter works', async () => {
+    const { fixture, component } = await createComponent();
+    component.sale = makeSale();
+    component.visible = true;
+    fixture.detectChanges();
+
+    (component as unknown as { updateCreditNoteExpiryMode(mode: string): void }).updateCreditNoteExpiryMode(
+      'Custom',
+    );
+    (component as unknown as { updateCreditNoteExpiryDate(date: string | null): void }).updateCreditNoteExpiryDate(
+      '2026-12-31',
+    );
+
+    expect(
+      (component as unknown as { creditNoteExpiryMode(): string }).creditNoteExpiryMode(),
+    ).toBe('Custom');
+    expect(
+      (component as unknown as { creditNoteExpiryDate(): string | null }).creditNoteExpiryDate(),
+    ).toBe('2026-12-31');
+  });
+
+  it('payload includes credit note expiry when destination is credit note', async () => {
+    const { fixture, component, facade } = await createComponent();
+    component.sale = {
+      ...makeSale(),
+      items: [makeServiceItem()],
+    };
+    component.visible = true;
+    facade.returnPreview.set({
+      saleId: 'sale-1',
+      hasFinancialAccess: true,
+      lines: [],
+      financial: {
+        totalRefundAmount: 100,
+        dueReductionAmount: 0,
+        payoutAmount: 100,
+        totalTaxableAmount: 0,
+        totalTaxAmount: 0,
+        customerBalanceBefore: null,
+        customerBalanceAfter: null,
+      },
+      warnings: [],
+    });
+    fixture.detectChanges();
+
+    const item = component.sale!.items[0];
+    component.toggleReturnLine(item, true);
+    component.updatePayoutDestination(4); // Credit note
+    (component as unknown as { updateCreditNoteExpiryMode(mode: string): void }).updateCreditNoteExpiryMode(
+      '30Days',
+    );
+    component.submitReturn();
+
+    expect(facade.recordSaleReturn).toHaveBeenCalledTimes(1);
+    const payload = facade.recordSaleReturn.mock.calls[0][1];
+    expect(payload.creditNoteExpiresAt).toBeTruthy();
+    expect(payload.creditNoteExpiresAt).toContain('T');
+    expect(payload.creditNoteExpiresAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+
+  it('payload includes custom expiry date when credit note mode is custom', async () => {
+    const { fixture, component, facade } = await createComponent();
+    component.sale = {
+      ...makeSale(),
+      items: [makeServiceItem()],
+    };
+    component.visible = true;
+    facade.returnPreview.set({
+      saleId: 'sale-1',
+      hasFinancialAccess: true,
+      lines: [],
+      financial: {
+        totalRefundAmount: 100,
+        dueReductionAmount: 0,
+        payoutAmount: 100,
+        totalTaxableAmount: 0,
+        totalTaxAmount: 0,
+        customerBalanceBefore: null,
+        customerBalanceAfter: null,
+      },
+      warnings: [],
+    });
+    fixture.detectChanges();
+
+    const item = component.sale!.items[0];
+    component.toggleReturnLine(item, true);
+    component.updatePayoutDestination(4); // Credit note
+    (component as unknown as { updateCreditNoteExpiryMode(mode: string): void }).updateCreditNoteExpiryMode(
+      'Custom',
+    );
+    (component as unknown as { updateCreditNoteExpiryDate(date: string | null): void }).updateCreditNoteExpiryDate(
+      '2026-12-31',
+    );
+    component.submitReturn();
+
+    expect(facade.recordSaleReturn).toHaveBeenCalledTimes(1);
+    const payload = facade.recordSaleReturn.mock.calls[0][1];
+    expect(payload.creditNoteExpiresAt).toBeTruthy();
+    expect(payload.creditNoteExpiresAt).toMatch(/^2026-12-31T/);
+  });
+
+  it('shows credit note code and print action after a successful credit note return', async () => {
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+    const { fixture, component, facade } = await createComponent();
+    component.sale = {
+      ...makeSale(),
+      items: [makeServiceItem()],
+    };
+    component.visible = true;
+    fixture.detectChanges();
+
+    const item = component.sale!.items[0];
+    component.toggleReturnLine(item, true);
+    component.updatePayoutDestination(4);
+    component.submitReturn();
+
+    const updatedSale = {
+      ...component.sale,
+      returns: [
+        {
+          saleReturnId: 'ret-1',
+          returnNumber: 'RET-1',
+          returnedAt: '2026-06-14T08:00:00Z',
+          processedBy: 'user-1',
+          notes: null,
+          totalRefundAmount: 242,
+          dueReductionAmount: 0,
+          payoutAmount: 242,
+          payoutDestination: ReturnPayoutDestination.CreditNote,
+          totalTaxableAmount: 200,
+          totalTaxAmount: 42,
+          creditNote: makeCreditNoteSummary(),
+          isVoided: false,
+          voidedAt: null,
+          voidReason: null,
+          items: [],
+        },
+      ],
+    };
+    component.sale = updatedSale;
+    facade.selectedSale.set(updatedSale);
+    facade.lastMutationType.set('record-return');
+    facade.lastMutationSucceeded.set(true);
+    fixture.detectChanges();
+
+    expect(facade.recordSaleReturn).toHaveBeenCalledTimes(1);
+    const text = fixture.nativeElement.textContent as string;
+    expect(text).toContain('Credit note created');
+    expect(text).toContain('CN-2026-0007');
+
+    const printButton = fixture.nativeElement.querySelector('.return-preview-success-actions .p-button');
+    expect(printButton).not.toBeNull();
+
+    component.printRecordedCreditNote();
+    expect(openSpy).toHaveBeenCalledWith('/sales/credit-notes/CN-2026-0007/print', '_blank');
+    openSpy.mockRestore();
+  });
+
+  it('closes after a non-credit return even when the sale already has an older credit note', async () => {
+    const { fixture, component, facade } = await createComponent();
+    const closeSpy = vi.spyOn(component, 'close');
+    const initialReturn = {
+      saleReturnId: 'ret-old',
+      returnNumber: 'RET-OLD',
+      returnedAt: '2026-06-13T08:00:00Z',
+      processedBy: 'user-1',
+      notes: null,
+      totalRefundAmount: 242,
+      dueReductionAmount: 0,
+      payoutAmount: 242,
+      payoutDestination: ReturnPayoutDestination.CreditNote,
+      totalTaxableAmount: 200,
+      totalTaxAmount: 42,
+      creditNote: makeCreditNoteSummary({ creditNoteId: 'cn-old', code: 'CN-2026-0006' }),
+      isVoided: false,
+      voidedAt: null,
+      voidReason: null,
+      items: [],
+    };
+
+    component.sale = {
+      ...makeSale(),
+      items: [makeServiceItem()],
+      returns: [initialReturn],
+    };
+    component.visible = true;
+    facade.returnPreview.set({
+      saleId: 'sale-1',
+      hasFinancialAccess: true,
+      lines: [],
+      financial: {
+        totalRefundAmount: 242,
+        dueReductionAmount: 0,
+        payoutAmount: 242,
+        totalTaxableAmount: 200,
+        totalTaxAmount: 42,
+        customerBalanceBefore: null,
+        customerBalanceAfter: null,
+      },
+      warnings: [],
+    });
+    fixture.detectChanges();
+
+    component.submittedReturnIds.set([initialReturn.saleReturnId]);
+    component.submittedPayoutDestination.set(ReturnPayoutDestination.Refund);
+
+    const updatedSale = {
+      ...component.sale,
+      returns: [
+        initialReturn,
+        {
+          saleReturnId: 'ret-new',
+          returnNumber: 'RET-NEW',
+          returnedAt: '2026-06-14T08:00:00Z',
+          processedBy: 'user-2',
+          notes: null,
+          totalRefundAmount: 242,
+          dueReductionAmount: 0,
+          payoutAmount: 242,
+          payoutDestination: ReturnPayoutDestination.Refund,
+          totalTaxableAmount: 200,
+          totalTaxAmount: 42,
+          creditNote: null,
+          isVoided: false,
+          voidedAt: null,
+          voidReason: null,
+          items: [],
+        },
+      ],
+    };
+    component.sale = updatedSale;
+    facade.selectedSale.set(updatedSale);
+    facade.lastMutationType.set('record-return');
+    facade.lastMutationSucceeded.set(true);
+    fixture.detectChanges();
+
+    expect(closeSpy).toHaveBeenCalled();
+    expect(fixture.nativeElement.querySelector('.return-preview-success')).toBeNull();
+    expect(component.recordedCreditNoteSummary()).toBeNull();
   });
 });

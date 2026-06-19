@@ -18,4 +18,7 @@ public sealed record SalesExportSummaryRowDto(
     decimal ReturnTaxAmount,
     decimal NetSalesAmount,
     bool HasReturns,
-    int ItemCount);
+    int ItemCount,
+    decimal CreditNoteAppliedAmount = 0m,
+    string? IssuedCreditNoteCodes = null,
+    decimal IssuedCreditNoteAmount = 0m);

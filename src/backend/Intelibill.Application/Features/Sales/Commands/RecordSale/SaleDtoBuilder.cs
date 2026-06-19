@@ -12,6 +12,15 @@ public sealed class SaleDtoBuilder(IItemRepository itemRepository)
         IReadOnlyList<string> warnings,
         CancellationToken cancellationToken)
     {
+        return await BuildSaleDtoAsync(sale, warnings, [], cancellationToken);
+    }
+
+    public async Task<SaleDto> BuildSaleDtoAsync(
+        Sale sale,
+        IReadOnlyList<string> warnings,
+        IReadOnlyList<SaleCreditNoteRedemptionSummaryDto> creditNoteRedemptions,
+        CancellationToken cancellationToken)
+    {
         var itemIds = sale.Items
             .Where(i => i.LineType == SaleLineType.Goods && i.ItemId.HasValue)
             .Select(i => i.ItemId!.Value)
@@ -20,7 +29,7 @@ public sealed class SaleDtoBuilder(IItemRepository itemRepository)
         var items = await itemRepository.GetByIdsAsync(sale.ShopId, itemIds, cancellationToken);
         var itemNameById = items.ToDictionary(i => i.Id, i => i.Name);
 
-        return BuildSaleDto(sale, itemNameById, warnings);
+        return BuildSaleDto(sale, itemNameById, warnings, creditNoteRedemptions);
     }
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage(
@@ -31,6 +40,19 @@ public sealed class SaleDtoBuilder(IItemRepository itemRepository)
         Sale sale,
         IReadOnlyDictionary<Guid, string> itemNameById,
         IReadOnlyList<string> warnings)
+    {
+        return BuildSaleDto(sale, itemNameById, warnings, []);
+    }
+
+    [System.Diagnostics.CodeAnalysis.SuppressMessage(
+        "Performance",
+        "CA1822:Mark members as static",
+        Justification = "Kept instance method so handlers route via DI instance.")]
+    internal SaleDto BuildSaleDto(
+        Sale sale,
+        IReadOnlyDictionary<Guid, string> itemNameById,
+        IReadOnlyList<string> warnings,
+        IReadOnlyList<SaleCreditNoteRedemptionSummaryDto> creditNoteRedemptions)
     {
         return new SaleDto(
             sale.Id,
@@ -46,6 +68,7 @@ public sealed class SaleDtoBuilder(IItemRepository itemRepository)
             sale.TotalDiscountAmount,
             sale.TotalAmount,
             sale.TotalTaxAmount,
+            sale.CreditNoteAppliedAmount,
             sale.Items
                 .Select(si => new SaleItemDto(
                 si.Id,
@@ -72,7 +95,10 @@ public sealed class SaleDtoBuilder(IItemRepository itemRepository)
                 HsnCode = si.HsnCode,
                 SavingsAmount = si.ItemDiscountAmount + si.SaleDiscountAmount,
             }).ToList(),
-            warnings);
+            warnings)
+        {
+            CreditNoteRedemptions = creditNoteRedemptions,
+        };
 
         string ResolveLineName(SaleItem saleItem)
         {

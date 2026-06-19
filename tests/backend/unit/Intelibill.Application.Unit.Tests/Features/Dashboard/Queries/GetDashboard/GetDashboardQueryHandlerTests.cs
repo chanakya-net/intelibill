@@ -177,7 +177,7 @@ public sealed class GetDashboardQueryHandlerTests
             30m,
             0m,
             30m,
-            PaymentMethod.Cash,
+            ReturnPayoutDestination.Refund,
             30m,
             0m,
             null,
@@ -715,6 +715,22 @@ public sealed class GetDashboardQueryHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_CreditNoteSettlementStaysSeparateFromPaymentMix()
+    {
+        var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), null, null, "Owner");
+
+        var result = await _handler.HandleAsync(query, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.NotNull(result.Value.PaymentMix);
+        Assert.Equal(0m, result.Value.PaymentMix!.Cash);
+        Assert.Equal(0m, result.Value.PaymentMix.Upi);
+        Assert.Equal(0m, result.Value.PaymentMix.Card);
+        Assert.Equal(0m, result.Value.PaymentMix.Credit);
+        Assert.Equal(0m, result.Value.CreditNoteSettlementAmount);
+    }
+
+    [Fact]
     public async Task HandleAsync_WithNoSales_SalesRevenueIsZeroAndHasNoSalesActivity()
     {
         var query = new GetDashboardQuery(Guid.NewGuid(), Guid.NewGuid(), null, null, "Owner");
@@ -991,6 +1007,7 @@ public sealed class GetDashboardQueryHandlerTests
         Assert.Equal(0m, dto.PaymentMix.Upi);
         Assert.Equal(0m, dto.PaymentMix.Card);
         Assert.Equal(0m, dto.PaymentMix.Credit);
+        Assert.Equal(0m, dto.CreditNoteSettlementAmount);
         Assert.False(dto.CreditShareWarning);
         Assert.Equal(0, dto.RunningLowStockCount);
         Assert.Equal(0, dto.LowStockItemCount);

@@ -20,4 +20,5 @@ public sealed record SaleListItemDto(
     IReadOnlyList<string> ReturnNumbers,
     string Status,
     decimal RefundAmount,
-    decimal DueReductionAmount);
+    decimal DueReductionAmount,
+    decimal CreditNoteAppliedAmount);

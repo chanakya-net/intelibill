@@ -99,6 +99,7 @@
     "manageSales": "विक्री",
     "newSale": "नवीन विक्री",
     "salesHistory": "इतिहास",
+    "creditNotes": "Credit Notes",
     "manageInventory": "इन्व्हेंटरी",
     "addNewProduct": "उत्पादने",
     "manageServices": "Services",
@@ -904,7 +905,8 @@
       },
       "amount": {
         "due": "थकबाकी",
-        "refund": "परतावा"
+        "refund": "परतावा",
+        "creditNoteApplied": "क्रेडिट नोट लागू"
       },
       "pagination": {
         "ariaLabel": "विक्री इतिहास पृष्ठ क्रमांकन",
@@ -1050,7 +1052,27 @@
       "quickAdd": "Quick add",
       "balanceDue": "Balance Due",
       "goodsSection": "Goods",
-      "servicesSection": "Services"
+      "servicesSection": "Services",
+      "creditNote": {
+        "sectionLabel": "Credit Note",
+        "codePlaceholder": "Enter credit note code…",
+        "verifyBtn": "Verify",
+        "verified": "Credit note verified",
+        "balance": "Available balance",
+        "expiry": "Expires",
+        "verifyError": "Unable to verify credit note. Check the code and try again.",
+        "status": "Status",
+        "appliedAmount": "Apply credit note amount",
+        "remove": "Remove credit note",
+        "applyBtn": "Apply note",
+        "appliedTotal": "Applied credit notes total",
+        "offlineDisabled": "Credit note redemption is unavailable while offline.",
+        "customerMismatchWarning": "The credit note belongs to a different customer.",
+        "customerMismatchDetails": "Confirm this mismatch before applying the credit note to this sale.",
+        "confirmMismatchBtn": "Confirm mismatch",
+        "customerMismatchConfirmed": "Mismatch confirmed. The sale can be submitted.",
+        "customerMismatchConfirmRequired": "Please confirm the customer mismatch before submitting."
+      }
     },
     "detail": {
       "title": "विक्री तपशील",
@@ -1070,7 +1092,11 @@
       "returnable": "परत करण्यायोग्य",
       "beforeDiscount": "सवलतीपूर्वी",
       "discount": "सवलत",
-      "totalSavings": "एकूण बचत"
+      "totalSavings": "एकूण बचत",
+      "settlement": {
+        "creditNoteApplied": "क्रेडिट नोट सेटलमेंट",
+        "creditNoteCodes": "क्रेडिट नोट कोड"
+      }
     },
     "invoice": {
       "returnItems": "आयटम परत करा",
@@ -1090,6 +1116,8 @@
       "totalAmount": "Total Amount",
       "totalBeforeDiscount": "Subtotal (Before Discount)",
       "discount": "Discount",
+      "creditNoteSettlement": "Credit Note Settlement",
+      "creditNoteSettlementWithCodes": "Credit Note Settlement ({{ codes }})",
       "tax": "Tax",
       "grandTotal": "Grand Total",
       "printAgain": "Print Again",
@@ -1210,12 +1238,145 @@
         },
         "dueReductionOverride": "थकबाकी कपात ओव्हरराइड",
         "overrideReason": "ओव्हरराइड कारण",
-        "payoutMethod": "रिफंड पेआउट पद्धत",
+        "payoutDestination": "रिफंड पेआउट गंतव्य",
+        "payoutDestinations": {
+          "cash": "Cash",
+          "upi": "UPI",
+          "card": "Card",
+          "creditNote": "Credit Note"
+        },
         "confirmDueOverride": "थकबाकी ओव्हरराइड पुष्टी करा",
+        "creditNoteExpiryNoExpiry": "कोई समाप्तीची तारीख नहीं",
+        "creditNoteExpiry30Days": "30 दिवस",
+        "creditNoteExpiry60Days": "60 दिवस",
+        "creditNoteExpiry90Days": "90 दिवस",
+        "creditNoteExpiryCustom": "कस्टम तारीख",
         "calculatedEffects": "गणना केलेले परिणाम",
         "warnings": "इशारे",
         "previewBtn": "प्रीव्यू",
-        "recordBtn": "परतावा नोंदवा"
+        "recordBtn": "परतावा नोंदवा",
+        "successEyebrow": "Credit note issued",
+        "successTitle": "Credit note created",
+        "successDescription": "The return has been recorded and the credit note is ready to print.",
+        "successCodeLabel": "Credit note code",
+        "printCreditNoteBtn": "Print credit note",
+        "creditNoteExpiry": "क्रेडिट नोट समाप्तीची तारीख",
+        "creditNoteExpiryDate": "समाप्तीची तारीख"
+      }
+    },
+    "creditNotes": {
+      "eyebrow": "विक्री नोंदी",
+      "title": "क्रेडिट नोट्स",
+      "subtitle": "सक्रिय दुकानाचा क्रेडिट नोट इतिहास पाहा.",
+      "emptyState": {
+        "title": "No credit notes yet",
+        "description": "Credit notes will appear here once they are created."
+      },
+      "print": {
+        "controlsLabel": "Credit note print actions",
+        "title": "Credit Note",
+        "printAgain": "Print Again",
+        "close": "Close",
+        "detailsSection": "Credit note details",
+        "customerSection": "Customer details",
+        "statusLabel": "Status",
+        "code": "Credit note code",
+        "issueDate": "Issued on",
+        "expiryDate": "Expires on",
+        "invoiceNumber": "Invoice #",
+        "returnNumber": "Return #",
+        "customer": "Customer",
+        "reason": "Reason",
+        "voidReason": "Void reason",
+        "originalAmount": "Original amount",
+        "availableBalance": "Available balance",
+        "expiredMarker": "Credit note is expired",
+        "voidedMarker": "Credit note is voided",
+        "termsLabel": "Terms",
+        "termsBody": "Credit notes are subject to store policy. Balance is redeemable against future purchases until the expiry date.",
+        "status": {
+          "Active": "Active",
+          "Expired": "Expired",
+          "FullyRedeemed": "Fully Redeemed",
+          "Voided": "Voided"
+        }
+      },
+      "verify": {
+        "label": "कोड पडताळा",
+        "placeholder": "क्रेडिट नोट कोड प्रविष्ट करा",
+        "action": "पडताळा"
+      },
+      "controls": {
+        "search": "शोध",
+        "searchPlaceholder": "कोड, चलन, परतावा क्रमांक किंवा ग्राहकानुसार शोधा",
+        "status": "स्थिती",
+        "pageSize": "ओळी",
+        "clear": "फिल्टर्स साफ करा"
+      },
+      "filters": {
+        "all": "सर्व",
+        "active": "सक्रिय",
+        "fullyRedeemed": "पूर्णपणे वापरले",
+        "expired": "कालबाह्य",
+        "voided": "रद्द"
+      },
+      "list": {
+        "title": "क्रेडिट नोट यादी",
+        "subtitle": "कोड आणि शिल्लक पहा.",
+        "count": "{{total}} नोंदी"
+      },
+      "table": {
+        "code": "कोड",
+        "status": "स्थिती",
+        "balance": "शिल्लक",
+        "originalAmount": "मूळ रक्कम",
+        "customer": "ग्राहक",
+        "invoice": "चलन",
+        "returnNumber": "परतावा क्रमांक",
+        "issuedAt": "जारी वेळ"
+      },
+      "status": {
+        "Active": "सक्रिय",
+        "Voided": "रद्द",
+        "FullyRedeemed": "पूर्णपणे वापरले",
+        "Expired": "कालबाह्य"
+      },
+      "empty": {
+        "title": "कोणतेही क्रेडिट नोट सापडले नाहीत",
+        "description": "यादी अरुंद करण्यासाठी शोध किंवा स्थिती फिल्टर वापरा."
+      },
+      "loading": "क्रेडिट नोट्स लोड होत आहेत...",
+      "pagination": {
+        "showing": "{{total}} नोंदी दाखवत आहोत, पृष्ठ {{page}} / {{pages}}"
+      },
+      "detail": {
+        "eyebrow": "निवडलेले क्रेडिट नोट",
+        "subtitle": "शिल्लक आणि ग्राहक संदर्भ पाहा.",
+        "balance": "शिल्लक",
+        "originalAmount": "मूळ रक्कम",
+        "expiresAt": "कालबाह्य होण्याची वेळ",
+        "customer": "ग्राहक",
+        "invoice": "चलन",
+        "returnNumber": "परतावा क्रमांक",
+        "reason": "कारण",
+        "voidReason": "रद्द करण्याचे कारण"
+      },
+      "errors": {
+        "loadFailed": "क्रेडिट नोट्स लोड करता आल्या नाहीत.",
+        "verifyFailed": "क्रेडिट नोट पडताळता आली नाही."
+      },
+      "void": {
+        "action": "क्रेडिट नोट रद्द करा",
+        "title": "क्रेडिट नोट रद्द करा",
+        "description": "यामुळे क्रेडिट नोट रद्द होईल आणि ऑडिट ट्रेल तसाच राहील.",
+        "reasonLabel": "रद्द करण्याचे कारण",
+        "reasonPlaceholder": "हा क्रेडिट नोट का रद्द केला जात आहे ते स्पष्ट करा",
+        "cancel": "रद्द करा",
+        "confirm": "क्रेडिट नोट रद्द करा",
+        "errors": {
+          "reasonRequired": "रद्द करण्याचे कारण आवश्यक आहे.",
+          "submitFailed": "क्रेडिट नोट रद्द करता आली नाही."
+        }
       }
     },
     "searchPlaceholder": "विक्री शोधा...",

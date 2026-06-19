@@ -78,6 +78,146 @@ namespace Intelibill.Infrastructure.Migrations
                     b.ToTable("bank_accounts", (string)null);
                 });
 
+            modelBuilder.Entity("Intelibill.Domain.Entities.CreditNote", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("AvailableBalance")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("available_balance");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("code");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset?>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<bool>("IsVoided")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_voided");
+
+                    b.Property<decimal>("OriginalAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("original_amount");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("reason");
+
+                    b.Property<Guid?>("LinkedCustomerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("linked_customer_id");
+
+                    b.Property<Guid>("SaleReturnId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sale_return_id");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("VoidReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("void_reason");
+
+                    b.HasKey("Id")
+                        .HasName("pk_credit_notes");
+
+                    b.HasIndex("SaleReturnId")
+                        .HasDatabaseName("ix_credit_notes_sale_return_id");
+
+                    b.HasIndex("ShopId", "Code")
+                        .IsUnique()
+                        .HasDatabaseName("ix_credit_notes_shop_id_code");
+
+                    b.HasIndex("ShopId", "IsVoided")
+                        .HasDatabaseName("ix_credit_notes_shop_id_is_voided");
+
+                    b.HasIndex("ShopId", "SaleReturnId")
+                        .HasDatabaseName("ix_credit_notes_shop_id_sale_return_id");
+
+                    b.ToTable("credit_notes", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_credit_notes_available_balance_non_negative", "available_balance >= 0");
+
+                            t.HasCheckConstraint("ck_credit_notes_balance_le_original", "available_balance <= original_amount");
+
+                            t.HasCheckConstraint("ck_credit_notes_original_amount_positive", "original_amount > 0");
+                        });
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.CreditNoteRedemption", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("amount");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CreditNoteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("credit_note_id");
+
+                    b.Property<Guid>("SaleId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sale_id");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_credit_note_redemptions");
+
+                    b.HasIndex("CreditNoteId")
+                        .HasDatabaseName("ix_credit_note_redemptions_credit_note_id");
+
+                    b.HasIndex("SaleId")
+                        .HasDatabaseName("ix_credit_note_redemptions_sale_id");
+
+                    b.HasIndex("ShopId", "SaleId")
+                        .HasDatabaseName("ix_credit_note_redemptions_shop_id_sale_id");
+
+                    b.ToTable("credit_note_redemptions", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_credit_note_redemptions_amount_positive", "amount > 0");
+                        });
+                });
+
             modelBuilder.Entity("Intelibill.Domain.Entities.Customer", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1770,6 +1910,13 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<decimal>("CreditNoteAppliedAmount")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("credit_note_applied_amount");
+
                     b.Property<Guid?>("CustomerId")
                         .HasColumnType("uuid")
                         .HasColumnName("customer_id");
@@ -2142,6 +2289,10 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("payout_amount");
+
+                    b.Property<int?>("PayoutDestination")
+                        .HasColumnType("integer")
+                        .HasColumnName("payout_destination");
 
                     b.Property<DateTimeOffset>("ProcessedAt")
                         .HasColumnType("timestamp with time zone")
@@ -2975,6 +3126,47 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasConstraintName("fk_bank_accounts_shops_shop_id");
                 });
 
+            modelBuilder.Entity("Intelibill.Domain.Entities.CreditNote", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.SaleReturn", null)
+                        .WithMany()
+                        .HasForeignKey("SaleReturnId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_credit_notes_sale_returns_sale_return_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.Shop", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_credit_notes_shops_shop_id");
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.CreditNoteRedemption", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.CreditNote", null)
+                        .WithMany("Redemptions")
+                        .HasForeignKey("CreditNoteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_credit_note_redemptions_credit_notes_credit_note_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.Sale", null)
+                        .WithMany()
+                        .HasForeignKey("SaleId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_credit_note_redemptions_sales_sale_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.Shop", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_credit_note_redemptions_shops_shop_id");
+                });
+
             modelBuilder.Entity("Intelibill.Domain.Entities.Customer", b =>
                 {
                     b.HasOne("Intelibill.Domain.Entities.Shop", null)
@@ -3600,6 +3792,11 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasConstraintName("fk_user_external_logins_users_user_id");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.CreditNote", b =>
+                {
+                    b.Navigation("Redemptions");
                 });
 
             modelBuilder.Entity("Intelibill.Domain.Entities.InventoryBatch", b =>
