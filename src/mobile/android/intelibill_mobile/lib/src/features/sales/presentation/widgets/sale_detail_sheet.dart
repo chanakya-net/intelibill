@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intelibill_mobile/src/core/formatting/currency_formatter.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
@@ -33,172 +34,242 @@ class SaleDetailSheet extends ConsumerWidget {
     final theme = Theme.of(context);
 
     if (state.isLoading) {
-      return SafeArea(
+      return const SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: const Center(child: CircularProgressIndicator()),
+          padding: EdgeInsets.all(32),
+          child: Center(child: CircularProgressIndicator()),
         ),
       );
     }
 
     if (state.failure != null) {
-      return SafeArea(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.error_outline, size: 48),
-                const SizedBox(height: 12),
-                Text(
-                  l10n.salesHistoryUnableToLoad,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-                FilledButton(
-                  onPressed: () {
-                    ref
-                        .read(saleDetailControllerProvider(saleId).notifier)
-                        .refresh(saleId);
-                  },
-                  child: Text(l10n.salesHistoryRetry),
-                ),
-              ],
-            ),
-          ),
-        ),
+      return _ErrorState(
+        onRetry: () {
+          ref
+              .read(saleDetailControllerProvider(saleId).notifier)
+              .refresh(saleId);
+        },
+        message: l10n.salesHistoryUnableToLoad,
+        retryLabel: l10n.salesHistoryRetry,
       );
     }
 
     final detail = state.detail;
     if (detail == null) {
-      return SafeArea(
-        child: Center(
-          child: Text(l10n.salesHistoryNoSales),
-        ),
-      );
+      return SafeArea(child: Center(child: Text(l10n.salesHistoryNoSales)));
     }
 
-    final dateFormat = DateFormat('dd MMM yyyy, h:mm a');
     return SafeArea(
-      child: ListView(
-        shrinkWrap: true,
+      child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  l10n.salesHistoryDetailTitle,
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.refresh),
-                onPressed: () {
-                  ref
-                      .read(saleDetailControllerProvider(saleId).notifier)
-                      .refresh(saleId);
-                },
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          ..._buildDetailRows(
-            l10n,
-            theme,
-            detail,
-            dateFormat,
-          ),
-        ],
+        child: Column(
+          children: [
+            _Header(
+              title: l10n.salesHistoryDetailTitle,
+              subtitle: detail.invoiceNumber,
+              onRefresh: () {
+                ref
+                    .read(saleDetailControllerProvider(saleId).notifier)
+                    .refresh(saleId);
+              },
+            ),
+            const SizedBox(height: 16),
+            _SummaryCard(detail: detail),
+            const SizedBox(height: 16),
+            _SectionCard(
+              title: 'Line items',
+              child: _LineItems(detail: detail),
+            ),
+            const SizedBox(height: 16),
+            _SectionCard(
+              title: 'Totals',
+              child: _Totals(detail: detail),
+            ),
+            const SizedBox(height: 16),
+            _SectionCard(
+              title: 'Discounts',
+              child: _Discounts(detail: detail),
+            ),
+            const SizedBox(height: 16),
+            _SectionCard(
+              title: 'Payment split',
+              child: _Settlements(detail: detail),
+            ),
+            const SizedBox(height: 16),
+            _SectionCard(
+              title: 'Returns',
+              child: _Returns(detail: detail),
+            ),
+            const SizedBox(height: 16),
+            _SectionCard(
+              title: 'Redemptions',
+              child: _Redemptions(detail: detail),
+            ),
+            const SizedBox(height: 16),
+            _SectionCard(
+              title: 'Warnings',
+              child: _Warnings(detail: detail),
+            ),
+            const SizedBox(height: 16),
+            _ReceiptAction(
+              saleId: detail.saleId,
+              invoiceNumber: detail.invoiceNumber,
+            ),
+          ],
+        ),
       ),
     );
   }
+}
 
-  List<Widget> _buildDetailRows(
-    AppLocalizations l10n,
-    ThemeData theme,
-    SaleDetail detail,
-    DateFormat dateFormat,
-  ) {
-    final rows = <_DetailRow>[
-      _DetailRow(l10n.salesHistoryInvoiceNumber, detail.invoiceNumber),
-      _DetailRow(
-        l10n.salesHistoryCustomer,
-        detail.customerName ?? l10n.salesHistoryWalkInCustomer,
-      ),
-      if (detail.customerPhone?.isNotEmpty == true)
-        _DetailRow(l10n.salesHistoryPhone, detail.customerPhone!),
-      _DetailRow(l10n.salesHistoryDate, dateFormat.format(detail.soldAt)),
-      _DetailRow(
-        l10n.salesHistoryControlsStatus,
-        saleStatusLabel(l10n, detail.status),
-      ),
-      _DetailRow(
-        l10n.salesHistoryPaymentMethod,
-        salePaymentMethodLabel(l10n, detail.paymentMethod),
-      ),
-      _DetailRow(
-        l10n.salesHistoryItemCountLabel,
-        detail.items.length.toString(),
-      ),
-      _DetailRow(l10n.salesHistoryTotal, formatInr(detail.totalAmount)),
-      if (detail.dueAmount > 0)
-        _DetailRow(l10n.salesHistoryDueAmount, formatInr(detail.dueAmount)),
-      if (detail.refundAmount > 0)
-        _DetailRow(
-          l10n.salesHistoryRefundAmount,
-          formatInr(detail.refundAmount),
-        ),
-    ];
+class _Header extends StatelessWidget {
+  const _Header({
+    required this.title,
+    required this.subtitle,
+    required this.onRefresh,
+  });
 
-    final widgets = <Widget>[];
-    for (final row in rows) {
-      widgets.addAll([
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              flex: 2,
-              child: Text(
-                row.label,
+  final String title;
+  final String subtitle;
+  final VoidCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
+            ],
+          ),
+        ),
+        IconButton(icon: const Icon(Icons.refresh), onPressed: onRefresh),
+      ],
+    );
+  }
+}
+
+class _SummaryCard extends StatelessWidget {
+  const _SummaryCard({required this.detail});
+
+  final SaleDetail detail;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final dateFormat = DateFormat('dd MMM yyyy, h:mm a');
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _InfoRow(
+              label: l10n.salesHistoryInvoiceNumber,
+              value: detail.invoiceNumber,
             ),
-            Expanded(
-              flex: 3,
-              child: Text(
-                row.value,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+            _InfoRow(
+              label: l10n.salesHistoryCustomer,
+              value: detail.customerName ?? l10n.salesHistoryWalkInCustomer,
+            ),
+            if (detail.customerPhone?.isNotEmpty == true)
+              _InfoRow(label: 'Phone', value: detail.customerPhone!),
+            _InfoRow(label: 'Date', value: dateFormat.format(detail.soldAt)),
+            _InfoRow(
+              label: l10n.salesHistoryPaymentMethod,
+              value: salePaymentMethodLabel(l10n, detail.paymentMethod),
+            ),
+            _InfoRow(
+              label: 'Status',
+              value: saleStatusLabel(l10n, detail.status),
+            ),
+            const Divider(height: 24),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _MetricChip(label: 'Paid ${formatInr(detail.paidAmount)}'),
+                _MetricChip(label: 'Due ${formatInr(detail.dueAmount)}'),
+                _MetricChip(label: 'Tax ${formatInr(detail.totalTaxAmount)}'),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              formatInr(detail.totalAmount),
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w800,
               ),
             ),
           ],
         ),
-        const Divider(height: 20),
-      ]);
-    }
+      ),
+    );
+  }
+}
 
-    if (detail.items.isNotEmpty) {
-      widgets.addAll([
-        const SizedBox(height: 16),
-        Text(
-          'Line Items',
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
+class _SectionCard extends StatelessWidget {
+  const _SectionCard({required this.title, required this.child});
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 12),
+            child,
+          ],
         ),
-        const SizedBox(height: 12),
-        ...detail.items.map((item) => Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Row(
+      ),
+    );
+  }
+}
+
+class _LineItems extends StatelessWidget {
+  const _LineItems({required this.detail});
+
+  final SaleDetail detail;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    if (detail.items.isEmpty) {
+      return const Text('No line items');
+    }
+    return Column(
+      children: [
+        for (final item in detail.items) ...[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
                 child: Column(
@@ -227,101 +298,92 @@ class SaleDetailSheet extends ConsumerWidget {
               ),
             ],
           ),
-        )),
-      ]);
-    }
+          const SizedBox(height: 10),
+        ],
+      ],
+    );
+  }
+}
 
-    if (detail.discounts.isNotEmpty) {
-      widgets.addAll([
-        const SizedBox(height: 16),
-        Text(
-          'Discounts',
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
+class _Totals extends StatelessWidget {
+  const _Totals({required this.detail});
+
+  final SaleDetail detail;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        _InfoRow(
+          label: 'Before discount',
+          value: formatInr(detail.totalBeforeDiscount),
         ),
-        const SizedBox(height: 12),
-        ...detail.discounts.map((discount) => Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Row(
+        _InfoRow(
+          label: 'Discount',
+          value: formatInr(detail.totalDiscountAmount),
+        ),
+        _InfoRow(label: 'Tax', value: formatInr(detail.totalTaxAmount)),
+        _InfoRow(label: 'Total', value: formatInr(detail.totalAmount)),
+        _InfoRow(label: 'Paid', value: formatInr(detail.paidAmount)),
+        _InfoRow(label: 'Due', value: formatInr(detail.dueAmount)),
+        if (detail.refundAmount > 0)
+          _InfoRow(label: 'Refund', value: formatInr(detail.refundAmount)),
+        if (detail.dueReductionAmount > 0)
+          _InfoRow(
+            label: 'Due reduction',
+            value: formatInr(detail.dueReductionAmount),
+          ),
+      ],
+    );
+  }
+}
+
+class _Discounts extends StatelessWidget {
+  const _Discounts({required this.detail});
+
+  final SaleDetail detail;
+
+  @override
+  Widget build(BuildContext context) {
+    if (detail.discounts.isEmpty) return const Text('No discounts');
+    final theme = Theme.of(context);
+    return Column(
+      children: [
+        for (final discount in detail.discounts) ...[
+          Row(
             children: [
               Expanded(
                 child: Text(
-                  '${discount.type} (${discount.value})',
-                  style: theme.textTheme.bodyMedium,
+                  '${discount.type} • ${discount.value}',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
-              Text(
-                '- ${formatInr(discount.amount)}',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              Text('- ${formatInr(discount.amount)}'),
             ],
           ),
-        )),
-      ]);
-    }
+          const SizedBox(height: 10),
+        ],
+      ],
+    );
+  }
+}
 
-    if (detail.returns.isNotEmpty) {
-      widgets.addAll([
-        const SizedBox(height: 16),
-        Text(
-          'Returns',
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 12),
-        ...detail.returns.map((ret) => Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      ret.returnNumber,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  Text(
-                    formatInr(ret.amount),
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                dateFormat.format(ret.returnedAt),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-        )),
-      ]);
-    }
+class _Settlements extends StatelessWidget {
+  const _Settlements({required this.detail});
 
-    if (detail.settlements.isNotEmpty) {
-      widgets.addAll([
-        const SizedBox(height: 16),
-        Text(
-          'Payment Methods',
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 12),
-        ...detail.settlements.map((settlement) => Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Row(
+  final SaleDetail detail;
+
+  @override
+  Widget build(BuildContext context) {
+    if (detail.settlements.isEmpty) return const Text('No settlement records');
+    final theme = Theme.of(context);
+    final dateFormat = DateFormat('dd MMM yyyy, h:mm a');
+    return Column(
+      children: [
+        for (final settlement in detail.settlements) ...[
+          Row(
             children: [
               Expanded(
                 child: Column(
@@ -342,59 +404,246 @@ class SaleDetailSheet extends ConsumerWidget {
                   ],
                 ),
               ),
-              Text(
-                formatInr(settlement.amount),
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              Text(formatInr(settlement.amount)),
             ],
           ),
-        )),
-      ]);
-    }
+          const SizedBox(height: 10),
+        ],
+      ],
+    );
+  }
+}
 
-    if (detail.warnings.isNotEmpty) {
-      widgets.addAll([
-        const SizedBox(height: 16),
-        Text(
-          'Warnings',
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-            color: theme.colorScheme.error,
+class _Returns extends StatelessWidget {
+  const _Returns({required this.detail});
+
+  final SaleDetail detail;
+
+  @override
+  Widget build(BuildContext context) {
+    if (detail.returns.isEmpty) return const Text('No returns');
+    final theme = Theme.of(context);
+    final dateFormat = DateFormat('dd MMM yyyy, h:mm a');
+    return Column(
+      children: [
+        for (final saleReturn in detail.returns) ...[
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  saleReturn.returnNumber,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Text(formatInr(saleReturn.amount)),
+            ],
           ),
-        ),
-        const SizedBox(height: 12),
-        ...detail.warnings.map((warning) => Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Row(
+          Text(
+            dateFormat.format(saleReturn.returnedAt),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          if (saleReturn.items.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Column(
+                children: [
+                  for (final item in saleReturn.items)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        '${item.quantity} returned of ${item.itemId}',
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          const SizedBox(height: 10),
+        ],
+      ],
+    );
+  }
+}
+
+class _Redemptions extends StatelessWidget {
+  const _Redemptions({required this.detail});
+
+  final SaleDetail detail;
+
+  @override
+  Widget build(BuildContext context) {
+    if (detail.redemptions.isEmpty) return const Text('No redemptions');
+    final theme = Theme.of(context);
+    final dateFormat = DateFormat('dd MMM yyyy, h:mm a');
+    return Column(
+      children: [
+        for (final redemption in detail.redemptions) ...[
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  redemption.type,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Text(formatInr(redemption.amount)),
+            ],
+          ),
+          Text(
+            dateFormat.format(redemption.redeemedAt),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 10),
+        ],
+      ],
+    );
+  }
+}
+
+class _Warnings extends StatelessWidget {
+  const _Warnings({required this.detail});
+
+  final SaleDetail detail;
+
+  @override
+  Widget build(BuildContext context) {
+    if (detail.warnings.isEmpty) return const Text('No warnings');
+    final theme = Theme.of(context);
+    return Column(
+      children: [
+        for (final warning in detail.warnings) ...[
+          Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(
-                Icons.warning_amber,
+                Icons.warning_amber_rounded,
                 size: 20,
                 color: theme.colorScheme.error,
               ),
               const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  warning.message,
-                  style: theme.textTheme.bodyMedium,
-                ),
-              ),
+              Expanded(child: Text(warning.message)),
             ],
           ),
-        )),
-      ]);
-    }
-
-    return widgets;
+          const SizedBox(height: 10),
+        ],
+      ],
+    );
   }
 }
 
-class _DetailRow {
-  const _DetailRow(this.label, this.value);
+class _ReceiptAction extends StatelessWidget {
+  const _ReceiptAction({required this.saleId, required this.invoiceNumber});
+
+  final String saleId;
+  final String invoiceNumber;
+
+  @override
+  Widget build(BuildContext context) {
+    return FilledButton.icon(
+      onPressed: () async {
+        await Clipboard.setData(
+          ClipboardData(text: 'Sale $invoiceNumber ($saleId)'),
+        );
+      },
+      icon: const Icon(Icons.receipt_long_outlined),
+      label: const Text('Receipt'),
+    );
+  }
+}
+
+class _ErrorState extends StatelessWidget {
+  const _ErrorState({
+    required this.onRetry,
+    required this.message,
+    required this.retryLabel,
+  });
+
+  final VoidCallback onRetry;
+  final String message;
+  final String retryLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline, size: 48),
+              const SizedBox(height: 12),
+              Text(message, textAlign: TextAlign.center),
+              const SizedBox(height: 16),
+              FilledButton(onPressed: onRetry, child: Text(retryLabel)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({required this.label, required this.value});
 
   final String label;
   final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 2,
+            child: Text(
+              label,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 3,
+            child: Text(
+              value,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MetricChip extends StatelessWidget {
+  const _MetricChip({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(label, style: theme.textTheme.labelMedium),
+    );
+  }
 }

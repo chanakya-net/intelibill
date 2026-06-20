@@ -151,7 +151,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Sale details'), findsOneWidget);
-      expect(find.text('9999999999'), findsWidgets);
+      expect(find.text('Line items'), findsOneWidget);
+      expect(find.text('Totals'), findsOneWidget);
     });
   });
 }

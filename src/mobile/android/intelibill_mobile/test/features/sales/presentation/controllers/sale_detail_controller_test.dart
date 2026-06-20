@@ -51,15 +51,21 @@ void main() {
 
   group('SaleDetailController', () {
     test('starts in loading state', () {
-      when(() => getSaleDetail(any())).thenAnswer((_) async => _saleDetail('sale-1'));
+      when(
+        () => getSaleDetail(any()),
+      ).thenAnswer((_) async => _saleDetail('sale-1'));
 
       final container = makeContainer();
       addTearDown(container.dispose);
 
-      expect(container.read(saleDetailControllerProvider('sale-1')).isLoading,
-          isTrue);
-      expect(container.read(saleDetailControllerProvider('sale-1')).detail,
-          isNull);
+      expect(
+        container.read(saleDetailControllerProvider('sale-1')).isLoading,
+        isTrue,
+      );
+      expect(
+        container.read(saleDetailControllerProvider('sale-1')).detail,
+        isNull,
+      );
     });
 
     test('loads sale detail on refresh', () async {
@@ -77,6 +83,22 @@ void main() {
       expect(state.isLoading, isFalse);
       expect(state.detail, isNotNull);
       expect(state.detail!.invoiceNumber, 'INV-001');
+      expect(state.failure, isNull);
+    });
+
+    test('exposes detail after refresh', () async {
+      final detail = _saleDetail('sale-1');
+      when(() => getSaleDetail(any())).thenAnswer((_) async => detail);
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+
+      await container
+          .read(saleDetailControllerProvider('sale-1').notifier)
+          .refresh('sale-1');
+
+      final state = container.read(saleDetailControllerProvider('sale-1'));
+      expect(state.detail?.saleId, 'sale-1');
       expect(state.failure, isNull);
     });
 
