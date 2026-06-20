@@ -113,7 +113,10 @@ class DiscountEditorController extends _$DiscountEditorController {
         previewFailure: e.failure,
       );
     } catch (e) {
-      state = state.copyWith(previewLoading: false);
+      state = state.copyWith(
+        previewLoading: false,
+        previewFailure: const Failure.unknown(),
+      );
     }
   }
 
@@ -122,8 +125,16 @@ class DiscountEditorController extends _$DiscountEditorController {
     required DiscountType discountType,
     required double discountValue,
     required double? batchPercentage,
+    bool confirmed = false,
+    String? reason,
   }) async {
     if (state.isSubmitting) return;
+    if (state.preview?.error != null && !confirmed) {
+      state = state.copyWith(
+        submitFailure: const Failure.unknown(),
+      );
+      return;
+    }
     state = state.copyWith(isSubmitting: true, submitFailure: null);
     try {
       await ref.read(createDiscountProvider)(
@@ -143,7 +154,10 @@ class DiscountEditorController extends _$DiscountEditorController {
         submitFailure: e.failure,
       );
     } catch (e) {
-      state = state.copyWith(isSubmitting: false);
+      state = state.copyWith(
+        isSubmitting: false,
+        submitFailure: const Failure.unknown(),
+      );
     }
   }
 
@@ -153,8 +167,16 @@ class DiscountEditorController extends _$DiscountEditorController {
     required DiscountType discountType,
     required double discountValue,
     required double? batchPercentage,
+    bool confirmed = false,
+    String? reason,
   }) async {
     if (state.isSubmitting) return;
+    if (state.preview?.error != null && !confirmed) {
+      state = state.copyWith(
+        submitFailure: const Failure.unknown(),
+      );
+      return;
+    }
     state = state.copyWith(isSubmitting: true, submitFailure: null);
     try {
       await ref.read(replaceDiscountProvider)(
@@ -175,7 +197,10 @@ class DiscountEditorController extends _$DiscountEditorController {
         submitFailure: e.failure,
       );
     } catch (e) {
-      state = state.copyWith(isSubmitting: false);
+      state = state.copyWith(
+        isSubmitting: false,
+        submitFailure: const Failure.unknown(),
+      );
     }
   }
 
@@ -195,7 +220,10 @@ class DiscountEditorController extends _$DiscountEditorController {
         submitFailure: e.failure,
       );
     } catch (e) {
-      state = state.copyWith(isSubmitting: false);
+      state = state.copyWith(
+        isSubmitting: false,
+        submitFailure: const Failure.unknown(),
+      );
     }
   }
 }

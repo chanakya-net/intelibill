@@ -25,6 +25,4 @@ abstract class DiscountRepository {
   });
 
   Future<void> disable({required String discountId});
-
-  Future<List<Discount>> getAll();
 }

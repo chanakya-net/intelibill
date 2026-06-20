@@ -26,7 +26,8 @@ extension DiscountDtoX on DiscountDto {
     name: name,
     discountType: DiscountType.values.firstWhere(
       (e) => e.name == discountType,
-      orElse: () => DiscountType.fixed,
+      orElse: () =>
+          throw FormatException('Unknown DiscountType: $discountType'),
     ),
     discountValue: discountValue,
     batchPercentage: batchPercentage,

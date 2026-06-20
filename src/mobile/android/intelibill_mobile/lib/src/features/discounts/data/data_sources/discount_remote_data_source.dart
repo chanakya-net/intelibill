@@ -17,8 +17,6 @@ abstract class DiscountRemoteDataSource {
   });
 
   Future<void> disable({required String discountId});
-
-  Future<List<DiscountDto>> getAll();
 }
 
 class DiscountRemoteDataSourceImpl implements DiscountRemoteDataSource {
@@ -61,16 +59,5 @@ class DiscountRemoteDataSourceImpl implements DiscountRemoteDataSource {
   @override
   Future<void> disable({required String discountId}) async {
     await _apiClient.delete('/discounts/$discountId');
-  }
-
-  @override
-  Future<List<DiscountDto>> getAll() async {
-    final response = await _apiClient.get<List<dynamic>>(
-      '/discounts',
-    );
-    return (response.data ?? [])
-        .cast<Map<String, dynamic>>()
-        .map(DiscountDto.fromJson)
-        .toList();
   }
 }

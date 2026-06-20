@@ -70,10 +70,4 @@ class DiscountRepositoryImpl implements DiscountRepository {
   Future<void> disable({required String discountId}) {
     return _remoteDataSource.disable(discountId: discountId);
   }
-
-  @override
-  Future<List<Discount>> getAll() async {
-    final dtos = await _remoteDataSource.getAll();
-    return dtos.map((dto) => dto.toDomain()).toList();
-  }
 }
