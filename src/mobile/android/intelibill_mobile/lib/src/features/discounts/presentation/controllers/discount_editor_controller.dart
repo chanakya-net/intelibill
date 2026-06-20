@@ -53,6 +53,8 @@ DisableDiscount disableDiscount(Ref ref) {
 
 class DiscountEditorState {
   static const _keepValue = Object();
+  static const _keepFailure = Object();
+  static const _keepLastAction = Object();
 
   const DiscountEditorState({
     this.preview,
@@ -75,20 +77,26 @@ class DiscountEditorState {
   DiscountEditorState copyWith({
     Object? preview = _keepValue,
     bool? previewLoading,
-    Failure? previewFailure,
+    Object? previewFailure = _keepFailure,
     bool? isSubmitting,
-    Failure? submitFailure,
-    String? lastAction,
+    Object? submitFailure = _keepFailure,
+    Object? lastAction = _keepLastAction,
     bool? needsBelowCostConfirmation,
   }) => DiscountEditorState(
     preview: identical(preview, _keepValue)
         ? this.preview
         : preview as DiscountPreview?,
     previewLoading: previewLoading ?? this.previewLoading,
-    previewFailure: previewFailure,
+    previewFailure: identical(previewFailure, _keepFailure)
+        ? this.previewFailure
+        : previewFailure as Failure?,
     isSubmitting: isSubmitting ?? this.isSubmitting,
-    submitFailure: submitFailure,
-    lastAction: lastAction,
+    submitFailure: identical(submitFailure, _keepFailure)
+        ? this.submitFailure
+        : submitFailure as Failure?,
+    lastAction: identical(lastAction, _keepLastAction)
+        ? this.lastAction
+        : lastAction as String?,
     needsBelowCostConfirmation:
         needsBelowCostConfirmation ?? this.needsBelowCostConfirmation,
   );

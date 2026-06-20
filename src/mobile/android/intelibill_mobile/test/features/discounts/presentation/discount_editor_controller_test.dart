@@ -533,6 +533,45 @@ void main() {
       ).called(1);
     });
 
+    test('replace blocks confirmed below-cost save without reason', () async {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+
+      container
+          .read(discountEditorControllerProvider.notifier)
+          .state = const DiscountEditorState(
+        preview: DiscountPreview(
+          totalCostReduction: 500,
+          error: 'below-cost',
+          estimatedProfit: -100,
+        ),
+      );
+
+      await container
+          .read(discountEditorControllerProvider.notifier)
+          .replace(
+            discountId: 'disc-1',
+            name: 'Updated',
+            discountType: DiscountType.percentage,
+            discountValue: 15,
+            batchPercentage: null,
+            confirmed: true,
+          );
+
+      final state = container.read(discountEditorControllerProvider);
+      expect(state.submitFailure, isA<ValidationFailure>());
+      expect(state.isSubmitting, false);
+      verifyNever(
+        () => mockReplace(
+          discountId: any(named: 'discountId'),
+          name: any(named: 'name'),
+          discountType: any(named: 'discountType'),
+          discountValue: any(named: 'discountValue'),
+          batchPercentage: any(named: 'batchPercentage'),
+        ),
+      );
+    });
+
     test('create stores submitFailure on generic exception', () async {
       when(
         () => mockCreate(
@@ -680,6 +719,49 @@ void main() {
 
       final state = container.read(discountEditorControllerProvider);
       expect(state.submitFailure, isNotNull);
+    });
+
+    test('ignores duplicate disable when already submitting', () async {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+
+      container.read(discountEditorControllerProvider.notifier).state =
+          const DiscountEditorState(isSubmitting: true);
+
+      await container
+          .read(discountEditorControllerProvider.notifier)
+          .disable(discountId: 'disc-1');
+
+      verifyNever(
+        () => mockDisable(discountId: any(named: 'discountId')),
+      );
+    });
+
+    test('preview stores previewFailure on generic exception', () async {
+      when(
+        () => mockPreview(
+          name: any(named: 'name'),
+          discountType: any(named: 'discountType'),
+          discountValue: any(named: 'discountValue'),
+          batchPercentage: any(named: 'batchPercentage'),
+        ),
+      ).thenThrow(Exception('network'));
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+
+      await container
+          .read(discountEditorControllerProvider.notifier)
+          .preview(
+            name: 'X',
+            discountType: DiscountType.fixed,
+            discountValue: 10,
+            batchPercentage: null,
+          );
+
+      final state = container.read(discountEditorControllerProvider);
+      expect(state.previewFailure, isNotNull);
+      expect(state.previewLoading, false);
     });
   });
 }
