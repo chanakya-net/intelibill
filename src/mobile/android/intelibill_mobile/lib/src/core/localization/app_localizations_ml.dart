@@ -1516,6 +1516,9 @@ class AppLocalizationsMl extends AppLocalizations {
   String get salesHistoryUnableToLoad => 'Unable to load sales history';
 
   @override
+  String get salesDetailUnableToLoad => 'Unable to load sale details';
+
+  @override
   String get salesHistoryRetry => 'Retry';
 
   @override
@@ -1531,7 +1534,69 @@ class AppLocalizationsMl extends AppLocalizations {
   String get salesHistoryDate => 'Date';
 
   @override
+  String get salesDetailLineItems => 'Line items';
+
+  @override
+  String get salesDetailTotals => 'Totals';
+
+  @override
+  String get salesDetailDiscounts => 'Discounts';
+
+  @override
+  String get salesDetailPaymentSplit => 'Payment split';
+
+  @override
+  String get salesDetailReturns => 'Returns';
+
+  @override
+  String get salesDetailRedemptions => 'Redemptions';
+
+  @override
+  String get salesDetailWarnings => 'Warnings';
+
+  @override
   String get salesHistoryPaymentMethod => 'Payment';
+
+  @override
+  String get salesDetailNoLineItems => 'No line items';
+
+  @override
+  String get salesDetailNoDiscounts => 'No discounts';
+
+  @override
+  String get salesDetailNoSettlementRecords => 'No settlement records';
+
+  @override
+  String get salesDetailNoReturns => 'No returns';
+
+  @override
+  String get salesDetailNoRedemptions => 'No redemptions';
+
+  @override
+  String get salesDetailNoWarnings => 'No warnings';
+
+  @override
+  String get salesDetailReceipt => 'Receipt';
+
+  @override
+  String get salesDetailBeforeDiscount => 'Before discount';
+
+  @override
+  String get salesDetailDiscountLabel => 'Discount';
+
+  @override
+  String get salesDetailTaxLabel => 'Tax';
+
+  @override
+  String get salesDetailPaidLabel => 'Paid';
+
+  @override
+  String get salesDetailDueReduction => 'Due reduction';
+
+  @override
+  String salesDetailReturnItem(double quantity, String itemName) {
+    return '$quantity returned of $itemName';
+  }
 
   @override
   String get salesHistoryItemCountLabel => 'Items';

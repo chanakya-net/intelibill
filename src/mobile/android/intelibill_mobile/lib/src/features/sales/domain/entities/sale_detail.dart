@@ -11,8 +11,44 @@ class SaleDetailCreditNoteRedemption extends Equatable {
   final String code;
   final double appliedAmount;
 
+  double get amount => appliedAmount;
+
   @override
   List<Object?> get props => [creditNoteId, code, appliedAmount];
+}
+
+class SaleDetailSettlement extends Equatable {
+  const SaleDetailSettlement({
+    required this.settlementId,
+    required this.method,
+    required this.amount,
+    required this.settledAt,
+  });
+
+  final String settlementId;
+  final String method;
+  final double amount;
+  final DateTime settledAt;
+
+  @override
+  List<Object?> get props => [settlementId, method, amount, settledAt];
+}
+
+class SaleDetailDiscount extends Equatable {
+  const SaleDetailDiscount({
+    required this.discountId,
+    required this.type,
+    required this.value,
+    required this.amount,
+  });
+
+  final String discountId;
+  final String type;
+  final String value;
+  final double amount;
+
+  @override
+  List<Object?> get props => [discountId, type, value, amount];
 }
 
 class SaleDetailReturnCreditNote extends Equatable {
@@ -64,6 +100,10 @@ class SaleDetailReturnItem extends Equatable {
   final double taxAmount;
   final String? notes;
 
+  String get itemId => saleItemId;
+  String? get itemName => null;
+  double get amount => approvedRefundAmount;
+
   @override
   List<Object?> get props => [
     saleReturnItemId,
@@ -107,6 +147,9 @@ class SaleDetailReturn extends Equatable {
   final double totalTaxAmount;
   final SaleDetailReturnCreditNote? creditNote;
   final List<SaleDetailReturnItem> items;
+
+  double get amount => totalRefundAmount;
+  DateTime get returnedAt => processedAt;
 
   @override
   List<Object?> get props => [
@@ -181,6 +224,11 @@ class SaleDetailItem extends Equatable {
   final double returnableQuantity;
   final String returnStatus;
 
+  String get name => itemName;
+  double get rate => salesPrice;
+  double get tax => taxRatePercent;
+  double get total => totalAmount;
+
   @override
   List<Object?> get props => [
     saleItemId,
@@ -223,11 +271,16 @@ class SaleDetail extends Equatable {
     required this.totalDiscountAmount,
     required this.totalAmount,
     required this.totalTaxAmount,
-    required this.creditNoteAppliedAmount,
-    required this.items,
-    required this.warnings,
-    required this.returns,
-    required this.creditNoteRedemptions,
+    this.creditNoteAppliedAmount = 0.0,
+    this.items = const [],
+    this.warnings = const [],
+    this.returns = const [],
+    this.creditNoteRedemptions = const [],
+    this.settlements = const [],
+    this.discounts = const [],
+    this.status,
+    this.refundAmount = 0.0,
+    this.dueReductionAmount = 0.0,
     this.customerId,
     this.customerName,
     this.customerPhone,
@@ -251,6 +304,13 @@ class SaleDetail extends Equatable {
   final List<String> warnings;
   final List<SaleDetailReturn> returns;
   final List<SaleDetailCreditNoteRedemption> creditNoteRedemptions;
+  final List<SaleDetailSettlement> settlements;
+  final List<SaleDetailDiscount> discounts;
+  final String? status;
+  final double refundAmount;
+  final double dueReductionAmount;
+
+  List<SaleDetailCreditNoteRedemption> get redemptions => creditNoteRedemptions;
 
   @override
   List<Object?> get props => [
@@ -272,5 +332,10 @@ class SaleDetail extends Equatable {
     warnings,
     returns,
     creditNoteRedemptions,
+    settlements,
+    discounts,
+    status,
+    refundAmount,
+    dueReductionAmount,
   ];
 }

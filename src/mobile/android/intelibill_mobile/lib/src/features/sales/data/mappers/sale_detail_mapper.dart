@@ -26,6 +26,31 @@ class SaleDetailMapper {
       creditNoteRedemptions: dto.creditNoteRedemptions
           .map(_redemptionToDomain)
           .toList(),
+      settlements: dto.settlements.map(_settlementToDomain).toList(),
+      discounts: dto.discounts.map(_discountToDomain).toList(),
+      status: dto.status,
+      refundAmount: dto.refundAmount,
+      dueReductionAmount: dto.dueReductionAmount,
+    );
+  }
+
+  static SaleDetailSettlement _settlementToDomain(
+    SaleDetailSettlementDto dto,
+  ) {
+    return SaleDetailSettlement(
+      settlementId: dto.settlementId,
+      method: dto.method,
+      amount: dto.amount,
+      settledAt: dto.settledAt.toLocal(),
+    );
+  }
+
+  static SaleDetailDiscount _discountToDomain(SaleDetailDiscountDto dto) {
+    return SaleDetailDiscount(
+      discountId: dto.discountId,
+      type: dto.type,
+      value: dto.value,
+      amount: dto.amount,
     );
   }
 

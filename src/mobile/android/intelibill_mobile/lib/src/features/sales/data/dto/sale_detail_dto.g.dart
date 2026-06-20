@@ -22,6 +22,42 @@ Map<String, dynamic> _$SaleDetailCreditNoteRedemptionDtoToJson(
   'appliedAmount': instance.appliedAmount,
 };
 
+_SaleDetailSettlementDto _$SaleDetailSettlementDtoFromJson(
+  Map<String, dynamic> json,
+) => _SaleDetailSettlementDto(
+  settlementId: json['settlementId'] as String,
+  method: json['method'] as String,
+  amount: (json['amount'] as num).toDouble(),
+  settledAt: DateTime.parse(json['settledAt'] as String),
+);
+
+Map<String, dynamic> _$SaleDetailSettlementDtoToJson(
+  _SaleDetailSettlementDto instance,
+) => <String, dynamic>{
+  'settlementId': instance.settlementId,
+  'method': instance.method,
+  'amount': instance.amount,
+  'settledAt': instance.settledAt.toIso8601String(),
+};
+
+_SaleDetailDiscountDto _$SaleDetailDiscountDtoFromJson(
+  Map<String, dynamic> json,
+) => _SaleDetailDiscountDto(
+  discountId: json['discountId'] as String,
+  type: json['type'] as String,
+  value: json['value'] as String,
+  amount: (json['amount'] as num).toDouble(),
+);
+
+Map<String, dynamic> _$SaleDetailDiscountDtoToJson(
+  _SaleDetailDiscountDto instance,
+) => <String, dynamic>{
+  'discountId': instance.discountId,
+  'type': instance.type,
+  'value': instance.value,
+  'amount': instance.amount,
+};
+
 _SaleDetailReturnCreditNoteDto _$SaleDetailReturnCreditNoteDtoFromJson(
   Map<String, dynamic> json,
 ) => _SaleDetailReturnCreditNoteDto(
@@ -218,6 +254,23 @@ _SaleDetailDto _$SaleDetailDtoFromJson(
           )
           .toList() ??
       const [],
+  settlements:
+      (json['settlements'] as List<dynamic>?)
+          ?.map(
+            (e) => SaleDetailSettlementDto.fromJson(e as Map<String, dynamic>),
+          )
+          .toList() ??
+      const [],
+  discounts:
+      (json['discounts'] as List<dynamic>?)
+          ?.map(
+            (e) => SaleDetailDiscountDto.fromJson(e as Map<String, dynamic>),
+          )
+          .toList() ??
+      const [],
+  status: json['status'] as String?,
+  refundAmount: (json['refundAmount'] as num?)?.toDouble() ?? 0.0,
+  dueReductionAmount: (json['dueReductionAmount'] as num?)?.toDouble() ?? 0.0,
 );
 
 Map<String, dynamic> _$SaleDetailDtoToJson(_SaleDetailDto instance) =>
@@ -240,4 +293,9 @@ Map<String, dynamic> _$SaleDetailDtoToJson(_SaleDetailDto instance) =>
       'warnings': instance.warnings,
       'returns': instance.returns,
       'creditNoteRedemptions': instance.creditNoteRedemptions,
+      'settlements': instance.settlements,
+      'discounts': instance.discounts,
+      'status': instance.status,
+      'refundAmount': instance.refundAmount,
+      'dueReductionAmount': instance.dueReductionAmount,
     };

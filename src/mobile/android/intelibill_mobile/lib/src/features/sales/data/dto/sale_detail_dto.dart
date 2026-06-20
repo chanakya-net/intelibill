@@ -19,6 +19,32 @@ sealed class SaleDetailCreditNoteRedemptionDto
 }
 
 @freezed
+sealed class SaleDetailSettlementDto with _$SaleDetailSettlementDto {
+  const factory SaleDetailSettlementDto({
+    @JsonKey(name: 'settlementId') required String settlementId,
+    @JsonKey(name: 'method') required String method,
+    @JsonKey(name: 'amount') required double amount,
+    @JsonKey(name: 'settledAt') required DateTime settledAt,
+  }) = _SaleDetailSettlementDto;
+
+  factory SaleDetailSettlementDto.fromJson(Map<String, dynamic> json) =>
+      _$SaleDetailSettlementDtoFromJson(json);
+}
+
+@freezed
+sealed class SaleDetailDiscountDto with _$SaleDetailDiscountDto {
+  const factory SaleDetailDiscountDto({
+    @JsonKey(name: 'discountId') required String discountId,
+    @JsonKey(name: 'type') required String type,
+    @JsonKey(name: 'value') required String value,
+    @JsonKey(name: 'amount') required double amount,
+  }) = _SaleDetailDiscountDto;
+
+  factory SaleDetailDiscountDto.fromJson(Map<String, dynamic> json) =>
+      _$SaleDetailDiscountDtoFromJson(json);
+}
+
+@freezed
 sealed class SaleDetailReturnCreditNoteDto
     with _$SaleDetailReturnCreditNoteDto {
   const factory SaleDetailReturnCreditNoteDto({
@@ -143,6 +169,17 @@ sealed class SaleDetailDto with _$SaleDetailDto {
     @JsonKey(name: 'creditNoteRedemptions')
     @Default([])
     List<SaleDetailCreditNoteRedemptionDto> creditNoteRedemptions,
+    @JsonKey(name: 'settlements')
+    @Default([])
+    List<SaleDetailSettlementDto> settlements,
+    @JsonKey(name: 'discounts')
+    @Default([])
+    List<SaleDetailDiscountDto> discounts,
+    @JsonKey(name: 'status') String? status,
+    @JsonKey(name: 'refundAmount') @Default(0.0) double refundAmount,
+    @JsonKey(name: 'dueReductionAmount')
+    @Default(0.0)
+    double dueReductionAmount,
   }) = _SaleDetailDto;
 
   factory SaleDetailDto.fromJson(Map<String, dynamic> json) =>

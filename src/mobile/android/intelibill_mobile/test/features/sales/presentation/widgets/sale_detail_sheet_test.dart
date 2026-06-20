@@ -1,0 +1,198 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:intelibill_mobile/src/app/theme/app_theme.dart';
+import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
+import 'package:intelibill_mobile/src/features/sales/presentation/controllers/sale_detail_controller.dart';
+import 'package:intelibill_mobile/src/features/sales/presentation/widgets/sale_detail_sheet.dart';
+
+final _detail = SaleDetail(
+  saleId: 'sale-1',
+  invoiceNumber: 'INV-2026-001',
+  customerId: null,
+  customerName: 'John Doe',
+  customerPhone: '9999999999',
+  paymentMethod: 1,
+  soldAt: DateTime.utc(2026, 5, 11, 10, 30),
+  items: const [
+    SaleDetailItem(
+      saleItemId: 'item-1',
+      lineType: 'Goods',
+      lineCode: 'SKU-1',
+      itemName: 'Notebook',
+      quantity: 2,
+      salesPrice: 100,
+      originalSalesPrice: 100,
+      finalSalesPrice: 100,
+      preTaxAmountBeforeDiscount: 200,
+      itemDiscountAmount: 0,
+      saleDiscountAmount: 20,
+      taxableAmount: 218,
+      taxAmount: 18,
+      totalAmount: 236,
+      savingsAmount: 20,
+      taxRatePercent: 18,
+      isPriceIncludingTax: false,
+      hasPriceMismatch: false,
+      returnedQuantity: 1,
+      returnableQuantity: 1,
+      returnStatus: 'PartiallyReturned',
+    ),
+  ],
+  settlements: [
+    SaleDetailSettlement(
+      settlementId: 'settlement-1',
+      method: 'Cash',
+      amount: 200,
+      settledAt: DateTime.utc(2026, 5, 11, 11),
+    ),
+  ],
+  discounts: const [
+    SaleDetailDiscount(
+      discountId: 'discount-1',
+      type: 'Promo',
+      value: '10%',
+      amount: 20,
+    ),
+  ],
+  returns: [
+    SaleDetailReturn(
+      saleReturnId: 'return-1',
+      returnNumber: 'RET-1',
+      processedAt: DateTime.utc(2026, 5, 12, 9),
+      processedBy: 'Manager',
+      totalRefundAmount: 100,
+      dueReductionAmount: 0,
+      payoutAmount: 100,
+      totalTaxableAmount: 100,
+      totalTaxAmount: 0,
+      items: [
+        SaleDetailReturnItem(
+          saleReturnItemId: 'return-item-1',
+          saleItemId: 'item-1',
+          quantity: 1,
+          approvedRefundAmount: 100,
+          taxableAmount: 100,
+          taxAmount: 0,
+        ),
+      ],
+    ),
+  ],
+  creditNoteRedemptions: const [
+    SaleDetailCreditNoteRedemption(
+      creditNoteId: 'redemption-1',
+      code: 'CN-LOYALTY-001',
+      appliedAmount: 15,
+    ),
+  ],
+  warnings: const ['Low stock detected'],
+  paidAmount: 200,
+  dueAmount: 36,
+  totalBeforeDiscount: 256,
+  totalDiscountAmount: 20,
+  totalAmount: 236,
+  totalTaxAmount: 18,
+  creditNoteAppliedAmount: 15,
+  status: 'partiallyPaid',
+  refundAmount: 0.0,
+  dueReductionAmount: 0.0,
+);
+
+Widget _buildApp() {
+  return ProviderScope(
+    overrides: [
+      saleDetailControllerProvider('sale-1').overrideWithValue(
+        SaleDetailState(detail: _detail, isLoading: false),
+      ),
+    ],
+    child: MaterialApp(
+      theme: AppTheme.lightTheme,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: const Scaffold(
+        body: SaleDetailSheet(saleId: 'sale-1'),
+      ),
+    ),
+  );
+}
+
+void main() {
+  testWidgets('shows all sale detail sections', (tester) async {
+    await tester.pumpWidget(_buildApp());
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sale details'), findsOneWidget);
+    expect(find.text('Line items'), findsOneWidget);
+    expect(find.text('Totals'), findsOneWidget);
+    expect(find.text('Discounts'), findsOneWidget);
+    expect(find.text('Payment split'), findsOneWidget);
+    expect(find.text('Returns'), findsOneWidget);
+    expect(find.text('Redemptions'), findsOneWidget);
+    expect(find.text('Warnings'), findsOneWidget);
+    expect(find.text('Notebook'), findsOneWidget);
+    expect(find.textContaining('1.0 returned of item-1'), findsOneWidget);
+    expect(find.text('Low stock detected'), findsOneWidget);
+    expect(find.text('INV-2026-001'), findsNWidgets(1));
+  });
+
+  testWidgets('does not duplicate refund against redemption total', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          saleDetailControllerProvider('sale-1').overrideWithValue(
+            SaleDetailState(
+              detail: SaleDetail(
+                saleId: 'sale-1',
+                invoiceNumber: 'INV-2026-001',
+                customerId: null,
+                customerName: 'John Doe',
+                customerPhone: '9999999999',
+                paymentMethod: 1,
+                soldAt: DateTime.utc(2026, 5, 11, 10, 30),
+                items: [],
+                settlements: [],
+                discounts: [],
+                returns: [],
+                creditNoteRedemptions: [
+                  SaleDetailCreditNoteRedemption(
+                    creditNoteId: 'redemption-1',
+                    code: 'CN-001',
+                    appliedAmount: 50,
+                  ),
+                ],
+                warnings: [],
+                paidAmount: 200,
+                dueAmount: 36,
+                totalBeforeDiscount: 256,
+                totalDiscountAmount: 20,
+                totalAmount: 236,
+                totalTaxAmount: 18,
+                creditNoteAppliedAmount: 50,
+                status: 'partiallyPaid',
+                refundAmount: 50,
+                dueReductionAmount: 0.0,
+              ),
+              isLoading: false,
+            ),
+          ),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.lightTheme,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const Scaffold(
+            body: SaleDetailSheet(saleId: 'sale-1'),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Refund amount'), findsNothing);
+    expect(find.text('CN-001'), findsOneWidget);
+    expect(find.textContaining('50'), findsOneWidget);
+  });
+}
