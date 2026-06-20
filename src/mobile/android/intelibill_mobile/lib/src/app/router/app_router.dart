@@ -16,11 +16,12 @@ import 'package:intelibill_mobile/src/features/auth/presentation/pages/update_pr
 import 'package:intelibill_mobile/src/features/customers/presentation/pages/customers_page.dart';
 import 'package:intelibill_mobile/src/features/credit_notes/presentation/pages/credit_notes_page.dart';
 import 'package:intelibill_mobile/src/features/dashboard/presentation/pages/dashboard_page.dart';
+import 'package:intelibill_mobile/src/features/discounts/presentation/pages/discounts_page.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/add_inventory_page.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/adjustment_history_page.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/inventory_batches_page.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/items_page.dart';
-import 'package:intelibill_mobile/src/features/discounts/presentation/pages/discounts_page.dart';
+import 'package:intelibill_mobile/src/features/sales/presentation/pages/new_sale_page.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/pages/sales_history_page.dart';
 import 'package:intelibill_mobile/src/features/shops/presentation/pages/create_shop_page.dart';
 import 'package:intelibill_mobile/src/features/shops/presentation/pages/manage_shop_page.dart';
@@ -150,10 +151,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: AppRoutes.salesNew,
-            builder: (context, state) => _buildPlaceholder(
-              context,
-              title: AppLocalizations.of(context)!.shellNewSale,
-            ),
+            builder: (context, state) => const NewSalePage(),
           ),
           GoRoute(
             path: AppRoutes.salesHistory,

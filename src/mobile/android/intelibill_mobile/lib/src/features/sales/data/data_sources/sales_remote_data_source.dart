@@ -2,6 +2,7 @@ import 'package:intelibill_mobile/src/core/network/api_client.dart';
 import 'package:intelibill_mobile/src/core/utils/date_time_wire.dart';
 import 'package:intelibill_mobile/src/features/sales/data/dto/sale_detail_dto.dart';
 import 'package:intelibill_mobile/src/features/sales/data/dto/sales_history_response_dto.dart';
+import 'package:intelibill_mobile/src/features/sales/data/dto/sellable_dto.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sales_history_query.dart';
 
 interface class SalesRemoteDataSource {
@@ -12,6 +13,13 @@ interface class SalesRemoteDataSource {
   Future<SaleDetailDto> getSaleDetail(String saleId) {
     throw UnimplementedError();
   }
+
+  Future<List<SellableDto>> searchSellables({
+    String? searchTerm,
+    String? barcode,
+  }) {
+    throw UnimplementedError();
+  }
 }
 
 class SalesRemoteDataSourceImpl implements SalesRemoteDataSource {
@@ -20,6 +28,7 @@ class SalesRemoteDataSourceImpl implements SalesRemoteDataSource {
   final ApiClient _apiClient;
 
   static const String _salesEndpoint = '/sales';
+  static const String _sellablesEndpoint = '/sales/sellables';
 
   @override
   Future<SalesHistoryResponseDto> getSalesHistory(
@@ -48,5 +57,25 @@ class SalesRemoteDataSourceImpl implements SalesRemoteDataSource {
       '$_salesEndpoint/$saleId',
     );
     return SaleDetailDto.fromJson(response.data!);
+  }
+
+  @override
+  Future<List<SellableDto>> searchSellables({
+    String? searchTerm,
+    String? barcode,
+  }) async {
+    final response = await _apiClient.get<List<dynamic>>(
+      _sellablesEndpoint,
+      queryParameters: {
+        if (searchTerm?.trim().isNotEmpty == true)
+          'searchTerm': searchTerm!.trim(),
+        if (barcode?.trim().isNotEmpty == true) 'barcode': barcode!.trim(),
+      },
+    );
+
+    return response.data!
+        .cast<Map<String, dynamic>>()
+        .map(SellableDto.fromJson)
+        .toList();
   }
 }
