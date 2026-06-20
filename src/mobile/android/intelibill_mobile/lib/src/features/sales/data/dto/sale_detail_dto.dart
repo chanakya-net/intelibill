@@ -45,12 +45,10 @@ sealed class SaleDetailDto with _$SaleDetailDto {
 
   factory SaleDetailDto.fromJson(Map<String, dynamic> json) {
     final normalized = Map<String, dynamic>.of(json);
-    normalized['refundAmount'] =
-        _toDouble(
-          normalized['refundAmount'],
-        ) ??
-        _toDouble(normalized['creditNoteAppliedAmount']) ??
-        0.0;
+    // `refundAmount` is a first-class totals field and intentionally remains
+    // independent from credit-note redemption entries shown in the dedicated
+    // redemptions section.
+    normalized['refundAmount'] = _toDouble(normalized['refundAmount']) ?? 0.0;
     normalized['warnings'] ??= const [];
     return _$SaleDetailDtoFromJson(normalized);
   }

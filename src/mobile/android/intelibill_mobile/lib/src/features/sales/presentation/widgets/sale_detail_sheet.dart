@@ -328,6 +328,13 @@ class _Totals extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final redemptionTotal = detail.redemptions.fold<double>(
+      0.0,
+      (sum, redemption) => sum + redemption.amount,
+    );
+    final showRefundAmount = detail.refundAmount > 0 &&
+        (redemptionTotal - detail.refundAmount).abs() > 0.01;
+
     return Column(
       children: [
         _InfoRow(
@@ -354,7 +361,7 @@ class _Totals extends StatelessWidget {
           label: l10n.salesHistoryDueAmount,
           value: formatInr(detail.dueAmount),
         ),
-        if (detail.refundAmount > 0)
+        if (showRefundAmount)
           _InfoRow(
             label: l10n.salesHistoryRefundAmount,
             value: formatInr(detail.refundAmount),

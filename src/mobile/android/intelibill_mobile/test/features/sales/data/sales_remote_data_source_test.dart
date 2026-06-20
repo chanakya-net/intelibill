@@ -211,5 +211,27 @@ void main() {
         ),
       );
     });
+
+    test('does not fallback refundAmount to creditNoteAppliedAmount', () {
+      final dto = SaleDetailDto.fromJson({
+        'saleId': 'a1b2c3d4-0000-0000-0000-000000000001',
+        'invoiceNumber': 'INV-2026-043',
+        'customerId': null,
+        'customerName': 'Jane Doe',
+        'customerPhone': '9876543210',
+        'paymentMethod': 1,
+        'soldAt': '2026-05-20T14:30:00.000Z',
+        'paidAmount': 590.0,
+        'dueAmount': 0.0,
+        'totalBeforeDiscount': 600.0,
+        'totalDiscountAmount': 10.0,
+        'totalAmount': 590.0,
+        'totalTaxAmount': 90.0,
+        'creditNoteAppliedAmount': 50.0,
+      });
+
+      expect(dto.refundAmount, 0.0);
+      expect(dto.creditNoteAppliedAmount, 50.0);
+    });
   });
 }

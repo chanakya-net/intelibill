@@ -112,4 +112,61 @@ void main() {
     expect(find.text('Low stock detected'), findsOneWidget);
     expect(find.text('Receipt'), findsOneWidget);
   });
+
+  testWidgets('does not duplicate refund against redemption total', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          saleDetailControllerProvider('sale-1').overrideWithValue(
+            SaleDetailState(
+              detail: SaleDetail(
+                saleId: 'sale-1',
+                invoiceNumber: 'INV-2026-001',
+                customerId: null,
+                customerName: 'John Doe',
+                customerPhone: '9999999999',
+                paymentMethod: 1,
+                soldAt: DateTime.utc(2026, 5, 11, 10, 30),
+                items: [],
+                settlements: [],
+                discounts: [],
+                returns: [],
+                redemptions: [
+                  SaleDetailRedemption(
+                    redemptionId: 'redemption-1',
+                    code: 'CN-001',
+                    amount: 50,
+                  ),
+                ],
+                warnings: [],
+                paidAmount: 200,
+                dueAmount: 36,
+                totalBeforeDiscount: 256,
+                totalDiscountAmount: 20,
+                totalAmount: 236,
+                totalTaxAmount: 18,
+                status: 'partiallyPaid',
+                refundAmount: 50,
+                dueReductionAmount: 0.0,
+              ),
+              isLoading: false,
+            ),
+          ),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.lightTheme,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const Scaffold(
+            body: SaleDetailSheet(saleId: 'sale-1'),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Refund amount'), findsNothing);
+    expect(find.text('CN-001'), findsOneWidget);
+    expect(find.textContaining('50'), findsOneWidget);
+  });
 }
