@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
@@ -172,6 +174,51 @@ void main() {
       verify(
         () => mockSearchSellables(searchTerm: null, barcode: 'BARCODE-1'),
       ).called(1);
+    });
+
+    test('search ignores stale in-flight responses', () async {
+      final olderSearch = Completer<List<Sellable>>();
+      final newerSearch = Completer<List<Sellable>>();
+      final olderGoods = _goods(id: 'g1', name: 'Older Flour', stock: 5);
+      final newerGoods = _goods(id: 'g2', name: 'Fresh Flour', stock: 4);
+
+      when(
+        () => mockSearchSellables(
+          searchTerm: any(named: 'searchTerm'),
+          barcode: any(named: 'barcode'),
+        ),
+      ).thenAnswer((invocation) {
+        final searchTerm = invocation.namedArguments[#searchTerm] as String?;
+
+        if (searchTerm == 'old') {
+          return olderSearch.future;
+        }
+
+        if (searchTerm == 'new') {
+          return newerSearch.future;
+        }
+
+        throw StateError('Unexpected search term: $searchTerm');
+      });
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(newSaleControllerProvider.notifier);
+
+      final oldRequest = notifier.search(searchTerm: 'old');
+      final newRequest = notifier.search(searchTerm: 'new');
+
+      newerSearch.complete([newerGoods]);
+      await newRequest;
+
+      olderSearch.complete([olderGoods]);
+      await oldRequest;
+
+      final state = container.read(newSaleControllerProvider);
+      expect(state.results, equals([newerGoods]));
+      expect(state.searchTerm, 'new');
+      expect(state.searchFailure, isNull);
+      expect(state.isSearching, isFalse);
     });
   });
 }

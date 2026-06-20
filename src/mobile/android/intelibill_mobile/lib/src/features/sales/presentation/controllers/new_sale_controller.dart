@@ -92,6 +92,7 @@ class NewSaleState {
 @riverpod
 class NewSaleController extends _$NewSaleController {
   Timer? _searchDebounce;
+  int _activeSearchRequest = 0;
 
   @override
   NewSaleState build() {
@@ -129,6 +130,7 @@ class NewSaleController extends _$NewSaleController {
       selectedGoods: null,
       clearSelectedGoods: true,
     );
+    final requestId = ++_activeSearchRequest;
 
     try {
       final useCase = ref.read(searchSellablesProvider);
@@ -136,16 +138,25 @@ class NewSaleController extends _$NewSaleController {
         searchTerm: useCaseSearchTerm,
         barcode: useCaseBarcode,
       );
+      if (!_isActiveSearchRequest(requestId)) {
+        return;
+      }
       state = state.copyWith(
         results: results.where((sellable) => sellable.isGoods).toList(),
         isSearching: false,
       );
     } on AppException catch (error) {
+      if (!_isActiveSearchRequest(requestId)) {
+        return;
+      }
       state = state.copyWith(
         isSearching: false,
         searchFailure: error.failure,
       );
     } on Object {
+      if (!_isActiveSearchRequest(requestId)) {
+        return;
+      }
       state = state.copyWith(
         isSearching: false,
         searchFailure: const Failure.unknown(),
@@ -263,5 +274,9 @@ class NewSaleController extends _$NewSaleController {
       if (line.sellable.id == sellableId) return line;
     }
     return null;
+  }
+
+  bool _isActiveSearchRequest(int requestId) {
+    return requestId == _activeSearchRequest;
   }
 }
