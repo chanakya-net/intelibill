@@ -50,6 +50,8 @@ class Sellable extends Equatable {
 }
 
 class NewSaleCartLine extends Equatable {
+  static const _unset = Object();
+
   const NewSaleCartLine({
     required this.sellable,
     required this.quantity,
@@ -64,11 +66,16 @@ class NewSaleCartLine extends Equatable {
 
   double get lineTotal => quantity * effectiveUnitPrice;
 
-  NewSaleCartLine copyWith({double? quantity, double? unitPrice}) {
+  NewSaleCartLine copyWith({
+    double? quantity,
+    Object? unitPrice = _unset,
+  }) {
     return NewSaleCartLine(
       sellable: sellable,
       quantity: quantity ?? this.quantity,
-      unitPrice: unitPrice ?? this.unitPrice,
+      unitPrice: identical(unitPrice, _unset)
+          ? this.unitPrice
+          : unitPrice as double?,
     );
   }
 

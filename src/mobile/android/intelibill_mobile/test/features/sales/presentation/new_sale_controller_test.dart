@@ -378,5 +378,47 @@ void main() {
         90.0,
       );
     });
+
+    test('updateCartUnitPrice with invalid price sets searchFailure', () async {
+      when(
+        () => mockSearchSellables(
+          searchTerm: any(named: 'searchTerm'),
+          barcode: any(named: 'barcode'),
+        ),
+      ).thenAnswer((_) async => []);
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+      final service = _service(id: 's1', name: 'Setup', price: 100);
+
+      await controller.addToCart(service);
+      controller.updateCartUnitPrice(service.id, 0.0);
+
+      final state = container.read(newSaleControllerProvider);
+      expect(state.searchFailure, isNotNull);
+      expect(state.cartLines.single.unitPrice, isNull);
+    });
+
+    test('addToCart accumulates quantity for existing service line', () async {
+      when(
+        () => mockSearchSellables(
+          searchTerm: any(named: 'searchTerm'),
+          barcode: any(named: 'barcode'),
+        ),
+      ).thenAnswer((_) async => []);
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+      final service = _service(id: 's1', name: 'Repair', price: 250);
+
+      await controller.addToCart(service, quantity: 1);
+      await controller.addToCart(service, quantity: 2);
+
+      final state = container.read(newSaleControllerProvider);
+      expect(state.cartLines, hasLength(1));
+      expect(state.cartLines.single.quantity, 3.0);
+    });
   });
 }

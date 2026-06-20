@@ -232,7 +232,15 @@ class NewSaleController extends _$NewSaleController {
     final line = _findLine(sellableId);
     if (line == null || !line.sellable.isService) return;
     if (!_isValidQuantity(nextUnitPrice)) {
+      final updated = state.cartLines
+          .map(
+            (item) => item.sellable.id == sellableId
+                ? item.copyWith(unitPrice: null)
+                : item,
+          )
+          .toList();
       state = state.copyWith(
+        cartLines: updated,
         searchFailure: const Failure.validation(
           message: 'Unit price must be greater than zero.',
         ),
@@ -258,7 +266,8 @@ class NewSaleController extends _$NewSaleController {
       return;
     }
     if (!_isValidQuantity(nextQuantity) ||
-        (line.sellable.isGoods && !_isWithinStock(nextQuantity, line.sellable))) {
+        (line.sellable.isGoods &&
+            !_isWithinStock(nextQuantity, line.sellable))) {
       state = state.copyWith(
         searchFailure: const Failure.validation(
           message: 'Quantity cannot exceed available stock.',

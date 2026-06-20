@@ -80,22 +80,11 @@ class GoodsCartList extends StatelessWidget {
                 ),
                 if (line.sellable.isService) ...[
                   const SizedBox(height: 8),
-                  TextField(
+                  _ServicePriceField(
                     key: Key('service-unit-price-${line.sellable.id}'),
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Unit price',
-                      border: OutlineInputBorder(),
-                    ),
-                    controller: TextEditingController(
-                      text: line.effectiveUnitPrice.toStringAsFixed(2),
-                    ),
-                    onChanged: (value) {
-                      final parsed = double.tryParse(value.trim());
-                      if (parsed != null) {
-                        onUnitPriceChanged(line.sellable.id, parsed);
-                      }
-                    },
+                    lineId: line.sellable.id,
+                    price: line.effectiveUnitPrice,
+                    onChanged: onUnitPriceChanged,
                   ),
                 ],
                 Row(
@@ -127,5 +116,65 @@ class GoodsCartList extends StatelessWidget {
       return whole.toInt().toString();
     }
     return quantity.toString();
+  }
+}
+
+class _ServicePriceField extends StatefulWidget {
+  const _ServicePriceField({
+    super.key,
+    required this.lineId,
+    required this.price,
+    required this.onChanged,
+  });
+
+  final String lineId;
+  final double price;
+  final OnUnitPriceChanged onChanged;
+
+  @override
+  State<_ServicePriceField> createState() => _ServicePriceFieldState();
+}
+
+class _ServicePriceFieldState extends State<_ServicePriceField> {
+  late TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(
+      text: widget.price.toStringAsFixed(2),
+    );
+  }
+
+  @override
+  void didUpdateWidget(_ServicePriceField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.price != widget.price) {
+      _controller.text = widget.price.toStringAsFixed(2);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: _controller,
+      keyboardType: TextInputType.number,
+      decoration: const InputDecoration(
+        labelText: 'Unit price',
+        border: OutlineInputBorder(),
+      ),
+      onChanged: (value) {
+        final parsed = double.tryParse(value.trim());
+        if (parsed != null) {
+          widget.onChanged(widget.lineId, parsed);
+        }
+      },
+    );
   }
 }
