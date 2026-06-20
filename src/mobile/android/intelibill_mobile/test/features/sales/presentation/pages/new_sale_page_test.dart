@@ -12,6 +12,8 @@ class _StubNewSaleController extends NewSaleController {
   _StubNewSaleController(this._state);
 
   NewSaleState _state;
+  String? lastSearchTerm;
+  String? lastBarcode;
 
   @override
   NewSaleState build() => _state;
@@ -19,6 +21,12 @@ class _StubNewSaleController extends NewSaleController {
   @override
   void updateSearchTerm(String value) {
     _state = _state.copyWith(searchTerm: value);
+    state = _state;
+  }
+
+  @override
+  void updateBarcodeTerm(String value) {
+    _state = _state.copyWith(barcodeTerm: value, searchTerm: '');
     state = _state;
   }
 
@@ -53,13 +61,28 @@ class _StubNewSaleController extends NewSaleController {
     _state = _state.copyWith(cartLines: [..._state.cartLines, line]);
     state = _state;
   }
+
+  @override
+  Future<void> search({String? searchTerm, String? barcode}) async {
+    final term = (searchTerm ?? _state.searchTerm).trim();
+    final code = (barcode ?? _state.barcodeTerm).trim();
+    final nextSearchTerm = code.isNotEmpty ? '' : term;
+
+    lastSearchTerm = nextSearchTerm.isEmpty ? null : nextSearchTerm;
+    lastBarcode = code.isEmpty ? null : code;
+    _state = _state.copyWith(
+      searchTerm: nextSearchTerm,
+      barcodeTerm: code,
+    );
+    state = _state;
+  }
 }
 
-Widget _buildApp(NewSaleState state) {
+Widget _buildApp(_StubNewSaleController controller) {
   return ProviderScope(
     overrides: [
       newSaleControllerProvider.overrideWith(
-        () => _StubNewSaleController(state),
+        () => controller,
       ),
     ],
     child: MaterialApp(
@@ -88,7 +111,7 @@ void main() {
     testWidgets('shows loading state', (tester) async {
       await tester.pumpWidget(
         _buildApp(
-          const NewSaleState(isSearching: true),
+          _StubNewSaleController(const NewSaleState(isSearching: true)),
         ),
       );
 
@@ -98,8 +121,10 @@ void main() {
     testWidgets('shows error state', (tester) async {
       await tester.pumpWidget(
         _buildApp(
-          const NewSaleState(
-            searchFailure: Failure.validation(message: 'Scan failed'),
+          _StubNewSaleController(
+            const NewSaleState(
+              searchFailure: Failure.validation(message: 'Scan failed'),
+            ),
           ),
         ),
       );
@@ -111,7 +136,7 @@ void main() {
     testWidgets('shows empty cart message', (tester) async {
       await tester.pumpWidget(
         _buildApp(
-          const NewSaleState(),
+          _StubNewSaleController(const NewSaleState()),
         ),
       );
 
@@ -122,7 +147,7 @@ void main() {
       final state = NewSaleState(
         results: [_goods()],
       );
-      await tester.pumpWidget(_buildApp(state));
+      await tester.pumpWidget(_buildApp(_StubNewSaleController(state)));
 
       expect(find.text('Flour'), findsOneWidget);
       expect(find.textContaining('Stock 10.0'), findsOneWidget);
@@ -133,6 +158,33 @@ void main() {
       expect(find.textContaining('Total:'), findsOneWidget);
       expect(find.byKey(const Key('decrease-g1')), findsOneWidget);
       expect(find.byKey(const Key('increase-g1')), findsOneWidget);
+    });
+
+    testWidgets('barcode lookup clears stale search field and stays in sync', (
+      tester,
+    ) async {
+      final controller = _StubNewSaleController(const NewSaleState());
+      await tester.pumpWidget(_buildApp(controller));
+
+      await tester.enterText(
+        find.byKey(const Key('sales-search-field')),
+        'Flour',
+      );
+      await tester.enterText(find.byKey(const Key('barcode-field')), 'BAR001');
+      await tester.tap(find.byKey(const Key('barcode-search-button')));
+      await tester.pump();
+
+      final searchField = tester.widget<TextField>(
+        find.byKey(const Key('sales-search-field')),
+      );
+      final barcodeField = tester.widget<TextField>(
+        find.byKey(const Key('barcode-field')),
+      );
+
+      expect(searchField.controller!.text, isEmpty);
+      expect(barcodeField.controller!.text, 'BAR001');
+      expect(controller.lastSearchTerm, isNull);
+      expect(controller.lastBarcode, 'BAR001');
     });
   });
 }

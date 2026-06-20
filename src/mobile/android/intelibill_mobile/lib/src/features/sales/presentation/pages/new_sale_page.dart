@@ -36,6 +36,9 @@ class _NewSalePageState extends ConsumerState<NewSalePage> {
     final state = ref.watch(newSaleControllerProvider);
     final l10n = AppLocalizations.of(context)!;
 
+    _syncController(_searchController, state.searchTerm);
+    _syncController(_barcodeController, state.barcodeTerm);
+
     return Scaffold(
       appBar: AppBar(title: Text(l10n.shellNewSale)),
       body: SafeArea(
@@ -166,5 +169,13 @@ class _NewSalePageState extends ConsumerState<NewSalePage> {
       if (line.sellable.id == sellableId) return line;
     }
     return null;
+  }
+
+  void _syncController(TextEditingController controller, String value) {
+    if (controller.text == value) return;
+    controller.value = TextEditingValue(
+      text: value,
+      selection: TextSelection.collapsed(offset: value.length),
+    );
   }
 }
