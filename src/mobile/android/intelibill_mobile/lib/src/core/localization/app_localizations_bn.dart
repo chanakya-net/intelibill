@@ -1578,6 +1578,160 @@ class AppLocalizationsBn extends AppLocalizations {
   String salesHistoryShowingCount(int shown, int total) {
     return 'Showing $shown of $total';
   }
+
+  @override
+  String get discountsTitle => 'Discount rules';
+
+  @override
+  String get discountsSubtitle =>
+      'Manage active promotion rules for products and sales.';
+
+  @override
+  String get discountsSearchPlaceholder => 'Search rule name...';
+
+  @override
+  String get discountsClearSearch => 'Clear search';
+
+  @override
+  String get discountsStatusAll => 'All';
+
+  @override
+  String get discountsStatusActive => 'Active';
+
+  @override
+  String get discountsStatusUpcoming => 'Upcoming';
+
+  @override
+  String get discountsStatusExpired => 'Expired';
+
+  @override
+  String get discountsStatusDisabled => 'Disabled';
+
+  @override
+  String get discountsTypeAll => 'All types';
+
+  @override
+  String get discountsTypeBatch => 'Batch percentage';
+
+  @override
+  String get discountsTypeSalePercent => 'Sales percentage';
+
+  @override
+  String get discountsTypeSaleThresholdPercent => 'Sales threshold percentage';
+
+  @override
+  String get discountsSortLabel => 'Sort';
+
+  @override
+  String get discountsSortCreatedDesc => 'Created (new first)';
+
+  @override
+  String get discountsSortCreatedAsc => 'Created (old first)';
+
+  @override
+  String get discountsSortNameAsc => 'Name (A-Z)';
+
+  @override
+  String get discountsSortNameDesc => 'Name (Z-A)';
+
+  @override
+  String get discountsSortStartsAtAsc => 'Starts at (soonest)';
+
+  @override
+  String get discountsSortStartsAtDesc => 'Starts at (latest)';
+
+  @override
+  String get discountsSortStatus => 'Status';
+
+  @override
+  String get discountsNoRules => 'No discount rules found';
+
+  @override
+  String get discountsUnableToLoad => 'Unable to load discount rules';
+
+  @override
+  String get discountsRetry => 'Retry';
+
+  @override
+  String discountsShowingCount(int shown, int total) {
+    return 'Showing $shown of $total';
+  }
+
+  @override
+  String get discountsRuleTypeLabel => 'Type:';
+
+  @override
+  String get discountsPercentageLabel => 'Discount:';
+
+  @override
+  String get discountsThresholdLabel => 'Threshold:';
+
+  @override
+  String get discountsStatusLabel => 'Status:';
+
+  @override
+  String get discountsInventoryBatchIdLabel => 'Inventory batch:';
+
+  @override
+  String get discountsNotSet => 'Not set';
+
+  @override
+  String get discountsErrorNetwork =>
+      'Unable to connect. Please check your network.';
+
+  @override
+  String get discountsErrorTimeout => 'Request timed out. Please try again.';
+
+  @override
+  String get discountsErrorUnauthorized =>
+      'Session expired. Please log in again.';
+
+  @override
+  String get discountsErrorForbidden =>
+      'You do not have permission to view discounts.';
+
+  @override
+  String get discountsErrorGeneric =>
+      'Unable to load discount rules. Please try again.';
+
+  @override
+  String get discountsUnableToLoadDetail => 'Unable to load discount details';
+
+  @override
+  String get discountsDetailTitle => 'Discount rule details';
+
+  @override
+  String get discountsDetailRuleLabel => 'Rule';
+
+  @override
+  String get discountsDescriptionLabel => 'Description:';
+
+  @override
+  String get discountsBelowCostReasonLabel => 'Below-cost confirmation:';
+
+  @override
+  String get discountsStartsAtLabel => 'Starts at:';
+
+  @override
+  String get discountsEndsAtLabel => 'Ends at:';
+
+  @override
+  String get discountsCreatedAtLabel => 'Created at:';
+
+  @override
+  String get discountsUpdatedAtLabel => 'Updated at:';
+
+  @override
+  String get discountsDisabledAtLabel => 'Disabled at:';
+
+  @override
+  String get discountsDisabledReasonLabel => 'Disable reason:';
+
+  @override
+  String get discountsReplacesRuleLabel => 'Replaces rule:';
+
+  @override
+  String get discountsReplacedByRuleLabel => 'Replaced by:';
 }
 
 /// The translations for Bengali Bangla, as used in India (`bn_IN`).

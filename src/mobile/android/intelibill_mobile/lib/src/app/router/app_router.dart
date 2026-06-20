@@ -19,6 +19,7 @@ import 'package:intelibill_mobile/src/features/inventory/presentation/pages/add_
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/adjustment_history_page.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/inventory_batches_page.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/items_page.dart';
+import 'package:intelibill_mobile/src/features/discounts/presentation/pages/discounts_page.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/pages/sales_history_page.dart';
 import 'package:intelibill_mobile/src/features/shops/presentation/pages/create_shop_page.dart';
 import 'package:intelibill_mobile/src/features/shops/presentation/pages/manage_shop_page.dart';
@@ -85,6 +86,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       if (isAuthenticated &&
           state.matchedLocation == AppRoutes.dashboard &&
           !canViewDashboard(authState.session)) {
+        return AppRoutes.salesHistory;
+      }
+
+      if (_requiresDiscountAccess(state.matchedLocation) &&
+          !canManageDiscounts(authState.session)) {
         return AppRoutes.salesHistory;
       }
 
@@ -187,10 +193,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: AppRoutes.discounts,
-            builder: (context, state) => _buildPlaceholder(
-              context,
-              title: AppLocalizations.of(context)!.shellManageDiscounts,
-            ),
+            builder: (context, state) => const DiscountsPage(),
           ),
           GoRoute(
             path: AppRoutes.bankAccounts,
@@ -238,6 +241,10 @@ const Set<String> _authRoutes = {
   AppRoutes.forgotPassword,
   AppRoutes.register,
 };
+
+bool _requiresDiscountAccess(String location) {
+  return location == AppRoutes.discounts;
+}
 
 PlaceholderPage _buildPlaceholder(
   BuildContext context, {
