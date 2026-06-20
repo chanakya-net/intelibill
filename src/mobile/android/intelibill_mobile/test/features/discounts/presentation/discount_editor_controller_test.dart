@@ -195,6 +195,43 @@ void main() {
       expect(state.lastAction, null);
     });
 
+    test('create blocks confirmed below-cost save without reason', () async {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+
+      container
+          .read(discountEditorControllerProvider.notifier)
+          .state = const DiscountEditorState(
+        preview: DiscountPreview(
+          totalCostReduction: 500,
+          error: 'below-cost',
+          estimatedProfit: -100,
+        ),
+      );
+
+      await container
+          .read(discountEditorControllerProvider.notifier)
+          .create(
+            name: 'Clear',
+            discountType: DiscountType.fixed,
+            discountValue: 500,
+            batchPercentage: null,
+            confirmed: true,
+          );
+
+      final state = container.read(discountEditorControllerProvider);
+      expect(state.submitFailure, isA<ValidationFailure>());
+      expect(state.isSubmitting, false);
+      verifyNever(
+        () => mockCreate(
+          name: any(named: 'name'),
+          discountType: any(named: 'discountType'),
+          discountValue: any(named: 'discountValue'),
+          batchPercentage: any(named: 'batchPercentage'),
+        ),
+      );
+    });
+
     test('replace sets lastAction on success', () async {
       when(
         () => mockReplace(
@@ -548,6 +585,85 @@ void main() {
 
       final state = container.read(discountEditorControllerProvider);
       expect(state.submitFailure, isNotNull);
+    });
+
+    test('preview stores previewFailure on AppException', () async {
+      when(
+        () => mockPreview(
+          name: any(named: 'name'),
+          discountType: any(named: 'discountType'),
+          discountValue: any(named: 'discountValue'),
+          batchPercentage: any(named: 'batchPercentage'),
+        ),
+      ).thenThrow(
+        AppException(failure: const Failure.server(message: 'preview err')),
+      );
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+
+      await container
+          .read(discountEditorControllerProvider.notifier)
+          .preview(
+            name: 'X',
+            discountType: DiscountType.fixed,
+            discountValue: 10,
+            batchPercentage: null,
+          );
+
+      final state = container.read(discountEditorControllerProvider);
+      expect(state.previewFailure, isA<ServerFailure>());
+      expect(state.previewLoading, false);
+    });
+
+    test('replace stores submitFailure on AppException', () async {
+      when(
+        () => mockReplace(
+          discountId: any(named: 'discountId'),
+          name: any(named: 'name'),
+          discountType: any(named: 'discountType'),
+          discountValue: any(named: 'discountValue'),
+          batchPercentage: any(named: 'batchPercentage'),
+        ),
+      ).thenThrow(
+        AppException(failure: const Failure.server(message: 'replace err')),
+      );
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+
+      await container
+          .read(discountEditorControllerProvider.notifier)
+          .replace(
+            discountId: 'disc-1',
+            name: 'Updated',
+            discountType: DiscountType.percentage,
+            discountValue: 15,
+            batchPercentage: null,
+          );
+
+      final state = container.read(discountEditorControllerProvider);
+      expect(state.submitFailure, isA<ServerFailure>());
+      expect(state.isSubmitting, false);
+    });
+
+    test('disable stores submitFailure on AppException', () async {
+      when(
+        () => mockDisable(discountId: any(named: 'discountId')),
+      ).thenThrow(
+        AppException(failure: const Failure.server(message: 'disable err')),
+      );
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+
+      await container
+          .read(discountEditorControllerProvider.notifier)
+          .disable(discountId: 'disc-1');
+
+      final state = container.read(discountEditorControllerProvider);
+      expect(state.submitFailure, isA<ServerFailure>());
+      expect(state.isSubmitting, false);
     });
 
     test('disable stores submitFailure on generic exception', () async {

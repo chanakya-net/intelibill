@@ -144,6 +144,14 @@ class DiscountEditorController extends _$DiscountEditorController {
       );
       return;
     }
+    if (state.preview?.error != null && confirmed && _isBlank(reason)) {
+      state = state.copyWith(
+        submitFailure: const Failure.validation(
+          message: 'Reason required for below-cost confirmation',
+        ),
+      );
+      return;
+    }
     state = state.copyWith(
       isSubmitting: true,
       submitFailure: null,
@@ -188,6 +196,14 @@ class DiscountEditorController extends _$DiscountEditorController {
     if (state.preview?.error != null && !confirmed) {
       state = state.copyWith(
         needsBelowCostConfirmation: true,
+      );
+      return;
+    }
+    if (state.preview?.error != null && confirmed && _isBlank(reason)) {
+      state = state.copyWith(
+        submitFailure: const Failure.validation(
+          message: 'Reason required for below-cost confirmation',
+        ),
       );
       return;
     }
@@ -245,4 +261,6 @@ class DiscountEditorController extends _$DiscountEditorController {
       );
     }
   }
+
+  bool _isBlank(String? value) => value == null || value.trim().isEmpty;
 }
