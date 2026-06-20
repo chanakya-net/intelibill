@@ -626,6 +626,34 @@ void main() {
       expect(state.submitFailure, isNotNull);
     });
 
+    test('ignores duplicate replace when already submitting', () async {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+
+      container.read(discountEditorControllerProvider.notifier).state =
+          const DiscountEditorState(isSubmitting: true);
+
+      await container
+          .read(discountEditorControllerProvider.notifier)
+          .replace(
+            discountId: 'disc-1',
+            name: 'Updated',
+            discountType: DiscountType.percentage,
+            discountValue: 15,
+            batchPercentage: null,
+          );
+
+      verifyNever(
+        () => mockReplace(
+          discountId: any(named: 'discountId'),
+          name: any(named: 'name'),
+          discountType: any(named: 'discountType'),
+          discountValue: any(named: 'discountValue'),
+          batchPercentage: any(named: 'batchPercentage'),
+        ),
+      );
+    });
+
     test('preview stores previewFailure on AppException', () async {
       when(
         () => mockPreview(
