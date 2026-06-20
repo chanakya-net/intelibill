@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
@@ -60,7 +62,7 @@ class _NewSalePageState extends ConsumerState<NewSalePage> {
                 lines: state.cartLines,
                 total: state.cartTotal,
                 onDecrease: _decreaseQty,
-                onIncrease: (sellableId) => _increaseQty(sellableId),
+                onIncrease: _increaseQty,
                 onRemove: _removeFromCart,
               ),
             ),
@@ -112,9 +114,7 @@ class _NewSalePageState extends ConsumerState<NewSalePage> {
               const SizedBox(width: 8),
               ElevatedButton(
                 key: const Key('barcode-search-button'),
-                onPressed: () => ref
-                    .read(newSaleControllerProvider.notifier)
-                    .search(barcode: _barcodeController.text),
+                onPressed: _searchByBarcode,
                 child: const Text('Lookup'),
               ),
             ],
@@ -141,22 +141,24 @@ class _NewSalePageState extends ConsumerState<NewSalePage> {
     );
   }
 
-  void _onAddGoods(Sellable sellable) {
-    ref.read(newSaleControllerProvider.notifier).addToCart(sellable);
+  Future<void> _onAddGoods(Sellable sellable) async {
+    await ref.read(newSaleControllerProvider.notifier).addToCart(sellable);
   }
 
   void _decreaseQty(String sellableId) {
     final line = _currentLine(sellableId);
     if (line == null) return;
-    final notifier = ref.read(newSaleControllerProvider.notifier);
-    notifier.updateCartQuantity(sellableId, line.quantity - 1);
+    ref
+        .read(newSaleControllerProvider.notifier)
+        .updateCartQuantity(sellableId, line.quantity - 1);
   }
 
   void _increaseQty(String sellableId) {
     final line = _currentLine(sellableId);
     if (line == null) return;
-    final notifier = ref.read(newSaleControllerProvider.notifier);
-    notifier.updateCartQuantity(sellableId, line.quantity + 1);
+    ref
+        .read(newSaleControllerProvider.notifier)
+        .updateCartQuantity(sellableId, line.quantity + 1);
   }
 
   void _removeFromCart(String sellableId) {
@@ -176,6 +178,14 @@ class _NewSalePageState extends ConsumerState<NewSalePage> {
     controller.value = TextEditingValue(
       text: value,
       selection: TextSelection.collapsed(offset: value.length),
+    );
+  }
+
+  void _searchByBarcode() {
+    unawaited(
+      ref
+          .read(newSaleControllerProvider.notifier)
+          .search(barcode: _barcodeController.text),
     );
   }
 }

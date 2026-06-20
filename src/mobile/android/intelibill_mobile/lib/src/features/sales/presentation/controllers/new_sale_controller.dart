@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/network/api_client_provider.dart';
@@ -12,7 +12,6 @@ import 'package:intelibill_mobile/src/features/sales/domain/use_cases/search_sel
 import 'package:intelibill_mobile/src/shared/barcode_scanner/barcode_scan_result.dart';
 import 'package:intelibill_mobile/src/shared/barcode_scanner/show_barcode_scanner.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:flutter/widgets.dart';
 
 part 'new_sale_controller.g.dart';
 
@@ -55,12 +54,12 @@ class NewSaleState {
   final bool isSearching;
 
   double get cartTotal => cartLines.fold(
-    0.0,
+    0,
     (sum, line) => sum + line.lineTotal,
   );
 
   double get totalCartItems =>
-      cartLines.fold(0.0, (sum, line) => sum + line.quantity);
+      cartLines.fold(0, (sum, line) => sum + line.quantity);
 
   NewSaleState copyWith({
     String? searchTerm,
@@ -126,9 +125,8 @@ class NewSaleController extends _$NewSaleController {
     state = state.copyWith(
       isSearching: true,
       clearFailure: true,
-      searchTerm: useCaseSearchTerm == null ? '' : useCaseSearchTerm,
+      searchTerm: useCaseSearchTerm ?? '',
       barcodeTerm: code,
-      selectedGoods: null,
       clearSelectedGoods: true,
     );
     final requestId = ++_activeSearchRequest;
@@ -221,7 +219,6 @@ class NewSaleController extends _$NewSaleController {
 
     state = state.copyWith(
       cartLines: updated,
-      selectedGoods: null,
       clearFailure: true,
     );
   }

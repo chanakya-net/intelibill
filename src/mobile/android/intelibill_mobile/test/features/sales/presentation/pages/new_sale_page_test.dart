@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intelibill_mobile/src/app/theme/app_theme.dart';
-import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
+import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sellable.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/controllers/new_sale_controller.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/pages/new_sale_page.dart';
@@ -95,7 +95,7 @@ Widget _buildApp(_StubNewSaleController controller) {
 }
 
 Sellable _goods() {
-  return Sellable(
+  return const Sellable(
     id: 'g1',
     kind: 'Goods',
     name: 'Flour',
@@ -166,9 +166,8 @@ void main() {
       tester,
     ) async {
       final controller = _StubNewSaleController(
-        NewSaleState(
-          searchFailure: const Failure.validation(message: 'Enter search'),
-          results: const [],
+        const NewSaleState(
+          searchFailure: Failure.validation(message: 'Enter search'),
         ),
       );
 
@@ -180,7 +179,7 @@ void main() {
     });
 
     testWidgets('renders fractional cart quantities', (tester) async {
-      final goods = Sellable(
+      const goods = Sellable(
         id: 'g1',
         kind: 'Goods',
         name: 'Flour',
@@ -189,7 +188,7 @@ void main() {
         barcode: 'BAR001',
         batchNumber: 'BN-1',
       );
-      final state = NewSaleState(
+      const state = NewSaleState(
         cartLines: [
           NewSaleCartLine(sellable: goods, quantity: 1.25),
         ],

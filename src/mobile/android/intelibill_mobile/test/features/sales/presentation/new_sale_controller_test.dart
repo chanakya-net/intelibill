@@ -45,7 +45,7 @@ void main() {
   group('NewSaleController', () {
     test('search maps sellables to state', () async {
       final goods = _goods(id: 'g1', name: 'Flour', stock: 5);
-      final service = Sellable(
+      const service = Sellable(
         id: 's1',
         kind: 'Service',
         name: 'Service Charge',
@@ -247,7 +247,7 @@ void main() {
       await notifier.search(searchTerm: 'Flour', barcode: 'BARCODE-1');
 
       verify(
-        () => mockSearchSellables(searchTerm: null, barcode: 'BARCODE-1'),
+        () => mockSearchSellables(barcode: 'BARCODE-1'),
       ).called(1);
     });
 
@@ -267,7 +267,7 @@ void main() {
       await notifier.search(barcode: 'BARCODE-1');
 
       verify(
-        () => mockSearchSellables(searchTerm: null, barcode: 'BARCODE-1'),
+        () => mockSearchSellables(barcode: 'BARCODE-1'),
       ).called(1);
     });
 

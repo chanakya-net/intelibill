@@ -27,14 +27,15 @@ class SellableSearchResults extends StatelessWidget {
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       itemCount: sellables.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      separatorBuilder: (_, _) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
         final sellable = sellables[index];
         return Card(
           child: ListTile(
             title: Text(sellable.name),
             subtitle: Text(
-              '${sellable.barcode ?? '-'} • Stock ${_formatQuantity(sellable.stock)} • ₹${sellable.price}',
+              '${sellable.barcode ?? '-'} • '
+              'Stock ${_formatQuantity(sellable.stock)} • ₹${sellable.price}',
             ),
             trailing: FilledButton(
               key: Key('add-button-${sellable.id}'),

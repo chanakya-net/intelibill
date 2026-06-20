@@ -173,7 +173,7 @@ final class NewSaleControllerProvider
   }
 }
 
-String _$newSaleControllerHash() => r'3851c3ba0e74dce7f3510380f14041160773810c';
+String _$newSaleControllerHash() => r'd1647735a64093270322428098cf47e40c6f701a';
 
 abstract class _$NewSaleController extends $Notifier<NewSaleState> {
   NewSaleState build();
