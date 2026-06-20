@@ -1,7 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intelibill_mobile/src/features/sales/data/data_sources/sales_remote_data_source.dart';
 import 'package:intelibill_mobile/src/features/sales/data/dto/sale_detail_dto.dart';
+import 'package:intelibill_mobile/src/features/sales/data/dto/sale_return_preview_dto.dart';
 import 'package:intelibill_mobile/src/features/sales/data/repositories/sales_repository_impl.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_return.dart';
 import 'package:mocktail/mocktail.dart';
 
 class MockSalesRemoteDataSource extends Mock implements SalesRemoteDataSource {}
@@ -32,6 +34,109 @@ void main() {
       expect(result.creditNoteRedemptions.first.appliedAmount, 50.0);
 
       verify(() => remoteDataSource.getSaleDetail('sale-abc')).called(1);
+    });
+
+    test('maps sale return preview response to domain model', () async {
+      when(
+        () => remoteDataSource.previewSaleReturn(
+          saleId: 'sale-abc',
+          request: any(named: 'request'),
+        ),
+      ).thenAnswer(
+        (_) async => SaleReturnPreviewResponseDto(
+          saleId: 'sale-abc',
+          hasFinancialAccess: true,
+          lines: [
+            SaleReturnPreviewLineDto(
+              saleItemId: 'item-1',
+              requestedQuantity: 1,
+              returnedQuantity: 1,
+              returnableQuantity: 2,
+              condition: 1,
+              willRestock: true,
+              financial: SaleReturnPreviewLineFinancialDto(
+                originalCostPrice: 60,
+                originalSalesPrice: 100,
+                originalTaxRatePercent: 18,
+                originalIsPriceIncludingTax: false,
+                maxRefundAmount: 100,
+                approvedRefundAmount: 90,
+                taxableAmount: 80,
+                taxAmount: 14.4,
+              ),
+            ),
+          ],
+          financial: const SaleReturnPreviewFinancialDto(
+            totalRefundAmount: 90,
+            dueReductionAmount: 0,
+            payoutAmount: 90,
+            totalTaxableAmount: 80,
+            totalTaxAmount: 14.4,
+          ),
+          warnings: const [
+            SaleReturnPreviewWarningDto(
+              code: 'R01',
+              message: 'Stock may need adjustment',
+              severity: 'info',
+            ),
+          ],
+        ),
+      );
+
+      final result = await repository.previewSaleReturn(
+        saleId: 'sale-abc',
+        request: const PreviewSaleReturnRequest(
+          dueReductionOverrideAmount: 5,
+          items: [
+            SaleReturnLineDraft(
+              saleItemId: 'item-1',
+              selected: true,
+              quantity: 1,
+              condition: 1,
+              approvedRefundAmount: 90,
+            ),
+          ],
+        ),
+      );
+
+      expect(result.saleId, 'sale-abc');
+      expect(result.financial?.payoutAmount, 90);
+      expect(result.warnings, ['Stock may need adjustment']);
+    });
+
+    test('maps record sale return response to sale detail', () async {
+      when(
+        () => remoteDataSource.recordSaleReturn(
+          saleId: 'sale-abc',
+          request: any(named: 'request'),
+        ),
+      ).thenAnswer(
+        (_) async => SaleDetailDto.fromJson(_minimalSaleDetailJson()),
+      );
+
+      final result = await repository.recordSaleReturn(
+        saleId: 'sale-abc',
+        request: const RecordSaleReturnRequest(
+          payoutDestination: 2,
+          dueReductionOverrideAmount: 5,
+          items: [
+            SaleReturnLineDraft(
+              saleItemId: 'item-1',
+              selected: true,
+              quantity: 1,
+              approvedRefundAmount: 90,
+            ),
+          ],
+        ),
+      );
+
+      expect(result.saleId, 'sale-abc');
+      verify(
+        () => remoteDataSource.recordSaleReturn(
+          saleId: 'sale-abc',
+          request: any(named: 'request'),
+        ),
+      ).called(1);
     });
   });
 }
@@ -123,4 +228,17 @@ Map<String, dynamic> _fullSaleDetailJson() => {
       'appliedAmount': 50.0,
     },
   ],
+};
+
+Map<String, dynamic> _minimalSaleDetailJson() => {
+  'saleId': 'sale-abc',
+  'invoiceNumber': 'INV-001',
+  'paymentMethod': 1,
+  'soldAt': '2026-05-11T10:30:00.000Z',
+  'paidAmount': 0.0,
+  'dueAmount': 0.0,
+  'totalBeforeDiscount': 0.0,
+  'totalDiscountAmount': 0.0,
+  'totalAmount': 0.0,
+  'totalTaxAmount': 0.0,
 };
