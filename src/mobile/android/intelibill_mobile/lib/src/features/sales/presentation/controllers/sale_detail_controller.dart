@@ -1,0 +1,97 @@
+import 'package:flutter/foundation.dart';
+import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
+import 'package:intelibill_mobile/src/core/errors/failure.dart';
+import 'package:intelibill_mobile/src/core/network/api_client_provider.dart';
+import 'package:intelibill_mobile/src/features/sales/data/data_sources/sales_remote_data_source.dart';
+import 'package:intelibill_mobile/src/features/sales/data/repositories/sales_repository_impl.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/repositories/sales_repository.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/use_cases/get_sale_detail.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
+
+part 'sale_detail_controller.g.dart';
+
+@riverpod
+SalesRemoteDataSource saleDetailRemoteDataSource(Ref ref) {
+  final apiClient = ref.watch(apiClientProvider);
+  return SalesRemoteDataSourceImpl(apiClient);
+}
+
+@riverpod
+SalesRepository saleDetailRepository(Ref ref) {
+  final remoteDataSource = ref.watch(saleDetailRemoteDataSourceProvider);
+  return SalesRepositoryImpl(remoteDataSource);
+}
+
+@riverpod
+GetSaleDetail getSaleDetail(Ref ref) {
+  final repository = ref.watch(saleDetailRepositoryProvider);
+  return GetSaleDetail(repository);
+}
+
+@immutable
+class SaleDetailState {
+  const SaleDetailState({
+    this.detail,
+    this.isLoading = false,
+    this.failure,
+  });
+
+  final SaleDetail? detail;
+  final bool isLoading;
+  final Failure? failure;
+
+  SaleDetailState copyWith({
+    SaleDetail? detail,
+    bool? isLoading,
+    Failure? failure,
+    bool clearError = false,
+  }) {
+    return SaleDetailState(
+      detail: detail ?? this.detail,
+      isLoading: isLoading ?? this.isLoading,
+      failure: clearError ? null : (failure ?? this.failure),
+    );
+  }
+}
+
+@riverpod
+class SaleDetailController extends _$SaleDetailController {
+  @override
+  SaleDetailState build(String saleId) {
+    Future.microtask(() => _load(saleId));
+    return const SaleDetailState(isLoading: true);
+  }
+
+  Future<void> _load(String saleId) async {
+    final useCase = ref.read(getSaleDetailProvider);
+
+    try {
+      final detail = await useCase(saleId);
+      if (!ref.mounted) return;
+
+      state = state.copyWith(
+        detail: detail,
+        isLoading: false,
+        clearError: true,
+      );
+    } on AppException catch (error) {
+      if (!ref.mounted) return;
+      state = state.copyWith(
+        isLoading: false,
+        failure: error.failure,
+      );
+    } on Object {
+      if (!ref.mounted) return;
+      state = state.copyWith(
+        isLoading: false,
+        failure: const Failure.unknown(),
+      );
+    }
+  }
+
+  Future<void> refresh(String saleId) async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    await _load(saleId);
+  }
+}

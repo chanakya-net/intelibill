@@ -7,6 +7,10 @@ interface class SalesRemoteDataSource {
   Future<SalesHistoryResponseDto> getSalesHistory(SalesHistoryQuery query) {
     throw UnimplementedError();
   }
+
+  Future<Map<String, dynamic>> getSaleDetail(String saleId) {
+    throw UnimplementedError();
+  }
 }
 
 class SalesRemoteDataSourceImpl implements SalesRemoteDataSource {
@@ -35,5 +39,13 @@ class SalesRemoteDataSourceImpl implements SalesRemoteDataSource {
     );
 
     return SalesHistoryResponseDto.fromJson(response.data!);
+  }
+
+  @override
+  Future<Map<String, dynamic>> getSaleDetail(String saleId) async {
+    final response = await _apiClient.get<Map<String, dynamic>>(
+      '$_salesEndpoint/$saleId',
+    );
+    return response.data!;
   }
 }
