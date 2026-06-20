@@ -55,12 +55,12 @@ class NewSaleState {
   final bool isSearching;
 
   double get cartTotal => cartLines.fold(
-    0,
+    0.0,
     (sum, line) => sum + line.lineTotal,
   );
 
-  int get totalCartItems =>
-      cartLines.fold(0, (sum, line) => sum + line.quantity);
+  double get totalCartItems =>
+      cartLines.fold(0.0, (sum, line) => sum + line.quantity);
 
   NewSaleState copyWith({
     String? searchTerm,
@@ -114,6 +114,7 @@ class NewSaleController extends _$NewSaleController {
 
     if (useCaseSearchTerm == null && useCaseBarcode == null) {
       state = state.copyWith(
+        results: const [],
         isSearching: false,
         searchFailure: const Failure.validation(
           message: 'Enter search or barcode.',
@@ -150,6 +151,7 @@ class NewSaleController extends _$NewSaleController {
         return;
       }
       state = state.copyWith(
+        results: const [],
         isSearching: false,
         searchFailure: error.failure,
       );
@@ -158,6 +160,7 @@ class NewSaleController extends _$NewSaleController {
         return;
       }
       state = state.copyWith(
+        results: const [],
         isSearching: false,
         searchFailure: const Failure.unknown(),
       );
@@ -189,13 +192,14 @@ class NewSaleController extends _$NewSaleController {
     state = state.copyWith(selectedGoods: sellable);
   }
 
-  Future<void> addToCart(Sellable sellable, {int quantity = 1}) async {
+  Future<void> addToCart(Sellable sellable, {double quantity = 1}) async {
     if (!sellable.isGoods) return;
     final existing = _findLine(sellable.id);
     final currentQuantity = existing?.quantity ?? 0;
     final nextQuantity = currentQuantity + quantity;
 
-    if (quantity <= 0 || nextQuantity > sellable.stock) {
+    if (!_isValidQuantity(quantity) ||
+        !_isWithinStock(nextQuantity, sellable)) {
       state = state.copyWith(
         searchFailure: const Failure.validation(
           message: 'Quantity cannot exceed available stock.',
@@ -222,14 +226,15 @@ class NewSaleController extends _$NewSaleController {
     );
   }
 
-  void updateCartQuantity(String sellableId, int nextQuantity) {
+  void updateCartQuantity(String sellableId, double nextQuantity) {
     final line = _findLine(sellableId);
     if (line == null) return;
     if (nextQuantity <= 0) {
       removeFromCart(sellableId);
       return;
     }
-    if (nextQuantity > line.sellable.stock) {
+    if (!_isValidQuantity(nextQuantity) ||
+        !_isWithinStock(nextQuantity, line.sellable)) {
       state = state.copyWith(
         searchFailure: const Failure.validation(
           message: 'Quantity cannot exceed available stock.',
@@ -278,5 +283,11 @@ class NewSaleController extends _$NewSaleController {
 
   bool _isActiveSearchRequest(int requestId) {
     return requestId == _activeSearchRequest;
+  }
+
+  bool _isValidQuantity(double quantity) => quantity > 0;
+
+  bool _isWithinStock(double quantity, Sellable sellable) {
+    return quantity <= sellable.stock;
   }
 }

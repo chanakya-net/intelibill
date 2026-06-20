@@ -53,11 +53,11 @@ class NewSaleCartLine extends Equatable {
   const NewSaleCartLine({required this.sellable, required this.quantity});
 
   final Sellable sellable;
-  final int quantity;
+  final double quantity;
 
   double get lineTotal => quantity * sellable.price;
 
-  NewSaleCartLine copyWith({int? quantity}) {
+  NewSaleCartLine copyWith({double? quantity}) {
     return NewSaleCartLine(
       sellable: sellable,
       quantity: quantity ?? this.quantity,

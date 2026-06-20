@@ -30,5 +30,18 @@ void main() {
       expect(dto.salesPrice, 55.5);
       expect(dto.mrp, 60.0);
     });
+
+    test('parses fractional goods quantity', () {
+      final dto = SellableDto.fromJson({
+        'kind': 'Goods',
+        'inventoryBatchId': 'batch-2',
+        'itemName': 'Rice',
+        'quantity': 1.25,
+        'salesPrice': 30.0,
+      });
+
+      expect(dto.quantity, 1.25);
+      expect(dto.salesPrice, 30.0);
+    });
   });
 }

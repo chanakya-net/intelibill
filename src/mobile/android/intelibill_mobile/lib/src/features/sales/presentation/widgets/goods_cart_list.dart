@@ -66,7 +66,7 @@ class GoodsCartList extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Qty: ${line.quantity}'),
+                    Text('Qty: ${_formatQuantity(line.quantity)}'),
                     Text('₹${line.lineTotal.toStringAsFixed(2)}'),
                   ],
                 ),
@@ -91,5 +91,13 @@ class GoodsCartList extends StatelessWidget {
         );
       },
     );
+  }
+
+  String _formatQuantity(double quantity) {
+    final whole = quantity.truncateToDouble();
+    if (quantity == whole) {
+      return whole.toInt().toString();
+    }
+    return quantity.toString();
   }
 }

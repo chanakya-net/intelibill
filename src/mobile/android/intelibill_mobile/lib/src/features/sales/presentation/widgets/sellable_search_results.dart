@@ -34,7 +34,7 @@ class SellableSearchResults extends StatelessWidget {
           child: ListTile(
             title: Text(sellable.name),
             subtitle: Text(
-              '${sellable.barcode ?? '-'} • Stock ${sellable.stock} • ₹${sellable.price}',
+              '${sellable.barcode ?? '-'} • Stock ${_formatQuantity(sellable.stock)} • ₹${sellable.price}',
             ),
             trailing: FilledButton(
               key: Key('add-button-${sellable.id}'),
@@ -45,5 +45,13 @@ class SellableSearchResults extends StatelessWidget {
         );
       },
     );
+  }
+
+  String _formatQuantity(double quantity) {
+    final whole = quantity.truncateToDouble();
+    if (quantity == whole) {
+      return whole.toInt().toString();
+    }
+    return quantity.toString();
   }
 }

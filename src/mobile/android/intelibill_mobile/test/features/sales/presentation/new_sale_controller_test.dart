@@ -91,6 +91,59 @@ void main() {
           .search(searchTerm: 'any');
       final state = container.read(newSaleControllerProvider);
       expect(state.searchFailure, isA<Failure>());
+      expect(state.results, isEmpty);
+      expect(state.isSearching, isFalse);
+    });
+
+    test('invalid search clears stale results', () async {
+      final goods = _goods(id: 'g1', name: 'Flour', stock: 5);
+      when(
+        () => mockSearchSellables(
+          searchTerm: any(named: 'searchTerm'),
+          barcode: any(named: 'barcode'),
+        ),
+      ).thenAnswer((_) async => [goods]);
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+
+      await controller.search(searchTerm: 'flour');
+      await controller.search(searchTerm: '   ');
+
+      final state = container.read(newSaleControllerProvider);
+      expect(state.results, isEmpty);
+      expect(state.searchFailure, isA<Failure>());
+      expect(state.isSearching, isFalse);
+    });
+
+    test('failed search clears stale results from prior success', () async {
+      final goods = _goods(id: 'g1', name: 'Flour', stock: 5);
+      when(
+        () => mockSearchSellables(
+          searchTerm: 'flour',
+          barcode: any(named: 'barcode'),
+        ),
+      ).thenAnswer((_) async => [goods]);
+      when(
+        () => mockSearchSellables(
+          searchTerm: 'rice',
+          barcode: any(named: 'barcode'),
+        ),
+      ).thenThrow(
+        AppException(failure: const Failure.network(message: 'offline')),
+      );
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+
+      await controller.search(searchTerm: 'flour');
+      await controller.search(searchTerm: 'rice');
+
+      final state = container.read(newSaleControllerProvider);
+      expect(state.results, isEmpty);
+      expect(state.searchFailure, isA<Failure>());
       expect(state.isSearching, isFalse);
     });
 
@@ -113,7 +166,7 @@ void main() {
 
       final state = container.read(newSaleControllerProvider);
       expect(state.cartLines.length, 1);
-      expect(state.cartLines.first.quantity, 1);
+      expect(state.cartLines.first.quantity, 1.0);
       expect(state.searchFailure, isNull);
     });
 
@@ -131,11 +184,53 @@ void main() {
       final goods = _goods(id: 'g1', name: 'Flour', stock: 2);
 
       await controller.addToCart(goods, quantity: 2);
-      await controller.addToCart(goods, quantity: 1);
+      await controller.addToCart(goods, quantity: 0.1);
 
       final state = container.read(newSaleControllerProvider);
       expect(state.searchFailure, isNotNull);
-      expect(state.cartLines.first.quantity, 2);
+      expect(state.cartLines.first.quantity, 2.0);
+    });
+
+    test('supports fractional cart quantities within stock', () async {
+      when(
+        () => mockSearchSellables(
+          searchTerm: any(named: 'searchTerm'),
+          barcode: any(named: 'barcode'),
+        ),
+      ).thenAnswer((_) async => []);
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+      final goods = _goods(id: 'g1', name: 'Flour', stock: 1.25);
+
+      await controller.addToCart(goods, quantity: 0.5);
+      controller.updateCartQuantity(goods.id, 1.25);
+
+      final state = container.read(newSaleControllerProvider);
+      expect(state.cartLines.single.quantity, 1.25);
+      expect(state.searchFailure, isNull);
+    });
+
+    test('rejects fractional quantity above stock', () async {
+      when(
+        () => mockSearchSellables(
+          searchTerm: any(named: 'searchTerm'),
+          barcode: any(named: 'barcode'),
+        ),
+      ).thenAnswer((_) async => []);
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+      final goods = _goods(id: 'g1', name: 'Flour', stock: 0.5);
+
+      await controller.addToCart(goods, quantity: 0.5);
+      await controller.addToCart(goods, quantity: 0.25);
+
+      final state = container.read(newSaleControllerProvider);
+      expect(state.cartLines.single.quantity, 0.5);
+      expect(state.searchFailure, isA<Failure>());
     });
 
     test('barcode lookup queries usecase by barcode', () async {

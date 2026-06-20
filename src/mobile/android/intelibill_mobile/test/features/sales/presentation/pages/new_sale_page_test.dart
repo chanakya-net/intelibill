@@ -31,7 +31,7 @@ class _StubNewSaleController extends NewSaleController {
   }
 
   @override
-  void updateCartQuantity(String sellableId, int nextQuantity) {
+  void updateCartQuantity(String sellableId, double nextQuantity) {
     final lines = _state.cartLines
         .where((line) => line.sellable.id != sellableId)
         .toList();
@@ -56,7 +56,7 @@ class _StubNewSaleController extends NewSaleController {
   }
 
   @override
-  Future<void> addToCart(Sellable sellable, {int quantity = 1}) async {
+  Future<void> addToCart(Sellable sellable, {double quantity = 1}) async {
     final line = NewSaleCartLine(sellable: sellable, quantity: quantity);
     _state = _state.copyWith(cartLines: [..._state.cartLines, line]);
     state = _state;
@@ -131,6 +131,7 @@ void main() {
 
       expect(find.byKey(const Key('new-sale-failure')), findsOneWidget);
       expect(find.textContaining('Scan failed'), findsOneWidget);
+      expect(find.text('No sellables found.'), findsOneWidget);
     });
 
     testWidgets('shows empty cart message', (tester) async {
@@ -150,7 +151,7 @@ void main() {
       await tester.pumpWidget(_buildApp(_StubNewSaleController(state)));
 
       expect(find.text('Flour'), findsOneWidget);
-      expect(find.textContaining('Stock 10.0'), findsOneWidget);
+      expect(find.textContaining('Stock 10'), findsOneWidget);
       await tester.tap(find.byKey(const Key('add-button-g1')));
       await tester.pump();
 
@@ -158,6 +159,46 @@ void main() {
       expect(find.textContaining('Total:'), findsOneWidget);
       expect(find.byKey(const Key('decrease-g1')), findsOneWidget);
       expect(find.byKey(const Key('increase-g1')), findsOneWidget);
+      expect(find.text('Qty: 1'), findsOneWidget);
+    });
+
+    testWidgets('clears stale search results when latest state has failure', (
+      tester,
+    ) async {
+      final controller = _StubNewSaleController(
+        NewSaleState(
+          searchFailure: const Failure.validation(message: 'Enter search'),
+          results: const [],
+        ),
+      );
+
+      await tester.pumpWidget(_buildApp(controller));
+
+      expect(find.byKey(const Key('new-sale-failure')), findsOneWidget);
+      expect(find.text('Flour'), findsNothing);
+      expect(find.text('No sellables found.'), findsOneWidget);
+    });
+
+    testWidgets('renders fractional cart quantities', (tester) async {
+      final goods = Sellable(
+        id: 'g1',
+        kind: 'Goods',
+        name: 'Flour',
+        stock: 1.25,
+        price: 20,
+        barcode: 'BAR001',
+        batchNumber: 'BN-1',
+      );
+      final state = NewSaleState(
+        cartLines: [
+          NewSaleCartLine(sellable: goods, quantity: 1.25),
+        ],
+      );
+
+      await tester.pumpWidget(_buildApp(_StubNewSaleController(state)));
+
+      expect(find.text('Qty: 1.25'), findsOneWidget);
+      expect(find.textContaining('Total: ₹25.00'), findsOneWidget);
     });
 
     testWidgets('barcode lookup clears stale search field and stays in sync', (
