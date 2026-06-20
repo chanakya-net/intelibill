@@ -189,16 +189,23 @@ class _SummaryCard extends StatelessWidget {
               value: detail.customerName ?? l10n.salesHistoryWalkInCustomer,
             ),
             if (detail.customerPhone?.isNotEmpty == true)
-              _InfoRow(label: l10n.salesHistoryPhone, value: detail.customerPhone!),
-            _InfoRow(label: l10n.salesHistoryDate, value: dateFormat.format(detail.soldAt)),
+              _InfoRow(
+                label: l10n.salesHistoryPhone,
+                value: detail.customerPhone!,
+              ),
+            _InfoRow(
+              label: l10n.salesHistoryDate,
+              value: dateFormat.format(detail.soldAt),
+            ),
             _InfoRow(
               label: l10n.salesHistoryPaymentMethod,
               value: salePaymentMethodLabel(l10n, detail.paymentMethod),
             ),
-            _InfoRow(
-              label: l10n.salesHistoryControlsStatus,
-              value: saleStatusLabel(l10n, detail.status ?? ''),
-            ),
+            if (detail.status != null && detail.status!.isNotEmpty)
+              _InfoRow(
+                label: l10n.salesHistoryControlsStatus,
+                value: saleStatusLabel(l10n, detail.status!),
+              ),
             const Divider(height: 24),
             Wrap(
               spacing: 8,
@@ -335,9 +342,18 @@ class _Totals extends StatelessWidget {
           label: l10n.salesDetailTaxLabel,
           value: formatInr(detail.totalTaxAmount),
         ),
-        _InfoRow(label: l10n.salesHistoryTotal, value: formatInr(detail.totalAmount)),
-        _InfoRow(label: l10n.salesDetailPaidLabel, value: formatInr(detail.paidAmount)),
-        _InfoRow(label: l10n.salesHistoryDueAmount, value: formatInr(detail.dueAmount)),
+        _InfoRow(
+          label: l10n.salesHistoryTotal,
+          value: formatInr(detail.totalAmount),
+        ),
+        _InfoRow(
+          label: l10n.salesDetailPaidLabel,
+          value: formatInr(detail.paidAmount),
+        ),
+        _InfoRow(
+          label: l10n.salesHistoryDueAmount,
+          value: formatInr(detail.dueAmount),
+        ),
         if (detail.refundAmount > 0)
           _InfoRow(
             label: l10n.salesHistoryRefundAmount,
@@ -476,11 +492,10 @@ class _Returns extends StatelessWidget {
                     Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        AppLocalizations.of(context)!
-                            .salesDetailReturnItem(
-                              item.quantity,
-                              item.itemName ?? item.itemId,
-                            ),
+                        AppLocalizations.of(context)!.salesDetailReturnItem(
+                          item.quantity,
+                          item.itemName ?? item.itemId,
+                        ),
                       ),
                     ),
                 ],

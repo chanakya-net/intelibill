@@ -10,11 +10,11 @@ class SaleDetail extends Equatable {
     required this.paymentMethod,
     required this.soldAt,
     required this.items,
-    required this.settlements,
-    required this.discounts,
-    required this.returns,
-    required this.redemptions,
-    required this.warnings,
+    this.settlements = const [],
+    this.discounts = const [],
+    this.returns = const [],
+    this.redemptions = const [],
+    this.warnings = const [],
     required this.paidAmount,
     required this.dueAmount,
     required this.totalBeforeDiscount,
@@ -147,7 +147,13 @@ class SaleDetailReturn extends Equatable {
   final DateTime returnedAt;
 
   @override
-  List<Object?> get props => [returnId, returnNumber, items, amount, returnedAt];
+  List<Object?> get props => [
+    returnId,
+    returnNumber,
+    items,
+    amount,
+    returnedAt,
+  ];
 }
 
 class SaleDetailReturnItem extends Equatable {

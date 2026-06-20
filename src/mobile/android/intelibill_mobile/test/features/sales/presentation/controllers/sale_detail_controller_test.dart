@@ -122,6 +122,46 @@ void main() {
       expect(state.failure, isNull);
     });
 
+    test(
+      'handles optional fields absent in backend-style detail payload',
+      () async {
+        final detail = SaleDetail(
+          saleId: 'sale-1',
+          invoiceNumber: 'INV-101',
+          customerId: null,
+          customerName: 'Jane',
+          customerPhone: null,
+          paymentMethod: 1,
+          soldAt: DateTime.utc(2026, 5, 11, 10),
+          items: const [],
+          paidAmount: 500,
+          dueAmount: 0,
+          totalBeforeDiscount: 500,
+          totalDiscountAmount: 0,
+          totalAmount: 500,
+          totalTaxAmount: 50,
+          refundAmount: 0,
+          dueReductionAmount: 0,
+        );
+
+        when(() => getSaleDetail(any())).thenAnswer((_) async => detail);
+
+        final container = makeContainer();
+        addTearDown(container.dispose);
+
+        await container
+            .read(saleDetailControllerProvider('sale-1').notifier)
+            .refresh('sale-1');
+
+        final state = container.read(saleDetailControllerProvider('sale-1'));
+        expect(state.failure, isNull);
+        expect(state.detail?.status, isNull);
+        expect(state.detail?.settlements, isEmpty);
+        expect(state.detail?.discounts, isEmpty);
+        expect(state.detail?.warnings, isEmpty);
+      },
+    );
+
     test('handles load failure on refresh', () async {
       final error = AppException(
         failure: const Failure.network(message: 'Network error'),

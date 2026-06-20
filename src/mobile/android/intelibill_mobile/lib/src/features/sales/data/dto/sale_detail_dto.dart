@@ -19,7 +19,9 @@ sealed class SaleDetailDto with _$SaleDetailDto {
     @JsonKey(name: 'settlements')
     @Default([])
     List<SaleDetailSettlementDto> settlements,
-    @JsonKey(name: 'discounts') @Default([]) List<SaleDetailDiscountDto> discounts,
+    @JsonKey(name: 'discounts')
+    @Default([])
+    List<SaleDetailDiscountDto> discounts,
     @JsonKey(name: 'returns') @Default([]) List<SaleDetailReturnDto> returns,
     @JsonKey(name: 'creditNoteRedemptions')
     @Default([])
@@ -31,14 +33,33 @@ sealed class SaleDetailDto with _$SaleDetailDto {
     @JsonKey(name: 'totalDiscountAmount') required double totalDiscountAmount,
     @JsonKey(name: 'totalAmount') required double totalAmount,
     @JsonKey(name: 'totalTaxAmount') required double totalTaxAmount,
-    @JsonKey(name: 'creditNoteAppliedAmount') @Default(0.0) double creditNoteAppliedAmount,
+    @JsonKey(name: 'creditNoteAppliedAmount')
+    @Default(0.0)
+    double creditNoteAppliedAmount,
     @JsonKey(name: 'status') String? status,
     @JsonKey(name: 'refundAmount') @Default(0.0) double refundAmount,
-    @JsonKey(name: 'dueReductionAmount') @Default(0.0) double dueReductionAmount,
+    @JsonKey(name: 'dueReductionAmount')
+    @Default(0.0)
+    double dueReductionAmount,
   }) = _SaleDetailDto;
 
-  factory SaleDetailDto.fromJson(Map<String, dynamic> json) =>
-      _$SaleDetailDtoFromJson(json);
+  factory SaleDetailDto.fromJson(Map<String, dynamic> json) {
+    final normalized = Map<String, dynamic>.of(json);
+    normalized['refundAmount'] =
+        _toDouble(
+          normalized['refundAmount'],
+        ) ??
+        _toDouble(normalized['creditNoteAppliedAmount']) ??
+        0.0;
+    normalized['warnings'] ??= const [];
+    return _$SaleDetailDtoFromJson(normalized);
+  }
+
+  static double? _toDouble(Object? value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value.toString());
+  }
 }
 
 @freezed

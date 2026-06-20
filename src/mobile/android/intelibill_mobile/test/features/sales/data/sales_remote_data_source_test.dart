@@ -31,9 +31,8 @@ void main() {
         'totalDiscountAmount': 0.0,
         'totalAmount': 500.0,
         'totalTaxAmount': 50.0,
-        'status': 'paid',
+        'creditNoteAppliedAmount': 0.0,
         'dueReductionAmount': 0.0,
-        'refundAmount': 0.0,
       };
 
       when(
@@ -173,7 +172,10 @@ void main() {
       expect(dto.items.first.tax, 18.0);
       expect(dto.items.first.total, 590.0);
       expect(dto.returns, hasLength(1));
-      expect(dto.returns.first.returnId, 'c1b2c3d4-0000-0000-0000-000000000003');
+      expect(
+        dto.returns.first.returnId,
+        'c1b2c3d4-0000-0000-0000-000000000003',
+      );
       expect(dto.returns.first.amount, 118.0);
       expect(dto.returns.first.items.first.amount, 118.0);
       expect(dto.redemptions, hasLength(1));
