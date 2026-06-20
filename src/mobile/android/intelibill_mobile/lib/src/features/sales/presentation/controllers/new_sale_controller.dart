@@ -106,7 +106,12 @@ class NewSaleController extends _$NewSaleController {
     final term = (searchTerm ?? state.searchTerm).trim();
     final code = (barcode ?? state.barcodeTerm).trim();
 
-    if (term.isEmpty && code.isEmpty) {
+    final useCaseSearchTerm = code.isNotEmpty
+        ? null
+        : (term.isNotEmpty ? term : null);
+    final useCaseBarcode = code.isNotEmpty ? code : null;
+
+    if (useCaseSearchTerm == null && useCaseBarcode == null) {
       state = state.copyWith(
         isSearching: false,
         searchFailure: const Failure.validation(
@@ -119,7 +124,7 @@ class NewSaleController extends _$NewSaleController {
     state = state.copyWith(
       isSearching: true,
       clearFailure: true,
-      searchTerm: term,
+      searchTerm: useCaseSearchTerm == null ? '' : useCaseSearchTerm,
       barcodeTerm: code,
       selectedGoods: null,
       clearSelectedGoods: true,
@@ -128,8 +133,8 @@ class NewSaleController extends _$NewSaleController {
     try {
       final useCase = ref.read(searchSellablesProvider);
       final results = await useCase(
-        searchTerm: term.isNotEmpty ? term : null,
-        barcode: code.isNotEmpty ? code : null,
+        searchTerm: useCaseSearchTerm,
+        barcode: useCaseBarcode,
       );
       state = state.copyWith(
         results: results.where((sellable) => sellable.isGoods).toList(),
@@ -244,8 +249,12 @@ class NewSaleController extends _$NewSaleController {
   Future<void> scanAndLookupBarcode(BuildContext context) async {
     final result = await showBarcodeScanner(context);
     if (result is BarcodeScanResult && result.value.trim().isNotEmpty) {
-      state = state.copyWith(barcodeTerm: result.value);
-      await search(barcode: result.value);
+      state = state.copyWith(
+        barcodeTerm: result.value,
+        searchTerm: '',
+        clearFailure: true,
+      );
+      await search(barcode: result.value, searchTerm: '');
     }
   }
 

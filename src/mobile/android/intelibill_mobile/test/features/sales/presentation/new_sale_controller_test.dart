@@ -147,6 +147,26 @@ void main() {
       final container = makeContainer();
       addTearDown(container.dispose);
       final notifier = container.read(newSaleControllerProvider.notifier);
+      await notifier.search(searchTerm: 'Flour', barcode: 'BARCODE-1');
+
+      verify(
+        () => mockSearchSellables(searchTerm: null, barcode: 'BARCODE-1'),
+      ).called(1);
+    });
+
+    test('barcode lookup ignores stale text search term', () async {
+      when(
+        () => mockSearchSellables(
+          searchTerm: any(named: 'searchTerm'),
+          barcode: any(named: 'barcode'),
+        ),
+      ).thenAnswer((_) async => []);
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(newSaleControllerProvider.notifier);
+
+      await notifier.search(searchTerm: 'Flour');
       await notifier.search(barcode: 'BARCODE-1');
 
       verify(

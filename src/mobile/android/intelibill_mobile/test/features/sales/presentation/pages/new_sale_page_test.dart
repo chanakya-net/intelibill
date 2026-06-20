@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intelibill_mobile/src/app/theme/app_theme.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
+import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sellable.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/controllers/new_sale_controller.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/pages/new_sale_page.dart';
@@ -84,6 +85,29 @@ Sellable _goods() {
 
 void main() {
   group('NewSalePage', () {
+    testWidgets('shows loading state', (tester) async {
+      await tester.pumpWidget(
+        _buildApp(
+          const NewSaleState(isSearching: true),
+        ),
+      );
+
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    });
+
+    testWidgets('shows error state', (tester) async {
+      await tester.pumpWidget(
+        _buildApp(
+          const NewSaleState(
+            searchFailure: Failure.validation(message: 'Scan failed'),
+          ),
+        ),
+      );
+
+      expect(find.byKey(const Key('new-sale-failure')), findsOneWidget);
+      expect(find.textContaining('Scan failed'), findsOneWidget);
+    });
+
     testWidgets('shows empty cart message', (tester) async {
       await tester.pumpWidget(
         _buildApp(
