@@ -1758,6 +1758,45 @@ class AppLocalizationsEn extends AppLocalizations {
   String get creditNotesVoidReason => 'Reason';
 
   @override
+  String get creditNotesOpenReceipt => 'Open receipt';
+
+  @override
+  String get creditNotesReceiptTitle => 'Credit note receipt';
+
+  @override
+  String get creditNotesStatusLabel => 'Status:';
+
+  @override
+  String get creditNotesReceiptCodeLabel => 'Code:';
+
+  @override
+  String get creditNotesReceiptIssueDateLabel => 'Issued at:';
+
+  @override
+  String get creditNotesReceiptExpiryDateLabel => 'Expires at:';
+
+  @override
+  String get creditNotesReceiptCustomerLabel => 'Customer:';
+
+  @override
+  String get creditNotesReceiptReasonLabel => 'Reason:';
+
+  @override
+  String get creditNotesReceiptVoidReasonLabel => 'Void reason:';
+
+  @override
+  String get creditNotesReceiptStatusActive => 'Active';
+
+  @override
+  String get creditNotesReceiptStatusExpired => 'Expired';
+
+  @override
+  String get creditNotesReceiptStatusVoided => 'Voided';
+
+  @override
+  String get creditNotesOriginalAmountLabel => 'Original amount:';
+
+  @override
   String get creditNotesVoid => 'Void';
 
   @override
@@ -3525,6 +3564,45 @@ class AppLocalizationsEnIn extends AppLocalizationsEn {
 
   @override
   String get creditNotesVoidReason => 'Reason';
+
+  @override
+  String get creditNotesOpenReceipt => 'Open receipt';
+
+  @override
+  String get creditNotesReceiptTitle => 'Credit note receipt';
+
+  @override
+  String get creditNotesStatusLabel => 'Status:';
+
+  @override
+  String get creditNotesReceiptCodeLabel => 'Code:';
+
+  @override
+  String get creditNotesReceiptIssueDateLabel => 'Issued at:';
+
+  @override
+  String get creditNotesReceiptExpiryDateLabel => 'Expires at:';
+
+  @override
+  String get creditNotesReceiptCustomerLabel => 'Customer:';
+
+  @override
+  String get creditNotesReceiptReasonLabel => 'Reason:';
+
+  @override
+  String get creditNotesReceiptVoidReasonLabel => 'Void reason:';
+
+  @override
+  String get creditNotesReceiptStatusActive => 'Active';
+
+  @override
+  String get creditNotesReceiptStatusExpired => 'Expired';
+
+  @override
+  String get creditNotesReceiptStatusVoided => 'Voided';
+
+  @override
+  String get creditNotesOriginalAmountLabel => 'Original amount:';
 
   @override
   String get creditNotesVoid => 'Void';

@@ -15,6 +15,7 @@ import 'package:intelibill_mobile/src/features/auth/presentation/pages/profile_s
 import 'package:intelibill_mobile/src/features/auth/presentation/pages/update_profile_page.dart';
 import 'package:intelibill_mobile/src/features/customers/presentation/pages/customers_page.dart';
 import 'package:intelibill_mobile/src/features/credit_notes/presentation/pages/credit_notes_page.dart';
+import 'package:intelibill_mobile/src/features/credit_notes/presentation/pages/credit_note_receipt_page.dart';
 import 'package:intelibill_mobile/src/features/dashboard/presentation/pages/dashboard_page.dart';
 import 'package:intelibill_mobile/src/features/discounts/presentation/pages/discounts_page.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/add_inventory_page.dart';
@@ -47,6 +48,7 @@ class AppRoutes {
   static const String customers = '/customers';
   static const String creditNotes = '/credit-notes';
   static const String suppliers = '/suppliers';
+  static const String creditNoteReceipt = '/credit-notes/:code/print';
   static const String createShop = '/shops/create';
   static const String manageShop = '/shops/manage';
   static const String expenses = '/expenses';
@@ -55,6 +57,10 @@ class AppRoutes {
   static const String bankAccounts = '/bank-accounts';
   static const String language = '/language';
   static const String placeholders = '/placeholder';
+
+  static String creditNoteReceiptFor(String code) {
+    return '/credit-notes/$code/print';
+  }
 }
 
 final goRouterProvider = Provider<GoRouter>((ref) {
@@ -171,6 +177,13 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.creditNotes,
             builder: (context, state) => const CreditNotesPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.creditNoteReceipt,
+            builder: (context, state) {
+              final code = state.pathParameters['code'] ?? '';
+              return CreditNoteReceiptPage(code: code);
+            },
           ),
           GoRoute(
             path: AppRoutes.suppliers,

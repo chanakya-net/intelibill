@@ -46,6 +46,11 @@ GetCreditNotePrintByCode getCreditNotePrintByCodeUseCase(Ref ref) {
 }
 
 @riverpod
+Future<CreditNotePrint> creditNotePrintByCode(Ref ref, String code) {
+  return ref.read(getCreditNotePrintByCodeUseCaseProvider)(code);
+}
+
+@riverpod
 VoidCreditNote voidCreditNoteUseCase(Ref ref) {
   return VoidCreditNote(ref.watch(creditNoteRepositoryProvider));
 }

@@ -68,7 +68,18 @@ void main() {
         'voidReason': null,
       });
 
+      expect(dto.code, 'CN-001');
+      expect(dto.status, 'active');
       expect(dto.isUsable, isTrue);
+      expect(dto.originalAmount, 250);
+      expect(dto.availableBalance, 150);
+      expect(dto.issuedAt, isA<DateTime>());
+      expect(dto.expiresAt, isA<DateTime>());
+      expect(dto.invoiceNumber, 'INV-001');
+      expect(dto.returnNumber, 'RET-001');
+      expect(dto.customerDisplayName, 'John');
+      expect(dto.reason, 'Damaged item');
+      expect(dto.voidReason, isNull);
     });
   });
 }
