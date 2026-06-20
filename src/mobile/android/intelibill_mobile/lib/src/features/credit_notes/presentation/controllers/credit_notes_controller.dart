@@ -57,7 +57,6 @@ class CreditNotesState {
     this.isLoadingMore = false,
     this.failure,
     this.selectedNote,
-    this.verifiedNote,
   });
   final List<CreditNote> notes;
   final String searchQuery;
@@ -69,7 +68,6 @@ class CreditNotesState {
   final bool isLoadingMore;
   final Failure? failure;
   final CreditNote? selectedNote;
-  final CreditNote? verifiedNote;
 
   bool get hasMore => page * pageSize < totalCount;
 
@@ -87,8 +85,6 @@ class CreditNotesState {
     bool clearFailure = false,
     CreditNote? selectedNote,
     bool clearSelectedNote = false,
-    CreditNote? verifiedNote,
-    bool clearVerifiedNote = false,
   }) {
     return CreditNotesState(
       notes: notes ?? this.notes,
@@ -105,9 +101,6 @@ class CreditNotesState {
       selectedNote: clearSelectedNote
           ? null
           : (selectedNote ?? this.selectedNote),
-      verifiedNote: clearVerifiedNote
-          ? null
-          : (verifiedNote ?? this.verifiedNote),
     );
   }
 }
@@ -158,7 +151,7 @@ class CreditNotesController extends _$CreditNotesController {
         normalized,
       );
       if (!ref.mounted) return false;
-      state = state.copyWith(verifiedNote: note, selectedNote: note);
+      state = state.copyWith(selectedNote: note);
       return true;
     } on AppException catch (error) {
       if (!ref.mounted) return false;

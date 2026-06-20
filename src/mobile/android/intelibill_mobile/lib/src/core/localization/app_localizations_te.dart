@@ -1581,6 +1581,33 @@ class AppLocalizationsTe extends AppLocalizations {
   String salesHistoryShowingCount(int shown, int total) {
     return 'Showing $shown of $total';
   }
+
+  @override
+  String get creditNotesVerifyCode => 'Verify code';
+
+  @override
+  String get creditNotesFilterAll => 'All';
+
+  @override
+  String get creditNotesLoadMore => 'Load more';
+
+  @override
+  String get creditNotesEmpty => 'No credit notes found';
+
+  @override
+  String get creditNotesNoExpiry => 'No expiry';
+
+  @override
+  String get creditNotesClose => 'Close';
+
+  @override
+  String get creditNotesInvoiceLabel => 'Invoice:';
+
+  @override
+  String get creditNotesReturnLabel => 'Return:';
+
+  @override
+  String get creditNotesBalanceLabel => 'Balance:';
 }
 
 /// The translations for Telugu, as used in India (`te_IN`).

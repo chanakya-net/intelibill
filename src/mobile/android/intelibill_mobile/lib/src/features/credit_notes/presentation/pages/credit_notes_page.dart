@@ -20,6 +20,7 @@ class CreditNotesPage extends ConsumerStatefulWidget {
 class _CreditNotesPageState extends ConsumerState<CreditNotesPage> {
   late final TextEditingController _searchController;
   late final TextEditingController _verifyController;
+  Timer? _searchDebounce;
 
   @override
   void initState() {
@@ -32,6 +33,7 @@ class _CreditNotesPageState extends ConsumerState<CreditNotesPage> {
   void dispose() {
     _searchController.dispose();
     _verifyController.dispose();
+    _searchDebounce?.cancel();
     super.dispose();
   }
 
@@ -81,12 +83,18 @@ class _CreditNotesPageState extends ConsumerState<CreditNotesPage> {
                 border: const OutlineInputBorder(),
               ),
               onChanged: (value) {
-                unawaited(
-                  ref
-                      .read(creditNotesControllerProvider.notifier)
-                      .updateSearch(
-                        value,
-                      ),
+                _searchDebounce?.cancel();
+                _searchDebounce = Timer(
+                  const Duration(milliseconds: 350),
+                  () {
+                    if (mounted) {
+                      unawaited(
+                        ref
+                            .read(creditNotesControllerProvider.notifier)
+                            .updateSearch(value),
+                      );
+                    }
+                  },
                 );
               },
             ),
@@ -95,7 +103,7 @@ class _CreditNotesPageState extends ConsumerState<CreditNotesPage> {
               key: const Key('credit-notes-verify'),
               controller: _verifyController,
               decoration: InputDecoration(
-                labelText: 'Verify code',
+                labelText: l10n.creditNotesVerifyCode,
                 prefixIcon: const Icon(Icons.qr_code),
                 suffixIcon: IconButton(
                   icon: const Icon(Icons.check),
@@ -125,7 +133,7 @@ class _CreditNotesPageState extends ConsumerState<CreditNotesPage> {
               runSpacing: 8,
               children: [
                 FilterChip(
-                  label: const Text('All'),
+                  label: Text(l10n.creditNotesFilterAll),
                   selected: state.statusFilter == null,
                   onSelected: (_) => unawaited(
                     ref
@@ -188,9 +196,11 @@ class _CreditNotesPageState extends ConsumerState<CreditNotesPage> {
             padding: const EdgeInsets.only(bottom: 12),
             child: _CreditNoteCard(
               note: note,
-              onTap: () => ref
-                  .read(creditNotesControllerProvider.notifier)
-                  .selectNote(note),
+              onTap: () => unawaited(
+                ref
+                    .read(creditNotesControllerProvider.notifier)
+                    .openByCode(note.code),
+              ),
             ),
           ),
         if (state.isLoadingMore)
@@ -204,7 +214,7 @@ class _CreditNotesPageState extends ConsumerState<CreditNotesPage> {
               onPressed: () => unawaited(
                 ref.read(creditNotesControllerProvider.notifier).loadMore(),
               ),
-              child: const Text('Load more'),
+              child: Text(l10n.creditNotesLoadMore),
             ),
           ),
       ],
@@ -255,8 +265,9 @@ class _CreditNoteCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final expiry = note.expiresAt == null
-        ? 'No expiry'
+        ? l10n.creditNotesNoExpiry
         : DateFormat('dd MMM yyyy').format(note.expiresAt!);
     return Card(
       child: ListTile(
@@ -279,6 +290,7 @@ class _CreditNoteDetailSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
       child: Column(
@@ -289,15 +301,17 @@ class _CreditNoteDetailSheet extends StatelessWidget {
           const SizedBox(height: 8),
           Text(note.reason),
           const SizedBox(height: 12),
-          Text('Invoice: ${note.invoiceNumber}'),
-          Text('Return: ${note.returnNumber}'),
-          Text('Balance: ${note.availableBalance.toStringAsFixed(2)}'),
+          Text('${l10n.creditNotesInvoiceLabel} ${note.invoiceNumber}'),
+          Text('${l10n.creditNotesReturnLabel} ${note.returnNumber}'),
+          Text(
+            '${l10n.creditNotesBalanceLabel} ${note.availableBalance.toStringAsFixed(2)}',
+          ),
           const SizedBox(height: 12),
           Align(
             alignment: Alignment.centerRight,
             child: TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Close'),
+              child: Text(l10n.creditNotesClose),
             ),
           ),
         ],
@@ -337,10 +351,11 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    final l10n = AppLocalizations.of(context)!;
+    return Center(
       child: Padding(
-        padding: EdgeInsets.all(48),
-        child: Text('No credit notes found'),
+        padding: const EdgeInsets.all(48),
+        child: Text(l10n.creditNotesEmpty),
       ),
     );
   }

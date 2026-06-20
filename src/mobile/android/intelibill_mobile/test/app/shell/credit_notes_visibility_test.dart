@@ -36,4 +36,13 @@ void main() {
     expect(canViewCreditNotes(_session('Manager')), isTrue);
     expect(canViewCreditNotes(_session('Staff')), isTrue);
   });
+
+  test('null session cannot view credit notes', () {
+    expect(canViewCreditNotes(null), isFalse);
+  });
+
+  test('other roles cannot view credit notes', () {
+    expect(canViewCreditNotes(_session('Accountant')), isFalse);
+    expect(canViewCreditNotes(_session('Viewer')), isFalse);
+  });
 }
