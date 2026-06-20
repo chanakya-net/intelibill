@@ -29,6 +29,7 @@ enum MobileMenuLabelKey {
   inventory('shellManageInventory'),
   sales('shellManageSales'),
   customers('shellManageCustomers'),
+  creditNotes('shellManageCreditNotes'),
   more('shellMore'),
   suppliers('shellManageSuppliers'),
   expenses('shellManageExpenses'),
@@ -65,6 +66,8 @@ extension MobileMenuLabelKeyX on MobileMenuLabelKey {
         return l10n.shellManageSales;
       case MobileMenuLabelKey.customers:
         return l10n.shellManageCustomers;
+      case MobileMenuLabelKey.creditNotes:
+        return l10n.shellManageCreditNotes;
       case MobileMenuLabelKey.more:
         return l10n.shellMore;
       case MobileMenuLabelKey.suppliers:
@@ -204,6 +207,16 @@ final List<MobileMenuItem> _primaryNavigationItems = [
     ),
     section: MobileMenuSection.primary,
     isVisible: canManageCustomers,
+  ),
+  const MobileMenuItem(
+    labelKey: MobileMenuLabelKey.creditNotes,
+    icon: Icons.receipt_long_outlined,
+    destination: MobileMenuRoute(
+      AppRoutes.creditNotes,
+      matchPrefix: AppRoutes.creditNotes,
+    ),
+    section: MobileMenuSection.primary,
+    isVisible: canViewCreditNotes,
   ),
   const MobileMenuItem(
     labelKey: MobileMenuLabelKey.more,

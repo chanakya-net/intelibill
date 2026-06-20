@@ -93,6 +93,9 @@ class AppLocalizationsKn extends AppLocalizations {
   String get shellManageCustomers => 'ಗ್ರಾಹಕರು';
 
   @override
+  String get shellManageCreditNotes => 'Credit Notes';
+
+  @override
   String get shellManageSuppliers => 'ಪೂರೈಕೆದಾರರನ್ನು ನಿರ್ವಹಿಸಿ';
 
   @override
@@ -1732,6 +1735,36 @@ class AppLocalizationsKn extends AppLocalizations {
 
   @override
   String get discountsReplacedByRuleLabel => 'Replaced by:';
+
+  @override
+  String get creditNotesVerifyCode => 'Verify code';
+
+  @override
+  String get creditNotesFilterAll => 'All';
+
+  @override
+  String get creditNotesLoadMore => 'Load more';
+
+  @override
+  String get creditNotesEmpty => 'No credit notes found';
+
+  @override
+  String get creditNotesNoExpiry => 'No expiry';
+
+  @override
+  String get creditNotesClose => 'Close';
+
+  @override
+  String get creditNotesInvoiceLabel => 'Invoice:';
+
+  @override
+  String get creditNotesReturnLabel => 'Return:';
+
+  @override
+  String get creditNotesBalanceLabel => 'Balance:';
+
+  @override
+  String get creditNotesRetry => 'Retry';
 }
 
 /// The translations for Kannada, as used in India (`kn_IN`).

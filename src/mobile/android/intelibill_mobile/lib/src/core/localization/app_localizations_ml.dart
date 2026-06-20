@@ -93,6 +93,9 @@ class AppLocalizationsMl extends AppLocalizations {
   String get shellManageCustomers => 'ഉപഭോക്താക്കൾ';
 
   @override
+  String get shellManageCreditNotes => 'Credit Notes';
+
+  @override
   String get shellManageSuppliers => 'വിതരണക്കാരെ കൈകാര്യം ചെയ്യുക';
 
   @override
@@ -1732,6 +1735,36 @@ class AppLocalizationsMl extends AppLocalizations {
 
   @override
   String get discountsReplacedByRuleLabel => 'Replaced by:';
+
+  @override
+  String get creditNotesVerifyCode => 'Verify code';
+
+  @override
+  String get creditNotesFilterAll => 'All';
+
+  @override
+  String get creditNotesLoadMore => 'Load more';
+
+  @override
+  String get creditNotesEmpty => 'No credit notes found';
+
+  @override
+  String get creditNotesNoExpiry => 'No expiry';
+
+  @override
+  String get creditNotesClose => 'Close';
+
+  @override
+  String get creditNotesInvoiceLabel => 'Invoice:';
+
+  @override
+  String get creditNotesReturnLabel => 'Return:';
+
+  @override
+  String get creditNotesBalanceLabel => 'Balance:';
+
+  @override
+  String get creditNotesRetry => 'Retry';
 }
 
 /// The translations for Malayalam, as used in India (`ml_IN`).

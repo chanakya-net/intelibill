@@ -289,6 +289,12 @@ abstract class AppLocalizations {
   /// **'Customers'**
   String get shellManageCustomers;
 
+  /// No description provided for @shellManageCreditNotes.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Credit Notes'**
+  String get shellManageCreditNotes;
+
   /// No description provided for @shellManageSuppliers.
   ///
   /// In en_IN, this message translates to:
@@ -3342,6 +3348,66 @@ abstract class AppLocalizations {
   /// In en_IN, this message translates to:
   /// **'Replaced by:'**
   String get discountsReplacedByRuleLabel;
+
+  /// No description provided for @creditNotesVerifyCode.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Verify code'**
+  String get creditNotesVerifyCode;
+
+  /// No description provided for @creditNotesFilterAll.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'All'**
+  String get creditNotesFilterAll;
+
+  /// No description provided for @creditNotesLoadMore.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Load more'**
+  String get creditNotesLoadMore;
+
+  /// No description provided for @creditNotesEmpty.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No credit notes found'**
+  String get creditNotesEmpty;
+
+  /// No description provided for @creditNotesNoExpiry.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No expiry'**
+  String get creditNotesNoExpiry;
+
+  /// No description provided for @creditNotesClose.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Close'**
+  String get creditNotesClose;
+
+  /// No description provided for @creditNotesInvoiceLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Invoice:'**
+  String get creditNotesInvoiceLabel;
+
+  /// No description provided for @creditNotesReturnLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Return:'**
+  String get creditNotesReturnLabel;
+
+  /// No description provided for @creditNotesBalanceLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Balance:'**
+  String get creditNotesBalanceLabel;
+
+  /// No description provided for @creditNotesRetry.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Retry'**
+  String get creditNotesRetry;
 }
 
 class _AppLocalizationsDelegate

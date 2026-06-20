@@ -93,6 +93,9 @@ class AppLocalizationsTe extends AppLocalizations {
   String get shellManageCustomers => 'కస్టమర్లు';
 
   @override
+  String get shellManageCreditNotes => 'Credit Notes';
+
+  @override
   String get shellManageSuppliers => 'సరఫరాదారులను నిర్వహించండి';
 
   @override
@@ -1732,6 +1735,36 @@ class AppLocalizationsTe extends AppLocalizations {
 
   @override
   String get discountsReplacedByRuleLabel => 'Replaced by:';
+
+  @override
+  String get creditNotesVerifyCode => 'Verify code';
+
+  @override
+  String get creditNotesFilterAll => 'All';
+
+  @override
+  String get creditNotesLoadMore => 'Load more';
+
+  @override
+  String get creditNotesEmpty => 'No credit notes found';
+
+  @override
+  String get creditNotesNoExpiry => 'No expiry';
+
+  @override
+  String get creditNotesClose => 'Close';
+
+  @override
+  String get creditNotesInvoiceLabel => 'Invoice:';
+
+  @override
+  String get creditNotesReturnLabel => 'Return:';
+
+  @override
+  String get creditNotesBalanceLabel => 'Balance:';
+
+  @override
+  String get creditNotesRetry => 'Retry';
 }
 
 /// The translations for Telugu, as used in India (`te_IN`).
