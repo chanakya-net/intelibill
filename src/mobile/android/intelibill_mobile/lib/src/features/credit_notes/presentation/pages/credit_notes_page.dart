@@ -363,8 +363,8 @@ class _CreditNoteDetailSheetState extends State<_CreditNoteDetailSheet> {
             const SizedBox(height: 12),
             TextField(
               controller: _reasonController,
-              decoration: const InputDecoration(
-                labelText: 'Reason',
+              decoration: InputDecoration(
+                labelText: l10n.creditNotesVoidReason,
                 border: OutlineInputBorder(),
               ),
             ),
@@ -384,7 +384,7 @@ class _CreditNoteDetailSheetState extends State<_CreditNoteDetailSheet> {
                           width: 16,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('Void'),
+                      : Text(l10n.creditNotesVoid),
                 ),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),

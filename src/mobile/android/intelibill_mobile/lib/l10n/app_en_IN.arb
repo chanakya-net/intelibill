@@ -644,6 +644,8 @@
   "creditNotesEmpty": "No credit notes found",
   "creditNotesNoExpiry": "No expiry",
   "creditNotesClose": "Close",
+  "creditNotesVoidReason": "Reason",
+  "creditNotesVoid": "Void",
   "creditNotesInvoiceLabel": "Invoice:",
   "creditNotesReturnLabel": "Return:",
   "creditNotesBalanceLabel": "Balance:",

@@ -1755,6 +1755,12 @@ class AppLocalizationsBn extends AppLocalizations {
   String get creditNotesClose => 'Close';
 
   @override
+  String get creditNotesVoidReason => 'Reason';
+
+  @override
+  String get creditNotesVoid => 'Void';
+
+  @override
   String get creditNotesInvoiceLabel => 'Invoice:';
 
   @override

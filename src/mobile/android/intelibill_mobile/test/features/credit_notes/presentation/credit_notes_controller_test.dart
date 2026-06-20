@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
+import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/features/credit_notes/domain/entities/credit_note.dart';
 import 'package:intelibill_mobile/src/features/credit_notes/domain/entities/credit_notes_query.dart';
 import 'package:intelibill_mobile/src/features/credit_notes/domain/use_cases/get_credit_note_by_code.dart';
@@ -147,4 +149,29 @@ void main() {
     expect(result, isTrue);
     verify(() => voidCreditNote('CN-001', reason: 'Damaged')).called(1);
   });
+
+  test(
+    'voidActiveNote sets failure when use case throws AppException',
+    () async {
+      when(
+        () => voidCreditNote('CN-001', reason: 'Damaged'),
+      ).thenThrow(
+        AppException(failure: const Failure.unknown(message: 'Blocked')),
+      );
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+
+      final result = await container
+          .read(creditNotesControllerProvider.notifier)
+          .voidActiveNote(code: 'CN-001', reason: 'Damaged');
+
+      expect(result, isFalse);
+      expect(
+        container.read(creditNotesControllerProvider).failure,
+        isA<UnknownFailure>(),
+      );
+      verify(() => voidCreditNote('CN-001', reason: 'Damaged')).called(1);
+    },
+  );
 }
