@@ -3385,6 +3385,18 @@ abstract class AppLocalizations {
   /// **'Close'**
   String get creditNotesClose;
 
+  /// No description provided for @creditNotesVoidReason.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Reason'**
+  String get creditNotesVoidReason;
+
+  /// No description provided for @creditNotesVoid.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Void'**
+  String get creditNotesVoid;
+
   /// No description provided for @creditNotesInvoiceLabel.
   ///
   /// In en_IN, this message translates to:

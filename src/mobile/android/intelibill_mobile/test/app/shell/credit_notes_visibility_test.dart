@@ -31,6 +31,15 @@ AuthSession _session(String role) {
 }
 
 void main() {
+  test('owner and manager can manage credit notes', () {
+    expect(canManageCreditNotes(_session('Owner')), isTrue);
+    expect(canManageCreditNotes(_session('Manager')), isTrue);
+  });
+
+  test('staff cannot manage credit notes', () {
+    expect(canManageCreditNotes(_session('Staff')), isFalse);
+  });
+
   test('owner manager staff can view credit notes', () {
     expect(canViewCreditNotes(_session('Owner')), isTrue);
     expect(canViewCreditNotes(_session('Manager')), isTrue);

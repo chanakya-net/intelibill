@@ -5,8 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:intelibill_mobile/src/app/router/app_router.dart';
+import 'package:intelibill_mobile/src/app/shell/menu_visibility.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
+import 'package:intelibill_mobile/src/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:intelibill_mobile/src/features/credit_notes/domain/entities/credit_note.dart';
 import 'package:intelibill_mobile/src/features/credit_notes/presentation/controllers/credit_notes_controller.dart';
 
@@ -41,13 +43,15 @@ class _CreditNotesPageState extends ConsumerState<CreditNotesPage> {
   Widget build(BuildContext context) {
     final state = ref.watch(creditNotesControllerProvider);
     final l10n = AppLocalizations.of(context)!;
+    final authState = ref.watch(authControllerProvider);
+    final canVoidNotes = canManageCreditNotes(authState.value?.session);
 
     ref.listen(creditNotesControllerProvider.select((s) => s.selectedNote), (
       previous,
       next,
     ) {
       if (next != null && next != previous) {
-        unawaited(_showDetailSheet(context, next));
+        unawaited(_showDetailSheet(context, next, canVoidNotes));
       }
     });
 
@@ -84,18 +88,15 @@ class _CreditNotesPageState extends ConsumerState<CreditNotesPage> {
               ),
               onChanged: (value) {
                 _searchDebounce?.cancel();
-                _searchDebounce = Timer(
-                  const Duration(milliseconds: 350),
-                  () {
-                    if (mounted) {
-                      unawaited(
-                        ref
-                            .read(creditNotesControllerProvider.notifier)
-                            .updateSearch(value),
-                      );
-                    }
-                  },
-                );
+                _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+                  if (mounted) {
+                    unawaited(
+                      ref
+                          .read(creditNotesControllerProvider.notifier)
+                          .updateSearch(value),
+                    );
+                  }
+                });
               },
             ),
             const SizedBox(height: 12),
@@ -121,9 +122,7 @@ class _CreditNotesPageState extends ConsumerState<CreditNotesPage> {
                 unawaited(
                   ref
                       .read(creditNotesControllerProvider.notifier)
-                      .verifyCode(
-                        value,
-                      ),
+                      .verifyCode(value),
                 );
               },
             ),
@@ -225,16 +224,29 @@ class _CreditNotesPageState extends ConsumerState<CreditNotesPage> {
     );
   }
 
-  Future<void> _showDetailSheet(BuildContext context, CreditNote note) async {
-    await showModalBottomSheet<void>(
+  Future<void> _showDetailSheet(
+    BuildContext context,
+    CreditNote note,
+    bool canVoid,
+  ) async {
+    final didVoid = await showModalBottomSheet<bool>(
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
       builder: (context) {
-        return _CreditNoteDetailSheet(note: note);
+        return _CreditNoteDetailSheet(
+          note: note,
+          canVoid: canVoid,
+          onVoid: (reason) => ref
+              .read(creditNotesControllerProvider.notifier)
+              .voidActiveNote(code: note.code, reason: reason),
+        );
       },
     );
     if (!mounted) return;
+    if (didVoid == true) {
+      unawaited(ref.read(creditNotesControllerProvider.notifier).refresh());
+    }
     ref.read(creditNotesControllerProvider.notifier).selectNote(null);
   }
 
@@ -287,10 +299,46 @@ class _CreditNoteCard extends StatelessWidget {
   }
 }
 
-class _CreditNoteDetailSheet extends StatelessWidget {
-  const _CreditNoteDetailSheet({required this.note});
+class _CreditNoteDetailSheet extends StatefulWidget {
+  const _CreditNoteDetailSheet({
+    required this.note,
+    required this.canVoid,
+    required this.onVoid,
+  });
 
   final CreditNote note;
+  final bool canVoid;
+  final Future<bool> Function(String reason) onVoid;
+
+  @override
+  State<_CreditNoteDetailSheet> createState() => _CreditNoteDetailSheetState();
+}
+
+class _CreditNoteDetailSheetState extends State<_CreditNoteDetailSheet> {
+  final _reasonController = TextEditingController();
+  bool _isSubmitting = false;
+
+  @override
+  void dispose() {
+    _reasonController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submitVoid(BuildContext context) async {
+    final reason = _reasonController.text.trim();
+    if (_isSubmitting ||
+        reason.isEmpty ||
+        !widget.canVoid ||
+        !widget.note.isActive) {
+      return;
+    }
+    setState(() => _isSubmitting = true);
+    final isSuccess = await widget.onVoid(reason);
+    if (!mounted) return;
+    setState(() => _isSubmitting = false);
+    if (!isSuccess) return;
+    Navigator.of(context).pop(true);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -301,22 +349,48 @@ class _CreditNoteDetailSheet extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(note.code, style: Theme.of(context).textTheme.titleLarge),
+          Text(widget.note.code, style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 8),
-          Text(note.reason),
+          Text(widget.note.reason),
           const SizedBox(height: 12),
-          Text('${l10n.creditNotesInvoiceLabel} ${note.invoiceNumber}'),
-          Text('${l10n.creditNotesReturnLabel} ${note.returnNumber}'),
+          Text('${l10n.creditNotesInvoiceLabel} ${widget.note.invoiceNumber}'),
+          Text('${l10n.creditNotesReturnLabel} ${widget.note.returnNumber}'),
           Text(
-            '${l10n.creditNotesBalanceLabel} ${note.availableBalance.toStringAsFixed(2)}',
+            '${l10n.creditNotesBalanceLabel} '
+            '${widget.note.availableBalance.toStringAsFixed(2)}',
           ),
-          const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(l10n.creditNotesClose),
+          if (widget.canVoid && widget.note.isActive) ...[
+            const SizedBox(height: 12),
+            TextField(
+              controller: _reasonController,
+              decoration: InputDecoration(
+                labelText: l10n.creditNotesVoidReason,
+                border: OutlineInputBorder(),
+              ),
             ),
+          ],
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              if (widget.canVoid && widget.note.isActive)
+                TextButton(
+                  onPressed: _isSubmitting
+                      ? null
+                      : () => unawaited(_submitVoid(context)),
+                  child: _isSubmitting
+                      ? const SizedBox(
+                          height: 16,
+                          width: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(l10n.creditNotesVoid),
+                ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text(l10n.creditNotesClose),
+              ),
+            ],
           ),
         ],
       ),

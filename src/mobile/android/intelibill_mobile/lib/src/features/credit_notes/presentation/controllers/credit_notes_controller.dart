@@ -13,6 +13,7 @@ import 'package:intelibill_mobile/src/features/credit_notes/domain/repositories/
 import 'package:intelibill_mobile/src/features/credit_notes/domain/use_cases/get_credit_note_by_code.dart';
 import 'package:intelibill_mobile/src/features/credit_notes/domain/use_cases/get_credit_note_print_by_code.dart';
 import 'package:intelibill_mobile/src/features/credit_notes/domain/use_cases/get_credit_notes.dart';
+import 'package:intelibill_mobile/src/features/credit_notes/domain/use_cases/void_credit_note.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'credit_notes_controller.g.dart';
@@ -42,6 +43,11 @@ GetCreditNoteByCode getCreditNoteByCodeUseCase(Ref ref) {
 @riverpod
 GetCreditNotePrintByCode getCreditNotePrintByCodeUseCase(Ref ref) {
   return GetCreditNotePrintByCode(ref.watch(creditNoteRepositoryProvider));
+}
+
+@riverpod
+VoidCreditNote voidCreditNoteUseCase(Ref ref) {
+  return VoidCreditNote(ref.watch(creditNoteRepositoryProvider));
 }
 
 @immutable
@@ -166,6 +172,25 @@ class CreditNotesController extends _$CreditNotesController {
 
   Future<void> openByCode(String code) async {
     await verifyCode(code);
+  }
+
+  Future<bool> voidActiveNote({
+    required String code,
+    required String reason,
+  }) async {
+    try {
+      await ref.read(voidCreditNoteUseCaseProvider)(code, reason: reason);
+      if (!ref.mounted) return false;
+      return true;
+    } on AppException catch (error) {
+      if (!ref.mounted) return false;
+      state = state.copyWith(failure: error.failure);
+      return false;
+    } catch (_) {
+      if (!ref.mounted) return false;
+      state = state.copyWith(failure: const Failure.unknown());
+      return false;
+    }
   }
 
   void selectNote(CreditNote? note) {

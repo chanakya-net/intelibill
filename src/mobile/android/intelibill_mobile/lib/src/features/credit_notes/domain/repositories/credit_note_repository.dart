@@ -14,4 +14,8 @@ interface class CreditNoteRepository {
   Future<CreditNotePrint> getCreditNotePrintByCode(String code) {
     throw UnimplementedError();
   }
+
+  Future<void> voidCreditNote({required String code, required String reason}) {
+    throw UnimplementedError();
+  }
 }

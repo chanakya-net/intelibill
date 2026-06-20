@@ -18,6 +18,10 @@ interface class CreditNoteRemoteDataSource {
   Future<CreditNotePrintDto> getCreditNotePrintByCode(String code) {
     throw UnimplementedError();
   }
+
+  Future<void> voidCreditNote({required String code, required String reason}) {
+    throw UnimplementedError();
+  }
 }
 
 class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
@@ -60,5 +64,16 @@ class CreditNoteRemoteDataSourceImpl implements CreditNoteRemoteDataSource {
       '$_endpoint/$code/print',
     );
     return CreditNotePrintDto.fromJson(response.data!);
+  }
+
+  @override
+  Future<void> voidCreditNote({
+    required String code,
+    required String reason,
+  }) async {
+    await _apiClient.post<void>(
+      '$_endpoint/$code/void',
+      data: {'reason': reason},
+    );
   }
 }

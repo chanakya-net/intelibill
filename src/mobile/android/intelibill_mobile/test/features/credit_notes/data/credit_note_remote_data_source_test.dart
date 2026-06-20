@@ -51,4 +51,29 @@ void main() {
       ),
     ).called(1);
   });
+
+  test('voids note with reason', () async {
+    when(
+      () => apiClient.post<void>(
+        '/credit-notes/CN-001/void',
+        data: {'reason': 'Damaged'},
+      ),
+    ).thenAnswer(
+      (_) async => Response<void>(
+        data: null,
+        statusCode: 200,
+        requestOptions: RequestOptions(path: '/credit-notes/CN-001/void'),
+      ),
+    );
+
+    final dataSource = CreditNoteRemoteDataSourceImpl(apiClient);
+    await dataSource.voidCreditNote(code: 'CN-001', reason: 'Damaged');
+
+    verify(
+      () => apiClient.post<void>(
+        '/credit-notes/CN-001/void',
+        data: {'reason': 'Damaged'},
+      ),
+    ).called(1);
+  });
 }
