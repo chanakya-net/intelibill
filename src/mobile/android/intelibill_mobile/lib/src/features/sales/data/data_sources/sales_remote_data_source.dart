@@ -1,10 +1,15 @@
 import 'package:intelibill_mobile/src/core/network/api_client.dart';
 import 'package:intelibill_mobile/src/core/utils/date_time_wire.dart';
+import 'package:intelibill_mobile/src/features/sales/data/dto/sale_detail_dto.dart';
 import 'package:intelibill_mobile/src/features/sales/data/dto/sales_history_response_dto.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sales_history_query.dart';
 
 interface class SalesRemoteDataSource {
   Future<SalesHistoryResponseDto> getSalesHistory(SalesHistoryQuery query) {
+    throw UnimplementedError();
+  }
+
+  Future<SaleDetailDto> getSaleDetail(String saleId) {
     throw UnimplementedError();
   }
 }
@@ -35,5 +40,13 @@ class SalesRemoteDataSourceImpl implements SalesRemoteDataSource {
     );
 
     return SalesHistoryResponseDto.fromJson(response.data!);
+  }
+
+  @override
+  Future<SaleDetailDto> getSaleDetail(String saleId) async {
+    final response = await _apiClient.get<Map<String, dynamic>>(
+      '$_salesEndpoint/$saleId',
+    );
+    return SaleDetailDto.fromJson(response.data!);
   }
 }
