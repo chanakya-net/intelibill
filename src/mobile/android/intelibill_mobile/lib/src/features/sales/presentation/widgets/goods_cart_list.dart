@@ -4,6 +4,7 @@ import 'package:intelibill_mobile/src/features/sales/domain/entities/sellable.da
 typedef OnDecrease = void Function(String sellableId);
 typedef OnIncrease = void Function(String sellableId);
 typedef OnRemove = void Function(String sellableId);
+typedef OnUnitPriceChanged = void Function(String sellableId, double value);
 
 class GoodsCartList extends StatelessWidget {
   const GoodsCartList({
@@ -12,6 +13,7 @@ class GoodsCartList extends StatelessWidget {
     required this.onDecrease,
     required this.onIncrease,
     required this.onRemove,
+    required this.onUnitPriceChanged,
     required this.total,
   });
 
@@ -19,6 +21,7 @@ class GoodsCartList extends StatelessWidget {
   final OnDecrease onDecrease;
   final OnIncrease onIncrease;
   final OnRemove onRemove;
+  final OnUnitPriceChanged onUnitPriceChanged;
   final double total;
 
   @override
@@ -55,7 +58,12 @@ class GoodsCartList extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Expanded(child: Text(line.sellable.name)),
+                    Expanded(
+                      child: Text(
+                        line.sellable.name,
+                        key: Key('cart-line-name-${line.sellable.id}'),
+                      ),
+                    ),
                     IconButton(
                       key: Key('remove-from-cart-${line.sellable.id}'),
                       icon: const Icon(Icons.delete_outline),
@@ -70,6 +78,26 @@ class GoodsCartList extends StatelessWidget {
                     Text('₹${line.lineTotal.toStringAsFixed(2)}'),
                   ],
                 ),
+                if (line.sellable.isService) ...[
+                  const SizedBox(height: 8),
+                  TextField(
+                    key: Key('service-unit-price-${line.sellable.id}'),
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Unit price',
+                      border: OutlineInputBorder(),
+                    ),
+                    controller: TextEditingController(
+                      text: line.effectiveUnitPrice.toStringAsFixed(2),
+                    ),
+                    onChanged: (value) {
+                      final parsed = double.tryParse(value.trim());
+                      if (parsed != null) {
+                        onUnitPriceChanged(line.sellable.id, parsed);
+                      }
+                    },
+                  ),
+                ],
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [

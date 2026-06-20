@@ -32,10 +32,17 @@ class SellableSearchResults extends StatelessWidget {
         final sellable = sellables[index];
         return Card(
           child: ListTile(
-            title: Text(sellable.name),
+            title: Row(
+              children: [
+                Expanded(child: Text(sellable.name)),
+                _KindChip(kind: sellable.kind),
+              ],
+            ),
             subtitle: Text(
-              '${sellable.barcode ?? '-'} • '
-              'Stock ${_formatQuantity(sellable.stock)} • ₹${sellable.price}',
+              sellable.isService
+                  ? '${sellable.barcode ?? '-'} • ₹${sellable.price}'
+                  : '${sellable.barcode ?? '-'} • '
+                        'Stock ${_formatQuantity(sellable.stock)} • ₹${sellable.price}',
             ),
             trailing: FilledButton(
               key: Key('add-button-${sellable.id}'),
@@ -54,5 +61,22 @@ class SellableSearchResults extends StatelessWidget {
       return whole.toInt().toString();
     }
     return quantity.toString();
+  }
+}
+
+class _KindChip extends StatelessWidget {
+  const _KindChip({required this.kind});
+
+  final String kind;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 8),
+      child: Chip(
+        label: Text(kind),
+        visualDensity: VisualDensity.compact,
+      ),
+    );
   }
 }

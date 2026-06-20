@@ -27,6 +27,21 @@ Sellable _goods({
   );
 }
 
+Sellable _service({
+  required String id,
+  required String name,
+  double price = 50,
+}) {
+  return Sellable(
+    id: id,
+    kind: 'Service',
+    name: name,
+    stock: 0,
+    price: price,
+    barcode: 'SRV-$id',
+  );
+}
+
 void main() {
   late MockSearchSellables mockSearchSellables;
 
@@ -45,13 +60,7 @@ void main() {
   group('NewSaleController', () {
     test('search maps sellables to state', () async {
       final goods = _goods(id: 'g1', name: 'Flour', stock: 5);
-      const service = Sellable(
-        id: 's1',
-        kind: 'Service',
-        name: 'Service Charge',
-        stock: 0,
-        price: 50,
-      );
+      final service = _service(id: 's1', name: 'Service Charge');
 
       when(
         () => mockSearchSellables(
@@ -68,7 +77,7 @@ void main() {
           .search(searchTerm: 'foo');
 
       final state = container.read(newSaleControllerProvider);
-      expect(state.results, equals([goods]));
+      expect(state.results, equals([goods, service]));
       expect(state.searchFailure, isNull);
       expect(state.isSearching, isFalse);
     });
@@ -314,6 +323,60 @@ void main() {
       expect(state.searchTerm, 'new');
       expect(state.searchFailure, isNull);
       expect(state.isSearching, isFalse);
+    });
+
+    test('addToCart adds service line with editable unit price', () async {
+      when(
+        () => mockSearchSellables(
+          searchTerm: any(named: 'searchTerm'),
+          barcode: any(named: 'barcode'),
+        ),
+      ).thenAnswer((_) async => []);
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+      final service = _service(id: 's1', name: 'Installation', price: 120);
+
+      await controller.addToCart(service);
+      controller.updateCartUnitPrice(service.id, 150);
+      controller.updateCartQuantity(service.id, 2);
+
+      final state = container.read(newSaleControllerProvider);
+      expect(state.cartLines.single.quantity, 2.0);
+      expect(state.cartLines.single.unitPrice, 150.0);
+      expect(state.cartLines.single.lineTotal, 300.0);
+      expect(state.searchFailure, isNull);
+    });
+
+    test('mixed goods and service lines coexist in cart', () async {
+      when(
+        () => mockSearchSellables(
+          searchTerm: any(named: 'searchTerm'),
+          barcode: any(named: 'barcode'),
+        ),
+      ).thenAnswer((_) async => []);
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+      final goods = _goods(id: 'g1', name: 'Flour', stock: 5);
+      final service = _service(id: 's1', name: 'Delivery', price: 80);
+
+      await controller.addToCart(goods);
+      await controller.addToCart(service, quantity: 2);
+      controller.updateCartUnitPrice(service.id, 90);
+
+      final state = container.read(newSaleControllerProvider);
+      expect(state.cartLines, hasLength(2));
+      expect(
+        state.cartLines.firstWhere((line) => line.sellable.isGoods).quantity,
+        1,
+      );
+      expect(
+        state.cartLines.firstWhere((line) => line.sellable.isService).unitPrice,
+        90.0,
+      );
     });
   });
 }

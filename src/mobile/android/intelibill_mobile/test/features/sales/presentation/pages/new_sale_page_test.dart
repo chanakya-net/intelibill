@@ -57,8 +57,25 @@ class _StubNewSaleController extends NewSaleController {
 
   @override
   Future<void> addToCart(Sellable sellable, {double quantity = 1}) async {
-    final line = NewSaleCartLine(sellable: sellable, quantity: quantity);
+    final line = NewSaleCartLine(
+      sellable: sellable,
+      quantity: quantity,
+      unitPrice: sellable.price,
+    );
     _state = _state.copyWith(cartLines: [..._state.cartLines, line]);
+    state = _state;
+  }
+
+  @override
+  void updateCartUnitPrice(String sellableId, double nextUnitPrice) {
+    final lines = _state.cartLines
+        .where((line) => line.sellable.id != sellableId)
+        .toList();
+    final line = _state.cartLines.firstWhere(
+      (line) => line.sellable.id == sellableId,
+    );
+    lines.add(line.copyWith(unitPrice: nextUnitPrice));
+    _state = _state.copyWith(cartLines: lines);
     state = _state;
   }
 
@@ -103,6 +120,17 @@ Sellable _goods() {
     price: 20,
     barcode: 'BAR001',
     batchNumber: 'BN-1',
+  );
+}
+
+Sellable _service() {
+  return const Sellable(
+    id: 's1',
+    kind: 'Service',
+    name: 'Installation',
+    stock: 0,
+    price: 150,
+    barcode: 'SRV001',
   );
 }
 
@@ -162,6 +190,25 @@ void main() {
       expect(find.text('Qty: 1'), findsOneWidget);
     });
 
+    testWidgets(
+      'renders service results distinctly and adds service cart line',
+      (
+        tester,
+      ) async {
+        final state = NewSaleState(results: [_service()]);
+        await tester.pumpWidget(_buildApp(_StubNewSaleController(state)));
+
+        expect(find.text('Installation'), findsOneWidget);
+        expect(find.text('Service'), findsOneWidget);
+        expect(find.textContaining('₹150'), findsOneWidget);
+        await tester.tap(find.byKey(const Key('add-button-s1')));
+        await tester.pump();
+
+        expect(find.byKey(const Key('service-unit-price-s1')), findsOneWidget);
+        expect(find.text('Qty: 1'), findsOneWidget);
+      },
+    );
+
     testWidgets('clears stale search results when latest state has failure', (
       tester,
     ) async {
@@ -198,6 +245,37 @@ void main() {
 
       expect(find.text('Qty: 1.25'), findsOneWidget);
       expect(find.textContaining('Total: ₹25.00'), findsOneWidget);
+    });
+
+    testWidgets('renders mixed goods and service cart lines', (tester) async {
+      const goods = Sellable(
+        id: 'g1',
+        kind: 'Goods',
+        name: 'Flour',
+        stock: 1,
+        price: 20,
+        barcode: 'BAR001',
+        batchNumber: 'BN-1',
+      );
+      const service = Sellable(
+        id: 's1',
+        kind: 'Service',
+        name: 'Installation',
+        stock: 0,
+        price: 150,
+        barcode: 'SRV001',
+      );
+      const state = NewSaleState(
+        cartLines: [
+          NewSaleCartLine(sellable: goods, quantity: 1),
+          NewSaleCartLine(sellable: service, quantity: 2, unitPrice: 175),
+        ],
+      );
+
+      await tester.pumpWidget(_buildApp(_StubNewSaleController(state)));
+
+      expect(find.byKey(const Key('decrease-g1')), findsOneWidget);
+      expect(find.byKey(const Key('service-unit-price-s1')), findsOneWidget);
     });
 
     testWidgets('barcode lookup clears stale search field and stays in sync', (
