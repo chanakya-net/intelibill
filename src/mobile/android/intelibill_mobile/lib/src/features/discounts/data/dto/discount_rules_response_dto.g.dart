@@ -19,7 +19,6 @@ _DiscountRulesResponseDto _$DiscountRulesResponseDtoFromJson(
   totalCount: (json['totalCount'] as num).toInt(),
   pageNumber: (json['pageNumber'] as num).toInt(),
   pageSize: (json['pageSize'] as num).toInt(),
-  pageCount: (json['pageCount'] as num?)?.toInt(),
 );
 
 Map<String, dynamic> _$DiscountRulesResponseDtoToJson(
@@ -29,5 +28,4 @@ Map<String, dynamic> _$DiscountRulesResponseDtoToJson(
   'totalCount': instance.totalCount,
   'pageNumber': instance.pageNumber,
   'pageSize': instance.pageSize,
-  'pageCount': instance.pageCount,
 };

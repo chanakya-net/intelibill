@@ -75,7 +75,11 @@ class DiscountRuleDetailSheet extends ConsumerWidget {
       _DetailRow(l10n.discountsDetailRuleLabel, rule.name),
       _DetailRow(l10n.discountsRuleTypeLabel, rule.ruleType),
       _DetailRow(l10n.discountsStatusLabel, _statusLabel(l10n, rule.status)),
-      _DetailRow(l10n.discountsPercentageLabel, '${rule.percentage}%'),
+      if (rule.percentage != null)
+        _DetailRow(
+          l10n.discountsPercentageLabel,
+          '${rule.percentage!.toStringAsFixed(1)}%',
+        ),
       if (rule.thresholdAmount != null)
         _DetailRow(
           l10n.discountsThresholdLabel,

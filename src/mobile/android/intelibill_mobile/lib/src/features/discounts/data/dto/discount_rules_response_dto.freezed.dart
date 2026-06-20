@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$DiscountRulesResponseDto {
 
-@JsonKey(name: 'items') List<DiscountRuleListItemDto> get items;@JsonKey(name: 'totalCount') int get totalCount;@JsonKey(name: 'pageNumber') int get pageNumber;@JsonKey(name: 'pageSize') int get pageSize;@JsonKey(name: 'pageCount') int? get pageCount;
+@JsonKey(name: 'items') List<DiscountRuleListItemDto> get items;@JsonKey(name: 'totalCount') int get totalCount;@JsonKey(name: 'pageNumber') int get pageNumber;@JsonKey(name: 'pageSize') int get pageSize;
 /// Create a copy of DiscountRulesResponseDto
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -28,16 +28,16 @@ $DiscountRulesResponseDtoCopyWith<DiscountRulesResponseDto> get copyWith => _$Di
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is DiscountRulesResponseDto&&const DeepCollectionEquality().equals(other.items, items)&&(identical(other.totalCount, totalCount) || other.totalCount == totalCount)&&(identical(other.pageNumber, pageNumber) || other.pageNumber == pageNumber)&&(identical(other.pageSize, pageSize) || other.pageSize == pageSize)&&(identical(other.pageCount, pageCount) || other.pageCount == pageCount));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is DiscountRulesResponseDto&&const DeepCollectionEquality().equals(other.items, items)&&(identical(other.totalCount, totalCount) || other.totalCount == totalCount)&&(identical(other.pageNumber, pageNumber) || other.pageNumber == pageNumber)&&(identical(other.pageSize, pageSize) || other.pageSize == pageSize));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(items),totalCount,pageNumber,pageSize,pageCount);
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(items),totalCount,pageNumber,pageSize);
 
 @override
 String toString() {
-  return 'DiscountRulesResponseDto(items: $items, totalCount: $totalCount, pageNumber: $pageNumber, pageSize: $pageSize, pageCount: $pageCount)';
+  return 'DiscountRulesResponseDto(items: $items, totalCount: $totalCount, pageNumber: $pageNumber, pageSize: $pageSize)';
 }
 
 
@@ -48,7 +48,7 @@ abstract mixin class $DiscountRulesResponseDtoCopyWith<$Res>  {
   factory $DiscountRulesResponseDtoCopyWith(DiscountRulesResponseDto value, $Res Function(DiscountRulesResponseDto) _then) = _$DiscountRulesResponseDtoCopyWithImpl;
 @useResult
 $Res call({
-@JsonKey(name: 'items') List<DiscountRuleListItemDto> items,@JsonKey(name: 'totalCount') int totalCount,@JsonKey(name: 'pageNumber') int pageNumber,@JsonKey(name: 'pageSize') int pageSize,@JsonKey(name: 'pageCount') int? pageCount
+@JsonKey(name: 'items') List<DiscountRuleListItemDto> items,@JsonKey(name: 'totalCount') int totalCount,@JsonKey(name: 'pageNumber') int pageNumber,@JsonKey(name: 'pageSize') int pageSize
 });
 
 
@@ -65,14 +65,13 @@ class _$DiscountRulesResponseDtoCopyWithImpl<$Res>
 
 /// Create a copy of DiscountRulesResponseDto
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? items = null,Object? totalCount = null,Object? pageNumber = null,Object? pageSize = null,Object? pageCount = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? items = null,Object? totalCount = null,Object? pageNumber = null,Object? pageSize = null,}) {
   return _then(_self.copyWith(
 items: null == items ? _self.items : items // ignore: cast_nullable_to_non_nullable
 as List<DiscountRuleListItemDto>,totalCount: null == totalCount ? _self.totalCount : totalCount // ignore: cast_nullable_to_non_nullable
 as int,pageNumber: null == pageNumber ? _self.pageNumber : pageNumber // ignore: cast_nullable_to_non_nullable
 as int,pageSize: null == pageSize ? _self.pageSize : pageSize // ignore: cast_nullable_to_non_nullable
-as int,pageCount: freezed == pageCount ? _self.pageCount : pageCount // ignore: cast_nullable_to_non_nullable
-as int?,
+as int,
   ));
 }
 
@@ -154,10 +153,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'items')  List<DiscountRuleListItemDto> items, @JsonKey(name: 'totalCount')  int totalCount, @JsonKey(name: 'pageNumber')  int pageNumber, @JsonKey(name: 'pageSize')  int pageSize, @JsonKey(name: 'pageCount')  int? pageCount)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'items')  List<DiscountRuleListItemDto> items, @JsonKey(name: 'totalCount')  int totalCount, @JsonKey(name: 'pageNumber')  int pageNumber, @JsonKey(name: 'pageSize')  int pageSize)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _DiscountRulesResponseDto() when $default != null:
-return $default(_that.items,_that.totalCount,_that.pageNumber,_that.pageSize,_that.pageCount);case _:
+return $default(_that.items,_that.totalCount,_that.pageNumber,_that.pageSize);case _:
   return orElse();
 
 }
@@ -175,10 +174,10 @@ return $default(_that.items,_that.totalCount,_that.pageNumber,_that.pageSize,_th
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'items')  List<DiscountRuleListItemDto> items, @JsonKey(name: 'totalCount')  int totalCount, @JsonKey(name: 'pageNumber')  int pageNumber, @JsonKey(name: 'pageSize')  int pageSize, @JsonKey(name: 'pageCount')  int? pageCount)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'items')  List<DiscountRuleListItemDto> items, @JsonKey(name: 'totalCount')  int totalCount, @JsonKey(name: 'pageNumber')  int pageNumber, @JsonKey(name: 'pageSize')  int pageSize)  $default,) {final _that = this;
 switch (_that) {
 case _DiscountRulesResponseDto():
-return $default(_that.items,_that.totalCount,_that.pageNumber,_that.pageSize,_that.pageCount);}
+return $default(_that.items,_that.totalCount,_that.pageNumber,_that.pageSize);}
 }
 /// A variant of `when` that fallback to returning `null`
 ///
@@ -192,10 +191,10 @@ return $default(_that.items,_that.totalCount,_that.pageNumber,_that.pageSize,_th
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'items')  List<DiscountRuleListItemDto> items, @JsonKey(name: 'totalCount')  int totalCount, @JsonKey(name: 'pageNumber')  int pageNumber, @JsonKey(name: 'pageSize')  int pageSize, @JsonKey(name: 'pageCount')  int? pageCount)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'items')  List<DiscountRuleListItemDto> items, @JsonKey(name: 'totalCount')  int totalCount, @JsonKey(name: 'pageNumber')  int pageNumber, @JsonKey(name: 'pageSize')  int pageSize)?  $default,) {final _that = this;
 switch (_that) {
 case _DiscountRulesResponseDto() when $default != null:
-return $default(_that.items,_that.totalCount,_that.pageNumber,_that.pageSize,_that.pageCount);case _:
+return $default(_that.items,_that.totalCount,_that.pageNumber,_that.pageSize);case _:
   return null;
 
 }
@@ -207,7 +206,7 @@ return $default(_that.items,_that.totalCount,_that.pageNumber,_that.pageSize,_th
 @JsonSerializable()
 
 class _DiscountRulesResponseDto implements DiscountRulesResponseDto {
-  const _DiscountRulesResponseDto({@JsonKey(name: 'items') final  List<DiscountRuleListItemDto> items = const [], @JsonKey(name: 'totalCount') required this.totalCount, @JsonKey(name: 'pageNumber') required this.pageNumber, @JsonKey(name: 'pageSize') required this.pageSize, @JsonKey(name: 'pageCount') this.pageCount}): _items = items;
+  const _DiscountRulesResponseDto({@JsonKey(name: 'items') final  List<DiscountRuleListItemDto> items = const [], @JsonKey(name: 'totalCount') required this.totalCount, @JsonKey(name: 'pageNumber') required this.pageNumber, @JsonKey(name: 'pageSize') required this.pageSize}): _items = items;
   factory _DiscountRulesResponseDto.fromJson(Map<String, dynamic> json) => _$DiscountRulesResponseDtoFromJson(json);
 
  final  List<DiscountRuleListItemDto> _items;
@@ -220,7 +219,6 @@ class _DiscountRulesResponseDto implements DiscountRulesResponseDto {
 @override@JsonKey(name: 'totalCount') final  int totalCount;
 @override@JsonKey(name: 'pageNumber') final  int pageNumber;
 @override@JsonKey(name: 'pageSize') final  int pageSize;
-@override@JsonKey(name: 'pageCount') final  int? pageCount;
 
 /// Create a copy of DiscountRulesResponseDto
 /// with the given fields replaced by the non-null parameter values.
@@ -235,16 +233,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _DiscountRulesResponseDto&&const DeepCollectionEquality().equals(other._items, _items)&&(identical(other.totalCount, totalCount) || other.totalCount == totalCount)&&(identical(other.pageNumber, pageNumber) || other.pageNumber == pageNumber)&&(identical(other.pageSize, pageSize) || other.pageSize == pageSize)&&(identical(other.pageCount, pageCount) || other.pageCount == pageCount));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _DiscountRulesResponseDto&&const DeepCollectionEquality().equals(other._items, _items)&&(identical(other.totalCount, totalCount) || other.totalCount == totalCount)&&(identical(other.pageNumber, pageNumber) || other.pageNumber == pageNumber)&&(identical(other.pageSize, pageSize) || other.pageSize == pageSize));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_items),totalCount,pageNumber,pageSize,pageCount);
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_items),totalCount,pageNumber,pageSize);
 
 @override
 String toString() {
-  return 'DiscountRulesResponseDto(items: $items, totalCount: $totalCount, pageNumber: $pageNumber, pageSize: $pageSize, pageCount: $pageCount)';
+  return 'DiscountRulesResponseDto(items: $items, totalCount: $totalCount, pageNumber: $pageNumber, pageSize: $pageSize)';
 }
 
 
@@ -255,7 +253,7 @@ abstract mixin class _$DiscountRulesResponseDtoCopyWith<$Res> implements $Discou
   factory _$DiscountRulesResponseDtoCopyWith(_DiscountRulesResponseDto value, $Res Function(_DiscountRulesResponseDto) _then) = __$DiscountRulesResponseDtoCopyWithImpl;
 @override @useResult
 $Res call({
-@JsonKey(name: 'items') List<DiscountRuleListItemDto> items,@JsonKey(name: 'totalCount') int totalCount,@JsonKey(name: 'pageNumber') int pageNumber,@JsonKey(name: 'pageSize') int pageSize,@JsonKey(name: 'pageCount') int? pageCount
+@JsonKey(name: 'items') List<DiscountRuleListItemDto> items,@JsonKey(name: 'totalCount') int totalCount,@JsonKey(name: 'pageNumber') int pageNumber,@JsonKey(name: 'pageSize') int pageSize
 });
 
 
@@ -272,14 +270,13 @@ class __$DiscountRulesResponseDtoCopyWithImpl<$Res>
 
 /// Create a copy of DiscountRulesResponseDto
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? items = null,Object? totalCount = null,Object? pageNumber = null,Object? pageSize = null,Object? pageCount = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? items = null,Object? totalCount = null,Object? pageNumber = null,Object? pageSize = null,}) {
   return _then(_DiscountRulesResponseDto(
 items: null == items ? _self._items : items // ignore: cast_nullable_to_non_nullable
 as List<DiscountRuleListItemDto>,totalCount: null == totalCount ? _self.totalCount : totalCount // ignore: cast_nullable_to_non_nullable
 as int,pageNumber: null == pageNumber ? _self.pageNumber : pageNumber // ignore: cast_nullable_to_non_nullable
 as int,pageSize: null == pageSize ? _self.pageSize : pageSize // ignore: cast_nullable_to_non_nullable
-as int,pageCount: freezed == pageCount ? _self.pageCount : pageCount // ignore: cast_nullable_to_non_nullable
-as int?,
+as int,
   ));
 }
 

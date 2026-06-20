@@ -46,7 +46,6 @@ DiscountsState _loadedState() {
         name: 'Summer Batch',
         description: '20% off',
         inventoryBatchId: 'batch-1',
-        percentage: 20,
         thresholdAmount: null,
         startsAt: DateTime.utc(2026, 5, 1),
         endsAt: DateTime.utc(2026, 5, 10),
@@ -106,6 +105,16 @@ void main() {
       expect(find.text('Active'), findsAtLeastNWidgets(2));
       expect(find.text('Showing 1 of 1'), findsOneWidget);
     });
+
+    testWidgets(
+      'list card omits percentage row when list item has no percentage',
+      (tester) async {
+        await tester.pumpWidget(_buildApp(_loadedState()));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Discount:'), findsNothing);
+      },
+    );
   });
 
   group('DiscountRuleDetailSheet', () {

@@ -19,7 +19,7 @@ void main() {
     final domain = DiscountRuleMapper.toDomainFromListItem(dto, clock: clock);
 
     expect(domain.discountRuleId, 'rule-1');
-    expect(domain.percentage, 0);
+    expect(domain.percentage, isNull);
     expect(domain.status, 'active');
     expect(domain.thresholdAmount, isNull);
   });

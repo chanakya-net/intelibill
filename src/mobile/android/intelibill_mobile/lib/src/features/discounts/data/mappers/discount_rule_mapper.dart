@@ -49,7 +49,7 @@ class DiscountRuleMapper {
       discountRuleId: dto.id,
       ruleType: dto.ruleType,
       name: dto.name,
-      percentage: 0,
+      percentage: null,
       isActive: dto.isActive,
       startsAt: dto.startsAt?.toLocal(),
       endsAt: dto.endsAt?.toLocal(),
@@ -79,7 +79,6 @@ class DiscountRuleMapper {
       totalCount: dto.totalCount,
       pageNumber: dto.pageNumber,
       pageSize: dto.pageSize,
-      pageCount: dto.pageCount ?? 0,
     );
   }
 

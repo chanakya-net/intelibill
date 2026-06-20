@@ -30,9 +30,8 @@ void main() {
         (_) async => const DiscountRulesResponseDto(
           items: [],
           totalCount: 5,
-          pageNumber: 2,
+          pageNumber: 1,
           pageSize: 20,
-          pageCount: 3,
         ),
       );
 
@@ -41,9 +40,43 @@ void main() {
       );
 
       expect(result.totalCount, 5);
-      expect(result.pageNumber, 2);
-      expect(result.pageCount, 3);
+      expect(result.pageNumber, 1);
+      expect(result.hasMore, isFalse);
       expect(result.rules, isEmpty);
+    });
+
+    test('hasMore is true when more pages exist', () async {
+      when(() => remoteDataSource.getDiscountRules(any())).thenAnswer(
+        (_) async => const DiscountRulesResponseDto(
+          items: [],
+          totalCount: 50,
+          pageNumber: 1,
+          pageSize: 20,
+        ),
+      );
+
+      final result = await repository.getDiscountRules(
+        const DiscountRulesQuery(),
+      );
+
+      expect(result.hasMore, isTrue);
+    });
+
+    test('hasMore is false on last page', () async {
+      when(() => remoteDataSource.getDiscountRules(any())).thenAnswer(
+        (_) async => const DiscountRulesResponseDto(
+          items: [],
+          totalCount: 50,
+          pageNumber: 3,
+          pageSize: 20,
+        ),
+      );
+
+      final result = await repository.getDiscountRules(
+        const DiscountRulesQuery(),
+      );
+
+      expect(result.hasMore, isFalse);
     });
 
     test('rethrows AppExceptions from remote source', () async {

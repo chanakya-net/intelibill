@@ -68,7 +68,6 @@ void main() {
           totalCount: 0,
           pageNumber: 1,
           pageSize: 20,
-          pageCount: 0,
         ),
       );
 
@@ -87,7 +86,6 @@ void main() {
           totalCount: 0,
           pageNumber: 1,
           pageSize: 20,
-          pageCount: 0,
         ),
       );
 
@@ -114,7 +112,6 @@ void main() {
           totalCount: 0,
           pageNumber: 1,
           pageSize: 20,
-          pageCount: 0,
         ),
       );
 
@@ -143,7 +140,6 @@ void main() {
           totalCount: 0,
           pageNumber: 1,
           pageSize: 20,
-          pageCount: 0,
         ),
       );
 

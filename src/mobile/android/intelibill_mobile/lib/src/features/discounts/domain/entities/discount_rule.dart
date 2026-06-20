@@ -7,7 +7,7 @@ class DiscountRule extends Equatable {
     required this.name,
     this.description,
     this.inventoryBatchId,
-    required this.percentage,
+    this.percentage,
     this.thresholdAmount,
     this.startsAt,
     this.endsAt,
@@ -28,7 +28,7 @@ class DiscountRule extends Equatable {
   final String name;
   final String? description;
   final String? inventoryBatchId;
-  final double percentage;
+  final double? percentage;
   final double? thresholdAmount;
   final DateTime? startsAt;
   final DateTime? endsAt;
@@ -73,14 +73,12 @@ class DiscountRulesResult {
     required this.totalCount,
     required this.pageNumber,
     required this.pageSize,
-    required this.pageCount,
   });
 
   final List<DiscountRule> rules;
   final int totalCount;
   final int pageNumber;
   final int pageSize;
-  final int pageCount;
 
-  bool get hasMore => pageNumber < pageCount;
+  bool get hasMore => pageNumber * pageSize < totalCount;
 }

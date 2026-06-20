@@ -11,7 +11,6 @@ sealed class DiscountRulesResponseDto with _$DiscountRulesResponseDto {
     @JsonKey(name: 'totalCount') required int totalCount,
     @JsonKey(name: 'pageNumber') required int pageNumber,
     @JsonKey(name: 'pageSize') required int pageSize,
-    @JsonKey(name: 'pageCount') int? pageCount,
   }) = _DiscountRulesResponseDto;
 
   factory DiscountRulesResponseDto.fromJson(Map<String, dynamic> json) =>

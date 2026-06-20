@@ -33,11 +33,13 @@ class DiscountRuleListCard extends StatelessWidget {
           children: [
             const SizedBox(height: 6),
             _RowText(label: l10n.discountsRuleTypeLabel, value: rule.ruleType),
-            const SizedBox(height: 4),
-            _RowText(
-              label: l10n.discountsPercentageLabel,
-              value: '${rule.percentage.toStringAsFixed(1)}%',
-            ),
+            if (rule.percentage != null) ...[
+              const SizedBox(height: 4),
+              _RowText(
+                label: l10n.discountsPercentageLabel,
+                value: '${rule.percentage!.toStringAsFixed(1)}%',
+              ),
+            ],
           ],
         ),
         trailing: _StatusPill(
