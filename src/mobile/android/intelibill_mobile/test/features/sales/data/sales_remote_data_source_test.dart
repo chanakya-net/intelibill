@@ -71,5 +71,39 @@ void main() {
         ),
       ).called(1);
     });
+
+    test('calls /sales/{saleId} for sale detail', () async {
+      when(
+        () => mockApiClient.get<Map<String, dynamic>>(
+          '/sales/sale-abc',
+        ),
+      ).thenAnswer(
+        (_) async => Response(
+          data: {
+            'saleId': 'sale-abc',
+            'invoiceNumber': 'INV-001',
+            'paymentMethod': 1,
+            'soldAt': '2026-05-11T10:30:00.000Z',
+            'paidAmount': 0.0,
+            'dueAmount': 0.0,
+            'totalBeforeDiscount': 0.0,
+            'totalDiscountAmount': 0.0,
+            'totalAmount': 0.0,
+            'totalTaxAmount': 0.0,
+          },
+          statusCode: 200,
+          requestOptions: RequestOptions(path: '/sales/sale-abc'),
+        ),
+      );
+
+      final response = await remoteDataSource.getSaleDetail('sale-abc');
+
+      expect(response.saleId, 'sale-abc');
+      verify(
+        () => mockApiClient.get<Map<String, dynamic>>(
+          '/sales/sale-abc',
+        ),
+      ).called(1);
+    });
   });
 }
