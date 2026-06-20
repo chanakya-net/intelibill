@@ -20,6 +20,7 @@ import 'package:intelibill_mobile/src/features/inventory/presentation/pages/adju
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/inventory_batches_page.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/items_page.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/pages/sales_history_page.dart';
+import 'package:intelibill_mobile/src/features/sales/presentation/pages/new_sale_page.dart';
 import 'package:intelibill_mobile/src/features/shops/presentation/pages/create_shop_page.dart';
 import 'package:intelibill_mobile/src/features/shops/presentation/pages/manage_shop_page.dart';
 import 'package:intelibill_mobile/src/features/suppliers/presentation/pages/suppliers_page.dart';
@@ -142,10 +143,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: AppRoutes.salesNew,
-            builder: (context, state) => _buildPlaceholder(
-              context,
-              title: AppLocalizations.of(context)!.shellNewSale,
-            ),
+            builder: (context, state) => const NewSalePage(),
           ),
           GoRoute(
             path: AppRoutes.salesHistory,

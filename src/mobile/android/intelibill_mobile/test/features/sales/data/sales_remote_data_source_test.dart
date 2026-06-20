@@ -71,5 +71,57 @@ void main() {
         ),
       ).called(1);
     });
+
+    test('calls /sales/sellables with searchTerm query', () async {
+      when(
+        () => mockApiClient.get<List<dynamic>>(
+          any<String>(),
+          queryParameters: any<Map<String, dynamic>>(
+            named: 'queryParameters',
+          ),
+        ),
+      ).thenAnswer(
+        (_) async => Response(
+          data: <dynamic>[],
+          statusCode: 200,
+          requestOptions: RequestOptions(path: '/sales/sellables'),
+        ),
+      );
+
+      await remoteDataSource.searchSellables(searchTerm: 'flour');
+
+      verify(
+        () => mockApiClient.get<List<dynamic>>(
+          '/sales/sellables',
+          queryParameters: {'searchTerm': 'flour'},
+        ),
+      ).called(1);
+    });
+
+    test('calls /sales/sellables with barcode query', () async {
+      when(
+        () => mockApiClient.get<List<dynamic>>(
+          any<String>(),
+          queryParameters: any<Map<String, dynamic>>(
+            named: 'queryParameters',
+          ),
+        ),
+      ).thenAnswer(
+        (_) async => Response(
+          data: <dynamic>[],
+          statusCode: 200,
+          requestOptions: RequestOptions(path: '/sales/sellables'),
+        ),
+      );
+
+      await remoteDataSource.searchSellables(barcode: 'BAR001');
+
+      verify(
+        () => mockApiClient.get<List<dynamic>>(
+          '/sales/sellables',
+          queryParameters: {'barcode': 'BAR001'},
+        ),
+      ).called(1);
+    });
   });
 }

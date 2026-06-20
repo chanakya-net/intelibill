@@ -1,8 +1,10 @@
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/features/sales/data/data_sources/sales_remote_data_source.dart';
+import 'package:intelibill_mobile/src/features/sales/data/mappers/sellable_mapper.dart';
 import 'package:intelibill_mobile/src/features/sales/data/mappers/sale_list_item_mapper.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sales_history_query.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/entities/sellable.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/repositories/sales_repository.dart';
 
 class SalesRepositoryImpl implements SalesRepository {
@@ -15,6 +17,28 @@ class SalesRepositoryImpl implements SalesRepository {
     try {
       final dto = await _remoteDataSource.getSalesHistory(query);
       return SaleListItemMapper.resultToDomain(dto);
+    } on AppException {
+      rethrow;
+    } on FormatException catch (error) {
+      throw AppException(
+        failure: Failure.serialization(message: error.message),
+      );
+    } catch (error) {
+      throw AppException(failure: Failure.unknown(message: error.toString()));
+    }
+  }
+
+  @override
+  Future<List<Sellable>> searchSellables({
+    String? searchTerm,
+    String? barcode,
+  }) async {
+    try {
+      final dtos = await _remoteDataSource.searchSellables(
+        searchTerm: searchTerm,
+        barcode: barcode,
+      );
+      return dtos.map(SellableMapper.toDomain).toList();
     } on AppException {
       rethrow;
     } on FormatException catch (error) {
