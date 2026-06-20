@@ -23,6 +23,7 @@ import 'package:intelibill_mobile/src/features/sales/presentation/pages/sales_hi
 import 'package:intelibill_mobile/src/features/shops/presentation/pages/create_shop_page.dart';
 import 'package:intelibill_mobile/src/features/shops/presentation/pages/manage_shop_page.dart';
 import 'package:intelibill_mobile/src/features/suppliers/presentation/pages/suppliers_page.dart';
+import 'package:intelibill_mobile/src/features/services/presentation/pages/services_page.dart';
 import 'package:intelibill_mobile/src/features/users/presentation/pages/users_page.dart';
 
 class AppRoutes {
@@ -43,6 +44,7 @@ class AppRoutes {
   static const String profitLoss = '/sales/profit-loss';
   static const String customers = '/customers';
   static const String suppliers = '/suppliers';
+  static const String services = '/services';
   static const String createShop = '/shops/create';
   static const String manageShop = '/shops/manage';
   static const String expenses = '/expenses';
@@ -165,6 +167,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.suppliers,
             builder: (context, state) => const SuppliersPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.services,
+            builder: (context, state) => const ServicesPage(),
           ),
           GoRoute(
             path: AppRoutes.createShop,

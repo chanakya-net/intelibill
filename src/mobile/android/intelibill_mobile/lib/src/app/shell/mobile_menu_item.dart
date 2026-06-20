@@ -30,6 +30,7 @@ enum MobileMenuLabelKey {
   sales('shellManageSales'),
   customers('shellManageCustomers'),
   more('shellMore'),
+  services('shellManageServices'),
   suppliers('shellManageSuppliers'),
   expenses('shellManageExpenses'),
   users('shellManageUsers'),
@@ -67,6 +68,8 @@ extension MobileMenuLabelKeyX on MobileMenuLabelKey {
         return l10n.shellManageCustomers;
       case MobileMenuLabelKey.more:
         return l10n.shellMore;
+      case MobileMenuLabelKey.services:
+        return l10n.shellManageServices;
       case MobileMenuLabelKey.suppliers:
         return l10n.shellManageSuppliers;
       case MobileMenuLabelKey.expenses:
@@ -214,6 +217,16 @@ final List<MobileMenuItem> _primaryNavigationItems = [
 ];
 
 final List<MobileMenuItem> _moreMenuItems = [
+  const MobileMenuItem(
+    labelKey: MobileMenuLabelKey.services,
+    icon: Icons.room_service_outlined,
+    destination: MobileMenuRoute(
+      AppRoutes.services,
+      matchPrefix: AppRoutes.services,
+    ),
+    section: MobileMenuSection.management,
+    isVisible: canManageServices,
+  ),
   const MobileMenuItem(
     labelKey: MobileMenuLabelKey.suppliers,
     icon: Icons.local_shipping_outlined,

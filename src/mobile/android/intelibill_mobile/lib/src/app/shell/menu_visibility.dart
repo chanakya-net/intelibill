@@ -42,6 +42,10 @@ bool canManageCustomers(AuthSession? session) {
   return isOwnerOrManager(session);
 }
 
+bool canManageServices(AuthSession? session) {
+  return isOwnerOrManager(session);
+}
+
 bool canManageSuppliers(AuthSession? session) {
   return isOwner(session);
 }

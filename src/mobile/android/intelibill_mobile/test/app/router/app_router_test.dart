@@ -33,6 +33,7 @@ void main() {
       expect(AppRoutes.profitLoss, equals('/sales/profit-loss'));
       expect(AppRoutes.customers, equals('/customers'));
       expect(AppRoutes.suppliers, equals('/suppliers'));
+      expect(AppRoutes.services, equals('/services'));
       expect(AppRoutes.expenses, equals('/expenses'));
       expect(AppRoutes.users, equals('/users'));
       expect(AppRoutes.discounts, equals('/discounts'));
