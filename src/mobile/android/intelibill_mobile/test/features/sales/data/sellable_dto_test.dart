@@ -43,5 +43,31 @@ void main() {
       expect(dto.quantity, 1.25);
       expect(dto.salesPrice, 30.0);
     });
+
+    test('parses service sellable json', () {
+      final json = {
+        'kind': 'Service',
+        'serviceId': 'svc-1',
+        'code': 'SRV-001',
+        'name': 'Installation',
+        'description': 'On-site setup',
+        'price': 150.0,
+        'hsnCode': '9987',
+        'taxRatePercent': 18.0,
+        'taxIncluded': true,
+      };
+
+      final dto = SellableDto.fromJson(json);
+
+      expect(dto.kind, 'Service');
+      expect(dto.serviceId, 'svc-1');
+      expect(dto.code, 'SRV-001');
+      expect(dto.name, 'Installation');
+      expect(dto.description, 'On-site setup');
+      expect(dto.price, 150.0);
+      expect(dto.hsnCode, '9987');
+      expect(dto.taxRatePercent, 18.0);
+      expect(dto.taxIncluded, isTrue);
+    });
   });
 }

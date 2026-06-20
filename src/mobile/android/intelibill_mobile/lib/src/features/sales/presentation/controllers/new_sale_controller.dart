@@ -141,7 +141,7 @@ class NewSaleController extends _$NewSaleController {
         return;
       }
       state = state.copyWith(
-        results: results.where((sellable) => sellable.isGoods).toList(),
+        results: results,
         isSearching: false,
       );
     } on AppException catch (error) {
@@ -191,7 +191,12 @@ class NewSaleController extends _$NewSaleController {
   }
 
   Future<void> addToCart(Sellable sellable, {double quantity = 1}) async {
-    if (!sellable.isGoods) return;
+    if (!sellable.isGoods) {
+      if (sellable.isService) {
+        _addServiceToCart(sellable, quantity: quantity);
+      }
+      return;
+    }
     final existing = _findLine(sellable.id);
     final currentQuantity = existing?.quantity ?? 0;
     final nextQuantity = currentQuantity + quantity;
@@ -223,6 +228,36 @@ class NewSaleController extends _$NewSaleController {
     );
   }
 
+  void updateCartUnitPrice(String sellableId, double nextUnitPrice) {
+    final line = _findLine(sellableId);
+    if (line == null || !line.sellable.isService) return;
+    if (!_isValidQuantity(nextUnitPrice)) {
+      final updated = state.cartLines
+          .map(
+            (item) => item.sellable.id == sellableId
+                ? item.copyWith(unitPrice: null)
+                : item,
+          )
+          .toList();
+      state = state.copyWith(
+        cartLines: updated,
+        searchFailure: const Failure.validation(
+          message: 'Unit price must be greater than zero.',
+        ),
+      );
+      return;
+    }
+
+    final updated = state.cartLines
+        .map(
+          (item) => item.sellable.id == sellableId
+              ? item.copyWith(unitPrice: nextUnitPrice)
+              : item,
+        )
+        .toList();
+    state = state.copyWith(cartLines: updated, clearFailure: true);
+  }
+
   void updateCartQuantity(String sellableId, double nextQuantity) {
     final line = _findLine(sellableId);
     if (line == null) return;
@@ -231,7 +266,8 @@ class NewSaleController extends _$NewSaleController {
       return;
     }
     if (!_isValidQuantity(nextQuantity) ||
-        !_isWithinStock(nextQuantity, line.sellable)) {
+        (line.sellable.isGoods &&
+            !_isWithinStock(nextQuantity, line.sellable))) {
       state = state.copyWith(
         searchFailure: const Failure.validation(
           message: 'Quantity cannot exceed available stock.',
@@ -286,5 +322,36 @@ class NewSaleController extends _$NewSaleController {
 
   bool _isWithinStock(double quantity, Sellable sellable) {
     return quantity <= sellable.stock;
+  }
+
+  void _addServiceToCart(Sellable sellable, {double quantity = 1}) {
+    if (!_isValidQuantity(quantity)) {
+      state = state.copyWith(
+        searchFailure: const Failure.validation(
+          message: 'Quantity must be greater than zero.',
+        ),
+      );
+      return;
+    }
+
+    final existing = _findLine(sellable.id);
+    final updated = <NewSaleCartLine>[
+      for (final line in state.cartLines)
+        if (line.sellable.id == sellable.id)
+          line.copyWith(quantity: (existing?.quantity ?? 0) + quantity)
+        else
+          line,
+    ];
+    if (existing == null) {
+      updated.add(
+        NewSaleCartLine(
+          sellable: sellable,
+          quantity: quantity,
+          unitPrice: sellable.price,
+        ),
+      );
+    }
+
+    state = state.copyWith(cartLines: updated, clearFailure: true);
   }
 }

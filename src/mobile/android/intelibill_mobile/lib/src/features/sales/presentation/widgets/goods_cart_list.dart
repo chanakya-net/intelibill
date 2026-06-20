@@ -4,6 +4,7 @@ import 'package:intelibill_mobile/src/features/sales/domain/entities/sellable.da
 typedef OnDecrease = void Function(String sellableId);
 typedef OnIncrease = void Function(String sellableId);
 typedef OnRemove = void Function(String sellableId);
+typedef OnUnitPriceChanged = void Function(String sellableId, double value);
 
 class GoodsCartList extends StatelessWidget {
   const GoodsCartList({
@@ -12,6 +13,7 @@ class GoodsCartList extends StatelessWidget {
     required this.onDecrease,
     required this.onIncrease,
     required this.onRemove,
+    required this.onUnitPriceChanged,
     required this.total,
   });
 
@@ -19,6 +21,7 @@ class GoodsCartList extends StatelessWidget {
   final OnDecrease onDecrease;
   final OnIncrease onIncrease;
   final OnRemove onRemove;
+  final OnUnitPriceChanged onUnitPriceChanged;
   final double total;
 
   @override
@@ -55,7 +58,12 @@ class GoodsCartList extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Expanded(child: Text(line.sellable.name)),
+                    Expanded(
+                      child: Text(
+                        line.sellable.name,
+                        key: Key('cart-line-name-${line.sellable.id}'),
+                      ),
+                    ),
                     IconButton(
                       key: Key('remove-from-cart-${line.sellable.id}'),
                       icon: const Icon(Icons.delete_outline),
@@ -70,6 +78,15 @@ class GoodsCartList extends StatelessWidget {
                     Text('₹${line.lineTotal.toStringAsFixed(2)}'),
                   ],
                 ),
+                if (line.sellable.isService) ...[
+                  const SizedBox(height: 8),
+                  _ServicePriceField(
+                    key: Key('service-unit-price-${line.sellable.id}'),
+                    lineId: line.sellable.id,
+                    price: line.effectiveUnitPrice,
+                    onChanged: onUnitPriceChanged,
+                  ),
+                ],
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -99,5 +116,65 @@ class GoodsCartList extends StatelessWidget {
       return whole.toInt().toString();
     }
     return quantity.toString();
+  }
+}
+
+class _ServicePriceField extends StatefulWidget {
+  const _ServicePriceField({
+    super.key,
+    required this.lineId,
+    required this.price,
+    required this.onChanged,
+  });
+
+  final String lineId;
+  final double price;
+  final OnUnitPriceChanged onChanged;
+
+  @override
+  State<_ServicePriceField> createState() => _ServicePriceFieldState();
+}
+
+class _ServicePriceFieldState extends State<_ServicePriceField> {
+  late TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(
+      text: widget.price.toStringAsFixed(2),
+    );
+  }
+
+  @override
+  void didUpdateWidget(_ServicePriceField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.price != widget.price) {
+      _controller.text = widget.price.toStringAsFixed(2);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: _controller,
+      keyboardType: TextInputType.number,
+      decoration: const InputDecoration(
+        labelText: 'Unit price',
+        border: OutlineInputBorder(),
+      ),
+      onChanged: (value) {
+        final parsed = double.tryParse(value.trim());
+        if (parsed != null) {
+          widget.onChanged(widget.lineId, parsed);
+        }
+      },
+    );
   }
 }

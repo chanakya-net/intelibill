@@ -64,6 +64,7 @@ class _NewSalePageState extends ConsumerState<NewSalePage> {
                 onDecrease: _decreaseQty,
                 onIncrease: _increaseQty,
                 onRemove: _removeFromCart,
+                onUnitPriceChanged: _updateUnitPrice,
               ),
             ),
           ],
@@ -163,6 +164,12 @@ class _NewSalePageState extends ConsumerState<NewSalePage> {
 
   void _removeFromCart(String sellableId) {
     ref.read(newSaleControllerProvider.notifier).removeFromCart(sellableId);
+  }
+
+  void _updateUnitPrice(String sellableId, double value) {
+    ref
+        .read(newSaleControllerProvider.notifier)
+        .updateCartUnitPrice(sellableId, value);
   }
 
   NewSaleCartLine? _currentLine(String sellableId) {
