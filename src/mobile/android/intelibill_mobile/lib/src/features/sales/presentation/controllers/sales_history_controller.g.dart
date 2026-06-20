@@ -141,6 +141,47 @@ final class GetSalesHistoryProvider
 
 String _$getSalesHistoryHash() => r'445c0a1295dcfc257b16c46ccab442cde90445d8';
 
+@ProviderFor(getSaleDetail)
+final getSaleDetailProvider = GetSaleDetailProvider._();
+
+final class GetSaleDetailProvider
+    extends $FunctionalProvider<GetSaleDetail, GetSaleDetail, GetSaleDetail>
+    with $Provider<GetSaleDetail> {
+  GetSaleDetailProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'getSaleDetailProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$getSaleDetailHash();
+
+  @$internal
+  @override
+  $ProviderElement<GetSaleDetail> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  GetSaleDetail create(Ref ref) {
+    return getSaleDetail(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(GetSaleDetail value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<GetSaleDetail>(value),
+    );
+  }
+}
+
+String _$getSaleDetailHash() => r'02d67722dc2fb559107379c47d464d6ecdbb3589';
+
 @ProviderFor(SalesHistoryController)
 final salesHistoryControllerProvider = SalesHistoryControllerProvider._();
 

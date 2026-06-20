@@ -10,6 +10,7 @@ import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_list_i
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sales_history_query.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sales_history_summary.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/repositories/sales_repository.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/use_cases/get_sale_detail.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/use_cases/get_sales_history.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -31,6 +32,12 @@ SalesRepository salesRepository(Ref ref) {
 GetSalesHistory getSalesHistory(Ref ref) {
   final repository = ref.watch(salesRepositoryProvider);
   return GetSalesHistory(repository);
+}
+
+@riverpod
+GetSaleDetail getSaleDetail(Ref ref) {
+  final repository = ref.watch(salesRepositoryProvider);
+  return GetSaleDetail(repository);
 }
 
 SalesHistoryQuery defaultSalesHistoryQuery() {
