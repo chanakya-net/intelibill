@@ -21,7 +21,7 @@ class SaleDetail extends Equatable {
     required this.totalDiscountAmount,
     required this.totalAmount,
     required this.totalTaxAmount,
-    required this.status,
+    this.status,
     required this.refundAmount,
     required this.dueReductionAmount,
   });
@@ -38,14 +38,14 @@ class SaleDetail extends Equatable {
   final List<SaleDetailDiscount> discounts;
   final List<SaleDetailReturn> returns;
   final List<SaleDetailRedemption> redemptions;
-  final List<SaleDetailWarning> warnings;
+  final List<String> warnings;
   final double paidAmount;
   final double dueAmount;
   final double totalBeforeDiscount;
   final double totalDiscountAmount;
   final double totalAmount;
   final double totalTaxAmount;
-  final String status;
+  final String? status;
   final double refundAmount;
   final double dueReductionAmount;
 
@@ -170,31 +170,14 @@ class SaleDetailReturnItem extends Equatable {
 class SaleDetailRedemption extends Equatable {
   const SaleDetailRedemption({
     required this.redemptionId,
-    required this.type,
+    required this.code,
     required this.amount,
-    required this.redeemedAt,
   });
 
   final String redemptionId;
-  final String type;
+  final String code;
   final double amount;
-  final DateTime redeemedAt;
 
   @override
-  List<Object?> get props => [redemptionId, type, amount, redeemedAt];
-}
-
-class SaleDetailWarning extends Equatable {
-  const SaleDetailWarning({
-    required this.warningId,
-    required this.type,
-    required this.message,
-  });
-
-  final String warningId;
-  final String type;
-  final String message;
-
-  @override
-  List<Object?> get props => [warningId, type, message];
+  List<Object?> get props => [redemptionId, code, amount];
 }

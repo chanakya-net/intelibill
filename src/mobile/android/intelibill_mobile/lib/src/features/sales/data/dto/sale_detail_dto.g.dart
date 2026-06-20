@@ -41,16 +41,14 @@ _SaleDetailDto _$SaleDetailDtoFromJson(
           .toList() ??
       const [],
   redemptions:
-      (json['redemptions'] as List<dynamic>?)
+      (json['creditNoteRedemptions'] as List<dynamic>?)
           ?.map(
             (e) => SaleDetailRedemptionDto.fromJson(e as Map<String, dynamic>),
           )
           .toList() ??
       const [],
   warnings:
-      (json['warnings'] as List<dynamic>?)
-          ?.map((e) => SaleDetailWarningDto.fromJson(e as Map<String, dynamic>))
-          .toList() ??
+      (json['warnings'] as List<dynamic>?)?.map((e) => e as String).toList() ??
       const [],
   paidAmount: (json['paidAmount'] as num).toDouble(),
   dueAmount: (json['dueAmount'] as num).toDouble(),
@@ -58,7 +56,9 @@ _SaleDetailDto _$SaleDetailDtoFromJson(
   totalDiscountAmount: (json['totalDiscountAmount'] as num).toDouble(),
   totalAmount: (json['totalAmount'] as num).toDouble(),
   totalTaxAmount: (json['totalTaxAmount'] as num).toDouble(),
-  status: json['status'] as String,
+  creditNoteAppliedAmount:
+      (json['creditNoteAppliedAmount'] as num?)?.toDouble() ?? 0.0,
+  status: json['status'] as String?,
   refundAmount: (json['refundAmount'] as num?)?.toDouble() ?? 0.0,
   dueReductionAmount: (json['dueReductionAmount'] as num?)?.toDouble() ?? 0.0,
 );
@@ -76,7 +76,7 @@ Map<String, dynamic> _$SaleDetailDtoToJson(_SaleDetailDto instance) =>
       'settlements': instance.settlements,
       'discounts': instance.discounts,
       'returns': instance.returns,
-      'redemptions': instance.redemptions,
+      'creditNoteRedemptions': instance.redemptions,
       'warnings': instance.warnings,
       'paidAmount': instance.paidAmount,
       'dueAmount': instance.dueAmount,
@@ -84,6 +84,7 @@ Map<String, dynamic> _$SaleDetailDtoToJson(_SaleDetailDto instance) =>
       'totalDiscountAmount': instance.totalDiscountAmount,
       'totalAmount': instance.totalAmount,
       'totalTaxAmount': instance.totalTaxAmount,
+      'creditNoteAppliedAmount': instance.creditNoteAppliedAmount,
       'status': instance.status,
       'refundAmount': instance.refundAmount,
       'dueReductionAmount': instance.dueReductionAmount,
@@ -91,22 +92,22 @@ Map<String, dynamic> _$SaleDetailDtoToJson(_SaleDetailDto instance) =>
 
 _SaleDetailItemDto _$SaleDetailItemDtoFromJson(Map<String, dynamic> json) =>
     _SaleDetailItemDto(
-      itemId: json['itemId'] as String,
-      name: json['name'] as String,
+      itemId: json['saleItemId'] as String,
+      name: json['itemName'] as String,
       quantity: (json['quantity'] as num).toDouble(),
-      rate: (json['rate'] as num).toDouble(),
-      tax: (json['tax'] as num).toDouble(),
-      total: (json['total'] as num).toDouble(),
+      rate: (json['salesPrice'] as num).toDouble(),
+      tax: (json['taxRatePercent'] as num).toDouble(),
+      total: (json['totalAmount'] as num).toDouble(),
     );
 
 Map<String, dynamic> _$SaleDetailItemDtoToJson(_SaleDetailItemDto instance) =>
     <String, dynamic>{
-      'itemId': instance.itemId,
-      'name': instance.name,
+      'saleItemId': instance.itemId,
+      'itemName': instance.name,
       'quantity': instance.quantity,
-      'rate': instance.rate,
-      'tax': instance.tax,
-      'total': instance.total,
+      'salesPrice': instance.rate,
+      'taxRatePercent': instance.tax,
+      'totalAmount': instance.total,
     };
 
 _SaleDetailSettlementDto _$SaleDetailSettlementDtoFromJson(
@@ -147,7 +148,7 @@ Map<String, dynamic> _$SaleDetailDiscountDtoToJson(
 
 _SaleDetailReturnDto _$SaleDetailReturnDtoFromJson(Map<String, dynamic> json) =>
     _SaleDetailReturnDto(
-      returnId: json['returnId'] as String,
+      returnId: json['saleReturnId'] as String,
       returnNumber: json['returnNumber'] as String,
       items:
           (json['items'] as List<dynamic>?)
@@ -157,68 +158,50 @@ _SaleDetailReturnDto _$SaleDetailReturnDtoFromJson(Map<String, dynamic> json) =>
               )
               .toList() ??
           const [],
-      amount: (json['amount'] as num).toDouble(),
-      returnedAt: DateTime.parse(json['returnedAt'] as String),
+      amount: (json['totalRefundAmount'] as num).toDouble(),
+      returnedAt: DateTime.parse(json['processedAt'] as String),
     );
 
 Map<String, dynamic> _$SaleDetailReturnDtoToJson(
   _SaleDetailReturnDto instance,
 ) => <String, dynamic>{
-  'returnId': instance.returnId,
+  'saleReturnId': instance.returnId,
   'returnNumber': instance.returnNumber,
   'items': instance.items,
-  'amount': instance.amount,
-  'returnedAt': instance.returnedAt.toIso8601String(),
+  'totalRefundAmount': instance.amount,
+  'processedAt': instance.returnedAt.toIso8601String(),
 };
 
 _SaleDetailReturnItemDto _$SaleDetailReturnItemDtoFromJson(
   Map<String, dynamic> json,
 ) => _SaleDetailReturnItemDto(
-  itemId: json['itemId'] as String,
+  itemId: json['saleItemId'] as String,
   itemName: json['itemName'] as String?,
   quantity: (json['quantity'] as num).toDouble(),
-  amount: (json['amount'] as num).toDouble(),
+  amount: (json['approvedRefundAmount'] as num).toDouble(),
 );
 
 Map<String, dynamic> _$SaleDetailReturnItemDtoToJson(
   _SaleDetailReturnItemDto instance,
 ) => <String, dynamic>{
-  'itemId': instance.itemId,
+  'saleItemId': instance.itemId,
   'itemName': instance.itemName,
   'quantity': instance.quantity,
-  'amount': instance.amount,
+  'approvedRefundAmount': instance.amount,
 };
 
 _SaleDetailRedemptionDto _$SaleDetailRedemptionDtoFromJson(
   Map<String, dynamic> json,
 ) => _SaleDetailRedemptionDto(
-  redemptionId: json['redemptionId'] as String,
-  type: json['type'] as String,
-  amount: (json['amount'] as num).toDouble(),
-  redeemedAt: DateTime.parse(json['redeemedAt'] as String),
+  redemptionId: json['creditNoteId'] as String,
+  code: json['code'] as String,
+  amount: (json['appliedAmount'] as num).toDouble(),
 );
 
 Map<String, dynamic> _$SaleDetailRedemptionDtoToJson(
   _SaleDetailRedemptionDto instance,
 ) => <String, dynamic>{
-  'redemptionId': instance.redemptionId,
-  'type': instance.type,
-  'amount': instance.amount,
-  'redeemedAt': instance.redeemedAt.toIso8601String(),
-};
-
-_SaleDetailWarningDto _$SaleDetailWarningDtoFromJson(
-  Map<String, dynamic> json,
-) => _SaleDetailWarningDto(
-  warningId: json['warningId'] as String,
-  type: json['type'] as String,
-  message: json['message'] as String,
-);
-
-Map<String, dynamic> _$SaleDetailWarningDtoToJson(
-  _SaleDetailWarningDto instance,
-) => <String, dynamic>{
-  'warningId': instance.warningId,
-  'type': instance.type,
-  'message': instance.message,
+  'creditNoteId': instance.redemptionId,
+  'code': instance.code,
+  'appliedAmount': instance.amount,
 };

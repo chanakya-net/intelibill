@@ -57,21 +57,14 @@ final _detail = SaleDetail(
       returnedAt: DateTime.utc(2026, 5, 12, 9),
     ),
   ],
-  redemptions: [
+  redemptions: const [
     SaleDetailRedemption(
       redemptionId: 'redemption-1',
-      type: 'Loyalty',
+      code: 'CN-LOYALTY-001',
       amount: 15,
-      redeemedAt: DateTime.utc(2026, 5, 11, 11, 30),
     ),
   ],
-  warnings: const [
-    SaleDetailWarning(
-      warningId: 'warning-1',
-      type: 'inventory',
-      message: 'Low stock detected',
-    ),
-  ],
+  warnings: const ['Low stock detected'],
   paidAmount: 200,
   dueAmount: 36,
   totalBeforeDiscount: 256,
@@ -79,8 +72,8 @@ final _detail = SaleDetail(
   totalAmount: 236,
   totalTaxAmount: 18,
   status: 'partiallyPaid',
-  refundAmount: 0,
-  dueReductionAmount: 0,
+  refundAmount: 0.0,
+  dueReductionAmount: 0.0,
 );
 
 Widget _buildApp() {

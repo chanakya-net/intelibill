@@ -15,7 +15,7 @@ extension SaleDetailDtoX on SaleDetailDto {
     discounts: discounts.map((e) => e.toDomain()).toList(),
     returns: returns.map((e) => e.toDomain()).toList(),
     redemptions: redemptions.map((e) => e.toDomain()).toList(),
-    warnings: warnings.map((e) => e.toDomain()).toList(),
+    warnings: List<String>.from(warnings),
     paidAmount: paidAmount,
     dueAmount: dueAmount,
     totalBeforeDiscount: totalBeforeDiscount,
@@ -79,16 +79,7 @@ extension SaleDetailReturnItemDtoX on SaleDetailReturnItemDto {
 extension SaleDetailRedemptionDtoX on SaleDetailRedemptionDto {
   SaleDetailRedemption toDomain() => SaleDetailRedemption(
     redemptionId: redemptionId,
-    type: type,
+    code: code,
     amount: amount,
-    redeemedAt: redeemedAt,
-  );
-}
-
-extension SaleDetailWarningDtoX on SaleDetailWarningDto {
-  SaleDetailWarning toDomain() => SaleDetailWarning(
-    warningId: warningId,
-    type: type,
-    message: message,
   );
 }

@@ -197,7 +197,7 @@ class _SummaryCard extends StatelessWidget {
             ),
             _InfoRow(
               label: l10n.salesHistoryControlsStatus,
-              value: saleStatusLabel(l10n, detail.status),
+              value: saleStatusLabel(l10n, detail.status ?? ''),
             ),
             const Divider(height: 24),
             Wrap(
@@ -504,7 +504,6 @@ class _Redemptions extends StatelessWidget {
       return Text(AppLocalizations.of(context)!.salesDetailNoRedemptions);
     }
     final theme = Theme.of(context);
-    final dateFormat = DateFormat('dd MMM yyyy, h:mm a');
     return Column(
       children: [
         for (final redemption in detail.redemptions) ...[
@@ -512,7 +511,7 @@ class _Redemptions extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  redemption.type,
+                  redemption.code,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
@@ -520,12 +519,6 @@ class _Redemptions extends StatelessWidget {
               ),
               Text(formatInr(redemption.amount)),
             ],
-          ),
-          Text(
-            dateFormat.format(redemption.redeemedAt),
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
           ),
           const SizedBox(height: 10),
         ],
@@ -557,7 +550,7 @@ class _Warnings extends StatelessWidget {
                 color: theme.colorScheme.error,
               ),
               const SizedBox(width: 8),
-              Expanded(child: Text(warning.message)),
+              Expanded(child: Text(warning)),
             ],
           ),
           const SizedBox(height: 10),

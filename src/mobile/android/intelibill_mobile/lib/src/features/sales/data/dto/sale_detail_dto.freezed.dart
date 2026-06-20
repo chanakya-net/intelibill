@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$SaleDetailDto {
 
-@JsonKey(name: 'saleId') String get saleId;@JsonKey(name: 'invoiceNumber') String get invoiceNumber;@JsonKey(name: 'customerId') String? get customerId;@JsonKey(name: 'customerName') String? get customerName;@JsonKey(name: 'customerPhone') String? get customerPhone;@JsonKey(name: 'paymentMethod', fromJson: paymentMethodFromJson) int get paymentMethod;@JsonKey(name: 'soldAt') DateTime get soldAt;@JsonKey(name: 'items') List<SaleDetailItemDto> get items;@JsonKey(name: 'settlements') List<SaleDetailSettlementDto> get settlements;@JsonKey(name: 'discounts') List<SaleDetailDiscountDto> get discounts;@JsonKey(name: 'returns') List<SaleDetailReturnDto> get returns;@JsonKey(name: 'redemptions') List<SaleDetailRedemptionDto> get redemptions;@JsonKey(name: 'warnings') List<SaleDetailWarningDto> get warnings;@JsonKey(name: 'paidAmount') double get paidAmount;@JsonKey(name: 'dueAmount') double get dueAmount;@JsonKey(name: 'totalBeforeDiscount') double get totalBeforeDiscount;@JsonKey(name: 'totalDiscountAmount') double get totalDiscountAmount;@JsonKey(name: 'totalAmount') double get totalAmount;@JsonKey(name: 'totalTaxAmount') double get totalTaxAmount;@JsonKey(name: 'status') String get status;@JsonKey(name: 'refundAmount') double get refundAmount;@JsonKey(name: 'dueReductionAmount') double get dueReductionAmount;
+@JsonKey(name: 'saleId') String get saleId;@JsonKey(name: 'invoiceNumber') String get invoiceNumber;@JsonKey(name: 'customerId') String? get customerId;@JsonKey(name: 'customerName') String? get customerName;@JsonKey(name: 'customerPhone') String? get customerPhone;@JsonKey(name: 'paymentMethod', fromJson: paymentMethodFromJson) int get paymentMethod;@JsonKey(name: 'soldAt') DateTime get soldAt;@JsonKey(name: 'items') List<SaleDetailItemDto> get items;@JsonKey(name: 'settlements') List<SaleDetailSettlementDto> get settlements;@JsonKey(name: 'discounts') List<SaleDetailDiscountDto> get discounts;@JsonKey(name: 'returns') List<SaleDetailReturnDto> get returns;@JsonKey(name: 'creditNoteRedemptions') List<SaleDetailRedemptionDto> get redemptions;@JsonKey(name: 'warnings') List<String> get warnings;@JsonKey(name: 'paidAmount') double get paidAmount;@JsonKey(name: 'dueAmount') double get dueAmount;@JsonKey(name: 'totalBeforeDiscount') double get totalBeforeDiscount;@JsonKey(name: 'totalDiscountAmount') double get totalDiscountAmount;@JsonKey(name: 'totalAmount') double get totalAmount;@JsonKey(name: 'totalTaxAmount') double get totalTaxAmount;@JsonKey(name: 'creditNoteAppliedAmount') double get creditNoteAppliedAmount;@JsonKey(name: 'status') String? get status;@JsonKey(name: 'refundAmount') double get refundAmount;@JsonKey(name: 'dueReductionAmount') double get dueReductionAmount;
 /// Create a copy of SaleDetailDto
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -28,16 +28,16 @@ $SaleDetailDtoCopyWith<SaleDetailDto> get copyWith => _$SaleDetailDtoCopyWithImp
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is SaleDetailDto&&(identical(other.saleId, saleId) || other.saleId == saleId)&&(identical(other.invoiceNumber, invoiceNumber) || other.invoiceNumber == invoiceNumber)&&(identical(other.customerId, customerId) || other.customerId == customerId)&&(identical(other.customerName, customerName) || other.customerName == customerName)&&(identical(other.customerPhone, customerPhone) || other.customerPhone == customerPhone)&&(identical(other.paymentMethod, paymentMethod) || other.paymentMethod == paymentMethod)&&(identical(other.soldAt, soldAt) || other.soldAt == soldAt)&&const DeepCollectionEquality().equals(other.items, items)&&const DeepCollectionEquality().equals(other.settlements, settlements)&&const DeepCollectionEquality().equals(other.discounts, discounts)&&const DeepCollectionEquality().equals(other.returns, returns)&&const DeepCollectionEquality().equals(other.redemptions, redemptions)&&const DeepCollectionEquality().equals(other.warnings, warnings)&&(identical(other.paidAmount, paidAmount) || other.paidAmount == paidAmount)&&(identical(other.dueAmount, dueAmount) || other.dueAmount == dueAmount)&&(identical(other.totalBeforeDiscount, totalBeforeDiscount) || other.totalBeforeDiscount == totalBeforeDiscount)&&(identical(other.totalDiscountAmount, totalDiscountAmount) || other.totalDiscountAmount == totalDiscountAmount)&&(identical(other.totalAmount, totalAmount) || other.totalAmount == totalAmount)&&(identical(other.totalTaxAmount, totalTaxAmount) || other.totalTaxAmount == totalTaxAmount)&&(identical(other.status, status) || other.status == status)&&(identical(other.refundAmount, refundAmount) || other.refundAmount == refundAmount)&&(identical(other.dueReductionAmount, dueReductionAmount) || other.dueReductionAmount == dueReductionAmount));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is SaleDetailDto&&(identical(other.saleId, saleId) || other.saleId == saleId)&&(identical(other.invoiceNumber, invoiceNumber) || other.invoiceNumber == invoiceNumber)&&(identical(other.customerId, customerId) || other.customerId == customerId)&&(identical(other.customerName, customerName) || other.customerName == customerName)&&(identical(other.customerPhone, customerPhone) || other.customerPhone == customerPhone)&&(identical(other.paymentMethod, paymentMethod) || other.paymentMethod == paymentMethod)&&(identical(other.soldAt, soldAt) || other.soldAt == soldAt)&&const DeepCollectionEquality().equals(other.items, items)&&const DeepCollectionEquality().equals(other.settlements, settlements)&&const DeepCollectionEquality().equals(other.discounts, discounts)&&const DeepCollectionEquality().equals(other.returns, returns)&&const DeepCollectionEquality().equals(other.redemptions, redemptions)&&const DeepCollectionEquality().equals(other.warnings, warnings)&&(identical(other.paidAmount, paidAmount) || other.paidAmount == paidAmount)&&(identical(other.dueAmount, dueAmount) || other.dueAmount == dueAmount)&&(identical(other.totalBeforeDiscount, totalBeforeDiscount) || other.totalBeforeDiscount == totalBeforeDiscount)&&(identical(other.totalDiscountAmount, totalDiscountAmount) || other.totalDiscountAmount == totalDiscountAmount)&&(identical(other.totalAmount, totalAmount) || other.totalAmount == totalAmount)&&(identical(other.totalTaxAmount, totalTaxAmount) || other.totalTaxAmount == totalTaxAmount)&&(identical(other.creditNoteAppliedAmount, creditNoteAppliedAmount) || other.creditNoteAppliedAmount == creditNoteAppliedAmount)&&(identical(other.status, status) || other.status == status)&&(identical(other.refundAmount, refundAmount) || other.refundAmount == refundAmount)&&(identical(other.dueReductionAmount, dueReductionAmount) || other.dueReductionAmount == dueReductionAmount));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hashAll([runtimeType,saleId,invoiceNumber,customerId,customerName,customerPhone,paymentMethod,soldAt,const DeepCollectionEquality().hash(items),const DeepCollectionEquality().hash(settlements),const DeepCollectionEquality().hash(discounts),const DeepCollectionEquality().hash(returns),const DeepCollectionEquality().hash(redemptions),const DeepCollectionEquality().hash(warnings),paidAmount,dueAmount,totalBeforeDiscount,totalDiscountAmount,totalAmount,totalTaxAmount,status,refundAmount,dueReductionAmount]);
+int get hashCode => Object.hashAll([runtimeType,saleId,invoiceNumber,customerId,customerName,customerPhone,paymentMethod,soldAt,const DeepCollectionEquality().hash(items),const DeepCollectionEquality().hash(settlements),const DeepCollectionEquality().hash(discounts),const DeepCollectionEquality().hash(returns),const DeepCollectionEquality().hash(redemptions),const DeepCollectionEquality().hash(warnings),paidAmount,dueAmount,totalBeforeDiscount,totalDiscountAmount,totalAmount,totalTaxAmount,creditNoteAppliedAmount,status,refundAmount,dueReductionAmount]);
 
 @override
 String toString() {
-  return 'SaleDetailDto(saleId: $saleId, invoiceNumber: $invoiceNumber, customerId: $customerId, customerName: $customerName, customerPhone: $customerPhone, paymentMethod: $paymentMethod, soldAt: $soldAt, items: $items, settlements: $settlements, discounts: $discounts, returns: $returns, redemptions: $redemptions, warnings: $warnings, paidAmount: $paidAmount, dueAmount: $dueAmount, totalBeforeDiscount: $totalBeforeDiscount, totalDiscountAmount: $totalDiscountAmount, totalAmount: $totalAmount, totalTaxAmount: $totalTaxAmount, status: $status, refundAmount: $refundAmount, dueReductionAmount: $dueReductionAmount)';
+  return 'SaleDetailDto(saleId: $saleId, invoiceNumber: $invoiceNumber, customerId: $customerId, customerName: $customerName, customerPhone: $customerPhone, paymentMethod: $paymentMethod, soldAt: $soldAt, items: $items, settlements: $settlements, discounts: $discounts, returns: $returns, redemptions: $redemptions, warnings: $warnings, paidAmount: $paidAmount, dueAmount: $dueAmount, totalBeforeDiscount: $totalBeforeDiscount, totalDiscountAmount: $totalDiscountAmount, totalAmount: $totalAmount, totalTaxAmount: $totalTaxAmount, creditNoteAppliedAmount: $creditNoteAppliedAmount, status: $status, refundAmount: $refundAmount, dueReductionAmount: $dueReductionAmount)';
 }
 
 
@@ -48,7 +48,7 @@ abstract mixin class $SaleDetailDtoCopyWith<$Res>  {
   factory $SaleDetailDtoCopyWith(SaleDetailDto value, $Res Function(SaleDetailDto) _then) = _$SaleDetailDtoCopyWithImpl;
 @useResult
 $Res call({
-@JsonKey(name: 'saleId') String saleId,@JsonKey(name: 'invoiceNumber') String invoiceNumber,@JsonKey(name: 'customerId') String? customerId,@JsonKey(name: 'customerName') String? customerName,@JsonKey(name: 'customerPhone') String? customerPhone,@JsonKey(name: 'paymentMethod', fromJson: paymentMethodFromJson) int paymentMethod,@JsonKey(name: 'soldAt') DateTime soldAt,@JsonKey(name: 'items') List<SaleDetailItemDto> items,@JsonKey(name: 'settlements') List<SaleDetailSettlementDto> settlements,@JsonKey(name: 'discounts') List<SaleDetailDiscountDto> discounts,@JsonKey(name: 'returns') List<SaleDetailReturnDto> returns,@JsonKey(name: 'redemptions') List<SaleDetailRedemptionDto> redemptions,@JsonKey(name: 'warnings') List<SaleDetailWarningDto> warnings,@JsonKey(name: 'paidAmount') double paidAmount,@JsonKey(name: 'dueAmount') double dueAmount,@JsonKey(name: 'totalBeforeDiscount') double totalBeforeDiscount,@JsonKey(name: 'totalDiscountAmount') double totalDiscountAmount,@JsonKey(name: 'totalAmount') double totalAmount,@JsonKey(name: 'totalTaxAmount') double totalTaxAmount,@JsonKey(name: 'status') String status,@JsonKey(name: 'refundAmount') double refundAmount,@JsonKey(name: 'dueReductionAmount') double dueReductionAmount
+@JsonKey(name: 'saleId') String saleId,@JsonKey(name: 'invoiceNumber') String invoiceNumber,@JsonKey(name: 'customerId') String? customerId,@JsonKey(name: 'customerName') String? customerName,@JsonKey(name: 'customerPhone') String? customerPhone,@JsonKey(name: 'paymentMethod', fromJson: paymentMethodFromJson) int paymentMethod,@JsonKey(name: 'soldAt') DateTime soldAt,@JsonKey(name: 'items') List<SaleDetailItemDto> items,@JsonKey(name: 'settlements') List<SaleDetailSettlementDto> settlements,@JsonKey(name: 'discounts') List<SaleDetailDiscountDto> discounts,@JsonKey(name: 'returns') List<SaleDetailReturnDto> returns,@JsonKey(name: 'creditNoteRedemptions') List<SaleDetailRedemptionDto> redemptions,@JsonKey(name: 'warnings') List<String> warnings,@JsonKey(name: 'paidAmount') double paidAmount,@JsonKey(name: 'dueAmount') double dueAmount,@JsonKey(name: 'totalBeforeDiscount') double totalBeforeDiscount,@JsonKey(name: 'totalDiscountAmount') double totalDiscountAmount,@JsonKey(name: 'totalAmount') double totalAmount,@JsonKey(name: 'totalTaxAmount') double totalTaxAmount,@JsonKey(name: 'creditNoteAppliedAmount') double creditNoteAppliedAmount,@JsonKey(name: 'status') String? status,@JsonKey(name: 'refundAmount') double refundAmount,@JsonKey(name: 'dueReductionAmount') double dueReductionAmount
 });
 
 
@@ -65,7 +65,7 @@ class _$SaleDetailDtoCopyWithImpl<$Res>
 
 /// Create a copy of SaleDetailDto
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? saleId = null,Object? invoiceNumber = null,Object? customerId = freezed,Object? customerName = freezed,Object? customerPhone = freezed,Object? paymentMethod = null,Object? soldAt = null,Object? items = null,Object? settlements = null,Object? discounts = null,Object? returns = null,Object? redemptions = null,Object? warnings = null,Object? paidAmount = null,Object? dueAmount = null,Object? totalBeforeDiscount = null,Object? totalDiscountAmount = null,Object? totalAmount = null,Object? totalTaxAmount = null,Object? status = null,Object? refundAmount = null,Object? dueReductionAmount = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? saleId = null,Object? invoiceNumber = null,Object? customerId = freezed,Object? customerName = freezed,Object? customerPhone = freezed,Object? paymentMethod = null,Object? soldAt = null,Object? items = null,Object? settlements = null,Object? discounts = null,Object? returns = null,Object? redemptions = null,Object? warnings = null,Object? paidAmount = null,Object? dueAmount = null,Object? totalBeforeDiscount = null,Object? totalDiscountAmount = null,Object? totalAmount = null,Object? totalTaxAmount = null,Object? creditNoteAppliedAmount = null,Object? status = freezed,Object? refundAmount = null,Object? dueReductionAmount = null,}) {
   return _then(_self.copyWith(
 saleId: null == saleId ? _self.saleId : saleId // ignore: cast_nullable_to_non_nullable
 as String,invoiceNumber: null == invoiceNumber ? _self.invoiceNumber : invoiceNumber // ignore: cast_nullable_to_non_nullable
@@ -80,14 +80,15 @@ as List<SaleDetailSettlementDto>,discounts: null == discounts ? _self.discounts 
 as List<SaleDetailDiscountDto>,returns: null == returns ? _self.returns : returns // ignore: cast_nullable_to_non_nullable
 as List<SaleDetailReturnDto>,redemptions: null == redemptions ? _self.redemptions : redemptions // ignore: cast_nullable_to_non_nullable
 as List<SaleDetailRedemptionDto>,warnings: null == warnings ? _self.warnings : warnings // ignore: cast_nullable_to_non_nullable
-as List<SaleDetailWarningDto>,paidAmount: null == paidAmount ? _self.paidAmount : paidAmount // ignore: cast_nullable_to_non_nullable
+as List<String>,paidAmount: null == paidAmount ? _self.paidAmount : paidAmount // ignore: cast_nullable_to_non_nullable
 as double,dueAmount: null == dueAmount ? _self.dueAmount : dueAmount // ignore: cast_nullable_to_non_nullable
 as double,totalBeforeDiscount: null == totalBeforeDiscount ? _self.totalBeforeDiscount : totalBeforeDiscount // ignore: cast_nullable_to_non_nullable
 as double,totalDiscountAmount: null == totalDiscountAmount ? _self.totalDiscountAmount : totalDiscountAmount // ignore: cast_nullable_to_non_nullable
 as double,totalAmount: null == totalAmount ? _self.totalAmount : totalAmount // ignore: cast_nullable_to_non_nullable
 as double,totalTaxAmount: null == totalTaxAmount ? _self.totalTaxAmount : totalTaxAmount // ignore: cast_nullable_to_non_nullable
-as double,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
-as String,refundAmount: null == refundAmount ? _self.refundAmount : refundAmount // ignore: cast_nullable_to_non_nullable
+as double,creditNoteAppliedAmount: null == creditNoteAppliedAmount ? _self.creditNoteAppliedAmount : creditNoteAppliedAmount // ignore: cast_nullable_to_non_nullable
+as double,status: freezed == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
+as String?,refundAmount: null == refundAmount ? _self.refundAmount : refundAmount // ignore: cast_nullable_to_non_nullable
 as double,dueReductionAmount: null == dueReductionAmount ? _self.dueReductionAmount : dueReductionAmount // ignore: cast_nullable_to_non_nullable
 as double,
   ));
@@ -171,10 +172,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'saleId')  String saleId, @JsonKey(name: 'invoiceNumber')  String invoiceNumber, @JsonKey(name: 'customerId')  String? customerId, @JsonKey(name: 'customerName')  String? customerName, @JsonKey(name: 'customerPhone')  String? customerPhone, @JsonKey(name: 'paymentMethod', fromJson: paymentMethodFromJson)  int paymentMethod, @JsonKey(name: 'soldAt')  DateTime soldAt, @JsonKey(name: 'items')  List<SaleDetailItemDto> items, @JsonKey(name: 'settlements')  List<SaleDetailSettlementDto> settlements, @JsonKey(name: 'discounts')  List<SaleDetailDiscountDto> discounts, @JsonKey(name: 'returns')  List<SaleDetailReturnDto> returns, @JsonKey(name: 'redemptions')  List<SaleDetailRedemptionDto> redemptions, @JsonKey(name: 'warnings')  List<SaleDetailWarningDto> warnings, @JsonKey(name: 'paidAmount')  double paidAmount, @JsonKey(name: 'dueAmount')  double dueAmount, @JsonKey(name: 'totalBeforeDiscount')  double totalBeforeDiscount, @JsonKey(name: 'totalDiscountAmount')  double totalDiscountAmount, @JsonKey(name: 'totalAmount')  double totalAmount, @JsonKey(name: 'totalTaxAmount')  double totalTaxAmount, @JsonKey(name: 'status')  String status, @JsonKey(name: 'refundAmount')  double refundAmount, @JsonKey(name: 'dueReductionAmount')  double dueReductionAmount)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'saleId')  String saleId, @JsonKey(name: 'invoiceNumber')  String invoiceNumber, @JsonKey(name: 'customerId')  String? customerId, @JsonKey(name: 'customerName')  String? customerName, @JsonKey(name: 'customerPhone')  String? customerPhone, @JsonKey(name: 'paymentMethod', fromJson: paymentMethodFromJson)  int paymentMethod, @JsonKey(name: 'soldAt')  DateTime soldAt, @JsonKey(name: 'items')  List<SaleDetailItemDto> items, @JsonKey(name: 'settlements')  List<SaleDetailSettlementDto> settlements, @JsonKey(name: 'discounts')  List<SaleDetailDiscountDto> discounts, @JsonKey(name: 'returns')  List<SaleDetailReturnDto> returns, @JsonKey(name: 'creditNoteRedemptions')  List<SaleDetailRedemptionDto> redemptions, @JsonKey(name: 'warnings')  List<String> warnings, @JsonKey(name: 'paidAmount')  double paidAmount, @JsonKey(name: 'dueAmount')  double dueAmount, @JsonKey(name: 'totalBeforeDiscount')  double totalBeforeDiscount, @JsonKey(name: 'totalDiscountAmount')  double totalDiscountAmount, @JsonKey(name: 'totalAmount')  double totalAmount, @JsonKey(name: 'totalTaxAmount')  double totalTaxAmount, @JsonKey(name: 'creditNoteAppliedAmount')  double creditNoteAppliedAmount, @JsonKey(name: 'status')  String? status, @JsonKey(name: 'refundAmount')  double refundAmount, @JsonKey(name: 'dueReductionAmount')  double dueReductionAmount)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _SaleDetailDto() when $default != null:
-return $default(_that.saleId,_that.invoiceNumber,_that.customerId,_that.customerName,_that.customerPhone,_that.paymentMethod,_that.soldAt,_that.items,_that.settlements,_that.discounts,_that.returns,_that.redemptions,_that.warnings,_that.paidAmount,_that.dueAmount,_that.totalBeforeDiscount,_that.totalDiscountAmount,_that.totalAmount,_that.totalTaxAmount,_that.status,_that.refundAmount,_that.dueReductionAmount);case _:
+return $default(_that.saleId,_that.invoiceNumber,_that.customerId,_that.customerName,_that.customerPhone,_that.paymentMethod,_that.soldAt,_that.items,_that.settlements,_that.discounts,_that.returns,_that.redemptions,_that.warnings,_that.paidAmount,_that.dueAmount,_that.totalBeforeDiscount,_that.totalDiscountAmount,_that.totalAmount,_that.totalTaxAmount,_that.creditNoteAppliedAmount,_that.status,_that.refundAmount,_that.dueReductionAmount);case _:
   return orElse();
 
 }
@@ -192,10 +193,10 @@ return $default(_that.saleId,_that.invoiceNumber,_that.customerId,_that.customer
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'saleId')  String saleId, @JsonKey(name: 'invoiceNumber')  String invoiceNumber, @JsonKey(name: 'customerId')  String? customerId, @JsonKey(name: 'customerName')  String? customerName, @JsonKey(name: 'customerPhone')  String? customerPhone, @JsonKey(name: 'paymentMethod', fromJson: paymentMethodFromJson)  int paymentMethod, @JsonKey(name: 'soldAt')  DateTime soldAt, @JsonKey(name: 'items')  List<SaleDetailItemDto> items, @JsonKey(name: 'settlements')  List<SaleDetailSettlementDto> settlements, @JsonKey(name: 'discounts')  List<SaleDetailDiscountDto> discounts, @JsonKey(name: 'returns')  List<SaleDetailReturnDto> returns, @JsonKey(name: 'redemptions')  List<SaleDetailRedemptionDto> redemptions, @JsonKey(name: 'warnings')  List<SaleDetailWarningDto> warnings, @JsonKey(name: 'paidAmount')  double paidAmount, @JsonKey(name: 'dueAmount')  double dueAmount, @JsonKey(name: 'totalBeforeDiscount')  double totalBeforeDiscount, @JsonKey(name: 'totalDiscountAmount')  double totalDiscountAmount, @JsonKey(name: 'totalAmount')  double totalAmount, @JsonKey(name: 'totalTaxAmount')  double totalTaxAmount, @JsonKey(name: 'status')  String status, @JsonKey(name: 'refundAmount')  double refundAmount, @JsonKey(name: 'dueReductionAmount')  double dueReductionAmount)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'saleId')  String saleId, @JsonKey(name: 'invoiceNumber')  String invoiceNumber, @JsonKey(name: 'customerId')  String? customerId, @JsonKey(name: 'customerName')  String? customerName, @JsonKey(name: 'customerPhone')  String? customerPhone, @JsonKey(name: 'paymentMethod', fromJson: paymentMethodFromJson)  int paymentMethod, @JsonKey(name: 'soldAt')  DateTime soldAt, @JsonKey(name: 'items')  List<SaleDetailItemDto> items, @JsonKey(name: 'settlements')  List<SaleDetailSettlementDto> settlements, @JsonKey(name: 'discounts')  List<SaleDetailDiscountDto> discounts, @JsonKey(name: 'returns')  List<SaleDetailReturnDto> returns, @JsonKey(name: 'creditNoteRedemptions')  List<SaleDetailRedemptionDto> redemptions, @JsonKey(name: 'warnings')  List<String> warnings, @JsonKey(name: 'paidAmount')  double paidAmount, @JsonKey(name: 'dueAmount')  double dueAmount, @JsonKey(name: 'totalBeforeDiscount')  double totalBeforeDiscount, @JsonKey(name: 'totalDiscountAmount')  double totalDiscountAmount, @JsonKey(name: 'totalAmount')  double totalAmount, @JsonKey(name: 'totalTaxAmount')  double totalTaxAmount, @JsonKey(name: 'creditNoteAppliedAmount')  double creditNoteAppliedAmount, @JsonKey(name: 'status')  String? status, @JsonKey(name: 'refundAmount')  double refundAmount, @JsonKey(name: 'dueReductionAmount')  double dueReductionAmount)  $default,) {final _that = this;
 switch (_that) {
 case _SaleDetailDto():
-return $default(_that.saleId,_that.invoiceNumber,_that.customerId,_that.customerName,_that.customerPhone,_that.paymentMethod,_that.soldAt,_that.items,_that.settlements,_that.discounts,_that.returns,_that.redemptions,_that.warnings,_that.paidAmount,_that.dueAmount,_that.totalBeforeDiscount,_that.totalDiscountAmount,_that.totalAmount,_that.totalTaxAmount,_that.status,_that.refundAmount,_that.dueReductionAmount);}
+return $default(_that.saleId,_that.invoiceNumber,_that.customerId,_that.customerName,_that.customerPhone,_that.paymentMethod,_that.soldAt,_that.items,_that.settlements,_that.discounts,_that.returns,_that.redemptions,_that.warnings,_that.paidAmount,_that.dueAmount,_that.totalBeforeDiscount,_that.totalDiscountAmount,_that.totalAmount,_that.totalTaxAmount,_that.creditNoteAppliedAmount,_that.status,_that.refundAmount,_that.dueReductionAmount);}
 }
 /// A variant of `when` that fallback to returning `null`
 ///
@@ -209,10 +210,10 @@ return $default(_that.saleId,_that.invoiceNumber,_that.customerId,_that.customer
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'saleId')  String saleId, @JsonKey(name: 'invoiceNumber')  String invoiceNumber, @JsonKey(name: 'customerId')  String? customerId, @JsonKey(name: 'customerName')  String? customerName, @JsonKey(name: 'customerPhone')  String? customerPhone, @JsonKey(name: 'paymentMethod', fromJson: paymentMethodFromJson)  int paymentMethod, @JsonKey(name: 'soldAt')  DateTime soldAt, @JsonKey(name: 'items')  List<SaleDetailItemDto> items, @JsonKey(name: 'settlements')  List<SaleDetailSettlementDto> settlements, @JsonKey(name: 'discounts')  List<SaleDetailDiscountDto> discounts, @JsonKey(name: 'returns')  List<SaleDetailReturnDto> returns, @JsonKey(name: 'redemptions')  List<SaleDetailRedemptionDto> redemptions, @JsonKey(name: 'warnings')  List<SaleDetailWarningDto> warnings, @JsonKey(name: 'paidAmount')  double paidAmount, @JsonKey(name: 'dueAmount')  double dueAmount, @JsonKey(name: 'totalBeforeDiscount')  double totalBeforeDiscount, @JsonKey(name: 'totalDiscountAmount')  double totalDiscountAmount, @JsonKey(name: 'totalAmount')  double totalAmount, @JsonKey(name: 'totalTaxAmount')  double totalTaxAmount, @JsonKey(name: 'status')  String status, @JsonKey(name: 'refundAmount')  double refundAmount, @JsonKey(name: 'dueReductionAmount')  double dueReductionAmount)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'saleId')  String saleId, @JsonKey(name: 'invoiceNumber')  String invoiceNumber, @JsonKey(name: 'customerId')  String? customerId, @JsonKey(name: 'customerName')  String? customerName, @JsonKey(name: 'customerPhone')  String? customerPhone, @JsonKey(name: 'paymentMethod', fromJson: paymentMethodFromJson)  int paymentMethod, @JsonKey(name: 'soldAt')  DateTime soldAt, @JsonKey(name: 'items')  List<SaleDetailItemDto> items, @JsonKey(name: 'settlements')  List<SaleDetailSettlementDto> settlements, @JsonKey(name: 'discounts')  List<SaleDetailDiscountDto> discounts, @JsonKey(name: 'returns')  List<SaleDetailReturnDto> returns, @JsonKey(name: 'creditNoteRedemptions')  List<SaleDetailRedemptionDto> redemptions, @JsonKey(name: 'warnings')  List<String> warnings, @JsonKey(name: 'paidAmount')  double paidAmount, @JsonKey(name: 'dueAmount')  double dueAmount, @JsonKey(name: 'totalBeforeDiscount')  double totalBeforeDiscount, @JsonKey(name: 'totalDiscountAmount')  double totalDiscountAmount, @JsonKey(name: 'totalAmount')  double totalAmount, @JsonKey(name: 'totalTaxAmount')  double totalTaxAmount, @JsonKey(name: 'creditNoteAppliedAmount')  double creditNoteAppliedAmount, @JsonKey(name: 'status')  String? status, @JsonKey(name: 'refundAmount')  double refundAmount, @JsonKey(name: 'dueReductionAmount')  double dueReductionAmount)?  $default,) {final _that = this;
 switch (_that) {
 case _SaleDetailDto() when $default != null:
-return $default(_that.saleId,_that.invoiceNumber,_that.customerId,_that.customerName,_that.customerPhone,_that.paymentMethod,_that.soldAt,_that.items,_that.settlements,_that.discounts,_that.returns,_that.redemptions,_that.warnings,_that.paidAmount,_that.dueAmount,_that.totalBeforeDiscount,_that.totalDiscountAmount,_that.totalAmount,_that.totalTaxAmount,_that.status,_that.refundAmount,_that.dueReductionAmount);case _:
+return $default(_that.saleId,_that.invoiceNumber,_that.customerId,_that.customerName,_that.customerPhone,_that.paymentMethod,_that.soldAt,_that.items,_that.settlements,_that.discounts,_that.returns,_that.redemptions,_that.warnings,_that.paidAmount,_that.dueAmount,_that.totalBeforeDiscount,_that.totalDiscountAmount,_that.totalAmount,_that.totalTaxAmount,_that.creditNoteAppliedAmount,_that.status,_that.refundAmount,_that.dueReductionAmount);case _:
   return null;
 
 }
@@ -224,7 +225,7 @@ return $default(_that.saleId,_that.invoiceNumber,_that.customerId,_that.customer
 @JsonSerializable()
 
 class _SaleDetailDto implements SaleDetailDto {
-  const _SaleDetailDto({@JsonKey(name: 'saleId') required this.saleId, @JsonKey(name: 'invoiceNumber') required this.invoiceNumber, @JsonKey(name: 'customerId') this.customerId, @JsonKey(name: 'customerName') this.customerName, @JsonKey(name: 'customerPhone') this.customerPhone, @JsonKey(name: 'paymentMethod', fromJson: paymentMethodFromJson) required this.paymentMethod, @JsonKey(name: 'soldAt') required this.soldAt, @JsonKey(name: 'items') final  List<SaleDetailItemDto> items = const [], @JsonKey(name: 'settlements') final  List<SaleDetailSettlementDto> settlements = const [], @JsonKey(name: 'discounts') final  List<SaleDetailDiscountDto> discounts = const [], @JsonKey(name: 'returns') final  List<SaleDetailReturnDto> returns = const [], @JsonKey(name: 'redemptions') final  List<SaleDetailRedemptionDto> redemptions = const [], @JsonKey(name: 'warnings') final  List<SaleDetailWarningDto> warnings = const [], @JsonKey(name: 'paidAmount') required this.paidAmount, @JsonKey(name: 'dueAmount') required this.dueAmount, @JsonKey(name: 'totalBeforeDiscount') required this.totalBeforeDiscount, @JsonKey(name: 'totalDiscountAmount') required this.totalDiscountAmount, @JsonKey(name: 'totalAmount') required this.totalAmount, @JsonKey(name: 'totalTaxAmount') required this.totalTaxAmount, @JsonKey(name: 'status') required this.status, @JsonKey(name: 'refundAmount') this.refundAmount = 0.0, @JsonKey(name: 'dueReductionAmount') this.dueReductionAmount = 0.0}): _items = items,_settlements = settlements,_discounts = discounts,_returns = returns,_redemptions = redemptions,_warnings = warnings;
+  const _SaleDetailDto({@JsonKey(name: 'saleId') required this.saleId, @JsonKey(name: 'invoiceNumber') required this.invoiceNumber, @JsonKey(name: 'customerId') this.customerId, @JsonKey(name: 'customerName') this.customerName, @JsonKey(name: 'customerPhone') this.customerPhone, @JsonKey(name: 'paymentMethod', fromJson: paymentMethodFromJson) required this.paymentMethod, @JsonKey(name: 'soldAt') required this.soldAt, @JsonKey(name: 'items') final  List<SaleDetailItemDto> items = const [], @JsonKey(name: 'settlements') final  List<SaleDetailSettlementDto> settlements = const [], @JsonKey(name: 'discounts') final  List<SaleDetailDiscountDto> discounts = const [], @JsonKey(name: 'returns') final  List<SaleDetailReturnDto> returns = const [], @JsonKey(name: 'creditNoteRedemptions') final  List<SaleDetailRedemptionDto> redemptions = const [], @JsonKey(name: 'warnings') final  List<String> warnings = const [], @JsonKey(name: 'paidAmount') required this.paidAmount, @JsonKey(name: 'dueAmount') required this.dueAmount, @JsonKey(name: 'totalBeforeDiscount') required this.totalBeforeDiscount, @JsonKey(name: 'totalDiscountAmount') required this.totalDiscountAmount, @JsonKey(name: 'totalAmount') required this.totalAmount, @JsonKey(name: 'totalTaxAmount') required this.totalTaxAmount, @JsonKey(name: 'creditNoteAppliedAmount') this.creditNoteAppliedAmount = 0.0, @JsonKey(name: 'status') this.status, @JsonKey(name: 'refundAmount') this.refundAmount = 0.0, @JsonKey(name: 'dueReductionAmount') this.dueReductionAmount = 0.0}): _items = items,_settlements = settlements,_discounts = discounts,_returns = returns,_redemptions = redemptions,_warnings = warnings;
   factory _SaleDetailDto.fromJson(Map<String, dynamic> json) => _$SaleDetailDtoFromJson(json);
 
 @override@JsonKey(name: 'saleId') final  String saleId;
@@ -263,14 +264,14 @@ class _SaleDetailDto implements SaleDetailDto {
 }
 
  final  List<SaleDetailRedemptionDto> _redemptions;
-@override@JsonKey(name: 'redemptions') List<SaleDetailRedemptionDto> get redemptions {
+@override@JsonKey(name: 'creditNoteRedemptions') List<SaleDetailRedemptionDto> get redemptions {
   if (_redemptions is EqualUnmodifiableListView) return _redemptions;
   // ignore: implicit_dynamic_type
   return EqualUnmodifiableListView(_redemptions);
 }
 
- final  List<SaleDetailWarningDto> _warnings;
-@override@JsonKey(name: 'warnings') List<SaleDetailWarningDto> get warnings {
+ final  List<String> _warnings;
+@override@JsonKey(name: 'warnings') List<String> get warnings {
   if (_warnings is EqualUnmodifiableListView) return _warnings;
   // ignore: implicit_dynamic_type
   return EqualUnmodifiableListView(_warnings);
@@ -282,7 +283,8 @@ class _SaleDetailDto implements SaleDetailDto {
 @override@JsonKey(name: 'totalDiscountAmount') final  double totalDiscountAmount;
 @override@JsonKey(name: 'totalAmount') final  double totalAmount;
 @override@JsonKey(name: 'totalTaxAmount') final  double totalTaxAmount;
-@override@JsonKey(name: 'status') final  String status;
+@override@JsonKey(name: 'creditNoteAppliedAmount') final  double creditNoteAppliedAmount;
+@override@JsonKey(name: 'status') final  String? status;
 @override@JsonKey(name: 'refundAmount') final  double refundAmount;
 @override@JsonKey(name: 'dueReductionAmount') final  double dueReductionAmount;
 
@@ -299,16 +301,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SaleDetailDto&&(identical(other.saleId, saleId) || other.saleId == saleId)&&(identical(other.invoiceNumber, invoiceNumber) || other.invoiceNumber == invoiceNumber)&&(identical(other.customerId, customerId) || other.customerId == customerId)&&(identical(other.customerName, customerName) || other.customerName == customerName)&&(identical(other.customerPhone, customerPhone) || other.customerPhone == customerPhone)&&(identical(other.paymentMethod, paymentMethod) || other.paymentMethod == paymentMethod)&&(identical(other.soldAt, soldAt) || other.soldAt == soldAt)&&const DeepCollectionEquality().equals(other._items, _items)&&const DeepCollectionEquality().equals(other._settlements, _settlements)&&const DeepCollectionEquality().equals(other._discounts, _discounts)&&const DeepCollectionEquality().equals(other._returns, _returns)&&const DeepCollectionEquality().equals(other._redemptions, _redemptions)&&const DeepCollectionEquality().equals(other._warnings, _warnings)&&(identical(other.paidAmount, paidAmount) || other.paidAmount == paidAmount)&&(identical(other.dueAmount, dueAmount) || other.dueAmount == dueAmount)&&(identical(other.totalBeforeDiscount, totalBeforeDiscount) || other.totalBeforeDiscount == totalBeforeDiscount)&&(identical(other.totalDiscountAmount, totalDiscountAmount) || other.totalDiscountAmount == totalDiscountAmount)&&(identical(other.totalAmount, totalAmount) || other.totalAmount == totalAmount)&&(identical(other.totalTaxAmount, totalTaxAmount) || other.totalTaxAmount == totalTaxAmount)&&(identical(other.status, status) || other.status == status)&&(identical(other.refundAmount, refundAmount) || other.refundAmount == refundAmount)&&(identical(other.dueReductionAmount, dueReductionAmount) || other.dueReductionAmount == dueReductionAmount));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SaleDetailDto&&(identical(other.saleId, saleId) || other.saleId == saleId)&&(identical(other.invoiceNumber, invoiceNumber) || other.invoiceNumber == invoiceNumber)&&(identical(other.customerId, customerId) || other.customerId == customerId)&&(identical(other.customerName, customerName) || other.customerName == customerName)&&(identical(other.customerPhone, customerPhone) || other.customerPhone == customerPhone)&&(identical(other.paymentMethod, paymentMethod) || other.paymentMethod == paymentMethod)&&(identical(other.soldAt, soldAt) || other.soldAt == soldAt)&&const DeepCollectionEquality().equals(other._items, _items)&&const DeepCollectionEquality().equals(other._settlements, _settlements)&&const DeepCollectionEquality().equals(other._discounts, _discounts)&&const DeepCollectionEquality().equals(other._returns, _returns)&&const DeepCollectionEquality().equals(other._redemptions, _redemptions)&&const DeepCollectionEquality().equals(other._warnings, _warnings)&&(identical(other.paidAmount, paidAmount) || other.paidAmount == paidAmount)&&(identical(other.dueAmount, dueAmount) || other.dueAmount == dueAmount)&&(identical(other.totalBeforeDiscount, totalBeforeDiscount) || other.totalBeforeDiscount == totalBeforeDiscount)&&(identical(other.totalDiscountAmount, totalDiscountAmount) || other.totalDiscountAmount == totalDiscountAmount)&&(identical(other.totalAmount, totalAmount) || other.totalAmount == totalAmount)&&(identical(other.totalTaxAmount, totalTaxAmount) || other.totalTaxAmount == totalTaxAmount)&&(identical(other.creditNoteAppliedAmount, creditNoteAppliedAmount) || other.creditNoteAppliedAmount == creditNoteAppliedAmount)&&(identical(other.status, status) || other.status == status)&&(identical(other.refundAmount, refundAmount) || other.refundAmount == refundAmount)&&(identical(other.dueReductionAmount, dueReductionAmount) || other.dueReductionAmount == dueReductionAmount));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hashAll([runtimeType,saleId,invoiceNumber,customerId,customerName,customerPhone,paymentMethod,soldAt,const DeepCollectionEquality().hash(_items),const DeepCollectionEquality().hash(_settlements),const DeepCollectionEquality().hash(_discounts),const DeepCollectionEquality().hash(_returns),const DeepCollectionEquality().hash(_redemptions),const DeepCollectionEquality().hash(_warnings),paidAmount,dueAmount,totalBeforeDiscount,totalDiscountAmount,totalAmount,totalTaxAmount,status,refundAmount,dueReductionAmount]);
+int get hashCode => Object.hashAll([runtimeType,saleId,invoiceNumber,customerId,customerName,customerPhone,paymentMethod,soldAt,const DeepCollectionEquality().hash(_items),const DeepCollectionEquality().hash(_settlements),const DeepCollectionEquality().hash(_discounts),const DeepCollectionEquality().hash(_returns),const DeepCollectionEquality().hash(_redemptions),const DeepCollectionEquality().hash(_warnings),paidAmount,dueAmount,totalBeforeDiscount,totalDiscountAmount,totalAmount,totalTaxAmount,creditNoteAppliedAmount,status,refundAmount,dueReductionAmount]);
 
 @override
 String toString() {
-  return 'SaleDetailDto(saleId: $saleId, invoiceNumber: $invoiceNumber, customerId: $customerId, customerName: $customerName, customerPhone: $customerPhone, paymentMethod: $paymentMethod, soldAt: $soldAt, items: $items, settlements: $settlements, discounts: $discounts, returns: $returns, redemptions: $redemptions, warnings: $warnings, paidAmount: $paidAmount, dueAmount: $dueAmount, totalBeforeDiscount: $totalBeforeDiscount, totalDiscountAmount: $totalDiscountAmount, totalAmount: $totalAmount, totalTaxAmount: $totalTaxAmount, status: $status, refundAmount: $refundAmount, dueReductionAmount: $dueReductionAmount)';
+  return 'SaleDetailDto(saleId: $saleId, invoiceNumber: $invoiceNumber, customerId: $customerId, customerName: $customerName, customerPhone: $customerPhone, paymentMethod: $paymentMethod, soldAt: $soldAt, items: $items, settlements: $settlements, discounts: $discounts, returns: $returns, redemptions: $redemptions, warnings: $warnings, paidAmount: $paidAmount, dueAmount: $dueAmount, totalBeforeDiscount: $totalBeforeDiscount, totalDiscountAmount: $totalDiscountAmount, totalAmount: $totalAmount, totalTaxAmount: $totalTaxAmount, creditNoteAppliedAmount: $creditNoteAppliedAmount, status: $status, refundAmount: $refundAmount, dueReductionAmount: $dueReductionAmount)';
 }
 
 
@@ -319,7 +321,7 @@ abstract mixin class _$SaleDetailDtoCopyWith<$Res> implements $SaleDetailDtoCopy
   factory _$SaleDetailDtoCopyWith(_SaleDetailDto value, $Res Function(_SaleDetailDto) _then) = __$SaleDetailDtoCopyWithImpl;
 @override @useResult
 $Res call({
-@JsonKey(name: 'saleId') String saleId,@JsonKey(name: 'invoiceNumber') String invoiceNumber,@JsonKey(name: 'customerId') String? customerId,@JsonKey(name: 'customerName') String? customerName,@JsonKey(name: 'customerPhone') String? customerPhone,@JsonKey(name: 'paymentMethod', fromJson: paymentMethodFromJson) int paymentMethod,@JsonKey(name: 'soldAt') DateTime soldAt,@JsonKey(name: 'items') List<SaleDetailItemDto> items,@JsonKey(name: 'settlements') List<SaleDetailSettlementDto> settlements,@JsonKey(name: 'discounts') List<SaleDetailDiscountDto> discounts,@JsonKey(name: 'returns') List<SaleDetailReturnDto> returns,@JsonKey(name: 'redemptions') List<SaleDetailRedemptionDto> redemptions,@JsonKey(name: 'warnings') List<SaleDetailWarningDto> warnings,@JsonKey(name: 'paidAmount') double paidAmount,@JsonKey(name: 'dueAmount') double dueAmount,@JsonKey(name: 'totalBeforeDiscount') double totalBeforeDiscount,@JsonKey(name: 'totalDiscountAmount') double totalDiscountAmount,@JsonKey(name: 'totalAmount') double totalAmount,@JsonKey(name: 'totalTaxAmount') double totalTaxAmount,@JsonKey(name: 'status') String status,@JsonKey(name: 'refundAmount') double refundAmount,@JsonKey(name: 'dueReductionAmount') double dueReductionAmount
+@JsonKey(name: 'saleId') String saleId,@JsonKey(name: 'invoiceNumber') String invoiceNumber,@JsonKey(name: 'customerId') String? customerId,@JsonKey(name: 'customerName') String? customerName,@JsonKey(name: 'customerPhone') String? customerPhone,@JsonKey(name: 'paymentMethod', fromJson: paymentMethodFromJson) int paymentMethod,@JsonKey(name: 'soldAt') DateTime soldAt,@JsonKey(name: 'items') List<SaleDetailItemDto> items,@JsonKey(name: 'settlements') List<SaleDetailSettlementDto> settlements,@JsonKey(name: 'discounts') List<SaleDetailDiscountDto> discounts,@JsonKey(name: 'returns') List<SaleDetailReturnDto> returns,@JsonKey(name: 'creditNoteRedemptions') List<SaleDetailRedemptionDto> redemptions,@JsonKey(name: 'warnings') List<String> warnings,@JsonKey(name: 'paidAmount') double paidAmount,@JsonKey(name: 'dueAmount') double dueAmount,@JsonKey(name: 'totalBeforeDiscount') double totalBeforeDiscount,@JsonKey(name: 'totalDiscountAmount') double totalDiscountAmount,@JsonKey(name: 'totalAmount') double totalAmount,@JsonKey(name: 'totalTaxAmount') double totalTaxAmount,@JsonKey(name: 'creditNoteAppliedAmount') double creditNoteAppliedAmount,@JsonKey(name: 'status') String? status,@JsonKey(name: 'refundAmount') double refundAmount,@JsonKey(name: 'dueReductionAmount') double dueReductionAmount
 });
 
 
@@ -336,7 +338,7 @@ class __$SaleDetailDtoCopyWithImpl<$Res>
 
 /// Create a copy of SaleDetailDto
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? saleId = null,Object? invoiceNumber = null,Object? customerId = freezed,Object? customerName = freezed,Object? customerPhone = freezed,Object? paymentMethod = null,Object? soldAt = null,Object? items = null,Object? settlements = null,Object? discounts = null,Object? returns = null,Object? redemptions = null,Object? warnings = null,Object? paidAmount = null,Object? dueAmount = null,Object? totalBeforeDiscount = null,Object? totalDiscountAmount = null,Object? totalAmount = null,Object? totalTaxAmount = null,Object? status = null,Object? refundAmount = null,Object? dueReductionAmount = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? saleId = null,Object? invoiceNumber = null,Object? customerId = freezed,Object? customerName = freezed,Object? customerPhone = freezed,Object? paymentMethod = null,Object? soldAt = null,Object? items = null,Object? settlements = null,Object? discounts = null,Object? returns = null,Object? redemptions = null,Object? warnings = null,Object? paidAmount = null,Object? dueAmount = null,Object? totalBeforeDiscount = null,Object? totalDiscountAmount = null,Object? totalAmount = null,Object? totalTaxAmount = null,Object? creditNoteAppliedAmount = null,Object? status = freezed,Object? refundAmount = null,Object? dueReductionAmount = null,}) {
   return _then(_SaleDetailDto(
 saleId: null == saleId ? _self.saleId : saleId // ignore: cast_nullable_to_non_nullable
 as String,invoiceNumber: null == invoiceNumber ? _self.invoiceNumber : invoiceNumber // ignore: cast_nullable_to_non_nullable
@@ -351,14 +353,15 @@ as List<SaleDetailSettlementDto>,discounts: null == discounts ? _self._discounts
 as List<SaleDetailDiscountDto>,returns: null == returns ? _self._returns : returns // ignore: cast_nullable_to_non_nullable
 as List<SaleDetailReturnDto>,redemptions: null == redemptions ? _self._redemptions : redemptions // ignore: cast_nullable_to_non_nullable
 as List<SaleDetailRedemptionDto>,warnings: null == warnings ? _self._warnings : warnings // ignore: cast_nullable_to_non_nullable
-as List<SaleDetailWarningDto>,paidAmount: null == paidAmount ? _self.paidAmount : paidAmount // ignore: cast_nullable_to_non_nullable
+as List<String>,paidAmount: null == paidAmount ? _self.paidAmount : paidAmount // ignore: cast_nullable_to_non_nullable
 as double,dueAmount: null == dueAmount ? _self.dueAmount : dueAmount // ignore: cast_nullable_to_non_nullable
 as double,totalBeforeDiscount: null == totalBeforeDiscount ? _self.totalBeforeDiscount : totalBeforeDiscount // ignore: cast_nullable_to_non_nullable
 as double,totalDiscountAmount: null == totalDiscountAmount ? _self.totalDiscountAmount : totalDiscountAmount // ignore: cast_nullable_to_non_nullable
 as double,totalAmount: null == totalAmount ? _self.totalAmount : totalAmount // ignore: cast_nullable_to_non_nullable
 as double,totalTaxAmount: null == totalTaxAmount ? _self.totalTaxAmount : totalTaxAmount // ignore: cast_nullable_to_non_nullable
-as double,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
-as String,refundAmount: null == refundAmount ? _self.refundAmount : refundAmount // ignore: cast_nullable_to_non_nullable
+as double,creditNoteAppliedAmount: null == creditNoteAppliedAmount ? _self.creditNoteAppliedAmount : creditNoteAppliedAmount // ignore: cast_nullable_to_non_nullable
+as double,status: freezed == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
+as String?,refundAmount: null == refundAmount ? _self.refundAmount : refundAmount // ignore: cast_nullable_to_non_nullable
 as double,dueReductionAmount: null == dueReductionAmount ? _self.dueReductionAmount : dueReductionAmount // ignore: cast_nullable_to_non_nullable
 as double,
   ));
@@ -371,7 +374,7 @@ as double,
 /// @nodoc
 mixin _$SaleDetailItemDto {
 
-@JsonKey(name: 'itemId') String get itemId;@JsonKey(name: 'name') String get name;@JsonKey(name: 'quantity') double get quantity;@JsonKey(name: 'rate') double get rate;@JsonKey(name: 'tax') double get tax;@JsonKey(name: 'total') double get total;
+@JsonKey(name: 'saleItemId') String get itemId;@JsonKey(name: 'itemName') String get name;@JsonKey(name: 'quantity') double get quantity;@JsonKey(name: 'salesPrice') double get rate;@JsonKey(name: 'taxRatePercent') double get tax;@JsonKey(name: 'totalAmount') double get total;
 /// Create a copy of SaleDetailItemDto
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -404,7 +407,7 @@ abstract mixin class $SaleDetailItemDtoCopyWith<$Res>  {
   factory $SaleDetailItemDtoCopyWith(SaleDetailItemDto value, $Res Function(SaleDetailItemDto) _then) = _$SaleDetailItemDtoCopyWithImpl;
 @useResult
 $Res call({
-@JsonKey(name: 'itemId') String itemId,@JsonKey(name: 'name') String name,@JsonKey(name: 'quantity') double quantity,@JsonKey(name: 'rate') double rate,@JsonKey(name: 'tax') double tax,@JsonKey(name: 'total') double total
+@JsonKey(name: 'saleItemId') String itemId,@JsonKey(name: 'itemName') String name,@JsonKey(name: 'quantity') double quantity,@JsonKey(name: 'salesPrice') double rate,@JsonKey(name: 'taxRatePercent') double tax,@JsonKey(name: 'totalAmount') double total
 });
 
 
@@ -511,7 +514,7 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'itemId')  String itemId, @JsonKey(name: 'name')  String name, @JsonKey(name: 'quantity')  double quantity, @JsonKey(name: 'rate')  double rate, @JsonKey(name: 'tax')  double tax, @JsonKey(name: 'total')  double total)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'saleItemId')  String itemId, @JsonKey(name: 'itemName')  String name, @JsonKey(name: 'quantity')  double quantity, @JsonKey(name: 'salesPrice')  double rate, @JsonKey(name: 'taxRatePercent')  double tax, @JsonKey(name: 'totalAmount')  double total)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _SaleDetailItemDto() when $default != null:
 return $default(_that.itemId,_that.name,_that.quantity,_that.rate,_that.tax,_that.total);case _:
@@ -532,7 +535,7 @@ return $default(_that.itemId,_that.name,_that.quantity,_that.rate,_that.tax,_tha
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'itemId')  String itemId, @JsonKey(name: 'name')  String name, @JsonKey(name: 'quantity')  double quantity, @JsonKey(name: 'rate')  double rate, @JsonKey(name: 'tax')  double tax, @JsonKey(name: 'total')  double total)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'saleItemId')  String itemId, @JsonKey(name: 'itemName')  String name, @JsonKey(name: 'quantity')  double quantity, @JsonKey(name: 'salesPrice')  double rate, @JsonKey(name: 'taxRatePercent')  double tax, @JsonKey(name: 'totalAmount')  double total)  $default,) {final _that = this;
 switch (_that) {
 case _SaleDetailItemDto():
 return $default(_that.itemId,_that.name,_that.quantity,_that.rate,_that.tax,_that.total);}
@@ -549,7 +552,7 @@ return $default(_that.itemId,_that.name,_that.quantity,_that.rate,_that.tax,_tha
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'itemId')  String itemId, @JsonKey(name: 'name')  String name, @JsonKey(name: 'quantity')  double quantity, @JsonKey(name: 'rate')  double rate, @JsonKey(name: 'tax')  double tax, @JsonKey(name: 'total')  double total)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'saleItemId')  String itemId, @JsonKey(name: 'itemName')  String name, @JsonKey(name: 'quantity')  double quantity, @JsonKey(name: 'salesPrice')  double rate, @JsonKey(name: 'taxRatePercent')  double tax, @JsonKey(name: 'totalAmount')  double total)?  $default,) {final _that = this;
 switch (_that) {
 case _SaleDetailItemDto() when $default != null:
 return $default(_that.itemId,_that.name,_that.quantity,_that.rate,_that.tax,_that.total);case _:
@@ -564,15 +567,15 @@ return $default(_that.itemId,_that.name,_that.quantity,_that.rate,_that.tax,_tha
 @JsonSerializable()
 
 class _SaleDetailItemDto implements SaleDetailItemDto {
-  const _SaleDetailItemDto({@JsonKey(name: 'itemId') required this.itemId, @JsonKey(name: 'name') required this.name, @JsonKey(name: 'quantity') required this.quantity, @JsonKey(name: 'rate') required this.rate, @JsonKey(name: 'tax') required this.tax, @JsonKey(name: 'total') required this.total});
+  const _SaleDetailItemDto({@JsonKey(name: 'saleItemId') required this.itemId, @JsonKey(name: 'itemName') required this.name, @JsonKey(name: 'quantity') required this.quantity, @JsonKey(name: 'salesPrice') required this.rate, @JsonKey(name: 'taxRatePercent') required this.tax, @JsonKey(name: 'totalAmount') required this.total});
   factory _SaleDetailItemDto.fromJson(Map<String, dynamic> json) => _$SaleDetailItemDtoFromJson(json);
 
-@override@JsonKey(name: 'itemId') final  String itemId;
-@override@JsonKey(name: 'name') final  String name;
+@override@JsonKey(name: 'saleItemId') final  String itemId;
+@override@JsonKey(name: 'itemName') final  String name;
 @override@JsonKey(name: 'quantity') final  double quantity;
-@override@JsonKey(name: 'rate') final  double rate;
-@override@JsonKey(name: 'tax') final  double tax;
-@override@JsonKey(name: 'total') final  double total;
+@override@JsonKey(name: 'salesPrice') final  double rate;
+@override@JsonKey(name: 'taxRatePercent') final  double tax;
+@override@JsonKey(name: 'totalAmount') final  double total;
 
 /// Create a copy of SaleDetailItemDto
 /// with the given fields replaced by the non-null parameter values.
@@ -607,7 +610,7 @@ abstract mixin class _$SaleDetailItemDtoCopyWith<$Res> implements $SaleDetailIte
   factory _$SaleDetailItemDtoCopyWith(_SaleDetailItemDto value, $Res Function(_SaleDetailItemDto) _then) = __$SaleDetailItemDtoCopyWithImpl;
 @override @useResult
 $Res call({
-@JsonKey(name: 'itemId') String itemId,@JsonKey(name: 'name') String name,@JsonKey(name: 'quantity') double quantity,@JsonKey(name: 'rate') double rate,@JsonKey(name: 'tax') double tax,@JsonKey(name: 'total') double total
+@JsonKey(name: 'saleItemId') String itemId,@JsonKey(name: 'itemName') String name,@JsonKey(name: 'quantity') double quantity,@JsonKey(name: 'salesPrice') double rate,@JsonKey(name: 'taxRatePercent') double tax,@JsonKey(name: 'totalAmount') double total
 });
 
 
@@ -1175,7 +1178,7 @@ as double,
 /// @nodoc
 mixin _$SaleDetailReturnDto {
 
-@JsonKey(name: 'returnId') String get returnId;@JsonKey(name: 'returnNumber') String get returnNumber;@JsonKey(name: 'items') List<SaleDetailReturnItemDto> get items;@JsonKey(name: 'amount') double get amount;@JsonKey(name: 'returnedAt') DateTime get returnedAt;
+@JsonKey(name: 'saleReturnId') String get returnId;@JsonKey(name: 'returnNumber') String get returnNumber;@JsonKey(name: 'items') List<SaleDetailReturnItemDto> get items;@JsonKey(name: 'totalRefundAmount') double get amount;@JsonKey(name: 'processedAt') DateTime get returnedAt;
 /// Create a copy of SaleDetailReturnDto
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -1208,7 +1211,7 @@ abstract mixin class $SaleDetailReturnDtoCopyWith<$Res>  {
   factory $SaleDetailReturnDtoCopyWith(SaleDetailReturnDto value, $Res Function(SaleDetailReturnDto) _then) = _$SaleDetailReturnDtoCopyWithImpl;
 @useResult
 $Res call({
-@JsonKey(name: 'returnId') String returnId,@JsonKey(name: 'returnNumber') String returnNumber,@JsonKey(name: 'items') List<SaleDetailReturnItemDto> items,@JsonKey(name: 'amount') double amount,@JsonKey(name: 'returnedAt') DateTime returnedAt
+@JsonKey(name: 'saleReturnId') String returnId,@JsonKey(name: 'returnNumber') String returnNumber,@JsonKey(name: 'items') List<SaleDetailReturnItemDto> items,@JsonKey(name: 'totalRefundAmount') double amount,@JsonKey(name: 'processedAt') DateTime returnedAt
 });
 
 
@@ -1314,7 +1317,7 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'returnId')  String returnId, @JsonKey(name: 'returnNumber')  String returnNumber, @JsonKey(name: 'items')  List<SaleDetailReturnItemDto> items, @JsonKey(name: 'amount')  double amount, @JsonKey(name: 'returnedAt')  DateTime returnedAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'saleReturnId')  String returnId, @JsonKey(name: 'returnNumber')  String returnNumber, @JsonKey(name: 'items')  List<SaleDetailReturnItemDto> items, @JsonKey(name: 'totalRefundAmount')  double amount, @JsonKey(name: 'processedAt')  DateTime returnedAt)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _SaleDetailReturnDto() when $default != null:
 return $default(_that.returnId,_that.returnNumber,_that.items,_that.amount,_that.returnedAt);case _:
@@ -1335,7 +1338,7 @@ return $default(_that.returnId,_that.returnNumber,_that.items,_that.amount,_that
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'returnId')  String returnId, @JsonKey(name: 'returnNumber')  String returnNumber, @JsonKey(name: 'items')  List<SaleDetailReturnItemDto> items, @JsonKey(name: 'amount')  double amount, @JsonKey(name: 'returnedAt')  DateTime returnedAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'saleReturnId')  String returnId, @JsonKey(name: 'returnNumber')  String returnNumber, @JsonKey(name: 'items')  List<SaleDetailReturnItemDto> items, @JsonKey(name: 'totalRefundAmount')  double amount, @JsonKey(name: 'processedAt')  DateTime returnedAt)  $default,) {final _that = this;
 switch (_that) {
 case _SaleDetailReturnDto():
 return $default(_that.returnId,_that.returnNumber,_that.items,_that.amount,_that.returnedAt);}
@@ -1352,7 +1355,7 @@ return $default(_that.returnId,_that.returnNumber,_that.items,_that.amount,_that
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'returnId')  String returnId, @JsonKey(name: 'returnNumber')  String returnNumber, @JsonKey(name: 'items')  List<SaleDetailReturnItemDto> items, @JsonKey(name: 'amount')  double amount, @JsonKey(name: 'returnedAt')  DateTime returnedAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'saleReturnId')  String returnId, @JsonKey(name: 'returnNumber')  String returnNumber, @JsonKey(name: 'items')  List<SaleDetailReturnItemDto> items, @JsonKey(name: 'totalRefundAmount')  double amount, @JsonKey(name: 'processedAt')  DateTime returnedAt)?  $default,) {final _that = this;
 switch (_that) {
 case _SaleDetailReturnDto() when $default != null:
 return $default(_that.returnId,_that.returnNumber,_that.items,_that.amount,_that.returnedAt);case _:
@@ -1367,10 +1370,10 @@ return $default(_that.returnId,_that.returnNumber,_that.items,_that.amount,_that
 @JsonSerializable()
 
 class _SaleDetailReturnDto implements SaleDetailReturnDto {
-  const _SaleDetailReturnDto({@JsonKey(name: 'returnId') required this.returnId, @JsonKey(name: 'returnNumber') required this.returnNumber, @JsonKey(name: 'items') final  List<SaleDetailReturnItemDto> items = const [], @JsonKey(name: 'amount') required this.amount, @JsonKey(name: 'returnedAt') required this.returnedAt}): _items = items;
+  const _SaleDetailReturnDto({@JsonKey(name: 'saleReturnId') required this.returnId, @JsonKey(name: 'returnNumber') required this.returnNumber, @JsonKey(name: 'items') final  List<SaleDetailReturnItemDto> items = const [], @JsonKey(name: 'totalRefundAmount') required this.amount, @JsonKey(name: 'processedAt') required this.returnedAt}): _items = items;
   factory _SaleDetailReturnDto.fromJson(Map<String, dynamic> json) => _$SaleDetailReturnDtoFromJson(json);
 
-@override@JsonKey(name: 'returnId') final  String returnId;
+@override@JsonKey(name: 'saleReturnId') final  String returnId;
 @override@JsonKey(name: 'returnNumber') final  String returnNumber;
  final  List<SaleDetailReturnItemDto> _items;
 @override@JsonKey(name: 'items') List<SaleDetailReturnItemDto> get items {
@@ -1379,8 +1382,8 @@ class _SaleDetailReturnDto implements SaleDetailReturnDto {
   return EqualUnmodifiableListView(_items);
 }
 
-@override@JsonKey(name: 'amount') final  double amount;
-@override@JsonKey(name: 'returnedAt') final  DateTime returnedAt;
+@override@JsonKey(name: 'totalRefundAmount') final  double amount;
+@override@JsonKey(name: 'processedAt') final  DateTime returnedAt;
 
 /// Create a copy of SaleDetailReturnDto
 /// with the given fields replaced by the non-null parameter values.
@@ -1415,7 +1418,7 @@ abstract mixin class _$SaleDetailReturnDtoCopyWith<$Res> implements $SaleDetailR
   factory _$SaleDetailReturnDtoCopyWith(_SaleDetailReturnDto value, $Res Function(_SaleDetailReturnDto) _then) = __$SaleDetailReturnDtoCopyWithImpl;
 @override @useResult
 $Res call({
-@JsonKey(name: 'returnId') String returnId,@JsonKey(name: 'returnNumber') String returnNumber,@JsonKey(name: 'items') List<SaleDetailReturnItemDto> items,@JsonKey(name: 'amount') double amount,@JsonKey(name: 'returnedAt') DateTime returnedAt
+@JsonKey(name: 'saleReturnId') String returnId,@JsonKey(name: 'returnNumber') String returnNumber,@JsonKey(name: 'items') List<SaleDetailReturnItemDto> items,@JsonKey(name: 'totalRefundAmount') double amount,@JsonKey(name: 'processedAt') DateTime returnedAt
 });
 
 
@@ -1450,7 +1453,7 @@ as DateTime,
 /// @nodoc
 mixin _$SaleDetailReturnItemDto {
 
-@JsonKey(name: 'itemId') String get itemId;@JsonKey(name: 'itemName') String? get itemName;@JsonKey(name: 'quantity') double get quantity;@JsonKey(name: 'amount') double get amount;
+@JsonKey(name: 'saleItemId') String get itemId;@JsonKey(name: 'itemName') String? get itemName;@JsonKey(name: 'quantity') double get quantity;@JsonKey(name: 'approvedRefundAmount') double get amount;
 /// Create a copy of SaleDetailReturnItemDto
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -1483,7 +1486,7 @@ abstract mixin class $SaleDetailReturnItemDtoCopyWith<$Res>  {
   factory $SaleDetailReturnItemDtoCopyWith(SaleDetailReturnItemDto value, $Res Function(SaleDetailReturnItemDto) _then) = _$SaleDetailReturnItemDtoCopyWithImpl;
 @useResult
 $Res call({
-@JsonKey(name: 'itemId') String itemId,@JsonKey(name: 'itemName') String? itemName,@JsonKey(name: 'quantity') double quantity,@JsonKey(name: 'amount') double amount
+@JsonKey(name: 'saleItemId') String itemId,@JsonKey(name: 'itemName') String? itemName,@JsonKey(name: 'quantity') double quantity,@JsonKey(name: 'approvedRefundAmount') double amount
 });
 
 
@@ -1588,7 +1591,7 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'itemId')  String itemId, @JsonKey(name: 'itemName')  String? itemName, @JsonKey(name: 'quantity')  double quantity, @JsonKey(name: 'amount')  double amount)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'saleItemId')  String itemId, @JsonKey(name: 'itemName')  String? itemName, @JsonKey(name: 'quantity')  double quantity, @JsonKey(name: 'approvedRefundAmount')  double amount)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _SaleDetailReturnItemDto() when $default != null:
 return $default(_that.itemId,_that.itemName,_that.quantity,_that.amount);case _:
@@ -1609,7 +1612,7 @@ return $default(_that.itemId,_that.itemName,_that.quantity,_that.amount);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'itemId')  String itemId, @JsonKey(name: 'itemName')  String? itemName, @JsonKey(name: 'quantity')  double quantity, @JsonKey(name: 'amount')  double amount)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'saleItemId')  String itemId, @JsonKey(name: 'itemName')  String? itemName, @JsonKey(name: 'quantity')  double quantity, @JsonKey(name: 'approvedRefundAmount')  double amount)  $default,) {final _that = this;
 switch (_that) {
 case _SaleDetailReturnItemDto():
 return $default(_that.itemId,_that.itemName,_that.quantity,_that.amount);}
@@ -1626,7 +1629,7 @@ return $default(_that.itemId,_that.itemName,_that.quantity,_that.amount);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'itemId')  String itemId, @JsonKey(name: 'itemName')  String? itemName, @JsonKey(name: 'quantity')  double quantity, @JsonKey(name: 'amount')  double amount)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'saleItemId')  String itemId, @JsonKey(name: 'itemName')  String? itemName, @JsonKey(name: 'quantity')  double quantity, @JsonKey(name: 'approvedRefundAmount')  double amount)?  $default,) {final _that = this;
 switch (_that) {
 case _SaleDetailReturnItemDto() when $default != null:
 return $default(_that.itemId,_that.itemName,_that.quantity,_that.amount);case _:
@@ -1641,13 +1644,13 @@ return $default(_that.itemId,_that.itemName,_that.quantity,_that.amount);case _:
 @JsonSerializable()
 
 class _SaleDetailReturnItemDto implements SaleDetailReturnItemDto {
-  const _SaleDetailReturnItemDto({@JsonKey(name: 'itemId') required this.itemId, @JsonKey(name: 'itemName') this.itemName, @JsonKey(name: 'quantity') required this.quantity, @JsonKey(name: 'amount') required this.amount});
+  const _SaleDetailReturnItemDto({@JsonKey(name: 'saleItemId') required this.itemId, @JsonKey(name: 'itemName') this.itemName, @JsonKey(name: 'quantity') required this.quantity, @JsonKey(name: 'approvedRefundAmount') required this.amount});
   factory _SaleDetailReturnItemDto.fromJson(Map<String, dynamic> json) => _$SaleDetailReturnItemDtoFromJson(json);
 
-@override@JsonKey(name: 'itemId') final  String itemId;
+@override@JsonKey(name: 'saleItemId') final  String itemId;
 @override@JsonKey(name: 'itemName') final  String? itemName;
 @override@JsonKey(name: 'quantity') final  double quantity;
-@override@JsonKey(name: 'amount') final  double amount;
+@override@JsonKey(name: 'approvedRefundAmount') final  double amount;
 
 /// Create a copy of SaleDetailReturnItemDto
 /// with the given fields replaced by the non-null parameter values.
@@ -1682,7 +1685,7 @@ abstract mixin class _$SaleDetailReturnItemDtoCopyWith<$Res> implements $SaleDet
   factory _$SaleDetailReturnItemDtoCopyWith(_SaleDetailReturnItemDto value, $Res Function(_SaleDetailReturnItemDto) _then) = __$SaleDetailReturnItemDtoCopyWithImpl;
 @override @useResult
 $Res call({
-@JsonKey(name: 'itemId') String itemId,@JsonKey(name: 'itemName') String? itemName,@JsonKey(name: 'quantity') double quantity,@JsonKey(name: 'amount') double amount
+@JsonKey(name: 'saleItemId') String itemId,@JsonKey(name: 'itemName') String? itemName,@JsonKey(name: 'quantity') double quantity,@JsonKey(name: 'approvedRefundAmount') double amount
 });
 
 
@@ -1716,7 +1719,7 @@ as double,
 /// @nodoc
 mixin _$SaleDetailRedemptionDto {
 
-@JsonKey(name: 'redemptionId') String get redemptionId;@JsonKey(name: 'type') String get type;@JsonKey(name: 'amount') double get amount;@JsonKey(name: 'redeemedAt') DateTime get redeemedAt;
+@JsonKey(name: 'creditNoteId') String get redemptionId;@JsonKey(name: 'code') String get code;@JsonKey(name: 'appliedAmount') double get amount;
 /// Create a copy of SaleDetailRedemptionDto
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -1729,16 +1732,16 @@ $SaleDetailRedemptionDtoCopyWith<SaleDetailRedemptionDto> get copyWith => _$Sale
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is SaleDetailRedemptionDto&&(identical(other.redemptionId, redemptionId) || other.redemptionId == redemptionId)&&(identical(other.type, type) || other.type == type)&&(identical(other.amount, amount) || other.amount == amount)&&(identical(other.redeemedAt, redeemedAt) || other.redeemedAt == redeemedAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is SaleDetailRedemptionDto&&(identical(other.redemptionId, redemptionId) || other.redemptionId == redemptionId)&&(identical(other.code, code) || other.code == code)&&(identical(other.amount, amount) || other.amount == amount));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,redemptionId,type,amount,redeemedAt);
+int get hashCode => Object.hash(runtimeType,redemptionId,code,amount);
 
 @override
 String toString() {
-  return 'SaleDetailRedemptionDto(redemptionId: $redemptionId, type: $type, amount: $amount, redeemedAt: $redeemedAt)';
+  return 'SaleDetailRedemptionDto(redemptionId: $redemptionId, code: $code, amount: $amount)';
 }
 
 
@@ -1749,7 +1752,7 @@ abstract mixin class $SaleDetailRedemptionDtoCopyWith<$Res>  {
   factory $SaleDetailRedemptionDtoCopyWith(SaleDetailRedemptionDto value, $Res Function(SaleDetailRedemptionDto) _then) = _$SaleDetailRedemptionDtoCopyWithImpl;
 @useResult
 $Res call({
-@JsonKey(name: 'redemptionId') String redemptionId,@JsonKey(name: 'type') String type,@JsonKey(name: 'amount') double amount,@JsonKey(name: 'redeemedAt') DateTime redeemedAt
+@JsonKey(name: 'creditNoteId') String redemptionId,@JsonKey(name: 'code') String code,@JsonKey(name: 'appliedAmount') double amount
 });
 
 
@@ -1766,13 +1769,12 @@ class _$SaleDetailRedemptionDtoCopyWithImpl<$Res>
 
 /// Create a copy of SaleDetailRedemptionDto
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? redemptionId = null,Object? type = null,Object? amount = null,Object? redeemedAt = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? redemptionId = null,Object? code = null,Object? amount = null,}) {
   return _then(_self.copyWith(
 redemptionId: null == redemptionId ? _self.redemptionId : redemptionId // ignore: cast_nullable_to_non_nullable
-as String,type: null == type ? _self.type : type // ignore: cast_nullable_to_non_nullable
+as String,code: null == code ? _self.code : code // ignore: cast_nullable_to_non_nullable
 as String,amount: null == amount ? _self.amount : amount // ignore: cast_nullable_to_non_nullable
-as double,redeemedAt: null == redeemedAt ? _self.redeemedAt : redeemedAt // ignore: cast_nullable_to_non_nullable
-as DateTime,
+as double,
   ));
 }
 
@@ -1854,10 +1856,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'redemptionId')  String redemptionId, @JsonKey(name: 'type')  String type, @JsonKey(name: 'amount')  double amount, @JsonKey(name: 'redeemedAt')  DateTime redeemedAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'creditNoteId')  String redemptionId, @JsonKey(name: 'code')  String code, @JsonKey(name: 'appliedAmount')  double amount)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _SaleDetailRedemptionDto() when $default != null:
-return $default(_that.redemptionId,_that.type,_that.amount,_that.redeemedAt);case _:
+return $default(_that.redemptionId,_that.code,_that.amount);case _:
   return orElse();
 
 }
@@ -1875,10 +1877,10 @@ return $default(_that.redemptionId,_that.type,_that.amount,_that.redeemedAt);cas
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'redemptionId')  String redemptionId, @JsonKey(name: 'type')  String type, @JsonKey(name: 'amount')  double amount, @JsonKey(name: 'redeemedAt')  DateTime redeemedAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'creditNoteId')  String redemptionId, @JsonKey(name: 'code')  String code, @JsonKey(name: 'appliedAmount')  double amount)  $default,) {final _that = this;
 switch (_that) {
 case _SaleDetailRedemptionDto():
-return $default(_that.redemptionId,_that.type,_that.amount,_that.redeemedAt);}
+return $default(_that.redemptionId,_that.code,_that.amount);}
 }
 /// A variant of `when` that fallback to returning `null`
 ///
@@ -1892,10 +1894,10 @@ return $default(_that.redemptionId,_that.type,_that.amount,_that.redeemedAt);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'redemptionId')  String redemptionId, @JsonKey(name: 'type')  String type, @JsonKey(name: 'amount')  double amount, @JsonKey(name: 'redeemedAt')  DateTime redeemedAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'creditNoteId')  String redemptionId, @JsonKey(name: 'code')  String code, @JsonKey(name: 'appliedAmount')  double amount)?  $default,) {final _that = this;
 switch (_that) {
 case _SaleDetailRedemptionDto() when $default != null:
-return $default(_that.redemptionId,_that.type,_that.amount,_that.redeemedAt);case _:
+return $default(_that.redemptionId,_that.code,_that.amount);case _:
   return null;
 
 }
@@ -1907,13 +1909,12 @@ return $default(_that.redemptionId,_that.type,_that.amount,_that.redeemedAt);cas
 @JsonSerializable()
 
 class _SaleDetailRedemptionDto implements SaleDetailRedemptionDto {
-  const _SaleDetailRedemptionDto({@JsonKey(name: 'redemptionId') required this.redemptionId, @JsonKey(name: 'type') required this.type, @JsonKey(name: 'amount') required this.amount, @JsonKey(name: 'redeemedAt') required this.redeemedAt});
+  const _SaleDetailRedemptionDto({@JsonKey(name: 'creditNoteId') required this.redemptionId, @JsonKey(name: 'code') required this.code, @JsonKey(name: 'appliedAmount') required this.amount});
   factory _SaleDetailRedemptionDto.fromJson(Map<String, dynamic> json) => _$SaleDetailRedemptionDtoFromJson(json);
 
-@override@JsonKey(name: 'redemptionId') final  String redemptionId;
-@override@JsonKey(name: 'type') final  String type;
-@override@JsonKey(name: 'amount') final  double amount;
-@override@JsonKey(name: 'redeemedAt') final  DateTime redeemedAt;
+@override@JsonKey(name: 'creditNoteId') final  String redemptionId;
+@override@JsonKey(name: 'code') final  String code;
+@override@JsonKey(name: 'appliedAmount') final  double amount;
 
 /// Create a copy of SaleDetailRedemptionDto
 /// with the given fields replaced by the non-null parameter values.
@@ -1928,16 +1929,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SaleDetailRedemptionDto&&(identical(other.redemptionId, redemptionId) || other.redemptionId == redemptionId)&&(identical(other.type, type) || other.type == type)&&(identical(other.amount, amount) || other.amount == amount)&&(identical(other.redeemedAt, redeemedAt) || other.redeemedAt == redeemedAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SaleDetailRedemptionDto&&(identical(other.redemptionId, redemptionId) || other.redemptionId == redemptionId)&&(identical(other.code, code) || other.code == code)&&(identical(other.amount, amount) || other.amount == amount));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,redemptionId,type,amount,redeemedAt);
+int get hashCode => Object.hash(runtimeType,redemptionId,code,amount);
 
 @override
 String toString() {
-  return 'SaleDetailRedemptionDto(redemptionId: $redemptionId, type: $type, amount: $amount, redeemedAt: $redeemedAt)';
+  return 'SaleDetailRedemptionDto(redemptionId: $redemptionId, code: $code, amount: $amount)';
 }
 
 
@@ -1948,7 +1949,7 @@ abstract mixin class _$SaleDetailRedemptionDtoCopyWith<$Res> implements $SaleDet
   factory _$SaleDetailRedemptionDtoCopyWith(_SaleDetailRedemptionDto value, $Res Function(_SaleDetailRedemptionDto) _then) = __$SaleDetailRedemptionDtoCopyWithImpl;
 @override @useResult
 $Res call({
-@JsonKey(name: 'redemptionId') String redemptionId,@JsonKey(name: 'type') String type,@JsonKey(name: 'amount') double amount,@JsonKey(name: 'redeemedAt') DateTime redeemedAt
+@JsonKey(name: 'creditNoteId') String redemptionId,@JsonKey(name: 'code') String code,@JsonKey(name: 'appliedAmount') double amount
 });
 
 
@@ -1965,276 +1966,12 @@ class __$SaleDetailRedemptionDtoCopyWithImpl<$Res>
 
 /// Create a copy of SaleDetailRedemptionDto
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? redemptionId = null,Object? type = null,Object? amount = null,Object? redeemedAt = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? redemptionId = null,Object? code = null,Object? amount = null,}) {
   return _then(_SaleDetailRedemptionDto(
 redemptionId: null == redemptionId ? _self.redemptionId : redemptionId // ignore: cast_nullable_to_non_nullable
-as String,type: null == type ? _self.type : type // ignore: cast_nullable_to_non_nullable
+as String,code: null == code ? _self.code : code // ignore: cast_nullable_to_non_nullable
 as String,amount: null == amount ? _self.amount : amount // ignore: cast_nullable_to_non_nullable
-as double,redeemedAt: null == redeemedAt ? _self.redeemedAt : redeemedAt // ignore: cast_nullable_to_non_nullable
-as DateTime,
-  ));
-}
-
-
-}
-
-
-/// @nodoc
-mixin _$SaleDetailWarningDto {
-
-@JsonKey(name: 'warningId') String get warningId;@JsonKey(name: 'type') String get type;@JsonKey(name: 'message') String get message;
-/// Create a copy of SaleDetailWarningDto
-/// with the given fields replaced by the non-null parameter values.
-@JsonKey(includeFromJson: false, includeToJson: false)
-@pragma('vm:prefer-inline')
-$SaleDetailWarningDtoCopyWith<SaleDetailWarningDto> get copyWith => _$SaleDetailWarningDtoCopyWithImpl<SaleDetailWarningDto>(this as SaleDetailWarningDto, _$identity);
-
-  /// Serializes this SaleDetailWarningDto to a JSON map.
-  Map<String, dynamic> toJson();
-
-
-@override
-bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is SaleDetailWarningDto&&(identical(other.warningId, warningId) || other.warningId == warningId)&&(identical(other.type, type) || other.type == type)&&(identical(other.message, message) || other.message == message));
-}
-
-@JsonKey(includeFromJson: false, includeToJson: false)
-@override
-int get hashCode => Object.hash(runtimeType,warningId,type,message);
-
-@override
-String toString() {
-  return 'SaleDetailWarningDto(warningId: $warningId, type: $type, message: $message)';
-}
-
-
-}
-
-/// @nodoc
-abstract mixin class $SaleDetailWarningDtoCopyWith<$Res>  {
-  factory $SaleDetailWarningDtoCopyWith(SaleDetailWarningDto value, $Res Function(SaleDetailWarningDto) _then) = _$SaleDetailWarningDtoCopyWithImpl;
-@useResult
-$Res call({
-@JsonKey(name: 'warningId') String warningId,@JsonKey(name: 'type') String type,@JsonKey(name: 'message') String message
-});
-
-
-
-
-}
-/// @nodoc
-class _$SaleDetailWarningDtoCopyWithImpl<$Res>
-    implements $SaleDetailWarningDtoCopyWith<$Res> {
-  _$SaleDetailWarningDtoCopyWithImpl(this._self, this._then);
-
-  final SaleDetailWarningDto _self;
-  final $Res Function(SaleDetailWarningDto) _then;
-
-/// Create a copy of SaleDetailWarningDto
-/// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? warningId = null,Object? type = null,Object? message = null,}) {
-  return _then(_self.copyWith(
-warningId: null == warningId ? _self.warningId : warningId // ignore: cast_nullable_to_non_nullable
-as String,type: null == type ? _self.type : type // ignore: cast_nullable_to_non_nullable
-as String,message: null == message ? _self.message : message // ignore: cast_nullable_to_non_nullable
-as String,
-  ));
-}
-
-}
-
-
-/// Adds pattern-matching-related methods to [SaleDetailWarningDto].
-extension SaleDetailWarningDtoPatterns on SaleDetailWarningDto {
-/// A variant of `map` that fallback to returning `orElse`.
-///
-/// It is equivalent to doing:
-/// ```dart
-/// switch (sealedClass) {
-///   case final Subclass value:
-///     return ...;
-///   case _:
-///     return orElse();
-/// }
-/// ```
-
-@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _SaleDetailWarningDto value)?  $default,{required TResult orElse(),}){
-final _that = this;
-switch (_that) {
-case _SaleDetailWarningDto() when $default != null:
-return $default(_that);case _:
-  return orElse();
-
-}
-}
-/// A `switch`-like method, using callbacks.
-///
-/// Callbacks receives the raw object, upcasted.
-/// It is equivalent to doing:
-/// ```dart
-/// switch (sealedClass) {
-///   case final Subclass value:
-///     return ...;
-///   case final Subclass2 value:
-///     return ...;
-/// }
-/// ```
-
-@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _SaleDetailWarningDto value)  $default,){
-final _that = this;
-switch (_that) {
-case _SaleDetailWarningDto():
-return $default(_that);}
-}
-/// A variant of `map` that fallback to returning `null`.
-///
-/// It is equivalent to doing:
-/// ```dart
-/// switch (sealedClass) {
-///   case final Subclass value:
-///     return ...;
-///   case _:
-///     return null;
-/// }
-/// ```
-
-@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _SaleDetailWarningDto value)?  $default,){
-final _that = this;
-switch (_that) {
-case _SaleDetailWarningDto() when $default != null:
-return $default(_that);case _:
-  return null;
-
-}
-}
-/// A variant of `when` that fallback to an `orElse` callback.
-///
-/// It is equivalent to doing:
-/// ```dart
-/// switch (sealedClass) {
-///   case Subclass(:final field):
-///     return ...;
-///   case _:
-///     return orElse();
-/// }
-/// ```
-
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'warningId')  String warningId, @JsonKey(name: 'type')  String type, @JsonKey(name: 'message')  String message)?  $default,{required TResult orElse(),}) {final _that = this;
-switch (_that) {
-case _SaleDetailWarningDto() when $default != null:
-return $default(_that.warningId,_that.type,_that.message);case _:
-  return orElse();
-
-}
-}
-/// A `switch`-like method, using callbacks.
-///
-/// As opposed to `map`, this offers destructuring.
-/// It is equivalent to doing:
-/// ```dart
-/// switch (sealedClass) {
-///   case Subclass(:final field):
-///     return ...;
-///   case Subclass2(:final field2):
-///     return ...;
-/// }
-/// ```
-
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'warningId')  String warningId, @JsonKey(name: 'type')  String type, @JsonKey(name: 'message')  String message)  $default,) {final _that = this;
-switch (_that) {
-case _SaleDetailWarningDto():
-return $default(_that.warningId,_that.type,_that.message);}
-}
-/// A variant of `when` that fallback to returning `null`
-///
-/// It is equivalent to doing:
-/// ```dart
-/// switch (sealedClass) {
-///   case Subclass(:final field):
-///     return ...;
-///   case _:
-///     return null;
-/// }
-/// ```
-
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'warningId')  String warningId, @JsonKey(name: 'type')  String type, @JsonKey(name: 'message')  String message)?  $default,) {final _that = this;
-switch (_that) {
-case _SaleDetailWarningDto() when $default != null:
-return $default(_that.warningId,_that.type,_that.message);case _:
-  return null;
-
-}
-}
-
-}
-
-/// @nodoc
-@JsonSerializable()
-
-class _SaleDetailWarningDto implements SaleDetailWarningDto {
-  const _SaleDetailWarningDto({@JsonKey(name: 'warningId') required this.warningId, @JsonKey(name: 'type') required this.type, @JsonKey(name: 'message') required this.message});
-  factory _SaleDetailWarningDto.fromJson(Map<String, dynamic> json) => _$SaleDetailWarningDtoFromJson(json);
-
-@override@JsonKey(name: 'warningId') final  String warningId;
-@override@JsonKey(name: 'type') final  String type;
-@override@JsonKey(name: 'message') final  String message;
-
-/// Create a copy of SaleDetailWarningDto
-/// with the given fields replaced by the non-null parameter values.
-@override @JsonKey(includeFromJson: false, includeToJson: false)
-@pragma('vm:prefer-inline')
-_$SaleDetailWarningDtoCopyWith<_SaleDetailWarningDto> get copyWith => __$SaleDetailWarningDtoCopyWithImpl<_SaleDetailWarningDto>(this, _$identity);
-
-@override
-Map<String, dynamic> toJson() {
-  return _$SaleDetailWarningDtoToJson(this, );
-}
-
-@override
-bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SaleDetailWarningDto&&(identical(other.warningId, warningId) || other.warningId == warningId)&&(identical(other.type, type) || other.type == type)&&(identical(other.message, message) || other.message == message));
-}
-
-@JsonKey(includeFromJson: false, includeToJson: false)
-@override
-int get hashCode => Object.hash(runtimeType,warningId,type,message);
-
-@override
-String toString() {
-  return 'SaleDetailWarningDto(warningId: $warningId, type: $type, message: $message)';
-}
-
-
-}
-
-/// @nodoc
-abstract mixin class _$SaleDetailWarningDtoCopyWith<$Res> implements $SaleDetailWarningDtoCopyWith<$Res> {
-  factory _$SaleDetailWarningDtoCopyWith(_SaleDetailWarningDto value, $Res Function(_SaleDetailWarningDto) _then) = __$SaleDetailWarningDtoCopyWithImpl;
-@override @useResult
-$Res call({
-@JsonKey(name: 'warningId') String warningId,@JsonKey(name: 'type') String type,@JsonKey(name: 'message') String message
-});
-
-
-
-
-}
-/// @nodoc
-class __$SaleDetailWarningDtoCopyWithImpl<$Res>
-    implements _$SaleDetailWarningDtoCopyWith<$Res> {
-  __$SaleDetailWarningDtoCopyWithImpl(this._self, this._then);
-
-  final _SaleDetailWarningDto _self;
-  final $Res Function(_SaleDetailWarningDto) _then;
-
-/// Create a copy of SaleDetailWarningDto
-/// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? warningId = null,Object? type = null,Object? message = null,}) {
-  return _then(_SaleDetailWarningDto(
-warningId: null == warningId ? _self.warningId : warningId // ignore: cast_nullable_to_non_nullable
-as String,type: null == type ? _self.type : type // ignore: cast_nullable_to_non_nullable
-as String,message: null == message ? _self.message : message // ignore: cast_nullable_to_non_nullable
-as String,
+as double,
   ));
 }
 

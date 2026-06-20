@@ -30,7 +30,6 @@ SaleDetail _saleDetail(String id) {
     totalDiscountAmount: 0,
     totalAmount: 500,
     totalTaxAmount: 50,
-    status: 'paid',
     refundAmount: 0,
     dueReductionAmount: 0,
   );
