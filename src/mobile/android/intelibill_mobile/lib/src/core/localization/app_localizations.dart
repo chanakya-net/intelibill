@@ -3108,6 +3108,12 @@ abstract class AppLocalizations {
   /// In en_IN, this message translates to:
   /// **'Balance:'**
   String get creditNotesBalanceLabel;
+
+  /// No description provided for @creditNotesRetry.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Retry'**
+  String get creditNotesRetry;
 }
 
 class _AppLocalizationsDelegate

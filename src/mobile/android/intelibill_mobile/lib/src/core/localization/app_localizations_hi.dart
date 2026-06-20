@@ -1609,6 +1609,9 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get creditNotesBalanceLabel => 'Balance:';
+
+  @override
+  String get creditNotesRetry => 'Retry';
 }
 
 /// The translations for Hindi, as used in India (`hi_IN`).

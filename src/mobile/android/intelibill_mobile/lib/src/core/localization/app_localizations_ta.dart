@@ -1609,6 +1609,9 @@ class AppLocalizationsTa extends AppLocalizations {
 
   @override
   String get creditNotesBalanceLabel => 'Balance:';
+
+  @override
+  String get creditNotesRetry => 'Retry';
 }
 
 /// The translations for Tamil, as used in India (`ta_IN`).

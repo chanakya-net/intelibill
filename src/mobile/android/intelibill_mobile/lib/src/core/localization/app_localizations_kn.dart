@@ -1608,6 +1608,9 @@ class AppLocalizationsKn extends AppLocalizations {
 
   @override
   String get creditNotesBalanceLabel => 'Balance:';
+
+  @override
+  String get creditNotesRetry => 'Retry';
 }
 
 /// The translations for Kannada, as used in India (`kn_IN`).

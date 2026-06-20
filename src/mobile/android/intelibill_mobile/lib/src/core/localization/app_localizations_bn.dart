@@ -1608,6 +1608,9 @@ class AppLocalizationsBn extends AppLocalizations {
 
   @override
   String get creditNotesBalanceLabel => 'Balance:';
+
+  @override
+  String get creditNotesRetry => 'Retry';
 }
 
 /// The translations for Bengali Bangla, as used in India (`bn_IN`).

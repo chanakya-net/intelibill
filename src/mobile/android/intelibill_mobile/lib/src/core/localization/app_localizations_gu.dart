@@ -1608,6 +1608,9 @@ class AppLocalizationsGu extends AppLocalizations {
 
   @override
   String get creditNotesBalanceLabel => 'Balance:';
+
+  @override
+  String get creditNotesRetry => 'Retry';
 }
 
 /// The translations for Gujarati, as used in India (`gu_IN`).

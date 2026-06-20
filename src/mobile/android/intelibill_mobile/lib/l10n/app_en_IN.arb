@@ -587,5 +587,6 @@
   "creditNotesClose": "Close",
   "creditNotesInvoiceLabel": "Invoice:",
   "creditNotesReturnLabel": "Return:",
-  "creditNotesBalanceLabel": "Balance:"
+  "creditNotesBalanceLabel": "Balance:",
+  "creditNotesRetry": "Retry"
 }

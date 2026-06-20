@@ -1608,6 +1608,9 @@ class AppLocalizationsTe extends AppLocalizations {
 
   @override
   String get creditNotesBalanceLabel => 'Balance:';
+
+  @override
+  String get creditNotesRetry => 'Retry';
 }
 
 /// The translations for Telugu, as used in India (`te_IN`).

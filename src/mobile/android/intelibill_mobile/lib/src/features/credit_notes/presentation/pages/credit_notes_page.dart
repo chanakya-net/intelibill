@@ -135,11 +135,15 @@ class _CreditNotesPageState extends ConsumerState<CreditNotesPage> {
                 FilterChip(
                   label: Text(l10n.creditNotesFilterAll),
                   selected: state.statusFilter == null,
-                  onSelected: (_) => unawaited(
-                    ref
-                        .read(creditNotesControllerProvider.notifier)
-                        .clearFilters(),
-                  ),
+                  onSelected: (_) {
+                    _searchDebounce?.cancel();
+                    _searchController.clear();
+                    unawaited(
+                      ref
+                          .read(creditNotesControllerProvider.notifier)
+                          .clearFilters(),
+                    );
+                  },
                 ),
                 for (final option in _statusOptions)
                   FilterChip(
@@ -208,7 +212,7 @@ class _CreditNotesPageState extends ConsumerState<CreditNotesPage> {
             padding: EdgeInsets.symmetric(vertical: 16),
             child: Center(child: CircularProgressIndicator()),
           ),
-        if (state.hasMore)
+        if (state.hasMore && !state.isLoadingMore)
           Center(
             child: TextButton(
               onPressed: () => unawaited(
@@ -338,7 +342,10 @@ class _ErrorState extends StatelessWidget {
             const SizedBox(height: 12),
             Text(message, textAlign: TextAlign.center),
             const SizedBox(height: 12),
-            FilledButton(onPressed: onRetry, child: const Text('Retry')),
+            FilledButton(
+              onPressed: onRetry,
+              child: Text(AppLocalizations.of(context)!.creditNotesRetry),
+            ),
           ],
         ),
       ),

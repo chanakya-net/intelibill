@@ -79,6 +79,16 @@ void main() {
       container.read(creditNotesControllerProvider).statusFilter,
       'active',
     );
+    verify(
+      () => getCreditNotes(
+        const CreditNotesQuery(
+          search: '',
+          status: 'active',
+          page: 1,
+          pageSize: 20,
+        ),
+      ),
+    ).called(1);
   });
 
   test('verifies code and stores selected note', () async {

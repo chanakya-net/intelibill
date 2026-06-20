@@ -1608,6 +1608,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get creditNotesBalanceLabel => 'Balance:';
+
+  @override
+  String get creditNotesRetry => 'Retry';
 }
 
 /// The translations for English, as used in India (`en_IN`).
@@ -3214,4 +3217,7 @@ class AppLocalizationsEnIn extends AppLocalizationsEn {
 
   @override
   String get creditNotesBalanceLabel => 'Balance:';
+
+  @override
+  String get creditNotesRetry => 'Retry';
 }

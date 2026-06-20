@@ -1608,6 +1608,9 @@ class AppLocalizationsMl extends AppLocalizations {
 
   @override
   String get creditNotesBalanceLabel => 'Balance:';
+
+  @override
+  String get creditNotesRetry => 'Retry';
 }
 
 /// The translations for Malayalam, as used in India (`ml_IN`).
