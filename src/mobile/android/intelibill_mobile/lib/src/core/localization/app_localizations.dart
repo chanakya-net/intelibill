@@ -3631,6 +3631,18 @@ abstract class AppLocalizations {
   /// **'Condition'**
   String get salesReturnLineConditionLabel;
 
+  /// No description provided for @salesReturnLineConditionRestockable.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Restockable'**
+  String get salesReturnLineConditionRestockable;
+
+  /// No description provided for @salesReturnLineConditionWastage.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Wastage'**
+  String get salesReturnLineConditionWastage;
+
   /// No description provided for @salesReturnLineNoteLabel.
   ///
   /// In en_IN, this message translates to:

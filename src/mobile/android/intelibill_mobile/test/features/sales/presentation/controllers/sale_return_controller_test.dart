@@ -23,6 +23,22 @@ class _PreviewSaleReturnRequestFake extends Fake
 class _RecordSaleReturnRequestFake extends Fake
     implements RecordSaleReturnRequest {}
 
+class _SaleDetailControllerWithRefreshFailure extends SaleDetailController {
+  _SaleDetailControllerWithRefreshFailure(this._state);
+
+  final SaleDetailState _state;
+
+  @override
+  SaleDetailState build(String saleId) => _state;
+
+  @override
+  Future<void> refresh() async {
+    throw AppException(
+      failure: Failure.unknown(message: 'Unable to refresh sale detail.'),
+    );
+  }
+}
+
 class _StubAuthController extends AuthController {
   _StubAuthController(this._state);
 
@@ -135,12 +151,18 @@ void main() {
 
   Future<ProviderContainer> makeContainer({
     required AuthSession? session,
+    bool refreshFails = false,
   }) async {
+    final detail = SaleDetailState(detail: _detail(), isLoading: false);
+    final saleDetailOverride = refreshFails
+        ? saleDetailControllerProvider('sale-1').overrideWith(
+            () => _SaleDetailControllerWithRefreshFailure(detail),
+          )
+        : saleDetailControllerProvider('sale-1').overrideWithValue(detail);
+
     final container = ProviderContainer(
       overrides: [
-        saleDetailControllerProvider('sale-1').overrideWithValue(
-          SaleDetailState(detail: _detail(), isLoading: false),
-        ),
+        saleDetailOverride,
         authControllerProvider.overrideWith(
           () => _StubAuthController(AuthControllerState(session: session)),
         ),
@@ -256,6 +278,112 @@ void main() {
         request.creditNoteExpiresAt,
         DateTime.utc(2026, 12, 31).toIso8601String(),
       );
+    });
+
+    test('sets payoutMethod for refund destination on submit', () async {
+      when(
+        () => previewSaleReturn(
+          saleId: any<String>(named: 'saleId'),
+          request: any(named: 'request'),
+        ),
+      ).thenAnswer(
+        (_) async => const SaleReturnPreview(
+          saleId: 'sale-1',
+          hasFinancialAccess: true,
+          lines: [],
+          warnings: [],
+        ),
+      );
+      when(
+        () => recordSaleReturn(
+          saleId: any<String>(named: 'saleId'),
+          request: any(named: 'request'),
+        ),
+      ).thenAnswer((_) async => _detail());
+
+      final container = await makeContainer(session: _session('owner'));
+      addTearDown(container.dispose);
+
+      final notifier = container.read(
+        saleReturnControllerProvider('sale-1').notifier,
+      );
+      notifier.toggleLine('goods-1', true);
+      notifier.updateQuantity('goods-1', 1);
+      notifier.updateCondition('goods-1', 1);
+      notifier.updateApprovedRefundAmount('goods-1', '20');
+      notifier.updatePayoutDestination(2);
+
+      await notifier.preview();
+      await notifier.submit();
+
+      final captured = verify(
+        () => recordSaleReturn(
+          saleId: 'sale-1',
+          request: captureAny(named: 'request'),
+        ),
+      ).captured;
+      final request = captured.first as RecordSaleReturnRequest;
+      expect(request.payoutDestination, 2);
+      expect(request.payoutMethod, 2);
+    });
+
+    test(
+      'does not fail submit if sale detail refresh fails after recording',
+      () async {
+        when(
+          () => recordSaleReturn(
+            saleId: any<String>(named: 'saleId'),
+            request: any(named: 'request'),
+          ),
+        ).thenAnswer((_) async => _detail());
+
+        final container = await makeContainer(
+          session: _session('owner'),
+          refreshFails: true,
+        );
+        addTearDown(container.dispose);
+
+        final notifier = container.read(
+          saleReturnControllerProvider('sale-1').notifier,
+        );
+        notifier.toggleLine('goods-1', true);
+        notifier.updateQuantity('goods-1', 1);
+        notifier.updateCondition('goods-1', 1);
+        notifier.updateApprovedRefundAmount('goods-1', '20');
+        notifier.updatePayoutDestination(2);
+
+        await notifier.submit();
+
+        final state = container.read(saleReturnControllerProvider('sale-1'));
+        expect(state.failure, isNull);
+        expect(state.isSubmitting, isFalse);
+      },
+    );
+
+    test('fails validation when credit note expiry is missing', () async {
+      final container = await makeContainer(session: _session('owner'));
+      addTearDown(container.dispose);
+
+      final notifier = container.read(
+        saleReturnControllerProvider('sale-1').notifier,
+      );
+      notifier.toggleLine('goods-1', true);
+      notifier.updateQuantity('goods-1', 1);
+      notifier.updateCondition('goods-1', 1);
+      notifier.updateApprovedRefundAmount('goods-1', '20');
+      notifier.updatePayoutDestination(1);
+      notifier.updateCreditNoteReason('Damaged');
+
+      await notifier.submit();
+
+      final state = container.read(saleReturnControllerProvider('sale-1'));
+      expect(state.failure, isA<ValidationFailure>());
+      final failure = state.failure;
+      expect(failure, isA<ValidationFailure>());
+      if (failure is ValidationFailure) {
+        expect(failure.message, isNotNull);
+      }
+      expect(state.isSubmitting, isFalse);
     });
 
     test('keeps failure when submit throws', () async {

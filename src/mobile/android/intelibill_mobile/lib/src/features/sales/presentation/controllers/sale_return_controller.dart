@@ -120,6 +120,7 @@ class SaleReturnController extends _$SaleReturnController {
   static const _conditionRestockable = 1;
   static const _payoutDestinationCreditNote = 1;
   static const _payoutDestinationRefund = 2;
+  static const _payoutMethodRefund = 2;
 
   @override
   SaleReturnState build(String saleId) {
@@ -373,9 +374,15 @@ class SaleReturnController extends _$SaleReturnController {
         saleId: state.saleId,
         request: request,
       );
-      await ref
-          .read(saleDetailControllerProvider(state.saleId).notifier)
-          .refresh();
+      try {
+        await ref
+            .read(saleDetailControllerProvider(state.saleId).notifier)
+            .refresh();
+      } on Object {
+        // Refreshing the sheet content after a successful submission should not block
+        // recording the return; stale values can be corrected by re-opening details.
+      }
+
       if (!ref.mounted) return;
 
       state = state.copyWith(
@@ -418,8 +425,10 @@ class SaleReturnController extends _$SaleReturnController {
     if (state.selectedDrafts.isEmpty) return null;
     return RecordSaleReturnRequest(
       payoutDestination: state.payoutDestination,
+      // Backend currently expects payoutMethod to use the same numeric value as the
+      // refund destination.
       payoutMethod: state.payoutDestination == _payoutDestinationRefund
-          ? _payoutDestinationRefund
+          ? _payoutMethodRefund
           : null,
       dueReductionOverrideAmount: state.dueReductionOverrideAmount,
       dueOverrideReason: state.dueOverrideReason,

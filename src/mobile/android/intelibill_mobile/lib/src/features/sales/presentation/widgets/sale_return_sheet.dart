@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intelibill_mobile/src/core/formatting/currency_formatter.dart';
+import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_return.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
@@ -102,7 +103,7 @@ class SaleReturnSheet extends ConsumerWidget {
             const SizedBox(height: 12),
             if (state.failure != null)
               Text(
-                state.failure.toString().replaceAll('Failure.', ''),
+                _failureMessage(state.failure!),
                 style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
             const SizedBox(height: 12),
@@ -235,9 +236,15 @@ class _ReturnLineTile extends StatelessWidget {
                 const SizedBox(height: 8),
                 DropdownButtonFormField<int>(
                   value: draft.condition,
-                  items: const [
-                    DropdownMenuItem(value: 1, child: Text('Restockable')),
-                    DropdownMenuItem(value: 2, child: Text('Wastage')),
+                  items: [
+                    DropdownMenuItem(
+                      value: 1,
+                      child: Text(l10n.salesReturnLineConditionRestockable),
+                    ),
+                    DropdownMenuItem(
+                      value: 2,
+                      child: Text(l10n.salesReturnLineConditionWastage),
+                    ),
                   ],
                   onChanged: onConditionChanged,
                   decoration: InputDecoration(
@@ -358,6 +365,7 @@ class _PayoutSection extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             DropdownButtonFormField<int>(
+              key: const ValueKey('sales-return-payout-destination'),
               value: state.payoutDestination,
               decoration: InputDecoration(
                 labelText: l10n.salesReturnPayoutDestinationLabel,
@@ -388,7 +396,8 @@ class _PayoutSection extends StatelessWidget {
                   labelText: l10n.salesReturnCreditNoteExpiryLabel,
                 ),
                 keyboardType: TextInputType.datetime,
-                onSubmitted: (value) {
+                key: const ValueKey('sales-return-credit-note-expiry'),
+                onChanged: (value) {
                   final parsed = DateTime.tryParse(value);
                   notifier.updateCreditNoteExpiresAt(parsed);
                 },
@@ -447,4 +456,18 @@ class _PreviewCard extends StatelessWidget {
       ),
     );
   }
+}
+
+String _failureMessage(Failure failure) {
+  return failure.when(
+    validation: (message, _) => message ?? 'Invalid input.',
+    unauthorized: (message) => message ?? 'Authentication expired.',
+    forbidden: (message) => message ?? 'Action is not allowed.',
+    notFound: (message) => message ?? 'Requested item not found.',
+    server: (message, statusCode) => message ?? 'Server error.',
+    network: (message) => message ?? 'Network error.',
+    timeout: (message) => message ?? 'Request timed out.',
+    serialization: (message) => message ?? 'Data parse error.',
+    unknown: (message) => message ?? 'An unknown error occurred.',
+  );
 }

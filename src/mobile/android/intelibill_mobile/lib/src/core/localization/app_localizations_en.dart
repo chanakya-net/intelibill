@@ -1882,6 +1882,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get salesReturnLineConditionLabel => 'Condition';
 
   @override
+  String get salesReturnLineConditionRestockable => 'Restockable';
+
+  @override
+  String get salesReturnLineConditionWastage => 'Wastage';
+
+  @override
   String get salesReturnLineNoteLabel => 'Line note';
 
   @override
@@ -3780,6 +3786,12 @@ class AppLocalizationsEnIn extends AppLocalizationsEn {
 
   @override
   String get salesReturnLineConditionLabel => 'Condition';
+
+  @override
+  String get salesReturnLineConditionRestockable => 'Restockable';
+
+  @override
+  String get salesReturnLineConditionWastage => 'Wastage';
 
   @override
   String get salesReturnLineNoteLabel => 'Line note';

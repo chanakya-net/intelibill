@@ -678,6 +678,8 @@
   "salesReturnApprovedRefundLabel": "Approved refund",
   "salesReturnLineQuantityLabel": "Return quantity",
   "salesReturnLineConditionLabel": "Condition",
+  "salesReturnLineConditionRestockable": "Restockable",
+  "salesReturnLineConditionWastage": "Wastage",
   "salesReturnLineNoteLabel": "Line note",
   "salesReturnNotesLabel": "Notes",
   "salesReturnPayoutDestinationLabel": "Payout destination",

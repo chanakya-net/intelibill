@@ -1882,6 +1882,12 @@ class AppLocalizationsTe extends AppLocalizations {
   String get salesReturnLineConditionLabel => 'Condition';
 
   @override
+  String get salesReturnLineConditionRestockable => 'Restockable';
+
+  @override
+  String get salesReturnLineConditionWastage => 'Wastage';
+
+  @override
   String get salesReturnLineNoteLabel => 'Line note';
 
   @override
