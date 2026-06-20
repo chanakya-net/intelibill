@@ -139,6 +139,17 @@ void main() {
       final container = makeContainer();
       addTearDown(container.dispose);
 
+      // Set preview so we can verify it's cleared on success
+      container
+          .read(discountEditorControllerProvider.notifier)
+          .state = const DiscountEditorState(
+        preview: DiscountPreview(
+          totalCostReduction: 100,
+          error: null,
+          estimatedProfit: 200,
+        ),
+      );
+
       await container
           .read(discountEditorControllerProvider.notifier)
           .create(
@@ -152,6 +163,7 @@ void main() {
       expect(state.lastAction, 'created');
       expect(state.isSubmitting, false);
       expect(state.submitFailure, null);
+      expect(state.preview, null);
     });
 
     test('create stores submitFailure on exception', () async {
@@ -207,6 +219,17 @@ void main() {
       final container = makeContainer();
       addTearDown(container.dispose);
 
+      // Set preview so we can verify it's cleared on success
+      container
+          .read(discountEditorControllerProvider.notifier)
+          .state = const DiscountEditorState(
+        preview: DiscountPreview(
+          totalCostReduction: 100,
+          error: null,
+          estimatedProfit: 200,
+        ),
+      );
+
       await container
           .read(discountEditorControllerProvider.notifier)
           .replace(
@@ -220,6 +243,7 @@ void main() {
       final state = container.read(discountEditorControllerProvider);
       expect(state.lastAction, 'replaced');
       expect(state.isSubmitting, false);
+      expect(state.preview, null);
     });
 
     test('disable sets lastAction on success', () async {
@@ -230,6 +254,17 @@ void main() {
       final container = makeContainer();
       addTearDown(container.dispose);
 
+      // Set preview so we can verify it's cleared on success
+      container
+          .read(discountEditorControllerProvider.notifier)
+          .state = const DiscountEditorState(
+        preview: DiscountPreview(
+          totalCostReduction: 100,
+          error: null,
+          estimatedProfit: 200,
+        ),
+      );
+
       await container
           .read(discountEditorControllerProvider.notifier)
           .disable(discountId: 'disc-1');
@@ -237,6 +272,7 @@ void main() {
       final state = container.read(discountEditorControllerProvider);
       expect(state.lastAction, 'disabled');
       expect(state.isSubmitting, false);
+      expect(state.preview, null);
     });
 
     test('ignores duplicate create when already submitting', () async {
@@ -292,7 +328,7 @@ void main() {
             );
 
         final state = container.read(discountEditorControllerProvider);
-        expect(state.submitFailure, isNotNull);
+        expect(state.needsBelowCostConfirmation, true);
         verifyNever(
           () => mockCreate(
             name: any(named: 'name'),
@@ -388,7 +424,7 @@ void main() {
             );
 
         final state = container.read(discountEditorControllerProvider);
-        expect(state.submitFailure, isNotNull);
+        expect(state.needsBelowCostConfirmation, true);
         verifyNever(
           () => mockReplace(
             discountId: any(named: 'discountId'),
@@ -400,6 +436,65 @@ void main() {
         );
       },
     );
+
+    test('replace proceeds when below-cost preview confirmed', () async {
+      when(
+        () => mockReplace(
+          discountId: any(named: 'discountId'),
+          name: any(named: 'name'),
+          discountType: any(named: 'discountType'),
+          discountValue: any(named: 'discountValue'),
+          batchPercentage: any(named: 'batchPercentage'),
+        ),
+      ).thenAnswer(
+        (_) async => Discount(
+          discountId: 'disc-1',
+          name: 'Updated',
+          discountType: DiscountType.percentage,
+          discountValue: 15,
+          batchPercentage: null,
+          isEnabled: true,
+          createdAt: DateTime.now(),
+        ),
+      );
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+
+      container
+          .read(discountEditorControllerProvider.notifier)
+          .state = const DiscountEditorState(
+        preview: DiscountPreview(
+          totalCostReduction: 500,
+          error: 'below-cost',
+          estimatedProfit: -100,
+        ),
+      );
+
+      await container
+          .read(discountEditorControllerProvider.notifier)
+          .replace(
+            discountId: 'disc-1',
+            name: 'Updated',
+            discountType: DiscountType.percentage,
+            discountValue: 15,
+            batchPercentage: null,
+            confirmed: true,
+            reason: 'seasonal adjustment',
+          );
+
+      final state = container.read(discountEditorControllerProvider);
+      expect(state.lastAction, 'replaced');
+      verify(
+        () => mockReplace(
+          discountId: any(named: 'discountId'),
+          name: any(named: 'name'),
+          discountType: any(named: 'discountType'),
+          discountValue: any(named: 'discountValue'),
+          batchPercentage: any(named: 'batchPercentage'),
+        ),
+      ).called(1);
+    });
 
     test('create stores submitFailure on generic exception', () async {
       when(

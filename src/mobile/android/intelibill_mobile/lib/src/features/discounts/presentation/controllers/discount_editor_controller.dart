@@ -52,6 +52,8 @@ DisableDiscount disableDiscount(Ref ref) {
 }
 
 class DiscountEditorState {
+  static const _keepValue = Object();
+
   const DiscountEditorState({
     this.preview,
     this.previewLoading = false,
@@ -59,6 +61,7 @@ class DiscountEditorState {
     this.isSubmitting = false,
     this.submitFailure,
     this.lastAction,
+    this.needsBelowCostConfirmation = false,
   });
 
   final DiscountPreview? preview;
@@ -67,21 +70,27 @@ class DiscountEditorState {
   final bool isSubmitting;
   final Failure? submitFailure;
   final String? lastAction;
+  final bool needsBelowCostConfirmation;
 
   DiscountEditorState copyWith({
-    DiscountPreview? preview,
+    Object? preview = _keepValue,
     bool? previewLoading,
     Failure? previewFailure,
     bool? isSubmitting,
     Failure? submitFailure,
     String? lastAction,
+    bool? needsBelowCostConfirmation,
   }) => DiscountEditorState(
-    preview: preview ?? this.preview,
+    preview: identical(preview, _keepValue)
+        ? this.preview
+        : preview as DiscountPreview?,
     previewLoading: previewLoading ?? this.previewLoading,
     previewFailure: previewFailure,
     isSubmitting: isSubmitting ?? this.isSubmitting,
     submitFailure: submitFailure,
     lastAction: lastAction,
+    needsBelowCostConfirmation:
+        needsBelowCostConfirmation ?? this.needsBelowCostConfirmation,
   );
 }
 
@@ -131,12 +140,17 @@ class DiscountEditorController extends _$DiscountEditorController {
     if (state.isSubmitting) return;
     if (state.preview?.error != null && !confirmed) {
       state = state.copyWith(
-        submitFailure: const Failure.unknown(),
+        needsBelowCostConfirmation: true,
       );
       return;
     }
-    state = state.copyWith(isSubmitting: true, submitFailure: null);
+    state = state.copyWith(
+      isSubmitting: true,
+      submitFailure: null,
+      needsBelowCostConfirmation: false,
+    );
     try {
+      // reason is UI-only (local audit/confirmation context), not forwarded to backend
       await ref.read(createDiscountProvider)(
         name: name,
         discountType: discountType,
@@ -173,12 +187,17 @@ class DiscountEditorController extends _$DiscountEditorController {
     if (state.isSubmitting) return;
     if (state.preview?.error != null && !confirmed) {
       state = state.copyWith(
-        submitFailure: const Failure.unknown(),
+        needsBelowCostConfirmation: true,
       );
       return;
     }
-    state = state.copyWith(isSubmitting: true, submitFailure: null);
+    state = state.copyWith(
+      isSubmitting: true,
+      submitFailure: null,
+      needsBelowCostConfirmation: false,
+    );
     try {
+      // reason is UI-only (local audit/confirmation context), not forwarded to backend
       await ref.read(replaceDiscountProvider)(
         discountId: discountId,
         name: name,

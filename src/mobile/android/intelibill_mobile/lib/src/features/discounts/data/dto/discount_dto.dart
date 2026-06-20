@@ -1,4 +1,6 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
+import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/features/discounts/domain/entities/discount.dart';
 
 part 'discount_dto.freezed.dart';
@@ -26,8 +28,9 @@ extension DiscountDtoX on DiscountDto {
     name: name,
     discountType: DiscountType.values.firstWhere(
       (e) => e.name == discountType,
-      orElse: () =>
-          throw FormatException('Unknown DiscountType: $discountType'),
+      orElse: () => throw AppException(
+        failure: Failure.server(message: 'Unknown DiscountType: $discountType'),
+      ),
     ),
     discountValue: discountValue,
     batchPercentage: batchPercentage,

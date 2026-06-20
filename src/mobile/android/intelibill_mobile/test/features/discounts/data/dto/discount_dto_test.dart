@@ -1,9 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/features/discounts/data/dto/discount_dto.dart';
 
 void main() {
   group('DiscountDto.toDomain', () {
-    test('throws FormatException on unknown DiscountType', () {
+    test('throws AppException on unknown DiscountType', () {
       const dto = DiscountDto(
         discountId: 'disc-1',
         name: 'Test',
@@ -16,13 +17,7 @@ void main() {
 
       expect(
         () => dto.toDomain(),
-        throwsA(
-          isA<FormatException>().having(
-            (e) => e.message,
-            'message',
-            contains('Unknown DiscountType'),
-          ),
-        ),
+        throwsA(isA<AppException>()),
       );
     });
 
