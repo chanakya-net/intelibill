@@ -4,12 +4,15 @@ import 'package:intelibill_mobile/src/features/credit_notes/domain/entities/cred
 import 'package:intelibill_mobile/src/features/credit_notes/domain/entities/credit_notes_query.dart';
 import 'package:intelibill_mobile/src/features/credit_notes/domain/use_cases/get_credit_note_by_code.dart';
 import 'package:intelibill_mobile/src/features/credit_notes/domain/use_cases/get_credit_notes.dart';
+import 'package:intelibill_mobile/src/features/credit_notes/domain/use_cases/void_credit_note.dart';
 import 'package:intelibill_mobile/src/features/credit_notes/presentation/controllers/credit_notes_controller.dart';
 import 'package:mocktail/mocktail.dart';
 
 class MockGetCreditNotes extends Mock implements GetCreditNotes {}
 
 class MockGetCreditNoteByCode extends Mock implements GetCreditNoteByCode {}
+
+class MockVoidCreditNote extends Mock implements VoidCreditNote {}
 
 CreditNote _note(String code, {String status = 'active'}) {
   return CreditNote(
@@ -32,6 +35,7 @@ CreditNote _note(String code, {String status = 'active'}) {
 void main() {
   late MockGetCreditNotes getCreditNotes;
   late MockGetCreditNoteByCode getCreditNoteByCode;
+  late MockVoidCreditNote voidCreditNote;
 
   setUpAll(() {
     registerFallbackValue(const CreditNotesQuery());
@@ -40,6 +44,7 @@ void main() {
   setUp(() {
     getCreditNotes = MockGetCreditNotes();
     getCreditNoteByCode = MockGetCreditNoteByCode();
+    voidCreditNote = MockVoidCreditNote();
   });
 
   ProviderContainer makeContainer() {
@@ -49,6 +54,7 @@ void main() {
         getCreditNoteByCodeUseCaseProvider.overrideWithValue(
           getCreditNoteByCode,
         ),
+        voidCreditNoteUseCaseProvider.overrideWithValue(voidCreditNote),
       ],
     );
   }
@@ -116,5 +122,29 @@ void main() {
       container.read(creditNotesControllerProvider).selectedNote?.code,
       'CN-001',
     );
+  });
+
+  test('voids active note and refreshes list', () async {
+    when(() => getCreditNotes(any())).thenAnswer(
+      (_) async => const CreditNotesResult(
+        items: [],
+        totalCount: 0,
+        pageNumber: 1,
+        pageSize: 20,
+      ),
+    );
+    when(
+      () => voidCreditNote('CN-001', reason: 'Damaged'),
+    ).thenAnswer((_) async {});
+
+    final container = makeContainer();
+    addTearDown(container.dispose);
+
+    final result = await container
+        .read(creditNotesControllerProvider.notifier)
+        .voidActiveNote(code: 'CN-001', reason: 'Damaged');
+
+    expect(result, isTrue);
+    verify(() => voidCreditNote('CN-001', reason: 'Damaged')).called(1);
   });
 }

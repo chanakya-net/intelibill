@@ -246,6 +246,48 @@ final class GetCreditNotePrintByCodeUseCaseProvider
 String _$getCreditNotePrintByCodeUseCaseHash() =>
     r'4a7ed6183cf9a70230e883b6a50df8a02b9da6b1';
 
+@ProviderFor(voidCreditNoteUseCase)
+final voidCreditNoteUseCaseProvider = VoidCreditNoteUseCaseProvider._();
+
+final class VoidCreditNoteUseCaseProvider
+    extends $FunctionalProvider<VoidCreditNote, VoidCreditNote, VoidCreditNote>
+    with $Provider<VoidCreditNote> {
+  VoidCreditNoteUseCaseProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'voidCreditNoteUseCaseProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$voidCreditNoteUseCaseHash();
+
+  @$internal
+  @override
+  $ProviderElement<VoidCreditNote> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  VoidCreditNote create(Ref ref) {
+    return voidCreditNoteUseCase(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(VoidCreditNote value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<VoidCreditNote>(value),
+    );
+  }
+}
+
+String _$voidCreditNoteUseCaseHash() =>
+    r'f0a60ad9fd980f888832422b6d6b605e6b8949bb';
+
 @ProviderFor(CreditNotesController)
 final creditNotesControllerProvider = CreditNotesControllerProvider._();
 
@@ -279,7 +321,7 @@ final class CreditNotesControllerProvider
 }
 
 String _$creditNotesControllerHash() =>
-    r'83fafa84081d869bc9a0f6e5f8dc2beed9c6cb2a';
+    r'247d0e77dc52971a75b3ae93ab8652cab4727f87';
 
 abstract class _$CreditNotesController extends $Notifier<CreditNotesState> {
   CreditNotesState build();

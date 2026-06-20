@@ -64,4 +64,18 @@ class CreditNoteRepositoryImpl implements CreditNoteRepository {
       throw AppException(failure: Failure.unknown(message: error.toString()));
     }
   }
+
+  @override
+  Future<void> voidCreditNote({
+    required String code,
+    required String reason,
+  }) async {
+    try {
+      await _remoteDataSource.voidCreditNote(code: code, reason: reason);
+    } on AppException {
+      rethrow;
+    } catch (error) {
+      throw AppException(failure: Failure.unknown(message: error.toString()));
+    }
+  }
 }
