@@ -59,7 +59,7 @@ final class SaleReturnControllerProvider
 }
 
 String _$saleReturnControllerHash() =>
-    r'e13ea8c4cf1b6846f351bf09bc7bd771590aaaba';
+    r'570c21a70dbff9a9b757f5d984294b8fc4a961be';
 
 final class SaleReturnControllerFamily extends $Family
     with

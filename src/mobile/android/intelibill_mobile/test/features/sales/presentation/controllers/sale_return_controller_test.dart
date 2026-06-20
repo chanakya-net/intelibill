@@ -17,9 +17,11 @@ class MockPreviewSaleReturn extends Mock implements PreviewSaleReturn {}
 
 class MockRecordSaleReturn extends Mock implements RecordSaleReturn {}
 
-class _PreviewSaleReturnRequestFake extends Fake implements PreviewSaleReturnRequest {}
+class _PreviewSaleReturnRequestFake extends Fake
+    implements PreviewSaleReturnRequest {}
 
-class _RecordSaleReturnRequestFake extends Fake implements RecordSaleReturnRequest {}
+class _RecordSaleReturnRequestFake extends Fake
+    implements RecordSaleReturnRequest {}
 
 class _StubAuthController extends AuthController {
   _StubAuthController(this._state);
@@ -131,7 +133,9 @@ void main() {
     ],
   );
 
-  Future<ProviderContainer> makeContainer({required AuthSession? session}) async {
+  Future<ProviderContainer> makeContainer({
+    required AuthSession? session,
+  }) async {
     final container = ProviderContainer(
       overrides: [
         saleDetailControllerProvider('sale-1').overrideWithValue(
@@ -147,7 +151,6 @@ void main() {
     await container.read(authControllerProvider.future);
     return container;
   }
-
 
   group('SaleReturnController', () {
     test(
@@ -253,6 +256,35 @@ void main() {
         request.creditNoteExpiresAt,
         DateTime.utc(2026, 12, 31).toIso8601String(),
       );
+    });
+
+    test('keeps failure when submit throws', () async {
+      when(
+        () => recordSaleReturn(
+          saleId: any<String>(named: 'saleId'),
+          request: any(named: 'request'),
+        ),
+      ).thenThrow(
+        AppException(failure: const Failure.validation(message: 'Bad input')),
+      );
+
+      final container = await makeContainer(session: _session('owner'));
+      addTearDown(container.dispose);
+
+      final notifier = container.read(
+        saleReturnControllerProvider('sale-1').notifier,
+      );
+      notifier.toggleLine('goods-1', true);
+      notifier.updateQuantity('goods-1', 1);
+      notifier.updateCondition('goods-1', 1);
+      notifier.updateApprovedRefundAmount('goods-1', '20');
+      notifier.updatePayoutDestination(2);
+
+      await notifier.submit();
+
+      final state = container.read(saleReturnControllerProvider('sale-1'));
+      expect(state.failure, isA<ValidationFailure>());
+      expect(state.isSubmitting, isFalse);
     });
 
     test(

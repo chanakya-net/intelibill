@@ -130,7 +130,11 @@ class SaleReturnSheet extends ConsumerWidget {
                     onPressed: state.canSubmitReturns && !state.isSubmitting
                         ? () async {
                             await notifier.submit();
-                            if (context.mounted && state.failure == null) {
+                            final latestState = ref.read(
+                              saleReturnControllerProvider(saleId),
+                            );
+                            if (context.mounted &&
+                                latestState.failure == null) {
                               Navigator.of(context).pop();
                             }
                           }
