@@ -2935,6 +2935,12 @@ abstract class AppLocalizations {
   /// **'Unable to load sales history'**
   String get salesHistoryUnableToLoad;
 
+  /// No description provided for @salesDetailUnableToLoad.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to load sale details'**
+  String get salesDetailUnableToLoad;
+
   /// No description provided for @salesHistoryRetry.
   ///
   /// In en_IN, this message translates to:

@@ -97,7 +97,7 @@ void main() {
 
       await container
           .read(saleDetailControllerProvider('sale-1').notifier)
-          .refresh('sale-1');
+          .refresh();
 
       final state = container.read(saleDetailControllerProvider('sale-1'));
       expect(state.isLoading, isFalse);
@@ -115,7 +115,7 @@ void main() {
 
       await container
           .read(saleDetailControllerProvider('sale-1').notifier)
-          .refresh('sale-1');
+          .refresh();
 
       final state = container.read(saleDetailControllerProvider('sale-1'));
       expect(state.detail?.saleId, 'sale-1');
@@ -151,7 +151,7 @@ void main() {
 
         await container
             .read(saleDetailControllerProvider('sale-1').notifier)
-            .refresh('sale-1');
+            .refresh();
 
         final state = container.read(saleDetailControllerProvider('sale-1'));
         expect(state.failure, isNull);
@@ -173,7 +173,7 @@ void main() {
 
       await container
           .read(saleDetailControllerProvider('sale-1').notifier)
-          .refresh('sale-1');
+          .refresh();
 
       final state = container.read(saleDetailControllerProvider('sale-1'));
       expect(state.isLoading, isFalse);

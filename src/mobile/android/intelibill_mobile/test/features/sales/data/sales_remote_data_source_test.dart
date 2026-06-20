@@ -19,7 +19,7 @@ void main() {
   });
 
   group('SalesRemoteDataSourceImpl', () {
-    test('returns sale detail map on success', () async {
+    test('returns sale detail dto on success', () async {
       final responseBody = <String, dynamic>{
         'saleId': 'sale-1',
         'invoiceNumber': 'INV-2026-001',
@@ -51,7 +51,11 @@ void main() {
       );
 
       final response = await remoteDataSource.getSaleDetail('sale-1');
-      expect(response, responseBody);
+      expect(response.saleId, 'sale-1');
+      expect(response.invoiceNumber, 'INV-2026-001');
+      expect(response.paymentMethod, 1);
+      expect(response.soldAt, DateTime.parse('2026-05-11T10:00:00.000Z'));
+      expect(response.items, isEmpty);
     });
 
     test('calls /sales with history query params', () async {

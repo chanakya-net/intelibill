@@ -110,7 +110,7 @@ void main() {
     expect(find.text('Notebook'), findsOneWidget);
     expect(find.textContaining('1.0 returned of Notebook'), findsOneWidget);
     expect(find.text('Low stock detected'), findsOneWidget);
-    expect(find.text('Receipt'), findsOneWidget);
+    expect(find.text('INV-2026-001'), findsNWidgets(1));
   });
 
   testWidgets('does not duplicate refund against redemption total', (tester) async {

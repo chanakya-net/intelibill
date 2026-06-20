@@ -1513,6 +1513,9 @@ class AppLocalizationsTe extends AppLocalizations {
   String get salesHistoryUnableToLoad => 'Unable to load sales history';
 
   @override
+  String get salesDetailUnableToLoad => 'Unable to load sale details';
+
+  @override
   String get salesHistoryRetry => 'Retry';
 
   @override

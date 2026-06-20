@@ -42,17 +42,20 @@ class SaleDetailState {
 
 @riverpod
 class SaleDetailController extends _$SaleDetailController {
+  late final String _saleId;
+
   @override
   SaleDetailState build(String saleId) {
-    Future.microtask(() => _load(saleId));
+    _saleId = saleId;
+    Future.microtask(_load);
     return const SaleDetailState(isLoading: true);
   }
 
-  Future<void> _load(String saleId) async {
+  Future<void> _load() async {
     final useCase = ref.read(getSaleDetailProvider);
 
     try {
-      final detail = await useCase(saleId);
+      final detail = await useCase(_saleId);
       if (!ref.mounted) return;
 
       state = state.copyWith(
@@ -75,8 +78,8 @@ class SaleDetailController extends _$SaleDetailController {
     }
   }
 
-  Future<void> refresh(String saleId) async {
+  Future<void> refresh() async {
     state = state.copyWith(isLoading: true, clearError: true);
-    await _load(saleId);
+    await _load();
   }
 }

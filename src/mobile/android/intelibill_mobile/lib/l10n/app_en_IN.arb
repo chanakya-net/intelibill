@@ -532,6 +532,7 @@
   "salesHistoryNoSales": "No sales found",
   "salesHistoryNoSalesDescription": "Try adjusting the date range, status filter, or search terms.",
   "salesHistoryUnableToLoad": "Unable to load sales history",
+  "salesDetailUnableToLoad": "Unable to load sale details",
   "salesHistoryRetry": "Retry",
   "salesHistoryInvoiceNumber": "Invoice",
   "salesHistoryCustomer": "Customer",

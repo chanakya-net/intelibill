@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intelibill_mobile/src/core/formatting/currency_formatter.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
@@ -46,9 +45,9 @@ class SaleDetailSheet extends ConsumerWidget {
         onRetry: () {
           ref
               .read(saleDetailControllerProvider(saleId).notifier)
-              .refresh(saleId);
+              .refresh();
         },
-        message: l10n.salesHistoryUnableToLoad,
+        message: l10n.salesDetailUnableToLoad,
         retryLabel: l10n.salesHistoryRetry,
       );
     }
@@ -69,7 +68,7 @@ class SaleDetailSheet extends ConsumerWidget {
               onRefresh: () {
                 ref
                     .read(saleDetailControllerProvider(saleId).notifier)
-                    .refresh(saleId);
+                    .refresh();
               },
             ),
             const SizedBox(height: 16),
@@ -108,11 +107,6 @@ class SaleDetailSheet extends ConsumerWidget {
             _SectionCard(
               title: l10n.salesDetailWarnings,
               child: _Warnings(detail: detail),
-            ),
-            const SizedBox(height: 16),
-            _ReceiptAction(
-              saleId: detail.saleId,
-              invoiceNumber: detail.invoiceNumber,
             ),
           ],
         ),
@@ -180,10 +174,6 @@ class _SummaryCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _InfoRow(
-              label: l10n.salesHistoryInvoiceNumber,
-              value: detail.invoiceNumber,
-            ),
             _InfoRow(
               label: l10n.salesHistoryCustomer,
               value: detail.customerName ?? l10n.salesHistoryWalkInCustomer,
@@ -578,27 +568,6 @@ class _Warnings extends StatelessWidget {
           const SizedBox(height: 10),
         ],
       ],
-    );
-  }
-}
-
-class _ReceiptAction extends StatelessWidget {
-  const _ReceiptAction({required this.saleId, required this.invoiceNumber});
-
-  final String saleId;
-  final String invoiceNumber;
-
-  @override
-  Widget build(BuildContext context) {
-    return FilledButton.icon(
-      onPressed: () async {
-        // TODO: replace with real receipt navigation/share when backend support lands.
-        await Clipboard.setData(
-          ClipboardData(text: 'Sale $invoiceNumber ($saleId)'),
-        );
-      },
-      icon: const Icon(Icons.receipt_long_outlined),
-      label: Text(AppLocalizations.of(context)!.salesDetailReceipt),
     );
   }
 }
