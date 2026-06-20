@@ -50,6 +50,27 @@ void main() {
   }
 
   group('SaleDetailController', () {
+    test('loads sale detail on initial build', () async {
+      final detail = _saleDetail('sale-1');
+      when(() => getSaleDetail(any())).thenAnswer((_) async => detail);
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+
+      final subscription = container.listen(
+        saleDetailControllerProvider('sale-1'),
+        (_, __) {},
+        fireImmediately: true,
+      );
+      addTearDown(subscription.close);
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      final state = container.read(saleDetailControllerProvider('sale-1'));
+      expect(state.isLoading, isFalse);
+      expect(state.detail, detail);
+      expect(state.failure, isNull);
+    });
+
     test('starts in loading state', () {
       when(
         () => getSaleDetail(any()),

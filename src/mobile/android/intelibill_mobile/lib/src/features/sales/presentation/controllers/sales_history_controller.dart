@@ -3,29 +3,14 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
-import 'package:intelibill_mobile/src/core/network/api_client_provider.dart';
-import 'package:intelibill_mobile/src/features/sales/data/data_sources/sales_remote_data_source.dart';
-import 'package:intelibill_mobile/src/features/sales/data/repositories/sales_repository_impl.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_list_item.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sales_history_query.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sales_history_summary.dart';
-import 'package:intelibill_mobile/src/features/sales/domain/repositories/sales_repository.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/use_cases/get_sales_history.dart';
+import 'package:intelibill_mobile/src/features/sales/presentation/controllers/sales_providers.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'sales_history_controller.g.dart';
-
-@riverpod
-SalesRemoteDataSource salesRemoteDataSource(Ref ref) {
-  final apiClient = ref.watch(apiClientProvider);
-  return SalesRemoteDataSourceImpl(apiClient);
-}
-
-@riverpod
-SalesRepository salesRepository(Ref ref) {
-  final remoteDataSource = ref.watch(salesRemoteDataSourceProvider);
-  return SalesRepositoryImpl(remoteDataSource);
-}
 
 @riverpod
 GetSalesHistory getSalesHistory(Ref ref) {

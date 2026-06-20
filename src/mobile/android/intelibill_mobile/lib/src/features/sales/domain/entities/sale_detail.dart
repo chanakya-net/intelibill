@@ -53,9 +53,26 @@ class SaleDetail extends Equatable {
   List<Object?> get props => [
     saleId,
     invoiceNumber,
+    customerId,
+    customerName,
+    customerPhone,
+    paymentMethod,
     soldAt,
+    items,
+    settlements,
+    discounts,
+    returns,
+    redemptions,
+    warnings,
+    paidAmount,
+    dueAmount,
+    totalBeforeDiscount,
+    totalDiscountAmount,
     totalAmount,
+    totalTaxAmount,
     status,
+    refundAmount,
+    dueReductionAmount,
   ];
 }
 

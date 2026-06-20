@@ -9,98 +9,6 @@ part of 'sale_detail_controller.dart';
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, type=warning
 
-@ProviderFor(saleDetailRemoteDataSource)
-final saleDetailRemoteDataSourceProvider =
-    SaleDetailRemoteDataSourceProvider._();
-
-final class SaleDetailRemoteDataSourceProvider
-    extends
-        $FunctionalProvider<
-          SalesRemoteDataSource,
-          SalesRemoteDataSource,
-          SalesRemoteDataSource
-        >
-    with $Provider<SalesRemoteDataSource> {
-  SaleDetailRemoteDataSourceProvider._()
-    : super(
-        from: null,
-        argument: null,
-        retry: null,
-        name: r'saleDetailRemoteDataSourceProvider',
-        isAutoDispose: true,
-        dependencies: null,
-        $allTransitiveDependencies: null,
-      );
-
-  @override
-  String debugGetCreateSourceHash() => _$saleDetailRemoteDataSourceHash();
-
-  @$internal
-  @override
-  $ProviderElement<SalesRemoteDataSource> $createElement(
-    $ProviderPointer pointer,
-  ) => $ProviderElement(pointer);
-
-  @override
-  SalesRemoteDataSource create(Ref ref) {
-    return saleDetailRemoteDataSource(ref);
-  }
-
-  /// {@macro riverpod.override_with_value}
-  Override overrideWithValue(SalesRemoteDataSource value) {
-    return $ProviderOverride(
-      origin: this,
-      providerOverride: $SyncValueProvider<SalesRemoteDataSource>(value),
-    );
-  }
-}
-
-String _$saleDetailRemoteDataSourceHash() =>
-    r'14430bb3745e29256bbaf36728f22f7ddb96cb4e';
-
-@ProviderFor(saleDetailRepository)
-final saleDetailRepositoryProvider = SaleDetailRepositoryProvider._();
-
-final class SaleDetailRepositoryProvider
-    extends
-        $FunctionalProvider<SalesRepository, SalesRepository, SalesRepository>
-    with $Provider<SalesRepository> {
-  SaleDetailRepositoryProvider._()
-    : super(
-        from: null,
-        argument: null,
-        retry: null,
-        name: r'saleDetailRepositoryProvider',
-        isAutoDispose: true,
-        dependencies: null,
-        $allTransitiveDependencies: null,
-      );
-
-  @override
-  String debugGetCreateSourceHash() => _$saleDetailRepositoryHash();
-
-  @$internal
-  @override
-  $ProviderElement<SalesRepository> $createElement($ProviderPointer pointer) =>
-      $ProviderElement(pointer);
-
-  @override
-  SalesRepository create(Ref ref) {
-    return saleDetailRepository(ref);
-  }
-
-  /// {@macro riverpod.override_with_value}
-  Override overrideWithValue(SalesRepository value) {
-    return $ProviderOverride(
-      origin: this,
-      providerOverride: $SyncValueProvider<SalesRepository>(value),
-    );
-  }
-}
-
-String _$saleDetailRepositoryHash() =>
-    r'fde1316073572e58c82f3efca65da92dc2969d2d';
-
 @ProviderFor(getSaleDetail)
 final getSaleDetailProvider = GetSaleDetailProvider._();
 
@@ -140,7 +48,7 @@ final class GetSaleDetailProvider
   }
 }
 
-String _$getSaleDetailHash() => r'301cfdec33e06064d35ece503454af24f65e7438';
+String _$getSaleDetailHash() => r'02d67722dc2fb559107379c47d464d6ecdbb3589';
 
 @ProviderFor(SaleDetailController)
 final saleDetailControllerProvider = SaleDetailControllerFamily._();
@@ -192,7 +100,7 @@ final class SaleDetailControllerProvider
 }
 
 String _$saleDetailControllerHash() =>
-    r'9a10b378a54ad71465de1ba01a9631f7bb395982';
+    r'c39b13d43ce860a68d0bd0514efa23861e3cfaeb';
 
 final class SaleDetailControllerFamily extends $Family
     with

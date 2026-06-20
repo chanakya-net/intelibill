@@ -1,31 +1,16 @@
 import 'package:flutter/foundation.dart';
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
-import 'package:intelibill_mobile/src/core/network/api_client_provider.dart';
-import 'package:intelibill_mobile/src/features/sales/data/data_sources/sales_remote_data_source.dart';
-import 'package:intelibill_mobile/src/features/sales/data/repositories/sales_repository_impl.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
-import 'package:intelibill_mobile/src/features/sales/domain/repositories/sales_repository.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/use_cases/get_sale_detail.dart';
+import 'package:intelibill_mobile/src/features/sales/presentation/controllers/sales_providers.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'sale_detail_controller.g.dart';
 
 @riverpod
-SalesRemoteDataSource saleDetailRemoteDataSource(Ref ref) {
-  final apiClient = ref.watch(apiClientProvider);
-  return SalesRemoteDataSourceImpl(apiClient);
-}
-
-@riverpod
-SalesRepository saleDetailRepository(Ref ref) {
-  final remoteDataSource = ref.watch(saleDetailRemoteDataSourceProvider);
-  return SalesRepositoryImpl(remoteDataSource);
-}
-
-@riverpod
 GetSaleDetail getSaleDetail(Ref ref) {
-  final repository = ref.watch(saleDetailRepositoryProvider);
+  final repository = ref.watch(salesRepositoryProvider);
   return GetSaleDetail(repository);
 }
 

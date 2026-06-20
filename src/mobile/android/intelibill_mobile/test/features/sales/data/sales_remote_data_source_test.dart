@@ -1,5 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
+import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/features/sales/data/data_sources/sales_remote_data_source.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sales_history_query.dart';
 import 'package:mocktail/mocktail.dart';
@@ -70,6 +72,34 @@ void main() {
           },
         ),
       ).called(1);
+    });
+
+    test('throws typed error when sale detail body is null', () async {
+      when(
+        () => mockApiClient.get<Map<String, dynamic>>(
+          any<String>(),
+          queryParameters: any<Map<String, dynamic>?>(
+            named: 'queryParameters',
+          ),
+        ),
+      ).thenAnswer(
+        (_) async => Response<Map<String, dynamic>>(
+          data: null,
+          statusCode: 200,
+          requestOptions: RequestOptions(path: '/sales/sale-1'),
+        ),
+      );
+
+      await expectLater(
+        remoteDataSource.getSaleDetail('sale-1'),
+        throwsA(
+          isA<AppException>().having(
+            (error) => error.failure,
+            'failure',
+            isA<UnknownFailure>(),
+          ),
+        ),
+      );
     });
   });
 }

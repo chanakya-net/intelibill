@@ -1,3 +1,5 @@
+import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
+import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/network/api_client.dart';
 import 'package:intelibill_mobile/src/core/utils/date_time_wire.dart';
 import 'package:intelibill_mobile/src/features/sales/data/dto/sales_history_response_dto.dart';
@@ -38,7 +40,14 @@ class SalesRemoteDataSourceImpl implements SalesRemoteDataSource {
       },
     );
 
-    return SalesHistoryResponseDto.fromJson(response.data!);
+    final data = response.data;
+    if (data == null) {
+      throw AppException(
+        failure: const Failure.unknown(message: 'Empty response body'),
+      );
+    }
+
+    return SalesHistoryResponseDto.fromJson(data);
   }
 
   @override
@@ -46,6 +55,12 @@ class SalesRemoteDataSourceImpl implements SalesRemoteDataSource {
     final response = await _apiClient.get<Map<String, dynamic>>(
       '$_salesEndpoint/$saleId',
     );
-    return response.data!;
+    final data = response.data;
+    if (data == null) {
+      throw AppException(
+        failure: const Failure.unknown(message: 'Empty response body'),
+      );
+    }
+    return data;
   }
 }

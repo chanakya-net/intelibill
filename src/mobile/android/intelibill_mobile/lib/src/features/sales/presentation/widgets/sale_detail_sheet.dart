@@ -548,6 +548,7 @@ class _ReceiptAction extends StatelessWidget {
   Widget build(BuildContext context) {
     return FilledButton.icon(
       onPressed: () async {
+        // TODO: replace with real receipt navigation/share when backend support lands.
         await Clipboard.setData(
           ClipboardData(text: 'Sale $invoiceNumber ($saleId)'),
         );
