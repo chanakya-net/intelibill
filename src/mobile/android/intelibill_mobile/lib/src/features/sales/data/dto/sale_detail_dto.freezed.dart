@@ -1450,7 +1450,7 @@ as DateTime,
 /// @nodoc
 mixin _$SaleDetailReturnItemDto {
 
-@JsonKey(name: 'itemId') String get itemId;@JsonKey(name: 'quantity') double get quantity;@JsonKey(name: 'amount') double get amount;
+@JsonKey(name: 'itemId') String get itemId;@JsonKey(name: 'itemName') String? get itemName;@JsonKey(name: 'quantity') double get quantity;@JsonKey(name: 'amount') double get amount;
 /// Create a copy of SaleDetailReturnItemDto
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -1463,16 +1463,16 @@ $SaleDetailReturnItemDtoCopyWith<SaleDetailReturnItemDto> get copyWith => _$Sale
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is SaleDetailReturnItemDto&&(identical(other.itemId, itemId) || other.itemId == itemId)&&(identical(other.quantity, quantity) || other.quantity == quantity)&&(identical(other.amount, amount) || other.amount == amount));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is SaleDetailReturnItemDto&&(identical(other.itemId, itemId) || other.itemId == itemId)&&(identical(other.itemName, itemName) || other.itemName == itemName)&&(identical(other.quantity, quantity) || other.quantity == quantity)&&(identical(other.amount, amount) || other.amount == amount));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,itemId,quantity,amount);
+int get hashCode => Object.hash(runtimeType,itemId,itemName,quantity,amount);
 
 @override
 String toString() {
-  return 'SaleDetailReturnItemDto(itemId: $itemId, quantity: $quantity, amount: $amount)';
+  return 'SaleDetailReturnItemDto(itemId: $itemId, itemName: $itemName, quantity: $quantity, amount: $amount)';
 }
 
 
@@ -1483,7 +1483,7 @@ abstract mixin class $SaleDetailReturnItemDtoCopyWith<$Res>  {
   factory $SaleDetailReturnItemDtoCopyWith(SaleDetailReturnItemDto value, $Res Function(SaleDetailReturnItemDto) _then) = _$SaleDetailReturnItemDtoCopyWithImpl;
 @useResult
 $Res call({
-@JsonKey(name: 'itemId') String itemId,@JsonKey(name: 'quantity') double quantity,@JsonKey(name: 'amount') double amount
+@JsonKey(name: 'itemId') String itemId,@JsonKey(name: 'itemName') String? itemName,@JsonKey(name: 'quantity') double quantity,@JsonKey(name: 'amount') double amount
 });
 
 
@@ -1500,10 +1500,11 @@ class _$SaleDetailReturnItemDtoCopyWithImpl<$Res>
 
 /// Create a copy of SaleDetailReturnItemDto
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? itemId = null,Object? quantity = null,Object? amount = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? itemId = null,Object? itemName = freezed,Object? quantity = null,Object? amount = null,}) {
   return _then(_self.copyWith(
 itemId: null == itemId ? _self.itemId : itemId // ignore: cast_nullable_to_non_nullable
-as String,quantity: null == quantity ? _self.quantity : quantity // ignore: cast_nullable_to_non_nullable
+as String,itemName: freezed == itemName ? _self.itemName : itemName // ignore: cast_nullable_to_non_nullable
+as String?,quantity: null == quantity ? _self.quantity : quantity // ignore: cast_nullable_to_non_nullable
 as double,amount: null == amount ? _self.amount : amount // ignore: cast_nullable_to_non_nullable
 as double,
   ));
@@ -1587,10 +1588,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'itemId')  String itemId, @JsonKey(name: 'quantity')  double quantity, @JsonKey(name: 'amount')  double amount)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'itemId')  String itemId, @JsonKey(name: 'itemName')  String? itemName, @JsonKey(name: 'quantity')  double quantity, @JsonKey(name: 'amount')  double amount)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _SaleDetailReturnItemDto() when $default != null:
-return $default(_that.itemId,_that.quantity,_that.amount);case _:
+return $default(_that.itemId,_that.itemName,_that.quantity,_that.amount);case _:
   return orElse();
 
 }
@@ -1608,10 +1609,10 @@ return $default(_that.itemId,_that.quantity,_that.amount);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'itemId')  String itemId, @JsonKey(name: 'quantity')  double quantity, @JsonKey(name: 'amount')  double amount)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'itemId')  String itemId, @JsonKey(name: 'itemName')  String? itemName, @JsonKey(name: 'quantity')  double quantity, @JsonKey(name: 'amount')  double amount)  $default,) {final _that = this;
 switch (_that) {
 case _SaleDetailReturnItemDto():
-return $default(_that.itemId,_that.quantity,_that.amount);}
+return $default(_that.itemId,_that.itemName,_that.quantity,_that.amount);}
 }
 /// A variant of `when` that fallback to returning `null`
 ///
@@ -1625,10 +1626,10 @@ return $default(_that.itemId,_that.quantity,_that.amount);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'itemId')  String itemId, @JsonKey(name: 'quantity')  double quantity, @JsonKey(name: 'amount')  double amount)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'itemId')  String itemId, @JsonKey(name: 'itemName')  String? itemName, @JsonKey(name: 'quantity')  double quantity, @JsonKey(name: 'amount')  double amount)?  $default,) {final _that = this;
 switch (_that) {
 case _SaleDetailReturnItemDto() when $default != null:
-return $default(_that.itemId,_that.quantity,_that.amount);case _:
+return $default(_that.itemId,_that.itemName,_that.quantity,_that.amount);case _:
   return null;
 
 }
@@ -1640,10 +1641,11 @@ return $default(_that.itemId,_that.quantity,_that.amount);case _:
 @JsonSerializable()
 
 class _SaleDetailReturnItemDto implements SaleDetailReturnItemDto {
-  const _SaleDetailReturnItemDto({@JsonKey(name: 'itemId') required this.itemId, @JsonKey(name: 'quantity') required this.quantity, @JsonKey(name: 'amount') required this.amount});
+  const _SaleDetailReturnItemDto({@JsonKey(name: 'itemId') required this.itemId, @JsonKey(name: 'itemName') this.itemName, @JsonKey(name: 'quantity') required this.quantity, @JsonKey(name: 'amount') required this.amount});
   factory _SaleDetailReturnItemDto.fromJson(Map<String, dynamic> json) => _$SaleDetailReturnItemDtoFromJson(json);
 
 @override@JsonKey(name: 'itemId') final  String itemId;
+@override@JsonKey(name: 'itemName') final  String? itemName;
 @override@JsonKey(name: 'quantity') final  double quantity;
 @override@JsonKey(name: 'amount') final  double amount;
 
@@ -1660,16 +1662,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SaleDetailReturnItemDto&&(identical(other.itemId, itemId) || other.itemId == itemId)&&(identical(other.quantity, quantity) || other.quantity == quantity)&&(identical(other.amount, amount) || other.amount == amount));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SaleDetailReturnItemDto&&(identical(other.itemId, itemId) || other.itemId == itemId)&&(identical(other.itemName, itemName) || other.itemName == itemName)&&(identical(other.quantity, quantity) || other.quantity == quantity)&&(identical(other.amount, amount) || other.amount == amount));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,itemId,quantity,amount);
+int get hashCode => Object.hash(runtimeType,itemId,itemName,quantity,amount);
 
 @override
 String toString() {
-  return 'SaleDetailReturnItemDto(itemId: $itemId, quantity: $quantity, amount: $amount)';
+  return 'SaleDetailReturnItemDto(itemId: $itemId, itemName: $itemName, quantity: $quantity, amount: $amount)';
 }
 
 
@@ -1680,7 +1682,7 @@ abstract mixin class _$SaleDetailReturnItemDtoCopyWith<$Res> implements $SaleDet
   factory _$SaleDetailReturnItemDtoCopyWith(_SaleDetailReturnItemDto value, $Res Function(_SaleDetailReturnItemDto) _then) = __$SaleDetailReturnItemDtoCopyWithImpl;
 @override @useResult
 $Res call({
-@JsonKey(name: 'itemId') String itemId,@JsonKey(name: 'quantity') double quantity,@JsonKey(name: 'amount') double amount
+@JsonKey(name: 'itemId') String itemId,@JsonKey(name: 'itemName') String? itemName,@JsonKey(name: 'quantity') double quantity,@JsonKey(name: 'amount') double amount
 });
 
 
@@ -1697,10 +1699,11 @@ class __$SaleDetailReturnItemDtoCopyWithImpl<$Res>
 
 /// Create a copy of SaleDetailReturnItemDto
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? itemId = null,Object? quantity = null,Object? amount = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? itemId = null,Object? itemName = freezed,Object? quantity = null,Object? amount = null,}) {
   return _then(_SaleDetailReturnItemDto(
 itemId: null == itemId ? _self.itemId : itemId // ignore: cast_nullable_to_non_nullable
-as String,quantity: null == quantity ? _self.quantity : quantity // ignore: cast_nullable_to_non_nullable
+as String,itemName: freezed == itemName ? _self.itemName : itemName // ignore: cast_nullable_to_non_nullable
+as String?,quantity: null == quantity ? _self.quantity : quantity // ignore: cast_nullable_to_non_nullable
 as double,amount: null == amount ? _self.amount : amount // ignore: cast_nullable_to_non_nullable
 as double,
   ));

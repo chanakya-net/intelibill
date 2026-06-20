@@ -48,6 +48,7 @@ final _detail = SaleDetail(
       items: [
         SaleDetailReturnItem(
           itemId: 'item-1',
+          itemName: 'Notebook',
           quantity: 1,
           amount: 100,
         ),
@@ -114,6 +115,7 @@ void main() {
     expect(find.text('Redemptions'), findsOneWidget);
     expect(find.text('Warnings'), findsOneWidget);
     expect(find.text('Notebook'), findsOneWidget);
+    expect(find.textContaining('1.0 returned of Notebook'), findsOneWidget);
     expect(find.text('Low stock detected'), findsOneWidget);
     expect(find.text('Receipt'), findsOneWidget);
   });

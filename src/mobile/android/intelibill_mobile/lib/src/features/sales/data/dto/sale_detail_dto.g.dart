@@ -175,6 +175,7 @@ _SaleDetailReturnItemDto _$SaleDetailReturnItemDtoFromJson(
   Map<String, dynamic> json,
 ) => _SaleDetailReturnItemDto(
   itemId: json['itemId'] as String,
+  itemName: json['itemName'] as String?,
   quantity: (json['quantity'] as num).toDouble(),
   amount: (json['amount'] as num).toDouble(),
 );
@@ -183,6 +184,7 @@ Map<String, dynamic> _$SaleDetailReturnItemDtoToJson(
   _SaleDetailReturnItemDto instance,
 ) => <String, dynamic>{
   'itemId': instance.itemId,
+  'itemName': instance.itemName,
   'quantity': instance.quantity,
   'amount': instance.amount,
 };

@@ -31,7 +31,6 @@ class SaleDetailSheet extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(saleDetailControllerProvider(saleId));
     final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
 
     if (state.isLoading) {
       return const SafeArea(
@@ -77,37 +76,37 @@ class SaleDetailSheet extends ConsumerWidget {
             _SummaryCard(detail: detail),
             const SizedBox(height: 16),
             _SectionCard(
-              title: 'Line items',
+              title: l10n.salesDetailLineItems,
               child: _LineItems(detail: detail),
             ),
             const SizedBox(height: 16),
             _SectionCard(
-              title: 'Totals',
+              title: l10n.salesDetailTotals,
               child: _Totals(detail: detail),
             ),
             const SizedBox(height: 16),
             _SectionCard(
-              title: 'Discounts',
+              title: l10n.salesDetailDiscounts,
               child: _Discounts(detail: detail),
             ),
             const SizedBox(height: 16),
             _SectionCard(
-              title: 'Payment split',
+              title: l10n.salesDetailPaymentSplit,
               child: _Settlements(detail: detail),
             ),
             const SizedBox(height: 16),
             _SectionCard(
-              title: 'Returns',
+              title: l10n.salesDetailReturns,
               child: _Returns(detail: detail),
             ),
             const SizedBox(height: 16),
             _SectionCard(
-              title: 'Redemptions',
+              title: l10n.salesDetailRedemptions,
               child: _Redemptions(detail: detail),
             ),
             const SizedBox(height: 16),
             _SectionCard(
-              title: 'Warnings',
+              title: l10n.salesDetailWarnings,
               child: _Warnings(detail: detail),
             ),
             const SizedBox(height: 16),
@@ -190,14 +189,14 @@ class _SummaryCard extends StatelessWidget {
               value: detail.customerName ?? l10n.salesHistoryWalkInCustomer,
             ),
             if (detail.customerPhone?.isNotEmpty == true)
-              _InfoRow(label: 'Phone', value: detail.customerPhone!),
-            _InfoRow(label: 'Date', value: dateFormat.format(detail.soldAt)),
+              _InfoRow(label: l10n.salesHistoryPhone, value: detail.customerPhone!),
+            _InfoRow(label: l10n.salesHistoryDate, value: dateFormat.format(detail.soldAt)),
             _InfoRow(
               label: l10n.salesHistoryPaymentMethod,
               value: salePaymentMethodLabel(l10n, detail.paymentMethod),
             ),
             _InfoRow(
-              label: 'Status',
+              label: l10n.salesHistoryControlsStatus,
               value: saleStatusLabel(l10n, detail.status),
             ),
             const Divider(height: 24),
@@ -205,9 +204,18 @@ class _SummaryCard extends StatelessWidget {
               spacing: 8,
               runSpacing: 8,
               children: [
-                _MetricChip(label: 'Paid ${formatInr(detail.paidAmount)}'),
-                _MetricChip(label: 'Due ${formatInr(detail.dueAmount)}'),
-                _MetricChip(label: 'Tax ${formatInr(detail.totalTaxAmount)}'),
+                _MetricChip(
+                  label:
+                      '${l10n.salesDetailPaidLabel} ${formatInr(detail.paidAmount)}',
+                ),
+                _MetricChip(
+                  label:
+                      '${l10n.salesHistoryDueAmount} ${formatInr(detail.dueAmount)}',
+                ),
+                _MetricChip(
+                  label:
+                      '${l10n.salesDetailTaxLabel} ${formatInr(detail.totalTaxAmount)}',
+                ),
               ],
             ),
             const SizedBox(height: 12),
@@ -263,7 +271,7 @@ class _LineItems extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     if (detail.items.isEmpty) {
-      return const Text('No line items');
+      return Text(AppLocalizations.of(context)!.salesDetailNoLineItems);
     }
     return Column(
       children: [
@@ -312,25 +320,32 @@ class _Totals extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Column(
       children: [
         _InfoRow(
-          label: 'Before discount',
+          label: l10n.salesDetailBeforeDiscount,
           value: formatInr(detail.totalBeforeDiscount),
         ),
         _InfoRow(
-          label: 'Discount',
+          label: l10n.salesDetailDiscountLabel,
           value: formatInr(detail.totalDiscountAmount),
         ),
-        _InfoRow(label: 'Tax', value: formatInr(detail.totalTaxAmount)),
-        _InfoRow(label: 'Total', value: formatInr(detail.totalAmount)),
-        _InfoRow(label: 'Paid', value: formatInr(detail.paidAmount)),
-        _InfoRow(label: 'Due', value: formatInr(detail.dueAmount)),
+        _InfoRow(
+          label: l10n.salesDetailTaxLabel,
+          value: formatInr(detail.totalTaxAmount),
+        ),
+        _InfoRow(label: l10n.salesHistoryTotal, value: formatInr(detail.totalAmount)),
+        _InfoRow(label: l10n.salesDetailPaidLabel, value: formatInr(detail.paidAmount)),
+        _InfoRow(label: l10n.salesHistoryDueAmount, value: formatInr(detail.dueAmount)),
         if (detail.refundAmount > 0)
-          _InfoRow(label: 'Refund', value: formatInr(detail.refundAmount)),
+          _InfoRow(
+            label: l10n.salesHistoryRefundAmount,
+            value: formatInr(detail.refundAmount),
+          ),
         if (detail.dueReductionAmount > 0)
           _InfoRow(
-            label: 'Due reduction',
+            label: l10n.salesDetailDueReduction,
             value: formatInr(detail.dueReductionAmount),
           ),
       ],
@@ -345,7 +360,9 @@ class _Discounts extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (detail.discounts.isEmpty) return const Text('No discounts');
+    if (detail.discounts.isEmpty) {
+      return Text(AppLocalizations.of(context)!.salesDetailNoDiscounts);
+    }
     final theme = Theme.of(context);
     return Column(
       children: [
@@ -377,7 +394,9 @@ class _Settlements extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (detail.settlements.isEmpty) return const Text('No settlement records');
+    if (detail.settlements.isEmpty) {
+      return Text(AppLocalizations.of(context)!.salesDetailNoSettlementRecords);
+    }
     final theme = Theme.of(context);
     final dateFormat = DateFormat('dd MMM yyyy, h:mm a');
     return Column(
@@ -421,7 +440,9 @@ class _Returns extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (detail.returns.isEmpty) return const Text('No returns');
+    if (detail.returns.isEmpty) {
+      return Text(AppLocalizations.of(context)!.salesDetailNoReturns);
+    }
     final theme = Theme.of(context);
     final dateFormat = DateFormat('dd MMM yyyy, h:mm a');
     return Column(
@@ -455,7 +476,11 @@ class _Returns extends StatelessWidget {
                     Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        '${item.quantity} returned of ${item.itemId}',
+                        AppLocalizations.of(context)!
+                            .salesDetailReturnItem(
+                              item.quantity,
+                              item.itemName ?? item.itemId,
+                            ),
                       ),
                     ),
                 ],
@@ -475,7 +500,9 @@ class _Redemptions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (detail.redemptions.isEmpty) return const Text('No redemptions');
+    if (detail.redemptions.isEmpty) {
+      return Text(AppLocalizations.of(context)!.salesDetailNoRedemptions);
+    }
     final theme = Theme.of(context);
     final dateFormat = DateFormat('dd MMM yyyy, h:mm a');
     return Column(
@@ -514,7 +541,9 @@ class _Warnings extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (detail.warnings.isEmpty) return const Text('No warnings');
+    if (detail.warnings.isEmpty) {
+      return Text(AppLocalizations.of(context)!.salesDetailNoWarnings);
+    }
     final theme = Theme.of(context);
     return Column(
       children: [
@@ -554,7 +583,7 @@ class _ReceiptAction extends StatelessWidget {
         );
       },
       icon: const Icon(Icons.receipt_long_outlined),
-      label: const Text('Receipt'),
+      label: Text(AppLocalizations.of(context)!.salesDetailReceipt),
     );
   }
 }

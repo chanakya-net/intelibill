@@ -101,6 +101,7 @@ sealed class SaleDetailReturnDto with _$SaleDetailReturnDto {
 sealed class SaleDetailReturnItemDto with _$SaleDetailReturnItemDto {
   const factory SaleDetailReturnItemDto({
     @JsonKey(name: 'itemId') required String itemId,
+    @JsonKey(name: 'itemName') String? itemName,
     @JsonKey(name: 'quantity') required double quantity,
     @JsonKey(name: 'amount') required double amount,
   }) = _SaleDetailReturnItemDto;

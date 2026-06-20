@@ -18,6 +18,42 @@ void main() {
   });
 
   group('SalesRemoteDataSourceImpl', () {
+    test('returns sale detail map on success', () async {
+      final responseBody = <String, dynamic>{
+        'saleId': 'sale-1',
+        'invoiceNumber': 'INV-2026-001',
+        'paymentMethod': 1,
+        'soldAt': '2026-05-11T10:00:00.000Z',
+        'paidAmount': 500.0,
+        'dueAmount': 0.0,
+        'totalBeforeDiscount': 500.0,
+        'totalDiscountAmount': 0.0,
+        'totalAmount': 500.0,
+        'totalTaxAmount': 50.0,
+        'status': 'paid',
+        'dueReductionAmount': 0.0,
+        'refundAmount': 0.0,
+      };
+
+      when(
+        () => mockApiClient.get<Map<String, dynamic>>(
+          any<String>(),
+          queryParameters: any<Map<String, dynamic>?>(
+            named: 'queryParameters',
+          ),
+        ),
+      ).thenAnswer(
+        (_) async => Response<Map<String, dynamic>>(
+          data: responseBody,
+          statusCode: 200,
+          requestOptions: RequestOptions(path: '/sales/sale-1'),
+        ),
+      );
+
+      final response = await remoteDataSource.getSaleDetail('sale-1');
+      expect(response, responseBody);
+    });
+
     test('calls /sales with history query params', () async {
       final from = DateTime(2026, 5);
       final to = DateTime(2026, 5, 12, 23, 59, 59);

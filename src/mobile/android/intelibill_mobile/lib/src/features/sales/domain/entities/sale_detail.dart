@@ -153,16 +153,18 @@ class SaleDetailReturn extends Equatable {
 class SaleDetailReturnItem extends Equatable {
   const SaleDetailReturnItem({
     required this.itemId,
+    this.itemName,
     required this.quantity,
     required this.amount,
   });
 
   final String itemId;
+  final String? itemName;
   final double quantity;
   final double amount;
 
   @override
-  List<Object?> get props => [itemId, quantity, amount];
+  List<Object?> get props => [itemId, itemName, quantity, amount];
 }
 
 class SaleDetailRedemption extends Equatable {

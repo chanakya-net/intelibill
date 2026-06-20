@@ -70,6 +70,7 @@ extension SaleDetailReturnDtoX on SaleDetailReturnDto {
 extension SaleDetailReturnItemDtoX on SaleDetailReturnItemDto {
   SaleDetailReturnItem toDomain() => SaleDetailReturnItem(
     itemId: itemId,
+    itemName: itemName,
     quantity: quantity,
     amount: amount,
   );

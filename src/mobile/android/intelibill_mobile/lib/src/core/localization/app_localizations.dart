@@ -2965,11 +2965,131 @@ abstract class AppLocalizations {
   /// **'Date'**
   String get salesHistoryDate;
 
+  /// No description provided for @salesDetailLineItems.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Line items'**
+  String get salesDetailLineItems;
+
+  /// No description provided for @salesDetailTotals.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Totals'**
+  String get salesDetailTotals;
+
+  /// No description provided for @salesDetailDiscounts.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Discounts'**
+  String get salesDetailDiscounts;
+
+  /// No description provided for @salesDetailPaymentSplit.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Payment split'**
+  String get salesDetailPaymentSplit;
+
+  /// No description provided for @salesDetailReturns.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Returns'**
+  String get salesDetailReturns;
+
+  /// No description provided for @salesDetailRedemptions.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Redemptions'**
+  String get salesDetailRedemptions;
+
+  /// No description provided for @salesDetailWarnings.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Warnings'**
+  String get salesDetailWarnings;
+
   /// No description provided for @salesHistoryPaymentMethod.
   ///
   /// In en_IN, this message translates to:
   /// **'Payment'**
   String get salesHistoryPaymentMethod;
+
+  /// No description provided for @salesDetailNoLineItems.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No line items'**
+  String get salesDetailNoLineItems;
+
+  /// No description provided for @salesDetailNoDiscounts.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No discounts'**
+  String get salesDetailNoDiscounts;
+
+  /// No description provided for @salesDetailNoSettlementRecords.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No settlement records'**
+  String get salesDetailNoSettlementRecords;
+
+  /// No description provided for @salesDetailNoReturns.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No returns'**
+  String get salesDetailNoReturns;
+
+  /// No description provided for @salesDetailNoRedemptions.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No redemptions'**
+  String get salesDetailNoRedemptions;
+
+  /// No description provided for @salesDetailNoWarnings.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No warnings'**
+  String get salesDetailNoWarnings;
+
+  /// No description provided for @salesDetailReceipt.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Receipt'**
+  String get salesDetailReceipt;
+
+  /// No description provided for @salesDetailBeforeDiscount.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Before discount'**
+  String get salesDetailBeforeDiscount;
+
+  /// No description provided for @salesDetailDiscountLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Discount'**
+  String get salesDetailDiscountLabel;
+
+  /// No description provided for @salesDetailTaxLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Tax'**
+  String get salesDetailTaxLabel;
+
+  /// No description provided for @salesDetailPaidLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Paid'**
+  String get salesDetailPaidLabel;
+
+  /// No description provided for @salesDetailDueReduction.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Due reduction'**
+  String get salesDetailDueReduction;
+
+  /// No description provided for @salesDetailReturnItem.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'{quantity} returned of {itemName}'**
+  String salesDetailReturnItem(double quantity, String itemName);
 
   /// No description provided for @salesHistoryItemCountLabel.
   ///
