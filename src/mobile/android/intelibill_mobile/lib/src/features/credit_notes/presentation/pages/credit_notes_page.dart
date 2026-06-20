@@ -229,7 +229,7 @@ class _CreditNotesPageState extends ConsumerState<CreditNotesPage> {
     CreditNote note,
     bool canVoid,
   ) async {
-    final didVoid = await showModalBottomSheet<bool>(
+    final action = await showModalBottomSheet<_CreditNoteDetailSheetAction>(
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
@@ -238,18 +238,30 @@ class _CreditNotesPageState extends ConsumerState<CreditNotesPage> {
           note: note,
           canVoid: canVoid,
           onOpenReceipt: () {
-            Navigator.of(context).pop();
-            context.push(AppRoutes.creditNoteReceiptFor(note.code));
+            Navigator.of(context).pop(_CreditNoteDetailSheetAction.openReceipt);
           },
-          onVoid: (reason) => ref
-              .read(creditNotesControllerProvider.notifier)
-              .voidActiveNote(code: note.code, reason: reason),
+          onVoid: (reason) {
+            return ref
+                .read(creditNotesControllerProvider.notifier)
+                .voidActiveNote(code: note.code, reason: reason)
+                .then(
+                  (isSuccess) => isSuccess ? true : false,
+                );
+          },
         );
       },
     );
     if (!mounted) return;
-    if (didVoid == true) {
+    if (action == _CreditNoteDetailSheetAction.voided) {
       unawaited(ref.read(creditNotesControllerProvider.notifier).refresh());
+      return;
+    }
+    if (action == _CreditNoteDetailSheetAction.openReceipt) {
+      unawaited(
+        ref
+            .read(goRouterProvider)
+            .push(AppRoutes.creditNoteReceiptFor(note.code)),
+      );
     }
     ref.read(creditNotesControllerProvider.notifier).selectNote(null);
   }
@@ -343,7 +355,7 @@ class _CreditNoteDetailSheetState extends State<_CreditNoteDetailSheet> {
     if (!mounted) return;
     setState(() => _isSubmitting = false);
     if (!isSuccess) return;
-    Navigator.of(context).pop(true);
+    Navigator.of(context).pop(_CreditNoteDetailSheetAction.voided);
   }
 
   @override
@@ -367,6 +379,7 @@ class _CreditNoteDetailSheetState extends State<_CreditNoteDetailSheet> {
           ),
           const SizedBox(height: 12),
           TextButton(
+            key: const Key('credit-note-open-receipt-button'),
             onPressed: widget.onOpenReceipt,
             child: Text(l10n.creditNotesOpenReceipt),
           ),
@@ -437,6 +450,8 @@ class _ErrorState extends StatelessWidget {
     );
   }
 }
+
+enum _CreditNoteDetailSheetAction { openReceipt, voided }
 
 class _EmptyState extends StatelessWidget {
   const _EmptyState();
