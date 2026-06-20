@@ -93,6 +93,9 @@ class AppLocalizationsTe extends AppLocalizations {
   String get shellManageCustomers => 'కస్టమర్లు';
 
   @override
+  String get shellManageCreditNotes => 'Credit Notes';
+
+  @override
   String get shellManageSuppliers => 'సరఫరాదారులను నిర్వహించండి';
 
   @override

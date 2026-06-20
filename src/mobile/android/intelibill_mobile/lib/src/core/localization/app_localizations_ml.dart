@@ -93,6 +93,9 @@ class AppLocalizationsMl extends AppLocalizations {
   String get shellManageCustomers => 'ഉപഭോക്താക്കൾ';
 
   @override
+  String get shellManageCreditNotes => 'Credit Notes';
+
+  @override
   String get shellManageSuppliers => 'വിതരണക്കാരെ കൈകാര്യം ചെയ്യുക';
 
   @override

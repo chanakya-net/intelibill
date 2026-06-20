@@ -289,6 +289,12 @@ abstract class AppLocalizations {
   /// **'Customers'**
   String get shellManageCustomers;
 
+  /// No description provided for @shellManageCreditNotes.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Credit Notes'**
+  String get shellManageCreditNotes;
+
   /// No description provided for @shellManageSuppliers.
   ///
   /// In en_IN, this message translates to:

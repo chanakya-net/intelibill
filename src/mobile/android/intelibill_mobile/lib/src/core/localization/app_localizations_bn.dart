@@ -93,6 +93,9 @@ class AppLocalizationsBn extends AppLocalizations {
   String get shellManageCustomers => 'গ্রাহকরা';
 
   @override
+  String get shellManageCreditNotes => 'Credit Notes';
+
+  @override
   String get shellManageSuppliers => 'সরবরাহকারী ব্যবস্থাপনা';
 
   @override

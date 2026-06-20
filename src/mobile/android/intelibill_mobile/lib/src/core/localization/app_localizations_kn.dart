@@ -93,6 +93,9 @@ class AppLocalizationsKn extends AppLocalizations {
   String get shellManageCustomers => 'ಗ್ರಾಹಕರು';
 
   @override
+  String get shellManageCreditNotes => 'Credit Notes';
+
+  @override
   String get shellManageSuppliers => 'ಪೂರೈಕೆದಾರರನ್ನು ನಿರ್ವಹಿಸಿ';
 
   @override

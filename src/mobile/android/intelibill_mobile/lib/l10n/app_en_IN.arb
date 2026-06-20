@@ -28,6 +28,7 @@
   "shellManageSales": "Sales",
   "shellNewSale": "New Sale",
   "shellManageCustomers": "Customers",
+  "shellManageCreditNotes": "Credit Notes",
   "shellManageSuppliers": "Suppliers",
   "shellManageExpenses": "Expenses",
   "shellManageBankAccounts": "Bank Accounts",

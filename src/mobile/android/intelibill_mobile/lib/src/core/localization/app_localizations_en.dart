@@ -93,6 +93,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get shellManageCustomers => 'Customers';
 
   @override
+  String get shellManageCreditNotes => 'Credit Notes';
+
+  @override
   String get shellManageSuppliers => 'Suppliers';
 
   @override
@@ -1667,6 +1670,9 @@ class AppLocalizationsEnIn extends AppLocalizationsEn {
 
   @override
   String get shellManageCustomers => 'Customers';
+
+  @override
+  String get shellManageCreditNotes => 'Credit Notes';
 
   @override
   String get shellManageSuppliers => 'Suppliers';

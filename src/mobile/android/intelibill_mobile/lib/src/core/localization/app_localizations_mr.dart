@@ -93,6 +93,9 @@ class AppLocalizationsMr extends AppLocalizations {
   String get shellManageCustomers => 'ग्राहक';
 
   @override
+  String get shellManageCreditNotes => 'Credit Notes';
+
+  @override
   String get shellManageSuppliers => 'पुरवठादार';
 
   @override

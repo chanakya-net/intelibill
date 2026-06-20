@@ -14,6 +14,7 @@ import 'package:intelibill_mobile/src/features/auth/presentation/pages/login_pag
 import 'package:intelibill_mobile/src/features/auth/presentation/pages/profile_settings_page.dart';
 import 'package:intelibill_mobile/src/features/auth/presentation/pages/update_profile_page.dart';
 import 'package:intelibill_mobile/src/features/customers/presentation/pages/customers_page.dart';
+import 'package:intelibill_mobile/src/features/credit_notes/presentation/pages/credit_notes_page.dart';
 import 'package:intelibill_mobile/src/features/dashboard/presentation/pages/dashboard_page.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/add_inventory_page.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/adjustment_history_page.dart';
@@ -42,6 +43,7 @@ class AppRoutes {
   static const String salesHistory = '/sales/history';
   static const String profitLoss = '/sales/profit-loss';
   static const String customers = '/customers';
+  static const String creditNotes = '/credit-notes';
   static const String suppliers = '/suppliers';
   static const String createShop = '/shops/create';
   static const String manageShop = '/shops/manage';
@@ -161,6 +163,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.customers,
             builder: (context, state) => const CustomersPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.creditNotes,
+            builder: (context, state) => const CreditNotesPage(),
           ),
           GoRoute(
             path: AppRoutes.suppliers,

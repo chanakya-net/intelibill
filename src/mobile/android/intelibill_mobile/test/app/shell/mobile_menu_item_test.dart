@@ -55,6 +55,7 @@ void main() {
           MobileMenuLabelKey.inventory,
           MobileMenuLabelKey.sales,
           MobileMenuLabelKey.customers,
+          MobileMenuLabelKey.creditNotes,
           MobileMenuLabelKey.more,
         ]),
       );
@@ -72,6 +73,7 @@ void main() {
         equals([
           MobileMenuLabelKey.inventory,
           MobileMenuLabelKey.sales,
+          MobileMenuLabelKey.creditNotes,
           MobileMenuLabelKey.more,
         ]),
       );

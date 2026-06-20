@@ -93,6 +93,9 @@ class AppLocalizationsGu extends AppLocalizations {
   String get shellManageCustomers => 'ગ્રાહકો';
 
   @override
+  String get shellManageCreditNotes => 'Credit Notes';
+
+  @override
   String get shellManageSuppliers => 'પુરવઠાકર્તાઓ સંભાળો';
 
   @override

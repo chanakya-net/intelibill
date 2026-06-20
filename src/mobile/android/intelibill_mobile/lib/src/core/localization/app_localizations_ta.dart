@@ -93,6 +93,9 @@ class AppLocalizationsTa extends AppLocalizations {
   String get shellManageCustomers => 'வாடிக்கையாளர்கள்';
 
   @override
+  String get shellManageCreditNotes => 'Credit Notes';
+
+  @override
   String get shellManageSuppliers => 'விநியோகஸ்தர்களை நிர்வகி';
 
   @override
