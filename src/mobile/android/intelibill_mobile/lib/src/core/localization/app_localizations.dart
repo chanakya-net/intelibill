@@ -3048,6 +3048,300 @@ abstract class AppLocalizations {
   /// In en_IN, this message translates to:
   /// **'Showing {shown} of {total}'**
   String salesHistoryShowingCount(int shown, int total);
+
+  /// No description provided for @discountsTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Discount rules'**
+  String get discountsTitle;
+
+  /// No description provided for @discountsSubtitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Manage active promotion rules for products and sales.'**
+  String get discountsSubtitle;
+
+  /// No description provided for @discountsSearchPlaceholder.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Search rule name...'**
+  String get discountsSearchPlaceholder;
+
+  /// No description provided for @discountsClearSearch.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Clear search'**
+  String get discountsClearSearch;
+
+  /// No description provided for @discountsStatusAll.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'All'**
+  String get discountsStatusAll;
+
+  /// No description provided for @discountsStatusActive.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Active'**
+  String get discountsStatusActive;
+
+  /// No description provided for @discountsStatusUpcoming.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Upcoming'**
+  String get discountsStatusUpcoming;
+
+  /// No description provided for @discountsStatusExpired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Expired'**
+  String get discountsStatusExpired;
+
+  /// No description provided for @discountsStatusDisabled.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Disabled'**
+  String get discountsStatusDisabled;
+
+  /// No description provided for @discountsTypeAll.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'All types'**
+  String get discountsTypeAll;
+
+  /// No description provided for @discountsTypeBatch.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Batch percentage'**
+  String get discountsTypeBatch;
+
+  /// No description provided for @discountsTypeSalePercent.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Sales percentage'**
+  String get discountsTypeSalePercent;
+
+  /// No description provided for @discountsTypeSaleThresholdPercent.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Sales threshold percentage'**
+  String get discountsTypeSaleThresholdPercent;
+
+  /// No description provided for @discountsSortLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Sort'**
+  String get discountsSortLabel;
+
+  /// No description provided for @discountsSortCreatedDesc.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Created (new first)'**
+  String get discountsSortCreatedDesc;
+
+  /// No description provided for @discountsSortCreatedAsc.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Created (old first)'**
+  String get discountsSortCreatedAsc;
+
+  /// No description provided for @discountsSortNameAsc.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Name (A-Z)'**
+  String get discountsSortNameAsc;
+
+  /// No description provided for @discountsSortNameDesc.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Name (Z-A)'**
+  String get discountsSortNameDesc;
+
+  /// No description provided for @discountsSortStartsAtAsc.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Starts at (soonest)'**
+  String get discountsSortStartsAtAsc;
+
+  /// No description provided for @discountsSortStartsAtDesc.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Starts at (latest)'**
+  String get discountsSortStartsAtDesc;
+
+  /// No description provided for @discountsSortStatus.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Status'**
+  String get discountsSortStatus;
+
+  /// No description provided for @discountsNoRules.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No discount rules found'**
+  String get discountsNoRules;
+
+  /// No description provided for @discountsUnableToLoad.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to load discount rules'**
+  String get discountsUnableToLoad;
+
+  /// No description provided for @discountsRetry.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Retry'**
+  String get discountsRetry;
+
+  /// No description provided for @discountsShowingCount.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Showing {shown} of {total}'**
+  String discountsShowingCount(int shown, int total);
+
+  /// No description provided for @discountsRuleTypeLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Type:'**
+  String get discountsRuleTypeLabel;
+
+  /// No description provided for @discountsPercentageLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Discount:'**
+  String get discountsPercentageLabel;
+
+  /// No description provided for @discountsThresholdLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Threshold:'**
+  String get discountsThresholdLabel;
+
+  /// No description provided for @discountsStatusLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Status:'**
+  String get discountsStatusLabel;
+
+  /// No description provided for @discountsInventoryBatchIdLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Inventory batch:'**
+  String get discountsInventoryBatchIdLabel;
+
+  /// No description provided for @discountsNotSet.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Not set'**
+  String get discountsNotSet;
+
+  /// No description provided for @discountsErrorNetwork.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to connect. Please check your network.'**
+  String get discountsErrorNetwork;
+
+  /// No description provided for @discountsErrorTimeout.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Request timed out. Please try again.'**
+  String get discountsErrorTimeout;
+
+  /// No description provided for @discountsErrorUnauthorized.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Session expired. Please log in again.'**
+  String get discountsErrorUnauthorized;
+
+  /// No description provided for @discountsErrorForbidden.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'You do not have permission to view discounts.'**
+  String get discountsErrorForbidden;
+
+  /// No description provided for @discountsErrorGeneric.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to load discount rules. Please try again.'**
+  String get discountsErrorGeneric;
+
+  /// No description provided for @discountsUnableToLoadDetail.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to load discount details'**
+  String get discountsUnableToLoadDetail;
+
+  /// No description provided for @discountsDetailTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Discount rule details'**
+  String get discountsDetailTitle;
+
+  /// No description provided for @discountsDetailRuleLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Rule'**
+  String get discountsDetailRuleLabel;
+
+  /// No description provided for @discountsDescriptionLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Description:'**
+  String get discountsDescriptionLabel;
+
+  /// No description provided for @discountsBelowCostReasonLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Below-cost confirmation:'**
+  String get discountsBelowCostReasonLabel;
+
+  /// No description provided for @discountsStartsAtLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Starts at:'**
+  String get discountsStartsAtLabel;
+
+  /// No description provided for @discountsEndsAtLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Ends at:'**
+  String get discountsEndsAtLabel;
+
+  /// No description provided for @discountsCreatedAtLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Created at:'**
+  String get discountsCreatedAtLabel;
+
+  /// No description provided for @discountsUpdatedAtLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Updated at:'**
+  String get discountsUpdatedAtLabel;
+
+  /// No description provided for @discountsDisabledAtLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Disabled at:'**
+  String get discountsDisabledAtLabel;
+
+  /// No description provided for @discountsDisabledReasonLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Disable reason:'**
+  String get discountsDisabledReasonLabel;
+
+  /// No description provided for @discountsReplacesRuleLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Replaces rule:'**
+  String get discountsReplacesRuleLabel;
+
+  /// No description provided for @discountsReplacedByRuleLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Replaced by:'**
+  String get discountsReplacedByRuleLabel;
 }
 
 class _AppLocalizationsDelegate

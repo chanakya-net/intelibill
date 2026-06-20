@@ -19,6 +19,7 @@ import 'package:intelibill_mobile/src/features/inventory/presentation/pages/add_
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/adjustment_history_page.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/inventory_batches_page.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/items_page.dart';
+import 'package:intelibill_mobile/src/features/discounts/presentation/pages/discounts_page.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/pages/sales_history_page.dart';
 import 'package:intelibill_mobile/src/features/shops/presentation/pages/create_shop_page.dart';
 import 'package:intelibill_mobile/src/features/shops/presentation/pages/manage_shop_page.dart';
@@ -187,10 +188,15 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: AppRoutes.discounts,
-            builder: (context, state) => _buildPlaceholder(
-              context,
-              title: AppLocalizations.of(context)!.shellManageDiscounts,
-            ),
+            redirect: (context, state) {
+              final authAsync = ref.read(authControllerProvider);
+              final session = authAsync.asData?.value.session;
+              if (!canManageDiscounts(session)) {
+                return AppRoutes.salesHistory;
+              }
+              return null;
+            },
+            builder: (context, state) => const DiscountsPage(),
           ),
           GoRoute(
             path: AppRoutes.bankAccounts,

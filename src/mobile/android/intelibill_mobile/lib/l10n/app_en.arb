@@ -577,5 +577,64 @@
         "type": "int"
       }
     }
-  }
+  },
+  "discountsTitle": "Discount rules",
+  "discountsSubtitle": "Manage active promotion rules for products and sales.",
+  "discountsSearchPlaceholder": "Search rule name...",
+  "discountsClearSearch": "Clear search",
+  "discountsStatusAll": "All",
+  "discountsStatusActive": "Active",
+  "discountsStatusUpcoming": "Upcoming",
+  "discountsStatusExpired": "Expired",
+  "discountsStatusDisabled": "Disabled",
+  "discountsTypeAll": "All types",
+  "discountsTypeBatch": "Batch percentage",
+  "discountsTypeSalePercent": "Sales percentage",
+  "discountsTypeSaleThresholdPercent": "Sales threshold percentage",
+  "discountsSortLabel": "Sort",
+  "discountsSortCreatedDesc": "Created (new first)",
+  "discountsSortCreatedAsc": "Created (old first)",
+  "discountsSortNameAsc": "Name (A-Z)",
+  "discountsSortNameDesc": "Name (Z-A)",
+  "discountsSortStartsAtAsc": "Starts at (soonest)",
+  "discountsSortStartsAtDesc": "Starts at (latest)",
+  "discountsSortStatus": "Status",
+  "discountsNoRules": "No discount rules found",
+  "discountsUnableToLoad": "Unable to load discount rules",
+  "discountsRetry": "Retry",
+  "discountsShowingCount": "Showing {shown} of {total}",
+  "@discountsShowingCount": {
+    "placeholders": {
+      "shown": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "discountsRuleTypeLabel": "Type:",
+  "discountsPercentageLabel": "Discount:",
+  "discountsThresholdLabel": "Threshold:",
+  "discountsStatusLabel": "Status:",
+  "discountsInventoryBatchIdLabel": "Inventory batch:",
+  "discountsNotSet": "Not set",
+  "discountsErrorNetwork": "Unable to connect. Please check your network.",
+  "discountsErrorTimeout": "Request timed out. Please try again.",
+  "discountsErrorUnauthorized": "Session expired. Please log in again.",
+  "discountsErrorForbidden": "You do not have permission to view discounts.",
+  "discountsErrorGeneric": "Unable to load discount rules. Please try again.",
+  "discountsUnableToLoadDetail": "Unable to load discount details",
+  "discountsDetailTitle": "Discount rule details",
+  "discountsDetailRuleLabel": "Rule",
+  "discountsDescriptionLabel": "Description:",
+  "discountsBelowCostReasonLabel": "Below-cost confirmation:",
+  "discountsStartsAtLabel": "Starts at:",
+  "discountsEndsAtLabel": "Ends at:",
+  "discountsCreatedAtLabel": "Created at:",
+  "discountsUpdatedAtLabel": "Updated at:",
+  "discountsDisabledAtLabel": "Disabled at:",
+  "discountsDisabledReasonLabel": "Disable reason:",
+  "discountsReplacesRuleLabel": "Replaces rule:",
+  "discountsReplacedByRuleLabel": "Replaced by:"
 }
