@@ -3517,6 +3517,84 @@ abstract class AppLocalizations {
   /// **'Reason'**
   String get creditNotesVoidReason;
 
+  /// No description provided for @creditNotesOpenReceipt.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Open receipt'**
+  String get creditNotesOpenReceipt;
+
+  /// No description provided for @creditNotesReceiptTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Credit note receipt'**
+  String get creditNotesReceiptTitle;
+
+  /// No description provided for @creditNotesStatusLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Status:'**
+  String get creditNotesStatusLabel;
+
+  /// No description provided for @creditNotesReceiptCodeLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Code:'**
+  String get creditNotesReceiptCodeLabel;
+
+  /// No description provided for @creditNotesReceiptIssueDateLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Issued at:'**
+  String get creditNotesReceiptIssueDateLabel;
+
+  /// No description provided for @creditNotesReceiptExpiryDateLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Expires at:'**
+  String get creditNotesReceiptExpiryDateLabel;
+
+  /// No description provided for @creditNotesReceiptCustomerLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Customer:'**
+  String get creditNotesReceiptCustomerLabel;
+
+  /// No description provided for @creditNotesReceiptReasonLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Reason:'**
+  String get creditNotesReceiptReasonLabel;
+
+  /// No description provided for @creditNotesReceiptVoidReasonLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Void reason:'**
+  String get creditNotesReceiptVoidReasonLabel;
+
+  /// No description provided for @creditNotesReceiptStatusActive.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Active'**
+  String get creditNotesReceiptStatusActive;
+
+  /// No description provided for @creditNotesReceiptStatusExpired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Expired'**
+  String get creditNotesReceiptStatusExpired;
+
+  /// No description provided for @creditNotesReceiptStatusVoided.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Voided'**
+  String get creditNotesReceiptStatusVoided;
+
+  /// No description provided for @creditNotesOriginalAmountLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Original amount:'**
+  String get creditNotesOriginalAmountLabel;
+
   /// No description provided for @creditNotesVoid.
   ///
   /// In en_IN, this message translates to:

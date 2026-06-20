@@ -362,5 +362,30 @@
         "type": "int"
       }
     }
-  }
+  },
+  "creditNotesVerifyCode": "Verify code",
+  "creditNotesFilterAll": "All",
+  "creditNotesLoadMore": "Load more",
+  "creditNotesEmpty": "No credit notes found",
+  "creditNotesNoExpiry": "No expiry",
+  "creditNotesClose": "Close",
+  "creditNotesVoidReason": "Reason",
+  "creditNotesOpenReceipt": "Open receipt",
+  "creditNotesReceiptTitle": "Credit note receipt",
+  "creditNotesStatusLabel": "Status:",
+  "creditNotesReceiptCodeLabel": "Code:",
+  "creditNotesReceiptIssueDateLabel": "Issued at:",
+  "creditNotesReceiptExpiryDateLabel": "Expires at:",
+  "creditNotesReceiptCustomerLabel": "Customer:",
+  "creditNotesReceiptReasonLabel": "Reason:",
+  "creditNotesReceiptVoidReasonLabel": "Void reason:",
+  "creditNotesReceiptStatusActive": "Active",
+  "creditNotesReceiptStatusExpired": "Expired",
+  "creditNotesReceiptStatusVoided": "Voided",
+  "creditNotesOriginalAmountLabel": "Original amount:",
+  "creditNotesVoid": "Void",
+  "creditNotesInvoiceLabel": "Invoice:",
+  "creditNotesReturnLabel": "Return:",
+  "creditNotesBalanceLabel": "Balance:",
+  "creditNotesRetry": "Retry"
 }

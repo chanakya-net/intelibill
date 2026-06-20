@@ -9,6 +9,8 @@ import 'package:intelibill_mobile/src/app/router/app_router.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/auth/domain/entities/auth_session.dart';
 import 'package:intelibill_mobile/src/features/auth/presentation/controllers/auth_controller.dart';
+import 'package:intelibill_mobile/src/features/credit_notes/domain/entities/credit_note_print.dart';
+import 'package:intelibill_mobile/src/features/credit_notes/presentation/controllers/credit_notes_controller.dart';
 import 'package:intelibill_mobile/src/features/dashboard/presentation/controllers/dashboard_controller.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sales_history_query.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sales_history_summary.dart';
@@ -38,6 +40,7 @@ void main() {
       expect(AppRoutes.profitLoss, equals('/sales/profit-loss'));
       expect(AppRoutes.customers, equals('/customers'));
       expect(AppRoutes.suppliers, equals('/suppliers'));
+      expect(AppRoutes.creditNoteReceipt, equals('/credit-notes/:code/print'));
       expect(AppRoutes.expenses, equals('/expenses'));
       expect(AppRoutes.users, equals('/users'));
       expect(AppRoutes.discounts, equals('/discounts'));
@@ -170,6 +173,57 @@ void main() {
       expect(
         router.routeInformationProvider.value.uri.toString(),
         equals(AppRoutes.dashboard),
+      );
+    });
+
+    testWidgets('opens credit note receipt route', (tester) async {
+      final container = ProviderContainer(
+        overrides: [
+          authControllerProvider.overrideWith(
+            () => _TestAuthController(
+              AuthControllerState(session: _sessionForRole('Owner')),
+            ),
+          ),
+          dashboardControllerProvider.overrideWith(
+            _StubDashboardController.new,
+          ),
+          salesHistoryControllerProvider.overrideWith(
+            _StubSalesHistoryController.new,
+          ),
+          creditNotePrintByCodeProvider.overrideWith(
+            (ref, _) => Future.value(_fakeCreditNotePrint),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      final router = container.read(goRouterProvider);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp.router(
+            locale: const Locale('en', 'IN'),
+            supportedLocales: const [Locale('en', 'IN')],
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final route = AppRoutes.creditNoteReceiptFor('CN-001');
+      router.go(route);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(
+        router.routeInformationProvider.value.uri.toString(),
+        equals(route),
       );
     });
 
@@ -322,6 +376,24 @@ void main() {
     );
   });
 }
+
+CreditNotePrint _fakeCreditNotePrint = CreditNotePrint(
+  creditNoteId: 'cn-print',
+  code: 'CN-PRINT',
+  status: 'active',
+  isUsable: true,
+  originalAmount: 1000,
+  availableBalance: 1000,
+  issuedAt: DateTime.utc(2026, 6, 18, 10),
+  expiresAt: DateTime.utc(2026, 7, 1, 10),
+  saleId: 'sale-1',
+  invoiceNumber: 'INV-001',
+  saleReturnId: 'ret-1',
+  returnNumber: 'RET-001',
+  customerDisplayName: 'John Doe',
+  reason: 'Damaged',
+  voidReason: null,
+);
 
 class _StubDashboardController extends DashboardController {
   @override

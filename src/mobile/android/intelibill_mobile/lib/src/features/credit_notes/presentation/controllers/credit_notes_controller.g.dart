@@ -246,6 +246,82 @@ final class GetCreditNotePrintByCodeUseCaseProvider
 String _$getCreditNotePrintByCodeUseCaseHash() =>
     r'4a7ed6183cf9a70230e883b6a50df8a02b9da6b1';
 
+@ProviderFor(creditNotePrintByCode)
+final creditNotePrintByCodeProvider = CreditNotePrintByCodeFamily._();
+
+final class CreditNotePrintByCodeProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<CreditNotePrint>,
+          CreditNotePrint,
+          FutureOr<CreditNotePrint>
+        >
+    with $FutureModifier<CreditNotePrint>, $FutureProvider<CreditNotePrint> {
+  CreditNotePrintByCodeProvider._({
+    required CreditNotePrintByCodeFamily super.from,
+    required String super.argument,
+  }) : super(
+         retry: null,
+         name: r'creditNotePrintByCodeProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$creditNotePrintByCodeHash();
+
+  @override
+  String toString() {
+    return r'creditNotePrintByCodeProvider'
+        ''
+        '($argument)';
+  }
+
+  @$internal
+  @override
+  $FutureProviderElement<CreditNotePrint> $createElement(
+    $ProviderPointer pointer,
+  ) => $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<CreditNotePrint> create(Ref ref) {
+    final argument = this.argument as String;
+    return creditNotePrintByCode(ref, argument);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is CreditNotePrintByCodeProvider && other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
+}
+
+String _$creditNotePrintByCodeHash() =>
+    r'1a80171430039d3467e809a73421452391ebe6b1';
+
+final class CreditNotePrintByCodeFamily extends $Family
+    with $FunctionalFamilyOverride<FutureOr<CreditNotePrint>, String> {
+  CreditNotePrintByCodeFamily._()
+    : super(
+        retry: null,
+        name: r'creditNotePrintByCodeProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  CreditNotePrintByCodeProvider call(String code) =>
+      CreditNotePrintByCodeProvider._(argument: code, from: this);
+
+  @override
+  String toString() => r'creditNotePrintByCodeProvider';
+}
+
 @ProviderFor(voidCreditNoteUseCase)
 final voidCreditNoteUseCaseProvider = VoidCreditNoteUseCaseProvider._();
 

@@ -171,6 +171,49 @@ void main() {
       expect(find.byType(ManageShopPage), findsOneWidget);
       expect(find.byType(PlaceholderPage), findsNothing);
     });
+
+    testWidgets('navigating to credit note receipt route updates location', (
+      tester,
+    ) async {
+      final container = ProviderContainer(
+        overrides: [
+          authControllerProvider.overrideWith(
+            () => _StubAuthController(AuthControllerState(session: _session())),
+          ),
+          shopControllerProvider.overrideWith(_StubShopController.new),
+          dashboardControllerProvider.overrideWith(
+            _StubDashboardController.new,
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      final router = container.read(goRouterProvider);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp.router(
+            locale: const Locale('en', 'IN'),
+            supportedLocales: const [Locale('en', 'IN')],
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              ...AppLocalizations.localizationsDelegates,
+            ],
+            routerConfig: router,
+          ),
+        ),
+      );
+
+      await _pumpRouteFrame(tester);
+      final route = AppRoutes.creditNoteReceiptFor('CN-001');
+      router.go(route);
+      await _pumpRouteFrame(tester);
+
+      expect(
+        router.routeInformationProvider.value.uri.toString(),
+        equals(route),
+      );
+    });
   });
 }
 
