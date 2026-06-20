@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -264,6 +266,60 @@ void main() {
         equals(AppRoutes.salesHistory),
       );
     });
+
+    testWidgets(
+      'owner deep link to discounts waits for auth bootstrap resolution',
+      (tester) async {
+        SharedPreferences.setMockInitialValues({});
+
+        final completer = Completer<AuthControllerState>();
+        final controller = _DelayedAuthController(completer.future);
+        final container = ProviderContainer(
+          overrides: [
+            authControllerProvider.overrideWith(() => controller),
+            dashboardControllerProvider.overrideWith(
+              _StubDashboardController.new,
+            ),
+            salesHistoryControllerProvider.overrideWith(
+              _StubSalesHistoryController.new,
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        final router = container.read(goRouterProvider);
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp.router(
+              locale: const Locale('en', 'IN'),
+              supportedLocales: const [Locale('en', 'IN')],
+              localizationsDelegates: const [
+                AppLocalizations.delegate,
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              routerConfig: router,
+            ),
+          ),
+        );
+
+        router.go(AppRoutes.discounts);
+        await tester.pump();
+        completer.complete(
+          AuthControllerState(session: _sessionForRole('Owner')),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(
+          router.routeInformationProvider.value.uri.toString(),
+          equals(AppRoutes.discounts),
+        );
+      },
+    );
   });
 }
 
@@ -316,6 +372,15 @@ class _TestAuthController extends AuthController {
     signOutCalls += 1;
     setState(_state.copyWith(clearSession: true));
   }
+}
+
+class _DelayedAuthController extends AuthController {
+  _DelayedAuthController(this._future);
+
+  final Future<AuthControllerState> _future;
+
+  @override
+  Future<AuthControllerState> build() => _future;
 }
 
 AuthSession _sessionForRole(

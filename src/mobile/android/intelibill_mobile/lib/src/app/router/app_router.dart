@@ -89,6 +89,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         return AppRoutes.salesHistory;
       }
 
+      if (_requiresDiscountAccess(state.matchedLocation) &&
+          !canManageDiscounts(authState.session)) {
+        return AppRoutes.salesHistory;
+      }
+
       return null;
     },
     routes: [
@@ -188,14 +193,6 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: AppRoutes.discounts,
-            redirect: (context, state) {
-              final authAsync = ref.read(authControllerProvider);
-              final session = authAsync.asData?.value.session;
-              if (!canManageDiscounts(session)) {
-                return AppRoutes.salesHistory;
-              }
-              return null;
-            },
             builder: (context, state) => const DiscountsPage(),
           ),
           GoRoute(
@@ -244,6 +241,10 @@ const Set<String> _authRoutes = {
   AppRoutes.forgotPassword,
   AppRoutes.register,
 };
+
+bool _requiresDiscountAccess(String location) {
+  return location == AppRoutes.discounts;
+}
 
 PlaceholderPage _buildPlaceholder(
   BuildContext context, {

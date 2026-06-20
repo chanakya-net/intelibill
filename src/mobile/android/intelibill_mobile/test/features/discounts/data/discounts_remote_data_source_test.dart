@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intelibill_mobile/src/features/discounts/data/data_sources/discounts_remote_data_source.dart';
+import 'package:intelibill_mobile/src/features/discounts/data/dto/discount_rule_dto.dart';
 import 'package:intelibill_mobile/src/features/discounts/domain/entities/discount_rule_query.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -96,6 +97,37 @@ void main() {
             'pageSize': 20,
           },
         ),
+      ).called(1);
+    });
+
+    test('calls /discounts/{id} and parses detail dto', () async {
+      when(
+        () => mockApiClient.get<Map<String, dynamic>>(any<String>()),
+      ).thenAnswer(
+        (_) async => Response(
+          data: {
+            'id': 'rule-42',
+            'ruleType': 'SalePercentage',
+            'name': 'Holiday sale',
+            'percentage': 12.5,
+            'isActive': true,
+            'belowCostConfirmed': false,
+            'createdAt': '2026-05-01T00:00:00.000Z',
+            'description': 'Limited time',
+          },
+          statusCode: 200,
+          requestOptions: RequestOptions(path: '/discounts/rule-42'),
+        ),
+      );
+
+      final response = await remoteDataSource.getDiscountRule('rule-42');
+
+      expect(response, isA<DiscountRuleDto>());
+      expect(response.id, 'rule-42');
+      expect(response.name, 'Holiday sale');
+      expect(response.description, 'Limited time');
+      verify(
+        () => mockApiClient.get<Map<String, dynamic>>('/discounts/rule-42'),
       ).called(1);
     });
   });
