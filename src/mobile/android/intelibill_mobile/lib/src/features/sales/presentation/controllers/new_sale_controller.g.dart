@@ -182,6 +182,47 @@ final class PreviewSaleProvider
 
 String _$previewSaleHash() => r'a4ce07a40b23968acca6e87efc2c5fed4b2999cb';
 
+@ProviderFor(recordSale)
+final recordSaleProvider = RecordSaleProvider._();
+
+final class RecordSaleProvider
+    extends $FunctionalProvider<RecordSale, RecordSale, RecordSale>
+    with $Provider<RecordSale> {
+  RecordSaleProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'recordSaleProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$recordSaleHash();
+
+  @$internal
+  @override
+  $ProviderElement<RecordSale> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  RecordSale create(Ref ref) {
+    return recordSale(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(RecordSale value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<RecordSale>(value),
+    );
+  }
+}
+
+String _$recordSaleHash() => r'8c0d452e32dec168df8b34d84ab31c7ce9bee548';
+
 @ProviderFor(NewSaleController)
 final newSaleControllerProvider = NewSaleControllerProvider._();
 
@@ -214,7 +255,7 @@ final class NewSaleControllerProvider
   }
 }
 
-String _$newSaleControllerHash() => r'735a7122e5624a16e6466373060cce0b0b9ad0fd';
+String _$newSaleControllerHash() => r'02a9b72367e7d3d3011136e290cc098bba2d2943';
 
 abstract class _$NewSaleController extends $Notifier<NewSaleState> {
   NewSaleState build();

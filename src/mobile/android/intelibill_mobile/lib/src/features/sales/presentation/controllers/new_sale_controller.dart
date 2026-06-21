@@ -9,10 +9,13 @@ import 'package:intelibill_mobile/src/features/customers/presentation/controller
 import 'package:intelibill_mobile/src/features/sales/data/data_sources/sales_remote_data_source.dart';
 import 'package:intelibill_mobile/src/features/sales/data/repositories/sales_repository_impl.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/payment_method.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/entities/record_sale.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_preview.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sellable.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/repositories/sales_repository.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/use_cases/preview_sale.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/use_cases/record_sale.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/use_cases/search_sellables.dart';
 import 'package:intelibill_mobile/src/shared/barcode_scanner/barcode_scan_result.dart';
 import 'package:intelibill_mobile/src/shared/barcode_scanner/show_barcode_scanner.dart';
@@ -44,6 +47,12 @@ PreviewSale previewSale(Ref ref) {
   return PreviewSale(repository);
 }
 
+@riverpod
+RecordSale recordSale(Ref ref) {
+  final repository = ref.watch(salesRepositoryProvider);
+  return RecordSale(repository);
+}
+
 @immutable
 class NewSaleState {
   const NewSaleState({
@@ -58,9 +67,12 @@ class NewSaleState {
     this.searchFailure,
     this.preview,
     this.previewFailure,
+    this.submitFailure,
+    this.recordedSale,
     this.selectedGoods,
     this.isSearching = false,
     this.isPreviewLoading = false,
+    this.isSubmitting = false,
     this.availableCustomers = const [],
     this.isLoadingCustomers = false,
     this.customerLoadFailure,
@@ -72,6 +84,7 @@ class NewSaleState {
     this.submissionFailure,
     this.customerCreateFailure,
     this.hasExplicitPaymentSplit = false,
+    this.pendingIdempotencyKey,
   });
 
   final String searchTerm;
@@ -85,9 +98,12 @@ class NewSaleState {
   final Failure? searchFailure;
   final SalePreview? preview;
   final Failure? previewFailure;
+  final Failure? submitFailure;
+  final SaleDetail? recordedSale;
   final Sellable? selectedGoods;
   final bool isSearching;
   final bool isPreviewLoading;
+  final bool isSubmitting;
 
   final List<Customer> availableCustomers;
   final bool isLoadingCustomers;
@@ -101,6 +117,7 @@ class NewSaleState {
   final Failure? submissionFailure;
   final Failure? customerCreateFailure;
   final bool hasExplicitPaymentSplit;
+  final String? pendingIdempotencyKey;
 
   double get estimatedSubtotalAmount =>
       cartLines.fold(0, (sum, line) => sum + _estimateLineSubtotal(line));
@@ -132,6 +149,8 @@ class NewSaleState {
       preview != null &&
       previewFailure == null &&
       !isPreviewLoading &&
+      !isSubmitting &&
+      canSubmit &&
       !hasDiscountValidationErrors;
 
   bool get hasDiscountValidationErrors {
@@ -144,6 +163,8 @@ class NewSaleState {
   bool get canSubmit => submissionFailure == null;
 
   String? get submissionError => submissionFailure?.message;
+
+  bool get hasRecordedSale => recordedSale != null;
 
   NewSaleState copyWith({
     String? searchTerm,
@@ -162,10 +183,15 @@ class NewSaleState {
     bool clearPreview = false,
     Failure? previewFailure,
     bool clearPreviewFailure = false,
+    Failure? submitFailure,
+    bool clearSubmitFailure = false,
+    SaleDetail? recordedSale,
+    bool clearRecordedSale = false,
     Sellable? selectedGoods,
     bool clearSelectedGoods = false,
     bool? isSearching,
     bool? isPreviewLoading,
+    bool? isSubmitting,
     bool clearSubmissionFailure = false,
     bool clearCustomerLoadFailure = false,
     List<Customer>? availableCustomers,
@@ -181,6 +207,8 @@ class NewSaleState {
     Failure? customerCreateFailure,
     bool clearCustomerCreateFailure = false,
     bool? hasExplicitPaymentSplit,
+    String? pendingIdempotencyKey,
+    bool clearPendingIdempotencyKey = false,
   }) {
     return NewSaleState(
       searchTerm: searchTerm ?? this.searchTerm,
@@ -202,11 +230,18 @@ class NewSaleState {
       previewFailure: clearPreviewFailure
           ? null
           : (previewFailure ?? this.previewFailure),
+      submitFailure: clearSubmitFailure
+          ? null
+          : (submitFailure ?? this.submitFailure),
+      recordedSale: clearRecordedSale
+          ? null
+          : (recordedSale ?? this.recordedSale),
       selectedGoods: clearSelectedGoods
           ? null
           : (selectedGoods ?? this.selectedGoods),
       isSearching: isSearching ?? this.isSearching,
       isPreviewLoading: isPreviewLoading ?? this.isPreviewLoading,
+      isSubmitting: isSubmitting ?? this.isSubmitting,
       availableCustomers: availableCustomers ?? this.availableCustomers,
       isLoadingCustomers: isLoadingCustomers ?? this.isLoadingCustomers,
       customerLoadFailure: clearCustomerLoadFailure
@@ -227,6 +262,9 @@ class NewSaleState {
           : (customerCreateFailure ?? this.customerCreateFailure),
       hasExplicitPaymentSplit:
           hasExplicitPaymentSplit ?? this.hasExplicitPaymentSplit,
+      pendingIdempotencyKey: clearPendingIdempotencyKey
+          ? null
+          : (pendingIdempotencyKey ?? this.pendingIdempotencyKey),
     );
   }
 }
@@ -396,6 +434,86 @@ class NewSaleController extends _$NewSaleController {
     }
   }
 
+  void clearRecordedSale() {
+    state = state.copyWith(
+      clearRecordedSale: true,
+      clearSubmitFailure: true,
+      clearPendingIdempotencyKey: true,
+    );
+  }
+
+  Future<void> submit() async {
+    if (state.isSubmitting) {
+      state = state.copyWith(
+        submitFailure: const Failure.validation(
+          message: 'Sale submission is already in progress.',
+        ),
+      );
+      return;
+    }
+
+    if (!state.canSubmitCheckout) {
+      state = state.copyWith(
+        submitFailure: Failure.validation(
+          message:
+              state.submissionError ??
+              'Unable to submit checkout. Refresh or update cart.',
+        ),
+      );
+      return;
+    }
+
+    final request = _buildRecordSaleRequest();
+    if (request == null) {
+      return;
+    }
+
+    state = state.copyWith(
+      isSubmitting: true,
+      clearSubmitFailure: true,
+      clearRecordedSale: true,
+    );
+
+    try {
+      final sale = await ref.read(recordSaleProvider)(request: request);
+      if (!ref.mounted) return;
+      state = state.copyWith(
+        isSubmitting: false,
+        recordedSale: sale,
+        cartLines: const [],
+        results: const [],
+        saleDiscountType: InstantDiscountType.none,
+        saleDiscountValue: 0,
+        clearSaleDiscountError: true,
+        clearItemDiscountErrors: true,
+        clearPreview: true,
+        clearPreviewFailure: true,
+        clearFailure: true,
+        clearSelectedGoods: true,
+        clearSubmitFailure: true,
+        clearPendingIdempotencyKey: true,
+        isPreviewLoading: false,
+        paidAmount: 0,
+        dueAmount: 0,
+        hasExplicitPaymentSplit: false,
+      );
+    } on AppException catch (error) {
+      if (!ref.mounted) return;
+      state = state.copyWith(
+        isSubmitting: false,
+        submitFailure: error.failure,
+      );
+    } on Object {
+      if (!ref.mounted) return;
+      state = state.copyWith(
+        isSubmitting: false,
+        submitFailure: const Failure.unknown(
+          message: 'Unable to record sale.',
+        ),
+      );
+    }
+  }
+
   void updateSaleDiscountType(int type) {
     final normalizedType = _normalizeDiscountType(type);
     if (normalizedType == InstantDiscountType.none) {
@@ -403,6 +521,8 @@ class NewSaleController extends _$NewSaleController {
         saleDiscountType: InstantDiscountType.none,
         saleDiscountValue: 0,
         clearSaleDiscountError: true,
+        clearSubmitFailure: true,
+        clearPendingIdempotencyKey: true,
       );
       _schedulePreviewRefresh();
       return;
@@ -412,6 +532,8 @@ class NewSaleController extends _$NewSaleController {
       state = state.copyWith(
         saleDiscountType: normalizedType,
         saleDiscountError: null,
+        clearSubmitFailure: true,
+        clearPendingIdempotencyKey: true,
       );
       _schedulePreviewRefresh();
       return;
@@ -426,6 +548,8 @@ class NewSaleController extends _$NewSaleController {
         saleDiscountType: InstantDiscountType.none,
         saleDiscountValue: 0,
         clearSaleDiscountError: true,
+        clearSubmitFailure: true,
+        clearPendingIdempotencyKey: true,
       );
       _schedulePreviewRefresh();
       return;
@@ -435,6 +559,8 @@ class NewSaleController extends _$NewSaleController {
       saleDiscountType: normalizedType,
       saleDiscountValue: clamped,
       clearSaleDiscountError: true,
+      clearSubmitFailure: true,
+      clearPendingIdempotencyKey: true,
     );
     _schedulePreviewRefresh();
   }
@@ -447,6 +573,8 @@ class NewSaleController extends _$NewSaleController {
         saleDiscountType: InstantDiscountType.none,
         saleDiscountValue: 0,
         clearSaleDiscountError: true,
+        clearSubmitFailure: true,
+        clearPendingIdempotencyKey: true,
       );
       return;
     }
@@ -462,6 +590,8 @@ class NewSaleController extends _$NewSaleController {
       state = state.copyWith(
         saleDiscountValue: safeValue,
         clearSaleDiscountError: true,
+        clearSubmitFailure: true,
+        clearPendingIdempotencyKey: true,
       );
       _schedulePreviewRefresh();
       return;
@@ -473,6 +603,8 @@ class NewSaleController extends _$NewSaleController {
         saleDiscountType: InstantDiscountType.none,
         saleDiscountValue: 0,
         clearSaleDiscountError: true,
+        clearSubmitFailure: true,
+        clearPendingIdempotencyKey: true,
       );
       return;
     }
@@ -495,6 +627,8 @@ class NewSaleController extends _$NewSaleController {
     state = state.copyWith(
       saleDiscountValue: safeValue,
       clearSaleDiscountError: true,
+      clearSubmitFailure: true,
+      clearPendingIdempotencyKey: true,
     );
     _schedulePreviewRefresh();
   }
@@ -616,6 +750,8 @@ class NewSaleController extends _$NewSaleController {
       selectedCustomer: selected,
       clearSelectedCustomer: selected == null,
       paymentMethod: nextMethod,
+      clearSubmitFailure: true,
+      clearPendingIdempotencyKey: true,
     );
     _validatePayment();
   }
@@ -656,6 +792,8 @@ class NewSaleController extends _$NewSaleController {
         selectedCustomer: created,
         isCreatingCustomer: false,
         clearCustomerCreateFailure: true,
+        clearSubmitFailure: true,
+        clearPendingIdempotencyKey: true,
       );
       _validatePayment();
       return true;
@@ -688,7 +826,11 @@ class NewSaleController extends _$NewSaleController {
       return;
     }
 
-    state = state.copyWith(paymentMethod: method);
+    state = state.copyWith(
+      paymentMethod: method,
+      clearSubmitFailure: true,
+      clearPendingIdempotencyKey: true,
+    );
     if (state.submissionFailure == null ||
         state.submissionFailure is ValidationFailure) {
       state = state.copyWith(clearSubmissionFailure: true);
@@ -709,6 +851,8 @@ class NewSaleController extends _$NewSaleController {
       paidAmount: reconciledPaid,
       dueAmount: reconciledDue,
       hasExplicitPaymentSplit: true,
+      clearSubmitFailure: true,
+      clearPendingIdempotencyKey: true,
     );
     _validatePayment();
   }
@@ -726,6 +870,8 @@ class NewSaleController extends _$NewSaleController {
       paidAmount: reconciledPaid,
       dueAmount: reconciledDue,
       hasExplicitPaymentSplit: true,
+      clearSubmitFailure: true,
+      clearPendingIdempotencyKey: true,
     );
     _validatePayment();
   }
@@ -735,6 +881,7 @@ class NewSaleController extends _$NewSaleController {
       searchTerm: value,
       barcodeTerm: '',
       clearFailure: true,
+      clearSubmitFailure: true,
     );
     _searchDebounce?.cancel();
     _searchDebounce = Timer(const Duration(milliseconds: 250), () {
@@ -747,6 +894,7 @@ class NewSaleController extends _$NewSaleController {
       barcodeTerm: value,
       searchTerm: '',
       clearFailure: true,
+      clearSubmitFailure: true,
     );
     _searchDebounce?.cancel();
   }
@@ -899,6 +1047,9 @@ class NewSaleController extends _$NewSaleController {
       cartLines: cartLines,
       itemDiscountErrors: itemDiscountErrors,
       clearFailure: true,
+      clearSubmitFailure: true,
+      clearRecordedSale: true,
+      clearPendingIdempotencyKey: true,
     );
     _invalidatePreviewState();
     _reconcilePaymentAfterCartChange();
@@ -916,6 +1067,9 @@ class NewSaleController extends _$NewSaleController {
       clearPreview: true,
       clearPreviewFailure: true,
       isPreviewLoading: state.cartLines.isNotEmpty,
+      clearRecordedSale: true,
+      clearSubmitFailure: true,
+      clearPendingIdempotencyKey: true,
     );
   }
 
@@ -1055,6 +1209,134 @@ class NewSaleController extends _$NewSaleController {
     }
 
     _setCartLines(updated);
+  }
+
+  RecordSaleRequest? _buildRecordSaleRequest() {
+    final validation = _collectValidationErrors();
+    if (validation.isNotEmpty) {
+      state = state.copyWith(
+        submitFailure: Failure.validation(message: validation.join('\n')),
+      );
+      return null;
+    }
+
+    final payment = _resolvePaymentSplit();
+    if (payment == null) {
+      state = state.copyWith(
+        submitFailure: const Failure.validation(
+          message: 'Payment amount is not valid.',
+        ),
+      );
+      return null;
+    }
+
+    final lines = state.cartLines;
+    final key = state.pendingIdempotencyKey ?? _generateIdempotencyKey(lines);
+    if (state.pendingIdempotencyKey == null) {
+      state = state.copyWith(pendingIdempotencyKey: key);
+    }
+    final customer = state.selectedCustomer;
+
+    return RecordSaleRequest(
+      idempotencyKey: key,
+      customerId: customer?.customerId,
+      customerName: customer?.name,
+      customerPhone: customer?.phoneNumber,
+      paymentMethod: state.paymentMethod.toWireCode(),
+      paidAmount: payment.paid,
+      dueAmount: payment.due,
+      items: lines.map(_recordSaleItemFromLine).toList(growable: false),
+      saleDiscount: _buildSaleDiscount(),
+    );
+  }
+
+  ({double paid, double due})? _resolvePaymentSplit() {
+    final paid = _roundMoney(state.paidAmount);
+    final due = _roundMoney(state.dueAmount);
+    final payable = _roundMoney(state.payable);
+
+    if (paid < 0 || due < 0) {
+      return null;
+    }
+    if (!arePaymentAmountsEqual(paid, due, payable)) {
+      return null;
+    }
+
+    return (paid: paid, due: due);
+  }
+
+  RecordSaleLineDiscountRequest? _buildSaleDiscount() {
+    if (state.saleDiscountType == InstantDiscountType.none ||
+        state.saleDiscountValue == 0) {
+      return null;
+    }
+
+    return RecordSaleLineDiscountRequest(
+      type: state.saleDiscountType,
+      value: state.saleDiscountValue,
+    );
+  }
+
+  List<String> _collectValidationErrors() {
+    final errors = <String>[];
+
+    if (state.cartLines.isEmpty) {
+      errors.add('Cart is empty.');
+    }
+    if (state.preview == null) {
+      errors.add('Preview is required before submission.');
+    }
+    if (state.previewFailure != null) {
+      errors.add('Cannot submit with preview errors.');
+    }
+    if (state.hasDiscountValidationErrors) {
+      errors.add('Fix discount validation errors before checkout.');
+    }
+    if (state.submissionFailure != null) {
+      errors.add(state.submissionError ?? 'Fix payment validation errors.');
+    }
+
+    return errors;
+  }
+
+  RecordSaleLineRequest _recordSaleItemFromLine(NewSaleCartLine line) {
+    final sellable = line.sellable;
+    final isService = sellable.isService;
+    final lineEffectivePrice = line.effectiveUnitPrice;
+    return RecordSaleLineRequest(
+      barcode: sellable.barcode ?? '',
+      batchNumber: sellable.batchNumber ?? '',
+      itemName: sellable.name,
+      quantity: line.quantity,
+      costPrice: isService ? 0 : sellable.price,
+      salesPrice: lineEffectivePrice,
+      mrp: isService
+          ? lineEffectivePrice
+          : (sellable.mrp > 0 ? sellable.mrp : lineEffectivePrice),
+      taxRatePercent: sellable.taxRatePercent,
+      isPriceIncludingTax: sellable.taxIncluded,
+      inventoryBatchId: isService
+          ? '00000000-0000-0000-0000-000000000000'
+          : sellable.id,
+      clientLineKey: sellable.id,
+      lineType: sellable.kind,
+      itemDiscount: line.itemDiscountType == InstantDiscountType.none
+          ? null
+          : RecordSaleLineDiscountRequest(
+              type: line.itemDiscountType,
+              value: line.itemDiscountValue,
+            ),
+      hsnCode: null,
+      serviceId: isService ? sellable.id : null,
+    );
+  }
+
+  String _generateIdempotencyKey(List<NewSaleCartLine> lines) {
+    final payloadSeed = lines
+        .map((line) => '${line.sellable.id}:${line.quantity}')
+        .join('-');
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    return 'new-sale-$timestamp-$payloadSeed';
   }
 
   int _normalizeDiscountType(int type) {

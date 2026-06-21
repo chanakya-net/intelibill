@@ -9,9 +9,12 @@ import 'package:intelibill_mobile/src/features/customers/domain/use_cases/create
 import 'package:intelibill_mobile/src/features/customers/domain/use_cases/get_customers.dart';
 import 'package:intelibill_mobile/src/features/customers/presentation/controllers/customers_controller.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/payment_method.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/entities/record_sale.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_preview.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sellable.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/use_cases/preview_sale.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/use_cases/record_sale.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/use_cases/search_sellables.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/controllers/new_sale_controller.dart';
 import 'package:mocktail/mocktail.dart';
@@ -19,6 +22,8 @@ import 'package:mocktail/mocktail.dart';
 class MockSearchSellables extends Mock implements SearchSellables {}
 
 class MockPreviewSale extends Mock implements PreviewSale {}
+
+class MockRecordSale extends Mock implements RecordSale {}
 
 class MockGetCustomers extends Mock implements GetCustomers {}
 
@@ -187,15 +192,48 @@ const PreviewSaleRequest _emptyPreviewRequest = PreviewSaleRequest(
   items: [],
 );
 
+const RecordSaleRequest _emptyRecordSaleRequest = RecordSaleRequest(
+  idempotencyKey: 'empty',
+  customerId: null,
+  customerName: null,
+  customerPhone: null,
+  paymentMethod: 1,
+  paidAmount: 0,
+  dueAmount: 0,
+  items: [],
+  saleDiscount: null,
+);
+
+SaleDetail _recordedSale() {
+  return SaleDetail(
+    saleId: 'sale-abc',
+    invoiceNumber: 'INV-ABC-001',
+    paymentMethod: 1,
+    soldAt: DateTime.utc(2026, 5, 11, 10, 0),
+    paidAmount: 236,
+    dueAmount: 0,
+    totalBeforeDiscount: 236,
+    totalDiscountAmount: 0,
+    totalAmount: 236,
+    totalTaxAmount: 0,
+    customerId: 'cust-1',
+    customerName: 'John Doe',
+    customerPhone: '+91-9999999999',
+    status: 'paid',
+  );
+}
+
 void main() {
   late MockSearchSellables mockSearchSellables;
   late MockPreviewSale mockPreviewSale;
+  late MockRecordSale mockRecordSale;
   late MockGetCustomers mockGetCustomers;
   late MockCreateCustomer mockCreateCustomer;
 
   setUp(() {
     mockSearchSellables = MockSearchSellables();
     mockPreviewSale = MockPreviewSale();
+    mockRecordSale = MockRecordSale();
     mockGetCustomers = MockGetCustomers();
     mockCreateCustomer = MockCreateCustomer();
 
@@ -223,6 +261,7 @@ void main() {
 
   setUpAll(() {
     registerFallbackValue(_emptyPreviewRequest);
+    registerFallbackValue(_emptyRecordSaleRequest);
   });
 
   ProviderContainer makeContainer() {
@@ -230,6 +269,7 @@ void main() {
       overrides: [
         searchSellablesProvider.overrideWithValue(mockSearchSellables),
         previewSaleProvider.overrideWithValue(mockPreviewSale),
+        recordSaleProvider.overrideWithValue(mockRecordSale),
         getCustomersUseCaseProvider.overrideWithValue(mockGetCustomers),
         createCustomerUseCaseProvider.overrideWithValue(mockCreateCustomer),
       ],
@@ -333,6 +373,183 @@ void main() {
       expect(state.results, isEmpty);
       expect(state.searchFailure, isA<Failure>());
       expect(state.isSearching, isFalse);
+    });
+
+    test('submit records sale and clears cart on success', () async {
+      final capturedRequests = <RecordSaleRequest>[];
+      final goods = _goods(id: 'g1', name: 'Flour', stock: 5);
+      final customer = _customer(
+        customerId: 'cust-1',
+        name: 'John Doe',
+        phoneNumber: '+91-9999999999',
+      );
+
+      when(
+        () => mockRecordSale(request: any(named: 'request')),
+      ).thenAnswer((invocation) async {
+        capturedRequests.add(
+          invocation.namedArguments[#request] as RecordSaleRequest,
+        );
+        return _recordedSale();
+      });
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+
+      controller.state = NewSaleState(
+        cartLines: [
+          NewSaleCartLine(
+            sellable: goods,
+            quantity: 2,
+            itemDiscountType: InstantDiscountType.percentage,
+            itemDiscountValue: 5,
+          ),
+        ],
+        preview: _preview(
+          totalAmount: 236,
+          totalTaxAmount: 0,
+          totalDiscountAmount: 0,
+        ),
+        selectedCustomer: customer,
+        paymentMethod: PaymentMethod.upi,
+        paidAmount: 236,
+        dueAmount: 0,
+        saleDiscountType: InstantDiscountType.flat,
+        saleDiscountValue: 10,
+      );
+
+      await controller.submit();
+
+      final state = container.read(newSaleControllerProvider);
+      expect(state.recordedSale, isNotNull);
+      expect(state.recordedSale!.saleId, 'sale-abc');
+      expect(state.cartLines, isEmpty);
+      expect(state.results, isEmpty);
+      expect(state.preview, isNull);
+      expect(state.isSubmitting, isFalse);
+      expect(state.submitFailure, isNull);
+      expect(capturedRequests, hasLength(1));
+
+      final request = capturedRequests.single;
+      expect(request.idempotencyKey, contains('new-sale-'));
+      expect(request.customerId, 'cust-1');
+      expect(request.customerName, 'John Doe');
+      expect(request.customerPhone, '+91-9999999999');
+      expect(request.paymentMethod, PaymentMethod.upi.toWireCode());
+      expect(request.paidAmount, 236);
+      expect(request.dueAmount, 0);
+      expect(request.saleDiscount?.type, InstantDiscountType.flat);
+      expect(request.saleDiscount?.value, 10);
+      expect(request.items, hasLength(1));
+      expect(request.items.single.lineType, 'Goods');
+      expect(
+        request.items.single.itemDiscount?.type,
+        InstantDiscountType.percentage,
+      );
+      expect(request.items.single.itemDiscount?.value, 5);
+    });
+
+    test('submit stores backend failure in submitFailure', () async {
+      final goods = _goods(id: 'g1', name: 'Flour', stock: 5);
+
+      when(
+        () => mockRecordSale(request: any(named: 'request')),
+      ).thenThrow(
+        AppException(
+          failure: const Failure.network(message: 'backend rejected'),
+        ),
+      );
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+
+      controller.state = NewSaleState(
+        cartLines: [NewSaleCartLine(sellable: goods, quantity: 1)],
+        preview: _preview(),
+        paidAmount: 236,
+        dueAmount: 0,
+      );
+
+      await controller.submit();
+
+      final state = container.read(newSaleControllerProvider);
+      expect(state.recordedSale, isNull);
+      expect(state.submitFailure, isA<Failure>());
+      expect(state.isSubmitting, isFalse);
+      verify(() => mockRecordSale(request: any(named: 'request'))).called(1);
+    });
+
+    test('submit uses same idempotency key on retry after failure', () async {
+      final capturedRequests = <RecordSaleRequest>[];
+      final goods = _goods(id: 'g1', name: 'Flour', stock: 5);
+      var callCount = 0;
+
+      when(
+        () => mockRecordSale(request: any(named: 'request')),
+      ).thenAnswer((invocation) async {
+        capturedRequests.add(
+          invocation.namedArguments[#request] as RecordSaleRequest,
+        );
+        callCount++;
+        if (callCount == 1) {
+          throw AppException(
+            failure: const Failure.network(message: 'timeout'),
+          );
+        }
+        return _recordedSale();
+      });
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+
+      controller.state = NewSaleState(
+        cartLines: [NewSaleCartLine(sellable: goods, quantity: 1)],
+        preview: _preview(),
+        paidAmount: 236,
+        dueAmount: 0,
+      );
+
+      await controller.submit();
+      expect(
+        container.read(newSaleControllerProvider).submitFailure,
+        isA<Failure>(),
+      );
+
+      await controller.submit();
+      expect(container.read(newSaleControllerProvider).recordedSale, isNotNull);
+
+      expect(capturedRequests, hasLength(2));
+      expect(
+        capturedRequests[0].idempotencyKey,
+        equals(capturedRequests[1].idempotencyKey),
+        reason: 'retry must reuse the same idempotency key',
+      );
+    });
+
+    test('submit guard blocks duplicate submissions', () async {
+      final goods = _goods(id: 'g1', name: 'Flour', stock: 5);
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+
+      controller.state = NewSaleState(
+        cartLines: [NewSaleCartLine(sellable: goods, quantity: 1)],
+        preview: _preview(),
+        isSubmitting: true,
+        paidAmount: 236,
+        dueAmount: 0,
+      );
+
+      await controller.submit();
+
+      final state = container.read(newSaleControllerProvider);
+      expect(state.submitFailure, isA<Failure>());
+      verifyNever(() => mockRecordSale(request: any(named: 'request')));
+      expect(state.isSubmitting, isTrue);
     });
 
     test('addToCart adds goods line with quantity 1', () async {

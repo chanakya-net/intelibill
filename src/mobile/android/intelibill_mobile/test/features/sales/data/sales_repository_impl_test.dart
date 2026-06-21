@@ -6,6 +6,7 @@ import 'package:intelibill_mobile/src/features/sales/data/dto/sale_return_previe
 import 'package:intelibill_mobile/src/features/sales/data/repositories/sales_repository_impl.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_preview.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_return.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/entities/record_sale.dart';
 import 'package:mocktail/mocktail.dart';
 
 class MockSalesRemoteDataSource extends Mock implements SalesRemoteDataSource {}
@@ -202,7 +203,89 @@ void main() {
         ),
       ).called(1);
     });
+
+    test(
+      'maps recorded sale response and forwards payload to remote source',
+      () async {
+        late Map<String, dynamic> sentRequest;
+
+        when(
+          () => remoteDataSource.recordSale(
+            request: any<Map<String, dynamic>>(named: 'request'),
+          ),
+        ).thenAnswer(
+          (invocation) async {
+            sentRequest =
+                invocation.namedArguments[#request] as Map<String, dynamic>;
+            return SaleDetailDto.fromJson(_minimalSaleDetailJson());
+          },
+        );
+
+        final sale = await repository.recordSale(request: _recordSaleRequest());
+
+        expect(sale.saleId, 'sale-abc');
+        expect(sentRequest['paymentMethod'], 1);
+        expect(sentRequest['idempotencyKey'], 'new-sale-record-001');
+        expect(sentRequest['customerName'], 'John Doe');
+        expect(
+          sentRequest['items'],
+          isA<List>(),
+        );
+        final items = sentRequest['items'] as List<dynamic>;
+        expect(items, hasLength(2));
+        expect(items[0]['lineType'], 'Goods');
+        expect(items[1]['lineType'], 'Service');
+        expect(items[1]['serviceId'], 'svc-1');
+        expect(sale.totalAmount, 500.0);
+      },
+    );
   });
+}
+
+RecordSaleRequest _recordSaleRequest() {
+  return RecordSaleRequest(
+    idempotencyKey: 'new-sale-record-001',
+    customerId: 'cust-1',
+    customerName: 'John Doe',
+    customerPhone: '+91-9999999999',
+    paymentMethod: 1,
+    paidAmount: 500.0,
+    dueAmount: 0.0,
+    items: const [
+      RecordSaleLineRequest(
+        barcode: 'BAR-1',
+        batchNumber: 'BN-1',
+        itemName: 'Rice',
+        quantity: 2.0,
+        costPrice: 48.0,
+        salesPrice: 60.0,
+        mrp: 62.0,
+        taxRatePercent: 12.0,
+        isPriceIncludingTax: false,
+        inventoryBatchId: 'batch-1',
+        clientLineKey: 'line-1',
+        lineType: 'Goods',
+        itemDiscount: RecordSaleLineDiscountRequest(type: 0, value: 0),
+      ),
+      RecordSaleLineRequest(
+        barcode: 'SRV-1',
+        batchNumber: '',
+        itemName: 'Installation',
+        quantity: 1.0,
+        costPrice: 0.0,
+        salesPrice: 150.0,
+        mrp: 150.0,
+        taxRatePercent: 18.0,
+        isPriceIncludingTax: false,
+        inventoryBatchId: '00000000-0000-0000-0000-000000000000',
+        clientLineKey: 'line-2',
+        lineType: 'Service',
+        itemDiscount: RecordSaleLineDiscountRequest(type: 0, value: 0),
+        serviceId: 'svc-1',
+      ),
+    ],
+    saleDiscount: const RecordSaleLineDiscountRequest(type: 0, value: 0),
+  );
 }
 
 Map<String, dynamic> _fullSaleDetailJson() => {
@@ -303,7 +386,7 @@ Map<String, dynamic> _minimalSaleDetailJson() => {
   'dueAmount': 0.0,
   'totalBeforeDiscount': 0.0,
   'totalDiscountAmount': 0.0,
-  'totalAmount': 0.0,
+  'totalAmount': 500.0,
   'totalTaxAmount': 0.0,
 };
 

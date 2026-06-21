@@ -11,6 +11,7 @@ import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_preview.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_return.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sales_history_query.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/entities/record_sale.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sellable.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/repositories/sales_repository.dart';
 
@@ -112,6 +113,26 @@ class SalesRepositoryImpl implements SalesRepository {
       );
     } catch (error) {
       throw AppException(failure: Failure.unknown(message: error.toString()));
+    }
+  }
+
+  @override
+  Future<SaleDetail> recordSale({
+    required RecordSaleRequest request,
+  }) async {
+    try {
+      final dto = await _remoteDataSource.recordSale(
+        request: request.toRequestMap(),
+      );
+      return SaleDetailMapper.toDomain(dto);
+    } on AppException {
+      rethrow;
+    } on FormatException catch (error) {
+      throw AppException(
+        failure: Failure.serialization(message: error.message),
+      );
+    } on Object {
+      throw AppException(failure: Failure.unknown(message: 'Unknown'));
     }
   }
 

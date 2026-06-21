@@ -293,6 +293,113 @@ void main() {
       ).called(1);
     });
 
+    test(
+      'calls /sales with full record sale payload including idempotency and '
+      'customer/payment/discount details',
+      () async {
+        late Map<String, dynamic> sentRequest;
+        when(
+          () => mockApiClient.post<Map<String, dynamic>>(
+            '/sales',
+            data: any<Map<String, dynamic>>(named: 'data'),
+          ),
+        ).thenAnswer(
+          (invocation) async {
+            sentRequest =
+                invocation.namedArguments[#data]! as Map<String, dynamic>;
+
+            return Response(
+              data: _minimalSaleDetailJson(),
+              statusCode: 200,
+              requestOptions: RequestOptions(path: '/sales'),
+            );
+          },
+        );
+
+        await remoteDataSource.recordSale(
+          request: {
+            'idempotencyKey': 'idempotency-new-sale-001',
+            'customerId': 'cust-1',
+            'customerName': 'John Doe',
+            'customerPhone': '+91-9999999999',
+            'paymentMethod': 2,
+            'paidAmount': 250.0,
+            'dueAmount': 0.0,
+            'saleDiscount': {'type': 1, 'value': 10},
+            'items': [
+              {
+                'barcode': 'BAR-1',
+                'batchNumber': 'BN-1',
+                'itemName': 'Rice',
+                'quantity': 2.0,
+                'costPrice': 48.0,
+                'salesPrice': 60.0,
+                'mrp': 62.0,
+                'taxRatePercent': 12.0,
+                'isPriceIncludingTax': false,
+                'inventoryBatchId': 'batch-1',
+                'clientLineKey': 'line-1',
+                'itemDiscount': {'type': 0, 'value': 0},
+                'lineType': 'Goods',
+              },
+              {
+                'barcode': 'SRV-1',
+                'batchNumber': '',
+                'itemName': 'Installation',
+                'quantity': 1.0,
+                'costPrice': 0.0,
+                'salesPrice': 180.0,
+                'mrp': 180.0,
+                'taxRatePercent': 18.0,
+                'isPriceIncludingTax': false,
+                'inventoryBatchId': '00000000-0000-0000-0000-000000000000',
+                'clientLineKey': 'line-2',
+                'itemDiscount': {'type': 0, 'value': 0},
+                'lineType': 'Service',
+                'serviceId': 'svc-1',
+              },
+            ],
+            'creditNoteAppliedAmount': 15.0,
+            'creditNoteRedemptions': [
+              {
+                'creditNoteId': 'cn-1',
+                'code': 'CN-1',
+                'amount': 15.0,
+              },
+            ],
+            'creditNoteCustomerMismatchConfirmed': true,
+          },
+        );
+
+        expect(sentRequest['idempotencyKey'], 'idempotency-new-sale-001');
+        expect(sentRequest['customerId'], 'cust-1');
+        expect(sentRequest['customerPhone'], '+91-9999999999');
+        expect(sentRequest['paymentMethod'], 2);
+        expect(sentRequest['paidAmount'], 250.0);
+        expect(sentRequest['dueAmount'], 0.0);
+        expect(sentRequest['saleDiscount'], {'type': 1, 'value': 10});
+        expect(sentRequest['creditNoteAppliedAmount'], 15.0);
+
+        final items = sentRequest['items'] as List<dynamic>;
+        expect(items, hasLength(2));
+        expect(items.first['lineType'], 'Goods');
+        expect(items.first['itemName'], 'Rice');
+        expect(items.last['lineType'], 'Service');
+        expect(items.last['serviceId'], 'svc-1');
+        expect(
+          items.last['inventoryBatchId'],
+          '00000000-0000-0000-0000-000000000000',
+        );
+
+        verify(
+          () => mockApiClient.post<Map<String, dynamic>>(
+            '/sales',
+            data: sentRequest,
+          ),
+        ).called(1);
+      },
+    );
+
     test('calls record return endpoint with request map', () async {
       when(
         () => mockApiClient.post<Map<String, dynamic>>(
@@ -515,4 +622,17 @@ Map<String, dynamic> _previewResponseJson() => {
       'clientLineKey': 'line-1',
     },
   ],
+};
+
+Map<String, dynamic> _minimalSaleDetailJson() => {
+  'saleId': 'sale-abc',
+  'invoiceNumber': 'INV-001',
+  'paymentMethod': 1,
+  'soldAt': '2026-05-11T10:30:00.000Z',
+  'paidAmount': 0.0,
+  'dueAmount': 0.0,
+  'totalBeforeDiscount': 0.0,
+  'totalDiscountAmount': 0.0,
+  'totalAmount': 0.0,
+  'totalTaxAmount': 0.0,
 };
