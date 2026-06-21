@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
@@ -24,10 +26,14 @@ class MockDisableDiscount extends Mock implements DisableDiscount {}
 class _TrackingDiscountsController extends DiscountsController {
   static int refreshCalls = 0;
   static int selectRuleCalls = 0;
+  static Completer<void>? refreshStarted;
+  static Completer<void>? refreshGate;
 
   static void reset() {
     refreshCalls = 0;
     selectRuleCalls = 0;
+    refreshStarted = null;
+    refreshGate = null;
   }
 
   @override
@@ -41,6 +47,11 @@ class _TrackingDiscountsController extends DiscountsController {
   @override
   Future<void> refresh() async {
     refreshCalls += 1;
+    refreshStarted?.complete();
+    final gate = refreshGate;
+    if (gate != null) {
+      await gate.future;
+    }
   }
 
   @override
@@ -372,6 +383,48 @@ void main() {
       expect(state.preview, null);
       expect(_TrackingDiscountsController.refreshCalls, 1);
       expect(_TrackingDiscountsController.selectRuleCalls, 1);
+    });
+
+    test('ignores refresh follow-up when disposed mid-refresh', () async {
+      when(
+        () => mockCreate(
+          name: any(named: 'name'),
+          discountType: any(named: 'discountType'),
+          discountValue: any(named: 'discountValue'),
+          batchPercentage: any(named: 'batchPercentage'),
+        ),
+      ).thenAnswer(
+        (_) async => Discount(
+          discountId: 'disc-new',
+          name: 'Summer',
+          discountType: DiscountType.percentage,
+          discountValue: 10,
+          batchPercentage: 0.2,
+          isEnabled: true,
+          createdAt: DateTime.now(),
+        ),
+      );
+
+      _TrackingDiscountsController.refreshStarted = Completer<void>();
+      _TrackingDiscountsController.refreshGate = Completer<void>();
+
+      final container = makeContainer();
+      final createFuture = container
+          .read(discountEditorControllerProvider.notifier)
+          .create(
+            name: 'Summer',
+            discountType: DiscountType.percentage,
+            discountValue: 10,
+            batchPercentage: 0.2,
+          );
+
+      await _TrackingDiscountsController.refreshStarted!.future;
+      container.dispose();
+      _TrackingDiscountsController.refreshGate!.complete();
+
+      await expectLater(createFuture, completes);
+      expect(_TrackingDiscountsController.refreshCalls, 1);
+      expect(_TrackingDiscountsController.selectRuleCalls, 0);
     });
 
     test('ignores duplicate create when already submitting', () async {

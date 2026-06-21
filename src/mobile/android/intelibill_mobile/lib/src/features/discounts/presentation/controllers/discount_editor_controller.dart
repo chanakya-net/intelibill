@@ -1,4 +1,3 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/network/api_client_provider.dart';
@@ -53,10 +52,6 @@ DisableDiscount disableDiscount(Ref ref) {
 }
 
 class DiscountEditorState {
-  static const _keepValue = Object();
-  static const _keepFailure = Object();
-  static const _keepLastAction = Object();
-
   const DiscountEditorState({
     this.preview,
     this.previewLoading = false,
@@ -66,6 +61,10 @@ class DiscountEditorState {
     this.lastAction,
     this.needsBelowCostConfirmation = false,
   });
+
+  static const _keepValue = Object();
+  static const _keepFailure = Object();
+  static const _keepLastAction = Object();
 
   final DiscountPreview? preview;
   final bool previewLoading;
@@ -279,6 +278,8 @@ class DiscountEditorController extends _$DiscountEditorController {
   Future<void> _refreshDiscountsView() async {
     final controller = ref.read(discountsControllerProvider.notifier);
     await controller.refresh();
+
+    if (!ref.mounted) return;
 
     final selectedRuleId = ref.read(discountsControllerProvider).selectedRuleId;
     if (selectedRuleId == null) {
