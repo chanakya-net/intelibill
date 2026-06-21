@@ -181,7 +181,7 @@ void main() {
     });
 
     test(
-      'refreshes sale detail and invalidates sales history on successful void',
+      'refreshes sale detail and sales history on successful void',
       () async {
         final detail = _saleDetail('sale-1');
         when(() => getSaleDetail(any())).thenAnswer((_) async => detail);
@@ -195,10 +195,25 @@ void main() {
         final container = makeContainer();
         addTearDown(container.dispose);
         container.read(salesHistoryControllerProvider);
+        final historyController = container.read(
+          salesHistoryControllerProvider.notifier,
+        );
+        historyController.state = historyController.state.copyWith(
+          query: SalesHistoryQuery(
+            from: DateTime(2026, 1, 10),
+            to: DateTime(2026, 1, 20, 23, 59, 59),
+          ),
+          searchQuery: 'INV',
+          statusFilter: 'partiallyPaid',
+        );
+        final preVoidHistoryState = container.read(
+          salesHistoryControllerProvider,
+        );
 
         await container
             .read(saleDetailControllerProvider('sale-1').notifier)
             .refresh();
+        clearInteractions(getSaleDetail);
 
         final success = await container
             .read(saleDetailControllerProvider('sale-1').notifier)
@@ -214,8 +229,21 @@ void main() {
             reason: 'Damaged',
           ),
         ).called(1);
-        verify(() => getSaleDetail('sale-1')).called(greaterThan(1));
-        expect(_TrackingSalesHistoryController.disposeCount, 1);
+        verify(() => getSaleDetail('sale-1')).called(1);
+        final postVoidHistoryState = container.read(
+          salesHistoryControllerProvider,
+        );
+        expect(
+          postVoidHistoryState.searchQuery,
+          preVoidHistoryState.searchQuery,
+        );
+        expect(
+          postVoidHistoryState.statusFilter,
+          preVoidHistoryState.statusFilter,
+        );
+        expect(postVoidHistoryState.query.from, preVoidHistoryState.query.from);
+        expect(postVoidHistoryState.query.to, preVoidHistoryState.query.to);
+        expect(_TrackingSalesHistoryController.disposeCount, 0);
         expect(_TrackingSalesHistoryController.refreshCount, 1);
       },
     );

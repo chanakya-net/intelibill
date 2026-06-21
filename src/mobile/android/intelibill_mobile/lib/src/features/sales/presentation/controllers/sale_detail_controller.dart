@@ -106,7 +106,6 @@ class SaleDetailController extends _$SaleDetailController {
       state = state.copyWith(isVoidSubmitting: false, clearVoidError: true);
       await refresh();
       if (!ref.mounted) return false;
-      ref.invalidate(salesHistoryControllerProvider);
       await ref.read(salesHistoryControllerProvider.notifier).refresh();
       return true;
     } on AppException catch (error) {
