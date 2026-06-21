@@ -1606,6 +1606,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get salesDetailVoidReturnFailed => 'Unable to void return.';
 
   @override
+  String get salesDetailVoidReturnUnauthorized =>
+      'Session expired. Please log in again.';
+
+  @override
+  String get salesDetailVoidReturnForbidden =>
+      'You do not have permission to void returns.';
+
+  @override
+  String get salesDetailVoidReturnNetwork =>
+      'Unable to connect. Please check your network.';
+
+  @override
+  String get salesDetailVoidReturnTimeout =>
+      'Request timed out. Please try again.';
+
+  @override
   String get salesDetailVoidReturnDate => 'Voided on';
 
   @override
@@ -3495,6 +3511,22 @@ class AppLocalizationsEnIn extends AppLocalizationsEn {
 
   @override
   String get salesDetailVoidReturnFailed => 'Unable to void return.';
+
+  @override
+  String get salesDetailVoidReturnUnauthorized =>
+      'Session expired. Please log in again.';
+
+  @override
+  String get salesDetailVoidReturnForbidden =>
+      'You do not have permission to void returns.';
+
+  @override
+  String get salesDetailVoidReturnNetwork =>
+      'Unable to connect. Please check your network.';
+
+  @override
+  String get salesDetailVoidReturnTimeout =>
+      'Request timed out. Please try again.';
 
   @override
   String get salesDetailVoidReturnDate => 'Voided on';

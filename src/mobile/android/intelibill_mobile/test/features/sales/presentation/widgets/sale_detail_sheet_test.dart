@@ -157,6 +157,7 @@ Widget _buildApp({
   required MockVoidSaleReturn voidSaleReturn,
   required String role,
   required SaleDetail detail,
+  MediaQueryData? mediaQueryData,
 }) {
   return ProviderScope(
     overrides: [
@@ -173,6 +174,14 @@ Widget _buildApp({
       locale: const Locale('en', 'IN'),
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
+      builder: (context, child) {
+        final data = mediaQueryData ?? MediaQuery.maybeOf(context);
+        if (data == null || child == null) {
+          return child ?? const SizedBox.shrink();
+        }
+
+        return MediaQuery(data: data, child: child);
+      },
       home: Scaffold(
         body: SaleDetailSheet(saleId: detail.saleId),
       ),
@@ -347,5 +356,119 @@ void main() {
     verify(
       () => voidSaleReturn(saleReturnId: 'return-1', reason: 'Redeemed'),
     ).called(1);
+  });
+
+  testWidgets('shows void-specific forbidden fallback message', (tester) async {
+    final detail = _saleDetail();
+    when(() => getSaleDetail(any())).thenAnswer((_) async => detail);
+    when(
+      () => voidSaleReturn(
+        saleReturnId: 'return-1',
+        reason: 'Forbidden',
+      ),
+    ).thenThrow(
+      AppException(failure: const Failure.forbidden()),
+    );
+
+    await tester.pumpWidget(
+      _buildApp(
+        getSaleDetail: getSaleDetail,
+        voidSaleReturn: voidSaleReturn,
+        role: 'Manager',
+        detail: detail,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final actionButton = find.byKey(
+      Key(_voidReturnActionKey('button', 'return-1')),
+    );
+    await tester.ensureVisible(actionButton);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      actionButton,
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(Key(_voidReturnActionKey('void-reason', 'return-1'))),
+      'Forbidden',
+    );
+    await tester.tap(
+      find.byKey(Key(_voidReturnActionKey('void-submit', 'return-1'))),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('You do not have permission to void returns.'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('You do not have permission to view sales history.'),
+      findsNothing,
+    );
+  });
+
+  testWidgets('wraps void-return sheet for keyboard-safe scrolling', (
+    tester,
+  ) async {
+    const keyboardInsets = EdgeInsets.only(bottom: 240);
+    final detail = _saleDetail();
+    when(() => getSaleDetail(any())).thenAnswer((_) async => detail);
+
+    await tester.pumpWidget(
+      _buildApp(
+        getSaleDetail: getSaleDetail,
+        voidSaleReturn: voidSaleReturn,
+        role: 'Owner',
+        detail: detail,
+        mediaQueryData: const MediaQueryData(
+          size: Size(320, 480),
+          viewInsets: keyboardInsets,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final actionButton = find.byKey(
+      Key(_voidReturnActionKey('button', 'return-1')),
+    );
+    await tester.ensureVisible(actionButton);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      actionButton,
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(
+        of: find.byType(BottomSheet),
+        matching: find.byType(SafeArea),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byType(BottomSheet),
+        matching: find.byType(SingleChildScrollView),
+      ),
+      findsOneWidget,
+    );
+
+    final paddings = tester.widgetList<Padding>(
+      find.descendant(
+        of: find.byType(BottomSheet),
+        matching: find.byType(Padding),
+      ),
+    );
+    final hasInsetAwarePadding = paddings.any((widget) {
+      final padding = widget.padding;
+      return padding is EdgeInsets &&
+          padding.left == 16 &&
+          padding.top == 0 &&
+          padding.right == 16 &&
+          padding.bottom == 24 + keyboardInsets.bottom;
+    });
+
+    expect(hasInsetAwarePadding, isTrue);
   });
 }

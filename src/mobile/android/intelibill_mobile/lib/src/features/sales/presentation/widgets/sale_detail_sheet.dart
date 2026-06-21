@@ -808,60 +808,75 @@ class _VoidSaleReturnSheetState extends State<_VoidSaleReturnSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            '${widget.l10n.salesDetailVoidReturnAction} '
-            '${widget.saleReturn.returnNumber}',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            key: Key(_voidReturnReasonFieldKey(widget.saleReturn.saleReturnId)),
-            controller: _reasonController,
-            decoration: InputDecoration(
-              labelText: widget.l10n.salesDetailVoidReturnReason,
-              border: const OutlineInputBorder(),
-            ),
-          ),
-          if (_failure != null) ...[
-            const SizedBox(height: 12),
-            Text(
-              _failureMessage(widget.l10n, _failure!),
-              key: Key(_voidReturnFailureKey(widget.saleReturn.saleReturnId)),
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.error,
-              ),
-            ),
-          ],
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          16,
+          0,
+          16,
+          24 + MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              TextButton(
-                key: Key(_voidReturnSubmitKey(widget.saleReturn.saleReturnId)),
-                onPressed: _isSubmitting
-                    ? null
-                    : () => unawaited(_submitVoid()),
-                child: _isSubmitting
-                    ? const SizedBox(
-                        height: 16,
-                        width: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Text(widget.l10n.salesDetailVoidReturnAction),
+              Text(
+                '${widget.l10n.salesDetailVoidReturnAction} '
+                '${widget.saleReturn.returnNumber}',
+                style: Theme.of(context).textTheme.titleLarge,
               ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: Text(widget.l10n.commonCancel),
+              const SizedBox(height: 8),
+              TextField(
+                key: Key(
+                  _voidReturnReasonFieldKey(widget.saleReturn.saleReturnId),
+                ),
+                controller: _reasonController,
+                decoration: InputDecoration(
+                  labelText: widget.l10n.salesDetailVoidReturnReason,
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+              if (_failure != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  _failureMessage(widget.l10n, _failure!),
+                  key: Key(
+                    _voidReturnFailureKey(widget.saleReturn.saleReturnId),
+                  ),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    key: Key(
+                      _voidReturnSubmitKey(widget.saleReturn.saleReturnId),
+                    ),
+                    onPressed: _isSubmitting
+                        ? null
+                        : () => unawaited(_submitVoid()),
+                    child: _isSubmitting
+                        ? const SizedBox(
+                            height: 16,
+                            width: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Text(widget.l10n.salesDetailVoidReturnAction),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: Text(widget.l10n.commonCancel),
+                  ),
+                ],
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -870,14 +885,15 @@ class _VoidSaleReturnSheetState extends State<_VoidSaleReturnSheet> {
 String _failureMessage(AppLocalizations l10n, Failure failure) {
   return failure.when(
     validation: (message, _) => message ?? l10n.salesDetailVoidReturnFailed,
-    unauthorized: (message) => message ?? l10n.salesHistoryErrorUnauthorized,
-    forbidden: (message) => message ?? l10n.salesHistoryErrorForbidden,
-    notFound: (message) => message ?? l10n.salesHistoryErrorGeneric,
-    server: (message, _) => message ?? l10n.salesHistoryErrorGeneric,
-    network: (message) => l10n.salesHistoryErrorNetwork,
-    timeout: (message) => l10n.salesHistoryErrorTimeout,
-    serialization: (message) => message ?? l10n.salesHistoryErrorGeneric,
-    unknown: (message) => message ?? l10n.salesHistoryErrorGeneric,
+    unauthorized: (message) =>
+        message ?? l10n.salesDetailVoidReturnUnauthorized,
+    forbidden: (message) => message ?? l10n.salesDetailVoidReturnForbidden,
+    notFound: (message) => message ?? l10n.salesDetailVoidReturnFailed,
+    server: (message, _) => message ?? l10n.salesDetailVoidReturnFailed,
+    network: (message) => message ?? l10n.salesDetailVoidReturnNetwork,
+    timeout: (message) => message ?? l10n.salesDetailVoidReturnTimeout,
+    serialization: (message) => message ?? l10n.salesDetailVoidReturnFailed,
+    unknown: (message) => message ?? l10n.salesDetailVoidReturnFailed,
   );
 }
 

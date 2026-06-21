@@ -3121,6 +3121,30 @@ abstract class AppLocalizations {
   /// **'Unable to void return.'**
   String get salesDetailVoidReturnFailed;
 
+  /// No description provided for @salesDetailVoidReturnUnauthorized.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Session expired. Please log in again.'**
+  String get salesDetailVoidReturnUnauthorized;
+
+  /// No description provided for @salesDetailVoidReturnForbidden.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'You do not have permission to void returns.'**
+  String get salesDetailVoidReturnForbidden;
+
+  /// No description provided for @salesDetailVoidReturnNetwork.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to connect. Please check your network.'**
+  String get salesDetailVoidReturnNetwork;
+
+  /// No description provided for @salesDetailVoidReturnTimeout.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Request timed out. Please try again.'**
+  String get salesDetailVoidReturnTimeout;
+
   /// No description provided for @salesDetailVoidReturnDate.
   ///
   /// In en_IN, this message translates to:
