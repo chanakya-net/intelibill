@@ -3097,6 +3097,42 @@ abstract class AppLocalizations {
   /// **'Due reduction'**
   String get salesDetailDueReduction;
 
+  /// No description provided for @salesDetailVoidReturnAction.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Void return'**
+  String get salesDetailVoidReturnAction;
+
+  /// No description provided for @salesDetailVoidReturnReason.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Reason'**
+  String get salesDetailVoidReturnReason;
+
+  /// No description provided for @salesDetailVoidReturnReasonRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Reason is required.'**
+  String get salesDetailVoidReturnReasonRequired;
+
+  /// No description provided for @salesDetailVoidReturnFailed.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to void return.'**
+  String get salesDetailVoidReturnFailed;
+
+  /// No description provided for @salesDetailVoidReturnDate.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Voided on'**
+  String get salesDetailVoidReturnDate;
+
+  /// No description provided for @salesDetailReturnVoided.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Voided'**
+  String get salesDetailReturnVoided;
+
   /// No description provided for @salesDetailReturnItem.
   ///
   /// In en_IN, this message translates to:

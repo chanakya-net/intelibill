@@ -126,6 +126,9 @@ class SaleDetailReturn extends Equatable {
     required this.totalRefundAmount,
     required this.dueReductionAmount,
     required this.payoutAmount,
+    this.isVoided = false,
+    this.voidedAt,
+    this.voidReason,
     required this.totalTaxableAmount,
     required this.totalTaxAmount,
     required this.items,
@@ -139,6 +142,9 @@ class SaleDetailReturn extends Equatable {
   final DateTime processedAt;
   final String processedBy;
   final String? notes;
+  final bool isVoided;
+  final DateTime? voidedAt;
+  final String? voidReason;
   final double totalRefundAmount;
   final double dueReductionAmount;
   final double payoutAmount;
@@ -158,6 +164,9 @@ class SaleDetailReturn extends Equatable {
     processedAt,
     processedBy,
     notes,
+    isVoided,
+    voidedAt,
+    voidReason,
     totalRefundAmount,
     dueReductionAmount,
     payoutAmount,

@@ -33,6 +33,27 @@ void main() {
 
       verify(() => remoteDataSource.getSaleDetail('sale-abc')).called(1);
     });
+
+    test('forwards void sale return request to remote data source', () async {
+      when(
+        () => remoteDataSource.voidSaleReturn(
+          saleReturnId: 'return-1',
+          reason: 'Damaged',
+        ),
+      ).thenAnswer((_) async {});
+
+      await repository.voidSaleReturn(
+        saleReturnId: 'return-1',
+        reason: 'Damaged',
+      );
+
+      verify(
+        () => remoteDataSource.voidSaleReturn(
+          saleReturnId: 'return-1',
+          reason: 'Damaged',
+        ),
+      ).called(1);
+    });
   });
 }
 

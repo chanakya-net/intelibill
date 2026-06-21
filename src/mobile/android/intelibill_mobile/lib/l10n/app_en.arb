@@ -558,6 +558,12 @@
   "salesDetailTaxLabel": "Tax",
   "salesDetailPaidLabel": "Paid",
   "salesDetailDueReduction": "Due reduction",
+  "salesDetailVoidReturnAction": "Void return",
+  "salesDetailVoidReturnReason": "Reason",
+  "salesDetailVoidReturnReasonRequired": "Reason is required.",
+  "salesDetailVoidReturnFailed": "Unable to void return.",
+  "salesDetailVoidReturnDate": "Voided on",
+  "salesDetailReturnVoided": "Voided",
   "salesDetailReturnItem": "{quantity} returned of {itemName}",
   "@salesDetailReturnItem": {
     "placeholders": {

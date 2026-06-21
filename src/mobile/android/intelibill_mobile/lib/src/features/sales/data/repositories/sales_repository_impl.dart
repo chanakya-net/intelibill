@@ -67,4 +67,21 @@ class SalesRepositoryImpl implements SalesRepository {
       throw AppException(failure: Failure.unknown(message: error.toString()));
     }
   }
+
+  @override
+  Future<void> voidSaleReturn({
+    required String saleReturnId,
+    required String reason,
+  }) async {
+    try {
+      await _remoteDataSource.voidSaleReturn(
+        saleReturnId: saleReturnId,
+        reason: reason,
+      );
+    } on AppException {
+      rethrow;
+    } catch (error) {
+      throw AppException(failure: Failure.unknown(message: error.toString()));
+    }
+  }
 }

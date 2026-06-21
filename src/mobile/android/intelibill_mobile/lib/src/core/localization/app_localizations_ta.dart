@@ -1595,6 +1595,24 @@ class AppLocalizationsTa extends AppLocalizations {
   String get salesDetailDueReduction => 'Due reduction';
 
   @override
+  String get salesDetailVoidReturnAction => 'Void return';
+
+  @override
+  String get salesDetailVoidReturnReason => 'Reason';
+
+  @override
+  String get salesDetailVoidReturnReasonRequired => 'Reason is required.';
+
+  @override
+  String get salesDetailVoidReturnFailed => 'Unable to void return.';
+
+  @override
+  String get salesDetailVoidReturnDate => 'Voided on';
+
+  @override
+  String get salesDetailReturnVoided => 'Voided';
+
+  @override
   String salesDetailReturnItem(double quantity, String itemName) {
     return '$quantity returned of $itemName';
   }

@@ -1,5 +1,6 @@
 import 'package:intelibill_mobile/src/core/network/api_client.dart';
 import 'package:intelibill_mobile/src/core/utils/date_time_wire.dart';
+import 'package:intelibill_mobile/src/features/sales/data/dto/void_sale_return_request_dto.dart';
 import 'package:intelibill_mobile/src/features/sales/data/dto/sale_detail_dto.dart';
 import 'package:intelibill_mobile/src/features/sales/data/dto/sales_history_response_dto.dart';
 import 'package:intelibill_mobile/src/features/sales/data/dto/sellable_dto.dart';
@@ -17,6 +18,13 @@ interface class SalesRemoteDataSource {
   Future<List<SellableDto>> searchSellables({
     String? searchTerm,
     String? barcode,
+  }) {
+    throw UnimplementedError();
+  }
+
+  Future<void> voidSaleReturn({
+    required String saleReturnId,
+    required String reason,
   }) {
     throw UnimplementedError();
   }
@@ -77,5 +85,16 @@ class SalesRemoteDataSourceImpl implements SalesRemoteDataSource {
         .cast<Map<String, dynamic>>()
         .map(SellableDto.fromJson)
         .toList();
+  }
+
+  @override
+  Future<void> voidSaleReturn({
+    required String saleReturnId,
+    required String reason,
+  }) async {
+    await _apiClient.post<void>(
+      '/sales/returns/$saleReturnId/void',
+      data: VoidSaleReturnRequestDto(reason: reason).toJson(),
+    );
   }
 }
