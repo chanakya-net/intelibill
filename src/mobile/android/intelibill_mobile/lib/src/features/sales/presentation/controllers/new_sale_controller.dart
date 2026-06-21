@@ -55,6 +55,7 @@ class NewSaleState {
     this.paidAmount = 0,
     this.dueAmount = 0,
     this.submissionFailure,
+    this.customerCreateFailure,
   });
 
   final String searchTerm;
@@ -75,6 +76,7 @@ class NewSaleState {
   final double paidAmount;
   final double dueAmount;
   final Failure? submissionFailure;
+  final Failure? customerCreateFailure;
 
   double get cartTotal =>
       cartLines.fold(0, (sum, line) => sum + line.lineTotal);
@@ -110,6 +112,8 @@ class NewSaleState {
     double? paidAmount,
     double? dueAmount,
     Failure? submissionFailure,
+    Failure? customerCreateFailure,
+    bool clearCustomerCreateFailure = false,
   }) {
     return NewSaleState(
       searchTerm: searchTerm ?? this.searchTerm,
@@ -138,6 +142,9 @@ class NewSaleState {
       submissionFailure: clearSubmissionFailure
           ? null
           : (submissionFailure ?? this.submissionFailure),
+      customerCreateFailure: clearCustomerCreateFailure
+          ? null
+          : (customerCreateFailure ?? this.customerCreateFailure),
     );
   }
 }
@@ -287,7 +294,7 @@ class NewSaleController extends _$NewSaleController {
 
     state = state.copyWith(
       isCreatingCustomer: true,
-      clearSubmissionFailure: true,
+      clearCustomerCreateFailure: true,
     );
 
     try {
@@ -310,7 +317,7 @@ class NewSaleController extends _$NewSaleController {
         availableCustomers: customers,
         selectedCustomer: created,
         isCreatingCustomer: false,
-        clearSubmissionFailure: true,
+        clearCustomerCreateFailure: true,
       );
       _validatePayment();
       return true;
@@ -318,14 +325,14 @@ class NewSaleController extends _$NewSaleController {
       if (!ref.mounted) return false;
       state = state.copyWith(
         isCreatingCustomer: false,
-        submissionFailure: error.failure,
+        customerCreateFailure: error.failure,
       );
       return false;
     } on Object {
       if (!ref.mounted) return false;
       state = state.copyWith(
         isCreatingCustomer: false,
-        submissionFailure: const Failure.unknown(),
+        customerCreateFailure: const Failure.unknown(),
       );
       return false;
     }
@@ -550,6 +557,13 @@ class NewSaleController extends _$NewSaleController {
     }
 
     final reconciledPaid = _coerceMoney(state.paidAmount, state.payable);
+    // No explicit split entered yet for non-credit methods → default to full payment.
+    if (state.paymentMethod != PaymentMethod.credit && reconciledPaid == 0) {
+      state = state.copyWith(paidAmount: state.payable, dueAmount: 0);
+      _validatePayment();
+      return;
+    }
+
     final reconciledDue = _coerceMoney(
       state.payable - reconciledPaid,
       state.payable,
