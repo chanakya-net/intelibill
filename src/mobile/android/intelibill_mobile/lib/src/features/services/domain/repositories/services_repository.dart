@@ -7,4 +7,36 @@ interface class ServicesRepository {
   }) {
     throw UnimplementedError();
   }
+
+  Future<Service> createService({
+    required String name,
+    String? description,
+    required double price,
+    String? hsnCode,
+    required double taxRatePercent,
+    required bool taxIncluded,
+    required bool isActive,
+  }) {
+    throw UnimplementedError();
+  }
+
+  Future<void> updateService({
+    required String serviceId,
+    required String name,
+    String? description,
+    required double price,
+    String? hsnCode,
+    required double taxRatePercent,
+    required bool taxIncluded,
+  }) {
+    throw UnimplementedError();
+  }
+
+  Future<void> activateService(String serviceId) {
+    throw UnimplementedError();
+  }
+
+  Future<void> deactivateService(String serviceId) {
+    throw UnimplementedError();
+  }
 }
