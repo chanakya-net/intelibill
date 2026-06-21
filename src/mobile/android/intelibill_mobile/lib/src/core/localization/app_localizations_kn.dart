@@ -1875,6 +1875,78 @@ class AppLocalizationsKn extends AppLocalizations {
 
   @override
   String get creditNotesRetry => 'Retry';
+
+  @override
+  String get salesReturnTitle => 'Record Return';
+
+  @override
+  String get salesReturnNoReturnableLines => 'No returnable lines';
+
+  @override
+  String get salesReturnPreview => 'Preview';
+
+  @override
+  String get salesReturnSubmit => 'Submit';
+
+  @override
+  String get salesReturnSubmitRoleNotice =>
+      'Only owner or manager can record this return.';
+
+  @override
+  String get salesReturnDestinationRefund => 'Refund payout';
+
+  @override
+  String get salesReturnDestinationCreditNote => 'Credit note';
+
+  @override
+  String get salesReturnCreditNoteReasonLabel => 'Credit note reason';
+
+  @override
+  String get salesReturnCreditNoteExpiryLabel =>
+      'Credit note expiry (YYYY-MM-DD)';
+
+  @override
+  String get salesReturnDueOverrideLabel => 'Due reduction override';
+
+  @override
+  String get salesReturnDueOverrideReasonLabel => 'Due reduction reason';
+
+  @override
+  String get salesReturnApprovedRefundLabel => 'Approved refund';
+
+  @override
+  String get salesReturnLineQuantityLabel => 'Return quantity';
+
+  @override
+  String get salesReturnLineConditionLabel => 'Condition';
+
+  @override
+  String get salesReturnLineConditionRestockable => 'Restockable';
+
+  @override
+  String get salesReturnLineConditionWastage => 'Wastage';
+
+  @override
+  String get salesReturnLineNoteLabel => 'Line note';
+
+  @override
+  String get salesReturnNotesLabel => 'Notes';
+
+  @override
+  String get salesReturnPayoutDestinationLabel => 'Payout destination';
+
+  @override
+  String get salesReturnPreviewRefundLabel => 'Refund';
+
+  @override
+  String get salesReturnPreviewDueReductionLabel => 'Due reduction';
+
+  @override
+  String get salesReturnPreviewPayoutLabel => 'Payout';
+
+  @override
+  String get salesReturnDueOverrideConfirmLabel =>
+      'Confirm due reduction override';
 }
 
 /// The translations for Kannada, as used in India (`kn_IN`).

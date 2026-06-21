@@ -5,6 +5,7 @@ import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_list_item.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/controllers/sale_detail_controller.dart';
+import 'package:intelibill_mobile/src/features/sales/presentation/widgets/sale_return_sheet.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/utils/sale_display_helpers.dart';
 import 'package:intl/intl.dart';
 
@@ -63,11 +64,17 @@ class SaleDetailSheet extends ConsumerWidget {
             _Header(
               title: l10n.salesHistoryDetailTitle,
               subtitle: detail.invoiceNumber,
+              returnLabel: l10n.salesReturnTitle,
               onRefresh: () {
                 ref
                     .read(saleDetailControllerProvider(saleId).notifier)
                     .refresh();
               },
+              onReturn: detail.items.any((item) => item.returnableQuantity > 0)
+                  ? () {
+                      showSaleReturnSheet(context, saleId: detail.saleId);
+                    }
+                  : null,
             ),
             const SizedBox(height: 16),
             _SummaryCard(detail: detail),
@@ -117,12 +124,16 @@ class _Header extends StatelessWidget {
   const _Header({
     required this.title,
     required this.subtitle,
+    required this.returnLabel,
     required this.onRefresh,
+    this.onReturn,
   });
 
   final String title;
   final String subtitle;
+  final String returnLabel;
   final VoidCallback onRefresh;
+  final VoidCallback? onReturn;
 
   @override
   Widget build(BuildContext context) {
@@ -150,6 +161,12 @@ class _Header extends StatelessWidget {
           ),
         ),
         IconButton(icon: const Icon(Icons.refresh), onPressed: onRefresh),
+        if (onReturn != null)
+          TextButton.icon(
+            icon: const Icon(Icons.assignment_return),
+            onPressed: onReturn,
+            label: Text(returnLabel),
+          ),
       ],
     );
   }

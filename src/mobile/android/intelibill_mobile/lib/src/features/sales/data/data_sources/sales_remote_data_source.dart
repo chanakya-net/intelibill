@@ -1,6 +1,7 @@
 import 'package:intelibill_mobile/src/core/network/api_client.dart';
 import 'package:intelibill_mobile/src/core/utils/date_time_wire.dart';
 import 'package:intelibill_mobile/src/features/sales/data/dto/sale_detail_dto.dart';
+import 'package:intelibill_mobile/src/features/sales/data/dto/sale_return_preview_dto.dart';
 import 'package:intelibill_mobile/src/features/sales/data/dto/sales_history_response_dto.dart';
 import 'package:intelibill_mobile/src/features/sales/data/dto/sellable_dto.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sales_history_query.dart';
@@ -11,6 +12,20 @@ interface class SalesRemoteDataSource {
   }
 
   Future<SaleDetailDto> getSaleDetail(String saleId) {
+    throw UnimplementedError();
+  }
+
+  Future<SaleReturnPreviewResponseDto> previewSaleReturn({
+    required String saleId,
+    required Map<String, dynamic> request,
+  }) {
+    throw UnimplementedError();
+  }
+
+  Future<SaleDetailDto> recordSaleReturn({
+    required String saleId,
+    required Map<String, dynamic> request,
+  }) {
     throw UnimplementedError();
   }
 
@@ -55,6 +70,30 @@ class SalesRemoteDataSourceImpl implements SalesRemoteDataSource {
   Future<SaleDetailDto> getSaleDetail(String saleId) async {
     final response = await _apiClient.get<Map<String, dynamic>>(
       '$_salesEndpoint/$saleId',
+    );
+    return SaleDetailDto.fromJson(response.data!);
+  }
+
+  @override
+  Future<SaleReturnPreviewResponseDto> previewSaleReturn({
+    required String saleId,
+    required Map<String, dynamic> request,
+  }) async {
+    final response = await _apiClient.post<Map<String, dynamic>>(
+      '$_salesEndpoint/$saleId/returns/preview',
+      data: request,
+    );
+    return SaleReturnPreviewResponseDto.fromJson(response.data!);
+  }
+
+  @override
+  Future<SaleDetailDto> recordSaleReturn({
+    required String saleId,
+    required Map<String, dynamic> request,
+  }) async {
+    final response = await _apiClient.post<Map<String, dynamic>>(
+      '$_salesEndpoint/$saleId/returns',
+      data: request,
     );
     return SaleDetailDto.fromJson(response.data!);
   }

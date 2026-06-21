@@ -3624,6 +3624,144 @@ abstract class AppLocalizations {
   /// In en_IN, this message translates to:
   /// **'Retry'**
   String get creditNotesRetry;
+
+  /// No description provided for @salesReturnTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Record Return'**
+  String get salesReturnTitle;
+
+  /// No description provided for @salesReturnNoReturnableLines.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No returnable lines'**
+  String get salesReturnNoReturnableLines;
+
+  /// No description provided for @salesReturnPreview.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Preview'**
+  String get salesReturnPreview;
+
+  /// No description provided for @salesReturnSubmit.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Submit'**
+  String get salesReturnSubmit;
+
+  /// No description provided for @salesReturnSubmitRoleNotice.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Only owner or manager can record this return.'**
+  String get salesReturnSubmitRoleNotice;
+
+  /// No description provided for @salesReturnDestinationRefund.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Refund payout'**
+  String get salesReturnDestinationRefund;
+
+  /// No description provided for @salesReturnDestinationCreditNote.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Credit note'**
+  String get salesReturnDestinationCreditNote;
+
+  /// No description provided for @salesReturnCreditNoteReasonLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Credit note reason'**
+  String get salesReturnCreditNoteReasonLabel;
+
+  /// No description provided for @salesReturnCreditNoteExpiryLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Credit note expiry (YYYY-MM-DD)'**
+  String get salesReturnCreditNoteExpiryLabel;
+
+  /// No description provided for @salesReturnDueOverrideLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Due reduction override'**
+  String get salesReturnDueOverrideLabel;
+
+  /// No description provided for @salesReturnDueOverrideReasonLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Due reduction reason'**
+  String get salesReturnDueOverrideReasonLabel;
+
+  /// No description provided for @salesReturnApprovedRefundLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Approved refund'**
+  String get salesReturnApprovedRefundLabel;
+
+  /// No description provided for @salesReturnLineQuantityLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Return quantity'**
+  String get salesReturnLineQuantityLabel;
+
+  /// No description provided for @salesReturnLineConditionLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Condition'**
+  String get salesReturnLineConditionLabel;
+
+  /// No description provided for @salesReturnLineConditionRestockable.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Restockable'**
+  String get salesReturnLineConditionRestockable;
+
+  /// No description provided for @salesReturnLineConditionWastage.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Wastage'**
+  String get salesReturnLineConditionWastage;
+
+  /// No description provided for @salesReturnLineNoteLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Line note'**
+  String get salesReturnLineNoteLabel;
+
+  /// No description provided for @salesReturnNotesLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Notes'**
+  String get salesReturnNotesLabel;
+
+  /// No description provided for @salesReturnPayoutDestinationLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Payout destination'**
+  String get salesReturnPayoutDestinationLabel;
+
+  /// No description provided for @salesReturnPreviewRefundLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Refund'**
+  String get salesReturnPreviewRefundLabel;
+
+  /// No description provided for @salesReturnPreviewDueReductionLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Due reduction'**
+  String get salesReturnPreviewDueReductionLabel;
+
+  /// No description provided for @salesReturnPreviewPayoutLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Payout'**
+  String get salesReturnPreviewPayoutLabel;
+
+  /// No description provided for @salesReturnDueOverrideConfirmLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Confirm due reduction override'**
+  String get salesReturnDueOverrideConfirmLabel;
 }
 
 class _AppLocalizationsDelegate
