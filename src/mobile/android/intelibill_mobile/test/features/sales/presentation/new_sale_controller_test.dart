@@ -115,6 +115,49 @@ SalePreview _preview({
   );
 }
 
+SalePreviewLine _previewLine({
+  required String lineKey,
+  required double preTaxAmountBeforeDiscount,
+  required double itemDiscountAmount,
+  required double maxItemDiscountFlat,
+  required double maxItemDiscountPercent,
+  required double taxableAmount,
+  required double taxAmount,
+  required double lineTotalAmount,
+  double costPrice = 10,
+  double salesPrice = 10,
+  double mrp = 10,
+  double taxRatePercent = 0,
+  bool hasClientPriceMismatch = false,
+  double? configuredBatchRulePercentage,
+}) {
+  return SalePreviewLine(
+    lineType: 'Goods',
+    itemId: 'item-$lineKey',
+    barcode: 'BAR-$lineKey',
+    itemName: 'Line $lineKey',
+    inventoryBatchId: 'batch-$lineKey',
+    batchNumber: 'BN-$lineKey',
+    quantity: 1,
+    costPrice: costPrice,
+    salesPrice: salesPrice,
+    mrp: mrp,
+    taxRatePercent: taxRatePercent,
+    isPriceIncludingTax: false,
+    preTaxAmountBeforeDiscount: preTaxAmountBeforeDiscount,
+    itemDiscountAmount: itemDiscountAmount,
+    saleDiscountAmount: 0,
+    taxableAmount: taxableAmount,
+    taxAmount: taxAmount,
+    lineTotalAmount: lineTotalAmount,
+    maxAllowedItemDiscountFlat: maxItemDiscountFlat,
+    maxAllowedItemDiscountPercent: maxItemDiscountPercent,
+    hasClientPriceMismatch: hasClientPriceMismatch,
+    clientLineKey: lineKey,
+    configuredBatchRulePercentage: configuredBatchRulePercentage,
+  );
+}
+
 const PreviewSaleRequest _emptyPreviewRequest = PreviewSaleRequest(
   saleDiscountType: 0,
   saleDiscountValue: 0,
@@ -472,6 +515,191 @@ void main() {
       final state = container.read(newSaleControllerProvider);
       expect(state.preview, isNotNull);
       expect(state.canSubmitCheckout, isTrue);
+    });
+
+    test('builds preview payload including sale and item discounts', () async {
+      final capturedRequests = <PreviewSaleRequest>[];
+      when(
+        () => mockPreviewSale(
+          request: any(named: 'request'),
+        ),
+      ).thenAnswer((invocation) async {
+        final request =
+            invocation.namedArguments[#request] as PreviewSaleRequest;
+        capturedRequests.add(request);
+        return _preview();
+      });
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+      final goods = _goods(id: 'g1', name: 'Rice', stock: 5);
+      controller.state = NewSaleState(
+        cartLines: [
+          NewSaleCartLine(
+            sellable: goods,
+            quantity: 2,
+            itemDiscountType: InstantDiscountType.percentage,
+            itemDiscountValue: 12.5,
+          ),
+        ],
+        saleDiscountType: InstantDiscountType.flat,
+        saleDiscountValue: 4.25,
+      );
+
+      await controller.refreshPreview();
+
+      expect(capturedRequests, hasLength(1));
+      final request = capturedRequests.single;
+      expect(request.saleDiscountType, InstantDiscountType.flat);
+      expect(request.saleDiscountValue, 4.25);
+      expect(request.items, hasLength(1));
+      expect(
+        request.items.single.itemDiscountType,
+        InstantDiscountType.percentage,
+      );
+      expect(request.items.single.itemDiscountValue, 12.5);
+    });
+
+    test('clamps item discount when type changes above preview limit', () async {
+      final preview = _preview(
+        lines: [
+          _previewLine(
+            lineKey: 'g1',
+            preTaxAmountBeforeDiscount: 100,
+            itemDiscountAmount: 0,
+            maxItemDiscountFlat: 5,
+            maxItemDiscountPercent: 5,
+            taxableAmount: 95,
+            taxAmount: 0,
+            lineTotalAmount: 95,
+            hasClientPriceMismatch: false,
+          ),
+        ],
+      );
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+      final goods = _goods(id: 'g1', name: 'Flour', stock: 5);
+      controller.state = NewSaleState(
+        cartLines: [
+          NewSaleCartLine(
+            sellable: goods,
+            quantity: 1,
+            itemDiscountType: InstantDiscountType.none,
+            itemDiscountValue: 12,
+          ),
+        ],
+        preview: preview,
+      );
+
+      controller.updateCartItemDiscountType(
+        'g1',
+        InstantDiscountType.percentage,
+      );
+      final state = container.read(newSaleControllerProvider);
+      expect(state.cartLines.single.itemDiscountType, InstantDiscountType.percentage);
+      expect(state.cartLines.single.itemDiscountValue, 5);
+      expect(state.itemDiscountErrors, isEmpty);
+    });
+
+    test('blocks item discount above maximum and shows validation error', () async {
+      final preview = _preview(
+        lines: [
+          _previewLine(
+            lineKey: 'g1',
+            preTaxAmountBeforeDiscount: 100,
+            itemDiscountAmount: 0,
+            maxItemDiscountFlat: 5,
+            maxItemDiscountPercent: 5,
+            taxableAmount: 95,
+            taxAmount: 0,
+            lineTotalAmount: 95,
+            hasClientPriceMismatch: false,
+          ),
+        ],
+      );
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+      final goods = _goods(id: 'g1', name: 'Flour', stock: 5);
+      controller.state = NewSaleState(
+        cartLines: [
+          NewSaleCartLine(
+            sellable: goods,
+            quantity: 1,
+            itemDiscountType: InstantDiscountType.percentage,
+            itemDiscountValue: 1,
+          ),
+        ],
+        preview: preview,
+      );
+
+      controller.updateCartItemDiscountValue('g1', 12);
+      final state = container.read(newSaleControllerProvider);
+      expect(state.itemDiscountErrors, contains('g1'));
+      expect(state.itemDiscountErrors['g1'], contains('exceeds allowed maximum'));
+      expect(state.cartLines.single.itemDiscountValue, 1);
+    });
+
+    test('clamps sale discount to preview-derived maximum', () async {
+      final preview = _preview(
+        lines: [
+          _previewLine(
+            lineKey: 'g1',
+            preTaxAmountBeforeDiscount: 200,
+            itemDiscountAmount: 0,
+            maxItemDiscountFlat: 0,
+            maxItemDiscountPercent: 0,
+            taxableAmount: 95,
+            taxAmount: 0,
+            lineTotalAmount: 95,
+            costPrice: 100,
+            salesPrice: 200,
+            mrp: 200,
+          ),
+        ],
+      );
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+      final goods = _goods(id: 'g1', name: 'Flour', stock: 5);
+
+      controller.state = NewSaleState(
+        cartLines: [NewSaleCartLine(sellable: goods, quantity: 1)],
+        saleDiscountType: InstantDiscountType.percentage,
+        saleDiscountValue: 25,
+        preview: preview,
+      );
+
+      controller.updateSaleDiscountType(InstantDiscountType.percentage);
+      final state = container.read(newSaleControllerProvider);
+      expect(state.saleDiscountType, InstantDiscountType.percentage);
+      expect(state.saleDiscountValue, 10);
+      expect(state.saleDiscountError, isNull);
+    });
+
+    test('sale discount edit marks preview stale until refreshed', () async {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+      final goods = _goods(id: 'g1', name: 'Flour', stock: 5);
+      controller.state = NewSaleState(
+        cartLines: [NewSaleCartLine(sellable: goods, quantity: 1)],
+        saleDiscountType: InstantDiscountType.none,
+        saleDiscountValue: 0,
+        preview: _preview(),
+      );
+
+      controller.updateSaleDiscountType(InstantDiscountType.percentage);
+
+      final state = container.read(newSaleControllerProvider);
+      expect(state.preview, isNull);
+      expect(state.isPreviewLoading, isTrue);
+      expect(state.canSubmitCheckout, isFalse);
     });
 
     test(

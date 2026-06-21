@@ -48,6 +48,10 @@ class NewSaleState {
     this.barcodeTerm = '',
     this.results = const [],
     this.cartLines = const [],
+    this.saleDiscountType = InstantDiscountType.none,
+    this.saleDiscountValue = 0,
+    this.saleDiscountError,
+    this.itemDiscountErrors = const {},
     this.searchFailure,
     this.preview,
     this.previewFailure,
@@ -60,6 +64,10 @@ class NewSaleState {
   final String barcodeTerm;
   final List<Sellable> results;
   final List<NewSaleCartLine> cartLines;
+  final int saleDiscountType;
+  final double saleDiscountValue;
+  final String? saleDiscountError;
+  final Map<String, String> itemDiscountErrors;
   final Failure? searchFailure;
   final SalePreview? preview;
   final Failure? previewFailure;
@@ -98,13 +106,27 @@ class NewSaleState {
       cartLines.isNotEmpty &&
       preview != null &&
       previewFailure == null &&
-      !isPreviewLoading;
+      !isPreviewLoading &&
+      !hasDiscountValidationErrors;
+
+  bool get hasDiscountValidationErrors {
+    if (saleDiscountError != null && saleDiscountError!.trim().isNotEmpty) {
+      return true;
+    }
+    return itemDiscountErrors.values.any((value) => value.trim().isNotEmpty);
+  }
 
   NewSaleState copyWith({
     String? searchTerm,
     String? barcodeTerm,
     List<Sellable>? results,
     List<NewSaleCartLine>? cartLines,
+    int? saleDiscountType,
+    double? saleDiscountValue,
+    String? saleDiscountError,
+    Map<String, String>? itemDiscountErrors,
+    bool clearSaleDiscountError = false,
+    bool clearItemDiscountErrors = false,
     Failure? searchFailure,
     bool clearFailure = false,
     SalePreview? preview,
@@ -121,6 +143,14 @@ class NewSaleState {
       barcodeTerm: barcodeTerm ?? this.barcodeTerm,
       results: results ?? this.results,
       cartLines: cartLines ?? this.cartLines,
+      saleDiscountType: saleDiscountType ?? this.saleDiscountType,
+      saleDiscountValue: saleDiscountValue ?? this.saleDiscountValue,
+      saleDiscountError: clearSaleDiscountError
+          ? null
+          : (saleDiscountError ?? this.saleDiscountError),
+      itemDiscountErrors: clearItemDiscountErrors
+          ? const {}
+          : (itemDiscountErrors ?? this.itemDiscountErrors),
       searchFailure: clearFailure
           ? null
           : (searchFailure ?? this.searchFailure),
@@ -247,6 +277,7 @@ class NewSaleController extends _$NewSaleController {
         preview: preview,
         isPreviewLoading: false,
       );
+      _revalidateDiscountsAgainstPreview();
     } on AppException catch (error) {
       if (!_isActivePreviewRequest(requestId) || !ref.mounted) {
         return;
@@ -266,6 +297,222 @@ class NewSaleController extends _$NewSaleController {
         isPreviewLoading: false,
       );
     }
+  }
+
+  void updateSaleDiscountType(int type) {
+    final normalizedType = _normalizeDiscountType(type);
+    if (normalizedType == InstantDiscountType.none) {
+      state = state.copyWith(
+        saleDiscountType: InstantDiscountType.none,
+        saleDiscountValue: 0,
+        clearSaleDiscountError: true,
+      );
+      _schedulePreviewRefresh();
+      return;
+    }
+
+    if (state.preview == null) {
+      state = state.copyWith(
+        saleDiscountType: normalizedType,
+        saleDiscountError: null,
+      );
+      _schedulePreviewRefresh();
+      return;
+    }
+
+    final preview = state.preview;
+    if (preview != null) {
+      final limits = _calculateSaleDiscountLimits();
+      final maxAllowed = normalizedType == InstantDiscountType.percentage
+          ? limits.maxPercent
+          : limits.maxFlat;
+      if (!limits.isEligible || maxAllowed <= 0) {
+        state = state.copyWith(
+          saleDiscountType: InstantDiscountType.none,
+          saleDiscountValue: 0,
+          clearSaleDiscountError: true,
+        );
+        _schedulePreviewRefresh();
+        return;
+      }
+      final clamped = _clampDecimal(state.saleDiscountValue, maxAllowed);
+      state = state.copyWith(
+        saleDiscountType: normalizedType,
+        saleDiscountValue: clamped,
+        clearSaleDiscountError: true,
+      );
+      _schedulePreviewRefresh();
+      return;
+    }
+  }
+
+  void updateSaleDiscountValue(double value) {
+    final normalizedValue = _clampDecimal(_roundMoney(value), 100);
+    if (state.saleDiscountType == InstantDiscountType.none) {
+      state = state.copyWith(
+        saleDiscountType: InstantDiscountType.none,
+        saleDiscountValue: 0,
+        clearSaleDiscountError: true,
+      );
+      return;
+    }
+
+    if (state.preview == null) {
+      final maxValue = state.saleDiscountType == InstantDiscountType.percentage
+          ? 100
+          : double.infinity;
+      if (normalizedValue > maxValue) {
+        state = state.copyWith(
+          saleDiscountType: state.saleDiscountType,
+          saleDiscountValue: state.saleDiscountValue,
+          saleDiscountError: 'Discount percentage cannot exceed 100%.',
+        );
+        return;
+      }
+
+      state = state.copyWith(
+        saleDiscountValue: normalizedValue,
+        clearSaleDiscountError: true,
+      );
+      _schedulePreviewRefresh();
+      return;
+    }
+
+    final limits = _calculateSaleDiscountLimits();
+    if (!limits.isEligible) {
+      state = state.copyWith(
+        saleDiscountType: InstantDiscountType.none,
+        saleDiscountValue: 0,
+        clearSaleDiscountError: true,
+      );
+      return;
+    }
+
+    final maxAllowed = state.saleDiscountType == InstantDiscountType.percentage
+        ? limits.maxPercent
+        : limits.maxFlat;
+    if (normalizedValue > maxAllowed) {
+      state = state.copyWith(
+        saleDiscountType: state.saleDiscountType,
+        saleDiscountValue: state.saleDiscountValue,
+        saleDiscountError: state.saleDiscountType == InstantDiscountType.percentage
+            ? 'Discount percentage exceeds sale maximum.'
+            : 'Discount amount exceeds sale maximum.',
+      );
+      return;
+    }
+
+    state = state.copyWith(
+      saleDiscountValue: normalizedValue,
+      clearSaleDiscountError: true,
+    );
+    _schedulePreviewRefresh();
+  }
+
+  void updateCartItemDiscountType(String sellableId, int type) {
+    final line = _findLine(sellableId);
+    if (line == null || !line.sellable.isGoods) return;
+
+    final normalizedType = _normalizeDiscountType(type);
+    if (normalizedType == InstantDiscountType.none) {
+      _updateLineDiscounts(sellableId, InstantDiscountType.none, 0);
+      _schedulePreviewRefresh();
+      return;
+    }
+
+    if (state.preview == null) {
+      _updateLineDiscounts(sellableId, normalizedType, line.itemDiscountValue);
+      _schedulePreviewRefresh();
+      return;
+    }
+
+    final limits = _calculateLineDiscountLimits(sellableId);
+    final maxAllowed = normalizedType == InstantDiscountType.percentage
+        ? limits.maxPercent
+        : limits.maxFlat;
+    final isAllowed = normalizedType == InstantDiscountType.none || maxAllowed > 0;
+
+    if (!isAllowed) {
+      state = state.copyWith(
+        cartLines: state.cartLines
+            .map(
+              (item) => item.sellable.id == sellableId
+                  ? item.copyWith(
+                      itemDiscountType: InstantDiscountType.none,
+                      itemDiscountValue: 0,
+                    )
+                  : item,
+            )
+            .toList(),
+        itemDiscountErrors: _itemDiscountErrorsWith(sellableId, ''),
+      );
+      _schedulePreviewRefresh();
+      return;
+    }
+
+    final nextItemValue = _clampDecimal(line.itemDiscountValue, maxAllowed);
+    _updateLineDiscounts(sellableId, normalizedType, nextItemValue);
+    _schedulePreviewRefresh();
+  }
+
+  void updateCartItemDiscountValue(String sellableId, double value) {
+    final line = _findLine(sellableId);
+    if (line == null || !line.sellable.isGoods) return;
+
+    if (line.itemDiscountType == InstantDiscountType.none) {
+      _updateLineDiscounts(sellableId, InstantDiscountType.none, 0);
+      _schedulePreviewRefresh();
+      return;
+    }
+
+    final normalizedValue = _roundMoney(value);
+    final safeValue = normalizedValue < 0 ? 0.0 : normalizedValue;
+    if (state.preview == null && line.itemDiscountType == InstantDiscountType.percentage) {
+      if (safeValue > 100) {
+        state = state.copyWith(
+          itemDiscountErrors: _itemDiscountErrorsWith(
+            sellableId,
+            'Discount percentage cannot exceed 100%.',
+          ),
+        );
+        return;
+      }
+      _updateLineDiscounts(sellableId, line.itemDiscountType, safeValue);
+      _schedulePreviewRefresh();
+      return;
+    }
+
+    final limits = _calculateLineDiscountLimits(sellableId);
+    final maxAllowed = line.itemDiscountType == InstantDiscountType.percentage
+        ? limits.maxPercent
+        : limits.maxFlat;
+
+    if (maxAllowed.isFinite && safeValue > maxAllowed) {
+      state = state.copyWith(
+        itemDiscountErrors: _itemDiscountErrorsWith(
+          sellableId,
+          line.itemDiscountType == InstantDiscountType.percentage
+              ? 'Discount percentage exceeds allowed maximum.'
+              : 'Discount amount exceeds allowed maximum.',
+        ),
+      );
+      return;
+    }
+
+    final roundedValue = _clampDecimal(safeValue, maxAllowed);
+    _updateLineDiscounts(sellableId, line.itemDiscountType, roundedValue);
+    _schedulePreviewRefresh();
+  }
+
+  void removeFromCart(String sellableId) {
+    state = state.copyWith(
+      cartLines: state.cartLines
+          .where((item) => item.sellable.id != sellableId)
+          .toList(),
+      itemDiscountErrors: _itemDiscountErrorsWithout(sellableId),
+      clearFailure: true,
+    );
+    _schedulePreviewRefresh();
   }
 
   void updateSearchTerm(String value) {
@@ -393,16 +640,6 @@ class NewSaleController extends _$NewSaleController {
     _schedulePreviewRefresh();
   }
 
-  void removeFromCart(String sellableId) {
-    state = state.copyWith(
-      cartLines: state.cartLines
-          .where((item) => item.sellable.id != sellableId)
-          .toList(),
-      clearFailure: true,
-    );
-    _schedulePreviewRefresh();
-  }
-
   Future<void> scanAndLookupBarcode(BuildContext context) async {
     final result = await showBarcodeScanner(context);
     if (result is BarcodeScanResult && result.value.trim().isNotEmpty) {
@@ -452,8 +689,8 @@ class NewSaleController extends _$NewSaleController {
 
   PreviewSaleRequest _buildPreviewRequest(List<NewSaleCartLine> lines) {
     return PreviewSaleRequest(
-      saleDiscountType: 0,
-      saleDiscountValue: 0,
+      saleDiscountType: state.saleDiscountType,
+      saleDiscountValue: state.saleDiscountValue,
       items: lines.map(_previewItemFromLine).toList(growable: false),
     );
   }
@@ -477,8 +714,8 @@ class NewSaleController extends _$NewSaleController {
           : (sellable.mrp > 0 ? sellable.mrp : effectiveUnitPrice),
       taxRatePercent: sellable.taxRatePercent,
       isPriceIncludingTax: sellable.taxIncluded,
-      itemDiscountType: 0,
-      itemDiscountValue: 0,
+      itemDiscountType: line.itemDiscountType,
+      itemDiscountValue: line.itemDiscountValue,
       clientLineKey: sellable.id,
       hsnCode: null,
       lineType: sellable.kind,
@@ -516,6 +753,240 @@ class NewSaleController extends _$NewSaleController {
 
     state = state.copyWith(cartLines: updated, clearFailure: true);
     _schedulePreviewRefresh();
+  }
+
+  int _normalizeDiscountType(int type) {
+    if (type == InstantDiscountType.percentage || type == InstantDiscountType.flat) {
+      return type;
+    }
+    return InstantDiscountType.none;
+  }
+
+  double _clampDecimal(double value, double maxValue) {
+    if (value < 0) return 0;
+    if (!maxValue.isFinite) return _roundMoney(value);
+    return _roundMoney(value > maxValue ? maxValue : value);
+  }
+
+  ({double maxFlat, double maxPercent}) _calculateLineDiscountLimits(
+    String sellableId,
+  ) {
+    final preview = state.preview;
+    if (preview == null) {
+      return (maxFlat: double.infinity, maxPercent: 100.0);
+    }
+
+    for (final line in preview.lines) {
+      if (line.clientLineKey == sellableId) {
+        final baseMaxFlat = line.maxAllowedItemDiscountFlat > 0
+            ? _roundMoney(line.maxAllowedItemDiscountFlat)
+            : 0.0;
+        final baseMaxPercent = line.maxAllowedItemDiscountPercent > 0
+            ? _roundMoney(line.maxAllowedItemDiscountPercent)
+            : 0.0;
+
+        if (line.configuredBatchRulePercentage == null) {
+          return (maxFlat: baseMaxFlat, maxPercent: baseMaxPercent);
+        }
+
+        final configuredPercent = line.configuredBatchRulePercentage!;
+        final configuredAmount = _roundMoney(
+          line.preTaxAmountBeforeDiscount * configuredPercent / 100,
+        );
+        return (
+          maxFlat: _roundMoney(baseMaxFlat < configuredAmount ? baseMaxFlat : configuredAmount),
+          maxPercent: _roundMoney(
+            baseMaxPercent < configuredPercent ? baseMaxPercent : configuredPercent,
+          ),
+        );
+      }
+    }
+
+    return (maxFlat: double.infinity, maxPercent: 100.0);
+  }
+
+  ({bool isEligible, double maxFlat, double maxPercent}) _calculateSaleDiscountLimits() {
+    final preview = state.preview;
+    if (preview == null) {
+      return (isEligible: false, maxFlat: 0.0, maxPercent: 0.0);
+    }
+
+    final eligibleSubtotal = preview.saleLevelEligibleSubtotal > 0
+        ? _roundMoney(preview.saleLevelEligibleSubtotal)
+        : 0.0;
+    if (eligibleSubtotal <= 0) {
+      return (isEligible: false, maxFlat: 0.0, maxPercent: 0.0);
+    }
+
+    final totalCapacity = preview.lines.fold<double>(
+      0,
+      (sum, line) {
+        if (line.lineType == 'Service') return sum;
+        final preTax = line.preTaxAmountBeforeDiscount;
+        final discount = line.itemDiscountAmount;
+        final cost = (line.costPrice * line.quantity);
+        final taxableAfterItem = preTax - discount;
+        final eligible = taxableAfterItem - cost;
+        return sum + (eligible > 0 ? eligible : 0);
+      },
+    );
+    var maxFlat = totalCapacity > 0 ? _roundMoney(totalCapacity) : 0.0;
+    final maxPercent = eligibleSubtotal == 0
+        ? 0.0
+        : _roundMoney((maxFlat * 100) / eligibleSubtotal);
+
+    final configured = preview.configuredSaleRule;
+    if (configured != null && configured.percentage > 0) {
+      final configuredAmount = _roundMoney(
+        (eligibleSubtotal * configured.percentage) / 100,
+      );
+      maxFlat = _roundMoney(maxFlat < configuredAmount ? maxFlat : configuredAmount);
+      final configuredPercent = _roundMoney(configured.percentage);
+      return (
+        isEligible: maxFlat > 0,
+        maxFlat: maxFlat,
+        maxPercent: maxPercent < configuredPercent ? maxPercent : configuredPercent,
+      );
+    }
+
+    return (isEligible: maxFlat > 0, maxFlat: maxFlat, maxPercent: maxPercent);
+  }
+
+  Map<String, String> _itemDiscountErrorsWith(String sellableId, String message) {
+    final next = {...state.itemDiscountErrors};
+    if (message.trim().isEmpty) {
+      next.remove(sellableId);
+    } else {
+      next[sellableId] = message;
+    }
+    return next;
+  }
+
+  Map<String, String> _itemDiscountErrorsWithout(String sellableId) {
+    final next = {...state.itemDiscountErrors};
+    next.remove(sellableId);
+    return next;
+  }
+
+  void _revalidateDiscountsAgainstPreview() {
+    _revalidateSaleDiscountAgainstPreview();
+    _revalidateLineDiscountsAgainstPreview();
+  }
+
+  void _revalidateSaleDiscountAgainstPreview() {
+    if (state.saleDiscountType == InstantDiscountType.none) {
+      state = state.copyWith(
+        saleDiscountValue: 0,
+        clearSaleDiscountError: true,
+      );
+      return;
+    }
+
+    final limits = _calculateSaleDiscountLimits();
+    if (!limits.isEligible) {
+      state = state.copyWith(
+        saleDiscountType: InstantDiscountType.none,
+        saleDiscountValue: 0,
+        clearSaleDiscountError: true,
+      );
+      return;
+    }
+
+    final maxAllowed = state.saleDiscountType == InstantDiscountType.percentage
+        ? limits.maxPercent
+        : limits.maxFlat;
+    final clamped = _clampDecimal(state.saleDiscountValue, maxAllowed);
+    state = state.copyWith(
+      saleDiscountValue: clamped,
+      clearSaleDiscountError: true,
+    );
+  }
+
+  void _revalidateLineDiscountsAgainstPreview() {
+    final updates = <NewSaleCartLine>[];
+    final nextErrors = <String, String>{};
+    var didChange = false;
+    var didClearItemErrors = false;
+
+    if (state.itemDiscountErrors.isNotEmpty) {
+      didClearItemErrors = true;
+    }
+
+    for (final line in state.cartLines) {
+      if (!line.sellable.isGoods) {
+        if (state.itemDiscountErrors.containsKey(line.sellable.id)) {
+          didClearItemErrors = true;
+        }
+        updates.add(line);
+        continue;
+      }
+
+      if (line.itemDiscountType == InstantDiscountType.none) {
+        if (state.itemDiscountErrors.containsKey(line.sellable.id)) {
+          didClearItemErrors = true;
+        }
+        updates.add(line);
+        continue;
+      }
+
+      final limits = _calculateLineDiscountLimits(line.sellable.id);
+      final maxAllowed = line.itemDiscountType == InstantDiscountType.percentage
+          ? limits.maxPercent
+          : limits.maxFlat;
+
+      if (maxAllowed <= 0) {
+        updates.add(
+          line.copyWith(
+            itemDiscountType: InstantDiscountType.none,
+            itemDiscountValue: 0,
+          ),
+        );
+        final next = _itemDiscountErrorsWithout(line.sellable.id);
+        if (next.length != state.itemDiscountErrors.length) {
+          didClearItemErrors = true;
+        }
+        didChange = true;
+        continue;
+      }
+
+      final clamped = _clampDecimal(line.itemDiscountValue, maxAllowed);
+      updates.add(
+        line.copyWith(
+          itemDiscountValue: clamped,
+          itemDiscountType: line.itemDiscountType,
+        ),
+      );
+      if (clamped != line.itemDiscountValue) {
+        didChange = true;
+      }
+    }
+
+    if (didChange || didClearItemErrors) {
+      state = state.copyWith(
+        cartLines: updates,
+        itemDiscountErrors: didClearItemErrors ? nextErrors : state.itemDiscountErrors,
+      );
+    }
+  }
+
+  void _updateLineDiscounts(
+    String sellableId,
+    int type,
+    double value,
+  ) {
+    state = state.copyWith(
+      cartLines: state.cartLines
+          .map(
+            (item) => item.sellable.id == sellableId
+                ? item.copyWith(
+                    itemDiscountType: type,
+                    itemDiscountValue: value,
+                  )
+                : item,
+          )
+          .toList(),
+      itemDiscountErrors: _itemDiscountErrorsWithout(sellableId),
+    );
   }
 }
 
