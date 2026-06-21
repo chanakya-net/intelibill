@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intelibill_mobile/src/app/shell/menu_visibility.dart';
-import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/formatting/currency_formatter.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/auth/presentation/controllers/auth_controller.dart';
@@ -11,6 +10,7 @@ import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_list_item.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/controllers/sale_detail_controller.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/utils/sale_display_helpers.dart';
+import 'package:intelibill_mobile/src/features/sales/presentation/widgets/void_sale_return_sheet.dart';
 import 'package:intl/intl.dart';
 
 Future<void> showSaleDetailSheet(
@@ -131,28 +131,22 @@ class SaleDetailSheet extends ConsumerWidget {
     SaleDetailReturn saleReturn,
   ) async {
     final l10n = AppLocalizations.of(context)!;
-    final action = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (sheetContext) {
-        return _VoidSaleReturnSheet(
-          saleReturn: saleReturn,
-          onVoid: (reason) async {
-            final isSuccess = await ref
-                .read(saleDetailControllerProvider(saleId).notifier)
-                .voidSaleReturn(
-                  saleReturnId: saleReturn.saleReturnId,
-                  reason: reason,
-                );
-            if (isSuccess) {
-              return null;
-            }
+    final action = await showVoidSaleReturnSheet(
+      context,
+      saleReturn: saleReturn,
+      l10n: l10n,
+      onVoid: (reason) async {
+        final isSuccess = await ref
+            .read(saleDetailControllerProvider(saleId).notifier)
+            .voidSaleReturn(
+              saleReturnId: saleReturn.saleReturnId,
+              reason: reason,
+            );
+        if (isSuccess) {
+          return null;
+        }
 
-            return ref.read(saleDetailControllerProvider(saleId)).voidFailure;
-          },
-          l10n: l10n,
-        );
+        return ref.read(saleDetailControllerProvider(saleId)).voidFailure;
       },
     );
 
@@ -562,7 +556,7 @@ class _Returns extends StatelessWidget {
               alignment: Alignment.centerRight,
               child: TextButton(
                 key: Key(
-                  _voidReturnActionKey('button', saleReturn.saleReturnId),
+                  voidReturnActionKey('button', saleReturn.saleReturnId),
                 ),
                 onPressed: () => onVoidReturn(saleReturn),
                 child: Text(l10n.salesDetailVoidReturnAction),
@@ -749,169 +743,3 @@ class _MetricChip extends StatelessWidget {
     );
   }
 }
-
-class _VoidSaleReturnSheet extends StatefulWidget {
-  const _VoidSaleReturnSheet({
-    required this.saleReturn,
-    required this.l10n,
-    required this.onVoid,
-  });
-
-  final SaleDetailReturn saleReturn;
-  final AppLocalizations l10n;
-  final Future<Failure?> Function(String reason) onVoid;
-
-  @override
-  State<_VoidSaleReturnSheet> createState() => _VoidSaleReturnSheetState();
-}
-
-class _VoidSaleReturnSheetState extends State<_VoidSaleReturnSheet> {
-  final _reasonController = TextEditingController();
-  bool _isSubmitting = false;
-  Failure? _failure;
-
-  @override
-  void dispose() {
-    _reasonController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submitVoid() async {
-    final reason = _reasonController.text.trim();
-    if (_isSubmitting) {
-      return;
-    }
-    if (reason.isEmpty) {
-      setState(
-        () => _failure = Failure.validation(
-          message: widget.l10n.salesDetailVoidReturnReasonRequired,
-        ),
-      );
-      return;
-    }
-
-    setState(() {
-      _isSubmitting = true;
-      _failure = null;
-    });
-    final failure = await widget.onVoid(reason);
-    if (!mounted) return;
-
-    setState(() => _isSubmitting = false);
-    if (failure == null) {
-      Navigator.of(context).pop(true);
-      return;
-    }
-
-    setState(() => _failure = failure);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          16,
-          0,
-          16,
-          24 + MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                '${widget.l10n.salesDetailVoidReturnAction} '
-                '${widget.saleReturn.returnNumber}',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                key: Key(
-                  _voidReturnReasonFieldKey(widget.saleReturn.saleReturnId),
-                ),
-                controller: _reasonController,
-                decoration: InputDecoration(
-                  labelText: widget.l10n.salesDetailVoidReturnReason,
-                  border: const OutlineInputBorder(),
-                ),
-              ),
-              if (_failure != null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  _failureMessage(widget.l10n, _failure!),
-                  key: Key(
-                    _voidReturnFailureKey(widget.saleReturn.saleReturnId),
-                  ),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.error,
-                  ),
-                ),
-              ],
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    key: Key(
-                      _voidReturnSubmitKey(widget.saleReturn.saleReturnId),
-                    ),
-                    onPressed: _isSubmitting
-                        ? null
-                        : () => unawaited(_submitVoid()),
-                    child: _isSubmitting
-                        ? const SizedBox(
-                            height: 16,
-                            width: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Text(widget.l10n.salesDetailVoidReturnAction),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: Text(widget.l10n.commonCancel),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-String _failureMessage(AppLocalizations l10n, Failure failure) {
-  return failure.when(
-    validation: (message, _) => message ?? l10n.salesDetailVoidReturnFailed,
-    unauthorized: (message) =>
-        message ?? l10n.salesDetailVoidReturnUnauthorized,
-    forbidden: (message) => message ?? l10n.salesDetailVoidReturnForbidden,
-    notFound: (message) => message ?? l10n.salesDetailVoidReturnFailed,
-    server: (message, _) => message ?? l10n.salesDetailVoidReturnFailed,
-    network: (message) => message ?? l10n.salesDetailVoidReturnNetwork,
-    timeout: (message) => message ?? l10n.salesDetailVoidReturnTimeout,
-    serialization: (message) => message ?? l10n.salesDetailVoidReturnFailed,
-    unknown: (message) => message ?? l10n.salesDetailVoidReturnFailed,
-  );
-}
-
-String _voidReturnActionKey(String action, String id) {
-  return 'sales-detail-return-$action-$id';
-}
-
-String _voidReturnReasonFieldKey(String id) => _voidReturnActionKey(
-  'void-reason',
-  id,
-);
-
-String _voidReturnSubmitKey(String id) => _voidReturnActionKey(
-  'void-submit',
-  id,
-);
-
-String _voidReturnFailureKey(String id) => _voidReturnActionKey(
-  'void-failure',
-  id,
-);

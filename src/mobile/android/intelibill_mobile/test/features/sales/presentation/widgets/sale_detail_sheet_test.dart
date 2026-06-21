@@ -12,6 +12,7 @@ import 'package:intelibill_mobile/src/features/sales/domain/use_cases/get_sale_d
 import 'package:intelibill_mobile/src/features/sales/domain/use_cases/void_sale_return.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/controllers/sales_providers.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/widgets/sale_detail_sheet.dart';
+import 'package:intelibill_mobile/src/features/sales/presentation/widgets/void_sale_return_sheet.dart';
 import 'package:mocktail/mocktail.dart';
 
 class MockGetSaleDetail extends Mock implements GetSaleDetail {}
@@ -55,7 +56,17 @@ AuthSession _sessionForRole(String role) {
   );
 }
 
-SaleDetail _saleDetail({bool isReturnVoided = false}) {
+SaleDetail _saleDetail({
+  bool isReturnVoided = false,
+  List<SaleDetailItem>? items,
+  List<SaleDetailSettlement>? settlements,
+  List<SaleDetailDiscount>? discounts,
+  List<SaleDetailReturn>? returns,
+  List<SaleDetailCreditNoteRedemption>? creditNoteRedemptions,
+  List<String>? warnings,
+  double refundAmount = 0.0,
+  double creditNoteAppliedAmount = 15,
+}) {
   return SaleDetail(
     saleId: 'sale-1',
     invoiceNumber: 'INV-2026-001',
@@ -64,90 +75,100 @@ SaleDetail _saleDetail({bool isReturnVoided = false}) {
     customerPhone: '9999999999',
     paymentMethod: 1,
     soldAt: DateTime.utc(2026, 5, 11, 10, 30),
-    items: [
-      SaleDetailItem(
-        saleItemId: 'item-1',
-        lineType: 'Goods',
-        lineCode: 'SKU-1',
-        itemName: 'Notebook',
-        quantity: 2,
-        salesPrice: 100,
-        originalSalesPrice: 100,
-        finalSalesPrice: 100,
-        preTaxAmountBeforeDiscount: 200,
-        itemDiscountAmount: 0,
-        saleDiscountAmount: 20,
-        taxableAmount: 218,
-        taxAmount: 18,
-        totalAmount: 236,
-        savingsAmount: 20,
-        taxRatePercent: 18,
-        isPriceIncludingTax: false,
-        hasPriceMismatch: false,
-        returnedQuantity: 1,
-        returnableQuantity: 1,
-        returnStatus: 'PartiallyReturned',
-      ),
-    ],
-    settlements: [
-      SaleDetailSettlement(
-        settlementId: 'settlement-1',
-        method: 'Cash',
-        amount: 200,
-        settledAt: DateTime.utc(2026, 5, 11, 11),
-      ),
-    ],
-    discounts: [
-      SaleDetailDiscount(
-        discountId: 'discount-1',
-        type: 'Promo',
-        value: '10%',
-        amount: 20,
-      ),
-    ],
-    returns: [
-      SaleDetailReturn(
-        saleReturnId: 'return-1',
-        returnNumber: 'RET-001',
-        processedAt: DateTime.utc(2026, 5, 12, 9),
-        processedBy: 'Manager',
-        totalRefundAmount: 100,
-        dueReductionAmount: 0,
-        payoutAmount: 100,
-        totalTaxableAmount: 100,
-        totalTaxAmount: 0,
-        isVoided: isReturnVoided,
-        voidedAt: isReturnVoided ? DateTime.utc(2026, 5, 13, 10, 15) : null,
-        voidReason: isReturnVoided ? 'Duplicate return' : null,
-        items: [
-          SaleDetailReturnItem(
-            saleReturnItemId: 'return-item-1',
+    items:
+        items ??
+        [
+          SaleDetailItem(
             saleItemId: 'item-1',
-            quantity: 1,
-            approvedRefundAmount: 100,
-            taxableAmount: 100,
-            taxAmount: 0,
+            lineType: 'Goods',
+            lineCode: 'SKU-1',
+            itemName: 'Notebook',
+            quantity: 2,
+            salesPrice: 100,
+            originalSalesPrice: 100,
+            finalSalesPrice: 100,
+            preTaxAmountBeforeDiscount: 200,
+            itemDiscountAmount: 0,
+            saleDiscountAmount: 20,
+            taxableAmount: 218,
+            taxAmount: 18,
+            totalAmount: 236,
+            savingsAmount: 20,
+            taxRatePercent: 18,
+            isPriceIncludingTax: false,
+            hasPriceMismatch: false,
+            returnedQuantity: 1,
+            returnableQuantity: 1,
+            returnStatus: 'PartiallyReturned',
           ),
         ],
-      ),
-    ],
-    creditNoteRedemptions: [
-      SaleDetailCreditNoteRedemption(
-        creditNoteId: 'redemption-1',
-        code: 'CN-LOYALTY-001',
-        appliedAmount: 15,
-      ),
-    ],
-    warnings: const ['Low stock detected'],
+    settlements:
+        settlements ??
+        [
+          SaleDetailSettlement(
+            settlementId: 'settlement-1',
+            method: 'Cash',
+            amount: 200,
+            settledAt: DateTime.utc(2026, 5, 11, 11),
+          ),
+        ],
+    discounts:
+        discounts ??
+        [
+          SaleDetailDiscount(
+            discountId: 'discount-1',
+            type: 'Promo',
+            value: '10%',
+            amount: 20,
+          ),
+        ],
+    returns:
+        returns ??
+        [
+          SaleDetailReturn(
+            saleReturnId: 'return-1',
+            returnNumber: 'RET-001',
+            processedAt: DateTime.utc(2026, 5, 12, 9),
+            processedBy: 'Manager',
+            totalRefundAmount: 100,
+            dueReductionAmount: 0,
+            payoutAmount: 100,
+            totalTaxableAmount: 100,
+            totalTaxAmount: 0,
+            isVoided: isReturnVoided,
+            voidedAt: isReturnVoided ? DateTime.utc(2026, 5, 13, 10, 15) : null,
+            voidReason: isReturnVoided ? 'Duplicate return' : null,
+            items: [
+              SaleDetailReturnItem(
+                saleReturnItemId: 'return-item-1',
+                saleItemId: 'item-1',
+                quantity: 1,
+                approvedRefundAmount: 100,
+                taxableAmount: 100,
+                taxAmount: 0,
+              ),
+            ],
+          ),
+        ],
+    creditNoteRedemptions:
+        creditNoteRedemptions ??
+        [
+          SaleDetailCreditNoteRedemption(
+            creditNoteId: 'redemption-1',
+            code: 'CN-LOYALTY-001',
+            appliedAmount: 15,
+          ),
+        ],
+    warnings: warnings ?? const ['Low stock detected'],
     paidAmount: 200,
     dueAmount: 36,
     totalBeforeDiscount: 256,
     totalDiscountAmount: 20,
     totalAmount: 236,
     totalTaxAmount: 18,
-    creditNoteAppliedAmount: 15,
+    creditNoteAppliedAmount: creditNoteAppliedAmount,
     status: 'partiallyPaid',
-    refundAmount: 0.0,
+    refundAmount: refundAmount,
     dueReductionAmount: 0.0,
   );
 }
@@ -189,10 +210,6 @@ Widget _buildApp({
   );
 }
 
-String _voidReturnActionKey(String action, String id) {
-  return 'sales-detail-return-$action-$id';
-}
-
 void main() {
   late MockGetSaleDetail getSaleDetail;
   late MockVoidSaleReturn voidSaleReturn;
@@ -200,6 +217,70 @@ void main() {
   setUp(() {
     getSaleDetail = MockGetSaleDetail();
     voidSaleReturn = MockVoidSaleReturn();
+  });
+
+  testWidgets('shows all sale detail sections', (tester) async {
+    final detail = _saleDetail();
+    when(() => getSaleDetail(any())).thenAnswer((_) async => detail);
+
+    await tester.pumpWidget(
+      _buildApp(
+        getSaleDetail: getSaleDetail,
+        voidSaleReturn: voidSaleReturn,
+        role: 'Owner',
+        detail: detail,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sale details'), findsOneWidget);
+    expect(find.text('Line items'), findsOneWidget);
+    expect(find.text('Totals'), findsOneWidget);
+    expect(find.text('Discounts'), findsOneWidget);
+    expect(find.text('Payment split'), findsOneWidget);
+    expect(find.text('Returns'), findsOneWidget);
+    expect(find.text('Redemptions'), findsOneWidget);
+    expect(find.text('Warnings'), findsOneWidget);
+    expect(find.text('Notebook'), findsOneWidget);
+    expect(find.textContaining('1.0 returned of item-1'), findsOneWidget);
+    expect(find.text('Low stock detected'), findsOneWidget);
+    expect(find.text('INV-2026-001'), findsOneWidget);
+  });
+
+  testWidgets('does not duplicate refund against redemption total', (
+    tester,
+  ) async {
+    final detail = _saleDetail(
+      items: const [],
+      settlements: const [],
+      discounts: const [],
+      returns: const [],
+      creditNoteRedemptions: const [
+        SaleDetailCreditNoteRedemption(
+          creditNoteId: 'redemption-1',
+          code: 'CN-001',
+          appliedAmount: 50,
+        ),
+      ],
+      warnings: const [],
+      refundAmount: 50,
+      creditNoteAppliedAmount: 50,
+    );
+    when(() => getSaleDetail(any())).thenAnswer((_) async => detail);
+
+    await tester.pumpWidget(
+      _buildApp(
+        getSaleDetail: getSaleDetail,
+        voidSaleReturn: voidSaleReturn,
+        role: 'Owner',
+        detail: detail,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Refund amount'), findsNothing);
+    expect(find.text('CN-001'), findsOneWidget);
+    expect(find.textContaining('50'), findsOneWidget);
   });
 
   testWidgets('shows void action for non-voided return for owner', (
@@ -219,7 +300,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.byKey(Key(_voidReturnActionKey('button', 'return-1'))),
+      find.byKey(Key(voidReturnActionKey('button', 'return-1'))),
       findsOneWidget,
     );
   });
@@ -239,7 +320,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.byKey(Key(_voidReturnActionKey('button', 'return-1'))),
+      find.byKey(Key(voidReturnActionKey('button', 'return-1'))),
       findsNothing,
     );
   });
@@ -261,7 +342,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.byKey(Key(_voidReturnActionKey('button', 'return-1'))),
+      find.byKey(Key(voidReturnActionKey('button', 'return-1'))),
       findsNothing,
     );
     expect(find.text('Voided'), findsOneWidget);
@@ -281,7 +362,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     final actionButton = find.byKey(
-      Key(_voidReturnActionKey('button', 'return-1')),
+      Key(voidReturnActionKey('button', 'return-1')),
     );
     await tester.ensureVisible(actionButton);
     await tester.pumpAndSettle();
@@ -290,7 +371,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     final submitButton = find.byKey(
-      Key(_voidReturnActionKey('void-submit', 'return-1')),
+      Key(voidReturnSubmitKey('return-1')),
     );
     await tester.ensureVisible(submitButton);
     await tester.pumpAndSettle();
@@ -328,7 +409,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     final actionButton = find.byKey(
-      Key(_voidReturnActionKey('button', 'return-1')),
+      Key(voidReturnActionKey('button', 'return-1')),
     );
     await tester.ensureVisible(actionButton);
     await tester.pumpAndSettle();
@@ -338,10 +419,10 @@ void main() {
     );
     await tester.pumpAndSettle();
     final reasonField = find.byKey(
-      Key(_voidReturnActionKey('void-reason', 'return-1')),
+      Key(voidReturnReasonFieldKey('return-1')),
     );
     final submitButton = find.byKey(
-      Key(_voidReturnActionKey('void-submit', 'return-1')),
+      Key(voidReturnSubmitKey('return-1')),
     );
     await tester.ensureVisible(reasonField);
     await tester.pumpAndSettle();
@@ -381,7 +462,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final actionButton = find.byKey(
-      Key(_voidReturnActionKey('button', 'return-1')),
+      Key(voidReturnActionKey('button', 'return-1')),
     );
     await tester.ensureVisible(actionButton);
     await tester.pumpAndSettle();
@@ -390,11 +471,11 @@ void main() {
     );
     await tester.pumpAndSettle();
     await tester.enterText(
-      find.byKey(Key(_voidReturnActionKey('void-reason', 'return-1'))),
+      find.byKey(Key(voidReturnReasonFieldKey('return-1'))),
       'Forbidden',
     );
     await tester.tap(
-      find.byKey(Key(_voidReturnActionKey('void-submit', 'return-1'))),
+      find.byKey(Key(voidReturnSubmitKey('return-1'))),
     );
     await tester.pumpAndSettle();
 
@@ -430,7 +511,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final actionButton = find.byKey(
-      Key(_voidReturnActionKey('button', 'return-1')),
+      Key(voidReturnActionKey('button', 'return-1')),
     );
     await tester.ensureVisible(actionButton);
     await tester.pumpAndSettle();
