@@ -304,5 +304,32 @@ void main() {
         ),
       ).called(1);
     });
+
+    test('voids a sale return with reason payload', () async {
+      when(
+        () => mockApiClient.post<void>(
+          '/sales/returns/return-1/void',
+          data: {'reason': 'Damaged'},
+        ),
+      ).thenAnswer(
+        (_) async => Response<void>(
+          data: null,
+          statusCode: 200,
+          requestOptions: RequestOptions(path: '/sales/returns/return-1/void'),
+        ),
+      );
+
+      await remoteDataSource.voidSaleReturn(
+        saleReturnId: 'return-1',
+        reason: 'Damaged',
+      );
+
+      verify(
+        () => mockApiClient.post<void>(
+          '/sales/returns/return-1/void',
+          data: {'reason': 'Damaged'},
+        ),
+      ).called(1);
+    });
   });
 }

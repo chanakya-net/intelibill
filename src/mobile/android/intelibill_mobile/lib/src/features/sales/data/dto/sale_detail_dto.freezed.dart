@@ -1360,7 +1360,7 @@ as String?,
 /// @nodoc
 mixin _$SaleDetailReturnDto {
 
-@JsonKey(name: 'saleReturnId') String get saleReturnId;@JsonKey(name: 'returnNumber') String get returnNumber;@JsonKey(name: 'processedAt') DateTime get processedAt;@JsonKey(name: 'processedBy') String get processedBy;@JsonKey(name: 'notes') String? get notes;@JsonKey(name: 'totalRefundAmount') double get totalRefundAmount;@JsonKey(name: 'dueReductionAmount') double get dueReductionAmount;@JsonKey(name: 'payoutAmount') double get payoutAmount;@JsonKey(name: 'payoutDestination') String? get payoutDestination;@JsonKey(name: 'totalTaxableAmount') double get totalTaxableAmount;@JsonKey(name: 'totalTaxAmount') double get totalTaxAmount;@JsonKey(name: 'creditNote') SaleDetailReturnCreditNoteDto? get creditNote;@JsonKey(name: 'items') List<SaleDetailReturnItemDto> get items;
+@JsonKey(name: 'saleReturnId') String get saleReturnId;@JsonKey(name: 'returnNumber') String get returnNumber;@JsonKey(name: 'processedAt') DateTime get processedAt;@JsonKey(name: 'processedBy') String get processedBy;@JsonKey(name: 'isVoided') bool get isVoided;@JsonKey(name: 'voidedAt') DateTime? get voidedAt;@JsonKey(name: 'voidReason') String? get voidReason;@JsonKey(name: 'notes') String? get notes;@JsonKey(name: 'totalRefundAmount') double get totalRefundAmount;@JsonKey(name: 'dueReductionAmount') double get dueReductionAmount;@JsonKey(name: 'payoutAmount') double get payoutAmount;@JsonKey(name: 'payoutDestination') String? get payoutDestination;@JsonKey(name: 'totalTaxableAmount') double get totalTaxableAmount;@JsonKey(name: 'totalTaxAmount') double get totalTaxAmount;@JsonKey(name: 'creditNote') SaleDetailReturnCreditNoteDto? get creditNote;@JsonKey(name: 'items') List<SaleDetailReturnItemDto> get items;
 /// Create a copy of SaleDetailReturnDto
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -1373,16 +1373,16 @@ $SaleDetailReturnDtoCopyWith<SaleDetailReturnDto> get copyWith => _$SaleDetailRe
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is SaleDetailReturnDto&&(identical(other.saleReturnId, saleReturnId) || other.saleReturnId == saleReturnId)&&(identical(other.returnNumber, returnNumber) || other.returnNumber == returnNumber)&&(identical(other.processedAt, processedAt) || other.processedAt == processedAt)&&(identical(other.processedBy, processedBy) || other.processedBy == processedBy)&&(identical(other.notes, notes) || other.notes == notes)&&(identical(other.totalRefundAmount, totalRefundAmount) || other.totalRefundAmount == totalRefundAmount)&&(identical(other.dueReductionAmount, dueReductionAmount) || other.dueReductionAmount == dueReductionAmount)&&(identical(other.payoutAmount, payoutAmount) || other.payoutAmount == payoutAmount)&&(identical(other.payoutDestination, payoutDestination) || other.payoutDestination == payoutDestination)&&(identical(other.totalTaxableAmount, totalTaxableAmount) || other.totalTaxableAmount == totalTaxableAmount)&&(identical(other.totalTaxAmount, totalTaxAmount) || other.totalTaxAmount == totalTaxAmount)&&(identical(other.creditNote, creditNote) || other.creditNote == creditNote)&&const DeepCollectionEquality().equals(other.items, items));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is SaleDetailReturnDto&&(identical(other.saleReturnId, saleReturnId) || other.saleReturnId == saleReturnId)&&(identical(other.returnNumber, returnNumber) || other.returnNumber == returnNumber)&&(identical(other.processedAt, processedAt) || other.processedAt == processedAt)&&(identical(other.processedBy, processedBy) || other.processedBy == processedBy)&&(identical(other.isVoided, isVoided) || other.isVoided == isVoided)&&(identical(other.voidedAt, voidedAt) || other.voidedAt == voidedAt)&&(identical(other.voidReason, voidReason) || other.voidReason == voidReason)&&(identical(other.notes, notes) || other.notes == notes)&&(identical(other.totalRefundAmount, totalRefundAmount) || other.totalRefundAmount == totalRefundAmount)&&(identical(other.dueReductionAmount, dueReductionAmount) || other.dueReductionAmount == dueReductionAmount)&&(identical(other.payoutAmount, payoutAmount) || other.payoutAmount == payoutAmount)&&(identical(other.payoutDestination, payoutDestination) || other.payoutDestination == payoutDestination)&&(identical(other.totalTaxableAmount, totalTaxableAmount) || other.totalTaxableAmount == totalTaxableAmount)&&(identical(other.totalTaxAmount, totalTaxAmount) || other.totalTaxAmount == totalTaxAmount)&&(identical(other.creditNote, creditNote) || other.creditNote == creditNote)&&const DeepCollectionEquality().equals(other.items, items));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,saleReturnId,returnNumber,processedAt,processedBy,notes,totalRefundAmount,dueReductionAmount,payoutAmount,payoutDestination,totalTaxableAmount,totalTaxAmount,creditNote,const DeepCollectionEquality().hash(items));
+int get hashCode => Object.hash(runtimeType,saleReturnId,returnNumber,processedAt,processedBy,isVoided,voidedAt,voidReason,notes,totalRefundAmount,dueReductionAmount,payoutAmount,payoutDestination,totalTaxableAmount,totalTaxAmount,creditNote,const DeepCollectionEquality().hash(items));
 
 @override
 String toString() {
-  return 'SaleDetailReturnDto(saleReturnId: $saleReturnId, returnNumber: $returnNumber, processedAt: $processedAt, processedBy: $processedBy, notes: $notes, totalRefundAmount: $totalRefundAmount, dueReductionAmount: $dueReductionAmount, payoutAmount: $payoutAmount, payoutDestination: $payoutDestination, totalTaxableAmount: $totalTaxableAmount, totalTaxAmount: $totalTaxAmount, creditNote: $creditNote, items: $items)';
+  return 'SaleDetailReturnDto(saleReturnId: $saleReturnId, returnNumber: $returnNumber, processedAt: $processedAt, processedBy: $processedBy, isVoided: $isVoided, voidedAt: $voidedAt, voidReason: $voidReason, notes: $notes, totalRefundAmount: $totalRefundAmount, dueReductionAmount: $dueReductionAmount, payoutAmount: $payoutAmount, payoutDestination: $payoutDestination, totalTaxableAmount: $totalTaxableAmount, totalTaxAmount: $totalTaxAmount, creditNote: $creditNote, items: $items)';
 }
 
 
@@ -1393,7 +1393,7 @@ abstract mixin class $SaleDetailReturnDtoCopyWith<$Res>  {
   factory $SaleDetailReturnDtoCopyWith(SaleDetailReturnDto value, $Res Function(SaleDetailReturnDto) _then) = _$SaleDetailReturnDtoCopyWithImpl;
 @useResult
 $Res call({
-@JsonKey(name: 'saleReturnId') String saleReturnId,@JsonKey(name: 'returnNumber') String returnNumber,@JsonKey(name: 'processedAt') DateTime processedAt,@JsonKey(name: 'processedBy') String processedBy,@JsonKey(name: 'notes') String? notes,@JsonKey(name: 'totalRefundAmount') double totalRefundAmount,@JsonKey(name: 'dueReductionAmount') double dueReductionAmount,@JsonKey(name: 'payoutAmount') double payoutAmount,@JsonKey(name: 'payoutDestination') String? payoutDestination,@JsonKey(name: 'totalTaxableAmount') double totalTaxableAmount,@JsonKey(name: 'totalTaxAmount') double totalTaxAmount,@JsonKey(name: 'creditNote') SaleDetailReturnCreditNoteDto? creditNote,@JsonKey(name: 'items') List<SaleDetailReturnItemDto> items
+@JsonKey(name: 'saleReturnId') String saleReturnId,@JsonKey(name: 'returnNumber') String returnNumber,@JsonKey(name: 'processedAt') DateTime processedAt,@JsonKey(name: 'processedBy') String processedBy,@JsonKey(name: 'isVoided') bool isVoided,@JsonKey(name: 'voidedAt') DateTime? voidedAt,@JsonKey(name: 'voidReason') String? voidReason,@JsonKey(name: 'notes') String? notes,@JsonKey(name: 'totalRefundAmount') double totalRefundAmount,@JsonKey(name: 'dueReductionAmount') double dueReductionAmount,@JsonKey(name: 'payoutAmount') double payoutAmount,@JsonKey(name: 'payoutDestination') String? payoutDestination,@JsonKey(name: 'totalTaxableAmount') double totalTaxableAmount,@JsonKey(name: 'totalTaxAmount') double totalTaxAmount,@JsonKey(name: 'creditNote') SaleDetailReturnCreditNoteDto? creditNote,@JsonKey(name: 'items') List<SaleDetailReturnItemDto> items
 });
 
 
@@ -1410,13 +1410,16 @@ class _$SaleDetailReturnDtoCopyWithImpl<$Res>
 
 /// Create a copy of SaleDetailReturnDto
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? saleReturnId = null,Object? returnNumber = null,Object? processedAt = null,Object? processedBy = null,Object? notes = freezed,Object? totalRefundAmount = null,Object? dueReductionAmount = null,Object? payoutAmount = null,Object? payoutDestination = freezed,Object? totalTaxableAmount = null,Object? totalTaxAmount = null,Object? creditNote = freezed,Object? items = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? saleReturnId = null,Object? returnNumber = null,Object? processedAt = null,Object? processedBy = null,Object? isVoided = null,Object? voidedAt = freezed,Object? voidReason = freezed,Object? notes = freezed,Object? totalRefundAmount = null,Object? dueReductionAmount = null,Object? payoutAmount = null,Object? payoutDestination = freezed,Object? totalTaxableAmount = null,Object? totalTaxAmount = null,Object? creditNote = freezed,Object? items = null,}) {
   return _then(_self.copyWith(
 saleReturnId: null == saleReturnId ? _self.saleReturnId : saleReturnId // ignore: cast_nullable_to_non_nullable
 as String,returnNumber: null == returnNumber ? _self.returnNumber : returnNumber // ignore: cast_nullable_to_non_nullable
 as String,processedAt: null == processedAt ? _self.processedAt : processedAt // ignore: cast_nullable_to_non_nullable
 as DateTime,processedBy: null == processedBy ? _self.processedBy : processedBy // ignore: cast_nullable_to_non_nullable
-as String,notes: freezed == notes ? _self.notes : notes // ignore: cast_nullable_to_non_nullable
+as String,isVoided: null == isVoided ? _self.isVoided : isVoided // ignore: cast_nullable_to_non_nullable
+as bool,voidedAt: freezed == voidedAt ? _self.voidedAt : voidedAt // ignore: cast_nullable_to_non_nullable
+as DateTime?,voidReason: freezed == voidReason ? _self.voidReason : voidReason // ignore: cast_nullable_to_non_nullable
+as String?,notes: freezed == notes ? _self.notes : notes // ignore: cast_nullable_to_non_nullable
 as String?,totalRefundAmount: null == totalRefundAmount ? _self.totalRefundAmount : totalRefundAmount // ignore: cast_nullable_to_non_nullable
 as double,dueReductionAmount: null == dueReductionAmount ? _self.dueReductionAmount : dueReductionAmount // ignore: cast_nullable_to_non_nullable
 as double,payoutAmount: null == payoutAmount ? _self.payoutAmount : payoutAmount // ignore: cast_nullable_to_non_nullable
@@ -1519,10 +1522,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'saleReturnId')  String saleReturnId, @JsonKey(name: 'returnNumber')  String returnNumber, @JsonKey(name: 'processedAt')  DateTime processedAt, @JsonKey(name: 'processedBy')  String processedBy, @JsonKey(name: 'notes')  String? notes, @JsonKey(name: 'totalRefundAmount')  double totalRefundAmount, @JsonKey(name: 'dueReductionAmount')  double dueReductionAmount, @JsonKey(name: 'payoutAmount')  double payoutAmount, @JsonKey(name: 'payoutDestination')  String? payoutDestination, @JsonKey(name: 'totalTaxableAmount')  double totalTaxableAmount, @JsonKey(name: 'totalTaxAmount')  double totalTaxAmount, @JsonKey(name: 'creditNote')  SaleDetailReturnCreditNoteDto? creditNote, @JsonKey(name: 'items')  List<SaleDetailReturnItemDto> items)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'saleReturnId')  String saleReturnId, @JsonKey(name: 'returnNumber')  String returnNumber, @JsonKey(name: 'processedAt')  DateTime processedAt, @JsonKey(name: 'processedBy')  String processedBy, @JsonKey(name: 'isVoided')  bool isVoided, @JsonKey(name: 'voidedAt')  DateTime? voidedAt, @JsonKey(name: 'voidReason')  String? voidReason, @JsonKey(name: 'notes')  String? notes, @JsonKey(name: 'totalRefundAmount')  double totalRefundAmount, @JsonKey(name: 'dueReductionAmount')  double dueReductionAmount, @JsonKey(name: 'payoutAmount')  double payoutAmount, @JsonKey(name: 'payoutDestination')  String? payoutDestination, @JsonKey(name: 'totalTaxableAmount')  double totalTaxableAmount, @JsonKey(name: 'totalTaxAmount')  double totalTaxAmount, @JsonKey(name: 'creditNote')  SaleDetailReturnCreditNoteDto? creditNote, @JsonKey(name: 'items')  List<SaleDetailReturnItemDto> items)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _SaleDetailReturnDto() when $default != null:
-return $default(_that.saleReturnId,_that.returnNumber,_that.processedAt,_that.processedBy,_that.notes,_that.totalRefundAmount,_that.dueReductionAmount,_that.payoutAmount,_that.payoutDestination,_that.totalTaxableAmount,_that.totalTaxAmount,_that.creditNote,_that.items);case _:
+return $default(_that.saleReturnId,_that.returnNumber,_that.processedAt,_that.processedBy,_that.isVoided,_that.voidedAt,_that.voidReason,_that.notes,_that.totalRefundAmount,_that.dueReductionAmount,_that.payoutAmount,_that.payoutDestination,_that.totalTaxableAmount,_that.totalTaxAmount,_that.creditNote,_that.items);case _:
   return orElse();
 
 }
@@ -1540,10 +1543,10 @@ return $default(_that.saleReturnId,_that.returnNumber,_that.processedAt,_that.pr
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'saleReturnId')  String saleReturnId, @JsonKey(name: 'returnNumber')  String returnNumber, @JsonKey(name: 'processedAt')  DateTime processedAt, @JsonKey(name: 'processedBy')  String processedBy, @JsonKey(name: 'notes')  String? notes, @JsonKey(name: 'totalRefundAmount')  double totalRefundAmount, @JsonKey(name: 'dueReductionAmount')  double dueReductionAmount, @JsonKey(name: 'payoutAmount')  double payoutAmount, @JsonKey(name: 'payoutDestination')  String? payoutDestination, @JsonKey(name: 'totalTaxableAmount')  double totalTaxableAmount, @JsonKey(name: 'totalTaxAmount')  double totalTaxAmount, @JsonKey(name: 'creditNote')  SaleDetailReturnCreditNoteDto? creditNote, @JsonKey(name: 'items')  List<SaleDetailReturnItemDto> items)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'saleReturnId')  String saleReturnId, @JsonKey(name: 'returnNumber')  String returnNumber, @JsonKey(name: 'processedAt')  DateTime processedAt, @JsonKey(name: 'processedBy')  String processedBy, @JsonKey(name: 'isVoided')  bool isVoided, @JsonKey(name: 'voidedAt')  DateTime? voidedAt, @JsonKey(name: 'voidReason')  String? voidReason, @JsonKey(name: 'notes')  String? notes, @JsonKey(name: 'totalRefundAmount')  double totalRefundAmount, @JsonKey(name: 'dueReductionAmount')  double dueReductionAmount, @JsonKey(name: 'payoutAmount')  double payoutAmount, @JsonKey(name: 'payoutDestination')  String? payoutDestination, @JsonKey(name: 'totalTaxableAmount')  double totalTaxableAmount, @JsonKey(name: 'totalTaxAmount')  double totalTaxAmount, @JsonKey(name: 'creditNote')  SaleDetailReturnCreditNoteDto? creditNote, @JsonKey(name: 'items')  List<SaleDetailReturnItemDto> items)  $default,) {final _that = this;
 switch (_that) {
 case _SaleDetailReturnDto():
-return $default(_that.saleReturnId,_that.returnNumber,_that.processedAt,_that.processedBy,_that.notes,_that.totalRefundAmount,_that.dueReductionAmount,_that.payoutAmount,_that.payoutDestination,_that.totalTaxableAmount,_that.totalTaxAmount,_that.creditNote,_that.items);}
+return $default(_that.saleReturnId,_that.returnNumber,_that.processedAt,_that.processedBy,_that.isVoided,_that.voidedAt,_that.voidReason,_that.notes,_that.totalRefundAmount,_that.dueReductionAmount,_that.payoutAmount,_that.payoutDestination,_that.totalTaxableAmount,_that.totalTaxAmount,_that.creditNote,_that.items);}
 }
 /// A variant of `when` that fallback to returning `null`
 ///
@@ -1557,10 +1560,10 @@ return $default(_that.saleReturnId,_that.returnNumber,_that.processedAt,_that.pr
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'saleReturnId')  String saleReturnId, @JsonKey(name: 'returnNumber')  String returnNumber, @JsonKey(name: 'processedAt')  DateTime processedAt, @JsonKey(name: 'processedBy')  String processedBy, @JsonKey(name: 'notes')  String? notes, @JsonKey(name: 'totalRefundAmount')  double totalRefundAmount, @JsonKey(name: 'dueReductionAmount')  double dueReductionAmount, @JsonKey(name: 'payoutAmount')  double payoutAmount, @JsonKey(name: 'payoutDestination')  String? payoutDestination, @JsonKey(name: 'totalTaxableAmount')  double totalTaxableAmount, @JsonKey(name: 'totalTaxAmount')  double totalTaxAmount, @JsonKey(name: 'creditNote')  SaleDetailReturnCreditNoteDto? creditNote, @JsonKey(name: 'items')  List<SaleDetailReturnItemDto> items)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'saleReturnId')  String saleReturnId, @JsonKey(name: 'returnNumber')  String returnNumber, @JsonKey(name: 'processedAt')  DateTime processedAt, @JsonKey(name: 'processedBy')  String processedBy, @JsonKey(name: 'isVoided')  bool isVoided, @JsonKey(name: 'voidedAt')  DateTime? voidedAt, @JsonKey(name: 'voidReason')  String? voidReason, @JsonKey(name: 'notes')  String? notes, @JsonKey(name: 'totalRefundAmount')  double totalRefundAmount, @JsonKey(name: 'dueReductionAmount')  double dueReductionAmount, @JsonKey(name: 'payoutAmount')  double payoutAmount, @JsonKey(name: 'payoutDestination')  String? payoutDestination, @JsonKey(name: 'totalTaxableAmount')  double totalTaxableAmount, @JsonKey(name: 'totalTaxAmount')  double totalTaxAmount, @JsonKey(name: 'creditNote')  SaleDetailReturnCreditNoteDto? creditNote, @JsonKey(name: 'items')  List<SaleDetailReturnItemDto> items)?  $default,) {final _that = this;
 switch (_that) {
 case _SaleDetailReturnDto() when $default != null:
-return $default(_that.saleReturnId,_that.returnNumber,_that.processedAt,_that.processedBy,_that.notes,_that.totalRefundAmount,_that.dueReductionAmount,_that.payoutAmount,_that.payoutDestination,_that.totalTaxableAmount,_that.totalTaxAmount,_that.creditNote,_that.items);case _:
+return $default(_that.saleReturnId,_that.returnNumber,_that.processedAt,_that.processedBy,_that.isVoided,_that.voidedAt,_that.voidReason,_that.notes,_that.totalRefundAmount,_that.dueReductionAmount,_that.payoutAmount,_that.payoutDestination,_that.totalTaxableAmount,_that.totalTaxAmount,_that.creditNote,_that.items);case _:
   return null;
 
 }
@@ -1572,13 +1575,16 @@ return $default(_that.saleReturnId,_that.returnNumber,_that.processedAt,_that.pr
 @JsonSerializable()
 
 class _SaleDetailReturnDto implements SaleDetailReturnDto {
-  const _SaleDetailReturnDto({@JsonKey(name: 'saleReturnId') required this.saleReturnId, @JsonKey(name: 'returnNumber') required this.returnNumber, @JsonKey(name: 'processedAt') required this.processedAt, @JsonKey(name: 'processedBy') required this.processedBy, @JsonKey(name: 'notes') this.notes, @JsonKey(name: 'totalRefundAmount') required this.totalRefundAmount, @JsonKey(name: 'dueReductionAmount') required this.dueReductionAmount, @JsonKey(name: 'payoutAmount') required this.payoutAmount, @JsonKey(name: 'payoutDestination') this.payoutDestination, @JsonKey(name: 'totalTaxableAmount') required this.totalTaxableAmount, @JsonKey(name: 'totalTaxAmount') required this.totalTaxAmount, @JsonKey(name: 'creditNote') this.creditNote, @JsonKey(name: 'items') final  List<SaleDetailReturnItemDto> items = const []}): _items = items;
+  const _SaleDetailReturnDto({@JsonKey(name: 'saleReturnId') required this.saleReturnId, @JsonKey(name: 'returnNumber') required this.returnNumber, @JsonKey(name: 'processedAt') required this.processedAt, @JsonKey(name: 'processedBy') required this.processedBy, @JsonKey(name: 'isVoided') this.isVoided = false, @JsonKey(name: 'voidedAt') this.voidedAt, @JsonKey(name: 'voidReason') this.voidReason, @JsonKey(name: 'notes') this.notes, @JsonKey(name: 'totalRefundAmount') required this.totalRefundAmount, @JsonKey(name: 'dueReductionAmount') required this.dueReductionAmount, @JsonKey(name: 'payoutAmount') required this.payoutAmount, @JsonKey(name: 'payoutDestination') this.payoutDestination, @JsonKey(name: 'totalTaxableAmount') required this.totalTaxableAmount, @JsonKey(name: 'totalTaxAmount') required this.totalTaxAmount, @JsonKey(name: 'creditNote') this.creditNote, @JsonKey(name: 'items') final  List<SaleDetailReturnItemDto> items = const []}): _items = items;
   factory _SaleDetailReturnDto.fromJson(Map<String, dynamic> json) => _$SaleDetailReturnDtoFromJson(json);
 
 @override@JsonKey(name: 'saleReturnId') final  String saleReturnId;
 @override@JsonKey(name: 'returnNumber') final  String returnNumber;
 @override@JsonKey(name: 'processedAt') final  DateTime processedAt;
 @override@JsonKey(name: 'processedBy') final  String processedBy;
+@override@JsonKey(name: 'isVoided') final  bool isVoided;
+@override@JsonKey(name: 'voidedAt') final  DateTime? voidedAt;
+@override@JsonKey(name: 'voidReason') final  String? voidReason;
 @override@JsonKey(name: 'notes') final  String? notes;
 @override@JsonKey(name: 'totalRefundAmount') final  double totalRefundAmount;
 @override@JsonKey(name: 'dueReductionAmount') final  double dueReductionAmount;
@@ -1608,16 +1614,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SaleDetailReturnDto&&(identical(other.saleReturnId, saleReturnId) || other.saleReturnId == saleReturnId)&&(identical(other.returnNumber, returnNumber) || other.returnNumber == returnNumber)&&(identical(other.processedAt, processedAt) || other.processedAt == processedAt)&&(identical(other.processedBy, processedBy) || other.processedBy == processedBy)&&(identical(other.notes, notes) || other.notes == notes)&&(identical(other.totalRefundAmount, totalRefundAmount) || other.totalRefundAmount == totalRefundAmount)&&(identical(other.dueReductionAmount, dueReductionAmount) || other.dueReductionAmount == dueReductionAmount)&&(identical(other.payoutAmount, payoutAmount) || other.payoutAmount == payoutAmount)&&(identical(other.payoutDestination, payoutDestination) || other.payoutDestination == payoutDestination)&&(identical(other.totalTaxableAmount, totalTaxableAmount) || other.totalTaxableAmount == totalTaxableAmount)&&(identical(other.totalTaxAmount, totalTaxAmount) || other.totalTaxAmount == totalTaxAmount)&&(identical(other.creditNote, creditNote) || other.creditNote == creditNote)&&const DeepCollectionEquality().equals(other._items, _items));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SaleDetailReturnDto&&(identical(other.saleReturnId, saleReturnId) || other.saleReturnId == saleReturnId)&&(identical(other.returnNumber, returnNumber) || other.returnNumber == returnNumber)&&(identical(other.processedAt, processedAt) || other.processedAt == processedAt)&&(identical(other.processedBy, processedBy) || other.processedBy == processedBy)&&(identical(other.isVoided, isVoided) || other.isVoided == isVoided)&&(identical(other.voidedAt, voidedAt) || other.voidedAt == voidedAt)&&(identical(other.voidReason, voidReason) || other.voidReason == voidReason)&&(identical(other.notes, notes) || other.notes == notes)&&(identical(other.totalRefundAmount, totalRefundAmount) || other.totalRefundAmount == totalRefundAmount)&&(identical(other.dueReductionAmount, dueReductionAmount) || other.dueReductionAmount == dueReductionAmount)&&(identical(other.payoutAmount, payoutAmount) || other.payoutAmount == payoutAmount)&&(identical(other.payoutDestination, payoutDestination) || other.payoutDestination == payoutDestination)&&(identical(other.totalTaxableAmount, totalTaxableAmount) || other.totalTaxableAmount == totalTaxableAmount)&&(identical(other.totalTaxAmount, totalTaxAmount) || other.totalTaxAmount == totalTaxAmount)&&(identical(other.creditNote, creditNote) || other.creditNote == creditNote)&&const DeepCollectionEquality().equals(other._items, _items));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,saleReturnId,returnNumber,processedAt,processedBy,notes,totalRefundAmount,dueReductionAmount,payoutAmount,payoutDestination,totalTaxableAmount,totalTaxAmount,creditNote,const DeepCollectionEquality().hash(_items));
+int get hashCode => Object.hash(runtimeType,saleReturnId,returnNumber,processedAt,processedBy,isVoided,voidedAt,voidReason,notes,totalRefundAmount,dueReductionAmount,payoutAmount,payoutDestination,totalTaxableAmount,totalTaxAmount,creditNote,const DeepCollectionEquality().hash(_items));
 
 @override
 String toString() {
-  return 'SaleDetailReturnDto(saleReturnId: $saleReturnId, returnNumber: $returnNumber, processedAt: $processedAt, processedBy: $processedBy, notes: $notes, totalRefundAmount: $totalRefundAmount, dueReductionAmount: $dueReductionAmount, payoutAmount: $payoutAmount, payoutDestination: $payoutDestination, totalTaxableAmount: $totalTaxableAmount, totalTaxAmount: $totalTaxAmount, creditNote: $creditNote, items: $items)';
+  return 'SaleDetailReturnDto(saleReturnId: $saleReturnId, returnNumber: $returnNumber, processedAt: $processedAt, processedBy: $processedBy, isVoided: $isVoided, voidedAt: $voidedAt, voidReason: $voidReason, notes: $notes, totalRefundAmount: $totalRefundAmount, dueReductionAmount: $dueReductionAmount, payoutAmount: $payoutAmount, payoutDestination: $payoutDestination, totalTaxableAmount: $totalTaxableAmount, totalTaxAmount: $totalTaxAmount, creditNote: $creditNote, items: $items)';
 }
 
 
@@ -1628,7 +1634,7 @@ abstract mixin class _$SaleDetailReturnDtoCopyWith<$Res> implements $SaleDetailR
   factory _$SaleDetailReturnDtoCopyWith(_SaleDetailReturnDto value, $Res Function(_SaleDetailReturnDto) _then) = __$SaleDetailReturnDtoCopyWithImpl;
 @override @useResult
 $Res call({
-@JsonKey(name: 'saleReturnId') String saleReturnId,@JsonKey(name: 'returnNumber') String returnNumber,@JsonKey(name: 'processedAt') DateTime processedAt,@JsonKey(name: 'processedBy') String processedBy,@JsonKey(name: 'notes') String? notes,@JsonKey(name: 'totalRefundAmount') double totalRefundAmount,@JsonKey(name: 'dueReductionAmount') double dueReductionAmount,@JsonKey(name: 'payoutAmount') double payoutAmount,@JsonKey(name: 'payoutDestination') String? payoutDestination,@JsonKey(name: 'totalTaxableAmount') double totalTaxableAmount,@JsonKey(name: 'totalTaxAmount') double totalTaxAmount,@JsonKey(name: 'creditNote') SaleDetailReturnCreditNoteDto? creditNote,@JsonKey(name: 'items') List<SaleDetailReturnItemDto> items
+@JsonKey(name: 'saleReturnId') String saleReturnId,@JsonKey(name: 'returnNumber') String returnNumber,@JsonKey(name: 'processedAt') DateTime processedAt,@JsonKey(name: 'processedBy') String processedBy,@JsonKey(name: 'isVoided') bool isVoided,@JsonKey(name: 'voidedAt') DateTime? voidedAt,@JsonKey(name: 'voidReason') String? voidReason,@JsonKey(name: 'notes') String? notes,@JsonKey(name: 'totalRefundAmount') double totalRefundAmount,@JsonKey(name: 'dueReductionAmount') double dueReductionAmount,@JsonKey(name: 'payoutAmount') double payoutAmount,@JsonKey(name: 'payoutDestination') String? payoutDestination,@JsonKey(name: 'totalTaxableAmount') double totalTaxableAmount,@JsonKey(name: 'totalTaxAmount') double totalTaxAmount,@JsonKey(name: 'creditNote') SaleDetailReturnCreditNoteDto? creditNote,@JsonKey(name: 'items') List<SaleDetailReturnItemDto> items
 });
 
 
@@ -1645,13 +1651,16 @@ class __$SaleDetailReturnDtoCopyWithImpl<$Res>
 
 /// Create a copy of SaleDetailReturnDto
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? saleReturnId = null,Object? returnNumber = null,Object? processedAt = null,Object? processedBy = null,Object? notes = freezed,Object? totalRefundAmount = null,Object? dueReductionAmount = null,Object? payoutAmount = null,Object? payoutDestination = freezed,Object? totalTaxableAmount = null,Object? totalTaxAmount = null,Object? creditNote = freezed,Object? items = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? saleReturnId = null,Object? returnNumber = null,Object? processedAt = null,Object? processedBy = null,Object? isVoided = null,Object? voidedAt = freezed,Object? voidReason = freezed,Object? notes = freezed,Object? totalRefundAmount = null,Object? dueReductionAmount = null,Object? payoutAmount = null,Object? payoutDestination = freezed,Object? totalTaxableAmount = null,Object? totalTaxAmount = null,Object? creditNote = freezed,Object? items = null,}) {
   return _then(_SaleDetailReturnDto(
 saleReturnId: null == saleReturnId ? _self.saleReturnId : saleReturnId // ignore: cast_nullable_to_non_nullable
 as String,returnNumber: null == returnNumber ? _self.returnNumber : returnNumber // ignore: cast_nullable_to_non_nullable
 as String,processedAt: null == processedAt ? _self.processedAt : processedAt // ignore: cast_nullable_to_non_nullable
 as DateTime,processedBy: null == processedBy ? _self.processedBy : processedBy // ignore: cast_nullable_to_non_nullable
-as String,notes: freezed == notes ? _self.notes : notes // ignore: cast_nullable_to_non_nullable
+as String,isVoided: null == isVoided ? _self.isVoided : isVoided // ignore: cast_nullable_to_non_nullable
+as bool,voidedAt: freezed == voidedAt ? _self.voidedAt : voidedAt // ignore: cast_nullable_to_non_nullable
+as DateTime?,voidReason: freezed == voidReason ? _self.voidReason : voidReason // ignore: cast_nullable_to_non_nullable
+as String?,notes: freezed == notes ? _self.notes : notes // ignore: cast_nullable_to_non_nullable
 as String?,totalRefundAmount: null == totalRefundAmount ? _self.totalRefundAmount : totalRefundAmount // ignore: cast_nullable_to_non_nullable
 as double,dueReductionAmount: null == dueReductionAmount ? _self.dueReductionAmount : dueReductionAmount // ignore: cast_nullable_to_non_nullable
 as double,payoutAmount: null == payoutAmount ? _self.payoutAmount : payoutAmount // ignore: cast_nullable_to_non_nullable

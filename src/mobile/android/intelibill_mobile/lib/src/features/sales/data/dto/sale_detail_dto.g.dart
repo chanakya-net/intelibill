@@ -114,6 +114,11 @@ _SaleDetailReturnDto _$SaleDetailReturnDtoFromJson(Map<String, dynamic> json) =>
       returnNumber: json['returnNumber'] as String,
       processedAt: DateTime.parse(json['processedAt'] as String),
       processedBy: json['processedBy'] as String,
+      isVoided: json['isVoided'] as bool? ?? false,
+      voidedAt: json['voidedAt'] == null
+          ? null
+          : DateTime.parse(json['voidedAt'] as String),
+      voidReason: json['voidReason'] as String?,
       notes: json['notes'] as String?,
       totalRefundAmount: (json['totalRefundAmount'] as num).toDouble(),
       dueReductionAmount: (json['dueReductionAmount'] as num).toDouble(),
@@ -143,6 +148,9 @@ Map<String, dynamic> _$SaleDetailReturnDtoToJson(
   'returnNumber': instance.returnNumber,
   'processedAt': instance.processedAt.toIso8601String(),
   'processedBy': instance.processedBy,
+  'isVoided': instance.isVoided,
+  'voidedAt': instance.voidedAt?.toIso8601String(),
+  'voidReason': instance.voidReason,
   'notes': instance.notes,
   'totalRefundAmount': instance.totalRefundAmount,
   'dueReductionAmount': instance.dueReductionAmount,

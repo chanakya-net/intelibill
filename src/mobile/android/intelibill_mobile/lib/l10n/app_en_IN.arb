@@ -559,6 +559,16 @@
   "salesDetailTaxLabel": "Tax",
   "salesDetailPaidLabel": "Paid",
   "salesDetailDueReduction": "Due reduction",
+  "salesDetailVoidReturnAction": "Void return",
+  "salesDetailVoidReturnReason": "Reason",
+  "salesDetailVoidReturnReasonRequired": "Reason is required.",
+  "salesDetailVoidReturnFailed": "Unable to void return.",
+  "salesDetailVoidReturnUnauthorized": "Session expired. Please log in again.",
+  "salesDetailVoidReturnForbidden": "You do not have permission to void returns.",
+  "salesDetailVoidReturnNetwork": "Unable to connect. Please check your network.",
+  "salesDetailVoidReturnTimeout": "Request timed out. Please try again.",
+  "salesDetailVoidReturnDate": "Voided on",
+  "salesDetailReturnVoided": "Voided",
   "salesDetailReturnItem": "{quantity} returned of {itemName}",
   "@salesDetailReturnItem": {
     "placeholders": {

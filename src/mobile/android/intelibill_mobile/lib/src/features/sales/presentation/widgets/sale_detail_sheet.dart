@@ -1,12 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intelibill_mobile/src/app/shell/menu_visibility.dart';
 import 'package:intelibill_mobile/src/core/formatting/currency_formatter.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
+import 'package:intelibill_mobile/src/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_list_item.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/controllers/sale_detail_controller.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/widgets/sale_return_sheet.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/utils/sale_display_helpers.dart';
+import 'package:intelibill_mobile/src/features/sales/presentation/widgets/void_sale_return_sheet.dart';
 import 'package:intl/intl.dart';
 
 Future<void> showSaleDetailSheet(
@@ -30,6 +35,8 @@ class SaleDetailSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(saleDetailControllerProvider(saleId));
+    final authState = ref.watch(authControllerProvider);
+    final canVoidReturns = isOwnerOrManager(authState.value?.session);
     final l10n = AppLocalizations.of(context)!;
 
     if (state.isLoading) {
@@ -101,7 +108,13 @@ class SaleDetailSheet extends ConsumerWidget {
             const SizedBox(height: 16),
             _SectionCard(
               title: l10n.salesDetailReturns,
-              child: _Returns(detail: detail),
+              child: _Returns(
+                detail: detail,
+                canVoid: canVoidReturns,
+                onVoidReturn: (saleReturn) {
+                  unawaited(_showVoidReturnSheet(context, ref, saleReturn));
+                },
+              ),
             ),
             const SizedBox(height: 16),
             _SectionCard(
@@ -117,6 +130,36 @@ class SaleDetailSheet extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _showVoidReturnSheet(
+    BuildContext context,
+    WidgetRef ref,
+    SaleDetailReturn saleReturn,
+  ) async {
+    final l10n = AppLocalizations.of(context)!;
+    final action = await showVoidSaleReturnSheet(
+      context,
+      saleReturn: saleReturn,
+      l10n: l10n,
+      onVoid: (reason) async {
+        final isSuccess = await ref
+            .read(saleDetailControllerProvider(saleId).notifier)
+            .voidSaleReturn(
+              saleReturnId: saleReturn.saleReturnId,
+              reason: reason,
+            );
+        if (isSuccess) {
+          return null;
+        }
+
+        return ref.read(saleDetailControllerProvider(saleId)).voidFailure;
+      },
+    );
+
+    if (!context.mounted || action != true) {
+      return;
+    }
   }
 }
 
@@ -463,9 +506,15 @@ class _Settlements extends StatelessWidget {
 }
 
 class _Returns extends StatelessWidget {
-  const _Returns({required this.detail});
+  const _Returns({
+    required this.detail,
+    required this.canVoid,
+    required this.onVoidReturn,
+  });
 
   final SaleDetail detail;
+  final bool canVoid;
+  final void Function(SaleDetailReturn saleReturn) onVoidReturn;
 
   @override
   Widget build(BuildContext context) {
@@ -473,6 +522,7 @@ class _Returns extends StatelessWidget {
       return Text(AppLocalizations.of(context)!.salesDetailNoReturns);
     }
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     final dateFormat = DateFormat('dd MMM yyyy, h:mm a');
     return Column(
       children: [
@@ -496,6 +546,39 @@ class _Returns extends StatelessWidget {
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
+          if (saleReturn.voidedAt != null)
+            Text(
+              '${l10n.salesDetailVoidReturnDate} '
+              '${dateFormat.format(saleReturn.voidedAt!)}',
+              style: theme.textTheme.bodySmall,
+            ),
+          if (saleReturn.voidReason != null &&
+              saleReturn.voidReason!.trim().isNotEmpty)
+            Text(
+              '${l10n.salesDetailVoidReturnReason}: ${saleReturn.voidReason}',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.error,
+              ),
+            ),
+          if (saleReturn.isVoided)
+            Text(
+              l10n.salesDetailReturnVoided,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.error,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          if (!saleReturn.isVoided && canVoid)
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                key: Key(
+                  voidReturnActionKey('button', saleReturn.saleReturnId),
+                ),
+                onPressed: () => onVoidReturn(saleReturn),
+                child: Text(l10n.salesDetailVoidReturnAction),
+              ),
+            ),
           if (saleReturn.items.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 6),
@@ -505,7 +588,7 @@ class _Returns extends StatelessWidget {
                     Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        AppLocalizations.of(context)!.salesDetailReturnItem(
+                        l10n.salesDetailReturnItem(
                           item.quantity,
                           item.itemName ?? item.itemId,
                         ),

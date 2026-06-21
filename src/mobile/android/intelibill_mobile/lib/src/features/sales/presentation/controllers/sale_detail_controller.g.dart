@@ -9,47 +9,6 @@ part of 'sale_detail_controller.dart';
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, type=warning
 
-@ProviderFor(getSaleDetail)
-final getSaleDetailProvider = GetSaleDetailProvider._();
-
-final class GetSaleDetailProvider
-    extends $FunctionalProvider<GetSaleDetail, GetSaleDetail, GetSaleDetail>
-    with $Provider<GetSaleDetail> {
-  GetSaleDetailProvider._()
-    : super(
-        from: null,
-        argument: null,
-        retry: null,
-        name: r'getSaleDetailProvider',
-        isAutoDispose: true,
-        dependencies: null,
-        $allTransitiveDependencies: null,
-      );
-
-  @override
-  String debugGetCreateSourceHash() => _$getSaleDetailHash();
-
-  @$internal
-  @override
-  $ProviderElement<GetSaleDetail> $createElement($ProviderPointer pointer) =>
-      $ProviderElement(pointer);
-
-  @override
-  GetSaleDetail create(Ref ref) {
-    return getSaleDetail(ref);
-  }
-
-  /// {@macro riverpod.override_with_value}
-  Override overrideWithValue(GetSaleDetail value) {
-    return $ProviderOverride(
-      origin: this,
-      providerOverride: $SyncValueProvider<GetSaleDetail>(value),
-    );
-  }
-}
-
-String _$getSaleDetailHash() => r'02d67722dc2fb559107379c47d464d6ecdbb3589';
-
 @ProviderFor(SaleDetailController)
 final saleDetailControllerProvider = SaleDetailControllerFamily._();
 
@@ -100,7 +59,7 @@ final class SaleDetailControllerProvider
 }
 
 String _$saleDetailControllerHash() =>
-    r'60fac114ce4e0c8980cd3364fff8a90227b653aa';
+    r'0f2971eda2c266e28552aa70f753b162c8360430';
 
 final class SaleDetailControllerFamily extends $Family
     with

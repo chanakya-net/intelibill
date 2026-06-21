@@ -32,4 +32,11 @@ interface class SalesRepository {
   }) {
     throw UnimplementedError();
   }
+
+  Future<void> voidSaleReturn({
+    required String saleReturnId,
+    required String reason,
+  }) {
+    throw UnimplementedError();
+  }
 }

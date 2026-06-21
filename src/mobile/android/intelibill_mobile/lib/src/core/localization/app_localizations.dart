@@ -3097,6 +3097,66 @@ abstract class AppLocalizations {
   /// **'Due reduction'**
   String get salesDetailDueReduction;
 
+  /// No description provided for @salesDetailVoidReturnAction.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Void return'**
+  String get salesDetailVoidReturnAction;
+
+  /// No description provided for @salesDetailVoidReturnReason.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Reason'**
+  String get salesDetailVoidReturnReason;
+
+  /// No description provided for @salesDetailVoidReturnReasonRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Reason is required.'**
+  String get salesDetailVoidReturnReasonRequired;
+
+  /// No description provided for @salesDetailVoidReturnFailed.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to void return.'**
+  String get salesDetailVoidReturnFailed;
+
+  /// No description provided for @salesDetailVoidReturnUnauthorized.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Session expired. Please log in again.'**
+  String get salesDetailVoidReturnUnauthorized;
+
+  /// No description provided for @salesDetailVoidReturnForbidden.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'You do not have permission to void returns.'**
+  String get salesDetailVoidReturnForbidden;
+
+  /// No description provided for @salesDetailVoidReturnNetwork.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to connect. Please check your network.'**
+  String get salesDetailVoidReturnNetwork;
+
+  /// No description provided for @salesDetailVoidReturnTimeout.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Request timed out. Please try again.'**
+  String get salesDetailVoidReturnTimeout;
+
+  /// No description provided for @salesDetailVoidReturnDate.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Voided on'**
+  String get salesDetailVoidReturnDate;
+
+  /// No description provided for @salesDetailReturnVoided.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Voided'**
+  String get salesDetailReturnVoided;
+
   /// No description provided for @salesDetailReturnItem.
   ///
   /// In en_IN, this message translates to:

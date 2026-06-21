@@ -97,6 +97,9 @@ class SaleDetailMapper {
       payoutDestination: dto.payoutDestination,
       totalTaxableAmount: dto.totalTaxableAmount,
       totalTaxAmount: dto.totalTaxAmount,
+      isVoided: dto.isVoided,
+      voidedAt: dto.voidedAt?.toLocal(),
+      voidReason: dto.voidReason,
       creditNote: dto.creditNote != null
           ? _returnCreditNoteToDomain(dto.creditNote!)
           : null,

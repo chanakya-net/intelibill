@@ -40,10 +40,22 @@ void main() {
       expect(ret.saleReturnId, 'ret-1');
       expect(ret.returnNumber, 'RET-001');
       expect(ret.totalRefundAmount, 100.0);
+      expect(ret.isVoided, isFalse);
+      expect(ret.voidedAt, isNull);
+      expect(ret.voidReason, isNull);
       expect(ret.creditNote, isNotNull);
       expect(ret.creditNote!.code, 'CN-001');
       expect(ret.items, hasLength(1));
       expect(ret.items.first.saleItemId, 'item-1');
+    });
+
+    test('parses sale return void metadata', () {
+      final dto = SaleDetailDto.fromJson(_voidedSaleDetailJson());
+      final ret = dto.returns.first;
+
+      expect(ret.isVoided, isTrue);
+      expect(ret.voidedAt, DateTime.parse('2026-05-13T10:15:00.000Z'));
+      expect(ret.voidReason, 'Duplicate return');
     });
 
     test('parses credit note redemptions', () {
@@ -179,6 +191,48 @@ Map<String, dynamic> _fullSaleDetailJson() => {
       'creditNoteId': 'cn-old-1',
       'code': 'CN-OLD',
       'appliedAmount': 50.0,
+    },
+  ],
+};
+
+Map<String, dynamic> _voidedSaleDetailJson() => {
+  'saleId': 'sale-voided',
+  'invoiceNumber': 'INV-002',
+  'paymentMethod': 1,
+  'soldAt': '2026-05-11T10:30:00.000Z',
+  'paidAmount': 200.0,
+  'dueAmount': 0.0,
+  'totalBeforeDiscount': 250.0,
+  'totalDiscountAmount': 50.0,
+  'totalAmount': 200.0,
+  'totalTaxAmount': 45.0,
+  'returns': [
+    {
+      'saleReturnId': 'ret-2',
+      'returnNumber': 'RET-002',
+      'processedAt': '2026-05-13T10:00:00.000Z',
+      'processedBy': 'manager-1',
+      'isVoided': true,
+      'voidedAt': '2026-05-13T10:15:00.000Z',
+      'voidReason': 'Duplicate return',
+      'notes': 'Customer dispute',
+      'totalRefundAmount': 25.0,
+      'dueReductionAmount': 0.0,
+      'payoutAmount': 25.0,
+      'totalTaxableAmount': 20.0,
+      'totalTaxAmount': 5.0,
+      'items': [
+        {
+          'saleReturnItemId': 'retitem-2',
+          'saleItemId': 'item-1',
+          'quantity': 1.0,
+          'approvedRefundAmount': 25.0,
+          'taxableAmount': 20.0,
+          'taxAmount': 5.0,
+          'condition': 'Good',
+          'notes': null,
+        },
+      ],
     },
   ],
 };

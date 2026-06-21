@@ -36,6 +36,19 @@ void main() {
         DateTime.parse('2026-05-12T09:00:00.000Z').toLocal(),
       );
       expect(saleReturn.items.first.saleReturnItemId, 'retitem-1');
+      expect(saleReturn.isVoided, isFalse);
+      expect(saleReturn.voidedAt, isNull);
+      expect(saleReturn.voidReason, isNull);
+
+      final voided = SaleDetailMapper.toDomain(
+        SaleDetailDto.fromJson(_voidedSaleDetailJson()),
+      ).returns.first;
+      expect(voided.isVoided, isTrue);
+      expect(
+        voided.voidedAt,
+        DateTime.parse('2026-05-13T10:15:00.000Z').toLocal(),
+      );
+      expect(voided.voidReason, 'Duplicate return');
 
       final creditRedemption = domain.creditNoteRedemptions.first;
       expect(creditRedemption.code, 'CN-OLD');
@@ -184,6 +197,41 @@ Map<String, dynamic> _fullSaleDetailJson() => {
       'creditNoteId': 'cn-old-1',
       'code': 'CN-OLD',
       'appliedAmount': 50.0,
+    },
+  ],
+};
+
+Map<String, dynamic> _voidedSaleDetailJson() => {
+  'saleId': 'sale-voided',
+  'invoiceNumber': 'INV-002',
+  'customerId': 'cust-2',
+  'customerName': 'Test User',
+  'customerPhone': '+91-8888888888',
+  'paymentMethod': 1,
+  'soldAt': '2026-05-11T10:30:00.000Z',
+  'paidAmount': 200.0,
+  'dueAmount': 0.0,
+  'totalBeforeDiscount': 250.0,
+  'totalDiscountAmount': 50.0,
+  'totalAmount': 200.0,
+  'totalTaxAmount': 45.0,
+  'returns': [
+    {
+      'saleReturnId': 'ret-2',
+      'returnNumber': 'RET-002',
+      'processedAt': '2026-05-13T10:00:00.000Z',
+      'processedBy': 'manager-1',
+      'isVoided': true,
+      'voidedAt': '2026-05-13T10:15:00.000Z',
+      'voidReason': 'Duplicate return',
+      'notes': 'Customer dispute',
+      'totalRefundAmount': 25.0,
+      'dueReductionAmount': 0.0,
+      'payoutAmount': 25.0,
+      'payoutDestination': 'Cash',
+      'totalTaxableAmount': 20.0,
+      'totalTaxAmount': 5.0,
+      'items': [],
     },
   ],
 };
