@@ -370,6 +370,54 @@ void main() {
       verify(() => mockRecordSale(request: any(named: 'request'))).called(1);
     });
 
+    test('submit uses same idempotency key on retry after failure', () async {
+      final capturedRequests = <RecordSaleRequest>[];
+      final goods = _goods(id: 'g1', name: 'Flour', stock: 5);
+      var callCount = 0;
+
+      when(
+        () => mockRecordSale(request: any(named: 'request')),
+      ).thenAnswer((invocation) async {
+        capturedRequests.add(
+          invocation.namedArguments[#request] as RecordSaleRequest,
+        );
+        callCount++;
+        if (callCount == 1) {
+          throw AppException(
+            failure: const Failure.network(message: 'timeout'),
+          );
+        }
+        return _recordedSale();
+      });
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+
+      controller.state = NewSaleState(
+        cartLines: [NewSaleCartLine(sellable: goods, quantity: 1)],
+        preview: _preview(),
+        customerId: 'cust-1',
+        paymentMethod: 1,
+      );
+
+      await controller.submit();
+      expect(
+        container.read(newSaleControllerProvider).submitFailure,
+        isA<Failure>(),
+      );
+
+      await controller.submit();
+      expect(container.read(newSaleControllerProvider).recordedSale, isNotNull);
+
+      expect(capturedRequests, hasLength(2));
+      expect(
+        capturedRequests[0].idempotencyKey,
+        equals(capturedRequests[1].idempotencyKey),
+        reason: 'retry must reuse the same idempotency key',
+      );
+    });
+
     test('submit guard blocks duplicate submissions', () async {
       final goods = _goods(id: 'g1', name: 'Flour', stock: 5);
 

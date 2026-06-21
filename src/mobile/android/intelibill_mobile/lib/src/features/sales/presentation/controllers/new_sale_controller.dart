@@ -77,6 +77,7 @@ class NewSaleState {
     this.saleDiscountType = 0,
     this.saleDiscountValue = 0,
     this.creditNoteAppliedAmount,
+    this.pendingIdempotencyKey,
   });
 
   final String searchTerm;
@@ -101,6 +102,7 @@ class NewSaleState {
   final int saleDiscountType;
   final double saleDiscountValue;
   final double? creditNoteAppliedAmount;
+  final String? pendingIdempotencyKey;
 
   double get estimatedSubtotalAmount => cartLines.fold(
     0,
@@ -195,6 +197,8 @@ class NewSaleState {
     double? saleDiscountValue,
     double? creditNoteAppliedAmount,
     bool clearCreditNoteAppliedAmount = false,
+    String? pendingIdempotencyKey,
+    bool clearPendingIdempotencyKey = false,
   }) {
     return NewSaleState(
       searchTerm: searchTerm ?? this.searchTerm,
@@ -235,6 +239,9 @@ class NewSaleState {
       creditNoteAppliedAmount: clearCreditNoteAppliedAmount
           ? null
           : (creditNoteAppliedAmount ?? this.creditNoteAppliedAmount),
+      pendingIdempotencyKey: clearPendingIdempotencyKey
+          ? null
+          : (pendingIdempotencyKey ?? this.pendingIdempotencyKey),
     );
   }
 }
@@ -312,6 +319,7 @@ class NewSaleController extends _$NewSaleController {
       clearRecordedSale: true,
       clearSubmitFailure: true,
       clearPreview: true,
+      clearPendingIdempotencyKey: true,
     );
   }
 
@@ -481,6 +489,7 @@ class NewSaleController extends _$NewSaleController {
         isPreviewLoading: false,
         clearFailure: true,
         clearSubmitFailure: true,
+        clearPendingIdempotencyKey: true,
       );
     } on AppException catch (error) {
       if (!ref.mounted) {
@@ -802,8 +811,12 @@ class NewSaleController extends _$NewSaleController {
     }
 
     final lines = state.cartLines;
+    final key = state.pendingIdempotencyKey ?? _generateIdempotencyKey(lines);
+    if (state.pendingIdempotencyKey == null) {
+      state = state.copyWith(pendingIdempotencyKey: key);
+    }
     return RecordSaleRequest(
-      idempotencyKey: _buildIdempotencyKey(lines),
+      idempotencyKey: key,
       customerId: state.customerId,
       customerName: state.customerName,
       customerPhone: state.customerPhone,
@@ -873,10 +886,6 @@ class NewSaleController extends _$NewSaleController {
       errors.add('Select a valid payment method.');
     }
 
-    if (state.customerPhone?.trim().isEmpty == true) {
-      errors.add('Customer phone cannot be blank if provided.');
-    }
-
     return errors;
   }
 
@@ -905,7 +914,7 @@ class NewSaleController extends _$NewSaleController {
     );
   }
 
-  String _buildIdempotencyKey(List<NewSaleCartLine> lines) {
+  String _generateIdempotencyKey(List<NewSaleCartLine> lines) {
     final payloadSeed = lines
         .map((line) => '${line.sellable.id}:${line.quantity}')
         .join('-');
