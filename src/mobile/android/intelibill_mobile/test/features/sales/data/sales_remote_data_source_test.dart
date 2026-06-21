@@ -195,6 +195,104 @@ void main() {
       ).called(1);
     });
 
+    test('calls /sales/preview with mixed goods and service lines', () async {
+      when(
+        () => mockApiClient.post<Map<String, dynamic>>(
+          '/sales/preview',
+          data: any<Map<String, dynamic>>(named: 'data'),
+        ),
+      ).thenAnswer(
+        (_) async => Response(
+          data: _previewResponseJson(),
+          statusCode: 200,
+          requestOptions: RequestOptions(path: '/sales/preview'),
+        ),
+      );
+
+      final response = await remoteDataSource.previewSale(
+        request: {
+          'saleDiscount': {'type': 0, 'value': 0},
+          'items': [
+            {
+              'inventoryBatchId': 'batch-1',
+              'barcode': 'BAR-1',
+              'batchNumber': 'BN-1',
+              'itemName': 'Rice',
+              'quantity': 2.0,
+              'costPrice': 48.0,
+              'salesPrice': 60.0,
+              'mrp': 62.0,
+              'taxRatePercent': 12.0,
+              'isPriceIncludingTax': false,
+              'itemDiscount': {'type': 0, 'value': 0},
+              'clientLineKey': 'line-1',
+              'lineType': 'Goods',
+            },
+            {
+              'inventoryBatchId': '00000000-0000-0000-0000-000000000000',
+              'barcode': 'SRV-1',
+              'batchNumber': '',
+              'itemName': 'Installation',
+              'quantity': 1.0,
+              'costPrice': 0.0,
+              'salesPrice': 150.0,
+              'mrp': 150.0,
+              'taxRatePercent': 18.0,
+              'isPriceIncludingTax': false,
+              'itemDiscount': {'type': 0, 'value': 0},
+              'clientLineKey': 'line-2',
+              'lineType': 'Service',
+              'serviceId': 'svc-1',
+            },
+          ],
+        },
+      );
+
+      expect(response.totalAmount, 236.0);
+      expect(response.lines, hasLength(2));
+      verify(
+        () => mockApiClient.post<Map<String, dynamic>>(
+          '/sales/preview',
+          data: {
+            'saleDiscount': {'type': 0, 'value': 0},
+            'items': [
+              {
+                'inventoryBatchId': 'batch-1',
+                'barcode': 'BAR-1',
+                'batchNumber': 'BN-1',
+                'itemName': 'Rice',
+                'quantity': 2.0,
+                'costPrice': 48.0,
+                'salesPrice': 60.0,
+                'mrp': 62.0,
+                'taxRatePercent': 12.0,
+                'isPriceIncludingTax': false,
+                'itemDiscount': {'type': 0, 'value': 0},
+                'clientLineKey': 'line-1',
+                'lineType': 'Goods',
+              },
+              {
+                'inventoryBatchId': '00000000-0000-0000-0000-000000000000',
+                'barcode': 'SRV-1',
+                'batchNumber': '',
+                'itemName': 'Installation',
+                'quantity': 1.0,
+                'costPrice': 0.0,
+                'salesPrice': 150.0,
+                'mrp': 150.0,
+                'taxRatePercent': 18.0,
+                'isPriceIncludingTax': false,
+                'itemDiscount': {'type': 0, 'value': 0},
+                'clientLineKey': 'line-2',
+                'lineType': 'Service',
+                'serviceId': 'svc-1',
+              },
+            ],
+          },
+        ),
+      ).called(1);
+    });
+
     test('calls record return endpoint with request map', () async {
       when(
         () => mockApiClient.post<Map<String, dynamic>>(
@@ -333,3 +431,88 @@ void main() {
     });
   });
 }
+
+Map<String, dynamic> _previewResponseJson() => {
+  'totalAmount': 236.0,
+  'totalTaxableAmount': 200.0,
+  'totalTaxAmount': 36.0,
+  'totalDiscountAmount': 14.0,
+  'saleLevelEligibleSubtotal': 120.0,
+  'configuredSaleRule': {
+    'ruleId': 'rule-1',
+    'ruleType': 'SalePercentage',
+    'percentage': 10.0,
+    'thresholdAmount': 100.0,
+  },
+  'lines': [
+    {
+      'lineType': 'Goods',
+      'itemId': 'item-1',
+      'serviceId': null,
+      'barcode': 'BAR-1',
+      'itemName': 'Rice',
+      'inventoryBatchId': 'batch-1',
+      'batchNumber': 'BN-1',
+      'quantity': 2.0,
+      'costPrice': 48.0,
+      'salesPrice': 60.0,
+      'mrp': 62.0,
+      'taxRatePercent': 12.0,
+      'isPriceIncludingTax': false,
+      'preTaxAmountBeforeDiscount': 120.0,
+      'itemDiscountAmount': 0.0,
+      'saleDiscountAmount': 4.0,
+      'taxableAmount': 116.0,
+      'taxAmount': 13.92,
+      'lineTotalAmount': 129.92,
+      'maxAllowedItemDiscountFlat': 12.0,
+      'maxAllowedItemDiscountPercent': 10.0,
+      'configuredBatchRuleId': 'batch-rule-1',
+      'configuredBatchRulePercentage': 5.0,
+      'hasClientPriceMismatch': true,
+      'clientLineKey': 'line-1',
+    },
+    {
+      'lineType': 'Service',
+      'itemId': null,
+      'serviceId': 'svc-1',
+      'barcode': 'SRV-1',
+      'itemName': 'Installation',
+      'inventoryBatchId': null,
+      'batchNumber': null,
+      'quantity': 1.0,
+      'costPrice': 0.0,
+      'salesPrice': 150.0,
+      'mrp': 150.0,
+      'taxRatePercent': 18.0,
+      'isPriceIncludingTax': false,
+      'preTaxAmountBeforeDiscount': 150.0,
+      'itemDiscountAmount': 0.0,
+      'saleDiscountAmount': 10.0,
+      'taxableAmount': 140.0,
+      'taxAmount': 25.2,
+      'lineTotalAmount': 165.2,
+      'maxAllowedItemDiscountFlat': 0.0,
+      'maxAllowedItemDiscountPercent': 0.0,
+      'configuredBatchRuleId': null,
+      'configuredBatchRulePercentage': null,
+      'hasClientPriceMismatch': false,
+      'clientLineKey': 'line-2',
+    },
+  ],
+  'infos': [
+    {
+      'code': 'sale_preview.info.configured_rule_applied',
+      'message': 'Configured sale rule applied.',
+    },
+  ],
+  'warnings': [
+    {
+      'code': 'sale_preview.warning.client_price_mismatch',
+      'message': 'Client pricing differs from latest batch pricing.',
+      'severity': 'warning',
+      'inventoryBatchId': 'batch-1',
+      'clientLineKey': 'line-1',
+    },
+  ],
+};

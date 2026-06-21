@@ -141,6 +141,47 @@ final class SearchSellablesProvider
 
 String _$searchSellablesHash() => r'f8cb645e51f52ada62973041042cc5236c718229';
 
+@ProviderFor(previewSale)
+final previewSaleProvider = PreviewSaleProvider._();
+
+final class PreviewSaleProvider
+    extends $FunctionalProvider<PreviewSale, PreviewSale, PreviewSale>
+    with $Provider<PreviewSale> {
+  PreviewSaleProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'previewSaleProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$previewSaleHash();
+
+  @$internal
+  @override
+  $ProviderElement<PreviewSale> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  PreviewSale create(Ref ref) {
+    return previewSale(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(PreviewSale value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<PreviewSale>(value),
+    );
+  }
+}
+
+String _$previewSaleHash() => r'a4ce07a40b23968acca6e87efc2c5fed4b2999cb';
+
 @ProviderFor(NewSaleController)
 final newSaleControllerProvider = NewSaleControllerProvider._();
 
@@ -173,7 +214,7 @@ final class NewSaleControllerProvider
   }
 }
 
-String _$newSaleControllerHash() => r'905c17f9df303c6e3f9d4f513500f1713a1d4446';
+String _$newSaleControllerHash() => r'3d0941f99c13e4999259713ae1edb184455345d1';
 
 abstract class _$NewSaleController extends $Notifier<NewSaleState> {
   NewSaleState build();

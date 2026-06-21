@@ -2,6 +2,7 @@ import 'package:intelibill_mobile/src/core/network/api_client.dart';
 import 'package:intelibill_mobile/src/core/utils/date_time_wire.dart';
 import 'package:intelibill_mobile/src/features/sales/data/dto/void_sale_return_request_dto.dart';
 import 'package:intelibill_mobile/src/features/sales/data/dto/sale_detail_dto.dart';
+import 'package:intelibill_mobile/src/features/sales/data/dto/sale_preview_dto.dart';
 import 'package:intelibill_mobile/src/features/sales/data/dto/sale_return_preview_dto.dart';
 import 'package:intelibill_mobile/src/features/sales/data/dto/sales_history_response_dto.dart';
 import 'package:intelibill_mobile/src/features/sales/data/dto/sellable_dto.dart';
@@ -18,6 +19,12 @@ interface class SalesRemoteDataSource {
 
   Future<SaleReturnPreviewResponseDto> previewSaleReturn({
     required String saleId,
+    required Map<String, dynamic> request,
+  }) {
+    throw UnimplementedError();
+  }
+
+  Future<SalePreviewResponseDto> previewSale({
     required Map<String, dynamic> request,
   }) {
     throw UnimplementedError();
@@ -92,6 +99,17 @@ class SalesRemoteDataSourceImpl implements SalesRemoteDataSource {
       data: request,
     );
     return SaleReturnPreviewResponseDto.fromJson(response.data!);
+  }
+
+  @override
+  Future<SalePreviewResponseDto> previewSale({
+    required Map<String, dynamic> request,
+  }) async {
+    final response = await _apiClient.post<Map<String, dynamic>>(
+      '$_salesEndpoint/preview',
+      data: request,
+    );
+    return SalePreviewResponseDto.fromJson(response.data!);
   }
 
   @override

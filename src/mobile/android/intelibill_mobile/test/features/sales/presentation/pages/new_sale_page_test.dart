@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:intelibill_mobile/src/app/theme/app_theme.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_preview.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sellable.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/controllers/new_sale_controller.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/pages/new_sale_page.dart';
@@ -134,6 +135,45 @@ Sellable _service() {
   );
 }
 
+SalePreview _preview({
+  double totalAmount = 236,
+  double totalTaxableAmount = 200,
+  double totalTaxAmount = 36,
+  double totalDiscountAmount = 14,
+  double saleLevelEligibleSubtotal = 120,
+  List<SalePreviewWarning>? warnings,
+}) {
+  return SalePreview(
+    totalAmount: totalAmount,
+    totalTaxableAmount: totalTaxableAmount,
+    totalTaxAmount: totalTaxAmount,
+    totalDiscountAmount: totalDiscountAmount,
+    saleLevelEligibleSubtotal: saleLevelEligibleSubtotal,
+    configuredSaleRule: const SalePreviewConfiguredSaleRule(
+      ruleId: 'rule-1',
+      ruleType: 'SalePercentage',
+      percentage: 10,
+      thresholdAmount: 100,
+    ),
+    lines: const [],
+    infos: const [
+      SalePreviewInfo(
+        code: 'sale_preview.info.configured_rule_applied',
+        message: 'Configured sale rule applied.',
+      ),
+    ],
+    warnings:
+        warnings ??
+        const [
+          SalePreviewWarning(
+            code: 'sale_preview.warning.validation',
+            message: 'Sale-level discount is limited by configured rule.',
+            severity: 'info',
+          ),
+        ],
+  );
+}
+
 void main() {
   group('NewSalePage', () {
     testWidgets('shows loading state', (tester) async {
@@ -172,6 +212,94 @@ void main() {
       expect(find.text('Cart is empty.'), findsOneWidget);
     });
 
+    testWidgets('shows checkout totals and server preview warnings', (
+      tester,
+    ) async {
+      const goods = Sellable(
+        id: 'g1',
+        kind: 'Goods',
+        name: 'Flour',
+        stock: 10,
+        price: 20,
+        barcode: 'BAR001',
+        batchNumber: 'BN-1',
+      );
+      final state = NewSaleState(
+        cartLines: [const NewSaleCartLine(sellable: goods, quantity: 2)],
+        preview: _preview(),
+      );
+
+      await tester.pumpWidget(_buildApp(_StubNewSaleController(state)));
+
+      expect(find.text('Checkout summary'), findsOneWidget);
+      expect(find.text('Subtotal'), findsOneWidget);
+      expect(find.textContaining('₹200.00'), findsWidgets);
+      expect(find.textContaining('₹36.00'), findsWidgets);
+      expect(find.textContaining('₹14.00'), findsWidgets);
+      expect(find.textContaining('₹236.00'), findsWidgets);
+      expect(find.text('Warnings'), findsOneWidget);
+      expect(
+        find.textContaining('Sale-level discount is limited by configured rule.'),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('checkout-button')), findsOneWidget);
+      final checkoutButton = tester.widget<FilledButton>(
+        find.byKey(const Key('checkout-button')),
+      );
+      expect(checkoutButton.onPressed, isNotNull);
+    });
+
+    testWidgets('shows preview loading state and disables checkout', (
+      tester,
+    ) async {
+      const goods = Sellable(
+        id: 'g1',
+        kind: 'Goods',
+        name: 'Flour',
+        stock: 10,
+        price: 20,
+        barcode: 'BAR001',
+        batchNumber: 'BN-1',
+      );
+      final state = NewSaleState(
+        cartLines: [const NewSaleCartLine(sellable: goods, quantity: 2)],
+        isPreviewLoading: true,
+      );
+
+      await tester.pumpWidget(_buildApp(_StubNewSaleController(state)));
+
+      expect(find.byKey(const Key('checkout-preview-loading')), findsOneWidget);
+      final checkoutButton = tester.widget<FilledButton>(
+        find.byKey(const Key('checkout-button')),
+      );
+      expect(checkoutButton.onPressed, isNull);
+    });
+
+    testWidgets('shows preview error and retry preview action', (tester) async {
+      const goods = Sellable(
+        id: 'g1',
+        kind: 'Goods',
+        name: 'Flour',
+        stock: 10,
+        price: 20,
+        barcode: 'BAR001',
+        batchNumber: 'BN-1',
+      );
+      final state = NewSaleState(
+        cartLines: [const NewSaleCartLine(sellable: goods, quantity: 2)],
+        previewFailure: const Failure.network(message: 'offline'),
+      );
+
+      await tester.pumpWidget(_buildApp(_StubNewSaleController(state)));
+
+      expect(find.byKey(const Key('checkout-preview-error')), findsOneWidget);
+      expect(find.textContaining('offline'), findsOneWidget);
+      final retryButton = tester.widget<OutlinedButton>(
+        find.byKey(const Key('refresh-preview-button')),
+      );
+      expect(retryButton.onPressed, isNotNull);
+    });
+
     testWidgets('renders results and adds item to cart', (tester) async {
       final state = NewSaleState(
         results: [_goods()],
@@ -184,7 +312,7 @@ void main() {
       await tester.pump();
 
       expect(find.text('Flour'), findsNWidgets(2));
-      expect(find.textContaining('Total:'), findsOneWidget);
+      expect(find.text('Total'), findsOneWidget);
       expect(find.byKey(const Key('decrease-g1')), findsOneWidget);
       expect(find.byKey(const Key('increase-g1')), findsOneWidget);
       expect(find.text('Qty: 1'), findsOneWidget);
@@ -244,7 +372,7 @@ void main() {
       await tester.pumpWidget(_buildApp(_StubNewSaleController(state)));
 
       expect(find.text('Qty: 1.25'), findsOneWidget);
-      expect(find.textContaining('Total: ₹25.00'), findsOneWidget);
+      expect(find.textContaining('₹25.00'), findsNWidgets(3));
     });
 
     testWidgets('renders mixed goods and service cart lines', (tester) async {
