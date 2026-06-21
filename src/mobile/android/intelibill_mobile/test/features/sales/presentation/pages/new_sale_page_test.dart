@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:intelibill_mobile/src/app/theme/app_theme.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_preview.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sellable.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/controllers/new_sale_controller.dart';
@@ -15,6 +16,8 @@ class _StubNewSaleController extends NewSaleController {
   NewSaleState _state;
   String? lastSearchTerm;
   String? lastBarcode;
+  int submitCallCount = 0;
+  bool clearRecordedSaleCalled = false;
 
   @override
   NewSaleState build() => _state;
@@ -92,6 +95,18 @@ class _StubNewSaleController extends NewSaleController {
       searchTerm: nextSearchTerm,
       barcodeTerm: code,
     );
+    state = _state;
+  }
+
+  @override
+  Future<void> submit() async {
+    submitCallCount += 1;
+  }
+
+  @override
+  void clearRecordedSale() {
+    clearRecordedSaleCalled = true;
+    _state = _state.copyWith(clearRecordedSale: true);
     state = _state;
   }
 }
@@ -175,7 +190,130 @@ SalePreview _preview({
 }
 
 void main() {
+  SaleDetail recordedSale() {
+    return SaleDetail(
+      saleId: 'sale-abc',
+      invoiceNumber: 'INV-ABC-001',
+      paymentMethod: 1,
+      soldAt: DateTime.utc(2026, 5, 11, 10, 0),
+      paidAmount: 236,
+      dueAmount: 0,
+      totalBeforeDiscount: 236,
+      totalDiscountAmount: 0,
+      totalAmount: 236,
+      totalTaxAmount: 0,
+      creditNoteAppliedAmount: 0,
+      status: 'paid',
+    );
+  }
+
   group('NewSalePage', () {
+    testWidgets('shows submit failure text', (tester) async {
+      await tester.pumpWidget(
+        _buildApp(
+          _StubNewSaleController(
+            const NewSaleState(
+              submitFailure: Failure.network(message: 'Failed to save sale'),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byKey(const Key('new-sale-submit-failure')), findsOneWidget);
+      expect(find.textContaining('Failed to save sale'), findsOneWidget);
+    });
+
+    testWidgets('checkout button calls submit', (tester) async {
+      const goods = Sellable(
+        id: 'g1',
+        kind: 'Goods',
+        name: 'Flour',
+        stock: 10,
+        price: 20,
+        barcode: 'BAR001',
+        batchNumber: 'BN-1',
+      );
+      final controller = _StubNewSaleController(
+        NewSaleState(
+          cartLines: [const NewSaleCartLine(sellable: goods, quantity: 1)],
+          preview: _preview(),
+        ),
+      );
+
+      await tester.pumpWidget(_buildApp(controller));
+      final checkoutButton = find.byKey(const Key('checkout-button'));
+      final checkoutWidget = tester.widget<FilledButton>(checkoutButton);
+      checkoutWidget.onPressed?.call();
+      await tester.pump();
+
+      expect(controller.submitCallCount, 1);
+    });
+
+    testWidgets('shows recorded sale confirmation and actions', (tester) async {
+      await tester.pumpWidget(
+        _buildApp(
+          _StubNewSaleController(
+            NewSaleState(recordedSale: recordedSale()),
+          ),
+        ),
+      );
+
+      expect(find.text('Invoice recorded'), findsOneWidget);
+      expect(find.textContaining('INV-ABC-001'), findsOneWidget);
+      expect(
+        find.byKey(const Key('recorded-sale-detail-button')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('recorded-sale-receipt-button')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('recorded-sale-clear-button')),
+        findsOneWidget,
+      );
+      expect(find.text('Cart is empty.'), findsNothing);
+    });
+
+    testWidgets('opens receipt sheet for recorded sale', (tester) async {
+      await tester.pumpWidget(
+        _buildApp(
+          _StubNewSaleController(
+            NewSaleState(recordedSale: recordedSale()),
+          ),
+        ),
+      );
+
+      final receiptButton = find.byKey(
+        const Key('recorded-sale-receipt-button'),
+      );
+      final receiptWidget = tester.widget<TextButton>(receiptButton);
+      receiptWidget.onPressed?.call();
+      await tester.pumpAndSettle();
+
+      expect(find.text('Receipt'), findsOneWidget);
+      expect(find.textContaining('INV-ABC-001'), findsWidgets);
+      expect(find.textContaining('₹236.00'), findsWidgets);
+      expect(find.text('Close'), findsOneWidget);
+    });
+
+    testWidgets('clear action resets recorded sale and cart state', (
+      tester,
+    ) async {
+      final controller = _StubNewSaleController(
+        NewSaleState(recordedSale: recordedSale()),
+      );
+
+      await tester.pumpWidget(_buildApp(controller));
+      final clearButton = find.byKey(const Key('recorded-sale-clear-button'));
+      final clearWidget = tester.widget<FilledButton>(clearButton);
+      clearWidget.onPressed?.call();
+      await tester.pumpAndSettle();
+
+      expect(controller.clearRecordedSaleCalled, isTrue);
+      expect(find.text('Cart is empty.'), findsOneWidget);
+    });
+
     testWidgets('shows loading state', (tester) async {
       await tester.pumpWidget(
         _buildApp(
@@ -239,7 +377,9 @@ void main() {
       expect(find.textContaining('₹236.00'), findsWidgets);
       expect(find.text('Warnings'), findsOneWidget);
       expect(
-        find.textContaining('Sale-level discount is limited by configured rule.'),
+        find.textContaining(
+          'Sale-level discount is limited by configured rule.',
+        ),
         findsOneWidget,
       );
       expect(find.byKey(const Key('checkout-button')), findsOneWidget);

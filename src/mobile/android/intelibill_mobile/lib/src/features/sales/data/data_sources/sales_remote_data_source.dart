@@ -37,6 +37,12 @@ interface class SalesRemoteDataSource {
     throw UnimplementedError();
   }
 
+  Future<SaleDetailDto> recordSale({
+    required Map<String, dynamic> request,
+  }) {
+    throw UnimplementedError();
+  }
+
   Future<List<SellableDto>> searchSellables({
     String? searchTerm,
     String? barcode,
@@ -119,6 +125,17 @@ class SalesRemoteDataSourceImpl implements SalesRemoteDataSource {
   }) async {
     final response = await _apiClient.post<Map<String, dynamic>>(
       '$_salesEndpoint/$saleId/returns',
+      data: request,
+    );
+    return SaleDetailDto.fromJson(response.data!);
+  }
+
+  @override
+  Future<SaleDetailDto> recordSale({
+    required Map<String, dynamic> request,
+  }) async {
+    final response = await _apiClient.post<Map<String, dynamic>>(
+      _salesEndpoint,
       data: request,
     );
     return SaleDetailDto.fromJson(response.data!);

@@ -6,14 +6,19 @@ import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_preview.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sellable.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/entities/record_sale.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/use_cases/preview_sale.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/use_cases/search_sellables.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/use_cases/record_sale.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/controllers/new_sale_controller.dart';
 import 'package:mocktail/mocktail.dart';
 
 class MockSearchSellables extends Mock implements SearchSellables {}
 
 class MockPreviewSale extends Mock implements PreviewSale {}
+
+class MockRecordSale extends Mock implements RecordSale {}
 
 Sellable _goods({
   required String id,
@@ -120,14 +125,44 @@ const PreviewSaleRequest _emptyPreviewRequest = PreviewSaleRequest(
   saleDiscountValue: 0,
   items: [],
 );
+const RecordSaleRequest _emptyRecordSaleRequest = RecordSaleRequest(
+  idempotencyKey: 'empty',
+  customerId: 'cust-empty',
+  customerName: null,
+  customerPhone: null,
+  paymentMethod: 1,
+  paidAmount: 0,
+  dueAmount: 0,
+  items: [],
+  saleDiscount: null,
+);
+
+SaleDetail _recordedSale() {
+  return SaleDetail(
+    saleId: 'sale-abc',
+    invoiceNumber: 'INV-ABC-001',
+    paymentMethod: 1,
+    soldAt: DateTime.utc(2026, 5, 11, 10, 0),
+    paidAmount: 236,
+    dueAmount: 0,
+    totalBeforeDiscount: 236,
+    totalDiscountAmount: 0,
+    totalAmount: 236,
+    totalTaxAmount: 0,
+    creditNoteAppliedAmount: 0,
+    status: 'paid',
+  );
+}
 
 void main() {
   late MockSearchSellables mockSearchSellables;
   late MockPreviewSale mockPreviewSale;
+  late MockRecordSale mockRecordSale;
 
   setUp(() {
     mockSearchSellables = MockSearchSellables();
     mockPreviewSale = MockPreviewSale();
+    mockRecordSale = MockRecordSale();
     when(
       () => mockPreviewSale(
         request: any(named: 'request'),
@@ -137,6 +172,7 @@ void main() {
 
   setUpAll(() {
     registerFallbackValue(_emptyPreviewRequest);
+    registerFallbackValue(_emptyRecordSaleRequest);
   });
 
   ProviderContainer makeContainer() {
@@ -144,6 +180,7 @@ void main() {
       overrides: [
         searchSellablesProvider.overrideWithValue(mockSearchSellables),
         previewSaleProvider.overrideWithValue(mockPreviewSale),
+        recordSaleProvider.overrideWithValue(mockRecordSale),
       ],
     );
   }
@@ -245,6 +282,113 @@ void main() {
       expect(state.results, isEmpty);
       expect(state.searchFailure, isA<Failure>());
       expect(state.isSearching, isFalse);
+    });
+
+    test('submit records sale and clears cart on success', () async {
+      final capturedRequests = <RecordSaleRequest>[];
+      final goods = _goods(id: 'g1', name: 'Flour', stock: 5);
+
+      when(
+        () => mockRecordSale(
+          request: any(named: 'request'),
+        ),
+      ).thenAnswer((invocation) async {
+        capturedRequests.add(
+          invocation.namedArguments[#request] as RecordSaleRequest,
+        );
+        return _recordedSale();
+      });
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+
+      controller.state = NewSaleState(
+        cartLines: [NewSaleCartLine(sellable: goods, quantity: 2)],
+        preview: _preview(
+          totalAmount: 236,
+          totalTaxAmount: 0,
+          totalDiscountAmount: 0,
+        ),
+        customerId: 'cust-1',
+        customerName: 'John Doe',
+        customerPhone: '+91-9999999999',
+        paymentMethod: 1,
+      );
+
+      await controller.submit();
+
+      final state = container.read(newSaleControllerProvider);
+      expect(state.recordedSale, isNotNull);
+      expect(state.recordedSale!.saleId, 'sale-abc');
+      expect(state.cartLines, isEmpty);
+      expect(state.results, isEmpty);
+      expect(state.preview, isNull);
+      expect(state.isSubmitting, isFalse);
+      expect(state.submitFailure, isNull);
+      expect(capturedRequests, hasLength(1));
+      final request = capturedRequests.single;
+      expect(request.idempotencyKey, isNotEmpty);
+      expect(request.idempotencyKey, contains('new-sale-'));
+      expect(request.customerId, 'cust-1');
+      expect(request.customerName, 'John Doe');
+      expect(request.customerPhone, '+91-9999999999');
+      expect(request.items, hasLength(1));
+      expect(request.items.single.lineType, 'Goods');
+      expect(request.paidAmount, 236);
+      expect(request.dueAmount, 0);
+    });
+
+    test('submit stores backend failure in submitFailure', () async {
+      final goods = _goods(id: 'g1', name: 'Flour', stock: 5);
+
+      when(
+        () => mockRecordSale(
+          request: any(named: 'request'),
+        ),
+      ).thenThrow(
+        AppException(
+          failure: const Failure.network(message: 'backend rejected'),
+        ),
+      );
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+
+      controller.state = NewSaleState(
+        cartLines: [NewSaleCartLine(sellable: goods, quantity: 1)],
+        preview: _preview(),
+      );
+
+      await controller.submit();
+
+      final state = container.read(newSaleControllerProvider);
+      expect(state.recordedSale, isNull);
+      expect(state.submitFailure, isA<Failure>());
+      expect(state.isSubmitting, isFalse);
+      verify(() => mockRecordSale(request: any(named: 'request'))).called(1);
+    });
+
+    test('submit guard blocks duplicate submissions', () async {
+      final goods = _goods(id: 'g1', name: 'Flour', stock: 5);
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+
+      controller.state = NewSaleState(
+        cartLines: [NewSaleCartLine(sellable: goods, quantity: 1)],
+        preview: _preview(),
+        isSubmitting: true,
+      );
+
+      await controller.submit();
+
+      final state = container.read(newSaleControllerProvider);
+      expect(state.submitFailure, isA<Failure>());
+      verifyNever(() => mockRecordSale(request: any(named: 'request')));
+      expect(state.isSubmitting, isTrue);
     });
 
     test('addToCart adds goods line with quantity 1', () async {

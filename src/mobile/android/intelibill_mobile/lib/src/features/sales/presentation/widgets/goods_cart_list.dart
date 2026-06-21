@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_preview.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sellable.dart';
 
@@ -7,6 +10,7 @@ typedef OnDecrease = void Function(String sellableId);
 typedef OnIncrease = void Function(String sellableId);
 typedef OnRemove = void Function(String sellableId);
 typedef OnUnitPriceChanged = void Function(String sellableId, double value);
+typedef OnSubmitCheckout = Future<void> Function();
 
 class GoodsCartList extends StatelessWidget {
   const GoodsCartList({
@@ -26,6 +30,12 @@ class GoodsCartList extends StatelessWidget {
     required this.isPreviewLoading,
     required this.canSubmitCheckout,
     required this.onRefreshPreview,
+    required this.isSubmitting,
+    required this.onSubmit,
+    required this.recordedSale,
+    required this.onViewRecordedSale,
+    required this.onViewRecordedReceipt,
+    required this.onClearRecordedSale,
   });
 
   final List<NewSaleCartLine> lines;
@@ -43,10 +53,30 @@ class GoodsCartList extends StatelessWidget {
   final bool isPreviewLoading;
   final bool canSubmitCheckout;
   final VoidCallback onRefreshPreview;
+  final bool isSubmitting;
+  final OnSubmitCheckout onSubmit;
+  final SaleDetail? recordedSale;
+  final VoidCallback? onViewRecordedSale;
+  final VoidCallback? onViewRecordedReceipt;
+  final VoidCallback onClearRecordedSale;
 
   @override
   Widget build(BuildContext context) {
     if (lines.isEmpty) {
+      if (recordedSale != null) {
+        return SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: _RecordedSaleSummaryCard(
+              sale: recordedSale!,
+              onViewDetail: onViewRecordedSale,
+              onViewReceipt: onViewRecordedReceipt,
+              onClear: onClearRecordedSale,
+            ),
+          ),
+        );
+      }
+
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(24),
@@ -73,7 +103,9 @@ class GoodsCartList extends StatelessWidget {
               previewFailure: previewFailure,
               isPreviewLoading: isPreviewLoading,
               canSubmitCheckout: canSubmitCheckout,
+              isSubmitting: isSubmitting,
               onRefreshPreview: onRefreshPreview,
+              onSubmit: onSubmit,
             ),
           );
         }
@@ -158,7 +190,9 @@ class _CheckoutSummaryCard extends StatelessWidget {
     required this.previewFailure,
     required this.isPreviewLoading,
     required this.canSubmitCheckout,
+    required this.isSubmitting,
     required this.onRefreshPreview,
+    required this.onSubmit,
   });
 
   final double subtotal;
@@ -170,7 +204,9 @@ class _CheckoutSummaryCard extends StatelessWidget {
   final Failure? previewFailure;
   final bool isPreviewLoading;
   final bool canSubmitCheckout;
+  final bool isSubmitting;
   final VoidCallback onRefreshPreview;
+  final OnSubmitCheckout onSubmit;
 
   @override
   Widget build(BuildContext context) {
@@ -300,7 +336,11 @@ class _CheckoutSummaryCard extends StatelessWidget {
                 Expanded(
                   child: FilledButton.icon(
                     key: const Key('checkout-button'),
-                    onPressed: canSubmitCheckout ? () {} : null,
+                    onPressed: canSubmitCheckout && !isSubmitting
+                        ? () {
+                            unawaited(onSubmit());
+                          }
+                        : null,
                     icon: const Icon(Icons.shopping_cart_checkout_outlined),
                     label: Text(
                       canSubmitCheckout ? 'Checkout' : 'Preview required',
@@ -310,6 +350,96 @@ class _CheckoutSummaryCard extends StatelessWidget {
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RecordedSaleSummaryCard extends StatelessWidget {
+  const _RecordedSaleSummaryCard({
+    required this.sale,
+    required this.onClear,
+    this.onViewDetail,
+    this.onViewReceipt,
+  });
+
+  final SaleDetail sale;
+  final VoidCallback onClear;
+  final VoidCallback? onViewDetail;
+  final VoidCallback? onViewReceipt;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Invoice recorded',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text('Invoice: ${sale.invoiceNumber}'),
+              const SizedBox(height: 6),
+              Text('Customer: ${sale.customerName ?? 'Walk-in customer'}'),
+              if ((sale.customerPhone?.isNotEmpty ?? false))
+                Text('Phone: ${sale.customerPhone}'),
+              const SizedBox(height: 10),
+              _SummaryRow(
+                label: 'Subtotal',
+                value: _formatAmount(sale.totalBeforeDiscount),
+              ),
+              _SummaryRow(
+                label: 'Discount',
+                value: _formatAmount(sale.totalDiscountAmount),
+              ),
+              _SummaryRow(
+                label: 'Tax',
+                value: _formatAmount(sale.totalTaxAmount),
+              ),
+              const Divider(height: 20),
+              _SummaryRow(
+                label: 'Total',
+                value: _formatAmount(sale.totalAmount),
+                emphasis: true,
+              ),
+              if (sale.dueAmount > 0)
+                _SummaryRow(label: 'Due', value: _formatAmount(sale.dueAmount)),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  TextButton.icon(
+                    key: const Key('recorded-sale-detail-button'),
+                    onPressed: onViewDetail,
+                    icon: const Icon(Icons.visibility),
+                    label: const Text('View detail'),
+                  ),
+                  TextButton.icon(
+                    key: const Key('recorded-sale-receipt-button'),
+                    onPressed: onViewReceipt,
+                    icon: const Icon(Icons.receipt_long),
+                    label: const Text('View receipt'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              FilledButton.icon(
+                key: const Key('recorded-sale-clear-button'),
+                onPressed: onClear,
+                icon: const Icon(Icons.add_shopping_cart_outlined),
+                label: const Text('Start new sale'),
+              ),
+            ],
+          ),
         ),
       ),
     );
