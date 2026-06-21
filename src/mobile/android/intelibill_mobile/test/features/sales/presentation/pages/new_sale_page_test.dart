@@ -249,6 +249,76 @@ void main() {
       expect(checkoutButton.onPressed, isNotNull);
     });
 
+    testWidgets(
+      'shows sale discount editor and error message when sale discount invalid',
+      (tester) async {
+        const goods = Sellable(
+          id: 'g1',
+          kind: 'Goods',
+          name: 'Flour',
+          stock: 10,
+          price: 20,
+          barcode: 'BAR001',
+          batchNumber: 'BN-1',
+        );
+        final state = NewSaleState(
+          cartLines: [const NewSaleCartLine(sellable: goods, quantity: 2)],
+          saleDiscountType: InstantDiscountType.percentage,
+          saleDiscountValue: 25,
+          saleDiscountError: 'Discount exceeds allowed maximum.',
+          preview: _preview(),
+        );
+
+        await tester.pumpWidget(_buildApp(_StubNewSaleController(state)));
+
+        expect(find.byKey(const Key('sale-discount-type')), findsOneWidget);
+        expect(find.byKey(const Key('sale-discount-value')), findsOneWidget);
+        expect(find.byKey(const Key('sale-discount-error')), findsOneWidget);
+        expect(
+          find.text('Discount exceeds allowed maximum.'),
+          findsOneWidget,
+        );
+        final checkoutButton = tester.widget<FilledButton>(
+          find.byKey(const Key('checkout-button')),
+        );
+        expect(checkoutButton.onPressed, isNull);
+      },
+    );
+
+    testWidgets(
+      'shows line discount validation error and blocks invalid discount submit',
+      (tester) async {
+        const goods = Sellable(
+          id: 'g1',
+          kind: 'Goods',
+          name: 'Flour',
+          stock: 10,
+          price: 20,
+          barcode: 'BAR001',
+          batchNumber: 'BN-1',
+        );
+        final state = NewSaleState(
+          cartLines: [const NewSaleCartLine(sellable: goods, quantity: 2)],
+          preview: _preview(),
+          itemDiscountErrors: {'g1': 'Discount percentage exceeds allowed maximum.'},
+        );
+
+        await tester.pumpWidget(_buildApp(_StubNewSaleController(state)));
+
+        expect(find.byKey(const Key('line-discount-type-g1')), findsOneWidget);
+        expect(find.byKey(const Key('line-discount-value-g1')), findsOneWidget);
+        expect(find.byKey(const Key('line-discount-error-g1')), findsOneWidget);
+        expect(
+          find.text('Discount percentage exceeds allowed maximum.'),
+          findsOneWidget,
+        );
+        final checkoutButton = tester.widget<FilledButton>(
+          find.byKey(const Key('checkout-button')),
+        );
+        expect(checkoutButton.onPressed, isNull);
+      },
+    );
+
     testWidgets('shows preview loading state and disables checkout', (
       tester,
     ) async {

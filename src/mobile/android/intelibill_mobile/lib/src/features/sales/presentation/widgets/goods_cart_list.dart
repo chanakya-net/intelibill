@@ -7,6 +7,13 @@ typedef OnDecrease = void Function(String sellableId);
 typedef OnIncrease = void Function(String sellableId);
 typedef OnRemove = void Function(String sellableId);
 typedef OnUnitPriceChanged = void Function(String sellableId, double value);
+typedef OnSaleDiscountTypeChanged = void Function(int type);
+typedef OnSaleDiscountValueChanged = void Function(double value);
+typedef OnCartItemDiscountTypeChanged = void Function(String sellableId, int type);
+typedef OnCartItemDiscountValueChanged = void Function(
+  String sellableId,
+  double value,
+);
 
 class GoodsCartList extends StatelessWidget {
   const GoodsCartList({
@@ -16,6 +23,14 @@ class GoodsCartList extends StatelessWidget {
     required this.onIncrease,
     required this.onRemove,
     required this.onUnitPriceChanged,
+    required this.saleDiscountType,
+    required this.saleDiscountValue,
+    this.saleDiscountError,
+    required this.itemDiscountErrors,
+    required this.onSaleDiscountTypeChanged,
+    required this.onSaleDiscountValueChanged,
+    required this.onCartItemDiscountTypeChanged,
+    required this.onCartItemDiscountValueChanged,
     required this.total,
     required this.subtotal,
     required this.tax,
@@ -33,6 +48,14 @@ class GoodsCartList extends StatelessWidget {
   final OnIncrease onIncrease;
   final OnRemove onRemove;
   final OnUnitPriceChanged onUnitPriceChanged;
+  final int saleDiscountType;
+  final double saleDiscountValue;
+  final String? saleDiscountError;
+  final Map<String, String> itemDiscountErrors;
+  final OnSaleDiscountTypeChanged onSaleDiscountTypeChanged;
+  final OnSaleDiscountValueChanged onSaleDiscountValueChanged;
+  final OnCartItemDiscountTypeChanged onCartItemDiscountTypeChanged;
+  final OnCartItemDiscountValueChanged onCartItemDiscountValueChanged;
   final double total;
   final double subtotal;
   final double tax;
@@ -55,18 +78,88 @@ class GoodsCartList extends StatelessWidget {
       );
     }
 
-    return ListView.separated(
+    return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(0, 8, 0, 8),
-      itemCount: lines.length + 1,
-      separatorBuilder: (_, _) => const SizedBox(height: 8),
-      itemBuilder: (context, index) {
-        if (index == lines.length) {
-          return Padding(
+      child: Column(
+        children: [
+          for (final line in lines) ...[
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            line.sellable.name,
+                            key: Key('cart-line-name-${line.sellable.id}'),
+                          ),
+                        ),
+                        IconButton(
+                          key: Key('remove-from-cart-${line.sellable.id}'),
+                          icon: const Icon(Icons.delete_outline),
+                          onPressed: () => onRemove(line.sellable.id),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Qty: ${_formatQuantity(line.quantity)}'),
+                        Text('₹${line.lineTotal.toStringAsFixed(2)}'),
+                      ],
+                    ),
+                    if (line.sellable.isService) ...[
+                      const SizedBox(height: 8),
+                      _ServicePriceField(
+                        key: Key('service-unit-price-${line.sellable.id}'),
+                        lineId: line.sellable.id,
+                        price: line.effectiveUnitPrice,
+                        onChanged: onUnitPriceChanged,
+                      ),
+                    ],
+                    if (line.sellable.isGoods) ...[
+                      const SizedBox(height: 8),
+                      _LineDiscountEditor(
+                        line: line,
+                        error: itemDiscountErrors[line.sellable.id],
+                        onTypeChanged: (lineId, type) =>
+                            onCartItemDiscountTypeChanged(lineId, type),
+                        onValueChanged: (lineId, value) =>
+                            onCartItemDiscountValueChanged(lineId, value),
+                      ),
+                    ],
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        IconButton(
+                          key: Key('decrease-${line.sellable.id}'),
+                          icon: const Icon(Icons.remove_circle_outline),
+                          onPressed: () => onDecrease(line.sellable.id),
+                        ),
+                        IconButton(
+                          key: Key('increase-${line.sellable.id}'),
+                          icon: const Icon(Icons.add_circle_outline),
+                          onPressed: () => onIncrease(line.sellable.id),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+          Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: _CheckoutSummaryCard(
               subtotal: subtotal,
               tax: tax,
               discount: discount,
+              saleDiscountType: saleDiscountType,
+              saleDiscountValue: saleDiscountValue,
+              saleDiscountError: saleDiscountError,
               total: total,
               discountCapacity: discountCapacity,
               preview: preview,
@@ -74,67 +167,12 @@ class GoodsCartList extends StatelessWidget {
               isPreviewLoading: isPreviewLoading,
               canSubmitCheckout: canSubmitCheckout,
               onRefreshPreview: onRefreshPreview,
-            ),
-          );
-        }
-
-        final line = lines[index];
-        return Card(
-          child: Padding(
-            padding: const EdgeInsets.all(8),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        line.sellable.name,
-                        key: Key('cart-line-name-${line.sellable.id}'),
-                      ),
-                    ),
-                    IconButton(
-                      key: Key('remove-from-cart-${line.sellable.id}'),
-                      icon: const Icon(Icons.delete_outline),
-                      onPressed: () => onRemove(line.sellable.id),
-                    ),
-                  ],
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Qty: ${_formatQuantity(line.quantity)}'),
-                    Text('₹${line.lineTotal.toStringAsFixed(2)}'),
-                  ],
-                ),
-                if (line.sellable.isService) ...[
-                  const SizedBox(height: 8),
-                  _ServicePriceField(
-                    key: Key('service-unit-price-${line.sellable.id}'),
-                    lineId: line.sellable.id,
-                    price: line.effectiveUnitPrice,
-                    onChanged: onUnitPriceChanged,
-                  ),
-                ],
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    IconButton(
-                      key: Key('decrease-${line.sellable.id}'),
-                      icon: const Icon(Icons.remove_circle_outline),
-                      onPressed: () => onDecrease(line.sellable.id),
-                    ),
-                    IconButton(
-                      key: Key('increase-${line.sellable.id}'),
-                      icon: const Icon(Icons.add_circle_outline),
-                      onPressed: () => onIncrease(line.sellable.id),
-                    ),
-                  ],
-                ),
-              ],
+              onSaleDiscountTypeChanged: onSaleDiscountTypeChanged,
+              onSaleDiscountValueChanged: onSaleDiscountValueChanged,
             ),
           ),
-        );
-      },
+        ],
+      ),
     );
   }
 
@@ -152,6 +190,9 @@ class _CheckoutSummaryCard extends StatelessWidget {
     required this.subtotal,
     required this.tax,
     required this.discount,
+    required this.saleDiscountType,
+    required this.saleDiscountValue,
+    required this.saleDiscountError,
     required this.total,
     required this.discountCapacity,
     required this.preview,
@@ -159,11 +200,16 @@ class _CheckoutSummaryCard extends StatelessWidget {
     required this.isPreviewLoading,
     required this.canSubmitCheckout,
     required this.onRefreshPreview,
+    required this.onSaleDiscountTypeChanged,
+    required this.onSaleDiscountValueChanged,
   });
 
   final double subtotal;
   final double tax;
   final double discount;
+  final int saleDiscountType;
+  final double saleDiscountValue;
+  final String? saleDiscountError;
   final double total;
   final double discountCapacity;
   final SalePreview? preview;
@@ -171,6 +217,8 @@ class _CheckoutSummaryCard extends StatelessWidget {
   final bool isPreviewLoading;
   final bool canSubmitCheckout;
   final VoidCallback onRefreshPreview;
+  final OnSaleDiscountTypeChanged onSaleDiscountTypeChanged;
+  final OnSaleDiscountValueChanged onSaleDiscountValueChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -221,6 +269,14 @@ class _CheckoutSummaryCard extends StatelessWidget {
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
+            const SizedBox(height: 8),
+            _SaleDiscountEditor(
+              type: saleDiscountType,
+              value: saleDiscountValue,
+              error: saleDiscountError,
+              onTypeChanged: onSaleDiscountTypeChanged,
+              onValueChanged: onSaleDiscountValueChanged,
+            ),
             const SizedBox(height: 8),
             _SummaryRow(label: 'Subtotal', value: _formatAmount(subtotal)),
             _SummaryRow(label: 'Tax', value: _formatAmount(tax)),
@@ -403,6 +459,268 @@ class _ServicePriceFieldState extends State<_ServicePriceField> {
           widget.onChanged(widget.lineId, parsed);
         }
       },
+    );
+  }
+}
+
+class _LineDiscountEditor extends StatefulWidget {
+  const _LineDiscountEditor({
+    super.key,
+    required this.line,
+    required this.error,
+    required this.onTypeChanged,
+    required this.onValueChanged,
+  });
+
+  final NewSaleCartLine line;
+  final String? error;
+  final OnCartItemDiscountTypeChanged onTypeChanged;
+  final OnCartItemDiscountValueChanged onValueChanged;
+
+  @override
+  State<_LineDiscountEditor> createState() => _LineDiscountEditorState();
+}
+
+class _LineDiscountEditorState extends State<_LineDiscountEditor> {
+  late TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(
+      text: _initialValueText(),
+    );
+  }
+
+  @override
+  void didUpdateWidget(_LineDiscountEditor oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final nextValue = _initialValueText();
+    if (_controller.text != nextValue) {
+      _controller.text = nextValue;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final line = widget.line;
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: DropdownButtonFormField<int>(
+                key: Key('line-discount-type-${line.sellable.id}'),
+                value: line.itemDiscountType,
+                items: const [
+                  DropdownMenuItem(
+                    value: InstantDiscountType.none,
+                    child: Text('No discount'),
+                  ),
+                  DropdownMenuItem(
+                    value: InstantDiscountType.percentage,
+                    child: Text('Percent'),
+                  ),
+                  DropdownMenuItem(
+                    value: InstantDiscountType.flat,
+                    child: Text('Flat'),
+                  ),
+                ],
+                onChanged: (value) {
+                  if (value == null) return;
+                  widget.onTypeChanged(line.sellable.id, value);
+                },
+                decoration: const InputDecoration(
+                  labelText: 'Discount type',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: TextField(
+                key: Key('line-discount-value-${line.sellable.id}'),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                enabled: line.itemDiscountType != InstantDiscountType.none,
+                controller: _controller,
+                decoration: InputDecoration(
+                  labelText: line.itemDiscountType == InstantDiscountType.percentage
+                      ? 'Discount %'
+                      : 'Discount amount',
+                  border: const OutlineInputBorder(),
+                  suffixText: line.itemDiscountType == InstantDiscountType.percentage
+                      ? '%'
+                      : '₹',
+                ),
+                onChanged: (text) {
+                  final parsed = double.tryParse(text.trim());
+                  if (parsed == null) {
+                    widget.onValueChanged(line.sellable.id, 0);
+                    return;
+                  }
+                  widget.onValueChanged(line.sellable.id, parsed);
+                },
+              ),
+            ),
+          ],
+        ),
+        if (widget.error != null && widget.error!.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              widget.error!,
+              key: Key('line-discount-error-${line.sellable.id}'),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.error,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  String _initialValueText() {
+    final shouldHide = widget.line.itemDiscountType == InstantDiscountType.none;
+    if (shouldHide) return '';
+    final value = widget.line.itemDiscountValue;
+    return value == 0 ? '' : value.toString();
+  }
+}
+
+class _SaleDiscountEditor extends StatefulWidget {
+  const _SaleDiscountEditor({
+    required this.type,
+    required this.value,
+    required this.error,
+    required this.onTypeChanged,
+    required this.onValueChanged,
+  });
+
+  final int type;
+  final double value;
+  final String? error;
+  final OnSaleDiscountTypeChanged onTypeChanged;
+  final OnSaleDiscountValueChanged onValueChanged;
+
+  @override
+  State<_SaleDiscountEditor> createState() => _SaleDiscountEditorState();
+}
+
+class _SaleDiscountEditorState extends State<_SaleDiscountEditor> {
+  late TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(
+      text: widget.value == 0 ? '' : widget.value.toString(),
+    );
+  }
+
+  @override
+  void didUpdateWidget(_SaleDiscountEditor oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final nextValue = widget.value == 0 ? '' : widget.value.toString();
+    if (_controller.text != nextValue) {
+      _controller.text = nextValue;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: DropdownButtonFormField<int>(
+                key: const Key('sale-discount-type'),
+                value: widget.type,
+                items: const [
+                  DropdownMenuItem(
+                    value: InstantDiscountType.none,
+                    child: Text('No discount'),
+                  ),
+                  DropdownMenuItem(
+                    value: InstantDiscountType.percentage,
+                    child: Text('Percent'),
+                  ),
+                  DropdownMenuItem(
+                    value: InstantDiscountType.flat,
+                    child: Text('Flat'),
+                  ),
+                ],
+                onChanged: (selectedType) {
+                  if (selectedType == null) return;
+                  widget.onTypeChanged(selectedType);
+                },
+                decoration: const InputDecoration(
+                  labelText: 'Sale discount type',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: TextField(
+                key: const Key('sale-discount-value'),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                enabled: widget.type != InstantDiscountType.none,
+                controller: _controller,
+                decoration: InputDecoration(
+                  labelText: widget.type == InstantDiscountType.percentage
+                      ? 'Sale discount %'
+                      : 'Sale discount amount',
+                  border: const OutlineInputBorder(),
+                  suffixText: widget.type == InstantDiscountType.percentage
+                      ? '%'
+                      : '₹',
+                ),
+                onChanged: (text) {
+                  final parsed = double.tryParse(text.trim());
+                  if (parsed == null) {
+                    widget.onValueChanged(0);
+                    return;
+                  }
+                  widget.onValueChanged(parsed);
+                },
+              ),
+            ),
+          ],
+        ),
+        if (widget.error != null && widget.error!.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              widget.error!,
+              key: const Key('sale-discount-error'),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.error,
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

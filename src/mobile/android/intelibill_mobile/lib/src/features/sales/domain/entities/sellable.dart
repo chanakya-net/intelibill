@@ -1,5 +1,11 @@
 import 'package:equatable/equatable.dart';
 
+class InstantDiscountType {
+  static const int none = 0;
+  static const int percentage = 1;
+  static const int flat = 2;
+}
+
 class Sellable extends Equatable {
   const Sellable({
     required this.id,
@@ -51,16 +57,21 @@ class Sellable extends Equatable {
 
 class NewSaleCartLine extends Equatable {
   static const _unset = Object();
+  static const _unsetType = Object();
 
   const NewSaleCartLine({
     required this.sellable,
     required this.quantity,
     this.unitPrice,
+    this.itemDiscountType = InstantDiscountType.none,
+    this.itemDiscountValue = 0,
   });
 
   final Sellable sellable;
   final double quantity;
   final double? unitPrice;
+  final int itemDiscountType;
+  final double itemDiscountValue;
 
   double get effectiveUnitPrice => unitPrice ?? sellable.price;
 
@@ -69,6 +80,8 @@ class NewSaleCartLine extends Equatable {
   NewSaleCartLine copyWith({
     double? quantity,
     Object? unitPrice = _unset,
+    Object? itemDiscountType = _unsetType,
+    Object? itemDiscountValue = _unset,
   }) {
     return NewSaleCartLine(
       sellable: sellable,
@@ -76,9 +89,21 @@ class NewSaleCartLine extends Equatable {
       unitPrice: identical(unitPrice, _unset)
           ? this.unitPrice
           : unitPrice as double?,
+      itemDiscountType: identical(itemDiscountType, _unsetType)
+          ? this.itemDiscountType
+          : itemDiscountType as int,
+      itemDiscountValue: identical(itemDiscountValue, _unset)
+          ? this.itemDiscountValue
+          : itemDiscountValue as double,
     );
   }
 
   @override
-  List<Object?> get props => [sellable, quantity, unitPrice];
+  List<Object?> get props => [
+    sellable,
+    quantity,
+    unitPrice,
+    itemDiscountType,
+    itemDiscountValue,
+  ];
 }

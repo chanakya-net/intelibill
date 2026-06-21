@@ -63,6 +63,10 @@ class _NewSalePageState extends ConsumerState<NewSalePage> {
                 subtotal: state.subtotalAmount,
                 tax: state.taxAmount,
                 discount: state.discountAmount,
+                saleDiscountType: state.saleDiscountType,
+                saleDiscountValue: state.saleDiscountValue,
+                saleDiscountError: state.saleDiscountError,
+                itemDiscountErrors: state.itemDiscountErrors,
                 total: state.cartTotal,
                 discountCapacity: state.discountCapacityAmount,
                 preview: state.preview,
@@ -72,9 +76,13 @@ class _NewSalePageState extends ConsumerState<NewSalePage> {
                 onRefreshPreview: () => ref
                     .read(newSaleControllerProvider.notifier)
                     .refreshPreview(),
+                onSaleDiscountTypeChanged: _updateSaleDiscountType,
+                onSaleDiscountValueChanged: _updateSaleDiscountValue,
                 onDecrease: _decreaseQty,
                 onIncrease: _increaseQty,
                 onRemove: _removeFromCart,
+                onCartItemDiscountTypeChanged: _updateCartItemDiscountType,
+                onCartItemDiscountValueChanged: _updateCartItemDiscountValue,
                 onUnitPriceChanged: _updateUnitPrice,
               ),
             ),
@@ -175,6 +183,26 @@ class _NewSalePageState extends ConsumerState<NewSalePage> {
 
   void _removeFromCart(String sellableId) {
     ref.read(newSaleControllerProvider.notifier).removeFromCart(sellableId);
+  }
+
+  void _updateSaleDiscountType(int type) {
+    ref.read(newSaleControllerProvider.notifier).updateSaleDiscountType(type);
+  }
+
+  void _updateSaleDiscountValue(double value) {
+    ref.read(newSaleControllerProvider.notifier).updateSaleDiscountValue(value);
+  }
+
+  void _updateCartItemDiscountType(String sellableId, int type) {
+    ref
+        .read(newSaleControllerProvider.notifier)
+        .updateCartItemDiscountType(sellableId, type);
+  }
+
+  void _updateCartItemDiscountValue(String sellableId, double value) {
+    ref
+        .read(newSaleControllerProvider.notifier)
+        .updateCartItemDiscountValue(sellableId, value);
   }
 
   void _updateUnitPrice(String sellableId, double value) {
