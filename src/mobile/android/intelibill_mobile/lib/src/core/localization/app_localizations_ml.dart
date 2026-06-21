@@ -276,6 +276,102 @@ class AppLocalizationsMl extends AppLocalizations {
       'Unable to load services. Please try again.';
 
   @override
+  String get servicesAddService => 'Add Service';
+
+  @override
+  String get servicesEditService => 'Edit Service';
+
+  @override
+  String get servicesNameLabel => 'Name';
+
+  @override
+  String get servicesNameRequired => 'Service name is required.';
+
+  @override
+  String get servicesNameMax => 'Name must be 180 characters or fewer.';
+
+  @override
+  String get servicesDescriptionLabel => 'Description';
+
+  @override
+  String get servicesDescriptionMax =>
+      'Description must be 1000 characters or fewer.';
+
+  @override
+  String get servicesPriceLabel => 'Price';
+
+  @override
+  String get servicesPriceRequired => 'Price is required.';
+
+  @override
+  String get servicesPriceInvalid => 'Enter a valid price greater than 0.';
+
+  @override
+  String get servicesHsnCodeLabel => 'HSN Code';
+
+  @override
+  String get servicesHsnCodeInvalid => 'HSN code must be 4 to 8 digits.';
+
+  @override
+  String get servicesTaxRateLabel => 'Tax Rate (%)';
+
+  @override
+  String get servicesTaxRateRequired => 'Tax rate is required.';
+
+  @override
+  String get servicesTaxRateInvalid => 'Tax rate must be between 0 and 100.';
+
+  @override
+  String get servicesTaxIncludedLabel => 'Tax included';
+
+  @override
+  String get servicesActiveOnCreateLabel => 'Active on create';
+
+  @override
+  String get servicesTaxIncluded => 'Tax included';
+
+  @override
+  String get servicesTaxExcluded => 'Tax excluded';
+
+  @override
+  String get servicesActivate => 'Activate';
+
+  @override
+  String get servicesDeactivate => 'Deactivate';
+
+  @override
+  String get servicesCreateSuccess => 'Service created successfully.';
+
+  @override
+  String get servicesUpdateSuccess => 'Service updated successfully.';
+
+  @override
+  String get servicesActivatedSuccess => 'Service activated successfully.';
+
+  @override
+  String get servicesDeactivatedSuccess => 'Service deactivated successfully.';
+
+  @override
+  String get servicesMutationErrorNetwork =>
+      'Unable to connect. Please check your network.';
+
+  @override
+  String get servicesMutationErrorTimeout =>
+      'Request timed out. Please try again.';
+
+  @override
+  String get servicesMutationErrorUnauthorized =>
+      'Session expired. Please log in again.';
+
+  @override
+  String get servicesMutationErrorForbidden =>
+      'You do not have permission to manage services.';
+
+  @override
+  String get servicesMutationErrorGeneric =>
+      'Unable to save service. Please try again.';
+
+  @override
   String get usersTitle => 'Shop Users';
 
   @override

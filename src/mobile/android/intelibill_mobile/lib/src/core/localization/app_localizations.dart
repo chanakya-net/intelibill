@@ -637,6 +637,186 @@ abstract class AppLocalizations {
   /// **'Unable to load services. Please try again.'**
   String get servicesErrorGeneric;
 
+  /// No description provided for @servicesAddService.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Add Service'**
+  String get servicesAddService;
+
+  /// No description provided for @servicesEditService.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Edit Service'**
+  String get servicesEditService;
+
+  /// No description provided for @servicesNameLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Name'**
+  String get servicesNameLabel;
+
+  /// No description provided for @servicesNameRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Service name is required.'**
+  String get servicesNameRequired;
+
+  /// No description provided for @servicesNameMax.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Name must be 180 characters or fewer.'**
+  String get servicesNameMax;
+
+  /// No description provided for @servicesDescriptionLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Description'**
+  String get servicesDescriptionLabel;
+
+  /// No description provided for @servicesDescriptionMax.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Description must be 1000 characters or fewer.'**
+  String get servicesDescriptionMax;
+
+  /// No description provided for @servicesPriceLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Price'**
+  String get servicesPriceLabel;
+
+  /// No description provided for @servicesPriceRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Price is required.'**
+  String get servicesPriceRequired;
+
+  /// No description provided for @servicesPriceInvalid.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Enter a valid price greater than 0.'**
+  String get servicesPriceInvalid;
+
+  /// No description provided for @servicesHsnCodeLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'HSN Code'**
+  String get servicesHsnCodeLabel;
+
+  /// No description provided for @servicesHsnCodeInvalid.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'HSN code must be 4 to 8 digits.'**
+  String get servicesHsnCodeInvalid;
+
+  /// No description provided for @servicesTaxRateLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Tax Rate (%)'**
+  String get servicesTaxRateLabel;
+
+  /// No description provided for @servicesTaxRateRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Tax rate is required.'**
+  String get servicesTaxRateRequired;
+
+  /// No description provided for @servicesTaxRateInvalid.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Tax rate must be between 0 and 100.'**
+  String get servicesTaxRateInvalid;
+
+  /// No description provided for @servicesTaxIncludedLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Tax included'**
+  String get servicesTaxIncludedLabel;
+
+  /// No description provided for @servicesActiveOnCreateLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Active on create'**
+  String get servicesActiveOnCreateLabel;
+
+  /// No description provided for @servicesTaxIncluded.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Tax included'**
+  String get servicesTaxIncluded;
+
+  /// No description provided for @servicesTaxExcluded.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Tax excluded'**
+  String get servicesTaxExcluded;
+
+  /// No description provided for @servicesActivate.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Activate'**
+  String get servicesActivate;
+
+  /// No description provided for @servicesDeactivate.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Deactivate'**
+  String get servicesDeactivate;
+
+  /// No description provided for @servicesCreateSuccess.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Service created successfully.'**
+  String get servicesCreateSuccess;
+
+  /// No description provided for @servicesUpdateSuccess.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Service updated successfully.'**
+  String get servicesUpdateSuccess;
+
+  /// No description provided for @servicesActivatedSuccess.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Service activated successfully.'**
+  String get servicesActivatedSuccess;
+
+  /// No description provided for @servicesDeactivatedSuccess.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Service deactivated successfully.'**
+  String get servicesDeactivatedSuccess;
+
+  /// No description provided for @servicesMutationErrorNetwork.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to connect. Please check your network.'**
+  String get servicesMutationErrorNetwork;
+
+  /// No description provided for @servicesMutationErrorTimeout.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Request timed out. Please try again.'**
+  String get servicesMutationErrorTimeout;
+
+  /// No description provided for @servicesMutationErrorUnauthorized.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Session expired. Please log in again.'**
+  String get servicesMutationErrorUnauthorized;
+
+  /// No description provided for @servicesMutationErrorForbidden.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'You do not have permission to manage services.'**
+  String get servicesMutationErrorForbidden;
+
+  /// No description provided for @servicesMutationErrorGeneric.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to save service. Please try again.'**
+  String get servicesMutationErrorGeneric;
+
   /// No description provided for @usersTitle.
   ///
   /// In en_IN, this message translates to:

@@ -147,6 +147,181 @@ final class GetServicesUseCaseProvider
 String _$getServicesUseCaseHash() =>
     r'8cf4e191bb756e4a31e32f1518fefb672120973f';
 
+@ProviderFor(createServiceUseCase)
+final createServiceUseCaseProvider = CreateServiceUseCaseProvider._();
+
+final class CreateServiceUseCaseProvider
+    extends $FunctionalProvider<CreateService, CreateService, CreateService>
+    with $Provider<CreateService> {
+  CreateServiceUseCaseProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'createServiceUseCaseProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$createServiceUseCaseHash();
+
+  @$internal
+  @override
+  $ProviderElement<CreateService> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  CreateService create(Ref ref) {
+    return createServiceUseCase(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(CreateService value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<CreateService>(value),
+    );
+  }
+}
+
+String _$createServiceUseCaseHash() =>
+    r'd757bdc477988f86748f7f37a0082893634ec24c';
+
+@ProviderFor(updateServiceUseCase)
+final updateServiceUseCaseProvider = UpdateServiceUseCaseProvider._();
+
+final class UpdateServiceUseCaseProvider
+    extends $FunctionalProvider<UpdateService, UpdateService, UpdateService>
+    with $Provider<UpdateService> {
+  UpdateServiceUseCaseProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'updateServiceUseCaseProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$updateServiceUseCaseHash();
+
+  @$internal
+  @override
+  $ProviderElement<UpdateService> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  UpdateService create(Ref ref) {
+    return updateServiceUseCase(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(UpdateService value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<UpdateService>(value),
+    );
+  }
+}
+
+String _$updateServiceUseCaseHash() =>
+    r'aea73935e6a05a1c4e2f0ffade86645e2758603d';
+
+@ProviderFor(activateServiceUseCase)
+final activateServiceUseCaseProvider = ActivateServiceUseCaseProvider._();
+
+final class ActivateServiceUseCaseProvider
+    extends
+        $FunctionalProvider<ActivateService, ActivateService, ActivateService>
+    with $Provider<ActivateService> {
+  ActivateServiceUseCaseProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'activateServiceUseCaseProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$activateServiceUseCaseHash();
+
+  @$internal
+  @override
+  $ProviderElement<ActivateService> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  ActivateService create(Ref ref) {
+    return activateServiceUseCase(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(ActivateService value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<ActivateService>(value),
+    );
+  }
+}
+
+String _$activateServiceUseCaseHash() =>
+    r'9b92273c886acfbf2543e5c6c8a8f4abb751ae3f';
+
+@ProviderFor(deactivateServiceUseCase)
+final deactivateServiceUseCaseProvider = DeactivateServiceUseCaseProvider._();
+
+final class DeactivateServiceUseCaseProvider
+    extends
+        $FunctionalProvider<
+          DeactivateService,
+          DeactivateService,
+          DeactivateService
+        >
+    with $Provider<DeactivateService> {
+  DeactivateServiceUseCaseProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'deactivateServiceUseCaseProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$deactivateServiceUseCaseHash();
+
+  @$internal
+  @override
+  $ProviderElement<DeactivateService> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  DeactivateService create(Ref ref) {
+    return deactivateServiceUseCase(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(DeactivateService value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<DeactivateService>(value),
+    );
+  }
+}
+
+String _$deactivateServiceUseCaseHash() =>
+    r'168422cc17fe47505aab2b3290e17cc9be8d52da';
+
 @ProviderFor(ServicesController)
 final servicesControllerProvider = ServicesControllerProvider._();
 
@@ -180,7 +355,7 @@ final class ServicesControllerProvider
 }
 
 String _$servicesControllerHash() =>
-    r'8c3e8c0e4d4a4e1136947def4921e805634b7cd2';
+    r'178015ee8611e73fc88788092892457a4a56cd76';
 
 abstract class _$ServicesController extends $Notifier<ServicesState> {
   ServicesState build();
