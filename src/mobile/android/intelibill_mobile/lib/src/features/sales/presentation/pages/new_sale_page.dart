@@ -30,6 +30,8 @@ class _NewSalePageState extends ConsumerState<NewSalePage> {
   late final TextEditingController _barcodeController;
   late final TextEditingController _paidAmountController;
   late final TextEditingController _dueAmountController;
+  late final FocusNode _paidAmountFocusNode;
+  late final FocusNode _dueAmountFocusNode;
 
   @override
   void initState() {
@@ -38,6 +40,9 @@ class _NewSalePageState extends ConsumerState<NewSalePage> {
     _barcodeController = TextEditingController();
     _paidAmountController = TextEditingController();
     _dueAmountController = TextEditingController();
+    _paidAmountFocusNode = FocusNode()
+      ..addListener(_handlePaidAmountFocusChange);
+    _dueAmountFocusNode = FocusNode()..addListener(_handleDueAmountFocusChange);
   }
 
   @override
@@ -46,6 +51,12 @@ class _NewSalePageState extends ConsumerState<NewSalePage> {
     _barcodeController.dispose();
     _paidAmountController.dispose();
     _dueAmountController.dispose();
+    _paidAmountFocusNode
+      ..removeListener(_handlePaidAmountFocusChange)
+      ..dispose();
+    _dueAmountFocusNode
+      ..removeListener(_handleDueAmountFocusChange)
+      ..dispose();
     super.dispose();
   }
 
@@ -55,8 +66,16 @@ class _NewSalePageState extends ConsumerState<NewSalePage> {
     final l10n = AppLocalizations.of(context)!;
     _syncController(_searchController, state.searchTerm);
     _syncController(_barcodeController, state.barcodeTerm);
-    _syncAmountController(_paidAmountController, state.paidAmount);
-    _syncAmountController(_dueAmountController, state.dueAmount);
+    _syncAmountController(
+      _paidAmountController,
+      _paidAmountFocusNode,
+      state.paidAmount,
+    );
+    _syncAmountController(
+      _dueAmountController,
+      _dueAmountFocusNode,
+      state.dueAmount,
+    );
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.shellNewSale)),
@@ -172,9 +191,13 @@ class _NewSalePageState extends ConsumerState<NewSalePage> {
             state: state,
             paidAmountController: _paidAmountController,
             dueAmountController: _dueAmountController,
+            paidAmountFocusNode: _paidAmountFocusNode,
+            dueAmountFocusNode: _dueAmountFocusNode,
             onPaymentMethodChanged: _onPaymentMethodChanged,
             onPaidAmountChanged: _setPaidAmount,
             onDueAmountChanged: _setDueAmount,
+            onPaidAmountEditingComplete: _finishPaidAmountEditing,
+            onDueAmountEditingComplete: _finishDueAmountEditing,
           ),
           const SizedBox(height: 12),
           if (state.submissionFailure != null)
@@ -473,13 +496,42 @@ class _NewSalePageState extends ConsumerState<NewSalePage> {
     );
   }
 
-  void _syncAmountController(TextEditingController controller, double value) {
+  void _syncAmountController(
+    TextEditingController controller,
+    FocusNode focusNode,
+    double value,
+  ) {
+    if (focusNode.hasFocus) return;
     final next = value.toStringAsFixed(2);
     if (controller.text == next) return;
     controller.value = TextEditingValue(
       text: next,
       selection: TextSelection.collapsed(offset: next.length),
     );
+  }
+
+  void _handlePaidAmountFocusChange() {
+    _syncAmountController(
+      _paidAmountController,
+      _paidAmountFocusNode,
+      ref.read(newSaleControllerProvider).paidAmount,
+    );
+  }
+
+  void _handleDueAmountFocusChange() {
+    _syncAmountController(
+      _dueAmountController,
+      _dueAmountFocusNode,
+      ref.read(newSaleControllerProvider).dueAmount,
+    );
+  }
+
+  void _finishPaidAmountEditing() {
+    _paidAmountFocusNode.unfocus();
+  }
+
+  void _finishDueAmountEditing() {
+    _dueAmountFocusNode.unfocus();
   }
 
   void _searchByBarcode() {

@@ -230,6 +230,10 @@ Customer _customer() {
   );
 }
 
+String _fieldText(WidgetTester tester, Key key) {
+  return tester.widget<TextField>(find.byKey(key)).controller!.text;
+}
+
 void main() {
   group('NewSalePage', () {
     testWidgets('shows loading state', (tester) async {
@@ -297,7 +301,9 @@ void main() {
         expect(find.textContaining('₹150'), findsOneWidget);
         await tester.tap(find.byKey(const Key('add-button-s1')));
         await tester.pump();
-        await tester.ensureVisible(find.byKey(const Key('service-unit-price-s1')));
+        await tester.ensureVisible(
+          find.byKey(const Key('service-unit-price-s1')),
+        );
         await tester.pump();
 
         expect(find.byKey(const Key('service-unit-price-s1')), findsOneWidget);
@@ -369,7 +375,9 @@ void main() {
       );
 
       await tester.pumpWidget(_buildApp(_StubNewSaleController(state)));
-      await tester.ensureVisible(find.byKey(const Key('service-unit-price-s1')));
+      await tester.ensureVisible(
+        find.byKey(const Key('service-unit-price-s1')),
+      );
       await tester.pump();
 
       expect(find.byKey(const Key('decrease-g1')), findsOneWidget);
@@ -484,5 +492,82 @@ void main() {
       expect(enabledButton.onPressed, isNotNull);
       expect(find.byKey(NewSalePage.paymentFailureKey), findsNothing);
     });
+
+    testWidgets(
+      'payment split fields stay editable during incremental typing',
+      (
+        tester,
+      ) async {
+        final controller = _StubNewSaleController(
+          NewSaleState(
+            cartLines: [NewSaleCartLine(sellable: _goods(), quantity: 1)],
+            availableCustomers: [_customer()],
+            selectedCustomer: _customer(),
+            paidAmount: 20,
+            dueAmount: 0,
+          ),
+        );
+        await tester.pumpWidget(_buildApp(controller));
+
+        await tester.tap(find.byKey(PaymentSection.dueAmountFieldKey));
+        await tester.pump();
+
+        tester.testTextInput.updateEditingValue(
+          const TextEditingValue(
+            text: '5',
+            selection: TextSelection.collapsed(offset: 1),
+          ),
+        );
+        await tester.pump();
+        expect(_fieldText(tester, PaymentSection.dueAmountFieldKey), '5');
+
+        tester.testTextInput.updateEditingValue(
+          const TextEditingValue(
+            text: '5.',
+            selection: TextSelection.collapsed(offset: 2),
+          ),
+        );
+        await tester.pump();
+        expect(_fieldText(tester, PaymentSection.dueAmountFieldKey), '5.');
+
+        FocusManager.instance.primaryFocus?.unfocus();
+        await tester.pump();
+        expect(_fieldText(tester, PaymentSection.dueAmountFieldKey), '5.00');
+
+        await tester.ensureVisible(
+          find.byKey(PaymentSection.paidAmountFieldKey),
+        );
+        await tester.pump();
+        await tester.tap(find.byKey(PaymentSection.paidAmountFieldKey));
+        await tester.pump();
+
+        tester.testTextInput.updateEditingValue(
+          const TextEditingValue(
+            text: '15',
+            selection: TextSelection.collapsed(offset: 2),
+          ),
+        );
+        await tester.pump();
+        expect(_fieldText(tester, PaymentSection.paidAmountFieldKey), '15');
+
+        tester.testTextInput.updateEditingValue(
+          const TextEditingValue(
+            text: '15.5',
+            selection: TextSelection.collapsed(offset: 4),
+          ),
+        );
+        await tester.pump();
+        expect(_fieldText(tester, PaymentSection.paidAmountFieldKey), '15.5');
+
+        tester.testTextInput.updateEditingValue(
+          const TextEditingValue(
+            text: '15.50',
+            selection: TextSelection.collapsed(offset: 5),
+          ),
+        );
+        await tester.pump();
+        expect(_fieldText(tester, PaymentSection.paidAmountFieldKey), '15.50');
+      },
+    );
   });
 }

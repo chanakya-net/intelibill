@@ -9,9 +9,13 @@ class PaymentSection extends StatelessWidget {
     required this.state,
     required this.paidAmountController,
     required this.dueAmountController,
+    required this.paidAmountFocusNode,
+    required this.dueAmountFocusNode,
     required this.onPaymentMethodChanged,
     required this.onPaidAmountChanged,
     required this.onDueAmountChanged,
+    required this.onPaidAmountEditingComplete,
+    required this.onDueAmountEditingComplete,
   });
 
   static const paidAmountFieldKey = Key('new-sale-paid-amount');
@@ -24,9 +28,13 @@ class PaymentSection extends StatelessWidget {
   final NewSaleState state;
   final TextEditingController paidAmountController;
   final TextEditingController dueAmountController;
+  final FocusNode paidAmountFocusNode;
+  final FocusNode dueAmountFocusNode;
   final ValueChanged<PaymentMethod> onPaymentMethodChanged;
   final ValueChanged<double> onPaidAmountChanged;
   final ValueChanged<double> onDueAmountChanged;
+  final VoidCallback onPaidAmountEditingComplete;
+  final VoidCallback onDueAmountEditingComplete;
 
   @override
   Widget build(BuildContext context) {
@@ -77,6 +85,8 @@ class PaymentSection extends StatelessWidget {
               child: TextField(
                 key: paidAmountFieldKey,
                 controller: paidAmountController,
+                focusNode: paidAmountFocusNode,
+                textInputAction: TextInputAction.next,
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
@@ -85,6 +95,7 @@ class PaymentSection extends StatelessWidget {
                   border: OutlineInputBorder(),
                   prefixText: '₹',
                 ),
+                onEditingComplete: onPaidAmountEditingComplete,
                 onChanged: (value) {
                   final parsed = double.tryParse(value.trim()) ?? 0;
                   onPaidAmountChanged(parsed);
@@ -96,6 +107,8 @@ class PaymentSection extends StatelessWidget {
               child: TextField(
                 key: dueAmountFieldKey,
                 controller: dueAmountController,
+                focusNode: dueAmountFocusNode,
+                textInputAction: TextInputAction.done,
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
@@ -104,6 +117,7 @@ class PaymentSection extends StatelessWidget {
                   border: OutlineInputBorder(),
                   prefixText: '₹',
                 ),
+                onEditingComplete: onDueAmountEditingComplete,
                 onChanged: (value) {
                   final parsed = double.tryParse(value.trim()) ?? 0;
                   onDueAmountChanged(parsed);
