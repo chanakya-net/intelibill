@@ -671,7 +671,7 @@ class _SaleDiscountEditorState extends State<_SaleDiscountEditor> {
                 ],
                 onChanged: (selectedType) {
                   if (selectedType == null) return;
-                widget.onTypeChanged(selectedType);
+                  widget.onTypeChanged(selectedType);
                 },
                 decoration: const InputDecoration(
                   labelText: 'Sale discount type',

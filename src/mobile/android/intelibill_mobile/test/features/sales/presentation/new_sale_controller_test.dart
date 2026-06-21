@@ -644,6 +644,48 @@ void main() {
       expect(state.cartLines.single.itemDiscountValue, 1);
     });
 
+    test('blocks item discount when configuredBatchRulePercentage is tighter than server max', () async {
+      final preview = _preview(
+        lines: [
+          _previewLine(
+            lineKey: 'g1',
+            preTaxAmountBeforeDiscount: 100,
+            itemDiscountAmount: 0,
+            maxItemDiscountFlat: 30,
+            maxItemDiscountPercent: 30,
+            taxableAmount: 90,
+            taxAmount: 0,
+            lineTotalAmount: 90,
+            configuredBatchRulePercentage: 10,
+          ),
+        ],
+      );
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+      final goods = _goods(id: 'g1', name: 'Rice', stock: 5);
+      controller.state = NewSaleState(
+        cartLines: [
+          NewSaleCartLine(
+            sellable: goods,
+            quantity: 1,
+            itemDiscountType: InstantDiscountType.flat,
+            itemDiscountValue: 5,
+          ),
+        ],
+        preview: preview,
+      );
+
+      controller.updateCartItemDiscountValue('g1', 20);
+      final state = container.read(newSaleControllerProvider);
+      // configuredBatchRulePercentage=10 on preTax=100 -> configuredAmount=10
+      // min(maxFlat=30, configuredAmount=10) = 10; value 20 exceeds limit
+      expect(state.itemDiscountErrors, contains('g1'));
+      expect(state.itemDiscountErrors['g1'], contains('exceeds allowed maximum'));
+      expect(state.cartLines.single.itemDiscountValue, 5);
+    });
+
     test('clamps sale discount to preview-derived maximum', () async {
       final preview = _preview(
         lines: [
@@ -679,6 +721,23 @@ void main() {
       final state = container.read(newSaleControllerProvider);
       expect(state.saleDiscountType, InstantDiscountType.percentage);
       expect(state.saleDiscountValue, 10);
+      expect(state.saleDiscountError, isNull);
+    });
+
+    test('allows flat sale discount above 100 when preview is unavailable', () async {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+      final goods = _goods(id: 'g1', name: 'Flour', stock: 5);
+      controller.state = NewSaleState(
+        cartLines: [NewSaleCartLine(sellable: goods, quantity: 1)],
+        saleDiscountType: InstantDiscountType.flat,
+        saleDiscountValue: 0,
+      );
+
+      controller.updateSaleDiscountValue(500);
+      final state = container.read(newSaleControllerProvider);
+      expect(state.saleDiscountValue, 500);
       expect(state.saleDiscountError, isNull);
     });
 

@@ -167,6 +167,8 @@ class NewSaleState {
   }
 }
 
+const _serviceLineType = 'Service'; // matches Sellable.kind for service items
+
 @riverpod
 class NewSaleController extends _$NewSaleController {
   Timer? _searchDebounce;
@@ -320,34 +322,31 @@ class NewSaleController extends _$NewSaleController {
       return;
     }
 
-    final preview = state.preview;
-    if (preview != null) {
-      final limits = _calculateSaleDiscountLimits();
-      final maxAllowed = normalizedType == InstantDiscountType.percentage
-          ? limits.maxPercent
-          : limits.maxFlat;
-      if (!limits.isEligible || maxAllowed <= 0) {
-        state = state.copyWith(
-          saleDiscountType: InstantDiscountType.none,
-          saleDiscountValue: 0,
-          clearSaleDiscountError: true,
-        );
-        _schedulePreviewRefresh();
-        return;
-      }
-      final clamped = _clampDecimal(state.saleDiscountValue, maxAllowed);
+    final limits = _calculateSaleDiscountLimits();
+    final maxAllowed = normalizedType == InstantDiscountType.percentage
+        ? limits.maxPercent
+        : limits.maxFlat;
+    if (!limits.isEligible || maxAllowed <= 0) {
       state = state.copyWith(
-        saleDiscountType: normalizedType,
-        saleDiscountValue: clamped,
+        saleDiscountType: InstantDiscountType.none,
+        saleDiscountValue: 0,
         clearSaleDiscountError: true,
       );
       _schedulePreviewRefresh();
       return;
     }
+    final clamped = _clampDecimal(state.saleDiscountValue, maxAllowed);
+    state = state.copyWith(
+      saleDiscountType: normalizedType,
+      saleDiscountValue: clamped,
+      clearSaleDiscountError: true,
+    );
+    _schedulePreviewRefresh();
   }
 
   void updateSaleDiscountValue(double value) {
-    final normalizedValue = _clampDecimal(_roundMoney(value), 100);
+    final rounded = _roundMoney(value);
+    final safeValue = rounded < 0 ? 0.0 : rounded;
     if (state.saleDiscountType == InstantDiscountType.none) {
       state = state.copyWith(
         saleDiscountType: InstantDiscountType.none,
@@ -358,20 +357,14 @@ class NewSaleController extends _$NewSaleController {
     }
 
     if (state.preview == null) {
-      final maxValue = state.saleDiscountType == InstantDiscountType.percentage
-          ? 100
-          : double.infinity;
-      if (normalizedValue > maxValue) {
+      if (state.saleDiscountType == InstantDiscountType.percentage && safeValue > 100) {
         state = state.copyWith(
-          saleDiscountType: state.saleDiscountType,
-          saleDiscountValue: state.saleDiscountValue,
           saleDiscountError: 'Discount percentage cannot exceed 100%.',
         );
         return;
       }
-
       state = state.copyWith(
-        saleDiscountValue: normalizedValue,
+        saleDiscountValue: safeValue,
         clearSaleDiscountError: true,
       );
       _schedulePreviewRefresh();
@@ -391,7 +384,7 @@ class NewSaleController extends _$NewSaleController {
     final maxAllowed = state.saleDiscountType == InstantDiscountType.percentage
         ? limits.maxPercent
         : limits.maxFlat;
-    if (normalizedValue > maxAllowed) {
+    if (safeValue > maxAllowed) {
       state = state.copyWith(
         saleDiscountType: state.saleDiscountType,
         saleDiscountValue: state.saleDiscountValue,
@@ -403,7 +396,7 @@ class NewSaleController extends _$NewSaleController {
     }
 
     state = state.copyWith(
-      saleDiscountValue: normalizedValue,
+      saleDiscountValue: safeValue,
       clearSaleDiscountError: true,
     );
     _schedulePreviewRefresh();
@@ -821,7 +814,7 @@ class NewSaleController extends _$NewSaleController {
     final totalCapacity = preview.lines.fold<double>(
       0,
       (sum, line) {
-        if (line.lineType == 'Service') return sum;
+        if (line.lineType == _serviceLineType) return sum;
         final preTax = line.preTaxAmountBeforeDiscount;
         final discount = line.itemDiscountAmount;
         final cost = (line.costPrice * line.quantity);
