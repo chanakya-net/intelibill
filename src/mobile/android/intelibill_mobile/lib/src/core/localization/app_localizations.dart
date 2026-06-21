@@ -3337,6 +3337,12 @@ abstract class AppLocalizations {
   /// **'Receipt'**
   String get salesDetailReceipt;
 
+  /// No description provided for @salesReceiptCreditNoteApplied.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Credit note applied'**
+  String get salesReceiptCreditNoteApplied;
+
   /// No description provided for @salesDetailBeforeDiscount.
   ///
   /// In en_IN, this message translates to:

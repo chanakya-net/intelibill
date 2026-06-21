@@ -1724,6 +1724,9 @@ class AppLocalizationsTe extends AppLocalizations {
   String get salesDetailReceipt => 'Receipt';
 
   @override
+  String get salesReceiptCreditNoteApplied => 'Credit note applied';
+
+  @override
   String get salesDetailBeforeDiscount => 'Before discount';
 
   @override

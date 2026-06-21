@@ -22,7 +22,9 @@ import 'package:intelibill_mobile/src/features/inventory/presentation/pages/add_
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/adjustment_history_page.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/inventory_batches_page.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/items_page.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/pages/new_sale_page.dart';
+import 'package:intelibill_mobile/src/features/sales/presentation/pages/sales_receipt_page.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/pages/sales_history_page.dart';
 import 'package:intelibill_mobile/src/features/services/presentation/pages/services_page.dart';
 import 'package:intelibill_mobile/src/features/shops/presentation/pages/create_shop_page.dart';
@@ -45,6 +47,7 @@ class AppRoutes {
   static const String inventoryAdjustments = '/inventory/adjustments';
   static const String salesNew = '/sales/new';
   static const String salesHistory = '/sales/history';
+  static const String salesReceipt = '/sales/:saleId/receipt';
   static const String profitLoss = '/sales/profit-loss';
   static const String customers = '/customers';
   static const String creditNotes = '/credit-notes';
@@ -62,6 +65,10 @@ class AppRoutes {
 
   static String creditNoteReceiptFor(String code) {
     return '/credit-notes/$code/print';
+  }
+
+  static String salesReceiptFor(String saleId) {
+    return '/sales/$saleId/receipt';
   }
 }
 
@@ -169,6 +176,16 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.salesHistory,
             builder: (context, state) => const SalesHistoryPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.salesReceipt,
+            builder: (context, state) {
+              final saleId = state.pathParameters['saleId'] ?? '';
+              return SalesReceiptPage(
+                saleId: saleId,
+                initialSale: state.extra as SaleDetail?,
+              );
+            },
           ),
           GoRoute(
             path: AppRoutes.profitLoss,

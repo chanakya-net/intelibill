@@ -441,10 +441,27 @@ void main() {
       );
     });
 
-    testWidgets('opens receipt sheet for recorded sale', (tester) async {
+    testWidgets('receipt button navigates to receipt with correct saleId', (
+      tester,
+    ) async {
+      String? capturedSaleId;
       await tester.pumpWidget(
-        _buildApp(
-          _StubNewSaleController(NewSaleState(recordedSale: _recordedSale())),
+        ProviderScope(
+          overrides: [
+            newSaleControllerProvider.overrideWith(
+              () => _StubNewSaleController(
+                NewSaleState(recordedSale: _recordedSale()),
+              ),
+            ),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.lightTheme,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: NewSalePage(
+              onReceiptRequested: (saleId) => capturedSaleId = saleId,
+            ),
+          ),
         ),
       );
 
@@ -452,11 +469,9 @@ void main() {
         find.byKey(const Key('recorded-sale-receipt-button')),
       );
       receiptButton.onPressed?.call();
-      await tester.pumpAndSettle();
+      await tester.pump();
 
-      expect(find.text('Receipt'), findsOneWidget);
-      expect(find.text('Invoice'), findsOneWidget);
-      expect(find.text('INV-001'), findsWidgets);
+      expect(capturedSaleId, 'sale-1');
     });
 
     testWidgets('clear action resets recorded sale and cart state', (
