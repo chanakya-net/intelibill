@@ -309,7 +309,7 @@ class _NewSalePageState extends ConsumerState<NewSalePage> {
 
                 final failure = ref
                     .read(newSaleControllerProvider)
-                    .submissionFailure;
+                    .customerCreateFailure;
                 setDialogState(() {
                   isSubmitting = false;
                   error = failure?.message;

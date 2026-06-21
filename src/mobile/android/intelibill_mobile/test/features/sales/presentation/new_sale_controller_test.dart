@@ -545,6 +545,39 @@ void main() {
       );
     });
 
+    test('customer creation failure is not a sale-validation gate', () async {
+      when(
+        () => mockCreateCustomer(
+          name: any(named: 'name'),
+          phoneNumber: any(named: 'phoneNumber'),
+          address: any(named: 'address'),
+          isActive: any(named: 'isActive'),
+        ),
+      ).thenThrow(
+        AppException(failure: const Failure.network(message: 'Server down')),
+      );
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+
+      await controller.addToCart(_goods(id: 'g1', name: 'Flour', stock: 2));
+      final baseline = container.read(newSaleControllerProvider);
+      expect(baseline.canSubmit, isTrue);
+      expect(baseline.submissionFailure, isNull);
+      expect(baseline.customerCreateFailure, isNull);
+
+      await controller.createAndSelectCustomer(
+        name: 'Bob',
+        phoneNumber: '8888888888',
+      );
+      final failed = container.read(newSaleControllerProvider);
+
+      expect(failed.customerCreateFailure, isNotNull);
+      expect(failed.submissionFailure, isNull);
+      expect(failed.canSubmit, isTrue);
+    });
+
     test('allows walk-in cash sale with paid equal payable', () async {
       final container = makeContainer();
       addTearDown(container.dispose);
@@ -558,6 +591,21 @@ void main() {
       expect(state.paymentMethod, PaymentMethod.cash);
       expect(state.submissionFailure, isNull);
       expect(state.paidAmount + state.dueAmount, closeTo(state.payable, 0.01));
+    });
+
+    test('defaults walk-in payment split after adding first cart line', () async {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+
+      await controller.addToCart(_goods(id: 'g1', name: 'Flour', stock: 2));
+
+      final state = container.read(newSaleControllerProvider);
+      expect(state.paymentMethod, PaymentMethod.cash);
+      expect(state.canSubmit, isTrue);
+      expect(state.submissionFailure, isNull);
+      expect(state.paidAmount, closeTo(state.payable, 0.01));
+      expect(state.dueAmount, closeTo(0, 0.01));
     });
 
     test('blocks credit method without selected customer', () async {

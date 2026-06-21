@@ -56,6 +56,7 @@ class NewSaleState {
     this.dueAmount = 0,
     this.submissionFailure,
     this.customerCreateFailure,
+    this.hasExplicitPaymentSplit = false,
   });
 
   final String searchTerm;
@@ -77,6 +78,7 @@ class NewSaleState {
   final double dueAmount;
   final Failure? submissionFailure;
   final Failure? customerCreateFailure;
+  final bool hasExplicitPaymentSplit;
 
   double get cartTotal =>
       cartLines.fold(0, (sum, line) => sum + line.lineTotal);
@@ -114,6 +116,7 @@ class NewSaleState {
     Failure? submissionFailure,
     Failure? customerCreateFailure,
     bool clearCustomerCreateFailure = false,
+    bool? hasExplicitPaymentSplit,
   }) {
     return NewSaleState(
       searchTerm: searchTerm ?? this.searchTerm,
@@ -145,6 +148,8 @@ class NewSaleState {
       customerCreateFailure: clearCustomerCreateFailure
           ? null
           : (customerCreateFailure ?? this.customerCreateFailure),
+      hasExplicitPaymentSplit: hasExplicitPaymentSplit ??
+          this.hasExplicitPaymentSplit,
     );
   }
 }
@@ -370,6 +375,7 @@ class NewSaleController extends _$NewSaleController {
     state = state.copyWith(
       paidAmount: reconciledPaid,
       dueAmount: reconciledDue,
+      hasExplicitPaymentSplit: true,
     );
     _validatePayment();
   }
@@ -386,6 +392,7 @@ class NewSaleController extends _$NewSaleController {
     state = state.copyWith(
       paidAmount: reconciledPaid,
       dueAmount: reconciledDue,
+      hasExplicitPaymentSplit: true,
     );
     _validatePayment();
   }
@@ -551,14 +558,18 @@ class NewSaleController extends _$NewSaleController {
 
   void _reconcilePaymentAfterCartChange() {
     if (state.payable <= 0) {
-      state = state.copyWith(paidAmount: 0, dueAmount: 0);
+      state = state.copyWith(
+        paidAmount: 0,
+        dueAmount: 0,
+        hasExplicitPaymentSplit: false,
+      );
       _validatePayment();
       return;
     }
 
     final reconciledPaid = _coerceMoney(state.paidAmount, state.payable);
-    // No explicit split entered yet for non-credit methods → default to full payment.
-    if (state.paymentMethod != PaymentMethod.credit && reconciledPaid == 0) {
+    if (!state.hasExplicitPaymentSplit &&
+        state.paymentMethod != PaymentMethod.credit) {
       state = state.copyWith(paidAmount: state.payable, dueAmount: 0);
       _validatePayment();
       return;
