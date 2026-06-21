@@ -229,7 +229,7 @@ void main() {
         expect(sentRequest['customerName'], 'John Doe');
         expect(
           sentRequest['items'],
-          isA<List>(),
+          isA<List<dynamic>>(),
         );
         final items = sentRequest['items'] as List<dynamic>;
         expect(items, hasLength(2));

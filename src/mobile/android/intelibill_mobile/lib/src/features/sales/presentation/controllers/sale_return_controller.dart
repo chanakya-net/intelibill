@@ -6,9 +6,8 @@ import 'package:intelibill_mobile/src/features/auth/domain/entities/auth_session
 import 'package:intelibill_mobile/src/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_return.dart';
-import 'package:intelibill_mobile/src/features/sales/domain/use_cases/preview_sale_return.dart';
-import 'package:intelibill_mobile/src/features/sales/domain/use_cases/record_sale_return.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/controllers/sale_detail_controller.dart';
+import 'package:intelibill_mobile/src/features/sales/presentation/controllers/sales_history_controller.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/controllers/sales_providers.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -381,6 +380,11 @@ class SaleReturnController extends _$SaleReturnController {
       } on Object {
         // Refreshing the sheet content after a successful submission should not block
         // recording the return; stale values can be corrected by re-opening details.
+      }
+      try {
+        await ref.read(salesHistoryControllerProvider.notifier).refresh();
+      } on Object {
+        // Keep the recorded return even if the history list cannot be refreshed immediately.
       }
 
       if (!ref.mounted) return;

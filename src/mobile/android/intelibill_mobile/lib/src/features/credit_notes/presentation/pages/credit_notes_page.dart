@@ -252,10 +252,7 @@ class _CreditNotesPageState extends ConsumerState<CreditNotesPage> {
       },
     );
     if (!mounted) return;
-    if (action == _CreditNoteDetailSheetAction.voided) {
-      unawaited(ref.read(creditNotesControllerProvider.notifier).refresh());
-      return;
-    }
+    if (action == _CreditNoteDetailSheetAction.voided) return;
     if (action == _CreditNoteDetailSheetAction.openReceipt) {
       unawaited(
         ref

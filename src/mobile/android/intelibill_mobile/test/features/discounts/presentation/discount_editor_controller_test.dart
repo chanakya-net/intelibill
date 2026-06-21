@@ -4,11 +4,13 @@ import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/features/discounts/domain/entities/discount.dart';
 import 'package:intelibill_mobile/src/features/discounts/domain/entities/discount_preview.dart';
+import 'package:intelibill_mobile/src/features/discounts/domain/entities/discount_rule_query.dart';
 import 'package:intelibill_mobile/src/features/discounts/domain/use_cases/create_discount.dart';
 import 'package:intelibill_mobile/src/features/discounts/domain/use_cases/disable_discount.dart';
 import 'package:intelibill_mobile/src/features/discounts/domain/use_cases/preview_discount.dart';
 import 'package:intelibill_mobile/src/features/discounts/domain/use_cases/replace_discount.dart';
 import 'package:intelibill_mobile/src/features/discounts/presentation/controllers/discount_editor_controller.dart';
+import 'package:intelibill_mobile/src/features/discounts/presentation/controllers/discounts_controller.dart';
 import 'package:mocktail/mocktail.dart';
 
 class MockPreviewDiscount extends Mock implements PreviewDiscount {}
@@ -18,6 +20,35 @@ class MockCreateDiscount extends Mock implements CreateDiscount {}
 class MockReplaceDiscount extends Mock implements ReplaceDiscount {}
 
 class MockDisableDiscount extends Mock implements DisableDiscount {}
+
+class _TrackingDiscountsController extends DiscountsController {
+  static int refreshCalls = 0;
+  static int selectRuleCalls = 0;
+
+  static void reset() {
+    refreshCalls = 0;
+    selectRuleCalls = 0;
+  }
+
+  @override
+  DiscountsState build() {
+    return const DiscountsState(
+      query: DiscountRulesQuery(pageSize: 20),
+      isLoading: false,
+    );
+  }
+
+  @override
+  Future<void> refresh() async {
+    refreshCalls += 1;
+  }
+
+  @override
+  Future<void> selectRule(String ruleId) async {
+    selectRuleCalls += 1;
+    state = state.copyWith(selectedRuleId: ruleId);
+  }
+}
 
 void _setupMocktailFallbacks() {
   registerFallbackValue(DiscountType.fixed);
@@ -36,6 +67,7 @@ void main() {
     mockCreate = MockCreateDiscount();
     mockReplace = MockReplaceDiscount();
     mockDisable = MockDisableDiscount();
+    _TrackingDiscountsController.reset();
   });
 
   ProviderContainer makeContainer() {
@@ -45,6 +77,9 @@ void main() {
         createDiscountProvider.overrideWithValue(mockCreate),
         replaceDiscountProvider.overrideWithValue(mockReplace),
         disableDiscountProvider.overrideWithValue(mockDisable),
+        discountsControllerProvider.overrideWith(
+          _TrackingDiscountsController.new,
+        ),
       ],
     );
   }
@@ -138,6 +173,13 @@ void main() {
 
       final container = makeContainer();
       addTearDown(container.dispose);
+      container
+          .read(discountsControllerProvider.notifier)
+          .state = const DiscountsState(
+        query: DiscountRulesQuery(pageSize: 20),
+        isLoading: false,
+        selectedRuleId: 'disc-1',
+      );
 
       // Set preview so we can verify it's cleared on success
       container
@@ -164,6 +206,8 @@ void main() {
       expect(state.isSubmitting, false);
       expect(state.submitFailure, null);
       expect(state.preview, null);
+      expect(_TrackingDiscountsController.refreshCalls, 1);
+      expect(_TrackingDiscountsController.selectRuleCalls, 1);
     });
 
     test('create stores submitFailure on exception', () async {
@@ -255,6 +299,13 @@ void main() {
 
       final container = makeContainer();
       addTearDown(container.dispose);
+      container
+          .read(discountsControllerProvider.notifier)
+          .state = const DiscountsState(
+        query: DiscountRulesQuery(pageSize: 20),
+        isLoading: false,
+        selectedRuleId: 'disc-1',
+      );
 
       // Set preview so we can verify it's cleared on success
       container
@@ -281,6 +332,8 @@ void main() {
       expect(state.lastAction, 'replaced');
       expect(state.isSubmitting, false);
       expect(state.preview, null);
+      expect(_TrackingDiscountsController.refreshCalls, 1);
+      expect(_TrackingDiscountsController.selectRuleCalls, 1);
     });
 
     test('disable sets lastAction on success', () async {
@@ -290,6 +343,13 @@ void main() {
 
       final container = makeContainer();
       addTearDown(container.dispose);
+      container
+          .read(discountsControllerProvider.notifier)
+          .state = const DiscountsState(
+        query: DiscountRulesQuery(pageSize: 20),
+        isLoading: false,
+        selectedRuleId: 'disc-1',
+      );
 
       // Set preview so we can verify it's cleared on success
       container
@@ -310,6 +370,8 @@ void main() {
       expect(state.lastAction, 'disabled');
       expect(state.isSubmitting, false);
       expect(state.preview, null);
+      expect(_TrackingDiscountsController.refreshCalls, 1);
+      expect(_TrackingDiscountsController.selectRuleCalls, 1);
     });
 
     test('ignores duplicate create when already submitting', () async {

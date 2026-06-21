@@ -17,6 +17,7 @@ import 'package:intelibill_mobile/src/features/sales/domain/use_cases/preview_sa
 import 'package:intelibill_mobile/src/features/sales/domain/use_cases/record_sale.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/use_cases/search_sellables.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/controllers/new_sale_controller.dart';
+import 'package:intelibill_mobile/src/features/sales/presentation/controllers/sales_history_controller.dart';
 import 'package:mocktail/mocktail.dart';
 
 class MockSearchSellables extends Mock implements SearchSellables {}
@@ -28,6 +29,25 @@ class MockRecordSale extends Mock implements RecordSale {}
 class MockGetCustomers extends Mock implements GetCustomers {}
 
 class MockCreateCustomer extends Mock implements CreateCustomer {}
+
+class _TrackingSalesHistoryController extends SalesHistoryController {
+  static int refreshCalls = 0;
+
+  static void reset() {
+    refreshCalls = 0;
+  }
+
+  @override
+  SalesHistoryState build() => SalesHistoryState(
+    query: defaultSalesHistoryQuery(),
+    isLoading: false,
+  );
+
+  @override
+  Future<void> refresh() async {
+    refreshCalls += 1;
+  }
+}
 
 Sellable _goods({
   required String id,
@@ -257,6 +277,7 @@ void main() {
         isActive: true,
       ),
     );
+    _TrackingSalesHistoryController.reset();
   });
 
   setUpAll(() {
@@ -272,6 +293,9 @@ void main() {
         recordSaleProvider.overrideWithValue(mockRecordSale),
         getCustomersUseCaseProvider.overrideWithValue(mockGetCustomers),
         createCustomerUseCaseProvider.overrideWithValue(mockCreateCustomer),
+        salesHistoryControllerProvider.overrideWith(
+          _TrackingSalesHistoryController.new,
+        ),
       ],
     );
   }
@@ -448,6 +472,7 @@ void main() {
         InstantDiscountType.percentage,
       );
       expect(request.items.single.itemDiscount?.value, 5);
+      expect(_TrackingSalesHistoryController.refreshCalls, 1);
     });
 
     test('submit stores backend failure in submitFailure', () async {

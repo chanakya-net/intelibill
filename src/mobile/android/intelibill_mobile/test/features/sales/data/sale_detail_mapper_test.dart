@@ -231,7 +231,7 @@ Map<String, dynamic> _voidedSaleDetailJson() => {
       'payoutDestination': 'Cash',
       'totalTaxableAmount': 20.0,
       'totalTaxAmount': 5.0,
-      'items': [],
+      'items': <Map<String, dynamic>>[],
     },
   ],
 };

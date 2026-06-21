@@ -19,15 +19,6 @@ class _StubSalesHistoryController extends SalesHistoryController {
   SalesHistoryState build() => _state;
 }
 
-class _StubSaleDetailController extends SaleDetailController {
-  _StubSaleDetailController(this._state);
-
-  final SaleDetailState _state;
-
-  @override
-  SaleDetailState build(String saleId) => _state;
-}
-
 final _sampleSale = SaleListItem(
   saleId: 'sale-1',
   invoiceNumber: 'INV-2026-001',

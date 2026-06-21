@@ -10,6 +10,7 @@ import 'package:intelibill_mobile/src/features/sales/domain/use_cases/preview_sa
 import 'package:intelibill_mobile/src/features/sales/domain/use_cases/record_sale_return.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/controllers/sale_detail_controller.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/controllers/sale_return_controller.dart';
+import 'package:intelibill_mobile/src/features/sales/presentation/controllers/sales_history_controller.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/controllers/sales_providers.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -48,6 +49,27 @@ class _StubAuthController extends AuthController {
   Future<AuthControllerState> build() async => _state;
 }
 
+class _TrackingSalesHistoryController extends SalesHistoryController {
+  static int refreshCalls = 0;
+
+  static void reset() {
+    refreshCalls = 0;
+  }
+
+  @override
+  SalesHistoryState build() {
+    return SalesHistoryState(
+      query: defaultSalesHistoryQuery(),
+      isLoading: false,
+    );
+  }
+
+  @override
+  Future<void> refresh() async {
+    refreshCalls += 1;
+  }
+}
+
 void main() {
   setUpAll(() {
     registerFallbackValue(_PreviewSaleReturnRequestFake());
@@ -60,6 +82,7 @@ void main() {
   setUp(() {
     previewSaleReturn = MockPreviewSaleReturn();
     recordSaleReturn = MockRecordSaleReturn();
+    _TrackingSalesHistoryController.reset();
   });
 
   AuthSession _session(String role) => AuthSession(
@@ -168,6 +191,9 @@ void main() {
         ),
         previewSaleReturnProvider.overrideWithValue(previewSaleReturn),
         recordSaleReturnProvider.overrideWithValue(recordSaleReturn),
+        salesHistoryControllerProvider.overrideWith(
+          _TrackingSalesHistoryController.new,
+        ),
       ],
     );
     await container.read(authControllerProvider.future);
@@ -278,6 +304,7 @@ void main() {
         request.creditNoteExpiresAt,
         DateTime.utc(2026, 12, 31).toIso8601String(),
       );
+      expect(_TrackingSalesHistoryController.refreshCalls, 1);
     });
 
     test('sets payoutMethod for refund destination on submit', () async {
@@ -357,6 +384,7 @@ void main() {
         final state = container.read(saleReturnControllerProvider('sale-1'));
         expect(state.failure, isNull);
         expect(state.isSubmitting, isFalse);
+        expect(_TrackingSalesHistoryController.refreshCalls, 1);
       },
     );
 

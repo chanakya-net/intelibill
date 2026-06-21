@@ -11,6 +11,7 @@ import 'package:intelibill_mobile/src/features/discounts/domain/use_cases/create
 import 'package:intelibill_mobile/src/features/discounts/domain/use_cases/disable_discount.dart';
 import 'package:intelibill_mobile/src/features/discounts/domain/use_cases/preview_discount.dart';
 import 'package:intelibill_mobile/src/features/discounts/domain/use_cases/replace_discount.dart';
+import 'package:intelibill_mobile/src/features/discounts/presentation/controllers/discounts_controller.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'discount_editor_controller.g.dart';
@@ -178,6 +179,7 @@ class DiscountEditorController extends _$DiscountEditorController {
         lastAction: 'created',
         preview: null,
       );
+      await _refreshDiscountsView();
     } on AppException catch (e) {
       state = state.copyWith(
         isSubmitting: false,
@@ -234,6 +236,7 @@ class DiscountEditorController extends _$DiscountEditorController {
         lastAction: 'replaced',
         preview: null,
       );
+      await _refreshDiscountsView();
     } on AppException catch (e) {
       state = state.copyWith(
         isSubmitting: false,
@@ -257,6 +260,7 @@ class DiscountEditorController extends _$DiscountEditorController {
         lastAction: 'disabled',
         preview: null,
       );
+      await _refreshDiscountsView();
     } on AppException catch (e) {
       state = state.copyWith(
         isSubmitting: false,
@@ -271,4 +275,16 @@ class DiscountEditorController extends _$DiscountEditorController {
   }
 
   bool _isBlank(String? value) => value == null || value.trim().isEmpty;
+
+  Future<void> _refreshDiscountsView() async {
+    final controller = ref.read(discountsControllerProvider.notifier);
+    await controller.refresh();
+
+    final selectedRuleId = ref.read(discountsControllerProvider).selectedRuleId;
+    if (selectedRuleId == null) {
+      return;
+    }
+
+    await controller.selectRule(selectedRuleId);
+  }
 }

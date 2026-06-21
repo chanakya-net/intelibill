@@ -596,7 +596,6 @@ class _ServicePriceFieldState extends State<_ServicePriceField> {
 
 class _LineDiscountEditor extends StatefulWidget {
   const _LineDiscountEditor({
-    super.key,
     required this.line,
     required this.error,
     required this.onTypeChanged,

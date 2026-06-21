@@ -12,12 +12,16 @@ import 'package:intelibill_mobile/src/features/auth/presentation/controllers/aut
 import 'package:intelibill_mobile/src/features/credit_notes/domain/entities/credit_note_print.dart';
 import 'package:intelibill_mobile/src/features/credit_notes/presentation/controllers/credit_notes_controller.dart';
 import 'package:intelibill_mobile/src/features/dashboard/presentation/controllers/dashboard_controller.dart';
+import 'package:intelibill_mobile/src/features/discounts/presentation/controllers/discounts_controller.dart';
+import 'package:intelibill_mobile/src/features/discounts/domain/entities/discount_rule_query.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sales_history_query.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sales_history_summary.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/use_cases/get_sale_detail.dart';
+import 'package:intelibill_mobile/src/features/sales/presentation/controllers/new_sale_controller.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/controllers/sales_history_controller.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/controllers/sales_providers.dart';
+import 'package:intelibill_mobile/src/features/services/presentation/controllers/services_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -46,6 +50,7 @@ void main() {
       expect(AppRoutes.salesReceipt, equals('/sales/:saleId/receipt'));
       expect(AppRoutes.profitLoss, equals('/sales/profit-loss'));
       expect(AppRoutes.customers, equals('/customers'));
+      expect(AppRoutes.creditNotes, equals('/credit-notes'));
       expect(AppRoutes.suppliers, equals('/suppliers'));
       expect(AppRoutes.creditNoteReceipt, equals('/credit-notes/:code/print'));
       expect(AppRoutes.services, equals('/services'));
@@ -81,6 +86,9 @@ void main() {
           ),
           salesHistoryControllerProvider.overrideWith(
             _StubSalesHistoryController.new,
+          ),
+          discountsControllerProvider.overrideWith(
+            _StubDiscountsController.new,
           ),
         ],
       );
@@ -333,6 +341,70 @@ void main() {
       );
     });
 
+    testWidgets('owner can navigate through sales-flow and management routes', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({});
+
+      final controller = _TestAuthController(
+        AuthControllerState(session: _sessionForRole('Owner')),
+      );
+      final container = ProviderContainer(
+        overrides: [
+          authControllerProvider.overrideWith(() => controller),
+          dashboardControllerProvider.overrideWith(
+            _StubDashboardController.new,
+          ),
+          salesHistoryControllerProvider.overrideWith(
+            _StubSalesHistoryController.new,
+          ),
+          newSaleControllerProvider.overrideWith(_StubNewSaleController.new),
+          creditNotesControllerProvider.overrideWith(
+            _StubCreditNotesController.new,
+          ),
+          servicesControllerProvider.overrideWith(_StubServicesController.new),
+          discountsControllerProvider.overrideWith(
+            _StubDiscountsController.new,
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final router = container.read(goRouterProvider);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp.router(
+            locale: const Locale('en', 'IN'),
+            supportedLocales: const [Locale('en', 'IN')],
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      for (final route in [
+        AppRoutes.salesNew,
+        AppRoutes.salesHistory,
+        AppRoutes.creditNotes,
+        AppRoutes.services,
+        AppRoutes.discounts,
+      ]) {
+        router.go(route);
+        await tester.pumpAndSettle();
+        expect(
+          router.routeInformationProvider.value.uri.toString(),
+          equals(route),
+        );
+      }
+    });
+
     testWidgets('staff is redirected from discounts route', (tester) async {
       SharedPreferences.setMockInitialValues({});
 
@@ -565,6 +637,16 @@ class _StubDashboardController extends DashboardController {
   DashboardState build() => const DashboardState();
 }
 
+class _StubNewSaleController extends NewSaleController {
+  @override
+  NewSaleState build() => const NewSaleState();
+}
+
+class _StubCreditNotesController extends CreditNotesController {
+  @override
+  CreditNotesState build() => const CreditNotesState(isLoading: false);
+}
+
 class _StubSalesHistoryController extends SalesHistoryController {
   @override
   SalesHistoryState build() {
@@ -586,6 +668,21 @@ class _StubSalesHistoryController extends SalesHistoryController {
       hasMore: false,
       searchQuery: '',
       statusFilter: 'all',
+    );
+  }
+}
+
+class _StubServicesController extends ServicesController {
+  @override
+  ServicesState build() => const ServicesState();
+}
+
+class _StubDiscountsController extends DiscountsController {
+  @override
+  DiscountsState build() {
+    return const DiscountsState(
+      query: DiscountRulesQuery(pageSize: 20),
+      isLoading: false,
     );
   }
 }

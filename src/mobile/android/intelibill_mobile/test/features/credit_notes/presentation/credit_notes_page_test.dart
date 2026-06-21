@@ -8,7 +8,6 @@ import 'package:intelibill_mobile/src/features/auth/presentation/controllers/aut
 import 'package:intelibill_mobile/src/features/credit_notes/domain/entities/credit_note.dart';
 import 'package:intelibill_mobile/src/features/credit_notes/domain/entities/credit_note_print.dart';
 import 'package:intelibill_mobile/src/features/credit_notes/presentation/controllers/credit_notes_controller.dart';
-import 'package:intelibill_mobile/src/features/credit_notes/presentation/pages/credit_notes_page.dart';
 
 class _StubAuthController extends AuthController {
   _StubAuthController(this._state);

@@ -2,7 +2,6 @@ import 'package:intelibill_mobile/src/features/discounts/data/dto/discount_rule_
 import 'package:intelibill_mobile/src/features/discounts/data/dto/discount_rule_list_item_dto.dart';
 import 'package:intelibill_mobile/src/features/discounts/data/dto/discount_rules_response_dto.dart';
 import 'package:intelibill_mobile/src/features/discounts/domain/entities/discount_rule.dart';
-import 'package:intelibill_mobile/src/features/discounts/domain/entities/discount_rule_query.dart';
 
 class DiscountRuleMapper {
   const DiscountRuleMapper._();

@@ -17,6 +17,7 @@ import 'package:intelibill_mobile/src/features/sales/domain/repositories/sales_r
 import 'package:intelibill_mobile/src/features/sales/domain/use_cases/preview_sale.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/use_cases/record_sale.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/use_cases/search_sellables.dart';
+import 'package:intelibill_mobile/src/features/sales/presentation/controllers/sales_history_controller.dart';
 import 'package:intelibill_mobile/src/shared/barcode_scanner/barcode_scan_result.dart';
 import 'package:intelibill_mobile/src/shared/barcode_scanner/show_barcode_scanner.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -497,6 +498,7 @@ class NewSaleController extends _$NewSaleController {
         dueAmount: 0,
         hasExplicitPaymentSplit: false,
       );
+      await ref.read(salesHistoryControllerProvider.notifier).refresh();
     } on AppException catch (error) {
       if (!ref.mounted) return;
       state = state.copyWith(

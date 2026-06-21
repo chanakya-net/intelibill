@@ -47,6 +47,7 @@ void main() {
       expect(canManageSuppliers(session), isTrue);
       expect(canManageCustomers(session), isTrue);
       expect(canManageSales(session), isTrue);
+      expect(canViewCreditNotes(session), isTrue);
       expect(canManageServices(session), isTrue);
       expect(canManageExpenses(session), isTrue);
       expect(canManageDiscounts(session), isTrue);
@@ -61,6 +62,7 @@ void main() {
       expect(canManageSuppliers(session), isFalse);
       expect(canManageCustomers(session), isTrue);
       expect(canManageSales(session), isTrue);
+      expect(canViewCreditNotes(session), isTrue);
       expect(canManageServices(session), isTrue);
       expect(canManageExpenses(session), isTrue);
       expect(canManageDiscounts(session), isTrue);
@@ -75,6 +77,7 @@ void main() {
       expect(canManageSuppliers(session), isFalse);
       expect(canManageCustomers(session), isFalse);
       expect(canManageSales(session), isTrue);
+      expect(canViewCreditNotes(session), isTrue);
       expect(canManageServices(session), isFalse);
       expect(canManageExpenses(session), isFalse);
       expect(canManageDiscounts(session), isFalse);
