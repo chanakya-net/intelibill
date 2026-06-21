@@ -8,6 +8,7 @@ import 'package:intelibill_mobile/src/features/customers/domain/entities/custome
 import 'package:intelibill_mobile/src/features/customers/domain/use_cases/create_customer.dart';
 import 'package:intelibill_mobile/src/features/customers/domain/use_cases/get_customers.dart';
 import 'package:intelibill_mobile/src/features/customers/presentation/controllers/customers_controller.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/entities/credit_note.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/payment_method.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/record_sale.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
@@ -16,6 +17,7 @@ import 'package:intelibill_mobile/src/features/sales/domain/entities/sellable.da
 import 'package:intelibill_mobile/src/features/sales/domain/use_cases/preview_sale.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/use_cases/record_sale.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/use_cases/search_sellables.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/use_cases/verify_credit_note.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/controllers/new_sale_controller.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -28,6 +30,8 @@ class MockRecordSale extends Mock implements RecordSale {}
 class MockGetCustomers extends Mock implements GetCustomers {}
 
 class MockCreateCustomer extends Mock implements CreateCustomer {}
+
+class MockVerifyCreditNote extends Mock implements VerifyCreditNote {}
 
 Sellable _goods({
   required String id,
@@ -229,6 +233,7 @@ void main() {
   late MockRecordSale mockRecordSale;
   late MockGetCustomers mockGetCustomers;
   late MockCreateCustomer mockCreateCustomer;
+  late MockVerifyCreditNote mockVerifyCreditNote;
 
   setUp(() {
     mockSearchSellables = MockSearchSellables();
@@ -236,6 +241,7 @@ void main() {
     mockRecordSale = MockRecordSale();
     mockGetCustomers = MockGetCustomers();
     mockCreateCustomer = MockCreateCustomer();
+    mockVerifyCreditNote = MockVerifyCreditNote();
 
     when(
       () => mockPreviewSale(request: any(named: 'request')),
@@ -272,6 +278,7 @@ void main() {
         recordSaleProvider.overrideWithValue(mockRecordSale),
         getCustomersUseCaseProvider.overrideWithValue(mockGetCustomers),
         createCustomerUseCaseProvider.overrideWithValue(mockCreateCustomer),
+        verifyCreditNoteProvider.overrideWithValue(mockVerifyCreditNote),
       ],
     );
   }

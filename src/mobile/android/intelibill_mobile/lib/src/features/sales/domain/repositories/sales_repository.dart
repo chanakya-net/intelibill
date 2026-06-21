@@ -1,3 +1,4 @@
+import 'package:intelibill_mobile/src/features/sales/domain/entities/credit_note.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_preview.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_return.dart';
@@ -51,6 +52,10 @@ interface class SalesRepository {
     required String saleReturnId,
     required String reason,
   }) {
+    throw UnimplementedError();
+  }
+
+  Future<CreditNoteVerifyResult> verifyCreditNote(String code) {
     throw UnimplementedError();
   }
 }
