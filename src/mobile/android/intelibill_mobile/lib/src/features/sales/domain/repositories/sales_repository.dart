@@ -1,4 +1,5 @@
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_preview.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_return.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sales_history_query.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sellable.dart';
@@ -15,6 +16,12 @@ interface class SalesRepository {
   Future<SaleReturnPreview> previewSaleReturn({
     required String saleId,
     required PreviewSaleReturnRequest request,
+  }) {
+    throw UnimplementedError();
+  }
+
+  Future<SalePreview> previewSale({
+    required PreviewSaleRequest request,
   }) {
     throw UnimplementedError();
   }

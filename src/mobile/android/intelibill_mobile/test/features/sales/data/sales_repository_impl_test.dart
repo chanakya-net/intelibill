@@ -1,8 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intelibill_mobile/src/features/sales/data/data_sources/sales_remote_data_source.dart';
 import 'package:intelibill_mobile/src/features/sales/data/dto/sale_detail_dto.dart';
+import 'package:intelibill_mobile/src/features/sales/data/dto/sale_preview_dto.dart';
 import 'package:intelibill_mobile/src/features/sales/data/dto/sale_return_preview_dto.dart';
 import 'package:intelibill_mobile/src/features/sales/data/repositories/sales_repository_impl.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_preview.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_return.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -102,6 +104,47 @@ void main() {
       expect(result.saleId, 'sale-abc');
       expect(result.financial?.payoutAmount, 90);
       expect(result.warnings, ['Stock may need adjustment']);
+    });
+
+    test('maps sale preview response to domain model', () async {
+      when(
+        () => remoteDataSource.previewSale(
+          request: any(named: 'request'),
+        ),
+      ).thenAnswer(
+        (_) async => SalePreviewResponseDto.fromJson(_previewResponseJson()),
+      );
+
+      final result = await repository.previewSale(
+        request: const PreviewSaleRequest(
+          saleDiscountType: 0,
+          saleDiscountValue: 0,
+          items: [
+            PreviewSaleItemRequest(
+              inventoryBatchId: 'batch-1',
+              barcode: 'BAR-1',
+              batchNumber: 'BN-1',
+              itemName: 'Rice',
+              quantity: 2,
+              costPrice: 48,
+              salesPrice: 60,
+              mrp: 62,
+              taxRatePercent: 12,
+              isPriceIncludingTax: false,
+              itemDiscountType: 0,
+              itemDiscountValue: 0,
+              clientLineKey: 'line-1',
+              lineType: 'Goods',
+            ),
+          ],
+        ),
+      );
+
+      expect(result.totalAmount, 236);
+      expect(result.configuredSaleRule?.ruleType, 'SalePercentage');
+      expect(result.lines, hasLength(2));
+      expect(result.infos, hasLength(1));
+      expect(result.warnings, hasLength(1));
     });
 
     test('maps record sale return response to sale detail', () async {
@@ -262,4 +305,89 @@ Map<String, dynamic> _minimalSaleDetailJson() => {
   'totalDiscountAmount': 0.0,
   'totalAmount': 0.0,
   'totalTaxAmount': 0.0,
+};
+
+Map<String, dynamic> _previewResponseJson() => {
+  'totalAmount': 236.0,
+  'totalTaxableAmount': 200.0,
+  'totalTaxAmount': 36.0,
+  'totalDiscountAmount': 14.0,
+  'saleLevelEligibleSubtotal': 120.0,
+  'configuredSaleRule': {
+    'ruleId': 'rule-1',
+    'ruleType': 'SalePercentage',
+    'percentage': 10.0,
+    'thresholdAmount': 100.0,
+  },
+  'lines': [
+    {
+      'lineType': 'Goods',
+      'itemId': 'item-1',
+      'serviceId': null,
+      'barcode': 'BAR-1',
+      'itemName': 'Rice',
+      'inventoryBatchId': 'batch-1',
+      'batchNumber': 'BN-1',
+      'quantity': 2.0,
+      'costPrice': 48.0,
+      'salesPrice': 60.0,
+      'mrp': 62.0,
+      'taxRatePercent': 12.0,
+      'isPriceIncludingTax': false,
+      'preTaxAmountBeforeDiscount': 120.0,
+      'itemDiscountAmount': 0.0,
+      'saleDiscountAmount': 4.0,
+      'taxableAmount': 116.0,
+      'taxAmount': 13.92,
+      'lineTotalAmount': 129.92,
+      'maxAllowedItemDiscountFlat': 12.0,
+      'maxAllowedItemDiscountPercent': 10.0,
+      'configuredBatchRuleId': 'batch-rule-1',
+      'configuredBatchRulePercentage': 5.0,
+      'hasClientPriceMismatch': true,
+      'clientLineKey': 'line-1',
+    },
+    {
+      'lineType': 'Service',
+      'itemId': null,
+      'serviceId': 'svc-1',
+      'barcode': 'SRV-1',
+      'itemName': 'Installation',
+      'inventoryBatchId': null,
+      'batchNumber': null,
+      'quantity': 1.0,
+      'costPrice': 0.0,
+      'salesPrice': 150.0,
+      'mrp': 150.0,
+      'taxRatePercent': 18.0,
+      'isPriceIncludingTax': false,
+      'preTaxAmountBeforeDiscount': 150.0,
+      'itemDiscountAmount': 0.0,
+      'saleDiscountAmount': 10.0,
+      'taxableAmount': 140.0,
+      'taxAmount': 25.2,
+      'lineTotalAmount': 165.2,
+      'maxAllowedItemDiscountFlat': 0.0,
+      'maxAllowedItemDiscountPercent': 0.0,
+      'configuredBatchRuleId': null,
+      'configuredBatchRulePercentage': null,
+      'hasClientPriceMismatch': false,
+      'clientLineKey': 'line-2',
+    },
+  ],
+  'infos': [
+    {
+      'code': 'sale_preview.info.configured_rule_applied',
+      'message': 'Configured sale rule applied.',
+    },
+  ],
+  'warnings': [
+    {
+      'code': 'sale_preview.warning.client_price_mismatch',
+      'message': 'Client pricing differs from latest batch pricing.',
+      'severity': 'warning',
+      'inventoryBatchId': 'batch-1',
+      'clientLineKey': 'line-1',
+    },
+  ],
 };

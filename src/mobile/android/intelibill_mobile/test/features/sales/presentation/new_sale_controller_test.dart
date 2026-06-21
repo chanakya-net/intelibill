@@ -4,12 +4,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_preview.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sellable.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/use_cases/preview_sale.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/use_cases/search_sellables.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/controllers/new_sale_controller.dart';
 import 'package:mocktail/mocktail.dart';
 
 class MockSearchSellables extends Mock implements SearchSellables {}
+
+class MockPreviewSale extends Mock implements PreviewSale {}
 
 Sellable _goods({
   required String id,
@@ -42,17 +46,104 @@ Sellable _service({
   );
 }
 
+SalePreview _preview({
+  double totalAmount = 236,
+  double totalTaxableAmount = 200,
+  double totalTaxAmount = 36,
+  double totalDiscountAmount = 14,
+  double saleLevelEligibleSubtotal = 120,
+  List<SalePreviewLine>? lines,
+  List<SalePreviewInfo>? infos,
+  List<SalePreviewWarning>? warnings,
+}) {
+  return SalePreview(
+    totalAmount: totalAmount,
+    totalTaxableAmount: totalTaxableAmount,
+    totalTaxAmount: totalTaxAmount,
+    totalDiscountAmount: totalDiscountAmount,
+    saleLevelEligibleSubtotal: saleLevelEligibleSubtotal,
+    configuredSaleRule: const SalePreviewConfiguredSaleRule(
+      ruleId: 'rule-1',
+      ruleType: 'SalePercentage',
+      percentage: 10,
+      thresholdAmount: 100,
+    ),
+    lines:
+        lines ??
+        const [
+          SalePreviewLine(
+            lineType: 'Goods',
+            itemId: 'item-1',
+            barcode: 'BAR-g1',
+            itemName: 'Flour',
+            inventoryBatchId: 'batch-1',
+            batchNumber: 'BN-g1',
+            quantity: 1,
+            costPrice: 10,
+            salesPrice: 12,
+            mrp: 12,
+            taxRatePercent: 5,
+            isPriceIncludingTax: false,
+            preTaxAmountBeforeDiscount: 12,
+            itemDiscountAmount: 0,
+            saleDiscountAmount: 0,
+            taxableAmount: 12,
+            taxAmount: 0.6,
+            lineTotalAmount: 12.6,
+            maxAllowedItemDiscountFlat: 0,
+            maxAllowedItemDiscountPercent: 0,
+            hasClientPriceMismatch: false,
+          ),
+        ],
+    infos:
+        infos ??
+        const [
+          SalePreviewInfo(
+            code: 'sale_preview.info.configured_rule_applied',
+            message: 'Configured sale rule applied.',
+          ),
+        ],
+    warnings:
+        warnings ??
+        const [
+          SalePreviewWarning(
+            code: 'sale_preview.warning.validation',
+            message: 'Sale-level discount is limited by configured rule.',
+            severity: 'info',
+          ),
+        ],
+  );
+}
+
+const PreviewSaleRequest _emptyPreviewRequest = PreviewSaleRequest(
+  saleDiscountType: 0,
+  saleDiscountValue: 0,
+  items: [],
+);
+
 void main() {
   late MockSearchSellables mockSearchSellables;
+  late MockPreviewSale mockPreviewSale;
 
   setUp(() {
     mockSearchSellables = MockSearchSellables();
+    mockPreviewSale = MockPreviewSale();
+    when(
+      () => mockPreviewSale(
+        request: any(named: 'request'),
+      ),
+    ).thenAnswer((_) async => _preview());
+  });
+
+  setUpAll(() {
+    registerFallbackValue(_emptyPreviewRequest);
   });
 
   ProviderContainer makeContainer() {
     return ProviderContainer(
       overrides: [
         searchSellablesProvider.overrideWithValue(mockSearchSellables),
+        previewSaleProvider.overrideWithValue(mockPreviewSale),
       ],
     );
   }
@@ -323,6 +414,146 @@ void main() {
       expect(state.searchTerm, 'new');
       expect(state.searchFailure, isNull);
       expect(state.isSearching, isFalse);
+    });
+
+    test('builds preview payload for mixed goods and service lines', () async {
+      final capturedRequests = <PreviewSaleRequest>[];
+      when(
+        () => mockPreviewSale(
+          request: any(named: 'request'),
+        ),
+      ).thenAnswer((invocation) async {
+        final request =
+            invocation.namedArguments[#request] as PreviewSaleRequest;
+        capturedRequests.add(request);
+        return _preview();
+      });
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+      final goods = Sellable(
+        id: 'g1',
+        kind: 'Goods',
+        name: 'Rice',
+        stock: 5,
+        price: 60,
+        barcode: 'BAR-1',
+        batchNumber: 'BN-1',
+        mrp: 62,
+        taxRatePercent: 12,
+      );
+      final service = _service(id: 's1', name: 'Installation', price: 150);
+
+      controller.state = NewSaleState(
+        cartLines: [
+          NewSaleCartLine(sellable: goods, quantity: 2),
+          NewSaleCartLine(sellable: service, quantity: 1, unitPrice: 175),
+        ],
+      );
+
+      await controller.refreshPreview();
+
+      expect(capturedRequests, hasLength(1));
+      final request = capturedRequests.single;
+      expect(request.saleDiscountType, 0);
+      expect(request.saleDiscountValue, 0);
+      expect(request.items, hasLength(2));
+      expect(request.items.first.lineType, 'Goods');
+      expect(request.items.first.inventoryBatchId, 'g1');
+      expect(request.items.first.salesPrice, 60);
+      expect(request.items.last.lineType, 'Service');
+      expect(request.items.last.serviceId, 's1');
+      expect(
+        request.items.last.inventoryBatchId,
+        '00000000-0000-0000-0000-000000000000',
+      );
+      expect(request.items.last.salesPrice, 175);
+      final state = container.read(newSaleControllerProvider);
+      expect(state.preview, isNotNull);
+      expect(state.canSubmitCheckout, isTrue);
+    });
+
+    test(
+      'sets preview failure and blocks checkout when preview throws',
+      () async {
+        when(
+          () => mockPreviewSale(
+            request: any(named: 'request'),
+          ),
+        ).thenThrow(
+          AppException(failure: const Failure.network(message: 'offline')),
+        );
+
+        final container = makeContainer();
+        addTearDown(container.dispose);
+        final controller = container.read(newSaleControllerProvider.notifier);
+        controller.state = NewSaleState(
+          cartLines: [
+            NewSaleCartLine(
+              sellable: _goods(id: 'g1', name: 'Flour', stock: 5),
+              quantity: 1,
+            ),
+          ],
+        );
+
+        await controller.refreshPreview();
+
+        final state = container.read(newSaleControllerProvider);
+        expect(state.preview, isNull);
+        expect(state.previewFailure, isA<Failure>());
+        expect(state.canSubmitCheckout, isFalse);
+        expect(state.isPreviewLoading, isFalse);
+      },
+    );
+
+    test('clears stale preview while refreshing cart changes', () async {
+      final previewBeforeChange = _preview(
+        totalAmount: 100,
+        totalTaxAmount: 10,
+      );
+      final previewAfterChange = Completer<SalePreview>();
+      var requestCount = 0;
+
+      when(
+        () => mockPreviewSale(
+          request: any(named: 'request'),
+        ),
+      ).thenAnswer((_) async {
+        requestCount += 1;
+        if (requestCount == 1) {
+          return previewBeforeChange;
+        }
+
+        return previewAfterChange.future;
+      });
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+      final goods = _goods(id: 'g1', name: 'Flour', stock: 5);
+
+      controller.state = NewSaleState(
+        cartLines: [NewSaleCartLine(sellable: goods, quantity: 1)],
+      );
+      await controller.refreshPreview();
+
+      expect(
+        container.read(newSaleControllerProvider).preview,
+        previewBeforeChange,
+      );
+
+      controller.updateCartQuantity(goods.id, 2);
+
+      final refreshingState = container.read(newSaleControllerProvider);
+      expect(refreshingState.preview, isNull);
+      expect(refreshingState.isPreviewLoading, isTrue);
+      expect(refreshingState.canSubmitCheckout, isFalse);
+
+      previewAfterChange.complete(
+        _preview(totalAmount: 200, totalTaxAmount: 20),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 20));
     });
 
     test('addToCart adds service line with editable unit price', () async {

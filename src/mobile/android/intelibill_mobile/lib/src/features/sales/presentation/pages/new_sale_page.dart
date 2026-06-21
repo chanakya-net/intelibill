@@ -60,7 +60,18 @@ class _NewSalePageState extends ConsumerState<NewSalePage> {
             Expanded(
               child: GoodsCartList(
                 lines: state.cartLines,
+                subtotal: state.subtotalAmount,
+                tax: state.taxAmount,
+                discount: state.discountAmount,
                 total: state.cartTotal,
+                discountCapacity: state.discountCapacityAmount,
+                preview: state.preview,
+                previewFailure: state.previewFailure,
+                isPreviewLoading: state.isPreviewLoading,
+                canSubmitCheckout: state.canSubmitCheckout,
+                onRefreshPreview: () => ref
+                    .read(newSaleControllerProvider.notifier)
+                    .refreshPreview(),
                 onDecrease: _decreaseQty,
                 onIncrease: _increaseQty,
                 onRemove: _removeFromCart,

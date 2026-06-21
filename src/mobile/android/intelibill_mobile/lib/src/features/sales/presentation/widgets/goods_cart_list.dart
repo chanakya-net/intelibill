@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:intelibill_mobile/src/core/errors/failure.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_preview.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sellable.dart';
 
 typedef OnDecrease = void Function(String sellableId);
@@ -15,6 +17,15 @@ class GoodsCartList extends StatelessWidget {
     required this.onRemove,
     required this.onUnitPriceChanged,
     required this.total,
+    required this.subtotal,
+    required this.tax,
+    required this.discount,
+    required this.discountCapacity,
+    required this.preview,
+    required this.previewFailure,
+    required this.isPreviewLoading,
+    required this.canSubmitCheckout,
+    required this.onRefreshPreview,
   });
 
   final List<NewSaleCartLine> lines;
@@ -23,6 +34,15 @@ class GoodsCartList extends StatelessWidget {
   final OnRemove onRemove;
   final OnUnitPriceChanged onUnitPriceChanged;
   final double total;
+  final double subtotal;
+  final double tax;
+  final double discount;
+  final double discountCapacity;
+  final SalePreview? preview;
+  final Failure? previewFailure;
+  final bool isPreviewLoading;
+  final bool canSubmitCheckout;
+  final VoidCallback onRefreshPreview;
 
   @override
   Widget build(BuildContext context) {
@@ -43,9 +63,17 @@ class GoodsCartList extends StatelessWidget {
         if (index == lines.length) {
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Text(
-              'Total: ₹${total.toStringAsFixed(2)}',
-              style: Theme.of(context).textTheme.titleMedium,
+            child: _CheckoutSummaryCard(
+              subtotal: subtotal,
+              tax: tax,
+              discount: discount,
+              total: total,
+              discountCapacity: discountCapacity,
+              preview: preview,
+              previewFailure: previewFailure,
+              isPreviewLoading: isPreviewLoading,
+              canSubmitCheckout: canSubmitCheckout,
+              onRefreshPreview: onRefreshPreview,
             ),
           );
         }
@@ -119,6 +147,206 @@ class GoodsCartList extends StatelessWidget {
   }
 }
 
+class _CheckoutSummaryCard extends StatelessWidget {
+  const _CheckoutSummaryCard({
+    required this.subtotal,
+    required this.tax,
+    required this.discount,
+    required this.total,
+    required this.discountCapacity,
+    required this.preview,
+    required this.previewFailure,
+    required this.isPreviewLoading,
+    required this.canSubmitCheckout,
+    required this.onRefreshPreview,
+  });
+
+  final double subtotal;
+  final double tax;
+  final double discount;
+  final double total;
+  final double discountCapacity;
+  final SalePreview? preview;
+  final Failure? previewFailure;
+  final bool isPreviewLoading;
+  final bool canSubmitCheckout;
+  final VoidCallback onRefreshPreview;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final previewRule = preview?.configuredSaleRule;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Checkout summary',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (isPreviewLoading)
+              Row(
+                key: const Key('checkout-preview-loading'),
+                children: [
+                  SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Expanded(child: Text('Refreshing server preview...')),
+                ],
+              )
+            else if (previewFailure != null)
+              Text(
+                _failureMessage(previewFailure!),
+                key: const Key('checkout-preview-error'),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.error,
+                ),
+              )
+            else if (preview == null)
+              Text(
+                'Preview will load when the cart changes.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            const SizedBox(height: 8),
+            _SummaryRow(label: 'Subtotal', value: _formatAmount(subtotal)),
+            _SummaryRow(label: 'Tax', value: _formatAmount(tax)),
+            _SummaryRow(label: 'Discount', value: _formatAmount(discount)),
+            if (discountCapacity > 0)
+              _SummaryRow(
+                label: 'Discount capacity',
+                value: _formatAmount(discountCapacity),
+              ),
+            const Divider(height: 20),
+            _SummaryRow(
+              label: 'Total',
+              value: _formatAmount(total),
+              emphasis: true,
+            ),
+            if (previewRule != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Configured rule: ${_configuredRuleLabel(previewRule)}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+            if (preview?.hasInfos == true) ...[
+              const SizedBox(height: 12),
+              Text(
+                'Notes',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 4),
+              for (final info in preview!.infos)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 2),
+                  child: Text('• ${info.message}'),
+                ),
+            ],
+            if (preview?.hasWarnings == true) ...[
+              const SizedBox(height: 12),
+              Text(
+                'Warnings',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 4),
+              for (final warning in preview!.warnings)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 2),
+                  child: Text('• ${warning.message}'),
+                ),
+            ],
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    key: const Key('refresh-preview-button'),
+                    onPressed: isPreviewLoading ? null : onRefreshPreview,
+                    icon: isPreviewLoading
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.refresh_outlined),
+                    label: Text(
+                      previewFailure != null
+                          ? 'Retry preview'
+                          : 'Refresh preview',
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton.icon(
+                    key: const Key('checkout-button'),
+                    onPressed: canSubmitCheckout ? () {} : null,
+                    icon: const Icon(Icons.shopping_cart_checkout_outlined),
+                    label: Text(
+                      canSubmitCheckout ? 'Checkout' : 'Preview required',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SummaryRow extends StatelessWidget {
+  const _SummaryRow({
+    required this.label,
+    required this.value,
+    this.emphasis = false,
+  });
+
+  final String label;
+  final String value;
+  final bool emphasis;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final style = emphasis
+        ? theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)
+        : theme.textTheme.bodyMedium;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: style),
+          Text(value, style: style),
+        ],
+      ),
+    );
+  }
+}
+
 class _ServicePriceField extends StatefulWidget {
   const _ServicePriceField({
     super.key,
@@ -177,4 +405,29 @@ class _ServicePriceFieldState extends State<_ServicePriceField> {
       },
     );
   }
+}
+
+String _configuredRuleLabel(SalePreviewConfiguredSaleRule rule) {
+  final threshold = rule.thresholdAmount == null
+      ? ''
+      : ' from ₹${rule.thresholdAmount!.toStringAsFixed(2)}';
+  return '${rule.ruleType} • ${rule.percentage.toStringAsFixed(0)}%$threshold';
+}
+
+String _formatAmount(num amount) {
+  return '₹${amount.toStringAsFixed(2)}';
+}
+
+String _failureMessage(Failure failure) {
+  return failure.when(
+    validation: (message, _) => message ?? 'Invalid input.',
+    unauthorized: (message) => message ?? 'Authentication expired.',
+    forbidden: (message) => message ?? 'Action is not allowed.',
+    notFound: (message) => message ?? 'Requested item not found.',
+    server: (message, statusCode) => message ?? 'Server error.',
+    network: (message) => message ?? 'Network error.',
+    timeout: (message) => message ?? 'Request timed out.',
+    serialization: (message) => message ?? 'Data parse error.',
+    unknown: (message) => message ?? 'An unknown error occurred.',
+  );
 }
