@@ -598,6 +598,7 @@
   "salesDetailNoRedemptions": "No redemptions",
   "salesDetailNoWarnings": "No warnings",
   "salesDetailReceipt": "Receipt",
+  "salesReceiptCreditNoteApplied": "Credit note applied",
   "salesDetailBeforeDiscount": "Before discount",
   "salesDetailDiscountLabel": "Discount",
   "salesDetailTaxLabel": "Tax",

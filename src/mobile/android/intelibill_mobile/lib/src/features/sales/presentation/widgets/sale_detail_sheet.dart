@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intelibill_mobile/src/app/shell/menu_visibility.dart';
+import 'package:intelibill_mobile/src/app/router/app_router.dart';
 import 'package:intelibill_mobile/src/core/formatting/currency_formatter.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/auth/presentation/controllers/auth_controller.dart';
@@ -72,6 +74,7 @@ class SaleDetailSheet extends ConsumerWidget {
               title: l10n.salesHistoryDetailTitle,
               subtitle: detail.invoiceNumber,
               returnLabel: l10n.salesReturnTitle,
+              onReceipt: () => _openReceipt(context, detail),
               onRefresh: () {
                 ref
                     .read(saleDetailControllerProvider(saleId).notifier)
@@ -168,6 +171,7 @@ class _Header extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.returnLabel,
+    required this.onReceipt,
     required this.onRefresh,
     this.onReturn,
   });
@@ -175,6 +179,7 @@ class _Header extends StatelessWidget {
   final String title;
   final String subtitle;
   final String returnLabel;
+  final VoidCallback onReceipt;
   final VoidCallback onRefresh;
   final VoidCallback? onReturn;
 
@@ -204,6 +209,12 @@ class _Header extends StatelessWidget {
           ),
         ),
         IconButton(icon: const Icon(Icons.refresh), onPressed: onRefresh),
+        TextButton.icon(
+          key: const Key('sales-detail-receipt-button'),
+          icon: const Icon(Icons.receipt_long),
+          onPressed: onReceipt,
+          label: Text(AppLocalizations.of(context)!.salesDetailReceipt),
+        ),
         if (onReturn != null)
           TextButton.icon(
             icon: const Icon(Icons.assignment_return),
@@ -213,6 +224,10 @@ class _Header extends StatelessWidget {
       ],
     );
   }
+}
+
+void _openReceipt(BuildContext context, SaleDetail detail) {
+  context.push(AppRoutes.salesReceiptFor(detail.saleId), extra: detail);
 }
 
 class _SummaryCard extends StatelessWidget {

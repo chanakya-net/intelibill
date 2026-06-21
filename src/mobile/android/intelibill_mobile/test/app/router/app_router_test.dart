@@ -12,10 +12,16 @@ import 'package:intelibill_mobile/src/features/auth/presentation/controllers/aut
 import 'package:intelibill_mobile/src/features/credit_notes/domain/entities/credit_note_print.dart';
 import 'package:intelibill_mobile/src/features/credit_notes/presentation/controllers/credit_notes_controller.dart';
 import 'package:intelibill_mobile/src/features/dashboard/presentation/controllers/dashboard_controller.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sales_history_query.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sales_history_summary.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/use_cases/get_sale_detail.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/controllers/sales_history_controller.dart';
+import 'package:intelibill_mobile/src/features/sales/presentation/controllers/sales_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:mocktail/mocktail.dart';
+
+class MockGetSaleDetail extends Mock implements GetSaleDetail {}
 
 void main() {
   group('AppRouter', () {
@@ -37,6 +43,7 @@ void main() {
       expect(AppRoutes.inventoryAdjustments, equals('/inventory/adjustments'));
       expect(AppRoutes.salesNew, equals('/sales/new'));
       expect(AppRoutes.salesHistory, equals('/sales/history'));
+      expect(AppRoutes.salesReceipt, equals('/sales/:saleId/receipt'));
       expect(AppRoutes.profitLoss, equals('/sales/profit-loss'));
       expect(AppRoutes.customers, equals('/customers'));
       expect(AppRoutes.suppliers, equals('/suppliers'));
@@ -226,6 +233,57 @@ void main() {
         router.routeInformationProvider.value.uri.toString(),
         equals(route),
       );
+    });
+
+    testWidgets('owner can navigate to sales receipt route', (tester) async {
+      final controller = _TestAuthController(
+        AuthControllerState(session: _sessionForRole('Owner')),
+      );
+      final getSaleDetail = MockGetSaleDetail();
+      when(() => getSaleDetail(any())).thenAnswer((_) async => _fakeSaleDetail);
+      final container = ProviderContainer(
+        overrides: [
+          authControllerProvider.overrideWith(() => controller),
+          dashboardControllerProvider.overrideWith(
+            _StubDashboardController.new,
+          ),
+          salesHistoryControllerProvider.overrideWith(
+            _StubSalesHistoryController.new,
+          ),
+          getSaleDetailUseCaseProvider.overrideWithValue(getSaleDetail),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final router = container.read(goRouterProvider);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp.router(
+            locale: const Locale('en', 'IN'),
+            supportedLocales: const [Locale('en', 'IN')],
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final route = AppRoutes.salesReceiptFor('sale-100');
+      router.go(route);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(
+        router.routeInformationProvider.value.uri.toString(),
+        equals(route),
+      );
+      expect(find.text('INV-REC-001'), findsOneWidget);
     });
 
     testWidgets('owner can navigate to discounts route', (tester) async {
@@ -441,6 +499,65 @@ CreditNotePrint _fakeCreditNotePrint = CreditNotePrint(
   customerDisplayName: 'John Doe',
   reason: 'Damaged',
   voidReason: null,
+);
+
+SaleDetail _fakeSaleDetail = SaleDetail(
+  saleId: 'sale-100',
+  invoiceNumber: 'INV-REC-001',
+  paymentMethod: 1,
+  soldAt: DateTime.utc(2026, 6, 10, 10),
+  paidAmount: 300,
+  dueAmount: 0,
+  totalBeforeDiscount: 300,
+  totalDiscountAmount: 0,
+  totalAmount: 300,
+  totalTaxAmount: 0,
+  customerName: 'Alice',
+  customerPhone: '9999999999',
+  items: const [
+    SaleDetailItem(
+      saleItemId: 'item-1',
+      lineType: 'Goods',
+      lineCode: 'NB-1',
+      itemName: 'Notebook',
+      quantity: 2,
+      salesPrice: 50,
+      originalSalesPrice: 50,
+      finalSalesPrice: 50,
+      preTaxAmountBeforeDiscount: 100,
+      itemDiscountAmount: 0,
+      saleDiscountAmount: 0,
+      taxableAmount: 100,
+      taxAmount: 0,
+      totalAmount: 100,
+      savingsAmount: 0,
+      taxRatePercent: 0,
+      isPriceIncludingTax: false,
+      hasPriceMismatch: false,
+      returnedQuantity: 0,
+      returnableQuantity: 0,
+      returnStatus: 'none',
+    ),
+  ],
+  settlements: [
+    SaleDetailSettlement(
+      settlementId: 'settlement-1',
+      method: 'Cash',
+      amount: 300,
+      settledAt: DateTime.utc(2026, 6, 10, 10),
+    ),
+  ],
+  discounts: const [
+    SaleDetailDiscount(
+      discountId: 'discount-1',
+      type: 'Flat',
+      value: '₹20',
+      amount: 0,
+    ),
+  ],
+  returns: const [],
+  creditNoteRedemptions: const [],
+  warnings: const [],
 );
 
 class _StubDashboardController extends DashboardController {

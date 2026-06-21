@@ -1724,6 +1724,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get salesDetailReceipt => 'Receipt';
 
   @override
+  String get salesReceiptCreditNoteApplied => 'Credit note applied';
+
+  @override
   String get salesDetailBeforeDiscount => 'Before discount';
 
   @override
@@ -3846,6 +3849,9 @@ class AppLocalizationsEnIn extends AppLocalizationsEn {
 
   @override
   String get salesDetailReceipt => 'Receipt';
+
+  @override
+  String get salesReceiptCreditNoteApplied => 'Credit note applied';
 
   @override
   String get salesDetailBeforeDiscount => 'Before discount';

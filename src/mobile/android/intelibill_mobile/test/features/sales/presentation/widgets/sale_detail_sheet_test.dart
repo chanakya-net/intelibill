@@ -203,9 +203,7 @@ Widget _buildApp({
 
         return MediaQuery(data: data, child: child);
       },
-      home: Scaffold(
-        body: SaleDetailSheet(saleId: detail.saleId),
-      ),
+      home: Scaffold(body: SaleDetailSheet(saleId: detail.saleId)),
     ),
   );
 }
@@ -245,6 +243,26 @@ void main() {
     expect(find.textContaining('1.0 returned of item-1'), findsOneWidget);
     expect(find.text('Low stock detected'), findsOneWidget);
     expect(find.text('INV-2026-001'), findsOneWidget);
+  });
+
+  testWidgets('shows receipt action on sale detail', (tester) async {
+    final detail = _saleDetail();
+    when(() => getSaleDetail(any())).thenAnswer((_) async => detail);
+
+    await tester.pumpWidget(
+      _buildApp(
+        getSaleDetail: getSaleDetail,
+        voidSaleReturn: voidSaleReturn,
+        role: 'Owner',
+        detail: detail,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final receiptButton = tester.widget<TextButton>(
+      find.byKey(const Key('sales-detail-receipt-button')),
+    );
+    expect(receiptButton.onPressed, isNotNull);
   });
 
   testWidgets('does not duplicate refund against redemption total', (
@@ -366,19 +384,13 @@ void main() {
     );
     await tester.ensureVisible(actionButton);
     await tester.pumpAndSettle();
-    await tester.tap(
-      actionButton,
-    );
+    await tester.tap(actionButton);
     await tester.pumpAndSettle();
-    final submitButton = find.byKey(
-      Key(voidReturnSubmitKey('return-1')),
-    );
+    final submitButton = find.byKey(Key(voidReturnSubmitKey('return-1')));
     await tester.ensureVisible(submitButton);
     await tester.pumpAndSettle();
 
-    await tester.tap(
-      submitButton,
-    );
+    await tester.tap(submitButton);
     await tester.pumpAndSettle();
 
     verifyNever(() => voidSaleReturn(saleReturnId: 'return-1', reason: ''));
@@ -389,10 +401,7 @@ void main() {
     final detail = _saleDetail();
     when(() => getSaleDetail(any())).thenAnswer((_) async => detail);
     when(
-      () => voidSaleReturn(
-        saleReturnId: 'return-1',
-        reason: 'Redeemed',
-      ),
+      () => voidSaleReturn(saleReturnId: 'return-1', reason: 'Redeemed'),
     ).thenThrow(
       AppException(
         failure: const Failure.server(message: 'Credit note already redeemed'),
@@ -414,16 +423,10 @@ void main() {
     await tester.ensureVisible(actionButton);
     await tester.pumpAndSettle();
 
-    await tester.tap(
-      actionButton,
-    );
+    await tester.tap(actionButton);
     await tester.pumpAndSettle();
-    final reasonField = find.byKey(
-      Key(voidReturnReasonFieldKey('return-1')),
-    );
-    final submitButton = find.byKey(
-      Key(voidReturnSubmitKey('return-1')),
-    );
+    final reasonField = find.byKey(Key(voidReturnReasonFieldKey('return-1')));
+    final submitButton = find.byKey(Key(voidReturnSubmitKey('return-1')));
     await tester.ensureVisible(reasonField);
     await tester.pumpAndSettle();
 
@@ -443,13 +446,8 @@ void main() {
     final detail = _saleDetail();
     when(() => getSaleDetail(any())).thenAnswer((_) async => detail);
     when(
-      () => voidSaleReturn(
-        saleReturnId: 'return-1',
-        reason: 'Forbidden',
-      ),
-    ).thenThrow(
-      AppException(failure: const Failure.forbidden()),
-    );
+      () => voidSaleReturn(saleReturnId: 'return-1', reason: 'Forbidden'),
+    ).thenThrow(AppException(failure: const Failure.forbidden()));
 
     await tester.pumpWidget(
       _buildApp(
@@ -466,17 +464,13 @@ void main() {
     );
     await tester.ensureVisible(actionButton);
     await tester.pumpAndSettle();
-    await tester.tap(
-      actionButton,
-    );
+    await tester.tap(actionButton);
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(Key(voidReturnReasonFieldKey('return-1'))),
       'Forbidden',
     );
-    await tester.tap(
-      find.byKey(Key(voidReturnSubmitKey('return-1'))),
-    );
+    await tester.tap(find.byKey(Key(voidReturnSubmitKey('return-1'))));
     await tester.pumpAndSettle();
 
     expect(
@@ -515,9 +509,7 @@ void main() {
     );
     await tester.ensureVisible(actionButton);
     await tester.pumpAndSettle();
-    await tester.tap(
-      actionButton,
-    );
+    await tester.tap(actionButton);
     await tester.pumpAndSettle();
 
     expect(

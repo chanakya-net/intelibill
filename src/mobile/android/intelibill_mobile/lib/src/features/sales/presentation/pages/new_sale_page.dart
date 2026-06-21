@@ -2,8 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intelibill_mobile/src/core/formatting/currency_formatter.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
+import 'package:intelibill_mobile/src/app/router/app_router.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/payment_method.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_list_item.dart';
@@ -124,10 +125,8 @@ class _NewSalePageState extends ConsumerState<NewSalePage> {
                 recordedSale: state.recordedSale,
                 onViewRecordedSale: state.recordedSale == null
                     ? null
-                    : () => _showRecordedSaleDetail(
-                        context,
-                        state.recordedSale!,
-                      ),
+                    : () =>
+                          _showRecordedSaleDetail(context, state.recordedSale!),
                 onViewRecordedReceipt: state.recordedSale == null
                     ? null
                     : () => _showRecordedSaleReceipt(
@@ -624,36 +623,7 @@ class _NewSalePageState extends ConsumerState<NewSalePage> {
   }
 
   void _showRecordedSaleReceipt(BuildContext context, SaleDetail sale) {
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      useSafeArea: true,
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text('Receipt', style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 12),
-              _ReceiptRow(label: 'Invoice', value: sale.invoiceNumber),
-              _ReceiptRow(label: 'Total', value: formatInr(sale.totalAmount)),
-              if (sale.customerName != null)
-                _ReceiptRow(label: 'Customer', value: sale.customerName!),
-              if (sale.customerPhone != null)
-                _ReceiptRow(label: 'Phone', value: sale.customerPhone!),
-              const SizedBox(height: 8),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Close'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    context.push(AppRoutes.salesReceiptFor(sale.saleId), extra: sale);
   }
 
   void _showRecordedSaleDetail(BuildContext context, SaleDetail sale) {
@@ -680,36 +650,6 @@ class _NewSalePageState extends ConsumerState<NewSalePage> {
       status: sale.status ?? 'paid',
       refundAmount: sale.refundAmount,
       dueReductionAmount: sale.dueReductionAmount,
-    );
-  }
-}
-
-class _ReceiptRow extends StatelessWidget {
-  const _ReceiptRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(label, style: Theme.of(context).textTheme.bodySmall),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              textAlign: TextAlign.end,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
