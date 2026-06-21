@@ -586,6 +586,15 @@ class NewSaleController extends _$NewSaleController {
       );
       return;
     }
+    if (normalizedCode.contains('/')) {
+      state = state.copyWith(
+        creditNoteVerificationFailure: const Failure.validation(
+          message: 'Invalid credit note code.',
+        ),
+        clearVerifiedCreditNote: true,
+      );
+      return;
+    }
 
     state = state.copyWith(
       clearCreditNoteVerificationFailure: true,

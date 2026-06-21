@@ -1556,6 +1556,23 @@ void main() {
       expect(state.appliedCreditNotes, isEmpty);
     });
 
+    test('rejects credit note codes containing path separators', () async {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+
+      await controller.verifyCreditNote('CN/100');
+
+      final state = container.read(newSaleControllerProvider);
+      expect(state.creditNoteVerificationFailure, isA<ValidationFailure>());
+      expect(
+        state.creditNoteVerificationFailure?.message,
+        'Invalid credit note code.',
+      );
+      expect(state.verifiedCreditNote, isNull);
+      verifyNever(() => mockVerifyCreditNote('CN/100'));
+    });
+
     test('rejects duplicate credit note applications', () async {
       final container = makeContainer();
       addTearDown(container.dispose);

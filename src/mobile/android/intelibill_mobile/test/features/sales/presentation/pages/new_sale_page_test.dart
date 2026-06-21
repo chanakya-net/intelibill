@@ -1119,6 +1119,10 @@ void main() {
 
       expect(find.text('Code: CN-100'), findsOneWidget);
       expect(find.byKey(const Key('credit-note-amount-cn-1')), findsOneWidget);
+      expect(find.text('Total'), findsOneWidget);
+      expect(find.text('₹100.00'), findsWidgets);
+      expect(find.text('Applied credit notes'), findsOneWidget);
+      expect(find.text('₹-40.00'), findsOneWidget);
     });
 
     testWidgets(

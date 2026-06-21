@@ -390,8 +390,7 @@ class _CheckoutSummaryCard extends StatelessWidget {
               onCreditNoteMismatchConfirmChanged:
                   onCreditNoteMismatchConfirmChanged,
             ),
-            const SizedBox(height: 12),
-            const SizedBox(height: 8),
+            const SizedBox(height: 20),
             _SummaryRow(label: 'Subtotal', value: _formatAmount(subtotal)),
             _SummaryRow(label: 'Tax', value: _formatAmount(tax)),
             _SummaryRow(label: 'Discount', value: _formatAmount(discount)),

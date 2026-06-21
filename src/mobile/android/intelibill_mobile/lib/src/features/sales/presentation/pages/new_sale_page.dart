@@ -110,7 +110,7 @@ class _NewSalePageState extends ConsumerState<NewSalePage> {
                 saleDiscountValue: state.saleDiscountValue,
                 saleDiscountError: state.saleDiscountError,
                 itemDiscountErrors: state.itemDiscountErrors,
-                total: state.payable,
+                total: state.cartTotal,
                 discountCapacity: state.discountCapacityAmount,
                 preview: state.preview,
                 previewFailure: state.previewFailure,
