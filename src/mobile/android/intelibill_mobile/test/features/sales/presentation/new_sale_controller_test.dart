@@ -8,6 +8,7 @@ import 'package:intelibill_mobile/src/features/customers/domain/entities/custome
 import 'package:intelibill_mobile/src/features/customers/domain/use_cases/create_customer.dart';
 import 'package:intelibill_mobile/src/features/customers/domain/use_cases/get_customers.dart';
 import 'package:intelibill_mobile/src/features/customers/presentation/controllers/customers_controller.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/entities/credit_note.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/payment_method.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/record_sale.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
@@ -16,6 +17,7 @@ import 'package:intelibill_mobile/src/features/sales/domain/entities/sellable.da
 import 'package:intelibill_mobile/src/features/sales/domain/use_cases/preview_sale.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/use_cases/record_sale.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/use_cases/search_sellables.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/use_cases/verify_credit_note.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/controllers/new_sale_controller.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -28,6 +30,8 @@ class MockRecordSale extends Mock implements RecordSale {}
 class MockGetCustomers extends Mock implements GetCustomers {}
 
 class MockCreateCustomer extends Mock implements CreateCustomer {}
+
+class MockVerifyCreditNote extends Mock implements VerifyCreditNote {}
 
 Sellable _goods({
   required String id,
@@ -56,6 +60,40 @@ Customer _customer({
     name: name,
     phoneNumber: phoneNumber,
     isActive: true,
+  );
+}
+
+CreditNoteVerifyResult _verifiedCreditNote({
+  String creditNoteId = 'cn-1',
+  String code = 'CN-001',
+  double balance = 50,
+  String? customerId,
+  String? customerName,
+}) {
+  return CreditNoteVerifyResult(
+    creditNoteId: creditNoteId,
+    code: code,
+    balance: balance,
+    customerId: customerId,
+    customerName: customerName,
+  );
+}
+
+AppliedCreditNote _appliedCreditNote({
+  String creditNoteId = 'cn-1',
+  String code = 'CN-001',
+  double balance = 50,
+  double amount = 10,
+  String? customerId,
+  String? customerName,
+}) {
+  return AppliedCreditNote(
+    creditNoteId: creditNoteId,
+    code: code,
+    balance: balance,
+    amount: amount,
+    customerId: customerId,
+    customerName: customerName,
   );
 }
 
@@ -229,6 +267,7 @@ void main() {
   late MockRecordSale mockRecordSale;
   late MockGetCustomers mockGetCustomers;
   late MockCreateCustomer mockCreateCustomer;
+  late MockVerifyCreditNote mockVerifyCreditNote;
 
   setUp(() {
     mockSearchSellables = MockSearchSellables();
@@ -236,6 +275,7 @@ void main() {
     mockRecordSale = MockRecordSale();
     mockGetCustomers = MockGetCustomers();
     mockCreateCustomer = MockCreateCustomer();
+    mockVerifyCreditNote = MockVerifyCreditNote();
 
     when(
       () => mockPreviewSale(request: any(named: 'request')),
@@ -272,6 +312,7 @@ void main() {
         recordSaleProvider.overrideWithValue(mockRecordSale),
         getCustomersUseCaseProvider.overrideWithValue(mockGetCustomers),
         createCustomerUseCaseProvider.overrideWithValue(mockCreateCustomer),
+        verifyCreditNoteProvider.overrideWithValue(mockVerifyCreditNote),
       ],
     );
   }
@@ -448,6 +489,61 @@ void main() {
         InstantDiscountType.percentage,
       );
       expect(request.items.single.itemDiscount?.value, 5);
+    });
+
+    test('submit includes credit note redemption fields', () async {
+      final capturedRequests = <RecordSaleRequest>[];
+      final goods = _goods(id: 'g1', name: 'Flour', stock: 5);
+
+      when(
+        () => mockRecordSale(request: any(named: 'request')),
+      ).thenAnswer((invocation) async {
+        capturedRequests.add(
+          invocation.namedArguments[#request] as RecordSaleRequest,
+        );
+        return _recordedSale();
+      });
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+
+      controller.state = NewSaleState(
+        cartLines: [NewSaleCartLine(sellable: goods, quantity: 1)],
+        preview: _preview(
+          totalAmount: 100,
+          totalTaxAmount: 0,
+          totalDiscountAmount: 0,
+        ),
+        selectedCustomer: _customer(
+          customerId: 'cust-1',
+          name: 'John Doe',
+          phoneNumber: '+91-9999999999',
+        ),
+        paymentMethod: PaymentMethod.cash,
+        paidAmount: 70,
+        dueAmount: 0,
+        appliedCreditNotes: [
+          _appliedCreditNote(
+            creditNoteId: 'cn-1',
+            code: 'CN-100',
+            balance: 50,
+            amount: 30,
+            customerId: 'cust-1',
+            customerName: 'John Doe',
+          ),
+        ],
+      );
+
+      await controller.submit();
+
+      final request = capturedRequests.single;
+      expect(request.creditNoteAppliedAmount, 30);
+      expect(request.creditNoteRedemptions, hasLength(1));
+      expect(request.creditNoteRedemptions.single.creditNoteId, 'cn-1');
+      expect(request.creditNoteRedemptions.single.code, 'CN-100');
+      expect(request.creditNoteRedemptions.single.amount, 30);
+      expect(request.creditNoteCustomerMismatchConfirmed, isNull);
     });
 
     test('submit stores backend failure in submitFailure', () async {
@@ -1432,6 +1528,253 @@ void main() {
       state = container.read(newSaleControllerProvider);
       expect(state.paidAmount + state.dueAmount, closeTo(state.payable, 0.01));
       expect(state.dueAmount, closeTo(5, 0.01));
+    });
+
+    test('verifies credit note and keeps verified note on success', () async {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+      when(
+        () => mockVerifyCreditNote('CN-100'),
+      ).thenAnswer(
+        (_) async => _verifiedCreditNote(
+          creditNoteId: 'cn-1',
+          code: 'CN-100',
+          balance: 40,
+          customerId: 'cust-1',
+          customerName: 'John Doe',
+        ),
+      );
+
+      await controller.verifyCreditNote('CN-100');
+
+      final state = container.read(newSaleControllerProvider);
+      expect(state.verifiedCreditNote, isNotNull);
+      expect(state.verifiedCreditNote!.code, 'CN-100');
+      expect(state.verifiedCreditNote!.balance, 40);
+      expect(state.creditNoteVerificationFailure, isNull);
+      expect(state.appliedCreditNotes, isEmpty);
+    });
+
+    test('rejects credit note codes containing path separators', () async {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+
+      await controller.verifyCreditNote('CN/100');
+
+      final state = container.read(newSaleControllerProvider);
+      expect(state.creditNoteVerificationFailure, isA<ValidationFailure>());
+      expect(
+        state.creditNoteVerificationFailure?.message,
+        'Invalid credit note code.',
+      );
+      expect(state.verifiedCreditNote, isNull);
+      verifyNever(() => mockVerifyCreditNote('CN/100'));
+    });
+
+    test('rejects duplicate credit note applications', () async {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+
+      controller.state = NewSaleState(
+        cartLines: [
+          NewSaleCartLine(
+            sellable: _goods(id: 'g1', name: 'Flour', stock: 5),
+            quantity: 1,
+          ),
+        ],
+        preview: _preview(
+          totalAmount: 100,
+          totalTaxAmount: 0,
+          totalDiscountAmount: 0,
+        ),
+        selectedCustomer: _customer(
+          customerId: 'cust-1',
+          name: 'John Doe',
+          phoneNumber: '+91-9999999999',
+        ),
+        verifiedCreditNote: _verifiedCreditNote(
+          creditNoteId: 'cn-1',
+          code: 'CN-100',
+          balance: 80,
+          customerId: 'cust-1',
+        ),
+        appliedCreditNotes: [
+          _appliedCreditNote(
+            creditNoteId: 'cn-1',
+            code: 'CN-100',
+            balance: 80,
+            amount: 20,
+            customerId: 'cust-1',
+          ),
+        ],
+      );
+
+      controller.applyVerifiedCreditNote();
+
+      final state = container.read(newSaleControllerProvider);
+      expect(state.submissionFailure, isA<ValidationFailure>());
+      expect(
+        state.submissionError,
+        contains('already applied'),
+      );
+      expect(state.appliedCreditNotes, hasLength(1));
+    });
+
+    test(
+      'clamps applied credit note amount to remaining payable amount',
+      () async {
+        final container = makeContainer();
+        addTearDown(container.dispose);
+        final controller = container.read(newSaleControllerProvider.notifier);
+
+        controller.state = NewSaleState(
+          cartLines: [
+            NewSaleCartLine(
+              sellable: _goods(id: 'g1', name: 'Flour', stock: 5),
+              quantity: 1,
+            ),
+          ],
+          preview: _preview(
+            totalAmount: 100,
+            totalTaxAmount: 0,
+            totalDiscountAmount: 0,
+          ),
+          verifiedCreditNote: _verifiedCreditNote(
+            creditNoteId: 'cn-1',
+            code: 'CN-100',
+            balance: 80,
+            customerId: 'cust-1',
+          ),
+        );
+
+        controller.applyVerifiedCreditNote();
+        var state = container.read(newSaleControllerProvider);
+        expect(state.appliedCreditNotes.single.amount, 80);
+        expect(state.payable, closeTo(20, 0.01));
+
+        controller.state = state.copyWith(
+          verifiedCreditNote: _verifiedCreditNote(
+            creditNoteId: 'cn-2',
+            code: 'CN-200',
+            balance: 200,
+            customerId: 'cust-1',
+          ),
+          selectedCustomer: _customer(
+            customerId: 'cust-1',
+            name: 'John Doe',
+            phoneNumber: '+91-9999999999',
+          ),
+          preview: _preview(
+            totalAmount: 100,
+            totalTaxAmount: 0,
+            totalDiscountAmount: 0,
+          ),
+        );
+        controller.applyVerifiedCreditNote(amount: 999);
+
+        state = container.read(newSaleControllerProvider);
+        expect(state.appliedCreditNotes, hasLength(2));
+        expect(
+          state.appliedCreditNotes
+              .firstWhere((note) => note.creditNoteId == 'cn-2')
+              .amount,
+          closeTo(20, 0.01),
+        );
+        expect(state.payable, 0);
+        expect(state.submissionFailure, isNull);
+      },
+    );
+
+    test('reconciles payable when applying credit note', () async {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+
+      controller.state = NewSaleState(
+        cartLines: [
+          NewSaleCartLine(
+            sellable: _goods(id: 'g1', name: 'Flour', stock: 5),
+            quantity: 1,
+          ),
+        ],
+        selectedCustomer: _customer(
+          customerId: 'cust-1',
+          name: 'John Doe',
+          phoneNumber: '+91-9999999999',
+        ),
+        preview: _preview(
+          totalAmount: 100,
+          totalTaxAmount: 0,
+          totalDiscountAmount: 0,
+        ),
+        paidAmount: 100,
+        dueAmount: 0,
+        paymentMethod: PaymentMethod.cash,
+        hasExplicitPaymentSplit: true,
+        verifiedCreditNote: _verifiedCreditNote(
+          creditNoteId: 'cn-1',
+          code: 'CN-100',
+          balance: 80,
+          customerId: 'cust-1',
+        ),
+      );
+
+      controller.applyVerifiedCreditNote(amount: 30);
+
+      final state = container.read(newSaleControllerProvider);
+      expect(state.appliedCreditNotes.single.amount, 30);
+      expect(state.payable, closeTo(70, 0.01));
+      expect(state.paidAmount + state.dueAmount, closeTo(state.payable, 0.01));
+      expect(state.paidAmount, closeTo(70, 0.01));
+      expect(state.dueAmount, 0);
+    });
+
+    test('requires mismatch confirmation for customer mismatch', () async {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+
+      controller.state = NewSaleState(
+        cartLines: [
+          NewSaleCartLine(
+            sellable: _goods(id: 'g1', name: 'Flour', stock: 5),
+            quantity: 1,
+          ),
+        ],
+        selectedCustomer: _customer(
+          customerId: 'cust-1',
+          name: 'John Doe',
+          phoneNumber: '+91-9999999999',
+        ),
+        preview: _preview(
+          totalAmount: 100,
+          totalTaxAmount: 0,
+          totalDiscountAmount: 0,
+        ),
+        paidAmount: 100,
+        dueAmount: 0,
+        verifiedCreditNote: _verifiedCreditNote(
+          creditNoteId: 'cn-1',
+          code: 'CN-100',
+          balance: 80,
+          customerId: 'cust-2',
+        ),
+      );
+
+      controller.applyVerifiedCreditNote(amount: 20);
+
+      final blocked = container.read(newSaleControllerProvider);
+      expect(blocked.hasCreditNoteCustomerMismatch, isTrue);
+      expect(blocked.canSubmit, isFalse);
+      expect(blocked.submissionError, contains('requires confirmation'));
+
+      controller.confirmCreditNoteCustomerMismatch(true);
+      final confirmed = container.read(newSaleControllerProvider);
+      expect(confirmed.creditNoteCustomerMismatchConfirmed, isTrue);
+      expect(confirmed.canSubmit, isTrue);
     });
   });
 }

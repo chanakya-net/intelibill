@@ -510,6 +510,35 @@ void main() {
       ).called(1);
     });
 
+    test('calls GET /credit-notes/{code} for credit note verification', () async {
+      when(
+        () => mockApiClient.get<Map<String, dynamic>>('/credit-notes/CN-001'),
+      ).thenAnswer(
+        (_) async => Response(
+          data: {
+            'creditNoteId': 'cn-1',
+            'code': 'CN-001',
+            'balance': 100.0,
+            'customerId': 'cust-1',
+            'customerName': 'Alice',
+          },
+          statusCode: 200,
+          requestOptions: RequestOptions(path: '/credit-notes/CN-001'),
+        ),
+      );
+
+      final response = await remoteDataSource.verifyCreditNote('CN-001');
+
+      expect(response.creditNoteId, 'cn-1');
+      expect(response.code, 'CN-001');
+      expect(response.balance, 100.0);
+      expect(response.customerId, 'cust-1');
+      expect(response.customerName, 'Alice');
+      verify(
+        () => mockApiClient.get<Map<String, dynamic>>('/credit-notes/CN-001'),
+      ).called(1);
+    });
+
     test('voids a sale return with reason payload', () async {
       when(
         () => mockApiClient.post<void>(

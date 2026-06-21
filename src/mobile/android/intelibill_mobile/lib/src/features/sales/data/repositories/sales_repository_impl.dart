@@ -7,6 +7,7 @@ import 'package:intelibill_mobile/src/features/sales/data/mappers/sale_preview_m
 import 'package:intelibill_mobile/src/features/sales/data/mappers/sale_return_mapper.dart';
 import 'package:intelibill_mobile/src/features/sales/data/mappers/sale_list_item_mapper.dart';
 import 'package:intelibill_mobile/src/features/sales/data/mappers/sellable_mapper.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/entities/credit_note.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_preview.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_return.dart';
@@ -170,6 +171,22 @@ class SalesRepositoryImpl implements SalesRepository {
       );
     } on AppException {
       rethrow;
+    } catch (error) {
+      throw AppException(failure: Failure.unknown(message: error.toString()));
+    }
+  }
+
+  @override
+  Future<CreditNoteVerifyResult> verifyCreditNote(String code) async {
+    try {
+      final dto = await _remoteDataSource.verifyCreditNote(code);
+      return dto.toDomain();
+    } on AppException {
+      rethrow;
+    } on FormatException catch (error) {
+      throw AppException(
+        failure: Failure.serialization(message: error.message),
+      );
     } catch (error) {
       throw AppException(failure: Failure.unknown(message: error.toString()));
     }

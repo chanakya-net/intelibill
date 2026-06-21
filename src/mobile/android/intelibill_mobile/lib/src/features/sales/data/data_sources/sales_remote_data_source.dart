@@ -1,5 +1,6 @@
 import 'package:intelibill_mobile/src/core/network/api_client.dart';
 import 'package:intelibill_mobile/src/core/utils/date_time_wire.dart';
+import 'package:intelibill_mobile/src/features/sales/data/dto/credit_note_verify_dto.dart';
 import 'package:intelibill_mobile/src/features/sales/data/dto/void_sale_return_request_dto.dart';
 import 'package:intelibill_mobile/src/features/sales/data/dto/sale_detail_dto.dart';
 import 'package:intelibill_mobile/src/features/sales/data/dto/sale_preview_dto.dart';
@@ -54,6 +55,10 @@ interface class SalesRemoteDataSource {
     required String saleReturnId,
     required String reason,
   }) {
+    throw UnimplementedError();
+  }
+
+  Future<CreditNoteVerifyDto> verifyCreditNote(String code) {
     throw UnimplementedError();
   }
 }
@@ -170,5 +175,13 @@ class SalesRemoteDataSourceImpl implements SalesRemoteDataSource {
       '/sales/returns/$saleReturnId/void',
       data: VoidSaleReturnRequestDto(reason: reason).toJson(),
     );
+  }
+
+  @override
+  Future<CreditNoteVerifyDto> verifyCreditNote(String code) async {
+    final response = await _apiClient.get<Map<String, dynamic>>(
+      '/credit-notes/$code',
+    );
+    return CreditNoteVerifyDto.fromJson(response.data!);
   }
 }

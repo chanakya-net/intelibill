@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/entities/credit_note.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_preview.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sellable.dart';
@@ -17,6 +18,12 @@ typedef OnCartItemDiscountTypeChanged =
 typedef OnCartItemDiscountValueChanged =
     void Function(String sellableId, double value);
 typedef OnSubmitCheckout = Future<void> Function();
+typedef OnVerifyCreditNote = void Function(String code);
+typedef OnApplyVerifiedCreditNote = void Function();
+typedef OnCreditNoteAmountChanged =
+    void Function(String creditNoteId, double value);
+typedef OnCreditNoteRemoved = void Function(String creditNoteId);
+typedef OnCreditNoteMismatchConfirmChanged = void Function(bool value);
 
 class GoodsCartList extends StatelessWidget {
   const GoodsCartList({
@@ -50,6 +57,16 @@ class GoodsCartList extends StatelessWidget {
     required this.onViewRecordedSale,
     required this.onViewRecordedReceipt,
     required this.onClearRecordedSale,
+    required this.verifiedCreditNote,
+    this.creditNoteVerificationFailure,
+    required this.appliedCreditNotes,
+    required this.hasCreditNoteCustomerMismatch,
+    required this.creditNoteCustomerMismatchConfirmed,
+    required this.onVerifyCreditNote,
+    required this.onApplyVerifiedCreditNote,
+    required this.onCreditNoteAmountChanged,
+    required this.onCreditNoteRemoved,
+    required this.onCreditNoteMismatchConfirmChanged,
   });
 
   final List<NewSaleCartLine> lines;
@@ -81,6 +98,16 @@ class GoodsCartList extends StatelessWidget {
   final VoidCallback? onViewRecordedSale;
   final VoidCallback? onViewRecordedReceipt;
   final VoidCallback onClearRecordedSale;
+  final CreditNoteVerifyResult? verifiedCreditNote;
+  final Failure? creditNoteVerificationFailure;
+  final List<AppliedCreditNote> appliedCreditNotes;
+  final bool hasCreditNoteCustomerMismatch;
+  final bool creditNoteCustomerMismatchConfirmed;
+  final OnVerifyCreditNote onVerifyCreditNote;
+  final OnApplyVerifiedCreditNote onApplyVerifiedCreditNote;
+  final OnCreditNoteAmountChanged onCreditNoteAmountChanged;
+  final OnCreditNoteRemoved onCreditNoteRemoved;
+  final OnCreditNoteMismatchConfirmChanged onCreditNoteMismatchConfirmChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -200,6 +227,18 @@ class GoodsCartList extends StatelessWidget {
               onSubmit: onSubmit,
               onSaleDiscountTypeChanged: onSaleDiscountTypeChanged,
               onSaleDiscountValueChanged: onSaleDiscountValueChanged,
+              verifiedCreditNote: verifiedCreditNote,
+              creditNoteVerificationFailure: creditNoteVerificationFailure,
+              appliedCreditNotes: appliedCreditNotes,
+              hasCreditNoteCustomerMismatch: hasCreditNoteCustomerMismatch,
+              creditNoteCustomerMismatchConfirmed:
+                  creditNoteCustomerMismatchConfirmed,
+              onVerifyCreditNote: onVerifyCreditNote,
+              onApplyVerifiedCreditNote: onApplyVerifiedCreditNote,
+              onCreditNoteAmountChanged: onCreditNoteAmountChanged,
+              onCreditNoteRemoved: onCreditNoteRemoved,
+              onCreditNoteMismatchConfirmChanged:
+                  onCreditNoteMismatchConfirmChanged,
             ),
           ),
         ],
@@ -235,6 +274,16 @@ class _CheckoutSummaryCard extends StatelessWidget {
     required this.onSubmit,
     required this.onSaleDiscountTypeChanged,
     required this.onSaleDiscountValueChanged,
+    required this.verifiedCreditNote,
+    required this.appliedCreditNotes,
+    required this.hasCreditNoteCustomerMismatch,
+    required this.creditNoteCustomerMismatchConfirmed,
+    required this.onVerifyCreditNote,
+    required this.onApplyVerifiedCreditNote,
+    required this.onCreditNoteAmountChanged,
+    required this.onCreditNoteRemoved,
+    required this.onCreditNoteMismatchConfirmChanged,
+    this.creditNoteVerificationFailure,
   });
 
   final double subtotal;
@@ -254,11 +303,25 @@ class _CheckoutSummaryCard extends StatelessWidget {
   final OnSubmitCheckout onSubmit;
   final OnSaleDiscountTypeChanged onSaleDiscountTypeChanged;
   final OnSaleDiscountValueChanged onSaleDiscountValueChanged;
+  final CreditNoteVerifyResult? verifiedCreditNote;
+  final Failure? creditNoteVerificationFailure;
+  final List<AppliedCreditNote> appliedCreditNotes;
+  final bool hasCreditNoteCustomerMismatch;
+  final bool creditNoteCustomerMismatchConfirmed;
+  final OnVerifyCreditNote onVerifyCreditNote;
+  final OnApplyVerifiedCreditNote onApplyVerifiedCreditNote;
+  final OnCreditNoteAmountChanged onCreditNoteAmountChanged;
+  final OnCreditNoteRemoved onCreditNoteRemoved;
+  final OnCreditNoteMismatchConfirmChanged onCreditNoteMismatchConfirmChanged;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final previewRule = preview?.configuredSaleRule;
+    final totalCreditNoteApplied = appliedCreditNotes.fold<double>(
+      0,
+      (sum, note) => sum + note.amount,
+    );
 
     return Card(
       child: Padding(
@@ -313,6 +376,21 @@ class _CheckoutSummaryCard extends StatelessWidget {
               onValueChanged: onSaleDiscountValueChanged,
             ),
             const SizedBox(height: 8),
+            _CreditNotePanel(
+              verifiedCreditNote: verifiedCreditNote,
+              verificationFailure: creditNoteVerificationFailure,
+              appliedCreditNotes: appliedCreditNotes,
+              hasCreditNoteCustomerMismatch: hasCreditNoteCustomerMismatch,
+              creditNoteCustomerMismatchConfirmed:
+                  creditNoteCustomerMismatchConfirmed,
+              onVerifyCreditNote: onVerifyCreditNote,
+              onApplyVerifiedCreditNote: onApplyVerifiedCreditNote,
+              onCreditNoteAmountChanged: onCreditNoteAmountChanged,
+              onCreditNoteRemoved: onCreditNoteRemoved,
+              onCreditNoteMismatchConfirmChanged:
+                  onCreditNoteMismatchConfirmChanged,
+            ),
+            const SizedBox(height: 20),
             _SummaryRow(label: 'Subtotal', value: _formatAmount(subtotal)),
             _SummaryRow(label: 'Tax', value: _formatAmount(tax)),
             _SummaryRow(label: 'Discount', value: _formatAmount(discount)),
@@ -327,6 +405,11 @@ class _CheckoutSummaryCard extends StatelessWidget {
               value: _formatAmount(total),
               emphasis: true,
             ),
+            if (totalCreditNoteApplied > 0)
+              _SummaryRow(
+                label: 'Applied credit notes',
+                value: _formatAmount(-totalCreditNoteApplied),
+              ),
             if (previewRule != null) ...[
               const SizedBox(height: 8),
               Text(
@@ -405,6 +488,263 @@ class _CheckoutSummaryCard extends StatelessWidget {
                           : 'Preview required',
                     ),
                   ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CreditNotePanel extends StatefulWidget {
+  const _CreditNotePanel({
+    required this.verifiedCreditNote,
+    required this.appliedCreditNotes,
+    required this.hasCreditNoteCustomerMismatch,
+    required this.creditNoteCustomerMismatchConfirmed,
+    required this.onVerifyCreditNote,
+    required this.onApplyVerifiedCreditNote,
+    required this.onCreditNoteAmountChanged,
+    required this.onCreditNoteRemoved,
+    required this.onCreditNoteMismatchConfirmChanged,
+    this.verificationFailure,
+  });
+
+  final CreditNoteVerifyResult? verifiedCreditNote;
+  final Failure? verificationFailure;
+  final List<AppliedCreditNote> appliedCreditNotes;
+  final bool hasCreditNoteCustomerMismatch;
+  final bool creditNoteCustomerMismatchConfirmed;
+  final OnVerifyCreditNote onVerifyCreditNote;
+  final OnApplyVerifiedCreditNote onApplyVerifiedCreditNote;
+  final OnCreditNoteAmountChanged onCreditNoteAmountChanged;
+  final OnCreditNoteRemoved onCreditNoteRemoved;
+  final OnCreditNoteMismatchConfirmChanged onCreditNoteMismatchConfirmChanged;
+
+  @override
+  State<_CreditNotePanel> createState() => _CreditNotePanelState();
+}
+
+class _CreditNotePanelState extends State<_CreditNotePanel> {
+  late final TextEditingController _codeController;
+
+  @override
+  void initState() {
+    super.initState();
+    _codeController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _codeController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Credit notes',
+          style: TextStyle(fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                key: const Key('credit-note-code-field'),
+                controller: _codeController,
+                decoration: const InputDecoration(
+                  labelText: 'Credit note code',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            ElevatedButton(
+              key: const Key('verify-credit-note-button'),
+              onPressed: () {
+                final code = _codeController.text.trim();
+                if (code.isEmpty) return;
+                widget.onVerifyCreditNote(code);
+              },
+              child: const Text('Verify'),
+            ),
+          ],
+        ),
+        if (widget.verificationFailure != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            _failureMessage(widget.verificationFailure!),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.error,
+            ),
+          ),
+        ],
+        if (widget.verifiedCreditNote != null) ...[
+          const SizedBox(height: 8),
+          _VerifiedCreditNoteCard(
+            note: widget.verifiedCreditNote!,
+            onApply: widget.onApplyVerifiedCreditNote,
+          ),
+        ],
+        if (widget.appliedCreditNotes.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          const Text('Applied notes'),
+          const SizedBox(height: 8),
+          for (final note in widget.appliedCreditNotes)
+            _AppliedCreditNoteEditor(
+              note: note,
+              onAmountChanged: widget.onCreditNoteAmountChanged,
+              onRemoved: widget.onCreditNoteRemoved,
+            ),
+        ],
+        if (widget.hasCreditNoteCustomerMismatch) ...[
+          const SizedBox(height: 8),
+          CheckboxListTile(
+            key: const Key('credit-note-mismatch-confirm'),
+            value: widget.creditNoteCustomerMismatchConfirmed,
+            onChanged: (isChecked) {
+              widget.onCreditNoteMismatchConfirmChanged(
+                isChecked ?? false,
+              );
+            },
+            title: const Text('Customer mismatch for note redemption'),
+            subtitle: const Text(
+              'I confirm I want to apply these notes to this customer.',
+            ),
+            controlAffinity: ListTileControlAffinity.leading,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _VerifiedCreditNoteCard extends StatelessWidget {
+  const _VerifiedCreditNoteCard({
+    required this.note,
+    required this.onApply,
+  });
+
+  final CreditNoteVerifyResult note;
+  final OnApplyVerifiedCreditNote onApply;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Verified: ${note.code}'),
+        const SizedBox(height: 4),
+        Text('Balance: ₹${note.balance.toStringAsFixed(2)}'),
+        if (note.customerName != null) ...[
+          const SizedBox(height: 4),
+          Text('Customer: ${note.customerName}'),
+        ],
+        const SizedBox(height: 8),
+        SizedBox(
+          width: 120,
+          child: ElevatedButton(
+            key: const Key('apply-credit-note-button'),
+            onPressed: onApply,
+            child: const Text('Apply'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AppliedCreditNoteEditor extends StatefulWidget {
+  const _AppliedCreditNoteEditor({
+    required this.note,
+    required this.onAmountChanged,
+    required this.onRemoved,
+  });
+
+  final AppliedCreditNote note;
+  final OnCreditNoteAmountChanged onAmountChanged;
+  final OnCreditNoteRemoved onRemoved;
+
+  @override
+  State<_AppliedCreditNoteEditor> createState() =>
+      _AppliedCreditNoteEditorState();
+}
+
+class _AppliedCreditNoteEditorState extends State<_AppliedCreditNoteEditor> {
+  late final TextEditingController _amountController;
+
+  @override
+  void initState() {
+    super.initState();
+    _amountController = TextEditingController(
+      text: widget.note.amount.toStringAsFixed(2),
+    );
+  }
+
+  @override
+  void didUpdateWidget(_AppliedCreditNoteEditor oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final nextAmount = widget.note.amount.toStringAsFixed(2);
+    if (_amountController.text != nextAmount) {
+      _amountController.text = nextAmount;
+    }
+  }
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Code: ${widget.note.code}'),
+            const SizedBox(height: 4),
+            Text('Available: ₹${widget.note.balance.toStringAsFixed(2)}'),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    key: Key('credit-note-amount-${widget.note.creditNoteId}'),
+                    controller: _amountController,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: 'Apply amount',
+                      border: OutlineInputBorder(),
+                      prefixText: '₹',
+                    ),
+                    onChanged: (value) {
+                      final amount = double.tryParse(value.trim());
+                      if (amount == null) {
+                        widget.onAmountChanged(widget.note.creditNoteId, 0);
+                        return;
+                      }
+                      widget.onAmountChanged(widget.note.creditNoteId, amount);
+                    },
+                  ),
+                ),
+                IconButton(
+                  key: Key('remove-credit-note-${widget.note.creditNoteId}'),
+                  onPressed: () => widget.onRemoved(widget.note.creditNoteId),
+                  icon: const Icon(Icons.delete_outline),
                 ),
               ],
             ),
