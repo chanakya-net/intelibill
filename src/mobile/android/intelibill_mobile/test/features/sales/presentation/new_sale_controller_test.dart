@@ -4,6 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
+import 'package:intelibill_mobile/src/features/customers/domain/entities/customer.dart';
+import 'package:intelibill_mobile/src/features/customers/domain/use_cases/create_customer.dart';
+import 'package:intelibill_mobile/src/features/customers/domain/use_cases/get_customers.dart';
+import 'package:intelibill_mobile/src/features/customers/presentation/controllers/customers_controller.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/entities/payment_method.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_preview.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sellable.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/use_cases/preview_sale.dart';
@@ -15,19 +20,37 @@ class MockSearchSellables extends Mock implements SearchSellables {}
 
 class MockPreviewSale extends Mock implements PreviewSale {}
 
+class MockGetCustomers extends Mock implements GetCustomers {}
+
+class MockCreateCustomer extends Mock implements CreateCustomer {}
+
 Sellable _goods({
   required String id,
   required String name,
   required double stock,
+  double price = 10,
 }) {
   return Sellable(
     id: id,
     kind: 'Goods',
     name: name,
     stock: stock,
-    price: 10,
+    price: price,
     barcode: 'BAR-$id',
     batchNumber: 'BN-$id',
+  );
+}
+
+Customer _customer({
+  required String customerId,
+  required String name,
+  required String phoneNumber,
+}) {
+  return Customer(
+    customerId: customerId,
+    name: name,
+    phoneNumber: phoneNumber,
+    isActive: true,
   );
 }
 
@@ -167,15 +190,35 @@ const PreviewSaleRequest _emptyPreviewRequest = PreviewSaleRequest(
 void main() {
   late MockSearchSellables mockSearchSellables;
   late MockPreviewSale mockPreviewSale;
+  late MockGetCustomers mockGetCustomers;
+  late MockCreateCustomer mockCreateCustomer;
 
   setUp(() {
     mockSearchSellables = MockSearchSellables();
     mockPreviewSale = MockPreviewSale();
+    mockGetCustomers = MockGetCustomers();
+    mockCreateCustomer = MockCreateCustomer();
+
     when(
-      () => mockPreviewSale(
-        request: any(named: 'request'),
-      ),
+      () => mockPreviewSale(request: any(named: 'request')),
     ).thenAnswer((_) async => _preview());
+
+    when(() => mockGetCustomers()).thenAnswer((_) async => const []);
+    when(
+      () => mockCreateCustomer(
+        name: any(named: 'name'),
+        phoneNumber: any(named: 'phoneNumber'),
+        address: any(named: 'address'),
+        isActive: any(named: 'isActive'),
+      ),
+    ).thenAnswer(
+      (_) async => const Customer(
+        customerId: 'created-customer-id',
+        name: 'Created Customer',
+        phoneNumber: '9000000000',
+        isActive: true,
+      ),
+    );
   });
 
   setUpAll(() {
@@ -187,6 +230,8 @@ void main() {
       overrides: [
         searchSellablesProvider.overrideWithValue(mockSearchSellables),
         previewSaleProvider.overrideWithValue(mockPreviewSale),
+        getCustomersUseCaseProvider.overrideWithValue(mockGetCustomers),
+        createCustomerUseCaseProvider.overrideWithValue(mockCreateCustomer),
       ],
     );
   }
@@ -303,9 +348,7 @@ void main() {
 
       await container
           .read(newSaleControllerProvider.notifier)
-          .addToCart(
-            _goods(id: 'g1', name: 'Flour', stock: 2),
-          );
+          .addToCart(_goods(id: 'g1', name: 'Flour', stock: 2));
 
       final state = container.read(newSaleControllerProvider);
       expect(state.cartLines.length, 1);
@@ -389,9 +432,7 @@ void main() {
       final notifier = container.read(newSaleControllerProvider.notifier);
       await notifier.search(searchTerm: 'Flour', barcode: 'BARCODE-1');
 
-      verify(
-        () => mockSearchSellables(barcode: 'BARCODE-1'),
-      ).called(1);
+      verify(() => mockSearchSellables(barcode: 'BARCODE-1')).called(1);
     });
 
     test('barcode lookup ignores stale text search term', () async {
@@ -409,9 +450,7 @@ void main() {
       await notifier.search(searchTerm: 'Flour');
       await notifier.search(barcode: 'BARCODE-1');
 
-      verify(
-        () => mockSearchSellables(barcode: 'BARCODE-1'),
-      ).called(1);
+      verify(() => mockSearchSellables(barcode: 'BARCODE-1')).called(1);
     });
 
     test('search ignores stale in-flight responses', () async {
@@ -461,11 +500,9 @@ void main() {
 
     test('builds preview payload for mixed goods and service lines', () async {
       final capturedRequests = <PreviewSaleRequest>[];
-      when(
-        () => mockPreviewSale(
-          request: any(named: 'request'),
-        ),
-      ).thenAnswer((invocation) async {
+      when(() => mockPreviewSale(request: any(named: 'request'))).thenAnswer((
+        invocation,
+      ) async {
         final request =
             invocation.namedArguments[#request] as PreviewSaleRequest;
         capturedRequests.add(request);
@@ -519,11 +556,9 @@ void main() {
 
     test('builds preview payload including sale and item discounts', () async {
       final capturedRequests = <PreviewSaleRequest>[];
-      when(
-        () => mockPreviewSale(
-          request: any(named: 'request'),
-        ),
-      ).thenAnswer((invocation) async {
+      when(() => mockPreviewSale(request: any(named: 'request'))).thenAnswer((
+        invocation,
+      ) async {
         final request =
             invocation.namedArguments[#request] as PreviewSaleRequest;
         capturedRequests.add(request);
@@ -561,130 +596,148 @@ void main() {
       expect(request.items.single.itemDiscountValue, 12.5);
     });
 
-    test('clamps item discount when type changes above preview limit', () async {
-      final preview = _preview(
-        lines: [
-          _previewLine(
-            lineKey: 'g1',
-            preTaxAmountBeforeDiscount: 100,
-            itemDiscountAmount: 0,
-            maxItemDiscountFlat: 5,
-            maxItemDiscountPercent: 5,
-            taxableAmount: 95,
-            taxAmount: 0,
-            lineTotalAmount: 95,
-            hasClientPriceMismatch: false,
-          ),
-        ],
-      );
+    test(
+      'clamps item discount when type changes above preview limit',
+      () async {
+        final preview = _preview(
+          lines: [
+            _previewLine(
+              lineKey: 'g1',
+              preTaxAmountBeforeDiscount: 100,
+              itemDiscountAmount: 0,
+              maxItemDiscountFlat: 5,
+              maxItemDiscountPercent: 5,
+              taxableAmount: 95,
+              taxAmount: 0,
+              lineTotalAmount: 95,
+              hasClientPriceMismatch: false,
+            ),
+          ],
+        );
 
-      final container = makeContainer();
-      addTearDown(container.dispose);
-      final controller = container.read(newSaleControllerProvider.notifier);
-      final goods = _goods(id: 'g1', name: 'Flour', stock: 5);
-      controller.state = NewSaleState(
-        cartLines: [
-          NewSaleCartLine(
-            sellable: goods,
-            quantity: 1,
-            itemDiscountType: InstantDiscountType.none,
-            itemDiscountValue: 12,
-          ),
-        ],
-        preview: preview,
-      );
+        final container = makeContainer();
+        addTearDown(container.dispose);
+        final controller = container.read(newSaleControllerProvider.notifier);
+        final goods = _goods(id: 'g1', name: 'Flour', stock: 5);
+        controller.state = NewSaleState(
+          cartLines: [
+            NewSaleCartLine(
+              sellable: goods,
+              quantity: 1,
+              itemDiscountType: InstantDiscountType.none,
+              itemDiscountValue: 12,
+            ),
+          ],
+          preview: preview,
+        );
 
-      controller.updateCartItemDiscountType(
-        'g1',
-        InstantDiscountType.percentage,
-      );
-      final state = container.read(newSaleControllerProvider);
-      expect(state.cartLines.single.itemDiscountType, InstantDiscountType.percentage);
-      expect(state.cartLines.single.itemDiscountValue, 5);
-      expect(state.itemDiscountErrors, isEmpty);
-    });
+        controller.updateCartItemDiscountType(
+          'g1',
+          InstantDiscountType.percentage,
+        );
+        final state = container.read(newSaleControllerProvider);
+        expect(
+          state.cartLines.single.itemDiscountType,
+          InstantDiscountType.percentage,
+        );
+        expect(state.cartLines.single.itemDiscountValue, 5);
+        expect(state.itemDiscountErrors, isEmpty);
+      },
+    );
 
-    test('blocks item discount above maximum and shows validation error', () async {
-      final preview = _preview(
-        lines: [
-          _previewLine(
-            lineKey: 'g1',
-            preTaxAmountBeforeDiscount: 100,
-            itemDiscountAmount: 0,
-            maxItemDiscountFlat: 5,
-            maxItemDiscountPercent: 5,
-            taxableAmount: 95,
-            taxAmount: 0,
-            lineTotalAmount: 95,
-            hasClientPriceMismatch: false,
-          ),
-        ],
-      );
+    test(
+      'blocks item discount above maximum and shows validation error',
+      () async {
+        final preview = _preview(
+          lines: [
+            _previewLine(
+              lineKey: 'g1',
+              preTaxAmountBeforeDiscount: 100,
+              itemDiscountAmount: 0,
+              maxItemDiscountFlat: 5,
+              maxItemDiscountPercent: 5,
+              taxableAmount: 95,
+              taxAmount: 0,
+              lineTotalAmount: 95,
+              hasClientPriceMismatch: false,
+            ),
+          ],
+        );
 
-      final container = makeContainer();
-      addTearDown(container.dispose);
-      final controller = container.read(newSaleControllerProvider.notifier);
-      final goods = _goods(id: 'g1', name: 'Flour', stock: 5);
-      controller.state = NewSaleState(
-        cartLines: [
-          NewSaleCartLine(
-            sellable: goods,
-            quantity: 1,
-            itemDiscountType: InstantDiscountType.percentage,
-            itemDiscountValue: 1,
-          ),
-        ],
-        preview: preview,
-      );
+        final container = makeContainer();
+        addTearDown(container.dispose);
+        final controller = container.read(newSaleControllerProvider.notifier);
+        final goods = _goods(id: 'g1', name: 'Flour', stock: 5);
+        controller.state = NewSaleState(
+          cartLines: [
+            NewSaleCartLine(
+              sellable: goods,
+              quantity: 1,
+              itemDiscountType: InstantDiscountType.percentage,
+              itemDiscountValue: 1,
+            ),
+          ],
+          preview: preview,
+        );
 
-      controller.updateCartItemDiscountValue('g1', 12);
-      final state = container.read(newSaleControllerProvider);
-      expect(state.itemDiscountErrors, contains('g1'));
-      expect(state.itemDiscountErrors['g1'], contains('exceeds allowed maximum'));
-      expect(state.cartLines.single.itemDiscountValue, 1);
-    });
+        controller.updateCartItemDiscountValue('g1', 12);
+        final state = container.read(newSaleControllerProvider);
+        expect(state.itemDiscountErrors, contains('g1'));
+        expect(
+          state.itemDiscountErrors['g1'],
+          contains('exceeds allowed maximum'),
+        );
+        expect(state.cartLines.single.itemDiscountValue, 1);
+      },
+    );
 
-    test('blocks item discount when configuredBatchRulePercentage is tighter than server max', () async {
-      final preview = _preview(
-        lines: [
-          _previewLine(
-            lineKey: 'g1',
-            preTaxAmountBeforeDiscount: 100,
-            itemDiscountAmount: 0,
-            maxItemDiscountFlat: 30,
-            maxItemDiscountPercent: 30,
-            taxableAmount: 90,
-            taxAmount: 0,
-            lineTotalAmount: 90,
-            configuredBatchRulePercentage: 10,
-          ),
-        ],
-      );
+    test(
+      'blocks item discount when configuredBatchRulePercentage is tighter than server max',
+      () async {
+        final preview = _preview(
+          lines: [
+            _previewLine(
+              lineKey: 'g1',
+              preTaxAmountBeforeDiscount: 100,
+              itemDiscountAmount: 0,
+              maxItemDiscountFlat: 30,
+              maxItemDiscountPercent: 30,
+              taxableAmount: 90,
+              taxAmount: 0,
+              lineTotalAmount: 90,
+              configuredBatchRulePercentage: 10,
+            ),
+          ],
+        );
 
-      final container = makeContainer();
-      addTearDown(container.dispose);
-      final controller = container.read(newSaleControllerProvider.notifier);
-      final goods = _goods(id: 'g1', name: 'Rice', stock: 5);
-      controller.state = NewSaleState(
-        cartLines: [
-          NewSaleCartLine(
-            sellable: goods,
-            quantity: 1,
-            itemDiscountType: InstantDiscountType.flat,
-            itemDiscountValue: 5,
-          ),
-        ],
-        preview: preview,
-      );
+        final container = makeContainer();
+        addTearDown(container.dispose);
+        final controller = container.read(newSaleControllerProvider.notifier);
+        final goods = _goods(id: 'g1', name: 'Rice', stock: 5);
+        controller.state = NewSaleState(
+          cartLines: [
+            NewSaleCartLine(
+              sellable: goods,
+              quantity: 1,
+              itemDiscountType: InstantDiscountType.flat,
+              itemDiscountValue: 5,
+            ),
+          ],
+          preview: preview,
+        );
 
-      controller.updateCartItemDiscountValue('g1', 20);
-      final state = container.read(newSaleControllerProvider);
-      // configuredBatchRulePercentage=10 on preTax=100 -> configuredAmount=10
-      // min(maxFlat=30, configuredAmount=10) = 10; value 20 exceeds limit
-      expect(state.itemDiscountErrors, contains('g1'));
-      expect(state.itemDiscountErrors['g1'], contains('exceeds allowed maximum'));
-      expect(state.cartLines.single.itemDiscountValue, 5);
-    });
+        controller.updateCartItemDiscountValue('g1', 20);
+        final state = container.read(newSaleControllerProvider);
+        // configuredBatchRulePercentage=10 on preTax=100 -> configuredAmount=10
+        // min(maxFlat=30, configuredAmount=10) = 10; value 20 exceeds limit
+        expect(state.itemDiscountErrors, contains('g1'));
+        expect(
+          state.itemDiscountErrors['g1'],
+          contains('exceeds allowed maximum'),
+        );
+        expect(state.cartLines.single.itemDiscountValue, 5);
+      },
+    );
 
     test('clamps sale discount to preview-derived maximum', () async {
       final preview = _preview(
@@ -724,22 +777,25 @@ void main() {
       expect(state.saleDiscountError, isNull);
     });
 
-    test('allows flat sale discount above 100 when preview is unavailable', () async {
-      final container = makeContainer();
-      addTearDown(container.dispose);
-      final controller = container.read(newSaleControllerProvider.notifier);
-      final goods = _goods(id: 'g1', name: 'Flour', stock: 5);
-      controller.state = NewSaleState(
-        cartLines: [NewSaleCartLine(sellable: goods, quantity: 1)],
-        saleDiscountType: InstantDiscountType.flat,
-        saleDiscountValue: 0,
-      );
+    test(
+      'allows flat sale discount above 100 when preview is unavailable',
+      () async {
+        final container = makeContainer();
+        addTearDown(container.dispose);
+        final controller = container.read(newSaleControllerProvider.notifier);
+        final goods = _goods(id: 'g1', name: 'Flour', stock: 5);
+        controller.state = NewSaleState(
+          cartLines: [NewSaleCartLine(sellable: goods, quantity: 1)],
+          saleDiscountType: InstantDiscountType.flat,
+          saleDiscountValue: 0,
+        );
 
-      controller.updateSaleDiscountValue(500);
-      final state = container.read(newSaleControllerProvider);
-      expect(state.saleDiscountValue, 500);
-      expect(state.saleDiscountError, isNull);
-    });
+        controller.updateSaleDiscountValue(500);
+        final state = container.read(newSaleControllerProvider);
+        expect(state.saleDiscountValue, 500);
+        expect(state.saleDiscountError, isNull);
+      },
+    );
 
     test('sale discount edit marks preview stale until refreshed', () async {
       final container = makeContainer();
@@ -764,11 +820,7 @@ void main() {
     test(
       'sets preview failure and blocks checkout when preview throws',
       () async {
-        when(
-          () => mockPreviewSale(
-            request: any(named: 'request'),
-          ),
-        ).thenThrow(
+        when(() => mockPreviewSale(request: any(named: 'request'))).thenThrow(
           AppException(failure: const Failure.network(message: 'offline')),
         );
 
@@ -802,11 +854,9 @@ void main() {
       final previewAfterChange = Completer<SalePreview>();
       var requestCount = 0;
 
-      when(
-        () => mockPreviewSale(
-          request: any(named: 'request'),
-        ),
-      ).thenAnswer((_) async {
+      when(() => mockPreviewSale(request: any(named: 'request'))).thenAnswer((
+        _,
+      ) async {
         requestCount += 1;
         if (requestCount == 1) {
           return previewBeforeChange;
@@ -937,6 +987,234 @@ void main() {
       final state = container.read(newSaleControllerProvider);
       expect(state.cartLines, hasLength(1));
       expect(state.cartLines.single.quantity, 3.0);
+    });
+
+    test('payment method maps to and from wire codes', () {
+      expect(PaymentMethod.cash.toWireCode(), 1);
+      expect(PaymentMethod.upi.toWireCode(), 2);
+      expect(PaymentMethod.card.toWireCode(), 3);
+      expect(PaymentMethod.credit.toWireCode(), 4);
+      expect(paymentMethodFromWireCode(1), PaymentMethod.cash);
+      expect(paymentMethodFromWireCode(2), PaymentMethod.upi);
+      expect(paymentMethodFromWireCode(3), PaymentMethod.card);
+      expect(paymentMethodFromWireCode(4), PaymentMethod.credit);
+    });
+
+    test('loads customers and selects by id', () async {
+      final customers = [
+        _customer(
+          customerId: 'cust-1',
+          name: 'Alice',
+          phoneNumber: '9999999999',
+        ),
+      ];
+      when(() => mockGetCustomers()).thenAnswer((_) async => customers);
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+
+      await controller.loadCustomers();
+      controller.selectCustomer('cust-1');
+
+      final state = container.read(newSaleControllerProvider);
+      expect(state.selectedCustomer, customers.first);
+      expect(state.selectedCustomer?.customerId, 'cust-1');
+    });
+
+    test('creates and selects customer and adds to list', () async {
+      final customers = [
+        _customer(
+          customerId: 'cust-1',
+          name: 'Alice',
+          phoneNumber: '9999999999',
+        ),
+      ];
+      when(() => mockGetCustomers()).thenAnswer((_) async => customers);
+      when(
+        () => mockCreateCustomer(
+          name: any(named: 'name'),
+          phoneNumber: any(named: 'phoneNumber'),
+          address: any(named: 'address'),
+          isActive: any(named: 'isActive'),
+        ),
+      ).thenAnswer(
+        (_) async => const Customer(
+          customerId: 'cust-2',
+          name: 'Bob',
+          phoneNumber: '8888888888',
+          isActive: true,
+        ),
+      );
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+
+      final created = await controller.createAndSelectCustomer(
+        name: 'Bob',
+        phoneNumber: '8888888888',
+      );
+      final state = container.read(newSaleControllerProvider);
+
+      expect(created, isTrue);
+      expect(state.submissionFailure, isNull);
+      expect(state.selectedCustomer?.customerId, 'cust-2');
+      expect(
+        state.availableCustomers,
+        contains(
+          const Customer(
+            customerId: 'cust-2',
+            name: 'Bob',
+            phoneNumber: '8888888888',
+            isActive: true,
+          ),
+        ),
+      );
+    });
+
+    test('customer creation failure is not a sale-validation gate', () async {
+      when(
+        () => mockCreateCustomer(
+          name: any(named: 'name'),
+          phoneNumber: any(named: 'phoneNumber'),
+          address: any(named: 'address'),
+          isActive: any(named: 'isActive'),
+        ),
+      ).thenThrow(
+        AppException(failure: const Failure.network(message: 'Server down')),
+      );
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+
+      await controller.addToCart(_goods(id: 'g1', name: 'Flour', stock: 2));
+      final baseline = container.read(newSaleControllerProvider);
+      expect(baseline.canSubmit, isTrue);
+      expect(baseline.submissionFailure, isNull);
+      expect(baseline.customerCreateFailure, isNull);
+
+      await controller.createAndSelectCustomer(
+        name: 'Bob',
+        phoneNumber: '8888888888',
+      );
+      final failed = container.read(newSaleControllerProvider);
+
+      expect(failed.customerCreateFailure, isNotNull);
+      expect(failed.submissionFailure, isNull);
+      expect(failed.canSubmit, isTrue);
+    });
+
+    test('allows walk-in cash sale with paid equal payable', () async {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+
+      await controller.addToCart(_goods(id: 'g1', name: 'Flour', stock: 2));
+      controller.setPaidAmount(
+        container.read(newSaleControllerProvider).payable,
+      );
+
+      final state = container.read(newSaleControllerProvider);
+      expect(state.canSubmit, isTrue);
+      expect(state.paymentMethod, PaymentMethod.cash);
+      expect(state.submissionFailure, isNull);
+      expect(state.paidAmount + state.dueAmount, closeTo(state.payable, 0.01));
+    });
+
+    test(
+      'defaults walk-in payment split after adding first cart line',
+      () async {
+        final container = makeContainer();
+        addTearDown(container.dispose);
+        final controller = container.read(newSaleControllerProvider.notifier);
+
+        await controller.addToCart(_goods(id: 'g1', name: 'Flour', stock: 2));
+
+        final state = container.read(newSaleControllerProvider);
+        expect(state.paymentMethod, PaymentMethod.cash);
+        expect(state.canSubmit, isTrue);
+        expect(state.submissionFailure, isNull);
+        expect(state.paidAmount, closeTo(state.payable, 0.01));
+        expect(state.dueAmount, closeTo(0, 0.01));
+      },
+    );
+
+    test('blocks credit method without selected customer', () async {
+      final customers = [
+        _customer(
+          customerId: 'cust-1',
+          name: 'Alice',
+          phoneNumber: '9999999999',
+        ),
+      ];
+      when(() => mockGetCustomers()).thenAnswer((_) async => customers);
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+      await controller.loadCustomers();
+
+      await controller.addToCart(_goods(id: 'g1', name: 'Flour', stock: 2));
+      controller.setPaidAmount(20);
+      controller.setPaymentMethod(PaymentMethod.credit);
+
+      final blocked = container.read(newSaleControllerProvider);
+      expect(blocked.paymentMethod, PaymentMethod.cash);
+      expect(blocked.canSubmit, isFalse);
+      expect(blocked.submissionFailure, isA<ValidationFailure>());
+
+      controller.selectCustomer('cust-1');
+      controller.setPaymentMethod(PaymentMethod.credit);
+      final allowed = container.read(newSaleControllerProvider);
+      expect(allowed.paymentMethod, PaymentMethod.credit);
+      expect(allowed.canSubmit, isTrue);
+    });
+
+    test('requires customer when due amount is set', () async {
+      final customers = [
+        _customer(
+          customerId: 'cust-1',
+          name: 'Alice',
+          phoneNumber: '9999999999',
+        ),
+      ];
+      when(() => mockGetCustomers()).thenAnswer((_) async => customers);
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+      await controller.loadCustomers();
+
+      await controller.addToCart(_goods(id: 'g1', name: 'Flour', stock: 2));
+      controller.setDueAmount(5);
+
+      final withDue = container.read(newSaleControllerProvider);
+      expect(withDue.submissionFailure, isA<ValidationFailure>());
+      expect(withDue.canSubmit, isFalse);
+
+      controller.selectCustomer('cust-1');
+      final withCustomer = container.read(newSaleControllerProvider);
+      expect(withCustomer.canSubmit, isTrue);
+    });
+
+    test('reconciles paid/due when cart total changes', () async {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+
+      await controller.addToCart(_goods(id: 'g1', name: 'Flour', stock: 10));
+      controller.setPaidAmount(5);
+
+      controller.updateCartQuantity('g1', 2);
+      var state = container.read(newSaleControllerProvider);
+      expect(state.paidAmount + state.dueAmount, closeTo(state.payable, 0.01));
+      expect(state.dueAmount, closeTo(15, 0.01));
+
+      controller.updateCartQuantity('g1', 1);
+      state = container.read(newSaleControllerProvider);
+      expect(state.paidAmount + state.dueAmount, closeTo(state.payable, 0.01));
+      expect(state.dueAmount, closeTo(5, 0.01));
     });
   });
 }

@@ -9,11 +9,10 @@ typedef OnRemove = void Function(String sellableId);
 typedef OnUnitPriceChanged = void Function(String sellableId, double value);
 typedef OnSaleDiscountTypeChanged = void Function(int type);
 typedef OnSaleDiscountValueChanged = void Function(double value);
-typedef OnCartItemDiscountTypeChanged = void Function(String sellableId, int type);
-typedef OnCartItemDiscountValueChanged = void Function(
-  String sellableId,
-  double value,
-);
+typedef OnCartItemDiscountTypeChanged =
+    void Function(String sellableId, int type);
+typedef OnCartItemDiscountValueChanged =
+    void Function(String sellableId, double value);
 
 class GoodsCartList extends StatelessWidget {
   const GoodsCartList({
@@ -425,9 +424,7 @@ class _ServicePriceFieldState extends State<_ServicePriceField> {
   @override
   void initState() {
     super.initState();
-    _controller = TextEditingController(
-      text: widget.price.toStringAsFixed(2),
-    );
+    _controller = TextEditingController(text: widget.price.toStringAsFixed(2));
   }
 
   @override
@@ -487,9 +484,7 @@ class _LineDiscountEditorState extends State<_LineDiscountEditor> {
   @override
   void initState() {
     super.initState();
-    _controller = TextEditingController(
-      text: _initialValueText(),
-    );
+    _controller = TextEditingController(text: _initialValueText());
   }
 
   @override
@@ -555,11 +550,13 @@ class _LineDiscountEditorState extends State<_LineDiscountEditor> {
                 enabled: line.itemDiscountType != InstantDiscountType.none,
                 controller: _controller,
                 decoration: InputDecoration(
-                  labelText: line.itemDiscountType == InstantDiscountType.percentage
+                  labelText:
+                      line.itemDiscountType == InstantDiscountType.percentage
                       ? 'Discount %'
                       : 'Discount amount',
                   border: const OutlineInputBorder(),
-                  suffixText: line.itemDiscountType == InstantDiscountType.percentage
+                  suffixText:
+                      line.itemDiscountType == InstantDiscountType.percentage
                       ? '%'
                       : '₹',
                 ),

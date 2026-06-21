@@ -4,8 +4,11 @@ import 'package:flutter/widgets.dart';
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/network/api_client_provider.dart';
+import 'package:intelibill_mobile/src/features/customers/domain/entities/customer.dart';
+import 'package:intelibill_mobile/src/features/customers/presentation/controllers/customers_controller.dart';
 import 'package:intelibill_mobile/src/features/sales/data/data_sources/sales_remote_data_source.dart';
 import 'package:intelibill_mobile/src/features/sales/data/repositories/sales_repository_impl.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/entities/payment_method.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_preview.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sellable.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/repositories/sales_repository.dart';
@@ -58,6 +61,17 @@ class NewSaleState {
     this.selectedGoods,
     this.isSearching = false,
     this.isPreviewLoading = false,
+    this.availableCustomers = const [],
+    this.isLoadingCustomers = false,
+    this.customerLoadFailure,
+    this.isCreatingCustomer = false,
+    this.selectedCustomer,
+    this.paymentMethod = PaymentMethod.cash,
+    this.paidAmount = 0,
+    this.dueAmount = 0,
+    this.submissionFailure,
+    this.customerCreateFailure,
+    this.hasExplicitPaymentSplit = false,
   });
 
   final String searchTerm;
@@ -75,15 +89,24 @@ class NewSaleState {
   final bool isSearching;
   final bool isPreviewLoading;
 
-  double get estimatedSubtotalAmount => cartLines.fold(
-    0,
-    (sum, line) => sum + _estimateLineSubtotal(line),
-  );
+  final List<Customer> availableCustomers;
+  final bool isLoadingCustomers;
+  final Failure? customerLoadFailure;
+  final bool isCreatingCustomer;
+  final Customer? selectedCustomer;
 
-  double get estimatedTaxAmount => cartLines.fold(
-    0,
-    (sum, line) => sum + _estimateLineTax(line),
-  );
+  final PaymentMethod paymentMethod;
+  final double paidAmount;
+  final double dueAmount;
+  final Failure? submissionFailure;
+  final Failure? customerCreateFailure;
+  final bool hasExplicitPaymentSplit;
+
+  double get estimatedSubtotalAmount =>
+      cartLines.fold(0, (sum, line) => sum + _estimateLineSubtotal(line));
+
+  double get estimatedTaxAmount =>
+      cartLines.fold(0, (sum, line) => sum + _estimateLineTax(line));
 
   double get estimatedTotalAmount =>
       estimatedSubtotalAmount + estimatedTaxAmount;
@@ -98,6 +121,8 @@ class NewSaleState {
   double get cartTotal => preview?.totalAmount ?? estimatedTotalAmount;
 
   double get discountCapacityAmount => preview?.saleLevelEligibleSubtotal ?? 0;
+
+  double get payable => cartTotal;
 
   double get totalCartItems =>
       cartLines.fold(0, (sum, line) => sum + line.quantity);
@@ -115,6 +140,10 @@ class NewSaleState {
     }
     return itemDiscountErrors.values.any((value) => value.trim().isNotEmpty);
   }
+
+  bool get canSubmit => submissionFailure == null;
+
+  String? get submissionError => submissionFailure?.message;
 
   NewSaleState copyWith({
     String? searchTerm,
@@ -137,6 +166,21 @@ class NewSaleState {
     bool clearSelectedGoods = false,
     bool? isSearching,
     bool? isPreviewLoading,
+    bool clearSubmissionFailure = false,
+    bool clearCustomerLoadFailure = false,
+    List<Customer>? availableCustomers,
+    bool? isLoadingCustomers,
+    bool? isCreatingCustomer,
+    Failure? customerLoadFailure,
+    Customer? selectedCustomer,
+    bool clearSelectedCustomer = false,
+    PaymentMethod? paymentMethod,
+    double? paidAmount,
+    double? dueAmount,
+    Failure? submissionFailure,
+    Failure? customerCreateFailure,
+    bool clearCustomerCreateFailure = false,
+    bool? hasExplicitPaymentSplit,
   }) {
     return NewSaleState(
       searchTerm: searchTerm ?? this.searchTerm,
@@ -163,6 +207,26 @@ class NewSaleState {
           : (selectedGoods ?? this.selectedGoods),
       isSearching: isSearching ?? this.isSearching,
       isPreviewLoading: isPreviewLoading ?? this.isPreviewLoading,
+      availableCustomers: availableCustomers ?? this.availableCustomers,
+      isLoadingCustomers: isLoadingCustomers ?? this.isLoadingCustomers,
+      customerLoadFailure: clearCustomerLoadFailure
+          ? null
+          : (customerLoadFailure ?? this.customerLoadFailure),
+      isCreatingCustomer: isCreatingCustomer ?? this.isCreatingCustomer,
+      selectedCustomer: clearSelectedCustomer
+          ? null
+          : (selectedCustomer ?? this.selectedCustomer),
+      paymentMethod: paymentMethod ?? this.paymentMethod,
+      paidAmount: paidAmount ?? this.paidAmount,
+      dueAmount: dueAmount ?? this.dueAmount,
+      submissionFailure: clearSubmissionFailure
+          ? null
+          : (submissionFailure ?? this.submissionFailure),
+      customerCreateFailure: clearCustomerCreateFailure
+          ? null
+          : (customerCreateFailure ?? this.customerCreateFailure),
+      hasExplicitPaymentSplit:
+          hasExplicitPaymentSplit ?? this.hasExplicitPaymentSplit,
     );
   }
 }
@@ -178,13 +242,11 @@ class NewSaleController extends _$NewSaleController {
   @override
   NewSaleState build() {
     ref.onDispose(() => _searchDebounce?.cancel());
+    unawaited(Future.microtask(_loadCustomers));
     return const NewSaleState();
   }
 
-  Future<void> search({
-    String? searchTerm,
-    String? barcode,
-  }) async {
+  Future<void> search({String? searchTerm, String? barcode}) async {
     final term = (searchTerm ?? state.searchTerm).trim();
     final code = (barcode ?? state.barcodeTerm).trim();
 
@@ -222,10 +284,7 @@ class NewSaleController extends _$NewSaleController {
       if (!_isActiveSearchRequest(requestId)) {
         return;
       }
-      state = state.copyWith(
-        results: results,
-        isSearching: false,
-      );
+      state = state.copyWith(results: results, isSearching: false);
     } on AppException catch (error) {
       if (!_isActiveSearchRequest(requestId)) {
         return;
@@ -258,6 +317,7 @@ class NewSaleController extends _$NewSaleController {
         clearPreviewFailure: true,
         isPreviewLoading: false,
       );
+      _reconcilePaymentAfterCartChange();
       return;
     }
 
@@ -269,17 +329,13 @@ class NewSaleController extends _$NewSaleController {
 
     try {
       final request = _buildPreviewRequest(cartLines);
-      final preview = await ref.read(previewSaleProvider)(
-        request: request,
-      );
+      final preview = await ref.read(previewSaleProvider)(request: request);
       if (!_isActivePreviewRequest(requestId) || !ref.mounted) {
         return;
       }
-      state = state.copyWith(
-        preview: preview,
-        isPreviewLoading: false,
-      );
+      state = state.copyWith(preview: preview, isPreviewLoading: false);
       _revalidateDiscountsAgainstPreview();
+      _reconcilePaymentAfterCartChange();
     } on AppException catch (error) {
       if (!_isActivePreviewRequest(requestId) || !ref.mounted) {
         return;
@@ -289,6 +345,7 @@ class NewSaleController extends _$NewSaleController {
         previewFailure: error.failure,
         isPreviewLoading: false,
       );
+      _validatePayment();
     } on Object {
       if (!_isActivePreviewRequest(requestId) || !ref.mounted) {
         return;
@@ -297,6 +354,44 @@ class NewSaleController extends _$NewSaleController {
         preview: null,
         previewFailure: const Failure.unknown(),
         isPreviewLoading: false,
+      );
+      _validatePayment();
+    }
+  }
+
+  Future<void> loadCustomers() {
+    return _loadCustomers();
+  }
+
+  Future<void> _loadCustomers() async {
+    if (state.isLoadingCustomers) {
+      return;
+    }
+
+    state = state.copyWith(
+      isLoadingCustomers: true,
+      clearCustomerLoadFailure: true,
+    );
+
+    try {
+      final useCase = ref.read(getCustomersUseCaseProvider);
+      final customers = await useCase();
+      if (!ref.mounted) return;
+      state = state.copyWith(
+        availableCustomers: customers,
+        isLoadingCustomers: false,
+      );
+    } on AppException catch (error) {
+      if (!ref.mounted) return;
+      state = state.copyWith(
+        isLoadingCustomers: false,
+        customerLoadFailure: error.failure,
+      );
+    } on Object {
+      if (!ref.mounted) return;
+      state = state.copyWith(
+        isLoadingCustomers: false,
+        customerLoadFailure: const Failure.unknown(),
       );
     }
   }
@@ -357,7 +452,8 @@ class NewSaleController extends _$NewSaleController {
     }
 
     if (state.preview == null) {
-      if (state.saleDiscountType == InstantDiscountType.percentage && safeValue > 100) {
+      if (state.saleDiscountType == InstantDiscountType.percentage &&
+          safeValue > 100) {
         state = state.copyWith(
           saleDiscountError: 'Discount percentage cannot exceed 100%.',
         );
@@ -388,7 +484,8 @@ class NewSaleController extends _$NewSaleController {
       state = state.copyWith(
         saleDiscountType: state.saleDiscountType,
         saleDiscountValue: state.saleDiscountValue,
-        saleDiscountError: state.saleDiscountType == InstantDiscountType.percentage
+        saleDiscountError:
+            state.saleDiscountType == InstantDiscountType.percentage
             ? 'Discount percentage exceeds sale maximum.'
             : 'Discount amount exceeds sale maximum.',
       );
@@ -423,7 +520,8 @@ class NewSaleController extends _$NewSaleController {
     final maxAllowed = normalizedType == InstantDiscountType.percentage
         ? limits.maxPercent
         : limits.maxFlat;
-    final isAllowed = normalizedType == InstantDiscountType.none || maxAllowed > 0;
+    final isAllowed =
+        normalizedType == InstantDiscountType.none || maxAllowed > 0;
 
     if (!isAllowed) {
       state = state.copyWith(
@@ -460,7 +558,8 @@ class NewSaleController extends _$NewSaleController {
 
     final normalizedValue = _roundMoney(value);
     final safeValue = normalizedValue < 0 ? 0.0 : normalizedValue;
-    if (state.preview == null && line.itemDiscountType == InstantDiscountType.percentage) {
+    if (state.preview == null &&
+        line.itemDiscountType == InstantDiscountType.percentage) {
       if (safeValue > 100) {
         state = state.copyWith(
           itemDiscountErrors: _itemDiscountErrorsWith(
@@ -497,15 +596,138 @@ class NewSaleController extends _$NewSaleController {
     _schedulePreviewRefresh();
   }
 
-  void removeFromCart(String sellableId) {
+  void selectCustomer(String? customerId) {
+    Customer? selected;
+    if (customerId != null && customerId.isNotEmpty) {
+      for (final customer in state.availableCustomers) {
+        if (customer.customerId == customerId) {
+          selected = customer;
+          break;
+        }
+      }
+    }
+
+    final nextMethod =
+        selected == null && state.paymentMethod == PaymentMethod.credit
+        ? PaymentMethod.cash
+        : state.paymentMethod;
+
     state = state.copyWith(
-      cartLines: state.cartLines
-          .where((item) => item.sellable.id != sellableId)
-          .toList(),
-      itemDiscountErrors: _itemDiscountErrorsWithout(sellableId),
-      clearFailure: true,
+      selectedCustomer: selected,
+      clearSelectedCustomer: selected == null,
+      paymentMethod: nextMethod,
     );
-    _schedulePreviewRefresh();
+    _validatePayment();
+  }
+
+  Future<bool> createAndSelectCustomer({
+    required String name,
+    required String phoneNumber,
+    String? address,
+    bool isActive = true,
+  }) async {
+    if (state.isCreatingCustomer) {
+      return false;
+    }
+
+    state = state.copyWith(
+      isCreatingCustomer: true,
+      clearCustomerCreateFailure: true,
+    );
+
+    try {
+      final useCase = ref.read(createCustomerUseCaseProvider);
+      final created = await useCase(
+        name: name,
+        phoneNumber: phoneNumber,
+        address: address,
+        isActive: isActive,
+      );
+      if (!ref.mounted) return false;
+
+      final customers =
+          state.availableCustomers.any(
+            (customer) => customer.customerId == created.customerId,
+          )
+          ? state.availableCustomers
+          : [...state.availableCustomers, created];
+      state = state.copyWith(
+        availableCustomers: customers,
+        selectedCustomer: created,
+        isCreatingCustomer: false,
+        clearCustomerCreateFailure: true,
+      );
+      _validatePayment();
+      return true;
+    } on AppException catch (error) {
+      if (!ref.mounted) return false;
+      state = state.copyWith(
+        isCreatingCustomer: false,
+        customerCreateFailure: error.failure,
+      );
+      return false;
+    } on Object {
+      if (!ref.mounted) return false;
+      state = state.copyWith(
+        isCreatingCustomer: false,
+        customerCreateFailure: const Failure.unknown(),
+      );
+      return false;
+    }
+  }
+
+  void setPaymentMethod(PaymentMethod method) {
+    if (method == state.paymentMethod) return;
+
+    if (method == PaymentMethod.credit && state.selectedCustomer == null) {
+      state = state.copyWith(
+        submissionFailure: const Failure.validation(
+          message: 'Select a customer for credit or due payment.',
+        ),
+      );
+      return;
+    }
+
+    state = state.copyWith(paymentMethod: method);
+    if (state.submissionFailure == null ||
+        state.submissionFailure is ValidationFailure) {
+      state = state.copyWith(clearSubmissionFailure: true);
+    }
+    _validatePayment();
+  }
+
+  void setPaidAmount(double paidAmount) {
+    final payable = state.payable;
+    final normalized = _normalizeMoney(paidAmount);
+    final reconciledPaid = _coerceMoney(normalized, payable);
+    final reconciledDue = _coerceMoney(
+      state.payable - reconciledPaid,
+      state.payable,
+    );
+
+    state = state.copyWith(
+      paidAmount: reconciledPaid,
+      dueAmount: reconciledDue,
+      hasExplicitPaymentSplit: true,
+    );
+    _validatePayment();
+  }
+
+  void setDueAmount(double dueAmount) {
+    final payable = state.payable;
+    final normalized = _normalizeMoney(dueAmount);
+    final reconciledDue = _coerceMoney(normalized, payable);
+    final reconciledPaid = _coerceMoney(
+      state.payable - reconciledDue,
+      state.payable,
+    );
+
+    state = state.copyWith(
+      paidAmount: reconciledPaid,
+      dueAmount: reconciledDue,
+      hasExplicitPaymentSplit: true,
+    );
+    _validatePayment();
   }
 
   void updateSearchTerm(String value) {
@@ -565,11 +787,7 @@ class NewSaleController extends _$NewSaleController {
       updated.add(NewSaleCartLine(sellable: sellable, quantity: quantity));
     }
 
-    state = state.copyWith(
-      cartLines: updated,
-      clearFailure: true,
-    );
-    _schedulePreviewRefresh();
+    _setCartLines(updated);
   }
 
   void updateCartUnitPrice(String sellableId, double nextUnitPrice) {
@@ -583,13 +801,12 @@ class NewSaleController extends _$NewSaleController {
                 : item,
           )
           .toList();
+      _setCartLines(updated);
       state = state.copyWith(
-        cartLines: updated,
         searchFailure: const Failure.validation(
           message: 'Unit price must be greater than zero.',
         ),
       );
-      _schedulePreviewRefresh();
       return;
     }
 
@@ -600,8 +817,7 @@ class NewSaleController extends _$NewSaleController {
               : item,
         )
         .toList();
-    state = state.copyWith(cartLines: updated, clearFailure: true);
-    _schedulePreviewRefresh();
+    _setCartLines(updated);
   }
 
   void updateCartQuantity(String sellableId, double nextQuantity) {
@@ -629,8 +845,17 @@ class NewSaleController extends _$NewSaleController {
               : item,
         )
         .toList();
-    state = state.copyWith(cartLines: updated, clearFailure: true);
-    _schedulePreviewRefresh();
+    _setCartLines(updated);
+  }
+
+  void removeFromCart(String sellableId) {
+    final updated = state.cartLines
+        .where((item) => item.sellable.id != sellableId)
+        .toList();
+    _setCartLines(
+      updated,
+      itemDiscountErrors: _itemDiscountErrorsWithout(sellableId),
+    );
   }
 
   Future<void> scanAndLookupBarcode(BuildContext context) async {
@@ -664,6 +889,20 @@ class NewSaleController extends _$NewSaleController {
 
   bool _isWithinStock(double quantity, Sellable sellable) {
     return quantity <= sellable.stock;
+  }
+
+  void _setCartLines(
+    List<NewSaleCartLine> cartLines, {
+    Map<String, String>? itemDiscountErrors,
+  }) {
+    state = state.copyWith(
+      cartLines: cartLines,
+      itemDiscountErrors: itemDiscountErrors,
+      clearFailure: true,
+    );
+    _invalidatePreviewState();
+    _reconcilePaymentAfterCartChange();
+    unawaited(refreshPreview());
   }
 
   void _schedulePreviewRefresh() {
@@ -716,6 +955,77 @@ class NewSaleController extends _$NewSaleController {
     );
   }
 
+  void _reconcilePaymentAfterCartChange() {
+    if (state.payable <= 0) {
+      state = state.copyWith(
+        paidAmount: 0,
+        dueAmount: 0,
+        hasExplicitPaymentSplit: false,
+      );
+      _validatePayment();
+      return;
+    }
+
+    final reconciledPaid = _coerceMoney(state.paidAmount, state.payable);
+    if (!state.hasExplicitPaymentSplit &&
+        state.paymentMethod != PaymentMethod.credit) {
+      state = state.copyWith(paidAmount: state.payable, dueAmount: 0);
+      _validatePayment();
+      return;
+    }
+
+    final reconciledDue = _coerceMoney(
+      state.payable - reconciledPaid,
+      state.payable,
+    );
+    state = state.copyWith(
+      paidAmount: reconciledPaid,
+      dueAmount: reconciledDue,
+    );
+    _validatePayment();
+  }
+
+  void _validatePayment() {
+    if (state.selectedCustomer == null &&
+        (state.dueAmount > 0 || state.paymentMethod == PaymentMethod.credit)) {
+      state = state.copyWith(
+        submissionFailure: const Failure.validation(
+          message: 'Select a customer for credit or due payments.',
+        ),
+      );
+      return;
+    }
+
+    if (!arePaymentAmountsEqual(
+      state.paidAmount,
+      state.dueAmount,
+      state.payable,
+    )) {
+      state = state.copyWith(
+        submissionFailure: Failure.validation(
+          message:
+              'Paid and due must equal ₹${state.payable.toStringAsFixed(2)} in total.',
+        ),
+      );
+      return;
+    }
+
+    state = state.copyWith(clearSubmissionFailure: true);
+  }
+
+  double _normalizeMoney(double value) {
+    if (value.isNaN || value.isInfinite || value <= 0) return 0;
+    return double.parse(value.toStringAsFixed(2));
+  }
+
+  double _coerceMoney(double value, double payable) {
+    if (payable <= 0) return 0;
+    final normalized = _normalizeMoney(value);
+    if (normalized <= 0) return 0;
+    if (normalized > payable) return payable;
+    return normalized;
+  }
+
   void _addServiceToCart(Sellable sellable, {double quantity = 1}) {
     if (!_isValidQuantity(quantity)) {
       state = state.copyWith(
@@ -744,12 +1054,12 @@ class NewSaleController extends _$NewSaleController {
       );
     }
 
-    state = state.copyWith(cartLines: updated, clearFailure: true);
-    _schedulePreviewRefresh();
+    _setCartLines(updated);
   }
 
   int _normalizeDiscountType(int type) {
-    if (type == InstantDiscountType.percentage || type == InstantDiscountType.flat) {
+    if (type == InstantDiscountType.percentage ||
+        type == InstantDiscountType.flat) {
       return type;
     }
     return InstantDiscountType.none;
@@ -787,9 +1097,13 @@ class NewSaleController extends _$NewSaleController {
           line.preTaxAmountBeforeDiscount * configuredPercent / 100,
         );
         return (
-          maxFlat: _roundMoney(baseMaxFlat < configuredAmount ? baseMaxFlat : configuredAmount),
+          maxFlat: _roundMoney(
+            baseMaxFlat < configuredAmount ? baseMaxFlat : configuredAmount,
+          ),
           maxPercent: _roundMoney(
-            baseMaxPercent < configuredPercent ? baseMaxPercent : configuredPercent,
+            baseMaxPercent < configuredPercent
+                ? baseMaxPercent
+                : configuredPercent,
           ),
         );
       }
@@ -798,7 +1112,8 @@ class NewSaleController extends _$NewSaleController {
     return (maxFlat: double.infinity, maxPercent: 100.0);
   }
 
-  ({bool isEligible, double maxFlat, double maxPercent}) _calculateSaleDiscountLimits() {
+  ({bool isEligible, double maxFlat, double maxPercent})
+  _calculateSaleDiscountLimits() {
     final preview = state.preview;
     if (preview == null) {
       return (isEligible: false, maxFlat: 0.0, maxPercent: 0.0);
@@ -811,18 +1126,15 @@ class NewSaleController extends _$NewSaleController {
       return (isEligible: false, maxFlat: 0.0, maxPercent: 0.0);
     }
 
-    final totalCapacity = preview.lines.fold<double>(
-      0,
-      (sum, line) {
-        if (line.lineType == _serviceLineType) return sum;
-        final preTax = line.preTaxAmountBeforeDiscount;
-        final discount = line.itemDiscountAmount;
-        final cost = (line.costPrice * line.quantity);
-        final taxableAfterItem = preTax - discount;
-        final eligible = taxableAfterItem - cost;
-        return sum + (eligible > 0 ? eligible : 0);
-      },
-    );
+    final totalCapacity = preview.lines.fold<double>(0, (sum, line) {
+      if (line.lineType == _serviceLineType) return sum;
+      final preTax = line.preTaxAmountBeforeDiscount;
+      final discount = line.itemDiscountAmount;
+      final cost = (line.costPrice * line.quantity);
+      final taxableAfterItem = preTax - discount;
+      final eligible = taxableAfterItem - cost;
+      return sum + (eligible > 0 ? eligible : 0);
+    });
     var maxFlat = totalCapacity > 0 ? _roundMoney(totalCapacity) : 0.0;
     final maxPercent = eligibleSubtotal == 0
         ? 0.0
@@ -833,19 +1145,26 @@ class NewSaleController extends _$NewSaleController {
       final configuredAmount = _roundMoney(
         (eligibleSubtotal * configured.percentage) / 100,
       );
-      maxFlat = _roundMoney(maxFlat < configuredAmount ? maxFlat : configuredAmount);
+      maxFlat = _roundMoney(
+        maxFlat < configuredAmount ? maxFlat : configuredAmount,
+      );
       final configuredPercent = _roundMoney(configured.percentage);
       return (
         isEligible: maxFlat > 0,
         maxFlat: maxFlat,
-        maxPercent: maxPercent < configuredPercent ? maxPercent : configuredPercent,
+        maxPercent: maxPercent < configuredPercent
+            ? maxPercent
+            : configuredPercent,
       );
     }
 
     return (isEligible: maxFlat > 0, maxFlat: maxFlat, maxPercent: maxPercent);
   }
 
-  Map<String, String> _itemDiscountErrorsWith(String sellableId, String message) {
+  Map<String, String> _itemDiscountErrorsWith(
+    String sellableId,
+    String message,
+  ) {
     final next = {...state.itemDiscountErrors};
     if (message.trim().isEmpty) {
       next.remove(sellableId);
@@ -957,16 +1276,14 @@ class NewSaleController extends _$NewSaleController {
     if (didChange || didClearItemErrors) {
       state = state.copyWith(
         cartLines: updates,
-        itemDiscountErrors: didClearItemErrors ? nextErrors : state.itemDiscountErrors,
+        itemDiscountErrors: didClearItemErrors
+            ? nextErrors
+            : state.itemDiscountErrors,
       );
     }
   }
 
-  void _updateLineDiscounts(
-    String sellableId,
-    int type,
-    double value,
-  ) {
+  void _updateLineDiscounts(String sellableId, int type, double value) {
     state = state.copyWith(
       cartLines: state.cartLines
           .map(

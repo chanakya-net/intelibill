@@ -25,6 +25,8 @@ class SellableSearchResults extends StatelessWidget {
     }
 
     return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       itemCount: sellables.length,
       separatorBuilder: (_, _) => const SizedBox(height: 8),
@@ -73,10 +75,7 @@ class _KindChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(left: 8),
-      child: Chip(
-        label: Text(kind),
-        visualDensity: VisualDensity.compact,
-      ),
+      child: Chip(label: Text(kind), visualDensity: VisualDensity.compact),
     );
   }
 }

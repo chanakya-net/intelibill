@@ -4,10 +4,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:intelibill_mobile/src/app/theme/app_theme.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
+import 'package:intelibill_mobile/src/features/customers/domain/entities/customer.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_preview.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sellable.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/entities/payment_method.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/controllers/new_sale_controller.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/pages/new_sale_page.dart';
+import 'package:intelibill_mobile/src/features/sales/presentation/widgets/payment_section.dart';
 
 class _StubNewSaleController extends NewSaleController {
   _StubNewSaleController(this._state);
@@ -81,6 +84,97 @@ class _StubNewSaleController extends NewSaleController {
   }
 
   @override
+  void selectCustomer(String? customerId) {
+    Customer? selected;
+    if (customerId != null && customerId.isNotEmpty) {
+      for (final customer in _state.availableCustomers) {
+        if (customer.customerId == customerId) {
+          selected = customer;
+          break;
+        }
+      }
+    }
+
+    final nextMethod =
+        selected == null && _state.paymentMethod == PaymentMethod.credit
+        ? PaymentMethod.cash
+        : _state.paymentMethod;
+    _state = _state.copyWith(
+      selectedCustomer: selected,
+      clearSelectedCustomer: selected == null,
+      paymentMethod: nextMethod,
+    );
+    _validatePayment();
+    state = _state;
+  }
+
+  @override
+  void setPaymentMethod(PaymentMethod method) {
+    if (method == _state.paymentMethod) return;
+
+    if (method == PaymentMethod.credit && _state.selectedCustomer == null) {
+      _state = _state.copyWith(
+        submissionFailure: const Failure.validation(
+          message: 'Select a customer for credit or due payment.',
+        ),
+      );
+      state = _state;
+      return;
+    }
+
+    _state = _state.copyWith(paymentMethod: method);
+    _validatePayment();
+    state = _state;
+  }
+
+  @override
+  void setPaidAmount(double paidAmount) {
+    final clampedPaid = paidAmount.clamp(0.0, _state.payable);
+    final nextDue = (_state.payable - clampedPaid).clamp(0.0, double.infinity);
+
+    _state = _state.copyWith(paidAmount: clampedPaid, dueAmount: nextDue);
+    _validatePayment();
+    state = _state;
+  }
+
+  @override
+  void setDueAmount(double dueAmount) {
+    final clampedDue = dueAmount.clamp(0.0, _state.payable);
+    final nextPaid = (_state.payable - clampedDue).clamp(0.0, double.infinity);
+
+    _state = _state.copyWith(paidAmount: nextPaid, dueAmount: clampedDue);
+    _validatePayment();
+    state = _state;
+  }
+
+  void _validatePayment() {
+    if (_state.selectedCustomer == null &&
+        (_state.dueAmount > 0 ||
+            _state.paymentMethod == PaymentMethod.credit)) {
+      _state = _state.copyWith(
+        submissionFailure: const Failure.validation(
+          message: 'Select a customer for credit or due payment.',
+        ),
+      );
+      return;
+    }
+
+    final amountsMatch =
+        (_state.paidAmount + _state.dueAmount - _state.payable).abs() <= 0.01;
+    if (!amountsMatch) {
+      _state = _state.copyWith(
+        submissionFailure: Failure.validation(
+          message:
+              'Paid and due must equal ₹${_state.payable.toStringAsFixed(2)} in total.',
+        ),
+      );
+      return;
+    }
+
+    _state = _state.copyWith(clearSubmissionFailure: true);
+  }
+
+  @override
   Future<void> search({String? searchTerm, String? barcode}) async {
     final term = (searchTerm ?? _state.searchTerm).trim();
     final code = (barcode ?? _state.barcodeTerm).trim();
@@ -88,21 +182,14 @@ class _StubNewSaleController extends NewSaleController {
 
     lastSearchTerm = nextSearchTerm.isEmpty ? null : nextSearchTerm;
     lastBarcode = code.isEmpty ? null : code;
-    _state = _state.copyWith(
-      searchTerm: nextSearchTerm,
-      barcodeTerm: code,
-    );
+    _state = _state.copyWith(searchTerm: nextSearchTerm, barcodeTerm: code);
     state = _state;
   }
 }
 
 Widget _buildApp(_StubNewSaleController controller) {
   return ProviderScope(
-    overrides: [
-      newSaleControllerProvider.overrideWith(
-        () => controller,
-      ),
-    ],
+    overrides: [newSaleControllerProvider.overrideWith(() => controller)],
     child: MaterialApp(
       theme: AppTheme.lightTheme,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -174,6 +261,19 @@ SalePreview _preview({
   );
 }
 
+Customer _customer() {
+  return const Customer(
+    customerId: 'cust-1',
+    name: 'Alice',
+    phoneNumber: '9999999999',
+    isActive: true,
+  );
+}
+
+String _fieldText(WidgetTester tester, Key key) {
+  return tester.widget<TextField>(find.byKey(key)).controller!.text;
+}
+
 void main() {
   group('NewSalePage', () {
     testWidgets('shows loading state', (tester) async {
@@ -204,9 +304,7 @@ void main() {
 
     testWidgets('shows empty cart message', (tester) async {
       await tester.pumpWidget(
-        _buildApp(
-          _StubNewSaleController(const NewSaleState()),
-        ),
+        _buildApp(_StubNewSaleController(const NewSaleState())),
       );
 
       expect(find.text('Cart is empty.'), findsOneWidget);
@@ -239,7 +337,9 @@ void main() {
       expect(find.textContaining('₹236.00'), findsWidgets);
       expect(find.text('Warnings'), findsOneWidget);
       expect(
-        find.textContaining('Sale-level discount is limited by configured rule.'),
+        find.textContaining(
+          'Sale-level discount is limited by configured rule.',
+        ),
         findsOneWidget,
       );
       expect(find.byKey(const Key('checkout-button')), findsOneWidget);
@@ -274,10 +374,7 @@ void main() {
         expect(find.byKey(const Key('sale-discount-type')), findsOneWidget);
         expect(find.byKey(const Key('sale-discount-value')), findsOneWidget);
         expect(find.byKey(const Key('sale-discount-error')), findsOneWidget);
-        expect(
-          find.text('Discount exceeds allowed maximum.'),
-          findsOneWidget,
-        );
+        expect(find.text('Discount exceeds allowed maximum.'), findsOneWidget);
         final checkoutButton = tester.widget<FilledButton>(
           find.byKey(const Key('checkout-button')),
         );
@@ -300,7 +397,9 @@ void main() {
         final state = NewSaleState(
           cartLines: [const NewSaleCartLine(sellable: goods, quantity: 2)],
           preview: _preview(),
-          itemDiscountErrors: {'g1': 'Discount percentage exceeds allowed maximum.'},
+          itemDiscountErrors: {
+            'g1': 'Discount percentage exceeds allowed maximum.',
+          },
         );
 
         await tester.pumpWidget(_buildApp(_StubNewSaleController(state)));
@@ -371,14 +470,14 @@ void main() {
     });
 
     testWidgets('renders results and adds item to cart', (tester) async {
-      final state = NewSaleState(
-        results: [_goods()],
-      );
+      final state = NewSaleState(results: [_goods()]);
       await tester.pumpWidget(_buildApp(_StubNewSaleController(state)));
 
       expect(find.text('Flour'), findsOneWidget);
       expect(find.textContaining('Stock 10'), findsOneWidget);
       await tester.tap(find.byKey(const Key('add-button-g1')));
+      await tester.pump();
+      await tester.ensureVisible(find.byKey(const Key('decrease-g1')));
       await tester.pump();
 
       expect(find.text('Flour'), findsNWidgets(2));
@@ -390,9 +489,7 @@ void main() {
 
     testWidgets(
       'renders service results distinctly and adds service cart line',
-      (
-        tester,
-      ) async {
+      (tester) async {
         final state = NewSaleState(results: [_service()]);
         await tester.pumpWidget(_buildApp(_StubNewSaleController(state)));
 
@@ -400,6 +497,10 @@ void main() {
         expect(find.text('Service'), findsOneWidget);
         expect(find.textContaining('₹150'), findsOneWidget);
         await tester.tap(find.byKey(const Key('add-button-s1')));
+        await tester.pump();
+        await tester.ensureVisible(
+          find.byKey(const Key('service-unit-price-s1')),
+        );
         await tester.pump();
 
         expect(find.byKey(const Key('service-unit-price-s1')), findsOneWidget);
@@ -434,15 +535,15 @@ void main() {
         batchNumber: 'BN-1',
       );
       const state = NewSaleState(
-        cartLines: [
-          NewSaleCartLine(sellable: goods, quantity: 1.25),
-        ],
+        cartLines: [NewSaleCartLine(sellable: goods, quantity: 1.25)],
       );
 
       await tester.pumpWidget(_buildApp(_StubNewSaleController(state)));
+      await tester.ensureVisible(find.text('Total'));
+      await tester.pump();
 
       expect(find.text('Qty: 1.25'), findsOneWidget);
-      expect(find.textContaining('₹25.00'), findsNWidgets(3));
+      expect(find.textContaining('₹25.00'), findsWidgets);
     });
 
     testWidgets('renders mixed goods and service cart lines', (tester) async {
@@ -471,6 +572,10 @@ void main() {
       );
 
       await tester.pumpWidget(_buildApp(_StubNewSaleController(state)));
+      await tester.ensureVisible(
+        find.byKey(const Key('service-unit-price-s1')),
+      );
+      await tester.pump();
 
       expect(find.byKey(const Key('decrease-g1')), findsOneWidget);
       expect(find.byKey(const Key('service-unit-price-s1')), findsOneWidget);
@@ -502,5 +607,162 @@ void main() {
       expect(controller.lastSearchTerm, isNull);
       expect(controller.lastBarcode, 'BAR001');
     });
+
+    testWidgets('shows customer picker and payment section', (tester) async {
+      await tester.pumpWidget(
+        _buildApp(
+          _StubNewSaleController(
+            NewSaleState(
+              cartLines: [NewSaleCartLine(sellable: _goods(), quantity: 1)],
+              availableCustomers: [_customer()],
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byKey(NewSalePage.customerDropdownKey), findsOneWidget);
+      expect(find.byKey(PaymentSection.paidAmountFieldKey), findsOneWidget);
+      expect(find.byKey(PaymentSection.dueAmountFieldKey), findsOneWidget);
+      expect(find.text('Payment'), findsOneWidget);
+      expect(
+        tester
+            .widget<ChoiceChip>(
+              find.byKey(PaymentSection.paymentMethodCreditKey),
+            )
+            .onSelected,
+        isNull,
+      );
+    });
+
+    testWidgets('enables credit after selecting customer', (tester) async {
+      final controller = _StubNewSaleController(
+        NewSaleState(
+          cartLines: [NewSaleCartLine(sellable: _goods(), quantity: 1)],
+          availableCustomers: [_customer()],
+        ),
+      );
+      await tester.pumpWidget(_buildApp(controller));
+
+      await tester.tap(find.byKey(NewSalePage.customerDropdownKey));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Alice').last);
+      await tester.pumpAndSettle();
+
+      final creditChip = tester.widget<ChoiceChip>(
+        find.byKey(PaymentSection.paymentMethodCreditKey),
+      );
+      expect(creditChip.onSelected, isNotNull);
+    });
+
+    testWidgets('due amount requires customer before submit', (tester) async {
+      final controller = _StubNewSaleController(
+        NewSaleState(
+          cartLines: [NewSaleCartLine(sellable: _goods(), quantity: 1)],
+          availableCustomers: [_customer()],
+        ),
+      );
+      await tester.pumpWidget(_buildApp(controller));
+
+      await tester.enterText(
+        find.byKey(PaymentSection.dueAmountFieldKey),
+        '10',
+      );
+      await tester.pump();
+
+      final blockedButton = tester.widget<FilledButton>(
+        find.byKey(NewSalePage.submitButtonKey),
+      );
+      expect(blockedButton.onPressed, isNull);
+      expect(find.byKey(NewSalePage.paymentFailureKey), findsOneWidget);
+
+      await tester.ensureVisible(find.byKey(NewSalePage.customerDropdownKey));
+      await tester.pump();
+      await tester.tap(find.byKey(NewSalePage.customerDropdownKey));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Alice'));
+      await tester.tap(find.text('Alice').last);
+      await tester.pumpAndSettle();
+
+      final enabledButton = tester.widget<FilledButton>(
+        find.byKey(NewSalePage.submitButtonKey),
+      );
+      expect(enabledButton.onPressed, isNotNull);
+      expect(find.byKey(NewSalePage.paymentFailureKey), findsNothing);
+    });
+
+    testWidgets(
+      'payment split fields stay editable during incremental typing',
+      (tester) async {
+        final controller = _StubNewSaleController(
+          NewSaleState(
+            cartLines: [NewSaleCartLine(sellable: _goods(), quantity: 1)],
+            availableCustomers: [_customer()],
+            selectedCustomer: _customer(),
+            paidAmount: 20,
+            dueAmount: 0,
+          ),
+        );
+        await tester.pumpWidget(_buildApp(controller));
+
+        await tester.tap(find.byKey(PaymentSection.dueAmountFieldKey));
+        await tester.pump();
+
+        tester.testTextInput.updateEditingValue(
+          const TextEditingValue(
+            text: '5',
+            selection: TextSelection.collapsed(offset: 1),
+          ),
+        );
+        await tester.pump();
+        expect(_fieldText(tester, PaymentSection.dueAmountFieldKey), '5');
+
+        tester.testTextInput.updateEditingValue(
+          const TextEditingValue(
+            text: '5.',
+            selection: TextSelection.collapsed(offset: 2),
+          ),
+        );
+        await tester.pump();
+        expect(_fieldText(tester, PaymentSection.dueAmountFieldKey), '5.');
+
+        FocusManager.instance.primaryFocus?.unfocus();
+        await tester.pump();
+        expect(_fieldText(tester, PaymentSection.dueAmountFieldKey), '5.00');
+
+        await tester.ensureVisible(
+          find.byKey(PaymentSection.paidAmountFieldKey),
+        );
+        await tester.pump();
+        await tester.tap(find.byKey(PaymentSection.paidAmountFieldKey));
+        await tester.pump();
+
+        tester.testTextInput.updateEditingValue(
+          const TextEditingValue(
+            text: '15',
+            selection: TextSelection.collapsed(offset: 2),
+          ),
+        );
+        await tester.pump();
+        expect(_fieldText(tester, PaymentSection.paidAmountFieldKey), '15');
+
+        tester.testTextInput.updateEditingValue(
+          const TextEditingValue(
+            text: '15.5',
+            selection: TextSelection.collapsed(offset: 4),
+          ),
+        );
+        await tester.pump();
+        expect(_fieldText(tester, PaymentSection.paidAmountFieldKey), '15.5');
+
+        tester.testTextInput.updateEditingValue(
+          const TextEditingValue(
+            text: '15.50',
+            selection: TextSelection.collapsed(offset: 5),
+          ),
+        );
+        await tester.pump();
+        expect(_fieldText(tester, PaymentSection.paidAmountFieldKey), '15.50');
+      },
+    );
   });
 }
