@@ -441,17 +441,37 @@ void main() {
       );
     });
 
-    testWidgets('shows action for recorded sale receipt', (tester) async {
+    testWidgets('receipt button navigates to receipt with correct saleId', (
+      tester,
+    ) async {
+      String? capturedSaleId;
       await tester.pumpWidget(
-        _buildApp(
-          _StubNewSaleController(NewSaleState(recordedSale: _recordedSale())),
+        ProviderScope(
+          overrides: [
+            newSaleControllerProvider.overrideWith(
+              () => _StubNewSaleController(
+                NewSaleState(recordedSale: _recordedSale()),
+              ),
+            ),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.lightTheme,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: NewSalePage(
+              onReceiptRequested: (saleId) => capturedSaleId = saleId,
+            ),
+          ),
         ),
       );
 
       final receiptButton = tester.widget<TextButton>(
         find.byKey(const Key('recorded-sale-receipt-button')),
       );
-      expect(receiptButton.onPressed, isNotNull);
+      receiptButton.onPressed?.call();
+      await tester.pump();
+
+      expect(capturedSaleId, 'sale-1');
     });
 
     testWidgets('clear action resets recorded sale and cart state', (

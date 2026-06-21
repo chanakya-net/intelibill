@@ -51,7 +51,7 @@ class SalesReceiptView extends StatelessWidget {
             title: l10n.salesDetailLineItems,
             children: [
               for (final item in sale.items) ...[
-                _LineItemRow(item: item),
+                _LineItemRow(item: item, formatter: formatter),
                 const SizedBox(height: 8),
               ],
             ],
@@ -217,9 +217,10 @@ class _ReceiptRow extends StatelessWidget {
 }
 
 class _LineItemRow extends StatelessWidget {
-  const _LineItemRow({required this.item});
+  const _LineItemRow({required this.item, required this.formatter});
 
   final SaleDetailItem item;
+  final String Function(num?) formatter;
 
   @override
   Widget build(BuildContext context) {
@@ -236,7 +237,7 @@ class _LineItemRow extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         Text(
-          ' ₹${item.total.toStringAsFixed(2)}',
+          formatter(item.total),
           style: Theme.of(
             context,
           ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),

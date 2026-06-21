@@ -32,9 +32,43 @@ void main() {
     expect(find.textContaining('2 × 50.00'), findsOneWidget);
     expect(find.text('Payment split'), findsOneWidget);
     expect(find.text('Tax'), findsOneWidget);
-    expect(find.textContaining('₹36'), findsOneWidget);
+    expect(find.textContaining('₹36'), findsWidgets);
     expect(find.text('CN-LOYALTY-001'), findsOneWidget);
+    // R003: discount section
+    expect(find.text('Discounts'), findsOneWidget);
+    expect(find.textContaining('Flat'), findsOneWidget);
+    // R004: credit note applied branch
+    expect(find.text('Credit note applied'), findsOneWidget);
   });
+
+  testWidgets(
+    'applies injected formatter to line-item totals and totals section',
+    (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: const [Locale('en', 'IN')],
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: SalesReceiptView(
+                sale: _saleReceipt(),
+                formatter: (v) => 'FMT$v',
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Formatter applied to totals section amounts.
+      expect(find.textContaining('FMT'), findsWidgets);
+      // Line-item total uses formatter, not a hard-coded ₹.
+      expect(find.textContaining('FMT100'), findsOneWidget);
+    },
+  );
 }
 
 SaleDetail _saleReceipt() {
@@ -105,5 +139,6 @@ SaleDetail _saleReceipt() {
     status: 'paid',
     refundAmount: 0,
     dueReductionAmount: 0,
+    creditNoteAppliedAmount: 36,
   );
 }

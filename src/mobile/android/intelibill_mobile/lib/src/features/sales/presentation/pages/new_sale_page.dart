@@ -16,7 +16,9 @@ import 'package:intelibill_mobile/src/features/sales/presentation/widgets/sale_d
 import 'package:intelibill_mobile/src/features/sales/presentation/widgets/sellable_search_results.dart';
 
 class NewSalePage extends ConsumerStatefulWidget {
-  const NewSalePage({super.key});
+  const NewSalePage({this.onReceiptRequested, super.key});
+
+  final void Function(String saleId)? onReceiptRequested;
 
   static const createCustomerButtonKey = Key('new-sale-create-customer');
   static const createCustomerSubmitButtonKey = Key(
@@ -623,7 +625,12 @@ class _NewSalePageState extends ConsumerState<NewSalePage> {
   }
 
   void _showRecordedSaleReceipt(BuildContext context, SaleDetail sale) {
-    context.push(AppRoutes.salesReceiptFor(sale.saleId), extra: sale);
+    final cb = widget.onReceiptRequested;
+    if (cb != null) {
+      cb(sale.saleId);
+    } else {
+      context.push(AppRoutes.salesReceiptFor(sale.saleId), extra: sale);
+    }
   }
 
   void _showRecordedSaleDetail(BuildContext context, SaleDetail sale) {
