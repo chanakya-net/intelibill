@@ -319,6 +319,12 @@ abstract class AppLocalizations {
   /// **'Manage Users'**
   String get shellManageUsers;
 
+  /// No description provided for @shellManageServices.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Services'**
+  String get shellManageServices;
+
   /// No description provided for @shellAddShop.
   ///
   /// In en_IN, this message translates to:
@@ -546,6 +552,90 @@ abstract class AppLocalizations {
   /// In en_IN, this message translates to:
   /// **'Unable to load customers. Please try again.'**
   String get customersErrorGeneric;
+
+  /// No description provided for @servicesTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Services'**
+  String get servicesTitle;
+
+  /// No description provided for @servicesFilterAll.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'All'**
+  String get servicesFilterAll;
+
+  /// No description provided for @servicesFilterActive.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Active'**
+  String get servicesFilterActive;
+
+  /// No description provided for @servicesFilterInactive.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Inactive'**
+  String get servicesFilterInactive;
+
+  /// No description provided for @servicesNoServicesFound.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No services found'**
+  String get servicesNoServicesFound;
+
+  /// No description provided for @servicesUnableToLoad.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to load services'**
+  String get servicesUnableToLoad;
+
+  /// No description provided for @servicesRetry.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Retry'**
+  String get servicesRetry;
+
+  /// No description provided for @servicesActive.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Active'**
+  String get servicesActive;
+
+  /// No description provided for @servicesInactive.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Inactive'**
+  String get servicesInactive;
+
+  /// No description provided for @servicesErrorNetwork.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to connect. Please check your network.'**
+  String get servicesErrorNetwork;
+
+  /// No description provided for @servicesErrorTimeout.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Request timed out. Please try again.'**
+  String get servicesErrorTimeout;
+
+  /// No description provided for @servicesErrorUnauthorized.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Session expired. Please log in again.'**
+  String get servicesErrorUnauthorized;
+
+  /// No description provided for @servicesErrorForbidden.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'You do not have permission to view services.'**
+  String get servicesErrorForbidden;
+
+  /// No description provided for @servicesErrorGeneric.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to load services. Please try again.'**
+  String get servicesErrorGeneric;
 
   /// No description provided for @usersTitle.
   ///

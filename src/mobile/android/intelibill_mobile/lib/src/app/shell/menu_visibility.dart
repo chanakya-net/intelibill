@@ -50,6 +50,10 @@ bool canViewCreditNotes(AuthSession? session) {
   return _hasRole(session, const {'owner', 'manager', 'staff'});
 }
 
+bool canManageServices(AuthSession? session) {
+  return isOwnerOrManager(session);
+}
+
 bool canManageSuppliers(AuthSession? session) {
   return isOwner(session);
 }

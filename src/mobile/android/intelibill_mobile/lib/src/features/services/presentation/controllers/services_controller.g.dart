@@ -1,0 +1,201 @@
+// GENERATED CODE - DO NOT MODIFY BY HAND
+
+part of 'services_controller.dart';
+
+// **************************************************************************
+// RiverpodGenerator
+// **************************************************************************
+
+// GENERATED CODE - DO NOT MODIFY BY HAND
+// ignore_for_file: type=lint, type=warning
+
+@ProviderFor(servicesRemoteDataSource)
+final servicesRemoteDataSourceProvider = ServicesRemoteDataSourceProvider._();
+
+final class ServicesRemoteDataSourceProvider
+    extends
+        $FunctionalProvider<
+          ServicesRemoteDataSource,
+          ServicesRemoteDataSource,
+          ServicesRemoteDataSource
+        >
+    with $Provider<ServicesRemoteDataSource> {
+  ServicesRemoteDataSourceProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'servicesRemoteDataSourceProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$servicesRemoteDataSourceHash();
+
+  @$internal
+  @override
+  $ProviderElement<ServicesRemoteDataSource> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  ServicesRemoteDataSource create(Ref ref) {
+    return servicesRemoteDataSource(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(ServicesRemoteDataSource value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<ServicesRemoteDataSource>(value),
+    );
+  }
+}
+
+String _$servicesRemoteDataSourceHash() =>
+    r'd44eb73773ba2ac554a51559b002b8241fd2b380';
+
+@ProviderFor(servicesRepository)
+final servicesRepositoryProvider = ServicesRepositoryProvider._();
+
+final class ServicesRepositoryProvider
+    extends
+        $FunctionalProvider<
+          ServicesRepository,
+          ServicesRepository,
+          ServicesRepository
+        >
+    with $Provider<ServicesRepository> {
+  ServicesRepositoryProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'servicesRepositoryProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$servicesRepositoryHash();
+
+  @$internal
+  @override
+  $ProviderElement<ServicesRepository> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  ServicesRepository create(Ref ref) {
+    return servicesRepository(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(ServicesRepository value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<ServicesRepository>(value),
+    );
+  }
+}
+
+String _$servicesRepositoryHash() =>
+    r'1fed23717ac4fa60ca6072f05ddda149ae8b309c';
+
+@ProviderFor(getServicesUseCase)
+final getServicesUseCaseProvider = GetServicesUseCaseProvider._();
+
+final class GetServicesUseCaseProvider
+    extends $FunctionalProvider<GetServices, GetServices, GetServices>
+    with $Provider<GetServices> {
+  GetServicesUseCaseProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'getServicesUseCaseProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$getServicesUseCaseHash();
+
+  @$internal
+  @override
+  $ProviderElement<GetServices> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  GetServices create(Ref ref) {
+    return getServicesUseCase(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(GetServices value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<GetServices>(value),
+    );
+  }
+}
+
+String _$getServicesUseCaseHash() =>
+    r'8cf4e191bb756e4a31e32f1518fefb672120973f';
+
+@ProviderFor(ServicesController)
+final servicesControllerProvider = ServicesControllerProvider._();
+
+final class ServicesControllerProvider
+    extends $NotifierProvider<ServicesController, ServicesState> {
+  ServicesControllerProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'servicesControllerProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$servicesControllerHash();
+
+  @$internal
+  @override
+  ServicesController create() => ServicesController();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(ServicesState value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<ServicesState>(value),
+    );
+  }
+}
+
+String _$servicesControllerHash() =>
+    r'8c3e8c0e4d4a4e1136947def4921e805634b7cd2';
+
+abstract class _$ServicesController extends $Notifier<ServicesState> {
+  ServicesState build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref = this.ref as $Ref<ServicesState, ServicesState>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<ServicesState, ServicesState>,
+              ServicesState,
+              Object?,
+              Object?
+            >;
+    element.handleCreate(ref, build);
+  }
+}

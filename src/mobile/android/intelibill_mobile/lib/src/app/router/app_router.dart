@@ -24,6 +24,7 @@ import 'package:intelibill_mobile/src/features/inventory/presentation/pages/inve
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/items_page.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/pages/new_sale_page.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/pages/sales_history_page.dart';
+import 'package:intelibill_mobile/src/features/services/presentation/pages/services_page.dart';
 import 'package:intelibill_mobile/src/features/shops/presentation/pages/create_shop_page.dart';
 import 'package:intelibill_mobile/src/features/shops/presentation/pages/manage_shop_page.dart';
 import 'package:intelibill_mobile/src/features/suppliers/presentation/pages/suppliers_page.dart';
@@ -49,6 +50,7 @@ class AppRoutes {
   static const String creditNotes = '/credit-notes';
   static const String suppliers = '/suppliers';
   static const String creditNoteReceipt = '/credit-notes/:code/print';
+  static const String services = '/services';
   static const String createShop = '/shops/create';
   static const String manageShop = '/shops/manage';
   static const String expenses = '/expenses';
@@ -100,6 +102,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
 
       if (_requiresDiscountAccess(state.matchedLocation) &&
           !canManageDiscounts(authState.session)) {
+        return AppRoutes.salesHistory;
+      }
+
+      if (_requiresServicesAccess(state.matchedLocation) &&
+          !canManageServices(authState.session)) {
         return AppRoutes.salesHistory;
       }
 
@@ -190,6 +197,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const SuppliersPage(),
           ),
           GoRoute(
+            path: AppRoutes.services,
+            builder: (context, state) => const ServicesPage(),
+          ),
+          GoRoute(
             path: AppRoutes.createShop,
             builder: (context, state) => const CreateShopPage(),
           ),
@@ -261,6 +272,10 @@ const Set<String> _authRoutes = {
 
 bool _requiresDiscountAccess(String location) {
   return location == AppRoutes.discounts;
+}
+
+bool _requiresServicesAccess(String location) {
+  return location == AppRoutes.services;
 }
 
 PlaceholderPage _buildPlaceholder(

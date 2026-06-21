@@ -41,6 +41,7 @@ void main() {
       expect(AppRoutes.customers, equals('/customers'));
       expect(AppRoutes.suppliers, equals('/suppliers'));
       expect(AppRoutes.creditNoteReceipt, equals('/credit-notes/:code/print'));
+      expect(AppRoutes.services, equals('/services'));
       expect(AppRoutes.expenses, equals('/expenses'));
       expect(AppRoutes.users, equals('/users'));
       expect(AppRoutes.discounts, equals('/discounts'));
@@ -313,6 +314,53 @@ void main() {
       await tester.pump();
 
       router.go(AppRoutes.discounts);
+      await tester.pump();
+
+      expect(
+        router.routeInformationProvider.value.uri.toString(),
+        equals(AppRoutes.salesHistory),
+      );
+    });
+
+    testWidgets('staff is redirected from services route', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+
+      final controller = _TestAuthController(
+        AuthControllerState(session: _sessionForRole('Staff')),
+      );
+      final container = ProviderContainer(
+        overrides: [
+          authControllerProvider.overrideWith(() => controller),
+          dashboardControllerProvider.overrideWith(
+            _StubDashboardController.new,
+          ),
+          salesHistoryControllerProvider.overrideWith(
+            _StubSalesHistoryController.new,
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final router = container.read(goRouterProvider);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp.router(
+            locale: const Locale('en', 'IN'),
+            supportedLocales: const [Locale('en', 'IN')],
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      router.go(AppRoutes.services);
       await tester.pump();
 
       expect(

@@ -108,6 +108,9 @@ class AppLocalizationsTe extends AppLocalizations {
   String get shellManageUsers => 'వినియోగదారులను నిర్వహించండి';
 
   @override
+  String get shellManageServices => 'Services';
+
+  @override
   String get shellAddShop => 'దుకాణం జోడించండి';
 
   @override
@@ -225,6 +228,52 @@ class AppLocalizationsTe extends AppLocalizations {
   @override
   String get customersErrorGeneric =>
       'Unable to load customers. Please try again.';
+
+  @override
+  String get servicesTitle => 'Services';
+
+  @override
+  String get servicesFilterAll => 'All';
+
+  @override
+  String get servicesFilterActive => 'Active';
+
+  @override
+  String get servicesFilterInactive => 'Inactive';
+
+  @override
+  String get servicesNoServicesFound => 'No services found';
+
+  @override
+  String get servicesUnableToLoad => 'Unable to load services';
+
+  @override
+  String get servicesRetry => 'Retry';
+
+  @override
+  String get servicesActive => 'Active';
+
+  @override
+  String get servicesInactive => 'Inactive';
+
+  @override
+  String get servicesErrorNetwork =>
+      'Unable to connect. Please check your network.';
+
+  @override
+  String get servicesErrorTimeout => 'Request timed out. Please try again.';
+
+  @override
+  String get servicesErrorUnauthorized =>
+      'Session expired. Please log in again.';
+
+  @override
+  String get servicesErrorForbidden =>
+      'You do not have permission to view services.';
+
+  @override
+  String get servicesErrorGeneric =>
+      'Unable to load services. Please try again.';
 
   @override
   String get usersTitle => 'Shop Users';
