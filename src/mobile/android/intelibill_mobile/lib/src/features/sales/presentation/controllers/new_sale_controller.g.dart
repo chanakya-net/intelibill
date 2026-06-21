@@ -223,6 +223,52 @@ final class RecordSaleProvider
 
 String _$recordSaleHash() => r'8c0d452e32dec168df8b34d84ab31c7ce9bee548';
 
+@ProviderFor(verifyCreditNote)
+final verifyCreditNoteProvider = VerifyCreditNoteProvider._();
+
+final class VerifyCreditNoteProvider
+    extends
+        $FunctionalProvider<
+          VerifyCreditNote,
+          VerifyCreditNote,
+          VerifyCreditNote
+        >
+    with $Provider<VerifyCreditNote> {
+  VerifyCreditNoteProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'verifyCreditNoteProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$verifyCreditNoteHash();
+
+  @$internal
+  @override
+  $ProviderElement<VerifyCreditNote> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  VerifyCreditNote create(Ref ref) {
+    return verifyCreditNote(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(VerifyCreditNote value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<VerifyCreditNote>(value),
+    );
+  }
+}
+
+String _$verifyCreditNoteHash() => r'8f8f6c7b9a7d4b4f9c77a6f5e5a9de3eab3f8c1';
+
 @ProviderFor(NewSaleController)
 final newSaleControllerProvider = NewSaleControllerProvider._();
 

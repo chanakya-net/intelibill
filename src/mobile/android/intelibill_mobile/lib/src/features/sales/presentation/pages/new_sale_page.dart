@@ -110,7 +110,7 @@ class _NewSalePageState extends ConsumerState<NewSalePage> {
                 saleDiscountValue: state.saleDiscountValue,
                 saleDiscountError: state.saleDiscountError,
                 itemDiscountErrors: state.itemDiscountErrors,
-                total: state.cartTotal,
+                total: state.payable,
                 discountCapacity: state.discountCapacityAmount,
                 preview: state.preview,
                 previewFailure: state.previewFailure,
@@ -121,6 +121,20 @@ class _NewSalePageState extends ConsumerState<NewSalePage> {
                     .refreshPreview(),
                 isSubmitting: state.isSubmitting,
                 onSubmit: _submitSale,
+                verifiedCreditNote: state.verifiedCreditNote,
+                creditNoteVerificationFailure:
+                    state.creditNoteVerificationFailure,
+                appliedCreditNotes: state.appliedCreditNotes,
+                hasCreditNoteCustomerMismatch:
+                    state.hasCreditNoteCustomerMismatch,
+                creditNoteCustomerMismatchConfirmed:
+                    state.creditNoteCustomerMismatchConfirmed,
+                onVerifyCreditNote: _verifyCreditNote,
+                onApplyVerifiedCreditNote: _applyVerifiedCreditNote,
+                onCreditNoteAmountChanged: _updateCreditNoteAmount,
+                onCreditNoteRemoved: _removeCreditNoteFromState,
+                onCreditNoteMismatchConfirmChanged:
+                    _confirmCreditNoteCustomerMismatch,
                 recordedSale: state.recordedSale,
                 onViewRecordedSale: state.recordedSale == null
                     ? null
@@ -547,6 +561,30 @@ class _NewSalePageState extends ConsumerState<NewSalePage> {
     ref
         .read(newSaleControllerProvider.notifier)
         .updateCartUnitPrice(sellableId, value);
+  }
+
+  void _verifyCreditNote(String code) {
+    ref.read(newSaleControllerProvider.notifier).verifyCreditNote(code);
+  }
+
+  void _applyVerifiedCreditNote() {
+    ref.read(newSaleControllerProvider.notifier).applyVerifiedCreditNote();
+  }
+
+  void _updateCreditNoteAmount(String creditNoteId, double amount) {
+    ref
+        .read(newSaleControllerProvider.notifier)
+        .updateCreditNoteAmount(creditNoteId, amount);
+  }
+
+  void _removeCreditNoteFromState(String creditNoteId) {
+    ref.read(newSaleControllerProvider.notifier).removeCreditNote(creditNoteId);
+  }
+
+  void _confirmCreditNoteCustomerMismatch(bool isConfirmed) {
+    ref
+        .read(newSaleControllerProvider.notifier)
+        .confirmCreditNoteCustomerMismatch(isConfirmed);
   }
 
   void _onPaymentMethodChanged(PaymentMethod method) {

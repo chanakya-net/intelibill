@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
@@ -10,6 +11,7 @@ import 'package:intelibill_mobile/src/features/sales/data/data_sources/sales_rem
 import 'package:intelibill_mobile/src/features/sales/data/repositories/sales_repository_impl.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/payment_method.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/record_sale.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/entities/credit_note.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_preview.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sellable.dart';
@@ -17,6 +19,7 @@ import 'package:intelibill_mobile/src/features/sales/domain/repositories/sales_r
 import 'package:intelibill_mobile/src/features/sales/domain/use_cases/preview_sale.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/use_cases/record_sale.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/use_cases/search_sellables.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/use_cases/verify_credit_note.dart';
 import 'package:intelibill_mobile/src/shared/barcode_scanner/barcode_scan_result.dart';
 import 'package:intelibill_mobile/src/shared/barcode_scanner/show_barcode_scanner.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -53,6 +56,12 @@ RecordSale recordSale(Ref ref) {
   return RecordSale(repository);
 }
 
+@riverpod
+VerifyCreditNote verifyCreditNote(Ref ref) {
+  final repository = ref.watch(salesRepositoryProvider);
+  return VerifyCreditNote(repository);
+}
+
 @immutable
 class NewSaleState {
   const NewSaleState({
@@ -85,6 +94,10 @@ class NewSaleState {
     this.customerCreateFailure,
     this.hasExplicitPaymentSplit = false,
     this.pendingIdempotencyKey,
+    this.verifiedCreditNote,
+    this.creditNoteVerificationFailure,
+    this.appliedCreditNotes = const [],
+    this.creditNoteCustomerMismatchConfirmed = false,
   });
 
   final String searchTerm;
@@ -119,6 +132,11 @@ class NewSaleState {
   final bool hasExplicitPaymentSplit;
   final String? pendingIdempotencyKey;
 
+  final CreditNoteVerifyResult? verifiedCreditNote;
+  final Failure? creditNoteVerificationFailure;
+  final List<AppliedCreditNote> appliedCreditNotes;
+  final bool creditNoteCustomerMismatchConfirmed;
+
   double get estimatedSubtotalAmount =>
       cartLines.fold(0, (sum, line) => sum + _estimateLineSubtotal(line));
 
@@ -139,7 +157,18 @@ class NewSaleState {
 
   double get discountCapacityAmount => preview?.saleLevelEligibleSubtotal ?? 0;
 
-  double get payable => cartTotal;
+  double get totalAppliedCreditNoteAmount =>
+      appliedCreditNotes.fold<double>(0, (sum, note) => sum + note.amount);
+
+  double get payable {
+    final remaining = cartTotal - totalAppliedCreditNoteAmount;
+    return remaining <= 0 ? 0 : _roundMoney(remaining);
+  }
+
+  bool get hasCreditNoteCustomerMismatch => _hasCreditNoteMismatch(
+    selectedCustomer,
+    appliedCreditNotes,
+  );
 
   double get totalCartItems =>
       cartLines.fold(0, (sum, line) => sum + line.quantity);
@@ -151,6 +180,7 @@ class NewSaleState {
       !isPreviewLoading &&
       !isSubmitting &&
       canSubmit &&
+      canSubmitCreditNoteMismatch &&
       !hasDiscountValidationErrors;
 
   bool get hasDiscountValidationErrors {
@@ -161,6 +191,9 @@ class NewSaleState {
   }
 
   bool get canSubmit => submissionFailure == null;
+
+  bool get canSubmitCreditNoteMismatch =>
+      !hasCreditNoteCustomerMismatch || creditNoteCustomerMismatchConfirmed;
 
   String? get submissionError => submissionFailure?.message;
 
@@ -209,6 +242,13 @@ class NewSaleState {
     bool? hasExplicitPaymentSplit,
     String? pendingIdempotencyKey,
     bool clearPendingIdempotencyKey = false,
+    CreditNoteVerifyResult? verifiedCreditNote,
+    bool clearVerifiedCreditNote = false,
+    Failure? creditNoteVerificationFailure,
+    bool clearCreditNoteVerificationFailure = false,
+    List<AppliedCreditNote>? appliedCreditNotes,
+    bool? creditNoteCustomerMismatchConfirmed,
+    bool clearCreditNoteCustomerMismatchConfirmed = false,
   }) {
     return NewSaleState(
       searchTerm: searchTerm ?? this.searchTerm,
@@ -265,6 +305,19 @@ class NewSaleState {
       pendingIdempotencyKey: clearPendingIdempotencyKey
           ? null
           : (pendingIdempotencyKey ?? this.pendingIdempotencyKey),
+      verifiedCreditNote: clearVerifiedCreditNote
+          ? null
+          : (verifiedCreditNote ?? this.verifiedCreditNote),
+      creditNoteVerificationFailure: clearCreditNoteVerificationFailure
+          ? null
+          : (creditNoteVerificationFailure ??
+                this.creditNoteVerificationFailure),
+      appliedCreditNotes: appliedCreditNotes ?? this.appliedCreditNotes,
+      creditNoteCustomerMismatchConfirmed:
+          clearCreditNoteCustomerMismatchConfirmed
+          ? false
+          : (creditNoteCustomerMismatchConfirmed ??
+                this.creditNoteCustomerMismatchConfirmed),
     );
   }
 }
@@ -439,6 +492,10 @@ class NewSaleController extends _$NewSaleController {
       clearRecordedSale: true,
       clearSubmitFailure: true,
       clearPendingIdempotencyKey: true,
+      appliedCreditNotes: const [],
+      clearCreditNoteCustomerMismatchConfirmed: true,
+      creditNoteVerificationFailure: null,
+      verifiedCreditNote: null,
     );
   }
 
@@ -480,6 +537,7 @@ class NewSaleController extends _$NewSaleController {
       state = state.copyWith(
         isSubmitting: false,
         recordedSale: sale,
+        verifiedCreditNote: null,
         cartLines: const [],
         results: const [],
         saleDiscountType: InstantDiscountType.none,
@@ -496,6 +554,9 @@ class NewSaleController extends _$NewSaleController {
         paidAmount: 0,
         dueAmount: 0,
         hasExplicitPaymentSplit: false,
+        appliedCreditNotes: const [],
+        creditNoteCustomerMismatchConfirmed: false,
+        creditNoteVerificationFailure: null,
       );
     } on AppException catch (error) {
       if (!ref.mounted) return;
@@ -512,6 +573,177 @@ class NewSaleController extends _$NewSaleController {
         ),
       );
     }
+  }
+
+  Future<void> verifyCreditNote(String code) async {
+    final normalizedCode = code.trim();
+    if (normalizedCode.isEmpty) {
+      state = state.copyWith(
+        creditNoteVerificationFailure: const Failure.validation(
+          message: 'Credit note code is required.',
+        ),
+        clearVerifiedCreditNote: true,
+      );
+      return;
+    }
+
+    state = state.copyWith(
+      clearCreditNoteVerificationFailure: true,
+      clearVerifiedCreditNote: true,
+      clearSubmitFailure: true,
+      clearRecordedSale: true,
+      clearPendingIdempotencyKey: true,
+    );
+
+    try {
+      final note = await ref.read(verifyCreditNoteProvider)(normalizedCode);
+      if (!ref.mounted) return;
+      state = state.copyWith(
+        verifiedCreditNote: note,
+        clearCreditNoteVerificationFailure: true,
+        clearPendingIdempotencyKey: true,
+      );
+    } on AppException catch (error) {
+      if (!ref.mounted) return;
+      state = state.copyWith(
+        creditNoteVerificationFailure: error.failure,
+        clearPendingIdempotencyKey: true,
+      );
+    } on Object {
+      if (!ref.mounted) return;
+      state = state.copyWith(
+        creditNoteVerificationFailure: const Failure.unknown(
+          message: 'Unable to verify credit note.',
+        ),
+        clearPendingIdempotencyKey: true,
+      );
+    }
+  }
+
+  void applyVerifiedCreditNote({double? amount}) {
+    final verified = state.verifiedCreditNote;
+    if (verified == null) return;
+
+    final code = verified.code.trim();
+    if (code.isEmpty) return;
+    if (_isCreditNoteAlreadyApplied(verified.creditNoteId, code)) {
+      state = state.copyWith(
+        creditNoteVerificationFailure: const Failure.validation(
+          message: 'This credit note is already applied.',
+        ),
+        submissionFailure: const Failure.validation(
+          message: 'This credit note is already applied.',
+        ),
+      );
+      return;
+    }
+
+    final maxAmount = verified.balance;
+    if (maxAmount <= 0) {
+      state = state.copyWith(
+        creditNoteVerificationFailure: const Failure.validation(
+          message: 'This credit note has no remaining balance.',
+        ),
+        submissionFailure: const Failure.validation(
+          message: 'This credit note has no remaining balance.',
+        ),
+      );
+      return;
+    }
+
+    final nextRequested = amount == null ? maxAmount : _normalizeMoney(amount);
+    final clampedRequested = _roundMoney(math.min(nextRequested, maxAmount));
+    final nextAmount = _coerceMoney(
+      math.min(clampedRequested, state.cartTotal),
+      state.cartTotal,
+    );
+    if (nextAmount <= 0) {
+      state = state.copyWith(
+        creditNoteVerificationFailure: const Failure.validation(
+          message: 'Credit note amount must be greater than zero.',
+        ),
+        submissionFailure: const Failure.validation(
+          message: 'Credit note amount must be greater than zero.',
+        ),
+      );
+      return;
+    }
+
+    final nextNotes = [
+      ...state.appliedCreditNotes,
+      AppliedCreditNote(
+        creditNoteId: verified.creditNoteId,
+        code: code,
+        balance: verified.balance,
+        amount: nextAmount,
+        customerId: verified.customerId,
+        customerName: verified.customerName,
+      ),
+    ];
+    final reconciled = _reconcileAppliedCreditNotes(
+      nextNotes,
+      nextAmount,
+      verified.creditNoteId,
+    );
+    state = state.copyWith(
+      appliedCreditNotes: reconciled,
+      clearCreditNoteVerificationFailure: true,
+      verifiedCreditNote: null,
+      clearPendingIdempotencyKey: true,
+      clearSubmitFailure: true,
+      creditNoteCustomerMismatchConfirmed: false,
+    );
+    _reconcilePaymentAfterCartChange();
+  }
+
+  void removeCreditNote(String creditNoteId) {
+    final updated = state.appliedCreditNotes
+        .where((note) => note.creditNoteId != creditNoteId)
+        .toList(growable: false);
+
+    state = state.copyWith(
+      appliedCreditNotes: updated,
+      clearPendingIdempotencyKey: true,
+      clearSubmitFailure: true,
+      clearCreditNoteCustomerMismatchConfirmed: true,
+    );
+    _reconcilePaymentAfterCartChange();
+  }
+
+  void updateCreditNoteAmount(String creditNoteId, double amount) {
+    final requestedAmount = _normalizeMoney(amount);
+    final notes = state.appliedCreditNotes;
+    final index = notes.indexWhere(
+      (note) => note.creditNoteId == creditNoteId,
+    );
+    if (index < 0) return;
+
+    final note = notes[index];
+    final clampedRequested = _roundMoney(
+      math.min(requestedAmount, note.balance),
+    );
+    final nextNotes = [...notes];
+    nextNotes[index] = note.copyWith(amount: clampedRequested);
+    final reconciled = _reconcileAppliedCreditNotes(
+      nextNotes,
+      clampedRequested,
+      creditNoteId,
+    );
+
+    state = state.copyWith(
+      appliedCreditNotes: reconciled,
+      clearPendingIdempotencyKey: true,
+      clearSubmitFailure: true,
+      creditNoteCustomerMismatchConfirmed: false,
+    );
+    _reconcilePaymentAfterCartChange();
+  }
+
+  void confirmCreditNoteCustomerMismatch(bool isConfirmed) {
+    state = state.copyWith(
+      creditNoteCustomerMismatchConfirmed: isConfirmed,
+    );
+    _validatePayment();
   }
 
   void updateSaleDiscountType(int type) {
@@ -752,6 +984,7 @@ class NewSaleController extends _$NewSaleController {
       paymentMethod: nextMethod,
       clearSubmitFailure: true,
       clearPendingIdempotencyKey: true,
+      clearCreditNoteCustomerMismatchConfirmed: true,
     );
     _validatePayment();
   }
@@ -1043,6 +1276,7 @@ class NewSaleController extends _$NewSaleController {
     List<NewSaleCartLine> cartLines, {
     Map<String, String>? itemDiscountErrors,
   }) {
+    final reconciled = _reconcileAppliedCreditNotes(state.appliedCreditNotes);
     state = state.copyWith(
       cartLines: cartLines,
       itemDiscountErrors: itemDiscountErrors,
@@ -1050,6 +1284,11 @@ class NewSaleController extends _$NewSaleController {
       clearSubmitFailure: true,
       clearRecordedSale: true,
       clearPendingIdempotencyKey: true,
+      appliedCreditNotes: reconciled,
+      creditNoteCustomerMismatchConfirmed: reconciled.isEmpty
+          ? false
+          : state.creditNoteCustomerMismatchConfirmed,
+      clearCreditNoteVerificationFailure: true,
     );
     _invalidatePreviewState();
     _reconcilePaymentAfterCartChange();
@@ -1110,6 +1349,13 @@ class NewSaleController extends _$NewSaleController {
   }
 
   void _reconcilePaymentAfterCartChange() {
+    state = state.copyWith(
+      appliedCreditNotes: _reconcileAppliedCreditNotes(
+        state.appliedCreditNotes,
+      ),
+      clearCreditNoteVerificationFailure: true,
+    );
+
     if (state.payable <= 0) {
       state = state.copyWith(
         paidAmount: 0,
@@ -1140,6 +1386,17 @@ class NewSaleController extends _$NewSaleController {
   }
 
   void _validatePayment() {
+    if (state.hasCreditNoteCustomerMismatch &&
+        !state.creditNoteCustomerMismatchConfirmed) {
+      state = state.copyWith(
+        submissionFailure: const Failure.validation(
+          message:
+              'Customer mismatch for credit note redemption requires confirmation.',
+        ),
+      );
+      return;
+    }
+
     if (state.selectedCustomer == null &&
         (state.dueAmount > 0 || state.paymentMethod == PaymentMethod.credit)) {
       state = state.copyWith(
@@ -1178,6 +1435,39 @@ class NewSaleController extends _$NewSaleController {
     if (normalized <= 0) return 0;
     if (normalized > payable) return payable;
     return normalized;
+  }
+
+  bool _isCreditNoteAlreadyApplied(
+    String creditNoteId,
+    String code,
+  ) {
+    return state.appliedCreditNotes.any((note) {
+      return note.creditNoteId == creditNoteId || note.code == code;
+    });
+  }
+
+  List<AppliedCreditNote> _reconcileAppliedCreditNotes(
+    List<AppliedCreditNote> notes, [
+    double? requestedAmount,
+    String? requestedId,
+  ]) {
+    var remaining = state.cartTotal;
+    final reconciled = <AppliedCreditNote>[];
+    for (final note in notes) {
+      final noteAmount =
+          note.creditNoteId == requestedId && requestedAmount != null
+          ? requestedAmount
+          : note.amount;
+      final capped = math.min(
+        math.min(note.balance, noteAmount),
+        remaining,
+      );
+      final amount = _roundMoney(capped < 0 ? 0.0 : capped);
+      reconciled.add(note.copyWith(amount: amount));
+      remaining = _coerceMoney(remaining - amount, state.cartTotal);
+    }
+
+    return reconciled;
   }
 
   void _addServiceToCart(Sellable sellable, {double quantity = 1}) {
@@ -1247,7 +1537,26 @@ class NewSaleController extends _$NewSaleController {
       dueAmount: payment.due,
       items: lines.map(_recordSaleItemFromLine).toList(growable: false),
       saleDiscount: _buildSaleDiscount(),
+      creditNoteAppliedAmount: state.totalAppliedCreditNoteAmount > 0
+          ? state.totalAppliedCreditNoteAmount
+          : null,
+      creditNoteRedemptions: _buildCreditNoteRedemptions(),
+      creditNoteCustomerMismatchConfirmed: state.hasCreditNoteCustomerMismatch
+          ? state.creditNoteCustomerMismatchConfirmed
+          : null,
     );
+  }
+
+  List<RecordSaleCreditNoteRedemptionRequest> _buildCreditNoteRedemptions() {
+    return state.appliedCreditNotes
+        .map(
+          (note) => RecordSaleCreditNoteRedemptionRequest(
+            creditNoteId: note.creditNoteId,
+            code: note.code,
+            amount: note.amount,
+          ),
+        )
+        .toList(growable: false);
   }
 
   ({double paid, double due})? _resolvePaymentSplit() {
@@ -1294,6 +1603,10 @@ class NewSaleController extends _$NewSaleController {
     }
     if (state.submissionFailure != null) {
       errors.add(state.submissionError ?? 'Fix payment validation errors.');
+    }
+    if (state.hasCreditNoteCustomerMismatch &&
+        !state.creditNoteCustomerMismatchConfirmed) {
+      errors.add('Customer mismatch for credit note redemption.');
     }
 
     return errors;
@@ -1614,4 +1927,17 @@ double _estimateLineTax(NewSaleCartLine line) {
 
 double _roundMoney(double value) {
   return (value * 100).roundToDouble() / 100;
+}
+
+bool _hasCreditNoteMismatch(
+  Customer? selectedCustomer,
+  List<AppliedCreditNote> notes,
+) {
+  if (notes.isEmpty) return false;
+  final selectedId = selectedCustomer?.customerId;
+  for (final note in notes) {
+    if (note.customerId == null) continue;
+    if (selectedId == null || note.customerId != selectedId) return true;
+  }
+  return false;
 }

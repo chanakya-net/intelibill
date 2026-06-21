@@ -6,6 +6,7 @@ import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/customers/domain/entities/customer.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/entities/credit_note.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_preview.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sellable.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/payment_method.dart';
@@ -14,12 +15,18 @@ import 'package:intelibill_mobile/src/features/sales/presentation/pages/new_sale
 import 'package:intelibill_mobile/src/features/sales/presentation/widgets/payment_section.dart';
 
 class _StubNewSaleController extends NewSaleController {
-  _StubNewSaleController(this._state);
+  _StubNewSaleController(
+    this._state, {
+    CreditNoteVerifyResult? Function(String code)? verifyResult,
+  }) : _verifyCreditNoteResult = verifyResult;
 
   NewSaleState _state;
+  final CreditNoteVerifyResult? Function(String code)? _verifyCreditNoteResult;
+
   String? lastSearchTerm;
   String? lastBarcode;
   int submitCallCount = 0;
+  int verifyCallCount = 0;
 
   @override
   NewSaleState build() => _state;
@@ -149,7 +156,123 @@ class _StubNewSaleController extends NewSaleController {
     state = _state;
   }
 
+  @override
+  Future<void> verifyCreditNote(String code) async {
+    verifyCallCount += 1;
+    final providedNote = _verifyCreditNoteResult?.call(code);
+    final note =
+        providedNote ??
+        CreditNoteVerifyResult(
+          creditNoteId: 'cn-${code.toLowerCase()}',
+          code: code,
+          balance: 100,
+          customerId: null,
+          customerName: null,
+        );
+
+    _state = _state.copyWith(
+      verifiedCreditNote: note,
+      clearCreditNoteVerificationFailure: true,
+    );
+    state = _state;
+  }
+
+  @override
+  void applyVerifiedCreditNote({double? amount}) {
+    final verified = _state.verifiedCreditNote;
+    if (verified == null) return;
+
+    final alreadyApplied = _state.appliedCreditNotes.any(
+      (note) =>
+          note.creditNoteId == verified.creditNoteId ||
+          note.code == verified.code,
+    );
+    if (alreadyApplied) {
+      _state = _state.copyWith(
+        creditNoteVerificationFailure: const Failure.validation(
+          message: 'This credit note is already applied.',
+        ),
+      );
+      state = _state;
+      return;
+    }
+
+    final clampedAmount = amount == null
+        ? verified.balance
+        : amount.clamp(0.0, verified.balance).clamp(0.0, _state.payable);
+    _state = _state.copyWith(
+      appliedCreditNotes: [
+        ..._state.appliedCreditNotes,
+        AppliedCreditNote(
+          creditNoteId: verified.creditNoteId,
+          code: verified.code,
+          balance: verified.balance,
+          amount: clampedAmount,
+          customerId: verified.customerId,
+          customerName: verified.customerName,
+        ),
+      ],
+      verifiedCreditNote: null,
+      clearCreditNoteVerificationFailure: true,
+    );
+    _reconcilePaymentSplitAfterNoteChange();
+  }
+
+  @override
+  void updateCreditNoteAmount(String creditNoteId, double amount) {
+    final nextNotes = _state.appliedCreditNotes
+        .map(
+          (note) => note.creditNoteId == creditNoteId
+              ? note.copyWith(amount: amount)
+              : note,
+        )
+        .toList();
+
+    _state = _state.copyWith(
+      appliedCreditNotes: nextNotes,
+      clearCreditNoteVerificationFailure: true,
+    );
+    _reconcilePaymentSplitAfterNoteChange();
+  }
+
+  @override
+  void removeCreditNote(String creditNoteId) {
+    final nextNotes = _state.appliedCreditNotes
+        .where((note) => note.creditNoteId != creditNoteId)
+        .toList();
+    final nextConfirmed = nextNotes.isEmpty
+        ? false
+        : _state.creditNoteCustomerMismatchConfirmed;
+    _state = _state.copyWith(
+      appliedCreditNotes: nextNotes,
+      creditNoteCustomerMismatchConfirmed: nextConfirmed,
+      clearCreditNoteVerificationFailure: true,
+    );
+    _reconcilePaymentSplitAfterNoteChange();
+  }
+
+  @override
+  void confirmCreditNoteCustomerMismatch(bool isConfirmed) {
+    _state = _state.copyWith(
+      creditNoteCustomerMismatchConfirmed: isConfirmed,
+    );
+    _validatePayment();
+    state = _state;
+  }
+
   void _validatePayment() {
+    if (_state.hasCreditNoteCustomerMismatch &&
+        !_state.creditNoteCustomerMismatchConfirmed) {
+      _state = _state.copyWith(
+        submissionFailure: const Failure.validation(
+          message:
+              'Customer mismatch for credit note redemption requires confirmation.',
+        ),
+      );
+      state = _state;
+      return;
+    }
+
     if (_state.selectedCustomer == null &&
         (_state.dueAmount > 0 ||
             _state.paymentMethod == PaymentMethod.credit)) {
@@ -174,6 +297,41 @@ class _StubNewSaleController extends NewSaleController {
     }
 
     _state = _state.copyWith(clearSubmissionFailure: true);
+  }
+
+  void _reconcilePaymentSplitAfterNoteChange() {
+    if (_state.appliedCreditNotes.isEmpty) {
+      _state = _state.copyWith(
+        paidAmount: _state.hasExplicitPaymentSplit ? _state.payable : 0,
+        dueAmount: _state.hasExplicitPaymentSplit ? _state.dueAmount : 0,
+      );
+      _validatePayment();
+      state = _state;
+      return;
+    }
+
+    if (_state.paymentMethod == PaymentMethod.credit) {
+      _state = _state.copyWith(
+        paymentMethod: _state.selectedCustomer == null
+            ? PaymentMethod.cash
+            : _state.paymentMethod,
+      );
+    }
+
+    final cappedPaid = _state.paidAmount.clamp(0.0, _state.payable);
+    final reconciledDue = (_state.payable - cappedPaid).clamp(
+      0.0,
+      double.infinity,
+    );
+    _state = _state.copyWith(
+      paidAmount: cappedPaid,
+      dueAmount: reconciledDue,
+      hasExplicitPaymentSplit:
+          _state.hasExplicitPaymentSplit &&
+          _state.paymentMethod != PaymentMethod.credit,
+    );
+    _validatePayment();
+    state = _state;
   }
 
   @override
@@ -298,6 +456,22 @@ SaleDetail _recordedSale() {
     customerName: 'Alice',
     customerPhone: '9999999999',
     status: 'paid',
+  );
+}
+
+CreditNoteVerifyResult _verifiedCreditNote({
+  String creditNoteId = 'cn-1',
+  String code = 'CN-001',
+  double balance = 100,
+  String? customerId,
+  String? customerName,
+}) {
+  return CreditNoteVerifyResult(
+    creditNoteId: creditNoteId,
+    code: code,
+    balance: balance,
+    customerId: customerId,
+    customerName: customerName,
   );
 }
 
@@ -890,6 +1064,194 @@ void main() {
         );
         await tester.pump();
         expect(_fieldText(tester, PaymentSection.paidAmountFieldKey), '15.50');
+      },
+    );
+
+    testWidgets('verifies and applies credit note in checkout panel', (
+      tester,
+    ) async {
+      final controller = _StubNewSaleController(
+        NewSaleState(
+          cartLines: [NewSaleCartLine(sellable: _goods(), quantity: 1)],
+          preview: _preview(
+            totalAmount: 100,
+            totalTaxAmount: 0,
+            totalDiscountAmount: 0,
+          ),
+          availableCustomers: [_customer()],
+          selectedCustomer: _customer(),
+        ),
+        verifyResult: (code) {
+          if (code == 'CN-100') {
+            return _verifiedCreditNote(
+              creditNoteId: 'cn-1',
+              code: 'CN-100',
+              balance: 40,
+              customerId: 'cust-1',
+              customerName: 'Alice',
+            );
+          }
+          return null;
+        },
+      );
+
+      await tester.pumpWidget(_buildApp(controller));
+      await tester.enterText(
+        find.byKey(const Key('credit-note-code-field')),
+        'CN-100',
+      );
+      await tester.ensureVisible(
+        find.byKey(const Key('verify-credit-note-button')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('verify-credit-note-button')));
+      await tester.pump();
+
+      expect(find.text('Verified: CN-100'), findsOneWidget);
+      expect(find.text('Balance: ₹40.00'), findsOneWidget);
+
+      await tester.ensureVisible(
+        find.byKey(const Key('apply-credit-note-button')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('apply-credit-note-button')));
+      await tester.pump();
+
+      expect(find.text('Code: CN-100'), findsOneWidget);
+      expect(find.byKey(const Key('credit-note-amount-cn-1')), findsOneWidget);
+    });
+
+    testWidgets(
+      'prevents duplicate credit note application after verification',
+      (tester) async {
+        final controller = _StubNewSaleController(
+          NewSaleState(
+            cartLines: [NewSaleCartLine(sellable: _goods(), quantity: 1)],
+            preview: _preview(
+              totalAmount: 100,
+              totalTaxAmount: 0,
+              totalDiscountAmount: 0,
+            ),
+            availableCustomers: [_customer()],
+            selectedCustomer: _customer(),
+          ),
+          verifyResult: (code) {
+            if (code == 'CN-100') {
+              return _verifiedCreditNote(
+                creditNoteId: 'cn-1',
+                code: 'CN-100',
+                balance: 40,
+                customerId: 'cust-1',
+                customerName: 'Alice',
+              );
+            }
+            return null;
+          },
+        );
+
+        await tester.pumpWidget(_buildApp(controller));
+        await tester.enterText(
+          find.byKey(const Key('credit-note-code-field')),
+          'CN-100',
+        );
+        await tester.ensureVisible(
+          find.byKey(const Key('verify-credit-note-button')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('verify-credit-note-button')));
+        await tester.pump();
+        await tester.ensureVisible(
+          find.byKey(const Key('apply-credit-note-button')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('apply-credit-note-button')));
+        await tester.pump();
+
+        await tester.enterText(
+          find.byKey(const Key('credit-note-code-field')),
+          'CN-100',
+        );
+        await tester.ensureVisible(
+          find.byKey(const Key('verify-credit-note-button')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('verify-credit-note-button')));
+        await tester.pump();
+        await tester.ensureVisible(
+          find.byKey(const Key('apply-credit-note-button')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('apply-credit-note-button')));
+        await tester.pump();
+
+        expect(
+          find.textContaining('This credit note is already applied.'),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const Key('credit-note-amount-cn-1')),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'blocks checkout when credit note customer mismatches until confirmed',
+      (tester) async {
+        final controller = _StubNewSaleController(
+          NewSaleState(
+            cartLines: [NewSaleCartLine(sellable: _goods(), quantity: 1)],
+            preview: _preview(
+              totalAmount: 100,
+              totalTaxAmount: 0,
+              totalDiscountAmount: 0,
+            ),
+            availableCustomers: [_customer()],
+            selectedCustomer: _customer(),
+          ),
+          verifyResult: (code) {
+            if (code == 'CN-100') {
+              return _verifiedCreditNote(
+                creditNoteId: 'cn-1',
+                code: 'CN-100',
+                balance: 40,
+                customerId: 'cust-2',
+                customerName: 'Bob',
+              );
+            }
+            return null;
+          },
+        );
+
+        await tester.pumpWidget(_buildApp(controller));
+        await tester.enterText(
+          find.byKey(const Key('credit-note-code-field')),
+          'CN-100',
+        );
+        await tester.ensureVisible(
+          find.byKey(const Key('verify-credit-note-button')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('verify-credit-note-button')));
+        await tester.pump();
+        await tester.ensureVisible(
+          find.byKey(const Key('apply-credit-note-button')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('apply-credit-note-button')));
+        await tester.pump();
+
+        final blockedButton = tester.widget<FilledButton>(
+          find.byKey(const Key('checkout-button')),
+        );
+        expect(blockedButton.onPressed, isNull);
+
+        await tester.tap(find.byKey(const Key('credit-note-mismatch-confirm')));
+        await tester.pump();
+        final enabledButton = tester.widget<FilledButton>(
+          find.byKey(const Key('checkout-button')),
+        );
+        expect(enabledButton.onPressed, isNotNull);
       },
     );
   });
