@@ -4,26 +4,49 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
+import 'package:intelibill_mobile/src/features/customers/domain/entities/customer.dart';
+import 'package:intelibill_mobile/src/features/customers/domain/use_cases/create_customer.dart';
+import 'package:intelibill_mobile/src/features/customers/domain/use_cases/get_customers.dart';
+import 'package:intelibill_mobile/src/features/customers/presentation/controllers/customers_controller.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sellable.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/entities/payment_method.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/use_cases/search_sellables.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/controllers/new_sale_controller.dart';
 import 'package:mocktail/mocktail.dart';
 
 class MockSearchSellables extends Mock implements SearchSellables {}
 
+class MockGetCustomers extends Mock implements GetCustomers {}
+
+class MockCreateCustomer extends Mock implements CreateCustomer {}
+
 Sellable _goods({
   required String id,
   required String name,
   required double stock,
+  double price = 10,
 }) {
   return Sellable(
     id: id,
     kind: 'Goods',
     name: name,
     stock: stock,
-    price: 10,
+    price: price,
     barcode: 'BAR-$id',
     batchNumber: 'BN-$id',
+  );
+}
+
+Customer _customer({
+  required String customerId,
+  required String name,
+  required String phoneNumber,
+}) {
+  return Customer(
+    customerId: customerId,
+    name: name,
+    phoneNumber: phoneNumber,
+    isActive: true,
   );
 }
 
@@ -44,15 +67,38 @@ Sellable _service({
 
 void main() {
   late MockSearchSellables mockSearchSellables;
+  late MockGetCustomers mockGetCustomers;
+  late MockCreateCustomer mockCreateCustomer;
 
   setUp(() {
     mockSearchSellables = MockSearchSellables();
+    mockGetCustomers = MockGetCustomers();
+    mockCreateCustomer = MockCreateCustomer();
+
+    when(() => mockGetCustomers()).thenAnswer((_) async => const []);
+    when(
+      () => mockCreateCustomer(
+        name: any(named: 'name'),
+        phoneNumber: any(named: 'phoneNumber'),
+        address: any(named: 'address'),
+        isActive: any(named: 'isActive'),
+      ),
+    ).thenAnswer(
+      (_) async => const Customer(
+        customerId: 'created-customer-id',
+        name: 'Created Customer',
+        phoneNumber: '9000000000',
+        isActive: true,
+      ),
+    );
   });
 
   ProviderContainer makeContainer() {
     return ProviderContainer(
       overrides: [
         searchSellablesProvider.overrideWithValue(mockSearchSellables),
+        getCustomersUseCaseProvider.overrideWithValue(mockGetCustomers),
+        createCustomerUseCaseProvider.overrideWithValue(mockCreateCustomer),
       ],
     );
   }
@@ -169,9 +215,7 @@ void main() {
 
       await container
           .read(newSaleControllerProvider.notifier)
-          .addToCart(
-            _goods(id: 'g1', name: 'Flour', stock: 2),
-          );
+          .addToCart(_goods(id: 'g1', name: 'Flour', stock: 2));
 
       final state = container.read(newSaleControllerProvider);
       expect(state.cartLines.length, 1);
@@ -255,9 +299,7 @@ void main() {
       final notifier = container.read(newSaleControllerProvider.notifier);
       await notifier.search(searchTerm: 'Flour', barcode: 'BARCODE-1');
 
-      verify(
-        () => mockSearchSellables(barcode: 'BARCODE-1'),
-      ).called(1);
+      verify(() => mockSearchSellables(barcode: 'BARCODE-1')).called(1);
     });
 
     test('barcode lookup ignores stale text search term', () async {
@@ -275,9 +317,7 @@ void main() {
       await notifier.search(searchTerm: 'Flour');
       await notifier.search(barcode: 'BARCODE-1');
 
-      verify(
-        () => mockSearchSellables(barcode: 'BARCODE-1'),
-      ).called(1);
+      verify(() => mockSearchSellables(barcode: 'BARCODE-1')).called(1);
     });
 
     test('search ignores stale in-flight responses', () async {
@@ -419,6 +459,181 @@ void main() {
       final state = container.read(newSaleControllerProvider);
       expect(state.cartLines, hasLength(1));
       expect(state.cartLines.single.quantity, 3.0);
+    });
+
+    test('payment method maps to and from wire codes', () {
+      expect(PaymentMethod.cash.toWireCode(), 1);
+      expect(PaymentMethod.upi.toWireCode(), 2);
+      expect(PaymentMethod.card.toWireCode(), 3);
+      expect(PaymentMethod.credit.toWireCode(), 4);
+      expect(paymentMethodFromWireCode(1), PaymentMethod.cash);
+      expect(paymentMethodFromWireCode(2), PaymentMethod.upi);
+      expect(paymentMethodFromWireCode(3), PaymentMethod.card);
+      expect(paymentMethodFromWireCode(4), PaymentMethod.credit);
+    });
+
+    test('loads customers and selects by id', () async {
+      final customers = [
+        _customer(
+          customerId: 'cust-1',
+          name: 'Alice',
+          phoneNumber: '9999999999',
+        ),
+      ];
+      when(() => mockGetCustomers()).thenAnswer((_) async => customers);
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+
+      await controller.loadCustomers();
+      controller.selectCustomer('cust-1');
+
+      final state = container.read(newSaleControllerProvider);
+      expect(state.selectedCustomer, customers.first);
+      expect(state.selectedCustomer?.customerId, 'cust-1');
+    });
+
+    test('creates and selects customer and adds to list', () async {
+      final customers = [
+        _customer(
+          customerId: 'cust-1',
+          name: 'Alice',
+          phoneNumber: '9999999999',
+        ),
+      ];
+      when(() => mockGetCustomers()).thenAnswer((_) async => customers);
+      when(
+        () => mockCreateCustomer(
+          name: any(named: 'name'),
+          phoneNumber: any(named: 'phoneNumber'),
+          address: any(named: 'address'),
+          isActive: any(named: 'isActive'),
+        ),
+      ).thenAnswer(
+        (_) async => const Customer(
+          customerId: 'cust-2',
+          name: 'Bob',
+          phoneNumber: '8888888888',
+          isActive: true,
+        ),
+      );
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+
+      final created = await controller.createAndSelectCustomer(
+        name: 'Bob',
+        phoneNumber: '8888888888',
+      );
+      final state = container.read(newSaleControllerProvider);
+
+      expect(created, isTrue);
+      expect(state.submissionFailure, isNull);
+      expect(state.selectedCustomer?.customerId, 'cust-2');
+      expect(
+        state.availableCustomers,
+        contains(
+          const Customer(
+            customerId: 'cust-2',
+            name: 'Bob',
+            phoneNumber: '8888888888',
+            isActive: true,
+          ),
+        ),
+      );
+    });
+
+    test('allows walk-in cash sale with paid equal payable', () async {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+
+      await controller.addToCart(_goods(id: 'g1', name: 'Flour', stock: 2));
+      controller.setPaidAmount(20);
+
+      final state = container.read(newSaleControllerProvider);
+      expect(state.canSubmit, isTrue);
+      expect(state.paymentMethod, PaymentMethod.cash);
+      expect(state.submissionFailure, isNull);
+      expect(state.paidAmount + state.dueAmount, closeTo(state.payable, 0.01));
+    });
+
+    test('blocks credit method without selected customer', () async {
+      final customers = [
+        _customer(
+          customerId: 'cust-1',
+          name: 'Alice',
+          phoneNumber: '9999999999',
+        ),
+      ];
+      when(() => mockGetCustomers()).thenAnswer((_) async => customers);
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+      await controller.loadCustomers();
+
+      await controller.addToCart(_goods(id: 'g1', name: 'Flour', stock: 2));
+      controller.setPaidAmount(20);
+      controller.setPaymentMethod(PaymentMethod.credit);
+
+      final blocked = container.read(newSaleControllerProvider);
+      expect(blocked.paymentMethod, PaymentMethod.cash);
+      expect(blocked.canSubmit, isFalse);
+      expect(blocked.submissionFailure, isA<ValidationFailure>());
+
+      controller.selectCustomer('cust-1');
+      controller.setPaymentMethod(PaymentMethod.credit);
+      final allowed = container.read(newSaleControllerProvider);
+      expect(allowed.paymentMethod, PaymentMethod.credit);
+      expect(allowed.canSubmit, isTrue);
+    });
+
+    test('requires customer when due amount is set', () async {
+      final customers = [
+        _customer(
+          customerId: 'cust-1',
+          name: 'Alice',
+          phoneNumber: '9999999999',
+        ),
+      ];
+      when(() => mockGetCustomers()).thenAnswer((_) async => customers);
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+      await controller.loadCustomers();
+
+      await controller.addToCart(_goods(id: 'g1', name: 'Flour', stock: 2));
+      controller.setDueAmount(5);
+
+      final withDue = container.read(newSaleControllerProvider);
+      expect(withDue.submissionFailure, isA<ValidationFailure>());
+      expect(withDue.canSubmit, isFalse);
+
+      controller.selectCustomer('cust-1');
+      final withCustomer = container.read(newSaleControllerProvider);
+      expect(withCustomer.canSubmit, isTrue);
+    });
+
+    test('reconciles paid/due when cart total changes', () async {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(newSaleControllerProvider.notifier);
+
+      await controller.addToCart(_goods(id: 'g1', name: 'Flour', stock: 10));
+      controller.setPaidAmount(5);
+
+      controller.updateCartQuantity('g1', 2);
+      var state = container.read(newSaleControllerProvider);
+      expect(state.paidAmount + state.dueAmount, closeTo(state.payable, 0.01));
+      expect(state.dueAmount, closeTo(15, 0.01));
+
+      controller.updateCartQuantity('g1', 1);
+      state = container.read(newSaleControllerProvider);
+      expect(state.paidAmount + state.dueAmount, closeTo(state.payable, 0.01));
+      expect(state.dueAmount, closeTo(5, 0.01));
     });
   });
 }

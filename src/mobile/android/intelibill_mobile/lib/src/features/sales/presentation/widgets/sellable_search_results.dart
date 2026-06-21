@@ -25,6 +25,8 @@ class SellableSearchResults extends StatelessWidget {
     }
 
     return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       itemCount: sellables.length,
       separatorBuilder: (_, _) => const SizedBox(height: 8),

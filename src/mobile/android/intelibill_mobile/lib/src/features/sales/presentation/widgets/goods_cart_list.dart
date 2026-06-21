@@ -36,6 +36,8 @@ class GoodsCartList extends StatelessWidget {
     }
 
     return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(0, 8, 0, 8),
       itemCount: lines.length + 1,
       separatorBuilder: (_, _) => const SizedBox(height: 8),
