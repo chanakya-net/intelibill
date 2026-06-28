@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intelibill_mobile/src/app/theme/app_theme.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_list_item.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sales_history_summary.dart';
+import 'package:intelibill_mobile/src/features/sales/presentation/controllers/sale_detail_controller.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/controllers/sales_history_controller.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/pages/sales_history_page.dart';
 
@@ -38,11 +40,30 @@ final _sampleSale = SaleListItem(
   dueReductionAmount: 0,
 );
 
+final _sampleDetail = SaleDetail(
+  saleId: 'sale-1',
+  invoiceNumber: 'INV-2026-001',
+  customerName: 'John Doe',
+  customerPhone: '9999999999',
+  paymentMethod: 1,
+  soldAt: DateTime.utc(2026, 5, 11, 10, 30),
+  paidAmount: 500,
+  dueAmount: 0,
+  totalBeforeDiscount: 500,
+  totalDiscountAmount: 0,
+  totalAmount: 500,
+  totalTaxAmount: 50,
+  status: 'paid',
+);
+
 Widget _buildApp(SalesHistoryState state) {
   return ProviderScope(
     overrides: [
       salesHistoryControllerProvider.overrideWith(
         () => _StubSalesHistoryController(state),
+      ),
+      saleDetailControllerProvider('sale-1').overrideWithValue(
+        SaleDetailState(detail: _sampleDetail),
       ),
     ],
     child: MaterialApp(
@@ -112,7 +133,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Sale details'), findsOneWidget);
-      expect(find.text('9999999999'), findsWidgets);
+      expect(find.text('Line items'), findsOneWidget);
+      expect(find.text('Totals'), findsOneWidget);
     });
   });
 }

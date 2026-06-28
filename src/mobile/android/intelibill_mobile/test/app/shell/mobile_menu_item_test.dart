@@ -55,6 +55,7 @@ void main() {
           MobileMenuLabelKey.inventory,
           MobileMenuLabelKey.sales,
           MobileMenuLabelKey.customers,
+          MobileMenuLabelKey.creditNotes,
           MobileMenuLabelKey.more,
         ]),
       );
@@ -72,6 +73,7 @@ void main() {
         equals([
           MobileMenuLabelKey.inventory,
           MobileMenuLabelKey.sales,
+          MobileMenuLabelKey.creditNotes,
           MobileMenuLabelKey.more,
         ]),
       );
@@ -82,6 +84,7 @@ void main() {
 
       final keys = moreMenuItems(session).map((item) => item.labelKey).toList();
 
+      expect(keys, contains(MobileMenuLabelKey.services));
       expect(keys, contains(MobileMenuLabelKey.suppliers));
       expect(keys, contains(MobileMenuLabelKey.expenses));
       expect(keys, contains(MobileMenuLabelKey.users));
@@ -105,6 +108,7 @@ void main() {
       expect(keys, contains(MobileMenuLabelKey.changePassword));
       expect(keys, contains(MobileMenuLabelKey.language));
       expect(keys, contains(MobileMenuLabelKey.logout));
+      expect(keys, isNot(contains(MobileMenuLabelKey.services)));
       expect(keys, isNot(contains(MobileMenuLabelKey.suppliers)));
       expect(keys, isNot(contains(MobileMenuLabelKey.expenses)));
       expect(keys, isNot(contains(MobileMenuLabelKey.bankAccounts)));

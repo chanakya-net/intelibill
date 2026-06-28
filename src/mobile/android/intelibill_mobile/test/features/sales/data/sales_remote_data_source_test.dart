@@ -71,5 +71,600 @@ void main() {
         ),
       ).called(1);
     });
+
+    test('calls /sales/{saleId} for sale detail', () async {
+      when(
+        () => mockApiClient.get<Map<String, dynamic>>(
+          '/sales/sale-abc',
+        ),
+      ).thenAnswer(
+        (_) async => Response(
+          data: {
+            'saleId': 'sale-abc',
+            'invoiceNumber': 'INV-001',
+            'paymentMethod': 1,
+            'soldAt': '2026-05-11T10:30:00.000Z',
+            'paidAmount': 0.0,
+            'dueAmount': 0.0,
+            'totalBeforeDiscount': 0.0,
+            'totalDiscountAmount': 0.0,
+            'totalAmount': 0.0,
+            'totalTaxAmount': 0.0,
+          },
+          statusCode: 200,
+          requestOptions: RequestOptions(path: '/sales/sale-abc'),
+        ),
+      );
+
+      final response = await remoteDataSource.getSaleDetail('sale-abc');
+
+      expect(response.saleId, 'sale-abc');
+      verify(
+        () => mockApiClient.get<Map<String, dynamic>>(
+          '/sales/sale-abc',
+        ),
+      ).called(1);
+    });
+
+    test('calls preview return endpoint with request map', () async {
+      when(
+        () => mockApiClient.post<Map<String, dynamic>>(
+          '/sales/sale-abc/returns/preview',
+          data: any<Map<String, dynamic>>(named: 'data'),
+        ),
+      ).thenAnswer(
+        (_) async => Response(
+          data: {
+            'saleId': 'sale-abc',
+            'hasFinancialAccess': true,
+            'lines': [
+              {
+                'saleItemId': 'item-1',
+                'requestedQuantity': 1.0,
+                'returnedQuantity': 1.0,
+                'returnableQuantity': 2.0,
+                'condition': 1,
+                'willRestock': true,
+                'financial': {
+                  'originalCostPrice': 60.0,
+                  'originalSalesPrice': 100.0,
+                  'originalTaxRatePercent': 18.0,
+                  'originalIsPriceIncludingTax': false,
+                  'maxRefundAmount': 100.0,
+                  'approvedRefundAmount': 90.0,
+                  'taxableAmount': 80.0,
+                  'taxAmount': 14.4,
+                },
+              },
+            ],
+            'financial': {
+              'totalRefundAmount': 90.0,
+              'dueReductionAmount': 0.0,
+              'payoutAmount': 90.0,
+              'totalTaxableAmount': 80.0,
+              'totalTaxAmount': 14.4,
+            },
+            'warnings': [
+              {
+                'code': 'R01',
+                'message': 'Stock may need adjustment.',
+                'severity': 'info',
+              },
+            ],
+          },
+          statusCode: 200,
+          requestOptions: RequestOptions(
+            path: '/sales/sale-abc/returns/preview',
+          ),
+        ),
+      );
+
+      final response = await remoteDataSource.previewSaleReturn(
+        saleId: 'sale-abc',
+        request: {
+          'dueReductionOverrideAmount': 5.0,
+          'items': [
+            {
+              'saleItemId': 'item-1',
+              'lineType': 'Goods',
+              'quantity': 1.0,
+              'condition': 1,
+              'approvedRefundAmount': 90.0,
+            },
+          ],
+        },
+      );
+
+      expect(response.saleId, 'sale-abc');
+      verify(
+        () => mockApiClient.post<Map<String, dynamic>>(
+          '/sales/sale-abc/returns/preview',
+          data: {
+            'dueReductionOverrideAmount': 5.0,
+            'items': [
+              {
+                'saleItemId': 'item-1',
+                'lineType': 'Goods',
+                'quantity': 1.0,
+                'condition': 1,
+                'approvedRefundAmount': 90.0,
+              },
+            ],
+          },
+        ),
+      ).called(1);
+    });
+
+    test('calls /sales/preview with mixed goods and service lines', () async {
+      when(
+        () => mockApiClient.post<Map<String, dynamic>>(
+          '/sales/preview',
+          data: any<Map<String, dynamic>>(named: 'data'),
+        ),
+      ).thenAnswer(
+        (_) async => Response(
+          data: _previewResponseJson(),
+          statusCode: 200,
+          requestOptions: RequestOptions(path: '/sales/preview'),
+        ),
+      );
+
+      final response = await remoteDataSource.previewSale(
+        request: {
+          'saleDiscount': {'type': 0, 'value': 0},
+          'items': [
+            {
+              'inventoryBatchId': 'batch-1',
+              'barcode': 'BAR-1',
+              'batchNumber': 'BN-1',
+              'itemName': 'Rice',
+              'quantity': 2.0,
+              'costPrice': 48.0,
+              'salesPrice': 60.0,
+              'mrp': 62.0,
+              'taxRatePercent': 12.0,
+              'isPriceIncludingTax': false,
+              'itemDiscount': {'type': 0, 'value': 0},
+              'clientLineKey': 'line-1',
+              'lineType': 'Goods',
+            },
+            {
+              'inventoryBatchId': '00000000-0000-0000-0000-000000000000',
+              'barcode': 'SRV-1',
+              'batchNumber': '',
+              'itemName': 'Installation',
+              'quantity': 1.0,
+              'costPrice': 0.0,
+              'salesPrice': 150.0,
+              'mrp': 150.0,
+              'taxRatePercent': 18.0,
+              'isPriceIncludingTax': false,
+              'itemDiscount': {'type': 0, 'value': 0},
+              'clientLineKey': 'line-2',
+              'lineType': 'Service',
+              'serviceId': 'svc-1',
+            },
+          ],
+        },
+      );
+
+      expect(response.totalAmount, 236.0);
+      expect(response.lines, hasLength(2));
+      verify(
+        () => mockApiClient.post<Map<String, dynamic>>(
+          '/sales/preview',
+          data: {
+            'saleDiscount': {'type': 0, 'value': 0},
+            'items': [
+              {
+                'inventoryBatchId': 'batch-1',
+                'barcode': 'BAR-1',
+                'batchNumber': 'BN-1',
+                'itemName': 'Rice',
+                'quantity': 2.0,
+                'costPrice': 48.0,
+                'salesPrice': 60.0,
+                'mrp': 62.0,
+                'taxRatePercent': 12.0,
+                'isPriceIncludingTax': false,
+                'itemDiscount': {'type': 0, 'value': 0},
+                'clientLineKey': 'line-1',
+                'lineType': 'Goods',
+              },
+              {
+                'inventoryBatchId': '00000000-0000-0000-0000-000000000000',
+                'barcode': 'SRV-1',
+                'batchNumber': '',
+                'itemName': 'Installation',
+                'quantity': 1.0,
+                'costPrice': 0.0,
+                'salesPrice': 150.0,
+                'mrp': 150.0,
+                'taxRatePercent': 18.0,
+                'isPriceIncludingTax': false,
+                'itemDiscount': {'type': 0, 'value': 0},
+                'clientLineKey': 'line-2',
+                'lineType': 'Service',
+                'serviceId': 'svc-1',
+              },
+            ],
+          },
+        ),
+      ).called(1);
+    });
+
+    test(
+      'calls /sales with full record sale payload including idempotency and '
+      'customer/payment/discount details',
+      () async {
+        late Map<String, dynamic> sentRequest;
+        when(
+          () => mockApiClient.post<Map<String, dynamic>>(
+            '/sales',
+            data: any<Map<String, dynamic>>(named: 'data'),
+          ),
+        ).thenAnswer(
+          (invocation) async {
+            sentRequest =
+                invocation.namedArguments[#data]! as Map<String, dynamic>;
+
+            return Response(
+              data: _minimalSaleDetailJson(),
+              statusCode: 200,
+              requestOptions: RequestOptions(path: '/sales'),
+            );
+          },
+        );
+
+        await remoteDataSource.recordSale(
+          request: {
+            'idempotencyKey': 'idempotency-new-sale-001',
+            'customerId': 'cust-1',
+            'customerName': 'John Doe',
+            'customerPhone': '+91-9999999999',
+            'paymentMethod': 2,
+            'paidAmount': 250.0,
+            'dueAmount': 0.0,
+            'saleDiscount': {'type': 1, 'value': 10},
+            'items': [
+              {
+                'barcode': 'BAR-1',
+                'batchNumber': 'BN-1',
+                'itemName': 'Rice',
+                'quantity': 2.0,
+                'costPrice': 48.0,
+                'salesPrice': 60.0,
+                'mrp': 62.0,
+                'taxRatePercent': 12.0,
+                'isPriceIncludingTax': false,
+                'inventoryBatchId': 'batch-1',
+                'clientLineKey': 'line-1',
+                'itemDiscount': {'type': 0, 'value': 0},
+                'lineType': 'Goods',
+              },
+              {
+                'barcode': 'SRV-1',
+                'batchNumber': '',
+                'itemName': 'Installation',
+                'quantity': 1.0,
+                'costPrice': 0.0,
+                'salesPrice': 180.0,
+                'mrp': 180.0,
+                'taxRatePercent': 18.0,
+                'isPriceIncludingTax': false,
+                'inventoryBatchId': '00000000-0000-0000-0000-000000000000',
+                'clientLineKey': 'line-2',
+                'itemDiscount': {'type': 0, 'value': 0},
+                'lineType': 'Service',
+                'serviceId': 'svc-1',
+              },
+            ],
+            'creditNoteAppliedAmount': 15.0,
+            'creditNoteRedemptions': [
+              {
+                'creditNoteId': 'cn-1',
+                'code': 'CN-1',
+                'amount': 15.0,
+              },
+            ],
+            'creditNoteCustomerMismatchConfirmed': true,
+          },
+        );
+
+        expect(sentRequest['idempotencyKey'], 'idempotency-new-sale-001');
+        expect(sentRequest['customerId'], 'cust-1');
+        expect(sentRequest['customerPhone'], '+91-9999999999');
+        expect(sentRequest['paymentMethod'], 2);
+        expect(sentRequest['paidAmount'], 250.0);
+        expect(sentRequest['dueAmount'], 0.0);
+        expect(sentRequest['saleDiscount'], {'type': 1, 'value': 10});
+        expect(sentRequest['creditNoteAppliedAmount'], 15.0);
+
+        final items = (sentRequest['items'] as List<dynamic>)
+            .cast<Map<String, dynamic>>();
+        expect(items, hasLength(2));
+        expect(items.first['lineType'], 'Goods');
+        expect(items.first['itemName'], 'Rice');
+        expect(items.last['lineType'], 'Service');
+        expect(items.last['serviceId'], 'svc-1');
+        expect(
+          items.last['inventoryBatchId'],
+          '00000000-0000-0000-0000-000000000000',
+        );
+
+        verify(
+          () => mockApiClient.post<Map<String, dynamic>>(
+            '/sales',
+            data: sentRequest,
+          ),
+        ).called(1);
+      },
+    );
+
+    test('calls record return endpoint with request map', () async {
+      when(
+        () => mockApiClient.post<Map<String, dynamic>>(
+          '/sales/sale-abc/returns',
+          data: any<Map<String, dynamic>>(named: 'data'),
+        ),
+      ).thenAnswer(
+        (_) async => Response(
+          data: {
+            'saleId': 'sale-abc',
+            'invoiceNumber': 'INV-001',
+            'paymentMethod': 1,
+            'soldAt': '2026-05-11T10:30:00.000Z',
+            'paidAmount': 0.0,
+            'dueAmount': 0.0,
+            'totalBeforeDiscount': 0.0,
+            'totalDiscountAmount': 0.0,
+            'totalAmount': 0.0,
+            'totalTaxAmount': 0.0,
+          },
+          statusCode: 200,
+          requestOptions: RequestOptions(path: '/sales/sale-abc/returns'),
+        ),
+      );
+
+      await remoteDataSource.recordSaleReturn(
+        saleId: 'sale-abc',
+        request: {
+          'payoutDestination': 2,
+          'dueReductionOverrideAmount': 5.0,
+          'items': const [
+            {
+              'saleItemId': 'item-1',
+              'quantity': 1.0,
+              'approvedRefundAmount': 90.0,
+            },
+          ],
+        },
+      );
+
+      verify(
+        () => mockApiClient.post<Map<String, dynamic>>(
+          '/sales/sale-abc/returns',
+          data: {
+            'payoutDestination': 2,
+            'dueReductionOverrideAmount': 5.0,
+            'items': const [
+              {
+                'saleItemId': 'item-1',
+                'quantity': 1.0,
+                'approvedRefundAmount': 90.0,
+              },
+            ],
+          },
+        ),
+      ).called(1);
+    });
+
+    test('calls /sales/sellables with searchTerm query', () async {
+      when(
+        () => mockApiClient.get<List<dynamic>>(
+          any<String>(),
+          queryParameters: any<Map<String, dynamic>>(
+            named: 'queryParameters',
+          ),
+        ),
+      ).thenAnswer(
+        (_) async => Response(
+          data: <dynamic>[],
+          statusCode: 200,
+          requestOptions: RequestOptions(path: '/sales/sellables'),
+        ),
+      );
+
+      await remoteDataSource.searchSellables(searchTerm: 'flour');
+
+      verify(
+        () => mockApiClient.get<List<dynamic>>(
+          '/sales/sellables',
+          queryParameters: {'searchTerm': 'flour'},
+        ),
+      ).called(1);
+    });
+
+    test('calls /sales/sellables with barcode query', () async {
+      when(
+        () => mockApiClient.get<List<dynamic>>(
+          any<String>(),
+          queryParameters: any<Map<String, dynamic>>(
+            named: 'queryParameters',
+          ),
+        ),
+      ).thenAnswer(
+        (_) async => Response(
+          data: <dynamic>[],
+          statusCode: 200,
+          requestOptions: RequestOptions(path: '/sales/sellables'),
+        ),
+      );
+
+      await remoteDataSource.searchSellables(barcode: 'BAR001');
+
+      verify(
+        () => mockApiClient.get<List<dynamic>>(
+          '/sales/sellables',
+          queryParameters: {'barcode': 'BAR001'},
+        ),
+      ).called(1);
+    });
+
+    test(
+      'calls GET /credit-notes/{code} for credit note verification',
+      () async {
+        when(
+          () => mockApiClient.get<Map<String, dynamic>>('/credit-notes/CN-001'),
+        ).thenAnswer(
+          (_) async => Response(
+            data: {
+              'creditNoteId': 'cn-1',
+              'code': 'CN-001',
+              'balance': 100.0,
+              'customerId': 'cust-1',
+              'customerName': 'Alice',
+            },
+            statusCode: 200,
+            requestOptions: RequestOptions(path: '/credit-notes/CN-001'),
+          ),
+        );
+
+        final response = await remoteDataSource.verifyCreditNote('CN-001');
+
+        expect(response.creditNoteId, 'cn-1');
+        expect(response.code, 'CN-001');
+        expect(response.balance, 100.0);
+        expect(response.customerId, 'cust-1');
+        expect(response.customerName, 'Alice');
+        verify(
+          () => mockApiClient.get<Map<String, dynamic>>('/credit-notes/CN-001'),
+        ).called(1);
+      },
+    );
+
+    test('voids a sale return with reason payload', () async {
+      when(
+        () => mockApiClient.post<void>(
+          '/sales/returns/return-1/void',
+          data: {'reason': 'Damaged'},
+        ),
+      ).thenAnswer(
+        (_) async => Response<void>(
+          statusCode: 200,
+          requestOptions: RequestOptions(path: '/sales/returns/return-1/void'),
+        ),
+      );
+
+      await remoteDataSource.voidSaleReturn(
+        saleReturnId: 'return-1',
+        reason: 'Damaged',
+      );
+
+      verify(
+        () => mockApiClient.post<void>(
+          '/sales/returns/return-1/void',
+          data: {'reason': 'Damaged'},
+        ),
+      ).called(1);
+    });
   });
 }
+
+Map<String, dynamic> _previewResponseJson() => {
+  'totalAmount': 236.0,
+  'totalTaxableAmount': 200.0,
+  'totalTaxAmount': 36.0,
+  'totalDiscountAmount': 14.0,
+  'saleLevelEligibleSubtotal': 120.0,
+  'configuredSaleRule': {
+    'ruleId': 'rule-1',
+    'ruleType': 'SalePercentage',
+    'percentage': 10.0,
+    'thresholdAmount': 100.0,
+  },
+  'lines': [
+    {
+      'lineType': 'Goods',
+      'itemId': 'item-1',
+      'serviceId': null,
+      'barcode': 'BAR-1',
+      'itemName': 'Rice',
+      'inventoryBatchId': 'batch-1',
+      'batchNumber': 'BN-1',
+      'quantity': 2.0,
+      'costPrice': 48.0,
+      'salesPrice': 60.0,
+      'mrp': 62.0,
+      'taxRatePercent': 12.0,
+      'isPriceIncludingTax': false,
+      'preTaxAmountBeforeDiscount': 120.0,
+      'itemDiscountAmount': 0.0,
+      'saleDiscountAmount': 4.0,
+      'taxableAmount': 116.0,
+      'taxAmount': 13.92,
+      'lineTotalAmount': 129.92,
+      'maxAllowedItemDiscountFlat': 12.0,
+      'maxAllowedItemDiscountPercent': 10.0,
+      'configuredBatchRuleId': 'batch-rule-1',
+      'configuredBatchRulePercentage': 5.0,
+      'hasClientPriceMismatch': true,
+      'clientLineKey': 'line-1',
+    },
+    {
+      'lineType': 'Service',
+      'itemId': null,
+      'serviceId': 'svc-1',
+      'barcode': 'SRV-1',
+      'itemName': 'Installation',
+      'inventoryBatchId': null,
+      'batchNumber': null,
+      'quantity': 1.0,
+      'costPrice': 0.0,
+      'salesPrice': 150.0,
+      'mrp': 150.0,
+      'taxRatePercent': 18.0,
+      'isPriceIncludingTax': false,
+      'preTaxAmountBeforeDiscount': 150.0,
+      'itemDiscountAmount': 0.0,
+      'saleDiscountAmount': 10.0,
+      'taxableAmount': 140.0,
+      'taxAmount': 25.2,
+      'lineTotalAmount': 165.2,
+      'maxAllowedItemDiscountFlat': 0.0,
+      'maxAllowedItemDiscountPercent': 0.0,
+      'configuredBatchRuleId': null,
+      'configuredBatchRulePercentage': null,
+      'hasClientPriceMismatch': false,
+      'clientLineKey': 'line-2',
+    },
+  ],
+  'infos': [
+    {
+      'code': 'sale_preview.info.configured_rule_applied',
+      'message': 'Configured sale rule applied.',
+    },
+  ],
+  'warnings': [
+    {
+      'code': 'sale_preview.warning.client_price_mismatch',
+      'message': 'Client pricing differs from latest batch pricing.',
+      'severity': 'warning',
+      'inventoryBatchId': 'batch-1',
+      'clientLineKey': 'line-1',
+    },
+  ],
+};
+
+Map<String, dynamic> _minimalSaleDetailJson() => {
+  'saleId': 'sale-abc',
+  'invoiceNumber': 'INV-001',
+  'paymentMethod': 1,
+  'soldAt': '2026-05-11T10:30:00.000Z',
+  'paidAmount': 0.0,
+  'dueAmount': 0.0,
+  'totalBeforeDiscount': 0.0,
+  'totalDiscountAmount': 0.0,
+  'totalAmount': 0.0,
+  'totalTaxAmount': 0.0,
+};

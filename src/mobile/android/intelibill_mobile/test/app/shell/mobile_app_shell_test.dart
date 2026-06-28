@@ -134,8 +134,14 @@ void main() {
       );
       expect(find.text('Inventory'), findsWidgets);
       expect(find.text('Sales'), findsWidgets);
+      expect(find.text('Credit Notes'), findsWidgets);
       expect(find.text('More'), findsWidgets);
       expect(find.text('Customers'), findsNothing);
+
+      await tester.tapAt(tester.getCenter(find.text('More').first));
+      await tester.pumpAndSettle();
+      expect(find.text('Services'), findsNothing);
+      expect(find.text('Discounts'), findsNothing);
     });
 
     testWidgets('more menu triggers logout action', (tester) async {
@@ -169,6 +175,10 @@ void main() {
       expect(find.byType(BottomSheet), findsOneWidget);
       expect(find.text('Management'), findsOneWidget);
       expect(find.text('Alex Smith'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('Services'), 200);
+      expect(find.text('Services'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('Discounts'), 200);
+      expect(find.text('Discounts'), findsOneWidget);
       await tester.scrollUntilVisible(find.text('Logout'), 200);
       await tester.tap(find.text('Logout'));
       await tester.pumpAndSettle();

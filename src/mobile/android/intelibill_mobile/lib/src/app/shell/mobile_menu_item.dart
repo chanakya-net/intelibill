@@ -29,7 +29,9 @@ enum MobileMenuLabelKey {
   inventory('shellManageInventory'),
   sales('shellManageSales'),
   customers('shellManageCustomers'),
+  creditNotes('shellManageCreditNotes'),
   more('shellMore'),
+  services('shellManageServices'),
   suppliers('shellManageSuppliers'),
   expenses('shellManageExpenses'),
   users('shellManageUsers'),
@@ -65,8 +67,12 @@ extension MobileMenuLabelKeyX on MobileMenuLabelKey {
         return l10n.shellManageSales;
       case MobileMenuLabelKey.customers:
         return l10n.shellManageCustomers;
+      case MobileMenuLabelKey.creditNotes:
+        return l10n.shellManageCreditNotes;
       case MobileMenuLabelKey.more:
         return l10n.shellMore;
+      case MobileMenuLabelKey.services:
+        return l10n.shellManageServices;
       case MobileMenuLabelKey.suppliers:
         return l10n.shellManageSuppliers;
       case MobileMenuLabelKey.expenses:
@@ -206,6 +212,16 @@ final List<MobileMenuItem> _primaryNavigationItems = [
     isVisible: canManageCustomers,
   ),
   const MobileMenuItem(
+    labelKey: MobileMenuLabelKey.creditNotes,
+    icon: Icons.receipt_long_outlined,
+    destination: MobileMenuRoute(
+      AppRoutes.creditNotes,
+      matchPrefix: AppRoutes.creditNotes,
+    ),
+    section: MobileMenuSection.primary,
+    isVisible: canViewCreditNotes,
+  ),
+  const MobileMenuItem(
     labelKey: MobileMenuLabelKey.more,
     icon: Icons.more_horiz,
     destination: MobileMenuAction(MobileMenuActionType.openMoreMenu),
@@ -214,6 +230,16 @@ final List<MobileMenuItem> _primaryNavigationItems = [
 ];
 
 final List<MobileMenuItem> _moreMenuItems = [
+  const MobileMenuItem(
+    labelKey: MobileMenuLabelKey.services,
+    icon: Icons.room_service_outlined,
+    destination: MobileMenuRoute(
+      AppRoutes.services,
+      matchPrefix: AppRoutes.services,
+    ),
+    section: MobileMenuSection.management,
+    isVisible: canManageServices,
+  ),
   const MobileMenuItem(
     labelKey: MobileMenuLabelKey.suppliers,
     icon: Icons.local_shipping_outlined,

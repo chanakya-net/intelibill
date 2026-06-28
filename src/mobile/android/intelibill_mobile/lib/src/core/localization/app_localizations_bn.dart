@@ -93,6 +93,9 @@ class AppLocalizationsBn extends AppLocalizations {
   String get shellManageCustomers => 'গ্রাহকরা';
 
   @override
+  String get shellManageCreditNotes => 'Credit Notes';
+
+  @override
   String get shellManageSuppliers => 'সরবরাহকারী ব্যবস্থাপনা';
 
   @override
@@ -103,6 +106,9 @@ class AppLocalizationsBn extends AppLocalizations {
 
   @override
   String get shellManageUsers => 'ব্যবহারকারী ব্যবস্থাপনা';
+
+  @override
+  String get shellManageServices => 'Services';
 
   @override
   String get shellAddShop => 'দোকান যোগ করুন';
@@ -222,6 +228,148 @@ class AppLocalizationsBn extends AppLocalizations {
   @override
   String get customersErrorGeneric =>
       'Unable to load customers. Please try again.';
+
+  @override
+  String get servicesTitle => 'Services';
+
+  @override
+  String get servicesFilterAll => 'All';
+
+  @override
+  String get servicesFilterActive => 'Active';
+
+  @override
+  String get servicesFilterInactive => 'Inactive';
+
+  @override
+  String get servicesNoServicesFound => 'No services found';
+
+  @override
+  String get servicesUnableToLoad => 'Unable to load services';
+
+  @override
+  String get servicesRetry => 'Retry';
+
+  @override
+  String get servicesActive => 'Active';
+
+  @override
+  String get servicesInactive => 'Inactive';
+
+  @override
+  String get servicesErrorNetwork =>
+      'Unable to connect. Please check your network.';
+
+  @override
+  String get servicesErrorTimeout => 'Request timed out. Please try again.';
+
+  @override
+  String get servicesErrorUnauthorized =>
+      'Session expired. Please log in again.';
+
+  @override
+  String get servicesErrorForbidden =>
+      'You do not have permission to view services.';
+
+  @override
+  String get servicesErrorGeneric =>
+      'Unable to load services. Please try again.';
+
+  @override
+  String get servicesAddService => 'Add Service';
+
+  @override
+  String get servicesEditService => 'Edit Service';
+
+  @override
+  String get servicesNameLabel => 'Name';
+
+  @override
+  String get servicesNameRequired => 'Service name is required.';
+
+  @override
+  String get servicesNameMax => 'Name must be 180 characters or fewer.';
+
+  @override
+  String get servicesDescriptionLabel => 'Description';
+
+  @override
+  String get servicesDescriptionMax =>
+      'Description must be 1000 characters or fewer.';
+
+  @override
+  String get servicesPriceLabel => 'Price';
+
+  @override
+  String get servicesPriceRequired => 'Price is required.';
+
+  @override
+  String get servicesPriceInvalid => 'Enter a valid price greater than 0.';
+
+  @override
+  String get servicesHsnCodeLabel => 'HSN Code';
+
+  @override
+  String get servicesHsnCodeInvalid => 'HSN code must be 4 to 8 digits.';
+
+  @override
+  String get servicesTaxRateLabel => 'Tax Rate (%)';
+
+  @override
+  String get servicesTaxRateRequired => 'Tax rate is required.';
+
+  @override
+  String get servicesTaxRateInvalid => 'Tax rate must be between 0 and 100.';
+
+  @override
+  String get servicesTaxIncludedLabel => 'Tax included';
+
+  @override
+  String get servicesActiveOnCreateLabel => 'Active on create';
+
+  @override
+  String get servicesTaxIncluded => 'Tax included';
+
+  @override
+  String get servicesTaxExcluded => 'Tax excluded';
+
+  @override
+  String get servicesActivate => 'Activate';
+
+  @override
+  String get servicesDeactivate => 'Deactivate';
+
+  @override
+  String get servicesCreateSuccess => 'Service created successfully.';
+
+  @override
+  String get servicesUpdateSuccess => 'Service updated successfully.';
+
+  @override
+  String get servicesActivatedSuccess => 'Service activated successfully.';
+
+  @override
+  String get servicesDeactivatedSuccess => 'Service deactivated successfully.';
+
+  @override
+  String get servicesMutationErrorNetwork =>
+      'Unable to connect. Please check your network.';
+
+  @override
+  String get servicesMutationErrorTimeout =>
+      'Request timed out. Please try again.';
+
+  @override
+  String get servicesMutationErrorUnauthorized =>
+      'Session expired. Please log in again.';
+
+  @override
+  String get servicesMutationErrorForbidden =>
+      'You do not have permission to manage services.';
+
+  @override
+  String get servicesMutationErrorGeneric =>
+      'Unable to save service. Please try again.';
 
   @override
   String get usersTitle => 'Shop Users';
@@ -1513,6 +1661,9 @@ class AppLocalizationsBn extends AppLocalizations {
   String get salesHistoryUnableToLoad => 'Unable to load sales history';
 
   @override
+  String get salesDetailUnableToLoad => 'Unable to load sale details';
+
+  @override
   String get salesHistoryRetry => 'Retry';
 
   @override
@@ -1528,7 +1679,106 @@ class AppLocalizationsBn extends AppLocalizations {
   String get salesHistoryDate => 'Date';
 
   @override
+  String get salesDetailLineItems => 'Line items';
+
+  @override
+  String get salesDetailTotals => 'Totals';
+
+  @override
+  String get salesDetailDiscounts => 'Discounts';
+
+  @override
+  String get salesDetailPaymentSplit => 'Payment split';
+
+  @override
+  String get salesDetailReturns => 'Returns';
+
+  @override
+  String get salesDetailRedemptions => 'Redemptions';
+
+  @override
+  String get salesDetailWarnings => 'Warnings';
+
+  @override
   String get salesHistoryPaymentMethod => 'Payment';
+
+  @override
+  String get salesDetailNoLineItems => 'No line items';
+
+  @override
+  String get salesDetailNoDiscounts => 'No discounts';
+
+  @override
+  String get salesDetailNoSettlementRecords => 'No settlement records';
+
+  @override
+  String get salesDetailNoReturns => 'No returns';
+
+  @override
+  String get salesDetailNoRedemptions => 'No redemptions';
+
+  @override
+  String get salesDetailNoWarnings => 'No warnings';
+
+  @override
+  String get salesDetailReceipt => 'Receipt';
+
+  @override
+  String get salesReceiptCreditNoteApplied => 'Credit note applied';
+
+  @override
+  String get salesDetailBeforeDiscount => 'Before discount';
+
+  @override
+  String get salesDetailDiscountLabel => 'Discount';
+
+  @override
+  String get salesDetailTaxLabel => 'Tax';
+
+  @override
+  String get salesDetailPaidLabel => 'Paid';
+
+  @override
+  String get salesDetailDueReduction => 'Due reduction';
+
+  @override
+  String get salesDetailVoidReturnAction => 'Void return';
+
+  @override
+  String get salesDetailVoidReturnReason => 'Reason';
+
+  @override
+  String get salesDetailVoidReturnReasonRequired => 'Reason is required.';
+
+  @override
+  String get salesDetailVoidReturnFailed => 'Unable to void return.';
+
+  @override
+  String get salesDetailVoidReturnUnauthorized =>
+      'Session expired. Please log in again.';
+
+  @override
+  String get salesDetailVoidReturnForbidden =>
+      'You do not have permission to void returns.';
+
+  @override
+  String get salesDetailVoidReturnNetwork =>
+      'Unable to connect. Please check your network.';
+
+  @override
+  String get salesDetailVoidReturnTimeout =>
+      'Request timed out. Please try again.';
+
+  @override
+  String get salesDetailVoidReturnDate => 'Voided on';
+
+  @override
+  String get salesDetailReturnVoided => 'Voided';
+
+  @override
+  String salesDetailReturnItem(double quantity, String itemName) {
+    return '$quantity returned of $itemName';
+  }
 
   @override
   String get salesHistoryItemCountLabel => 'Items';
@@ -1578,6 +1828,307 @@ class AppLocalizationsBn extends AppLocalizations {
   String salesHistoryShowingCount(int shown, int total) {
     return 'Showing $shown of $total';
   }
+
+  @override
+  String get discountsTitle => 'Discount rules';
+
+  @override
+  String get discountsSubtitle =>
+      'Manage active promotion rules for products and sales.';
+
+  @override
+  String get discountsSearchPlaceholder => 'Search rule name...';
+
+  @override
+  String get discountsClearSearch => 'Clear search';
+
+  @override
+  String get discountsStatusAll => 'All';
+
+  @override
+  String get discountsStatusActive => 'Active';
+
+  @override
+  String get discountsStatusUpcoming => 'Upcoming';
+
+  @override
+  String get discountsStatusExpired => 'Expired';
+
+  @override
+  String get discountsStatusDisabled => 'Disabled';
+
+  @override
+  String get discountsTypeAll => 'All types';
+
+  @override
+  String get discountsTypeBatch => 'Batch percentage';
+
+  @override
+  String get discountsTypeSalePercent => 'Sales percentage';
+
+  @override
+  String get discountsTypeSaleThresholdPercent => 'Sales threshold percentage';
+
+  @override
+  String get discountsSortLabel => 'Sort';
+
+  @override
+  String get discountsSortCreatedDesc => 'Created (new first)';
+
+  @override
+  String get discountsSortCreatedAsc => 'Created (old first)';
+
+  @override
+  String get discountsSortNameAsc => 'Name (A-Z)';
+
+  @override
+  String get discountsSortNameDesc => 'Name (Z-A)';
+
+  @override
+  String get discountsSortStartsAtAsc => 'Starts at (soonest)';
+
+  @override
+  String get discountsSortStartsAtDesc => 'Starts at (latest)';
+
+  @override
+  String get discountsSortStatus => 'Status';
+
+  @override
+  String get discountsNoRules => 'No discount rules found';
+
+  @override
+  String get discountsUnableToLoad => 'Unable to load discount rules';
+
+  @override
+  String get discountsRetry => 'Retry';
+
+  @override
+  String discountsShowingCount(int shown, int total) {
+    return 'Showing $shown of $total';
+  }
+
+  @override
+  String get discountsRuleTypeLabel => 'Type:';
+
+  @override
+  String get discountsPercentageLabel => 'Discount:';
+
+  @override
+  String get discountsThresholdLabel => 'Threshold:';
+
+  @override
+  String get discountsStatusLabel => 'Status:';
+
+  @override
+  String get discountsInventoryBatchIdLabel => 'Inventory batch:';
+
+  @override
+  String get discountsNotSet => 'Not set';
+
+  @override
+  String get discountsErrorNetwork =>
+      'Unable to connect. Please check your network.';
+
+  @override
+  String get discountsErrorTimeout => 'Request timed out. Please try again.';
+
+  @override
+  String get discountsErrorUnauthorized =>
+      'Session expired. Please log in again.';
+
+  @override
+  String get discountsErrorForbidden =>
+      'You do not have permission to view discounts.';
+
+  @override
+  String get discountsErrorGeneric =>
+      'Unable to load discount rules. Please try again.';
+
+  @override
+  String get discountsUnableToLoadDetail => 'Unable to load discount details';
+
+  @override
+  String get discountsDetailTitle => 'Discount rule details';
+
+  @override
+  String get discountsDetailRuleLabel => 'Rule';
+
+  @override
+  String get discountsDescriptionLabel => 'Description:';
+
+  @override
+  String get discountsBelowCostReasonLabel => 'Below-cost confirmation:';
+
+  @override
+  String get discountsStartsAtLabel => 'Starts at:';
+
+  @override
+  String get discountsEndsAtLabel => 'Ends at:';
+
+  @override
+  String get discountsCreatedAtLabel => 'Created at:';
+
+  @override
+  String get discountsUpdatedAtLabel => 'Updated at:';
+
+  @override
+  String get discountsDisabledAtLabel => 'Disabled at:';
+
+  @override
+  String get discountsDisabledReasonLabel => 'Disable reason:';
+
+  @override
+  String get discountsReplacesRuleLabel => 'Replaces rule:';
+
+  @override
+  String get discountsReplacedByRuleLabel => 'Replaced by:';
+
+  @override
+  String get creditNotesVerifyCode => 'Verify code';
+
+  @override
+  String get creditNotesFilterAll => 'All';
+
+  @override
+  String get creditNotesLoadMore => 'Load more';
+
+  @override
+  String get creditNotesEmpty => 'No credit notes found';
+
+  @override
+  String get creditNotesNoExpiry => 'No expiry';
+
+  @override
+  String get creditNotesClose => 'Close';
+
+  @override
+  String get creditNotesVoidReason => 'Reason';
+
+  @override
+  String get creditNotesOpenReceipt => 'Open receipt';
+
+  @override
+  String get creditNotesReceiptTitle => 'Credit note receipt';
+
+  @override
+  String get creditNotesStatusLabel => 'Status:';
+
+  @override
+  String get creditNotesReceiptCodeLabel => 'Code:';
+
+  @override
+  String get creditNotesReceiptIssueDateLabel => 'Issued at:';
+
+  @override
+  String get creditNotesReceiptExpiryDateLabel => 'Expires at:';
+
+  @override
+  String get creditNotesReceiptCustomerLabel => 'Customer:';
+
+  @override
+  String get creditNotesReceiptReasonLabel => 'Reason:';
+
+  @override
+  String get creditNotesReceiptVoidReasonLabel => 'Void reason:';
+
+  @override
+  String get creditNotesReceiptStatusActive => 'Active';
+
+  @override
+  String get creditNotesReceiptStatusExpired => 'Expired';
+
+  @override
+  String get creditNotesReceiptStatusVoided => 'Voided';
+
+  @override
+  String get creditNotesOriginalAmountLabel => 'Original amount:';
+
+  @override
+  String get creditNotesVoid => 'Void';
+
+  @override
+  String get creditNotesInvoiceLabel => 'Invoice:';
+
+  @override
+  String get creditNotesReturnLabel => 'Return:';
+
+  @override
+  String get creditNotesBalanceLabel => 'Balance:';
+
+  @override
+  String get creditNotesRetry => 'Retry';
+
+  @override
+  String get salesReturnTitle => 'Record Return';
+
+  @override
+  String get salesReturnNoReturnableLines => 'No returnable lines';
+
+  @override
+  String get salesReturnPreview => 'Preview';
+
+  @override
+  String get salesReturnSubmit => 'Submit';
+
+  @override
+  String get salesReturnSubmitRoleNotice =>
+      'Only owner or manager can record this return.';
+
+  @override
+  String get salesReturnDestinationRefund => 'Refund payout';
+
+  @override
+  String get salesReturnDestinationCreditNote => 'Credit note';
+
+  @override
+  String get salesReturnCreditNoteReasonLabel => 'Credit note reason';
+
+  @override
+  String get salesReturnCreditNoteExpiryLabel =>
+      'Credit note expiry (YYYY-MM-DD)';
+
+  @override
+  String get salesReturnDueOverrideLabel => 'Due reduction override';
+
+  @override
+  String get salesReturnDueOverrideReasonLabel => 'Due reduction reason';
+
+  @override
+  String get salesReturnApprovedRefundLabel => 'Approved refund';
+
+  @override
+  String get salesReturnLineQuantityLabel => 'Return quantity';
+
+  @override
+  String get salesReturnLineConditionLabel => 'Condition';
+
+  @override
+  String get salesReturnLineConditionRestockable => 'Restockable';
+
+  @override
+  String get salesReturnLineConditionWastage => 'Wastage';
+
+  @override
+  String get salesReturnLineNoteLabel => 'Line note';
+
+  @override
+  String get salesReturnNotesLabel => 'Notes';
+
+  @override
+  String get salesReturnPayoutDestinationLabel => 'Payout destination';
+
+  @override
+  String get salesReturnPreviewRefundLabel => 'Refund';
+
+  @override
+  String get salesReturnPreviewDueReductionLabel => 'Due reduction';
+
+  @override
+  String get salesReturnPreviewPayoutLabel => 'Payout';
+
+  @override
+  String get salesReturnDueOverrideConfirmLabel =>
+      'Confirm due reduction override';
 }
 
 /// The translations for Bengali Bangla, as used in India (`bn_IN`).
@@ -2585,4 +3136,79 @@ class AppLocalizationsBnIn extends AppLocalizationsBn {
   String salesHistoryShowingCount(int shown, int total) {
     return 'Showing $shown of $total';
   }
+
+  @override
+  String get creditNotesVerifyCode => 'Verify code';
+
+  @override
+  String get creditNotesFilterAll => 'All';
+
+  @override
+  String get creditNotesLoadMore => 'Load more';
+
+  @override
+  String get creditNotesEmpty => 'No credit notes found';
+
+  @override
+  String get creditNotesNoExpiry => 'No expiry';
+
+  @override
+  String get creditNotesClose => 'Close';
+
+  @override
+  String get creditNotesVoidReason => 'Reason';
+
+  @override
+  String get creditNotesOpenReceipt => 'Open receipt';
+
+  @override
+  String get creditNotesReceiptTitle => 'Credit note receipt';
+
+  @override
+  String get creditNotesStatusLabel => 'Status:';
+
+  @override
+  String get creditNotesReceiptCodeLabel => 'Code:';
+
+  @override
+  String get creditNotesReceiptIssueDateLabel => 'Issued at:';
+
+  @override
+  String get creditNotesReceiptExpiryDateLabel => 'Expires at:';
+
+  @override
+  String get creditNotesReceiptCustomerLabel => 'Customer:';
+
+  @override
+  String get creditNotesReceiptReasonLabel => 'Reason:';
+
+  @override
+  String get creditNotesReceiptVoidReasonLabel => 'Void reason:';
+
+  @override
+  String get creditNotesReceiptStatusActive => 'Active';
+
+  @override
+  String get creditNotesReceiptStatusExpired => 'Expired';
+
+  @override
+  String get creditNotesReceiptStatusVoided => 'Voided';
+
+  @override
+  String get creditNotesOriginalAmountLabel => 'Original amount:';
+
+  @override
+  String get creditNotesVoid => 'Void';
+
+  @override
+  String get creditNotesInvoiceLabel => 'Invoice:';
+
+  @override
+  String get creditNotesReturnLabel => 'Return:';
+
+  @override
+  String get creditNotesBalanceLabel => 'Balance:';
+
+  @override
+  String get creditNotesRetry => 'Retry';
 }

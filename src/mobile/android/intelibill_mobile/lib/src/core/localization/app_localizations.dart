@@ -289,6 +289,12 @@ abstract class AppLocalizations {
   /// **'Customers'**
   String get shellManageCustomers;
 
+  /// No description provided for @shellManageCreditNotes.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Credit Notes'**
+  String get shellManageCreditNotes;
+
   /// No description provided for @shellManageSuppliers.
   ///
   /// In en_IN, this message translates to:
@@ -312,6 +318,12 @@ abstract class AppLocalizations {
   /// In en_IN, this message translates to:
   /// **'Manage Users'**
   String get shellManageUsers;
+
+  /// No description provided for @shellManageServices.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Services'**
+  String get shellManageServices;
 
   /// No description provided for @shellAddShop.
   ///
@@ -540,6 +552,270 @@ abstract class AppLocalizations {
   /// In en_IN, this message translates to:
   /// **'Unable to load customers. Please try again.'**
   String get customersErrorGeneric;
+
+  /// No description provided for @servicesTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Services'**
+  String get servicesTitle;
+
+  /// No description provided for @servicesFilterAll.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'All'**
+  String get servicesFilterAll;
+
+  /// No description provided for @servicesFilterActive.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Active'**
+  String get servicesFilterActive;
+
+  /// No description provided for @servicesFilterInactive.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Inactive'**
+  String get servicesFilterInactive;
+
+  /// No description provided for @servicesNoServicesFound.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No services found'**
+  String get servicesNoServicesFound;
+
+  /// No description provided for @servicesUnableToLoad.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to load services'**
+  String get servicesUnableToLoad;
+
+  /// No description provided for @servicesRetry.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Retry'**
+  String get servicesRetry;
+
+  /// No description provided for @servicesActive.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Active'**
+  String get servicesActive;
+
+  /// No description provided for @servicesInactive.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Inactive'**
+  String get servicesInactive;
+
+  /// No description provided for @servicesErrorNetwork.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to connect. Please check your network.'**
+  String get servicesErrorNetwork;
+
+  /// No description provided for @servicesErrorTimeout.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Request timed out. Please try again.'**
+  String get servicesErrorTimeout;
+
+  /// No description provided for @servicesErrorUnauthorized.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Session expired. Please log in again.'**
+  String get servicesErrorUnauthorized;
+
+  /// No description provided for @servicesErrorForbidden.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'You do not have permission to view services.'**
+  String get servicesErrorForbidden;
+
+  /// No description provided for @servicesErrorGeneric.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to load services. Please try again.'**
+  String get servicesErrorGeneric;
+
+  /// No description provided for @servicesAddService.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Add Service'**
+  String get servicesAddService;
+
+  /// No description provided for @servicesEditService.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Edit Service'**
+  String get servicesEditService;
+
+  /// No description provided for @servicesNameLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Name'**
+  String get servicesNameLabel;
+
+  /// No description provided for @servicesNameRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Service name is required.'**
+  String get servicesNameRequired;
+
+  /// No description provided for @servicesNameMax.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Name must be 180 characters or fewer.'**
+  String get servicesNameMax;
+
+  /// No description provided for @servicesDescriptionLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Description'**
+  String get servicesDescriptionLabel;
+
+  /// No description provided for @servicesDescriptionMax.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Description must be 1000 characters or fewer.'**
+  String get servicesDescriptionMax;
+
+  /// No description provided for @servicesPriceLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Price'**
+  String get servicesPriceLabel;
+
+  /// No description provided for @servicesPriceRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Price is required.'**
+  String get servicesPriceRequired;
+
+  /// No description provided for @servicesPriceInvalid.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Enter a valid price greater than 0.'**
+  String get servicesPriceInvalid;
+
+  /// No description provided for @servicesHsnCodeLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'HSN Code'**
+  String get servicesHsnCodeLabel;
+
+  /// No description provided for @servicesHsnCodeInvalid.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'HSN code must be 4 to 8 digits.'**
+  String get servicesHsnCodeInvalid;
+
+  /// No description provided for @servicesTaxRateLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Tax Rate (%)'**
+  String get servicesTaxRateLabel;
+
+  /// No description provided for @servicesTaxRateRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Tax rate is required.'**
+  String get servicesTaxRateRequired;
+
+  /// No description provided for @servicesTaxRateInvalid.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Tax rate must be between 0 and 100.'**
+  String get servicesTaxRateInvalid;
+
+  /// No description provided for @servicesTaxIncludedLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Tax included'**
+  String get servicesTaxIncludedLabel;
+
+  /// No description provided for @servicesActiveOnCreateLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Active on create'**
+  String get servicesActiveOnCreateLabel;
+
+  /// No description provided for @servicesTaxIncluded.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Tax included'**
+  String get servicesTaxIncluded;
+
+  /// No description provided for @servicesTaxExcluded.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Tax excluded'**
+  String get servicesTaxExcluded;
+
+  /// No description provided for @servicesActivate.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Activate'**
+  String get servicesActivate;
+
+  /// No description provided for @servicesDeactivate.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Deactivate'**
+  String get servicesDeactivate;
+
+  /// No description provided for @servicesCreateSuccess.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Service created successfully.'**
+  String get servicesCreateSuccess;
+
+  /// No description provided for @servicesUpdateSuccess.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Service updated successfully.'**
+  String get servicesUpdateSuccess;
+
+  /// No description provided for @servicesActivatedSuccess.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Service activated successfully.'**
+  String get servicesActivatedSuccess;
+
+  /// No description provided for @servicesDeactivatedSuccess.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Service deactivated successfully.'**
+  String get servicesDeactivatedSuccess;
+
+  /// No description provided for @servicesMutationErrorNetwork.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to connect. Please check your network.'**
+  String get servicesMutationErrorNetwork;
+
+  /// No description provided for @servicesMutationErrorTimeout.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Request timed out. Please try again.'**
+  String get servicesMutationErrorTimeout;
+
+  /// No description provided for @servicesMutationErrorUnauthorized.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Session expired. Please log in again.'**
+  String get servicesMutationErrorUnauthorized;
+
+  /// No description provided for @servicesMutationErrorForbidden.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'You do not have permission to manage services.'**
+  String get servicesMutationErrorForbidden;
+
+  /// No description provided for @servicesMutationErrorGeneric.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to save service. Please try again.'**
+  String get servicesMutationErrorGeneric;
 
   /// No description provided for @usersTitle.
   ///
@@ -2935,6 +3211,12 @@ abstract class AppLocalizations {
   /// **'Unable to load sales history'**
   String get salesHistoryUnableToLoad;
 
+  /// No description provided for @salesDetailUnableToLoad.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to load sale details'**
+  String get salesDetailUnableToLoad;
+
   /// No description provided for @salesHistoryRetry.
   ///
   /// In en_IN, this message translates to:
@@ -2965,11 +3247,197 @@ abstract class AppLocalizations {
   /// **'Date'**
   String get salesHistoryDate;
 
+  /// No description provided for @salesDetailLineItems.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Line items'**
+  String get salesDetailLineItems;
+
+  /// No description provided for @salesDetailTotals.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Totals'**
+  String get salesDetailTotals;
+
+  /// No description provided for @salesDetailDiscounts.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Discounts'**
+  String get salesDetailDiscounts;
+
+  /// No description provided for @salesDetailPaymentSplit.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Payment split'**
+  String get salesDetailPaymentSplit;
+
+  /// No description provided for @salesDetailReturns.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Returns'**
+  String get salesDetailReturns;
+
+  /// No description provided for @salesDetailRedemptions.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Redemptions'**
+  String get salesDetailRedemptions;
+
+  /// No description provided for @salesDetailWarnings.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Warnings'**
+  String get salesDetailWarnings;
+
   /// No description provided for @salesHistoryPaymentMethod.
   ///
   /// In en_IN, this message translates to:
   /// **'Payment'**
   String get salesHistoryPaymentMethod;
+
+  /// No description provided for @salesDetailNoLineItems.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No line items'**
+  String get salesDetailNoLineItems;
+
+  /// No description provided for @salesDetailNoDiscounts.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No discounts'**
+  String get salesDetailNoDiscounts;
+
+  /// No description provided for @salesDetailNoSettlementRecords.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No settlement records'**
+  String get salesDetailNoSettlementRecords;
+
+  /// No description provided for @salesDetailNoReturns.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No returns'**
+  String get salesDetailNoReturns;
+
+  /// No description provided for @salesDetailNoRedemptions.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No redemptions'**
+  String get salesDetailNoRedemptions;
+
+  /// No description provided for @salesDetailNoWarnings.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No warnings'**
+  String get salesDetailNoWarnings;
+
+  /// No description provided for @salesDetailReceipt.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Receipt'**
+  String get salesDetailReceipt;
+
+  /// No description provided for @salesReceiptCreditNoteApplied.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Credit note applied'**
+  String get salesReceiptCreditNoteApplied;
+
+  /// No description provided for @salesDetailBeforeDiscount.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Before discount'**
+  String get salesDetailBeforeDiscount;
+
+  /// No description provided for @salesDetailDiscountLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Discount'**
+  String get salesDetailDiscountLabel;
+
+  /// No description provided for @salesDetailTaxLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Tax'**
+  String get salesDetailTaxLabel;
+
+  /// No description provided for @salesDetailPaidLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Paid'**
+  String get salesDetailPaidLabel;
+
+  /// No description provided for @salesDetailDueReduction.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Due reduction'**
+  String get salesDetailDueReduction;
+
+  /// No description provided for @salesDetailVoidReturnAction.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Void return'**
+  String get salesDetailVoidReturnAction;
+
+  /// No description provided for @salesDetailVoidReturnReason.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Reason'**
+  String get salesDetailVoidReturnReason;
+
+  /// No description provided for @salesDetailVoidReturnReasonRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Reason is required.'**
+  String get salesDetailVoidReturnReasonRequired;
+
+  /// No description provided for @salesDetailVoidReturnFailed.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to void return.'**
+  String get salesDetailVoidReturnFailed;
+
+  /// No description provided for @salesDetailVoidReturnUnauthorized.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Session expired. Please log in again.'**
+  String get salesDetailVoidReturnUnauthorized;
+
+  /// No description provided for @salesDetailVoidReturnForbidden.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'You do not have permission to void returns.'**
+  String get salesDetailVoidReturnForbidden;
+
+  /// No description provided for @salesDetailVoidReturnNetwork.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to connect. Please check your network.'**
+  String get salesDetailVoidReturnNetwork;
+
+  /// No description provided for @salesDetailVoidReturnTimeout.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Request timed out. Please try again.'**
+  String get salesDetailVoidReturnTimeout;
+
+  /// No description provided for @salesDetailVoidReturnDate.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Voided on'**
+  String get salesDetailVoidReturnDate;
+
+  /// No description provided for @salesDetailReturnVoided.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Voided'**
+  String get salesDetailReturnVoided;
+
+  /// No description provided for @salesDetailReturnItem.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'{quantity} returned of {itemName}'**
+  String salesDetailReturnItem(double quantity, String itemName);
 
   /// No description provided for @salesHistoryItemCountLabel.
   ///
@@ -3048,6 +3516,588 @@ abstract class AppLocalizations {
   /// In en_IN, this message translates to:
   /// **'Showing {shown} of {total}'**
   String salesHistoryShowingCount(int shown, int total);
+
+  /// No description provided for @discountsTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Discount rules'**
+  String get discountsTitle;
+
+  /// No description provided for @discountsSubtitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Manage active promotion rules for products and sales.'**
+  String get discountsSubtitle;
+
+  /// No description provided for @discountsSearchPlaceholder.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Search rule name...'**
+  String get discountsSearchPlaceholder;
+
+  /// No description provided for @discountsClearSearch.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Clear search'**
+  String get discountsClearSearch;
+
+  /// No description provided for @discountsStatusAll.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'All'**
+  String get discountsStatusAll;
+
+  /// No description provided for @discountsStatusActive.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Active'**
+  String get discountsStatusActive;
+
+  /// No description provided for @discountsStatusUpcoming.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Upcoming'**
+  String get discountsStatusUpcoming;
+
+  /// No description provided for @discountsStatusExpired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Expired'**
+  String get discountsStatusExpired;
+
+  /// No description provided for @discountsStatusDisabled.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Disabled'**
+  String get discountsStatusDisabled;
+
+  /// No description provided for @discountsTypeAll.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'All types'**
+  String get discountsTypeAll;
+
+  /// No description provided for @discountsTypeBatch.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Batch percentage'**
+  String get discountsTypeBatch;
+
+  /// No description provided for @discountsTypeSalePercent.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Sales percentage'**
+  String get discountsTypeSalePercent;
+
+  /// No description provided for @discountsTypeSaleThresholdPercent.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Sales threshold percentage'**
+  String get discountsTypeSaleThresholdPercent;
+
+  /// No description provided for @discountsSortLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Sort'**
+  String get discountsSortLabel;
+
+  /// No description provided for @discountsSortCreatedDesc.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Created (new first)'**
+  String get discountsSortCreatedDesc;
+
+  /// No description provided for @discountsSortCreatedAsc.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Created (old first)'**
+  String get discountsSortCreatedAsc;
+
+  /// No description provided for @discountsSortNameAsc.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Name (A-Z)'**
+  String get discountsSortNameAsc;
+
+  /// No description provided for @discountsSortNameDesc.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Name (Z-A)'**
+  String get discountsSortNameDesc;
+
+  /// No description provided for @discountsSortStartsAtAsc.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Starts at (soonest)'**
+  String get discountsSortStartsAtAsc;
+
+  /// No description provided for @discountsSortStartsAtDesc.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Starts at (latest)'**
+  String get discountsSortStartsAtDesc;
+
+  /// No description provided for @discountsSortStatus.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Status'**
+  String get discountsSortStatus;
+
+  /// No description provided for @discountsNoRules.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No discount rules found'**
+  String get discountsNoRules;
+
+  /// No description provided for @discountsUnableToLoad.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to load discount rules'**
+  String get discountsUnableToLoad;
+
+  /// No description provided for @discountsRetry.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Retry'**
+  String get discountsRetry;
+
+  /// No description provided for @discountsShowingCount.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Showing {shown} of {total}'**
+  String discountsShowingCount(int shown, int total);
+
+  /// No description provided for @discountsRuleTypeLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Type:'**
+  String get discountsRuleTypeLabel;
+
+  /// No description provided for @discountsPercentageLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Discount:'**
+  String get discountsPercentageLabel;
+
+  /// No description provided for @discountsThresholdLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Threshold:'**
+  String get discountsThresholdLabel;
+
+  /// No description provided for @discountsStatusLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Status:'**
+  String get discountsStatusLabel;
+
+  /// No description provided for @discountsInventoryBatchIdLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Inventory batch:'**
+  String get discountsInventoryBatchIdLabel;
+
+  /// No description provided for @discountsNotSet.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Not set'**
+  String get discountsNotSet;
+
+  /// No description provided for @discountsErrorNetwork.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to connect. Please check your network.'**
+  String get discountsErrorNetwork;
+
+  /// No description provided for @discountsErrorTimeout.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Request timed out. Please try again.'**
+  String get discountsErrorTimeout;
+
+  /// No description provided for @discountsErrorUnauthorized.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Session expired. Please log in again.'**
+  String get discountsErrorUnauthorized;
+
+  /// No description provided for @discountsErrorForbidden.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'You do not have permission to view discounts.'**
+  String get discountsErrorForbidden;
+
+  /// No description provided for @discountsErrorGeneric.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to load discount rules. Please try again.'**
+  String get discountsErrorGeneric;
+
+  /// No description provided for @discountsUnableToLoadDetail.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to load discount details'**
+  String get discountsUnableToLoadDetail;
+
+  /// No description provided for @discountsDetailTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Discount rule details'**
+  String get discountsDetailTitle;
+
+  /// No description provided for @discountsDetailRuleLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Rule'**
+  String get discountsDetailRuleLabel;
+
+  /// No description provided for @discountsDescriptionLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Description:'**
+  String get discountsDescriptionLabel;
+
+  /// No description provided for @discountsBelowCostReasonLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Below-cost confirmation:'**
+  String get discountsBelowCostReasonLabel;
+
+  /// No description provided for @discountsStartsAtLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Starts at:'**
+  String get discountsStartsAtLabel;
+
+  /// No description provided for @discountsEndsAtLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Ends at:'**
+  String get discountsEndsAtLabel;
+
+  /// No description provided for @discountsCreatedAtLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Created at:'**
+  String get discountsCreatedAtLabel;
+
+  /// No description provided for @discountsUpdatedAtLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Updated at:'**
+  String get discountsUpdatedAtLabel;
+
+  /// No description provided for @discountsDisabledAtLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Disabled at:'**
+  String get discountsDisabledAtLabel;
+
+  /// No description provided for @discountsDisabledReasonLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Disable reason:'**
+  String get discountsDisabledReasonLabel;
+
+  /// No description provided for @discountsReplacesRuleLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Replaces rule:'**
+  String get discountsReplacesRuleLabel;
+
+  /// No description provided for @discountsReplacedByRuleLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Replaced by:'**
+  String get discountsReplacedByRuleLabel;
+
+  /// No description provided for @creditNotesVerifyCode.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Verify code'**
+  String get creditNotesVerifyCode;
+
+  /// No description provided for @creditNotesFilterAll.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'All'**
+  String get creditNotesFilterAll;
+
+  /// No description provided for @creditNotesLoadMore.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Load more'**
+  String get creditNotesLoadMore;
+
+  /// No description provided for @creditNotesEmpty.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No credit notes found'**
+  String get creditNotesEmpty;
+
+  /// No description provided for @creditNotesNoExpiry.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No expiry'**
+  String get creditNotesNoExpiry;
+
+  /// No description provided for @creditNotesClose.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Close'**
+  String get creditNotesClose;
+
+  /// No description provided for @creditNotesVoidReason.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Reason'**
+  String get creditNotesVoidReason;
+
+  /// No description provided for @creditNotesOpenReceipt.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Open receipt'**
+  String get creditNotesOpenReceipt;
+
+  /// No description provided for @creditNotesReceiptTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Credit note receipt'**
+  String get creditNotesReceiptTitle;
+
+  /// No description provided for @creditNotesStatusLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Status:'**
+  String get creditNotesStatusLabel;
+
+  /// No description provided for @creditNotesReceiptCodeLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Code:'**
+  String get creditNotesReceiptCodeLabel;
+
+  /// No description provided for @creditNotesReceiptIssueDateLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Issued at:'**
+  String get creditNotesReceiptIssueDateLabel;
+
+  /// No description provided for @creditNotesReceiptExpiryDateLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Expires at:'**
+  String get creditNotesReceiptExpiryDateLabel;
+
+  /// No description provided for @creditNotesReceiptCustomerLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Customer:'**
+  String get creditNotesReceiptCustomerLabel;
+
+  /// No description provided for @creditNotesReceiptReasonLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Reason:'**
+  String get creditNotesReceiptReasonLabel;
+
+  /// No description provided for @creditNotesReceiptVoidReasonLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Void reason:'**
+  String get creditNotesReceiptVoidReasonLabel;
+
+  /// No description provided for @creditNotesReceiptStatusActive.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Active'**
+  String get creditNotesReceiptStatusActive;
+
+  /// No description provided for @creditNotesReceiptStatusExpired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Expired'**
+  String get creditNotesReceiptStatusExpired;
+
+  /// No description provided for @creditNotesReceiptStatusVoided.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Voided'**
+  String get creditNotesReceiptStatusVoided;
+
+  /// No description provided for @creditNotesOriginalAmountLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Original amount:'**
+  String get creditNotesOriginalAmountLabel;
+
+  /// No description provided for @creditNotesVoid.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Void'**
+  String get creditNotesVoid;
+
+  /// No description provided for @creditNotesInvoiceLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Invoice:'**
+  String get creditNotesInvoiceLabel;
+
+  /// No description provided for @creditNotesReturnLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Return:'**
+  String get creditNotesReturnLabel;
+
+  /// No description provided for @creditNotesBalanceLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Balance:'**
+  String get creditNotesBalanceLabel;
+
+  /// No description provided for @creditNotesRetry.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Retry'**
+  String get creditNotesRetry;
+
+  /// No description provided for @salesReturnTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Record Return'**
+  String get salesReturnTitle;
+
+  /// No description provided for @salesReturnNoReturnableLines.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No returnable lines'**
+  String get salesReturnNoReturnableLines;
+
+  /// No description provided for @salesReturnPreview.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Preview'**
+  String get salesReturnPreview;
+
+  /// No description provided for @salesReturnSubmit.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Submit'**
+  String get salesReturnSubmit;
+
+  /// No description provided for @salesReturnSubmitRoleNotice.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Only owner or manager can record this return.'**
+  String get salesReturnSubmitRoleNotice;
+
+  /// No description provided for @salesReturnDestinationRefund.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Refund payout'**
+  String get salesReturnDestinationRefund;
+
+  /// No description provided for @salesReturnDestinationCreditNote.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Credit note'**
+  String get salesReturnDestinationCreditNote;
+
+  /// No description provided for @salesReturnCreditNoteReasonLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Credit note reason'**
+  String get salesReturnCreditNoteReasonLabel;
+
+  /// No description provided for @salesReturnCreditNoteExpiryLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Credit note expiry (YYYY-MM-DD)'**
+  String get salesReturnCreditNoteExpiryLabel;
+
+  /// No description provided for @salesReturnDueOverrideLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Due reduction override'**
+  String get salesReturnDueOverrideLabel;
+
+  /// No description provided for @salesReturnDueOverrideReasonLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Due reduction reason'**
+  String get salesReturnDueOverrideReasonLabel;
+
+  /// No description provided for @salesReturnApprovedRefundLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Approved refund'**
+  String get salesReturnApprovedRefundLabel;
+
+  /// No description provided for @salesReturnLineQuantityLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Return quantity'**
+  String get salesReturnLineQuantityLabel;
+
+  /// No description provided for @salesReturnLineConditionLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Condition'**
+  String get salesReturnLineConditionLabel;
+
+  /// No description provided for @salesReturnLineConditionRestockable.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Restockable'**
+  String get salesReturnLineConditionRestockable;
+
+  /// No description provided for @salesReturnLineConditionWastage.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Wastage'**
+  String get salesReturnLineConditionWastage;
+
+  /// No description provided for @salesReturnLineNoteLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Line note'**
+  String get salesReturnLineNoteLabel;
+
+  /// No description provided for @salesReturnNotesLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Notes'**
+  String get salesReturnNotesLabel;
+
+  /// No description provided for @salesReturnPayoutDestinationLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Payout destination'**
+  String get salesReturnPayoutDestinationLabel;
+
+  /// No description provided for @salesReturnPreviewRefundLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Refund'**
+  String get salesReturnPreviewRefundLabel;
+
+  /// No description provided for @salesReturnPreviewDueReductionLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Due reduction'**
+  String get salesReturnPreviewDueReductionLabel;
+
+  /// No description provided for @salesReturnPreviewPayoutLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Payout'**
+  String get salesReturnPreviewPayoutLabel;
+
+  /// No description provided for @salesReturnDueOverrideConfirmLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Confirm due reduction override'**
+  String get salesReturnDueOverrideConfirmLabel;
 }
 
 class _AppLocalizationsDelegate

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
 import 'package:intelibill_mobile/src/app/navigation/authenticated_home_route.dart';
 import 'package:intelibill_mobile/src/app/pages/language_page.dart';
 import 'package:intelibill_mobile/src/app/pages/placeholder_page.dart';
@@ -13,13 +12,20 @@ import 'package:intelibill_mobile/src/features/auth/presentation/pages/change_pa
 import 'package:intelibill_mobile/src/features/auth/presentation/pages/login_page.dart';
 import 'package:intelibill_mobile/src/features/auth/presentation/pages/profile_settings_page.dart';
 import 'package:intelibill_mobile/src/features/auth/presentation/pages/update_profile_page.dart';
+import 'package:intelibill_mobile/src/features/credit_notes/presentation/pages/credit_note_receipt_page.dart';
+import 'package:intelibill_mobile/src/features/credit_notes/presentation/pages/credit_notes_page.dart';
 import 'package:intelibill_mobile/src/features/customers/presentation/pages/customers_page.dart';
 import 'package:intelibill_mobile/src/features/dashboard/presentation/pages/dashboard_page.dart';
+import 'package:intelibill_mobile/src/features/discounts/presentation/pages/discounts_page.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/add_inventory_page.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/adjustment_history_page.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/inventory_batches_page.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/items_page.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
+import 'package:intelibill_mobile/src/features/sales/presentation/pages/new_sale_page.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/pages/sales_history_page.dart';
+import 'package:intelibill_mobile/src/features/sales/presentation/pages/sales_receipt_page.dart';
+import 'package:intelibill_mobile/src/features/services/presentation/pages/services_page.dart';
 import 'package:intelibill_mobile/src/features/shops/presentation/pages/create_shop_page.dart';
 import 'package:intelibill_mobile/src/features/shops/presentation/pages/manage_shop_page.dart';
 import 'package:intelibill_mobile/src/features/suppliers/presentation/pages/suppliers_page.dart';
@@ -40,9 +46,13 @@ class AppRoutes {
   static const String inventoryAdjustments = '/inventory/adjustments';
   static const String salesNew = '/sales/new';
   static const String salesHistory = '/sales/history';
+  static const String salesReceipt = '/sales/:saleId/receipt';
   static const String profitLoss = '/sales/profit-loss';
   static const String customers = '/customers';
+  static const String creditNotes = '/credit-notes';
   static const String suppliers = '/suppliers';
+  static const String creditNoteReceipt = '/credit-notes/:code/print';
+  static const String services = '/services';
   static const String createShop = '/shops/create';
   static const String manageShop = '/shops/manage';
   static const String expenses = '/expenses';
@@ -51,6 +61,14 @@ class AppRoutes {
   static const String bankAccounts = '/bank-accounts';
   static const String language = '/language';
   static const String placeholders = '/placeholder';
+
+  static String creditNoteReceiptFor(String code) {
+    return '/credit-notes/$code/print';
+  }
+
+  static String salesReceiptFor(String saleId) {
+    return '/sales/$saleId/receipt';
+  }
 }
 
 final goRouterProvider = Provider<GoRouter>((ref) {
@@ -85,6 +103,16 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       if (isAuthenticated &&
           state.matchedLocation == AppRoutes.dashboard &&
           !canViewDashboard(authState.session)) {
+        return AppRoutes.salesHistory;
+      }
+
+      if (_requiresDiscountAccess(state.matchedLocation) &&
+          !canManageDiscounts(authState.session)) {
+        return AppRoutes.salesHistory;
+      }
+
+      if (_requiresServicesAccess(state.matchedLocation) &&
+          !canManageServices(authState.session)) {
         return AppRoutes.salesHistory;
       }
 
@@ -142,14 +170,21 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: AppRoutes.salesNew,
-            builder: (context, state) => _buildPlaceholder(
-              context,
-              title: AppLocalizations.of(context)!.shellNewSale,
-            ),
+            builder: (context, state) => const NewSalePage(),
           ),
           GoRoute(
             path: AppRoutes.salesHistory,
             builder: (context, state) => const SalesHistoryPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.salesReceipt,
+            builder: (context, state) {
+              final saleId = state.pathParameters['saleId'] ?? '';
+              return SalesReceiptPage(
+                saleId: saleId,
+                initialSale: state.extra as SaleDetail?,
+              );
+            },
           ),
           GoRoute(
             path: AppRoutes.profitLoss,
@@ -163,8 +198,23 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const CustomersPage(),
           ),
           GoRoute(
+            path: AppRoutes.creditNotes,
+            builder: (context, state) => const CreditNotesPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.creditNoteReceipt,
+            builder: (context, state) {
+              final code = state.pathParameters['code'] ?? '';
+              return CreditNoteReceiptPage(code: code);
+            },
+          ),
+          GoRoute(
             path: AppRoutes.suppliers,
             builder: (context, state) => const SuppliersPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.services,
+            builder: (context, state) => const ServicesPage(),
           ),
           GoRoute(
             path: AppRoutes.createShop,
@@ -187,10 +237,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: AppRoutes.discounts,
-            builder: (context, state) => _buildPlaceholder(
-              context,
-              title: AppLocalizations.of(context)!.shellManageDiscounts,
-            ),
+            builder: (context, state) => const DiscountsPage(),
           ),
           GoRoute(
             path: AppRoutes.bankAccounts,
@@ -238,6 +285,14 @@ const Set<String> _authRoutes = {
   AppRoutes.forgotPassword,
   AppRoutes.register,
 };
+
+bool _requiresDiscountAccess(String location) {
+  return location == AppRoutes.discounts;
+}
+
+bool _requiresServicesAccess(String location) {
+  return location == AppRoutes.services;
+}
 
 PlaceholderPage _buildPlaceholder(
   BuildContext context, {

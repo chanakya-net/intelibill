@@ -7,3 +7,7 @@ linter:
     always_put_required_named_parameters_first: false
     avoid_types_on_closure_parameters: false
     sort_pub_dependencies: false
+    # Style-only exceptions kept out of the raw analyzer gate for existing
+    # generated/test-heavy mobile surfaces.
+    cascade_invocations: false
+    lines_longer_than_80_chars: false
