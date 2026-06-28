@@ -136,13 +136,12 @@ class DiscountsController extends _$DiscountsController {
 
   @override
   DiscountsState build() {
-    final initialQuery = const DiscountRulesQuery(pageSize: _pageSize);
+    const initialQuery = DiscountRulesQuery();
     ref.onDispose(() => _searchDebounce?.cancel());
     unawaited(Future.microtask(() => _load(query: initialQuery)));
-    return DiscountsState(
+    return const DiscountsState(
       isLoading: true,
       query: initialQuery,
-      pageSize: _pageSize,
     );
   }
 

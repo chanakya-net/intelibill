@@ -380,7 +380,8 @@ void main() {
         expect(sentRequest['saleDiscount'], {'type': 1, 'value': 10});
         expect(sentRequest['creditNoteAppliedAmount'], 15.0);
 
-        final items = sentRequest['items'] as List<dynamic>;
+        final items = (sentRequest['items'] as List<dynamic>)
+            .cast<Map<String, dynamic>>();
         expect(items, hasLength(2));
         expect(items.first['lineType'], 'Goods');
         expect(items.first['itemName'], 'Rice');
@@ -510,34 +511,37 @@ void main() {
       ).called(1);
     });
 
-    test('calls GET /credit-notes/{code} for credit note verification', () async {
-      when(
-        () => mockApiClient.get<Map<String, dynamic>>('/credit-notes/CN-001'),
-      ).thenAnswer(
-        (_) async => Response(
-          data: {
-            'creditNoteId': 'cn-1',
-            'code': 'CN-001',
-            'balance': 100.0,
-            'customerId': 'cust-1',
-            'customerName': 'Alice',
-          },
-          statusCode: 200,
-          requestOptions: RequestOptions(path: '/credit-notes/CN-001'),
-        ),
-      );
+    test(
+      'calls GET /credit-notes/{code} for credit note verification',
+      () async {
+        when(
+          () => mockApiClient.get<Map<String, dynamic>>('/credit-notes/CN-001'),
+        ).thenAnswer(
+          (_) async => Response(
+            data: {
+              'creditNoteId': 'cn-1',
+              'code': 'CN-001',
+              'balance': 100.0,
+              'customerId': 'cust-1',
+              'customerName': 'Alice',
+            },
+            statusCode: 200,
+            requestOptions: RequestOptions(path: '/credit-notes/CN-001'),
+          ),
+        );
 
-      final response = await remoteDataSource.verifyCreditNote('CN-001');
+        final response = await remoteDataSource.verifyCreditNote('CN-001');
 
-      expect(response.creditNoteId, 'cn-1');
-      expect(response.code, 'CN-001');
-      expect(response.balance, 100.0);
-      expect(response.customerId, 'cust-1');
-      expect(response.customerName, 'Alice');
-      verify(
-        () => mockApiClient.get<Map<String, dynamic>>('/credit-notes/CN-001'),
-      ).called(1);
-    });
+        expect(response.creditNoteId, 'cn-1');
+        expect(response.code, 'CN-001');
+        expect(response.balance, 100.0);
+        expect(response.customerId, 'cust-1');
+        expect(response.customerName, 'Alice');
+        verify(
+          () => mockApiClient.get<Map<String, dynamic>>('/credit-notes/CN-001'),
+        ).called(1);
+      },
+    );
 
     test('voids a sale return with reason payload', () async {
       when(
@@ -547,7 +551,6 @@ void main() {
         ),
       ).thenAnswer(
         (_) async => Response<void>(
-          data: null,
           statusCode: 200,
           requestOptions: RequestOptions(path: '/sales/returns/return-1/void'),
         ),

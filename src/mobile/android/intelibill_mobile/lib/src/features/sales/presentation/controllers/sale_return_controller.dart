@@ -6,9 +6,8 @@ import 'package:intelibill_mobile/src/features/auth/domain/entities/auth_session
 import 'package:intelibill_mobile/src/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_return.dart';
-import 'package:intelibill_mobile/src/features/sales/domain/use_cases/preview_sale_return.dart';
-import 'package:intelibill_mobile/src/features/sales/domain/use_cases/record_sale_return.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/controllers/sale_detail_controller.dart';
+import 'package:intelibill_mobile/src/features/sales/presentation/controllers/sales_history_controller.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/controllers/sales_providers.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -139,7 +138,6 @@ class SaleReturnController extends _$SaleReturnController {
     state = state.copyWith(
       detail: state.detail,
       drafts: _buildDrafts(state.detail),
-      preview: null,
       clearDueOverrideReason: true,
       clearDueReductionOverrideAmount: true,
       clearPayoutDestination: true,
@@ -151,7 +149,7 @@ class SaleReturnController extends _$SaleReturnController {
     );
   }
 
-  void toggleLine(String saleItemId, bool selected) {
+  void toggleLine(String saleItemId, {required bool selected}) {
     final draft = _draftFor(saleItemId);
     final item = _itemFor(saleItemId);
     if (draft == null || item == null) return;
@@ -164,7 +162,7 @@ class SaleReturnController extends _$SaleReturnController {
           : null,
       clearApprovedRefundAmount: true,
       clearNotes: true,
-      clearCondition: selected ? (item.lineType == _serviceLineType) : false,
+      clearCondition: selected && (item.lineType == _serviceLineType),
     );
 
     state = state.copyWith(
@@ -188,11 +186,10 @@ class SaleReturnController extends _$SaleReturnController {
         draft.copyWith(
           selected: selected,
           quantity: value,
-          clearCondition: selected
-              ? (item.lineType == _serviceLineType
-                    ? false
-                    : draft.condition == null)
-              : false,
+          clearCondition:
+              selected &&
+              item.lineType != _serviceLineType &&
+              draft.condition == null,
         ),
       ),
       clearFailure: true,
@@ -260,7 +257,7 @@ class SaleReturnController extends _$SaleReturnController {
     );
   }
 
-  void updateDueOverrideConfirmed(bool value) {
+  void updateDueOverrideConfirmed({required bool value}) {
     state = state.copyWith(dueOverrideConfirmed: value, clearFailure: true);
   }
 
@@ -382,12 +379,16 @@ class SaleReturnController extends _$SaleReturnController {
         // Refreshing the sheet content after a successful submission should not block
         // recording the return; stale values can be corrected by re-opening details.
       }
+      try {
+        await ref.read(salesHistoryControllerProvider.notifier).refresh();
+      } on Object {
+        // Keep the recorded return even if the history list cannot be refreshed immediately.
+      }
 
       if (!ref.mounted) return;
 
       state = state.copyWith(
         isSubmitting: false,
-        preview: null,
         drafts: _buildDrafts(state.detail),
         clearDueOverrideReason: true,
         clearDueReductionOverrideAmount: true,
@@ -518,8 +519,6 @@ class SaleReturnController extends _$SaleReturnController {
             condition: item.lineType == _serviceLineType
                 ? null
                 : _conditionRestockable,
-            approvedRefundAmount: null,
-            notes: null,
           ),
         )
         .toList();

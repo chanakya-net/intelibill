@@ -1,5 +1,5 @@
-import 'package:flutter_test/flutter_test.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:intelibill_mobile/src/core/network/api_client.dart';
 import 'package:intelibill_mobile/src/features/credit_notes/data/data_sources/credit_note_remote_data_source.dart';
 import 'package:mocktail/mocktail.dart';
@@ -60,7 +60,6 @@ void main() {
       ),
     ).thenAnswer(
       (_) async => Response<void>(
-        data: null,
         statusCode: 200,
         requestOptions: RequestOptions(path: '/credit-notes/CN-001/void'),
       ),

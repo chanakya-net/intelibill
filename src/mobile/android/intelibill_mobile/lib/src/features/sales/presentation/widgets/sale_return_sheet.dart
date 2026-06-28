@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intelibill_mobile/src/core/formatting/currency_formatter.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
+import 'package:intelibill_mobile/src/core/formatting/currency_formatter.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
-import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_return.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_return.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/controllers/sale_return_controller.dart';
 
 Future<void> showSaleReturnSheet(
@@ -80,7 +80,7 @@ class SaleReturnSheet extends ConsumerWidget {
                 item: itemsById[draft.saleItemId],
                 l10n: l10n,
                 onToggle: (value) =>
-                    notifier.toggleLine(draft.saleItemId, value),
+                    notifier.toggleLine(draft.saleItemId, selected: value),
                 onQuantityChanged: (value) => notifier.updateQuantity(
                   draft.saleItemId,
                   double.tryParse(value) ?? 0,
@@ -235,7 +235,7 @@ class _ReturnLineTile extends StatelessWidget {
               if (isGoods) ...[
                 const SizedBox(height: 8),
                 DropdownButtonFormField<int>(
-                  value: draft.condition,
+                  initialValue: draft.condition,
                   items: [
                     DropdownMenuItem(
                       value: 1,
@@ -321,8 +321,9 @@ class _DueSection extends StatelessWidget {
                   value: state.dueOverrideConfirmed,
                   onChanged: state.dueReductionOverrideAmount == null
                       ? null
-                      : (value) =>
-                            notifier.updateDueOverrideConfirmed(value ?? false),
+                      : (value) => notifier.updateDueOverrideConfirmed(
+                          value: value ?? false,
+                        ),
                 ),
                 Text(l10n.salesReturnDueOverrideConfirmLabel),
               ],
@@ -366,7 +367,7 @@ class _PayoutSection extends StatelessWidget {
           children: [
             DropdownButtonFormField<int>(
               key: const ValueKey('sales-return-payout-destination'),
-              value: state.payoutDestination,
+              initialValue: state.payoutDestination,
               decoration: InputDecoration(
                 labelText: l10n.salesReturnPayoutDestinationLabel,
               ),

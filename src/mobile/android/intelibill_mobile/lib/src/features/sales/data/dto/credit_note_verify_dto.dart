@@ -9,12 +9,6 @@ class CreditNoteVerifyDto {
     this.customerName,
   });
 
-  final String creditNoteId;
-  final String code;
-  final double balance;
-  final String? customerId;
-  final String? customerName;
-
   factory CreditNoteVerifyDto.fromJson(Map<String, dynamic> json) {
     return CreditNoteVerifyDto(
       creditNoteId: json['creditNoteId'] as String,
@@ -24,6 +18,12 @@ class CreditNoteVerifyDto {
       customerName: json['customerName'] as String?,
     );
   }
+
+  final String creditNoteId;
+  final String code;
+  final double balance;
+  final String? customerId;
+  final String? customerName;
 
   CreditNoteVerifyResult toDomain() {
     return CreditNoteVerifyResult(

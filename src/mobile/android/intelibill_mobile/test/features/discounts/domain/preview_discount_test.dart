@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intelibill_mobile/src/features/discounts/domain/entities/discount.dart';
 import 'package:intelibill_mobile/src/features/discounts/domain/entities/discount_preview.dart';
-import 'package:intelibill_mobile/src/features/discounts/domain/use_cases/preview_discount.dart';
 import 'package:intelibill_mobile/src/features/discounts/domain/repositories/discount_repository.dart';
+import 'package:intelibill_mobile/src/features/discounts/domain/use_cases/preview_discount.dart';
 import 'package:mocktail/mocktail.dart';
 
 class MockDiscountRepository extends Mock implements DiscountRepository {}

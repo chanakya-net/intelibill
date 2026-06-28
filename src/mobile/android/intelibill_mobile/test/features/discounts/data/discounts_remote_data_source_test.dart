@@ -43,7 +43,6 @@ void main() {
           statusFilter: 'active',
           ruleTypeFilter: 'BatchPercentage',
           search: 'summer',
-          sort: 'created_desc',
           page: 2,
           pageSize: 25,
         ),

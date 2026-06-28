@@ -6,7 +6,7 @@ AuthSession _session(String role) {
   return AuthSession(
     accessToken: 'a',
     refreshToken: 'r',
-    accessTokenExpiresAt: DateTime.utc(2026, 1, 1),
+    accessTokenExpiresAt: DateTime.utc(2026),
     refreshTokenExpiresAt: DateTime.utc(2026, 1, 2),
     user: const AuthUser(
       id: 'u',

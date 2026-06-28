@@ -26,8 +26,6 @@ class CreditNoteVerifyResult extends Equatable {
 }
 
 class AppliedCreditNote extends Equatable {
-  static const _unset = Object();
-
   const AppliedCreditNote({
     required this.creditNoteId,
     required this.code,
@@ -36,6 +34,7 @@ class AppliedCreditNote extends Equatable {
     this.customerId,
     this.customerName,
   });
+  static const _unset = Object();
 
   final String creditNoteId;
   final String code;

@@ -1,4 +1,3 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/network/api_client_provider.dart';
@@ -11,6 +10,7 @@ import 'package:intelibill_mobile/src/features/discounts/domain/use_cases/create
 import 'package:intelibill_mobile/src/features/discounts/domain/use_cases/disable_discount.dart';
 import 'package:intelibill_mobile/src/features/discounts/domain/use_cases/preview_discount.dart';
 import 'package:intelibill_mobile/src/features/discounts/domain/use_cases/replace_discount.dart';
+import 'package:intelibill_mobile/src/features/discounts/presentation/controllers/discounts_controller.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'discount_editor_controller.g.dart';
@@ -52,10 +52,6 @@ DisableDiscount disableDiscount(Ref ref) {
 }
 
 class DiscountEditorState {
-  static const _keepValue = Object();
-  static const _keepFailure = Object();
-  static const _keepLastAction = Object();
-
   const DiscountEditorState({
     this.preview,
     this.previewLoading = false,
@@ -65,6 +61,10 @@ class DiscountEditorState {
     this.lastAction,
     this.needsBelowCostConfirmation = false,
   });
+
+  static const _keepValue = Object();
+  static const _keepFailure = Object();
+  static const _keepLastAction = Object();
 
   final DiscountPreview? preview;
   final bool previewLoading;
@@ -129,7 +129,7 @@ class DiscountEditorController extends _$DiscountEditorController {
         previewLoading: false,
         previewFailure: e.failure,
       );
-    } catch (e) {
+    } on Object {
       state = state.copyWith(
         previewLoading: false,
         previewFailure: const Failure.unknown(),
@@ -178,12 +178,13 @@ class DiscountEditorController extends _$DiscountEditorController {
         lastAction: 'created',
         preview: null,
       );
+      await _refreshDiscountsView();
     } on AppException catch (e) {
       state = state.copyWith(
         isSubmitting: false,
         submitFailure: e.failure,
       );
-    } catch (e) {
+    } on Object {
       state = state.copyWith(
         isSubmitting: false,
         submitFailure: const Failure.unknown(),
@@ -234,12 +235,13 @@ class DiscountEditorController extends _$DiscountEditorController {
         lastAction: 'replaced',
         preview: null,
       );
+      await _refreshDiscountsView();
     } on AppException catch (e) {
       state = state.copyWith(
         isSubmitting: false,
         submitFailure: e.failure,
       );
-    } catch (e) {
+    } on Object {
       state = state.copyWith(
         isSubmitting: false,
         submitFailure: const Failure.unknown(),
@@ -257,12 +259,13 @@ class DiscountEditorController extends _$DiscountEditorController {
         lastAction: 'disabled',
         preview: null,
       );
+      await _refreshDiscountsView();
     } on AppException catch (e) {
       state = state.copyWith(
         isSubmitting: false,
         submitFailure: e.failure,
       );
-    } catch (e) {
+    } on Object {
       state = state.copyWith(
         isSubmitting: false,
         submitFailure: const Failure.unknown(),
@@ -271,4 +274,18 @@ class DiscountEditorController extends _$DiscountEditorController {
   }
 
   bool _isBlank(String? value) => value == null || value.trim().isEmpty;
+
+  Future<void> _refreshDiscountsView() async {
+    final controller = ref.read(discountsControllerProvider.notifier);
+    await controller.refresh();
+
+    if (!ref.mounted) return;
+
+    final selectedRuleId = ref.read(discountsControllerProvider).selectedRuleId;
+    if (selectedRuleId == null) {
+      return;
+    }
+
+    await controller.selectRule(selectedRuleId);
+  }
 }

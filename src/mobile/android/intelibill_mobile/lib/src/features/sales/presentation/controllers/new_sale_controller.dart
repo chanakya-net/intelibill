@@ -9,9 +9,9 @@ import 'package:intelibill_mobile/src/features/customers/domain/entities/custome
 import 'package:intelibill_mobile/src/features/customers/presentation/controllers/customers_controller.dart';
 import 'package:intelibill_mobile/src/features/sales/data/data_sources/sales_remote_data_source.dart';
 import 'package:intelibill_mobile/src/features/sales/data/repositories/sales_repository_impl.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/entities/credit_note.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/payment_method.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/record_sale.dart';
-import 'package:intelibill_mobile/src/features/sales/domain/entities/credit_note.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_preview.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sellable.dart';
@@ -20,6 +20,7 @@ import 'package:intelibill_mobile/src/features/sales/domain/use_cases/preview_sa
 import 'package:intelibill_mobile/src/features/sales/domain/use_cases/record_sale.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/use_cases/search_sellables.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/use_cases/verify_credit_note.dart';
+import 'package:intelibill_mobile/src/features/sales/presentation/controllers/sales_history_controller.dart';
 import 'package:intelibill_mobile/src/shared/barcode_scanner/barcode_scan_result.dart';
 import 'package:intelibill_mobile/src/shared/barcode_scanner/show_barcode_scanner.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -314,10 +315,9 @@ class NewSaleState {
                 this.creditNoteVerificationFailure),
       appliedCreditNotes: appliedCreditNotes ?? this.appliedCreditNotes,
       creditNoteCustomerMismatchConfirmed:
-          clearCreditNoteCustomerMismatchConfirmed
-          ? false
-          : (creditNoteCustomerMismatchConfirmed ??
-                this.creditNoteCustomerMismatchConfirmed),
+          !clearCreditNoteCustomerMismatchConfirmed &&
+          (creditNoteCustomerMismatchConfirmed ??
+              this.creditNoteCustomerMismatchConfirmed),
     );
   }
 }
@@ -432,7 +432,6 @@ class NewSaleController extends _$NewSaleController {
         return;
       }
       state = state.copyWith(
-        preview: null,
         previewFailure: error.failure,
         isPreviewLoading: false,
       );
@@ -442,7 +441,6 @@ class NewSaleController extends _$NewSaleController {
         return;
       }
       state = state.copyWith(
-        preview: null,
         previewFailure: const Failure.unknown(),
         isPreviewLoading: false,
       );
@@ -494,8 +492,6 @@ class NewSaleController extends _$NewSaleController {
       clearPendingIdempotencyKey: true,
       appliedCreditNotes: const [],
       clearCreditNoteCustomerMismatchConfirmed: true,
-      creditNoteVerificationFailure: null,
-      verifiedCreditNote: null,
     );
   }
 
@@ -537,7 +533,6 @@ class NewSaleController extends _$NewSaleController {
       state = state.copyWith(
         isSubmitting: false,
         recordedSale: sale,
-        verifiedCreditNote: null,
         cartLines: const [],
         results: const [],
         saleDiscountType: InstantDiscountType.none,
@@ -556,8 +551,8 @@ class NewSaleController extends _$NewSaleController {
         hasExplicitPaymentSplit: false,
         appliedCreditNotes: const [],
         creditNoteCustomerMismatchConfirmed: false,
-        creditNoteVerificationFailure: null,
       );
+      await ref.read(salesHistoryControllerProvider.notifier).refresh();
     } on AppException catch (error) {
       if (!ref.mounted) return;
       state = state.copyWith(
@@ -697,7 +692,6 @@ class NewSaleController extends _$NewSaleController {
     state = state.copyWith(
       appliedCreditNotes: reconciled,
       clearCreditNoteVerificationFailure: true,
-      verifiedCreditNote: null,
       clearPendingIdempotencyKey: true,
       clearSubmitFailure: true,
       creditNoteCustomerMismatchConfirmed: false,
@@ -748,7 +742,7 @@ class NewSaleController extends _$NewSaleController {
     _reconcilePaymentAfterCartChange();
   }
 
-  void confirmCreditNoteCustomerMismatch(bool isConfirmed) {
+  void confirmCreditNoteCustomerMismatch({required bool isConfirmed}) {
     state = state.copyWith(
       creditNoteCustomerMismatchConfirmed: isConfirmed,
     );
@@ -772,7 +766,6 @@ class NewSaleController extends _$NewSaleController {
     if (state.preview == null) {
       state = state.copyWith(
         saleDiscountType: normalizedType,
-        saleDiscountError: null,
         clearSubmitFailure: true,
         clearPendingIdempotencyKey: true,
       );
@@ -1294,9 +1287,8 @@ class NewSaleController extends _$NewSaleController {
       clearRecordedSale: true,
       clearPendingIdempotencyKey: true,
       appliedCreditNotes: reconciled,
-      creditNoteCustomerMismatchConfirmed: reconciled.isEmpty
-          ? false
-          : state.creditNoteCustomerMismatchConfirmed,
+      creditNoteCustomerMismatchConfirmed:
+          reconciled.isNotEmpty && state.creditNoteCustomerMismatchConfirmed,
       clearCreditNoteVerificationFailure: true,
     );
     _invalidatePreviewState();
@@ -1351,7 +1343,6 @@ class NewSaleController extends _$NewSaleController {
       itemDiscountType: line.itemDiscountType,
       itemDiscountValue: line.itemDiscountValue,
       clientLineKey: sellable.id,
-      hsnCode: null,
       lineType: sellable.kind,
       serviceId: isService ? sellable.id : null,
     );
@@ -1648,7 +1639,6 @@ class NewSaleController extends _$NewSaleController {
               type: line.itemDiscountType,
               value: line.itemDiscountValue,
             ),
-      hsnCode: null,
       serviceId: isService ? sellable.id : null,
     );
   }
@@ -1734,7 +1724,7 @@ class NewSaleController extends _$NewSaleController {
       if (line.lineType == _serviceLineType) return sum;
       final preTax = line.preTaxAmountBeforeDiscount;
       final discount = line.itemDiscountAmount;
-      final cost = (line.costPrice * line.quantity);
+      final cost = line.costPrice * line.quantity;
       final taxableAfterItem = preTax - discount;
       final eligible = taxableAfterItem - cost;
       return sum + (eligible > 0 ? eligible : 0);

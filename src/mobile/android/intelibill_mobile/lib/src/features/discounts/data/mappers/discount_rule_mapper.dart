@@ -2,7 +2,6 @@ import 'package:intelibill_mobile/src/features/discounts/data/dto/discount_rule_
 import 'package:intelibill_mobile/src/features/discounts/data/dto/discount_rule_list_item_dto.dart';
 import 'package:intelibill_mobile/src/features/discounts/data/dto/discount_rules_response_dto.dart';
 import 'package:intelibill_mobile/src/features/discounts/domain/entities/discount_rule.dart';
-import 'package:intelibill_mobile/src/features/discounts/domain/entities/discount_rule_query.dart';
 
 class DiscountRuleMapper {
   const DiscountRuleMapper._();
@@ -49,21 +48,11 @@ class DiscountRuleMapper {
       discountRuleId: dto.id,
       ruleType: dto.ruleType,
       name: dto.name,
-      percentage: null,
       isActive: dto.isActive,
       startsAt: dto.startsAt?.toLocal(),
       endsAt: dto.endsAt?.toLocal(),
       createdAt: dto.createdAt.toLocal(),
-      description: null,
-      inventoryBatchId: null,
-      thresholdAmount: null,
       belowCostConfirmed: false,
-      belowCostConfirmationReason: null,
-      disabledAt: null,
-      disabledReason: null,
-      replacesRuleId: null,
-      replacedByRuleId: null,
-      updatedAt: null,
       status: _deriveStatus(
         dto.isActive,
         dto.startsAt?.toLocal(),
@@ -89,10 +78,12 @@ class DiscountRuleMapper {
     DateTime now,
   ) {
     if (!isActive) return DiscountRuleStatus.disabled;
-    if (startsAt != null && startsAt.isAfter(now))
+    if (startsAt != null && startsAt.isAfter(now)) {
       return DiscountRuleStatus.upcoming;
-    if (endsAt != null && !endsAt.isAfter(now))
+    }
+    if (endsAt != null && !endsAt.isAfter(now)) {
       return DiscountRuleStatus.expired;
+    }
     return DiscountRuleStatus.active;
   }
 }

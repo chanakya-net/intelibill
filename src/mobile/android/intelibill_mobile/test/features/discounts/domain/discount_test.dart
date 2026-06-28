@@ -11,7 +11,7 @@ void main() {
         discountValue: 50,
         batchPercentage: null,
         isEnabled: true,
-        createdAt: DateTime(2024, 1, 1),
+        createdAt: DateTime(2024),
       );
 
       expect(discount.discountId, 'disc-1');
@@ -30,7 +30,7 @@ void main() {
         discountValue: 10,
         batchPercentage: 0.2,
         isEnabled: true,
-        createdAt: DateTime(2024, 1, 1),
+        createdAt: DateTime(2024),
       );
       final d2 = Discount(
         discountId: 'disc-1',
@@ -39,7 +39,7 @@ void main() {
         discountValue: 10,
         batchPercentage: 0.2,
         isEnabled: true,
-        createdAt: DateTime(2024, 1, 1),
+        createdAt: DateTime(2024),
       );
 
       expect(d1, d2);

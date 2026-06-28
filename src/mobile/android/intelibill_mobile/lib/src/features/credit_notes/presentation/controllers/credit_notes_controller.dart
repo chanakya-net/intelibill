@@ -168,7 +168,7 @@ class CreditNotesController extends _$CreditNotesController {
       if (!ref.mounted) return false;
       state = state.copyWith(failure: error.failure);
       return false;
-    } catch (_) {
+    } on Object {
       if (!ref.mounted) return false;
       state = state.copyWith(failure: const Failure.unknown());
       return false;
@@ -184,14 +184,19 @@ class CreditNotesController extends _$CreditNotesController {
     required String reason,
   }) async {
     try {
+      final shouldRefreshSelectedNote = state.selectedNote?.code == code;
       await ref.read(voidCreditNoteUseCaseProvider)(code, reason: reason);
       if (!ref.mounted) return false;
+      await refresh();
+      if (shouldRefreshSelectedNote) {
+        await _refreshSelectedNote(code);
+      }
       return true;
     } on AppException catch (error) {
       if (!ref.mounted) return false;
       state = state.copyWith(failure: error.failure);
       return false;
-    } catch (_) {
+    } on Object {
       if (!ref.mounted) return false;
       state = state.copyWith(failure: const Failure.unknown());
       return false;
@@ -230,13 +235,23 @@ class CreditNotesController extends _$CreditNotesController {
         isLoadingMore: false,
         failure: error.failure,
       );
-    } catch (_) {
+    } on Object {
       if (!ref.mounted) return;
       state = state.copyWith(
         isLoading: false,
         isLoadingMore: false,
         failure: const Failure.unknown(),
       );
+    }
+  }
+
+  Future<void> _refreshSelectedNote(String code) async {
+    try {
+      final note = await ref.read(getCreditNoteByCodeUseCaseProvider)(code);
+      if (!ref.mounted) return;
+      state = state.copyWith(selectedNote: note);
+    } on Object {
+      // Keep the list refresh result if the selected note can no longer be loaded.
     }
   }
 }

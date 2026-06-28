@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -16,7 +14,6 @@ import 'package:intelibill_mobile/src/features/services/domain/use_cases/update_
 import 'package:intelibill_mobile/src/features/services/presentation/controllers/services_controller.dart';
 import 'package:intelibill_mobile/src/features/services/presentation/pages/services_page.dart';
 import 'package:intelibill_mobile/src/features/services/presentation/widgets/create_service_sheet.dart';
-import 'package:intelibill_mobile/src/features/services/presentation/widgets/edit_service_sheet.dart';
 import 'package:mocktail/mocktail.dart';
 
 class MockGetServices extends Mock implements GetServices {}
@@ -42,8 +39,8 @@ AuthSession _session(String role) {
   return AuthSession(
     accessToken: 'access-token',
     refreshToken: 'refresh-token',
-    accessTokenExpiresAt: DateTime.utc(2026, 6, 1),
-    refreshTokenExpiresAt: DateTime.utc(2026, 7, 1),
+    accessTokenExpiresAt: DateTime.utc(2026, 6),
+    refreshTokenExpiresAt: DateTime.utc(2026, 7),
     user: const AuthUser(
       id: 'user-1',
       email: 'owner@example.com',
@@ -59,7 +56,7 @@ AuthSession _session(String role) {
         shopName: 'Primary Shop',
         role: role,
         isDefault: true,
-        lastUsedAt: DateTime.utc(2026, 6, 1),
+        lastUsedAt: DateTime.utc(2026, 6),
       ),
     ],
     rememberMe: false,
@@ -82,9 +79,7 @@ const _services = [
     serviceId: 'svc-2',
     code: 'SRV-002',
     name: 'Consultation',
-    description: null,
     price: 250,
-    hsnCode: null,
     taxRatePercent: 0,
     taxIncluded: false,
     isActive: false,

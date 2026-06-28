@@ -34,7 +34,7 @@ AuthSession _sessionForRole(String role) {
     refreshToken: 'refresh-token',
     accessTokenExpiresAt: DateTime.utc(2026, 5, 15, 10),
     refreshTokenExpiresAt: DateTime.utc(2026, 6, 15, 10),
-    user: AuthUser(
+    user: const AuthUser(
       id: 'user-1',
       email: 'owner@example.com',
       phoneNumber: null,
@@ -70,7 +70,6 @@ SaleDetail _saleDetail({
   return SaleDetail(
     saleId: 'sale-1',
     invoiceNumber: 'INV-2026-001',
-    customerId: null,
     customerName: 'John Doe',
     customerPhone: '9999999999',
     paymentMethod: 1,
@@ -78,7 +77,7 @@ SaleDetail _saleDetail({
     items:
         items ??
         [
-          SaleDetailItem(
+          const SaleDetailItem(
             saleItemId: 'item-1',
             lineType: 'Goods',
             lineCode: 'SKU-1',
@@ -115,7 +114,7 @@ SaleDetail _saleDetail({
     discounts:
         discounts ??
         [
-          SaleDetailDiscount(
+          const SaleDetailDiscount(
             discountId: 'discount-1',
             type: 'Promo',
             value: '10%',
@@ -138,7 +137,7 @@ SaleDetail _saleDetail({
             isVoided: isReturnVoided,
             voidedAt: isReturnVoided ? DateTime.utc(2026, 5, 13, 10, 15) : null,
             voidReason: isReturnVoided ? 'Duplicate return' : null,
-            items: [
+            items: const [
               SaleDetailReturnItem(
                 saleReturnItemId: 'return-item-1',
                 saleItemId: 'item-1',
@@ -153,7 +152,7 @@ SaleDetail _saleDetail({
     creditNoteRedemptions:
         creditNoteRedemptions ??
         [
-          SaleDetailCreditNoteRedemption(
+          const SaleDetailCreditNoteRedemption(
             creditNoteId: 'redemption-1',
             code: 'CN-LOYALTY-001',
             appliedAmount: 15,
@@ -169,7 +168,6 @@ SaleDetail _saleDetail({
     creditNoteAppliedAmount: creditNoteAppliedAmount,
     status: 'partiallyPaid',
     refundAmount: refundAmount,
-    dueReductionAmount: 0.0,
   );
 }
 

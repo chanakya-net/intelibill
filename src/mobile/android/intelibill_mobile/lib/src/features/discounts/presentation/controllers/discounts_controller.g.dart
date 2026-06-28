@@ -232,7 +232,7 @@ final class DiscountsControllerProvider
 }
 
 String _$discountsControllerHash() =>
-    r'a67245f5627c9a6cbf3680147ab41dbc7159db1a';
+    r'9226dcb84b7276fffc12bac246dda8db6cb573a9';
 
 abstract class _$DiscountsController extends $Notifier<DiscountsState> {
   DiscountsState build();

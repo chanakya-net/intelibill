@@ -59,7 +59,7 @@ final class SaleDetailControllerProvider
 }
 
 String _$saleDetailControllerHash() =>
-    r'0f2971eda2c266e28552aa70f753b162c8360430';
+    r'4d8d626404044b9a8a45c1cb74136b53c692e6d5';
 
 final class SaleDetailControllerFamily extends $Family
     with

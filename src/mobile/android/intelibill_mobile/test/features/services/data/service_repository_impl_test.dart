@@ -43,7 +43,7 @@ void main() {
   group('ServicesRepositoryImpl', () {
     test('maps remote dtos into domain entities', () async {
       when(
-        () => remoteDataSource.getServices(includeInactive: true, search: null),
+        () => remoteDataSource.getServices(includeInactive: true),
       ).thenAnswer(
         (_) async => const [
           ServiceDto(
@@ -73,7 +73,7 @@ void main() {
         failure: const Failure.network(message: 'offline'),
       );
       when(
-        () => remoteDataSource.getServices(includeInactive: true, search: null),
+        () => remoteDataSource.getServices(includeInactive: true),
       ).thenThrow(exception);
 
       expect(
@@ -84,7 +84,7 @@ void main() {
 
     test('wraps FormatException as serialization failure', () async {
       when(
-        () => remoteDataSource.getServices(includeInactive: true, search: null),
+        () => remoteDataSource.getServices(includeInactive: true),
       ).thenThrow(const FormatException('bad json'));
 
       await expectLater(
@@ -105,7 +105,7 @@ void main() {
 
     test('wraps unknown errors as unknown failure', () async {
       when(
-        () => remoteDataSource.getServices(includeInactive: true, search: null),
+        () => remoteDataSource.getServices(includeInactive: true),
       ).thenThrow(Exception('unexpected'));
 
       await expectLater(
@@ -176,7 +176,7 @@ void main() {
           serviceId: 'svc-1',
           name: '  Repair Updated  ',
           description: '   ',
-          price: 599.0,
+          price: 599,
           hsnCode: ' 9988 ',
           taxRatePercent: 12,
           taxIncluded: false,
@@ -187,8 +187,7 @@ void main() {
             'svc-1',
             const UpdateServiceRequestDto(
               name: 'Repair Updated',
-              description: null,
-              price: 599.0,
+              price: 599,
               hsnCode: '9988',
               taxRatePercent: 12,
               taxIncluded: false,

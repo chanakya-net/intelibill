@@ -92,8 +92,6 @@ void main() {
         const CreditNotesQuery(
           search: '',
           status: 'active',
-          page: 1,
-          pageSize: 20,
         ),
       ),
     ).called(1);
@@ -101,8 +99,8 @@ void main() {
 
   test('verifies code and stores selected note', () async {
     when(() => getCreditNotes(any())).thenAnswer(
-      (_) async => CreditNotesResult(
-        items: const [],
+      (_) async => const CreditNotesResult(
+        items: [],
         totalCount: 0,
         pageNumber: 1,
         pageSize: 20,
@@ -138,9 +136,18 @@ void main() {
     when(
       () => voidCreditNote('CN-001', reason: 'Damaged'),
     ).thenAnswer((_) async {});
+    when(() => getCreditNoteByCode('CN-001')).thenAnswer(
+      (_) async => _note('CN-001', status: 'voided'),
+    );
 
     final container = makeContainer();
     addTearDown(container.dispose);
+    await container.read(creditNotesControllerProvider.notifier).refresh();
+    container
+        .read(creditNotesControllerProvider.notifier)
+        .selectNote(
+          _note('CN-001'),
+        );
 
     final result = await container
         .read(creditNotesControllerProvider.notifier)
@@ -148,6 +155,12 @@ void main() {
 
     expect(result, isTrue);
     verify(() => voidCreditNote('CN-001', reason: 'Damaged')).called(1);
+    verify(() => getCreditNotes(any())).called(greaterThanOrEqualTo(2));
+    verify(() => getCreditNoteByCode('CN-001')).called(1);
+    expect(
+      container.read(creditNotesControllerProvider).selectedNote?.code,
+      'CN-001',
+    );
   });
 
   test(

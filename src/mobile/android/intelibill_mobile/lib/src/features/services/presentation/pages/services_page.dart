@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intelibill_mobile/src/app/shell/menu_visibility.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
-import 'package:intelibill_mobile/src/app/shell/menu_visibility.dart';
 import 'package:intelibill_mobile/src/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:intelibill_mobile/src/features/services/domain/entities/service.dart';
 import 'package:intelibill_mobile/src/features/services/presentation/controllers/services_controller.dart';

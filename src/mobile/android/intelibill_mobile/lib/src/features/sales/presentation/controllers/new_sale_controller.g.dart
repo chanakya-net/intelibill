@@ -267,7 +267,7 @@ final class VerifyCreditNoteProvider
   }
 }
 
-String _$verifyCreditNoteHash() => r'8f8f6c7b9a7d4b4f9c77a6f5e5a9de3eab3f8c1';
+String _$verifyCreditNoteHash() => r'5f000cba20126651eeb8c7808e00c0efa0a428be';
 
 @ProviderFor(NewSaleController)
 final newSaleControllerProvider = NewSaleControllerProvider._();
@@ -301,7 +301,7 @@ final class NewSaleControllerProvider
   }
 }
 
-String _$newSaleControllerHash() => r'02a9b72367e7d3d3011136e290cc098bba2d2943';
+String _$newSaleControllerHash() => r'b731c21064f57dd5ae9e60e0def5d019efb1806c';
 
 abstract class _$NewSaleController extends $Notifier<NewSaleState> {
   NewSaleState build();

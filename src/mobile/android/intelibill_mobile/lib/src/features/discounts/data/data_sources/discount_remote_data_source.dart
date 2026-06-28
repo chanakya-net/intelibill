@@ -58,6 +58,6 @@ class DiscountRemoteDataSourceImpl implements DiscountRemoteDataSource {
 
   @override
   Future<void> disable({required String discountId}) async {
-    await _apiClient.delete('/discounts/$discountId');
+    await _apiClient.delete<void>('/discounts/$discountId');
   }
 }

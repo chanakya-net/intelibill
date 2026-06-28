@@ -155,9 +155,11 @@ class _DiscountsPageState extends ConsumerState<DiscountsPage> {
                         isDense: true,
                       ),
                       onChanged: (value) {
-                        ref
-                            .read(discountsControllerProvider.notifier)
-                            .updateSearch(value);
+                        unawaited(
+                          ref
+                              .read(discountsControllerProvider.notifier)
+                              .updateSearch(value),
+                        );
                       },
                     ),
                     const SizedBox(height: 12),
@@ -180,7 +182,7 @@ class _DiscountsPageState extends ConsumerState<DiscountsPage> {
                     ),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<String>(
-                      value: state.sort,
+                      initialValue: state.sort,
                       isExpanded: true,
                       onChanged: (value) {
                         if (value == null) return;

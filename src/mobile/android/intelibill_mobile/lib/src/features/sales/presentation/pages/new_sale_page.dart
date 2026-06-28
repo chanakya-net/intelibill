@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/app/router/app_router.dart';
+import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/payment_method.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_list_item.dart';
@@ -97,12 +97,13 @@ class _NewSalePageState extends ConsumerState<NewSalePage> {
                   padding: const EdgeInsets.all(12),
                   child: _buildPaymentSection(state),
                 ),
-              state.isSearching
-                  ? const Center(child: CircularProgressIndicator())
-                  : SellableSearchResults(
-                      sellables: state.results,
-                      onAdd: _onAddGoods,
-                    ),
+              if (state.isSearching)
+                const Center(child: CircularProgressIndicator())
+              else
+                SellableSearchResults(
+                  sellables: state.results,
+                  onAdd: _onAddGoods,
+                ),
               const Divider(height: 1),
               GoodsCartList(
                 lines: state.cartLines,
@@ -321,12 +322,11 @@ class _NewSalePageState extends ConsumerState<NewSalePage> {
             else
               DropdownButtonFormField<String?>(
                 key: NewSalePage.customerDropdownKey,
-                value: selectedValue,
+                initialValue: selectedValue,
                 isExpanded: true,
                 hint: const Text('Select customer'),
                 items: [
                   const DropdownMenuItem<String?>(
-                    value: null,
                     child: Text('Walk-in (No customer)'),
                   ),
                   for (final customer in customers)
@@ -372,7 +372,7 @@ class _NewSalePageState extends ConsumerState<NewSalePage> {
     final phoneController = TextEditingController();
     final addressController = TextEditingController();
     String? error;
-    bool isSubmitting = false;
+    var isSubmitting = false;
 
     try {
       await showDialog<void>(
@@ -395,7 +395,7 @@ class _NewSalePageState extends ConsumerState<NewSalePage> {
                       phoneNumber: phone,
                       address: address.isEmpty ? null : address,
                     );
-                if (!mounted) return;
+                if (!context.mounted) return;
 
                 if (created) {
                   Navigator.of(context).pop();
@@ -565,7 +565,9 @@ class _NewSalePageState extends ConsumerState<NewSalePage> {
   }
 
   void _verifyCreditNote(String code) {
-    ref.read(newSaleControllerProvider.notifier).verifyCreditNote(code);
+    unawaited(
+      ref.read(newSaleControllerProvider.notifier).verifyCreditNote(code),
+    );
   }
 
   void _applyVerifiedCreditNote() {
@@ -582,10 +584,10 @@ class _NewSalePageState extends ConsumerState<NewSalePage> {
     ref.read(newSaleControllerProvider.notifier).removeCreditNote(creditNoteId);
   }
 
-  void _confirmCreditNoteCustomerMismatch(bool isConfirmed) {
+  void _confirmCreditNoteCustomerMismatch({required bool isConfirmed}) {
     ref
         .read(newSaleControllerProvider.notifier)
-        .confirmCreditNoteCustomerMismatch(isConfirmed);
+        .confirmCreditNoteCustomerMismatch(isConfirmed: isConfirmed);
   }
 
   void _onPaymentMethodChanged(PaymentMethod method) {
@@ -667,7 +669,9 @@ class _NewSalePageState extends ConsumerState<NewSalePage> {
     if (cb != null) {
       cb(sale.saleId);
     } else {
-      context.push(AppRoutes.salesReceiptFor(sale.saleId), extra: sale);
+      unawaited(
+        context.push(AppRoutes.salesReceiptFor(sale.saleId), extra: sale),
+      );
     }
   }
 

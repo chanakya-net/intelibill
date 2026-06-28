@@ -397,7 +397,7 @@ final class CreditNotesControllerProvider
 }
 
 String _$creditNotesControllerHash() =>
-    r'247d0e77dc52971a75b3ae93ab8652cab4727f87';
+    r'6d27f672355962ed9790f3f916cda0df9700dd67';
 
 abstract class _$CreditNotesController extends $Notifier<CreditNotesState> {
   CreditNotesState build();

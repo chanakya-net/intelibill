@@ -29,7 +29,7 @@ void main() {
       discountValue: 15,
       batchPercentage: null,
       isEnabled: true,
-      createdAt: DateTime(2024, 1, 1),
+      createdAt: DateTime(2024),
     );
 
     when(

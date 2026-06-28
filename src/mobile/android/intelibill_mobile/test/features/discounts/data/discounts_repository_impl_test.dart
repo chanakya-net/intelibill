@@ -28,7 +28,6 @@ void main() {
     test('maps list response into domain list rules and pagination', () async {
       when(() => remoteDataSource.getDiscountRules(any())).thenAnswer(
         (_) async => const DiscountRulesResponseDto(
-          items: [],
           totalCount: 5,
           pageNumber: 1,
           pageSize: 20,
@@ -48,7 +47,6 @@ void main() {
     test('hasMore is true when more pages exist', () async {
       when(() => remoteDataSource.getDiscountRules(any())).thenAnswer(
         (_) async => const DiscountRulesResponseDto(
-          items: [],
           totalCount: 50,
           pageNumber: 1,
           pageSize: 20,
@@ -65,7 +63,6 @@ void main() {
     test('hasMore is false on last page', () async {
       when(() => remoteDataSource.getDiscountRules(any())).thenAnswer(
         (_) async => const DiscountRulesResponseDto(
-          items: [],
           totalCount: 50,
           pageNumber: 3,
           pageSize: 20,
@@ -121,8 +118,8 @@ void main() {
           percentage: 5,
           isActive: true,
           belowCostConfirmed: false,
-          createdAt: DateTime.utc(2026, 5, 1),
-          startsAt: DateTime.utc(2026, 5, 1),
+          createdAt: DateTime.utc(2026, 5),
+          startsAt: DateTime.utc(2026, 5),
         ),
       );
 

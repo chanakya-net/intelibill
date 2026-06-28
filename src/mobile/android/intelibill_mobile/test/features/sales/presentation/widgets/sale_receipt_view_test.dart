@@ -86,7 +86,7 @@ SaleDetail _saleReceipt() {
     totalTaxAmount: 36,
     customerName: 'Alice',
     customerPhone: '9999999999',
-    items: [
+    items: const [
       SaleDetailItem(
         saleItemId: 'item-1',
         lineType: 'Goods',
@@ -127,7 +127,6 @@ SaleDetail _saleReceipt() {
         amount: 50,
       ),
     ],
-    returns: const [],
     creditNoteRedemptions: const [
       SaleDetailCreditNoteRedemption(
         creditNoteId: 'cn-1',
@@ -135,10 +134,7 @@ SaleDetail _saleReceipt() {
         appliedAmount: 50,
       ),
     ],
-    warnings: const [],
     status: 'paid',
-    refundAmount: 0,
-    dueReductionAmount: 0,
     creditNoteAppliedAmount: 36,
   );
 }

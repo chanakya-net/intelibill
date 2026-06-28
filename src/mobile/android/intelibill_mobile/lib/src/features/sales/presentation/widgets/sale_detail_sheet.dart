@@ -3,16 +3,16 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intelibill_mobile/src/app/shell/menu_visibility.dart';
 import 'package:intelibill_mobile/src/app/router/app_router.dart';
+import 'package:intelibill_mobile/src/app/shell/menu_visibility.dart';
 import 'package:intelibill_mobile/src/core/formatting/currency_formatter.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_list_item.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/controllers/sale_detail_controller.dart';
-import 'package:intelibill_mobile/src/features/sales/presentation/widgets/sale_return_sheet.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/utils/sale_display_helpers.dart';
+import 'package:intelibill_mobile/src/features/sales/presentation/widgets/sale_return_sheet.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/widgets/void_sale_return_sheet.dart';
 import 'package:intl/intl.dart';
 
@@ -53,7 +53,9 @@ class SaleDetailSheet extends ConsumerWidget {
     if (state.failure != null) {
       return _ErrorState(
         onRetry: () {
-          ref.read(saleDetailControllerProvider(saleId).notifier).refresh();
+          unawaited(
+            ref.read(saleDetailControllerProvider(saleId).notifier).refresh(),
+          );
         },
         message: l10n.salesDetailUnableToLoad,
         retryLabel: l10n.salesHistoryRetry,
@@ -76,13 +78,17 @@ class SaleDetailSheet extends ConsumerWidget {
               returnLabel: l10n.salesReturnTitle,
               onReceipt: () => _openReceipt(context, detail),
               onRefresh: () {
-                ref
-                    .read(saleDetailControllerProvider(saleId).notifier)
-                    .refresh();
+                unawaited(
+                  ref
+                      .read(saleDetailControllerProvider(saleId).notifier)
+                      .refresh(),
+                );
               },
               onReturn: detail.items.any((item) => item.returnableQuantity > 0)
                   ? () {
-                      showSaleReturnSheet(context, saleId: detail.saleId);
+                      unawaited(
+                        showSaleReturnSheet(context, saleId: detail.saleId),
+                      );
                     }
                   : null,
             ),
@@ -227,7 +233,9 @@ class _Header extends StatelessWidget {
 }
 
 void _openReceipt(BuildContext context, SaleDetail detail) {
-  context.push(AppRoutes.salesReceiptFor(detail.saleId), extra: detail);
+  unawaited(
+    context.push(AppRoutes.salesReceiptFor(detail.saleId), extra: detail),
+  );
 }
 
 class _SummaryCard extends StatelessWidget {
@@ -392,7 +400,7 @@ class _Totals extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final redemptionTotal = detail.redemptions.fold<double>(
-      0.0,
+      0,
       (sum, redemption) => sum + redemption.amount,
     );
     final showRefundAmount =

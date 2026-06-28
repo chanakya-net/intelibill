@@ -19,6 +19,7 @@ import 'package:intelibill_mobile/src/features/sales/domain/use_cases/record_sal
 import 'package:intelibill_mobile/src/features/sales/domain/use_cases/search_sellables.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/use_cases/verify_credit_note.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/controllers/new_sale_controller.dart';
+import 'package:intelibill_mobile/src/features/sales/presentation/controllers/sales_history_controller.dart';
 import 'package:mocktail/mocktail.dart';
 
 class MockSearchSellables extends Mock implements SearchSellables {}
@@ -32,6 +33,24 @@ class MockGetCustomers extends Mock implements GetCustomers {}
 class MockCreateCustomer extends Mock implements CreateCustomer {}
 
 class MockVerifyCreditNote extends Mock implements VerifyCreditNote {}
+
+class _TrackingSalesHistoryController extends SalesHistoryController {
+  static int refreshCalls = 0;
+
+  static void reset() {
+    refreshCalls = 0;
+  }
+
+  @override
+  SalesHistoryState build() => SalesHistoryState(
+    query: defaultSalesHistoryQuery(),
+  );
+
+  @override
+  Future<void> refresh() async {
+    refreshCalls += 1;
+  }
+}
 
 Sellable _goods({
   required String id,
@@ -247,7 +266,7 @@ SaleDetail _recordedSale() {
     saleId: 'sale-abc',
     invoiceNumber: 'INV-ABC-001',
     paymentMethod: 1,
-    soldAt: DateTime.utc(2026, 5, 11, 10, 0),
+    soldAt: DateTime.utc(2026, 5, 11, 10),
     paidAmount: 236,
     dueAmount: 0,
     totalBeforeDiscount: 236,
@@ -297,6 +316,7 @@ void main() {
         isActive: true,
       ),
     );
+    _TrackingSalesHistoryController.reset();
   });
 
   setUpAll(() {
@@ -313,6 +333,9 @@ void main() {
         getCustomersUseCaseProvider.overrideWithValue(mockGetCustomers),
         createCustomerUseCaseProvider.overrideWithValue(mockCreateCustomer),
         verifyCreditNoteProvider.overrideWithValue(mockVerifyCreditNote),
+        salesHistoryControllerProvider.overrideWith(
+          _TrackingSalesHistoryController.new,
+        ),
       ],
     );
   }
@@ -448,14 +471,12 @@ void main() {
           ),
         ],
         preview: _preview(
-          totalAmount: 236,
           totalTaxAmount: 0,
           totalDiscountAmount: 0,
         ),
         selectedCustomer: customer,
         paymentMethod: PaymentMethod.upi,
         paidAmount: 236,
-        dueAmount: 0,
         saleDiscountType: InstantDiscountType.flat,
         saleDiscountValue: 10,
       );
@@ -489,6 +510,7 @@ void main() {
         InstantDiscountType.percentage,
       );
       expect(request.items.single.itemDiscount?.value, 5);
+      expect(_TrackingSalesHistoryController.refreshCalls, 1);
     });
 
     test('submit includes credit note redemption fields', () async {
@@ -520,14 +542,10 @@ void main() {
           name: 'John Doe',
           phoneNumber: '+91-9999999999',
         ),
-        paymentMethod: PaymentMethod.cash,
         paidAmount: 70,
-        dueAmount: 0,
         appliedCreditNotes: [
           _appliedCreditNote(
-            creditNoteId: 'cn-1',
             code: 'CN-100',
-            balance: 50,
             amount: 30,
             customerId: 'cust-1',
             customerName: 'John Doe',
@@ -565,7 +583,6 @@ void main() {
         cartLines: [NewSaleCartLine(sellable: goods, quantity: 1)],
         preview: _preview(),
         paidAmount: 236,
-        dueAmount: 0,
       );
 
       await controller.submit();
@@ -605,7 +622,6 @@ void main() {
         cartLines: [NewSaleCartLine(sellable: goods, quantity: 1)],
         preview: _preview(),
         paidAmount: 236,
-        dueAmount: 0,
       );
 
       await controller.submit();
@@ -637,7 +653,6 @@ void main() {
         preview: _preview(),
         isSubmitting: true,
         paidAmount: 236,
-        dueAmount: 0,
       );
 
       await controller.submit();
@@ -825,7 +840,7 @@ void main() {
       final container = makeContainer();
       addTearDown(container.dispose);
       final controller = container.read(newSaleControllerProvider.notifier);
-      final goods = Sellable(
+      const goods = Sellable(
         id: 'g1',
         kind: 'Goods',
         name: 'Rice',
@@ -840,7 +855,7 @@ void main() {
 
       controller.state = NewSaleState(
         cartLines: [
-          NewSaleCartLine(sellable: goods, quantity: 2),
+          const NewSaleCartLine(sellable: goods, quantity: 2),
           NewSaleCartLine(sellable: service, quantity: 1, unitPrice: 175),
         ],
       );
@@ -923,7 +938,6 @@ void main() {
               taxableAmount: 95,
               taxAmount: 0,
               lineTotalAmount: 95,
-              hasClientPriceMismatch: false,
             ),
           ],
         );
@@ -937,7 +951,6 @@ void main() {
             NewSaleCartLine(
               sellable: goods,
               quantity: 1,
-              itemDiscountType: InstantDiscountType.none,
               itemDiscountValue: 12,
             ),
           ],
@@ -972,7 +985,6 @@ void main() {
               taxableAmount: 95,
               taxAmount: 0,
               lineTotalAmount: 95,
-              hasClientPriceMismatch: false,
             ),
           ],
         );
@@ -1100,7 +1112,6 @@ void main() {
         controller.state = NewSaleState(
           cartLines: [NewSaleCartLine(sellable: goods, quantity: 1)],
           saleDiscountType: InstantDiscountType.flat,
-          saleDiscountValue: 0,
         );
 
         controller.updateSaleDiscountValue(500);
@@ -1117,8 +1128,6 @@ void main() {
       final goods = _goods(id: 'g1', name: 'Flour', stock: 5);
       controller.state = NewSaleState(
         cartLines: [NewSaleCartLine(sellable: goods, quantity: 1)],
-        saleDiscountType: InstantDiscountType.none,
-        saleDiscountValue: 0,
         preview: _preview(),
       );
 
@@ -1274,7 +1283,7 @@ void main() {
       final service = _service(id: 's1', name: 'Setup', price: 100);
 
       await controller.addToCart(service);
-      controller.updateCartUnitPrice(service.id, 0.0);
+      controller.updateCartUnitPrice(service.id, 0);
 
       final state = container.read(newSaleControllerProvider);
       expect(state.searchFailure, isNotNull);
@@ -1294,7 +1303,7 @@ void main() {
       final controller = container.read(newSaleControllerProvider.notifier);
       final service = _service(id: 's1', name: 'Repair', price: 250);
 
-      await controller.addToCart(service, quantity: 1);
+      await controller.addToCart(service);
       await controller.addToCart(service, quantity: 2);
 
       final state = container.read(newSaleControllerProvider);
@@ -1538,7 +1547,6 @@ void main() {
         () => mockVerifyCreditNote('CN-100'),
       ).thenAnswer(
         (_) async => _verifiedCreditNote(
-          creditNoteId: 'cn-1',
           code: 'CN-100',
           balance: 40,
           customerId: 'cust-1',
@@ -1596,14 +1604,12 @@ void main() {
           phoneNumber: '+91-9999999999',
         ),
         verifiedCreditNote: _verifiedCreditNote(
-          creditNoteId: 'cn-1',
           code: 'CN-100',
           balance: 80,
           customerId: 'cust-1',
         ),
         appliedCreditNotes: [
           _appliedCreditNote(
-            creditNoteId: 'cn-1',
             code: 'CN-100',
             balance: 80,
             amount: 20,
@@ -1643,7 +1649,6 @@ void main() {
             totalDiscountAmount: 0,
           ),
           verifiedCreditNote: _verifiedCreditNote(
-            creditNoteId: 'cn-1',
             code: 'CN-100',
             balance: 80,
             customerId: 'cust-1',
@@ -1711,11 +1716,8 @@ void main() {
           totalDiscountAmount: 0,
         ),
         paidAmount: 100,
-        dueAmount: 0,
-        paymentMethod: PaymentMethod.cash,
         hasExplicitPaymentSplit: true,
         verifiedCreditNote: _verifiedCreditNote(
-          creditNoteId: 'cn-1',
           code: 'CN-100',
           balance: 80,
           customerId: 'cust-1',
@@ -1755,9 +1757,7 @@ void main() {
           totalDiscountAmount: 0,
         ),
         paidAmount: 100,
-        dueAmount: 0,
         verifiedCreditNote: _verifiedCreditNote(
-          creditNoteId: 'cn-1',
           code: 'CN-100',
           balance: 80,
           customerId: 'cust-2',
@@ -1771,7 +1771,7 @@ void main() {
       expect(blocked.canSubmit, isFalse);
       expect(blocked.submissionError, contains('requires confirmation'));
 
-      controller.confirmCreditNoteCustomerMismatch(true);
+      controller.confirmCreditNoteCustomerMismatch(isConfirmed: true);
       final confirmed = container.read(newSaleControllerProvider);
       expect(confirmed.creditNoteCustomerMismatchConfirmed, isTrue);
       expect(confirmed.canSubmit, isTrue);

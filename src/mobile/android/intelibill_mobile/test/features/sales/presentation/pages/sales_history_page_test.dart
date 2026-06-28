@@ -19,15 +19,6 @@ class _StubSalesHistoryController extends SalesHistoryController {
   SalesHistoryState build() => _state;
 }
 
-class _StubSaleDetailController extends SaleDetailController {
-  _StubSaleDetailController(this._state);
-
-  final SaleDetailState _state;
-
-  @override
-  SaleDetailState build(String saleId) => _state;
-}
-
 final _sampleSale = SaleListItem(
   saleId: 'sale-1',
   invoiceNumber: 'INV-2026-001',
@@ -52,17 +43,10 @@ final _sampleSale = SaleListItem(
 final _sampleDetail = SaleDetail(
   saleId: 'sale-1',
   invoiceNumber: 'INV-2026-001',
-  customerId: null,
   customerName: 'John Doe',
   customerPhone: '9999999999',
   paymentMethod: 1,
   soldAt: DateTime.utc(2026, 5, 11, 10, 30),
-  items: const [],
-  settlements: const [],
-  discounts: const [],
-  returns: const [],
-  creditNoteRedemptions: const [],
-  warnings: const [],
   paidAmount: 500,
   dueAmount: 0,
   totalBeforeDiscount: 500,
@@ -70,8 +54,6 @@ final _sampleDetail = SaleDetail(
   totalAmount: 500,
   totalTaxAmount: 50,
   status: 'paid',
-  refundAmount: 0,
-  dueReductionAmount: 0,
 );
 
 Widget _buildApp(SalesHistoryState state) {
@@ -81,7 +63,7 @@ Widget _buildApp(SalesHistoryState state) {
         () => _StubSalesHistoryController(state),
       ),
       saleDetailControllerProvider('sale-1').overrideWithValue(
-        SaleDetailState(detail: _sampleDetail, isLoading: false),
+        SaleDetailState(detail: _sampleDetail),
       ),
     ],
     child: MaterialApp(
