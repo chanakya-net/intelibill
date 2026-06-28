@@ -4,9 +4,9 @@ import 'package:intelibill_mobile/src/features/sales/data/dto/sale_detail_dto.da
 import 'package:intelibill_mobile/src/features/sales/data/dto/sale_preview_dto.dart';
 import 'package:intelibill_mobile/src/features/sales/data/dto/sale_return_preview_dto.dart';
 import 'package:intelibill_mobile/src/features/sales/data/repositories/sales_repository_impl.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/entities/record_sale.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_preview.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_return.dart';
-import 'package:intelibill_mobile/src/features/sales/domain/entities/record_sale.dart';
 import 'package:mocktail/mocktail.dart';
 
 class MockSalesRemoteDataSource extends Mock implements SalesRemoteDataSource {}
@@ -46,7 +46,7 @@ void main() {
           request: any(named: 'request'),
         ),
       ).thenAnswer(
-        (_) async => SaleReturnPreviewResponseDto(
+        (_) async => const SaleReturnPreviewResponseDto(
           saleId: 'sale-abc',
           hasFinancialAccess: true,
           lines: [
@@ -69,14 +69,14 @@ void main() {
               ),
             ),
           ],
-          financial: const SaleReturnPreviewFinancialDto(
+          financial: SaleReturnPreviewFinancialDto(
             totalRefundAmount: 90,
             dueReductionAmount: 0,
             payoutAmount: 90,
             totalTaxableAmount: 80,
             totalTaxAmount: 14.4,
           ),
-          warnings: const [
+          warnings: [
             SaleReturnPreviewWarningDto(
               code: 'R01',
               message: 'Stock may need adjustment',
@@ -231,7 +231,8 @@ void main() {
           sentRequest['items'],
           isA<List<dynamic>>(),
         );
-        final items = sentRequest['items'] as List<dynamic>;
+        final items = (sentRequest['items'] as List<dynamic>)
+            .cast<Map<String, dynamic>>();
         expect(items, hasLength(2));
         expect(items[0]['lineType'], 'Goods');
         expect(items[1]['lineType'], 'Service');
@@ -243,24 +244,24 @@ void main() {
 }
 
 RecordSaleRequest _recordSaleRequest() {
-  return RecordSaleRequest(
+  return const RecordSaleRequest(
     idempotencyKey: 'new-sale-record-001',
     customerId: 'cust-1',
     customerName: 'John Doe',
     customerPhone: '+91-9999999999',
     paymentMethod: 1,
-    paidAmount: 500.0,
-    dueAmount: 0.0,
-    items: const [
+    paidAmount: 500,
+    dueAmount: 0,
+    items: [
       RecordSaleLineRequest(
         barcode: 'BAR-1',
         batchNumber: 'BN-1',
         itemName: 'Rice',
-        quantity: 2.0,
-        costPrice: 48.0,
-        salesPrice: 60.0,
-        mrp: 62.0,
-        taxRatePercent: 12.0,
+        quantity: 2,
+        costPrice: 48,
+        salesPrice: 60,
+        mrp: 62,
+        taxRatePercent: 12,
         isPriceIncludingTax: false,
         inventoryBatchId: 'batch-1',
         clientLineKey: 'line-1',
@@ -271,11 +272,11 @@ RecordSaleRequest _recordSaleRequest() {
         barcode: 'SRV-1',
         batchNumber: '',
         itemName: 'Installation',
-        quantity: 1.0,
-        costPrice: 0.0,
-        salesPrice: 150.0,
-        mrp: 150.0,
-        taxRatePercent: 18.0,
+        quantity: 1,
+        costPrice: 0,
+        salesPrice: 150,
+        mrp: 150,
+        taxRatePercent: 18,
         isPriceIncludingTax: false,
         inventoryBatchId: '00000000-0000-0000-0000-000000000000',
         clientLineKey: 'line-2',
@@ -284,7 +285,7 @@ RecordSaleRequest _recordSaleRequest() {
         serviceId: 'svc-1',
       ),
     ],
-    saleDiscount: const RecordSaleLineDiscountRequest(type: 0, value: 0),
+    saleDiscount: RecordSaleLineDiscountRequest(type: 0, value: 0),
   );
 }
 

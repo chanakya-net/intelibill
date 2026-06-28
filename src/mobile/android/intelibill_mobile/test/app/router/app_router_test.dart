@@ -12,18 +12,17 @@ import 'package:intelibill_mobile/src/features/auth/presentation/controllers/aut
 import 'package:intelibill_mobile/src/features/credit_notes/domain/entities/credit_note_print.dart';
 import 'package:intelibill_mobile/src/features/credit_notes/presentation/controllers/credit_notes_controller.dart';
 import 'package:intelibill_mobile/src/features/dashboard/presentation/controllers/dashboard_controller.dart';
-import 'package:intelibill_mobile/src/features/discounts/presentation/controllers/discounts_controller.dart';
 import 'package:intelibill_mobile/src/features/discounts/domain/entities/discount_rule_query.dart';
+import 'package:intelibill_mobile/src/features/discounts/presentation/controllers/discounts_controller.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sales_history_query.dart';
-import 'package:intelibill_mobile/src/features/sales/domain/entities/sales_history_summary.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/use_cases/get_sale_detail.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/controllers/new_sale_controller.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/controllers/sales_history_controller.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/controllers/sales_providers.dart';
 import 'package:intelibill_mobile/src/features/services/presentation/controllers/services_controller.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class MockGetSaleDetail extends Mock implements GetSaleDetail {}
 
@@ -627,9 +626,6 @@ SaleDetail _fakeSaleDetail = SaleDetail(
       amount: 0,
     ),
   ],
-  returns: const [],
-  creditNoteRedemptions: const [],
-  warnings: const [],
 );
 
 class _StubDashboardController extends DashboardController {
@@ -644,7 +640,7 @@ class _StubNewSaleController extends NewSaleController {
 
 class _StubCreditNotesController extends CreditNotesController {
   @override
-  CreditNotesState build() => const CreditNotesState(isLoading: false);
+  CreditNotesState build() => const CreditNotesState();
 }
 
 class _StubSalesHistoryController extends SalesHistoryController {
@@ -652,22 +648,9 @@ class _StubSalesHistoryController extends SalesHistoryController {
   SalesHistoryState build() {
     return SalesHistoryState(
       query: SalesHistoryQuery(
-        from: DateTime.utc(2026, 4, 1),
+        from: DateTime.utc(2026, 4),
         to: DateTime.utc(2026, 5, 15, 23, 59, 59),
       ),
-      sales: const [],
-      summary: const SalesHistorySummary(
-        periodSales: 0,
-        invoiceCount: 0,
-        refundAmount: 0,
-      ),
-      isLoading: false,
-      isLoadingMore: false,
-      totalCount: 0,
-      pageNumber: 1,
-      hasMore: false,
-      searchQuery: '',
-      statusFilter: 'all',
     );
   }
 }
@@ -681,8 +664,7 @@ class _StubDiscountsController extends DiscountsController {
   @override
   DiscountsState build() {
     return const DiscountsState(
-      query: DiscountRulesQuery(pageSize: 20),
-      isLoading: false,
+      query: DiscountRulesQuery(),
     );
   }
 }

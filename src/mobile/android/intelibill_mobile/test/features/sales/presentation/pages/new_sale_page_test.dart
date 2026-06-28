@@ -5,10 +5,10 @@ import 'package:intelibill_mobile/src/app/theme/app_theme.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/customers/domain/entities/customer.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/entities/payment_method.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_preview.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sellable.dart';
-import 'package:intelibill_mobile/src/features/sales/domain/entities/payment_method.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/controllers/new_sale_controller.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/pages/new_sale_page.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/widgets/payment_section.dart';
@@ -288,7 +288,7 @@ SaleDetail _recordedSale() {
     saleId: 'sale-1',
     invoiceNumber: 'INV-001',
     paymentMethod: 1,
-    soldAt: DateTime.utc(2026, 5, 11, 10, 0),
+    soldAt: DateTime.utc(2026, 5, 11, 10),
     paidAmount: 236,
     dueAmount: 0,
     totalBeforeDiscount: 236,
@@ -369,7 +369,7 @@ void main() {
         batchNumber: 'BN-1',
       );
       final state = NewSaleState(
-        cartLines: [const NewSaleCartLine(sellable: goods, quantity: 2)],
+        cartLines: const [NewSaleCartLine(sellable: goods, quantity: 2)],
         preview: _preview(),
       );
 
@@ -401,7 +401,6 @@ void main() {
           cartLines: [NewSaleCartLine(sellable: _goods(), quantity: 1)],
           preview: _preview(),
           paidAmount: 236,
-          dueAmount: 0,
         ),
       );
 
@@ -505,7 +504,7 @@ void main() {
           batchNumber: 'BN-1',
         );
         final state = NewSaleState(
-          cartLines: [const NewSaleCartLine(sellable: goods, quantity: 2)],
+          cartLines: const [NewSaleCartLine(sellable: goods, quantity: 2)],
           saleDiscountType: InstantDiscountType.percentage,
           saleDiscountValue: 25,
           saleDiscountError: 'Discount exceeds allowed maximum.',
@@ -538,9 +537,9 @@ void main() {
           batchNumber: 'BN-1',
         );
         final state = NewSaleState(
-          cartLines: [const NewSaleCartLine(sellable: goods, quantity: 2)],
+          cartLines: const [NewSaleCartLine(sellable: goods, quantity: 2)],
           preview: _preview(),
-          itemDiscountErrors: {
+          itemDiscountErrors: const {
             'g1': 'Discount percentage exceeds allowed maximum.',
           },
         );
@@ -573,8 +572,8 @@ void main() {
         barcode: 'BAR001',
         batchNumber: 'BN-1',
       );
-      final state = NewSaleState(
-        cartLines: [const NewSaleCartLine(sellable: goods, quantity: 2)],
+      const state = NewSaleState(
+        cartLines: [NewSaleCartLine(sellable: goods, quantity: 2)],
         isPreviewLoading: true,
       );
 
@@ -597,9 +596,9 @@ void main() {
         barcode: 'BAR001',
         batchNumber: 'BN-1',
       );
-      final state = NewSaleState(
-        cartLines: [const NewSaleCartLine(sellable: goods, quantity: 2)],
-        previewFailure: const Failure.network(message: 'offline'),
+      const state = NewSaleState(
+        cartLines: [NewSaleCartLine(sellable: goods, quantity: 2)],
+        previewFailure: Failure.network(message: 'offline'),
       );
 
       await tester.pumpWidget(_buildApp(_StubNewSaleController(state)));
@@ -842,7 +841,6 @@ void main() {
             availableCustomers: [_customer()],
             selectedCustomer: _customer(),
             paidAmount: 20,
-            dueAmount: 0,
           ),
         );
         await tester.pumpWidget(_buildApp(controller));

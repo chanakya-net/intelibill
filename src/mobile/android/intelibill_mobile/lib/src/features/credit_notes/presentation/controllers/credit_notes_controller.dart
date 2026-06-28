@@ -168,7 +168,7 @@ class CreditNotesController extends _$CreditNotesController {
       if (!ref.mounted) return false;
       state = state.copyWith(failure: error.failure);
       return false;
-    } catch (_) {
+    } on Object {
       if (!ref.mounted) return false;
       state = state.copyWith(failure: const Failure.unknown());
       return false;
@@ -196,7 +196,7 @@ class CreditNotesController extends _$CreditNotesController {
       if (!ref.mounted) return false;
       state = state.copyWith(failure: error.failure);
       return false;
-    } catch (_) {
+    } on Object {
       if (!ref.mounted) return false;
       state = state.copyWith(failure: const Failure.unknown());
       return false;
@@ -235,7 +235,7 @@ class CreditNotesController extends _$CreditNotesController {
         isLoadingMore: false,
         failure: error.failure,
       );
-    } catch (_) {
+    } on Object {
       if (!ref.mounted) return;
       state = state.copyWith(
         isLoading: false,

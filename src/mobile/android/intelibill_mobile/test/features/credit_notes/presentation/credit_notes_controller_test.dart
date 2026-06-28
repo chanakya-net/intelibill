@@ -92,8 +92,6 @@ void main() {
         const CreditNotesQuery(
           search: '',
           status: 'active',
-          page: 1,
-          pageSize: 20,
         ),
       ),
     ).called(1);
@@ -101,8 +99,8 @@ void main() {
 
   test('verifies code and stores selected note', () async {
     when(() => getCreditNotes(any())).thenAnswer(
-      (_) async => CreditNotesResult(
-        items: const [],
+      (_) async => const CreditNotesResult(
+        items: [],
         totalCount: 0,
         pageNumber: 1,
         pageSize: 20,

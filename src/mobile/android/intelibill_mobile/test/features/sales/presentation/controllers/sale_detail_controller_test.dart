@@ -31,10 +31,9 @@ class _TrackingSalesHistoryController extends SalesHistoryController {
     });
     return SalesHistoryState(
       query: SalesHistoryQuery(
-        from: DateTime(2026, 1, 1),
+        from: DateTime(2026),
         to: DateTime(2026, 1, 1, 23, 59, 59),
       ),
-      isLoading: false,
     );
   }
 
@@ -49,25 +48,16 @@ SaleDetail _saleDetail(String id) {
   return SaleDetail(
     saleId: id,
     invoiceNumber: 'INV-001',
-    customerId: null,
     customerName: 'John',
     customerPhone: '1234567890',
     paymentMethod: 1,
     soldAt: DateTime.utc(2026, 5, 11, 10),
-    items: const [],
-    settlements: const [],
-    discounts: const [],
-    returns: const [],
-    creditNoteRedemptions: const [],
-    warnings: const [],
     paidAmount: 500,
     dueAmount: 0,
     totalBeforeDiscount: 500,
     totalDiscountAmount: 0,
     totalAmount: 500,
     totalTaxAmount: 50,
-    refundAmount: 0,
-    dueReductionAmount: 0,
   );
 }
 
@@ -103,7 +93,7 @@ void main() {
 
       final subscription = container.listen(
         saleDetailControllerProvider('sale-1'),
-        (_, __) {},
+        (_, _) {},
         fireImmediately: true,
       );
       addTearDown(subscription.close);
@@ -254,20 +244,15 @@ void main() {
         final detail = SaleDetail(
           saleId: 'sale-1',
           invoiceNumber: 'INV-101',
-          customerId: null,
           customerName: 'Jane',
-          customerPhone: null,
           paymentMethod: 1,
           soldAt: DateTime.utc(2026, 5, 11, 10),
-          items: const [],
           paidAmount: 500,
           dueAmount: 0,
           totalBeforeDiscount: 500,
           totalDiscountAmount: 0,
           totalAmount: 500,
           totalTaxAmount: 50,
-          refundAmount: 0,
-          dueReductionAmount: 0,
         );
 
         when(() => getSaleDetail(any())).thenAnswer((_) async => detail);

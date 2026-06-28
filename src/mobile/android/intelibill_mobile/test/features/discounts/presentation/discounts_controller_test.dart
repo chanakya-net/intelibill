@@ -1,3 +1,4 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
@@ -6,7 +7,6 @@ import 'package:intelibill_mobile/src/features/discounts/domain/entities/discoun
 import 'package:intelibill_mobile/src/features/discounts/domain/use_cases/get_discount_rule_detail.dart';
 import 'package:intelibill_mobile/src/features/discounts/domain/use_cases/get_discount_rules.dart';
 import 'package:intelibill_mobile/src/features/discounts/presentation/controllers/discounts_controller.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mocktail/mocktail.dart';
 
 class _MockGetDiscountRules extends Mock implements GetDiscountRules {}
@@ -21,19 +21,10 @@ DiscountRule _rule(String id, String name) {
     name: name,
     percentage: 10,
     isActive: true,
-    startsAt: DateTime.utc(2026, 5, 1),
+    startsAt: DateTime.utc(2026, 5),
     endsAt: DateTime.utc(2026, 5, 20),
-    createdAt: DateTime.utc(2026, 4, 1),
-    description: null,
-    inventoryBatchId: null,
-    thresholdAmount: null,
-    disabledAt: null,
-    disabledReason: null,
+    createdAt: DateTime.utc(2026, 4),
     belowCostConfirmed: true,
-    belowCostConfirmationReason: null,
-    replacesRuleId: null,
-    replacedByRuleId: null,
-    updatedAt: null,
     status: 'active',
   );
 }
@@ -51,7 +42,7 @@ void main() {
     getRuleDetail = _MockGetDiscountRuleDetail();
   });
 
-  ProviderContainer _buildContainer() {
+  ProviderContainer buildContainer() {
     return ProviderContainer(
       overrides: [
         getDiscountRulesProvider.overrideWithValue(getRules),
@@ -63,7 +54,7 @@ void main() {
   group('DiscountsController', () {
     test('starts in loading state and then loads rules', () async {
       when(() => getRules.call(any())).thenAnswer(
-        (_) async => DiscountRulesResult(
+        (_) async => const DiscountRulesResult(
           rules: [],
           totalCount: 0,
           pageNumber: 1,
@@ -71,7 +62,7 @@ void main() {
         ),
       );
 
-      final container = _buildContainer();
+      final container = buildContainer();
       addTearDown(container.dispose);
 
       expect(container.read(discountsControllerProvider).isLoading, isTrue);
@@ -81,7 +72,7 @@ void main() {
 
     test('updates filters and reloads list', () async {
       when(() => getRules.call(any())).thenAnswer(
-        (_) async => DiscountRulesResult(
+        (_) async => const DiscountRulesResult(
           rules: [],
           totalCount: 0,
           pageNumber: 1,
@@ -89,7 +80,7 @@ void main() {
         ),
       );
 
-      final container = _buildContainer();
+      final container = buildContainer();
       addTearDown(container.dispose);
 
       await container
@@ -107,7 +98,7 @@ void main() {
         (_) async => rule,
       );
       when(() => getRules.call(any())).thenAnswer(
-        (_) async => DiscountRulesResult(
+        (_) async => const DiscountRulesResult(
           rules: [],
           totalCount: 0,
           pageNumber: 1,
@@ -115,7 +106,7 @@ void main() {
         ),
       );
 
-      final container = _buildContainer();
+      final container = buildContainer();
       addTearDown(container.dispose);
 
       await Future<void>.delayed(const Duration(milliseconds: 20));
@@ -135,7 +126,7 @@ void main() {
         AppException(failure: const Failure.network(message: 'offline')),
       );
       when(() => getRules.call(any())).thenAnswer(
-        (_) async => DiscountRulesResult(
+        (_) async => const DiscountRulesResult(
           rules: [],
           totalCount: 0,
           pageNumber: 1,
@@ -143,7 +134,7 @@ void main() {
         ),
       );
 
-      final container = _buildContainer();
+      final container = buildContainer();
       addTearDown(container.dispose);
 
       await Future<void>.delayed(const Duration(milliseconds: 20));

@@ -305,7 +305,7 @@ final class DiscountEditorControllerProvider
 }
 
 String _$discountEditorControllerHash() =>
-    r'10805d25196dbe4ebadf22c7275c32e6dc75ef40';
+    r'304f3a7be7fff62351673514e3c8a01bc2600107';
 
 abstract class _$DiscountEditorController
     extends $Notifier<DiscountEditorState> {

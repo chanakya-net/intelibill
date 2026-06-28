@@ -5,10 +5,6 @@ class SaleReturnPreviewWarningDto {
     required this.severity,
   });
 
-  final String code;
-  final String message;
-  final String severity;
-
   factory SaleReturnPreviewWarningDto.fromJson(Map<String, dynamic> json) {
     return SaleReturnPreviewWarningDto(
       code: json['code'] as String,
@@ -16,6 +12,10 @@ class SaleReturnPreviewWarningDto {
       severity: json['severity'] as String,
     );
   }
+
+  final String code;
+  final String message;
+  final String severity;
 }
 
 class SaleReturnPreviewLineFinancialDto {
@@ -29,15 +29,6 @@ class SaleReturnPreviewLineFinancialDto {
     required this.taxableAmount,
     required this.taxAmount,
   });
-
-  final double originalCostPrice;
-  final double originalSalesPrice;
-  final double originalTaxRatePercent;
-  final bool originalIsPriceIncludingTax;
-  final double maxRefundAmount;
-  final double approvedRefundAmount;
-  final double taxableAmount;
-  final double taxAmount;
 
   factory SaleReturnPreviewLineFinancialDto.fromJson(
     Map<String, dynamic> json,
@@ -54,6 +45,15 @@ class SaleReturnPreviewLineFinancialDto {
       taxAmount: (json['taxAmount'] as num).toDouble(),
     );
   }
+
+  final double originalCostPrice;
+  final double originalSalesPrice;
+  final double originalTaxRatePercent;
+  final bool originalIsPriceIncludingTax;
+  final double maxRefundAmount;
+  final double approvedRefundAmount;
+  final double taxableAmount;
+  final double taxAmount;
 }
 
 class SaleReturnPreviewLineDto {
@@ -68,16 +68,6 @@ class SaleReturnPreviewLineDto {
     required this.willRestock,
     this.financial,
   });
-
-  final String saleItemId;
-  final String? itemId;
-  final String? inventoryBatchId;
-  final double requestedQuantity;
-  final double returnedQuantity;
-  final double returnableQuantity;
-  final int? condition;
-  final bool willRestock;
-  final SaleReturnPreviewLineFinancialDto? financial;
 
   factory SaleReturnPreviewLineDto.fromJson(Map<String, dynamic> json) {
     return SaleReturnPreviewLineDto(
@@ -96,6 +86,16 @@ class SaleReturnPreviewLineDto {
             ),
     );
   }
+
+  final String saleItemId;
+  final String? itemId;
+  final String? inventoryBatchId;
+  final double requestedQuantity;
+  final double returnedQuantity;
+  final double returnableQuantity;
+  final int? condition;
+  final bool willRestock;
+  final SaleReturnPreviewLineFinancialDto? financial;
 }
 
 class SaleReturnPreviewFinancialDto {
@@ -109,14 +109,6 @@ class SaleReturnPreviewFinancialDto {
     this.customerBalanceAfter,
   });
 
-  final double totalRefundAmount;
-  final double dueReductionAmount;
-  final double payoutAmount;
-  final double totalTaxableAmount;
-  final double totalTaxAmount;
-  final double? customerBalanceBefore;
-  final double? customerBalanceAfter;
-
   factory SaleReturnPreviewFinancialDto.fromJson(Map<String, dynamic> json) {
     return SaleReturnPreviewFinancialDto(
       totalRefundAmount: (json['totalRefundAmount'] as num).toDouble(),
@@ -129,6 +121,14 @@ class SaleReturnPreviewFinancialDto {
       customerBalanceAfter: (json['customerBalanceAfter'] as num?)?.toDouble(),
     );
   }
+
+  final double totalRefundAmount;
+  final double dueReductionAmount;
+  final double payoutAmount;
+  final double totalTaxableAmount;
+  final double totalTaxAmount;
+  final double? customerBalanceBefore;
+  final double? customerBalanceAfter;
 }
 
 class SaleReturnPreviewResponseDto {
@@ -139,12 +139,6 @@ class SaleReturnPreviewResponseDto {
     this.financial,
     required this.warnings,
   });
-
-  final String saleId;
-  final bool hasFinancialAccess;
-  final List<SaleReturnPreviewLineDto> lines;
-  final SaleReturnPreviewFinancialDto? financial;
-  final List<SaleReturnPreviewWarningDto> warnings;
 
   factory SaleReturnPreviewResponseDto.fromJson(Map<String, dynamic> json) {
     return SaleReturnPreviewResponseDto(
@@ -165,4 +159,10 @@ class SaleReturnPreviewResponseDto {
           .toList(growable: false),
     );
   }
+
+  final String saleId;
+  final bool hasFinancialAccess;
+  final List<SaleReturnPreviewLineDto> lines;
+  final SaleReturnPreviewFinancialDto? financial;
+  final List<SaleReturnPreviewWarningDto> warnings;
 }

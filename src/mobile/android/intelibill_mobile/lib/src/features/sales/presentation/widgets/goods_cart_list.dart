@@ -153,10 +153,8 @@ class GoodsCartList extends StatelessWidget {
                       _LineDiscountEditor(
                         line: line,
                         error: itemDiscountErrors[line.sellable.id],
-                        onTypeChanged: (lineId, type) =>
-                            onCartItemDiscountTypeChanged(lineId, type),
-                        onValueChanged: (lineId, value) =>
-                            onCartItemDiscountValueChanged(lineId, value),
+                        onTypeChanged: onCartItemDiscountTypeChanged,
+                        onValueChanged: onCartItemDiscountValueChanged,
                       ),
                     ],
                     Row(
@@ -448,7 +446,7 @@ class _RecordedSaleSummaryCard extends StatelessWidget {
               Text('Invoice: ${sale.invoiceNumber}'),
               const SizedBox(height: 6),
               Text('Customer: ${sale.customerName ?? 'Walk-in customer'}'),
-              if ((sale.customerPhone?.isNotEmpty ?? false))
+              if (sale.customerPhone?.isNotEmpty ?? false)
                 Text('Phone: ${sale.customerPhone}'),
               const SizedBox(height: 10),
               _SummaryRow(
@@ -648,7 +646,7 @@ class _LineDiscountEditorState extends State<_LineDiscountEditor> {
             Expanded(
               child: DropdownButtonFormField<int>(
                 key: Key('line-discount-type-${line.sellable.id}'),
-                value: line.itemDiscountType,
+                initialValue: line.itemDiscountType,
                 items: const [
                   DropdownMenuItem(
                     value: InstantDiscountType.none,
@@ -784,7 +782,7 @@ class _SaleDiscountEditorState extends State<_SaleDiscountEditor> {
             Expanded(
               child: DropdownButtonFormField<int>(
                 key: const Key('sale-discount-type'),
-                value: widget.type,
+                initialValue: widget.type,
                 items: const [
                   DropdownMenuItem(
                     value: InstantDiscountType.none,

@@ -65,10 +65,9 @@ AuthSession _ownerSession() {
 
 void main() {
   testWidgets('opens receipt from credit note detail sheet', (tester) async {
-    final state = CreditNotesState(
-      isLoading: false,
+    const state = CreditNotesState(
       notes: [
-        const CreditNote(
+        CreditNote(
           creditNoteId: 'cn-1',
           code: 'CN-001',
           status: 'active',

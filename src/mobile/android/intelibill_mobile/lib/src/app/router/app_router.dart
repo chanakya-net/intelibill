@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
 import 'package:intelibill_mobile/src/app/navigation/authenticated_home_route.dart';
 import 'package:intelibill_mobile/src/app/pages/language_page.dart';
 import 'package:intelibill_mobile/src/app/pages/placeholder_page.dart';
@@ -13,9 +12,9 @@ import 'package:intelibill_mobile/src/features/auth/presentation/pages/change_pa
 import 'package:intelibill_mobile/src/features/auth/presentation/pages/login_page.dart';
 import 'package:intelibill_mobile/src/features/auth/presentation/pages/profile_settings_page.dart';
 import 'package:intelibill_mobile/src/features/auth/presentation/pages/update_profile_page.dart';
-import 'package:intelibill_mobile/src/features/customers/presentation/pages/customers_page.dart';
-import 'package:intelibill_mobile/src/features/credit_notes/presentation/pages/credit_notes_page.dart';
 import 'package:intelibill_mobile/src/features/credit_notes/presentation/pages/credit_note_receipt_page.dart';
+import 'package:intelibill_mobile/src/features/credit_notes/presentation/pages/credit_notes_page.dart';
+import 'package:intelibill_mobile/src/features/customers/presentation/pages/customers_page.dart';
 import 'package:intelibill_mobile/src/features/dashboard/presentation/pages/dashboard_page.dart';
 import 'package:intelibill_mobile/src/features/discounts/presentation/pages/discounts_page.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/add_inventory_page.dart';
@@ -24,8 +23,8 @@ import 'package:intelibill_mobile/src/features/inventory/presentation/pages/inve
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/items_page.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/pages/new_sale_page.dart';
-import 'package:intelibill_mobile/src/features/sales/presentation/pages/sales_receipt_page.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/pages/sales_history_page.dart';
+import 'package:intelibill_mobile/src/features/sales/presentation/pages/sales_receipt_page.dart';
 import 'package:intelibill_mobile/src/features/services/presentation/pages/services_page.dart';
 import 'package:intelibill_mobile/src/features/shops/presentation/pages/create_shop_page.dart';
 import 'package:intelibill_mobile/src/features/shops/presentation/pages/manage_shop_page.dart';

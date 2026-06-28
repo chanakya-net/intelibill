@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
@@ -50,7 +52,7 @@ class SaleDetailController extends _$SaleDetailController {
   @override
   SaleDetailState build(String saleId) {
     _saleId = saleId;
-    Future.microtask(_load);
+    unawaited(Future.microtask(_load));
     return const SaleDetailState(isLoading: true);
   }
 

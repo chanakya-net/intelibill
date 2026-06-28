@@ -80,7 +80,7 @@ void main() {
 
     final domain = DiscountRuleMapper.toDomain(
       dto,
-      clock: DateTime.utc(2026, 2, 1),
+      clock: DateTime.utc(2026, 2),
     );
 
     expect(domain.description, isNull);

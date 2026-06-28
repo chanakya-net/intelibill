@@ -56,9 +56,6 @@ class Sellable extends Equatable {
 }
 
 class NewSaleCartLine extends Equatable {
-  static const _unset = Object();
-  static const _unsetType = Object();
-
   const NewSaleCartLine({
     required this.sellable,
     required this.quantity,
@@ -66,6 +63,8 @@ class NewSaleCartLine extends Equatable {
     this.itemDiscountType = InstantDiscountType.none,
     this.itemDiscountValue = 0,
   });
+  static const _unset = Object();
+  static const _unsetType = Object();
 
   final Sellable sellable;
   final double quantity;
@@ -91,10 +90,10 @@ class NewSaleCartLine extends Equatable {
           : unitPrice as double?,
       itemDiscountType: identical(itemDiscountType, _unsetType)
           ? this.itemDiscountType
-          : itemDiscountType as int,
+          : itemDiscountType! as int,
       itemDiscountValue: identical(itemDiscountValue, _unset)
           ? this.itemDiscountValue
-          : itemDiscountValue as double,
+          : itemDiscountValue! as double,
     );
   }
 

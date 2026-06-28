@@ -37,9 +37,7 @@ final _services = [
     serviceId: 'svc-2',
     code: 'SRV-002',
     name: 'Consultation',
-    description: null,
     price: 250,
-    hsnCode: null,
     taxRatePercent: 0,
     taxIncluded: false,
     isActive: false,
@@ -165,9 +163,7 @@ void main() {
           .read(servicesControllerProvider.notifier)
           .createService(
             name: 'Repair',
-            description: null,
             price: 499.9,
-            hsnCode: null,
             taxRatePercent: 18,
             taxIncluded: true,
             isActive: true,

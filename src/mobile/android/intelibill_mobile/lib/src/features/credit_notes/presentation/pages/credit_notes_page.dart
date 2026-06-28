@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import 'package:intelibill_mobile/src/app/router/app_router.dart';
 import 'package:intelibill_mobile/src/app/shell/menu_visibility.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
@@ -11,6 +10,7 @@ import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:intelibill_mobile/src/features/credit_notes/domain/entities/credit_note.dart';
 import 'package:intelibill_mobile/src/features/credit_notes/presentation/controllers/credit_notes_controller.dart';
+import 'package:intl/intl.dart';
 
 class CreditNotesPage extends ConsumerStatefulWidget {
   const CreditNotesPage({super.key});
@@ -245,7 +245,7 @@ class _CreditNotesPageState extends ConsumerState<CreditNotesPage> {
                 .read(creditNotesControllerProvider.notifier)
                 .voidActiveNote(code: note.code, reason: reason)
                 .then(
-                  (isSuccess) => isSuccess ? true : false,
+                  (isSuccess) => isSuccess,
                 );
           },
         );
@@ -349,7 +349,7 @@ class _CreditNoteDetailSheetState extends State<_CreditNoteDetailSheet> {
     }
     setState(() => _isSubmitting = true);
     final isSuccess = await widget.onVoid(reason);
-    if (!mounted) return;
+    if (!context.mounted) return;
     setState(() => _isSubmitting = false);
     if (!isSuccess) return;
     Navigator.of(context).pop(_CreditNoteDetailSheetAction.voided);
@@ -386,7 +386,7 @@ class _CreditNoteDetailSheetState extends State<_CreditNoteDetailSheet> {
               controller: _reasonController,
               decoration: InputDecoration(
                 labelText: l10n.creditNotesVoidReason,
-                border: OutlineInputBorder(),
+                border: const OutlineInputBorder(),
               ),
             ),
           ],

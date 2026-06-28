@@ -35,7 +35,7 @@ class _SaleDetailControllerWithRefreshFailure extends SaleDetailController {
   @override
   Future<void> refresh() async {
     throw AppException(
-      failure: Failure.unknown(message: 'Unable to refresh sale detail.'),
+      failure: const Failure.unknown(message: 'Unable to refresh sale detail.'),
     );
   }
 }
@@ -60,7 +60,6 @@ class _TrackingSalesHistoryController extends SalesHistoryController {
   SalesHistoryState build() {
     return SalesHistoryState(
       query: defaultSalesHistoryQuery(),
-      isLoading: false,
     );
   }
 
@@ -85,7 +84,7 @@ void main() {
     _TrackingSalesHistoryController.reset();
   });
 
-  AuthSession _session(String role) => AuthSession(
+  AuthSession session(String role) => AuthSession(
     accessToken: 'access_token',
     refreshToken: 'refresh_token',
     accessTokenExpiresAt: DateTime.utc(2026, 5, 15, 10),
@@ -111,7 +110,7 @@ void main() {
     rememberMe: false,
   );
 
-  SaleDetail _detail() => SaleDetail(
+  SaleDetail detail0() => SaleDetail(
     saleId: 'sale-1',
     invoiceNumber: 'INV-1',
     paymentMethod: 1,
@@ -176,7 +175,7 @@ void main() {
     required AuthSession? session,
     bool refreshFails = false,
   }) async {
-    final detail = SaleDetailState(detail: _detail(), isLoading: false);
+    final detail = SaleDetailState(detail: detail0());
     final saleDetailOverride = refreshFails
         ? saleDetailControllerProvider('sale-1').overrideWith(
             () => _SaleDetailControllerWithRefreshFailure(detail),
@@ -218,18 +217,18 @@ void main() {
           ),
         );
 
-        final container = await makeContainer(session: _session('owner'));
+        final container = await makeContainer(session: session('owner'));
         addTearDown(container.dispose);
 
         final notifier = container.read(
           saleReturnControllerProvider('sale-1').notifier,
         );
-        notifier.toggleLine('goods-1', true);
+        notifier.toggleLine('goods-1', selected: true);
         notifier.updateQuantity('goods-1', 2);
         notifier.updateCondition('goods-1', 1);
         notifier.updateApprovedRefundAmount('goods-1', '90');
 
-        notifier.toggleLine('svc-1', true);
+        notifier.toggleLine('svc-1', selected: true);
         notifier.updateQuantity('svc-1', 1);
         notifier.updateApprovedRefundAmount('svc-1', '50');
 
@@ -250,7 +249,7 @@ void main() {
     );
 
     test('sends credit-note payout details on submit', () async {
-      final detail = _detail();
+      final detail = detail0();
       when(
         () => previewSaleReturn(
           saleId: any<String>(named: 'saleId'),
@@ -271,13 +270,13 @@ void main() {
         ),
       ).thenAnswer((_) async => detail);
 
-      final container = await makeContainer(session: _session('owner'));
+      final container = await makeContainer(session: session('owner'));
       addTearDown(container.dispose);
 
       final notifier = container.read(
         saleReturnControllerProvider('sale-1').notifier,
       );
-      notifier.toggleLine('goods-1', true);
+      notifier.toggleLine('goods-1', selected: true);
       notifier.updateQuantity('goods-1', 1);
       notifier.updateCondition('goods-1', 1);
       notifier.updateApprovedRefundAmount('goods-1', '20');
@@ -286,7 +285,7 @@ void main() {
       notifier.updateCreditNoteExpiresAt(DateTime.utc(2026, 12, 31));
       notifier.updateDueReductionAmount('10');
       notifier.updateDueOverrideReason('Good reason');
-      notifier.updateDueOverrideConfirmed(true);
+      notifier.updateDueOverrideConfirmed(value: true);
 
       await notifier.preview();
       await notifier.submit();
@@ -326,15 +325,15 @@ void main() {
           saleId: any<String>(named: 'saleId'),
           request: any(named: 'request'),
         ),
-      ).thenAnswer((_) async => _detail());
+      ).thenAnswer((_) async => detail0());
 
-      final container = await makeContainer(session: _session('owner'));
+      final container = await makeContainer(session: session('owner'));
       addTearDown(container.dispose);
 
       final notifier = container.read(
         saleReturnControllerProvider('sale-1').notifier,
       );
-      notifier.toggleLine('goods-1', true);
+      notifier.toggleLine('goods-1', selected: true);
       notifier.updateQuantity('goods-1', 1);
       notifier.updateCondition('goods-1', 1);
       notifier.updateApprovedRefundAmount('goods-1', '20');
@@ -362,10 +361,10 @@ void main() {
             saleId: any<String>(named: 'saleId'),
             request: any(named: 'request'),
           ),
-        ).thenAnswer((_) async => _detail());
+        ).thenAnswer((_) async => detail0());
 
         final container = await makeContainer(
-          session: _session('owner'),
+          session: session('owner'),
           refreshFails: true,
         );
         addTearDown(container.dispose);
@@ -373,7 +372,7 @@ void main() {
         final notifier = container.read(
           saleReturnControllerProvider('sale-1').notifier,
         );
-        notifier.toggleLine('goods-1', true);
+        notifier.toggleLine('goods-1', selected: true);
         notifier.updateQuantity('goods-1', 1);
         notifier.updateCondition('goods-1', 1);
         notifier.updateApprovedRefundAmount('goods-1', '20');
@@ -389,13 +388,13 @@ void main() {
     );
 
     test('fails validation when credit note expiry is missing', () async {
-      final container = await makeContainer(session: _session('owner'));
+      final container = await makeContainer(session: session('owner'));
       addTearDown(container.dispose);
 
       final notifier = container.read(
         saleReturnControllerProvider('sale-1').notifier,
       );
-      notifier.toggleLine('goods-1', true);
+      notifier.toggleLine('goods-1', selected: true);
       notifier.updateQuantity('goods-1', 1);
       notifier.updateCondition('goods-1', 1);
       notifier.updateApprovedRefundAmount('goods-1', '20');
@@ -424,13 +423,13 @@ void main() {
         AppException(failure: const Failure.validation(message: 'Bad input')),
       );
 
-      final container = await makeContainer(session: _session('owner'));
+      final container = await makeContainer(session: session('owner'));
       addTearDown(container.dispose);
 
       final notifier = container.read(
         saleReturnControllerProvider('sale-1').notifier,
       );
-      notifier.toggleLine('goods-1', true);
+      notifier.toggleLine('goods-1', selected: true);
       notifier.updateQuantity('goods-1', 1);
       notifier.updateCondition('goods-1', 1);
       notifier.updateApprovedRefundAmount('goods-1', '20');
@@ -455,13 +454,13 @@ void main() {
           AppException(failure: const Failure.validation(message: 'Bad input')),
         );
 
-        final container = await makeContainer(session: _session('owner'));
+        final container = await makeContainer(session: session('owner'));
         addTearDown(container.dispose);
 
         final notifier = container.read(
           saleReturnControllerProvider('sale-1').notifier,
         );
-        notifier.toggleLine('goods-1', true);
+        notifier.toggleLine('goods-1', selected: true);
         notifier.updateQuantity('goods-1', 1);
         notifier.updateApprovedRefundAmount('goods-1', '20');
 
@@ -475,13 +474,13 @@ void main() {
     );
 
     test('blocks submit for staff role', () async {
-      final container = await makeContainer(session: _session('staff'));
+      final container = await makeContainer(session: session('staff'));
       addTearDown(container.dispose);
 
       final notifier = container.read(
         saleReturnControllerProvider('sale-1').notifier,
       );
-      notifier.toggleLine('goods-1', true);
+      notifier.toggleLine('goods-1', selected: true);
       notifier.updateQuantity('goods-1', 1);
       notifier.updateApprovedRefundAmount('goods-1', '10');
 

@@ -26,13 +26,8 @@ DiscountsState _loadingState() {
 }
 
 DiscountsState _emptyState() {
-  return DiscountsState(
-    query: const DiscountRulesQuery(),
-    rules: const [],
-    totalCount: 0,
-    pageNumber: 1,
-    pageSize: 20,
-    hasMore: false,
+  return const DiscountsState(
+    query: DiscountRulesQuery(),
   );
 }
 
@@ -46,25 +41,15 @@ DiscountsState _loadedState() {
         name: 'Summer Batch',
         description: '20% off',
         inventoryBatchId: 'batch-1',
-        thresholdAmount: null,
-        startsAt: DateTime.utc(2026, 5, 1),
+        startsAt: DateTime.utc(2026, 5),
         endsAt: DateTime.utc(2026, 5, 10),
         isActive: true,
-        disabledAt: null,
-        disabledReason: null,
         belowCostConfirmed: false,
-        belowCostConfirmationReason: null,
-        replacesRuleId: null,
-        replacedByRuleId: null,
-        createdAt: DateTime.utc(2026, 4, 1),
-        updatedAt: null,
+        createdAt: DateTime.utc(2026, 4),
         status: 'active',
       ),
     ],
     totalCount: 1,
-    pageNumber: 1,
-    pageSize: 20,
-    hasMore: false,
   );
 }
 

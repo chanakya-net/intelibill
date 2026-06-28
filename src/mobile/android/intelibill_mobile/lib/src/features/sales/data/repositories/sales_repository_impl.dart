@@ -1,17 +1,17 @@
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/features/sales/data/data_sources/sales_remote_data_source.dart';
-import 'package:intelibill_mobile/src/features/sales/data/mappers/sale_detail_mapper.dart';
 import 'package:intelibill_mobile/src/features/sales/data/dto/sale_preview_dto.dart';
+import 'package:intelibill_mobile/src/features/sales/data/mappers/sale_detail_mapper.dart';
+import 'package:intelibill_mobile/src/features/sales/data/mappers/sale_list_item_mapper.dart';
 import 'package:intelibill_mobile/src/features/sales/data/mappers/sale_preview_mapper.dart';
 import 'package:intelibill_mobile/src/features/sales/data/mappers/sale_return_mapper.dart';
-import 'package:intelibill_mobile/src/features/sales/data/mappers/sale_list_item_mapper.dart';
 import 'package:intelibill_mobile/src/features/sales/data/mappers/sellable_mapper.dart';
+import 'package:intelibill_mobile/src/features/sales/domain/entities/record_sale.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_preview.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_return.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sales_history_query.dart';
-import 'package:intelibill_mobile/src/features/sales/domain/entities/record_sale.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sellable.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/repositories/sales_repository.dart';
 
@@ -132,7 +132,7 @@ class SalesRepositoryImpl implements SalesRepository {
         failure: Failure.serialization(message: error.message),
       );
     } on Object {
-      throw AppException(failure: Failure.unknown(message: 'Unknown'));
+      throw AppException(failure: const Failure.unknown(message: 'Unknown'));
     }
   }
 

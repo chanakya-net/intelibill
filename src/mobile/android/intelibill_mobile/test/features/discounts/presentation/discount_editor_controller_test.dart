@@ -39,8 +39,7 @@ class _TrackingDiscountsController extends DiscountsController {
   @override
   DiscountsState build() {
     return const DiscountsState(
-      query: DiscountRulesQuery(pageSize: 20),
-      isLoading: false,
+      query: DiscountRulesQuery(),
     );
   }
 
@@ -187,8 +186,7 @@ void main() {
       container
           .read(discountsControllerProvider.notifier)
           .state = const DiscountsState(
-        query: DiscountRulesQuery(pageSize: 20),
-        isLoading: false,
+        query: DiscountRulesQuery(),
         selectedRuleId: 'disc-1',
       );
 
@@ -313,8 +311,7 @@ void main() {
       container
           .read(discountsControllerProvider.notifier)
           .state = const DiscountsState(
-        query: DiscountRulesQuery(pageSize: 20),
-        isLoading: false,
+        query: DiscountRulesQuery(),
         selectedRuleId: 'disc-1',
       );
 
@@ -357,8 +354,7 @@ void main() {
       container
           .read(discountsControllerProvider.notifier)
           .state = const DiscountsState(
-        query: DiscountRulesQuery(pageSize: 20),
-        isLoading: false,
+        query: DiscountRulesQuery(),
         selectedRuleId: 'disc-1',
       );
 
@@ -476,7 +472,6 @@ void main() {
               discountType: DiscountType.fixed,
               discountValue: 500,
               batchPercentage: null,
-              confirmed: false,
             );
 
         final state = container.read(discountEditorControllerProvider);
@@ -572,7 +567,6 @@ void main() {
               discountType: DiscountType.percentage,
               discountValue: 15,
               batchPercentage: null,
-              confirmed: false,
             );
 
         final state = container.read(discountEditorControllerProvider);

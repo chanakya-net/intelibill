@@ -40,7 +40,6 @@ class _TrackingSalesHistoryController extends SalesHistoryController {
   @override
   SalesHistoryState build() => SalesHistoryState(
     query: defaultSalesHistoryQuery(),
-    isLoading: false,
   );
 
   @override
@@ -229,7 +228,7 @@ SaleDetail _recordedSale() {
     saleId: 'sale-abc',
     invoiceNumber: 'INV-ABC-001',
     paymentMethod: 1,
-    soldAt: DateTime.utc(2026, 5, 11, 10, 0),
+    soldAt: DateTime.utc(2026, 5, 11, 10),
     paidAmount: 236,
     dueAmount: 0,
     totalBeforeDiscount: 236,
@@ -431,14 +430,12 @@ void main() {
           ),
         ],
         preview: _preview(
-          totalAmount: 236,
           totalTaxAmount: 0,
           totalDiscountAmount: 0,
         ),
         selectedCustomer: customer,
         paymentMethod: PaymentMethod.upi,
         paidAmount: 236,
-        dueAmount: 0,
         saleDiscountType: InstantDiscountType.flat,
         saleDiscountValue: 10,
       );
@@ -494,7 +491,6 @@ void main() {
         cartLines: [NewSaleCartLine(sellable: goods, quantity: 1)],
         preview: _preview(),
         paidAmount: 236,
-        dueAmount: 0,
       );
 
       await controller.submit();
@@ -534,7 +530,6 @@ void main() {
         cartLines: [NewSaleCartLine(sellable: goods, quantity: 1)],
         preview: _preview(),
         paidAmount: 236,
-        dueAmount: 0,
       );
 
       await controller.submit();
@@ -566,7 +561,6 @@ void main() {
         preview: _preview(),
         isSubmitting: true,
         paidAmount: 236,
-        dueAmount: 0,
       );
 
       await controller.submit();
@@ -754,7 +748,7 @@ void main() {
       final container = makeContainer();
       addTearDown(container.dispose);
       final controller = container.read(newSaleControllerProvider.notifier);
-      final goods = Sellable(
+      const goods = Sellable(
         id: 'g1',
         kind: 'Goods',
         name: 'Rice',
@@ -769,7 +763,7 @@ void main() {
 
       controller.state = NewSaleState(
         cartLines: [
-          NewSaleCartLine(sellable: goods, quantity: 2),
+          const NewSaleCartLine(sellable: goods, quantity: 2),
           NewSaleCartLine(sellable: service, quantity: 1, unitPrice: 175),
         ],
       );
@@ -852,7 +846,6 @@ void main() {
               taxableAmount: 95,
               taxAmount: 0,
               lineTotalAmount: 95,
-              hasClientPriceMismatch: false,
             ),
           ],
         );
@@ -866,7 +859,6 @@ void main() {
             NewSaleCartLine(
               sellable: goods,
               quantity: 1,
-              itemDiscountType: InstantDiscountType.none,
               itemDiscountValue: 12,
             ),
           ],
@@ -901,7 +893,6 @@ void main() {
               taxableAmount: 95,
               taxAmount: 0,
               lineTotalAmount: 95,
-              hasClientPriceMismatch: false,
             ),
           ],
         );
@@ -1029,7 +1020,6 @@ void main() {
         controller.state = NewSaleState(
           cartLines: [NewSaleCartLine(sellable: goods, quantity: 1)],
           saleDiscountType: InstantDiscountType.flat,
-          saleDiscountValue: 0,
         );
 
         controller.updateSaleDiscountValue(500);
@@ -1046,8 +1036,6 @@ void main() {
       final goods = _goods(id: 'g1', name: 'Flour', stock: 5);
       controller.state = NewSaleState(
         cartLines: [NewSaleCartLine(sellable: goods, quantity: 1)],
-        saleDiscountType: InstantDiscountType.none,
-        saleDiscountValue: 0,
         preview: _preview(),
       );
 
@@ -1203,7 +1191,7 @@ void main() {
       final service = _service(id: 's1', name: 'Setup', price: 100);
 
       await controller.addToCart(service);
-      controller.updateCartUnitPrice(service.id, 0.0);
+      controller.updateCartUnitPrice(service.id, 0);
 
       final state = container.read(newSaleControllerProvider);
       expect(state.searchFailure, isNotNull);
@@ -1223,7 +1211,7 @@ void main() {
       final controller = container.read(newSaleControllerProvider.notifier);
       final service = _service(id: 's1', name: 'Repair', price: 250);
 
-      await controller.addToCart(service, quantity: 1);
+      await controller.addToCart(service);
       await controller.addToCart(service, quantity: 2);
 
       final state = container.read(newSaleControllerProvider);

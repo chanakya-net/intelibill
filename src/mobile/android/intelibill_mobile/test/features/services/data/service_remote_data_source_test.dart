@@ -142,7 +142,7 @@ void main() {
       const request = UpdateServiceRequestDto(
         name: 'Repair Updated',
         description: 'Updated description',
-        price: 599.0,
+        price: 599,
         hsnCode: '9988',
         taxRatePercent: 12,
         taxIncluded: false,
@@ -155,7 +155,6 @@ void main() {
         ),
       ).thenAnswer(
         (_) async => Response<void>(
-          data: null,
           statusCode: 204,
           requestOptions: RequestOptions(path: '/services/svc-1'),
         ),
@@ -174,7 +173,6 @@ void main() {
     test('posts activate request to /services/{id}/activate', () async {
       when(() => mockApiClient.post<void>(any<String>())).thenAnswer(
         (_) async => Response<void>(
-          data: null,
           statusCode: 204,
           requestOptions: RequestOptions(path: '/services/svc-1/activate'),
         ),
@@ -190,7 +188,6 @@ void main() {
     test('posts deactivate request to /services/{id}/deactivate', () async {
       when(() => mockApiClient.post<void>(any<String>())).thenAnswer(
         (_) async => Response<void>(
-          data: null,
           statusCode: 204,
           requestOptions: RequestOptions(path: '/services/svc-1/deactivate'),
         ),

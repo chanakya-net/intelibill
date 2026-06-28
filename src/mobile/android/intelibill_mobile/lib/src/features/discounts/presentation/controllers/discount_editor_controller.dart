@@ -129,7 +129,7 @@ class DiscountEditorController extends _$DiscountEditorController {
         previewLoading: false,
         previewFailure: e.failure,
       );
-    } catch (e) {
+    } on Object {
       state = state.copyWith(
         previewLoading: false,
         previewFailure: const Failure.unknown(),
@@ -184,7 +184,7 @@ class DiscountEditorController extends _$DiscountEditorController {
         isSubmitting: false,
         submitFailure: e.failure,
       );
-    } catch (e) {
+    } on Object {
       state = state.copyWith(
         isSubmitting: false,
         submitFailure: const Failure.unknown(),
@@ -241,7 +241,7 @@ class DiscountEditorController extends _$DiscountEditorController {
         isSubmitting: false,
         submitFailure: e.failure,
       );
-    } catch (e) {
+    } on Object {
       state = state.copyWith(
         isSubmitting: false,
         submitFailure: const Failure.unknown(),
@@ -265,7 +265,7 @@ class DiscountEditorController extends _$DiscountEditorController {
         isSubmitting: false,
         submitFailure: e.failure,
       );
-    } catch (e) {
+    } on Object {
       state = state.copyWith(
         isSubmitting: false,
         submitFailure: const Failure.unknown(),

@@ -380,7 +380,8 @@ void main() {
         expect(sentRequest['saleDiscount'], {'type': 1, 'value': 10});
         expect(sentRequest['creditNoteAppliedAmount'], 15.0);
 
-        final items = sentRequest['items'] as List<dynamic>;
+        final items = (sentRequest['items'] as List<dynamic>)
+            .cast<Map<String, dynamic>>();
         expect(items, hasLength(2));
         expect(items.first['lineType'], 'Goods');
         expect(items.first['itemName'], 'Rice');
@@ -518,7 +519,6 @@ void main() {
         ),
       ).thenAnswer(
         (_) async => Response<void>(
-          data: null,
           statusCode: 200,
           requestOptions: RequestOptions(path: '/sales/returns/return-1/void'),
         ),

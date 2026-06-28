@@ -6,9 +6,6 @@ class SalePreviewDiscountDto {
     required this.value,
   });
 
-  final int type;
-  final double value;
-
   factory SalePreviewDiscountDto.fromJson(Map<String, dynamic> json) {
     return SalePreviewDiscountDto(
       type: json['type'] as int,
@@ -22,6 +19,9 @@ class SalePreviewDiscountDto {
   }) {
     return SalePreviewDiscountDto(type: type, value: value);
   }
+
+  final int type;
+  final double value;
 
   Map<String, dynamic> toJson() {
     return {
@@ -49,22 +49,6 @@ class SalePreviewItemRequestDto {
     required this.lineType,
     this.serviceId,
   });
-
-  final String inventoryBatchId;
-  final String barcode;
-  final String batchNumber;
-  final String itemName;
-  final double quantity;
-  final double costPrice;
-  final double salesPrice;
-  final double mrp;
-  final double taxRatePercent;
-  final bool isPriceIncludingTax;
-  final SalePreviewDiscountDto itemDiscount;
-  final String clientLineKey;
-  final String? hsnCode;
-  final String lineType;
-  final String? serviceId;
 
   factory SalePreviewItemRequestDto.fromDomain(PreviewSaleItemRequest item) {
     return SalePreviewItemRequestDto(
@@ -111,6 +95,22 @@ class SalePreviewItemRequestDto {
     );
   }
 
+  final String inventoryBatchId;
+  final String barcode;
+  final String batchNumber;
+  final String itemName;
+  final double quantity;
+  final double costPrice;
+  final double salesPrice;
+  final double mrp;
+  final double taxRatePercent;
+  final bool isPriceIncludingTax;
+  final SalePreviewDiscountDto itemDiscount;
+  final String clientLineKey;
+  final String? hsnCode;
+  final String lineType;
+  final String? serviceId;
+
   Map<String, dynamic> toJson() {
     return {
       'inventoryBatchId': inventoryBatchId,
@@ -138,9 +138,6 @@ class SalePreviewRequestDto {
     required this.items,
   });
 
-  final SalePreviewDiscountDto saleDiscount;
-  final List<SalePreviewItemRequestDto> items;
-
   factory SalePreviewRequestDto.fromDomain(PreviewSaleRequest request) {
     return SalePreviewRequestDto(
       saleDiscount: SalePreviewDiscountDto.fromDomain(
@@ -152,6 +149,9 @@ class SalePreviewRequestDto {
           .toList(growable: false),
     );
   }
+
+  final SalePreviewDiscountDto saleDiscount;
+  final List<SalePreviewItemRequestDto> items;
 
   Map<String, dynamic> toJson() {
     return {
@@ -169,11 +169,6 @@ class SalePreviewConfiguredSaleRuleDto {
     this.thresholdAmount,
   });
 
-  final String ruleId;
-  final String ruleType;
-  final double percentage;
-  final double? thresholdAmount;
-
   factory SalePreviewConfiguredSaleRuleDto.fromJson(
     Map<String, dynamic> json,
   ) {
@@ -184,6 +179,11 @@ class SalePreviewConfiguredSaleRuleDto {
       thresholdAmount: (json['thresholdAmount'] as num?)?.toDouble(),
     );
   }
+
+  final String ruleId;
+  final String ruleType;
+  final double percentage;
+  final double? thresholdAmount;
 }
 
 class SalePreviewLineDto {
@@ -214,32 +214,6 @@ class SalePreviewLineDto {
     required this.hasClientPriceMismatch,
     this.clientLineKey,
   });
-
-  final String lineType;
-  final String? itemId;
-  final String? serviceId;
-  final String barcode;
-  final String itemName;
-  final String? inventoryBatchId;
-  final String? batchNumber;
-  final double quantity;
-  final double costPrice;
-  final double salesPrice;
-  final double mrp;
-  final double taxRatePercent;
-  final bool isPriceIncludingTax;
-  final double preTaxAmountBeforeDiscount;
-  final double itemDiscountAmount;
-  final double saleDiscountAmount;
-  final double taxableAmount;
-  final double taxAmount;
-  final double lineTotalAmount;
-  final double maxAllowedItemDiscountFlat;
-  final double maxAllowedItemDiscountPercent;
-  final String? configuredBatchRuleId;
-  final double? configuredBatchRulePercentage;
-  final bool hasClientPriceMismatch;
-  final String? clientLineKey;
 
   factory SalePreviewLineDto.fromJson(Map<String, dynamic> json) {
     return SalePreviewLineDto(
@@ -274,6 +248,32 @@ class SalePreviewLineDto {
       clientLineKey: json['clientLineKey'] as String?,
     );
   }
+
+  final String lineType;
+  final String? itemId;
+  final String? serviceId;
+  final String barcode;
+  final String itemName;
+  final String? inventoryBatchId;
+  final String? batchNumber;
+  final double quantity;
+  final double costPrice;
+  final double salesPrice;
+  final double mrp;
+  final double taxRatePercent;
+  final bool isPriceIncludingTax;
+  final double preTaxAmountBeforeDiscount;
+  final double itemDiscountAmount;
+  final double saleDiscountAmount;
+  final double taxableAmount;
+  final double taxAmount;
+  final double lineTotalAmount;
+  final double maxAllowedItemDiscountFlat;
+  final double maxAllowedItemDiscountPercent;
+  final String? configuredBatchRuleId;
+  final double? configuredBatchRulePercentage;
+  final bool hasClientPriceMismatch;
+  final String? clientLineKey;
 }
 
 class SalePreviewInfoDto {
@@ -282,15 +282,15 @@ class SalePreviewInfoDto {
     required this.message,
   });
 
-  final String code;
-  final String message;
-
   factory SalePreviewInfoDto.fromJson(Map<String, dynamic> json) {
     return SalePreviewInfoDto(
       code: json['code'] as String,
       message: json['message'] as String,
     );
   }
+
+  final String code;
+  final String message;
 }
 
 class SalePreviewWarningDto {
@@ -302,12 +302,6 @@ class SalePreviewWarningDto {
     this.clientLineKey,
   });
 
-  final String code;
-  final String message;
-  final String severity;
-  final String? inventoryBatchId;
-  final String? clientLineKey;
-
   factory SalePreviewWarningDto.fromJson(Map<String, dynamic> json) {
     return SalePreviewWarningDto(
       code: json['code'] as String,
@@ -317,6 +311,12 @@ class SalePreviewWarningDto {
       clientLineKey: json['clientLineKey'] as String?,
     );
   }
+
+  final String code;
+  final String message;
+  final String severity;
+  final String? inventoryBatchId;
+  final String? clientLineKey;
 }
 
 class SalePreviewResponseDto {
@@ -331,16 +331,6 @@ class SalePreviewResponseDto {
     required this.infos,
     required this.warnings,
   });
-
-  final double totalAmount;
-  final double totalTaxableAmount;
-  final double totalTaxAmount;
-  final double totalDiscountAmount;
-  final double saleLevelEligibleSubtotal;
-  final SalePreviewConfiguredSaleRuleDto? configuredSaleRule;
-  final List<SalePreviewLineDto> lines;
-  final List<SalePreviewInfoDto> infos;
-  final List<SalePreviewWarningDto> warnings;
 
   factory SalePreviewResponseDto.fromJson(Map<String, dynamic> json) {
     return SalePreviewResponseDto(
@@ -369,4 +359,14 @@ class SalePreviewResponseDto {
           .toList(growable: false),
     );
   }
+
+  final double totalAmount;
+  final double totalTaxableAmount;
+  final double totalTaxAmount;
+  final double totalDiscountAmount;
+  final double saleLevelEligibleSubtotal;
+  final SalePreviewConfiguredSaleRuleDto? configuredSaleRule;
+  final List<SalePreviewLineDto> lines;
+  final List<SalePreviewInfoDto> infos;
+  final List<SalePreviewWarningDto> warnings;
 }

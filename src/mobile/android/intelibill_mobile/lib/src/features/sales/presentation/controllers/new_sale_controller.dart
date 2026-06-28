@@ -380,7 +380,6 @@ class NewSaleController extends _$NewSaleController {
         return;
       }
       state = state.copyWith(
-        preview: null,
         previewFailure: error.failure,
         isPreviewLoading: false,
       );
@@ -390,7 +389,6 @@ class NewSaleController extends _$NewSaleController {
         return;
       }
       state = state.copyWith(
-        preview: null,
         previewFailure: const Failure.unknown(),
         isPreviewLoading: false,
       );
@@ -533,7 +531,6 @@ class NewSaleController extends _$NewSaleController {
     if (state.preview == null) {
       state = state.copyWith(
         saleDiscountType: normalizedType,
-        saleDiscountError: null,
         clearSubmitFailure: true,
         clearPendingIdempotencyKey: true,
       );
@@ -1105,7 +1102,6 @@ class NewSaleController extends _$NewSaleController {
       itemDiscountType: line.itemDiscountType,
       itemDiscountValue: line.itemDiscountValue,
       clientLineKey: sellable.id,
-      hsnCode: null,
       lineType: sellable.kind,
       serviceId: isService ? sellable.id : null,
     );
@@ -1328,7 +1324,6 @@ class NewSaleController extends _$NewSaleController {
               type: line.itemDiscountType,
               value: line.itemDiscountValue,
             ),
-      hsnCode: null,
       serviceId: isService ? sellable.id : null,
     );
   }
@@ -1414,7 +1409,7 @@ class NewSaleController extends _$NewSaleController {
       if (line.lineType == _serviceLineType) return sum;
       final preTax = line.preTaxAmountBeforeDiscount;
       final discount = line.itemDiscountAmount;
-      final cost = (line.costPrice * line.quantity);
+      final cost = line.costPrice * line.quantity;
       final taxableAfterItem = preTax - discount;
       final eligible = taxableAfterItem - cost;
       return sum + (eligible > 0 ? eligible : 0);

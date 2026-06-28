@@ -48,21 +48,11 @@ class DiscountRuleMapper {
       discountRuleId: dto.id,
       ruleType: dto.ruleType,
       name: dto.name,
-      percentage: null,
       isActive: dto.isActive,
       startsAt: dto.startsAt?.toLocal(),
       endsAt: dto.endsAt?.toLocal(),
       createdAt: dto.createdAt.toLocal(),
-      description: null,
-      inventoryBatchId: null,
-      thresholdAmount: null,
       belowCostConfirmed: false,
-      belowCostConfirmationReason: null,
-      disabledAt: null,
-      disabledReason: null,
-      replacesRuleId: null,
-      replacedByRuleId: null,
-      updatedAt: null,
       status: _deriveStatus(
         dto.isActive,
         dto.startsAt?.toLocal(),
@@ -88,10 +78,12 @@ class DiscountRuleMapper {
     DateTime now,
   ) {
     if (!isActive) return DiscountRuleStatus.disabled;
-    if (startsAt != null && startsAt.isAfter(now))
+    if (startsAt != null && startsAt.isAfter(now)) {
       return DiscountRuleStatus.upcoming;
-    if (endsAt != null && !endsAt.isAfter(now))
+    }
+    if (endsAt != null && !endsAt.isAfter(now)) {
       return DiscountRuleStatus.expired;
+    }
     return DiscountRuleStatus.active;
   }
 }
