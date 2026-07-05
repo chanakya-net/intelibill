@@ -52,15 +52,15 @@
           (expandSidebarRequested)="onExpandSidebar()"
           (autoHideSidebarRequested)="onAutoHideSidebar()"
         ></app-sidebar-nav>
-      </div>
 
-      <app-sidebar-profile-menu
-        [menuItems]="profileMenuItems()"
-        [collapsed]="sidebarCollapsed()"
-        [profileInitials]="profileInitials()"
-        [profileDisplayName]="profileDisplayName()"
-        (expandSidebarRequested)="onExpandSidebar()"
-      ></app-sidebar-profile-menu>
+        <app-sidebar-profile-menu
+          [menuItems]="profileMenuItems()"
+          [collapsed]="sidebarCollapsed()"
+          [profileInitials]="profileInitials()"
+          [profileDisplayName]="profileDisplayName()"
+          (expandSidebarRequested)="onExpandSidebar()"
+        ></app-sidebar-profile-menu>
+      </div>
     </aside>
   }
 

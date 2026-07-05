@@ -20,6 +20,7 @@
   min-height: 100vh;
   height: 100vh;
   flex: 0 0 var(--shell-sidebar-width);
+  overflow: hidden;
   border-right: 1px solid rgba(254, 215, 170, 0.75);
   background: rgba(255, 255, 255, 0.94);
   backdrop-filter: blur(10px);
@@ -45,6 +46,7 @@
   flex: 1 1 auto;
   flex-direction: column;
   min-height: 0;
+  overflow: hidden;
 }
 
 .shell-brand-main {
