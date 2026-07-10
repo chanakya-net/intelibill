@@ -34,26 +34,30 @@ class ExpensesState {
     this.expenses = const [],
     this.totalCount = 0,
     this.isLoading = false,
-    this.failure,
+    this.isRefreshing = false,
+    this.listFailure,
   });
 
   final List<ExpenseListItem> expenses;
   final int totalCount;
   final bool isLoading;
-  final Failure? failure;
+  final bool isRefreshing;
+  final Failure? listFailure;
 
   ExpensesState copyWith({
     List<ExpenseListItem>? expenses,
     int? totalCount,
     bool? isLoading,
-    Failure? failure,
-    bool clearFailure = false,
+    bool? isRefreshing,
+    Failure? listFailure,
+    bool clearListFailure = false,
   }) {
     return ExpensesState(
       expenses: expenses ?? this.expenses,
       totalCount: totalCount ?? this.totalCount,
       isLoading: isLoading ?? this.isLoading,
-      failure: clearFailure ? null : (failure ?? this.failure),
+      isRefreshing: isRefreshing ?? this.isRefreshing,
+      listFailure: clearListFailure ? null : (listFailure ?? this.listFailure),
     );
   }
 }
@@ -74,22 +78,33 @@ class ExpensesController extends _$ExpensesController {
         expenses: page.items,
         totalCount: page.totalCount,
         isLoading: false,
-        clearFailure: true,
+        isRefreshing: false,
+        clearListFailure: true,
       );
     } on AppException catch (error) {
       if (!ref.mounted) return;
-      state = state.copyWith(isLoading: false, failure: error.failure);
+      state = state.copyWith(
+        isLoading: false,
+        isRefreshing: false,
+        listFailure: error.failure,
+      );
     } on Object {
       if (!ref.mounted) return;
       state = state.copyWith(
         isLoading: false,
-        failure: const Failure.unknown(),
+        isRefreshing: false,
+        listFailure: const Failure.unknown(),
       );
     }
   }
 
   Future<void> refresh() async {
-    state = state.copyWith(isLoading: true, clearFailure: true);
+    final hasVisibleRows = state.expenses.isNotEmpty;
+    state = state.copyWith(
+      isLoading: !hasVisibleRows,
+      isRefreshing: hasVisibleRows,
+      clearListFailure: true,
+    );
     await _loadExpenses();
   }
 }

@@ -102,6 +102,38 @@ class AppLocalizationsTa extends AppLocalizations {
   String get shellManageExpenses => 'செலவுகள்';
 
   @override
+  String get expensesNoExpensesFound => 'செலவுகள் எதுவும் காணப்படவில்லை';
+
+  @override
+  String get expensesUnableToLoad => 'செலவுகளை ஏற்ற முடியவில்லை';
+
+  @override
+  String get expensesRetry => 'மீண்டும் முயற்சிக்கவும்';
+
+  @override
+  String get expensesRefreshFailed => 'செலவுகளைப் புதுப்பிக்க முடியவில்லை';
+
+  @override
+  String get expensesErrorNetwork =>
+      'இணைக்க முடியவில்லை. உங்கள் நெட்வொர்க்கைச் சரிபார்க்கவும்.';
+
+  @override
+  String get expensesErrorTimeout =>
+      'கோரிக்கை நேரம் முடிந்தது. மீண்டும் முயற்சிக்கவும்.';
+
+  @override
+  String get expensesErrorUnauthorized =>
+      'அமர்வு காலாவதியானது. மீண்டும் உள்நுழையவும்.';
+
+  @override
+  String get expensesErrorForbidden =>
+      'செலவுகளைப் பார்க்க உங்களுக்கு அனுமதி இல்லை.';
+
+  @override
+  String get expensesErrorGeneric =>
+      'செலவுகளை ஏற்ற முடியவில்லை. மீண்டும் முயற்சிக்கவும்.';
+
+  @override
   String get shellManageBankAccounts => 'வங்கி கணக்குகள்';
 
   @override
@@ -2225,6 +2257,38 @@ class AppLocalizationsTaIn extends AppLocalizationsTa {
 
   @override
   String get shellManageExpenses => 'செலவுகள்';
+
+  @override
+  String get expensesNoExpensesFound => 'செலவுகள் எதுவும் காணப்படவில்லை';
+
+  @override
+  String get expensesUnableToLoad => 'செலவுகளை ஏற்ற முடியவில்லை';
+
+  @override
+  String get expensesRetry => 'மீண்டும் முயற்சிக்கவும்';
+
+  @override
+  String get expensesRefreshFailed => 'செலவுகளைப் புதுப்பிக்க முடியவில்லை';
+
+  @override
+  String get expensesErrorNetwork =>
+      'இணைக்க முடியவில்லை. உங்கள் நெட்வொர்க்கைச் சரிபார்க்கவும்.';
+
+  @override
+  String get expensesErrorTimeout =>
+      'கோரிக்கை நேரம் முடிந்தது. மீண்டும் முயற்சிக்கவும்.';
+
+  @override
+  String get expensesErrorUnauthorized =>
+      'அமர்வு காலாவதியானது. மீண்டும் உள்நுழையவும்.';
+
+  @override
+  String get expensesErrorForbidden =>
+      'செலவுகளைப் பார்க்க உங்களுக்கு அனுமதி இல்லை.';
+
+  @override
+  String get expensesErrorGeneric =>
+      'செலவுகளை ஏற்ற முடியவில்லை. மீண்டும் முயற்சிக்கவும்.';
 
   @override
   String get shellManageBankAccounts => 'வங்கி கணக்குகள்';

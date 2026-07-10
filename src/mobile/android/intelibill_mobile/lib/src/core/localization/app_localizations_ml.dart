@@ -102,6 +102,37 @@ class AppLocalizationsMl extends AppLocalizations {
   String get shellManageExpenses => 'ചെലവുകൾ';
 
   @override
+  String get expensesNoExpensesFound => 'ചെലവുകളൊന്നും കണ്ടെത്തിയില്ല';
+
+  @override
+  String get expensesUnableToLoad => 'ചെലവുകൾ ലോഡ് ചെയ്യാനായില്ല';
+
+  @override
+  String get expensesRetry => 'വീണ്ടും ശ്രമിക്കുക';
+
+  @override
+  String get expensesRefreshFailed => 'ചെലവുകൾ പുതുക്കാനായില്ല';
+
+  @override
+  String get expensesErrorNetwork =>
+      'കണക്റ്റുചെയ്യാനായില്ല. നിങ്ങളുടെ നെറ്റ്‌വർക്ക് പരിശോധിക്കുക.';
+
+  @override
+  String get expensesErrorTimeout =>
+      'അഭ്യർത്ഥനയുടെ സമയപരിധി കഴിഞ്ഞു. വീണ്ടും ശ്രമിക്കുക.';
+
+  @override
+  String get expensesErrorUnauthorized =>
+      'സെഷൻ കാലഹരണപ്പെട്ടു. വീണ്ടും ലോഗിൻ ചെയ്യുക.';
+
+  @override
+  String get expensesErrorForbidden => 'ചെലവുകൾ കാണാൻ നിങ്ങൾക്ക് അനുമതിയില്ല.';
+
+  @override
+  String get expensesErrorGeneric =>
+      'ചെലവുകൾ ലോഡ് ചെയ്യാനായില്ല. വീണ്ടും ശ്രമിക്കുക.';
+
+  @override
   String get shellManageBankAccounts => 'ബാങ്ക് അക്കൗണ്ടുകൾ';
 
   @override
@@ -2224,6 +2255,37 @@ class AppLocalizationsMlIn extends AppLocalizationsMl {
 
   @override
   String get shellManageExpenses => 'ചെലവുകൾ';
+
+  @override
+  String get expensesNoExpensesFound => 'ചെലവുകളൊന്നും കണ്ടെത്തിയില്ല';
+
+  @override
+  String get expensesUnableToLoad => 'ചെലവുകൾ ലോഡ് ചെയ്യാനായില്ല';
+
+  @override
+  String get expensesRetry => 'വീണ്ടും ശ്രമിക്കുക';
+
+  @override
+  String get expensesRefreshFailed => 'ചെലവുകൾ പുതുക്കാനായില്ല';
+
+  @override
+  String get expensesErrorNetwork =>
+      'കണക്റ്റുചെയ്യാനായില്ല. നിങ്ങളുടെ നെറ്റ്‌വർക്ക് പരിശോധിക്കുക.';
+
+  @override
+  String get expensesErrorTimeout =>
+      'അഭ്യർത്ഥനയുടെ സമയപരിധി കഴിഞ്ഞു. വീണ്ടും ശ്രമിക്കുക.';
+
+  @override
+  String get expensesErrorUnauthorized =>
+      'സെഷൻ കാലഹരണപ്പെട്ടു. വീണ്ടും ലോഗിൻ ചെയ്യുക.';
+
+  @override
+  String get expensesErrorForbidden => 'ചെലവുകൾ കാണാൻ നിങ്ങൾക്ക് അനുമതിയില്ല.';
+
+  @override
+  String get expensesErrorGeneric =>
+      'ചെലവുകൾ ലോഡ് ചെയ്യാനായില്ല. വീണ്ടും ശ്രമിക്കുക.';
 
   @override
   String get shellManageBankAccounts => 'ബാങ്ക് അക്കൗണ്ടുകൾ';

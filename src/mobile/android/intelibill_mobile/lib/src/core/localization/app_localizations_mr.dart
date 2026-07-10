@@ -102,6 +102,37 @@ class AppLocalizationsMr extends AppLocalizations {
   String get shellManageExpenses => 'खर्च';
 
   @override
+  String get expensesNoExpensesFound => 'कोणतेही खर्च आढळले नाहीत';
+
+  @override
+  String get expensesUnableToLoad => 'खर्च लोड करता आले नाहीत';
+
+  @override
+  String get expensesRetry => 'पुन्हा प्रयत्न करा';
+
+  @override
+  String get expensesRefreshFailed => 'खर्च रिफ्रेश करता आले नाहीत';
+
+  @override
+  String get expensesErrorNetwork =>
+      'कनेक्ट करता आले नाही. कृपया तुमचे नेटवर्क तपासा.';
+
+  @override
+  String get expensesErrorTimeout =>
+      'विनंतीची वेळ संपली. कृपया पुन्हा प्रयत्न करा.';
+
+  @override
+  String get expensesErrorUnauthorized =>
+      'सत्र कालबाह्य झाले. कृपया पुन्हा लॉग इन करा.';
+
+  @override
+  String get expensesErrorForbidden => 'तुम्हाला खर्च पाहण्याची परवानगी नाही.';
+
+  @override
+  String get expensesErrorGeneric =>
+      'खर्च लोड करता आले नाहीत. कृपया पुन्हा प्रयत्न करा.';
+
+  @override
   String get shellManageBankAccounts => 'बँक खाती';
 
   @override
@@ -2224,6 +2255,37 @@ class AppLocalizationsMrIn extends AppLocalizationsMr {
 
   @override
   String get shellManageExpenses => 'खर्च';
+
+  @override
+  String get expensesNoExpensesFound => 'कोणतेही खर्च आढळले नाहीत';
+
+  @override
+  String get expensesUnableToLoad => 'खर्च लोड करता आले नाहीत';
+
+  @override
+  String get expensesRetry => 'पुन्हा प्रयत्न करा';
+
+  @override
+  String get expensesRefreshFailed => 'खर्च रिफ्रेश करता आले नाहीत';
+
+  @override
+  String get expensesErrorNetwork =>
+      'कनेक्ट करता आले नाही. कृपया तुमचे नेटवर्क तपासा.';
+
+  @override
+  String get expensesErrorTimeout =>
+      'विनंतीची वेळ संपली. कृपया पुन्हा प्रयत्न करा.';
+
+  @override
+  String get expensesErrorUnauthorized =>
+      'सत्र कालबाह्य झाले. कृपया पुन्हा लॉग इन करा.';
+
+  @override
+  String get expensesErrorForbidden => 'तुम्हाला खर्च पाहण्याची परवानगी नाही.';
+
+  @override
+  String get expensesErrorGeneric =>
+      'खर्च लोड करता आले नाहीत. कृपया पुन्हा प्रयत्न करा.';
 
   @override
   String get shellManageBankAccounts => 'बँक खाती';

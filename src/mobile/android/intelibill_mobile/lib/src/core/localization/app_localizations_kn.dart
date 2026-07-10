@@ -102,6 +102,39 @@ class AppLocalizationsKn extends AppLocalizations {
   String get shellManageExpenses => 'ವೆಚ್ಚಗಳು';
 
   @override
+  String get expensesNoExpensesFound => 'ಯಾವುದೇ ವೆಚ್ಚಗಳು ಕಂಡುಬಂದಿಲ್ಲ';
+
+  @override
+  String get expensesUnableToLoad => 'ವೆಚ್ಚಗಳನ್ನು ಲೋಡ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ';
+
+  @override
+  String get expensesRetry => 'ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ';
+
+  @override
+  String get expensesRefreshFailed =>
+      'ವೆಚ್ಚಗಳನ್ನು ರಿಫ್ರೆಶ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ';
+
+  @override
+  String get expensesErrorNetwork =>
+      'ಸಂಪರ್ಕಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ನಿಮ್ಮ ನೆಟ್‌ವರ್ಕ್ ಪರಿಶೀಲಿಸಿ.';
+
+  @override
+  String get expensesErrorTimeout =>
+      'ವಿನಂತಿಯ ಸಮಯ ಮೀರಿದೆ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.';
+
+  @override
+  String get expensesErrorUnauthorized =>
+      'ಸೆಷನ್ ಅವಧಿ ಮುಗಿದಿದೆ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಲಾಗ್ ಇನ್ ಮಾಡಿ.';
+
+  @override
+  String get expensesErrorForbidden =>
+      'ವೆಚ್ಚಗಳನ್ನು ವೀಕ್ಷಿಸಲು ನಿಮಗೆ ಅನುಮತಿ ಇಲ್ಲ.';
+
+  @override
+  String get expensesErrorGeneric =>
+      'ವೆಚ್ಚಗಳನ್ನು ಲೋಡ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.';
+
+  @override
   String get shellManageBankAccounts => 'ಬ್ಯಾಂಕ್ ಖಾತೆಗಳು';
 
   @override
@@ -2224,6 +2257,39 @@ class AppLocalizationsKnIn extends AppLocalizationsKn {
 
   @override
   String get shellManageExpenses => 'ವೆಚ್ಚಗಳು';
+
+  @override
+  String get expensesNoExpensesFound => 'ಯಾವುದೇ ವೆಚ್ಚಗಳು ಕಂಡುಬಂದಿಲ್ಲ';
+
+  @override
+  String get expensesUnableToLoad => 'ವೆಚ್ಚಗಳನ್ನು ಲೋಡ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ';
+
+  @override
+  String get expensesRetry => 'ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ';
+
+  @override
+  String get expensesRefreshFailed =>
+      'ವೆಚ್ಚಗಳನ್ನು ರಿಫ್ರೆಶ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ';
+
+  @override
+  String get expensesErrorNetwork =>
+      'ಸಂಪರ್ಕಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ನಿಮ್ಮ ನೆಟ್‌ವರ್ಕ್ ಪರಿಶೀಲಿಸಿ.';
+
+  @override
+  String get expensesErrorTimeout =>
+      'ವಿನಂತಿಯ ಸಮಯ ಮೀರಿದೆ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.';
+
+  @override
+  String get expensesErrorUnauthorized =>
+      'ಸೆಷನ್ ಅವಧಿ ಮುಗಿದಿದೆ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಲಾಗ್ ಇನ್ ಮಾಡಿ.';
+
+  @override
+  String get expensesErrorForbidden =>
+      'ವೆಚ್ಚಗಳನ್ನು ವೀಕ್ಷಿಸಲು ನಿಮಗೆ ಅನುಮತಿ ಇಲ್ಲ.';
+
+  @override
+  String get expensesErrorGeneric =>
+      'ವೆಚ್ಚಗಳನ್ನು ಲೋಡ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.';
 
   @override
   String get shellManageBankAccounts => 'ಬ್ಯಾಂಕ್ ಖಾತೆಗಳು';

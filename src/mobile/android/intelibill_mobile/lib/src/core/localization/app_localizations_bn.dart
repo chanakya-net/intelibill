@@ -102,6 +102,36 @@ class AppLocalizationsBn extends AppLocalizations {
   String get shellManageExpenses => 'খরচ';
 
   @override
+  String get expensesNoExpensesFound => 'কোনো খরচ পাওয়া যায়নি';
+
+  @override
+  String get expensesUnableToLoad => 'খরচ লোড করা যায়নি';
+
+  @override
+  String get expensesRetry => 'আবার চেষ্টা করুন';
+
+  @override
+  String get expensesRefreshFailed => 'খরচ রিফ্রেশ করা যায়নি';
+
+  @override
+  String get expensesErrorNetwork =>
+      'সংযোগ করা যায়নি। আপনার নেটওয়ার্ক পরীক্ষা করুন।';
+
+  @override
+  String get expensesErrorTimeout =>
+      'অনুরোধের সময় শেষ হয়েছে। আবার চেষ্টা করুন।';
+
+  @override
+  String get expensesErrorUnauthorized =>
+      'সেশনের মেয়াদ শেষ হয়েছে। আবার লগ ইন করুন।';
+
+  @override
+  String get expensesErrorForbidden => 'খরচ দেখার অনুমতি আপনার নেই।';
+
+  @override
+  String get expensesErrorGeneric => 'খরচ লোড করা যায়নি। আবার চেষ্টা করুন।';
+
+  @override
   String get shellManageBankAccounts => 'ব্যাঙ্ক অ্যাকাউন্ট';
 
   @override
@@ -2224,6 +2254,36 @@ class AppLocalizationsBnIn extends AppLocalizationsBn {
 
   @override
   String get shellManageExpenses => 'খরচ';
+
+  @override
+  String get expensesNoExpensesFound => 'কোনো খরচ পাওয়া যায়নি';
+
+  @override
+  String get expensesUnableToLoad => 'খরচ লোড করা যায়নি';
+
+  @override
+  String get expensesRetry => 'আবার চেষ্টা করুন';
+
+  @override
+  String get expensesRefreshFailed => 'খরচ রিফ্রেশ করা যায়নি';
+
+  @override
+  String get expensesErrorNetwork =>
+      'সংযোগ করা যায়নি। আপনার নেটওয়ার্ক পরীক্ষা করুন।';
+
+  @override
+  String get expensesErrorTimeout =>
+      'অনুরোধের সময় শেষ হয়েছে। আবার চেষ্টা করুন।';
+
+  @override
+  String get expensesErrorUnauthorized =>
+      'সেশনের মেয়াদ শেষ হয়েছে। আবার লগ ইন করুন।';
+
+  @override
+  String get expensesErrorForbidden => 'খরচ দেখার অনুমতি আপনার নেই।';
+
+  @override
+  String get expensesErrorGeneric => 'খরচ লোড করা যায়নি। আবার চেষ্টা করুন।';
 
   @override
   String get shellManageBankAccounts => 'ব্যাঙ্ক অ্যাকাউন্ট';
