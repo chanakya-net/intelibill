@@ -33,6 +33,7 @@ Widget _buildApp(
   ExpensesState state, {
   Future<void> Function()? onRefresh,
   ExpensesState? refreshedState,
+  Locale locale = const Locale('en', 'IN'),
 }) {
   return ProviderScope(
     overrides: [
@@ -45,7 +46,7 @@ Widget _buildApp(
       ),
     ],
     child: MaterialApp(
-      locale: const Locale('en', 'IN'),
+      locale: locale,
       theme: AppTheme.lightTheme,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
@@ -72,6 +73,17 @@ void main() {
 
     expect(find.text('No expenses found'), findsOneWidget);
     expect(find.byType(RefreshIndicator), findsOneWidget);
+  });
+
+  testWidgets('shows translated empty state for a supported locale', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _buildApp(const ExpensesState(), locale: const Locale('hi', 'IN')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('कोई खर्च नहीं मिला'), findsOneWidget);
   });
 
   testWidgets('shows initial failure details and retries', (tester) async {

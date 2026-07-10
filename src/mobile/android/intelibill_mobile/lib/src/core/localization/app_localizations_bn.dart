@@ -102,35 +102,34 @@ class AppLocalizationsBn extends AppLocalizations {
   String get shellManageExpenses => 'খরচ';
 
   @override
-  String get expensesNoExpensesFound => 'No expenses found';
+  String get expensesNoExpensesFound => 'কোনো খরচ পাওয়া যায়নি';
 
   @override
-  String get expensesUnableToLoad => 'Unable to load expenses';
+  String get expensesUnableToLoad => 'খরচ লোড করা যায়নি';
 
   @override
-  String get expensesRetry => 'Retry';
+  String get expensesRetry => 'আবার চেষ্টা করুন';
 
   @override
-  String get expensesRefreshFailed => 'Unable to refresh expenses';
+  String get expensesRefreshFailed => 'খরচ রিফ্রেশ করা যায়নি';
 
   @override
   String get expensesErrorNetwork =>
-      'Unable to connect. Please check your network.';
+      'সংযোগ করা যায়নি। আপনার নেটওয়ার্ক পরীক্ষা করুন।';
 
   @override
-  String get expensesErrorTimeout => 'Request timed out. Please try again.';
+  String get expensesErrorTimeout =>
+      'অনুরোধের সময় শেষ হয়েছে। আবার চেষ্টা করুন।';
 
   @override
   String get expensesErrorUnauthorized =>
-      'Session expired. Please log in again.';
+      'সেশনের মেয়াদ শেষ হয়েছে। আবার লগ ইন করুন।';
 
   @override
-  String get expensesErrorForbidden =>
-      'You do not have permission to view expenses.';
+  String get expensesErrorForbidden => 'খরচ দেখার অনুমতি আপনার নেই।';
 
   @override
-  String get expensesErrorGeneric =>
-      'Unable to load expenses. Please try again.';
+  String get expensesErrorGeneric => 'খরচ লোড করা যায়নি। আবার চেষ্টা করুন।';
 
   @override
   String get shellManageBankAccounts => 'ব্যাঙ্ক অ্যাকাউন্ট';
@@ -2255,6 +2254,36 @@ class AppLocalizationsBnIn extends AppLocalizationsBn {
 
   @override
   String get shellManageExpenses => 'খরচ';
+
+  @override
+  String get expensesNoExpensesFound => 'কোনো খরচ পাওয়া যায়নি';
+
+  @override
+  String get expensesUnableToLoad => 'খরচ লোড করা যায়নি';
+
+  @override
+  String get expensesRetry => 'আবার চেষ্টা করুন';
+
+  @override
+  String get expensesRefreshFailed => 'খরচ রিফ্রেশ করা যায়নি';
+
+  @override
+  String get expensesErrorNetwork =>
+      'সংযোগ করা যায়নি। আপনার নেটওয়ার্ক পরীক্ষা করুন।';
+
+  @override
+  String get expensesErrorTimeout =>
+      'অনুরোধের সময় শেষ হয়েছে। আবার চেষ্টা করুন।';
+
+  @override
+  String get expensesErrorUnauthorized =>
+      'সেশনের মেয়াদ শেষ হয়েছে। আবার লগ ইন করুন।';
+
+  @override
+  String get expensesErrorForbidden => 'খরচ দেখার অনুমতি আপনার নেই।';
+
+  @override
+  String get expensesErrorGeneric => 'খরচ লোড করা যায়নি। আবার চেষ্টা করুন।';
 
   @override
   String get shellManageBankAccounts => 'ব্যাঙ্ক অ্যাকাউন্ট';

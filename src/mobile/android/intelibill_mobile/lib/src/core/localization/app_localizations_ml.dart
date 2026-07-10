@@ -102,35 +102,35 @@ class AppLocalizationsMl extends AppLocalizations {
   String get shellManageExpenses => 'ചെലവുകൾ';
 
   @override
-  String get expensesNoExpensesFound => 'No expenses found';
+  String get expensesNoExpensesFound => 'ചെലവുകളൊന്നും കണ്ടെത്തിയില്ല';
 
   @override
-  String get expensesUnableToLoad => 'Unable to load expenses';
+  String get expensesUnableToLoad => 'ചെലവുകൾ ലോഡ് ചെയ്യാനായില്ല';
 
   @override
-  String get expensesRetry => 'Retry';
+  String get expensesRetry => 'വീണ്ടും ശ്രമിക്കുക';
 
   @override
-  String get expensesRefreshFailed => 'Unable to refresh expenses';
+  String get expensesRefreshFailed => 'ചെലവുകൾ പുതുക്കാനായില്ല';
 
   @override
   String get expensesErrorNetwork =>
-      'Unable to connect. Please check your network.';
+      'കണക്റ്റുചെയ്യാനായില്ല. നിങ്ങളുടെ നെറ്റ്‌വർക്ക് പരിശോധിക്കുക.';
 
   @override
-  String get expensesErrorTimeout => 'Request timed out. Please try again.';
+  String get expensesErrorTimeout =>
+      'അഭ്യർത്ഥനയുടെ സമയപരിധി കഴിഞ്ഞു. വീണ്ടും ശ്രമിക്കുക.';
 
   @override
   String get expensesErrorUnauthorized =>
-      'Session expired. Please log in again.';
+      'സെഷൻ കാലഹരണപ്പെട്ടു. വീണ്ടും ലോഗിൻ ചെയ്യുക.';
 
   @override
-  String get expensesErrorForbidden =>
-      'You do not have permission to view expenses.';
+  String get expensesErrorForbidden => 'ചെലവുകൾ കാണാൻ നിങ്ങൾക്ക് അനുമതിയില്ല.';
 
   @override
   String get expensesErrorGeneric =>
-      'Unable to load expenses. Please try again.';
+      'ചെലവുകൾ ലോഡ് ചെയ്യാനായില്ല. വീണ്ടും ശ്രമിക്കുക.';
 
   @override
   String get shellManageBankAccounts => 'ബാങ്ക് അക്കൗണ്ടുകൾ';
@@ -2255,6 +2255,37 @@ class AppLocalizationsMlIn extends AppLocalizationsMl {
 
   @override
   String get shellManageExpenses => 'ചെലവുകൾ';
+
+  @override
+  String get expensesNoExpensesFound => 'ചെലവുകളൊന്നും കണ്ടെത്തിയില്ല';
+
+  @override
+  String get expensesUnableToLoad => 'ചെലവുകൾ ലോഡ് ചെയ്യാനായില്ല';
+
+  @override
+  String get expensesRetry => 'വീണ്ടും ശ്രമിക്കുക';
+
+  @override
+  String get expensesRefreshFailed => 'ചെലവുകൾ പുതുക്കാനായില്ല';
+
+  @override
+  String get expensesErrorNetwork =>
+      'കണക്റ്റുചെയ്യാനായില്ല. നിങ്ങളുടെ നെറ്റ്‌വർക്ക് പരിശോധിക്കുക.';
+
+  @override
+  String get expensesErrorTimeout =>
+      'അഭ്യർത്ഥനയുടെ സമയപരിധി കഴിഞ്ഞു. വീണ്ടും ശ്രമിക്കുക.';
+
+  @override
+  String get expensesErrorUnauthorized =>
+      'സെഷൻ കാലഹരണപ്പെട്ടു. വീണ്ടും ലോഗിൻ ചെയ്യുക.';
+
+  @override
+  String get expensesErrorForbidden => 'ചെലവുകൾ കാണാൻ നിങ്ങൾക്ക് അനുമതിയില്ല.';
+
+  @override
+  String get expensesErrorGeneric =>
+      'ചെലവുകൾ ലോഡ് ചെയ്യാനായില്ല. വീണ്ടും ശ്രമിക്കുക.';
 
   @override
   String get shellManageBankAccounts => 'ബാങ്ക് അക്കൗണ്ടുകൾ';
