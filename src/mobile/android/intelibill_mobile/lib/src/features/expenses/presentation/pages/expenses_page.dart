@@ -6,6 +6,7 @@ import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/expenses/presentation/controllers/expenses_controller.dart';
 import 'package:intelibill_mobile/src/features/expenses/presentation/widgets/expense_card.dart';
+import 'package:intelibill_mobile/src/features/expenses/presentation/widgets/expense_detail_sheet.dart';
 
 class ExpensesPage extends ConsumerWidget {
   const ExpensesPage({super.key});
@@ -81,11 +82,28 @@ class _ExpensesBody extends ConsumerWidget {
                     child: Center(child: Text(l10n.expensesNoFilteredResults)),
                   ),
                 for (final expense in filteredExpenses)
-                  ExpenseCard(expense: expense),
+                  ExpenseCard(
+                    expense: expense,
+                    onTap: () => unawaited(
+                      _openExpenseDetail(context, ref, expense.id),
+                    ),
+                  ),
               ],
             ),
     );
   }
+}
+
+Future<void> _openExpenseDetail(
+  BuildContext context,
+  WidgetRef ref,
+  String id,
+) async {
+  final controller = ref.read(expensesControllerProvider.notifier);
+  unawaited(controller.openExpense(id));
+  await showExpenseDetailSheet(context);
+  if (!context.mounted) return;
+  controller.clearSelectedExpense();
 }
 
 class _ExpenseStatusFilters extends StatelessWidget {

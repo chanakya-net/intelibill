@@ -63,4 +63,46 @@ void main() {
       ),
     ).called(1);
   });
+
+  test('gets and parses every expense detail field', () async {
+    final apiClient = MockApiClient();
+    final dataSource = ExpenseRemoteDataSourceImpl(apiClient);
+    final responseData = <String, dynamic>{
+      'id': 'expense-1',
+      'shopId': 'shop-1',
+      'categoryId': 'category-1',
+      'categoryName': 'Rent',
+      'amount': 1250.5,
+      'paidTo': 'Landlord',
+      'description': null,
+      'expenseDate': '2026-07-01',
+      'actorUserId': 'user-1',
+      'isVoided': true,
+      'originalExpenseId': 'expense-original',
+      'supplierLedgerEntryId': 'ledger-1',
+      'createdAt': '2026-07-01T08:30:00.000Z',
+    };
+
+    when(
+      () => apiClient.get<Map<String, dynamic>>('/expenses/expense-1'),
+    ).thenAnswer(
+      (_) async => Response(
+        data: responseData,
+        statusCode: 200,
+        requestOptions: RequestOptions(path: '/expenses/expense-1'),
+      ),
+    );
+
+    final result = await dataSource.getExpenseDetail('expense-1');
+
+    expect(result.id, 'expense-1');
+    expect(result.description, isNull);
+    expect(result.originalExpenseId, 'expense-original');
+    expect(result.supplierLedgerEntryId, 'ledger-1');
+    expect(result.isVoided, isTrue);
+    expect(result.createdAt, DateTime.utc(2026, 7, 1, 8, 30));
+    verify(
+      () => apiClient.get<Map<String, dynamic>>('/expenses/expense-1'),
+    ).called(1);
+  });
 }

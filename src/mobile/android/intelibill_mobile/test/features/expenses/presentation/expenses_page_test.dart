@@ -12,11 +12,13 @@ class _StubExpensesController extends ExpensesController {
   _StubExpensesController(
     this._state, {
     this.onRefresh,
+    this.onOpenExpense,
     this.refreshedState,
   });
 
   final ExpensesState _state;
   final Future<void> Function()? onRefresh;
+  final Future<void> Function(String id)? onOpenExpense;
   final ExpensesState? refreshedState;
 
   @override
@@ -27,11 +29,22 @@ class _StubExpensesController extends ExpensesController {
     await onRefresh?.call();
     if (refreshedState != null) state = refreshedState!;
   }
+
+  @override
+  Future<void> openExpense(String id) async {
+    state = state.copyWith(
+      selectedExpenseId: id,
+      isDetailLoading: true,
+      clearSelectedExpense: true,
+    );
+    await onOpenExpense?.call(id);
+  }
 }
 
 Widget _buildApp(
   ExpensesState state, {
   Future<void> Function()? onRefresh,
+  Future<void> Function(String id)? onOpenExpense,
   ExpensesState? refreshedState,
   Locale locale = const Locale('en', 'IN'),
 }) {
@@ -41,6 +54,7 @@ Widget _buildApp(
         () => _StubExpensesController(
           state,
           onRefresh: onRefresh,
+          onOpenExpense: onOpenExpense,
           refreshedState: refreshedState,
         ),
       ),
@@ -306,5 +320,30 @@ void main() {
 
     expect(find.text('Rent'), findsNothing);
     expect(find.text('Travel'), findsOneWidget);
+  });
+
+  testWidgets('tapping a card loads and opens expense detail', (tester) async {
+    String? openedId;
+    await tester.pumpWidget(
+      _buildApp(
+        ExpensesState(
+          expenses: [_expense('expense-1', 'Rent')],
+          totalCount: 1,
+        ),
+        onOpenExpense: (id) async => openedId = id,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Rent'));
+    await tester.pump();
+
+    expect(openedId, 'expense-1');
+    expect(find.byType(BottomSheet), findsOneWidget);
+    expect(
+      tester.widget<BottomSheet>(find.byType(BottomSheet)).showDragHandle,
+      isTrue,
+    );
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
   });
 }

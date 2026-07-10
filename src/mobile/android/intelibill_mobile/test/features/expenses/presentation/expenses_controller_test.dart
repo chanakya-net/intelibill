@@ -4,13 +4,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
+import 'package:intelibill_mobile/src/features/expenses/domain/entities/expense_detail.dart';
 import 'package:intelibill_mobile/src/features/expenses/domain/entities/expense_list_item.dart';
 import 'package:intelibill_mobile/src/features/expenses/domain/entities/expenses_page.dart';
+import 'package:intelibill_mobile/src/features/expenses/domain/use_cases/get_expense_detail.dart';
 import 'package:intelibill_mobile/src/features/expenses/domain/use_cases/get_expenses.dart';
 import 'package:intelibill_mobile/src/features/expenses/presentation/controllers/expenses_controller.dart';
 import 'package:mocktail/mocktail.dart';
 
 class _MockGetExpenses extends Mock implements GetExpenses {}
+
+class _MockGetExpenseDetail extends Mock implements GetExpenseDetail {}
 
 class _TestExpensesController extends ExpensesController {
   _TestExpensesController(this._initialState);
@@ -45,17 +49,35 @@ ExpensesPage _page(List<ExpenseListItem> items) {
   );
 }
 
+ExpenseDetail _detail(String id) {
+  return ExpenseDetail(
+    id: id,
+    shopId: 'shop-1',
+    categoryId: 'category-1',
+    categoryName: 'Rent',
+    amount: 100,
+    paidTo: 'Payee',
+    expenseDate: DateTime(2026, 7),
+    actorUserId: 'user-1',
+    isVoided: false,
+    createdAt: DateTime(2026, 7, 1, 8, 30),
+  );
+}
+
 void main() {
   late _MockGetExpenses getExpenses;
+  late _MockGetExpenseDetail getExpenseDetail;
 
   setUp(() {
     getExpenses = _MockGetExpenses();
+    getExpenseDetail = _MockGetExpenseDetail();
   });
 
   ProviderContainer makeContainer(ExpensesState initialState) {
     return ProviderContainer(
       overrides: [
         getExpensesUseCaseProvider.overrideWithValue(getExpenses),
+        getExpenseDetailUseCaseProvider.overrideWithValue(getExpenseDetail),
         expensesControllerProvider.overrideWith(
           () => _TestExpensesController(initialState),
         ),
@@ -217,5 +239,100 @@ void main() {
     expect(state.totalCount, 0);
     expect(state.isLoading, isFalse);
     expect(state.listFailure, isNull);
+  });
+
+  test('openExpense loads detail without changing ledger state', () async {
+    final completer = Completer<ExpenseDetail>();
+    when(
+      () => getExpenseDetail('expense-1'),
+    ).thenAnswer((_) => completer.future);
+    final expenses = [_expense('expense-1', 'Rent')];
+    const listFailure = Failure.network(message: 'ledger offline');
+    final container = makeContainer(
+      ExpensesState(
+        expenses: expenses,
+        totalCount: 1,
+        listFailure: listFailure,
+      ),
+    );
+    addTearDown(container.dispose);
+
+    final opening = container
+        .read(expensesControllerProvider.notifier)
+        .openExpense('expense-1');
+
+    final loading = container.read(expensesControllerProvider);
+    expect(loading.selectedExpenseId, 'expense-1');
+    expect(loading.isDetailLoading, isTrue);
+    expect(loading.expenses, expenses);
+    expect(loading.listFailure, listFailure);
+
+    final detail = _detail('expense-1');
+    completer.complete(detail);
+    await opening;
+
+    final loaded = container.read(expensesControllerProvider);
+    expect(loaded.selectedExpense, detail);
+    expect(loaded.isDetailLoading, isFalse);
+    expect(loaded.detailFailure, isNull);
+    expect(loaded.expenses, expenses);
+    expect(loaded.listFailure, listFailure);
+  });
+
+  test('detail failure and retry stay operation-specific', () async {
+    const detailFailure = Failure.timeout(message: 'detail slow');
+    when(
+      () => getExpenseDetail('expense-1'),
+    ).thenThrow(AppException(failure: detailFailure));
+    final expenses = [_expense('expense-1', 'Rent')];
+    final container = makeContainer(
+      ExpensesState(expenses: expenses, totalCount: 1),
+    );
+    addTearDown(container.dispose);
+
+    await container
+        .read(expensesControllerProvider.notifier)
+        .openExpense('expense-1');
+
+    final failed = container.read(expensesControllerProvider);
+    expect(failed.detailFailure, detailFailure);
+    expect(failed.isDetailLoading, isFalse);
+    expect(failed.expenses, expenses);
+    expect(failed.listFailure, isNull);
+
+    final detail = _detail('expense-1');
+    when(
+      () => getExpenseDetail('expense-1'),
+    ).thenAnswer((_) async => detail);
+    await container
+        .read(expensesControllerProvider.notifier)
+        .retryExpenseDetail();
+
+    final retried = container.read(expensesControllerProvider);
+    expect(retried.selectedExpense, detail);
+    expect(retried.detailFailure, isNull);
+    expect(retried.expenses, expenses);
+  });
+
+  test('clearSelectedExpense removes only detail state', () async {
+    final expense = _expense('expense-1', 'Rent');
+    final detail = _detail('expense-1');
+    final container = makeContainer(
+      ExpensesState(
+        expenses: [expense],
+        totalCount: 1,
+        selectedExpenseId: 'expense-1',
+        selectedExpense: detail,
+      ),
+    );
+    addTearDown(container.dispose);
+
+    container.read(expensesControllerProvider.notifier).clearSelectedExpense();
+
+    final state = container.read(expensesControllerProvider);
+    expect(state.selectedExpenseId, isNull);
+    expect(state.selectedExpense, isNull);
+    expect(state.detailFailure, isNull);
+    expect(state.expenses, [expense]);
   });
 }

@@ -10,9 +10,10 @@ final NumberFormat _expenseAmountFormatter = NumberFormat.currency(
 final DateFormat _expenseDateFormatter = DateFormat('MMM d, yyyy');
 
 class ExpenseCard extends StatelessWidget {
-  const ExpenseCard({required this.expense, super.key});
+  const ExpenseCard({required this.expense, required this.onTap, super.key});
 
   final ExpenseListItem expense;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -23,45 +24,49 @@ class ExpenseCard extends StatelessWidget {
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    expense.categoryName,
-                    style: theme.textTheme.titleMedium,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      expense.categoryName,
+                      style: theme.textTheme.titleMedium,
+                    ),
                   ),
-                ),
-                _StatusBadge(
-                  label: expense.isVoided ? 'Voided' : 'Active',
-                  color: statusColor,
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(expense.paidTo, style: theme.textTheme.bodyMedium),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    _expenseDateFormatter.format(expense.expenseDate),
-                    style: theme.textTheme.bodySmall,
+                  _StatusBadge(
+                    label: expense.isVoided ? 'Voided' : 'Active',
+                    color: statusColor,
                   ),
-                ),
-                Text(
-                  _expenseAmountFormatter.format(expense.amount),
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(expense.paidTo, style: theme.textTheme.bodyMedium),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _expenseDateFormatter.format(expense.expenseDate),
+                      style: theme.textTheme.bodySmall,
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ],
+                  Text(
+                    _expenseAmountFormatter.format(expense.amount),
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

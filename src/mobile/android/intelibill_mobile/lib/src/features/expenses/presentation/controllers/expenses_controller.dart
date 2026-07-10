@@ -6,8 +6,10 @@ import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/network/api_client_provider.dart';
 import 'package:intelibill_mobile/src/features/expenses/data/data_sources/expense_remote_data_source.dart';
 import 'package:intelibill_mobile/src/features/expenses/data/repositories/expense_repository_impl.dart';
+import 'package:intelibill_mobile/src/features/expenses/domain/entities/expense_detail.dart';
 import 'package:intelibill_mobile/src/features/expenses/domain/entities/expense_list_item.dart';
 import 'package:intelibill_mobile/src/features/expenses/domain/repositories/expense_repository.dart';
+import 'package:intelibill_mobile/src/features/expenses/domain/use_cases/get_expense_detail.dart';
 import 'package:intelibill_mobile/src/features/expenses/domain/use_cases/get_expenses.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -30,6 +32,11 @@ GetExpenses getExpensesUseCase(Ref ref) {
   return GetExpenses(ref.watch(expenseRepositoryProvider));
 }
 
+@riverpod
+GetExpenseDetail getExpenseDetailUseCase(Ref ref) {
+  return GetExpenseDetail(ref.watch(expenseRepositoryProvider));
+}
+
 @immutable
 class ExpensesState {
   const ExpensesState({
@@ -39,6 +46,10 @@ class ExpensesState {
     this.isLoading = false,
     this.isRefreshing = false,
     this.listFailure,
+    this.selectedExpense,
+    this.selectedExpenseId,
+    this.isDetailLoading = false,
+    this.detailFailure,
   });
 
   final List<ExpenseListItem> expenses;
@@ -47,6 +58,10 @@ class ExpensesState {
   final bool isLoading;
   final bool isRefreshing;
   final Failure? listFailure;
+  final ExpenseDetail? selectedExpense;
+  final String? selectedExpenseId;
+  final bool isDetailLoading;
+  final Failure? detailFailure;
 
   List<ExpenseListItem> get filteredExpenses => switch (statusFilter) {
     ExpenseStatusFilter.all => expenses,
@@ -64,6 +79,12 @@ class ExpensesState {
     bool? isRefreshing,
     Failure? listFailure,
     bool clearListFailure = false,
+    ExpenseDetail? selectedExpense,
+    String? selectedExpenseId,
+    bool? isDetailLoading,
+    Failure? detailFailure,
+    bool clearSelectedExpense = false,
+    bool clearDetailFailure = false,
   }) {
     return ExpensesState(
       expenses: expenses ?? this.expenses,
@@ -72,6 +93,16 @@ class ExpensesState {
       isLoading: isLoading ?? this.isLoading,
       isRefreshing: isRefreshing ?? this.isRefreshing,
       listFailure: clearListFailure ? null : (listFailure ?? this.listFailure),
+      selectedExpense: clearSelectedExpense
+          ? null
+          : (selectedExpense ?? this.selectedExpense),
+      selectedExpenseId: clearSelectedExpense
+          ? selectedExpenseId
+          : (selectedExpenseId ?? this.selectedExpenseId),
+      isDetailLoading: isDetailLoading ?? this.isDetailLoading,
+      detailFailure: clearSelectedExpense || clearDetailFailure
+          ? null
+          : (detailFailure ?? this.detailFailure),
     );
   }
 }
@@ -124,5 +155,56 @@ class ExpensesController extends _$ExpensesController {
       clearListFailure: true,
     );
     await _loadExpenses();
+  }
+
+  Future<void> openExpense(String id) async {
+    state = state.copyWith(
+      selectedExpenseId: id,
+      isDetailLoading: true,
+      clearSelectedExpense: true,
+      clearDetailFailure: true,
+    );
+    await _loadExpenseDetail(id);
+  }
+
+  Future<void> retryExpenseDetail() async {
+    final id = state.selectedExpenseId;
+    if (id == null) return;
+    state = state.copyWith(
+      isDetailLoading: true,
+      clearDetailFailure: true,
+    );
+    await _loadExpenseDetail(id);
+  }
+
+  Future<void> _loadExpenseDetail(String id) async {
+    try {
+      final detail = await ref.read(getExpenseDetailUseCaseProvider)(id);
+      if (!ref.mounted || state.selectedExpenseId != id) return;
+      state = state.copyWith(
+        selectedExpense: detail,
+        isDetailLoading: false,
+        clearDetailFailure: true,
+      );
+    } on AppException catch (error) {
+      if (!ref.mounted || state.selectedExpenseId != id) return;
+      state = state.copyWith(
+        isDetailLoading: false,
+        detailFailure: error.failure,
+      );
+    } on Object {
+      if (!ref.mounted || state.selectedExpenseId != id) return;
+      state = state.copyWith(
+        isDetailLoading: false,
+        detailFailure: const Failure.unknown(),
+      );
+    }
+  }
+
+  void clearSelectedExpense() {
+    state = state.copyWith(
+      isDetailLoading: false,
+      clearSelectedExpense: true,
+    );
   }
 }

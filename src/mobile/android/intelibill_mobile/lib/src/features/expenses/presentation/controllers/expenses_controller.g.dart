@@ -146,6 +146,53 @@ final class GetExpensesUseCaseProvider
 String _$getExpensesUseCaseHash() =>
     r'f65983ccfb450ff97b2e0be5715916df9f2c2d31';
 
+@ProviderFor(getExpenseDetailUseCase)
+final getExpenseDetailUseCaseProvider = GetExpenseDetailUseCaseProvider._();
+
+final class GetExpenseDetailUseCaseProvider
+    extends
+        $FunctionalProvider<
+          GetExpenseDetail,
+          GetExpenseDetail,
+          GetExpenseDetail
+        >
+    with $Provider<GetExpenseDetail> {
+  GetExpenseDetailUseCaseProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'getExpenseDetailUseCaseProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$getExpenseDetailUseCaseHash();
+
+  @$internal
+  @override
+  $ProviderElement<GetExpenseDetail> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  GetExpenseDetail create(Ref ref) {
+    return getExpenseDetailUseCase(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(GetExpenseDetail value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<GetExpenseDetail>(value),
+    );
+  }
+}
+
+String _$getExpenseDetailUseCaseHash() =>
+    r'260556eca7b5066bea35b738856b9f2ff84e3d74';
+
 @ProviderFor(ExpensesController)
 final expensesControllerProvider = ExpensesControllerProvider._();
 
@@ -179,7 +226,7 @@ final class ExpensesControllerProvider
 }
 
 String _$expensesControllerHash() =>
-    r'6e15a6e8073d8a339e5596e585cad9113756f070';
+    r'481e1806e04ffb58547504a9a22fb8571f6dca19';
 
 abstract class _$ExpensesController extends $Notifier<ExpensesState> {
   ExpensesState build();

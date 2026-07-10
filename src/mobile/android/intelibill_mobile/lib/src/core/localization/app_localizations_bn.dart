@@ -145,6 +145,78 @@ class AppLocalizationsBn extends AppLocalizations {
   String get expensesErrorGeneric => 'খরচ লোড করা যায়নি। আবার চেষ্টা করুন।';
 
   @override
+  String get expensesDetailTitle => 'Expense details';
+
+  @override
+  String get expensesDetailUnableToLoad => 'Unable to load expense details';
+
+  @override
+  String get expensesDetailNoSelection => 'No expense selected';
+
+  @override
+  String get expensesDetailExpenseId => 'Expense ID';
+
+  @override
+  String get expensesDetailShopId => 'Shop ID';
+
+  @override
+  String get expensesDetailCategoryId => 'Category ID';
+
+  @override
+  String get expensesDetailAmount => 'Amount';
+
+  @override
+  String get expensesDetailStatus => 'Status';
+
+  @override
+  String get expensesDetailCategory => 'Category';
+
+  @override
+  String get expensesDetailPaidTo => 'Paid to';
+
+  @override
+  String get expensesDetailDescription => 'Description';
+
+  @override
+  String get expensesDetailExpenseDate => 'Expense date';
+
+  @override
+  String get expensesDetailActor => 'Recorded by';
+
+  @override
+  String get expensesDetailCreatedAt => 'Created at';
+
+  @override
+  String get expensesDetailSource => 'Source';
+
+  @override
+  String get expensesDetailOriginalExpense => 'Original expense';
+
+  @override
+  String get expensesDetailSupplierLedgerEntry => 'Supplier ledger entry';
+
+  @override
+  String get expensesDetailActive => 'Active';
+
+  @override
+  String get expensesDetailVoided => 'Voided';
+
+  @override
+  String get expensesDetailNotProvided => 'Not provided';
+
+  @override
+  String get expensesDetailNotLinked => 'Not linked';
+
+  @override
+  String get expensesDetailSourceManual => 'Manual expense';
+
+  @override
+  String get expensesDetailSourceCorrection => 'Expense correction';
+
+  @override
+  String get expensesDetailSourceSupplierPayment => 'Supplier payment';
+
+  @override
   String get shellManageBankAccounts => 'ব্যাঙ্ক অ্যাকাউন্ট';
 
   @override
