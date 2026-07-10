@@ -14,6 +14,8 @@ import 'package:intelibill_mobile/src/features/credit_notes/presentation/control
 import 'package:intelibill_mobile/src/features/dashboard/presentation/controllers/dashboard_controller.dart';
 import 'package:intelibill_mobile/src/features/discounts/domain/entities/discount_rule_query.dart';
 import 'package:intelibill_mobile/src/features/discounts/presentation/controllers/discounts_controller.dart';
+import 'package:intelibill_mobile/src/features/expenses/domain/entities/expense_list_item.dart';
+import 'package:intelibill_mobile/src/features/expenses/presentation/controllers/expenses_controller.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sales_history_query.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/use_cases/get_sale_detail.dart';
@@ -337,6 +339,108 @@ void main() {
       expect(
         router.routeInformationProvider.value.uri.toString(),
         equals(AppRoutes.discounts),
+      );
+    });
+
+    for (final role in ['Owner', 'Manager']) {
+      testWidgets('$role can navigate to expenses and render first page', (
+        tester,
+      ) async {
+        SharedPreferences.setMockInitialValues({});
+        final container = ProviderContainer(
+          overrides: [
+            authControllerProvider.overrideWith(
+              () => _TestAuthController(
+                AuthControllerState(session: _sessionForRole(role)),
+              ),
+            ),
+            dashboardControllerProvider.overrideWith(
+              _StubDashboardController.new,
+            ),
+            salesHistoryControllerProvider.overrideWith(
+              _StubSalesHistoryController.new,
+            ),
+            expensesControllerProvider.overrideWith(
+              _StubExpensesController.new,
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+        final router = container.read(goRouterProvider);
+
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp.router(
+              locale: const Locale('en', 'IN'),
+              supportedLocales: const [Locale('en', 'IN')],
+              localizationsDelegates: const [
+                AppLocalizations.delegate,
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              routerConfig: router,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        router.go(AppRoutes.expenses);
+        await tester.pumpAndSettle();
+
+        expect(
+          router.routeInformationProvider.value.uri.toString(),
+          AppRoutes.expenses,
+        );
+        expect(find.text('Rent'), findsOneWidget);
+      });
+    }
+
+    testWidgets('staff is redirected from expenses route', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final container = ProviderContainer(
+        overrides: [
+          authControllerProvider.overrideWith(
+            () => _TestAuthController(
+              AuthControllerState(session: _sessionForRole('Staff')),
+            ),
+          ),
+          dashboardControllerProvider.overrideWith(
+            _StubDashboardController.new,
+          ),
+          salesHistoryControllerProvider.overrideWith(
+            _StubSalesHistoryController.new,
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      final router = container.read(goRouterProvider);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp.router(
+            locale: const Locale('en', 'IN'),
+            supportedLocales: const [Locale('en', 'IN')],
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      router.go(AppRoutes.expenses);
+      await tester.pump();
+
+      expect(
+        router.routeInformationProvider.value.uri.toString(),
+        AppRoutes.salesHistory,
       );
     });
 
@@ -665,6 +769,25 @@ class _StubDiscountsController extends DiscountsController {
   DiscountsState build() {
     return const DiscountsState(
       query: DiscountRulesQuery(),
+    );
+  }
+}
+
+class _StubExpensesController extends ExpensesController {
+  @override
+  ExpensesState build() {
+    return ExpensesState(
+      expenses: [
+        ExpenseListItem(
+          id: 'expense-1',
+          amount: 1250,
+          categoryName: 'Rent',
+          paidTo: 'Landlord',
+          expenseDate: DateTime(2026, 7),
+          isVoided: false,
+        ),
+      ],
+      totalCount: 1,
     );
   }
 }
