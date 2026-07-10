@@ -109,6 +109,8 @@ class ExpensesState {
 
 @riverpod
 class ExpensesController extends _$ExpensesController {
+  int _detailRequestGeneration = 0;
+
   @override
   ExpensesState build() {
     unawaited(Future.microtask(_loadExpenses));
@@ -158,42 +160,44 @@ class ExpensesController extends _$ExpensesController {
   }
 
   Future<void> openExpense(String id) async {
+    final requestGeneration = ++_detailRequestGeneration;
     state = state.copyWith(
       selectedExpenseId: id,
       isDetailLoading: true,
       clearSelectedExpense: true,
       clearDetailFailure: true,
     );
-    await _loadExpenseDetail(id);
+    await _loadExpenseDetail(id, requestGeneration);
   }
 
   Future<void> retryExpenseDetail() async {
     final id = state.selectedExpenseId;
     if (id == null) return;
+    final requestGeneration = ++_detailRequestGeneration;
     state = state.copyWith(
       isDetailLoading: true,
       clearDetailFailure: true,
     );
-    await _loadExpenseDetail(id);
+    await _loadExpenseDetail(id, requestGeneration);
   }
 
-  Future<void> _loadExpenseDetail(String id) async {
+  Future<void> _loadExpenseDetail(String id, int requestGeneration) async {
     try {
       final detail = await ref.read(getExpenseDetailUseCaseProvider)(id);
-      if (!ref.mounted || state.selectedExpenseId != id) return;
+      if (!_isCurrentDetailRequest(id, requestGeneration)) return;
       state = state.copyWith(
         selectedExpense: detail,
         isDetailLoading: false,
         clearDetailFailure: true,
       );
     } on AppException catch (error) {
-      if (!ref.mounted || state.selectedExpenseId != id) return;
+      if (!_isCurrentDetailRequest(id, requestGeneration)) return;
       state = state.copyWith(
         isDetailLoading: false,
         detailFailure: error.failure,
       );
     } on Object {
-      if (!ref.mounted || state.selectedExpenseId != id) return;
+      if (!_isCurrentDetailRequest(id, requestGeneration)) return;
       state = state.copyWith(
         isDetailLoading: false,
         detailFailure: const Failure.unknown(),
@@ -201,7 +205,14 @@ class ExpensesController extends _$ExpensesController {
     }
   }
 
+  bool _isCurrentDetailRequest(String id, int requestGeneration) {
+    return ref.mounted &&
+        _detailRequestGeneration == requestGeneration &&
+        state.selectedExpenseId == id;
+  }
+
   void clearSelectedExpense() {
+    _detailRequestGeneration += 1;
     state = state.copyWith(
       isDetailLoading: false,
       clearSelectedExpense: true,

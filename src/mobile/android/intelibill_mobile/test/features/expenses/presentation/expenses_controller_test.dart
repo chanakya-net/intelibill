@@ -314,6 +314,40 @@ void main() {
     expect(retried.expenses, expenses);
   });
 
+  test('stale same-id failure cannot replace reopened detail state', () async {
+    final firstRequest = Completer<ExpenseDetail>();
+    final secondRequest = Completer<ExpenseDetail>();
+    var requestCount = 0;
+    when(() => getExpenseDetail('expense-1')).thenAnswer((_) {
+      requestCount += 1;
+      return requestCount == 1 ? firstRequest.future : secondRequest.future;
+    });
+    final container = makeContainer(const ExpensesState());
+    addTearDown(container.dispose);
+    final controller = container.read(expensesControllerProvider.notifier);
+
+    final firstOpening = controller.openExpense('expense-1');
+    controller.clearSelectedExpense();
+    final secondOpening = controller.openExpense('expense-1');
+
+    final currentDetail = _detail('expense-1');
+    secondRequest.complete(currentDetail);
+    await secondOpening;
+
+    firstRequest.completeError(
+      AppException(
+        failure: const Failure.network(message: 'stale failure'),
+      ),
+    );
+    await firstOpening;
+
+    final state = container.read(expensesControllerProvider);
+    expect(state.selectedExpenseId, 'expense-1');
+    expect(state.selectedExpense, currentDetail);
+    expect(state.isDetailLoading, isFalse);
+    expect(state.detailFailure, isNull);
+  });
+
   test('clearSelectedExpense removes only detail state', () async {
     final expense = _expense('expense-1', 'Rent');
     final detail = _detail('expense-1');
