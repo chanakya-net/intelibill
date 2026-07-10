@@ -13,6 +13,8 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'expenses_controller.g.dart';
 
+enum ExpenseStatusFilter { all, active, voided }
+
 @riverpod
 ExpenseRemoteDataSource expenseRemoteDataSource(Ref ref) {
   return ExpenseRemoteDataSourceImpl(ref.watch(apiClientProvider));
@@ -33,6 +35,7 @@ class ExpensesState {
   const ExpensesState({
     this.expenses = const [],
     this.totalCount = 0,
+    this.statusFilter = ExpenseStatusFilter.all,
     this.isLoading = false,
     this.isRefreshing = false,
     this.listFailure,
@@ -40,13 +43,23 @@ class ExpensesState {
 
   final List<ExpenseListItem> expenses;
   final int totalCount;
+  final ExpenseStatusFilter statusFilter;
   final bool isLoading;
   final bool isRefreshing;
   final Failure? listFailure;
 
+  List<ExpenseListItem> get filteredExpenses => switch (statusFilter) {
+    ExpenseStatusFilter.all => expenses,
+    ExpenseStatusFilter.active =>
+      expenses.where((expense) => !expense.isVoided).toList(growable: false),
+    ExpenseStatusFilter.voided =>
+      expenses.where((expense) => expense.isVoided).toList(growable: false),
+  };
+
   ExpensesState copyWith({
     List<ExpenseListItem>? expenses,
     int? totalCount,
+    ExpenseStatusFilter? statusFilter,
     bool? isLoading,
     bool? isRefreshing,
     Failure? listFailure,
@@ -55,6 +68,7 @@ class ExpensesState {
     return ExpensesState(
       expenses: expenses ?? this.expenses,
       totalCount: totalCount ?? this.totalCount,
+      statusFilter: statusFilter ?? this.statusFilter,
       isLoading: isLoading ?? this.isLoading,
       isRefreshing: isRefreshing ?? this.isRefreshing,
       listFailure: clearListFailure ? null : (listFailure ?? this.listFailure),
@@ -68,6 +82,10 @@ class ExpensesController extends _$ExpensesController {
   ExpensesState build() {
     unawaited(Future.microtask(_loadExpenses));
     return const ExpensesState(isLoading: true);
+  }
+
+  void updateStatusFilter(ExpenseStatusFilter filter) {
+    state = state.copyWith(statusFilter: filter);
   }
 
   Future<void> _loadExpenses() async {

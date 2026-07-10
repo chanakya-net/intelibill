@@ -105,6 +105,19 @@ class AppLocalizationsMr extends AppLocalizations {
   String get expensesNoExpensesFound => 'कोणतेही खर्च आढळले नाहीत';
 
   @override
+  String get expensesFilterAll => 'All';
+
+  @override
+  String get expensesFilterActive => 'Active';
+
+  @override
+  String get expensesFilterVoided => 'Voided';
+
+  @override
+  String get expensesNoFilteredResults =>
+      'No loaded expenses match this filter';
+
+  @override
   String get expensesUnableToLoad => 'खर्च लोड करता आले नाहीत';
 
   @override

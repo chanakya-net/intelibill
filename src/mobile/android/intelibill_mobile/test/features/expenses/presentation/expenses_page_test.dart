@@ -55,6 +55,24 @@ Widget _buildApp(
   );
 }
 
+ExpenseListItem _expense(
+  String id,
+  String category, {
+  double amount = 100,
+  String paidTo = 'Payee',
+  DateTime? expenseDate,
+  bool isVoided = false,
+}) {
+  return ExpenseListItem(
+    id: id,
+    amount: amount,
+    categoryName: category,
+    paidTo: paidTo,
+    expenseDate: expenseDate ?? DateTime(2026, 7),
+    isVoided: isVoided,
+  );
+}
+
 void main() {
   testWidgets('shows loading before first page arrives', (tester) async {
     await tester.pumpWidget(
@@ -86,6 +104,32 @@ void main() {
     expect(find.text('कोई खर्च नहीं मिला'), findsOneWidget);
   });
 
+  testWidgets('shows horizontally scrollable All, Active, and Voided chips', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _buildApp(
+        ExpensesState(
+          expenses: [
+            _expense('expense-1', 'Rent'),
+            _expense('expense-2', 'Travel', isVoided: true),
+          ],
+          totalCount: 2,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SingleChildScrollView), findsOneWidget);
+    expect(find.widgetWithText(FilterChip, 'All'), findsOneWidget);
+    expect(find.widgetWithText(FilterChip, 'Active'), findsOneWidget);
+    expect(find.widgetWithText(FilterChip, 'Voided'), findsOneWidget);
+    final allChip = tester.widget<FilterChip>(
+      find.widgetWithText(FilterChip, 'All'),
+    );
+    expect(allChip.selected, isTrue);
+  });
+
   testWidgets('shows initial failure details and retries', (tester) async {
     var refreshCount = 0;
     await tester.pumpWidget(
@@ -110,18 +154,16 @@ void main() {
   testWidgets('renders expense cards in backend order', (tester) async {
     final state = ExpensesState(
       expenses: [
-        ExpenseListItem(
-          id: 'expense-1',
+        _expense(
+          'expense-1',
+          'Rent',
           amount: 1250,
-          categoryName: 'Rent',
           paidTo: 'Landlord',
-          expenseDate: DateTime(2026, 7),
-          isVoided: false,
         ),
-        ExpenseListItem(
-          id: 'expense-2',
+        _expense(
+          'expense-2',
+          'Travel',
           amount: 42.5,
-          categoryName: 'Travel',
           paidTo: 'Metro',
           expenseDate: DateTime(2026, 6, 30),
           isVoided: true,
@@ -137,16 +179,70 @@ void main() {
     expect(find.text('Landlord'), findsOneWidget);
     expect(find.text('₹1,250.00'), findsOneWidget);
     expect(find.text('Jul 1, 2026'), findsOneWidget);
-    expect(find.text('Active'), findsOneWidget);
+    expect(find.text('Active'), findsNWidgets(2));
     expect(find.text('Travel'), findsOneWidget);
     expect(find.text('Metro'), findsOneWidget);
     expect(find.text('₹42.50'), findsOneWidget);
     expect(find.text('Jun 30, 2026'), findsOneWidget);
-    expect(find.text('Voided'), findsOneWidget);
+    expect(find.text('Voided'), findsNWidgets(2));
 
     final rentTop = tester.getTopLeft(find.text('Rent')).dy;
     final travelTop = tester.getTopLeft(find.text('Travel')).dy;
     expect(rentTop, lessThan(travelTop));
+  });
+
+  testWidgets('filters loaded rows with Active, Voided, and All chips', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _buildApp(
+        ExpensesState(
+          expenses: [
+            _expense('expense-1', 'Rent'),
+            _expense('expense-2', 'Travel', isVoided: true),
+          ],
+          totalCount: 2,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(FilterChip, 'Active'));
+    await tester.pump();
+    expect(find.text('Rent'), findsOneWidget);
+    expect(find.text('Travel'), findsNothing);
+
+    await tester.tap(find.widgetWithText(FilterChip, 'Voided'));
+    await tester.pump();
+    expect(find.text('Rent'), findsNothing);
+    expect(find.text('Travel'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(FilterChip, 'All'));
+    await tester.pump();
+    expect(find.text('Rent'), findsOneWidget);
+    expect(find.text('Travel'), findsOneWidget);
+  });
+
+  testWidgets('shows distinct copy when loaded rows do not match filter', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _buildApp(
+        ExpensesState(
+          expenses: [_expense('expense-1', 'Rent')],
+          totalCount: 1,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(FilterChip, 'Voided'));
+    await tester.pump();
+
+    expect(find.text('No loaded expenses match this filter'), findsOneWidget);
+    expect(find.text('No expenses found'), findsNothing);
+    expect(find.text('Rent'), findsNothing);
+    expect(find.widgetWithText(FilterChip, 'All'), findsOneWidget);
   });
 
   testWidgets('keeps rows visible and offers retry after refresh failure', (
@@ -191,20 +287,14 @@ void main() {
   testWidgets('pull-to-refresh replaces ledger with refreshed page', (
     tester,
   ) async {
-    ExpenseListItem item(String id, String category) => ExpenseListItem(
-      id: id,
-      amount: 100,
-      categoryName: category,
-      paidTo: 'Payee',
-      expenseDate: DateTime(2026, 7),
-      isVoided: false,
-    );
-
     await tester.pumpWidget(
       _buildApp(
-        ExpensesState(expenses: [item('expense-1', 'Rent')], totalCount: 1),
+        ExpensesState(
+          expenses: [_expense('expense-1', 'Rent')],
+          totalCount: 1,
+        ),
         refreshedState: ExpensesState(
-          expenses: [item('expense-2', 'Travel')],
+          expenses: [_expense('expense-2', 'Travel')],
           totalCount: 1,
         ),
       ),

@@ -179,7 +179,7 @@ final class ExpensesControllerProvider
 }
 
 String _$expensesControllerHash() =>
-    r'e4edd995d0f3b5cfcf2349745ded11dda984665e';
+    r'6e15a6e8073d8a339e5596e585cad9113756f070';
 
 abstract class _$ExpensesController extends $Notifier<ExpensesState> {
   ExpensesState build();

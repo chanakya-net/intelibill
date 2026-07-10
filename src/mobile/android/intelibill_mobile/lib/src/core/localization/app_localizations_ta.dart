@@ -105,6 +105,19 @@ class AppLocalizationsTa extends AppLocalizations {
   String get expensesNoExpensesFound => 'செலவுகள் எதுவும் காணப்படவில்லை';
 
   @override
+  String get expensesFilterAll => 'All';
+
+  @override
+  String get expensesFilterActive => 'Active';
+
+  @override
+  String get expensesFilterVoided => 'Voided';
+
+  @override
+  String get expensesNoFilteredResults =>
+      'No loaded expenses match this filter';
+
+  @override
   String get expensesUnableToLoad => 'செலவுகளை ஏற்ற முடியவில்லை';
 
   @override

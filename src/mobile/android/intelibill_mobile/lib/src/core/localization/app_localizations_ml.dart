@@ -105,6 +105,19 @@ class AppLocalizationsMl extends AppLocalizations {
   String get expensesNoExpensesFound => 'ചെലവുകളൊന്നും കണ്ടെത്തിയില്ല';
 
   @override
+  String get expensesFilterAll => 'All';
+
+  @override
+  String get expensesFilterActive => 'Active';
+
+  @override
+  String get expensesFilterVoided => 'Voided';
+
+  @override
+  String get expensesNoFilteredResults =>
+      'No loaded expenses match this filter';
+
+  @override
   String get expensesUnableToLoad => 'ചെലവുകൾ ലോഡ് ചെയ്യാനായില്ല';
 
   @override

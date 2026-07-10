@@ -105,6 +105,19 @@ class AppLocalizationsGu extends AppLocalizations {
   String get expensesNoExpensesFound => 'કોઈ ખર્ચ મળ્યો નથી';
 
   @override
+  String get expensesFilterAll => 'All';
+
+  @override
+  String get expensesFilterActive => 'Active';
+
+  @override
+  String get expensesFilterVoided => 'Voided';
+
+  @override
+  String get expensesNoFilteredResults =>
+      'No loaded expenses match this filter';
+
+  @override
   String get expensesUnableToLoad => 'ખર્ચ લોડ કરી શકાયા નથી';
 
   @override
