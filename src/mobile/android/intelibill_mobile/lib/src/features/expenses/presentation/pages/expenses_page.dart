@@ -30,6 +30,7 @@ class _ExpensesBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
+    final filteredExpenses = state.filteredExpenses;
     if (state.isLoading && state.expenses.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -57,6 +58,12 @@ class _ExpensesBody extends ConsumerWidget {
           : ListView(
               physics: const AlwaysScrollableScrollPhysics(),
               children: [
+                _ExpenseStatusFilters(
+                  selectedFilter: state.statusFilter,
+                  onSelected: ref
+                      .read(expensesControllerProvider.notifier)
+                      .updateStatusFilter,
+                ),
                 if (state.isRefreshing)
                   const LinearProgressIndicator(
                     key: Key('expenses-refresh-progress'),
@@ -68,10 +75,50 @@ class _ExpensesBody extends ConsumerWidget {
                       ref.read(expensesControllerProvider.notifier).refresh(),
                     ),
                   ),
-                for (final expense in state.expenses)
+                if (filteredExpenses.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Center(child: Text(l10n.expensesNoFilteredResults)),
+                  ),
+                for (final expense in filteredExpenses)
                   ExpenseCard(expense: expense),
               ],
             ),
+    );
+  }
+}
+
+class _ExpenseStatusFilters extends StatelessWidget {
+  const _ExpenseStatusFilters({
+    required this.selectedFilter,
+    required this.onSelected,
+  });
+
+  final ExpenseStatusFilter selectedFilter;
+  final ValueChanged<ExpenseStatusFilter> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final labels = {
+      ExpenseStatusFilter.all: l10n.expensesFilterAll,
+      ExpenseStatusFilter.active: l10n.expensesFilterActive,
+      ExpenseStatusFilter.voided: l10n.expensesFilterVoided,
+    };
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Row(
+        spacing: 8,
+        children: [
+          for (final filter in ExpenseStatusFilter.values)
+            FilterChip(
+              label: Text(labels[filter]!),
+              selected: selectedFilter == filter,
+              onSelected: (_) => onSelected(filter),
+            ),
+        ],
+      ),
     );
   }
 }

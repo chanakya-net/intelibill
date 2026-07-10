@@ -21,14 +21,18 @@ class _TestExpensesController extends ExpensesController {
   ExpensesState build() => _initialState;
 }
 
-ExpenseListItem _expense(String id, String category) {
+ExpenseListItem _expense(
+  String id,
+  String category, {
+  bool isVoided = false,
+}) {
   return ExpenseListItem(
     id: id,
     amount: 100,
     categoryName: category,
     paidTo: 'Payee',
     expenseDate: DateTime(2026, 7),
-    isVoided: false,
+    isVoided: isVoided,
   );
 }
 
@@ -58,6 +62,69 @@ void main() {
       ],
     );
   }
+
+  test('all status filter exposes every loaded expense', () {
+    final expenses = [
+      _expense('expense-1', 'Rent'),
+      _expense('expense-2', 'Travel', isVoided: true),
+    ];
+    final state = ExpensesState(expenses: expenses, totalCount: 2);
+
+    expect(state.statusFilter, ExpenseStatusFilter.all);
+    expect(state.filteredExpenses, expenses);
+  });
+
+  test('changing status filters never fetches additional rows', () {
+    final active = _expense('expense-1', 'Rent');
+    final voided = _expense('expense-2', 'Travel', isVoided: true);
+    final container = makeContainer(
+      ExpensesState(expenses: [active, voided], totalCount: 2),
+    );
+    addTearDown(container.dispose);
+
+    container
+        .read(expensesControllerProvider.notifier)
+        .updateStatusFilter(ExpenseStatusFilter.active);
+
+    expect(
+      container.read(expensesControllerProvider).filteredExpenses,
+      [active],
+    );
+
+    container
+        .read(expensesControllerProvider.notifier)
+        .updateStatusFilter(ExpenseStatusFilter.voided);
+    expect(
+      container.read(expensesControllerProvider).filteredExpenses,
+      [voided],
+    );
+
+    container
+        .read(expensesControllerProvider.notifier)
+        .updateStatusFilter(ExpenseStatusFilter.all);
+    expect(
+      container.read(expensesControllerProvider).filteredExpenses,
+      [active, voided],
+    );
+    verifyNever(() => getExpenses());
+  });
+
+  test('voided status filter keeps only loaded voided rows', () {
+    final active = _expense('expense-1', 'Rent');
+    final voided = _expense('expense-2', 'Travel', isVoided: true);
+    final container = makeContainer(
+      ExpensesState(expenses: [active, voided], totalCount: 2),
+    );
+    addTearDown(container.dispose);
+
+    container
+        .read(expensesControllerProvider.notifier)
+        .updateStatusFilter(ExpenseStatusFilter.voided);
+
+    final state = container.read(expensesControllerProvider);
+    expect(state.statusFilter, ExpenseStatusFilter.voided);
+    expect(state.filteredExpenses, [voided]);
+  });
 
   test('refresh keeps existing rows visible while loading page one', () async {
     final completer = Completer<ExpensesPage>();

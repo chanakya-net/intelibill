@@ -105,6 +105,19 @@ class AppLocalizationsTe extends AppLocalizations {
   String get expensesNoExpensesFound => 'ఖర్చులు ఏవీ కనుగొనబడలేదు';
 
   @override
+  String get expensesFilterAll => 'All';
+
+  @override
+  String get expensesFilterActive => 'Active';
+
+  @override
+  String get expensesFilterVoided => 'Voided';
+
+  @override
+  String get expensesNoFilteredResults =>
+      'No loaded expenses match this filter';
+
+  @override
   String get expensesUnableToLoad => 'ఖర్చులను లోడ్ చేయలేకపోయాము';
 
   @override
