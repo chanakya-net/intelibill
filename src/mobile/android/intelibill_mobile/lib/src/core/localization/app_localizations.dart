@@ -307,6 +307,60 @@ abstract class AppLocalizations {
   /// **'Expenses'**
   String get shellManageExpenses;
 
+  /// No description provided for @expensesNoExpensesFound.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No expenses found'**
+  String get expensesNoExpensesFound;
+
+  /// No description provided for @expensesUnableToLoad.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to load expenses'**
+  String get expensesUnableToLoad;
+
+  /// No description provided for @expensesRetry.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Retry'**
+  String get expensesRetry;
+
+  /// No description provided for @expensesRefreshFailed.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to refresh expenses'**
+  String get expensesRefreshFailed;
+
+  /// No description provided for @expensesErrorNetwork.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to connect. Please check your network.'**
+  String get expensesErrorNetwork;
+
+  /// No description provided for @expensesErrorTimeout.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Request timed out. Please try again.'**
+  String get expensesErrorTimeout;
+
+  /// No description provided for @expensesErrorUnauthorized.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Session expired. Please log in again.'**
+  String get expensesErrorUnauthorized;
+
+  /// No description provided for @expensesErrorForbidden.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'You do not have permission to view expenses.'**
+  String get expensesErrorForbidden;
+
+  /// No description provided for @expensesErrorGeneric.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to load expenses. Please try again.'**
+  String get expensesErrorGeneric;
+
   /// No description provided for @shellManageBankAccounts.
   ///
   /// In en_IN, this message translates to:

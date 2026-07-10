@@ -102,6 +102,37 @@ class AppLocalizationsBn extends AppLocalizations {
   String get shellManageExpenses => 'খরচ';
 
   @override
+  String get expensesNoExpensesFound => 'No expenses found';
+
+  @override
+  String get expensesUnableToLoad => 'Unable to load expenses';
+
+  @override
+  String get expensesRetry => 'Retry';
+
+  @override
+  String get expensesRefreshFailed => 'Unable to refresh expenses';
+
+  @override
+  String get expensesErrorNetwork =>
+      'Unable to connect. Please check your network.';
+
+  @override
+  String get expensesErrorTimeout => 'Request timed out. Please try again.';
+
+  @override
+  String get expensesErrorUnauthorized =>
+      'Session expired. Please log in again.';
+
+  @override
+  String get expensesErrorForbidden =>
+      'You do not have permission to view expenses.';
+
+  @override
+  String get expensesErrorGeneric =>
+      'Unable to load expenses. Please try again.';
+
+  @override
   String get shellManageBankAccounts => 'ব্যাঙ্ক অ্যাকাউন্ট';
 
   @override
