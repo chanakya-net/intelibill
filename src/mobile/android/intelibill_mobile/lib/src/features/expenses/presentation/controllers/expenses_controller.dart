@@ -42,9 +42,14 @@ GetExpenseDetail getExpenseDetailUseCase(Ref ref) {
 class ExpensesState {
   const ExpensesState({
     this.page,
+    this.pageNumber = 1,
+    this.pageSize = 20,
+    this.totalCount = 0,
     this.statusFilter = ExpenseStatusFilter.all,
     this.isLoading = false,
+    this.isLoadingMore = false,
     this.failure,
+    this.loadMoreFailure,
     this.selectedExpense,
     this.selectedExpenseId,
     this.isDetailLoading = false,
@@ -52,13 +57,20 @@ class ExpensesState {
   });
 
   final ExpensePage? page;
+  final int pageNumber;
+  final int pageSize;
+  final int totalCount;
   final ExpenseStatusFilter statusFilter;
   final bool isLoading;
+  final bool isLoadingMore;
   final Failure? failure;
+  final Failure? loadMoreFailure;
   final ExpenseDetail? selectedExpense;
   final String? selectedExpenseId;
   final bool isDetailLoading;
   final Failure? detailFailure;
+
+  bool get hasMore => pageNumber * pageSize < totalCount;
 
   List<ExpenseListItem> get filteredExpenses {
     final expenses = page?.items ?? const <ExpenseListItem>[];
@@ -73,10 +85,16 @@ class ExpensesState {
 
   ExpensesState copyWith({
     ExpensePage? page,
+    int? pageNumber,
+    int? pageSize,
+    int? totalCount,
     ExpenseStatusFilter? statusFilter,
     bool? isLoading,
+    bool? isLoadingMore,
     Failure? failure,
     bool clearFailure = false,
+    Failure? loadMoreFailure,
+    bool clearLoadMoreFailure = false,
     ExpenseDetail? selectedExpense,
     String? selectedExpenseId,
     bool? isDetailLoading,
@@ -86,9 +104,16 @@ class ExpensesState {
   }) {
     return ExpensesState(
       page: page ?? this.page,
+      pageNumber: pageNumber ?? this.pageNumber,
+      pageSize: pageSize ?? this.pageSize,
+      totalCount: totalCount ?? this.totalCount,
       statusFilter: statusFilter ?? this.statusFilter,
       isLoading: isLoading ?? this.isLoading,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       failure: clearFailure ? null : (failure ?? this.failure),
+      loadMoreFailure: clearLoadMoreFailure
+          ? null
+          : (loadMoreFailure ?? this.loadMoreFailure),
       selectedExpense: clearSelectedExpense
           ? null
           : (selectedExpense ?? this.selectedExpense),
@@ -106,27 +131,44 @@ class ExpensesState {
 @riverpod
 class ExpensesController extends _$ExpensesController {
   int _detailRequestGeneration = 0;
+  int _paginationGeneration = 0;
+  Future<void>? _loadMoreOperation;
+  int _loadMoreOperationGeneration = -1;
 
   @override
   ExpensesState build() {
-    unawaited(Future.microtask(_load));
+    unawaited(Future.microtask(_startInitialLoad));
     return const ExpensesState(isLoading: true);
   }
 
-  Future<void> _load() async {
+  void _startInitialLoad() {
+    if (_paginationGeneration == 0) unawaited(refresh());
+  }
+
+  Future<void> refresh() async {
+    final requestGeneration = ++_paginationGeneration;
+    state = state.copyWith(
+      isLoading: true,
+      isLoadingMore: false,
+      clearFailure: true,
+      clearLoadMoreFailure: true,
+    );
     try {
       final page = await ref.read(getExpensesUseCaseProvider)();
-      if (!ref.mounted) return;
+      if (!_isCurrentPaginationRequest(requestGeneration)) return;
       state = state.copyWith(
         page: page,
+        pageNumber: page.pageNumber,
+        pageSize: page.pageSize,
+        totalCount: page.totalCount,
         isLoading: false,
         clearFailure: true,
       );
     } on AppException catch (error) {
-      if (!ref.mounted) return;
+      if (!_isCurrentPaginationRequest(requestGeneration)) return;
       state = state.copyWith(isLoading: false, failure: error.failure);
     } on Object {
-      if (!ref.mounted) return;
+      if (!_isCurrentPaginationRequest(requestGeneration)) return;
       state = state.copyWith(
         isLoading: false,
         failure: const Failure.unknown(),
@@ -134,26 +176,81 @@ class ExpensesController extends _$ExpensesController {
     }
   }
 
-  Future<void> refresh() async {
-    state = state.copyWith(isLoading: true, clearFailure: true);
+  Future<void> loadMore() {
+    final pendingOperation = _loadMoreOperation;
+    if (pendingOperation != null &&
+        _loadMoreOperationGeneration == _paginationGeneration) {
+      return pendingOperation;
+    }
+
+    final requestGeneration = _paginationGeneration;
+    final operation = _loadMoreInternal();
+    _loadMoreOperation = operation;
+    _loadMoreOperationGeneration = requestGeneration;
+    unawaited(
+      operation.whenComplete(() {
+        if (identical(_loadMoreOperation, operation)) {
+          _loadMoreOperation = null;
+        }
+      }),
+    );
+    return operation;
+  }
+
+  Future<void> _loadMoreInternal() async {
+    final page = state.page;
+    if (state.isLoading ||
+        page == null ||
+        page.items.isEmpty ||
+        !state.hasMore) {
+      return;
+    }
+    final requestGeneration = _paginationGeneration;
+    final nextPage = state.pageNumber + 1;
+    state = state.copyWith(isLoadingMore: true, clearLoadMoreFailure: true);
     try {
-      final page = await ref.read(getExpensesUseCaseProvider)();
-      if (!ref.mounted) return;
+      final result = await ref.read(getExpensesUseCaseProvider)(
+        page: nextPage,
+        pageSize: state.pageSize,
+      );
+      if (!_isCurrentPaginationRequest(requestGeneration)) return;
+      final currentPage = state.page;
+      if (currentPage == null) return;
       state = state.copyWith(
-        page: page,
-        isLoading: false,
-        clearFailure: true,
+        page: result.copyWith(
+          items: _appendUnique(currentPage.items, result.items),
+        ),
+        pageNumber: result.pageNumber,
+        pageSize: result.pageSize,
+        totalCount: result.totalCount,
+        isLoadingMore: false,
+        clearLoadMoreFailure: true,
       );
     } on AppException catch (error) {
-      if (!ref.mounted) return;
-      state = state.copyWith(isLoading: false, failure: error.failure);
-    } on Object {
-      if (!ref.mounted) return;
+      if (!_isCurrentPaginationRequest(requestGeneration)) return;
       state = state.copyWith(
-        isLoading: false,
-        failure: const Failure.unknown(),
+        isLoadingMore: false,
+        loadMoreFailure: error.failure,
+      );
+    } on Object {
+      if (!_isCurrentPaginationRequest(requestGeneration)) return;
+      state = state.copyWith(
+        isLoadingMore: false,
+        loadMoreFailure: const Failure.unknown(),
       );
     }
+  }
+
+  bool _isCurrentPaginationRequest(int requestGeneration) {
+    return ref.mounted && _paginationGeneration == requestGeneration;
+  }
+
+  List<ExpenseListItem> _appendUnique(
+    List<ExpenseListItem> existing,
+    List<ExpenseListItem> incoming,
+  ) {
+    final ids = existing.map((expense) => expense.id).toSet();
+    return [...existing, ...incoming.where((expense) => ids.add(expense.id))];
   }
 
   void updateStatusFilter(ExpenseStatusFilter filter) {
@@ -176,10 +273,7 @@ class ExpensesController extends _$ExpensesController {
     final id = state.selectedExpenseId;
     if (id == null) return;
     final requestGeneration = ++_detailRequestGeneration;
-    state = state.copyWith(
-      isDetailLoading: true,
-      clearDetailFailure: true,
-    );
+    state = state.copyWith(isDetailLoading: true, clearDetailFailure: true);
     await _loadExpenseDetail(id, requestGeneration);
   }
 
@@ -215,9 +309,6 @@ class ExpensesController extends _$ExpensesController {
 
   void clearSelectedExpense() {
     _detailRequestGeneration += 1;
-    state = state.copyWith(
-      isDetailLoading: false,
-      clearSelectedExpense: true,
-    );
+    state = state.copyWith(isDetailLoading: false, clearSelectedExpense: true);
   }
 }

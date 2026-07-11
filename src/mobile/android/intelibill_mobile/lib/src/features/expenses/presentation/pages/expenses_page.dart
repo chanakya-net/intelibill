@@ -72,7 +72,20 @@ class _ExpenseStatusFilters extends StatelessWidget {
 class _ExpensesBody extends ConsumerWidget {
   const _ExpensesBody({required this.state});
 
+  static const _loadMoreThreshold = 200.0;
+
   final ExpensesState state;
+
+  bool _onScroll(ScrollNotification notification, WidgetRef ref) {
+    if (notification.metrics.extentAfter > _loadMoreThreshold ||
+        !state.hasMore ||
+        state.isLoadingMore ||
+        state.loadMoreFailure != null) {
+      return false;
+    }
+    unawaited(ref.read(expensesControllerProvider.notifier).loadMore());
+    return false;
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -105,33 +118,41 @@ class _ExpensesBody extends ConsumerWidget {
 
     return Stack(
       children: [
-        RefreshIndicator(
-          onRefresh: ref.read(expensesControllerProvider.notifier).refresh,
-          child: expenses.isEmpty
-              ? ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  children: [
-                    const SizedBox(height: 160),
-                    Center(
-                      child: Text(
-                        hasLoadedExpenses
-                            ? 'No expenses match the selected filter'
-                            : 'No expenses found',
+        NotificationListener<ScrollNotification>(
+          onNotification: (notification) => _onScroll(notification, ref),
+          child: RefreshIndicator(
+            onRefresh: ref.read(expensesControllerProvider.notifier).refresh,
+            child: expenses.isEmpty
+                ? ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: [
+                      const SizedBox(height: 160),
+                      Center(
+                        child: Text(
+                          hasLoadedExpenses
+                              ? 'No expenses match the selected filter'
+                              : 'No expenses found',
+                        ),
                       ),
-                    ),
-                  ],
-                )
-              : ListView.builder(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: expenses.length,
-                  itemBuilder: (context, index) => ExpenseCard(
-                    expense: expenses[index],
-                    onTap: () => unawaited(
-                      _openExpenseDetail(context, ref, expenses[index].id),
-                    ),
+                    ],
+                  )
+                : ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    itemCount: expenses.length + _appendRowCount,
+                    itemBuilder: (context, index) {
+                      if (index == expenses.length) {
+                        return _buildAppendRow(context, ref);
+                      }
+                      return ExpenseCard(
+                        expense: expenses[index],
+                        onTap: () => unawaited(
+                          _openExpenseDetail(context, ref, expenses[index].id),
+                        ),
+                      );
+                    },
                   ),
-                ),
+          ),
         ),
         if (hasFailure)
           Center(
@@ -150,6 +171,33 @@ class _ExpensesBody extends ConsumerWidget {
             ),
           ),
       ],
+    );
+  }
+
+  int get _appendRowCount =>
+      state.isLoadingMore || state.loadMoreFailure != null ? 1 : 0;
+
+  Widget _buildAppendRow(BuildContext context, WidgetRef ref) {
+    if (state.isLoadingMore) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 16),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+      child: Column(
+        children: [
+          const Text('Unable to load more expenses'),
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: () => unawaited(
+              ref.read(expensesControllerProvider.notifier).loadMore(),
+            ),
+            child: Text(AppLocalizations.of(context)!.customersRetry),
+          ),
+        ],
+      ),
     );
   }
 }

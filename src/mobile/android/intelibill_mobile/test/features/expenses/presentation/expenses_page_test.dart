@@ -9,10 +9,15 @@ import 'package:intelibill_mobile/src/features/expenses/presentation/controllers
 import 'package:intelibill_mobile/src/features/expenses/presentation/pages/expenses_page.dart';
 
 class _StubExpensesController extends ExpensesController {
-  _StubExpensesController(this._state, {this.onOpenExpense});
+  _StubExpensesController(
+    this._state, {
+    this.onOpenExpense,
+    this.onLoadMore,
+  });
 
   final ExpensesState _state;
   final Future<void> Function(String id)? onOpenExpense;
+  final Future<void> Function()? onLoadMore;
 
   @override
   ExpensesState build() => _state;
@@ -25,6 +30,12 @@ class _StubExpensesController extends ExpensesController {
       clearSelectedExpense: true,
     );
     await onOpenExpense?.call(id);
+  }
+
+  @override
+  Future<void> loadMore() async {
+    state = state.copyWith(isLoadingMore: true);
+    await onLoadMore?.call();
   }
 }
 
@@ -57,11 +68,16 @@ final _loadedState = ExpensesState(
 Widget _buildApp(
   ExpensesState state, {
   Future<void> Function(String id)? onOpenExpense,
+  Future<void> Function()? onLoadMore,
 }) {
   return ProviderScope(
     overrides: [
       expensesControllerProvider.overrideWith(
-        () => _StubExpensesController(state, onOpenExpense: onOpenExpense),
+        () => _StubExpensesController(
+          state,
+          onOpenExpense: onOpenExpense,
+          onLoadMore: onLoadMore,
+        ),
       ),
     ],
     child: const MaterialApp(
@@ -72,6 +88,32 @@ Widget _buildApp(
     ),
   );
 }
+
+ExpenseListItem _item(String id) => ExpenseListItem(
+  id: id,
+  amount: 100,
+  categoryName: 'Travel',
+  paidTo: 'Taxi',
+  expenseDate: DateTime(2026, 7),
+  isVoided: false,
+);
+
+ExpensesState _paginatedState({
+  required List<ExpenseListItem> items,
+  int totalCount = 40,
+  bool isLoadingMore = false,
+  Failure? loadMoreFailure,
+}) => ExpensesState(
+  page: ExpensePage(
+    items: items,
+    totalCount: totalCount,
+    pageNumber: 1,
+    pageSize: 20,
+  ),
+  totalCount: totalCount,
+  isLoadingMore: isLoadingMore,
+  loadMoreFailure: loadMoreFailure,
+);
 
 void main() {
   testWidgets('renders first page in server order with ledger fields', (
@@ -201,5 +243,78 @@ void main() {
       isTrue,
     );
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
+  });
+
+  testWidgets('requests the next page near the end of the ledger', (
+    tester,
+  ) async {
+    var loadMoreCalls = 0;
+    await tester.pumpWidget(
+      _buildApp(
+        _paginatedState(items: List.generate(20, (index) => _item('$index'))),
+        onLoadMore: () async => loadMoreCalls++,
+      ),
+    );
+    await tester.pumpAndSettle();
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(ExpensesPage)),
+    );
+    expect(container.read(expensesControllerProvider).hasMore, isTrue);
+
+    final scrollable = tester.state<ScrollableState>(
+      find.descendant(
+        of: find.byType(ListView),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    expect(scrollable.position.maxScrollExtent, greaterThan(0));
+    for (var index = 0; index < 6; index++) {
+      await tester.drag(find.byType(ListView), const Offset(0, -500));
+      await tester.pump();
+    }
+    expect(scrollable.position.pixels, greaterThan(0));
+    expect(scrollable.position.extentAfter, lessThanOrEqualTo(200));
+    expect(container.read(expensesControllerProvider).isLoadingMore, isTrue);
+
+    expect(loadMoreCalls, greaterThanOrEqualTo(1));
+  });
+
+  testWidgets('shows append progress at the bottom', (tester) async {
+    await tester.pumpWidget(
+      _buildApp(
+        _paginatedState(
+          items: [_item('expense-1')],
+          isLoadingMore: true,
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.text('Travel'), findsOneWidget);
+  });
+
+  testWidgets('shows append retry while retaining loaded cards', (
+    tester,
+  ) async {
+    var loadMoreCalls = 0;
+    await tester.pumpWidget(
+      _buildApp(
+        _paginatedState(
+          items: [_item('expense-1')],
+          loadMoreFailure: const Failure.network(message: 'offline'),
+        ),
+        onLoadMore: () async => loadMoreCalls++,
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Travel'), findsOneWidget);
+    expect(find.text('Unable to load more expenses'), findsOneWidget);
+    await tester.tap(find.widgetWithText(TextButton, 'Retry'));
+    await tester.pump();
+
+    expect(loadMoreCalls, 1);
+    expect(find.text('Travel'), findsOneWidget);
   });
 }
