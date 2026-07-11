@@ -17,6 +17,7 @@ import 'package:intelibill_mobile/src/features/credit_notes/presentation/pages/c
 import 'package:intelibill_mobile/src/features/customers/presentation/pages/customers_page.dart';
 import 'package:intelibill_mobile/src/features/dashboard/presentation/pages/dashboard_page.dart';
 import 'package:intelibill_mobile/src/features/discounts/presentation/pages/discounts_page.dart';
+import 'package:intelibill_mobile/src/features/expenses/presentation/pages/expenses_page.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/add_inventory_page.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/adjustment_history_page.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/inventory_batches_page.dart';
@@ -113,6 +114,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
 
       if (_requiresServicesAccess(state.matchedLocation) &&
           !canManageServices(authState.session)) {
+        return AppRoutes.salesHistory;
+      }
+
+      if (state.matchedLocation == AppRoutes.expenses &&
+          !canManageExpenses(authState.session)) {
         return AppRoutes.salesHistory;
       }
 
@@ -226,10 +232,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: AppRoutes.expenses,
-            builder: (context, state) => _buildPlaceholder(
-              context,
-              title: AppLocalizations.of(context)!.shellManageExpenses,
-            ),
+            builder: (context, state) => const ExpensesPage(),
           ),
           GoRoute(
             path: AppRoutes.users,
