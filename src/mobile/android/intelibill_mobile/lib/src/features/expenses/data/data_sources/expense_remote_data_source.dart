@@ -6,6 +6,7 @@ interface class ExpenseRemoteDataSource {
   Future<ExpensesPageDto> getExpenses({
     int? page,
     int? pageSize,
+    String? search,
   }) {
     throw UnimplementedError();
   }
@@ -24,13 +25,20 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
   Future<ExpensesPageDto> getExpenses({
     int? page,
     int? pageSize,
+    String? search,
   }) async {
+    final queryParameters = <String, dynamic>{
+      'page': page ?? 1,
+      'pageSize': pageSize ?? 20,
+    };
+    final normalizedSearch = search?.trim();
+    if (normalizedSearch != null && normalizedSearch.isNotEmpty) {
+      queryParameters['search'] = normalizedSearch;
+    }
+
     final response = await _apiClient.get<Map<String, dynamic>>(
       '/expenses',
-      queryParameters: {
-        'page': page ?? 1,
-        'pageSize': pageSize ?? 20,
-      },
+      queryParameters: queryParameters,
     );
     return ExpensesPageDto.fromJson(response.data!);
   }

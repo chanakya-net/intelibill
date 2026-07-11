@@ -6,6 +6,6 @@ class GetExpenses {
 
   final ExpenseRepository _repository;
 
-  Future<ExpensePage> call({int? page, int? pageSize}) =>
-      _repository.getExpenses(page: page, pageSize: pageSize);
+  Future<ExpensePage> call({int? page, int? pageSize, String? search}) =>
+      _repository.getExpenses(page: page, pageSize: pageSize, search: search);
 }

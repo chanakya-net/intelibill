@@ -2,7 +2,7 @@ import 'package:intelibill_mobile/src/features/expenses/domain/entities/expense_
 import 'package:intelibill_mobile/src/features/expenses/domain/entities/expenses_page.dart';
 
 interface class ExpenseRepository {
-  Future<ExpensePage> getExpenses({int? page, int? pageSize}) {
+  Future<ExpensePage> getExpenses({int? page, int? pageSize, String? search}) {
     throw UnimplementedError();
   }
 

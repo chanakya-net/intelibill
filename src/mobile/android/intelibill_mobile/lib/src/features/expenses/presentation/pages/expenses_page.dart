@@ -7,18 +7,67 @@ import 'package:intelibill_mobile/src/features/expenses/presentation/controllers
 import 'package:intelibill_mobile/src/features/expenses/presentation/widgets/expense_card.dart';
 import 'package:intelibill_mobile/src/features/expenses/presentation/widgets/expense_detail_sheet.dart';
 
-class ExpensesPage extends ConsumerWidget {
+class ExpensesPage extends ConsumerStatefulWidget {
   const ExpensesPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ExpensesPage> createState() => _ExpensesPageState();
+}
+
+class _ExpensesPageState extends ConsumerState<ExpensesPage> {
+  late final TextEditingController _searchController;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(expensesControllerProvider);
     final l10n = AppLocalizations.of(context)!;
+    if (_searchController.text != state.searchQuery) {
+      _searchController.text = state.searchQuery;
+    }
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.shellManageExpenses)),
       body: Column(
         children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            child: TextField(
+              key: const Key('expenses-search'),
+              controller: _searchController,
+              decoration: InputDecoration(
+                labelText: l10n.commonSearch,
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: state.searchQuery.isEmpty
+                    ? null
+                    : IconButton(
+                        tooltip: 'Clear search',
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                          ref
+                              .read(expensesControllerProvider.notifier)
+                              .updateSearch('');
+                        },
+                      ),
+                border: const OutlineInputBorder(),
+              ),
+              onChanged: (value) => ref
+                  .read(expensesControllerProvider.notifier)
+                  .updateSearch(value),
+            ),
+          ),
           _ExpenseStatusFilters(
             selectedFilter: state.statusFilter,
             onFilterChanged: (filter) {

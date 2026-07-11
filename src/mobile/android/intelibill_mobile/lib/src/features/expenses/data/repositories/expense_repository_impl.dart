@@ -15,11 +15,13 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
   Future<ExpensePage> getExpenses({
     int? page,
     int? pageSize,
+    String? search,
   }) async {
     try {
       final dto = await _remoteDataSource.getExpenses(
         page: page,
         pageSize: pageSize,
+        search: search,
       );
       return ExpenseMapper.pageToDomain(dto);
     } on AppException {
