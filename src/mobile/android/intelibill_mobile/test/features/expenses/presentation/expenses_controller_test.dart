@@ -672,5 +672,78 @@ void main() {
       expect(state.isLoadingMore, isFalse);
       expect(state.hasMore, isFalse);
     });
+
+    test(
+      'loadMore issues a fresh request after refresh invalidates a pending append',
+      () async {
+        final getExpenses = MockGetExpenses();
+        final initialPage = _makePage(
+          items: [_item('old-expense')],
+          totalCount: 21,
+        );
+        final refreshedPage = _makePage(
+          items: [_item('refreshed-expense')],
+          totalCount: 21,
+        );
+        final freshAppendPage = _makePage(
+          items: [_item('fresh-page2')],
+          pageNumber: 2,
+          totalCount: 21,
+        );
+        final staleAppendPage = _makePage(
+          items: [_item('stale-page2')],
+          pageNumber: 2,
+          totalCount: 21,
+        );
+
+        final staleAppendCompleter = Completer<ExpensePage>();
+        final refreshCompleter = Completer<ExpensePage>();
+        var page2CallCount = 0;
+        when(getExpenses.call).thenAnswer((_) => refreshCompleter.future);
+        when(() => getExpenses(page: 2, pageSize: 20)).thenAnswer((_) {
+          page2CallCount++;
+          return page2CallCount == 1
+              ? staleAppendCompleter.future
+              : Future.value(freshAppendPage);
+        });
+
+        final container = ProviderContainer(
+          overrides: [
+            getExpensesUseCaseProvider.overrideWithValue(getExpenses),
+          ],
+        );
+        addTearDown(container.dispose);
+        container.read(expensesControllerProvider.notifier).state =
+            ExpensesState(page: initialPage, totalCount: 21);
+        final controller = container.read(
+          expensesControllerProvider.notifier,
+        );
+
+        final staleAppend = controller.loadMore();
+        final refreshRequest = controller.refresh();
+        refreshCompleter.complete(refreshedPage);
+        await refreshRequest;
+
+        final freshAppend = controller.loadMore();
+        await freshAppend;
+
+        expect(page2CallCount, 2);
+        var state = container.read(expensesControllerProvider);
+        expect(state.page?.items.map((e) => e.id).toList(), [
+          'refreshed-expense',
+          'fresh-page2',
+        ]);
+        expect(state.isLoadingMore, isFalse);
+
+        staleAppendCompleter.complete(staleAppendPage);
+        await staleAppend;
+
+        state = container.read(expensesControllerProvider);
+        expect(
+          state.page?.items.map((e) => e.id).contains('stale-page2'),
+          isFalse,
+        );
+      },
+    );
   });
 }

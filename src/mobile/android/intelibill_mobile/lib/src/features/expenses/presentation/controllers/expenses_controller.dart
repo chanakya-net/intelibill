@@ -133,6 +133,7 @@ class ExpensesController extends _$ExpensesController {
   int _detailRequestGeneration = 0;
   int _paginationGeneration = 0;
   Future<void>? _loadMoreOperation;
+  int _loadMoreOperationGeneration = -1;
 
   @override
   ExpensesState build() {
@@ -177,10 +178,15 @@ class ExpensesController extends _$ExpensesController {
 
   Future<void> loadMore() {
     final pendingOperation = _loadMoreOperation;
-    if (pendingOperation != null) return pendingOperation;
+    if (pendingOperation != null &&
+        _loadMoreOperationGeneration == _paginationGeneration) {
+      return pendingOperation;
+    }
 
+    final requestGeneration = _paginationGeneration;
     final operation = _loadMoreInternal();
     _loadMoreOperation = operation;
+    _loadMoreOperationGeneration = requestGeneration;
     unawaited(
       operation.whenComplete(() {
         if (identical(_loadMoreOperation, operation)) {
