@@ -4488,6 +4488,12 @@ abstract class AppLocalizations {
   /// In en_IN, this message translates to:
   /// **'The original expense will be permanently voided and a replacement created. This cannot be undone.'**
   String get expensesCorrectExpenseConfirmMessage;
+
+  /// No description provided for @expensesCorrectSuccess.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Expense corrected successfully.'**
+  String get expensesCorrectSuccess;
 }
 
 class _AppLocalizationsDelegate

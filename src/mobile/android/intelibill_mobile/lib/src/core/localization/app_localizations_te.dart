@@ -2336,6 +2336,9 @@ class AppLocalizationsTe extends AppLocalizations {
   @override
   String get expensesCorrectExpenseConfirmMessage =>
       'The original expense will be permanently voided and a replacement created. This cannot be undone.';
+
+  @override
+  String get expensesCorrectSuccess => 'Expense corrected successfully.';
 }
 
 /// The translations for Telugu, as used in India (`te_IN`).

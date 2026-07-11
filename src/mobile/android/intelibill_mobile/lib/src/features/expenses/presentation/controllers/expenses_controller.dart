@@ -446,7 +446,7 @@ class ExpensesController extends _$ExpensesController {
     if (state.isSubmitting) return false;
     state = state.copyWith(isSubmitting: true, clearSubmitFailure: true);
     try {
-      await ref.read(correctExpenseUseCaseProvider)(
+      final replacement = await ref.read(correctExpenseUseCaseProvider)(
         id,
         categoryName: categoryName,
         amount: amount,
@@ -458,6 +458,8 @@ class ExpensesController extends _$ExpensesController {
       await refresh();
       if (!ref.mounted) return true;
       state = state.copyWith(
+        selectedExpenseId: replacement.id,
+        selectedExpense: replacement,
         isSubmitting: false,
         clearSubmitFailure: true,
       );

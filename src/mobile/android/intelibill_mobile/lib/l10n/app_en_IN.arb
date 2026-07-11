@@ -837,5 +837,6 @@
   "salesReturnDueOverrideConfirmLabel": "Confirm due reduction override",
   "expensesCorrectExpense": "Correct expense",
   "expensesCorrectExpenseConfirmTitle": "Confirm correction",
-  "expensesCorrectExpenseConfirmMessage": "The original expense will be permanently voided and a replacement created. This cannot be undone."
+  "expensesCorrectExpenseConfirmMessage": "The original expense will be permanently voided and a replacement created. This cannot be undone.",
+  "expensesCorrectSuccess": "Expense corrected successfully."
 }
