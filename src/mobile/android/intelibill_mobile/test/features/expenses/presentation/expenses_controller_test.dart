@@ -26,6 +26,30 @@ final _page = ExpensePage(
   pageSize: 20,
 );
 
+final _pageWithStatuses = ExpensePage(
+  items: [
+    ExpenseListItem(
+      id: 'active-expense',
+      amount: 100,
+      categoryName: 'Travel',
+      paidTo: 'Taxi',
+      expenseDate: DateTime(2026, 7),
+      isVoided: false,
+    ),
+    ExpenseListItem(
+      id: 'voided-expense',
+      amount: 200,
+      categoryName: 'Supplies',
+      paidTo: 'Vendor',
+      expenseDate: DateTime(2026, 7, 2),
+      isVoided: true,
+    ),
+  ],
+  totalCount: 2,
+  pageNumber: 1,
+  pageSize: 20,
+);
+
 void main() {
   test('loads first expenses page', () async {
     final getExpenses = MockGetExpenses();
@@ -86,4 +110,68 @@ void main() {
     expect(state.page, _page);
     expect(state.failure, isA<NetworkFailure>());
   });
+
+  test(
+    'filters loaded expenses by status without another repository call',
+    () async {
+      final getExpenses = MockGetExpenses();
+      when(getExpenses.call).thenAnswer((_) async => _pageWithStatuses);
+      final container = ProviderContainer(
+        overrides: [getExpensesUseCaseProvider.overrideWithValue(getExpenses)],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(expensesControllerProvider.notifier).refresh();
+      clearInteractions(getExpenses);
+      final controller = container.read(expensesControllerProvider.notifier);
+
+      controller.updateStatusFilter(ExpenseStatusFilter.active);
+      expect(
+        container.read(expensesControllerProvider).filteredExpenses,
+        hasLength(1),
+      );
+      expect(
+        container.read(expensesControllerProvider).filteredExpenses.single.id,
+        'active-expense',
+      );
+
+      controller.updateStatusFilter(ExpenseStatusFilter.voided);
+      expect(
+        container.read(expensesControllerProvider).filteredExpenses.single.id,
+        'voided-expense',
+      );
+
+      controller.updateStatusFilter(ExpenseStatusFilter.all);
+      expect(
+        container.read(expensesControllerProvider).filteredExpenses,
+        hasLength(2),
+      );
+      verifyNever(getExpenses.call);
+    },
+  );
+
+  test(
+    'returns empty filtered results without another repository call',
+    () async {
+      final getExpenses = MockGetExpenses();
+      when(getExpenses.call).thenAnswer((_) async => _page);
+      final container = ProviderContainer(
+        overrides: [getExpensesUseCaseProvider.overrideWithValue(getExpenses)],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(expensesControllerProvider.notifier).refresh();
+      clearInteractions(getExpenses);
+
+      container
+          .read(expensesControllerProvider.notifier)
+          .updateStatusFilter(ExpenseStatusFilter.voided);
+
+      expect(
+        container.read(expensesControllerProvider).filteredExpenses,
+        isEmpty,
+      );
+      verifyNever(getExpenses.call);
+    },
+  );
 }
