@@ -4494,6 +4494,36 @@ abstract class AppLocalizations {
   /// In en_IN, this message translates to:
   /// **'Expense corrected successfully.'**
   String get expensesCorrectSuccess;
+
+  /// No description provided for @expensesLoadingMore.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Loading more expenses'**
+  String get expensesLoadingMore;
+
+  /// No description provided for @expensesUnableToLoadMore.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to load more expenses'**
+  String get expensesUnableToLoadMore;
+
+  /// No description provided for @expensesSubmitting.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Saving expense'**
+  String get expensesSubmitting;
+
+  /// No description provided for @expensesMetricSemantics.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'{label}: {value}'**
+  String expensesMetricSemantics(String label, String value);
+
+  /// No description provided for @expensesStatusSemantics.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Status: {status}'**
+  String expensesStatusSemantics(String status);
 }
 
 class _AppLocalizationsDelegate

@@ -75,6 +75,8 @@ Widget _buildApp(
   ExpensesState state, {
   Future<void> Function(String id)? onOpenExpense,
   Future<void> Function()? onLoadMore,
+  Locale locale = const Locale('en', 'IN'),
+  TextScaler textScaler = TextScaler.noScaling,
 }) {
   return ProviderScope(
     overrides: [
@@ -86,11 +88,15 @@ Widget _buildApp(
         ),
       ),
     ],
-    child: const MaterialApp(
-      locale: Locale('en', 'IN'),
+    child: MaterialApp(
+      locale: locale,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
-      home: ExpensesPage(),
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+        child: child!,
+      ),
+      home: const ExpensesPage(),
     ),
   );
 }
@@ -209,6 +215,37 @@ void main() {
     expect(find.byIcon(Icons.clear), findsNothing);
   });
 
+  testWidgets('localizes clear-search semantics for Hindi', (tester) async {
+    final semantics = tester.ensureSemantics();
+
+    await tester.pumpWidget(
+      _buildApp(
+        _loadedState.copyWith(searchQuery: 'rent'),
+        locale: const Locale('hi', 'IN'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.getSemantics(find.byIcon(Icons.clear)).label, 'साफ़ करें');
+    semantics.dispose();
+  });
+
+  testWidgets('handles narrow screens with large text without overflow', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      _buildApp(_loadedState, textScaler: const TextScaler.linear(1.8)),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('shows a distinct message when a filter has no matches', (
     tester,
   ) async {
@@ -227,7 +264,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('No expenses match the selected filter'), findsOneWidget);
+    expect(
+      find.text('No loaded expenses match this filter'),
+      findsOneWidget,
+    );
     expect(find.text('No expenses found'), findsNothing);
   });
 

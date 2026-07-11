@@ -169,6 +169,22 @@ void main() {
     expect(find.text('Active'), findsNothing);
   });
 
+  testWidgets('announces the status with its label', (tester) async {
+    final semantics = tester.ensureSemantics();
+
+    await tester.pumpWidget(
+      _buildApp(
+        ExpensesState(
+          selectedExpenseId: 'expense-1',
+          selectedExpense: _detail(isVoided: true),
+        ),
+      ),
+    );
+
+    expect(tester.getSemantics(find.text('Voided')).label, 'Status: Voided');
+    semantics.dispose();
+  });
+
   testWidgets('shows failure and retries selected detail', (tester) async {
     await tester.pumpWidget(
       _buildApp(

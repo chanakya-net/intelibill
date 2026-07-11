@@ -838,5 +838,21 @@
   "expensesCorrectExpense": "Correct expense",
   "expensesCorrectExpenseConfirmTitle": "Confirm correction",
   "expensesCorrectExpenseConfirmMessage": "The original expense will be permanently voided and a replacement created. This cannot be undone.",
-  "expensesCorrectSuccess": "Expense corrected successfully."
+  "expensesCorrectSuccess": "Expense corrected successfully.",
+  "expensesLoadingMore": "Loading more expenses",
+  "expensesUnableToLoadMore": "Unable to load more expenses",
+  "expensesSubmitting": "Saving expense",
+  "expensesMetricSemantics": "{label}: {value}",
+  "@expensesMetricSemantics": {
+    "placeholders": {
+      "label": { "type": "String" },
+      "value": { "type": "String" }
+    }
+  },
+  "expensesStatusSemantics": "Status: {status}",
+  "@expensesStatusSemantics": {
+    "placeholders": {
+      "status": { "type": "String" }
+    }
+  }
 }

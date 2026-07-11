@@ -2339,6 +2339,25 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get expensesCorrectSuccess => 'Expense corrected successfully.';
+
+  @override
+  String get expensesLoadingMore => 'Loading more expenses';
+
+  @override
+  String get expensesUnableToLoadMore => 'Unable to load more expenses';
+
+  @override
+  String get expensesSubmitting => 'Saving expense';
+
+  @override
+  String expensesMetricSemantics(String label, String value) {
+    return '$label: $value';
+  }
+
+  @override
+  String expensesStatusSemantics(String status) {
+    return 'Status: $status';
+  }
 }
 
 /// The translations for English, as used in India (`en_IN`).
@@ -4676,4 +4695,23 @@ class AppLocalizationsEnIn extends AppLocalizationsEn {
 
   @override
   String get expensesCorrectSuccess => 'Expense corrected successfully.';
+
+  @override
+  String get expensesLoadingMore => 'Loading more expenses';
+
+  @override
+  String get expensesUnableToLoadMore => 'Unable to load more expenses';
+
+  @override
+  String get expensesSubmitting => 'Saving expense';
+
+  @override
+  String expensesMetricSemantics(String label, String value) {
+    return '$label: $value';
+  }
+
+  @override
+  String expensesStatusSemantics(String status) {
+    return 'Status: $status';
+  }
 }

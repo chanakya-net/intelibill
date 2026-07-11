@@ -87,6 +87,11 @@ class _ExpenseDetailContent extends ConsumerWidget {
       _DetailRow(
         l10n.expensesDetailStatus,
         detail.isVoided ? l10n.expensesDetailVoided : l10n.expensesDetailActive,
+        semanticLabel: l10n.expensesStatusSemantics(
+          detail.isVoided
+              ? l10n.expensesDetailVoided
+              : l10n.expensesDetailActive,
+        ),
       ),
       _DetailRow(l10n.expensesDetailCategory, detail.categoryName),
       _DetailRow(l10n.expensesDetailPaidTo, detail.paidTo),
@@ -182,7 +187,7 @@ class _DetailRowView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Column(
+    final content = Column(
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
@@ -213,6 +218,13 @@ class _DetailRowView extends StatelessWidget {
         const Divider(height: 1),
       ],
     );
+    final semanticLabel = row.semanticLabel;
+    return semanticLabel == null
+        ? content
+        : Semantics(
+            label: semanticLabel,
+            child: ExcludeSemantics(child: content),
+          );
   }
 }
 
@@ -268,8 +280,9 @@ String _localizeFailure(AppLocalizations l10n, Failure failure) {
 }
 
 class _DetailRow {
-  const _DetailRow(this.label, this.value);
+  const _DetailRow(this.label, this.value, {this.semanticLabel});
 
   final String label;
   final String value;
+  final String? semanticLabel;
 }

@@ -121,6 +121,8 @@ Widget _buildApp(
   Future<List<ExpenseCategory>> Function({required bool force})?
   onLoadCategories,
   ExpenseDetail? expenseToCorrect,
+  EdgeInsets viewInsets = EdgeInsets.zero,
+  TextScaler textScaler = TextScaler.noScaling,
 }) {
   return ProviderScope(
     overrides: [
@@ -136,6 +138,12 @@ Widget _buildApp(
     child: MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(
+          context,
+        ).copyWith(viewInsets: viewInsets, textScaler: textScaler),
+        child: child!,
+      ),
       home: Builder(
         builder: (context) => Scaffold(
           body: Center(
@@ -185,6 +193,31 @@ void main() {
     expect(find.byKey(ExpenseFormSheet.dateFieldKey), findsOneWidget);
     expect(find.text('Rent'), findsOneWidget);
     expect(find.text('supplier payments'), findsNothing);
+  });
+
+  testWidgets('keeps submit action reachable above the keyboard', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      _buildApp(
+        ExpensesState(categories: categories),
+        viewInsets: const EdgeInsets.only(bottom: 280),
+        textScaler: const TextScaler.linear(1.5),
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(ExpenseFormSheet.submitButtonKey));
+
+    expect(
+      tester.getRect(find.byKey(ExpenseFormSheet.submitButtonKey)).bottom,
+      lessThanOrEqualTo(640),
+    );
   });
 
   testWidgets('blocks invalid values at validation boundaries', (tester) async {

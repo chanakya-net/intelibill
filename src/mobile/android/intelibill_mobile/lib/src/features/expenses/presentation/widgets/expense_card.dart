@@ -31,16 +31,19 @@ class ExpenseCard extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
+                  Flexible(
                     child: Text(
                       expense.categoryName,
                       style: theme.textTheme.titleMedium,
                     ),
                   ),
-                  Text(
-                    formatInr(expense.amount),
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
+                  Flexible(
+                    child: Text(
+                      formatInr(expense.amount),
+                      textAlign: TextAlign.end,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ],
@@ -48,16 +51,24 @@ class ExpenseCard extends StatelessWidget {
               const SizedBox(height: 8),
               Text(expense.paidTo),
               const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                runSpacing: 8,
                 children: [
                   Text(DateFormat('dd MMM yyyy').format(expense.expenseDate)),
-                  Chip(
-                    label: Text(status),
-                    visualDensity: VisualDensity.compact,
-                    backgroundColor: expense.isVoided
-                        ? theme.colorScheme.errorContainer
-                        : theme.colorScheme.primaryContainer,
+                  Semantics(
+                    label: l10n.expensesStatusSemantics(status),
+                    child: ExcludeSemantics(
+                      child: Chip(
+                        label: Text(status),
+                        visualDensity: VisualDensity.compact,
+                        backgroundColor: expense.isVoided
+                            ? theme.colorScheme.errorContainer
+                            : theme.colorScheme.primaryContainer,
+                      ),
+                    ),
                   ),
                 ],
               ),

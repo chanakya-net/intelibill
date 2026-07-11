@@ -74,8 +74,11 @@ class _ExpensesPageState extends ConsumerState<ExpensesPage> {
                 suffixIcon: state.searchQuery.isEmpty
                     ? null
                     : IconButton(
-                        tooltip: 'Clear search',
-                        icon: const Icon(Icons.clear),
+                        tooltip: l10n.commonClear,
+                        icon: Icon(
+                          Icons.clear,
+                          semanticLabel: l10n.commonClear,
+                        ),
                         onPressed: () {
                           _searchController.clear();
                           ref
@@ -131,16 +134,17 @@ class _ExpenseStatusFilters extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
       child: Row(
         children: [
-          _buildChip('All', ExpenseStatusFilter.all),
+          _buildChip(l10n.expensesFilterAll, ExpenseStatusFilter.all),
           const SizedBox(width: 8),
-          _buildChip('Active', ExpenseStatusFilter.active),
+          _buildChip(l10n.expensesFilterActive, ExpenseStatusFilter.active),
           const SizedBox(width: 8),
-          _buildChip('Voided', ExpenseStatusFilter.voided),
+          _buildChip(l10n.expensesFilterVoided, ExpenseStatusFilter.voided),
         ],
       ),
     );
@@ -176,7 +180,12 @@ class _ExpensesBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (state.isLoading && state.page == null) {
-      return const Center(child: CircularProgressIndicator());
+      return Center(
+        child: Semantics(
+          label: AppLocalizations.of(context)!.commonLoading,
+          child: const CircularProgressIndicator(),
+        ),
+      );
     }
 
     final expenses = state.filteredExpenses;
@@ -189,13 +198,13 @@ class _ExpensesBody extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Unable to load expenses'),
+            Text(AppLocalizations.of(context)!.expensesUnableToLoad),
             const SizedBox(height: 12),
             FilledButton(
               onPressed: () => unawaited(
                 ref.read(expensesControllerProvider.notifier).refresh(),
               ),
-              child: Text(AppLocalizations.of(context)!.customersRetry),
+              child: Text(AppLocalizations.of(context)!.expensesRetry),
             ),
           ],
         ),
@@ -216,8 +225,12 @@ class _ExpensesBody extends ConsumerWidget {
                       Center(
                         child: Text(
                           hasLoadedExpenses
-                              ? 'No expenses match the selected filter'
-                              : 'No expenses found',
+                              ? AppLocalizations.of(
+                                  context,
+                                )!.expensesNoFilteredResults
+                              : AppLocalizations.of(
+                                  context,
+                                )!.expensesNoExpensesFound,
                         ),
                       ),
                     ],
@@ -245,13 +258,13 @@ class _ExpensesBody extends ConsumerWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('Unable to load expenses'),
+                Text(AppLocalizations.of(context)!.expensesUnableToLoad),
                 const SizedBox(height: 12),
                 FilledButton(
                   onPressed: () => unawaited(
                     ref.read(expensesControllerProvider.notifier).refresh(),
                   ),
-                  child: Text(AppLocalizations.of(context)!.customersRetry),
+                  child: Text(AppLocalizations.of(context)!.expensesRetry),
                 ),
               ],
             ),
@@ -265,22 +278,27 @@ class _ExpensesBody extends ConsumerWidget {
 
   Widget _buildAppendRow(BuildContext context, WidgetRef ref) {
     if (state.isLoadingMore) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 16),
-        child: Center(child: CircularProgressIndicator()),
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Center(
+          child: Semantics(
+            label: AppLocalizations.of(context)!.expensesLoadingMore,
+            child: const CircularProgressIndicator(),
+          ),
+        ),
       );
     }
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
       child: Column(
         children: [
-          const Text('Unable to load more expenses'),
+          Text(AppLocalizations.of(context)!.expensesUnableToLoadMore),
           const SizedBox(height: 8),
           TextButton(
             onPressed: () => unawaited(
               ref.read(expensesControllerProvider.notifier).loadMore(),
             ),
-            child: Text(AppLocalizations.of(context)!.customersRetry),
+            child: Text(AppLocalizations.of(context)!.expensesRetry),
           ),
         ],
       ),
