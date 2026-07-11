@@ -2339,6 +2339,25 @@ class AppLocalizationsTe extends AppLocalizations {
 
   @override
   String get expensesCorrectSuccess => 'Expense corrected successfully.';
+
+  @override
+  String get expensesLoadingMore => 'Loading more expenses';
+
+  @override
+  String get expensesUnableToLoadMore => 'Unable to load more expenses';
+
+  @override
+  String get expensesSubmitting => 'Saving expense';
+
+  @override
+  String expensesMetricSemantics(String label, String value) {
+    return '$label: $value';
+  }
+
+  @override
+  String expensesStatusSemantics(String status) {
+    return 'Status: $status';
+  }
 }
 
 /// The translations for Telugu, as used in India (`te_IN`).
@@ -2439,6 +2458,31 @@ class AppLocalizationsTeIn extends AppLocalizationsTe {
   String get expensesNoExpensesFound => 'ఖర్చులు ఏవీ కనుగొనబడలేదు';
 
   @override
+  String get expensesSummaryTotal => 'మొత్తం ఖర్చులు';
+
+  @override
+  String get expensesSummaryLoadedAmount => 'పేజీ మొత్తం';
+
+  @override
+  String get expensesSummaryLoadedActive => 'సక్రియ ఖర్చులు';
+
+  @override
+  String get expensesSummaryLoadedVoided => 'రద్దు చేసిన ఖర్చులు';
+
+  @override
+  String get expensesFilterAll => 'All';
+
+  @override
+  String get expensesFilterActive => 'Active';
+
+  @override
+  String get expensesFilterVoided => 'Voided';
+
+  @override
+  String get expensesNoFilteredResults =>
+      'No loaded expenses match this filter';
+
+  @override
   String get expensesUnableToLoad => 'ఖర్చులను లోడ్ చేయలేకపోయాము';
 
   @override
@@ -2465,6 +2509,147 @@ class AppLocalizationsTeIn extends AppLocalizationsTe {
   @override
   String get expensesErrorGeneric =>
       'ఖర్చులను లోడ్ చేయలేకపోయాము. దయచేసి మళ్లీ ప్రయత్నించండి.';
+
+  @override
+  String get expensesDetailTitle => 'ఖర్చు లెజర్';
+
+  @override
+  String get expensesDetailUnableToLoad => 'Unable to load expense details';
+
+  @override
+  String get expensesDetailNoSelection => 'No expense selected';
+
+  @override
+  String get expensesDetailExpenseId => 'Expense ID';
+
+  @override
+  String get expensesDetailShopId => 'Shop ID';
+
+  @override
+  String get expensesDetailCategoryId => 'Category ID';
+
+  @override
+  String get expensesDetailAmount => 'Amount';
+
+  @override
+  String get expensesDetailStatus => 'స్థితి';
+
+  @override
+  String get expensesDetailCategory => 'Category';
+
+  @override
+  String get expensesDetailPaidTo => 'Paid to';
+
+  @override
+  String get expensesDetailDescription => 'Description';
+
+  @override
+  String get expensesDetailExpenseDate => 'Expense date';
+
+  @override
+  String get expensesDetailActor => 'Recorded by';
+
+  @override
+  String get expensesDetailCreatedAt => 'Created at';
+
+  @override
+  String get expensesDetailSource => 'Source';
+
+  @override
+  String get expensesDetailOriginalExpense => 'Original expense';
+
+  @override
+  String get expensesDetailSupplierLedgerEntry => 'Supplier ledger entry';
+
+  @override
+  String get expensesDetailActive => 'క్రియాశీలం';
+
+  @override
+  String get expensesDetailVoided => 'రద్దు చేయబడింది';
+
+  @override
+  String get expensesDetailNotProvided => 'Not provided';
+
+  @override
+  String get expensesDetailNotLinked => 'Not linked';
+
+  @override
+  String get expensesDetailSourceManual => 'Manual expense';
+
+  @override
+  String get expensesDetailSourceCorrection => 'Expense correction';
+
+  @override
+  String get expensesDetailSourceSupplierPayment => 'Supplier payment';
+
+  @override
+  String get expensesRecordExpense => 'ఖర్చు నమోదు చేయండి';
+
+  @override
+  String get expensesRecordSuccess => 'Expense recorded successfully.';
+
+  @override
+  String get expensesCategoryLabel => 'వర్గం';
+
+  @override
+  String get expensesCategoryRequired => 'Category is required.';
+
+  @override
+  String get expensesCategoryMax => 'Category must be 100 characters or fewer.';
+
+  @override
+  String get expensesCategoryRetry => 'Retry categories';
+
+  @override
+  String get expensesCategoryLoadError => 'Unable to load expense categories.';
+
+  @override
+  String get expensesAmountLabel => 'మొత్తం';
+
+  @override
+  String get expensesAmountRequired => 'Amount is required.';
+
+  @override
+  String get expensesAmountInvalid => 'Enter an amount greater than 0.';
+
+  @override
+  String get expensesPaidToLabel => 'చెల్లించిన వారికి';
+
+  @override
+  String get expensesPaidToRequired => 'Paid to is required.';
+
+  @override
+  String get expensesPaidToMax => 'Paid to must be 255 characters or fewer.';
+
+  @override
+  String get expensesDateLabel => 'తేదీ';
+
+  @override
+  String get expensesDescriptionLabel => 'వివరణ';
+
+  @override
+  String get expensesDescriptionMax =>
+      'Description must be 500 characters or fewer.';
+
+  @override
+  String get expensesMutationErrorNetwork =>
+      'Unable to connect. Please try again.';
+
+  @override
+  String get expensesMutationErrorTimeout =>
+      'Request timed out. Please try again.';
+
+  @override
+  String get expensesMutationErrorUnauthorized =>
+      'Session expired. Please log in again.';
+
+  @override
+  String get expensesMutationErrorForbidden =>
+      'You do not have permission to record expenses.';
+
+  @override
+  String get expensesMutationErrorGeneric =>
+      'Unable to record expense. Please try again.';
 
   @override
   String get shellManageBankAccounts => 'బ్యాంకు ఖాతాలు';
@@ -3452,4 +3637,36 @@ class AppLocalizationsTeIn extends AppLocalizationsTe {
 
   @override
   String get creditNotesRetry => 'Retry';
+
+  @override
+  String get expensesCorrectExpense => 'ఖర్చును సరిచేయండి';
+
+  @override
+  String get expensesCorrectExpenseConfirmTitle => 'Confirm correction';
+
+  @override
+  String get expensesCorrectExpenseConfirmMessage =>
+      'The original expense will be permanently voided and a replacement created. This cannot be undone.';
+
+  @override
+  String get expensesCorrectSuccess => 'Expense corrected successfully.';
+
+  @override
+  String get expensesLoadingMore => 'Loading more expenses';
+
+  @override
+  String get expensesUnableToLoadMore => 'Unable to load more expenses';
+
+  @override
+  String get expensesSubmitting => 'Saving expense';
+
+  @override
+  String expensesMetricSemantics(String label, String value) {
+    return '$label: $value';
+  }
+
+  @override
+  String expensesStatusSemantics(String status) {
+    return 'Status: $status';
+  }
 }

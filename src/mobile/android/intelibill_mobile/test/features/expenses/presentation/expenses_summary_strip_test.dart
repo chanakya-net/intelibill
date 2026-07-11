@@ -68,4 +68,23 @@ void main() {
     expect(find.byType(Wrap), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('exposes each metric as one accessible label', (tester) async {
+    final semantics = tester.ensureSemantics();
+
+    await tester.pumpWidget(
+      _buildApp(
+        totalCount: 42,
+        loadedAmount: 1250,
+        loadedActiveCount: 3,
+        loadedVoidedCount: 1,
+      ),
+    );
+
+    expect(
+      tester.getSemantics(find.text('42')).label,
+      'Total expenses: 42',
+    );
+    semantics.dispose();
+  });
 }

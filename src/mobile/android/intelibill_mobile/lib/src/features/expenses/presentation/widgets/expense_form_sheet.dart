@@ -290,7 +290,11 @@ class _ExpenseFormSheetState extends ConsumerState<ExpenseFormSheet> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                Row(
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
                     TextButton(
                       key: ExpenseFormSheet.cancelButtonKey,
@@ -299,15 +303,19 @@ class _ExpenseFormSheetState extends ConsumerState<ExpenseFormSheet> {
                           : () => Navigator.of(context).pop(false),
                       child: Text(l10n.commonCancel),
                     ),
-                    const Spacer(),
                     FilledButton(
                       key: ExpenseFormSheet.submitButtonKey,
                       onPressed: disabled ? null : _submit,
                       child: disabled
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+                          ? Semantics(
+                              label: l10n.expensesSubmitting,
+                              child: const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
                             )
                           : Text(
                               _isCorrection

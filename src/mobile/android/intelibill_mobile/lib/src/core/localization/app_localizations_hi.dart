@@ -2340,6 +2340,25 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get expensesCorrectSuccess => 'Expense corrected successfully.';
+
+  @override
+  String get expensesLoadingMore => 'Loading more expenses';
+
+  @override
+  String get expensesUnableToLoadMore => 'Unable to load more expenses';
+
+  @override
+  String get expensesSubmitting => 'Saving expense';
+
+  @override
+  String expensesMetricSemantics(String label, String value) {
+    return '$label: $value';
+  }
+
+  @override
+  String expensesStatusSemantics(String status) {
+    return 'Status: $status';
+  }
 }
 
 /// The translations for Hindi, as used in India (`hi_IN`).
@@ -2440,6 +2459,31 @@ class AppLocalizationsHiIn extends AppLocalizationsHi {
   String get expensesNoExpensesFound => 'कोई खर्च नहीं मिला';
 
   @override
+  String get expensesSummaryTotal => 'कुल खर्च';
+
+  @override
+  String get expensesSummaryLoadedAmount => 'पृष्ठ राशि';
+
+  @override
+  String get expensesSummaryLoadedActive => 'सक्रिय खर्च';
+
+  @override
+  String get expensesSummaryLoadedVoided => 'रद्द खर्च';
+
+  @override
+  String get expensesFilterAll => 'All';
+
+  @override
+  String get expensesFilterActive => 'Active';
+
+  @override
+  String get expensesFilterVoided => 'Voided';
+
+  @override
+  String get expensesNoFilteredResults =>
+      'No loaded expenses match this filter';
+
+  @override
   String get expensesUnableToLoad => 'खर्च लोड नहीं किए जा सके';
 
   @override
@@ -2466,6 +2510,147 @@ class AppLocalizationsHiIn extends AppLocalizationsHi {
   @override
   String get expensesErrorGeneric =>
       'खर्च लोड नहीं किए जा सके। कृपया पुनः प्रयास करें।';
+
+  @override
+  String get expensesDetailTitle => 'खर्च खाता';
+
+  @override
+  String get expensesDetailUnableToLoad => 'Unable to load expense details';
+
+  @override
+  String get expensesDetailNoSelection => 'No expense selected';
+
+  @override
+  String get expensesDetailExpenseId => 'Expense ID';
+
+  @override
+  String get expensesDetailShopId => 'Shop ID';
+
+  @override
+  String get expensesDetailCategoryId => 'Category ID';
+
+  @override
+  String get expensesDetailAmount => 'Amount';
+
+  @override
+  String get expensesDetailStatus => 'स्थिति';
+
+  @override
+  String get expensesDetailCategory => 'Category';
+
+  @override
+  String get expensesDetailPaidTo => 'Paid to';
+
+  @override
+  String get expensesDetailDescription => 'Description';
+
+  @override
+  String get expensesDetailExpenseDate => 'Expense date';
+
+  @override
+  String get expensesDetailActor => 'Recorded by';
+
+  @override
+  String get expensesDetailCreatedAt => 'Created at';
+
+  @override
+  String get expensesDetailSource => 'Source';
+
+  @override
+  String get expensesDetailOriginalExpense => 'Original expense';
+
+  @override
+  String get expensesDetailSupplierLedgerEntry => 'Supplier ledger entry';
+
+  @override
+  String get expensesDetailActive => 'सक्रिय';
+
+  @override
+  String get expensesDetailVoided => 'रद्द';
+
+  @override
+  String get expensesDetailNotProvided => 'Not provided';
+
+  @override
+  String get expensesDetailNotLinked => 'Not linked';
+
+  @override
+  String get expensesDetailSourceManual => 'Manual expense';
+
+  @override
+  String get expensesDetailSourceCorrection => 'Expense correction';
+
+  @override
+  String get expensesDetailSourceSupplierPayment => 'Supplier payment';
+
+  @override
+  String get expensesRecordExpense => 'खर्च दर्ज करें';
+
+  @override
+  String get expensesRecordSuccess => 'Expense recorded successfully.';
+
+  @override
+  String get expensesCategoryLabel => 'श्रेणी';
+
+  @override
+  String get expensesCategoryRequired => 'Category is required.';
+
+  @override
+  String get expensesCategoryMax => 'Category must be 100 characters or fewer.';
+
+  @override
+  String get expensesCategoryRetry => 'Retry categories';
+
+  @override
+  String get expensesCategoryLoadError => 'Unable to load expense categories.';
+
+  @override
+  String get expensesAmountLabel => 'राशि';
+
+  @override
+  String get expensesAmountRequired => 'Amount is required.';
+
+  @override
+  String get expensesAmountInvalid => 'Enter an amount greater than 0.';
+
+  @override
+  String get expensesPaidToLabel => 'भुगतान प्राप्तकर्ता';
+
+  @override
+  String get expensesPaidToRequired => 'Paid to is required.';
+
+  @override
+  String get expensesPaidToMax => 'Paid to must be 255 characters or fewer.';
+
+  @override
+  String get expensesDateLabel => 'तारीख';
+
+  @override
+  String get expensesDescriptionLabel => 'विवरण';
+
+  @override
+  String get expensesDescriptionMax =>
+      'Description must be 500 characters or fewer.';
+
+  @override
+  String get expensesMutationErrorNetwork =>
+      'Unable to connect. Please try again.';
+
+  @override
+  String get expensesMutationErrorTimeout =>
+      'Request timed out. Please try again.';
+
+  @override
+  String get expensesMutationErrorUnauthorized =>
+      'Session expired. Please log in again.';
+
+  @override
+  String get expensesMutationErrorForbidden =>
+      'You do not have permission to record expenses.';
+
+  @override
+  String get expensesMutationErrorGeneric =>
+      'Unable to record expense. Please try again.';
 
   @override
   String get shellManageBankAccounts => 'बैंक खाते';
@@ -3548,4 +3733,36 @@ class AppLocalizationsHiIn extends AppLocalizationsHi {
 
   @override
   String get creditNotesRetry => 'Retry';
+
+  @override
+  String get expensesCorrectExpense => 'खर्च सुधारें';
+
+  @override
+  String get expensesCorrectExpenseConfirmTitle => 'Confirm correction';
+
+  @override
+  String get expensesCorrectExpenseConfirmMessage =>
+      'The original expense will be permanently voided and a replacement created. This cannot be undone.';
+
+  @override
+  String get expensesCorrectSuccess => 'Expense corrected successfully.';
+
+  @override
+  String get expensesLoadingMore => 'Loading more expenses';
+
+  @override
+  String get expensesUnableToLoadMore => 'Unable to load more expenses';
+
+  @override
+  String get expensesSubmitting => 'Saving expense';
+
+  @override
+  String expensesMetricSemantics(String label, String value) {
+    return '$label: $value';
+  }
+
+  @override
+  String expensesStatusSemantics(String status) {
+    return 'Status: $status';
+  }
 }
