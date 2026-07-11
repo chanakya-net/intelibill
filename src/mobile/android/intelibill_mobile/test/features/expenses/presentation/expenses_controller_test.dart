@@ -61,4 +61,29 @@ void main() {
     expect(state.isLoading, isFalse);
     expect(state.failure, isA<NetworkFailure>());
   });
+
+  test('preserves prior page data when refresh fails', () async {
+    final getExpenses = MockGetExpenses();
+    var callCount = 0;
+    when(getExpenses.call).thenAnswer((_) async {
+      callCount++;
+      if (callCount == 1) return _page;
+      throw AppException(failure: const Failure.network());
+    });
+    final container = ProviderContainer(
+      overrides: [getExpensesUseCaseProvider.overrideWithValue(getExpenses)],
+    );
+    addTearDown(container.dispose);
+
+    await container.read(expensesControllerProvider.notifier).refresh();
+    var state = container.read(expensesControllerProvider);
+    expect(state.page, _page);
+    expect(state.failure, isNull);
+
+    await container.read(expensesControllerProvider.notifier).refresh();
+
+    state = container.read(expensesControllerProvider);
+    expect(state.page, _page);
+    expect(state.failure, isA<NetworkFailure>());
+  });
 }

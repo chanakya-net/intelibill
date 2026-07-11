@@ -81,6 +81,23 @@ class ExpensesController extends _$ExpensesController {
 
   Future<void> refresh() async {
     state = state.copyWith(isLoading: true, clearFailure: true);
-    await _load();
+    try {
+      final page = await ref.read(getExpensesUseCaseProvider)();
+      if (!ref.mounted) return;
+      state = state.copyWith(
+        page: page,
+        isLoading: false,
+        clearFailure: true,
+      );
+    } on AppException catch (error) {
+      if (!ref.mounted) return;
+      state = state.copyWith(isLoading: false, failure: error.failure);
+    } on Object {
+      if (!ref.mounted) return;
+      state = state.copyWith(
+        isLoading: false,
+        failure: const Failure.unknown(),
+      );
+    }
   }
 }
