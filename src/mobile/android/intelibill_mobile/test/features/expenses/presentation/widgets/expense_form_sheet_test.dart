@@ -415,13 +415,13 @@ void main() {
       expenseDate: DateTime(2026, 7, 15),
       actorUserId: 'user-1',
       isVoided: false,
-      createdAt: DateTime(2026, 7, 1),
+      createdAt: DateTime(2026, 7),
     );
     await tester.pumpWidget(
       _buildApp(
-        ExpensesState(
+        const ExpensesState(
           categories: [
-            const ExpenseCategory(id: 'rent', name: 'Rent'),
+            ExpenseCategory(id: 'rent', name: 'Rent'),
           ],
         ),
         expenseToCorrect: expense,
@@ -481,13 +481,13 @@ void main() {
       expenseDate: DateTime(2026, 7, 15),
       actorUserId: 'user-1',
       isVoided: false,
-      createdAt: DateTime(2026, 7, 1),
+      createdAt: DateTime(2026, 7),
     );
     await tester.pumpWidget(
       _buildApp(
-        ExpensesState(
+        const ExpensesState(
           categories: [
-            const ExpenseCategory(id: 'rent', name: 'Rent'),
+            ExpenseCategory(id: 'rent', name: 'Rent'),
           ],
         ),
         expenseToCorrect: expense,
@@ -529,13 +529,13 @@ void main() {
       expenseDate: DateTime(2026, 7, 15),
       actorUserId: 'user-1',
       isVoided: false,
-      createdAt: DateTime(2026, 7, 1),
+      createdAt: DateTime(2026, 7),
     );
     await tester.pumpWidget(
       _buildApp(
-        ExpensesState(
+        const ExpensesState(
           categories: [
-            const ExpenseCategory(id: 'rent', name: 'Rent'),
+            ExpenseCategory(id: 'rent', name: 'Rent'),
           ],
         ),
         expenseToCorrect: expense,
@@ -572,13 +572,13 @@ void main() {
       expenseDate: DateTime(2026, 7, 15),
       actorUserId: 'user-1',
       isVoided: false,
-      createdAt: DateTime(2026, 7, 1),
+      createdAt: DateTime(2026, 7),
     );
     await tester.pumpWidget(
       _buildApp(
-        ExpensesState(
+        const ExpensesState(
           categories: [
-            const ExpenseCategory(id: 'rent', name: 'Rent'),
+            ExpenseCategory(id: 'rent', name: 'Rent'),
           ],
         ),
         expenseToCorrect: expense,
@@ -614,13 +614,13 @@ void main() {
       expenseDate: DateTime(2026, 7, 15),
       actorUserId: 'user-1',
       isVoided: false,
-      createdAt: DateTime(2026, 7, 1),
+      createdAt: DateTime(2026, 7),
     );
     await tester.pumpWidget(
       _buildApp(
-        ExpensesState(
+        const ExpensesState(
           categories: [
-            const ExpenseCategory(id: 'rent', name: 'Rent'),
+            ExpenseCategory(id: 'rent', name: 'Rent'),
           ],
         ),
         expenseToCorrect: expense,
@@ -657,13 +657,13 @@ void main() {
       expenseDate: DateTime(2026, 7, 15),
       actorUserId: 'user-1',
       isVoided: false,
-      createdAt: DateTime(2026, 7, 1),
+      createdAt: DateTime(2026, 7),
     );
     await tester.pumpWidget(
       _buildApp(
-        ExpensesState(
-          categories: [const ExpenseCategory(id: 'rent', name: 'Rent')],
-          submitFailure: const Failure.notFound(),
+        const ExpensesState(
+          categories: [ExpenseCategory(id: 'rent', name: 'Rent')],
+          submitFailure: Failure.notFound(),
         ),
         expenseToCorrect: expense,
         onCorrect: () async => false,

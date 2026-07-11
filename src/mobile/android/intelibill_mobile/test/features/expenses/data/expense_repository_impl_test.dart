@@ -20,7 +20,6 @@ void main() {
         categoryName: '',
         amount: 0,
         paidTo: '',
-        description: null,
         expenseDate: DateTime.now(),
       ),
     );
@@ -83,14 +82,12 @@ void main() {
         shopId: 'shop-1',
         categoryId: 'utilities',
         categoryName: 'Utilities',
-        amount: 150.0,
+        amount: 150,
         paidTo: 'Power Co',
-        description: null,
         expenseDate: DateTime(2026, 7, 3),
         actorUserId: 'user-1',
         isVoided: false,
         originalExpenseId: 'expense-1',
-        supplierLedgerEntryId: null,
         createdAt: DateTime.utc(2026, 7, 3, 8, 30),
       ),
     );
@@ -98,9 +95,8 @@ void main() {
     final detail = await repository.correctExpense(
       'expense-1',
       categoryName: 'Utilities',
-      amount: 150.0,
+      amount: 150,
       paidTo: 'Power Co',
-      description: null,
       expenseDate: DateTime(2026, 7, 3),
     );
 
@@ -124,9 +120,8 @@ void main() {
       repository.correctExpense(
         'expense-1',
         categoryName: 'Utilities',
-        amount: 150.0,
+        amount: 150,
         paidTo: 'Power Co',
-        description: null,
         expenseDate: DateTime(2026, 7, 3),
       ),
       throwsA(

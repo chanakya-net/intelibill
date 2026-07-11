@@ -21,7 +21,7 @@ void main() {
       shopId: 'shop-1',
       categoryId: 'utilities',
       categoryName: 'Utilities',
-      amount: 150.0,
+      amount: 150,
       paidTo: 'Power Co',
       expenseDate: DateTime(2026, 7, 3),
       actorUserId: 'user-1',
@@ -34,9 +34,8 @@ void main() {
       () => repository.correctExpense(
         'expense-1',
         categoryName: 'Utilities',
-        amount: 150.0,
+        amount: 150,
         paidTo: 'Power Co',
-        description: null,
         expenseDate: DateTime(2026, 7, 3),
       ),
     ).thenAnswer((_) async => replacement);
@@ -44,9 +43,8 @@ void main() {
     final result = await useCase(
       'expense-1',
       categoryName: 'Utilities',
-      amount: 150.0,
+      amount: 150,
       paidTo: 'Power Co',
-      description: null,
       expenseDate: DateTime(2026, 7, 3),
     );
 
@@ -56,9 +54,8 @@ void main() {
       () => repository.correctExpense(
         'expense-1',
         categoryName: 'Utilities',
-        amount: 150.0,
+        amount: 150,
         paidTo: 'Power Co',
-        description: null,
         expenseDate: DateTime(2026, 7, 3),
       ),
     ).called(1);

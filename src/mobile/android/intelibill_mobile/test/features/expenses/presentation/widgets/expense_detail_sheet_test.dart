@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -216,7 +214,7 @@ void main() {
       _buildApp(
         ExpensesState(
           selectedExpenseId: 'expense-1',
-          selectedExpense: _detail(isVoided: false),
+          selectedExpense: _detail(),
         ),
       ),
     );
@@ -245,7 +243,7 @@ void main() {
       _buildApp(
         ExpensesState(
           selectedExpenseId: 'expense-1',
-          selectedExpense: _detail(isVoided: false),
+          selectedExpense: _detail(),
         ),
       ),
     );

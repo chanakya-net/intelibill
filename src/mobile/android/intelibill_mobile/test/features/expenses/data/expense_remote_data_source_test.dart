@@ -294,7 +294,7 @@ void main() {
       'expense-1',
       ExpenseMutationRequestDto(
         categoryName: '  Utilities ',
-        amount: 150.0,
+        amount: 150,
         paidTo: ' Power Co ',
         description: '  ',
         expenseDate: DateTime(2026, 7, 3),

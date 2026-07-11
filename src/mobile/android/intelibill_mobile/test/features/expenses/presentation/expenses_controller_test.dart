@@ -285,7 +285,7 @@ void main() {
 
   test('same-shop auth updates do not reset expense state', () async {
     final getExpenses = MockGetExpenses();
-    when(() => getExpenses()).thenAnswer(
+    when(getExpenses.call).thenAnswer(
       (_) async => _makePage(items: [_item('shop-1')], totalCount: 1),
     );
     final container = ProviderContainer(
@@ -310,9 +310,7 @@ void main() {
 
     controller.state =
         const ExpensesState(
-          pageNumber: 1,
           statusFilter: ExpenseStatusFilter.active,
-          isLoading: false,
           isLoadingMore: true,
           isDetailLoading: true,
           isLoadingCategories: true,
@@ -553,7 +551,7 @@ void main() {
     final getExpenses = MockGetExpenses();
     final staleSearchPage = Completer<ExpensePage>();
     final switchedPage = Completer<ExpensePage>();
-    when(() => getExpenses()).thenAnswer((_) => switchedPage.future);
+    when(getExpenses.call).thenAnswer((_) => switchedPage.future);
     when(
       () => getExpenses(page: 1, pageSize: 20, search: 'rent'),
     ).thenAnswer((_) => staleSearchPage.future);
@@ -719,7 +717,6 @@ void main() {
           categoryName: 'Rent',
           amount: 25,
           paidTo: 'Vendor',
-          description: null,
           expenseDate: DateTime(2026, 7, 2),
         ),
       ).thenAnswer((_) => recordResult.future);
@@ -793,7 +790,6 @@ void main() {
           categoryName: 'Rent',
           amount: 25,
           paidTo: 'Vendor',
-          description: null,
           expenseDate: DateTime(2026, 7, 2),
         ),
       ).thenAnswer((_) => correctionResult.future);
@@ -831,7 +827,6 @@ void main() {
         categoryName: 'Rent',
         amount: 25,
         paidTo: 'Vendor',
-        description: null,
         expenseDate: DateTime(2026, 7, 2),
       );
       await _setAuthActiveShop(container, 'shop-2');
@@ -1839,9 +1834,8 @@ void main() {
       () => correctExpense(
         'expense-1',
         categoryName: 'Utilities',
-        amount: 150.0,
+        amount: 150,
         paidTo: 'Power Co',
-        description: null,
         expenseDate: DateTime(2026, 7, 3),
       ),
     ).thenAnswer((_) async => _detail('expense-2'));
@@ -1862,9 +1856,8 @@ void main() {
         .correctExpense(
           'expense-1',
           categoryName: 'Utilities',
-          amount: 150.0,
+          amount: 150,
           paidTo: 'Power Co',
-          description: null,
           expenseDate: DateTime(2026, 7, 3),
         );
 
@@ -1876,13 +1869,12 @@ void main() {
       () => correctExpense(
         'expense-1',
         categoryName: 'Utilities',
-        amount: 150.0,
+        amount: 150,
         paidTo: 'Power Co',
-        description: null,
         expenseDate: DateTime(2026, 7, 3),
       ),
     ).called(1);
-    verify(() => getExpenses()).called(1);
+    verify(getExpenses.call).called(1);
   });
 
   test('retains form on correction failure', () async {
@@ -1891,9 +1883,8 @@ void main() {
       () => correctExpense(
         'expense-1',
         categoryName: 'Utilities',
-        amount: 150.0,
+        amount: 150,
         paidTo: 'Power Co',
-        description: null,
         expenseDate: DateTime(2026, 7, 3),
       ),
     ).thenThrow(
@@ -1914,9 +1905,8 @@ void main() {
         .correctExpense(
           'expense-1',
           categoryName: 'Utilities',
-          amount: 150.0,
+          amount: 150,
           paidTo: 'Power Co',
-          description: null,
           expenseDate: DateTime(2026, 7, 3),
         );
 
