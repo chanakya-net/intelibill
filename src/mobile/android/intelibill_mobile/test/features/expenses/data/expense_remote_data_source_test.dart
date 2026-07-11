@@ -253,4 +253,67 @@ void main() {
       () => apiClient.get<Map<String, dynamic>>('/expenses/expense-1'),
     ).called(1);
   });
+
+  test('corrects an expense with the backend payload contract', () async {
+    final apiClient = MockApiClient();
+    final dataSource = ExpenseRemoteDataSourceImpl(apiClient);
+    when(
+      () => apiClient.post<Map<String, dynamic>>(
+        '/expenses/expense-1/correct',
+        data: {
+          'categoryName': 'Utilities',
+          'amount': 150.0,
+          'paidTo': 'Power Co',
+          'description': null,
+          'expenseDate': '2026-07-03',
+        },
+      ),
+    ).thenAnswer(
+      (_) async => Response(
+        data: {
+          'id': 'expense-2',
+          'shopId': 'shop-1',
+          'categoryId': 'utilities',
+          'categoryName': 'Utilities',
+          'amount': 150.0,
+          'paidTo': 'Power Co',
+          'description': null,
+          'expenseDate': '2026-07-03',
+          'actorUserId': 'user-1',
+          'isVoided': false,
+          'originalExpenseId': 'expense-1',
+          'supplierLedgerEntryId': null,
+          'createdAt': '2026-07-03T08:30:00.000Z',
+        },
+        statusCode: 201,
+        requestOptions: RequestOptions(path: '/expenses/expense-1/correct'),
+      ),
+    );
+
+    final expense = await dataSource.correctExpense(
+      'expense-1',
+      ExpenseMutationRequestDto(
+        categoryName: '  Utilities ',
+        amount: 150.0,
+        paidTo: ' Power Co ',
+        description: '  ',
+        expenseDate: DateTime(2026, 7, 3),
+      ),
+    );
+
+    expect(expense.id, 'expense-2');
+    expect(expense.originalExpenseId, 'expense-1');
+    verify(
+      () => apiClient.post<Map<String, dynamic>>(
+        '/expenses/expense-1/correct',
+        data: {
+          'categoryName': 'Utilities',
+          'amount': 150.0,
+          'paidTo': 'Power Co',
+          'description': null,
+          'expenseDate': '2026-07-03',
+        },
+      ),
+    ).called(1);
+  });
 }

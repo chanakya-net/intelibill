@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,9 +11,10 @@ import 'package:intelibill_mobile/src/features/expenses/presentation/controllers
 import 'package:intelibill_mobile/src/features/expenses/presentation/widgets/expense_detail_sheet.dart';
 
 class _StubExpensesController extends ExpensesController {
-  _StubExpensesController(this.initialState);
+  _StubExpensesController(this.initialState, {this.onRetryExpenseDetail});
 
   final ExpensesState initialState;
+  final Future<void> Function()? onRetryExpenseDetail;
   int retryCount = 0;
 
   @override
@@ -20,14 +23,21 @@ class _StubExpensesController extends ExpensesController {
   @override
   Future<void> retryExpenseDetail() async {
     retryCount += 1;
+    await onRetryExpenseDetail?.call();
   }
 }
 
-Widget _buildApp(ExpensesState state) {
+Widget _buildApp(
+  ExpensesState state, {
+  Future<void> Function()? onRetryExpenseDetail,
+}) {
   return ProviderScope(
     overrides: [
       expensesControllerProvider.overrideWith(
-        () => _StubExpensesController(state),
+        () => _StubExpensesController(
+          state,
+          onRetryExpenseDetail: onRetryExpenseDetail,
+        ),
       ),
     ],
     child: MaterialApp(
@@ -183,5 +193,49 @@ void main() {
     );
     final controller = scope.read(expensesControllerProvider.notifier);
     expect((controller as _StubExpensesController).retryCount, 1);
+  });
+
+  testWidgets('shows correct action for active expense', (tester) async {
+    await tester.pumpWidget(
+      _buildApp(
+        ExpensesState(
+          selectedExpenseId: 'expense-1',
+          selectedExpense: _detail(isVoided: false),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Correct expense'), findsOneWidget);
+  });
+
+  testWidgets('hides correct action for voided expense', (tester) async {
+    await tester.pumpWidget(
+      _buildApp(
+        ExpensesState(
+          selectedExpenseId: 'expense-1',
+          selectedExpense: _detail(isVoided: true),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Correct expense'), findsNothing);
+    expect(find.text('Voided'), findsOneWidget);
+  });
+
+  testWidgets('correct action is visible for active expense', (tester) async {
+    await tester.pumpWidget(
+      _buildApp(
+        ExpensesState(
+          selectedExpenseId: 'expense-1',
+          selectedExpense: _detail(isVoided: false),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Correct expense'), findsOneWidget);
+    expect(find.byType(TextButton), findsWidgets);
   });
 }

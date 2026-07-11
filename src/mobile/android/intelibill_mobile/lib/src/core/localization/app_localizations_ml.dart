@@ -2326,6 +2326,19 @@ class AppLocalizationsMl extends AppLocalizations {
   @override
   String get salesReturnDueOverrideConfirmLabel =>
       'Confirm due reduction override';
+
+  @override
+  String get expensesCorrectExpense => 'Correct expense';
+
+  @override
+  String get expensesCorrectExpenseConfirmTitle => 'Confirm correction';
+
+  @override
+  String get expensesCorrectExpenseConfirmMessage =>
+      'The original expense will be permanently voided and a replacement created. This cannot be undone.';
+
+  @override
+  String get expensesCorrectSuccess => 'Expense corrected successfully.';
 }
 
 /// The translations for Malayalam, as used in India (`ml_IN`).

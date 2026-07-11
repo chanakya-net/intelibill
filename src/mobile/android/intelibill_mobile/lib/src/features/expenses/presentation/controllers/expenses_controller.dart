@@ -11,6 +11,7 @@ import 'package:intelibill_mobile/src/features/expenses/domain/entities/expense_
 import 'package:intelibill_mobile/src/features/expenses/domain/entities/expense_list_item.dart';
 import 'package:intelibill_mobile/src/features/expenses/domain/entities/expenses_page.dart';
 import 'package:intelibill_mobile/src/features/expenses/domain/repositories/expense_repository.dart';
+import 'package:intelibill_mobile/src/features/expenses/domain/use_cases/correct_expense.dart';
 import 'package:intelibill_mobile/src/features/expenses/domain/use_cases/get_expense_categories.dart';
 import 'package:intelibill_mobile/src/features/expenses/domain/use_cases/get_expense_detail.dart';
 import 'package:intelibill_mobile/src/features/expenses/domain/use_cases/get_expenses.dart';
@@ -49,6 +50,11 @@ GetExpenseCategories getExpenseCategoriesUseCase(Ref ref) {
 @riverpod
 RecordExpense recordExpenseUseCase(Ref ref) {
   return RecordExpense(ref.watch(expenseRepositoryProvider));
+}
+
+@riverpod
+CorrectExpense correctExpenseUseCase(Ref ref) {
+  return CorrectExpense(ref.watch(expenseRepositoryProvider));
 }
 
 @immutable
@@ -408,6 +414,52 @@ class ExpensesController extends _$ExpensesController {
       await refresh();
       if (!ref.mounted) return true;
       state = state.copyWith(
+        isSubmitting: false,
+        clearSubmitFailure: true,
+      );
+      return true;
+    } on AppException catch (error) {
+      if (!ref.mounted) return false;
+      state = state.copyWith(
+        isSubmitting: false,
+        submitFailure: error.failure,
+      );
+      return false;
+    } on Object {
+      if (!ref.mounted) return false;
+      state = state.copyWith(
+        isSubmitting: false,
+        submitFailure: const Failure.unknown(),
+      );
+      return false;
+    }
+  }
+
+  Future<bool> correctExpense(
+    String id, {
+    required String categoryName,
+    required double amount,
+    required String paidTo,
+    String? description,
+    required DateTime expenseDate,
+  }) async {
+    if (state.isSubmitting) return false;
+    state = state.copyWith(isSubmitting: true, clearSubmitFailure: true);
+    try {
+      final replacement = await ref.read(correctExpenseUseCaseProvider)(
+        id,
+        categoryName: categoryName,
+        amount: amount,
+        paidTo: paidTo,
+        description: description,
+        expenseDate: expenseDate,
+      );
+      if (!ref.mounted) return true;
+      await refresh();
+      if (!ref.mounted) return true;
+      state = state.copyWith(
+        selectedExpenseId: replacement.id,
+        selectedExpense: replacement,
         isSubmitting: false,
         clearSubmitFailure: true,
       );

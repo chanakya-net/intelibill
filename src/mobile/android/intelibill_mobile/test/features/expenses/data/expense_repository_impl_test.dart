@@ -3,6 +3,7 @@ import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/features/expenses/data/data_sources/expense_remote_data_source.dart';
 import 'package:intelibill_mobile/src/features/expenses/data/dto/expense_detail_dto.dart';
+import 'package:intelibill_mobile/src/features/expenses/data/dto/expense_mutation_request_dto.dart';
 import 'package:intelibill_mobile/src/features/expenses/data/repositories/expense_repository_impl.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -12,6 +13,18 @@ class _MockExpenseRemoteDataSource extends Mock
 void main() {
   late _MockExpenseRemoteDataSource remoteDataSource;
   late ExpenseRepositoryImpl repository;
+
+  setUpAll(() {
+    registerFallbackValue(
+      ExpenseMutationRequestDto(
+        categoryName: '',
+        amount: 0,
+        paidTo: '',
+        description: null,
+        expenseDate: DateTime.now(),
+      ),
+    );
+  });
 
   setUp(() {
     remoteDataSource = _MockExpenseRemoteDataSource();
@@ -48,6 +61,74 @@ void main() {
 
     await expectLater(
       repository.getExpenseDetail('expense-1'),
+      throwsA(
+        isA<AppException>().having(
+          (error) => error.failure,
+          'failure',
+          failure,
+        ),
+      ),
+    );
+  });
+
+  test('corrects an expense mapping all fields to domain', () async {
+    when(
+      () => remoteDataSource.correctExpense(
+        'expense-1',
+        any(),
+      ),
+    ).thenAnswer(
+      (_) async => ExpenseDetailDto(
+        id: 'expense-2',
+        shopId: 'shop-1',
+        categoryId: 'utilities',
+        categoryName: 'Utilities',
+        amount: 150.0,
+        paidTo: 'Power Co',
+        description: null,
+        expenseDate: DateTime(2026, 7, 3),
+        actorUserId: 'user-1',
+        isVoided: false,
+        originalExpenseId: 'expense-1',
+        supplierLedgerEntryId: null,
+        createdAt: DateTime.utc(2026, 7, 3, 8, 30),
+      ),
+    );
+
+    final detail = await repository.correctExpense(
+      'expense-1',
+      categoryName: 'Utilities',
+      amount: 150.0,
+      paidTo: 'Power Co',
+      description: null,
+      expenseDate: DateTime(2026, 7, 3),
+    );
+
+    expect(detail.id, 'expense-2');
+    expect(detail.originalExpenseId, 'expense-1');
+    expect(detail.categoryName, 'Utilities');
+    expect(detail.amount, 150.0);
+    expect(detail.isVoided, isFalse);
+  });
+
+  test('preserves typed correction failures', () async {
+    const failure = Failure.server(message: 'already voided');
+    when(
+      () => remoteDataSource.correctExpense(
+        'expense-1',
+        any(),
+      ),
+    ).thenThrow(AppException(failure: failure));
+
+    await expectLater(
+      repository.correctExpense(
+        'expense-1',
+        categoryName: 'Utilities',
+        amount: 150.0,
+        paidTo: 'Power Co',
+        description: null,
+        expenseDate: DateTime(2026, 7, 3),
+      ),
       throwsA(
         isA<AppException>().having(
           (error) => error.failure,

@@ -97,4 +97,34 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
       throw AppException(failure: Failure.unknown(message: error.toString()));
     }
   }
+
+  @override
+  Future<ExpenseDetail> correctExpense(
+    String id, {
+    required String categoryName,
+    required double amount,
+    required String paidTo,
+    String? description,
+    required DateTime expenseDate,
+  }) async {
+    try {
+      final request = ExpenseMutationRequestDto(
+        categoryName: categoryName.trim(),
+        amount: amount,
+        paidTo: paidTo.trim(),
+        description: description,
+        expenseDate: expenseDate,
+      );
+      final dto = await _remoteDataSource.correctExpense(id, request);
+      return ExpenseMapper.detailToDomain(dto);
+    } on AppException {
+      rethrow;
+    } on FormatException catch (error) {
+      throw AppException(
+        failure: Failure.serialization(message: error.message),
+      );
+    } on Object catch (error) {
+      throw AppException(failure: Failure.unknown(message: error.toString()));
+    }
+  }
 }

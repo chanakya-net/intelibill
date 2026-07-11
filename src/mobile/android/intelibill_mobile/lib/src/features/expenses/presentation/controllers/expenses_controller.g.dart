@@ -284,6 +284,48 @@ final class RecordExpenseUseCaseProvider
 String _$recordExpenseUseCaseHash() =>
     r'200af0737a28a887226300f8ff9de47fdaf78a73';
 
+@ProviderFor(correctExpenseUseCase)
+final correctExpenseUseCaseProvider = CorrectExpenseUseCaseProvider._();
+
+final class CorrectExpenseUseCaseProvider
+    extends $FunctionalProvider<CorrectExpense, CorrectExpense, CorrectExpense>
+    with $Provider<CorrectExpense> {
+  CorrectExpenseUseCaseProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'correctExpenseUseCaseProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$correctExpenseUseCaseHash();
+
+  @$internal
+  @override
+  $ProviderElement<CorrectExpense> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  CorrectExpense create(Ref ref) {
+    return correctExpenseUseCase(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(CorrectExpense value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<CorrectExpense>(value),
+    );
+  }
+}
+
+String _$correctExpenseUseCaseHash() =>
+    r'7d4216e6dffabadc81f3c2be3b7827742cf2ffc6';
+
 @ProviderFor(ExpensesController)
 final expensesControllerProvider = ExpensesControllerProvider._();
 
@@ -317,7 +359,7 @@ final class ExpensesControllerProvider
 }
 
 String _$expensesControllerHash() =>
-    r'd90d5e17565a63c5e8e467c2ab08c20b252f6da0';
+    r'be5282299c876e8d9a6aa6a5b0d34ea63ae7b6a8';
 
 abstract class _$ExpensesController extends $Notifier<ExpensesState> {
   ExpensesState build();

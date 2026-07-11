@@ -24,4 +24,15 @@ interface class ExpenseRepository {
   }) {
     throw UnimplementedError();
   }
+
+  Future<ExpenseDetail> correctExpense(
+    String id, {
+    required String categoryName,
+    required double amount,
+    required String paidTo,
+    String? description,
+    required DateTime expenseDate,
+  }) {
+    throw UnimplementedError();
+  }
 }

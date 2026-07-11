@@ -8,6 +8,7 @@ import 'package:intelibill_mobile/src/features/expenses/domain/entities/expense_
 import 'package:intelibill_mobile/src/features/expenses/domain/entities/expense_detail.dart';
 import 'package:intelibill_mobile/src/features/expenses/domain/entities/expense_list_item.dart';
 import 'package:intelibill_mobile/src/features/expenses/domain/entities/expenses_page.dart';
+import 'package:intelibill_mobile/src/features/expenses/domain/use_cases/correct_expense.dart';
 import 'package:intelibill_mobile/src/features/expenses/domain/use_cases/get_expense_categories.dart';
 import 'package:intelibill_mobile/src/features/expenses/domain/use_cases/get_expense_detail.dart';
 import 'package:intelibill_mobile/src/features/expenses/domain/use_cases/get_expenses.dart';
@@ -22,6 +23,8 @@ class MockGetExpenseDetail extends Mock implements GetExpenseDetail {}
 class MockGetExpenseCategories extends Mock implements GetExpenseCategories {}
 
 class MockRecordExpense extends Mock implements RecordExpense {}
+
+class MockCorrectExpense extends Mock implements CorrectExpense {}
 
 class _TestExpensesController extends ExpensesController {
   _TestExpensesController(this._initialState);
@@ -1061,5 +1064,99 @@ void main() {
         );
       },
     );
+  });
+
+  test('corrects an expense and refreshes list', () async {
+    final correctExpense = MockCorrectExpense();
+    final getExpenses = MockGetExpenses();
+    when(
+      () => correctExpense(
+        'expense-1',
+        categoryName: 'Utilities',
+        amount: 150.0,
+        paidTo: 'Power Co',
+        description: null,
+        expenseDate: DateTime(2026, 7, 3),
+      ),
+    ).thenAnswer((_) async => _detail('expense-2'));
+    when(getExpenses.call).thenAnswer((_) async => _makePage(items: []));
+    final container = ProviderContainer(
+      overrides: [
+        correctExpenseUseCaseProvider.overrideWithValue(correctExpense),
+        getExpensesUseCaseProvider.overrideWithValue(getExpenses),
+        expensesControllerProvider.overrideWith(
+          () => _TestExpensesController(const ExpensesState()),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final corrected = await container
+        .read(expensesControllerProvider.notifier)
+        .correctExpense(
+          'expense-1',
+          categoryName: 'Utilities',
+          amount: 150.0,
+          paidTo: 'Power Co',
+          description: null,
+          expenseDate: DateTime(2026, 7, 3),
+        );
+
+    expect(corrected, isTrue);
+    final state = container.read(expensesControllerProvider);
+    expect(state.isSubmitting, isFalse);
+    expect(state.submitFailure, isNull);
+    verify(
+      () => correctExpense(
+        'expense-1',
+        categoryName: 'Utilities',
+        amount: 150.0,
+        paidTo: 'Power Co',
+        description: null,
+        expenseDate: DateTime(2026, 7, 3),
+      ),
+    ).called(1);
+    verify(() => getExpenses()).called(1);
+  });
+
+  test('retains form on correction failure', () async {
+    final correctExpense = MockCorrectExpense();
+    when(
+      () => correctExpense(
+        'expense-1',
+        categoryName: 'Utilities',
+        amount: 150.0,
+        paidTo: 'Power Co',
+        description: null,
+        expenseDate: DateTime(2026, 7, 3),
+      ),
+    ).thenThrow(
+      AppException(failure: const Failure.server(message: 'already voided')),
+    );
+    final container = ProviderContainer(
+      overrides: [
+        correctExpenseUseCaseProvider.overrideWithValue(correctExpense),
+        expensesControllerProvider.overrideWith(
+          () => _TestExpensesController(const ExpensesState()),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final corrected = await container
+        .read(expensesControllerProvider.notifier)
+        .correctExpense(
+          'expense-1',
+          categoryName: 'Utilities',
+          amount: 150.0,
+          paidTo: 'Power Co',
+          description: null,
+          expenseDate: DateTime(2026, 7, 3),
+        );
+
+    expect(corrected, isFalse);
+    final state = container.read(expensesControllerProvider);
+    expect(state.isSubmitting, isFalse);
+    expect(state.submitFailure, isNotNull);
   });
 }

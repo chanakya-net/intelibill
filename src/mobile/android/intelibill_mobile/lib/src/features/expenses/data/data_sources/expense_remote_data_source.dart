@@ -24,6 +24,13 @@ interface class ExpenseRemoteDataSource {
   Future<ExpenseDetailDto> recordExpense(ExpenseMutationRequestDto request) {
     throw UnimplementedError();
   }
+
+  Future<ExpenseDetailDto> correctExpense(
+    String id,
+    ExpenseMutationRequestDto request,
+  ) {
+    throw UnimplementedError();
+  }
 }
 
 class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
@@ -78,6 +85,18 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
   ) async {
     final response = await _apiClient.post<Map<String, dynamic>>(
       '/expenses',
+      data: request.toJson(),
+    );
+    return ExpenseDetailDto.fromJson(response.data!);
+  }
+
+  @override
+  Future<ExpenseDetailDto> correctExpense(
+    String id,
+    ExpenseMutationRequestDto request,
+  ) async {
+    final response = await _apiClient.post<Map<String, dynamic>>(
+      '/expenses/$id/correct',
       data: request.toJson(),
     );
     return ExpenseDetailDto.fromJson(response.data!);

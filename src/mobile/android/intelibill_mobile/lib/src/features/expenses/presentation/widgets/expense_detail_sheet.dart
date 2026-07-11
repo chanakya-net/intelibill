@@ -6,6 +6,7 @@ import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/expenses/domain/entities/expense_detail.dart';
 import 'package:intelibill_mobile/src/features/expenses/presentation/controllers/expenses_controller.dart';
+import 'package:intelibill_mobile/src/features/expenses/presentation/widgets/expense_form_sheet.dart';
 import 'package:intl/intl.dart';
 
 final NumberFormat _amountFormat = NumberFormat.currency(
@@ -66,13 +67,13 @@ class ExpenseDetailSheet extends ConsumerWidget {
   }
 }
 
-class _ExpenseDetailContent extends StatelessWidget {
+class _ExpenseDetailContent extends ConsumerWidget {
   const _ExpenseDetailContent({required this.detail});
 
   final ExpenseDetail detail;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final empty = l10n.expensesDetailNotLinked;
     final rows = [
@@ -121,9 +122,19 @@ class _ExpenseDetailContent extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              l10n.expensesDetailTitle,
-              style: Theme.of(context).textTheme.titleLarge,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  l10n.expensesDetailTitle,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                if (!detail.isVoided)
+                  TextButton(
+                    onPressed: () => _openCorrectExpenseSheet(context, ref),
+                    child: Text(l10n.expensesCorrectExpense),
+                  ),
+              ],
             ),
             const SizedBox(height: 16),
             for (final row in rows) _DetailRowView(row: row),
@@ -131,6 +142,25 @@ class _ExpenseDetailContent extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _openCorrectExpenseSheet(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final corrected = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (_) => ExpenseFormSheet(expenseToCorrect: detail),
+    );
+    if (!context.mounted || corrected != true) return;
+    final l10n = AppLocalizations.of(context)!;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(l10n.expensesCorrectSuccess)),
+    );
+    await ref.read(expensesControllerProvider.notifier).retryExpenseDetail();
   }
 }
 

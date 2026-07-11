@@ -7,14 +7,21 @@ import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/expenses/domain/entities/expense_category.dart';
+import 'package:intelibill_mobile/src/features/expenses/domain/entities/expense_detail.dart';
 import 'package:intelibill_mobile/src/features/expenses/presentation/controllers/expenses_controller.dart';
 import 'package:intelibill_mobile/src/features/expenses/presentation/widgets/expense_form_sheet.dart';
 
 class _FormController extends ExpensesController {
-  _FormController(this._state, {this.onSubmit, this.onLoadCategories});
+  _FormController(
+    this._state, {
+    this.onSubmit,
+    this.onCorrect,
+    this.onLoadCategories,
+  });
 
   final ExpensesState _state;
   final Future<bool> Function()? onSubmit;
+  final Future<bool> Function()? onCorrect;
   final Future<List<ExpenseCategory>> Function({required bool force})?
   onLoadCategories;
 
@@ -76,13 +83,44 @@ class _FormController extends ExpensesController {
       return false;
     }
   }
+
+  @override
+  Future<bool> correctExpense(
+    String id, {
+    required String categoryName,
+    required double amount,
+    required String paidTo,
+    String? description,
+    required DateTime expenseDate,
+  }) async {
+    if (state.isSubmitting) return false;
+    state = state.copyWith(isSubmitting: true, clearSubmitFailure: true);
+    try {
+      final success = await onCorrect?.call() ?? true;
+      if (!ref.mounted) return false;
+      state = state.copyWith(
+        isSubmitting: false,
+        clearSubmitFailure: success,
+      );
+      return success;
+    } on AppException catch (error) {
+      if (!ref.mounted) return false;
+      state = state.copyWith(
+        isSubmitting: false,
+        submitFailure: error.failure,
+      );
+      return false;
+    }
+  }
 }
 
 Widget _buildApp(
   ExpensesState state, {
   Future<bool> Function()? onSubmit,
+  Future<bool> Function()? onCorrect,
   Future<List<ExpenseCategory>> Function({required bool force})?
   onLoadCategories,
+  ExpenseDetail? expenseToCorrect,
 }) {
   return ProviderScope(
     overrides: [
@@ -90,6 +128,7 @@ Widget _buildApp(
         () => _FormController(
           state,
           onSubmit: onSubmit,
+          onCorrect: onCorrect,
           onLoadCategories: onLoadCategories,
         ),
       ),
@@ -105,7 +144,9 @@ Widget _buildApp(
                 showModalBottomSheet<bool>(
                   context: context,
                   isScrollControlled: true,
-                  builder: (_) => const ExpenseFormSheet(),
+                  builder: (_) => ExpenseFormSheet(
+                    expenseToCorrect: expenseToCorrect,
+                  ),
                 ),
               ),
               child: const Text('Open'),
@@ -326,6 +367,295 @@ void main() {
           .controller!
           .text,
       'Office',
+    );
+  });
+
+  testWidgets('prefills form from expenseToCorrect', (tester) async {
+    final expense = ExpenseDetail(
+      id: 'expense-1',
+      shopId: 'shop-1',
+      categoryId: 'category-1',
+      categoryName: 'Rent',
+      amount: 1250.5,
+      paidTo: 'Landlord',
+      description: 'July rent',
+      expenseDate: DateTime(2026, 7, 15),
+      actorUserId: 'user-1',
+      isVoided: false,
+      createdAt: DateTime(2026, 7, 1),
+    );
+    await tester.pumpWidget(
+      _buildApp(
+        ExpensesState(
+          categories: [
+            const ExpenseCategory(id: 'rent', name: 'Rent'),
+          ],
+        ),
+        expenseToCorrect: expense,
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Correct expense'), findsWidgets);
+    expect(
+      tester
+          .widget<TextFormField>(
+            find.byKey(ExpenseFormSheet.categoryFieldKey),
+          )
+          .controller!
+          .text,
+      'Rent',
+    );
+    expect(
+      tester
+          .widget<TextFormField>(
+            find.byKey(ExpenseFormSheet.amountFieldKey),
+          )
+          .controller!
+          .text,
+      '1250.5',
+    );
+    expect(
+      tester
+          .widget<TextFormField>(
+            find.byKey(ExpenseFormSheet.paidToFieldKey),
+          )
+          .controller!
+          .text,
+      'Landlord',
+    );
+    expect(
+      tester
+          .widget<TextFormField>(
+            find.byKey(ExpenseFormSheet.descriptionFieldKey),
+          )
+          .controller!
+          .text,
+      'July rent',
+    );
+  });
+
+  testWidgets('shows confirmation dialog before correcting', (tester) async {
+    final expense = ExpenseDetail(
+      id: 'expense-1',
+      shopId: 'shop-1',
+      categoryId: 'category-1',
+      categoryName: 'Rent',
+      amount: 1250.5,
+      paidTo: 'Landlord',
+      description: 'July rent',
+      expenseDate: DateTime(2026, 7, 15),
+      actorUserId: 'user-1',
+      isVoided: false,
+      createdAt: DateTime(2026, 7, 1),
+    );
+    await tester.pumpWidget(
+      _buildApp(
+        ExpensesState(
+          categories: [
+            const ExpenseCategory(id: 'rent', name: 'Rent'),
+          ],
+        ),
+        expenseToCorrect: expense,
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(ExpenseFormSheet.amountFieldKey),
+      '1300',
+    );
+    await tester.tap(find.byKey(ExpenseFormSheet.submitButtonKey));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Confirm correction'),
+      findsOneWidget,
+    );
+    expect(
+      find.text(
+        'The original expense will be permanently voided and a replacement created. This cannot be undone.',
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('cancel correction dialog without calling correctExpense', (
+    tester,
+  ) async {
+    var correctCalls = 0;
+    final expense = ExpenseDetail(
+      id: 'expense-1',
+      shopId: 'shop-1',
+      categoryId: 'category-1',
+      categoryName: 'Rent',
+      amount: 1250.5,
+      paidTo: 'Landlord',
+      description: 'July rent',
+      expenseDate: DateTime(2026, 7, 15),
+      actorUserId: 'user-1',
+      isVoided: false,
+      createdAt: DateTime(2026, 7, 1),
+    );
+    await tester.pumpWidget(
+      _buildApp(
+        ExpensesState(
+          categories: [
+            const ExpenseCategory(id: 'rent', name: 'Rent'),
+          ],
+        ),
+        expenseToCorrect: expense,
+        onCorrect: () async {
+          correctCalls++;
+          return true;
+        },
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(ExpenseFormSheet.submitButtonKey));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Cancel').first);
+    await tester.pumpAndSettle();
+
+    expect(correctCalls, 0);
+    expect(find.byType(ExpenseFormSheet), findsOneWidget);
+  });
+
+  testWidgets('submits correction with confirm and closes on success', (
+    tester,
+  ) async {
+    var correctCalls = 0;
+    final expense = ExpenseDetail(
+      id: 'expense-1',
+      shopId: 'shop-1',
+      categoryId: 'category-1',
+      categoryName: 'Rent',
+      amount: 1250.5,
+      paidTo: 'Landlord',
+      description: 'July rent',
+      expenseDate: DateTime(2026, 7, 15),
+      actorUserId: 'user-1',
+      isVoided: false,
+      createdAt: DateTime(2026, 7, 1),
+    );
+    await tester.pumpWidget(
+      _buildApp(
+        ExpensesState(
+          categories: [
+            const ExpenseCategory(id: 'rent', name: 'Rent'),
+          ],
+        ),
+        expenseToCorrect: expense,
+        onCorrect: () async {
+          correctCalls++;
+          return true;
+        },
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(ExpenseFormSheet.submitButtonKey));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Correct expense').last);
+    await tester.pumpAndSettle();
+
+    expect(correctCalls, 1);
+    expect(find.byType(ExpenseFormSheet), findsNothing);
+  });
+
+  testWidgets('suppresses duplicate corrects while processing', (tester) async {
+    final correct = Completer<bool>();
+    var correctCalls = 0;
+    final expense = ExpenseDetail(
+      id: 'expense-1',
+      shopId: 'shop-1',
+      categoryId: 'category-1',
+      categoryName: 'Rent',
+      amount: 1250.5,
+      paidTo: 'Landlord',
+      description: 'July rent',
+      expenseDate: DateTime(2026, 7, 15),
+      actorUserId: 'user-1',
+      isVoided: false,
+      createdAt: DateTime(2026, 7, 1),
+    );
+    await tester.pumpWidget(
+      _buildApp(
+        ExpensesState(
+          categories: [
+            const ExpenseCategory(id: 'rent', name: 'Rent'),
+          ],
+        ),
+        expenseToCorrect: expense,
+        onCorrect: () {
+          correctCalls++;
+          return correct.future;
+        },
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(ExpenseFormSheet.submitButtonKey));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(FilledButton).first);
+    await tester.pump();
+    await tester.tap(find.byType(FilledButton).first);
+
+    expect(correctCalls, 1);
+    correct.complete(true);
+    await tester.pumpAndSettle();
+    expect(find.byType(ExpenseFormSheet), findsNothing);
+  });
+
+  testWidgets('retains values after correction failure', (tester) async {
+    final expense = ExpenseDetail(
+      id: 'expense-1',
+      shopId: 'shop-1',
+      categoryId: 'category-1',
+      categoryName: 'Rent',
+      amount: 1250.5,
+      paidTo: 'Landlord',
+      description: 'July rent',
+      expenseDate: DateTime(2026, 7, 15),
+      actorUserId: 'user-1',
+      isVoided: false,
+      createdAt: DateTime(2026, 7, 1),
+    );
+    await tester.pumpWidget(
+      _buildApp(
+        ExpensesState(
+          categories: [const ExpenseCategory(id: 'rent', name: 'Rent')],
+          submitFailure: const Failure.notFound(),
+        ),
+        expenseToCorrect: expense,
+        onCorrect: () async => false,
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(ExpenseFormSheet.amountFieldKey),
+      '1300',
+    );
+    await tester.tap(find.byKey(ExpenseFormSheet.submitButtonKey));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Correct expense').last);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ExpenseFormSheet), findsOneWidget);
+    expect(
+      tester
+          .widget<TextFormField>(
+            find.byKey(ExpenseFormSheet.amountFieldKey),
+          )
+          .controller!
+          .text,
+      '1300',
     );
   });
 }

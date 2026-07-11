@@ -4470,6 +4470,30 @@ abstract class AppLocalizations {
   /// In en_IN, this message translates to:
   /// **'Confirm due reduction override'**
   String get salesReturnDueOverrideConfirmLabel;
+
+  /// No description provided for @expensesCorrectExpense.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Correct expense'**
+  String get expensesCorrectExpense;
+
+  /// No description provided for @expensesCorrectExpenseConfirmTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Confirm correction'**
+  String get expensesCorrectExpenseConfirmTitle;
+
+  /// No description provided for @expensesCorrectExpenseConfirmMessage.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'The original expense will be permanently voided and a replacement created. This cannot be undone.'**
+  String get expensesCorrectExpenseConfirmMessage;
+
+  /// No description provided for @expensesCorrectSuccess.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Expense corrected successfully.'**
+  String get expensesCorrectSuccess;
 }
 
 class _AppLocalizationsDelegate
