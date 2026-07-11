@@ -16,7 +16,54 @@ class ExpensesPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.shellManageExpenses)),
-      body: _ExpensesBody(state: state),
+      body: Column(
+        children: [
+          _ExpenseStatusFilters(
+            selectedFilter: state.statusFilter,
+            onFilterChanged: (filter) {
+              ref
+                  .read(expensesControllerProvider.notifier)
+                  .updateStatusFilter(filter);
+            },
+          ),
+          Expanded(child: _ExpensesBody(state: state)),
+        ],
+      ),
+    );
+  }
+}
+
+class _ExpenseStatusFilters extends StatelessWidget {
+  const _ExpenseStatusFilters({
+    required this.selectedFilter,
+    required this.onFilterChanged,
+  });
+
+  final ExpenseStatusFilter selectedFilter;
+  final ValueChanged<ExpenseStatusFilter> onFilterChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: Row(
+        children: [
+          _buildChip('All', ExpenseStatusFilter.all),
+          const SizedBox(width: 8),
+          _buildChip('Active', ExpenseStatusFilter.active),
+          const SizedBox(width: 8),
+          _buildChip('Voided', ExpenseStatusFilter.voided),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChip(String label, ExpenseStatusFilter filter) {
+    return FilterChip(
+      label: Text(label),
+      selected: selectedFilter == filter,
+      onSelected: (_) => onFilterChanged(filter),
     );
   }
 }
@@ -32,7 +79,8 @@ class _ExpensesBody extends ConsumerWidget {
       return const Center(child: CircularProgressIndicator());
     }
 
-    final expenses = state.page?.items ?? const [];
+    final expenses = state.filteredExpenses;
+    final hasLoadedExpenses = state.page?.items.isNotEmpty ?? false;
     final hasFailure = state.failure != null;
     final hasData = state.page != null;
 
@@ -61,9 +109,15 @@ class _ExpensesBody extends ConsumerWidget {
           child: expenses.isEmpty
               ? ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  children: const [
-                    SizedBox(height: 160),
-                    Center(child: Text('No expenses found')),
+                  children: [
+                    const SizedBox(height: 160),
+                    Center(
+                      child: Text(
+                        hasLoadedExpenses
+                            ? 'No expenses match the selected filter'
+                            : 'No expenses found',
+                      ),
+                    ),
                   ],
                 )
               : ListView.builder(

@@ -71,12 +71,12 @@ void main() {
     expect(find.text('Landlord'), findsOneWidget);
     expect(find.text('₹1,250'), findsOneWidget);
     expect(find.text('02 Jul 2026'), findsOneWidget);
-    expect(find.text('Active'), findsOneWidget);
+    expect(find.text('Active'), findsNWidgets(2));
     expect(find.text('Utilities'), findsOneWidget);
     expect(find.text('Power Company'), findsOneWidget);
     expect(find.text('₹500'), findsOneWidget);
     expect(find.text('01 Jul 2026'), findsOneWidget);
-    expect(find.text('Voided'), findsOneWidget);
+    expect(find.text('Voided'), findsNWidgets(2));
 
     final rentTop = tester.getTopLeft(find.text('Rent')).dy;
     final utilitiesTop = tester.getTopLeft(find.text('Utilities')).dy;
@@ -96,10 +96,58 @@ void main() {
     expect(find.text('No expenses found'), findsOneWidget);
   });
 
+  testWidgets('filters loaded rows with All, Active, and Voided chips', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_buildApp(_loadedState));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(FilterChip), findsNWidgets(3));
+    expect(find.text('Rent'), findsOneWidget);
+    expect(find.text('Utilities'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(FilterChip, 'Active'));
+    await tester.pump();
+    expect(find.text('Rent'), findsOneWidget);
+    expect(find.text('Utilities'), findsNothing);
+
+    await tester.tap(find.widgetWithText(FilterChip, 'Voided'));
+    await tester.pump();
+    expect(find.text('Rent'), findsNothing);
+    expect(find.text('Utilities'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(FilterChip, 'All'));
+    await tester.pump();
+    expect(find.text('Rent'), findsOneWidget);
+    expect(find.text('Utilities'), findsOneWidget);
+  });
+
+  testWidgets('shows a distinct message when a filter has no matches', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _buildApp(
+        ExpensesState(
+          page: ExpensePage(
+            items: [_loadedState.page!.items.last],
+            totalCount: 1,
+            pageNumber: 1,
+            pageSize: 20,
+          ),
+          statusFilter: ExpenseStatusFilter.active,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('No expenses match the selected filter'), findsOneWidget);
+    expect(find.text('No expenses found'), findsNothing);
+  });
+
   testWidgets('shows failure state with retry button', (tester) async {
     await tester.pumpWidget(
       _buildApp(
-        ExpensesState(failure: const Failure.network()),
+        const ExpensesState(failure: Failure.network()),
       ),
     );
     await tester.pumpAndSettle();
