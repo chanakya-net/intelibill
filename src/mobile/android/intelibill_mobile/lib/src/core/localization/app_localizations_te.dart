@@ -102,6 +102,122 @@ class AppLocalizationsTe extends AppLocalizations {
   String get shellManageExpenses => 'ఖర్చులు';
 
   @override
+  String get expensesNoExpensesFound => 'ఖర్చులు ఏవీ కనుగొనబడలేదు';
+
+  @override
+  String get expensesFilterAll => 'All';
+
+  @override
+  String get expensesFilterActive => 'Active';
+
+  @override
+  String get expensesFilterVoided => 'Voided';
+
+  @override
+  String get expensesNoFilteredResults =>
+      'No loaded expenses match this filter';
+
+  @override
+  String get expensesUnableToLoad => 'ఖర్చులను లోడ్ చేయలేకపోయాము';
+
+  @override
+  String get expensesRetry => 'మళ్లీ ప్రయత్నించండి';
+
+  @override
+  String get expensesRefreshFailed => 'ఖర్చులను రిఫ్రెష్ చేయలేకపోయాము';
+
+  @override
+  String get expensesErrorNetwork =>
+      'కనెక్ట్ కాలేకపోయాము. దయచేసి మీ నెట్‌వర్క్‌ను తనిఖీ చేయండి.';
+
+  @override
+  String get expensesErrorTimeout =>
+      'అభ్యర్థన సమయం ముగిసింది. దయచేసి మళ్లీ ప్రయత్నించండి.';
+
+  @override
+  String get expensesErrorUnauthorized =>
+      'సెషన్ గడువు ముగిసింది. దయచేసి మళ్లీ లాగిన్ చేయండి.';
+
+  @override
+  String get expensesErrorForbidden => 'ఖర్చులను చూడటానికి మీకు అనుమతి లేదు.';
+
+  @override
+  String get expensesErrorGeneric =>
+      'ఖర్చులను లోడ్ చేయలేకపోయాము. దయచేసి మళ్లీ ప్రయత్నించండి.';
+
+  @override
+  String get expensesDetailTitle => 'Expense details';
+
+  @override
+  String get expensesDetailUnableToLoad => 'Unable to load expense details';
+
+  @override
+  String get expensesDetailNoSelection => 'No expense selected';
+
+  @override
+  String get expensesDetailExpenseId => 'Expense ID';
+
+  @override
+  String get expensesDetailShopId => 'Shop ID';
+
+  @override
+  String get expensesDetailCategoryId => 'Category ID';
+
+  @override
+  String get expensesDetailAmount => 'Amount';
+
+  @override
+  String get expensesDetailStatus => 'Status';
+
+  @override
+  String get expensesDetailCategory => 'Category';
+
+  @override
+  String get expensesDetailPaidTo => 'Paid to';
+
+  @override
+  String get expensesDetailDescription => 'Description';
+
+  @override
+  String get expensesDetailExpenseDate => 'Expense date';
+
+  @override
+  String get expensesDetailActor => 'Recorded by';
+
+  @override
+  String get expensesDetailCreatedAt => 'Created at';
+
+  @override
+  String get expensesDetailSource => 'Source';
+
+  @override
+  String get expensesDetailOriginalExpense => 'Original expense';
+
+  @override
+  String get expensesDetailSupplierLedgerEntry => 'Supplier ledger entry';
+
+  @override
+  String get expensesDetailActive => 'Active';
+
+  @override
+  String get expensesDetailVoided => 'Voided';
+
+  @override
+  String get expensesDetailNotProvided => 'Not provided';
+
+  @override
+  String get expensesDetailNotLinked => 'Not linked';
+
+  @override
+  String get expensesDetailSourceManual => 'Manual expense';
+
+  @override
+  String get expensesDetailSourceCorrection => 'Expense correction';
+
+  @override
+  String get expensesDetailSourceSupplierPayment => 'Supplier payment';
+
+  @override
   String get shellManageBankAccounts => 'బ్యాంకు ఖాతాలు';
 
   @override
@@ -2224,6 +2340,37 @@ class AppLocalizationsTeIn extends AppLocalizationsTe {
 
   @override
   String get shellManageExpenses => 'ఖర్చులు';
+
+  @override
+  String get expensesNoExpensesFound => 'ఖర్చులు ఏవీ కనుగొనబడలేదు';
+
+  @override
+  String get expensesUnableToLoad => 'ఖర్చులను లోడ్ చేయలేకపోయాము';
+
+  @override
+  String get expensesRetry => 'మళ్లీ ప్రయత్నించండి';
+
+  @override
+  String get expensesRefreshFailed => 'ఖర్చులను రిఫ్రెష్ చేయలేకపోయాము';
+
+  @override
+  String get expensesErrorNetwork =>
+      'కనెక్ట్ కాలేకపోయాము. దయచేసి మీ నెట్‌వర్క్‌ను తనిఖీ చేయండి.';
+
+  @override
+  String get expensesErrorTimeout =>
+      'అభ్యర్థన సమయం ముగిసింది. దయచేసి మళ్లీ ప్రయత్నించండి.';
+
+  @override
+  String get expensesErrorUnauthorized =>
+      'సెషన్ గడువు ముగిసింది. దయచేసి మళ్లీ లాగిన్ చేయండి.';
+
+  @override
+  String get expensesErrorForbidden => 'ఖర్చులను చూడటానికి మీకు అనుమతి లేదు.';
+
+  @override
+  String get expensesErrorGeneric =>
+      'ఖర్చులను లోడ్ చేయలేకపోయాము. దయచేసి మళ్లీ ప్రయత్నించండి.';
 
   @override
   String get shellManageBankAccounts => 'బ్యాంకు ఖాతాలు';

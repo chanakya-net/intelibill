@@ -102,6 +102,122 @@ class AppLocalizationsEn extends AppLocalizations {
   String get shellManageExpenses => 'Expenses';
 
   @override
+  String get expensesNoExpensesFound => 'No expenses found';
+
+  @override
+  String get expensesFilterAll => 'All';
+
+  @override
+  String get expensesFilterActive => 'Active';
+
+  @override
+  String get expensesFilterVoided => 'Voided';
+
+  @override
+  String get expensesNoFilteredResults =>
+      'No loaded expenses match this filter';
+
+  @override
+  String get expensesUnableToLoad => 'Unable to load expenses';
+
+  @override
+  String get expensesRetry => 'Retry';
+
+  @override
+  String get expensesRefreshFailed => 'Unable to refresh expenses';
+
+  @override
+  String get expensesErrorNetwork =>
+      'Unable to connect. Please check your network.';
+
+  @override
+  String get expensesErrorTimeout => 'Request timed out. Please try again.';
+
+  @override
+  String get expensesErrorUnauthorized =>
+      'Session expired. Please log in again.';
+
+  @override
+  String get expensesErrorForbidden =>
+      'You do not have permission to view expenses.';
+
+  @override
+  String get expensesErrorGeneric =>
+      'Unable to load expenses. Please try again.';
+
+  @override
+  String get expensesDetailTitle => 'Expense details';
+
+  @override
+  String get expensesDetailUnableToLoad => 'Unable to load expense details';
+
+  @override
+  String get expensesDetailNoSelection => 'No expense selected';
+
+  @override
+  String get expensesDetailExpenseId => 'Expense ID';
+
+  @override
+  String get expensesDetailShopId => 'Shop ID';
+
+  @override
+  String get expensesDetailCategoryId => 'Category ID';
+
+  @override
+  String get expensesDetailAmount => 'Amount';
+
+  @override
+  String get expensesDetailStatus => 'Status';
+
+  @override
+  String get expensesDetailCategory => 'Category';
+
+  @override
+  String get expensesDetailPaidTo => 'Paid to';
+
+  @override
+  String get expensesDetailDescription => 'Description';
+
+  @override
+  String get expensesDetailExpenseDate => 'Expense date';
+
+  @override
+  String get expensesDetailActor => 'Recorded by';
+
+  @override
+  String get expensesDetailCreatedAt => 'Created at';
+
+  @override
+  String get expensesDetailSource => 'Source';
+
+  @override
+  String get expensesDetailOriginalExpense => 'Original expense';
+
+  @override
+  String get expensesDetailSupplierLedgerEntry => 'Supplier ledger entry';
+
+  @override
+  String get expensesDetailActive => 'Active';
+
+  @override
+  String get expensesDetailVoided => 'Voided';
+
+  @override
+  String get expensesDetailNotProvided => 'Not provided';
+
+  @override
+  String get expensesDetailNotLinked => 'Not linked';
+
+  @override
+  String get expensesDetailSourceManual => 'Manual expense';
+
+  @override
+  String get expensesDetailSourceCorrection => 'Expense correction';
+
+  @override
+  String get expensesDetailSourceSupplierPayment => 'Supplier payment';
+
+  @override
   String get shellManageBankAccounts => 'Bank Accounts';
 
   @override
@@ -2227,6 +2343,122 @@ class AppLocalizationsEnIn extends AppLocalizationsEn {
 
   @override
   String get shellManageExpenses => 'Expenses';
+
+  @override
+  String get expensesNoExpensesFound => 'No expenses found';
+
+  @override
+  String get expensesFilterAll => 'All';
+
+  @override
+  String get expensesFilterActive => 'Active';
+
+  @override
+  String get expensesFilterVoided => 'Voided';
+
+  @override
+  String get expensesNoFilteredResults =>
+      'No loaded expenses match this filter';
+
+  @override
+  String get expensesUnableToLoad => 'Unable to load expenses';
+
+  @override
+  String get expensesRetry => 'Retry';
+
+  @override
+  String get expensesRefreshFailed => 'Unable to refresh expenses';
+
+  @override
+  String get expensesErrorNetwork =>
+      'Unable to connect. Please check your network.';
+
+  @override
+  String get expensesErrorTimeout => 'Request timed out. Please try again.';
+
+  @override
+  String get expensesErrorUnauthorized =>
+      'Session expired. Please log in again.';
+
+  @override
+  String get expensesErrorForbidden =>
+      'You do not have permission to view expenses.';
+
+  @override
+  String get expensesErrorGeneric =>
+      'Unable to load expenses. Please try again.';
+
+  @override
+  String get expensesDetailTitle => 'Expense details';
+
+  @override
+  String get expensesDetailUnableToLoad => 'Unable to load expense details';
+
+  @override
+  String get expensesDetailNoSelection => 'No expense selected';
+
+  @override
+  String get expensesDetailExpenseId => 'Expense ID';
+
+  @override
+  String get expensesDetailShopId => 'Shop ID';
+
+  @override
+  String get expensesDetailCategoryId => 'Category ID';
+
+  @override
+  String get expensesDetailAmount => 'Amount';
+
+  @override
+  String get expensesDetailStatus => 'Status';
+
+  @override
+  String get expensesDetailCategory => 'Category';
+
+  @override
+  String get expensesDetailPaidTo => 'Paid to';
+
+  @override
+  String get expensesDetailDescription => 'Description';
+
+  @override
+  String get expensesDetailExpenseDate => 'Expense date';
+
+  @override
+  String get expensesDetailActor => 'Recorded by';
+
+  @override
+  String get expensesDetailCreatedAt => 'Created at';
+
+  @override
+  String get expensesDetailSource => 'Source';
+
+  @override
+  String get expensesDetailOriginalExpense => 'Original expense';
+
+  @override
+  String get expensesDetailSupplierLedgerEntry => 'Supplier ledger entry';
+
+  @override
+  String get expensesDetailActive => 'Active';
+
+  @override
+  String get expensesDetailVoided => 'Voided';
+
+  @override
+  String get expensesDetailNotProvided => 'Not provided';
+
+  @override
+  String get expensesDetailNotLinked => 'Not linked';
+
+  @override
+  String get expensesDetailSourceManual => 'Manual expense';
+
+  @override
+  String get expensesDetailSourceCorrection => 'Expense correction';
+
+  @override
+  String get expensesDetailSourceSupplierPayment => 'Supplier payment';
 
   @override
   String get shellManageBankAccounts => 'Bank Accounts';

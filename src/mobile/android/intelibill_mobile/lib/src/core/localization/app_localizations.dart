@@ -307,6 +307,228 @@ abstract class AppLocalizations {
   /// **'Expenses'**
   String get shellManageExpenses;
 
+  /// No description provided for @expensesNoExpensesFound.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No expenses found'**
+  String get expensesNoExpensesFound;
+
+  /// No description provided for @expensesFilterAll.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'All'**
+  String get expensesFilterAll;
+
+  /// No description provided for @expensesFilterActive.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Active'**
+  String get expensesFilterActive;
+
+  /// No description provided for @expensesFilterVoided.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Voided'**
+  String get expensesFilterVoided;
+
+  /// No description provided for @expensesNoFilteredResults.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No loaded expenses match this filter'**
+  String get expensesNoFilteredResults;
+
+  /// No description provided for @expensesUnableToLoad.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to load expenses'**
+  String get expensesUnableToLoad;
+
+  /// No description provided for @expensesRetry.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Retry'**
+  String get expensesRetry;
+
+  /// No description provided for @expensesRefreshFailed.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to refresh expenses'**
+  String get expensesRefreshFailed;
+
+  /// No description provided for @expensesErrorNetwork.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to connect. Please check your network.'**
+  String get expensesErrorNetwork;
+
+  /// No description provided for @expensesErrorTimeout.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Request timed out. Please try again.'**
+  String get expensesErrorTimeout;
+
+  /// No description provided for @expensesErrorUnauthorized.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Session expired. Please log in again.'**
+  String get expensesErrorUnauthorized;
+
+  /// No description provided for @expensesErrorForbidden.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'You do not have permission to view expenses.'**
+  String get expensesErrorForbidden;
+
+  /// No description provided for @expensesErrorGeneric.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to load expenses. Please try again.'**
+  String get expensesErrorGeneric;
+
+  /// No description provided for @expensesDetailTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Expense details'**
+  String get expensesDetailTitle;
+
+  /// No description provided for @expensesDetailUnableToLoad.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to load expense details'**
+  String get expensesDetailUnableToLoad;
+
+  /// No description provided for @expensesDetailNoSelection.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No expense selected'**
+  String get expensesDetailNoSelection;
+
+  /// No description provided for @expensesDetailExpenseId.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Expense ID'**
+  String get expensesDetailExpenseId;
+
+  /// No description provided for @expensesDetailShopId.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Shop ID'**
+  String get expensesDetailShopId;
+
+  /// No description provided for @expensesDetailCategoryId.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Category ID'**
+  String get expensesDetailCategoryId;
+
+  /// No description provided for @expensesDetailAmount.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Amount'**
+  String get expensesDetailAmount;
+
+  /// No description provided for @expensesDetailStatus.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Status'**
+  String get expensesDetailStatus;
+
+  /// No description provided for @expensesDetailCategory.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Category'**
+  String get expensesDetailCategory;
+
+  /// No description provided for @expensesDetailPaidTo.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Paid to'**
+  String get expensesDetailPaidTo;
+
+  /// No description provided for @expensesDetailDescription.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Description'**
+  String get expensesDetailDescription;
+
+  /// No description provided for @expensesDetailExpenseDate.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Expense date'**
+  String get expensesDetailExpenseDate;
+
+  /// No description provided for @expensesDetailActor.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Recorded by'**
+  String get expensesDetailActor;
+
+  /// No description provided for @expensesDetailCreatedAt.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Created at'**
+  String get expensesDetailCreatedAt;
+
+  /// No description provided for @expensesDetailSource.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Source'**
+  String get expensesDetailSource;
+
+  /// No description provided for @expensesDetailOriginalExpense.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Original expense'**
+  String get expensesDetailOriginalExpense;
+
+  /// No description provided for @expensesDetailSupplierLedgerEntry.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Supplier ledger entry'**
+  String get expensesDetailSupplierLedgerEntry;
+
+  /// No description provided for @expensesDetailActive.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Active'**
+  String get expensesDetailActive;
+
+  /// No description provided for @expensesDetailVoided.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Voided'**
+  String get expensesDetailVoided;
+
+  /// No description provided for @expensesDetailNotProvided.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Not provided'**
+  String get expensesDetailNotProvided;
+
+  /// No description provided for @expensesDetailNotLinked.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Not linked'**
+  String get expensesDetailNotLinked;
+
+  /// No description provided for @expensesDetailSourceManual.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Manual expense'**
+  String get expensesDetailSourceManual;
+
+  /// No description provided for @expensesDetailSourceCorrection.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Expense correction'**
+  String get expensesDetailSourceCorrection;
+
+  /// No description provided for @expensesDetailSourceSupplierPayment.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Supplier payment'**
+  String get expensesDetailSourceSupplierPayment;
+
   /// No description provided for @shellManageBankAccounts.
   ///
   /// In en_IN, this message translates to:

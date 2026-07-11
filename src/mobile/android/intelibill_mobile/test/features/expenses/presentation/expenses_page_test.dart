@@ -9,12 +9,23 @@ import 'package:intelibill_mobile/src/features/expenses/presentation/controllers
 import 'package:intelibill_mobile/src/features/expenses/presentation/pages/expenses_page.dart';
 
 class _StubExpensesController extends ExpensesController {
-  _StubExpensesController(this._state);
+  _StubExpensesController(this._state, {this.onOpenExpense});
 
   final ExpensesState _state;
+  final Future<void> Function(String id)? onOpenExpense;
 
   @override
   ExpensesState build() => _state;
+
+  @override
+  Future<void> openExpense(String id) async {
+    state = state.copyWith(
+      selectedExpenseId: id,
+      isDetailLoading: true,
+      clearSelectedExpense: true,
+    );
+    await onOpenExpense?.call(id);
+  }
 }
 
 final _loadedState = ExpensesState(
@@ -43,11 +54,14 @@ final _loadedState = ExpensesState(
   ),
 );
 
-Widget _buildApp(ExpensesState state) {
+Widget _buildApp(
+  ExpensesState state, {
+  Future<void> Function(String id)? onOpenExpense,
+}) {
   return ProviderScope(
     overrides: [
       expensesControllerProvider.overrideWith(
-        () => _StubExpensesController(state),
+        () => _StubExpensesController(state, onOpenExpense: onOpenExpense),
       ),
     ],
     child: const MaterialApp(
@@ -165,5 +179,27 @@ void main() {
     expect(find.text('Rent'), findsOneWidget);
     expect(find.text('Unable to load expenses'), findsOneWidget);
     expect(find.byType(FilledButton), findsOneWidget);
+  });
+
+  testWidgets('tapping a card loads and opens expense detail', (tester) async {
+    String? openedId;
+    await tester.pumpWidget(
+      _buildApp(
+        _loadedState,
+        onOpenExpense: (id) async => openedId = id,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Rent'));
+    await tester.pump();
+
+    expect(openedId, 'expense-2');
+    expect(find.byType(BottomSheet), findsOneWidget);
+    expect(
+      tester.widget<BottomSheet>(find.byType(BottomSheet)).showDragHandle,
+      isTrue,
+    );
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
   });
 }

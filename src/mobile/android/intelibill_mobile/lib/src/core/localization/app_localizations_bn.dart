@@ -102,6 +102,121 @@ class AppLocalizationsBn extends AppLocalizations {
   String get shellManageExpenses => 'খরচ';
 
   @override
+  String get expensesNoExpensesFound => 'কোনো খরচ পাওয়া যায়নি';
+
+  @override
+  String get expensesFilterAll => 'All';
+
+  @override
+  String get expensesFilterActive => 'Active';
+
+  @override
+  String get expensesFilterVoided => 'Voided';
+
+  @override
+  String get expensesNoFilteredResults =>
+      'No loaded expenses match this filter';
+
+  @override
+  String get expensesUnableToLoad => 'খরচ লোড করা যায়নি';
+
+  @override
+  String get expensesRetry => 'আবার চেষ্টা করুন';
+
+  @override
+  String get expensesRefreshFailed => 'খরচ রিফ্রেশ করা যায়নি';
+
+  @override
+  String get expensesErrorNetwork =>
+      'সংযোগ করা যায়নি। আপনার নেটওয়ার্ক পরীক্ষা করুন।';
+
+  @override
+  String get expensesErrorTimeout =>
+      'অনুরোধের সময় শেষ হয়েছে। আবার চেষ্টা করুন।';
+
+  @override
+  String get expensesErrorUnauthorized =>
+      'সেশনের মেয়াদ শেষ হয়েছে। আবার লগ ইন করুন।';
+
+  @override
+  String get expensesErrorForbidden => 'খরচ দেখার অনুমতি আপনার নেই।';
+
+  @override
+  String get expensesErrorGeneric => 'খরচ লোড করা যায়নি। আবার চেষ্টা করুন।';
+
+  @override
+  String get expensesDetailTitle => 'Expense details';
+
+  @override
+  String get expensesDetailUnableToLoad => 'Unable to load expense details';
+
+  @override
+  String get expensesDetailNoSelection => 'No expense selected';
+
+  @override
+  String get expensesDetailExpenseId => 'Expense ID';
+
+  @override
+  String get expensesDetailShopId => 'Shop ID';
+
+  @override
+  String get expensesDetailCategoryId => 'Category ID';
+
+  @override
+  String get expensesDetailAmount => 'Amount';
+
+  @override
+  String get expensesDetailStatus => 'Status';
+
+  @override
+  String get expensesDetailCategory => 'Category';
+
+  @override
+  String get expensesDetailPaidTo => 'Paid to';
+
+  @override
+  String get expensesDetailDescription => 'Description';
+
+  @override
+  String get expensesDetailExpenseDate => 'Expense date';
+
+  @override
+  String get expensesDetailActor => 'Recorded by';
+
+  @override
+  String get expensesDetailCreatedAt => 'Created at';
+
+  @override
+  String get expensesDetailSource => 'Source';
+
+  @override
+  String get expensesDetailOriginalExpense => 'Original expense';
+
+  @override
+  String get expensesDetailSupplierLedgerEntry => 'Supplier ledger entry';
+
+  @override
+  String get expensesDetailActive => 'Active';
+
+  @override
+  String get expensesDetailVoided => 'Voided';
+
+  @override
+  String get expensesDetailNotProvided => 'Not provided';
+
+  @override
+  String get expensesDetailNotLinked => 'Not linked';
+
+  @override
+  String get expensesDetailSourceManual => 'Manual expense';
+
+  @override
+  String get expensesDetailSourceCorrection => 'Expense correction';
+
+  @override
+  String get expensesDetailSourceSupplierPayment => 'Supplier payment';
+
+  @override
   String get shellManageBankAccounts => 'ব্যাঙ্ক অ্যাকাউন্ট';
 
   @override
@@ -2224,6 +2339,36 @@ class AppLocalizationsBnIn extends AppLocalizationsBn {
 
   @override
   String get shellManageExpenses => 'খরচ';
+
+  @override
+  String get expensesNoExpensesFound => 'কোনো খরচ পাওয়া যায়নি';
+
+  @override
+  String get expensesUnableToLoad => 'খরচ লোড করা যায়নি';
+
+  @override
+  String get expensesRetry => 'আবার চেষ্টা করুন';
+
+  @override
+  String get expensesRefreshFailed => 'খরচ রিফ্রেশ করা যায়নি';
+
+  @override
+  String get expensesErrorNetwork =>
+      'সংযোগ করা যায়নি। আপনার নেটওয়ার্ক পরীক্ষা করুন।';
+
+  @override
+  String get expensesErrorTimeout =>
+      'অনুরোধের সময় শেষ হয়েছে। আবার চেষ্টা করুন।';
+
+  @override
+  String get expensesErrorUnauthorized =>
+      'সেশনের মেয়াদ শেষ হয়েছে। আবার লগ ইন করুন।';
+
+  @override
+  String get expensesErrorForbidden => 'খরচ দেখার অনুমতি আপনার নেই।';
+
+  @override
+  String get expensesErrorGeneric => 'খরচ লোড করা যায়নি। আবার চেষ্টা করুন।';
 
   @override
   String get shellManageBankAccounts => 'ব্যাঙ্ক অ্যাকাউন্ট';

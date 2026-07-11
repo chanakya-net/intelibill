@@ -102,6 +102,122 @@ class AppLocalizationsHi extends AppLocalizations {
   String get shellManageExpenses => 'खर्च';
 
   @override
+  String get expensesNoExpensesFound => 'कोई खर्च नहीं मिला';
+
+  @override
+  String get expensesFilterAll => 'All';
+
+  @override
+  String get expensesFilterActive => 'Active';
+
+  @override
+  String get expensesFilterVoided => 'Voided';
+
+  @override
+  String get expensesNoFilteredResults =>
+      'No loaded expenses match this filter';
+
+  @override
+  String get expensesUnableToLoad => 'खर्च लोड नहीं किए जा सके';
+
+  @override
+  String get expensesRetry => 'पुनः प्रयास करें';
+
+  @override
+  String get expensesRefreshFailed => 'खर्च रीफ़्रेश नहीं किए जा सके';
+
+  @override
+  String get expensesErrorNetwork =>
+      'कनेक्ट नहीं हो सका। कृपया अपना नेटवर्क जांचें।';
+
+  @override
+  String get expensesErrorTimeout =>
+      'अनुरोध का समय समाप्त हो गया। कृपया पुनः प्रयास करें।';
+
+  @override
+  String get expensesErrorUnauthorized =>
+      'सत्र समाप्त हो गया। कृपया फिर से लॉग इन करें।';
+
+  @override
+  String get expensesErrorForbidden => 'आपको खर्च देखने की अनुमति नहीं है।';
+
+  @override
+  String get expensesErrorGeneric =>
+      'खर्च लोड नहीं किए जा सके। कृपया पुनः प्रयास करें।';
+
+  @override
+  String get expensesDetailTitle => 'Expense details';
+
+  @override
+  String get expensesDetailUnableToLoad => 'Unable to load expense details';
+
+  @override
+  String get expensesDetailNoSelection => 'No expense selected';
+
+  @override
+  String get expensesDetailExpenseId => 'Expense ID';
+
+  @override
+  String get expensesDetailShopId => 'Shop ID';
+
+  @override
+  String get expensesDetailCategoryId => 'Category ID';
+
+  @override
+  String get expensesDetailAmount => 'Amount';
+
+  @override
+  String get expensesDetailStatus => 'Status';
+
+  @override
+  String get expensesDetailCategory => 'Category';
+
+  @override
+  String get expensesDetailPaidTo => 'Paid to';
+
+  @override
+  String get expensesDetailDescription => 'Description';
+
+  @override
+  String get expensesDetailExpenseDate => 'Expense date';
+
+  @override
+  String get expensesDetailActor => 'Recorded by';
+
+  @override
+  String get expensesDetailCreatedAt => 'Created at';
+
+  @override
+  String get expensesDetailSource => 'Source';
+
+  @override
+  String get expensesDetailOriginalExpense => 'Original expense';
+
+  @override
+  String get expensesDetailSupplierLedgerEntry => 'Supplier ledger entry';
+
+  @override
+  String get expensesDetailActive => 'Active';
+
+  @override
+  String get expensesDetailVoided => 'Voided';
+
+  @override
+  String get expensesDetailNotProvided => 'Not provided';
+
+  @override
+  String get expensesDetailNotLinked => 'Not linked';
+
+  @override
+  String get expensesDetailSourceManual => 'Manual expense';
+
+  @override
+  String get expensesDetailSourceCorrection => 'Expense correction';
+
+  @override
+  String get expensesDetailSourceSupplierPayment => 'Supplier payment';
+
+  @override
   String get shellManageBankAccounts => 'बैंक खाते';
 
   @override
@@ -2225,6 +2341,37 @@ class AppLocalizationsHiIn extends AppLocalizationsHi {
 
   @override
   String get shellManageExpenses => 'खर्च';
+
+  @override
+  String get expensesNoExpensesFound => 'कोई खर्च नहीं मिला';
+
+  @override
+  String get expensesUnableToLoad => 'खर्च लोड नहीं किए जा सके';
+
+  @override
+  String get expensesRetry => 'पुनः प्रयास करें';
+
+  @override
+  String get expensesRefreshFailed => 'खर्च रीफ़्रेश नहीं किए जा सके';
+
+  @override
+  String get expensesErrorNetwork =>
+      'कनेक्ट नहीं हो सका। कृपया अपना नेटवर्क जांचें।';
+
+  @override
+  String get expensesErrorTimeout =>
+      'अनुरोध का समय समाप्त हो गया। कृपया पुनः प्रयास करें।';
+
+  @override
+  String get expensesErrorUnauthorized =>
+      'सत्र समाप्त हो गया। कृपया फिर से लॉग इन करें।';
+
+  @override
+  String get expensesErrorForbidden => 'आपको खर्च देखने की अनुमति नहीं है।';
+
+  @override
+  String get expensesErrorGeneric =>
+      'खर्च लोड नहीं किए जा सके। कृपया पुनः प्रयास करें।';
 
   @override
   String get shellManageBankAccounts => 'बैंक खाते';

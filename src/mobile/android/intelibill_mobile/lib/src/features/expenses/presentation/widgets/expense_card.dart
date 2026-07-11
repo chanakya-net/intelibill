@@ -5,9 +5,10 @@ import 'package:intelibill_mobile/src/features/expenses/domain/entities/expense_
 import 'package:intl/intl.dart';
 
 class ExpenseCard extends StatelessWidget {
-  const ExpenseCard({required this.expense, super.key});
+  const ExpenseCard({required this.expense, required this.onTap, super.key});
 
   final ExpenseListItem expense;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -19,45 +20,49 @@ class ExpenseCard extends StatelessWidget {
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text(
-                    expense.categoryName,
-                    style: theme.textTheme.titleMedium,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      expense.categoryName,
+                      style: theme.textTheme.titleMedium,
+                    ),
                   ),
-                ),
-                Text(
-                  formatInr(expense.amount),
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
+                  Text(
+                    formatInr(expense.amount),
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(expense.paidTo),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(DateFormat('dd MMM yyyy').format(expense.expenseDate)),
-                Chip(
-                  label: Text(status),
-                  visualDensity: VisualDensity.compact,
-                  backgroundColor: expense.isVoided
-                      ? theme.colorScheme.errorContainer
-                      : theme.colorScheme.primaryContainer,
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(expense.paidTo),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(DateFormat('dd MMM yyyy').format(expense.expenseDate)),
+                  Chip(
+                    label: Text(status),
+                    visualDensity: VisualDensity.compact,
+                    backgroundColor: expense.isVoided
+                        ? theme.colorScheme.errorContainer
+                        : theme.colorScheme.primaryContainer,
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
