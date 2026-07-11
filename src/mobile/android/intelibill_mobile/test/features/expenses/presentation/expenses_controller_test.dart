@@ -50,6 +50,15 @@ ExpensePage _makePage({
   pageSize: pageSize,
 );
 
+ExpenseListItem _item(String id) => ExpenseListItem(
+  id: id,
+  amount: 100,
+  categoryName: 'Travel',
+  paidTo: 'Taxi',
+  expenseDate: DateTime(2026, 7),
+  isVoided: false,
+);
+
 final _page = ExpensePage(
   items: [
     ExpenseListItem(
@@ -428,7 +437,7 @@ void main() {
       await container.read(expensesControllerProvider.notifier).refresh();
       await container.read(expensesControllerProvider.notifier).loadMore();
 
-      var state = container.read(expensesControllerProvider);
+      final state = container.read(expensesControllerProvider);
       expect(state.page?.items.map((e) => e.id).toList(), [
         'expense-1',
         'expense-2',
@@ -574,6 +583,94 @@ void main() {
       ]);
       expect(state.isLoadingMore, isFalse);
       expect(state.loadMoreFailure, isNull);
+    });
+
+    test('does not issue concurrent append requests', () async {
+      final getExpenses = MockGetExpenses();
+      final page1 = _makePage(
+        items: [_item('expense-1')],
+        totalCount: 21,
+      );
+      final page2 = _makePage(
+        items: [_item('expense-2')],
+        pageNumber: 2,
+        totalCount: 21,
+      );
+      final nextPage = Completer<ExpensePage>();
+      when(getExpenses.call).thenAnswer((_) async => page1);
+      when(
+        () => getExpenses(page: 2, pageSize: 20),
+      ).thenAnswer((_) => nextPage.future);
+      final container = ProviderContainer(
+        overrides: [getExpensesUseCaseProvider.overrideWithValue(getExpenses)],
+      );
+      addTearDown(container.dispose);
+
+      final controller = container.read(expensesControllerProvider.notifier);
+      await controller.refresh();
+      final firstRequest = controller.loadMore();
+      final secondRequest = controller.loadMore();
+
+      expect(container.read(expensesControllerProvider).isLoadingMore, isTrue);
+      verify(() => getExpenses(page: 2, pageSize: 20)).called(1);
+
+      nextPage.complete(page2);
+      await Future.wait([firstRequest, secondRequest]);
+
+      final state = container.read(expensesControllerProvider);
+      expect(state.page?.items.map((e) => e.id).toList(), [
+        'expense-1',
+        'expense-2',
+      ]);
+      expect(state.isLoadingMore, isFalse);
+    });
+
+    test('refresh invalidates a stale append result', () async {
+      final getExpenses = MockGetExpenses();
+      final initialPage = _makePage(
+        items: [_item('old-expense')],
+        totalCount: 21,
+      );
+      final appendPage = _makePage(
+        items: [_item('stale-expense')],
+        pageNumber: 2,
+        totalCount: 21,
+      );
+      final refreshedPage = _makePage(
+        items: [_item('refreshed-expense')],
+        totalCount: 1,
+      );
+      final appendCompleter = Completer<ExpensePage>();
+      final refreshCompleter = Completer<ExpensePage>();
+      when(getExpenses.call).thenAnswer((_) => refreshCompleter.future);
+      when(
+        () => getExpenses(page: 2, pageSize: 20),
+      ).thenAnswer((_) => appendCompleter.future);
+      final container = ProviderContainer(
+        overrides: [getExpensesUseCaseProvider.overrideWithValue(getExpenses)],
+      );
+      addTearDown(container.dispose);
+      container.read(expensesControllerProvider.notifier).state = ExpensesState(
+        page: initialPage,
+        totalCount: 21,
+      );
+      final controller = container.read(expensesControllerProvider.notifier);
+
+      final appendRequest = controller.loadMore();
+      final refreshRequest = controller.refresh();
+      refreshCompleter.complete(refreshedPage);
+      await refreshRequest;
+      appendCompleter.complete(appendPage);
+      await appendRequest;
+
+      final state = container.read(expensesControllerProvider);
+      expect(state.page?.items.map((e) => e.id).toList(), [
+        'refreshed-expense',
+      ]);
+      expect(state.pageNumber, 1);
+      expect(state.totalCount, 1);
+      expect(state.isLoadingMore, isFalse);
+      expect(state.hasMore, isFalse);
     });
   });
 }
