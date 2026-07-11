@@ -7,6 +7,7 @@ import 'package:intelibill_mobile/src/features/expenses/domain/entities/expense_
 import 'package:intelibill_mobile/src/features/expenses/domain/entities/expenses_page.dart';
 import 'package:intelibill_mobile/src/features/expenses/presentation/controllers/expenses_controller.dart';
 import 'package:intelibill_mobile/src/features/expenses/presentation/pages/expenses_page.dart';
+import 'package:intelibill_mobile/src/features/expenses/presentation/widgets/expense_card.dart';
 
 class _StubExpensesController extends ExpensesController {
   _StubExpensesController(
@@ -130,7 +131,13 @@ void main() {
     expect(find.text('Expenses'), findsOneWidget);
     expect(find.text('Rent'), findsOneWidget);
     expect(find.text('Landlord'), findsOneWidget);
-    expect(find.text('₹1,250'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(ExpenseCard),
+        matching: find.text('₹1,250'),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('02 Jul 2026'), findsOneWidget);
     expect(find.text('Active'), findsNWidgets(2));
     expect(find.text('Utilities'), findsOneWidget);

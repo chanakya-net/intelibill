@@ -313,6 +313,30 @@ abstract class AppLocalizations {
   /// **'No expenses found'**
   String get expensesNoExpensesFound;
 
+  /// No description provided for @expensesSummaryTotal.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Total expenses'**
+  String get expensesSummaryTotal;
+
+  /// No description provided for @expensesSummaryLoadedAmount.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Loaded amount'**
+  String get expensesSummaryLoadedAmount;
+
+  /// No description provided for @expensesSummaryLoadedActive.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Loaded active'**
+  String get expensesSummaryLoadedActive;
+
+  /// No description provided for @expensesSummaryLoadedVoided.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Loaded voided'**
+  String get expensesSummaryLoadedVoided;
+
   /// No description provided for @expensesFilterAll.
   ///
   /// In en_IN, this message translates to:

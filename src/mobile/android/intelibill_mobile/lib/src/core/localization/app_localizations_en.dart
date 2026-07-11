@@ -105,6 +105,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get expensesNoExpensesFound => 'No expenses found';
 
   @override
+  String get expensesSummaryTotal => 'Total expenses';
+
+  @override
+  String get expensesSummaryLoadedAmount => 'Loaded amount';
+
+  @override
+  String get expensesSummaryLoadedActive => 'Loaded active';
+
+  @override
+  String get expensesSummaryLoadedVoided => 'Loaded voided';
+
+  @override
   String get expensesFilterAll => 'All';
 
   @override
@@ -2415,6 +2427,18 @@ class AppLocalizationsEnIn extends AppLocalizationsEn {
 
   @override
   String get expensesNoExpensesFound => 'No expenses found';
+
+  @override
+  String get expensesSummaryTotal => 'Total expenses';
+
+  @override
+  String get expensesSummaryLoadedAmount => 'Loaded amount';
+
+  @override
+  String get expensesSummaryLoadedActive => 'Loaded active';
+
+  @override
+  String get expensesSummaryLoadedVoided => 'Loaded voided';
 
   @override
   String get expensesFilterAll => 'All';
