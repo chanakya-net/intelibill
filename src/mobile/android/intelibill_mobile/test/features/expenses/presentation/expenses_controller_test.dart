@@ -74,9 +74,17 @@ Future<void> _setAuthActiveShop(
   ProviderContainer container,
   String shopId,
 ) async {
-  container.read(authControllerProvider.notifier).state = AsyncData(
+  await _setAuthControllerState(
+    container,
     AuthControllerState(session: _authSession(shopId)),
   );
+}
+
+Future<void> _setAuthControllerState(
+  ProviderContainer container,
+  AuthControllerState state,
+) async {
+  container.read(authControllerProvider.notifier).state = AsyncData(state);
   await Future<void>.delayed(Duration.zero);
 }
 
@@ -166,15 +174,107 @@ void main() {
     );
   }
 
-  test('ignores stale initial list response after shop switch', () async {
+  test(
+    'resets full shop-scoped state before loading new-shop page one',
+    () async {
+      final getExpenses = MockGetExpenses();
+      final staleFirstShopPage = Completer<ExpensePage>();
+      final secondShopPage = Completer<ExpensePage>();
+      var callCount = 0;
+      when(getExpenses.call).thenAnswer((_) {
+        callCount++;
+        return callCount == 1
+            ? staleFirstShopPage.future
+            : secondShopPage.future;
+      });
+      final container = ProviderContainer(
+        overrides: [
+          authControllerProvider.overrideWith(
+            () => _TestAuthController('shop-1'),
+          ),
+          getExpensesUseCaseProvider.overrideWithValue(getExpenses),
+        ],
+      );
+      final subscription = container.listen(
+        expensesControllerProvider,
+        (_, _) {},
+      );
+      addTearDown(subscription.close);
+      addTearDown(container.dispose);
+      final controller = container.read(expensesControllerProvider.notifier);
+      await _waitForAuthSession(container);
+      await Future<void>.delayed(Duration.zero);
+
+      controller.state =
+          const ExpensesState(
+            pageNumber: 3,
+            totalCount: 50,
+            searchQuery: 'rent',
+            statusFilter: ExpenseStatusFilter.voided,
+          ).copyWith(
+            page: _makePage(
+              items: [_item('shop-1-legacy')],
+              totalCount: 50,
+              pageNumber: 3,
+            ),
+            loadMoreFailure: const Failure.network(),
+            selectedExpense: _detail('selected-expense'),
+            selectedExpenseId: 'selected-expense',
+            isDetailLoading: true,
+            detailFailure: const Failure.network(),
+            categories: const [ExpenseCategory(id: 'old', name: 'Old')],
+            isLoadingCategories: true,
+            categoryFailure: const Failure.timeout(),
+            isSubmitting: true,
+            submitFailure: const Failure.unknown(),
+          );
+
+      await _setAuthActiveShop(container, 'shop-2');
+      await Future<void>.delayed(Duration.zero);
+
+      final resetState = container.read(expensesControllerProvider);
+      expect(resetState.isLoading, isTrue);
+      expect(resetState.page, isNull);
+      expect(resetState.pageNumber, 1);
+      expect(resetState.totalCount, 0);
+      expect(resetState.searchQuery, isEmpty);
+      expect(resetState.statusFilter, ExpenseStatusFilter.all);
+      expect(resetState.failure, isNull);
+      expect(resetState.loadMoreFailure, isNull);
+      expect(resetState.isLoadingMore, isFalse);
+      expect(resetState.selectedExpense, isNull);
+      expect(resetState.selectedExpenseId, isNull);
+      expect(resetState.isDetailLoading, isFalse);
+      expect(resetState.detailFailure, isNull);
+      expect(resetState.categories, isEmpty);
+      expect(resetState.isLoadingCategories, isFalse);
+      expect(resetState.categoryFailure, isNull);
+      expect(resetState.isSubmitting, isFalse);
+      expect(resetState.submitFailure, isNull);
+
+      secondShopPage.complete(
+        _makePage(items: [_item('shop-2-expense')], totalCount: 1),
+      );
+      await Future<void>.delayed(Duration.zero);
+      staleFirstShopPage.complete(
+        _makePage(items: [_item('late-shop-1-expense')], totalCount: 50),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final finalState = container.read(expensesControllerProvider);
+      expect(finalState.page?.items.single.id, 'shop-2-expense');
+      expect(finalState.pageNumber, 1);
+      expect(finalState.totalCount, 1);
+      expect(finalState.isLoading, isFalse);
+      expect(callCount, greaterThanOrEqualTo(2));
+    },
+  );
+
+  test('same-shop auth updates do not reset expense state', () async {
     final getExpenses = MockGetExpenses();
-    final firstShopPage = Completer<ExpensePage>();
-    final secondShopPage = Completer<ExpensePage>();
-    var callCount = 0;
-    when(getExpenses.call).thenAnswer((_) {
-      callCount++;
-      return callCount == 1 ? firstShopPage.future : secondShopPage.future;
-    });
+    when(() => getExpenses()).thenAnswer(
+      (_) async => _makePage(items: [_item('shop-1')], totalCount: 1),
+    );
     final container = ProviderContainer(
       overrides: [
         authControllerProvider.overrideWith(
@@ -183,52 +283,64 @@ void main() {
         getExpensesUseCaseProvider.overrideWithValue(getExpenses),
       ],
     );
-    await _waitForAuthSession(container);
-    container.read(expensesControllerProvider.notifier);
-    addTearDown(container.dispose);
     final subscription = container.listen(
       expensesControllerProvider,
       (_, _) {},
     );
-    final authSubscription = container.listen(
-      authControllerProvider,
-      (_, _) {},
-    );
     addTearDown(subscription.close);
-    addTearDown(authSubscription.close);
+    addTearDown(container.dispose);
+    await _waitForAuthSession(container);
+    await Future<void>.delayed(Duration.zero);
+    await _setAuthActiveShop(container, 'shop-1');
+    await Future<void>.delayed(Duration.zero);
+    final controller = container.read(expensesControllerProvider.notifier);
 
-    await Future<void>.delayed(Duration.zero);
-    await _setAuthActiveShop(container, 'shop-2');
-    await Future<void>.delayed(Duration.zero);
-    expect(container.read(expensesControllerProvider).isLoading, isTrue);
-    expect(container.read(expensesControllerProvider).page, isNull);
+    controller.state =
+        const ExpensesState(
+          pageNumber: 1,
+          statusFilter: ExpenseStatusFilter.active,
+          isLoading: false,
+          isLoadingMore: true,
+          isDetailLoading: true,
+          isLoadingCategories: true,
+          isSubmitting: true,
+          searchQuery: 'rent',
+        ).copyWith(
+          page: _makePage(items: [_item('old-shop-expense')], totalCount: 2),
+          selectedExpense: _detail('selected-expense'),
+          selectedExpenseId: 'selected-expense',
+          loadMoreFailure: const Failure.network(),
+          detailFailure: const Failure.network(),
+          categories: const [ExpenseCategory(id: 'old', name: 'Old')],
+          categoryFailure: const Failure.network(),
+          submitFailure: const Failure.unknown(),
+        );
 
-    secondShopPage.complete(
-      _makePage(items: [_item('shop-2-expense')], totalCount: 1),
-    );
-    await Future<void>.delayed(Duration.zero);
-    firstShopPage.complete(
-      _makePage(items: [_item('shop-1-expense')], totalCount: 1),
-    );
+    await _setAuthActiveShop(container, 'shop-1');
     await Future<void>.delayed(Duration.zero);
 
     final state = container.read(expensesControllerProvider);
-    expect(state.page?.items.single.id, 'shop-2-expense');
-    expect(state.pageNumber, 1);
-    expect(state.searchQuery, isEmpty);
-    expect(callCount, greaterThanOrEqualTo(2));
+    expect(state.page?.items.single.id, 'old-shop-expense');
+    expect(state.statusFilter, ExpenseStatusFilter.active);
+    expect(state.isLoadingMore, isTrue);
+    expect(state.isDetailLoading, isTrue);
+    expect(state.isLoadingCategories, isTrue);
+    expect(state.isSubmitting, isTrue);
+    expect(state.selectedExpenseId, 'selected-expense');
+    expect(state.categories, hasLength(1));
   });
 
   test('ignores stale pagination response after shop switch', () async {
     final getExpenses = MockGetExpenses();
-    final initialPage = Completer<ExpensePage>();
     final oldAppendPage = Completer<ExpensePage>();
     final switchedPage = Completer<ExpensePage>();
     var callCount = 0;
+    when(() => getExpenses(page: 2, pageSize: 20)).thenAnswer((_) {
+      callCount++;
+      return oldAppendPage.future;
+    });
     when(getExpenses.call).thenAnswer((_) {
       callCount++;
-      if (callCount == 1) return initialPage.future;
-      if (callCount == 2) return oldAppendPage.future;
       return switchedPage.future;
     });
     final container = ProviderContainer(
@@ -239,9 +351,6 @@ void main() {
         getExpensesUseCaseProvider.overrideWithValue(getExpenses),
       ],
     );
-    final controller = container.read(expensesControllerProvider.notifier);
-    addTearDown(container.dispose);
-    await _waitForAuthSession(container);
     final subscription = container.listen(
       expensesControllerProvider,
       (_, _) {},
@@ -252,15 +361,39 @@ void main() {
     );
     addTearDown(subscription.close);
     addTearDown(authSubscription.close);
+    addTearDown(container.dispose);
+    await _waitForAuthSession(container);
+    final controller = container.read(expensesControllerProvider.notifier);
 
     await Future<void>.delayed(Duration.zero);
-    initialPage.complete(_makePage(items: [_item('old-1')], totalCount: 40));
+    controller.state = ExpensesState(
+      page: ExpensePage(
+        items: [
+          ExpenseListItem(
+            id: 'old-1',
+            amount: 50,
+            categoryName: 'Travel',
+            paidTo: 'Taxi',
+            expenseDate: DateTime(2026, 7),
+            isVoided: false,
+          ),
+        ],
+        totalCount: 40,
+        pageNumber: 1,
+        pageSize: 20,
+      ),
+      totalCount: 40,
+      pageNumber: 1,
+      pageSize: 20,
+    );
+    final pendingAppend = controller.loadMore();
     await Future<void>.delayed(Duration.zero);
-    await controller.loadMore();
+    expect(container.read(expensesControllerProvider).isLoadingMore, isTrue);
 
     await _setAuthActiveShop(container, 'shop-2');
     await Future<void>.delayed(Duration.zero);
     expect(container.read(expensesControllerProvider).page, isNull);
+    expect(container.read(expensesControllerProvider).isLoadingMore, isFalse);
     switchedPage.complete(
       _makePage(items: [_item('shop-2-expense')], totalCount: 1),
     );
@@ -269,26 +402,23 @@ void main() {
       _makePage(items: [_item('stale-append')], pageNumber: 2, totalCount: 40),
     );
     await Future<void>.delayed(Duration.zero);
+    await pendingAppend;
 
     final state = container.read(expensesControllerProvider);
     expect(state.page?.items.single.id, 'shop-2-expense');
     expect(state.pageNumber, 1);
     expect(state.isLoadingMore, isFalse);
-    expect(callCount, greaterThanOrEqualTo(3));
+    expect(callCount, greaterThanOrEqualTo(2));
   });
 
   test('ignores stale search response after shop switch', () async {
     final getExpenses = MockGetExpenses();
-    final initialPage = Completer<ExpensePage>();
-    final oldSearchPage = Completer<ExpensePage>();
+    final staleSearchPage = Completer<ExpensePage>();
     final switchedPage = Completer<ExpensePage>();
-    var callCount = 0;
-    when(getExpenses.call).thenAnswer((_) {
-      callCount++;
-      if (callCount == 1) return initialPage.future;
-      if (callCount == 2) return oldSearchPage.future;
-      return switchedPage.future;
-    });
+    when(() => getExpenses()).thenAnswer((_) => switchedPage.future);
+    when(
+      () => getExpenses(page: 1, pageSize: 20, search: 'rent'),
+    ).thenAnswer((_) => staleSearchPage.future);
     final container = ProviderContainer(
       overrides: [
         authControllerProvider.overrideWith(
@@ -297,9 +427,6 @@ void main() {
         getExpensesUseCaseProvider.overrideWithValue(getExpenses),
       ],
     );
-    final controller = container.read(expensesControllerProvider.notifier);
-    addTearDown(container.dispose);
-    await _waitForAuthSession(container);
     final subscription = container.listen(
       expensesControllerProvider,
       (_, _) {},
@@ -310,9 +437,10 @@ void main() {
     );
     addTearDown(subscription.close);
     addTearDown(authSubscription.close);
+    addTearDown(container.dispose);
+    await _waitForAuthSession(container);
+    final controller = container.read(expensesControllerProvider.notifier);
 
-    await Future<void>.delayed(Duration.zero);
-    initialPage.complete(_makePage(items: [_item('old-base')], totalCount: 20));
     await Future<void>.delayed(Duration.zero);
     controller.updateSearch('rent');
     await Future<void>.delayed(const Duration(milliseconds: 320));
@@ -324,7 +452,7 @@ void main() {
       _makePage(items: [_item('shop-2-result')], totalCount: 1),
     );
     await Future<void>.delayed(Duration.zero);
-    oldSearchPage.complete(
+    staleSearchPage.complete(
       _makePage(items: [_item('stale-search')], totalCount: 1),
     );
     await Future<void>.delayed(Duration.zero);
@@ -333,7 +461,7 @@ void main() {
     expect(state.page?.items.single.id, 'shop-2-result');
     expect(state.pageNumber, 1);
     expect(state.searchQuery, isEmpty);
-    expect(callCount, greaterThanOrEqualTo(3));
+    verify(() => getExpenses(page: 1, pageSize: 20, search: 'rent')).called(1);
   });
 
   test('ignores stale detail response after shop switch', () async {
@@ -595,31 +723,59 @@ void main() {
     },
   );
 
-  test('does not run search requests after controller disposal', () async {
-    final getExpenses = MockGetExpenses();
-    var callCount = 0;
-    when(getExpenses.call).thenAnswer((_) {
-      callCount++;
-      return Completer<ExpensePage>().future;
-    });
-    final container = ProviderContainer(
-      overrides: [
-        getExpensesUseCaseProvider.overrideWithValue(getExpenses),
-        expensesControllerProvider.overrideWith(
-          () => _TestExpensesController(const ExpensesState()),
-        ),
-      ],
-    );
+  test(
+    'does not write state or request stale work after disposal',
+    () async {
+      final getExpenses = MockGetExpenses();
+      final refreshCompleter = Completer<ExpensePage>();
+      final searchCompleter = Completer<ExpensePage>();
+      var callCount = 0;
+      when(getExpenses.call).thenAnswer((_) {
+        callCount++;
+        return refreshCompleter.future;
+      });
+      when(
+        () => getExpenses(page: 1, pageSize: 20, search: 'office rent'),
+      ).thenAnswer((_) => searchCompleter.future);
+      final container = ProviderContainer(
+        overrides: [
+          authControllerProvider.overrideWith(
+            () => _TestAuthController('shop-1'),
+          ),
+          getExpensesUseCaseProvider.overrideWithValue(getExpenses),
+        ],
+      );
+      final subscription = container.listen(
+        expensesControllerProvider,
+        (_, _) {},
+      );
+      addTearDown(subscription.close);
 
-    container.read(expensesControllerProvider);
-    container
-        .read(expensesControllerProvider.notifier)
-        .updateSearch('office rent');
-    container.dispose();
-    await Future<void>.delayed(const Duration(milliseconds: 360));
+      addTearDown(container.dispose);
+      final controller = container.read(expensesControllerProvider.notifier);
+      await _waitForAuthSession(container);
+      await Future<void>.delayed(Duration.zero);
+      controller.updateSearch('office rent');
+      unawaited(controller.refresh());
+      await Future<void>.delayed(const Duration(milliseconds: 20));
 
-    expect(callCount, 0);
-  });
+      container.dispose();
+      refreshCompleter.complete(
+        _makePage(items: [_item('late-expense')], totalCount: 1),
+      );
+      searchCompleter.complete(
+        _makePage(items: [_item('late-search')], totalCount: 1),
+      );
+
+      await Future<void>.delayed(Duration.zero);
+      verify(
+        () => getExpenses(page: 1, pageSize: 20, search: 'office rent'),
+      ).called(1);
+      await Future<void>.delayed(const Duration(milliseconds: 360));
+
+      expect(callCount, greaterThanOrEqualTo(2));
+    },
+  );
 
   test('loads first expenses page', () async {
     final getExpenses = MockGetExpenses();

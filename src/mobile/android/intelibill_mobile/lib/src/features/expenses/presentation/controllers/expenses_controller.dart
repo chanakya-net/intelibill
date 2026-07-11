@@ -212,12 +212,16 @@ class ExpensesController extends _$ExpensesController {
         .value
         ?.session
         ?.activeShopId;
-    if (_activeShopId != activeShopId) {
+    final shopChanged = activeShopId != null && _activeShopId != activeShopId;
+    if (shopChanged) {
       _handleActiveShopChange(activeShopId);
     }
     ref.onDispose(() => _searchDebounce?.cancel());
     unawaited(Future.microtask(_startInitialLoad));
-    return const ExpensesState(isLoading: true);
+    if (activeShopId == null || shopChanged) {
+      return const ExpensesState(isLoading: true);
+    }
+    return state;
   }
 
   void _handleActiveShopChange(String? activeShopId) {
