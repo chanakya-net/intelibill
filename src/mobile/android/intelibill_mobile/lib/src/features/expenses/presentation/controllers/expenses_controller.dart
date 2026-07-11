@@ -388,16 +388,12 @@ class ExpensesController extends _$ExpensesController {
         description: description,
         expenseDate: expenseDate,
       );
-      if (!ref.mounted) return false;
+      // The mutation is committed once the record use case completes. A list
+      // refresh failure must not turn that committed mutation into a retryable
+      // form submission.
+      if (!ref.mounted) return true;
       await refresh();
-      if (!ref.mounted) return false;
-      if (state.failure != null) {
-        state = state.copyWith(
-          isSubmitting: false,
-          submitFailure: state.failure,
-        );
-        return false;
-      }
+      if (!ref.mounted) return true;
       state = state.copyWith(
         isSubmitting: false,
         clearSubmitFailure: true,

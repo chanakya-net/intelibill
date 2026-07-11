@@ -352,7 +352,9 @@ String? _validateAmount(
   final trimmed = (value ?? '').trim();
   if (trimmed.isEmpty) return requiredMessage;
   final amount = double.tryParse(trimmed);
-  return amount == null || amount <= 0 ? invalidMessage : null;
+  return amount == null || !amount.isFinite || amount <= 0
+      ? invalidMessage
+      : null;
 }
 
 String _localizeCategoryFailure(AppLocalizations l10n, Failure failure) {

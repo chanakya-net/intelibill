@@ -192,6 +192,55 @@ void main() {
     },
   );
 
+  test('reports committed record success when page refresh fails', () async {
+    final recordExpense = MockRecordExpense();
+    final getExpenses = MockGetExpenses();
+    when(
+      () => recordExpense(
+        categoryName: 'Rent',
+        amount: 25,
+        paidTo: 'Vendor',
+        expenseDate: DateTime(2026, 7, 2),
+      ),
+    ).thenAnswer((_) async => _detail('new-expense'));
+    when(getExpenses.call).thenThrow(
+      AppException(failure: const Failure.network()),
+    );
+    final container = ProviderContainer(
+      overrides: [
+        recordExpenseUseCaseProvider.overrideWithValue(recordExpense),
+        getExpensesUseCaseProvider.overrideWithValue(getExpenses),
+        expensesControllerProvider.overrideWith(
+          () => _TestExpensesController(const ExpensesState()),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final recorded = await container
+        .read(expensesControllerProvider.notifier)
+        .recordExpense(
+          categoryName: 'Rent',
+          amount: 25,
+          paidTo: 'Vendor',
+          expenseDate: DateTime(2026, 7, 2),
+        );
+
+    final state = container.read(expensesControllerProvider);
+    expect(recorded, isTrue);
+    expect(state.isSubmitting, isFalse);
+    expect(state.submitFailure, isNull);
+    expect(state.failure, isA<NetworkFailure>());
+    verify(
+      () => recordExpense(
+        categoryName: 'Rent',
+        amount: 25,
+        paidTo: 'Vendor',
+        expenseDate: DateTime(2026, 7, 2),
+      ),
+    ).called(1);
+  });
+
   test('exposes mapped failure when loading fails', () async {
     final getExpenses = MockGetExpenses();
     when(getExpenses.call).thenThrow(
