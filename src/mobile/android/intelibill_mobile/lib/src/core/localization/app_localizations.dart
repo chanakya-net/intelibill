@@ -529,6 +529,132 @@ abstract class AppLocalizations {
   /// **'Supplier payment'**
   String get expensesDetailSourceSupplierPayment;
 
+  /// No description provided for @expensesRecordExpense.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Record expense'**
+  String get expensesRecordExpense;
+
+  /// No description provided for @expensesRecordSuccess.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Expense recorded successfully.'**
+  String get expensesRecordSuccess;
+
+  /// No description provided for @expensesCategoryLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Category'**
+  String get expensesCategoryLabel;
+
+  /// No description provided for @expensesCategoryRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Category is required.'**
+  String get expensesCategoryRequired;
+
+  /// No description provided for @expensesCategoryMax.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Category must be 100 characters or fewer.'**
+  String get expensesCategoryMax;
+
+  /// No description provided for @expensesCategoryRetry.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Retry categories'**
+  String get expensesCategoryRetry;
+
+  /// No description provided for @expensesCategoryLoadError.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to load expense categories.'**
+  String get expensesCategoryLoadError;
+
+  /// No description provided for @expensesAmountLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Amount'**
+  String get expensesAmountLabel;
+
+  /// No description provided for @expensesAmountRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Amount is required.'**
+  String get expensesAmountRequired;
+
+  /// No description provided for @expensesAmountInvalid.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Enter an amount greater than 0.'**
+  String get expensesAmountInvalid;
+
+  /// No description provided for @expensesPaidToLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Paid to'**
+  String get expensesPaidToLabel;
+
+  /// No description provided for @expensesPaidToRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Paid to is required.'**
+  String get expensesPaidToRequired;
+
+  /// No description provided for @expensesPaidToMax.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Paid to must be 255 characters or fewer.'**
+  String get expensesPaidToMax;
+
+  /// No description provided for @expensesDateLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Expense date'**
+  String get expensesDateLabel;
+
+  /// No description provided for @expensesDescriptionLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Description'**
+  String get expensesDescriptionLabel;
+
+  /// No description provided for @expensesDescriptionMax.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Description must be 500 characters or fewer.'**
+  String get expensesDescriptionMax;
+
+  /// No description provided for @expensesMutationErrorNetwork.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to connect. Please try again.'**
+  String get expensesMutationErrorNetwork;
+
+  /// No description provided for @expensesMutationErrorTimeout.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Request timed out. Please try again.'**
+  String get expensesMutationErrorTimeout;
+
+  /// No description provided for @expensesMutationErrorUnauthorized.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Session expired. Please log in again.'**
+  String get expensesMutationErrorUnauthorized;
+
+  /// No description provided for @expensesMutationErrorForbidden.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'You do not have permission to record expenses.'**
+  String get expensesMutationErrorForbidden;
+
+  /// No description provided for @expensesMutationErrorGeneric.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to record expense. Please try again.'**
+  String get expensesMutationErrorGeneric;
+
   /// No description provided for @shellManageBankAccounts.
   ///
   /// In en_IN, this message translates to:

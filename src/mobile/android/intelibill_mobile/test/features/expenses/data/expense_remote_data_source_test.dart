@@ -1,11 +1,97 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intelibill_mobile/src/features/expenses/data/data_sources/expense_remote_data_source.dart';
+import 'package:intelibill_mobile/src/features/expenses/data/dto/expense_mutation_request_dto.dart';
 import 'package:mocktail/mocktail.dart';
 
 import '../../../mocks/mock_api_client.dart';
 
 void main() {
+  test('gets expense categories', () async {
+    final apiClient = MockApiClient();
+    final dataSource = ExpenseRemoteDataSourceImpl(apiClient);
+    when(
+      () => apiClient.get<List<dynamic>>('/expenses/categories'),
+    ).thenAnswer(
+      (_) async => Response(
+        data: [
+          {'id': 'rent', 'name': 'Rent'},
+          {'id': 'utilities', 'name': 'Utilities'},
+        ],
+        statusCode: 200,
+        requestOptions: RequestOptions(path: '/expenses/categories'),
+      ),
+    );
+
+    final categories = await dataSource.getCategories();
+
+    expect(categories.map((category) => category.name), ['Rent', 'Utilities']);
+    verify(
+      () => apiClient.get<List<dynamic>>('/expenses/categories'),
+    ).called(1);
+  });
+
+  test('records an expense with the backend payload contract', () async {
+    final apiClient = MockApiClient();
+    final dataSource = ExpenseRemoteDataSourceImpl(apiClient);
+    when(
+      () => apiClient.post<Map<String, dynamic>>(
+        '/expenses',
+        data: {
+          'categoryName': 'Rent',
+          'amount': 1250.5,
+          'paidTo': 'Landlord',
+          'description': null,
+          'expenseDate': '2026-07-02',
+        },
+      ),
+    ).thenAnswer(
+      (_) async => Response(
+        data: {
+          'id': 'expense-1',
+          'shopId': 'shop-1',
+          'categoryId': 'rent',
+          'categoryName': 'Rent',
+          'amount': 1250.5,
+          'paidTo': 'Landlord',
+          'description': null,
+          'expenseDate': '2026-07-02',
+          'actorUserId': 'user-1',
+          'isVoided': false,
+          'originalExpenseId': null,
+          'supplierLedgerEntryId': null,
+          'createdAt': '2026-07-02T08:30:00.000Z',
+        },
+        statusCode: 201,
+        requestOptions: RequestOptions(path: '/expenses'),
+      ),
+    );
+
+    final expense = await dataSource.recordExpense(
+      ExpenseMutationRequestDto(
+        categoryName: '  Rent ',
+        amount: 1250.5,
+        paidTo: ' Landlord ',
+        description: '  ',
+        expenseDate: DateTime(2026, 7, 2),
+      ),
+    );
+
+    expect(expense.id, 'expense-1');
+    verify(
+      () => apiClient.post<Map<String, dynamic>>(
+        '/expenses',
+        data: {
+          'categoryName': 'Rent',
+          'amount': 1250.5,
+          'paidTo': 'Landlord',
+          'description': null,
+          'expenseDate': '2026-07-02',
+        },
+      ),
+    ).called(1);
+  });
+
   test('gets first 20 expenses and parses backend list contract', () async {
     final apiClient = MockApiClient();
     final dataSource = ExpenseRemoteDataSourceImpl(apiClient);

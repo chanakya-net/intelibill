@@ -4,17 +4,24 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
+import 'package:intelibill_mobile/src/features/expenses/domain/entities/expense_category.dart';
 import 'package:intelibill_mobile/src/features/expenses/domain/entities/expense_detail.dart';
 import 'package:intelibill_mobile/src/features/expenses/domain/entities/expense_list_item.dart';
 import 'package:intelibill_mobile/src/features/expenses/domain/entities/expenses_page.dart';
+import 'package:intelibill_mobile/src/features/expenses/domain/use_cases/get_expense_categories.dart';
 import 'package:intelibill_mobile/src/features/expenses/domain/use_cases/get_expense_detail.dart';
 import 'package:intelibill_mobile/src/features/expenses/domain/use_cases/get_expenses.dart';
+import 'package:intelibill_mobile/src/features/expenses/domain/use_cases/record_expense.dart';
 import 'package:intelibill_mobile/src/features/expenses/presentation/controllers/expenses_controller.dart';
 import 'package:mocktail/mocktail.dart';
 
 class MockGetExpenses extends Mock implements GetExpenses {}
 
 class MockGetExpenseDetail extends Mock implements GetExpenseDetail {}
+
+class MockGetExpenseCategories extends Mock implements GetExpenseCategories {}
+
+class MockRecordExpense extends Mock implements RecordExpense {}
 
 class _TestExpensesController extends ExpensesController {
   _TestExpensesController(this._initialState);
@@ -128,6 +135,62 @@ void main() {
     expect(state.failure, isNull);
     verify(getExpenses.call).called(greaterThanOrEqualTo(1));
   });
+
+  test(
+    'loads categories and records an expense before refreshing page one',
+    () async {
+      final getCategories = MockGetExpenseCategories();
+      final recordExpense = MockRecordExpense();
+      final getExpenses = MockGetExpenses();
+      const categories = [ExpenseCategory(id: 'rent', name: 'Rent')];
+      when(getCategories.call).thenAnswer((_) async => categories);
+      when(
+        () => recordExpense(
+          categoryName: 'Rent',
+          amount: 25,
+          paidTo: 'Vendor',
+          expenseDate: DateTime(2026, 7, 2),
+        ),
+      ).thenAnswer((_) async => _detail('new-expense'));
+      when(getExpenses.call).thenAnswer((_) async => _page);
+      final container = ProviderContainer(
+        overrides: [
+          getExpenseCategoriesUseCaseProvider.overrideWithValue(getCategories),
+          recordExpenseUseCaseProvider.overrideWithValue(recordExpense),
+          getExpensesUseCaseProvider.overrideWithValue(getExpenses),
+          expensesControllerProvider.overrideWith(
+            () => _TestExpensesController(const ExpensesState()),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final controller = container.read(expensesControllerProvider.notifier);
+      await controller.loadCategories();
+      final recorded = await controller.recordExpense(
+        categoryName: 'Rent',
+        amount: 25,
+        paidTo: 'Vendor',
+        expenseDate: DateTime(2026, 7, 2),
+      );
+
+      expect(recorded, isTrue);
+      expect(
+        container.read(expensesControllerProvider).categories,
+        categories,
+      );
+      expect(container.read(expensesControllerProvider).page, _page);
+      verify(getCategories.call).called(1);
+      verify(
+        () => recordExpense(
+          categoryName: 'Rent',
+          amount: 25,
+          paidTo: 'Vendor',
+          expenseDate: DateTime(2026, 7, 2),
+        ),
+      ).called(1);
+    },
+  );
 
   test('exposes mapped failure when loading fails', () async {
     final getExpenses = MockGetExpenses();

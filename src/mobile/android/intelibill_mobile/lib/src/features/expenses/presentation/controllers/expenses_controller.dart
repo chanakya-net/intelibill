@@ -6,12 +6,15 @@ import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/network/api_client_provider.dart';
 import 'package:intelibill_mobile/src/features/expenses/data/data_sources/expense_remote_data_source.dart';
 import 'package:intelibill_mobile/src/features/expenses/data/repositories/expense_repository_impl.dart';
+import 'package:intelibill_mobile/src/features/expenses/domain/entities/expense_category.dart';
 import 'package:intelibill_mobile/src/features/expenses/domain/entities/expense_detail.dart';
 import 'package:intelibill_mobile/src/features/expenses/domain/entities/expense_list_item.dart';
 import 'package:intelibill_mobile/src/features/expenses/domain/entities/expenses_page.dart';
 import 'package:intelibill_mobile/src/features/expenses/domain/repositories/expense_repository.dart';
+import 'package:intelibill_mobile/src/features/expenses/domain/use_cases/get_expense_categories.dart';
 import 'package:intelibill_mobile/src/features/expenses/domain/use_cases/get_expense_detail.dart';
 import 'package:intelibill_mobile/src/features/expenses/domain/use_cases/get_expenses.dart';
+import 'package:intelibill_mobile/src/features/expenses/domain/use_cases/record_expense.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'expenses_controller.g.dart';
@@ -38,6 +41,16 @@ GetExpenseDetail getExpenseDetailUseCase(Ref ref) {
   return GetExpenseDetail(ref.watch(expenseRepositoryProvider));
 }
 
+@riverpod
+GetExpenseCategories getExpenseCategoriesUseCase(Ref ref) {
+  return GetExpenseCategories(ref.watch(expenseRepositoryProvider));
+}
+
+@riverpod
+RecordExpense recordExpenseUseCase(Ref ref) {
+  return RecordExpense(ref.watch(expenseRepositoryProvider));
+}
+
 @immutable
 class ExpensesState {
   const ExpensesState({
@@ -55,6 +68,11 @@ class ExpensesState {
     this.selectedExpenseId,
     this.isDetailLoading = false,
     this.detailFailure,
+    this.categories = const [],
+    this.isLoadingCategories = false,
+    this.categoryFailure,
+    this.isSubmitting = false,
+    this.submitFailure,
   });
 
   final ExpensePage? page;
@@ -71,6 +89,11 @@ class ExpensesState {
   final String? selectedExpenseId;
   final bool isDetailLoading;
   final Failure? detailFailure;
+  final List<ExpenseCategory> categories;
+  final bool isLoadingCategories;
+  final Failure? categoryFailure;
+  final bool isSubmitting;
+  final Failure? submitFailure;
 
   bool get hasMore => pageNumber * pageSize < totalCount;
 
@@ -104,6 +127,13 @@ class ExpensesState {
     Failure? detailFailure,
     bool clearSelectedExpense = false,
     bool clearDetailFailure = false,
+    List<ExpenseCategory>? categories,
+    bool? isLoadingCategories,
+    Failure? categoryFailure,
+    bool clearCategoryFailure = false,
+    bool? isSubmitting,
+    Failure? submitFailure,
+    bool clearSubmitFailure = false,
   }) {
     return ExpensesState(
       page: page ?? this.page,
@@ -128,6 +158,15 @@ class ExpensesState {
       detailFailure: clearSelectedExpense || clearDetailFailure
           ? null
           : (detailFailure ?? this.detailFailure),
+      categories: categories ?? this.categories,
+      isLoadingCategories: isLoadingCategories ?? this.isLoadingCategories,
+      categoryFailure: clearCategoryFailure
+          ? null
+          : (categoryFailure ?? this.categoryFailure),
+      isSubmitting: isSubmitting ?? this.isSubmitting,
+      submitFailure: clearSubmitFailure
+          ? null
+          : (submitFailure ?? this.submitFailure),
     );
   }
 }
@@ -137,6 +176,7 @@ class ExpensesController extends _$ExpensesController {
   Timer? _searchDebounce;
   int _detailRequestGeneration = 0;
   int _paginationGeneration = 0;
+  int _categoryGeneration = 0;
   Future<void>? _loadMoreOperation;
   int _loadMoreOperationGeneration = -1;
 
@@ -293,6 +333,91 @@ class ExpensesController extends _$ExpensesController {
       pageSize: pageSize,
       search: search,
     );
+  }
+
+  Future<void> loadCategories({bool force = false}) async {
+    if (state.isLoadingCategories || (!force && state.categories.isNotEmpty)) {
+      return;
+    }
+    final requestGeneration = ++_categoryGeneration;
+    state = state.copyWith(
+      isLoadingCategories: true,
+      clearCategoryFailure: true,
+    );
+    try {
+      final categories = await ref.read(getExpenseCategoriesUseCaseProvider)();
+      if (!_isCurrentCategoryRequest(requestGeneration)) return;
+      state = state.copyWith(
+        categories: categories,
+        isLoadingCategories: false,
+        clearCategoryFailure: true,
+      );
+    } on AppException catch (error) {
+      if (!_isCurrentCategoryRequest(requestGeneration)) return;
+      state = state.copyWith(
+        isLoadingCategories: false,
+        categoryFailure: error.failure,
+      );
+    } on Object {
+      if (!_isCurrentCategoryRequest(requestGeneration)) return;
+      state = state.copyWith(
+        isLoadingCategories: false,
+        categoryFailure: const Failure.unknown(),
+      );
+    }
+  }
+
+  bool _isCurrentCategoryRequest(int requestGeneration) {
+    return ref.mounted && _categoryGeneration == requestGeneration;
+  }
+
+  Future<bool> recordExpense({
+    required String categoryName,
+    required double amount,
+    required String paidTo,
+    String? description,
+    required DateTime expenseDate,
+  }) async {
+    if (state.isSubmitting) return false;
+    state = state.copyWith(isSubmitting: true, clearSubmitFailure: true);
+    try {
+      await ref.read(recordExpenseUseCaseProvider)(
+        categoryName: categoryName,
+        amount: amount,
+        paidTo: paidTo,
+        description: description,
+        expenseDate: expenseDate,
+      );
+      if (!ref.mounted) return false;
+      await refresh();
+      if (!ref.mounted) return false;
+      if (state.failure != null) {
+        state = state.copyWith(
+          isSubmitting: false,
+          submitFailure: state.failure,
+        );
+        return false;
+      }
+      state = state.copyWith(
+        isSubmitting: false,
+        clearSubmitFailure: true,
+      );
+      return true;
+    } on AppException catch (error) {
+      if (!ref.mounted) return false;
+      state = state.copyWith(
+        isSubmitting: false,
+        submitFailure: error.failure,
+      );
+      return false;
+    } on Object {
+      if (!ref.mounted) return false;
+      state = state.copyWith(
+        isSubmitting: false,
+        submitFailure: const Failure.unknown(),
+      );
+      return false;
+    }
   }
 
   Future<void> openExpense(String id) async {
