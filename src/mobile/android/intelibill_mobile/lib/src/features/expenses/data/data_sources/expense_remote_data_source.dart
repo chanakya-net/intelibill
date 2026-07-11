@@ -1,5 +1,7 @@
 import 'package:intelibill_mobile/src/core/network/api_client.dart';
+import 'package:intelibill_mobile/src/features/expenses/data/dto/expense_category_dto.dart';
 import 'package:intelibill_mobile/src/features/expenses/data/dto/expense_detail_dto.dart';
+import 'package:intelibill_mobile/src/features/expenses/data/dto/expense_mutation_request_dto.dart';
 import 'package:intelibill_mobile/src/features/expenses/data/dto/expenses_page_dto.dart';
 
 interface class ExpenseRemoteDataSource {
@@ -12,6 +14,14 @@ interface class ExpenseRemoteDataSource {
   }
 
   Future<ExpenseDetailDto> getExpenseDetail(String id) {
+    throw UnimplementedError();
+  }
+
+  Future<List<ExpenseCategoryDto>> getCategories() {
+    throw UnimplementedError();
+  }
+
+  Future<ExpenseDetailDto> recordExpense(ExpenseMutationRequestDto request) {
     throw UnimplementedError();
   }
 }
@@ -47,6 +57,28 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
   Future<ExpenseDetailDto> getExpenseDetail(String id) async {
     final response = await _apiClient.get<Map<String, dynamic>>(
       '/expenses/$id',
+    );
+    return ExpenseDetailDto.fromJson(response.data!);
+  }
+
+  @override
+  Future<List<ExpenseCategoryDto>> getCategories() async {
+    final response = await _apiClient.get<List<dynamic>>(
+      '/expenses/categories',
+    );
+    return response.data!
+        .cast<Map<String, dynamic>>()
+        .map(ExpenseCategoryDto.fromJson)
+        .toList();
+  }
+
+  @override
+  Future<ExpenseDetailDto> recordExpense(
+    ExpenseMutationRequestDto request,
+  ) async {
+    final response = await _apiClient.post<Map<String, dynamic>>(
+      '/expenses',
+      data: request.toJson(),
     );
     return ExpenseDetailDto.fromJson(response.data!);
   }

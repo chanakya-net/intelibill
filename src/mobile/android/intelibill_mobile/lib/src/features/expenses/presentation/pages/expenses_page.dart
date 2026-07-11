@@ -2,13 +2,18 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intelibill_mobile/src/app/shell/menu_visibility.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
+import 'package:intelibill_mobile/src/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:intelibill_mobile/src/features/expenses/presentation/controllers/expenses_controller.dart';
 import 'package:intelibill_mobile/src/features/expenses/presentation/widgets/expense_card.dart';
 import 'package:intelibill_mobile/src/features/expenses/presentation/widgets/expense_detail_sheet.dart';
+import 'package:intelibill_mobile/src/features/expenses/presentation/widgets/expense_form_sheet.dart';
 
 class ExpensesPage extends ConsumerStatefulWidget {
   const ExpensesPage({super.key});
+
+  static const recordExpenseFabKey = Key('expenses-record-fab');
 
   @override
   ConsumerState<ExpensesPage> createState() => _ExpensesPageState();
@@ -32,13 +37,23 @@ class _ExpensesPageState extends ConsumerState<ExpensesPage> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(expensesControllerProvider);
+    final authState = ref.watch(authControllerProvider);
     final l10n = AppLocalizations.of(context)!;
+    final canRecord = canManageExpenses(authState.value?.session);
     if (_searchController.text != state.searchQuery) {
       _searchController.text = state.searchQuery;
     }
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.shellManageExpenses)),
+      floatingActionButton: canRecord
+          ? FloatingActionButton.extended(
+              key: ExpensesPage.recordExpenseFabKey,
+              onPressed: _openRecordExpenseSheet,
+              icon: const Icon(Icons.add),
+              label: Text(l10n.expensesRecordExpense),
+            )
+          : null,
       body: Column(
         children: [
           Padding(
@@ -79,6 +94,21 @@ class _ExpensesPageState extends ConsumerState<ExpensesPage> {
           Expanded(child: _ExpensesBody(state: state)),
         ],
       ),
+    );
+  }
+
+  Future<void> _openRecordExpenseSheet() async {
+    final l10n = AppLocalizations.of(context)!;
+    final recorded = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (_) => const ExpenseFormSheet(),
+    );
+    if (!mounted || recorded != true) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(l10n.expensesRecordSuccess)),
     );
   }
 }

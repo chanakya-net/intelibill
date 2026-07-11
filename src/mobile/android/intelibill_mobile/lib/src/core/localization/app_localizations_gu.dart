@@ -218,6 +218,75 @@ class AppLocalizationsGu extends AppLocalizations {
   String get expensesDetailSourceSupplierPayment => 'Supplier payment';
 
   @override
+  String get expensesRecordExpense => 'Record expense';
+
+  @override
+  String get expensesRecordSuccess => 'Expense recorded successfully.';
+
+  @override
+  String get expensesCategoryLabel => 'Category';
+
+  @override
+  String get expensesCategoryRequired => 'Category is required.';
+
+  @override
+  String get expensesCategoryMax => 'Category must be 100 characters or fewer.';
+
+  @override
+  String get expensesCategoryRetry => 'Retry categories';
+
+  @override
+  String get expensesCategoryLoadError => 'Unable to load expense categories.';
+
+  @override
+  String get expensesAmountLabel => 'Amount';
+
+  @override
+  String get expensesAmountRequired => 'Amount is required.';
+
+  @override
+  String get expensesAmountInvalid => 'Enter an amount greater than 0.';
+
+  @override
+  String get expensesPaidToLabel => 'Paid to';
+
+  @override
+  String get expensesPaidToRequired => 'Paid to is required.';
+
+  @override
+  String get expensesPaidToMax => 'Paid to must be 255 characters or fewer.';
+
+  @override
+  String get expensesDateLabel => 'Expense date';
+
+  @override
+  String get expensesDescriptionLabel => 'Description';
+
+  @override
+  String get expensesDescriptionMax =>
+      'Description must be 500 characters or fewer.';
+
+  @override
+  String get expensesMutationErrorNetwork =>
+      'Unable to connect. Please try again.';
+
+  @override
+  String get expensesMutationErrorTimeout =>
+      'Request timed out. Please try again.';
+
+  @override
+  String get expensesMutationErrorUnauthorized =>
+      'Session expired. Please log in again.';
+
+  @override
+  String get expensesMutationErrorForbidden =>
+      'You do not have permission to record expenses.';
+
+  @override
+  String get expensesMutationErrorGeneric =>
+      'Unable to record expense. Please try again.';
+
+  @override
   String get shellManageBankAccounts => 'બેંક ખાતા';
 
   @override

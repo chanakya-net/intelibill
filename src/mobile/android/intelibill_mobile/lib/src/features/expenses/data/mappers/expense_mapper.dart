@@ -1,6 +1,8 @@
+import 'package:intelibill_mobile/src/features/expenses/data/dto/expense_category_dto.dart';
 import 'package:intelibill_mobile/src/features/expenses/data/dto/expense_detail_dto.dart';
 import 'package:intelibill_mobile/src/features/expenses/data/dto/expense_list_item_dto.dart';
 import 'package:intelibill_mobile/src/features/expenses/data/dto/expenses_page_dto.dart';
+import 'package:intelibill_mobile/src/features/expenses/domain/entities/expense_category.dart';
 import 'package:intelibill_mobile/src/features/expenses/domain/entities/expense_detail.dart';
 import 'package:intelibill_mobile/src/features/expenses/domain/entities/expense_list_item.dart';
 import 'package:intelibill_mobile/src/features/expenses/domain/entities/expenses_page.dart';
@@ -42,5 +44,9 @@ class ExpenseMapper {
       pageNumber: dto.pageNumber,
       pageSize: dto.pageSize,
     );
+  }
+
+  static ExpenseCategory categoryToDomain(ExpenseCategoryDto dto) {
+    return ExpenseCategory(id: dto.id, name: dto.name);
   }
 }
