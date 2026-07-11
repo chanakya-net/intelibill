@@ -3,7 +3,10 @@ import 'package:intelibill_mobile/src/features/expenses/data/dto/expense_detail_
 import 'package:intelibill_mobile/src/features/expenses/data/dto/expenses_page_dto.dart';
 
 interface class ExpenseRemoteDataSource {
-  Future<ExpensesPageDto> getExpenses() {
+  Future<ExpensesPageDto> getExpenses({
+    int? page,
+    int? pageSize,
+  }) {
     throw UnimplementedError();
   }
 
@@ -18,10 +21,16 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
   final ApiClient _apiClient;
 
   @override
-  Future<ExpensesPageDto> getExpenses() async {
+  Future<ExpensesPageDto> getExpenses({
+    int? page,
+    int? pageSize,
+  }) async {
     final response = await _apiClient.get<Map<String, dynamic>>(
       '/expenses',
-      queryParameters: {'page': 1, 'pageSize': 20},
+      queryParameters: {
+        'page': page ?? 1,
+        'pageSize': pageSize ?? 20,
+      },
     );
     return ExpensesPageDto.fromJson(response.data!);
   }

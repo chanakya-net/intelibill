@@ -44,7 +44,9 @@ class ExpensesState {
     this.page,
     this.statusFilter = ExpenseStatusFilter.all,
     this.isLoading = false,
+    this.isLoadingMore = false,
     this.failure,
+    this.loadMoreFailure,
     this.selectedExpense,
     this.selectedExpenseId,
     this.isDetailLoading = false,
@@ -54,7 +56,9 @@ class ExpensesState {
   final ExpensePage? page;
   final ExpenseStatusFilter statusFilter;
   final bool isLoading;
+  final bool isLoadingMore;
   final Failure? failure;
+  final Failure? loadMoreFailure;
   final ExpenseDetail? selectedExpense;
   final String? selectedExpenseId;
   final bool isDetailLoading;
@@ -75,8 +79,11 @@ class ExpensesState {
     ExpensePage? page,
     ExpenseStatusFilter? statusFilter,
     bool? isLoading,
+    bool? isLoadingMore,
     Failure? failure,
     bool clearFailure = false,
+    Failure? loadMoreFailure,
+    bool clearLoadMoreFailure = false,
     ExpenseDetail? selectedExpense,
     String? selectedExpenseId,
     bool? isDetailLoading,
@@ -88,7 +95,11 @@ class ExpensesState {
       page: page ?? this.page,
       statusFilter: statusFilter ?? this.statusFilter,
       isLoading: isLoading ?? this.isLoading,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       failure: clearFailure ? null : (failure ?? this.failure),
+      loadMoreFailure: clearLoadMoreFailure
+          ? null
+          : (loadMoreFailure ?? this.loadMoreFailure),
       selectedExpense: clearSelectedExpense
           ? null
           : (selectedExpense ?? this.selectedExpense),
@@ -117,11 +128,7 @@ class ExpensesController extends _$ExpensesController {
     try {
       final page = await ref.read(getExpensesUseCaseProvider)();
       if (!ref.mounted) return;
-      state = state.copyWith(
-        page: page,
-        isLoading: false,
-        clearFailure: true,
-      );
+      state = state.copyWith(page: page, isLoading: false, clearFailure: true);
     } on AppException catch (error) {
       if (!ref.mounted) return;
       state = state.copyWith(isLoading: false, failure: error.failure);
@@ -139,11 +146,7 @@ class ExpensesController extends _$ExpensesController {
     try {
       final page = await ref.read(getExpensesUseCaseProvider)();
       if (!ref.mounted) return;
-      state = state.copyWith(
-        page: page,
-        isLoading: false,
-        clearFailure: true,
-      );
+      state = state.copyWith(page: page, isLoading: false, clearFailure: true);
     } on AppException catch (error) {
       if (!ref.mounted) return;
       state = state.copyWith(isLoading: false, failure: error.failure);
@@ -154,6 +157,54 @@ class ExpensesController extends _$ExpensesController {
         failure: const Failure.unknown(),
       );
     }
+  }
+
+  Future<void> loadMore() async {
+    final page = state.page;
+    if (state.isLoading ||
+        state.isLoadingMore ||
+        page == null ||
+        page.items.isEmpty) {
+      return;
+    }
+    final nextPage = page.pageNumber + 1;
+    final totalPages = (page.totalCount + page.pageSize - 1) ~/ page.pageSize;
+    if (nextPage > totalPages) {
+      return;
+    }
+    state = state.copyWith(isLoadingMore: true, clearLoadMoreFailure: true);
+    try {
+      final result = await ref.read(getExpensesUseCaseProvider)(
+        page: nextPage,
+        pageSize: page.pageSize,
+      );
+      if (!ref.mounted) return;
+      state = state.copyWith(
+        page: result.copyWith(items: _appendUnique(page.items, result.items)),
+        isLoadingMore: false,
+        clearLoadMoreFailure: true,
+      );
+    } on AppException catch (error) {
+      if (!ref.mounted) return;
+      state = state.copyWith(
+        isLoadingMore: false,
+        loadMoreFailure: error.failure,
+      );
+    } on Object {
+      if (!ref.mounted) return;
+      state = state.copyWith(
+        isLoadingMore: false,
+        loadMoreFailure: const Failure.unknown(),
+      );
+    }
+  }
+
+  List<ExpenseListItem> _appendUnique(
+    List<ExpenseListItem> existing,
+    List<ExpenseListItem> incoming,
+  ) {
+    final ids = existing.map((expense) => expense.id).toSet();
+    return [...existing, ...incoming.where((expense) => ids.add(expense.id))];
   }
 
   void updateStatusFilter(ExpenseStatusFilter filter) {
@@ -176,10 +227,7 @@ class ExpensesController extends _$ExpensesController {
     final id = state.selectedExpenseId;
     if (id == null) return;
     final requestGeneration = ++_detailRequestGeneration;
-    state = state.copyWith(
-      isDetailLoading: true,
-      clearDetailFailure: true,
-    );
+    state = state.copyWith(isDetailLoading: true, clearDetailFailure: true);
     await _loadExpenseDetail(id, requestGeneration);
   }
 
@@ -215,9 +263,6 @@ class ExpensesController extends _$ExpensesController {
 
   void clearSelectedExpense() {
     _detailRequestGeneration += 1;
-    state = state.copyWith(
-      isDetailLoading: false,
-      clearSelectedExpense: true,
-    );
+    state = state.copyWith(isDetailLoading: false, clearSelectedExpense: true);
   }
 }

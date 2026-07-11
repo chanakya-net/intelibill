@@ -16,4 +16,18 @@ class ExpensePage extends Equatable {
 
   @override
   List<Object?> get props => [items, totalCount, pageNumber, pageSize];
+
+  ExpensePage copyWith({
+    List<ExpenseListItem>? items,
+    int? totalCount,
+    int? pageNumber,
+    int? pageSize,
+  }) {
+    return ExpensePage(
+      items: items ?? this.items,
+      totalCount: totalCount ?? this.totalCount,
+      pageNumber: pageNumber ?? this.pageNumber,
+      pageSize: pageSize ?? this.pageSize,
+    );
+  }
 }

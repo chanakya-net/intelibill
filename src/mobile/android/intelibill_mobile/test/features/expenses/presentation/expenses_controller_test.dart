@@ -38,6 +38,18 @@ ExpenseDetail _detail(String id) => ExpenseDetail(
   createdAt: DateTime(2026, 7, 1, 8, 30),
 );
 
+ExpensePage _makePage({
+  required List<ExpenseListItem> items,
+  int pageNumber = 1,
+  int pageSize = 20,
+  int? totalCount,
+}) => ExpensePage(
+  items: items,
+  totalCount: totalCount ?? items.length,
+  pageNumber: pageNumber,
+  pageSize: pageSize,
+);
+
 final _page = ExpensePage(
   items: [
     ExpenseListItem(
@@ -299,5 +311,269 @@ void main() {
     expect(state.selectedExpenseId, isNull);
     expect(state.selectedExpense, isNull);
     expect(state.detailFailure, isNull);
+  });
+
+  group('loadMore', () {
+    test(
+      'requests next page and appends unique rows in backend order',
+      () async {
+        final getExpenses = MockGetExpenses();
+        final page1 = _makePage(
+          items: [
+            ExpenseListItem(
+              id: 'expense-1',
+              amount: 100,
+              categoryName: 'Rent',
+              paidTo: 'Landlord',
+              expenseDate: DateTime(2026, 7),
+              isVoided: false,
+            ),
+          ],
+          totalCount: 21,
+        );
+        final page2 = _makePage(
+          items: [
+            ExpenseListItem(
+              id: 'expense-1',
+              amount: 100,
+              categoryName: 'Duplicate',
+              paidTo: 'Landlord',
+              expenseDate: DateTime(2026, 7),
+              isVoided: false,
+            ),
+            ExpenseListItem(
+              id: 'expense-2',
+              amount: 50,
+              categoryName: 'Travel',
+              paidTo: 'Uber',
+              expenseDate: DateTime(2026, 7),
+              isVoided: false,
+            ),
+          ],
+          pageNumber: 2,
+          totalCount: 21,
+        );
+        when(getExpenses.call).thenAnswer((_) async => page1);
+        var callCount = 0;
+        when(
+          () => getExpenses(
+            page: any(named: 'page'),
+            pageSize: any(named: 'pageSize'),
+          ),
+        ).thenAnswer((_) async {
+          callCount++;
+          return callCount == 1 ? page1 : page2;
+        });
+        final container = ProviderContainer(
+          overrides: [
+            getExpensesUseCaseProvider.overrideWithValue(getExpenses),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        await container.read(expensesControllerProvider.notifier).refresh();
+        await container.read(expensesControllerProvider.notifier).loadMore();
+
+        final state = container.read(expensesControllerProvider);
+        expect(state.page?.items.map((e) => e.id).toList(), [
+          'expense-1',
+          'expense-2',
+        ]);
+        expect(state.page?.pageNumber, 2);
+        expect(state.page?.pageSize, 20);
+        expect(state.page?.totalCount, 21);
+        expect(state.isLoadingMore, isFalse);
+        expect(state.loadMoreFailure, isNull);
+      },
+    );
+
+    test('requests next page without refreshing data', () async {
+      final getExpenses = MockGetExpenses();
+      final page1 = _makePage(
+        items: [
+          ExpenseListItem(
+            id: 'expense-1',
+            amount: 100,
+            categoryName: 'Rent',
+            paidTo: 'Landlord',
+            expenseDate: DateTime(2026, 7),
+            isVoided: false,
+          ),
+        ],
+        totalCount: 21,
+      );
+      final page2 = _makePage(
+        items: [
+          ExpenseListItem(
+            id: 'expense-2',
+            amount: 50,
+            categoryName: 'Travel',
+            paidTo: 'Uber',
+            expenseDate: DateTime(2026, 7),
+            isVoided: false,
+          ),
+        ],
+        pageNumber: 2,
+        totalCount: 21,
+      );
+      when(getExpenses.call).thenAnswer((_) async => page1);
+      when(
+        () => getExpenses(page: 2, pageSize: 20),
+      ).thenAnswer((_) async => page2);
+      final container = ProviderContainer(
+        overrides: [getExpensesUseCaseProvider.overrideWithValue(getExpenses)],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(expensesControllerProvider.notifier).refresh();
+      await container.read(expensesControllerProvider.notifier).loadMore();
+
+      var state = container.read(expensesControllerProvider);
+      expect(state.page?.items.map((e) => e.id).toList(), [
+        'expense-1',
+        'expense-2',
+      ]);
+      expect(state.page?.pageNumber, 2);
+      expect(state.isLoadingMore, isFalse);
+      verify(() => getExpenses(page: 2, pageSize: 20)).called(1);
+    });
+
+    test('prevents loadMore when at end of list', () async {
+      final getExpenses = MockGetExpenses();
+      final lastPage = _makePage(
+        items: [
+          ExpenseListItem(
+            id: 'expense-1',
+            amount: 100,
+            categoryName: 'Rent',
+            paidTo: 'Landlord',
+            expenseDate: DateTime(2026, 7),
+            isVoided: false,
+          ),
+        ],
+        totalCount: 1,
+      );
+      when(getExpenses.call).thenAnswer((_) async => lastPage);
+      final container = ProviderContainer(
+        overrides: [getExpensesUseCaseProvider.overrideWithValue(getExpenses)],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(expensesControllerProvider.notifier).refresh();
+      await container.read(expensesControllerProvider.notifier).loadMore();
+
+      final state = container.read(expensesControllerProvider);
+      expect(state.page?.items.length, 1);
+      expect(state.isLoadingMore, isFalse);
+      verifyNever(() => getExpenses(page: 2, pageSize: 20));
+    });
+
+    test(
+      'loadMore failure preserves loaded rows and exposes failure',
+      () async {
+        final getExpenses = MockGetExpenses();
+        const failure = Failure.network(message: 'offline');
+        final page1 = _makePage(
+          items: [
+            ExpenseListItem(
+              id: 'expense-1',
+              amount: 100,
+              categoryName: 'Rent',
+              paidTo: 'Landlord',
+              expenseDate: DateTime(2026, 7),
+              isVoided: false,
+            ),
+          ],
+          totalCount: 21,
+        );
+        var callCount = 0;
+        when(getExpenses.call).thenAnswer((_) async => page1);
+        when(
+          () => getExpenses(
+            page: any(named: 'page'),
+            pageSize: any(named: 'pageSize'),
+          ),
+        ).thenAnswer((_) async {
+          callCount++;
+          if (callCount == 1) return page1;
+          throw AppException(failure: failure);
+        });
+        final container = ProviderContainer(
+          overrides: [
+            getExpensesUseCaseProvider.overrideWithValue(getExpenses),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        await container.read(expensesControllerProvider.notifier).refresh();
+        await container.read(expensesControllerProvider.notifier).loadMore();
+
+        final state = container.read(expensesControllerProvider);
+        expect(state.page?.items.length, 1);
+        expect(state.page?.items.single.id, 'expense-1');
+        expect(state.isLoadingMore, isFalse);
+        expect(state.loadMoreFailure, isA<NetworkFailure>());
+      },
+    );
+
+    test('loadMore failure retry recovers to success', () async {
+      final getExpenses = MockGetExpenses();
+      const failure = Failure.network(message: 'offline');
+      final page1 = _makePage(
+        items: [
+          ExpenseListItem(
+            id: 'expense-1',
+            amount: 100,
+            categoryName: 'Rent',
+            paidTo: 'Landlord',
+            expenseDate: DateTime(2026, 7),
+            isVoided: false,
+          ),
+        ],
+        totalCount: 21,
+      );
+      final page2 = _makePage(
+        items: [
+          ExpenseListItem(
+            id: 'expense-2',
+            amount: 50,
+            categoryName: 'Travel',
+            paidTo: 'Uber',
+            expenseDate: DateTime(2026, 7),
+            isVoided: false,
+          ),
+        ],
+        pageNumber: 2,
+        totalCount: 21,
+      );
+      var callCount = 0;
+      when(getExpenses.call).thenAnswer((_) async => page1);
+      when(() => getExpenses(page: 2, pageSize: 20)).thenAnswer((_) async {
+        callCount++;
+        if (callCount == 1) throw AppException(failure: failure);
+        return page2;
+      });
+      final container = ProviderContainer(
+        overrides: [getExpensesUseCaseProvider.overrideWithValue(getExpenses)],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(expensesControllerProvider.notifier).refresh();
+      await container.read(expensesControllerProvider.notifier).loadMore();
+
+      var state = container.read(expensesControllerProvider);
+      expect(state.isLoadingMore, isFalse);
+      expect(state.loadMoreFailure, isA<NetworkFailure>());
+
+      await container.read(expensesControllerProvider.notifier).loadMore();
+
+      state = container.read(expensesControllerProvider);
+      expect(state.page?.items.map((e) => e.id).toList(), [
+        'expense-1',
+        'expense-2',
+      ]);
+      expect(state.isLoadingMore, isFalse);
+      expect(state.loadMoreFailure, isNull);
+    });
   });
 }

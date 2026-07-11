@@ -12,9 +12,15 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
   final ExpenseRemoteDataSource _remoteDataSource;
 
   @override
-  Future<ExpensePage> getExpenses() async {
+  Future<ExpensePage> getExpenses({
+    int? page,
+    int? pageSize,
+  }) async {
     try {
-      final dto = await _remoteDataSource.getExpenses();
+      final dto = await _remoteDataSource.getExpenses(
+        page: page,
+        pageSize: pageSize,
+      );
       return ExpenseMapper.pageToDomain(dto);
     } on AppException {
       rethrow;
