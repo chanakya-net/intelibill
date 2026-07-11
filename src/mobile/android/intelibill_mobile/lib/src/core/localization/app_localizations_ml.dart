@@ -102,6 +102,203 @@ class AppLocalizationsMl extends AppLocalizations {
   String get shellManageExpenses => 'ചെലവുകൾ';
 
   @override
+  String get expensesNoExpensesFound => 'ചെലവുകളൊന്നും കണ്ടെത്തിയില്ല';
+
+  @override
+  String get expensesSummaryTotal => 'Total expenses';
+
+  @override
+  String get expensesSummaryLoadedAmount => 'Loaded amount';
+
+  @override
+  String get expensesSummaryLoadedActive => 'Loaded active';
+
+  @override
+  String get expensesSummaryLoadedVoided => 'Loaded voided';
+
+  @override
+  String get expensesFilterAll => 'All';
+
+  @override
+  String get expensesFilterActive => 'Active';
+
+  @override
+  String get expensesFilterVoided => 'Voided';
+
+  @override
+  String get expensesNoFilteredResults =>
+      'No loaded expenses match this filter';
+
+  @override
+  String get expensesUnableToLoad => 'ചെലവുകൾ ലോഡ് ചെയ്യാനായില്ല';
+
+  @override
+  String get expensesRetry => 'വീണ്ടും ശ്രമിക്കുക';
+
+  @override
+  String get expensesRefreshFailed => 'ചെലവുകൾ പുതുക്കാനായില്ല';
+
+  @override
+  String get expensesErrorNetwork =>
+      'കണക്റ്റുചെയ്യാനായില്ല. നിങ്ങളുടെ നെറ്റ്‌വർക്ക് പരിശോധിക്കുക.';
+
+  @override
+  String get expensesErrorTimeout =>
+      'അഭ്യർത്ഥനയുടെ സമയപരിധി കഴിഞ്ഞു. വീണ്ടും ശ്രമിക്കുക.';
+
+  @override
+  String get expensesErrorUnauthorized =>
+      'സെഷൻ കാലഹരണപ്പെട്ടു. വീണ്ടും ലോഗിൻ ചെയ്യുക.';
+
+  @override
+  String get expensesErrorForbidden => 'ചെലവുകൾ കാണാൻ നിങ്ങൾക്ക് അനുമതിയില്ല.';
+
+  @override
+  String get expensesErrorGeneric =>
+      'ചെലവുകൾ ലോഡ് ചെയ്യാനായില്ല. വീണ്ടും ശ്രമിക്കുക.';
+
+  @override
+  String get expensesDetailTitle => 'Expense details';
+
+  @override
+  String get expensesDetailUnableToLoad => 'Unable to load expense details';
+
+  @override
+  String get expensesDetailNoSelection => 'No expense selected';
+
+  @override
+  String get expensesDetailExpenseId => 'Expense ID';
+
+  @override
+  String get expensesDetailShopId => 'Shop ID';
+
+  @override
+  String get expensesDetailCategoryId => 'Category ID';
+
+  @override
+  String get expensesDetailAmount => 'Amount';
+
+  @override
+  String get expensesDetailStatus => 'Status';
+
+  @override
+  String get expensesDetailCategory => 'Category';
+
+  @override
+  String get expensesDetailPaidTo => 'Paid to';
+
+  @override
+  String get expensesDetailDescription => 'Description';
+
+  @override
+  String get expensesDetailExpenseDate => 'Expense date';
+
+  @override
+  String get expensesDetailActor => 'Recorded by';
+
+  @override
+  String get expensesDetailCreatedAt => 'Created at';
+
+  @override
+  String get expensesDetailSource => 'Source';
+
+  @override
+  String get expensesDetailOriginalExpense => 'Original expense';
+
+  @override
+  String get expensesDetailSupplierLedgerEntry => 'Supplier ledger entry';
+
+  @override
+  String get expensesDetailActive => 'Active';
+
+  @override
+  String get expensesDetailVoided => 'Voided';
+
+  @override
+  String get expensesDetailNotProvided => 'Not provided';
+
+  @override
+  String get expensesDetailNotLinked => 'Not linked';
+
+  @override
+  String get expensesDetailSourceManual => 'Manual expense';
+
+  @override
+  String get expensesDetailSourceCorrection => 'Expense correction';
+
+  @override
+  String get expensesDetailSourceSupplierPayment => 'Supplier payment';
+
+  @override
+  String get expensesRecordExpense => 'Record expense';
+
+  @override
+  String get expensesRecordSuccess => 'Expense recorded successfully.';
+
+  @override
+  String get expensesCategoryLabel => 'Category';
+
+  @override
+  String get expensesCategoryRequired => 'Category is required.';
+
+  @override
+  String get expensesCategoryMax => 'Category must be 100 characters or fewer.';
+
+  @override
+  String get expensesCategoryRetry => 'Retry categories';
+
+  @override
+  String get expensesCategoryLoadError => 'Unable to load expense categories.';
+
+  @override
+  String get expensesAmountLabel => 'Amount';
+
+  @override
+  String get expensesAmountRequired => 'Amount is required.';
+
+  @override
+  String get expensesAmountInvalid => 'Enter an amount greater than 0.';
+
+  @override
+  String get expensesPaidToLabel => 'Paid to';
+
+  @override
+  String get expensesPaidToRequired => 'Paid to is required.';
+
+  @override
+  String get expensesPaidToMax => 'Paid to must be 255 characters or fewer.';
+
+  @override
+  String get expensesDateLabel => 'Expense date';
+
+  @override
+  String get expensesDescriptionLabel => 'Description';
+
+  @override
+  String get expensesDescriptionMax =>
+      'Description must be 500 characters or fewer.';
+
+  @override
+  String get expensesMutationErrorNetwork =>
+      'Unable to connect. Please try again.';
+
+  @override
+  String get expensesMutationErrorTimeout =>
+      'Request timed out. Please try again.';
+
+  @override
+  String get expensesMutationErrorUnauthorized =>
+      'Session expired. Please log in again.';
+
+  @override
+  String get expensesMutationErrorForbidden =>
+      'You do not have permission to record expenses.';
+
+  @override
+  String get expensesMutationErrorGeneric =>
+      'Unable to record expense. Please try again.';
+
+  @override
   String get shellManageBankAccounts => 'ബാങ്ക് അക്കൗണ്ടുകൾ';
 
   @override
@@ -2129,6 +2326,38 @@ class AppLocalizationsMl extends AppLocalizations {
   @override
   String get salesReturnDueOverrideConfirmLabel =>
       'Confirm due reduction override';
+
+  @override
+  String get expensesCorrectExpense => 'Correct expense';
+
+  @override
+  String get expensesCorrectExpenseConfirmTitle => 'Confirm correction';
+
+  @override
+  String get expensesCorrectExpenseConfirmMessage =>
+      'The original expense will be permanently voided and a replacement created. This cannot be undone.';
+
+  @override
+  String get expensesCorrectSuccess => 'Expense corrected successfully.';
+
+  @override
+  String get expensesLoadingMore => 'Loading more expenses';
+
+  @override
+  String get expensesUnableToLoadMore => 'Unable to load more expenses';
+
+  @override
+  String get expensesSubmitting => 'Saving expense';
+
+  @override
+  String expensesMetricSemantics(String label, String value) {
+    return '$label: $value';
+  }
+
+  @override
+  String expensesStatusSemantics(String status) {
+    return 'Status: $status';
+  }
 }
 
 /// The translations for Malayalam, as used in India (`ml_IN`).
@@ -2224,6 +2453,203 @@ class AppLocalizationsMlIn extends AppLocalizationsMl {
 
   @override
   String get shellManageExpenses => 'ചെലവുകൾ';
+
+  @override
+  String get expensesNoExpensesFound => 'ചെലവുകളൊന്നും കണ്ടെത്തിയില്ല';
+
+  @override
+  String get expensesSummaryTotal => 'മൊത്തം ചെലവുകൾ';
+
+  @override
+  String get expensesSummaryLoadedAmount => 'പേജ് തുക';
+
+  @override
+  String get expensesSummaryLoadedActive => 'സജീവ ചെലവുകൾ';
+
+  @override
+  String get expensesSummaryLoadedVoided => 'റദ്ദാക്കിയ ചെലവുകൾ';
+
+  @override
+  String get expensesFilterAll => 'All';
+
+  @override
+  String get expensesFilterActive => 'Active';
+
+  @override
+  String get expensesFilterVoided => 'Voided';
+
+  @override
+  String get expensesNoFilteredResults =>
+      'No loaded expenses match this filter';
+
+  @override
+  String get expensesUnableToLoad => 'ചെലവുകൾ ലോഡ് ചെയ്യാനായില്ല';
+
+  @override
+  String get expensesRetry => 'വീണ്ടും ശ്രമിക്കുക';
+
+  @override
+  String get expensesRefreshFailed => 'ചെലവുകൾ പുതുക്കാനായില്ല';
+
+  @override
+  String get expensesErrorNetwork =>
+      'കണക്റ്റുചെയ്യാനായില്ല. നിങ്ങളുടെ നെറ്റ്‌വർക്ക് പരിശോധിക്കുക.';
+
+  @override
+  String get expensesErrorTimeout =>
+      'അഭ്യർത്ഥനയുടെ സമയപരിധി കഴിഞ്ഞു. വീണ്ടും ശ്രമിക്കുക.';
+
+  @override
+  String get expensesErrorUnauthorized =>
+      'സെഷൻ കാലഹരണപ്പെട്ടു. വീണ്ടും ലോഗിൻ ചെയ്യുക.';
+
+  @override
+  String get expensesErrorForbidden => 'ചെലവുകൾ കാണാൻ നിങ്ങൾക്ക് അനുമതിയില്ല.';
+
+  @override
+  String get expensesErrorGeneric =>
+      'ചെലവുകൾ ലോഡ് ചെയ്യാനായില്ല. വീണ്ടും ശ്രമിക്കുക.';
+
+  @override
+  String get expensesDetailTitle => 'ചെലവ് ലെഡ്ജർ';
+
+  @override
+  String get expensesDetailUnableToLoad => 'Unable to load expense details';
+
+  @override
+  String get expensesDetailNoSelection => 'No expense selected';
+
+  @override
+  String get expensesDetailExpenseId => 'Expense ID';
+
+  @override
+  String get expensesDetailShopId => 'Shop ID';
+
+  @override
+  String get expensesDetailCategoryId => 'Category ID';
+
+  @override
+  String get expensesDetailAmount => 'Amount';
+
+  @override
+  String get expensesDetailStatus => 'നില';
+
+  @override
+  String get expensesDetailCategory => 'Category';
+
+  @override
+  String get expensesDetailPaidTo => 'Paid to';
+
+  @override
+  String get expensesDetailDescription => 'Description';
+
+  @override
+  String get expensesDetailExpenseDate => 'Expense date';
+
+  @override
+  String get expensesDetailActor => 'Recorded by';
+
+  @override
+  String get expensesDetailCreatedAt => 'Created at';
+
+  @override
+  String get expensesDetailSource => 'Source';
+
+  @override
+  String get expensesDetailOriginalExpense => 'Original expense';
+
+  @override
+  String get expensesDetailSupplierLedgerEntry => 'Supplier ledger entry';
+
+  @override
+  String get expensesDetailActive => 'സജീവം';
+
+  @override
+  String get expensesDetailVoided => 'റദ്ദാക്കി';
+
+  @override
+  String get expensesDetailNotProvided => 'Not provided';
+
+  @override
+  String get expensesDetailNotLinked => 'Not linked';
+
+  @override
+  String get expensesDetailSourceManual => 'Manual expense';
+
+  @override
+  String get expensesDetailSourceCorrection => 'Expense correction';
+
+  @override
+  String get expensesDetailSourceSupplierPayment => 'Supplier payment';
+
+  @override
+  String get expensesRecordExpense => 'ചെലവ് രേഖപ്പെടുത്തുക';
+
+  @override
+  String get expensesRecordSuccess => 'Expense recorded successfully.';
+
+  @override
+  String get expensesCategoryLabel => 'വിഭാഗം';
+
+  @override
+  String get expensesCategoryRequired => 'Category is required.';
+
+  @override
+  String get expensesCategoryMax => 'Category must be 100 characters or fewer.';
+
+  @override
+  String get expensesCategoryRetry => 'Retry categories';
+
+  @override
+  String get expensesCategoryLoadError => 'Unable to load expense categories.';
+
+  @override
+  String get expensesAmountLabel => 'തുക';
+
+  @override
+  String get expensesAmountRequired => 'Amount is required.';
+
+  @override
+  String get expensesAmountInvalid => 'Enter an amount greater than 0.';
+
+  @override
+  String get expensesPaidToLabel => 'പണം നൽകിയവർ';
+
+  @override
+  String get expensesPaidToRequired => 'Paid to is required.';
+
+  @override
+  String get expensesPaidToMax => 'Paid to must be 255 characters or fewer.';
+
+  @override
+  String get expensesDateLabel => 'തീയതി';
+
+  @override
+  String get expensesDescriptionLabel => 'വിവരണം';
+
+  @override
+  String get expensesDescriptionMax =>
+      'Description must be 500 characters or fewer.';
+
+  @override
+  String get expensesMutationErrorNetwork =>
+      'Unable to connect. Please try again.';
+
+  @override
+  String get expensesMutationErrorTimeout =>
+      'Request timed out. Please try again.';
+
+  @override
+  String get expensesMutationErrorUnauthorized =>
+      'Session expired. Please log in again.';
+
+  @override
+  String get expensesMutationErrorForbidden =>
+      'You do not have permission to record expenses.';
+
+  @override
+  String get expensesMutationErrorGeneric =>
+      'Unable to record expense. Please try again.';
 
   @override
   String get shellManageBankAccounts => 'ബാങ്ക് അക്കൗണ്ടുകൾ';
@@ -3211,4 +3637,36 @@ class AppLocalizationsMlIn extends AppLocalizationsMl {
 
   @override
   String get creditNotesRetry => 'Retry';
+
+  @override
+  String get expensesCorrectExpense => 'ചെലവ് തിരുത്തുക';
+
+  @override
+  String get expensesCorrectExpenseConfirmTitle => 'Confirm correction';
+
+  @override
+  String get expensesCorrectExpenseConfirmMessage =>
+      'The original expense will be permanently voided and a replacement created. This cannot be undone.';
+
+  @override
+  String get expensesCorrectSuccess => 'Expense corrected successfully.';
+
+  @override
+  String get expensesLoadingMore => 'Loading more expenses';
+
+  @override
+  String get expensesUnableToLoadMore => 'Unable to load more expenses';
+
+  @override
+  String get expensesSubmitting => 'Saving expense';
+
+  @override
+  String expensesMetricSemantics(String label, String value) {
+    return '$label: $value';
+  }
+
+  @override
+  String expensesStatusSemantics(String status) {
+    return 'Status: $status';
+  }
 }
