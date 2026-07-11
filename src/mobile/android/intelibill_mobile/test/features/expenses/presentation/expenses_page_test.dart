@@ -37,6 +37,11 @@ class _StubExpensesController extends ExpensesController {
     state = state.copyWith(isLoadingMore: true);
     await onLoadMore?.call();
   }
+
+  @override
+  void updateSearch(String query) {
+    state = state.copyWith(searchQuery: query);
+  }
 }
 
 final _loadedState = ExpensesState(
@@ -176,6 +181,25 @@ void main() {
     await tester.pump();
     expect(find.text('Rent'), findsOneWidget);
     expect(find.text('Utilities'), findsOneWidget);
+  });
+
+  testWidgets('renders labeled search field with clear action', (tester) async {
+    await tester.pumpWidget(
+      _buildApp(_loadedState.copyWith(searchQuery: 'rent')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('expenses-search')), findsOneWidget);
+    expect(find.text('Search...'), findsOneWidget);
+    expect(find.byIcon(Icons.clear), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.clear));
+    await tester.pump();
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(ExpensesPage)),
+    );
+    expect(container.read(expensesControllerProvider).searchQuery, isEmpty);
+    expect(find.byIcon(Icons.clear), findsNothing);
   });
 
   testWidgets('shows a distinct message when a filter has no matches', (

@@ -62,6 +62,70 @@ void main() {
     ).called(1);
   });
 
+  test('omits whitespace search while retaining pagination query', () async {
+    final apiClient = MockApiClient();
+    final dataSource = ExpenseRemoteDataSourceImpl(apiClient);
+
+    when(
+      () => apiClient.get<Map<String, dynamic>>(
+        '/expenses',
+        queryParameters: {'page': 3, 'pageSize': 40},
+      ),
+    ).thenAnswer(
+      (_) async => Response(
+        data: {
+          'items': <dynamic>[],
+          'totalCount': 0,
+          'pageNumber': 3,
+          'pageSize': 40,
+        },
+        statusCode: 200,
+        requestOptions: RequestOptions(path: '/expenses'),
+      ),
+    );
+
+    await dataSource.getExpenses(page: 3, pageSize: 40, search: '  ');
+
+    verify(
+      () => apiClient.get<Map<String, dynamic>>(
+        '/expenses',
+        queryParameters: {'page': 3, 'pageSize': 40},
+      ),
+    ).called(1);
+  });
+
+  test('trims non-empty search while retaining pagination query', () async {
+    final apiClient = MockApiClient();
+    final dataSource = ExpenseRemoteDataSourceImpl(apiClient);
+
+    when(
+      () => apiClient.get<Map<String, dynamic>>(
+        '/expenses',
+        queryParameters: {'page': 2, 'pageSize': 15, 'search': 'rent'},
+      ),
+    ).thenAnswer(
+      (_) async => Response(
+        data: {
+          'items': <dynamic>[],
+          'totalCount': 0,
+          'pageNumber': 2,
+          'pageSize': 15,
+        },
+        statusCode: 200,
+        requestOptions: RequestOptions(path: '/expenses'),
+      ),
+    );
+
+    await dataSource.getExpenses(page: 2, pageSize: 15, search: '  rent  ');
+
+    verify(
+      () => apiClient.get<Map<String, dynamic>>(
+        '/expenses',
+        queryParameters: {'page': 2, 'pageSize': 15, 'search': 'rent'},
+      ),
+    ).called(1);
+  });
+
   test('gets and parses every expense detail field', () async {
     final apiClient = MockApiClient();
     final dataSource = ExpenseRemoteDataSourceImpl(apiClient);

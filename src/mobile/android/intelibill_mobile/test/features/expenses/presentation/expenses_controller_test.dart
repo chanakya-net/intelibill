@@ -171,6 +171,141 @@ void main() {
     expect(state.failure, isA<NetworkFailure>());
   });
 
+  test('debounces search, trims query, and resets to page one', () async {
+    final getExpenses = MockGetExpenses();
+    final searchedPage = _makePage(items: [_item('searched')]);
+    when(
+      () => getExpenses(search: 'rent', page: 1, pageSize: 20),
+    ).thenAnswer((_) async => searchedPage);
+    final container = ProviderContainer(
+      overrides: [
+        getExpensesUseCaseProvider.overrideWithValue(getExpenses),
+        expensesControllerProvider.overrideWith(
+          () => _TestExpensesController(
+            ExpensesState(
+              page: _makePage(
+                items: [_item('old')],
+                pageNumber: 3,
+                totalCount: 60,
+              ),
+              pageNumber: 3,
+              totalCount: 60,
+            ),
+          ),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    final subscription = container.listen(
+      expensesControllerProvider,
+      (_, _) {},
+    );
+    addTearDown(subscription.close);
+    final controller = container.read(expensesControllerProvider.notifier);
+
+    controller.updateSearch('  rent  ');
+
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+    verifyNever(() => getExpenses(search: 'rent', page: 1, pageSize: 20));
+    expect(container.read(expensesControllerProvider).pageNumber, 3);
+
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    await Future<void>.delayed(Duration.zero);
+    verify(() => getExpenses(search: 'rent', page: 1, pageSize: 20)).called(1);
+    final state = container.read(expensesControllerProvider);
+    expect(state.searchQuery, '  rent  ');
+    expect(state.pageNumber, 1);
+    expect(state.page, searchedPage);
+  });
+
+  test('clearing search reloads unfiltered page one', () async {
+    final getExpenses = MockGetExpenses();
+    final unfilteredPage = _makePage(items: [_item('all-expenses')]);
+    when(getExpenses.call).thenAnswer((_) async => unfilteredPage);
+    final container = ProviderContainer(
+      overrides: [
+        getExpensesUseCaseProvider.overrideWithValue(getExpenses),
+        expensesControllerProvider.overrideWith(
+          () => _TestExpensesController(
+            ExpensesState(
+              page: _makePage(
+                items: [_item('old')],
+                pageNumber: 2,
+                totalCount: 40,
+              ),
+              pageNumber: 2,
+              totalCount: 40,
+              searchQuery: 'rent',
+            ),
+          ),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    final subscription = container.listen(
+      expensesControllerProvider,
+      (_, _) {},
+    );
+    addTearDown(subscription.close);
+    final controller = container.read(expensesControllerProvider.notifier);
+
+    controller.updateSearch('');
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    await Future<void>.delayed(Duration.zero);
+    verify(getExpenses.call).called(1);
+
+    final state = container.read(expensesControllerProvider);
+    expect(state.searchQuery, isEmpty);
+    expect(state.pageNumber, 1);
+    expect(state.page, unfilteredPage);
+  });
+
+  test('stale search response cannot replace newer results', () async {
+    final getExpenses = MockGetExpenses();
+    final older = Completer<ExpensePage>();
+    final newer = Completer<ExpensePage>();
+    when(
+      () => getExpenses(search: 'old', page: 1, pageSize: 20),
+    ).thenAnswer((_) => older.future);
+    when(
+      () => getExpenses(search: 'new', page: 1, pageSize: 20),
+    ).thenAnswer((_) => newer.future);
+    final container = ProviderContainer(
+      overrides: [
+        getExpensesUseCaseProvider.overrideWithValue(getExpenses),
+        expensesControllerProvider.overrideWith(
+          () => _TestExpensesController(const ExpensesState()),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    final subscription = container.listen(
+      expensesControllerProvider,
+      (_, _) {},
+    );
+    addTearDown(subscription.close);
+    final controller = container.read(expensesControllerProvider.notifier);
+
+    controller.updateSearch('old');
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    await Future<void>.delayed(Duration.zero);
+    verify(() => getExpenses(search: 'old', page: 1, pageSize: 20)).called(1);
+    controller.updateSearch('new');
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    await Future<void>.delayed(Duration.zero);
+    verify(() => getExpenses(search: 'new', page: 1, pageSize: 20)).called(1);
+
+    newer.complete(_makePage(items: [_item('new-result')]));
+    await Future<void>.delayed(Duration.zero);
+    older.complete(_makePage(items: [_item('old-result')]));
+    await Future<void>.delayed(Duration.zero);
+
+    expect(
+      container.read(expensesControllerProvider).page?.items.single.id,
+      'new-result',
+    );
+  });
+
   test(
     'filters loaded expenses by status without another repository call',
     () async {

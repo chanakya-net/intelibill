@@ -42,6 +42,7 @@ GetExpenseDetail getExpenseDetailUseCase(Ref ref) {
 class ExpensesState {
   const ExpensesState({
     this.page,
+    this.searchQuery = '',
     this.pageNumber = 1,
     this.pageSize = 20,
     this.totalCount = 0,
@@ -57,6 +58,7 @@ class ExpensesState {
   });
 
   final ExpensePage? page;
+  final String searchQuery;
   final int pageNumber;
   final int pageSize;
   final int totalCount;
@@ -85,6 +87,7 @@ class ExpensesState {
 
   ExpensesState copyWith({
     ExpensePage? page,
+    String? searchQuery,
     int? pageNumber,
     int? pageSize,
     int? totalCount,
@@ -104,6 +107,7 @@ class ExpensesState {
   }) {
     return ExpensesState(
       page: page ?? this.page,
+      searchQuery: searchQuery ?? this.searchQuery,
       pageNumber: pageNumber ?? this.pageNumber,
       pageSize: pageSize ?? this.pageSize,
       totalCount: totalCount ?? this.totalCount,
@@ -130,6 +134,7 @@ class ExpensesState {
 
 @riverpod
 class ExpensesController extends _$ExpensesController {
+  Timer? _searchDebounce;
   int _detailRequestGeneration = 0;
   int _paginationGeneration = 0;
   Future<void>? _loadMoreOperation;
@@ -137,6 +142,7 @@ class ExpensesController extends _$ExpensesController {
 
   @override
   ExpensesState build() {
+    ref.onDispose(() => _searchDebounce?.cancel());
     unawaited(Future.microtask(_startInitialLoad));
     return const ExpensesState(isLoading: true);
   }
@@ -154,7 +160,11 @@ class ExpensesController extends _$ExpensesController {
       clearLoadMoreFailure: true,
     );
     try {
-      final page = await ref.read(getExpensesUseCaseProvider)();
+      final search = state.searchQuery.trim();
+      final page = await _fetchExpenses(
+        page: search.isEmpty ? null : 1,
+        pageSize: search.isEmpty ? null : state.pageSize,
+      );
       if (!_isCurrentPaginationRequest(requestGeneration)) return;
       state = state.copyWith(
         page: page,
@@ -209,7 +219,7 @@ class ExpensesController extends _$ExpensesController {
     final nextPage = state.pageNumber + 1;
     state = state.copyWith(isLoadingMore: true, clearLoadMoreFailure: true);
     try {
-      final result = await ref.read(getExpensesUseCaseProvider)(
+      final result = await _fetchExpenses(
         page: nextPage,
         pageSize: state.pageSize,
       );
@@ -256,6 +266,33 @@ class ExpensesController extends _$ExpensesController {
   void updateStatusFilter(ExpenseStatusFilter filter) {
     if (filter == state.statusFilter) return;
     state = state.copyWith(statusFilter: filter);
+  }
+
+  void updateSearch(String query) {
+    state = state.copyWith(searchQuery: query);
+    _searchDebounce?.cancel();
+    ++_paginationGeneration;
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      if (!ref.mounted) return;
+      state = state.copyWith(pageNumber: 1);
+      unawaited(refresh());
+    });
+  }
+
+  Future<ExpensePage> _fetchExpenses({int? page, int? pageSize}) {
+    final search = state.searchQuery.trim();
+    final getExpenses = ref.read(getExpensesUseCaseProvider);
+    if (search.isEmpty && page == null && pageSize == null) {
+      return getExpenses();
+    }
+    if (search.isEmpty) {
+      return getExpenses(page: page, pageSize: pageSize);
+    }
+    return getExpenses(
+      page: page,
+      pageSize: pageSize,
+      search: search,
+    );
   }
 
   Future<void> openExpense(String id) async {
