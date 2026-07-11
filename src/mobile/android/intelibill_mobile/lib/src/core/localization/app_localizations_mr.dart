@@ -105,6 +105,18 @@ class AppLocalizationsMr extends AppLocalizations {
   String get expensesNoExpensesFound => 'कोणतेही खर्च आढळले नाहीत';
 
   @override
+  String get expensesSummaryTotal => 'Total expenses';
+
+  @override
+  String get expensesSummaryLoadedAmount => 'Loaded amount';
+
+  @override
+  String get expensesSummaryLoadedActive => 'Loaded active';
+
+  @override
+  String get expensesSummaryLoadedVoided => 'Loaded voided';
+
+  @override
   String get expensesFilterAll => 'All';
 
   @override

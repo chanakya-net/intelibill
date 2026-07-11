@@ -482,6 +482,75 @@ void main() {
     },
   );
 
+  test(
+    'summary metrics report server total count and loaded-row breakdown',
+    () async {
+      final getExpenses = MockGetExpenses();
+      when(getExpenses.call).thenAnswer((_) async => _pageWithStatuses);
+      final container = ProviderContainer(
+        overrides: [getExpensesUseCaseProvider.overrideWithValue(getExpenses)],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(expensesControllerProvider.notifier).refresh();
+
+      final state = container.read(expensesControllerProvider);
+      expect(state.totalCount, 2);
+      expect(state.loadedAmount, 100);
+      expect(state.loadedActiveCount, 1);
+      expect(state.loadedVoidedCount, 1);
+    },
+  );
+
+  test(
+    'summary metrics update after an appended page loads more rows',
+    () async {
+      final getExpenses = MockGetExpenses();
+      final page1 = _makePage(
+        items: [_item('active-1')],
+        pageSize: 1,
+        totalCount: 3,
+      );
+      final page2 = _makePage(
+        items: [
+          ExpenseListItem(
+            id: 'active-2',
+            amount: 50,
+            categoryName: 'Travel',
+            paidTo: 'Uber',
+            expenseDate: DateTime(2026, 7),
+            isVoided: false,
+          ),
+        ],
+        pageNumber: 2,
+        pageSize: 1,
+        totalCount: 3,
+      );
+      when(getExpenses.call).thenAnswer((_) async => page1);
+      when(
+        () => getExpenses(page: 2, pageSize: 1),
+      ).thenAnswer((_) async => page2);
+      final container = ProviderContainer(
+        overrides: [getExpensesUseCaseProvider.overrideWithValue(getExpenses)],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(expensesControllerProvider.notifier).refresh();
+      var state = container.read(expensesControllerProvider);
+      expect(state.totalCount, 3);
+      expect(state.loadedActiveCount, 1);
+      expect(state.loadedAmount, 100);
+
+      await container.read(expensesControllerProvider.notifier).loadMore();
+
+      state = container.read(expensesControllerProvider);
+      expect(state.totalCount, 3);
+      expect(state.loadedActiveCount, 2);
+      expect(state.loadedAmount, 150);
+      expect(state.loadedVoidedCount, 0);
+    },
+  );
+
   test('openExpense loads detail without changing ledger state', () async {
     final getDetail = MockGetExpenseDetail();
     final completer = Completer<ExpenseDetail>();

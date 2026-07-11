@@ -9,6 +9,7 @@ import 'package:intelibill_mobile/src/features/expenses/presentation/controllers
 import 'package:intelibill_mobile/src/features/expenses/presentation/widgets/expense_card.dart';
 import 'package:intelibill_mobile/src/features/expenses/presentation/widgets/expense_detail_sheet.dart';
 import 'package:intelibill_mobile/src/features/expenses/presentation/widgets/expense_form_sheet.dart';
+import 'package:intelibill_mobile/src/features/expenses/presentation/widgets/expenses_summary_strip.dart';
 
 class ExpensesPage extends ConsumerStatefulWidget {
   const ExpensesPage({super.key});
@@ -56,6 +57,12 @@ class _ExpensesPageState extends ConsumerState<ExpensesPage> {
           : null,
       body: Column(
         children: [
+          ExpensesSummaryStrip(
+            totalCount: state.totalCount,
+            loadedAmount: state.loadedAmount,
+            loadedActiveCount: state.loadedActiveCount,
+            loadedVoidedCount: state.loadedVoidedCount,
+          ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
             child: TextField(

@@ -108,6 +108,19 @@ class ExpensesState {
     };
   }
 
+  List<ExpenseListItem> get _loadedExpenses =>
+      page?.items ?? const <ExpenseListItem>[];
+
+  double get loadedAmount => _loadedExpenses
+      .where((expense) => !expense.isVoided)
+      .fold<double>(0, (sum, expense) => sum + expense.amount);
+
+  int get loadedActiveCount =>
+      _loadedExpenses.where((expense) => !expense.isVoided).length;
+
+  int get loadedVoidedCount =>
+      _loadedExpenses.where((expense) => expense.isVoided).length;
+
   ExpensesState copyWith({
     ExpensePage? page,
     String? searchQuery,
