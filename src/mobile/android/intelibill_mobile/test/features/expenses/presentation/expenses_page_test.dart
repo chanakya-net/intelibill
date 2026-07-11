@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/expenses/domain/entities/expense_list_item.dart';
 import 'package:intelibill_mobile/src/features/expenses/domain/entities/expenses_page.dart';
@@ -93,5 +94,28 @@ void main() {
     await tester.pumpWidget(_buildApp(const ExpensesState()));
     await tester.pump();
     expect(find.text('No expenses found'), findsOneWidget);
+  });
+
+  testWidgets('shows failure state with retry button', (tester) async {
+    await tester.pumpWidget(
+      _buildApp(
+        ExpensesState(failure: const Failure.network()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Unable to load expenses'), findsOneWidget);
+    expect(find.byType(FilledButton), findsOneWidget);
+  });
+
+  testWidgets('shows failure overlay with cards preserved', (tester) async {
+    await tester.pumpWidget(
+      _buildApp(
+        _loadedState.copyWith(failure: const Failure.network()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Rent'), findsOneWidget);
+    expect(find.text('Unable to load expenses'), findsOneWidget);
+    expect(find.byType(FilledButton), findsOneWidget);
   });
 }
