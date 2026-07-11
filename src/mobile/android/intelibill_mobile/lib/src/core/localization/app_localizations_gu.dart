@@ -2326,6 +2326,16 @@ class AppLocalizationsGu extends AppLocalizations {
   @override
   String get salesReturnDueOverrideConfirmLabel =>
       'Confirm due reduction override';
+
+  @override
+  String get expensesCorrectExpense => 'Correct expense';
+
+  @override
+  String get expensesCorrectExpenseConfirmTitle => 'Confirm correction';
+
+  @override
+  String get expensesCorrectExpenseConfirmMessage =>
+      'The original expense will be permanently voided and a replacement created. This cannot be undone.';
 }
 
 /// The translations for Gujarati, as used in India (`gu_IN`).

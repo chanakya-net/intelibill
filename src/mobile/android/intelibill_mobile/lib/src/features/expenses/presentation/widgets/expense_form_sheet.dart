@@ -4,10 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
+import 'package:intelibill_mobile/src/features/expenses/domain/entities/expense_detail.dart';
 import 'package:intelibill_mobile/src/features/expenses/presentation/controllers/expenses_controller.dart';
 
 class ExpenseFormSheet extends ConsumerStatefulWidget {
-  const ExpenseFormSheet({super.key});
+  const ExpenseFormSheet({
+    super.key,
+    this.expenseToCorrect,
+  });
+
+  final ExpenseDetail? expenseToCorrect;
 
   static const categoryFieldKey = Key('expense-form-category');
   static const amountFieldKey = Key('expense-form-amount');
@@ -29,12 +35,24 @@ class _ExpenseFormSheetState extends ConsumerState<ExpenseFormSheet> {
   final _paidToController = TextEditingController();
   final _descriptionController = TextEditingController();
   late DateTime _expenseDate;
+  bool _showConfirmDialog = false;
+
+  bool get _isCorrection => widget.expenseToCorrect != null;
 
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now();
-    _expenseDate = DateTime(now.year, now.month, now.day);
+    final expense = widget.expenseToCorrect;
+    if (expense != null) {
+      _categoryController.text = expense.categoryName;
+      _amountController.text = expense.amount.toString();
+      _paidToController.text = expense.paidTo;
+      _descriptionController.text = expense.description ?? '';
+      _expenseDate = expense.expenseDate;
+    } else {
+      final now = DateTime.now();
+      _expenseDate = DateTime(now.year, now.month, now.day);
+    }
     unawaited(
       ref.read(expensesControllerProvider.notifier).loadCategories(),
     );
@@ -61,10 +79,35 @@ class _ExpenseFormSheetState extends ConsumerState<ExpenseFormSheet> {
 
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
+    if (_isCorrection) {
+      setState(() => _showConfirmDialog = true);
+      return;
+    }
+    await _recordExpense();
+  }
+
+  Future<void> _recordExpense() async {
     final description = _descriptionController.text.trim();
     final success = await ref
         .read(expensesControllerProvider.notifier)
         .recordExpense(
+          categoryName: _categoryController.text.trim(),
+          amount: double.parse(_amountController.text.trim()),
+          paidTo: _paidToController.text.trim(),
+          description: description.isEmpty ? null : description,
+          expenseDate: _expenseDate,
+        );
+    if (mounted && success) Navigator.of(context).pop(true);
+  }
+
+  Future<void> _correctExpense() async {
+    final expense = widget.expenseToCorrect;
+    if (expense == null) return;
+    final description = _descriptionController.text.trim();
+    final success = await ref
+        .read(expensesControllerProvider.notifier)
+        .correctExpense(
+          expense.id,
           categoryName: _categoryController.text.trim(),
           amount: double.parse(_amountController.text.trim()),
           paidTo: _paidToController.text.trim(),
@@ -81,6 +124,10 @@ class _ExpenseFormSheetState extends ConsumerState<ExpenseFormSheet> {
     final theme = Theme.of(context);
     final disabled = state.isSubmitting;
     final suggestions = _suggestions(state);
+
+    if (_showConfirmDialog && _isCorrection) {
+      return _buildConfirmDialog(context, l10n, theme, disabled);
+    }
 
     return SafeArea(
       child: Padding(
@@ -99,7 +146,9 @@ class _ExpenseFormSheetState extends ConsumerState<ExpenseFormSheet> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  l10n.expensesRecordExpense,
+                  _isCorrection
+                      ? l10n.expensesCorrectExpense
+                      : l10n.expensesRecordExpense,
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
@@ -260,7 +309,11 @@ class _ExpenseFormSheetState extends ConsumerState<ExpenseFormSheet> {
                               height: 16,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : Text(l10n.expensesRecordExpense),
+                          : Text(
+                              _isCorrection
+                                  ? l10n.expensesCorrectExpense
+                                  : l10n.expensesRecordExpense,
+                            ),
                     ),
                   ],
                 ),
@@ -282,6 +335,36 @@ class _ExpenseFormSheetState extends ConsumerState<ExpenseFormSheet> {
         .where((name) => query.isEmpty || name.toLowerCase().contains(query))
         .where((name) => seen.add(name.toLowerCase()))
         .toList();
+  }
+
+  Widget _buildConfirmDialog(
+    BuildContext context,
+    AppLocalizations l10n,
+    ThemeData theme,
+    bool disabled,
+  ) {
+    return AlertDialog(
+      title: Text(l10n.expensesCorrectExpenseConfirmTitle),
+      content: Text(l10n.expensesCorrectExpenseConfirmMessage),
+      actions: [
+        TextButton(
+          onPressed: disabled
+              ? null
+              : () => setState(() => _showConfirmDialog = false),
+          child: Text(l10n.commonCancel),
+        ),
+        FilledButton(
+          onPressed: disabled ? null : _correctExpense,
+          child: disabled
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Text(l10n.expensesCorrectExpense),
+        ),
+      ],
+    );
   }
 }
 
