@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/network/api_client_provider.dart';
+import 'package:intelibill_mobile/src/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:intelibill_mobile/src/features/expenses/data/data_sources/expense_remote_data_source.dart';
 import 'package:intelibill_mobile/src/features/expenses/data/repositories/expense_repository_impl.dart';
 import 'package:intelibill_mobile/src/features/expenses/domain/entities/expense_category.dart';
@@ -193,25 +194,58 @@ class ExpensesState {
 @riverpod
 class ExpensesController extends _$ExpensesController {
   Timer? _searchDebounce;
+  String? _activeShopId;
   int _detailRequestGeneration = 0;
   int _paginationGeneration = 0;
   int _categoryGeneration = 0;
+  int _mutationGeneration = 0;
   Future<void>? _loadMoreOperation;
   int _loadMoreOperationGeneration = -1;
 
   @override
   ExpensesState build() {
+    if (!ref.mounted) {
+      return const ExpensesState(isLoading: true);
+    }
+    final activeShopId = ref
+        .watch(authControllerProvider)
+        .value
+        ?.session
+        ?.activeShopId;
+    if (_activeShopId != activeShopId) {
+      _handleActiveShopChange(activeShopId);
+    }
     ref.onDispose(() => _searchDebounce?.cancel());
     unawaited(Future.microtask(_startInitialLoad));
     return const ExpensesState(isLoading: true);
   }
 
+  void _handleActiveShopChange(String? activeShopId) {
+    _activeShopId = activeShopId;
+    _paginationGeneration += 1;
+    _detailRequestGeneration += 1;
+    _categoryGeneration += 1;
+    _mutationGeneration += 1;
+    _loadMoreOperationGeneration = -1;
+    _loadMoreOperation = null;
+    _searchDebounce?.cancel();
+
+    state = const ExpensesState();
+
+    unawaited(refresh());
+  }
+
   void _startInitialLoad() {
+    if (!ref.mounted) {
+      return;
+    }
     if (_paginationGeneration == 0) unawaited(refresh());
   }
 
   Future<void> refresh() async {
+    if (!ref.mounted) return;
     final requestGeneration = ++_paginationGeneration;
+    final requestShopId = _activeShopId;
     state = state.copyWith(
       isLoading: true,
       isLoadingMore: false,
@@ -224,7 +258,9 @@ class ExpensesController extends _$ExpensesController {
         page: search.isEmpty ? null : 1,
         pageSize: search.isEmpty ? null : state.pageSize,
       );
-      if (!_isCurrentPaginationRequest(requestGeneration)) return;
+      if (!_isCurrentPaginationRequest(requestGeneration, requestShopId)) {
+        return;
+      }
       state = state.copyWith(
         page: page,
         pageNumber: page.pageNumber,
@@ -234,10 +270,14 @@ class ExpensesController extends _$ExpensesController {
         clearFailure: true,
       );
     } on AppException catch (error) {
-      if (!_isCurrentPaginationRequest(requestGeneration)) return;
+      if (!_isCurrentPaginationRequest(requestGeneration, requestShopId)) {
+        return;
+      }
       state = state.copyWith(isLoading: false, failure: error.failure);
     } on Object {
-      if (!_isCurrentPaginationRequest(requestGeneration)) return;
+      if (!_isCurrentPaginationRequest(requestGeneration, requestShopId)) {
+        return;
+      }
       state = state.copyWith(
         isLoading: false,
         failure: const Failure.unknown(),
@@ -246,6 +286,7 @@ class ExpensesController extends _$ExpensesController {
   }
 
   Future<void> loadMore() {
+    if (!ref.mounted) return Future.value();
     final pendingOperation = _loadMoreOperation;
     if (pendingOperation != null &&
         _loadMoreOperationGeneration == _paginationGeneration) {
@@ -267,6 +308,9 @@ class ExpensesController extends _$ExpensesController {
   }
 
   Future<void> _loadMoreInternal() async {
+    if (!ref.mounted) {
+      return Future.value();
+    }
     final page = state.page;
     if (state.isLoading ||
         page == null ||
@@ -275,6 +319,7 @@ class ExpensesController extends _$ExpensesController {
       return;
     }
     final requestGeneration = _paginationGeneration;
+    final requestShopId = _activeShopId;
     final nextPage = state.pageNumber + 1;
     state = state.copyWith(isLoadingMore: true, clearLoadMoreFailure: true);
     try {
@@ -282,9 +327,13 @@ class ExpensesController extends _$ExpensesController {
         page: nextPage,
         pageSize: state.pageSize,
       );
-      if (!_isCurrentPaginationRequest(requestGeneration)) return;
+      if (!_isCurrentPaginationRequest(requestGeneration, requestShopId)) {
+        return;
+      }
       final currentPage = state.page;
-      if (currentPage == null) return;
+      if (currentPage == null) {
+        return;
+      }
       state = state.copyWith(
         page: result.copyWith(
           items: _appendUnique(currentPage.items, result.items),
@@ -296,13 +345,17 @@ class ExpensesController extends _$ExpensesController {
         clearLoadMoreFailure: true,
       );
     } on AppException catch (error) {
-      if (!_isCurrentPaginationRequest(requestGeneration)) return;
+      if (!_isCurrentPaginationRequest(requestGeneration, requestShopId)) {
+        return;
+      }
       state = state.copyWith(
         isLoadingMore: false,
         loadMoreFailure: error.failure,
       );
     } on Object {
-      if (!_isCurrentPaginationRequest(requestGeneration)) return;
+      if (!_isCurrentPaginationRequest(requestGeneration, requestShopId)) {
+        return;
+      }
       state = state.copyWith(
         isLoadingMore: false,
         loadMoreFailure: const Failure.unknown(),
@@ -310,8 +363,13 @@ class ExpensesController extends _$ExpensesController {
     }
   }
 
-  bool _isCurrentPaginationRequest(int requestGeneration) {
-    return ref.mounted && _paginationGeneration == requestGeneration;
+  bool _isCurrentPaginationRequest(
+    int requestGeneration,
+    String? requestShopId,
+  ) {
+    return ref.mounted &&
+        _paginationGeneration == requestGeneration &&
+        _activeShopId == requestShopId;
   }
 
   List<ExpenseListItem> _appendUnique(
@@ -328,11 +386,17 @@ class ExpensesController extends _$ExpensesController {
   }
 
   void updateSearch(String query) {
+    if (!ref.mounted) return;
     state = state.copyWith(searchQuery: query);
     _searchDebounce?.cancel();
     ++_paginationGeneration;
+    final requestGeneration = _paginationGeneration;
+    final requestShopId = _activeShopId;
     _searchDebounce = Timer(const Duration(milliseconds: 300), () {
-      if (!ref.mounted) return;
+      if (!_isCurrentPaginationRequest(requestGeneration, requestShopId) ||
+          !ref.mounted) {
+        return;
+      }
       state = state.copyWith(pageNumber: 1);
       unawaited(refresh());
     });
@@ -347,38 +411,42 @@ class ExpensesController extends _$ExpensesController {
     if (search.isEmpty) {
       return getExpenses(page: page, pageSize: pageSize);
     }
-    return getExpenses(
-      page: page,
-      pageSize: pageSize,
-      search: search,
-    );
+    return getExpenses(page: page, pageSize: pageSize, search: search);
   }
 
   Future<void> loadCategories({bool force = false}) async {
+    if (!ref.mounted) return;
     if (state.isLoadingCategories || (!force && state.categories.isNotEmpty)) {
       return;
     }
     final requestGeneration = ++_categoryGeneration;
+    final requestShopId = _activeShopId;
     state = state.copyWith(
       isLoadingCategories: true,
       clearCategoryFailure: true,
     );
     try {
       final categories = await ref.read(getExpenseCategoriesUseCaseProvider)();
-      if (!_isCurrentCategoryRequest(requestGeneration)) return;
+      if (!_isCurrentCategoryRequest(requestGeneration, requestShopId)) {
+        return;
+      }
       state = state.copyWith(
         categories: categories,
         isLoadingCategories: false,
         clearCategoryFailure: true,
       );
     } on AppException catch (error) {
-      if (!_isCurrentCategoryRequest(requestGeneration)) return;
+      if (!_isCurrentCategoryRequest(requestGeneration, requestShopId)) {
+        return;
+      }
       state = state.copyWith(
         isLoadingCategories: false,
         categoryFailure: error.failure,
       );
     } on Object {
-      if (!_isCurrentCategoryRequest(requestGeneration)) return;
+      if (!_isCurrentCategoryRequest(requestGeneration, requestShopId)) {
+        return;
+      }
       state = state.copyWith(
         isLoadingCategories: false,
         categoryFailure: const Failure.unknown(),
@@ -386,8 +454,10 @@ class ExpensesController extends _$ExpensesController {
     }
   }
 
-  bool _isCurrentCategoryRequest(int requestGeneration) {
-    return ref.mounted && _categoryGeneration == requestGeneration;
+  bool _isCurrentCategoryRequest(int requestGeneration, String? requestShopId) {
+    return ref.mounted &&
+        _categoryGeneration == requestGeneration &&
+        _activeShopId == requestShopId;
   }
 
   Future<bool> recordExpense({
@@ -397,7 +467,9 @@ class ExpensesController extends _$ExpensesController {
     String? description,
     required DateTime expenseDate,
   }) async {
-    if (state.isSubmitting) return false;
+    if (!ref.mounted || state.isSubmitting) return false;
+    final requestGeneration = ++_mutationGeneration;
+    final requestShopId = _activeShopId;
     state = state.copyWith(isSubmitting: true, clearSubmitFailure: true);
     try {
       await ref.read(recordExpenseUseCaseProvider)(
@@ -410,23 +482,25 @@ class ExpensesController extends _$ExpensesController {
       // The mutation is committed once the record use case completes. A list
       // refresh failure must not turn that committed mutation into a retryable
       // form submission.
-      if (!ref.mounted) return true;
+      if (!_isCurrentMutationRequest(requestGeneration, requestShopId)) {
+        return true;
+      }
       await refresh();
-      if (!ref.mounted) return true;
-      state = state.copyWith(
-        isSubmitting: false,
-        clearSubmitFailure: true,
-      );
+      if (!_isCurrentMutationRequest(requestGeneration, requestShopId)) {
+        return true;
+      }
+      state = state.copyWith(isSubmitting: false, clearSubmitFailure: true);
       return true;
     } on AppException catch (error) {
-      if (!ref.mounted) return false;
-      state = state.copyWith(
-        isSubmitting: false,
-        submitFailure: error.failure,
-      );
+      if (!_isCurrentMutationRequest(requestGeneration, requestShopId)) {
+        return false;
+      }
+      state = state.copyWith(isSubmitting: false, submitFailure: error.failure);
       return false;
     } on Object {
-      if (!ref.mounted) return false;
+      if (!_isCurrentMutationRequest(requestGeneration, requestShopId)) {
+        return false;
+      }
       state = state.copyWith(
         isSubmitting: false,
         submitFailure: const Failure.unknown(),
@@ -443,7 +517,9 @@ class ExpensesController extends _$ExpensesController {
     String? description,
     required DateTime expenseDate,
   }) async {
-    if (state.isSubmitting) return false;
+    if (!ref.mounted || state.isSubmitting) return false;
+    final requestGeneration = ++_mutationGeneration;
+    final requestShopId = _activeShopId;
     state = state.copyWith(isSubmitting: true, clearSubmitFailure: true);
     try {
       final replacement = await ref.read(correctExpenseUseCaseProvider)(
@@ -454,9 +530,13 @@ class ExpensesController extends _$ExpensesController {
         description: description,
         expenseDate: expenseDate,
       );
-      if (!ref.mounted) return true;
+      if (!_isCurrentMutationRequest(requestGeneration, requestShopId)) {
+        return true;
+      }
       await refresh();
-      if (!ref.mounted) return true;
+      if (!_isCurrentMutationRequest(requestGeneration, requestShopId)) {
+        return true;
+      }
       state = state.copyWith(
         selectedExpenseId: replacement.id,
         selectedExpense: replacement,
@@ -465,14 +545,15 @@ class ExpensesController extends _$ExpensesController {
       );
       return true;
     } on AppException catch (error) {
-      if (!ref.mounted) return false;
-      state = state.copyWith(
-        isSubmitting: false,
-        submitFailure: error.failure,
-      );
+      if (!_isCurrentMutationRequest(requestGeneration, requestShopId)) {
+        return false;
+      }
+      state = state.copyWith(isSubmitting: false, submitFailure: error.failure);
       return false;
     } on Object {
-      if (!ref.mounted) return false;
+      if (!_isCurrentMutationRequest(requestGeneration, requestShopId)) {
+        return false;
+      }
       state = state.copyWith(
         isSubmitting: false,
         submitFailure: const Failure.unknown(),
@@ -482,41 +563,56 @@ class ExpensesController extends _$ExpensesController {
   }
 
   Future<void> openExpense(String id) async {
+    if (!ref.mounted) return;
     final requestGeneration = ++_detailRequestGeneration;
+    final requestShopId = _activeShopId;
     state = state.copyWith(
       selectedExpenseId: id,
       isDetailLoading: true,
       clearSelectedExpense: true,
       clearDetailFailure: true,
     );
-    await _loadExpenseDetail(id, requestGeneration);
+    await _loadExpenseDetail(id, requestGeneration, requestShopId);
   }
 
   Future<void> retryExpenseDetail() async {
+    if (!ref.mounted) return;
     final id = state.selectedExpenseId;
     if (id == null) return;
     final requestGeneration = ++_detailRequestGeneration;
+    final requestShopId = _activeShopId;
     state = state.copyWith(isDetailLoading: true, clearDetailFailure: true);
-    await _loadExpenseDetail(id, requestGeneration);
+    await _loadExpenseDetail(id, requestGeneration, requestShopId);
   }
 
-  Future<void> _loadExpenseDetail(String id, int requestGeneration) async {
+  Future<void> _loadExpenseDetail(
+    String id,
+    int requestGeneration,
+    String? requestShopId,
+  ) async {
+    if (!ref.mounted) return;
     try {
       final detail = await ref.read(getExpenseDetailUseCaseProvider)(id);
-      if (!_isCurrentDetailRequest(id, requestGeneration)) return;
+      if (!_isCurrentDetailRequest(id, requestGeneration, requestShopId)) {
+        return;
+      }
       state = state.copyWith(
         selectedExpense: detail,
         isDetailLoading: false,
         clearDetailFailure: true,
       );
     } on AppException catch (error) {
-      if (!_isCurrentDetailRequest(id, requestGeneration)) return;
+      if (!_isCurrentDetailRequest(id, requestGeneration, requestShopId)) {
+        return;
+      }
       state = state.copyWith(
         isDetailLoading: false,
         detailFailure: error.failure,
       );
     } on Object {
-      if (!_isCurrentDetailRequest(id, requestGeneration)) return;
+      if (!_isCurrentDetailRequest(id, requestGeneration, requestShopId)) {
+        return;
+      }
       state = state.copyWith(
         isDetailLoading: false,
         detailFailure: const Failure.unknown(),
@@ -524,10 +620,21 @@ class ExpensesController extends _$ExpensesController {
     }
   }
 
-  bool _isCurrentDetailRequest(String id, int requestGeneration) {
+  bool _isCurrentDetailRequest(
+    String id,
+    int requestGeneration,
+    String? requestShopId,
+  ) {
     return ref.mounted &&
         _detailRequestGeneration == requestGeneration &&
+        _activeShopId == requestShopId &&
         state.selectedExpenseId == id;
+  }
+
+  bool _isCurrentMutationRequest(int requestGeneration, String? requestShopId) {
+    return ref.mounted &&
+        _mutationGeneration == requestGeneration &&
+        _activeShopId == requestShopId;
   }
 
   void clearSelectedExpense() {
