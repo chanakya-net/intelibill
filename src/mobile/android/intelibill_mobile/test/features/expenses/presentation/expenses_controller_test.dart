@@ -174,6 +174,17 @@ void main() {
     );
   }
 
+  ProviderContainer listContainer(MockGetExpenses getExpenses) {
+    return ProviderContainer(
+      overrides: [
+        getExpensesUseCaseProvider.overrideWithValue(getExpenses),
+        expensesControllerProvider.overrideWith(
+          () => _TestExpensesController(const ExpensesState()),
+        ),
+      ],
+    );
+  }
+
   test(
     'resets full shop-scoped state before loading new-shop page one',
     () async {
@@ -211,12 +222,14 @@ void main() {
             totalCount: 50,
             searchQuery: 'rent',
             statusFilter: ExpenseStatusFilter.voided,
+            isLoadingMore: true,
           ).copyWith(
             page: _makePage(
               items: [_item('shop-1-legacy')],
               totalCount: 50,
               pageNumber: 3,
             ),
+            failure: const Failure.timeout(),
             loadMoreFailure: const Failure.network(),
             selectedExpense: _detail('selected-expense'),
             selectedExpenseId: 'selected-expense',
@@ -266,7 +279,7 @@ void main() {
       expect(finalState.pageNumber, 1);
       expect(finalState.totalCount, 1);
       expect(finalState.isLoading, isFalse);
-      expect(callCount, greaterThanOrEqualTo(2));
+      expect(callCount, 2);
     },
   );
 
@@ -330,18 +343,133 @@ void main() {
     expect(state.categories, hasLength(1));
   });
 
+  test(
+    'clears stale work when active shop becomes unavailable',
+    () async {
+      final getExpenses = MockGetExpenses();
+      final getDetail = MockGetExpenseDetail();
+      final staleShopPage = Completer<ExpensePage>();
+      final nextShopPage = Completer<ExpensePage>();
+      final staleDetail = Completer<ExpenseDetail>();
+      var pageCalls = 0;
+      when(getExpenses.call).thenAnswer((_) {
+        pageCalls++;
+        return pageCalls == 1 ? staleShopPage.future : nextShopPage.future;
+      });
+      when(
+        () => getDetail('old-expense'),
+      ).thenAnswer((_) => staleDetail.future);
+      final container = ProviderContainer(
+        overrides: [
+          authControllerProvider.overrideWith(
+            () => _TestAuthController('shop-1'),
+          ),
+          getExpensesUseCaseProvider.overrideWithValue(getExpenses),
+          getExpenseDetailUseCaseProvider.overrideWithValue(getDetail),
+        ],
+      );
+      final subscription = container.listen(
+        expensesControllerProvider,
+        (_, _) {},
+      );
+      addTearDown(subscription.close);
+      addTearDown(container.dispose);
+      await _waitForAuthSession(container);
+      final controller = container.read(expensesControllerProvider.notifier);
+      final pendingDetail = controller.openExpense('old-expense');
+      await Future<void>.delayed(Duration.zero);
+      expect(pageCalls, 1);
+      verify(() => getDetail('old-expense')).called(1);
+
+      await _setAuthControllerState(
+        container,
+        const AuthControllerState(),
+      );
+
+      var state = container.read(expensesControllerProvider);
+      expect(state.page, isNull);
+      expect(state.isLoading, isFalse);
+      expect(state.selectedExpenseId, isNull);
+      expect(state.isDetailLoading, isFalse);
+      expect(pageCalls, 1);
+      await controller.refresh();
+      expect(pageCalls, 1);
+
+      staleShopPage.complete(
+        _makePage(items: [_item('stale-shop-expense')], totalCount: 1),
+      );
+      staleDetail.complete(_detail('old-expense'));
+      await pendingDetail;
+      await Future<void>.delayed(Duration.zero);
+
+      state = container.read(expensesControllerProvider);
+      expect(state.page, isNull);
+      expect(state.selectedExpense, isNull);
+      expect(state.isLoading, isFalse);
+      expect(pageCalls, 1);
+
+      await _setAuthActiveShop(container, 'shop-2');
+      expect(pageCalls, 2);
+      expect(container.read(expensesControllerProvider).isLoading, isTrue);
+      nextShopPage.complete(
+        _makePage(items: [_item('shop-2-expense')], totalCount: 1),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      state = container.read(expensesControllerProvider);
+      expect(state.page?.items.single.id, 'shop-2-expense');
+      expect(state.isLoading, isFalse);
+    },
+  );
+
+  test('does not load until first active shop is available', () async {
+    final getExpenses = MockGetExpenses();
+    final shopPage = Completer<ExpensePage>();
+    when(getExpenses.call).thenAnswer((_) => shopPage.future);
+    final container = ProviderContainer(
+      overrides: [
+        authControllerProvider.overrideWith(() => _TestAuthController(null)),
+        getExpensesUseCaseProvider.overrideWithValue(getExpenses),
+      ],
+    );
+    final subscription = container.listen(
+      expensesControllerProvider,
+      (_, _) {},
+    );
+    addTearDown(subscription.close);
+    addTearDown(container.dispose);
+    await _waitForAuthSession(container);
+    await Future<void>.delayed(Duration.zero);
+
+    await container.read(expensesControllerProvider.notifier).refresh();
+    verifyNever(getExpenses.call);
+    expect(container.read(expensesControllerProvider).isLoading, isFalse);
+
+    await _setAuthActiveShop(container, 'shop-2');
+    verify(getExpenses.call).called(1);
+    shopPage.complete(_makePage(items: [_item('shop-2')], totalCount: 1));
+    await Future<void>.delayed(Duration.zero);
+    expect(
+      container.read(expensesControllerProvider).page?.items.single.id,
+      'shop-2',
+    );
+  });
+
   test('ignores stale pagination response after shop switch', () async {
     final getExpenses = MockGetExpenses();
+    final oldFirstPage = Completer<ExpensePage>();
+    final newFirstPage = Completer<ExpensePage>();
     final oldAppendPage = Completer<ExpensePage>();
-    final switchedPage = Completer<ExpensePage>();
-    var callCount = 0;
+    final newAppendPage = Completer<ExpensePage>();
+    var firstPageCalls = 0;
+    var appendCalls = 0;
     when(() => getExpenses(page: 2, pageSize: 20)).thenAnswer((_) {
-      callCount++;
-      return oldAppendPage.future;
+      appendCalls++;
+      return appendCalls == 1 ? oldAppendPage.future : newAppendPage.future;
     });
     when(getExpenses.call).thenAnswer((_) {
-      callCount++;
-      return switchedPage.future;
+      firstPageCalls++;
+      return firstPageCalls == 1 ? oldFirstPage.future : newFirstPage.future;
     });
     final container = ProviderContainer(
       overrides: [
@@ -365,50 +493,60 @@ void main() {
     await _waitForAuthSession(container);
     final controller = container.read(expensesControllerProvider.notifier);
 
-    await Future<void>.delayed(Duration.zero);
-    controller.state = ExpensesState(
-      page: ExpensePage(
-        items: [
-          ExpenseListItem(
-            id: 'old-1',
-            amount: 50,
-            categoryName: 'Travel',
-            paidTo: 'Taxi',
-            expenseDate: DateTime(2026, 7),
-            isVoided: false,
-          ),
-        ],
+    oldFirstPage.complete(
+      _makePage(
+        items: [_item('old-1')],
         totalCount: 40,
-        pageNumber: 1,
-        pageSize: 20,
       ),
-      totalCount: 40,
-      pageNumber: 1,
-      pageSize: 20,
     );
-    final pendingAppend = controller.loadMore();
     await Future<void>.delayed(Duration.zero);
+    final pendingOldAppend = controller.loadMore();
+    await Future<void>.delayed(Duration.zero);
+    expect(appendCalls, 1);
     expect(container.read(expensesControllerProvider).isLoadingMore, isTrue);
 
     await _setAuthActiveShop(container, 'shop-2');
-    await Future<void>.delayed(Duration.zero);
     expect(container.read(expensesControllerProvider).page, isNull);
     expect(container.read(expensesControllerProvider).isLoadingMore, isFalse);
-    switchedPage.complete(
-      _makePage(items: [_item('shop-2-expense')], totalCount: 1),
+    newFirstPage.complete(
+      _makePage(items: [_item('shop-2-page-1')], totalCount: 40),
     );
     await Future<void>.delayed(Duration.zero);
+    final pendingNewAppend = controller.loadMore();
+    await Future<void>.delayed(Duration.zero);
+    expect(appendCalls, 2);
+    expect(container.read(expensesControllerProvider).isLoadingMore, isTrue);
+
     oldAppendPage.complete(
       _makePage(items: [_item('stale-append')], pageNumber: 2, totalCount: 40),
     );
-    await Future<void>.delayed(Duration.zero);
-    await pendingAppend;
+    await pendingOldAppend;
 
-    final state = container.read(expensesControllerProvider);
-    expect(state.page?.items.single.id, 'shop-2-expense');
+    var state = container.read(expensesControllerProvider);
+    expect(state.page?.items.single.id, 'shop-2-page-1');
     expect(state.pageNumber, 1);
+    expect(state.isLoadingMore, isTrue);
+    expect(identical(controller.loadMore(), pendingNewAppend), isTrue);
+    expect(appendCalls, 2);
+
+    newAppendPage.complete(
+      _makePage(
+        items: [_item('shop-2-page-2')],
+        pageNumber: 2,
+        totalCount: 40,
+      ),
+    );
+    await pendingNewAppend;
+
+    state = container.read(expensesControllerProvider);
+    expect(
+      state.page?.items.map((expense) => expense.id),
+      ['shop-2-page-1', 'shop-2-page-2'],
+    );
+    expect(state.pageNumber, 2);
     expect(state.isLoadingMore, isFalse);
-    expect(callCount, greaterThanOrEqualTo(2));
+    expect(firstPageCalls, 2);
+    expect(appendCalls, 2);
   });
 
   test('ignores stale search response after shop switch', () async {
@@ -773,7 +911,7 @@ void main() {
       ).called(1);
       await Future<void>.delayed(const Duration(milliseconds: 360));
 
-      expect(callCount, greaterThanOrEqualTo(2));
+      expect(callCount, 1);
     },
   );
 
@@ -781,12 +919,21 @@ void main() {
     final getExpenses = MockGetExpenses();
     when(getExpenses.call).thenAnswer((_) async => _page);
     final container = ProviderContainer(
-      overrides: [getExpensesUseCaseProvider.overrideWithValue(getExpenses)],
+      overrides: [
+        authControllerProvider.overrideWith(
+          () => _TestAuthController('shop-1'),
+        ),
+        getExpensesUseCaseProvider.overrideWithValue(getExpenses),
+      ],
     );
     addTearDown(container.dispose);
+    final subscription = container.listen(
+      expensesControllerProvider,
+      (_, _) {},
+    );
+    addTearDown(subscription.close);
 
-    expect(container.read(expensesControllerProvider).isLoading, isTrue);
-    await container.read(expensesControllerProvider.notifier).refresh();
+    await _waitForAuthSession(container);
 
     final state = container.read(expensesControllerProvider);
     expect(state.page, _page);
@@ -902,9 +1049,7 @@ void main() {
     when(
       getExpenses.call,
     ).thenThrow(AppException(failure: const Failure.network()));
-    final container = ProviderContainer(
-      overrides: [getExpensesUseCaseProvider.overrideWithValue(getExpenses)],
-    );
+    final container = listContainer(getExpenses);
     addTearDown(container.dispose);
 
     await container.read(expensesControllerProvider.notifier).refresh();
@@ -922,9 +1067,7 @@ void main() {
       if (callCount == 1) return _page;
       throw AppException(failure: const Failure.network());
     });
-    final container = ProviderContainer(
-      overrides: [getExpensesUseCaseProvider.overrideWithValue(getExpenses)],
-    );
+    final container = listContainer(getExpenses);
     addTearDown(container.dispose);
 
     await container.read(expensesControllerProvider.notifier).refresh();
@@ -1084,9 +1227,7 @@ void main() {
     () async {
       final getExpenses = MockGetExpenses();
       when(getExpenses.call).thenAnswer((_) async => _pageWithStatuses);
-      final container = ProviderContainer(
-        overrides: [getExpensesUseCaseProvider.overrideWithValue(getExpenses)],
-      );
+      final container = listContainer(getExpenses);
       addTearDown(container.dispose);
 
       await container.read(expensesControllerProvider.notifier).refresh();
@@ -1123,9 +1264,7 @@ void main() {
     () async {
       final getExpenses = MockGetExpenses();
       when(getExpenses.call).thenAnswer((_) async => _page);
-      final container = ProviderContainer(
-        overrides: [getExpensesUseCaseProvider.overrideWithValue(getExpenses)],
-      );
+      final container = listContainer(getExpenses);
       addTearDown(container.dispose);
 
       await container.read(expensesControllerProvider.notifier).refresh();
@@ -1148,9 +1287,7 @@ void main() {
     () async {
       final getExpenses = MockGetExpenses();
       when(getExpenses.call).thenAnswer((_) async => _pageWithStatuses);
-      final container = ProviderContainer(
-        overrides: [getExpensesUseCaseProvider.overrideWithValue(getExpenses)],
-      );
+      final container = listContainer(getExpenses);
       addTearDown(container.dispose);
 
       await container.read(expensesControllerProvider.notifier).refresh();
@@ -1191,9 +1328,7 @@ void main() {
       when(
         () => getExpenses(page: 2, pageSize: 1),
       ).thenAnswer((_) async => page2);
-      final container = ProviderContainer(
-        overrides: [getExpensesUseCaseProvider.overrideWithValue(getExpenses)],
-      );
+      final container = listContainer(getExpenses);
       addTearDown(container.dispose);
 
       await container.read(expensesControllerProvider.notifier).refresh();
@@ -1350,11 +1485,7 @@ void main() {
           callCount++;
           return callCount == 1 ? page1 : page2;
         });
-        final container = ProviderContainer(
-          overrides: [
-            getExpensesUseCaseProvider.overrideWithValue(getExpenses),
-          ],
-        );
+        final container = listContainer(getExpenses);
         addTearDown(container.dispose);
 
         await container.read(expensesControllerProvider.notifier).refresh();
@@ -1406,9 +1537,7 @@ void main() {
       when(
         () => getExpenses(page: 2, pageSize: 20),
       ).thenAnswer((_) async => page2);
-      final container = ProviderContainer(
-        overrides: [getExpensesUseCaseProvider.overrideWithValue(getExpenses)],
-      );
+      final container = listContainer(getExpenses);
       addTearDown(container.dispose);
 
       await container.read(expensesControllerProvider.notifier).refresh();
@@ -1440,9 +1569,7 @@ void main() {
         totalCount: 1,
       );
       when(getExpenses.call).thenAnswer((_) async => lastPage);
-      final container = ProviderContainer(
-        overrides: [getExpensesUseCaseProvider.overrideWithValue(getExpenses)],
-      );
+      final container = listContainer(getExpenses);
       addTearDown(container.dispose);
 
       await container.read(expensesControllerProvider.notifier).refresh();
@@ -1484,11 +1611,7 @@ void main() {
           if (callCount == 1) return page1;
           throw AppException(failure: failure);
         });
-        final container = ProviderContainer(
-          overrides: [
-            getExpensesUseCaseProvider.overrideWithValue(getExpenses),
-          ],
-        );
+        final container = listContainer(getExpenses);
         addTearDown(container.dispose);
 
         await container.read(expensesControllerProvider.notifier).refresh();
@@ -1539,9 +1662,7 @@ void main() {
         if (callCount == 1) throw AppException(failure: failure);
         return page2;
       });
-      final container = ProviderContainer(
-        overrides: [getExpensesUseCaseProvider.overrideWithValue(getExpenses)],
-      );
+      final container = listContainer(getExpenses);
       addTearDown(container.dispose);
 
       await container.read(expensesControllerProvider.notifier).refresh();
@@ -1575,9 +1696,7 @@ void main() {
       when(
         () => getExpenses(page: 2, pageSize: 20),
       ).thenAnswer((_) => nextPage.future);
-      final container = ProviderContainer(
-        overrides: [getExpensesUseCaseProvider.overrideWithValue(getExpenses)],
-      );
+      final container = listContainer(getExpenses);
       addTearDown(container.dispose);
 
       final controller = container.read(expensesControllerProvider.notifier);
@@ -1620,9 +1739,7 @@ void main() {
       when(
         () => getExpenses(page: 2, pageSize: 20),
       ).thenAnswer((_) => appendCompleter.future);
-      final container = ProviderContainer(
-        overrides: [getExpensesUseCaseProvider.overrideWithValue(getExpenses)],
-      );
+      final container = listContainer(getExpenses);
       addTearDown(container.dispose);
       container.read(expensesControllerProvider.notifier).state = ExpensesState(
         page: initialPage,
@@ -1681,11 +1798,7 @@ void main() {
               : Future.value(freshAppendPage);
         });
 
-        final container = ProviderContainer(
-          overrides: [
-            getExpensesUseCaseProvider.overrideWithValue(getExpenses),
-          ],
-        );
+        final container = listContainer(getExpenses);
         addTearDown(container.dispose);
         container.read(expensesControllerProvider.notifier).state =
             ExpensesState(page: initialPage, totalCount: 21);

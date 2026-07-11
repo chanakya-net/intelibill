@@ -195,6 +195,7 @@ class ExpensesState {
 class ExpensesController extends _$ExpensesController {
   Timer? _searchDebounce;
   String? _activeShopId;
+  bool _authContextObserved = false;
   int _detailRequestGeneration = 0;
   int _paginationGeneration = 0;
   int _categoryGeneration = 0;
@@ -207,18 +208,21 @@ class ExpensesController extends _$ExpensesController {
     if (!ref.mounted) {
       return const ExpensesState(isLoading: true);
     }
+    _authContextObserved = true;
     final activeShopId = ref
         .watch(authControllerProvider)
         .value
         ?.session
         ?.activeShopId;
-    final shopChanged = activeShopId != null && _activeShopId != activeShopId;
+    final shopChanged = _activeShopId != activeShopId;
     if (shopChanged) {
       _handleActiveShopChange(activeShopId);
     }
     ref.onDispose(() => _searchDebounce?.cancel());
-    unawaited(Future.microtask(_startInitialLoad));
-    if (activeShopId == null || shopChanged) {
+    if (activeShopId == null) {
+      return const ExpensesState();
+    }
+    if (shopChanged) {
       return const ExpensesState(isLoading: true);
     }
     return state;
@@ -236,18 +240,13 @@ class ExpensesController extends _$ExpensesController {
 
     state = const ExpensesState();
 
-    unawaited(refresh());
-  }
-
-  void _startInitialLoad() {
-    if (!ref.mounted) {
-      return;
+    if (activeShopId != null) {
+      unawaited(refresh());
     }
-    if (_paginationGeneration == 0) unawaited(refresh());
   }
 
   Future<void> refresh() async {
-    if (!ref.mounted) return;
+    if (!ref.mounted || !_hasRequestContext) return;
     final requestGeneration = ++_paginationGeneration;
     final requestShopId = _activeShopId;
     state = state.copyWith(
@@ -290,7 +289,7 @@ class ExpensesController extends _$ExpensesController {
   }
 
   Future<void> loadMore() {
-    if (!ref.mounted) return Future.value();
+    if (!ref.mounted || !_hasRequestContext) return Future.value();
     final pendingOperation = _loadMoreOperation;
     if (pendingOperation != null &&
         _loadMoreOperationGeneration == _paginationGeneration) {
@@ -390,7 +389,7 @@ class ExpensesController extends _$ExpensesController {
   }
 
   void updateSearch(String query) {
-    if (!ref.mounted) return;
+    if (!ref.mounted || !_hasRequestContext) return;
     state = state.copyWith(searchQuery: query);
     _searchDebounce?.cancel();
     ++_paginationGeneration;
@@ -419,7 +418,7 @@ class ExpensesController extends _$ExpensesController {
   }
 
   Future<void> loadCategories({bool force = false}) async {
-    if (!ref.mounted) return;
+    if (!ref.mounted || !_hasRequestContext) return;
     if (state.isLoadingCategories || (!force && state.categories.isNotEmpty)) {
       return;
     }
@@ -471,7 +470,7 @@ class ExpensesController extends _$ExpensesController {
     String? description,
     required DateTime expenseDate,
   }) async {
-    if (!ref.mounted || state.isSubmitting) return false;
+    if (!ref.mounted || !_hasRequestContext || state.isSubmitting) return false;
     final requestGeneration = ++_mutationGeneration;
     final requestShopId = _activeShopId;
     state = state.copyWith(isSubmitting: true, clearSubmitFailure: true);
@@ -521,7 +520,7 @@ class ExpensesController extends _$ExpensesController {
     String? description,
     required DateTime expenseDate,
   }) async {
-    if (!ref.mounted || state.isSubmitting) return false;
+    if (!ref.mounted || !_hasRequestContext || state.isSubmitting) return false;
     final requestGeneration = ++_mutationGeneration;
     final requestShopId = _activeShopId;
     state = state.copyWith(isSubmitting: true, clearSubmitFailure: true);
@@ -567,7 +566,7 @@ class ExpensesController extends _$ExpensesController {
   }
 
   Future<void> openExpense(String id) async {
-    if (!ref.mounted) return;
+    if (!ref.mounted || !_hasRequestContext) return;
     final requestGeneration = ++_detailRequestGeneration;
     final requestShopId = _activeShopId;
     state = state.copyWith(
@@ -580,7 +579,7 @@ class ExpensesController extends _$ExpensesController {
   }
 
   Future<void> retryExpenseDetail() async {
-    if (!ref.mounted) return;
+    if (!ref.mounted || !_hasRequestContext) return;
     final id = state.selectedExpenseId;
     if (id == null) return;
     final requestGeneration = ++_detailRequestGeneration;
@@ -640,6 +639,8 @@ class ExpensesController extends _$ExpensesController {
         _mutationGeneration == requestGeneration &&
         _activeShopId == requestShopId;
   }
+
+  bool get _hasRequestContext => !_authContextObserved || _activeShopId != null;
 
   void clearSelectedExpense() {
     _detailRequestGeneration += 1;
