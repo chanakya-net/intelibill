@@ -149,6 +149,48 @@ final class GetBankAccountsUseCaseProvider
 String _$getBankAccountsUseCaseHash() =>
     r'9e557f2e070676ed763e449f2d2805f25c151a44';
 
+@ProviderFor(addBankAccountUseCase)
+final addBankAccountUseCaseProvider = AddBankAccountUseCaseProvider._();
+
+final class AddBankAccountUseCaseProvider
+    extends $FunctionalProvider<AddBankAccount, AddBankAccount, AddBankAccount>
+    with $Provider<AddBankAccount> {
+  AddBankAccountUseCaseProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'addBankAccountUseCaseProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$addBankAccountUseCaseHash();
+
+  @$internal
+  @override
+  $ProviderElement<AddBankAccount> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  AddBankAccount create(Ref ref) {
+    return addBankAccountUseCase(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(AddBankAccount value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<AddBankAccount>(value),
+    );
+  }
+}
+
+String _$addBankAccountUseCaseHash() =>
+    r'b6fb34ef63014edd5adbc2d1bae1509b463d7186';
+
 @ProviderFor(BankAccountsController)
 final bankAccountsControllerProvider = BankAccountsControllerProvider._();
 
@@ -182,7 +224,7 @@ final class BankAccountsControllerProvider
 }
 
 String _$bankAccountsControllerHash() =>
-    r'4f85bd87eb20e86f65e836e9b0c02fd540a2b7b7';
+    r'6106dc84ba565c5e01f3334e5c832e19899b6d9b';
 
 abstract class _$BankAccountsController extends $Notifier<BankAccountsState> {
   BankAccountsState build();
