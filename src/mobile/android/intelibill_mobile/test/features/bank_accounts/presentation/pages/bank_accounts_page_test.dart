@@ -327,4 +327,54 @@ void main() {
     expect(find.text('Failed Bank'), findsOneWidget);
     verify(() => addBankAccount(any())).called(1);
   });
+
+  testWidgets('prevents duplicate submissions while an account is saving', (
+    tester,
+  ) async {
+    final pendingCreate = Completer<void>();
+    when(() => getBankAccounts()).thenAnswer((_) async => []);
+    when(() => addBankAccount(any())).thenAnswer((_) => pendingCreate.future);
+
+    await tester.pumpWidget(
+      _TestApp(
+        getBankAccounts: getBankAccounts,
+        addBankAccount: addBankAccount,
+        session: _session('Owner'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(BankAccountsPage.addBankAccountFabKey));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(BankAccountForm.bankNameFieldKey),
+      'Guarded Bank',
+    );
+    await tester.enterText(
+      find.byKey(BankAccountForm.accountNumberFieldKey),
+      '12345678',
+    );
+    await tester.tap(find.byKey(BankAccountForm.accountTypeFieldKey));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Savings').last);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(BankAccountForm.submitButtonKey));
+
+    await tester.tap(find.byKey(BankAccountForm.submitButtonKey));
+    await tester.pump();
+    final submitButton = tester.widget<FilledButton>(
+      find.byKey(BankAccountForm.submitButtonKey),
+    );
+    expect(submitButton.onPressed, isNull);
+    await tester.tap(
+      find.byKey(BankAccountForm.submitButtonKey),
+      warnIfMissed: false,
+    );
+    await tester.pump();
+
+    expect(find.byType(CreateBankAccountSheet), findsOneWidget);
+    verify(() => addBankAccount(any())).called(1);
+
+    pendingCreate.complete();
+    await tester.pumpAndSettle();
+  });
 }
