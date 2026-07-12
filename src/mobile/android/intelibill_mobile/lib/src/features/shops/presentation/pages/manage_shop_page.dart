@@ -7,11 +7,9 @@ import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/auth/domain/entities/auth_session.dart';
 import 'package:intelibill_mobile/src/features/auth/presentation/controllers/auth_controller.dart';
-import 'package:intelibill_mobile/src/features/shops/domain/entities/add_bank_account_request.dart';
 import 'package:intelibill_mobile/src/features/shops/domain/entities/shop_details.dart';
 import 'package:intelibill_mobile/src/features/shops/domain/entities/update_shop_request.dart';
 import 'package:intelibill_mobile/src/features/shops/presentation/controllers/shop_controller.dart';
-import 'package:intelibill_mobile/src/features/shops/presentation/widgets/bank_details_form.dart';
 import 'package:intelibill_mobile/src/features/shops/presentation/widgets/shop_info_form.dart';
 import 'package:intelibill_mobile/src/features/shops/presentation/widgets/shop_step_indicator.dart';
 
@@ -31,7 +29,6 @@ class ManageShopPage extends ConsumerStatefulWidget {
 class _ManageShopPageState extends ConsumerState<ManageShopPage> {
   final _shopSelectorFormKey = GlobalKey<FormState>();
   final _shopInfoFormKey = GlobalKey<FormState>();
-  final _bankDetailsFormKey = GlobalKey<FormState>();
 
   int _currentStep = 1;
   List<UserShop> _shops = const [];
@@ -39,7 +36,6 @@ class _ManageShopPageState extends ConsumerState<ManageShopPage> {
 
   ShopDetails? _loadedShop;
   ShopInfoFormData _shopInfo = const ShopInfoFormData();
-  BankDetailsFormData _bankInfo = const BankDetailsFormData();
 
   bool get _isLoading => ref.watch(shopControllerProvider).isLoading;
 
@@ -167,16 +163,6 @@ class _ManageShopPageState extends ConsumerState<ManageShopPage> {
                   _shopInfo = data;
                 },
               ),
-              const SizedBox(height: 16),
-              BankDetailsForm(
-                formKey: _bankDetailsFormKey,
-                isSubmitting: _isLoading,
-                isOptional: true,
-                initialValue: _bankInfo,
-                onChanged: (data) {
-                  _bankInfo = data;
-                },
-              ),
             ],
           ),
         );
@@ -273,21 +259,9 @@ class _ManageShopPageState extends ConsumerState<ManageShopPage> {
       gstNumber: details.gstNumber,
     );
 
-    final bankAccount = details.bankAccounts.isEmpty
-        ? null
-        : details.bankAccounts.first;
-    final bankInfo = BankDetailsFormData(
-      bankName: bankAccount?.bankName ?? '',
-      accountNumber: bankAccount?.accountNumber ?? '',
-      accountType: bankAccount?.accountType,
-      ifscCode: bankAccount?.ifscCode ?? '',
-      accountHolderName: bankAccount?.accountHolderName ?? '',
-    );
-
     setState(() {
       _loadedShop = details;
       _shopInfo = shopInfo;
-      _bankInfo = bankInfo;
       _currentStep = 2;
     });
   }
@@ -322,42 +296,9 @@ class _ManageShopPageState extends ConsumerState<ManageShopPage> {
       return;
     }
 
-    final shouldAddBank = !_isBankInfoBlank(_bankInfo);
-    if (shouldAddBank) {
-      if (!(_bankDetailsFormKey.currentState?.validate() ?? false)) {
-        return;
-      }
-
-      await ref
-          .read(shopControllerProvider.notifier)
-          .addBankAccount(
-            AddBankAccountRequest(
-              bankName: _bankInfo.bankName.trim(),
-              accountNumber: _bankInfo.accountNumber.trim(),
-              accountType: _bankInfo.accountType ?? '',
-              ifscCode: _bankInfo.ifscCode.trim(),
-              accountHolderName: _bankInfo.accountHolderName.trim(),
-            ),
-          );
-
-      if (!mounted) return;
-      final bankState = ref.read(shopControllerProvider);
-      if (bankState.hasError || bankState.isLoading) {
-        return;
-      }
-    }
-
     setState(() {
       _currentStep = 3;
     });
-  }
-
-  bool _isBankInfoBlank(BankDetailsFormData data) {
-    return data.bankName.trim().isEmpty &&
-        data.accountNumber.trim().isEmpty &&
-        (data.accountType ?? '').trim().isEmpty &&
-        data.ifscCode.trim().isEmpty &&
-        data.accountHolderName.trim().isEmpty;
   }
 
   void _handleDone() {
