@@ -40,8 +40,17 @@ class EditBankAccountSheet extends ConsumerWidget {
                 _SubmitFailureMessage(failure: state.submitFailure!),
                 const SizedBox(height: 12),
               ],
-              EditBankAccountForm(
-                account: account,
+              BankAccountForm(
+                initial: account.accountType != null
+                    ? SaveBankAccountRequest(
+                        bankName: account.bankName,
+                        accountNumber: account.accountNumber,
+                        accountType: account.accountType!,
+                        ifscCode: account.ifscCode,
+                        accountHolderName: account.accountHolderName,
+                      )
+                    : null,
+                submitButtonLabel: (_) => l10n.bankAccountsUpdate,
                 isSubmitting: state.isSubmitting,
                 onSubmit: (request) => _submit(context, ref, request),
               ),
@@ -115,200 +124,6 @@ class _SubmitFailureMessage extends StatelessWidget {
     return Text(
       message,
       style: TextStyle(color: Theme.of(context).colorScheme.error),
-    );
-  }
-}
-
-class EditBankAccountForm extends StatefulWidget {
-  const EditBankAccountForm({
-    required this.account,
-    required this.onSubmit,
-    this.isSubmitting = false,
-    super.key,
-  });
-
-  final BankAccount account;
-  final Future<void> Function(SaveBankAccountRequest request) onSubmit;
-  final bool isSubmitting;
-
-  @override
-  State<EditBankAccountForm> createState() => _EditBankAccountFormState();
-}
-
-class _EditBankAccountFormState extends State<EditBankAccountForm> {
-  static final RegExp _ifscPattern = RegExp(r'^[A-Z]{4}0[A-Z0-9]{6}$');
-
-  final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _bankNameController;
-  late final TextEditingController _accountNumberController;
-  late final TextEditingController _ifscCodeController;
-  late final TextEditingController _accountHolderNameController;
-  late String? _accountType;
-
-  @override
-  void initState() {
-    super.initState();
-    _bankNameController = TextEditingController(text: widget.account.bankName);
-    _accountNumberController = TextEditingController(
-      text: widget.account.accountNumber,
-    );
-    _ifscCodeController = TextEditingController(
-      text: widget.account.ifscCode ?? '',
-    );
-    _accountHolderNameController = TextEditingController(
-      text: widget.account.accountHolderName ?? '',
-    );
-    _accountType = widget.account.accountType;
-  }
-
-  @override
-  void dispose() {
-    _bankNameController.dispose();
-    _accountNumberController.dispose();
-    _ifscCodeController.dispose();
-    _accountHolderNameController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submit() async {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
-    await widget.onSubmit(_request());
-  }
-
-  SaveBankAccountRequest _request() {
-    return SaveBankAccountRequest(
-      bankName: _bankNameController.text.trim(),
-      accountNumber: _accountNumberController.text.trim(),
-      accountType: _accountType!,
-      ifscCode: _optional(_ifscCodeController.text)?.toUpperCase(),
-      accountHolderName: _optional(_accountHolderNameController.text),
-    );
-  }
-
-  String? _optional(String value) {
-    final trimmed = value.trim();
-    return trimmed.isEmpty ? null : trimmed;
-  }
-
-  String? _required(String? value, String message, int maxLength) {
-    final trimmed = (value ?? '').trim();
-    if (trimmed.isEmpty) return message;
-    return trimmed.length > maxLength ? message : null;
-  }
-
-  String? _optionalText(String? value, String message, int maxLength) {
-    final trimmed = (value ?? '').trim();
-    return trimmed.isNotEmpty && trimmed.length > maxLength ? message : null;
-  }
-
-  String? _validateIfsc(String? value, AppLocalizations l10n) {
-    final ifsc = _optional(value ?? '');
-    if (ifsc == null || _ifscPattern.hasMatch(ifsc.toUpperCase())) return null;
-    return l10n.bankAccountsIfscInvalid;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final enabled = !widget.isSubmitting;
-    return Form(
-      key: _formKey,
-      autovalidateMode: AutovalidateMode.onUserInteraction,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          TextFormField(
-            key: BankAccountForm.bankNameFieldKey,
-            controller: _bankNameController,
-            enabled: enabled,
-            maxLength: 120,
-            textInputAction: TextInputAction.next,
-            decoration: InputDecoration(labelText: l10n.bankAccountsBankName),
-            validator: (value) => _required(
-              value,
-              l10n.bankAccountsBankNameRequired,
-              120,
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            key: BankAccountForm.accountNumberFieldKey,
-            controller: _accountNumberController,
-            enabled: enabled,
-            maxLength: 50,
-            keyboardType: TextInputType.number,
-            textInputAction: TextInputAction.next,
-            decoration: InputDecoration(
-              labelText: l10n.bankAccountsAccountNumber,
-            ),
-            validator: (value) => _required(
-              value,
-              l10n.bankAccountsAccountNumberRequired,
-              50,
-            ),
-          ),
-          const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
-            key: BankAccountForm.accountTypeFieldKey,
-            initialValue: _accountType,
-            onChanged: enabled
-                ? (value) => setState(() => _accountType = value)
-                : null,
-            decoration: InputDecoration(
-              labelText: l10n.bankAccountsAccountType,
-            ),
-            items: [
-              DropdownMenuItem(
-                value: 'Savings',
-                child: Text(l10n.bankAccountsTypeSavings),
-              ),
-              DropdownMenuItem(
-                value: 'Current',
-                child: Text(l10n.bankAccountsTypeCurrent),
-              ),
-            ],
-            validator: (value) =>
-                value == null ? l10n.bankAccountsAccountTypeRequired : null,
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            key: BankAccountForm.ifscCodeFieldKey,
-            controller: _ifscCodeController,
-            enabled: enabled,
-            maxLength: 11,
-            textCapitalization: TextCapitalization.characters,
-            textInputAction: TextInputAction.next,
-            decoration: InputDecoration(labelText: l10n.bankAccountsIfsc),
-            validator: (value) => _validateIfsc(value, l10n),
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            key: BankAccountForm.accountHolderNameFieldKey,
-            controller: _accountHolderNameController,
-            enabled: enabled,
-            maxLength: 120,
-            textInputAction: TextInputAction.done,
-            decoration: InputDecoration(labelText: l10n.bankAccountsHolder),
-            validator: (value) => _optionalText(
-              value,
-              l10n.bankAccountsHolderMax,
-              120,
-            ),
-          ),
-          const SizedBox(height: 8),
-          FilledButton(
-            key: BankAccountForm.submitButtonKey,
-            onPressed: enabled ? _submit : null,
-            child: widget.isSubmitting
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Text(l10n.bankAccountsUpdate),
-          ),
-        ],
-      ),
     );
   }
 }
