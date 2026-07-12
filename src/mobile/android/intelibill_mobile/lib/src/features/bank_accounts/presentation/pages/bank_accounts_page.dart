@@ -1,19 +1,54 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intelibill_mobile/src/app/shell/menu_visibility.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
+import 'package:intelibill_mobile/src/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:intelibill_mobile/src/features/bank_accounts/presentation/controllers/bank_accounts_controller.dart';
 import 'package:intelibill_mobile/src/features/bank_accounts/presentation/widgets/bank_account_card.dart';
+import 'package:intelibill_mobile/src/features/bank_accounts/presentation/widgets/create_bank_account_sheet.dart';
 
-class BankAccountsPage extends ConsumerWidget {
+class BankAccountsPage extends ConsumerStatefulWidget {
   const BankAccountsPage({super.key});
 
+  static const addBankAccountFabKey = Key('bank-accounts-add-fab');
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<BankAccountsPage> createState() => _BankAccountsPageState();
+}
+
+class _BankAccountsPageState extends ConsumerState<BankAccountsPage> {
+  Future<void> _openCreateSheet() async {
+    final created = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) => const CreateBankAccountSheet(),
+    );
+    if (!mounted || created != true) return;
+    final l10n = AppLocalizations.of(context)!;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(l10n.bankAccountsCreateSuccess)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(bankAccountsControllerProvider);
+    final session = ref.watch(authControllerProvider).value?.session;
     final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(title: Text(l10n.bankAccountsTitle)),
+      floatingActionButton: canManageBankAccounts(session)
+          ? FloatingActionButton.extended(
+              key: BankAccountsPage.addBankAccountFabKey,
+              onPressed: () => unawaited(_openCreateSheet()),
+              icon: const Icon(Icons.add),
+              label: Text(l10n.bankAccountsAdd),
+            )
+          : null,
       body: _buildBody(context, ref, state, l10n),
     );
   }

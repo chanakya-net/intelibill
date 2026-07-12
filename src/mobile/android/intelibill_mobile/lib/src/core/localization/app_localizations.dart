@@ -4590,6 +4590,84 @@ abstract class AppLocalizations {
   /// In en_IN, this message translates to:
   /// **'Status: {status}'**
   String expensesStatusSemantics(String status);
+
+  /// No description provided for @bankAccountsAdd.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Add Bank Account'**
+  String get bankAccountsAdd;
+
+  /// No description provided for @bankAccountsCreateSuccess.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Bank account created successfully.'**
+  String get bankAccountsCreateSuccess;
+
+  /// No description provided for @bankAccountsBankName.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Bank name'**
+  String get bankAccountsBankName;
+
+  /// No description provided for @bankAccountsBankNameRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Bank name is required.'**
+  String get bankAccountsBankNameRequired;
+
+  /// No description provided for @bankAccountsAccountNumber.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Account number'**
+  String get bankAccountsAccountNumber;
+
+  /// No description provided for @bankAccountsAccountNumberRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Account number is required.'**
+  String get bankAccountsAccountNumberRequired;
+
+  /// No description provided for @bankAccountsAccountType.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Account type'**
+  String get bankAccountsAccountType;
+
+  /// No description provided for @bankAccountsAccountTypeRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Select Savings or Current.'**
+  String get bankAccountsAccountTypeRequired;
+
+  /// No description provided for @bankAccountsTypeSavings.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Savings'**
+  String get bankAccountsTypeSavings;
+
+  /// No description provided for @bankAccountsTypeCurrent.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Current'**
+  String get bankAccountsTypeCurrent;
+
+  /// No description provided for @bankAccountsIfscInvalid.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Enter a valid IFSC code.'**
+  String get bankAccountsIfscInvalid;
+
+  /// No description provided for @bankAccountsHolderMax.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Account holder name must be 120 characters or fewer.'**
+  String get bankAccountsHolderMax;
+
+  /// No description provided for @bankAccountsSubmitError.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to save bank account. Please try again.'**
+  String get bankAccountsSubmitError;
 }
 
 class _AppLocalizationsDelegate

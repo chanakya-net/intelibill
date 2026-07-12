@@ -2395,6 +2395,47 @@ class AppLocalizationsHi extends AppLocalizations {
   String expensesStatusSemantics(String status) {
     return 'Status: $status';
   }
+
+  @override
+  String get bankAccountsAdd => 'Add Bank Account';
+
+  @override
+  String get bankAccountsCreateSuccess => 'Bank account created successfully.';
+
+  @override
+  String get bankAccountsBankName => 'Bank name';
+
+  @override
+  String get bankAccountsBankNameRequired => 'Bank name is required.';
+
+  @override
+  String get bankAccountsAccountNumber => 'Account number';
+
+  @override
+  String get bankAccountsAccountNumberRequired => 'Account number is required.';
+
+  @override
+  String get bankAccountsAccountType => 'Account type';
+
+  @override
+  String get bankAccountsAccountTypeRequired => 'Select Savings or Current.';
+
+  @override
+  String get bankAccountsTypeSavings => 'Savings';
+
+  @override
+  String get bankAccountsTypeCurrent => 'Current';
+
+  @override
+  String get bankAccountsIfscInvalid => 'Enter a valid IFSC code.';
+
+  @override
+  String get bankAccountsHolderMax =>
+      'Account holder name must be 120 characters or fewer.';
+
+  @override
+  String get bankAccountsSubmitError =>
+      'Unable to save bank account. Please try again.';
 }
 
 /// The translations for Hindi, as used in India (`hi_IN`).
@@ -3801,4 +3842,45 @@ class AppLocalizationsHiIn extends AppLocalizationsHi {
   String expensesStatusSemantics(String status) {
     return 'Status: $status';
   }
+
+  @override
+  String get bankAccountsAdd => 'Add Bank Account';
+
+  @override
+  String get bankAccountsCreateSuccess => 'Bank account created successfully.';
+
+  @override
+  String get bankAccountsBankName => 'Bank name';
+
+  @override
+  String get bankAccountsBankNameRequired => 'Bank name is required.';
+
+  @override
+  String get bankAccountsAccountNumber => 'Account number';
+
+  @override
+  String get bankAccountsAccountNumberRequired => 'Account number is required.';
+
+  @override
+  String get bankAccountsAccountType => 'Account type';
+
+  @override
+  String get bankAccountsAccountTypeRequired => 'Select Savings or Current.';
+
+  @override
+  String get bankAccountsTypeSavings => 'Savings';
+
+  @override
+  String get bankAccountsTypeCurrent => 'Current';
+
+  @override
+  String get bankAccountsIfscInvalid => 'Enter a valid IFSC code.';
+
+  @override
+  String get bankAccountsHolderMax =>
+      'Account holder name must be 120 characters or fewer.';
+
+  @override
+  String get bankAccountsSubmitError =>
+      'Unable to save bank account. Please try again.';
 }
