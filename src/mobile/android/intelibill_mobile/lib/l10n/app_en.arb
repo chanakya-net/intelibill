@@ -126,6 +126,17 @@
   "servicesErrorUnauthorized": "Session expired. Please log in again.",
   "servicesErrorForbidden": "You do not have permission to view services.",
   "servicesErrorGeneric": "Unable to load services. Please try again.",
+  "bankAccountsTitle": "Bank Accounts",
+  "bankAccountsEmpty": "No bank accounts found",
+  "bankAccountsUnableToLoad": "Unable to load bank accounts",
+  "bankAccountsRetry": "Retry",
+  "bankAccountsType": "Type",
+  "bankAccountsIfsc": "IFSC",
+  "bankAccountsHolder": "Account holder",
+  "bankAccountsErrorNetwork": "Unable to connect. Please check your network.",
+  "bankAccountsErrorTimeout": "Request timed out. Please try again.",
+  "bankAccountsErrorUnauthorized": "Session expired. Please log in again.",
+  "bankAccountsErrorForbidden": "You do not have permission to view bank accounts.",
   "servicesAddService": "Add Service",
   "servicesEditService": "Edit Service",
   "servicesNameLabel": "Name",
@@ -658,8 +669,12 @@
   "salesDetailReturnItem": "{quantity} returned of {itemName}",
   "@salesDetailReturnItem": {
     "placeholders": {
-      "quantity": {"type": "double"},
-      "itemName": {"type": "String"}
+      "quantity": {
+        "type": "double"
+      },
+      "itemName": {
+        "type": "String"
+      }
     }
   },
   "salesHistoryItemCountLabel": "Items",
@@ -680,7 +695,7 @@
       }
     }
   },
-  "salesHistoryDateRangeLabel": "{from} – {to}",
+  "salesHistoryDateRangeLabel": "{from} \u2013 {to}",
   "@salesHistoryDateRangeLabel": {
     "placeholders": {
       "from": {
@@ -838,5 +853,37 @@
   "expensesUnableToLoadMore": "Unable to load more expenses",
   "expensesSubmitting": "Saving expense",
   "expensesMetricSemantics": "{label}: {value}",
-  "expensesStatusSemantics": "Status: {status}"
+  "expensesStatusSemantics": "Status: {status}",
+  "bankAccountsAdd": "Add Bank Account",
+  "bankAccountsSearchHint": "Search bank accounts",
+  "bankAccountsClearSearch": "Clear bank account search",
+  "bankAccountsNoResults": "No bank accounts match your search",
+  "bankAccountsRefresh": "Refresh bank accounts",
+  "bankAccountsCreateSuccess": "Bank account created successfully.",
+  "bankAccountsBankName": "Bank name",
+  "bankAccountsBankNameRequired": "Bank name is required.",
+  "bankAccountsAccountNumber": "Account number",
+  "bankAccountsAccountNumberRequired": "Account number is required.",
+  "bankAccountsAccountType": "Account type",
+  "bankAccountsAccountTypeRequired": "Select Savings or Current.",
+  "bankAccountsTypeSavings": "Savings",
+  "bankAccountsTypeCurrent": "Current",
+  "bankAccountsIfscInvalid": "Enter a valid IFSC code.",
+  "bankAccountsHolderMax": "Account holder name must be 120 characters or fewer.",
+  "bankAccountsSubmitError": "Unable to save bank account. Please try again.",
+  "bankAccountsEdit": "Edit Bank Account",
+  "bankAccountsUpdate": "Update Bank Account",
+  "bankAccountsUpdateSuccess": "Bank account updated successfully.",
+  "bankAccountsDelete": "Delete bank account",
+  "bankAccountsDeleteTitle": "Delete bank account",
+  "bankAccountsDeleteConfirmation": "Permanently delete {bankName}? This cannot be undone.",
+  "@bankAccountsDeleteConfirmation": {
+    "placeholders": {
+      "bankName": {}
+    }
+  },
+  "bankAccountsDeleteCancel": "Cancel",
+  "bankAccountsDeleteConfirm": "Delete permanently",
+  "bankAccountsDeleteSuccess": "Bank account deleted successfully.",
+  "bankAccountsDeleteError": "Unable to delete bank account. Please try again."
 }

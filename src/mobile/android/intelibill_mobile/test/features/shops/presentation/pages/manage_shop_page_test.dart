@@ -8,14 +8,12 @@ import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/auth/domain/entities/auth_session.dart';
 import 'package:intelibill_mobile/src/features/auth/presentation/controllers/auth_controller.dart';
-import 'package:intelibill_mobile/src/features/shops/domain/entities/add_bank_account_request.dart';
 import 'package:intelibill_mobile/src/features/shops/domain/entities/shop_details.dart';
 import 'package:intelibill_mobile/src/features/shops/domain/entities/update_shop_request.dart';
 import 'package:intelibill_mobile/src/features/shops/domain/use_cases/add_bank_account_use_case.dart';
 import 'package:intelibill_mobile/src/features/shops/domain/use_cases/get_shop_use_case.dart';
 import 'package:intelibill_mobile/src/features/shops/domain/use_cases/update_shop_use_case.dart';
 import 'package:intelibill_mobile/src/features/shops/presentation/pages/manage_shop_page.dart';
-import 'package:intelibill_mobile/src/features/shops/presentation/widgets/bank_details_form.dart';
 import 'package:intelibill_mobile/src/features/shops/presentation/widgets/shop_info_form.dart';
 import 'package:intelibill_mobile/src/features/shops/shops_providers.dart';
 import 'package:mocktail/mocktail.dart';
@@ -49,15 +47,6 @@ void main() {
         city: 'city',
         state: 'state',
         pincode: '123456',
-      ),
-    );
-    registerFallbackValue(
-      const AddBankAccountRequest(
-        bankName: 'Bank',
-        accountNumber: '123',
-        accountType: 'Savings',
-        ifscCode: 'ABCD0123456',
-        accountHolderName: 'John',
       ),
     );
   });
@@ -187,11 +176,6 @@ void main() {
       find.byKey(ShopInfoForm.shopNameFieldKey),
     );
     expect(shopNameField.controller?.text, equals('Acme Store'));
-
-    final bankNameField = tester.widget<TextFormField>(
-      find.byKey(BankDetailsForm.bankNameFieldKey),
-    );
-    expect(bankNameField.controller?.text, equals('State Bank'));
   });
 
   testWidgets('save calls updateShop then shows success step', (tester) async {
@@ -202,7 +186,6 @@ void main() {
     when(
       () => updateShopUseCase(any(), any()),
     ).thenAnswer((_) async => fixtureShopDetails());
-    when(() => addBankAccountUseCase(any())).thenAnswer((_) async {});
 
     await tester.pumpWidget(buildPage(session: session));
     await tester.pumpAndSettle();
@@ -233,7 +216,6 @@ void main() {
         ),
       ),
     ).called(1);
-    verify(() => addBankAccountUseCase(any())).called(1);
   });
 
   testWidgets('save disabled and spinner shown during AsyncLoading', (
@@ -268,25 +250,31 @@ void main() {
     expect(find.text('boom'), findsOneWidget);
   });
 
-  testWidgets('blank bank fields: addBankAccount is not called', (
+  testWidgets('manage shop displays only shop info form, not bank details', (
     tester,
   ) async {
     final session = fixtureSession(shops: fixtureShops(count: 1));
-    when(() => getShopUseCase('shop-1')).thenAnswer(
-      (_) async => const ShopDetails(
-        id: 'shop-1',
-        name: 'Acme Store',
-        address: '12 Industrial Area',
-        city: 'City',
-        state: 'State',
-        pincode: '123456',
-        bankAccounts: [],
-      ),
-    );
+    when(
+      () => getShopUseCase('shop-1'),
+    ).thenAnswer((_) async => fixtureShopDetails());
+
+    await tester.pumpWidget(buildPage(session: session));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ShopInfoForm), findsOneWidget);
+    expect(find.byKey(ShopInfoForm.shopNameFieldKey), findsOneWidget);
+  });
+
+  testWidgets('save shop does not invoke addBankAccount use case', (
+    tester,
+  ) async {
+    final session = fixtureSession(shops: fixtureShops(count: 1));
+    when(
+      () => getShopUseCase('shop-1'),
+    ).thenAnswer((_) async => fixtureShopDetails());
     when(
       () => updateShopUseCase(any(), any()),
     ).thenAnswer((_) async => fixtureShopDetails());
-    when(() => addBankAccountUseCase(any())).thenAnswer((_) async {});
 
     await tester.pumpWidget(buildPage(session: session));
     await tester.pumpAndSettle();
@@ -294,6 +282,15 @@ void main() {
     await tester.tap(find.byKey(ManageShopPage.saveButtonKey));
     await tester.pumpAndSettle();
 
-    verifyNever(() => addBankAccountUseCase(any()));
+    expect(
+      find.text(l10n.shopsManageSuccessMessage('Acme Store')),
+      findsOneWidget,
+    );
+    verify(
+      () => updateShopUseCase(
+        'shop-1',
+        any(),
+      ),
+    ).called(1);
   });
 }

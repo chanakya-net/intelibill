@@ -473,6 +473,42 @@ class AppLocalizationsEn extends AppLocalizations {
       'Unable to load services. Please try again.';
 
   @override
+  String get bankAccountsTitle => 'Bank Accounts';
+
+  @override
+  String get bankAccountsEmpty => 'No bank accounts found';
+
+  @override
+  String get bankAccountsUnableToLoad => 'Unable to load bank accounts';
+
+  @override
+  String get bankAccountsRetry => 'Retry';
+
+  @override
+  String get bankAccountsType => 'Type';
+
+  @override
+  String get bankAccountsIfsc => 'IFSC';
+
+  @override
+  String get bankAccountsHolder => 'Account holder';
+
+  @override
+  String get bankAccountsErrorNetwork =>
+      'Unable to connect. Please check your network.';
+
+  @override
+  String get bankAccountsErrorTimeout => 'Request timed out. Please try again.';
+
+  @override
+  String get bankAccountsErrorUnauthorized =>
+      'Session expired. Please log in again.';
+
+  @override
+  String get bankAccountsErrorForbidden =>
+      'You do not have permission to view bank accounts.';
+
+  @override
   String get servicesAddService => 'Add Service';
 
   @override
@@ -2358,6 +2394,92 @@ class AppLocalizationsEn extends AppLocalizations {
   String expensesStatusSemantics(String status) {
     return 'Status: $status';
   }
+
+  @override
+  String get bankAccountsAdd => 'Add Bank Account';
+
+  @override
+  String get bankAccountsSearchHint => 'Search bank accounts';
+
+  @override
+  String get bankAccountsClearSearch => 'Clear bank account search';
+
+  @override
+  String get bankAccountsNoResults => 'No bank accounts match your search';
+
+  @override
+  String get bankAccountsRefresh => 'Refresh bank accounts';
+
+  @override
+  String get bankAccountsCreateSuccess => 'Bank account created successfully.';
+
+  @override
+  String get bankAccountsBankName => 'Bank name';
+
+  @override
+  String get bankAccountsBankNameRequired => 'Bank name is required.';
+
+  @override
+  String get bankAccountsAccountNumber => 'Account number';
+
+  @override
+  String get bankAccountsAccountNumberRequired => 'Account number is required.';
+
+  @override
+  String get bankAccountsAccountType => 'Account type';
+
+  @override
+  String get bankAccountsAccountTypeRequired => 'Select Savings or Current.';
+
+  @override
+  String get bankAccountsTypeSavings => 'Savings';
+
+  @override
+  String get bankAccountsTypeCurrent => 'Current';
+
+  @override
+  String get bankAccountsIfscInvalid => 'Enter a valid IFSC code.';
+
+  @override
+  String get bankAccountsHolderMax =>
+      'Account holder name must be 120 characters or fewer.';
+
+  @override
+  String get bankAccountsSubmitError =>
+      'Unable to save bank account. Please try again.';
+
+  @override
+  String get bankAccountsEdit => 'Edit Bank Account';
+
+  @override
+  String get bankAccountsUpdate => 'Update Bank Account';
+
+  @override
+  String get bankAccountsUpdateSuccess => 'Bank account updated successfully.';
+
+  @override
+  String get bankAccountsDelete => 'Delete bank account';
+
+  @override
+  String get bankAccountsDeleteTitle => 'Delete bank account';
+
+  @override
+  String bankAccountsDeleteConfirmation(Object bankName) {
+    return 'Permanently delete $bankName? This cannot be undone.';
+  }
+
+  @override
+  String get bankAccountsDeleteCancel => 'Cancel';
+
+  @override
+  String get bankAccountsDeleteConfirm => 'Delete permanently';
+
+  @override
+  String get bankAccountsDeleteSuccess => 'Bank account deleted successfully.';
+
+  @override
+  String get bankAccountsDeleteError =>
+      'Unable to delete bank account. Please try again.';
 }
 
 /// The translations for English, as used in India (`en_IN`).
@@ -2829,6 +2951,42 @@ class AppLocalizationsEnIn extends AppLocalizationsEn {
       'Unable to load services. Please try again.';
 
   @override
+  String get bankAccountsTitle => 'Bank Accounts';
+
+  @override
+  String get bankAccountsEmpty => 'No bank accounts found';
+
+  @override
+  String get bankAccountsUnableToLoad => 'Unable to load bank accounts';
+
+  @override
+  String get bankAccountsRetry => 'Retry';
+
+  @override
+  String get bankAccountsType => 'Type';
+
+  @override
+  String get bankAccountsIfsc => 'IFSC';
+
+  @override
+  String get bankAccountsHolder => 'Account holder';
+
+  @override
+  String get bankAccountsErrorNetwork =>
+      'Unable to connect. Please check your network.';
+
+  @override
+  String get bankAccountsErrorTimeout => 'Request timed out. Please try again.';
+
+  @override
+  String get bankAccountsErrorUnauthorized =>
+      'Session expired. Please log in again.';
+
+  @override
+  String get bankAccountsErrorForbidden =>
+      'You do not have permission to view bank accounts.';
+
+  @override
   String get servicesAddService => 'Add Service';
 
   @override
@@ -4714,4 +4872,90 @@ class AppLocalizationsEnIn extends AppLocalizationsEn {
   String expensesStatusSemantics(String status) {
     return 'Status: $status';
   }
+
+  @override
+  String get bankAccountsAdd => 'Add Bank Account';
+
+  @override
+  String get bankAccountsSearchHint => 'Search bank accounts';
+
+  @override
+  String get bankAccountsClearSearch => 'Clear bank account search';
+
+  @override
+  String get bankAccountsNoResults => 'No bank accounts match your search';
+
+  @override
+  String get bankAccountsRefresh => 'Refresh bank accounts';
+
+  @override
+  String get bankAccountsCreateSuccess => 'Bank account created successfully.';
+
+  @override
+  String get bankAccountsBankName => 'Bank name';
+
+  @override
+  String get bankAccountsBankNameRequired => 'Bank name is required.';
+
+  @override
+  String get bankAccountsAccountNumber => 'Account number';
+
+  @override
+  String get bankAccountsAccountNumberRequired => 'Account number is required.';
+
+  @override
+  String get bankAccountsAccountType => 'Account type';
+
+  @override
+  String get bankAccountsAccountTypeRequired => 'Select Savings or Current.';
+
+  @override
+  String get bankAccountsTypeSavings => 'Savings';
+
+  @override
+  String get bankAccountsTypeCurrent => 'Current';
+
+  @override
+  String get bankAccountsIfscInvalid => 'Enter a valid IFSC code.';
+
+  @override
+  String get bankAccountsHolderMax =>
+      'Account holder name must be 120 characters or fewer.';
+
+  @override
+  String get bankAccountsSubmitError =>
+      'Unable to save bank account. Please try again.';
+
+  @override
+  String get bankAccountsEdit => 'Edit Bank Account';
+
+  @override
+  String get bankAccountsUpdate => 'Update Bank Account';
+
+  @override
+  String get bankAccountsUpdateSuccess => 'Bank account updated successfully.';
+
+  @override
+  String get bankAccountsDelete => 'Delete bank account';
+
+  @override
+  String get bankAccountsDeleteTitle => 'Delete bank account';
+
+  @override
+  String bankAccountsDeleteConfirmation(Object bankName) {
+    return 'Permanently delete $bankName? This cannot be undone.';
+  }
+
+  @override
+  String get bankAccountsDeleteCancel => 'Cancel';
+
+  @override
+  String get bankAccountsDeleteConfirm => 'Delete permanently';
+
+  @override
+  String get bankAccountsDeleteSuccess => 'Bank account deleted successfully.';
+
+  @override
+  String get bankAccountsDeleteError =>
+      'Unable to delete bank account. Please try again.';
 }

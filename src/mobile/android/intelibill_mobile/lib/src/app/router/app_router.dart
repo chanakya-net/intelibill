@@ -12,6 +12,7 @@ import 'package:intelibill_mobile/src/features/auth/presentation/pages/change_pa
 import 'package:intelibill_mobile/src/features/auth/presentation/pages/login_page.dart';
 import 'package:intelibill_mobile/src/features/auth/presentation/pages/profile_settings_page.dart';
 import 'package:intelibill_mobile/src/features/auth/presentation/pages/update_profile_page.dart';
+import 'package:intelibill_mobile/src/features/bank_accounts/presentation/pages/bank_accounts_page.dart';
 import 'package:intelibill_mobile/src/features/credit_notes/presentation/pages/credit_note_receipt_page.dart';
 import 'package:intelibill_mobile/src/features/credit_notes/presentation/pages/credit_notes_page.dart';
 import 'package:intelibill_mobile/src/features/customers/presentation/pages/customers_page.dart';
@@ -119,6 +120,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
 
       if (state.matchedLocation == AppRoutes.expenses &&
           !canManageExpenses(authState.session)) {
+        return AppRoutes.salesHistory;
+      }
+
+      if (state.matchedLocation == AppRoutes.bankAccounts &&
+          !canManageBankAccounts(authState.session)) {
         return AppRoutes.salesHistory;
       }
 
@@ -244,10 +250,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: AppRoutes.bankAccounts,
-            builder: (context, state) => _buildPlaceholder(
-              context,
-              title: AppLocalizations.of(context)!.shellManageBankAccounts,
-            ),
+            builder: (context, state) => const BankAccountsPage(),
           ),
           GoRoute(
             path: AppRoutes.language,

@@ -1009,6 +1009,72 @@ abstract class AppLocalizations {
   /// **'Unable to load services. Please try again.'**
   String get servicesErrorGeneric;
 
+  /// No description provided for @bankAccountsTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Bank Accounts'**
+  String get bankAccountsTitle;
+
+  /// No description provided for @bankAccountsEmpty.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No bank accounts found'**
+  String get bankAccountsEmpty;
+
+  /// No description provided for @bankAccountsUnableToLoad.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to load bank accounts'**
+  String get bankAccountsUnableToLoad;
+
+  /// No description provided for @bankAccountsRetry.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Retry'**
+  String get bankAccountsRetry;
+
+  /// No description provided for @bankAccountsType.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Type'**
+  String get bankAccountsType;
+
+  /// No description provided for @bankAccountsIfsc.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'IFSC'**
+  String get bankAccountsIfsc;
+
+  /// No description provided for @bankAccountsHolder.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Account holder'**
+  String get bankAccountsHolder;
+
+  /// No description provided for @bankAccountsErrorNetwork.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to connect. Please check your network.'**
+  String get bankAccountsErrorNetwork;
+
+  /// No description provided for @bankAccountsErrorTimeout.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Request timed out. Please try again.'**
+  String get bankAccountsErrorTimeout;
+
+  /// No description provided for @bankAccountsErrorUnauthorized.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Session expired. Please log in again.'**
+  String get bankAccountsErrorUnauthorized;
+
+  /// No description provided for @bankAccountsErrorForbidden.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'You do not have permission to view bank accounts.'**
+  String get bankAccountsErrorForbidden;
+
   /// No description provided for @servicesAddService.
   ///
   /// In en_IN, this message translates to:
@@ -4524,6 +4590,168 @@ abstract class AppLocalizations {
   /// In en_IN, this message translates to:
   /// **'Status: {status}'**
   String expensesStatusSemantics(String status);
+
+  /// No description provided for @bankAccountsAdd.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Add Bank Account'**
+  String get bankAccountsAdd;
+
+  /// No description provided for @bankAccountsSearchHint.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Search bank accounts'**
+  String get bankAccountsSearchHint;
+
+  /// No description provided for @bankAccountsClearSearch.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Clear bank account search'**
+  String get bankAccountsClearSearch;
+
+  /// No description provided for @bankAccountsNoResults.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No bank accounts match your search'**
+  String get bankAccountsNoResults;
+
+  /// No description provided for @bankAccountsRefresh.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Refresh bank accounts'**
+  String get bankAccountsRefresh;
+
+  /// No description provided for @bankAccountsCreateSuccess.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Bank account created successfully.'**
+  String get bankAccountsCreateSuccess;
+
+  /// No description provided for @bankAccountsBankName.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Bank name'**
+  String get bankAccountsBankName;
+
+  /// No description provided for @bankAccountsBankNameRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Bank name is required.'**
+  String get bankAccountsBankNameRequired;
+
+  /// No description provided for @bankAccountsAccountNumber.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Account number'**
+  String get bankAccountsAccountNumber;
+
+  /// No description provided for @bankAccountsAccountNumberRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Account number is required.'**
+  String get bankAccountsAccountNumberRequired;
+
+  /// No description provided for @bankAccountsAccountType.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Account type'**
+  String get bankAccountsAccountType;
+
+  /// No description provided for @bankAccountsAccountTypeRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Select Savings or Current.'**
+  String get bankAccountsAccountTypeRequired;
+
+  /// No description provided for @bankAccountsTypeSavings.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Savings'**
+  String get bankAccountsTypeSavings;
+
+  /// No description provided for @bankAccountsTypeCurrent.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Current'**
+  String get bankAccountsTypeCurrent;
+
+  /// No description provided for @bankAccountsIfscInvalid.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Enter a valid IFSC code.'**
+  String get bankAccountsIfscInvalid;
+
+  /// No description provided for @bankAccountsHolderMax.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Account holder name must be 120 characters or fewer.'**
+  String get bankAccountsHolderMax;
+
+  /// No description provided for @bankAccountsSubmitError.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to save bank account. Please try again.'**
+  String get bankAccountsSubmitError;
+
+  /// No description provided for @bankAccountsEdit.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Edit Bank Account'**
+  String get bankAccountsEdit;
+
+  /// No description provided for @bankAccountsUpdate.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Update Bank Account'**
+  String get bankAccountsUpdate;
+
+  /// No description provided for @bankAccountsUpdateSuccess.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Bank account updated successfully.'**
+  String get bankAccountsUpdateSuccess;
+
+  /// No description provided for @bankAccountsDelete.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Delete bank account'**
+  String get bankAccountsDelete;
+
+  /// No description provided for @bankAccountsDeleteTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Delete bank account'**
+  String get bankAccountsDeleteTitle;
+
+  /// No description provided for @bankAccountsDeleteConfirmation.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Permanently delete {bankName}? This cannot be undone.'**
+  String bankAccountsDeleteConfirmation(Object bankName);
+
+  /// No description provided for @bankAccountsDeleteCancel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Cancel'**
+  String get bankAccountsDeleteCancel;
+
+  /// No description provided for @bankAccountsDeleteConfirm.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Delete permanently'**
+  String get bankAccountsDeleteConfirm;
+
+  /// No description provided for @bankAccountsDeleteSuccess.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Bank account deleted successfully.'**
+  String get bankAccountsDeleteSuccess;
+
+  /// No description provided for @bankAccountsDeleteError.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to delete bank account. Please try again.'**
+  String get bankAccountsDeleteError;
 }
 
 class _AppLocalizationsDelegate
