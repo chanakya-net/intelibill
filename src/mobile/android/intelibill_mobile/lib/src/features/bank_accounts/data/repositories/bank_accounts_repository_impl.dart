@@ -64,4 +64,19 @@ class BankAccountsRepositoryImpl implements BankAccountsRepository {
       throw AppException(failure: Failure.unknown(message: error.toString()));
     }
   }
+
+  @override
+  Future<void> deleteBankAccount(String id) async {
+    try {
+      await _remoteDataSource.deleteBankAccount(id);
+    } on AppException {
+      rethrow;
+    } on FormatException catch (error) {
+      throw AppException(
+        failure: Failure.serialization(message: error.message),
+      );
+    } catch (error) {
+      throw AppException(failure: Failure.unknown(message: error.toString()));
+    }
+  }
 }

@@ -12,6 +12,7 @@ import 'package:intelibill_mobile/src/features/auth/presentation/controllers/aut
 import 'package:intelibill_mobile/src/features/bank_accounts/domain/entities/bank_account.dart';
 import 'package:intelibill_mobile/src/features/bank_accounts/domain/entities/save_bank_account_request.dart';
 import 'package:intelibill_mobile/src/features/bank_accounts/domain/use_cases/add_bank_account.dart';
+import 'package:intelibill_mobile/src/features/bank_accounts/domain/use_cases/delete_bank_account.dart';
 import 'package:intelibill_mobile/src/features/bank_accounts/domain/use_cases/get_bank_accounts.dart';
 import 'package:intelibill_mobile/src/features/bank_accounts/domain/use_cases/update_bank_account.dart';
 import 'package:intelibill_mobile/src/features/bank_accounts/presentation/controllers/bank_accounts_controller.dart';
@@ -25,6 +26,8 @@ import 'package:mocktail/mocktail.dart';
 class MockGetBankAccounts extends Mock implements GetBankAccounts {}
 
 class MockAddBankAccount extends Mock implements AddBankAccount {}
+
+class MockDeleteBankAccount extends Mock implements DeleteBankAccount {}
 
 class MockUpdateBankAccount extends Mock implements UpdateBankAccount {}
 
@@ -43,10 +46,12 @@ class _TestApp extends StatelessWidget {
     required this.addBankAccount,
     required this.updateBankAccount,
     required this.session,
+    this.deleteBankAccount,
   });
 
   final MockGetBankAccounts getBankAccounts;
   final MockAddBankAccount addBankAccount;
+  final MockDeleteBankAccount? deleteBankAccount;
   final MockUpdateBankAccount updateBankAccount;
   final AuthSession session;
 
@@ -56,6 +61,10 @@ class _TestApp extends StatelessWidget {
       overrides: [
         getBankAccountsUseCaseProvider.overrideWithValue(getBankAccounts),
         addBankAccountUseCaseProvider.overrideWithValue(addBankAccount),
+        if (deleteBankAccount != null)
+          deleteBankAccountUseCaseProvider.overrideWithValue(
+            deleteBankAccount!,
+          ),
         updateBankAccountUseCaseProvider.overrideWithValue(updateBankAccount),
         authControllerProvider.overrideWith(
           () => _StubAuthController(AuthControllerState(session: session)),
@@ -111,6 +120,7 @@ const _account = BankAccount(
 void main() {
   late MockGetBankAccounts getBankAccounts;
   late MockAddBankAccount addBankAccount;
+  late MockDeleteBankAccount deleteBankAccount;
   late MockUpdateBankAccount updateBankAccount;
 
   setUpAll(() {
@@ -127,6 +137,7 @@ void main() {
   setUp(() {
     getBankAccounts = MockGetBankAccounts();
     addBankAccount = MockAddBankAccount();
+    deleteBankAccount = MockDeleteBankAccount();
     updateBankAccount = MockUpdateBankAccount();
   });
 
@@ -437,7 +448,6 @@ void main() {
     );
   });
 
-
   testWidgets('keeps edit sheet open after failed update', (tester) async {
     when(() => getBankAccounts()).thenAnswer((_) async => [_account]);
     when(() => updateBankAccount(any(), any())).thenThrow(
@@ -533,5 +543,175 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(BankAccountCard.editActionKey), findsNothing);
+  });
+
+  testWidgets('shows delete action only to an owner', (tester) async {
+    when(() => getBankAccounts()).thenAnswer((_) async => [_account]);
+
+    await tester.pumpWidget(
+      _TestApp(
+        getBankAccounts: getBankAccounts,
+        addBankAccount: addBankAccount,
+        deleteBankAccount: deleteBankAccount,
+        updateBankAccount: updateBankAccount,
+        session: _session('Owner'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(BankAccountCard.deleteActionKey), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(
+      _TestApp(
+        getBankAccounts: getBankAccounts,
+        addBankAccount: addBankAccount,
+        deleteBankAccount: deleteBankAccount,
+        updateBankAccount: updateBankAccount,
+        session: _session('Staff'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(BankAccountCard.deleteActionKey), findsNothing);
+  });
+
+  testWidgets('cancelled deletion does not send a delete request', (
+    tester,
+  ) async {
+    when(() => getBankAccounts()).thenAnswer((_) async => [_account]);
+
+    await tester.pumpWidget(
+      _TestApp(
+        getBankAccounts: getBankAccounts,
+        addBankAccount: addBankAccount,
+        deleteBankAccount: deleteBankAccount,
+        updateBankAccount: updateBankAccount,
+        session: _session('Owner'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(BankAccountCard.deleteActionKey));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(
+      find.text('Permanently delete Acme Bank? This cannot be undone.'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsNothing);
+    verifyNever(() => deleteBankAccount(any()));
+  });
+
+  testWidgets('confirmed deletion refreshes the list and shows success', (
+    tester,
+  ) async {
+    var requests = 0;
+    when(() => getBankAccounts()).thenAnswer((_) async {
+      requests += 1;
+      return requests == 1 ? [_account] : [];
+    });
+    when(() => deleteBankAccount('account-1')).thenAnswer((_) async {});
+
+    await tester.pumpWidget(
+      _TestApp(
+        getBankAccounts: getBankAccounts,
+        addBankAccount: addBankAccount,
+        deleteBankAccount: deleteBankAccount,
+        updateBankAccount: updateBankAccount,
+        session: _session('Owner'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(BankAccountCard.deleteActionKey));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(BankAccountsPage.deleteConfirmButtonKey));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Bank account deleted successfully.'), findsOneWidget);
+    expect(find.text('Acme Bank'), findsNothing);
+    expect(find.byType(AlertDialog), findsNothing);
+    verify(() => deleteBankAccount('account-1')).called(1);
+    verify(() => getBankAccounts()).called(greaterThanOrEqualTo(2));
+  });
+
+  testWidgets('failed deletion retains the account and shows feedback', (
+    tester,
+  ) async {
+    when(() => getBankAccounts()).thenAnswer((_) async => [_account]);
+    when(() => deleteBankAccount('account-1')).thenThrow(
+      AppException(failure: const Failure.network()),
+    );
+
+    await tester.pumpWidget(
+      _TestApp(
+        getBankAccounts: getBankAccounts,
+        addBankAccount: addBankAccount,
+        deleteBankAccount: deleteBankAccount,
+        updateBankAccount: updateBankAccount,
+        session: _session('Owner'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(BankAccountCard.deleteActionKey));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(BankAccountsPage.deleteConfirmButtonKey));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(find.text('Acme Bank'), findsOneWidget);
+    expect(
+      find.text('Unable to delete bank account. Please try again.'),
+      findsOneWidget,
+    );
+    verify(() => deleteBankAccount('account-1')).called(1);
+    verify(() => getBankAccounts()).called(1);
+  });
+
+  testWidgets('prevents duplicate delete requests while deletion is pending', (
+    tester,
+  ) async {
+    final pendingDelete = Completer<void>();
+    when(() => getBankAccounts()).thenAnswer((_) async => [_account]);
+    when(
+      () => deleteBankAccount('account-1'),
+    ).thenAnswer((_) => pendingDelete.future);
+
+    await tester.pumpWidget(
+      _TestApp(
+        getBankAccounts: getBankAccounts,
+        addBankAccount: addBankAccount,
+        deleteBankAccount: deleteBankAccount,
+        updateBankAccount: updateBankAccount,
+        session: _session('Owner'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(BankAccountCard.deleteActionKey));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(BankAccountsPage.deleteConfirmButtonKey));
+    await tester.pump();
+
+    final confirm = tester.widget<FilledButton>(
+      find.byKey(BankAccountsPage.deleteConfirmButtonKey),
+    );
+    expect(confirm.onPressed, isNull);
+    await tester.tap(
+      find.byKey(BankAccountsPage.deleteConfirmButtonKey),
+      warnIfMissed: false,
+    );
+    await tester.pump();
+
+    verify(() => deleteBankAccount('account-1')).called(1);
+
+    pendingDelete.complete();
+    await tester.pumpAndSettle();
   });
 }

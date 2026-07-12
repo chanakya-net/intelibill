@@ -446,5 +446,17 @@
   "bankAccountsSubmitError": "Unable to save bank account. Please try again.",
   "bankAccountsEdit": "Edit Bank Account",
   "bankAccountsUpdate": "Update Bank Account",
-  "bankAccountsUpdateSuccess": "Bank account updated successfully."
+  "bankAccountsUpdateSuccess": "Bank account updated successfully.",
+  "bankAccountsDelete": "Delete bank account",
+  "bankAccountsDeleteTitle": "Delete bank account",
+  "bankAccountsDeleteConfirmation": "Permanently delete {bankName}? This cannot be undone.",
+  "@bankAccountsDeleteConfirmation": {
+    "placeholders": {
+      "bankName": {}
+    }
+  },
+  "bankAccountsDeleteCancel": "Cancel",
+  "bankAccountsDeleteConfirm": "Delete permanently",
+  "bankAccountsDeleteSuccess": "Bank account deleted successfully.",
+  "bankAccountsDeleteError": "Unable to delete bank account. Please try again."
 }

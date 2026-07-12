@@ -239,6 +239,54 @@ final class UpdateBankAccountUseCaseProvider
 String _$updateBankAccountUseCaseHash() =>
     r'7a5e140a40266b2a44d7199233eb373bc9bf15d2';
 
+@ProviderFor(deleteBankAccountUseCase)
+final deleteBankAccountUseCaseProvider = DeleteBankAccountUseCaseProvider._();
+
+final class DeleteBankAccountUseCaseProvider
+    extends
+        $FunctionalProvider<
+          DeleteBankAccount,
+          DeleteBankAccount,
+          DeleteBankAccount
+        >
+    with $Provider<DeleteBankAccount> {
+  DeleteBankAccountUseCaseProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'deleteBankAccountUseCaseProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$deleteBankAccountUseCaseHash();
+
+  @$internal
+  @override
+  $ProviderElement<DeleteBankAccount> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  DeleteBankAccount create(Ref ref) {
+    return deleteBankAccountUseCase(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(DeleteBankAccount value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<DeleteBankAccount>(value),
+    );
+  }
+}
+
+String _$deleteBankAccountUseCaseHash() =>
+    r'1d5ab7f5bd12ee83bfa6ea17e4fbc038013995ac';
+
 @ProviderFor(BankAccountsController)
 final bankAccountsControllerProvider = BankAccountsControllerProvider._();
 
@@ -272,7 +320,7 @@ final class BankAccountsControllerProvider
 }
 
 String _$bankAccountsControllerHash() =>
-    r'1ec34b7b7f012ccdcac78fe9ae86e5f62cfa7797';
+    r'cd7f52e002ba40c197440e9b32143eb8f976c84e';
 
 abstract class _$BankAccountsController extends $Notifier<BankAccountsState> {
   BankAccountsState build();

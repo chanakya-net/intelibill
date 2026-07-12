@@ -2444,6 +2444,30 @@ class AppLocalizationsMl extends AppLocalizations {
 
   @override
   String get bankAccountsUpdateSuccess => 'Bank account updated successfully.';
+
+  @override
+  String get bankAccountsDelete => 'Delete bank account';
+
+  @override
+  String get bankAccountsDeleteTitle => 'Delete bank account';
+
+  @override
+  String bankAccountsDeleteConfirmation(Object bankName) {
+    return 'Permanently delete $bankName? This cannot be undone.';
+  }
+
+  @override
+  String get bankAccountsDeleteCancel => 'Cancel';
+
+  @override
+  String get bankAccountsDeleteConfirm => 'Delete permanently';
+
+  @override
+  String get bankAccountsDeleteSuccess => 'Bank account deleted successfully.';
+
+  @override
+  String get bankAccountsDeleteError =>
+      'Unable to delete bank account. Please try again.';
 }
 
 /// The translations for Malayalam, as used in India (`ml_IN`).
@@ -3805,4 +3829,28 @@ class AppLocalizationsMlIn extends AppLocalizationsMl {
 
   @override
   String get bankAccountsUpdateSuccess => 'Bank account updated successfully.';
+
+  @override
+  String get bankAccountsDelete => 'Delete bank account';
+
+  @override
+  String get bankAccountsDeleteTitle => 'Delete bank account';
+
+  @override
+  String bankAccountsDeleteConfirmation(Object bankName) {
+    return 'Permanently delete $bankName? This cannot be undone.';
+  }
+
+  @override
+  String get bankAccountsDeleteCancel => 'Cancel';
+
+  @override
+  String get bankAccountsDeleteConfirm => 'Delete permanently';
+
+  @override
+  String get bankAccountsDeleteSuccess => 'Bank account deleted successfully.';
+
+  @override
+  String get bankAccountsDeleteError =>
+      'Unable to delete bank account. Please try again.';
 }
