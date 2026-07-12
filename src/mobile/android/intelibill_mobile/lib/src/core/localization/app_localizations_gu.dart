@@ -473,6 +473,42 @@ class AppLocalizationsGu extends AppLocalizations {
       'Unable to load services. Please try again.';
 
   @override
+  String get bankAccountsTitle => 'Bank Accounts';
+
+  @override
+  String get bankAccountsEmpty => 'No bank accounts found';
+
+  @override
+  String get bankAccountsUnableToLoad => 'Unable to load bank accounts';
+
+  @override
+  String get bankAccountsRetry => 'Retry';
+
+  @override
+  String get bankAccountsType => 'Type';
+
+  @override
+  String get bankAccountsIfsc => 'IFSC';
+
+  @override
+  String get bankAccountsHolder => 'Account holder';
+
+  @override
+  String get bankAccountsErrorNetwork =>
+      'Unable to connect. Please check your network.';
+
+  @override
+  String get bankAccountsErrorTimeout => 'Request timed out. Please try again.';
+
+  @override
+  String get bankAccountsErrorUnauthorized =>
+      'Session expired. Please log in again.';
+
+  @override
+  String get bankAccountsErrorForbidden =>
+      'You do not have permission to view bank accounts.';
+
+  @override
   String get servicesAddService => 'Add Service';
 
   @override

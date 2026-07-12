@@ -1009,6 +1009,72 @@ abstract class AppLocalizations {
   /// **'Unable to load services. Please try again.'**
   String get servicesErrorGeneric;
 
+  /// No description provided for @bankAccountsTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Bank Accounts'**
+  String get bankAccountsTitle;
+
+  /// No description provided for @bankAccountsEmpty.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No bank accounts found'**
+  String get bankAccountsEmpty;
+
+  /// No description provided for @bankAccountsUnableToLoad.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to load bank accounts'**
+  String get bankAccountsUnableToLoad;
+
+  /// No description provided for @bankAccountsRetry.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Retry'**
+  String get bankAccountsRetry;
+
+  /// No description provided for @bankAccountsType.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Type'**
+  String get bankAccountsType;
+
+  /// No description provided for @bankAccountsIfsc.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'IFSC'**
+  String get bankAccountsIfsc;
+
+  /// No description provided for @bankAccountsHolder.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Account holder'**
+  String get bankAccountsHolder;
+
+  /// No description provided for @bankAccountsErrorNetwork.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to connect. Please check your network.'**
+  String get bankAccountsErrorNetwork;
+
+  /// No description provided for @bankAccountsErrorTimeout.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Request timed out. Please try again.'**
+  String get bankAccountsErrorTimeout;
+
+  /// No description provided for @bankAccountsErrorUnauthorized.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Session expired. Please log in again.'**
+  String get bankAccountsErrorUnauthorized;
+
+  /// No description provided for @bankAccountsErrorForbidden.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'You do not have permission to view bank accounts.'**
+  String get bankAccountsErrorForbidden;
+
   /// No description provided for @servicesAddService.
   ///
   /// In en_IN, this message translates to:
