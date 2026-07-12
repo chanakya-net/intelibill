@@ -3,9 +3,16 @@ import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/bank_accounts/domain/entities/bank_account.dart';
 
 class BankAccountCard extends StatelessWidget {
-  const BankAccountCard({required this.account, super.key});
+  const BankAccountCard({
+    required this.account,
+    this.onEdit,
+    super.key,
+  });
+
+  static const editActionKey = Key('bank-account-edit-action');
 
   final BankAccount account;
+  final VoidCallback? onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -18,7 +25,23 @@ class BankAccountCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(account.bankName, style: theme.textTheme.titleMedium),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    account.bankName,
+                    style: theme.textTheme.titleMedium,
+                  ),
+                ),
+                if (onEdit != null)
+                  IconButton(
+                    key: editActionKey,
+                    icon: const Icon(Icons.edit),
+                    onPressed: onEdit,
+                  ),
+              ],
+            ),
             const SizedBox(height: 8),
             Text(maskAccountNumber(account.accountNumber)),
             if (_hasValue(account.accountType))

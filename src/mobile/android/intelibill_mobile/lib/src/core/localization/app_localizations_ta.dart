@@ -2437,6 +2437,15 @@ class AppLocalizationsTa extends AppLocalizations {
   @override
   String get bankAccountsSubmitError =>
       'Unable to save bank account. Please try again.';
+
+  @override
+  String get bankAccountsEdit => 'Edit Bank Account';
+
+  @override
+  String get bankAccountsUpdate => 'Update Bank Account';
+
+  @override
+  String get bankAccountsUpdateSuccess => 'Bank account updated successfully.';
 }
 
 /// The translations for Tamil, as used in India (`ta_IN`).
@@ -3791,4 +3800,13 @@ class AppLocalizationsTaIn extends AppLocalizationsTa {
   @override
   String get bankAccountsSubmitError =>
       'Unable to save bank account. Please try again.';
+
+  @override
+  String get bankAccountsEdit => 'Edit Bank Account';
+
+  @override
+  String get bankAccountsUpdate => 'Update Bank Account';
+
+  @override
+  String get bankAccountsUpdateSuccess => 'Bank account updated successfully.';
 }

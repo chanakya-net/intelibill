@@ -5,10 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intelibill_mobile/src/app/shell/menu_visibility.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
+import 'package:intelibill_mobile/src/features/auth/domain/entities/auth_session.dart';
 import 'package:intelibill_mobile/src/features/auth/presentation/controllers/auth_controller.dart';
+import 'package:intelibill_mobile/src/features/bank_accounts/domain/entities/bank_account.dart';
 import 'package:intelibill_mobile/src/features/bank_accounts/presentation/controllers/bank_accounts_controller.dart';
 import 'package:intelibill_mobile/src/features/bank_accounts/presentation/widgets/bank_account_card.dart';
 import 'package:intelibill_mobile/src/features/bank_accounts/presentation/widgets/create_bank_account_sheet.dart';
+import 'package:intelibill_mobile/src/features/bank_accounts/presentation/widgets/edit_bank_account_sheet.dart';
 
 class BankAccountsPage extends ConsumerStatefulWidget {
   const BankAccountsPage({super.key});
@@ -34,6 +37,20 @@ class _BankAccountsPageState extends ConsumerState<BankAccountsPage> {
     );
   }
 
+  Future<void> _openEditSheet(BankAccount account) async {
+    final updated = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) => EditBankAccountSheet(account: account),
+    );
+    if (!mounted || updated != true) return;
+    final l10n = AppLocalizations.of(context)!;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(l10n.bankAccountsUpdateSuccess)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(bankAccountsControllerProvider);
@@ -49,7 +66,7 @@ class _BankAccountsPageState extends ConsumerState<BankAccountsPage> {
               label: Text(l10n.bankAccountsAdd),
             )
           : null,
-      body: _buildBody(context, ref, state, l10n),
+      body: _buildBody(context, ref, state, l10n, session),
     );
   }
 
@@ -58,6 +75,7 @@ class _BankAccountsPageState extends ConsumerState<BankAccountsPage> {
     WidgetRef ref,
     BankAccountsState state,
     AppLocalizations l10n,
+    AuthSession? session,
   ) {
     if (state.isLoading && state.accounts.isEmpty) {
       return const Center(child: CircularProgressIndicator());
@@ -81,6 +99,9 @@ class _BankAccountsPageState extends ConsumerState<BankAccountsPage> {
         itemCount: state.accounts.length,
         itemBuilder: (context, index) => BankAccountCard(
           account: state.accounts[index],
+          onEdit: canManageBankAccounts(session)
+              ? () => unawaited(_openEditSheet(state.accounts[index]))
+              : null,
         ),
       ),
     );

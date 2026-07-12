@@ -2435,6 +2435,15 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get bankAccountsSubmitError =>
       'Unable to save bank account. Please try again.';
+
+  @override
+  String get bankAccountsEdit => 'Edit Bank Account';
+
+  @override
+  String get bankAccountsUpdate => 'Update Bank Account';
+
+  @override
+  String get bankAccountsUpdateSuccess => 'Bank account updated successfully.';
 }
 
 /// The translations for English, as used in India (`en_IN`).
@@ -4868,4 +4877,13 @@ class AppLocalizationsEnIn extends AppLocalizationsEn {
   @override
   String get bankAccountsSubmitError =>
       'Unable to save bank account. Please try again.';
+
+  @override
+  String get bankAccountsEdit => 'Edit Bank Account';
+
+  @override
+  String get bankAccountsUpdate => 'Update Bank Account';
+
+  @override
+  String get bankAccountsUpdateSuccess => 'Bank account updated successfully.';
 }

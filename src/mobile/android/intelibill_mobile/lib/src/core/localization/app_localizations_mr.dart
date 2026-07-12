@@ -2435,6 +2435,15 @@ class AppLocalizationsMr extends AppLocalizations {
   @override
   String get bankAccountsSubmitError =>
       'Unable to save bank account. Please try again.';
+
+  @override
+  String get bankAccountsEdit => 'Edit Bank Account';
+
+  @override
+  String get bankAccountsUpdate => 'Update Bank Account';
+
+  @override
+  String get bankAccountsUpdateSuccess => 'Bank account updated successfully.';
 }
 
 /// The translations for Marathi, as used in India (`mr_IN`).
@@ -3787,4 +3796,13 @@ class AppLocalizationsMrIn extends AppLocalizationsMr {
   @override
   String get bankAccountsSubmitError =>
       'Unable to save bank account. Please try again.';
+
+  @override
+  String get bankAccountsEdit => 'Edit Bank Account';
+
+  @override
+  String get bankAccountsUpdate => 'Update Bank Account';
+
+  @override
+  String get bankAccountsUpdateSuccess => 'Bank account updated successfully.';
 }

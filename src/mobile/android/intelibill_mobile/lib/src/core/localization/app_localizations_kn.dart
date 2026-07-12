@@ -2437,6 +2437,15 @@ class AppLocalizationsKn extends AppLocalizations {
   @override
   String get bankAccountsSubmitError =>
       'Unable to save bank account. Please try again.';
+
+  @override
+  String get bankAccountsEdit => 'Edit Bank Account';
+
+  @override
+  String get bankAccountsUpdate => 'Update Bank Account';
+
+  @override
+  String get bankAccountsUpdateSuccess => 'Bank account updated successfully.';
 }
 
 /// The translations for Kannada, as used in India (`kn_IN`).
@@ -3791,4 +3800,13 @@ class AppLocalizationsKnIn extends AppLocalizationsKn {
   @override
   String get bankAccountsSubmitError =>
       'Unable to save bank account. Please try again.';
+
+  @override
+  String get bankAccountsEdit => 'Edit Bank Account';
+
+  @override
+  String get bankAccountsUpdate => 'Update Bank Account';
+
+  @override
+  String get bankAccountsUpdateSuccess => 'Bank account updated successfully.';
 }

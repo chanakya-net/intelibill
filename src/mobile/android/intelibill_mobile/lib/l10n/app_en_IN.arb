@@ -717,7 +717,7 @@
       }
     }
   },
-  "salesHistoryDateRangeLabel": "{from} – {to}",
+  "salesHistoryDateRangeLabel": "{from} \u2013 {to}",
   "@salesHistoryDateRangeLabel": {
     "placeholders": {
       "from": {
@@ -856,14 +856,20 @@
   "expensesMetricSemantics": "{label}: {value}",
   "@expensesMetricSemantics": {
     "placeholders": {
-      "label": { "type": "String" },
-      "value": { "type": "String" }
+      "label": {
+        "type": "String"
+      },
+      "value": {
+        "type": "String"
+      }
     }
   },
   "expensesStatusSemantics": "Status: {status}",
   "@expensesStatusSemantics": {
     "placeholders": {
-      "status": { "type": "String" }
+      "status": {
+        "type": "String"
+      }
     }
   },
   "bankAccountsAdd": "Add Bank Account",
@@ -878,5 +884,8 @@
   "bankAccountsTypeCurrent": "Current",
   "bankAccountsIfscInvalid": "Enter a valid IFSC code.",
   "bankAccountsHolderMax": "Account holder name must be 120 characters or fewer.",
-  "bankAccountsSubmitError": "Unable to save bank account. Please try again."
+  "bankAccountsSubmitError": "Unable to save bank account. Please try again.",
+  "bankAccountsEdit": "Edit Bank Account",
+  "bankAccountsUpdate": "Update Bank Account",
+  "bankAccountsUpdateSuccess": "Bank account updated successfully."
 }

@@ -2435,6 +2435,15 @@ class AppLocalizationsTe extends AppLocalizations {
   @override
   String get bankAccountsSubmitError =>
       'Unable to save bank account. Please try again.';
+
+  @override
+  String get bankAccountsEdit => 'Edit Bank Account';
+
+  @override
+  String get bankAccountsUpdate => 'Update Bank Account';
+
+  @override
+  String get bankAccountsUpdateSuccess => 'Bank account updated successfully.';
 }
 
 /// The translations for Telugu, as used in India (`te_IN`).
@@ -3787,4 +3796,13 @@ class AppLocalizationsTeIn extends AppLocalizationsTe {
   @override
   String get bankAccountsSubmitError =>
       'Unable to save bank account. Please try again.';
+
+  @override
+  String get bankAccountsEdit => 'Edit Bank Account';
+
+  @override
+  String get bankAccountsUpdate => 'Update Bank Account';
+
+  @override
+  String get bankAccountsUpdateSuccess => 'Bank account updated successfully.';
 }
