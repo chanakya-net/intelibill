@@ -2400,6 +2400,18 @@ class AppLocalizationsHi extends AppLocalizations {
   String get bankAccountsAdd => 'Add Bank Account';
 
   @override
+  String get bankAccountsSearchHint => 'Search bank accounts';
+
+  @override
+  String get bankAccountsClearSearch => 'Clear bank account search';
+
+  @override
+  String get bankAccountsNoResults => 'No bank accounts match your search';
+
+  @override
+  String get bankAccountsRefresh => 'Refresh bank accounts';
+
+  @override
   String get bankAccountsCreateSuccess => 'Bank account created successfully.';
 
   @override
@@ -3878,6 +3890,18 @@ class AppLocalizationsHiIn extends AppLocalizationsHi {
 
   @override
   String get bankAccountsAdd => 'Add Bank Account';
+
+  @override
+  String get bankAccountsSearchHint => 'Search bank accounts';
+
+  @override
+  String get bankAccountsClearSearch => 'Clear bank account search';
+
+  @override
+  String get bankAccountsNoResults => 'No bank accounts match your search';
+
+  @override
+  String get bankAccountsRefresh => 'Refresh bank accounts';
 
   @override
   String get bankAccountsCreateSuccess => 'Bank account created successfully.';

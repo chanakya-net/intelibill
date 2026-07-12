@@ -4597,6 +4597,30 @@ abstract class AppLocalizations {
   /// **'Add Bank Account'**
   String get bankAccountsAdd;
 
+  /// No description provided for @bankAccountsSearchHint.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Search bank accounts'**
+  String get bankAccountsSearchHint;
+
+  /// No description provided for @bankAccountsClearSearch.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Clear bank account search'**
+  String get bankAccountsClearSearch;
+
+  /// No description provided for @bankAccountsNoResults.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No bank accounts match your search'**
+  String get bankAccountsNoResults;
+
+  /// No description provided for @bankAccountsRefresh.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Refresh bank accounts'**
+  String get bankAccountsRefresh;
+
   /// No description provided for @bankAccountsCreateSuccess.
   ///
   /// In en_IN, this message translates to:

@@ -320,7 +320,7 @@ final class BankAccountsControllerProvider
 }
 
 String _$bankAccountsControllerHash() =>
-    r'cd7f52e002ba40c197440e9b32143eb8f976c84e';
+    r'1d378684eca289c745011b0a19307361dc224f42';
 
 abstract class _$BankAccountsController extends $Notifier<BankAccountsState> {
   BankAccountsState build();
