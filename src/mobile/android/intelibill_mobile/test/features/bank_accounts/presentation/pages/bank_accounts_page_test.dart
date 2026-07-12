@@ -117,6 +117,25 @@ const _account = BankAccount(
   accountHolderName: 'Alex Smith',
 );
 
+const _directoryAccounts = [
+  BankAccount(
+    id: 'account-zeta',
+    bankName: 'Zeta Bank',
+    accountNumber: '111122223333',
+    accountType: 'Savings',
+    ifscCode: 'ZETA0001234',
+    accountHolderName: 'Zoe Holder',
+  ),
+  BankAccount(
+    id: 'account-alpha',
+    bankName: 'Alpha Bank',
+    accountNumber: '444455556666',
+    accountType: 'Current',
+    ifscCode: 'ALPHA0005678',
+    accountHolderName: 'Asha Holder',
+  ),
+];
+
 void main() {
   late MockGetBankAccounts getBankAccounts;
   late MockAddBankAccount addBankAccount;
@@ -194,6 +213,153 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('No bank accounts found'), findsOneWidget);
+  });
+
+  testWidgets('sorts accounts alphabetically by bank name', (tester) async {
+    when(() => getBankAccounts()).thenAnswer((_) async => _directoryAccounts);
+
+    await tester.pumpWidget(
+      _TestApp(
+        getBankAccounts: getBankAccounts,
+        addBankAccount: addBankAccount,
+        updateBankAccount: updateBankAccount,
+        session: _session('Owner'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final cards = tester.widgetList<BankAccountCard>(
+      find.byType(BankAccountCard),
+    );
+    expect(cards.map((card) => card.account.bankName), [
+      'Alpha Bank',
+      'Zeta Bank',
+    ]);
+  });
+
+  testWidgets('searches every account field case-insensitively', (
+    tester,
+  ) async {
+    when(() => getBankAccounts()).thenAnswer((_) async => _directoryAccounts);
+
+    await tester.pumpWidget(
+      _TestApp(
+        getBankAccounts: getBankAccounts,
+        addBankAccount: addBankAccount,
+        updateBankAccount: updateBankAccount,
+        session: _session('Owner'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final searchField = find.byType(TextField);
+
+    for (final match in const [
+      ('zEtA', 'Zeta Bank'),
+      ('444455556666', 'Alpha Bank'),
+      ('sAvInGs', 'Zeta Bank'),
+      ('alpha0005678', 'Alpha Bank'),
+      ('zoe holder', 'Zeta Bank'),
+    ]) {
+      await tester.enterText(searchField, match.$1);
+      await tester.pump();
+      expect(find.text(match.$2), findsOneWidget);
+      expect(
+        find.byType(BankAccountCard),
+        findsOneWidget,
+        reason: 'query ${match.$1} should match one account',
+      );
+    }
+
+    expect(find.text('444455556666'), findsNothing);
+  });
+
+  testWidgets('clears search and restores the full directory', (tester) async {
+    when(() => getBankAccounts()).thenAnswer((_) async => _directoryAccounts);
+
+    await tester.pumpWidget(
+      _TestApp(
+        getBankAccounts: getBankAccounts,
+        addBankAccount: addBankAccount,
+        updateBankAccount: updateBankAccount,
+        session: _session('Owner'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final searchField = find.byType(TextField);
+    await tester.enterText(searchField, 'alpha');
+    await tester.pump();
+    await tester.tap(find.byTooltip('Clear bank account search'));
+    await tester.pump();
+
+    expect(tester.widget<TextField>(searchField).controller!.text, isEmpty);
+    expect(find.byType(BankAccountCard), findsNWidgets(2));
+  });
+
+  testWidgets('shows a distinct no-results state for an unmatched search', (
+    tester,
+  ) async {
+    when(() => getBankAccounts()).thenAnswer((_) async => _directoryAccounts);
+
+    await tester.pumpWidget(
+      _TestApp(
+        getBankAccounts: getBankAccounts,
+        addBankAccount: addBankAccount,
+        updateBankAccount: updateBankAccount,
+        session: _session('Owner'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'does-not-exist');
+    await tester.pump();
+
+    expect(find.text('No bank accounts match your search'), findsOneWidget);
+    expect(find.text('No bank accounts found'), findsNothing);
+    expect(find.byType(BankAccountCard), findsNothing);
+  });
+
+  testWidgets('pull-to-refresh keeps the query and shows refreshed matches', (
+    tester,
+  ) async {
+    var requestCount = 0;
+    when(() => getBankAccounts()).thenAnswer((_) async {
+      requestCount++;
+      return requestCount == 1
+          ? _directoryAccounts
+          : [
+              const BankAccount(
+                id: 'account-zeta-refreshed',
+                bankName: 'Zeta Bank',
+                accountNumber: '999988887777',
+                accountType: 'Savings',
+              ),
+              const BankAccount(
+                id: 'account-beta-refreshed',
+                bankName: 'Beta Bank',
+                accountNumber: '222233334444',
+                accountType: 'Current',
+              ),
+            ];
+    });
+
+    await tester.pumpWidget(
+      _TestApp(
+        getBankAccounts: getBankAccounts,
+        addBankAccount: addBankAccount,
+        updateBankAccount: updateBankAccount,
+        session: _session('Owner'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'zeta');
+    await tester.pump();
+
+    await tester.fling(find.byType(ListView), const Offset(0, 400), 1000);
+    await tester.pumpAndSettle();
+
+    expect(requestCount, greaterThanOrEqualTo(2));
+    expect(find.text('Zeta Bank'), findsOneWidget);
+    expect(find.text('Beta Bank'), findsNothing);
+    expect(find.text('********7777'), findsOneWidget);
   });
 
   testWidgets('shows retry and reloads after a failure', (tester) async {

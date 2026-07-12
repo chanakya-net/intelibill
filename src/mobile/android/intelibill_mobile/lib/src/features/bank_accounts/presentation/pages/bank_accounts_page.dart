@@ -17,6 +17,7 @@ class BankAccountsPage extends ConsumerStatefulWidget {
   const BankAccountsPage({super.key});
 
   static const addBankAccountFabKey = Key('bank-accounts-add-fab');
+  static const searchFieldKey = Key('bank-accounts-search');
   static const deleteConfirmButtonKey = Key('bank-accounts-delete-confirm');
 
   @override
@@ -24,6 +25,20 @@ class BankAccountsPage extends ConsumerStatefulWidget {
 }
 
 class _BankAccountsPageState extends ConsumerState<BankAccountsPage> {
+  late final TextEditingController _searchController;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   Future<void> _openCreateSheet() async {
     final created = await showModalBottomSheet<bool>(
       context: context,
@@ -79,7 +94,48 @@ class _BankAccountsPageState extends ConsumerState<BankAccountsPage> {
               label: Text(l10n.bankAccountsAdd),
             )
           : null,
-      body: _buildBody(context, ref, state, l10n, session),
+      body: Column(
+        children: [
+          _buildSearchField(l10n),
+          Expanded(child: _buildBody(context, ref, state, l10n, session)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchField(AppLocalizations l10n) {
+    final hasQuery = ref.watch(
+      bankAccountsControllerProvider.select(
+        (state) => state.searchQuery.isNotEmpty,
+      ),
+    );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      child: TextField(
+        key: BankAccountsPage.searchFieldKey,
+        controller: _searchController,
+        decoration: InputDecoration(
+          hintText: l10n.bankAccountsSearchHint,
+          prefixIcon: const Icon(Icons.search),
+          suffixIcon: hasQuery
+              ? IconButton(
+                  tooltip: l10n.bankAccountsClearSearch,
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    _searchController.clear();
+                    ref
+                        .read(bankAccountsControllerProvider.notifier)
+                        .updateSearch('');
+                  },
+                )
+              : null,
+          border: const OutlineInputBorder(),
+          isDense: true,
+        ),
+        onChanged: (query) {
+          ref.read(bankAccountsControllerProvider.notifier).updateSearch(query);
+        },
+      ),
     );
   }
 
@@ -101,22 +157,32 @@ class _BankAccountsPageState extends ConsumerState<BankAccountsPage> {
         retryLabel: l10n.bankAccountsRetry,
       );
     }
-    if (state.accounts.isEmpty) {
-      return Center(child: Text(l10n.bankAccountsEmpty));
+    final accounts = state.filteredAccounts;
+    final emptyMessage = state.accounts.isEmpty
+        ? l10n.bankAccountsEmpty
+        : l10n.bankAccountsNoResults;
+    if (accounts.isEmpty) {
+      return _RefreshableMessage(
+        message: emptyMessage,
+        semanticsLabel: l10n.bankAccountsRefresh,
+        onRefresh: () =>
+            ref.read(bankAccountsControllerProvider.notifier).refresh(),
+      );
     }
     return RefreshIndicator(
+      semanticsLabel: l10n.bankAccountsRefresh,
       onRefresh: () =>
-          ref.read(bankAccountsControllerProvider.notifier).retry(),
+          ref.read(bankAccountsControllerProvider.notifier).refresh(),
       child: ListView.builder(
         physics: const AlwaysScrollableScrollPhysics(),
-        itemCount: state.accounts.length,
+        itemCount: accounts.length,
         itemBuilder: (context, index) => BankAccountCard(
-          account: state.accounts[index],
+          account: accounts[index],
           onEdit: canManageBankAccounts(session)
-              ? () => unawaited(_openEditSheet(state.accounts[index]))
+              ? () => unawaited(_openEditSheet(accounts[index]))
               : null,
           onDelete: canManageBankAccounts(session)
-              ? () => unawaited(_openDeleteDialog(state.accounts[index]))
+              ? () => unawaited(_openDeleteDialog(accounts[index]))
               : null,
         ),
       ),
@@ -134,6 +200,35 @@ class _BankAccountsPageState extends ConsumerState<BankAccountsPage> {
       timeout: (_) => l10n.bankAccountsErrorTimeout,
       serialization: (_) => l10n.bankAccountsUnableToLoad,
       unknown: (_) => l10n.bankAccountsUnableToLoad,
+    );
+  }
+}
+
+class _RefreshableMessage extends StatelessWidget {
+  const _RefreshableMessage({
+    required this.message,
+    required this.semanticsLabel,
+    required this.onRefresh,
+  });
+
+  final String message;
+  final String semanticsLabel;
+  final RefreshCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    return RefreshIndicator(
+      semanticsLabel: semanticsLabel,
+      onRefresh: onRefresh,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          SizedBox(
+            height: 180,
+            child: Center(child: Text(message)),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -53,6 +53,7 @@ DeleteBankAccount deleteBankAccountUseCase(Ref ref) {
 class BankAccountsState {
   const BankAccountsState({
     this.accounts = const [],
+    this.searchQuery = '',
     this.isLoading = false,
     this.isSubmitting = false,
     this.failure,
@@ -60,13 +61,36 @@ class BankAccountsState {
   });
 
   final List<BankAccount> accounts;
+  final String searchQuery;
   final bool isLoading;
   final bool isSubmitting;
   final Failure? failure;
   final Failure? submitFailure;
 
+  List<BankAccount> get filteredAccounts {
+    final query = searchQuery.trim().toLowerCase();
+    final filtered = query.isEmpty
+        ? accounts
+        : accounts.where((account) {
+            return account.bankName.toLowerCase().contains(query) ||
+                account.accountNumber.toLowerCase().contains(query) ||
+                (account.accountType?.toLowerCase().contains(query) ?? false) ||
+                (account.ifscCode?.toLowerCase().contains(query) ?? false) ||
+                (account.accountHolderName?.toLowerCase().contains(query) ??
+                    false);
+          });
+
+    return [...filtered]..sort((left, right) {
+      final bankComparison = left.bankName.toLowerCase().compareTo(
+        right.bankName.toLowerCase(),
+      );
+      return bankComparison == 0 ? left.id.compareTo(right.id) : bankComparison;
+    });
+  }
+
   BankAccountsState copyWith({
     List<BankAccount>? accounts,
+    String? searchQuery,
     bool? isLoading,
     bool? isSubmitting,
     Failure? failure,
@@ -76,6 +100,7 @@ class BankAccountsState {
   }) {
     return BankAccountsState(
       accounts: accounts ?? this.accounts,
+      searchQuery: searchQuery ?? this.searchQuery,
       isLoading: isLoading ?? this.isLoading,
       isSubmitting: isSubmitting ?? this.isSubmitting,
       failure: clearFailure ? null : (failure ?? this.failure),
@@ -116,12 +141,21 @@ class BankAccountsController extends _$BankAccountsController {
   }
 
   Future<void> retry() async {
+    await refresh();
+  }
+
+  Future<void> refresh() async {
     state = state.copyWith(
       isLoading: true,
       clearFailure: true,
       clearSubmitFailure: true,
     );
     await _loadBankAccounts();
+  }
+
+  void updateSearch(String query) {
+    if (query == state.searchQuery) return;
+    state = state.copyWith(searchQuery: query);
   }
 
   Future<bool> addBankAccount(SaveBankAccountRequest request) async {
