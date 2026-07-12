@@ -11,6 +11,7 @@ import 'package:intelibill_mobile/src/features/bank_accounts/domain/entities/sav
 import 'package:intelibill_mobile/src/features/bank_accounts/domain/repositories/bank_accounts_repository.dart';
 import 'package:intelibill_mobile/src/features/bank_accounts/domain/use_cases/add_bank_account.dart';
 import 'package:intelibill_mobile/src/features/bank_accounts/domain/use_cases/get_bank_accounts.dart';
+import 'package:intelibill_mobile/src/features/bank_accounts/domain/use_cases/update_bank_account.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'bank_accounts_controller.g.dart';
@@ -35,6 +36,11 @@ GetBankAccounts getBankAccountsUseCase(Ref ref) {
 @riverpod
 AddBankAccount addBankAccountUseCase(Ref ref) {
   return AddBankAccount(ref.watch(bankAccountsRepositoryProvider));
+}
+
+@riverpod
+UpdateBankAccount updateBankAccountUseCase(Ref ref) {
+  return UpdateBankAccount(ref.watch(bankAccountsRepositoryProvider));
 }
 
 @immutable
@@ -118,6 +124,43 @@ class BankAccountsController extends _$BankAccountsController {
     state = state.copyWith(isSubmitting: true, clearSubmitFailure: true);
     try {
       await ref.read(addBankAccountUseCaseProvider)(request);
+      if (!ref.mounted) return false;
+
+      await _loadBankAccounts();
+      if (!ref.mounted) return false;
+      if (state.failure != null) {
+        state = state.copyWith(
+          isSubmitting: false,
+          submitFailure: state.failure,
+        );
+        return false;
+      }
+
+      state = state.copyWith(isSubmitting: false, clearSubmitFailure: true);
+      return true;
+    } on AppException catch (error) {
+      if (!ref.mounted) return false;
+      state = state.copyWith(isSubmitting: false, submitFailure: error.failure);
+      return false;
+    } on Object {
+      if (!ref.mounted) return false;
+      state = state.copyWith(
+        isSubmitting: false,
+        submitFailure: const Failure.unknown(),
+      );
+      return false;
+    }
+  }
+
+  Future<bool> updateBankAccount(
+    String id,
+    SaveBankAccountRequest request,
+  ) async {
+    if (state.isSubmitting) return false;
+
+    state = state.copyWith(isSubmitting: true, clearSubmitFailure: true);
+    try {
+      await ref.read(updateBankAccountUseCaseProvider)(id, request);
       if (!ref.mounted) return false;
 
       await _loadBankAccounts();

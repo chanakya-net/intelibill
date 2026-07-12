@@ -6,6 +6,8 @@ class BankAccountForm extends StatefulWidget {
   const BankAccountForm({
     required this.onSubmit,
     this.isSubmitting = false,
+    this.initial,
+    this.submitButtonLabel,
     super.key,
   });
 
@@ -18,6 +20,8 @@ class BankAccountForm extends StatefulWidget {
 
   final Future<void> Function(SaveBankAccountRequest request) onSubmit;
   final bool isSubmitting;
+  final SaveBankAccountRequest? initial;
+  final String Function(AppLocalizations)? submitButtonLabel;
 
   @override
   State<BankAccountForm> createState() => _BankAccountFormState();
@@ -27,11 +31,29 @@ class _BankAccountFormState extends State<BankAccountForm> {
   static final RegExp _ifscPattern = RegExp(r'^[A-Z]{4}0[A-Z0-9]{6}$');
 
   final _formKey = GlobalKey<FormState>();
-  final _bankNameController = TextEditingController();
-  final _accountNumberController = TextEditingController();
-  final _ifscCodeController = TextEditingController();
-  final _accountHolderNameController = TextEditingController();
-  String? _accountType;
+  late final TextEditingController _bankNameController;
+  late final TextEditingController _accountNumberController;
+  late final TextEditingController _ifscCodeController;
+  late final TextEditingController _accountHolderNameController;
+  late String? _accountType;
+
+  @override
+  void initState() {
+    super.initState();
+    _bankNameController = TextEditingController(
+      text: widget.initial?.bankName ?? '',
+    );
+    _accountNumberController = TextEditingController(
+      text: widget.initial?.accountNumber ?? '',
+    );
+    _ifscCodeController = TextEditingController(
+      text: widget.initial?.ifscCode ?? '',
+    );
+    _accountHolderNameController = TextEditingController(
+      text: widget.initial?.accountHolderName ?? '',
+    );
+    _accountType = widget.initial?.accountType;
+  }
 
   @override
   void dispose() {
@@ -177,7 +199,7 @@ class _BankAccountFormState extends State<BankAccountForm> {
                     height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : Text(l10n.bankAccountsAdd),
+                : Text(widget.submitButtonLabel?.call(l10n) ?? l10n.bankAccountsAdd),
           ),
         ],
       ),

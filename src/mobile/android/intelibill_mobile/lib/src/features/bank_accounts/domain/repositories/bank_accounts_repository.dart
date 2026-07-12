@@ -9,4 +9,8 @@ interface class BankAccountsRepository {
   Future<void> addBankAccount(SaveBankAccountRequest request) {
     throw UnimplementedError();
   }
+
+  Future<void> updateBankAccount(String id, SaveBankAccountRequest request) {
+    throw UnimplementedError();
+  }
 }

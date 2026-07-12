@@ -13,15 +13,20 @@ import 'package:intelibill_mobile/src/features/bank_accounts/domain/entities/ban
 import 'package:intelibill_mobile/src/features/bank_accounts/domain/entities/save_bank_account_request.dart';
 import 'package:intelibill_mobile/src/features/bank_accounts/domain/use_cases/add_bank_account.dart';
 import 'package:intelibill_mobile/src/features/bank_accounts/domain/use_cases/get_bank_accounts.dart';
+import 'package:intelibill_mobile/src/features/bank_accounts/domain/use_cases/update_bank_account.dart';
 import 'package:intelibill_mobile/src/features/bank_accounts/presentation/controllers/bank_accounts_controller.dart';
 import 'package:intelibill_mobile/src/features/bank_accounts/presentation/pages/bank_accounts_page.dart';
+import 'package:intelibill_mobile/src/features/bank_accounts/presentation/widgets/bank_account_card.dart';
 import 'package:intelibill_mobile/src/features/bank_accounts/presentation/widgets/bank_account_form.dart';
 import 'package:intelibill_mobile/src/features/bank_accounts/presentation/widgets/create_bank_account_sheet.dart';
+import 'package:intelibill_mobile/src/features/bank_accounts/presentation/widgets/edit_bank_account_sheet.dart';
 import 'package:mocktail/mocktail.dart';
 
 class MockGetBankAccounts extends Mock implements GetBankAccounts {}
 
 class MockAddBankAccount extends Mock implements AddBankAccount {}
+
+class MockUpdateBankAccount extends Mock implements UpdateBankAccount {}
 
 class _StubAuthController extends AuthController {
   _StubAuthController(this._state);
@@ -36,11 +41,13 @@ class _TestApp extends StatelessWidget {
   const _TestApp({
     required this.getBankAccounts,
     required this.addBankAccount,
+    required this.updateBankAccount,
     required this.session,
   });
 
   final MockGetBankAccounts getBankAccounts;
   final MockAddBankAccount addBankAccount;
+  final MockUpdateBankAccount updateBankAccount;
   final AuthSession session;
 
   @override
@@ -49,6 +56,7 @@ class _TestApp extends StatelessWidget {
       overrides: [
         getBankAccountsUseCaseProvider.overrideWithValue(getBankAccounts),
         addBankAccountUseCaseProvider.overrideWithValue(addBankAccount),
+        updateBankAccountUseCaseProvider.overrideWithValue(updateBankAccount),
         authControllerProvider.overrideWith(
           () => _StubAuthController(AuthControllerState(session: session)),
         ),
@@ -103,8 +111,10 @@ const _account = BankAccount(
 void main() {
   late MockGetBankAccounts getBankAccounts;
   late MockAddBankAccount addBankAccount;
+  late MockUpdateBankAccount updateBankAccount;
 
   setUpAll(() {
+    registerFallbackValue('');
     registerFallbackValue(
       const SaveBankAccountRequest(
         bankName: 'Fallback Bank',
@@ -117,6 +127,7 @@ void main() {
   setUp(() {
     getBankAccounts = MockGetBankAccounts();
     addBankAccount = MockAddBankAccount();
+    updateBankAccount = MockUpdateBankAccount();
   });
 
   testWidgets('shows loading while accounts are requested', (tester) async {
@@ -127,6 +138,7 @@ void main() {
       _TestApp(
         getBankAccounts: getBankAccounts,
         addBankAccount: addBankAccount,
+        updateBankAccount: updateBankAccount,
         session: _session('Owner'),
       ),
     );
@@ -144,6 +156,7 @@ void main() {
       _TestApp(
         getBankAccounts: getBankAccounts,
         addBankAccount: addBankAccount,
+        updateBankAccount: updateBankAccount,
         session: _session('Owner'),
       ),
     );
@@ -163,6 +176,7 @@ void main() {
       _TestApp(
         getBankAccounts: getBankAccounts,
         addBankAccount: addBankAccount,
+        updateBankAccount: updateBankAccount,
         session: _session('Owner'),
       ),
     );
@@ -182,6 +196,7 @@ void main() {
       _TestApp(
         getBankAccounts: getBankAccounts,
         addBankAccount: addBankAccount,
+        updateBankAccount: updateBankAccount,
         session: _session('Owner'),
       ),
     );
@@ -205,6 +220,7 @@ void main() {
       _TestApp(
         getBankAccounts: getBankAccounts,
         addBankAccount: addBankAccount,
+        updateBankAccount: updateBankAccount,
         session: _session('Owner'),
       ),
     );
@@ -217,6 +233,7 @@ void main() {
       _TestApp(
         getBankAccounts: getBankAccounts,
         addBankAccount: addBankAccount,
+        updateBankAccount: updateBankAccount,
         session: _session('Staff'),
       ),
     );
@@ -247,6 +264,7 @@ void main() {
       _TestApp(
         getBankAccounts: getBankAccounts,
         addBankAccount: addBankAccount,
+        updateBankAccount: updateBankAccount,
         session: _session('Owner'),
       ),
     );
@@ -297,6 +315,7 @@ void main() {
       _TestApp(
         getBankAccounts: getBankAccounts,
         addBankAccount: addBankAccount,
+        updateBankAccount: updateBankAccount,
         session: _session('Owner'),
       ),
     );
@@ -339,6 +358,7 @@ void main() {
       _TestApp(
         getBankAccounts: getBankAccounts,
         addBankAccount: addBankAccount,
+        updateBankAccount: updateBankAccount,
         session: _session('Owner'),
       ),
     );
@@ -376,5 +396,142 @@ void main() {
 
     pendingCreate.complete();
     await tester.pumpAndSettle();
+  });
+
+  testWidgets('owner opens edit sheet with prefilled account data', (
+    tester,
+  ) async {
+    when(() => getBankAccounts()).thenAnswer((_) async => [_account]);
+
+    await tester.pumpWidget(
+      _TestApp(
+        getBankAccounts: getBankAccounts,
+        addBankAccount: addBankAccount,
+        updateBankAccount: updateBankAccount,
+        session: _session('Owner'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(BankAccountCard.editActionKey));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(EditBankAccountSheet), findsOneWidget);
+    expect(
+      find.byKey(BankAccountForm.bankNameFieldKey),
+      findsOneWidget,
+    );
+    final bankNameField = tester.widget<TextFormField>(
+      find.byKey(BankAccountForm.bankNameFieldKey),
+    );
+    expect(
+      bankNameField.controller!.text,
+      'Acme Bank',
+    );
+    final accountNumberField = tester.widget<TextFormField>(
+      find.byKey(BankAccountForm.accountNumberFieldKey),
+    );
+    expect(
+      accountNumberField.controller!.text,
+      '123456789012',
+    );
+  });
+
+
+  testWidgets('keeps edit sheet open after failed update', (tester) async {
+    when(() => getBankAccounts()).thenAnswer((_) async => [_account]);
+    when(() => updateBankAccount(any(), any())).thenThrow(
+      AppException(failure: const Failure.network()),
+    );
+
+    await tester.pumpWidget(
+      _TestApp(
+        getBankAccounts: getBankAccounts,
+        addBankAccount: addBankAccount,
+        updateBankAccount: updateBankAccount,
+        session: _session('Owner'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(BankAccountCard.editActionKey));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(BankAccountForm.bankNameFieldKey),
+      'Changed Bank',
+    );
+    await tester.ensureVisible(find.byKey(BankAccountForm.submitButtonKey));
+    await tester.tap(find.byKey(BankAccountForm.submitButtonKey));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(EditBankAccountSheet), findsOneWidget);
+    expect(
+      find.text('Unable to connect. Please check your network.'),
+      findsOneWidget,
+    );
+    expect(find.text('Changed Bank'), findsOneWidget);
+    verify(() => updateBankAccount(any(), any())).called(1);
+  });
+
+  testWidgets('prevents duplicate edit submissions', (tester) async {
+    final pendingUpdate = Completer<void>();
+    when(() => getBankAccounts()).thenAnswer((_) async => [_account]);
+    when(
+      () => updateBankAccount(any(), any()),
+    ).thenAnswer((_) => pendingUpdate.future);
+
+    await tester.pumpWidget(
+      _TestApp(
+        getBankAccounts: getBankAccounts,
+        addBankAccount: addBankAccount,
+        updateBankAccount: updateBankAccount,
+        session: _session('Owner'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(BankAccountCard.editActionKey));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(BankAccountForm.bankNameFieldKey),
+      'Guarded Bank',
+    );
+    await tester.ensureVisible(find.byKey(BankAccountForm.submitButtonKey));
+
+    await tester.tap(find.byKey(BankAccountForm.submitButtonKey));
+    await tester.pump();
+    final submitButton = tester.widget<FilledButton>(
+      find.byKey(BankAccountForm.submitButtonKey),
+    );
+    expect(submitButton.onPressed, isNull);
+    await tester.tap(
+      find.byKey(BankAccountForm.submitButtonKey),
+      warnIfMissed: false,
+    );
+    await tester.pump();
+
+    expect(find.byType(EditBankAccountSheet), findsOneWidget);
+    verify(() => updateBankAccount(any(), any())).called(1);
+
+    pendingUpdate.complete();
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('staff cannot see edit action', (tester) async {
+    when(() => getBankAccounts()).thenAnswer((_) async => [_account]);
+
+    await tester.pumpWidget(
+      _TestApp(
+        getBankAccounts: getBankAccounts,
+        addBankAccount: addBankAccount,
+        updateBankAccount: updateBankAccount,
+        session: _session('Staff'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(BankAccountCard.editActionKey), findsNothing);
   });
 }

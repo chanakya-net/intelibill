@@ -669,8 +669,12 @@
   "salesDetailReturnItem": "{quantity} returned of {itemName}",
   "@salesDetailReturnItem": {
     "placeholders": {
-      "quantity": {"type": "double"},
-      "itemName": {"type": "String"}
+      "quantity": {
+        "type": "double"
+      },
+      "itemName": {
+        "type": "String"
+      }
     }
   },
   "salesHistoryItemCountLabel": "Items",
@@ -691,7 +695,7 @@
       }
     }
   },
-  "salesHistoryDateRangeLabel": "{from} – {to}",
+  "salesHistoryDateRangeLabel": "{from} \u2013 {to}",
   "@salesHistoryDateRangeLabel": {
     "placeholders": {
       "from": {
@@ -862,5 +866,8 @@
   "bankAccountsTypeCurrent": "Current",
   "bankAccountsIfscInvalid": "Enter a valid IFSC code.",
   "bankAccountsHolderMax": "Account holder name must be 120 characters or fewer.",
-  "bankAccountsSubmitError": "Unable to save bank account. Please try again."
+  "bankAccountsSubmitError": "Unable to save bank account. Please try again.",
+  "bankAccountsEdit": "Edit Bank Account",
+  "bankAccountsUpdate": "Update Bank Account",
+  "bankAccountsUpdateSuccess": "Bank account updated successfully."
 }

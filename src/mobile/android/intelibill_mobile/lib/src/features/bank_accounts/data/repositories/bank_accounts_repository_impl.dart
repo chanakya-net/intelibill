@@ -43,4 +43,25 @@ class BankAccountsRepositoryImpl implements BankAccountsRepository {
       throw AppException(failure: Failure.unknown(message: error.toString()));
     }
   }
+
+  @override
+  Future<void> updateBankAccount(
+    String id,
+    SaveBankAccountRequest request,
+  ) async {
+    try {
+      await _remoteDataSource.updateBankAccount(
+        id,
+        BankAccountMapper.toSaveDto(request),
+      );
+    } on AppException {
+      rethrow;
+    } on FormatException catch (error) {
+      throw AppException(
+        failure: Failure.serialization(message: error.message),
+      );
+    } catch (error) {
+      throw AppException(failure: Failure.unknown(message: error.toString()));
+    }
+  }
 }

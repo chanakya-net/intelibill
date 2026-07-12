@@ -10,6 +10,10 @@ interface class BankAccountsRemoteDataSource {
   Future<void> addBankAccount(SaveBankAccountRequestDto request) {
     throw UnimplementedError();
   }
+
+  Future<void> updateBankAccount(String id, SaveBankAccountRequestDto request) {
+    throw UnimplementedError();
+  }
 }
 
 class BankAccountsRemoteDataSourceImpl implements BankAccountsRemoteDataSource {
@@ -29,5 +33,13 @@ class BankAccountsRemoteDataSourceImpl implements BankAccountsRemoteDataSource {
   @override
   Future<void> addBankAccount(SaveBankAccountRequestDto request) async {
     await _apiClient.post<void>('/bank-accounts', data: request.toJson());
+  }
+
+  @override
+  Future<void> updateBankAccount(
+    String id,
+    SaveBankAccountRequestDto request,
+  ) async {
+    await _apiClient.put<void>('/bank-accounts/$id', data: request.toJson());
   }
 }

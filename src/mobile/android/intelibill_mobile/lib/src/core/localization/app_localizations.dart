@@ -4668,6 +4668,24 @@ abstract class AppLocalizations {
   /// In en_IN, this message translates to:
   /// **'Unable to save bank account. Please try again.'**
   String get bankAccountsSubmitError;
+
+  /// No description provided for @bankAccountsEdit.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Edit Bank Account'**
+  String get bankAccountsEdit;
+
+  /// No description provided for @bankAccountsUpdate.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Update Bank Account'**
+  String get bankAccountsUpdate;
+
+  /// No description provided for @bankAccountsUpdateSuccess.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Bank account updated successfully.'**
+  String get bankAccountsUpdateSuccess;
 }
 
 class _AppLocalizationsDelegate
