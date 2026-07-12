@@ -9,6 +9,8 @@ import 'package:intelibill_mobile/src/app/router/app_router.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/auth/domain/entities/auth_session.dart';
 import 'package:intelibill_mobile/src/features/auth/presentation/controllers/auth_controller.dart';
+import 'package:intelibill_mobile/src/features/bank_accounts/domain/use_cases/get_bank_accounts.dart';
+import 'package:intelibill_mobile/src/features/bank_accounts/presentation/controllers/bank_accounts_controller.dart';
 import 'package:intelibill_mobile/src/features/credit_notes/domain/entities/credit_note_print.dart';
 import 'package:intelibill_mobile/src/features/credit_notes/presentation/controllers/credit_notes_controller.dart';
 import 'package:intelibill_mobile/src/features/dashboard/presentation/controllers/dashboard_controller.dart';
@@ -26,6 +28,8 @@ import 'package:intelibill_mobile/src/features/sales/presentation/controllers/sa
 import 'package:intelibill_mobile/src/features/services/presentation/controllers/services_controller.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+class MockRouterGetBankAccounts extends Mock implements GetBankAccounts {}
 
 class MockGetSaleDetail extends Mock implements GetSaleDetail {}
 
@@ -342,6 +346,108 @@ void main() {
         equals(AppRoutes.discounts),
       );
     });
+
+    testWidgets('owner can navigate to bank accounts route', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final getBankAccounts = MockRouterGetBankAccounts();
+      when(getBankAccounts.call).thenAnswer((_) async => []);
+      final container = ProviderContainer(
+        overrides: [
+          authControllerProvider.overrideWith(
+            () => _TestAuthController(
+              AuthControllerState(session: _sessionForRole('Owner')),
+            ),
+          ),
+          dashboardControllerProvider.overrideWith(
+            _StubDashboardController.new,
+          ),
+          salesHistoryControllerProvider.overrideWith(
+            _StubSalesHistoryController.new,
+          ),
+          getBankAccountsUseCaseProvider.overrideWithValue(getBankAccounts),
+        ],
+      );
+      addTearDown(container.dispose);
+      final router = container.read(goRouterProvider);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp.router(
+            locale: const Locale('en', 'IN'),
+            supportedLocales: const [Locale('en', 'IN')],
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      router.go(AppRoutes.bankAccounts);
+      await tester.pumpAndSettle();
+
+      expect(
+        router.routeInformationProvider.value.uri.toString(),
+        AppRoutes.bankAccounts,
+      );
+      expect(find.text('Bank Accounts'), findsOneWidget);
+    });
+
+    for (final role in ['Manager', 'Staff']) {
+      testWidgets('$role is redirected from bank accounts route', (
+        tester,
+      ) async {
+        SharedPreferences.setMockInitialValues({});
+        final container = ProviderContainer(
+          overrides: [
+            authControllerProvider.overrideWith(
+              () => _TestAuthController(
+                AuthControllerState(session: _sessionForRole(role)),
+              ),
+            ),
+            dashboardControllerProvider.overrideWith(
+              _StubDashboardController.new,
+            ),
+            salesHistoryControllerProvider.overrideWith(
+              _StubSalesHistoryController.new,
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+        final router = container.read(goRouterProvider);
+
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp.router(
+              locale: const Locale('en', 'IN'),
+              supportedLocales: const [Locale('en', 'IN')],
+              localizationsDelegates: const [
+                AppLocalizations.delegate,
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              routerConfig: router,
+            ),
+          ),
+        );
+        await tester.pump();
+
+        router.go(AppRoutes.bankAccounts);
+        await tester.pump();
+
+        expect(
+          router.routeInformationProvider.value.uri.toString(),
+          AppRoutes.salesHistory,
+        );
+      });
+    }
 
     for (final role in ['Owner', 'Manager']) {
       testWidgets('$role can navigate to expenses and render first page', (
