@@ -10,6 +10,7 @@ import 'package:intelibill_mobile/src/features/bank_accounts/domain/entities/ban
 import 'package:intelibill_mobile/src/features/bank_accounts/domain/entities/save_bank_account_request.dart';
 import 'package:intelibill_mobile/src/features/bank_accounts/domain/repositories/bank_accounts_repository.dart';
 import 'package:intelibill_mobile/src/features/bank_accounts/domain/use_cases/add_bank_account.dart';
+import 'package:intelibill_mobile/src/features/bank_accounts/domain/use_cases/delete_bank_account.dart';
 import 'package:intelibill_mobile/src/features/bank_accounts/domain/use_cases/get_bank_accounts.dart';
 import 'package:intelibill_mobile/src/features/bank_accounts/domain/use_cases/update_bank_account.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -41,6 +42,11 @@ AddBankAccount addBankAccountUseCase(Ref ref) {
 @riverpod
 UpdateBankAccount updateBankAccountUseCase(Ref ref) {
   return UpdateBankAccount(ref.watch(bankAccountsRepositoryProvider));
+}
+
+@riverpod
+DeleteBankAccount deleteBankAccountUseCase(Ref ref) {
+  return DeleteBankAccount(ref.watch(bankAccountsRepositoryProvider));
 }
 
 @immutable
@@ -161,6 +167,40 @@ class BankAccountsController extends _$BankAccountsController {
     state = state.copyWith(isSubmitting: true, clearSubmitFailure: true);
     try {
       await ref.read(updateBankAccountUseCaseProvider)(id, request);
+      if (!ref.mounted) return false;
+
+      await _loadBankAccounts();
+      if (!ref.mounted) return false;
+      if (state.failure != null) {
+        state = state.copyWith(
+          isSubmitting: false,
+          submitFailure: state.failure,
+        );
+        return false;
+      }
+
+      state = state.copyWith(isSubmitting: false, clearSubmitFailure: true);
+      return true;
+    } on AppException catch (error) {
+      if (!ref.mounted) return false;
+      state = state.copyWith(isSubmitting: false, submitFailure: error.failure);
+      return false;
+    } on Object {
+      if (!ref.mounted) return false;
+      state = state.copyWith(
+        isSubmitting: false,
+        submitFailure: const Failure.unknown(),
+      );
+      return false;
+    }
+  }
+
+  Future<bool> deleteBankAccount(String id) async {
+    if (state.isSubmitting) return false;
+
+    state = state.copyWith(isSubmitting: true, clearSubmitFailure: true);
+    try {
+      await ref.read(deleteBankAccountUseCaseProvider)(id);
       if (!ref.mounted) return false;
 
       await _loadBankAccounts();

@@ -4686,6 +4686,48 @@ abstract class AppLocalizations {
   /// In en_IN, this message translates to:
   /// **'Bank account updated successfully.'**
   String get bankAccountsUpdateSuccess;
+
+  /// No description provided for @bankAccountsDelete.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Delete bank account'**
+  String get bankAccountsDelete;
+
+  /// No description provided for @bankAccountsDeleteTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Delete bank account'**
+  String get bankAccountsDeleteTitle;
+
+  /// No description provided for @bankAccountsDeleteConfirmation.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Permanently delete {bankName}? This cannot be undone.'**
+  String bankAccountsDeleteConfirmation(Object bankName);
+
+  /// No description provided for @bankAccountsDeleteCancel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Cancel'**
+  String get bankAccountsDeleteCancel;
+
+  /// No description provided for @bankAccountsDeleteConfirm.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Delete permanently'**
+  String get bankAccountsDeleteConfirm;
+
+  /// No description provided for @bankAccountsDeleteSuccess.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Bank account deleted successfully.'**
+  String get bankAccountsDeleteSuccess;
+
+  /// No description provided for @bankAccountsDeleteError.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to delete bank account. Please try again.'**
+  String get bankAccountsDeleteError;
 }
 
 class _AppLocalizationsDelegate

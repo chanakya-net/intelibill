@@ -6,13 +6,16 @@ class BankAccountCard extends StatelessWidget {
   const BankAccountCard({
     required this.account,
     this.onEdit,
+    this.onDelete,
     super.key,
   });
 
   static const editActionKey = Key('bank-account-edit-action');
+  static const deleteActionKey = Key('bank-account-delete-action');
 
   final BankAccount account;
   final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -39,6 +42,13 @@ class BankAccountCard extends StatelessWidget {
                     key: editActionKey,
                     icon: const Icon(Icons.edit),
                     onPressed: onEdit,
+                  ),
+                if (onDelete != null)
+                  IconButton(
+                    key: deleteActionKey,
+                    tooltip: l10n.bankAccountsDelete,
+                    icon: const Icon(Icons.delete_outline),
+                    onPressed: onDelete,
                   ),
               ],
             ),
