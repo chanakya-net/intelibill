@@ -223,7 +223,7 @@ void main() {
     expect(domain.notes, isNull);
   });
 
-  test('maps malformed detail JSON into serialization failure', () async {
+  test('maps an invalid detail status into serialization failure', () async {
     final apiClient = MockApiClient();
     final source = PurchaseOrderRepositoryImpl(
       PurchaseOrderRemoteDataSourceImpl(apiClient),
@@ -233,7 +233,7 @@ void main() {
       () => apiClient.get<Map<String, dynamic>>(any<String>()),
     ).thenAnswer(
       (_) async => Response(
-        data: _detailMalformedJson(),
+        data: _detailInvalidStatusJson(),
         statusCode: 200,
         requestOptions: RequestOptions(path: '/purchase-orders/po-77'),
       ),
@@ -250,6 +250,74 @@ void main() {
       ),
     );
   });
+
+  test('mapper rejects an overflow orderDate that parse would normalize', () {
+    final dto = PurchaseOrderDetailDto.fromJson(_detailOverflowOrderDateJson());
+
+    expect(
+      () => PurchaseOrderMapper.detailToDomain(dto),
+      throwsFormatException,
+    );
+  });
+
+  test('maps an overflow orderDate into serialization failure', () async {
+    final apiClient = MockApiClient();
+    final source = PurchaseOrderRepositoryImpl(
+      PurchaseOrderRemoteDataSourceImpl(apiClient),
+    );
+
+    when(
+      () => apiClient.get<Map<String, dynamic>>(any<String>()),
+    ).thenAnswer(
+      (_) async => Response(
+        data: _detailOverflowOrderDateJson(),
+        statusCode: 200,
+        requestOptions: RequestOptions(path: '/purchase-orders/po-77'),
+      ),
+    );
+
+    await expectLater(
+      source.getPurchaseOrder('po-77'),
+      throwsA(
+        isA<AppException>().having(
+          (e) => e.failure,
+          'failure',
+          isA<SerializationFailure>(),
+        ),
+      ),
+    );
+  });
+
+  test(
+    'maps an overflow expectedDeliveryDate into serialization failure',
+    () async {
+      final apiClient = MockApiClient();
+      final source = PurchaseOrderRepositoryImpl(
+        PurchaseOrderRemoteDataSourceImpl(apiClient),
+      );
+
+      when(
+        () => apiClient.get<Map<String, dynamic>>(any<String>()),
+      ).thenAnswer(
+        (_) async => Response(
+          data: _detailOverflowDeliveryDateJson(),
+          statusCode: 200,
+          requestOptions: RequestOptions(path: '/purchase-orders/po-77'),
+        ),
+      );
+
+      await expectLater(
+        source.getPurchaseOrder('po-77'),
+        throwsA(
+          isA<AppException>().having(
+            (e) => e.failure,
+            'failure',
+            isA<SerializationFailure>(),
+          ),
+        ),
+      );
+    },
+  );
 
   test(
     'maps missing received-quantity detail to serialization failure',
@@ -447,10 +515,19 @@ Map<String, dynamic> _detailJsonNullables() => {
   'notes': null,
 };
 
-Map<String, dynamic> _detailMalformedJson() => {
+Map<String, dynamic> _detailInvalidStatusJson() => {
   ..._detailJson(),
   'status': 'DoesNotExist',
+};
+
+Map<String, dynamic> _detailOverflowOrderDateJson() => {
+  ..._detailJson(),
   'orderDate': '2026-14-99',
+};
+
+Map<String, dynamic> _detailOverflowDeliveryDateJson() => {
+  ..._detailJson(),
+  'expectedDeliveryDate': '2026-02-30',
 };
 
 Map<String, dynamic> _detailWithoutReceivedQuantity() {

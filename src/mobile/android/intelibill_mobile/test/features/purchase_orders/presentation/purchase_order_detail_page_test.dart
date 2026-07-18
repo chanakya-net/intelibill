@@ -179,8 +179,12 @@ void main() {
     expect(find.text('Supplier: Fresh Grocers'), findsOneWidget);
     expect(find.text('Supplier reference number: SRN-77'), findsOneWidget);
     expect(find.text('Supplier reference: RG-77'), findsOneWidget);
-    expect(find.text('Order date: 11 Jul 2026'), findsOneWidget);
-    expect(find.text('Expected delivery: 14 Jul 2026'), findsOneWidget);
+    final orderDate = DateFormat.yMMMd('en_IN').format(DateTime(2026, 7, 11));
+    final deliveryDate = DateFormat.yMMMd(
+      'en_IN',
+    ).format(DateTime(2026, 7, 14));
+    expect(find.text('Order date: $orderDate'), findsOneWidget);
+    expect(find.text('Expected delivery: $deliveryDate'), findsOneWidget);
     expect(find.text('Notes: Urgent restock'), findsOneWidget);
     expect(
       find.text(
@@ -260,6 +264,27 @@ void main() {
     expect(find.text('No lines on this order'), findsNothing);
     expect(find.text('Supplier: Fresh Grocers'), findsOneWidget);
     expect(find.text('Supplier reference number: SRN-77'), findsOneWidget);
+
+    // Dates use the active app locale (not Intl's default) while preserving
+    // the original calendar day (no timezone conversion on DateOnly values).
+    final localeTag = const Locale('hi', 'IN').toLanguageTag();
+    final orderDate = DateFormat.yMMMd(localeTag).format(DateTime(2026, 7, 11));
+    final deliveryDate = DateFormat.yMMMd(
+      localeTag,
+    ).format(DateTime(2026, 7, 14));
+    expect(find.text('Order date: $orderDate'), findsOneWidget);
+    expect(find.text('Expected delivery: $deliveryDate'), findsOneWidget);
+    expect(
+      orderDate,
+      isNot(DateFormat.yMMMd('en_IN').format(DateTime(2026, 7, 11))),
+    );
+    final createdAt =
+        DateFormat.yMMMd(
+          localeTag,
+        ).add_jm().format(
+          DateTime.parse('2026-07-01T08:30:00.000+05:30').toLocal(),
+        );
+    expect(find.text('Created at: $createdAt'), findsOneWidget);
   });
 
   testWidgets('retries load and then clears not-found with safe back action', (

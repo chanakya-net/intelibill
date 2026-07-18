@@ -14,6 +14,7 @@ class PurchaseOrderDetailHeader extends StatelessWidget {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
     final locale = Localizations.localeOf(context).toLanguageTag();
+    final dateOnlyFormat = DateFormat.yMMMd(locale);
     final createdAt = DateFormat.yMMMd(locale).add_jm().format(
       purchaseOrder.createdAt,
     );
@@ -50,12 +51,12 @@ class PurchaseOrderDetailHeader extends StatelessWidget {
             if (purchaseOrder.orderDate != null)
               Text(
                 '${l10n.purchaseOrderDetailOrderDate}: '
-                '${DateFormat('d MMM yyyy').format(purchaseOrder.orderDate!)}',
+                '${dateOnlyFormat.format(purchaseOrder.orderDate!)}',
               ),
             if (purchaseOrder.expectedDeliveryDate != null)
               Text(
                 '${l10n.purchaseOrderDetailExpectedDeliveryDate}: '
-                '${DateFormat('d MMM yyyy').format(purchaseOrder.expectedDeliveryDate!)}',
+                '${dateOnlyFormat.format(purchaseOrder.expectedDeliveryDate!)}',
               ),
             if (purchaseOrder.notes?.isNotEmpty == true) ...[
               const SizedBox(height: 8),

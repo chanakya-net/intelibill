@@ -66,8 +66,35 @@ class PurchaseOrderMapper {
     );
   }
 
+  static final RegExp _dateOnlyPattern = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$');
+
+  /// Parses a backend `DateOnly` (`yyyy-MM-dd`) into a local calendar date.
+  ///
+  /// Rejects any non-calendar value (bad shape, month/day out of range) with a
+  /// [FormatException] instead of silently normalizing overflow components the
+  /// way `DateTime.parse` would. Valid dates are preserved verbatim with no
+  /// timezone conversion.
   static DateTime? _parseDateOnly(String? value) {
     if (value == null) return null;
-    return DateTime.parse('${value}T00:00:00');
+    final match = _dateOnlyPattern.firstMatch(value);
+    if (match == null) {
+      throw FormatException('Invalid DateOnly value', value);
+    }
+    final year = int.parse(match.group(1)!);
+    final month = int.parse(match.group(2)!);
+    final day = int.parse(match.group(3)!);
+    if (month < 1 || month > 12 || day < 1 || day > _daysInMonth(year, month)) {
+      throw FormatException('Invalid DateOnly value', value);
+    }
+    return DateTime(year, month, day);
   }
+
+  static int _daysInMonth(int year, int month) {
+    const monthLengths = <int>[31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    if (month == 2 && _isLeapYear(year)) return 29;
+    return monthLengths[month - 1];
+  }
+
+  static bool _isLeapYear(int year) =>
+      year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
 }
