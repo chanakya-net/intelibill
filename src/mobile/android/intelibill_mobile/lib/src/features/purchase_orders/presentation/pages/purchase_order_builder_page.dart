@@ -254,13 +254,30 @@ class _DateField extends StatefulWidget {
 
 class _DateFieldState extends State<_DateField> {
   @override
+  void initState() {
+    super.initState();
+    _scheduleControllerSync();
+  }
+
+  @override
   void didUpdateWidget(_DateField oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.value != oldWidget.value) {
-      widget.controller.text = widget.value == null
-          ? ''
-          : MaterialLocalizations.of(context).formatMediumDate(widget.value!);
+      _scheduleControllerSync();
     }
+  }
+
+  void _scheduleControllerSync() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _syncController();
+    });
+  }
+
+  void _syncController() {
+    final text = widget.value == null
+        ? ''
+        : MaterialLocalizations.of(context).formatMediumDate(widget.value!);
+    if (widget.controller.text != text) widget.controller.text = text;
   }
 
   @override
