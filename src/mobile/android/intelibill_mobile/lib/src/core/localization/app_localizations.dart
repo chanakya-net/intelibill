@@ -145,6 +145,18 @@ abstract class AppLocalizations {
   /// **'Clear'**
   String get commonClear;
 
+  /// No description provided for @purchaseOrdersFilterDateFrom.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'From:'**
+  String get purchaseOrdersFilterDateFrom;
+
+  /// No description provided for @purchaseOrdersFilterDateTo.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'To:'**
+  String get purchaseOrdersFilterDateTo;
+
   /// No description provided for @commonActions.
   ///
   /// In en_IN, this message translates to:

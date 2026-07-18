@@ -482,6 +482,239 @@ void main() {
       ),
     ).called(1);
   });
+
+  test('sends status under exact `status` key', () async {
+    final apiClient = MockApiClient();
+    final source = PurchaseOrderRemoteDataSourceImpl(apiClient);
+    when(
+      () => apiClient.get<Map<String, dynamic>>(
+        any<String>(),
+        queryParameters: any<Map<String, dynamic>>(named: 'queryParameters'),
+      ),
+    ).thenAnswer(
+      (_) async => Response(
+        data: {
+          'items': <dynamic>[],
+          'totalCount': 0,
+          'pageNumber': 1,
+          'pageSize': 20,
+        },
+        statusCode: 200,
+        requestOptions: RequestOptions(path: '/purchase-orders'),
+      ),
+    );
+
+    await source.getPurchaseOrders(
+      PurchaseOrderFilters(status: PurchaseOrderStatus.placed),
+    );
+
+    verify(
+      () => apiClient.get<Map<String, dynamic>>(
+        '/purchase-orders',
+        queryParameters: {
+          'page': 1,
+          'page_size': 20,
+          'status': 'Placed',
+        },
+      ),
+    ).called(1);
+  });
+
+  test('omits null status from query params', () async {
+    final apiClient = MockApiClient();
+    final source = PurchaseOrderRemoteDataSourceImpl(apiClient);
+    when(
+      () => apiClient.get<Map<String, dynamic>>(
+        any<String>(),
+        queryParameters: any<Map<String, dynamic>>(named: 'queryParameters'),
+      ),
+    ).thenAnswer(
+      (_) async => Response(
+        data: {
+          'items': <dynamic>[],
+          'totalCount': 0,
+          'pageNumber': 1,
+          'pageSize': 20,
+        },
+        statusCode: 200,
+        requestOptions: RequestOptions(path: '/purchase-orders'),
+      ),
+    );
+
+    await source.getPurchaseOrders(
+      const PurchaseOrderFilters(status: null),
+    );
+
+    verify(
+      () => apiClient.get<Map<String, dynamic>>(
+        '/purchase-orders',
+        queryParameters: {
+          'page': 1,
+          'page_size': 20,
+        },
+      ),
+    ).called(1);
+  });
+
+  test('sends orderDateFrom in yyyy-MM-dd format under `order_date_from` key',
+      () async {
+    final apiClient = MockApiClient();
+    final source = PurchaseOrderRemoteDataSourceImpl(apiClient);
+    when(
+      () => apiClient.get<Map<String, dynamic>>(
+        any<String>(),
+        queryParameters: any<Map<String, dynamic>>(named: 'queryParameters'),
+      ),
+    ).thenAnswer(
+      (_) async => Response(
+        data: {
+          'items': <dynamic>[],
+          'totalCount': 0,
+          'pageNumber': 1,
+          'pageSize': 20,
+        },
+        statusCode: 200,
+        requestOptions: RequestOptions(path: '/purchase-orders'),
+      ),
+    );
+
+    await source.getPurchaseOrders(
+      PurchaseOrderFilters(orderDateFrom: DateTime(2026, 3, 15)),
+    );
+
+    verify(
+      () => apiClient.get<Map<String, dynamic>>(
+        '/purchase-orders',
+        queryParameters: {
+          'page': 1,
+          'page_size': 20,
+          'order_date_from': '2026-03-15',
+        },
+      ),
+    ).called(1);
+  });
+
+  test('sends orderDateTo in yyyy-MM-dd format under `order_date_to` key',
+      () async {
+    final apiClient = MockApiClient();
+    final source = PurchaseOrderRemoteDataSourceImpl(apiClient);
+    when(
+      () => apiClient.get<Map<String, dynamic>>(
+        any<String>(),
+        queryParameters: any<Map<String, dynamic>>(named: 'queryParameters'),
+      ),
+    ).thenAnswer(
+      (_) async => Response(
+        data: {
+          'items': <dynamic>[],
+          'totalCount': 0,
+          'pageNumber': 1,
+          'pageSize': 20,
+        },
+        statusCode: 200,
+        requestOptions: RequestOptions(path: '/purchase-orders'),
+      ),
+    );
+
+    await source.getPurchaseOrders(
+      PurchaseOrderFilters(orderDateTo: DateTime(2026, 7, 20)),
+    );
+
+    verify(
+      () => apiClient.get<Map<String, dynamic>>(
+        '/purchase-orders',
+        queryParameters: {
+          'page': 1,
+          'page_size': 20,
+          'order_date_to': '2026-07-20',
+        },
+      ),
+    ).called(1);
+  });
+
+  test('sends both date filters together with status and search', () async {
+    final apiClient = MockApiClient();
+    final source = PurchaseOrderRemoteDataSourceImpl(apiClient);
+    when(
+      () => apiClient.get<Map<String, dynamic>>(
+        any<String>(),
+        queryParameters: any<Map<String, dynamic>>(named: 'queryParameters'),
+      ),
+    ).thenAnswer(
+      (_) async => Response(
+        data: {
+          'items': <dynamic>[],
+          'totalCount': 0,
+          'pageNumber': 1,
+          'pageSize': 20,
+        },
+        statusCode: 200,
+        requestOptions: RequestOptions(path: '/purchase-orders'),
+      ),
+    );
+
+    await source.getPurchaseOrders(
+      PurchaseOrderFilters(
+        search: 'widget',
+        status: PurchaseOrderStatus.received,
+        orderDateFrom: DateTime(2026, 1, 1),
+        orderDateTo: DateTime(2026, 12, 31),
+      ),
+    );
+
+    verify(
+      () => apiClient.get<Map<String, dynamic>>(
+        '/purchase-orders',
+        queryParameters: {
+          'page': 1,
+          'page_size': 20,
+          'search': 'widget',
+          'status': 'Received',
+          'order_date_from': '2026-01-01',
+          'order_date_to': '2026-12-31',
+        },
+      ),
+    ).called(1);
+  });
+
+  test('omits null dates from query params', () async {
+    final apiClient = MockApiClient();
+    final source = PurchaseOrderRemoteDataSourceImpl(apiClient);
+    when(
+      () => apiClient.get<Map<String, dynamic>>(
+        any<String>(),
+        queryParameters: any<Map<String, dynamic>>(named: 'queryParameters'),
+      ),
+    ).thenAnswer(
+      (_) async => Response(
+        data: {
+          'items': <dynamic>[],
+          'totalCount': 0,
+          'pageNumber': 1,
+          'pageSize': 20,
+        },
+        statusCode: 200,
+        requestOptions: RequestOptions(path: '/purchase-orders'),
+      ),
+    );
+
+    await source.getPurchaseOrders(
+      const PurchaseOrderFilters(
+        orderDateFrom: null,
+        orderDateTo: null,
+      ),
+    );
+
+    verify(
+      () => apiClient.get<Map<String, dynamic>>(
+        '/purchase-orders',
+        queryParameters: {
+          'page': 1,
+          'page_size': 20,
+        },
+      ),
+    ).called(1);
+  });
 }
 
 Map<String, dynamic> _itemJson() => {

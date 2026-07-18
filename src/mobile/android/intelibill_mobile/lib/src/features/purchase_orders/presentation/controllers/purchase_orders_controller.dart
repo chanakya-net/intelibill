@@ -5,6 +5,7 @@ import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_filters.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_list_item.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_status.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_providers.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -48,6 +49,9 @@ class PurchaseOrdersController extends _$PurchaseOrdersController {
   late Timer _searchDebounce;
   int _searchGeneration = 0;
   String? _activeSearch;
+  PurchaseOrderStatus? _activeStatus;
+  DateTime? _activeDateFrom;
+  DateTime? _activeDateTo;
 
   @override
   PurchaseOrdersState build() {
@@ -80,8 +84,39 @@ class PurchaseOrdersController extends _$PurchaseOrdersController {
     });
   }
 
+  void updateStatus(PurchaseOrderStatus? status) {
+    _activeStatus = status;
+    unawaited(_loadFirstPage(_nextGeneration()));
+  }
+
+  void updateOrderDateFrom(DateTime? date) {
+    if (!_isValidRange(date, _activeDateTo)) return;
+    _activeDateFrom = date;
+    unawaited(_loadFirstPage(_nextGeneration()));
+  }
+
+  void updateOrderDateTo(DateTime? date) {
+    if (!_isValidRange(_activeDateFrom, date)) return;
+    _activeDateTo = date;
+    unawaited(_loadFirstPage(_nextGeneration()));
+  }
+
+  void clearFilters() {
+    _activeSearch = null;
+    _activeStatus = null;
+    _activeDateFrom = null;
+    _activeDateTo = null;
+    _searchDebounce.cancel();
+    unawaited(_loadFirstPage(_nextGeneration()));
+  }
+
   Future<void> _loadFirstPage(int generation) async {
-    final filters = PurchaseOrderFilters(search: _activeSearch);
+    final filters = PurchaseOrderFilters(
+      search: _activeSearch,
+      status: _activeStatus,
+      orderDateFrom: _activeDateFrom,
+      orderDateTo: _activeDateTo,
+    );
     state = state.copyWith(isLoading: true, clearFailure: true);
     try {
       final page = await ref.read(getPurchaseOrdersProvider)(filters);
@@ -105,6 +140,10 @@ class PurchaseOrdersController extends _$PurchaseOrdersController {
   }
 
   int _nextGeneration() => ++_searchGeneration;
+
+  bool _isValidRange(DateTime? from, DateTime? to) {
+    return from == null || to == null || !from.isAfter(to);
+  }
 
   String? _normalizedSearch(String query) {
     final normalized = query.trim();

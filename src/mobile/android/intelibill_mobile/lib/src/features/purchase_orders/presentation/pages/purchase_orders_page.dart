@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_status.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_orders_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_card.dart';
 
@@ -18,6 +19,9 @@ class PurchaseOrdersPage extends ConsumerStatefulWidget {
 
 class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
   late final TextEditingController _searchController;
+  PurchaseOrderStatus? _selectedStatus;
+  DateTime? _dateFrom;
+  DateTime? _dateTo;
 
   @override
   void initState() {
@@ -46,6 +50,7 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
     BuildContext context,
     PurchaseOrdersState state,
   ) {
+    final l10n = AppLocalizations.of(context)!;
     if (state.isInitialLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -53,6 +58,11 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
 
     final hasActiveSearch = _searchController.text.trim().isNotEmpty;
     final hasResults = state.items.isNotEmpty;
+    final hasActiveFilter =
+        _selectedStatus != null ||
+        _dateFrom != null ||
+        _dateTo != null ||
+        hasActiveSearch;
 
     final searchBar = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -69,10 +79,110 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
       ),
     );
 
-    if (!hasResults && hasActiveSearch) {
+    final filterBar = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            Wrap(
+              spacing: 8,
+              children: [
+                for (final status in PurchaseOrderStatus.values)
+                  FilterChip(
+                    label: Text(status.wireValue),
+                    selected: _selectedStatus == status,
+                    onSelected: (selected) {
+                      setState(() {
+                        _selectedStatus = selected ? status : null;
+                      });
+                      ref
+                          .read(
+                            purchaseOrdersControllerProvider.notifier,
+                          )
+                          .updateStatus(_selectedStatus);
+                    },
+                  ),
+              ],
+            ),
+            const SizedBox(width: 12),
+            OutlinedButton.icon(
+              icon: const Icon(Icons.calendar_today, size: 18),
+              label: Text(
+                _dateFrom == null
+                    ? l10n.purchaseOrdersFilterDateFrom
+                    : '${_dateFrom!.year}-${_dateFrom!.month.toString().padLeft(2, '0')}-${_dateFrom!.day.toString().padLeft(2, '0')}',
+              ),
+              onPressed: () async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: _dateFrom ?? DateTime.now(),
+                  firstDate: DateTime(2000),
+                  lastDate: DateTime.now(),
+                );
+                if (picked != null) {
+                  setState(() => _dateFrom = picked);
+                  ref
+                      .read(
+                        purchaseOrdersControllerProvider.notifier,
+                      )
+                      .updateOrderDateFrom(picked);
+                }
+              },
+            ),
+            const SizedBox(width: 8),
+            OutlinedButton.icon(
+              icon: const Icon(Icons.calendar_today, size: 18),
+              label: Text(
+                _dateTo == null
+                    ? l10n.purchaseOrdersFilterDateTo
+                    : '${_dateTo!.year}-${_dateTo!.month.toString().padLeft(2, '0')}-${_dateTo!.day.toString().padLeft(2, '0')}',
+              ),
+              onPressed: () async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: _dateTo ?? DateTime.now(),
+                  firstDate: DateTime(2000),
+                  lastDate: DateTime.now(),
+                );
+                if (picked != null) {
+                  setState(() => _dateTo = picked);
+                  ref
+                      .read(
+                        purchaseOrdersControllerProvider.notifier,
+                      )
+                      .updateOrderDateTo(picked);
+                }
+              },
+            ),
+            const SizedBox(width: 8),
+            if (hasActiveFilter)
+              ActionChip(
+                label: Text(l10n.commonClear),
+                onPressed: () {
+                  setState(() {
+                    _selectedStatus = null;
+                    _dateFrom = null;
+                    _dateTo = null;
+                    _searchController.clear();
+                  });
+                  ref
+                      .read(
+                        purchaseOrdersControllerProvider.notifier,
+                      )
+                      .clearFilters();
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+
+    if (!hasResults && hasActiveFilter) {
       return Column(
         children: [
           searchBar,
+          filterBar,
           Expanded(
             child: _FilteredEmptyView(query: _searchController.text),
           ),
@@ -83,6 +193,7 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
       return Column(
         children: [
           searchBar,
+          filterBar,
           const Expanded(child: _EmptyView()),
         ],
       );
@@ -91,6 +202,7 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
     return Column(
       children: [
         searchBar,
+        filterBar,
         Expanded(
           child: RefreshIndicator(
             onRefresh: () =>
@@ -183,7 +295,9 @@ class _FilteredEmptyView extends StatelessWidget {
             const Icon(Icons.search_off, size: 48),
             const SizedBox(height: 12),
             Text(
-              'No results for "$query"',
+              query.isEmpty
+                  ? 'No purchase orders match your filters'
+                  : 'No results for "$query"',
               textAlign: TextAlign.center,
             ),
           ],

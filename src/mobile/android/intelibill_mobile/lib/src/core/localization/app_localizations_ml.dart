@@ -21,6 +21,12 @@ class AppLocalizationsMl extends AppLocalizations {
   String get commonClear => 'മായ്ക്കുക';
 
   @override
+  String get purchaseOrdersFilterDateFrom => 'From:';
+
+  @override
+  String get purchaseOrdersFilterDateTo => 'To:';
+
+  @override
   String get commonActions => 'പ്രവർത്തനങ്ങൾ';
 
   @override

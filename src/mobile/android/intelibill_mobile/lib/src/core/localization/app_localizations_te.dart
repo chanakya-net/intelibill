@@ -21,6 +21,12 @@ class AppLocalizationsTe extends AppLocalizations {
   String get commonClear => 'క్లియర్';
 
   @override
+  String get purchaseOrdersFilterDateFrom => 'From:';
+
+  @override
+  String get purchaseOrdersFilterDateTo => 'To:';
+
+  @override
   String get commonActions => 'చర్యలు';
 
   @override
