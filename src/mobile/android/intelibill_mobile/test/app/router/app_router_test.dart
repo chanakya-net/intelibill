@@ -19,7 +19,12 @@ import 'package:intelibill_mobile/src/features/discounts/presentation/controller
 import 'package:intelibill_mobile/src/features/expenses/domain/entities/expense_list_item.dart';
 import 'package:intelibill_mobile/src/features/expenses/domain/entities/expenses_page.dart';
 import 'package:intelibill_mobile/src/features/expenses/presentation/controllers/expenses_controller.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_line.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_status.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/get_purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_orders_controller.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_providers.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/pages/purchase_orders_page.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sales_history_query.dart';
@@ -34,6 +39,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 class MockRouterGetBankAccounts extends Mock implements GetBankAccounts {}
 
 class MockGetSaleDetail extends Mock implements GetSaleDetail {}
+
+class _MockGetPurchaseOrder extends Mock implements GetPurchaseOrder {}
 
 void main() {
   group('AppRouter', () {
@@ -69,6 +76,17 @@ void main() {
       expect(AppRoutes.purchaseOrders, equals('/inventory/purchase-orders'));
       expect(AppRoutes.language, equals('/language'));
       expect(AppRoutes.placeholders, equals('/placeholder'));
+    });
+
+    test('AppRoutes purchase-order detail route constants are valid', () {
+      expect(
+        AppRoutes.purchaseOrderDetail,
+        equals('/inventory/purchase-orders/:purchaseOrderId'),
+      );
+      expect(
+        AppRoutes.purchaseOrderDetailFor('po-1'),
+        equals('/inventory/purchase-orders/po-1'),
+      );
     });
 
     test('router includes authenticated shell', () {
@@ -615,6 +633,62 @@ void main() {
       });
     }
 
+    for (final role in ['Owner']) {
+      testWidgets('$role can deep-link to purchase order detail route', (
+        tester,
+      ) async {
+        final getPurchaseOrder = _MockGetPurchaseOrder();
+        when(
+          () => getPurchaseOrder(any()),
+        ).thenAnswer((_) async => _fakePurchaseOrder);
+
+        final container = ProviderContainer(
+          overrides: [
+            authControllerProvider.overrideWith(
+              () => _TestAuthController(
+                AuthControllerState(session: _sessionForRole(role)),
+              ),
+            ),
+            getPurchaseOrderProvider.overrideWithValue(getPurchaseOrder),
+            dashboardControllerProvider.overrideWith(
+              _StubDashboardController.new,
+            ),
+            salesHistoryControllerProvider.overrideWith(
+              _StubSalesHistoryController.new,
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+        final router = container.read(goRouterProvider);
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp.router(
+              locale: const Locale('en', 'IN'),
+              supportedLocales: const [Locale('en', 'IN')],
+              localizationsDelegates: const [
+                AppLocalizations.delegate,
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              routerConfig: router,
+            ),
+          ),
+        );
+        await tester.pump();
+
+        final detailRoute = AppRoutes.purchaseOrderDetailFor('po-1');
+        router.go(detailRoute);
+        await tester.pump();
+
+        expect(
+          router.routeInformationProvider.value.uri.toString(),
+          equals(detailRoute),
+        );
+      });
+    }
+
     for (final role in ['Staff', 'Owner']) {
       testWidgets(
         '$role without purchase-order access is redirected from nested route',
@@ -658,7 +732,7 @@ void main() {
           );
           await tester.pump();
 
-          router.go('${AppRoutes.purchaseOrders}/details/po-1');
+          router.go(AppRoutes.purchaseOrderDetailFor('po-1'));
           await tester.pump();
 
           expect(
@@ -713,7 +787,7 @@ void main() {
 
           for (final route in [
             AppRoutes.purchaseOrders,
-            '${AppRoutes.purchaseOrders}/details/po-1',
+            AppRoutes.purchaseOrderDetailFor('po-1'),
           ]) {
             router.go(route);
             await tester.pump();
@@ -940,6 +1014,34 @@ void main() {
     );
   });
 }
+
+PurchaseOrder _fakePurchaseOrder = PurchaseOrder(
+  purchaseOrderId: 'po-1',
+  purchaseOrderNumber: 'PO-po-1',
+  status: PurchaseOrderStatus.placed,
+  supplierId: 'supplier-1',
+  orderDate: DateTime(2026, 7, 11),
+  expectedDeliveryDate: DateTime(2026, 7, 14),
+  supplierReferenceNumber: 'SRN-77',
+  notes: 'Urgent',
+  lines: const [
+    PurchaseOrderLine(
+      lineId: 'line-1',
+      itemId: 'item-1',
+      description: 'Widget A',
+      expectedQuantity: 10,
+      receivedQuantity: 5,
+      remainingQuantity: 5,
+      unitCost: 75,
+      lineTotal: 750,
+    ),
+  ],
+  expectedTotal: 750,
+  createdAt: DateTime(2026, 7, 1, 8, 30),
+  supplierName: 'Fresh Grocers',
+  supplierReference: 'RG-77',
+  receivedQuantity: 7,
+);
 
 CreditNotePrint _fakeCreditNotePrint = CreditNotePrint(
   creditNoteId: 'cn-print',
