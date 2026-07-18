@@ -44,6 +44,29 @@ void main() {
     );
   });
 
+  testWidgets('accepts whitespace-padded 500-character trimmed reason', (tester) async {
+    final reasons = <String>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: PurchaseOrderCloseSheet(
+            onClose: (reason) async => reasons.add(reason),
+          ),
+        ),
+      ),
+    );
+    final paddedReason = ' ${'x' * 500} ';
+    await tester.enterText(find.byType(TextField), paddedReason);
+    await tester.pump();
+    expect(
+      tester.widget<ElevatedButton>(find.byType(ElevatedButton)).onPressed,
+      isNotNull,
+    );
+    await tester.tap(find.byType(ElevatedButton));
+    await tester.pumpAndSettle();
+    expect(reasons, ['x' * 500]);
+  });
+
   testWidgets('disables close while the callback is pending', (tester) async {
     final completer = Completer<void>();
     await tester.pumpWidget(

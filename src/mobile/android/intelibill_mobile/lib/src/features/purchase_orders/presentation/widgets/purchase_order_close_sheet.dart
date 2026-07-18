@@ -78,7 +78,6 @@ class _PurchaseOrderCloseSheetState extends State<PurchaseOrderCloseSheet> {
             enabled: !_isLoading,
             maxLines: 3,
             minLines: 3,
-            maxLength: 500,
             decoration: const InputDecoration(
               labelText: 'Reason',
               hintText: 'Why are you closing this order?',
