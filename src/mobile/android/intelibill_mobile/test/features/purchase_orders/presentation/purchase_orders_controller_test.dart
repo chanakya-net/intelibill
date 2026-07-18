@@ -288,6 +288,126 @@ void main() {
     expect(state.items.single.purchaseOrderId, 'newer');
     expect(state.failure, isNull);
   });
+
+  testWidgets('status filter passes through to getPurchaseOrders', (
+    tester,
+  ) async {
+    final container = makeContainer();
+    addTearDown(container.dispose);
+    _keepControllerAlive(container);
+    final notifier = container.read(purchaseOrdersControllerProvider.notifier);
+    await tester.pump();
+    clearInteractions(getPurchaseOrders);
+
+    notifier.updateStatus(PurchaseOrderStatus.placed);
+    await tester.pumpAndSettle();
+
+    verify(
+      () => getPurchaseOrders(
+        const PurchaseOrderFilters(status: PurchaseOrderStatus.placed),
+      ),
+    ).called(1);
+  });
+
+  testWidgets('orderDateFrom filter passes through to getPurchaseOrders', (
+    tester,
+  ) async {
+    final from = DateTime(2026, 1, 1);
+    final container = makeContainer();
+    addTearDown(container.dispose);
+    _keepControllerAlive(container);
+    final notifier = container.read(purchaseOrdersControllerProvider.notifier);
+    await tester.pump();
+    clearInteractions(getPurchaseOrders);
+
+    notifier.updateOrderDateFrom(from);
+    await tester.pumpAndSettle();
+
+    verify(
+      () => getPurchaseOrders(
+        PurchaseOrderFilters(orderDateFrom: from),
+      ),
+    ).called(1);
+  });
+
+  testWidgets('orderDateTo filter passes through to getPurchaseOrders', (
+    tester,
+  ) async {
+    final to = DateTime(2026, 12, 31);
+    final container = makeContainer();
+    addTearDown(container.dispose);
+    _keepControllerAlive(container);
+    final notifier = container.read(purchaseOrdersControllerProvider.notifier);
+    await tester.pump();
+    clearInteractions(getPurchaseOrders);
+
+    notifier.updateOrderDateTo(to);
+    await tester.pumpAndSettle();
+
+    verify(
+      () => getPurchaseOrders(
+        PurchaseOrderFilters(orderDateTo: to),
+      ),
+    ).called(1);
+  });
+
+  testWidgets('multiple filters combine', (tester) async {
+    final from = DateTime(2026, 1, 1);
+    final to = DateTime(2026, 12, 31);
+    final container = makeContainer();
+    addTearDown(container.dispose);
+    _keepControllerAlive(container);
+    final notifier = container.read(purchaseOrdersControllerProvider.notifier);
+    await tester.pump();
+    clearInteractions(getPurchaseOrders);
+
+    notifier.updateSearch('widget');
+    await tester.pump(const Duration(milliseconds: 300));
+    notifier.updateStatus(PurchaseOrderStatus.received);
+    await tester.pumpAndSettle();
+    notifier.updateOrderDateFrom(from);
+    await tester.pumpAndSettle();
+    notifier.updateOrderDateTo(to);
+    await tester.pumpAndSettle();
+
+    verify(
+      () => getPurchaseOrders(
+        PurchaseOrderFilters(
+          search: 'widget',
+          status: PurchaseOrderStatus.received,
+          orderDateFrom: from,
+          orderDateTo: to,
+        ),
+      ),
+    ).called(1);
+  });
+
+  testWidgets('clearFilters resets search, status, and dates', (tester) async {
+    final from = DateTime(2026, 1, 1);
+    final to = DateTime(2026, 12, 31);
+    final container = makeContainer();
+    addTearDown(container.dispose);
+    _keepControllerAlive(container);
+    final notifier = container.read(purchaseOrdersControllerProvider.notifier);
+    await tester.pump();
+    clearInteractions(getPurchaseOrders);
+
+    notifier.updateSearch('widget');
+    await tester.pump(const Duration(milliseconds: 300));
+    notifier.updateStatus(PurchaseOrderStatus.placed);
+    await tester.pumpAndSettle();
+    notifier.updateOrderDateFrom(from);
+    await tester.pumpAndSettle();
+    notifier.updateOrderDateTo(to);
+    await tester.pumpAndSettle();
+
+    notifier.clearFilters();
+    await tester.pumpAndSettle();
+
+    verify(
+      () => getPurchaseOrders(const PurchaseOrderFilters()),
+    ).called(1);
+  });
 }
 
 PurchaseOrderPage _page({String itemId = 'po-1'}) => PurchaseOrderPage(

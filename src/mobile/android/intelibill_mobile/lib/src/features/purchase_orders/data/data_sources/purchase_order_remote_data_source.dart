@@ -29,11 +29,21 @@ class PurchaseOrderRemoteDataSourceImpl
         if (filters.search?.trim().isNotEmpty == true)
           'search': filters.search!.trim(),
         if (filters.status != null) 'status': filters.status!.wireValue,
+        if (filters.orderDateFrom != null)
+          'order_date_from': _formatDate(filters.orderDateFrom!),
+        if (filters.orderDateTo != null)
+          'order_date_to': _formatDate(filters.orderDateTo!),
         'page': filters.page,
         'page_size': filters.pageSize,
       },
     );
     return PurchaseOrderPageDto.fromJson(response.data!);
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.year.toString().padLeft(4, '0')}-'
+        '${date.month.toString().padLeft(2, '0')}-'
+        '${date.day.toString().padLeft(2, '0')}';
   }
 
   @override

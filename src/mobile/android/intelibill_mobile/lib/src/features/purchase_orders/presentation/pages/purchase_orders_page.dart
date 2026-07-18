@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_status.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_orders_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_card.dart';
 
@@ -18,6 +19,9 @@ class PurchaseOrdersPage extends ConsumerStatefulWidget {
 
 class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
   late final TextEditingController _searchController;
+  PurchaseOrderStatus? _selectedStatus;
+  DateTime? _dateFrom;
+  DateTime? _dateTo;
 
   @override
   void initState() {
@@ -53,6 +57,10 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
 
     final hasActiveSearch = _searchController.text.trim().isNotEmpty;
     final hasResults = state.items.isNotEmpty;
+    final hasActiveFilter = _selectedStatus != null ||
+        _dateFrom != null ||
+        _dateTo != null ||
+        hasActiveSearch;
 
     final searchBar = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -69,10 +77,63 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
       ),
     );
 
+    final filterBar = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            Wrap(
+              spacing: 8,
+              children: [
+                for (final status in PurchaseOrderStatus.values)
+                  FilterChip(
+                    label: Text(status.wireValue),
+                    selected: _selectedStatus == status,
+                    onSelected: (selected) {
+                      setState(() {
+                        _selectedStatus =
+                            selected ? status : null;
+                      });
+                      ref
+                          .read(
+                            purchaseOrdersControllerProvider
+                                .notifier,
+                          )
+                          .updateStatus(_selectedStatus);
+                    },
+                  ),
+              ],
+            ),
+            const SizedBox(width: 8),
+            if (hasActiveFilter)
+              ActionChip(
+                label: const Text('Clear'),
+                onPressed: () {
+                  setState(() {
+                    _selectedStatus = null;
+                    _dateFrom = null;
+                    _dateTo = null;
+                    _searchController.clear();
+                  });
+                  ref
+                      .read(
+                        purchaseOrdersControllerProvider
+                            .notifier,
+                      )
+                      .clearFilters();
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+
     if (!hasResults && hasActiveSearch) {
       return Column(
         children: [
           searchBar,
+          if (hasActiveFilter) filterBar,
           Expanded(
             child: _FilteredEmptyView(query: _searchController.text),
           ),
@@ -83,6 +144,7 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
       return Column(
         children: [
           searchBar,
+          if (hasActiveFilter) filterBar,
           const Expanded(child: _EmptyView()),
         ],
       );
@@ -91,6 +153,7 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
     return Column(
       children: [
         searchBar,
+        if (hasActiveFilter) filterBar,
         Expanded(
           child: RefreshIndicator(
             onRefresh: () =>

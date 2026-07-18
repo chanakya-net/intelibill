@@ -22,6 +22,18 @@ class _StubPurchaseOrdersController extends PurchaseOrdersController {
 
   @override
   void updateSearch(String query) {}
+
+  @override
+  void updateStatus(PurchaseOrderStatus? status) {}
+
+  @override
+  void updateOrderDateFrom(DateTime? date) {}
+
+  @override
+  void updateOrderDateTo(DateTime? date) {}
+
+  @override
+  void clearFilters() {}
 }
 
 void main() {
