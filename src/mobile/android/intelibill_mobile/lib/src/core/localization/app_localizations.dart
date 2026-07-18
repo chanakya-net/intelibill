@@ -4885,6 +4885,156 @@ abstract class AppLocalizations {
   /// **'Expected total'**
   String get purchaseOrderDetailExpectedTotal;
 
+  /// No description provided for @purchaseOrderDetailCancellationReason.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Cancellation reason'**
+  String get purchaseOrderDetailCancellationReason;
+
+  /// No description provided for @purchaseOrderDetailClosedAt.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Closed at'**
+  String get purchaseOrderDetailClosedAt;
+
+  /// No description provided for @purchaseOrderDetailClosedBy.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Closed by'**
+  String get purchaseOrderDetailClosedBy;
+
+  /// No description provided for @purchaseOrderDetailCloseReason.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Close reason'**
+  String get purchaseOrderDetailCloseReason;
+
+  /// No description provided for @purchaseOrderReceiptHistory.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Receipt history'**
+  String get purchaseOrderReceiptHistory;
+
+  /// No description provided for @purchaseOrderNoReceipts.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No receipts recorded'**
+  String get purchaseOrderNoReceipts;
+
+  /// No description provided for @purchaseOrderReceiptReceivedAt.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Received at'**
+  String get purchaseOrderReceiptReceivedAt;
+
+  /// No description provided for @purchaseOrderReceiptReceivedBy.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Received by'**
+  String get purchaseOrderReceiptReceivedBy;
+
+  /// No description provided for @purchaseOrderReceiptReference.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Reference'**
+  String get purchaseOrderReceiptReference;
+
+  /// No description provided for @purchaseOrderReceiptNotes.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Notes'**
+  String get purchaseOrderReceiptNotes;
+
+  /// No description provided for @purchaseOrderReceiptBatch.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Batch'**
+  String get purchaseOrderReceiptBatch;
+
+  /// No description provided for @purchaseOrderReceiptBatchState.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Batch state'**
+  String get purchaseOrderReceiptBatchState;
+
+  /// No description provided for @purchaseOrderReceiptVoided.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Voided'**
+  String get purchaseOrderReceiptVoided;
+
+  /// No description provided for @purchaseOrderReceiptActive.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Active'**
+  String get purchaseOrderReceiptActive;
+
+  /// No description provided for @purchaseOrderReceiptStockTransaction.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Stock transaction'**
+  String get purchaseOrderReceiptStockTransaction;
+
+  /// No description provided for @purchaseOrderReceiptQuantity.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Quantity'**
+  String get purchaseOrderReceiptQuantity;
+
+  /// No description provided for @purchaseOrderReceiptTotalPurchaseCost.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Total purchase cost'**
+  String get purchaseOrderReceiptTotalPurchaseCost;
+
+  /// No description provided for @purchaseOrderReceiptUnitCost.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unit cost'**
+  String get purchaseOrderReceiptUnitCost;
+
+  /// No description provided for @purchaseOrderReceiptMrp.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'MRP'**
+  String get purchaseOrderReceiptMrp;
+
+  /// No description provided for @purchaseOrderReceiptSalesPrice.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Sales price'**
+  String get purchaseOrderReceiptSalesPrice;
+
+  /// No description provided for @purchaseOrderReceiptTaxRate.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Tax rate'**
+  String get purchaseOrderReceiptTaxRate;
+
+  /// No description provided for @purchaseOrderReceiptTaxIncluded.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Tax included'**
+  String get purchaseOrderReceiptTaxIncluded;
+
+  /// No description provided for @purchaseOrderReceiptPurchaseTaxIncluded.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Purchase tax included'**
+  String get purchaseOrderReceiptPurchaseTaxIncluded;
+
+  /// No description provided for @purchaseOrderReceiptYes.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Yes'**
+  String get purchaseOrderReceiptYes;
+
+  /// No description provided for @purchaseOrderReceiptNo.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No'**
+  String get purchaseOrderReceiptNo;
+
   /// No description provided for @purchaseOrderLineExpectedQuantity.
   ///
   /// In en_IN, this message translates to:

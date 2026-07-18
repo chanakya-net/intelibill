@@ -32,6 +32,76 @@ Map<String, dynamic> _$PurchaseOrderLineDtoToJson(
   'lineTotal': instance.lineTotal,
 };
 
+_PurchaseOrderReceiptLineDto _$PurchaseOrderReceiptLineDtoFromJson(
+  Map<String, dynamic> json,
+) => _PurchaseOrderReceiptLineDto(
+  receiptLineId: json['receiptLineId'] as String,
+  purchaseOrderLineId: json['purchaseOrderLineId'] as String,
+  itemId: json['itemId'] as String,
+  inventoryBatchId: json['inventoryBatchId'] as String,
+  batchNumber: json['batchNumber'] as String?,
+  batchVoided: json['batchVoided'] as bool?,
+  stockTransactionId: json['stockTransactionId'] as String,
+  quantity: (json['quantity'] as num).toDouble(),
+  totalPurchaseCost: (json['totalPurchaseCost'] as num).toDouble(),
+  unitCost: (json['unitCost'] as num).toDouble(),
+  mrp: (json['mrp'] as num).toDouble(),
+  salesPrice: (json['salesPrice'] as num).toDouble(),
+  taxRatePercent: (json['taxRatePercent'] as num).toDouble(),
+  taxIncluded: json['taxIncluded'] as bool,
+  purchaseTaxIncluded: json['purchaseTaxIncluded'] as bool,
+);
+
+Map<String, dynamic> _$PurchaseOrderReceiptLineDtoToJson(
+  _PurchaseOrderReceiptLineDto instance,
+) => <String, dynamic>{
+  'receiptLineId': instance.receiptLineId,
+  'purchaseOrderLineId': instance.purchaseOrderLineId,
+  'itemId': instance.itemId,
+  'inventoryBatchId': instance.inventoryBatchId,
+  'batchNumber': instance.batchNumber,
+  'batchVoided': instance.batchVoided,
+  'stockTransactionId': instance.stockTransactionId,
+  'quantity': instance.quantity,
+  'totalPurchaseCost': instance.totalPurchaseCost,
+  'unitCost': instance.unitCost,
+  'mrp': instance.mrp,
+  'salesPrice': instance.salesPrice,
+  'taxRatePercent': instance.taxRatePercent,
+  'taxIncluded': instance.taxIncluded,
+  'purchaseTaxIncluded': instance.purchaseTaxIncluded,
+};
+
+_PurchaseOrderReceiptDto _$PurchaseOrderReceiptDtoFromJson(
+  Map<String, dynamic> json,
+) => _PurchaseOrderReceiptDto(
+  receiptId: json['receiptId'] as String,
+  receiptNumber: json['receiptNumber'] as String,
+  receivedAt: DateTime.parse(json['receivedAt'] as String),
+  referenceNumber: json['referenceNumber'] as String?,
+  notes: json['notes'] as String?,
+  receivedByUserId: json['receivedByUserId'] as String,
+  receivedByDisplayName: json['receivedByDisplayName'] as String?,
+  lines: (json['lines'] as List<dynamic>)
+      .map(
+        (e) => PurchaseOrderReceiptLineDto.fromJson(e as Map<String, dynamic>),
+      )
+      .toList(),
+);
+
+Map<String, dynamic> _$PurchaseOrderReceiptDtoToJson(
+  _PurchaseOrderReceiptDto instance,
+) => <String, dynamic>{
+  'receiptId': instance.receiptId,
+  'receiptNumber': instance.receiptNumber,
+  'receivedAt': instance.receivedAt.toIso8601String(),
+  'referenceNumber': instance.referenceNumber,
+  'notes': instance.notes,
+  'receivedByUserId': instance.receivedByUserId,
+  'receivedByDisplayName': instance.receivedByDisplayName,
+  'lines': instance.lines,
+};
+
 _PurchaseOrderDetailDto _$PurchaseOrderDetailDtoFromJson(
   Map<String, dynamic> json,
 ) => _PurchaseOrderDetailDto(
@@ -51,6 +121,13 @@ _PurchaseOrderDetailDto _$PurchaseOrderDetailDtoFromJson(
   supplierName: json['supplierName'] as String?,
   supplierReference: json['supplierReference'] as String?,
   receivedQuantity: (json['receivedQuantity'] as num).toInt(),
+  cancellationReason: json['cancellationReason'] as String?,
+  closedAt: json['closedAt'] as String?,
+  closedBy: json['closedBy'] as String?,
+  closeReason: json['closeReason'] as String?,
+  receipts: (json['receipts'] as List<dynamic>?)
+      ?.map((e) => PurchaseOrderReceiptDto.fromJson(e as Map<String, dynamic>))
+      .toList(),
 );
 
 Map<String, dynamic> _$PurchaseOrderDetailDtoToJson(
@@ -70,4 +147,9 @@ Map<String, dynamic> _$PurchaseOrderDetailDtoToJson(
   'supplierName': instance.supplierName,
   'supplierReference': instance.supplierReference,
   'receivedQuantity': instance.receivedQuantity,
+  'cancellationReason': instance.cancellationReason,
+  'closedAt': instance.closedAt,
+  'closedBy': instance.closedBy,
+  'closeReason': instance.closeReason,
+  'receipts': instance.receipts,
 };

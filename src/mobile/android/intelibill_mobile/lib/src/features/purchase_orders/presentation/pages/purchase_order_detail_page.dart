@@ -8,7 +8,9 @@ import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/p
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_detail_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_detail_header.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_detail_summary.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_lifecycle_metadata.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_line_card.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_receipt_history.dart';
 
 class PurchaseOrderDetailPage extends ConsumerWidget {
   const PurchaseOrderDetailPage({required this.purchaseOrderId, super.key});
@@ -68,7 +70,9 @@ class PurchaseOrderDetailPage extends ConsumerWidget {
           children: [
             PurchaseOrderDetailHeader(purchaseOrder: purchaseOrder),
             PurchaseOrderDetailSummary(purchaseOrder: purchaseOrder),
+            PurchaseOrderLifecycleMetadata(purchaseOrder: purchaseOrder),
             _LinesSection(lines: purchaseOrder.lines),
+            PurchaseOrderReceiptHistory(receipts: purchaseOrder.receipts),
           ],
         ),
       ),

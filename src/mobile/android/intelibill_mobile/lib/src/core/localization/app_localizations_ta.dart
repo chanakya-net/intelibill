@@ -2552,6 +2552,81 @@ class AppLocalizationsTa extends AppLocalizations {
   String get purchaseOrderDetailExpectedTotal => 'Expected total';
 
   @override
+  String get purchaseOrderDetailCancellationReason => 'Cancellation reason';
+
+  @override
+  String get purchaseOrderDetailClosedAt => 'Closed at';
+
+  @override
+  String get purchaseOrderDetailClosedBy => 'Closed by';
+
+  @override
+  String get purchaseOrderDetailCloseReason => 'Close reason';
+
+  @override
+  String get purchaseOrderReceiptHistory => 'Receipt history';
+
+  @override
+  String get purchaseOrderNoReceipts => 'No receipts recorded';
+
+  @override
+  String get purchaseOrderReceiptReceivedAt => 'Received at';
+
+  @override
+  String get purchaseOrderReceiptReceivedBy => 'Received by';
+
+  @override
+  String get purchaseOrderReceiptReference => 'Reference';
+
+  @override
+  String get purchaseOrderReceiptNotes => 'Notes';
+
+  @override
+  String get purchaseOrderReceiptBatch => 'Batch';
+
+  @override
+  String get purchaseOrderReceiptBatchState => 'Batch state';
+
+  @override
+  String get purchaseOrderReceiptVoided => 'Voided';
+
+  @override
+  String get purchaseOrderReceiptActive => 'Active';
+
+  @override
+  String get purchaseOrderReceiptStockTransaction => 'Stock transaction';
+
+  @override
+  String get purchaseOrderReceiptQuantity => 'Quantity';
+
+  @override
+  String get purchaseOrderReceiptTotalPurchaseCost => 'Total purchase cost';
+
+  @override
+  String get purchaseOrderReceiptUnitCost => 'Unit cost';
+
+  @override
+  String get purchaseOrderReceiptMrp => 'MRP';
+
+  @override
+  String get purchaseOrderReceiptSalesPrice => 'Sales price';
+
+  @override
+  String get purchaseOrderReceiptTaxRate => 'Tax rate';
+
+  @override
+  String get purchaseOrderReceiptTaxIncluded => 'Tax included';
+
+  @override
+  String get purchaseOrderReceiptPurchaseTaxIncluded => 'Purchase tax included';
+
+  @override
+  String get purchaseOrderReceiptYes => 'Yes';
+
+  @override
+  String get purchaseOrderReceiptNo => 'No';
+
+  @override
   String get purchaseOrderLineExpectedQuantity => 'Expected';
 
   @override

@@ -5,6 +5,8 @@ import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/p
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_line.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_list_item.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_page.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_receipt.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_receipt_line.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_status.dart';
 
 class PurchaseOrderMapper {
@@ -47,6 +49,41 @@ class PurchaseOrderMapper {
     );
   }
 
+  static PurchaseOrderReceiptLine toReceiptLineDomain(
+    PurchaseOrderReceiptLineDto dto,
+  ) {
+    return PurchaseOrderReceiptLine(
+      receiptLineId: dto.receiptLineId,
+      purchaseOrderLineId: dto.purchaseOrderLineId,
+      itemId: dto.itemId,
+      inventoryBatchId: dto.inventoryBatchId,
+      batchNumber: dto.batchNumber,
+      batchVoided: dto.batchVoided,
+      stockTransactionId: dto.stockTransactionId,
+      quantity: dto.quantity,
+      totalPurchaseCost: dto.totalPurchaseCost,
+      unitCost: dto.unitCost,
+      mrp: dto.mrp,
+      salesPrice: dto.salesPrice,
+      taxRatePercent: dto.taxRatePercent,
+      taxIncluded: dto.taxIncluded,
+      purchaseTaxIncluded: dto.purchaseTaxIncluded,
+    );
+  }
+
+  static PurchaseOrderReceipt toReceiptDomain(PurchaseOrderReceiptDto dto) {
+    return PurchaseOrderReceipt(
+      receiptId: dto.receiptId,
+      receiptNumber: dto.receiptNumber,
+      receivedAt: dto.receivedAt.toLocal(),
+      referenceNumber: dto.referenceNumber,
+      notes: dto.notes,
+      receivedByUserId: dto.receivedByUserId,
+      receivedByDisplayName: dto.receivedByDisplayName,
+      lines: dto.lines.map(toReceiptLineDomain).toList(),
+    );
+  }
+
   static PurchaseOrder detailToDomain(PurchaseOrderDetailDto dto) {
     return PurchaseOrder(
       purchaseOrderId: dto.purchaseOrderId,
@@ -63,8 +100,18 @@ class PurchaseOrderMapper {
       supplierName: dto.supplierName,
       supplierReference: dto.supplierReference,
       receivedQuantity: dto.receivedQuantity,
+      cancellationReason: dto.cancellationReason,
+      closedAt: _parseDateTime(dto.closedAt),
+      closedBy: dto.closedBy,
+      closeReason: dto.closeReason,
+      receipts: (dto.receipts ?? const [])
+          .map(toReceiptDomain)
+          .toList(growable: false),
     );
   }
+
+  static DateTime? _parseDateTime(String? value) =>
+      value == null ? null : DateTime.parse(value).toLocal();
 
   static final RegExp _dateOnlyPattern = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$');
 
