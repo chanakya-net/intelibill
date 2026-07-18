@@ -6,8 +6,10 @@ import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/p
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_receipt_history.dart';
 
 void main() {
-  testWidgets('renders every receipt line value when expanded', (tester) async {
-    final receipt = PurchaseOrderReceipt(
+  testWidgets('renders every receipt and line value when expanded', (
+    tester,
+  ) async {
+    final firstReceipt = PurchaseOrderReceipt(
       receiptId: 'receipt-1',
       receiptNumber: 'GRN-001',
       receivedAt: DateTime(2026, 7, 14, 11),
@@ -35,13 +37,41 @@ void main() {
         ),
       ],
     );
+    final secondReceipt = PurchaseOrderReceipt(
+      receiptId: 'receipt-2',
+      receiptNumber: 'GRN-002',
+      receivedAt: DateTime(2026, 7, 15, 12),
+      receivedByUserId: 'user-second-receiver',
+      receivedByDisplayName: 'Arjun Receiver',
+      lines: const [
+        PurchaseOrderReceiptLine(
+          receiptLineId: 'receipt-line-2',
+          purchaseOrderLineId: 'line-2',
+          itemId: 'item-2',
+          inventoryBatchId: 'batch-2',
+          batchNumber: 'BATCH-002',
+          batchVoided: false,
+          stockTransactionId: 'transaction-2',
+          quantity: 4,
+          totalPurchaseCost: 400,
+          unitCost: 100,
+          mrp: 175,
+          salesPrice: 150,
+          taxRatePercent: 12,
+          taxIncluded: true,
+          purchaseTaxIncluded: false,
+        ),
+      ],
+    );
 
     await tester.pumpWidget(
       MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: const [Locale('en', 'IN')],
         home: SingleChildScrollView(
-          child: PurchaseOrderReceiptHistory(receipts: [receipt]),
+          child: PurchaseOrderReceiptHistory(
+            receipts: [firstReceipt, secondReceipt],
+          ),
         ),
       ),
     );
@@ -59,5 +89,20 @@ void main() {
     expect(find.text('Tax rate: 5%'), findsOneWidget);
     expect(find.text('Tax included: No'), findsOneWidget);
     expect(find.text('Purchase tax included: Yes'), findsOneWidget);
+
+    await tester.tap(find.text('GRN-001'));
+    await tester.pumpAndSettle();
+    final secondTile = find.byType(ExpansionTile).at(1);
+    await tester.ensureVisible(secondTile);
+    await tester.pumpAndSettle();
+    expect(find.text('GRN-002'), findsOneWidget);
+    await tester.tap(secondTile);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Received by: Arjun Receiver'), findsOneWidget);
+    expect(find.text('Batch: BATCH-002'), findsOneWidget);
+    expect(find.text('Batch state: Active'), findsOneWidget);
+    expect(find.text('Stock transaction: transaction-2'), findsOneWidget);
+    expect(find.text('Quantity: 4.0'), findsOneWidget);
   });
 }
