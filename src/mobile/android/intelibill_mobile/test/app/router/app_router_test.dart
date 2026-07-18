@@ -19,6 +19,7 @@ import 'package:intelibill_mobile/src/features/discounts/presentation/controller
 import 'package:intelibill_mobile/src/features/expenses/domain/entities/expense_list_item.dart';
 import 'package:intelibill_mobile/src/features/expenses/domain/entities/expenses_page.dart';
 import 'package:intelibill_mobile/src/features/expenses/presentation/controllers/expenses_controller.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/pages/purchase_orders_page.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sales_history_query.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/use_cases/get_sale_detail.dart';
@@ -64,6 +65,7 @@ void main() {
       expect(AppRoutes.users, equals('/users'));
       expect(AppRoutes.discounts, equals('/discounts'));
       expect(AppRoutes.bankAccounts, equals('/bank-accounts'));
+      expect(AppRoutes.purchaseOrders, equals('/inventory/purchase-orders'));
       expect(AppRoutes.language, equals('/language'));
       expect(AppRoutes.placeholders, equals('/placeholder'));
     });
@@ -551,6 +553,111 @@ void main() {
         AppRoutes.salesHistory,
       );
     });
+
+    for (final role in ['Owner', 'Manager']) {
+      testWidgets('$role can navigate to purchase orders route', (
+        tester,
+      ) async {
+        final container = ProviderContainer(
+          overrides: [
+            authControllerProvider.overrideWith(
+              () => _TestAuthController(
+                AuthControllerState(session: _sessionForRole(role)),
+              ),
+            ),
+            dashboardControllerProvider.overrideWith(
+              _StubDashboardController.new,
+            ),
+            salesHistoryControllerProvider.overrideWith(
+              _StubSalesHistoryController.new,
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+        final router = container.read(goRouterProvider);
+
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp.router(
+              locale: const Locale('en', 'IN'),
+              supportedLocales: const [Locale('en', 'IN')],
+              localizationsDelegates: const [
+                AppLocalizations.delegate,
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              routerConfig: router,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        router.go(AppRoutes.purchaseOrders);
+        await tester.pumpAndSettle();
+
+        expect(
+          router.routeInformationProvider.value.uri.toString(),
+          AppRoutes.purchaseOrders,
+        );
+        expect(find.byKey(PurchaseOrdersPage.pageKey), findsOneWidget);
+      });
+    }
+
+    for (final role in ['Staff', 'Owner']) {
+      testWidgets(
+        '$role without purchase-order access is redirected from nested route',
+        (tester) async {
+          final session = role == 'Owner'
+              ? _sessionForRole('Owner', shops: [])
+              : _sessionForRole('Staff');
+          final container = ProviderContainer(
+            overrides: [
+              authControllerProvider.overrideWith(
+                () => _TestAuthController(
+                  AuthControllerState(session: session),
+                ),
+              ),
+              dashboardControllerProvider.overrideWith(
+                _StubDashboardController.new,
+              ),
+              salesHistoryControllerProvider.overrideWith(
+                _StubSalesHistoryController.new,
+              ),
+            ],
+          );
+          addTearDown(container.dispose);
+          final router = container.read(goRouterProvider);
+
+          await tester.pumpWidget(
+            UncontrolledProviderScope(
+              container: container,
+              child: MaterialApp.router(
+                locale: const Locale('en', 'IN'),
+                supportedLocales: const [Locale('en', 'IN')],
+                localizationsDelegates: const [
+                  AppLocalizations.delegate,
+                  GlobalMaterialLocalizations.delegate,
+                  GlobalWidgetsLocalizations.delegate,
+                  GlobalCupertinoLocalizations.delegate,
+                ],
+                routerConfig: router,
+              ),
+            ),
+          );
+          await tester.pump();
+
+          router.go('${AppRoutes.purchaseOrders}/details/po-1');
+          await tester.pump();
+
+          expect(
+            router.routeInformationProvider.value.uri.toString(),
+            AppRoutes.salesHistory,
+          );
+        },
+      );
+    }
 
     testWidgets('owner can navigate through sales-flow and management routes', (
       tester,

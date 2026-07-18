@@ -309,6 +309,9 @@ class AppLocalizationsTa extends AppLocalizations {
   String get shellManageServices => 'Services';
 
   @override
+  String get shellManagePurchaseOrders => 'Purchase Orders';
+
+  @override
   String get shellAddShop => 'கடை சேர்க்க';
 
   @override

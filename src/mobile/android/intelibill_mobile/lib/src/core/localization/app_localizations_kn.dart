@@ -310,6 +310,9 @@ class AppLocalizationsKn extends AppLocalizations {
   String get shellManageServices => 'Services';
 
   @override
+  String get shellManagePurchaseOrders => 'Purchase Orders';
+
+  @override
   String get shellAddShop => 'ಅಂಗಡಿ ಸೇರಿಸಿ';
 
   @override

@@ -85,6 +85,7 @@ void main() {
       final keys = moreMenuItems(session).map((item) => item.labelKey).toList();
 
       expect(keys, contains(MobileMenuLabelKey.services));
+      expect(keys, contains(MobileMenuLabelKey.purchaseOrders));
       expect(keys, contains(MobileMenuLabelKey.suppliers));
       expect(keys, contains(MobileMenuLabelKey.expenses));
       expect(keys, contains(MobileMenuLabelKey.users));
@@ -109,12 +110,27 @@ void main() {
       expect(keys, contains(MobileMenuLabelKey.language));
       expect(keys, contains(MobileMenuLabelKey.logout));
       expect(keys, isNot(contains(MobileMenuLabelKey.services)));
+      expect(keys, isNot(contains(MobileMenuLabelKey.purchaseOrders)));
       expect(keys, isNot(contains(MobileMenuLabelKey.suppliers)));
       expect(keys, isNot(contains(MobileMenuLabelKey.expenses)));
       expect(keys, isNot(contains(MobileMenuLabelKey.bankAccounts)));
       expect(keys, isNot(contains(MobileMenuLabelKey.discounts)));
       expect(keys, isNot(contains(MobileMenuLabelKey.addShop)));
       expect(keys, isNot(contains(MobileMenuLabelKey.manageShop)));
+    });
+
+    test('manager sees purchase orders in management menu', () {
+      final session = _sessionForRole('Manager');
+
+      final item = moreMenuItems(session).firstWhere(
+        (item) => item.labelKey == MobileMenuLabelKey.purchaseOrders,
+      );
+
+      expect(item.section, MobileMenuSection.management);
+      expect(item.destination, isA<MobileMenuRoute>());
+      final destination = item.destination as MobileMenuRoute;
+      expect(destination.route, AppRoutes.purchaseOrders);
+      expect(destination.matchPrefix, AppRoutes.purchaseOrders);
     });
 
     test('primary items expose selected icon variants', () {

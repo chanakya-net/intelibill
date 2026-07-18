@@ -36,6 +36,7 @@ enum MobileMenuLabelKey {
   expenses('shellManageExpenses'),
   users('shellManageUsers'),
   bankAccounts('shellManageBankAccounts'),
+  purchaseOrders('shellManagePurchaseOrders'),
   discounts('shellManageDiscounts'),
   profile('shellProfile'),
   changePassword('shellChangePassword'),
@@ -81,6 +82,8 @@ extension MobileMenuLabelKeyX on MobileMenuLabelKey {
         return l10n.shellManageUsers;
       case MobileMenuLabelKey.bankAccounts:
         return l10n.shellManageBankAccounts;
+      case MobileMenuLabelKey.purchaseOrders:
+        return l10n.shellManagePurchaseOrders;
       case MobileMenuLabelKey.discounts:
         return l10n.shellManageDiscounts;
       case MobileMenuLabelKey.profile:
@@ -267,6 +270,16 @@ final List<MobileMenuItem> _moreMenuItems = [
     destination: MobileMenuRoute(AppRoutes.bankAccounts),
     section: MobileMenuSection.management,
     isVisible: canManageBankAccounts,
+  ),
+  const MobileMenuItem(
+    labelKey: MobileMenuLabelKey.purchaseOrders,
+    icon: Icons.shopping_cart_outlined,
+    destination: MobileMenuRoute(
+      AppRoutes.purchaseOrders,
+      matchPrefix: AppRoutes.purchaseOrders,
+    ),
+    section: MobileMenuSection.management,
+    isVisible: canManagePurchaseOrders,
   ),
   const MobileMenuItem(
     labelKey: MobileMenuLabelKey.discounts,

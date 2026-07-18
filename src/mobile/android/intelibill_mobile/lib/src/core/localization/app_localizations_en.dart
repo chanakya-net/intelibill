@@ -308,6 +308,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get shellManageServices => 'Services';
 
   @override
+  String get shellManagePurchaseOrders => 'Purchase Orders';
+
+  @override
   String get shellAddShop => 'Add Shop';
 
   @override
@@ -2784,6 +2787,9 @@ class AppLocalizationsEnIn extends AppLocalizationsEn {
 
   @override
   String get shellManageServices => 'Services';
+
+  @override
+  String get shellManagePurchaseOrders => 'Purchase Orders';
 
   @override
   String get shellAddShop => 'Add Shop';
