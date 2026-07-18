@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_status.dart';
 
 class PurchaseOrderCancelSheet extends StatefulWidget {
@@ -17,6 +18,7 @@ class PurchaseOrderCancelSheet extends StatefulWidget {
 class _PurchaseOrderCancelSheetState extends State<PurchaseOrderCancelSheet> {
   late final TextEditingController _reasonController;
   bool _isLoading = false;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -39,10 +41,23 @@ class _PurchaseOrderCancelSheetState extends State<PurchaseOrderCancelSheet> {
     final trimmed = _reasonController.text.trim();
     if (!_isReasonValid) return;
 
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
     try {
       await widget.onCancel(trimmed);
       if (mounted) Navigator.of(context).pop();
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          if (e is AppException) {
+            _errorMessage = e.failure.message ?? 'An error occurred';
+          } else {
+            _errorMessage = e.toString();
+          }
+        });
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -78,8 +93,17 @@ class _PurchaseOrderCancelSheetState extends State<PurchaseOrderCancelSheet> {
               border: OutlineInputBorder(),
               counterText: '',
             ),
-            onChanged: (_) => setState(() {}),
+            onChanged: (_) => setState(() {
+              _errorMessage = null;
+            }),
           ),
+          if (_errorMessage != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              _errorMessage!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          ],
           const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,

@@ -5,6 +5,7 @@ import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_providers.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_orders_controller.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'purchase_order_detail_controller.g.dart';
@@ -89,14 +90,14 @@ class PurchaseOrderDetailController extends _$PurchaseOrderDetailController {
       state = state.copyWith(
         isLoading: false,
         failure: error.failure,
-        clearDetail: true,
+        clearDetail: error.failure is NotFoundFailure || state.detail == null,
       );
     } on Object {
       if (!ref.mounted) return;
       state = state.copyWith(
         isLoading: false,
         failure: const Failure.unknown(),
-        clearDetail: true,
+        clearDetail: state.detail == null,
       );
     }
   }
@@ -128,6 +129,7 @@ class PurchaseOrderDetailController extends _$PurchaseOrderDetailController {
         detail: updated,
         cancelState: state.cancelState.copyWith(isLoading: false),
       );
+      ref.invalidate(purchaseOrdersControllerProvider);
     } on AppException catch (error) {
       if (!ref.mounted) return;
       state = state.copyWith(
@@ -137,6 +139,7 @@ class PurchaseOrderDetailController extends _$PurchaseOrderDetailController {
         ),
       );
       await _load();
+      rethrow;
     } on Object {
       if (!ref.mounted) return;
       state = state.copyWith(
@@ -146,6 +149,7 @@ class PurchaseOrderDetailController extends _$PurchaseOrderDetailController {
         ),
       );
       await _load();
+      rethrow;
     }
   }
 }

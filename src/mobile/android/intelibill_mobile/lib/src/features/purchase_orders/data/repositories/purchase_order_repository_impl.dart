@@ -100,8 +100,16 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
 
   @override
   Future<PurchaseOrder> cancel(String purchaseOrderId, String reason) async {
+    final trimmed = reason.trim();
+    if (trimmed.isEmpty || trimmed.length > 500) {
+      throw AppException(
+        failure: const Failure.validation(
+          message: 'Reason must be between 1 and 500 characters.',
+        ),
+      );
+    }
     try {
-      final request = CancelPurchaseOrderRequestDto(reason: reason.trim());
+      final request = CancelPurchaseOrderRequestDto(reason: trimmed);
       final dto = await _remoteDataSource.cancel(purchaseOrderId, request);
       return PurchaseOrderMapper.detailToDomain(dto);
     } on AppException {

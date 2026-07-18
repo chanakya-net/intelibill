@@ -72,6 +72,23 @@ void main() {
         throwsA(isA<AppException>()),
       );
     });
+
+    test('rejects blank reason and does not call remote data source', () async {
+      expect(
+        () => repository.cancel('po-1', '   '),
+        throwsA(isA<AppException>()),
+      );
+      verifyNever(() => mockDataSource.cancel(any(), any()));
+    });
+
+    test('rejects 501-character reason and does not call remote data source', () async {
+      final overlengthReason = 'a' * 501;
+      expect(
+        () => repository.cancel('po-1', overlengthReason),
+        throwsA(isA<AppException>()),
+      );
+      verifyNever(() => mockDataSource.cancel(any(), any()));
+    });
   });
 }
 

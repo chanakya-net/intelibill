@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/data_sources/purchase_order_remote_data_source.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/cancel_purchase_order_request_dto.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/purchase_order_detail_dto.dart';
@@ -39,27 +40,35 @@ void main() {
       ).called(1);
     });
 
-    test('prevents blank reason from reaching API', () async {
+    test('rejects blank reason and does not call API', () async {
       final apiClient = MockApiClient();
       final source = PurchaseOrderRemoteDataSourceImpl(apiClient);
 
-      when(
-        () => apiClient.post<Map<String, dynamic>>(any(), data: any(named: 'data')),
-      ).thenAnswer((_) async => Response(
-        data: _cancelledJson(),
-        statusCode: 200,
-        requestOptions: RequestOptions(path: '/purchase-orders/po-1/cancel'),
-      ));
-
-      // Blank reason should be converted to null and not sent
-      // (repo handles validation; data source just serializes)
-      await source.cancel(
-        'po-1',
-        CancelPurchaseOrderRequestDto(reason: 'Valid reason'),
+      expect(
+        () => source.cancel(
+          'po-1',
+          const CancelPurchaseOrderRequestDto(reason: '   '),
+        ),
+        throwsA(isA<AppException>()),
       );
 
-      verify(() => apiClient.post<Map<String, dynamic>>(any(), data: any(named: 'data')))
-          .called(1);
+      verifyNever(() => apiClient.post<Map<String, dynamic>>(any(), data: any(named: 'data')));
+    });
+
+    test('rejects 501-character reason and does not call API', () async {
+      final apiClient = MockApiClient();
+      final source = PurchaseOrderRemoteDataSourceImpl(apiClient);
+
+      final overlengthReason = 'a' * 501;
+      expect(
+        () => source.cancel(
+          'po-1',
+          CancelPurchaseOrderRequestDto(reason: overlengthReason),
+        ),
+        throwsA(isA<AppException>()),
+      );
+
+      verifyNever(() => apiClient.post<Map<String, dynamic>>(any(), data: any(named: 'data')));
     });
 
     test('maps response to PurchaseOrderDetailDto', () async {

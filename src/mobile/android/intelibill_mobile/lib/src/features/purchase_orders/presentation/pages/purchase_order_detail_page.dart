@@ -5,7 +5,9 @@ import 'package:intelibill_mobile/src/app/router/app_router.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_line.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_status.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_detail_controller.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_cancel_sheet.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_detail_header.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_detail_summary.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_lifecycle_metadata.dart';
@@ -58,7 +60,29 @@ class PurchaseOrderDetailPage extends ConsumerWidget {
 
     return Scaffold(
       key: pageKey,
-      appBar: AppBar(title: Text(purchaseOrder.purchaseOrderNumber)),
+      appBar: AppBar(
+        title: Text(purchaseOrder.purchaseOrderNumber),
+        actions: [
+          if (purchaseOrder.status == PurchaseOrderStatus.placed)
+            IconButton(
+              key: const Key('purchase-order-detail-cancel-button'),
+              icon: const Icon(Icons.cancel),
+              onPressed: () {
+                showPurchaseOrderCancelSheet(
+                  context,
+                  onCancel: (reason) {
+                    return ref
+                        .read(
+                          purchaseOrderDetailControllerProvider(purchaseOrderId)
+                              .notifier,
+                        )
+                        .cancel(reason);
+                  },
+                );
+              },
+            ),
+        ],
+      ),
       body: RefreshIndicator(
         onRefresh: () => ref
             .read(
