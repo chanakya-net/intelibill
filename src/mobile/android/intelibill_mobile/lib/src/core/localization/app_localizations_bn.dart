@@ -2637,6 +2637,48 @@ class AppLocalizationsBn extends AppLocalizations {
 
   @override
   String get purchaseOrderLineTotal => 'Line total';
+
+  @override
+  String get purchaseOrderBuilderTitle => 'New purchase order';
+
+  @override
+  String get purchaseOrderBuilderSupplier => 'Supplier';
+
+  @override
+  String get purchaseOrderBuilderNoSupplier => 'No supplier';
+
+  @override
+  String get purchaseOrderBuilderOrderDate => 'Order date';
+
+  @override
+  String get purchaseOrderBuilderExpectedDeliveryDate =>
+      'Expected delivery date';
+
+  @override
+  String get purchaseOrderBuilderReference => 'Supplier reference number';
+
+  @override
+  String get purchaseOrderBuilderNotes => 'Notes';
+
+  @override
+  String get purchaseOrderBuilderSave => 'Save draft';
+
+  @override
+  String get purchaseOrderBuilderSelectDate => 'Select date';
+
+  @override
+  String get purchaseOrderBuilderNoSuppliers =>
+      'No active suppliers available.';
+
+  @override
+  String get purchaseOrderBuilderLoadError => 'Could not load suppliers.';
+
+  @override
+  String get purchaseOrderBuilderSaveError =>
+      'Could not save purchase order draft.';
+
+  @override
+  String get purchaseOrderBuilderRetry => 'Retry';
 }
 
 /// The translations for Bengali Bangla, as used in India (`bn_IN`).
