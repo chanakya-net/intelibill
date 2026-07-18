@@ -86,6 +86,14 @@ void main() {
         AppRoutes.purchaseOrderDetailFor('po-1'),
         equals('/inventory/purchase-orders/po-1'),
       );
+      expect(
+        AppRoutes.purchaseOrderPrint,
+        equals('/inventory/purchase-orders/:purchaseOrderId/print'),
+      );
+      expect(
+        AppRoutes.purchaseOrderPrintFor('po-1'),
+        equals('/inventory/purchase-orders/po-1/print'),
+      );
     });
 
     test('router includes authenticated shell', () {

@@ -25,6 +25,7 @@ import 'package:intelibill_mobile/src/features/inventory/presentation/pages/inve
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/items_page.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/pages/purchase_order_builder_page.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/pages/purchase_order_detail_page.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/pages/purchase_order_preview_page.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/pages/purchase_orders_page.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/pages/receive_purchase_order_page.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
@@ -71,6 +72,8 @@ class AppRoutes {
       '/inventory/purchase-orders/:purchaseOrderId';
   static const String purchaseOrderReceive =
       '/inventory/purchase-orders/:purchaseOrderId/receive';
+  static const String purchaseOrderPrint =
+      '/inventory/purchase-orders/:purchaseOrderId/print';
   static const String language = '/language';
   static const String placeholders = '/placeholder';
 
@@ -88,6 +91,10 @@ class AppRoutes {
 
   static String purchaseOrderReceiveFor(String purchaseOrderId) {
     return '/inventory/purchase-orders/$purchaseOrderId/receive';
+  }
+
+  static String purchaseOrderPrintFor(String purchaseOrderId) {
+    return '/inventory/purchase-orders/$purchaseOrderId/print';
   }
 }
 
@@ -299,6 +306,12 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                   state.pathParameters['purchaseOrderId'] ?? '';
               return ReceivePurchaseOrderPage(purchaseOrderId: purchaseOrderId);
             },
+          ),
+          GoRoute(
+            path: AppRoutes.purchaseOrderPrint,
+            builder: (context, state) => PurchaseOrderPreviewPage(
+              purchaseOrderId: state.pathParameters['purchaseOrderId'] ?? '',
+            ),
           ),
           GoRoute(
             path: AppRoutes.language,
