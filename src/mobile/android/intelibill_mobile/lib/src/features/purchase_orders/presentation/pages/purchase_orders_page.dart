@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
@@ -33,6 +35,63 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  bool _onScroll(ScrollNotification notification) {
+    if (notification is ScrollEndNotification &&
+        notification.metrics.extentAfter < 500) {
+      unawaited(
+        ref.read(purchaseOrdersControllerProvider.notifier).loadMore(),
+      );
+    }
+    return false;
+  }
+
+  Widget _buildLoadMoreFooter(
+    BuildContext context,
+    PurchaseOrdersState state,
+  ) {
+    if (state.isLoadingMore) {
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (state.loadMoreFailure != null) {
+      return Padding(
+        padding: const EdgeInsets.all(16),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline, size: 32),
+              const SizedBox(height: 8),
+              const Text('Failed to load more'),
+              const SizedBox(height: 12),
+              FilledButton(
+                onPressed: () => ref
+                    .read(purchaseOrdersControllerProvider.notifier)
+                    .retryLoadMore(),
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    if (!state.hasMore && state.items.isNotEmpty) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+        child: Text(
+          'Loaded ${state.items.length} of ${state.totalCount}',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      );
+    }
+    return const SizedBox.shrink();
   }
 
   @override
@@ -207,26 +266,32 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
           child: RefreshIndicator(
             onRefresh: () =>
                 ref.read(purchaseOrdersControllerProvider.notifier).refresh(),
-            child: ListView.builder(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.only(top: 8, bottom: 24),
-              itemCount: state.items.length + 1,
-              itemBuilder: (context, index) {
-                if (index == 0) {
-                  return Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                    child: Text(
-                      '${state.totalCount} purchase order${state.totalCount == 1 ? '' : 's'}',
-                      key: PurchaseOrdersPage.countKey,
-                      style: Theme.of(context).textTheme.titleSmall,
-                    ),
+            child: NotificationListener<ScrollNotification>(
+              onNotification: _onScroll,
+              child: ListView.builder(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.only(top: 8, bottom: 24),
+                itemCount: state.items.length + 1 + (state.isLoadingMore ? 1 : 0),
+                itemBuilder: (context, index) {
+                  if (index == 0) {
+                    return Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                      child: Text(
+                        '${state.totalCount} purchase order${state.totalCount == 1 ? '' : 's'}',
+                        key: PurchaseOrdersPage.countKey,
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                    );
+                  }
+                  if (index > state.items.length) {
+                    return _buildLoadMoreFooter(context, state);
+                  }
+                  final purchaseOrder = state.items[index - 1];
+                  return PurchaseOrderCard(
+                    purchaseOrder: purchaseOrder,
                   );
-                }
-                final purchaseOrder = state.items[index - 1];
-                return PurchaseOrderCard(
-                  purchaseOrder: purchaseOrder,
-                );
-              },
+                },
+              ),
             ),
           ),
         ),

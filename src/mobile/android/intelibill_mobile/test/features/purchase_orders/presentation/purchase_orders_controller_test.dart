@@ -450,6 +450,235 @@ void main() {
 
     verifyNever(() => getPurchaseOrders(any()));
   });
+
+  testWidgets('exposes isLoadingMore and hasMore states', (tester) async {
+    final container = makeContainer();
+    addTearDown(container.dispose);
+
+    await container.read(purchaseOrdersControllerProvider.notifier).refresh();
+    await tester.pumpAndSettle();
+    final state = container.read(purchaseOrdersControllerProvider);
+    await tester.pumpAndSettle();
+
+    expect(state.isLoadingMore, isFalse);
+    expect(state.hasMore, isA<bool>());
+  });
+
+  testWidgets('loadMore increments page and appends items', (tester) async {
+    final page1 = Completer<PurchaseOrderPage>();
+    var calls = 0;
+    when(() => getPurchaseOrders(any())).thenAnswer((_) {
+      return switch (calls++) {
+        0 => Future.value(_page(itemId: 'po-1')),
+        _ => page1.future,
+      };
+    });
+    final container = ProviderContainer(
+      overrides: [
+        getPurchaseOrdersProvider.overrideWithValue(getPurchaseOrders),
+      ],
+    );
+    addTearDown(container.dispose);
+    _keepControllerAlive(container);
+    final notifier = container.read(purchaseOrdersControllerProvider.notifier);
+    await tester.pump();
+    await tester.pumpAndSettle();
+    clearInteractions(getPurchaseOrders);
+
+    expect(container.read(purchaseOrdersControllerProvider).items, hasLength(1));
+
+    page1.complete(
+      PurchaseOrderPage(
+        items: [_item(id: 'po-2'), _item(id: 'po-3')],
+        totalCount: 50,
+        pageNumber: 2,
+        pageSize: 20,
+      ),
+    );
+    unawaited(notifier.loadMore());
+    await tester.pumpAndSettle();
+
+    expect(container.read(purchaseOrdersControllerProvider).items, hasLength(3));
+    expect(
+      container.read(purchaseOrdersControllerProvider).items[1].purchaseOrderId,
+      'po-2',
+    );
+  });
+
+  testWidgets('loadMore guards against concurrent loads', (tester) async {
+    final page2 = Completer<PurchaseOrderPage>();
+    var calls = 0;
+    when(() => getPurchaseOrders(any())).thenAnswer((_) {
+      return switch (calls++) {
+        0 => Future.value(_page(itemId: 'po-1')),
+        _ => page2.future,
+      };
+    });
+    final container = ProviderContainer(
+      overrides: [
+        getPurchaseOrdersProvider.overrideWithValue(getPurchaseOrders),
+      ],
+    );
+    addTearDown(container.dispose);
+    _keepControllerAlive(container);
+    final notifier = container.read(purchaseOrdersControllerProvider.notifier);
+    await tester.pump();
+    await tester.pumpAndSettle();
+    clearInteractions(getPurchaseOrders);
+
+    final first = notifier.loadMore();
+    final second = notifier.loadMore();
+    page2.complete(_page(itemId: 'po-2'));
+    await first;
+    await second;
+    await tester.pumpAndSettle();
+
+    verify(() => getPurchaseOrders(any())).called(1);
+  });
+
+  testWidgets('loadMore stops when hasMore is false', (tester) async {
+    reset(getPurchaseOrders);
+    when(() => getPurchaseOrders(any())).thenAnswer(
+      (_) async => PurchaseOrderPage(
+        items: [_item()],
+        totalCount: 1,
+        pageNumber: 1,
+        pageSize: 20,
+      ),
+    );
+    final container = ProviderContainer(
+      overrides: [
+        getPurchaseOrdersProvider.overrideWithValue(getPurchaseOrders),
+      ],
+    );
+    addTearDown(container.dispose);
+    _keepControllerAlive(container);
+    final notifier = container.read(purchaseOrdersControllerProvider.notifier);
+    await tester.pump();
+    await tester.pumpAndSettle();
+    clearInteractions(getPurchaseOrders);
+
+    await notifier.loadMore();
+    await tester.pumpAndSettle();
+
+    verifyNever(() => getPurchaseOrders(any()));
+  });
+
+  testWidgets('loadMore retains cards after failure', (tester) async {
+    final page2 = Completer<PurchaseOrderPage>();
+    var calls = 0;
+    when(() => getPurchaseOrders(any())).thenAnswer((_) {
+      return switch (calls++) {
+        0 => Future.value(_page(itemId: 'po-1')),
+        _ => page2.future,
+      };
+    });
+    final container = ProviderContainer(
+      overrides: [
+        getPurchaseOrdersProvider.overrideWithValue(getPurchaseOrders),
+      ],
+    );
+    addTearDown(container.dispose);
+    _keepControllerAlive(container);
+    final notifier = container.read(purchaseOrdersControllerProvider.notifier);
+    await tester.pump();
+    await tester.pumpAndSettle();
+    clearInteractions(getPurchaseOrders);
+
+    expect(container.read(purchaseOrdersControllerProvider).items, hasLength(1));
+
+    page2.completeError(
+      AppException(failure: const Failure.network(message: 'load failed')),
+    );
+    await notifier.loadMore();
+    await tester.pumpAndSettle();
+
+    final state = container.read(purchaseOrdersControllerProvider);
+    expect(state.items, hasLength(1));
+    expect(state.loadMoreFailure, isNotNull);
+  });
+
+  testWidgets('retryLoadMore retries the failed load-more request', (
+    tester,
+  ) async {
+    final page2 = Completer<PurchaseOrderPage>();
+    var calls = 0;
+    when(() => getPurchaseOrders(any())).thenAnswer((_) {
+      return switch (calls++) {
+        0 => Future.value(_page(itemId: 'po-1')),
+        1 => page2.future,
+        _ => Future.value(
+          PurchaseOrderPage(
+            items: [_item(id: 'po-2')],
+            totalCount: 40,
+            pageNumber: 2,
+            pageSize: 20,
+          ),
+        ),
+      };
+    });
+    final container = ProviderContainer(
+      overrides: [
+        getPurchaseOrdersProvider.overrideWithValue(getPurchaseOrders),
+      ],
+    );
+    addTearDown(container.dispose);
+    _keepControllerAlive(container);
+    final notifier = container.read(purchaseOrdersControllerProvider.notifier);
+    await tester.pump();
+    await tester.pumpAndSettle();
+    clearInteractions(getPurchaseOrders);
+
+    page2.completeError(
+      AppException(failure: const Failure.network(message: 'load failed')),
+    );
+    await notifier.loadMore();
+    await tester.pumpAndSettle();
+
+    expect(
+      container.read(purchaseOrdersControllerProvider).loadMoreFailure,
+      isNotNull,
+    );
+
+    await notifier.retryLoadMore();
+    await tester.pumpAndSettle();
+
+    final state = container.read(purchaseOrdersControllerProvider);
+    expect(state.items, hasLength(2));
+    expect(state.loadMoreFailure, isNull);
+  });
+
+  testWidgets('loadMore separates from initial/refresh failures', (tester) async {
+    final page2 = Completer<PurchaseOrderPage>();
+    var calls = 0;
+    when(() => getPurchaseOrders(any())).thenAnswer((_) {
+      return switch (calls++) {
+        0 => Future.value(_page(itemId: 'po-1')),
+        _ => page2.future,
+      };
+    });
+    final container = ProviderContainer(
+      overrides: [
+        getPurchaseOrdersProvider.overrideWithValue(getPurchaseOrders),
+      ],
+    );
+    addTearDown(container.dispose);
+    _keepControllerAlive(container);
+    final notifier = container.read(purchaseOrdersControllerProvider.notifier);
+    await tester.pump();
+    await tester.pumpAndSettle();
+    clearInteractions(getPurchaseOrders);
+
+    page2.completeError(
+      AppException(failure: const Failure.network(message: 'load failed')),
+    );
+    await notifier.loadMore();
+    await tester.pumpAndSettle();
+
+    final state = container.read(purchaseOrdersControllerProvider);
+    expect(state.failure, isNull);
+    expect(state.loadMoreFailure, isNotNull);
+  });
 }
 
 PurchaseOrderPage _page({String itemId = 'po-1'}) => PurchaseOrderPage(
