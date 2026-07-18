@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intelibill_mobile/src/app/router/app_router.dart';
 import 'package:intelibill_mobile/src/app/theme/app_theme.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
@@ -163,6 +165,31 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('No dashboard data available.'), findsOneWidget);
+    });
+
+    testWidgets('renders pending purchase order alert with action button', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        _buildApp(
+          dashboardState: DashboardState(dashboard: testDashboardWithPO),
+          session: _ownerSession(),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      await tester.drag(find.byType(ListView), const Offset(0, -600));
+      await tester.pump();
+
+      expect(find.text('Pending Purchase Order'), findsOneWidget);
+      expect(find.text('PO-001 awaiting approval.'), findsOneWidget);
+      expect(find.text('Review'), findsOneWidget);
     });
   });
 }

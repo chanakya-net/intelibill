@@ -17,7 +17,7 @@ void main() {
       );
       expect(
         mapDashboardActionRoute('/inventory/purchase-orders'),
-        AppRoutes.inventory,
+        AppRoutes.purchaseOrders,
       );
       expect(mapDashboardActionRoute('/expenses'), AppRoutes.expenses);
       expect(mapDashboardActionRoute('/customers'), AppRoutes.customers);

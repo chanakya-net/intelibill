@@ -15,7 +15,7 @@ String? mapDashboardActionRoute(String actionRoute) {
     case '/inventory/batches':
       return AppRoutes.inventoryBatches;
     case '/inventory/purchase-orders':
-      return AppRoutes.inventory;
+      return AppRoutes.purchaseOrders;
     case '/expenses':
       return AppRoutes.expenses;
     case '/customers':
