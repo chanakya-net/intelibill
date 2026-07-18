@@ -13,9 +13,10 @@ import 'package:intelibill_mobile/src/features/purchase_orders/presentation/page
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_card.dart';
 
 class _TrackingStubController extends PurchaseOrdersController {
-  _TrackingStubController(this._initialState);
+  _TrackingStubController(this._initialState, {this.stateAfterStatus});
 
   final PurchaseOrdersState _initialState;
+  final PurchaseOrdersState? stateAfterStatus;
   DateTime? lastDateFrom;
   DateTime? lastDateTo;
   PurchaseOrderStatus? lastStatus;
@@ -30,6 +31,7 @@ class _TrackingStubController extends PurchaseOrdersController {
   @override
   void updateStatus(PurchaseOrderStatus? status) {
     lastStatus = status;
+    if (stateAfterStatus != null) state = stateAfterStatus!;
   }
 
   @override
@@ -79,6 +81,20 @@ void main() {
         purchaseOrdersControllerProvider.overrideWith(
           () => _StubPurchaseOrdersController(state),
         ),
+      ],
+      child: MaterialApp(
+        theme: AppTheme.lightTheme,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const PurchaseOrdersPage(),
+      ),
+    );
+  }
+
+  Widget buildTrackingApp(_TrackingStubController controller) {
+    return ProviderScope(
+      overrides: [
+        purchaseOrdersControllerProvider.overrideWith(() => controller),
       ],
       child: MaterialApp(
         theme: AppTheme.lightTheme,
@@ -234,21 +250,7 @@ void main() {
     final controller = _TrackingStubController(
       PurchaseOrdersState(items: [_item()], totalCount: 1),
     );
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          purchaseOrdersControllerProvider.overrideWith(
-            () => controller,
-          ),
-        ],
-        child: MaterialApp(
-          theme: AppTheme.lightTheme,
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: const PurchaseOrdersPage(),
-        ),
-      ),
-    );
+    await tester.pumpWidget(buildTrackingApp(controller));
 
     expect(find.byType(FilterChip), findsWidgets);
     for (final status in PurchaseOrderStatus.values) {
@@ -260,73 +262,100 @@ void main() {
     final controller = _TrackingStubController(
       PurchaseOrdersState(items: [_item()], totalCount: 1),
     );
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          purchaseOrdersControllerProvider.overrideWith(
-            () => controller,
-          ),
-        ],
-        child: MaterialApp(
-          theme: AppTheme.lightTheme,
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: const PurchaseOrdersPage(),
-        ),
-      ),
-    );
+    await tester.pumpWidget(buildTrackingApp(controller));
 
-    expect(find.byType(FilterChip), findsWidgets);
+    await tester.tap(
+      find.widgetWithText(FilterChip, PurchaseOrderStatus.placed.wireValue),
+    );
     await tester.pumpAndSettle();
 
-    expect(controller.lastStatus, isNull);
+    expect(controller.lastStatus, PurchaseOrderStatus.placed);
   });
 
   testWidgets('tapping Clear button calls clearFilters', (tester) async {
     final controller = _TrackingStubController(
       PurchaseOrdersState(items: [_item()], totalCount: 1),
     );
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          purchaseOrdersControllerProvider.overrideWith(
-            () => controller,
-          ),
-        ],
-        child: MaterialApp(
-          theme: AppTheme.lightTheme,
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: const PurchaseOrdersPage(),
-        ),
-      ),
-    );
+    await tester.pumpWidget(buildTrackingApp(controller));
 
-    expect(find.byType(FilterChip), findsWidgets);
+    await tester.tap(
+      find.widgetWithText(FilterChip, PurchaseOrderStatus.placed.wireValue),
+    );
     await tester.pumpAndSettle();
 
-    expect(controller.clearFiltersCalled, isFalse);
+    final clearChip = find.widgetWithText(ActionChip, 'Clear');
+    await tester.ensureVisible(clearChip);
+    await tester.tap(clearChip);
+    await tester.pumpAndSettle();
+
+    expect(controller.clearFiltersCalled, isTrue);
+  });
+
+  testWidgets('updates the count after applying a status filter', (
+    tester,
+  ) async {
+    final controller = _TrackingStubController(
+      PurchaseOrdersState(items: [_item()], totalCount: 31),
+      stateAfterStatus: PurchaseOrdersState(items: [_item()], totalCount: 1),
+    );
+    await tester.pumpWidget(buildTrackingApp(controller));
+
+    expect(find.text('31 purchase orders'), findsOneWidget);
+    await tester.tap(
+      find.widgetWithText(FilterChip, PurchaseOrderStatus.placed.wireValue),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('1 purchase order'), findsOneWidget);
+  });
+
+  testWidgets('shows a filtered empty state after applying a status filter', (
+    tester,
+  ) async {
+    final controller = _TrackingStubController(
+      PurchaseOrdersState(items: [_item()], totalCount: 1),
+      stateAfterStatus: const PurchaseOrdersState(),
+    );
+    await tester.pumpWidget(buildTrackingApp(controller));
+
+    await tester.tap(
+      find.widgetWithText(FilterChip, PurchaseOrderStatus.placed.wireValue),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('No purchase orders match your filters'), findsOneWidget);
+    expect(find.text('No purchase orders yet'), findsNothing);
+  });
+
+  testWidgets('keeps filter controls horizontally scrollable on mobile', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final controller = _TrackingStubController(
+      const PurchaseOrdersState(),
+    );
+    await tester.pumpWidget(buildTrackingApp(controller));
+    final filterBar = find.byType(SingleChildScrollView);
+    final scrollable = find.descendant(
+      of: filterBar,
+      matching: find.byType(Scrollable),
+    );
+    final scrollableState = tester.state<ScrollableState>(scrollable);
+
+    await tester.drag(scrollable, const Offset(-300, 0));
+    await tester.pumpAndSettle();
+
+    expect(scrollableState.position.pixels, greaterThan(0));
   });
 
   testWidgets('has date-picker buttons for from/to dates', (tester) async {
     final controller = _TrackingStubController(
       PurchaseOrdersState(items: [_item()], totalCount: 1),
     );
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          purchaseOrdersControllerProvider.overrideWith(
-            () => controller,
-          ),
-        ],
-        child: MaterialApp(
-          theme: AppTheme.lightTheme,
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: const PurchaseOrdersPage(),
-        ),
-      ),
-    );
+    await tester.pumpWidget(buildTrackingApp(controller));
 
     final dateButtons = find.byType(OutlinedButton);
     expect(dateButtons, findsWidgets);

@@ -90,14 +90,13 @@ class PurchaseOrdersController extends _$PurchaseOrdersController {
   }
 
   void updateOrderDateFrom(DateTime? date) {
+    if (!_isValidRange(date, _activeDateTo)) return;
     _activeDateFrom = date;
     unawaited(_loadFirstPage(_nextGeneration()));
   }
 
   void updateOrderDateTo(DateTime? date) {
-    if (date != null && _activeDateFrom != null && _activeDateFrom!.isAfter(date)) {
-      return;
-    }
+    if (!_isValidRange(_activeDateFrom, date)) return;
     _activeDateTo = date;
     unawaited(_loadFirstPage(_nextGeneration()));
   }
@@ -141,6 +140,10 @@ class PurchaseOrdersController extends _$PurchaseOrdersController {
   }
 
   int _nextGeneration() => ++_searchGeneration;
+
+  bool _isValidRange(DateTime? from, DateTime? to) {
+    return from == null || to == null || !from.isAfter(to);
+  }
 
   String? _normalizedSearch(String query) {
     final normalized = query.trim();

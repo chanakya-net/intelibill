@@ -4,6 +4,8 @@
   "commonCancel": "Cancel",
   "commonClose": "Close",
   "commonClear": "Clear",
+  "purchaseOrdersFilterDateFrom": "From:",
+  "purchaseOrdersFilterDateTo": "To:",
   "commonActions": "Actions",
   "commonEdit": "Edit",
   "commonSave": "Save",

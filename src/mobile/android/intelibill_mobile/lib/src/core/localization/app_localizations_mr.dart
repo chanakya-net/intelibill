@@ -21,6 +21,12 @@ class AppLocalizationsMr extends AppLocalizations {
   String get commonClear => 'साफ करा';
 
   @override
+  String get purchaseOrdersFilterDateFrom => 'From:';
+
+  @override
+  String get purchaseOrdersFilterDateTo => 'To:';
+
+  @override
   String get commonActions => 'क्रिया';
 
   @override

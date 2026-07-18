@@ -21,6 +21,12 @@ class AppLocalizationsTa extends AppLocalizations {
   String get commonClear => 'அழி';
 
   @override
+  String get purchaseOrdersFilterDateFrom => 'From:';
+
+  @override
+  String get purchaseOrdersFilterDateTo => 'To:';
+
+  @override
   String get commonActions => 'செயல்கள்';
 
   @override

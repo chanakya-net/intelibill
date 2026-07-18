@@ -21,6 +21,12 @@ class AppLocalizationsBn extends AppLocalizations {
   String get commonClear => 'পরিষ্কার করুন';
 
   @override
+  String get purchaseOrdersFilterDateFrom => 'From:';
+
+  @override
+  String get purchaseOrdersFilterDateTo => 'To:';
+
+  @override
   String get commonActions => 'কার্যক্রম';
 
   @override

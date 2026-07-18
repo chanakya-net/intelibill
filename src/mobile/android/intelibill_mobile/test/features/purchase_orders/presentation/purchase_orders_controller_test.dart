@@ -428,6 +428,28 @@ void main() {
 
     verifyNever(() => getPurchaseOrders(any()));
   });
+
+  testWidgets('rejects invalid date range when from is set second', (
+    tester,
+  ) async {
+    final from = DateTime(2026, 12, 31);
+    final to = DateTime(2026, 1, 1);
+    final container = makeContainer();
+    addTearDown(container.dispose);
+    _keepControllerAlive(container);
+    final notifier = container.read(purchaseOrdersControllerProvider.notifier);
+    await tester.pump();
+    clearInteractions(getPurchaseOrders);
+
+    notifier.updateOrderDateTo(to);
+    await tester.pumpAndSettle();
+    clearInteractions(getPurchaseOrders);
+
+    notifier.updateOrderDateFrom(from);
+    await tester.pumpAndSettle();
+
+    verifyNever(() => getPurchaseOrders(any()));
+  });
 }
 
 PurchaseOrderPage _page({String itemId = 'po-1'}) => PurchaseOrderPage(

@@ -21,6 +21,12 @@ class AppLocalizationsKn extends AppLocalizations {
   String get commonClear => 'ತೆರವುಗೊಳಿಸಿ';
 
   @override
+  String get purchaseOrdersFilterDateFrom => 'From:';
+
+  @override
+  String get purchaseOrdersFilterDateTo => 'To:';
+
+  @override
   String get commonActions => 'ಕ್ರಿಯೆಗಳು';
 
   @override

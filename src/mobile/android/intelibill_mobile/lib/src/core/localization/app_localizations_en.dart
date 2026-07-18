@@ -21,6 +21,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commonClear => 'Clear';
 
   @override
+  String get purchaseOrdersFilterDateFrom => 'From:';
+
+  @override
+  String get purchaseOrdersFilterDateTo => 'To:';
+
+  @override
   String get commonActions => 'Actions';
 
   @override
@@ -2574,6 +2580,12 @@ class AppLocalizationsEnIn extends AppLocalizationsEn {
 
   @override
   String get commonClear => 'Clear';
+
+  @override
+  String get purchaseOrdersFilterDateFrom => 'From:';
+
+  @override
+  String get purchaseOrdersFilterDateTo => 'To:';
 
   @override
   String get commonActions => 'Actions';
