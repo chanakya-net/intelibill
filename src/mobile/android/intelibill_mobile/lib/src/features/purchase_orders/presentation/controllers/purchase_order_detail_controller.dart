@@ -17,18 +17,21 @@ class PurchaseOrderDetailState {
     this.isLoading = false,
     this.failure,
     this.cancelState = const _CancelState(),
+    this.closeState = const _CloseState(),
   });
 
   final PurchaseOrder? detail;
   final bool isLoading;
   final Failure? failure;
   final _CancelState cancelState;
+  final _CloseState closeState;
 
   PurchaseOrderDetailState copyWith({
     PurchaseOrder? detail,
     bool? isLoading,
     Failure? failure,
     _CancelState? cancelState,
+    _CloseState? closeState,
     bool clearDetail = false,
     bool clearFailure = false,
   }) {
@@ -37,6 +40,7 @@ class PurchaseOrderDetailState {
       isLoading: isLoading ?? this.isLoading,
       failure: clearFailure ? null : (failure ?? this.failure),
       cancelState: cancelState ?? this.cancelState,
+      closeState: closeState ?? this.closeState,
     );
   }
 }
@@ -57,6 +61,25 @@ class _CancelState {
     bool clearFailure = false,
   }) {
     return _CancelState(
+      isLoading: isLoading ?? this.isLoading,
+      failure: clearFailure ? null : (failure ?? this.failure),
+    );
+  }
+}
+
+@immutable
+class _CloseState {
+  const _CloseState({this.isLoading = false, this.failure});
+
+  final bool isLoading;
+  final Failure? failure;
+
+  _CloseState copyWith({
+    bool? isLoading,
+    Failure? failure,
+    bool clearFailure = false,
+  }) {
+    return _CloseState(
       isLoading: isLoading ?? this.isLoading,
       failure: clearFailure ? null : (failure ?? this.failure),
     );
@@ -151,5 +174,41 @@ class PurchaseOrderDetailController extends _$PurchaseOrderDetailController {
       await _load();
       rethrow;
     }
+  }
+
+  Future<void> close(String reason) async {
+    state = state.copyWith(
+      closeState: state.closeState.copyWith(
+        isLoading: true,
+        clearFailure: true,
+      ),
+    );
+    try {
+      final useCase = ref.read(closePurchaseOrderProvider);
+      final updated = await useCase(_purchaseOrderId, reason);
+      if (!ref.mounted) return;
+
+      state = state.copyWith(
+        detail: updated,
+        closeState: state.closeState.copyWith(isLoading: false),
+      );
+      ref.invalidate(purchaseOrdersControllerProvider);
+    } on AppException catch (error) {
+      await _finishCloseFailure(error.failure);
+    } on Object {
+      await _finishCloseFailure(const Failure.unknown());
+    }
+  }
+
+  Future<void> _finishCloseFailure(Failure failure) async {
+    if (!ref.mounted) return;
+    state = state.copyWith(
+      closeState: state.closeState.copyWith(
+        isLoading: false,
+        failure: failure,
+      ),
+    );
+    await _load();
+    throw AppException(failure: failure);
   }
 }

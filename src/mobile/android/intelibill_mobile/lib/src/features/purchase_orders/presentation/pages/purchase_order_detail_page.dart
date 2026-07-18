@@ -8,6 +8,7 @@ import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/p
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_status.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_detail_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_cancel_sheet.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_close_sheet.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_detail_header.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_detail_summary.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_lifecycle_metadata.dart';
@@ -73,10 +74,30 @@ class PurchaseOrderDetailPage extends ConsumerWidget {
                   onCancel: (reason) {
                     return ref
                         .read(
-                          purchaseOrderDetailControllerProvider(purchaseOrderId)
-                              .notifier,
+                          purchaseOrderDetailControllerProvider(
+                            purchaseOrderId,
+                          ).notifier,
                         )
                         .cancel(reason);
+                  },
+                );
+              },
+            ),
+          if (purchaseOrder.status == PurchaseOrderStatus.partiallyReceived)
+            IconButton(
+              key: const Key('purchase-order-detail-close-button'),
+              icon: const Icon(Icons.lock),
+              onPressed: () {
+                showPurchaseOrderCloseSheet(
+                  context,
+                  onClose: (reason) {
+                    return ref
+                        .read(
+                          purchaseOrderDetailControllerProvider(
+                            purchaseOrderId,
+                          ).notifier,
+                        )
+                        .close(reason);
                   },
                 );
               },
