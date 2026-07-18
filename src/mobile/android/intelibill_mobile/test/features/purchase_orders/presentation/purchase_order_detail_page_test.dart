@@ -500,7 +500,7 @@ void main() {
     expect(find.text('Purchase orders list'), findsOneWidget);
   });
 
-  testWidgets('renders every status badge in the detail header', (
+  testWidgets('renders status badge and preview action for every status', (
     tester,
   ) async {
     for (final status in PurchaseOrderStatus.values) {
@@ -525,6 +525,10 @@ void main() {
         findsOneWidget,
       );
       expect(find.text(status.wireValue), findsOneWidget);
+      expect(
+        find.byKey(PurchaseOrderDetailPage.previewButtonKey),
+        findsOneWidget,
+      );
 
       harness.container.dispose();
       await tester.pump(const Duration(milliseconds: 50));

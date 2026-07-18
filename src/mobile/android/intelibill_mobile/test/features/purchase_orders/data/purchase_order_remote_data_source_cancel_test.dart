@@ -55,7 +55,7 @@ void main() {
       verifyNever(
         () => apiClient.post<Map<String, dynamic>>(
           any(),
-          data: any(named: 'data'),
+          data: any<dynamic>(named: 'data'),
         ),
       );
     });
@@ -76,7 +76,7 @@ void main() {
       verifyNever(
         () => apiClient.post<Map<String, dynamic>>(
           any(),
-          data: any(named: 'data'),
+          data: any<dynamic>(named: 'data'),
         ),
       );
     });
@@ -88,7 +88,7 @@ void main() {
       when(
         () => apiClient.post<Map<String, dynamic>>(
           any(),
-          data: any(named: 'data'),
+          data: any<dynamic>(named: 'data'),
         ),
       ).thenAnswer(
         (_) async => Response(
@@ -114,7 +114,7 @@ Map<String, dynamic> _cancelledJson() {
     'purchaseOrderId': 'po-1',
     'purchaseOrderNumber': 'PO-001',
     'status': 'Cancelled',
-    'lines': [],
+    'lines': <dynamic>[],
     'expectedTotal': 0.0,
     'createdAt': '2026-07-01T10:00:00Z',
     'receivedQuantity': 0,

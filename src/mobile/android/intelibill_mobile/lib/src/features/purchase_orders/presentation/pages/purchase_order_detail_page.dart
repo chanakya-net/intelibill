@@ -20,6 +20,7 @@ class PurchaseOrderDetailPage extends ConsumerWidget {
 
   static const pageKey = Key('purchase-order-detail-page');
   static const receiveButtonKey = Key('purchase-order-detail-receive-button');
+  static const previewButtonKey = Key('purchase-order-detail-preview-button');
 
   final String purchaseOrderId;
 
@@ -65,6 +66,14 @@ class PurchaseOrderDetailPage extends ConsumerWidget {
       appBar: AppBar(
         title: Text(purchaseOrder.purchaseOrderNumber),
         actions: [
+          IconButton(
+            key: previewButtonKey,
+            icon: const Icon(Icons.picture_as_pdf_outlined),
+            tooltip: 'Preview',
+            onPressed: () => context.go(
+              AppRoutes.purchaseOrderPrintFor(purchaseOrderId),
+            ),
+          ),
           if (purchaseOrder.status == PurchaseOrderStatus.placed ||
               purchaseOrder.status == PurchaseOrderStatus.partiallyReceived)
             IconButton(
