@@ -25,6 +25,7 @@ class PurchaseOrderBuilderState {
     this.isSaving = false,
     this.failure,
     this.savedDraft,
+    this.isSupplierLoadFailure = false,
   });
 
   final List<Supplier> suppliers;
@@ -37,6 +38,7 @@ class PurchaseOrderBuilderState {
   final bool isSaving;
   final Failure? failure;
   final PurchaseOrder? savedDraft;
+  final bool isSupplierLoadFailure;
 
   PurchaseOrderBuilderState copyWith({
     List<Supplier>? suppliers,
@@ -49,6 +51,7 @@ class PurchaseOrderBuilderState {
     bool? isSaving,
     Failure? failure,
     PurchaseOrder? savedDraft,
+    bool? isSupplierLoadFailure,
     bool clearSupplier = false,
     bool clearOrderDate = false,
     bool clearExpectedDeliveryDate = false,
@@ -70,6 +73,8 @@ class PurchaseOrderBuilderState {
       isSaving: isSaving ?? this.isSaving,
       failure: clearFailure ? null : (failure ?? this.failure),
       savedDraft: savedDraft ?? this.savedDraft,
+      isSupplierLoadFailure:
+          isSupplierLoadFailure ?? this.isSupplierLoadFailure,
     );
   }
 }
@@ -220,11 +225,19 @@ class PurchaseOrderBuilderController extends _$PurchaseOrderBuilderController {
 
   void _setLoadFailure(Failure failure) {
     if (!ref.mounted) return;
-    state = state.copyWith(isLoadingSuppliers: false, failure: failure);
+    state = state.copyWith(
+      isLoadingSuppliers: false,
+      failure: failure,
+      isSupplierLoadFailure: true,
+    );
   }
 
   void _setSaveFailure(Failure failure) {
     if (!ref.mounted) return;
-    state = state.copyWith(isSaving: false, failure: failure);
+    state = state.copyWith(
+      isSaving: false,
+      failure: failure,
+      isSupplierLoadFailure: false,
+    );
   }
 }

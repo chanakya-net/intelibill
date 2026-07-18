@@ -30,11 +30,15 @@ class _PurchaseOrderBuilderPageState
     extends ConsumerState<PurchaseOrderBuilderPage> {
   final _referenceController = TextEditingController();
   final _notesController = TextEditingController();
+  final _orderDateController = TextEditingController();
+  final _expectedDeliveryDateController = TextEditingController();
 
   @override
   void dispose() {
     _referenceController.dispose();
     _notesController.dispose();
+    _orderDateController.dispose();
+    _expectedDeliveryDateController.dispose();
     super.dispose();
   }
 
@@ -59,6 +63,8 @@ class _PurchaseOrderBuilderPageState
           state: state,
           referenceController: _referenceController,
           notesController: _notesController,
+          orderDateController: _orderDateController,
+          expectedDeliveryDateController: _expectedDeliveryDateController,
           onSupplierChanged: (supplier) =>
               ref.read(provider.notifier).selectSupplier(supplier),
           onOrderDateChanged: (date) =>
@@ -100,6 +106,8 @@ class _BuilderBody extends StatelessWidget {
     required this.state,
     required this.referenceController,
     required this.notesController,
+    required this.orderDateController,
+    required this.expectedDeliveryDateController,
     required this.onSupplierChanged,
     required this.onOrderDateChanged,
     required this.onExpectedDeliveryDateChanged,
@@ -112,6 +120,8 @@ class _BuilderBody extends StatelessWidget {
   final PurchaseOrderBuilderState state;
   final TextEditingController referenceController;
   final TextEditingController notesController;
+  final TextEditingController orderDateController;
+  final TextEditingController expectedDeliveryDateController;
   final ValueChanged<Supplier?> onSupplierChanged;
   final ValueChanged<DateTime?> onOrderDateChanged;
   final ValueChanged<DateTime?> onExpectedDeliveryDateChanged;
@@ -125,7 +135,7 @@ class _BuilderBody extends StatelessWidget {
     if (state.isLoadingSuppliers && state.suppliers.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (state.failure != null && state.suppliers.isEmpty) {
+    if (state.isSupplierLoadFailure && state.suppliers.isEmpty) {
       return _ErrorView(failure: state.failure!, onRetry: onRetry, l10n: l10n);
     }
 
@@ -166,6 +176,7 @@ class _BuilderBody extends StatelessWidget {
               key: PurchaseOrderBuilderPage.orderDateFieldKey,
               label: l10n.purchaseOrderBuilderOrderDate,
               value: state.orderDate,
+              controller: orderDateController,
               onChanged: onOrderDateChanged,
               l10n: l10n,
             ),
@@ -174,6 +185,7 @@ class _BuilderBody extends StatelessWidget {
               key: PurchaseOrderBuilderPage.expectedDeliveryDateFieldKey,
               label: l10n.purchaseOrderBuilderExpectedDeliveryDate,
               value: state.expectedDeliveryDate,
+              controller: expectedDeliveryDateController,
               onChanged: onExpectedDeliveryDateChanged,
               l10n: l10n,
             ),
@@ -220,40 +232,55 @@ class _BuilderBody extends StatelessWidget {
   }
 }
 
-class _DateField extends StatelessWidget {
+class _DateField extends StatefulWidget {
   const _DateField({
     super.key,
     required this.label,
     required this.value,
+    required this.controller,
     required this.onChanged,
     required this.l10n,
   });
 
   final String label;
   final DateTime? value;
+  final TextEditingController controller;
   final ValueChanged<DateTime?> onChanged;
   final AppLocalizations l10n;
+
+  @override
+  State<_DateField> createState() => _DateFieldState();
+}
+
+class _DateFieldState extends State<_DateField> {
+  @override
+  void didUpdateWidget(_DateField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.value != oldWidget.value) {
+      widget.controller.text = widget.value == null
+          ? ''
+          : MaterialLocalizations.of(context).formatMediumDate(widget.value!);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return TextFormField(
       readOnly: true,
-      initialValue: value == null
-          ? ''
-          : MaterialLocalizations.of(context).formatMediumDate(value!),
+      controller: widget.controller,
       decoration: InputDecoration(
-        labelText: label,
-        hintText: l10n.purchaseOrderBuilderSelectDate,
+        labelText: widget.label,
+        hintText: widget.l10n.purchaseOrderBuilderSelectDate,
         suffixIcon: const Icon(Icons.calendar_today),
       ),
       onTap: () async {
         final date = await showDatePicker(
           context: context,
-          initialDate: value ?? DateTime.now(),
+          initialDate: widget.value ?? DateTime.now(),
           firstDate: DateTime(2000),
           lastDate: DateTime(2100),
         );
-        if (date != null) onChanged(date);
+        if (date != null) widget.onChanged(date);
       },
     );
   }

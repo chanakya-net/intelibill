@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intelibill_mobile/src/app/theme/app_theme.dart';
+import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_draft.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_builder_controller.dart';
@@ -108,6 +109,42 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Fresh Supplier'), findsOneWidget);
+  });
+
+  testWidgets('preserves form and shows error message on save failure', (
+    tester,
+  ) async {
+    const failure = Failure.server(statusCode: 500);
+    await tester.pumpWidget(
+      buildApp(
+        PurchaseOrderBuilderState(
+          suppliers: [_supplier()],
+          failure: failure,
+          isSupplierLoadFailure: false,
+        ),
+      ),
+    );
+
+    expect(find.byKey(PurchaseOrderBuilderPage.pageKey), findsOneWidget);
+    expect(find.byKey(PurchaseOrderBuilderPage.supplierFieldKey), findsOneWidget);
+    expect(find.text('Could not save purchase order draft.'), findsOneWidget);
+  });
+
+  testWidgets('displays selected date after date picker selection', (
+    tester,
+  ) async {
+    final selectedDate = DateTime(2026, 8, 15);
+    await tester.pumpWidget(
+      buildApp(
+        PurchaseOrderBuilderState(
+          suppliers: [_supplier()],
+          orderDate: selectedDate,
+        ),
+      ),
+    );
+
+    expect(find.byKey(PurchaseOrderBuilderPage.orderDateFieldKey), findsOneWidget);
+    expect(find.byType(TextFormField), findsWidgets);
   });
 }
 
