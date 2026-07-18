@@ -2,6 +2,7 @@ import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/data_sources/purchase_order_remote_data_source.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/cancel_purchase_order_request_dto.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/close_purchase_order_request_dto.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/create_purchase_order_draft_request_dto.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/mappers/purchase_order_mapper.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order.dart';
@@ -111,6 +112,36 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
     try {
       final request = CancelPurchaseOrderRequestDto(reason: trimmed);
       final dto = await _remoteDataSource.cancel(purchaseOrderId, request);
+      return PurchaseOrderMapper.detailToDomain(dto);
+    } on AppException {
+      rethrow;
+    } on FormatException catch (error) {
+      throw AppException(
+        failure: Failure.serialization(message: error.message),
+      );
+    } catch (error) {
+      if (error is TypeError) {
+        throw AppException(
+          failure: Failure.serialization(message: error.toString()),
+        );
+      }
+      throw AppException(failure: Failure.unknown(message: error.toString()));
+    }
+  }
+
+  @override
+  Future<PurchaseOrder> close(String purchaseOrderId, String reason) async {
+    final trimmed = reason.trim();
+    if (trimmed.isEmpty || trimmed.length > 500) {
+      throw AppException(
+        failure: const Failure.validation(
+          message: 'Reason must be between 1 and 500 characters.',
+        ),
+      );
+    }
+    try {
+      final request = ClosePurchaseOrderRequestDto(reason: trimmed);
+      final dto = await _remoteDataSource.close(purchaseOrderId, request);
       return PurchaseOrderMapper.detailToDomain(dto);
     } on AppException {
       rethrow;

@@ -296,3 +296,51 @@ final class CancelPurchaseOrderProvider
 
 String _$cancelPurchaseOrderHash() =>
     r'829a343d7251c510006ae1b463931403fc0ab65f';
+
+@ProviderFor(closePurchaseOrder)
+final closePurchaseOrderProvider = ClosePurchaseOrderProvider._();
+
+final class ClosePurchaseOrderProvider
+    extends
+        $FunctionalProvider<
+          ClosePurchaseOrder,
+          ClosePurchaseOrder,
+          ClosePurchaseOrder
+        >
+    with $Provider<ClosePurchaseOrder> {
+  ClosePurchaseOrderProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'closePurchaseOrderProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$closePurchaseOrderHash();
+
+  @$internal
+  @override
+  $ProviderElement<ClosePurchaseOrder> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  ClosePurchaseOrder create(Ref ref) {
+    return closePurchaseOrder(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(ClosePurchaseOrder value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<ClosePurchaseOrder>(value),
+    );
+  }
+}
+
+String _$closePurchaseOrderHash() =>
+    r'ae7d56a255fe28adc6677c2df13edd3d59f469a8';
