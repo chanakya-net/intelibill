@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
@@ -117,47 +119,186 @@ void main() {
     expect(state.failure, isNull);
   });
 
-  test('updateSearch method exists and invokes generation guard', () async {
-    reset(getPurchaseOrders);
-    when(() => getPurchaseOrders(any())).thenAnswer((_) async => _page());
+  testWidgets('debounces latest trimmed search for 300 milliseconds', (
+    tester,
+  ) async {
     final container = makeContainer();
     addTearDown(container.dispose);
-
+    _keepControllerAlive(container);
     final notifier = container.read(purchaseOrdersControllerProvider.notifier);
-    expect(notifier.updateSearch, isNotNull);
-    notifier.updateSearch('test');
+    await tester.pump();
+    clearInteractions(getPurchaseOrders);
+
+    notifier.updateSearch(' first ');
+    await tester.pump(const Duration(milliseconds: 299));
+    verifyNever(() => getPurchaseOrders(any()));
+
+    notifier.updateSearch('  paper  ');
+    await tester.pump(const Duration(milliseconds: 299));
+    verifyNever(() => getPurchaseOrders(any()));
+    await tester.pump(const Duration(milliseconds: 1));
+
+    verify(
+      () => getPurchaseOrders(const PurchaseOrderFilters(search: 'paper')),
+    ).called(1);
   });
 
-  test(
-    'refresh and retry increment generation to invalidate pending search',
-    () async {
-      reset(getPurchaseOrders);
-      when(() => getPurchaseOrders(any())).thenAnswer((_) async => _page());
-      final container = makeContainer();
-      addTearDown(container.dispose);
+  testWidgets('disposing cancels a pending debounced search', (tester) async {
+    final container = makeContainer();
+    _keepControllerAlive(container);
+    final notifier = container.read(purchaseOrdersControllerProvider.notifier);
+    await tester.pump();
+    clearInteractions(getPurchaseOrders);
 
-      final notifier = container.read(
-        purchaseOrdersControllerProvider.notifier,
-      );
-      notifier.updateSearch('old');
+    notifier.updateSearch('paper');
+    container.dispose();
+    await tester.pump(const Duration(milliseconds: 300));
 
-      await notifier.refresh();
+    verifyNever(() => getPurchaseOrders(any()));
+  });
 
-      final state = container.read(purchaseOrdersControllerProvider);
-      expect(state.isLoading, isFalse);
-    },
-  );
+  testWidgets('refresh and retry retain active search and newest result wins', (
+    tester,
+  ) async {
+    final search = Completer<PurchaseOrderPage>();
+    final refresh = Completer<PurchaseOrderPage>();
+    final retry = Completer<PurchaseOrderPage>();
+    var calls = 0;
+    when(() => getPurchaseOrders(any())).thenAnswer((_) {
+      return switch (calls++) {
+        0 => Future.value(_page(itemId: 'initial')),
+        1 => search.future,
+        2 => refresh.future,
+        _ => retry.future,
+      };
+    });
+    final container = ProviderContainer(
+      overrides: [
+        getPurchaseOrdersProvider.overrideWithValue(getPurchaseOrders),
+      ],
+    );
+    addTearDown(container.dispose);
+    _keepControllerAlive(container);
+    final notifier = container.read(purchaseOrdersControllerProvider.notifier);
+    await tester.pump();
+
+    notifier.updateSearch('  paper  ');
+    await tester.pump(const Duration(milliseconds: 300));
+    search.complete(_page(itemId: 'search'));
+    await tester.pump();
+
+    final refreshFuture = notifier.refresh();
+    final retryFuture = notifier.retry();
+    verify(
+      () => getPurchaseOrders(const PurchaseOrderFilters(search: 'paper')),
+    ).called(3);
+
+    retry.complete(_page(itemId: 'retry'));
+    await retryFuture;
+    refresh.complete(_page(itemId: 'refresh'));
+    await refreshFuture;
+
+    expect(
+      container
+          .read(purchaseOrdersControllerProvider)
+          .items
+          .single
+          .purchaseOrderId,
+      'retry',
+    );
+  });
+
+  testWidgets('late successful search cannot overwrite a newer result', (
+    tester,
+  ) async {
+    final older = Completer<PurchaseOrderPage>();
+    final newer = Completer<PurchaseOrderPage>();
+    var calls = 0;
+    when(() => getPurchaseOrders(any())).thenAnswer((_) {
+      return switch (calls++) {
+        0 => Future.value(_page(itemId: 'initial')),
+        1 => older.future,
+        _ => newer.future,
+      };
+    });
+    final container = ProviderContainer(
+      overrides: [
+        getPurchaseOrdersProvider.overrideWithValue(getPurchaseOrders),
+      ],
+    );
+    addTearDown(container.dispose);
+    _keepControllerAlive(container);
+    final notifier = container.read(purchaseOrdersControllerProvider.notifier);
+    await tester.pump();
+
+    notifier.updateSearch('old');
+    await tester.pump(const Duration(milliseconds: 300));
+    notifier.updateSearch('new');
+    await tester.pump(const Duration(milliseconds: 300));
+    newer.complete(_page(itemId: 'newer'));
+    await tester.pump();
+    older.complete(_page(itemId: 'older'));
+    await tester.pump();
+
+    expect(
+      container
+          .read(purchaseOrdersControllerProvider)
+          .items
+          .single
+          .purchaseOrderId,
+      'newer',
+    );
+  });
+
+  testWidgets('late failed search cannot overwrite a newer result', (
+    tester,
+  ) async {
+    final older = Completer<PurchaseOrderPage>();
+    final newer = Completer<PurchaseOrderPage>();
+    var calls = 0;
+    when(() => getPurchaseOrders(any())).thenAnswer((_) {
+      return switch (calls++) {
+        0 => Future.value(_page(itemId: 'initial')),
+        1 => older.future,
+        _ => newer.future,
+      };
+    });
+    final container = ProviderContainer(
+      overrides: [
+        getPurchaseOrdersProvider.overrideWithValue(getPurchaseOrders),
+      ],
+    );
+    addTearDown(container.dispose);
+    _keepControllerAlive(container);
+    final notifier = container.read(purchaseOrdersControllerProvider.notifier);
+    await tester.pump();
+
+    notifier.updateSearch('old');
+    await tester.pump(const Duration(milliseconds: 300));
+    notifier.updateSearch('new');
+    await tester.pump(const Duration(milliseconds: 300));
+    newer.complete(_page(itemId: 'newer'));
+    await tester.pump();
+    older.completeError(
+      AppException(failure: const Failure.network(message: 'stale')),
+    );
+    await tester.pump();
+
+    final state = container.read(purchaseOrdersControllerProvider);
+    expect(state.items.single.purchaseOrderId, 'newer');
+    expect(state.failure, isNull);
+  });
 }
 
-PurchaseOrderPage _page() => PurchaseOrderPage(
-  items: [_item()],
+PurchaseOrderPage _page({String itemId = 'po-1'}) => PurchaseOrderPage(
+  items: [_item(id: itemId)],
   totalCount: 31,
   pageNumber: 1,
   pageSize: 20,
 );
 
-PurchaseOrderListItem _item() => PurchaseOrderListItem(
-  purchaseOrderId: 'po-1',
+PurchaseOrderListItem _item({String id = 'po-1'}) => PurchaseOrderListItem(
+  purchaseOrderId: id,
   purchaseOrderNumber: 'PO-2026-001',
   status: PurchaseOrderStatus.partiallyReceived,
   supplierName: 'Acme Supplies',
@@ -168,3 +309,11 @@ PurchaseOrderListItem _item() => PurchaseOrderListItem(
   expectedTotal: 1240.5,
   createdAt: DateTime.utc(2026, 7, 1, 10),
 );
+
+void _keepControllerAlive(ProviderContainer container) {
+  final subscription = container.listen(
+    purchaseOrdersControllerProvider,
+    (_, _) {},
+  );
+  addTearDown(subscription.close);
+}

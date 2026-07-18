@@ -18,6 +18,9 @@ class _StubPurchaseOrdersController extends PurchaseOrdersController {
 
   @override
   PurchaseOrdersState build() => _initialState;
+
+  @override
+  void updateSearch(String query) {}
 }
 
 void main() {
@@ -157,6 +160,25 @@ void main() {
     await tester.pumpWidget(buildApp(const PurchaseOrdersState()));
     expect(find.byKey(PurchaseOrdersPage.searchFieldKey), findsOneWidget);
     expect(find.text('No purchase orders yet'), findsOneWidget);
+  });
+
+  testWidgets('typed query shows filtered empty state and retains search', (
+    tester,
+  ) async {
+    await tester.pumpWidget(buildApp(const PurchaseOrdersState()));
+
+    await tester.enterText(
+      find.descendant(
+        of: find.byKey(PurchaseOrdersPage.searchFieldKey),
+        matching: find.byType(EditableText),
+      ),
+      'paper',
+    );
+    await tester.pump();
+
+    expect(find.byKey(PurchaseOrdersPage.searchFieldKey), findsOneWidget);
+    expect(find.text('No results for "paper"'), findsOneWidget);
+    expect(find.text('No purchase orders yet'), findsNothing);
   });
 }
 
