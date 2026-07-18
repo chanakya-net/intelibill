@@ -21,6 +21,47 @@ sealed class PurchaseOrderLineDto with _$PurchaseOrderLineDto {
 }
 
 @freezed
+sealed class PurchaseOrderReceiptLineDto with _$PurchaseOrderReceiptLineDto {
+  const factory PurchaseOrderReceiptLineDto({
+    required String receiptLineId,
+    required String purchaseOrderLineId,
+    required String itemId,
+    required String inventoryBatchId,
+    String? batchNumber,
+    bool? batchVoided,
+    required String stockTransactionId,
+    required double quantity,
+    required double totalPurchaseCost,
+    required double unitCost,
+    required double mrp,
+    required double salesPrice,
+    required double taxRatePercent,
+    required bool taxIncluded,
+    required bool purchaseTaxIncluded,
+  }) = _PurchaseOrderReceiptLineDto;
+
+  factory PurchaseOrderReceiptLineDto.fromJson(Map<String, dynamic> json) =>
+      _$PurchaseOrderReceiptLineDtoFromJson(json);
+}
+
+@freezed
+sealed class PurchaseOrderReceiptDto with _$PurchaseOrderReceiptDto {
+  const factory PurchaseOrderReceiptDto({
+    required String receiptId,
+    required String receiptNumber,
+    required DateTime receivedAt,
+    String? referenceNumber,
+    String? notes,
+    required String receivedByUserId,
+    String? receivedByDisplayName,
+    required List<PurchaseOrderReceiptLineDto> lines,
+  }) = _PurchaseOrderReceiptDto;
+
+  factory PurchaseOrderReceiptDto.fromJson(Map<String, dynamic> json) =>
+      _$PurchaseOrderReceiptDtoFromJson(json);
+}
+
+@freezed
 sealed class PurchaseOrderDetailDto with _$PurchaseOrderDetailDto {
   const factory PurchaseOrderDetailDto({
     required String purchaseOrderId,
@@ -37,6 +78,11 @@ sealed class PurchaseOrderDetailDto with _$PurchaseOrderDetailDto {
     String? supplierName,
     String? supplierReference,
     required int receivedQuantity,
+    String? cancellationReason,
+    String? closedAt,
+    String? closedBy,
+    String? closeReason,
+    List<PurchaseOrderReceiptDto>? receipts,
   }) = _PurchaseOrderDetailDto;
 
   factory PurchaseOrderDetailDto.fromJson(Map<String, dynamic> json) =>

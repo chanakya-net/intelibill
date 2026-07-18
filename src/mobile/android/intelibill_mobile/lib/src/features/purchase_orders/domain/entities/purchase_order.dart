@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_line.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_receipt.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_status.dart';
 
 class PurchaseOrder extends Equatable {
@@ -18,6 +19,11 @@ class PurchaseOrder extends Equatable {
     this.supplierName,
     this.supplierReference,
     this.receivedQuantity = 0,
+    this.cancellationReason,
+    this.closedAt,
+    this.closedBy,
+    this.closeReason,
+    this.receipts = const [],
   });
 
   final String purchaseOrderId;
@@ -34,6 +40,11 @@ class PurchaseOrder extends Equatable {
   final String? supplierName;
   final String? supplierReference;
   final int receivedQuantity;
+  final String? cancellationReason;
+  final DateTime? closedAt;
+  final String? closedBy;
+  final String? closeReason;
+  final List<PurchaseOrderReceipt> receipts;
 
   int get expectedQuantity =>
       lines.fold(0, (sum, line) => sum + line.expectedQuantity);
@@ -57,5 +68,10 @@ class PurchaseOrder extends Equatable {
     supplierName,
     supplierReference,
     receivedQuantity,
+    cancellationReason,
+    closedAt,
+    closedBy,
+    closeReason,
+    receipts,
   ];
 }

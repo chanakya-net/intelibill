@@ -212,6 +212,62 @@ void main() {
     expect(domain.remainingQuantity, 11);
   });
 
+  test('maps receipt history and lifecycle metadata', () {
+    final domain = PurchaseOrderMapper.detailToDomain(
+      PurchaseOrderDetailDto.fromJson(_detailWithReceiptJson()),
+    );
+
+    expect(domain.cancellationReason, 'Supplier unavailable');
+    expect(domain.closedAt, DateTime.parse('2026-07-15T10:30:00Z').toLocal());
+    expect(domain.closedBy, 'user-closed');
+    expect(domain.closeReason, 'Remaining stock discontinued');
+    final receipt = hasLength(1);
+    expect(domain.receipts, receipt);
+    final mappedReceipt = domain.receipts.single;
+    expect(mappedReceipt.receiptId, 'receipt-1');
+    expect(mappedReceipt.receiptNumber, 'GRN-001');
+    expect(
+      mappedReceipt.receivedAt,
+      DateTime.parse('2026-07-14T06:00:00Z').toLocal(),
+    );
+    expect(mappedReceipt.receivedByUserId, 'user-receiver');
+    expect(mappedReceipt.receivedByDisplayName, 'Riya Receiver');
+    expect(mappedReceipt.referenceNumber, 'REF-001');
+    expect(mappedReceipt.notes, 'Counted at dock');
+
+    final line = mappedReceipt.lines.single;
+    expect(line.receiptLineId, 'receipt-line-1');
+    expect(line.purchaseOrderLineId, 'line-1');
+    expect(line.itemId, 'item-1');
+    expect(line.inventoryBatchId, 'batch-1');
+    expect(line.batchNumber, 'BATCH-001');
+    expect(line.batchVoided, isTrue);
+    expect(line.stockTransactionId, 'transaction-1');
+    expect(line.quantity, 2.5);
+    expect(line.totalPurchaseCost, 250);
+    expect(line.unitCost, 100);
+    expect(line.mrp, 150);
+    expect(line.salesPrice, 125);
+    expect(line.taxRatePercent, 5);
+    expect(line.taxIncluded, isFalse);
+    expect(line.purchaseTaxIncluded, isTrue);
+  });
+
+  test('maps null and empty receipt history to an empty list', () {
+    final nullReceipts = PurchaseOrderMapper.detailToDomain(
+      PurchaseOrderDetailDto.fromJson(_detailJsonNullables()),
+    );
+    final emptyReceipts = PurchaseOrderMapper.detailToDomain(
+      PurchaseOrderDetailDto.fromJson(<String, dynamic>{
+        ..._detailJson(),
+        'receipts': <dynamic>[],
+      }),
+    );
+
+    expect(nullReceipts.receipts, isEmpty);
+    expect(emptyReceipts.receipts, isEmpty);
+  });
+
   test('accepts null optional date and text fields', () {
     final domain = PurchaseOrderMapper.detailToDomain(
       PurchaseOrderDetailDto.fromJson(_detailJsonNullables()),
@@ -774,6 +830,45 @@ Map<String, dynamic> _detailJsonNullables() => {
   'expectedDeliveryDate': null,
   'supplierReferenceNumber': null,
   'notes': null,
+};
+
+Map<String, dynamic> _detailWithReceiptJson() => {
+  ..._detailJson(),
+  'status': 'Closed',
+  'cancellationReason': 'Supplier unavailable',
+  'closedAt': '2026-07-15T10:30:00Z',
+  'closedBy': 'user-closed',
+  'closeReason': 'Remaining stock discontinued',
+  'receipts': [
+    {
+      'receiptId': 'receipt-1',
+      'receiptNumber': 'GRN-001',
+      'receivedAt': '2026-07-14T06:00:00Z',
+      'referenceNumber': 'REF-001',
+      'notes': 'Counted at dock',
+      'receivedByUserId': 'user-receiver',
+      'receivedByDisplayName': 'Riya Receiver',
+      'lines': [
+        {
+          'receiptLineId': 'receipt-line-1',
+          'purchaseOrderLineId': 'line-1',
+          'itemId': 'item-1',
+          'inventoryBatchId': 'batch-1',
+          'batchNumber': 'BATCH-001',
+          'batchVoided': true,
+          'stockTransactionId': 'transaction-1',
+          'quantity': 2.5,
+          'totalPurchaseCost': 250,
+          'unitCost': 100,
+          'mrp': 150,
+          'salesPrice': 125,
+          'taxRatePercent': 5,
+          'taxIncluded': false,
+          'purchaseTaxIncluded': true,
+        },
+      ],
+    },
+  ],
 };
 
 Map<String, dynamic> _detailInvalidStatusJson() => {

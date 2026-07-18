@@ -9,6 +9,8 @@ import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_line.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_receipt.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_receipt_line.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_status.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/get_purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_providers.dart';
@@ -203,6 +205,129 @@ void main() {
     expect(find.text('Line total: ₹701'), findsOneWidget);
     expect(find.text('Expected total: ₹1,451'), findsOneWidget);
     expect(find.text('Received: 7 / 18'), findsOneWidget);
+  });
+
+  testWidgets('renders lifecycle metadata and empty receipt history', (
+    tester,
+  ) async {
+    final getPurchaseOrder = _MockGetPurchaseOrder();
+    when(() => getPurchaseOrder(any())).thenAnswer(
+      (_) async => _detail(
+        status: PurchaseOrderStatus.cancelled,
+        cancellationReason: 'Supplier unavailable',
+      ),
+    );
+    final harness = buildSimpleHarness(
+      getPurchaseOrder: getPurchaseOrder,
+      purchaseOrderId: 'po-cancelled',
+    );
+    addTearDown(harness.container.dispose);
+
+    await tester.pumpWidget(harness.app);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    await tester.scrollUntilVisible(
+      find.text('Cancellation reason: Supplier unavailable'),
+      500,
+      scrollable: find.byType(Scrollable),
+    );
+    expect(
+      find.text('Cancellation reason: Supplier unavailable'),
+      findsOneWidget,
+    );
+    await tester.scrollUntilVisible(
+      find.text('Receipt history'),
+      500,
+      scrollable: find.byType(Scrollable),
+    );
+
+    expect(find.text('Receipt history'), findsOneWidget);
+    expect(find.text('No receipts recorded'), findsOneWidget);
+  });
+
+  testWidgets('renders closure metadata and receipt line details', (
+    tester,
+  ) async {
+    final receivedAt = DateTime.parse('2026-07-14T06:00:00Z').toLocal();
+    final getPurchaseOrder = _MockGetPurchaseOrder();
+    when(() => getPurchaseOrder(any())).thenAnswer(
+      (_) async => _detail(
+        status: PurchaseOrderStatus.closed,
+        closedAt: DateTime.parse('2026-07-15T10:30:00Z').toLocal(),
+        closedBy: 'user-closed',
+        closeReason: 'Remaining stock discontinued',
+        receipts: [
+          PurchaseOrderReceipt(
+            receiptId: 'receipt-1',
+            receiptNumber: 'GRN-001',
+            receivedAt: receivedAt,
+            referenceNumber: 'REF-001',
+            notes: 'Counted at dock',
+            receivedByUserId: 'user-receiver',
+            receivedByDisplayName: 'Riya Receiver',
+            lines: const [
+              PurchaseOrderReceiptLine(
+                receiptLineId: 'receipt-line-1',
+                purchaseOrderLineId: 'line-1',
+                itemId: 'item-1',
+                inventoryBatchId: 'batch-1',
+                batchNumber: 'BATCH-001',
+                batchVoided: true,
+                stockTransactionId: 'transaction-1',
+                quantity: 2.5,
+                totalPurchaseCost: 250,
+                unitCost: 100,
+                mrp: 150,
+                salesPrice: 125,
+                taxRatePercent: 5,
+                taxIncluded: false,
+                purchaseTaxIncluded: true,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+    final harness = buildSimpleHarness(
+      getPurchaseOrder: getPurchaseOrder,
+      purchaseOrderId: 'po-closed',
+    );
+    addTearDown(harness.container.dispose);
+
+    await tester.pumpWidget(harness.app);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    await tester.scrollUntilVisible(
+      find.text('Closed by: user-closed'),
+      500,
+      scrollable: find.byType(Scrollable),
+    );
+    expect(find.text('Closed by: user-closed'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Close reason: Remaining stock discontinued'),
+      200,
+      scrollable: find.byType(Scrollable),
+    );
+    await tester.scrollUntilVisible(
+      find.text('GRN-001'),
+      500,
+      scrollable: find.byType(Scrollable),
+    );
+
+    expect(find.text('GRN-001'), findsOneWidget);
+    await tester.tap(find.text('GRN-001'));
+    await tester.pump();
+
+    expect(find.text('Received by: Riya Receiver'), findsOneWidget);
+    expect(find.text('Reference: REF-001'), findsOneWidget);
+    expect(find.text('Notes: Counted at dock'), findsOneWidget);
+    expect(find.text('Batch: BATCH-001'), findsOneWidget);
+    expect(find.text('Batch state: Voided'), findsOneWidget);
+    expect(find.text('Stock transaction: transaction-1'), findsOneWidget);
+    expect(find.text('Quantity: 2.5'), findsOneWidget);
+    expect(find.text('Total purchase cost: ₹250'), findsOneWidget);
   });
 
   testWidgets('refresh gesture on short content reloads by the same id', (
@@ -409,6 +534,11 @@ PurchaseOrder _detail({
   DateTime? createdAt,
   double? expectedTotal,
   List<PurchaseOrderLine>? lines,
+  String? cancellationReason,
+  DateTime? closedAt,
+  String? closedBy,
+  String? closeReason,
+  List<PurchaseOrderReceipt>? receipts,
 }) {
   return PurchaseOrder(
     purchaseOrderId: purchaseOrderId,
@@ -449,6 +579,11 @@ PurchaseOrder _detail({
     supplierName: 'Fresh Grocers',
     supplierReference: 'RG-77',
     receivedQuantity: 7,
+    cancellationReason: cancellationReason,
+    closedAt: closedAt,
+    closedBy: closedBy,
+    closeReason: closeReason,
+    receipts: receipts ?? const [],
   );
 }
 
