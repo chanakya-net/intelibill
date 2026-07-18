@@ -5,7 +5,7 @@ import 'package:intelibill_mobile/src/features/auth/domain/entities/auth_session
 
 AuthSession _sessionForRole(
   String role, {
-  String? activeShopId,
+  String? activeShopId = 'shop-1',
   List<UserShop>? shops,
 }) {
   return AuthSession(
@@ -118,6 +118,12 @@ void main() {
       expect(isOwner(session), isFalse);
       expect(isOwnerOrManager(session), isFalse);
       expect(canManageSales(session), isFalse);
+      expect(canManagePurchaseOrders(session), isFalse);
+    });
+
+    test('denies purchase orders when active shop is not a membership', () {
+      final session = _sessionForRole('Owner', activeShopId: 'missing-shop');
+
       expect(canManagePurchaseOrders(session), isFalse);
     });
   });

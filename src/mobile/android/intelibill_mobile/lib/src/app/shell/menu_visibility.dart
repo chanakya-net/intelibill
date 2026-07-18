@@ -74,7 +74,15 @@ bool canManageBankAccounts(AuthSession? session) {
   return isOwner(session);
 }
 
-bool canManagePurchaseOrders(AuthSession? session) => isOwnerOrManager(session);
+bool canManagePurchaseOrders(AuthSession? session) {
+  final activeShopId = session?.activeShopId;
+  if (activeShopId == null || activeShopId.isEmpty) {
+    return false;
+  }
+
+  return activeShopForSession(session)?.shopId == activeShopId &&
+      isOwnerOrManager(session);
+}
 
 bool canViewDashboard(AuthSession? session) => isOwnerOrManager(session);
 

@@ -659,6 +659,64 @@ void main() {
       );
     }
 
+    for (final role in ['Owner', 'Manager']) {
+      testWidgets(
+        '$role without an active shop is redirected from purchase-order routes',
+        (tester) async {
+          final container = ProviderContainer(
+            overrides: [
+              authControllerProvider.overrideWith(
+                () => _TestAuthController(
+                  AuthControllerState(
+                    session: _sessionForRole(role, activeShopId: null),
+                  ),
+                ),
+              ),
+              dashboardControllerProvider.overrideWith(
+                _StubDashboardController.new,
+              ),
+              salesHistoryControllerProvider.overrideWith(
+                _StubSalesHistoryController.new,
+              ),
+            ],
+          );
+          addTearDown(container.dispose);
+          final router = container.read(goRouterProvider);
+
+          await tester.pumpWidget(
+            UncontrolledProviderScope(
+              container: container,
+              child: MaterialApp.router(
+                locale: const Locale('en', 'IN'),
+                supportedLocales: const [Locale('en', 'IN')],
+                localizationsDelegates: const [
+                  AppLocalizations.delegate,
+                  GlobalMaterialLocalizations.delegate,
+                  GlobalWidgetsLocalizations.delegate,
+                  GlobalCupertinoLocalizations.delegate,
+                ],
+                routerConfig: router,
+              ),
+            ),
+          );
+          await tester.pump();
+
+          for (final route in [
+            AppRoutes.purchaseOrders,
+            '${AppRoutes.purchaseOrders}/details/po-1',
+          ]) {
+            router.go(route);
+            await tester.pump();
+
+            expect(
+              router.routeInformationProvider.value.uri.toString(),
+              AppRoutes.salesHistory,
+            );
+          }
+        },
+      );
+    }
+
     testWidgets('owner can navigate through sales-flow and management routes', (
       tester,
     ) async {
@@ -1043,7 +1101,7 @@ class _DelayedAuthController extends AuthController {
 
 AuthSession _sessionForRole(
   String role, {
-  String? activeShopId,
+  String? activeShopId = 'shop-1',
   List<UserShop>? shops,
 }) {
   return AuthSession(

@@ -7,7 +7,7 @@ import 'package:intelibill_mobile/src/features/auth/domain/entities/auth_session
 
 AuthSession _sessionForRole(
   String role, {
-  String? activeShopId,
+  String? activeShopId = 'shop-1',
   List<UserShop>? shops,
 }) {
   return AuthSession(
@@ -132,6 +132,18 @@ void main() {
       expect(destination.route, AppRoutes.purchaseOrders);
       expect(destination.matchPrefix, AppRoutes.purchaseOrders);
     });
+
+    for (final role in ['Owner', 'Manager']) {
+      test('$role without an active shop does not see purchase orders', () {
+        final session = _sessionForRole(role, activeShopId: null);
+
+        final keys = moreMenuItems(
+          session,
+        ).map((item) => item.labelKey).toList();
+
+        expect(keys, isNot(contains(MobileMenuLabelKey.purchaseOrders)));
+      });
+    }
 
     test('primary items expose selected icon variants', () {
       final session = _sessionForRole('Owner');
