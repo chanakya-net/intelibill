@@ -35,8 +35,26 @@ AuthSession _ownerSession() {
   );
 }
 
-List<MobileMenuItem> _sampleItems() {
-  return moreMenuItems(_ownerSession());
+AuthSession _sessionForRole(String role) {
+  final owner = _ownerSession();
+  return AuthSession(
+    accessToken: owner.accessToken,
+    refreshToken: owner.refreshToken,
+    accessTokenExpiresAt: owner.accessTokenExpiresAt,
+    refreshTokenExpiresAt: owner.refreshTokenExpiresAt,
+    user: owner.user,
+    activeShopId: owner.activeShopId,
+    shops: [
+      UserShop(
+        shopId: 'shop-1',
+        shopName: 'Primary Shop',
+        role: role,
+        isDefault: true,
+        lastUsedAt: null,
+      ),
+    ],
+    rememberMe: owner.rememberMe,
+  );
 }
 
 Future<void> _pumpSheet(
@@ -44,6 +62,7 @@ Future<void> _pumpSheet(
   required void Function(MobileMenuItem item) onItemTap,
   AuthSession? Function()? sessionBuilder = _ownerSession,
 }) async {
+  final session = sessionBuilder?.call();
   await tester.pumpWidget(
     MaterialApp(
       locale: const Locale('en', 'IN'),
@@ -58,8 +77,8 @@ Future<void> _pumpSheet(
         data: const MediaQueryData(size: Size(400, 900)),
         child: Scaffold(
           body: MoreMenuSheet(
-            items: _sampleItems(),
-            session: sessionBuilder?.call(),
+            items: moreMenuItems(session),
+            session: session,
             onItemTap: onItemTap,
           ),
         ),
@@ -94,6 +113,23 @@ void main() {
       }
     });
 
+    testWidgets('shows purchase orders under management', (tester) async {
+      await _pumpSheet(tester, onItemTap: (_) {});
+
+      await tester.scrollUntilVisible(find.text('Purchase Orders'), 120);
+      expect(find.text('Purchase Orders'), findsOneWidget);
+    });
+
+    testWidgets('hides purchase orders from staff', (tester) async {
+      await _pumpSheet(
+        tester,
+        sessionBuilder: () => _sessionForRole('Staff'),
+        onItemTap: (_) {},
+      );
+
+      expect(find.text('Purchase Orders'), findsNothing);
+    });
+
     testWidgets('invokes callback when menu item is tapped', (tester) async {
       MobileMenuItem? tappedItem;
 
@@ -102,7 +138,8 @@ void main() {
         onItemTap: (item) => tappedItem = item,
       );
 
-      await tester.scrollUntilVisible(find.text('Language'), 120);
+      await tester.drag(find.byType(Scrollable), const Offset(0, -500));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Language'));
       await tester.pumpAndSettle();
 

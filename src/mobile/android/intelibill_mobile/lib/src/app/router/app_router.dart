@@ -23,6 +23,7 @@ import 'package:intelibill_mobile/src/features/inventory/presentation/pages/add_
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/adjustment_history_page.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/inventory_batches_page.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/items_page.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/pages/purchase_orders_page.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/pages/new_sale_page.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/pages/sales_history_page.dart';
@@ -61,6 +62,7 @@ class AppRoutes {
   static const String users = '/users';
   static const String discounts = '/discounts';
   static const String bankAccounts = '/bank-accounts';
+  static const String purchaseOrders = '/inventory/purchase-orders';
   static const String language = '/language';
   static const String placeholders = '/placeholder';
 
@@ -125,6 +127,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
 
       if (state.matchedLocation == AppRoutes.bankAccounts &&
           !canManageBankAccounts(authState.session)) {
+        return AppRoutes.salesHistory;
+      }
+
+      if (_requiresPurchaseOrderAccess(state.matchedLocation) &&
+          !canManagePurchaseOrders(authState.session)) {
         return AppRoutes.salesHistory;
       }
 
@@ -253,6 +260,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const BankAccountsPage(),
           ),
           GoRoute(
+            path: AppRoutes.purchaseOrders,
+            builder: (context, state) => const PurchaseOrdersPage(),
+          ),
+          GoRoute(
             path: AppRoutes.language,
             builder: (context, state) => const LanguagePage(),
           ),
@@ -298,6 +309,11 @@ bool _requiresDiscountAccess(String location) {
 
 bool _requiresServicesAccess(String location) {
   return location == AppRoutes.services;
+}
+
+bool _requiresPurchaseOrderAccess(String location) {
+  return location == AppRoutes.purchaseOrders ||
+      location.startsWith('${AppRoutes.purchaseOrders}/');
 }
 
 PlaceholderPage _buildPlaceholder(

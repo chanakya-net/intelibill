@@ -697,6 +697,12 @@ abstract class AppLocalizations {
   /// **'Services'**
   String get shellManageServices;
 
+  /// No description provided for @shellManagePurchaseOrders.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Purchase Orders'**
+  String get shellManagePurchaseOrders;
+
   /// No description provided for @shellAddShop.
   ///
   /// In en_IN, this message translates to:

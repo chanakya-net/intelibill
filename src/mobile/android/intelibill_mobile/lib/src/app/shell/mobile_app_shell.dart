@@ -70,6 +70,10 @@ int _resolveSelectedIndex(
             MobileMenuActionType.openMoreMenu,
   );
 
+  if (moreIndex >= 0 && _matchesMoreMenu(location, moreItems)) {
+    return moreIndex;
+  }
+
   for (var index = 0; index < primaryItems.length; index++) {
     final item = primaryItems[index];
     final destination = item.destination;
@@ -79,10 +83,6 @@ int _resolveSelectedIndex(
         return index;
       }
     }
-  }
-
-  if (moreIndex >= 0 && _matchesMoreMenu(location, moreItems)) {
-    return moreIndex;
   }
 
   return moreIndex >= 0 ? moreIndex : 0;

@@ -5,7 +5,7 @@ import 'package:intelibill_mobile/src/features/auth/domain/entities/auth_session
 
 AuthSession _sessionForRole(
   String role, {
-  String? activeShopId,
+  String? activeShopId = 'shop-1',
   List<UserShop>? shops,
 }) {
   return AuthSession(
@@ -52,6 +52,7 @@ void main() {
       expect(canManageExpenses(session), isTrue);
       expect(canManageDiscounts(session), isTrue);
       expect(canManageBankAccounts(session), isTrue);
+      expect(canManagePurchaseOrders(session), isTrue);
     });
 
     test('manager role grants shared permissions', () {
@@ -67,6 +68,7 @@ void main() {
       expect(canManageExpenses(session), isTrue);
       expect(canManageDiscounts(session), isTrue);
       expect(canManageBankAccounts(session), isFalse);
+      expect(canManagePurchaseOrders(session), isTrue);
     });
 
     test('staff role grants sales-only permissions', () {
@@ -82,6 +84,7 @@ void main() {
       expect(canManageExpenses(session), isFalse);
       expect(canManageDiscounts(session), isFalse);
       expect(canManageBankAccounts(session), isFalse);
+      expect(canManagePurchaseOrders(session), isFalse);
     });
 
     test('falls back to default shop when active shop is missing', () {
@@ -115,6 +118,13 @@ void main() {
       expect(isOwner(session), isFalse);
       expect(isOwnerOrManager(session), isFalse);
       expect(canManageSales(session), isFalse);
+      expect(canManagePurchaseOrders(session), isFalse);
+    });
+
+    test('denies purchase orders when active shop is not a membership', () {
+      final session = _sessionForRole('Owner', activeShopId: 'missing-shop');
+
+      expect(canManagePurchaseOrders(session), isFalse);
     });
   });
 }

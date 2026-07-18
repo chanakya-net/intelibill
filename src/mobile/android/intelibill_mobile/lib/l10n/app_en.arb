@@ -74,6 +74,7 @@
   "shellManageBankAccounts": "Bank Accounts",
   "shellManageUsers": "Manage Users",
   "shellManageServices": "Services",
+  "shellManagePurchaseOrders": "Purchase Orders",
   "shellAddShop": "Add Shop",
   "shellManageShop": "Manage Shop",
   "shellMore": "More",
