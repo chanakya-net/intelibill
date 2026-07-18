@@ -62,7 +62,9 @@ void main() {
       expect(called, isTrue);
     });
 
-    testWidgets('disables button when reason is blank', (WidgetTester tester) async {
+    testWidgets('disables button when reason is blank', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -80,7 +82,9 @@ void main() {
       );
     });
 
-    testWidgets('limits input to 500 chars visually', (WidgetTester tester) async {
+    testWidgets('limits input to 500 chars visually', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -96,8 +100,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final controller = find.byType(TextField);
-      final textField =
-          tester.widget<TextField>(controller);
+      final textField = tester.widget<TextField>(controller);
       expect(textField.maxLength, 500);
     });
 

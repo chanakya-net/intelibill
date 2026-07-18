@@ -44,7 +44,9 @@ void main() {
     );
   });
 
-  testWidgets('accepts whitespace-padded 500-character trimmed reason', (tester) async {
+  testWidgets('accepts whitespace-padded 500-character trimmed reason', (
+    tester,
+  ) async {
     final reasons = <String>[];
     await tester.pumpWidget(
       MaterialApp(

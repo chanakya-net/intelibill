@@ -5142,6 +5142,102 @@ abstract class AppLocalizations {
   /// In en_IN, this message translates to:
   /// **'Retry'**
   String get purchaseOrderBuilderRetry;
+
+  /// No description provided for @purchaseOrderReceiveAction.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Receive'**
+  String get purchaseOrderReceiveAction;
+
+  /// No description provided for @purchaseOrderReceiveTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Receive purchase order'**
+  String get purchaseOrderReceiveTitle;
+
+  /// No description provided for @purchaseOrderReceiveRetry.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Retry'**
+  String get purchaseOrderReceiveRetry;
+
+  /// No description provided for @purchaseOrderReceiveReceivedAtLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Received at'**
+  String get purchaseOrderReceiveReceivedAtLabel;
+
+  /// No description provided for @purchaseOrderReceiveReferenceLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Reference'**
+  String get purchaseOrderReceiveReferenceLabel;
+
+  /// No description provided for @purchaseOrderReceiveNotesLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Notes'**
+  String get purchaseOrderReceiveNotesLabel;
+
+  /// No description provided for @purchaseOrderReceiveLineQuantity.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Quantity'**
+  String get purchaseOrderReceiveLineQuantity;
+
+  /// No description provided for @purchaseOrderReceiveBarcodeLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Barcode'**
+  String get purchaseOrderReceiveBarcodeLabel;
+
+  /// No description provided for @purchaseOrderReceiveBatchLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Batch number'**
+  String get purchaseOrderReceiveBatchLabel;
+
+  /// No description provided for @purchaseOrderReceiveSummary.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Receipt summary'**
+  String get purchaseOrderReceiveSummary;
+
+  /// No description provided for @purchaseOrderReceiveLineCount.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Line count'**
+  String get purchaseOrderReceiveLineCount;
+
+  /// No description provided for @purchaseOrderReceiveQuantity.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Total quantity'**
+  String get purchaseOrderReceiveQuantity;
+
+  /// No description provided for @purchaseOrderReceiveTotalExpectedPurchaseCost.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Total purchase cost'**
+  String get purchaseOrderReceiveTotalExpectedPurchaseCost;
+
+  /// No description provided for @purchaseOrderReceiveSubmit.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Record receipt'**
+  String get purchaseOrderReceiveSubmit;
+
+  /// No description provided for @purchaseOrderReceiveSubmitFailure.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Could not record receipt.'**
+  String get purchaseOrderReceiveSubmitFailure;
+
+  /// No description provided for @purchaseOrderReceiveNoLines.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No remaining lines available to receive.'**
+  String get purchaseOrderReceiveNoLines;
 }
 
 class _AppLocalizationsDelegate

@@ -26,6 +26,7 @@ import 'package:intelibill_mobile/src/features/inventory/presentation/pages/item
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/pages/purchase_order_builder_page.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/pages/purchase_order_detail_page.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/pages/purchase_orders_page.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/pages/receive_purchase_order_page.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/pages/new_sale_page.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/pages/sales_history_page.dart';
@@ -68,6 +69,8 @@ class AppRoutes {
   static const String purchaseOrderNew = '/inventory/purchase-orders/new';
   static const String purchaseOrderDetail =
       '/inventory/purchase-orders/:purchaseOrderId';
+  static const String purchaseOrderReceive =
+      '/inventory/purchase-orders/:purchaseOrderId/receive';
   static const String language = '/language';
   static const String placeholders = '/placeholder';
 
@@ -81,6 +84,10 @@ class AppRoutes {
 
   static String purchaseOrderDetailFor(String purchaseOrderId) {
     return '/inventory/purchase-orders/$purchaseOrderId';
+  }
+
+  static String purchaseOrderReceiveFor(String purchaseOrderId) {
+    return '/inventory/purchase-orders/$purchaseOrderId/receive';
   }
 }
 
@@ -283,6 +290,14 @@ final goRouterProvider = Provider<GoRouter>((ref) {
               final purchaseOrderId =
                   state.pathParameters['purchaseOrderId'] ?? '';
               return PurchaseOrderDetailPage(purchaseOrderId: purchaseOrderId);
+            },
+          ),
+          GoRoute(
+            path: AppRoutes.purchaseOrderReceive,
+            builder: (context, state) {
+              final purchaseOrderId =
+                  state.pathParameters['purchaseOrderId'] ?? '';
+              return ReceivePurchaseOrderPage(purchaseOrderId: purchaseOrderId);
             },
           ),
           GoRoute(

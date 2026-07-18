@@ -4,6 +4,7 @@ import 'package:intelibill_mobile/src/core/network/api_client.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/cancel_purchase_order_request_dto.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/close_purchase_order_request_dto.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/create_purchase_order_draft_request_dto.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/receive_purchase_order_request_dto.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/purchase_order_detail_dto.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/purchase_order_page_dto.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_filters.dart';
@@ -33,6 +34,13 @@ interface class PurchaseOrderRemoteDataSource {
   Future<PurchaseOrderDetailDto> close(
     String purchaseOrderId,
     ClosePurchaseOrderRequestDto request,
+  ) {
+    throw UnimplementedError();
+  }
+
+  Future<PurchaseOrderDetailDto> receive(
+    String purchaseOrderId,
+    ReceivePurchaseOrderRequestDto request,
   ) {
     throw UnimplementedError();
   }
@@ -128,6 +136,18 @@ class PurchaseOrderRemoteDataSourceImpl
     final response = await _apiClient.post<Map<String, dynamic>>(
       '/purchase-orders/$purchaseOrderId/close',
       data: ClosePurchaseOrderRequestDto(reason: trimmed).toJson(),
+    );
+    return PurchaseOrderDetailDto.fromJson(response.data!);
+  }
+
+  @override
+  Future<PurchaseOrderDetailDto> receive(
+    String purchaseOrderId,
+    ReceivePurchaseOrderRequestDto request,
+  ) async {
+    final response = await _apiClient.post<Map<String, dynamic>>(
+      '/purchase-orders/$purchaseOrderId/receipts',
+      data: request.toJson(),
     );
     return PurchaseOrderDetailDto.fromJson(response.data!);
   }

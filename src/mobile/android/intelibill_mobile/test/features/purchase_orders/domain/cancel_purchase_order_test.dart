@@ -21,8 +21,9 @@ void main() {
   group('CancelPurchaseOrder', () {
     test('calls repository.cancel with id and reason', () async {
       final cancelled = _cancelledPO();
-      when(() => mockRepository.cancel('po-1', 'No longer needed'))
-          .thenAnswer((_) async => cancelled);
+      when(
+        () => mockRepository.cancel('po-1', 'No longer needed'),
+      ).thenAnswer((_) async => cancelled);
 
       final result = await useCase('po-1', 'No longer needed');
 
@@ -34,8 +35,9 @@ void main() {
 
     test('accepts 1-character reason', () async {
       final cancelled = _cancelledPO();
-      when(() => mockRepository.cancel('po-1', 'X'))
-          .thenAnswer((_) async => cancelled);
+      when(
+        () => mockRepository.cancel('po-1', 'X'),
+      ).thenAnswer((_) async => cancelled);
 
       await useCase('po-1', 'X');
 
@@ -45,8 +47,9 @@ void main() {
     test('accepts 500-character reason', () async {
       final reason = 'x' * 500;
       final cancelled = _cancelledPO();
-      when(() => mockRepository.cancel('po-1', reason))
-          .thenAnswer((_) async => cancelled);
+      when(
+        () => mockRepository.cancel('po-1', reason),
+      ).thenAnswer((_) async => cancelled);
 
       await useCase('po-1', reason);
 
@@ -54,8 +57,9 @@ void main() {
     });
 
     test('propagates repository errors', () async {
-      when(() => mockRepository.cancel(any(), any()))
-          .thenThrow(Exception('cancel failed'));
+      when(
+        () => mockRepository.cancel(any(), any()),
+      ).thenThrow(Exception('cancel failed'));
 
       expect(
         () => useCase('po-1', 'No longer needed'),
