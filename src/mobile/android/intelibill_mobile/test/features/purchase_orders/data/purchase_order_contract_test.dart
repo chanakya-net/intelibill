@@ -288,6 +288,34 @@ void main() {
     );
   });
 
+  test('maps a year-zero orderDate into serialization failure', () async {
+    final apiClient = MockApiClient();
+    final source = PurchaseOrderRepositoryImpl(
+      PurchaseOrderRemoteDataSourceImpl(apiClient),
+    );
+
+    when(
+      () => apiClient.get<Map<String, dynamic>>(any<String>()),
+    ).thenAnswer(
+      (_) async => Response(
+        data: {..._detailJson(), 'orderDate': '0000-01-01'},
+        statusCode: 200,
+        requestOptions: RequestOptions(path: '/purchase-orders/po-77'),
+      ),
+    );
+
+    await expectLater(
+      source.getPurchaseOrder('po-77'),
+      throwsA(
+        isA<AppException>().having(
+          (e) => e.failure,
+          'failure',
+          isA<SerializationFailure>(),
+        ),
+      ),
+    );
+  });
+
   test(
     'maps an overflow expectedDeliveryDate into serialization failure',
     () async {

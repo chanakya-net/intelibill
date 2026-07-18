@@ -70,10 +70,10 @@ class PurchaseOrderMapper {
 
   /// Parses a backend `DateOnly` (`yyyy-MM-dd`) into a local calendar date.
   ///
-  /// Rejects any non-calendar value (bad shape, month/day out of range) with a
-  /// [FormatException] instead of silently normalizing overflow components the
-  /// way `DateTime.parse` would. Valid dates are preserved verbatim with no
-  /// timezone conversion.
+  /// Rejects any non-calendar value (bad shape, year zero, or month/day out of
+  /// range) with a [FormatException] instead of silently normalizing overflow
+  /// components the way `DateTime.parse` would. Valid dates are preserved
+  /// verbatim with no timezone conversion.
   static DateTime? _parseDateOnly(String? value) {
     if (value == null) return null;
     final match = _dateOnlyPattern.firstMatch(value);
@@ -83,7 +83,11 @@ class PurchaseOrderMapper {
     final year = int.parse(match.group(1)!);
     final month = int.parse(match.group(2)!);
     final day = int.parse(match.group(3)!);
-    if (month < 1 || month > 12 || day < 1 || day > _daysInMonth(year, month)) {
+    if (year < 1 ||
+        month < 1 ||
+        month > 12 ||
+        day < 1 ||
+        day > _daysInMonth(year, month)) {
       throw FormatException('Invalid DateOnly value', value);
     }
     return DateTime(year, month, day);
