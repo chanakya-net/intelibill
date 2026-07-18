@@ -11,13 +11,14 @@ void main() {
         mapDashboardActionRoute('/inventory/batch'),
         AppRoutes.inventoryBatch,
       );
+      expect(mapDashboardActionRoute('/inventory'), AppRoutes.inventory);
       expect(
         mapDashboardActionRoute('/inventory/batches'),
         AppRoutes.inventoryBatches,
       );
       expect(
         mapDashboardActionRoute('/inventory/purchase-orders'),
-        AppRoutes.inventory,
+        AppRoutes.purchaseOrders,
       );
       expect(mapDashboardActionRoute('/expenses'), AppRoutes.expenses);
       expect(mapDashboardActionRoute('/customers'), AppRoutes.customers);
