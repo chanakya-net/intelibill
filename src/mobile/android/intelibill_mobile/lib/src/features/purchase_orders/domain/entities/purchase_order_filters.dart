@@ -37,6 +37,12 @@ class PurchaseOrderFilters extends Equatable {
   }
 
   @override
-  List<Object?> get props =>
-      [search, status, orderDateFrom, orderDateTo, page, pageSize];
+  List<Object?> get props => [
+    search,
+    status,
+    orderDateFrom,
+    orderDateTo,
+    page,
+    pageSize,
+  ];
 }

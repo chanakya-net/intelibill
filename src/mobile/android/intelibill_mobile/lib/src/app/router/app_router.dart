@@ -23,6 +23,7 @@ import 'package:intelibill_mobile/src/features/inventory/presentation/pages/add_
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/adjustment_history_page.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/inventory_batches_page.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/items_page.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/pages/purchase_order_builder_page.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/pages/purchase_order_detail_page.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/pages/purchase_orders_page.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
@@ -64,6 +65,7 @@ class AppRoutes {
   static const String discounts = '/discounts';
   static const String bankAccounts = '/bank-accounts';
   static const String purchaseOrders = '/inventory/purchase-orders';
+  static const String purchaseOrderNew = '/inventory/purchase-orders/new';
   static const String purchaseOrderDetail =
       '/inventory/purchase-orders/:purchaseOrderId';
   static const String language = '/language';
@@ -269,6 +271,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.purchaseOrders,
             builder: (context, state) => const PurchaseOrdersPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.purchaseOrderNew,
+            builder: (context, state) =>
+                const PurchaseOrderBuilderPage(target: 'new'),
           ),
           GoRoute(
             path: AppRoutes.purchaseOrderDetail,

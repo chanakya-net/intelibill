@@ -200,3 +200,51 @@ final class GetPurchaseOrderProvider
 }
 
 String _$getPurchaseOrderHash() => r'a6a115ce2ce5c6324aed82e3fa79efbc2407ae56';
+
+@ProviderFor(createPurchaseOrderDraft)
+final createPurchaseOrderDraftProvider = CreatePurchaseOrderDraftProvider._();
+
+final class CreatePurchaseOrderDraftProvider
+    extends
+        $FunctionalProvider<
+          CreatePurchaseOrderDraft,
+          CreatePurchaseOrderDraft,
+          CreatePurchaseOrderDraft
+        >
+    with $Provider<CreatePurchaseOrderDraft> {
+  CreatePurchaseOrderDraftProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'createPurchaseOrderDraftProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$createPurchaseOrderDraftHash();
+
+  @$internal
+  @override
+  $ProviderElement<CreatePurchaseOrderDraft> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  CreatePurchaseOrderDraft create(Ref ref) {
+    return createPurchaseOrderDraft(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(CreatePurchaseOrderDraft value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<CreatePurchaseOrderDraft>(value),
+    );
+  }
+}
+
+String _$createPurchaseOrderDraftHash() =>
+    r'1f50a5ce07b573d211a8f2ec67d0981608a2e873';

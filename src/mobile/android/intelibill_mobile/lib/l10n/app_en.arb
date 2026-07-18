@@ -911,5 +911,18 @@
   "purchaseOrderLineReceivedQuantity": "Received",
   "purchaseOrderLineRemainingQuantity": "Remaining",
   "purchaseOrderLineUnitCost": "Unit cost",
-  "purchaseOrderLineTotal": "Line total"
+  "purchaseOrderLineTotal": "Line total",
+  "purchaseOrderBuilderTitle": "New purchase order",
+  "purchaseOrderBuilderSupplier": "Supplier",
+  "purchaseOrderBuilderNoSupplier": "No supplier",
+  "purchaseOrderBuilderOrderDate": "Order date",
+  "purchaseOrderBuilderExpectedDeliveryDate": "Expected delivery date",
+  "purchaseOrderBuilderReference": "Supplier reference number",
+  "purchaseOrderBuilderNotes": "Notes",
+  "purchaseOrderBuilderSave": "Save draft",
+  "purchaseOrderBuilderSelectDate": "Select date",
+  "purchaseOrderBuilderNoSuppliers": "No active suppliers available.",
+  "purchaseOrderBuilderLoadError": "Could not load suppliers.",
+  "purchaseOrderBuilderSaveError": "Could not save purchase order draft.",
+  "purchaseOrderBuilderRetry": "Retry"
 }

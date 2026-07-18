@@ -5064,6 +5064,84 @@ abstract class AppLocalizations {
   /// In en_IN, this message translates to:
   /// **'Line total'**
   String get purchaseOrderLineTotal;
+
+  /// No description provided for @purchaseOrderBuilderTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'New purchase order'**
+  String get purchaseOrderBuilderTitle;
+
+  /// No description provided for @purchaseOrderBuilderSupplier.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Supplier'**
+  String get purchaseOrderBuilderSupplier;
+
+  /// No description provided for @purchaseOrderBuilderNoSupplier.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No supplier'**
+  String get purchaseOrderBuilderNoSupplier;
+
+  /// No description provided for @purchaseOrderBuilderOrderDate.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Order date'**
+  String get purchaseOrderBuilderOrderDate;
+
+  /// No description provided for @purchaseOrderBuilderExpectedDeliveryDate.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Expected delivery date'**
+  String get purchaseOrderBuilderExpectedDeliveryDate;
+
+  /// No description provided for @purchaseOrderBuilderReference.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Supplier reference number'**
+  String get purchaseOrderBuilderReference;
+
+  /// No description provided for @purchaseOrderBuilderNotes.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Notes'**
+  String get purchaseOrderBuilderNotes;
+
+  /// No description provided for @purchaseOrderBuilderSave.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Save draft'**
+  String get purchaseOrderBuilderSave;
+
+  /// No description provided for @purchaseOrderBuilderSelectDate.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Select date'**
+  String get purchaseOrderBuilderSelectDate;
+
+  /// No description provided for @purchaseOrderBuilderNoSuppliers.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No active suppliers available.'**
+  String get purchaseOrderBuilderNoSuppliers;
+
+  /// No description provided for @purchaseOrderBuilderLoadError.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Could not load suppliers.'**
+  String get purchaseOrderBuilderLoadError;
+
+  /// No description provided for @purchaseOrderBuilderSaveError.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Could not save purchase order draft.'**
+  String get purchaseOrderBuilderSaveError;
+
+  /// No description provided for @purchaseOrderBuilderRetry.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Retry'**
+  String get purchaseOrderBuilderRetry;
 }
 
 class _AppLocalizationsDelegate
