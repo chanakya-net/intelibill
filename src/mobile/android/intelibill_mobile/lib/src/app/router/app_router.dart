@@ -63,6 +63,8 @@ class AppRoutes {
   static const String discounts = '/discounts';
   static const String bankAccounts = '/bank-accounts';
   static const String purchaseOrders = '/inventory/purchase-orders';
+  static const String purchaseOrderDetails =
+      '/inventory/purchase-orders/details/:purchaseOrderId';
   static const String language = '/language';
   static const String placeholders = '/placeholder';
 
@@ -72,6 +74,10 @@ class AppRoutes {
 
   static String salesReceiptFor(String saleId) {
     return '/sales/$saleId/receipt';
+  }
+
+  static String purchaseOrderDetailsFor(String purchaseOrderId) {
+    return '/inventory/purchase-orders/details/$purchaseOrderId';
   }
 }
 
@@ -262,6 +268,13 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.purchaseOrders,
             builder: (context, state) => const PurchaseOrdersPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.purchaseOrderDetails,
+            builder: (context, state) => _buildPlaceholder(
+              context,
+              title: 'Purchase order details',
+            ),
           ),
           GoRoute(
             path: AppRoutes.language,
