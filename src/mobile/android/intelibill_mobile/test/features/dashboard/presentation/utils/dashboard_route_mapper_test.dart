@@ -11,6 +11,7 @@ void main() {
         mapDashboardActionRoute('/inventory/batch'),
         AppRoutes.inventoryBatch,
       );
+      expect(mapDashboardActionRoute('/inventory'), AppRoutes.inventory);
       expect(
         mapDashboardActionRoute('/inventory/batches'),
         AppRoutes.inventoryBatches,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intelibill_mobile/src/app/router/app_router.dart';
 import 'package:intelibill_mobile/src/app/theme/app_theme.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
@@ -14,6 +15,7 @@ import 'package:intelibill_mobile/src/features/dashboard/presentation/widgets/da
 import 'package:intelibill_mobile/src/features/dashboard/presentation/widgets/dashboard_kpi_grid.dart';
 import 'package:intelibill_mobile/src/features/dashboard/presentation/widgets/dashboard_period_selector.dart';
 import 'package:intelibill_mobile/src/features/dashboard/presentation/widgets/dashboard_quick_actions.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/pages/purchase_orders_page.dart';
 
 import '../../dashboard_test_fixtures.dart';
 
@@ -53,6 +55,21 @@ Widget _buildApp({
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       home: const DashboardPage(),
+    ),
+  );
+}
+
+Widget _buildRouterApp({
+  required ProviderContainer container,
+  required GoRouter router,
+}) {
+  return UncontrolledProviderScope(
+    container: container,
+    child: MaterialApp.router(
+      theme: AppTheme.lightTheme,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      routerConfig: router,
     ),
   );
 }
@@ -167,7 +184,7 @@ void main() {
       expect(find.text('No dashboard data available.'), findsOneWidget);
     });
 
-    testWidgets('renders pending purchase order alert with action button', (
+    testWidgets('navigates pending purchase order alert to directory', (
       tester,
     ) async {
       tester.view.physicalSize = const Size(1080, 2400);
@@ -175,10 +192,28 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
 
+      final container = ProviderContainer(
+        overrides: [
+          dashboardControllerProvider.overrideWith(
+            () => _StubDashboardController(
+              DashboardState(dashboard: testDashboardWithPO),
+            ),
+          ),
+          authControllerProvider.overrideWith(
+            () => _StubAuthController(
+              AuthControllerState(session: _ownerSession()),
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      final router = container.read(goRouterProvider);
+      addTearDown(router.dispose);
+
       await tester.pumpWidget(
-        _buildApp(
-          dashboardState: DashboardState(dashboard: testDashboardWithPO),
-          session: _ownerSession(),
+        _buildRouterApp(
+          container: container,
+          router: router,
         ),
       );
       await tester.pump();
@@ -189,7 +224,17 @@ void main() {
 
       expect(find.text('Pending Purchase Order'), findsOneWidget);
       expect(find.text('PO-001 awaiting approval.'), findsOneWidget);
-      expect(find.text('Review'), findsOneWidget);
+
+      final reviewButton = find.widgetWithText(TextButton, 'Review');
+      await tester.ensureVisible(reviewButton);
+      await tester.tap(reviewButton);
+      await tester.pumpAndSettle();
+
+      expect(
+        router.state.uri.toString(),
+        AppRoutes.purchaseOrders,
+      );
+      expect(find.byKey(PurchaseOrdersPage.pageKey), findsOneWidget);
     });
   });
 }
