@@ -12,13 +12,16 @@ import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/p
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_receipt.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_receipt_line.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_status.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/cancel_purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/get_purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_providers.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/pages/purchase_order_detail_page.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_cancel_sheet.dart';
 import 'package:intl/intl.dart';
 import 'package:mocktail/mocktail.dart';
 
 class _MockGetPurchaseOrder extends Mock implements GetPurchaseOrder {}
+class _MockCancelPurchaseOrder extends Mock implements CancelPurchaseOrder {}
 
 class _Harness {
   _Harness({
@@ -525,6 +528,111 @@ void main() {
       harness.container.dispose();
       await tester.pump(const Duration(milliseconds: 50));
     }
+  });
+
+  group('Cancellation Action Visibility & Confirmation Flow', () {
+    late _MockGetPurchaseOrder mockGetPurchaseOrder;
+    late _MockCancelPurchaseOrder mockCancelPurchaseOrder;
+
+    setUp(() {
+      mockGetPurchaseOrder = _MockGetPurchaseOrder();
+      mockCancelPurchaseOrder = _MockCancelPurchaseOrder();
+    });
+
+    _SimpleHarness buildHarnessWithCancel({
+      required PurchaseOrderStatus status,
+    }) {
+      final getPO = _detail(purchaseOrderId: 'po-test', status: status);
+      when(() => mockGetPurchaseOrder(any())).thenAnswer((_) async => getPO);
+
+      final container = ProviderContainer(
+        overrides: [
+          getPurchaseOrderProvider.overrideWithValue(mockGetPurchaseOrder),
+          cancelPurchaseOrderProvider.overrideWithValue(mockCancelPurchaseOrder),
+        ],
+      );
+
+      return _SimpleHarness(
+        container: container,
+        app: UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: AppTheme.lightTheme,
+            supportedLocales: const [Locale('en', 'IN')],
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            home: PurchaseOrderDetailPage(purchaseOrderId: 'po-test'),
+          ),
+        ),
+      );
+    }
+
+    testWidgets('shows cancel button only when status is Placed', (WidgetTester tester) async {
+      for (final status in PurchaseOrderStatus.values) {
+        final harness = buildHarnessWithCancel(status: status);
+        await tester.pumpWidget(harness.app);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+
+        final buttonFinder = find.byKey(const Key('purchase-order-detail-cancel-button'));
+        if (status == PurchaseOrderStatus.placed) {
+          expect(buttonFinder, findsOneWidget);
+        } else {
+          expect(buttonFinder, findsNothing);
+        }
+
+        harness.container.dispose();
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+    });
+
+    testWidgets('shows sheet on cancel button click and executes cancellation', (WidgetTester tester) async {
+      final harness = buildHarnessWithCancel(status: PurchaseOrderStatus.placed);
+      
+      final cancelledPO = _detail(
+        purchaseOrderId: 'po-test',
+        status: PurchaseOrderStatus.cancelled,
+        cancellationReason: 'Vendor issue',
+      );
+      when(() => mockCancelPurchaseOrder(any(), any())).thenAnswer((_) async => cancelledPO);
+
+      await tester.pumpWidget(harness.app);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      final buttonFinder = find.byKey(const Key('purchase-order-detail-cancel-button'));
+      expect(buttonFinder, findsOneWidget);
+
+      await tester.tap(buttonFinder);
+      await tester.pumpAndSettle();
+
+      // Expect sheet is visible
+      expect(find.byType(PurchaseOrderCancelSheet), findsOneWidget);
+
+      // Enter invalid (empty) reason and verify button is disabled
+      final textFormField = find.byType(TextField);
+      expect(textFormField, findsOneWidget);
+
+      final cancelBtnFinder = find.widgetWithText(ElevatedButton, 'Cancel Order');
+      expect(tester.widget<ElevatedButton>(cancelBtnFinder).onPressed, isNull);
+
+      // Enter valid reason
+      await tester.enterText(textFormField, 'Vendor issue');
+      await tester.pumpAndSettle();
+      expect(tester.widget<ElevatedButton>(cancelBtnFinder).onPressed, isNotNull);
+
+      // Tap cancel order button
+      await tester.tap(cancelBtnFinder);
+      await tester.pumpAndSettle();
+
+      // Verify cancel was called on use case
+      verify(() => mockCancelPurchaseOrder('po-test', 'Vendor issue')).called(1);
+
+      // Verify sheet is closed
+      expect(find.byType(PurchaseOrderCancelSheet), findsNothing);
+
+      harness.container.dispose();
+      await tester.pump(const Duration(milliseconds: 50));
+    });
   });
 }
 

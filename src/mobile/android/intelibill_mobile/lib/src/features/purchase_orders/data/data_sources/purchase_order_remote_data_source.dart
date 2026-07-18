@@ -1,4 +1,7 @@
+import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
+import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/network/api_client.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/cancel_purchase_order_request_dto.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/create_purchase_order_draft_request_dto.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/purchase_order_detail_dto.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/purchase_order_page_dto.dart';
@@ -15,6 +18,13 @@ interface class PurchaseOrderRemoteDataSource {
 
   Future<PurchaseOrderDetailDto> createDraft(
     CreatePurchaseOrderDraftRequestDto request,
+  ) {
+    throw UnimplementedError();
+  }
+
+  Future<PurchaseOrderDetailDto> cancel(
+    String purchaseOrderId,
+    CancelPurchaseOrderRequestDto request,
   ) {
     throw UnimplementedError();
   }
@@ -70,6 +80,26 @@ class PurchaseOrderRemoteDataSourceImpl
     final response = await _apiClient.post<Map<String, dynamic>>(
       '/purchase-orders',
       data: request.toJson(),
+    );
+    return PurchaseOrderDetailDto.fromJson(response.data!);
+  }
+
+  @override
+  Future<PurchaseOrderDetailDto> cancel(
+    String purchaseOrderId,
+    CancelPurchaseOrderRequestDto request,
+  ) async {
+    final trimmed = request.reason.trim();
+    if (trimmed.isEmpty || trimmed.length > 500) {
+      throw AppException(
+        failure: const Failure.validation(
+          message: 'Reason must be between 1 and 500 characters.',
+        ),
+      );
+    }
+    final response = await _apiClient.post<Map<String, dynamic>>(
+      '/purchase-orders/$purchaseOrderId/cancel',
+      data: CancelPurchaseOrderRequestDto(reason: trimmed).toJson(),
     );
     return PurchaseOrderDetailDto.fromJson(response.data!);
   }
