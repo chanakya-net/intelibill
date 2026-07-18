@@ -89,6 +89,105 @@ void main() {
       ),
     ).called(1);
   });
+
+  test('omits blank search from query params', () async {
+    final apiClient = MockApiClient();
+    final source = PurchaseOrderRemoteDataSourceImpl(apiClient);
+    when(
+      () => apiClient.get<Map<String, dynamic>>(
+        any<String>(),
+        queryParameters: any<Map<String, dynamic>>(named: 'queryParameters'),
+      ),
+    ).thenAnswer(
+      (_) async => Response(
+        data: {
+          'items': <dynamic>[],
+          'totalCount': 0,
+          'pageNumber': 1,
+          'pageSize': 20,
+        },
+        statusCode: 200,
+        requestOptions: RequestOptions(path: '/purchase-orders'),
+      ),
+    );
+
+    await source.getPurchaseOrders(
+      const PurchaseOrderFilters(search: ''),
+    );
+
+    verify(
+      () => apiClient.get<Map<String, dynamic>>(
+        '/purchase-orders',
+        queryParameters: {'page': 1, 'page_size': 20},
+      ),
+    ).called(1);
+  });
+
+  test('omits whitespace-only search from query params', () async {
+    final apiClient = MockApiClient();
+    final source = PurchaseOrderRemoteDataSourceImpl(apiClient);
+    when(
+      () => apiClient.get<Map<String, dynamic>>(
+        any<String>(),
+        queryParameters: any<Map<String, dynamic>>(named: 'queryParameters'),
+      ),
+    ).thenAnswer(
+      (_) async => Response(
+        data: {
+          'items': <dynamic>[],
+          'totalCount': 0,
+          'pageNumber': 1,
+          'pageSize': 20,
+        },
+        statusCode: 200,
+        requestOptions: RequestOptions(path: '/purchase-orders'),
+      ),
+    );
+
+    await source.getPurchaseOrders(
+      const PurchaseOrderFilters(search: '   '),
+    );
+
+    verify(
+      () => apiClient.get<Map<String, dynamic>>(
+        '/purchase-orders',
+        queryParameters: {'page': 1, 'page_size': 20},
+      ),
+    ).called(1);
+  });
+
+  test('sends trimmed search under exactly `search` key', () async {
+    final apiClient = MockApiClient();
+    final source = PurchaseOrderRemoteDataSourceImpl(apiClient);
+    when(
+      () => apiClient.get<Map<String, dynamic>>(
+        any<String>(),
+        queryParameters: any<Map<String, dynamic>>(named: 'queryParameters'),
+      ),
+    ).thenAnswer(
+      (_) async => Response(
+        data: {
+          'items': <dynamic>[],
+          'totalCount': 0,
+          'pageNumber': 1,
+          'pageSize': 20,
+        },
+        statusCode: 200,
+        requestOptions: RequestOptions(path: '/purchase-orders'),
+      ),
+    );
+
+    await source.getPurchaseOrders(
+      const PurchaseOrderFilters(search: '  widget  '),
+    );
+
+    verify(
+      () => apiClient.get<Map<String, dynamic>>(
+        '/purchase-orders',
+        queryParameters: {'page': 1, 'page_size': 20, 'search': 'widget'},
+      ),
+    ).called(1);
+  });
 }
 
 Map<String, dynamic> _itemJson() => {

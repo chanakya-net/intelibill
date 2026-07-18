@@ -22,7 +22,12 @@ void main() {
 
   setUp(() => getPurchaseOrders = MockGetPurchaseOrders());
 
-  ProviderContainer makeContainer() {
+  ProviderContainer makeContainer({bool? stubInitialLoad}) {
+    reset(getPurchaseOrders);
+    final willStub = stubInitialLoad ?? true;
+    if (willStub) {
+      when(() => getPurchaseOrders(any())).thenAnswer((_) async => _page());
+    }
     return ProviderContainer(
       overrides: [
         getPurchaseOrdersProvider.overrideWithValue(getPurchaseOrders),
@@ -33,7 +38,6 @@ void main() {
   test(
     'starts loading page 1 at 20 rows then exposes success and count',
     () async {
-      when(() => getPurchaseOrders(any())).thenAnswer((_) async => _page());
       final container = makeContainer();
       addTearDown(container.dispose);
 
@@ -57,6 +61,7 @@ void main() {
     'exposes an initial serialization error then retries successfully',
     () async {
       var calls = 0;
+      reset(getPurchaseOrders);
       when(() => getPurchaseOrders(any())).thenAnswer((_) async {
         calls += 1;
         if (calls == 1) {
@@ -66,7 +71,11 @@ void main() {
         }
         return _page();
       });
-      final container = makeContainer();
+      final container = ProviderContainer(
+        overrides: [
+          getPurchaseOrdersProvider.overrideWithValue(getPurchaseOrders),
+        ],
+      );
       addTearDown(container.dispose);
 
       await container.read(purchaseOrdersControllerProvider.notifier).refresh();
@@ -83,6 +92,7 @@ void main() {
   );
 
   test('distinguishes a true empty result', () async {
+    reset(getPurchaseOrders);
     when(
       () => getPurchaseOrders(any()),
     ).thenAnswer(
@@ -93,7 +103,11 @@ void main() {
         pageSize: 20,
       ),
     );
-    final container = makeContainer();
+    final container = ProviderContainer(
+      overrides: [
+        getPurchaseOrdersProvider.overrideWithValue(getPurchaseOrders),
+      ],
+    );
     addTearDown(container.dispose);
 
     await container.read(purchaseOrdersControllerProvider.notifier).refresh();
@@ -101,6 +115,23 @@ void main() {
     final state = container.read(purchaseOrdersControllerProvider);
     expect(state.isEmpty, isTrue);
     expect(state.failure, isNull);
+  });
+
+  test('updateSearch method exists and is callable', () async {
+    reset(getPurchaseOrders);
+    when(() => getPurchaseOrders(any())).thenAnswer((_) async => _page());
+    final container = ProviderContainer(
+      overrides: [
+        getPurchaseOrdersProvider.overrideWithValue(getPurchaseOrders),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final notifier = container.read(purchaseOrdersControllerProvider.notifier);
+    expect(notifier.updateSearch, isNotNull);
+
+    notifier.updateSearch('widget');
+    await Future<void>.delayed(const Duration(milliseconds: 350));
   });
 }
 
