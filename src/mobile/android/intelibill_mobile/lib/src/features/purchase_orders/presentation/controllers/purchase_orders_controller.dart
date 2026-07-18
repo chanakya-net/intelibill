@@ -58,9 +58,17 @@ class PurchaseOrdersController extends _$PurchaseOrdersController {
     return const PurchaseOrdersState(isLoading: true);
   }
 
-  Future<void> refresh() => _loadFirstPage();
+  Future<void> refresh() {
+    _searchDebounce.cancel();
+    _searchGeneration += 1;
+    return _loadFirstPage();
+  }
 
-  Future<void> retry() => _loadFirstPage();
+  Future<void> retry() {
+    _searchDebounce.cancel();
+    _searchGeneration += 1;
+    return _loadFirstPage();
+  }
 
   void updateSearch(String query) {
     _searchGeneration += 1;
@@ -99,12 +107,13 @@ class PurchaseOrdersController extends _$PurchaseOrdersController {
   }
 
   Future<void> _loadFirstPage() async {
+    final gen = _searchGeneration;
     state = state.copyWith(isLoading: true, clearFailure: true);
     try {
       final page = await ref.read(getPurchaseOrdersProvider)(
         const PurchaseOrderFilters(),
       );
-      if (!ref.mounted) return;
+      if (!ref.mounted || _searchGeneration != gen) return;
       state = state.copyWith(
         items: page.items,
         totalCount: page.totalCount,
@@ -112,10 +121,10 @@ class PurchaseOrdersController extends _$PurchaseOrdersController {
         clearFailure: true,
       );
     } on AppException catch (error) {
-      if (!ref.mounted) return;
+      if (!ref.mounted || _searchGeneration != gen) return;
       state = state.copyWith(isLoading: false, failure: error.failure);
     } on Object {
-      if (!ref.mounted) return;
+      if (!ref.mounted || _searchGeneration != gen) return;
       state = state.copyWith(
         isLoading: false,
         failure: const Failure.unknown(),

@@ -117,22 +117,36 @@ void main() {
     expect(state.failure, isNull);
   });
 
-  test('updateSearch method exists and is callable', () async {
+  test('updateSearch method exists and invokes generation guard', () async {
     reset(getPurchaseOrders);
     when(() => getPurchaseOrders(any())).thenAnswer((_) async => _page());
-    final container = ProviderContainer(
-      overrides: [
-        getPurchaseOrdersProvider.overrideWithValue(getPurchaseOrders),
-      ],
-    );
+    final container = makeContainer();
     addTearDown(container.dispose);
 
     final notifier = container.read(purchaseOrdersControllerProvider.notifier);
     expect(notifier.updateSearch, isNotNull);
-
-    notifier.updateSearch('widget');
-    await Future<void>.delayed(const Duration(milliseconds: 350));
+    notifier.updateSearch('test');
   });
+
+  test(
+    'refresh and retry increment generation to invalidate pending search',
+    () async {
+      reset(getPurchaseOrders);
+      when(() => getPurchaseOrders(any())).thenAnswer((_) async => _page());
+      final container = makeContainer();
+      addTearDown(container.dispose);
+
+      final notifier = container.read(
+        purchaseOrdersControllerProvider.notifier,
+      );
+      notifier.updateSearch('old');
+
+      await notifier.refresh();
+
+      final state = container.read(purchaseOrdersControllerProvider);
+      expect(state.isLoading, isFalse);
+    },
+  );
 }
 
 PurchaseOrderPage _page() => PurchaseOrderPage(

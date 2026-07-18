@@ -139,6 +139,25 @@ void main() {
     );
     expect(find.text('po-1'), findsOneWidget);
   });
+
+  testWidgets('search field is keyed and mounted in success state', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      buildApp(
+        PurchaseOrdersState(items: [_item()], totalCount: 1),
+      ),
+    );
+    expect(find.byKey(PurchaseOrdersPage.searchFieldKey), findsOneWidget);
+  });
+
+  testWidgets('search field is keyed and mounted in empty state', (
+    tester,
+  ) async {
+    await tester.pumpWidget(buildApp(const PurchaseOrdersState()));
+    expect(find.byKey(PurchaseOrdersPage.searchFieldKey), findsOneWidget);
+    expect(find.text('No purchase orders yet'), findsOneWidget);
+  });
 }
 
 PurchaseOrderListItem _item({

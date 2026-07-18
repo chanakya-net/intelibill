@@ -53,57 +53,79 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
     }
     if (state.failure != null) return _FailureView(failure: state.failure!);
 
-    final hasActiveSearch = _searchController.text.isNotEmpty;
+    final hasActiveSearch = _searchController.text.trim().isNotEmpty;
     final hasResults = state.items.isNotEmpty;
 
-    if (!hasResults && hasActiveSearch) {
-      return _FilteredEmptyView(query: _searchController.text);
-    }
-    if (state.isEmpty) return const _EmptyView();
-
-    return RefreshIndicator(
-      onRefresh: () =>
-          ref.read(purchaseOrdersControllerProvider.notifier).refresh(),
-      child: ListView.builder(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.only(top: 8, bottom: 24),
-        itemCount: state.items.length + 2,
-        itemBuilder: (context, index) {
-          if (index == 0) {
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: SearchBar(
-                controller: _searchController,
-                key: PurchaseOrdersPage.searchFieldKey,
-                hintText: 'Search purchase orders',
-                onChanged: (value) {
-                  ref
-                      .read(purchaseOrdersControllerProvider.notifier)
-                      .updateSearch(value);
-                  setState(() {});
-                },
-              ),
-            );
-          }
-          if (index == 1) {
-            return Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-              child: Text(
-                '${state.totalCount} purchase order${state.totalCount == 1 ? '' : 's'}',
-                key: PurchaseOrdersPage.countKey,
-                style: Theme.of(context).textTheme.titleSmall,
-              ),
-            );
-          }
-          final purchaseOrder = state.items[index - 2];
-          return PurchaseOrderCard(
-            purchaseOrder: purchaseOrder,
-            onTap: () => GoRouter.of(context).go(
-              AppRoutes.purchaseOrderDetailsFor(purchaseOrder.purchaseOrderId),
-            ),
-          );
+    final searchBar = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: SearchBar(
+        controller: _searchController,
+        key: PurchaseOrdersPage.searchFieldKey,
+        hintText: 'Search purchase orders',
+        onChanged: (value) {
+          ref
+              .read(purchaseOrdersControllerProvider.notifier)
+              .updateSearch(value);
+          setState(() {});
         },
       ),
+    );
+
+    if (!hasResults && hasActiveSearch) {
+      return Column(
+        children: [
+          searchBar,
+          Expanded(
+            child: _FilteredEmptyView(query: _searchController.text),
+          ),
+        ],
+      );
+    }
+    if (state.isEmpty) {
+      return Column(
+        children: [
+          searchBar,
+          const Expanded(child: _EmptyView()),
+        ],
+      );
+    }
+
+    return Column(
+      children: [
+        searchBar,
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: () =>
+                ref.read(purchaseOrdersControllerProvider.notifier).refresh(),
+            child: ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.only(top: 8, bottom: 24),
+              itemCount: state.items.length + 1,
+              itemBuilder: (context, index) {
+                if (index == 0) {
+                  return Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                    child: Text(
+                      '${state.totalCount} purchase order${state.totalCount == 1 ? '' : 's'}',
+                      key: PurchaseOrdersPage.countKey,
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                  );
+                }
+                final purchaseOrder = state.items[index - 1];
+                return PurchaseOrderCard(
+                  purchaseOrder: purchaseOrder,
+                  onTap: () => GoRouter.of(context).go(
+                    AppRoutes.purchaseOrderDetailsFor(
+                      purchaseOrder.purchaseOrderId,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
