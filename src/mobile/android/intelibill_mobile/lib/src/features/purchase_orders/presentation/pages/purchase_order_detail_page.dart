@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intelibill_mobile/src/app/router/app_router.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
-import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order.dart';
+import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_line.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_detail_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_detail_header.dart';
@@ -19,6 +19,7 @@ class PurchaseOrderDetailPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
     final state = ref.watch(
       purchaseOrderDetailControllerProvider(purchaseOrderId),
     );
@@ -26,7 +27,7 @@ class PurchaseOrderDetailPage extends ConsumerWidget {
     if (state.isLoading && state.detail == null) {
       return Scaffold(
         key: pageKey,
-        appBar: AppBar(title: const Text('Purchase Order')),
+        appBar: AppBar(title: Text(l10n.commonLoading)),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
@@ -34,10 +35,10 @@ class PurchaseOrderDetailPage extends ConsumerWidget {
     if (state.failure != null && state.detail == null) {
       return Scaffold(
         key: pageKey,
-        appBar: AppBar(title: const Text('Purchase order')),
+        appBar: AppBar(title: Text(l10n.purchaseOrderDetailPageTitle)),
         body: _FailureView(
           isNotFound: state.failure is NotFoundFailure,
-          message: _failureMessage(state.failure),
+          message: _failureMessage(l10n, state.failure),
           router: GoRouter.of(context),
           onRetry: () => ref
               .read(
@@ -50,7 +51,7 @@ class PurchaseOrderDetailPage extends ConsumerWidget {
 
     final purchaseOrder = state.detail;
     if (purchaseOrder == null) {
-      return Scaffold(key: pageKey, body: const SizedBox.shrink());
+      return const Scaffold(key: pageKey, body: SizedBox.shrink());
     }
 
     return Scaffold(
@@ -63,6 +64,7 @@ class PurchaseOrderDetailPage extends ConsumerWidget {
             )
             .refresh(),
         child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
           children: [
             PurchaseOrderDetailHeader(purchaseOrder: purchaseOrder),
             PurchaseOrderDetailSummary(purchaseOrder: purchaseOrder),
@@ -73,11 +75,11 @@ class PurchaseOrderDetailPage extends ConsumerWidget {
     );
   }
 
-  String _failureMessage(Failure? failure) {
+  String _failureMessage(AppLocalizations l10n, Failure? failure) {
     if (failure is NotFoundFailure) {
-      return 'Purchase order not found.';
+      return l10n.purchaseOrderDetailNotFound;
     }
-    return 'Could not load purchase order.';
+    return l10n.purchaseOrderDetailUnableToLoad;
   }
 }
 
@@ -96,6 +98,7 @@ class _FailureView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -107,10 +110,13 @@ class _FailureView extends StatelessWidget {
             if (isNotFound) ...[
               FilledButton(
                 onPressed: () => router.go(AppRoutes.purchaseOrders),
-                child: const Text('Back to purchase orders'),
+                child: Text(l10n.purchaseOrderDetailBack),
               ),
             ] else ...[
-              FilledButton(onPressed: onRetry, child: const Text('Retry')),
+              FilledButton(
+                onPressed: onRetry,
+                child: Text(l10n.purchaseOrderDetailRetry),
+              ),
             ],
           ],
         ),
@@ -126,17 +132,18 @@ class _LinesSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
-          child: Text('Lines'),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          child: Text(l10n.purchaseOrderDetailLinesHeader),
         ),
         if (lines.isEmpty)
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 8, 16, 24),
-            child: Text('No lines on this order'),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+            child: Text(l10n.purchaseOrderDetailNoLines),
           )
         else
           ...lines.map((line) => PurchaseOrderLineCard(line: line)),

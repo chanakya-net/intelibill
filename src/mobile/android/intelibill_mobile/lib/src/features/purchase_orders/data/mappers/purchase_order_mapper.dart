@@ -1,10 +1,10 @@
+import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/purchase_order_detail_dto.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/purchase_order_list_item_dto.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/purchase_order_page_dto.dart';
-import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/purchase_order_detail_dto.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_line.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_list_item.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_page.dart';
-import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_line.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_status.dart';
 
 class PurchaseOrderMapper {

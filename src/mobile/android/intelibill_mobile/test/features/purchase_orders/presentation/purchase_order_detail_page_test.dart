@@ -13,6 +13,7 @@ import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/p
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/get_purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_providers.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/pages/purchase_order_detail_page.dart';
+import 'package:intl/intl.dart';
 import 'package:mocktail/mocktail.dart';
 
 class _MockGetPurchaseOrder extends Mock implements GetPurchaseOrder {}
@@ -40,7 +41,7 @@ class _SimpleHarness {
 }
 
 void main() {
-  _Harness _buildHarness({
+  _Harness buildHarness({
     required GetPurchaseOrder getPurchaseOrder,
     String initialLocation = AppRoutes.purchaseOrders,
   }) {
@@ -52,17 +53,17 @@ void main() {
       routes: [
         GoRoute(
           path: AppRoutes.root,
-          builder: (_, __) => const SizedBox.shrink(),
+          builder: (context, state) => const SizedBox.shrink(),
         ),
         GoRoute(
           path: AppRoutes.purchaseOrders,
-          builder: (_, __) => const SizedBox(
+          builder: (context, state) => const SizedBox(
             child: Text('Purchase orders list'),
           ),
         ),
         GoRoute(
           path: AppRoutes.purchaseOrderDetail,
-          builder: (_, state) => PurchaseOrderDetailPage(
+          builder: (context, state) => PurchaseOrderDetailPage(
             purchaseOrderId: state.pathParameters['purchaseOrderId'] ?? '',
           ),
         ),
@@ -84,9 +85,10 @@ void main() {
     );
   }
 
-  _SimpleHarness _buildSimpleHarness({
+  _SimpleHarness buildSimpleHarness({
     required GetPurchaseOrder getPurchaseOrder,
     required String purchaseOrderId,
+    Locale locale = const Locale('en', 'IN'),
   }) {
     final container = ProviderContainer(
       overrides: [getPurchaseOrderProvider.overrideWithValue(getPurchaseOrder)],
@@ -98,7 +100,7 @@ void main() {
         container: container,
         child: MaterialApp(
           theme: AppTheme.lightTheme,
-          supportedLocales: const [Locale('en', 'IN')],
+          supportedLocales: [locale],
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           home: PurchaseOrderDetailPage(
             purchaseOrderId: purchaseOrderId,
@@ -121,7 +123,7 @@ void main() {
       return _detail(purchaseOrderId: id);
     });
 
-    final harness = _buildHarness(
+    final harness = buildHarness(
       getPurchaseOrder: getPurchaseOrder,
       initialLocation: AppRoutes.purchaseOrderDetailFor('po-1'),
     );
@@ -148,15 +150,18 @@ void main() {
   testWidgets('renders status badge, header, lines, and totals', (
     tester,
   ) async {
+    final createdAt = DateTime.parse('2026-07-01T03:00:00.000-05:00').toLocal();
     final getPurchaseOrder = _MockGetPurchaseOrder();
     when(() => getPurchaseOrder(any())).thenAnswer(
       (_) async => _detail(
         purchaseOrderId: 'po-77',
         status: PurchaseOrderStatus.received,
+        createdAt: createdAt,
+        expectedTotal: 1450.5,
       ),
     );
 
-    final harness = _buildSimpleHarness(
+    final harness = buildSimpleHarness(
       getPurchaseOrder: getPurchaseOrder,
       purchaseOrderId: 'po-77',
     );
@@ -177,6 +182,12 @@ void main() {
     expect(find.text('Order date: 11 Jul 2026'), findsOneWidget);
     expect(find.text('Expected delivery: 14 Jul 2026'), findsOneWidget);
     expect(find.text('Notes: Urgent restock'), findsOneWidget);
+    expect(
+      find.text(
+        'Created at: ${DateFormat.yMMMd('en_IN').add_jm().format(createdAt)}',
+      ),
+      findsOneWidget,
+    );
     expect(find.text('Lines'), findsOneWidget);
     expect(find.text('Expected quantity: 18'), findsOneWidget);
     expect(find.text('Received quantity: 7'), findsOneWidget);
@@ -188,6 +199,67 @@ void main() {
     expect(find.text('Line total: ₹701'), findsOneWidget);
     expect(find.text('Expected total: ₹1,451'), findsOneWidget);
     expect(find.text('Received: 7 / 18'), findsOneWidget);
+  });
+
+  testWidgets('refresh gesture on short content reloads by the same id', (
+    tester,
+  ) async {
+    var calls = 0;
+    final getPurchaseOrder = _MockGetPurchaseOrder();
+    when(() => getPurchaseOrder(any())).thenAnswer(
+      (_) async {
+        calls += 1;
+        return _detailWithNoLines(purchaseOrderId: 'po-short');
+      },
+    );
+
+    final harness = buildSimpleHarness(
+      getPurchaseOrder: getPurchaseOrder,
+      purchaseOrderId: 'po-short',
+    );
+    addTearDown(harness.container.dispose);
+
+    await tester.pumpWidget(harness.app);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(calls, equals(1));
+    expect(_detailNumberFinder('PO-po-short'), findsOneWidget);
+
+    await tester.drag(find.byType(ListView), const Offset(0, 250));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.pump(const Duration(milliseconds: 800));
+
+    expect(calls, equals(2));
+    expect(
+      _detailNumberFinder('PO-po-short'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('renders localized text for non-English locale', (tester) async {
+    final getPurchaseOrder = _MockGetPurchaseOrder();
+    when(() => getPurchaseOrder(any())).thenAnswer(
+      (_) async => _detail(
+        purchaseOrderId: 'po-locale',
+      ),
+    );
+
+    final harness = buildSimpleHarness(
+      getPurchaseOrder: getPurchaseOrder,
+      purchaseOrderId: 'po-locale',
+      locale: const Locale('hi', 'IN'),
+    );
+    addTearDown(harness.container.dispose);
+
+    await tester.pumpWidget(harness.app);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.text('No lines on this order'), findsNothing);
+    expect(find.text('Supplier: Fresh Grocers'), findsOneWidget);
+    expect(find.text('Supplier reference number: SRN-77'), findsOneWidget);
   });
 
   testWidgets('retries load and then clears not-found with safe back action', (
@@ -203,7 +275,7 @@ void main() {
       return _detail(purchaseOrderId: 'po-retry');
     });
 
-    final harness = _buildHarness(
+    final harness = buildHarness(
       getPurchaseOrder: getPurchaseOrder,
       initialLocation: AppRoutes.purchaseOrderDetailFor('po-retry'),
     );
@@ -240,7 +312,7 @@ void main() {
       ),
     );
 
-    final harness = _buildHarness(
+    final harness = buildHarness(
       getPurchaseOrder: getPurchaseOrder,
       initialLocation: AppRoutes.purchaseOrderDetailFor('po-missing'),
     );
@@ -285,7 +357,7 @@ void main() {
         (_) async => _detail(purchaseOrderId: 'po-status', status: status),
       );
 
-      final harness = _buildSimpleHarness(
+      final harness = buildSimpleHarness(
         getPurchaseOrder: getPurchaseOrder,
         purchaseOrderId: 'po-status',
       );
@@ -309,6 +381,9 @@ void main() {
 PurchaseOrder _detail({
   String purchaseOrderId = 'po-1',
   PurchaseOrderStatus status = PurchaseOrderStatus.placed,
+  DateTime? createdAt,
+  double? expectedTotal,
+  List<PurchaseOrderLine>? lines,
 }) {
   return PurchaseOrder(
     purchaseOrderId: purchaseOrderId,
@@ -319,33 +394,47 @@ PurchaseOrder _detail({
     expectedDeliveryDate: DateTime(2026, 7, 14),
     supplierReferenceNumber: 'SRN-77',
     notes: 'Urgent restock',
-    lines: const [
-      PurchaseOrderLine(
-        lineId: 'line-1',
-        itemId: 'item-1',
-        description: 'Widget A',
-        expectedQuantity: 10,
-        receivedQuantity: 5,
-        remainingQuantity: 5,
-        unitCost: 75,
-        lineTotal: 750,
-      ),
-      PurchaseOrderLine(
-        lineId: 'line-2',
-        itemId: 'item-2',
-        description: 'Widget B',
-        expectedQuantity: 8,
-        receivedQuantity: 2,
-        remainingQuantity: 6,
-        unitCost: 87.5,
-        lineTotal: 700.5,
-      ),
-    ],
-    expectedTotal: 1450.5,
-    createdAt: DateTime(2026, 7, 1, 8, 30),
+    lines:
+        lines ??
+        const [
+          PurchaseOrderLine(
+            lineId: 'line-1',
+            itemId: 'item-1',
+            description: 'Widget A',
+            expectedQuantity: 10,
+            receivedQuantity: 5,
+            remainingQuantity: 5,
+            unitCost: 75,
+            lineTotal: 750,
+          ),
+          PurchaseOrderLine(
+            lineId: 'line-2',
+            itemId: 'item-2',
+            description: 'Widget B',
+            expectedQuantity: 8,
+            receivedQuantity: 2,
+            remainingQuantity: 6,
+            unitCost: 87.5,
+            lineTotal: 700.5,
+          ),
+        ],
+    expectedTotal: expectedTotal ?? 1450.5,
+    createdAt:
+        createdAt ?? DateTime.parse('2026-07-01T08:30:00.000+05:30').toLocal(),
     supplierName: 'Fresh Grocers',
     supplierReference: 'RG-77',
     receivedQuantity: 7,
+  );
+}
+
+PurchaseOrder _detailWithNoLines({
+  String purchaseOrderId = 'po-1',
+  PurchaseOrderStatus status = PurchaseOrderStatus.placed,
+}) {
+  return _detail(
+    purchaseOrderId: purchaseOrderId,
+    status: status,
+    lines: const [],
   );
 }
 

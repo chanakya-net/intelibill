@@ -50,7 +50,7 @@ _PurchaseOrderDetailDto _$PurchaseOrderDetailDtoFromJson(
   createdAt: DateTime.parse(json['createdAt'] as String),
   supplierName: json['supplierName'] as String?,
   supplierReference: json['supplierReference'] as String?,
-  receivedQuantity: (json['receivedQuantity'] as num?)?.toInt() ?? 0,
+  receivedQuantity: (json['receivedQuantity'] as num).toInt(),
 );
 
 Map<String, dynamic> _$PurchaseOrderDetailDtoToJson(

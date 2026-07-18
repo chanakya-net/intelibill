@@ -23,8 +23,8 @@ import 'package:intelibill_mobile/src/features/inventory/presentation/pages/add_
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/adjustment_history_page.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/inventory_batches_page.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/items_page.dart';
-import 'package:intelibill_mobile/src/features/purchase_orders/presentation/pages/purchase_orders_page.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/pages/purchase_order_detail_page.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/pages/purchase_orders_page.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/pages/new_sale_page.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/pages/sales_history_page.dart';

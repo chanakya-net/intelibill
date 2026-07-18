@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_status_badge.dart';
 import 'package:intl/intl.dart';
@@ -11,6 +12,11 @@ class PurchaseOrderDetailHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
+    final locale = Localizations.localeOf(context).toLanguageTag();
+    final createdAt = DateFormat.yMMMd(locale).add_jm().format(
+      purchaseOrder.createdAt,
+    );
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -27,27 +33,33 @@ class PurchaseOrderDetailHeader extends StatelessWidget {
             PurchaseOrderStatusBadge(status: purchaseOrder.status),
             const SizedBox(height: 8),
             Text(
-              purchaseOrder.supplierName?.isNotEmpty == true
-                  ? 'Supplier: ${purchaseOrder.supplierName}'
-                  : 'Supplier: Not provided',
+              '${l10n.purchaseOrderDetailSupplier}: '
+              '${purchaseOrder.supplierName?.isNotEmpty == true ? purchaseOrder.supplierName : l10n.purchaseOrderDetailNotProvided}',
             ),
             if (purchaseOrder.supplierReferenceNumber?.isNotEmpty == true)
               Text(
-                'Supplier reference number: ${purchaseOrder.supplierReferenceNumber}',
+                '${l10n.purchaseOrderDetailSupplierReferenceNumber} '
+                '${purchaseOrder.supplierReferenceNumber}',
               ),
             if (purchaseOrder.supplierReference?.isNotEmpty == true)
-              Text('Supplier reference: ${purchaseOrder.supplierReference}'),
+              Text(
+                '${l10n.purchaseOrderDetailSupplierReference} '
+                '${purchaseOrder.supplierReference}',
+              ),
+            Text('${l10n.purchaseOrderDetailCreatedAt}: $createdAt'),
             if (purchaseOrder.orderDate != null)
               Text(
-                'Order date: ${DateFormat('d MMM yyyy').format(purchaseOrder.orderDate!)}',
+                '${l10n.purchaseOrderDetailOrderDate}: '
+                '${DateFormat('d MMM yyyy').format(purchaseOrder.orderDate!)}',
               ),
             if (purchaseOrder.expectedDeliveryDate != null)
               Text(
-                'Expected delivery: ${DateFormat('d MMM yyyy').format(purchaseOrder.expectedDeliveryDate!)}',
+                '${l10n.purchaseOrderDetailExpectedDeliveryDate}: '
+                '${DateFormat('d MMM yyyy').format(purchaseOrder.expectedDeliveryDate!)}',
               ),
             if (purchaseOrder.notes?.isNotEmpty == true) ...[
               const SizedBox(height: 8),
-              Text('Notes: ${purchaseOrder.notes}'),
+              Text('${l10n.purchaseOrderDetailNotes}: ${purchaseOrder.notes}'),
             ],
           ],
         ),

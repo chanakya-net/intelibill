@@ -36,7 +36,7 @@ sealed class PurchaseOrderDetailDto with _$PurchaseOrderDetailDto {
     required DateTime createdAt,
     String? supplierName,
     String? supplierReference,
-    @Default(0) int receivedQuantity,
+    required int receivedQuantity,
   }) = _PurchaseOrderDetailDto;
 
   factory PurchaseOrderDetailDto.fromJson(Map<String, dynamic> json) =>

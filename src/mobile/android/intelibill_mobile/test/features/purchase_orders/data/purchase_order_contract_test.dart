@@ -1,12 +1,13 @@
 import 'package:dio/dio.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
-import 'package:flutter_test/flutter_test.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/data_sources/purchase_order_remote_data_source.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/purchase_order_detail_dto.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/purchase_order_list_item_dto.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/purchase_order_page_dto.dart';
-import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/purchase_order_detail_dto.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/mappers/purchase_order_mapper.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/data/repositories/purchase_order_repository_impl.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_filters.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_status.dart';
 import 'package:mocktail/mocktail.dart';
@@ -201,6 +202,10 @@ void main() {
     expect(domain.orderDate, DateTime(2026, 7, 11));
     expect(domain.expectedDeliveryDate, DateTime(2026, 7, 14));
     expect(domain.expectedTotal, 1450.5);
+    expect(
+      domain.createdAt,
+      DateTime.parse('2026-07-01T03:00:00.000-05:00').toLocal(),
+    );
     expect(domain.lines, hasLength(2));
     expect(domain.expectedQuantity, 18);
     expect(domain.receivedQuantity, 7);
@@ -218,14 +223,95 @@ void main() {
     expect(domain.notes, isNull);
   });
 
-  test('fails on malformed detail JSON', () {
-    expect(
-      () => PurchaseOrderMapper.detailToDomain(
-        PurchaseOrderDetailDto.fromJson(_detailMalformedJson()),
+  test('maps malformed detail JSON into serialization failure', () async {
+    final apiClient = MockApiClient();
+    final source = PurchaseOrderRepositoryImpl(
+      PurchaseOrderRemoteDataSourceImpl(apiClient),
+    );
+
+    when(
+      () => apiClient.get<Map<String, dynamic>>(any<String>()),
+    ).thenAnswer(
+      (_) async => Response(
+        data: _detailMalformedJson(),
+        statusCode: 200,
+        requestOptions: RequestOptions(path: '/purchase-orders/po-77'),
       ),
-      throwsA(isA<Object>()),
+    );
+
+    await expectLater(
+      source.getPurchaseOrder('po-77'),
+      throwsA(
+        isA<AppException>().having(
+          (e) => e.failure,
+          'failure',
+          isA<SerializationFailure>(),
+        ),
+      ),
     );
   });
+
+  test(
+    'maps missing received-quantity detail to serialization failure',
+    () async {
+      final apiClient = MockApiClient();
+      final source = PurchaseOrderRepositoryImpl(
+        PurchaseOrderRemoteDataSourceImpl(apiClient),
+      );
+
+      when(
+        () => apiClient.get<Map<String, dynamic>>(any<String>()),
+      ).thenAnswer(
+        (_) async => Response(
+          data: _detailWithoutReceivedQuantity(),
+          statusCode: 200,
+          requestOptions: RequestOptions(path: '/purchase-orders/po-77'),
+        ),
+      );
+
+      await expectLater(
+        source.getPurchaseOrder('po-77'),
+        throwsA(
+          isA<AppException>().having(
+            (e) => e.failure,
+            'failure',
+            isA<SerializationFailure>(),
+          ),
+        ),
+      );
+    },
+  );
+
+  test(
+    'maps malformed detail list payload into serialization failure',
+    () async {
+      final apiClient = MockApiClient();
+      final source = PurchaseOrderRepositoryImpl(
+        PurchaseOrderRemoteDataSourceImpl(apiClient),
+      );
+
+      when(
+        () => apiClient.get<Map<String, dynamic>>(any<String>()),
+      ).thenAnswer(
+        (_) async => Response(
+          data: _detailMalformedLines(),
+          statusCode: 200,
+          requestOptions: RequestOptions(path: '/purchase-orders/po-77'),
+        ),
+      );
+
+      await expectLater(
+        source.getPurchaseOrder('po-77'),
+        throwsA(
+          isA<AppException>().having(
+            (e) => e.failure,
+            'failure',
+            isA<SerializationFailure>(),
+          ),
+        ),
+      );
+    },
+  );
 
   test(
     'maps 404 as not-found for missing and foreign purchase-order fetch',
@@ -347,7 +433,7 @@ Map<String, dynamic> _detailJson() => {
     },
   ],
   'expectedTotal': 1450.5,
-  'createdAt': '2026-07-01T08:00:00.000Z',
+  'createdAt': '2026-07-01T03:00:00.000-05:00',
   'supplierName': 'Fresh Grocers',
   'supplierReference': 'RG-77',
   'receivedQuantity': 7,
@@ -365,4 +451,15 @@ Map<String, dynamic> _detailMalformedJson() => {
   ..._detailJson(),
   'status': 'DoesNotExist',
   'orderDate': '2026-14-99',
+};
+
+Map<String, dynamic> _detailWithoutReceivedQuantity() {
+  final json = _detailJson();
+  json.remove('receivedQuantity');
+  return json;
+}
+
+Map<String, dynamic> _detailMalformedLines() => {
+  ..._detailJson(),
+  'lines': 'not-a-list',
 };

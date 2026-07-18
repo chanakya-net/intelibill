@@ -494,7 +494,7 @@ return $default(_that.purchaseOrderId,_that.purchaseOrderNumber,_that.status,_th
 @JsonSerializable()
 
 class _PurchaseOrderDetailDto implements PurchaseOrderDetailDto {
-  const _PurchaseOrderDetailDto({required this.purchaseOrderId, required this.purchaseOrderNumber, required this.status, this.supplierId, this.orderDate, this.expectedDeliveryDate, this.supplierReferenceNumber, this.notes, required final  List<PurchaseOrderLineDto> lines, required this.expectedTotal, required this.createdAt, this.supplierName, this.supplierReference, this.receivedQuantity = 0}): _lines = lines;
+  const _PurchaseOrderDetailDto({required this.purchaseOrderId, required this.purchaseOrderNumber, required this.status, this.supplierId, this.orderDate, this.expectedDeliveryDate, this.supplierReferenceNumber, this.notes, required final  List<PurchaseOrderLineDto> lines, required this.expectedTotal, required this.createdAt, this.supplierName, this.supplierReference, required this.receivedQuantity}): _lines = lines;
   factory _PurchaseOrderDetailDto.fromJson(Map<String, dynamic> json) => _$PurchaseOrderDetailDtoFromJson(json);
 
 @override final  String purchaseOrderId;
@@ -516,7 +516,7 @@ class _PurchaseOrderDetailDto implements PurchaseOrderDetailDto {
 @override final  DateTime createdAt;
 @override final  String? supplierName;
 @override final  String? supplierReference;
-@override@JsonKey() final  int receivedQuantity;
+@override final  int receivedQuantity;
 
 /// Create a copy of PurchaseOrderDetailDto
 /// with the given fields replaced by the non-null parameter values.

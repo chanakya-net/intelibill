@@ -125,7 +125,7 @@ PurchaseOrder _detail() {
         receivedQuantity: 5,
         remainingQuantity: 5,
         unitCost: 2.5,
-        lineTotal: 25.0,
+        lineTotal: 25,
       ),
       PurchaseOrderLine(
         lineId: 'line-2',
@@ -135,7 +135,7 @@ PurchaseOrder _detail() {
         receivedQuantity: 2,
         remainingQuantity: 6,
         unitCost: 3.25,
-        lineTotal: 26.0,
+        lineTotal: 26,
       ),
     ],
     expectedTotal: 1450.5,

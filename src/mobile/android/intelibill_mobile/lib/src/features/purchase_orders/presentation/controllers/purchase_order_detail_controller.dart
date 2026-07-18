@@ -43,7 +43,7 @@ class PurchaseOrderDetailController extends _$PurchaseOrderDetailController {
   @override
   PurchaseOrderDetailState build(String purchaseOrderId) {
     _purchaseOrderId = purchaseOrderId;
-    unawaited(Future.microtask(() => _load()));
+    unawaited(Future.microtask(_load));
     return const PurchaseOrderDetailState(isLoading: true);
   }
 
@@ -57,7 +57,6 @@ class PurchaseOrderDetailController extends _$PurchaseOrderDetailController {
         detail: detail,
         isLoading: false,
         clearFailure: true,
-        clearDetail: false,
       );
     } on AppException catch (error) {
       if (!ref.mounted) return;
@@ -80,7 +79,6 @@ class PurchaseOrderDetailController extends _$PurchaseOrderDetailController {
     state = state.copyWith(
       isLoading: true,
       clearFailure: true,
-      clearDetail: false,
     );
     await _load();
   }

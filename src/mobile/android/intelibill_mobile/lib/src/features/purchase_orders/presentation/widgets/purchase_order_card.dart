@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:intelibill_mobile/src/core/formatting/currency_formatter.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intelibill_mobile/src/app/router/app_router.dart';
+import 'package:intelibill_mobile/src/core/formatting/currency_formatter.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_list_item.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_progress.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_status_badge.dart';
 import 'package:intl/intl.dart';
-import 'package:go_router/go_router.dart';
 
 class PurchaseOrderCard extends StatelessWidget {
   const PurchaseOrderCard({required this.purchaseOrder, this.onTap, super.key});

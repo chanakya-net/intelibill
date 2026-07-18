@@ -2484,6 +2484,80 @@ class AppLocalizationsHi extends AppLocalizations {
   @override
   String get bankAccountsDeleteError =>
       'Unable to delete bank account. Please try again.';
+
+  @override
+  String get purchaseOrderDetailPageTitle => 'Purchase order';
+
+  @override
+  String get purchaseOrderDetailUnableToLoad =>
+      'Could not load purchase order.';
+
+  @override
+  String get purchaseOrderDetailNotFound => 'Purchase order not found.';
+
+  @override
+  String get purchaseOrderDetailRetry => 'Retry';
+
+  @override
+  String get purchaseOrderDetailBack => 'Back to purchase orders';
+
+  @override
+  String get purchaseOrderDetailLinesHeader => 'Lines';
+
+  @override
+  String get purchaseOrderDetailNoLines => 'No lines on this order';
+
+  @override
+  String get purchaseOrderDetailSupplier => 'Supplier';
+
+  @override
+  String get purchaseOrderDetailNotProvided => 'Not provided';
+
+  @override
+  String get purchaseOrderDetailSupplierReferenceNumber =>
+      'Supplier reference number:';
+
+  @override
+  String get purchaseOrderDetailSupplierReference => 'Supplier reference:';
+
+  @override
+  String get purchaseOrderDetailCreatedAt => 'Created at';
+
+  @override
+  String get purchaseOrderDetailOrderDate => 'Order date';
+
+  @override
+  String get purchaseOrderDetailExpectedDeliveryDate => 'Expected delivery';
+
+  @override
+  String get purchaseOrderDetailNotes => 'Notes';
+
+  @override
+  String get purchaseOrderDetailExpectedQuantity => 'Expected quantity';
+
+  @override
+  String get purchaseOrderDetailReceivedQuantity => 'Received quantity';
+
+  @override
+  String get purchaseOrderDetailRemainingQuantity => 'Remaining quantity';
+
+  @override
+  String get purchaseOrderDetailExpectedTotal => 'Expected total';
+
+  @override
+  String get purchaseOrderLineExpectedQuantity => 'Expected';
+
+  @override
+  String get purchaseOrderLineReceivedQuantity => 'Received';
+
+  @override
+  String get purchaseOrderLineRemainingQuantity => 'Remaining';
+
+  @override
+  String get purchaseOrderLineUnitCost => 'Unit cost';
+
+  @override
+  String get purchaseOrderLineTotal => 'Line total';
 }
 
 /// The translations for Hindi, as used in India (`hi_IN`).
