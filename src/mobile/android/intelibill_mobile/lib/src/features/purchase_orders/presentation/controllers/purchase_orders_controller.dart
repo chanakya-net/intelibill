@@ -55,8 +55,9 @@ class PurchaseOrdersState {
       failure: clearFailure ? null : (failure ?? this.failure),
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       hasMore: hasMore ?? this.hasMore,
-      loadMoreFailure:
-          clearLoadMoreFailure ? null : (loadMoreFailure ?? this.loadMoreFailure),
+      loadMoreFailure: clearLoadMoreFailure
+          ? null
+          : (loadMoreFailure ?? this.loadMoreFailure),
       pageNumber: pageNumber ?? this.pageNumber,
     );
   }
@@ -132,17 +133,23 @@ class PurchaseOrdersController extends _$PurchaseOrdersController {
   }
 
   Future<void> _loadFirstPage(int generation) async {
+    _nextPageToLoad = 2;
     final filters = PurchaseOrderFilters(
       search: _activeSearch,
       status: _activeStatus,
       orderDateFrom: _activeDateFrom,
       orderDateTo: _activeDateTo,
     );
-    state = state.copyWith(isLoading: true, clearFailure: true);
+    state = state.copyWith(
+      isLoading: true,
+      isLoadingMore: false,
+      hasMore: false,
+      clearFailure: true,
+      clearLoadMoreFailure: true,
+    );
     try {
       final page = await ref.read(getPurchaseOrdersProvider)(filters);
       if (!ref.mounted || _searchGeneration != generation) return;
-      _nextPageToLoad = 2;
       state = state.copyWith(
         items: page.items,
         totalCount: page.totalCount,
@@ -164,45 +171,65 @@ class PurchaseOrdersController extends _$PurchaseOrdersController {
   }
 
   Future<void> loadMore() async {
-    if (!state.hasMore || state.isLoadingMore || state.isLoading) return;
+    if (!state.hasMore ||
+        state.isLoadingMore ||
+        state.isLoading ||
+        state.loadMoreFailure != null) {
+      return;
+    }
     state = state.copyWith(isLoadingMore: true);
-    await _loadNextPage();
+    await _loadNextPage(
+      generation: _searchGeneration,
+      pageNumber: _nextPageToLoad,
+    );
   }
 
   Future<void> retryLoadMore() async {
+    if (!state.hasMore ||
+        state.isLoadingMore ||
+        state.isLoading ||
+        state.loadMoreFailure == null) {
+      return;
+    }
     state = state.copyWith(isLoadingMore: true, clearLoadMoreFailure: true);
-    await _loadNextPage();
+    await _loadNextPage(
+      generation: _searchGeneration,
+      pageNumber: _nextPageToLoad,
+    );
   }
 
-  Future<void> _loadNextPage() async {
+  Future<void> _loadNextPage({
+    required int generation,
+    required int pageNumber,
+  }) async {
     final filters = PurchaseOrderFilters(
       search: _activeSearch,
       status: _activeStatus,
       orderDateFrom: _activeDateFrom,
       orderDateTo: _activeDateTo,
-      page: _nextPageToLoad,
+      page: pageNumber,
       pageSize: 20,
     );
     try {
       final page = await ref.read(getPurchaseOrdersProvider)(filters);
-      if (!ref.mounted) return;
+      if (!ref.mounted || _searchGeneration != generation) return;
       state = state.copyWith(
         items: [...state.items, ...page.items],
         totalCount: page.totalCount,
         isLoadingMore: false,
         clearLoadMoreFailure: true,
         hasMore: state.items.length + page.items.length < page.totalCount,
-        pageNumber: _nextPageToLoad,
+        pageNumber: pageNumber,
       );
       _nextPageToLoad += 1;
     } on AppException catch (error) {
-      if (!ref.mounted) return;
+      if (!ref.mounted || _searchGeneration != generation) return;
       state = state.copyWith(
         isLoadingMore: false,
         loadMoreFailure: error.failure,
       );
     } on Object {
-      if (!ref.mounted) return;
+      if (!ref.mounted || _searchGeneration != generation) return;
       state = state.copyWith(
         isLoadingMore: false,
         loadMoreFailure: const Failure.unknown(),

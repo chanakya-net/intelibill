@@ -38,8 +38,7 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
   }
 
   bool _onScroll(ScrollNotification notification) {
-    if (notification is ScrollEndNotification &&
-        notification.metrics.extentAfter < 500) {
+    if (notification.metrics.extentAfter < 500) {
       unawaited(
         ref.read(purchaseOrdersControllerProvider.notifier).loadMore(),
       );
@@ -92,6 +91,12 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
       );
     }
     return const SizedBox.shrink();
+  }
+
+  bool _hasLoadMoreFooter(PurchaseOrdersState state) {
+    return state.isLoadingMore ||
+        state.loadMoreFailure != null ||
+        (!state.isLoading && !state.hasMore && state.items.isNotEmpty);
   }
 
   @override
@@ -271,7 +276,10 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
               child: ListView.builder(
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.only(top: 8, bottom: 24),
-                itemCount: state.items.length + 1 + (state.isLoadingMore ? 1 : 0),
+                itemCount:
+                    state.items.length +
+                    1 +
+                    (_hasLoadMoreFooter(state) ? 1 : 0),
                 itemBuilder: (context, index) {
                   if (index == 0) {
                     return Padding(

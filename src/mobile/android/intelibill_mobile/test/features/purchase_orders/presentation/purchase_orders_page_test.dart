@@ -21,6 +21,8 @@ class _TrackingStubController extends PurchaseOrdersController {
   DateTime? lastDateTo;
   PurchaseOrderStatus? lastStatus;
   bool clearFiltersCalled = false;
+  int loadMoreCalls = 0;
+  int retryLoadMoreCalls = 0;
 
   @override
   PurchaseOrdersState build() => _initialState;
@@ -47,6 +49,16 @@ class _TrackingStubController extends PurchaseOrdersController {
   @override
   void clearFilters() {
     clearFiltersCalled = true;
+  }
+
+  @override
+  Future<void> loadMore() async {
+    loadMoreCalls += 1;
+  }
+
+  @override
+  Future<void> retryLoadMore() async {
+    retryLoadMoreCalls += 1;
   }
 }
 
@@ -146,6 +158,69 @@ void main() {
     expect(find.text('Received: 7 / 12'), findsOneWidget);
     expect(find.text('₹1,241'), findsOneWidget);
     expect(find.text('1 Jul 2026'), findsOneWidget);
+  });
+
+  testWidgets('triggers load more near the end of the list', (tester) async {
+    final controller = _TrackingStubController(
+      PurchaseOrdersState(
+        items: List.generate(12, (index) => _item(id: 'po-$index')),
+        totalCount: 24,
+        hasMore: true,
+      ),
+    );
+    await tester.pumpWidget(buildTrackingApp(controller));
+
+    await tester.drag(find.byType(ListView), const Offset(0, -2000));
+    await tester.pumpAndSettle();
+
+    expect(controller.loadMoreCalls, greaterThan(0));
+  });
+
+  testWidgets('shows load-more retry footer while retaining cards', (
+    tester,
+  ) async {
+    final controller = _TrackingStubController(
+      PurchaseOrdersState(
+        items: [_item()],
+        totalCount: 3,
+        loadMoreFailure: const Failure.network(message: 'failed'),
+      ),
+    );
+    await tester.pumpWidget(buildTrackingApp(controller));
+
+    expect(find.byKey(const Key('purchase-order-card-po-1')), findsOneWidget);
+    expect(find.text('Failed to load more'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'Retry'));
+    await tester.pump();
+
+    expect(controller.retryLoadMoreCalls, 1);
+  });
+
+  testWidgets('shows load-more progress while retaining cards', (tester) async {
+    await tester.pumpWidget(
+      buildApp(
+        PurchaseOrdersState(
+          items: [_item()],
+          totalCount: 3,
+          isLoadingMore: true,
+          hasMore: true,
+        ),
+      ),
+    );
+
+    expect(find.byKey(const Key('purchase-order-card-po-1')), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+  });
+
+  testWidgets('shows loaded footer after final page while retaining cards', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      buildApp(PurchaseOrdersState(items: [_item()], totalCount: 1)),
+    );
+
+    expect(find.byKey(const Key('purchase-order-card-po-1')), findsOneWidget);
+    expect(find.text('Loaded 1 of 1'), findsOneWidget);
   });
 
   testWidgets('card displays every purchase-order status', (tester) async {
@@ -363,9 +438,10 @@ void main() {
 }
 
 PurchaseOrderListItem _item({
+  String id = 'po-1',
   PurchaseOrderStatus status = PurchaseOrderStatus.partiallyReceived,
 }) => PurchaseOrderListItem(
-  purchaseOrderId: 'po-1',
+  purchaseOrderId: id,
   purchaseOrderNumber: 'PO-2026-001',
   status: status,
   supplierName: 'Acme Supplies',
