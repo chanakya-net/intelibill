@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:intelibill_mobile/src/app/router/app_router.dart';
 import 'package:intelibill_mobile/src/core/formatting/currency_formatter.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_list_item.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_progress.dart';
@@ -19,7 +21,13 @@ class PurchaseOrderCard extends StatelessWidget {
       child: InkWell(
         key: Key('purchase-order-card-${purchaseOrder.purchaseOrderId}'),
         borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
+        onTap:
+            onTap ??
+            () {
+              GoRouter.of(context).go(
+                AppRoutes.purchaseOrderDetailFor(purchaseOrder.purchaseOrderId),
+              );
+            },
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Column(

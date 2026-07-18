@@ -4758,6 +4758,150 @@ abstract class AppLocalizations {
   /// In en_IN, this message translates to:
   /// **'Unable to delete bank account. Please try again.'**
   String get bankAccountsDeleteError;
+
+  /// No description provided for @purchaseOrderDetailPageTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Purchase order'**
+  String get purchaseOrderDetailPageTitle;
+
+  /// No description provided for @purchaseOrderDetailUnableToLoad.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Could not load purchase order.'**
+  String get purchaseOrderDetailUnableToLoad;
+
+  /// No description provided for @purchaseOrderDetailNotFound.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Purchase order not found.'**
+  String get purchaseOrderDetailNotFound;
+
+  /// No description provided for @purchaseOrderDetailRetry.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Retry'**
+  String get purchaseOrderDetailRetry;
+
+  /// No description provided for @purchaseOrderDetailBack.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Back to purchase orders'**
+  String get purchaseOrderDetailBack;
+
+  /// No description provided for @purchaseOrderDetailLinesHeader.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Lines'**
+  String get purchaseOrderDetailLinesHeader;
+
+  /// No description provided for @purchaseOrderDetailNoLines.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No lines on this order'**
+  String get purchaseOrderDetailNoLines;
+
+  /// No description provided for @purchaseOrderDetailSupplier.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Supplier'**
+  String get purchaseOrderDetailSupplier;
+
+  /// No description provided for @purchaseOrderDetailNotProvided.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Not provided'**
+  String get purchaseOrderDetailNotProvided;
+
+  /// No description provided for @purchaseOrderDetailSupplierReferenceNumber.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Supplier reference number:'**
+  String get purchaseOrderDetailSupplierReferenceNumber;
+
+  /// No description provided for @purchaseOrderDetailSupplierReference.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Supplier reference:'**
+  String get purchaseOrderDetailSupplierReference;
+
+  /// No description provided for @purchaseOrderDetailCreatedAt.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Created at'**
+  String get purchaseOrderDetailCreatedAt;
+
+  /// No description provided for @purchaseOrderDetailOrderDate.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Order date'**
+  String get purchaseOrderDetailOrderDate;
+
+  /// No description provided for @purchaseOrderDetailExpectedDeliveryDate.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Expected delivery'**
+  String get purchaseOrderDetailExpectedDeliveryDate;
+
+  /// No description provided for @purchaseOrderDetailNotes.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Notes'**
+  String get purchaseOrderDetailNotes;
+
+  /// No description provided for @purchaseOrderDetailExpectedQuantity.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Expected quantity'**
+  String get purchaseOrderDetailExpectedQuantity;
+
+  /// No description provided for @purchaseOrderDetailReceivedQuantity.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Received quantity'**
+  String get purchaseOrderDetailReceivedQuantity;
+
+  /// No description provided for @purchaseOrderDetailRemainingQuantity.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Remaining quantity'**
+  String get purchaseOrderDetailRemainingQuantity;
+
+  /// No description provided for @purchaseOrderDetailExpectedTotal.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Expected total'**
+  String get purchaseOrderDetailExpectedTotal;
+
+  /// No description provided for @purchaseOrderLineExpectedQuantity.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Expected'**
+  String get purchaseOrderLineExpectedQuantity;
+
+  /// No description provided for @purchaseOrderLineReceivedQuantity.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Received'**
+  String get purchaseOrderLineReceivedQuantity;
+
+  /// No description provided for @purchaseOrderLineRemainingQuantity.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Remaining'**
+  String get purchaseOrderLineRemainingQuantity;
+
+  /// No description provided for @purchaseOrderLineUnitCost.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unit cost'**
+  String get purchaseOrderLineUnitCost;
+
+  /// No description provided for @purchaseOrderLineTotal.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Line total'**
+  String get purchaseOrderLineTotal;
 }
 
 class _AppLocalizationsDelegate

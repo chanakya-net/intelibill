@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intelibill_mobile/src/app/router/app_router.dart';
 import 'package:intelibill_mobile/src/app/theme/app_theme.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
@@ -108,7 +109,7 @@ void main() {
       routes: [
         GoRoute(path: '/', builder: (_, _) => const PurchaseOrdersPage()),
         GoRoute(
-          path: '/inventory/purchase-orders/details/:purchaseOrderId',
+          path: AppRoutes.purchaseOrderDetail,
           builder: (_, state) => Text(state.pathParameters['purchaseOrderId']!),
         ),
       ],
@@ -138,7 +139,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       router.routerDelegate.currentConfiguration.uri.path,
-      '/inventory/purchase-orders/details/po-1',
+      AppRoutes.purchaseOrderDetailFor('po-1'),
     );
     expect(find.text('po-1'), findsOneWidget);
   });

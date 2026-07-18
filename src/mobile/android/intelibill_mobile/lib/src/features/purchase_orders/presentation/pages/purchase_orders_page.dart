@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'package:intelibill_mobile/src/app/router/app_router.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_orders_controller.dart';
@@ -115,11 +113,6 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
                 final purchaseOrder = state.items[index - 1];
                 return PurchaseOrderCard(
                   purchaseOrder: purchaseOrder,
-                  onTap: () => GoRouter.of(context).go(
-                    AppRoutes.purchaseOrderDetailsFor(
-                      purchaseOrder.purchaseOrderId,
-                    ),
-                  ),
                 );
               },
             ),

@@ -1,5 +1,8 @@
+import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/purchase_order_detail_dto.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/purchase_order_list_item_dto.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/purchase_order_page_dto.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_line.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_list_item.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_page.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_status.dart';
@@ -30,4 +33,72 @@ class PurchaseOrderMapper {
       pageSize: dto.pageSize,
     );
   }
+
+  static PurchaseOrderLine toLineDomain(PurchaseOrderLineDto dto) {
+    return PurchaseOrderLine(
+      lineId: dto.lineId,
+      itemId: dto.itemId,
+      description: dto.description,
+      expectedQuantity: dto.expectedQuantity,
+      receivedQuantity: dto.receivedQuantity,
+      remainingQuantity: dto.remainingQuantity,
+      unitCost: dto.unitCost,
+      lineTotal: dto.lineTotal,
+    );
+  }
+
+  static PurchaseOrder detailToDomain(PurchaseOrderDetailDto dto) {
+    return PurchaseOrder(
+      purchaseOrderId: dto.purchaseOrderId,
+      purchaseOrderNumber: dto.purchaseOrderNumber,
+      status: PurchaseOrderStatus.fromWire(dto.status),
+      supplierId: dto.supplierId,
+      orderDate: _parseDateOnly(dto.orderDate),
+      expectedDeliveryDate: _parseDateOnly(dto.expectedDeliveryDate),
+      supplierReferenceNumber: dto.supplierReferenceNumber,
+      notes: dto.notes,
+      lines: dto.lines.map(toLineDomain).toList(),
+      expectedTotal: dto.expectedTotal,
+      createdAt: dto.createdAt.toLocal(),
+      supplierName: dto.supplierName,
+      supplierReference: dto.supplierReference,
+      receivedQuantity: dto.receivedQuantity,
+    );
+  }
+
+  static final RegExp _dateOnlyPattern = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$');
+
+  /// Parses a backend `DateOnly` (`yyyy-MM-dd`) into a local calendar date.
+  ///
+  /// Rejects any non-calendar value (bad shape, year zero, or month/day out of
+  /// range) with a [FormatException] instead of silently normalizing overflow
+  /// components the way `DateTime.parse` would. Valid dates are preserved
+  /// verbatim with no timezone conversion.
+  static DateTime? _parseDateOnly(String? value) {
+    if (value == null) return null;
+    final match = _dateOnlyPattern.firstMatch(value);
+    if (match == null) {
+      throw FormatException('Invalid DateOnly value', value);
+    }
+    final year = int.parse(match.group(1)!);
+    final month = int.parse(match.group(2)!);
+    final day = int.parse(match.group(3)!);
+    if (year < 1 ||
+        month < 1 ||
+        month > 12 ||
+        day < 1 ||
+        day > _daysInMonth(year, month)) {
+      throw FormatException('Invalid DateOnly value', value);
+    }
+    return DateTime(year, month, day);
+  }
+
+  static int _daysInMonth(int year, int month) {
+    const monthLengths = <int>[31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    if (month == 2 && _isLeapYear(year)) return 29;
+    return monthLengths[month - 1];
+  }
+
+  static bool _isLeapYear(int year) =>
+      year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
 }
