@@ -105,6 +105,52 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
                   ),
               ],
             ),
+            const SizedBox(width: 12),
+            OutlinedButton.icon(
+              icon: const Icon(Icons.calendar_today, size: 18),
+              label: Text(_dateFrom == null
+                  ? 'From:'
+                  : '${_dateFrom!.year}-${_dateFrom!.month.toString().padLeft(2, '0')}-${_dateFrom!.day.toString().padLeft(2, '0')}'),
+              onPressed: () async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: _dateFrom ?? DateTime.now(),
+                  firstDate: DateTime(2000),
+                  lastDate: DateTime.now(),
+                );
+                if (picked != null) {
+                  setState(() => _dateFrom = picked);
+                  ref
+                      .read(
+                        purchaseOrdersControllerProvider.notifier,
+                      )
+                      .updateOrderDateFrom(picked);
+                }
+              },
+            ),
+            const SizedBox(width: 8),
+            OutlinedButton.icon(
+              icon: const Icon(Icons.calendar_today, size: 18),
+              label: Text(_dateTo == null
+                  ? 'To:'
+                  : '${_dateTo!.year}-${_dateTo!.month.toString().padLeft(2, '0')}-${_dateTo!.day.toString().padLeft(2, '0')}'),
+              onPressed: () async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: _dateTo ?? DateTime.now(),
+                  firstDate: DateTime(2000),
+                  lastDate: DateTime.now(),
+                );
+                if (picked != null) {
+                  setState(() => _dateTo = picked);
+                  ref
+                      .read(
+                        purchaseOrdersControllerProvider.notifier,
+                      )
+                      .updateOrderDateTo(picked);
+                }
+              },
+            ),
             const SizedBox(width: 8),
             if (hasActiveFilter)
               ActionChip(
@@ -133,7 +179,7 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
       return Column(
         children: [
           searchBar,
-          if (hasActiveFilter) filterBar,
+          filterBar,
           Expanded(
             child: _FilteredEmptyView(query: _searchController.text),
           ),
@@ -144,7 +190,7 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
       return Column(
         children: [
           searchBar,
-          if (hasActiveFilter) filterBar,
+          filterBar,
           const Expanded(child: _EmptyView()),
         ],
       );
@@ -153,7 +199,7 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
     return Column(
       children: [
         searchBar,
-        if (hasActiveFilter) filterBar,
+        filterBar,
         Expanded(
           child: RefreshIndicator(
             onRefresh: () =>

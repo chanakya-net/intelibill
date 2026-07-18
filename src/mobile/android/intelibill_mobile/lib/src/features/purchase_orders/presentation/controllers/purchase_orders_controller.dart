@@ -95,6 +95,9 @@ class PurchaseOrdersController extends _$PurchaseOrdersController {
   }
 
   void updateOrderDateTo(DateTime? date) {
+    if (date != null && _activeDateFrom != null && _activeDateFrom!.isAfter(date)) {
+      return;
+    }
     _activeDateTo = date;
     unawaited(_loadFirstPage(_nextGeneration()));
   }

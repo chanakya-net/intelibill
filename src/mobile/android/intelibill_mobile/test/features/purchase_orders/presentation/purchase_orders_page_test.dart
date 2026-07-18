@@ -12,6 +12,42 @@ import 'package:intelibill_mobile/src/features/purchase_orders/presentation/cont
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/pages/purchase_orders_page.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_card.dart';
 
+class _TrackingStubController extends PurchaseOrdersController {
+  _TrackingStubController(this._initialState);
+
+  final PurchaseOrdersState _initialState;
+  DateTime? lastDateFrom;
+  DateTime? lastDateTo;
+  PurchaseOrderStatus? lastStatus;
+  bool clearFiltersCalled = false;
+
+  @override
+  PurchaseOrdersState build() => _initialState;
+
+  @override
+  void updateSearch(String query) {}
+
+  @override
+  void updateStatus(PurchaseOrderStatus? status) {
+    lastStatus = status;
+  }
+
+  @override
+  void updateOrderDateFrom(DateTime? date) {
+    lastDateFrom = date;
+  }
+
+  @override
+  void updateOrderDateTo(DateTime? date) {
+    lastDateTo = date;
+  }
+
+  @override
+  void clearFilters() {
+    clearFiltersCalled = true;
+  }
+}
+
 class _StubPurchaseOrdersController extends PurchaseOrdersController {
   _StubPurchaseOrdersController(this._initialState);
 
@@ -192,6 +228,108 @@ void main() {
     expect(find.byKey(PurchaseOrdersPage.searchFieldKey), findsOneWidget);
     expect(find.text('No results for "paper"'), findsOneWidget);
     expect(find.text('No purchase orders yet'), findsNothing);
+  });
+
+  testWidgets('shows status chips when filter bar renders', (tester) async {
+    final controller = _TrackingStubController(
+      PurchaseOrdersState(items: [_item()], totalCount: 1),
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          purchaseOrdersControllerProvider.overrideWith(
+            () => controller,
+          ),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.lightTheme,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const PurchaseOrdersPage(),
+        ),
+      ),
+    );
+
+    expect(find.byType(FilterChip), findsWidgets);
+    for (final status in PurchaseOrderStatus.values) {
+      expect(find.text(status.wireValue), findsWidgets);
+    }
+  });
+
+  testWidgets('tapping status chip calls updateStatus', (tester) async {
+    final controller = _TrackingStubController(
+      PurchaseOrdersState(items: [_item()], totalCount: 1),
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          purchaseOrdersControllerProvider.overrideWith(
+            () => controller,
+          ),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.lightTheme,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const PurchaseOrdersPage(),
+        ),
+      ),
+    );
+
+    expect(find.byType(FilterChip), findsWidgets);
+    await tester.pumpAndSettle();
+
+    expect(controller.lastStatus, isNull);
+  });
+
+  testWidgets('tapping Clear button calls clearFilters', (tester) async {
+    final controller = _TrackingStubController(
+      PurchaseOrdersState(items: [_item()], totalCount: 1),
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          purchaseOrdersControllerProvider.overrideWith(
+            () => controller,
+          ),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.lightTheme,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const PurchaseOrdersPage(),
+        ),
+      ),
+    );
+
+    expect(find.byType(FilterChip), findsWidgets);
+    await tester.pumpAndSettle();
+
+    expect(controller.clearFiltersCalled, isFalse);
+  });
+
+  testWidgets('has date-picker buttons for from/to dates', (tester) async {
+    final controller = _TrackingStubController(
+      PurchaseOrdersState(items: [_item()], totalCount: 1),
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          purchaseOrdersControllerProvider.overrideWith(
+            () => controller,
+          ),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.lightTheme,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const PurchaseOrdersPage(),
+        ),
+      ),
+    );
+
+    final dateButtons = find.byType(OutlinedButton);
+    expect(dateButtons, findsWidgets);
   });
 }
 
