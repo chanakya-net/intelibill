@@ -52,7 +52,12 @@ void main() {
         throwsA(isA<AppException>()),
       );
 
-      verifyNever(() => apiClient.post<Map<String, dynamic>>(any(), data: any(named: 'data')));
+      verifyNever(
+        () => apiClient.post<Map<String, dynamic>>(
+          any(),
+          data: any(named: 'data'),
+        ),
+      );
     });
 
     test('rejects 501-character reason and does not call API', () async {
@@ -68,7 +73,12 @@ void main() {
         throwsA(isA<AppException>()),
       );
 
-      verifyNever(() => apiClient.post<Map<String, dynamic>>(any(), data: any(named: 'data')));
+      verifyNever(
+        () => apiClient.post<Map<String, dynamic>>(
+          any(),
+          data: any(named: 'data'),
+        ),
+      );
     });
 
     test('maps response to PurchaseOrderDetailDto', () async {
@@ -76,7 +86,10 @@ void main() {
       final source = PurchaseOrderRemoteDataSourceImpl(apiClient);
 
       when(
-        () => apiClient.post<Map<String, dynamic>>(any(), data: any(named: 'data')),
+        () => apiClient.post<Map<String, dynamic>>(
+          any(),
+          data: any(named: 'data'),
+        ),
       ).thenAnswer(
         (_) async => Response(
           data: _cancelledJson(),

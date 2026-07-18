@@ -924,5 +924,21 @@
   "purchaseOrderBuilderNoSuppliers": "No active suppliers available.",
   "purchaseOrderBuilderLoadError": "Could not load suppliers.",
   "purchaseOrderBuilderSaveError": "Could not save purchase order draft.",
-  "purchaseOrderBuilderRetry": "Retry"
+  "purchaseOrderBuilderRetry": "Retry",
+  "purchaseOrderReceiveAction": "Receive",
+  "purchaseOrderReceiveTitle": "Receive purchase order",
+  "purchaseOrderReceiveRetry": "Retry",
+  "purchaseOrderReceiveReceivedAtLabel": "Received at",
+  "purchaseOrderReceiveReferenceLabel": "Reference",
+  "purchaseOrderReceiveNotesLabel": "Notes",
+  "purchaseOrderReceiveLineQuantity": "Quantity",
+  "purchaseOrderReceiveBarcodeLabel": "Barcode",
+  "purchaseOrderReceiveBatchLabel": "Batch number",
+  "purchaseOrderReceiveSummary": "Receipt summary",
+  "purchaseOrderReceiveLineCount": "Line count",
+  "purchaseOrderReceiveQuantity": "Total quantity",
+  "purchaseOrderReceiveTotalExpectedPurchaseCost": "Total purchase cost",
+  "purchaseOrderReceiveSubmit": "Record receipt",
+  "purchaseOrderReceiveSubmitFailure": "Could not record receipt.",
+  "purchaseOrderReceiveNoLines": "No remaining lines available to receive."
 }

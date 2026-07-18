@@ -4,10 +4,12 @@ import 'package:intelibill_mobile/src/features/purchase_orders/data/data_sources
 import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/cancel_purchase_order_request_dto.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/close_purchase_order_request_dto.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/create_purchase_order_draft_request_dto.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/receive_purchase_order_request_dto.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/mappers/purchase_order_mapper.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_draft.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_filters.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/receive_purchase_order_input.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_page.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/repositories/purchase_order_repository.dart';
 
@@ -159,6 +161,50 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
     }
   }
 
+  @override
+  Future<PurchaseOrder> receive(
+    String purchaseOrderId,
+    ReceivePurchaseOrderInput input,
+  ) async {
+    if (input.lines.isEmpty) {
+      throw AppException(
+        failure: const Failure.validation(message: 'No lines to receive.'),
+      );
+    }
+
+    final ids = <String>{};
+    for (final line in input.lines) {
+      if (!ids.add(line.purchaseOrderLineId)) {
+        throw AppException(
+          failure: const Failure.validation(
+            message: 'Duplicate purchase-order line IDs are not allowed.',
+          ),
+        );
+      }
+    }
+
+    try {
+      final dto = await _remoteDataSource.receive(
+        purchaseOrderId,
+        _toReceiveRequest(input),
+      );
+      return PurchaseOrderMapper.detailToDomain(dto);
+    } on AppException {
+      rethrow;
+    } on FormatException catch (error) {
+      throw AppException(
+        failure: Failure.serialization(message: error.message),
+      );
+    } catch (error) {
+      if (error is TypeError) {
+        throw AppException(
+          failure: Failure.serialization(message: error.toString()),
+        );
+      }
+      throw AppException(failure: Failure.unknown(message: error.toString()));
+    }
+  }
+
   String? _normalize(String? value) {
     final trimmed = value?.trim();
     return trimmed == null || trimmed.isEmpty ? null : trimmed;
@@ -169,5 +215,33 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
     return '${date.year.toString().padLeft(4, '0')}-'
         '${date.month.toString().padLeft(2, '0')}-'
         '${date.day.toString().padLeft(2, '0')}';
+  }
+
+  ReceivePurchaseOrderRequestDto _toReceiveRequest(
+    ReceivePurchaseOrderInput input,
+  ) {
+    return ReceivePurchaseOrderRequestDto(
+      referenceNumber: _normalize(input.referenceNumber),
+      notes: _normalize(input.notes),
+      receivedAt: input.receivedAt,
+      lines: input.lines
+          .map(
+            (line) => ReceivePurchaseOrderLineRequestDto(
+              purchaseOrderLineId: line.purchaseOrderLineId,
+              barcode: line.barcode,
+              batchNumber: line.batchNumber,
+              quantity: line.quantity,
+              totalPurchaseCost: line.totalPurchaseCost,
+              mrp: line.mrp,
+              salesPrice: line.salesPrice,
+              taxRatePercent: line.taxRatePercent,
+              taxIncluded: line.taxIncluded,
+              purchaseTaxIncluded: line.purchaseTaxIncluded,
+              expiryDate: line.expiryDate,
+              manufacturingDate: line.manufacturingDate,
+            ),
+          )
+          .toList(growable: false),
+    );
   }
 }

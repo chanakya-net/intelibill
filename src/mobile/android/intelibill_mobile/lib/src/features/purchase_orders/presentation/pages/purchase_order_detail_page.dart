@@ -19,6 +19,7 @@ class PurchaseOrderDetailPage extends ConsumerWidget {
   const PurchaseOrderDetailPage({required this.purchaseOrderId, super.key});
 
   static const pageKey = Key('purchase-order-detail-page');
+  static const receiveButtonKey = Key('purchase-order-detail-receive-button');
 
   final String purchaseOrderId;
 
@@ -64,6 +65,18 @@ class PurchaseOrderDetailPage extends ConsumerWidget {
       appBar: AppBar(
         title: Text(purchaseOrder.purchaseOrderNumber),
         actions: [
+          if (purchaseOrder.status == PurchaseOrderStatus.placed ||
+              purchaseOrder.status == PurchaseOrderStatus.partiallyReceived)
+            IconButton(
+              key: receiveButtonKey,
+              icon: const Icon(Icons.move_to_inbox),
+              tooltip: l10n.purchaseOrderReceiveAction,
+              onPressed: () {
+                context.go(
+                  AppRoutes.purchaseOrderReceiveFor(purchaseOrderId),
+                );
+              },
+            ),
           if (purchaseOrder.status == PurchaseOrderStatus.placed)
             IconButton(
               key: const Key('purchase-order-detail-cancel-button'),

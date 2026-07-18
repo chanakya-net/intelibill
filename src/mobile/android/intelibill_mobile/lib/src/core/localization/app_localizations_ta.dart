@@ -2682,6 +2682,56 @@ class AppLocalizationsTa extends AppLocalizations {
 
   @override
   String get purchaseOrderBuilderRetry => 'Retry';
+
+  @override
+  String get purchaseOrderReceiveAction => 'Receive';
+
+  @override
+  String get purchaseOrderReceiveTitle => 'Receive purchase order';
+
+  @override
+  String get purchaseOrderReceiveRetry => 'Retry';
+
+  @override
+  String get purchaseOrderReceiveReceivedAtLabel => 'Received at';
+
+  @override
+  String get purchaseOrderReceiveReferenceLabel => 'Reference';
+
+  @override
+  String get purchaseOrderReceiveNotesLabel => 'Notes';
+
+  @override
+  String get purchaseOrderReceiveLineQuantity => 'Quantity';
+
+  @override
+  String get purchaseOrderReceiveBarcodeLabel => 'Barcode';
+
+  @override
+  String get purchaseOrderReceiveBatchLabel => 'Batch number';
+
+  @override
+  String get purchaseOrderReceiveSummary => 'Receipt summary';
+
+  @override
+  String get purchaseOrderReceiveLineCount => 'Line count';
+
+  @override
+  String get purchaseOrderReceiveQuantity => 'Total quantity';
+
+  @override
+  String get purchaseOrderReceiveTotalExpectedPurchaseCost =>
+      'Total purchase cost';
+
+  @override
+  String get purchaseOrderReceiveSubmit => 'Record receipt';
+
+  @override
+  String get purchaseOrderReceiveSubmitFailure => 'Could not record receipt.';
+
+  @override
+  String get purchaseOrderReceiveNoLines =>
+      'No remaining lines available to receive.';
 }
 
 /// The translations for Tamil, as used in India (`ta_IN`).

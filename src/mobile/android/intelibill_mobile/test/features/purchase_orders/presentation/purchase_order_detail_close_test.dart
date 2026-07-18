@@ -17,6 +17,7 @@ import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widg
 import 'package:mocktail/mocktail.dart';
 
 class _MockGetPurchaseOrder extends Mock implements GetPurchaseOrder {}
+
 class _MockClosePurchaseOrder extends Mock implements ClosePurchaseOrder {}
 
 void main() {
@@ -34,10 +35,15 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 
-    expect(find.byKey(const Key('purchase-order-detail-close-button')), findsOneWidget);
+    expect(
+      find.byKey(const Key('purchase-order-detail-close-button')),
+      findsOneWidget,
+    );
   });
 
-  testWidgets('submits close reason and renders server metadata', (tester) async {
+  testWidgets('submits close reason and renders server metadata', (
+    tester,
+  ) async {
     final get = _MockGetPurchaseOrder();
     final close = _MockClosePurchaseOrder();
     when(() => get(any())).thenAnswer(
@@ -62,7 +68,9 @@ void main() {
     await tester.pumpWidget(_app(container, 'po-1'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
-    await tester.tap(find.byKey(const Key('purchase-order-detail-close-button')));
+    await tester.tap(
+      find.byKey(const Key('purchase-order-detail-close-button')),
+    );
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), '  User reason  ');
     await tester.pump();
@@ -73,44 +81,53 @@ void main() {
     expect(find.byType(PurchaseOrderCloseSheet), findsNothing);
   });
 
-  test('conflict refreshes authoritative detail and retains mutation failure', () async {
-    final get = _MockGetPurchaseOrder();
-    final close = _MockClosePurchaseOrder();
-    var reads = 0;
-    when(() => get('po-1')).thenAnswer((_) async {
-      reads++;
-      return _detail(
-        status: reads == 1
-            ? PurchaseOrderStatus.partiallyReceived
-            : PurchaseOrderStatus.closed,
-        closeReason: reads == 1 ? null : 'Authoritative reason',
+  test(
+    'conflict refreshes authoritative detail and retains mutation failure',
+    () async {
+      final get = _MockGetPurchaseOrder();
+      final close = _MockClosePurchaseOrder();
+      var reads = 0;
+      when(() => get('po-1')).thenAnswer((_) async {
+        reads++;
+        return _detail(
+          status: reads == 1
+              ? PurchaseOrderStatus.partiallyReceived
+              : PurchaseOrderStatus.closed,
+          closeReason: reads == 1 ? null : 'Authoritative reason',
+        );
+      });
+      const conflict = Failure.server(statusCode: 409, message: 'Conflict');
+      when(
+        () => close('po-1', any()),
+      ).thenThrow(AppException(failure: conflict));
+      final container = ProviderContainer(
+        overrides: [
+          getPurchaseOrderProvider.overrideWithValue(get),
+          closePurchaseOrderProvider.overrideWithValue(close),
+        ],
       );
-    });
-    const conflict = Failure.server(statusCode: 409, message: 'Conflict');
-    when(() => close('po-1', any()))
-        .thenThrow(AppException(failure: conflict));
-    final container = ProviderContainer(
-      overrides: [
-        getPurchaseOrderProvider.overrideWithValue(get),
-        closePurchaseOrderProvider.overrideWithValue(close),
-      ],
-    );
-    addTearDown(container.dispose);
-    container.listen(purchaseOrderDetailControllerProvider('po-1'), (_, __) {});
-    await Future<void>.delayed(const Duration(milliseconds: 20));
+      addTearDown(container.dispose);
+      container.listen(
+        purchaseOrderDetailControllerProvider('po-1'),
+        (_, __) {},
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 20));
 
-    await expectLater(
-      container
-          .read(purchaseOrderDetailControllerProvider('po-1').notifier)
-          .close('Reason'),
-      throwsA(isA<AppException>()),
-    );
-    final state = container.read(purchaseOrderDetailControllerProvider('po-1'));
-    expect(reads, 2);
-    expect(state.detail?.status, PurchaseOrderStatus.closed);
-    expect(state.detail?.closeReason, 'Authoritative reason');
-    expect(state.closeState.failure, conflict);
-  });
+      await expectLater(
+        container
+            .read(purchaseOrderDetailControllerProvider('po-1').notifier)
+            .close('Reason'),
+        throwsA(isA<AppException>()),
+      );
+      final state = container.read(
+        purchaseOrderDetailControllerProvider('po-1'),
+      );
+      expect(reads, 2);
+      expect(state.detail?.status, PurchaseOrderStatus.closed);
+      expect(state.detail?.closeReason, 'Authoritative reason');
+      expect(state.closeState.failure, conflict);
+    },
+  );
 
   test('retains loaded detail when close failure refresh also fails', () async {
     final get = _MockGetPurchaseOrder();
@@ -128,7 +145,9 @@ void main() {
     addTearDown(container.dispose);
     container.listen(purchaseOrderDetailControllerProvider('po-1'), (_, __) {});
     await Future<void>.delayed(const Duration(milliseconds: 20));
-    final before = container.read(purchaseOrderDetailControllerProvider('po-1')).detail;
+    final before = container
+        .read(purchaseOrderDetailControllerProvider('po-1'))
+        .detail;
 
     await expectLater(
       container

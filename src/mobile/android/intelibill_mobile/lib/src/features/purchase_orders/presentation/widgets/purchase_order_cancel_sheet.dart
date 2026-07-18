@@ -109,13 +109,14 @@ class _PurchaseOrderCancelSheetState extends State<PurchaseOrderCancelSheet> {
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               TextButton(
-                onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+                onPressed: _isLoading
+                    ? null
+                    : () => Navigator.of(context).pop(),
                 child: const Text('Keep'),
               ),
               const SizedBox(width: 8),
               ElevatedButton(
-                onPressed:
-                    _isLoading || !_isReasonValid ? null : _handleCancel,
+                onPressed: _isLoading || !_isReasonValid ? null : _handleCancel,
                 child: _isLoading
                     ? const SizedBox(
                         width: 20,

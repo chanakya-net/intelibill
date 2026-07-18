@@ -21,6 +21,7 @@ import 'package:intl/intl.dart';
 import 'package:mocktail/mocktail.dart';
 
 class _MockGetPurchaseOrder extends Mock implements GetPurchaseOrder {}
+
 class _MockCancelPurchaseOrder extends Mock implements CancelPurchaseOrder {}
 
 class _Harness {
@@ -548,7 +549,9 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           getPurchaseOrderProvider.overrideWithValue(mockGetPurchaseOrder),
-          cancelPurchaseOrderProvider.overrideWithValue(mockCancelPurchaseOrder),
+          cancelPurchaseOrderProvider.overrideWithValue(
+            mockCancelPurchaseOrder,
+          ),
         ],
       );
 
@@ -566,14 +569,18 @@ void main() {
       );
     }
 
-    testWidgets('shows cancel button only when status is Placed', (WidgetTester tester) async {
+    testWidgets('shows cancel button only when status is Placed', (
+      WidgetTester tester,
+    ) async {
       for (final status in PurchaseOrderStatus.values) {
         final harness = buildHarnessWithCancel(status: status);
         await tester.pumpWidget(harness.app);
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 50));
 
-        final buttonFinder = find.byKey(const Key('purchase-order-detail-cancel-button'));
+        final buttonFinder = find.byKey(
+          const Key('purchase-order-detail-cancel-button'),
+        );
         if (status == PurchaseOrderStatus.placed) {
           expect(buttonFinder, findsOneWidget);
         } else {
@@ -585,54 +592,74 @@ void main() {
       }
     });
 
-    testWidgets('shows sheet on cancel button click and executes cancellation', (WidgetTester tester) async {
-      final harness = buildHarnessWithCancel(status: PurchaseOrderStatus.placed);
-      
-      final cancelledPO = _detail(
-        purchaseOrderId: 'po-test',
-        status: PurchaseOrderStatus.cancelled,
-        cancellationReason: 'Vendor issue',
-      );
-      when(() => mockCancelPurchaseOrder(any(), any())).thenAnswer((_) async => cancelledPO);
+    testWidgets(
+      'shows sheet on cancel button click and executes cancellation',
+      (WidgetTester tester) async {
+        final harness = buildHarnessWithCancel(
+          status: PurchaseOrderStatus.placed,
+        );
 
-      await tester.pumpWidget(harness.app);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 50));
+        final cancelledPO = _detail(
+          purchaseOrderId: 'po-test',
+          status: PurchaseOrderStatus.cancelled,
+          cancellationReason: 'Vendor issue',
+        );
+        when(
+          () => mockCancelPurchaseOrder(any(), any()),
+        ).thenAnswer((_) async => cancelledPO);
 
-      final buttonFinder = find.byKey(const Key('purchase-order-detail-cancel-button'));
-      expect(buttonFinder, findsOneWidget);
+        await tester.pumpWidget(harness.app);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
 
-      await tester.tap(buttonFinder);
-      await tester.pumpAndSettle();
+        final buttonFinder = find.byKey(
+          const Key('purchase-order-detail-cancel-button'),
+        );
+        expect(buttonFinder, findsOneWidget);
 
-      // Expect sheet is visible
-      expect(find.byType(PurchaseOrderCancelSheet), findsOneWidget);
+        await tester.tap(buttonFinder);
+        await tester.pumpAndSettle();
 
-      // Enter invalid (empty) reason and verify button is disabled
-      final textFormField = find.byType(TextField);
-      expect(textFormField, findsOneWidget);
+        // Expect sheet is visible
+        expect(find.byType(PurchaseOrderCancelSheet), findsOneWidget);
 
-      final cancelBtnFinder = find.widgetWithText(ElevatedButton, 'Cancel Order');
-      expect(tester.widget<ElevatedButton>(cancelBtnFinder).onPressed, isNull);
+        // Enter invalid (empty) reason and verify button is disabled
+        final textFormField = find.byType(TextField);
+        expect(textFormField, findsOneWidget);
 
-      // Enter valid reason
-      await tester.enterText(textFormField, 'Vendor issue');
-      await tester.pumpAndSettle();
-      expect(tester.widget<ElevatedButton>(cancelBtnFinder).onPressed, isNotNull);
+        final cancelBtnFinder = find.widgetWithText(
+          ElevatedButton,
+          'Cancel Order',
+        );
+        expect(
+          tester.widget<ElevatedButton>(cancelBtnFinder).onPressed,
+          isNull,
+        );
 
-      // Tap cancel order button
-      await tester.tap(cancelBtnFinder);
-      await tester.pumpAndSettle();
+        // Enter valid reason
+        await tester.enterText(textFormField, 'Vendor issue');
+        await tester.pumpAndSettle();
+        expect(
+          tester.widget<ElevatedButton>(cancelBtnFinder).onPressed,
+          isNotNull,
+        );
 
-      // Verify cancel was called on use case
-      verify(() => mockCancelPurchaseOrder('po-test', 'Vendor issue')).called(1);
+        // Tap cancel order button
+        await tester.tap(cancelBtnFinder);
+        await tester.pumpAndSettle();
 
-      // Verify sheet is closed
-      expect(find.byType(PurchaseOrderCancelSheet), findsNothing);
+        // Verify cancel was called on use case
+        verify(
+          () => mockCancelPurchaseOrder('po-test', 'Vendor issue'),
+        ).called(1);
 
-      harness.container.dispose();
-      await tester.pump(const Duration(milliseconds: 50));
-    });
+        // Verify sheet is closed
+        expect(find.byType(PurchaseOrderCancelSheet), findsNothing);
+
+        harness.container.dispose();
+        await tester.pump(const Duration(milliseconds: 50));
+      },
+    );
   });
 }
 

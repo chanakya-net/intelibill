@@ -28,13 +28,17 @@ void main() {
   group('PurchaseOrderRepositoryImpl.cancel', () {
     test('trims reason before sending to data source', () async {
       final dto = _cancelledDto();
-      when(() => mockDataSource.cancel(any(), any()))
-          .thenAnswer((_) async => dto);
+      when(
+        () => mockDataSource.cancel(any(), any()),
+      ).thenAnswer((_) async => dto);
 
       await repository.cancel('po-1', '  No longer needed  ');
 
       final captured = verify(
-        () => mockDataSource.cancel('po-1', captureAny<CancelPurchaseOrderRequestDto>()),
+        () => mockDataSource.cancel(
+          'po-1',
+          captureAny<CancelPurchaseOrderRequestDto>(),
+        ),
       ).captured;
       expect(
         (captured[0] as CancelPurchaseOrderRequestDto).reason,
@@ -44,7 +48,9 @@ void main() {
 
     test('maps cancelled DTO to domain PurchaseOrder', () async {
       final dto = _cancelledDto();
-      when(() => mockDataSource.cancel(any(), any())).thenAnswer((_) async => dto);
+      when(
+        () => mockDataSource.cancel(any(), any()),
+      ).thenAnswer((_) async => dto);
 
       final result = await repository.cancel('po-1', 'No longer needed');
 
@@ -54,8 +60,9 @@ void main() {
     });
 
     test('wraps AppException from data source', () async {
-      when(() => mockDataSource.cancel(any(), any()))
-          .thenThrow(AppException(failure: const Failure.notFound()));
+      when(
+        () => mockDataSource.cancel(any(), any()),
+      ).thenThrow(AppException(failure: const Failure.notFound()));
 
       expect(
         () => repository.cancel('po-1', 'No longer needed'),
@@ -64,8 +71,9 @@ void main() {
     });
 
     test('wraps unknown error', () async {
-      when(() => mockDataSource.cancel(any(), any()))
-          .thenThrow(Exception('network error'));
+      when(
+        () => mockDataSource.cancel(any(), any()),
+      ).thenThrow(Exception('network error'));
 
       expect(
         () => repository.cancel('po-1', 'No longer needed'),
@@ -81,14 +89,17 @@ void main() {
       verifyNever(() => mockDataSource.cancel(any(), any()));
     });
 
-    test('rejects 501-character reason and does not call remote data source', () async {
-      final overlengthReason = 'a' * 501;
-      expect(
-        () => repository.cancel('po-1', overlengthReason),
-        throwsA(isA<AppException>()),
-      );
-      verifyNever(() => mockDataSource.cancel(any(), any()));
-    });
+    test(
+      'rejects 501-character reason and does not call remote data source',
+      () async {
+        final overlengthReason = 'a' * 501;
+        expect(
+          () => repository.cancel('po-1', overlengthReason),
+          throwsA(isA<AppException>()),
+        );
+        verifyNever(() => mockDataSource.cancel(any(), any()));
+      },
+    );
   });
 }
 

@@ -2,6 +2,7 @@ import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/p
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_draft.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_filters.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_page.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/receive_purchase_order_input.dart';
 
 interface class PurchaseOrderRepository {
   Future<PurchaseOrderPage> getPurchaseOrders(PurchaseOrderFilters filters) {
@@ -21,6 +22,13 @@ interface class PurchaseOrderRepository {
   }
 
   Future<PurchaseOrder> close(String purchaseOrderId, String reason) {
+    throw UnimplementedError();
+  }
+
+  Future<PurchaseOrder> receive(
+    String purchaseOrderId,
+    ReceivePurchaseOrderInput input,
+  ) {
     throw UnimplementedError();
   }
 }
