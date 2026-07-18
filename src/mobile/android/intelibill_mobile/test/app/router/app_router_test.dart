@@ -19,6 +19,7 @@ import 'package:intelibill_mobile/src/features/discounts/presentation/controller
 import 'package:intelibill_mobile/src/features/expenses/domain/entities/expense_list_item.dart';
 import 'package:intelibill_mobile/src/features/expenses/domain/entities/expenses_page.dart';
 import 'package:intelibill_mobile/src/features/expenses/presentation/controllers/expenses_controller.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_orders_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/pages/purchase_orders_page.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sales_history_query.dart';
@@ -418,6 +419,9 @@ void main() {
             salesHistoryControllerProvider.overrideWith(
               _StubSalesHistoryController.new,
             ),
+            purchaseOrdersControllerProvider.overrideWith(
+              _StubPurchaseOrdersController.new,
+            ),
           ],
         );
         addTearDown(container.dispose);
@@ -468,6 +472,9 @@ void main() {
             ),
             salesHistoryControllerProvider.overrideWith(
               _StubSalesHistoryController.new,
+            ),
+            purchaseOrdersControllerProvider.overrideWith(
+              _StubPurchaseOrdersController.new,
             ),
             expensesControllerProvider.overrideWith(
               _StubExpensesController.new,
@@ -570,6 +577,9 @@ void main() {
             ),
             salesHistoryControllerProvider.overrideWith(
               _StubSalesHistoryController.new,
+            ),
+            purchaseOrdersControllerProvider.overrideWith(
+              _StubPurchaseOrdersController.new,
             ),
           ],
         );
@@ -1030,6 +1040,11 @@ class _StubSalesHistoryController extends SalesHistoryController {
       ),
     );
   }
+}
+
+class _StubPurchaseOrdersController extends PurchaseOrdersController {
+  @override
+  PurchaseOrdersState build() => const PurchaseOrdersState();
 }
 
 class _StubServicesController extends ServicesController {

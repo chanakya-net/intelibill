@@ -199,7 +199,10 @@ class _BankAccountFormState extends State<BankAccountForm> {
                     height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : Text(widget.submitButtonLabel?.call(l10n) ?? l10n.bankAccountsAdd),
+                : Text(
+                    widget.submitButtonLabel?.call(l10n) ??
+                        l10n.bankAccountsAdd,
+                  ),
           ),
         ],
       ),

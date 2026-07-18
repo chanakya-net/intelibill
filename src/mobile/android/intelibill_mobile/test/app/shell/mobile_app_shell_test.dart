@@ -260,74 +260,75 @@ void main() {
     });
 
     testWidgets(
-        'purchase-orders route selects More tab, inventory route selects Inventory tab',
-        (tester) async {
-      final controller = _TestAuthController(
-        AuthControllerState(session: _sessionForRole('Owner')),
-      );
+      'purchase-orders route selects More tab, inventory route selects Inventory tab',
+      (tester) async {
+        final controller = _TestAuthController(
+          AuthControllerState(session: _sessionForRole('Owner')),
+        );
 
-      // Test 1: inventory route selects Inventory
-      final inventoryRouter = _routerForShell(
-        initialLocation: AppRoutes.inventory,
-      );
+        // Test 1: inventory route selects Inventory
+        final inventoryRouter = _routerForShell(
+          initialLocation: AppRoutes.inventory,
+        );
 
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [authControllerProvider.overrideWith(() => controller)],
-          child: MaterialApp.router(
-            locale: const Locale('en', 'IN'),
-            supportedLocales: const [Locale('en', 'IN')],
-            localizationsDelegates: const [
-              AppLocalizations.delegate,
-              GlobalMaterialLocalizations.delegate,
-              GlobalWidgetsLocalizations.delegate,
-              GlobalCupertinoLocalizations.delegate,
-            ],
-            routerConfig: inventoryRouter,
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [authControllerProvider.overrideWith(() => controller)],
+            child: MaterialApp.router(
+              locale: const Locale('en', 'IN'),
+              supportedLocales: const [Locale('en', 'IN')],
+              localizationsDelegates: const [
+                AppLocalizations.delegate,
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              routerConfig: inventoryRouter,
+            ),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
+        );
+        await tester.pumpAndSettle();
 
-      expect(
-        find.widgetWithText(NavigationDestination, 'Inventory'),
-        findsOneWidget,
-      );
-      final inventoryDest = tester.widget<NavigationDestination>(
-        find.widgetWithText(NavigationDestination, 'Inventory'),
-      );
-      expect(
-        find.byWidget(inventoryDest),
-        findsOneWidget,
-      );
+        expect(
+          find.widgetWithText(NavigationDestination, 'Inventory'),
+          findsOneWidget,
+        );
+        final inventoryDest = tester.widget<NavigationDestination>(
+          find.widgetWithText(NavigationDestination, 'Inventory'),
+        );
+        expect(
+          find.byWidget(inventoryDest),
+          findsOneWidget,
+        );
 
-      // Test 2: purchase-orders route selects More tab
-      final poRouter = _routerForShell(
-        initialLocation: AppRoutes.purchaseOrders,
-      );
+        // Test 2: purchase-orders route selects More tab
+        final poRouter = _routerForShell(
+          initialLocation: AppRoutes.purchaseOrders,
+        );
 
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [authControllerProvider.overrideWith(() => controller)],
-          child: MaterialApp.router(
-            locale: const Locale('en', 'IN'),
-            supportedLocales: const [Locale('en', 'IN')],
-            localizationsDelegates: const [
-              AppLocalizations.delegate,
-              GlobalMaterialLocalizations.delegate,
-              GlobalWidgetsLocalizations.delegate,
-              GlobalCupertinoLocalizations.delegate,
-            ],
-            routerConfig: poRouter,
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [authControllerProvider.overrideWith(() => controller)],
+            child: MaterialApp.router(
+              locale: const Locale('en', 'IN'),
+              supportedLocales: const [Locale('en', 'IN')],
+              localizationsDelegates: const [
+                AppLocalizations.delegate,
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              routerConfig: poRouter,
+            ),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
+        );
+        await tester.pumpAndSettle();
 
-      expect(
-        find.widgetWithText(NavigationDestination, 'More'),
-        findsOneWidget,
-      );
-    });
+        expect(
+          find.widgetWithText(NavigationDestination, 'More'),
+          findsOneWidget,
+        );
+      },
+    );
   });
 }

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -15,6 +14,7 @@ import 'package:intelibill_mobile/src/features/dashboard/presentation/widgets/da
 import 'package:intelibill_mobile/src/features/dashboard/presentation/widgets/dashboard_kpi_grid.dart';
 import 'package:intelibill_mobile/src/features/dashboard/presentation/widgets/dashboard_period_selector.dart';
 import 'package:intelibill_mobile/src/features/dashboard/presentation/widgets/dashboard_quick_actions.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_orders_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/pages/purchase_orders_page.dart';
 
 import '../../dashboard_test_fixtures.dart';
@@ -35,6 +35,11 @@ class _StubAuthController extends AuthController {
 
   @override
   Future<AuthControllerState> build() async => _state;
+}
+
+class _StubPurchaseOrdersController extends PurchaseOrdersController {
+  @override
+  PurchaseOrdersState build() => const PurchaseOrdersState();
 }
 
 Widget _buildApp({
@@ -203,6 +208,9 @@ void main() {
             () => _StubAuthController(
               AuthControllerState(session: _ownerSession()),
             ),
+          ),
+          purchaseOrdersControllerProvider.overrideWith(
+            _StubPurchaseOrdersController.new,
           ),
         ],
       );
