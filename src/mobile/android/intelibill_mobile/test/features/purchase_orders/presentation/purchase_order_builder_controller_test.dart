@@ -6,8 +6,11 @@ import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_draft.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_line.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_status.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/create_purchase_order_draft.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/get_purchase_order.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/update_purchase_order_draft.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_builder_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_providers.dart';
 import 'package:intelibill_mobile/src/features/suppliers/domain/entities/supplier.dart';
@@ -20,6 +23,11 @@ class _MockGetSuppliers extends Mock implements GetSuppliers {}
 class _MockCreatePurchaseOrderDraft extends Mock
     implements CreatePurchaseOrderDraft {}
 
+class _MockGetPurchaseOrder extends Mock implements GetPurchaseOrder {}
+
+class _MockUpdatePurchaseOrderDraft extends Mock
+    implements UpdatePurchaseOrderDraft {}
+
 void main() {
   setUpAll(() {
     registerFallbackValue(const PurchaseOrderDraft());
@@ -27,10 +35,14 @@ void main() {
 
   late _MockGetSuppliers getSuppliers;
   late _MockCreatePurchaseOrderDraft createDraft;
+  late _MockGetPurchaseOrder getPurchaseOrder;
+  late _MockUpdatePurchaseOrderDraft updateDraft;
 
   setUp(() {
     getSuppliers = _MockGetSuppliers();
     createDraft = _MockCreatePurchaseOrderDraft();
+    getPurchaseOrder = _MockGetPurchaseOrder();
+    updateDraft = _MockUpdatePurchaseOrderDraft();
     when(() => getSuppliers()).thenAnswer((_) async => _suppliers);
   });
 
@@ -39,6 +51,8 @@ void main() {
       overrides: [
         getSuppliersUseCaseProvider.overrideWithValue(getSuppliers),
         createPurchaseOrderDraftProvider.overrideWithValue(createDraft),
+        getPurchaseOrderProvider.overrideWithValue(getPurchaseOrder),
+        updatePurchaseOrderDraftProvider.overrideWithValue(updateDraft),
       ],
     );
   }
@@ -190,6 +204,123 @@ void main() {
     expect(line2.expectedQuantity, 3);
     expect(line2.unitCost, 5.0);
   });
+
+  test('loads an existing draft and updates it by route ID', () async {
+    final container = makeContainer();
+    addTearDown(container.dispose);
+    final loaded = _purchaseOrder(
+      supplierId: 'active',
+      supplierReferenceNumber: 'REF-OLD',
+      notes: 'Original note',
+      lines: const [
+        PurchaseOrderLine(
+          lineId: 'line-1',
+          itemId: 'item-1',
+          description: 'Widget',
+          expectedQuantity: 2,
+          receivedQuantity: 0,
+          remainingQuantity: 2,
+          unitCost: 10,
+          lineTotal: 20,
+        ),
+      ],
+    );
+    when(() => getPurchaseOrder('po-1')).thenAnswer((_) async => loaded);
+    when(() => updateDraft(any(), any())).thenAnswer((_) async => loaded);
+    final subscription = container.listen(
+      purchaseOrderBuilderControllerProvider('po-1'),
+      (_, _) {},
+    );
+    addTearDown(subscription.close);
+
+    final controller = container.read(
+      purchaseOrderBuilderControllerProvider('po-1').notifier,
+    );
+    await controller.loadSuppliers();
+    await Future<void>.delayed(Duration.zero);
+    controller.setNotes('Changed note');
+
+    final result = await controller.save();
+
+    expect(result, loaded);
+    final state = container.read(
+      purchaseOrderBuilderControllerProvider('po-1'),
+    );
+    expect(state.selectedSupplier, _suppliers.first);
+    expect(state.supplierReferenceNumber, 'REF-OLD');
+    expect(state.lines.single.itemId, 'item-1');
+    verify(
+      () => updateDraft(
+        'po-1',
+        const PurchaseOrderDraft(
+          supplierId: 'active',
+          supplierReferenceNumber: 'REF-OLD',
+          notes: 'Changed note',
+          lines: [
+            PurchaseOrderDraftLine(
+              itemId: 'item-1',
+              description: 'Widget',
+              expectedQuantity: 2,
+              unitCost: 10,
+            ),
+          ],
+        ),
+      ),
+    ).called(1);
+  });
+
+  test('rejects a non-draft edit target without updating', () async {
+    final container = makeContainer();
+    addTearDown(container.dispose);
+    when(
+      () => getPurchaseOrder('po-placed'),
+    ).thenAnswer(
+      (_) async => _purchaseOrder(status: PurchaseOrderStatus.placed),
+    );
+    final subscription = container.listen(
+      purchaseOrderBuilderControllerProvider('po-placed'),
+      (_, _) {},
+    );
+    addTearDown(subscription.close);
+
+    container.read(purchaseOrderBuilderControllerProvider('po-placed'));
+    await Future<void>.delayed(Duration.zero);
+
+    final state = container.read(
+      purchaseOrderBuilderControllerProvider('po-placed'),
+    );
+    expect(state.redirectToDetailId, 'po-placed');
+    verifyNever(() => updateDraft(any(), any()));
+  });
+
+  test('retains local changes after a failed draft update', () async {
+    final container = makeContainer();
+    addTearDown(container.dispose);
+    when(
+      () => getPurchaseOrder('po-1'),
+    ).thenAnswer((_) async => _purchaseOrder());
+    when(() => updateDraft(any(), any())).thenThrow(
+      AppException(failure: const Failure.server(message: 'Changed elsewhere')),
+    );
+    final subscription = container.listen(
+      purchaseOrderBuilderControllerProvider('po-1'),
+      (_, _) {},
+    );
+    addTearDown(subscription.close);
+
+    final controller = container.read(
+      purchaseOrderBuilderControllerProvider('po-1').notifier,
+    );
+    await Future<void>.delayed(Duration.zero);
+    controller.setNotes('Keep this edit');
+
+    expect(await controller.save(), isNull);
+    final state = container.read(
+      purchaseOrderBuilderControllerProvider('po-1'),
+    );
+    expect(state.notes, 'Keep this edit');
+    expect(state.failure, isA<ServerFailure>());
+  });
 }
 
 final _suppliers = [
@@ -219,11 +350,20 @@ final _suppliers = [
   ),
 ];
 
-PurchaseOrder _purchaseOrder() => PurchaseOrder(
+PurchaseOrder _purchaseOrder({
+  PurchaseOrderStatus status = PurchaseOrderStatus.draft,
+  String? supplierId,
+  String? supplierReferenceNumber,
+  String? notes,
+  List<PurchaseOrderLine> lines = const [],
+}) => PurchaseOrder(
   purchaseOrderId: 'po-1',
   purchaseOrderNumber: 'PO-2026-000001',
-  status: PurchaseOrderStatus.draft,
-  lines: const [],
+  status: status,
+  supplierId: supplierId,
+  supplierReferenceNumber: supplierReferenceNumber,
+  notes: notes,
+  lines: lines,
   expectedTotal: 0,
   createdAt: DateTime(2026, 7, 19),
 );

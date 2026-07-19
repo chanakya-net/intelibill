@@ -23,6 +23,14 @@ class _Repository implements PurchaseOrderRepository {
   }
 
   @override
+  Future<PurchaseOrder> updateDraft(
+    String purchaseOrderId,
+    PurchaseOrderDraft draft,
+  ) {
+    throw UnimplementedError();
+  }
+
+  @override
   Future<PurchaseOrder> receive(
     String purchaseOrderId,
     input,

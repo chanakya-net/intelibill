@@ -17,6 +17,13 @@ interface class PurchaseOrderRepository {
     throw UnimplementedError();
   }
 
+  Future<PurchaseOrder> updateDraft(
+    String purchaseOrderId,
+    PurchaseOrderDraft draft,
+  ) {
+    throw UnimplementedError();
+  }
+
   Future<PurchaseOrder> cancel(String purchaseOrderId, String reason) {
     throw UnimplementedError();
   }
