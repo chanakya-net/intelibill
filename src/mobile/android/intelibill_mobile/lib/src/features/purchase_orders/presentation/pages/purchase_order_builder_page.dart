@@ -129,7 +129,7 @@ class _PurchaseOrderBuilderPageState
   Future<void> _showAddItemDialog(
     BuildContext context,
     WidgetRef ref,
-    dynamic provider,
+    PurchaseOrderBuilderControllerProvider provider,
     AppLocalizations l10n,
   ) async {
     Item? selectedItem;
