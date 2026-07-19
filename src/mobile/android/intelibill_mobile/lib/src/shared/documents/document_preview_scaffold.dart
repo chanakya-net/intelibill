@@ -33,7 +33,27 @@ class DocumentPreviewScaffold extends StatefulWidget {
 class _DocumentPreviewScaffoldState extends State<DocumentPreviewScaffold> {
   bool _isPrinting = false;
   bool _isSharing = false;
+  bool _isReady = false;
   Uint8List? _cachedBytes;
+  Future<Uint8List>? _buildFuture;
+
+  Future<Uint8List> _build(PdfPageFormat format) {
+    return _buildFuture ??= _runBuild(format);
+  }
+
+  Future<Uint8List> _runBuild(PdfPageFormat format) async {
+    try {
+      final bytes = await widget.onBuild(format);
+      _cachedBytes = bytes;
+      if (mounted) {
+        setState(() => _isReady = true);
+      }
+      return bytes;
+    } catch (e) {
+      _buildFuture = null;
+      rethrow;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -46,7 +66,7 @@ class _DocumentPreviewScaffoldState extends State<DocumentPreviewScaffold> {
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: IconButton(
                 icon: const Icon(Icons.print),
-                onPressed: _isPrinting ? null : _handlePrint,
+                onPressed: (_isReady && !_isPrinting) ? _handlePrint : null,
                 tooltip: 'Print',
               ),
             ),
@@ -55,14 +75,14 @@ class _DocumentPreviewScaffoldState extends State<DocumentPreviewScaffold> {
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: IconButton(
                 icon: const Icon(Icons.share),
-                onPressed: _isSharing ? null : _handleShare,
+                onPressed: (_isReady && !_isSharing) ? _handleShare : null,
                 tooltip: 'Share',
               ),
             ),
         ],
       ),
       body: PdfPreview(
-        build: (_) => widget.onBuild(widget.descriptor.pdfPageFormat),
+        build: (_) => _build(widget.descriptor.pdfPageFormat),
         initialPageFormat: widget.descriptor.pdfPageFormat,
         pdfFileName: widget.descriptor.filename,
         canChangePageFormat: false,
@@ -74,8 +94,7 @@ class _DocumentPreviewScaffoldState extends State<DocumentPreviewScaffold> {
     setState(() => _isPrinting = true);
     try {
       final bytes = _cachedBytes ??
-          await widget.onBuild(widget.descriptor.pdfPageFormat);
-      _cachedBytes = bytes;
+          await _build(widget.descriptor.pdfPageFormat);
       await widget.onPrint!(bytes);
     } catch (e) {
       widget.onFailure?.call('Print failed: ${e.toString()}');
@@ -90,8 +109,7 @@ class _DocumentPreviewScaffoldState extends State<DocumentPreviewScaffold> {
     setState(() => _isSharing = true);
     try {
       final bytes = _cachedBytes ??
-          await widget.onBuild(widget.descriptor.pdfPageFormat);
-      _cachedBytes = bytes;
+          await _build(widget.descriptor.pdfPageFormat);
       await widget.onShare!(bytes);
     } catch (e) {
       widget.onFailure?.call('Share failed: ${e.toString()}');

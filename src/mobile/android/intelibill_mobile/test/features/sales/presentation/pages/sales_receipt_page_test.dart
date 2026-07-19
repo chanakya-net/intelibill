@@ -100,7 +100,7 @@ void main() {
         outputGateway: outputGateway,
       ),
     );
-    await tester.pump(const Duration(milliseconds: 50));
+    await _pumpUntilReady(tester);
 
     final scaffold = tester.widget<DocumentPreviewScaffold>(
       find.byType(DocumentPreviewScaffold),
@@ -151,7 +151,7 @@ void main() {
         outputGateway: outputGateway,
       ),
     );
-    await tester.pump(const Duration(milliseconds: 50));
+    await _pumpUntilReady(tester);
 
     await tester.tap(find.byTooltip('Print'));
     await tester.pump();
@@ -191,12 +191,7 @@ void main() {
         outputGateway: outputGateway,
       ),
     );
-    await tester.pump(const Duration(milliseconds: 50));
-
-    final scaffold = tester.widget<DocumentPreviewScaffold>(
-      find.byType(DocumentPreviewScaffold),
-    );
-    await scaffold.onBuild(scaffold.descriptor.pdfPageFormat);
+    await _pumpUntilReady(tester);
 
     await tester.tap(find.byTooltip('Print'));
     await tester.pump();
@@ -296,6 +291,12 @@ void main() {
     );
     expect(scaffold.descriptor.filename, 'sale-receipt-INV-RETRY-001.pdf');
   });
+}
+
+Future<void> _pumpUntilReady(WidgetTester tester) async {
+  for (var i = 0; i < 10; i += 1) {
+    await tester.pump(const Duration(milliseconds: 50));
+  }
 }
 
 IconButton _actionButton(WidgetTester tester, String tooltip) {
