@@ -14,6 +14,7 @@ _$ReceivePurchaseOrderLineRequestDtoFromJson(Map<String, dynamic> json) =>
       batchNumber: json['batchNumber'] as String,
       quantity: (json['quantity'] as num).toDouble(),
       totalPurchaseCost: (json['totalPurchaseCost'] as num).toDouble(),
+      unitCost: (json['unitCost'] as num).toDouble(),
       mrp: (json['mrp'] as num).toDouble(),
       salesPrice: (json['salesPrice'] as num).toDouble(),
       taxRatePercent: (json['taxRatePercent'] as num).toDouble(),

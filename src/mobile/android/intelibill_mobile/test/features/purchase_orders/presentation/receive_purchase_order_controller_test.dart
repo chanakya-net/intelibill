@@ -516,7 +516,7 @@ void main() {
   });
 
   test(
-    'refreshes detail on failure and keeps submitting state false',
+    'preserves drafts on API failure and keeps submitting state false',
     () async {
       final failure = const Failure.server(
         message: 'conflict',
@@ -551,19 +551,209 @@ void main() {
       container.read(receivePurchaseOrderControllerProvider('po-1'));
       await Future<void>.delayed(const Duration(milliseconds: 20));
 
+      final controller = container.read(
+        receivePurchaseOrderControllerProvider('po-1').notifier,
+      );
+      controller.updateBarcode('line-1', 'CUSTOM-BARCODE');
+
       await expectLater(
-        container
-            .read(receivePurchaseOrderControllerProvider('po-1').notifier)
-            .submit(),
+        controller.submit(),
         throwsA(isA<AppException>()),
       );
 
-      verify(() => getPurchaseOrder('po-1')).called(2);
+      verify(() => getPurchaseOrder('po-1')).called(1);
       final state = container.read(
         receivePurchaseOrderControllerProvider('po-1'),
       );
       expect(state.isSubmitting, isFalse);
       expect(state.failure, failure);
+      expect(state.lines.single.barcode, 'CUSTOM-BARCODE');
+    },
+  );
+
+  test(
+    'validates price/tax boundaries and blocks invalid submission',
+    () async {
+      when(() => getPurchaseOrder('po-1')).thenAnswer(
+        (_) async => _detail(
+          lines: [
+            const PurchaseOrderLine(
+              lineId: 'line-1',
+              itemId: 'item-1',
+              description: 'Widget A',
+              expectedQuantity: 10,
+              receivedQuantity: 0,
+              remainingQuantity: 10,
+              unitCost: 50,
+              lineTotal: 500,
+            ),
+          ],
+        ),
+      );
+      final container = _makeContainer(
+        getPurchaseOrder: getPurchaseOrder,
+        receivePurchaseOrder: receivePurchaseOrder,
+      );
+      addTearDown(container.dispose);
+      _watchReceiveController(container);
+      container.read(receivePurchaseOrderControllerProvider('po-1'));
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      final controller = container.read(
+        receivePurchaseOrderControllerProvider('po-1').notifier,
+      );
+
+      controller.updateSalesPrice('line-1', '100');
+      controller.updateMrp('line-1', '80');
+      await controller.submit();
+
+      final state = container.read(
+        receivePurchaseOrderControllerProvider('po-1'),
+      );
+      expect(state.failure, isA<ValidationFailure>());
+      expect(state.isSubmitting, isFalse);
+    },
+  );
+
+  test(
+    'validates every receipt field and expands the first invalid line',
+    () async {
+      when(() => getPurchaseOrder('po-1')).thenAnswer(
+        (_) async => _detail(
+          lines: const [
+            PurchaseOrderLine(
+              lineId: 'line-1',
+              itemId: 'item-1',
+              description: 'A',
+              expectedQuantity: 2,
+              receivedQuantity: 0,
+              remainingQuantity: 2,
+              unitCost: 10,
+              lineTotal: 20,
+            ),
+            PurchaseOrderLine(
+              lineId: 'line-2',
+              itemId: 'item-2',
+              description: 'B',
+              expectedQuantity: 2,
+              receivedQuantity: 0,
+              remainingQuantity: 2,
+              unitCost: 10,
+              lineTotal: 20,
+            ),
+          ],
+        ),
+      );
+      final container = _makeContainer(
+        getPurchaseOrder: getPurchaseOrder,
+        receivePurchaseOrder: receivePurchaseOrder,
+      );
+      addTearDown(container.dispose);
+      _watchReceiveController(container);
+      container.read(receivePurchaseOrderControllerProvider('po-1'));
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      final controller = container.read(
+        receivePurchaseOrderControllerProvider('po-1').notifier,
+      );
+
+      controller.updateBarcode('line-1', 'x' * 121);
+      controller.updateBatchNumber('line-1', 'x' * 81);
+      controller.updateUnitPurchaseCost('line-1', '-1');
+      controller.updateTotalPurchaseCost('line-1', '-1');
+      controller.updateMrp('line-1', '1');
+      controller.updateSalesPrice('line-1', '2');
+      controller.updateTaxRatePercent('line-1', '101');
+      controller.updateManufacturingDate('line-1', DateTime(2026, 8, 1));
+      controller.updateExpiryDate('line-1', DateTime(2026, 7, 1));
+      controller.updateBarcode('line-2', '');
+
+      expect(await controller.submit(), isFalse);
+      verifyNever(() => receivePurchaseOrder('po-1', any()));
+      final state = container.read(
+        receivePurchaseOrderControllerProvider('po-1'),
+      );
+      expect(
+        state.lineErrors['line-1']!.keys,
+        containsAll([
+          'barcode',
+          'batchNumber',
+          'unitCost',
+          'totalPurchaseCost',
+          'salesPrice',
+          'taxRatePercent',
+          'expiryDate',
+        ]),
+      );
+      expect(state.expandedLineId, 'line-1');
+      expect(state.focusedLineId, 'barcode');
+    },
+  );
+
+  test(
+    'maps server line validation errors while preserving receipt drafts',
+    () async {
+      when(() => getPurchaseOrder('po-1')).thenAnswer(
+        (_) async => _detail(
+          lines: const [
+            PurchaseOrderLine(
+              lineId: 'line-1',
+              itemId: 'item-1',
+              description: 'A',
+              expectedQuantity: 2,
+              receivedQuantity: 0,
+              remainingQuantity: 2,
+              unitCost: 10,
+              lineTotal: 20,
+            ),
+            PurchaseOrderLine(
+              lineId: 'line-2',
+              itemId: 'item-2',
+              description: 'B',
+              expectedQuantity: 2,
+              receivedQuantity: 0,
+              remainingQuantity: 2,
+              unitCost: 10,
+              lineTotal: 20,
+            ),
+          ],
+        ),
+      );
+      const failure = Failure.validation(
+        errors: {
+          'Lines[0].Barcode': ['Barcode is already used.'],
+          'Lines[1].ExpiryDate': ['Expiry date is invalid.'],
+        },
+      );
+      when(() => receivePurchaseOrder('po-1', any())).thenThrow(
+        AppException(failure: failure),
+      );
+      final container = _makeContainer(
+        getPurchaseOrder: getPurchaseOrder,
+        receivePurchaseOrder: receivePurchaseOrder,
+      );
+      addTearDown(container.dispose);
+      _watchReceiveController(container);
+      container.read(receivePurchaseOrderControllerProvider('po-1'));
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      final controller = container.read(
+        receivePurchaseOrderControllerProvider('po-1').notifier,
+      );
+      controller.updateBarcode('line-1', 'DRAFT-BARCODE');
+
+      await expectLater(controller.submit(), throwsA(isA<AppException>()));
+      final state = container.read(
+        receivePurchaseOrderControllerProvider('po-1'),
+      );
+      expect(state.lines.first.barcode, 'DRAFT-BARCODE');
+      expect(
+        state.lineErrors['line-1']!['barcode'],
+        'Barcode is already used.',
+      );
+      expect(
+        state.lineErrors['line-2']!['expiryDate'],
+        'Expiry date is invalid.',
+      );
+      expect(state.expandedLineId, 'line-1');
+      expect(state.focusedLineId, 'barcode');
     },
   );
 }

@@ -5251,6 +5251,84 @@ abstract class AppLocalizations {
   /// **'Batch number'**
   String get purchaseOrderReceiveBatchLabel;
 
+  /// No description provided for @purchaseOrderReceiveRemaining.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Remaining'**
+  String get purchaseOrderReceiveRemaining;
+
+  /// No description provided for @purchaseOrderReceiveInventoryDetails.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Inventory details'**
+  String get purchaseOrderReceiveInventoryDetails;
+
+  /// No description provided for @purchaseOrderReceiveUnitCostLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unit cost'**
+  String get purchaseOrderReceiveUnitCostLabel;
+
+  /// No description provided for @purchaseOrderReceiveTotalPurchaseCostLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Total purchase cost'**
+  String get purchaseOrderReceiveTotalPurchaseCostLabel;
+
+  /// No description provided for @purchaseOrderReceiveMrpLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'MRP'**
+  String get purchaseOrderReceiveMrpLabel;
+
+  /// No description provided for @purchaseOrderReceiveSalesPriceLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Sales price'**
+  String get purchaseOrderReceiveSalesPriceLabel;
+
+  /// No description provided for @purchaseOrderReceiveTaxRateLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Tax rate %'**
+  String get purchaseOrderReceiveTaxRateLabel;
+
+  /// No description provided for @purchaseOrderReceiveTaxIncludedLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Tax included in sales price'**
+  String get purchaseOrderReceiveTaxIncludedLabel;
+
+  /// No description provided for @purchaseOrderReceivePurchaseTaxIncludedLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Tax included in purchase cost'**
+  String get purchaseOrderReceivePurchaseTaxIncludedLabel;
+
+  /// No description provided for @purchaseOrderReceiveManufacturingDateLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Manufacturing date'**
+  String get purchaseOrderReceiveManufacturingDateLabel;
+
+  /// No description provided for @purchaseOrderReceiveExpiryDateLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Expiry date'**
+  String get purchaseOrderReceiveExpiryDateLabel;
+
+  /// No description provided for @purchaseOrderReceiveSelectDate.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Select date'**
+  String get purchaseOrderReceiveSelectDate;
+
+  /// No description provided for @purchaseOrderReceiveClearDate.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Clear date'**
+  String get purchaseOrderReceiveClearDate;
+
   /// No description provided for @purchaseOrderReceiveSummary.
   ///
   /// In en_IN, this message translates to:
