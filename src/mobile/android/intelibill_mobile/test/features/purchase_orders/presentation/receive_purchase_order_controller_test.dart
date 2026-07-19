@@ -107,16 +107,136 @@ void main() {
       expect(state.lines, hasLength(2));
       expect(state.lines[0].purchaseOrderLineId, 'line-1');
       expect(state.lines[0].quantity, 3);
+      expect(state.lines[0].remainingQuantity, 3);
+      expect(state.lines[0].isSelected, isTrue);
+      expect(state.lines[0].totalPurchaseCost, 30);
       expect(state.lines[0].barcode, 'item-1');
       expect(state.lines[0].batchNumber, 'BN-line-1');
       expect(state.lines[1].purchaseOrderLineId, 'line-3');
       expect(state.lines[1].quantity, 6);
+      expect(state.lines[1].isSelected, isTrue);
+      expect(state.lines[1].totalPurchaseCost, 90);
       expect(state.lines[1].barcode, 'item-3');
       expect(state.lines[1].batchNumber, 'BN-line-3');
       expect(state.receivedAt, isNotNull);
       expect(state.receivedAt!.timeZoneOffset, Duration.zero);
     },
   );
+
+  test(
+    'updates selected receipt lines and integer quantities immutably',
+    () async {
+      ReceivePurchaseOrderInput? submittedInput;
+      when(() => getPurchaseOrder('po-1')).thenAnswer(
+        (_) async => _detail(
+          lines: const [
+            PurchaseOrderLine(
+              lineId: 'line-1',
+              itemId: 'item-1',
+              description: 'Widget A',
+              expectedQuantity: 10,
+              receivedQuantity: 7,
+              remainingQuantity: 3,
+              unitCost: 10,
+              lineTotal: 100,
+            ),
+            PurchaseOrderLine(
+              lineId: 'line-2',
+              itemId: 'item-2',
+              description: 'Widget B',
+              expectedQuantity: 10,
+              receivedQuantity: 6,
+              remainingQuantity: 4,
+              unitCost: 15,
+              lineTotal: 150,
+            ),
+          ],
+        ),
+      );
+      when(() => receivePurchaseOrder('po-1', any())).thenAnswer((invocation) {
+        submittedInput =
+            invocation.positionalArguments[1] as ReceivePurchaseOrderInput;
+        return Future<PurchaseOrder>.value(
+          _detail(lines: const [], status: PurchaseOrderStatus.received),
+        );
+      });
+      final container = _makeContainer(
+        getPurchaseOrder: getPurchaseOrder,
+        receivePurchaseOrder: receivePurchaseOrder,
+      );
+      addTearDown(container.dispose);
+      _watchReceiveController(container);
+      container.read(receivePurchaseOrderControllerProvider('po-1'));
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      final controller = container.read(
+        receivePurchaseOrderControllerProvider('po-1').notifier,
+      );
+
+      controller.setLineSelected('line-1', isSelected: false);
+      controller.updateQuantity('line-2', '2');
+      var state = container.read(
+        receivePurchaseOrderControllerProvider('po-1'),
+      );
+      expect(state.lines.map((line) => line.isSelected), [false, true]);
+      expect(state.lines.map((line) => line.quantity), [3, 2]);
+      expect(state.selectedLineCount, 1);
+      expect(state.selectedQuantity, 2);
+      expect(state.selectedPurchaseCost, 30);
+
+      controller.setLineSelected('line-1', isSelected: true);
+      state = container.read(receivePurchaseOrderControllerProvider('po-1'));
+      expect(state.lines.map((line) => line.isSelected), [true, true]);
+      expect(state.selectedLineCount, 2);
+      expect(state.selectedQuantity, 5);
+      expect(state.selectedPurchaseCost, 60);
+
+      controller.setLineSelected('line-1', isSelected: false);
+      await controller.submit();
+      expect(submittedInput!.lines, hasLength(1));
+      expect(submittedInput!.lines.single.purchaseOrderLineId, 'line-2');
+      expect(submittedInput!.lines.single.quantity, 2);
+      expect(submittedInput!.lines.single.totalPurchaseCost, 30);
+    },
+  );
+
+  test('rejects zero, noninteger, and over-remaining quantities', () async {
+    when(() => getPurchaseOrder('po-1')).thenAnswer(
+      (_) async => _detail(
+        lines: const [
+          PurchaseOrderLine(
+            lineId: 'line-1',
+            itemId: 'item-1',
+            description: 'Widget A',
+            expectedQuantity: 10,
+            receivedQuantity: 7,
+            remainingQuantity: 3,
+            unitCost: 10,
+            lineTotal: 100,
+          ),
+        ],
+      ),
+    );
+    final container = _makeContainer(
+      getPurchaseOrder: getPurchaseOrder,
+      receivePurchaseOrder: receivePurchaseOrder,
+    );
+    addTearDown(container.dispose);
+    _watchReceiveController(container);
+    container.read(receivePurchaseOrderControllerProvider('po-1'));
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    final controller = container.read(
+      receivePurchaseOrderControllerProvider('po-1').notifier,
+    );
+
+    for (final value in ['0', '1.5', '4']) {
+      controller.updateQuantity('line-1', value);
+      final state = container.read(
+        receivePurchaseOrderControllerProvider('po-1'),
+      );
+      expect(state.failure, isA<ValidationFailure>());
+      expect(state.lines.single.quantity, 3);
+    }
+  });
 
   test(
     'submits a full-remaining payload and invalidates purchase order list',
@@ -258,6 +378,95 @@ void main() {
     );
     expect(state.failure, isA<ValidationFailure>());
     expect(state.lines, isEmpty);
+  });
+
+  test(
+    'rejects an empty selected receipt before calling the use case',
+    () async {
+      when(() => getPurchaseOrder('po-1')).thenAnswer(
+        (_) async => _detail(
+          lines: const [
+            PurchaseOrderLine(
+              lineId: 'line-1',
+              itemId: 'item-1',
+              description: 'Widget A',
+              expectedQuantity: 10,
+              receivedQuantity: 7,
+              remainingQuantity: 3,
+              unitCost: 10,
+              lineTotal: 100,
+            ),
+          ],
+        ),
+      );
+      final container = _makeContainer(
+        getPurchaseOrder: getPurchaseOrder,
+        receivePurchaseOrder: receivePurchaseOrder,
+      );
+      addTearDown(container.dispose);
+      _watchReceiveController(container);
+      container.read(receivePurchaseOrderControllerProvider('po-1'));
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      final controller = container.read(
+        receivePurchaseOrderControllerProvider('po-1').notifier,
+      );
+
+      controller.setLineSelected('line-1', isSelected: false);
+      await controller.submit();
+
+      verifyNever(() => receivePurchaseOrder('po-1', any()));
+      expect(
+        container.read(receivePurchaseOrderControllerProvider('po-1')).failure,
+        isA<ValidationFailure>(),
+      );
+    },
+  );
+
+  test('rejects duplicate selected purchase-order line IDs', () async {
+    when(() => getPurchaseOrder('po-1')).thenAnswer(
+      (_) async => _detail(
+        lines: const [
+          PurchaseOrderLine(
+            lineId: 'line-1',
+            itemId: 'item-1',
+            description: 'Widget A',
+            expectedQuantity: 10,
+            receivedQuantity: 7,
+            remainingQuantity: 3,
+            unitCost: 10,
+            lineTotal: 100,
+          ),
+          PurchaseOrderLine(
+            lineId: 'line-1',
+            itemId: 'item-2',
+            description: 'Widget B',
+            expectedQuantity: 10,
+            receivedQuantity: 8,
+            remainingQuantity: 2,
+            unitCost: 15,
+            lineTotal: 150,
+          ),
+        ],
+      ),
+    );
+    final container = _makeContainer(
+      getPurchaseOrder: getPurchaseOrder,
+      receivePurchaseOrder: receivePurchaseOrder,
+    );
+    addTearDown(container.dispose);
+    _watchReceiveController(container);
+    container.read(receivePurchaseOrderControllerProvider('po-1'));
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+
+    await container
+        .read(receivePurchaseOrderControllerProvider('po-1').notifier)
+        .submit();
+
+    verifyNever(() => receivePurchaseOrder('po-1', any()));
+    expect(
+      container.read(receivePurchaseOrderControllerProvider('po-1')).failure,
+      isA<ValidationFailure>(),
+    );
   });
 
   test('guards duplicate submissions', () async {

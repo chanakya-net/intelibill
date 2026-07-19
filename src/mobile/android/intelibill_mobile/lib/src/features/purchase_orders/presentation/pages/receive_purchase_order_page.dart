@@ -116,6 +116,14 @@ class ReceivePurchaseOrderPage extends ConsumerWidget {
               ...state.lines.map(
                 (line) => PurchaseOrderReceiveLineCard(
                   line: line,
+                  onSelectionChanged: (value) => controller.setLineSelected(
+                    line.purchaseOrderLineId,
+                    isSelected: value,
+                  ),
+                  onQuantityChanged: (value) => controller.updateQuantity(
+                    line.purchaseOrderLineId,
+                    value,
+                  ),
                   onBarcodeChanged: (value) =>
                       controller.updateBarcode(line.purchaseOrderLineId, value),
                   onBatchNumberChanged: (value) => controller.updateBatchNumber(
@@ -125,7 +133,7 @@ class ReceivePurchaseOrderPage extends ConsumerWidget {
                 ),
               ),
             const SizedBox(height: 12),
-            _SummaryCard(lines: state.lines),
+            _SummaryCard(state: state),
           ],
         ),
       ),
@@ -217,18 +225,13 @@ class _ReadOnlyField extends StatelessWidget {
 }
 
 class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({required this.lines});
+  const _SummaryCard({required this.state});
 
-  final List<ReceivePurchaseOrderLineDraft> lines;
+  final ReceivePurchaseOrderState state;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final totalQty = lines.fold<double>(0, (sum, line) => sum + line.quantity);
-    final totalExpectedPurchaseCost = lines.fold<double>(
-      0,
-      (sum, line) => sum + line.totalPurchaseCost,
-    );
     return Card(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
@@ -240,12 +243,14 @@ class _SummaryCard extends StatelessWidget {
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
-            Text('${l10n.purchaseOrderReceiveLineCount}: ${lines.length}'),
             Text(
-              '${l10n.purchaseOrderReceiveQuantity}: ${totalQty.toStringAsFixed(0)}',
+              '${l10n.purchaseOrderReceiveLineCount}: ${state.selectedLineCount}',
             ),
             Text(
-              '${l10n.purchaseOrderReceiveTotalExpectedPurchaseCost}: ${formatInr(totalExpectedPurchaseCost)}',
+              '${l10n.purchaseOrderReceiveQuantity}: ${state.selectedQuantity}',
+            ),
+            Text(
+              '${l10n.purchaseOrderReceiveTotalExpectedPurchaseCost}: ${formatInr(state.selectedPurchaseCost)}',
             ),
           ],
         ),

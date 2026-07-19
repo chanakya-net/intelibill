@@ -18,7 +18,10 @@ class ReceivePurchaseOrderLineDraft {
   const ReceivePurchaseOrderLineDraft({
     required this.purchaseOrderLineId,
     required this.description,
+    required this.remainingQuantity,
     required this.quantity,
+    required this.isSelected,
+    required this.unitPurchaseCost,
     required this.barcode,
     required this.batchNumber,
     required this.totalPurchaseCost,
@@ -33,7 +36,10 @@ class ReceivePurchaseOrderLineDraft {
 
   final String purchaseOrderLineId;
   final String description;
-  final double quantity;
+  final int remainingQuantity;
+  final int quantity;
+  final bool isSelected;
+  final double unitPurchaseCost;
   final String barcode;
   final String batchNumber;
   final double totalPurchaseCost;
@@ -44,6 +50,33 @@ class ReceivePurchaseOrderLineDraft {
   final bool purchaseTaxIncluded;
   final DateTime? expiryDate;
   final DateTime? manufacturingDate;
+
+  ReceivePurchaseOrderLineDraft copyWith({
+    int? quantity,
+    bool? isSelected,
+    String? barcode,
+    String? batchNumber,
+    double? totalPurchaseCost,
+  }) {
+    return ReceivePurchaseOrderLineDraft(
+      purchaseOrderLineId: purchaseOrderLineId,
+      description: description,
+      remainingQuantity: remainingQuantity,
+      quantity: quantity ?? this.quantity,
+      isSelected: isSelected ?? this.isSelected,
+      unitPurchaseCost: unitPurchaseCost,
+      barcode: barcode ?? this.barcode,
+      batchNumber: batchNumber ?? this.batchNumber,
+      totalPurchaseCost: totalPurchaseCost ?? this.totalPurchaseCost,
+      mrp: mrp,
+      salesPrice: salesPrice,
+      taxRatePercent: taxRatePercent,
+      taxIncluded: taxIncluded,
+      purchaseTaxIncluded: purchaseTaxIncluded,
+      expiryDate: expiryDate,
+      manufacturingDate: manufacturingDate,
+    );
+  }
 }
 
 @immutable
@@ -69,8 +102,16 @@ class ReceivePurchaseOrderState {
   final Failure? failure;
 
   bool get hasEligibleLines => lines.isNotEmpty;
+  Iterable<ReceivePurchaseOrderLineDraft> get selectedLines =>
+      lines.where((line) => line.isSelected);
+  bool get hasSelectedLines => selectedLines.isNotEmpty;
+  int get selectedLineCount => selectedLines.length;
+  int get selectedQuantity =>
+      selectedLines.fold(0, (sum, line) => sum + line.quantity);
+  double get selectedPurchaseCost =>
+      selectedLines.fold(0, (sum, line) => sum + line.totalPurchaseCost);
   bool get canSubmit =>
-      hasEligibleLines && !isSubmitting && detail != null && failure == null;
+      hasSelectedLines && !isSubmitting && detail != null && failure == null;
 
   ReceivePurchaseOrderState copyWith({
     PurchaseOrder? detail,
@@ -113,7 +154,7 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
   @override
   ReceivePurchaseOrderState build(String purchaseOrderId) {
     _purchaseOrderId = purchaseOrderId;
-    final initial = const ReceivePurchaseOrderState(isLoading: true);
+    const initial = ReceivePurchaseOrderState(isLoading: true);
     unawaited(_load(purchaseOrderId, currentState: initial));
     return initial;
   }
@@ -169,17 +210,18 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
           (line) => ReceivePurchaseOrderLineDraft(
             purchaseOrderLineId: line.lineId,
             description: line.description,
-            quantity: line.remainingQuantity.toDouble(),
+            remainingQuantity: line.remainingQuantity,
+            quantity: line.remainingQuantity,
+            isSelected: true,
+            unitPurchaseCost: line.unitCost,
             barcode: line.itemId,
             batchNumber: _buildBatchNumber(line),
-            totalPurchaseCost: 0,
+            totalPurchaseCost: line.unitCost * line.remainingQuantity,
             mrp: 0,
             salesPrice: 0,
             taxRatePercent: 0,
             taxIncluded: false,
             purchaseTaxIncluded: false,
-            expiryDate: null,
-            manufacturingDate: null,
           ),
         )
         .toList(growable: false);
@@ -208,21 +250,7 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
       lines: state.lines
           .map(
             (line) => line.purchaseOrderLineId == purchaseOrderLineId
-                ? ReceivePurchaseOrderLineDraft(
-                    purchaseOrderLineId: line.purchaseOrderLineId,
-                    description: line.description,
-                    quantity: line.quantity,
-                    barcode: value,
-                    batchNumber: line.batchNumber,
-                    totalPurchaseCost: line.totalPurchaseCost,
-                    mrp: line.mrp,
-                    salesPrice: line.salesPrice,
-                    taxRatePercent: line.taxRatePercent,
-                    taxIncluded: line.taxIncluded,
-                    purchaseTaxIncluded: line.purchaseTaxIncluded,
-                    expiryDate: line.expiryDate,
-                    manufacturingDate: line.manufacturingDate,
-                  )
+                ? line.copyWith(barcode: value)
                 : line,
           )
           .toList(growable: false),
@@ -235,25 +263,63 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
       lines: state.lines
           .map(
             (line) => line.purchaseOrderLineId == purchaseOrderLineId
-                ? ReceivePurchaseOrderLineDraft(
-                    purchaseOrderLineId: line.purchaseOrderLineId,
-                    description: line.description,
-                    quantity: line.quantity,
-                    barcode: line.barcode,
-                    batchNumber: value,
-                    totalPurchaseCost: line.totalPurchaseCost,
-                    mrp: line.mrp,
-                    salesPrice: line.salesPrice,
-                    taxRatePercent: line.taxRatePercent,
-                    taxIncluded: line.taxIncluded,
-                    purchaseTaxIncluded: line.purchaseTaxIncluded,
-                    expiryDate: line.expiryDate,
-                    manufacturingDate: line.manufacturingDate,
-                  )
+                ? line.copyWith(batchNumber: value)
                 : line,
           )
           .toList(growable: false),
       clearFailure: true,
+    );
+  }
+
+  void setLineSelected(
+    String purchaseOrderLineId, {
+    required bool isSelected,
+  }) {
+    state = state.copyWith(
+      lines: state.lines
+          .map(
+            (line) => line.purchaseOrderLineId == purchaseOrderLineId
+                ? line.copyWith(isSelected: isSelected)
+                : line,
+          )
+          .toList(growable: false),
+      clearFailure: true,
+    );
+  }
+
+  void updateQuantity(String purchaseOrderLineId, String value) {
+    final quantity = int.tryParse(value);
+    final line = state.lines
+        .where((item) => item.purchaseOrderLineId == purchaseOrderLineId)
+        .firstOrNull;
+    if (line == null || quantity == null || quantity <= 0) {
+      _setQuantityFailure();
+      return;
+    }
+    if (quantity > line.remainingQuantity) {
+      _setQuantityFailure();
+      return;
+    }
+    state = state.copyWith(
+      lines: state.lines
+          .map(
+            (item) => item.purchaseOrderLineId == purchaseOrderLineId
+                ? item.copyWith(
+                    quantity: quantity,
+                    totalPurchaseCost: item.unitPurchaseCost * quantity,
+                  )
+                : item,
+          )
+          .toList(growable: false),
+      clearFailure: true,
+    );
+  }
+
+  void _setQuantityFailure() {
+    state = state.copyWith(
+      failure: const Failure.validation(
+        message: 'Quantity must be a positive whole number within remaining.',
+      ),
     );
   }
 
@@ -264,6 +330,14 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
       state = state.copyWith(
         failure: const Failure.validation(
           message: 'No remaining lines are available to receive.',
+        ),
+      );
+      return;
+    }
+    if (!state.hasSelectedLines) {
+      state = state.copyWith(
+        failure: const Failure.validation(
+          message: 'Select at least one line to receive.',
         ),
       );
       return;
@@ -300,6 +374,14 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
 
   ReceivePurchaseOrderInput _buildRequest() {
     final receivedAt = state.receivedAt ?? DateTime.now().toUtc();
+    final selectedLines = state.selectedLines.toList(growable: false);
+    if (selectedLines.isEmpty) {
+      throw AppException(
+        failure: const Failure.validation(
+          message: 'Select at least one line to receive.',
+        ),
+      );
+    }
     final ids = <String>{};
     return ReceivePurchaseOrderInput(
       referenceNumber: state.referenceNumber.isNotEmpty
@@ -307,7 +389,7 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
           : null,
       notes: state.notes.isNotEmpty ? state.notes : null,
       receivedAt: receivedAt,
-      lines: state.lines
+      lines: selectedLines
           .map((line) {
             if (!ids.add(line.purchaseOrderLineId)) {
               throw AppException(
@@ -324,11 +406,18 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
                 ),
               );
             }
+            if (line.quantity <= 0 || line.quantity > line.remainingQuantity) {
+              throw AppException(
+                failure: const Failure.validation(
+                  message: 'Quantity must be within the remaining amount.',
+                ),
+              );
+            }
             return ReceivePurchaseOrderLineInput(
               purchaseOrderLineId: line.purchaseOrderLineId,
               barcode: line.barcode,
               batchNumber: line.batchNumber,
-              quantity: line.quantity,
+              quantity: line.quantity.toDouble(),
               totalPurchaseCost: line.totalPurchaseCost,
               mrp: line.mrp,
               salesPrice: line.salesPrice,
