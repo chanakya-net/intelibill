@@ -5143,6 +5143,66 @@ abstract class AppLocalizations {
   /// **'Retry'**
   String get purchaseOrderBuilderRetry;
 
+  /// No description provided for @purchaseOrderDraftRecoveredTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Local draft recovered'**
+  String get purchaseOrderDraftRecoveredTitle;
+
+  /// No description provided for @purchaseOrderDraftRecoveredMessage.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'This draft belongs to the current account and shop.'**
+  String get purchaseOrderDraftRecoveredMessage;
+
+  /// No description provided for @purchaseOrderDraftContinue.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Continue'**
+  String get purchaseOrderDraftContinue;
+
+  /// No description provided for @purchaseOrderDraftDiscardAndReload.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Discard local and reload server'**
+  String get purchaseOrderDraftDiscardAndReload;
+
+  /// No description provided for @purchaseOrderDraftDiscardLocal.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Discard local'**
+  String get purchaseOrderDraftDiscardLocal;
+
+  /// No description provided for @purchaseOrderDraftDiscard.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Discard'**
+  String get purchaseOrderDraftDiscard;
+
+  /// No description provided for @purchaseOrderDraftDiscardTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Discard local draft?'**
+  String get purchaseOrderDraftDiscardTitle;
+
+  /// No description provided for @purchaseOrderDraftDiscardMessage.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'This removes the local draft from this device. This cannot be undone.'**
+  String get purchaseOrderDraftDiscardMessage;
+
+  /// No description provided for @purchaseOrderDraftDiscardConfirm.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Discard draft'**
+  String get purchaseOrderDraftDiscardConfirm;
+
+  /// No description provided for @purchaseOrderDraftStorageWarning.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Local draft storage needs attention.'**
+  String get purchaseOrderDraftStorageWarning;
+
   /// No description provided for @purchaseOrderBuilderAddItemTitle.
   ///
   /// In en_IN, this message translates to:

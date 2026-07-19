@@ -1,215 +1,44 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/entities/item.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/data/data_sources/purchase_order_draft_local_data_source.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_draft.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_status.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_builder_state.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_draft_persistence.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_providers.dart';
 import 'package:intelibill_mobile/src/features/suppliers/domain/entities/supplier.dart';
 import 'package:intelibill_mobile/src/features/suppliers/presentation/controllers/suppliers_controller.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+export 'purchase_order_builder_state.dart';
+
 part 'purchase_order_builder_controller.g.dart';
-
-@immutable
-class PurchaseOrderBuilderState {
-  const PurchaseOrderBuilderState({
-    this.suppliers = const [],
-    this.selectedSupplier,
-    this.orderDate,
-    this.expectedDeliveryDate,
-    this.supplierReferenceNumber = '',
-    this.notes = '',
-    this.lines = const [],
-    this.selectedCatalogItem,
-    this.isLoadingSuppliers = false,
-    this.isSaving = false,
-    this.failure,
-    this.savedDraft,
-    this.isSupplierLoadFailure = false,
-    this.isLoadingEdit = false,
-    this.redirectToDetailId,
-  });
-
-  final List<Supplier> suppliers;
-  final Supplier? selectedSupplier;
-  final DateTime? orderDate;
-  final DateTime? expectedDeliveryDate;
-  final String supplierReferenceNumber;
-  final String notes;
-  final List<PurchaseOrderDraftLine> lines;
-  final Item? selectedCatalogItem;
-  final bool isLoadingSuppliers;
-  final bool isSaving;
-  final Failure? failure;
-  final PurchaseOrder? savedDraft;
-  final bool isSupplierLoadFailure;
-  final bool isLoadingEdit;
-  final String? redirectToDetailId;
-
-  double get expectedTotal =>
-      lines.fold(0.0, (sum, line) => sum + line.lineTotal);
-
-  PurchaseOrderBuilderState copyWith({
-    List<Supplier>? suppliers,
-    Supplier? selectedSupplier,
-    DateTime? orderDate,
-    DateTime? expectedDeliveryDate,
-    String? supplierReferenceNumber,
-    String? notes,
-    List<PurchaseOrderDraftLine>? lines,
-    Item? selectedCatalogItem,
-    bool? isLoadingSuppliers,
-    bool? isSaving,
-    Failure? failure,
-    PurchaseOrder? savedDraft,
-    bool? isSupplierLoadFailure,
-    bool? isLoadingEdit,
-    String? redirectToDetailId,
-    bool clearSupplier = false,
-    bool clearOrderDate = false,
-    bool clearExpectedDeliveryDate = false,
-    bool clearFailure = false,
-    bool clearRedirectToDetail = false,
-    bool clearSelectedCatalogItem = false,
-  }) {
-    return PurchaseOrderBuilderState(
-      suppliers: suppliers ?? this.suppliers,
-      selectedSupplier: clearSupplier
-          ? null
-          : (selectedSupplier ?? this.selectedSupplier),
-      orderDate: clearOrderDate ? null : (orderDate ?? this.orderDate),
-      expectedDeliveryDate: clearExpectedDeliveryDate
-          ? null
-          : (expectedDeliveryDate ?? this.expectedDeliveryDate),
-      supplierReferenceNumber:
-          supplierReferenceNumber ?? this.supplierReferenceNumber,
-      notes: notes ?? this.notes,
-      lines: lines ?? this.lines,
-      selectedCatalogItem: clearSelectedCatalogItem
-          ? null
-          : (selectedCatalogItem ?? this.selectedCatalogItem),
-      isLoadingSuppliers: isLoadingSuppliers ?? this.isLoadingSuppliers,
-      isSaving: isSaving ?? this.isSaving,
-      failure: clearFailure ? null : (failure ?? this.failure),
-      savedDraft: savedDraft ?? this.savedDraft,
-      isSupplierLoadFailure:
-          isSupplierLoadFailure ?? this.isSupplierLoadFailure,
-      isLoadingEdit: isLoadingEdit ?? this.isLoadingEdit,
-      redirectToDetailId: clearRedirectToDetail
-          ? null
-          : (redirectToDetailId ?? this.redirectToDetailId),
-    );
-  }
-}
+part 'purchase_order_builder_draft_actions.dart';
+part 'purchase_order_builder_draft_lifecycle.dart';
 
 @riverpod
-class PurchaseOrderBuilderController extends _$PurchaseOrderBuilderController {
+class PurchaseOrderBuilderController extends _$PurchaseOrderBuilderController
+    with
+        _PurchaseOrderBuilderDraftLifecycle,
+        _PurchaseOrderBuilderDraftActions {
   static const supplierReferenceMaxLength = 100;
   static const notesMaxLength = 1000;
-  Future<void>? _supplierLoad;
-  PurchaseOrder? _loadedDraft;
 
   @override
-  PurchaseOrderBuilderState build(String target) {
-    unawaited(Future.microtask(loadSuppliers));
-    if (target != 'new') unawaited(Future.microtask(_loadEditTarget));
-    return PurchaseOrderBuilderState(
-      isLoadingSuppliers: true,
-      isLoadingEdit: target != 'new',
-    );
-  }
-
-  Future<void> loadSuppliers() async {
-    final currentLoad = _supplierLoad;
-    if (currentLoad != null) return currentLoad;
-    final load = _loadSuppliers();
-    _supplierLoad = load;
-    await load;
-    if (identical(_supplierLoad, load)) _supplierLoad = null;
-  }
-
-  Future<void> _loadSuppliers() async {
-    state = state.copyWith(isLoadingSuppliers: true, clearFailure: true);
-    try {
-      final suppliers = await ref.read(getSuppliersUseCaseProvider)();
-      if (!ref.mounted) return;
-      final selectableSuppliers = suppliers
-          .where((supplier) => supplier.isActive && !supplier.isSystem)
-          .toList(growable: false);
-      state = state.copyWith(
-        suppliers: selectableSuppliers,
-        isLoadingSuppliers: false,
-        selectedSupplier: _selectedSupplier(selectableSuppliers),
-        clearFailure: true,
-      );
-    } on AppException catch (error) {
-      _setLoadFailure(error.failure);
-    } on Object {
-      _setLoadFailure(const Failure.unknown());
-    }
-  }
-
-  Future<void> _loadEditTarget() async {
-    try {
-      final detail = await ref.read(getPurchaseOrderProvider)(target);
-      if (!ref.mounted) return;
-      if (detail.status != PurchaseOrderStatus.draft) {
-        state = state.copyWith(
-          isLoadingEdit: false,
-          redirectToDetailId: target,
-        );
-        return;
-      }
-      _loadedDraft = detail;
-      _applyLoadedDraft(detail);
-    } on AppException catch (error) {
-      _setEditLoadFailure(error.failure);
-    } on Object {
-      _setEditLoadFailure(const Failure.unknown());
-    }
-  }
-
-  void _applyLoadedDraft(PurchaseOrder detail) {
-    state = state.copyWith(
-      selectedSupplier: _selectedSupplier(state.suppliers),
-      orderDate: detail.orderDate,
-      expectedDeliveryDate: detail.expectedDeliveryDate,
-      supplierReferenceNumber: detail.supplierReferenceNumber ?? '',
-      notes: detail.notes ?? '',
-      lines: detail.lines
-          .map(
-            (line) => PurchaseOrderDraftLine(
-              itemId: line.itemId,
-              description: line.description,
-              expectedQuantity: line.expectedQuantity,
-              unitCost: line.unitCost,
-            ),
-          )
-          .toList(growable: false),
-      isLoadingEdit: false,
-      clearFailure: true,
-    );
-  }
-
-  Supplier? _selectedSupplier(List<Supplier> suppliers) {
-    final supplierId = _loadedDraft?.supplierId;
-    if (supplierId == null) return null;
-    for (final supplier in suppliers) {
-      if (supplier.supplierId == supplierId) return supplier;
-    }
-    return null;
-  }
+  PurchaseOrderBuilderState build(String target) => _buildDraftScope(target);
 
   void selectSupplier(Supplier? supplier) {
+    _desiredSupplierId = supplier?.supplierId;
     state = state.copyWith(
       selectedSupplier: supplier,
       clearSupplier: supplier == null,
       clearFailure: true,
     );
+    _scheduleHeaderPersistence();
   }
 
   void setOrderDate(DateTime? date) {
@@ -222,6 +51,7 @@ class PurchaseOrderBuilderController extends _$PurchaseOrderBuilderController {
       clearOrderDate: date == null,
       clearFailure: true,
     );
+    _scheduleHeaderPersistence();
   }
 
   void setExpectedDeliveryDate(DateTime? date) {
@@ -236,6 +66,7 @@ class PurchaseOrderBuilderController extends _$PurchaseOrderBuilderController {
       clearExpectedDeliveryDate: date == null,
       clearFailure: true,
     );
+    _scheduleHeaderPersistence();
   }
 
   void setSupplierReferenceNumber(String value) {
@@ -243,10 +74,12 @@ class PurchaseOrderBuilderController extends _$PurchaseOrderBuilderController {
       supplierReferenceNumber: value,
       clearFailure: true,
     );
+    _scheduleHeaderPersistence();
   }
 
   void setNotes(String value) {
     state = state.copyWith(notes: value, clearFailure: true);
+    _scheduleHeaderPersistence();
   }
 
   void selectCreatedCatalogItem(Item item) {
@@ -267,18 +100,16 @@ class PurchaseOrderBuilderController extends _$PurchaseOrderBuilderController {
     required int expectedQuantity,
     required double unitCost,
   }) {
-    try {
-      PurchaseOrderDraftLine.validate(
-        itemId: itemId,
-        description: description,
-        expectedQuantity: expectedQuantity,
-        unitCost: unitCost,
-      );
-      state = state.copyWith(clearFailure: true);
-    } catch (e) {
-      _setValidation('Invalid line values: ${e.toString()}');
+    final validation = _lineValidationMessage(
+      description: description,
+      expectedQuantity: expectedQuantity,
+      unitCost: unitCost,
+    );
+    if (validation != null) {
+      _setValidation(validation);
       return;
     }
+    state = state.copyWith(clearFailure: true);
 
     final existingIdx = state.lines.indexWhere((line) => line.itemId == itemId);
     if (existingIdx >= 0) {
@@ -301,6 +132,7 @@ class PurchaseOrderBuilderController extends _$PurchaseOrderBuilderController {
       );
       state = state.copyWith(lines: [...state.lines, line]);
     }
+    _persistLineChange();
   }
 
   void updateLine({
@@ -310,18 +142,16 @@ class PurchaseOrderBuilderController extends _$PurchaseOrderBuilderController {
   }) {
     if (index < 0 || index >= state.lines.length) return;
     final line = state.lines[index];
-    try {
-      PurchaseOrderDraftLine.validate(
-        itemId: line.itemId,
-        description: line.description,
-        expectedQuantity: expectedQuantity,
-        unitCost: unitCost,
-      );
-      state = state.copyWith(clearFailure: true);
-    } catch (e) {
-      _setValidation('Invalid line values: ${e.toString()}');
+    final validation = _lineValidationMessage(
+      description: line.description,
+      expectedQuantity: expectedQuantity,
+      unitCost: unitCost,
+    );
+    if (validation != null) {
+      _setValidation(validation);
       return;
     }
+    state = state.copyWith(clearFailure: true);
 
     final updated = [...state.lines];
     updated[index] = PurchaseOrderDraftLine(
@@ -331,6 +161,7 @@ class PurchaseOrderBuilderController extends _$PurchaseOrderBuilderController {
       unitCost: unitCost,
     );
     state = state.copyWith(lines: updated);
+    _persistLineChange();
   }
 
   void removeLine(int index) {
@@ -338,40 +169,67 @@ class PurchaseOrderBuilderController extends _$PurchaseOrderBuilderController {
     final updated = [...state.lines];
     updated.removeAt(index);
     state = state.copyWith(lines: updated, clearFailure: true);
+    _persistLineChange();
+  }
+
+  String? _lineValidationMessage({
+    required String description,
+    required int expectedQuantity,
+    required double unitCost,
+  }) {
+    if (expectedQuantity <= 0) {
+      return 'Invalid line values: quantity must be positive.';
+    }
+    if (unitCost < 0) {
+      return 'Invalid line values: unit cost must be non-negative.';
+    }
+    if (description.length > 255) {
+      return 'Invalid line values: description max 255 characters.';
+    }
+    return null;
   }
 
   Future<PurchaseOrder?> save() async {
     if (state.isSaving) return null;
+    if (_pendingSavedDraft != null) {
+      return await _completeSuccessfulSaveCleanup() ? state.savedDraft : null;
+    }
     final validation = _validate();
     if (validation != null) {
       _setValidation(validation);
       return null;
     }
 
+    final generation = _scopeGeneration;
+    final cleanupPersistence = _persistence;
+    final cleanupKey = _scopeKey;
     state = state.copyWith(isSaving: true, clearFailure: true);
     try {
       final draft = _draftFromState();
       final result = target == 'new'
           ? await ref.read(createPurchaseOrderDraftProvider)(draft)
           : await ref.read(updatePurchaseOrderDraftProvider)(target, draft);
-      if (!ref.mounted) return null;
-      state = state.copyWith(
-        isSaving: false,
-        savedDraft: result,
-        clearFailure: true,
-      );
-      return result;
+      if (!_isCurrentScope(generation)) {
+        await _cleanupStaleSuccessfulMutation(cleanupPersistence, cleanupKey);
+        return null;
+      }
+      _pendingSavedDraft = result;
+      _pendingCleanupPersistence = cleanupPersistence;
+      return await _completeSuccessfulSaveCleanup() ? result : null;
     } on AppException catch (error) {
-      _setSaveFailure(error.failure);
+      if (_isCurrentScope(generation)) _setSaveFailure(error.failure);
     } on Object {
-      _setSaveFailure(const Failure.unknown());
+      if (_isCurrentScope(generation)) {
+        _setSaveFailure(const Failure.unknown());
+      }
     }
     return null;
   }
 
+  @override
   PurchaseOrderDraft _draftFromState() {
     return PurchaseOrderDraft(
-      supplierId: state.selectedSupplier?.supplierId,
+      supplierId: _desiredSupplierId,
       orderDate: state.orderDate,
       expectedDeliveryDate: state.expectedDeliveryDate,
       supplierReferenceNumber: state.supplierReferenceNumber,
@@ -406,8 +264,9 @@ class PurchaseOrderBuilderController extends _$PurchaseOrderBuilderController {
     state = state.copyWith(failure: Failure.validation(message: message));
   }
 
-  void _setLoadFailure(Failure failure) {
-    if (!ref.mounted) return;
+  @override
+  void _setLoadFailure(Failure failure, int generation) {
+    if (!_isCurrentScope(generation)) return;
     state = state.copyWith(
       isLoadingSuppliers: false,
       failure: failure,
@@ -415,12 +274,14 @@ class PurchaseOrderBuilderController extends _$PurchaseOrderBuilderController {
     );
   }
 
-  void _setEditLoadFailure(Failure failure) {
-    if (!ref.mounted) return;
+  @override
+  void _setEditLoadFailure(Failure failure, int generation) {
+    if (!_isCurrentScope(generation)) return;
     state = state.copyWith(
       isLoadingEdit: false,
       failure: failure,
-      redirectToDetailId: target,
+      redirectToDetailId: state.hasRecoveredDraft ? null : target,
+      clearRedirectToDetail: state.hasRecoveredDraft,
     );
   }
 
