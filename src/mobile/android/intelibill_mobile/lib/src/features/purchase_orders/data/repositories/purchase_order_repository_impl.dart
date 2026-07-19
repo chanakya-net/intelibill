@@ -232,6 +232,7 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
               batchNumber: line.batchNumber,
               quantity: line.quantity,
               totalPurchaseCost: line.totalPurchaseCost,
+              unitCost: line.unitCost,
               mrp: line.mrp,
               salesPrice: line.salesPrice,
               taxRatePercent: line.taxRatePercent,

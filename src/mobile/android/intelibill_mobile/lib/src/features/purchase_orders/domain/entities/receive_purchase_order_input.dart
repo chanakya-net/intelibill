@@ -29,6 +29,7 @@ class ReceivePurchaseOrderLineInput extends Equatable {
     required this.batchNumber,
     required this.quantity,
     required this.totalPurchaseCost,
+    required this.unitCost,
     required this.mrp,
     required this.salesPrice,
     required this.taxRatePercent,
@@ -43,6 +44,7 @@ class ReceivePurchaseOrderLineInput extends Equatable {
   final String batchNumber;
   final double quantity;
   final double totalPurchaseCost;
+  final double unitCost;
   final double mrp;
   final double salesPrice;
   final double taxRatePercent;
@@ -58,6 +60,7 @@ class ReceivePurchaseOrderLineInput extends Equatable {
     batchNumber,
     quantity,
     totalPurchaseCost,
+    unitCost,
     mrp,
     salesPrice,
     taxRatePercent,

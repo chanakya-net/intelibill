@@ -419,6 +419,7 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
               batchNumber: line.batchNumber,
               quantity: line.quantity.toDouble(),
               totalPurchaseCost: line.totalPurchaseCost,
+              unitCost: line.unitPurchaseCost,
               mrp: line.mrp,
               salesPrice: line.salesPrice,
               taxRatePercent: line.taxRatePercent,
