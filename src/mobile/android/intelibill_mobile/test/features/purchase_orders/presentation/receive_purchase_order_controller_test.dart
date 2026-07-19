@@ -516,7 +516,7 @@ void main() {
   });
 
   test(
-    'refreshes detail on failure and keeps submitting state false',
+    'preserves drafts on API failure and keeps submitting state false',
     () async {
       final failure = const Failure.server(
         message: 'conflict',
@@ -551,21 +551,63 @@ void main() {
       container.read(receivePurchaseOrderControllerProvider('po-1'));
       await Future<void>.delayed(const Duration(milliseconds: 20));
 
+      final controller = container.read(
+        receivePurchaseOrderControllerProvider('po-1').notifier,
+      );
+      controller.updateBarcode('line-1', 'CUSTOM-BARCODE');
+
       await expectLater(
-        container
-            .read(receivePurchaseOrderControllerProvider('po-1').notifier)
-            .submit(),
+        controller.submit(),
         throwsA(isA<AppException>()),
       );
 
-      verify(() => getPurchaseOrder('po-1')).called(2);
+      verify(() => getPurchaseOrder('po-1')).called(1);
       final state = container.read(
         receivePurchaseOrderControllerProvider('po-1'),
       );
       expect(state.isSubmitting, isFalse);
       expect(state.failure, failure);
+      expect(state.lines.single.barcode, 'CUSTOM-BARCODE');
     },
   );
+
+  test('validates price/tax boundaries and blocks invalid submission', () async {
+    when(() => getPurchaseOrder('po-1')).thenAnswer(
+      (_) async => _detail(
+        lines: [
+          const PurchaseOrderLine(
+            lineId: 'line-1',
+            itemId: 'item-1',
+            description: 'Widget A',
+            expectedQuantity: 10,
+            receivedQuantity: 0,
+            remainingQuantity: 10,
+            unitCost: 50,
+            lineTotal: 500,
+          ),
+        ],
+      ),
+    );
+    final container = _makeContainer(
+      getPurchaseOrder: getPurchaseOrder,
+      receivePurchaseOrder: receivePurchaseOrder,
+    );
+    addTearDown(container.dispose);
+    _watchReceiveController(container);
+    container.read(receivePurchaseOrderControllerProvider('po-1'));
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    final controller = container.read(
+      receivePurchaseOrderControllerProvider('po-1').notifier,
+    );
+
+    controller.updateSalesPrice('line-1', '100');
+    controller.updateMrp('line-1', '80');
+    await controller.submit();
+
+    final state = container.read(receivePurchaseOrderControllerProvider('po-1'));
+    expect(state.failure, isA<ValidationFailure>());
+    expect(state.isSubmitting, isFalse);
+  });
 }
 
 ProviderContainer _makeContainer({

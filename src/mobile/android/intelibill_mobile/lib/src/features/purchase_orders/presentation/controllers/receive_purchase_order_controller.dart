@@ -57,6 +57,13 @@ class ReceivePurchaseOrderLineDraft {
     String? barcode,
     String? batchNumber,
     double? totalPurchaseCost,
+    double? mrp,
+    double? salesPrice,
+    double? taxRatePercent,
+    bool? taxIncluded,
+    bool? purchaseTaxIncluded,
+    DateTime? expiryDate,
+    DateTime? manufacturingDate,
   }) {
     return ReceivePurchaseOrderLineDraft(
       purchaseOrderLineId: purchaseOrderLineId,
@@ -68,13 +75,13 @@ class ReceivePurchaseOrderLineDraft {
       barcode: barcode ?? this.barcode,
       batchNumber: batchNumber ?? this.batchNumber,
       totalPurchaseCost: totalPurchaseCost ?? this.totalPurchaseCost,
-      mrp: mrp,
-      salesPrice: salesPrice,
-      taxRatePercent: taxRatePercent,
-      taxIncluded: taxIncluded,
-      purchaseTaxIncluded: purchaseTaxIncluded,
-      expiryDate: expiryDate,
-      manufacturingDate: manufacturingDate,
+      mrp: mrp ?? this.mrp,
+      salesPrice: salesPrice ?? this.salesPrice,
+      taxRatePercent: taxRatePercent ?? this.taxRatePercent,
+      taxIncluded: taxIncluded ?? this.taxIncluded,
+      purchaseTaxIncluded: purchaseTaxIncluded ?? this.purchaseTaxIncluded,
+      expiryDate: expiryDate ?? this.expiryDate,
+      manufacturingDate: manufacturingDate ?? this.manufacturingDate,
     );
   }
 }
@@ -315,6 +322,118 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
     );
   }
 
+  void updateTotalPurchaseCost(String purchaseOrderLineId, String value) {
+    final cost = double.tryParse(value);
+    if (cost == null) return;
+    state = state.copyWith(
+      lines: state.lines
+          .map(
+            (line) => line.purchaseOrderLineId == purchaseOrderLineId
+                ? line.copyWith(totalPurchaseCost: cost)
+                : line,
+          )
+          .toList(growable: false),
+      clearFailure: true,
+    );
+  }
+
+  void updateMrp(String purchaseOrderLineId, String value) {
+    final mrp = double.tryParse(value);
+    if (mrp == null) return;
+    state = state.copyWith(
+      lines: state.lines
+          .map(
+            (line) => line.purchaseOrderLineId == purchaseOrderLineId
+                ? line.copyWith(mrp: mrp)
+                : line,
+          )
+          .toList(growable: false),
+      clearFailure: true,
+    );
+  }
+
+  void updateSalesPrice(String purchaseOrderLineId, String value) {
+    final price = double.tryParse(value);
+    if (price == null) return;
+    state = state.copyWith(
+      lines: state.lines
+          .map(
+            (line) => line.purchaseOrderLineId == purchaseOrderLineId
+                ? line.copyWith(salesPrice: price)
+                : line,
+          )
+          .toList(growable: false),
+      clearFailure: true,
+    );
+  }
+
+  void updateTaxRatePercent(String purchaseOrderLineId, String value) {
+    final rate = double.tryParse(value);
+    if (rate == null) return;
+    state = state.copyWith(
+      lines: state.lines
+          .map(
+            (line) => line.purchaseOrderLineId == purchaseOrderLineId
+                ? line.copyWith(taxRatePercent: rate)
+                : line,
+          )
+          .toList(growable: false),
+      clearFailure: true,
+    );
+  }
+
+  void updateTaxIncluded(String purchaseOrderLineId, bool value) {
+    state = state.copyWith(
+      lines: state.lines
+          .map(
+            (line) => line.purchaseOrderLineId == purchaseOrderLineId
+                ? line.copyWith(taxIncluded: value)
+                : line,
+          )
+          .toList(growable: false),
+      clearFailure: true,
+    );
+  }
+
+  void updatePurchaseTaxIncluded(String purchaseOrderLineId, bool value) {
+    state = state.copyWith(
+      lines: state.lines
+          .map(
+            (line) => line.purchaseOrderLineId == purchaseOrderLineId
+                ? line.copyWith(purchaseTaxIncluded: value)
+                : line,
+          )
+          .toList(growable: false),
+      clearFailure: true,
+    );
+  }
+
+  void updateExpiryDate(String purchaseOrderLineId, DateTime? value) {
+    state = state.copyWith(
+      lines: state.lines
+          .map(
+            (line) => line.purchaseOrderLineId == purchaseOrderLineId
+                ? line.copyWith(expiryDate: value)
+                : line,
+          )
+          .toList(growable: false),
+      clearFailure: true,
+    );
+  }
+
+  void updateManufacturingDate(String purchaseOrderLineId, DateTime? value) {
+    state = state.copyWith(
+      lines: state.lines
+          .map(
+            (line) => line.purchaseOrderLineId == purchaseOrderLineId
+                ? line.copyWith(manufacturingDate: value)
+                : line,
+          )
+          .toList(growable: false),
+      clearFailure: true,
+    );
+  }
+
   void _setQuantityFailure() {
     state = state.copyWith(
       failure: const Failure.validation(
@@ -413,6 +532,36 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
                 ),
               );
             }
+            if (line.totalPurchaseCost < 0 || line.mrp < 0 || line.salesPrice < 0) {
+              throw AppException(
+                failure: const Failure.validation(
+                  message: 'Cost and price values must be non-negative.',
+                ),
+              );
+            }
+            if (line.salesPrice > line.mrp) {
+              throw AppException(
+                failure: const Failure.validation(
+                  message: 'Sales price cannot exceed MRP.',
+                ),
+              );
+            }
+            if (line.taxRatePercent < 0 || line.taxRatePercent > 100) {
+              throw AppException(
+                failure: const Failure.validation(
+                  message: 'Tax rate must be between 0 and 100.',
+                ),
+              );
+            }
+            if (line.manufacturingDate != null &&
+                line.expiryDate != null &&
+                line.manufacturingDate!.isAfter(line.expiryDate!)) {
+              throw AppException(
+                failure: const Failure.validation(
+                  message: 'Manufacturing date must be before or equal to expiry date.',
+                ),
+              );
+            }
             return ReceivePurchaseOrderLineInput(
               purchaseOrderLineId: line.purchaseOrderLineId,
               barcode: line.barcode,
@@ -436,7 +585,6 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
   Future<void> _finishFailure(Failure failure) async {
     if (!ref.mounted) return;
     state = state.copyWith(isSubmitting: false, failure: failure);
-    await _load(_purchaseOrderId, currentState: state, keepFailure: true);
     throw AppException(failure: failure);
   }
 

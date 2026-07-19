@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$ReceivePurchaseOrderLineRequestDto {
 
- String get purchaseOrderLineId;@JsonKey(toJson: _trim) String get barcode;@JsonKey(toJson: _trim) String get batchNumber; double get quantity; double get totalPurchaseCost; double get unitCost; double get mrp; double get salesPrice; double get taxRatePercent; bool get taxIncluded; bool get purchaseTaxIncluded;@JsonKey(toJson: _dateOnlyToJson) DateTime? get expiryDate;@JsonKey(toJson: _dateOnlyToJson) DateTime? get manufacturingDate;
+ String get purchaseOrderLineId;@JsonKey(toJson: _trim) String get barcode;@JsonKey(toJson: _trim) String get batchNumber; double get quantity; double get totalPurchaseCost;@JsonKey(includeToJson: false) double get unitCost; double get mrp; double get salesPrice; double get taxRatePercent; bool get taxIncluded; bool get purchaseTaxIncluded;@JsonKey(toJson: _dateOnlyToJson) DateTime? get expiryDate;@JsonKey(toJson: _dateOnlyToJson) DateTime? get manufacturingDate;
 /// Create a copy of ReceivePurchaseOrderLineRequestDto
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -48,7 +48,7 @@ abstract mixin class $ReceivePurchaseOrderLineRequestDtoCopyWith<$Res>  {
   factory $ReceivePurchaseOrderLineRequestDtoCopyWith(ReceivePurchaseOrderLineRequestDto value, $Res Function(ReceivePurchaseOrderLineRequestDto) _then) = _$ReceivePurchaseOrderLineRequestDtoCopyWithImpl;
 @useResult
 $Res call({
- String purchaseOrderLineId,@JsonKey(toJson: _trim) String barcode,@JsonKey(toJson: _trim) String batchNumber, double quantity, double totalPurchaseCost, double unitCost, double mrp, double salesPrice, double taxRatePercent, bool taxIncluded, bool purchaseTaxIncluded,@JsonKey(toJson: _dateOnlyToJson) DateTime? expiryDate,@JsonKey(toJson: _dateOnlyToJson) DateTime? manufacturingDate
+ String purchaseOrderLineId,@JsonKey(toJson: _trim) String barcode,@JsonKey(toJson: _trim) String batchNumber, double quantity, double totalPurchaseCost,@JsonKey(includeToJson: false) double unitCost, double mrp, double salesPrice, double taxRatePercent, bool taxIncluded, bool purchaseTaxIncluded,@JsonKey(toJson: _dateOnlyToJson) DateTime? expiryDate,@JsonKey(toJson: _dateOnlyToJson) DateTime? manufacturingDate
 });
 
 
@@ -162,7 +162,7 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String purchaseOrderLineId, @JsonKey(toJson: _trim)  String barcode, @JsonKey(toJson: _trim)  String batchNumber,  double quantity,  double totalPurchaseCost,  double unitCost,  double mrp,  double salesPrice,  double taxRatePercent,  bool taxIncluded,  bool purchaseTaxIncluded, @JsonKey(toJson: _dateOnlyToJson)  DateTime? expiryDate, @JsonKey(toJson: _dateOnlyToJson)  DateTime? manufacturingDate)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String purchaseOrderLineId, @JsonKey(toJson: _trim)  String barcode, @JsonKey(toJson: _trim)  String batchNumber,  double quantity,  double totalPurchaseCost, @JsonKey(includeToJson: false)  double unitCost,  double mrp,  double salesPrice,  double taxRatePercent,  bool taxIncluded,  bool purchaseTaxIncluded, @JsonKey(toJson: _dateOnlyToJson)  DateTime? expiryDate, @JsonKey(toJson: _dateOnlyToJson)  DateTime? manufacturingDate)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _ReceivePurchaseOrderLineRequestDto() when $default != null:
 return $default(_that.purchaseOrderLineId,_that.barcode,_that.batchNumber,_that.quantity,_that.totalPurchaseCost,_that.unitCost,_that.mrp,_that.salesPrice,_that.taxRatePercent,_that.taxIncluded,_that.purchaseTaxIncluded,_that.expiryDate,_that.manufacturingDate);case _:
@@ -183,7 +183,7 @@ return $default(_that.purchaseOrderLineId,_that.barcode,_that.batchNumber,_that.
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String purchaseOrderLineId, @JsonKey(toJson: _trim)  String barcode, @JsonKey(toJson: _trim)  String batchNumber,  double quantity,  double totalPurchaseCost,  double unitCost,  double mrp,  double salesPrice,  double taxRatePercent,  bool taxIncluded,  bool purchaseTaxIncluded, @JsonKey(toJson: _dateOnlyToJson)  DateTime? expiryDate, @JsonKey(toJson: _dateOnlyToJson)  DateTime? manufacturingDate)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String purchaseOrderLineId, @JsonKey(toJson: _trim)  String barcode, @JsonKey(toJson: _trim)  String batchNumber,  double quantity,  double totalPurchaseCost, @JsonKey(includeToJson: false)  double unitCost,  double mrp,  double salesPrice,  double taxRatePercent,  bool taxIncluded,  bool purchaseTaxIncluded, @JsonKey(toJson: _dateOnlyToJson)  DateTime? expiryDate, @JsonKey(toJson: _dateOnlyToJson)  DateTime? manufacturingDate)  $default,) {final _that = this;
 switch (_that) {
 case _ReceivePurchaseOrderLineRequestDto():
 return $default(_that.purchaseOrderLineId,_that.barcode,_that.batchNumber,_that.quantity,_that.totalPurchaseCost,_that.unitCost,_that.mrp,_that.salesPrice,_that.taxRatePercent,_that.taxIncluded,_that.purchaseTaxIncluded,_that.expiryDate,_that.manufacturingDate);}
@@ -200,7 +200,7 @@ return $default(_that.purchaseOrderLineId,_that.barcode,_that.batchNumber,_that.
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String purchaseOrderLineId, @JsonKey(toJson: _trim)  String barcode, @JsonKey(toJson: _trim)  String batchNumber,  double quantity,  double totalPurchaseCost,  double unitCost,  double mrp,  double salesPrice,  double taxRatePercent,  bool taxIncluded,  bool purchaseTaxIncluded, @JsonKey(toJson: _dateOnlyToJson)  DateTime? expiryDate, @JsonKey(toJson: _dateOnlyToJson)  DateTime? manufacturingDate)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String purchaseOrderLineId, @JsonKey(toJson: _trim)  String barcode, @JsonKey(toJson: _trim)  String batchNumber,  double quantity,  double totalPurchaseCost, @JsonKey(includeToJson: false)  double unitCost,  double mrp,  double salesPrice,  double taxRatePercent,  bool taxIncluded,  bool purchaseTaxIncluded, @JsonKey(toJson: _dateOnlyToJson)  DateTime? expiryDate, @JsonKey(toJson: _dateOnlyToJson)  DateTime? manufacturingDate)?  $default,) {final _that = this;
 switch (_that) {
 case _ReceivePurchaseOrderLineRequestDto() when $default != null:
 return $default(_that.purchaseOrderLineId,_that.barcode,_that.batchNumber,_that.quantity,_that.totalPurchaseCost,_that.unitCost,_that.mrp,_that.salesPrice,_that.taxRatePercent,_that.taxIncluded,_that.purchaseTaxIncluded,_that.expiryDate,_that.manufacturingDate);case _:
@@ -215,7 +215,7 @@ return $default(_that.purchaseOrderLineId,_that.barcode,_that.batchNumber,_that.
 @JsonSerializable()
 
 class _ReceivePurchaseOrderLineRequestDto implements ReceivePurchaseOrderLineRequestDto {
-  const _ReceivePurchaseOrderLineRequestDto({required this.purchaseOrderLineId, @JsonKey(toJson: _trim) required this.barcode, @JsonKey(toJson: _trim) required this.batchNumber, required this.quantity, required this.totalPurchaseCost, required this.unitCost, required this.mrp, required this.salesPrice, required this.taxRatePercent, required this.taxIncluded, required this.purchaseTaxIncluded, @JsonKey(toJson: _dateOnlyToJson) this.expiryDate, @JsonKey(toJson: _dateOnlyToJson) this.manufacturingDate});
+  const _ReceivePurchaseOrderLineRequestDto({required this.purchaseOrderLineId, @JsonKey(toJson: _trim) required this.barcode, @JsonKey(toJson: _trim) required this.batchNumber, required this.quantity, required this.totalPurchaseCost, @JsonKey(includeToJson: false) required this.unitCost, required this.mrp, required this.salesPrice, required this.taxRatePercent, required this.taxIncluded, required this.purchaseTaxIncluded, @JsonKey(toJson: _dateOnlyToJson) this.expiryDate, @JsonKey(toJson: _dateOnlyToJson) this.manufacturingDate});
   factory _ReceivePurchaseOrderLineRequestDto.fromJson(Map<String, dynamic> json) => _$ReceivePurchaseOrderLineRequestDtoFromJson(json);
 
 @override final  String purchaseOrderLineId;
@@ -223,7 +223,7 @@ class _ReceivePurchaseOrderLineRequestDto implements ReceivePurchaseOrderLineReq
 @override@JsonKey(toJson: _trim) final  String batchNumber;
 @override final  double quantity;
 @override final  double totalPurchaseCost;
-@override final  double unitCost;
+@override@JsonKey(includeToJson: false) final  double unitCost;
 @override final  double mrp;
 @override final  double salesPrice;
 @override final  double taxRatePercent;
@@ -265,7 +265,7 @@ abstract mixin class _$ReceivePurchaseOrderLineRequestDtoCopyWith<$Res> implemen
   factory _$ReceivePurchaseOrderLineRequestDtoCopyWith(_ReceivePurchaseOrderLineRequestDto value, $Res Function(_ReceivePurchaseOrderLineRequestDto) _then) = __$ReceivePurchaseOrderLineRequestDtoCopyWithImpl;
 @override @useResult
 $Res call({
- String purchaseOrderLineId,@JsonKey(toJson: _trim) String barcode,@JsonKey(toJson: _trim) String batchNumber, double quantity, double totalPurchaseCost, double unitCost, double mrp, double salesPrice, double taxRatePercent, bool taxIncluded, bool purchaseTaxIncluded,@JsonKey(toJson: _dateOnlyToJson) DateTime? expiryDate,@JsonKey(toJson: _dateOnlyToJson) DateTime? manufacturingDate
+ String purchaseOrderLineId,@JsonKey(toJson: _trim) String barcode,@JsonKey(toJson: _trim) String batchNumber, double quantity, double totalPurchaseCost,@JsonKey(includeToJson: false) double unitCost, double mrp, double salesPrice, double taxRatePercent, bool taxIncluded, bool purchaseTaxIncluded,@JsonKey(toJson: _dateOnlyToJson) DateTime? expiryDate,@JsonKey(toJson: _dateOnlyToJson) DateTime? manufacturingDate
 });
 
 

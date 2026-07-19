@@ -130,6 +130,42 @@ class ReceivePurchaseOrderPage extends ConsumerWidget {
                     line.purchaseOrderLineId,
                     value,
                   ),
+                  onTotalPurchaseCostChanged: (value) =>
+                      controller.updateTotalPurchaseCost(
+                    line.purchaseOrderLineId,
+                    value,
+                  ),
+                  onMrpChanged: (value) => controller.updateMrp(
+                    line.purchaseOrderLineId,
+                    value,
+                  ),
+                  onSalesPriceChanged: (value) => controller.updateSalesPrice(
+                    line.purchaseOrderLineId,
+                    value,
+                  ),
+                  onTaxRatePercentChanged: (value) =>
+                      controller.updateTaxRatePercent(
+                    line.purchaseOrderLineId,
+                    value,
+                  ),
+                  onTaxIncludedChanged: (value) => controller.updateTaxIncluded(
+                    line.purchaseOrderLineId,
+                    value,
+                  ),
+                  onPurchaseTaxIncludedChanged: (value) =>
+                      controller.updatePurchaseTaxIncluded(
+                    line.purchaseOrderLineId,
+                    value,
+                  ),
+                  onExpiryDateChanged: (value) => controller.updateExpiryDate(
+                    line.purchaseOrderLineId,
+                    value,
+                  ),
+                  onManufacturingDateChanged: (value) =>
+                      controller.updateManufacturingDate(
+                    line.purchaseOrderLineId,
+                    value,
+                  ),
                 ),
               ),
             const SizedBox(height: 12),

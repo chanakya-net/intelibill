@@ -113,5 +113,45 @@ void main() {
           .toList();
       expect(lineIds, ['line-a', 'line-b']);
     });
+
+    test('omits unitCost from serialized JSON to match backend contract', () {
+      final request = ReceivePurchaseOrderRequestDto(
+        referenceNumber: null,
+        notes: null,
+        receivedAt: DateTime.utc(2026, 7, 19),
+        lines: [
+          const ReceivePurchaseOrderLineRequestDto(
+            purchaseOrderLineId: 'line-1',
+            barcode: 'BAR-001',
+            batchNumber: 'BN-001',
+            quantity: 2,
+            totalPurchaseCost: 100,
+            unitCost: 50,
+            mrp: 120,
+            salesPrice: 100,
+            taxRatePercent: 5,
+            taxIncluded: true,
+            purchaseTaxIncluded: false,
+          ),
+        ],
+      );
+
+      final json = request.toJson();
+      final line = json['lines'][0] as Map<String, dynamic>;
+
+      expect(line.containsKey('unitCost'), false);
+      expect(line.keys, containsAll([
+        'purchaseOrderLineId',
+        'barcode',
+        'batchNumber',
+        'quantity',
+        'totalPurchaseCost',
+        'mrp',
+        'salesPrice',
+        'taxRatePercent',
+        'taxIncluded',
+        'purchaseTaxIncluded',
+      ]));
+    });
   });
 }

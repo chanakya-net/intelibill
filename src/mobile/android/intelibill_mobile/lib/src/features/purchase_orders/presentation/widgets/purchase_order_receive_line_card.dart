@@ -10,6 +10,14 @@ class PurchaseOrderReceiveLineCard extends StatelessWidget {
     required this.onQuantityChanged,
     required this.onBarcodeChanged,
     required this.onBatchNumberChanged,
+    required this.onTotalPurchaseCostChanged,
+    required this.onMrpChanged,
+    required this.onSalesPriceChanged,
+    required this.onTaxRatePercentChanged,
+    required this.onTaxIncludedChanged,
+    required this.onPurchaseTaxIncludedChanged,
+    required this.onExpiryDateChanged,
+    required this.onManufacturingDateChanged,
     super.key,
   });
 
@@ -19,12 +27,35 @@ class PurchaseOrderReceiveLineCard extends StatelessWidget {
       Key('receive-line-selection-$lineId');
   static Key quantityField(String lineId) =>
       Key('receive-line-quantity-$lineId');
+  static Key totalCostField(String lineId) =>
+      Key('receive-line-total-cost-$lineId');
+  static Key mrpField(String lineId) => Key('receive-line-mrp-$lineId');
+  static Key salesPriceField(String lineId) =>
+      Key('receive-line-sales-price-$lineId');
+  static Key taxRateField(String lineId) =>
+      Key('receive-line-tax-rate-$lineId');
+  static Key taxIncludedCheckbox(String lineId) =>
+      Key('receive-line-tax-included-$lineId');
+  static Key purchaseTaxIncludedCheckbox(String lineId) =>
+      Key('receive-line-purchase-tax-included-$lineId');
+  static Key expiryDateField(String lineId) =>
+      Key('receive-line-expiry-date-$lineId');
+  static Key manufacturingDateField(String lineId) =>
+      Key('receive-line-manufacturing-date-$lineId');
 
   final ReceivePurchaseOrderLineDraft line;
   final ValueChanged<bool> onSelectionChanged;
   final ValueChanged<String> onQuantityChanged;
   final ValueChanged<String> onBarcodeChanged;
   final ValueChanged<String> onBatchNumberChanged;
+  final ValueChanged<String> onTotalPurchaseCostChanged;
+  final ValueChanged<String> onMrpChanged;
+  final ValueChanged<String> onSalesPriceChanged;
+  final ValueChanged<String> onTaxRatePercentChanged;
+  final ValueChanged<bool> onTaxIncludedChanged;
+  final ValueChanged<bool> onPurchaseTaxIncludedChanged;
+  final ValueChanged<DateTime?> onExpiryDateChanged;
+  final ValueChanged<DateTime?> onManufacturingDateChanged;
 
   static Key cardKey(String lineId) => Key('receive-line-card-$lineId');
 
@@ -84,6 +115,94 @@ class PurchaseOrderReceiveLineCard extends StatelessWidget {
                   enabled: line.isSelected,
                   onChanged: onBatchNumberChanged,
                   maxLength: 80,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Inventory Details',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  key: totalCostField(line.purchaseOrderLineId),
+                  decoration: InputDecoration(
+                    labelText: 'Total Purchase Cost',
+                  ),
+                  initialValue: line.totalPurchaseCost.toString(),
+                  enabled: line.isSelected,
+                  keyboardType: TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(
+                      RegExp(r'^\d+\.?\d{0,2}'),
+                    ),
+                  ],
+                  onChanged: onTotalPurchaseCostChanged,
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  key: mrpField(line.purchaseOrderLineId),
+                  decoration: InputDecoration(
+                    labelText: 'MRP',
+                  ),
+                  initialValue: line.mrp.toString(),
+                  enabled: line.isSelected,
+                  keyboardType: TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(
+                      RegExp(r'^\d+\.?\d{0,2}'),
+                    ),
+                  ],
+                  onChanged: onMrpChanged,
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  key: salesPriceField(line.purchaseOrderLineId),
+                  decoration: InputDecoration(
+                    labelText: 'Sales Price',
+                  ),
+                  initialValue: line.salesPrice.toString(),
+                  enabled: line.isSelected,
+                  keyboardType: TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(
+                      RegExp(r'^\d+\.?\d{0,2}'),
+                    ),
+                  ],
+                  onChanged: onSalesPriceChanged,
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  key: taxRateField(line.purchaseOrderLineId),
+                  decoration: InputDecoration(
+                    labelText: 'Tax Rate %',
+                  ),
+                  initialValue: line.taxRatePercent.toString(),
+                  enabled: line.isSelected,
+                  keyboardType: TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(
+                      RegExp(r'^\d+\.?\d{0,2}'),
+                    ),
+                  ],
+                  onChanged: onTaxRatePercentChanged,
+                ),
+                const SizedBox(height: 12),
+                CheckboxListTile(
+                  key: taxIncludedCheckbox(line.purchaseOrderLineId),
+                  title: const Text('Tax Included in Sales Price'),
+                  value: line.taxIncluded,
+                  onChanged: line.isSelected
+                      ? (v) => onTaxIncludedChanged(v ?? false)
+                      : null,
+                  contentPadding: EdgeInsets.zero,
+                ),
+                CheckboxListTile(
+                  key: purchaseTaxIncludedCheckbox(line.purchaseOrderLineId),
+                  title: const Text('Tax Included in Purchase Cost'),
+                  value: line.purchaseTaxIncluded,
+                  onChanged: line.isSelected
+                      ? (v) => onPurchaseTaxIncludedChanged(v ?? false)
+                      : null,
+                  contentPadding: EdgeInsets.zero,
                 ),
               ],
             ),

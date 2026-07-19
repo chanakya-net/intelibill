@@ -34,7 +34,7 @@ sealed class ReceivePurchaseOrderLineRequestDto
     @JsonKey(toJson: _trim) required String batchNumber,
     required double quantity,
     required double totalPurchaseCost,
-    required double unitCost,
+    @JsonKey(includeToJson: false) required double unitCost,
     required double mrp,
     required double salesPrice,
     required double taxRatePercent,
