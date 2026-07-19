@@ -2682,6 +2682,40 @@ class AppLocalizationsMl extends AppLocalizations {
   String get purchaseOrderBuilderRetry => 'Retry';
 
   @override
+  String get purchaseOrderDraftRecoveredTitle => 'Local draft recovered';
+
+  @override
+  String get purchaseOrderDraftRecoveredMessage =>
+      'This draft belongs to the current account and shop.';
+
+  @override
+  String get purchaseOrderDraftContinue => 'Continue';
+
+  @override
+  String get purchaseOrderDraftDiscardAndReload =>
+      'Discard local and reload server';
+
+  @override
+  String get purchaseOrderDraftDiscardLocal => 'Discard local';
+
+  @override
+  String get purchaseOrderDraftDiscard => 'Discard';
+
+  @override
+  String get purchaseOrderDraftDiscardTitle => 'Discard local draft?';
+
+  @override
+  String get purchaseOrderDraftDiscardMessage =>
+      'This removes the local draft from this device. This cannot be undone.';
+
+  @override
+  String get purchaseOrderDraftDiscardConfirm => 'Discard draft';
+
+  @override
+  String get purchaseOrderDraftStorageWarning =>
+      'Local draft storage needs attention.';
+
+  @override
   String get purchaseOrderBuilderAddItemTitle => 'Add item';
 
   @override

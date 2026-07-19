@@ -8,6 +8,7 @@ import 'package:intelibill_mobile/src/features/inventory/presentation/controller
 import 'package:intelibill_mobile/src/features/inventory/presentation/widgets/create_item_sheet.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_builder_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_draft_line_card.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_draft_status_panels.dart';
 import 'package:intelibill_mobile/src/features/suppliers/domain/entities/supplier.dart';
 
 class PurchaseOrderBuilderPage extends ConsumerStatefulWidget {
@@ -33,6 +34,23 @@ class PurchaseOrderBuilderPage extends ConsumerStatefulWidget {
   );
   static const linesHeaderKey = Key('purchase-order-builder-lines-header');
   static const expectedTotalKey = Key('purchase-order-builder-expected-total');
+  static const recoveredDraftBannerKey = Key(
+    'purchase-order-builder-recovered-draft',
+  );
+  static const continueRecoveredDraftKey = Key(
+    'purchase-order-builder-continue-recovered-draft',
+  );
+  static const discardRecoveredDraftKey = Key(
+    'purchase-order-builder-discard-recovered-draft',
+  );
+  static const storageWarningKey = Key(
+    'purchase-order-builder-storage-warning',
+  );
+  static const retryStorageKey = Key('purchase-order-builder-retry-storage');
+  static const discardButtonKey = Key('purchase-order-builder-discard');
+  static const discardConfirmKey = Key(
+    'purchase-order-builder-discard-confirm',
+  );
 
   final String target;
 
@@ -80,7 +98,19 @@ class _PurchaseOrderBuilderPageState
 
     return Scaffold(
       key: PurchaseOrderBuilderPage.pageKey,
-      appBar: AppBar(title: Text(l10n.purchaseOrderBuilderTitle)),
+      appBar: AppBar(
+        title: Text(l10n.purchaseOrderBuilderTitle),
+        actions: [
+          IconButton(
+            key: PurchaseOrderBuilderPage.discardButtonKey,
+            tooltip: l10n.purchaseOrderDraftDiscard,
+            onPressed: state.isDraftActionInProgress
+                ? null
+                : () => _discardLocalAndExit(provider, l10n),
+            icon: const Icon(Icons.delete_outline),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: _BuilderBody(
           state: state,
@@ -114,6 +144,11 @@ class _PurchaseOrderBuilderPageState
           onRemoveLine: (index) =>
               ref.read(provider.notifier).removeLine(index),
           onRetry: () => ref.read(provider.notifier).loadSuppliers(),
+          isEdit: widget.target != 'new',
+          onContinueRecovered: () =>
+              ref.read(provider.notifier).continueRecoveredDraft(),
+          onDiscardRecovered: () => _discardRecoveredAndReload(provider, l10n),
+          onRetryStorage: () => ref.read(provider.notifier).retryStorage(),
           l10n: l10n,
         ),
       ),
@@ -138,12 +173,57 @@ class _PurchaseOrderBuilderPageState
     );
   }
 
+  Future<void> _discardRecoveredAndReload(
+    PurchaseOrderBuilderControllerProvider provider,
+    AppLocalizations l10n,
+  ) async {
+    if (!await _confirmDiscard(l10n) || !mounted) return;
+    await ref.read(provider.notifier).discardRecoveredDraftAndReload();
+  }
+
+  Future<void> _discardLocalAndExit(
+    PurchaseOrderBuilderControllerProvider provider,
+    AppLocalizations l10n,
+  ) async {
+    if (!await _confirmDiscard(l10n) || !mounted) return;
+    final discarded = await ref.read(provider.notifier).discardLocalDraft();
+    if (!discarded || !mounted) return;
+    context.go(
+      widget.target == 'new'
+          ? AppRoutes.purchaseOrders
+          : AppRoutes.purchaseOrderDetailFor(widget.target),
+    );
+  }
+
+  Future<bool> _confirmDiscard(AppLocalizations l10n) async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: Text(l10n.purchaseOrderDraftDiscardTitle),
+            content: Text(l10n.purchaseOrderDraftDiscardMessage),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: Text(l10n.commonCancel),
+              ),
+              FilledButton(
+                key: PurchaseOrderBuilderPage.discardConfirmKey,
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: Text(l10n.purchaseOrderDraftDiscardConfirm),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
   void _syncTextControllers(PurchaseOrderBuilderState state) {
     if (_referenceController.text != state.supplierReferenceNumber) {
       _referenceController.text = state.supplierReferenceNumber;
     }
-    if (_notesController.text != state.notes)
+    if (_notesController.text != state.notes) {
       _notesController.text = state.notes;
+    }
   }
 
   Future<void> _showAddItemDialog(
@@ -153,8 +233,8 @@ class _PurchaseOrderBuilderPageState
     AppLocalizations l10n,
   ) async {
     ref.read(provider.notifier).selectCatalogItem(null);
-    int quantity = 1;
-    double unitCost = 0.0;
+    var quantity = 1;
+    num unitCost = 0;
 
     await showDialog<void>(
       context: context,
@@ -181,7 +261,7 @@ class _PurchaseOrderBuilderPageState
                     const SizedBox(height: 16),
                     DropdownButtonFormField<Item>(
                       key: PurchaseOrderBuilderPage.addItemFieldKey,
-                      value: selectedItem,
+                      initialValue: selectedItem,
                       isExpanded: true,
                       decoration: InputDecoration(
                         labelText: l10n.purchaseOrderBuilderAddItemLabel,
@@ -254,7 +334,7 @@ class _PurchaseOrderBuilderPageState
                                 itemId: selectedItem.itemId,
                                 description: selectedItem.name,
                                 expectedQuantity: quantity,
-                                unitCost: unitCost,
+                                unitCost: unitCost.toDouble(),
                               );
                           ref.read(provider.notifier).selectCatalogItem(null);
                           Navigator.pop(context);
@@ -303,6 +383,10 @@ class _BuilderBody extends StatelessWidget {
     required this.onUpdateLine,
     required this.onRemoveLine,
     required this.onRetry,
+    required this.isEdit,
+    required this.onContinueRecovered,
+    required this.onDiscardRecovered,
+    required this.onRetryStorage,
     required this.l10n,
   });
 
@@ -317,25 +401,36 @@ class _BuilderBody extends StatelessWidget {
   final ValueChanged<String> onReferenceChanged;
   final ValueChanged<String> onNotesChanged;
   final VoidCallback onAddItem;
-  final Function({
+  final void Function({
     required int index,
     required int expectedQuantity,
     required double unitCost,
   })
   onUpdateLine;
-  final Function(int) onRemoveLine;
+  final void Function(int) onRemoveLine;
   final VoidCallback onRetry;
+  final bool isEdit;
+  final VoidCallback onContinueRecovered;
+  final VoidCallback onDiscardRecovered;
+  final VoidCallback onRetryStorage;
   final AppLocalizations l10n;
 
   @override
   Widget build(BuildContext context) {
-    if (state.isLoadingEdit) {
+    if (state.isLoadingLocalDraft) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (state.isLoadingSuppliers && state.suppliers.isEmpty) {
+    if (state.isLoadingEdit && !state.hasRecoveredDraft) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (state.isSupplierLoadFailure && state.suppliers.isEmpty) {
+    if (state.isLoadingSuppliers &&
+        state.suppliers.isEmpty &&
+        !state.hasRecoveredDraft) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (state.isSupplierLoadFailure &&
+        state.suppliers.isEmpty &&
+        !state.hasRecoveredDraft) {
       return _ErrorView(failure: state.failure!, onRetry: onRetry, l10n: l10n);
     }
 
@@ -350,6 +445,27 @@ class _BuilderBody extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (state.hasRecoveredDraft) ...[
+              PurchaseOrderRecoveredDraftBanner(
+                bannerKey: PurchaseOrderBuilderPage.recoveredDraftBannerKey,
+                continueKey: PurchaseOrderBuilderPage.continueRecoveredDraftKey,
+                discardKey: PurchaseOrderBuilderPage.discardRecoveredDraftKey,
+                isEdit: isEdit,
+                isBusy: state.isDraftActionInProgress,
+                onContinue: onContinueRecovered,
+                onDiscard: onDiscardRecovered,
+              ),
+              const SizedBox(height: 12),
+            ],
+            if (state.storageWarning case final warning?) ...[
+              PurchaseOrderStorageWarningBanner(
+                bannerKey: PurchaseOrderBuilderPage.storageWarningKey,
+                retryKey: PurchaseOrderBuilderPage.retryStorageKey,
+                message: warning,
+                onRetry: onRetryStorage,
+              ),
+              const SizedBox(height: 12),
+            ],
             DropdownButtonFormField<Supplier>(
               key: PurchaseOrderBuilderPage.supplierFieldKey,
               initialValue: state.selectedSupplier,
@@ -427,7 +543,7 @@ class _BuilderBody extends StatelessWidget {
               ),
             if (state.lines.isNotEmpty) ...[
               const SizedBox(height: 24),
-              Divider(),
+              const Divider(),
               const SizedBox(height: 16),
               Text(
                 l10n.purchaseOrderBuilderLinesHeader,

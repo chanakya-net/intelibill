@@ -1,4 +1,6 @@
 import 'package:intelibill_mobile/src/core/network/api_client_provider.dart';
+import 'package:intelibill_mobile/src/features/auth/presentation/controllers/auth_controller.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/data/data_sources/purchase_order_draft_local_data_source.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/data_sources/purchase_order_remote_data_source.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/repositories/purchase_order_repository_impl.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/repositories/purchase_order_repository.dart';
@@ -12,6 +14,29 @@ import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'purchase_order_providers.g.dart';
+
+@riverpod
+Future<PurchaseOrderDraftLocalDataSource> purchaseOrderDraftLocalDataSource(
+  Ref ref,
+) async {
+  final storage = await ref.watch(preferencesStorageProvider.future);
+  return PurchaseOrderDraftLocalDataSource(storage);
+}
+
+@riverpod
+PurchaseOrderDraftLocalKey? purchaseOrderDraftLocalKey(
+  Ref ref,
+  String target,
+) {
+  final session = ref.watch(authControllerProvider).value?.session;
+  final shopId = session?.activeShopId;
+  if (session == null || shopId == null) return null;
+  return PurchaseOrderDraftLocalKey(
+    userId: session.user.id,
+    shopId: shopId,
+    target: target,
+  );
+}
 
 @riverpod
 PurchaseOrderRemoteDataSource purchaseOrderRemoteDataSource(Ref ref) {

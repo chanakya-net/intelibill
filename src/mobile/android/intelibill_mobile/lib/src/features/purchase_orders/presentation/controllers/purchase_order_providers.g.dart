@@ -9,6 +9,135 @@ part of 'purchase_order_providers.dart';
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, type=warning
 
+@ProviderFor(purchaseOrderDraftLocalDataSource)
+final purchaseOrderDraftLocalDataSourceProvider =
+    PurchaseOrderDraftLocalDataSourceProvider._();
+
+final class PurchaseOrderDraftLocalDataSourceProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<PurchaseOrderDraftLocalDataSource>,
+          PurchaseOrderDraftLocalDataSource,
+          FutureOr<PurchaseOrderDraftLocalDataSource>
+        >
+    with
+        $FutureModifier<PurchaseOrderDraftLocalDataSource>,
+        $FutureProvider<PurchaseOrderDraftLocalDataSource> {
+  PurchaseOrderDraftLocalDataSourceProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'purchaseOrderDraftLocalDataSourceProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() =>
+      _$purchaseOrderDraftLocalDataSourceHash();
+
+  @$internal
+  @override
+  $FutureProviderElement<PurchaseOrderDraftLocalDataSource> $createElement(
+    $ProviderPointer pointer,
+  ) => $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<PurchaseOrderDraftLocalDataSource> create(Ref ref) {
+    return purchaseOrderDraftLocalDataSource(ref);
+  }
+}
+
+String _$purchaseOrderDraftLocalDataSourceHash() =>
+    r'0f4cda6d52e610c1a735135b1f32bfb38bafc5ff';
+
+@ProviderFor(purchaseOrderDraftLocalKey)
+final purchaseOrderDraftLocalKeyProvider = PurchaseOrderDraftLocalKeyFamily._();
+
+final class PurchaseOrderDraftLocalKeyProvider
+    extends
+        $FunctionalProvider<
+          PurchaseOrderDraftLocalKey?,
+          PurchaseOrderDraftLocalKey?,
+          PurchaseOrderDraftLocalKey?
+        >
+    with $Provider<PurchaseOrderDraftLocalKey?> {
+  PurchaseOrderDraftLocalKeyProvider._({
+    required PurchaseOrderDraftLocalKeyFamily super.from,
+    required String super.argument,
+  }) : super(
+         retry: null,
+         name: r'purchaseOrderDraftLocalKeyProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$purchaseOrderDraftLocalKeyHash();
+
+  @override
+  String toString() {
+    return r'purchaseOrderDraftLocalKeyProvider'
+        ''
+        '($argument)';
+  }
+
+  @$internal
+  @override
+  $ProviderElement<PurchaseOrderDraftLocalKey?> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  PurchaseOrderDraftLocalKey? create(Ref ref) {
+    final argument = this.argument as String;
+    return purchaseOrderDraftLocalKey(ref, argument);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(PurchaseOrderDraftLocalKey? value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<PurchaseOrderDraftLocalKey?>(value),
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is PurchaseOrderDraftLocalKeyProvider &&
+        other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
+}
+
+String _$purchaseOrderDraftLocalKeyHash() =>
+    r'60146c923b3052a733e8f274626bff3fbe3cbcd0';
+
+final class PurchaseOrderDraftLocalKeyFamily extends $Family
+    with $FunctionalFamilyOverride<PurchaseOrderDraftLocalKey?, String> {
+  PurchaseOrderDraftLocalKeyFamily._()
+    : super(
+        retry: null,
+        name: r'purchaseOrderDraftLocalKeyProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  PurchaseOrderDraftLocalKeyProvider call(String target) =>
+      PurchaseOrderDraftLocalKeyProvider._(argument: target, from: this);
+
+  @override
+  String toString() => r'purchaseOrderDraftLocalKeyProvider';
+}
+
 @ProviderFor(purchaseOrderRemoteDataSource)
 final purchaseOrderRemoteDataSourceProvider =
     PurchaseOrderRemoteDataSourceProvider._();
