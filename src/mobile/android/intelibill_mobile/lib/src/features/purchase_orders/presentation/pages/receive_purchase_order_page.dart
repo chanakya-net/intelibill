@@ -1,4 +1,3 @@
-import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -306,10 +305,13 @@ class ReceivePurchaseOrderPage extends ConsumerWidget {
   }
 
   ReceivePurchaseOrderLineDraft? _line(WidgetRef ref, String lineId) {
-    return ref
+    final lines = ref
         .read(receivePurchaseOrderControllerProvider(purchaseOrderId))
-        .lines
-        .firstWhereOrNull((line) => line.purchaseOrderLineId == lineId);
+        .lines;
+    for (final line in lines) {
+      if (line.purchaseOrderLineId == lineId) return line;
+    }
+    return null;
   }
 
   Future<bool> _confirmBarcodeChange({

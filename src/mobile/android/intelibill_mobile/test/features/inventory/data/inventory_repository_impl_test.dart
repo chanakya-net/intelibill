@@ -42,9 +42,9 @@ void main() {
     });
 
     test('wraps malformed JSON as serialization failure', () async {
-      when(
-        () => remoteDataSource.generateItemBarcode(),
-      ).thenThrow(const FormatException('missing barcode'));
+      when(() => remoteDataSource.generateItemBarcode()).thenAnswer(
+        (_) async => 123 as GenerateItemBarcodeResponseDto,
+      );
 
       await expectLater(
         repository.generateItemBarcode(),
@@ -55,7 +55,7 @@ void main() {
             isA<SerializationFailure>().having(
               (failure) => failure.message,
               'message',
-              'missing barcode',
+              isNotNull,
             ),
           ),
         ),

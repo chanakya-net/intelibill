@@ -2,10 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:collection/collection.dart';
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
-import 'package:intelibill_mobile/src/features/inventory/domain/use_cases/generate_item_barcode.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/controllers/items_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_line.dart';
@@ -309,9 +307,7 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
     if (state.barcodeGenerationLineIds.contains(purchaseOrderLineId)) {
       return null;
     }
-    final previousLine = state.lines.firstWhereOrNull(
-      (line) => line.purchaseOrderLineId == purchaseOrderLineId,
-    );
+    final previousLine = _lineDraftById(purchaseOrderLineId);
     if (previousLine == null) return null;
 
     final existingFailure = Map<String, String>.from(
@@ -412,9 +408,7 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
 
   void updateQuantity(String purchaseOrderLineId, String value) {
     final quantity = int.tryParse(value);
-    final line = state.lines
-        .where((item) => item.purchaseOrderLineId == purchaseOrderLineId)
-        .firstOrNull;
+    final line = _lineDraftById(purchaseOrderLineId);
     if (line == null || quantity == null || quantity <= 0) {
       _setQuantityFailure();
       return;
@@ -755,5 +749,12 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
       suffix.write(chars[(seed + index * 17).abs() % chars.length]);
     }
     return 'BN-$dateLabel-${suffix.toString()}';
+  }
+
+  ReceivePurchaseOrderLineDraft? _lineDraftById(String purchaseOrderLineId) {
+    for (final line in state.lines) {
+      if (line.purchaseOrderLineId == purchaseOrderLineId) return line;
+    }
+    return null;
   }
 }

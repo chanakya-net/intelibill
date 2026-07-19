@@ -361,6 +361,167 @@ void main() {
     },
   );
 
+  test(
+    'allows generation retry after failure while preserving barcode',
+    () async {
+      var attempt = 0;
+      when(() => generateItemBarcode()).thenAnswer((_) async {
+        attempt += 1;
+        if (attempt == 1) {
+          throw AppException(failure: const Failure.network(message: 'offline'));
+        }
+        return const GeneratedItemBarcode(barcode: 'IB-000001');
+      });
+      when(() => getPurchaseOrder('po-1')).thenAnswer(
+        (_) async => _detail(
+          lines: const [
+            PurchaseOrderLine(
+              lineId: 'line-1',
+              itemId: 'item-1',
+              description: 'Widget A',
+              expectedQuantity: 10,
+              receivedQuantity: 7,
+              remainingQuantity: 3,
+              unitCost: 10,
+              lineTotal: 100,
+            ),
+          ],
+        ),
+      );
+      final container = _makeContainer(
+        getPurchaseOrder: getPurchaseOrder,
+        receivePurchaseOrder: receivePurchaseOrder,
+        generateItemBarcode: generateItemBarcode,
+      );
+      addTearDown(container.dispose);
+      _watchReceiveController(container);
+      container.read(receivePurchaseOrderControllerProvider('po-1'));
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      final controller = container.read(
+        receivePurchaseOrderControllerProvider('po-1').notifier,
+      );
+
+      expect(await controller.generateItemBarcodeForLine('line-1'), isNull);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(
+        container.read(
+          receivePurchaseOrderControllerProvider('po-1'),
+        ).barcodeGenerationFailures,
+        containsPair('line-1', isNotNull),
+      );
+
+      container
+          .read(receivePurchaseOrderControllerProvider('po-1').notifier)
+          .updateBarcode('line-1', '');
+      final generated = await controller.generateItemBarcodeForLine('line-1');
+      expect(generated, 'IB-000001');
+
+      container
+          .read(receivePurchaseOrderControllerProvider('po-1').notifier)
+          .applyGeneratedBarcode('line-1', generated!);
+
+      final state = container.read(
+        receivePurchaseOrderControllerProvider('po-1'),
+      );
+      expect(attempt, 2);
+      expect(state.lines.single.barcode, 'IB-000001');
+      expect(state.barcodeGenerationFailures, isEmpty);
+    },
+  );
+
+  test('tracks generation loading independently for each line', () async {
+    var nextGeneration = 0;
+    final first = Completer<GeneratedItemBarcode>();
+    final second = Completer<GeneratedItemBarcode>();
+    when(() => generateItemBarcode()).thenAnswer((_) {
+      nextGeneration += 1;
+      return nextGeneration == 1 ? first.future : second.future;
+    });
+    when(() => getPurchaseOrder('po-1')).thenAnswer(
+      (_) async => _detail(
+        lines: const [
+          PurchaseOrderLine(
+            lineId: 'line-1',
+            itemId: 'item-1',
+            description: 'Widget A',
+            expectedQuantity: 10,
+            receivedQuantity: 7,
+            remainingQuantity: 3,
+            unitCost: 10,
+            lineTotal: 100,
+          ),
+          PurchaseOrderLine(
+            lineId: 'line-2',
+            itemId: 'item-2',
+            description: 'Widget B',
+            expectedQuantity: 12,
+            receivedQuantity: 5,
+            remainingQuantity: 7,
+            unitCost: 20,
+            lineTotal: 140,
+          ),
+        ],
+      ),
+    );
+    final container = _makeContainer(
+      getPurchaseOrder: getPurchaseOrder,
+      receivePurchaseOrder: receivePurchaseOrder,
+      generateItemBarcode: generateItemBarcode,
+    );
+    addTearDown(container.dispose);
+    _watchReceiveController(container);
+    container.read(receivePurchaseOrderControllerProvider('po-1'));
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    final controller = container.read(
+      receivePurchaseOrderControllerProvider('po-1').notifier,
+    );
+
+    final line1 = controller.generateItemBarcodeForLine('line-1');
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    container
+        .read(receivePurchaseOrderControllerProvider('po-1').notifier)
+        .updateBarcode('line-1', '');
+    container
+        .read(receivePurchaseOrderControllerProvider('po-1').notifier)
+        .updateBarcode('line-2', '');
+    final line2 = controller.generateItemBarcodeForLine('line-2');
+
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(
+      container.read(receivePurchaseOrderControllerProvider('po-1')).barcodeGenerationLineIds,
+      contains('line-1'),
+    );
+    expect(
+      container.read(receivePurchaseOrderControllerProvider('po-1')).barcodeGenerationLineIds,
+      contains('line-2'),
+    );
+
+    first.complete(const GeneratedItemBarcode(barcode: 'IB-000001'));
+    second.complete(const GeneratedItemBarcode(barcode: 'IB-000002'));
+    await line1;
+    await line2;
+    container
+        .read(receivePurchaseOrderControllerProvider('po-1').notifier)
+        .applyGeneratedBarcode('line-1', 'IB-000001');
+    container
+        .read(receivePurchaseOrderControllerProvider('po-1').notifier)
+        .applyGeneratedBarcode('line-2', 'IB-000002');
+
+    expect(
+      container.read(receivePurchaseOrderControllerProvider('po-1')).barcodeGenerationLineIds,
+      isEmpty,
+    );
+    expect(
+      container.read(receivePurchaseOrderControllerProvider('po-1')).lines[0].barcode,
+      'IB-000001',
+    );
+    expect(
+      container.read(receivePurchaseOrderControllerProvider('po-1')).lines[1].barcode,
+      'IB-000002',
+    );
+    verify(() => generateItemBarcode()).called(2);
+  });
+
   test('rejects zero, noninteger, and over-remaining quantities', () async {
     when(() => getPurchaseOrder('po-1')).thenAnswer(
       (_) async => _detail(

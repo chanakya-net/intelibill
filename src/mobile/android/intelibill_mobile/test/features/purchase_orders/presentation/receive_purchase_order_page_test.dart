@@ -439,7 +439,7 @@ void main() {
     final harness = buildHarness(
       getPurchaseOrder: getPurchaseOrder,
       receivePurchaseOrder: receive,
-      scanBarcode: (_) async => null,
+      scanBarcode: (_) async => const BarcodeScanResult(value: 'SC-001'),
     );
     addTearDown(() {
       harness.router.dispose();
@@ -449,15 +449,21 @@ void main() {
     await tester.pumpWidget(harness.app);
     await tester.pumpAndSettle();
     await expandFirstLine(tester);
-    final expected = harness.container
-        .read(receivePurchaseOrderControllerProvider('po-1'))
-        .lines
-        .single
-        .barcode;
+    harness.container
+        .read(receivePurchaseOrderControllerProvider('po-1').notifier)
+        .updateBarcode('line-1', 'ITEM-001');
 
     await tapLineButton(
       tester,
       PurchaseOrderReceiveLineCard.scanBarcodeButton('line-1'),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsOneWidget);
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.byType(TextButton),
+      ),
     );
     await tester.pumpAndSettle();
 
@@ -467,7 +473,53 @@ void main() {
           .lines
           .single
           .barcode,
-      expected,
+      'ITEM-001',
+    );
+  });
+
+  testWidgets('replaces barcode on scan with confirmation for nonblank value', (
+    tester,
+  ) async {
+    final getPurchaseOrder = _MockGetPurchaseOrder();
+    final receive = _MockReceivePurchaseOrder();
+    when(() => getPurchaseOrder('po-1')).thenAnswer((_) async => _detail());
+    final harness = buildHarness(
+      getPurchaseOrder: getPurchaseOrder,
+      receivePurchaseOrder: receive,
+      scanBarcode: (_) async => const BarcodeScanResult(value: 'SC-001'),
+    );
+    addTearDown(() {
+      harness.router.dispose();
+      harness.container.dispose();
+    });
+
+    await tester.pumpWidget(harness.app);
+    await tester.pumpAndSettle();
+    await expandFirstLine(tester);
+    harness.container
+        .read(receivePurchaseOrderControllerProvider('po-1').notifier)
+        .updateBarcode('line-1', 'ITEM-001');
+
+    await tapLineButton(
+      tester,
+      PurchaseOrderReceiveLineCard.scanBarcodeButton('line-1'),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.byType(FilledButton),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      harness.container
+          .read(receivePurchaseOrderControllerProvider('po-1'))
+          .lines
+          .single
+          .barcode,
+      'SC-001',
     );
     expect(find.byType(AlertDialog), findsNothing);
   });
@@ -620,14 +672,19 @@ void main() {
   );
 
   testWidgets(
-    'preserves old barcode on generation network failure and allows retry',
+    'retries generation after failure while preserving barcode',
     (tester) async {
       final getPurchaseOrder = _MockGetPurchaseOrder();
       final receive = _MockReceivePurchaseOrder();
       final generateItemBarcode = _MockGenerateItemBarcode();
-      when(() => generateItemBarcode()).thenThrow(
-        AppException(failure: const Failure.network(message: 'offline')),
-      );
+      var attempts = 0;
+      when(() => generateItemBarcode()).thenAnswer((_) async {
+        attempts += 1;
+        if (attempts == 1) {
+          throw AppException(failure: const Failure.network(message: 'offline'));
+        }
+        return const GeneratedItemBarcode(barcode: 'IB-000001');
+      });
       when(() => getPurchaseOrder('po-1')).thenAnswer((_) async => _detail());
       final harness = buildHarness(
         getPurchaseOrder: getPurchaseOrder,
@@ -642,6 +699,7 @@ void main() {
       await tester.pumpWidget(harness.app);
       await tester.pumpAndSettle();
       await expandFirstLine(tester);
+
       await tapLineButton(
         tester,
         PurchaseOrderReceiveLineCard.generateBarcodeButton('line-1'),
@@ -651,17 +709,44 @@ void main() {
       expect(
         harness.container
             .read(receivePurchaseOrderControllerProvider('po-1'))
+            .barcodeGenerationFailures['line-1'],
+        isNotNull,
+      );
+      expect(
+        harness.container
+            .read(receivePurchaseOrderControllerProvider('po-1'))
             .lines
             .single
             .barcode,
         'item-1',
       );
+
+      harness.container
+          .read(receivePurchaseOrderControllerProvider('po-1').notifier)
+          .updateBarcode('line-1', '');
+
+      await tapLineButton(
+        tester,
+        PurchaseOrderReceiveLineCard.generateBarcodeButton('line-1'),
+      );
+      await tester.pumpAndSettle();
+
       expect(
         harness.container
             .read(receivePurchaseOrderControllerProvider('po-1'))
-            .barcodeGenerationFailures['line-1'],
-        isNotNull,
+            .barcodeGenerationFailures,
+        isEmpty,
       );
+      expect(
+        harness.container
+            .read(receivePurchaseOrderControllerProvider('po-1'))
+            .lines
+            .single
+            .barcode,
+        'IB-000001',
+      );
+      expect(attempts, 2);
+      verify(() => generateItemBarcode()).called(2);
     },
   );
 
@@ -758,6 +843,7 @@ void main() {
       'IB-000001',
     );
   });
+
 }
 
 PurchaseOrder _detail({

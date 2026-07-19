@@ -285,6 +285,10 @@ class InventoryRepositoryImpl implements InventoryRepository {
       return GeneratedItemBarcodeMapper.toDomain(dto);
     } on AppException {
       rethrow;
+    } on TypeError catch (error) {
+      throw AppException(
+        failure: Failure.serialization(message: error.toString()),
+      );
     } on FormatException catch (error) {
       throw AppException(
         failure: Failure.serialization(message: error.message),
