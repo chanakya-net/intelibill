@@ -1,13 +1,12 @@
 import 'dart:typed_data';
 
-import 'package:intelibill_mobile/src/core/formatting/currency_formatter.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
 import 'package:intelibill_mobile/src/shared/documents/document_page_format.dart';
 import 'package:intelibill_mobile/src/shared/documents/filename_sanitizer.dart';
 import 'package:intelibill_mobile/src/shared/documents/pdf_document_theme.dart';
 import 'package:intl/intl.dart';
-import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:pdf/pdf.dart';
 
 class SaleReceiptPdfBuilder {
   String filenameFor(SaleDetail sale) => FilenameSanitizer.sanitize(
@@ -22,12 +21,9 @@ class SaleReceiptPdfBuilder {
       'Customer: ${sale.customerName}',
     if (sale.customerPhone != null && sale.customerPhone!.trim().isNotEmpty)
       'Phone: ${sale.customerPhone}',
-    'Line items:',
-    ...sale.items.map(
-      (item) =>
-          '${item.name} - ${_quantity(item.quantity)} × ${_money(item.rate)} = ${_money(item.total)}',
-    ),
-    'Totals:',
+    'Line items',
+    ...sale.items.map(_lineItemText),
+    'Totals',
     'Before discount: ${_money(sale.totalBeforeDiscount)}',
     'Discount: - ${_money(sale.totalDiscountAmount)}',
     'Tax: ${_money(sale.totalTaxAmount)}',
@@ -38,29 +34,27 @@ class SaleReceiptPdfBuilder {
       'Credit note applied: ${_money(sale.creditNoteAppliedAmount)}',
     if (sale.dueReductionAmount > 0)
       'Due reduction: ${_money(sale.dueReductionAmount)}',
-    if (sale.discounts.isNotEmpty) 'Discounts:',
+    if (sale.discounts.isNotEmpty) 'Discounts',
     ...sale.discounts.map(
       (discount) =>
-          '${discount.type} • ${discount.value}: - ${_money(discount.amount)}',
+          '${discount.type} ${discount.value}: - ${_money(discount.amount)}',
     ),
+    'Payment split',
     if (sale.settlements.isEmpty) 'No settlement records',
-    if (sale.settlements.isNotEmpty) 'Payment split:',
     ...sale.settlements.map(
       (settlement) => '${settlement.method}: ${_money(settlement.amount)}',
     ),
-    if (sale.creditNoteRedemptions.isNotEmpty) 'Redemptions:',
+    if (sale.creditNoteRedemptions.isNotEmpty) 'Redemptions',
     ...sale.creditNoteRedemptions.map(
       (redemption) => '${redemption.code}: ${_money(redemption.amount)}',
     ),
   ].join('\n');
 
   Future<Uint8List> build(SaleDetail sale) async {
-    final document = pw.Document();
+    final document = pw.Document(compress: false);
     document.addPage(
       pw.MultiPage(
-        pageFormat: DocumentPageFormat.mm80.pdfPageFormat.copyWith(
-          height: PdfPageFormat.a4.height,
-        ),
+        pageFormat: _receiptPageFormat(sale),
         build: (_) => [
           pw.Text('Receipt', style: PdfDocumentTheme.title),
           pw.SizedBox(height: 12),
@@ -99,13 +93,34 @@ class SaleReceiptPdfBuilder {
     return document.save();
   }
 
+  PdfPageFormat _receiptPageFormat(SaleDetail sale) {
+    final rowEstimate =
+        7 +
+        sale.items.length +
+        sale.discounts.length +
+        sale.settlements.length +
+        sale.creditNoteRedemptions.length +
+        (sale.discounts.isNotEmpty ? 2 : 0) +
+        (sale.creditNoteRedemptions.isNotEmpty ? 2 : 0) +
+        (sale.settlements.isNotEmpty ? 1 : 0) +
+        (sale.creditNoteAppliedAmount > 0 ? 1 : 0) +
+        (sale.dueReductionAmount > 0 ? 1 : 0) +
+        (sale.dueAmount > 0 ? 1 : 0);
+    final estimatedHeight = (rowEstimate * 16.0) + 120;
+    final compactHeight = estimatedHeight.clamp(120.0, 780.0);
+
+    return DocumentPageFormat.mm80.pdfPageFormat.copyWith(
+      height: compactHeight,
+    );
+  }
+
   List<pw.Widget> _lineItems(SaleDetail sale) => sale.items
       .map<pw.Widget>(
         (item) => pw.Row(
           children: [
             pw.Expanded(child: pw.Text(item.name)),
             pw.Text(
-              '${_quantity(item.quantity)} × ${_money(item.rate)}',
+              '${_quantity(item.quantity)} × ${_rate(item.rate)}',
               textAlign: pw.TextAlign.right,
             ),
             pw.SizedBox(width: 8),
@@ -158,11 +173,16 @@ class SaleReceiptPdfBuilder {
     ],
   );
 
-  String _money(num value) => formatInr(value);
+  String _money(num value) => 'Rs ${value.toStringAsFixed(0)}';
+
+  String _rate(num value) => value.toStringAsFixed(2);
+
+  String _lineItemText(SaleDetailItem item) =>
+      '${item.name} - ${_quantity(item.quantity)} × ${_rate(item.rate)} = ${_money(item.total)}';
 
   String _quantity(num value) {
     final numeric = value.toDouble();
-    return numeric % 1 == 0
+    return (numeric % 1).abs() < 0.0000001
         ? numeric.toStringAsFixed(0)
         : numeric.toStringAsFixed(2);
   }
