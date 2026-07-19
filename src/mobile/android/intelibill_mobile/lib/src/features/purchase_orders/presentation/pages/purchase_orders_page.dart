@@ -15,6 +15,12 @@ class PurchaseOrdersPage extends ConsumerStatefulWidget {
   static const pageKey = Key('purchase-orders-page');
   static const countKey = Key('purchase-orders-count');
   static const searchFieldKey = Key('search-field');
+  static const dateFromFilterKey = Key('purchase-orders-filter-date-from');
+  static const dateToFilterKey = Key('purchase-orders-filter-date-to');
+  static const clearFiltersKey = Key('purchase-orders-clear-filters');
+
+  static Key statusFilterKey(PurchaseOrderStatus status) =>
+      Key('purchase-orders-filter-status-${status.name}');
 
   @override
   ConsumerState<PurchaseOrdersPage> createState() => _PurchaseOrdersPageState();
@@ -195,89 +201,79 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
               spacing: 8,
               children: [
                 for (final status in PurchaseOrderStatus.values)
-                  FilterChip(
-                    label: Text(purchaseOrderStatusMessage(l10n, status)),
-                    selected: _selectedStatus == status,
-                    onSelected: (selected) {
-                      setState(() {
-                        _selectedStatus = selected ? status : null;
-                      });
-                      ref
-                          .read(
-                            purchaseOrdersControllerProvider.notifier,
-                          )
-                          .updateStatus(_selectedStatus);
-                    },
+                  Tooltip(
+                    message: purchaseOrderStatusMessage(l10n, status),
+                    child: Semantics(
+                      label: purchaseOrderStatusMessage(l10n, status),
+                      selected: _selectedStatus == status,
+                      child: FilterChip(
+                        key: PurchaseOrdersPage.statusFilterKey(status),
+                        label: Text(purchaseOrderStatusMessage(l10n, status)),
+                        selected: _selectedStatus == status,
+                        onSelected: (selected) {
+                          setState(() {
+                            _selectedStatus = selected ? status : null;
+                          });
+                          ref
+                              .read(
+                                purchaseOrdersControllerProvider.notifier,
+                              )
+                              .updateStatus(_selectedStatus);
+                        },
+                      ),
+                    ),
                   ),
               ],
             ),
             const SizedBox(width: 12),
-            OutlinedButton.icon(
-              icon: const Icon(Icons.calendar_today, size: 18),
-              label: Text(
-                _dateFrom == null
-                    ? l10n.purchaseOrdersFilterDateFrom
-                    : '${_dateFrom!.year}-${_dateFrom!.month.toString().padLeft(2, '0')}-${_dateFrom!.day.toString().padLeft(2, '0')}',
+            Tooltip(
+              message: l10n.purchaseOrdersFilterDateFrom,
+              child: Semantics(
+                label: l10n.purchaseOrdersFilterDateFrom,
+                button: true,
+                child: OutlinedButton.icon(
+                  key: PurchaseOrdersPage.dateFromFilterKey,
+                  icon: const Icon(Icons.calendar_today, size: 18),
+                  label: Text(
+                    _dateFrom == null
+                        ? l10n.purchaseOrdersFilterDateFrom
+                        : '${_dateFrom!.year}-${_dateFrom!.month.toString().padLeft(2, '0')}-${_dateFrom!.day.toString().padLeft(2, '0')}',
+                  ),
+                  onPressed: () => _pickDateFrom(context),
+                ),
               ),
-              onPressed: () async {
-                final picked = await showDatePicker(
-                  context: context,
-                  initialDate: _dateFrom ?? DateTime.now(),
-                  firstDate: DateTime(2000),
-                  lastDate: DateTime.now(),
-                );
-                if (picked != null) {
-                  setState(() => _dateFrom = picked);
-                  ref
-                      .read(
-                        purchaseOrdersControllerProvider.notifier,
-                      )
-                      .updateOrderDateFrom(picked);
-                }
-              },
             ),
             const SizedBox(width: 8),
-            OutlinedButton.icon(
-              icon: const Icon(Icons.calendar_today, size: 18),
-              label: Text(
-                _dateTo == null
-                    ? l10n.purchaseOrdersFilterDateTo
-                    : '${_dateTo!.year}-${_dateTo!.month.toString().padLeft(2, '0')}-${_dateTo!.day.toString().padLeft(2, '0')}',
+            Tooltip(
+              message: l10n.purchaseOrdersFilterDateTo,
+              child: Semantics(
+                label: l10n.purchaseOrdersFilterDateTo,
+                button: true,
+                child: OutlinedButton.icon(
+                  key: PurchaseOrdersPage.dateToFilterKey,
+                  icon: const Icon(Icons.calendar_today, size: 18),
+                  label: Text(
+                    _dateTo == null
+                        ? l10n.purchaseOrdersFilterDateTo
+                        : '${_dateTo!.year}-${_dateTo!.month.toString().padLeft(2, '0')}-${_dateTo!.day.toString().padLeft(2, '0')}',
+                  ),
+                  onPressed: () => _pickDateTo(context),
+                ),
               ),
-              onPressed: () async {
-                final picked = await showDatePicker(
-                  context: context,
-                  initialDate: _dateTo ?? DateTime.now(),
-                  firstDate: DateTime(2000),
-                  lastDate: DateTime.now(),
-                );
-                if (picked != null) {
-                  setState(() => _dateTo = picked);
-                  ref
-                      .read(
-                        purchaseOrdersControllerProvider.notifier,
-                      )
-                      .updateOrderDateTo(picked);
-                }
-              },
             ),
             const SizedBox(width: 8),
             if (hasActiveFilter)
-              ActionChip(
-                label: Text(l10n.commonClear),
-                onPressed: () {
-                  setState(() {
-                    _selectedStatus = null;
-                    _dateFrom = null;
-                    _dateTo = null;
-                    _searchController.clear();
-                  });
-                  ref
-                      .read(
-                        purchaseOrdersControllerProvider.notifier,
-                      )
-                      .clearFilters();
-                },
+              Tooltip(
+                message: l10n.commonClear,
+                child: Semantics(
+                  label: l10n.commonClear,
+                  button: true,
+                  child: ActionChip(
+                    key: PurchaseOrdersPage.clearFiltersKey,
+                    label: Text(l10n.commonClear),
+                    onPressed: _clearFilters,
+                  ),
+                ),
               ),
           ],
         ),
@@ -368,6 +364,45 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
         ),
       ],
     );
+  }
+
+  Future<void> _pickDateFrom(BuildContext context) async {
+    final picked = await _pickDate(context, _dateFrom);
+    if (picked == null) return;
+    setState(() => _dateFrom = picked);
+    ref
+        .read(purchaseOrdersControllerProvider.notifier)
+        .updateOrderDateFrom(
+          picked,
+        );
+  }
+
+  Future<void> _pickDateTo(BuildContext context) async {
+    final picked = await _pickDate(context, _dateTo);
+    if (picked == null) return;
+    setState(() => _dateTo = picked);
+    ref
+        .read(purchaseOrdersControllerProvider.notifier)
+        .updateOrderDateTo(picked);
+  }
+
+  Future<DateTime?> _pickDate(BuildContext context, DateTime? current) {
+    return showDatePicker(
+      context: context,
+      initialDate: current ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now(),
+    );
+  }
+
+  void _clearFilters() {
+    setState(() {
+      _selectedStatus = null;
+      _dateFrom = null;
+      _dateTo = null;
+      _searchController.clear();
+    });
+    ref.read(purchaseOrdersControllerProvider.notifier).clearFilters();
   }
 }
 

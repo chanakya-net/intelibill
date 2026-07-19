@@ -42,6 +42,8 @@ class PurchaseOrderReceiveLineCard extends StatefulWidget {
   static Key batchField(String lineId) => Key('receive-line-batch-$lineId');
   static Key selectionCheckbox(String lineId) =>
       Key('receive-line-selection-$lineId');
+  static Key selectionSemantics(String lineId) =>
+      Key('receive-line-selection-semantics-$lineId');
   static Key quantityField(String lineId) =>
       Key('receive-line-quantity-$lineId');
   static Key totalCostField(String lineId) =>
@@ -135,16 +137,17 @@ class _PurchaseOrderReceiveLineCardState
         ),
         initiallyExpanded: widget.isExpanded,
         leading: Semantics(
+          key: PurchaseOrderReceiveLineCard.selectionSemantics(
+            widget.line.purchaseOrderLineId,
+          ),
           label: widget.line.description,
           checked: widget.line.isSelected,
-          child: ExcludeSemantics(
-            child: Checkbox(
-              key: PurchaseOrderReceiveLineCard.selectionCheckbox(
-                widget.line.purchaseOrderLineId,
-              ),
-              value: widget.line.isSelected,
-              onChanged: (value) => widget.onSelectionChanged(value ?? false),
+          child: Checkbox(
+            key: PurchaseOrderReceiveLineCard.selectionCheckbox(
+              widget.line.purchaseOrderLineId,
             ),
+            value: widget.line.isSelected,
+            onChanged: (value) => widget.onSelectionChanged(value ?? false),
           ),
         ),
         title: Row(

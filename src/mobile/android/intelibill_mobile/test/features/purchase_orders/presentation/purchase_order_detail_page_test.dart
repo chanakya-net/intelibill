@@ -579,6 +579,83 @@ void main() {
     }
   });
 
+  testWidgets(
+    'labels every visible lifecycle action and keeps disabled place',
+    (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      final actionsByStatus = {
+        PurchaseOrderStatus.draft: <(Key, String)>[
+          (PurchaseOrderDetailPage.editButtonKey, 'Edit'),
+          (PurchaseOrderDetailPage.previewButtonKey, 'Preview'),
+          (const Key('purchase-order-detail-delete-button'), 'Delete'),
+          (const Key('purchase-order-detail-place-button'), 'Place'),
+        ],
+        PurchaseOrderStatus.placed: <(Key, String)>[
+          (PurchaseOrderDetailPage.previewButtonKey, 'Preview'),
+          (PurchaseOrderDetailPage.receiveButtonKey, 'Receive'),
+          (
+            const Key('purchase-order-detail-cancel-button'),
+            'Cancel purchase order',
+          ),
+        ],
+        PurchaseOrderStatus.partiallyReceived: <(Key, String)>[
+          (PurchaseOrderDetailPage.previewButtonKey, 'Preview'),
+          (PurchaseOrderDetailPage.receiveButtonKey, 'Receive'),
+          (
+            const Key('purchase-order-detail-close-button'),
+            'Close purchase order',
+          ),
+        ],
+        PurchaseOrderStatus.received: <(Key, String)>[
+          (PurchaseOrderDetailPage.previewButtonKey, 'Preview'),
+        ],
+        PurchaseOrderStatus.cancelled: <(Key, String)>[
+          (PurchaseOrderDetailPage.previewButtonKey, 'Preview'),
+        ],
+        PurchaseOrderStatus.closed: <(Key, String)>[
+          (PurchaseOrderDetailPage.previewButtonKey, 'Preview'),
+        ],
+      };
+
+      for (final entry in actionsByStatus.entries) {
+        final getPurchaseOrder = _MockGetPurchaseOrder();
+        when(() => getPurchaseOrder(any())).thenAnswer(
+          (_) async =>
+              _detail(purchaseOrderId: 'po-actions', status: entry.key),
+        );
+        final harness = buildSimpleHarness(
+          getPurchaseOrder: getPurchaseOrder,
+          purchaseOrderId: 'po-actions',
+        );
+
+        await tester.pumpWidget(harness.app);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+
+        for (final (key, label) in entry.value) {
+          expect(find.byKey(key), findsOneWidget);
+          expect(find.bySemanticsLabel(label), findsOneWidget);
+        }
+        if (entry.key == PurchaseOrderStatus.draft) {
+          expect(
+            tester
+                .widget<IconButton>(
+                  find.byKey(const Key('purchase-order-detail-place-button')),
+                )
+                .onPressed,
+            isNull,
+          );
+        }
+
+        harness.container.dispose();
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      semantics.dispose();
+    },
+  );
+
   group('Cancellation Action Visibility & Confirmation Flow', () {
     late _MockGetPurchaseOrder mockGetPurchaseOrder;
     late _MockCancelPurchaseOrder mockCancelPurchaseOrder;
