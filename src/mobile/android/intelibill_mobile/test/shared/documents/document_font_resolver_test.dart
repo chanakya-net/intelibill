@@ -51,28 +51,27 @@ Future<void> main() async {
       for (final entry in localesAndText) {
         // Verify font resolution succeeds (fonts are bundled and loadable).
         final fonts = await resolver.resolve(entry.locale);
-        expect(fonts.regular, isNotNull, reason: '${entry.locale}: regular font');
+        expect(
+          fonts.regular,
+          isNotNull,
+          reason: '${entry.locale}: regular font',
+        );
         expect(fonts.bold, isNotNull, reason: '${entry.locale}: bold font');
 
-        // Verify PDF generation with correct fonts succeeds.
-        final document = pw.Document();
-        document.addPage(
-          pw.Page(
-            theme: PdfDocumentTheme(fonts).data,
-            build: (_) => pw.Column(
-              children: [
-                pw.Text(entry.text),
-                pw.Text(entry.text, style: PdfDocumentTheme(fonts).emphasis),
-              ],
-            ),
-          ),
+        final result = await _renderRepresentativeText(
+          fonts: fonts,
+          text: entry.text,
         );
-
-        final bytes = await document.save();
         expect(
-          bytes,
+          result.bytes,
           isNotEmpty,
           reason: '${entry.locale}: PDF bytes generated',
+        );
+        expect(
+          result.hasMissingGlyphDiagnostic,
+          isFalse,
+          reason:
+              '${entry.locale}: normal and bold text have no missing glyphs',
         );
       }
     },
@@ -81,36 +80,21 @@ Future<void> main() async {
   test(
     'missing fonts produce detectable errors: Latin-only font for Hindi fails to render glyphs',
     () async {
-      // Demonstrate that the assertion can detect missing glyphs.
-      // Rendering Hindi with Latin-only fonts logs "Unable to find a font" errors.
       final resolver = DocumentFontResolver();
       final latinOnly = await resolver.resolve(const Locale('en', 'IN'));
-      const hindiText = 'बहुत';
-
-      final capturedMessages = <String>[];
-      final zone = Zone.current.fork(specification: ZoneSpecification(
-        print: (_, __, _, line) {
-          capturedMessages.add(line);
-        },
-      ));
-
-      await zone.run(() async {
-        final document = pw.Document();
-        document.addPage(
-          pw.Page(
-            build: (_) => pw.Text(
-              hindiText,
-              style: pw.TextStyle(font: latinOnly.regular),
-            ),
-          ),
-        );
-        await document.save();
-      });
-
+      final result = await _renderRepresentativeText(
+        fonts: PdfFontSet(
+          regular: latinOnly.regular,
+          bold: latinOnly.bold,
+          fallback: const [],
+        ),
+        text: 'बहुत',
+      );
       expect(
-        capturedMessages.any((msg) => msg.contains('Unable to find a font')),
+        result.hasMissingGlyphDiagnostic,
         isTrue,
-        reason: 'PDF rendering of Hindi with Latin-only font should log glyph-not-found warnings',
+        reason:
+            'PDF rendering of Hindi with Latin-only font should log glyph-not-found warnings',
       );
     },
   );
@@ -149,4 +133,45 @@ Future<void> main() async {
       }
     },
   );
+}
+
+Future<_RenderResult> _renderRepresentativeText({
+  required PdfFontSet fonts,
+  required String text,
+}) async {
+  final capturedMessages = <String>[];
+  final result = await Zone.current
+      .fork(
+        specification: ZoneSpecification(
+          print: (_, _, _, line) => capturedMessages.add(line),
+        ),
+      )
+      .run(() async {
+        final document = pw.Document();
+        final theme = PdfDocumentTheme(fonts);
+        document.addPage(
+          pw.Page(
+            theme: theme.data,
+            build: (_) => pw.Column(
+              children: [
+                pw.Text(text),
+                pw.Text(text, style: theme.emphasis),
+              ],
+            ),
+          ),
+        );
+        return document.save();
+      });
+
+  return _RenderResult(bytes: result, messages: capturedMessages);
+}
+
+class _RenderResult {
+  const _RenderResult({required this.bytes, required this.messages});
+
+  final List<int> bytes;
+  final List<String> messages;
+
+  bool get hasMissingGlyphDiagnostic =>
+      messages.any((message) => message.contains('Unable to find a font'));
 }
