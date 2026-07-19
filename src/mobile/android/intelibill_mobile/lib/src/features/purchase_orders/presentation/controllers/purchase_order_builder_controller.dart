@@ -21,6 +21,7 @@ class PurchaseOrderBuilderState {
     this.expectedDeliveryDate,
     this.supplierReferenceNumber = '',
     this.notes = '',
+    this.lines = const [],
     this.isLoadingSuppliers = false,
     this.isSaving = false,
     this.failure,
@@ -34,11 +35,15 @@ class PurchaseOrderBuilderState {
   final DateTime? expectedDeliveryDate;
   final String supplierReferenceNumber;
   final String notes;
+  final List<PurchaseOrderDraftLine> lines;
   final bool isLoadingSuppliers;
   final bool isSaving;
   final Failure? failure;
   final PurchaseOrder? savedDraft;
   final bool isSupplierLoadFailure;
+
+  double get expectedTotal =>
+      lines.fold(0.0, (sum, line) => sum + line.lineTotal);
 
   PurchaseOrderBuilderState copyWith({
     List<Supplier>? suppliers,
@@ -47,6 +52,7 @@ class PurchaseOrderBuilderState {
     DateTime? expectedDeliveryDate,
     String? supplierReferenceNumber,
     String? notes,
+    List<PurchaseOrderDraftLine>? lines,
     bool? isLoadingSuppliers,
     bool? isSaving,
     Failure? failure,
@@ -69,6 +75,7 @@ class PurchaseOrderBuilderState {
       supplierReferenceNumber:
           supplierReferenceNumber ?? this.supplierReferenceNumber,
       notes: notes ?? this.notes,
+      lines: lines ?? this.lines,
       isLoadingSuppliers: isLoadingSuppliers ?? this.isLoadingSuppliers,
       isSaving: isSaving ?? this.isSaving,
       failure: clearFailure ? null : (failure ?? this.failure),
@@ -164,6 +171,85 @@ class PurchaseOrderBuilderController extends _$PurchaseOrderBuilderController {
     state = state.copyWith(notes: value, clearFailure: true);
   }
 
+  void addItem({
+    required String itemId,
+    required String description,
+    required int expectedQuantity,
+    required double unitCost,
+  }) {
+    try {
+      PurchaseOrderDraftLine.validate(
+        itemId: itemId,
+        description: description,
+        expectedQuantity: expectedQuantity,
+        unitCost: unitCost,
+      );
+      state = state.copyWith(clearFailure: true);
+    } catch (e) {
+      _setValidation('Invalid line values: ${e.toString()}');
+      return;
+    }
+
+    final existingIdx = state.lines.indexWhere((line) => line.itemId == itemId);
+    if (existingIdx >= 0) {
+      final existing = state.lines[existingIdx];
+      final merged = PurchaseOrderDraftLine(
+        itemId: itemId,
+        description: description,
+        expectedQuantity: existing.expectedQuantity + expectedQuantity,
+        unitCost: unitCost,
+      );
+      final updated = [...state.lines];
+      updated[existingIdx] = merged;
+      state = state.copyWith(lines: updated);
+    } else {
+      final line = PurchaseOrderDraftLine(
+        itemId: itemId,
+        description: description,
+        expectedQuantity: expectedQuantity,
+        unitCost: unitCost,
+      );
+      state = state.copyWith(lines: [...state.lines, line]);
+    }
+  }
+
+  void updateLine({
+    required int index,
+    required int expectedQuantity,
+    required double unitCost,
+  }) {
+    if (index < 0 || index >= state.lines.length) return;
+    final line = state.lines[index];
+    try {
+      PurchaseOrderDraftLine.validate(
+        itemId: line.itemId,
+        description: line.description,
+        expectedQuantity: expectedQuantity,
+        unitCost: unitCost,
+      );
+      state = state.copyWith(clearFailure: true);
+    } catch (e) {
+      _setValidation('Invalid line values: ${e.toString()}');
+      return;
+    }
+
+    final updated = [...state.lines];
+    updated[index] = PurchaseOrderDraftLine(
+      itemId: line.itemId,
+      description: line.description,
+      expectedQuantity: expectedQuantity,
+      unitCost: unitCost,
+    );
+    state = state.copyWith(lines: updated);
+  }
+
+  void removeLine(int index) {
+    if (index < 0 || index >= state.lines.length) return;
+    final updated = [...state.lines];
+    updated.removeAt(index);
+    state = state.copyWith(lines: updated, clearFailure: true);
+  }
+
   Future<PurchaseOrder?> save() async {
     if (state.isSaving) return null;
     final validation = _validate();
@@ -180,6 +266,7 @@ class PurchaseOrderBuilderController extends _$PurchaseOrderBuilderController {
         expectedDeliveryDate: state.expectedDeliveryDate,
         supplierReferenceNumber: state.supplierReferenceNumber,
         notes: state.notes,
+        lines: state.lines,
       );
       final result = await ref.read(createPurchaseOrderDraftProvider)(draft);
       if (!ref.mounted) return null;

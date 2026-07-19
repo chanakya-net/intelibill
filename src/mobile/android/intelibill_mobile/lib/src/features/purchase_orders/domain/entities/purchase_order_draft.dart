@@ -13,6 +13,25 @@ class PurchaseOrderDraftLine extends Equatable {
   final int expectedQuantity;
   final double unitCost;
 
+  double get lineTotal => expectedQuantity * unitCost;
+
+  static void validate({
+    required String itemId,
+    required String description,
+    required int expectedQuantity,
+    required double unitCost,
+  }) {
+    if (expectedQuantity <= 0) {
+      throw ArgumentError('Quantity must be positive');
+    }
+    if (unitCost < 0) {
+      throw ArgumentError('Unit cost must be non-negative');
+    }
+    if (description.length > 255) {
+      throw ArgumentError('Description max 255 characters');
+    }
+  }
+
   @override
   List<Object?> get props => [itemId, description, expectedQuantity, unitCost];
 }

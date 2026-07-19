@@ -2682,6 +2682,33 @@ class AppLocalizationsGu extends AppLocalizations {
   String get purchaseOrderBuilderRetry => 'Retry';
 
   @override
+  String get purchaseOrderBuilderAddItemTitle => 'Add item';
+
+  @override
+  String get purchaseOrderBuilderLinesHeader => 'Items';
+
+  @override
+  String get purchaseOrderBuilderExpectedTotal => 'Expected total';
+
+  @override
+  String get purchaseOrderBuilderAddItemLabel => 'Item';
+
+  @override
+  String get purchaseOrderBuilderQuantityLabel => 'Quantity';
+
+  @override
+  String get purchaseOrderBuilderUnitCostLabel => 'Unit cost';
+
+  @override
+  String get purchaseOrderBuilderLineTotalLabel => 'Line total';
+
+  @override
+  String get purchaseOrderBuilderItemIdLabel => 'Item';
+
+  @override
+  String get purchaseOrderBuilderRemoveLineLabel => 'Remove';
+
+  @override
   String get purchaseOrderReceiveAction => 'Receive';
 
   @override

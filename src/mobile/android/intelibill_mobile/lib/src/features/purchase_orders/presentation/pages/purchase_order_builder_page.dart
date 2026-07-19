@@ -3,7 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intelibill_mobile/src/app/router/app_router.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
+import 'package:intelibill_mobile/src/features/inventory/domain/entities/item.dart';
+import 'package:intelibill_mobile/src/features/inventory/presentation/controllers/items_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_builder_controller.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_draft_line_card.dart';
 import 'package:intelibill_mobile/src/features/suppliers/domain/entities/supplier.dart';
 
 class PurchaseOrderBuilderPage extends ConsumerStatefulWidget {
@@ -18,6 +21,14 @@ class PurchaseOrderBuilderPage extends ConsumerStatefulWidget {
   static const referenceFieldKey = Key('purchase-order-builder-reference');
   static const notesFieldKey = Key('purchase-order-builder-notes');
   static const saveButtonKey = Key('purchase-order-builder-save');
+  static const addItemFieldKey = Key('purchase-order-builder-add-item');
+  static const itemSearchKey = Key('purchase-order-builder-item-search');
+  static const addItemButtonKey = Key('purchase-order-builder-add-item-btn');
+  static const addItemConfirmButtonKey = Key(
+    'purchase-order-builder-add-item-confirm-btn',
+  );
+  static const linesHeaderKey = Key('purchase-order-builder-lines-header');
+  static const expectedTotalKey = Key('purchase-order-builder-expected-total');
 
   final String target;
 
@@ -75,6 +86,21 @@ class _PurchaseOrderBuilderPageState
               ref.read(provider.notifier).setSupplierReferenceNumber(value),
           onNotesChanged: (value) =>
               ref.read(provider.notifier).setNotes(value),
+          onAddItem: () => _showAddItemDialog(context, ref, provider, l10n),
+          onUpdateLine:
+              ({
+                required index,
+                required expectedQuantity,
+                required unitCost,
+              }) => ref
+                  .read(provider.notifier)
+                  .updateLine(
+                    index: index,
+                    expectedQuantity: expectedQuantity,
+                    unitCost: unitCost,
+                  ),
+          onRemoveLine: (index) =>
+              ref.read(provider.notifier).removeLine(index),
           onRetry: () => ref.read(provider.notifier).loadSuppliers(),
           l10n: l10n,
         ),
@@ -99,6 +125,111 @@ class _PurchaseOrderBuilderPageState
       ),
     );
   }
+
+  Future<void> _showAddItemDialog(
+    BuildContext context,
+    WidgetRef ref,
+    dynamic provider,
+    AppLocalizations l10n,
+  ) async {
+    Item? selectedItem;
+    int quantity = 1;
+    double unitCost = 0.0;
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) => Consumer(
+        builder: (context, ref, _) {
+          final itemsState = ref.watch(itemsControllerProvider);
+          return StatefulBuilder(
+            builder: (context, setState) => AlertDialog(
+              title: Text(l10n.purchaseOrderBuilderAddItemTitle),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      key: PurchaseOrderBuilderPage.itemSearchKey,
+                      decoration: InputDecoration(
+                        labelText: l10n.commonSearch,
+                      ),
+                      onChanged: (query) => ref
+                          .read(itemsControllerProvider.notifier)
+                          .updateSearch(query),
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<Item>(
+                      key: PurchaseOrderBuilderPage.addItemFieldKey,
+                      value: selectedItem,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        labelText: l10n.purchaseOrderBuilderAddItemLabel,
+                      ),
+                      items: itemsState.filteredItems
+                          .map(
+                            (item) => DropdownMenuItem(
+                              value: item,
+                              child: Text(item.name),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (item) => setState(() => selectedItem = item),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      initialValue: quantity.toString(),
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: l10n.purchaseOrderBuilderQuantityLabel,
+                      ),
+                      onChanged: (value) =>
+                          setState(() => quantity = int.tryParse(value) ?? 1),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      initialValue: unitCost.toStringAsFixed(2),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: InputDecoration(
+                        labelText: l10n.purchaseOrderBuilderUnitCostLabel,
+                      ),
+                      onChanged: (value) => setState(
+                        () => unitCost = double.tryParse(value) ?? 0.0,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(l10n.commonCancel),
+                ),
+                FilledButton(
+                  key: PurchaseOrderBuilderPage.addItemConfirmButtonKey,
+                  onPressed: selectedItem == null
+                      ? null
+                      : () {
+                          ref
+                              .read(provider.notifier)
+                              .addItem(
+                                itemId: selectedItem!.itemId,
+                                description: selectedItem!.name,
+                                expectedQuantity: quantity,
+                                unitCost: unitCost,
+                              );
+                          Navigator.pop(context);
+                        },
+                  child: Text(l10n.commonSave),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
 }
 
 class _BuilderBody extends StatelessWidget {
@@ -113,6 +244,9 @@ class _BuilderBody extends StatelessWidget {
     required this.onExpectedDeliveryDateChanged,
     required this.onReferenceChanged,
     required this.onNotesChanged,
+    required this.onAddItem,
+    required this.onUpdateLine,
+    required this.onRemoveLine,
     required this.onRetry,
     required this.l10n,
   });
@@ -127,6 +261,14 @@ class _BuilderBody extends StatelessWidget {
   final ValueChanged<DateTime?> onExpectedDeliveryDateChanged;
   final ValueChanged<String> onReferenceChanged;
   final ValueChanged<String> onNotesChanged;
+  final VoidCallback onAddItem;
+  final Function({
+    required int index,
+    required int expectedQuantity,
+    required double unitCost,
+  })
+  onUpdateLine;
+  final Function(int) onRemoveLine;
   final VoidCallback onRetry;
   final AppLocalizations l10n;
 
@@ -225,6 +367,58 @@ class _BuilderBody extends StatelessWidget {
                 padding: const EdgeInsets.only(top: 16),
                 child: Text(l10n.purchaseOrderBuilderNoSuppliers),
               ),
+            if (state.lines.isNotEmpty) ...[
+              const SizedBox(height: 24),
+              Divider(),
+              const SizedBox(height: 16),
+              Text(
+                l10n.purchaseOrderBuilderLinesHeader,
+                key: PurchaseOrderBuilderPage.linesHeaderKey,
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 12),
+              ...state.lines.asMap().entries.map((entry) {
+                final index = entry.key;
+                final line = entry.value;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: PurchaseOrderDraftLineCard(
+                    line: line,
+                    onUpdate:
+                        ({required expectedQuantity, required unitCost}) =>
+                            onUpdateLine(
+                              index: index,
+                              expectedQuantity: expectedQuantity,
+                              unitCost: unitCost,
+                            ),
+                    onRemove: () => onRemoveLine(index),
+                  ),
+                );
+              }),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    l10n.purchaseOrderBuilderExpectedTotal,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  Text(
+                    key: PurchaseOrderBuilderPage.expectedTotalKey,
+                    state.expectedTotal.toStringAsFixed(2),
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 16),
+            FilledButton.tonal(
+              key: PurchaseOrderBuilderPage.addItemButtonKey,
+              onPressed: onAddItem,
+              child: Text(l10n.purchaseOrderBuilderAddItemTitle),
+            ),
           ],
         ),
       ),
