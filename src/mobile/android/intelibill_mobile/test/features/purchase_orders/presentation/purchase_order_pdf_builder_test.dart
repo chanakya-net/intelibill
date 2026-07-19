@@ -4,8 +4,11 @@ import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/p
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_status.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/documents/purchase_order_pdf_builder.dart';
 import 'package:intelibill_mobile/src/features/shops/domain/entities/shop_details.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
-void main() {
+Future<void> main() async {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting();
   final purchaseOrder = PurchaseOrder(
     purchaseOrderId: 'po-1',
     purchaseOrderNumber: 'PO / 12:3',

@@ -1,14 +1,28 @@
+import 'package:intelibill_mobile/src/shared/documents/pdf/document_font_resolver.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 class PdfDocumentTheme {
-  const PdfDocumentTheme._();
+  const PdfDocumentTheme(this.fonts);
 
-  static final title = pw.TextStyle(
-    fontSize: 20,
-    fontWeight: pw.FontWeight.bold,
+  final PdfFontSet fonts;
+
+  pw.ThemeData get data => pw.ThemeData.withFont(
+    base: fonts.regular,
+    bold: fonts.bold,
+    fontFallback: fonts.fallback,
   );
-  static final emphasis = pw.TextStyle(fontWeight: pw.FontWeight.bold);
 
-  static pw.Widget sectionLabel(String value) =>
-      pw.Text(value, style: emphasis);
+  pw.TextStyle get title => _style(fontSize: 20, bold: true);
+  pw.TextStyle get emphasis => _style(bold: true);
+
+  pw.Widget sectionLabel(String value) => pw.Text(value, style: emphasis);
+
+  pw.TextStyle _style({double? fontSize, bool bold = false}) => pw.TextStyle(
+    font: fonts.regular,
+    fontNormal: fonts.regular,
+    fontBold: fonts.bold,
+    fontFallback: fonts.fallback,
+    fontSize: fontSize,
+    fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+  );
 }

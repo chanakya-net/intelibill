@@ -20,6 +20,7 @@ class PurchaseOrderPreviewPage extends ConsumerWidget {
     final state = ref.watch(
       purchaseOrderPreviewControllerProvider(purchaseOrderId),
     );
+    final locale = Localizations.localeOf(context);
     final order = state.purchaseOrder;
     if (state.isLoading && order == null) {
       return _loading();
@@ -40,7 +41,7 @@ class PurchaseOrderPreviewPage extends ConsumerWidget {
     return DocumentPreviewScaffold(
       key: pageKey,
       descriptor: descriptor,
-      onBuild: (_) => builder.build(order, state.shop),
+      onBuild: (_) => builder.build(order, state.shop, locale: locale),
       onPrint: (bytes) => _handlePrint(
         context,
         exportService,

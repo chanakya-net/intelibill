@@ -107,3 +107,8 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+  # Bundled PDF fonts and their OFL license files. No runtime downloads.
+  assets:
+    - assets/fonts/
+    - assets/licenses/
