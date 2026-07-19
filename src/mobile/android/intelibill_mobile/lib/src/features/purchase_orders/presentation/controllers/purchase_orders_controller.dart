@@ -22,6 +22,8 @@ class PurchaseOrdersState {
     this.hasMore = false,
     this.loadMoreFailure,
     this.pageNumber = 1,
+    this.isRefreshing = false,
+    this.refreshFailure,
   });
 
   final List<PurchaseOrderListItem> items;
@@ -32,6 +34,8 @@ class PurchaseOrdersState {
   final bool hasMore;
   final Failure? loadMoreFailure;
   final int pageNumber;
+  final bool isRefreshing;
+  final Failure? refreshFailure;
 
   bool get isInitialLoading => isLoading && items.isEmpty;
   bool get isEmpty => !isLoading && failure == null && items.isEmpty;
@@ -47,6 +51,9 @@ class PurchaseOrdersState {
     Failure? loadMoreFailure,
     bool clearLoadMoreFailure = false,
     int? pageNumber,
+    bool? isRefreshing,
+    Failure? refreshFailure,
+    bool clearRefreshFailure = false,
   }) {
     return PurchaseOrdersState(
       items: items ?? this.items,
@@ -59,6 +66,10 @@ class PurchaseOrdersState {
           ? null
           : (loadMoreFailure ?? this.loadMoreFailure),
       pageNumber: pageNumber ?? this.pageNumber,
+      isRefreshing: isRefreshing ?? this.isRefreshing,
+      refreshFailure: clearRefreshFailure
+          ? null
+          : (refreshFailure ?? this.refreshFailure),
     );
   }
 }
@@ -72,6 +83,7 @@ class PurchaseOrdersController extends _$PurchaseOrdersController {
   DateTime? _activeDateFrom;
   DateTime? _activeDateTo;
   int _nextPageToLoad = 2;
+  int _refreshGeneration = 0;
 
   @override
   PurchaseOrdersState build() {
@@ -87,12 +99,14 @@ class PurchaseOrdersController extends _$PurchaseOrdersController {
   Future<void> refresh() {
     _searchDebounce.cancel();
     _nextPageToLoad = 2;
-    return _loadFirstPage(_nextGeneration());
+    final refreshGen = ++_refreshGeneration;
+    return _loadFirstPageForRefresh(refreshGen, resetInitialLoad: true);
   }
 
   Future<void> retry() {
     _searchDebounce.cancel();
     _nextPageToLoad = 2;
+    ++_refreshGeneration;
     return _loadFirstPage(_nextGeneration());
   }
 
@@ -130,6 +144,55 @@ class PurchaseOrdersController extends _$PurchaseOrdersController {
     _activeDateTo = null;
     _searchDebounce.cancel();
     unawaited(_loadFirstPage(_nextGeneration()));
+  }
+
+  Future<void> _loadFirstPageForRefresh(int refreshGen, {bool resetInitialLoad = false}) async {
+    _nextPageToLoad = 2;
+    final filters = PurchaseOrderFilters(
+      search: _activeSearch,
+      status: _activeStatus,
+      orderDateFrom: _activeDateFrom,
+      orderDateTo: _activeDateTo,
+    );
+    state = state.copyWith(
+      isRefreshing: true,
+      clearRefreshFailure: true,
+      isLoading: resetInitialLoad ? true : state.isLoading,
+      clearFailure: resetInitialLoad,
+      isLoadingMore: resetInitialLoad ? false : state.isLoadingMore,
+      hasMore: resetInitialLoad ? false : state.hasMore,
+      clearLoadMoreFailure: resetInitialLoad,
+    );
+    try {
+      final page = await ref.read(getPurchaseOrdersProvider)(filters);
+      if (!ref.mounted || _refreshGeneration != refreshGen) return;
+      state = state.copyWith(
+        items: page.items,
+        totalCount: page.totalCount,
+        isRefreshing: false,
+        isLoading: false,
+        clearRefreshFailure: true,
+        clearFailure: true,
+        hasMore: page.items.length < page.totalCount,
+        pageNumber: 1,
+      );
+    } on AppException catch (error) {
+      if (!ref.mounted || _refreshGeneration != refreshGen) return;
+      state = state.copyWith(
+        isRefreshing: false,
+        isLoading: false,
+        refreshFailure: error.failure,
+        failure: resetInitialLoad ? error.failure : null,
+      );
+    } on Object {
+      if (!ref.mounted || _refreshGeneration != refreshGen) return;
+      state = state.copyWith(
+        isRefreshing: false,
+        isLoading: false,
+        refreshFailure: const Failure.unknown(),
+        failure: resetInitialLoad ? const Failure.unknown() : null,
+      );
+    }
   }
 
   Future<void> _loadFirstPage(int generation) async {
@@ -174,12 +237,14 @@ class PurchaseOrdersController extends _$PurchaseOrdersController {
     if (!state.hasMore ||
         state.isLoadingMore ||
         state.isLoading ||
+        state.isRefreshing ||
         state.loadMoreFailure != null) {
       return;
     }
     state = state.copyWith(isLoadingMore: true);
     await _loadNextPage(
       generation: _searchGeneration,
+      refreshGeneration: _refreshGeneration,
       pageNumber: _nextPageToLoad,
     );
   }
@@ -194,12 +259,14 @@ class PurchaseOrdersController extends _$PurchaseOrdersController {
     state = state.copyWith(isLoadingMore: true, clearLoadMoreFailure: true);
     await _loadNextPage(
       generation: _searchGeneration,
+      refreshGeneration: _refreshGeneration,
       pageNumber: _nextPageToLoad,
     );
   }
 
   Future<void> _loadNextPage({
     required int generation,
+    required int refreshGeneration,
     required int pageNumber,
   }) async {
     final filters = PurchaseOrderFilters(
@@ -212,7 +279,7 @@ class PurchaseOrdersController extends _$PurchaseOrdersController {
     );
     try {
       final page = await ref.read(getPurchaseOrdersProvider)(filters);
-      if (!ref.mounted || _searchGeneration != generation) return;
+      if (!ref.mounted || _searchGeneration != generation || _refreshGeneration != refreshGeneration) return;
       state = state.copyWith(
         items: [...state.items, ...page.items],
         totalCount: page.totalCount,
@@ -223,13 +290,13 @@ class PurchaseOrdersController extends _$PurchaseOrdersController {
       );
       _nextPageToLoad += 1;
     } on AppException catch (error) {
-      if (!ref.mounted || _searchGeneration != generation) return;
+      if (!ref.mounted || _searchGeneration != generation || _refreshGeneration != refreshGeneration) return;
       state = state.copyWith(
         isLoadingMore: false,
         loadMoreFailure: error.failure,
       );
     } on Object {
-      if (!ref.mounted || _searchGeneration != generation) return;
+      if (!ref.mounted || _searchGeneration != generation || _refreshGeneration != refreshGeneration) return;
       state = state.copyWith(
         isLoadingMore: false,
         loadMoreFailure: const Failure.unknown(),
