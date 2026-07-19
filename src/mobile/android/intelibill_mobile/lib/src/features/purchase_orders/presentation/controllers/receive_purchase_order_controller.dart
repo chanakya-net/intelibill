@@ -4,14 +4,16 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
+import 'package:intelibill_mobile/src/features/dashboard/presentation/controllers/dashboard_controller.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/entities/product_details.dart';
-import 'package:intelibill_mobile/src/features/inventory/domain/use_cases/get_items.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/use_cases/get_product_details.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/utils/batch_number_generator.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/controllers/items_controller.dart';
+import 'package:intelibill_mobile/src/features/inventory/presentation/controllers/inventory_batches_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_line.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/receive_purchase_order_input.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_detail_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_providers.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_orders_controller.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -755,15 +757,15 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
     );
   }
 
-  Future<bool> submit() async {
-    if (state.isSubmitting || state.detail == null) return false;
+  Future<PurchaseOrder?> submit() async {
+    if (state.isSubmitting || state.detail == null) return null;
     if (!state.hasEligibleLines) {
       state = state.copyWith(
         failure: const Failure.validation(
           message: 'No remaining lines are available to receive.',
         ),
       );
-      return false;
+      return null;
     }
     if (!state.hasSelectedLines) {
       state = state.copyWith(
@@ -771,19 +773,18 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
           message: 'Select at least one line to receive.',
         ),
       );
-      return false;
+      return null;
     }
 
     final request = _buildRequest();
-    if (request == null) return false;
+    if (request == null) return null;
     state = state.copyWith(isSubmitting: true, clearFailure: true);
     try {
       final updated = await ref.read(receivePurchaseOrderProvider)(
         state.detail!.purchaseOrderId,
         request,
       );
-      if (!ref.mounted) return false;
-      ref.invalidate(purchaseOrdersControllerProvider);
+      if (!ref.mounted) return null;
       state = state.copyWith(
         detail: updated,
         lines: _buildDraftLines(updated.lines),
@@ -794,13 +795,22 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
         clearExpandedLine: true,
         clearFocusedLine: true,
       );
-      return true;
+      _invalidateDependentState();
+      return updated;
     } on AppException catch (error) {
       await _finishFailure(error.failure);
     } on Object {
       await _finishFailure(const Failure.unknown());
     }
-    return false;
+    return null;
+  }
+
+  void _invalidateDependentState() {
+    ref.invalidate(purchaseOrdersControllerProvider);
+    ref.invalidate(purchaseOrderDetailControllerProvider(_purchaseOrderId));
+    ref.invalidate(dashboardControllerProvider);
+    ref.invalidate(itemsControllerProvider);
+    ref.invalidate(inventoryBatchesControllerProvider);
   }
 
   ReceivePurchaseOrderInput? _buildRequest() {
@@ -940,8 +950,15 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
       _setLineErrors(errors);
       state = state.copyWith(isSubmitting: false);
     }
+    if (_isLifecycleConflict(failure)) {
+      ref.invalidate(purchaseOrderDetailControllerProvider(_purchaseOrderId));
+      await _load(_purchaseOrderId, currentState: state, keepFailure: true);
+    }
     throw AppException(failure: failure);
   }
+
+  bool _isLifecycleConflict(Failure failure) =>
+      failure is ServerFailure && failure.statusCode == 409;
 
   Map<String, Map<String, String>> _mapValidationErrors(Failure failure) {
     if (failure is! ValidationFailure || failure.errors == null) return {};

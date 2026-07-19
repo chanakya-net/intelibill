@@ -240,8 +240,8 @@ class ReceivePurchaseOrderPage extends ConsumerWidget {
     AppLocalizations l10n,
   ) async {
     try {
-      final submitted = await controller.submit();
-      if (submitted && context.mounted) {
+      final updated = await controller.submit();
+      if (updated != null && context.mounted) {
         context.go(AppRoutes.purchaseOrderDetailFor(purchaseOrderId));
       }
     } on AppException {

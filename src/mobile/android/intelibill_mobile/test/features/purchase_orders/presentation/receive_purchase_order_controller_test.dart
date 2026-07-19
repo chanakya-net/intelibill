@@ -867,7 +867,7 @@ void main() {
   });
 
   test(
-    'preserves drafts on API failure and keeps submitting state false',
+    'refreshes detail after a lifecycle conflict',
     () async {
       final failure = const Failure.server(
         message: 'conflict',
@@ -912,13 +912,13 @@ void main() {
         throwsA(isA<AppException>()),
       );
 
-      verify(() => getPurchaseOrder('po-1')).called(1);
+      verify(() => getPurchaseOrder('po-1')).called(2);
       final state = container.read(
         receivePurchaseOrderControllerProvider('po-1'),
       );
       expect(state.isSubmitting, isFalse);
       expect(state.failure, failure);
-      expect(state.lines.single.barcode, 'CUSTOM-BARCODE');
+      expect(state.lines.single.barcode, isEmpty);
     },
   );
 
@@ -1017,7 +1017,7 @@ void main() {
       controller.updateExpiryDate('line-1', DateTime(2026, 7, 1));
       controller.updateBarcode('line-2', '');
 
-      expect(await controller.submit(), isFalse);
+      expect(await controller.submit(), isNull);
       verifyNever(() => receivePurchaseOrder('po-1', any()));
       final state = container.read(
         receivePurchaseOrderControllerProvider('po-1'),
@@ -1240,7 +1240,7 @@ void main() {
       expect(state.lines.single.salesPrice, 0);
       expect(state.lines.single.taxRatePercent, 0);
       expect(state.lines.single.taxIncluded, isFalse);
-      expect(await controller.submit(), isFalse);
+      expect(await controller.submit(), isNull);
       state = container.read(receivePurchaseOrderControllerProvider('po-1'));
       expect(state.lineError('line-1', 'mrp'), isNotNull);
       expect(state.lineError('line-1', 'salesPrice'), isNotNull);
