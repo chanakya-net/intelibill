@@ -43,7 +43,7 @@ void main() {
     expect(content, contains('Available: Rs 800'));
   });
 
-  test('contentFor omits expiry when null', () {
+  test('contentFor preserves no-expiry value when null', () {
     final builder = CreditNoteReceiptPdfBuilder();
     final content = builder.contentFor(noExpiry);
 
@@ -53,7 +53,7 @@ void main() {
         'Issued: ${DateFormat('dd MMM yyyy, h:mm a').format(noExpiry.issuedAt)}',
       ),
     );
-    expect(content, isNot(contains('Expires:')));
+    expect(content, contains('Expires: No expiry'));
   });
 
   test('contentFor includes void reason when present', () {

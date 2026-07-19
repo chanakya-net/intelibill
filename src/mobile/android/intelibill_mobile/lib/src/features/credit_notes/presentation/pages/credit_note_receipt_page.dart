@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
@@ -8,7 +6,6 @@ import 'package:intelibill_mobile/src/features/credit_notes/presentation/documen
 import 'package:intelibill_mobile/src/shared/documents/document_descriptor.dart';
 import 'package:intelibill_mobile/src/shared/documents/document_page_format.dart';
 import 'package:intelibill_mobile/src/shared/documents/document_preview_scaffold.dart';
-import 'package:pdf/pdf.dart';
 
 class CreditNoteReceiptPage extends ConsumerWidget {
   const CreditNoteReceiptPage({required this.code, super.key});

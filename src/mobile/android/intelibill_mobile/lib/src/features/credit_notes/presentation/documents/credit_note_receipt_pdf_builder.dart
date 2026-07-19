@@ -28,7 +28,7 @@ class CreditNoteReceiptPdfBuilder {
     if (note.voidReason != null && note.voidReason!.isNotEmpty)
       'Void Reason: ${note.voidReason}',
     'Issued: ${_date(note.issuedAt)}',
-    if (note.expiresAt != null) 'Expires: ${_date(note.expiresAt!)}',
+    'Expires: ${note.expiresAt != null ? _date(note.expiresAt!) : 'No expiry'}',
     'Original: ${_money(note.originalAmount)}',
     'Available: ${_money(note.availableBalance)}',
   ].join('\n');
@@ -53,8 +53,9 @@ class CreditNoteReceiptPdfBuilder {
           ],
           pw.SizedBox(height: 12),
           pw.Text('Issued: ${_date(note.issuedAt)}'),
-          if (note.expiresAt != null)
-            pw.Text('Expires: ${_date(note.expiresAt!)}'),
+          pw.Text(
+            'Expires: ${note.expiresAt != null ? _date(note.expiresAt!) : 'No expiry'}',
+          ),
           pw.SizedBox(height: 12),
           _amountLine('Original', _money(note.originalAmount)),
           _amountLine('Available', _money(note.availableBalance)),
@@ -65,11 +66,10 @@ class CreditNoteReceiptPdfBuilder {
   }
 
   PdfPageFormat _receiptPageFormat(CreditNotePrint note) {
-    const baseRows = 8;
+    const baseRows = 9;
     final voidReasonRows =
         (note.voidReason != null && note.voidReason!.isNotEmpty) ? 2 : 0;
-    final expiryRows = note.expiresAt != null ? 1 : 0;
-    final rowEstimate = baseRows + voidReasonRows + expiryRows;
+    final rowEstimate = baseRows + voidReasonRows;
     final estimatedHeight = (rowEstimate * 16.0) + 80;
     final compactHeight = estimatedHeight.clamp(120.0, 780.0);
 
