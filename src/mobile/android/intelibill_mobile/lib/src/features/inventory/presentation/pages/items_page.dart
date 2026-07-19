@@ -117,14 +117,14 @@ class _ItemsPageState extends ConsumerState<ItemsPage> {
 
   Future<void> _openCreateSheet() async {
     final l10n = AppLocalizations.of(context)!;
-    final created = await showModalBottomSheet<bool>(
+    final created = await showModalBottomSheet<Item>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       builder: (context) => const CreateItemSheet(),
     );
 
-    if (!mounted || created != true) return;
+    if (!mounted || created == null) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(l10n.inventoryProductsCreateSuccess)),
     );

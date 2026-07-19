@@ -5,6 +5,7 @@ import 'package:intelibill_mobile/src/app/router/app_router.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/entities/item.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/controllers/items_controller.dart';
+import 'package:intelibill_mobile/src/features/inventory/presentation/widgets/create_item_sheet.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_builder_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_draft_line_card.dart';
 import 'package:intelibill_mobile/src/features/suppliers/domain/entities/supplier.dart';
@@ -26,6 +27,9 @@ class PurchaseOrderBuilderPage extends ConsumerStatefulWidget {
   static const addItemButtonKey = Key('purchase-order-builder-add-item-btn');
   static const addItemConfirmButtonKey = Key(
     'purchase-order-builder-add-item-confirm-btn',
+  );
+  static const quickCreateItemButtonKey = Key(
+    'purchase-order-builder-quick-create-item',
   );
   static const linesHeaderKey = Key('purchase-order-builder-lines-header');
   static const expectedTotalKey = Key('purchase-order-builder-expected-total');
@@ -148,7 +152,7 @@ class _PurchaseOrderBuilderPageState
     PurchaseOrderBuilderControllerProvider provider,
     AppLocalizations l10n,
   ) async {
-    Item? selectedItem;
+    ref.read(provider.notifier).selectCatalogItem(null);
     int quantity = 1;
     double unitCost = 0.0;
 
@@ -157,6 +161,7 @@ class _PurchaseOrderBuilderPageState
       builder: (context) => Consumer(
         builder: (context, ref, _) {
           final itemsState = ref.watch(itemsControllerProvider);
+          final selectedItem = ref.watch(provider).selectedCatalogItem;
           return StatefulBuilder(
             builder: (context, setState) => AlertDialog(
               title: Text(l10n.purchaseOrderBuilderAddItemTitle),
@@ -189,8 +194,24 @@ class _PurchaseOrderBuilderPageState
                             ),
                           )
                           .toList(),
-                      onChanged: (item) => setState(() => selectedItem = item),
+                      onChanged: (item) =>
+                          ref.read(provider.notifier).selectCatalogItem(item),
                     ),
+                    if (itemsState.filteredItems.isEmpty &&
+                        itemsState.searchQuery.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        key: PurchaseOrderBuilderPage.quickCreateItemButtonKey,
+                        onPressed: () => _quickCreateItem(
+                          context,
+                          ref,
+                          provider,
+                          itemsState.searchQuery,
+                        ),
+                        icon: const Icon(Icons.add),
+                        label: Text(l10n.inventoryCreateTitle),
+                      ),
+                    ],
                     const SizedBox(height: 16),
                     TextFormField(
                       initialValue: quantity.toString(),
@@ -230,11 +251,12 @@ class _PurchaseOrderBuilderPageState
                           ref
                               .read(provider.notifier)
                               .addItem(
-                                itemId: selectedItem!.itemId,
-                                description: selectedItem!.name,
+                                itemId: selectedItem.itemId,
+                                description: selectedItem.name,
                                 expectedQuantity: quantity,
                                 unitCost: unitCost,
                               );
+                          ref.read(provider.notifier).selectCatalogItem(null);
                           Navigator.pop(context);
                         },
                   child: Text(l10n.commonSave),
@@ -245,6 +267,24 @@ class _PurchaseOrderBuilderPageState
         },
       ),
     );
+  }
+
+  Future<void> _quickCreateItem(
+    BuildContext context,
+    WidgetRef ref,
+    PurchaseOrderBuilderControllerProvider provider,
+    String initialName,
+  ) async {
+    final created = await showModalBottomSheet<Item>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => CreateItemSheet(initialName: initialName),
+    );
+    if (created == null || !mounted) return;
+    await ref.read(itemsControllerProvider.notifier).refresh();
+    if (!mounted) return;
+    ref.read(provider.notifier).selectCreatedCatalogItem(created);
   }
 }
 

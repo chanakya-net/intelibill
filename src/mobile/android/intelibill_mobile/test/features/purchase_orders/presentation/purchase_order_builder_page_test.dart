@@ -14,6 +14,7 @@ import 'package:intelibill_mobile/src/features/purchase_orders/presentation/page
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_draft_line_card.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/entities/item.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/controllers/items_controller.dart';
+import 'package:intelibill_mobile/src/features/inventory/presentation/widgets/create_item_sheet.dart';
 import 'package:intelibill_mobile/src/features/suppliers/domain/entities/supplier.dart';
 
 class _StubBuilderController extends PurchaseOrderBuilderController {
@@ -128,9 +129,16 @@ class _StubBuilderController extends PurchaseOrderBuilderController {
 }
 
 class _StubItemsController extends ItemsController {
-  _StubItemsController(this._initialState);
+  _StubItemsController(
+    this._initialState, {
+    this.createdItem,
+    this.createFailure,
+  });
 
   final ItemsState _initialState;
+  final Item? createdItem;
+  final Failure? createFailure;
+  int refreshCalls = 0;
 
   @override
   ItemsState build() => _initialState;
@@ -138,6 +146,26 @@ class _StubItemsController extends ItemsController {
   @override
   void updateSearch(String query) {
     state = state.copyWith(searchQuery: query);
+  }
+
+  @override
+  Future<void> refresh() async {
+    refreshCalls++;
+  }
+
+  @override
+  Future<Item?> createItem({
+    required String name,
+    required String barcode,
+    required String uom,
+    String? description,
+  }) async {
+    final failure = createFailure;
+    if (failure != null) {
+      state = state.copyWith(submitFailure: failure);
+      return null;
+    }
+    return createdItem;
   }
 }
 
@@ -148,7 +176,10 @@ void main() {
     PurchaseOrder? draftToSave,
     GoRouter? router,
     ItemsState itemsState = const ItemsState(),
+    Item? createdItem,
+    Failure? createFailure,
     void Function(_StubBuilderController controller)? onControllerCreated,
+    void Function(_StubItemsController controller)? onItemsControllerCreated,
   }) {
     return ProviderScope(
       overrides: [
@@ -163,7 +194,15 @@ void main() {
           },
         ),
         itemsControllerProvider.overrideWith(
-          () => _StubItemsController(itemsState),
+          () {
+            final controller = _StubItemsController(
+              itemsState,
+              createdItem: createdItem,
+              createFailure: createFailure,
+            );
+            onItemsControllerCreated?.call(controller);
+            return controller;
+          },
         ),
       ],
       child: router == null
@@ -508,6 +547,148 @@ void main() {
 
     expect(find.text('Widget'), findsOneWidget);
     expect(find.text('Gadget'), findsNothing);
+  });
+
+  testWidgets('quick creates a missing item and preserves builder draft', (
+    tester,
+  ) async {
+    _StubBuilderController? builderController;
+    _StubItemsController? itemsController;
+    final state = PurchaseOrderBuilderState(
+      suppliers: [_supplier()],
+      selectedSupplier: _supplier(),
+      supplierReferenceNumber: 'REF-1',
+      notes: 'Keep this note',
+      lines: const [
+        PurchaseOrderDraftLine(
+          itemId: 'existing-item',
+          description: 'Existing item',
+          expectedQuantity: 2,
+          unitCost: 3,
+        ),
+      ],
+    );
+    final created = _item('created-item', 'Missing Widget');
+    await tester.pumpWidget(
+      buildApp(
+        state,
+        createdItem: created,
+        onControllerCreated: (value) => builderController = value,
+        onItemsControllerCreated: (value) => itemsController = value,
+      ),
+    );
+
+    final addItemButton = find.byKey(PurchaseOrderBuilderPage.addItemButtonKey);
+    await tester.ensureVisible(addItemButton);
+    await tester.tap(addItemButton);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(PurchaseOrderBuilderPage.itemSearchKey),
+      'Missing Widget',
+    );
+    await tester.pump();
+    final quickCreateButton = find.byKey(
+      PurchaseOrderBuilderPage.quickCreateItemButtonKey,
+    );
+    await tester.ensureVisible(quickCreateButton);
+    await tester.tap(quickCreateButton);
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<TextFormField>(find.byKey(CreateItemSheet.nameFieldKey))
+          .controller!
+          .text,
+      'Missing Widget',
+    );
+    await tester.enterText(
+      find.byKey(CreateItemSheet.barcodeFieldKey),
+      'CREATED-1',
+    );
+    await tester.enterText(find.byKey(CreateItemSheet.uomFieldKey), 'pcs');
+    await tester.tap(find.byKey(CreateItemSheet.submitButtonKey));
+    await tester.pumpAndSettle();
+
+    expect(itemsController!.refreshCalls, 1);
+    expect(builderController!.state.selectedCatalogItem, created);
+    expect(builderController!.state.selectedSupplier, _supplier());
+    expect(builderController!.state.supplierReferenceNumber, 'REF-1');
+    expect(builderController!.state.notes, 'Keep this note');
+    expect(builderController!.state.lines, state.lines);
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.byKey(PurchaseOrderBuilderPage.addItemConfirmButtonKey),
+          )
+          .onPressed,
+      isNotNull,
+    );
+  });
+
+  testWidgets('cancelling or failing quick create leaves draft unchanged', (
+    tester,
+  ) async {
+    _StubBuilderController? builderController;
+    final state = PurchaseOrderBuilderState(
+      suppliers: [_supplier()],
+      supplierReferenceNumber: 'REF-2',
+      notes: 'Do not lose me',
+      lines: const [
+        PurchaseOrderDraftLine(
+          itemId: 'existing-item',
+          description: 'Existing item',
+          expectedQuantity: 1,
+          unitCost: 4,
+        ),
+      ],
+    );
+    await tester.pumpWidget(
+      buildApp(
+        state,
+        createFailure: const Failure.network(),
+        onControllerCreated: (value) => builderController = value,
+      ),
+    );
+
+    final addItemButton = find.byKey(PurchaseOrderBuilderPage.addItemButtonKey);
+    await tester.ensureVisible(addItemButton);
+    await tester.tap(addItemButton);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(PurchaseOrderBuilderPage.itemSearchKey),
+      'Unavailable',
+    );
+    await tester.pump();
+    final quickCreateButton = find.byKey(
+      PurchaseOrderBuilderPage.quickCreateItemButtonKey,
+    );
+    await tester.ensureVisible(quickCreateButton);
+    await tester.tap(quickCreateButton);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(CreateItemSheet.cancelButtonKey));
+    await tester.pumpAndSettle();
+
+    expect(builderController!.state.selectedCatalogItem, isNull);
+    expect(builderController!.state.supplierReferenceNumber, 'REF-2');
+    expect(builderController!.state.notes, 'Do not lose me');
+    expect(builderController!.state.lines, state.lines);
+
+    await tester.ensureVisible(quickCreateButton);
+    await tester.tap(quickCreateButton);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(CreateItemSheet.barcodeFieldKey),
+      'FAIL-1',
+    );
+    await tester.enterText(find.byKey(CreateItemSheet.uomFieldKey), 'pcs');
+    await tester.tap(find.byKey(CreateItemSheet.submitButtonKey));
+    await tester.pump();
+
+    expect(find.byKey(CreateItemSheet.nameFieldKey), findsOneWidget);
+    expect(builderController!.state.selectedCatalogItem, isNull);
+    expect(builderController!.state.supplierReferenceNumber, 'REF-2');
+    expect(builderController!.state.notes, 'Do not lose me');
+    expect(builderController!.state.lines, state.lines);
   });
 }
 

@@ -13,6 +13,7 @@ import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/update_purchase_order_draft.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_builder_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_providers.dart';
+import 'package:intelibill_mobile/src/features/inventory/domain/entities/item.dart';
 import 'package:intelibill_mobile/src/features/suppliers/domain/entities/supplier.dart';
 import 'package:intelibill_mobile/src/features/suppliers/domain/use_cases/get_suppliers.dart';
 import 'package:intelibill_mobile/src/features/suppliers/presentation/controllers/suppliers_controller.dart';
@@ -68,6 +69,43 @@ void main() {
     final state = container.read(purchaseOrderBuilderControllerProvider('new'));
     expect(state.suppliers.map((supplier) => supplier.supplierId), ['active']);
   });
+
+  test(
+    'selecting a created catalog item preserves the current draft',
+    () async {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(
+        purchaseOrderBuilderControllerProvider('new').notifier,
+      );
+      controller.setSupplierReferenceNumber('REF-3');
+      controller.setNotes('Existing notes');
+      controller.addItem(
+        itemId: 'existing-item',
+        description: 'Existing item',
+        expectedQuantity: 2,
+        unitCost: 5,
+      );
+      const created = Item(
+        itemId: 'created-item',
+        name: 'Created item',
+        barcode: 'CREATED-1',
+        uom: 'pcs',
+        isActive: true,
+        currentStock: 0,
+      );
+
+      controller.selectCreatedCatalogItem(created);
+
+      final state = container.read(
+        purchaseOrderBuilderControllerProvider('new'),
+      );
+      expect(state.selectedCatalogItem, created);
+      expect(state.supplierReferenceNumber, 'REF-3');
+      expect(state.notes, 'Existing notes');
+      expect(state.lines.single.itemId, 'existing-item');
+    },
+  );
 
   test('rejects header limits and invalid date ordering', () async {
     final container = makeContainer();

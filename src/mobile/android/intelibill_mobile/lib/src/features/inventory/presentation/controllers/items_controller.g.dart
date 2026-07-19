@@ -355,7 +355,7 @@ final class ItemsControllerProvider
   }
 }
 
-String _$itemsControllerHash() => r'937cc058e709d1fbfac012ec916e690b1798f737';
+String _$itemsControllerHash() => r'030b03f7b6e99fa8e9c275a708f142b05d111215';
 
 abstract class _$ItemsController extends $Notifier<ItemsState> {
   ItemsState build();
