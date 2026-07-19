@@ -29,6 +29,17 @@ void main() {
     },
   );
 
+  test('descriptor supports 80 mm format', () {
+    const descriptor = DocumentDescriptor(
+      title: 'Receipt',
+      filename: 'receipt.pdf',
+      pageFormat: DocumentPageFormat.mm80,
+    );
+
+    expect(descriptor.pageFormat, DocumentPageFormat.mm80);
+    expect(descriptor.pdfPageFormat, PdfPageFormat.roll80);
+  });
+
   test('fake byte builders receive the descriptor A4 format', () async {
     Future<Uint8List> fakeBuilder(PdfPageFormat format) async {
       expect(format, PdfPageFormat.a4);

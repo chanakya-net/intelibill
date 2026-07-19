@@ -32,7 +32,10 @@ import 'package:intelibill_mobile/src/features/sales/presentation/controllers/ne
 import 'package:intelibill_mobile/src/features/sales/presentation/controllers/sales_history_controller.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/controllers/sales_providers.dart';
 import 'package:intelibill_mobile/src/features/services/presentation/controllers/services_controller.dart';
+import 'package:intelibill_mobile/src/shared/documents/document_page_format.dart';
+import 'package:intelibill_mobile/src/shared/documents/document_preview_scaffold.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:pdf/pdf.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class MockRouterGetBankAccounts extends Mock implements GetBankAccounts {}
@@ -325,8 +328,93 @@ void main() {
         router.routeInformationProvider.value.uri.toString(),
         equals(route),
       );
-      expect(find.text('INV-REC-001'), findsOneWidget);
+      expect(find.byType(DocumentPreviewScaffold), findsOneWidget);
+      final scaffold = tester.widget<DocumentPreviewScaffold>(
+        find.byType(DocumentPreviewScaffold),
+      );
+      expect(scaffold.descriptor.pageFormat, DocumentPageFormat.mm80);
+      expect(scaffold.descriptor.title, 'Receipt');
+      expect(scaffold.descriptor.filename, 'sale-receipt-INV-REC-001.pdf');
+
+      final bytes = await scaffold.onBuild(PdfPageFormat.roll80);
+      expect(bytes.take(4), orderedEquals('%PDF'.codeUnits));
     });
+
+    testWidgets(
+      'owner can navigate to sales receipt route with initialSale extra',
+      (tester) async {
+        final getSaleDetail = MockGetSaleDetail();
+        final completer = Completer<SaleDetail>();
+        when(() => getSaleDetail(any())).thenAnswer((_) => completer.future);
+
+        final controller = _TestAuthController(
+          AuthControllerState(session: _sessionForRole('Owner')),
+        );
+        final container = ProviderContainer(
+          overrides: [
+            authControllerProvider.overrideWith(() => controller),
+            dashboardControllerProvider.overrideWith(
+              _StubDashboardController.new,
+            ),
+            salesHistoryControllerProvider.overrideWith(
+              _StubSalesHistoryController.new,
+            ),
+            getSaleDetailUseCaseProvider.overrideWithValue(getSaleDetail),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        final router = container.read(goRouterProvider);
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp.router(
+              locale: const Locale('en', 'IN'),
+              supportedLocales: const [Locale('en', 'IN')],
+              localizationsDelegates: const [
+                AppLocalizations.delegate,
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              routerConfig: router,
+            ),
+          ),
+        );
+        await tester.pump();
+
+        final route = AppRoutes.salesReceiptFor('sale-100');
+        router.go(route, extra: _fakeSaleDetailFromInitialExtra);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(
+          router.routeInformationProvider.value.uri.toString(),
+          equals(route),
+        );
+        expect(find.byType(DocumentPreviewScaffold), findsOneWidget);
+
+        final scaffoldBefore = tester.widget<DocumentPreviewScaffold>(
+          find.byType(DocumentPreviewScaffold),
+        );
+        expect(
+          scaffoldBefore.descriptor.filename,
+          'sale-receipt-INV-INIT-001.pdf',
+        );
+
+        completer.complete(_fakeSaleDetail);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+
+        final scaffoldAfter = tester.widget<DocumentPreviewScaffold>(
+          find.byType(DocumentPreviewScaffold),
+        );
+        expect(
+          scaffoldAfter.descriptor.filename,
+          'sale-receipt-INV-REC-001.pdf',
+        );
+      },
+    );
 
     testWidgets('owner can navigate to discounts route', (tester) async {
       SharedPreferences.setMockInitialValues({});
@@ -1122,6 +1210,47 @@ SaleDetail _fakeSaleDetail = SaleDetail(
       amount: 0,
     ),
   ],
+);
+
+SaleDetail _fakeSaleDetailFromInitialExtra = SaleDetail(
+  saleId: 'sale-100',
+  invoiceNumber: 'INV-INIT-001',
+  paymentMethod: 1,
+  soldAt: DateTime(2026, 6, 10, 10),
+  paidAmount: 300,
+  dueAmount: 0,
+  totalBeforeDiscount: 100,
+  totalDiscountAmount: 0,
+  totalAmount: 100,
+  totalTaxAmount: 0,
+  customerName: 'Alice',
+  customerPhone: '9999999999',
+  items: const [
+    SaleDetailItem(
+      saleItemId: 'item-initial',
+      lineType: 'Goods',
+      lineCode: 'NB-1',
+      itemName: 'Notebook',
+      quantity: 2,
+      salesPrice: 50,
+      originalSalesPrice: 50,
+      finalSalesPrice: 50,
+      preTaxAmountBeforeDiscount: 100,
+      itemDiscountAmount: 0,
+      saleDiscountAmount: 0,
+      taxableAmount: 100,
+      taxAmount: 0,
+      totalAmount: 100,
+      savingsAmount: 0,
+      taxRatePercent: 0,
+      isPriceIncludingTax: false,
+      hasPriceMismatch: false,
+      returnedQuantity: 0,
+      returnableQuantity: 0,
+      returnStatus: 'none',
+    ),
+  ],
+  status: 'paid',
 );
 
 class _StubDashboardController extends DashboardController {
