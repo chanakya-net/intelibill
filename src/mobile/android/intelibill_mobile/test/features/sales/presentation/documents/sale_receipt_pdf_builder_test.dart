@@ -44,7 +44,7 @@ void main() {
     expect(content, contains('Credit note applied: Rs 36'));
     expect(content, contains('Due reduction: Rs 20'));
     expect(content, contains('Discounts'));
-    expect(content, contains('Flat 50: - Rs 50'));
+    expect(content, contains('Flat Rs 20: - Rs 50'));
     expect(content, contains('Payment split'));
     expect(content, contains('Cash: Rs 300'));
     expect(content, contains('Redemptions'));
@@ -95,6 +95,17 @@ void main() {
       );
       expect(
         _containsTokenSequence(payload, const ['Payment', 'split']),
+        isTrue,
+      );
+      expect(
+        _containsTokenSequence(payload, const [
+          'Discounts',
+          'Flat',
+          'Rs',
+          '20',
+          'Rs',
+          '50',
+        ]),
         isTrue,
       );
       expect(payload, isNot(contains('No settlement records')));
@@ -224,7 +235,7 @@ SaleDetail _receipt() {
       SaleDetailDiscount(
         discountId: 'discount-1',
         type: 'Flat',
-        value: '50',
+        value: '₹20',
         amount: 50,
       ),
     ],

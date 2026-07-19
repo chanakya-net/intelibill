@@ -5,8 +5,8 @@ import 'package:intelibill_mobile/src/shared/documents/document_page_format.dart
 import 'package:intelibill_mobile/src/shared/documents/filename_sanitizer.dart';
 import 'package:intelibill_mobile/src/shared/documents/pdf_document_theme.dart';
 import 'package:intl/intl.dart';
-import 'package:pdf/widgets.dart' as pw;
 import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 
 class SaleReceiptPdfBuilder {
   String filenameFor(SaleDetail sale) => FilenameSanitizer.sanitize(
@@ -37,7 +37,7 @@ class SaleReceiptPdfBuilder {
     if (sale.discounts.isNotEmpty) 'Discounts',
     ...sale.discounts.map(
       (discount) =>
-          '${discount.type} ${discount.value}: - ${_money(discount.amount)}',
+          '${discount.type} ${_discountValue(discount.value)}: - ${_money(discount.amount)}',
     ),
     'Payment split',
     if (sale.settlements.isEmpty) 'No settlement records',
@@ -146,7 +146,7 @@ class SaleReceiptPdfBuilder {
   List<pw.Widget> _discounts(SaleDetail sale) => sale.discounts
       .map<pw.Widget>(
         (discount) => _amountLine(
-          '${discount.type} ${discount.value}',
+          '${discount.type} ${_discountValue(discount.value)}',
           '- ${_money(discount.amount)}',
         ),
       )
@@ -174,6 +174,9 @@ class SaleReceiptPdfBuilder {
   );
 
   String _money(num value) => 'Rs ${value.toStringAsFixed(0)}';
+
+  String _discountValue(String value) =>
+      value.replaceAll(RegExp(r'₹\s*'), 'Rs ');
 
   String _rate(num value) => value.toStringAsFixed(2);
 
