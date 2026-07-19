@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
+import 'package:intelibill_mobile/src/features/inventory/presentation/controllers/items_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_line.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/receive_purchase_order_input.dart';
@@ -99,6 +100,8 @@ class ReceivePurchaseOrderState {
     this.notes = '',
     this.receivedAt,
     this.lines = const [],
+    this.barcodeGenerationLineIds = const {},
+    this.barcodeGenerationFailures = const {},
     this.isLoading = false,
     this.isSubmitting = false,
     this.failure,
@@ -112,6 +115,8 @@ class ReceivePurchaseOrderState {
   final String notes;
   final DateTime? receivedAt;
   final List<ReceivePurchaseOrderLineDraft> lines;
+  final Set<String> barcodeGenerationLineIds;
+  final Map<String, String> barcodeGenerationFailures;
   final bool isLoading;
   final bool isSubmitting;
   final Failure? failure;
@@ -142,6 +147,8 @@ class ReceivePurchaseOrderState {
     bool? isSubmitting,
     Failure? failure,
     Map<String, Map<String, String>>? lineErrors,
+    Set<String>? barcodeGenerationLineIds,
+    Map<String, String>? barcodeGenerationFailures,
     String? expandedLineId,
     String? focusedLineId,
     bool clearFailure = false,
@@ -153,6 +160,8 @@ class ReceivePurchaseOrderState {
     bool clearLineErrors = false,
     bool clearExpandedLine = false,
     bool clearFocusedLine = false,
+    bool clearBarcodeGenerationLineIds = false,
+    bool clearBarcodeGenerationFailures = false,
   }) {
     return ReceivePurchaseOrderState(
       detail: clearDetail ? null : (detail ?? this.detail),
@@ -166,6 +175,12 @@ class ReceivePurchaseOrderState {
       isSubmitting: isSubmitting ?? this.isSubmitting,
       failure: clearFailure ? null : (failure ?? this.failure),
       lineErrors: clearLineErrors ? const {} : (lineErrors ?? this.lineErrors),
+      barcodeGenerationLineIds: clearBarcodeGenerationLineIds
+          ? const {}
+          : (barcodeGenerationLineIds ?? this.barcodeGenerationLineIds),
+      barcodeGenerationFailures: clearBarcodeGenerationFailures
+          ? const {}
+          : (barcodeGenerationFailures ?? this.barcodeGenerationFailures),
       expandedLineId: clearExpandedLine
           ? null
           : (expandedLineId ?? this.expandedLineId),
@@ -284,7 +299,94 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
   }
 
   void updateBarcode(String purchaseOrderLineId, String value) {
+    _clearBarcodeGenerationFailure(purchaseOrderLineId);
     _updateLine(purchaseOrderLineId, (line) => line.copyWith(barcode: value));
+  }
+
+  Future<String?> generateItemBarcodeForLine(String purchaseOrderLineId) async {
+    if (state.barcodeGenerationLineIds.contains(purchaseOrderLineId)) {
+      return null;
+    }
+    final previousLine = _lineDraftById(purchaseOrderLineId);
+    if (previousLine == null) return null;
+
+    final existingFailure = Map<String, String>.from(
+      state.barcodeGenerationFailures,
+    )..remove(purchaseOrderLineId);
+    state = state.copyWith(
+      barcodeGenerationLineIds: {
+        ...state.barcodeGenerationLineIds,
+        purchaseOrderLineId,
+      },
+      barcodeGenerationFailures: existingFailure,
+      clearFailure: true,
+    );
+
+    try {
+      final useCase = ref.read(generateItemBarcodeProvider);
+      final generated = await useCase();
+      if (!ref.mounted) return null;
+      _clearBarcodeGenerationLine(purchaseOrderLineId);
+      return generated.barcode.trim();
+    } on AppException catch (error) {
+      if (!ref.mounted) return null;
+      state = state.copyWith(
+        barcodeGenerationLineIds: state.barcodeGenerationLineIds
+            .where((lineId) => lineId != purchaseOrderLineId)
+            .toSet(),
+        barcodeGenerationFailures: {
+          ...state.barcodeGenerationFailures,
+          purchaseOrderLineId:
+              error.failure.message ??
+              _barcodeGenerationFailureMessage(previousLine.barcode),
+        },
+      );
+    } catch (_) {
+      if (!ref.mounted) return null;
+      state = state.copyWith(
+        barcodeGenerationLineIds: state.barcodeGenerationLineIds
+            .where((lineId) => lineId != purchaseOrderLineId)
+            .toSet(),
+        barcodeGenerationFailures: {
+          ...state.barcodeGenerationFailures,
+          purchaseOrderLineId: _barcodeGenerationFailureMessage(
+            previousLine.barcode,
+          ),
+        },
+      );
+    }
+    return null;
+  }
+
+  void applyGeneratedBarcode(String purchaseOrderLineId, String barcode) {
+    _clearBarcodeGenerationFailure(purchaseOrderLineId);
+    _updateLine(
+      purchaseOrderLineId,
+      (line) => line.copyWith(barcode: barcode),
+    );
+  }
+
+  void _clearBarcodeGenerationLine(String purchaseOrderLineId) {
+    state = state.copyWith(
+      barcodeGenerationLineIds: state.barcodeGenerationLineIds
+          .where((lineId) => lineId != purchaseOrderLineId)
+          .toSet(),
+    );
+  }
+
+  void _clearBarcodeGenerationFailure(String purchaseOrderLineId) {
+    if (!state.barcodeGenerationFailures.containsKey(purchaseOrderLineId)) {
+      return;
+    }
+    final cleared = Map<String, String>.from(state.barcodeGenerationFailures)
+      ..remove(purchaseOrderLineId);
+    state = state.copyWith(barcodeGenerationFailures: cleared);
+  }
+
+  String _barcodeGenerationFailureMessage(String existingBarcode) {
+    return existingBarcode.isEmpty
+        ? 'Could not generate barcode. Please try again.'
+        : 'Could not generate barcode for this line. Your current value was not changed.';
   }
 
   void updateBatchNumber(String purchaseOrderLineId, String value) {
@@ -306,9 +408,7 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
 
   void updateQuantity(String purchaseOrderLineId, String value) {
     final quantity = int.tryParse(value);
-    final line = state.lines
-        .where((item) => item.purchaseOrderLineId == purchaseOrderLineId)
-        .firstOrNull;
+    final line = _lineDraftById(purchaseOrderLineId);
     if (line == null || quantity == null || quantity <= 0) {
       _setQuantityFailure();
       return;
@@ -649,5 +749,12 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
       suffix.write(chars[(seed + index * 17).abs() % chars.length]);
     }
     return 'BN-$dateLabel-${suffix.toString()}';
+  }
+
+  ReceivePurchaseOrderLineDraft? _lineDraftById(String purchaseOrderLineId) {
+    for (final line in state.lines) {
+      if (line.purchaseOrderLineId == purchaseOrderLineId) return line;
+    }
+    return null;
   }
 }

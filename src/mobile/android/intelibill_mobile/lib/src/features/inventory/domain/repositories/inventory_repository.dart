@@ -1,3 +1,4 @@
+import 'package:intelibill_mobile/src/features/inventory/domain/entities/generated_item_barcode.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/entities/inventory_adjustment.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/entities/inventory_batch.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/entities/item.dart';
@@ -68,6 +69,10 @@ interface class InventoryRepository {
 
   Future<({List<InventoryAdjustment> items, bool hasMore})>
   getAdjustmentHistory({required int pageNumber, required int pageSize}) {
+    throw UnimplementedError();
+  }
+
+  Future<GeneratedItemBarcode> generateItemBarcode() {
     throw UnimplementedError();
   }
 }

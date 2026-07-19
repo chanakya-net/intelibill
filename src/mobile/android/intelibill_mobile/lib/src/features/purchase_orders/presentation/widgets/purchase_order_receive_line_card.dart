@@ -1,15 +1,19 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/receive_purchase_order_controller.dart';
 import 'package:intl/intl.dart';
 
-class PurchaseOrderReceiveLineCard extends StatelessWidget {
+class PurchaseOrderReceiveLineCard extends StatefulWidget {
   const PurchaseOrderReceiveLineCard({
     required this.line,
     required this.onSelectionChanged,
     required this.onQuantityChanged,
     required this.onBarcodeChanged,
+    required this.onScanBarcode,
+    required this.onGenerateBarcode,
     required this.onBatchNumberChanged,
     required this.onUnitPurchaseCostChanged,
     required this.onTotalPurchaseCostChanged,
@@ -23,10 +27,16 @@ class PurchaseOrderReceiveLineCard extends StatelessWidget {
     required this.isExpanded,
     required this.focusedField,
     required this.errors,
+    required this.isBarcodeGenerating,
+    required this.barcodeGenerationFailure,
     super.key,
   });
 
   static Key barcodeField(String lineId) => Key('receive-line-barcode-$lineId');
+  static Key scanBarcodeButton(String lineId) =>
+      Key('receive-line-scan-barcode-$lineId');
+  static Key generateBarcodeButton(String lineId) =>
+      Key('receive-line-generate-barcode-$lineId');
   static Key batchField(String lineId) => Key('receive-line-batch-$lineId');
   static Key selectionCheckbox(String lineId) =>
       Key('receive-line-selection-$lineId');
@@ -58,6 +68,8 @@ class PurchaseOrderReceiveLineCard extends StatelessWidget {
   final ValueChanged<bool> onSelectionChanged;
   final ValueChanged<String> onQuantityChanged;
   final ValueChanged<String> onBarcodeChanged;
+  final VoidCallback onScanBarcode;
+  final Future<void> Function() onGenerateBarcode;
   final ValueChanged<String> onBatchNumberChanged;
   final ValueChanged<String> onUnitPurchaseCostChanged;
   final ValueChanged<String> onTotalPurchaseCostChanged;
@@ -71,29 +83,66 @@ class PurchaseOrderReceiveLineCard extends StatelessWidget {
   final bool isExpanded;
   final String? focusedField;
   final Map<String, String> errors;
+  final bool isBarcodeGenerating;
+  final String? barcodeGenerationFailure;
 
   static Key cardKey(String lineId) => Key('receive-line-card-$lineId');
+
+  @override
+  State<PurchaseOrderReceiveLineCard> createState() =>
+      _PurchaseOrderReceiveLineCardState();
+}
+
+class _PurchaseOrderReceiveLineCardState
+    extends State<PurchaseOrderReceiveLineCard> {
+  late final TextEditingController _barcodeController;
+
+  @override
+  void initState() {
+    super.initState();
+    _barcodeController = TextEditingController(text: widget.line.barcode);
+  }
+
+  @override
+  void dispose() {
+    _barcodeController.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(PurchaseOrderReceiveLineCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.line.barcode != _barcodeController.text) {
+      _barcodeController.text = widget.line.barcode;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     return Card(
-      key: cardKey(line.purchaseOrderLineId),
+      key: PurchaseOrderReceiveLineCard.cardKey(
+        widget.line.purchaseOrderLineId,
+      ),
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: ExpansionTile(
-        key: ValueKey('${line.purchaseOrderLineId}-$isExpanded'),
-        initiallyExpanded: isExpanded,
+        key: ValueKey(
+          '${widget.line.purchaseOrderLineId}-${widget.isExpanded}',
+        ),
+        initiallyExpanded: widget.isExpanded,
         leading: Checkbox(
-          key: selectionCheckbox(line.purchaseOrderLineId),
-          value: line.isSelected,
-          onChanged: (value) => onSelectionChanged(value ?? false),
+          key: PurchaseOrderReceiveLineCard.selectionCheckbox(
+            widget.line.purchaseOrderLineId,
+          ),
+          value: widget.line.isSelected,
+          onChanged: (value) => widget.onSelectionChanged(value ?? false),
         ),
         title: Text(
-          line.description,
+          widget.line.description,
           style: Theme.of(context).textTheme.titleSmall,
         ),
         subtitle: Text(
-          '${l10n.purchaseOrderReceiveRemaining}: ${line.remainingQuantity}',
+          '${l10n.purchaseOrderReceiveRemaining}: ${widget.line.remainingQuantity}',
         ),
         children: [
           Padding(
@@ -102,41 +151,91 @@ class PurchaseOrderReceiveLineCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 TextFormField(
-                  key: quantityField(line.purchaseOrderLineId),
+                  key: PurchaseOrderReceiveLineCard.quantityField(
+                    widget.line.purchaseOrderLineId,
+                  ),
                   decoration: InputDecoration(
                     labelText: l10n.purchaseOrderReceiveLineQuantity,
                     helperText:
-                        '${l10n.purchaseOrderReceiveRemaining}: ${line.remainingQuantity}',
-                    errorText: errors['quantity'],
+                        '${l10n.purchaseOrderReceiveRemaining}: ${widget.line.remainingQuantity}',
+                    errorText: widget.errors['quantity'],
                   ),
-                  initialValue: line.quantity.toString(),
-                  enabled: line.isSelected,
+                  initialValue: widget.line.quantity.toString(),
+                  enabled: widget.line.isSelected,
                   keyboardType: TextInputType.number,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  onChanged: onQuantityChanged,
+                  onChanged: widget.onQuantityChanged,
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
-                  key: barcodeField(line.purchaseOrderLineId),
+                TextField(
+                  key: PurchaseOrderReceiveLineCard.barcodeField(
+                    widget.line.purchaseOrderLineId,
+                  ),
+                  controller: _barcodeController,
                   decoration: InputDecoration(
                     labelText: l10n.purchaseOrderReceiveBarcodeLabel,
-                    errorText: errors['barcode'],
+                    errorText:
+                        widget.errors['barcode'] ??
+                        widget.barcodeGenerationFailure,
                   ),
-                  initialValue: line.barcode,
-                  enabled: line.isSelected,
-                  onChanged: onBarcodeChanged,
+                  enabled: widget.line.isSelected,
+                  onChanged: widget.onBarcodeChanged,
                   maxLength: 120,
                 ),
                 const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        key: PurchaseOrderReceiveLineCard.scanBarcodeButton(
+                          widget.line.purchaseOrderLineId,
+                        ),
+                        icon: const Icon(Icons.document_scanner_outlined),
+                        onPressed:
+                            !widget.line.isSelected ||
+                                widget.isBarcodeGenerating
+                            ? null
+                            : widget.onScanBarcode,
+                        label: Text(l10n.purchaseOrderReceiveScanBarcode),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: FilledButton.icon(
+                        key: PurchaseOrderReceiveLineCard.generateBarcodeButton(
+                          widget.line.purchaseOrderLineId,
+                        ),
+                        icon: widget.isBarcodeGenerating
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.auto_fix_high),
+                        onPressed:
+                            !widget.line.isSelected ||
+                                widget.isBarcodeGenerating
+                            ? null
+                            : () => unawaited(widget.onGenerateBarcode()),
+                        label: Text(l10n.purchaseOrderReceiveGenerateBarcode),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
                 TextFormField(
-                  key: batchField(line.purchaseOrderLineId),
+                  key: PurchaseOrderReceiveLineCard.batchField(
+                    widget.line.purchaseOrderLineId,
+                  ),
                   decoration: InputDecoration(
                     labelText: l10n.purchaseOrderReceiveBatchLabel,
-                    errorText: errors['batchNumber'],
+                    errorText: widget.errors['batchNumber'],
                   ),
-                  initialValue: line.batchNumber,
-                  enabled: line.isSelected,
-                  onChanged: onBatchNumberChanged,
+                  initialValue: widget.line.batchNumber,
+                  enabled: widget.line.isSelected,
+                  onChanged: widget.onBatchNumberChanged,
                   maxLength: 80,
                 ),
                 const SizedBox(height: 16),
@@ -146,123 +245,145 @@ class PurchaseOrderReceiveLineCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 TextFormField(
-                  key: unitCostField(line.purchaseOrderLineId),
+                  key: PurchaseOrderReceiveLineCard.unitCostField(
+                    widget.line.purchaseOrderLineId,
+                  ),
                   decoration: InputDecoration(
                     labelText: l10n.purchaseOrderReceiveUnitCostLabel,
-                    errorText: errors['unitCost'],
+                    errorText: widget.errors['unitCost'],
                   ),
-                  initialValue: line.unitPurchaseCost.toString(),
-                  enabled: line.isSelected,
-                  autofocus: focusedField == 'unitCost',
+                  initialValue: widget.line.unitPurchaseCost.toString(),
+                  enabled: widget.line.isSelected,
+                  autofocus: widget.focusedField == 'unitCost',
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
                   inputFormatters: [_decimalFormatter],
-                  onChanged: onUnitPurchaseCostChanged,
+                  onChanged: widget.onUnitPurchaseCostChanged,
                 ),
                 const SizedBox(height: 8),
                 TextFormField(
-                  key: totalCostField(line.purchaseOrderLineId),
+                  key: PurchaseOrderReceiveLineCard.totalCostField(
+                    widget.line.purchaseOrderLineId,
+                  ),
                   decoration: InputDecoration(
                     labelText: l10n.purchaseOrderReceiveTotalPurchaseCostLabel,
-                    errorText: errors['totalPurchaseCost'],
+                    errorText: widget.errors['totalPurchaseCost'],
                   ),
-                  initialValue: line.totalPurchaseCost.toString(),
-                  enabled: line.isSelected,
+                  initialValue: widget.line.totalPurchaseCost.toString(),
+                  enabled: widget.line.isSelected,
                   keyboardType: TextInputType.numberWithOptions(decimal: true),
-                  autofocus: focusedField == 'totalPurchaseCost',
+                  autofocus: widget.focusedField == 'totalPurchaseCost',
                   inputFormatters: [_decimalFormatter],
-                  onChanged: onTotalPurchaseCostChanged,
+                  onChanged: widget.onTotalPurchaseCostChanged,
                 ),
                 const SizedBox(height: 8),
                 TextFormField(
-                  key: mrpField(line.purchaseOrderLineId),
+                  key: PurchaseOrderReceiveLineCard.mrpField(
+                    widget.line.purchaseOrderLineId,
+                  ),
                   decoration: InputDecoration(
                     labelText: l10n.purchaseOrderReceiveMrpLabel,
-                    errorText: errors['mrp'],
+                    errorText: widget.errors['mrp'],
                   ),
-                  initialValue: line.mrp.toString(),
-                  enabled: line.isSelected,
+                  initialValue: widget.line.mrp.toString(),
+                  enabled: widget.line.isSelected,
                   keyboardType: TextInputType.numberWithOptions(decimal: true),
-                  autofocus: focusedField == 'mrp',
+                  autofocus: widget.focusedField == 'mrp',
                   inputFormatters: [_decimalFormatter],
-                  onChanged: onMrpChanged,
+                  onChanged: widget.onMrpChanged,
                 ),
                 const SizedBox(height: 8),
                 TextFormField(
-                  key: salesPriceField(line.purchaseOrderLineId),
+                  key: PurchaseOrderReceiveLineCard.salesPriceField(
+                    widget.line.purchaseOrderLineId,
+                  ),
                   decoration: InputDecoration(
                     labelText: l10n.purchaseOrderReceiveSalesPriceLabel,
-                    errorText: errors['salesPrice'],
+                    errorText: widget.errors['salesPrice'],
                   ),
-                  initialValue: line.salesPrice.toString(),
-                  enabled: line.isSelected,
+                  initialValue: widget.line.salesPrice.toString(),
+                  enabled: widget.line.isSelected,
                   keyboardType: TextInputType.numberWithOptions(decimal: true),
-                  autofocus: focusedField == 'salesPrice',
+                  autofocus: widget.focusedField == 'salesPrice',
                   inputFormatters: [_decimalFormatter],
-                  onChanged: onSalesPriceChanged,
+                  onChanged: widget.onSalesPriceChanged,
                 ),
                 const SizedBox(height: 8),
                 TextFormField(
-                  key: taxRateField(line.purchaseOrderLineId),
+                  key: PurchaseOrderReceiveLineCard.taxRateField(
+                    widget.line.purchaseOrderLineId,
+                  ),
                   decoration: InputDecoration(
                     labelText: l10n.purchaseOrderReceiveTaxRateLabel,
-                    errorText: errors['taxRatePercent'],
+                    errorText: widget.errors['taxRatePercent'],
                   ),
-                  initialValue: line.taxRatePercent.toString(),
-                  enabled: line.isSelected,
+                  initialValue: widget.line.taxRatePercent.toString(),
+                  enabled: widget.line.isSelected,
                   keyboardType: TextInputType.numberWithOptions(decimal: true),
-                  autofocus: focusedField == 'taxRatePercent',
+                  autofocus: widget.focusedField == 'taxRatePercent',
                   inputFormatters: [_decimalFormatter],
-                  onChanged: onTaxRatePercentChanged,
+                  onChanged: widget.onTaxRatePercentChanged,
                 ),
                 const SizedBox(height: 12),
                 CheckboxListTile(
-                  key: taxIncludedCheckbox(line.purchaseOrderLineId),
+                  key: PurchaseOrderReceiveLineCard.taxIncludedCheckbox(
+                    widget.line.purchaseOrderLineId,
+                  ),
                   title: Text(l10n.purchaseOrderReceiveTaxIncludedLabel),
-                  subtitle: errors['taxIncluded'] == null
+                  subtitle: widget.errors['taxIncluded'] == null
                       ? null
-                      : Text(errors['taxIncluded']!),
-                  value: line.taxIncluded,
-                  onChanged: line.isSelected
-                      ? (v) => onTaxIncludedChanged(v ?? false)
+                      : Text(widget.errors['taxIncluded']!),
+                  value: widget.line.taxIncluded,
+                  onChanged: widget.line.isSelected
+                      ? (v) => widget.onTaxIncludedChanged(v ?? false)
                       : null,
                   contentPadding: EdgeInsets.zero,
                 ),
                 CheckboxListTile(
-                  key: purchaseTaxIncludedCheckbox(line.purchaseOrderLineId),
+                  key: PurchaseOrderReceiveLineCard.purchaseTaxIncludedCheckbox(
+                    widget.line.purchaseOrderLineId,
+                  ),
                   title: Text(
                     l10n.purchaseOrderReceivePurchaseTaxIncludedLabel,
                   ),
-                  subtitle: errors['purchaseTaxIncluded'] == null
+                  subtitle: widget.errors['purchaseTaxIncluded'] == null
                       ? null
-                      : Text(errors['purchaseTaxIncluded']!),
-                  value: line.purchaseTaxIncluded,
-                  onChanged: line.isSelected
-                      ? (v) => onPurchaseTaxIncludedChanged(v ?? false)
+                      : Text(widget.errors['purchaseTaxIncluded']!),
+                  value: widget.line.purchaseTaxIncluded,
+                  onChanged: widget.line.isSelected
+                      ? (v) => widget.onPurchaseTaxIncludedChanged(v ?? false)
                       : null,
                   contentPadding: EdgeInsets.zero,
                 ),
                 _ReceiptDateField(
-                  fieldKey: manufacturingDateField(line.purchaseOrderLineId),
+                  fieldKey: PurchaseOrderReceiveLineCard.manufacturingDateField(
+                    widget.line.purchaseOrderLineId,
+                  ),
                   label: l10n.purchaseOrderReceiveManufacturingDateLabel,
-                  value: line.manufacturingDate,
-                  errorText: errors['manufacturingDate'],
-                  enabled: line.isSelected,
-                  autofocus: focusedField == 'manufacturingDate',
-                  clearKey: manufacturingDateClear(line.purchaseOrderLineId),
-                  onChanged: onManufacturingDateChanged,
+                  value: widget.line.manufacturingDate,
+                  errorText: widget.errors['manufacturingDate'],
+                  enabled: widget.line.isSelected,
+                  autofocus: widget.focusedField == 'manufacturingDate',
+                  clearKey: PurchaseOrderReceiveLineCard.manufacturingDateClear(
+                    widget.line.purchaseOrderLineId,
+                  ),
+                  onChanged: widget.onManufacturingDateChanged,
                 ),
                 const SizedBox(height: 8),
                 _ReceiptDateField(
-                  fieldKey: expiryDateField(line.purchaseOrderLineId),
+                  fieldKey: PurchaseOrderReceiveLineCard.expiryDateField(
+                    widget.line.purchaseOrderLineId,
+                  ),
                   label: l10n.purchaseOrderReceiveExpiryDateLabel,
-                  value: line.expiryDate,
-                  errorText: errors['expiryDate'],
-                  enabled: line.isSelected,
-                  autofocus: focusedField == 'expiryDate',
-                  clearKey: expiryDateClear(line.purchaseOrderLineId),
-                  onChanged: onExpiryDateChanged,
+                  value: widget.line.expiryDate,
+                  errorText: widget.errors['expiryDate'],
+                  enabled: widget.line.isSelected,
+                  autofocus: widget.focusedField == 'expiryDate',
+                  clearKey: PurchaseOrderReceiveLineCard.expiryDateClear(
+                    widget.line.purchaseOrderLineId,
+                  ),
+                  onChanged: widget.onExpiryDateChanged,
                 ),
               ],
             ),

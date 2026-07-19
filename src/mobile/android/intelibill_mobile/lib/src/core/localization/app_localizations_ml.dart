@@ -2736,6 +2736,23 @@ class AppLocalizationsMl extends AppLocalizations {
   String get purchaseOrderReceiveBatchLabel => 'Batch number';
 
   @override
+  String get purchaseOrderReceiveScanBarcode => 'Scan barcode';
+
+  @override
+  String get purchaseOrderReceiveGenerateBarcode => 'Generate barcode';
+
+  @override
+  String purchaseOrderReceiveBarcodeReplaceConfirm(
+    String existingBarcode,
+    String newBarcode,
+  ) {
+    return 'Replace existing barcode \"$existingBarcode\" with \"$newBarcode\"?';
+  }
+
+  @override
+  String get purchaseOrderReceiveBarcodeReplaceConfirmLabel => 'Replace';
+
+  @override
   String get purchaseOrderReceiveRemaining => 'Remaining';
 
   @override

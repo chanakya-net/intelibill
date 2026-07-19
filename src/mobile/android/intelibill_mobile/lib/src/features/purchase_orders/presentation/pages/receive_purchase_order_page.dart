@@ -7,10 +7,16 @@ import 'package:intelibill_mobile/src/core/formatting/currency_formatter.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/receive_purchase_order_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_receive_line_card.dart';
+import 'package:intelibill_mobile/src/shared/barcode_scanner/barcode_scan_result.dart';
+import 'package:intelibill_mobile/src/shared/barcode_scanner/show_barcode_scanner.dart';
 import 'package:intl/intl.dart';
 
 class ReceivePurchaseOrderPage extends ConsumerWidget {
-  const ReceivePurchaseOrderPage({required this.purchaseOrderId, super.key});
+  const ReceivePurchaseOrderPage({
+    required this.purchaseOrderId,
+    this.scanBarcode,
+    super.key,
+  });
 
   static const pageKey = Key('purchase-order-receive-page');
   static const receiveButtonKey = Key('purchase-order-receive-submit-button');
@@ -19,6 +25,7 @@ class ReceivePurchaseOrderPage extends ConsumerWidget {
   static const noLinesTextKey = Key('purchase-order-receive-no-lines');
 
   final String purchaseOrderId;
+  final Future<BarcodeScanResult?> Function(BuildContext context)? scanBarcode;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -126,6 +133,18 @@ class ReceivePurchaseOrderPage extends ConsumerWidget {
                   ),
                   onBarcodeChanged: (value) =>
                       controller.updateBarcode(line.purchaseOrderLineId, value),
+                  onScanBarcode: () => _scanLineBarcode(
+                    context,
+                    ref,
+                    l10n,
+                    line.purchaseOrderLineId,
+                  ),
+                  onGenerateBarcode: () => _generateLineBarcode(
+                    context,
+                    ref,
+                    l10n,
+                    line.purchaseOrderLineId,
+                  ),
                   onBatchNumberChanged: (value) => controller.updateBatchNumber(
                     line.purchaseOrderLineId,
                     value,
@@ -179,6 +198,11 @@ class ReceivePurchaseOrderPage extends ConsumerWidget {
                       : state.focusedLineId,
                   errors:
                       state.lineErrors[line.purchaseOrderLineId] ?? const {},
+                  isBarcodeGenerating: state.barcodeGenerationLineIds.contains(
+                    line.purchaseOrderLineId,
+                  ),
+                  barcodeGenerationFailure:
+                      state.barcodeGenerationFailures[line.purchaseOrderLineId],
                 ),
               ),
             const SizedBox(height: 12),
@@ -223,6 +247,105 @@ class ReceivePurchaseOrderPage extends ConsumerWidget {
         SnackBar(content: Text(l10n.purchaseOrderReceiveSubmitFailure)),
       );
     }
+  }
+
+  Future<void> _scanLineBarcode(
+    BuildContext context,
+    WidgetRef ref,
+    AppLocalizations l10n,
+    String lineId,
+  ) async {
+    final scanner = scanBarcode ?? showBarcodeScanner;
+    final result = await scanner(context);
+    if (result == null || result.value.trim().isEmpty || !context.mounted) {
+      return;
+    }
+    final current = _line(ref, lineId);
+    if (current == null) return;
+
+    final nextBarcode = result.value.trim();
+    final shouldApply = await _confirmBarcodeChange(
+      context: context,
+      l10n: l10n,
+      existing: current.barcode,
+      next: nextBarcode,
+    );
+    if (!shouldApply || !context.mounted) return;
+
+    ref
+        .read(receivePurchaseOrderControllerProvider(purchaseOrderId).notifier)
+        .updateBarcode(lineId, nextBarcode);
+  }
+
+  Future<void> _generateLineBarcode(
+    BuildContext context,
+    WidgetRef ref,
+    AppLocalizations l10n,
+    String lineId,
+  ) async {
+    final controller = ref.read(
+      receivePurchaseOrderControllerProvider(purchaseOrderId).notifier,
+    );
+    final generated = await controller.generateItemBarcodeForLine(lineId);
+    if (generated == null || generated.trim().isEmpty || !context.mounted) {
+      return;
+    }
+
+    final current = _line(ref, lineId);
+    if (current == null) return;
+
+    final shouldApply = await _confirmBarcodeChange(
+      context: context,
+      l10n: l10n,
+      existing: current.barcode,
+      next: generated,
+    );
+    if (!shouldApply || !context.mounted) return;
+
+    controller.applyGeneratedBarcode(lineId, generated);
+  }
+
+  ReceivePurchaseOrderLineDraft? _line(WidgetRef ref, String lineId) {
+    final lines = ref
+        .read(receivePurchaseOrderControllerProvider(purchaseOrderId))
+        .lines;
+    for (final line in lines) {
+      if (line.purchaseOrderLineId == lineId) return line;
+    }
+    return null;
+  }
+
+  Future<bool> _confirmBarcodeChange({
+    required BuildContext context,
+    required AppLocalizations l10n,
+    required String existing,
+    required String next,
+  }) async {
+    if (existing.trim().isEmpty || existing.trim() == next) {
+      return true;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        content: Text(
+          l10n.purchaseOrderReceiveBarcodeReplaceConfirm(
+            existing.trim(),
+            next,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(l10n.commonCancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(l10n.purchaseOrderReceiveBarcodeReplaceConfirmLabel),
+          ),
+        ],
+      ),
+    );
+    return confirmed ?? false;
   }
 }
 
