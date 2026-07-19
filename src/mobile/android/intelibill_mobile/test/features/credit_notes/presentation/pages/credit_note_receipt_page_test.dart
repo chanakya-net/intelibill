@@ -307,12 +307,19 @@ void main() {
 
 class FakeDocumentOutputGateway implements DocumentOutputGateway {
   FakeDocumentOutputGateway({
-    this.shouldFailPrint = false,
-    this.shouldFailShare = false,
-  });
+    bool shouldFailPrint = false,
+    bool shouldFailShare = false,
+  })  : _shouldFailPrint = shouldFailPrint,
+        _shouldFailShare = shouldFailShare;
 
-  final bool shouldFailPrint;
-  final bool shouldFailShare;
+  bool _shouldFailPrint;
+  bool _shouldFailShare;
+
+  bool get shouldFailPrint => _shouldFailPrint;
+  set shouldFailPrint(bool value) => _shouldFailPrint = value;
+
+  bool get shouldFailShare => _shouldFailShare;
+  set shouldFailShare(bool value) => _shouldFailShare = value;
 
   int printCallCount = 0;
   int shareCallCount = 0;
@@ -328,7 +335,7 @@ class FakeDocumentOutputGateway implements DocumentOutputGateway {
     required String filename,
   }) async {
     printCallCount++;
-    if (shouldFailPrint) {
+    if (_shouldFailPrint) {
       throw PlatformPrintFailure(message: 'Fake print error');
     }
     lastPrintBytes = bytes;
@@ -342,7 +349,7 @@ class FakeDocumentOutputGateway implements DocumentOutputGateway {
     required String title,
   }) async {
     shareCallCount++;
-    if (shouldFailShare) {
+    if (_shouldFailShare) {
       throw PlatformShareFailure(message: 'Fake share error');
     }
     lastShareBytes = bytes;

@@ -33,6 +33,7 @@ class DocumentPreviewScaffold extends StatefulWidget {
 class _DocumentPreviewScaffoldState extends State<DocumentPreviewScaffold> {
   bool _isPrinting = false;
   bool _isSharing = false;
+  Uint8List? _cachedBytes;
 
   @override
   Widget build(BuildContext context) {
@@ -72,10 +73,12 @@ class _DocumentPreviewScaffoldState extends State<DocumentPreviewScaffold> {
   Future<void> _handlePrint() async {
     setState(() => _isPrinting = true);
     try {
-      final bytes = await widget.onBuild(widget.descriptor.pdfPageFormat);
+      final bytes = _cachedBytes ??
+          await widget.onBuild(widget.descriptor.pdfPageFormat);
+      _cachedBytes = bytes;
       await widget.onPrint!(bytes);
     } catch (e) {
-      widget.onFailure?.call('PDF generation failed: ${e.toString()}');
+      widget.onFailure?.call('Print failed: ${e.toString()}');
     } finally {
       if (mounted) {
         setState(() => _isPrinting = false);
@@ -86,10 +89,12 @@ class _DocumentPreviewScaffoldState extends State<DocumentPreviewScaffold> {
   Future<void> _handleShare() async {
     setState(() => _isSharing = true);
     try {
-      final bytes = await widget.onBuild(widget.descriptor.pdfPageFormat);
+      final bytes = _cachedBytes ??
+          await widget.onBuild(widget.descriptor.pdfPageFormat);
+      _cachedBytes = bytes;
       await widget.onShare!(bytes);
     } catch (e) {
-      widget.onFailure?.call('PDF generation failed: ${e.toString()}');
+      widget.onFailure?.call('Share failed: ${e.toString()}');
     } finally {
       if (mounted) {
         setState(() => _isSharing = false);
