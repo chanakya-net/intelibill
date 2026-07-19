@@ -90,6 +90,7 @@ void main() {
   Widget buildApp(
     PurchaseOrdersState state, {
     Locale locale = const Locale('en', 'IN'),
+    TextScaler textScaler = TextScaler.noScaling,
   }) {
     return ProviderScope(
       overrides: [
@@ -102,7 +103,12 @@ void main() {
         locale: locale,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        home: const PurchaseOrdersPage(),
+        home: Builder(
+          builder: (context) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+            child: const PurchaseOrdersPage(),
+          ),
+        ),
       ),
     );
   }
@@ -244,6 +250,52 @@ void main() {
       );
       expect(find.text(_statusText(status)), findsOneWidget);
     }
+  });
+
+  testWidgets(
+    'announces card status and receipt progress as meaningful units',
+    (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+
+      await tester.pumpWidget(
+        buildApp(PurchaseOrdersState(items: [_item()], totalCount: 1)),
+      );
+
+      expect(
+        tester
+            .getSemantics(
+              find.byKey(const Key('purchase-order-status-partiallyReceived')),
+            )
+            .label,
+        'Status: Partially received',
+      );
+      expect(
+        tester.getSemantics(find.byType(LinearProgressIndicator)).label,
+        'Received: 7 / 12',
+      );
+      semantics.dispose();
+    },
+  );
+
+  testWidgets('keeps list controls usable with large text on narrow screens', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      buildApp(
+        PurchaseOrdersState(items: [_item()], totalCount: 1),
+        textScaler: const TextScaler.linear(1.8),
+      ),
+    );
+
+    expect(find.byKey(PurchaseOrdersPage.searchFieldKey), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('card navigates to the purchase-order detail route', (
@@ -459,6 +511,47 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(scrollableState.position.pixels, greaterThan(0));
+  });
+
+  testWidgets('labels status and date filters for assistive technology', (
+    tester,
+  ) async {
+    final controller = _TrackingStubController(
+      PurchaseOrdersState(items: [_item()], totalCount: 1),
+    );
+    final semantics = tester.ensureSemantics();
+
+    await tester.pumpWidget(buildTrackingApp(controller));
+
+    final statusFilter = find.byKey(
+      PurchaseOrdersPage.statusFilterKey(PurchaseOrderStatus.placed),
+    );
+    expect(tester.getSemantics(statusFilter).label, contains('Placed'));
+    expect(
+      find.ancestor(of: statusFilter, matching: find.byType(Tooltip)),
+      findsOneWidget,
+    );
+    for (final dateFilter in [
+      PurchaseOrdersPage.dateFromFilterKey,
+      PurchaseOrdersPage.dateToFilterKey,
+    ]) {
+      expect(tester.getSemantics(find.byKey(dateFilter)).label, isNotEmpty);
+      expect(
+        tester.getSize(find.byKey(dateFilter)).height,
+        greaterThanOrEqualTo(48),
+      );
+    }
+
+    await tester.tap(statusFilter);
+    await tester.pump();
+
+    expect(controller.lastStatus, PurchaseOrderStatus.placed);
+    expect(find.byKey(PurchaseOrdersPage.clearFiltersKey), findsOneWidget);
+    expect(
+      tester.getSemantics(find.byKey(PurchaseOrdersPage.clearFiltersKey)).label,
+      contains('Clear'),
+    );
+    semantics.dispose();
   });
 
   testWidgets('has date-picker buttons for from/to dates', (tester) async {

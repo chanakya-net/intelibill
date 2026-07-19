@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -311,6 +312,49 @@ void main() {
     expect(find.text('Total purchase cost: ₹40'), findsOneWidget);
   });
 
+  testWidgets('line selection remains a labeled actionable checkbox', (
+    tester,
+  ) async {
+    final getPurchaseOrder = _MockGetPurchaseOrder();
+    final receive = _MockReceivePurchaseOrder();
+    when(() => getPurchaseOrder('po-1')).thenAnswer((_) async => _detail());
+    final harness = buildHarness(
+      getPurchaseOrder: getPurchaseOrder,
+      receivePurchaseOrder: receive,
+    );
+    addTearDown(() {
+      harness.router.dispose();
+      harness.container.dispose();
+    });
+    final semantics = tester.ensureSemantics();
+
+    await tester.pumpWidget(harness.app);
+    await tester.pumpAndSettle();
+
+    final checkbox = find.byKey(
+      PurchaseOrderReceiveLineCard.selectionCheckbox('line-1'),
+    );
+    final selectionSemantics = find.byKey(
+      PurchaseOrderReceiveLineCard.selectionSemantics('line-1'),
+    );
+    final node = tester.getSemantics(selectionSemantics);
+    expect(node.label, contains('Widget A'));
+    expect(node.getSemanticsData().hasAction(ui.SemanticsAction.tap), isTrue);
+
+    await tester.tap(checkbox);
+    await tester.pump();
+
+    expect(
+      harness.container
+          .read(receivePurchaseOrderControllerProvider('po-1'))
+          .lines
+          .single
+          .isSelected,
+      isFalse,
+    );
+    semantics.dispose();
+  });
+
   testWidgets('submits and navigates to detail route on success', (
     tester,
   ) async {
@@ -461,14 +505,18 @@ void main() {
     await tester.pumpAndSettle();
     await expandFirstLine(tester);
 
-    expect(
-      find.byKey(PurchaseOrderReceiveLineCard.scanBarcodeButton('line-1')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(PurchaseOrderReceiveLineCard.generateBarcodeButton('line-1')),
-      findsOneWidget,
-    );
+    for (final button in [
+      PurchaseOrderReceiveLineCard.scanBarcodeButton('line-1'),
+      PurchaseOrderReceiveLineCard.generateBarcodeButton('line-1'),
+    ]) {
+      final finder = find.byKey(button);
+      expect(finder, findsOneWidget);
+      expect(
+        find.ancestor(of: finder, matching: find.byType(Tooltip)),
+        findsOneWidget,
+      );
+      expect(tester.getSize(finder).height, greaterThanOrEqualTo(48));
+    }
   });
 
   testWidgets('keeps barcode on null scan and allows successful retry', (

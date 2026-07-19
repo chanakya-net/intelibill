@@ -25,41 +25,44 @@ class PurchaseOrderRecoveredDraftBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final colors = Theme.of(context).colorScheme;
-    return Card(
-      key: bannerKey,
-      color: colors.secondaryContainer,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              l10n.purchaseOrderDraftRecoveredTitle,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 4),
-            Text(l10n.purchaseOrderDraftRecoveredMessage),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              children: [
-                FilledButton.tonal(
-                  key: continueKey,
-                  onPressed: isBusy ? null : onContinue,
-                  child: Text(l10n.purchaseOrderDraftContinue),
-                ),
-                TextButton(
-                  key: discardKey,
-                  onPressed: isBusy ? null : onDiscard,
-                  child: Text(
-                    isEdit
-                        ? l10n.purchaseOrderDraftDiscardAndReload
-                        : l10n.purchaseOrderDraftDiscardLocal,
+    return Semantics(
+      liveRegion: true,
+      child: Card(
+        key: bannerKey,
+        color: colors.secondaryContainer,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                l10n.purchaseOrderDraftRecoveredTitle,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 4),
+              Text(l10n.purchaseOrderDraftRecoveredMessage),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: [
+                  FilledButton.tonal(
+                    key: continueKey,
+                    onPressed: isBusy ? null : onContinue,
+                    child: Text(l10n.purchaseOrderDraftContinue),
                   ),
-                ),
-              ],
-            ),
-          ],
+                  TextButton(
+                    key: discardKey,
+                    onPressed: isBusy ? null : onDiscard,
+                    child: Text(
+                      isEdit
+                          ? l10n.purchaseOrderDraftDiscardAndReload
+                          : l10n.purchaseOrderDraftDiscardLocal,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -83,16 +86,19 @@ class PurchaseOrderStorageWarningBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    return Card(
-      key: bannerKey,
-      child: ListTile(
-        leading: const Icon(Icons.warning_amber_rounded),
-        title: Text(l10n.purchaseOrderDraftStorageWarning),
-        subtitle: Text(message),
-        trailing: TextButton(
-          key: retryKey,
-          onPressed: onRetry,
-          child: Text(l10n.purchaseOrderBuilderRetry),
+    return Semantics(
+      liveRegion: true,
+      child: Card(
+        key: bannerKey,
+        child: ListTile(
+          leading: const Icon(Icons.warning_amber_rounded),
+          title: Text(l10n.purchaseOrderDraftStorageWarning),
+          subtitle: Text(message),
+          trailing: TextButton(
+            key: retryKey,
+            onPressed: onRetry,
+            child: Text(l10n.purchaseOrderBuilderRetry),
+          ),
         ),
       ),
     );

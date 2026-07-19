@@ -35,14 +35,15 @@ class PurchaseOrderCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  Expanded(
-                    child: Text(
-                      purchaseOrder.purchaseOrderNumber,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                  Text(
+                    purchaseOrder.purchaseOrderNumber,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                   PurchaseOrderStatusBadge(status: purchaseOrder.status),
@@ -79,7 +80,10 @@ class PurchaseOrderCard extends StatelessWidget {
                 receivedQuantity: purchaseOrder.receivedQuantity,
               ),
               const SizedBox(height: 10),
-              Row(
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   Text(
                     formatInr(purchaseOrder.expectedTotal),
@@ -87,11 +91,9 @@ class PurchaseOrderCard extends StatelessWidget {
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                  const Spacer(),
                   Text(
                     DateFormat('d MMM yyyy').format(purchaseOrder.createdAt),
                   ),
-                  const SizedBox(width: 4),
                   Icon(
                     Icons.chevron_right,
                     color: theme.colorScheme.onSurfaceVariant,

@@ -76,38 +76,37 @@ class PurchaseOrderDetailPage extends ConsumerWidget {
         title: Text(purchaseOrder.purchaseOrderNumber),
         actions: [
           if (purchaseOrder.status == PurchaseOrderStatus.draft)
-            IconButton(
+            _actionButton(
               key: editButtonKey,
-              icon: const Icon(Icons.edit_outlined),
-              tooltip: l10n.commonEdit,
+              icon: Icons.edit_outlined,
+              label: l10n.commonEdit,
               onPressed: () => context.go(
                 AppRoutes.purchaseOrderEditFor(purchaseOrderId),
               ),
             ),
-          IconButton(
+          _actionButton(
             key: previewButtonKey,
-            icon: const Icon(Icons.picture_as_pdf_outlined),
-            tooltip: l10n.purchaseOrderPreviewAction,
+            icon: Icons.picture_as_pdf_outlined,
+            label: l10n.purchaseOrderPreviewAction,
             onPressed: () => context.go(
               AppRoutes.purchaseOrderPrintFor(purchaseOrderId),
             ),
           ),
           if (purchaseOrder.status == PurchaseOrderStatus.placed ||
               purchaseOrder.status == PurchaseOrderStatus.partiallyReceived)
-            IconButton(
+            _actionButton(
               key: receiveButtonKey,
-              icon: const Icon(Icons.move_to_inbox),
-              tooltip: l10n.purchaseOrderReceiveAction,
-              onPressed: () {
-                context.go(
-                  AppRoutes.purchaseOrderReceiveFor(purchaseOrderId),
-                );
-              },
+              icon: Icons.move_to_inbox,
+              label: l10n.purchaseOrderReceiveAction,
+              onPressed: () => context.go(
+                AppRoutes.purchaseOrderReceiveFor(purchaseOrderId),
+              ),
             ),
           if (purchaseOrder.status == PurchaseOrderStatus.placed)
-            IconButton(
+            _actionButton(
               key: const Key('purchase-order-detail-cancel-button'),
-              icon: const Icon(Icons.cancel),
+              icon: Icons.cancel,
+              label: l10n.purchaseOrderCancelTitle,
               onPressed: () {
                 unawaited(
                   showPurchaseOrderCancelSheet(
@@ -126,9 +125,10 @@ class PurchaseOrderDetailPage extends ConsumerWidget {
               },
             ),
           if (purchaseOrder.status == PurchaseOrderStatus.partiallyReceived)
-            IconButton(
+            _actionButton(
               key: const Key('purchase-order-detail-close-button'),
-              icon: const Icon(Icons.lock),
+              icon: Icons.lock,
+              label: l10n.purchaseOrderCloseTitle,
               onPressed: () {
                 unawaited(
                   showPurchaseOrderCloseSheet(
@@ -147,10 +147,10 @@ class PurchaseOrderDetailPage extends ConsumerWidget {
               },
             ),
           if (purchaseOrder.status == PurchaseOrderStatus.draft)
-            IconButton(
+            _actionButton(
               key: const Key('purchase-order-detail-delete-button'),
-              icon: const Icon(Icons.delete_outline),
-              tooltip: l10n.purchaseOrderDetailDeleteAction,
+              icon: Icons.delete_outline,
+              label: l10n.purchaseOrderDetailDeleteAction,
               onPressed: state.deleteState.isLoading
                   ? null
                   : () => _showDeleteDraftConfirmation(
@@ -161,10 +161,10 @@ class PurchaseOrderDetailPage extends ConsumerWidget {
                     ),
             ),
           if (purchaseOrder.status == PurchaseOrderStatus.draft)
-            IconButton(
+            _actionButton(
               key: const Key('purchase-order-detail-place-button'),
-              icon: const Icon(Icons.send),
-              tooltip: l10n.purchaseOrderPlaceAction,
+              icon: Icons.send,
+              label: l10n.purchaseOrderPlaceAction,
               onPressed: _canPlace(purchaseOrder, suppliersState.suppliers)
                   ? () {
                       unawaited(
@@ -221,6 +221,25 @@ class PurchaseOrderDetailPage extends ConsumerWidget {
     );
   }
 
+  Widget _actionButton({
+    required Key key,
+    required IconData icon,
+    required String label,
+    required VoidCallback? onPressed,
+  }) {
+    return Semantics(
+      label: label,
+      button: true,
+      enabled: onPressed != null,
+      child: IconButton(
+        key: key,
+        icon: Icon(icon),
+        tooltip: label,
+        onPressed: onPressed,
+      ),
+    );
+  }
+
   String _failureMessage(AppLocalizations l10n, Failure? failure) {
     return failure == null
         ? l10n.purchaseOrderFailureUnknown
@@ -250,7 +269,7 @@ class _FailureView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(message),
+            Semantics(liveRegion: true, child: Text(message)),
             const SizedBox(height: 12),
             if (isNotFound) ...[
               FilledButton(

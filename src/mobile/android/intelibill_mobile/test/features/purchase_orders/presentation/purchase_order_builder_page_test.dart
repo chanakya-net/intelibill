@@ -184,6 +184,7 @@ void main() {
     Item? createdItem,
     Failure? createFailure,
     List<Item>? refreshedItems,
+    TextScaler textScaler = TextScaler.noScaling,
     void Function(_StubBuilderController controller)? onControllerCreated,
     void Function(_StubItemsController controller)? onItemsControllerCreated,
   }) {
@@ -217,12 +218,20 @@ void main() {
               theme: AppTheme.lightTheme,
               localizationsDelegates: AppLocalizations.localizationsDelegates,
               supportedLocales: AppLocalizations.supportedLocales,
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+                child: child!,
+              ),
               home: PurchaseOrderBuilderPage(target: target),
             )
           : MaterialApp.router(
               theme: AppTheme.lightTheme,
               localizationsDelegates: AppLocalizations.localizationsDelegates,
               supportedLocales: AppLocalizations.supportedLocales,
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+                child: child!,
+              ),
               routerConfig: router,
             ),
     );
@@ -259,6 +268,32 @@ void main() {
     expect(find.byKey(PurchaseOrderBuilderPage.notesFieldKey), findsOneWidget);
     expect(find.byKey(PurchaseOrderBuilderPage.saveButtonKey), findsOneWidget);
     expect(find.byType(SingleChildScrollView), findsOneWidget);
+  });
+
+  testWidgets('uses ordered focus and preserves save action at large text', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      buildApp(
+        PurchaseOrderBuilderState(suppliers: [_supplier()]),
+        textScaler: const TextScaler.linear(1.8),
+      ),
+    );
+
+    final orderedFocusGroup = find.byWidgetPredicate(
+      (widget) =>
+          widget is FocusTraversalGroup &&
+          widget.policy is OrderedTraversalPolicy,
+    );
+    expect(orderedFocusGroup, findsOneWidget);
+    final saveButton = find.byKey(PurchaseOrderBuilderPage.saveButtonKey);
+    expect(tester.getSize(saveButton).height, greaterThanOrEqualTo(48));
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('prefills an edit builder from its loaded draft state', (

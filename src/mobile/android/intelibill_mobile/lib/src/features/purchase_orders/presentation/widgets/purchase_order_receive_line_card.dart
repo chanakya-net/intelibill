@@ -42,6 +42,8 @@ class PurchaseOrderReceiveLineCard extends StatefulWidget {
   static Key batchField(String lineId) => Key('receive-line-batch-$lineId');
   static Key selectionCheckbox(String lineId) =>
       Key('receive-line-selection-$lineId');
+  static Key selectionSemantics(String lineId) =>
+      Key('receive-line-selection-semantics-$lineId');
   static Key quantityField(String lineId) =>
       Key('receive-line-quantity-$lineId');
   static Key totalCostField(String lineId) =>
@@ -134,12 +136,19 @@ class _PurchaseOrderReceiveLineCardState
           '${widget.line.purchaseOrderLineId}-${widget.isExpanded}',
         ),
         initiallyExpanded: widget.isExpanded,
-        leading: Checkbox(
-          key: PurchaseOrderReceiveLineCard.selectionCheckbox(
+        leading: Semantics(
+          key: PurchaseOrderReceiveLineCard.selectionSemantics(
             widget.line.purchaseOrderLineId,
           ),
-          value: widget.line.isSelected,
-          onChanged: (value) => widget.onSelectionChanged(value ?? false),
+          label: widget.line.description,
+          checked: widget.line.isSelected,
+          child: Checkbox(
+            key: PurchaseOrderReceiveLineCard.selectionCheckbox(
+              widget.line.purchaseOrderLineId,
+            ),
+            value: widget.line.isSelected,
+            onChanged: (value) => widget.onSelectionChanged(value ?? false),
+          ),
         ),
         title: Row(
           children: [
@@ -208,9 +217,13 @@ class _PurchaseOrderReceiveLineCardState
                   maxLength: 120,
                 ),
                 const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final stackActions =
+                        constraints.maxWidth < 360 ||
+                        MediaQuery.textScalerOf(context).scale(14) > 18;
+                    final scanButton = Tooltip(
+                      message: l10n.purchaseOrderReceiveScanBarcode,
                       child: OutlinedButton.icon(
                         key: PurchaseOrderReceiveLineCard.scanBarcodeButton(
                           widget.line.purchaseOrderLineId,
@@ -223,9 +236,9 @@ class _PurchaseOrderReceiveLineCardState
                             : widget.onScanBarcode,
                         label: Text(l10n.purchaseOrderReceiveScanBarcode),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
+                    );
+                    final generateButton = Tooltip(
+                      message: l10n.purchaseOrderReceiveGenerateBarcode,
                       child: FilledButton.icon(
                         key: PurchaseOrderReceiveLineCard.generateBarcodeButton(
                           widget.line.purchaseOrderLineId,
@@ -246,8 +259,25 @@ class _PurchaseOrderReceiveLineCardState
                             : () => unawaited(widget.onGenerateBarcode()),
                         label: Text(l10n.purchaseOrderReceiveGenerateBarcode),
                       ),
-                    ),
-                  ],
+                    );
+                    if (stackActions) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          scanButton,
+                          const SizedBox(height: 8),
+                          generateButton,
+                        ],
+                      );
+                    }
+                    return Row(
+                      children: [
+                        Expanded(child: scanButton),
+                        const SizedBox(width: 8),
+                        Expanded(child: generateButton),
+                      ],
+                    );
+                  },
                 ),
                 const SizedBox(height: 8),
                 TextFormField(
