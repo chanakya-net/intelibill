@@ -7,6 +7,7 @@ import 'package:printing/printing.dart';
 
 typedef DocumentBytesBuilder = Future<Uint8List> Function(PdfPageFormat format);
 typedef DocumentActionCallback = Future<void> Function(Uint8List bytes);
+typedef DocumentFailureCallback = void Function(String message);
 
 class DocumentPreviewScaffold extends StatefulWidget {
   const DocumentPreviewScaffold({
@@ -14,6 +15,7 @@ class DocumentPreviewScaffold extends StatefulWidget {
     required this.onBuild,
     this.onPrint,
     this.onShare,
+    this.onFailure,
     super.key,
   });
 
@@ -21,6 +23,7 @@ class DocumentPreviewScaffold extends StatefulWidget {
   final DocumentBytesBuilder onBuild;
   final DocumentActionCallback? onPrint;
   final DocumentActionCallback? onShare;
+  final DocumentFailureCallback? onFailure;
 
   @override
   State<DocumentPreviewScaffold> createState() =>
@@ -71,6 +74,8 @@ class _DocumentPreviewScaffoldState extends State<DocumentPreviewScaffold> {
     try {
       final bytes = await widget.onBuild(widget.descriptor.pdfPageFormat);
       await widget.onPrint!(bytes);
+    } catch (e) {
+      widget.onFailure?.call('PDF generation failed: ${e.toString()}');
     } finally {
       if (mounted) {
         setState(() => _isPrinting = false);
@@ -83,6 +88,8 @@ class _DocumentPreviewScaffoldState extends State<DocumentPreviewScaffold> {
     try {
       final bytes = await widget.onBuild(widget.descriptor.pdfPageFormat);
       await widget.onShare!(bytes);
+    } catch (e) {
+      widget.onFailure?.call('PDF generation failed: ${e.toString()}');
     } finally {
       if (mounted) {
         setState(() => _isSharing = false);

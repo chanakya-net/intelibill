@@ -7,6 +7,7 @@ import 'package:intelibill_mobile/src/features/purchase_orders/presentation/docu
 import 'package:intelibill_mobile/src/shared/documents/document_descriptor.dart';
 import 'package:intelibill_mobile/src/shared/documents/document_preview_scaffold.dart';
 import 'package:intelibill_mobile/src/shared/documents/output/document_export_providers.dart';
+import 'package:intelibill_mobile/src/shared/documents/output/document_export_service.dart';
 
 class PurchaseOrderPreviewPage extends ConsumerWidget {
   const PurchaseOrderPreviewPage({required this.purchaseOrderId, super.key});
@@ -32,41 +33,42 @@ class PurchaseOrderPreviewPage extends ConsumerWidget {
 
     final builder = PurchaseOrderPdfBuilder();
     final exportService = ref.watch(documentExportServiceProvider);
+    final descriptor = DocumentDescriptor(
+      title: 'Purchase order preview',
+      filename: builder.filenameFor(order),
+    );
     return DocumentPreviewScaffold(
       key: pageKey,
-      descriptor: DocumentDescriptor(
-        title: 'Purchase order preview',
-        filename: builder.filenameFor(order),
-      ),
+      descriptor: descriptor,
       onBuild: (_) => builder.build(order, state.shop),
       onPrint: (bytes) => _handlePrint(
         context,
-        ref,
         exportService,
         bytes,
-        builder.filenameFor(order),
+        descriptor,
       ),
       onShare: (bytes) => _handleShare(
         context,
-        ref,
         exportService,
         bytes,
-        builder.filenameFor(order),
+        descriptor,
       ),
+      onFailure: (message) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(message)),
+          );
+        }
+      },
     );
   }
 
   Future<void> _handlePrint(
     BuildContext context,
-    WidgetRef ref,
-    dynamic exportService,
+    DocumentExportService exportService,
     Uint8List bytes,
-    String filename,
+    DocumentDescriptor descriptor,
   ) async {
-    final descriptor = DocumentDescriptor(
-      title: 'Purchase order preview',
-      filename: filename,
-    );
     final result = await exportService.print(
       bytes: bytes,
       descriptor: descriptor,
@@ -81,15 +83,10 @@ class PurchaseOrderPreviewPage extends ConsumerWidget {
 
   Future<void> _handleShare(
     BuildContext context,
-    WidgetRef ref,
-    dynamic exportService,
+    DocumentExportService exportService,
     Uint8List bytes,
-    String filename,
+    DocumentDescriptor descriptor,
   ) async {
-    final descriptor = DocumentDescriptor(
-      title: 'Purchase order preview',
-      filename: filename,
-    );
     final result = await exportService.share(
       bytes: bytes,
       descriptor: descriptor,

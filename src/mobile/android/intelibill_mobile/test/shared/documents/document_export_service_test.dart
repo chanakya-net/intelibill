@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:intelibill_mobile/src/shared/documents/document_descriptor.dart';
 import 'package:intelibill_mobile/src/shared/documents/output/document_export_service.dart';
 import 'package:intelibill_mobile/src/shared/documents/output/document_output_gateway.dart';
+import 'package:pdf/pdf.dart';
 
 class FakeDocumentOutputGateway implements DocumentOutputGateway {
   FakeDocumentOutputGateway({
@@ -138,9 +139,12 @@ void main() {
         final future1 = service.print(bytes: bytes, descriptor: descriptor);
         final future2 = service.print(bytes: bytes, descriptor: descriptor);
 
-        await Future.wait([future1, future2]);
+        final result1 = await future1;
+        final result2 = await future2;
 
         expect(gateway.printCallCount, 1);
+        expect(result1, isNull);
+        expect(result2, isNull);
       },
     );
 
@@ -181,6 +185,30 @@ void main() {
       },
     );
 
+    test(
+      'concurrent print tap during failed in-flight observes the failure',
+      () async {
+        gateway = FakeDocumentOutputGateway(shouldFailPrint: true);
+        service = DocumentExportService(gateway);
+
+        final bytes = Uint8List.fromList(List<int>.filled(100, 0xFF));
+        const descriptor = DocumentDescriptor(
+          title: 'Test PO',
+          filename: 'po-001.pdf',
+        );
+
+        final future1 = service.print(bytes: bytes, descriptor: descriptor);
+        final future2 = service.print(bytes: bytes, descriptor: descriptor);
+
+        final result1 = await future1;
+        final result2 = await future2;
+
+        expect(gateway.printCallCount, 1);
+        expect(result1, isA<ExportFailure>());
+        expect(result2, isA<ExportFailure>());
+      },
+    );
+
     test('retry after print failure succeeds on second attempt', () async {
       gateway = FakeDocumentOutputGateway(shouldFailPrint: true);
       service = DocumentExportService(gateway);
@@ -201,6 +229,30 @@ void main() {
       expect(result, isNull);
     });
 
+    test(
+      'concurrent share tap during failed in-flight observes the failure',
+      () async {
+        gateway = FakeDocumentOutputGateway(shouldFailShare: true);
+        service = DocumentExportService(gateway);
+
+        final bytes = Uint8List.fromList(List<int>.filled(100, 0xFF));
+        const descriptor = DocumentDescriptor(
+          title: 'Test PO',
+          filename: 'po-001.pdf',
+        );
+
+        final future1 = service.share(bytes: bytes, descriptor: descriptor);
+        final future2 = service.share(bytes: bytes, descriptor: descriptor);
+
+        final result1 = await future1;
+        final result2 = await future2;
+
+        expect(gateway.shareCallCount, 1);
+        expect(result1, isA<ExportFailure>());
+        expect(result2, isA<ExportFailure>());
+      },
+    );
+
     test('retry after share failure succeeds on second attempt', () async {
       gateway = FakeDocumentOutputGateway(shouldFailShare: true);
       service = DocumentExportService(gateway);
@@ -218,6 +270,39 @@ void main() {
       service = DocumentExportService(gateway);
 
       result = await service.share(bytes: bytes, descriptor: descriptor);
+      expect(result, isNull);
+    });
+
+    test('build failure returns typed PdfBuildFailure', () async {
+      final bytes = Uint8List.fromList(List<int>.filled(100, 0xFF));
+      const descriptor = DocumentDescriptor(
+        title: 'Test PO',
+        filename: 'po-001.pdf',
+      );
+
+      final result = await service.buildPdf(
+        builder: (_) async => throw Exception('PDF generation failed'),
+        descriptor: descriptor,
+      );
+
+      expect(result, isA<ExportFailure>());
+      final failure = result! as ExportFailure;
+      expect(failure.operation, ExportOperation.print);
+      expect(failure.message, contains('PDF generation failed'));
+    });
+
+    test('build success returns null', () async {
+      final bytes = Uint8List.fromList(List<int>.filled(100, 0xFF));
+      const descriptor = DocumentDescriptor(
+        title: 'Test PO',
+        filename: 'po-001.pdf',
+      );
+
+      final result = await service.buildPdf(
+        builder: (_) async => bytes,
+        descriptor: descriptor,
+      );
+
       expect(result, isNull);
     });
   });
