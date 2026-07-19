@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
@@ -6,6 +8,8 @@ import 'package:intelibill_mobile/src/features/credit_notes/presentation/documen
 import 'package:intelibill_mobile/src/shared/documents/document_descriptor.dart';
 import 'package:intelibill_mobile/src/shared/documents/document_page_format.dart';
 import 'package:intelibill_mobile/src/shared/documents/document_preview_scaffold.dart';
+import 'package:intelibill_mobile/src/shared/documents/output/document_export_providers.dart';
+import 'package:intelibill_mobile/src/shared/documents/output/document_export_service.dart';
 
 class CreditNoteReceiptPage extends ConsumerWidget {
   const CreditNoteReceiptPage({required this.code, super.key});
@@ -25,6 +29,7 @@ class CreditNoteReceiptPage extends ConsumerWidget {
           filename: builder.filenameFor(printData),
           pageFormat: DocumentPageFormat.mm80,
         );
+        final exportService = ref.watch(documentExportServiceProvider);
 
         return DocumentPreviewScaffold(
           descriptor: descriptor,
@@ -32,6 +37,10 @@ class CreditNoteReceiptPage extends ConsumerWidget {
             printData,
             locale: Localizations.localeOf(context),
           ),
+          onPrint: (bytes) =>
+              _handlePrint(context, exportService, bytes, descriptor),
+          onShare: (bytes) =>
+              _handleShare(context, exportService, bytes, descriptor),
           onFailure: (message) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(message)),
@@ -70,5 +79,41 @@ class CreditNoteReceiptPage extends ConsumerWidget {
         body: const Center(child: CircularProgressIndicator()),
       ),
     );
+  }
+
+  Future<void> _handlePrint(
+    BuildContext context,
+    DocumentExportService exportService,
+    Uint8List bytes,
+    DocumentDescriptor descriptor,
+  ) async {
+    final result = await exportService.print(
+      bytes: bytes,
+      descriptor: descriptor,
+    );
+
+    if (result != null && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Print failed: ${result.message}')),
+      );
+    }
+  }
+
+  Future<void> _handleShare(
+    BuildContext context,
+    DocumentExportService exportService,
+    Uint8List bytes,
+    DocumentDescriptor descriptor,
+  ) async {
+    final result = await exportService.share(
+      bytes: bytes,
+      descriptor: descriptor,
+    );
+
+    if (result != null && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Share failed: ${result.message}')),
+      );
+    }
   }
 }

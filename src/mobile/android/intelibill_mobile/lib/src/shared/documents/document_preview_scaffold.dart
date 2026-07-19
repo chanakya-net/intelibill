@@ -33,6 +33,56 @@ class DocumentPreviewScaffold extends StatefulWidget {
 class _DocumentPreviewScaffoldState extends State<DocumentPreviewScaffold> {
   bool _isPrinting = false;
   bool _isSharing = false;
+  bool _isReady = false;
+  Uint8List? _cachedBytes;
+  Future<Uint8List>? _buildFuture;
+  var _buildGeneration = 0;
+
+  Future<Uint8List> _build(PdfPageFormat format) {
+    return _buildFuture ??= _runBuild(
+      format,
+      _buildGeneration,
+      widget.onBuild,
+    );
+  }
+
+  Future<Uint8List> _runBuild(
+    PdfPageFormat format,
+    int generation,
+    DocumentBytesBuilder onBuild,
+  ) async {
+    try {
+      final bytes = await onBuild(format);
+      if (generation != _buildGeneration) {
+        return bytes;
+      }
+
+      _cachedBytes = bytes;
+      if (mounted) {
+        setState(() => _isReady = true);
+      }
+      return bytes;
+    } catch (e) {
+      if (generation == _buildGeneration) {
+        _buildFuture = null;
+      }
+      rethrow;
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant DocumentPreviewScaffold oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.onBuild == widget.onBuild &&
+        oldWidget.descriptor == widget.descriptor) {
+      return;
+    }
+
+    _buildGeneration++;
+    _buildFuture = null;
+    _cachedBytes = null;
+    _isReady = false;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,7 +95,7 @@ class _DocumentPreviewScaffoldState extends State<DocumentPreviewScaffold> {
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: IconButton(
                 icon: const Icon(Icons.print),
-                onPressed: _isPrinting ? null : _handlePrint,
+                onPressed: (_isReady && !_isPrinting) ? _handlePrint : null,
                 tooltip: 'Print',
               ),
             ),
@@ -54,17 +104,19 @@ class _DocumentPreviewScaffoldState extends State<DocumentPreviewScaffold> {
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: IconButton(
                 icon: const Icon(Icons.share),
-                onPressed: _isSharing ? null : _handleShare,
+                onPressed: (_isReady && !_isSharing) ? _handleShare : null,
                 tooltip: 'Share',
               ),
             ),
         ],
       ),
       body: PdfPreview(
-        build: (_) => widget.onBuild(widget.descriptor.pdfPageFormat),
+        key: ValueKey(_buildGeneration),
+        build: (_) => _build(widget.descriptor.pdfPageFormat),
         initialPageFormat: widget.descriptor.pdfPageFormat,
         pdfFileName: widget.descriptor.filename,
         canChangePageFormat: false,
+        useActions: false,
       ),
     );
   }
@@ -72,10 +124,11 @@ class _DocumentPreviewScaffoldState extends State<DocumentPreviewScaffold> {
   Future<void> _handlePrint() async {
     setState(() => _isPrinting = true);
     try {
-      final bytes = await widget.onBuild(widget.descriptor.pdfPageFormat);
+      final bytes =
+          _cachedBytes ?? await _build(widget.descriptor.pdfPageFormat);
       await widget.onPrint!(bytes);
     } catch (e) {
-      widget.onFailure?.call('PDF generation failed: ${e.toString()}');
+      widget.onFailure?.call('Print failed: ${e.toString()}');
     } finally {
       if (mounted) {
         setState(() => _isPrinting = false);
@@ -86,10 +139,11 @@ class _DocumentPreviewScaffoldState extends State<DocumentPreviewScaffold> {
   Future<void> _handleShare() async {
     setState(() => _isSharing = true);
     try {
-      final bytes = await widget.onBuild(widget.descriptor.pdfPageFormat);
+      final bytes =
+          _cachedBytes ?? await _build(widget.descriptor.pdfPageFormat);
       await widget.onShare!(bytes);
     } catch (e) {
-      widget.onFailure?.call('PDF generation failed: ${e.toString()}');
+      widget.onFailure?.call('Share failed: ${e.toString()}');
     } finally {
       if (mounted) {
         setState(() => _isSharing = false);
