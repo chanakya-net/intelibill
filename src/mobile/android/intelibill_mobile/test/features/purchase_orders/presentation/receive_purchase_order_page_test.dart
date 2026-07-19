@@ -14,7 +14,9 @@ import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/receive_purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/receive_purchase_order_input.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_providers.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/receive_purchase_order_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/pages/receive_purchase_order_page.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_receive_line_card.dart';
 import 'package:mocktail/mocktail.dart';
 
 class _MockGetPurchaseOrder extends Mock implements GetPurchaseOrder {}
@@ -149,6 +151,92 @@ void main() {
 
     expect(find.textContaining('Line count:'), findsOneWidget);
     expect(find.textContaining('Total quantity:'), findsOneWidget);
+  });
+
+  testWidgets('selects partial lines and updates receipt summary', (
+    tester,
+  ) async {
+    final getPurchaseOrder = _MockGetPurchaseOrder();
+    final receive = _MockReceivePurchaseOrder();
+    when(() => getPurchaseOrder('po-1')).thenAnswer(
+      (_) async => _detail(
+        lines: const [
+          PurchaseOrderLine(
+            lineId: 'line-1',
+            itemId: 'item-1',
+            description: 'Widget A',
+            expectedQuantity: 10,
+            receivedQuantity: 7,
+            remainingQuantity: 3,
+            unitCost: 10,
+            lineTotal: 100,
+          ),
+          PurchaseOrderLine(
+            lineId: 'line-2',
+            itemId: 'item-2',
+            description: 'Widget B',
+            expectedQuantity: 12,
+            receivedQuantity: 5,
+            remainingQuantity: 7,
+            unitCost: 20,
+            lineTotal: 140,
+          ),
+        ],
+      ),
+    );
+    final harness = buildHarness(
+      getPurchaseOrder: getPurchaseOrder,
+      receivePurchaseOrder: receive,
+    );
+    addTearDown(() {
+      harness.router.dispose();
+      harness.container.dispose();
+    });
+    await tester.pumpWidget(harness.app);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(PurchaseOrderReceiveLineCard.selectionCheckbox('line-1')),
+      findsOneWidget,
+    );
+    await tester.tap(
+      find.byKey(PurchaseOrderReceiveLineCard.selectionCheckbox('line-1')),
+    );
+    await tester.scrollUntilVisible(
+      find.byKey(PurchaseOrderReceiveLineCard.cardKey('line-2')),
+      100,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.drag(find.byType(ListView), const Offset(0, -120));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(PurchaseOrderReceiveLineCard.cardKey('line-2')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(PurchaseOrderReceiveLineCard.quantityField('line-2')),
+      findsOneWidget,
+    );
+    expect(find.text('Remaining: 3'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(PurchaseOrderReceiveLineCard.quantityField('line-2')),
+      '2',
+    );
+    await tester.pumpAndSettle();
+
+    final state = harness.container.read(
+      receivePurchaseOrderControllerProvider('po-1'),
+    );
+    expect(state.selectedLineCount, 1);
+    expect(state.selectedQuantity, 2);
+    expect(state.selectedPurchaseCost, 40);
+
+    await tester.drag(find.byType(ListView), const Offset(0, -600));
+    await tester.pumpAndSettle();
+    expect(find.text('Line count: 1'), findsOneWidget);
+    expect(find.text('Total quantity: 2'), findsOneWidget);
+    expect(find.text('Total purchase cost: ₹40'), findsOneWidget);
   });
 
   testWidgets('submits and navigates to detail route on success', (
