@@ -21,10 +21,10 @@ class AppLocalizationsHi extends AppLocalizations {
   String get commonClear => 'साफ़ करें';
 
   @override
-  String get purchaseOrdersFilterDateFrom => 'From:';
+  String get purchaseOrdersFilterDateFrom => 'From';
 
   @override
-  String get purchaseOrdersFilterDateTo => 'To:';
+  String get purchaseOrdersFilterDateTo => 'To';
 
   @override
   String get commonActions => 'क्रियाएं';
@@ -2817,6 +2817,9 @@ class AppLocalizationsHi extends AppLocalizations {
   @override
   String get purchaseOrderReceiveNoLines =>
       'No remaining lines available to receive.';
+
+  @override
+  String get purchaseOrdersRefreshFailed => 'Failed to refresh';
 }
 
 /// The translations for Hindi, as used in India (`hi_IN`).
@@ -2834,6 +2837,12 @@ class AppLocalizationsHiIn extends AppLocalizationsHi {
 
   @override
   String get commonClear => 'साफ़ करें';
+
+  @override
+  String get purchaseOrdersFilterDateFrom => 'From';
+
+  @override
+  String get purchaseOrdersFilterDateTo => 'To';
 
   @override
   String get commonActions => 'क्रियाएं';
@@ -4309,4 +4318,7 @@ class AppLocalizationsHiIn extends AppLocalizationsHi {
   @override
   String get bankAccountsDeleteError =>
       'Unable to delete bank account. Please try again.';
+
+  @override
+  String get purchaseOrdersRefreshFailed => 'Failed to refresh';
 }

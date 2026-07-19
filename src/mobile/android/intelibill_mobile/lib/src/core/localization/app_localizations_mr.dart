@@ -21,10 +21,10 @@ class AppLocalizationsMr extends AppLocalizations {
   String get commonClear => 'साफ करा';
 
   @override
-  String get purchaseOrdersFilterDateFrom => 'From:';
+  String get purchaseOrdersFilterDateFrom => 'From';
 
   @override
-  String get purchaseOrdersFilterDateTo => 'To:';
+  String get purchaseOrdersFilterDateTo => 'To';
 
   @override
   String get commonActions => 'क्रिया';
@@ -2816,6 +2816,9 @@ class AppLocalizationsMr extends AppLocalizations {
   @override
   String get purchaseOrderReceiveNoLines =>
       'No remaining lines available to receive.';
+
+  @override
+  String get purchaseOrdersRefreshFailed => 'Failed to refresh';
 }
 
 /// The translations for Marathi, as used in India (`mr_IN`).
@@ -2833,6 +2836,12 @@ class AppLocalizationsMrIn extends AppLocalizationsMr {
 
   @override
   String get commonClear => 'साफ करा';
+
+  @override
+  String get purchaseOrdersFilterDateFrom => 'From';
+
+  @override
+  String get purchaseOrdersFilterDateTo => 'To';
 
   @override
   String get commonActions => 'क्रिया';
@@ -4213,4 +4222,7 @@ class AppLocalizationsMrIn extends AppLocalizationsMr {
   @override
   String get bankAccountsDeleteError =>
       'Unable to delete bank account. Please try again.';
+
+  @override
+  String get purchaseOrdersRefreshFailed => 'Failed to refresh';
 }

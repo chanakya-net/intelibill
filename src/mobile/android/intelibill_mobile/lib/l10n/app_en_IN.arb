@@ -4,8 +4,8 @@
   "commonCancel": "Cancel",
   "commonClose": "Close",
   "commonClear": "Clear",
-  "purchaseOrdersFilterDateFrom": "From:",
-  "purchaseOrdersFilterDateTo": "To:",
+  "purchaseOrdersFilterDateFrom": "From",
+  "purchaseOrdersFilterDateTo": "To",
   "commonActions": "Actions",
   "commonEdit": "Edit",
   "commonSave": "Save",
@@ -720,7 +720,7 @@
       }
     }
   },
-  "salesHistoryDateRangeLabel": "{from} \u2013 {to}",
+  "salesHistoryDateRangeLabel": "{from} – {to}",
   "@salesHistoryDateRangeLabel": {
     "placeholders": {
       "from": {
@@ -992,8 +992,12 @@
   "purchaseOrderReceiveBarcodeReplaceConfirm": "Replace existing barcode \"{existingBarcode}\" with \"{newBarcode}\"?",
   "@purchaseOrderReceiveBarcodeReplaceConfirm": {
     "placeholders": {
-      "existingBarcode": { "type": "String" },
-      "newBarcode": { "type": "String" }
+      "existingBarcode": {
+        "type": "String"
+      },
+      "newBarcode": {
+        "type": "String"
+      }
     }
   },
   "purchaseOrderReceiveBarcodeReplaceConfirmLabel": "Replace",
@@ -1016,5 +1020,6 @@
   "purchaseOrderReceiveTotalExpectedPurchaseCost": "Total purchase cost",
   "purchaseOrderReceiveSubmit": "Record receipt",
   "purchaseOrderReceiveSubmitFailure": "Could not record receipt.",
-  "purchaseOrderReceiveNoLines": "No remaining lines available to receive."
+  "purchaseOrderReceiveNoLines": "No remaining lines available to receive.",
+  "purchaseOrdersRefreshFailed": "Failed to refresh"
 }

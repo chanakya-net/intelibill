@@ -21,10 +21,10 @@ class AppLocalizationsBn extends AppLocalizations {
   String get commonClear => 'পরিষ্কার করুন';
 
   @override
-  String get purchaseOrdersFilterDateFrom => 'From:';
+  String get purchaseOrdersFilterDateFrom => 'From';
 
   @override
-  String get purchaseOrdersFilterDateTo => 'To:';
+  String get purchaseOrdersFilterDateTo => 'To';
 
   @override
   String get commonActions => 'কার্যক্রম';
@@ -2815,6 +2815,9 @@ class AppLocalizationsBn extends AppLocalizations {
   @override
   String get purchaseOrderReceiveNoLines =>
       'No remaining lines available to receive.';
+
+  @override
+  String get purchaseOrdersRefreshFailed => 'Failed to refresh';
 }
 
 /// The translations for Bengali Bangla, as used in India (`bn_IN`).
@@ -2832,6 +2835,12 @@ class AppLocalizationsBnIn extends AppLocalizationsBn {
 
   @override
   String get commonClear => 'পরিষ্কার করুন';
+
+  @override
+  String get purchaseOrdersFilterDateFrom => 'From';
+
+  @override
+  String get purchaseOrdersFilterDateTo => 'To';
 
   @override
   String get commonActions => 'কার্যক্রম';
@@ -4211,4 +4220,7 @@ class AppLocalizationsBnIn extends AppLocalizationsBn {
   @override
   String get bankAccountsDeleteError =>
       'Unable to delete bank account. Please try again.';
+
+  @override
+  String get purchaseOrdersRefreshFailed => 'Failed to refresh';
 }

@@ -21,10 +21,10 @@ class AppLocalizationsMl extends AppLocalizations {
   String get commonClear => 'മായ്ക്കുക';
 
   @override
-  String get purchaseOrdersFilterDateFrom => 'From:';
+  String get purchaseOrdersFilterDateFrom => 'From';
 
   @override
-  String get purchaseOrdersFilterDateTo => 'To:';
+  String get purchaseOrdersFilterDateTo => 'To';
 
   @override
   String get commonActions => 'പ്രവർത്തനങ്ങൾ';
@@ -2816,6 +2816,9 @@ class AppLocalizationsMl extends AppLocalizations {
   @override
   String get purchaseOrderReceiveNoLines =>
       'No remaining lines available to receive.';
+
+  @override
+  String get purchaseOrdersRefreshFailed => 'Failed to refresh';
 }
 
 /// The translations for Malayalam, as used in India (`ml_IN`).
@@ -2833,6 +2836,12 @@ class AppLocalizationsMlIn extends AppLocalizationsMl {
 
   @override
   String get commonClear => 'മായ്ക്കുക';
+
+  @override
+  String get purchaseOrdersFilterDateFrom => 'From';
+
+  @override
+  String get purchaseOrdersFilterDateTo => 'To';
 
   @override
   String get commonActions => 'പ്രവർത്തനങ്ങൾ';
@@ -4213,4 +4222,7 @@ class AppLocalizationsMlIn extends AppLocalizationsMl {
   @override
   String get bankAccountsDeleteError =>
       'Unable to delete bank account. Please try again.';
+
+  @override
+  String get purchaseOrdersRefreshFailed => 'Failed to refresh';
 }

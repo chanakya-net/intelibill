@@ -148,13 +148,13 @@ abstract class AppLocalizations {
   /// No description provided for @purchaseOrdersFilterDateFrom.
   ///
   /// In en_IN, this message translates to:
-  /// **'From:'**
+  /// **'From'**
   String get purchaseOrdersFilterDateFrom;
 
   /// No description provided for @purchaseOrdersFilterDateTo.
   ///
   /// In en_IN, this message translates to:
-  /// **'To:'**
+  /// **'To'**
   String get purchaseOrdersFilterDateTo;
 
   /// No description provided for @commonActions.
@@ -5397,6 +5397,12 @@ abstract class AppLocalizations {
   /// In en_IN, this message translates to:
   /// **'No remaining lines available to receive.'**
   String get purchaseOrderReceiveNoLines;
+
+  /// No description provided for @purchaseOrdersRefreshFailed.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Failed to refresh'**
+  String get purchaseOrdersRefreshFailed;
 }
 
 class _AppLocalizationsDelegate

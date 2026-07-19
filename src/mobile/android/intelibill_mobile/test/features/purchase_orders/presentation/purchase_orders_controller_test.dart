@@ -1119,6 +1119,104 @@ void main() {
       'refreshed',
     );
   });
+
+  testWidgets('refresh failure at page 2 preserves items, pageNumber, hasMore', (
+    tester,
+  ) async {
+    final firstPage = Completer<PurchaseOrderPage>();
+    final refreshFuture = Completer<PurchaseOrderPage>();
+    var calls = 0;
+    when(() => getPurchaseOrders(any())).thenAnswer((_) {
+      return switch (calls++) {
+        0 => firstPage.future,
+        1 => Future.value(
+          PurchaseOrderPage(
+            items: [_item(id: 'po-2')],
+            totalCount: 40,
+            pageNumber: 2,
+            pageSize: 20,
+          ),
+        ),
+        _ => refreshFuture.future,
+      };
+    });
+    final container = ProviderContainer(
+      overrides: [
+        getPurchaseOrdersProvider.overrideWithValue(getPurchaseOrders),
+      ],
+    );
+    addTearDown(container.dispose);
+    _keepControllerAlive(container);
+    final notifier = container.read(purchaseOrdersControllerProvider.notifier);
+
+    firstPage.complete(_page(itemId: 'po-1'));
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(container.read(purchaseOrdersControllerProvider).items, hasLength(1));
+    await notifier.loadMore();
+    await tester.pumpAndSettle();
+
+    expect(container.read(purchaseOrdersControllerProvider).items, hasLength(2));
+    expect(container.read(purchaseOrdersControllerProvider).pageNumber, 2);
+    expect(container.read(purchaseOrdersControllerProvider).hasMore, isTrue);
+
+    refreshFuture.completeError(
+      AppException(failure: const Failure.network(message: 'fail')),
+    );
+    await notifier.refresh();
+    await tester.pumpAndSettle();
+
+    final state = container.read(purchaseOrdersControllerProvider);
+    expect(state.items, hasLength(2));
+    expect(state.pageNumber, 2);
+    expect(state.hasMore, isTrue);
+    expect(state.refreshFailure, isNotNull);
+    expect(state.failure, isNull);
+  });
+
+  testWidgets('stale first-page search after refresh does not overwrite', (
+    tester,
+  ) async {
+    final search = Completer<PurchaseOrderPage>();
+    final refresh = Completer<PurchaseOrderPage>();
+    var calls = 0;
+    when(() => getPurchaseOrders(any())).thenAnswer((_) {
+      return switch (calls++) {
+        0 => Future.value(_page(itemId: 'initial')),
+        1 => search.future,
+        _ => refresh.future,
+      };
+    });
+    final container = ProviderContainer(
+      overrides: [
+        getPurchaseOrdersProvider.overrideWithValue(getPurchaseOrders),
+      ],
+    );
+    addTearDown(container.dispose);
+    _keepControllerAlive(container);
+    final notifier = container.read(purchaseOrdersControllerProvider.notifier);
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    final searchHandle = notifier.updateSearch('test');
+    final refreshHandle = notifier.refresh();
+    refresh.complete(_page(itemId: 'refreshed'));
+    await refreshHandle;
+    await tester.pumpAndSettle();
+    search.complete(_page(itemId: 'search-stale'));
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(
+      container
+          .read(purchaseOrdersControllerProvider)
+          .items
+          .single
+          .purchaseOrderId,
+      'refreshed',
+    );
+  });
 }
 
 PurchaseOrderPage _page({String itemId = 'po-1'}) => PurchaseOrderPage(

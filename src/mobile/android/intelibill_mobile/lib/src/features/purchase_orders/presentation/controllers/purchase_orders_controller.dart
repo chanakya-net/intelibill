@@ -77,13 +77,12 @@ class PurchaseOrdersState {
 @riverpod
 class PurchaseOrdersController extends _$PurchaseOrdersController {
   late Timer _searchDebounce;
-  int _searchGeneration = 0;
+  int _requestGeneration = 0;
   String? _activeSearch;
   PurchaseOrderStatus? _activeStatus;
   DateTime? _activeDateFrom;
   DateTime? _activeDateTo;
   int _nextPageToLoad = 2;
-  int _refreshGeneration = 0;
 
   @override
   PurchaseOrdersState build() {
@@ -99,14 +98,13 @@ class PurchaseOrdersController extends _$PurchaseOrdersController {
   Future<void> refresh() {
     _searchDebounce.cancel();
     _nextPageToLoad = 2;
-    final refreshGen = ++_refreshGeneration;
-    return _loadFirstPageForRefresh(refreshGen, resetInitialLoad: true);
+    final generation = _nextGeneration();
+    return _loadFirstPageForRefresh(generation, resetInitialLoad: true);
   }
 
   Future<void> retry() {
     _searchDebounce.cancel();
     _nextPageToLoad = 2;
-    ++_refreshGeneration;
     return _loadFirstPage(_nextGeneration());
   }
 
@@ -115,7 +113,7 @@ class PurchaseOrdersController extends _$PurchaseOrdersController {
     final generation = _nextGeneration();
     _searchDebounce.cancel();
     _searchDebounce = Timer(const Duration(milliseconds: 300), () {
-      if (_searchGeneration != generation) return;
+      if (_requestGeneration != generation) return;
       unawaited(_loadFirstPage(generation));
     });
   }
@@ -146,7 +144,7 @@ class PurchaseOrdersController extends _$PurchaseOrdersController {
     unawaited(_loadFirstPage(_nextGeneration()));
   }
 
-  Future<void> _loadFirstPageForRefresh(int refreshGen, {bool resetInitialLoad = false}) async {
+  Future<void> _loadFirstPageForRefresh(int generation, {bool resetInitialLoad = false}) async {
     _nextPageToLoad = 2;
     final filters = PurchaseOrderFilters(
       search: _activeSearch,
@@ -160,12 +158,11 @@ class PurchaseOrdersController extends _$PurchaseOrdersController {
       isLoading: resetInitialLoad ? true : state.isLoading,
       clearFailure: resetInitialLoad,
       isLoadingMore: resetInitialLoad ? false : state.isLoadingMore,
-      hasMore: resetInitialLoad ? false : state.hasMore,
       clearLoadMoreFailure: resetInitialLoad,
     );
     try {
       final page = await ref.read(getPurchaseOrdersProvider)(filters);
-      if (!ref.mounted || _refreshGeneration != refreshGen) return;
+      if (!ref.mounted || _requestGeneration != generation) return;
       state = state.copyWith(
         items: page.items,
         totalCount: page.totalCount,
@@ -173,11 +170,11 @@ class PurchaseOrdersController extends _$PurchaseOrdersController {
         isLoading: false,
         clearRefreshFailure: true,
         clearFailure: true,
-        hasMore: page.items.length < page.totalCount,
         pageNumber: 1,
+        hasMore: page.items.length < page.totalCount,
       );
     } on AppException catch (error) {
-      if (!ref.mounted || _refreshGeneration != refreshGen) return;
+      if (!ref.mounted || _requestGeneration != generation) return;
       state = state.copyWith(
         isRefreshing: false,
         isLoading: false,
@@ -185,7 +182,7 @@ class PurchaseOrdersController extends _$PurchaseOrdersController {
         failure: resetInitialLoad ? error.failure : null,
       );
     } on Object {
-      if (!ref.mounted || _refreshGeneration != refreshGen) return;
+      if (!ref.mounted || _requestGeneration != generation) return;
       state = state.copyWith(
         isRefreshing: false,
         isLoading: false,
@@ -212,7 +209,7 @@ class PurchaseOrdersController extends _$PurchaseOrdersController {
     );
     try {
       final page = await ref.read(getPurchaseOrdersProvider)(filters);
-      if (!ref.mounted || _searchGeneration != generation) return;
+      if (!ref.mounted || _requestGeneration != generation) return;
       state = state.copyWith(
         items: page.items,
         totalCount: page.totalCount,
@@ -222,10 +219,10 @@ class PurchaseOrdersController extends _$PurchaseOrdersController {
         pageNumber: 1,
       );
     } on AppException catch (error) {
-      if (!ref.mounted || _searchGeneration != generation) return;
+      if (!ref.mounted || _requestGeneration != generation) return;
       state = state.copyWith(isLoading: false, failure: error.failure);
     } on Object {
-      if (!ref.mounted || _searchGeneration != generation) return;
+      if (!ref.mounted || _requestGeneration != generation) return;
       state = state.copyWith(
         isLoading: false,
         failure: const Failure.unknown(),
@@ -243,8 +240,7 @@ class PurchaseOrdersController extends _$PurchaseOrdersController {
     }
     state = state.copyWith(isLoadingMore: true);
     await _loadNextPage(
-      generation: _searchGeneration,
-      refreshGeneration: _refreshGeneration,
+      generation: _requestGeneration,
       pageNumber: _nextPageToLoad,
     );
   }
@@ -258,15 +254,13 @@ class PurchaseOrdersController extends _$PurchaseOrdersController {
     }
     state = state.copyWith(isLoadingMore: true, clearLoadMoreFailure: true);
     await _loadNextPage(
-      generation: _searchGeneration,
-      refreshGeneration: _refreshGeneration,
+      generation: _requestGeneration,
       pageNumber: _nextPageToLoad,
     );
   }
 
   Future<void> _loadNextPage({
     required int generation,
-    required int refreshGeneration,
     required int pageNumber,
   }) async {
     final filters = PurchaseOrderFilters(
@@ -279,7 +273,7 @@ class PurchaseOrdersController extends _$PurchaseOrdersController {
     );
     try {
       final page = await ref.read(getPurchaseOrdersProvider)(filters);
-      if (!ref.mounted || _searchGeneration != generation || _refreshGeneration != refreshGeneration) return;
+      if (!ref.mounted || _requestGeneration != generation) return;
       state = state.copyWith(
         items: [...state.items, ...page.items],
         totalCount: page.totalCount,
@@ -290,13 +284,13 @@ class PurchaseOrdersController extends _$PurchaseOrdersController {
       );
       _nextPageToLoad += 1;
     } on AppException catch (error) {
-      if (!ref.mounted || _searchGeneration != generation || _refreshGeneration != refreshGeneration) return;
+      if (!ref.mounted || _requestGeneration != generation) return;
       state = state.copyWith(
         isLoadingMore: false,
         loadMoreFailure: error.failure,
       );
     } on Object {
-      if (!ref.mounted || _searchGeneration != generation || _refreshGeneration != refreshGeneration) return;
+      if (!ref.mounted || _requestGeneration != generation) return;
       state = state.copyWith(
         isLoadingMore: false,
         loadMoreFailure: const Failure.unknown(),
@@ -304,7 +298,7 @@ class PurchaseOrdersController extends _$PurchaseOrdersController {
     }
   }
 
-  int _nextGeneration() => ++_searchGeneration;
+  int _nextGeneration() => ++_requestGeneration;
 
   bool _isValidRange(DateTime? from, DateTime? to) {
     return from == null || to == null || !from.isAfter(to);

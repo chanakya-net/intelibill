@@ -21,10 +21,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commonClear => 'Clear';
 
   @override
-  String get purchaseOrdersFilterDateFrom => 'From:';
+  String get purchaseOrdersFilterDateFrom => 'From';
 
   @override
-  String get purchaseOrdersFilterDateTo => 'To:';
+  String get purchaseOrdersFilterDateTo => 'To';
 
   @override
   String get commonActions => 'Actions';
@@ -2816,6 +2816,9 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get purchaseOrderReceiveNoLines =>
       'No remaining lines available to receive.';
+
+  @override
+  String get purchaseOrdersRefreshFailed => 'Failed to refresh';
 }
 
 /// The translations for English, as used in India (`en_IN`).
@@ -2835,10 +2838,10 @@ class AppLocalizationsEnIn extends AppLocalizationsEn {
   String get commonClear => 'Clear';
 
   @override
-  String get purchaseOrdersFilterDateFrom => 'From:';
+  String get purchaseOrdersFilterDateFrom => 'From';
 
   @override
-  String get purchaseOrdersFilterDateTo => 'To:';
+  String get purchaseOrdersFilterDateTo => 'To';
 
   @override
   String get commonActions => 'Actions';
@@ -5630,4 +5633,7 @@ class AppLocalizationsEnIn extends AppLocalizationsEn {
   @override
   String get purchaseOrderReceiveNoLines =>
       'No remaining lines available to receive.';
+
+  @override
+  String get purchaseOrdersRefreshFailed => 'Failed to refresh';
 }

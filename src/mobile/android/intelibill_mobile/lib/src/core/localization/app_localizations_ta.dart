@@ -21,10 +21,10 @@ class AppLocalizationsTa extends AppLocalizations {
   String get commonClear => 'அழி';
 
   @override
-  String get purchaseOrdersFilterDateFrom => 'From:';
+  String get purchaseOrdersFilterDateFrom => 'From';
 
   @override
-  String get purchaseOrdersFilterDateTo => 'To:';
+  String get purchaseOrdersFilterDateTo => 'To';
 
   @override
   String get commonActions => 'செயல்கள்';
@@ -2818,6 +2818,9 @@ class AppLocalizationsTa extends AppLocalizations {
   @override
   String get purchaseOrderReceiveNoLines =>
       'No remaining lines available to receive.';
+
+  @override
+  String get purchaseOrdersRefreshFailed => 'Failed to refresh';
 }
 
 /// The translations for Tamil, as used in India (`ta_IN`).
@@ -2835,6 +2838,12 @@ class AppLocalizationsTaIn extends AppLocalizationsTa {
 
   @override
   String get commonClear => 'அழி';
+
+  @override
+  String get purchaseOrdersFilterDateFrom => 'From';
+
+  @override
+  String get purchaseOrdersFilterDateTo => 'To';
 
   @override
   String get commonActions => 'செயல்கள்';
@@ -4217,4 +4226,7 @@ class AppLocalizationsTaIn extends AppLocalizationsTa {
   @override
   String get bankAccountsDeleteError =>
       'Unable to delete bank account. Please try again.';
+
+  @override
+  String get purchaseOrdersRefreshFailed => 'Failed to refresh';
 }

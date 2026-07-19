@@ -696,7 +696,7 @@
       }
     }
   },
-  "salesHistoryDateRangeLabel": "{from} \u2013 {to}",
+  "salesHistoryDateRangeLabel": "{from} – {to}",
   "@salesHistoryDateRangeLabel": {
     "placeholders": {
       "from": {
@@ -948,8 +948,12 @@
   "purchaseOrderReceiveBarcodeReplaceConfirm": "Replace existing barcode \"{existingBarcode}\" with \"{newBarcode}\"?",
   "@purchaseOrderReceiveBarcodeReplaceConfirm": {
     "placeholders": {
-      "existingBarcode": { "type": "String" },
-      "newBarcode": { "type": "String" }
+      "existingBarcode": {
+        "type": "String"
+      },
+      "newBarcode": {
+        "type": "String"
+      }
     }
   },
   "purchaseOrderReceiveBarcodeReplaceConfirmLabel": "Replace",
@@ -959,5 +963,8 @@
   "purchaseOrderReceiveTotalExpectedPurchaseCost": "Total purchase cost",
   "purchaseOrderReceiveSubmit": "Record receipt",
   "purchaseOrderReceiveSubmitFailure": "Could not record receipt.",
-  "purchaseOrderReceiveNoLines": "No remaining lines available to receive."
+  "purchaseOrderReceiveNoLines": "No remaining lines available to receive.",
+  "purchaseOrdersFilterDateFrom": "From",
+  "purchaseOrdersFilterDateTo": "To",
+  "purchaseOrdersRefreshFailed": "Failed to refresh"
 }

@@ -248,7 +248,16 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
           searchBar,
           filterBar,
           Expanded(
-            child: _FilteredEmptyView(query: _searchController.text),
+            child: RefreshIndicator(
+              onRefresh: () =>
+                  ref.read(purchaseOrdersControllerProvider.notifier).refresh(),
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  _FilteredEmptyView(query: _searchController.text),
+                ],
+              ),
+            ),
           ),
         ],
       );
@@ -258,7 +267,16 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
         children: [
           searchBar,
           filterBar,
-          const Expanded(child: _EmptyView()),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: () =>
+                  ref.read(purchaseOrdersControllerProvider.notifier).refresh(),
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: const [_EmptyView()],
+              ),
+            ),
+          ),
         ],
       );
     }
@@ -286,7 +304,7 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'Failed to refresh',
+                      l10n.purchaseOrdersRefreshFailed,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Theme.of(context).colorScheme.error,
                       ),
