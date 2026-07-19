@@ -203,6 +203,9 @@ class ReceivePurchaseOrderPage extends ConsumerWidget {
                   ),
                   barcodeGenerationFailure:
                       state.barcodeGenerationFailures[line.purchaseOrderLineId],
+                  isPrefillLoading:
+                      state.prefillLoadingLineIds.contains(line.purchaseOrderLineId),
+                  prefillFailure: state.prefillFailures[line.purchaseOrderLineId],
                 ),
               ),
             const SizedBox(height: 12),

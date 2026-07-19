@@ -5,7 +5,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/entities/generated_item_barcode.dart';
+import 'package:intelibill_mobile/src/features/inventory/domain/entities/item.dart';
+import 'package:intelibill_mobile/src/features/inventory/domain/entities/product_details.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/use_cases/generate_item_barcode.dart';
+import 'package:intelibill_mobile/src/features/inventory/domain/use_cases/get_items.dart';
+import 'package:intelibill_mobile/src/features/inventory/domain/use_cases/get_product_details.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/controllers/items_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_filters.dart';
@@ -29,6 +33,10 @@ class _MockGetPurchaseOrders extends Mock implements GetPurchaseOrders {}
 
 class _MockGenerateItemBarcode extends Mock implements GenerateItemBarcode {}
 
+class _MockGetProductDetails extends Mock implements GetProductDetails {}
+
+class _MockGetItems extends Mock implements GetItems {}
+
 void main() {
   final defaultBatchGenerator =
       ReceivePurchaseOrderController.batchNumberGenerator;
@@ -46,11 +54,15 @@ void main() {
   late _MockGetPurchaseOrder getPurchaseOrder;
   late _MockReceivePurchaseOrder receivePurchaseOrder;
   late _MockGenerateItemBarcode generateItemBarcode;
+  late _MockGetProductDetails getProductDetails;
+  late _MockGetItems getItems;
 
   setUp(() {
     getPurchaseOrder = _MockGetPurchaseOrder();
     receivePurchaseOrder = _MockReceivePurchaseOrder();
     generateItemBarcode = _MockGenerateItemBarcode();
+    getProductDetails = _MockGetProductDetails();
+    getItems = _MockGetItems();
     ReceivePurchaseOrderController.batchNumberGenerator = _generateBatch;
   });
 
@@ -117,13 +129,13 @@ void main() {
       expect(state.lines[0].remainingQuantity, 3);
       expect(state.lines[0].isSelected, isTrue);
       expect(state.lines[0].totalPurchaseCost, 30);
-      expect(state.lines[0].barcode, 'item-1');
+      expect(state.lines[0].barcode, '');
       expect(state.lines[0].batchNumber, 'BN-line-1');
       expect(state.lines[1].purchaseOrderLineId, 'line-3');
       expect(state.lines[1].quantity, 6);
       expect(state.lines[1].isSelected, isTrue);
       expect(state.lines[1].totalPurchaseCost, 90);
-      expect(state.lines[1].barcode, 'item-3');
+      expect(state.lines[1].barcode, '');
       expect(state.lines[1].batchNumber, 'BN-line-3');
       expect(state.receivedAt, isNotNull);
       expect(state.receivedAt!.timeZoneOffset, Duration.zero);
@@ -251,7 +263,7 @@ void main() {
             .lines
             .single
             .barcode,
-        'item-1',
+        '',
       );
 
       controller.applyGeneratedBarcode('line-1', generated!);
@@ -356,7 +368,7 @@ void main() {
         receivePurchaseOrderControllerProvider('po-1'),
       );
       expect(generated, isNull);
-      expect(state.lines.single.barcode, 'item-1');
+      expect(state.lines.single.barcode, '');
       expect(state.barcodeGenerationFailures['line-1'], contains('offline'));
     },
   );
@@ -1095,6 +1107,453 @@ void main() {
       expect(state.focusedLineId, 'barcode');
     },
   );
+
+  test(
+    'prefills catalog barcode, PO cost, and product pricing defaults',
+    () async {
+      when(() => getPurchaseOrder('po-1')).thenAnswer(
+        (_) async => _detail(
+          lines: const [
+            PurchaseOrderLine(
+              lineId: 'line-1',
+              itemId: 'item-id',
+              description: 'Widget',
+              expectedQuantity: 8,
+              receivedQuantity: 3,
+              remainingQuantity: 5,
+              unitCost: 12.5,
+              lineTotal: 100,
+            ),
+          ],
+        ),
+      );
+      when(() => getItems()).thenAnswer(
+        (_) async => const [
+          Item(
+            itemId: 'item-id',
+            name: 'Widget',
+            barcode: 'CAT-001',
+            uom: 'pcs',
+            isActive: true,
+            currentStock: 0,
+          ),
+        ],
+      );
+      when(() => getProductDetails(name: 'Widget')).thenAnswer(
+        (_) async => const ProductDetails(
+          name: 'Widget',
+          description: 'Catalog product',
+          uom: 'pcs',
+          costPrice: 99,
+          mrp: 30,
+          salesPrice: 25,
+          taxIncluded: true,
+          taxRatePercent: 18,
+        ),
+      );
+      final container = _makeContainer(
+        getPurchaseOrder: getPurchaseOrder,
+        receivePurchaseOrder: receivePurchaseOrder,
+        getProductDetails: getProductDetails,
+        getItems: getItems,
+      );
+      addTearDown(container.dispose);
+      _watchReceiveController(container);
+      container.read(receivePurchaseOrderControllerProvider('po-1'));
+
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+
+      final line = container
+          .read(receivePurchaseOrderControllerProvider('po-1'))
+          .lines
+          .single;
+      expect(line.barcode, 'CAT-001');
+      expect(line.unitPurchaseCost, 12.5);
+      expect(line.quantity, 5);
+      expect(line.mrp, 30);
+      expect(line.salesPrice, 25);
+      expect(line.taxRatePercent, 18);
+      expect(line.taxIncluded, isTrue);
+    },
+  );
+
+  test(
+    'preserves cleared fields and accepted generated barcode after prefill',
+    () async {
+      final details = Completer<ProductDetails>();
+      when(() => getPurchaseOrder('po-1')).thenAnswer(
+        (_) async => _detail(
+          lines: const [
+            PurchaseOrderLine(
+              lineId: 'line-1',
+              itemId: 'item-1',
+              description: 'Widget',
+              expectedQuantity: 1,
+              receivedQuantity: 0,
+              remainingQuantity: 1,
+              unitCost: 10,
+              lineTotal: 10,
+            ),
+          ],
+        ),
+      );
+      when(() => getProductDetails(name: 'Widget')).thenAnswer(
+        (_) => details.future,
+      );
+      final container = _makeContainer(
+        getPurchaseOrder: getPurchaseOrder,
+        receivePurchaseOrder: receivePurchaseOrder,
+        getProductDetails: getProductDetails,
+      );
+      addTearDown(container.dispose);
+      _watchReceiveController(container);
+      container.read(receivePurchaseOrderControllerProvider('po-1'));
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      final controller = container.read(
+        receivePurchaseOrderControllerProvider('po-1').notifier,
+      );
+
+      controller.updateMrp('line-1', '');
+      controller.updateSalesPrice('line-1', '');
+      controller.updateTaxRatePercent('line-1', '');
+      controller.updateTaxIncluded('line-1', false);
+      controller.applyGeneratedBarcode('line-1', 'GENERATED-1');
+      details.complete(
+        const ProductDetails(
+          name: 'Widget',
+          description: 'Widget',
+          uom: 'pcs',
+          costPrice: 1,
+          mrp: 100,
+          salesPrice: 90,
+          taxIncluded: true,
+          taxRatePercent: 18,
+        ),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      var state = container.read(
+        receivePurchaseOrderControllerProvider('po-1'),
+      );
+      expect(state.lines.single.barcode, 'GENERATED-1');
+      expect(state.lines.single.mrp, 0);
+      expect(state.lines.single.salesPrice, 0);
+      expect(state.lines.single.taxRatePercent, 0);
+      expect(state.lines.single.taxIncluded, isFalse);
+      expect(await controller.submit(), isFalse);
+      state = container.read(receivePurchaseOrderControllerProvider('po-1'));
+      expect(state.lineError('line-1', 'mrp'), isNotNull);
+      expect(state.lineError('line-1', 'salesPrice'), isNotNull);
+      expect(state.lineError('line-1', 'taxRatePercent'), isNotNull);
+    },
+  );
+
+  test(
+    'ignores stale product prefill after cleared fields, barcode generation, or refresh',
+    () async {
+      final oldDetails = Completer<ProductDetails>();
+      final newDetails = Completer<ProductDetails>();
+      var purchaseOrderCalls = 0;
+      when(() => getPurchaseOrder('po-1')).thenAnswer((_) async {
+        purchaseOrderCalls += 1;
+        return _detail(
+          lines: [
+            PurchaseOrderLine(
+              lineId: 'line-1',
+              itemId: 'item-$purchaseOrderCalls',
+              description: purchaseOrderCalls == 1 ? 'Old' : 'New',
+              expectedQuantity: 1,
+              receivedQuantity: 0,
+              remainingQuantity: 1,
+              unitCost: 10,
+              lineTotal: 10,
+            ),
+          ],
+        );
+      });
+      when(() => getProductDetails(name: 'Old')).thenAnswer(
+        (_) => oldDetails.future,
+      );
+      when(() => getProductDetails(name: 'New')).thenAnswer(
+        (_) => newDetails.future,
+      );
+      when(() => generateItemBarcode()).thenAnswer(
+        (_) async => const GeneratedItemBarcode(barcode: 'GENERATED-1'),
+      );
+      final container = _makeContainer(
+        getPurchaseOrder: getPurchaseOrder,
+        receivePurchaseOrder: receivePurchaseOrder,
+        getProductDetails: getProductDetails,
+        generateItemBarcode: generateItemBarcode,
+      );
+      addTearDown(container.dispose);
+      _watchReceiveController(container);
+      container.read(receivePurchaseOrderControllerProvider('po-1'));
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      final controller = container.read(
+        receivePurchaseOrderControllerProvider('po-1').notifier,
+      );
+
+      controller.updateMrp('line-1', '');
+      controller.updateSalesPrice('line-1', '');
+      controller.updateTaxRatePercent('line-1', '');
+      controller.applyGeneratedBarcode('line-1', 'GENERATED-1');
+      await controller.refresh();
+      oldDetails.complete(
+        const ProductDetails(
+          name: 'Old',
+          description: 'Old',
+          uom: 'pcs',
+          costPrice: 1,
+          mrp: 100,
+          salesPrice: 90,
+          taxRatePercent: 18,
+        ),
+      );
+      newDetails.complete(
+        const ProductDetails(
+          name: 'New',
+          description: 'New',
+          uom: 'pcs',
+          costPrice: 1,
+          mrp: 20,
+          salesPrice: 15,
+        ),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+
+      final line = container
+          .read(receivePurchaseOrderControllerProvider('po-1'))
+          .lines
+          .single;
+      expect(line.description, 'New');
+      expect(line.barcode, isEmpty);
+      expect(line.mrp, 20);
+      expect(line.salesPrice, 15);
+      expect(line.taxRatePercent, 0);
+    },
+  );
+
+  test(
+    'keeps receipt line editable when product detail prefill fails',
+    () async {
+      when(() => getPurchaseOrder('po-1')).thenAnswer(
+        (_) async => _detail(
+          lines: const [
+            PurchaseOrderLine(
+              lineId: 'line-1',
+              itemId: 'item-1',
+              description: 'Widget A',
+              expectedQuantity: 1,
+              receivedQuantity: 0,
+              remainingQuantity: 1,
+              unitCost: 10,
+              lineTotal: 10,
+            ),
+          ],
+        ),
+      );
+      when(
+        () => getProductDetails(name: 'Widget A'),
+      ).thenThrow(Exception('offline'));
+      final container = _makeContainer(
+        getPurchaseOrder: getPurchaseOrder,
+        receivePurchaseOrder: receivePurchaseOrder,
+        getProductDetails: getProductDetails,
+      );
+      addTearDown(container.dispose);
+      _watchReceiveController(container);
+      container.read(receivePurchaseOrderControllerProvider('po-1'));
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+
+      final controller = container.read(
+        receivePurchaseOrderControllerProvider('po-1').notifier,
+      );
+      controller.updateBarcode('line-1', 'MANUAL-1');
+      final state = container.read(
+        receivePurchaseOrderControllerProvider('po-1'),
+      );
+      expect(state.prefillFailures['line-1'], contains('offline'));
+      expect(state.lines.single.barcode, 'MANUAL-1');
+    },
+  );
+
+  test(
+    'prefill does not block later lines when first lookup is slow',
+    () async {
+      final line1Completer = Completer<ProductDetails>();
+      final line2Completer = Completer<ProductDetails>();
+
+      when(() => getPurchaseOrder('po-1')).thenAnswer(
+        (_) async => _detail(
+          lines: [
+            const PurchaseOrderLine(
+              lineId: 'line-1',
+              itemId: 'item-1',
+              description: 'Item1',
+              expectedQuantity: 5,
+              receivedQuantity: 0,
+              remainingQuantity: 5,
+              unitCost: 10,
+              lineTotal: 50,
+            ),
+            const PurchaseOrderLine(
+              lineId: 'line-2',
+              itemId: 'item-2',
+              description: 'Item2',
+              expectedQuantity: 5,
+              receivedQuantity: 0,
+              remainingQuantity: 5,
+              unitCost: 10,
+              lineTotal: 50,
+            ),
+          ],
+        ),
+      );
+
+      when(() => getProductDetails(name: 'Item1')).thenAnswer(
+        (_) => line1Completer.future,
+      );
+      when(() => getProductDetails(name: 'Item2')).thenAnswer(
+        (_) => line2Completer.future,
+      );
+
+      final container = _makeContainer(
+        getPurchaseOrder: getPurchaseOrder,
+        receivePurchaseOrder: receivePurchaseOrder,
+        getProductDetails: getProductDetails,
+      );
+      addTearDown(container.dispose);
+      _watchReceiveController(container);
+
+      container.read(receivePurchaseOrderControllerProvider('po-1'));
+      // Give time for load and initial prefill state to be set
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+
+      var state = container.read(
+        receivePurchaseOrderControllerProvider('po-1'),
+      );
+      // Both should be loading or one completed; both start in parallel
+      expect(
+        state.prefillLoadingLineIds.contains('line-1') ||
+            state.lines[0].mrp != 0 ||
+            state.prefillFailures.containsKey('line-1'),
+        isTrue,
+        reason:
+            'Line 1 should have prefill attempt in progress or completed/failed',
+      );
+      expect(
+        state.prefillLoadingLineIds.contains('line-2') ||
+            state.lines[1].mrp != 0 ||
+            state.prefillFailures.containsKey('line-2'),
+        isTrue,
+        reason:
+            'Line 2 should have prefill attempt in progress or completed/failed',
+      );
+
+      // Complete line 2 faster
+      line2Completer.complete(
+        const ProductDetails(
+          name: 'Item2',
+          description: 'Item2 desc',
+          uom: 'units',
+          costPrice: 30,
+          mrp: 50,
+          salesPrice: 40,
+        ),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      state = container.read(receivePurchaseOrderControllerProvider('po-1'));
+      // Line 2 should have mrp set, line 1 still loading/pending
+      expect(state.lines[1].mrp, 50);
+      expect(!state.prefillLoadingLineIds.contains('line-2'), isTrue);
+
+      // Now complete line 1
+      line1Completer.complete(
+        const ProductDetails(
+          name: 'Item1',
+          description: 'Item1 desc',
+          uom: 'units',
+          costPrice: 60,
+          mrp: 100,
+          salesPrice: 80,
+        ),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      state = container.read(receivePurchaseOrderControllerProvider('po-1'));
+      expect(state.lines[0].mrp, 100);
+      expect(state.prefillLoadingLineIds, isEmpty);
+    },
+  );
+
+  test(
+    'user edit to MRP blocks later async prefill',
+    () async {
+      final prefillCompleter = Completer<ProductDetails>();
+
+      when(() => getPurchaseOrder('po-1')).thenAnswer(
+        (_) async => _detail(
+          lines: const [
+            PurchaseOrderLine(
+              lineId: 'line-1',
+              itemId: 'item-1',
+              description: 'Widget',
+              expectedQuantity: 5,
+              receivedQuantity: 0,
+              remainingQuantity: 5,
+              unitCost: 10,
+              lineTotal: 50,
+            ),
+          ],
+        ),
+      );
+
+      when(() => getProductDetails(name: 'Widget')).thenAnswer(
+        (_) => prefillCompleter.future,
+      );
+
+      final container = _makeContainer(
+        getPurchaseOrder: getPurchaseOrder,
+        receivePurchaseOrder: receivePurchaseOrder,
+        getProductDetails: getProductDetails,
+      );
+      addTearDown(container.dispose);
+      _watchReceiveController(container);
+
+      container.read(receivePurchaseOrderControllerProvider('po-1'));
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+
+      container
+          .read(receivePurchaseOrderControllerProvider('po-1').notifier)
+          .updateMrp('line-1', '200');
+
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      prefillCompleter.complete(
+        const ProductDetails(
+          name: 'Widget',
+          description: 'Widget desc',
+          uom: 'units',
+          costPrice: 60,
+          mrp: 100,
+          salesPrice: 80,
+          taxIncluded: false,
+        ),
+      );
+
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+
+      final state = container.read(
+        receivePurchaseOrderControllerProvider('po-1'),
+      );
+      expect(
+        state.lines[0].mrp,
+        200,
+        reason: 'User-edited MRP should not be overwritten by prefill',
+      );
+    },
+  );
 }
 
 ProviderContainer _makeContainer({
@@ -1102,11 +1561,30 @@ ProviderContainer _makeContainer({
   required _MockReceivePurchaseOrder receivePurchaseOrder,
   _MockGetPurchaseOrders? getPurchaseOrders,
   _MockGenerateItemBarcode? generateItemBarcode,
+  GetProductDetails? getProductDetails,
+  GetItems? getItems,
 }) {
+  final mockGetProductDetails = getProductDetails ?? _MockGetProductDetails();
+  if (mockGetProductDetails is _MockGetProductDetails &&
+      getProductDetails == null) {
+    when(
+      () => mockGetProductDetails(
+        name: any(named: 'name'),
+        barcode: any(named: 'barcode'),
+      ),
+    ).thenThrow(Exception('Product not found'));
+  }
+  final mockGetItems = getItems ?? _MockGetItems();
+  if (mockGetItems is _MockGetItems && getItems == null) {
+    when(() => mockGetItems()).thenAnswer((_) async => const []);
+  }
+
   return ProviderContainer(
     overrides: [
       getPurchaseOrderProvider.overrideWithValue(getPurchaseOrder),
       receivePurchaseOrderProvider.overrideWithValue(receivePurchaseOrder),
+      getProductDetailsProvider.overrideWithValue(mockGetProductDetails),
+      getItemsProvider.overrideWithValue(mockGetItems),
       if (generateItemBarcode != null)
         generateItemBarcodeProvider.overrideWithValue(generateItemBarcode),
       if (getPurchaseOrders != null)

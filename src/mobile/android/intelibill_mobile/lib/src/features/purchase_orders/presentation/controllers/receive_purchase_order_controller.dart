@@ -4,6 +4,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
+import 'package:intelibill_mobile/src/features/inventory/domain/entities/product_details.dart';
+import 'package:intelibill_mobile/src/features/inventory/domain/use_cases/get_items.dart';
+import 'package:intelibill_mobile/src/features/inventory/domain/use_cases/get_product_details.dart';
+import 'package:intelibill_mobile/src/features/inventory/domain/utils/batch_number_generator.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/controllers/items_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_line.dart';
@@ -33,6 +37,9 @@ class ReceivePurchaseOrderLineDraft {
     required this.purchaseTaxIncluded,
     this.expiryDate,
     this.manufacturingDate,
+    this.dirtyFields = const {},
+    this.invalidFields = const {},
+    this.editVersion = 0,
   });
 
   final String purchaseOrderLineId;
@@ -51,6 +58,9 @@ class ReceivePurchaseOrderLineDraft {
   final bool purchaseTaxIncluded;
   final DateTime? expiryDate;
   final DateTime? manufacturingDate;
+  final Set<String> dirtyFields;
+  final Set<String> invalidFields;
+  final int editVersion;
 
   ReceivePurchaseOrderLineDraft copyWith({
     int? quantity,
@@ -66,6 +76,9 @@ class ReceivePurchaseOrderLineDraft {
     bool? purchaseTaxIncluded,
     DateTime? expiryDate,
     DateTime? manufacturingDate,
+    Set<String>? dirtyFields,
+    Set<String>? invalidFields,
+    int? editVersion,
     bool clearExpiryDate = false,
     bool clearManufacturingDate = false,
   }) {
@@ -88,6 +101,9 @@ class ReceivePurchaseOrderLineDraft {
       manufacturingDate: clearManufacturingDate
           ? null
           : (manufacturingDate ?? this.manufacturingDate),
+      dirtyFields: dirtyFields ?? this.dirtyFields,
+      invalidFields: invalidFields ?? this.invalidFields,
+      editVersion: editVersion ?? this.editVersion,
     );
   }
 }
@@ -102,6 +118,8 @@ class ReceivePurchaseOrderState {
     this.lines = const [],
     this.barcodeGenerationLineIds = const {},
     this.barcodeGenerationFailures = const {},
+    this.prefillLoadingLineIds = const {},
+    this.prefillFailures = const {},
     this.isLoading = false,
     this.isSubmitting = false,
     this.failure,
@@ -117,6 +135,8 @@ class ReceivePurchaseOrderState {
   final List<ReceivePurchaseOrderLineDraft> lines;
   final Set<String> barcodeGenerationLineIds;
   final Map<String, String> barcodeGenerationFailures;
+  final Set<String> prefillLoadingLineIds;
+  final Map<String, String> prefillFailures;
   final bool isLoading;
   final bool isSubmitting;
   final Failure? failure;
@@ -149,6 +169,8 @@ class ReceivePurchaseOrderState {
     Map<String, Map<String, String>>? lineErrors,
     Set<String>? barcodeGenerationLineIds,
     Map<String, String>? barcodeGenerationFailures,
+    Set<String>? prefillLoadingLineIds,
+    Map<String, String>? prefillFailures,
     String? expandedLineId,
     String? focusedLineId,
     bool clearFailure = false,
@@ -162,6 +184,8 @@ class ReceivePurchaseOrderState {
     bool clearFocusedLine = false,
     bool clearBarcodeGenerationLineIds = false,
     bool clearBarcodeGenerationFailures = false,
+    bool clearPrefillLoading = false,
+    bool clearPrefillFailures = false,
   }) {
     return ReceivePurchaseOrderState(
       detail: clearDetail ? null : (detail ?? this.detail),
@@ -181,6 +205,12 @@ class ReceivePurchaseOrderState {
       barcodeGenerationFailures: clearBarcodeGenerationFailures
           ? const {}
           : (barcodeGenerationFailures ?? this.barcodeGenerationFailures),
+      prefillLoadingLineIds: clearPrefillLoading
+          ? const {}
+          : (prefillLoadingLineIds ?? this.prefillLoadingLineIds),
+      prefillFailures: clearPrefillFailures
+          ? const {}
+          : (prefillFailures ?? this.prefillFailures),
       expandedLineId: clearExpandedLine
           ? null
           : (expandedLineId ?? this.expandedLineId),
@@ -197,6 +227,7 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
       _generateBatch;
 
   late final String _purchaseOrderId;
+  int _loadGeneration = 0;
 
   @override
   ReceivePurchaseOrderState build(String purchaseOrderId) {
@@ -211,6 +242,7 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
     ReceivePurchaseOrderState? currentState,
     bool keepFailure = false,
   }) async {
+    final generation = ++_loadGeneration;
     final baseline = currentState ?? state;
     state = baseline.copyWith(
       isLoading: true,
@@ -233,6 +265,10 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
         clearExpandedLine: true,
         clearFocusedLine: true,
       );
+      if (ref.mounted) {
+        unawaited(_prefillCatalogBarcodes(detail.lines, generation));
+        unawaited(_prefillLinesAsync(generation));
+      }
     } on AppException catch (error) {
       if (!ref.mounted) return;
       state = state.copyWith(
@@ -267,7 +303,7 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
             quantity: line.remainingQuantity,
             isSelected: true,
             unitPurchaseCost: line.unitCost,
-            barcode: line.itemId,
+            barcode: '',
             batchNumber: _buildBatchNumber(line),
             totalPurchaseCost: line.unitCost * line.remainingQuantity,
             mrp: 0,
@@ -282,6 +318,129 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
 
   String _buildBatchNumber(PurchaseOrderLine line) =>
       batchNumberGenerator(line);
+
+  Future<void> _prefillCatalogBarcodes(
+    List<PurchaseOrderLine> purchaseOrderLines,
+    int generation,
+  ) async {
+    final editVersions = {
+      for (final line in state.lines)
+        line.purchaseOrderLineId: line.editVersion,
+    };
+    try {
+      final items = await ref.read(getItemsProvider)();
+      if (!ref.mounted || generation != _loadGeneration) return;
+      final barcodesByItemId = {
+        for (final item in items)
+          if (item.barcode.trim().isNotEmpty) item.itemId: item.barcode.trim(),
+      };
+      for (final purchaseOrderLine in purchaseOrderLines) {
+        final barcode = barcodesByItemId[purchaseOrderLine.itemId];
+        final draft = _lineDraftById(purchaseOrderLine.lineId);
+        if (barcode == null ||
+            draft == null ||
+            draft.editVersion != editVersions[purchaseOrderLine.lineId] ||
+            draft.dirtyFields.contains('barcode')) {
+          continue;
+        }
+        _updateLine(
+          purchaseOrderLine.lineId,
+          (line) => line.copyWith(barcode: barcode),
+        );
+      }
+    } on Object {
+      // Catalog defaults are optional; receiving remains editable without them.
+    }
+  }
+
+  Future<void> _prefillLinesAsync(int generation) async {
+    final getProductDetails = ref.read(getProductDetailsProvider);
+    final lines = List.of(state.lines);
+    for (final line in lines) {
+      _setPrefillLoading(line.purchaseOrderLineId, true, generation);
+    }
+
+    final futures = lines.map(
+      (line) => _prefillLineAsync(line, getProductDetails, generation),
+    );
+    await Future.wait(futures, eagerError: false);
+  }
+
+  Future<void> _prefillLineAsync(
+    ReceivePurchaseOrderLineDraft line,
+    GetProductDetails getProductDetails,
+    int generation,
+  ) async {
+    try {
+      final details = await getProductDetails(name: line.description);
+      if (!ref.mounted) return;
+      _applyPrefill(
+        line.purchaseOrderLineId,
+        details,
+        generation,
+        line.editVersion,
+      );
+      _setPrefillLoading(line.purchaseOrderLineId, false, generation);
+    } on Object catch (e) {
+      if (!ref.mounted || generation != _loadGeneration) return;
+      _setPrefillFailure(
+        line.purchaseOrderLineId,
+        e.toString(),
+      );
+      _setPrefillLoading(line.purchaseOrderLineId, false, generation);
+    }
+  }
+
+  void _setPrefillLoading(String lineId, bool loading, int generation) {
+    if (generation != _loadGeneration) return;
+    if (!loading) {
+      final loading = Set<String>.from(state.prefillLoadingLineIds);
+      loading.remove(lineId);
+      state = state.copyWith(prefillLoadingLineIds: loading);
+    } else {
+      state = state.copyWith(
+        prefillLoadingLineIds: {...state.prefillLoadingLineIds, lineId},
+      );
+    }
+  }
+
+  void _setPrefillFailure(String lineId, String message) {
+    final failures = Map<String, String>.from(state.prefillFailures);
+    failures[lineId] = message;
+    state = state.copyWith(prefillFailures: failures);
+  }
+
+  void _applyPrefill(
+    String lineId,
+    ProductDetails details,
+    int generation,
+    int editVersion,
+  ) {
+    if (generation != _loadGeneration) return;
+    final line = _lineDraftById(lineId);
+    if (line == null || line.editVersion != editVersion) return;
+
+    _updateLine(lineId, (l) {
+      var updated = l;
+      if (!l.dirtyFields.contains('mrp') && l.mrp == 0) {
+        updated = updated.copyWith(mrp: details.mrp);
+      }
+      if (!l.dirtyFields.contains('salesPrice') && l.salesPrice == 0) {
+        updated = updated.copyWith(salesPrice: details.salesPrice);
+      }
+      if (!l.dirtyFields.contains('taxRatePercent') &&
+          l.taxRatePercent == 0 &&
+          details.taxRatePercent != null) {
+        updated = updated.copyWith(taxRatePercent: details.taxRatePercent!);
+      }
+      if (!l.dirtyFields.contains('taxIncluded') &&
+          !l.taxIncluded &&
+          details.taxIncluded == true) {
+        updated = updated.copyWith(taxIncluded: details.taxIncluded!);
+      }
+      return updated;
+    });
+  }
 
   void updateReferenceNumber(String value) {
     state = state.copyWith(
@@ -300,7 +459,14 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
 
   void updateBarcode(String purchaseOrderLineId, String value) {
     _clearBarcodeGenerationFailure(purchaseOrderLineId);
-    _updateLine(purchaseOrderLineId, (line) => line.copyWith(barcode: value));
+    _updateLine(
+      purchaseOrderLineId,
+      (line) => line.copyWith(
+        barcode: value,
+        dirtyFields: {...line.dirtyFields, 'barcode'},
+      ),
+      isUserEdit: true,
+    );
   }
 
   Future<String?> generateItemBarcodeForLine(String purchaseOrderLineId) async {
@@ -362,7 +528,11 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
     _clearBarcodeGenerationFailure(purchaseOrderLineId);
     _updateLine(
       purchaseOrderLineId,
-      (line) => line.copyWith(barcode: barcode),
+      (line) => line.copyWith(
+        barcode: barcode,
+        dirtyFields: {...line.dirtyFields, 'barcode'},
+      ),
+      isUserEdit: true,
     );
   }
 
@@ -393,6 +563,7 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
     _updateLine(
       purchaseOrderLineId,
       (line) => line.copyWith(batchNumber: value),
+      isUserEdit: true,
     );
   }
 
@@ -403,6 +574,7 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
     _updateLine(
       purchaseOrderLineId,
       (line) => line.copyWith(isSelected: isSelected),
+      isUserEdit: true,
     );
   }
 
@@ -423,55 +595,63 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
         quantity: quantity,
         totalPurchaseCost: line.unitPurchaseCost * quantity,
       ),
+      isUserEdit: true,
     );
   }
 
   void updateUnitPurchaseCost(String purchaseOrderLineId, String value) {
     final cost = double.tryParse(value);
-    if (cost == null) return;
     _updateLine(
       purchaseOrderLineId,
-      (line) => line.copyWith(unitPurchaseCost: cost),
+      (line) => cost == null ? line : line.copyWith(unitPurchaseCost: cost),
+      isUserEdit: true,
     );
   }
 
   void updateTotalPurchaseCost(String purchaseOrderLineId, String value) {
     final cost = double.tryParse(value);
-    if (cost == null) return;
     _updateLine(
       purchaseOrderLineId,
-      (line) => line.copyWith(totalPurchaseCost: cost),
+      (line) => cost == null ? line : line.copyWith(totalPurchaseCost: cost),
+      isUserEdit: true,
     );
   }
 
   void updateMrp(String purchaseOrderLineId, String value) {
-    final mrp = double.tryParse(value);
-    if (mrp == null) return;
-    _updateLine(purchaseOrderLineId, (line) => line.copyWith(mrp: mrp));
+    _updateNumericField(
+      purchaseOrderLineId,
+      'mrp',
+      value,
+      (line, parsed) => line.copyWith(mrp: parsed),
+    );
   }
 
   void updateSalesPrice(String purchaseOrderLineId, String value) {
-    final price = double.tryParse(value);
-    if (price == null) return;
-    _updateLine(
+    _updateNumericField(
       purchaseOrderLineId,
-      (line) => line.copyWith(salesPrice: price),
+      'salesPrice',
+      value,
+      (line, parsed) => line.copyWith(salesPrice: parsed),
     );
   }
 
   void updateTaxRatePercent(String purchaseOrderLineId, String value) {
-    final rate = double.tryParse(value);
-    if (rate == null) return;
-    _updateLine(
+    _updateNumericField(
       purchaseOrderLineId,
-      (line) => line.copyWith(taxRatePercent: rate),
+      'taxRatePercent',
+      value,
+      (line, parsed) => line.copyWith(taxRatePercent: parsed),
     );
   }
 
   void updateTaxIncluded(String purchaseOrderLineId, bool value) {
     _updateLine(
       purchaseOrderLineId,
-      (line) => line.copyWith(taxIncluded: value),
+      (line) => line.copyWith(
+        taxIncluded: value,
+        dirtyFields: {...line.dirtyFields, 'taxIncluded'},
+      ),
+      isUserEdit: true,
     );
   }
 
@@ -479,6 +659,7 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
     _updateLine(
       purchaseOrderLineId,
       (line) => line.copyWith(purchaseTaxIncluded: value),
+      isUserEdit: true,
     );
   }
 
@@ -489,6 +670,7 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
         expiryDate: value,
         clearExpiryDate: value == null,
       ),
+      isUserEdit: true,
     );
   }
 
@@ -499,19 +681,21 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
         manufacturingDate: value,
         clearManufacturingDate: value == null,
       ),
+      isUserEdit: true,
     );
   }
 
   void _updateLine(
     String purchaseOrderLineId,
     ReceivePurchaseOrderLineDraft Function(ReceivePurchaseOrderLineDraft)
-    update,
-  ) {
+    update, {
+    bool isUserEdit = false,
+  }) {
     state = state.copyWith(
       lines: state.lines
           .map(
             (line) => line.purchaseOrderLineId == purchaseOrderLineId
-                ? update(line)
+                ? _updatedLine(line, update, isUserEdit)
                 : line,
           )
           .toList(growable: false),
@@ -520,6 +704,47 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
       clearExpandedLine: true,
       clearFocusedLine: true,
     );
+  }
+
+  ReceivePurchaseOrderLineDraft _updatedLine(
+    ReceivePurchaseOrderLineDraft line,
+    ReceivePurchaseOrderLineDraft Function(ReceivePurchaseOrderLineDraft)
+    update,
+    bool isUserEdit,
+  ) {
+    final updated = update(line);
+    return isUserEdit
+        ? updated.copyWith(editVersion: line.editVersion + 1)
+        : updated;
+  }
+
+  void _updateNumericField(
+    String lineId,
+    String field,
+    String value,
+    ReceivePurchaseOrderLineDraft Function(
+      ReceivePurchaseOrderLineDraft line,
+      double parsed,
+    )
+    update,
+  ) {
+    final parsed = double.tryParse(value);
+    _updateLine(lineId, (line) {
+      final dirtyFields = {...line.dirtyFields, field};
+      final invalidFields = {...line.invalidFields};
+      if (parsed == null) {
+        invalidFields.add(field);
+        return line.copyWith(
+          dirtyFields: dirtyFields,
+          invalidFields: invalidFields,
+        );
+      }
+      invalidFields.remove(field);
+      return update(line, parsed).copyWith(
+        dirtyFields: dirtyFields,
+        invalidFields: invalidFields,
+      );
+    }, isUserEdit: true);
   }
 
   void _setQuantityFailure() {
@@ -635,7 +860,11 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
 
   Map<String, String> _validateLine(ReceivePurchaseOrderLineDraft line) {
     final errors = <String, String>{};
-    _require(errors, 'barcode', line.barcode, 120);
+    for (final field in line.invalidFields) {
+      errors[field] = 'Enter a valid number.';
+    }
+    if (line.barcode.isNotEmpty)
+      _maxLength(errors, 'barcode', line.barcode, 120);
     _require(errors, 'batchNumber', line.batchNumber, 80);
     if (line.quantity <= 0 || line.quantity > line.remainingQuantity) {
       errors['quantity'] = 'Quantity must be within the remaining amount.';
@@ -668,6 +897,17 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
     if (value.trim().isEmpty) {
       errors[field] = 'This field is required.';
     } else if (value.length > max) {
+      errors[field] = 'Must not exceed $max characters.';
+    }
+  }
+
+  void _maxLength(
+    Map<String, String> errors,
+    String field,
+    String value,
+    int max,
+  ) {
+    if (value.length > max) {
       errors[field] = 'Must not exceed $max characters.';
     }
   }
@@ -737,18 +977,8 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
   };
 
   static String _generateBatch(PurchaseOrderLine line) {
-    final date = DateTime.now();
-    final dateLabel =
-        '${date.year.toString().padLeft(4, '0')}'
-        '${date.month.toString().padLeft(2, '0')}'
-        '${date.day.toString().padLeft(2, '0')}';
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    final seed = line.lineId.hashCode + date.millisecond;
-    final suffix = StringBuffer();
-    for (var index = 0; index < 5; index++) {
-      suffix.write(chars[(seed + index * 17).abs() % chars.length]);
-    }
-    return 'BN-$dateLabel-${suffix.toString()}';
+    final entropy = line.lineId.hashCode + DateTime.now().millisecond;
+    return generateBatchNumber(entropy: entropy);
   }
 
   ReceivePurchaseOrderLineDraft? _lineDraftById(String purchaseOrderLineId) {
