@@ -108,25 +108,28 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
     final colorScheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: colorScheme.errorContainer,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.error_outline, size: 20, color: colorScheme.error),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                AppLocalizations.of(context)!.purchaseOrdersRefreshFailed,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: colorScheme.error),
+      child: Semantics(
+        liveRegion: true,
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: colorScheme.errorContainer,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.error_outline, size: 20, color: colorScheme.error),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  AppLocalizations.of(context)!.purchaseOrdersRefreshFailed,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: colorScheme.error),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -149,7 +152,13 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
   ) {
     final l10n = AppLocalizations.of(context)!;
     if (state.isInitialLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return Center(
+        child: Semantics(
+          label: l10n.commonLoading,
+          liveRegion: true,
+          child: const CircularProgressIndicator(),
+        ),
+      );
     }
     if (state.failure != null) return _FailureView(failure: state.failure!);
 

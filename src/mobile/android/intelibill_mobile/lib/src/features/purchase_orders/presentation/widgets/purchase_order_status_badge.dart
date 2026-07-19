@@ -11,18 +11,28 @@ class PurchaseOrderStatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = _color(context);
-    return Container(
+    final label = purchaseOrderStatusMessage(
+      AppLocalizations.of(context)!,
+      status,
+    );
+    return Semantics(
       key: Key('purchase-order-status-${status.name}'),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Text(
-        purchaseOrderStatusMessage(AppLocalizations.of(context)!, status),
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: color,
-          fontWeight: FontWeight.w700,
+      container: true,
+      label: AppLocalizations.of(context)!.purchaseOrderDocumentStatus(label),
+      child: ExcludeSemantics(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
         ),
       ),
     );

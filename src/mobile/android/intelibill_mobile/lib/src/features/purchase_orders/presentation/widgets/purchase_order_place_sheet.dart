@@ -73,15 +73,21 @@ class _PurchaseOrderPlaceSheetState extends State<PurchaseOrderPlaceSheet> {
           ),
           if (_isComplete) ...[
             const SizedBox(height: 8),
-            Text(
-              l10n.purchaseOrderPlaceSuccess,
-              style: TextStyle(color: Theme.of(context).colorScheme.primary),
+            Semantics(
+              liveRegion: true,
+              child: Text(
+                l10n.purchaseOrderPlaceSuccess,
+                style: TextStyle(color: Theme.of(context).colorScheme.primary),
+              ),
             ),
           ] else if (_errorMessage != null) ...[
             const SizedBox(height: 8),
-            Text(
-              _errorMessage!,
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            Semantics(
+              liveRegion: true,
+              child: Text(
+                _errorMessage!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
             ),
           ],
           const SizedBox(height: 16),

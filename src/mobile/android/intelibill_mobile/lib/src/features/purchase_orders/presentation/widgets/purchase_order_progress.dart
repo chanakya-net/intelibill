@@ -16,17 +16,22 @@ class PurchaseOrderProgress extends StatelessWidget {
     final progress = expectedQuantity == 0
         ? 0.0
         : (receivedQuantity / expectedQuantity).clamp(0.0, 1.0);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          AppLocalizations.of(
-            context,
-          )!.purchaseOrderProgressReceived(receivedQuantity, expectedQuantity),
+    final label = AppLocalizations.of(
+      context,
+    )!.purchaseOrderProgressReceived(receivedQuantity, expectedQuantity);
+    return Semantics(
+      container: true,
+      label: label,
+      child: ExcludeSemantics(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label),
+            const SizedBox(height: 4),
+            LinearProgressIndicator(value: progress),
+          ],
         ),
-        const SizedBox(height: 4),
-        LinearProgressIndicator(value: progress),
-      ],
+      ),
     );
   }
 }

@@ -108,6 +108,7 @@ class PurchaseOrderDetailPage extends ConsumerWidget {
             IconButton(
               key: const Key('purchase-order-detail-cancel-button'),
               icon: const Icon(Icons.cancel),
+              tooltip: l10n.purchaseOrderCancelTitle,
               onPressed: () {
                 unawaited(
                   showPurchaseOrderCancelSheet(
@@ -129,6 +130,7 @@ class PurchaseOrderDetailPage extends ConsumerWidget {
             IconButton(
               key: const Key('purchase-order-detail-close-button'),
               icon: const Icon(Icons.lock),
+              tooltip: l10n.purchaseOrderCloseTitle,
               onPressed: () {
                 unawaited(
                   showPurchaseOrderCloseSheet(
@@ -250,7 +252,7 @@ class _FailureView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(message),
+            Semantics(liveRegion: true, child: Text(message)),
             const SizedBox(height: 12),
             if (isNotFound) ...[
               FilledButton(

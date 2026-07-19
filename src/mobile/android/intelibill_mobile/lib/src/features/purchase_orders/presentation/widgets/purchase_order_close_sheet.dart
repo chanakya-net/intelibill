@@ -101,9 +101,12 @@ class _PurchaseOrderCloseSheetState extends State<PurchaseOrderCloseSheet> {
           ),
           if (_errorMessage != null) ...[
             const SizedBox(height: 8),
-            Text(
-              _errorMessage!,
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            Semantics(
+              liveRegion: true,
+              child: Text(
+                _errorMessage!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
             ),
           ],
           const SizedBox(height: 16),
