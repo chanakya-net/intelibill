@@ -88,7 +88,7 @@ class _CloseState {
 
 @riverpod
 class PurchaseOrderDetailController extends _$PurchaseOrderDetailController {
-  late final String _purchaseOrderId;
+  late String _purchaseOrderId;
 
   @override
   PurchaseOrderDetailState build(String purchaseOrderId) {
