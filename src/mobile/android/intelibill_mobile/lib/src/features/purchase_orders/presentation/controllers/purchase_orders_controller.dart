@@ -179,7 +179,7 @@ class PurchaseOrdersController extends _$PurchaseOrdersController {
         isRefreshing: false,
         isLoading: false,
         refreshFailure: error.failure,
-        failure: resetInitialLoad ? error.failure : null,
+        failure: state.items.isEmpty ? error.failure : null,
       );
     } on Object {
       if (!ref.mounted || _requestGeneration != generation) return;
@@ -187,7 +187,7 @@ class PurchaseOrdersController extends _$PurchaseOrdersController {
         isRefreshing: false,
         isLoading: false,
         refreshFailure: const Failure.unknown(),
-        failure: resetInitialLoad ? const Failure.unknown() : null,
+        failure: state.items.isEmpty ? const Failure.unknown() : null,
       );
     }
   }
