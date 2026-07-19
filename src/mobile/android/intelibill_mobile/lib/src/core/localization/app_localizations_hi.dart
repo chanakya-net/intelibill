@@ -2819,7 +2819,8 @@ class AppLocalizationsHi extends AppLocalizations {
       'No remaining lines available to receive.';
 
   @override
-  String get purchaseOrdersRefreshFailed => 'Failed to refresh';
+  String get purchaseOrdersRefreshFailed =>
+      'खरीद आदेश रीफ़्रेश नहीं किए जा सके';
 }
 
 /// The translations for Hindi, as used in India (`hi_IN`).
@@ -4320,5 +4321,6 @@ class AppLocalizationsHiIn extends AppLocalizationsHi {
       'Unable to delete bank account. Please try again.';
 
   @override
-  String get purchaseOrdersRefreshFailed => 'Failed to refresh';
+  String get purchaseOrdersRefreshFailed =>
+      'खरीद आदेश रीफ़्रेश नहीं किए जा सके';
 }

@@ -465,5 +465,5 @@
   "bankAccountsDeleteError": "Unable to delete bank account. Please try again.",
   "purchaseOrdersFilterDateFrom": "From",
   "purchaseOrdersFilterDateTo": "To",
-  "purchaseOrdersRefreshFailed": "Failed to refresh"
+  "purchaseOrdersRefreshFailed": "खरेदी ऑर्डर रिफ्रेश करता आले नाहीत"
 }

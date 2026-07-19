@@ -465,5 +465,5 @@
   "bankAccountsDeleteError": "Unable to delete bank account. Please try again.",
   "purchaseOrdersFilterDateFrom": "From",
   "purchaseOrdersFilterDateTo": "To",
-  "purchaseOrdersRefreshFailed": "Failed to refresh"
+  "purchaseOrdersRefreshFailed": "கொள்முதல் ஆர்டர்களைப் புதுப்பிக்க முடியவில்லை"
 }

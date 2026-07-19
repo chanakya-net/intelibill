@@ -2817,7 +2817,7 @@ class AppLocalizationsBn extends AppLocalizations {
       'No remaining lines available to receive.';
 
   @override
-  String get purchaseOrdersRefreshFailed => 'Failed to refresh';
+  String get purchaseOrdersRefreshFailed => 'ক্রয় অর্ডার রিফ্রেশ করা যায়নি';
 }
 
 /// The translations for Bengali Bangla, as used in India (`bn_IN`).
@@ -4222,5 +4222,5 @@ class AppLocalizationsBnIn extends AppLocalizationsBn {
       'Unable to delete bank account. Please try again.';
 
   @override
-  String get purchaseOrdersRefreshFailed => 'Failed to refresh';
+  String get purchaseOrdersRefreshFailed => 'ক্রয় অর্ডার রিফ্রেশ করা যায়নি';
 }

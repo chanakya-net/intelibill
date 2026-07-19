@@ -2818,7 +2818,8 @@ class AppLocalizationsTe extends AppLocalizations {
       'No remaining lines available to receive.';
 
   @override
-  String get purchaseOrdersRefreshFailed => 'Failed to refresh';
+  String get purchaseOrdersRefreshFailed =>
+      'కొనుగోలు ఆర్డర్‌లను రిఫ్రెష్ చేయలేకపోయాము';
 }
 
 /// The translations for Telugu, as used in India (`te_IN`).
@@ -4224,5 +4225,6 @@ class AppLocalizationsTeIn extends AppLocalizationsTe {
       'Unable to delete bank account. Please try again.';
 
   @override
-  String get purchaseOrdersRefreshFailed => 'Failed to refresh';
+  String get purchaseOrdersRefreshFailed =>
+      'కొనుగోలు ఆర్డర్‌లను రిఫ్రెష్ చేయలేకపోయాము';
 }

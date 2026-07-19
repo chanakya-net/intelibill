@@ -2820,7 +2820,8 @@ class AppLocalizationsTa extends AppLocalizations {
       'No remaining lines available to receive.';
 
   @override
-  String get purchaseOrdersRefreshFailed => 'Failed to refresh';
+  String get purchaseOrdersRefreshFailed =>
+      'கொள்முதல் ஆர்டர்களைப் புதுப்பிக்க முடியவில்லை';
 }
 
 /// The translations for Tamil, as used in India (`ta_IN`).
@@ -4228,5 +4229,6 @@ class AppLocalizationsTaIn extends AppLocalizationsTa {
       'Unable to delete bank account. Please try again.';
 
   @override
-  String get purchaseOrdersRefreshFailed => 'Failed to refresh';
+  String get purchaseOrdersRefreshFailed =>
+      'கொள்முதல் ஆர்டர்களைப் புதுப்பிக்க முடியவில்லை';
 }

@@ -465,5 +465,5 @@
   "bankAccountsDeleteError": "Unable to delete bank account. Please try again.",
   "purchaseOrdersFilterDateFrom": "From",
   "purchaseOrdersFilterDateTo": "To",
-  "purchaseOrdersRefreshFailed": "Failed to refresh"
+  "purchaseOrdersRefreshFailed": "ಖರೀದಿ ಆದೇಶಗಳನ್ನು ರಿಫ್ರೆಶ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ"
 }

@@ -2818,7 +2818,8 @@ class AppLocalizationsMr extends AppLocalizations {
       'No remaining lines available to receive.';
 
   @override
-  String get purchaseOrdersRefreshFailed => 'Failed to refresh';
+  String get purchaseOrdersRefreshFailed =>
+      'खरेदी ऑर्डर रिफ्रेश करता आले नाहीत';
 }
 
 /// The translations for Marathi, as used in India (`mr_IN`).
@@ -4224,5 +4225,6 @@ class AppLocalizationsMrIn extends AppLocalizationsMr {
       'Unable to delete bank account. Please try again.';
 
   @override
-  String get purchaseOrdersRefreshFailed => 'Failed to refresh';
+  String get purchaseOrdersRefreshFailed =>
+      'खरेदी ऑर्डर रिफ्रेश करता आले नाहीत';
 }

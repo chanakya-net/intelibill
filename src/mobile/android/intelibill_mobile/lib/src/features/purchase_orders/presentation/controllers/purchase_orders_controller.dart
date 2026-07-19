@@ -24,6 +24,7 @@ class PurchaseOrdersState {
     this.pageNumber = 1,
     this.isRefreshing = false,
     this.refreshFailure,
+    this.hasLoadedDirectory = false,
   });
 
   final List<PurchaseOrderListItem> items;
@@ -36,6 +37,7 @@ class PurchaseOrdersState {
   final int pageNumber;
   final bool isRefreshing;
   final Failure? refreshFailure;
+  final bool hasLoadedDirectory;
 
   bool get isInitialLoading => isLoading && items.isEmpty;
   bool get isEmpty => !isLoading && failure == null && items.isEmpty;
@@ -54,6 +56,7 @@ class PurchaseOrdersState {
     bool? isRefreshing,
     Failure? refreshFailure,
     bool clearRefreshFailure = false,
+    bool? hasLoadedDirectory,
   }) {
     return PurchaseOrdersState(
       items: items ?? this.items,
@@ -70,6 +73,7 @@ class PurchaseOrdersState {
       refreshFailure: clearRefreshFailure
           ? null
           : (refreshFailure ?? this.refreshFailure),
+      hasLoadedDirectory: hasLoadedDirectory ?? this.hasLoadedDirectory,
     );
   }
 }
@@ -97,7 +101,6 @@ class PurchaseOrdersController extends _$PurchaseOrdersController {
 
   Future<void> refresh() {
     _searchDebounce.cancel();
-    _nextPageToLoad = 2;
     final generation = _nextGeneration();
     return _loadFirstPageForRefresh(generation, resetInitialLoad: true);
   }
@@ -144,8 +147,10 @@ class PurchaseOrdersController extends _$PurchaseOrdersController {
     unawaited(_loadFirstPage(_nextGeneration()));
   }
 
-  Future<void> _loadFirstPageForRefresh(int generation, {bool resetInitialLoad = false}) async {
-    _nextPageToLoad = 2;
+  Future<void> _loadFirstPageForRefresh(
+    int generation, {
+    bool resetInitialLoad = false,
+  }) async {
     final filters = PurchaseOrderFilters(
       search: _activeSearch,
       status: _activeStatus,
@@ -172,14 +177,16 @@ class PurchaseOrdersController extends _$PurchaseOrdersController {
         clearFailure: true,
         pageNumber: 1,
         hasMore: page.items.length < page.totalCount,
+        hasLoadedDirectory: true,
       );
+      _nextPageToLoad = 2;
     } on AppException catch (error) {
       if (!ref.mounted || _requestGeneration != generation) return;
       state = state.copyWith(
         isRefreshing: false,
         isLoading: false,
         refreshFailure: error.failure,
-        failure: state.items.isEmpty ? error.failure : null,
+        failure: state.hasLoadedDirectory ? null : error.failure,
       );
     } on Object {
       if (!ref.mounted || _requestGeneration != generation) return;
@@ -187,7 +194,7 @@ class PurchaseOrdersController extends _$PurchaseOrdersController {
         isRefreshing: false,
         isLoading: false,
         refreshFailure: const Failure.unknown(),
-        failure: state.items.isEmpty ? const Failure.unknown() : null,
+        failure: state.hasLoadedDirectory ? null : const Failure.unknown(),
       );
     }
   }
@@ -217,6 +224,7 @@ class PurchaseOrdersController extends _$PurchaseOrdersController {
         clearFailure: true,
         hasMore: page.items.length < page.totalCount,
         pageNumber: 1,
+        hasLoadedDirectory: true,
       );
     } on AppException catch (error) {
       if (!ref.mounted || _requestGeneration != generation) return;

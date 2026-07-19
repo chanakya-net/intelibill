@@ -2820,7 +2820,8 @@ class AppLocalizationsKn extends AppLocalizations {
       'No remaining lines available to receive.';
 
   @override
-  String get purchaseOrdersRefreshFailed => 'Failed to refresh';
+  String get purchaseOrdersRefreshFailed =>
+      'ಖರೀದಿ ಆದೇಶಗಳನ್ನು ರಿಫ್ರೆಶ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ';
 }
 
 /// The translations for Kannada, as used in India (`kn_IN`).
@@ -4228,5 +4229,6 @@ class AppLocalizationsKnIn extends AppLocalizationsKn {
       'Unable to delete bank account. Please try again.';
 
   @override
-  String get purchaseOrdersRefreshFailed => 'Failed to refresh';
+  String get purchaseOrdersRefreshFailed =>
+      'ಖರೀದಿ ಆದೇಶಗಳನ್ನು ರಿಫ್ರೆಶ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ';
 }

@@ -493,5 +493,5 @@
   "bankAccountsDeleteError": "Unable to delete bank account. Please try again.",
   "purchaseOrdersFilterDateFrom": "From",
   "purchaseOrdersFilterDateTo": "To",
-  "purchaseOrdersRefreshFailed": "Failed to refresh"
+  "purchaseOrdersRefreshFailed": "खरीद आदेश रीफ़्रेश नहीं किए जा सके"
 }

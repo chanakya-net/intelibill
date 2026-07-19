@@ -3,12 +3,17 @@ import 'dart:typed_data';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
 import 'package:intelibill_mobile/src/shared/documents/document_page_format.dart';
 import 'package:intelibill_mobile/src/shared/documents/filename_sanitizer.dart';
-import 'package:intelibill_mobile/src/shared/documents/pdf_document_theme.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 class SaleReceiptPdfBuilder {
+  static final _titleStyle = pw.TextStyle(
+    fontSize: 20,
+    fontWeight: pw.FontWeight.bold,
+  );
+  static final _emphasisStyle = pw.TextStyle(fontWeight: pw.FontWeight.bold);
+
   String filenameFor(SaleDetail sale) => FilenameSanitizer.sanitize(
     'sale-receipt-${sale.invoiceNumber}.pdf',
   );
@@ -56,7 +61,7 @@ class SaleReceiptPdfBuilder {
       pw.MultiPage(
         pageFormat: _receiptPageFormat(sale),
         build: (_) => [
-          pw.Text('Receipt', style: PdfDocumentTheme.title),
+          pw.Text('Receipt', style: _titleStyle),
           pw.SizedBox(height: 12),
           pw.Text('Invoice: ${sale.invoiceNumber}'),
           pw.Text('Date: ${_date(sale.soldAt)}'),
@@ -66,25 +71,25 @@ class SaleReceiptPdfBuilder {
               sale.customerPhone!.trim().isNotEmpty)
             pw.Text('Phone: ${sale.customerPhone}'),
           pw.SizedBox(height: 12),
-          pw.Text('Line items', style: PdfDocumentTheme.emphasis),
+          pw.Text('Line items', style: _emphasisStyle),
           ..._lineItems(sale),
           pw.SizedBox(height: 12),
-          pw.Text('Totals', style: PdfDocumentTheme.emphasis),
+          pw.Text('Totals', style: _emphasisStyle),
           ..._totals(sale),
           if (sale.discounts.isNotEmpty) ...[
             pw.SizedBox(height: 12),
-            pw.Text('Discounts', style: PdfDocumentTheme.emphasis),
+            pw.Text('Discounts', style: _emphasisStyle),
             ..._discounts(sale),
           ],
           pw.SizedBox(height: 12),
-          pw.Text('Payment split', style: PdfDocumentTheme.emphasis),
+          pw.Text('Payment split', style: _emphasisStyle),
           if (sale.settlements.isNotEmpty)
             ..._settlements(sale)
           else
-            pw.Text('No settlement records', style: PdfDocumentTheme.emphasis),
+            pw.Text('No settlement records', style: _emphasisStyle),
           if (sale.creditNoteRedemptions.isNotEmpty) ...[
             pw.SizedBox(height: 12),
-            pw.Text('Redemptions', style: PdfDocumentTheme.emphasis),
+            pw.Text('Redemptions', style: _emphasisStyle),
             ..._redemptions(sale),
           ],
         ],

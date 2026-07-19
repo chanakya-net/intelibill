@@ -87,7 +87,10 @@ class _StubPurchaseOrdersController extends PurchaseOrdersController {
 }
 
 void main() {
-  Widget buildApp(PurchaseOrdersState state) {
+  Widget buildApp(
+    PurchaseOrdersState state, {
+    Locale locale = const Locale('en', 'IN'),
+  }) {
     return ProviderScope(
       overrides: [
         purchaseOrdersControllerProvider.overrideWith(
@@ -96,6 +99,7 @@ void main() {
       ],
       child: MaterialApp(
         theme: AppTheme.lightTheme,
+        locale: locale,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: const PurchaseOrdersPage(),
@@ -301,6 +305,35 @@ void main() {
     expect(find.byKey(PurchaseOrdersPage.searchFieldKey), findsOneWidget);
     expect(find.text('No purchase orders yet'), findsOneWidget);
   });
+
+  testWidgets(
+    'empty filtered result keeps controls and shows localized refresh failure',
+    (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        buildApp(
+          const PurchaseOrdersState(
+            refreshFailure: Failure.network(message: 'refresh failed'),
+          ),
+          locale: const Locale('hi'),
+        ),
+      );
+
+      await tester.enterText(
+        find.descendant(
+          of: find.byKey(PurchaseOrdersPage.searchFieldKey),
+          matching: find.byType(EditableText),
+        ),
+        'paper',
+      );
+      await tester.pump();
+
+      expect(find.byKey(PurchaseOrdersPage.searchFieldKey), findsOneWidget);
+      expect(find.byType(FilterChip), findsWidgets);
+      expect(find.text('खरीद आदेश रीफ़्रेश नहीं किए जा सके'), findsOneWidget);
+    },
+  );
 
   testWidgets('typed query shows filtered empty state and retains search', (
     tester,

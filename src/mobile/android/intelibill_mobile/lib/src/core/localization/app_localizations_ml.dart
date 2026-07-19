@@ -2818,7 +2818,7 @@ class AppLocalizationsMl extends AppLocalizations {
       'No remaining lines available to receive.';
 
   @override
-  String get purchaseOrdersRefreshFailed => 'Failed to refresh';
+  String get purchaseOrdersRefreshFailed => 'വാങ്ങൽ ഓർഡറുകൾ പുതുക്കാനായില്ല';
 }
 
 /// The translations for Malayalam, as used in India (`ml_IN`).
@@ -4224,5 +4224,5 @@ class AppLocalizationsMlIn extends AppLocalizationsMl {
       'Unable to delete bank account. Please try again.';
 
   @override
-  String get purchaseOrdersRefreshFailed => 'Failed to refresh';
+  String get purchaseOrdersRefreshFailed => 'വാങ്ങൽ ഓർഡറുകൾ പുതുക്കാനായില്ല';
 }

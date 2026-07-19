@@ -99,6 +99,34 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
         (!state.isLoading && !state.hasMore && state.items.isNotEmpty);
   }
 
+  Widget _buildRefreshFailureBanner(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: colorScheme.errorContainer,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.error_outline, size: 20, color: colorScheme.error),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                AppLocalizations.of(context)!.purchaseOrdersRefreshFailed,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: colorScheme.error),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -247,6 +275,7 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
         children: [
           searchBar,
           filterBar,
+          if (state.refreshFailure != null) _buildRefreshFailureBanner(context),
           Expanded(
             child: RefreshIndicator(
               onRefresh: () =>
@@ -267,6 +296,7 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
         children: [
           searchBar,
           filterBar,
+          if (state.refreshFailure != null) _buildRefreshFailureBanner(context),
           Expanded(
             child: RefreshIndicator(
               onRefresh: () =>
@@ -285,35 +315,7 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
       children: [
         searchBar,
         filterBar,
-        if (state.refreshFailure != null)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.errorContainer,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.error_outline,
-                    size: 20,
-                    color: Theme.of(context).colorScheme.error,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      l10n.purchaseOrdersRefreshFailed,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.error,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+        if (state.refreshFailure != null) _buildRefreshFailureBanner(context),
         Expanded(
           child: RefreshIndicator(
             onRefresh: () =>

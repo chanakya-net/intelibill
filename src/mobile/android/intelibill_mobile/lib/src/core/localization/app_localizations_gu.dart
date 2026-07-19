@@ -2818,7 +2818,7 @@ class AppLocalizationsGu extends AppLocalizations {
       'No remaining lines available to receive.';
 
   @override
-  String get purchaseOrdersRefreshFailed => 'Failed to refresh';
+  String get purchaseOrdersRefreshFailed => 'ખરીદી ઓર્ડર રિફ્રેશ કરી શકાયા નથી';
 }
 
 /// The translations for Gujarati, as used in India (`gu_IN`).
@@ -4224,5 +4224,5 @@ class AppLocalizationsGuIn extends AppLocalizationsGu {
       'Unable to delete bank account. Please try again.';
 
   @override
-  String get purchaseOrdersRefreshFailed => 'Failed to refresh';
+  String get purchaseOrdersRefreshFailed => 'ખરીદી ઓર્ડર રિફ્રેશ કરી શકાયા નથી';
 }
