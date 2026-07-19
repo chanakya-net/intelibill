@@ -43,6 +43,11 @@ class _Repository implements PurchaseOrderRepository {
     throw UnimplementedError();
   }
 
+  @override
+  Future<PurchaseOrder> place(String purchaseOrderId) {
+    throw UnimplementedError();
+  }
+
   String? id;
   String? reason;
 

@@ -51,6 +51,10 @@ interface class PurchaseOrderRemoteDataSource {
   ) {
     throw UnimplementedError();
   }
+
+  Future<PurchaseOrderDetailDto> place(String purchaseOrderId) {
+    throw UnimplementedError();
+  }
 }
 
 class PurchaseOrderRemoteDataSourceImpl
@@ -167,6 +171,15 @@ class PurchaseOrderRemoteDataSourceImpl
     final response = await _apiClient.post<Map<String, dynamic>>(
       '/purchase-orders/$purchaseOrderId/receipts',
       data: request.toJson(),
+    );
+    return PurchaseOrderDetailDto.fromJson(response.data!);
+  }
+
+  @override
+  Future<PurchaseOrderDetailDto> place(String purchaseOrderId) async {
+    final response = await _apiClient.post<Map<String, dynamic>>(
+      '/purchase-orders/$purchaseOrderId/place',
+      data: {},
     );
     return PurchaseOrderDetailDto.fromJson(response.data!);
   }

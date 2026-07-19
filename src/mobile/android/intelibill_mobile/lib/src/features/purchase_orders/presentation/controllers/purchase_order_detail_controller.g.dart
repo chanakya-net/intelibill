@@ -65,7 +65,7 @@ final class PurchaseOrderDetailControllerProvider
 }
 
 String _$purchaseOrderDetailControllerHash() =>
-    r'59304a3018d115dcfba79aaad65b358e1204e79f';
+    r'b18552f497c975443a96f1efad46989c47062bdd';
 
 final class PurchaseOrderDetailControllerFamily extends $Family
     with

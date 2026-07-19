@@ -18,6 +18,7 @@ class PurchaseOrderDetailState {
     this.failure,
     this.cancelState = const _CancelState(),
     this.closeState = const _CloseState(),
+    this.placeState = const _PlaceState(),
   });
 
   final PurchaseOrder? detail;
@@ -25,6 +26,7 @@ class PurchaseOrderDetailState {
   final Failure? failure;
   final _CancelState cancelState;
   final _CloseState closeState;
+  final _PlaceState placeState;
 
   PurchaseOrderDetailState copyWith({
     PurchaseOrder? detail,
@@ -32,6 +34,7 @@ class PurchaseOrderDetailState {
     Failure? failure,
     _CancelState? cancelState,
     _CloseState? closeState,
+    _PlaceState? placeState,
     bool clearDetail = false,
     bool clearFailure = false,
   }) {
@@ -41,6 +44,7 @@ class PurchaseOrderDetailState {
       failure: clearFailure ? null : (failure ?? this.failure),
       cancelState: cancelState ?? this.cancelState,
       closeState: closeState ?? this.closeState,
+      placeState: placeState ?? this.placeState,
     );
   }
 }
@@ -80,6 +84,25 @@ class _CloseState {
     bool clearFailure = false,
   }) {
     return _CloseState(
+      isLoading: isLoading ?? this.isLoading,
+      failure: clearFailure ? null : (failure ?? this.failure),
+    );
+  }
+}
+
+@immutable
+class _PlaceState {
+  const _PlaceState({this.isLoading = false, this.failure});
+
+  final bool isLoading;
+  final Failure? failure;
+
+  _PlaceState copyWith({
+    bool? isLoading,
+    Failure? failure,
+    bool clearFailure = false,
+  }) {
+    return _PlaceState(
       isLoading: isLoading ?? this.isLoading,
       failure: clearFailure ? null : (failure ?? this.failure),
     );
@@ -210,5 +233,45 @@ class PurchaseOrderDetailController extends _$PurchaseOrderDetailController {
     );
     await _load();
     throw AppException(failure: failure);
+  }
+
+  Future<void> place() async {
+    state = state.copyWith(
+      placeState: state.placeState.copyWith(
+        isLoading: true,
+        clearFailure: true,
+      ),
+    );
+    try {
+      final useCase = ref.read(placePurchaseOrderProvider);
+      final updated = await useCase(_purchaseOrderId);
+      if (!ref.mounted) return;
+
+      state = state.copyWith(
+        detail: updated,
+        placeState: state.placeState.copyWith(isLoading: false),
+      );
+      ref.invalidate(purchaseOrdersControllerProvider);
+    } on AppException catch (error) {
+      if (!ref.mounted) return;
+      state = state.copyWith(
+        placeState: state.placeState.copyWith(
+          isLoading: false,
+          failure: error.failure,
+        ),
+      );
+      await _load();
+      rethrow;
+    } on Object {
+      if (!ref.mounted) return;
+      state = state.copyWith(
+        placeState: state.placeState.copyWith(
+          isLoading: false,
+          failure: const Failure.unknown(),
+        ),
+      );
+      await _load();
+      rethrow;
+    }
   }
 }

@@ -569,3 +569,51 @@ final class ReceivePurchaseOrderProvider
 
 String _$receivePurchaseOrderHash() =>
     r'4cac46c8d8e9396ae1fe7a9a3eb3513bcece3003';
+
+@ProviderFor(placePurchaseOrder)
+final placePurchaseOrderProvider = PlacePurchaseOrderProvider._();
+
+final class PlacePurchaseOrderProvider
+    extends
+        $FunctionalProvider<
+          PlacePurchaseOrder,
+          PlacePurchaseOrder,
+          PlacePurchaseOrder
+        >
+    with $Provider<PlacePurchaseOrder> {
+  PlacePurchaseOrderProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'placePurchaseOrderProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$placePurchaseOrderHash();
+
+  @$internal
+  @override
+  $ProviderElement<PlacePurchaseOrder> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  PlacePurchaseOrder create(Ref ref) {
+    return placePurchaseOrder(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(PlacePurchaseOrder value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<PlacePurchaseOrder>(value),
+    );
+  }
+}
+
+String _$placePurchaseOrderHash() =>
+    r'c9aaa114a9c3bf9a15e45769aa0d6a7e52e27f5f';
