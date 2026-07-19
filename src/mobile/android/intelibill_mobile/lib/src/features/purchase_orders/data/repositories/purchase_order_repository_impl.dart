@@ -97,6 +97,17 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
     }
   }
 
+  @override
+  Future<void> deleteDraft(String purchaseOrderId) async {
+    try {
+      await _remoteDataSource.deleteDraft(purchaseOrderId);
+    } on AppException {
+      rethrow;
+    } catch (error) {
+      throw AppException(failure: Failure.unknown(message: error.toString()));
+    }
+  }
+
   CreatePurchaseOrderDraftRequestDto _toRequest(PurchaseOrderDraft draft) {
     return CreatePurchaseOrderDraftRequestDto(
       supplierId: _normalize(draft.supplierId),

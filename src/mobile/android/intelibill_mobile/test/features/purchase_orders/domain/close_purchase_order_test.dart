@@ -31,6 +31,11 @@ class _Repository implements PurchaseOrderRepository {
   }
 
   @override
+  Future<void> deleteDraft(String purchaseOrderId) {
+    throw UnimplementedError();
+  }
+
+  @override
   Future<PurchaseOrder> receive(
     String purchaseOrderId,
     input,

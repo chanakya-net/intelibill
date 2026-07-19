@@ -3,7 +3,8 @@ String generateBatchNumber({
   int? entropy,
 }) {
   final time = currentTime ?? DateTime.now();
-  final dateLabel = '${time.year.toString().padLeft(4, '0')}'
+  final dateLabel =
+      '${time.year.toString().padLeft(4, '0')}'
       '${time.month.toString().padLeft(2, '0')}'
       '${time.day.toString().padLeft(2, '0')}';
 

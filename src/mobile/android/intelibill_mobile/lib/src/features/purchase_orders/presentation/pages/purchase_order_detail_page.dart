@@ -139,6 +139,47 @@ class PurchaseOrderDetailPage extends ConsumerWidget {
             ),
           if (purchaseOrder.status == PurchaseOrderStatus.draft)
             IconButton(
+              key: const Key('purchase-order-detail-delete-button'),
+              icon: const Icon(Icons.delete_outline),
+              tooltip: 'Delete',
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (dialogContext) {
+                    return AlertDialog(
+                      title: const Text('Delete Draft?'),
+                      content: const Text(
+                        'This draft purchase order will be permanently deleted.',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(dialogContext).pop(),
+                          child: Text(l10n.commonCancel),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.of(dialogContext).pop();
+                            ref
+                                .read(
+                                  purchaseOrderDetailControllerProvider(
+                                    purchaseOrderId,
+                                  ).notifier,
+                                )
+                                .delete();
+                          },
+                          child: const Text(
+                            'Delete',
+                            style: TextStyle(color: Colors.red),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                );
+              },
+            ),
+          if (purchaseOrder.status == PurchaseOrderStatus.draft)
+            IconButton(
               key: const Key('purchase-order-detail-place-button'),
               icon: const Icon(Icons.send),
               tooltip: l10n.purchaseOrderPlaceAction,
@@ -188,7 +229,9 @@ class PurchaseOrderDetailPage extends ConsumerWidget {
         (s) => s.supplierId == po.supplierId,
       );
       if (!supplier.isActive) return false;
-      return po.lines.any((line) => line.expectedQuantity > 0 && line.unitCost >= 0);
+      return po.lines.any(
+        (line) => line.expectedQuantity > 0 && line.unitCost >= 0,
+      );
     } catch (_) {
       return false;
     }

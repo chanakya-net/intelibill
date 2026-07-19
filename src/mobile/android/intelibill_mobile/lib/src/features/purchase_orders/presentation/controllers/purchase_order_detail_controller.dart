@@ -20,6 +20,7 @@ class PurchaseOrderDetailState {
     this.cancelState = const _CancelState(),
     this.closeState = const _CloseState(),
     this.placeState = const _PlaceState(),
+    this.deleteState = const _DeleteState(),
   });
 
   final PurchaseOrder? detail;
@@ -28,6 +29,7 @@ class PurchaseOrderDetailState {
   final _CancelState cancelState;
   final _CloseState closeState;
   final _PlaceState placeState;
+  final _DeleteState deleteState;
 
   PurchaseOrderDetailState copyWith({
     PurchaseOrder? detail,
@@ -36,6 +38,7 @@ class PurchaseOrderDetailState {
     _CancelState? cancelState,
     _CloseState? closeState,
     _PlaceState? placeState,
+    _DeleteState? deleteState,
     bool clearDetail = false,
     bool clearFailure = false,
   }) {
@@ -46,6 +49,7 @@ class PurchaseOrderDetailState {
       cancelState: cancelState ?? this.cancelState,
       closeState: closeState ?? this.closeState,
       placeState: placeState ?? this.placeState,
+      deleteState: deleteState ?? this.deleteState,
     );
   }
 }
@@ -85,6 +89,25 @@ class _CloseState {
     bool clearFailure = false,
   }) {
     return _CloseState(
+      isLoading: isLoading ?? this.isLoading,
+      failure: clearFailure ? null : (failure ?? this.failure),
+    );
+  }
+}
+
+@immutable
+class _DeleteState {
+  const _DeleteState({this.isLoading = false, this.failure});
+
+  final bool isLoading;
+  final Failure? failure;
+
+  _DeleteState copyWith({
+    bool? isLoading,
+    Failure? failure,
+    bool clearFailure = false,
+  }) {
+    return _DeleteState(
       isLoading: isLoading ?? this.isLoading,
       failure: clearFailure ? null : (failure ?? this.failure),
     );
@@ -252,6 +275,53 @@ class PurchaseOrderDetailController extends _$PurchaseOrderDetailController {
     );
     await _load();
     throw AppException(failure: failure);
+  }
+
+  Future<void> delete() async {
+    if (state.deleteState.isLoading) return;
+
+    final localDraftKey = ref.read(
+      purchaseOrderDraftLocalKeyProvider(_purchaseOrderId),
+    );
+    state = state.copyWith(
+      deleteState: state.deleteState.copyWith(
+        isLoading: true,
+        clearFailure: true,
+      ),
+    );
+
+    try {
+      final useCase = ref.read(deletePurchaseOrderDraftProvider);
+      await useCase(_purchaseOrderId);
+      if (!ref.mounted) return;
+
+      await _removeLocalDraftAfterPlace(localDraftKey);
+      if (!ref.mounted) return;
+
+      state = state.copyWith(
+        detail: null,
+        deleteState: state.deleteState.copyWith(isLoading: false),
+      );
+      ref.invalidate(purchaseOrdersControllerProvider);
+    } on AppException catch (error) {
+      if (!ref.mounted) return;
+      state = state.copyWith(
+        deleteState: state.deleteState.copyWith(
+          isLoading: false,
+          failure: error.failure,
+        ),
+      );
+      rethrow;
+    } on Object {
+      if (!ref.mounted) return;
+      state = state.copyWith(
+        deleteState: state.deleteState.copyWith(
+          isLoading: false,
+          failure: const Failure.unknown(),
+        ),
+      );
+      rethrow;
+    }
   }
 
   Future<void> place() async {

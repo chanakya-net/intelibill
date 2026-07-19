@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
@@ -8,6 +11,7 @@ import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/p
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_filters.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_page.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/cancel_purchase_order.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/delete_purchase_order_draft.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/get_purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/get_purchase_orders.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/place_purchase_order.dart';
@@ -19,6 +23,9 @@ import 'package:mocktail/mocktail.dart';
 class MockGetPurchaseOrder extends Mock implements GetPurchaseOrder {}
 
 class MockCancelPurchaseOrder extends Mock implements CancelPurchaseOrder {}
+
+class MockDeletePurchaseOrder extends Mock
+    implements DeletePurchaseOrderDraft {}
 
 class MockGetPurchaseOrders extends Mock implements GetPurchaseOrders {}
 
@@ -311,6 +318,167 @@ void main() {
     final state = container.read(purchaseOrderDetailControllerProvider('po-1'));
     expect(state.detail, refreshed);
     expect(state.placeState.failure, isA<ServerFailure>());
+  });
+
+  test('delete visible only for Draft status', () async {
+    when(() => getPurchaseOrder('po-1')).thenAnswer(
+      (_) async => _detail(status: PurchaseOrderStatus.draft),
+    );
+
+    final container = makeContainer();
+    addTearDown(container.dispose);
+    container.listen(
+      purchaseOrderDetailControllerProvider('po-1'),
+      (_, __) {},
+      fireImmediately: true,
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+
+    final state = container.read(purchaseOrderDetailControllerProvider('po-1'));
+    expect(state.detail?.status, PurchaseOrderStatus.draft);
+  });
+
+  test('delete: cancel returns to previous state', () async {
+    when(() => getPurchaseOrder('po-1')).thenAnswer(
+      (_) async => _detail(status: PurchaseOrderStatus.draft),
+    );
+
+    final container = makeContainer();
+    addTearDown(container.dispose);
+    container.listen(
+      purchaseOrderDetailControllerProvider('po-1'),
+      (_, __) {},
+      fireImmediately: true,
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+
+    final state = container.read(purchaseOrderDetailControllerProvider('po-1'));
+    expect(state.detail, isNotNull);
+    expect(state.deleteState.failure, isNull);
+  });
+
+  test(
+    'delete: success clears local draft and invalidates directory',
+    () async {
+      final mockDelete = MockDeletePurchaseOrder();
+      final mockGetOrders = MockGetPurchaseOrders();
+
+      when(() => getPurchaseOrder('po-1')).thenAnswer(
+        (_) async => _detail(status: PurchaseOrderStatus.draft),
+      );
+      when(() => mockDelete('po-1')).thenAnswer((_) async => {});
+      when(() => mockGetOrders(any())).thenAnswer(
+        (_) async => const PurchaseOrderPage(
+          items: [],
+          totalCount: 0,
+          pageNumber: 1,
+          pageSize: 20,
+        ),
+      );
+
+      final container = ProviderContainer(
+        overrides: [
+          getPurchaseOrderProvider.overrideWithValue(getPurchaseOrder),
+          deletePurchaseOrderDraftProvider.overrideWithValue(mockDelete),
+          getPurchaseOrdersProvider.overrideWithValue(mockGetOrders),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      container.listen(
+        purchaseOrderDetailControllerProvider('po-1'),
+        (_, __) {},
+      );
+      container.listen(purchaseOrdersControllerProvider, (_, __) {});
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      clearInteractions(mockGetOrders);
+
+      await container
+          .read(purchaseOrderDetailControllerProvider('po-1').notifier)
+          .delete();
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      verify(() => mockDelete('po-1')).called(1);
+      verify(() => mockGetOrders(any())).called(1);
+    },
+  );
+
+  test('delete: failure retains detail and draft', () async {
+    final mockDelete = MockDeletePurchaseOrder();
+
+    when(() => getPurchaseOrder('po-1')).thenAnswer(
+      (_) async => _detail(status: PurchaseOrderStatus.draft),
+    );
+    when(() => mockDelete('po-1')).thenThrow(
+      AppException(failure: const Failure.server(message: 'Cannot delete')),
+    );
+
+    final container = ProviderContainer(
+      overrides: [
+        getPurchaseOrderProvider.overrideWithValue(getPurchaseOrder),
+        deletePurchaseOrderDraftProvider.overrideWithValue(mockDelete),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    container.listen(
+      purchaseOrderDetailControllerProvider('po-1'),
+      (_, __) {},
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+
+    await expectLater(
+      container
+          .read(purchaseOrderDetailControllerProvider('po-1').notifier)
+          .delete(),
+      throwsA(isA<AppException>()),
+    );
+
+    final state = container.read(purchaseOrderDetailControllerProvider('po-1'));
+    expect(state.detail, isNotNull);
+    expect(state.deleteState.failure, isA<ServerFailure>());
+  });
+
+  test('delete: duplicate submit guarded', () async {
+    final mockDelete = MockDeletePurchaseOrder();
+    var deleteCount = 0;
+
+    when(() => getPurchaseOrder('po-1')).thenAnswer(
+      (_) async => _detail(status: PurchaseOrderStatus.draft),
+    );
+    when(() => mockDelete('po-1')).thenAnswer((_) async {
+      deleteCount++;
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    });
+
+    final container = ProviderContainer(
+      overrides: [
+        getPurchaseOrderProvider.overrideWithValue(getPurchaseOrder),
+        deletePurchaseOrderDraftProvider.overrideWithValue(mockDelete),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    container.listen(
+      purchaseOrderDetailControllerProvider('po-1'),
+      (_, __) {},
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+
+    unawaited(
+      container
+          .read(purchaseOrderDetailControllerProvider('po-1').notifier)
+          .delete(),
+    );
+    unawaited(
+      container
+          .read(purchaseOrderDetailControllerProvider('po-1').notifier)
+          .delete(),
+    );
+
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+
+    expect(deleteCount, 1);
   });
 }
 
