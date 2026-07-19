@@ -18,6 +18,8 @@ class PurchaseOrderBuilderState {
     this.selectedCatalogItem,
     this.isLoadingSuppliers = false,
     this.isSaving = false,
+    this.isPlacing = false,
+    this.isEditableDraft = false,
     this.failure,
     this.savedDraft,
     this.isSupplierLoadFailure = false,
@@ -40,6 +42,8 @@ class PurchaseOrderBuilderState {
   final Item? selectedCatalogItem;
   final bool isLoadingSuppliers;
   final bool isSaving;
+  final bool isPlacing;
+  final bool isEditableDraft;
   final Failure? failure;
   final PurchaseOrder? savedDraft;
   final bool isSupplierLoadFailure;
@@ -65,6 +69,8 @@ class PurchaseOrderBuilderState {
     Item? selectedCatalogItem,
     bool? isLoadingSuppliers,
     bool? isSaving,
+    bool? isPlacing,
+    bool? isEditableDraft,
     Failure? failure,
     PurchaseOrder? savedDraft,
     bool? isSupplierLoadFailure,
@@ -103,6 +109,8 @@ class PurchaseOrderBuilderState {
           : (selectedCatalogItem ?? this.selectedCatalogItem),
       isLoadingSuppliers: isLoadingSuppliers ?? this.isLoadingSuppliers,
       isSaving: isSaving ?? this.isSaving,
+      isPlacing: isPlacing ?? this.isPlacing,
+      isEditableDraft: isEditableDraft ?? this.isEditableDraft,
       failure: clearFailure ? null : (failure ?? this.failure),
       savedDraft: clearSavedDraft ? null : (savedDraft ?? this.savedDraft),
       isSupplierLoadFailure:
@@ -123,5 +131,16 @@ class PurchaseOrderBuilderState {
       isDraftActionInProgress:
           isDraftActionInProgress ?? this.isDraftActionInProgress,
     );
+  }
+
+  bool get canPlace {
+    final supplier = selectedSupplier;
+    return isEditableDraft &&
+        supplier != null &&
+        supplier.isActive &&
+        !supplier.isSystem &&
+        lines.any(
+          (line) => line.expectedQuantity > 0 && line.unitCost >= 0,
+        );
   }
 }

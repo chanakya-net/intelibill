@@ -2745,10 +2745,6 @@ class AppLocalizationsKn extends AppLocalizations {
   String get purchaseOrderBuilderRemoveLineLabel => 'Remove';
 
   @override
-  String get purchaseOrderPlaceAction => 'Place';
-
-  @override
-
   String get purchaseOrderReceiveAction => 'Receive';
 
   @override
@@ -2860,6 +2856,26 @@ class AppLocalizationsKn extends AppLocalizations {
   @override
   String get purchaseOrdersRefreshFailed =>
       'ಖರೀದಿ ಆದೇಶಗಳನ್ನು ರಿಫ್ರೆಶ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ';
+
+  @override
+  String get purchaseOrderPlaceTitle => 'Place purchase order';
+
+  @override
+  String get purchaseOrderPlaceAction => 'Place';
+
+  @override
+  String get purchaseOrderPlaceConfirm =>
+      'Are you sure you want to place this purchase order?';
+
+  @override
+  String get purchaseOrderPlaceConfirmButton => 'Place order';
+
+  @override
+  String get purchaseOrderPlaceSuccess => 'Purchase order placed successfully.';
+
+  @override
+  String get purchaseOrderPlaceFailure =>
+      'Could not place purchase order. Please try again.';
 }
 
 /// The translations for Kannada, as used in India (`kn_IN`).

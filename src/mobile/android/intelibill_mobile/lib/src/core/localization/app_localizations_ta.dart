@@ -2745,10 +2745,6 @@ class AppLocalizationsTa extends AppLocalizations {
   String get purchaseOrderBuilderRemoveLineLabel => 'Remove';
 
   @override
-  String get purchaseOrderPlaceAction => 'Place';
-
-  @override
-
   String get purchaseOrderReceiveAction => 'Receive';
 
   @override
@@ -2860,6 +2856,26 @@ class AppLocalizationsTa extends AppLocalizations {
   @override
   String get purchaseOrdersRefreshFailed =>
       'கொள்முதல் ஆர்டர்களைப் புதுப்பிக்க முடியவில்லை';
+
+  @override
+  String get purchaseOrderPlaceTitle => 'Place purchase order';
+
+  @override
+  String get purchaseOrderPlaceAction => 'Place';
+
+  @override
+  String get purchaseOrderPlaceConfirm =>
+      'Are you sure you want to place this purchase order?';
+
+  @override
+  String get purchaseOrderPlaceConfirmButton => 'Place order';
+
+  @override
+  String get purchaseOrderPlaceSuccess => 'Purchase order placed successfully.';
+
+  @override
+  String get purchaseOrderPlaceFailure =>
+      'Could not place purchase order. Please try again.';
 }
 
 /// The translations for Tamil, as used in India (`ta_IN`).

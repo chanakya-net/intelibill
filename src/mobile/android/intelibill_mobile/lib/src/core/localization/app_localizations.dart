@@ -5257,12 +5257,6 @@ abstract class AppLocalizations {
   /// **'Remove'**
   String get purchaseOrderBuilderRemoveLineLabel;
 
-  /// No description provided for @purchaseOrderPlaceAction.
-  ///
-  /// In en_IN, this message translates to:
-  /// **'Place'**
-  String get purchaseOrderPlaceAction;
-
   /// No description provided for @purchaseOrderReceiveAction.
   ///
   /// In en_IN, this message translates to:
@@ -5469,6 +5463,42 @@ abstract class AppLocalizations {
   /// In en_IN, this message translates to:
   /// **'Failed to refresh'**
   String get purchaseOrdersRefreshFailed;
+
+  /// No description provided for @purchaseOrderPlaceTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Place purchase order'**
+  String get purchaseOrderPlaceTitle;
+
+  /// No description provided for @purchaseOrderPlaceAction.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Place'**
+  String get purchaseOrderPlaceAction;
+
+  /// No description provided for @purchaseOrderPlaceConfirm.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Are you sure you want to place this purchase order?'**
+  String get purchaseOrderPlaceConfirm;
+
+  /// No description provided for @purchaseOrderPlaceConfirmButton.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Place order'**
+  String get purchaseOrderPlaceConfirmButton;
+
+  /// No description provided for @purchaseOrderPlaceSuccess.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Purchase order placed successfully.'**
+  String get purchaseOrderPlaceSuccess;
+
+  /// No description provided for @purchaseOrderPlaceFailure.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Could not place purchase order. Please try again.'**
+  String get purchaseOrderPlaceFailure;
 }
 
 class _AppLocalizationsDelegate

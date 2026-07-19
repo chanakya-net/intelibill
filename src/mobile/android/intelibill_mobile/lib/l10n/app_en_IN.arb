@@ -1031,5 +1031,11 @@
   "purchaseOrderReceiveSubmit": "Record receipt",
   "purchaseOrderReceiveSubmitFailure": "Could not record receipt.",
   "purchaseOrderReceiveNoLines": "No remaining lines available to receive.",
-  "purchaseOrdersRefreshFailed": "Failed to refresh"
+  "purchaseOrdersRefreshFailed": "Failed to refresh",
+  "purchaseOrderPlaceTitle": "Place purchase order",
+  "purchaseOrderPlaceAction": "Place",
+  "purchaseOrderPlaceConfirm": "Are you sure you want to place this purchase order?",
+  "purchaseOrderPlaceConfirmButton": "Place order",
+  "purchaseOrderPlaceSuccess": "Purchase order placed successfully.",
+  "purchaseOrderPlaceFailure": "Could not place purchase order. Please try again."
 }

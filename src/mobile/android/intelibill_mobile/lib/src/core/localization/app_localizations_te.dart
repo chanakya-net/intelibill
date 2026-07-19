@@ -2743,10 +2743,6 @@ class AppLocalizationsTe extends AppLocalizations {
   String get purchaseOrderBuilderRemoveLineLabel => 'Remove';
 
   @override
-  String get purchaseOrderPlaceAction => 'Place';
-
-  @override
-
   String get purchaseOrderReceiveAction => 'Receive';
 
   @override
@@ -2858,6 +2854,26 @@ class AppLocalizationsTe extends AppLocalizations {
   @override
   String get purchaseOrdersRefreshFailed =>
       'కొనుగోలు ఆర్డర్‌లను రిఫ్రెష్ చేయలేకపోయాము';
+
+  @override
+  String get purchaseOrderPlaceTitle => 'Place purchase order';
+
+  @override
+  String get purchaseOrderPlaceAction => 'Place';
+
+  @override
+  String get purchaseOrderPlaceConfirm =>
+      'Are you sure you want to place this purchase order?';
+
+  @override
+  String get purchaseOrderPlaceConfirmButton => 'Place order';
+
+  @override
+  String get purchaseOrderPlaceSuccess => 'Purchase order placed successfully.';
+
+  @override
+  String get purchaseOrderPlaceFailure =>
+      'Could not place purchase order. Please try again.';
 }
 
 /// The translations for Telugu, as used in India (`te_IN`).

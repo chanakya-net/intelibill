@@ -10,6 +10,7 @@ import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/p
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/cancel_purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/get_purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/get_purchase_orders.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/place_purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_detail_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_providers.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_orders_controller.dart';
@@ -20,6 +21,8 @@ class MockGetPurchaseOrder extends Mock implements GetPurchaseOrder {}
 class MockCancelPurchaseOrder extends Mock implements CancelPurchaseOrder {}
 
 class MockGetPurchaseOrders extends Mock implements GetPurchaseOrders {}
+
+class MockPlacePurchaseOrder extends Mock implements PlacePurchaseOrder {}
 
 void main() {
   setUpAll(() {
@@ -226,6 +229,89 @@ void main() {
       expect(state.cancelState.failure, conflictFailure);
     },
   );
+
+  test(
+    'places with authoritative detail and invalidates the directory',
+    () async {
+      final placePurchaseOrder = MockPlacePurchaseOrder();
+      final getPurchaseOrders = MockGetPurchaseOrders();
+      final placed = _detail(status: PurchaseOrderStatus.placed);
+      when(() => getPurchaseOrder('po-1')).thenAnswer(
+        (_) async => _detail(status: PurchaseOrderStatus.draft),
+      );
+      when(() => placePurchaseOrder('po-1')).thenAnswer((_) async => placed);
+      when(() => getPurchaseOrders(any())).thenAnswer(
+        (_) async => const PurchaseOrderPage(
+          items: [],
+          totalCount: 0,
+          pageNumber: 1,
+          pageSize: 20,
+        ),
+      );
+      final container = ProviderContainer(
+        overrides: [
+          getPurchaseOrderProvider.overrideWithValue(getPurchaseOrder),
+          placePurchaseOrderProvider.overrideWithValue(placePurchaseOrder),
+          getPurchaseOrdersProvider.overrideWithValue(getPurchaseOrders),
+        ],
+      );
+      addTearDown(container.dispose);
+      container.listen(
+        purchaseOrderDetailControllerProvider('po-1'),
+        (_, __) {},
+      );
+      container.listen(purchaseOrdersControllerProvider, (_, __) {});
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      clearInteractions(getPurchaseOrders);
+
+      await container
+          .read(purchaseOrderDetailControllerProvider('po-1').notifier)
+          .place();
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      expect(
+        container.read(purchaseOrderDetailControllerProvider('po-1')).detail,
+        placed,
+      );
+      verify(() => placePurchaseOrder('po-1')).called(1);
+      verify(() => getPurchaseOrders(any())).called(1);
+    },
+  );
+
+  test('refreshes authoritative detail after a failed place', () async {
+    final placePurchaseOrder = MockPlacePurchaseOrder();
+    final refreshed = _detail(status: PurchaseOrderStatus.placed);
+    var calls = 0;
+    when(() => getPurchaseOrder('po-1')).thenAnswer((_) async {
+      calls++;
+      return calls == 1
+          ? _detail(status: PurchaseOrderStatus.draft)
+          : refreshed;
+    });
+    when(() => placePurchaseOrder('po-1')).thenThrow(
+      AppException(failure: const Failure.server(statusCode: 409)),
+    );
+    final container = ProviderContainer(
+      overrides: [
+        getPurchaseOrderProvider.overrideWithValue(getPurchaseOrder),
+        placePurchaseOrderProvider.overrideWithValue(placePurchaseOrder),
+      ],
+    );
+    addTearDown(container.dispose);
+    container.listen(purchaseOrderDetailControllerProvider('po-1'), (_, __) {});
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+
+    await expectLater(
+      container
+          .read(purchaseOrderDetailControllerProvider('po-1').notifier)
+          .place(),
+      throwsA(isA<AppException>()),
+    );
+
+    final state = container.read(purchaseOrderDetailControllerProvider('po-1'));
+    expect(state.detail, refreshed);
+    expect(state.placeState.failure, isA<ServerFailure>());
+  });
 }
 
 PurchaseOrder _detail({

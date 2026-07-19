@@ -2743,10 +2743,6 @@ class AppLocalizationsGu extends AppLocalizations {
   String get purchaseOrderBuilderRemoveLineLabel => 'Remove';
 
   @override
-  String get purchaseOrderPlaceAction => 'Place';
-
-  @override
-
   String get purchaseOrderReceiveAction => 'Receive';
 
   @override
@@ -2857,6 +2853,26 @@ class AppLocalizationsGu extends AppLocalizations {
 
   @override
   String get purchaseOrdersRefreshFailed => 'ખરીદી ઓર્ડર રિફ્રેશ કરી શકાયા નથી';
+
+  @override
+  String get purchaseOrderPlaceTitle => 'Place purchase order';
+
+  @override
+  String get purchaseOrderPlaceAction => 'Place';
+
+  @override
+  String get purchaseOrderPlaceConfirm =>
+      'Are you sure you want to place this purchase order?';
+
+  @override
+  String get purchaseOrderPlaceConfirmButton => 'Place order';
+
+  @override
+  String get purchaseOrderPlaceSuccess => 'Purchase order placed successfully.';
+
+  @override
+  String get purchaseOrderPlaceFailure =>
+      'Could not place purchase order. Please try again.';
 }
 
 /// The translations for Gujarati, as used in India (`gu_IN`).

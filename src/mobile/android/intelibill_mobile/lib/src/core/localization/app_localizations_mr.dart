@@ -2743,10 +2743,6 @@ class AppLocalizationsMr extends AppLocalizations {
   String get purchaseOrderBuilderRemoveLineLabel => 'Remove';
 
   @override
-  String get purchaseOrderPlaceAction => 'Place';
-
-  @override
-
   String get purchaseOrderReceiveAction => 'Receive';
 
   @override
@@ -2858,6 +2854,26 @@ class AppLocalizationsMr extends AppLocalizations {
   @override
   String get purchaseOrdersRefreshFailed =>
       'खरेदी ऑर्डर रिफ्रेश करता आले नाहीत';
+
+  @override
+  String get purchaseOrderPlaceTitle => 'Place purchase order';
+
+  @override
+  String get purchaseOrderPlaceAction => 'Place';
+
+  @override
+  String get purchaseOrderPlaceConfirm =>
+      'Are you sure you want to place this purchase order?';
+
+  @override
+  String get purchaseOrderPlaceConfirmButton => 'Place order';
+
+  @override
+  String get purchaseOrderPlaceSuccess => 'Purchase order placed successfully.';
+
+  @override
+  String get purchaseOrderPlaceFailure =>
+      'Could not place purchase order. Please try again.';
 }
 
 /// The translations for Marathi, as used in India (`mr_IN`).

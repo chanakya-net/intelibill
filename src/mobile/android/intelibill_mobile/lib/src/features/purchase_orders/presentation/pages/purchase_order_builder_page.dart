@@ -9,6 +9,7 @@ import 'package:intelibill_mobile/src/features/inventory/presentation/widgets/cr
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_builder_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_draft_line_card.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_draft_status_panels.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_place_sheet.dart';
 import 'package:intelibill_mobile/src/features/suppliers/domain/entities/supplier.dart';
 
 class PurchaseOrderBuilderPage extends ConsumerStatefulWidget {
@@ -23,6 +24,7 @@ class PurchaseOrderBuilderPage extends ConsumerStatefulWidget {
   static const referenceFieldKey = Key('purchase-order-builder-reference');
   static const notesFieldKey = Key('purchase-order-builder-notes');
   static const saveButtonKey = Key('purchase-order-builder-save');
+  static const placeButtonKey = Key('purchase-order-builder-place');
   static const addItemFieldKey = Key('purchase-order-builder-add-item');
   static const itemSearchKey = Key('purchase-order-builder-item-search');
   static const addItemButtonKey = Key('purchase-order-builder-add-item-btn');
@@ -155,18 +157,45 @@ class _PurchaseOrderBuilderPageState
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-          child: FilledButton(
-            key: PurchaseOrderBuilderPage.saveButtonKey,
-            onPressed: state.isSaving
-                ? null
-                : () => ref.read(provider.notifier).save(),
-            child: state.isSaving
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Text(l10n.purchaseOrderBuilderSave),
+          child: Row(
+            children: [
+              Expanded(
+                child: FilledButton(
+                  key: PurchaseOrderBuilderPage.saveButtonKey,
+                  onPressed: state.isSaving || state.isPlacing
+                      ? null
+                      : () => ref.read(provider.notifier).save(),
+                  child: state.isSaving
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(l10n.purchaseOrderBuilderSave),
+                ),
+              ),
+              if (state.canPlace) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FilledButton(
+                    key: PurchaseOrderBuilderPage.placeButtonKey,
+                    onPressed: state.isSaving || state.isPlacing
+                        ? null
+                        : () => showPurchaseOrderPlaceSheet(
+                            context,
+                            onPlace: () => ref.read(provider.notifier).place(),
+                          ),
+                    child: state.isPlacing
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Text(l10n.purchaseOrderPlaceAction),
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
       ),

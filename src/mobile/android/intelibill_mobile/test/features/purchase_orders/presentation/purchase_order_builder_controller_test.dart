@@ -4,14 +4,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
+import 'package:intelibill_mobile/src/core/storage/preferences_storage.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/data/data_sources/purchase_order_draft_local_data_source.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_draft.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_line.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_status.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/create_purchase_order_draft.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/get_purchase_order.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/place_purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/update_purchase_order_draft.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_builder_controller.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_detail_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_providers.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/entities/item.dart';
 import 'package:intelibill_mobile/src/features/suppliers/domain/entities/supplier.dart';
@@ -29,6 +33,40 @@ class _MockGetPurchaseOrder extends Mock implements GetPurchaseOrder {}
 class _MockUpdatePurchaseOrderDraft extends Mock
     implements UpdatePurchaseOrderDraft {}
 
+class _MockPlacePurchaseOrder extends Mock implements PlacePurchaseOrder {}
+
+class _MemoryPreferencesStorage implements PreferencesStorage {
+  final values = <String, String>{};
+
+  @override
+  String? getString(String key) => values[key];
+
+  @override
+  Future<void> remove(String key) async {
+    values.remove(key);
+  }
+
+  @override
+  Future<void> setString(String key, String value) async {
+    values[key] = value;
+  }
+
+  @override
+  Future<void> clear() async => values.clear();
+
+  @override
+  int? getInt(String key) => null;
+
+  @override
+  bool? getBool(String key) => null;
+
+  @override
+  Future<void> setBool({required String key, required bool value}) async {}
+
+  @override
+  Future<void> setInt(String key, int value) async {}
+}
+
 void main() {
   setUpAll(() {
     registerFallbackValue(const PurchaseOrderDraft());
@@ -38,12 +76,14 @@ void main() {
   late _MockCreatePurchaseOrderDraft createDraft;
   late _MockGetPurchaseOrder getPurchaseOrder;
   late _MockUpdatePurchaseOrderDraft updateDraft;
+  late _MockPlacePurchaseOrder placePurchaseOrder;
 
   setUp(() {
     getSuppliers = _MockGetSuppliers();
     createDraft = _MockCreatePurchaseOrderDraft();
     getPurchaseOrder = _MockGetPurchaseOrder();
     updateDraft = _MockUpdatePurchaseOrderDraft();
+    placePurchaseOrder = _MockPlacePurchaseOrder();
     when(() => getSuppliers()).thenAnswer((_) async => _suppliers);
   });
 
@@ -54,6 +94,7 @@ void main() {
         createPurchaseOrderDraftProvider.overrideWithValue(createDraft),
         getPurchaseOrderProvider.overrideWithValue(getPurchaseOrder),
         updatePurchaseOrderDraftProvider.overrideWithValue(updateDraft),
+        placePurchaseOrderProvider.overrideWithValue(placePurchaseOrder),
       ],
     );
   }
@@ -359,6 +400,188 @@ void main() {
     expect(state.notes, 'Keep this edit');
     expect(state.failure, isA<ServerFailure>());
   });
+
+  test('places one persisted draft and removes only its local key', () async {
+    final storage = _MemoryPreferencesStorage();
+    final source = PurchaseOrderDraftLocalDataSource(storage);
+    const targetKey = PurchaseOrderDraftLocalKey(
+      userId: 'user-1',
+      shopId: 'shop-1',
+      target: 'po-1',
+    );
+    const otherKey = PurchaseOrderDraftLocalKey(
+      userId: 'user-1',
+      shopId: 'shop-1',
+      target: 'po-2',
+    );
+    const localDraft = PurchaseOrderDraft(
+      supplierId: 'active',
+      lines: [
+        PurchaseOrderDraftLine(
+          itemId: 'item-1',
+          description: 'Widget',
+          expectedQuantity: 1,
+          unitCost: 10,
+        ),
+      ],
+    );
+    await source.save(
+      targetKey,
+      PurchaseOrderDraftLocalRecord(
+        updatedAt: DateTime.utc(2026),
+        draft: localDraft,
+      ),
+    );
+    await source.save(
+      otherKey,
+      PurchaseOrderDraftLocalRecord(
+        updatedAt: DateTime.utc(2026),
+        draft: const PurchaseOrderDraft(notes: 'keep'),
+      ),
+    );
+    final placed = _purchaseOrder(
+      status: PurchaseOrderStatus.placed,
+      supplierId: 'active',
+      lines: const [
+        PurchaseOrderLine(
+          lineId: 'line-1',
+          itemId: 'item-1',
+          description: 'Widget',
+          expectedQuantity: 1,
+          receivedQuantity: 0,
+          remainingQuantity: 1,
+          unitCost: 10,
+          lineTotal: 10,
+        ),
+      ],
+    );
+    when(() => getPurchaseOrder('po-1')).thenAnswer(
+      (_) async => _purchaseOrder(
+        supplierId: 'active',
+        lines: placed.lines,
+      ),
+    );
+    when(() => placePurchaseOrder('po-1')).thenAnswer((_) async => placed);
+    final container = ProviderContainer(
+      overrides: [
+        getSuppliersUseCaseProvider.overrideWithValue(getSuppliers),
+        getPurchaseOrderProvider.overrideWithValue(getPurchaseOrder),
+        placePurchaseOrderProvider.overrideWithValue(placePurchaseOrder),
+        purchaseOrderDraftLocalKeyProvider('po-1').overrideWithValue(targetKey),
+        purchaseOrderDraftLocalDataSourceProvider.overrideWith(
+          (_) async => source,
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    container.listen(
+      purchaseOrderBuilderControllerProvider('po-1'),
+      (_, __) {},
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+
+    final result = await container
+        .read(purchaseOrderBuilderControllerProvider('po-1').notifier)
+        .place();
+
+    expect(result, placed);
+    expect(await source.load(targetKey), isNull);
+    expect(await source.load(otherKey), isNotNull);
+    expect(
+      container
+          .read(purchaseOrderBuilderControllerProvider('po-1'))
+          .redirectToDetailId,
+      'po-1',
+    );
+    expect(
+      container.read(purchaseOrderDetailControllerProvider('po-1')).detail,
+      placed,
+    );
+  });
+
+  test(
+    'keeps the persisted draft and permits retry after a place failure',
+    () async {
+      final storage = _MemoryPreferencesStorage();
+      final source = PurchaseOrderDraftLocalDataSource(storage);
+      const key = PurchaseOrderDraftLocalKey(
+        userId: 'user-1',
+        shopId: 'shop-1',
+        target: 'po-1',
+      );
+      const draft = PurchaseOrderDraft(
+        supplierId: 'active',
+        lines: [
+          PurchaseOrderDraftLine(
+            itemId: 'item-1',
+            description: 'Widget',
+            expectedQuantity: 1,
+            unitCost: 10,
+          ),
+        ],
+      );
+      await source.save(
+        key,
+        PurchaseOrderDraftLocalRecord(
+          updatedAt: DateTime.utc(2026),
+          draft: draft,
+        ),
+      );
+      final placed = _purchaseOrder(
+        status: PurchaseOrderStatus.placed,
+        supplierId: 'active',
+        lines: const [
+          PurchaseOrderLine(
+            lineId: 'line-1',
+            itemId: 'item-1',
+            description: 'Widget',
+            expectedQuantity: 1,
+            receivedQuantity: 0,
+            remainingQuantity: 1,
+            unitCost: 10,
+            lineTotal: 10,
+          ),
+        ],
+      );
+      when(() => getPurchaseOrder('po-1')).thenAnswer(
+        (_) async => _purchaseOrder(supplierId: 'active', lines: placed.lines),
+      );
+      when(() => placePurchaseOrder('po-1')).thenThrow(
+        AppException(failure: const Failure.network()),
+      );
+      final container = ProviderContainer(
+        overrides: [
+          getSuppliersUseCaseProvider.overrideWithValue(getSuppliers),
+          getPurchaseOrderProvider.overrideWithValue(getPurchaseOrder),
+          placePurchaseOrderProvider.overrideWithValue(placePurchaseOrder),
+          purchaseOrderDraftLocalKeyProvider('po-1').overrideWithValue(key),
+          purchaseOrderDraftLocalDataSourceProvider.overrideWith(
+            (_) async => source,
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      container.listen(
+        purchaseOrderBuilderControllerProvider('po-1'),
+        (_, __) {},
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      final controller = container.read(
+        purchaseOrderBuilderControllerProvider('po-1').notifier,
+      );
+
+      await expectLater(controller.place(), throwsA(isA<AppException>()));
+      expect(await source.load(key), isNotNull);
+      expect(
+        container.read(purchaseOrderBuilderControllerProvider('po-1')).canPlace,
+        isTrue,
+      );
+      when(() => placePurchaseOrder('po-1')).thenAnswer((_) async => placed);
+
+      expect(await controller.place(), placed);
+      expect(await source.load(key), isNull);
+    },
+  );
 }
 
 final _suppliers = [

@@ -112,19 +112,27 @@ class _PlaceState {
 @riverpod
 class PurchaseOrderDetailController extends _$PurchaseOrderDetailController {
   late String _purchaseOrderId;
+  int _loadGeneration = 0;
+  bool _hasAuthoritativeReplacement = false;
 
   @override
   PurchaseOrderDetailState build(String purchaseOrderId) {
     _purchaseOrderId = purchaseOrderId;
-    unawaited(Future.microtask(_load));
+    unawaited(Future.microtask(_loadInitial));
     return const PurchaseOrderDetailState(isLoading: true);
   }
 
+  Future<void> _loadInitial() async {
+    if (_hasAuthoritativeReplacement) return;
+    await _load();
+  }
+
   Future<void> _load() async {
+    final generation = ++_loadGeneration;
     final useCase = ref.read(getPurchaseOrderProvider);
     try {
       final detail = await useCase(_purchaseOrderId);
-      if (!ref.mounted) return;
+      if (!ref.mounted || generation != _loadGeneration) return;
 
       state = state.copyWith(
         detail: detail,
@@ -132,14 +140,14 @@ class PurchaseOrderDetailController extends _$PurchaseOrderDetailController {
         clearFailure: true,
       );
     } on AppException catch (error) {
-      if (!ref.mounted) return;
+      if (!ref.mounted || generation != _loadGeneration) return;
       state = state.copyWith(
         isLoading: false,
         failure: error.failure,
         clearDetail: error.failure is NotFoundFailure || state.detail == null,
       );
     } on Object {
-      if (!ref.mounted) return;
+      if (!ref.mounted || generation != _loadGeneration) return;
       state = state.copyWith(
         isLoading: false,
         failure: const Failure.unknown(),
@@ -157,6 +165,16 @@ class PurchaseOrderDetailController extends _$PurchaseOrderDetailController {
   }
 
   Future<void> retry() => refresh();
+
+  void replaceAuthoritative(PurchaseOrder detail) {
+    _hasAuthoritativeReplacement = true;
+    _loadGeneration++;
+    state = state.copyWith(
+      detail: detail,
+      isLoading: false,
+      clearFailure: true,
+    );
+  }
 
   Future<void> cancel(String reason) async {
     state = state.copyWith(

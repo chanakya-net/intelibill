@@ -2744,10 +2744,6 @@ class AppLocalizationsHi extends AppLocalizations {
   String get purchaseOrderBuilderRemoveLineLabel => 'Remove';
 
   @override
-  String get purchaseOrderPlaceAction => 'Place';
-
-  @override
-
   String get purchaseOrderReceiveAction => 'Receive';
 
   @override
@@ -2859,6 +2855,26 @@ class AppLocalizationsHi extends AppLocalizations {
   @override
   String get purchaseOrdersRefreshFailed =>
       'खरीद आदेश रीफ़्रेश नहीं किए जा सके';
+
+  @override
+  String get purchaseOrderPlaceTitle => 'Place purchase order';
+
+  @override
+  String get purchaseOrderPlaceAction => 'Place';
+
+  @override
+  String get purchaseOrderPlaceConfirm =>
+      'Are you sure you want to place this purchase order?';
+
+  @override
+  String get purchaseOrderPlaceConfirmButton => 'Place order';
+
+  @override
+  String get purchaseOrderPlaceSuccess => 'Purchase order placed successfully.';
+
+  @override
+  String get purchaseOrderPlaceFailure =>
+      'Could not place purchase order. Please try again.';
 }
 
 /// The translations for Hindi, as used in India (`hi_IN`).
@@ -4361,4 +4377,24 @@ class AppLocalizationsHiIn extends AppLocalizationsHi {
   @override
   String get purchaseOrdersRefreshFailed =>
       'खरीद आदेश रीफ़्रेश नहीं किए जा सके';
+
+  @override
+  String get purchaseOrderPlaceTitle => 'खरीद आदेश भेजें';
+
+  @override
+  String get purchaseOrderPlaceAction => 'भेजें';
+
+  @override
+  String get purchaseOrderPlaceConfirm =>
+      'क्या आप यह खरीद आदेश भेजना चाहते हैं?';
+
+  @override
+  String get purchaseOrderPlaceConfirmButton => 'आदेश भेजें';
+
+  @override
+  String get purchaseOrderPlaceSuccess => 'खरीद आदेश भेज दिया गया।';
+
+  @override
+  String get purchaseOrderPlaceFailure =>
+      'खरीद आदेश भेजा नहीं जा सका। कृपया पुनः प्रयास करें।';
 }
