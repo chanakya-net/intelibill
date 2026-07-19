@@ -142,12 +142,14 @@ class PurchaseOrderDetailPage extends ConsumerWidget {
               key: const Key('purchase-order-detail-delete-button'),
               icon: const Icon(Icons.delete_outline),
               tooltip: l10n.purchaseOrderDetailDeleteAction,
-              onPressed: () => _showDeleteDraftConfirmation(
-                context,
-                l10n,
-                ref,
-                purchaseOrderId,
-              ),
+              onPressed: state.deleteState.isLoading
+                  ? null
+                  : () => _showDeleteDraftConfirmation(
+                      context,
+                      l10n,
+                      ref,
+                      purchaseOrderId,
+                    ),
             ),
           if (purchaseOrder.status == PurchaseOrderStatus.draft)
             IconButton(
@@ -319,8 +321,8 @@ Future<void> _showDeleteDraftConfirmation(
   );
 
   try {
-    await controller.delete();
-    if (context.mounted) {
+    final deleted = await controller.delete();
+    if (deleted && context.mounted) {
       context.go(AppRoutes.purchaseOrders);
     }
   } on Object {

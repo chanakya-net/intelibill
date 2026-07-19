@@ -277,8 +277,8 @@ class PurchaseOrderDetailController extends _$PurchaseOrderDetailController {
     throw AppException(failure: failure);
   }
 
-  Future<void> delete() async {
-    if (state.deleteState.isLoading) return;
+  Future<bool> delete() async {
+    if (state.deleteState.isLoading) return false;
 
     final localDraftKey = ref.read(
       purchaseOrderDraftLocalKeyProvider(_purchaseOrderId),
@@ -293,18 +293,19 @@ class PurchaseOrderDetailController extends _$PurchaseOrderDetailController {
     try {
       final useCase = ref.read(deletePurchaseOrderDraftProvider);
       await useCase(_purchaseOrderId);
-      if (!ref.mounted) return;
+      if (!ref.mounted) return false;
 
       await _removeLocalDraftAfterPlace(localDraftKey);
-      if (!ref.mounted) return;
+      if (!ref.mounted) return false;
 
       state = state.copyWith(
-        detail: null,
+        clearDetail: true,
         deleteState: state.deleteState.copyWith(isLoading: false),
       );
       ref.invalidate(purchaseOrdersControllerProvider);
+      return true;
     } on AppException catch (error) {
-      if (!ref.mounted) return;
+      if (!ref.mounted) return false;
       state = state.copyWith(
         deleteState: state.deleteState.copyWith(
           isLoading: false,
@@ -313,7 +314,7 @@ class PurchaseOrderDetailController extends _$PurchaseOrderDetailController {
       );
       rethrow;
     } on Object {
-      if (!ref.mounted) return;
+      if (!ref.mounted) return false;
       state = state.copyWith(
         deleteState: state.deleteState.copyWith(
           isLoading: false,

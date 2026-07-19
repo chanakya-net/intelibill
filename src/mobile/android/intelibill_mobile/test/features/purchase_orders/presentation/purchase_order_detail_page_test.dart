@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -830,6 +832,80 @@ void main() {
           harness.router.routeInformationProvider.value.uri.toString(),
           '/inventory/purchase-orders/po-draft-1',
         );
+      },
+    );
+
+    testWidgets(
+      'delete draft: duplicate interaction waits for the pending request',
+      (WidgetTester tester) async {
+        final completer = Completer<void>();
+        final mockDelete = _MockDeletePurchaseOrderDraft();
+        when(
+          () => mockDelete('po-pending'),
+        ).thenAnswer((_) => completer.future);
+
+        final getPurchaseOrder = _MockGetPurchaseOrder();
+        when(() => getPurchaseOrder('po-pending')).thenAnswer(
+          (_) async => _detail(
+            purchaseOrderId: 'po-pending',
+            status: PurchaseOrderStatus.draft,
+          ),
+        );
+        final harness = buildHarness(
+          getPurchaseOrder: getPurchaseOrder,
+          initialLocation: AppRoutes.purchaseOrderDetailFor('po-pending'),
+        );
+        final testContainer = ProviderContainer(
+          overrides: [
+            getPurchaseOrderProvider.overrideWithValue(getPurchaseOrder),
+            deletePurchaseOrderDraftProvider.overrideWithValue(mockDelete),
+          ],
+        );
+        addTearDown(() {
+          harness.router.dispose();
+          harness.container.dispose();
+          testContainer.dispose();
+        });
+
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: testContainer,
+            child: MaterialApp.router(
+              theme: AppTheme.lightTheme,
+              supportedLocales: const [Locale('en', 'IN')],
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              routerConfig: harness.router,
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+
+        final deleteButton = find.byKey(
+          const Key('purchase-order-detail-delete-button'),
+        );
+        await tester.tap(deleteButton);
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(TextButton, 'Delete'));
+        await tester.pump();
+
+        expect(
+          tester.widget<IconButton>(deleteButton).onPressed,
+          isNull,
+        );
+        verify(() => mockDelete('po-pending')).called(1);
+
+        completer.completeError(
+          AppException(failure: const Failure.network()),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          harness.router.routeInformationProvider.value.uri.toString(),
+          '/inventory/purchase-orders/po-pending',
+        );
+        expect(find.byType(SnackBar), findsOneWidget);
+        verifyNever(() => mockDelete('po-pending'));
       },
     );
 

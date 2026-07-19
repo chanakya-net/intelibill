@@ -580,6 +580,7 @@ class _AddInventoryPageState extends ConsumerState<AddInventoryPage> {
     return value.toString();
   }
 
+
   Future<void> _pickDate({
     required DateTime? currentValue,
     required ValueChanged<DateTime> onSelected,
