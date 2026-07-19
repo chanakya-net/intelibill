@@ -107,16 +107,29 @@ void main() {
     );
     final bytes = await scaffold.onBuild(scaffold.descriptor.pdfPageFormat);
 
-    await scaffold.onPrint!(bytes);
-    await scaffold.onShare!(bytes);
+    expect(find.byTooltip('Print'), findsOneWidget);
+    expect(find.byTooltip('Share'), findsOneWidget);
+    expect(_actionButton(tester, 'Print').onPressed, isNotNull);
+    expect(_actionButton(tester, 'Share').onPressed, isNotNull);
+
+    await tester.tap(find.byTooltip('Print'));
+    await tester.pump();
+    await tester.tap(find.byTooltip('Share'));
+    await tester.pump();
 
     expect(scaffold.descriptor.pageFormat, DocumentPageFormat.mm80);
     expect(scaffold.descriptor.filename, 'sale-receipt-INV-2026.pdf');
     expect(bytes.take(4), orderedEquals('%PDF'.codeUnits));
     expect(outputGateway.printCallCount, 1);
     expect(outputGateway.shareCallCount, 1);
-    expect(outputGateway.lastPrintBytes, same(bytes));
-    expect(outputGateway.lastShareBytes, same(bytes));
+    expect(
+      outputGateway.lastPrintBytes!.take(4),
+      orderedEquals('%PDF'.codeUnits),
+    );
+    expect(
+      outputGateway.lastShareBytes!.take(4),
+      orderedEquals('%PDF'.codeUnits),
+    );
     expect(outputGateway.lastPrintFilename, 'sale-receipt-INV-2026.pdf');
     expect(outputGateway.lastShareFilename, 'sale-receipt-INV-2026.pdf');
   });
@@ -140,25 +153,23 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 50));
 
-    final scaffold = tester.widget<DocumentPreviewScaffold>(
-      find.byType(DocumentPreviewScaffold),
-    );
-    final bytes = await scaffold.onBuild(scaffold.descriptor.pdfPageFormat);
-
-    await scaffold.onPrint!(bytes);
+    await tester.tap(find.byTooltip('Print'));
     await tester.pump();
     expect(find.text('Print failed: printer unavailable'), findsOneWidget);
     expect(find.byType(DocumentPreviewScaffold), findsOneWidget);
 
     outputGateway.failPrint = false;
-    await scaffold.onPrint!(bytes);
+    await tester.tap(find.byTooltip('Print'));
+    await tester.pump();
     expect(outputGateway.printCallCount, 2);
 
-    await scaffold.onShare!(bytes);
+    await tester.tap(find.byTooltip('Share'));
+    await tester.pump();
     expect(find.byType(DocumentPreviewScaffold), findsOneWidget);
 
     outputGateway.failShare = false;
-    await scaffold.onShare!(bytes);
+    await tester.tap(find.byTooltip('Share'));
+    await tester.pump();
     expect(outputGateway.shareCallCount, 2);
     verify(() => getSaleDetail('sale-1')).called(1);
   });
@@ -185,21 +196,27 @@ void main() {
     final scaffold = tester.widget<DocumentPreviewScaffold>(
       find.byType(DocumentPreviewScaffold),
     );
-    final bytes = await scaffold.onBuild(scaffold.descriptor.pdfPageFormat);
+    await scaffold.onBuild(scaffold.descriptor.pdfPageFormat);
 
-    final firstPrint = scaffold.onPrint!(bytes);
-    final duplicatePrint = scaffold.onPrint!(bytes);
+    await tester.tap(find.byTooltip('Print'));
+    await tester.pump();
+    expect(_actionButton(tester, 'Print').onPressed, isNull);
+    await tester.tap(find.byTooltip('Print'));
     await tester.pump();
     expect(outputGateway.printCallCount, 1);
     outputGateway.printCompleter!.complete();
-    await Future.wait([firstPrint, duplicatePrint]);
+    await tester.pump();
+    expect(_actionButton(tester, 'Print').onPressed, isNotNull);
 
-    final firstShare = scaffold.onShare!(bytes);
-    final duplicateShare = scaffold.onShare!(bytes);
+    await tester.tap(find.byTooltip('Share'));
+    await tester.pump();
+    expect(_actionButton(tester, 'Share').onPressed, isNull);
+    await tester.tap(find.byTooltip('Share'));
     await tester.pump();
     expect(outputGateway.shareCallCount, 1);
     outputGateway.shareCompleter!.complete();
-    await Future.wait([firstShare, duplicateShare]);
+    await tester.pump();
+    expect(_actionButton(tester, 'Share').onPressed, isNotNull);
   });
 
   testWidgets('previews initialSale then reloads with detail refresh', (
@@ -243,6 +260,8 @@ void main() {
 
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
     expect(find.text('Unable to load sale details'), findsNothing);
+    expect(find.byTooltip('Print'), findsNothing);
+    expect(find.byTooltip('Share'), findsNothing);
   });
 
   testWidgets('shows failure then retry reloads receipt preview', (
@@ -263,6 +282,8 @@ void main() {
 
     expect(find.text('Unable to load sale details'), findsOneWidget);
     expect(find.text('Retry'), findsOneWidget);
+    expect(find.byTooltip('Print'), findsNothing);
+    expect(find.byTooltip('Share'), findsNothing);
     await tester.tap(find.text('Retry'));
     for (var i = 0; i < 5; i += 1) {
       await tester.pump(const Duration(milliseconds: 20));
@@ -275,6 +296,16 @@ void main() {
     );
     expect(scaffold.descriptor.filename, 'sale-receipt-INV-RETRY-001.pdf');
   });
+}
+
+IconButton _actionButton(WidgetTester tester, String tooltip) {
+  final icon = tooltip == 'Print' ? Icons.print : Icons.share;
+  return tester.widget<IconButton>(
+    find.ancestor(
+      of: find.byIcon(icon),
+      matching: find.byType(IconButton),
+    ),
+  );
 }
 
 Widget _buildPage({
