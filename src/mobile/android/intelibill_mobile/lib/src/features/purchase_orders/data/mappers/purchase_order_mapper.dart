@@ -1,7 +1,9 @@
+import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/create_purchase_order_draft_request_dto.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/purchase_order_detail_dto.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/purchase_order_list_item_dto.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/purchase_order_page_dto.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_draft.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_line.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_list_item.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_page.dart';
@@ -148,4 +150,35 @@ class PurchaseOrderMapper {
 
   static bool _isLeapYear(int year) =>
       year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+
+  static CreatePurchaseOrderDraftLineRequestDto lineToRequestDto(
+    PurchaseOrderDraftLine line,
+  ) {
+    return CreatePurchaseOrderDraftLineRequestDto(
+      itemId: line.itemId,
+      description: line.description,
+      expectedQuantity: line.expectedQuantity,
+      unitCost: line.unitCost,
+    );
+  }
+
+  static CreatePurchaseOrderDraftRequestDto draftToRequestDto(
+    PurchaseOrderDraft draft,
+  ) {
+    return CreatePurchaseOrderDraftRequestDto(
+      supplierId: draft.supplierId,
+      orderDate: draft.orderDate != null ? _formatDateOnly(draft.orderDate!) : null,
+      expectedDeliveryDate: draft.expectedDeliveryDate != null
+          ? _formatDateOnly(draft.expectedDeliveryDate!)
+          : null,
+      supplierReferenceNumber: draft.supplierReferenceNumber,
+      notes: draft.notes,
+      supplierName: draft.supplierName,
+      supplierReference: draft.supplierReference,
+      lines: draft.lines.map(lineToRequestDto).toList(),
+    );
+  }
+
+  static String _formatDateOnly(DateTime date) =>
+      '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 }

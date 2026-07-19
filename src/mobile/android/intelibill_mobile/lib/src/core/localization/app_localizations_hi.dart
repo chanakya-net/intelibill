@@ -2683,6 +2683,33 @@ class AppLocalizationsHi extends AppLocalizations {
   String get purchaseOrderBuilderRetry => 'Retry';
 
   @override
+  String get purchaseOrderBuilderAddItemTitle => 'Add item';
+
+  @override
+  String get purchaseOrderBuilderLinesHeader => 'Items';
+
+  @override
+  String get purchaseOrderBuilderExpectedTotal => 'Expected total';
+
+  @override
+  String get purchaseOrderBuilderAddItemLabel => 'Item';
+
+  @override
+  String get quantity => 'Quantity';
+
+  @override
+  String get unitCost => 'Unit cost';
+
+  @override
+  String get lineTotal => 'Line total';
+
+  @override
+  String get itemId => 'Item';
+
+  @override
+  String get removeLine => 'Remove';
+
+  @override
   String get purchaseOrderReceiveAction => 'Receive';
 
   @override

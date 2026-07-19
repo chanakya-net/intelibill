@@ -144,6 +144,52 @@ void main() {
     pending.complete(_purchaseOrder());
     expect(await first, isNotNull);
   });
+
+  test('saves with added and merged lines', () async {
+    final container = makeContainer();
+    addTearDown(container.dispose);
+    final expected = _purchaseOrder();
+    PurchaseOrderDraft? capturedDraft;
+    when(() => createDraft(any())).thenAnswer((invocation) async {
+      capturedDraft = invocation.positionalArguments[0] as PurchaseOrderDraft;
+      return expected;
+    });
+    final controller = container.read(
+      purchaseOrderBuilderControllerProvider('new').notifier,
+    );
+    await controller.loadSuppliers();
+
+    controller.addItem(
+      itemId: 'item-1',
+      description: 'Widget A',
+      expectedQuantity: 2,
+      unitCost: 10.0,
+    );
+    controller.addItem(
+      itemId: 'item-2',
+      description: 'Widget B',
+      expectedQuantity: 3,
+      unitCost: 5.0,
+    );
+    controller.addItem(
+      itemId: 'item-1',
+      description: 'Widget A',
+      expectedQuantity: 1,
+      unitCost: 12.0,
+    );
+
+    final result = await controller.save();
+
+    expect(result, expected);
+    expect(capturedDraft, isNotNull);
+    expect(capturedDraft!.lines.length, 2);
+    final line1 = capturedDraft!.lines.firstWhere((l) => l.itemId == 'item-1');
+    expect(line1.expectedQuantity, 3);
+    expect(line1.unitCost, 12.0);
+    final line2 = capturedDraft!.lines.firstWhere((l) => l.itemId == 'item-2');
+    expect(line2.expectedQuantity, 3);
+    expect(line2.unitCost, 5.0);
+  });
 }
 
 final _suppliers = [

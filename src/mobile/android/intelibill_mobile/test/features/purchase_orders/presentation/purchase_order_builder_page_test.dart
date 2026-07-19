@@ -7,6 +7,7 @@ import 'package:intelibill_mobile/src/app/theme/app_theme.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_draft.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_status.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_builder_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/pages/purchase_order_builder_page.dart';
@@ -50,6 +51,38 @@ class _StubBuilderController extends PurchaseOrderBuilderController {
   @override
   void setNotes(String value) {
     state = state.copyWith(notes: value);
+  }
+
+  @override
+  void addItem({
+    required String itemId,
+    required String description,
+    required int expectedQuantity,
+    required double unitCost,
+  }) {
+    final line = const PurchaseOrderDraftLine(
+      itemId: 'item-1',
+      description: 'Test Item',
+      expectedQuantity: 1,
+      unitCost: 0.0,
+    );
+    state = state.copyWith(lines: [...state.lines, line]);
+  }
+
+  @override
+  void updateLine({
+    required int index,
+    required int expectedQuantity,
+    required double unitCost,
+  }) {}
+
+  @override
+  void removeLine(int index) {
+    final updated = [...state.lines];
+    if (index >= 0 && index < updated.length) {
+      updated.removeAt(index);
+      state = state.copyWith(lines: updated);
+    }
   }
 
   @override

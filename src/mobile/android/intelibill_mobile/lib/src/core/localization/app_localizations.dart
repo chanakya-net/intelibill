@@ -5143,6 +5143,60 @@ abstract class AppLocalizations {
   /// **'Retry'**
   String get purchaseOrderBuilderRetry;
 
+  /// No description provided for @purchaseOrderBuilderAddItemTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Add item'**
+  String get purchaseOrderBuilderAddItemTitle;
+
+  /// No description provided for @purchaseOrderBuilderLinesHeader.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Items'**
+  String get purchaseOrderBuilderLinesHeader;
+
+  /// No description provided for @purchaseOrderBuilderExpectedTotal.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Expected total'**
+  String get purchaseOrderBuilderExpectedTotal;
+
+  /// No description provided for @purchaseOrderBuilderAddItemLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Item'**
+  String get purchaseOrderBuilderAddItemLabel;
+
+  /// No description provided for @quantity.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Quantity'**
+  String get quantity;
+
+  /// No description provided for @unitCost.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unit cost'**
+  String get unitCost;
+
+  /// No description provided for @lineTotal.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Line total'**
+  String get lineTotal;
+
+  /// No description provided for @itemId.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Item'**
+  String get itemId;
+
+  /// No description provided for @removeLine.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Remove'**
+  String get removeLine;
+
   /// No description provided for @purchaseOrderReceiveAction.
   ///
   /// In en_IN, this message translates to:
