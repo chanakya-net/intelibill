@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/data/data_sources/purchase_order_draft_local_data_source.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_providers.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_orders_controller.dart';
@@ -256,6 +257,9 @@ class PurchaseOrderDetailController extends _$PurchaseOrderDetailController {
   Future<void> place() async {
     if (state.placeState.isLoading) return;
 
+    final localDraftKey = ref.read(
+      purchaseOrderDraftLocalKeyProvider(_purchaseOrderId),
+    );
     state = state.copyWith(
       placeState: state.placeState.copyWith(
         isLoading: true,
@@ -265,6 +269,9 @@ class PurchaseOrderDetailController extends _$PurchaseOrderDetailController {
     try {
       final useCase = ref.read(placePurchaseOrderProvider);
       final updated = await useCase(_purchaseOrderId);
+      if (!ref.mounted) return;
+
+      await _removeLocalDraftAfterPlace(localDraftKey);
       if (!ref.mounted) return;
 
       state = state.copyWith(
@@ -292,6 +299,20 @@ class PurchaseOrderDetailController extends _$PurchaseOrderDetailController {
       );
       await _load();
       rethrow;
+    }
+  }
+
+  Future<void> _removeLocalDraftAfterPlace(
+    PurchaseOrderDraftLocalKey? key,
+  ) async {
+    if (key == null) return;
+    try {
+      final source = await ref.read(
+        purchaseOrderDraftLocalDataSourceProvider.future,
+      );
+      await source.remove(key);
+    } on Object {
+      return;
     }
   }
 }
