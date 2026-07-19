@@ -10,7 +10,9 @@ import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/entities/generated_item_barcode.dart';
+import 'package:intelibill_mobile/src/features/inventory/domain/entities/item.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/use_cases/generate_item_barcode.dart';
+import 'package:intelibill_mobile/src/features/inventory/domain/use_cases/get_items.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/use_cases/get_product_details.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/controllers/items_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order.dart';
@@ -33,6 +35,8 @@ class _MockReceivePurchaseOrder extends Mock implements ReceivePurchaseOrder {}
 class _MockGenerateItemBarcode extends Mock implements GenerateItemBarcode {}
 
 class _MockGetProductDetails extends Mock implements GetProductDetails {}
+
+class _MockGetItems extends Mock implements GetItems {}
 
 class _Harness {
   _Harness({
@@ -62,9 +66,11 @@ void main() {
     Future<BarcodeScanResult?> Function(BuildContext context)? scanBarcode,
     GenerateItemBarcode? generateItemBarcode,
     GetProductDetails? getProductDetails,
+    GetItems? getItems,
   }) {
     final mockGetProductDetails = getProductDetails ?? _MockGetProductDetails();
-    if (mockGetProductDetails is _MockGetProductDetails && getProductDetails == null) {
+    if (mockGetProductDetails is _MockGetProductDetails &&
+        getProductDetails == null) {
       when(
         () => mockGetProductDetails(
           name: any(named: 'name'),
@@ -72,12 +78,28 @@ void main() {
         ),
       ).thenThrow(Exception('Product not found'));
     }
+    final mockGetItems = getItems ?? _MockGetItems();
+    if (mockGetItems is _MockGetItems && getItems == null) {
+      when(() => mockGetItems()).thenAnswer(
+        (_) async => const [
+          Item(
+            itemId: 'item-1',
+            name: 'Widget A',
+            barcode: 'CAT-001',
+            uom: 'pcs',
+            isActive: true,
+            currentStock: 0,
+          ),
+        ],
+      );
+    }
 
     final container = ProviderContainer(
       overrides: [
         getPurchaseOrderProvider.overrideWithValue(getPurchaseOrder),
         receivePurchaseOrderProvider.overrideWithValue(receivePurchaseOrder),
         getProductDetailsProvider.overrideWithValue(mockGetProductDetails),
+        getItemsProvider.overrideWithValue(mockGetItems),
         if (generateItemBarcode != null)
           generateItemBarcodeProvider.overrideWithValue(generateItemBarcode),
       ],
@@ -488,9 +510,9 @@ void main() {
           .lines
           .single
           .barcode,
-      'item-1',
+      'CAT-001',
     );
-    expect(tester.widget<TextField>(barcodeField).controller!.text, 'item-1');
+    expect(tester.widget<TextField>(barcodeField).controller!.text, 'CAT-001');
 
     await tapLineButton(
       tester,
@@ -747,7 +769,7 @@ void main() {
             .lines
             .single
             .barcode,
-        'item-1',
+        'CAT-001',
       );
       final state = harness.container.read(
         receivePurchaseOrderControllerProvider('po-1'),
@@ -807,7 +829,7 @@ void main() {
             .lines
             .single
             .barcode,
-        'item-1',
+        'CAT-001',
       );
 
       harness.container
@@ -878,7 +900,7 @@ void main() {
           .lines
           .single
           .barcode,
-      'item-1',
+      'CAT-001',
     );
   });
 
@@ -931,6 +953,42 @@ void main() {
           .barcode,
       'IB-000001',
     );
+  });
+
+  testWidgets('keeps line controls editable after optional prefill failure', (
+    tester,
+  ) async {
+    final getPurchaseOrder = _MockGetPurchaseOrder();
+    final receive = _MockReceivePurchaseOrder();
+    final getProductDetails = _MockGetProductDetails();
+    when(() => getPurchaseOrder('po-1')).thenAnswer((_) async => _detail());
+    when(
+      () => getProductDetails(name: 'Widget A'),
+    ).thenThrow(Exception('offline'));
+    final harness = buildHarness(
+      getPurchaseOrder: getPurchaseOrder,
+      receivePurchaseOrder: receive,
+      getProductDetails: getProductDetails,
+    );
+    addTearDown(() {
+      harness.router.dispose();
+      harness.container.dispose();
+    });
+
+    await tester.pumpWidget(harness.app);
+    await tester.pumpAndSettle();
+    await expandFirstLine(tester);
+    await tester.enterText(
+      find.byKey(PurchaseOrderReceiveLineCard.barcodeField('line-1')),
+      'MANUAL-1',
+    );
+    await tester.pumpAndSettle();
+
+    final state = harness.container.read(
+      receivePurchaseOrderControllerProvider('po-1'),
+    );
+    expect(state.prefillFailures['line-1'], contains('offline'));
+    expect(state.lines.single.barcode, 'MANUAL-1');
   });
 }
 
