@@ -223,6 +223,27 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
     }
   }
 
+  @override
+  Future<PurchaseOrder> place(String purchaseOrderId) async {
+    try {
+      final dto = await _remoteDataSource.place(purchaseOrderId);
+      return PurchaseOrderMapper.detailToDomain(dto);
+    } on AppException {
+      rethrow;
+    } on FormatException catch (error) {
+      throw AppException(
+        failure: Failure.serialization(message: error.message),
+      );
+    } catch (error) {
+      if (error is TypeError) {
+        throw AppException(
+          failure: Failure.serialization(message: error.toString()),
+        );
+      }
+      throw AppException(failure: Failure.unknown(message: error.toString()));
+    }
+  }
+
   String? _normalize(String? value) {
     final trimmed = value?.trim();
     return trimmed == null || trimmed.isEmpty ? null : trimmed;

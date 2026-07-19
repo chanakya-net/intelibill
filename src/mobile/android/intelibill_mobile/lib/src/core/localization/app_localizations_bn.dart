@@ -2852,6 +2852,26 @@ class AppLocalizationsBn extends AppLocalizations {
 
   @override
   String get purchaseOrdersRefreshFailed => 'ক্রয় অর্ডার রিফ্রেশ করা যায়নি';
+
+  @override
+  String get purchaseOrderPlaceTitle => 'Place purchase order';
+
+  @override
+  String get purchaseOrderPlaceAction => 'Place';
+
+  @override
+  String get purchaseOrderPlaceConfirm =>
+      'Are you sure you want to place this purchase order?';
+
+  @override
+  String get purchaseOrderPlaceConfirmButton => 'Place order';
+
+  @override
+  String get purchaseOrderPlaceSuccess => 'Purchase order placed successfully.';
+
+  @override
+  String get purchaseOrderPlaceFailure =>
+      'Could not place purchase order. Please try again.';
 }
 
 /// The translations for Bengali Bangla, as used in India (`bn_IN`).

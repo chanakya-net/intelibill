@@ -3,6 +3,7 @@ part of 'purchase_order_builder_controller.dart';
 mixin _PurchaseOrderBuilderDraftLifecycle on _$PurchaseOrderBuilderController {
   Future<void>? _supplierLoad;
   PurchaseOrder? _pendingSavedDraft;
+  PurchaseOrder? _pendingPlacedOrder;
   PurchaseOrderDraftPersistence? _pendingCleanupPersistence;
   PurchaseOrderDraftLocalKey? _scopeKey;
   PurchaseOrderDraftPersistence? _persistence;
@@ -37,6 +38,7 @@ mixin _PurchaseOrderBuilderDraftLifecycle on _$PurchaseOrderBuilderController {
     _persistence = null;
     _supplierLoad = null;
     _pendingSavedDraft = null;
+    _pendingPlacedOrder = null;
     _pendingCleanupPersistence = null;
     _scopeKey = key;
     _desiredSupplierId = null;
@@ -166,7 +168,7 @@ mixin _PurchaseOrderBuilderDraftLifecycle on _$PurchaseOrderBuilderController {
         _desiredSupplierId = detail.supplierId;
         _applyDraft(_draftFromPurchaseOrder(detail));
       }
-      state = state.copyWith(isLoadingEdit: false);
+      state = state.copyWith(isLoadingEdit: false, isEditableDraft: true);
     } on AppException catch (error) {
       _setEditLoadFailure(error.failure, generation);
     } on Object {

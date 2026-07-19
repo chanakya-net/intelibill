@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/data/data_sources/purchase_order_draft_local_data_source.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_providers.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_orders_controller.dart';
@@ -18,6 +19,7 @@ class PurchaseOrderDetailState {
     this.failure,
     this.cancelState = const _CancelState(),
     this.closeState = const _CloseState(),
+    this.placeState = const _PlaceState(),
   });
 
   final PurchaseOrder? detail;
@@ -25,6 +27,7 @@ class PurchaseOrderDetailState {
   final Failure? failure;
   final _CancelState cancelState;
   final _CloseState closeState;
+  final _PlaceState placeState;
 
   PurchaseOrderDetailState copyWith({
     PurchaseOrder? detail,
@@ -32,6 +35,7 @@ class PurchaseOrderDetailState {
     Failure? failure,
     _CancelState? cancelState,
     _CloseState? closeState,
+    _PlaceState? placeState,
     bool clearDetail = false,
     bool clearFailure = false,
   }) {
@@ -41,6 +45,7 @@ class PurchaseOrderDetailState {
       failure: clearFailure ? null : (failure ?? this.failure),
       cancelState: cancelState ?? this.cancelState,
       closeState: closeState ?? this.closeState,
+      placeState: placeState ?? this.placeState,
     );
   }
 }
@@ -86,22 +91,49 @@ class _CloseState {
   }
 }
 
+@immutable
+class _PlaceState {
+  const _PlaceState({this.isLoading = false, this.failure});
+
+  final bool isLoading;
+  final Failure? failure;
+
+  _PlaceState copyWith({
+    bool? isLoading,
+    Failure? failure,
+    bool clearFailure = false,
+  }) {
+    return _PlaceState(
+      isLoading: isLoading ?? this.isLoading,
+      failure: clearFailure ? null : (failure ?? this.failure),
+    );
+  }
+}
+
 @riverpod
 class PurchaseOrderDetailController extends _$PurchaseOrderDetailController {
   late String _purchaseOrderId;
+  int _loadGeneration = 0;
+  bool _hasAuthoritativeReplacement = false;
 
   @override
   PurchaseOrderDetailState build(String purchaseOrderId) {
     _purchaseOrderId = purchaseOrderId;
-    unawaited(Future.microtask(_load));
+    unawaited(Future.microtask(_loadInitial));
     return const PurchaseOrderDetailState(isLoading: true);
   }
 
+  Future<void> _loadInitial() async {
+    if (_hasAuthoritativeReplacement) return;
+    await _load();
+  }
+
   Future<void> _load() async {
+    final generation = ++_loadGeneration;
     final useCase = ref.read(getPurchaseOrderProvider);
     try {
       final detail = await useCase(_purchaseOrderId);
-      if (!ref.mounted) return;
+      if (!ref.mounted || generation != _loadGeneration) return;
 
       state = state.copyWith(
         detail: detail,
@@ -109,14 +141,14 @@ class PurchaseOrderDetailController extends _$PurchaseOrderDetailController {
         clearFailure: true,
       );
     } on AppException catch (error) {
-      if (!ref.mounted) return;
+      if (!ref.mounted || generation != _loadGeneration) return;
       state = state.copyWith(
         isLoading: false,
         failure: error.failure,
         clearDetail: error.failure is NotFoundFailure || state.detail == null,
       );
     } on Object {
-      if (!ref.mounted) return;
+      if (!ref.mounted || generation != _loadGeneration) return;
       state = state.copyWith(
         isLoading: false,
         failure: const Failure.unknown(),
@@ -134,6 +166,16 @@ class PurchaseOrderDetailController extends _$PurchaseOrderDetailController {
   }
 
   Future<void> retry() => refresh();
+
+  void replaceAuthoritative(PurchaseOrder detail) {
+    _hasAuthoritativeReplacement = true;
+    _loadGeneration++;
+    state = state.copyWith(
+      detail: detail,
+      isLoading: false,
+      clearFailure: true,
+    );
+  }
 
   Future<void> cancel(String reason) async {
     state = state.copyWith(
@@ -210,5 +252,67 @@ class PurchaseOrderDetailController extends _$PurchaseOrderDetailController {
     );
     await _load();
     throw AppException(failure: failure);
+  }
+
+  Future<void> place() async {
+    if (state.placeState.isLoading) return;
+
+    final localDraftKey = ref.read(
+      purchaseOrderDraftLocalKeyProvider(_purchaseOrderId),
+    );
+    state = state.copyWith(
+      placeState: state.placeState.copyWith(
+        isLoading: true,
+        clearFailure: true,
+      ),
+    );
+    try {
+      final useCase = ref.read(placePurchaseOrderProvider);
+      final updated = await useCase(_purchaseOrderId);
+      if (!ref.mounted) return;
+
+      await _removeLocalDraftAfterPlace(localDraftKey);
+      if (!ref.mounted) return;
+
+      state = state.copyWith(
+        detail: updated,
+        placeState: state.placeState.copyWith(isLoading: false),
+      );
+      ref.invalidate(purchaseOrdersControllerProvider);
+    } on AppException catch (error) {
+      if (!ref.mounted) return;
+      state = state.copyWith(
+        placeState: state.placeState.copyWith(
+          isLoading: false,
+          failure: error.failure,
+        ),
+      );
+      await _load();
+      rethrow;
+    } on Object {
+      if (!ref.mounted) return;
+      state = state.copyWith(
+        placeState: state.placeState.copyWith(
+          isLoading: false,
+          failure: const Failure.unknown(),
+        ),
+      );
+      await _load();
+      rethrow;
+    }
+  }
+
+  Future<void> _removeLocalDraftAfterPlace(
+    PurchaseOrderDraftLocalKey? key,
+  ) async {
+    if (key == null) return;
+    try {
+      final source = await ref.read(
+        purchaseOrderDraftLocalDataSourceProvider.future,
+      );
+      await source.remove(key);
+    } on Object {
+      return;
+    }
   }
 }

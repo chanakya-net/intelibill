@@ -493,5 +493,11 @@
   "bankAccountsDeleteError": "Unable to delete bank account. Please try again.",
   "purchaseOrdersFilterDateFrom": "From",
   "purchaseOrdersFilterDateTo": "To",
-  "purchaseOrdersRefreshFailed": "खरीद आदेश रीफ़्रेश नहीं किए जा सके"
+  "purchaseOrdersRefreshFailed": "खरीद आदेश रीफ़्रेश नहीं किए जा सके",
+  "purchaseOrderPlaceTitle": "खरीद आदेश भेजें",
+  "purchaseOrderPlaceAction": "भेजें",
+  "purchaseOrderPlaceConfirm": "क्या आप यह खरीद आदेश भेजना चाहते हैं?",
+  "purchaseOrderPlaceConfirmButton": "आदेश भेजें",
+  "purchaseOrderPlaceSuccess": "खरीद आदेश भेज दिया गया।",
+  "purchaseOrderPlaceFailure": "खरीद आदेश भेजा नहीं जा सका। कृपया पुनः प्रयास करें।"
 }

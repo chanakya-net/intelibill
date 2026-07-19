@@ -3,6 +3,9 @@ part of 'purchase_order_builder_controller.dart';
 mixin _PurchaseOrderBuilderDraftActions on _PurchaseOrderBuilderDraftLifecycle {
   Future<bool> retryStorage() async {
     final persistence = _persistence ?? await _ensurePersistence();
+    if (_pendingPlacedOrder != null) {
+      return _completeSuccessfulPlaceCleanup();
+    }
     if (_pendingSavedDraft != null) {
       _pendingCleanupPersistence ??= persistence;
       return _completeSuccessfulSaveCleanup();
@@ -10,6 +13,80 @@ mixin _PurchaseOrderBuilderDraftActions on _PurchaseOrderBuilderDraftLifecycle {
     if (persistence == null) return false;
     await persistence.persistNow(_draftFromState());
     return state.storageWarning == null;
+  }
+
+  Future<PurchaseOrder?> place() async {
+    if (state.isPlacing || !state.canPlace) return null;
+
+    final generation = _scopeGeneration;
+    final cleanupPersistence = _persistence;
+    final cleanupKey = _scopeKey;
+    state = state.copyWith(isPlacing: true, clearFailure: true);
+    try {
+      final placed = await ref.read(placePurchaseOrderProvider)(target);
+      if (!_isCurrentScope(generation)) {
+        await _cleanupStaleSuccessfulMutation(cleanupPersistence, cleanupKey);
+        return null;
+      }
+      _pendingPlacedOrder = placed;
+      _pendingCleanupPersistence = cleanupPersistence;
+      return await _completeSuccessfulPlaceCleanup() ? placed : null;
+    } on AppException catch (error) {
+      await _finishPlaceFailure(error.failure);
+    } on Object {
+      await _finishPlaceFailure(const Failure.unknown());
+    }
+    return null;
+  }
+
+  Future<bool> _completeSuccessfulPlaceCleanup() async {
+    final placed = _pendingPlacedOrder;
+    if (placed == null) return false;
+    final persistence =
+        _pendingCleanupPersistence ?? await _ensurePersistence();
+    _pendingCleanupPersistence = persistence;
+    if (_scopeKey != null && persistence == null) {
+      _setPlaceCleanupWarning();
+      return false;
+    }
+    try {
+      if (persistence != null) await persistence.stopAndRemove();
+      if (!ref.mounted) return false;
+      ref
+          .read(purchaseOrderDetailControllerProvider(target).notifier)
+          .replaceAuthoritative(placed);
+      ref.invalidate(purchaseOrdersControllerProvider);
+      _pendingPlacedOrder = null;
+      _pendingCleanupPersistence = null;
+      state = state.copyWith(
+        isPlacing: false,
+        redirectToDetailId: target,
+        clearFailure: true,
+        clearStorageWarning: true,
+      );
+      return true;
+    } on Object {
+      _setPlaceCleanupWarning();
+      return false;
+    }
+  }
+
+  Future<void> _finishPlaceFailure(Failure failure) async {
+    if (!ref.mounted) return;
+    state = state.copyWith(isPlacing: false, failure: failure);
+    await ref
+        .read(purchaseOrderDetailControllerProvider(target).notifier)
+        .refresh();
+    throw AppException(failure: failure);
+  }
+
+  void _setPlaceCleanupWarning() {
+    if (!ref.mounted) return;
+    state = state.copyWith(
+      isPlacing: false,
+      storageWarning:
+          'The purchase order was placed, but local cleanup failed. Retry.',
+    );
   }
 
   void continueRecoveredDraft() {

@@ -749,6 +749,45 @@ void main() {
     expect(builderController!.state.notes, 'Do not lose me');
     expect(builderController!.state.lines, state.lines);
   });
+  testWidgets('offers Place only for an eligible persisted Draft', (
+    tester,
+  ) async {
+    const line = PurchaseOrderDraftLine(
+      itemId: 'item-1',
+      description: 'Widget',
+      expectedQuantity: 1,
+      unitCost: 10,
+    );
+    await tester.pumpWidget(
+      buildApp(
+        PurchaseOrderBuilderState(
+          suppliers: [_supplier()],
+          selectedSupplier: _supplier(),
+          isEditableDraft: true,
+          lines: [line],
+        ),
+        target: 'po-1',
+      ),
+    );
+    expect(
+      find.byKey(PurchaseOrderBuilderPage.placeButtonKey),
+      findsOneWidget,
+    );
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump();
+    await tester.pumpWidget(
+      buildApp(
+        PurchaseOrderBuilderState(
+          suppliers: [_supplier()],
+          selectedSupplier: _supplier(),
+          isEditableDraft: true,
+        ),
+        target: 'po-2',
+      ),
+    );
+    expect(find.byKey(PurchaseOrderBuilderPage.placeButtonKey), findsNothing);
+  });
 }
 
 PurchaseOrder _savedPurchaseOrder() => PurchaseOrder(

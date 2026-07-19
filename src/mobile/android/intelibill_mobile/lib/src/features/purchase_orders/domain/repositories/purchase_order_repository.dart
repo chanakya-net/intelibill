@@ -38,4 +38,8 @@ interface class PurchaseOrderRepository {
   ) {
     throw UnimplementedError();
   }
+
+  Future<PurchaseOrder> place(String purchaseOrderId) {
+    throw UnimplementedError();
+  }
 }
