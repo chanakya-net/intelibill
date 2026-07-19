@@ -29,6 +29,8 @@ class PurchaseOrderReceiveLineCard extends StatefulWidget {
     required this.errors,
     required this.isBarcodeGenerating,
     required this.barcodeGenerationFailure,
+    this.isPrefillLoading = false,
+    this.prefillFailure,
     super.key,
   });
 
@@ -85,6 +87,8 @@ class PurchaseOrderReceiveLineCard extends StatefulWidget {
   final Map<String, String> errors;
   final bool isBarcodeGenerating;
   final String? barcodeGenerationFailure;
+  final bool isPrefillLoading;
+  final String? prefillFailure;
 
   static Key cardKey(String lineId) => Key('receive-line-card-$lineId');
 
@@ -137,9 +141,30 @@ class _PurchaseOrderReceiveLineCardState
           value: widget.line.isSelected,
           onChanged: (value) => widget.onSelectionChanged(value ?? false),
         ),
-        title: Text(
-          widget.line.description,
-          style: Theme.of(context).textTheme.titleSmall,
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                widget.line.description,
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+            ),
+            if (widget.isPrefillLoading)
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            if (widget.prefillFailure != null && !widget.isPrefillLoading)
+              Tooltip(
+                message: widget.prefillFailure,
+                child: Icon(
+                  Icons.warning_outlined,
+                  size: 20,
+                  color: Theme.of(context).colorScheme.error,
+                ),
+              ),
+          ],
         ),
         subtitle: Text(
           '${l10n.purchaseOrderReceiveRemaining}: ${widget.line.remainingQuantity}',

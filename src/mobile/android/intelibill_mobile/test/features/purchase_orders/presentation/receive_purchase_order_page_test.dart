@@ -11,6 +11,7 @@ import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/entities/generated_item_barcode.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/use_cases/generate_item_barcode.dart';
+import 'package:intelibill_mobile/src/features/inventory/domain/use_cases/get_product_details.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/controllers/items_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_line.dart';
@@ -30,6 +31,8 @@ class _MockGetPurchaseOrder extends Mock implements GetPurchaseOrder {}
 class _MockReceivePurchaseOrder extends Mock implements ReceivePurchaseOrder {}
 
 class _MockGenerateItemBarcode extends Mock implements GenerateItemBarcode {}
+
+class _MockGetProductDetails extends Mock implements GetProductDetails {}
 
 class _Harness {
   _Harness({
@@ -58,11 +61,23 @@ void main() {
     required ReceivePurchaseOrder receivePurchaseOrder,
     Future<BarcodeScanResult?> Function(BuildContext context)? scanBarcode,
     GenerateItemBarcode? generateItemBarcode,
+    GetProductDetails? getProductDetails,
   }) {
+    final mockGetProductDetails = getProductDetails ?? _MockGetProductDetails();
+    if (mockGetProductDetails is _MockGetProductDetails && getProductDetails == null) {
+      when(
+        () => mockGetProductDetails(
+          name: any(named: 'name'),
+          barcode: any(named: 'barcode'),
+        ),
+      ).thenThrow(Exception('Product not found'));
+    }
+
     final container = ProviderContainer(
       overrides: [
         getPurchaseOrderProvider.overrideWithValue(getPurchaseOrder),
         receivePurchaseOrderProvider.overrideWithValue(receivePurchaseOrder),
+        getProductDetailsProvider.overrideWithValue(mockGetProductDetails),
         if (generateItemBarcode != null)
           generateItemBarcodeProvider.overrideWithValue(generateItemBarcode),
       ],

@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import 'package:intelibill_mobile/src/app/router/app_router.dart';
 import 'package:intelibill_mobile/src/app/theme/app_theme.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
+import 'package:intelibill_mobile/src/features/inventory/domain/use_cases/get_product_details.dart';
+import 'package:intelibill_mobile/src/features/inventory/presentation/controllers/items_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_line.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_status.dart';
@@ -16,6 +18,8 @@ import 'package:mocktail/mocktail.dart';
 
 class _MockGetPurchaseOrder extends Mock implements GetPurchaseOrder {}
 
+class _MockGetProductDetails extends Mock implements GetProductDetails {}
+
 class _Harness {
   _Harness({required this.container, required this.router, required this.app});
 
@@ -26,8 +30,19 @@ class _Harness {
 
 void main() {
   _Harness buildHarness({required GetPurchaseOrder getPurchaseOrder}) {
+    final mockGetProductDetails = _MockGetProductDetails();
+    when(
+      () => mockGetProductDetails(
+        name: any(named: 'name'),
+        barcode: any(named: 'barcode'),
+      ),
+    ).thenThrow(Exception('Product not found'));
+
     final container = ProviderContainer(
-      overrides: [getPurchaseOrderProvider.overrideWithValue(getPurchaseOrder)],
+      overrides: [
+        getPurchaseOrderProvider.overrideWithValue(getPurchaseOrder),
+        getProductDetailsProvider.overrideWithValue(mockGetProductDetails),
+      ],
     );
     final router = GoRouter(
       initialLocation: AppRoutes.purchaseOrderDetailFor('po-1'),

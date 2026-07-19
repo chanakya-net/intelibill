@@ -9,6 +9,7 @@ import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/entities/item.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/entities/product_details.dart';
+import 'package:intelibill_mobile/src/features/inventory/domain/utils/batch_number_generator.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/controllers/add_inventory_controller.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/controllers/items_controller.dart';
 import 'package:intelibill_mobile/src/shared/barcode_scanner/show_barcode_scanner.dart';
@@ -64,7 +65,7 @@ class _AddInventoryPageState extends ConsumerState<AddInventoryPage> {
   @override
   void initState() {
     super.initState();
-    _batchNumberController.text = _generateBatchNumber();
+    _batchNumberController.text = generateBatchNumber();
     _barcodeFocusNode.addListener(_handleBarcodeFocusChange);
   }
 
@@ -579,20 +580,6 @@ class _AddInventoryPageState extends ConsumerState<AddInventoryPage> {
     return value.toString();
   }
 
-  String _generateBatchNumber() {
-    final now = DateTime.now();
-    final date =
-        '${now.year.toString().padLeft(4, '0')}'
-        '${now.month.toString().padLeft(2, '0')}'
-        '${now.day.toString().padLeft(2, '0')}';
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    final random = now.microsecondsSinceEpoch;
-    final suffix = StringBuffer();
-    for (var i = 0; i < 5; i++) {
-      suffix.write(chars[(random + (i * 17)) % chars.length]);
-    }
-    return 'BN-$date-$suffix';
-  }
 
   Future<void> _pickDate({
     required DateTime? currentValue,

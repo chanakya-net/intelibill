@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
+import 'package:intelibill_mobile/src/features/inventory/domain/entities/product_details.dart';
+import 'package:intelibill_mobile/src/features/inventory/domain/utils/batch_number_generator.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/controllers/items_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_line.dart';
@@ -102,6 +104,8 @@ class ReceivePurchaseOrderState {
     this.lines = const [],
     this.barcodeGenerationLineIds = const {},
     this.barcodeGenerationFailures = const {},
+    this.prefillLoadingLineIds = const {},
+    this.prefillFailures = const {},
     this.isLoading = false,
     this.isSubmitting = false,
     this.failure,
@@ -117,6 +121,8 @@ class ReceivePurchaseOrderState {
   final List<ReceivePurchaseOrderLineDraft> lines;
   final Set<String> barcodeGenerationLineIds;
   final Map<String, String> barcodeGenerationFailures;
+  final Set<String> prefillLoadingLineIds;
+  final Map<String, String> prefillFailures;
   final bool isLoading;
   final bool isSubmitting;
   final Failure? failure;
@@ -149,6 +155,8 @@ class ReceivePurchaseOrderState {
     Map<String, Map<String, String>>? lineErrors,
     Set<String>? barcodeGenerationLineIds,
     Map<String, String>? barcodeGenerationFailures,
+    Set<String>? prefillLoadingLineIds,
+    Map<String, String>? prefillFailures,
     String? expandedLineId,
     String? focusedLineId,
     bool clearFailure = false,
@@ -162,6 +170,8 @@ class ReceivePurchaseOrderState {
     bool clearFocusedLine = false,
     bool clearBarcodeGenerationLineIds = false,
     bool clearBarcodeGenerationFailures = false,
+    bool clearPrefillLoading = false,
+    bool clearPrefillFailures = false,
   }) {
     return ReceivePurchaseOrderState(
       detail: clearDetail ? null : (detail ?? this.detail),
@@ -181,6 +191,12 @@ class ReceivePurchaseOrderState {
       barcodeGenerationFailures: clearBarcodeGenerationFailures
           ? const {}
           : (barcodeGenerationFailures ?? this.barcodeGenerationFailures),
+      prefillLoadingLineIds: clearPrefillLoading
+          ? const {}
+          : (prefillLoadingLineIds ?? this.prefillLoadingLineIds),
+      prefillFailures: clearPrefillFailures
+          ? const {}
+          : (prefillFailures ?? this.prefillFailures),
       expandedLineId: clearExpandedLine
           ? null
           : (expandedLineId ?? this.expandedLineId),
@@ -233,6 +249,9 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
         clearExpandedLine: true,
         clearFocusedLine: true,
       );
+      if (ref.mounted) {
+        unawaited(_prefillLinesAsync());
+      }
     } on AppException catch (error) {
       if (!ref.mounted) return;
       state = state.copyWith(
@@ -282,6 +301,71 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
 
   String _buildBatchNumber(PurchaseOrderLine line) =>
       batchNumberGenerator(line);
+
+  Future<void> _prefillLinesAsync() async {
+    final getProductDetails = ref.read(getProductDetailsProvider);
+    for (final line in state.lines) {
+      if (!ref.mounted) return;
+      _setPrefillLoading(line.purchaseOrderLineId, true);
+
+      try {
+        final details = await getProductDetails(name: line.description);
+        if (!ref.mounted) return;
+        _applyPrefill(line.purchaseOrderLineId, details);
+        _setPrefillLoading(line.purchaseOrderLineId, false);
+      } on Object catch (e) {
+        if (!ref.mounted) return;
+        _setPrefillFailure(
+          line.purchaseOrderLineId,
+          e.toString(),
+        );
+        _setPrefillLoading(line.purchaseOrderLineId, false);
+      }
+    }
+  }
+
+  void _setPrefillLoading(String lineId, bool loading) {
+    if (!loading) {
+      final loading = Set<String>.from(state.prefillLoadingLineIds);
+      loading.remove(lineId);
+      state = state.copyWith(prefillLoadingLineIds: loading);
+    } else {
+      state = state.copyWith(
+        prefillLoadingLineIds: {...state.prefillLoadingLineIds, lineId},
+      );
+    }
+  }
+
+  void _setPrefillFailure(String lineId, String message) {
+    final failures = Map<String, String>.from(state.prefillFailures);
+    failures[lineId] = message;
+    state = state.copyWith(prefillFailures: failures);
+  }
+
+  void _applyPrefill(String lineId, ProductDetails details) {
+    final line = _lineDraftById(lineId);
+    if (line == null) return;
+
+    _updateLine(lineId, (l) {
+      var updated = l;
+      if (l.barcode == '') {
+        updated = updated.copyWith(barcode: details.name);
+      }
+      if (l.mrp == 0) {
+        updated = updated.copyWith(mrp: details.mrp);
+      }
+      if (l.salesPrice == 0) {
+        updated = updated.copyWith(salesPrice: details.salesPrice);
+      }
+      if (l.taxRatePercent == 0 && details.taxRatePercent != null) {
+        updated = updated.copyWith(taxRatePercent: details.taxRatePercent!);
+      }
+      if (!l.taxIncluded && details.taxIncluded == true) {
+        updated = updated.copyWith(taxIncluded: details.taxIncluded!);
+      }
+      return updated;
+    });
+  }
 
   void updateReferenceNumber(String value) {
     state = state.copyWith(
@@ -737,18 +821,8 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
   };
 
   static String _generateBatch(PurchaseOrderLine line) {
-    final date = DateTime.now();
-    final dateLabel =
-        '${date.year.toString().padLeft(4, '0')}'
-        '${date.month.toString().padLeft(2, '0')}'
-        '${date.day.toString().padLeft(2, '0')}';
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    final seed = line.lineId.hashCode + date.millisecond;
-    final suffix = StringBuffer();
-    for (var index = 0; index < 5; index++) {
-      suffix.write(chars[(seed + index * 17).abs() % chars.length]);
-    }
-    return 'BN-$dateLabel-${suffix.toString()}';
+    final entropy = line.lineId.hashCode + DateTime.now().millisecond;
+    return generateBatchNumber(entropy: entropy);
   }
 
   ReceivePurchaseOrderLineDraft? _lineDraftById(String purchaseOrderLineId) {
