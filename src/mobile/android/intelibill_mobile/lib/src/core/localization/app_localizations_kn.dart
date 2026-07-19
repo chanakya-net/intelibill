@@ -21,10 +21,10 @@ class AppLocalizationsKn extends AppLocalizations {
   String get commonClear => 'ತೆರವುಗೊಳಿಸಿ';
 
   @override
-  String get purchaseOrdersFilterDateFrom => 'From:';
+  String get purchaseOrdersFilterDateFrom => 'From';
 
   @override
-  String get purchaseOrdersFilterDateTo => 'To:';
+  String get purchaseOrdersFilterDateTo => 'To';
 
   @override
   String get commonActions => 'ಕ್ರಿಯೆಗಳು';
@@ -2818,6 +2818,10 @@ class AppLocalizationsKn extends AppLocalizations {
   @override
   String get purchaseOrderReceiveNoLines =>
       'No remaining lines available to receive.';
+
+  @override
+  String get purchaseOrdersRefreshFailed =>
+      'ಖರೀದಿ ಆದೇಶಗಳನ್ನು ರಿಫ್ರೆಶ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ';
 }
 
 /// The translations for Kannada, as used in India (`kn_IN`).
@@ -2835,6 +2839,12 @@ class AppLocalizationsKnIn extends AppLocalizationsKn {
 
   @override
   String get commonClear => 'ತೆರವುಗೊಳಿಸಿ';
+
+  @override
+  String get purchaseOrdersFilterDateFrom => 'From';
+
+  @override
+  String get purchaseOrdersFilterDateTo => 'To';
 
   @override
   String get commonActions => 'ಕ್ರಿಯೆಗಳು';
@@ -4217,4 +4227,8 @@ class AppLocalizationsKnIn extends AppLocalizationsKn {
   @override
   String get bankAccountsDeleteError =>
       'Unable to delete bank account. Please try again.';
+
+  @override
+  String get purchaseOrdersRefreshFailed =>
+      'ಖರೀದಿ ಆದೇಶಗಳನ್ನು ರಿಫ್ರೆಶ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ';
 }

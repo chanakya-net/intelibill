@@ -21,10 +21,10 @@ class AppLocalizationsGu extends AppLocalizations {
   String get commonClear => 'સાફ કરો';
 
   @override
-  String get purchaseOrdersFilterDateFrom => 'From:';
+  String get purchaseOrdersFilterDateFrom => 'From';
 
   @override
-  String get purchaseOrdersFilterDateTo => 'To:';
+  String get purchaseOrdersFilterDateTo => 'To';
 
   @override
   String get commonActions => 'ક્રિયાઓ';
@@ -2816,6 +2816,9 @@ class AppLocalizationsGu extends AppLocalizations {
   @override
   String get purchaseOrderReceiveNoLines =>
       'No remaining lines available to receive.';
+
+  @override
+  String get purchaseOrdersRefreshFailed => 'ખરીદી ઓર્ડર રિફ્રેશ કરી શકાયા નથી';
 }
 
 /// The translations for Gujarati, as used in India (`gu_IN`).
@@ -2833,6 +2836,12 @@ class AppLocalizationsGuIn extends AppLocalizationsGu {
 
   @override
   String get commonClear => 'સાફ કરો';
+
+  @override
+  String get purchaseOrdersFilterDateFrom => 'From';
+
+  @override
+  String get purchaseOrdersFilterDateTo => 'To';
 
   @override
   String get commonActions => 'ક્રિયાઓ';
@@ -4213,4 +4222,7 @@ class AppLocalizationsGuIn extends AppLocalizationsGu {
   @override
   String get bankAccountsDeleteError =>
       'Unable to delete bank account. Please try again.';
+
+  @override
+  String get purchaseOrdersRefreshFailed => 'ખરીદી ઓર્ડર રિફ્રેશ કરી શકાયા નથી';
 }

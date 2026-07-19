@@ -21,10 +21,10 @@ class AppLocalizationsTe extends AppLocalizations {
   String get commonClear => 'క్లియర్';
 
   @override
-  String get purchaseOrdersFilterDateFrom => 'From:';
+  String get purchaseOrdersFilterDateFrom => 'From';
 
   @override
-  String get purchaseOrdersFilterDateTo => 'To:';
+  String get purchaseOrdersFilterDateTo => 'To';
 
   @override
   String get commonActions => 'చర్యలు';
@@ -2816,6 +2816,10 @@ class AppLocalizationsTe extends AppLocalizations {
   @override
   String get purchaseOrderReceiveNoLines =>
       'No remaining lines available to receive.';
+
+  @override
+  String get purchaseOrdersRefreshFailed =>
+      'కొనుగోలు ఆర్డర్‌లను రిఫ్రెష్ చేయలేకపోయాము';
 }
 
 /// The translations for Telugu, as used in India (`te_IN`).
@@ -2833,6 +2837,12 @@ class AppLocalizationsTeIn extends AppLocalizationsTe {
 
   @override
   String get commonClear => 'క్లియర్';
+
+  @override
+  String get purchaseOrdersFilterDateFrom => 'From';
+
+  @override
+  String get purchaseOrdersFilterDateTo => 'To';
 
   @override
   String get commonActions => 'చర్యలు';
@@ -4213,4 +4223,8 @@ class AppLocalizationsTeIn extends AppLocalizationsTe {
   @override
   String get bankAccountsDeleteError =>
       'Unable to delete bank account. Please try again.';
+
+  @override
+  String get purchaseOrdersRefreshFailed =>
+      'కొనుగోలు ఆర్డర్‌లను రిఫ్రెష్ చేయలేకపోయాము';
 }

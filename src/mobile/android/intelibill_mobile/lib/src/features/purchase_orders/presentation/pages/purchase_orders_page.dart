@@ -99,6 +99,34 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
         (!state.isLoading && !state.hasMore && state.items.isNotEmpty);
   }
 
+  Widget _buildRefreshFailureBanner(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: colorScheme.errorContainer,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.error_outline, size: 20, color: colorScheme.error),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                AppLocalizations.of(context)!.purchaseOrdersRefreshFailed,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: colorScheme.error),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -247,8 +275,18 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
         children: [
           searchBar,
           filterBar,
+          if (state.refreshFailure != null) _buildRefreshFailureBanner(context),
           Expanded(
-            child: _FilteredEmptyView(query: _searchController.text),
+            child: RefreshIndicator(
+              onRefresh: () =>
+                  ref.read(purchaseOrdersControllerProvider.notifier).refresh(),
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  _FilteredEmptyView(query: _searchController.text),
+                ],
+              ),
+            ),
           ),
         ],
       );
@@ -258,7 +296,17 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
         children: [
           searchBar,
           filterBar,
-          const Expanded(child: _EmptyView()),
+          if (state.refreshFailure != null) _buildRefreshFailureBanner(context),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: () =>
+                  ref.read(purchaseOrdersControllerProvider.notifier).refresh(),
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: const [_EmptyView()],
+              ),
+            ),
+          ),
         ],
       );
     }
@@ -267,6 +315,7 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
       children: [
         searchBar,
         filterBar,
+        if (state.refreshFailure != null) _buildRefreshFailureBanner(context),
         Expanded(
           child: RefreshIndicator(
             onRefresh: () =>
