@@ -31,9 +31,9 @@ import 'package:intelibill_mobile/src/features/sales/domain/use_cases/get_sale_d
 import 'package:intelibill_mobile/src/features/sales/presentation/controllers/new_sale_controller.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/controllers/sales_history_controller.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/controllers/sales_providers.dart';
+import 'package:intelibill_mobile/src/features/services/presentation/controllers/services_controller.dart';
 import 'package:intelibill_mobile/src/shared/documents/document_page_format.dart';
 import 'package:intelibill_mobile/src/shared/documents/document_preview_scaffold.dart';
-import 'package:intelibill_mobile/src/features/services/presentation/controllers/services_controller.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:pdf/pdf.dart';
 import 'package:shared_preferences/shared_preferences.dart';
