@@ -1,9 +1,13 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_preview_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/documents/purchase_order_pdf_builder.dart';
 import 'package:intelibill_mobile/src/shared/documents/document_descriptor.dart';
 import 'package:intelibill_mobile/src/shared/documents/document_preview_scaffold.dart';
+import 'package:intelibill_mobile/src/shared/documents/output/document_export_providers.dart';
+import 'package:intelibill_mobile/src/shared/documents/output/document_export_service.dart';
 
 class PurchaseOrderPreviewPage extends ConsumerWidget {
   const PurchaseOrderPreviewPage({required this.purchaseOrderId, super.key});
@@ -28,14 +32,71 @@ class PurchaseOrderPreviewPage extends ConsumerWidget {
     }
 
     final builder = PurchaseOrderPdfBuilder();
+    final exportService = ref.watch(documentExportServiceProvider);
+    final descriptor = DocumentDescriptor(
+      title: 'Purchase order preview',
+      filename: builder.filenameFor(order),
+    );
     return DocumentPreviewScaffold(
       key: pageKey,
-      descriptor: DocumentDescriptor(
-        title: 'Purchase order preview',
-        filename: builder.filenameFor(order),
-      ),
+      descriptor: descriptor,
       onBuild: (_) => builder.build(order, state.shop),
+      onPrint: (bytes) => _handlePrint(
+        context,
+        exportService,
+        bytes,
+        descriptor,
+      ),
+      onShare: (bytes) => _handleShare(
+        context,
+        exportService,
+        bytes,
+        descriptor,
+      ),
+      onFailure: (message) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(message)),
+          );
+        }
+      },
     );
+  }
+
+  Future<void> _handlePrint(
+    BuildContext context,
+    DocumentExportService exportService,
+    Uint8List bytes,
+    DocumentDescriptor descriptor,
+  ) async {
+    final result = await exportService.print(
+      bytes: bytes,
+      descriptor: descriptor,
+    );
+
+    if (result != null && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Print failed: ${result.message}')),
+      );
+    }
+  }
+
+  Future<void> _handleShare(
+    BuildContext context,
+    DocumentExportService exportService,
+    Uint8List bytes,
+    DocumentDescriptor descriptor,
+  ) async {
+    final result = await exportService.share(
+      bytes: bytes,
+      descriptor: descriptor,
+    );
+
+    if (result != null && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Share failed: ${result.message}')),
+      );
+    }
   }
 
   Widget _loading() => const Scaffold(

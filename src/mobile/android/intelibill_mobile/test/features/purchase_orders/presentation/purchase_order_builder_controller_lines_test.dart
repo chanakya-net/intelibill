@@ -11,6 +11,7 @@ import 'package:intelibill_mobile/src/features/suppliers/domain/entities/supplie
 import 'package:mocktail/mocktail.dart';
 
 class _MockGetSuppliers extends Mock implements GetSuppliers {}
+
 class _MockCreatePurchaseOrderDraft extends Mock
     implements CreatePurchaseOrderDraft {}
 
@@ -52,7 +53,9 @@ void main() {
         unitCost: 10.0,
       );
 
-      final state = container.read(purchaseOrderBuilderControllerProvider('new'));
+      final state = container.read(
+        purchaseOrderBuilderControllerProvider('new'),
+      );
       expect(state.lines.length, 1);
       expect(state.lines[0].itemId, 'item-1');
       expect(state.lines[0].description, 'Widget');
@@ -80,7 +83,9 @@ void main() {
         unitCost: 12.0,
       );
 
-      final state = container.read(purchaseOrderBuilderControllerProvider('new'));
+      final state = container.read(
+        purchaseOrderBuilderControllerProvider('new'),
+      );
       expect(state.lines.length, 1);
       expect(state.lines[0].expectedQuantity, 5);
       expect(state.lines[0].unitCost, 12.0);
@@ -100,7 +105,9 @@ void main() {
         unitCost: 10.0,
       );
 
-      final state = container.read(purchaseOrderBuilderControllerProvider('new'));
+      final state = container.read(
+        purchaseOrderBuilderControllerProvider('new'),
+      );
       expect(state.lines, isEmpty);
       expect(state.failure, isA<ValidationFailure>());
     });
@@ -125,7 +132,9 @@ void main() {
         unitCost: 5.0,
       );
 
-      final state = container.read(purchaseOrderBuilderControllerProvider('new'));
+      final state = container.read(
+        purchaseOrderBuilderControllerProvider('new'),
+      );
       expect(state.expectedTotal, 35.0);
     });
   });
@@ -151,7 +160,9 @@ void main() {
         unitCost: 12.0,
       );
 
-      final state = container.read(purchaseOrderBuilderControllerProvider('new'));
+      final state = container.read(
+        purchaseOrderBuilderControllerProvider('new'),
+      );
       expect(state.lines[0].expectedQuantity, 8);
       expect(state.lines[0].unitCost, 12.0);
     });
@@ -176,7 +187,9 @@ void main() {
         unitCost: 12.0,
       );
 
-      final state = container.read(purchaseOrderBuilderControllerProvider('new'));
+      final state = container.read(
+        purchaseOrderBuilderControllerProvider('new'),
+      );
       expect(state.lines[0].expectedQuantity, 5);
       expect(state.failure, isA<ValidationFailure>());
     });
@@ -197,7 +210,9 @@ void main() {
 
       controller.updateLine(index: 0, expectedQuantity: 10, unitCost: 15.0);
 
-      final state = container.read(purchaseOrderBuilderControllerProvider('new'));
+      final state = container.read(
+        purchaseOrderBuilderControllerProvider('new'),
+      );
       expect(state.expectedTotal, 150.0);
     });
   });
@@ -225,7 +240,9 @@ void main() {
 
       controller.removeLine(0);
 
-      final state = container.read(purchaseOrderBuilderControllerProvider('new'));
+      final state = container.read(
+        purchaseOrderBuilderControllerProvider('new'),
+      );
       expect(state.lines.length, 1);
       expect(state.lines[0].itemId, 'item-2');
     });
@@ -252,7 +269,9 @@ void main() {
 
       controller.removeLine(0);
 
-      final state = container.read(purchaseOrderBuilderControllerProvider('new'));
+      final state = container.read(
+        purchaseOrderBuilderControllerProvider('new'),
+      );
       expect(state.expectedTotal, 15.0);
     });
   });
@@ -262,7 +281,9 @@ void main() {
       final container = makeContainer();
       addTearDown(container.dispose);
 
-      final state = container.read(purchaseOrderBuilderControllerProvider('new'));
+      final state = container.read(
+        purchaseOrderBuilderControllerProvider('new'),
+      );
       expect(state.expectedTotal, 0.0);
     });
 
@@ -286,7 +307,9 @@ void main() {
         unitCost: 7.0,
       );
 
-      final state = container.read(purchaseOrderBuilderControllerProvider('new'));
+      final state = container.read(
+        purchaseOrderBuilderControllerProvider('new'),
+      );
       expect(state.expectedTotal, 42.0);
     });
   });
