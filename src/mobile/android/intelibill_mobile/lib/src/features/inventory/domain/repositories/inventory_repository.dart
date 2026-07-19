@@ -2,6 +2,7 @@ import 'package:intelibill_mobile/src/features/inventory/domain/entities/invento
 import 'package:intelibill_mobile/src/features/inventory/domain/entities/inventory_batch.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/entities/item.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/entities/product_details.dart';
+import 'package:intelibill_mobile/src/features/inventory/domain/entities/generated_item_barcode.dart';
 
 interface class InventoryRepository {
   Future<List<Item>> getItems() {
@@ -68,6 +69,10 @@ interface class InventoryRepository {
 
   Future<({List<InventoryAdjustment> items, bool hasMore})>
   getAdjustmentHistory({required int pageNumber, required int pageSize}) {
+    throw UnimplementedError();
+  }
+
+  Future<GeneratedItemBarcode> generateItemBarcode() {
     throw UnimplementedError();
   }
 }

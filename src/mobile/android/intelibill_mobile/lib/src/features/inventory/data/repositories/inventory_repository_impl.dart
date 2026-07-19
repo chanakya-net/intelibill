@@ -7,6 +7,7 @@ import 'package:intelibill_mobile/src/features/inventory/data/dto/add_inventory_
 import 'package:intelibill_mobile/src/features/inventory/data/dto/adjust_inventory_batch_request_dto.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/dto/create_item_request_dto.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/dto/update_item_request_dto.dart';
+import 'package:intelibill_mobile/src/features/inventory/data/mappers/generated_item_barcode_mapper.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/mappers/inventory_adjustment_mapper.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/mappers/inventory_batch_mapper.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/mappers/item_mapper.dart';
@@ -14,6 +15,7 @@ import 'package:intelibill_mobile/src/features/inventory/data/mappers/product_de
 import 'package:intelibill_mobile/src/features/inventory/domain/entities/inventory_adjustment.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/entities/inventory_batch.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/entities/item.dart';
+import 'package:intelibill_mobile/src/features/inventory/domain/entities/generated_item_barcode.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/entities/product_details.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/repositories/inventory_repository.dart';
 
@@ -265,6 +267,22 @@ class InventoryRepositoryImpl implements InventoryRepository {
           .toList();
       final hasMore = (pageNumber * pageSize) < response.totalCount;
       return (items: items, hasMore: hasMore);
+    } on AppException {
+      rethrow;
+    } on FormatException catch (error) {
+      throw AppException(
+        failure: Failure.serialization(message: error.message),
+      );
+    } catch (error) {
+      throw AppException(failure: Failure.unknown(message: error.toString()));
+    }
+  }
+
+  @override
+  Future<GeneratedItemBarcode> generateItemBarcode() async {
+    try {
+      final dto = await _remoteDataSource.generateItemBarcode();
+      return GeneratedItemBarcodeMapper.toDomain(dto);
     } on AppException {
       rethrow;
     } on FormatException catch (error) {

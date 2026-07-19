@@ -943,6 +943,16 @@
   "purchaseOrderReceiveLineQuantity": "Quantity",
   "purchaseOrderReceiveBarcodeLabel": "Barcode",
   "purchaseOrderReceiveBatchLabel": "Batch number",
+  "purchaseOrderReceiveScanBarcode": "Scan barcode",
+  "purchaseOrderReceiveGenerateBarcode": "Generate barcode",
+  "purchaseOrderReceiveBarcodeReplaceConfirm": "Replace existing barcode \"{existingBarcode}\" with \"{newBarcode}\"?",
+  "@purchaseOrderReceiveBarcodeReplaceConfirm": {
+    "placeholders": {
+      "existingBarcode": { "type": "String" },
+      "newBarcode": { "type": "String" }
+    }
+  },
+  "purchaseOrderReceiveBarcodeReplaceConfirmLabel": "Replace",
   "purchaseOrderReceiveSummary": "Receipt summary",
   "purchaseOrderReceiveLineCount": "Line count",
   "purchaseOrderReceiveQuantity": "Total quantity",

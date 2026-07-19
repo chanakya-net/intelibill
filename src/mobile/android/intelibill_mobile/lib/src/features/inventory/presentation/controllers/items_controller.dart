@@ -7,6 +7,7 @@ import 'package:intelibill_mobile/src/core/network/api_client_provider.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/data_sources/inventory_remote_data_source.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/repositories/inventory_repository_impl.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/entities/item.dart';
+import 'package:intelibill_mobile/src/features/inventory/domain/use_cases/generate_item_barcode.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/repositories/inventory_repository.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/use_cases/create_item.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/use_cases/get_items.dart';
@@ -50,6 +51,12 @@ CreateItem createItem(Ref ref) {
 UpdateItem updateItem(Ref ref) {
   final repository = ref.watch(inventoryRepositoryProvider);
   return UpdateItem(repository);
+}
+
+@riverpod
+GenerateItemBarcode generateItemBarcode(Ref ref) {
+  final repository = ref.watch(inventoryRepositoryProvider);
+  return GenerateItemBarcode(repository);
 }
 
 @immutable

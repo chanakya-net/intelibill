@@ -9,6 +9,7 @@ import 'package:intelibill_mobile/src/features/inventory/data/dto/item_catalog_r
 import 'package:intelibill_mobile/src/features/inventory/data/dto/item_dto.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/dto/product_details_dto.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/dto/update_item_request_dto.dart';
+import 'package:intelibill_mobile/src/features/inventory/data/dto/generate_item_barcode_response_dto.dart';
 
 interface class InventoryRemoteDataSource {
   Future<List<ItemDto>> getItems() {
@@ -50,6 +51,10 @@ interface class InventoryRemoteDataSource {
   }) {
     throw UnimplementedError();
   }
+
+  Future<GenerateItemBarcodeResponseDto> generateItemBarcode() {
+    throw UnimplementedError();
+  }
 }
 
 class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
@@ -62,6 +67,7 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
       '/inventory/inbound/batch';
   static const String _inventoryBatchesEndpoint = '/inventory/batches';
   static const String _inventoryAdjustmentsEndpoint = '/inventory/adjustments';
+  static const String _generateItemBarcodeEndpoint = '/items/barcodes/generate';
 
   static const int _itemsPageSize = 100;
 
@@ -163,5 +169,13 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
       queryParameters: {'pageNumber': pageNumber, 'pageSize': pageSize},
     );
     return InventoryAdjustmentHistoryResponseDto.fromJson(response.data!);
+  }
+
+  @override
+  Future<GenerateItemBarcodeResponseDto> generateItemBarcode() async {
+    final response = await _apiClient.post<Map<String, dynamic>>(
+      _generateItemBarcodeEndpoint,
+    );
+    return GenerateItemBarcodeResponseDto.fromJson(response.data!);
   }
 }

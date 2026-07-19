@@ -5251,6 +5251,33 @@ abstract class AppLocalizations {
   /// **'Batch number'**
   String get purchaseOrderReceiveBatchLabel;
 
+  /// No description provided for @purchaseOrderReceiveScanBarcode.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Scan barcode'**
+  String get purchaseOrderReceiveScanBarcode;
+
+  /// No description provided for @purchaseOrderReceiveGenerateBarcode.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Generate barcode'**
+  String get purchaseOrderReceiveGenerateBarcode;
+
+  /// No description provided for @purchaseOrderReceiveBarcodeReplaceConfirm.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Replace existing barcode \"{existingBarcode}\" with \"{newBarcode}\"?'**
+  String purchaseOrderReceiveBarcodeReplaceConfirm(
+    String existingBarcode,
+    String newBarcode,
+  );
+
+  /// No description provided for @purchaseOrderReceiveBarcodeReplaceConfirmLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Replace'**
+  String get purchaseOrderReceiveBarcodeReplaceConfirmLabel;
+
   /// No description provided for @purchaseOrderReceiveRemaining.
   ///
   /// In en_IN, this message translates to:
