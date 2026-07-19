@@ -167,7 +167,9 @@ class PurchaseOrderMapper {
   ) {
     return CreatePurchaseOrderDraftRequestDto(
       supplierId: draft.supplierId,
-      orderDate: draft.orderDate != null ? _formatDateOnly(draft.orderDate!) : null,
+      orderDate: draft.orderDate != null
+          ? _formatDateOnly(draft.orderDate!)
+          : null,
       expectedDeliveryDate: draft.expectedDeliveryDate != null
           ? _formatDateOnly(draft.expectedDeliveryDate!)
           : null,

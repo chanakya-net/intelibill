@@ -6,27 +6,87 @@ import 'package:pdf/pdf.dart';
 import 'package:printing/printing.dart';
 
 typedef DocumentBytesBuilder = Future<Uint8List> Function(PdfPageFormat format);
+typedef DocumentActionCallback = Future<void> Function(Uint8List bytes);
 
-class DocumentPreviewScaffold extends StatelessWidget {
+class DocumentPreviewScaffold extends StatefulWidget {
   const DocumentPreviewScaffold({
     required this.descriptor,
     required this.onBuild,
+    this.onPrint,
+    this.onShare,
     super.key,
   });
 
   final DocumentDescriptor descriptor;
   final DocumentBytesBuilder onBuild;
+  final DocumentActionCallback? onPrint;
+  final DocumentActionCallback? onShare;
+
+  @override
+  State<DocumentPreviewScaffold> createState() =>
+      _DocumentPreviewScaffoldState();
+}
+
+class _DocumentPreviewScaffoldState extends State<DocumentPreviewScaffold> {
+  bool _isPrinting = false;
+  bool _isSharing = false;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(descriptor.title)),
+      appBar: AppBar(
+        title: Text(widget.descriptor.title),
+        actions: [
+          if (widget.onPrint != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: IconButton(
+                icon: const Icon(Icons.print),
+                onPressed: _isPrinting ? null : _handlePrint,
+                tooltip: 'Print',
+              ),
+            ),
+          if (widget.onShare != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: IconButton(
+                icon: const Icon(Icons.share),
+                onPressed: _isSharing ? null : _handleShare,
+                tooltip: 'Share',
+              ),
+            ),
+        ],
+      ),
       body: PdfPreview(
-        build: (_) => onBuild(descriptor.pdfPageFormat),
-        initialPageFormat: descriptor.pdfPageFormat,
-        pdfFileName: descriptor.filename,
+        build: (_) => widget.onBuild(widget.descriptor.pdfPageFormat),
+        initialPageFormat: widget.descriptor.pdfPageFormat,
+        pdfFileName: widget.descriptor.filename,
         canChangePageFormat: false,
       ),
     );
+  }
+
+  Future<void> _handlePrint() async {
+    setState(() => _isPrinting = true);
+    try {
+      final bytes = await widget.onBuild(widget.descriptor.pdfPageFormat);
+      await widget.onPrint!(bytes);
+    } finally {
+      if (mounted) {
+        setState(() => _isPrinting = false);
+      }
+    }
+  }
+
+  Future<void> _handleShare() async {
+    setState(() => _isSharing = true);
+    try {
+      final bytes = await widget.onBuild(widget.descriptor.pdfPageFormat);
+      await widget.onShare!(bytes);
+    } finally {
+      if (mounted) {
+        setState(() => _isSharing = false);
+      }
+    }
   }
 }
