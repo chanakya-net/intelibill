@@ -73,6 +73,12 @@ void main() {
             purchaseOrderId: state.pathParameters['purchaseOrderId'] ?? '',
           ),
         ),
+        GoRoute(
+          path: AppRoutes.purchaseOrderEdit,
+          builder: (context, state) => Text(
+            'Editing ${state.pathParameters['purchaseOrderId']}',
+          ),
+        ),
       ],
     );
 
@@ -151,6 +157,38 @@ void main() {
 
     expect(calls, equals(['po-1', 'po-2']));
     expect(_detailNumberFinder('PO-po-2'), findsOneWidget);
+  });
+
+  testWidgets('draft detail edit action navigates with the purchase-order ID', (
+    tester,
+  ) async {
+    final getPurchaseOrder = _MockGetPurchaseOrder();
+    when(() => getPurchaseOrder(any())).thenAnswer(
+      (_) async => _detail(
+        purchaseOrderId: 'po-edit',
+        status: PurchaseOrderStatus.draft,
+      ),
+    );
+    final harness = buildHarness(
+      getPurchaseOrder: getPurchaseOrder,
+      initialLocation: AppRoutes.purchaseOrderDetailFor('po-edit'),
+    );
+    addTearDown(() {
+      harness.router.dispose();
+      harness.container.dispose();
+    });
+
+    await tester.pumpWidget(harness.app);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(find.byKey(PurchaseOrderDetailPage.editButtonKey));
+    await tester.pumpAndSettle();
+
+    expect(
+      harness.router.routerDelegate.currentConfiguration.uri.path,
+      AppRoutes.purchaseOrderEditFor('po-edit'),
+    );
+    expect(find.text('Editing po-edit'), findsOneWidget);
   });
 
   testWidgets('renders status badge, header, lines, and totals', (

@@ -1,5 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
+import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/data_sources/purchase_order_remote_data_source.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/purchase_order_detail_dto.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/create_purchase_order_draft_request_dto.dart';
@@ -103,6 +105,95 @@ void main() {
         data: request.toJson(),
       ),
     ).called(1);
+  });
+
+  test('update uses the create draft body without a shop identifier', () async {
+    final apiClient = MockApiClient();
+    final source = PurchaseOrderRemoteDataSourceImpl(apiClient);
+    const request = CreatePurchaseOrderDraftRequestDto(
+      supplierId: 'supplier-1',
+      orderDate: '2026-07-19',
+      expectedDeliveryDate: '2026-07-21',
+      supplierReferenceNumber: 'REF-1',
+      notes: 'Notes',
+      supplierName: null,
+      supplierReference: null,
+      lines: [],
+    );
+    when(
+      () => apiClient.put<Map<String, dynamic>>(
+        any<String>(),
+        data: any<Map<String, dynamic>>(named: 'data'),
+      ),
+    ).thenAnswer(
+      (_) async => Response(
+        data: _detailJson(),
+        statusCode: 200,
+        requestOptions: RequestOptions(path: '/purchase-orders/po-1'),
+      ),
+    );
+
+    await source.updateDraft('po-1', request);
+
+    verify(
+      () => apiClient.put<Map<String, dynamic>>(
+        '/purchase-orders/po-1',
+        data: request.toJson(),
+      ),
+    ).called(1);
+    expect(request.toJson(), isNot(contains('shopId')));
+  });
+
+  test('repository updates with the same normalized body as create', () async {
+    final remote = _MockPurchaseOrderRemoteDataSource();
+    final repository = PurchaseOrderRepositoryImpl(remote);
+    when(
+      () => remote.updateDraft('po-1', any()),
+    ).thenAnswer((_) async => _detailDto());
+
+    await repository.updateDraft(
+      'po-1',
+      PurchaseOrderDraft(
+        supplierId: '  supplier-1  ',
+        orderDate: DateTime(2026, 7, 19),
+        notes: '  Notes  ',
+      ),
+    );
+
+    verify(
+      () => remote.updateDraft(
+        'po-1',
+        const CreatePurchaseOrderDraftRequestDto(
+          supplierId: 'supplier-1',
+          orderDate: '2026-07-19',
+          expectedDeliveryDate: null,
+          supplierReferenceNumber: null,
+          notes: 'Notes',
+          supplierName: null,
+          supplierReference: null,
+          lines: [],
+        ),
+      ),
+    ).called(1);
+  });
+
+  test('repository maps update serialization failures', () async {
+    final remote = _MockPurchaseOrderRemoteDataSource();
+    final repository = PurchaseOrderRepositoryImpl(remote);
+    when(
+      () => remote.updateDraft('po-1', any()),
+    ).thenThrow(const FormatException('Malformed response'));
+
+    expect(
+      () => repository.updateDraft('po-1', const PurchaseOrderDraft()),
+      throwsA(
+        isA<AppException>().having(
+          (error) => error.failure,
+          'failure',
+          const Failure.serialization(message: 'Malformed response'),
+        ),
+      ),
+    );
   });
 }
 

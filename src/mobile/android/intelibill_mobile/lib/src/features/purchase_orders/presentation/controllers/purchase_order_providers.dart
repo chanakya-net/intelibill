@@ -8,6 +8,7 @@ import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/get_purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/get_purchase_orders.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/receive_purchase_order.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/update_purchase_order_draft.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'purchase_order_providers.g.dart';
@@ -37,6 +38,11 @@ GetPurchaseOrder getPurchaseOrder(Ref ref) {
 @riverpod
 CreatePurchaseOrderDraft createPurchaseOrderDraft(Ref ref) {
   return CreatePurchaseOrderDraft(ref.watch(purchaseOrderRepositoryProvider));
+}
+
+@riverpod
+UpdatePurchaseOrderDraft updatePurchaseOrderDraft(Ref ref) {
+  return UpdatePurchaseOrderDraft(ref.watch(purchaseOrderRepositoryProvider));
 }
 
 @riverpod

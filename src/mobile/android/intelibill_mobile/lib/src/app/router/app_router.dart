@@ -68,6 +68,8 @@ class AppRoutes {
   static const String bankAccounts = '/bank-accounts';
   static const String purchaseOrders = '/inventory/purchase-orders';
   static const String purchaseOrderNew = '/inventory/purchase-orders/new';
+  static const String purchaseOrderEdit =
+      '/inventory/purchase-orders/:purchaseOrderId/edit';
   static const String purchaseOrderDetail =
       '/inventory/purchase-orders/:purchaseOrderId';
   static const String purchaseOrderReceive =
@@ -87,6 +89,10 @@ class AppRoutes {
 
   static String purchaseOrderDetailFor(String purchaseOrderId) {
     return '/inventory/purchase-orders/$purchaseOrderId';
+  }
+
+  static String purchaseOrderEditFor(String purchaseOrderId) {
+    return '/inventory/purchase-orders/$purchaseOrderId/edit';
   }
 
   static String purchaseOrderReceiveFor(String purchaseOrderId) {
@@ -290,6 +296,12 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             path: AppRoutes.purchaseOrderNew,
             builder: (context, state) =>
                 const PurchaseOrderBuilderPage(target: 'new'),
+          ),
+          GoRoute(
+            path: AppRoutes.purchaseOrderEdit,
+            builder: (context, state) => PurchaseOrderBuilderPage(
+              target: state.pathParameters['purchaseOrderId'] ?? '',
+            ),
           ),
           GoRoute(
             path: AppRoutes.purchaseOrderDetail,

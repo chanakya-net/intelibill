@@ -58,6 +58,13 @@ class _PurchaseOrderBuilderPageState
     final l10n = AppLocalizations.of(context)!;
     final provider = purchaseOrderBuilderControllerProvider(widget.target);
     ref.listen(provider, (previous, next) {
+      _syncTextControllers(next);
+      final redirectToDetailId = next.redirectToDetailId;
+      if (redirectToDetailId != null &&
+          previous?.redirectToDetailId != redirectToDetailId) {
+        context.go(AppRoutes.purchaseOrderDetailFor(redirectToDetailId));
+        return;
+      }
       final draft = next.savedDraft;
       if (draft != null &&
           previous?.savedDraft?.purchaseOrderId != draft.purchaseOrderId) {
@@ -65,6 +72,7 @@ class _PurchaseOrderBuilderPageState
       }
     });
     final state = ref.watch(provider);
+    _syncTextControllers(state);
 
     return Scaffold(
       key: PurchaseOrderBuilderPage.pageKey,
@@ -124,6 +132,14 @@ class _PurchaseOrderBuilderPageState
         ),
       ),
     );
+  }
+
+  void _syncTextControllers(PurchaseOrderBuilderState state) {
+    if (_referenceController.text != state.supplierReferenceNumber) {
+      _referenceController.text = state.supplierReferenceNumber;
+    }
+    if (_notesController.text != state.notes)
+      _notesController.text = state.notes;
   }
 
   Future<void> _showAddItemDialog(
@@ -274,6 +290,9 @@ class _BuilderBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (state.isLoadingEdit) {
+      return const Center(child: CircularProgressIndicator());
+    }
     if (state.isLoadingSuppliers && state.suppliers.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }

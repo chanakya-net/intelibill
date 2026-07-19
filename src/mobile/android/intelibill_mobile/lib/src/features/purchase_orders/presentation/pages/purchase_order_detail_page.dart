@@ -20,6 +20,7 @@ class PurchaseOrderDetailPage extends ConsumerWidget {
 
   static const pageKey = Key('purchase-order-detail-page');
   static const receiveButtonKey = Key('purchase-order-detail-receive-button');
+  static const editButtonKey = Key('purchase-order-detail-edit-button');
   static const previewButtonKey = Key('purchase-order-detail-preview-button');
 
   final String purchaseOrderId;
@@ -66,6 +67,15 @@ class PurchaseOrderDetailPage extends ConsumerWidget {
       appBar: AppBar(
         title: Text(purchaseOrder.purchaseOrderNumber),
         actions: [
+          if (purchaseOrder.status == PurchaseOrderStatus.draft)
+            IconButton(
+              key: editButtonKey,
+              icon: const Icon(Icons.edit_outlined),
+              tooltip: l10n.commonEdit,
+              onPressed: () => context.go(
+                AppRoutes.purchaseOrderEditFor(purchaseOrderId),
+              ),
+            ),
           IconButton(
             key: previewButtonKey,
             icon: const Icon(Icons.picture_as_pdf_outlined),

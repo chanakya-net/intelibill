@@ -4,6 +4,7 @@ import 'package:intelibill_mobile/src/features/purchase_orders/data/data_sources
 import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/cancel_purchase_order_request_dto.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/close_purchase_order_request_dto.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/create_purchase_order_draft_request_dto.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/purchase_order_detail_dto.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/receive_purchase_order_request_dto.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/mappers/purchase_order_mapper.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order.dart';
@@ -60,9 +61,26 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
 
   @override
   Future<PurchaseOrder> createDraft(PurchaseOrderDraft draft) async {
+    return _mapDraftResponse(
+      () => _remoteDataSource.createDraft(_toRequest(draft)),
+    );
+  }
+
+  @override
+  Future<PurchaseOrder> updateDraft(
+    String purchaseOrderId,
+    PurchaseOrderDraft draft,
+  ) {
+    return _mapDraftResponse(
+      () => _remoteDataSource.updateDraft(purchaseOrderId, _toRequest(draft)),
+    );
+  }
+
+  Future<PurchaseOrder> _mapDraftResponse(
+    Future<PurchaseOrderDetailDto> Function() request,
+  ) async {
     try {
-      final dto = await _remoteDataSource.createDraft(_toRequest(draft));
-      return PurchaseOrderMapper.detailToDomain(dto);
+      return PurchaseOrderMapper.detailToDomain(await request());
     } on AppException {
       rethrow;
     } on FormatException catch (error) {

@@ -144,6 +144,7 @@ class _StubItemsController extends ItemsController {
 void main() {
   Widget buildApp(
     PurchaseOrderBuilderState state, {
+    String target = 'new',
     PurchaseOrder? draftToSave,
     GoRouter? router,
     ItemsState itemsState = const ItemsState(),
@@ -151,7 +152,7 @@ void main() {
   }) {
     return ProviderScope(
       overrides: [
-        purchaseOrderBuilderControllerProvider('new').overrideWith(
+        purchaseOrderBuilderControllerProvider(target).overrideWith(
           () {
             final controller = _StubBuilderController(
               state,
@@ -170,7 +171,7 @@ void main() {
               theme: AppTheme.lightTheme,
               localizationsDelegates: AppLocalizations.localizationsDelegates,
               supportedLocales: AppLocalizations.supportedLocales,
-              home: const PurchaseOrderBuilderPage(target: 'new'),
+              home: PurchaseOrderBuilderPage(target: target),
             )
           : MaterialApp.router(
               theme: AppTheme.lightTheme,
@@ -212,6 +213,49 @@ void main() {
     expect(find.byKey(PurchaseOrderBuilderPage.notesFieldKey), findsOneWidget);
     expect(find.byKey(PurchaseOrderBuilderPage.saveButtonKey), findsOneWidget);
     expect(find.byType(SingleChildScrollView), findsOneWidget);
+  });
+
+  testWidgets('prefills an edit builder from its loaded draft state', (
+    tester,
+  ) async {
+    const line = PurchaseOrderDraftLine(
+      itemId: 'item-1',
+      description: 'Widget',
+      expectedQuantity: 2,
+      unitCost: 4.5,
+    );
+    await tester.pumpWidget(
+      buildApp(
+        PurchaseOrderBuilderState(
+          suppliers: [_supplier()],
+          selectedSupplier: _supplier(),
+          supplierReferenceNumber: 'REF-OLD',
+          notes: 'Original note',
+          lines: [line],
+        ),
+        target: 'po-1',
+      ),
+    );
+
+    expect(
+      tester
+          .widget<TextFormField>(
+            find.byKey(PurchaseOrderBuilderPage.referenceFieldKey),
+          )
+          .controller!
+          .text,
+      'REF-OLD',
+    );
+    expect(
+      tester
+          .widget<TextFormField>(
+            find.byKey(PurchaseOrderBuilderPage.notesFieldKey),
+          )
+          .controller!
+          .text,
+      'Original note',
+    );
+    expect(find.text('Line total: 9.00'), findsOneWidget);
   });
 
   testWidgets('shows only the supplied active supplier option', (tester) async {
@@ -322,6 +366,34 @@ void main() {
       expect(find.text('po-1'), findsOneWidget);
     },
   );
+
+  testWidgets('opens the edit builder from an edit deep link', (tester) async {
+    final router = GoRouter(
+      initialLocation: AppRoutes.purchaseOrderEditFor('po-1'),
+      routes: [
+        GoRoute(
+          path: AppRoutes.purchaseOrderEdit,
+          builder: (_, state) => PurchaseOrderBuilderPage(
+            target: state.pathParameters['purchaseOrderId']!,
+          ),
+        ),
+      ],
+    );
+    await tester.pumpWidget(
+      buildApp(
+        PurchaseOrderBuilderState(suppliers: [_supplier()]),
+        target: 'po-1',
+        router: router,
+      ),
+    );
+    addTearDown(router.dispose);
+
+    expect(find.byKey(PurchaseOrderBuilderPage.pageKey), findsOneWidget);
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      AppRoutes.purchaseOrderEditFor('po-1'),
+    );
+  });
 
   testWidgets('adds a selected item from the dialog', (tester) async {
     _StubBuilderController? controller;
