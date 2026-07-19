@@ -52,5 +52,17 @@ void main() {
 
       expect(suffix.length, 5);
     });
+
+    test('distinct entropy values >32 produce distinct suffixes', () {
+      final time = DateTime.utc(2026, 7, 19);
+      final suffixes = <String>{};
+
+      for (var e = 0; e < 100; e++) {
+        final batch = generateBatchNumber(currentTime: time, entropy: e);
+        suffixes.add(batch.split('-').last);
+      }
+
+      expect(suffixes.length, 100);
+    });
   });
 }

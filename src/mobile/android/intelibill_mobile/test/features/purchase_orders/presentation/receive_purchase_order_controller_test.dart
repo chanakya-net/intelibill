@@ -50,11 +50,13 @@ void main() {
   late _MockGetPurchaseOrder getPurchaseOrder;
   late _MockReceivePurchaseOrder receivePurchaseOrder;
   late _MockGenerateItemBarcode generateItemBarcode;
+  late _MockGetProductDetails getProductDetails;
 
   setUp(() {
     getPurchaseOrder = _MockGetPurchaseOrder();
     receivePurchaseOrder = _MockReceivePurchaseOrder();
     generateItemBarcode = _MockGenerateItemBarcode();
+    getProductDetails = _MockGetProductDetails();
     ReceivePurchaseOrderController.batchNumberGenerator = _generateBatch;
   });
 
@@ -121,13 +123,13 @@ void main() {
       expect(state.lines[0].remainingQuantity, 3);
       expect(state.lines[0].isSelected, isTrue);
       expect(state.lines[0].totalPurchaseCost, 30);
-      expect(state.lines[0].barcode, 'item-1');
+      expect(state.lines[0].barcode, '');
       expect(state.lines[0].batchNumber, 'BN-line-1');
       expect(state.lines[1].purchaseOrderLineId, 'line-3');
       expect(state.lines[1].quantity, 6);
       expect(state.lines[1].isSelected, isTrue);
       expect(state.lines[1].totalPurchaseCost, 90);
-      expect(state.lines[1].barcode, 'item-3');
+      expect(state.lines[1].barcode, '');
       expect(state.lines[1].batchNumber, 'BN-line-3');
       expect(state.receivedAt, isNotNull);
       expect(state.receivedAt!.timeZoneOffset, Duration.zero);
@@ -255,7 +257,7 @@ void main() {
             .lines
             .single
             .barcode,
-        'item-1',
+        '',
       );
 
       controller.applyGeneratedBarcode('line-1', generated!);
@@ -360,7 +362,7 @@ void main() {
         receivePurchaseOrderControllerProvider('po-1'),
       );
       expect(generated, isNull);
-      expect(state.lines.single.barcode, 'item-1');
+      expect(state.lines.single.barcode, '');
       expect(state.barcodeGenerationFailures['line-1'], contains('offline'));
     },
   );
@@ -1097,6 +1099,176 @@ void main() {
       );
       expect(state.expandedLineId, 'line-1');
       expect(state.focusedLineId, 'barcode');
+    },
+  );
+
+  test(
+    'prefill does not block later lines when first lookup is slow',
+    () async {
+      final line1Completer = Completer<ProductDetails>();
+      final line2Completer = Completer<ProductDetails>();
+
+      when(() => getPurchaseOrder('po-1')).thenAnswer(
+        (_) async => _detail(
+          lines: [
+            const PurchaseOrderLine(
+              lineId: 'line-1',
+              itemId: 'item-1',
+              description: 'Item1',
+              expectedQuantity: 5,
+              receivedQuantity: 0,
+              remainingQuantity: 5,
+              unitCost: 10,
+              lineTotal: 50,
+            ),
+            const PurchaseOrderLine(
+              lineId: 'line-2',
+              itemId: 'item-2',
+              description: 'Item2',
+              expectedQuantity: 5,
+              receivedQuantity: 0,
+              remainingQuantity: 5,
+              unitCost: 10,
+              lineTotal: 50,
+            ),
+          ],
+        ),
+      );
+
+      when(() => getProductDetails(name: 'Item1')).thenAnswer(
+        (_) => line1Completer.future,
+      );
+      when(() => getProductDetails(name: 'Item2')).thenAnswer(
+        (_) => line2Completer.future,
+      );
+
+      final container = _makeContainer(
+        getPurchaseOrder: getPurchaseOrder,
+        receivePurchaseOrder: receivePurchaseOrder,
+        getProductDetails: getProductDetails,
+      );
+      addTearDown(container.dispose);
+      _watchReceiveController(container);
+
+      container.read(receivePurchaseOrderControllerProvider('po-1'));
+      // Give time for load and initial prefill state to be set
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+
+      var state = container.read(receivePurchaseOrderControllerProvider('po-1'));
+      // Both should be loading or one completed; both start in parallel
+      expect(
+        state.prefillLoadingLineIds.contains('line-1') || state.lines[0].mrp != 0 ||
+        state.prefillFailures.containsKey('line-1'),
+        isTrue,
+        reason: 'Line 1 should have prefill attempt in progress or completed/failed',
+      );
+      expect(
+        state.prefillLoadingLineIds.contains('line-2') || state.lines[1].mrp != 0 ||
+        state.prefillFailures.containsKey('line-2'),
+        isTrue,
+        reason: 'Line 2 should have prefill attempt in progress or completed/failed',
+      );
+
+      // Complete line 2 faster
+      line2Completer.complete(
+        const ProductDetails(
+          name: 'Item2',
+          description: 'Item2 desc',
+          uom: 'units',
+          costPrice: 30,
+          mrp: 50,
+          salesPrice: 40,
+        ),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      state = container.read(receivePurchaseOrderControllerProvider('po-1'));
+      // Line 2 should have mrp set, line 1 still loading/pending
+      expect(state.lines[1].mrp, 50);
+      expect(!state.prefillLoadingLineIds.contains('line-2'), isTrue);
+
+      // Now complete line 1
+      line1Completer.complete(
+        const ProductDetails(
+          name: 'Item1',
+          description: 'Item1 desc',
+          uom: 'units',
+          costPrice: 60,
+          mrp: 100,
+          salesPrice: 80,
+        ),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      state = container.read(receivePurchaseOrderControllerProvider('po-1'));
+      expect(state.lines[0].mrp, 100);
+      expect(state.prefillLoadingLineIds, isEmpty);
+    },
+  );
+
+  test(
+    'user edit to MRP blocks later async prefill',
+    () async {
+      final prefillCompleter = Completer<ProductDetails>();
+
+      when(() => getPurchaseOrder('po-1')).thenAnswer(
+        (_) async => _detail(
+          lines: const [
+            PurchaseOrderLine(
+              lineId: 'line-1',
+              itemId: 'item-1',
+              description: 'Widget',
+              expectedQuantity: 5,
+              receivedQuantity: 0,
+              remainingQuantity: 5,
+              unitCost: 10,
+              lineTotal: 50,
+            ),
+          ],
+        ),
+      );
+
+      when(() => getProductDetails(name: 'Widget')).thenAnswer(
+        (_) => prefillCompleter.future,
+      );
+
+      final container = _makeContainer(
+        getPurchaseOrder: getPurchaseOrder,
+        receivePurchaseOrder: receivePurchaseOrder,
+        getProductDetails: getProductDetails,
+      );
+      addTearDown(container.dispose);
+      _watchReceiveController(container);
+
+      container.read(receivePurchaseOrderControllerProvider('po-1'));
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+
+      container
+          .read(receivePurchaseOrderControllerProvider('po-1').notifier)
+          .updateMrp('line-1', '200');
+
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      prefillCompleter.complete(
+        const ProductDetails(
+          name: 'Widget',
+          description: 'Widget desc',
+          uom: 'units',
+          costPrice: 60,
+          mrp: 100,
+          salesPrice: 80,
+          taxIncluded: false,
+        ),
+      );
+
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+
+      final state =
+          container.read(receivePurchaseOrderControllerProvider('po-1'));
+      expect(
+        state.lines[0].mrp,
+        200,
+        reason: 'User-edited MRP should not be overwritten by prefill',
+      );
     },
   );
 }

@@ -8,10 +8,11 @@ String generateBatchNumber({
       '${time.day.toString().padLeft(2, '0')}';
 
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  final seed = (entropy ?? time.microsecondsSinceEpoch).toInt();
+  final baseEntropy = (entropy ?? time.microsecondsSinceEpoch).toInt();
   final suffix = StringBuffer();
   for (var i = 0; i < 5; i++) {
-    suffix.write(chars[(seed + (i * 17)).abs() % chars.length]);
+    final hash = ((baseEntropy >> i) ^ (baseEntropy << (i + 3))) * 2654435761;
+    suffix.write(chars[hash.abs() % chars.length]);
   }
 
   return 'BN-$dateLabel-$suffix';

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/entities/product_details.dart';
+import 'package:intelibill_mobile/src/features/inventory/domain/use_cases/get_product_details.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/utils/batch_number_generator.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/controllers/items_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order.dart';
@@ -35,6 +36,7 @@ class ReceivePurchaseOrderLineDraft {
     required this.purchaseTaxIncluded,
     this.expiryDate,
     this.manufacturingDate,
+    this.dirtyFields = const {},
   });
 
   final String purchaseOrderLineId;
@@ -53,6 +55,7 @@ class ReceivePurchaseOrderLineDraft {
   final bool purchaseTaxIncluded;
   final DateTime? expiryDate;
   final DateTime? manufacturingDate;
+  final Set<String> dirtyFields;
 
   ReceivePurchaseOrderLineDraft copyWith({
     int? quantity,
@@ -68,6 +71,7 @@ class ReceivePurchaseOrderLineDraft {
     bool? purchaseTaxIncluded,
     DateTime? expiryDate,
     DateTime? manufacturingDate,
+    Set<String>? dirtyFields,
     bool clearExpiryDate = false,
     bool clearManufacturingDate = false,
   }) {
@@ -90,6 +94,7 @@ class ReceivePurchaseOrderLineDraft {
       manufacturingDate: clearManufacturingDate
           ? null
           : (manufacturingDate ?? this.manufacturingDate),
+      dirtyFields: dirtyFields ?? this.dirtyFields,
     );
   }
 }
@@ -286,7 +291,7 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
             quantity: line.remainingQuantity,
             isSelected: true,
             unitPurchaseCost: line.unitCost,
-            barcode: line.itemId,
+            barcode: '',
             batchNumber: _buildBatchNumber(line),
             totalPurchaseCost: line.unitCost * line.remainingQuantity,
             mrp: 0,
@@ -304,23 +309,31 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
 
   Future<void> _prefillLinesAsync() async {
     final getProductDetails = ref.read(getProductDetailsProvider);
-    for (final line in state.lines) {
-      if (!ref.mounted) return;
+    final lines = List.of(state.lines);
+    for (final line in lines) {
       _setPrefillLoading(line.purchaseOrderLineId, true);
+    }
 
-      try {
-        final details = await getProductDetails(name: line.description);
-        if (!ref.mounted) return;
-        _applyPrefill(line.purchaseOrderLineId, details);
-        _setPrefillLoading(line.purchaseOrderLineId, false);
-      } on Object catch (e) {
-        if (!ref.mounted) return;
-        _setPrefillFailure(
-          line.purchaseOrderLineId,
-          e.toString(),
-        );
-        _setPrefillLoading(line.purchaseOrderLineId, false);
-      }
+    final futures = lines.map((line) => _prefillLineAsync(line, getProductDetails));
+    await Future.wait(futures, eagerError: false);
+  }
+
+  Future<void> _prefillLineAsync(
+    ReceivePurchaseOrderLineDraft line,
+    GetProductDetails getProductDetails,
+  ) async {
+    try {
+      final details = await getProductDetails(name: line.description);
+      if (!ref.mounted) return;
+      _applyPrefill(line.purchaseOrderLineId, details);
+      _setPrefillLoading(line.purchaseOrderLineId, false);
+    } on Object catch (e) {
+      if (!ref.mounted) return;
+      _setPrefillFailure(
+        line.purchaseOrderLineId,
+        e.toString(),
+      );
+      _setPrefillLoading(line.purchaseOrderLineId, false);
     }
   }
 
@@ -348,19 +361,19 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
 
     _updateLine(lineId, (l) {
       var updated = l;
-      if (l.barcode == '') {
+      if (!l.dirtyFields.contains('barcode') && l.barcode == '') {
         updated = updated.copyWith(barcode: details.name);
       }
-      if (l.mrp == 0) {
+      if (!l.dirtyFields.contains('mrp') && l.mrp == 0) {
         updated = updated.copyWith(mrp: details.mrp);
       }
-      if (l.salesPrice == 0) {
+      if (!l.dirtyFields.contains('salesPrice') && l.salesPrice == 0) {
         updated = updated.copyWith(salesPrice: details.salesPrice);
       }
-      if (l.taxRatePercent == 0 && details.taxRatePercent != null) {
+      if (!l.dirtyFields.contains('taxRatePercent') && l.taxRatePercent == 0 && details.taxRatePercent != null) {
         updated = updated.copyWith(taxRatePercent: details.taxRatePercent!);
       }
-      if (!l.taxIncluded && details.taxIncluded == true) {
+      if (!l.dirtyFields.contains('taxIncluded') && !l.taxIncluded && details.taxIncluded == true) {
         updated = updated.copyWith(taxIncluded: details.taxIncluded!);
       }
       return updated;
@@ -384,7 +397,10 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
 
   void updateBarcode(String purchaseOrderLineId, String value) {
     _clearBarcodeGenerationFailure(purchaseOrderLineId);
-    _updateLine(purchaseOrderLineId, (line) => line.copyWith(barcode: value));
+    _updateLine(purchaseOrderLineId, (line) => line.copyWith(
+      barcode: value,
+      dirtyFields: {...line.dirtyFields, 'barcode'},
+    ));
   }
 
   Future<String?> generateItemBarcodeForLine(String purchaseOrderLineId) async {
@@ -531,7 +547,10 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
   void updateMrp(String purchaseOrderLineId, String value) {
     final mrp = double.tryParse(value);
     if (mrp == null) return;
-    _updateLine(purchaseOrderLineId, (line) => line.copyWith(mrp: mrp));
+    _updateLine(purchaseOrderLineId, (line) => line.copyWith(
+      mrp: mrp,
+      dirtyFields: {...line.dirtyFields, 'mrp'},
+    ));
   }
 
   void updateSalesPrice(String purchaseOrderLineId, String value) {
@@ -539,7 +558,10 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
     if (price == null) return;
     _updateLine(
       purchaseOrderLineId,
-      (line) => line.copyWith(salesPrice: price),
+      (line) => line.copyWith(
+        salesPrice: price,
+        dirtyFields: {...line.dirtyFields, 'salesPrice'},
+      ),
     );
   }
 
@@ -548,14 +570,20 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
     if (rate == null) return;
     _updateLine(
       purchaseOrderLineId,
-      (line) => line.copyWith(taxRatePercent: rate),
+      (line) => line.copyWith(
+        taxRatePercent: rate,
+        dirtyFields: {...line.dirtyFields, 'taxRatePercent'},
+      ),
     );
   }
 
   void updateTaxIncluded(String purchaseOrderLineId, bool value) {
     _updateLine(
       purchaseOrderLineId,
-      (line) => line.copyWith(taxIncluded: value),
+      (line) => line.copyWith(
+        taxIncluded: value,
+        dirtyFields: {...line.dirtyFields, 'taxIncluded'},
+      ),
     );
   }
 
@@ -719,7 +747,7 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
 
   Map<String, String> _validateLine(ReceivePurchaseOrderLineDraft line) {
     final errors = <String, String>{};
-    _require(errors, 'barcode', line.barcode, 120);
+    if (line.barcode.isNotEmpty) _maxLength(errors, 'barcode', line.barcode, 120);
     _require(errors, 'batchNumber', line.batchNumber, 80);
     if (line.quantity <= 0 || line.quantity > line.remainingQuantity) {
       errors['quantity'] = 'Quantity must be within the remaining amount.';
@@ -752,6 +780,17 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
     if (value.trim().isEmpty) {
       errors[field] = 'This field is required.';
     } else if (value.length > max) {
+      errors[field] = 'Must not exceed $max characters.';
+    }
+  }
+
+  void _maxLength(
+    Map<String, String> errors,
+    String field,
+    String value,
+    int max,
+  ) {
+    if (value.length > max) {
       errors[field] = 'Must not exceed $max characters.';
     }
   }
