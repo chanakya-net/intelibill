@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,10 +12,54 @@ import 'package:intelibill_mobile/src/features/sales/presentation/controllers/sa
 import 'package:intelibill_mobile/src/features/sales/presentation/pages/sales_receipt_page.dart';
 import 'package:intelibill_mobile/src/shared/documents/document_page_format.dart';
 import 'package:intelibill_mobile/src/shared/documents/document_preview_scaffold.dart';
+import 'package:intelibill_mobile/src/shared/documents/output/document_export_providers.dart';
+import 'package:intelibill_mobile/src/shared/documents/output/document_output_gateway.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:pdf/pdf.dart';
 
 class MockGetSaleDetail extends Mock implements GetSaleDetail {}
+
+class FakeDocumentOutputGateway implements DocumentOutputGateway {
+  bool failPrint = false;
+  bool failShare = false;
+  Completer<void>? printCompleter;
+  Completer<void>? shareCompleter;
+  int printCallCount = 0;
+  int shareCallCount = 0;
+  Uint8List? lastPrintBytes;
+  Uint8List? lastShareBytes;
+  String? lastPrintFilename;
+  String? lastShareFilename;
+
+  @override
+  Future<void> print({
+    required Uint8List bytes,
+    required String filename,
+  }) async {
+    printCallCount += 1;
+    lastPrintBytes = bytes;
+    lastPrintFilename = filename;
+    if (failPrint) {
+      throw PlatformPrintFailure(message: 'printer unavailable');
+    }
+    await printCompleter?.future;
+  }
+
+  @override
+  Future<void> share({
+    required Uint8List bytes,
+    required String filename,
+    required String title,
+  }) async {
+    shareCallCount += 1;
+    lastShareBytes = bytes;
+    lastShareFilename = filename;
+    if (failShare) {
+      throw PlatformShareFailure(message: 'share unavailable');
+    }
+    await shareCompleter?.future;
+  }
+}
 
 void main() {
   final initial = _saleDetail(invoiceNumber: 'INV-INIT-001');
@@ -38,6 +83,123 @@ void main() {
 
     final bytes = await scaffold.onBuild(PdfPageFormat.roll80);
     expect(bytes.take(4), orderedEquals('%PDF'.codeUnits));
+  });
+
+  testWidgets('exports sanitized 80 mm receipt bytes through print and share', (
+    tester,
+  ) async {
+    final getSaleDetail = MockGetSaleDetail();
+    final outputGateway = FakeDocumentOutputGateway();
+    when(() => getSaleDetail(any())).thenAnswer(
+      (_) async => _saleDetail(invoiceNumber: 'INV / 2026'),
+    );
+
+    await tester.pumpWidget(
+      _buildPage(
+        getSaleDetail: getSaleDetail,
+        outputGateway: outputGateway,
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 50));
+
+    final scaffold = tester.widget<DocumentPreviewScaffold>(
+      find.byType(DocumentPreviewScaffold),
+    );
+    final bytes = await scaffold.onBuild(scaffold.descriptor.pdfPageFormat);
+
+    await scaffold.onPrint!(bytes);
+    await scaffold.onShare!(bytes);
+
+    expect(scaffold.descriptor.pageFormat, DocumentPageFormat.mm80);
+    expect(scaffold.descriptor.filename, 'sale-receipt-INV-2026.pdf');
+    expect(bytes.take(4), orderedEquals('%PDF'.codeUnits));
+    expect(outputGateway.printCallCount, 1);
+    expect(outputGateway.shareCallCount, 1);
+    expect(outputGateway.lastPrintBytes, same(bytes));
+    expect(outputGateway.lastShareBytes, same(bytes));
+    expect(outputGateway.lastPrintFilename, 'sale-receipt-INV-2026.pdf');
+    expect(outputGateway.lastShareFilename, 'sale-receipt-INV-2026.pdf');
+  });
+
+  testWidgets('retains receipt preview and retries after output failures', (
+    tester,
+  ) async {
+    final getSaleDetail = MockGetSaleDetail();
+    final outputGateway = FakeDocumentOutputGateway()
+      ..failPrint = true
+      ..failShare = true;
+    when(() => getSaleDetail(any())).thenAnswer(
+      (_) async => _saleDetail(invoiceNumber: 'INV-RETRY-OUTPUT'),
+    );
+
+    await tester.pumpWidget(
+      _buildPage(
+        getSaleDetail: getSaleDetail,
+        outputGateway: outputGateway,
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 50));
+
+    final scaffold = tester.widget<DocumentPreviewScaffold>(
+      find.byType(DocumentPreviewScaffold),
+    );
+    final bytes = await scaffold.onBuild(scaffold.descriptor.pdfPageFormat);
+
+    await scaffold.onPrint!(bytes);
+    await tester.pump();
+    expect(find.text('Print failed: printer unavailable'), findsOneWidget);
+    expect(find.byType(DocumentPreviewScaffold), findsOneWidget);
+
+    outputGateway.failPrint = false;
+    await scaffold.onPrint!(bytes);
+    expect(outputGateway.printCallCount, 2);
+
+    await scaffold.onShare!(bytes);
+    expect(find.byType(DocumentPreviewScaffold), findsOneWidget);
+
+    outputGateway.failShare = false;
+    await scaffold.onShare!(bytes);
+    expect(outputGateway.shareCallCount, 2);
+    verify(() => getSaleDetail('sale-1')).called(1);
+  });
+
+  testWidgets('suppresses duplicate in-flight receipt output actions', (
+    tester,
+  ) async {
+    final getSaleDetail = MockGetSaleDetail();
+    final outputGateway = FakeDocumentOutputGateway()
+      ..printCompleter = Completer<void>()
+      ..shareCompleter = Completer<void>();
+    when(() => getSaleDetail(any())).thenAnswer(
+      (_) async => _saleDetail(),
+    );
+
+    await tester.pumpWidget(
+      _buildPage(
+        getSaleDetail: getSaleDetail,
+        outputGateway: outputGateway,
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 50));
+
+    final scaffold = tester.widget<DocumentPreviewScaffold>(
+      find.byType(DocumentPreviewScaffold),
+    );
+    final bytes = await scaffold.onBuild(scaffold.descriptor.pdfPageFormat);
+
+    final firstPrint = scaffold.onPrint!(bytes);
+    final duplicatePrint = scaffold.onPrint!(bytes);
+    await tester.pump();
+    expect(outputGateway.printCallCount, 1);
+    outputGateway.printCompleter!.complete();
+    await Future.wait([firstPrint, duplicatePrint]);
+
+    final firstShare = scaffold.onShare!(bytes);
+    final duplicateShare = scaffold.onShare!(bytes);
+    await tester.pump();
+    expect(outputGateway.shareCallCount, 1);
+    outputGateway.shareCompleter!.complete();
+    await Future.wait([firstShare, duplicateShare]);
   });
 
   testWidgets('previews initialSale then reloads with detail refresh', (
@@ -118,10 +280,13 @@ void main() {
 Widget _buildPage({
   required GetSaleDetail getSaleDetail,
   SaleDetail? initialSale,
+  DocumentOutputGateway? outputGateway,
 }) {
   return ProviderScope(
     overrides: [
       getSaleDetailUseCaseProvider.overrideWithValue(getSaleDetail),
+      if (outputGateway != null)
+        documentOutputGatewayProvider.overrideWithValue(outputGateway),
     ],
     child: MaterialApp(
       theme: AppTheme.lightTheme,
