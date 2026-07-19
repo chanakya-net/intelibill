@@ -1,17 +1,21 @@
 import 'dart:typed_data';
 
+import 'package:flutter/material.dart';
 import 'package:intelibill_mobile/src/features/credit_notes/domain/entities/credit_note_print.dart';
 import 'package:intelibill_mobile/src/shared/documents/document_page_format.dart';
 import 'package:intelibill_mobile/src/shared/documents/filename_sanitizer.dart';
+import 'package:intelibill_mobile/src/shared/documents/pdf/document_font_resolver.dart';
+import 'package:intelibill_mobile/src/shared/documents/pdf_document_formatters.dart';
+import 'package:intelibill_mobile/src/shared/documents/pdf_document_theme.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 class CreditNoteReceiptPdfBuilder {
-  static final _titleStyle = pw.TextStyle(
-    fontSize: 20,
-    fontWeight: pw.FontWeight.bold,
-  );
+  CreditNoteReceiptPdfBuilder({DocumentFontResolver? fontResolver})
+    : _fontResolver = fontResolver ?? DocumentFontResolver();
+
+  final DocumentFontResolver _fontResolver;
 
   String filenameFor(CreditNotePrint note) => FilenameSanitizer.sanitize(
     'credit-note-${note.code}.pdf',
@@ -33,13 +37,21 @@ class CreditNoteReceiptPdfBuilder {
     'Available: ${_money(note.availableBalance)}',
   ].join('\n');
 
-  Future<Uint8List> build(CreditNotePrint note) async {
-    final document = pw.Document(compress: false);
+  Future<Uint8List> build(
+    CreditNotePrint note, {
+    Locale locale = pdfDefaultLocale,
+  }) async {
+    final theme = PdfDocumentTheme(await _fontResolver.resolve(locale));
+    final document = pw.Document(
+      compress: false,
+      subject: locale.toLanguageTag(),
+    );
     document.addPage(
       pw.MultiPage(
+        theme: theme.data,
         pageFormat: _receiptPageFormat(note),
         build: (_) => [
-          pw.Text('Credit Note', style: _titleStyle),
+          pw.Text('Credit Note', style: theme.title),
           pw.SizedBox(height: 12),
           pw.Text('Code: ${note.code}'),
           pw.Text('Status: ${_statusLabel(note.status)}'),

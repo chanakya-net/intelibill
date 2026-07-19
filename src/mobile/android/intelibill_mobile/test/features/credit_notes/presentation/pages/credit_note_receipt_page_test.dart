@@ -77,39 +77,22 @@ void main() {
       expect(find.byType(TextButton), findsOneWidget);
     });
 
-    test('retry invalidates provider', () {
-      var callCount = 0;
+    testWidgets('retries the page code after a failed load', (
+      WidgetTester tester,
+    ) async {
+      final requestedCodes = <String>[];
+      var allowSuccess = false;
 
       final container = ProviderContainer(
         overrides: [
           creditNotePrintByCodeProvider.overrideWith(
             (ref, code) {
-              callCount++;
-              if (callCount == 1) {
-                return Future<CreditNotePrint>.error(Exception('Load failed'));
+              requestedCodes.add(code);
+              if (!allowSuccess) {
+                return Future<CreditNotePrint>.error(
+                  Exception('Load failed'),
+                );
               }
-              return Future.value(_creditNotePrint());
-            },
-          ),
-        ],
-      );
-      addTearDown(container.dispose);
-
-      container.refresh(creditNotePrintByCodeProvider('CN-REC-001'));
-      expect(callCount, equals(1));
-
-      container.refresh(creditNotePrintByCodeProvider('CN-REC-001'));
-      expect(callCount, equals(2));
-    });
-
-    test('passes code argument to creditNotePrintByCodeProvider', () {
-      String? capturedCode;
-
-      final container = ProviderContainer(
-        overrides: [
-          creditNotePrintByCodeProvider.overrideWith(
-            (ref, code) {
-              capturedCode = code;
               return Future.value(_creditNotePrint(code: code));
             },
           ),
@@ -117,10 +100,18 @@ void main() {
       );
       addTearDown(container.dispose);
 
-      final fakeCode = 'TEST-CODE-123';
-      container.refresh(creditNotePrintByCodeProvider(fakeCode));
+      await tester.pumpWidget(_receiptApp(container, 'CN-REC-001'));
+      await tester.pumpAndSettle();
 
-      expect(capturedCode, equals(fakeCode));
+      expect(find.byType(TextButton), findsOneWidget);
+      allowSuccess = true;
+      await tester.tap(find.byType(TextButton));
+      await tester.pump();
+      await tester.pump();
+
+      expect(requestedCodes, everyElement('CN-REC-001'));
+      expect(requestedCodes.length, greaterThanOrEqualTo(2));
+      expect(find.byType(DocumentPreviewScaffold), findsOneWidget);
     });
 
     testWidgets('builds DocumentPreviewScaffold on data', (
@@ -155,6 +146,20 @@ void main() {
     });
   });
 }
+
+Widget _receiptApp(ProviderContainer container, String code) =>
+    UncontrolledProviderScope(
+      container: container,
+      child: MaterialApp(
+        locale: const Locale('en', 'IN'),
+        supportedLocales: const [Locale('en', 'IN')],
+        localizationsDelegates: [
+          AppLocalizations.delegate,
+          ...AppLocalizations.localizationsDelegates,
+        ],
+        home: CreditNoteReceiptPage(code: code),
+      ),
+    );
 
 CreditNotePrint _creditNotePrint({String? code}) {
   return CreditNotePrint(

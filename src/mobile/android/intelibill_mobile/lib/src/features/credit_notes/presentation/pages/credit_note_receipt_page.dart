@@ -28,7 +28,10 @@ class CreditNoteReceiptPage extends ConsumerWidget {
 
         return DocumentPreviewScaffold(
           descriptor: descriptor,
-          onBuild: (format) => builder.build(printData),
+          onBuild: (format) => builder.build(
+            printData,
+            locale: Localizations.localeOf(context),
+          ),
           onFailure: (message) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(message)),

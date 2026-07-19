@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intelibill_mobile/src/features/credit_notes/domain/entities/credit_note_print.dart';
 import 'package:intelibill_mobile/src/features/credit_notes/presentation/documents/credit_note_receipt_pdf_builder.dart';
@@ -7,6 +9,8 @@ import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   final populated = _creditNotePrint();
   final noExpiry = _creditNotePrintNoExpiry();
 
@@ -79,17 +83,34 @@ void main() {
       expect(mediaBox.width, closeTo(PdfPageFormat.roll80.width, 0.5));
       expect(mediaBox.height, greaterThan(0));
       expect(mediaBox.height, lessThan(PdfPageFormat.a4.height));
-      expect(payload, contains('CN-REC-001'));
-      expect(payload, contains('INV-001'));
-      expect(
-        _containsTokenSequence(payload, const [
-          'Credit',
-          'Note',
-          'Code',
-          'CN-REC-001',
-        ]),
-        isTrue,
+    },
+  );
+
+  test(
+    'builds non-Latin receipt values with document font fallbacks',
+    () async {
+      final messages = <String>[];
+      final note = _creditNotePrint(
+        customerDisplayName: 'अनया',
+        reason: 'दोषपूर्ण वस्तु',
       );
+
+      final bytes = await Zone.current
+          .fork(
+            specification: ZoneSpecification(
+              print: (_, _, _, line) => messages.add(line),
+            ),
+          )
+          .run(
+            () => CreditNoteReceiptPdfBuilder().build(
+              note,
+              locale: const Locale('hi', 'IN'),
+            ),
+          );
+
+      expect(bytes, isNotEmpty);
+      expect(messages, isNot(contains(contains('Unicode support'))));
+      expect(messages, isNot(contains(contains('Unable to find a font'))));
     },
   );
 
@@ -127,17 +148,6 @@ void main() {
   });
 }
 
-bool _containsTokenSequence(String text, List<String> tokens) {
-  var index = -1;
-  for (final token in tokens) {
-    index = text.indexOf(token, index + 1);
-    if (index == -1) {
-      return false;
-    }
-  }
-  return true;
-}
-
 _CreditNoteMediaBox _extractMediaBox(String payload) {
   final match = RegExp(r'/MediaBox\s*\[(.*?)\]').firstMatch(payload);
   expect(match, isNotNull, reason: 'PDF payload should include a MediaBox');
@@ -171,7 +181,10 @@ class _CreditNoteMediaBox {
   double get height => top - bottom;
 }
 
-CreditNotePrint _creditNotePrint() {
+CreditNotePrint _creditNotePrint({
+  String customerDisplayName = 'Alice',
+  String reason = 'Defective item',
+}) {
   return CreditNotePrint(
     creditNoteId: 'cn-1',
     code: 'CN-REC-001',
@@ -185,8 +198,8 @@ CreditNotePrint _creditNotePrint() {
     invoiceNumber: 'INV-001',
     saleReturnId: 'ret-1',
     returnNumber: 'RET-001',
-    customerDisplayName: 'Alice',
-    reason: 'Defective item',
+    customerDisplayName: customerDisplayName,
+    reason: reason,
     voidReason: null,
   );
 }

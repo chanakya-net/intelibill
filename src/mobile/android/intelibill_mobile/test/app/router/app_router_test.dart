@@ -230,6 +230,7 @@ void main() {
     });
 
     testWidgets('opens credit note receipt route', (tester) async {
+      final requestedCodes = <String>[];
       final container = ProviderContainer(
         overrides: [
           authControllerProvider.overrideWith(
@@ -244,7 +245,10 @@ void main() {
             _StubSalesHistoryController.new,
           ),
           creditNotePrintByCodeProvider.overrideWith(
-            (ref, _) => Future.value(_fakeCreditNotePrint),
+            (ref, code) {
+              requestedCodes.add(code);
+              return Future.value(_fakeCreditNotePrint);
+            },
           ),
         ],
       );
@@ -278,6 +282,7 @@ void main() {
         router.routeInformationProvider.value.uri.toString(),
         equals(route),
       );
+      expect(requestedCodes, ['CN-001']);
     });
 
     testWidgets('owner can navigate to sales receipt route', (tester) async {
