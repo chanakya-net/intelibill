@@ -6,15 +6,15 @@ import 'package:intelibill_mobile/src/app/router/app_router.dart';
 import 'package:intelibill_mobile/src/app/theme/app_theme.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
+import 'package:intelibill_mobile/src/features/inventory/domain/entities/item.dart';
+import 'package:intelibill_mobile/src/features/inventory/presentation/controllers/items_controller.dart';
+import 'package:intelibill_mobile/src/features/inventory/presentation/widgets/create_item_sheet.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_draft.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_status.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_builder_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/pages/purchase_order_builder_page.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_draft_line_card.dart';
-import 'package:intelibill_mobile/src/features/inventory/domain/entities/item.dart';
-import 'package:intelibill_mobile/src/features/inventory/presentation/controllers/items_controller.dart';
-import 'package:intelibill_mobile/src/features/inventory/presentation/widgets/create_item_sheet.dart';
 import 'package:intelibill_mobile/src/features/suppliers/domain/entities/supplier.dart';
 
 class _StubBuilderController extends PurchaseOrderBuilderController {
@@ -133,11 +133,13 @@ class _StubItemsController extends ItemsController {
     this._initialState, {
     this.createdItem,
     this.createFailure,
+    this.refreshedItems,
   });
 
   final ItemsState _initialState;
   final Item? createdItem;
   final Failure? createFailure;
+  final List<Item>? refreshedItems;
   int refreshCalls = 0;
 
   @override
@@ -151,6 +153,7 @@ class _StubItemsController extends ItemsController {
   @override
   Future<void> refresh() async {
     refreshCalls++;
+    state = state.copyWith(items: refreshedItems ?? [?createdItem]);
   }
 
   @override
@@ -165,7 +168,9 @@ class _StubItemsController extends ItemsController {
       state = state.copyWith(submitFailure: failure);
       return null;
     }
-    return createdItem;
+    final created = createdItem;
+    if (created != null) await refresh();
+    return created;
   }
 }
 
@@ -178,6 +183,7 @@ void main() {
     ItemsState itemsState = const ItemsState(),
     Item? createdItem,
     Failure? createFailure,
+    List<Item>? refreshedItems,
     void Function(_StubBuilderController controller)? onControllerCreated,
     void Function(_StubItemsController controller)? onItemsControllerCreated,
   }) {
@@ -199,6 +205,7 @@ void main() {
               itemsState,
               createdItem: createdItem,
               createFailure: createFailure,
+              refreshedItems: refreshedItems,
             );
             onItemsControllerCreated?.call(controller);
             return controller;
@@ -615,6 +622,58 @@ void main() {
     expect(builderController!.state.supplierReferenceNumber, 'REF-1');
     expect(builderController!.state.notes, 'Keep this note');
     expect(builderController!.state.lines, state.lines);
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.byKey(PurchaseOrderBuilderPage.addItemConfirmButtonKey),
+          )
+          .onPressed,
+      isNotNull,
+    );
+  });
+
+  testWidgets('selects a renamed quick-created item without dropdown errors', (
+    tester,
+  ) async {
+    final created = _item('created-item', 'Bar');
+    _StubItemsController? itemsController;
+    _StubBuilderController? builderController;
+    await tester.pumpWidget(
+      buildApp(
+        PurchaseOrderBuilderState(suppliers: [_supplier()]),
+        createdItem: created,
+        refreshedItems: [created, _item('foo-item', 'Foo match')],
+        onControllerCreated: (controller) => builderController = controller,
+        onItemsControllerCreated: (controller) => itemsController = controller,
+      ),
+    );
+
+    final addItemButton = find.byKey(PurchaseOrderBuilderPage.addItemButtonKey);
+    await tester.ensureVisible(addItemButton);
+    await tester.tap(addItemButton);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(PurchaseOrderBuilderPage.itemSearchKey),
+      'Foo',
+    );
+    await tester.pump();
+    await tester.tap(
+      find.byKey(PurchaseOrderBuilderPage.quickCreateItemButtonKey),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(CreateItemSheet.nameFieldKey), 'Bar');
+    await tester.enterText(
+      find.byKey(CreateItemSheet.barcodeFieldKey),
+      'BAR-1',
+    );
+    await tester.enterText(find.byKey(CreateItemSheet.uomFieldKey), 'pcs');
+    await tester.tap(find.byKey(CreateItemSheet.submitButtonKey));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(itemsController!.refreshCalls, 1);
+    expect(itemsController!.state.searchQuery, 'Bar');
+    expect(builderController!.state.selectedCatalogItem, created);
     expect(
       tester
           .widget<FilledButton>(

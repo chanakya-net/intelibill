@@ -282,8 +282,7 @@ class _PurchaseOrderBuilderPageState
       builder: (_) => CreateItemSheet(initialName: initialName),
     );
     if (created == null || !mounted) return;
-    await ref.read(itemsControllerProvider.notifier).refresh();
-    if (!mounted) return;
+    ref.read(itemsControllerProvider.notifier).updateSearch(created.name);
     ref.read(provider.notifier).selectCreatedCatalogItem(created);
   }
 }
