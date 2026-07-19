@@ -7,10 +7,12 @@ import 'package:intelibill_mobile/src/features/inventory/data/dto/add_inventory_
 import 'package:intelibill_mobile/src/features/inventory/data/dto/adjust_inventory_batch_request_dto.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/dto/create_item_request_dto.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/dto/update_item_request_dto.dart';
+import 'package:intelibill_mobile/src/features/inventory/data/mappers/generated_item_barcode_mapper.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/mappers/inventory_adjustment_mapper.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/mappers/inventory_batch_mapper.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/mappers/item_mapper.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/mappers/product_details_mapper.dart';
+import 'package:intelibill_mobile/src/features/inventory/domain/entities/generated_item_barcode.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/entities/inventory_adjustment.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/entities/inventory_batch.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/entities/item.dart';
@@ -267,6 +269,28 @@ class InventoryRepositoryImpl implements InventoryRepository {
       return (items: items, hasMore: hasMore);
     } on AppException {
       rethrow;
+    } on FormatException catch (error) {
+      throw AppException(
+        failure: Failure.serialization(message: error.message),
+      );
+    } catch (error) {
+      throw AppException(failure: Failure.unknown(message: error.toString()));
+    }
+  }
+
+  @override
+  Future<GeneratedItemBarcode> generateItemBarcode() async {
+    try {
+      final dto = await _remoteDataSource.generateItemBarcode();
+      return GeneratedItemBarcodeMapper.toDomain(dto);
+    } on AppException {
+      rethrow;
+      // Generated DTO type mismatches must map to serialization failures.
+      // ignore: avoid_catching_errors
+    } on TypeError catch (error) {
+      throw AppException(
+        failure: Failure.serialization(message: error.toString()),
+      );
     } on FormatException catch (error) {
       throw AppException(
         failure: Failure.serialization(message: error.message),

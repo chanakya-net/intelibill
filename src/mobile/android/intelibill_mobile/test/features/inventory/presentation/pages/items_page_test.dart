@@ -112,6 +112,40 @@ Widget _buildManageFlowApp({
   );
 }
 
+Widget _buildCreateSheetApp({
+  required MockGetItems getItems,
+  required MockCreateItem createItem,
+  required MockUpdateItem updateItem,
+  required String initialName,
+  required ValueChanged<Item?> onResult,
+}) {
+  return ProviderScope(
+    overrides: [
+      getItemsProvider.overrideWithValue(getItems),
+      createItemProvider.overrideWithValue(createItem),
+      updateItemProvider.overrideWithValue(updateItem),
+    ],
+    child: MaterialApp(
+      theme: AppTheme.lightTheme,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Builder(
+        builder: (context) => FilledButton(
+          onPressed: () async {
+            final result = await showModalBottomSheet<Item>(
+              context: context,
+              isScrollControlled: true,
+              builder: (_) => CreateItemSheet(initialName: initialName),
+            );
+            onResult(result);
+          },
+          child: const Text('Open'),
+        ),
+      ),
+    ),
+  );
+}
+
 Future<void> _expandInventorySpeedDial(WidgetTester tester) async {
   await tester.tap(find.byKey(ItemsPage.speedDialMainKey));
   await tester.pumpAndSettle();
@@ -280,6 +314,68 @@ void main() {
       expect(find.text('Product created successfully.'), findsOneWidget);
       expect(find.byKey(CreateItemSheet.nameFieldKey), findsNothing);
       verify(getItems.call).called(greaterThanOrEqualTo(2));
+    });
+
+    testWidgets('create sheet prefills name and returns created item', (
+      tester,
+    ) async {
+      final getItems = MockGetItems();
+      final createItem = MockCreateItem();
+      final updateItem = MockUpdateItem();
+      const created = Item(
+        itemId: 'item-3',
+        name: 'Missing Widget',
+        barcode: 'BAR003',
+        uom: 'pcs',
+        isActive: true,
+        currentStock: 0,
+      );
+      Item? result;
+      when(getItems.call).thenAnswer((_) async => [created]);
+      when(
+        () => createItem(
+          name: any(named: 'name'),
+          barcode: any(named: 'barcode'),
+          uom: any(named: 'uom'),
+          description: any(named: 'description'),
+        ),
+      ).thenAnswer((_) async => created);
+
+      await tester.pumpWidget(
+        _buildCreateSheetApp(
+          getItems: getItems,
+          createItem: createItem,
+          updateItem: updateItem,
+          initialName: 'Missing Widget',
+          onResult: (value) => result = value,
+        ),
+      );
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .widget<TextFormField>(find.byKey(CreateItemSheet.nameFieldKey))
+            .controller!
+            .text,
+        'Missing Widget',
+      );
+      await tester.enterText(
+        find.byKey(CreateItemSheet.barcodeFieldKey),
+        'BAR003',
+      );
+      await tester.enterText(find.byKey(CreateItemSheet.uomFieldKey), 'pcs');
+      await tester.tap(find.byKey(CreateItemSheet.submitButtonKey));
+      await tester.pumpAndSettle();
+
+      expect(result, created);
+      verify(
+        () => createItem(
+          name: 'Missing Widget',
+          barcode: 'BAR003',
+          uom: 'pcs',
+        ),
+      ).called(1);
     });
 
     testWidgets('owner can open edit sheet and update item', (tester) async {

@@ -23,6 +23,11 @@ import 'package:intelibill_mobile/src/features/inventory/presentation/pages/add_
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/adjustment_history_page.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/inventory_batches_page.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/pages/items_page.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/pages/purchase_order_builder_page.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/pages/purchase_order_detail_page.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/pages/purchase_order_preview_page.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/pages/purchase_orders_page.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/pages/receive_purchase_order_page.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/pages/new_sale_page.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/pages/sales_history_page.dart';
@@ -61,6 +66,16 @@ class AppRoutes {
   static const String users = '/users';
   static const String discounts = '/discounts';
   static const String bankAccounts = '/bank-accounts';
+  static const String purchaseOrders = '/inventory/purchase-orders';
+  static const String purchaseOrderNew = '/inventory/purchase-orders/new';
+  static const String purchaseOrderEdit =
+      '/inventory/purchase-orders/:purchaseOrderId/edit';
+  static const String purchaseOrderDetail =
+      '/inventory/purchase-orders/:purchaseOrderId';
+  static const String purchaseOrderReceive =
+      '/inventory/purchase-orders/:purchaseOrderId/receive';
+  static const String purchaseOrderPrint =
+      '/inventory/purchase-orders/:purchaseOrderId/print';
   static const String language = '/language';
   static const String placeholders = '/placeholder';
 
@@ -70,6 +85,22 @@ class AppRoutes {
 
   static String salesReceiptFor(String saleId) {
     return '/sales/$saleId/receipt';
+  }
+
+  static String purchaseOrderDetailFor(String purchaseOrderId) {
+    return '/inventory/purchase-orders/$purchaseOrderId';
+  }
+
+  static String purchaseOrderEditFor(String purchaseOrderId) {
+    return '/inventory/purchase-orders/$purchaseOrderId/edit';
+  }
+
+  static String purchaseOrderReceiveFor(String purchaseOrderId) {
+    return '/inventory/purchase-orders/$purchaseOrderId/receive';
+  }
+
+  static String purchaseOrderPrintFor(String purchaseOrderId) {
+    return '/inventory/purchase-orders/$purchaseOrderId/print';
   }
 }
 
@@ -125,6 +156,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
 
       if (state.matchedLocation == AppRoutes.bankAccounts &&
           !canManageBankAccounts(authState.session)) {
+        return AppRoutes.salesHistory;
+      }
+
+      if (_requiresPurchaseOrderAccess(state.matchedLocation) &&
+          !canManagePurchaseOrders(authState.session)) {
         return AppRoutes.salesHistory;
       }
 
@@ -253,6 +289,43 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const BankAccountsPage(),
           ),
           GoRoute(
+            path: AppRoutes.purchaseOrders,
+            builder: (context, state) => const PurchaseOrdersPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.purchaseOrderNew,
+            builder: (context, state) =>
+                const PurchaseOrderBuilderPage(target: 'new'),
+          ),
+          GoRoute(
+            path: AppRoutes.purchaseOrderEdit,
+            builder: (context, state) => PurchaseOrderBuilderPage(
+              target: state.pathParameters['purchaseOrderId'] ?? '',
+            ),
+          ),
+          GoRoute(
+            path: AppRoutes.purchaseOrderDetail,
+            builder: (context, state) {
+              final purchaseOrderId =
+                  state.pathParameters['purchaseOrderId'] ?? '';
+              return PurchaseOrderDetailPage(purchaseOrderId: purchaseOrderId);
+            },
+          ),
+          GoRoute(
+            path: AppRoutes.purchaseOrderReceive,
+            builder: (context, state) {
+              final purchaseOrderId =
+                  state.pathParameters['purchaseOrderId'] ?? '';
+              return ReceivePurchaseOrderPage(purchaseOrderId: purchaseOrderId);
+            },
+          ),
+          GoRoute(
+            path: AppRoutes.purchaseOrderPrint,
+            builder: (context, state) => PurchaseOrderPreviewPage(
+              purchaseOrderId: state.pathParameters['purchaseOrderId'] ?? '',
+            ),
+          ),
+          GoRoute(
             path: AppRoutes.language,
             builder: (context, state) => const LanguagePage(),
           ),
@@ -298,6 +371,11 @@ bool _requiresDiscountAccess(String location) {
 
 bool _requiresServicesAccess(String location) {
   return location == AppRoutes.services;
+}
+
+bool _requiresPurchaseOrderAccess(String location) {
+  return location == AppRoutes.purchaseOrders ||
+      location.startsWith('${AppRoutes.purchaseOrders}/');
 }
 
 PlaceholderPage _buildPlaceholder(

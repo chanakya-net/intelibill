@@ -275,6 +275,54 @@ final class UpdateItemProvider
 
 String _$updateItemHash() => r'b571a9033fabb14c05e00a7c2b77602814f6d1d1';
 
+@ProviderFor(generateItemBarcode)
+final generateItemBarcodeProvider = GenerateItemBarcodeProvider._();
+
+final class GenerateItemBarcodeProvider
+    extends
+        $FunctionalProvider<
+          GenerateItemBarcode,
+          GenerateItemBarcode,
+          GenerateItemBarcode
+        >
+    with $Provider<GenerateItemBarcode> {
+  GenerateItemBarcodeProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'generateItemBarcodeProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$generateItemBarcodeHash();
+
+  @$internal
+  @override
+  $ProviderElement<GenerateItemBarcode> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  GenerateItemBarcode create(Ref ref) {
+    return generateItemBarcode(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(GenerateItemBarcode value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<GenerateItemBarcode>(value),
+    );
+  }
+}
+
+String _$generateItemBarcodeHash() =>
+    r'670ff6148c69427fcbe645447f34d731a57ef5f4';
+
 @ProviderFor(ItemsController)
 final itemsControllerProvider = ItemsControllerProvider._();
 
@@ -307,7 +355,7 @@ final class ItemsControllerProvider
   }
 }
 
-String _$itemsControllerHash() => r'937cc058e709d1fbfac012ec916e690b1798f737';
+String _$itemsControllerHash() => r'030b03f7b6e99fa8e9c275a708f142b05d111215';
 
 abstract class _$ItemsController extends $Notifier<ItemsState> {
   ItemsState build();

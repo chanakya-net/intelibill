@@ -1,10 +1,13 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
+import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/data_sources/inventory_remote_data_source.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/dto/add_inventory_batch_request_dto.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/dto/add_inventory_batch_row_dto.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/dto/adjust_inventory_batch_request_dto.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/dto/create_item_request_dto.dart';
+import 'package:intelibill_mobile/src/features/inventory/data/dto/generate_item_barcode_response_dto.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/dto/update_item_request_dto.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -502,6 +505,66 @@ void main() {
           ).called(1);
         },
       );
+    });
+
+    group('generateItemBarcode', () {
+      test('calls endpoint with no body and maps barcode response', () async {
+        when(
+          () => mockApiClient.post<Map<String, dynamic>>(any<String>()),
+        ).thenAnswer(
+          (_) async => Response(
+            data: {'barcode': 'IB-000001'},
+            statusCode: 200,
+            requestOptions: RequestOptions(path: '/items/barcodes/generate'),
+          ),
+        );
+
+        final dto = await remoteDataSource.generateItemBarcode();
+
+        expect(dto, isA<GenerateItemBarcodeResponseDto>());
+        expect(dto.barcode, 'IB-000001');
+        verify(
+          () => mockApiClient.post<Map<String, dynamic>>(
+            '/items/barcodes/generate',
+          ),
+        ).called(1);
+      });
+
+      test('propagates API failures from the barcode endpoint', () async {
+        final exception = AppException(
+          failure: const Failure.network(message: 'offline'),
+        );
+        when(
+          () => mockApiClient.post<Map<String, dynamic>>(any<String>()),
+        ).thenThrow(exception);
+
+        await expectLater(
+          remoteDataSource.generateItemBarcode(),
+          throwsA(same(exception)),
+        );
+        verify(
+          () => mockApiClient.post<Map<String, dynamic>>(
+            '/items/barcodes/generate',
+          ),
+        ).called(1);
+      });
+
+      test('throws malformed payload as TypeError from generated DTO', () {
+        when(
+          () => mockApiClient.post<Map<String, dynamic>>(any<String>()),
+        ).thenAnswer(
+          (_) async => Response(
+            data: {'code': 'BAD'},
+            statusCode: 200,
+            requestOptions: RequestOptions(path: '/items/barcodes/generate'),
+          ),
+        );
+
+        expect(
+          remoteDataSource.generateItemBarcode(),
+          throwsA(isA<TypeError>()),
+        );
+      });
     });
   });
 }

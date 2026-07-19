@@ -48,6 +48,8 @@ dependencies:
   intl: ^0.20.2
   fl_chart: ^1.0.0
   mobile_scanner: ^7.2.0
+  pdf: 3.11.3
+  printing: 5.14.2
 
 dev_dependencies:
   flutter_test:
@@ -105,3 +107,8 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+  # Bundled PDF fonts and their OFL license files. No runtime downloads.
+  assets:
+    - assets/fonts/
+    - assets/licenses/
