@@ -976,5 +976,14 @@
   "purchaseOrderReceiveNoLines": "No remaining lines available to receive.",
   "purchaseOrdersFilterDateFrom": "From",
   "purchaseOrdersFilterDateTo": "To",
-  "purchaseOrdersRefreshFailed": "Failed to refresh"
+  "purchaseOrdersRefreshFailed": "Failed to refresh",
+  "purchaseOrderDetailDeleteAction": "Delete",
+  "purchaseOrderDetailDeleteConfirmTitle": "Delete Draft?",
+  "purchaseOrderDetailDeleteConfirmBody": "This draft purchase order will be permanently deleted.",
+  "purchaseOrderDetailDeleteErrorGeneric": "Unable to delete draft. Please try again.",
+  "purchaseOrderDetailDeleteErrorNetwork": "Unable to connect. Please check your network.",
+  "purchaseOrderDetailDeleteErrorTimeout": "Request timed out. Please try again.",
+  "purchaseOrderDetailDeleteErrorUnauthorized": "Session expired. Please log in again.",
+  "purchaseOrderDetailDeleteErrorForbidden": "You do not have permission to delete this draft.",
+  "purchaseOrderDetailDeleteErrorNotFound": "Draft not found."
 }

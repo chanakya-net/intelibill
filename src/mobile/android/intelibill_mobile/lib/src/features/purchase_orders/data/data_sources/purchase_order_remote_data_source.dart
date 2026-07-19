@@ -31,6 +31,10 @@ interface class PurchaseOrderRemoteDataSource {
     throw UnimplementedError();
   }
 
+  Future<void> deleteDraft(String purchaseOrderId) {
+    throw UnimplementedError();
+  }
+
   Future<PurchaseOrderDetailDto> cancel(
     String purchaseOrderId,
     CancelPurchaseOrderRequestDto request,
@@ -121,6 +125,13 @@ class PurchaseOrderRemoteDataSourceImpl
       data: request.toJson(),
     );
     return PurchaseOrderDetailDto.fromJson(response.data!);
+  }
+
+  @override
+  Future<void> deleteDraft(String purchaseOrderId) async {
+    await _apiClient.delete<void>(
+      '/purchase-orders/$purchaseOrderId',
+    );
   }
 
   @override

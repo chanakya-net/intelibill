@@ -139,6 +139,20 @@ class PurchaseOrderDetailPage extends ConsumerWidget {
             ),
           if (purchaseOrder.status == PurchaseOrderStatus.draft)
             IconButton(
+              key: const Key('purchase-order-detail-delete-button'),
+              icon: const Icon(Icons.delete_outline),
+              tooltip: l10n.purchaseOrderDetailDeleteAction,
+              onPressed: state.deleteState.isLoading
+                  ? null
+                  : () => _showDeleteDraftConfirmation(
+                      context,
+                      l10n,
+                      ref,
+                      purchaseOrderId,
+                    ),
+            ),
+          if (purchaseOrder.status == PurchaseOrderStatus.draft)
+            IconButton(
               key: const Key('purchase-order-detail-place-button'),
               icon: const Icon(Icons.send),
               tooltip: l10n.purchaseOrderPlaceAction,
@@ -188,7 +202,9 @@ class PurchaseOrderDetailPage extends ConsumerWidget {
         (s) => s.supplierId == po.supplierId,
       );
       if (!supplier.isActive) return false;
-      return po.lines.any((line) => line.expectedQuantity > 0 && line.unitCost >= 0);
+      return po.lines.any(
+        (line) => line.expectedQuantity > 0 && line.unitCost >= 0,
+      );
     } catch (_) {
       return false;
     }
@@ -268,5 +284,52 @@ class _LinesSection extends StatelessWidget {
           ...lines.map((line) => PurchaseOrderLineCard(line: line)),
       ],
     );
+  }
+}
+
+Future<void> _showDeleteDraftConfirmation(
+  BuildContext context,
+  AppLocalizations l10n,
+  WidgetRef ref,
+  String purchaseOrderId,
+) async {
+  final isConfirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: Text(l10n.purchaseOrderDetailDeleteConfirmTitle),
+      content: Text(l10n.purchaseOrderDetailDeleteConfirmBody),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(false),
+          child: Text(l10n.commonCancel),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(true),
+          child: Text(
+            l10n.purchaseOrderDetailDeleteAction,
+            style: const TextStyle(color: Colors.red),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  if (!context.mounted || isConfirmed != true) return;
+
+  final controller = ref.read(
+    purchaseOrderDetailControllerProvider(purchaseOrderId).notifier,
+  );
+
+  try {
+    final deleted = await controller.delete();
+    if (deleted && context.mounted) {
+      context.go(AppRoutes.purchaseOrders);
+    }
+  } on Object {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.purchaseOrderDetailDeleteErrorGeneric)),
+      );
+    }
   }
 }

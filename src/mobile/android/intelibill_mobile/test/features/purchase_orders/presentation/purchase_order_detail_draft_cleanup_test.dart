@@ -11,6 +11,7 @@ import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/p
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_draft.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_line.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_status.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/delete_purchase_order_draft.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/get_purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/place_purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_providers.dart';
@@ -22,6 +23,9 @@ import 'package:mocktail/mocktail.dart';
 class _MockGetPurchaseOrder extends Mock implements GetPurchaseOrder {}
 
 class _MockPlacePurchaseOrder extends Mock implements PlacePurchaseOrder {}
+
+class _MockDeletePurchaseOrderDraft extends Mock
+    implements DeletePurchaseOrderDraft {}
 
 class _MemoryPreferencesStorage implements PreferencesStorage {
   final values = <String, String>{};
@@ -129,11 +133,46 @@ void main() {
     expect(await source.load(targetKey), isNotNull);
     expect(await source.load(otherKey), isNotNull);
   });
+
+  testWidgets('app-bar Delete removes only its persisted draft after success', (
+    tester,
+  ) async {
+    final getPurchaseOrder = _MockGetPurchaseOrder();
+    final deletePurchaseOrder = _MockDeletePurchaseOrderDraft();
+    final source = await _seedDrafts(targetKey, otherKey);
+    when(
+      () => getPurchaseOrder('po-1'),
+    ).thenAnswer((_) async => _purchaseOrder());
+    when(() => deletePurchaseOrder('po-1')).thenAnswer((_) async {});
+
+    final container = _container(
+      getPurchaseOrder: getPurchaseOrder,
+      placePurchaseOrder: _MockPlacePurchaseOrder(),
+      deletePurchaseOrder: deletePurchaseOrder,
+      source: source,
+      targetKey: targetKey,
+    );
+    addTearDown(container.dispose);
+    await tester.pumpWidget(_app(container));
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const Key('purchase-order-detail-delete-button')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'Delete'));
+    await tester.pumpAndSettle();
+
+    expect(await source.load(targetKey), isNull);
+    expect(await source.load(otherKey), isNotNull);
+    verify(() => deletePurchaseOrder('po-1')).called(1);
+  });
 }
 
 ProviderContainer _container({
   required GetPurchaseOrder getPurchaseOrder,
   required PlacePurchaseOrder placePurchaseOrder,
+  DeletePurchaseOrderDraft? deletePurchaseOrder,
   required PurchaseOrderDraftLocalDataSource source,
   required PurchaseOrderDraftLocalKey targetKey,
 }) {
@@ -141,6 +180,8 @@ ProviderContainer _container({
     overrides: [
       getPurchaseOrderProvider.overrideWithValue(getPurchaseOrder),
       placePurchaseOrderProvider.overrideWithValue(placePurchaseOrder),
+      if (deletePurchaseOrder != null)
+        deletePurchaseOrderDraftProvider.overrideWithValue(deletePurchaseOrder),
       purchaseOrderDraftLocalDataSourceProvider.overrideWith(
         (_) async => source,
       ),
@@ -169,7 +210,7 @@ Future<PurchaseOrderDraftLocalDataSource> _seedDrafts(
   final source = PurchaseOrderDraftLocalDataSource(_MemoryPreferencesStorage());
   final record = PurchaseOrderDraftLocalRecord(
     updatedAt: DateTime.utc(2026, 7, 19),
-    draft: PurchaseOrderDraft(notes: 'saved locally'),
+    draft: const PurchaseOrderDraft(notes: 'saved locally'),
   );
   await source.save(targetKey, record);
   await source.save(otherKey, record);

@@ -7,6 +7,7 @@ import 'package:intelibill_mobile/src/features/purchase_orders/domain/repositori
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/cancel_purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/close_purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/create_purchase_order_draft.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/delete_purchase_order_draft.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/get_purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/get_purchase_orders.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/place_purchase_order.dart';
@@ -69,6 +70,11 @@ CreatePurchaseOrderDraft createPurchaseOrderDraft(Ref ref) {
 @riverpod
 UpdatePurchaseOrderDraft updatePurchaseOrderDraft(Ref ref) {
   return UpdatePurchaseOrderDraft(ref.watch(purchaseOrderRepositoryProvider));
+}
+
+@riverpod
+DeletePurchaseOrderDraft deletePurchaseOrderDraft(Ref ref) {
+  return DeletePurchaseOrderDraft(ref.watch(purchaseOrderRepositoryProvider));
 }
 
 @riverpod

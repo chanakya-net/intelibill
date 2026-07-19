@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,6 +15,7 @@ import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/p
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_receipt_line.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_status.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/cancel_purchase_order.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/delete_purchase_order_draft.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/get_purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_providers.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/pages/purchase_order_detail_page.dart';
@@ -23,6 +26,9 @@ import 'package:mocktail/mocktail.dart';
 class _MockGetPurchaseOrder extends Mock implements GetPurchaseOrder {}
 
 class _MockCancelPurchaseOrder extends Mock implements CancelPurchaseOrder {}
+
+class _MockDeletePurchaseOrderDraft extends Mock
+    implements DeletePurchaseOrderDraft {}
 
 class _Harness {
   _Harness({
@@ -605,7 +611,7 @@ void main() {
             theme: AppTheme.lightTheme,
             supportedLocales: const [Locale('en', 'IN')],
             localizationsDelegates: AppLocalizations.localizationsDelegates,
-            home: PurchaseOrderDetailPage(purchaseOrderId: 'po-test'),
+            home: const PurchaseOrderDetailPage(purchaseOrderId: 'po-test'),
           ),
         ),
       );
@@ -700,6 +706,286 @@ void main() {
 
         harness.container.dispose();
         await tester.pump(const Duration(milliseconds: 50));
+      },
+    );
+
+    testWidgets(
+      'delete draft: success navigates to purchase orders list',
+      (WidgetTester tester) async {
+        final mockDelete = _MockDeletePurchaseOrderDraft();
+        when(() => mockDelete(any())).thenAnswer((_) async {});
+
+        final getPurchaseOrder = _MockGetPurchaseOrder();
+        when(
+          () => getPurchaseOrder(any()),
+        ).thenAnswer((_) async => _detail(status: PurchaseOrderStatus.draft));
+
+        final harness = buildHarness(
+          getPurchaseOrder: getPurchaseOrder,
+          initialLocation: AppRoutes.purchaseOrderDetailFor('po-1'),
+        );
+        harness.container.listen(getPurchaseOrderProvider, (_, _) {});
+        final overrides = [
+          getPurchaseOrderProvider.overrideWithValue(getPurchaseOrder),
+          deletePurchaseOrderDraftProvider.overrideWithValue(mockDelete),
+        ];
+        final testContainer = ProviderContainer(overrides: overrides);
+
+        addTearDown(() {
+          harness.router.dispose();
+          harness.container.dispose();
+          testContainer.dispose();
+        });
+
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: testContainer,
+            child: MaterialApp.router(
+              theme: AppTheme.lightTheme,
+              supportedLocales: const [Locale('en', 'IN')],
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              routerConfig: harness.router,
+            ),
+          ),
+        );
+
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+
+        expect(find.byIcon(Icons.delete_outline), findsOneWidget);
+
+        await tester.tap(find.byIcon(Icons.delete_outline));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(AlertDialog), findsOneWidget);
+        expect(find.text('Delete Draft?'), findsOneWidget);
+
+        final buttons = find.byType(TextButton);
+        expect(buttons, findsWidgets);
+
+        await tester.tap(buttons.at(1));
+        await tester.pumpAndSettle();
+
+        expect(
+          harness.router.routeInformationProvider.value.uri.toString(),
+          '/inventory/purchase-orders',
+        );
+        verify(() => mockDelete('po-1')).called(1);
+      },
+    );
+
+    testWidgets(
+      'delete draft: failure shows error and retains detail',
+      (WidgetTester tester) async {
+        final mockDelete = _MockDeletePurchaseOrderDraft();
+        when(
+          () => mockDelete(any()),
+        ).thenThrow(AppException(failure: const Failure.unknown()));
+
+        final getPurchaseOrder = _MockGetPurchaseOrder();
+        when(
+          () => getPurchaseOrder(any()),
+        ).thenAnswer((_) async => _detail(status: PurchaseOrderStatus.draft));
+
+        final harness = buildHarness(
+          getPurchaseOrder: getPurchaseOrder,
+          initialLocation: AppRoutes.purchaseOrderDetailFor('po-draft-1'),
+        );
+
+        final overrides = [
+          getPurchaseOrderProvider.overrideWithValue(getPurchaseOrder),
+          deletePurchaseOrderDraftProvider.overrideWithValue(mockDelete),
+        ];
+        final testContainer = ProviderContainer(overrides: overrides);
+
+        addTearDown(() {
+          harness.router.dispose();
+          harness.container.dispose();
+          testContainer.dispose();
+        });
+
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: testContainer,
+            child: MaterialApp.router(
+              theme: AppTheme.lightTheme,
+              supportedLocales: const [Locale('en', 'IN')],
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              routerConfig: harness.router,
+            ),
+          ),
+        );
+
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+
+        await tester.tap(find.byIcon(Icons.delete_outline));
+        await tester.pumpAndSettle();
+
+        final buttons = find.byType(TextButton);
+        await tester.tap(buttons.at(1));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(AlertDialog), findsNothing);
+        expect(find.byType(SnackBar), findsOneWidget);
+        expect(
+          harness.router.routeInformationProvider.value.uri.toString(),
+          '/inventory/purchase-orders/po-draft-1',
+        );
+      },
+    );
+
+    testWidgets(
+      'delete draft: duplicate interaction waits for the pending request',
+      (WidgetTester tester) async {
+        final completer = Completer<void>();
+        final mockDelete = _MockDeletePurchaseOrderDraft();
+        when(
+          () => mockDelete('po-pending'),
+        ).thenAnswer((_) => completer.future);
+
+        final getPurchaseOrder = _MockGetPurchaseOrder();
+        when(() => getPurchaseOrder('po-pending')).thenAnswer(
+          (_) async => _detail(
+            purchaseOrderId: 'po-pending',
+            status: PurchaseOrderStatus.draft,
+          ),
+        );
+        final harness = buildHarness(
+          getPurchaseOrder: getPurchaseOrder,
+          initialLocation: AppRoutes.purchaseOrderDetailFor('po-pending'),
+        );
+        final testContainer = ProviderContainer(
+          overrides: [
+            getPurchaseOrderProvider.overrideWithValue(getPurchaseOrder),
+            deletePurchaseOrderDraftProvider.overrideWithValue(mockDelete),
+          ],
+        );
+        addTearDown(() {
+          harness.router.dispose();
+          harness.container.dispose();
+          testContainer.dispose();
+        });
+
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: testContainer,
+            child: MaterialApp.router(
+              theme: AppTheme.lightTheme,
+              supportedLocales: const [Locale('en', 'IN')],
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              routerConfig: harness.router,
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+
+        final deleteButton = find.byKey(
+          const Key('purchase-order-detail-delete-button'),
+        );
+        await tester.tap(deleteButton);
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(TextButton, 'Delete'));
+        await tester.pump();
+
+        expect(
+          tester.widget<IconButton>(deleteButton).onPressed,
+          isNull,
+        );
+        verify(() => mockDelete('po-pending')).called(1);
+
+        completer.completeError(
+          AppException(failure: const Failure.network()),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          harness.router.routeInformationProvider.value.uri.toString(),
+          '/inventory/purchase-orders/po-pending',
+        );
+        expect(find.byType(SnackBar), findsOneWidget);
+        verifyNever(() => mockDelete('po-pending'));
+      },
+    );
+
+    testWidgets(
+      'delete button not shown for non-draft status',
+      (WidgetTester tester) async {
+        final getPurchaseOrder = _MockGetPurchaseOrder();
+        when(() => getPurchaseOrder(any())).thenAnswer((_) async => _detail());
+
+        final harness = buildHarness(
+          getPurchaseOrder: getPurchaseOrder,
+          initialLocation: AppRoutes.purchaseOrderDetailFor('po-placed'),
+        );
+
+        addTearDown(() {
+          harness.router.dispose();
+          harness.container.dispose();
+        });
+
+        await tester.pumpWidget(harness.app);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+
+        expect(find.byIcon(Icons.delete_outline), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'delete confirmation can be cancelled',
+      (WidgetTester tester) async {
+        final mockDelete = _MockDeletePurchaseOrderDraft();
+
+        final getPurchaseOrder = _MockGetPurchaseOrder();
+        when(
+          () => getPurchaseOrder(any()),
+        ).thenAnswer((_) async => _detail(status: PurchaseOrderStatus.draft));
+
+        final harness = buildHarness(
+          getPurchaseOrder: getPurchaseOrder,
+          initialLocation: AppRoutes.purchaseOrderDetailFor('po-cancel'),
+        );
+
+        final overrides = [
+          getPurchaseOrderProvider.overrideWithValue(getPurchaseOrder),
+          deletePurchaseOrderDraftProvider.overrideWithValue(mockDelete),
+        ];
+        final testContainer = ProviderContainer(overrides: overrides);
+
+        addTearDown(() {
+          harness.router.dispose();
+          harness.container.dispose();
+          testContainer.dispose();
+        });
+
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: testContainer,
+            child: MaterialApp.router(
+              theme: AppTheme.lightTheme,
+              supportedLocales: const [Locale('en', 'IN')],
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              routerConfig: harness.router,
+            ),
+          ),
+        );
+
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+
+        await tester.tap(find.byIcon(Icons.delete_outline));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(AlertDialog), findsOneWidget);
+
+        final buttons = find.byType(TextButton);
+        await tester.tap(buttons.at(0));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(AlertDialog), findsNothing);
+        verifyNever(() => mockDelete(any()));
       },
     );
   });
