@@ -5499,6 +5499,60 @@ abstract class AppLocalizations {
   /// In en_IN, this message translates to:
   /// **'Could not place purchase order. Please try again.'**
   String get purchaseOrderPlaceFailure;
+
+  /// No description provided for @purchaseOrderDetailDeleteAction.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Delete'**
+  String get purchaseOrderDetailDeleteAction;
+
+  /// No description provided for @purchaseOrderDetailDeleteConfirmTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Delete Draft?'**
+  String get purchaseOrderDetailDeleteConfirmTitle;
+
+  /// No description provided for @purchaseOrderDetailDeleteConfirmBody.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'This draft purchase order will be permanently deleted.'**
+  String get purchaseOrderDetailDeleteConfirmBody;
+
+  /// No description provided for @purchaseOrderDetailDeleteErrorGeneric.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to delete draft. Please try again.'**
+  String get purchaseOrderDetailDeleteErrorGeneric;
+
+  /// No description provided for @purchaseOrderDetailDeleteErrorNetwork.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to connect. Please check your network.'**
+  String get purchaseOrderDetailDeleteErrorNetwork;
+
+  /// No description provided for @purchaseOrderDetailDeleteErrorTimeout.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Request timed out. Please try again.'**
+  String get purchaseOrderDetailDeleteErrorTimeout;
+
+  /// No description provided for @purchaseOrderDetailDeleteErrorUnauthorized.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Session expired. Please log in again.'**
+  String get purchaseOrderDetailDeleteErrorUnauthorized;
+
+  /// No description provided for @purchaseOrderDetailDeleteErrorForbidden.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'You do not have permission to delete this draft.'**
+  String get purchaseOrderDetailDeleteErrorForbidden;
+
+  /// No description provided for @purchaseOrderDetailDeleteErrorNotFound.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Draft not found.'**
+  String get purchaseOrderDetailDeleteErrorNotFound;
 }
 
 class _AppLocalizationsDelegate

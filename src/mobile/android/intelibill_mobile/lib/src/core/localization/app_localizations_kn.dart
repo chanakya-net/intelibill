@@ -2876,6 +2876,39 @@ class AppLocalizationsKn extends AppLocalizations {
   @override
   String get purchaseOrderPlaceFailure =>
       'Could not place purchase order. Please try again.';
+
+  @override
+  String get purchaseOrderDetailDeleteAction => 'Delete';
+
+  @override
+  String get purchaseOrderDetailDeleteConfirmTitle => 'Delete Draft?';
+
+  @override
+  String get purchaseOrderDetailDeleteConfirmBody =>
+      'This draft purchase order will be permanently deleted.';
+
+  @override
+  String get purchaseOrderDetailDeleteErrorGeneric =>
+      'Unable to delete draft. Please try again.';
+
+  @override
+  String get purchaseOrderDetailDeleteErrorNetwork =>
+      'Unable to connect. Please check your network.';
+
+  @override
+  String get purchaseOrderDetailDeleteErrorTimeout =>
+      'Request timed out. Please try again.';
+
+  @override
+  String get purchaseOrderDetailDeleteErrorUnauthorized =>
+      'Session expired. Please log in again.';
+
+  @override
+  String get purchaseOrderDetailDeleteErrorForbidden =>
+      'You do not have permission to delete this draft.';
+
+  @override
+  String get purchaseOrderDetailDeleteErrorNotFound => 'Draft not found.';
 }
 
 /// The translations for Kannada, as used in India (`kn_IN`).

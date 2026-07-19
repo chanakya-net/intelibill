@@ -129,7 +129,7 @@ class PurchaseOrderRemoteDataSourceImpl
 
   @override
   Future<void> deleteDraft(String purchaseOrderId) async {
-    await _apiClient.delete(
+    await _apiClient.delete<void>(
       '/purchase-orders/$purchaseOrderId',
     );
   }

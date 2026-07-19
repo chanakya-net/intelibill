@@ -141,42 +141,13 @@ class PurchaseOrderDetailPage extends ConsumerWidget {
             IconButton(
               key: const Key('purchase-order-detail-delete-button'),
               icon: const Icon(Icons.delete_outline),
-              tooltip: 'Delete',
-              onPressed: () {
-                showDialog(
-                  context: context,
-                  builder: (dialogContext) {
-                    return AlertDialog(
-                      title: const Text('Delete Draft?'),
-                      content: const Text(
-                        'This draft purchase order will be permanently deleted.',
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.of(dialogContext).pop(),
-                          child: Text(l10n.commonCancel),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            Navigator.of(dialogContext).pop();
-                            ref
-                                .read(
-                                  purchaseOrderDetailControllerProvider(
-                                    purchaseOrderId,
-                                  ).notifier,
-                                )
-                                .delete();
-                          },
-                          child: const Text(
-                            'Delete',
-                            style: TextStyle(color: Colors.red),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                );
-              },
+              tooltip: l10n.purchaseOrderDetailDeleteAction,
+              onPressed: () => _showDeleteDraftConfirmation(
+                context,
+                l10n,
+                ref,
+                purchaseOrderId,
+              ),
             ),
           if (purchaseOrder.status == PurchaseOrderStatus.draft)
             IconButton(
@@ -311,5 +282,52 @@ class _LinesSection extends StatelessWidget {
           ...lines.map((line) => PurchaseOrderLineCard(line: line)),
       ],
     );
+  }
+}
+
+Future<void> _showDeleteDraftConfirmation(
+  BuildContext context,
+  AppLocalizations l10n,
+  WidgetRef ref,
+  String purchaseOrderId,
+) async {
+  final isConfirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: Text(l10n.purchaseOrderDetailDeleteConfirmTitle),
+      content: Text(l10n.purchaseOrderDetailDeleteConfirmBody),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(false),
+          child: Text(l10n.commonCancel),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(true),
+          child: Text(
+            l10n.purchaseOrderDetailDeleteAction,
+            style: const TextStyle(color: Colors.red),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  if (!context.mounted || isConfirmed != true) return;
+
+  final controller = ref.read(
+    purchaseOrderDetailControllerProvider(purchaseOrderId).notifier,
+  );
+
+  try {
+    await controller.delete();
+    if (context.mounted) {
+      context.go(AppRoutes.purchaseOrders);
+    }
+  } on Object {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.purchaseOrderDetailDeleteErrorGeneric)),
+      );
+    }
   }
 }
