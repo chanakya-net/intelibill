@@ -97,7 +97,7 @@ class ReceivePurchaseOrderPage extends ConsumerWidget {
               maxLines: 4,
               maxLength: 500,
             ),
-            if (state.failure != null) ...[
+            if (state.failure != null && state.lineErrors.isEmpty) ...[
               const SizedBox(height: 8),
               Text(
                 state.failure!.message ??
@@ -130,11 +130,16 @@ class ReceivePurchaseOrderPage extends ConsumerWidget {
                     line.purchaseOrderLineId,
                     value,
                   ),
+                  onUnitPurchaseCostChanged: (value) =>
+                      controller.updateUnitPurchaseCost(
+                        line.purchaseOrderLineId,
+                        value,
+                      ),
                   onTotalPurchaseCostChanged: (value) =>
                       controller.updateTotalPurchaseCost(
-                    line.purchaseOrderLineId,
-                    value,
-                  ),
+                        line.purchaseOrderLineId,
+                        value,
+                      ),
                   onMrpChanged: (value) => controller.updateMrp(
                     line.purchaseOrderLineId,
                     value,
@@ -145,27 +150,35 @@ class ReceivePurchaseOrderPage extends ConsumerWidget {
                   ),
                   onTaxRatePercentChanged: (value) =>
                       controller.updateTaxRatePercent(
-                    line.purchaseOrderLineId,
-                    value,
-                  ),
+                        line.purchaseOrderLineId,
+                        value,
+                      ),
                   onTaxIncludedChanged: (value) => controller.updateTaxIncluded(
                     line.purchaseOrderLineId,
                     value,
                   ),
                   onPurchaseTaxIncludedChanged: (value) =>
                       controller.updatePurchaseTaxIncluded(
-                    line.purchaseOrderLineId,
-                    value,
-                  ),
+                        line.purchaseOrderLineId,
+                        value,
+                      ),
                   onExpiryDateChanged: (value) => controller.updateExpiryDate(
                     line.purchaseOrderLineId,
                     value,
                   ),
                   onManufacturingDateChanged: (value) =>
                       controller.updateManufacturingDate(
-                    line.purchaseOrderLineId,
-                    value,
-                  ),
+                        line.purchaseOrderLineId,
+                        value,
+                      ),
+                  isExpanded: state.expandedLineId == line.purchaseOrderLineId,
+                  focusedField:
+                      state.focusedLineId == null ||
+                          state.expandedLineId != line.purchaseOrderLineId
+                      ? null
+                      : state.focusedLineId,
+                  errors:
+                      state.lineErrors[line.purchaseOrderLineId] ?? const {},
                 ),
               ),
             const SizedBox(height: 12),
@@ -200,8 +213,8 @@ class ReceivePurchaseOrderPage extends ConsumerWidget {
     AppLocalizations l10n,
   ) async {
     try {
-      await controller.submit();
-      if (context.mounted) {
+      final submitted = await controller.submit();
+      if (submitted && context.mounted) {
         context.go(AppRoutes.purchaseOrderDetailFor(purchaseOrderId));
       }
     } on AppException {

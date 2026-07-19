@@ -2737,6 +2737,48 @@ class AppLocalizationsHi extends AppLocalizations {
   String get purchaseOrderReceiveBatchLabel => 'Batch number';
 
   @override
+  String get purchaseOrderReceiveRemaining => 'Remaining';
+
+  @override
+  String get purchaseOrderReceiveInventoryDetails => 'Inventory details';
+
+  @override
+  String get purchaseOrderReceiveUnitCostLabel => 'Unit cost';
+
+  @override
+  String get purchaseOrderReceiveTotalPurchaseCostLabel =>
+      'Total purchase cost';
+
+  @override
+  String get purchaseOrderReceiveMrpLabel => 'MRP';
+
+  @override
+  String get purchaseOrderReceiveSalesPriceLabel => 'Sales price';
+
+  @override
+  String get purchaseOrderReceiveTaxRateLabel => 'Tax rate %';
+
+  @override
+  String get purchaseOrderReceiveTaxIncludedLabel =>
+      'Tax included in sales price';
+
+  @override
+  String get purchaseOrderReceivePurchaseTaxIncludedLabel =>
+      'Tax included in purchase cost';
+
+  @override
+  String get purchaseOrderReceiveManufacturingDateLabel => 'Manufacturing date';
+
+  @override
+  String get purchaseOrderReceiveExpiryDateLabel => 'Expiry date';
+
+  @override
+  String get purchaseOrderReceiveSelectDate => 'Select date';
+
+  @override
+  String get purchaseOrderReceiveClearDate => 'Clear date';
+
+  @override
   String get purchaseOrderReceiveSummary => 'Receipt summary';
 
   @override

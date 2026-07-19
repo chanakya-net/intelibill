@@ -146,8 +146,11 @@ void main() {
       isNotNull,
     );
 
-    await tester.drag(find.byType(ListView), const Offset(0, -600));
-    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.textContaining('Line count:'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
 
     expect(find.textContaining('Line count:'), findsOneWidget);
     expect(find.textContaining('Total quantity:'), findsOneWidget);
@@ -232,8 +235,11 @@ void main() {
     expect(state.selectedQuantity, 2);
     expect(state.selectedPurchaseCost, 40);
 
-    await tester.drag(find.byType(ListView), const Offset(0, -600));
-    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Line count: 1'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('Line count: 1'), findsOneWidget);
     expect(find.text('Total quantity: 2'), findsOneWidget);
     expect(find.text('Total purchase cost: ₹40'), findsOneWidget);
@@ -307,6 +313,68 @@ void main() {
       harness.router.routerDelegate.currentConfiguration.uri.toString(),
       AppRoutes.purchaseOrderReceiveFor('po-1'),
     );
+  });
+
+  testWidgets('edits the unit cost and clears selected inventory dates', (
+    tester,
+  ) async {
+    final getPurchaseOrder = _MockGetPurchaseOrder();
+    final receive = _MockReceivePurchaseOrder();
+    when(() => getPurchaseOrder('po-1')).thenAnswer((_) async => _detail());
+    final harness = buildHarness(
+      getPurchaseOrder: getPurchaseOrder,
+      receivePurchaseOrder: receive,
+    );
+    addTearDown(() {
+      harness.router.dispose();
+      harness.container.dispose();
+    });
+    await tester.pumpWidget(harness.app);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(PurchaseOrderReceiveLineCard.cardKey('line-1')),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(PurchaseOrderReceiveLineCard.unitCostField('line-1')),
+      '12.50',
+    );
+    final controller = harness.container.read(
+      receivePurchaseOrderControllerProvider('po-1').notifier,
+    );
+    controller.updateManufacturingDate('line-1', DateTime(2026, 7, 1));
+    controller.updateExpiryDate('line-1', DateTime(2026, 8, 1));
+    await tester.pumpAndSettle();
+
+    expect(
+      harness.container
+          .read(receivePurchaseOrderControllerProvider('po-1'))
+          .lines
+          .single
+          .unitPurchaseCost,
+      12.5,
+    );
+    await tester.ensureVisible(
+      find.byKey(PurchaseOrderReceiveLineCard.manufacturingDateClear('line-1')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(PurchaseOrderReceiveLineCard.manufacturingDateClear('line-1')),
+    );
+    await tester.ensureVisible(
+      find.byKey(PurchaseOrderReceiveLineCard.expiryDateClear('line-1')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(PurchaseOrderReceiveLineCard.expiryDateClear('line-1')),
+    );
+    await tester.pumpAndSettle();
+    final line = harness.container
+        .read(receivePurchaseOrderControllerProvider('po-1'))
+        .lines
+        .single;
+    expect(line.manufacturingDate, isNull);
+    expect(line.expiryDate, isNull);
   });
 }
 

@@ -56,6 +56,7 @@ class ReceivePurchaseOrderLineDraft {
     bool? isSelected,
     String? barcode,
     String? batchNumber,
+    double? unitPurchaseCost,
     double? totalPurchaseCost,
     double? mrp,
     double? salesPrice,
@@ -64,6 +65,8 @@ class ReceivePurchaseOrderLineDraft {
     bool? purchaseTaxIncluded,
     DateTime? expiryDate,
     DateTime? manufacturingDate,
+    bool clearExpiryDate = false,
+    bool clearManufacturingDate = false,
   }) {
     return ReceivePurchaseOrderLineDraft(
       purchaseOrderLineId: purchaseOrderLineId,
@@ -71,7 +74,7 @@ class ReceivePurchaseOrderLineDraft {
       remainingQuantity: remainingQuantity,
       quantity: quantity ?? this.quantity,
       isSelected: isSelected ?? this.isSelected,
-      unitPurchaseCost: unitPurchaseCost,
+      unitPurchaseCost: unitPurchaseCost ?? this.unitPurchaseCost,
       barcode: barcode ?? this.barcode,
       batchNumber: batchNumber ?? this.batchNumber,
       totalPurchaseCost: totalPurchaseCost ?? this.totalPurchaseCost,
@@ -80,8 +83,10 @@ class ReceivePurchaseOrderLineDraft {
       taxRatePercent: taxRatePercent ?? this.taxRatePercent,
       taxIncluded: taxIncluded ?? this.taxIncluded,
       purchaseTaxIncluded: purchaseTaxIncluded ?? this.purchaseTaxIncluded,
-      expiryDate: expiryDate ?? this.expiryDate,
-      manufacturingDate: manufacturingDate ?? this.manufacturingDate,
+      expiryDate: clearExpiryDate ? null : (expiryDate ?? this.expiryDate),
+      manufacturingDate: clearManufacturingDate
+          ? null
+          : (manufacturingDate ?? this.manufacturingDate),
     );
   }
 }
@@ -97,6 +102,9 @@ class ReceivePurchaseOrderState {
     this.isLoading = false,
     this.isSubmitting = false,
     this.failure,
+    this.lineErrors = const {},
+    this.expandedLineId,
+    this.focusedLineId,
   });
 
   final PurchaseOrder? detail;
@@ -107,6 +115,9 @@ class ReceivePurchaseOrderState {
   final bool isLoading;
   final bool isSubmitting;
   final Failure? failure;
+  final Map<String, Map<String, String>> lineErrors;
+  final String? expandedLineId;
+  final String? focusedLineId;
 
   bool get hasEligibleLines => lines.isNotEmpty;
   Iterable<ReceivePurchaseOrderLineDraft> get selectedLines =>
@@ -117,8 +128,9 @@ class ReceivePurchaseOrderState {
       selectedLines.fold(0, (sum, line) => sum + line.quantity);
   double get selectedPurchaseCost =>
       selectedLines.fold(0, (sum, line) => sum + line.totalPurchaseCost);
-  bool get canSubmit =>
-      hasSelectedLines && !isSubmitting && detail != null && failure == null;
+  bool get canSubmit => hasSelectedLines && !isSubmitting && detail != null;
+
+  String? lineError(String lineId, String field) => lineErrors[lineId]?[field];
 
   ReceivePurchaseOrderState copyWith({
     PurchaseOrder? detail,
@@ -129,12 +141,18 @@ class ReceivePurchaseOrderState {
     bool? isLoading,
     bool? isSubmitting,
     Failure? failure,
+    Map<String, Map<String, String>>? lineErrors,
+    String? expandedLineId,
+    String? focusedLineId,
     bool clearFailure = false,
     bool clearDetail = false,
     bool clearReference = false,
     bool clearNotes = false,
     bool clearReceivedAt = false,
     bool clearLines = false,
+    bool clearLineErrors = false,
+    bool clearExpandedLine = false,
+    bool clearFocusedLine = false,
   }) {
     return ReceivePurchaseOrderState(
       detail: clearDetail ? null : (detail ?? this.detail),
@@ -147,6 +165,13 @@ class ReceivePurchaseOrderState {
       isLoading: isLoading ?? this.isLoading,
       isSubmitting: isSubmitting ?? this.isSubmitting,
       failure: clearFailure ? null : (failure ?? this.failure),
+      lineErrors: clearLineErrors ? const {} : (lineErrors ?? this.lineErrors),
+      expandedLineId: clearExpandedLine
+          ? null
+          : (expandedLineId ?? this.expandedLineId),
+      focusedLineId: clearFocusedLine
+          ? null
+          : (focusedLineId ?? this.focusedLineId),
     );
   }
 }
@@ -176,6 +201,9 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
       isLoading: true,
       clearFailure: !keepFailure,
       clearLines: true,
+      clearLineErrors: true,
+      clearExpandedLine: true,
+      clearFocusedLine: true,
     );
     try {
       final detail = await ref.read(getPurchaseOrderProvider)(purchaseOrderId);
@@ -186,6 +214,9 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
         lines: _buildDraftLines(detail.lines),
         isLoading: false,
         clearFailure: !keepFailure,
+        clearLineErrors: true,
+        clearExpandedLine: true,
+        clearFocusedLine: true,
       );
     } on AppException catch (error) {
       if (!ref.mounted) return;
@@ -253,28 +284,13 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
   }
 
   void updateBarcode(String purchaseOrderLineId, String value) {
-    state = state.copyWith(
-      lines: state.lines
-          .map(
-            (line) => line.purchaseOrderLineId == purchaseOrderLineId
-                ? line.copyWith(barcode: value)
-                : line,
-          )
-          .toList(growable: false),
-      clearFailure: true,
-    );
+    _updateLine(purchaseOrderLineId, (line) => line.copyWith(barcode: value));
   }
 
   void updateBatchNumber(String purchaseOrderLineId, String value) {
-    state = state.copyWith(
-      lines: state.lines
-          .map(
-            (line) => line.purchaseOrderLineId == purchaseOrderLineId
-                ? line.copyWith(batchNumber: value)
-                : line,
-          )
-          .toList(growable: false),
-      clearFailure: true,
+    _updateLine(
+      purchaseOrderLineId,
+      (line) => line.copyWith(batchNumber: value),
     );
   }
 
@@ -282,15 +298,9 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
     String purchaseOrderLineId, {
     required bool isSelected,
   }) {
-    state = state.copyWith(
-      lines: state.lines
-          .map(
-            (line) => line.purchaseOrderLineId == purchaseOrderLineId
-                ? line.copyWith(isSelected: isSelected)
-                : line,
-          )
-          .toList(growable: false),
-      clearFailure: true,
+    _updateLine(
+      purchaseOrderLineId,
+      (line) => line.copyWith(isSelected: isSelected),
     );
   }
 
@@ -307,130 +317,108 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
       _setQuantityFailure();
       return;
     }
-    state = state.copyWith(
-      lines: state.lines
-          .map(
-            (item) => item.purchaseOrderLineId == purchaseOrderLineId
-                ? item.copyWith(
-                    quantity: quantity,
-                    totalPurchaseCost: item.unitPurchaseCost * quantity,
-                  )
-                : item,
-          )
-          .toList(growable: false),
-      clearFailure: true,
+    _updateLine(
+      purchaseOrderLineId,
+      (line) => line.copyWith(
+        quantity: quantity,
+        totalPurchaseCost: line.unitPurchaseCost * quantity,
+      ),
+    );
+  }
+
+  void updateUnitPurchaseCost(String purchaseOrderLineId, String value) {
+    final cost = double.tryParse(value);
+    if (cost == null) return;
+    _updateLine(
+      purchaseOrderLineId,
+      (line) => line.copyWith(unitPurchaseCost: cost),
     );
   }
 
   void updateTotalPurchaseCost(String purchaseOrderLineId, String value) {
     final cost = double.tryParse(value);
     if (cost == null) return;
-    state = state.copyWith(
-      lines: state.lines
-          .map(
-            (line) => line.purchaseOrderLineId == purchaseOrderLineId
-                ? line.copyWith(totalPurchaseCost: cost)
-                : line,
-          )
-          .toList(growable: false),
-      clearFailure: true,
+    _updateLine(
+      purchaseOrderLineId,
+      (line) => line.copyWith(totalPurchaseCost: cost),
     );
   }
 
   void updateMrp(String purchaseOrderLineId, String value) {
     final mrp = double.tryParse(value);
     if (mrp == null) return;
-    state = state.copyWith(
-      lines: state.lines
-          .map(
-            (line) => line.purchaseOrderLineId == purchaseOrderLineId
-                ? line.copyWith(mrp: mrp)
-                : line,
-          )
-          .toList(growable: false),
-      clearFailure: true,
-    );
+    _updateLine(purchaseOrderLineId, (line) => line.copyWith(mrp: mrp));
   }
 
   void updateSalesPrice(String purchaseOrderLineId, String value) {
     final price = double.tryParse(value);
     if (price == null) return;
-    state = state.copyWith(
-      lines: state.lines
-          .map(
-            (line) => line.purchaseOrderLineId == purchaseOrderLineId
-                ? line.copyWith(salesPrice: price)
-                : line,
-          )
-          .toList(growable: false),
-      clearFailure: true,
+    _updateLine(
+      purchaseOrderLineId,
+      (line) => line.copyWith(salesPrice: price),
     );
   }
 
   void updateTaxRatePercent(String purchaseOrderLineId, String value) {
     final rate = double.tryParse(value);
     if (rate == null) return;
-    state = state.copyWith(
-      lines: state.lines
-          .map(
-            (line) => line.purchaseOrderLineId == purchaseOrderLineId
-                ? line.copyWith(taxRatePercent: rate)
-                : line,
-          )
-          .toList(growable: false),
-      clearFailure: true,
+    _updateLine(
+      purchaseOrderLineId,
+      (line) => line.copyWith(taxRatePercent: rate),
     );
   }
 
   void updateTaxIncluded(String purchaseOrderLineId, bool value) {
-    state = state.copyWith(
-      lines: state.lines
-          .map(
-            (line) => line.purchaseOrderLineId == purchaseOrderLineId
-                ? line.copyWith(taxIncluded: value)
-                : line,
-          )
-          .toList(growable: false),
-      clearFailure: true,
+    _updateLine(
+      purchaseOrderLineId,
+      (line) => line.copyWith(taxIncluded: value),
     );
   }
 
   void updatePurchaseTaxIncluded(String purchaseOrderLineId, bool value) {
-    state = state.copyWith(
-      lines: state.lines
-          .map(
-            (line) => line.purchaseOrderLineId == purchaseOrderLineId
-                ? line.copyWith(purchaseTaxIncluded: value)
-                : line,
-          )
-          .toList(growable: false),
-      clearFailure: true,
+    _updateLine(
+      purchaseOrderLineId,
+      (line) => line.copyWith(purchaseTaxIncluded: value),
     );
   }
 
   void updateExpiryDate(String purchaseOrderLineId, DateTime? value) {
-    state = state.copyWith(
-      lines: state.lines
-          .map(
-            (line) => line.purchaseOrderLineId == purchaseOrderLineId
-                ? line.copyWith(expiryDate: value)
-                : line,
-          )
-          .toList(growable: false),
-      clearFailure: true,
+    _updateLine(
+      purchaseOrderLineId,
+      (line) => line.copyWith(
+        expiryDate: value,
+        clearExpiryDate: value == null,
+      ),
     );
   }
 
   void updateManufacturingDate(String purchaseOrderLineId, DateTime? value) {
+    _updateLine(
+      purchaseOrderLineId,
+      (line) => line.copyWith(
+        manufacturingDate: value,
+        clearManufacturingDate: value == null,
+      ),
+    );
+  }
+
+  void _updateLine(
+    String purchaseOrderLineId,
+    ReceivePurchaseOrderLineDraft Function(ReceivePurchaseOrderLineDraft)
+    update,
+  ) {
     state = state.copyWith(
       lines: state.lines
           .map(
             (line) => line.purchaseOrderLineId == purchaseOrderLineId
-                ? line.copyWith(manufacturingDate: value)
+                ? update(line)
                 : line,
           )
           .toList(growable: false),
       clearFailure: true,
+      clearLineErrors: true,
+      clearExpandedLine: true,
+      clearFocusedLine: true,
     );
   }
 
@@ -442,16 +430,15 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
     );
   }
 
-  Future<void> submit() async {
-    if (state.isSubmitting) return;
-    if (state.detail == null) return;
+  Future<bool> submit() async {
+    if (state.isSubmitting || state.detail == null) return false;
     if (!state.hasEligibleLines) {
       state = state.copyWith(
         failure: const Failure.validation(
           message: 'No remaining lines are available to receive.',
         ),
       );
-      return;
+      return false;
     }
     if (!state.hasSelectedLines) {
       state = state.copyWith(
@@ -459,23 +446,18 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
           message: 'Select at least one line to receive.',
         ),
       );
-      return;
+      return false;
     }
 
-    ReceivePurchaseOrderInput request;
-    try {
-      request = _buildRequest();
-    } on AppException catch (error) {
-      state = state.copyWith(failure: error.failure);
-      return;
-    }
+    final request = _buildRequest();
+    if (request == null) return false;
     state = state.copyWith(isSubmitting: true, clearFailure: true);
     try {
       final updated = await ref.read(receivePurchaseOrderProvider)(
         state.detail!.purchaseOrderId,
         request,
       );
-      if (!ref.mounted) return;
+      if (!ref.mounted) return false;
       ref.invalidate(purchaseOrdersControllerProvider);
       state = state.copyWith(
         detail: updated,
@@ -483,25 +465,46 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
         isSubmitting: false,
         receivedAt: DateTime.now().toUtc(),
         clearFailure: true,
+        clearLineErrors: true,
+        clearExpandedLine: true,
+        clearFocusedLine: true,
       );
+      return true;
     } on AppException catch (error) {
       await _finishFailure(error.failure);
     } on Object {
       await _finishFailure(const Failure.unknown());
     }
+    return false;
   }
 
-  ReceivePurchaseOrderInput _buildRequest() {
+  ReceivePurchaseOrderInput? _buildRequest() {
     final receivedAt = state.receivedAt ?? DateTime.now().toUtc();
     final selectedLines = state.selectedLines.toList(growable: false);
     if (selectedLines.isEmpty) {
-      throw AppException(
+      state = state.copyWith(
         failure: const Failure.validation(
           message: 'Select at least one line to receive.',
         ),
       );
+      return null;
     }
     final ids = <String>{};
+    final errors = <String, Map<String, String>>{};
+    for (final line in selectedLines) {
+      final lineErrors = _validateLine(line);
+      if (!ids.add(line.purchaseOrderLineId)) {
+        lineErrors['purchaseOrderLineId'] =
+            'Duplicate purchase-order line IDs are not allowed.';
+      }
+      if (lineErrors.isNotEmpty) {
+        errors[line.purchaseOrderLineId] = lineErrors;
+      }
+    }
+    if (errors.isNotEmpty) {
+      _setLineErrors(errors);
+      return null;
+    }
     return ReceivePurchaseOrderInput(
       referenceNumber: state.referenceNumber.isNotEmpty
           ? state.referenceNumber
@@ -509,60 +512,8 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
       notes: state.notes.isNotEmpty ? state.notes : null,
       receivedAt: receivedAt,
       lines: selectedLines
-          .map((line) {
-            if (!ids.add(line.purchaseOrderLineId)) {
-              throw AppException(
-                failure: const Failure.validation(
-                  message: 'Duplicate purchase-order line IDs are not allowed.',
-                ),
-              );
-            }
-            if (line.barcode.trim().isEmpty ||
-                line.batchNumber.trim().isEmpty) {
-              throw AppException(
-                failure: const Failure.validation(
-                  message: 'Barcode and batch number are required.',
-                ),
-              );
-            }
-            if (line.quantity <= 0 || line.quantity > line.remainingQuantity) {
-              throw AppException(
-                failure: const Failure.validation(
-                  message: 'Quantity must be within the remaining amount.',
-                ),
-              );
-            }
-            if (line.totalPurchaseCost < 0 || line.mrp < 0 || line.salesPrice < 0) {
-              throw AppException(
-                failure: const Failure.validation(
-                  message: 'Cost and price values must be non-negative.',
-                ),
-              );
-            }
-            if (line.salesPrice > line.mrp) {
-              throw AppException(
-                failure: const Failure.validation(
-                  message: 'Sales price cannot exceed MRP.',
-                ),
-              );
-            }
-            if (line.taxRatePercent < 0 || line.taxRatePercent > 100) {
-              throw AppException(
-                failure: const Failure.validation(
-                  message: 'Tax rate must be between 0 and 100.',
-                ),
-              );
-            }
-            if (line.manufacturingDate != null &&
-                line.expiryDate != null &&
-                line.manufacturingDate!.isAfter(line.expiryDate!)) {
-              throw AppException(
-                failure: const Failure.validation(
-                  message: 'Manufacturing date must be before or equal to expiry date.',
-                ),
-              );
-            }
-            return ReceivePurchaseOrderLineInput(
+          .map(
+            (line) => ReceivePurchaseOrderLineInput(
               purchaseOrderLineId: line.purchaseOrderLineId,
               barcode: line.barcode,
               batchNumber: line.batchNumber,
@@ -576,17 +527,114 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
               purchaseTaxIncluded: line.purchaseTaxIncluded,
               expiryDate: line.expiryDate,
               manufacturingDate: line.manufacturingDate,
-            );
-          })
+            ),
+          )
           .toList(growable: false),
+    );
+  }
+
+  Map<String, String> _validateLine(ReceivePurchaseOrderLineDraft line) {
+    final errors = <String, String>{};
+    _require(errors, 'barcode', line.barcode, 120);
+    _require(errors, 'batchNumber', line.batchNumber, 80);
+    if (line.quantity <= 0 || line.quantity > line.remainingQuantity) {
+      errors['quantity'] = 'Quantity must be within the remaining amount.';
+    }
+    _nonNegative(errors, 'unitCost', line.unitPurchaseCost);
+    _nonNegative(errors, 'totalPurchaseCost', line.totalPurchaseCost);
+    _nonNegative(errors, 'mrp', line.mrp);
+    _nonNegative(errors, 'salesPrice', line.salesPrice);
+    if (line.salesPrice > line.mrp) {
+      errors['salesPrice'] = 'Sales price cannot exceed MRP.';
+    }
+    if (line.taxRatePercent < 0 || line.taxRatePercent > 100) {
+      errors['taxRatePercent'] = 'Tax rate must be between 0 and 100.';
+    }
+    if (line.manufacturingDate != null &&
+        line.expiryDate != null &&
+        line.manufacturingDate!.isAfter(line.expiryDate!)) {
+      errors['expiryDate'] =
+          'Expiry date must be on or after the manufacturing date.';
+    }
+    return errors;
+  }
+
+  void _require(
+    Map<String, String> errors,
+    String field,
+    String value,
+    int max,
+  ) {
+    if (value.trim().isEmpty) {
+      errors[field] = 'This field is required.';
+    } else if (value.length > max) {
+      errors[field] = 'Must not exceed $max characters.';
+    }
+  }
+
+  void _nonNegative(Map<String, String> errors, String field, double value) {
+    if (value < 0) errors[field] = 'Must be non-negative.';
+  }
+
+  void _setLineErrors(Map<String, Map<String, String>> errors) {
+    final first = state.selectedLines.firstWhere(
+      (line) => errors.containsKey(line.purchaseOrderLineId),
+    );
+    final firstField = errors[first.purchaseOrderLineId]!.keys.first;
+    state = state.copyWith(
+      failure: const Failure.validation(
+        message: 'Fix the highlighted receipt fields.',
+      ),
+      lineErrors: errors,
+      expandedLineId: first.purchaseOrderLineId,
+      focusedLineId: firstField,
     );
   }
 
   Future<void> _finishFailure(Failure failure) async {
     if (!ref.mounted) return;
-    state = state.copyWith(isSubmitting: false, failure: failure);
+    final errors = _mapValidationErrors(failure);
+    if (errors.isEmpty) {
+      state = state.copyWith(isSubmitting: false, failure: failure);
+    } else {
+      _setLineErrors(errors);
+      state = state.copyWith(isSubmitting: false);
+    }
     throw AppException(failure: failure);
   }
+
+  Map<String, Map<String, String>> _mapValidationErrors(Failure failure) {
+    if (failure is! ValidationFailure || failure.errors == null) return {};
+    final selected = state.selectedLines.toList(growable: false);
+    final mapped = <String, Map<String, String>>{};
+    final path = RegExp(r'^Lines\[(\d+)\]\.(.+)$', caseSensitive: false);
+    for (final entry in failure.errors!.entries) {
+      final match = path.firstMatch(entry.key);
+      if (match == null || entry.value.isEmpty) continue;
+      final index = int.tryParse(match.group(1)!);
+      final field = _fieldName(match.group(2)!);
+      if (index == null || index >= selected.length || field == null) continue;
+      mapped.putIfAbsent(selected[index].purchaseOrderLineId, () => {})[field] =
+          entry.value.first;
+    }
+    return mapped;
+  }
+
+  String? _fieldName(String value) => switch (value.toLowerCase()) {
+    'barcode' => 'barcode',
+    'batchnumber' => 'batchNumber',
+    'quantity' => 'quantity',
+    'totalpurchasecost' => 'totalPurchaseCost',
+    'unitcost' => 'unitCost',
+    'mrp' => 'mrp',
+    'salesprice' => 'salesPrice',
+    'taxratepercent' => 'taxRatePercent',
+    'taxincluded' => 'taxIncluded',
+    'purchasetaxincluded' => 'purchaseTaxIncluded',
+    'expirydate' => 'expiryDate',
+    'manufacturingdate' => 'manufacturingDate',
+    _ => null,
+  };
 
   static String _generateBatch(PurchaseOrderLine line) {
     final date = DateTime.now();

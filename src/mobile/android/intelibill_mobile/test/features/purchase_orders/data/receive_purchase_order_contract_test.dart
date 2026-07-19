@@ -48,7 +48,7 @@ void main() {
         notes: null,
         receivedAt: DateTime.utc(2026, 7, 19),
         lines: [
-          const ReceivePurchaseOrderLineRequestDto(
+          ReceivePurchaseOrderLineRequestDto(
             purchaseOrderLineId: 'line-1',
             barcode: 'BAR-001',
             batchNumber: 'BN-001',
@@ -79,7 +79,7 @@ void main() {
         notes: null,
         receivedAt: DateTime.utc(2026, 7, 19),
         lines: [
-          const ReceivePurchaseOrderLineRequestDto(
+          ReceivePurchaseOrderLineRequestDto(
             purchaseOrderLineId: 'line-a',
             barcode: 'BAR-A',
             batchNumber: 'BN-A',
@@ -114,13 +114,13 @@ void main() {
       expect(lineIds, ['line-a', 'line-b']);
     });
 
-    test('omits unitCost from serialized JSON to match backend contract', () {
+    test('serializes the exact backend receipt body without shopId', () {
       final request = ReceivePurchaseOrderRequestDto(
         referenceNumber: null,
         notes: null,
-        receivedAt: DateTime.utc(2026, 7, 19),
+        receivedAt: DateTime.utc(2026, 7, 19, 8, 30),
         lines: [
-          const ReceivePurchaseOrderLineRequestDto(
+          ReceivePurchaseOrderLineRequestDto(
             purchaseOrderLineId: 'line-1',
             barcode: 'BAR-001',
             batchNumber: 'BN-001',
@@ -132,26 +132,33 @@ void main() {
             taxRatePercent: 5,
             taxIncluded: true,
             purchaseTaxIncluded: false,
+            expiryDate: DateTime(2026, 8, 1),
+            manufacturingDate: DateTime(2026, 7, 1),
           ),
         ],
       );
 
-      final json = request.toJson();
-      final line = json['lines'][0] as Map<String, dynamic>;
-
-      expect(line.containsKey('unitCost'), false);
-      expect(line.keys, containsAll([
-        'purchaseOrderLineId',
-        'barcode',
-        'batchNumber',
-        'quantity',
-        'totalPurchaseCost',
-        'mrp',
-        'salesPrice',
-        'taxRatePercent',
-        'taxIncluded',
-        'purchaseTaxIncluded',
-      ]));
+      expect(request.toJson(), {
+        'referenceNumber': null,
+        'notes': null,
+        'receivedAt': '2026-07-19T08:30:00.000Z',
+        'lines': [
+          {
+            'purchaseOrderLineId': 'line-1',
+            'barcode': 'BAR-001',
+            'batchNumber': 'BN-001',
+            'quantity': 2.0,
+            'totalPurchaseCost': 100.0,
+            'mrp': 120.0,
+            'salesPrice': 100.0,
+            'taxRatePercent': 5.0,
+            'taxIncluded': true,
+            'purchaseTaxIncluded': false,
+            'expiryDate': '2026-08-01',
+            'manufacturingDate': '2026-07-01',
+          },
+        ],
+      });
     });
   });
 }
