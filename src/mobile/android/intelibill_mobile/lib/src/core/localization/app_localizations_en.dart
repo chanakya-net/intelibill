@@ -2743,6 +2743,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get purchaseOrderBuilderRemoveLineLabel => 'Remove';
 
   @override
+  String get purchaseOrderPlaceAction => 'Place';
+
+  @override
   String get purchaseOrderReceiveAction => 'Receive';
 
   @override
@@ -5592,6 +5595,9 @@ class AppLocalizationsEnIn extends AppLocalizationsEn {
 
   @override
   String get purchaseOrderBuilderRemoveLineLabel => 'Remove';
+
+  @override
+  String get purchaseOrderPlaceAction => 'Place';
 
   @override
   String get purchaseOrderReceiveAction => 'Receive';

@@ -179,7 +179,6 @@ class PurchaseOrderRemoteDataSourceImpl
   Future<PurchaseOrderDetailDto> place(String purchaseOrderId) async {
     final response = await _apiClient.post<Map<String, dynamic>>(
       '/purchase-orders/$purchaseOrderId/place',
-      data: {},
     );
     return PurchaseOrderDetailDto.fromJson(response.data!);
   }

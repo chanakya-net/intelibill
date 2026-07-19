@@ -236,6 +236,8 @@ class PurchaseOrderDetailController extends _$PurchaseOrderDetailController {
   }
 
   Future<void> place() async {
+    if (state.placeState.isLoading) return;
+
     state = state.copyWith(
       placeState: state.placeState.copyWith(
         isLoading: true,

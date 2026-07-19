@@ -8,15 +8,12 @@ import '../../../mocks/mock_api_client.dart';
 
 void main() {
   group('PurchaseOrderRemoteDataSource.place', () {
-    test('POSTs to /purchase-orders/{id}/place with empty body', () async {
+    test('POSTs to /purchase-orders/{id}/place with no body', () async {
       final apiClient = MockApiClient();
       final source = PurchaseOrderRemoteDataSourceImpl(apiClient);
 
       when(
-        () => apiClient.post<Map<String, dynamic>>(
-          any<String>(),
-          data: any<Map<String, dynamic>>(named: 'data'),
-        ),
+        () => apiClient.post<Map<String, dynamic>>(any<String>()),
       ).thenAnswer(
         (_) async => Response(
           data: _placedJson(),
@@ -30,7 +27,6 @@ void main() {
       verify(
         () => apiClient.post<Map<String, dynamic>>(
           '/purchase-orders/po-1/place',
-          data: {},
         ),
       ).called(1);
     });
@@ -40,10 +36,7 @@ void main() {
       final source = PurchaseOrderRemoteDataSourceImpl(apiClient);
 
       when(
-        () => apiClient.post<Map<String, dynamic>>(
-          any<String>(),
-          data: any<Map<String, dynamic>>(named: 'data'),
-        ),
+        () => apiClient.post<Map<String, dynamic>>(any<String>()),
       ).thenAnswer(
         (_) async => Response(
           data: _placedJson(),

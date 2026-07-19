@@ -9,6 +9,8 @@ import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/p
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_detail_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_cancel_sheet.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_close_sheet.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_place_sheet.dart';
+import 'package:intelibill_mobile/src/features/suppliers/presentation/controllers/suppliers_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_detail_header.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_detail_summary.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_lifecycle_metadata.dart';
@@ -31,6 +33,7 @@ class PurchaseOrderDetailPage extends ConsumerWidget {
     final state = ref.watch(
       purchaseOrderDetailControllerProvider(purchaseOrderId),
     );
+    final suppliersState = ref.watch(suppliersControllerProvider);
 
     if (state.isLoading && state.detail == null) {
       return Scaffold(
@@ -134,6 +137,28 @@ class PurchaseOrderDetailPage extends ConsumerWidget {
                 );
               },
             ),
+          if (purchaseOrder.status == PurchaseOrderStatus.draft)
+            IconButton(
+              key: const Key('purchase-order-detail-place-button'),
+              icon: const Icon(Icons.send),
+              tooltip: l10n.purchaseOrderPlaceAction,
+              onPressed: _canPlace(purchaseOrder, suppliersState.suppliers)
+                  ? () {
+                      showPurchaseOrderPlaceSheet(
+                        context,
+                        onPlace: () {
+                          return ref
+                              .read(
+                                purchaseOrderDetailControllerProvider(
+                                  purchaseOrderId,
+                                ).notifier,
+                              )
+                              .place();
+                        },
+                      );
+                    }
+                  : null,
+            ),
         ],
       ),
       body: RefreshIndicator(
@@ -154,6 +179,19 @@ class PurchaseOrderDetailPage extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  bool _canPlace(dynamic po, List<dynamic> allSuppliers) {
+    if (po.supplierId == null || po.lines.isEmpty) return false;
+    try {
+      final supplier = allSuppliers.firstWhere(
+        (s) => s.supplierId == po.supplierId,
+      );
+      if (!supplier.isActive) return false;
+      return po.lines.any((line) => line.expectedQuantity > 0 && line.unitCost >= 0);
+    } catch (_) {
+      return false;
+    }
   }
 
   String _failureMessage(AppLocalizations l10n, Failure? failure) {

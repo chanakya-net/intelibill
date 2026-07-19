@@ -5257,6 +5257,12 @@ abstract class AppLocalizations {
   /// **'Remove'**
   String get purchaseOrderBuilderRemoveLineLabel;
 
+  /// No description provided for @purchaseOrderPlaceAction.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Place'**
+  String get purchaseOrderPlaceAction;
+
   /// No description provided for @purchaseOrderReceiveAction.
   ///
   /// In en_IN, this message translates to:
