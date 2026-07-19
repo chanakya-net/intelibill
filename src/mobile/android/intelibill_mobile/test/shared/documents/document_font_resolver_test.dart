@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -43,12 +44,17 @@ Future<void> main() async {
   });
 
   test(
-    'bundled fonts render representative text for every supported script',
+    'bundled fonts successfully render representative text for all supported scripts',
     () async {
       final resolver = DocumentFontResolver();
 
       for (final entry in localesAndText) {
+        // Verify font resolution succeeds (fonts are bundled and loadable).
         final fonts = await resolver.resolve(entry.locale);
+        expect(fonts.regular, isNotNull, reason: '${entry.locale}: regular font');
+        expect(fonts.bold, isNotNull, reason: '${entry.locale}: bold font');
+
+        // Verify PDF generation with correct fonts succeeds.
         final document = pw.Document();
         document.addPage(
           pw.Page(
@@ -62,12 +68,50 @@ Future<void> main() async {
           ),
         );
 
+        final bytes = await document.save();
         expect(
-          await document.save(),
+          bytes,
           isNotEmpty,
-          reason: entry.locale.toString(),
+          reason: '${entry.locale}: PDF bytes generated',
         );
       }
+    },
+  );
+
+  test(
+    'missing fonts produce detectable errors: Latin-only font for Hindi fails to render glyphs',
+    () async {
+      // Demonstrate that the assertion can detect missing glyphs.
+      // Rendering Hindi with Latin-only fonts logs "Unable to find a font" errors.
+      final resolver = DocumentFontResolver();
+      final latinOnly = await resolver.resolve(const Locale('en', 'IN'));
+      const hindiText = 'बहुत';
+
+      final capturedMessages = <String>[];
+      final zone = Zone.current.fork(specification: ZoneSpecification(
+        print: (_, __, _, line) {
+          capturedMessages.add(line);
+        },
+      ));
+
+      await zone.run(() async {
+        final document = pw.Document();
+        document.addPage(
+          pw.Page(
+            build: (_) => pw.Text(
+              hindiText,
+              style: pw.TextStyle(font: latinOnly.regular),
+            ),
+          ),
+        );
+        await document.save();
+      });
+
+      expect(
+        capturedMessages.any((msg) => msg.contains('Unable to find a font')),
+        isTrue,
+        reason: 'PDF rendering of Hindi with Latin-only font should log glyph-not-found warnings',
+      );
     },
   );
 
