@@ -1,14 +1,15 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
+import 'package:intelibill_mobile/src/features/inventory/domain/entities/item.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/controllers/items_controller.dart';
 import 'package:intelibill_mobile/src/shared/barcode_scanner/show_barcode_scanner.dart';
 
 class CreateItemSheet extends ConsumerStatefulWidget {
-  const CreateItemSheet({super.key});
+  const CreateItemSheet({this.initialName, super.key});
+
+  final String? initialName;
 
   static const nameFieldKey = Key('create-item-name');
   static const barcodeFieldKey = Key('create-item-barcode');
@@ -30,6 +31,12 @@ class _CreateItemSheetState extends ConsumerState<CreateItemSheet> {
   final _descriptionController = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    _nameController.text = widget.initialName ?? '';
+  }
+
+  @override
   void dispose() {
     _nameController.dispose();
     _barcodeController.dispose();
@@ -40,17 +47,6 @@ class _CreateItemSheetState extends ConsumerState<CreateItemSheet> {
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(itemsControllerProvider, (previous, next) {
-      final shouldClose =
-          previous?.lastAction != 'created' && next.lastAction == 'created';
-      if (shouldClose &&
-          mounted &&
-          Navigator.of(context).canPop() &&
-          (ModalRoute.of(context)?.isCurrent ?? false)) {
-        Navigator.of(context).pop(true);
-      }
-    });
-
     final l10n = AppLocalizations.of(context)!;
     final state = ref.watch(itemsControllerProvider);
     final theme = Theme.of(context);
@@ -187,7 +183,7 @@ class _CreateItemSheetState extends ConsumerState<CreateItemSheet> {
                       key: CreateItemSheet.cancelButtonKey,
                       onPressed: isSubmitting
                           ? null
-                          : () => Navigator.of(context).pop(false),
+                          : () => Navigator.of(context).pop(),
                       child: Text(l10n.commonCancel),
                     ),
                     const Spacer(),
@@ -224,19 +220,19 @@ class _CreateItemSheetState extends ConsumerState<CreateItemSheet> {
     _barcodeController.text = result.value;
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     final description = _descriptionController.text.trim();
-    unawaited(
-      ref
-          .read(itemsControllerProvider.notifier)
-          .createItem(
-            name: _nameController.text.trim(),
-            barcode: _barcodeController.text.trim(),
-            uom: _uomController.text.trim(),
-            description: description.isEmpty ? null : description,
-          ),
-    );
+    final created = await ref
+        .read(itemsControllerProvider.notifier)
+        .createItem(
+          name: _nameController.text.trim(),
+          barcode: _barcodeController.text.trim(),
+          uom: _uomController.text.trim(),
+          description: description.isEmpty ? null : description,
+        );
+    if (created == null || !mounted) return;
+    Navigator.of(context).pop<Item>(created);
   }
 }
 

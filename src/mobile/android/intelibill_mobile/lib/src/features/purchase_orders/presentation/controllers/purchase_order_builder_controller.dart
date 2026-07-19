@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
+import 'package:intelibill_mobile/src/features/inventory/domain/entities/item.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_draft.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_status.dart';
@@ -23,6 +24,7 @@ class PurchaseOrderBuilderState {
     this.supplierReferenceNumber = '',
     this.notes = '',
     this.lines = const [],
+    this.selectedCatalogItem,
     this.isLoadingSuppliers = false,
     this.isSaving = false,
     this.failure,
@@ -39,6 +41,7 @@ class PurchaseOrderBuilderState {
   final String supplierReferenceNumber;
   final String notes;
   final List<PurchaseOrderDraftLine> lines;
+  final Item? selectedCatalogItem;
   final bool isLoadingSuppliers;
   final bool isSaving;
   final Failure? failure;
@@ -58,6 +61,7 @@ class PurchaseOrderBuilderState {
     String? supplierReferenceNumber,
     String? notes,
     List<PurchaseOrderDraftLine>? lines,
+    Item? selectedCatalogItem,
     bool? isLoadingSuppliers,
     bool? isSaving,
     Failure? failure,
@@ -70,6 +74,7 @@ class PurchaseOrderBuilderState {
     bool clearExpectedDeliveryDate = false,
     bool clearFailure = false,
     bool clearRedirectToDetail = false,
+    bool clearSelectedCatalogItem = false,
   }) {
     return PurchaseOrderBuilderState(
       suppliers: suppliers ?? this.suppliers,
@@ -84,6 +89,9 @@ class PurchaseOrderBuilderState {
           supplierReferenceNumber ?? this.supplierReferenceNumber,
       notes: notes ?? this.notes,
       lines: lines ?? this.lines,
+      selectedCatalogItem: clearSelectedCatalogItem
+          ? null
+          : (selectedCatalogItem ?? this.selectedCatalogItem),
       isLoadingSuppliers: isLoadingSuppliers ?? this.isLoadingSuppliers,
       isSaving: isSaving ?? this.isSaving,
       failure: clearFailure ? null : (failure ?? this.failure),
@@ -239,6 +247,18 @@ class PurchaseOrderBuilderController extends _$PurchaseOrderBuilderController {
 
   void setNotes(String value) {
     state = state.copyWith(notes: value, clearFailure: true);
+  }
+
+  void selectCreatedCatalogItem(Item item) {
+    state = state.copyWith(selectedCatalogItem: item, clearFailure: true);
+  }
+
+  void selectCatalogItem(Item? item) {
+    state = state.copyWith(
+      selectedCatalogItem: item,
+      clearSelectedCatalogItem: item == null,
+      clearFailure: true,
+    );
   }
 
   void addItem({

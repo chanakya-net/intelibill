@@ -151,13 +151,13 @@ class ItemsController extends _$ItemsController {
     state = state.copyWith(searchQuery: query);
   }
 
-  Future<void> createItem({
+  Future<Item?> createItem({
     required String name,
     required String barcode,
     required String uom,
     String? description,
   }) async {
-    if (state.isSubmitting) return;
+    if (state.isSubmitting) return null;
     state = state.copyWith(
       isSubmitting: true,
       clearSubmitError: true,
@@ -165,25 +165,27 @@ class ItemsController extends _$ItemsController {
     );
     final useCase = ref.read(createItemProvider);
     try {
-      await useCase(
+      final created = await useCase(
         name: name,
         barcode: barcode,
         uom: uom,
         description: description,
       );
-      if (!ref.mounted) return;
+      if (!ref.mounted) return created;
       state = state.copyWith(isSubmitting: false, lastAction: 'created');
       await refresh();
+      return created;
     } on AppException catch (error) {
-      if (!ref.mounted) return;
+      if (!ref.mounted) return null;
       state = state.copyWith(isSubmitting: false, submitFailure: error.failure);
     } on Object {
-      if (!ref.mounted) return;
+      if (!ref.mounted) return null;
       state = state.copyWith(
         isSubmitting: false,
         submitFailure: const Failure.unknown(),
       );
     }
+    return null;
   }
 
   Future<void> updateItem({
