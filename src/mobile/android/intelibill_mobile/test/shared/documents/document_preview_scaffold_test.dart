@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/shared/documents/document_descriptor.dart';
 import 'package:intelibill_mobile/src/shared/documents/document_page_format.dart';
 import 'package:intelibill_mobile/src/shared/documents/document_preview_scaffold.dart';
@@ -118,7 +119,8 @@ void main() {
         await tester.pump();
         await tester.pump();
 
-        expect(failureMessage, isNotNull);
+        expect(failureMessage, 'Could not print the document. Try again.');
+        expect(failureMessage, isNot(contains('platform failure')));
         expect(find.byType(DocumentPreviewScaffold), findsOneWidget);
         expect(_iconButton(tester, Icons.print).onPressed, isNotNull);
 
@@ -257,7 +259,11 @@ IconButton _iconButton(WidgetTester tester, IconData icon) {
   );
 }
 
-Widget _wrap(Widget child) => MaterialApp(home: child);
+Widget _wrap(Widget child) => MaterialApp(
+  localizationsDelegates: AppLocalizations.localizationsDelegates,
+  supportedLocales: AppLocalizations.supportedLocales,
+  home: child,
+);
 
 Widget _previewWith({
   required DocumentDescriptor descriptor,

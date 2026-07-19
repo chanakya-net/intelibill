@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 
 class PurchaseOrderProgress extends StatelessWidget {
   const PurchaseOrderProgress({
@@ -18,7 +19,11 @@ class PurchaseOrderProgress extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Received: $receivedQuantity / $expectedQuantity'),
+        Text(
+          AppLocalizations.of(
+            context,
+          )!.purchaseOrderProgressReceived(receivedQuantity, expectedQuantity),
+        ),
         const SizedBox(height: 4),
         LinearProgressIndicator(value: progress),
       ],

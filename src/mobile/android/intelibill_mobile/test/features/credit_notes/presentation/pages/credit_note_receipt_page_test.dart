@@ -8,7 +8,6 @@ import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/credit_notes/domain/entities/credit_note_print.dart';
 import 'package:intelibill_mobile/src/features/credit_notes/presentation/controllers/credit_notes_controller.dart';
 import 'package:intelibill_mobile/src/features/credit_notes/presentation/pages/credit_note_receipt_page.dart';
-import 'package:intelibill_mobile/src/shared/documents/document_descriptor.dart';
 import 'package:intelibill_mobile/src/shared/documents/document_page_format.dart';
 import 'package:intelibill_mobile/src/shared/documents/document_preview_scaffold.dart';
 import 'package:intelibill_mobile/src/shared/documents/output/document_export_providers.dart';
@@ -195,70 +194,76 @@ void main() {
       expect(find.byIcon(Icons.share), findsOneWidget);
     });
 
-    testWidgets('print invokes export service with mm80 descriptor and sanitized filename', (
-      WidgetTester tester,
-    ) async {
-      final gateway = FakeDocumentOutputGateway();
-      final container = ProviderContainer(
-        overrides: [
-          creditNotePrintByCodeProvider.overrideWith(
-            (ref, _) => Future.value(_creditNotePrint()),
-          ),
-          documentExportServiceProvider.overrideWithValue(
-            DocumentExportService(gateway),
-          ),
-        ],
-      );
-      addTearDown(container.dispose);
+    testWidgets(
+      'print invokes export service with mm80 descriptor and sanitized filename',
+      (
+        WidgetTester tester,
+      ) async {
+        final gateway = FakeDocumentOutputGateway();
+        final container = ProviderContainer(
+          overrides: [
+            creditNotePrintByCodeProvider.overrideWith(
+              (ref, _) => Future.value(_creditNotePrint()),
+            ),
+            documentExportServiceProvider.overrideWithValue(
+              DocumentExportService(gateway),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
 
-      await tester.pumpWidget(_receiptApp(container, 'CN-REC-001'));
-      await _pumpUntilReady(tester);
+        await tester.pumpWidget(_receiptApp(container, 'CN-REC-001'));
+        await _pumpUntilReady(tester);
 
-      final scaffold = tester.widget<DocumentPreviewScaffold>(
-        find.byType(DocumentPreviewScaffold),
-      );
-      expect(scaffold.descriptor.pageFormat, DocumentPageFormat.mm80);
-      expect(scaffold.descriptor.filename, 'credit-note-CN-REC-001.pdf');
+        final scaffold = tester.widget<DocumentPreviewScaffold>(
+          find.byType(DocumentPreviewScaffold),
+        );
+        expect(scaffold.descriptor.pageFormat, DocumentPageFormat.mm80);
+        expect(scaffold.descriptor.filename, 'credit-note-CN-REC-001.pdf');
 
-      await tester.tap(find.byIcon(Icons.print));
-      await tester.pump();
-      await tester.pump();
+        await tester.tap(find.byIcon(Icons.print));
+        await tester.pump();
+        await tester.pump();
 
-      expect(gateway.printCallCount, 1);
-      expect(gateway.lastPrintFilename, 'credit-note-CN-REC-001.pdf');
-      expect(gateway.lastPrintBytes, isNotEmpty);
-      expect(gateway.lastPrintBytes.take(4), orderedEquals('%PDF'.codeUnits));
-    });
+        expect(gateway.printCallCount, 1);
+        expect(gateway.lastPrintFilename, 'credit-note-CN-REC-001.pdf');
+        expect(gateway.lastPrintBytes, isNotEmpty);
+        expect(gateway.lastPrintBytes.take(4), orderedEquals('%PDF'.codeUnits));
+      },
+    );
 
-    testWidgets('share invokes export service with mm80 descriptor and sanitized filename', (
-      WidgetTester tester,
-    ) async {
-      final gateway = FakeDocumentOutputGateway();
-      final container = ProviderContainer(
-        overrides: [
-          creditNotePrintByCodeProvider.overrideWith(
-            (ref, _) => Future.value(_creditNotePrint()),
-          ),
-          documentExportServiceProvider.overrideWithValue(
-            DocumentExportService(gateway),
-          ),
-        ],
-      );
-      addTearDown(container.dispose);
+    testWidgets(
+      'share invokes export service with mm80 descriptor and sanitized filename',
+      (
+        WidgetTester tester,
+      ) async {
+        final gateway = FakeDocumentOutputGateway();
+        final container = ProviderContainer(
+          overrides: [
+            creditNotePrintByCodeProvider.overrideWith(
+              (ref, _) => Future.value(_creditNotePrint()),
+            ),
+            documentExportServiceProvider.overrideWithValue(
+              DocumentExportService(gateway),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
 
-      await tester.pumpWidget(_receiptApp(container, 'CN-REC-001'));
-      await _pumpUntilReady(tester);
+        await tester.pumpWidget(_receiptApp(container, 'CN-REC-001'));
+        await _pumpUntilReady(tester);
 
-      await tester.tap(find.byIcon(Icons.share));
-      await tester.pump();
-      await tester.pump();
+        await tester.tap(find.byIcon(Icons.share));
+        await tester.pump();
+        await tester.pump();
 
-      expect(gateway.shareCallCount, 1);
-      expect(gateway.lastShareFilename, 'credit-note-CN-REC-001.pdf');
-      expect(gateway.lastShareBytes, isNotEmpty);
-      expect(gateway.lastShareBytes.take(4), orderedEquals('%PDF'.codeUnits));
-      expect(gateway.lastShareTitle, isNotEmpty);
-    });
+        expect(gateway.shareCallCount, 1);
+        expect(gateway.lastShareFilename, 'credit-note-CN-REC-001.pdf');
+        expect(gateway.lastShareBytes, isNotEmpty);
+        expect(gateway.lastShareBytes.take(4), orderedEquals('%PDF'.codeUnits));
+        expect(gateway.lastShareTitle, isNotEmpty);
+      },
+    );
 
     testWidgets(
       'print and share actions are disabled until the preview is ready',
@@ -376,19 +381,12 @@ IconButton _iconButton(WidgetTester tester, IconData icon) {
 
 class FakeDocumentOutputGateway implements DocumentOutputGateway {
   FakeDocumentOutputGateway({
-    bool shouldFailPrint = false,
-    bool shouldFailShare = false,
-  })  : _shouldFailPrint = shouldFailPrint,
-        _shouldFailShare = shouldFailShare;
+    this.shouldFailPrint = false,
+    this.shouldFailShare = false,
+  });
 
-  bool _shouldFailPrint;
-  bool _shouldFailShare;
-
-  bool get shouldFailPrint => _shouldFailPrint;
-  set shouldFailPrint(bool value) => _shouldFailPrint = value;
-
-  bool get shouldFailShare => _shouldFailShare;
-  set shouldFailShare(bool value) => _shouldFailShare = value;
+  bool shouldFailPrint;
+  bool shouldFailShare;
 
   int printCallCount = 0;
   int shareCallCount = 0;
@@ -405,7 +403,7 @@ class FakeDocumentOutputGateway implements DocumentOutputGateway {
     required String filename,
   }) async {
     printCallCount++;
-    if (_shouldFailPrint) {
+    if (shouldFailPrint) {
       throw PlatformPrintFailure(message: 'Fake print error');
     }
     lastPrintBytes = bytes;
@@ -422,7 +420,7 @@ class FakeDocumentOutputGateway implements DocumentOutputGateway {
     required String title,
   }) async {
     shareCallCount++;
-    if (_shouldFailShare) {
+    if (shouldFailShare) {
       throw PlatformShareFailure(message: 'Fake share error');
     }
     lastShareBytes = bytes;
@@ -437,7 +435,7 @@ Widget _receiptApp(ProviderContainer container, String code) =>
       child: MaterialApp(
         locale: const Locale('en', 'IN'),
         supportedLocales: const [Locale('en', 'IN')],
-        localizationsDelegates: [
+        localizationsDelegates: const [
           AppLocalizations.delegate,
           ...AppLocalizations.localizationsDelegates,
         ],

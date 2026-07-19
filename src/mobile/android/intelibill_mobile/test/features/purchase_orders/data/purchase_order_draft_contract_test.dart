@@ -3,8 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/data_sources/purchase_order_remote_data_source.dart';
-import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/purchase_order_detail_dto.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/create_purchase_order_draft_request_dto.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/purchase_order_detail_dto.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/repositories/purchase_order_repository_impl.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_draft.dart';
 import 'package:mocktail/mocktail.dart';
@@ -18,14 +18,8 @@ void main() {
 
   test('serializes create draft request with date-only fields and nulls', () {
     const request = CreatePurchaseOrderDraftRequestDto(
-      supplierId: null,
       orderDate: '2026-07-19',
-      expectedDeliveryDate: null,
-      supplierReferenceNumber: null,
       notes: 'Restock',
-      supplierName: null,
-      supplierReference: null,
-      lines: [],
     );
 
     expect(request.toJson(), {
@@ -61,11 +55,7 @@ void main() {
           supplierId: 'supplier-1',
           orderDate: '2026-07-19',
           expectedDeliveryDate: '2026-07-21',
-          supplierReferenceNumber: null,
           notes: 'Notes',
-          supplierName: null,
-          supplierReference: null,
-          lines: [],
         ),
       ),
     ).called(1);
@@ -74,15 +64,12 @@ void main() {
   test('remote data source posts the complete create draft JSON', () async {
     final apiClient = MockApiClient();
     final source = PurchaseOrderRemoteDataSourceImpl(apiClient);
-    final request = const CreatePurchaseOrderDraftRequestDto(
+    const request = CreatePurchaseOrderDraftRequestDto(
       supplierId: 'supplier-1',
       orderDate: '2026-07-19',
       expectedDeliveryDate: '2026-07-21',
       supplierReferenceNumber: 'REF-1',
       notes: 'Notes',
-      supplierName: null,
-      supplierReference: null,
-      lines: [],
     );
     when(
       () => apiClient.post<Map<String, dynamic>>(
@@ -116,9 +103,6 @@ void main() {
       expectedDeliveryDate: '2026-07-21',
       supplierReferenceNumber: 'REF-1',
       notes: 'Notes',
-      supplierName: null,
-      supplierReference: null,
-      lines: [],
     );
     when(
       () => apiClient.put<Map<String, dynamic>>(
@@ -166,12 +150,7 @@ void main() {
         const CreatePurchaseOrderDraftRequestDto(
           supplierId: 'supplier-1',
           orderDate: '2026-07-19',
-          expectedDeliveryDate: null,
-          supplierReferenceNumber: null,
           notes: 'Notes',
-          supplierName: null,
-          supplierReference: null,
-          lines: [],
         ),
       ),
     ).called(1);

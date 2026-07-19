@@ -18,8 +18,6 @@ import 'package:intelibill_mobile/src/features/suppliers/domain/entities/supplie
 import 'package:intelibill_mobile/src/features/suppliers/presentation/controllers/suppliers_controller.dart';
 import 'package:mocktail/mocktail.dart';
 
-class _MockSuppliersController extends Mock implements SuppliersState {}
-
 class _MockGetPurchaseOrder extends Mock implements GetPurchaseOrder {}
 
 class _MockPlacePurchaseOrder extends Mock implements PlacePurchaseOrder {}
@@ -82,11 +80,11 @@ PurchaseOrder _draftPo({
             expectedQuantity: 10,
             receivedQuantity: 0,
             remainingQuantity: 10,
-            unitCost: 50.0,
-            lineTotal: 500.0,
+            unitCost: 50,
+            lineTotal: 500,
           ),
         ],
-    expectedTotal: 500.0,
+    expectedTotal: 500,
     createdAt: DateTime.now(),
   );
 }
@@ -102,7 +100,7 @@ Supplier _activeSupplier({
     isSystem: false,
     isActive: isActive,
     isPreferred: false,
-    balanceDue: 0.0,
+    balanceDue: 0,
   );
 }
 
@@ -157,7 +155,7 @@ void main() {
       );
       expect(button, findsOneWidget);
       expect(
-        (tester.widget<IconButton>(button)).onPressed,
+        tester.widget<IconButton>(button).onPressed,
         isNull,
       );
     });
@@ -202,8 +200,8 @@ void main() {
               expectedQuantity: 0,
               receivedQuantity: 0,
               remainingQuantity: 0,
-              unitCost: 50.0,
-              lineTotal: 0.0,
+              unitCost: 50,
+              lineTotal: 0,
             ),
           ],
         ),
@@ -224,7 +222,7 @@ void main() {
       );
       expect(button, findsOneWidget);
       expect(
-        (tester.widget<IconButton>(button)).onPressed,
+        tester.widget<IconButton>(button).onPressed,
         isNull,
       );
     });
@@ -236,7 +234,7 @@ void main() {
         (_) async => _draftPo(),
       );
       when(() => placePurchaseOrder('po-1')).thenAnswer(
-        (_) async => _draftPo(supplierId: 'supplier-1'),
+        (_) async => _draftPo(),
       );
 
       final harness = _buildHarness(
@@ -352,7 +350,7 @@ void main() {
       await tester.tap(find.text('Place order'));
       await tester.pump();
       expect(
-        find.text('Could not place purchase order. Please try again.'),
+        find.text('Something went wrong. Try again.'),
         findsOneWidget,
       );
     });
@@ -411,7 +409,7 @@ void main() {
       await tester.tap(find.text('आदेश भेजें'));
       await tester.pumpAndSettle();
       expect(
-        find.text('खरीद आदेश भेजा नहीं जा सका। कृपया पुनः प्रयास करें।'),
+        find.text('कनेक्ट नहीं हो सका। अपना नेटवर्क जाँचें।'),
         findsOneWidget,
       );
       when(() => placePurchaseOrder('po-1')).thenAnswer(

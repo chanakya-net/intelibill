@@ -8,14 +8,15 @@ import 'package:intelibill_mobile/src/features/dashboard/presentation/controller
 import 'package:intelibill_mobile/src/features/inventory/domain/entities/product_details.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/use_cases/get_product_details.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/utils/batch_number_generator.dart';
-import 'package:intelibill_mobile/src/features/inventory/presentation/controllers/items_controller.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/controllers/inventory_batches_controller.dart';
+import 'package:intelibill_mobile/src/features/inventory/presentation/controllers/items_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_line.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/receive_purchase_order_input.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_detail_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_providers.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_orders_controller.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/localization/purchase_order_messages.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'receive_purchase_order_controller.g.dart';
@@ -125,6 +126,7 @@ class ReceivePurchaseOrderState {
     this.isLoading = false,
     this.isSubmitting = false,
     this.failure,
+    this.localMessage,
     this.lineErrors = const {},
     this.expandedLineId,
     this.focusedLineId,
@@ -136,13 +138,14 @@ class ReceivePurchaseOrderState {
   final DateTime? receivedAt;
   final List<ReceivePurchaseOrderLineDraft> lines;
   final Set<String> barcodeGenerationLineIds;
-  final Map<String, String> barcodeGenerationFailures;
+  final Map<String, PurchaseOrderMessage> barcodeGenerationFailures;
   final Set<String> prefillLoadingLineIds;
-  final Map<String, String> prefillFailures;
+  final Map<String, PurchaseOrderMessage> prefillFailures;
   final bool isLoading;
   final bool isSubmitting;
   final Failure? failure;
-  final Map<String, Map<String, String>> lineErrors;
+  final PurchaseOrderMessage? localMessage;
+  final Map<String, Map<String, PurchaseOrderFieldMessage>> lineErrors;
   final String? expandedLineId;
   final String? focusedLineId;
 
@@ -157,7 +160,8 @@ class ReceivePurchaseOrderState {
       selectedLines.fold(0, (sum, line) => sum + line.totalPurchaseCost);
   bool get canSubmit => hasSelectedLines && !isSubmitting && detail != null;
 
-  String? lineError(String lineId, String field) => lineErrors[lineId]?[field];
+  PurchaseOrderFieldMessage? lineError(String lineId, String field) =>
+      lineErrors[lineId]?[field];
 
   ReceivePurchaseOrderState copyWith({
     PurchaseOrder? detail,
@@ -168,11 +172,12 @@ class ReceivePurchaseOrderState {
     bool? isLoading,
     bool? isSubmitting,
     Failure? failure,
-    Map<String, Map<String, String>>? lineErrors,
+    PurchaseOrderMessage? localMessage,
+    Map<String, Map<String, PurchaseOrderFieldMessage>>? lineErrors,
     Set<String>? barcodeGenerationLineIds,
-    Map<String, String>? barcodeGenerationFailures,
+    Map<String, PurchaseOrderMessage>? barcodeGenerationFailures,
     Set<String>? prefillLoadingLineIds,
-    Map<String, String>? prefillFailures,
+    Map<String, PurchaseOrderMessage>? prefillFailures,
     String? expandedLineId,
     String? focusedLineId,
     bool clearFailure = false,
@@ -200,6 +205,7 @@ class ReceivePurchaseOrderState {
       isLoading: isLoading ?? this.isLoading,
       isSubmitting: isSubmitting ?? this.isSubmitting,
       failure: clearFailure ? null : (failure ?? this.failure),
+      localMessage: clearFailure ? null : (localMessage ?? this.localMessage),
       lineErrors: clearLineErrors ? const {} : (lineErrors ?? this.lineErrors),
       barcodeGenerationLineIds: clearBarcodeGenerationLineIds
           ? const {}
@@ -365,7 +371,7 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
     final futures = lines.map(
       (line) => _prefillLineAsync(line, getProductDetails, generation),
     );
-    await Future.wait(futures, eagerError: false);
+    await Future.wait(futures);
   }
 
   Future<void> _prefillLineAsync(
@@ -383,12 +389,9 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
         line.editVersion,
       );
       _setPrefillLoading(line.purchaseOrderLineId, false, generation);
-    } on Object catch (e) {
+    } on Object {
       if (!ref.mounted || generation != _loadGeneration) return;
-      _setPrefillFailure(
-        line.purchaseOrderLineId,
-        e.toString(),
-      );
+      _setPrefillFailure(line.purchaseOrderLineId);
       _setPrefillLoading(line.purchaseOrderLineId, false, generation);
     }
   }
@@ -406,9 +409,11 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
     }
   }
 
-  void _setPrefillFailure(String lineId, String message) {
-    final failures = Map<String, String>.from(state.prefillFailures);
-    failures[lineId] = message;
+  void _setPrefillFailure(String lineId) {
+    final failures = Map<String, PurchaseOrderMessage>.from(
+      state.prefillFailures,
+    );
+    failures[lineId] = PurchaseOrderMessage.receivePrefill;
     state = state.copyWith(prefillFailures: failures);
   }
 
@@ -433,12 +438,12 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
       if (!l.dirtyFields.contains('taxRatePercent') &&
           l.taxRatePercent == 0 &&
           details.taxRatePercent != null) {
-        updated = updated.copyWith(taxRatePercent: details.taxRatePercent!);
+        updated = updated.copyWith(taxRatePercent: details.taxRatePercent);
       }
       if (!l.dirtyFields.contains('taxIncluded') &&
           !l.taxIncluded &&
           details.taxIncluded == true) {
-        updated = updated.copyWith(taxIncluded: details.taxIncluded!);
+        updated = updated.copyWith(taxIncluded: details.taxIncluded);
       }
       return updated;
     });
@@ -478,7 +483,7 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
     final previousLine = _lineDraftById(purchaseOrderLineId);
     if (previousLine == null) return null;
 
-    final existingFailure = Map<String, String>.from(
+    final existingFailure = Map<String, PurchaseOrderMessage>.from(
       state.barcodeGenerationFailures,
     )..remove(purchaseOrderLineId);
     state = state.copyWith(
@@ -496,7 +501,7 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
       if (!ref.mounted) return null;
       _clearBarcodeGenerationLine(purchaseOrderLineId);
       return generated.barcode.trim();
-    } on AppException catch (error) {
+    } on AppException {
       if (!ref.mounted) return null;
       state = state.copyWith(
         barcodeGenerationLineIds: state.barcodeGenerationLineIds
@@ -504,12 +509,12 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
             .toSet(),
         barcodeGenerationFailures: {
           ...state.barcodeGenerationFailures,
-          purchaseOrderLineId:
-              error.failure.message ??
-              _barcodeGenerationFailureMessage(previousLine.barcode),
+          purchaseOrderLineId: _barcodeGenerationFailure(
+            previousLine.barcode,
+          ),
         },
       );
-    } catch (_) {
+    } on Object {
       if (!ref.mounted) return null;
       state = state.copyWith(
         barcodeGenerationLineIds: state.barcodeGenerationLineIds
@@ -517,7 +522,7 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
             .toSet(),
         barcodeGenerationFailures: {
           ...state.barcodeGenerationFailures,
-          purchaseOrderLineId: _barcodeGenerationFailureMessage(
+          purchaseOrderLineId: _barcodeGenerationFailure(
             previousLine.barcode,
           ),
         },
@@ -550,15 +555,16 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
     if (!state.barcodeGenerationFailures.containsKey(purchaseOrderLineId)) {
       return;
     }
-    final cleared = Map<String, String>.from(state.barcodeGenerationFailures)
-      ..remove(purchaseOrderLineId);
+    final cleared = Map<String, PurchaseOrderMessage>.from(
+      state.barcodeGenerationFailures,
+    )..remove(purchaseOrderLineId);
     state = state.copyWith(barcodeGenerationFailures: cleared);
   }
 
-  String _barcodeGenerationFailureMessage(String existingBarcode) {
+  PurchaseOrderMessage _barcodeGenerationFailure(String existingBarcode) {
     return existingBarcode.isEmpty
-        ? 'Could not generate barcode. Please try again.'
-        : 'Could not generate barcode for this line. Your current value was not changed.';
+        ? PurchaseOrderMessage.receiveBarcodeBuild
+        : PurchaseOrderMessage.receiveBarcodeLineBuild;
   }
 
   void updateBatchNumber(String purchaseOrderLineId, String value) {
@@ -646,7 +652,10 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
     );
   }
 
-  void updateTaxIncluded(String purchaseOrderLineId, bool value) {
+  void updateTaxIncluded(
+    String purchaseOrderLineId, {
+    required bool value,
+  }) {
     _updateLine(
       purchaseOrderLineId,
       (line) => line.copyWith(
@@ -657,7 +666,10 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
     );
   }
 
-  void updatePurchaseTaxIncluded(String purchaseOrderLineId, bool value) {
+  void updatePurchaseTaxIncluded(
+    String purchaseOrderLineId, {
+    required bool value,
+  }) {
     _updateLine(
       purchaseOrderLineId,
       (line) => line.copyWith(purchaseTaxIncluded: value),
@@ -750,29 +762,24 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
   }
 
   void _setQuantityFailure() {
+    _setValidation(PurchaseOrderMessage.receivePositiveWholeQuantity);
+  }
+
+  void _setValidation(PurchaseOrderMessage message) {
     state = state.copyWith(
-      failure: const Failure.validation(
-        message: 'Quantity must be a positive whole number within remaining.',
-      ),
+      failure: const Failure.validation(),
+      localMessage: message,
     );
   }
 
   Future<PurchaseOrder?> submit() async {
     if (state.isSubmitting || state.detail == null) return null;
     if (!state.hasEligibleLines) {
-      state = state.copyWith(
-        failure: const Failure.validation(
-          message: 'No remaining lines are available to receive.',
-        ),
-      );
+      _setValidation(PurchaseOrderMessage.receiveNoRemainingLines);
       return null;
     }
     if (!state.hasSelectedLines) {
-      state = state.copyWith(
-        failure: const Failure.validation(
-          message: 'Select at least one line to receive.',
-        ),
-      );
+      _setValidation(PurchaseOrderMessage.receiveSelectLine);
       return null;
     }
 
@@ -817,20 +824,17 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
     final receivedAt = state.receivedAt ?? DateTime.now().toUtc();
     final selectedLines = state.selectedLines.toList(growable: false);
     if (selectedLines.isEmpty) {
-      state = state.copyWith(
-        failure: const Failure.validation(
-          message: 'Select at least one line to receive.',
-        ),
-      );
+      _setValidation(PurchaseOrderMessage.receiveSelectLine);
       return null;
     }
     final ids = <String>{};
-    final errors = <String, Map<String, String>>{};
+    final errors = <String, Map<String, PurchaseOrderFieldMessage>>{};
     for (final line in selectedLines) {
       final lineErrors = _validateLine(line);
       if (!ids.add(line.purchaseOrderLineId)) {
-        lineErrors['purchaseOrderLineId'] =
-            'Duplicate purchase-order line IDs are not allowed.';
+        lineErrors['purchaseOrderLineId'] = const PurchaseOrderFieldMessage(
+          PurchaseOrderMessage.receiveDuplicateLine,
+        );
       }
       if (lineErrors.isNotEmpty) {
         errors[line.purchaseOrderLineId] = lineErrors;
@@ -868,73 +872,102 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
     );
   }
 
-  Map<String, String> _validateLine(ReceivePurchaseOrderLineDraft line) {
-    final errors = <String, String>{};
+  Map<String, PurchaseOrderFieldMessage> _validateLine(
+    ReceivePurchaseOrderLineDraft line,
+  ) {
+    final errors = <String, PurchaseOrderFieldMessage>{};
     for (final field in line.invalidFields) {
-      errors[field] = 'Enter a valid number.';
+      errors[field] = const PurchaseOrderFieldMessage(
+        PurchaseOrderMessage.receiveInvalidNumber,
+      );
     }
-    if (line.barcode.isNotEmpty)
+    if (line.barcode.isNotEmpty) {
       _maxLength(errors, 'barcode', line.barcode, 120);
+    }
     _require(errors, 'batchNumber', line.batchNumber, 80);
     if (line.quantity <= 0 || line.quantity > line.remainingQuantity) {
-      errors['quantity'] = 'Quantity must be within the remaining amount.';
+      errors['quantity'] = const PurchaseOrderFieldMessage(
+        PurchaseOrderMessage.receiveQuantityRange,
+      );
     }
     _nonNegative(errors, 'unitCost', line.unitPurchaseCost);
     _nonNegative(errors, 'totalPurchaseCost', line.totalPurchaseCost);
     _nonNegative(errors, 'mrp', line.mrp);
     _nonNegative(errors, 'salesPrice', line.salesPrice);
     if (line.salesPrice > line.mrp) {
-      errors['salesPrice'] = 'Sales price cannot exceed MRP.';
+      errors['salesPrice'] = const PurchaseOrderFieldMessage(
+        PurchaseOrderMessage.receiveSalesPrice,
+      );
     }
     if (line.taxRatePercent < 0 || line.taxRatePercent > 100) {
-      errors['taxRatePercent'] = 'Tax rate must be between 0 and 100.';
+      errors['taxRatePercent'] = const PurchaseOrderFieldMessage(
+        PurchaseOrderMessage.receiveTaxRate,
+      );
     }
     if (line.manufacturingDate != null &&
         line.expiryDate != null &&
         line.manufacturingDate!.isAfter(line.expiryDate!)) {
-      errors['expiryDate'] =
-          'Expiry date must be on or after the manufacturing date.';
+      errors['expiryDate'] = const PurchaseOrderFieldMessage(
+        PurchaseOrderMessage.receiveExpiryDate,
+      );
     }
     return errors;
   }
 
   void _require(
-    Map<String, String> errors,
+    Map<String, PurchaseOrderFieldMessage> errors,
     String field,
     String value,
     int max,
   ) {
     if (value.trim().isEmpty) {
-      errors[field] = 'This field is required.';
+      errors[field] = const PurchaseOrderFieldMessage(
+        PurchaseOrderMessage.receiveRequired,
+      );
     } else if (value.length > max) {
-      errors[field] = 'Must not exceed $max characters.';
+      errors[field] = PurchaseOrderFieldMessage(
+        PurchaseOrderMessage.receiveMaxLength,
+        maxLength: max,
+      );
     }
   }
 
   void _maxLength(
-    Map<String, String> errors,
+    Map<String, PurchaseOrderFieldMessage> errors,
     String field,
     String value,
     int max,
   ) {
     if (value.length > max) {
-      errors[field] = 'Must not exceed $max characters.';
+      errors[field] = PurchaseOrderFieldMessage(
+        PurchaseOrderMessage.receiveMaxLength,
+        maxLength: max,
+      );
     }
   }
 
-  void _nonNegative(Map<String, String> errors, String field, double value) {
-    if (value < 0) errors[field] = 'Must be non-negative.';
+  void _nonNegative(
+    Map<String, PurchaseOrderFieldMessage> errors,
+    String field,
+    double value,
+  ) {
+    if (value < 0) {
+      errors[field] = const PurchaseOrderFieldMessage(
+        PurchaseOrderMessage.receiveNonNegative,
+      );
+    }
   }
 
-  void _setLineErrors(Map<String, Map<String, String>> errors) {
+  void _setLineErrors(
+    Map<String, Map<String, PurchaseOrderFieldMessage>> errors,
+  ) {
     final first = state.selectedLines.firstWhere(
       (line) => errors.containsKey(line.purchaseOrderLineId),
     );
     final firstField = errors[first.purchaseOrderLineId]!.keys.first;
     state = state.copyWith(
-      failure: const Failure.validation(
-        message: 'Fix the highlighted receipt fields.',
-      ),
+      failure: const Failure.validation(),
+      localMessage: PurchaseOrderMessage.receiveFixFields,
       lineErrors: errors,
       expandedLineId: first.purchaseOrderLineId,
       focusedLineId: firstField,
@@ -960,10 +993,12 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
   bool _isLifecycleConflict(Failure failure) =>
       failure is ServerFailure && failure.statusCode == 409;
 
-  Map<String, Map<String, String>> _mapValidationErrors(Failure failure) {
+  Map<String, Map<String, PurchaseOrderFieldMessage>> _mapValidationErrors(
+    Failure failure,
+  ) {
     if (failure is! ValidationFailure || failure.errors == null) return {};
     final selected = state.selectedLines.toList(growable: false);
-    final mapped = <String, Map<String, String>>{};
+    final mapped = <String, Map<String, PurchaseOrderFieldMessage>>{};
     final path = RegExp(r'^Lines\[(\d+)\]\.(.+)$', caseSensitive: false);
     for (final entry in failure.errors!.entries) {
       final match = path.firstMatch(entry.key);
@@ -971,8 +1006,12 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
       final index = int.tryParse(match.group(1)!);
       final field = _fieldName(match.group(2)!);
       if (index == null || index >= selected.length || field == null) continue;
-      mapped.putIfAbsent(selected[index].purchaseOrderLineId, () => {})[field] =
-          entry.value.first;
+      mapped.putIfAbsent(
+        selected[index].purchaseOrderLineId,
+        () => {},
+      )[field] = const PurchaseOrderFieldMessage(
+        PurchaseOrderMessage.receiveFieldRejected,
+      );
     }
     return mapped;
   }

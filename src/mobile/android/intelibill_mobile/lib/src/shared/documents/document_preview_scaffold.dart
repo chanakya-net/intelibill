@@ -1,7 +1,10 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/shared/documents/document_descriptor.dart';
+import 'package:intelibill_mobile/src/shared/documents/output/document_export_service.dart';
+import 'package:intelibill_mobile/src/shared/documents/output/document_output_messages.dart';
 import 'package:pdf/pdf.dart';
 import 'package:printing/printing.dart';
 
@@ -62,10 +65,11 @@ class _DocumentPreviewScaffoldState extends State<DocumentPreviewScaffold> {
         setState(() => _isReady = true);
       }
       return bytes;
-    } catch (e) {
+    } on Object {
       if (generation == _buildGeneration) {
         _buildFuture = null;
       }
+      _reportFailure(ExportOperation.build);
       rethrow;
     }
   }
@@ -86,6 +90,7 @@ class _DocumentPreviewScaffoldState extends State<DocumentPreviewScaffold> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.descriptor.title),
@@ -96,7 +101,7 @@ class _DocumentPreviewScaffoldState extends State<DocumentPreviewScaffold> {
               child: IconButton(
                 icon: const Icon(Icons.print),
                 onPressed: (_isReady && !_isPrinting) ? _handlePrint : null,
-                tooltip: 'Print',
+                tooltip: l10n.documentOutputPrintAction,
               ),
             ),
           if (widget.onShare != null)
@@ -105,7 +110,7 @@ class _DocumentPreviewScaffoldState extends State<DocumentPreviewScaffold> {
               child: IconButton(
                 icon: const Icon(Icons.share),
                 onPressed: (_isReady && !_isSharing) ? _handleShare : null,
-                tooltip: 'Share',
+                tooltip: l10n.documentOutputShareAction,
               ),
             ),
         ],
@@ -127,8 +132,8 @@ class _DocumentPreviewScaffoldState extends State<DocumentPreviewScaffold> {
       final bytes =
           _cachedBytes ?? await _build(widget.descriptor.pdfPageFormat);
       await widget.onPrint!(bytes);
-    } catch (e) {
-      widget.onFailure?.call('Print failed: ${e.toString()}');
+    } on Object {
+      _reportFailure(ExportOperation.print);
     } finally {
       if (mounted) {
         setState(() => _isPrinting = false);
@@ -142,12 +147,19 @@ class _DocumentPreviewScaffoldState extends State<DocumentPreviewScaffold> {
       final bytes =
           _cachedBytes ?? await _build(widget.descriptor.pdfPageFormat);
       await widget.onShare!(bytes);
-    } catch (e) {
-      widget.onFailure?.call('Share failed: ${e.toString()}');
+    } on Object {
+      _reportFailure(ExportOperation.share);
     } finally {
       if (mounted) {
         setState(() => _isSharing = false);
       }
     }
+  }
+
+  void _reportFailure(ExportOperation operation) {
+    if (!mounted) return;
+    widget.onFailure?.call(
+      documentOutputFailureMessage(AppLocalizations.of(context)!, operation),
+    );
   }
 }

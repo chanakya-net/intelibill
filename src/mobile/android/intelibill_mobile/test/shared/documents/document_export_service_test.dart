@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:intelibill_mobile/src/shared/documents/document_descriptor.dart';
 import 'package:intelibill_mobile/src/shared/documents/output/document_export_service.dart';
 import 'package:intelibill_mobile/src/shared/documents/output/document_output_gateway.dart';
-import 'package:pdf/pdf.dart';
 
 class FakeDocumentOutputGateway implements DocumentOutputGateway {
   FakeDocumentOutputGateway({
@@ -104,7 +103,7 @@ void main() {
       final result = await service.print(bytes: bytes, descriptor: descriptor);
 
       expect(result, isA<ExportFailure>());
-      final failure = result! as ExportFailure;
+      final failure = result!;
       expect(failure.operation, ExportOperation.print);
       expect(failure.message, contains('Fake print error'));
     });
@@ -122,7 +121,7 @@ void main() {
       final result = await service.share(bytes: bytes, descriptor: descriptor);
 
       expect(result, isA<ExportFailure>());
-      final failure = result! as ExportFailure;
+      final failure = result!;
       expect(failure.operation, ExportOperation.share);
       expect(failure.message, contains('Fake share error'));
     });
@@ -274,7 +273,6 @@ void main() {
     });
 
     test('build failure returns typed PdfBuildFailure', () async {
-      final bytes = Uint8List.fromList(List<int>.filled(100, 0xFF));
       const descriptor = DocumentDescriptor(
         title: 'Test PO',
         filename: 'po-001.pdf',
@@ -286,8 +284,8 @@ void main() {
       );
 
       expect(result, isA<ExportFailure>());
-      final failure = result! as ExportFailure;
-      expect(failure.operation, ExportOperation.print);
+      final failure = result!;
+      expect(failure.operation, ExportOperation.build);
       expect(failure.message, contains('PDF generation failed'));
     });
 

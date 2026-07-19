@@ -1,4 +1,6 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_line.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_status.dart';
@@ -9,6 +11,7 @@ import 'package:intl/date_symbol_data_local.dart';
 Future<void> main() async {
   TestWidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting();
+  final l10n = lookupAppLocalizations(const Locale('en', 'IN'));
   final purchaseOrder = PurchaseOrder(
     purchaseOrderId: 'po-1',
     purchaseOrderNumber: 'PO / 12:3',
@@ -49,23 +52,33 @@ Future<void> main() async {
         gstNumber: '27ABCDE1234F1Z5',
         bankAccounts: [],
       ),
+      l10n,
     );
 
     expect(bytes, isNotEmpty);
     expect(bytes.take(4), orderedEquals('%PDF'.codeUnits));
     expect(builder.filenameFor(purchaseOrder), 'purchase-order-PO-12-3.pdf');
-    expect(builder.contentFor(purchaseOrder, null), contains('Fresh Grocers'));
-    expect(builder.contentFor(purchaseOrder, null), contains('Basmati rice'));
-    expect(builder.contentFor(purchaseOrder, null), contains('Expected total'));
+    expect(
+      builder.contentFor(purchaseOrder, null, l10n),
+      contains('Fresh Grocers'),
+    );
+    expect(
+      builder.contentFor(purchaseOrder, null, l10n),
+      contains('Basmati rice'),
+    );
+    expect(
+      builder.contentFor(purchaseOrder, null, l10n),
+      contains('Partially received'),
+    );
   });
 
   test('omits unavailable shop details without blocking generation', () async {
     final builder = PurchaseOrderPdfBuilder();
-    final bytes = await builder.build(purchaseOrder, null);
+    final bytes = await builder.build(purchaseOrder, null, l10n);
 
     expect(bytes, isNotEmpty);
     expect(
-      builder.contentFor(purchaseOrder, null),
+      builder.contentFor(purchaseOrder, null, l10n),
       isNot(contains('Corner Store')),
     );
   });

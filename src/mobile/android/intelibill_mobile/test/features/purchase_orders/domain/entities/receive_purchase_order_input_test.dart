@@ -17,7 +17,7 @@ void main() {
         taxIncluded: true,
         purchaseTaxIncluded: false,
         expiryDate: DateTime(2026, 12, 31),
-        manufacturingDate: DateTime(2026, 1, 1),
+        manufacturingDate: DateTime(2026),
       );
 
       expect(line.purchaseOrderLineId, 'line-1');
@@ -32,11 +32,11 @@ void main() {
       expect(line.taxIncluded, true);
       expect(line.purchaseTaxIncluded, false);
       expect(line.expiryDate, DateTime(2026, 12, 31));
-      expect(line.manufacturingDate, DateTime(2026, 1, 1));
+      expect(line.manufacturingDate, DateTime(2026));
     });
 
     test('supports null optional dates', () {
-      final line = ReceivePurchaseOrderLineInput(
+      const line = ReceivePurchaseOrderLineInput(
         purchaseOrderLineId: 'line-1',
         barcode: 'BAR-001',
         batchNumber: 'BN-001',
@@ -55,7 +55,7 @@ void main() {
     });
 
     test('supports zero tax rate and nonnegative costs', () {
-      final line = ReceivePurchaseOrderLineInput(
+      const line = ReceivePurchaseOrderLineInput(
         purchaseOrderLineId: 'line-1',
         barcode: 'BAR-001',
         batchNumber: 'BN-001',
@@ -124,7 +124,7 @@ void main() {
 
   group('ReceivePurchaseOrderInput', () {
     test('constructs with required header and optional fields', () {
-      final line = ReceivePurchaseOrderLineInput(
+      const line = ReceivePurchaseOrderLineInput(
         purchaseOrderLineId: 'line-1',
         barcode: 'BAR-001',
         batchNumber: 'BN-001',
@@ -142,7 +142,7 @@ void main() {
         referenceNumber: 'REF-001',
         notes: 'Test notes',
         receivedAt: DateTime.utc(2026, 7, 19),
-        lines: [line],
+        lines: const [line],
       );
 
       expect(input.referenceNumber, 'REF-001');
@@ -154,7 +154,7 @@ void main() {
     test('supports null optional reference and notes', () {
       final input = ReceivePurchaseOrderInput(
         receivedAt: DateTime.utc(2026, 7, 19),
-        lines: [],
+        lines: const [],
       );
 
       expect(input.referenceNumber, isNull);
@@ -162,7 +162,7 @@ void main() {
     });
 
     test('equatable compares all fields including all lines', () {
-      final line1 = ReceivePurchaseOrderLineInput(
+      const line1 = ReceivePurchaseOrderLineInput(
         purchaseOrderLineId: 'line-1',
         barcode: 'BAR-001',
         batchNumber: 'BN-001',
@@ -180,21 +180,21 @@ void main() {
         referenceNumber: 'REF-001',
         notes: 'Test',
         receivedAt: DateTime.utc(2026, 7, 19),
-        lines: [line1],
+        lines: const [line1],
       );
 
       final input2 = ReceivePurchaseOrderInput(
         referenceNumber: 'REF-001',
         notes: 'Test',
         receivedAt: DateTime.utc(2026, 7, 19),
-        lines: [line1],
+        lines: const [line1],
       );
 
       final input3 = ReceivePurchaseOrderInput(
         referenceNumber: 'REF-002',
         notes: 'Test',
         receivedAt: DateTime.utc(2026, 7, 19),
-        lines: [line1],
+        lines: const [line1],
       );
 
       expect(input1, input2);

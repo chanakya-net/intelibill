@@ -297,7 +297,9 @@ class _PurchaseOrderReceiveLineCardState
                   ),
                   initialValue: widget.line.totalPurchaseCost.toString(),
                   enabled: widget.line.isSelected,
-                  keyboardType: TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   autofocus: widget.focusedField == 'totalPurchaseCost',
                   inputFormatters: [_decimalFormatter],
                   onChanged: widget.onTotalPurchaseCostChanged,
@@ -313,7 +315,9 @@ class _PurchaseOrderReceiveLineCardState
                   ),
                   initialValue: widget.line.mrp.toString(),
                   enabled: widget.line.isSelected,
-                  keyboardType: TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   autofocus: widget.focusedField == 'mrp',
                   inputFormatters: [_decimalFormatter],
                   onChanged: widget.onMrpChanged,
@@ -329,7 +333,9 @@ class _PurchaseOrderReceiveLineCardState
                   ),
                   initialValue: widget.line.salesPrice.toString(),
                   enabled: widget.line.isSelected,
-                  keyboardType: TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   autofocus: widget.focusedField == 'salesPrice',
                   inputFormatters: [_decimalFormatter],
                   onChanged: widget.onSalesPriceChanged,
@@ -345,7 +351,9 @@ class _PurchaseOrderReceiveLineCardState
                   ),
                   initialValue: widget.line.taxRatePercent.toString(),
                   enabled: widget.line.isSelected,
-                  keyboardType: TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   autofocus: widget.focusedField == 'taxRatePercent',
                   inputFormatters: [_decimalFormatter],
                   onChanged: widget.onTaxRatePercentChanged,

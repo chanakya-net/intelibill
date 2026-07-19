@@ -11,7 +11,7 @@ class PurchaseOrderDraftLineCard extends StatefulWidget {
   });
 
   final PurchaseOrderDraftLine line;
-  final Function({required int expectedQuantity, required double unitCost})
+  final void Function({required int expectedQuantity, required double unitCost})
   onUpdate;
   final VoidCallback onRemove;
 
@@ -98,7 +98,7 @@ class _PurchaseOrderDraftLineCardState
             const SizedBox(height: 8),
             Text(
               '${l10n.purchaseOrderBuilderLineTotalLabel}: '
-              '${(widget.line.lineTotal).toStringAsFixed(2)}',
+              '${widget.line.lineTotal.toStringAsFixed(2)}',
               style: Theme.of(context).textTheme.labelLarge,
             ),
             const SizedBox(height: 12),

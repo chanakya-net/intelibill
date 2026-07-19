@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
+import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/localization/purchase_order_messages.dart';
 
 class PurchaseOrderPlaceSheet extends StatefulWidget {
   const PurchaseOrderPlaceSheet({required this.onPlace, super.key});
@@ -25,10 +27,21 @@ class _PurchaseOrderPlaceSheetState extends State<PurchaseOrderPlaceSheet> {
     try {
       await widget.onPlace();
       if (mounted) setState(() => _isComplete = true);
-    } catch (error) {
+    } on AppException catch (error) {
       if (!mounted) return;
       setState(() {
-        _errorMessage = error is AppException ? '' : error.toString();
+        _errorMessage = purchaseOrderFailureMessage(
+          AppLocalizations.of(context)!,
+          error.failure,
+        );
+      });
+    } on Object {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = purchaseOrderFailureMessage(
+          AppLocalizations.of(context)!,
+          const Failure.unknown(),
+        );
       });
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -67,9 +80,7 @@ class _PurchaseOrderPlaceSheetState extends State<PurchaseOrderPlaceSheet> {
           ] else if (_errorMessage != null) ...[
             const SizedBox(height: 8),
             Text(
-              _errorMessage!.isEmpty
-                  ? l10n.purchaseOrderPlaceFailure
-                  : _errorMessage!,
+              _errorMessage!,
               style: TextStyle(color: Theme.of(context).colorScheme.error),
             ),
           ],

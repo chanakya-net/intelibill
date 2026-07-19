@@ -312,7 +312,7 @@ void main() {
   testWidgets('orderDateFrom filter passes through to getPurchaseOrders', (
     tester,
   ) async {
-    final from = DateTime(2026, 1, 1);
+    final from = DateTime(2026);
     final container = makeContainer();
     addTearDown(container.dispose);
     _keepControllerAlive(container);
@@ -352,7 +352,7 @@ void main() {
   });
 
   testWidgets('multiple filters combine', (tester) async {
-    final from = DateTime(2026, 1, 1);
+    final from = DateTime(2026);
     final to = DateTime(2026, 12, 31);
     final container = makeContainer();
     addTearDown(container.dispose);
@@ -383,7 +383,7 @@ void main() {
   });
 
   testWidgets('clearFilters resets search, status, and dates', (tester) async {
-    final from = DateTime(2026, 1, 1);
+    final from = DateTime(2026);
     final to = DateTime(2026, 12, 31);
     final container = makeContainer();
     addTearDown(container.dispose);
@@ -411,7 +411,7 @@ void main() {
 
   testWidgets('rejects invalid date range (from > to)', (tester) async {
     final from = DateTime(2026, 12, 31);
-    final to = DateTime(2026, 1, 1);
+    final to = DateTime(2026);
     final container = makeContainer();
     addTearDown(container.dispose);
     _keepControllerAlive(container);
@@ -433,7 +433,7 @@ void main() {
     tester,
   ) async {
     final from = DateTime(2026, 12, 31);
-    final to = DateTime(2026, 1, 1);
+    final to = DateTime(2026);
     final container = makeContainer();
     addTearDown(container.dispose);
     _keepControllerAlive(container);
@@ -469,7 +469,7 @@ void main() {
     var calls = 0;
     when(() => getPurchaseOrders(any())).thenAnswer((_) {
       return switch (calls++) {
-        0 => Future.value(_page(itemId: 'po-1')),
+        0 => Future.value(_page()),
         _ => page1.future,
       };
     });
@@ -515,7 +515,7 @@ void main() {
   });
 
   testWidgets('loadMore keeps page size and active filters', (tester) async {
-    final from = DateTime(2026, 1, 1);
+    final from = DateTime(2026);
     final to = DateTime(2026, 12, 31);
     final container = makeContainer();
     addTearDown(container.dispose);
@@ -543,7 +543,6 @@ void main() {
           orderDateFrom: from,
           orderDateTo: to,
           page: 2,
-          pageSize: 20,
         ),
       ),
     ).called(1);
@@ -557,7 +556,7 @@ void main() {
       return switch (calls++) {
         0 => Future.value(
           PurchaseOrderPage(
-            items: [_item(id: 'po-1')],
+            items: [_item()],
             totalCount: 3,
             pageNumber: 1,
             pageSize: 20,
@@ -606,12 +605,12 @@ void main() {
     );
     verify(
       () => getPurchaseOrders(
-        const PurchaseOrderFilters(page: 2, pageSize: 20),
+        const PurchaseOrderFilters(page: 2),
       ),
     ).called(1);
     verify(
       () => getPurchaseOrders(
-        const PurchaseOrderFilters(page: 3, pageSize: 20),
+        const PurchaseOrderFilters(page: 3),
       ),
     ).called(1);
   });
@@ -621,7 +620,7 @@ void main() {
     var calls = 0;
     when(() => getPurchaseOrders(any())).thenAnswer((_) {
       return switch (calls++) {
-        0 => Future.value(_page(itemId: 'po-1')),
+        0 => Future.value(_page()),
         _ => page2.future,
       };
     });
@@ -680,7 +679,7 @@ void main() {
     var calls = 0;
     when(() => getPurchaseOrders(any())).thenAnswer((_) {
       return switch (calls++) {
-        0 => Future.value(_page(itemId: 'po-1')),
+        0 => Future.value(_page()),
         _ => page2.future,
       };
     });
@@ -719,7 +718,7 @@ void main() {
     var calls = 0;
     when(() => getPurchaseOrders(any())).thenAnswer((_) {
       return switch (calls++) {
-        0 => Future.value(_page(itemId: 'po-1')),
+        0 => Future.value(_page()),
         1 => page2.future,
         _ => Future.value(
           PurchaseOrderPage(
@@ -769,7 +768,7 @@ void main() {
     var calls = 0;
     when(() => getPurchaseOrders(any())).thenAnswer((_) {
       return switch (calls++) {
-        0 => Future.value(_page(itemId: 'po-1')),
+        0 => Future.value(_page()),
         _ => page2.future,
       };
     });
@@ -803,7 +802,7 @@ void main() {
     var calls = 0;
     when(() => getPurchaseOrders(any())).thenAnswer((_) {
       return switch (calls++) {
-        0 => Future.value(_page(itemId: 'po-1')),
+        0 => Future.value(_page()),
         1 => Future.error(
           AppException(failure: const Failure.network(message: 'failed')),
         ),
@@ -833,7 +832,7 @@ void main() {
 
     verify(
       () => getPurchaseOrders(
-        const PurchaseOrderFilters(page: 2, pageSize: 20),
+        const PurchaseOrderFilters(page: 2),
       ),
     ).called(1);
     expect(
@@ -963,7 +962,7 @@ void main() {
     var calls = 0;
     when(() => getPurchaseOrders(any())).thenAnswer((_) {
       return switch (calls++) {
-        0 => Future.value(_page(itemId: 'po-1')),
+        0 => Future.value(_page()),
         _ => refreshFuture.future,
       };
     });
@@ -1002,7 +1001,7 @@ void main() {
     var calls = 0;
     when(() => getPurchaseOrders(any())).thenAnswer((_) {
       return switch (calls++) {
-        0 => Future.value(_page(itemId: 'po-1')),
+        0 => Future.value(_page()),
         _ => refreshFuture.future,
       };
     });
@@ -1042,7 +1041,7 @@ void main() {
     var calls = 0;
     when(() => getPurchaseOrders(any())).thenAnswer((_) {
       return switch (calls++) {
-        0 => Future.value(_page(itemId: 'po-1')),
+        0 => Future.value(_page()),
         _ => refreshFuture.future,
       };
     });
@@ -1153,7 +1152,7 @@ void main() {
         purchaseOrdersControllerProvider.notifier,
       );
 
-      firstPage.complete(_page(itemId: 'po-1'));
+      firstPage.complete(_page());
       await tester.pump();
       await tester.pumpAndSettle();
 
@@ -1191,7 +1190,7 @@ void main() {
     var calls = 0;
     when(() => getPurchaseOrders(any())).thenAnswer((_) {
       return switch (calls++) {
-        0 => Future.value(_page(itemId: 'po-1')),
+        0 => Future.value(_page()),
         1 => Future.value(
           PurchaseOrderPage(
             items: [_item(id: 'po-2')],
@@ -1231,7 +1230,7 @@ void main() {
 
     verify(
       () => getPurchaseOrders(
-        const PurchaseOrderFilters(page: 3, pageSize: 20),
+        const PurchaseOrderFilters(page: 3),
       ),
     ).called(1);
     expect(

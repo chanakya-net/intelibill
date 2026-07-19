@@ -84,8 +84,7 @@ mixin _PurchaseOrderBuilderDraftActions on _PurchaseOrderBuilderDraftLifecycle {
     if (!ref.mounted) return;
     state = state.copyWith(
       isPlacing: false,
-      storageWarning:
-          'The purchase order was placed, but local cleanup failed. Retry.',
+      storageWarning: PurchaseOrderMessage.draftPlaceCleanup,
     );
   }
 
@@ -137,7 +136,7 @@ mixin _PurchaseOrderBuilderDraftActions on _PurchaseOrderBuilderDraftLifecycle {
   Future<bool> _removeLocalForEditableAction() async {
     final persistence = _persistence ?? await _ensurePersistence();
     if (_scopeKey != null && persistence == null) {
-      _setRemoveWarning('Local draft could not be removed. Retry.');
+      _setRemoveWarning();
       return false;
     }
     try {
@@ -146,7 +145,7 @@ mixin _PurchaseOrderBuilderDraftActions on _PurchaseOrderBuilderDraftLifecycle {
       return true;
     } on Object {
       persistence?.resume();
-      _setRemoveWarning('Local draft could not be removed. Retry.');
+      _setRemoveWarning();
       return false;
     }
   }
@@ -156,7 +155,7 @@ mixin _PurchaseOrderBuilderDraftActions on _PurchaseOrderBuilderDraftLifecycle {
     state = state.copyWith(isDraftActionInProgress: true, clearFailure: true);
     final persistence = _persistence ?? await _ensurePersistence();
     if (_scopeKey != null && persistence == null) {
-      _setRemoveWarning('Local draft could not be removed. Retry discard.');
+      _setRemoveWarning();
       return false;
     }
     try {
@@ -170,16 +169,16 @@ mixin _PurchaseOrderBuilderDraftActions on _PurchaseOrderBuilderDraftLifecycle {
       return true;
     } on Object {
       persistence?.resume();
-      _setRemoveWarning('Local draft could not be removed. Retry discard.');
+      _setRemoveWarning();
       return false;
     }
   }
 
-  void _setRemoveWarning(String message) {
+  void _setRemoveWarning() {
     if (!ref.mounted) return;
     state = state.copyWith(
       isDraftActionInProgress: false,
-      storageWarning: message,
+      storageWarning: PurchaseOrderMessage.draftRemoveStorage,
     );
   }
 
@@ -223,8 +222,7 @@ mixin _PurchaseOrderBuilderDraftActions on _PurchaseOrderBuilderDraftLifecycle {
     if (!ref.mounted) return;
     state = state.copyWith(
       isSaving: false,
-      storageWarning:
-          'The purchase order was saved, but local cleanup failed. Retry.',
+      storageWarning: PurchaseOrderMessage.draftSaveCleanup,
     );
   }
 

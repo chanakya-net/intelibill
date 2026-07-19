@@ -7,6 +7,7 @@ import 'package:intelibill_mobile/src/features/inventory/domain/entities/item.da
 import 'package:intelibill_mobile/src/features/inventory/presentation/controllers/items_controller.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/widgets/create_item_sheet.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_builder_controller.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/localization/purchase_order_messages.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_draft_line_card.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_draft_status_panels.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_place_sheet.dart';
@@ -490,7 +491,7 @@ class _BuilderBody extends StatelessWidget {
               PurchaseOrderStorageWarningBanner(
                 bannerKey: PurchaseOrderBuilderPage.storageWarningKey,
                 retryKey: PurchaseOrderBuilderPage.retryStorageKey,
-                message: warning,
+                message: purchaseOrderMessage(l10n, warning),
                 onRetry: onRetryStorage,
               ),
               const SizedBox(height: 12),
@@ -558,10 +559,12 @@ class _BuilderBody extends StatelessWidget {
               ),
               onChanged: onNotesChanged,
             ),
-            if (state.failure != null) ...[
+            if (state.failure case final failure?) ...[
               const SizedBox(height: 8),
               Text(
-                state.failure!.message ?? l10n.purchaseOrderBuilderSaveError,
+                state.localMessage == null
+                    ? purchaseOrderFailureMessage(l10n, failure)
+                    : purchaseOrderMessage(l10n, state.localMessage!),
                 style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
             ],

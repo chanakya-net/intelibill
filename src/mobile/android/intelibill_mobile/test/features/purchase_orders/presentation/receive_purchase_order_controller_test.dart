@@ -23,6 +23,7 @@ import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_providers.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_orders_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/receive_purchase_order_controller.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/localization/purchase_order_messages.dart';
 import 'package:mocktail/mocktail.dart';
 
 class _MockGetPurchaseOrder extends Mock implements GetPurchaseOrder {}
@@ -46,7 +47,7 @@ void main() {
     registerFallbackValue(
       ReceivePurchaseOrderInput(
         receivedAt: DateTime.utc(2026, 7, 19),
-        lines: [],
+        lines: const [],
       ),
     );
   });
@@ -176,7 +177,7 @@ void main() {
         submittedInput =
             invocation.positionalArguments[1] as ReceivePurchaseOrderInput;
         return Future<PurchaseOrder>.value(
-          _detail(lines: const [], status: PurchaseOrderStatus.received),
+          _detail(status: PurchaseOrderStatus.received),
         );
       });
       final container = _makeContainer(
@@ -369,7 +370,10 @@ void main() {
       );
       expect(generated, isNull);
       expect(state.lines.single.barcode, '');
-      expect(state.barcodeGenerationFailures['line-1'], contains('offline'));
+      expect(
+        state.barcodeGenerationFailures['line-1'],
+        PurchaseOrderMessage.receiveBarcodeBuild,
+      );
     },
   );
 
@@ -640,7 +644,7 @@ void main() {
           submittedInput =
               invocation.positionalArguments[1] as ReceivePurchaseOrderInput;
           return Future<PurchaseOrder>.value(
-            _detail(lines: const [], status: PurchaseOrderStatus.received),
+            _detail(status: PurchaseOrderStatus.received),
           );
         },
       );
@@ -654,7 +658,7 @@ void main() {
       _watchReceiveController(container);
       container.listen(
         purchaseOrdersControllerProvider,
-        (_, __) {},
+        (_, _) {},
         fireImmediately: true,
       );
       container.read(receivePurchaseOrderControllerProvider('po-1'));
@@ -861,7 +865,7 @@ void main() {
 
     verify(() => receivePurchaseOrder('po-1', any())).called(1);
     pending.complete(
-      _detail(lines: const [], status: PurchaseOrderStatus.received),
+      _detail(status: PurchaseOrderStatus.received),
     );
     await first;
   });
@@ -869,7 +873,7 @@ void main() {
   test(
     'refreshes detail after a lifecycle conflict',
     () async {
-      final failure = const Failure.server(
+      const failure = Failure.server(
         message: 'conflict',
         statusCode: 409,
       );
@@ -1013,8 +1017,8 @@ void main() {
       controller.updateMrp('line-1', '1');
       controller.updateSalesPrice('line-1', '2');
       controller.updateTaxRatePercent('line-1', '101');
-      controller.updateManufacturingDate('line-1', DateTime(2026, 8, 1));
-      controller.updateExpiryDate('line-1', DateTime(2026, 7, 1));
+      controller.updateManufacturingDate('line-1', DateTime(2026, 8));
+      controller.updateExpiryDate('line-1', DateTime(2026, 7));
       controller.updateBarcode('line-2', '');
 
       expect(await controller.submit(), isNull);
@@ -1096,12 +1100,12 @@ void main() {
       );
       expect(state.lines.first.barcode, 'DRAFT-BARCODE');
       expect(
-        state.lineErrors['line-1']!['barcode'],
-        'Barcode is already used.',
+        state.lineErrors['line-1']!['barcode']!.code,
+        PurchaseOrderMessage.receiveFieldRejected,
       );
       expect(
-        state.lineErrors['line-2']!['expiryDate'],
-        'Expiry date is invalid.',
+        state.lineErrors['line-2']!['expiryDate']!.code,
+        PurchaseOrderMessage.receiveFieldRejected,
       );
       expect(state.expandedLineId, 'line-1');
       expect(state.focusedLineId, 'barcode');
@@ -1216,7 +1220,7 @@ void main() {
       controller.updateMrp('line-1', '');
       controller.updateSalesPrice('line-1', '');
       controller.updateTaxRatePercent('line-1', '');
-      controller.updateTaxIncluded('line-1', false);
+      controller.updateTaxIncluded('line-1', value: false);
       controller.applyGeneratedBarcode('line-1', 'GENERATED-1');
       details.complete(
         const ProductDetails(
@@ -1373,7 +1377,10 @@ void main() {
       final state = container.read(
         receivePurchaseOrderControllerProvider('po-1'),
       );
-      expect(state.prefillFailures['line-1'], contains('offline'));
+      expect(
+        state.prefillFailures['line-1'],
+        PurchaseOrderMessage.receivePrefill,
+      );
       expect(state.lines.single.barcode, 'MANUAL-1');
     },
   );
@@ -1576,7 +1583,7 @@ ProviderContainer _makeContainer({
   }
   final mockGetItems = getItems ?? _MockGetItems();
   if (mockGetItems is _MockGetItems && getItems == null) {
-    when(() => mockGetItems()).thenAnswer((_) async => const []);
+    when(mockGetItems.call).thenAnswer((_) async => const []);
   }
 
   return ProviderContainer(
@@ -1596,7 +1603,7 @@ ProviderContainer _makeContainer({
 void _watchReceiveController(ProviderContainer container) {
   container.listen(
     receivePurchaseOrderControllerProvider('po-1'),
-    (_, __) {},
+    (_, _) {},
     fireImmediately: true,
   );
 }
@@ -1611,8 +1618,7 @@ PurchaseOrder _detail({
     status: status,
     lines: lines,
     expectedTotal: 1000,
-    createdAt: DateTime.utc(2026, 7, 1),
-    receivedQuantity: 0,
+    createdAt: DateTime.utc(2026, 7),
   );
 }
 

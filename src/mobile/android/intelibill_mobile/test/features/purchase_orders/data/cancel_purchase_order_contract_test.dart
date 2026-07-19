@@ -4,12 +4,12 @@ import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/cancel_p
 void main() {
   group('CancelPurchaseOrderRequestDto', () {
     test('serializes reason to JSON', () {
-      final dto = CancelPurchaseOrderRequestDto(reason: 'No longer needed');
+      const dto = CancelPurchaseOrderRequestDto(reason: 'No longer needed');
       expect(dto.toJson(), {'reason': 'No longer needed'});
     });
 
     test('accepts 1-character reason', () {
-      final dto = CancelPurchaseOrderRequestDto(reason: 'A');
+      const dto = CancelPurchaseOrderRequestDto(reason: 'A');
       expect(dto.reason, 'A');
     });
 

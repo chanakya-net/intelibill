@@ -10,8 +10,8 @@ import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/p
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_status.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/close_purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/get_purchase_order.dart';
-import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_providers.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_detail_controller.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_providers.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/pages/purchase_order_detail_page.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_close_sheet.dart';
 import 'package:mocktail/mocktail.dart';
@@ -24,7 +24,7 @@ void main() {
   testWidgets('shows close only for PartiallyReceived', (tester) async {
     final get = _MockGetPurchaseOrder();
     when(() => get(any())).thenAnswer(
-      (_) async => _detail(status: PurchaseOrderStatus.partiallyReceived),
+      (_) async => _detail(),
     );
     final container = ProviderContainer(
       overrides: [getPurchaseOrderProvider.overrideWithValue(get)],
@@ -47,7 +47,7 @@ void main() {
     final get = _MockGetPurchaseOrder();
     final close = _MockClosePurchaseOrder();
     when(() => get(any())).thenAnswer(
-      (_) async => _detail(status: PurchaseOrderStatus.partiallyReceived),
+      (_) async => _detail(),
     );
     when(() => close(any(), any())).thenAnswer(
       (_) async => _detail(
@@ -74,7 +74,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), '  User reason  ');
     await tester.pump();
-    await tester.tap(find.widgetWithText(ElevatedButton, 'Close Order'));
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Close order'));
     await tester.pumpAndSettle();
 
     verify(() => close('po-1', 'User reason')).called(1);
@@ -109,7 +109,7 @@ void main() {
       addTearDown(container.dispose);
       container.listen(
         purchaseOrderDetailControllerProvider('po-1'),
-        (_, __) {},
+        (_, _) {},
       );
       await Future<void>.delayed(const Duration(milliseconds: 20));
 
@@ -143,7 +143,7 @@ void main() {
       ],
     );
     addTearDown(container.dispose);
-    container.listen(purchaseOrderDetailControllerProvider('po-1'), (_, __) {});
+    container.listen(purchaseOrderDetailControllerProvider('po-1'), (_, _) {});
     await Future<void>.delayed(const Duration(milliseconds: 20));
     final before = container
         .read(purchaseOrderDetailControllerProvider('po-1'))
@@ -196,7 +196,7 @@ PurchaseOrder _detail({
       ),
     ],
     expectedTotal: 100,
-    createdAt: DateTime.utc(2026, 7, 1),
+    createdAt: DateTime.utc(2026, 7),
     receivedQuantity: 5,
     closedAt: closedAt,
     closedBy: closedBy,

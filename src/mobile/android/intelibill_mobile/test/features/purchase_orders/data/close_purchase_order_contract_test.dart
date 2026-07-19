@@ -4,13 +4,13 @@ import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/close_pu
 void main() {
   group('ClosePurchaseOrderRequestDto', () {
     test('serializes reason to JSON', () {
-      final dto = ClosePurchaseOrderRequestDto(reason: 'Discontinued');
+      const dto = ClosePurchaseOrderRequestDto(reason: 'Discontinued');
 
       expect(dto.toJson(), {'reason': 'Discontinued'});
     });
 
     test('supports the 1 and 500 character boundaries', () {
-      expect(ClosePurchaseOrderRequestDto(reason: 'A').reason, 'A');
+      expect(const ClosePurchaseOrderRequestDto(reason: 'A').reason, 'A');
       expect(
         ClosePurchaseOrderRequestDto(reason: 'x' * 500).reason.length,
         500,

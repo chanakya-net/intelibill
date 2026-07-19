@@ -2906,6 +2906,387 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get purchaseOrderDetailDeleteErrorNotFound => 'Draft not found.';
+
+  @override
+  String get purchaseOrdersSearchHint => 'Search purchase orders';
+
+  @override
+  String get purchaseOrdersLoadMoreFailure =>
+      'Could not load more purchase orders.';
+
+  @override
+  String get purchaseOrdersRetry => 'Retry';
+
+  @override
+  String purchaseOrdersLoadedCount(int loaded, int total) {
+    return 'Loaded $loaded of $total';
+  }
+
+  @override
+  String purchaseOrdersCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count purchase orders',
+      one: '1 purchase order',
+      zero: 'No purchase orders',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get purchaseOrdersUnableToLoad => 'Could not load purchase orders.';
+
+  @override
+  String get purchaseOrdersSerializationFailure =>
+      'Purchase-order data could not be read.';
+
+  @override
+  String get purchaseOrdersEmpty => 'No purchase orders yet';
+
+  @override
+  String get purchaseOrdersFilteredEmpty =>
+      'No purchase orders match your filters';
+
+  @override
+  String purchaseOrdersQueryEmpty(String query) {
+    return 'No results for \"$query\"';
+  }
+
+  @override
+  String get purchaseOrderStatusDraft => 'Draft';
+
+  @override
+  String get purchaseOrderStatusPlaced => 'Placed';
+
+  @override
+  String get purchaseOrderStatusPartiallyReceived => 'Partially received';
+
+  @override
+  String get purchaseOrderStatusReceived => 'Received';
+
+  @override
+  String get purchaseOrderStatusCancelled => 'Cancelled';
+
+  @override
+  String get purchaseOrderStatusClosed => 'Closed';
+
+  @override
+  String get purchaseOrderCardNoSupplier => 'No supplier';
+
+  @override
+  String purchaseOrderCardReference(String reference) {
+    return 'Ref: $reference';
+  }
+
+  @override
+  String purchaseOrderCardLineCount(int count) {
+    return '$count lines';
+  }
+
+  @override
+  String purchaseOrderCardExpectedQuantity(int quantity) {
+    return 'Expected: $quantity';
+  }
+
+  @override
+  String purchaseOrderProgressReceived(int received, int expected) {
+    return 'Received: $received / $expected';
+  }
+
+  @override
+  String get purchaseOrderPreviewAction => 'Preview';
+
+  @override
+  String get purchaseOrderPreviewTitle => 'Purchase order preview';
+
+  @override
+  String get purchaseOrderCancelTitle => 'Cancel purchase order';
+
+  @override
+  String get purchaseOrderCancelReasonLabel => 'Reason';
+
+  @override
+  String get purchaseOrderCancelReasonHint =>
+      'Why are you cancelling this order?';
+
+  @override
+  String get purchaseOrderCancelKeepAction => 'Keep';
+
+  @override
+  String get purchaseOrderCancelConfirmAction => 'Cancel order';
+
+  @override
+  String get purchaseOrderCloseTitle => 'Close purchase order';
+
+  @override
+  String get purchaseOrderCloseReasonLabel => 'Reason';
+
+  @override
+  String get purchaseOrderCloseReasonHint => 'Why are you closing this order?';
+
+  @override
+  String get purchaseOrderCloseKeepAction => 'Keep open';
+
+  @override
+  String get purchaseOrderCloseConfirmAction => 'Close order';
+
+  @override
+  String get purchaseOrderFailureValidation =>
+      'Check the highlighted purchase-order details.';
+
+  @override
+  String get purchaseOrderFailureUnauthorized =>
+      'Your session expired. Sign in again.';
+
+  @override
+  String get purchaseOrderFailureForbidden =>
+      'You do not have permission to manage purchase orders.';
+
+  @override
+  String get purchaseOrderFailureNotFound => 'Purchase order not found.';
+
+  @override
+  String get purchaseOrderFailureLifecycleConflict =>
+      'This purchase order changed. Refresh and try again.';
+
+  @override
+  String get purchaseOrderFailureNetwork =>
+      'Could not connect. Check your network.';
+
+  @override
+  String get purchaseOrderFailureTimeout => 'The request timed out. Try again.';
+
+  @override
+  String get purchaseOrderFailureServer =>
+      'The server could not complete the request. Try again.';
+
+  @override
+  String get purchaseOrderFailureSerialization =>
+      'Purchase-order data could not be read.';
+
+  @override
+  String get purchaseOrderFailureLocalStorage =>
+      'Local draft storage failed. Your current edits are still here.';
+
+  @override
+  String get purchaseOrderFailureUnknown => 'Something went wrong. Try again.';
+
+  @override
+  String get purchaseOrderBuilderValidationOrderDates =>
+      'Order date must be on or before expected delivery.';
+
+  @override
+  String get purchaseOrderBuilderValidationQuantity =>
+      'Quantity must be greater than zero.';
+
+  @override
+  String get purchaseOrderBuilderValidationUnitCost =>
+      'Unit cost must be zero or greater.';
+
+  @override
+  String get purchaseOrderBuilderValidationDescription =>
+      'Description must be 255 characters or fewer.';
+
+  @override
+  String get purchaseOrderBuilderValidationReference =>
+      'Supplier reference must be 100 characters or fewer.';
+
+  @override
+  String get purchaseOrderBuilderValidationNotes =>
+      'Notes must be 1000 characters or fewer.';
+
+  @override
+  String get purchaseOrderDraftSaveStorageFailure =>
+      'Local draft could not be saved. Your edits remain here.';
+
+  @override
+  String get purchaseOrderDraftRemoveStorageFailure =>
+      'Local draft could not be removed. Retry.';
+
+  @override
+  String get purchaseOrderDraftPlaceCleanupFailure =>
+      'The order was placed, but local cleanup failed. Retry.';
+
+  @override
+  String get purchaseOrderDraftSaveCleanupFailure =>
+      'The order was saved, but local cleanup failed. Retry.';
+
+  @override
+  String get purchaseOrderReceiveFailurePositiveWholeQuantity =>
+      'Enter a positive whole number within the remaining quantity.';
+
+  @override
+  String get purchaseOrderReceiveFailureNoRemainingLines =>
+      'No remaining lines are available to receive.';
+
+  @override
+  String get purchaseOrderReceiveFailureSelectLine =>
+      'Select at least one line to receive.';
+
+  @override
+  String get purchaseOrderReceiveFailureDuplicateLine =>
+      'A purchase-order line cannot be received twice.';
+
+  @override
+  String get purchaseOrderReceiveFailureInvalidNumber =>
+      'Enter a valid number.';
+
+  @override
+  String get purchaseOrderReceiveFailureQuantityRange =>
+      'Quantity must not exceed the remaining amount.';
+
+  @override
+  String get purchaseOrderReceiveFailureSalesPrice =>
+      'Sales price cannot exceed MRP.';
+
+  @override
+  String get purchaseOrderReceiveFailureTaxRate =>
+      'Tax rate must be between 0 and 100.';
+
+  @override
+  String get purchaseOrderReceiveFailureExpiryDate =>
+      'Expiry date must be on or after manufacturing date.';
+
+  @override
+  String get purchaseOrderReceiveFailureRequired => 'This field is required.';
+
+  @override
+  String purchaseOrderReceiveFailureMaxLength(int max) {
+    return 'Must be $max characters or fewer.';
+  }
+
+  @override
+  String get purchaseOrderReceiveFailureNonNegative =>
+      'Must be zero or greater.';
+
+  @override
+  String get purchaseOrderReceiveFailureFieldRejected =>
+      'Check this field and try again.';
+
+  @override
+  String get purchaseOrderReceiveFailureFixFields =>
+      'Fix the highlighted receipt fields.';
+
+  @override
+  String get purchaseOrderReceiveBarcodeBuildFailure =>
+      'Could not generate a barcode. Try again.';
+
+  @override
+  String get purchaseOrderReceiveBarcodeLineBuildFailure =>
+      'Could not generate a barcode for this line. Your current value was not changed.';
+
+  @override
+  String get purchaseOrderReceivePrefillFailure =>
+      'Product defaults could not be loaded. Enter the values manually.';
+
+  @override
+  String get purchaseOrderDocumentTitle => 'Purchase order';
+
+  @override
+  String get purchaseOrderDocumentHeading => 'PURCHASE ORDER';
+
+  @override
+  String purchaseOrderDocumentPageCount(int page, int pages) {
+    return 'Page $page of $pages';
+  }
+
+  @override
+  String purchaseOrderDocumentPhone(String phone) {
+    return 'Phone: $phone';
+  }
+
+  @override
+  String purchaseOrderDocumentGst(String gst) {
+    return 'GST: $gst';
+  }
+
+  @override
+  String purchaseOrderDocumentOrderNumber(String number) {
+    return 'Order: $number';
+  }
+
+  @override
+  String purchaseOrderDocumentSupplier(String supplier) {
+    return 'Supplier: $supplier';
+  }
+
+  @override
+  String purchaseOrderDocumentSupplierReference(String reference) {
+    return 'Supplier reference: $reference';
+  }
+
+  @override
+  String purchaseOrderDocumentSupplierAccount(String account) {
+    return 'Supplier account: $account';
+  }
+
+  @override
+  String purchaseOrderDocumentStatus(String status) {
+    return 'Status: $status';
+  }
+
+  @override
+  String purchaseOrderDocumentCreated(String date) {
+    return 'Created: $date';
+  }
+
+  @override
+  String purchaseOrderDocumentOrderDate(String date) {
+    return 'Order date: $date';
+  }
+
+  @override
+  String purchaseOrderDocumentExpectedDelivery(String date) {
+    return 'Expected delivery: $date';
+  }
+
+  @override
+  String purchaseOrderDocumentExpectedTotal(String amount) {
+    return 'Expected total: $amount';
+  }
+
+  @override
+  String get purchaseOrderDocumentNotes => 'Notes';
+
+  @override
+  String get purchaseOrderDocumentDescription => 'Description';
+
+  @override
+  String get purchaseOrderDocumentExpected => 'Expected';
+
+  @override
+  String get purchaseOrderDocumentReceived => 'Received';
+
+  @override
+  String get purchaseOrderDocumentRemaining => 'Remaining';
+
+  @override
+  String get purchaseOrderDocumentUnitCost => 'Unit cost';
+
+  @override
+  String get purchaseOrderDocumentTotal => 'Total';
+
+  @override
+  String get purchaseOrderDocumentUnavailable => 'Unavailable';
+
+  @override
+  String get documentOutputPrintAction => 'Print';
+
+  @override
+  String get documentOutputShareAction => 'Share';
+
+  @override
+  String get documentOutputFailurePdfBuild =>
+      'Could not build the PDF. Try again.';
+
+  @override
+  String get documentOutputFailurePrint =>
+      'Could not print the document. Try again.';
+
+  @override
+  String get documentOutputFailureShare =>
+      'Could not share the document. Try again.';
 }
 
 /// The translations for English, as used in India (`en_IN`).
@@ -5810,4 +6191,385 @@ class AppLocalizationsEnIn extends AppLocalizationsEn {
 
   @override
   String get purchaseOrderDetailDeleteErrorNotFound => 'Draft not found.';
+
+  @override
+  String get purchaseOrdersSearchHint => 'Search purchase orders';
+
+  @override
+  String get purchaseOrdersLoadMoreFailure =>
+      'Could not load more purchase orders.';
+
+  @override
+  String get purchaseOrdersRetry => 'Retry';
+
+  @override
+  String purchaseOrdersLoadedCount(int loaded, int total) {
+    return 'Loaded $loaded of $total';
+  }
+
+  @override
+  String purchaseOrdersCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count purchase orders',
+      one: '1 purchase order',
+      zero: 'No purchase orders',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get purchaseOrdersUnableToLoad => 'Could not load purchase orders.';
+
+  @override
+  String get purchaseOrdersSerializationFailure =>
+      'Purchase-order data could not be read.';
+
+  @override
+  String get purchaseOrdersEmpty => 'No purchase orders yet';
+
+  @override
+  String get purchaseOrdersFilteredEmpty =>
+      'No purchase orders match your filters';
+
+  @override
+  String purchaseOrdersQueryEmpty(String query) {
+    return 'No results for \"$query\"';
+  }
+
+  @override
+  String get purchaseOrderStatusDraft => 'Draft';
+
+  @override
+  String get purchaseOrderStatusPlaced => 'Placed';
+
+  @override
+  String get purchaseOrderStatusPartiallyReceived => 'Partially received';
+
+  @override
+  String get purchaseOrderStatusReceived => 'Received';
+
+  @override
+  String get purchaseOrderStatusCancelled => 'Cancelled';
+
+  @override
+  String get purchaseOrderStatusClosed => 'Closed';
+
+  @override
+  String get purchaseOrderCardNoSupplier => 'No supplier';
+
+  @override
+  String purchaseOrderCardReference(String reference) {
+    return 'Ref: $reference';
+  }
+
+  @override
+  String purchaseOrderCardLineCount(int count) {
+    return '$count lines';
+  }
+
+  @override
+  String purchaseOrderCardExpectedQuantity(int quantity) {
+    return 'Expected: $quantity';
+  }
+
+  @override
+  String purchaseOrderProgressReceived(int received, int expected) {
+    return 'Received: $received / $expected';
+  }
+
+  @override
+  String get purchaseOrderPreviewAction => 'Preview';
+
+  @override
+  String get purchaseOrderPreviewTitle => 'Purchase order preview';
+
+  @override
+  String get purchaseOrderCancelTitle => 'Cancel purchase order';
+
+  @override
+  String get purchaseOrderCancelReasonLabel => 'Reason';
+
+  @override
+  String get purchaseOrderCancelReasonHint =>
+      'Why are you cancelling this order?';
+
+  @override
+  String get purchaseOrderCancelKeepAction => 'Keep';
+
+  @override
+  String get purchaseOrderCancelConfirmAction => 'Cancel order';
+
+  @override
+  String get purchaseOrderCloseTitle => 'Close purchase order';
+
+  @override
+  String get purchaseOrderCloseReasonLabel => 'Reason';
+
+  @override
+  String get purchaseOrderCloseReasonHint => 'Why are you closing this order?';
+
+  @override
+  String get purchaseOrderCloseKeepAction => 'Keep open';
+
+  @override
+  String get purchaseOrderCloseConfirmAction => 'Close order';
+
+  @override
+  String get purchaseOrderFailureValidation =>
+      'Check the highlighted purchase-order details.';
+
+  @override
+  String get purchaseOrderFailureUnauthorized =>
+      'Your session expired. Sign in again.';
+
+  @override
+  String get purchaseOrderFailureForbidden =>
+      'You do not have permission to manage purchase orders.';
+
+  @override
+  String get purchaseOrderFailureNotFound => 'Purchase order not found.';
+
+  @override
+  String get purchaseOrderFailureLifecycleConflict =>
+      'This purchase order changed. Refresh and try again.';
+
+  @override
+  String get purchaseOrderFailureNetwork =>
+      'Could not connect. Check your network.';
+
+  @override
+  String get purchaseOrderFailureTimeout => 'The request timed out. Try again.';
+
+  @override
+  String get purchaseOrderFailureServer =>
+      'The server could not complete the request. Try again.';
+
+  @override
+  String get purchaseOrderFailureSerialization =>
+      'Purchase-order data could not be read.';
+
+  @override
+  String get purchaseOrderFailureLocalStorage =>
+      'Local draft storage failed. Your current edits are still here.';
+
+  @override
+  String get purchaseOrderFailureUnknown => 'Something went wrong. Try again.';
+
+  @override
+  String get purchaseOrderBuilderValidationOrderDates =>
+      'Order date must be on or before expected delivery.';
+
+  @override
+  String get purchaseOrderBuilderValidationQuantity =>
+      'Quantity must be greater than zero.';
+
+  @override
+  String get purchaseOrderBuilderValidationUnitCost =>
+      'Unit cost must be zero or greater.';
+
+  @override
+  String get purchaseOrderBuilderValidationDescription =>
+      'Description must be 255 characters or fewer.';
+
+  @override
+  String get purchaseOrderBuilderValidationReference =>
+      'Supplier reference must be 100 characters or fewer.';
+
+  @override
+  String get purchaseOrderBuilderValidationNotes =>
+      'Notes must be 1000 characters or fewer.';
+
+  @override
+  String get purchaseOrderDraftSaveStorageFailure =>
+      'Local draft could not be saved. Your edits remain here.';
+
+  @override
+  String get purchaseOrderDraftRemoveStorageFailure =>
+      'Local draft could not be removed. Retry.';
+
+  @override
+  String get purchaseOrderDraftPlaceCleanupFailure =>
+      'The order was placed, but local cleanup failed. Retry.';
+
+  @override
+  String get purchaseOrderDraftSaveCleanupFailure =>
+      'The order was saved, but local cleanup failed. Retry.';
+
+  @override
+  String get purchaseOrderReceiveFailurePositiveWholeQuantity =>
+      'Enter a positive whole number within the remaining quantity.';
+
+  @override
+  String get purchaseOrderReceiveFailureNoRemainingLines =>
+      'No remaining lines are available to receive.';
+
+  @override
+  String get purchaseOrderReceiveFailureSelectLine =>
+      'Select at least one line to receive.';
+
+  @override
+  String get purchaseOrderReceiveFailureDuplicateLine =>
+      'A purchase-order line cannot be received twice.';
+
+  @override
+  String get purchaseOrderReceiveFailureInvalidNumber =>
+      'Enter a valid number.';
+
+  @override
+  String get purchaseOrderReceiveFailureQuantityRange =>
+      'Quantity must not exceed the remaining amount.';
+
+  @override
+  String get purchaseOrderReceiveFailureSalesPrice =>
+      'Sales price cannot exceed MRP.';
+
+  @override
+  String get purchaseOrderReceiveFailureTaxRate =>
+      'Tax rate must be between 0 and 100.';
+
+  @override
+  String get purchaseOrderReceiveFailureExpiryDate =>
+      'Expiry date must be on or after manufacturing date.';
+
+  @override
+  String get purchaseOrderReceiveFailureRequired => 'This field is required.';
+
+  @override
+  String purchaseOrderReceiveFailureMaxLength(int max) {
+    return 'Must be $max characters or fewer.';
+  }
+
+  @override
+  String get purchaseOrderReceiveFailureNonNegative =>
+      'Must be zero or greater.';
+
+  @override
+  String get purchaseOrderReceiveFailureFieldRejected =>
+      'Check this field and try again.';
+
+  @override
+  String get purchaseOrderReceiveFailureFixFields =>
+      'Fix the highlighted receipt fields.';
+
+  @override
+  String get purchaseOrderReceiveBarcodeBuildFailure =>
+      'Could not generate a barcode. Try again.';
+
+  @override
+  String get purchaseOrderReceiveBarcodeLineBuildFailure =>
+      'Could not generate a barcode for this line. Your current value was not changed.';
+
+  @override
+  String get purchaseOrderReceivePrefillFailure =>
+      'Product defaults could not be loaded. Enter the values manually.';
+
+  @override
+  String get purchaseOrderDocumentTitle => 'Purchase order';
+
+  @override
+  String get purchaseOrderDocumentHeading => 'PURCHASE ORDER';
+
+  @override
+  String purchaseOrderDocumentPageCount(int page, int pages) {
+    return 'Page $page of $pages';
+  }
+
+  @override
+  String purchaseOrderDocumentPhone(String phone) {
+    return 'Phone: $phone';
+  }
+
+  @override
+  String purchaseOrderDocumentGst(String gst) {
+    return 'GST: $gst';
+  }
+
+  @override
+  String purchaseOrderDocumentOrderNumber(String number) {
+    return 'Order: $number';
+  }
+
+  @override
+  String purchaseOrderDocumentSupplier(String supplier) {
+    return 'Supplier: $supplier';
+  }
+
+  @override
+  String purchaseOrderDocumentSupplierReference(String reference) {
+    return 'Supplier reference: $reference';
+  }
+
+  @override
+  String purchaseOrderDocumentSupplierAccount(String account) {
+    return 'Supplier account: $account';
+  }
+
+  @override
+  String purchaseOrderDocumentStatus(String status) {
+    return 'Status: $status';
+  }
+
+  @override
+  String purchaseOrderDocumentCreated(String date) {
+    return 'Created: $date';
+  }
+
+  @override
+  String purchaseOrderDocumentOrderDate(String date) {
+    return 'Order date: $date';
+  }
+
+  @override
+  String purchaseOrderDocumentExpectedDelivery(String date) {
+    return 'Expected delivery: $date';
+  }
+
+  @override
+  String purchaseOrderDocumentExpectedTotal(String amount) {
+    return 'Expected total: $amount';
+  }
+
+  @override
+  String get purchaseOrderDocumentNotes => 'Notes';
+
+  @override
+  String get purchaseOrderDocumentDescription => 'Description';
+
+  @override
+  String get purchaseOrderDocumentExpected => 'Expected';
+
+  @override
+  String get purchaseOrderDocumentReceived => 'Received';
+
+  @override
+  String get purchaseOrderDocumentRemaining => 'Remaining';
+
+  @override
+  String get purchaseOrderDocumentUnitCost => 'Unit cost';
+
+  @override
+  String get purchaseOrderDocumentTotal => 'Total';
+
+  @override
+  String get purchaseOrderDocumentUnavailable => 'Unavailable';
+
+  @override
+  String get documentOutputPrintAction => 'Print';
+
+  @override
+  String get documentOutputShareAction => 'Share';
+
+  @override
+  String get documentOutputFailurePdfBuild =>
+      'Could not build the PDF. Try again.';
+
+  @override
+  String get documentOutputFailurePrint =>
+      'Could not print the document. Try again.';
+
+  @override
+  String get documentOutputFailureShare =>
+      'Could not share the document. Try again.';
 }

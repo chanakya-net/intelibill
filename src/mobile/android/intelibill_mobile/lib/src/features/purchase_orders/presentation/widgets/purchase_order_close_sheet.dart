@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
+import 'package:intelibill_mobile/src/core/errors/failure.dart';
+import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/localization/purchase_order_messages.dart';
 
 class PurchaseOrderCloseSheet extends StatefulWidget {
   const PurchaseOrderCloseSheet({required this.onClose, super.key});
@@ -43,12 +46,21 @@ class _PurchaseOrderCloseSheetState extends State<PurchaseOrderCloseSheet> {
     try {
       await widget.onClose(reason);
       if (mounted) Navigator.of(context).pop();
-    } catch (error) {
+    } on AppException catch (error) {
       if (!mounted) return;
       setState(() {
-        _errorMessage = error is AppException
-            ? error.failure.message ?? 'An error occurred'
-            : error.toString();
+        _errorMessage = purchaseOrderFailureMessage(
+          AppLocalizations.of(context)!,
+          error.failure,
+        );
+      });
+    } on Object {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = purchaseOrderFailureMessage(
+          AppLocalizations.of(context)!,
+          const Failure.unknown(),
+        );
       });
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -57,6 +69,7 @@ class _PurchaseOrderCloseSheetState extends State<PurchaseOrderCloseSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Padding(
       padding: EdgeInsets.only(
         left: 16,
@@ -69,7 +82,7 @@ class _PurchaseOrderCloseSheetState extends State<PurchaseOrderCloseSheet> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Close Purchase Order',
+            l10n.purchaseOrderCloseTitle,
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 16),
@@ -78,10 +91,10 @@ class _PurchaseOrderCloseSheetState extends State<PurchaseOrderCloseSheet> {
             enabled: !_isLoading,
             maxLines: 3,
             minLines: 3,
-            decoration: const InputDecoration(
-              labelText: 'Reason',
-              hintText: 'Why are you closing this order?',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: l10n.purchaseOrderCloseReasonLabel,
+              hintText: l10n.purchaseOrderCloseReasonHint,
+              border: const OutlineInputBorder(),
               counterText: '',
             ),
             onChanged: (_) => setState(() => _errorMessage = null),
@@ -101,7 +114,7 @@ class _PurchaseOrderCloseSheetState extends State<PurchaseOrderCloseSheet> {
                 onPressed: _isLoading
                     ? null
                     : () => Navigator.of(context).pop(),
-                child: const Text('Keep Open'),
+                child: Text(l10n.purchaseOrderCloseKeepAction),
               ),
               const SizedBox(width: 8),
               ElevatedButton(
@@ -112,7 +125,7 @@ class _PurchaseOrderCloseSheetState extends State<PurchaseOrderCloseSheet> {
                         height: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('Close Order'),
+                    : Text(l10n.purchaseOrderCloseConfirmAction),
               ),
             ],
           ),

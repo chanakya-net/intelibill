@@ -6,6 +6,7 @@ import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_status.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_orders_controller.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/localization/purchase_order_messages.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_card.dart';
 
 class PurchaseOrdersPage extends ConsumerStatefulWidget {
@@ -50,6 +51,7 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
     BuildContext context,
     PurchaseOrdersState state,
   ) {
+    final l10n = AppLocalizations.of(context)!;
     if (state.isLoadingMore) {
       return const Padding(
         padding: EdgeInsets.all(16),
@@ -65,13 +67,13 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
             children: [
               const Icon(Icons.error_outline, size: 32),
               const SizedBox(height: 8),
-              const Text('Failed to load more'),
+              Text(l10n.purchaseOrdersLoadMoreFailure),
               const SizedBox(height: 12),
               FilledButton(
                 onPressed: () => ref
                     .read(purchaseOrdersControllerProvider.notifier)
                     .retryLoadMore(),
-                child: const Text('Retry'),
+                child: Text(l10n.purchaseOrdersRetry),
               ),
             ],
           ),
@@ -82,7 +84,10 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
       return Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
         child: Text(
-          'Loaded ${state.items.length} of ${state.totalCount}',
+          l10n.purchaseOrdersLoadedCount(
+            state.items.length,
+            state.totalCount,
+          ),
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
@@ -161,7 +166,7 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
       child: SearchBar(
         controller: _searchController,
         key: PurchaseOrdersPage.searchFieldKey,
-        hintText: 'Search purchase orders',
+        hintText: l10n.purchaseOrdersSearchHint,
         onChanged: (value) {
           ref
               .read(purchaseOrdersControllerProvider.notifier)
@@ -182,7 +187,7 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
               children: [
                 for (final status in PurchaseOrderStatus.values)
                   FilterChip(
-                    label: Text(status.wireValue),
+                    label: Text(purchaseOrderStatusMessage(l10n, status)),
                     selected: _selectedStatus == status,
                     onSelected: (selected) {
                       setState(() {
@@ -334,7 +339,7 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
                     return Padding(
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
                       child: Text(
-                        '${state.totalCount} purchase order${state.totalCount == 1 ? '' : 's'}',
+                        l10n.purchaseOrdersCount(state.totalCount),
                         key: PurchaseOrdersPage.countKey,
                         style: Theme.of(context).textTheme.titleSmall,
                       ),
@@ -364,7 +369,7 @@ class _FailureView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isSerializationFailure = failure is SerializationFailure;
+    final l10n = AppLocalizations.of(context)!;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -373,17 +378,12 @@ class _FailureView extends ConsumerWidget {
           children: [
             const Icon(Icons.error_outline, size: 48),
             const SizedBox(height: 12),
-            Text(
-              isSerializationFailure
-                  ? 'Data could not be read.'
-                  : 'Could not load purchase orders.',
-              textAlign: TextAlign.center,
-            ),
+            Text(purchaseOrderFailureMessage(l10n, failure)),
             const SizedBox(height: 16),
             FilledButton(
               onPressed: () =>
                   ref.read(purchaseOrdersControllerProvider.notifier).retry(),
-              child: const Text('Retry'),
+              child: Text(l10n.purchaseOrdersRetry),
             ),
           ],
         ),
@@ -397,7 +397,9 @@ class _EmptyView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(child: Text('No purchase orders yet'));
+    return Center(
+      child: Text(AppLocalizations.of(context)!.purchaseOrdersEmpty),
+    );
   }
 }
 
@@ -408,6 +410,7 @@ class _FilteredEmptyView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -418,8 +421,8 @@ class _FilteredEmptyView extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               query.isEmpty
-                  ? 'No purchase orders match your filters'
-                  : 'No results for "$query"',
+                  ? l10n.purchaseOrdersFilteredEmpty
+                  : l10n.purchaseOrdersQueryEmpty(query),
               textAlign: TextAlign.center,
             ),
           ],

@@ -22,7 +22,7 @@ void main() {
             taxIncluded: true,
             purchaseTaxIncluded: false,
             expiryDate: DateTime(2026, 7, 31),
-            manufacturingDate: DateTime(2026, 7, 1),
+            manufacturingDate: DateTime(2026, 7),
           ),
         ],
       );
@@ -35,7 +35,8 @@ void main() {
         json['receivedAt'],
         matches(r'^2026-07-19T08:30:00(\.\d+)?Z$'),
       );
-      final line = json['lines'][0] as Map<String, dynamic>;
+      final line =
+          (json['lines']! as List<dynamic>).first as Map<String, dynamic>;
       expect(line['barcode'], 'BAR-001');
       expect(line['batchNumber'], 'BN-001');
       expect(line['expiryDate'], '2026-07-31');
@@ -44,11 +45,9 @@ void main() {
 
     test('serializes DateOnly values as YYYY-MM-DD', () {
       final request = ReceivePurchaseOrderRequestDto(
-        referenceNumber: null,
-        notes: null,
         receivedAt: DateTime.utc(2026, 7, 19),
         lines: [
-          ReceivePurchaseOrderLineRequestDto(
+          const ReceivePurchaseOrderLineRequestDto(
             purchaseOrderLineId: 'line-1',
             barcode: 'BAR-001',
             batchNumber: 'BN-001',
@@ -60,13 +59,13 @@ void main() {
             taxRatePercent: 0,
             taxIncluded: false,
             purchaseTaxIncluded: true,
-            expiryDate: null,
-            manufacturingDate: null,
           ),
         ],
       );
 
-      final line = request.toJson()['lines'][0] as Map<String, dynamic>;
+      final line =
+          (request.toJson()['lines']! as List<dynamic>).first
+              as Map<String, dynamic>;
       expect(line['expiryDate'], isNull);
       expect(line['manufacturingDate'], isNull);
       expect(request.toJson()['referenceNumber'], isNull);
@@ -75,11 +74,9 @@ void main() {
 
     test('supports multiple lines and preserves the line order', () {
       final request = ReceivePurchaseOrderRequestDto(
-        referenceNumber: null,
-        notes: null,
         receivedAt: DateTime.utc(2026, 7, 19),
         lines: [
-          ReceivePurchaseOrderLineRequestDto(
+          const ReceivePurchaseOrderLineRequestDto(
             purchaseOrderLineId: 'line-a',
             barcode: 'BAR-A',
             batchNumber: 'BN-A',
@@ -108,16 +105,15 @@ void main() {
         ],
       );
 
-      final lineIds = (request.toJson()['lines'] as List<dynamic>)
-          .map((json) => json['purchaseOrderLineId'] as String)
+      final lineIds = (request.toJson()['lines']! as List<dynamic>)
+          .cast<Map<String, dynamic>>()
+          .map((json) => json['purchaseOrderLineId']! as String)
           .toList();
       expect(lineIds, ['line-a', 'line-b']);
     });
 
     test('serializes the exact backend receipt body without shopId', () {
       final request = ReceivePurchaseOrderRequestDto(
-        referenceNumber: null,
-        notes: null,
         receivedAt: DateTime.utc(2026, 7, 19, 8, 30),
         lines: [
           ReceivePurchaseOrderLineRequestDto(
@@ -132,8 +128,8 @@ void main() {
             taxRatePercent: 5,
             taxIncluded: true,
             purchaseTaxIncluded: false,
-            expiryDate: DateTime(2026, 8, 1),
-            manufacturingDate: DateTime(2026, 7, 1),
+            expiryDate: DateTime(2026, 8),
+            manufacturingDate: DateTime(2026, 7),
           ),
         ],
       );

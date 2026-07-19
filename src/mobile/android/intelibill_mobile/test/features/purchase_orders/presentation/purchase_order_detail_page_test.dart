@@ -485,7 +485,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 
-    expect(find.text('Could not load purchase order.'), findsOneWidget);
+    expect(find.text('Could not connect. Check your network.'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'Retry'), findsOneWidget);
 
     await tester.tap(find.widgetWithText(FilledButton, 'Retry'));
@@ -495,7 +495,7 @@ void main() {
     expect(calls, equals(2));
     expect(find.byKey(PurchaseOrderDetailPage.pageKey), findsOneWidget);
     expect(_detailNumberFinder('PO-po-retry'), findsOneWidget);
-    expect(find.text('Could not load purchase order.'), findsNothing);
+    expect(find.text('Could not connect. Check your network.'), findsNothing);
   });
 
   testWidgets('shows not-found view with no data and allows safe back', (
@@ -568,7 +568,7 @@ void main() {
         find.byKey(Key('purchase-order-status-${status.name}')),
         findsOneWidget,
       );
-      expect(find.text(status.wireValue), findsOneWidget);
+      expect(find.text(_statusText(status)), findsOneWidget);
       expect(
         find.byKey(PurchaseOrderDetailPage.previewButtonKey),
         findsOneWidget,
@@ -677,7 +677,7 @@ void main() {
 
         final cancelBtnFinder = find.widgetWithText(
           ElevatedButton,
-          'Cancel Order',
+          'Cancel order',
         );
         expect(
           tester.widget<ElevatedButton>(cancelBtnFinder).onPressed,
@@ -1067,3 +1067,8 @@ Finder _detailNumberFinder(String text) {
     matching: find.text(text),
   );
 }
+
+String _statusText(PurchaseOrderStatus status) =>
+    status == PurchaseOrderStatus.partiallyReceived
+    ? 'Partially received'
+    : status.wireValue;

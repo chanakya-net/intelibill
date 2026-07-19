@@ -237,7 +237,7 @@ mixin _PurchaseOrderBuilderDraftLifecycle on _$PurchaseOrderBuilderController {
   void _setStorageWarning(int generation) {
     if (!_isCurrentScope(generation)) return;
     state = state.copyWith(
-      storageWarning: 'Local draft could not be saved. Your edits remain here.',
+      storageWarning: PurchaseOrderMessage.draftSaveStorage,
     );
   }
 

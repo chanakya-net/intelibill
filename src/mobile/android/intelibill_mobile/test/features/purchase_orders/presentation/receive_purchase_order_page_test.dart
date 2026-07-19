@@ -23,6 +23,7 @@ import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/receive_purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_providers.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/receive_purchase_order_controller.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/localization/purchase_order_messages.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/pages/receive_purchase_order_page.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_receive_line_card.dart';
 import 'package:intelibill_mobile/src/shared/barcode_scanner/barcode_scan_result.dart';
@@ -55,7 +56,7 @@ void main() {
     registerFallbackValue(
       ReceivePurchaseOrderInput(
         receivedAt: DateTime.utc(2026, 7, 19),
-        lines: [],
+        lines: const [],
       ),
     );
   });
@@ -80,7 +81,7 @@ void main() {
     }
     final mockGetItems = getItems ?? _MockGetItems();
     if (mockGetItems is _MockGetItems && getItems == null) {
-      when(() => mockGetItems()).thenAnswer(
+      when(mockGetItems.call).thenAnswer(
         (_) async => const [
           Item(
             itemId: 'item-1',
@@ -371,7 +372,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.text('Could not record receipt.'),
+      find.text('Could not connect. Check your network.'),
       findsOneWidget,
     );
     expect(
@@ -407,8 +408,8 @@ void main() {
     final controller = harness.container.read(
       receivePurchaseOrderControllerProvider('po-1').notifier,
     );
-    controller.updateManufacturingDate('line-1', DateTime(2026, 7, 1));
-    controller.updateExpiryDate('line-1', DateTime(2026, 8, 1));
+    controller.updateManufacturingDate('line-1', DateTime(2026, 7));
+    controller.updateExpiryDate('line-1', DateTime(2026, 8));
     await tester.pumpAndSettle();
 
     expect(
@@ -680,7 +681,7 @@ void main() {
       final receive = _MockReceivePurchaseOrder();
       final generateItemBarcode = _MockGenerateItemBarcode();
       when(
-        () => generateItemBarcode(),
+        generateItemBarcode.call,
       ).thenAnswer(
         (_) async => const GeneratedItemBarcode(barcode: 'IB-000001'),
       );
@@ -721,7 +722,7 @@ void main() {
             .barcode,
         'IB-000001',
       );
-      verify(() => generateItemBarcode()).called(1);
+      verify(generateItemBarcode.call).called(1);
     },
   );
 
@@ -732,7 +733,7 @@ void main() {
       final receive = _MockReceivePurchaseOrder();
       final generateItemBarcode = _MockGenerateItemBarcode();
       when(
-        () => generateItemBarcode(),
+        generateItemBarcode.call,
       ).thenAnswer(
         (_) async => const GeneratedItemBarcode(barcode: 'IB-000001'),
       );
@@ -776,7 +777,7 @@ void main() {
       );
       expect(state.barcodeGenerationLineIds, isEmpty);
       expect(state.barcodeGenerationFailures, isEmpty);
-      verify(() => generateItemBarcode()).called(1);
+      verify(generateItemBarcode.call).called(1);
     },
   );
 
@@ -787,7 +788,7 @@ void main() {
       final receive = _MockReceivePurchaseOrder();
       final generateItemBarcode = _MockGenerateItemBarcode();
       var attempts = 0;
-      when(() => generateItemBarcode()).thenAnswer((_) async {
+      when(generateItemBarcode.call).thenAnswer((_) async {
         attempts += 1;
         if (attempts == 1) {
           throw AppException(
@@ -857,7 +858,7 @@ void main() {
         'IB-000001',
       );
       expect(attempts, 2);
-      verify(() => generateItemBarcode()).called(2);
+      verify(generateItemBarcode.call).called(2);
     },
   );
 
@@ -867,7 +868,7 @@ void main() {
     final getPurchaseOrder = _MockGetPurchaseOrder();
     final receive = _MockReceivePurchaseOrder();
     final generateItemBarcode = _MockGenerateItemBarcode();
-    when(() => generateItemBarcode()).thenThrow(TimeoutException('timed out'));
+    when(generateItemBarcode.call).thenThrow(TimeoutException('timed out'));
     when(() => getPurchaseOrder('po-1')).thenAnswer((_) async => _detail());
     final harness = buildHarness(
       getPurchaseOrder: getPurchaseOrder,
@@ -911,7 +912,7 @@ void main() {
     final receive = _MockReceivePurchaseOrder();
     final generated = Completer<GeneratedItemBarcode>();
     final generateItemBarcode = _MockGenerateItemBarcode();
-    when(() => generateItemBarcode()).thenAnswer((_) => generated.future);
+    when(generateItemBarcode.call).thenAnswer((_) => generated.future);
     when(() => getPurchaseOrder('po-1')).thenAnswer((_) async => _detail());
     final harness = buildHarness(
       getPurchaseOrder: getPurchaseOrder,
@@ -941,7 +942,7 @@ void main() {
     );
     await tester.pump();
 
-    verify(() => generateItemBarcode()).called(1);
+    verify(generateItemBarcode.call).called(1);
     generated.complete(const GeneratedItemBarcode(barcode: 'IB-000001'));
     await tester.pumpAndSettle();
 
@@ -987,7 +988,10 @@ void main() {
     final state = harness.container.read(
       receivePurchaseOrderControllerProvider('po-1'),
     );
-    expect(state.prefillFailures['line-1'], contains('offline'));
+    expect(
+      state.prefillFailures['line-1'],
+      PurchaseOrderMessage.receivePrefill,
+    );
     expect(state.lines.single.barcode, 'MANUAL-1');
   });
 }
@@ -1013,7 +1017,7 @@ PurchaseOrder _detail({
     status: status,
     lines: lines,
     expectedTotal: 1000,
-    createdAt: DateTime.utc(2026, 7, 1),
+    createdAt: DateTime.utc(2026, 7),
     receivedQuantity: 7,
   );
 }

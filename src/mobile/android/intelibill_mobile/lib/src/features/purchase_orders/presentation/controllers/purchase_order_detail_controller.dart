@@ -17,28 +17,28 @@ class PurchaseOrderDetailState {
     this.detail,
     this.isLoading = false,
     this.failure,
-    this.cancelState = const _CancelState(),
-    this.closeState = const _CloseState(),
-    this.placeState = const _PlaceState(),
-    this.deleteState = const _DeleteState(),
+    this.cancelState = const PurchaseOrderCancelState(),
+    this.closeState = const PurchaseOrderCloseState(),
+    this.placeState = const PurchaseOrderPlaceState(),
+    this.deleteState = const PurchaseOrderDeleteState(),
   });
 
   final PurchaseOrder? detail;
   final bool isLoading;
   final Failure? failure;
-  final _CancelState cancelState;
-  final _CloseState closeState;
-  final _PlaceState placeState;
-  final _DeleteState deleteState;
+  final PurchaseOrderCancelState cancelState;
+  final PurchaseOrderCloseState closeState;
+  final PurchaseOrderPlaceState placeState;
+  final PurchaseOrderDeleteState deleteState;
 
   PurchaseOrderDetailState copyWith({
     PurchaseOrder? detail,
     bool? isLoading,
     Failure? failure,
-    _CancelState? cancelState,
-    _CloseState? closeState,
-    _PlaceState? placeState,
-    _DeleteState? deleteState,
+    PurchaseOrderCancelState? cancelState,
+    PurchaseOrderCloseState? closeState,
+    PurchaseOrderPlaceState? placeState,
+    PurchaseOrderDeleteState? deleteState,
     bool clearDetail = false,
     bool clearFailure = false,
   }) {
@@ -55,8 +55,8 @@ class PurchaseOrderDetailState {
 }
 
 @immutable
-class _CancelState {
-  const _CancelState({
+class PurchaseOrderCancelState {
+  const PurchaseOrderCancelState({
     this.isLoading = false,
     this.failure,
   });
@@ -64,12 +64,12 @@ class _CancelState {
   final bool isLoading;
   final Failure? failure;
 
-  _CancelState copyWith({
+  PurchaseOrderCancelState copyWith({
     bool? isLoading,
     Failure? failure,
     bool clearFailure = false,
   }) {
-    return _CancelState(
+    return PurchaseOrderCancelState(
       isLoading: isLoading ?? this.isLoading,
       failure: clearFailure ? null : (failure ?? this.failure),
     );
@@ -77,18 +77,18 @@ class _CancelState {
 }
 
 @immutable
-class _CloseState {
-  const _CloseState({this.isLoading = false, this.failure});
+class PurchaseOrderCloseState {
+  const PurchaseOrderCloseState({this.isLoading = false, this.failure});
 
   final bool isLoading;
   final Failure? failure;
 
-  _CloseState copyWith({
+  PurchaseOrderCloseState copyWith({
     bool? isLoading,
     Failure? failure,
     bool clearFailure = false,
   }) {
-    return _CloseState(
+    return PurchaseOrderCloseState(
       isLoading: isLoading ?? this.isLoading,
       failure: clearFailure ? null : (failure ?? this.failure),
     );
@@ -96,18 +96,18 @@ class _CloseState {
 }
 
 @immutable
-class _DeleteState {
-  const _DeleteState({this.isLoading = false, this.failure});
+class PurchaseOrderDeleteState {
+  const PurchaseOrderDeleteState({this.isLoading = false, this.failure});
 
   final bool isLoading;
   final Failure? failure;
 
-  _DeleteState copyWith({
+  PurchaseOrderDeleteState copyWith({
     bool? isLoading,
     Failure? failure,
     bool clearFailure = false,
   }) {
-    return _DeleteState(
+    return PurchaseOrderDeleteState(
       isLoading: isLoading ?? this.isLoading,
       failure: clearFailure ? null : (failure ?? this.failure),
     );
@@ -115,18 +115,18 @@ class _DeleteState {
 }
 
 @immutable
-class _PlaceState {
-  const _PlaceState({this.isLoading = false, this.failure});
+class PurchaseOrderPlaceState {
+  const PurchaseOrderPlaceState({this.isLoading = false, this.failure});
 
   final bool isLoading;
   final Failure? failure;
 
-  _PlaceState copyWith({
+  PurchaseOrderPlaceState copyWith({
     bool? isLoading,
     Failure? failure,
     bool clearFailure = false,
   }) {
-    return _PlaceState(
+    return PurchaseOrderPlaceState(
       isLoading: isLoading ?? this.isLoading,
       failure: clearFailure ? null : (failure ?? this.failure),
     );

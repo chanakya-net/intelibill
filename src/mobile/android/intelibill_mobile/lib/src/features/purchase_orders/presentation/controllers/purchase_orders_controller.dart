@@ -160,9 +160,9 @@ class PurchaseOrdersController extends _$PurchaseOrdersController {
     state = state.copyWith(
       isRefreshing: true,
       clearRefreshFailure: true,
-      isLoading: resetInitialLoad ? true : state.isLoading,
+      isLoading: resetInitialLoad || state.isLoading,
       clearFailure: resetInitialLoad,
-      isLoadingMore: resetInitialLoad ? false : state.isLoadingMore,
+      isLoadingMore: !resetInitialLoad && state.isLoadingMore,
       clearLoadMoreFailure: resetInitialLoad,
     );
     try {
@@ -277,7 +277,6 @@ class PurchaseOrdersController extends _$PurchaseOrdersController {
       orderDateFrom: _activeDateFrom,
       orderDateTo: _activeDateTo,
       page: pageNumber,
-      pageSize: 20,
     );
     try {
       final page = await ref.read(getPurchaseOrdersProvider)(filters);
