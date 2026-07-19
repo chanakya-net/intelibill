@@ -5167,35 +5167,35 @@ abstract class AppLocalizations {
   /// **'Item'**
   String get purchaseOrderBuilderAddItemLabel;
 
-  /// No description provided for @quantity.
+  /// No description provided for @purchaseOrderBuilderQuantityLabel.
   ///
   /// In en_IN, this message translates to:
   /// **'Quantity'**
-  String get quantity;
+  String get purchaseOrderBuilderQuantityLabel;
 
-  /// No description provided for @unitCost.
+  /// No description provided for @purchaseOrderBuilderUnitCostLabel.
   ///
   /// In en_IN, this message translates to:
   /// **'Unit cost'**
-  String get unitCost;
+  String get purchaseOrderBuilderUnitCostLabel;
 
-  /// No description provided for @lineTotal.
+  /// No description provided for @purchaseOrderBuilderLineTotalLabel.
   ///
   /// In en_IN, this message translates to:
   /// **'Line total'**
-  String get lineTotal;
+  String get purchaseOrderBuilderLineTotalLabel;
 
-  /// No description provided for @itemId.
+  /// No description provided for @purchaseOrderBuilderItemIdLabel.
   ///
   /// In en_IN, this message translates to:
   /// **'Item'**
-  String get itemId;
+  String get purchaseOrderBuilderItemIdLabel;
 
-  /// No description provided for @removeLine.
+  /// No description provided for @purchaseOrderBuilderRemoveLineLabel.
   ///
   /// In en_IN, this message translates to:
   /// **'Remove'**
-  String get removeLine;
+  String get purchaseOrderBuilderRemoveLineLabel;
 
   /// No description provided for @purchaseOrderReceiveAction.
   ///

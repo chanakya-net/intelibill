@@ -2694,19 +2694,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get purchaseOrderBuilderAddItemLabel => 'Item';
 
   @override
-  String get quantity => 'Quantity';
+  String get purchaseOrderBuilderQuantityLabel => 'Quantity';
 
   @override
-  String get unitCost => 'Unit cost';
+  String get purchaseOrderBuilderUnitCostLabel => 'Unit cost';
 
   @override
-  String get lineTotal => 'Line total';
+  String get purchaseOrderBuilderLineTotalLabel => 'Line total';
 
   @override
-  String get itemId => 'Item';
+  String get purchaseOrderBuilderItemIdLabel => 'Item';
 
   @override
-  String get removeLine => 'Remove';
+  String get purchaseOrderBuilderRemoveLineLabel => 'Remove';
 
   @override
   String get purchaseOrderReceiveAction => 'Receive';
@@ -5449,19 +5449,19 @@ class AppLocalizationsEnIn extends AppLocalizationsEn {
   String get purchaseOrderBuilderAddItemLabel => 'Item';
 
   @override
-  String get quantity => 'Quantity';
+  String get purchaseOrderBuilderQuantityLabel => 'Quantity';
 
   @override
-  String get unitCost => 'Unit cost';
+  String get purchaseOrderBuilderUnitCostLabel => 'Unit cost';
 
   @override
-  String get lineTotal => 'Line total';
+  String get purchaseOrderBuilderLineTotalLabel => 'Line total';
 
   @override
-  String get itemId => 'Item';
+  String get purchaseOrderBuilderItemIdLabel => 'Item';
 
   @override
-  String get removeLine => 'Remove';
+  String get purchaseOrderBuilderRemoveLineLabel => 'Remove';
 
   @override
   String get purchaseOrderReceiveAction => 'Receive';

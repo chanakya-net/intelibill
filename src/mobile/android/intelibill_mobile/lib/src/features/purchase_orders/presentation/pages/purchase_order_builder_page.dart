@@ -22,7 +22,11 @@ class PurchaseOrderBuilderPage extends ConsumerStatefulWidget {
   static const notesFieldKey = Key('purchase-order-builder-notes');
   static const saveButtonKey = Key('purchase-order-builder-save');
   static const addItemFieldKey = Key('purchase-order-builder-add-item');
+  static const itemSearchKey = Key('purchase-order-builder-item-search');
   static const addItemButtonKey = Key('purchase-order-builder-add-item-btn');
+  static const addItemConfirmButtonKey = Key(
+    'purchase-order-builder-add-item-confirm-btn',
+  );
   static const linesHeaderKey = Key('purchase-order-builder-lines-header');
   static const expectedTotalKey = Key('purchase-order-builder-expected-total');
 
@@ -83,12 +87,18 @@ class _PurchaseOrderBuilderPageState
           onNotesChanged: (value) =>
               ref.read(provider.notifier).setNotes(value),
           onAddItem: () => _showAddItemDialog(context, ref, provider, l10n),
-          onUpdateLine: ({required index, required expectedQuantity, required unitCost}) =>
-              ref.read(provider.notifier).updateLine(
-                index: index,
-                expectedQuantity: expectedQuantity,
-                unitCost: unitCost,
-              ),
+          onUpdateLine:
+              ({
+                required index,
+                required expectedQuantity,
+                required unitCost,
+              }) => ref
+                  .read(provider.notifier)
+                  .updateLine(
+                    index: index,
+                    expectedQuantity: expectedQuantity,
+                    unitCost: unitCost,
+                  ),
           onRemoveLine: (index) =>
               ref.read(provider.notifier).removeLine(index),
           onRetry: () => ref.read(provider.notifier).loadSuppliers(),
@@ -131,72 +141,90 @@ class _PurchaseOrderBuilderPageState
       builder: (context) => Consumer(
         builder: (context, ref, _) {
           final itemsState = ref.watch(itemsControllerProvider);
-          return AlertDialog(
-            title: Text(l10n.purchaseOrderBuilderAddItemTitle),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  DropdownButtonFormField<Item>(
-                    key: PurchaseOrderBuilderPage.addItemFieldKey,
-                    value: selectedItem,
-                    isExpanded: true,
-                    decoration: InputDecoration(
-                      labelText: l10n.purchaseOrderBuilderAddItemLabel,
+          return StatefulBuilder(
+            builder: (context, setState) => AlertDialog(
+              title: Text(l10n.purchaseOrderBuilderAddItemTitle),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      key: PurchaseOrderBuilderPage.itemSearchKey,
+                      decoration: InputDecoration(
+                        labelText: l10n.commonSearch,
+                      ),
+                      onChanged: (query) => ref
+                          .read(itemsControllerProvider.notifier)
+                          .updateSearch(query),
                     ),
-                    items: itemsState.filteredItems
-                        .map((item) => DropdownMenuItem(
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<Item>(
+                      key: PurchaseOrderBuilderPage.addItemFieldKey,
+                      value: selectedItem,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        labelText: l10n.purchaseOrderBuilderAddItemLabel,
+                      ),
+                      items: itemsState.filteredItems
+                          .map(
+                            (item) => DropdownMenuItem(
                               value: item,
                               child: Text(item.name),
-                            ))
-                        .toList(),
-                    onChanged: (item) {
-                      selectedItem = item;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    initialValue: quantity.toString(),
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(labelText: l10n.quantity),
-                    onChanged: (value) {
-                      quantity = int.tryParse(value) ?? 1;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    initialValue: unitCost.toStringAsFixed(2),
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    decoration: InputDecoration(labelText: l10n.unitCost),
-                    onChanged: (value) {
-                      unitCost = double.tryParse(value) ?? 0.0;
-                    },
-                  ),
-                ],
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (item) => setState(() => selectedItem = item),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      initialValue: quantity.toString(),
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: l10n.purchaseOrderBuilderQuantityLabel,
+                      ),
+                      onChanged: (value) =>
+                          setState(() => quantity = int.tryParse(value) ?? 1),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      initialValue: unitCost.toStringAsFixed(2),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: InputDecoration(
+                        labelText: l10n.purchaseOrderBuilderUnitCostLabel,
+                      ),
+                      onChanged: (value) => setState(
+                        () => unitCost = double.tryParse(value) ?? 0.0,
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(l10n.commonCancel),
+                ),
+                FilledButton(
+                  key: PurchaseOrderBuilderPage.addItemConfirmButtonKey,
+                  onPressed: selectedItem == null
+                      ? null
+                      : () {
+                          ref
+                              .read(provider.notifier)
+                              .addItem(
+                                itemId: selectedItem!.itemId,
+                                description: selectedItem!.name,
+                                expectedQuantity: quantity,
+                                unitCost: unitCost,
+                              );
+                          Navigator.pop(context);
+                        },
+                  child: Text(l10n.commonSave),
+                ),
+              ],
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text(l10n.commonCancel),
-              ),
-              FilledButton(
-                key: PurchaseOrderBuilderPage.addItemButtonKey,
-                onPressed: selectedItem == null
-                    ? null
-                    : () {
-                        ref.read(provider.notifier).addItem(
-                              itemId: selectedItem!.itemId,
-                              description: selectedItem!.name,
-                              expectedQuantity: quantity,
-                              unitCost: unitCost,
-                            );
-                        Navigator.pop(context);
-                      },
-                child: Text(l10n.commonSave),
-              ),
-            ],
           );
         },
       ),
@@ -234,8 +262,12 @@ class _BuilderBody extends StatelessWidget {
   final ValueChanged<String> onReferenceChanged;
   final ValueChanged<String> onNotesChanged;
   final VoidCallback onAddItem;
-  final Function({required int index, required int expectedQuantity, required double unitCost})
-      onUpdateLine;
+  final Function({
+    required int index,
+    required int expectedQuantity,
+    required double unitCost,
+  })
+  onUpdateLine;
   final Function(int) onRemoveLine;
   final VoidCallback onRetry;
   final AppLocalizations l10n;
@@ -352,12 +384,13 @@ class _BuilderBody extends StatelessWidget {
                   padding: const EdgeInsets.only(bottom: 12),
                   child: PurchaseOrderDraftLineCard(
                     line: line,
-                    onUpdate: ({required expectedQuantity, required unitCost}) =>
-                        onUpdateLine(
-                          index: index,
-                          expectedQuantity: expectedQuantity,
-                          unitCost: unitCost,
-                        ),
+                    onUpdate:
+                        ({required expectedQuantity, required unitCost}) =>
+                            onUpdateLine(
+                              index: index,
+                              expectedQuantity: expectedQuantity,
+                              unitCost: unitCost,
+                            ),
                     onRemove: () => onRemoveLine(index),
                   ),
                 );
@@ -374,14 +407,15 @@ class _BuilderBody extends StatelessWidget {
                     key: PurchaseOrderBuilderPage.expectedTotalKey,
                     state.expectedTotal.toStringAsFixed(2),
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
             ],
             const SizedBox(height: 16),
             FilledButton.tonal(
+              key: PurchaseOrderBuilderPage.addItemButtonKey,
               onPressed: onAddItem,
               child: Text(l10n.purchaseOrderBuilderAddItemTitle),
             ),

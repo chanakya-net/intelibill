@@ -11,6 +11,9 @@ import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/p
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_status.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_builder_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/pages/purchase_order_builder_page.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_draft_line_card.dart';
+import 'package:intelibill_mobile/src/features/inventory/domain/entities/item.dart';
+import 'package:intelibill_mobile/src/features/inventory/presentation/controllers/items_controller.dart';
 import 'package:intelibill_mobile/src/features/suppliers/domain/entities/supplier.dart';
 
 class _StubBuilderController extends PurchaseOrderBuilderController {
@@ -18,6 +21,24 @@ class _StubBuilderController extends PurchaseOrderBuilderController {
 
   final PurchaseOrderBuilderState initialState;
   final PurchaseOrder? draftToSave;
+  final addedItems =
+      <
+        ({
+          String itemId,
+          String description,
+          int expectedQuantity,
+          double unitCost,
+        })
+      >[];
+  final updatedLines =
+      <
+        ({
+          int index,
+          int expectedQuantity,
+          double unitCost,
+        })
+      >[];
+  final removedIndexes = <int>[];
 
   @override
   PurchaseOrderBuilderState build(String target) => initialState;
@@ -60,11 +81,17 @@ class _StubBuilderController extends PurchaseOrderBuilderController {
     required int expectedQuantity,
     required double unitCost,
   }) {
-    final line = const PurchaseOrderDraftLine(
-      itemId: 'item-1',
-      description: 'Test Item',
-      expectedQuantity: 1,
-      unitCost: 0.0,
+    addedItems.add((
+      itemId: itemId,
+      description: description,
+      expectedQuantity: expectedQuantity,
+      unitCost: unitCost,
+    ));
+    final line = PurchaseOrderDraftLine(
+      itemId: itemId,
+      description: description,
+      expectedQuantity: expectedQuantity,
+      unitCost: unitCost,
     );
     state = state.copyWith(lines: [...state.lines, line]);
   }
@@ -74,10 +101,17 @@ class _StubBuilderController extends PurchaseOrderBuilderController {
     required int index,
     required int expectedQuantity,
     required double unitCost,
-  }) {}
+  }) {
+    updatedLines.add((
+      index: index,
+      expectedQuantity: expectedQuantity,
+      unitCost: unitCost,
+    ));
+  }
 
   @override
   void removeLine(int index) {
+    removedIndexes.add(index);
     final updated = [...state.lines];
     if (index >= 0 && index < updated.length) {
       updated.removeAt(index);
@@ -93,16 +127,42 @@ class _StubBuilderController extends PurchaseOrderBuilderController {
   }
 }
 
+class _StubItemsController extends ItemsController {
+  _StubItemsController(this._initialState);
+
+  final ItemsState _initialState;
+
+  @override
+  ItemsState build() => _initialState;
+
+  @override
+  void updateSearch(String query) {
+    state = state.copyWith(searchQuery: query);
+  }
+}
+
 void main() {
   Widget buildApp(
     PurchaseOrderBuilderState state, {
     PurchaseOrder? draftToSave,
     GoRouter? router,
+    ItemsState itemsState = const ItemsState(),
+    void Function(_StubBuilderController controller)? onControllerCreated,
   }) {
     return ProviderScope(
       overrides: [
         purchaseOrderBuilderControllerProvider('new').overrideWith(
-          () => _StubBuilderController(state, draftToSave: draftToSave),
+          () {
+            final controller = _StubBuilderController(
+              state,
+              draftToSave: draftToSave,
+            );
+            onControllerCreated?.call(controller);
+            return controller;
+          },
+        ),
+        itemsControllerProvider.overrideWith(
+          () => _StubItemsController(itemsState),
         ),
       ],
       child: router == null
@@ -262,6 +322,121 @@ void main() {
       expect(find.text('po-1'), findsOneWidget);
     },
   );
+
+  testWidgets('adds a selected item from the dialog', (tester) async {
+    _StubBuilderController? controller;
+    await tester.pumpWidget(
+      buildApp(
+        PurchaseOrderBuilderState(suppliers: [_supplier()]),
+        itemsState: ItemsState(items: [_item('item-1', 'Widget')]),
+        onControllerCreated: (value) => controller = value,
+      ),
+    );
+
+    final addItemButton = find.byKey(PurchaseOrderBuilderPage.addItemButtonKey);
+    await tester.ensureVisible(addItemButton);
+    await tester.tap(addItemButton);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(PurchaseOrderBuilderPage.addItemFieldKey));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Widget'));
+    await tester.pump();
+
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.byKey(PurchaseOrderBuilderPage.addItemConfirmButtonKey),
+          )
+          .onPressed,
+      isNotNull,
+    );
+    await tester.tap(
+      find.byKey(PurchaseOrderBuilderPage.addItemConfirmButtonKey),
+    );
+    await tester.pumpAndSettle();
+
+    expect(controller!.addedItems, hasLength(1));
+    expect(controller!.addedItems.single.itemId, 'item-1');
+    expect(controller!.addedItems.single.description, 'Widget');
+  });
+
+  testWidgets('renders and edits, totals, and removes draft lines', (
+    tester,
+  ) async {
+    _StubBuilderController? controller;
+    final line = const PurchaseOrderDraftLine(
+      itemId: 'item-1',
+      description: 'Widget',
+      expectedQuantity: 2,
+      unitCost: 4.5,
+    );
+    await tester.pumpWidget(
+      buildApp(
+        PurchaseOrderBuilderState(suppliers: [_supplier()], lines: [line]),
+        onControllerCreated: (value) => controller = value,
+      ),
+    );
+
+    expect(find.byKey(PurchaseOrderBuilderPage.linesHeaderKey), findsOneWidget);
+    expect(find.text('Line total: 9.00'), findsOneWidget);
+    expect(
+      find.byKey(PurchaseOrderBuilderPage.expectedTotalKey),
+      findsOneWidget,
+    );
+    expect(find.text('9.00'), findsOneWidget);
+
+    final card = find.byType(PurchaseOrderDraftLineCard);
+    final fields = find.descendant(
+      of: card,
+      matching: find.byType(TextFormField),
+    );
+    await tester.enterText(fields.at(0), '');
+    await tester.enterText(fields.at(0), '3');
+    expect(controller!.updatedLines, isEmpty);
+    expect(find.text('Invalid line values'), findsNothing);
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+    expect(controller!.updatedLines, hasLength(1));
+    expect(controller!.updatedLines.single.expectedQuantity, 3);
+
+    await tester.enterText(fields.at(1), '6.25');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+    expect(controller!.updatedLines, hasLength(2));
+    expect(controller!.updatedLines.last.unitCost, 6.25);
+
+    final removeButton = find.text('Remove');
+    await tester.ensureVisible(removeButton);
+    await tester.tap(removeButton);
+    await tester.pump();
+    expect(controller!.removedIndexes, [0]);
+  });
+
+  testWidgets('filters items in the add item dialog', (tester) async {
+    await tester.pumpWidget(
+      buildApp(
+        PurchaseOrderBuilderState(suppliers: [_supplier()]),
+        itemsState: ItemsState(
+          items: [_item('item-1', 'Widget'), _item('item-2', 'Gadget')],
+        ),
+      ),
+    );
+
+    final addItemButton = find.byKey(PurchaseOrderBuilderPage.addItemButtonKey);
+    await tester.ensureVisible(addItemButton);
+    await tester.tap(addItemButton);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(PurchaseOrderBuilderPage.itemSearchKey),
+      'Wid',
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(PurchaseOrderBuilderPage.addItemFieldKey));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Widget'), findsOneWidget);
+    expect(find.text('Gadget'), findsNothing);
+  });
 }
 
 PurchaseOrder _savedPurchaseOrder() => PurchaseOrder(
@@ -280,4 +455,13 @@ Supplier _supplier() => const Supplier(
   isActive: true,
   isPreferred: true,
   balanceDue: 0,
+);
+
+Item _item(String itemId, String name) => Item(
+  itemId: itemId,
+  name: name,
+  barcode: '$itemId-barcode',
+  uom: 'pcs',
+  isActive: true,
+  currentStock: 0,
 );

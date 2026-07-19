@@ -12,7 +12,7 @@ class PurchaseOrderDraftLineCard extends StatefulWidget {
 
   final PurchaseOrderDraftLine line;
   final Function({required int expectedQuantity, required double unitCost})
-      onUpdate;
+  onUpdate;
   final VoidCallback onRemove;
 
   @override
@@ -28,10 +28,12 @@ class _PurchaseOrderDraftLineCardState
   @override
   void initState() {
     super.initState();
-    _quantityController =
-        TextEditingController(text: widget.line.expectedQuantity.toString());
-    _unitCostController =
-        TextEditingController(text: widget.line.unitCost.toStringAsFixed(2));
+    _quantityController = TextEditingController(
+      text: widget.line.expectedQuantity.toString(),
+    );
+    _unitCostController = TextEditingController(
+      text: widget.line.unitCost.toStringAsFixed(2),
+    );
   }
 
   @override
@@ -56,10 +58,15 @@ class _PurchaseOrderDraftLineCardState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(widget.line.description, style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              widget.line.description,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: 8),
-            Text('${l10n.itemId}: ${widget.line.itemId}',
-                style: Theme.of(context).textTheme.bodySmall),
+            Text(
+              '${l10n.purchaseOrderBuilderItemIdLabel}: ${widget.line.itemId}',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
             const SizedBox(height: 12),
             Row(
               children: [
@@ -67,25 +74,31 @@ class _PurchaseOrderDraftLineCardState
                   child: TextFormField(
                     controller: _quantityController,
                     keyboardType: TextInputType.number,
-                    decoration: InputDecoration(labelText: l10n.quantity),
-                    onChanged: (_) => _updateLine(),
+                    decoration: InputDecoration(
+                      labelText: l10n.purchaseOrderBuilderQuantityLabel,
+                    ),
+                    onFieldSubmitted: (_) => _updateLine(),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: TextFormField(
                     controller: _unitCostController,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    decoration: InputDecoration(labelText: l10n.unitCost),
-                    onChanged: (_) => _updateLine(),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: InputDecoration(
+                      labelText: l10n.purchaseOrderBuilderUnitCostLabel,
+                    ),
+                    onFieldSubmitted: (_) => _updateLine(),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 8),
             Text(
-              '${l10n.lineTotal}: ${(widget.line.lineTotal).toStringAsFixed(2)}',
+              '${l10n.purchaseOrderBuilderLineTotalLabel}: '
+              '${(widget.line.lineTotal).toStringAsFixed(2)}',
               style: Theme.of(context).textTheme.labelLarge,
             ),
             const SizedBox(height: 12),
@@ -93,7 +106,7 @@ class _PurchaseOrderDraftLineCardState
               alignment: Alignment.centerRight,
               child: FilledButton.tonal(
                 onPressed: widget.onRemove,
-                child: Text(l10n.removeLine),
+                child: Text(l10n.purchaseOrderBuilderRemoveLineLabel),
               ),
             ),
           ],
