@@ -5,7 +5,7 @@ void main() {
   group('BatchNumberGenerator', () {
     test('generates deterministic batch number with injected time', () {
       final time = DateTime.utc(2026, 7, 19, 14, 30, 45, 123);
-      final entropy = 12345;
+      const entropy = 12345;
 
       final batch1 = generateBatchNumber(currentTime: time, entropy: entropy);
       final batch2 = generateBatchNumber(currentTime: time, entropy: entropy);

@@ -3,6 +3,7 @@ import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/entities/item.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_draft.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/localization/purchase_order_messages.dart';
 import 'package:intelibill_mobile/src/features/suppliers/domain/entities/supplier.dart';
 
 @immutable
@@ -21,6 +22,7 @@ class PurchaseOrderBuilderState {
     this.isPlacing = false,
     this.isEditableDraft = false,
     this.failure,
+    this.localMessage,
     this.savedDraft,
     this.isSupplierLoadFailure = false,
     this.isLoadingEdit = false,
@@ -45,6 +47,7 @@ class PurchaseOrderBuilderState {
   final bool isPlacing;
   final bool isEditableDraft;
   final Failure? failure;
+  final PurchaseOrderMessage? localMessage;
   final PurchaseOrder? savedDraft;
   final bool isSupplierLoadFailure;
   final bool isLoadingEdit;
@@ -52,7 +55,7 @@ class PurchaseOrderBuilderState {
   final bool isLoadingLocalDraft;
   final bool hasRecoveredDraft;
   final DateTime? recoveredDraftUpdatedAt;
-  final String? storageWarning;
+  final PurchaseOrderMessage? storageWarning;
   final bool isDraftActionInProgress;
 
   double get expectedTotal =>
@@ -72,6 +75,7 @@ class PurchaseOrderBuilderState {
     bool? isPlacing,
     bool? isEditableDraft,
     Failure? failure,
+    PurchaseOrderMessage? localMessage,
     PurchaseOrder? savedDraft,
     bool? isSupplierLoadFailure,
     bool? isLoadingEdit,
@@ -79,7 +83,7 @@ class PurchaseOrderBuilderState {
     bool? isLoadingLocalDraft,
     bool? hasRecoveredDraft,
     DateTime? recoveredDraftUpdatedAt,
-    String? storageWarning,
+    PurchaseOrderMessage? storageWarning,
     bool? isDraftActionInProgress,
     bool clearSupplier = false,
     bool clearOrderDate = false,
@@ -112,6 +116,7 @@ class PurchaseOrderBuilderState {
       isPlacing: isPlacing ?? this.isPlacing,
       isEditableDraft: isEditableDraft ?? this.isEditableDraft,
       failure: clearFailure ? null : (failure ?? this.failure),
+      localMessage: clearFailure ? null : (localMessage ?? this.localMessage),
       savedDraft: clearSavedDraft ? null : (savedDraft ?? this.savedDraft),
       isSupplierLoadFailure:
           isSupplierLoadFailure ?? this.isSupplierLoadFailure,

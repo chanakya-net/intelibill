@@ -2,14 +2,19 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
+import 'package:intelibill_mobile/src/core/errors/failure.dart';
+import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_cancel_sheet.dart';
 
 void main() {
   group('PurchaseOrderCancelSheet', () {
     testWidgets('accepts 1-character reason', (WidgetTester tester) async {
-      bool called = false;
+      var called = false;
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: PurchaseOrderCancelSheet(
               onCancel: (reason) async {
@@ -36,9 +41,11 @@ void main() {
 
     testWidgets('accepts 500-character reason', (WidgetTester tester) async {
       final reason500 = 'x' * 500;
-      bool called = false;
+      var called = false;
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: PurchaseOrderCancelSheet(
               onCancel: (reason) async {
@@ -67,6 +74,8 @@ void main() {
     ) async {
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: PurchaseOrderCancelSheet(
               onCancel: (_) async {},
@@ -87,6 +96,8 @@ void main() {
     ) async {
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: PurchaseOrderCancelSheet(
               onCancel: (_) async {},
@@ -105,9 +116,11 @@ void main() {
     });
 
     testWidgets('trims whitespace from reason', (WidgetTester tester) async {
-      bool called = false;
+      var called = false;
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: PurchaseOrderCancelSheet(
               onCancel: (reason) async {
@@ -132,6 +145,8 @@ void main() {
       final completer = Completer<void>();
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: PurchaseOrderCancelSheet(
               onCancel: (_) => completer.future,
@@ -156,9 +171,11 @@ void main() {
     });
 
     testWidgets('calls onCancel callback', (WidgetTester tester) async {
-      bool called = false;
+      var called = false;
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: PurchaseOrderCancelSheet(
               onCancel: (_) async {
@@ -176,6 +193,36 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(called, isTrue);
+    });
+
+    testWidgets('maps failures without rendering server diagnostics', (
+      tester,
+    ) async {
+      const raw = 'sensitive server diagnostic';
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: PurchaseOrderCancelSheet(
+              onCancel: (_) async => throw AppException(
+                failure: const Failure.server(message: raw, statusCode: 500),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.enterText(find.byType(TextField), 'reason');
+      await tester.pump();
+      await tester.tap(find.byType(ElevatedButton));
+      await tester.pumpAndSettle();
+
+      expect(find.text(raw), findsNothing);
+      expect(
+        find.text('The server could not complete the request. Try again.'),
+        findsOneWidget,
+      );
     });
   });
 }

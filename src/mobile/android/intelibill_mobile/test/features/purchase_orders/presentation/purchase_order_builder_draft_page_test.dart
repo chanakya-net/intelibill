@@ -6,6 +6,7 @@ import 'package:intelibill_mobile/src/app/router/app_router.dart';
 import 'package:intelibill_mobile/src/app/theme/app_theme.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_builder_controller.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/localization/purchase_order_messages.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/pages/purchase_order_builder_page.dart';
 
 class _StubBuilderController extends PurchaseOrderBuilderController {
@@ -145,7 +146,9 @@ void main() {
     _StubBuilderController? controller;
     await tester.pumpWidget(
       buildApp(
-        const PurchaseOrderBuilderState(storageWarning: 'disk full'),
+        const PurchaseOrderBuilderState(
+          storageWarning: PurchaseOrderMessage.draftSaveStorage,
+        ),
         onCreated: (value) => controller = value,
       ),
     );

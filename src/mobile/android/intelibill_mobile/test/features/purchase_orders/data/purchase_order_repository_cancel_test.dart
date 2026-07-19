@@ -16,7 +16,7 @@ void main() {
   late PurchaseOrderRepositoryImpl repository;
 
   setUpAll(() {
-    registerFallbackValue(CancelPurchaseOrderRequestDto(reason: ''));
+    registerFallbackValue(const CancelPurchaseOrderRequestDto(reason: ''));
   });
 
   setUp(() {
@@ -108,8 +108,8 @@ PurchaseOrderDetailDto _cancelledDto() {
     purchaseOrderNumber: 'PO-001',
     status: 'Cancelled',
     lines: const [],
-    expectedTotal: 0.0,
-    createdAt: DateTime.utc(2026, 7, 1),
+    expectedTotal: 0,
+    createdAt: DateTime.utc(2026, 7),
     receivedQuantity: 0,
     cancellationReason: 'No longer needed',
   );

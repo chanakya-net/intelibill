@@ -1,8 +1,8 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/data_sources/purchase_order_remote_data_source.dart';
-import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/receive_purchase_order_request_dto.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/purchase_order_detail_dto.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/receive_purchase_order_request_dto.dart';
 import 'package:mocktail/mocktail.dart';
 
 import '../../../mocks/mock_api_client.dart';
@@ -43,8 +43,6 @@ void main() {
             taxRatePercent: 5,
             taxIncluded: false,
             purchaseTaxIncluded: false,
-            expiryDate: null,
-            manufacturingDate: null,
           ),
         ],
       ),
@@ -77,8 +75,6 @@ void main() {
     final result = await source.receive(
       'po-1',
       ReceivePurchaseOrderRequestDto(
-        referenceNumber: null,
-        notes: null,
         receivedAt: DateTime.utc(2026, 7, 19),
         lines: const [
           ReceivePurchaseOrderLineRequestDto(

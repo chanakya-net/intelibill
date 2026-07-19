@@ -1,13 +1,13 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_draft.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/create_purchase_order_draft.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_builder_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_providers.dart';
-import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/create_purchase_order_draft.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/localization/purchase_order_messages.dart';
 import 'package:intelibill_mobile/src/features/suppliers/domain/use_cases/get_suppliers.dart';
 import 'package:intelibill_mobile/src/features/suppliers/presentation/controllers/suppliers_controller.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intelibill_mobile/src/features/suppliers/domain/entities/supplier.dart';
 import 'package:mocktail/mocktail.dart';
 
 class _MockGetSuppliers extends Mock implements GetSuppliers {}
@@ -50,7 +50,7 @@ void main() {
         itemId: 'item-1',
         description: 'Widget',
         expectedQuantity: 5,
-        unitCost: 10.0,
+        unitCost: 10,
       );
 
       final state = container.read(
@@ -74,13 +74,13 @@ void main() {
         itemId: 'item-1',
         description: 'Widget',
         expectedQuantity: 3,
-        unitCost: 10.0,
+        unitCost: 10,
       );
       controller.addItem(
         itemId: 'item-1',
         description: 'Widget',
         expectedQuantity: 2,
-        unitCost: 12.0,
+        unitCost: 12,
       );
 
       final state = container.read(
@@ -102,7 +102,7 @@ void main() {
         itemId: 'item-1',
         description: 'Widget',
         expectedQuantity: 0,
-        unitCost: 10.0,
+        unitCost: 10,
       );
 
       final state = container.read(
@@ -110,6 +110,7 @@ void main() {
       );
       expect(state.lines, isEmpty);
       expect(state.failure, isA<ValidationFailure>());
+      expect(state.localMessage, PurchaseOrderMessage.builderQuantity);
     });
 
     test('calculates running expected total after add', () async {
@@ -123,13 +124,13 @@ void main() {
         itemId: 'item-1',
         description: 'Widget A',
         expectedQuantity: 2,
-        unitCost: 10.0,
+        unitCost: 10,
       );
       controller.addItem(
         itemId: 'item-2',
         description: 'Widget B',
         expectedQuantity: 3,
-        unitCost: 5.0,
+        unitCost: 5,
       );
 
       final state = container.read(
@@ -151,13 +152,13 @@ void main() {
         itemId: 'item-1',
         description: 'Widget',
         expectedQuantity: 5,
-        unitCost: 10.0,
+        unitCost: 10,
       );
 
       controller.updateLine(
         index: 0,
         expectedQuantity: 8,
-        unitCost: 12.0,
+        unitCost: 12,
       );
 
       final state = container.read(
@@ -178,13 +179,13 @@ void main() {
         itemId: 'item-1',
         description: 'Widget',
         expectedQuantity: 5,
-        unitCost: 10.0,
+        unitCost: 10,
       );
 
       controller.updateLine(
         index: 0,
         expectedQuantity: -1,
-        unitCost: 12.0,
+        unitCost: 12,
       );
 
       final state = container.read(
@@ -205,10 +206,10 @@ void main() {
         itemId: 'item-1',
         description: 'Widget',
         expectedQuantity: 5,
-        unitCost: 10.0,
+        unitCost: 10,
       );
 
-      controller.updateLine(index: 0, expectedQuantity: 10, unitCost: 15.0);
+      controller.updateLine(index: 0, expectedQuantity: 10, unitCost: 15);
 
       final state = container.read(
         purchaseOrderBuilderControllerProvider('new'),
@@ -229,13 +230,13 @@ void main() {
         itemId: 'item-1',
         description: 'Widget',
         expectedQuantity: 5,
-        unitCost: 10.0,
+        unitCost: 10,
       );
       controller.addItem(
         itemId: 'item-2',
         description: 'Gadget',
         expectedQuantity: 3,
-        unitCost: 5.0,
+        unitCost: 5,
       );
 
       controller.removeLine(0);
@@ -258,13 +259,13 @@ void main() {
         itemId: 'item-1',
         description: 'Widget',
         expectedQuantity: 2,
-        unitCost: 10.0,
+        unitCost: 10,
       );
       controller.addItem(
         itemId: 'item-2',
         description: 'Gadget',
         expectedQuantity: 3,
-        unitCost: 5.0,
+        unitCost: 5,
       );
 
       controller.removeLine(0);
@@ -304,7 +305,7 @@ void main() {
         itemId: 'item-2',
         description: 'Gadget',
         expectedQuantity: 3,
-        unitCost: 7.0,
+        unitCost: 7,
       );
 
       final state = container.read(

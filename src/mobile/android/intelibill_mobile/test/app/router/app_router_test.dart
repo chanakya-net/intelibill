@@ -32,6 +32,7 @@ import 'package:intelibill_mobile/src/features/sales/presentation/controllers/ne
 import 'package:intelibill_mobile/src/features/sales/presentation/controllers/sales_history_controller.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/controllers/sales_providers.dart';
 import 'package:intelibill_mobile/src/features/services/presentation/controllers/services_controller.dart';
+import 'package:intelibill_mobile/src/features/suppliers/presentation/controllers/suppliers_controller.dart';
 import 'package:intelibill_mobile/src/shared/documents/document_page_format.dart';
 import 'package:intelibill_mobile/src/shared/documents/document_preview_scaffold.dart';
 import 'package:mocktail/mocktail.dart';
@@ -750,6 +751,9 @@ void main() {
               ),
             ),
             getPurchaseOrderProvider.overrideWithValue(getPurchaseOrder),
+            suppliersControllerProvider.overrideWithValue(
+              const SuppliersState(),
+            ),
             dashboardControllerProvider.overrideWith(
               _StubDashboardController.new,
             ),

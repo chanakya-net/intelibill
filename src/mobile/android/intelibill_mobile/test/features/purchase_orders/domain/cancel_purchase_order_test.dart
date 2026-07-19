@@ -82,12 +82,12 @@ PurchaseOrder _cancelledPO() {
         expectedQuantity: 10,
         receivedQuantity: 0,
         remainingQuantity: 10,
-        unitCost: 10.0,
-        lineTotal: 100.0,
+        unitCost: 10,
+        lineTotal: 100,
       ),
     ],
-    expectedTotal: 100.0,
-    createdAt: DateTime.utc(2026, 7, 1),
+    expectedTotal: 100,
+    createdAt: DateTime.utc(2026, 7),
     cancellationReason: 'No longer needed',
   );
 }

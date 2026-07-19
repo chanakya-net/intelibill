@@ -50,7 +50,7 @@ PurchaseOrder _placedPO() {
     purchaseOrderNumber: 'PO-001',
     status: PurchaseOrderStatus.placed,
     lines: const [],
-    expectedTotal: 100.0,
-    createdAt: DateTime.utc(2026, 7, 1),
+    expectedTotal: 100,
+    createdAt: DateTime.utc(2026, 7),
   );
 }

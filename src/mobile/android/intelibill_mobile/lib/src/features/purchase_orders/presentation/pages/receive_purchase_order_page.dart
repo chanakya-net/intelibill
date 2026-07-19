@@ -6,6 +6,7 @@ import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/formatting/currency_formatter.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/receive_purchase_order_controller.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/localization/purchase_order_messages.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_receive_line_card.dart';
 import 'package:intelibill_mobile/src/shared/barcode_scanner/barcode_scan_result.dart';
 import 'package:intelibill_mobile/src/shared/barcode_scanner/show_barcode_scanner.dart';
@@ -50,8 +51,8 @@ class ReceivePurchaseOrderPage extends ConsumerWidget {
         key: pageKey,
         appBar: AppBar(title: Text(l10n.purchaseOrderReceiveTitle)),
         body: _FailureView(
-          message: state.failure!.message ?? l10n.purchaseOrderReceiveRetry,
-          onRetry: () => controller.refresh(),
+          message: purchaseOrderFailureMessage(l10n, state.failure!),
+          onRetry: controller.refresh,
         ),
       );
     }
@@ -107,8 +108,9 @@ class ReceivePurchaseOrderPage extends ConsumerWidget {
             if (state.failure != null && state.lineErrors.isEmpty) ...[
               const SizedBox(height: 8),
               Text(
-                state.failure!.message ??
-                    l10n.purchaseOrderReceiveSubmitFailure,
+                state.localMessage == null
+                    ? purchaseOrderFailureMessage(l10n, state.failure!)
+                    : purchaseOrderMessage(l10n, state.localMessage!),
                 style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
             ],
@@ -174,12 +176,12 @@ class ReceivePurchaseOrderPage extends ConsumerWidget {
                       ),
                   onTaxIncludedChanged: (value) => controller.updateTaxIncluded(
                     line.purchaseOrderLineId,
-                    value,
+                    value: value,
                   ),
                   onPurchaseTaxIncludedChanged: (value) =>
                       controller.updatePurchaseTaxIncluded(
                         line.purchaseOrderLineId,
-                        value,
+                        value: value,
                       ),
                   onExpiryDateChanged: (value) => controller.updateExpiryDate(
                     line.purchaseOrderLineId,
@@ -196,16 +198,24 @@ class ReceivePurchaseOrderPage extends ConsumerWidget {
                           state.expandedLineId != line.purchaseOrderLineId
                       ? null
                       : state.focusedLineId,
-                  errors:
-                      state.lineErrors[line.purchaseOrderLineId] ?? const {},
+                  errors: _localizedLineErrors(
+                    l10n,
+                    state.lineErrors[line.purchaseOrderLineId],
+                  ),
                   isBarcodeGenerating: state.barcodeGenerationLineIds.contains(
                     line.purchaseOrderLineId,
                   ),
-                  barcodeGenerationFailure:
-                      state.barcodeGenerationFailures[line.purchaseOrderLineId],
-                  isPrefillLoading:
-                      state.prefillLoadingLineIds.contains(line.purchaseOrderLineId),
-                  prefillFailure: state.prefillFailures[line.purchaseOrderLineId],
+                  barcodeGenerationFailure: _localizedOptionalMessage(
+                    l10n,
+                    state.barcodeGenerationFailures[line.purchaseOrderLineId],
+                  ),
+                  isPrefillLoading: state.prefillLoadingLineIds.contains(
+                    line.purchaseOrderLineId,
+                  ),
+                  prefillFailure: _localizedOptionalMessage(
+                    l10n,
+                    state.prefillFailures[line.purchaseOrderLineId],
+                  ),
                 ),
               ),
             const SizedBox(height: 12),
@@ -220,7 +230,7 @@ class ReceivePurchaseOrderPage extends ConsumerWidget {
             key: receiveButtonKey,
             onPressed: !state.canSubmit
                 ? null
-                : () => _submit(context, controller, l10n),
+                : () => _submit(context, controller),
             child: state.isSubmitting
                 ? const SizedBox(
                     height: 20,
@@ -237,7 +247,6 @@ class ReceivePurchaseOrderPage extends ConsumerWidget {
   Future<void> _submit(
     BuildContext context,
     ReceivePurchaseOrderController controller,
-    AppLocalizations l10n,
   ) async {
     try {
       final updated = await controller.submit();
@@ -245,10 +254,7 @@ class ReceivePurchaseOrderPage extends ConsumerWidget {
         context.go(AppRoutes.purchaseOrderDetailFor(purchaseOrderId));
       }
     } on AppException {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.purchaseOrderReceiveSubmitFailure)),
-      );
+      // Controller state owns the localized inline failure presentation.
     }
   }
 
@@ -351,6 +357,27 @@ class ReceivePurchaseOrderPage extends ConsumerWidget {
     return confirmed ?? false;
   }
 }
+
+Map<String, String> _localizedLineErrors(
+  AppLocalizations l10n,
+  Map<String, PurchaseOrderFieldMessage>? errors,
+) =>
+    errors?.map(
+      (field, message) => MapEntry(
+        field,
+        purchaseOrderMessage(
+          l10n,
+          message.code,
+          maxLength: message.maxLength,
+        ),
+      ),
+    ) ??
+    const {};
+
+String? _localizedOptionalMessage(
+  AppLocalizations l10n,
+  PurchaseOrderMessage? message,
+) => message == null ? null : purchaseOrderMessage(l10n, message);
 
 class _FailureView extends StatelessWidget {
   const _FailureView({required this.message, required this.onRetry});

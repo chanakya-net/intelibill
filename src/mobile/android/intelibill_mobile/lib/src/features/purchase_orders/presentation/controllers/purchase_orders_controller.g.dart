@@ -42,7 +42,7 @@ final class PurchaseOrdersControllerProvider
 }
 
 String _$purchaseOrdersControllerHash() =>
-    r'89d24d5b9bc1a91362ed926c1ba0efdd3ed8f611';
+    r'88c87639804df5177c3396a0d6737ad4252b5e6a';
 
 abstract class _$PurchaseOrdersController
     extends $Notifier<PurchaseOrdersState> {

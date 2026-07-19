@@ -112,7 +112,7 @@ PurchaseOrder _receivedPurchaseOrder() {
       ),
     ],
     expectedTotal: 100,
-    createdAt: DateTime.utc(2026, 7, 1),
+    createdAt: DateTime.utc(2026, 7),
     receivedQuantity: 5,
   );
 }

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_close_sheet.dart';
 
 void main() {
@@ -9,6 +10,8 @@ void main() {
     final reasons = <String>[];
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: PurchaseOrderCloseSheet(
             onClose: (reason) async => reasons.add(reason),
@@ -31,6 +34,8 @@ void main() {
   testWidgets('accepts a 500-character reason', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: PurchaseOrderCloseSheet(onClose: (_) async {}),
         ),
@@ -50,6 +55,8 @@ void main() {
     final reasons = <String>[];
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: PurchaseOrderCloseSheet(
             onClose: (reason) async => reasons.add(reason),
@@ -73,6 +80,8 @@ void main() {
     final completer = Completer<void>();
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: PurchaseOrderCloseSheet(onClose: (_) => completer.future),
         ),

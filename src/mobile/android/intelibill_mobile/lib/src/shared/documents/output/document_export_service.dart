@@ -50,7 +50,7 @@ class DocumentExportService {
       );
       _printCompleter!.complete();
       return _printResult;
-    } catch (e) {
+    } on Object catch (e) {
       _printResult = ExportFailure(
         operation: ExportOperation.print,
         message: e.toString(),
@@ -86,7 +86,7 @@ class DocumentExportService {
       );
       _shareCompleter!.complete();
       return _shareResult;
-    } catch (e) {
+    } on Object catch (e) {
       _shareResult = ExportFailure(
         operation: ExportOperation.share,
         message: e.toString(),
@@ -103,9 +103,9 @@ class DocumentExportService {
     try {
       await builder(descriptor.pdfPageFormat);
       return null;
-    } catch (e) {
+    } on Object catch (e) {
       return ExportFailure(
-        operation: ExportOperation.print,
+        operation: ExportOperation.build,
         message: e.toString(),
       );
     }

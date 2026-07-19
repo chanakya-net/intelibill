@@ -12,6 +12,7 @@ import 'package:intelibill_mobile/src/features/purchase_orders/presentation/cont
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_draft_persistence.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_providers.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_orders_controller.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/localization/purchase_order_messages.dart';
 import 'package:intelibill_mobile/src/features/suppliers/domain/entities/supplier.dart';
 import 'package:intelibill_mobile/src/features/suppliers/presentation/controllers/suppliers_controller.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -45,7 +46,7 @@ class PurchaseOrderBuilderController extends _$PurchaseOrderBuilderController
 
   void setOrderDate(DateTime? date) {
     if (date != null && _isAfter(date, state.expectedDeliveryDate)) {
-      _setValidation('Order date cannot be after expected delivery date.');
+      _setValidation(PurchaseOrderMessage.builderOrderDates);
       return;
     }
     state = state.copyWith(
@@ -58,9 +59,7 @@ class PurchaseOrderBuilderController extends _$PurchaseOrderBuilderController
 
   void setExpectedDeliveryDate(DateTime? date) {
     if (date != null && _isBefore(date, state.orderDate)) {
-      _setValidation(
-        'Expected delivery date cannot be before order date.',
-      );
+      _setValidation(PurchaseOrderMessage.builderOrderDates);
       return;
     }
     state = state.copyWith(
@@ -174,19 +173,19 @@ class PurchaseOrderBuilderController extends _$PurchaseOrderBuilderController
     _persistLineChange();
   }
 
-  String? _lineValidationMessage({
+  PurchaseOrderMessage? _lineValidationMessage({
     required String description,
     required int expectedQuantity,
     required double unitCost,
   }) {
     if (expectedQuantity <= 0) {
-      return 'Invalid line values: quantity must be positive.';
+      return PurchaseOrderMessage.builderQuantity;
     }
     if (unitCost < 0) {
-      return 'Invalid line values: unit cost must be non-negative.';
+      return PurchaseOrderMessage.builderUnitCost;
     }
     if (description.length > 255) {
-      return 'Invalid line values: description max 255 characters.';
+      return PurchaseOrderMessage.builderDescription;
     }
     return null;
   }
@@ -240,16 +239,16 @@ class PurchaseOrderBuilderController extends _$PurchaseOrderBuilderController
     );
   }
 
-  String? _validate() {
+  PurchaseOrderMessage? _validate() {
     if (state.supplierReferenceNumber.trim().length >
         supplierReferenceMaxLength) {
-      return 'Supplier reference must be 100 characters or fewer.';
+      return PurchaseOrderMessage.builderReference;
     }
     if (state.notes.trim().length > notesMaxLength) {
-      return 'Notes must be 1000 characters or fewer.';
+      return PurchaseOrderMessage.builderNotes;
     }
     if (_isAfter(state.orderDate, state.expectedDeliveryDate)) {
-      return 'Order date cannot be after expected delivery date.';
+      return PurchaseOrderMessage.builderOrderDates;
     }
     return null;
   }
@@ -262,8 +261,11 @@ class PurchaseOrderBuilderController extends _$PurchaseOrderBuilderController
     return first != null && second != null && first.isBefore(second);
   }
 
-  void _setValidation(String message) {
-    state = state.copyWith(failure: Failure.validation(message: message));
+  void _setValidation(PurchaseOrderMessage message) {
+    state = state.copyWith(
+      failure: const Failure.validation(),
+      localMessage: message,
+    );
   }
 
   @override

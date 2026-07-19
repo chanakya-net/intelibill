@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/create_purchase_order_draft_request_dto.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/mappers/purchase_order_mapper.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_draft.dart';
 
@@ -33,13 +32,13 @@ void main() {
             itemId: 'item-1',
             description: 'Widget A',
             expectedQuantity: 2,
-            unitCost: 10.0,
+            unitCost: 10,
           ),
           PurchaseOrderDraftLine(
             itemId: 'item-2',
             description: 'Widget B',
             expectedQuantity: 3,
-            unitCost: 5.0,
+            unitCost: 5,
           ),
         ],
       );
@@ -59,13 +58,13 @@ void main() {
     });
 
     test('omits null optional fields in DTO', () {
-      final draft = PurchaseOrderDraft(
-        lines: const [
+      const draft = PurchaseOrderDraft(
+        lines: [
           PurchaseOrderDraftLine(
             itemId: 'item-1',
             description: 'Widget',
             expectedQuantity: 1,
-            unitCost: 5.0,
+            unitCost: 5,
           ),
         ],
       );

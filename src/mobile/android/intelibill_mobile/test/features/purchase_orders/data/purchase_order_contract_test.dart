@@ -561,7 +561,7 @@ void main() {
     );
 
     await source.getPurchaseOrders(
-      PurchaseOrderFilters(status: PurchaseOrderStatus.placed),
+      const PurchaseOrderFilters(status: PurchaseOrderStatus.placed),
     );
 
     verify(
@@ -598,7 +598,7 @@ void main() {
     );
 
     await source.getPurchaseOrders(
-      const PurchaseOrderFilters(status: null),
+      const PurchaseOrderFilters(),
     );
 
     verify(
@@ -717,7 +717,7 @@ void main() {
       PurchaseOrderFilters(
         search: 'widget',
         status: PurchaseOrderStatus.received,
-        orderDateFrom: DateTime(2026, 1, 1),
+        orderDateFrom: DateTime(2026),
         orderDateTo: DateTime(2026, 12, 31),
       ),
     );
@@ -759,10 +759,7 @@ void main() {
     );
 
     await source.getPurchaseOrders(
-      const PurchaseOrderFilters(
-        orderDateFrom: null,
-        orderDateTo: null,
-      ),
+      const PurchaseOrderFilters(),
     );
 
     verify(

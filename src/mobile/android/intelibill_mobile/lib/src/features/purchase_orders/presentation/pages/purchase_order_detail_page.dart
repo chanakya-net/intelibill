@@ -1,21 +1,26 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intelibill_mobile/src/app/router/app_router.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_line.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_status.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_detail_controller.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/localization/purchase_order_messages.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_cancel_sheet.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_close_sheet.dart';
-import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_place_sheet.dart';
-import 'package:intelibill_mobile/src/features/suppliers/presentation/controllers/suppliers_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_detail_header.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_detail_summary.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_lifecycle_metadata.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_line_card.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_place_sheet.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_receipt_history.dart';
+import 'package:intelibill_mobile/src/features/suppliers/domain/entities/supplier.dart';
+import 'package:intelibill_mobile/src/features/suppliers/presentation/controllers/suppliers_controller.dart';
 
 class PurchaseOrderDetailPage extends ConsumerWidget {
   const PurchaseOrderDetailPage({required this.purchaseOrderId, super.key});
@@ -82,7 +87,7 @@ class PurchaseOrderDetailPage extends ConsumerWidget {
           IconButton(
             key: previewButtonKey,
             icon: const Icon(Icons.picture_as_pdf_outlined),
-            tooltip: 'Preview',
+            tooltip: l10n.purchaseOrderPreviewAction,
             onPressed: () => context.go(
               AppRoutes.purchaseOrderPrintFor(purchaseOrderId),
             ),
@@ -104,17 +109,19 @@ class PurchaseOrderDetailPage extends ConsumerWidget {
               key: const Key('purchase-order-detail-cancel-button'),
               icon: const Icon(Icons.cancel),
               onPressed: () {
-                showPurchaseOrderCancelSheet(
-                  context,
-                  onCancel: (reason) {
-                    return ref
-                        .read(
-                          purchaseOrderDetailControllerProvider(
-                            purchaseOrderId,
-                          ).notifier,
-                        )
-                        .cancel(reason);
-                  },
+                unawaited(
+                  showPurchaseOrderCancelSheet(
+                    context,
+                    onCancel: (reason) {
+                      return ref
+                          .read(
+                            purchaseOrderDetailControllerProvider(
+                              purchaseOrderId,
+                            ).notifier,
+                          )
+                          .cancel(reason);
+                    },
+                  ),
                 );
               },
             ),
@@ -123,17 +130,19 @@ class PurchaseOrderDetailPage extends ConsumerWidget {
               key: const Key('purchase-order-detail-close-button'),
               icon: const Icon(Icons.lock),
               onPressed: () {
-                showPurchaseOrderCloseSheet(
-                  context,
-                  onClose: (reason) {
-                    return ref
-                        .read(
-                          purchaseOrderDetailControllerProvider(
-                            purchaseOrderId,
-                          ).notifier,
-                        )
-                        .close(reason);
-                  },
+                unawaited(
+                  showPurchaseOrderCloseSheet(
+                    context,
+                    onClose: (reason) {
+                      return ref
+                          .read(
+                            purchaseOrderDetailControllerProvider(
+                              purchaseOrderId,
+                            ).notifier,
+                          )
+                          .close(reason);
+                    },
+                  ),
                 );
               },
             ),
@@ -158,17 +167,19 @@ class PurchaseOrderDetailPage extends ConsumerWidget {
               tooltip: l10n.purchaseOrderPlaceAction,
               onPressed: _canPlace(purchaseOrder, suppliersState.suppliers)
                   ? () {
-                      showPurchaseOrderPlaceSheet(
-                        context,
-                        onPlace: () {
-                          return ref
-                              .read(
-                                purchaseOrderDetailControllerProvider(
-                                  purchaseOrderId,
-                                ).notifier,
-                              )
-                              .place();
-                        },
+                      unawaited(
+                        showPurchaseOrderPlaceSheet(
+                          context,
+                          onPlace: () {
+                            return ref
+                                .read(
+                                  purchaseOrderDetailControllerProvider(
+                                    purchaseOrderId,
+                                  ).notifier,
+                                )
+                                .place();
+                          },
+                        ),
                       );
                     }
                   : null,
@@ -195,26 +206,25 @@ class PurchaseOrderDetailPage extends ConsumerWidget {
     );
   }
 
-  bool _canPlace(dynamic po, List<dynamic> allSuppliers) {
+  bool _canPlace(PurchaseOrder po, List<Supplier> allSuppliers) {
     if (po.supplierId == null || po.lines.isEmpty) return false;
-    try {
-      final supplier = allSuppliers.firstWhere(
-        (s) => s.supplierId == po.supplierId,
-      );
-      if (!supplier.isActive) return false;
-      return po.lines.any(
-        (line) => line.expectedQuantity > 0 && line.unitCost >= 0,
-      );
-    } catch (_) {
-      return false;
+    Supplier? selectedSupplier;
+    for (final supplier in allSuppliers) {
+      if (supplier.supplierId == po.supplierId) {
+        selectedSupplier = supplier;
+        break;
+      }
     }
+    if (selectedSupplier == null || !selectedSupplier.isActive) return false;
+    return po.lines.any(
+      (line) => line.expectedQuantity > 0 && line.unitCost >= 0,
+    );
   }
 
   String _failureMessage(AppLocalizations l10n, Failure? failure) {
-    if (failure is NotFoundFailure) {
-      return l10n.purchaseOrderDetailNotFound;
-    }
-    return l10n.purchaseOrderDetailUnableToLoad;
+    return failure == null
+        ? l10n.purchaseOrderFailureUnknown
+        : purchaseOrderFailureMessage(l10n, failure);
   }
 }
 

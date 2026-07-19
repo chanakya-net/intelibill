@@ -69,7 +69,7 @@ PurchaseOrderDetailDto _dto() => PurchaseOrderDetailDto(
   status: 'Closed',
   lines: const [],
   expectedTotal: 0,
-  createdAt: DateTime.utc(2026, 7, 1),
+  createdAt: DateTime.utc(2026, 7),
   receivedQuantity: 5,
   closedAt: '2026-07-15T10:30:00Z',
   closedBy: 'user-1',

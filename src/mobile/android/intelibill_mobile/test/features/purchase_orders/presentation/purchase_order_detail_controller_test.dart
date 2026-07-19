@@ -158,9 +158,9 @@ void main() {
       // Keep providers alive by listening to them
       container.listen(
         purchaseOrderDetailControllerProvider('po-1'),
-        (_, __) {},
+        (_, _) {},
       );
-      container.listen(purchaseOrdersControllerProvider, (_, __) {});
+      container.listen(purchaseOrdersControllerProvider, (_, _) {});
       await Future<void>.delayed(const Duration(milliseconds: 10));
 
       // Reset mockGetOrders to track rebuild after invalidation
@@ -185,9 +185,9 @@ void main() {
       // Initial fetch succeeds
       when(
         () => getPurchaseOrder('po-1'),
-      ).thenAnswer((_) async => _detail(status: PurchaseOrderStatus.placed));
+      ).thenAnswer((_) async => _detail());
       // Cancel throws AppException
-      final conflictFailure = const Failure.server(message: 'Conflict status');
+      const conflictFailure = Failure.server(message: 'Conflict status');
       when(
         () => mockCancel('po-1', any()),
       ).thenThrow(AppException(failure: conflictFailure));
@@ -203,7 +203,7 @@ void main() {
       // Keep detail provider alive by listening to it
       container.listen(
         purchaseOrderDetailControllerProvider('po-1'),
-        (_, __) {},
+        (_, _) {},
       );
       await Future<void>.delayed(const Duration(milliseconds: 10));
 
@@ -223,7 +223,9 @@ void main() {
         await container
             .read(purchaseOrderDetailControllerProvider('po-1').notifier)
             .cancel('Conflict reason');
-      } catch (_) {} // ignore rethrown error
+      } on AppException {
+        // Expected: cancel rethrows its original mutation failure.
+      }
 
       // 4. Assertions
       final state = container.read(
@@ -241,7 +243,7 @@ void main() {
     () async {
       final placePurchaseOrder = MockPlacePurchaseOrder();
       final getPurchaseOrders = MockGetPurchaseOrders();
-      final placed = _detail(status: PurchaseOrderStatus.placed);
+      final placed = _detail();
       when(() => getPurchaseOrder('po-1')).thenAnswer(
         (_) async => _detail(status: PurchaseOrderStatus.draft),
       );
@@ -264,9 +266,9 @@ void main() {
       addTearDown(container.dispose);
       container.listen(
         purchaseOrderDetailControllerProvider('po-1'),
-        (_, __) {},
+        (_, _) {},
       );
-      container.listen(purchaseOrdersControllerProvider, (_, __) {});
+      container.listen(purchaseOrdersControllerProvider, (_, _) {});
       await Future<void>.delayed(const Duration(milliseconds: 10));
       clearInteractions(getPurchaseOrders);
 
@@ -286,7 +288,7 @@ void main() {
 
   test('refreshes authoritative detail after a failed place', () async {
     final placePurchaseOrder = MockPlacePurchaseOrder();
-    final refreshed = _detail(status: PurchaseOrderStatus.placed);
+    final refreshed = _detail();
     var calls = 0;
     when(() => getPurchaseOrder('po-1')).thenAnswer((_) async {
       calls++;
@@ -304,7 +306,7 @@ void main() {
       ],
     );
     addTearDown(container.dispose);
-    container.listen(purchaseOrderDetailControllerProvider('po-1'), (_, __) {});
+    container.listen(purchaseOrderDetailControllerProvider('po-1'), (_, _) {});
     await Future<void>.delayed(const Duration(milliseconds: 10));
 
     await expectLater(
@@ -328,7 +330,7 @@ void main() {
     addTearDown(container.dispose);
     container.listen(
       purchaseOrderDetailControllerProvider('po-1'),
-      (_, __) {},
+      (_, _) {},
       fireImmediately: true,
     );
     await Future<void>.delayed(const Duration(milliseconds: 10));
@@ -346,7 +348,7 @@ void main() {
     addTearDown(container.dispose);
     container.listen(
       purchaseOrderDetailControllerProvider('po-1'),
-      (_, __) {},
+      (_, _) {},
       fireImmediately: true,
     );
     await Future<void>.delayed(const Duration(milliseconds: 10));
@@ -386,9 +388,9 @@ void main() {
 
       container.listen(
         purchaseOrderDetailControllerProvider('po-1'),
-        (_, __) {},
+        (_, _) {},
       );
-      container.listen(purchaseOrdersControllerProvider, (_, __) {});
+      container.listen(purchaseOrdersControllerProvider, (_, _) {});
       await Future<void>.delayed(const Duration(milliseconds: 10));
       clearInteractions(mockGetOrders);
 
@@ -422,7 +424,7 @@ void main() {
 
     container.listen(
       purchaseOrderDetailControllerProvider('po-1'),
-      (_, __) {},
+      (_, _) {},
     );
     await Future<void>.delayed(const Duration(milliseconds: 10));
 
@@ -460,7 +462,7 @@ void main() {
 
     container.listen(
       purchaseOrderDetailControllerProvider('po-1'),
-      (_, __) {},
+      (_, _) {},
     );
     await Future<void>.delayed(const Duration(milliseconds: 10));
 

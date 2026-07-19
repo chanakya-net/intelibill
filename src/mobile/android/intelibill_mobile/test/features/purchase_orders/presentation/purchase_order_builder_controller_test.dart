@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/storage/preferences_storage.dart';
+import 'package:intelibill_mobile/src/features/inventory/domain/entities/item.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/data_sources/purchase_order_draft_local_data_source.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_draft.dart';
@@ -17,7 +18,6 @@ import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_builder_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_detail_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_providers.dart';
-import 'package:intelibill_mobile/src/features/inventory/domain/entities/item.dart';
 import 'package:intelibill_mobile/src/features/suppliers/domain/entities/supplier.dart';
 import 'package:intelibill_mobile/src/features/suppliers/domain/use_cases/get_suppliers.dart';
 import 'package:intelibill_mobile/src/features/suppliers/presentation/controllers/suppliers_controller.dart';
@@ -188,7 +188,6 @@ void main() {
         const PurchaseOrderDraft(
           supplierReferenceNumber: '',
           notes: '',
-          lines: [],
         ),
       ),
     ).called(1);
@@ -256,19 +255,19 @@ void main() {
       itemId: 'item-1',
       description: 'Widget A',
       expectedQuantity: 2,
-      unitCost: 10.0,
+      unitCost: 10,
     );
     controller.addItem(
       itemId: 'item-2',
       description: 'Widget B',
       expectedQuantity: 3,
-      unitCost: 5.0,
+      unitCost: 5,
     );
     controller.addItem(
       itemId: 'item-1',
       description: 'Widget A',
       expectedQuantity: 1,
-      unitCost: 12.0,
+      unitCost: 12,
     );
 
     final result = await controller.save();
@@ -476,7 +475,7 @@ void main() {
     addTearDown(container.dispose);
     container.listen(
       purchaseOrderBuilderControllerProvider('po-1'),
-      (_, __) {},
+      (_, _) {},
     );
     await Future<void>.delayed(const Duration(milliseconds: 10));
 
@@ -563,7 +562,7 @@ void main() {
       addTearDown(container.dispose);
       container.listen(
         purchaseOrderBuilderControllerProvider('po-1'),
-        (_, __) {},
+        (_, _) {},
       );
       await Future<void>.delayed(const Duration(milliseconds: 10));
       final controller = container.read(

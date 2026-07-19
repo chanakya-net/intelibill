@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
+import 'package:intelibill_mobile/src/core/errors/failure.dart';
+import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/localization/purchase_order_messages.dart';
 
 class PurchaseOrderCancelSheet extends StatefulWidget {
   const PurchaseOrderCancelSheet({
@@ -33,7 +36,7 @@ class _PurchaseOrderCancelSheetState extends State<PurchaseOrderCancelSheet> {
 
   bool get _isReasonValid {
     final trimmed = _reasonController.text.trim();
-    return trimmed.length >= 1 && trimmed.length <= 500;
+    return trimmed.isNotEmpty && trimmed.length <= 500;
   }
 
   Future<void> _handleCancel() async {
@@ -47,16 +50,22 @@ class _PurchaseOrderCancelSheetState extends State<PurchaseOrderCancelSheet> {
     try {
       await widget.onCancel(trimmed);
       if (mounted) Navigator.of(context).pop();
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          if (e is AppException) {
-            _errorMessage = e.failure.message ?? 'An error occurred';
-          } else {
-            _errorMessage = e.toString();
-          }
-        });
-      }
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = purchaseOrderFailureMessage(
+          AppLocalizations.of(context)!,
+          error.failure,
+        );
+      });
+    } on Object {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = purchaseOrderFailureMessage(
+          AppLocalizations.of(context)!,
+          const Failure.unknown(),
+        );
+      });
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -64,6 +73,7 @@ class _PurchaseOrderCancelSheetState extends State<PurchaseOrderCancelSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Padding(
       padding: EdgeInsets.only(
         left: 16,
@@ -76,7 +86,7 @@ class _PurchaseOrderCancelSheetState extends State<PurchaseOrderCancelSheet> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Cancel Purchase Order',
+            l10n.purchaseOrderCancelTitle,
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 16),
@@ -86,10 +96,10 @@ class _PurchaseOrderCancelSheetState extends State<PurchaseOrderCancelSheet> {
             maxLines: 3,
             minLines: 3,
             maxLength: 500,
-            decoration: const InputDecoration(
-              labelText: 'Reason',
-              hintText: 'Why are you cancelling this order?',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: l10n.purchaseOrderCancelReasonLabel,
+              hintText: l10n.purchaseOrderCancelReasonHint,
+              border: const OutlineInputBorder(),
               counterText: '',
             ),
             onChanged: (_) => setState(() {
@@ -111,7 +121,7 @@ class _PurchaseOrderCancelSheetState extends State<PurchaseOrderCancelSheet> {
                 onPressed: _isLoading
                     ? null
                     : () => Navigator.of(context).pop(),
-                child: const Text('Keep'),
+                child: Text(l10n.purchaseOrderCancelKeepAction),
               ),
               const SizedBox(width: 8),
               ElevatedButton(
@@ -122,7 +132,7 @@ class _PurchaseOrderCancelSheetState extends State<PurchaseOrderCancelSheet> {
                         height: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('Cancel Order'),
+                    : Text(l10n.purchaseOrderCancelConfirmAction),
               ),
             ],
           ),

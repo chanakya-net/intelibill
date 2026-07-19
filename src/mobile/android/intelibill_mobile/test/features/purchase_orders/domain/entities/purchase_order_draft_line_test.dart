@@ -9,7 +9,7 @@ void main() {
           itemId: 'item-1',
           description: 'Widget',
           expectedQuantity: 0,
-          unitCost: 10.0,
+          unitCost: 10,
         ),
         throwsArgumentError,
       );
@@ -33,7 +33,7 @@ void main() {
           itemId: 'item-1',
           description: 'x' * 256,
           expectedQuantity: 1,
-          unitCost: 10.0,
+          unitCost: 10,
         ),
         throwsArgumentError,
       );
@@ -45,14 +45,14 @@ void main() {
           itemId: 'item-1',
           description: 'Widget',
           expectedQuantity: 1,
-          unitCost: 0.0,
+          unitCost: 0,
         ),
         returnsNormally,
       );
     });
 
     test('calculates line total correctly', () {
-      final line = const PurchaseOrderDraftLine(
+      const line = PurchaseOrderDraftLine(
         itemId: 'item-1',
         description: 'Widget',
         expectedQuantity: 5,
@@ -62,11 +62,11 @@ void main() {
     });
 
     test('calculates line total with zero cost', () {
-      final line = const PurchaseOrderDraftLine(
+      const line = PurchaseOrderDraftLine(
         itemId: 'item-1',
         description: 'Widget',
         expectedQuantity: 3,
-        unitCost: 0.0,
+        unitCost: 0,
       );
       expect(line.lineTotal, 0.0);
     });

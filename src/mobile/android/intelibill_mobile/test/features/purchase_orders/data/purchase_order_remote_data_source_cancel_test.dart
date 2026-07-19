@@ -29,7 +29,7 @@ void main() {
 
       await source.cancel(
         'po-1',
-        CancelPurchaseOrderRequestDto(reason: 'No longer needed'),
+        const CancelPurchaseOrderRequestDto(reason: 'No longer needed'),
       );
 
       verify(
@@ -100,7 +100,7 @@ void main() {
 
       final result = await source.cancel(
         'po-1',
-        CancelPurchaseOrderRequestDto(reason: 'No longer needed'),
+        const CancelPurchaseOrderRequestDto(reason: 'No longer needed'),
       );
 
       expect(result, isA<PurchaseOrderDetailDto>());

@@ -374,7 +374,6 @@ void main() {
           name: 'Missing Widget',
           barcode: 'BAR003',
           uom: 'pcs',
-          description: null,
         ),
       ).called(1);
     });

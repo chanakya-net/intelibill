@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_status.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/localization/purchase_order_messages.dart';
 
 class PurchaseOrderStatusBadge extends StatelessWidget {
   const PurchaseOrderStatusBadge({required this.status, super.key});
@@ -17,7 +19,7 @@ class PurchaseOrderStatusBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
       ),
       child: Text(
-        status.wireValue,
+        purchaseOrderStatusMessage(AppLocalizations.of(context)!, status),
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
           color: color,
           fontWeight: FontWeight.w700,

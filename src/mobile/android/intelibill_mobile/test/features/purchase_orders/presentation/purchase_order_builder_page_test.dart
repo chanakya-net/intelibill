@@ -277,7 +277,7 @@ void main() {
           selectedSupplier: _supplier(),
           supplierReferenceNumber: 'REF-OLD',
           notes: 'Original note',
-          lines: [line],
+          lines: const [line],
         ),
         target: 'po-1',
       ),
@@ -324,7 +324,6 @@ void main() {
         PurchaseOrderBuilderState(
           suppliers: [_supplier()],
           failure: failure,
-          isSupplierLoadFailure: false,
         ),
       ),
     );
@@ -334,7 +333,10 @@ void main() {
       find.byKey(PurchaseOrderBuilderPage.supplierFieldKey),
       findsOneWidget,
     );
-    expect(find.text('Could not save purchase order draft.'), findsOneWidget);
+    expect(
+      find.text('The server could not complete the request. Try again.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('renders formatted date selected through date picker', (
@@ -482,7 +484,7 @@ void main() {
     tester,
   ) async {
     _StubBuilderController? controller;
-    final line = const PurchaseOrderDraftLine(
+    const line = PurchaseOrderDraftLine(
       itemId: 'item-1',
       description: 'Widget',
       expectedQuantity: 2,
@@ -490,7 +492,10 @@ void main() {
     );
     await tester.pumpWidget(
       buildApp(
-        PurchaseOrderBuilderState(suppliers: [_supplier()], lines: [line]),
+        PurchaseOrderBuilderState(
+          suppliers: [_supplier()],
+          lines: const [line],
+        ),
         onControllerCreated: (value) => controller = value,
       ),
     );
@@ -764,7 +769,7 @@ void main() {
           suppliers: [_supplier()],
           selectedSupplier: _supplier(),
           isEditableDraft: true,
-          lines: [line],
+          lines: const [line],
         ),
         target: 'po-1',
       ),

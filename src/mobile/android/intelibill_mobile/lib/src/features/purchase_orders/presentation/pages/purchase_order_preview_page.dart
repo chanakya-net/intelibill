@@ -2,12 +2,16 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intelibill_mobile/src/core/errors/failure.dart';
+import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_preview_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/documents/purchase_order_pdf_builder.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/localization/purchase_order_messages.dart';
 import 'package:intelibill_mobile/src/shared/documents/document_descriptor.dart';
 import 'package:intelibill_mobile/src/shared/documents/document_preview_scaffold.dart';
 import 'package:intelibill_mobile/src/shared/documents/output/document_export_providers.dart';
 import 'package:intelibill_mobile/src/shared/documents/output/document_export_service.dart';
+import 'package:intelibill_mobile/src/shared/documents/output/document_output_messages.dart';
 
 class PurchaseOrderPreviewPage extends ConsumerWidget {
   const PurchaseOrderPreviewPage({required this.purchaseOrderId, super.key});
@@ -17,6 +21,7 @@ class PurchaseOrderPreviewPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
     final state = ref.watch(
       purchaseOrderPreviewControllerProvider(purchaseOrderId),
     );
@@ -26,7 +31,7 @@ class PurchaseOrderPreviewPage extends ConsumerWidget {
       return _loading();
     }
     if (state.failure != null && order == null) {
-      return _failure(ref);
+      return _failure(context, ref, state.failure!);
     }
     if (order == null) {
       return const Scaffold(key: pageKey, body: SizedBox.shrink());
@@ -35,13 +40,18 @@ class PurchaseOrderPreviewPage extends ConsumerWidget {
     final builder = PurchaseOrderPdfBuilder();
     final exportService = ref.watch(documentExportServiceProvider);
     final descriptor = DocumentDescriptor(
-      title: 'Purchase order preview',
+      title: l10n.purchaseOrderPreviewTitle,
       filename: builder.filenameFor(order),
     );
     return DocumentPreviewScaffold(
       key: pageKey,
       descriptor: descriptor,
-      onBuild: (_) => builder.build(order, state.shop, locale: locale),
+      onBuild: (_) => builder.build(
+        order,
+        state.shop,
+        l10n,
+        locale: locale,
+      ),
       onPrint: (bytes) => _handlePrint(
         context,
         exportService,
@@ -77,7 +87,14 @@ class PurchaseOrderPreviewPage extends ConsumerWidget {
 
     if (result != null && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Print failed: ${result.message}')),
+        SnackBar(
+          content: Text(
+            documentOutputFailureMessage(
+              AppLocalizations.of(context)!,
+              result.operation,
+            ),
+          ),
+        ),
       );
     }
   }
@@ -95,7 +112,14 @@ class PurchaseOrderPreviewPage extends ConsumerWidget {
 
     if (result != null && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Share failed: ${result.message}')),
+        SnackBar(
+          content: Text(
+            documentOutputFailureMessage(
+              AppLocalizations.of(context)!,
+              result.operation,
+            ),
+          ),
+        ),
       );
     }
   }
@@ -105,18 +129,36 @@ class PurchaseOrderPreviewPage extends ConsumerWidget {
     body: Center(child: CircularProgressIndicator()),
   );
 
-  Widget _failure(WidgetRef ref) => Scaffold(
-    key: pageKey,
-    appBar: AppBar(title: const Text('Purchase order preview')),
-    body: Center(
-      child: FilledButton(
-        onPressed: () => ref
-            .read(
-              purchaseOrderPreviewControllerProvider(purchaseOrderId).notifier,
-            )
-            .retry(),
-        child: const Text('Retry'),
-      ),
-    ),
-  );
+  Widget _failure(BuildContext context, WidgetRef ref, Failure failure) =>
+      Scaffold(
+        key: pageKey,
+        appBar: AppBar(
+          title: Text(AppLocalizations.of(context)!.purchaseOrderPreviewTitle),
+        ),
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                purchaseOrderFailureMessage(
+                  AppLocalizations.of(context)!,
+                  failure,
+                ),
+              ),
+              FilledButton(
+                onPressed: () => ref
+                    .read(
+                      purchaseOrderPreviewControllerProvider(
+                        purchaseOrderId,
+                      ).notifier,
+                    )
+                    .retry(),
+                child: Text(
+                  AppLocalizations.of(context)!.purchaseOrdersRetry,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
 }

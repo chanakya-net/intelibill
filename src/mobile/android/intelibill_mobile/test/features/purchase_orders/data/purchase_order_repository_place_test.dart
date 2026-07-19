@@ -62,8 +62,8 @@ PurchaseOrderDetailDto _placedDto() {
     purchaseOrderNumber: 'PO-001',
     status: 'Placed',
     lines: const [],
-    expectedTotal: 100.0,
-    createdAt: DateTime.utc(2026, 7, 1),
+    expectedTotal: 100,
+    createdAt: DateTime.utc(2026, 7),
     receivedQuantity: 0,
   );
 }

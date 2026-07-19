@@ -5553,6 +5553,594 @@ abstract class AppLocalizations {
   /// In en_IN, this message translates to:
   /// **'Draft not found.'**
   String get purchaseOrderDetailDeleteErrorNotFound;
+
+  /// No description provided for @purchaseOrdersSearchHint.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Search purchase orders'**
+  String get purchaseOrdersSearchHint;
+
+  /// No description provided for @purchaseOrdersLoadMoreFailure.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Could not load more purchase orders.'**
+  String get purchaseOrdersLoadMoreFailure;
+
+  /// No description provided for @purchaseOrdersRetry.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Retry'**
+  String get purchaseOrdersRetry;
+
+  /// Loaded and total purchase-order count
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Loaded {loaded} of {total}'**
+  String purchaseOrdersLoadedCount(int loaded, int total);
+
+  /// Purchase-order result count
+  ///
+  /// In en_IN, this message translates to:
+  /// **'{count, plural, =0 {No purchase orders} =1 {1 purchase order} other {{count} purchase orders}}'**
+  String purchaseOrdersCount(int count);
+
+  /// No description provided for @purchaseOrdersUnableToLoad.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Could not load purchase orders.'**
+  String get purchaseOrdersUnableToLoad;
+
+  /// No description provided for @purchaseOrdersSerializationFailure.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Purchase-order data could not be read.'**
+  String get purchaseOrdersSerializationFailure;
+
+  /// No description provided for @purchaseOrdersEmpty.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No purchase orders yet'**
+  String get purchaseOrdersEmpty;
+
+  /// No description provided for @purchaseOrdersFilteredEmpty.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No purchase orders match your filters'**
+  String get purchaseOrdersFilteredEmpty;
+
+  /// Empty purchase-order search result
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No results for \"{query}\"'**
+  String purchaseOrdersQueryEmpty(String query);
+
+  /// No description provided for @purchaseOrderStatusDraft.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Draft'**
+  String get purchaseOrderStatusDraft;
+
+  /// No description provided for @purchaseOrderStatusPlaced.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Placed'**
+  String get purchaseOrderStatusPlaced;
+
+  /// No description provided for @purchaseOrderStatusPartiallyReceived.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Partially received'**
+  String get purchaseOrderStatusPartiallyReceived;
+
+  /// No description provided for @purchaseOrderStatusReceived.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Received'**
+  String get purchaseOrderStatusReceived;
+
+  /// No description provided for @purchaseOrderStatusCancelled.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Cancelled'**
+  String get purchaseOrderStatusCancelled;
+
+  /// No description provided for @purchaseOrderStatusClosed.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Closed'**
+  String get purchaseOrderStatusClosed;
+
+  /// No description provided for @purchaseOrderCardNoSupplier.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No supplier'**
+  String get purchaseOrderCardNoSupplier;
+
+  /// No description provided for @purchaseOrderCardReference.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Ref: {reference}'**
+  String purchaseOrderCardReference(String reference);
+
+  /// No description provided for @purchaseOrderCardLineCount.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'{count} lines'**
+  String purchaseOrderCardLineCount(int count);
+
+  /// No description provided for @purchaseOrderCardExpectedQuantity.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Expected: {quantity}'**
+  String purchaseOrderCardExpectedQuantity(int quantity);
+
+  /// No description provided for @purchaseOrderProgressReceived.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Received: {received} / {expected}'**
+  String purchaseOrderProgressReceived(int received, int expected);
+
+  /// No description provided for @purchaseOrderPreviewAction.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Preview'**
+  String get purchaseOrderPreviewAction;
+
+  /// No description provided for @purchaseOrderPreviewTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Purchase order preview'**
+  String get purchaseOrderPreviewTitle;
+
+  /// No description provided for @purchaseOrderCancelTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Cancel purchase order'**
+  String get purchaseOrderCancelTitle;
+
+  /// No description provided for @purchaseOrderCancelReasonLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Reason'**
+  String get purchaseOrderCancelReasonLabel;
+
+  /// No description provided for @purchaseOrderCancelReasonHint.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Why are you cancelling this order?'**
+  String get purchaseOrderCancelReasonHint;
+
+  /// No description provided for @purchaseOrderCancelKeepAction.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Keep'**
+  String get purchaseOrderCancelKeepAction;
+
+  /// No description provided for @purchaseOrderCancelConfirmAction.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Cancel order'**
+  String get purchaseOrderCancelConfirmAction;
+
+  /// No description provided for @purchaseOrderCloseTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Close purchase order'**
+  String get purchaseOrderCloseTitle;
+
+  /// No description provided for @purchaseOrderCloseReasonLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Reason'**
+  String get purchaseOrderCloseReasonLabel;
+
+  /// No description provided for @purchaseOrderCloseReasonHint.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Why are you closing this order?'**
+  String get purchaseOrderCloseReasonHint;
+
+  /// No description provided for @purchaseOrderCloseKeepAction.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Keep open'**
+  String get purchaseOrderCloseKeepAction;
+
+  /// No description provided for @purchaseOrderCloseConfirmAction.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Close order'**
+  String get purchaseOrderCloseConfirmAction;
+
+  /// No description provided for @purchaseOrderFailureValidation.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Check the highlighted purchase-order details.'**
+  String get purchaseOrderFailureValidation;
+
+  /// No description provided for @purchaseOrderFailureUnauthorized.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Your session expired. Sign in again.'**
+  String get purchaseOrderFailureUnauthorized;
+
+  /// No description provided for @purchaseOrderFailureForbidden.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'You do not have permission to manage purchase orders.'**
+  String get purchaseOrderFailureForbidden;
+
+  /// No description provided for @purchaseOrderFailureNotFound.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Purchase order not found.'**
+  String get purchaseOrderFailureNotFound;
+
+  /// No description provided for @purchaseOrderFailureLifecycleConflict.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'This purchase order changed. Refresh and try again.'**
+  String get purchaseOrderFailureLifecycleConflict;
+
+  /// No description provided for @purchaseOrderFailureNetwork.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Could not connect. Check your network.'**
+  String get purchaseOrderFailureNetwork;
+
+  /// No description provided for @purchaseOrderFailureTimeout.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'The request timed out. Try again.'**
+  String get purchaseOrderFailureTimeout;
+
+  /// No description provided for @purchaseOrderFailureServer.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'The server could not complete the request. Try again.'**
+  String get purchaseOrderFailureServer;
+
+  /// No description provided for @purchaseOrderFailureSerialization.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Purchase-order data could not be read.'**
+  String get purchaseOrderFailureSerialization;
+
+  /// No description provided for @purchaseOrderFailureLocalStorage.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Local draft storage failed. Your current edits are still here.'**
+  String get purchaseOrderFailureLocalStorage;
+
+  /// No description provided for @purchaseOrderFailureUnknown.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Something went wrong. Try again.'**
+  String get purchaseOrderFailureUnknown;
+
+  /// No description provided for @purchaseOrderBuilderValidationOrderDates.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Order date must be on or before expected delivery.'**
+  String get purchaseOrderBuilderValidationOrderDates;
+
+  /// No description provided for @purchaseOrderBuilderValidationQuantity.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Quantity must be greater than zero.'**
+  String get purchaseOrderBuilderValidationQuantity;
+
+  /// No description provided for @purchaseOrderBuilderValidationUnitCost.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unit cost must be zero or greater.'**
+  String get purchaseOrderBuilderValidationUnitCost;
+
+  /// No description provided for @purchaseOrderBuilderValidationDescription.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Description must be 255 characters or fewer.'**
+  String get purchaseOrderBuilderValidationDescription;
+
+  /// No description provided for @purchaseOrderBuilderValidationReference.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Supplier reference must be 100 characters or fewer.'**
+  String get purchaseOrderBuilderValidationReference;
+
+  /// No description provided for @purchaseOrderBuilderValidationNotes.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Notes must be 1000 characters or fewer.'**
+  String get purchaseOrderBuilderValidationNotes;
+
+  /// No description provided for @purchaseOrderDraftSaveStorageFailure.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Local draft could not be saved. Your edits remain here.'**
+  String get purchaseOrderDraftSaveStorageFailure;
+
+  /// No description provided for @purchaseOrderDraftRemoveStorageFailure.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Local draft could not be removed. Retry.'**
+  String get purchaseOrderDraftRemoveStorageFailure;
+
+  /// No description provided for @purchaseOrderDraftPlaceCleanupFailure.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'The order was placed, but local cleanup failed. Retry.'**
+  String get purchaseOrderDraftPlaceCleanupFailure;
+
+  /// No description provided for @purchaseOrderDraftSaveCleanupFailure.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'The order was saved, but local cleanup failed. Retry.'**
+  String get purchaseOrderDraftSaveCleanupFailure;
+
+  /// No description provided for @purchaseOrderReceiveFailurePositiveWholeQuantity.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Enter a positive whole number within the remaining quantity.'**
+  String get purchaseOrderReceiveFailurePositiveWholeQuantity;
+
+  /// No description provided for @purchaseOrderReceiveFailureNoRemainingLines.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'No remaining lines are available to receive.'**
+  String get purchaseOrderReceiveFailureNoRemainingLines;
+
+  /// No description provided for @purchaseOrderReceiveFailureSelectLine.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Select at least one line to receive.'**
+  String get purchaseOrderReceiveFailureSelectLine;
+
+  /// No description provided for @purchaseOrderReceiveFailureDuplicateLine.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'A purchase-order line cannot be received twice.'**
+  String get purchaseOrderReceiveFailureDuplicateLine;
+
+  /// No description provided for @purchaseOrderReceiveFailureInvalidNumber.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Enter a valid number.'**
+  String get purchaseOrderReceiveFailureInvalidNumber;
+
+  /// No description provided for @purchaseOrderReceiveFailureQuantityRange.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Quantity must not exceed the remaining amount.'**
+  String get purchaseOrderReceiveFailureQuantityRange;
+
+  /// No description provided for @purchaseOrderReceiveFailureSalesPrice.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Sales price cannot exceed MRP.'**
+  String get purchaseOrderReceiveFailureSalesPrice;
+
+  /// No description provided for @purchaseOrderReceiveFailureTaxRate.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Tax rate must be between 0 and 100.'**
+  String get purchaseOrderReceiveFailureTaxRate;
+
+  /// No description provided for @purchaseOrderReceiveFailureExpiryDate.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Expiry date must be on or after manufacturing date.'**
+  String get purchaseOrderReceiveFailureExpiryDate;
+
+  /// No description provided for @purchaseOrderReceiveFailureRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'This field is required.'**
+  String get purchaseOrderReceiveFailureRequired;
+
+  /// No description provided for @purchaseOrderReceiveFailureMaxLength.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Must be {max} characters or fewer.'**
+  String purchaseOrderReceiveFailureMaxLength(int max);
+
+  /// No description provided for @purchaseOrderReceiveFailureNonNegative.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Must be zero or greater.'**
+  String get purchaseOrderReceiveFailureNonNegative;
+
+  /// No description provided for @purchaseOrderReceiveFailureFieldRejected.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Check this field and try again.'**
+  String get purchaseOrderReceiveFailureFieldRejected;
+
+  /// No description provided for @purchaseOrderReceiveFailureFixFields.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Fix the highlighted receipt fields.'**
+  String get purchaseOrderReceiveFailureFixFields;
+
+  /// No description provided for @purchaseOrderReceiveBarcodeBuildFailure.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Could not generate a barcode. Try again.'**
+  String get purchaseOrderReceiveBarcodeBuildFailure;
+
+  /// No description provided for @purchaseOrderReceiveBarcodeLineBuildFailure.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Could not generate a barcode for this line. Your current value was not changed.'**
+  String get purchaseOrderReceiveBarcodeLineBuildFailure;
+
+  /// No description provided for @purchaseOrderReceivePrefillFailure.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Product defaults could not be loaded. Enter the values manually.'**
+  String get purchaseOrderReceivePrefillFailure;
+
+  /// No description provided for @purchaseOrderDocumentTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Purchase order'**
+  String get purchaseOrderDocumentTitle;
+
+  /// No description provided for @purchaseOrderDocumentHeading.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'PURCHASE ORDER'**
+  String get purchaseOrderDocumentHeading;
+
+  /// No description provided for @purchaseOrderDocumentPageCount.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Page {page} of {pages}'**
+  String purchaseOrderDocumentPageCount(int page, int pages);
+
+  /// No description provided for @purchaseOrderDocumentPhone.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Phone: {phone}'**
+  String purchaseOrderDocumentPhone(String phone);
+
+  /// No description provided for @purchaseOrderDocumentGst.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'GST: {gst}'**
+  String purchaseOrderDocumentGst(String gst);
+
+  /// No description provided for @purchaseOrderDocumentOrderNumber.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Order: {number}'**
+  String purchaseOrderDocumentOrderNumber(String number);
+
+  /// No description provided for @purchaseOrderDocumentSupplier.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Supplier: {supplier}'**
+  String purchaseOrderDocumentSupplier(String supplier);
+
+  /// No description provided for @purchaseOrderDocumentSupplierReference.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Supplier reference: {reference}'**
+  String purchaseOrderDocumentSupplierReference(String reference);
+
+  /// No description provided for @purchaseOrderDocumentSupplierAccount.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Supplier account: {account}'**
+  String purchaseOrderDocumentSupplierAccount(String account);
+
+  /// No description provided for @purchaseOrderDocumentStatus.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Status: {status}'**
+  String purchaseOrderDocumentStatus(String status);
+
+  /// No description provided for @purchaseOrderDocumentCreated.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Created: {date}'**
+  String purchaseOrderDocumentCreated(String date);
+
+  /// No description provided for @purchaseOrderDocumentOrderDate.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Order date: {date}'**
+  String purchaseOrderDocumentOrderDate(String date);
+
+  /// No description provided for @purchaseOrderDocumentExpectedDelivery.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Expected delivery: {date}'**
+  String purchaseOrderDocumentExpectedDelivery(String date);
+
+  /// No description provided for @purchaseOrderDocumentExpectedTotal.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Expected total: {amount}'**
+  String purchaseOrderDocumentExpectedTotal(String amount);
+
+  /// No description provided for @purchaseOrderDocumentNotes.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Notes'**
+  String get purchaseOrderDocumentNotes;
+
+  /// No description provided for @purchaseOrderDocumentDescription.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Description'**
+  String get purchaseOrderDocumentDescription;
+
+  /// No description provided for @purchaseOrderDocumentExpected.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Expected'**
+  String get purchaseOrderDocumentExpected;
+
+  /// No description provided for @purchaseOrderDocumentReceived.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Received'**
+  String get purchaseOrderDocumentReceived;
+
+  /// No description provided for @purchaseOrderDocumentRemaining.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Remaining'**
+  String get purchaseOrderDocumentRemaining;
+
+  /// No description provided for @purchaseOrderDocumentUnitCost.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unit cost'**
+  String get purchaseOrderDocumentUnitCost;
+
+  /// No description provided for @purchaseOrderDocumentTotal.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Total'**
+  String get purchaseOrderDocumentTotal;
+
+  /// No description provided for @purchaseOrderDocumentUnavailable.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unavailable'**
+  String get purchaseOrderDocumentUnavailable;
+
+  /// No description provided for @documentOutputPrintAction.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Print'**
+  String get documentOutputPrintAction;
+
+  /// No description provided for @documentOutputShareAction.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Share'**
+  String get documentOutputShareAction;
+
+  /// No description provided for @documentOutputFailurePdfBuild.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Could not build the PDF. Try again.'**
+  String get documentOutputFailurePdfBuild;
+
+  /// No description provided for @documentOutputFailurePrint.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Could not print the document. Try again.'**
+  String get documentOutputFailurePrint;
+
+  /// No description provided for @documentOutputFailureShare.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Could not share the document. Try again.'**
+  String get documentOutputFailureShare;
 }
 
 class _AppLocalizationsDelegate

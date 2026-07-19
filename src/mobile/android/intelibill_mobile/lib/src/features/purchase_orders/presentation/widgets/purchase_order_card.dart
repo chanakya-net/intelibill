@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intelibill_mobile/src/app/router/app_router.dart';
 import 'package:intelibill_mobile/src/core/formatting/currency_formatter.dart';
+import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_list_item.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_progress.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_status_badge.dart';
@@ -16,6 +17,7 @@ class PurchaseOrderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: InkWell(
@@ -47,16 +49,28 @@ class PurchaseOrderCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 6),
-              Text(purchaseOrder.supplierName ?? 'No supplier'),
+              Text(
+                purchaseOrder.supplierName ?? l10n.purchaseOrderCardNoSupplier,
+              ),
               if (purchaseOrder.supplierReference?.isNotEmpty == true)
-                Text('Ref: ${purchaseOrder.supplierReference}'),
+                Text(
+                  l10n.purchaseOrderCardReference(
+                    purchaseOrder.supplierReference!,
+                  ),
+                ),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 12,
                 runSpacing: 4,
                 children: [
-                  Text('${purchaseOrder.lineCount} lines'),
-                  Text('Expected: ${purchaseOrder.expectedQuantity}'),
+                  Text(
+                    l10n.purchaseOrderCardLineCount(purchaseOrder.lineCount),
+                  ),
+                  Text(
+                    l10n.purchaseOrderCardExpectedQuantity(
+                      purchaseOrder.expectedQuantity,
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 8),

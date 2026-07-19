@@ -82,7 +82,7 @@ void main() {
   ) async {
     final get = _MockGetPurchaseOrder();
     when(() => get(any())).thenAnswer(
-      (_) async => _detail(status: PurchaseOrderStatus.placed),
+      (_) async => _detail(),
     );
 
     final harness = buildHarness(getPurchaseOrder: get);
@@ -139,7 +139,7 @@ void main() {
   testWidgets('navigates to receive route from detail page', (tester) async {
     final get = _MockGetPurchaseOrder();
     when(() => get(any())).thenAnswer(
-      (_) async => _detail(status: PurchaseOrderStatus.placed),
+      (_) async => _detail(),
     );
 
     final harness = buildHarness(getPurchaseOrder: get);
@@ -182,6 +182,6 @@ PurchaseOrder _detail({
       ),
     ],
     expectedTotal: 100,
-    createdAt: DateTime.utc(2026, 7, 1),
+    createdAt: DateTime.utc(2026, 7),
   );
 }

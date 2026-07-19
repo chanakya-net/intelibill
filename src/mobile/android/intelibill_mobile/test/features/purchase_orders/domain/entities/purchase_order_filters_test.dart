@@ -5,7 +5,7 @@ import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/p
 void main() {
   group('PurchaseOrderFilters', () {
     test('constructs with all fields', () {
-      final from = DateTime(2026, 1, 1);
+      final from = DateTime(2026);
       final to = DateTime(2026, 12, 31);
       final filters = PurchaseOrderFilters(
         search: 'test',
@@ -25,7 +25,7 @@ void main() {
     });
 
     test('defaults omitted fields', () {
-      final filters = const PurchaseOrderFilters();
+      const filters = PurchaseOrderFilters();
 
       expect(filters.search, isNull);
       expect(filters.status, isNull);
@@ -43,15 +43,13 @@ void main() {
     });
 
     test('copyWith preserves search and status', () {
-      final from = DateTime(2026, 1, 1);
+      final from = DateTime(2026);
       final to = DateTime(2026, 12, 31);
       final original = PurchaseOrderFilters(
         search: 'widget',
         status: PurchaseOrderStatus.received,
         orderDateFrom: from,
         orderDateTo: to,
-        page: 1,
-        pageSize: 20,
       );
 
       final updated = original.copyWith(page: 2, pageSize: 50);
@@ -89,8 +87,8 @@ void main() {
     });
 
     test('copyWith can override orderDateFrom', () {
-      final from1 = DateTime(2026, 1, 1);
-      final from2 = DateTime(2026, 2, 1);
+      final from1 = DateTime(2026);
+      final from2 = DateTime(2026, 2);
       final original = PurchaseOrderFilters(
         orderDateFrom: from1,
       );
@@ -119,7 +117,7 @@ void main() {
     });
 
     test('equals when all fields match', () {
-      final from = DateTime(2026, 1, 1);
+      final from = DateTime(2026);
       final to = DateTime(2026, 12, 31);
       final a = PurchaseOrderFilters(
         search: 'test',
@@ -157,10 +155,10 @@ void main() {
 
     test('differs when orderDateFrom differs', () {
       final a = PurchaseOrderFilters(
-        orderDateFrom: DateTime(2026, 1, 1),
+        orderDateFrom: DateTime(2026),
       );
       final b = PurchaseOrderFilters(
-        orderDateFrom: DateTime(2026, 2, 1),
+        orderDateFrom: DateTime(2026, 2),
       );
 
       expect(a, isNot(b));
@@ -178,14 +176,14 @@ void main() {
     });
 
     test('differs when page differs', () {
-      const a = PurchaseOrderFilters(page: 1);
+      const a = PurchaseOrderFilters();
       const b = PurchaseOrderFilters(page: 2);
 
       expect(a, isNot(b));
     });
 
     test('differs when pageSize differs', () {
-      const a = PurchaseOrderFilters(pageSize: 20);
+      const a = PurchaseOrderFilters();
       const b = PurchaseOrderFilters(pageSize: 50);
 
       expect(a, isNot(b));

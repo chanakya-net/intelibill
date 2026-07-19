@@ -141,7 +141,7 @@ void main() {
         ),
       ),
     );
-    expect(find.text('Data could not be read.'), findsOneWidget);
+    expect(find.text('Purchase-order data could not be read.'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'Retry'), findsOneWidget);
   });
 
@@ -193,7 +193,7 @@ void main() {
     await tester.pumpWidget(buildTrackingApp(controller));
 
     expect(find.byKey(const Key('purchase-order-card-po-1')), findsOneWidget);
-    expect(find.text('Failed to load more'), findsOneWidget);
+    expect(find.text('Could not load more purchase orders.'), findsOneWidget);
     await tester.tap(find.widgetWithText(FilledButton, 'Retry'));
     await tester.pump();
 
@@ -231,6 +231,8 @@ void main() {
     for (final status in PurchaseOrderStatus.values) {
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: PurchaseOrderCard(purchaseOrder: _item(status: status)),
           ),
@@ -240,7 +242,7 @@ void main() {
         find.byKey(Key('purchase-order-status-${status.name}')),
         findsOneWidget,
       );
-      expect(find.text(status.wireValue), findsOneWidget);
+      expect(find.text(_statusText(status)), findsOneWidget);
     }
   });
 
@@ -362,7 +364,7 @@ void main() {
 
     expect(find.byType(FilterChip), findsWidgets);
     for (final status in PurchaseOrderStatus.values) {
-      expect(find.text(status.wireValue), findsWidgets);
+      expect(find.text(_statusText(status)), findsWidgets);
     }
   });
 
@@ -485,3 +487,8 @@ PurchaseOrderListItem _item({
   expectedTotal: 1240.5,
   createdAt: DateTime(2026, 7, 1, 10),
 );
+
+String _statusText(PurchaseOrderStatus status) =>
+    status == PurchaseOrderStatus.partiallyReceived
+    ? 'Partially received'
+    : status.wireValue;

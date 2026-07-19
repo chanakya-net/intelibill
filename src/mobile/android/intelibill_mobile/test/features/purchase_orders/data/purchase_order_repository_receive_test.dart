@@ -3,11 +3,11 @@ import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/data_sources/purchase_order_remote_data_source.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/purchase_order_detail_dto.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/receive_purchase_order_request_dto.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/data/repositories/purchase_order_repository_impl.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_status.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/receive_purchase_order_input.dart';
-import 'package:intelibill_mobile/src/features/purchase_orders/data/dto/receive_purchase_order_request_dto.dart';
 import 'package:mocktail/mocktail.dart';
 
 class MockPurchaseOrderRemoteDataSource extends Mock
@@ -37,8 +37,8 @@ void main() {
         referenceNumber: '  PO-REF  ',
         notes: '  notes  ',
         receivedAt: DateTime.utc(2026, 7, 19, 8, 30),
-        lines: [
-          const ReceivePurchaseOrderLineInput(
+        lines: const [
+          ReceivePurchaseOrderLineInput(
             purchaseOrderLineId: 'line-1',
             barcode: 'BAR-1',
             batchNumber: 'BN-1',
@@ -109,7 +109,7 @@ void main() {
         'po-1',
         ReceivePurchaseOrderInput(
           receivedAt: DateTime.utc(2026, 7, 19),
-          lines: [],
+          lines: const [],
         ),
       ),
       throwsA(isA<AppException>()),
@@ -124,7 +124,7 @@ void main() {
         'po-1',
         ReceivePurchaseOrderInput(
           receivedAt: DateTime.utc(2026, 7, 19),
-          lines: [
+          lines: const [
             ReceivePurchaseOrderLineInput(
               purchaseOrderLineId: 'line-1',
               barcode: 'BAR-1',
@@ -175,7 +175,7 @@ void main() {
         'po-1',
         ReceivePurchaseOrderInput(
           receivedAt: DateTime.utc(2026, 7, 19),
-          lines: [
+          lines: const [
             ReceivePurchaseOrderLineInput(
               purchaseOrderLineId: 'line-1',
               barcode: 'BAR-1',
@@ -207,7 +207,7 @@ void main() {
         'po-1',
         ReceivePurchaseOrderInput(
           receivedAt: DateTime.utc(2026, 7, 19),
-          lines: [
+          lines: const [
             ReceivePurchaseOrderLineInput(
               purchaseOrderLineId: 'line-1',
               barcode: 'BAR-1',
@@ -246,7 +246,7 @@ PurchaseOrderDetailDto _detailDto() => PurchaseOrderDetailDto(
     ),
   ],
   expectedTotal: 100,
-  createdAt: DateTime.utc(2026, 7, 1),
+  createdAt: DateTime.utc(2026, 7),
   receivedQuantity: 5,
 );
 
@@ -254,7 +254,7 @@ ReceivePurchaseOrderRequestDto _receiveRequest() =>
     ReceivePurchaseOrderRequestDto(
       receivedAt: DateTime.utc(2026, 7, 19),
       lines: [
-        ReceivePurchaseOrderLineRequestDto(
+        const ReceivePurchaseOrderLineRequestDto(
           purchaseOrderLineId: 'line-1',
           barcode: 'BAR-1',
           batchNumber: 'BN-1',
