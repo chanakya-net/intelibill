@@ -12,10 +12,10 @@ import 'package:intelibill_mobile/src/features/inventory/data/mappers/inventory_
 import 'package:intelibill_mobile/src/features/inventory/data/mappers/inventory_batch_mapper.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/mappers/item_mapper.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/mappers/product_details_mapper.dart';
+import 'package:intelibill_mobile/src/features/inventory/domain/entities/generated_item_barcode.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/entities/inventory_adjustment.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/entities/inventory_batch.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/entities/item.dart';
-import 'package:intelibill_mobile/src/features/inventory/domain/entities/generated_item_barcode.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/entities/product_details.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/repositories/inventory_repository.dart';
 

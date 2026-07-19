@@ -4,21 +4,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
+import 'package:intelibill_mobile/src/features/inventory/domain/entities/generated_item_barcode.dart';
+import 'package:intelibill_mobile/src/features/inventory/domain/use_cases/generate_item_barcode.dart';
+import 'package:intelibill_mobile/src/features/inventory/presentation/controllers/items_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_filters.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_line.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_page.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_status.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/receive_purchase_order_input.dart';
-import 'package:intelibill_mobile/src/features/inventory/domain/entities/generated_item_barcode.dart';
-import 'package:intelibill_mobile/src/features/inventory/domain/use_cases/generate_item_barcode.dart';
-import 'package:intelibill_mobile/src/features/inventory/presentation/controllers/items_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/get_purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/get_purchase_orders.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/receive_purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_providers.dart';
-import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/receive_purchase_order_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_orders_controller.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/receive_purchase_order_controller.dart';
 import 'package:mocktail/mocktail.dart';
 
 class _MockGetPurchaseOrder extends Mock implements GetPurchaseOrder {}
@@ -368,7 +368,9 @@ void main() {
       when(() => generateItemBarcode()).thenAnswer((_) async {
         attempt += 1;
         if (attempt == 1) {
-          throw AppException(failure: const Failure.network(message: 'offline'));
+          throw AppException(
+            failure: const Failure.network(message: 'offline'),
+          );
         }
         return const GeneratedItemBarcode(barcode: 'IB-000001');
       });
@@ -404,9 +406,11 @@ void main() {
       expect(await controller.generateItemBarcodeForLine('line-1'), isNull);
       await Future<void>.delayed(const Duration(milliseconds: 20));
       expect(
-        container.read(
-          receivePurchaseOrderControllerProvider('po-1'),
-        ).barcodeGenerationFailures,
+        container
+            .read(
+              receivePurchaseOrderControllerProvider('po-1'),
+            )
+            .barcodeGenerationFailures,
         containsPair('line-1', isNotNull),
       );
 
@@ -488,11 +492,15 @@ void main() {
 
     await Future<void>.delayed(const Duration(milliseconds: 20));
     expect(
-      container.read(receivePurchaseOrderControllerProvider('po-1')).barcodeGenerationLineIds,
+      container
+          .read(receivePurchaseOrderControllerProvider('po-1'))
+          .barcodeGenerationLineIds,
       contains('line-1'),
     );
     expect(
-      container.read(receivePurchaseOrderControllerProvider('po-1')).barcodeGenerationLineIds,
+      container
+          .read(receivePurchaseOrderControllerProvider('po-1'))
+          .barcodeGenerationLineIds,
       contains('line-2'),
     );
 
@@ -508,15 +516,23 @@ void main() {
         .applyGeneratedBarcode('line-2', 'IB-000002');
 
     expect(
-      container.read(receivePurchaseOrderControllerProvider('po-1')).barcodeGenerationLineIds,
+      container
+          .read(receivePurchaseOrderControllerProvider('po-1'))
+          .barcodeGenerationLineIds,
       isEmpty,
     );
     expect(
-      container.read(receivePurchaseOrderControllerProvider('po-1')).lines[0].barcode,
+      container
+          .read(receivePurchaseOrderControllerProvider('po-1'))
+          .lines[0]
+          .barcode,
       'IB-000001',
     );
     expect(
-      container.read(receivePurchaseOrderControllerProvider('po-1')).lines[1].barcode,
+      container
+          .read(receivePurchaseOrderControllerProvider('po-1'))
+          .lines[1]
+          .barcode,
       'IB-000002',
     );
     verify(() => generateItemBarcode()).called(2);

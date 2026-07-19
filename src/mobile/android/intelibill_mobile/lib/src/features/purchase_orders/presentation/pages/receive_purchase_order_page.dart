@@ -5,10 +5,10 @@ import 'package:intelibill_mobile/src/app/router/app_router.dart';
 import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
 import 'package:intelibill_mobile/src/core/formatting/currency_formatter.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
-import 'package:intelibill_mobile/src/shared/barcode_scanner/barcode_scan_result.dart';
-import 'package:intelibill_mobile/src/shared/barcode_scanner/show_barcode_scanner.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/receive_purchase_order_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_receive_line_card.dart';
+import 'package:intelibill_mobile/src/shared/barcode_scanner/barcode_scan_result.dart';
+import 'package:intelibill_mobile/src/shared/barcode_scanner/show_barcode_scanner.dart';
 import 'package:intl/intl.dart';
 
 class ReceivePurchaseOrderPage extends ConsumerWidget {
@@ -287,8 +287,9 @@ class ReceivePurchaseOrderPage extends ConsumerWidget {
       receivePurchaseOrderControllerProvider(purchaseOrderId).notifier,
     );
     final generated = await controller.generateItemBarcodeForLine(lineId);
-    if (generated == null || generated.trim().isEmpty || !context.mounted)
+    if (generated == null || generated.trim().isEmpty || !context.mounted) {
       return;
+    }
 
     final current = _line(ref, lineId);
     if (current == null) return;

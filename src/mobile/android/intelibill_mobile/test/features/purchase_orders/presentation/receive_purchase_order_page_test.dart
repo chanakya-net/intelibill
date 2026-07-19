@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,16 +15,15 @@ import 'package:intelibill_mobile/src/features/inventory/presentation/controller
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_line.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_status.dart';
+import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/receive_purchase_order_input.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/get_purchase_order.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/use_cases/receive_purchase_order.dart';
-import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/receive_purchase_order_input.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_providers.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/receive_purchase_order_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/pages/receive_purchase_order_page.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_receive_line_card.dart';
 import 'package:intelibill_mobile/src/shared/barcode_scanner/barcode_scan_result.dart';
 import 'package:mocktail/mocktail.dart';
-import 'dart:async';
 
 class _MockGetPurchaseOrder extends Mock implements GetPurchaseOrder {}
 
@@ -432,7 +433,78 @@ void main() {
     );
   });
 
-  testWidgets('keeps existing barcode on cancelled scan', (tester) async {
+  testWidgets('keeps barcode on null scan and allows successful retry', (
+    tester,
+  ) async {
+    final getPurchaseOrder = _MockGetPurchaseOrder();
+    final receive = _MockReceivePurchaseOrder();
+    var attempts = 0;
+    when(() => getPurchaseOrder('po-1')).thenAnswer((_) async => _detail());
+    final harness = buildHarness(
+      getPurchaseOrder: getPurchaseOrder,
+      receivePurchaseOrder: receive,
+      scanBarcode: (_) async {
+        attempts += 1;
+        return attempts == 1 ? null : const BarcodeScanResult(value: 'SC-001');
+      },
+    );
+    addTearDown(() {
+      harness.router.dispose();
+      harness.container.dispose();
+    });
+
+    await tester.pumpWidget(harness.app);
+    await tester.pumpAndSettle();
+    await expandFirstLine(tester);
+
+    await tapLineButton(
+      tester,
+      PurchaseOrderReceiveLineCard.scanBarcodeButton('line-1'),
+    );
+    await tester.pumpAndSettle();
+
+    final barcodeField = find.byKey(
+      PurchaseOrderReceiveLineCard.barcodeField('line-1'),
+    );
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(
+      harness.container
+          .read(receivePurchaseOrderControllerProvider('po-1'))
+          .lines
+          .single
+          .barcode,
+      'item-1',
+    );
+    expect(tester.widget<TextField>(barcodeField).controller!.text, 'item-1');
+
+    await tapLineButton(
+      tester,
+      PurchaseOrderReceiveLineCard.scanBarcodeButton('line-1'),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.byType(FilledButton),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(attempts, 2);
+    expect(
+      harness.container
+          .read(receivePurchaseOrderControllerProvider('po-1'))
+          .lines
+          .single
+          .barcode,
+      'SC-001',
+    );
+    expect(tester.widget<TextField>(barcodeField).controller!.text, 'SC-001');
+  });
+
+  testWidgets('keeps existing barcode when scan replacement is cancelled', (
+    tester,
+  ) async {
     final getPurchaseOrder = _MockGetPurchaseOrder();
     final receive = _MockReceivePurchaseOrder();
     when(() => getPurchaseOrder('po-1')).thenAnswer((_) async => _detail());
@@ -681,7 +753,9 @@ void main() {
       when(() => generateItemBarcode()).thenAnswer((_) async {
         attempts += 1;
         if (attempts == 1) {
-          throw AppException(failure: const Failure.network(message: 'offline'));
+          throw AppException(
+            failure: const Failure.network(message: 'offline'),
+          );
         }
         return const GeneratedItemBarcode(barcode: 'IB-000001');
       });
@@ -843,7 +917,6 @@ void main() {
       'IB-000001',
     );
   });
-
 }
 
 PurchaseOrder _detail({

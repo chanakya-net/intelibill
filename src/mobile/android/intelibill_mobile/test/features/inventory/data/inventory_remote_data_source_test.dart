@@ -1,5 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intelibill_mobile/src/core/errors/app_exception.dart';
+import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/data_sources/inventory_remote_data_source.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/dto/add_inventory_batch_request_dto.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/dto/add_inventory_batch_row_dto.dart';
@@ -528,7 +530,26 @@ void main() {
         ).called(1);
       });
 
-      test('throws malformed payload as FormatException from Dio contract', () {
+      test('propagates API failures from the barcode endpoint', () async {
+        final exception = AppException(
+          failure: const Failure.network(message: 'offline'),
+        );
+        when(
+          () => mockApiClient.post<Map<String, dynamic>>(any<String>()),
+        ).thenThrow(exception);
+
+        await expectLater(
+          remoteDataSource.generateItemBarcode(),
+          throwsA(same(exception)),
+        );
+        verify(
+          () => mockApiClient.post<Map<String, dynamic>>(
+            '/items/barcodes/generate',
+          ),
+        ).called(1);
+      });
+
+      test('throws malformed payload as TypeError from generated DTO', () {
         when(
           () => mockApiClient.post<Map<String, dynamic>>(any<String>()),
         ).thenAnswer(

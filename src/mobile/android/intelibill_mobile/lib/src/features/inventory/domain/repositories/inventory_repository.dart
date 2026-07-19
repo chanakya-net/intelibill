@@ -1,8 +1,8 @@
+import 'package:intelibill_mobile/src/features/inventory/domain/entities/generated_item_barcode.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/entities/inventory_adjustment.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/entities/inventory_batch.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/entities/item.dart';
 import 'package:intelibill_mobile/src/features/inventory/domain/entities/product_details.dart';
-import 'package:intelibill_mobile/src/features/inventory/domain/entities/generated_item_barcode.dart';
 
 interface class InventoryRepository {
   Future<List<Item>> getItems() {

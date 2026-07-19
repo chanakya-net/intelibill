@@ -3,13 +3,13 @@ import 'package:intelibill_mobile/src/features/inventory/data/dto/add_inventory_
 import 'package:intelibill_mobile/src/features/inventory/data/dto/add_inventory_batch_response_dto.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/dto/adjust_inventory_batch_request_dto.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/dto/create_item_request_dto.dart';
+import 'package:intelibill_mobile/src/features/inventory/data/dto/generate_item_barcode_response_dto.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/dto/inventory_adjustment_history_response_dto.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/dto/inventory_batch_dto.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/dto/item_catalog_response_dto.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/dto/item_dto.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/dto/product_details_dto.dart';
 import 'package:intelibill_mobile/src/features/inventory/data/dto/update_item_request_dto.dart';
-import 'package:intelibill_mobile/src/features/inventory/data/dto/generate_item_barcode_response_dto.dart';
 
 interface class InventoryRemoteDataSource {
   Future<List<ItemDto>> getItems() {
