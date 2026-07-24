@@ -103,8 +103,17 @@ class DashboardLatestSalesCard extends StatelessWidget {
               alignment: Alignment.centerRight,
               child: OutlinedButton.icon(
                 onPressed: () => context.push(AppRoutes.salesHistory),
-                icon: const Icon(Icons.arrow_forward),
+                icon: Icon(
+                  Icons.arrow_forward,
+                  color: theme.colorScheme.primary,
+                ),
                 label: Text(l10n.dashboardLatestSalesViewSales),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: theme.colorScheme.primary,
+                  side: BorderSide(
+                    color: theme.dividerTheme.color ?? const Color(0xFFFED7AA),
+                  ),
+                ),
               ),
             ),
           ],

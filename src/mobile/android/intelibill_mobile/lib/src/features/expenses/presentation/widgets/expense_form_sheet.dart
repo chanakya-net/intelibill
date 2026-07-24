@@ -184,7 +184,6 @@ class _ExpenseFormSheetState extends ConsumerState<ExpenseFormSheet> {
                   textInputAction: TextInputAction.next,
                   decoration: InputDecoration(
                     labelText: l10n.expensesCategoryLabel,
-                    border: const OutlineInputBorder(),
                   ),
                   validator: (value) => _validateText(
                     value,
@@ -232,7 +231,6 @@ class _ExpenseFormSheetState extends ConsumerState<ExpenseFormSheet> {
                   textInputAction: TextInputAction.next,
                   decoration: InputDecoration(
                     labelText: l10n.expensesAmountLabel,
-                    border: const OutlineInputBorder(),
                   ),
                   validator: (value) => _validateAmount(
                     value,
@@ -248,7 +246,6 @@ class _ExpenseFormSheetState extends ConsumerState<ExpenseFormSheet> {
                   textInputAction: TextInputAction.next,
                   decoration: InputDecoration(
                     labelText: l10n.expensesPaidToLabel,
-                    border: const OutlineInputBorder(),
                   ),
                   validator: (value) => _validateText(
                     value,
@@ -264,7 +261,6 @@ class _ExpenseFormSheetState extends ConsumerState<ExpenseFormSheet> {
                   child: InputDecorator(
                     decoration: InputDecoration(
                       labelText: l10n.expensesDateLabel,
-                      border: const OutlineInputBorder(),
                     ),
                     child: Text(
                       MaterialLocalizations.of(
@@ -281,7 +277,6 @@ class _ExpenseFormSheetState extends ConsumerState<ExpenseFormSheet> {
                   maxLines: 3,
                   decoration: InputDecoration(
                     labelText: l10n.expensesDescriptionLabel,
-                    border: const OutlineInputBorder(),
                   ),
                   validator: (value) => _validateOptional(
                     value,
@@ -392,17 +387,25 @@ class _ErrorBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colors.errorContainer),
         color: colors.errorContainer,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(message, style: TextStyle(color: colors.onErrorContainer)),
+          Text(
+            message,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colors.onErrorContainer,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
           if (onRetry != null)
             TextButton(
               key: retryKey,

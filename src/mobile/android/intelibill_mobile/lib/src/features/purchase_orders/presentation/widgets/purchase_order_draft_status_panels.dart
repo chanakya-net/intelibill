@@ -24,47 +24,29 @@ class PurchaseOrderRecoveredDraftBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final colors = Theme.of(context).colorScheme;
-    return Semantics(
-      liveRegion: true,
-      child: Card(
-        key: bannerKey,
-        color: colors.secondaryContainer,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                l10n.purchaseOrderDraftRecoveredTitle,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 4),
-              Text(l10n.purchaseOrderDraftRecoveredMessage),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                children: [
-                  FilledButton.tonal(
-                    key: continueKey,
-                    onPressed: isBusy ? null : onContinue,
-                    child: Text(l10n.purchaseOrderDraftContinue),
-                  ),
-                  TextButton(
-                    key: discardKey,
-                    onPressed: isBusy ? null : onDiscard,
-                    child: Text(
-                      isEdit
-                          ? l10n.purchaseOrderDraftDiscardAndReload
-                          : l10n.purchaseOrderDraftDiscardLocal,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+    return _DraftStatusPanel(
+      panelKey: bannerKey,
+      icon: Icons.restore_outlined,
+      title: l10n.purchaseOrderDraftRecoveredTitle,
+      message: l10n.purchaseOrderDraftRecoveredMessage,
+      backgroundColor: const Color(0xFFFFEDD5),
+      foregroundColor: const Color(0xFF7C2D12),
+      actions: [
+        FilledButton.tonal(
+          key: continueKey,
+          onPressed: isBusy ? null : onContinue,
+          child: Text(l10n.purchaseOrderDraftContinue),
+        ),
+        TextButton(
+          key: discardKey,
+          onPressed: isBusy ? null : onDiscard,
+          child: Text(
+            isEdit
+                ? l10n.purchaseOrderDraftDiscardAndReload
+                : l10n.purchaseOrderDraftDiscardLocal,
           ),
         ),
-      ),
+      ],
     );
   }
 }
@@ -86,19 +68,92 @@ class PurchaseOrderStorageWarningBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final colors = Theme.of(context).colorScheme;
+    return _DraftStatusPanel(
+      panelKey: bannerKey,
+      icon: Icons.warning_amber_rounded,
+      title: l10n.purchaseOrderDraftStorageWarning,
+      message: message,
+      backgroundColor: colors.errorContainer,
+      foregroundColor: colors.onErrorContainer,
+      iconColor: colors.error,
+      actions: [
+        TextButton(
+          key: retryKey,
+          onPressed: onRetry,
+          child: Text(l10n.purchaseOrderBuilderRetry),
+        ),
+      ],
+    );
+  }
+}
+
+class _DraftStatusPanel extends StatelessWidget {
+  const _DraftStatusPanel({
+    required this.panelKey,
+    required this.icon,
+    required this.title,
+    required this.message,
+    required this.backgroundColor,
+    required this.foregroundColor,
+    required this.actions,
+    this.iconColor,
+  });
+
+  final Key panelKey;
+  final IconData icon;
+  final String title;
+  final String message;
+  final Color backgroundColor;
+  final Color foregroundColor;
+  final Color? iconColor;
+  final List<Widget> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Semantics(
       liveRegion: true,
-      child: Card(
-        key: bannerKey,
-        child: ListTile(
-          leading: const Icon(Icons.warning_amber_rounded),
-          title: Text(l10n.purchaseOrderDraftStorageWarning),
-          subtitle: Text(message),
-          trailing: TextButton(
-            key: retryKey,
-            onPressed: onRetry,
-            child: Text(l10n.purchaseOrderBuilderRetry),
-          ),
+      child: Container(
+        key: panelKey,
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: foregroundColor.withValues(alpha: 0.2)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(icon, color: iconColor ?? foregroundColor, size: 22),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: foregroundColor,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: foregroundColor,
+              ),
+            ),
+            if (actions.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Wrap(spacing: 8, runSpacing: 8, children: actions),
+            ],
+          ],
         ),
       ),
     );

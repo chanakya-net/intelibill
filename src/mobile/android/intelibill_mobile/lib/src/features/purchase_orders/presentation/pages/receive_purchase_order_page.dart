@@ -74,166 +74,190 @@ class ReceivePurchaseOrderPage extends ConsumerWidget {
       body: SafeArea(
         child: FocusTraversalGroup(
           policy: OrderedTraversalPolicy(),
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-            children: [
-              Text(
-                detail.purchaseOrderNumber,
-                style: Theme.of(context).textTheme.titleLarge,
+          child: Form(
+            child: ListView(
+              padding: EdgeInsets.fromLTRB(
+                16,
+                16,
+                16,
+                24 + MediaQuery.of(context).viewInsets.bottom,
               ),
-              const SizedBox(height: 8),
-              _ReadOnlyField(
-                label: l10n.purchaseOrderReceiveReceivedAtLabel,
-                value: receivedAtText,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                key: referenceFieldKey,
-                decoration: InputDecoration(
-                  labelText: l10n.purchaseOrderReceiveReferenceLabel,
+              children: [
+                Text(
+                  detail.purchaseOrderNumber,
+                  style: Theme.of(context).textTheme.titleLarge,
                 ),
-                initialValue: state.referenceNumber,
-                onChanged: controller.updateReferenceNumber,
-                maxLength: 120,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                key: notesFieldKey,
-                decoration: InputDecoration(
-                  labelText: l10n.purchaseOrderReceiveNotesLabel,
-                ),
-                initialValue: state.notes,
-                onChanged: controller.updateNotes,
-                maxLines: 4,
-                maxLength: 500,
-              ),
-              if (state.failure != null) ...[
                 const SizedBox(height: 8),
-                Semantics(
-                  liveRegion: true,
-                  child: Text(
-                    state.localMessage == null
-                        ? purchaseOrderFailureMessage(l10n, state.failure!)
-                        : purchaseOrderMessage(l10n, state.localMessage!),
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
+                TextFormField(
+                  readOnly: true,
+                  initialValue: receivedAtText,
+                  decoration: InputDecoration(
+                    labelText: l10n.purchaseOrderReceiveReceivedAtLabel,
                   ),
                 ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  key: referenceFieldKey,
+                  textInputAction: TextInputAction.next,
+                  decoration: InputDecoration(
+                    labelText: l10n.purchaseOrderReceiveReferenceLabel,
+                  ),
+                  initialValue: state.referenceNumber,
+                  onChanged: controller.updateReferenceNumber,
+                  maxLength: 120,
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  key: notesFieldKey,
+                  textInputAction: TextInputAction.newline,
+                  decoration: InputDecoration(
+                    labelText: l10n.purchaseOrderReceiveNotesLabel,
+                  ),
+                  initialValue: state.notes,
+                  onChanged: controller.updateNotes,
+                  maxLines: 4,
+                  maxLength: 500,
+                ),
+                if (state.failure != null) ...[
+                  const SizedBox(height: 8),
+                  Semantics(
+                    liveRegion: true,
+                    child: Text(
+                      state.localMessage == null
+                          ? purchaseOrderFailureMessage(l10n, state.failure!)
+                          : purchaseOrderMessage(l10n, state.localMessage!),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.error,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+                if (state.lines.isEmpty) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    key: noLinesTextKey,
+                    l10n.purchaseOrderReceiveNoLines,
+                  ),
+                ] else ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    l10n.purchaseOrderDetailLinesHeader,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ...state.lines.map(
+                    (line) => PurchaseOrderReceiveLineCard(
+                      line: line,
+                      onSelectionChanged: (value) => controller.setLineSelected(
+                        line.purchaseOrderLineId,
+                        isSelected: value,
+                      ),
+                      onQuantityChanged: (value) => controller.updateQuantity(
+                        line.purchaseOrderLineId,
+                        value,
+                      ),
+                      onBarcodeChanged: (value) => controller.updateBarcode(
+                        line.purchaseOrderLineId,
+                        value,
+                      ),
+                      onScanBarcode: () => _scanLineBarcode(
+                        context,
+                        ref,
+                        l10n,
+                        line.purchaseOrderLineId,
+                      ),
+                      onGenerateBarcode: () => _generateLineBarcode(
+                        context,
+                        ref,
+                        l10n,
+                        line.purchaseOrderLineId,
+                      ),
+                      onBatchNumberChanged: (value) =>
+                          controller.updateBatchNumber(
+                            line.purchaseOrderLineId,
+                            value,
+                          ),
+                      onUnitPurchaseCostChanged: (value) =>
+                          controller.updateUnitPurchaseCost(
+                            line.purchaseOrderLineId,
+                            value,
+                          ),
+                      onTotalPurchaseCostChanged: (value) =>
+                          controller.updateTotalPurchaseCost(
+                            line.purchaseOrderLineId,
+                            value,
+                          ),
+                      onMrpChanged: (value) => controller.updateMrp(
+                        line.purchaseOrderLineId,
+                        value,
+                      ),
+                      onSalesPriceChanged: (value) =>
+                          controller.updateSalesPrice(
+                            line.purchaseOrderLineId,
+                            value,
+                          ),
+                      onTaxRatePercentChanged: (value) =>
+                          controller.updateTaxRatePercent(
+                            line.purchaseOrderLineId,
+                            value,
+                          ),
+                      onTaxIncludedChanged: (value) =>
+                          controller.updateTaxIncluded(
+                            line.purchaseOrderLineId,
+                            value: value,
+                          ),
+                      onPurchaseTaxIncludedChanged: (value) =>
+                          controller.updatePurchaseTaxIncluded(
+                            line.purchaseOrderLineId,
+                            value: value,
+                          ),
+                      onExpiryDateChanged: (value) =>
+                          controller.updateExpiryDate(
+                            line.purchaseOrderLineId,
+                            value,
+                          ),
+                      onManufacturingDateChanged: (value) =>
+                          controller.updateManufacturingDate(
+                            line.purchaseOrderLineId,
+                            value,
+                          ),
+                      isExpanded:
+                          state.expandedLineId == line.purchaseOrderLineId,
+                      focusedField:
+                          state.focusedLineId == null ||
+                              state.expandedLineId != line.purchaseOrderLineId
+                          ? null
+                          : state.focusedLineId,
+                      errors: _localizedLineErrors(
+                        l10n,
+                        state.lineErrors[line.purchaseOrderLineId],
+                      ),
+                      isBarcodeGenerating: state.barcodeGenerationLineIds
+                          .contains(
+                            line.purchaseOrderLineId,
+                          ),
+                      barcodeGenerationFailure: _localizedOptionalMessage(
+                        l10n,
+                        state.barcodeGenerationFailures[line
+                            .purchaseOrderLineId],
+                      ),
+                      isPrefillLoading: state.prefillLoadingLineIds.contains(
+                        line.purchaseOrderLineId,
+                      ),
+                      prefillFailure: _localizedOptionalMessage(
+                        l10n,
+                        state.prefillFailures[line.purchaseOrderLineId],
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                _SummaryCard(state: state),
               ],
-              const SizedBox(height: 12),
-              if (state.lines.isEmpty)
-                Padding(
-                  key: noLinesTextKey,
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Text(l10n.purchaseOrderReceiveNoLines),
-                )
-              else
-                ...state.lines.map(
-                  (line) => PurchaseOrderReceiveLineCard(
-                    line: line,
-                    onSelectionChanged: (value) => controller.setLineSelected(
-                      line.purchaseOrderLineId,
-                      isSelected: value,
-                    ),
-                    onQuantityChanged: (value) => controller.updateQuantity(
-                      line.purchaseOrderLineId,
-                      value,
-                    ),
-                    onBarcodeChanged: (value) => controller.updateBarcode(
-                      line.purchaseOrderLineId,
-                      value,
-                    ),
-                    onScanBarcode: () => _scanLineBarcode(
-                      context,
-                      ref,
-                      l10n,
-                      line.purchaseOrderLineId,
-                    ),
-                    onGenerateBarcode: () => _generateLineBarcode(
-                      context,
-                      ref,
-                      l10n,
-                      line.purchaseOrderLineId,
-                    ),
-                    onBatchNumberChanged: (value) =>
-                        controller.updateBatchNumber(
-                          line.purchaseOrderLineId,
-                          value,
-                        ),
-                    onUnitPurchaseCostChanged: (value) =>
-                        controller.updateUnitPurchaseCost(
-                          line.purchaseOrderLineId,
-                          value,
-                        ),
-                    onTotalPurchaseCostChanged: (value) =>
-                        controller.updateTotalPurchaseCost(
-                          line.purchaseOrderLineId,
-                          value,
-                        ),
-                    onMrpChanged: (value) => controller.updateMrp(
-                      line.purchaseOrderLineId,
-                      value,
-                    ),
-                    onSalesPriceChanged: (value) => controller.updateSalesPrice(
-                      line.purchaseOrderLineId,
-                      value,
-                    ),
-                    onTaxRatePercentChanged: (value) =>
-                        controller.updateTaxRatePercent(
-                          line.purchaseOrderLineId,
-                          value,
-                        ),
-                    onTaxIncludedChanged: (value) =>
-                        controller.updateTaxIncluded(
-                          line.purchaseOrderLineId,
-                          value: value,
-                        ),
-                    onPurchaseTaxIncludedChanged: (value) =>
-                        controller.updatePurchaseTaxIncluded(
-                          line.purchaseOrderLineId,
-                          value: value,
-                        ),
-                    onExpiryDateChanged: (value) => controller.updateExpiryDate(
-                      line.purchaseOrderLineId,
-                      value,
-                    ),
-                    onManufacturingDateChanged: (value) =>
-                        controller.updateManufacturingDate(
-                          line.purchaseOrderLineId,
-                          value,
-                        ),
-                    isExpanded:
-                        state.expandedLineId == line.purchaseOrderLineId,
-                    focusedField:
-                        state.focusedLineId == null ||
-                            state.expandedLineId != line.purchaseOrderLineId
-                        ? null
-                        : state.focusedLineId,
-                    errors: _localizedLineErrors(
-                      l10n,
-                      state.lineErrors[line.purchaseOrderLineId],
-                    ),
-                    isBarcodeGenerating: state.barcodeGenerationLineIds
-                        .contains(
-                          line.purchaseOrderLineId,
-                        ),
-                    barcodeGenerationFailure: _localizedOptionalMessage(
-                      l10n,
-                      state.barcodeGenerationFailures[line.purchaseOrderLineId],
-                    ),
-                    isPrefillLoading: state.prefillLoadingLineIds.contains(
-                      line.purchaseOrderLineId,
-                    ),
-                    prefillFailure: _localizedOptionalMessage(
-                      l10n,
-                      state.prefillFailures[line.purchaseOrderLineId],
-                    ),
-                  ),
-                ),
-              const SizedBox(height: 12),
-              _SummaryCard(state: state),
-            ],
+            ),
           ),
         ),
       ),
@@ -417,25 +441,6 @@ class _FailureView extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _ReadOnlyField extends StatelessWidget {
-  const _ReadOnlyField({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: Theme.of(context).textTheme.labelLarge),
-        const SizedBox(height: 4),
-        Text(value),
-      ],
     );
   }
 }

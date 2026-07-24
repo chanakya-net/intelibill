@@ -2,8 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:intelibill_mobile/src/app/router/app_router.dart';
 import 'package:intelibill_mobile/src/app/shell/menu_visibility.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
+import 'package:intelibill_mobile/src/core/formatting/currency_formatter.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:intelibill_mobile/src/features/services/domain/entities/service.dart';
@@ -52,11 +55,21 @@ class _ServicesPageState extends ConsumerState<ServicesPage> {
     final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.servicesTitle)),
+      appBar: AppBar(
+        title: Text(l10n.servicesTitle),
+        actions: [
+          IconButton(
+            tooltip: l10n.shellProfile,
+            icon: const Icon(Icons.account_circle),
+            onPressed: () => context.push(AppRoutes.profile),
+          ),
+        ],
+      ),
       floatingActionButton: canManage
           ? FloatingActionButton.extended(
               key: ServicesPage.addServiceFabKey,
               onPressed: () => unawaited(_openCreateSheet()),
+              tooltip: l10n.servicesAddService,
               icon: const Icon(Icons.add),
               label: Text(l10n.servicesAddService),
             )
@@ -121,6 +134,7 @@ class _ServicesPageState extends ConsumerState<ServicesPage> {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
+      showDragHandle: true,
       builder: (context) => const CreateServiceSheet(),
     );
 
@@ -136,6 +150,7 @@ class _ServicesPageState extends ConsumerState<ServicesPage> {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
+      showDragHandle: true,
       builder: (context) => EditServiceSheet(service: service),
     );
 
@@ -240,6 +255,7 @@ class _ServicesPageState extends ConsumerState<ServicesPage> {
             )
           : ListView.builder(
               physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.only(bottom: 88),
               itemCount: services.length,
               itemBuilder: (context, index) => _ServiceCard(
                 service: services[index],
@@ -331,8 +347,8 @@ class _ServiceCard extends StatelessWidget {
                         const SizedBox(height: 4),
                         Text(
                           service.code,
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            letterSpacing: 0,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
                           ),
                         ),
                       ],
@@ -385,7 +401,7 @@ class _ServiceCard extends StatelessWidget {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  _MetaChip(label: service.price.toStringAsFixed(2)),
+                  _MetaChip(label: formatInr(service.price)),
                   _MetaChip(
                     label: '${service.taxRatePercent.toStringAsFixed(0)}%',
                   ),
@@ -435,7 +451,7 @@ class _StatusChip extends StatelessWidget {
         label,
         style: theme.textTheme.labelSmall?.copyWith(
           color: foreground,
-          letterSpacing: 0,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
@@ -451,15 +467,12 @@ class _MetaChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(4),
       ),
-      child: Text(
-        label,
-        style: theme.textTheme.labelSmall?.copyWith(letterSpacing: 0),
-      ),
+      child: Text(label, style: theme.textTheme.labelSmall),
     );
   }
 }

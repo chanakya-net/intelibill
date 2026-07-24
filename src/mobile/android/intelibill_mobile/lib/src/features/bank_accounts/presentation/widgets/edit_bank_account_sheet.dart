@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/bank_accounts/domain/entities/bank_account.dart';
 import 'package:intelibill_mobile/src/features/bank_accounts/domain/entities/save_bank_account_request.dart';
 import 'package:intelibill_mobile/src/features/bank_accounts/presentation/controllers/bank_accounts_controller.dart';
 import 'package:intelibill_mobile/src/features/bank_accounts/presentation/widgets/bank_account_form.dart';
+import 'package:intelibill_mobile/src/features/bank_accounts/presentation/widgets/bank_account_sheet_message.dart';
 
 class EditBankAccountSheet extends ConsumerWidget {
   const EditBankAccountSheet({required this.account, super.key});
@@ -16,11 +16,12 @@ class EditBankAccountSheet extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final state = ref.watch(bankAccountsControllerProvider);
+    final theme = Theme.of(context);
     return SafeArea(
       child: Padding(
         padding: EdgeInsets.fromLTRB(
           20,
-          20,
+          8,
           20,
           20 + MediaQuery.of(context).viewInsets.bottom,
         ),
@@ -31,15 +32,15 @@ class EditBankAccountSheet extends ConsumerWidget {
             children: [
               Text(
                 l10n.bankAccountsEdit,
-                style: Theme.of(context).textTheme.titleLarge,
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               const SizedBox(height: 16),
               _FullAccountNumber(accountNumber: account.accountNumber),
               const SizedBox(height: 12),
-              if (state.submitFailure != null) ...[
-                _SubmitFailureMessage(failure: state.submitFailure!),
-                const SizedBox(height: 12),
-              ],
+              if (state.submitFailure != null)
+                BankAccountSubmitFailureMessage(failure: state.submitFailure!),
               BankAccountForm(
                 initial: account.accountType != null
                     ? SaveBankAccountRequest(
@@ -53,6 +54,7 @@ class EditBankAccountSheet extends ConsumerWidget {
                 submitButtonLabel: (_) => l10n.bankAccountsUpdate,
                 isSubmitting: state.isSubmitting,
                 onSubmit: (request) => _submit(context, ref, request),
+                onCancel: () => Navigator.of(context).pop(false),
               ),
             ],
           ),
@@ -81,49 +83,33 @@ class _FullAccountNumber extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(4),
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.dividerColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             l10n.bankAccountsAccountNumber,
-            style: Theme.of(context).textTheme.labelSmall,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
           const SizedBox(height: 4),
-          Text(accountNumber),
+          Text(
+            accountNumber,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.5,
+            ),
+          ),
         ],
       ),
-    );
-  }
-}
-
-class _SubmitFailureMessage extends StatelessWidget {
-  const _SubmitFailureMessage({required this.failure});
-
-  final Failure failure;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final message = failure.when(
-      validation: (_, _) => l10n.bankAccountsSubmitError,
-      unauthorized: (_) => l10n.bankAccountsErrorUnauthorized,
-      forbidden: (_) => l10n.bankAccountsErrorForbidden,
-      notFound: (_) => l10n.bankAccountsSubmitError,
-      server: (_, _) => l10n.bankAccountsSubmitError,
-      network: (_) => l10n.bankAccountsErrorNetwork,
-      timeout: (_) => l10n.bankAccountsErrorTimeout,
-      serialization: (_) => l10n.bankAccountsSubmitError,
-      unknown: (_) => l10n.bankAccountsSubmitError,
-    );
-    return Text(
-      message,
-      style: TextStyle(color: Theme.of(context).colorScheme.error),
     );
   }
 }

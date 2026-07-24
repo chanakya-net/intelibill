@@ -55,6 +55,57 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         );
   }
 
+  Widget _buildGradientBackground(ThemeData theme, Widget child) {
+    final gradientEnd =
+        theme.navigationBarTheme.indicatorColor ??
+        theme.colorScheme.primary.withValues(alpha: 0.15);
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [theme.scaffoldBackgroundColor, gradientEnd],
+        ),
+      ),
+      child: SafeArea(child: child),
+    );
+  }
+
+  Widget _buildInlineErrorBanner(ThemeData theme, String message) {
+    return Container(
+      margin: const EdgeInsets.only(top: 4, bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: theme.colorScheme.error.withValues(alpha: 0.35),
+        ),
+        color: theme.colorScheme.error.withValues(alpha: 0.08),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.error_outline,
+            size: 20,
+            color: theme.colorScheme.error,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.error,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -84,13 +135,50 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
           return _buildContent(context, theme, state);
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text(
-              'Unable to initialize login screen. $error',
-              textAlign: TextAlign.center,
+        loading: () => _buildGradientBackground(
+          theme,
+          Center(
+            child: CircularProgressIndicator(color: theme.colorScheme.primary),
+          ),
+        ),
+        error: (error, _) => _buildGradientBackground(
+          theme,
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    size: 48,
+                    color: theme.colorScheme.error,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Unable to initialize login screen.',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    error.toString(),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurface.withValues(
+                        alpha: 0.7,
+                      ),
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton(
+                    onPressed: () => ref.invalidate(authControllerProvider),
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -104,16 +192,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     AuthControllerState state,
   ) {
     final isLoading = state.isLoading || state.isRememberedIdentifierLoading;
+    final linkButtonStyle = TextButton.styleFrom(
+      foregroundColor: theme.colorScheme.primary,
+    );
 
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFFFFF8F0), Color(0xFFFFEDD5)],
-        ),
-      ),
-      child: Center(
+    return _buildGradientBackground(
+      theme,
+      Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: ConstrainedBox(
@@ -132,7 +217,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         'Intelibill',
                         textAlign: TextAlign.center,
                         style: theme.textTheme.headlineMedium?.copyWith(
-                          fontFamily: 'Georgia',
                           color: theme.colorScheme.primary,
                         ),
                       ),
@@ -153,9 +237,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         controller: _identifierController,
                         enabled: !isLoading,
                         textInputAction: TextInputAction.next,
+                        keyboardType: TextInputType.emailAddress,
                         decoration: const InputDecoration(
                           labelText: 'Identifier',
                           hintText: 'Email or phone number',
+                          prefixIcon: Icon(Icons.person_outline),
                         ),
                         validator: (value) {
                           if ((value ?? '').trim().isEmpty) {
@@ -174,6 +260,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         decoration: InputDecoration(
                           labelText: 'Password',
                           hintText: 'Password',
+                          prefixIcon: const Icon(Icons.lock_outline),
                           suffixIcon: IconButton(
                             key: _loginPagePasswordVisibilityKey,
                             onPressed: isLoading
@@ -202,6 +289,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         alignment: Alignment.centerRight,
                         child: TextButton(
                           key: _loginPageForgotPasswordKey,
+                          style: linkButtonStyle,
                           onPressed: isLoading
                               ? null
                               : () {
@@ -210,24 +298,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           child: const Text('Forgot password?'),
                         ),
                       ),
-                      if (state.errorMessage != null) ...[
-                        Container(
-                          margin: const EdgeInsets.only(top: 4, bottom: 8),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.red.shade200),
-                            color: Colors.red.shade50,
-                          ),
-                          child: Text(
-                            state.errorMessage!,
-                            style: TextStyle(
-                              color: Colors.red.shade700,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
+                      if (state.errorMessage != null)
+                        _buildInlineErrorBanner(theme, state.errorMessage!),
                       CheckboxListTile(
                         key: _loginPageRememberMeKey,
                         value: _rememberMe,
@@ -242,12 +314,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         contentPadding: EdgeInsets.zero,
                         controlAffinity: ListTileControlAffinity.leading,
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 8),
                       FilledButton(
                         key: _loginPageSubmitButtonKey,
                         onPressed: isLoading ? null : () => _submit(state),
                         child: isLoading
-                            ? const Row(
+                            ? Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   SizedBox(
@@ -255,11 +327,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                     height: 16,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
-                                      color: Colors.white,
+                                      color: theme.colorScheme.onPrimary,
                                     ),
                                   ),
-                                  SizedBox(width: 12),
-                                  Text('Signing in...'),
+                                  const SizedBox(width: 12),
+                                  const Text('Signing in...'),
                                 ],
                               )
                             : const Text('Login now'),
@@ -267,6 +339,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       const SizedBox(height: 8),
                       TextButton(
                         key: _loginPageRegisterKey,
+                        style: linkButtonStyle,
                         onPressed: isLoading
                             ? null
                             : () {

@@ -123,16 +123,20 @@ class _ExpenseDetailContent extends ConsumerWidget {
 
     return SafeArea(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  l10n.expensesDetailTitle,
-                  style: Theme.of(context).textTheme.titleLarge,
+                Expanded(
+                  child: Text(
+                    l10n.expensesDetailTitle,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
                 if (!detail.isVoided)
                   TextButton(
@@ -142,7 +146,11 @@ class _ExpenseDetailContent extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 16),
-            for (final row in rows) _DetailRowView(row: row),
+            for (var index = 0; index < rows.length; index++)
+              _DetailRowView(
+                row: rows[index],
+                isLast: index == rows.length - 1,
+              ),
           ],
         ),
       ),
@@ -180,9 +188,10 @@ String _sourceLabel(AppLocalizations l10n, ExpenseDetail detail) {
 }
 
 class _DetailRowView extends StatelessWidget {
-  const _DetailRowView({required this.row});
+  const _DetailRowView({required this.row, this.isLast = false});
 
   final _DetailRow row;
+  final bool isLast;
 
   @override
   Widget build(BuildContext context) {
@@ -190,20 +199,23 @@ class _DetailRowView extends StatelessWidget {
     final content = Column(
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.symmetric(vertical: 10),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
+                flex: 2,
                 child: Text(
                   row.label,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ),
               const SizedBox(width: 16),
               Expanded(
+                flex: 3,
                 child: Text(
                   row.value,
                   textAlign: TextAlign.end,
@@ -215,7 +227,7 @@ class _DetailRowView extends StatelessWidget {
             ],
           ),
         ),
-        const Divider(height: 1),
+        if (!isLast) const Divider(height: 1),
       ],
     );
     final semanticLabel = row.semanticLabel;
@@ -244,11 +256,18 @@ class _DetailFailure extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.error_outline, size: 48),
+              const Icon(
+                Icons.error_outline,
+                size: 48,
+                color: Color(0xFF9A6B45),
+              ),
               const SizedBox(height: 12),
               Text(
                 l10n.expensesDetailUnableToLoad,
                 textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               const SizedBox(height: 8),
               Text(details, textAlign: TextAlign.center),

@@ -514,139 +514,165 @@ class _BuilderBody extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
               ],
-              DropdownButtonFormField<Supplier>(
-                key: PurchaseOrderBuilderPage.supplierFieldKey,
-                initialValue: state.selectedSupplier,
-                isExpanded: true,
-                decoration: InputDecoration(
-                  labelText: l10n.purchaseOrderBuilderSupplier,
-                ),
-                hint: Text(l10n.purchaseOrderBuilderNoSupplier),
-                items: [
-                  DropdownMenuItem<Supplier>(
-                    child: Text(l10n.purchaseOrderBuilderNoSupplier),
-                  ),
-                  ...state.suppliers.map(
-                    (supplier) => DropdownMenuItem<Supplier>(
-                      value: supplier,
-                      child: Text(supplier.name),
+              _FormSectionCard(
+                title: l10n.purchaseOrderDetailPageTitle,
+                children: [
+                  DropdownButtonFormField<Supplier>(
+                    key: PurchaseOrderBuilderPage.supplierFieldKey,
+                    initialValue: state.selectedSupplier,
+                    isExpanded: true,
+                    decoration: InputDecoration(
+                      labelText: l10n.purchaseOrderBuilderSupplier,
                     ),
+                    hint: Text(l10n.purchaseOrderBuilderNoSupplier),
+                    items: [
+                      DropdownMenuItem<Supplier>(
+                        child: Text(l10n.purchaseOrderBuilderNoSupplier),
+                      ),
+                      ...state.suppliers.map(
+                        (supplier) => DropdownMenuItem<Supplier>(
+                          value: supplier,
+                          child: Text(supplier.name),
+                        ),
+                      ),
+                    ],
+                    onChanged: onSupplierChanged,
                   ),
-                ],
-                onChanged: onSupplierChanged,
-              ),
-              const SizedBox(height: 16),
-              _DateField(
-                key: PurchaseOrderBuilderPage.orderDateFieldKey,
-                label: l10n.purchaseOrderBuilderOrderDate,
-                value: state.orderDate,
-                controller: orderDateController,
-                onChanged: onOrderDateChanged,
-                l10n: l10n,
-              ),
-              const SizedBox(height: 16),
-              _DateField(
-                key: PurchaseOrderBuilderPage.expectedDeliveryDateFieldKey,
-                label: l10n.purchaseOrderBuilderExpectedDeliveryDate,
-                value: state.expectedDeliveryDate,
-                controller: expectedDeliveryDateController,
-                onChanged: onExpectedDeliveryDateChanged,
-                l10n: l10n,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                key: PurchaseOrderBuilderPage.referenceFieldKey,
-                controller: referenceController,
-                maxLength:
-                    PurchaseOrderBuilderController.supplierReferenceMaxLength,
-                textInputAction: TextInputAction.next,
-                decoration: InputDecoration(
-                  labelText: l10n.purchaseOrderBuilderReference,
-                ),
-                onChanged: onReferenceChanged,
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                key: PurchaseOrderBuilderPage.notesFieldKey,
-                controller: notesController,
-                maxLength: PurchaseOrderBuilderController.notesMaxLength,
-                maxLines: 4,
-                textInputAction: TextInputAction.newline,
-                decoration: InputDecoration(
-                  labelText: l10n.purchaseOrderBuilderNotes,
-                ),
-                onChanged: onNotesChanged,
-              ),
-              if (state.failure case final failure?) ...[
-                const SizedBox(height: 8),
-                Semantics(
-                  liveRegion: true,
-                  child: Text(
-                    state.localMessage == null
-                        ? purchaseOrderFailureMessage(l10n, failure)
-                        : purchaseOrderMessage(l10n, state.localMessage!),
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
+                  const SizedBox(height: 12),
+                  _DateField(
+                    key: PurchaseOrderBuilderPage.orderDateFieldKey,
+                    label: l10n.purchaseOrderBuilderOrderDate,
+                    value: state.orderDate,
+                    controller: orderDateController,
+                    onChanged: onOrderDateChanged,
+                    l10n: l10n,
                   ),
-                ),
-              ],
-              if (state.suppliers.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 16),
-                  child: Text(l10n.purchaseOrderBuilderNoSuppliers),
-                ),
-              if (state.lines.isNotEmpty) ...[
-                const SizedBox(height: 24),
-                const Divider(),
-                const SizedBox(height: 16),
-                Text(
-                  l10n.purchaseOrderBuilderLinesHeader,
-                  key: PurchaseOrderBuilderPage.linesHeaderKey,
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 12),
-                ...state.lines.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final line = entry.value;
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: PurchaseOrderDraftLineCard(
-                      line: line,
-                      onUpdate:
-                          ({required expectedQuantity, required unitCost}) =>
-                              onUpdateLine(
-                                index: index,
-                                expectedQuantity: expectedQuantity,
-                                unitCost: unitCost,
-                              ),
-                      onRemove: () => onRemoveLine(index),
+                  const SizedBox(height: 12),
+                  _DateField(
+                    key: PurchaseOrderBuilderPage.expectedDeliveryDateFieldKey,
+                    label: l10n.purchaseOrderBuilderExpectedDeliveryDate,
+                    value: state.expectedDeliveryDate,
+                    controller: expectedDeliveryDateController,
+                    onChanged: onExpectedDeliveryDateChanged,
+                    l10n: l10n,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    key: PurchaseOrderBuilderPage.referenceFieldKey,
+                    controller: referenceController,
+                    maxLength: PurchaseOrderBuilderController
+                        .supplierReferenceMaxLength,
+                    textInputAction: TextInputAction.next,
+                    decoration: InputDecoration(
+                      labelText: l10n.purchaseOrderBuilderReference,
                     ),
-                  );
-                }),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
+                    onChanged: onReferenceChanged,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    key: PurchaseOrderBuilderPage.notesFieldKey,
+                    controller: notesController,
+                    maxLength: PurchaseOrderBuilderController.notesMaxLength,
+                    maxLines: 4,
+                    textInputAction: TextInputAction.newline,
+                    decoration: InputDecoration(
+                      labelText: l10n.purchaseOrderBuilderNotes,
+                    ),
+                    onChanged: onNotesChanged,
+                  ),
+                  if (state.failure case final failure?) ...[
+                    const SizedBox(height: 12),
+                    _BuilderErrorBanner(
+                      message: state.localMessage == null
+                          ? purchaseOrderFailureMessage(l10n, failure)
+                          : purchaseOrderMessage(l10n, state.localMessage!),
+                    ),
+                  ],
+                  if (state.suppliers.isEmpty) ...[
+                    const SizedBox(height: 12),
                     Text(
-                      l10n.purchaseOrderBuilderExpectedTotal,
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    Text(
-                      key: PurchaseOrderBuilderPage.expectedTotalKey,
-                      state.expectedTotal.toStringAsFixed(2),
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
+                      l10n.purchaseOrderBuilderNoSuppliers,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],
-                ),
-              ],
+                ],
+              ),
               const SizedBox(height: 16),
-              FilledButton.tonal(
-                key: PurchaseOrderBuilderPage.addItemButtonKey,
-                onPressed: onAddItem,
-                child: Text(l10n.purchaseOrderBuilderAddItemTitle),
+              _FormSectionCard(
+                title: l10n.purchaseOrderBuilderLinesHeader,
+                titleKey: PurchaseOrderBuilderPage.linesHeaderKey,
+                children: [
+                  if (state.lines.isEmpty)
+                    Text(
+                      l10n.purchaseOrderDetailNoLines,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    )
+                  else ...[
+                    ...state.lines.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final line = entry.value;
+                      return PurchaseOrderDraftLineCard(
+                        line: line,
+                        onUpdate:
+                            ({
+                              required expectedQuantity,
+                              required unitCost,
+                            }) => onUpdateLine(
+                              index: index,
+                              expectedQuantity: expectedQuantity,
+                              unitCost: unitCost,
+                            ),
+                        onRemove: () => onRemoveLine(index),
+                      );
+                    }),
+                    const SizedBox(height: 4),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerHighest
+                            .withValues(alpha: 0.35),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            l10n.purchaseOrderBuilderExpectedTotal,
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w600),
+                          ),
+                          Text(
+                            key: PurchaseOrderBuilderPage.expectedTotalKey,
+                            state.expectedTotal.toStringAsFixed(2),
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: Theme.of(
+                                    context,
+                                  ).textTheme.headlineSmall?.color,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  FilledButton.tonal(
+                    key: PurchaseOrderBuilderPage.addItemButtonKey,
+                    onPressed: onAddItem,
+                    child: Text(l10n.purchaseOrderBuilderAddItemTitle),
+                  ),
+                ],
               ),
             ],
           ),
@@ -740,17 +766,100 @@ class _ErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(l10n.purchaseOrderBuilderLoadError),
-          const SizedBox(height: 12),
-          FilledButton(
-            onPressed: onRetry,
-            child: Text(l10n.purchaseOrderBuilderRetry),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 48,
+              color: theme.colorScheme.error,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              l10n.purchaseOrderBuilderLoadError,
+              style: theme.textTheme.bodyLarge,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: onRetry,
+              child: Text(l10n.purchaseOrderBuilderRetry),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FormSectionCard extends StatelessWidget {
+  const _FormSectionCard({
+    required this.title,
+    required this.children,
+    this.titleKey,
+  });
+
+  final String title;
+  final List<Widget> children;
+  final Key? titleKey;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              title,
+              key: titleKey,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: theme.textTheme.headlineSmall?.color,
+              ),
+            ),
+            const SizedBox(height: 12),
+            ...children,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BuilderErrorBanner extends StatelessWidget {
+  const _BuilderErrorBanner({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Semantics(
+      liveRegion: true,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: theme.colorScheme.error.withValues(alpha: 0.35),
           ),
-        ],
+          color: theme.colorScheme.error.withValues(alpha: 0.08),
+        ),
+        child: Text(
+          message,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.error,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
       ),
     );
   }

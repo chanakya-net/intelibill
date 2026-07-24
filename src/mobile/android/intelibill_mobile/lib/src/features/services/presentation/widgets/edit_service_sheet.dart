@@ -142,7 +142,6 @@ class _EditServiceSheetState extends ConsumerState<EditServiceSheet> {
                   textInputAction: TextInputAction.next,
                   decoration: InputDecoration(
                     labelText: l10n.servicesNameLabel,
-                    border: const OutlineInputBorder(),
                   ),
                   validator: (value) => _validateRequiredText(
                     value,
@@ -160,7 +159,6 @@ class _EditServiceSheetState extends ConsumerState<EditServiceSheet> {
                   maxLines: 3,
                   decoration: InputDecoration(
                     labelText: l10n.servicesDescriptionLabel,
-                    border: const OutlineInputBorder(),
                   ),
                   validator: (value) => _validateOptionalText(
                     value,
@@ -179,7 +177,6 @@ class _EditServiceSheetState extends ConsumerState<EditServiceSheet> {
                   textInputAction: TextInputAction.next,
                   decoration: InputDecoration(
                     labelText: l10n.servicesPriceLabel,
-                    border: const OutlineInputBorder(),
                   ),
                   validator: (value) => _validatePrice(
                     value,
@@ -196,7 +193,6 @@ class _EditServiceSheetState extends ConsumerState<EditServiceSheet> {
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(
                     labelText: l10n.servicesHsnCodeLabel,
-                    border: const OutlineInputBorder(),
                   ),
                   validator: (value) => _validateHsnCode(
                     value,
@@ -214,7 +210,6 @@ class _EditServiceSheetState extends ConsumerState<EditServiceSheet> {
                   textInputAction: TextInputAction.next,
                   decoration: InputDecoration(
                     labelText: l10n.servicesTaxRateLabel,
-                    border: const OutlineInputBorder(),
                   ),
                   validator: (value) => _validateTaxRate(
                     value,

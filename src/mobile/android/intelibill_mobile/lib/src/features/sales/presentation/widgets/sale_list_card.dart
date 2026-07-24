@@ -128,7 +128,7 @@ class SaleListCard extends StatelessWidget {
                             '${l10n.salesHistoryDueAmount}: '
                             '${formatInr(sale.dueAmount)}',
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: const Color(0xFFB45309),
+                              color: saleStatusColor(theme, sale.status),
                               fontWeight: FontWeight.w600,
                             ),
                           ),

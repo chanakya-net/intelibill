@@ -146,14 +146,8 @@ Widget _buildCreateSheetApp({
   );
 }
 
-Future<void> _expandInventorySpeedDial(WidgetTester tester) async {
-  await tester.tap(find.byKey(ItemsPage.speedDialMainKey));
-  await tester.pumpAndSettle();
-}
-
 Future<void> _tapAddProductAction(WidgetTester tester) async {
-  await _expandInventorySpeedDial(tester);
-  await tester.tap(find.byKey(ItemsPage.addProductActionKey));
+  await tester.tap(find.byKey(ItemsPage.addProductFabKey));
   await tester.pumpAndSettle();
 }
 
@@ -209,15 +203,13 @@ void main() {
       expect(find.text('100'), findsOneWidget);
     });
 
-    testWidgets('shows inventory actions when speed dial expands', (
-      tester,
-    ) async {
+    testWidgets('shows inventory actions in app bar menu', (tester) async {
       await tester.pumpWidget(_buildApp(state: _loadedState));
       await tester.pumpAndSettle();
 
-      await _expandInventorySpeedDial(tester);
+      await tester.tap(find.byTooltip('Inventory actions'));
+      await tester.pumpAndSettle();
 
-      expect(find.text('Add Product'), findsOneWidget);
       expect(find.text('Add Inventory'), findsOneWidget);
       expect(find.text('Batch Overview'), findsOneWidget);
       expect(find.text('Adjustment History'), findsOneWidget);

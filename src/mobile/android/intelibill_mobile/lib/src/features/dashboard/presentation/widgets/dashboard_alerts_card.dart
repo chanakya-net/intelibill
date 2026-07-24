@@ -50,8 +50,9 @@ class DashboardAlertsCard extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: _badgeColor(
                             alert.alertType,
+                            theme.colorScheme,
                           ).withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(14),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -62,13 +63,16 @@ class DashboardAlertsCard extends StatelessWidget {
                                 vertical: 4,
                               ),
                               decoration: BoxDecoration(
-                                color: _badgeColor(alert.alertType),
+                                color: _badgeColor(
+                                  alert.alertType,
+                                  theme.colorScheme,
+                                ),
                                 borderRadius: BorderRadius.circular(999),
                               ),
                               child: Text(
                                 alert.title,
                                 style: theme.textTheme.labelSmall?.copyWith(
-                                  color: Colors.white,
+                                  color: theme.colorScheme.onPrimary,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -109,16 +113,16 @@ class DashboardAlertsCard extends StatelessWidget {
     );
   }
 
-  Color _badgeColor(String alertType) {
+  Color _badgeColor(String alertType, ColorScheme colorScheme) {
     switch (alertType) {
       case 'LowStock':
-        return const Color(0xFFF27A20);
+        return colorScheme.primary;
       case 'ExpiringBatch':
-        return const Color(0xFFB85C6D);
+        return colorScheme.error;
       case 'PendingPurchaseOrder':
-        return const Color(0xFF3B82F6);
+        return colorScheme.secondary;
       default:
-        return const Color(0xFF64748B);
+        return colorScheme.onSurfaceVariant;
     }
   }
 }

@@ -114,6 +114,8 @@ class GoodsCartList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     if (lines.isEmpty) {
       if (recordedSale != null) {
         return SingleChildScrollView(
@@ -129,22 +131,27 @@ class GoodsCartList extends StatelessWidget {
         );
       }
 
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.all(24),
-          child: Text('Cart is empty.'),
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'Cart is empty.',
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: const Color(0xFF9A6B45),
+            ),
+          ),
         ),
       );
     }
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(0, 8, 0, 8),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       child: Column(
         children: [
           for (final line in lines) ...[
             Card(
               child: Padding(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   children: [
                     Row(
@@ -153,11 +160,15 @@ class GoodsCartList extends StatelessWidget {
                           child: Text(
                             line.sellable.name,
                             key: Key('cart-line-name-${line.sellable.id}'),
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                         IconButton(
                           key: Key('remove-from-cart-${line.sellable.id}'),
                           icon: const Icon(Icons.delete_outline),
+                          color: theme.colorScheme.error,
                           onPressed: () => onRemove(line.sellable.id),
                         ),
                       ],
@@ -165,8 +176,16 @@ class GoodsCartList extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('Qty: ${_formatQuantity(line.quantity)}'),
-                        Text('₹${line.lineTotal.toStringAsFixed(2)}'),
+                        Text(
+                          'Qty: ${_formatQuantity(line.quantity)}',
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                        Text(
+                          '₹${line.lineTotal.toStringAsFixed(2)}',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ],
                     ),
                     if (line.sellable.isService) ...[
@@ -190,14 +209,23 @@ class GoodsCartList extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        IconButton(
+                        IconButton.filledTonal(
                           key: Key('decrease-${line.sellable.id}'),
-                          icon: const Icon(Icons.remove_circle_outline),
+                          icon: const Icon(Icons.remove),
                           onPressed: () => onDecrease(line.sellable.id),
                         ),
-                        IconButton(
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Text(
+                            _formatQuantity(line.quantity),
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        IconButton.filledTonal(
                           key: Key('increase-${line.sellable.id}'),
-                          icon: const Icon(Icons.add_circle_outline),
+                          icon: const Icon(Icons.add),
                           onPressed: () => onIncrease(line.sellable.id),
                         ),
                       ],
@@ -209,7 +237,7 @@ class GoodsCartList extends StatelessWidget {
             const SizedBox(height: 8),
           ],
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+            padding: const EdgeInsets.only(top: 4),
             child: _CheckoutSummaryCard(
               subtotal: subtotal,
               tax: tax,
@@ -326,7 +354,7 @@ class _CheckoutSummaryCard extends StatelessWidget {
 
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -552,10 +580,11 @@ class _CreditNotePanelState extends State<_CreditNotePanel> {
       children: [
         const Text(
           'Credit notes',
-          style: TextStyle(fontWeight: FontWeight.w600),
+          style: TextStyle(fontWeight: FontWeight.w700),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
               child: TextField(
@@ -563,12 +592,11 @@ class _CreditNotePanelState extends State<_CreditNotePanel> {
                 controller: _codeController,
                 decoration: const InputDecoration(
                   labelText: 'Credit note code',
-                  border: OutlineInputBorder(),
                 ),
               ),
             ),
             const SizedBox(width: 8),
-            ElevatedButton(
+            FilledButton(
               key: const Key('verify-credit-note-button'),
               onPressed: () {
                 final code = _codeController.text.trim();
@@ -639,26 +667,39 @@ class _VerifiedCreditNoteCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Verified: ${note.code}'),
-        const SizedBox(height: 4),
-        Text('Balance: ₹${note.balance.toStringAsFixed(2)}'),
-        if (note.customerName != null) ...[
+    final theme = Theme.of(context);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFEDD5),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFDBA74)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Verified: ${note.code}',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
           const SizedBox(height: 4),
-          Text('Customer: ${note.customerName}'),
-        ],
-        const SizedBox(height: 8),
-        SizedBox(
-          width: 120,
-          child: ElevatedButton(
+          Text('Balance: ₹${note.balance.toStringAsFixed(2)}'),
+          if (note.customerName != null) ...[
+            const SizedBox(height: 4),
+            Text('Customer: ${note.customerName}'),
+          ],
+          const SizedBox(height: 8),
+          FilledButton(
             key: const Key('apply-credit-note-button'),
             onPressed: onApply,
             child: const Text('Apply'),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -710,14 +751,19 @@ class _AppliedCreditNoteEditorState extends State<_AppliedCreditNoteEditor> {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: Padding(
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Code: ${widget.note.code}'),
+            Text(
+              'Code: ${widget.note.code}',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
             const SizedBox(height: 4),
             Text('Available: ₹${widget.note.balance.toStringAsFixed(2)}'),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             Row(
               children: [
                 Expanded(
@@ -729,7 +775,6 @@ class _AppliedCreditNoteEditorState extends State<_AppliedCreditNoteEditor> {
                     ),
                     decoration: const InputDecoration(
                       labelText: 'Apply amount',
-                      border: OutlineInputBorder(),
                       prefixText: '₹',
                     ),
                     onChanged: (value) {
@@ -772,10 +817,10 @@ class _RecordedSaleSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+      padding: const EdgeInsets.fromLTRB(0, 8, 0, 8),
       child: Card(
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -923,7 +968,7 @@ class _ServicePriceFieldState extends State<_ServicePriceField> {
       keyboardType: TextInputType.number,
       decoration: const InputDecoration(
         labelText: 'Unit price',
-        border: OutlineInputBorder(),
+        prefixText: '₹',
       ),
       onChanged: (value) {
         final parsed = double.tryParse(value.trim());
@@ -1010,7 +1055,6 @@ class _LineDiscountEditorState extends State<_LineDiscountEditor> {
                 },
                 decoration: const InputDecoration(
                   labelText: 'Discount type',
-                  border: OutlineInputBorder(),
                 ),
               ),
             ),
@@ -1028,7 +1072,6 @@ class _LineDiscountEditorState extends State<_LineDiscountEditor> {
                       line.itemDiscountType == InstantDiscountType.percentage
                       ? 'Discount %'
                       : 'Discount amount',
-                  border: const OutlineInputBorder(),
                   suffixText:
                       line.itemDiscountType == InstantDiscountType.percentage
                       ? '%'
@@ -1146,7 +1189,6 @@ class _SaleDiscountEditorState extends State<_SaleDiscountEditor> {
                 },
                 decoration: const InputDecoration(
                   labelText: 'Sale discount type',
-                  border: OutlineInputBorder(),
                 ),
               ),
             ),
@@ -1163,7 +1205,6 @@ class _SaleDiscountEditorState extends State<_SaleDiscountEditor> {
                   labelText: widget.type == InstantDiscountType.percentage
                       ? 'Sale discount %'
                       : 'Sale discount amount',
-                  border: const OutlineInputBorder(),
                   suffixText: widget.type == InstantDiscountType.percentage
                       ? '%'
                       : '₹',

@@ -144,6 +144,9 @@ Future<void> showPurchaseOrderCloseSheet(
 }) {
   return showModalBottomSheet<void>(
     context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    showDragHandle: true,
     builder: (_) => PurchaseOrderCloseSheet(onClose: onClose),
   );
 }

@@ -12,14 +12,12 @@ import 'package:intelibill_mobile/src/features/inventory/domain/entities/item.da
 import 'package:intelibill_mobile/src/features/inventory/presentation/controllers/items_controller.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/widgets/create_item_sheet.dart';
 import 'package:intelibill_mobile/src/features/inventory/presentation/widgets/edit_item_sheet.dart';
-import 'package:intelibill_mobile/src/features/inventory/presentation/widgets/inventory_speed_dial.dart';
 
 class ItemsPage extends ConsumerStatefulWidget {
   const ItemsPage({super.key});
 
   static const speedDialMainKey = Key('items-speed-dial-main');
-  static const addProductActionKey = Key('items-speed-dial-add-product');
-
+  static const Key addProductActionKey = speedDialMainKey;
   static const Key addProductFabKey = speedDialMainKey;
 
   @override
@@ -53,6 +51,49 @@ class _ItemsPageState extends ConsumerState<ItemsPage> {
       appBar: AppBar(
         title: Text(l10n.inventoryTitle),
         actions: [
+          if (canManage)
+            PopupMenuButton<_InventoryMenuAction>(
+              tooltip: l10n.inventoryMenuTitle,
+              onSelected: (action) {
+                switch (action) {
+                  case _InventoryMenuAction.addInventory:
+                    unawaited(context.push(AppRoutes.inventoryBatch));
+                  case _InventoryMenuAction.batchOverview:
+                    unawaited(context.push(AppRoutes.inventoryBatches));
+                  case _InventoryMenuAction.adjustmentHistory:
+                    unawaited(context.push(AppRoutes.inventoryAdjustments));
+                }
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: _InventoryMenuAction.addInventory,
+                  child: ListTile(
+                    leading: const Icon(Icons.inventory_outlined),
+                    title: Text(l10n.inventoryMenuAddInventory),
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                  ),
+                ),
+                PopupMenuItem(
+                  value: _InventoryMenuAction.batchOverview,
+                  child: ListTile(
+                    leading: const Icon(Icons.layers_outlined),
+                    title: Text(l10n.inventoryMenuBatchOverview),
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                  ),
+                ),
+                PopupMenuItem(
+                  value: _InventoryMenuAction.adjustmentHistory,
+                  child: ListTile(
+                    leading: const Icon(Icons.history),
+                    title: Text(l10n.inventoryMenuAdjustmentHistory),
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                  ),
+                ),
+              ],
+            ),
           IconButton(
             tooltip: l10n.shellProfile,
             icon: const Icon(Icons.account_circle),
@@ -61,35 +102,11 @@ class _ItemsPageState extends ConsumerState<ItemsPage> {
         ],
       ),
       floatingActionButton: canManage
-          ? InventorySpeedDial(
-              mainFabKey: ItemsPage.speedDialMainKey,
-              actions: [
-                InventorySpeedDialAction(
-                  key: ItemsPage.addProductActionKey,
-                  label: l10n.inventoryProductsAddProduct,
-                  icon: Icons.add_box_outlined,
-                  onTap: () => unawaited(_openCreateSheet()),
-                ),
-                InventorySpeedDialAction(
-                  label: l10n.inventoryMenuAddInventory,
-                  icon: Icons.inventory_outlined,
-                  onTap: () =>
-                      unawaited(context.push(AppRoutes.inventoryBatch)),
-                ),
-                InventorySpeedDialAction(
-                  label: l10n.inventoryMenuBatchOverview,
-                  icon: Icons.layers_outlined,
-                  onTap: () =>
-                      unawaited(context.push(AppRoutes.inventoryBatches)),
-                ),
-                InventorySpeedDialAction(
-                  label: l10n.inventoryMenuAdjustmentHistory,
-                  icon: Icons.history,
-                  onTap: () => unawaited(
-                    context.push(AppRoutes.inventoryAdjustments),
-                  ),
-                ),
-              ],
+          ? FloatingActionButton(
+              key: ItemsPage.addProductFabKey,
+              onPressed: () => unawaited(_openCreateSheet()),
+              tooltip: l10n.inventoryProductsAddProduct,
+              child: const Icon(Icons.add),
             )
           : null,
       body: Column(
@@ -151,8 +168,12 @@ class _ItemsPageState extends ConsumerState<ItemsPage> {
     AppLocalizations l10n,
     bool canManage,
   ) {
+    final theme = Theme.of(context);
+
     if (itemsState.isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return Center(
+        child: CircularProgressIndicator(color: theme.colorScheme.primary),
+      );
     }
 
     if (itemsState.failure != null) {
@@ -162,16 +183,23 @@ class _ItemsPageState extends ConsumerState<ItemsPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              Icon(
+                Icons.cloud_off_outlined,
+                size: 48,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(height: 16),
               Text(
                 l10n.inventoryProductsUnableToLoad,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: theme.textTheme.titleMedium,
+                textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
               Text(
                 _localizeLoadFailure(l10n, itemsState.failure!),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
@@ -199,17 +227,29 @@ class _ItemsPageState extends ConsumerState<ItemsPage> {
               children: [
                 Padding(
                   padding: const EdgeInsets.all(32),
-                  child: Center(
-                    child: Text(
-                      l10n.inventoryProductsNoProductsFound,
-                      style: const TextStyle(fontSize: 16),
-                    ),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.inventory_2_outlined,
+                        size: 56,
+                        color: theme.colorScheme.primary.withValues(
+                          alpha: 0.7,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        l10n.inventoryProductsNoProductsFound,
+                        style: theme.textTheme.titleMedium,
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                   ),
                 ),
               ],
             )
           : ListView.builder(
               physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.only(bottom: 88),
               itemCount: items.length,
               itemBuilder: (context, index) {
                 return _ItemCard(
@@ -221,6 +261,12 @@ class _ItemsPageState extends ConsumerState<ItemsPage> {
             ),
     );
   }
+}
+
+enum _InventoryMenuAction {
+  addInventory,
+  batchOverview,
+  adjustmentHistory,
 }
 
 class _ItemCard extends StatelessWidget {
@@ -239,56 +285,76 @@ class _ItemCard extends StatelessWidget {
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: ListTile(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(22),
         onTap: onTap,
-        leading: CircleAvatar(
-          backgroundColor: avatarColor,
-          child: Text(
-            initials,
-            style: theme.textTheme.labelLarge?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-        title: Row(
-          children: [
-            Expanded(child: Text(item.name, style: theme.textTheme.titleSmall)),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: item.isActive
-                    ? theme.colorScheme.secondaryContainer
-                    : theme.colorScheme.errorContainer,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                item.isActive
-                    ? l10n.inventoryCreateProductActiveLabel
-                    : l10n.inventoryProductsInactive,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: item.isActive
-                      ? theme.colorScheme.onSecondaryContainer
-                      : theme.colorScheme.onErrorContainer,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CircleAvatar(
+                backgroundColor: avatarColor,
+                child: Text(
+                  initials,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: theme.colorScheme.onPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
-            ),
-          ],
-        ),
-        subtitle: Row(
-          children: [
-            Flexible(
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                children: [
-                  _MetaChip(label: item.barcode),
-                  _MetaChip(label: item.uom),
-                  _StockChip(stock: item.currentStock),
-                ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            item.name,
+                            style: theme.textTheme.titleMedium,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: item.isActive
+                                ? theme.colorScheme.secondaryContainer
+                                : theme.colorScheme.errorContainer,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            item.isActive
+                                ? l10n.inventoryCreateProductActiveLabel
+                                : l10n.inventoryProductsInactive,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: item.isActive
+                                  ? theme.colorScheme.onSecondaryContainer
+                                  : theme.colorScheme.onErrorContainer,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: [
+                        _MetaChip(label: item.barcode),
+                        _MetaChip(label: item.uom),
+                        _StockChip(stock: item.currentStock),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -311,9 +377,9 @@ class _ItemCard extends StatelessWidget {
       theme.colorScheme.primary,
       theme.colorScheme.secondary,
       theme.colorScheme.tertiary,
-      Colors.teal,
-      Colors.indigo,
-      Colors.deepOrange,
+      const Color(0xFFEA580C),
+      const Color(0xFF9A3412),
+      const Color(0xFFC2410C),
     ];
     return colors[hash.abs() % colors.length];
   }

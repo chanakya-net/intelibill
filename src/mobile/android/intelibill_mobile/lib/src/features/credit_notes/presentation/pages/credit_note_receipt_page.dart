@@ -10,9 +10,12 @@ import 'package:intelibill_mobile/src/shared/documents/document_page_format.dart
 import 'package:intelibill_mobile/src/shared/documents/document_preview_scaffold.dart';
 import 'package:intelibill_mobile/src/shared/documents/output/document_export_providers.dart';
 import 'package:intelibill_mobile/src/shared/documents/output/document_export_service.dart';
+import 'package:intelibill_mobile/src/shared/documents/output/document_output_messages.dart';
 
 class CreditNoteReceiptPage extends ConsumerWidget {
   const CreditNoteReceiptPage({required this.code, super.key});
+
+  static const pageKey = Key('credit-note-receipt-page');
 
   final String code;
 
@@ -22,36 +25,14 @@ class CreditNoteReceiptPage extends ConsumerWidget {
     final l10n = AppLocalizations.of(context)!;
 
     return printState.when(
-      data: (printData) {
-        final builder = CreditNoteReceiptPdfBuilder();
-        final descriptor = DocumentDescriptor(
-          title: l10n.creditNotesReceiptTitle,
-          filename: builder.filenameFor(printData),
-          pageFormat: DocumentPageFormat.mm80,
-        );
-        final exportService = ref.watch(documentExportServiceProvider);
-
-        return DocumentPreviewScaffold(
-          descriptor: descriptor,
-          onBuild: (format) => builder.build(
-            printData,
-            locale: Localizations.localeOf(context),
-          ),
-          onPrint: (bytes) =>
-              _handlePrint(context, exportService, bytes, descriptor),
-          onShare: (bytes) =>
-              _handleShare(context, exportService, bytes, descriptor),
-          onFailure: (message) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(message)),
-            );
-          },
-        );
-      },
+      loading: () => Scaffold(
+        key: pageKey,
+        appBar: AppBar(title: Text(l10n.creditNotesReceiptTitle)),
+        body: const Center(child: CircularProgressIndicator()),
+      ),
       error: (error, _) => Scaffold(
-        appBar: AppBar(
-          title: Text(l10n.creditNotesReceiptTitle),
-        ),
+        key: pageKey,
+        appBar: AppBar(title: Text(l10n.creditNotesReceiptTitle)),
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -62,7 +43,7 @@ class CreditNoteReceiptPage extends ConsumerWidget {
                 const SizedBox(height: 12),
                 Text(l10n.customersErrorGeneric),
                 const SizedBox(height: 12),
-                TextButton(
+                FilledButton(
                   onPressed: () =>
                       ref.invalidate(creditNotePrintByCodeProvider(code)),
                   child: Text(l10n.creditNotesRetry),
@@ -72,12 +53,35 @@ class CreditNoteReceiptPage extends ConsumerWidget {
           ),
         ),
       ),
-      loading: () => Scaffold(
-        appBar: AppBar(
-          title: Text(l10n.creditNotesReceiptTitle),
-        ),
-        body: const Center(child: CircularProgressIndicator()),
-      ),
+      data: (printData) {
+        final builder = CreditNoteReceiptPdfBuilder();
+        final descriptor = DocumentDescriptor(
+          title: l10n.creditNotesReceiptTitle,
+          filename: builder.filenameFor(printData),
+          pageFormat: DocumentPageFormat.mm80,
+        );
+        final exportService = ref.watch(documentExportServiceProvider);
+
+        return DocumentPreviewScaffold(
+          key: pageKey,
+          descriptor: descriptor,
+          onBuild: (format) => builder.build(
+            printData,
+            locale: Localizations.localeOf(context),
+          ),
+          onPrint: (bytes) =>
+              _handlePrint(context, exportService, bytes, descriptor),
+          onShare: (bytes) =>
+              _handleShare(context, exportService, bytes, descriptor),
+          onFailure: (message) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(message)),
+              );
+            }
+          },
+        );
+      },
     );
   }
 
@@ -94,7 +98,14 @@ class CreditNoteReceiptPage extends ConsumerWidget {
 
     if (result != null && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Print failed: ${result.message}')),
+        SnackBar(
+          content: Text(
+            documentOutputFailureMessage(
+              AppLocalizations.of(context)!,
+              result.operation,
+            ),
+          ),
+        ),
       );
     }
   }
@@ -112,7 +123,14 @@ class CreditNoteReceiptPage extends ConsumerWidget {
 
     if (result != null && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Share failed: ${result.message}')),
+        SnackBar(
+          content: Text(
+            documentOutputFailureMessage(
+              AppLocalizations.of(context)!,
+              result.operation,
+            ),
+          ),
+        ),
       );
     }
   }

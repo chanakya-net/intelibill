@@ -35,7 +35,11 @@ class _AdjustmentHistoryPageState extends ConsumerState<AdjustmentHistoryPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(l10n.shellInventoryAdjustments),
+        title: Text(l10n.inventoryAdjustmentsTitle),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.canPop() ? context.pop() : null,
+        ),
         actions: [
           IconButton(
             tooltip: l10n.shellProfile,
@@ -53,8 +57,12 @@ class _AdjustmentHistoryPageState extends ConsumerState<AdjustmentHistoryPage> {
     AdjustmentHistoryState state,
     AppLocalizations l10n,
   ) {
+    final theme = Theme.of(context);
+
     if (state.isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return Center(
+        child: CircularProgressIndicator(color: theme.colorScheme.primary),
+      );
     }
 
     if (state.failure != null && state.adjustments.isEmpty) {
@@ -64,14 +72,15 @@ class _AdjustmentHistoryPageState extends ConsumerState<AdjustmentHistoryPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.error_outline, size: 48),
+              Icon(
+                Icons.error_outline,
+                size: 48,
+                color: theme.colorScheme.error,
+              ),
               const SizedBox(height: 12),
               Text(
                 l10n.inventoryAdjustmentsUnableToLoad,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: theme.textTheme.titleMedium,
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
@@ -93,6 +102,7 @@ class _AdjustmentHistoryPageState extends ConsumerState<AdjustmentHistoryPage> {
 
     if (state.adjustments.isEmpty) {
       return RefreshIndicator(
+        color: theme.colorScheme.primary,
         onRefresh: ref
             .read(adjustmentHistoryControllerProvider.notifier)
             .refresh,
@@ -101,11 +111,20 @@ class _AdjustmentHistoryPageState extends ConsumerState<AdjustmentHistoryPage> {
           children: [
             Padding(
               padding: const EdgeInsets.all(32),
-              child: Center(
-                child: Text(
-                  l10n.inventoryAdjustmentsNoAdjustmentsFound,
-                  style: const TextStyle(fontSize: 16),
-                ),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.history,
+                    size: 56,
+                    color: theme.colorScheme.primary.withValues(alpha: 0.7),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    l10n.inventoryAdjustmentsNoAdjustmentsFound,
+                    style: theme.textTheme.titleMedium,
+                    textAlign: TextAlign.center,
+                  ),
+                ],
               ),
             ),
           ],
@@ -114,17 +133,23 @@ class _AdjustmentHistoryPageState extends ConsumerState<AdjustmentHistoryPage> {
     }
 
     return RefreshIndicator(
+      color: theme.colorScheme.primary,
       onRefresh: ref.read(adjustmentHistoryControllerProvider.notifier).refresh,
       child: NotificationListener<ScrollNotification>(
         onNotification: _onScroll,
         child: ListView.builder(
           physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.only(top: 8, bottom: 24),
           itemCount: state.adjustments.length + (state.isLoadingMore ? 1 : 0),
           itemBuilder: (context, index) {
             if (index == state.adjustments.length) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 16),
-                child: Center(child: CircularProgressIndicator()),
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Center(
+                  child: CircularProgressIndicator(
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
               );
             }
             return _AdjustmentCard(adjustment: state.adjustments[index]);
@@ -145,9 +170,6 @@ class _AdjustmentCard extends StatelessWidget {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
     final isIncrease = adjustment.direction.toLowerCase() == 'increase';
-    final directionBg = isIncrease
-        ? theme.colorScheme.secondary
-        : theme.colorScheme.error;
     final directionLabel = isIncrease
         ? l10n.inventoryAdjustmentsIncrease
         : l10n.inventoryAdjustmentsDecrease;
@@ -161,56 +183,89 @@ class _AdjustmentCard extends StatelessWidget {
       adjustment.costImpact.truncateToDouble() == adjustment.costImpact ? 0 : 2,
     );
     final reason = _toSentenceCase(adjustment.reason);
+    final initials = _initials(adjustment.itemName);
+    final avatarColor = _stableColor(adjustment.itemName, theme);
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
+        padding: const EdgeInsets.all(16),
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    adjustment.itemName,
-                    style: theme.textTheme.titleSmall,
-                    overflow: TextOverflow.ellipsis,
+            CircleAvatar(
+              backgroundColor: avatarColor,
+              child: Text(
+                initials,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          adjustment.itemName,
+                          style: theme.textTheme.titleSmall,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      _DirectionChip(
+                        label: directionLabel,
+                        isIncrease: isIncrease,
+                      ),
+                      if (adjustment.isVoided) ...[
+                        const SizedBox(width: 6),
+                        Chip(
+                          label: Text(l10n.inventoryAdjustmentsVoided),
+                          backgroundColor: theme.colorScheme.errorContainer,
+                          labelStyle: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.onErrorContainer,
+                          ),
+                          padding: EdgeInsets.zero,
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
+                        ),
+                      ],
+                    ],
                   ),
-                ),
-                const SizedBox(width: 8),
-                _Chip(
-                  label: directionLabel,
-                  backgroundColor: directionBg,
-                  foregroundColor: Colors.white,
-                ),
-                if (adjustment.isVoided) ...[
-                  const SizedBox(width: 6),
-                  _Chip(
-                    label: l10n.inventoryAdjustmentsVoided,
-                    backgroundColor: theme.colorScheme.errorContainer,
-                    foregroundColor: theme.colorScheme.onErrorContainer,
+                  const SizedBox(height: 4),
+                  Text(
+                    '${adjustment.batchNumber} · $reason',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: [
+                      _MetaChip(label: 'Qty: $quantityDisplay'),
+                      _MetaChip(
+                        label:
+                            '${l10n.inventoryAdjustmentsCostImpactLabel}: '
+                            '₹$costDisplay',
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${l10n.inventoryAdjustmentsPerformedByLabel}: '
+                    '${adjustment.performedBy} · $dateFormatted',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.outline,
+                    ),
                   ),
                 ],
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '${adjustment.batchNumber} · $reason',
-              style: theme.textTheme.bodySmall,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '$quantityDisplay  ·  '
-              '${l10n.inventoryAdjustmentsCostImpactLabel}: $costDisplay',
-              style: theme.textTheme.bodySmall,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '${l10n.inventoryAdjustmentsPerformedByLabel}: '
-              '${adjustment.performedBy} · $dateFormatted',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.outline,
               ),
             ),
           ],
@@ -219,28 +274,54 @@ class _AdjustmentCard extends StatelessWidget {
     );
   }
 
+  String _initials(String name) {
+    final parts = name.trim().split(RegExp(r'\s+'));
+    if (parts.isEmpty) return '?';
+    if (parts.length == 1) {
+      return parts[0].isNotEmpty ? parts[0][0].toUpperCase() : '?';
+    }
+    final first = parts[0].isNotEmpty ? parts[0][0].toUpperCase() : '';
+    final last = parts.last.isNotEmpty ? parts.last[0].toUpperCase() : '';
+    return '$first$last';
+  }
+
+  Color _stableColor(String name, ThemeData theme) {
+    final hash = name.codeUnits.fold(0, (acc, c) => acc * 31 + c);
+    final colors = [
+      theme.colorScheme.primary,
+      theme.colorScheme.secondary,
+      theme.colorScheme.tertiary,
+      Colors.teal,
+      Colors.indigo,
+      Colors.deepOrange,
+    ];
+    return colors[hash.abs() % colors.length];
+  }
+
   String _toSentenceCase(String value) {
     if (value.isEmpty) return value;
     return value[0].toUpperCase() + value.substring(1).toLowerCase();
   }
 }
 
-class _Chip extends StatelessWidget {
-  const _Chip({
-    required this.label,
-    required this.backgroundColor,
-    required this.foregroundColor,
-  });
+class _DirectionChip extends StatelessWidget {
+  const _DirectionChip({required this.label, required this.isIncrease});
 
   final String label;
-  final Color backgroundColor;
-  final Color foregroundColor;
+  final bool isIncrease;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final backgroundColor = isIncrease
+        ? theme.colorScheme.secondaryContainer
+        : theme.colorScheme.errorContainer;
+    final foregroundColor = isIncrease
+        ? theme.colorScheme.onSecondaryContainer
+        : theme.colorScheme.onErrorContainer;
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
         color: backgroundColor,
         borderRadius: BorderRadius.circular(4),
@@ -249,6 +330,25 @@ class _Chip extends StatelessWidget {
         label,
         style: theme.textTheme.labelSmall?.copyWith(color: foregroundColor),
       ),
+    );
+  }
+}
+
+class _MetaChip extends StatelessWidget {
+  const _MetaChip({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(label, style: theme.textTheme.labelSmall),
     );
   }
 }

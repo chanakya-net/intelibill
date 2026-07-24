@@ -242,17 +242,46 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('Lines'), findsOneWidget);
+    final linesHeader = find.text('Lines', skipOffstage: false);
+    await tester.scrollUntilVisible(
+      linesHeader,
+      200,
+      scrollable: find.descendant(
+        of: find.byType(ListView),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    expect(linesHeader, findsOneWidget);
     expect(find.text('Expected quantity: 18'), findsOneWidget);
     expect(find.text('Received quantity: 7'), findsOneWidget);
     expect(find.text('Remaining quantity: 11'), findsOneWidget);
     expect(find.text('Expected total: ₹1,451'), findsOneWidget);
-    expect(find.text('Expected: 10'), findsOneWidget);
-    expect(find.text('Received: 5'), findsOneWidget);
-    expect(find.text('Remaining: 5'), findsOneWidget);
-    expect(find.text('Line total: ₹701'), findsOneWidget);
-    expect(find.text('Expected total: ₹1,451'), findsOneWidget);
     expect(find.text('Received: 7 / 18'), findsOneWidget);
+    final expectedLineQuantity = find.text(
+      'Expected: 10',
+      skipOffstage: false,
+    );
+    await tester.scrollUntilVisible(
+      expectedLineQuantity,
+      200,
+      scrollable: find.descendant(
+        of: find.byType(ListView),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    final lineTotal = find.text('Line total: ₹701', skipOffstage: false);
+    await tester.scrollUntilVisible(
+      lineTotal,
+      200,
+      scrollable: find.descendant(
+        of: find.byType(ListView),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    expect(expectedLineQuantity, findsOneWidget);
+    expect(find.text('Received: 5', skipOffstage: false), findsOneWidget);
+    expect(find.text('Remaining: 5', skipOffstage: false), findsOneWidget);
+    expect(lineTotal, findsOneWidget);
   });
 
   testWidgets('renders lifecycle metadata and empty receipt history', (

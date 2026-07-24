@@ -76,7 +76,11 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.error_outline, size: 32),
+              Icon(
+                Icons.error_outline,
+                size: 32,
+                color: Theme.of(context).colorScheme.error,
+              ),
               const SizedBox(height: 8),
               Text(l10n.purchaseOrdersLoadMoreFailure),
               const SizedBox(height: 12),
@@ -118,14 +122,14 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
   Widget _buildRefreshFailureBanner(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Semantics(
         liveRegion: true,
         child: Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: colorScheme.errorContainer,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(14),
           ),
           child: Row(
             children: [
@@ -154,7 +158,16 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
     final canCreate = canManagePurchaseOrders(authState.value?.session);
     return Scaffold(
       key: PurchaseOrdersPage.pageKey,
-      appBar: AppBar(title: Text(l10n.shellManagePurchaseOrders)),
+      appBar: AppBar(
+        title: Text(l10n.shellManagePurchaseOrders),
+        actions: [
+          IconButton(
+            tooltip: l10n.shellProfile,
+            icon: const Icon(Icons.account_circle),
+            onPressed: () => context.push(AppRoutes.profile),
+          ),
+        ],
+      ),
       floatingActionButton: canCreate
           ? FloatingActionButton.extended(
               key: PurchaseOrdersPage.newPurchaseOrderFabKey,
@@ -192,193 +205,222 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
         _dateTo != null ||
         hasActiveSearch;
 
-    final searchBar = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: SearchBar(
-        controller: _searchController,
-        key: PurchaseOrdersPage.searchFieldKey,
-        hintText: l10n.purchaseOrdersSearchHint,
-        onChanged: (value) {
-          ref
-              .read(purchaseOrdersControllerProvider.notifier)
-              .updateSearch(value);
-          setState(() {});
-        },
-      ),
-    );
-
-    final filterBar = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            Wrap(
-              spacing: 8,
-              children: [
-                for (final status in PurchaseOrderStatus.values)
-                  Tooltip(
-                    message: purchaseOrderStatusMessage(l10n, status),
-                    child: Semantics(
-                      label: purchaseOrderStatusMessage(l10n, status),
-                      selected: _selectedStatus == status,
-                      child: FilterChip(
-                        key: PurchaseOrdersPage.statusFilterKey(status),
-                        label: Text(purchaseOrderStatusMessage(l10n, status)),
-                        selected: _selectedStatus == status,
-                        onSelected: (selected) {
-                          setState(() {
-                            _selectedStatus = selected ? status : null;
-                          });
-                          ref
-                              .read(
-                                purchaseOrdersControllerProvider.notifier,
-                              )
-                              .updateStatus(_selectedStatus);
-                        },
+    return NotificationListener<ScrollNotification>(
+      onNotification: _onScroll,
+      child: RefreshIndicator(
+        onRefresh: () =>
+            ref.read(purchaseOrdersControllerProvider.notifier).refresh(),
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.shellManagePurchaseOrders,
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      l10n.purchaseOrdersSearchHint,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
-                  ),
-              ],
-            ),
-            const SizedBox(width: 12),
-            Tooltip(
-              message: l10n.purchaseOrdersFilterDateFrom,
-              child: Semantics(
-                label: l10n.purchaseOrdersFilterDateFrom,
-                button: true,
-                child: OutlinedButton.icon(
-                  key: PurchaseOrdersPage.dateFromFilterKey,
-                  icon: const Icon(Icons.calendar_today, size: 18),
-                  label: Text(
-                    _dateFrom == null
-                        ? l10n.purchaseOrdersFilterDateFrom
-                        : '${_dateFrom!.year}-${_dateFrom!.month.toString().padLeft(2, '0')}-${_dateFrom!.day.toString().padLeft(2, '0')}',
-                  ),
-                  onPressed: () => _pickDateFrom(context),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _searchController,
+                      key: PurchaseOrdersPage.searchFieldKey,
+                      decoration: InputDecoration(
+                        hintText: l10n.purchaseOrdersSearchHint,
+                        prefixIcon: const Icon(Icons.search),
+                        suffixIcon: _searchController.text.isEmpty
+                            ? null
+                            : IconButton(
+                                tooltip: l10n.commonClear,
+                                icon: const Icon(Icons.clear),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  ref
+                                      .read(
+                                        purchaseOrdersControllerProvider
+                                            .notifier,
+                                      )
+                                      .updateSearch('');
+                                  setState(() {});
+                                },
+                              ),
+                        border: const OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      onChanged: (value) {
+                        ref
+                            .read(purchaseOrdersControllerProvider.notifier)
+                            .updateSearch(value);
+                        setState(() {});
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          Wrap(
+                            spacing: 8,
+                            children: [
+                              for (final status in PurchaseOrderStatus.values)
+                                Tooltip(
+                                  message: purchaseOrderStatusMessage(
+                                    l10n,
+                                    status,
+                                  ),
+                                  child: Semantics(
+                                    label: purchaseOrderStatusMessage(
+                                      l10n,
+                                      status,
+                                    ),
+                                    selected: _selectedStatus == status,
+                                    child: FilterChip(
+                                      key: PurchaseOrdersPage.statusFilterKey(
+                                        status,
+                                      ),
+                                      label: Text(
+                                        purchaseOrderStatusMessage(
+                                          l10n,
+                                          status,
+                                        ),
+                                      ),
+                                      selected: _selectedStatus == status,
+                                      onSelected: (selected) {
+                                        setState(() {
+                                          _selectedStatus = selected
+                                              ? status
+                                              : null;
+                                        });
+                                        ref
+                                            .read(
+                                              purchaseOrdersControllerProvider
+                                                  .notifier,
+                                            )
+                                            .updateStatus(_selectedStatus);
+                                      },
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(width: 12),
+                          Tooltip(
+                            message: l10n.purchaseOrdersFilterDateFrom,
+                            child: Semantics(
+                              label: l10n.purchaseOrdersFilterDateFrom,
+                              button: true,
+                              child: OutlinedButton.icon(
+                                key: PurchaseOrdersPage.dateFromFilterKey,
+                                icon: const Icon(
+                                  Icons.calendar_today,
+                                  size: 18,
+                                ),
+                                label: Text(
+                                  _dateFrom == null
+                                      ? l10n.purchaseOrdersFilterDateFrom
+                                      : '${_dateFrom!.year}-${_dateFrom!.month.toString().padLeft(2, '0')}-${_dateFrom!.day.toString().padLeft(2, '0')}',
+                                ),
+                                onPressed: () => _pickDateFrom(context),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Tooltip(
+                            message: l10n.purchaseOrdersFilterDateTo,
+                            child: Semantics(
+                              label: l10n.purchaseOrdersFilterDateTo,
+                              button: true,
+                              child: OutlinedButton.icon(
+                                key: PurchaseOrdersPage.dateToFilterKey,
+                                icon: const Icon(
+                                  Icons.calendar_today,
+                                  size: 18,
+                                ),
+                                label: Text(
+                                  _dateTo == null
+                                      ? l10n.purchaseOrdersFilterDateTo
+                                      : '${_dateTo!.year}-${_dateTo!.month.toString().padLeft(2, '0')}-${_dateTo!.day.toString().padLeft(2, '0')}',
+                                ),
+                                onPressed: () => _pickDateTo(context),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          if (hasActiveFilter)
+                            Tooltip(
+                              message: l10n.commonClear,
+                              child: Semantics(
+                                label: l10n.commonClear,
+                                button: true,
+                                child: ActionChip(
+                                  key: PurchaseOrdersPage.clearFiltersKey,
+                                  label: Text(l10n.commonClear),
+                                  onPressed: _clearFilters,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    if (state.refreshFailure != null) ...[
+                      const SizedBox(height: 8),
+                      _buildRefreshFailureBanner(context),
+                    ],
+                    const SizedBox(height: 8),
+                  ],
                 ),
               ),
             ),
-            const SizedBox(width: 8),
-            Tooltip(
-              message: l10n.purchaseOrdersFilterDateTo,
-              child: Semantics(
-                label: l10n.purchaseOrdersFilterDateTo,
-                button: true,
-                child: OutlinedButton.icon(
-                  key: PurchaseOrdersPage.dateToFilterKey,
-                  icon: const Icon(Icons.calendar_today, size: 18),
-                  label: Text(
-                    _dateTo == null
-                        ? l10n.purchaseOrdersFilterDateTo
-                        : '${_dateTo!.year}-${_dateTo!.month.toString().padLeft(2, '0')}-${_dateTo!.day.toString().padLeft(2, '0')}',
-                  ),
-                  onPressed: () => _pickDateTo(context),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            if (hasActiveFilter)
-              Tooltip(
-                message: l10n.commonClear,
-                child: Semantics(
-                  label: l10n.commonClear,
-                  button: true,
-                  child: ActionChip(
-                    key: PurchaseOrdersPage.clearFiltersKey,
-                    label: Text(l10n.commonClear),
-                    onPressed: _clearFilters,
+            if (!hasResults && hasActiveFilter)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: _FilteredEmptyView(query: _searchController.text),
+              )
+            else if (state.isEmpty)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: _EmptyView(),
+              )
+            else ...[
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                  child: Text(
+                    l10n.purchaseOrdersCount(state.totalCount),
+                    key: PurchaseOrdersPage.countKey,
+                    style: Theme.of(context).textTheme.titleSmall,
                   ),
                 ),
               ),
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final purchaseOrder = state.items[index];
+                    return PurchaseOrderCard(
+                      purchaseOrder: purchaseOrder,
+                    );
+                  },
+                  childCount: state.items.length,
+                ),
+              ),
+              if (_hasLoadMoreFooter(state))
+                SliverToBoxAdapter(
+                  child: _buildLoadMoreFooter(context, state),
+                ),
+              const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            ],
           ],
         ),
       ),
-    );
-
-    if (!hasResults && hasActiveFilter) {
-      return Column(
-        children: [
-          searchBar,
-          filterBar,
-          if (state.refreshFailure != null) _buildRefreshFailureBanner(context),
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: () =>
-                  ref.read(purchaseOrdersControllerProvider.notifier).refresh(),
-              child: ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                children: [
-                  _FilteredEmptyView(query: _searchController.text),
-                ],
-              ),
-            ),
-          ),
-        ],
-      );
-    }
-    if (state.isEmpty) {
-      return Column(
-        children: [
-          searchBar,
-          filterBar,
-          if (state.refreshFailure != null) _buildRefreshFailureBanner(context),
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: () =>
-                  ref.read(purchaseOrdersControllerProvider.notifier).refresh(),
-              child: ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                children: const [_EmptyView()],
-              ),
-            ),
-          ),
-        ],
-      );
-    }
-
-    return Column(
-      children: [
-        searchBar,
-        filterBar,
-        if (state.refreshFailure != null) _buildRefreshFailureBanner(context),
-        Expanded(
-          child: RefreshIndicator(
-            onRefresh: () =>
-                ref.read(purchaseOrdersControllerProvider.notifier).refresh(),
-            child: NotificationListener<ScrollNotification>(
-              onNotification: _onScroll,
-              child: ListView.builder(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.only(top: 8, bottom: 24),
-                itemCount:
-                    state.items.length +
-                    1 +
-                    (_hasLoadMoreFooter(state) ? 1 : 0),
-                itemBuilder: (context, index) {
-                  if (index == 0) {
-                    return Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                      child: Text(
-                        l10n.purchaseOrdersCount(state.totalCount),
-                        key: PurchaseOrdersPage.countKey,
-                        style: Theme.of(context).textTheme.titleSmall,
-                      ),
-                    );
-                  }
-                  if (index > state.items.length) {
-                    return _buildLoadMoreFooter(context, state);
-                  }
-                  final purchaseOrder = state.items[index - 1];
-                  return PurchaseOrderCard(
-                    purchaseOrder: purchaseOrder,
-                  );
-                },
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 
@@ -430,15 +472,32 @@ class _FailureView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.error_outline, size: 48),
+            Icon(
+              Icons.cloud_off_outlined,
+              size: 48,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
             const SizedBox(height: 12),
-            Text(purchaseOrderFailureMessage(l10n, failure)),
+            Text(
+              l10n.purchaseOrdersUnableToLoad,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              purchaseOrderFailureMessage(l10n, failure),
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 16),
             FilledButton(
               onPressed: () =>
@@ -457,8 +516,28 @@ class _EmptyView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     return Center(
-      child: Text(AppLocalizations.of(context)!.purchaseOrdersEmpty),
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.receipt_long_outlined,
+              size: 56,
+              color: theme.colorScheme.primary.withValues(alpha: 0.7),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              l10n.purchaseOrdersEmpty,
+              style: theme.textTheme.titleMedium,
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -471,13 +550,18 @@ class _FilteredEmptyView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.search_off, size: 48),
+            Icon(
+              Icons.search_off,
+              size: 48,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
             const SizedBox(height: 12),
             Text(
               query.isEmpty

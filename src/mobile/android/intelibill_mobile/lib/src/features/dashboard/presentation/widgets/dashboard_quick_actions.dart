@@ -9,6 +9,8 @@ class DashboardQuickActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final dividerColor = theme.dividerTheme.color ?? const Color(0xFFFED7AA);
 
     final actions = <_QuickAction>[
       _QuickAction(
@@ -39,8 +41,17 @@ class DashboardQuickActions extends StatelessWidget {
       children: [
         for (final action in actions)
           ActionChip(
-            avatar: Icon(action.icon, size: 18),
+            avatar: Icon(
+              action.icon,
+              size: 18,
+              color: theme.colorScheme.primary,
+            ),
             label: Text(action.label),
+            backgroundColor: theme.colorScheme.surface,
+            side: BorderSide(color: dividerColor),
+            labelStyle: theme.textTheme.labelLarge?.copyWith(
+              color: theme.colorScheme.onSurface,
+            ),
             onPressed: () => context.push(action.route),
           ),
       ],

@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:intelibill_mobile/src/app/router/app_router.dart';
 import 'package:intelibill_mobile/src/app/shell/menu_visibility.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/auth/presentation/controllers/auth_controller.dart';
@@ -46,63 +48,92 @@ class _ExpensesPageState extends ConsumerState<ExpensesPage> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.shellManageExpenses)),
+      appBar: AppBar(
+        title: Text(l10n.shellManageExpenses),
+        actions: [
+          IconButton(
+            tooltip: l10n.shellProfile,
+            icon: const Icon(Icons.account_circle),
+            onPressed: () => context.push(AppRoutes.profile),
+          ),
+        ],
+      ),
       floatingActionButton: canRecord
           ? FloatingActionButton.extended(
               key: ExpensesPage.recordExpenseFabKey,
               onPressed: _openRecordExpenseSheet,
+              tooltip: l10n.expensesRecordExpense,
               icon: const Icon(Icons.add),
               label: Text(l10n.expensesRecordExpense),
             )
           : null,
-      body: Column(
-        children: [
-          ExpensesSummaryStrip(
-            totalCount: state.totalCount,
-            loadedAmount: state.loadedAmount,
-            loadedActiveCount: state.loadedActiveCount,
-            loadedVoidedCount: state.loadedVoidedCount,
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: TextField(
-              key: const Key('expenses-search'),
-              controller: _searchController,
-              decoration: InputDecoration(
-                labelText: l10n.commonSearch,
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: state.searchQuery.isEmpty
-                    ? null
-                    : IconButton(
-                        tooltip: l10n.commonClear,
-                        icon: Icon(
-                          Icons.clear,
-                          semanticLabel: l10n.commonClear,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: constraints.maxHeight * 0.42,
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ExpensesSummaryStrip(
+                        totalCount: state.totalCount,
+                        loadedAmount: state.loadedAmount,
+                        loadedActiveCount: state.loadedActiveCount,
+                        loadedVoidedCount: state.loadedVoidedCount,
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                        child: TextField(
+                          key: const Key('expenses-search'),
+                          controller: _searchController,
+                          decoration: InputDecoration(
+                            labelText: l10n.commonSearch,
+                            prefixIcon: const Icon(Icons.search),
+                            suffixIcon: state.searchQuery.isEmpty
+                                ? null
+                                : IconButton(
+                                    tooltip: l10n.commonClear,
+                                    icon: Icon(
+                                      Icons.clear,
+                                      semanticLabel: l10n.commonClear,
+                                    ),
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      ref
+                                          .read(
+                                            expensesControllerProvider.notifier,
+                                          )
+                                          .updateSearch('');
+                                    },
+                                  ),
+                            isDense: true,
+                          ),
+                          onChanged: (value) => ref
+                              .read(expensesControllerProvider.notifier)
+                              .updateSearch(value),
                         ),
-                        onPressed: () {
-                          _searchController.clear();
+                      ),
+                      _ExpenseStatusFilters(
+                        selectedFilter: state.statusFilter,
+                        onFilterChanged: (filter) {
                           ref
                               .read(expensesControllerProvider.notifier)
-                              .updateSearch('');
+                              .updateStatusFilter(filter);
                         },
                       ),
-                border: const OutlineInputBorder(),
+                    ],
+                  ),
+                ),
               ),
-              onChanged: (value) => ref
-                  .read(expensesControllerProvider.notifier)
-                  .updateSearch(value),
-            ),
-          ),
-          _ExpenseStatusFilters(
-            selectedFilter: state.statusFilter,
-            onFilterChanged: (filter) {
-              ref
-                  .read(expensesControllerProvider.notifier)
-                  .updateStatusFilter(filter);
-            },
-          ),
-          Expanded(child: _ExpensesBody(state: state)),
-        ],
+              Expanded(child: _ExpensesBody(state: state)),
+            ],
+          );
+        },
       ),
     );
   }
@@ -137,7 +168,7 @@ class _ExpenseStatusFilters extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
       child: Row(
         children: [
           _buildChip(l10n.expensesFilterAll, ExpenseStatusFilter.all),
@@ -195,18 +226,34 @@ class _ExpensesBody extends ConsumerWidget {
 
     if (hasFailure && !hasData) {
       return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(AppLocalizations.of(context)!.expensesUnableToLoad),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: () => unawaited(
-                ref.read(expensesControllerProvider.notifier).refresh(),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.cloud_off_outlined,
+                size: 48,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
-              child: Text(AppLocalizations.of(context)!.expensesRetry),
-            ),
-          ],
+              const SizedBox(height: 16),
+              Text(
+                AppLocalizations.of(context)!.expensesUnableToLoad,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: () => unawaited(
+                  ref.read(expensesControllerProvider.notifier).refresh(),
+                ),
+                child: Text(AppLocalizations.of(context)!.expensesRetry),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -221,23 +268,37 @@ class _ExpensesBody extends ConsumerWidget {
                 ? ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
                     children: [
-                      const SizedBox(height: 160),
-                      Center(
-                        child: Text(
-                          hasLoadedExpenses
-                              ? AppLocalizations.of(
-                                  context,
-                                )!.expensesNoFilteredResults
-                              : AppLocalizations.of(
-                                  context,
-                                )!.expensesNoExpensesFound,
+                      Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.receipt_long_outlined,
+                              size: 56,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.primary.withValues(alpha: 0.7),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              hasLoadedExpenses
+                                  ? AppLocalizations.of(
+                                      context,
+                                    )!.expensesNoFilteredResults
+                                  : AppLocalizations.of(
+                                      context,
+                                    )!.expensesNoExpensesFound,
+                              style: Theme.of(context).textTheme.titleMedium,
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   )
                 : ListView.builder(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    padding: const EdgeInsets.only(top: 8, bottom: 88),
                     itemCount: expenses.length + _appendRowCount,
                     itemBuilder: (context, index) {
                       if (index == expenses.length) {

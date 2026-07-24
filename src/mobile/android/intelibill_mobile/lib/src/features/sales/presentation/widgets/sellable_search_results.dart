@@ -15,11 +15,18 @@ class SellableSearchResults extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     if (sellables.isEmpty) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.all(24),
-          child: Text('No sellables found.'),
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'No sellables found.',
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: const Color(0xFF9A6B45),
+            ),
+          ),
         ),
       );
     }
@@ -33,23 +40,48 @@ class SellableSearchResults extends StatelessWidget {
       itemBuilder: (context, index) {
         final sellable = sellables[index];
         return Card(
-          child: ListTile(
-            title: Row(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 12, 8),
+            child: Row(
               children: [
-                Expanded(child: Text(sellable.name)),
-                _KindChip(kind: sellable.kind),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              sellable.name,
+                              style: theme.textTheme.bodyLarge?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          _KindChip(kind: sellable.kind),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        sellable.isService
+                            ? '${sellable.barcode ?? '-'} • ₹${sellable.price}'
+                            : '${sellable.barcode ?? '-'} • '
+                                  'Stock ${_formatQuantity(sellable.stock)} • '
+                                  '₹${sellable.price}',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: const Color(0xFF9A6B45),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                FilledButton(
+                  key: Key('add-button-${sellable.id}'),
+                  onPressed: () => onAdd(sellable),
+                  child: const Text('Add'),
+                ),
               ],
-            ),
-            subtitle: Text(
-              sellable.isService
-                  ? '${sellable.barcode ?? '-'} • ₹${sellable.price}'
-                  : '${sellable.barcode ?? '-'} • '
-                        'Stock ${_formatQuantity(sellable.stock)} • ₹${sellable.price}',
-            ),
-            trailing: FilledButton(
-              key: Key('add-button-${sellable.id}'),
-              onPressed: () => onAdd(sellable),
-              child: const Text('Add'),
             ),
           ),
         );
@@ -73,9 +105,22 @@ class _KindChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Padding(
       padding: const EdgeInsets.only(left: 8),
-      child: Chip(label: Text(kind), visualDensity: VisualDensity.compact),
+      child: Chip(
+        label: Text(kind),
+        visualDensity: VisualDensity.compact,
+        backgroundColor: const Color(0xFFFFEDD5),
+        side: BorderSide(
+          color: theme.colorScheme.primary.withValues(alpha: 0.4),
+        ),
+        labelStyle: theme.textTheme.labelSmall?.copyWith(
+          color: const Color(0xFF7C2D12),
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 }

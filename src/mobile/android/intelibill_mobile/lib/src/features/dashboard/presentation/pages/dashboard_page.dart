@@ -107,8 +107,12 @@ class _DashboardBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     if (dashboardState.isLoading && dashboardState.dashboard == null) {
-      return const Center(child: CircularProgressIndicator());
+      return Center(
+        child: CircularProgressIndicator(color: theme.colorScheme.primary),
+      );
     }
 
     if (dashboardState.failure != null && dashboardState.dashboard == null) {
@@ -118,16 +122,23 @@ class _DashboardBody extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              Icon(
+                Icons.error_outline,
+                size: 48,
+                color: theme.colorScheme.error,
+              ),
+              const SizedBox(height: 12),
               Text(
                 l10n.dashboardUnableToLoad,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: theme.textTheme.titleMedium,
+                textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
               Text(
                 _localizeFailure(l10n, dashboardState.failure!),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
@@ -143,10 +154,19 @@ class _DashboardBody extends StatelessWidget {
 
     final dashboard = dashboardState.dashboard;
     if (dashboard == null) {
-      return Center(child: Text(l10n.dashboardNoData));
+      return Center(
+        child: Text(
+          l10n.dashboardNoData,
+          style: theme.textTheme.bodyLarge?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      );
     }
 
     return RefreshIndicator(
+      color: theme.colorScheme.primary,
       onRefresh: onRefresh,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -189,7 +209,11 @@ class _DashboardBody extends StatelessWidget {
           ],
           if (dashboardState.isLoading) ...[
             const SizedBox(height: 24),
-            const Center(child: CircularProgressIndicator()),
+            Center(
+              child: CircularProgressIndicator(
+                color: theme.colorScheme.primary,
+              ),
+            ),
           ] else ...[
             const SizedBox(height: 20),
             DashboardKpiGrid(dashboard: dashboard),

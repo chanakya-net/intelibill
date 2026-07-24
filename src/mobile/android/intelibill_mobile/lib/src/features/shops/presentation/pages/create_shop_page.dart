@@ -11,6 +11,7 @@ import 'package:intelibill_mobile/src/features/shops/presentation/controllers/sh
 import 'package:intelibill_mobile/src/features/shops/presentation/widgets/bank_details_form.dart';
 import 'package:intelibill_mobile/src/features/shops/presentation/widgets/shop_info_form.dart';
 import 'package:intelibill_mobile/src/features/shops/presentation/widgets/shop_step_indicator.dart';
+import 'package:intelibill_mobile/src/features/shops/presentation/widgets/shop_success_card.dart';
 
 class CreateShopPage extends ConsumerStatefulWidget {
   const CreateShopPage({super.key});
@@ -156,6 +157,7 @@ class _CreateShopPageState extends ConsumerState<CreateShopPage> {
           child: ShopInfoForm(
             formKey: _shopInfoFormKey,
             isSubmitting: _isLoading,
+            sectionTitle: l10n.shopsCreateShopInfoStepTitle,
             onChanged: (data) {
               setState(() {
                 _shopInfo = data;
@@ -168,6 +170,7 @@ class _CreateShopPageState extends ConsumerState<CreateShopPage> {
           child: BankDetailsForm(
             formKey: _bankDetailsFormKey,
             isSubmitting: _isLoading,
+            sectionTitle: l10n.shopsCreateBankDetailsStepTitle,
             onChanged: (data) {
               setState(() {
                 _bankInfo = data;
@@ -177,22 +180,11 @@ class _CreateShopPageState extends ConsumerState<CreateShopPage> {
         );
       case 3:
         return Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.check_circle, size: 48, color: Colors.green),
-              const SizedBox(height: 12),
-              Text(
-                l10n.shopsCreateSuccessTitle,
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                l10n.shopsCreateSuccessMessage(
-                  _shopName ?? l10n.shopsCreateSuccessDefaultShopName,
-                ),
-              ),
-            ],
+          child: ShopSuccessCard(
+            title: l10n.shopsCreateSuccessTitle,
+            message: l10n.shopsCreateSuccessMessage(
+              _shopName ?? l10n.shopsCreateSuccessDefaultShopName,
+            ),
           ),
         );
       default:
@@ -201,16 +193,21 @@ class _CreateShopPageState extends ConsumerState<CreateShopPage> {
   }
 
   Widget _buildActions(AppLocalizations l10n) {
+    final theme = Theme.of(context);
+
     switch (_currentStep) {
       case 1:
         return FilledButton(
           key: CreateShopPage.nextButtonKey,
           onPressed: _isLoading ? null : _handleShopInfoNext,
           child: _isLoading
-              ? const SizedBox(
+              ? SizedBox(
                   width: 16,
                   height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: theme.colorScheme.onPrimary,
+                  ),
                 )
               : Text(l10n.shopsCreateNextButton),
         );
@@ -219,6 +216,9 @@ class _CreateShopPageState extends ConsumerState<CreateShopPage> {
           children: [
             TextButton(
               key: CreateShopPage.skipButtonKey,
+              style: TextButton.styleFrom(
+                foregroundColor: theme.colorScheme.primary,
+              ),
               onPressed: _isLoading ? null : _handleSkip,
               child: Text(l10n.shopsCreateSkipButton),
             ),
@@ -227,10 +227,13 @@ class _CreateShopPageState extends ConsumerState<CreateShopPage> {
               key: CreateShopPage.nextButtonKey,
               onPressed: _isLoading ? null : _handleBankDetailsNext,
               child: _isLoading
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 16,
                       height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: theme.colorScheme.onPrimary,
+                      ),
                     )
                   : Text(l10n.shopsCreateNextButton),
             ),

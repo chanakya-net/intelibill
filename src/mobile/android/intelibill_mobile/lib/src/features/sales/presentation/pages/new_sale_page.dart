@@ -94,7 +94,7 @@ class _NewSalePageState extends ConsumerState<NewSalePage> {
               const Divider(height: 1),
               if (state.cartLines.isNotEmpty)
                 Padding(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                   child: _buildPaymentSection(state),
                 ),
               if (state.isSearching)
@@ -172,124 +172,194 @@ class _NewSalePageState extends ConsumerState<NewSalePage> {
   }
 
   Widget _buildSearchSection(NewSaleState state) {
-    return Padding(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        children: [
-          TextField(
-            key: const Key('sales-search-field'),
-            controller: _searchController,
-            onChanged: (value) {
-              ref
-                  .read(newSaleControllerProvider.notifier)
-                  .updateSearchTerm(value);
-            },
-            decoration: const InputDecoration(
-              labelText: 'Search goods',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.search),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  key: const Key('barcode-field'),
-                  controller: _barcodeController,
+    final theme = Theme.of(context);
+    final hasCartItems = state.cartLines.isNotEmpty;
+
+    if (hasCartItems) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+        child: Card(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              children: [
+                TextField(
+                  key: const Key('sales-search-field'),
+                  controller: _searchController,
                   onChanged: (value) {
                     ref
                         .read(newSaleControllerProvider.notifier)
-                        .updateBarcodeTerm(value);
+                        .updateSearchTerm(value);
                   },
                   decoration: const InputDecoration(
-                    labelText: 'Barcode lookup',
-                    border: OutlineInputBorder(),
+                    labelText: 'Search goods',
+                    prefixIcon: Icon(Icons.search),
+                    isDense: true,
                   ),
                 ),
+                const SizedBox(height: 8),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        key: const Key('barcode-field'),
+                        controller: _barcodeController,
+                        onChanged: (value) {
+                          ref
+                              .read(newSaleControllerProvider.notifier)
+                              .updateBarcodeTerm(value);
+                        },
+                        decoration: const InputDecoration(
+                          labelText: 'Barcode lookup',
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton(
+                      key: const Key('barcode-search-button'),
+                      onPressed: _searchByBarcode,
+                      child: const Text('Lookup'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Find items',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-              const SizedBox(width: 8),
-              ElevatedButton(
-                key: const Key('barcode-search-button'),
-                onPressed: _searchByBarcode,
-                child: const Text('Lookup'),
+              const SizedBox(height: 12),
+              TextField(
+                key: const Key('sales-search-field'),
+                controller: _searchController,
+                onChanged: (value) {
+                  ref
+                      .read(newSaleControllerProvider.notifier)
+                      .updateSearchTerm(value);
+                },
+                decoration: const InputDecoration(
+                  labelText: 'Search goods',
+                  prefixIcon: Icon(Icons.search),
+                ),
               ),
+              const SizedBox(height: 12),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: TextField(
+                      key: const Key('barcode-field'),
+                      controller: _barcodeController,
+                      onChanged: (value) {
+                        ref
+                            .read(newSaleControllerProvider.notifier)
+                            .updateBarcodeTerm(value);
+                      },
+                      decoration: const InputDecoration(
+                        labelText: 'Barcode lookup',
+                        prefixIcon: Icon(Icons.qr_code_scanner),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  OutlinedButton(
+                    key: const Key('barcode-search-button'),
+                    onPressed: _searchByBarcode,
+                    child: const Text('Lookup'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: () =>
+                    ref.read(newSaleControllerProvider.notifier).search(),
+                icon: const Icon(Icons.search),
+                label: const Text('Search'),
+              ),
+              if (state.searchFailure != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  state.searchFailure.toString(),
+                  key: const Key('new-sale-failure'),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.error,
+                  ),
+                ),
+              ],
+              if (state.submitFailure != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  state.submitFailure.toString(),
+                  key: const Key('new-sale-submit-failure'),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.error,
+                  ),
+                ),
+              ],
             ],
           ),
-          const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: () =>
-                  ref.read(newSaleControllerProvider.notifier).search(),
-              child: const Text('Search'),
-            ),
-          ),
-          if (state.searchFailure != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              state.searchFailure.toString(),
-              key: const Key('new-sale-failure'),
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-            ),
-          ],
-          if (state.submitFailure != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              state.submitFailure.toString(),
-              key: const Key('new-sale-submit-failure'),
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-            ),
-          ],
-        ],
+        ),
       ),
     );
   }
 
   Widget _buildPaymentSection(NewSaleState state) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 12),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildCustomerSection(state),
-          const SizedBox(height: 12),
-          PaymentSection(
-            state: state,
-            paidAmountController: _paidAmountController,
-            dueAmountController: _dueAmountController,
-            paidAmountFocusNode: _paidAmountFocusNode,
-            dueAmountFocusNode: _dueAmountFocusNode,
-            onPaymentMethodChanged: _onPaymentMethodChanged,
-            onPaidAmountChanged: _setPaidAmount,
-            onDueAmountChanged: _setDueAmount,
-            onPaidAmountEditingComplete: _finishPaidAmountEditing,
-            onDueAmountEditingComplete: _finishDueAmountEditing,
-          ),
-          const SizedBox(height: 12),
-          if (state.submissionFailure != null)
-            Text(
-              state.submissionError ?? 'Invalid payment split.',
-              key: NewSalePage.paymentFailureKey,
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-            ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              key: NewSalePage.submitButtonKey,
-              onPressed: state.canSubmit && !state.isSubmitting
-                  ? () {
-                      unawaited(_submitSale());
-                    }
-                  : null,
-              child: state.isSubmitting
-                  ? const Text('Recording...')
-                  : const Text('Submit sale'),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildCustomerSection(state),
+        const SizedBox(height: 12),
+        PaymentSection(
+          state: state,
+          paidAmountController: _paidAmountController,
+          dueAmountController: _dueAmountController,
+          paidAmountFocusNode: _paidAmountFocusNode,
+          dueAmountFocusNode: _dueAmountFocusNode,
+          onPaymentMethodChanged: _onPaymentMethodChanged,
+          onPaidAmountChanged: _setPaidAmount,
+          onDueAmountChanged: _setDueAmount,
+          onPaidAmountEditingComplete: _finishPaidAmountEditing,
+          onDueAmountEditingComplete: _finishDueAmountEditing,
+        ),
+        const SizedBox(height: 12),
+        if (state.submissionFailure != null)
+          Text(
+            state.submissionError ?? 'Invalid payment split.',
+            key: NewSalePage.paymentFailureKey,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.error,
             ),
           ),
-        ],
-      ),
+        const SizedBox(height: 12),
+        FilledButton(
+          key: NewSalePage.submitButtonKey,
+          onPressed: state.canSubmit && !state.isSubmitting
+              ? () {
+                  unawaited(_submitSale());
+                }
+              : null,
+          child: state.isSubmitting
+              ? const Text('Recording...')
+              : const Text('Submit sale'),
+        ),
+      ],
     );
   }
 
@@ -301,17 +371,21 @@ class _NewSalePageState extends ConsumerState<NewSalePage> {
         ? selectedId
         : null;
 
+    final theme = Theme.of(context);
+
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
+            Text(
               'Customer',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             if (state.isLoadingCustomers)
               const Center(
                 child: Padding(
@@ -344,12 +418,13 @@ class _NewSalePageState extends ConsumerState<NewSalePage> {
             const SizedBox(height: 8),
             Align(
               alignment: Alignment.centerLeft,
-              child: TextButton(
+              child: OutlinedButton.icon(
                 key: NewSalePage.createCustomerButtonKey,
                 onPressed: () {
                   unawaited(_openCreateCustomerDialog());
                 },
-                child: const Text('Add customer'),
+                icon: const Icon(Icons.person_add_outlined, size: 18),
+                label: const Text('Add customer'),
               ),
             ),
             if (state.customerLoadFailure != null)

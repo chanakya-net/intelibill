@@ -79,7 +79,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byIcon(Icons.error_outline), findsOneWidget);
-      expect(find.byType(TextButton), findsOneWidget);
+      expect(find.byType(FilledButton), findsOneWidget);
     });
 
     testWidgets('retries the page code after a failed load', (
@@ -108,9 +108,9 @@ void main() {
       await tester.pumpWidget(_receiptApp(container, 'CN-REC-001'));
       await tester.pumpAndSettle();
 
-      expect(find.byType(TextButton), findsOneWidget);
+      expect(find.byType(FilledButton), findsOneWidget);
       allowSuccess = true;
-      await tester.tap(find.byType(TextButton));
+      await tester.tap(find.byType(FilledButton));
       await tester.pump();
       await tester.pump();
 

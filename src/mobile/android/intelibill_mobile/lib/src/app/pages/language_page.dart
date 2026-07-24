@@ -28,31 +28,81 @@ class LanguagePage extends ConsumerWidget {
           ),
         ],
       ),
-      body: ListView.separated(
-        itemCount: intelibillSupportedLocales.length,
-        separatorBuilder: (_, index) => const Divider(height: 1),
-        itemBuilder: (context, index) {
-          final locale = intelibillSupportedLocales[index];
-          final isSelected = _isSameLocale(locale, currentLocale);
-
-          return ListTile(
-            title: Text(_labelForLocale(l10n, locale)),
-            trailing: isSelected ? const Icon(Icons.check) : null,
-            onTap: () async {
-              await ref
-                  .read(localeControllerProvider.notifier)
-                  .setLocale(locale);
-              if (context.mounted) {
-                if (context.canPop()) {
-                  context.pop();
-                } else {
-                  context.go(AppRoutes.dashboard);
-                }
-              }
-            },
-          );
-        },
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Card(
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (
+                  var index = 0;
+                  index < intelibillSupportedLocales.length;
+                  index++
+                ) ...[
+                  if (index > 0) const Divider(height: 1),
+                  _LanguageOptionTile(
+                    label: _labelForLocale(
+                      l10n,
+                      intelibillSupportedLocales[index],
+                    ),
+                    isSelected: _isSameLocale(
+                      intelibillSupportedLocales[index],
+                      currentLocale,
+                    ),
+                    onTap: () async {
+                      await ref
+                          .read(localeControllerProvider.notifier)
+                          .setLocale(intelibillSupportedLocales[index]);
+                      if (context.mounted) {
+                        if (context.canPop()) {
+                          context.pop();
+                        } else {
+                          context.go(AppRoutes.dashboard);
+                        }
+                      }
+                    },
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
       ),
+    );
+  }
+}
+
+class _LanguageOptionTile extends StatelessWidget {
+  const _LanguageOptionTile({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      title: Text(
+        label,
+        style: theme.textTheme.bodyLarge?.copyWith(
+          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+          color: isSelected ? colorScheme.primary : colorScheme.onSurface,
+        ),
+      ),
+      trailing: isSelected
+          ? Icon(Icons.check_rounded, color: colorScheme.primary)
+          : null,
+      onTap: onTap,
     );
   }
 }

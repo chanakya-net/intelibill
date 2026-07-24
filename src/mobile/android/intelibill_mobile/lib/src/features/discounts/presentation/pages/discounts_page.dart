@@ -76,7 +76,11 @@ class _DiscountsPageState extends ConsumerState<DiscountsPage> {
               label: Text(l10n.discountsCreateAction),
             )
           : null,
-      body: _buildBody(context, state, l10n),
+      body: Column(
+        children: [
+          Expanded(child: _buildBody(context, state, l10n)),
+        ],
+      ),
     );
   }
 
@@ -106,7 +110,7 @@ class _DiscountsPageState extends ConsumerState<DiscountsPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.cloud_off_outlined, size: 48),
+              const Icon(Icons.error_outline, size: 48),
               const SizedBox(height: 12),
               Text(
                 l10n.discountsUnableToLoad,
@@ -114,9 +118,13 @@ class _DiscountsPageState extends ConsumerState<DiscountsPage> {
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
                 ),
+                textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
-              Text(_localizeFailure(l10n, state.failure!)),
+              Text(
+                _localizeFailure(l10n, state.failure!),
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: 16),
               FilledButton(
                 onPressed: () {
@@ -142,10 +150,19 @@ class _DiscountsPageState extends ConsumerState<DiscountsPage> {
           slivers: [
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Text(
+                      l10n.shellManageDiscounts,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: const Color(0xFFC8443F),
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.6,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
                     Text(
                       l10n.discountsTitle,
                       style: Theme.of(context).textTheme.headlineSmall,
@@ -153,9 +170,11 @@ class _DiscountsPageState extends ConsumerState<DiscountsPage> {
                     const SizedBox(height: 4),
                     Text(
                       l10n.discountsSubtitle,
-                      style: Theme.of(context).textTheme.bodyMedium,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: const Color(0xFF766B63),
+                      ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
                     TextField(
                       controller: _searchController,
                       decoration: InputDecoration(
@@ -189,24 +208,31 @@ class _DiscountsPageState extends ConsumerState<DiscountsPage> {
                       },
                     ),
                     const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      children: [
-                        for (final status in DiscountRuleStatusFilter.values)
-                          _FilterChip(
-                            label: _statusLabel(l10n, status),
-                            selected: state.statusFilter == status,
-                            onSelected: (_) {
-                              unawaited(
-                                ref
-                                    .read(discountsControllerProvider.notifier)
-                                    .updateStatusFilter(status),
-                              );
-                            },
-                          ),
-                      ],
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          for (final status in DiscountRuleStatusFilter.values)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: FilterChip(
+                                label: Text(_statusLabel(l10n, status)),
+                                selected: state.statusFilter == status,
+                                onSelected: (_) {
+                                  unawaited(
+                                    ref
+                                        .read(
+                                          discountsControllerProvider.notifier,
+                                        )
+                                        .updateStatusFilter(status),
+                                  );
+                                },
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
                       initialValue: state.sort,
                       isExpanded: true,
@@ -232,25 +258,32 @@ class _DiscountsPageState extends ConsumerState<DiscountsPage> {
                         isDense: true,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      children: [
-                        for (final type in DiscountRuleTypeFilter.values)
-                          _FilterChip(
-                            label: _typeLabel(l10n, type),
-                            selected: state.ruleTypeFilter == type,
-                            onSelected: (_) {
-                              unawaited(
-                                ref
-                                    .read(discountsControllerProvider.notifier)
-                                    .updateRuleTypeFilter(type),
-                              );
-                            },
-                          ),
-                      ],
-                    ),
                     const SizedBox(height: 12),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          for (final type in DiscountRuleTypeFilter.values)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: FilterChip(
+                                label: Text(_typeLabel(l10n, type)),
+                                selected: state.ruleTypeFilter == type,
+                                onSelected: (_) {
+                                  unawaited(
+                                    ref
+                                        .read(
+                                          discountsControllerProvider.notifier,
+                                        )
+                                        .updateRuleTypeFilter(type),
+                                  );
+                                },
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                   ],
                 ),
               ),
@@ -259,29 +292,81 @@ class _DiscountsPageState extends ConsumerState<DiscountsPage> {
               SliverFillRemaining(
                 hasScrollBody: false,
                 child: Center(
-                  child: Text(l10n.discountsNoRules),
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.local_offer_outlined,
+                          size: 48,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          l10n.discountsNoRules,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          l10n.discountsSubtitle,
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               )
             else
               SliverList(
-                delegate: SliverChildBuilderDelegate((context, index) {
-                  final rule = state.rules[index];
-                  return DiscountRuleListCard(
-                    rule: rule,
-                    onTap: () async {
-                      await ref
-                          .read(discountsControllerProvider.notifier)
-                          .selectRule(rule.discountRuleId);
-                      if (!context.mounted) return;
-                      await showDiscountRuleDetailSheet(context);
-                    },
-                  );
-                }, childCount: state.rules.length),
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    if (index >= state.rules.length) {
+                      return const Padding(
+                        padding: EdgeInsets.all(16),
+                        child: Center(child: CircularProgressIndicator()),
+                      );
+                    }
+
+                    final rule = state.rules[index];
+                    return DiscountRuleListCard(
+                      rule: rule,
+                      onTap: () async {
+                        await ref
+                            .read(discountsControllerProvider.notifier)
+                            .selectRule(rule.discountRuleId);
+                        if (!context.mounted) return;
+                        await showDiscountRuleDetailSheet(context);
+                      },
+                    );
+                  },
+                  childCount:
+                      state.rules.length + (state.isLoadingMore ? 1 : 0),
+                ),
               ),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                child: _footerText(state, l10n),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                child: Text(
+                  l10n.discountsShowingCount(
+                    state.rules.length,
+                    state.totalCount,
+                  ),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
               ),
             ),
           ],
@@ -338,12 +423,6 @@ String _typeLabel(AppLocalizations l10n, String type) {
   }
 }
 
-Widget _footerText(DiscountsState state, AppLocalizations l10n) {
-  return Text(
-    l10n.discountsShowingCount(state.rules.length, state.totalCount),
-  );
-}
-
 String _localizeFailure(AppLocalizations l10n, Failure failure) {
   return failure.when(
     validation: (String? message, Map<String, List<String>>? _) =>
@@ -357,25 +436,4 @@ String _localizeFailure(AppLocalizations l10n, Failure failure) {
     serialization: (String? _) => l10n.discountsErrorGeneric,
     unknown: (String? _) => l10n.discountsErrorGeneric,
   );
-}
-
-class _FilterChip extends StatelessWidget {
-  const _FilterChip({
-    required this.label,
-    required this.selected,
-    required this.onSelected,
-  });
-
-  final String label;
-  final bool selected;
-  final ValueChanged<bool> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return FilterChip(
-      label: Text(label),
-      selected: selected,
-      onSelected: onSelected,
-    );
-  }
 }

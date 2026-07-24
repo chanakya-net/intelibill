@@ -11,6 +11,7 @@ import 'package:intelibill_mobile/src/shared/documents/document_page_format.dart
 import 'package:intelibill_mobile/src/shared/documents/document_preview_scaffold.dart';
 import 'package:intelibill_mobile/src/shared/documents/output/document_export_providers.dart';
 import 'package:intelibill_mobile/src/shared/documents/output/document_export_service.dart';
+import 'package:intelibill_mobile/src/shared/documents/output/document_output_messages.dart';
 
 class SalesReceiptPage extends ConsumerWidget {
   const SalesReceiptPage({required this.saleId, this.initialSale, super.key});
@@ -22,39 +23,56 @@ class SalesReceiptPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
     final state = ref.watch(saleDetailControllerProvider(saleId));
     final l10n = AppLocalizations.of(context)!;
     final sale = state.detail ?? initialSale;
+    final title = l10n.salesDetailReceipt;
 
     if (state.isLoading && sale == null) {
       return Scaffold(
         key: pageKey,
-        appBar: AppBar(title: Text(l10n.salesDetailReceipt)),
-        body: const Center(child: CircularProgressIndicator()),
+        appBar: AppBar(title: Text(title)),
+        body: Center(
+          child: CircularProgressIndicator(color: theme.colorScheme.primary),
+        ),
       );
     }
 
     if (state.failure != null && sale == null) {
       return Scaffold(
         key: pageKey,
-        appBar: AppBar(title: Text(l10n.salesDetailReceipt)),
+        appBar: AppBar(title: Text(title)),
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.error_outline, size: 48),
-                const SizedBox(height: 12),
-                Text(l10n.salesDetailUnableToLoad),
-                const SizedBox(height: 12),
-                FilledButton(
-                  onPressed: () => ref
-                      .read(saleDetailControllerProvider(saleId).notifier)
-                      .refresh(),
-                  child: Text(l10n.salesHistoryRetry),
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.error_outline,
+                      size: 48,
+                      color: theme.colorScheme.error,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      l10n.salesDetailUnableToLoad,
+                      style: theme.textTheme.titleMedium,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    FilledButton(
+                      onPressed: () => ref
+                          .read(saleDetailControllerProvider(saleId).notifier)
+                          .refresh(),
+                      child: Text(l10n.salesHistoryRetry),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),
@@ -64,7 +82,7 @@ class SalesReceiptPage extends ConsumerWidget {
     if (sale == null) {
       return Scaffold(
         key: pageKey,
-        appBar: AppBar(title: Text(l10n.salesDetailReceipt)),
+        appBar: AppBar(title: Text(title)),
         body: const SizedBox.shrink(),
       );
     }
@@ -72,7 +90,7 @@ class SalesReceiptPage extends ConsumerWidget {
     final builder = SaleReceiptPdfBuilder();
     final exportService = ref.watch(documentExportServiceProvider);
     final descriptor = DocumentDescriptor(
-      title: l10n.salesDetailReceipt,
+      title: title,
       filename: builder.filenameFor(sale),
       pageFormat: DocumentPageFormat.mm80,
     );
@@ -107,7 +125,14 @@ class SalesReceiptPage extends ConsumerWidget {
 
     if (result != null && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Print failed: ${result.message}')),
+        SnackBar(
+          content: Text(
+            documentOutputFailureMessage(
+              AppLocalizations.of(context)!,
+              result.operation,
+            ),
+          ),
+        ),
       );
     }
   }
@@ -125,7 +150,14 @@ class SalesReceiptPage extends ConsumerWidget {
 
     if (result != null && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Share failed: ${result.message}')),
+        SnackBar(
+          content: Text(
+            documentOutputFailureMessage(
+              AppLocalizations.of(context)!,
+              result.operation,
+            ),
+          ),
+        ),
       );
     }
   }

@@ -2,7 +2,6 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_order_preview_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/documents/purchase_order_pdf_builder.dart';
@@ -25,18 +24,56 @@ class PurchaseOrderPreviewPage extends ConsumerWidget {
     final state = ref.watch(
       purchaseOrderPreviewControllerProvider(purchaseOrderId),
     );
-    final locale = Localizations.localeOf(context);
     final order = state.purchaseOrder;
+
     if (state.isLoading && order == null) {
-      return _loading();
-    }
-    if (state.failure != null && order == null) {
-      return _failure(context, ref, state.failure!);
-    }
-    if (order == null) {
-      return const Scaffold(key: pageKey, body: SizedBox.shrink());
+      return Scaffold(
+        key: pageKey,
+        appBar: AppBar(title: Text(l10n.purchaseOrderPreviewTitle)),
+        body: const Center(child: CircularProgressIndicator()),
+      );
     }
 
+    if (state.failure != null && order == null) {
+      return Scaffold(
+        key: pageKey,
+        appBar: AppBar(title: Text(l10n.purchaseOrderPreviewTitle)),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.error_outline, size: 48),
+                const SizedBox(height: 12),
+                Text(purchaseOrderFailureMessage(l10n, state.failure!)),
+                const SizedBox(height: 12),
+                FilledButton(
+                  onPressed: () => ref
+                      .read(
+                        purchaseOrderPreviewControllerProvider(
+                          purchaseOrderId,
+                        ).notifier,
+                      )
+                      .retry(),
+                  child: Text(l10n.purchaseOrdersRetry),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (order == null) {
+      return Scaffold(
+        key: pageKey,
+        appBar: AppBar(title: Text(l10n.purchaseOrderPreviewTitle)),
+        body: const SizedBox.shrink(),
+      );
+    }
+
+    final locale = Localizations.localeOf(context);
     final builder = PurchaseOrderPdfBuilder();
     final exportService = ref.watch(documentExportServiceProvider);
     final descriptor = DocumentDescriptor(
@@ -123,42 +160,4 @@ class PurchaseOrderPreviewPage extends ConsumerWidget {
       );
     }
   }
-
-  Widget _loading() => const Scaffold(
-    key: pageKey,
-    body: Center(child: CircularProgressIndicator()),
-  );
-
-  Widget _failure(BuildContext context, WidgetRef ref, Failure failure) =>
-      Scaffold(
-        key: pageKey,
-        appBar: AppBar(
-          title: Text(AppLocalizations.of(context)!.purchaseOrderPreviewTitle),
-        ),
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                purchaseOrderFailureMessage(
-                  AppLocalizations.of(context)!,
-                  failure,
-                ),
-              ),
-              FilledButton(
-                onPressed: () => ref
-                    .read(
-                      purchaseOrderPreviewControllerProvider(
-                        purchaseOrderId,
-                      ).notifier,
-                    )
-                    .retry(),
-                child: Text(
-                  AppLocalizations.of(context)!.purchaseOrdersRetry,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
 }

@@ -41,97 +41,114 @@ class PaymentSection extends StatelessWidget {
     final hasCustomer = state.selectedCustomer != null;
     final theme = Theme.of(context);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Payment',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _paymentMethodChip(
-              PaymentMethod.cash,
-              paymentMethodCashKey,
-              enabled: true,
-              theme: theme,
+            Text(
+              'Payment',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
             ),
-            _paymentMethodChip(
-              PaymentMethod.upi,
-              paymentMethodUpiKey,
-              enabled: true,
-              theme: theme,
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _paymentMethodChip(
+                  PaymentMethod.cash,
+                  paymentMethodCashKey,
+                  enabled: true,
+                  theme: theme,
+                ),
+                _paymentMethodChip(
+                  PaymentMethod.upi,
+                  paymentMethodUpiKey,
+                  enabled: true,
+                  theme: theme,
+                ),
+                _paymentMethodChip(
+                  PaymentMethod.card,
+                  paymentMethodCardKey,
+                  enabled: true,
+                  theme: theme,
+                ),
+                _paymentMethodChip(
+                  PaymentMethod.credit,
+                  paymentMethodCreditKey,
+                  enabled: hasCustomer,
+                  theme: theme,
+                ),
+              ],
             ),
-            _paymentMethodChip(
-              PaymentMethod.card,
-              paymentMethodCardKey,
-              enabled: true,
-              theme: theme,
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    key: paidAmountFieldKey,
+                    controller: paidAmountController,
+                    focusNode: paidAmountFocusNode,
+                    textInputAction: TextInputAction.next,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: 'Paid amount',
+                      prefixText: '₹',
+                    ),
+                    onEditingComplete: onPaidAmountEditingComplete,
+                    onChanged: (value) {
+                      final parsed = double.tryParse(value.trim()) ?? 0;
+                      onPaidAmountChanged(parsed);
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    key: dueAmountFieldKey,
+                    controller: dueAmountController,
+                    focusNode: dueAmountFocusNode,
+                    textInputAction: TextInputAction.done,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: 'Due amount',
+                      prefixText: '₹',
+                    ),
+                    onEditingComplete: onDueAmountEditingComplete,
+                    onChanged: (value) {
+                      final parsed = double.tryParse(value.trim()) ?? 0;
+                      onDueAmountChanged(parsed);
+                    },
+                  ),
+                ),
+              ],
             ),
-            _paymentMethodChip(
-              PaymentMethod.credit,
-              paymentMethodCreditKey,
-              enabled: hasCustomer,
-              theme: theme,
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFEDD5),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Text(
+                'Payable: ₹${state.payable.toStringAsFixed(2)}',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF7C2D12),
+                ),
+              ),
             ),
           ],
         ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                key: paidAmountFieldKey,
-                controller: paidAmountController,
-                focusNode: paidAmountFocusNode,
-                textInputAction: TextInputAction.next,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                decoration: const InputDecoration(
-                  labelText: 'Paid amount',
-                  border: OutlineInputBorder(),
-                  prefixText: '₹',
-                ),
-                onEditingComplete: onPaidAmountEditingComplete,
-                onChanged: (value) {
-                  final parsed = double.tryParse(value.trim()) ?? 0;
-                  onPaidAmountChanged(parsed);
-                },
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: TextField(
-                key: dueAmountFieldKey,
-                controller: dueAmountController,
-                focusNode: dueAmountFocusNode,
-                textInputAction: TextInputAction.done,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                decoration: const InputDecoration(
-                  labelText: 'Due amount',
-                  border: OutlineInputBorder(),
-                  prefixText: '₹',
-                ),
-                onEditingComplete: onDueAmountEditingComplete,
-                onChanged: (value) {
-                  final parsed = double.tryParse(value.trim()) ?? 0;
-                  onDueAmountChanged(parsed);
-                },
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'Payable: ₹${state.payable.toStringAsFixed(2)}',
-          style: theme.textTheme.bodyLarge,
-        ),
-      ],
+      ),
     );
   }
 
@@ -141,19 +158,28 @@ class PaymentSection extends StatelessWidget {
     required bool enabled,
     required ThemeData theme,
   }) {
+    final isSelected = state.paymentMethod == method;
+
     return ChoiceChip(
       key: key,
       label: Text(_paymentMethodLabel(method)),
-      selected: state.paymentMethod == method,
+      selected: isSelected,
       onSelected: enabled ? (_) => onPaymentMethodChanged(method) : null,
-      selectedColor: theme.colorScheme.primaryContainer,
+      selectedColor: const Color(0xFFFFEDD5),
+      backgroundColor: theme.cardTheme.color,
       labelStyle: TextStyle(
-        color: enabled ? theme.colorScheme.onSurface : theme.disabledColor,
+        color: enabled
+            ? (isSelected ? theme.colorScheme.primary : const Color(0xFF6B3A16))
+            : theme.disabledColor,
+        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
       ),
       side: BorderSide(
-        color: enabled ? theme.colorScheme.outline : theme.disabledColor,
+        color: enabled
+            ? (isSelected ? theme.colorScheme.primary : const Color(0xFFFDBA74))
+            : theme.disabledColor,
       ),
       showCheckmark: false,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
     );
   }
 

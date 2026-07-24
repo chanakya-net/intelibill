@@ -16,121 +16,139 @@ class ShopUserCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
+    final avatarColor = _stableColor(user.fullName, theme);
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      child: ListTile(
+        contentPadding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+        leading: CircleAvatar(
+          backgroundColor: avatarColor,
+          child: Text(
+            _initials(user.firstName, user.lastName),
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        title: Row(
           children: [
-            CircleAvatar(
-              backgroundColor: _avatarColor(user.firstName, user.lastName),
-              foregroundColor: Colors.white,
-              child: Text(
-                _initials(user.firstName, user.lastName),
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-            ),
-            const SizedBox(width: 12),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    user.fullName,
-                    style: theme.textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 4),
-                  if (user.phoneNumber != null && user.phoneNumber!.isNotEmpty)
-                    Text(
-                      user.phoneNumber!,
-                      style: theme.textTheme.bodyMedium,
-                    ),
-                  if (user.email != null && user.email!.isNotEmpty) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      user.email!,
-                      style: theme.textTheme.bodySmall,
-                    ),
-                  ],
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
-                    children: [
-                      _RoleChip(label: _roleLabel(l10n, user.role)),
-                      _LoginStatusChip(
-                        enabled: user.isLoginEnabled,
-                        enabledLabel: l10n.usersLoginEnabled,
-                        disabledLabel: l10n.usersLoginDisabled,
-                      ),
-                    ],
-                  ),
-                ],
+              child: Text(
+                user.fullName,
+                style: theme.textTheme.titleSmall,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-            if (onEdit != null)
-              IconButton(
+            const SizedBox(width: 8),
+            _StatusBadge(
+              label: _roleLabel(l10n, user.role),
+              backgroundColor: theme.colorScheme.surfaceContainerHighest,
+              foregroundColor: theme.colorScheme.onSurface,
+            ),
+            const SizedBox(width: 4),
+            _StatusBadge(
+              label: user.isLoginEnabled
+                  ? l10n.usersLoginEnabled
+                  : l10n.usersLoginDisabled,
+              backgroundColor: user.isLoginEnabled
+                  ? theme.colorScheme.secondaryContainer
+                  : theme.colorScheme.errorContainer,
+              foregroundColor: user.isLoginEnabled
+                  ? theme.colorScheme.onSecondaryContainer
+                  : theme.colorScheme.onErrorContainer,
+            ),
+          ],
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (user.phoneNumber != null && user.phoneNumber!.isNotEmpty)
+                _InfoRow(
+                  icon: Icons.phone_outlined,
+                  text: user.phoneNumber!,
+                ),
+              if (user.email != null && user.email!.isNotEmpty)
+                _InfoRow(
+                  icon: Icons.email_outlined,
+                  text: user.email!,
+                ),
+            ],
+          ),
+        ),
+        trailing: onEdit != null
+            ? IconButton(
                 tooltip: l10n.commonEdit,
                 icon: const Icon(Icons.edit_outlined),
                 onPressed: onEdit,
-              ),
-          ],
-        ),
+              )
+            : null,
       ),
     );
   }
 }
 
-class _RoleChip extends StatelessWidget {
-  const _RoleChip({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(label, style: theme.textTheme.labelSmall),
-    );
-  }
-}
-
-class _LoginStatusChip extends StatelessWidget {
-  const _LoginStatusChip({
-    required this.enabled,
-    required this.enabledLabel,
-    required this.disabledLabel,
+class _StatusBadge extends StatelessWidget {
+  const _StatusBadge({
+    required this.label,
+    required this.backgroundColor,
+    required this.foregroundColor,
   });
 
-  final bool enabled;
-  final String enabledLabel;
-  final String disabledLabel;
+  final String label;
+  final Color backgroundColor;
+  final Color foregroundColor;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: enabled
-            ? theme.colorScheme.primaryContainer
-            : theme.colorScheme.errorContainer,
+        color: backgroundColor,
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
-        enabled ? enabledLabel : disabledLabel,
-        style: theme.textTheme.labelSmall?.copyWith(
-          color: enabled
-              ? theme.colorScheme.onPrimaryContainer
-              : theme.colorScheme.onErrorContainer,
+        label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: foregroundColor,
+          fontWeight: FontWeight.w600,
         ),
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: theme.colorScheme.onSurfaceVariant),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              text,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -148,23 +166,16 @@ String _initials(String firstName, String lastName) {
   return '?';
 }
 
-Color _avatarColor(String firstName, String lastName) {
-  const colors = [
-    Color(0xFFB45309),
-    Color(0xFF0369A1),
-    Color(0xFF15803D),
-    Color(0xFF7C3AED),
-    Color(0xFFBE185D),
-    Color(0xFFC2410C),
-    Color(0xFF0F766E),
-    Color(0xFF1D4ED8),
+Color _stableColor(String name, ThemeData theme) {
+  final hash = name.codeUnits.fold(0, (acc, c) => acc * 31 + c);
+  final colors = [
+    theme.colorScheme.primary,
+    theme.colorScheme.secondary,
+    theme.colorScheme.tertiary,
+    Colors.teal,
+    Colors.indigo,
+    Colors.deepOrange,
   ];
-
-  final name = '$firstName$lastName';
-  var hash = 0;
-  for (var i = 0; i < name.length; i++) {
-    hash = name.codeUnitAt(i) + ((hash << 5) - hash);
-  }
   return colors[hash.abs() % colors.length];
 }
 

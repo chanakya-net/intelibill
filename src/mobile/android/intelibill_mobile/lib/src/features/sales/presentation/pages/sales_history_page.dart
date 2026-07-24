@@ -52,6 +52,9 @@ class _SalesHistoryPageState extends ConsumerState<SalesHistoryPage> {
     final authState = ref.watch(authControllerProvider);
     final l10n = AppLocalizations.of(context)!;
     final canCreateSale = canManageSales(authState.value?.session);
+    if (_searchController.text != state.searchQuery) {
+      _searchController.text = state.searchQuery;
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -86,8 +89,15 @@ class _SalesHistoryPageState extends ConsumerState<SalesHistoryPage> {
     SalesHistoryState state,
     AppLocalizations l10n,
   ) {
+    final theme = Theme.of(context);
+
     if (state.isLoading && state.sales.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return Center(
+        child: Semantics(
+          label: l10n.commonLoading,
+          child: const CircularProgressIndicator(),
+        ),
+      );
     }
 
     if (state.failure != null && state.sales.isEmpty) {
@@ -97,12 +107,15 @@ class _SalesHistoryPageState extends ConsumerState<SalesHistoryPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.error_outline, size: 48),
+              Icon(
+                Icons.error_outline,
+                size: 48,
+                color: theme.colorScheme.error,
+              ),
               const SizedBox(height: 12),
               Text(
                 l10n.salesHistoryUnableToLoad,
-                style: const TextStyle(
-                  fontSize: 18,
+                style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
                 textAlign: TextAlign.center,
@@ -110,6 +123,9 @@ class _SalesHistoryPageState extends ConsumerState<SalesHistoryPage> {
               const SizedBox(height: 8),
               Text(
                 _localizeFailure(l10n, state.failure!),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
@@ -149,22 +165,22 @@ class _SalesHistoryPageState extends ConsumerState<SalesHistoryPage> {
                   children: [
                     Text(
                       l10n.salesHistoryEyebrow,
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: const Color(0xFFC8443F),
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.6,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.primary,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.2,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       l10n.salesHistoryTitle,
-                      style: Theme.of(context).textTheme.headlineSmall,
+                      style: theme.textTheme.headlineSmall,
                     ),
                     const SizedBox(height: 4),
                     Text(
                       l10n.salesHistorySubtitle,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: const Color(0xFF766B63),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -173,10 +189,25 @@ class _SalesHistoryPageState extends ConsumerState<SalesHistoryPage> {
                     TextField(
                       controller: _searchController,
                       decoration: InputDecoration(
-                        hintText: l10n.salesHistoryControlsSearchPlaceholder,
+                        labelText: l10n.salesHistoryControlsSearchPlaceholder,
                         prefixIcon: const Icon(Icons.search),
-                        border: const OutlineInputBorder(),
-                        isDense: true,
+                        suffixIcon: state.searchQuery.isEmpty
+                            ? null
+                            : IconButton(
+                                tooltip: l10n.commonClear,
+                                icon: Icon(
+                                  Icons.clear,
+                                  semanticLabel: l10n.commonClear,
+                                ),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  ref
+                                      .read(
+                                        salesHistoryControllerProvider.notifier,
+                                      )
+                                      .updateSearch('');
+                                },
+                              ),
                       ),
                       onChanged: (query) {
                         ref
@@ -254,13 +285,12 @@ class _SalesHistoryPageState extends ConsumerState<SalesHistoryPage> {
                         Icon(
                           Icons.receipt_long_outlined,
                           size: 48,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                         const SizedBox(height: 12),
                         Text(
                           l10n.salesHistoryNoSales,
-                          style: const TextStyle(
-                            fontSize: 18,
+                          style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w600,
                           ),
                           textAlign: TextAlign.center,
@@ -268,6 +298,9 @@ class _SalesHistoryPageState extends ConsumerState<SalesHistoryPage> {
                         const SizedBox(height: 8),
                         Text(
                           l10n.salesHistoryNoSalesDescription,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
                           textAlign: TextAlign.center,
                         ),
                       ],
@@ -306,8 +339,8 @@ class _SalesHistoryPageState extends ConsumerState<SalesHistoryPage> {
                     state.sales.length,
                     state.totalCount,
                   ),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
                   textAlign: TextAlign.center,
                 ),
