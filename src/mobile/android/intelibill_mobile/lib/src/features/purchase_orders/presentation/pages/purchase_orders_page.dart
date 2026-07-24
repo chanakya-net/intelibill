@@ -2,8 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:intelibill_mobile/src/app/router/app_router.dart';
+import 'package:intelibill_mobile/src/app/shell/menu_visibility.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
+import 'package:intelibill_mobile/src/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_status.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_orders_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/localization/purchase_order_messages.dart';
@@ -18,6 +22,7 @@ class PurchaseOrdersPage extends ConsumerStatefulWidget {
   static const dateFromFilterKey = Key('purchase-orders-filter-date-from');
   static const dateToFilterKey = Key('purchase-orders-filter-date-to');
   static const clearFiltersKey = Key('purchase-orders-clear-filters');
+  static const newPurchaseOrderFabKey = Key('purchase-orders-new-fab');
 
   static Key statusFilterKey(PurchaseOrderStatus status) =>
       Key('purchase-orders-filter-status-${status.name}');
@@ -145,9 +150,20 @@ class _PurchaseOrdersPageState extends ConsumerState<PurchaseOrdersPage> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final state = ref.watch(purchaseOrdersControllerProvider);
+    final authState = ref.watch(authControllerProvider);
+    final canCreate = canManagePurchaseOrders(authState.value?.session);
     return Scaffold(
       key: PurchaseOrdersPage.pageKey,
       appBar: AppBar(title: Text(l10n.shellManagePurchaseOrders)),
+      floatingActionButton: canCreate
+          ? FloatingActionButton.extended(
+              key: PurchaseOrdersPage.newPurchaseOrderFabKey,
+              onPressed: () => context.go(AppRoutes.purchaseOrderNew),
+              tooltip: l10n.purchaseOrderBuilderTitle,
+              icon: const Icon(Icons.add),
+              label: Text(l10n.purchaseOrderBuilderTitle),
+            )
+          : null,
       body: _buildBody(context, state),
     );
   }

@@ -881,9 +881,7 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
         PurchaseOrderMessage.receiveInvalidNumber,
       );
     }
-    if (line.barcode.isNotEmpty) {
-      _maxLength(errors, 'barcode', line.barcode, 120);
-    }
+    _require(errors, 'barcode', line.barcode, 120);
     _require(errors, 'batchNumber', line.batchNumber, 80);
     if (line.quantity <= 0 || line.quantity > line.remainingQuantity) {
       errors['quantity'] = const PurchaseOrderFieldMessage(
@@ -925,20 +923,6 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
         PurchaseOrderMessage.receiveRequired,
       );
     } else if (value.length > max) {
-      errors[field] = PurchaseOrderFieldMessage(
-        PurchaseOrderMessage.receiveMaxLength,
-        maxLength: max,
-      );
-    }
-  }
-
-  void _maxLength(
-    Map<String, PurchaseOrderFieldMessage> errors,
-    String field,
-    String value,
-    int max,
-  ) {
-    if (value.length > max) {
       errors[field] = PurchaseOrderFieldMessage(
         PurchaseOrderMessage.receiveMaxLength,
         maxLength: max,
@@ -999,15 +983,33 @@ class ReceivePurchaseOrderController extends _$ReceivePurchaseOrderController {
     if (failure is! ValidationFailure || failure.errors == null) return {};
     final selected = state.selectedLines.toList(growable: false);
     final mapped = <String, Map<String, PurchaseOrderFieldMessage>>{};
-    final path = RegExp(r'^Lines\[(\d+)\]\.(.+)$', caseSensitive: false);
+    final indexedPath = RegExp(
+      r'^(?:\$\.)?Lines\[(\d+)\]\.(.+)$',
+      caseSensitive: false,
+    );
     for (final entry in failure.errors!.entries) {
-      final match = path.firstMatch(entry.key);
-      if (match == null || entry.value.isEmpty) continue;
-      final index = int.tryParse(match.group(1)!);
-      final field = _fieldName(match.group(2)!);
-      if (index == null || index >= selected.length || field == null) continue;
+      if (entry.value.isEmpty) continue;
+      final match = indexedPath.firstMatch(entry.key);
+      if (match != null) {
+        final index = int.tryParse(match.group(1)!);
+        final field = _fieldName(match.group(2)!);
+        if (index == null || index >= selected.length || field == null) {
+          continue;
+        }
+        mapped.putIfAbsent(
+          selected[index].purchaseOrderLineId,
+          () => {},
+        )[field] = const PurchaseOrderFieldMessage(
+          PurchaseOrderMessage.receiveFieldRejected,
+        );
+        continue;
+      }
+
+      // FluentValidation / ProblemDetails sometimes returns bare property names.
+      final field = _fieldName(entry.key);
+      if (field == null || selected.isEmpty) continue;
       mapped.putIfAbsent(
-        selected[index].purchaseOrderLineId,
+        selected.first.purchaseOrderLineId,
         () => {},
       )[field] = const PurchaseOrderFieldMessage(
         PurchaseOrderMessage.receiveFieldRejected,

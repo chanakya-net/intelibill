@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intelibill_mobile/src/app/router/app_router.dart';
+import 'package:intelibill_mobile/src/app/shell/menu_visibility.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
+import 'package:intelibill_mobile/src/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/controllers/sales_history_controller.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/widgets/sale_detail_sheet.dart';
 import 'package:intelibill_mobile/src/features/sales/presentation/widgets/sale_list_card.dart';
@@ -14,6 +16,8 @@ import 'package:intl/intl.dart';
 
 class SalesHistoryPage extends ConsumerStatefulWidget {
   const SalesHistoryPage({super.key});
+
+  static const newSaleFabKey = Key('sales-history-new-fab');
 
   @override
   ConsumerState<SalesHistoryPage> createState() => _SalesHistoryPageState();
@@ -45,7 +49,9 @@ class _SalesHistoryPageState extends ConsumerState<SalesHistoryPage> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(salesHistoryControllerProvider);
+    final authState = ref.watch(authControllerProvider);
     final l10n = AppLocalizations.of(context)!;
+    final canCreateSale = canManageSales(authState.value?.session);
 
     return Scaffold(
       appBar: AppBar(
@@ -58,6 +64,15 @@ class _SalesHistoryPageState extends ConsumerState<SalesHistoryPage> {
           ),
         ],
       ),
+      floatingActionButton: canCreateSale
+          ? FloatingActionButton.extended(
+              key: SalesHistoryPage.newSaleFabKey,
+              onPressed: () => context.go(AppRoutes.salesNew),
+              tooltip: l10n.shellNewSale,
+              icon: const Icon(Icons.add),
+              label: Text(l10n.shellNewSale),
+            )
+          : null,
       body: Column(
         children: [
           Expanded(child: _buildBody(context, state, l10n)),

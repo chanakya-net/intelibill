@@ -1,7 +1,9 @@
 import 'package:intelibill_mobile/src/features/discounts/data/dto/discount_rule_dto.dart';
 import 'package:intelibill_mobile/src/features/discounts/data/dto/discount_rule_list_item_dto.dart';
+import 'package:intelibill_mobile/src/features/discounts/data/dto/discount_rule_write_dto.dart';
 import 'package:intelibill_mobile/src/features/discounts/data/dto/discount_rules_response_dto.dart';
 import 'package:intelibill_mobile/src/features/discounts/domain/entities/discount_rule.dart';
+import 'package:intelibill_mobile/src/features/discounts/domain/entities/discount_rule_draft.dart';
 
 class DiscountRuleMapper {
   const DiscountRuleMapper._();
@@ -68,6 +70,53 @@ class DiscountRuleMapper {
       totalCount: dto.totalCount,
       pageNumber: dto.pageNumber,
       pageSize: dto.pageSize,
+    );
+  }
+
+  static DiscountRulePreview toPreview(DiscountRulePreviewDto dto) {
+    return DiscountRulePreview(
+      affectedCount: dto.affectedCount,
+      affectedSample: dto.affectedSample
+          .map(
+            (batch) => DiscountRulePreviewBatch(
+              batchId: batch.batchId,
+              itemName: batch.itemName,
+              batchNumber: batch.batchNumber,
+              salesPrice: batch.salesPrice,
+              costPrice: batch.costPrice,
+              discountedPrice: batch.discountedPrice,
+            ),
+          )
+          .toList(),
+      belowCostSample: dto.belowCostSample
+          .map(
+            (batch) => DiscountRulePreviewBatch(
+              batchId: batch.batchId,
+              itemName: batch.itemName,
+              batchNumber: batch.batchNumber,
+              salesPrice: batch.salesPrice,
+              costPrice: batch.costPrice,
+              discountedPrice: batch.discountedPrice,
+            ),
+          )
+          .toList(),
+      safeMaxPercentage: dto.safeMaxPercentage,
+      errors: dto.errors
+          .map(
+            (message) => DiscountRulePreviewMessage(
+              code: message.code,
+              message: message.message,
+            ),
+          )
+          .toList(),
+      infos: dto.infos
+          .map(
+            (message) => DiscountRulePreviewMessage(
+              code: message.code,
+              message: message.message,
+            ),
+          )
+          .toList(),
     );
   }
 

@@ -4267,6 +4267,198 @@ abstract class AppLocalizations {
   /// **'Replaced by:'**
   String get discountsReplacedByRuleLabel;
 
+  /// No description provided for @discountsCreateTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Create discount rule'**
+  String get discountsCreateTitle;
+
+  /// No description provided for @discountsCreateSubtitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Define a promotion for a batch or sale.'**
+  String get discountsCreateSubtitle;
+
+  /// No description provided for @discountsCreateAction.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Create rule'**
+  String get discountsCreateAction;
+
+  /// No description provided for @discountsCreateSuccess.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Discount rule created'**
+  String get discountsCreateSuccess;
+
+  /// No description provided for @discountsCreateRuleTypeLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Rule type'**
+  String get discountsCreateRuleTypeLabel;
+
+  /// No description provided for @discountsCreateRuleTypeBatch.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Batch discount'**
+  String get discountsCreateRuleTypeBatch;
+
+  /// No description provided for @discountsCreateRuleTypeSale.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Sale discount'**
+  String get discountsCreateRuleTypeSale;
+
+  /// No description provided for @discountsCreateRuleTypeThreshold.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Threshold discount'**
+  String get discountsCreateRuleTypeThreshold;
+
+  /// No description provided for @discountsCreateNameLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Rule name'**
+  String get discountsCreateNameLabel;
+
+  /// No description provided for @discountsCreateNameRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Rule name is required'**
+  String get discountsCreateNameRequired;
+
+  /// No description provided for @discountsCreateNameMax.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Rule name must be 200 characters or fewer'**
+  String get discountsCreateNameMax;
+
+  /// No description provided for @discountsCreateDescriptionLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Description'**
+  String get discountsCreateDescriptionLabel;
+
+  /// No description provided for @discountsCreatePercentageLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Discount %'**
+  String get discountsCreatePercentageLabel;
+
+  /// No description provided for @discountsCreatePercentageInvalid.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Enter a percentage greater than 0 and up to 100'**
+  String get discountsCreatePercentageInvalid;
+
+  /// No description provided for @discountsCreateThresholdLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Minimum sale amount'**
+  String get discountsCreateThresholdLabel;
+
+  /// No description provided for @discountsCreateThresholdInvalid.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Enter a threshold greater than 0'**
+  String get discountsCreateThresholdInvalid;
+
+  /// No description provided for @discountsCreateBatchLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Inventory batch'**
+  String get discountsCreateBatchLabel;
+
+  /// No description provided for @discountsCreateBatchRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Select an inventory batch'**
+  String get discountsCreateBatchRequired;
+
+  /// No description provided for @discountsCreateStartsAtLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Starts at'**
+  String get discountsCreateStartsAtLabel;
+
+  /// No description provided for @discountsCreateEndsAtLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Ends at'**
+  String get discountsCreateEndsAtLabel;
+
+  /// No description provided for @discountsCreatePreview.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Preview'**
+  String get discountsCreatePreview;
+
+  /// No description provided for @discountsCreateSubmit.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Create'**
+  String get discountsCreateSubmit;
+
+  /// No description provided for @discountsCreatePreviewTitle.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Preview'**
+  String get discountsCreatePreviewTitle;
+
+  /// No description provided for @discountsCreatePreviewAffected.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'{count} affected batches'**
+  String discountsCreatePreviewAffected(int count);
+
+  /// No description provided for @discountsCreatePreviewSafeMax.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Safe max percentage: {value}%'**
+  String discountsCreatePreviewSafeMax(String value);
+
+  /// No description provided for @discountsCreatePreviewErrors.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Preview issues'**
+  String get discountsCreatePreviewErrors;
+
+  /// No description provided for @discountsCreatePreviewBelowCost.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Below-cost sample'**
+  String get discountsCreatePreviewBelowCost;
+
+  /// No description provided for @discountsCreateBelowCostConfirm.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'I understand this rule may sell below cost'**
+  String get discountsCreateBelowCostConfirm;
+
+  /// No description provided for @discountsCreateBelowCostReasonLabel.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Confirmation reason'**
+  String get discountsCreateBelowCostReasonLabel;
+
+  /// No description provided for @discountsCreateBelowCostRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Confirm below-cost pricing before saving'**
+  String get discountsCreateBelowCostRequired;
+
+  /// No description provided for @discountsCreateBelowCostReasonRequired.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Add a confirmation reason before saving'**
+  String get discountsCreateBelowCostReasonRequired;
+
+  /// No description provided for @discountsCreateErrorGeneric.
+  ///
+  /// In en_IN, this message translates to:
+  /// **'Unable to create discount rule. Please try again.'**
+  String get discountsCreateErrorGeneric;
+
   /// No description provided for @creditNotesVerifyCode.
   ///
   /// In en_IN, this message translates to:

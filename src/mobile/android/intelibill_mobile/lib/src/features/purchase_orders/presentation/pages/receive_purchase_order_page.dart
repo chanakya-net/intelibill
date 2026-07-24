@@ -107,7 +107,7 @@ class ReceivePurchaseOrderPage extends ConsumerWidget {
                 maxLines: 4,
                 maxLength: 500,
               ),
-              if (state.failure != null && state.lineErrors.isEmpty) ...[
+              if (state.failure != null) ...[
                 const SizedBox(height: 8),
                 Semantics(
                   liveRegion: true,

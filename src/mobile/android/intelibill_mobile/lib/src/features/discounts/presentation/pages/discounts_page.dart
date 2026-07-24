@@ -4,15 +4,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intelibill_mobile/src/app/router/app_router.dart';
+import 'package:intelibill_mobile/src/app/shell/menu_visibility.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
+import 'package:intelibill_mobile/src/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:intelibill_mobile/src/features/discounts/domain/entities/discount_rule_query.dart';
 import 'package:intelibill_mobile/src/features/discounts/presentation/controllers/discounts_controller.dart';
+import 'package:intelibill_mobile/src/features/discounts/presentation/widgets/create_discount_rule_sheet.dart';
 import 'package:intelibill_mobile/src/features/discounts/presentation/widgets/discount_rule_detail_sheet.dart';
 import 'package:intelibill_mobile/src/features/discounts/presentation/widgets/discount_rule_list_card.dart';
 
 class DiscountsPage extends ConsumerStatefulWidget {
   const DiscountsPage({super.key});
+
+  static const createDiscountFabKey = Key('discounts-create-fab');
 
   @override
   ConsumerState<DiscountsPage> createState() => _DiscountsPageState();
@@ -47,7 +52,9 @@ class _DiscountsPageState extends ConsumerState<DiscountsPage> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(discountsControllerProvider);
+    final authState = ref.watch(authControllerProvider);
     final l10n = AppLocalizations.of(context)!;
+    final canCreate = canManageDiscounts(authState.value?.session);
 
     return Scaffold(
       appBar: AppBar(
@@ -60,7 +67,26 @@ class _DiscountsPageState extends ConsumerState<DiscountsPage> {
           ),
         ],
       ),
+      floatingActionButton: canCreate
+          ? FloatingActionButton.extended(
+              key: DiscountsPage.createDiscountFabKey,
+              onPressed: _openCreateDiscountSheet,
+              tooltip: l10n.discountsCreateTitle,
+              icon: const Icon(Icons.add),
+              label: Text(l10n.discountsCreateAction),
+            )
+          : null,
       body: _buildBody(context, state, l10n),
+    );
+  }
+
+  Future<void> _openCreateDiscountSheet() async {
+    final created = await showCreateDiscountRuleSheet(context);
+    if (!mounted || created != true) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(AppLocalizations.of(context)!.discountsCreateSuccess),
+      ),
     );
   }
 

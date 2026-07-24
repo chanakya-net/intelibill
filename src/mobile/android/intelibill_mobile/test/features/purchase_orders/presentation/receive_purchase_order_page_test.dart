@@ -378,6 +378,11 @@ void main() {
     await tester.pumpWidget(harness.app);
     await tester.pumpAndSettle();
 
+    harness.container
+        .read(receivePurchaseOrderControllerProvider('po-1').notifier)
+        .updateBarcode('line-1', 'BAR-1');
+    await tester.pump();
+
     await tester.tap(find.byKey(ReceivePurchaseOrderPage.receiveButtonKey));
     await tester.pumpAndSettle();
 
@@ -411,6 +416,11 @@ void main() {
     });
     await tester.pumpWidget(harness.app);
     await tester.pumpAndSettle();
+
+    harness.container
+        .read(receivePurchaseOrderControllerProvider('po-1').notifier)
+        .updateBarcode('line-1', 'BAR-1');
+    await tester.pump();
 
     await tester.tap(find.byKey(ReceivePurchaseOrderPage.receiveButtonKey));
     await tester.pumpAndSettle();

@@ -1,5 +1,6 @@
 import 'package:intelibill_mobile/src/core/network/api_client.dart';
 import 'package:intelibill_mobile/src/features/discounts/data/dto/discount_rule_dto.dart';
+import 'package:intelibill_mobile/src/features/discounts/data/dto/discount_rule_write_dto.dart';
 import 'package:intelibill_mobile/src/features/discounts/data/dto/discount_rules_response_dto.dart';
 import 'package:intelibill_mobile/src/features/discounts/domain/entities/discount_rule_query.dart';
 
@@ -9,6 +10,18 @@ interface class DiscountsRemoteDataSource {
   }
 
   Future<DiscountRuleDto> getDiscountRule(String discountRuleId) {
+    throw UnimplementedError();
+  }
+
+  Future<DiscountRulePreviewDto> previewDiscountRule(
+    PreviewDiscountRuleRequestDto request,
+  ) {
+    throw UnimplementedError();
+  }
+
+  Future<DiscountRuleDto> createDiscountRule(
+    CreateDiscountRuleRequestDto request,
+  ) {
     throw UnimplementedError();
   }
 }
@@ -46,6 +59,28 @@ class DiscountsRemoteDataSourceImpl implements DiscountsRemoteDataSource {
   Future<DiscountRuleDto> getDiscountRule(String discountRuleId) async {
     final response = await _apiClient.get<Map<String, dynamic>>(
       '$_discountsEndpoint/$discountRuleId',
+    );
+    return DiscountRuleDto.fromJson(response.data!);
+  }
+
+  @override
+  Future<DiscountRulePreviewDto> previewDiscountRule(
+    PreviewDiscountRuleRequestDto request,
+  ) async {
+    final response = await _apiClient.post<Map<String, dynamic>>(
+      '$_discountsEndpoint/preview',
+      data: request.toJson(),
+    );
+    return DiscountRulePreviewDto.fromJson(response.data!);
+  }
+
+  @override
+  Future<DiscountRuleDto> createDiscountRule(
+    CreateDiscountRuleRequestDto request,
+  ) async {
+    final response = await _apiClient.post<Map<String, dynamic>>(
+      _discountsEndpoint,
+      data: request.toJson(),
     );
     return DiscountRuleDto.fromJson(response.data!);
   }

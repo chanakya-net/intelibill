@@ -211,11 +211,13 @@ void main() {
       expect(state.selectedPurchaseCost, 60);
 
       controller.setLineSelected('line-1', isSelected: false);
+      controller.updateBarcode('line-2', 'BAR-LINE-2');
       await controller.submit();
       expect(submittedInput!.lines, hasLength(1));
       expect(submittedInput!.lines.single.purchaseOrderLineId, 'line-2');
       expect(submittedInput!.lines.single.quantity, 2);
       expect(submittedInput!.lines.single.totalPurchaseCost, 30);
+      expect(submittedInput!.lines.single.barcode, 'BAR-LINE-2');
     },
   );
 
@@ -672,9 +674,12 @@ void main() {
       expect(stateBeforeSubmit.lines, hasLength(2));
       expect(stateBeforeSubmit.failure, isNull);
 
-      await container
-          .read(receivePurchaseOrderControllerProvider('po-1').notifier)
-          .submit();
+      final controller = container.read(
+        receivePurchaseOrderControllerProvider('po-1').notifier,
+      );
+      controller.updateBarcode('line-1', 'BAR-1');
+      controller.updateBarcode('line-2', 'BAR-2');
+      await controller.submit();
       final stateAfterSubmit = container.read(
         receivePurchaseOrderControllerProvider('po-1'),
       );
@@ -855,12 +860,13 @@ void main() {
     container.read(receivePurchaseOrderControllerProvider('po-1'));
     await Future<void>.delayed(const Duration(milliseconds: 20));
 
-    final first = container
-        .read(receivePurchaseOrderControllerProvider('po-1').notifier)
-        .submit();
-    await container
-        .read(receivePurchaseOrderControllerProvider('po-1').notifier)
-        .submit();
+    final controller = container.read(
+      receivePurchaseOrderControllerProvider('po-1').notifier,
+    );
+    controller.updateBarcode('line-1', 'BAR-1');
+
+    final first = controller.submit();
+    await controller.submit();
     await Future<void>.delayed(const Duration(milliseconds: 20));
 
     verify(() => receivePurchaseOrder('po-1', any())).called(1);
@@ -957,6 +963,7 @@ void main() {
         receivePurchaseOrderControllerProvider('po-1').notifier,
       );
 
+      controller.updateBarcode('line-1', 'BAR-1');
       controller.updateSalesPrice('line-1', '100');
       controller.updateMrp('line-1', '80');
       await controller.submit();
@@ -1038,10 +1045,54 @@ void main() {
           'expiryDate',
         ]),
       );
+      expect(state.lineErrors['line-2']!.keys, contains('barcode'));
       expect(state.expandedLineId, 'line-1');
       expect(state.focusedLineId, 'barcode');
     },
   );
+
+  test('blocks submit when barcode is missing on selected lines', () async {
+    when(() => getPurchaseOrder('po-1')).thenAnswer(
+      (_) async => _detail(
+        lines: const [
+          PurchaseOrderLine(
+            lineId: 'line-1',
+            itemId: 'item-1',
+            description: 'Widget A',
+            expectedQuantity: 10,
+            receivedQuantity: 7,
+            remainingQuantity: 3,
+            unitCost: 10,
+            lineTotal: 100,
+          ),
+        ],
+      ),
+    );
+    final container = _makeContainer(
+      getPurchaseOrder: getPurchaseOrder,
+      receivePurchaseOrder: receivePurchaseOrder,
+    );
+    addTearDown(container.dispose);
+    _watchReceiveController(container);
+    container.read(receivePurchaseOrderControllerProvider('po-1'));
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    final controller = container.read(
+      receivePurchaseOrderControllerProvider('po-1').notifier,
+    );
+
+    expect(await controller.submit(), isNull);
+    verifyNever(() => receivePurchaseOrder('po-1', any()));
+    final state = container.read(
+      receivePurchaseOrderControllerProvider('po-1'),
+    );
+    expect(
+      state.lineErrors['line-1']!['barcode']!.code,
+      PurchaseOrderMessage.receiveRequired,
+    );
+    expect(state.localMessage, PurchaseOrderMessage.receiveFixFields);
+    expect(state.expandedLineId, 'line-1');
+    expect(state.focusedLineId, 'barcode');
+  });
 
   test(
     'maps server line validation errors while preserving receipt drafts',
@@ -1093,6 +1144,7 @@ void main() {
         receivePurchaseOrderControllerProvider('po-1').notifier,
       );
       controller.updateBarcode('line-1', 'DRAFT-BARCODE');
+      controller.updateBarcode('line-2', 'BAR-LINE-2');
 
       await expectLater(controller.submit(), throwsA(isA<AppException>()));
       final state = container.read(
