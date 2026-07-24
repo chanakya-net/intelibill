@@ -34,7 +34,7 @@ Map<String, dynamic> _$ReceivePurchaseOrderLineRequestDtoToJson(
   'purchaseOrderLineId': instance.purchaseOrderLineId,
   'barcode': _trim(instance.barcode),
   'batchNumber': _trim(instance.batchNumber),
-  'quantity': instance.quantity,
+  'quantity': _quantityToJson(instance.quantity),
   'totalPurchaseCost': instance.totalPurchaseCost,
   'mrp': instance.mrp,
   'salesPrice': instance.salesPrice,

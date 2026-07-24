@@ -3,10 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intelibill_mobile/src/app/theme/app_theme.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
+import 'package:intelibill_mobile/src/features/auth/domain/entities/auth_session.dart';
+import 'package:intelibill_mobile/src/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:intelibill_mobile/src/features/discounts/domain/entities/discount_rule.dart';
 import 'package:intelibill_mobile/src/features/discounts/domain/entities/discount_rule_query.dart';
+import 'package:intelibill_mobile/src/features/discounts/presentation/controllers/discount_rule_editor_controller.dart';
 import 'package:intelibill_mobile/src/features/discounts/presentation/controllers/discounts_controller.dart';
 import 'package:intelibill_mobile/src/features/discounts/presentation/pages/discounts_page.dart';
+import 'package:intelibill_mobile/src/features/discounts/presentation/widgets/create_discount_rule_sheet.dart';
 import 'package:intelibill_mobile/src/features/discounts/presentation/widgets/discount_rule_detail_sheet.dart';
 
 class _StubDiscountsController extends DiscountsController {
@@ -19,6 +23,23 @@ class _StubDiscountsController extends DiscountsController {
 
   @override
   Future<void> selectRule(String ruleId) async {}
+}
+
+class _StubAuthController extends AuthController {
+  _StubAuthController(this._state);
+
+  final AuthControllerState _state;
+
+  @override
+  Future<AuthControllerState> build() async => _state;
+}
+
+class _StubDiscountRuleEditorController extends DiscountRuleEditorController {
+  @override
+  DiscountRuleEditorState build() => const DiscountRuleEditorState();
+
+  @override
+  Future<void> loadBatches({bool force = false}) async {}
 }
 
 DiscountsState _loadingState() {
@@ -53,11 +74,50 @@ DiscountsState _loadedState() {
   );
 }
 
-Widget _buildApp(DiscountsState state) {
+AuthSession _session({String role = 'Owner'}) {
+  return AuthSession(
+    accessToken: 'access-token',
+    refreshToken: 'refresh-token',
+    accessTokenExpiresAt: DateTime.utc(2026, 5, 15, 10),
+    refreshTokenExpiresAt: DateTime.utc(2026, 6, 15, 10),
+    user: const AuthUser(
+      id: 'user-1',
+      email: 'owner@example.com',
+      phoneNumber: null,
+      firstName: 'Alex',
+      lastName: 'Smith',
+      language: 'en-IN',
+    ),
+    activeShopId: 'shop-1',
+    shops: [
+      UserShop(
+        shopId: 'shop-1',
+        shopName: 'Primary Shop',
+        role: role,
+        isDefault: true,
+        lastUsedAt: DateTime.utc(2026, 5, 12, 10),
+      ),
+    ],
+    rememberMe: false,
+  );
+}
+
+Widget _buildApp(
+  DiscountsState state, {
+  String role = 'Owner',
+}) {
   return ProviderScope(
     overrides: [
       discountsControllerProvider.overrideWith(
         () => _StubDiscountsController(state),
+      ),
+      authControllerProvider.overrideWith(
+        () => _StubAuthController(
+          AuthControllerState(session: _session(role: role)),
+        ),
+      ),
+      discountRuleEditorControllerProvider.overrideWith(
+        _StubDiscountRuleEditorController.new,
       ),
     ],
     child: MaterialApp(
@@ -100,6 +160,43 @@ void main() {
         expect(find.text('Discount:'), findsNothing);
       },
     );
+
+    testWidgets('shows create FAB for owners and managers only', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_buildApp(_loadedState()));
+      await tester.pumpAndSettle();
+      expect(find.byKey(DiscountsPage.createDiscountFabKey), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpWidget(_buildApp(_loadedState(), role: 'Manager'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(DiscountsPage.createDiscountFabKey), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpWidget(_buildApp(_loadedState(), role: 'Staff'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(DiscountsPage.createDiscountFabKey), findsNothing);
+    });
+
+    testWidgets('create FAB opens create sheet', (tester) async {
+      await tester.pumpWidget(_buildApp(_loadedState()));
+      await tester.pumpAndSettle();
+
+      tester
+          .widget<FloatingActionButton>(
+            find.byKey(DiscountsPage.createDiscountFabKey),
+          )
+          .onPressed!();
+      await tester.pumpAndSettle();
+
+      expect(find.text('Create discount rule'), findsOneWidget);
+      expect(find.byKey(CreateDiscountRuleSheet.nameFieldKey), findsOneWidget);
+      expect(
+        find.byKey(CreateDiscountRuleSheet.submitButtonKey),
+        findsOneWidget,
+      );
+    });
   });
 
   group('DiscountRuleDetailSheet', () {

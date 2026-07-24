@@ -13,7 +13,7 @@ void main() {
             purchaseOrderLineId: 'line-1',
             barcode: '  BAR-001  ',
             batchNumber: '  BN-001  ',
-            quantity: 2.5,
+            quantity: 2,
             totalPurchaseCost: 100,
             unitCost: 40,
             mrp: 120,
@@ -39,6 +39,8 @@ void main() {
           (json['lines']! as List<dynamic>).first as Map<String, dynamic>;
       expect(line['barcode'], 'BAR-001');
       expect(line['batchNumber'], 'BN-001');
+      expect(line['quantity'], 2);
+      expect(line['quantity'], isA<int>());
       expect(line['expiryDate'], '2026-07-31');
       expect(line['manufacturingDate'], '2026-07-01');
     });

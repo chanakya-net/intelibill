@@ -6,11 +6,50 @@ import 'package:intelibill_mobile/src/app/router/app_router.dart';
 import 'package:intelibill_mobile/src/app/theme/app_theme.dart';
 import 'package:intelibill_mobile/src/core/errors/failure.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
+import 'package:intelibill_mobile/src/features/auth/domain/entities/auth_session.dart';
+import 'package:intelibill_mobile/src/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_list_item.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/domain/entities/purchase_order_status.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/purchase_orders_controller.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/pages/purchase_orders_page.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/widgets/purchase_order_card.dart';
+
+class _StubAuthController extends AuthController {
+  _StubAuthController(this._state);
+
+  final AuthControllerState _state;
+
+  @override
+  Future<AuthControllerState> build() async => _state;
+}
+
+AuthSession _session({String role = 'Owner'}) {
+  return AuthSession(
+    accessToken: 'access-token',
+    refreshToken: 'refresh-token',
+    accessTokenExpiresAt: DateTime.utc(2026, 5, 15, 10),
+    refreshTokenExpiresAt: DateTime.utc(2026, 6, 15, 10),
+    user: const AuthUser(
+      id: 'user-1',
+      email: 'owner@example.com',
+      phoneNumber: null,
+      firstName: 'Alex',
+      lastName: 'Smith',
+      language: 'en-IN',
+    ),
+    activeShopId: 'shop-1',
+    shops: [
+      UserShop(
+        shopId: 'shop-1',
+        shopName: 'Primary Shop',
+        role: role,
+        isDefault: true,
+        lastUsedAt: DateTime.utc(2026, 5, 12, 10),
+      ),
+    ],
+    rememberMe: false,
+  );
+}
 
 class _TrackingStubController extends PurchaseOrdersController {
   _TrackingStubController(this._initialState, {this.stateAfterStatus});
@@ -91,11 +130,17 @@ void main() {
     PurchaseOrdersState state, {
     Locale locale = const Locale('en', 'IN'),
     TextScaler textScaler = TextScaler.noScaling,
+    String role = 'Owner',
   }) {
     return ProviderScope(
       overrides: [
         purchaseOrdersControllerProvider.overrideWith(
           () => _StubPurchaseOrdersController(state),
+        ),
+        authControllerProvider.overrideWith(
+          () => _StubAuthController(
+            AuthControllerState(session: _session(role: role)),
+          ),
         ),
       ],
       child: MaterialApp(
@@ -117,6 +162,11 @@ void main() {
     return ProviderScope(
       overrides: [
         purchaseOrdersControllerProvider.overrideWith(() => controller),
+        authControllerProvider.overrideWith(
+          () => _StubAuthController(
+            AuthControllerState(session: _session()),
+          ),
+        ),
       ],
       child: MaterialApp(
         theme: AppTheme.lightTheme,
@@ -319,6 +369,11 @@ void main() {
               PurchaseOrdersState(items: [_item()], totalCount: 1),
             ),
           ),
+          authControllerProvider.overrideWith(
+            () => _StubAuthController(
+              AuthControllerState(session: _session()),
+            ),
+          ),
         ],
         child: MaterialApp.router(
           theme: AppTheme.lightTheme,
@@ -339,6 +394,96 @@ void main() {
       AppRoutes.purchaseOrderDetailFor('po-1'),
     );
     expect(find.text('po-1'), findsOneWidget);
+  });
+
+  testWidgets('shows new purchase-order FAB for owners and managers only', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      buildApp(PurchaseOrdersState(items: [_item()], totalCount: 1)),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(PurchaseOrdersPage.newPurchaseOrderFabKey),
+      findsOneWidget,
+    );
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(
+      buildApp(
+        PurchaseOrdersState(items: [_item()], totalCount: 1),
+        role: 'Manager',
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(PurchaseOrdersPage.newPurchaseOrderFabKey),
+      findsOneWidget,
+    );
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(
+      buildApp(
+        PurchaseOrdersState(items: [_item()], totalCount: 1),
+        role: 'Staff',
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(PurchaseOrdersPage.newPurchaseOrderFabKey), findsNothing);
+  });
+
+  testWidgets('new purchase-order FAB navigates to create route', (
+    tester,
+  ) async {
+    final router = GoRouter(
+      initialLocation: AppRoutes.purchaseOrders,
+      routes: [
+        GoRoute(
+          path: AppRoutes.purchaseOrders,
+          builder: (_, _) => const PurchaseOrdersPage(),
+        ),
+        GoRoute(
+          path: AppRoutes.purchaseOrderNew,
+          builder: (_, _) => const Text('new-po-page'),
+        ),
+      ],
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          purchaseOrdersControllerProvider.overrideWith(
+            () => _StubPurchaseOrdersController(
+              PurchaseOrdersState(items: [_item()], totalCount: 1),
+            ),
+          ),
+          authControllerProvider.overrideWith(
+            () => _StubAuthController(
+              AuthControllerState(session: _session()),
+            ),
+          ),
+        ],
+        child: MaterialApp.router(
+          theme: AppTheme.lightTheme,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    tester
+        .widget<FloatingActionButton>(
+          find.byKey(PurchaseOrdersPage.newPurchaseOrderFabKey),
+        )
+        .onPressed!();
+    await tester.pumpAndSettle();
+
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      AppRoutes.purchaseOrderNew,
+    );
+    expect(find.text('new-po-page'), findsOneWidget);
   });
 
   testWidgets('search field is keyed and mounted in success state', (

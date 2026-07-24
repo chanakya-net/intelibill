@@ -2226,6 +2226,114 @@ class AppLocalizationsGu extends AppLocalizations {
   String get discountsReplacedByRuleLabel => 'Replaced by:';
 
   @override
+  String get discountsCreateTitle => 'Create discount rule';
+
+  @override
+  String get discountsCreateSubtitle =>
+      'Define a promotion for a batch or sale.';
+
+  @override
+  String get discountsCreateAction => 'Create rule';
+
+  @override
+  String get discountsCreateSuccess => 'Discount rule created';
+
+  @override
+  String get discountsCreateRuleTypeLabel => 'Rule type';
+
+  @override
+  String get discountsCreateRuleTypeBatch => 'Batch discount';
+
+  @override
+  String get discountsCreateRuleTypeSale => 'Sale discount';
+
+  @override
+  String get discountsCreateRuleTypeThreshold => 'Threshold discount';
+
+  @override
+  String get discountsCreateNameLabel => 'Rule name';
+
+  @override
+  String get discountsCreateNameRequired => 'Rule name is required';
+
+  @override
+  String get discountsCreateNameMax =>
+      'Rule name must be 200 characters or fewer';
+
+  @override
+  String get discountsCreateDescriptionLabel => 'Description';
+
+  @override
+  String get discountsCreatePercentageLabel => 'Discount %';
+
+  @override
+  String get discountsCreatePercentageInvalid =>
+      'Enter a percentage greater than 0 and up to 100';
+
+  @override
+  String get discountsCreateThresholdLabel => 'Minimum sale amount';
+
+  @override
+  String get discountsCreateThresholdInvalid =>
+      'Enter a threshold greater than 0';
+
+  @override
+  String get discountsCreateBatchLabel => 'Inventory batch';
+
+  @override
+  String get discountsCreateBatchRequired => 'Select an inventory batch';
+
+  @override
+  String get discountsCreateStartsAtLabel => 'Starts at';
+
+  @override
+  String get discountsCreateEndsAtLabel => 'Ends at';
+
+  @override
+  String get discountsCreatePreview => 'Preview';
+
+  @override
+  String get discountsCreateSubmit => 'Create';
+
+  @override
+  String get discountsCreatePreviewTitle => 'Preview';
+
+  @override
+  String discountsCreatePreviewAffected(int count) {
+    return '$count affected batches';
+  }
+
+  @override
+  String discountsCreatePreviewSafeMax(String value) {
+    return 'Safe max percentage: $value%';
+  }
+
+  @override
+  String get discountsCreatePreviewErrors => 'Preview issues';
+
+  @override
+  String get discountsCreatePreviewBelowCost => 'Below-cost sample';
+
+  @override
+  String get discountsCreateBelowCostConfirm =>
+      'I understand this rule may sell below cost';
+
+  @override
+  String get discountsCreateBelowCostReasonLabel => 'Confirmation reason';
+
+  @override
+  String get discountsCreateBelowCostRequired =>
+      'Confirm below-cost pricing before saving';
+
+  @override
+  String get discountsCreateBelowCostReasonRequired =>
+      'Add a confirmation reason before saving';
+
+  @override
+  String get discountsCreateErrorGeneric =>
+      'Unable to create discount rule. Please try again.';
+
+  @override
   String get creditNotesVerifyCode => 'Verify code';
 
   @override

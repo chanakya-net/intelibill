@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+import 'package:intelibill_mobile/src/app/router/app_router.dart';
 import 'package:intelibill_mobile/src/app/theme/app_theme.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
+import 'package:intelibill_mobile/src/features/auth/domain/entities/auth_session.dart';
+import 'package:intelibill_mobile/src/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_detail.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sale_list_item.dart';
 import 'package:intelibill_mobile/src/features/sales/domain/entities/sales_history_summary.dart';
@@ -17,6 +21,15 @@ class _StubSalesHistoryController extends SalesHistoryController {
 
   @override
   SalesHistoryState build() => _state;
+}
+
+class _StubAuthController extends AuthController {
+  _StubAuthController(this._state);
+
+  final AuthControllerState _state;
+
+  @override
+  Future<AuthControllerState> build() async => _state;
 }
 
 final _sampleSale = SaleListItem(
@@ -56,7 +69,35 @@ final _sampleDetail = SaleDetail(
   status: 'paid',
 );
 
-Widget _buildApp(SalesHistoryState state) {
+AuthSession _session({String role = 'Staff'}) {
+  return AuthSession(
+    accessToken: 'access-token',
+    refreshToken: 'refresh-token',
+    accessTokenExpiresAt: DateTime.utc(2026, 5, 15, 10),
+    refreshTokenExpiresAt: DateTime.utc(2026, 6, 15, 10),
+    user: const AuthUser(
+      id: 'user-1',
+      email: 'staff@example.com',
+      phoneNumber: null,
+      firstName: 'Sam',
+      lastName: 'Staff',
+      language: 'en-IN',
+    ),
+    activeShopId: 'shop-1',
+    shops: [
+      UserShop(
+        shopId: 'shop-1',
+        shopName: 'Primary Shop',
+        role: role,
+        isDefault: true,
+        lastUsedAt: DateTime.utc(2026, 5, 12, 10),
+      ),
+    ],
+    rememberMe: false,
+  );
+}
+
+Widget _buildApp(SalesHistoryState state, {String role = 'Staff'}) {
   return ProviderScope(
     overrides: [
       salesHistoryControllerProvider.overrideWith(
@@ -64,6 +105,11 @@ Widget _buildApp(SalesHistoryState state) {
       ),
       saleDetailControllerProvider('sale-1').overrideWithValue(
         SaleDetailState(detail: _sampleDetail),
+      ),
+      authControllerProvider.overrideWith(
+        () => _StubAuthController(
+          AuthControllerState(session: _session(role: role)),
+        ),
       ),
     ],
     child: MaterialApp(
@@ -135,6 +181,91 @@ void main() {
       expect(find.text('Sale details'), findsOneWidget);
       expect(find.text('Line items'), findsOneWidget);
       expect(find.text('Totals'), findsOneWidget);
+    });
+
+    testWidgets('shows new sale FAB for staff, managers, and owners', (
+      tester,
+    ) async {
+      for (final role in ['Staff', 'Manager', 'Owner']) {
+        await tester.pumpWidget(
+          _buildApp(
+            SalesHistoryState(
+              sales: [_sampleSale],
+              query: defaultSalesHistoryQuery(),
+              totalCount: 1,
+            ),
+            role: role,
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(SalesHistoryPage.newSaleFabKey),
+          findsOneWidget,
+          reason: 'FAB should show for $role',
+        );
+        await tester.pumpWidget(const SizedBox());
+      }
+    });
+
+    testWidgets('new sale FAB navigates to create route', (tester) async {
+      final router = GoRouter(
+        initialLocation: AppRoutes.salesHistory,
+        routes: [
+          GoRoute(
+            path: AppRoutes.salesHistory,
+            builder: (_, _) => const SalesHistoryPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.salesNew,
+            builder: (_, _) => const Text('new-sale-page'),
+          ),
+          GoRoute(
+            path: AppRoutes.profile,
+            builder: (_, _) => const Text('profile-page'),
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            salesHistoryControllerProvider.overrideWith(
+              () => _StubSalesHistoryController(
+                SalesHistoryState(
+                  sales: [_sampleSale],
+                  query: defaultSalesHistoryQuery(),
+                  totalCount: 1,
+                ),
+              ),
+            ),
+            authControllerProvider.overrideWith(
+              () => _StubAuthController(
+                AuthControllerState(session: _session()),
+              ),
+            ),
+          ],
+          child: MaterialApp.router(
+            theme: AppTheme.lightTheme,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      tester
+          .widget<FloatingActionButton>(
+            find.byKey(SalesHistoryPage.newSaleFabKey),
+          )
+          .onPressed!();
+      await tester.pumpAndSettle();
+
+      expect(
+        router.routerDelegate.currentConfiguration.uri.path,
+        AppRoutes.salesNew,
+      );
+      expect(find.text('new-sale-page'), findsOneWidget);
     });
   });
 }

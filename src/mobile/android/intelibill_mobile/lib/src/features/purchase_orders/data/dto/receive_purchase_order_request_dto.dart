@@ -19,6 +19,8 @@ String? _dateOnlyToJson(DateTime? value) {
   return '$year-$month-$day';
 }
 
+int _quantityToJson(double value) => value.round();
+
 List<Map<String, dynamic>> _receiveLineRequestDtosToJson(
   List<ReceivePurchaseOrderLineRequestDto> value,
 ) {
@@ -32,7 +34,7 @@ sealed class ReceivePurchaseOrderLineRequestDto
     required String purchaseOrderLineId,
     @JsonKey(toJson: _trim) required String barcode,
     @JsonKey(toJson: _trim) required String batchNumber,
-    required double quantity,
+    @JsonKey(toJson: _quantityToJson) required double quantity,
     required double totalPurchaseCost,
     @JsonKey(includeToJson: false) required double unitCost,
     required double mrp,

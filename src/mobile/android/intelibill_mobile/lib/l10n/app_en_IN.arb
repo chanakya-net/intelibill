@@ -801,6 +801,52 @@
   "discountsDisabledReasonLabel": "Disable reason:",
   "discountsReplacesRuleLabel": "Replaces rule:",
   "discountsReplacedByRuleLabel": "Replaced by:",
+  "discountsCreateTitle": "Create discount rule",
+  "discountsCreateSubtitle": "Define a promotion for a batch or sale.",
+  "discountsCreateAction": "Create rule",
+  "discountsCreateSuccess": "Discount rule created",
+  "discountsCreateRuleTypeLabel": "Rule type",
+  "discountsCreateRuleTypeBatch": "Batch discount",
+  "discountsCreateRuleTypeSale": "Sale discount",
+  "discountsCreateRuleTypeThreshold": "Threshold discount",
+  "discountsCreateNameLabel": "Rule name",
+  "discountsCreateNameRequired": "Rule name is required",
+  "discountsCreateNameMax": "Rule name must be 200 characters or fewer",
+  "discountsCreateDescriptionLabel": "Description",
+  "discountsCreatePercentageLabel": "Discount %",
+  "discountsCreatePercentageInvalid": "Enter a percentage greater than 0 and up to 100",
+  "discountsCreateThresholdLabel": "Minimum sale amount",
+  "discountsCreateThresholdInvalid": "Enter a threshold greater than 0",
+  "discountsCreateBatchLabel": "Inventory batch",
+  "discountsCreateBatchRequired": "Select an inventory batch",
+  "discountsCreateStartsAtLabel": "Starts at",
+  "discountsCreateEndsAtLabel": "Ends at",
+  "discountsCreatePreview": "Preview",
+  "discountsCreateSubmit": "Create",
+  "discountsCreatePreviewTitle": "Preview",
+  "discountsCreatePreviewAffected": "{count} affected batches",
+  "@discountsCreatePreviewAffected": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "discountsCreatePreviewSafeMax": "Safe max percentage: {value}%",
+  "@discountsCreatePreviewSafeMax": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "discountsCreatePreviewErrors": "Preview issues",
+  "discountsCreatePreviewBelowCost": "Below-cost sample",
+  "discountsCreateBelowCostConfirm": "I understand this rule may sell below cost",
+  "discountsCreateBelowCostReasonLabel": "Confirmation reason",
+  "discountsCreateBelowCostRequired": "Confirm below-cost pricing before saving",
+  "discountsCreateBelowCostReasonRequired": "Add a confirmation reason before saving",
+  "discountsCreateErrorGeneric": "Unable to create discount rule. Please try again.",
   "creditNotesVerifyCode": "Verify code",
   "creditNotesFilterAll": "All",
   "creditNotesLoadMore": "Load more",
