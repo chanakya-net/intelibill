@@ -152,111 +152,124 @@ class _UpdateProfilePageState extends ConsumerState<UpdateProfilePage> {
 
           final isLoading = state.isLoading;
 
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Form(
-              key: _formKey,
-              autovalidateMode: AutovalidateMode.onUserInteraction,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  TextFormField(
-                    key: _firstNameFieldKey,
-                    controller: _firstNameController,
-                    enabled: !isLoading,
-                    decoration: InputDecoration(
-                      labelText: l10n.profileFirstNameLabel,
-                      hintText: l10n.profileFirstNameHint,
-                    ),
-                    validator: (value) {
-                      if ((value ?? '').trim().isEmpty) {
-                        return l10n.profileFirstNameRequired;
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    key: _lastNameFieldKey,
-                    controller: _lastNameController,
-                    enabled: !isLoading,
-                    decoration: InputDecoration(
-                      labelText: l10n.profileLastNameLabel,
-                      hintText: l10n.profileLastNameHint,
-                    ),
-                    validator: (value) {
-                      if ((value ?? '').trim().isEmpty) {
-                        return l10n.profileLastNameRequired;
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    key: _emailFieldKey,
-                    controller: _emailController,
-                    enabled: !isLoading,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: InputDecoration(
-                      labelText: l10n.profileEmailLabel,
-                      hintText: l10n.profileEmailHint,
-                    ),
-                    validator: (value) => _validateEmail(value, l10n),
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    key: _phoneFieldKey,
-                    controller: _phoneController,
-                    enabled: !isLoading,
-                    keyboardType: TextInputType.phone,
-                    decoration: InputDecoration(
-                      labelText: l10n.profilePhoneLabel,
-                      hintText: l10n.profilePhoneHint,
-                    ),
-                    validator: (value) => _validatePhoneNumber(value, l10n),
-                  ),
-                  if (state.errorMessage != null) ...[
-                    const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.red.shade200),
-                        color: Colors.red.shade50,
-                      ),
-                      child: Text(
-                        state.errorMessage!,
-                        style: TextStyle(
-                          color: Colors.red.shade700,
-                          fontWeight: FontWeight.w600,
+          return SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Form(
+                    key: _formKey,
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          l10n.profileEditTitle,
+                          style: theme.textTheme.headlineSmall,
                         ),
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 24),
-                  FilledButton(
-                    key: _submitButtonKey,
-                    onPressed: isLoading ? null : () => _submit(state),
-                    child: isLoading
-                        ? Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
+                        const SizedBox(height: 24),
+                        TextFormField(
+                          key: _firstNameFieldKey,
+                          controller: _firstNameController,
+                          enabled: !isLoading,
+                          decoration: InputDecoration(
+                            labelText: l10n.profileFirstNameLabel,
+                            hintText: l10n.profileFirstNameHint,
+                          ),
+                          validator: (value) {
+                            if ((value ?? '').trim().isEmpty) {
+                              return l10n.profileFirstNameRequired;
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          key: _lastNameFieldKey,
+                          controller: _lastNameController,
+                          enabled: !isLoading,
+                          decoration: InputDecoration(
+                            labelText: l10n.profileLastNameLabel,
+                            hintText: l10n.profileLastNameHint,
+                          ),
+                          validator: (value) {
+                            if ((value ?? '').trim().isEmpty) {
+                              return l10n.profileLastNameRequired;
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          key: _emailFieldKey,
+                          controller: _emailController,
+                          enabled: !isLoading,
+                          keyboardType: TextInputType.emailAddress,
+                          decoration: InputDecoration(
+                            labelText: l10n.profileEmailLabel,
+                            hintText: l10n.profileEmailHint,
+                          ),
+                          validator: (value) => _validateEmail(value, l10n),
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          key: _phoneFieldKey,
+                          controller: _phoneController,
+                          enabled: !isLoading,
+                          keyboardType: TextInputType.phone,
+                          decoration: InputDecoration(
+                            labelText: l10n.profilePhoneLabel,
+                            hintText: l10n.profilePhoneHint,
+                          ),
+                          validator: (value) =>
+                              _validatePhoneNumber(value, l10n),
+                        ),
+                        if (state.errorMessage != null) ...[
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.red.shade200),
+                              color: Colors.red.shade50,
+                            ),
+                            child: Text(
+                              state.errorMessage!,
+                              style: TextStyle(
+                                color: Colors.red.shade700,
+                                fontWeight: FontWeight.w600,
                               ),
-                              const SizedBox(width: 12),
-                              Text(l10n.profileUpdatingButton),
-                            ],
-                          )
-                        : Text(l10n.profileUpdateButton),
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 24),
+                        FilledButton(
+                          key: _submitButtonKey,
+                          onPressed: isLoading ? null : () => _submit(state),
+                          child: isLoading
+                              ? Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Text(l10n.profileUpdatingButton),
+                                  ],
+                                )
+                              : Text(l10n.profileUpdateButton),
+                        ),
+                      ],
+                    ),
                   ),
-                ],
+                ),
               ),
             ),
           );

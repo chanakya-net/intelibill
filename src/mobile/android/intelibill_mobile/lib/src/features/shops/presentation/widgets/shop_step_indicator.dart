@@ -13,56 +13,83 @@ class ShopStepIndicator extends StatelessWidget {
 
   static Key _stepKey(int step) => Key('shop-step-indicator-step-$step');
 
+  static const _connectorBorder = Color(0xFFFDBA74);
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final effectiveTotal = totalSteps;
+    final connectorColor = theme.dividerTheme.color ?? const Color(0xFFFED7AA);
 
-    return Row(
-      children: List.generate(effectiveTotal * 2 - 1, (index) {
-        final isConnector = index.isOdd;
-        if (isConnector) {
-          return Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Container(
-                height: 2,
-                color: theme.colorScheme.outlineVariant,
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: List.generate(totalSteps * 2 - 1, (index) {
+            final isConnector = index.isOdd;
+            if (isConnector) {
+              final leftStep = index ~/ 2;
+              final isCompleted = leftStep < currentStep;
+              return Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: Container(
+                    height: 2,
+                    decoration: BoxDecoration(
+                      color: isCompleted
+                          ? theme.colorScheme.primary
+                          : connectorColor,
+                      borderRadius: BorderRadius.circular(1),
+                    ),
+                  ),
+                ),
+              );
+            }
+
+            final step = (index ~/ 2) + 1;
+            final isActive = step == currentStep;
+            final isCompleted = step < currentStep;
+
+            return Container(
+              key: _stepKey(step),
+              width: 36,
+              height: 36,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isActive || isCompleted
+                    ? theme.colorScheme.primary
+                    : theme.cardTheme.color ?? theme.colorScheme.surface,
+                border: Border.all(
+                  color: isActive || isCompleted
+                      ? theme.colorScheme.primary
+                      : _connectorBorder,
+                  width: 2,
+                ),
+                boxShadow: isActive
+                    ? [
+                        BoxShadow(
+                          color: theme.colorScheme.primary.withValues(
+                            alpha: 0.25,
+                          ),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ]
+                    : null,
               ),
-            ),
-          );
-        }
-
-        final step = (index ~/ 2) + 1;
-        final isActive = step == currentStep;
-        return Container(
-          key: _stepKey(step),
-          width: 36,
-          height: 36,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: isActive
-                ? theme.colorScheme.primary
-                : theme.colorScheme.surface,
-            border: Border.all(
-              color: isActive
-                  ? theme.colorScheme.primary
-                  : theme.colorScheme.outline,
-              width: 2,
-            ),
-          ),
-          child: Text(
-            '$step',
-            style: theme.textTheme.labelLarge?.copyWith(
-              color: isActive
-                  ? theme.colorScheme.onPrimary
-                  : theme.colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        );
-      }),
+              child: Text(
+                '$step',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: isActive || isCompleted
+                      ? theme.colorScheme.onPrimary
+                      : theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            );
+          }),
+        ),
+      ),
     );
   }
 }

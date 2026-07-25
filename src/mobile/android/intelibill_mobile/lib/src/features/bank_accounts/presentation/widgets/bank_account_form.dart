@@ -8,6 +8,7 @@ class BankAccountForm extends StatefulWidget {
     this.isSubmitting = false,
     this.initial,
     this.submitButtonLabel,
+    this.onCancel,
     super.key,
   });
 
@@ -22,6 +23,7 @@ class BankAccountForm extends StatefulWidget {
   final bool isSubmitting;
   final SaveBankAccountRequest? initial;
   final String Function(AppLocalizations)? submitButtonLabel;
+  final VoidCallback? onCancel;
 
   @override
   State<BankAccountForm> createState() => _BankAccountFormState();
@@ -190,19 +192,32 @@ class _BankAccountFormState extends State<BankAccountForm> {
             ),
           ),
           const SizedBox(height: 8),
-          FilledButton(
-            key: BankAccountForm.submitButtonKey,
-            onPressed: enabled ? _submit : null,
-            child: widget.isSubmitting
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Text(
-                    widget.submitButtonLabel?.call(l10n) ??
-                        l10n.bankAccountsAdd,
-                  ),
+          Row(
+            children: [
+              if (widget.onCancel != null)
+                TextButton(
+                  onPressed: enabled ? widget.onCancel : null,
+                  child: Text(l10n.commonCancel),
+                ),
+              const Spacer(),
+              FilledButton(
+                key: BankAccountForm.submitButtonKey,
+                onPressed: enabled ? _submit : null,
+                child: widget.isSubmitting
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Text(
+                        widget.submitButtonLabel?.call(l10n) ??
+                            l10n.bankAccountsAdd,
+                      ),
+              ),
+            ],
           ),
         ],
       ),

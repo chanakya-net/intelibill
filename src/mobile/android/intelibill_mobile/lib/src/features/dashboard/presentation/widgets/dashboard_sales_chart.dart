@@ -14,6 +14,7 @@ class DashboardSalesChart extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final salesTrend = dashboard.salesTrendSeries;
     final revenueVsExpenses = dashboard.revenueVsExpenses;
 
@@ -28,7 +29,8 @@ class DashboardSalesChart extends StatelessWidget {
                   .map((point) => _formatChartDate(point.date))
                   .toList(),
               values: salesTrend.map((point) => point.amount).toList(),
-              barColor: const Color(0xFFF27A20),
+              barColor: colorScheme.primary,
+              theme: theme,
             ),
           ),
         if (revenueVsExpenses.isNotEmpty) ...[
@@ -48,6 +50,7 @@ class DashboardSalesChart extends StatelessWidget {
                   .toList(),
               revenueLabel: l10n.dashboardChartRevenue,
               expensesLabel: l10n.dashboardChartExpenses,
+              theme: theme,
             ),
           ),
         ],
@@ -115,11 +118,13 @@ class _BarChart extends StatelessWidget {
     required this.labels,
     required this.values,
     required this.barColor,
+    required this.theme,
   });
 
   final List<String> labels;
   final List<double> values;
   final Color barColor;
+  final ThemeData theme;
 
   @override
   Widget build(BuildContext context) {
@@ -127,6 +132,10 @@ class _BarChart extends StatelessWidget {
       0,
       (max, value) => value > max ? value : max,
     );
+    final gridColor =
+        theme.dividerTheme.color?.withValues(alpha: 0.45) ??
+        theme.colorScheme.onSurface.withValues(alpha: 0.15);
+    final axisLabelStyle = theme.textTheme.labelSmall;
 
     return BarChart(
       BarChartData(
@@ -134,7 +143,7 @@ class _BarChart extends StatelessWidget {
         gridData: FlGridData(
           drawVerticalLine: false,
           getDrawingHorizontalLine: (value) => FlLine(
-            color: Colors.grey.withValues(alpha: 0.15),
+            color: gridColor,
             strokeWidth: 1,
           ),
         ),
@@ -152,7 +161,7 @@ class _BarChart extends StatelessWidget {
                 }
                 return Text(
                   formatInr(value),
-                  style: const TextStyle(fontSize: 10),
+                  style: axisLabelStyle,
                 );
               },
             ),
@@ -170,7 +179,7 @@ class _BarChart extends StatelessWidget {
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(
                     labels[index],
-                    style: const TextStyle(fontSize: 10),
+                    style: axisLabelStyle,
                   ),
                 );
               },
@@ -205,6 +214,7 @@ class _GroupedBarChart extends StatelessWidget {
     required this.expenseValues,
     required this.revenueLabel,
     required this.expensesLabel,
+    required this.theme,
   });
 
   final List<String> labels;
@@ -212,21 +222,27 @@ class _GroupedBarChart extends StatelessWidget {
   final List<double> expenseValues;
   final String revenueLabel;
   final String expensesLabel;
+  final ThemeData theme;
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = theme.colorScheme;
     final maxValue = [
       ...revenueValues,
       ...expenseValues,
     ].fold<double>(0, (max, value) => value > max ? value : max);
+    final gridColor =
+        theme.dividerTheme.color?.withValues(alpha: 0.45) ??
+        colorScheme.onSurface.withValues(alpha: 0.15);
+    final axisLabelStyle = theme.textTheme.labelSmall;
 
     return Column(
       children: [
         Row(
           children: [
-            _LegendDot(color: const Color(0xFFF27A20), label: revenueLabel),
+            _LegendDot(color: colorScheme.primary, label: revenueLabel),
             const SizedBox(width: 16),
-            _LegendDot(color: const Color(0xFF8B7355), label: expensesLabel),
+            _LegendDot(color: colorScheme.secondary, label: expensesLabel),
           ],
         ),
         const SizedBox(height: 12),
@@ -237,7 +253,7 @@ class _GroupedBarChart extends StatelessWidget {
               gridData: FlGridData(
                 drawVerticalLine: false,
                 getDrawingHorizontalLine: (value) => FlLine(
-                  color: Colors.grey.withValues(alpha: 0.15),
+                  color: gridColor,
                   strokeWidth: 1,
                 ),
               ),
@@ -255,7 +271,7 @@ class _GroupedBarChart extends StatelessWidget {
                       }
                       return Text(
                         formatInr(value),
-                        style: const TextStyle(fontSize: 10),
+                        style: axisLabelStyle,
                       );
                     },
                   ),
@@ -273,7 +289,7 @@ class _GroupedBarChart extends StatelessWidget {
                         padding: const EdgeInsets.only(top: 8),
                         child: Text(
                           labels[index],
-                          style: const TextStyle(fontSize: 10),
+                          style: axisLabelStyle,
                         ),
                       );
                     },
@@ -288,7 +304,7 @@ class _GroupedBarChart extends StatelessWidget {
                     barRods: [
                       BarChartRodData(
                         toY: revenueValues[i],
-                        color: const Color(0xFFF27A20).withValues(alpha: 0.82),
+                        color: colorScheme.primary.withValues(alpha: 0.82),
                         width: 10,
                         borderRadius: const BorderRadius.vertical(
                           top: Radius.circular(4),
@@ -296,7 +312,7 @@ class _GroupedBarChart extends StatelessWidget {
                       ),
                       BarChartRodData(
                         toY: expenseValues[i],
-                        color: const Color(0xFF8B7355).withValues(alpha: 0.78),
+                        color: colorScheme.secondary.withValues(alpha: 0.78),
                         width: 10,
                         borderRadius: const BorderRadius.vertical(
                           top: Radius.circular(4),

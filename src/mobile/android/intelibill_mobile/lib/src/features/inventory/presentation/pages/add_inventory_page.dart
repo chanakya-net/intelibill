@@ -133,310 +133,307 @@ class _AddInventoryPageState extends ConsumerState<AddInventoryPage> {
           autovalidateMode: AutovalidateMode.onUserInteraction,
           child: SingleChildScrollView(
             padding: EdgeInsets.fromLTRB(
-              20,
               16,
-              20,
+              16,
+              16,
               24 + MediaQuery.of(context).viewInsets.bottom,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _SectionTitle(title: l10n.inventoryInboundSectionProduct),
-                const SizedBox(height: 12),
-                RawAutocomplete<Item>(
-                  textEditingController: _itemNameController,
-                  focusNode: _itemNameFocusNode,
-                  displayStringForOption: (item) => item.name,
-                  optionsBuilder: (textEditingValue) =>
-                      _matchingItems(itemCatalog, textEditingValue.text),
-                  onSelected: _fillProductFromItem,
-                  fieldViewBuilder:
-                      (context, controller, focusNode, onFieldSubmitted) {
-                        return TextFormField(
-                          key: AddInventoryPage.itemNameFieldKey,
-                          controller: controller,
-                          focusNode: focusNode,
-                          enabled: !isSubmitting,
-                          textInputAction: TextInputAction.next,
-                          decoration: InputDecoration(
-                            labelText: l10n.inventoryInboundItemNameLabel,
-                            border: const OutlineInputBorder(),
+                _FormSectionCard(
+                  title: l10n.inventoryInboundSectionProduct,
+                  children: [
+                    RawAutocomplete<Item>(
+                      textEditingController: _itemNameController,
+                      focusNode: _itemNameFocusNode,
+                      displayStringForOption: (item) => item.name,
+                      optionsBuilder: (textEditingValue) =>
+                          _matchingItems(itemCatalog, textEditingValue.text),
+                      onSelected: _fillProductFromItem,
+                      fieldViewBuilder:
+                          (context, controller, focusNode, onFieldSubmitted) {
+                            return TextFormField(
+                              key: AddInventoryPage.itemNameFieldKey,
+                              controller: controller,
+                              focusNode: focusNode,
+                              enabled: !isSubmitting,
+                              textInputAction: TextInputAction.next,
+                              decoration: InputDecoration(
+                                labelText: l10n.inventoryInboundItemNameLabel,
+                              ),
+                              validator: (value) => _validateRequired(
+                                value,
+                                requiredMessage:
+                                    l10n.inventoryInboundItemNameRequired,
+                                maxMessage: l10n.inventoryInboundItemNameMax,
+                                maxLength: 200,
+                              ),
+                              onFieldSubmitted: (_) => onFieldSubmitted(),
+                            );
+                          },
+                      optionsViewBuilder: (context, onSelected, options) =>
+                          _InventoryItemOptions(
+                            options: options.toList(growable: false),
+                            onSelected: onSelected,
+                            displayValue: (item) => item.name,
                           ),
-                          validator: (value) => _validateRequired(
-                            value,
-                            requiredMessage:
-                                l10n.inventoryInboundItemNameRequired,
-                            maxMessage: l10n.inventoryInboundItemNameMax,
-                            maxLength: 200,
+                    ),
+                    const SizedBox(height: 12),
+                    RawAutocomplete<Item>(
+                      textEditingController: _barcodeController,
+                      focusNode: _barcodeFocusNode,
+                      displayStringForOption: (item) => item.barcode,
+                      optionsBuilder: (textEditingValue) =>
+                          _matchingItems(itemCatalog, textEditingValue.text),
+                      onSelected: _fillProductFromItem,
+                      fieldViewBuilder:
+                          (context, controller, focusNode, onFieldSubmitted) {
+                            return TextFormField(
+                              key: AddInventoryPage.barcodeFieldKey,
+                              controller: controller,
+                              focusNode: focusNode,
+                              enabled: !isSubmitting,
+                              textInputAction: TextInputAction.next,
+                              decoration: InputDecoration(
+                                labelText: l10n.inventoryInboundBarcodeLabel,
+                                suffixIcon: IconButton(
+                                  key: AddInventoryPage.scanBarcodeButtonKey,
+                                  icon: const Icon(Icons.qr_code_scanner),
+                                  onPressed: isSubmitting ? null : _scanBarcode,
+                                ),
+                              ),
+                              validator: (value) => _validateRequired(
+                                value,
+                                requiredMessage:
+                                    l10n.inventoryInboundBarcodeRequired,
+                                maxMessage: l10n.inventoryInboundBarcodeMax,
+                                maxLength: 120,
+                              ),
+                              onFieldSubmitted: (_) => onFieldSubmitted(),
+                            );
+                          },
+                      optionsViewBuilder: (context, onSelected, options) =>
+                          _InventoryItemOptions(
+                            options: options.toList(growable: false),
+                            onSelected: onSelected,
+                            displayValue: (item) => item.barcode,
                           ),
-                          onFieldSubmitted: (_) => onFieldSubmitted(),
-                        );
-                      },
-                  optionsViewBuilder: (context, onSelected, options) =>
-                      _InventoryItemOptions(
-                        options: options.toList(growable: false),
-                        onSelected: onSelected,
-                        displayValue: (item) => item.name,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      key: AddInventoryPage.uomFieldKey,
+                      controller: _uomController,
+                      enabled: !isSubmitting,
+                      textInputAction: TextInputAction.next,
+                      decoration: InputDecoration(
+                        labelText: l10n.inventoryInboundUomLabel,
                       ),
+                      validator: (value) => _validateRequired(
+                        value,
+                        requiredMessage: l10n.inventoryInboundUomRequired,
+                        maxMessage: l10n.inventoryInboundUomMax,
+                        maxLength: 40,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 12),
-                RawAutocomplete<Item>(
-                  textEditingController: _barcodeController,
-                  focusNode: _barcodeFocusNode,
-                  displayStringForOption: (item) => item.barcode,
-                  optionsBuilder: (textEditingValue) =>
-                      _matchingItems(itemCatalog, textEditingValue.text),
-                  onSelected: _fillProductFromItem,
-                  fieldViewBuilder:
-                      (context, controller, focusNode, onFieldSubmitted) {
-                        return TextFormField(
-                          key: AddInventoryPage.barcodeFieldKey,
-                          controller: controller,
-                          focusNode: focusNode,
-                          enabled: !isSubmitting,
-                          textInputAction: TextInputAction.next,
-                          decoration: InputDecoration(
-                            labelText: l10n.inventoryInboundBarcodeLabel,
-                            border: const OutlineInputBorder(),
-                            suffixIcon: IconButton(
-                              key: AddInventoryPage.scanBarcodeButtonKey,
-                              icon: const Icon(Icons.qr_code_scanner),
-                              onPressed: isSubmitting ? null : _scanBarcode,
+                const SizedBox(height: 16),
+                _FormSectionCard(
+                  title: l10n.inventoryInboundSectionBatch,
+                  children: [
+                    TextFormField(
+                      key: AddInventoryPage.batchNumberFieldKey,
+                      controller: _batchNumberController,
+                      enabled: !isSubmitting,
+                      textInputAction: TextInputAction.next,
+                      decoration: InputDecoration(
+                        labelText: l10n.inventoryInboundBatchNumberLabel,
+                        hintText: l10n.inventoryInboundBatchNumberHint,
+                      ),
+                      validator: (value) => _validateOptional(
+                        value,
+                        maxMessage: l10n.inventoryInboundBatchNumberMax,
+                        maxLength: 80,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      key: AddInventoryPage.quantityFieldKey,
+                      controller: _quantityController,
+                      enabled: !isSubmitting,
+                      textInputAction: TextInputAction.next,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: InputDecoration(
+                        labelText: l10n.inventoryInboundQuantityLabel,
+                      ),
+                      validator: (value) => _validateQuantity(value, l10n),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      key: AddInventoryPage.costPriceFieldKey,
+                      controller: _costPriceController,
+                      enabled: !isSubmitting,
+                      textInputAction: TextInputAction.next,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: InputDecoration(
+                        labelText: l10n.inventoryInboundCostPriceLabel,
+                      ),
+                      validator: (value) => _validateRequiredNumber(
+                        value,
+                        requiredMessage: l10n.inventoryInboundCostPriceRequired,
+                        invalidMessage: l10n.inventoryInboundNumberInvalid,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      key: AddInventoryPage.mrpFieldKey,
+                      controller: _mrpController,
+                      enabled: !isSubmitting,
+                      textInputAction: TextInputAction.next,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: InputDecoration(
+                        labelText: l10n.inventoryInboundMrpLabel,
+                      ),
+                      validator: (value) => _validateRequiredNumber(
+                        value,
+                        requiredMessage: l10n.inventoryInboundMrpRequired,
+                        invalidMessage: l10n.inventoryInboundNumberInvalid,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      key: AddInventoryPage.salesPriceFieldKey,
+                      controller: _salesPriceController,
+                      enabled: !isSubmitting,
+                      textInputAction: TextInputAction.next,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: InputDecoration(
+                        labelText: l10n.inventoryInboundSalesPriceLabel,
+                      ),
+                      validator: (value) => _validateRequiredNumber(
+                        value,
+                        requiredMessage:
+                            l10n.inventoryInboundSalesPriceRequired,
+                        invalidMessage: l10n.inventoryInboundNumberInvalid,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      key: AddInventoryPage.taxRateFieldKey,
+                      controller: _taxRateController,
+                      enabled: !isSubmitting,
+                      textInputAction: TextInputAction.next,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: InputDecoration(
+                        labelText: l10n.inventoryInboundTaxRateLabel,
+                      ),
+                      validator: (value) => _validateTaxRate(value, l10n),
+                    ),
+                    SwitchListTile(
+                      key: AddInventoryPage.taxIncludedSwitchKey,
+                      value: _taxIncluded,
+                      onChanged: isSubmitting
+                          ? null
+                          : (value) {
+                              setState(() {
+                                _taxIncluded = value;
+                              });
+                            },
+                      title: Text(l10n.inventoryInboundTaxIncludedLabel),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                _FormSectionCard(
+                  title: l10n.inventoryInboundSectionAdditional,
+                  children: [
+                    TextFormField(
+                      key: AddInventoryPage.expiryDateFieldKey,
+                      controller: _expiryDateController,
+                      enabled: !isSubmitting,
+                      readOnly: true,
+                      decoration: InputDecoration(
+                        labelText: l10n.inventoryInboundExpiryDateLabel,
+                        suffixIcon: const Icon(Icons.calendar_month),
+                      ),
+                      onTap: isSubmitting
+                          ? null
+                          : () => _pickDate(
+                              currentValue: _expiryDate,
+                              onSelected: (date) {
+                                setState(() {
+                                  _expiryDate = date;
+                                });
+                              },
+                              controller: _expiryDateController,
                             ),
-                          ),
-                          validator: (value) => _validateRequired(
-                            value,
-                            requiredMessage:
-                                l10n.inventoryInboundBarcodeRequired,
-                            maxMessage: l10n.inventoryInboundBarcodeMax,
-                            maxLength: 120,
-                          ),
-                          onFieldSubmitted: (_) => onFieldSubmitted(),
-                        );
-                      },
-                  optionsViewBuilder: (context, onSelected, options) =>
-                      _InventoryItemOptions(
-                        options: options.toList(growable: false),
-                        onSelected: onSelected,
-                        displayValue: (item) => item.barcode,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      key: AddInventoryPage.manufacturingDateFieldKey,
+                      controller: _manufacturingDateController,
+                      enabled: !isSubmitting,
+                      readOnly: true,
+                      decoration: InputDecoration(
+                        labelText: l10n.inventoryInboundManufacturingDateLabel,
+                        suffixIcon: const Icon(Icons.calendar_month),
                       ),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  key: AddInventoryPage.uomFieldKey,
-                  controller: _uomController,
-                  enabled: !isSubmitting,
-                  textInputAction: TextInputAction.next,
-                  decoration: InputDecoration(
-                    labelText: l10n.inventoryInboundUomLabel,
-                    border: const OutlineInputBorder(),
-                  ),
-                  validator: (value) => _validateRequired(
-                    value,
-                    requiredMessage: l10n.inventoryInboundUomRequired,
-                    maxMessage: l10n.inventoryInboundUomMax,
-                    maxLength: 40,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                _SectionTitle(title: l10n.inventoryInboundSectionBatch),
-                const SizedBox(height: 12),
-                TextFormField(
-                  key: AddInventoryPage.batchNumberFieldKey,
-                  controller: _batchNumberController,
-                  enabled: !isSubmitting,
-                  textInputAction: TextInputAction.next,
-                  decoration: InputDecoration(
-                    labelText: l10n.inventoryInboundBatchNumberLabel,
-                    hintText: l10n.inventoryInboundBatchNumberHint,
-                    border: const OutlineInputBorder(),
-                  ),
-                  validator: (value) => _validateOptional(
-                    value,
-                    maxMessage: l10n.inventoryInboundBatchNumberMax,
-                    maxLength: 80,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  key: AddInventoryPage.quantityFieldKey,
-                  controller: _quantityController,
-                  enabled: !isSubmitting,
-                  textInputAction: TextInputAction.next,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: InputDecoration(
-                    labelText: l10n.inventoryInboundQuantityLabel,
-                    border: const OutlineInputBorder(),
-                  ),
-                  validator: (value) => _validateQuantity(value, l10n),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  key: AddInventoryPage.costPriceFieldKey,
-                  controller: _costPriceController,
-                  enabled: !isSubmitting,
-                  textInputAction: TextInputAction.next,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: InputDecoration(
-                    labelText: l10n.inventoryInboundCostPriceLabel,
-                    border: const OutlineInputBorder(),
-                  ),
-                  validator: (value) => _validateRequiredNumber(
-                    value,
-                    requiredMessage: l10n.inventoryInboundCostPriceRequired,
-                    invalidMessage: l10n.inventoryInboundNumberInvalid,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  key: AddInventoryPage.mrpFieldKey,
-                  controller: _mrpController,
-                  enabled: !isSubmitting,
-                  textInputAction: TextInputAction.next,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: InputDecoration(
-                    labelText: l10n.inventoryInboundMrpLabel,
-                    border: const OutlineInputBorder(),
-                  ),
-                  validator: (value) => _validateRequiredNumber(
-                    value,
-                    requiredMessage: l10n.inventoryInboundMrpRequired,
-                    invalidMessage: l10n.inventoryInboundNumberInvalid,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  key: AddInventoryPage.salesPriceFieldKey,
-                  controller: _salesPriceController,
-                  enabled: !isSubmitting,
-                  textInputAction: TextInputAction.next,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: InputDecoration(
-                    labelText: l10n.inventoryInboundSalesPriceLabel,
-                    border: const OutlineInputBorder(),
-                  ),
-                  validator: (value) => _validateRequiredNumber(
-                    value,
-                    requiredMessage: l10n.inventoryInboundSalesPriceRequired,
-                    invalidMessage: l10n.inventoryInboundNumberInvalid,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  key: AddInventoryPage.taxRateFieldKey,
-                  controller: _taxRateController,
-                  enabled: !isSubmitting,
-                  textInputAction: TextInputAction.next,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: InputDecoration(
-                    labelText: l10n.inventoryInboundTaxRateLabel,
-                    border: const OutlineInputBorder(),
-                  ),
-                  validator: (value) => _validateTaxRate(value, l10n),
-                ),
-                SwitchListTile(
-                  key: AddInventoryPage.taxIncludedSwitchKey,
-                  value: _taxIncluded,
-                  onChanged: isSubmitting
-                      ? null
-                      : (value) {
-                          setState(() {
-                            _taxIncluded = value;
-                          });
-                        },
-                  title: Text(l10n.inventoryInboundTaxIncludedLabel),
-                  contentPadding: EdgeInsets.zero,
-                ),
-                const SizedBox(height: 8),
-                _SectionTitle(title: l10n.inventoryInboundSectionAdditional),
-                const SizedBox(height: 12),
-                TextFormField(
-                  key: AddInventoryPage.expiryDateFieldKey,
-                  controller: _expiryDateController,
-                  enabled: !isSubmitting,
-                  readOnly: true,
-                  decoration: InputDecoration(
-                    labelText: l10n.inventoryInboundExpiryDateLabel,
-                    border: const OutlineInputBorder(),
-                    suffixIcon: const Icon(Icons.calendar_month),
-                  ),
-                  onTap: isSubmitting
-                      ? null
-                      : () => _pickDate(
-                          currentValue: _expiryDate,
-                          onSelected: (date) {
-                            setState(() {
-                              _expiryDate = date;
-                            });
-                          },
-                          controller: _expiryDateController,
-                        ),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  key: AddInventoryPage.manufacturingDateFieldKey,
-                  controller: _manufacturingDateController,
-                  enabled: !isSubmitting,
-                  readOnly: true,
-                  decoration: InputDecoration(
-                    labelText: l10n.inventoryInboundManufacturingDateLabel,
-                    border: const OutlineInputBorder(),
-                    suffixIcon: const Icon(Icons.calendar_month),
-                  ),
-                  onTap: isSubmitting
-                      ? null
-                      : () => _pickDate(
-                          currentValue: _manufacturingDate,
-                          onSelected: (date) {
-                            setState(() {
-                              _manufacturingDate = date;
-                            });
-                          },
-                          controller: _manufacturingDateController,
-                        ),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  key: AddInventoryPage.referenceFieldKey,
-                  controller: _referenceController,
-                  enabled: !isSubmitting,
-                  textInputAction: TextInputAction.next,
-                  decoration: InputDecoration(
-                    labelText: l10n.inventoryInboundReferenceLabel,
-                    border: const OutlineInputBorder(),
-                  ),
-                  validator: (value) => _validateOptional(
-                    value,
-                    maxMessage: l10n.inventoryInboundReferenceMax,
-                    maxLength: 80,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  key: AddInventoryPage.notesFieldKey,
-                  controller: _notesController,
-                  enabled: !isSubmitting,
-                  textInputAction: TextInputAction.newline,
-                  maxLines: 4,
-                  decoration: InputDecoration(
-                    labelText: l10n.inventoryInboundNotesLabel,
-                    border: const OutlineInputBorder(),
-                  ),
-                  validator: (value) => _validateOptional(
-                    value,
-                    maxMessage: l10n.inventoryInboundNotesMax,
-                    maxLength: 500,
-                  ),
+                      onTap: isSubmitting
+                          ? null
+                          : () => _pickDate(
+                              currentValue: _manufacturingDate,
+                              onSelected: (date) {
+                                setState(() {
+                                  _manufacturingDate = date;
+                                });
+                              },
+                              controller: _manufacturingDateController,
+                            ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      key: AddInventoryPage.referenceFieldKey,
+                      controller: _referenceController,
+                      enabled: !isSubmitting,
+                      textInputAction: TextInputAction.next,
+                      decoration: InputDecoration(
+                        labelText: l10n.inventoryInboundReferenceLabel,
+                      ),
+                      validator: (value) => _validateOptional(
+                        value,
+                        maxMessage: l10n.inventoryInboundReferenceMax,
+                        maxLength: 80,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      key: AddInventoryPage.notesFieldKey,
+                      controller: _notesController,
+                      enabled: !isSubmitting,
+                      textInputAction: TextInputAction.newline,
+                      maxLines: 4,
+                      decoration: InputDecoration(
+                        labelText: l10n.inventoryInboundNotesLabel,
+                      ),
+                      validator: (value) => _validateOptional(
+                        value,
+                        maxMessage: l10n.inventoryInboundNotesMax,
+                        maxLength: 500,
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 20),
                 SizedBox(
@@ -458,11 +455,27 @@ class _AddInventoryPageState extends ConsumerState<AddInventoryPage> {
                 ),
                 if (state.submitFailure != null) ...[
                   const SizedBox(height: 12),
-                  Text(
-                    _localizeSubmitFailure(l10n, state.submitFailure!),
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.error,
-                      fontWeight: FontWeight.w600,
+                  Semantics(
+                    liveRegion: true,
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: theme.colorScheme.error.withValues(
+                            alpha: 0.35,
+                          ),
+                        ),
+                        color: theme.colorScheme.error.withValues(alpha: 0.08),
+                      ),
+                      child: Text(
+                        _localizeSubmitFailure(l10n, state.submitFailure!),
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.error,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -728,8 +741,10 @@ class _InventoryItemOptions extends StatelessWidget {
     return Align(
       alignment: Alignment.topLeft,
       child: Material(
-        elevation: 4,
-        borderRadius: BorderRadius.circular(8),
+        elevation: theme.cardTheme.elevation ?? 4,
+        shadowColor: theme.cardTheme.shadowColor,
+        color: theme.cardTheme.color,
+        borderRadius: BorderRadius.circular(22),
         clipBehavior: Clip.antiAlias,
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxHeight: 240, maxWidth: 420),
@@ -737,7 +752,10 @@ class _InventoryItemOptions extends StatelessWidget {
             padding: EdgeInsets.zero,
             shrinkWrap: true,
             itemCount: options.length,
-            separatorBuilder: (context, index) => const Divider(height: 1),
+            separatorBuilder: (context, index) => Divider(
+              height: 1,
+              color: theme.dividerTheme.color,
+            ),
             itemBuilder: (context, index) {
               final item = options[index];
               return InkWell(
@@ -780,17 +798,37 @@ class _InventoryItemOptions extends StatelessWidget {
   }
 }
 
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({required this.title});
+class _FormSectionCard extends StatelessWidget {
+  const _FormSectionCard({
+    required this.title,
+    required this.children,
+  });
 
   final String title;
+  final List<Widget> children;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Text(
-      title,
-      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              title,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: theme.textTheme.headlineSmall?.color,
+              ),
+            ),
+            const SizedBox(height: 12),
+            ...children,
+          ],
+        ),
+      ),
     );
   }
 }

@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
 import 'package:intelibill_mobile/src/features/purchase_orders/presentation/controllers/receive_purchase_order_controller.dart';
-import 'package:intl/intl.dart';
 
 class PurchaseOrderReceiveLineCard extends StatefulWidget {
   const PurchaseOrderReceiveLineCard({
@@ -130,7 +129,7 @@ class _PurchaseOrderReceiveLineCardState
       key: PurchaseOrderReceiveLineCard.cardKey(
         widget.line.purchaseOrderLineId,
       ),
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      margin: const EdgeInsets.only(bottom: 12),
       child: ExpansionTile(
         key: ValueKey(
           '${widget.line.purchaseOrderLineId}-${widget.isExpanded}',
@@ -200,7 +199,7 @@ class _PurchaseOrderReceiveLineCardState
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   onChanged: widget.onQuantityChanged,
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 TextField(
                   key: PurchaseOrderReceiveLineCard.barcodeField(
                     widget.line.purchaseOrderLineId,
@@ -216,7 +215,7 @@ class _PurchaseOrderReceiveLineCardState
                   onChanged: widget.onBarcodeChanged,
                   maxLength: 120,
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 LayoutBuilder(
                   builder: (context, constraints) {
                     final stackActions =
@@ -279,7 +278,7 @@ class _PurchaseOrderReceiveLineCardState
                     );
                   },
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 TextFormField(
                   key: PurchaseOrderReceiveLineCard.batchField(
                     widget.line.purchaseOrderLineId,
@@ -296,9 +295,11 @@ class _PurchaseOrderReceiveLineCardState
                 const SizedBox(height: 16),
                 Text(
                   l10n.purchaseOrderReceiveInventoryDetails,
-                  style: Theme.of(context).textTheme.titleSmall,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 TextFormField(
                   key: PurchaseOrderReceiveLineCard.unitCostField(
                     widget.line.purchaseOrderLineId,
@@ -316,7 +317,7 @@ class _PurchaseOrderReceiveLineCardState
                   inputFormatters: [_decimalFormatter],
                   onChanged: widget.onUnitPurchaseCostChanged,
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 TextFormField(
                   key: PurchaseOrderReceiveLineCard.totalCostField(
                     widget.line.purchaseOrderLineId,
@@ -334,7 +335,7 @@ class _PurchaseOrderReceiveLineCardState
                   inputFormatters: [_decimalFormatter],
                   onChanged: widget.onTotalPurchaseCostChanged,
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 TextFormField(
                   key: PurchaseOrderReceiveLineCard.mrpField(
                     widget.line.purchaseOrderLineId,
@@ -352,7 +353,7 @@ class _PurchaseOrderReceiveLineCardState
                   inputFormatters: [_decimalFormatter],
                   onChanged: widget.onMrpChanged,
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 TextFormField(
                   key: PurchaseOrderReceiveLineCard.salesPriceField(
                     widget.line.purchaseOrderLineId,
@@ -370,7 +371,7 @@ class _PurchaseOrderReceiveLineCardState
                   inputFormatters: [_decimalFormatter],
                   onChanged: widget.onSalesPriceChanged,
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 TextFormField(
                   key: PurchaseOrderReceiveLineCard.taxRateField(
                     widget.line.purchaseOrderLineId,
@@ -396,7 +397,12 @@ class _PurchaseOrderReceiveLineCardState
                   title: Text(l10n.purchaseOrderReceiveTaxIncludedLabel),
                   subtitle: widget.errors['taxIncluded'] == null
                       ? null
-                      : Text(widget.errors['taxIncluded']!),
+                      : Text(
+                          widget.errors['taxIncluded']!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
                   value: widget.line.taxIncluded,
                   onChanged: widget.line.isSelected
                       ? (v) => widget.onTaxIncludedChanged(v ?? false)
@@ -412,7 +418,12 @@ class _PurchaseOrderReceiveLineCardState
                   ),
                   subtitle: widget.errors['purchaseTaxIncluded'] == null
                       ? null
-                      : Text(widget.errors['purchaseTaxIncluded']!),
+                      : Text(
+                          widget.errors['purchaseTaxIncluded']!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
                   value: widget.line.purchaseTaxIncluded,
                   onChanged: widget.line.isSelected
                       ? (v) => widget.onPurchaseTaxIncludedChanged(v ?? false)
@@ -433,7 +444,7 @@ class _PurchaseOrderReceiveLineCardState
                   ),
                   onChanged: widget.onManufacturingDateChanged,
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 _ReceiptDateField(
                   fieldKey: PurchaseOrderReceiveLineCard.expiryDateField(
                     widget.line.purchaseOrderLineId,
@@ -461,7 +472,7 @@ class _PurchaseOrderReceiveLineCardState
   );
 }
 
-class _ReceiptDateField extends StatelessWidget {
+class _ReceiptDateField extends StatefulWidget {
   const _ReceiptDateField({
     required this.fieldKey,
     required this.label,
@@ -483,33 +494,79 @@ class _ReceiptDateField extends StatelessWidget {
   final ValueChanged<DateTime?> onChanged;
 
   @override
+  State<_ReceiptDateField> createState() => _ReceiptDateFieldState();
+}
+
+class _ReceiptDateFieldState extends State<_ReceiptDateField> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+    _scheduleControllerSync();
+  }
+
+  @override
+  void didUpdateWidget(_ReceiptDateField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.value != oldWidget.value) {
+      _scheduleControllerSync();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _scheduleControllerSync() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _syncController();
+    });
+  }
+
+  void _syncController() {
+    final text = widget.value == null
+        ? ''
+        : MaterialLocalizations.of(context).formatMediumDate(widget.value!);
+    if (_controller.text != text) {
+      _controller.text = text;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    return InputDecorator(
-      decoration: InputDecoration(labelText: label, errorText: errorText),
-      child: Row(
-        children: [
-          Expanded(
-            child: OutlinedButton(
-              key: fieldKey,
-              autofocus: autofocus,
-              onPressed: !enabled ? null : () => _pickDate(context),
-              child: Text(
-                value == null
-                    ? l10n.purchaseOrderReceiveSelectDate
-                    : DateFormat.yMMMd().format(value!),
+    return TextFormField(
+      key: widget.fieldKey,
+      controller: _controller,
+      readOnly: true,
+      enabled: widget.enabled,
+      autofocus: widget.autofocus,
+      decoration: InputDecoration(
+        labelText: widget.label,
+        hintText: l10n.purchaseOrderReceiveSelectDate,
+        errorText: widget.errorText,
+        suffixIcon: widget.value == null
+            ? const Icon(Icons.calendar_month)
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    key: widget.clearKey,
+                    tooltip: l10n.purchaseOrderReceiveClearDate,
+                    onPressed: widget.enabled
+                        ? () => widget.onChanged(null)
+                        : null,
+                    icon: const Icon(Icons.clear),
+                  ),
+                  const Icon(Icons.calendar_month),
+                ],
               ),
-            ),
-          ),
-          if (value != null)
-            IconButton(
-              key: clearKey,
-              tooltip: l10n.purchaseOrderReceiveClearDate,
-              onPressed: enabled ? () => onChanged(null) : null,
-              icon: const Icon(Icons.clear),
-            ),
-        ],
       ),
+      onTap: widget.enabled ? () => _pickDate(context) : null,
     );
   }
 
@@ -517,10 +574,10 @@ class _ReceiptDateField extends StatelessWidget {
     final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
-      initialDate: value ?? now,
+      initialDate: widget.value ?? now,
       firstDate: DateTime(now.year - 100),
       lastDate: DateTime(now.year + 100),
     );
-    if (picked != null) onChanged(picked);
+    if (picked != null) widget.onChanged(picked);
   }
 }

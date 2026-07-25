@@ -155,7 +155,7 @@ class _BarcodeScannerPageState extends State<BarcodeScannerPage> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
-    const primaryOrange = Color(0xFFF97316);
+    final colorScheme = theme.colorScheme;
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -165,29 +165,32 @@ class _BarcodeScannerPageState extends State<BarcodeScannerPage> {
         centerTitle: true,
         title: Text(
           l10n.barcodeScannerTitle,
-          style: const TextStyle(
+          style: theme.textTheme.titleLarge?.copyWith(
             color: Colors.white,
             fontWeight: FontWeight.w700,
           ),
         ),
         leading: IconButton(
           key: const Key('barcode_scanner_close'),
-          icon: const Icon(Icons.close, color: Colors.white),
+          style: IconButton.styleFrom(
+            backgroundColor: Colors.white.withValues(alpha: 0.12),
+            foregroundColor: Colors.white,
+          ),
+          icon: const Icon(Icons.close),
           tooltip: l10n.commonClose,
           onPressed: _close,
         ),
-        // Intelibill branded accent line
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(2),
-          child: Container(height: 2, color: primaryOrange),
+          child: Container(height: 2, color: colorScheme.primary),
         ),
       ),
       body: Stack(
         fit: StackFit.expand,
         children: [
           _buildScannerSurface(),
-          _buildScanGuideOverlay(theme, primaryOrange),
-          _buildStatusOverlay(l10n, theme, primaryOrange),
+          _ScanFrameOverlay(frameColor: colorScheme.primary),
+          _buildStatusOverlay(l10n, theme),
         ],
       ),
     );
@@ -204,49 +207,45 @@ class _BarcodeScannerPageState extends State<BarcodeScannerPage> {
     );
   }
 
-  Widget _buildScanGuideOverlay(ThemeData theme, Color accentColor) {
-    return Center(
-      child: IgnorePointer(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: 240,
-              height: 240,
-              child: CustomPaint(
-                painter: _ScanGuideCornerPainter(color: accentColor),
-              ),
+  Widget _buildStatusOverlay(AppLocalizations l10n, ThemeData theme) {
+    final colorScheme = theme.colorScheme;
+
+    return Positioned(
+      bottom: 48,
+      left: 24,
+      right: 24,
+      child: Center(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.62),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: colorScheme.primary.withValues(alpha: 0.35),
             ),
-          ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            child: _buildStatusContent(l10n, theme),
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildStatusOverlay(
-    AppLocalizations l10n,
-    ThemeData theme,
-    Color accentColor,
-  ) {
-    return Positioned(
-      bottom: 48,
-      left: 24,
-      right: 24,
-      child: Center(child: _buildStatusContent(l10n, accentColor)),
-    );
-  }
+  Widget _buildStatusContent(AppLocalizations l10n, ThemeData theme) {
+    final colorScheme = theme.colorScheme;
+    const statusTextStyle = TextStyle(color: Colors.white, fontSize: 14);
 
-  Widget _buildStatusContent(AppLocalizations l10n, Color accentColor) {
     switch (_status) {
       case _ScannerStatus.loading:
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const CircularProgressIndicator(color: Colors.white),
+            CircularProgressIndicator(color: colorScheme.primary),
             const SizedBox(height: 12),
             Text(
               l10n.barcodeScannerSearching,
-              style: const TextStyle(color: Colors.white, fontSize: 14),
+              style: statusTextStyle,
               textAlign: TextAlign.center,
             ),
           ],
@@ -255,20 +254,20 @@ class _BarcodeScannerPageState extends State<BarcodeScannerPage> {
         return Text(
           l10n.barcodeScannerHint,
           key: const Key('barcode_scanner_hint'),
-          style: const TextStyle(color: Colors.white, fontSize: 14),
+          style: statusTextStyle,
           textAlign: TextAlign.center,
         );
       case _ScannerStatus.success:
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.check_circle, color: accentColor),
+            Icon(Icons.check_circle, color: colorScheme.primary),
             const SizedBox(width: 8),
             Text(
               l10n.barcodeScannerSuccess,
               key: const Key('barcode_scanner_success'),
               style: TextStyle(
-                color: accentColor,
+                color: colorScheme.primary,
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
               ),
@@ -279,12 +278,12 @@ class _BarcodeScannerPageState extends State<BarcodeScannerPage> {
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.error_outline, color: Colors.red),
+            Icon(Icons.error_outline, color: colorScheme.error),
             const SizedBox(height: 8),
             Text(
               _errorMessage ?? l10n.barcodeScannerUnavailable,
               key: const Key('barcode_scanner_error'),
-              style: const TextStyle(color: Colors.red, fontSize: 14),
+              style: TextStyle(color: colorScheme.error, fontSize: 14),
               textAlign: TextAlign.center,
             ),
           ],
@@ -293,54 +292,147 @@ class _BarcodeScannerPageState extends State<BarcodeScannerPage> {
   }
 }
 
-/// Paints corner brackets for the scan guide rectangle.
-class _ScanGuideCornerPainter extends CustomPainter {
-  const _ScanGuideCornerPainter({required this.color});
+/// Dimmed overlay with a transparent scan window and themed corner frame.
+class _ScanFrameOverlay extends StatelessWidget {
+  const _ScanFrameOverlay({required this.frameColor});
 
-  final Color color;
+  final Color frameColor;
+
+  static const _cornerRadius = 16.0;
+  static const _frameAspectRatio = 1.0;
+  static const _maxFrameSize = 280.0;
+  static const _minFrameSize = 220.0;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final frameSize = (constraints.maxWidth * 0.72).clamp(
+          _minFrameSize,
+          _maxFrameSize,
+        );
+        final frameRect = Rect.fromCenter(
+          center: Offset(constraints.maxWidth / 2, constraints.maxHeight / 2),
+          width: frameSize,
+          height: frameSize * _frameAspectRatio,
+        );
+
+        return IgnorePointer(
+          child: CustomPaint(
+            painter: _ScanFrameOverlayPainter(
+              frameColor: frameColor,
+              scanRect: frameRect,
+              cornerRadius: _cornerRadius,
+            ),
+            size: Size(constraints.maxWidth, constraints.maxHeight),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Paints a dimmed overlay, scan-window border, and corner brackets.
+class _ScanFrameOverlayPainter extends CustomPainter {
+  const _ScanFrameOverlayPainter({
+    required this.frameColor,
+    required this.scanRect,
+    required this.cornerRadius,
+  });
+
+  final Color frameColor;
+  final Rect scanRect;
+  final double cornerRadius;
+
+  static const _overlayOpacity = 0.58;
+  static const _cornerLength = 28.0;
+  static const _strokeWidth = 3.5;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 4
+    final overlayPaint = Paint()
+      ..color = Colors.black.withValues(alpha: _overlayOpacity);
+    final fullRect = Offset.zero & size;
+    final cutout = RRect.fromRectAndRadius(
+      scanRect,
+      Radius.circular(cornerRadius),
+    );
+    final overlayPath = Path()
+      ..addRect(fullRect)
+      ..addRRect(cutout);
+    overlayPath.fillType = PathFillType.evenOdd;
+    canvas.drawPath(overlayPath, overlayPaint);
+
+    final framePaint = Paint()
+      ..color = frameColor
+      ..strokeWidth = _strokeWidth
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
 
-    const cornerLen = 28.0;
+    canvas.drawRRect(cutout, framePaint);
 
-    // Top-left
+    final cornerPaint = Paint()
+      ..color = frameColor
+      ..strokeWidth = _strokeWidth + 0.5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    _drawCornerBrackets(canvas, scanRect, cornerPaint);
+  }
+
+  void _drawCornerBrackets(Canvas canvas, Rect rect, Paint paint) {
+    final left = rect.left;
+    final right = rect.right;
+    final top = rect.top;
+    final bottom = rect.bottom;
+    const len = _cornerLength;
+
     canvas
-      ..drawLine(Offset.zero, const Offset(cornerLen, 0), paint)
-      ..drawLine(Offset.zero, const Offset(0, cornerLen), paint)
-      // Top-right
       ..drawLine(
-        Offset(size.width, 0),
-        Offset(size.width - cornerLen, 0),
-        paint,
-      )
-      ..drawLine(Offset(size.width, 0), Offset(size.width, cornerLen), paint)
-      // Bottom-left
-      ..drawLine(Offset(0, size.height), Offset(cornerLen, size.height), paint)
-      ..drawLine(
-        Offset(0, size.height),
-        Offset(0, size.height - cornerLen),
-        paint,
-      )
-      // Bottom-right
-      ..drawLine(
-        Offset(size.width, size.height),
-        Offset(size.width - cornerLen, size.height),
+        Offset(left, top + cornerRadius),
+        Offset(left, top + len),
         paint,
       )
       ..drawLine(
-        Offset(size.width, size.height),
-        Offset(size.width, size.height - cornerLen),
+        Offset(left, top + cornerRadius),
+        Offset(left + len, top),
+        paint,
+      )
+      ..drawLine(
+        Offset(right, top + cornerRadius),
+        Offset(right, top + len),
+        paint,
+      )
+      ..drawLine(
+        Offset(right, top + cornerRadius),
+        Offset(right - len, top),
+        paint,
+      )
+      ..drawLine(
+        Offset(left, bottom - cornerRadius),
+        Offset(left, bottom - len),
+        paint,
+      )
+      ..drawLine(
+        Offset(left, bottom - cornerRadius),
+        Offset(left + len, bottom),
+        paint,
+      )
+      ..drawLine(
+        Offset(right, bottom - cornerRadius),
+        Offset(right, bottom - len),
+        paint,
+      )
+      ..drawLine(
+        Offset(right, bottom - cornerRadius),
+        Offset(right - len, bottom),
         paint,
       );
   }
 
   @override
-  bool shouldRepaint(_ScanGuideCornerPainter oldDelegate) =>
-      oldDelegate.color != color;
+  bool shouldRepaint(_ScanFrameOverlayPainter oldDelegate) =>
+      oldDelegate.frameColor != frameColor ||
+      oldDelegate.scanRect != scanRect ||
+      oldDelegate.cornerRadius != cornerRadius;
 }

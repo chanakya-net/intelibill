@@ -19,8 +19,17 @@ class DashboardPeriodSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final dividerColor = theme.dividerTheme.color ?? const Color(0xFFFED7AA);
 
     return SegmentedButton<DashboardPeriod>(
+      style: SegmentedButton.styleFrom(
+        selectedBackgroundColor: theme.colorScheme.primary,
+        selectedForegroundColor: theme.colorScheme.onPrimary,
+        foregroundColor: theme.colorScheme.onSurface,
+        side: BorderSide(color: dividerColor),
+        textStyle: theme.textTheme.labelMedium,
+      ),
       segments: [
         ButtonSegment(
           value: DashboardPeriod.last7,

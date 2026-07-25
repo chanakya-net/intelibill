@@ -155,7 +155,10 @@ void main() {
 
     await tester.tap(find.byTooltip('Print'));
     await tester.pump();
-    expect(find.text('Print failed: printer unavailable'), findsOneWidget);
+    expect(
+      find.text('Could not print the document. Try again.'),
+      findsOneWidget,
+    );
     expect(find.byType(DocumentPreviewScaffold), findsOneWidget);
 
     outputGateway.failPrint = false;

@@ -194,11 +194,16 @@ class PurchaseOrderDetailPage extends ConsumerWidget {
             .refresh(),
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
           children: [
             PurchaseOrderDetailHeader(purchaseOrder: purchaseOrder),
+            const SizedBox(height: 16),
             PurchaseOrderDetailSummary(purchaseOrder: purchaseOrder),
+            const SizedBox(height: 16),
             PurchaseOrderLifecycleMetadata(purchaseOrder: purchaseOrder),
+            const SizedBox(height: 16),
             _LinesSection(lines: purchaseOrder.lines),
+            const SizedBox(height: 16),
             PurchaseOrderReceiptHistory(receipts: purchaseOrder.receipts),
           ],
         ),
@@ -263,14 +268,24 @@ class _FailureView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Semantics(liveRegion: true, child: Text(message)),
+            Icon(
+              isNotFound ? Icons.search_off : Icons.error_outline,
+              size: 48,
+              color: theme.colorScheme.error,
+            ),
             const SizedBox(height: 12),
+            Semantics(
+              liveRegion: true,
+              child: Text(message, textAlign: TextAlign.center),
+            ),
+            const SizedBox(height: 16),
             if (isNotFound) ...[
               FilledButton(
                 onPressed: () => router.go(AppRoutes.purchaseOrders),
@@ -297,18 +312,19 @@ class _LinesSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-          child: Text(l10n.purchaseOrderDetailLinesHeader),
+        Text(
+          l10n.purchaseOrderDetailLinesHeader,
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
         ),
+        const SizedBox(height: 8),
         if (lines.isEmpty)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-            child: Text(l10n.purchaseOrderDetailNoLines),
-          )
+          Text(l10n.purchaseOrderDetailNoLines)
         else
           ...lines.map((line) => PurchaseOrderLineCard(line: line)),
       ],

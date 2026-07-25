@@ -151,6 +151,9 @@ Future<void> showPurchaseOrderCancelSheet(
 }) {
   return showModalBottomSheet<void>(
     context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    showDragHandle: true,
     builder: (_) => PurchaseOrderCancelSheet(onCancel: onCancel),
   );
 }

@@ -135,7 +135,9 @@ class DiscountRuleDetailSheet extends ConsumerWidget {
         children: [
           Text(
             l10n.discountsDetailTitle,
-            style: Theme.of(context).textTheme.titleLarge,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 16),
           for (final row in rows) ...[
@@ -147,7 +149,7 @@ class DiscountRuleDetailSheet extends ConsumerWidget {
                   Expanded(
                     child: Text(
                       row.label,
-                      style: TextStyle(
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
@@ -155,7 +157,9 @@ class DiscountRuleDetailSheet extends ConsumerWidget {
                   Expanded(
                     child: Text(
                       row.value,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ],

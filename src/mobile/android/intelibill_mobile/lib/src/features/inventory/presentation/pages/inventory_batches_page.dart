@@ -46,10 +46,6 @@ class _InventoryBatchesPageState extends ConsumerState<InventoryBatchesPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.shellInventoryBatchesOverview),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.canPop() ? context.pop() : null,
-        ),
         actions: [
           IconButton(
             tooltip: l10n.shellProfile,
@@ -201,7 +197,7 @@ class _BatchCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(16),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -225,29 +221,36 @@ class _BatchCard extends StatelessWidget {
                       Expanded(
                         child: Text(
                           batch.itemName,
-                          style: theme.textTheme.titleSmall,
+                          style: theme.textTheme.titleMedium,
                         ),
                       ),
                       if (batch.isVoided)
-                        Chip(
-                          label: Text(l10n.inventoryBatchesVoided),
-                          backgroundColor: theme.colorScheme.errorContainer,
-                          labelStyle: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.onErrorContainer,
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
                           ),
-                          padding: EdgeInsets.zero,
-                          materialTapTargetSize:
-                              MaterialTapTargetSize.shrinkWrap,
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.errorContainer,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            l10n.inventoryBatchesVoided,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.onErrorContainer,
+                            ),
+                          ),
                         ),
                     ],
                   ),
+                  const SizedBox(height: 4),
                   Text(
                     batch.batchNumber,
-                    style: theme.textTheme.bodySmall?.copyWith(
+                    style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
                     runSpacing: 4,
@@ -311,10 +314,10 @@ class _BatchCard extends StatelessWidget {
     final colors = [
       theme.colorScheme.primary,
       theme.colorScheme.secondary,
-      theme.colorScheme.tertiary,
-      Colors.teal,
-      Colors.indigo,
-      Colors.deepOrange,
+      const Color(0xFFEA580C),
+      const Color(0xFF9A3412),
+      const Color(0xFFC2410C),
+      const Color(0xFF7C2D12),
     ];
     return colors[hash.abs() % colors.length];
   }

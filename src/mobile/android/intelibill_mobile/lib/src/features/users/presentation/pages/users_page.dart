@@ -88,11 +88,12 @@ class _UsersPageState extends ConsumerState<UsersPage> {
         ],
       ),
       floatingActionButton: canManageUsers
-          ? FloatingActionButton(
+          ? FloatingActionButton.extended(
               key: UsersPage.addUserFabKey,
               onPressed: _openAddUserSheet,
               tooltip: l10n.usersAddUser,
-              child: const Icon(Icons.person_add_outlined),
+              icon: const Icon(Icons.add),
+              label: Text(l10n.usersAddUser),
             )
           : null,
       body: Column(
@@ -104,6 +105,18 @@ class _UsersPageState extends ConsumerState<UsersPage> {
               decoration: InputDecoration(
                 hintText: l10n.usersSearchPlaceholder,
                 prefixIcon: const Icon(Icons.search),
+                suffixIcon: usersState.searchQuery.isEmpty
+                    ? null
+                    : IconButton(
+                        tooltip: l10n.commonClear,
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                          ref
+                              .read(usersControllerProvider.notifier)
+                              .updateSearch('');
+                        },
+                      ),
                 border: const OutlineInputBorder(),
                 isDense: true,
               ),
@@ -126,6 +139,8 @@ class _UsersPageState extends ConsumerState<UsersPage> {
     AppLocalizations l10n,
     bool canManageUsers,
   ) {
+    final theme = Theme.of(context);
+
     if (usersState.isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -137,16 +152,24 @@ class _UsersPageState extends ConsumerState<UsersPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              Icon(
+                Icons.cloud_off_outlined,
+                size: 48,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(height: 16),
               Text(
                 l10n.usersUnableToLoad,
-                style: const TextStyle(
-                  fontSize: 18,
+                style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
                 _localizeFailure(l10n, usersState.failure!),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
@@ -174,30 +197,39 @@ class _UsersPageState extends ConsumerState<UsersPage> {
               children: [
                 Padding(
                   padding: const EdgeInsets.all(32),
-                  child: Center(
-                    child: Column(
-                      children: [
-                        Text(
-                          l10n.usersNoUsersFound,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          textAlign: TextAlign.center,
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.people_outline,
+                        size: 56,
+                        color: theme.colorScheme.primary.withValues(
+                          alpha: 0.7,
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          l10n.usersNoUsersDescription,
-                          textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        l10n.usersNoUsersFound,
+                        style: theme.textTheme.titleMedium,
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        l10n.usersNoUsersDescription,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
-                      ],
-                    ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                   ),
                 ),
               ],
             )
           : ListView.builder(
               physics: const AlwaysScrollableScrollPhysics(),
+              padding: canManageUsers
+                  ? const EdgeInsets.only(bottom: 88)
+                  : EdgeInsets.zero,
               itemCount: users.length,
               itemBuilder: (context, index) {
                 final user = users[index];

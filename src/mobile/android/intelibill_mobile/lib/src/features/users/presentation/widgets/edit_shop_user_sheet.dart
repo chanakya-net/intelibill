@@ -321,12 +321,12 @@ class _EditShopUserSheetState extends ConsumerState<EditShopUserSheet> {
                           ? null
                           : () => _submit(state),
                       child: isSubmitting
-                          ? const SizedBox(
+                          ? SizedBox(
                               width: 16,
                               height: 16,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: Colors.white,
+                                color: theme.colorScheme.onPrimary,
                               ),
                             )
                           : Text(l10n.commonSave),

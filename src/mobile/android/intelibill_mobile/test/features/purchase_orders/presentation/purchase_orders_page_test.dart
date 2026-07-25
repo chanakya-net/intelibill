@@ -230,7 +230,14 @@ void main() {
     );
     await tester.pumpWidget(buildTrackingApp(controller));
 
-    await tester.drag(find.byType(ListView), const Offset(0, -2000));
+    final verticalScroll = find.byWidgetPredicate(
+      (widget) =>
+          widget is Scrollable && widget.axisDirection == AxisDirection.down,
+    );
+    await tester.drag(
+      verticalScroll,
+      const Offset(0, -10000),
+    );
     await tester.pumpAndSettle();
 
     expect(controller.loadMoreCalls, greaterThan(0));
@@ -250,7 +257,10 @@ void main() {
 
     expect(find.byKey(const Key('purchase-order-card-po-1')), findsOneWidget);
     expect(find.text('Could not load more purchase orders.'), findsOneWidget);
-    await tester.tap(find.widgetWithText(FilledButton, 'Retry'));
+    final retryButton = find.widgetWithText(FilledButton, 'Retry');
+    await tester.ensureVisible(retryButton);
+    await tester.pumpAndSettle();
+    await tester.tap(retryButton);
     await tester.pump();
 
     expect(controller.retryLoadMoreCalls, 1);

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
+import 'package:intelibill_mobile/src/features/shops/presentation/widgets/shop_form_card.dart';
 
 class ShopInfoFormData {
   const ShopInfoFormData({
@@ -58,6 +59,7 @@ class ShopInfoForm extends StatefulWidget {
     this.isSubmitting = false,
     this.initialValue,
     this.onChanged,
+    this.sectionTitle,
     super.key,
   });
 
@@ -74,6 +76,7 @@ class ShopInfoForm extends StatefulWidget {
   final bool isSubmitting;
   final ShopInfoFormData? initialValue;
   final ValueChanged<ShopInfoFormData>? onChanged;
+  final String? sectionTitle;
 
   @override
   State<ShopInfoForm> createState() => _ShopInfoFormState();
@@ -215,133 +218,136 @@ class _ShopInfoFormState extends State<ShopInfoForm> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
 
-    return Form(
-      key: widget.formKey,
-      autovalidateMode: AutovalidateMode.onUserInteraction,
-      child: Column(
-        children: [
-          TextFormField(
-            key: ShopInfoForm.shopNameFieldKey,
-            controller: _shopNameController,
-            enabled: !widget.isSubmitting,
-            textInputAction: TextInputAction.next,
-            decoration: InputDecoration(
-              labelText: l10n.shopsCreateShopNameLabel,
-              hintText: l10n.shopsCreateShopNameHint,
+    return ShopFormCard(
+      title: widget.sectionTitle,
+      child: Form(
+        key: widget.formKey,
+        autovalidateMode: AutovalidateMode.onUserInteraction,
+        child: Column(
+          children: [
+            TextFormField(
+              key: ShopInfoForm.shopNameFieldKey,
+              controller: _shopNameController,
+              enabled: !widget.isSubmitting,
+              textInputAction: TextInputAction.next,
+              decoration: InputDecoration(
+                labelText: l10n.shopsCreateShopNameLabel,
+                hintText: l10n.shopsCreateShopNameHint,
+              ),
+              onChanged: (_) => _notifyChanged(),
+              validator: (value) => _validateRequired(
+                value,
+                l10n,
+                requiredMessage: l10n.shopsCreateShopNameRequired,
+              ),
             ),
-            onChanged: (_) => _notifyChanged(),
-            validator: (value) => _validateRequired(
-              value,
-              l10n,
-              requiredMessage: l10n.shopsCreateShopNameRequired,
+            const SizedBox(height: 12),
+            TextFormField(
+              key: ShopInfoForm.addressFieldKey,
+              controller: _addressController,
+              enabled: !widget.isSubmitting,
+              textInputAction: TextInputAction.next,
+              maxLines: 3,
+              decoration: InputDecoration(
+                labelText: l10n.shopsCreateAddressLabel,
+                hintText: l10n.shopsCreateAddressHint,
+              ),
+              onChanged: (_) => _notifyChanged(),
+              validator: (value) => _validateRequired(
+                value,
+                l10n,
+                requiredMessage: l10n.shopsCreateAddressRequired,
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            key: ShopInfoForm.addressFieldKey,
-            controller: _addressController,
-            enabled: !widget.isSubmitting,
-            textInputAction: TextInputAction.next,
-            maxLines: 3,
-            decoration: InputDecoration(
-              labelText: l10n.shopsCreateAddressLabel,
-              hintText: l10n.shopsCreateAddressHint,
+            const SizedBox(height: 12),
+            TextFormField(
+              key: ShopInfoForm.cityFieldKey,
+              controller: _cityController,
+              enabled: !widget.isSubmitting,
+              textInputAction: TextInputAction.next,
+              decoration: InputDecoration(
+                labelText: l10n.shopsCreateCityLabel,
+                hintText: l10n.shopsCreateCityHint,
+              ),
+              onChanged: (_) => _notifyChanged(),
+              validator: (value) => _validateRequired(
+                value,
+                l10n,
+                requiredMessage: l10n.shopsCreateCityRequired,
+              ),
             ),
-            onChanged: (_) => _notifyChanged(),
-            validator: (value) => _validateRequired(
-              value,
-              l10n,
-              requiredMessage: l10n.shopsCreateAddressRequired,
+            const SizedBox(height: 12),
+            TextFormField(
+              key: ShopInfoForm.stateFieldKey,
+              controller: _stateController,
+              enabled: !widget.isSubmitting,
+              textInputAction: TextInputAction.next,
+              decoration: InputDecoration(
+                labelText: l10n.shopsCreateStateLabel,
+                hintText: l10n.shopsCreateStateHint,
+              ),
+              onChanged: (_) => _notifyChanged(),
+              validator: (value) => _validateRequired(
+                value,
+                l10n,
+                requiredMessage: l10n.shopsCreateStateRequired,
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            key: ShopInfoForm.cityFieldKey,
-            controller: _cityController,
-            enabled: !widget.isSubmitting,
-            textInputAction: TextInputAction.next,
-            decoration: InputDecoration(
-              labelText: l10n.shopsCreateCityLabel,
-              hintText: l10n.shopsCreateCityHint,
+            const SizedBox(height: 12),
+            TextFormField(
+              key: ShopInfoForm.pincodeFieldKey,
+              controller: _pincodeController,
+              enabled: !widget.isSubmitting,
+              textInputAction: TextInputAction.next,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                labelText: l10n.shopsCreatePincodeLabel,
+                hintText: l10n.shopsCreatePincodeHint,
+              ),
+              onChanged: (_) => _notifyChanged(),
+              validator: (value) => _validatePincode(value, l10n),
             ),
-            onChanged: (_) => _notifyChanged(),
-            validator: (value) => _validateRequired(
-              value,
-              l10n,
-              requiredMessage: l10n.shopsCreateCityRequired,
+            const SizedBox(height: 12),
+            TextFormField(
+              key: ShopInfoForm.contactPersonFieldKey,
+              controller: _contactPersonController,
+              enabled: !widget.isSubmitting,
+              textInputAction: TextInputAction.next,
+              decoration: InputDecoration(
+                labelText: l10n.shopsCreateContactPersonLabel,
+                hintText: l10n.shopsCreateContactPersonHint,
+              ),
+              onChanged: (_) => _notifyChanged(),
             ),
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            key: ShopInfoForm.stateFieldKey,
-            controller: _stateController,
-            enabled: !widget.isSubmitting,
-            textInputAction: TextInputAction.next,
-            decoration: InputDecoration(
-              labelText: l10n.shopsCreateStateLabel,
-              hintText: l10n.shopsCreateStateHint,
+            const SizedBox(height: 12),
+            TextFormField(
+              key: ShopInfoForm.mobileNumberFieldKey,
+              controller: _mobileController,
+              enabled: !widget.isSubmitting,
+              textInputAction: TextInputAction.next,
+              keyboardType: TextInputType.phone,
+              decoration: InputDecoration(
+                labelText: l10n.shopsCreateMobileNumberLabel,
+                hintText: l10n.shopsCreateMobileNumberHint,
+              ),
+              onChanged: (_) => _notifyChanged(),
+              validator: (value) => _validateMobile(value, l10n),
             ),
-            onChanged: (_) => _notifyChanged(),
-            validator: (value) => _validateRequired(
-              value,
-              l10n,
-              requiredMessage: l10n.shopsCreateStateRequired,
+            const SizedBox(height: 12),
+            TextFormField(
+              key: ShopInfoForm.gstNumberFieldKey,
+              controller: _gstController,
+              enabled: !widget.isSubmitting,
+              textInputAction: TextInputAction.done,
+              decoration: InputDecoration(
+                labelText: l10n.shopsCreateGstNumberLabel,
+                hintText: l10n.shopsCreateGstNumberHint,
+              ),
+              onChanged: (_) => _notifyChanged(),
+              validator: (value) => _validateGst(value, l10n),
             ),
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            key: ShopInfoForm.pincodeFieldKey,
-            controller: _pincodeController,
-            enabled: !widget.isSubmitting,
-            textInputAction: TextInputAction.next,
-            keyboardType: TextInputType.number,
-            decoration: InputDecoration(
-              labelText: l10n.shopsCreatePincodeLabel,
-              hintText: l10n.shopsCreatePincodeHint,
-            ),
-            onChanged: (_) => _notifyChanged(),
-            validator: (value) => _validatePincode(value, l10n),
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            key: ShopInfoForm.contactPersonFieldKey,
-            controller: _contactPersonController,
-            enabled: !widget.isSubmitting,
-            textInputAction: TextInputAction.next,
-            decoration: InputDecoration(
-              labelText: l10n.shopsCreateContactPersonLabel,
-              hintText: l10n.shopsCreateContactPersonHint,
-            ),
-            onChanged: (_) => _notifyChanged(),
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            key: ShopInfoForm.mobileNumberFieldKey,
-            controller: _mobileController,
-            enabled: !widget.isSubmitting,
-            textInputAction: TextInputAction.next,
-            keyboardType: TextInputType.phone,
-            decoration: InputDecoration(
-              labelText: l10n.shopsCreateMobileNumberLabel,
-              hintText: l10n.shopsCreateMobileNumberHint,
-            ),
-            onChanged: (_) => _notifyChanged(),
-            validator: (value) => _validateMobile(value, l10n),
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            key: ShopInfoForm.gstNumberFieldKey,
-            controller: _gstController,
-            enabled: !widget.isSubmitting,
-            textInputAction: TextInputAction.done,
-            decoration: InputDecoration(
-              labelText: l10n.shopsCreateGstNumberLabel,
-              hintText: l10n.shopsCreateGstNumberHint,
-            ),
-            onChanged: (_) => _notifyChanged(),
-            validator: (value) => _validateGst(value, l10n),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

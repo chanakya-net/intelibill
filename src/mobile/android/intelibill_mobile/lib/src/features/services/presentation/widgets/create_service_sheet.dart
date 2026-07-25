@@ -123,7 +123,6 @@ class _CreateServiceSheetState extends ConsumerState<CreateServiceSheet> {
                   textInputAction: TextInputAction.next,
                   decoration: InputDecoration(
                     labelText: l10n.servicesNameLabel,
-                    border: const OutlineInputBorder(),
                   ),
                   validator: (value) => _validateRequiredText(
                     value,
@@ -141,7 +140,6 @@ class _CreateServiceSheetState extends ConsumerState<CreateServiceSheet> {
                   maxLines: 3,
                   decoration: InputDecoration(
                     labelText: l10n.servicesDescriptionLabel,
-                    border: const OutlineInputBorder(),
                   ),
                   validator: (value) => _validateOptionalText(
                     value,
@@ -160,7 +158,6 @@ class _CreateServiceSheetState extends ConsumerState<CreateServiceSheet> {
                   textInputAction: TextInputAction.next,
                   decoration: InputDecoration(
                     labelText: l10n.servicesPriceLabel,
-                    border: const OutlineInputBorder(),
                   ),
                   validator: (value) => _validatePrice(
                     value,
@@ -177,7 +174,6 @@ class _CreateServiceSheetState extends ConsumerState<CreateServiceSheet> {
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(
                     labelText: l10n.servicesHsnCodeLabel,
-                    border: const OutlineInputBorder(),
                   ),
                   validator: (value) => _validateHsnCode(
                     value,
@@ -195,7 +191,6 @@ class _CreateServiceSheetState extends ConsumerState<CreateServiceSheet> {
                   textInputAction: TextInputAction.next,
                   decoration: InputDecoration(
                     labelText: l10n.servicesTaxRateLabel,
-                    border: const OutlineInputBorder(),
                   ),
                   validator: (value) => _validateTaxRate(
                     value,

@@ -20,6 +20,8 @@ class CreateCustomerSheet extends ConsumerStatefulWidget {
 }
 
 class _CreateCustomerSheetState extends ConsumerState<CreateCustomerSheet> {
+  static final RegExp _phonePattern = RegExp(r'^\+?[0-9]{7,15}$');
+
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
@@ -35,7 +37,7 @@ class _CreateCustomerSheetState extends ConsumerState<CreateCustomerSheet> {
     super.dispose();
   }
 
-  Future<void> _submit(CustomersState state) async {
+  Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) {
       return;
     }
@@ -56,6 +58,42 @@ class _CreateCustomerSheetState extends ConsumerState<CreateCustomerSheet> {
     }
   }
 
+  String? _validateRequired(
+    String? value, {
+    required String requiredMessage,
+    required String maxMessage,
+    required int maxLength,
+  }) {
+    final trimmed = (value ?? '').trim();
+    if (trimmed.isEmpty) {
+      return requiredMessage;
+    }
+    if (trimmed.length > maxLength) {
+      return maxMessage;
+    }
+    return null;
+  }
+
+  String? _validateOptional(
+    String? value, {
+    required String maxMessage,
+    required int maxLength,
+    RegExp? pattern,
+    String? patternMessage,
+  }) {
+    final trimmed = (value ?? '').trim();
+    if (trimmed.isEmpty) {
+      return null;
+    }
+    if (trimmed.length > maxLength) {
+      return maxMessage;
+    }
+    if (pattern != null && !pattern.hasMatch(trimmed)) {
+      return patternMessage;
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -65,11 +103,11 @@ class _CreateCustomerSheetState extends ConsumerState<CreateCustomerSheet> {
 
     return SafeArea(
       child: Padding(
-        padding: EdgeInsets.only(
-          left: 20,
-          right: 20,
-          top: 20,
-          bottom: 20 + MediaQuery.of(context).viewInsets.bottom,
+        padding: EdgeInsets.fromLTRB(
+          20,
+          8,
+          20,
+          20 + MediaQuery.viewInsetsOf(context).bottom,
         ),
         child: Form(
           key: _formKey,
@@ -113,16 +151,12 @@ class _CreateCustomerSheetState extends ConsumerState<CreateCustomerSheet> {
                   decoration: InputDecoration(
                     labelText: l10n.customersCreateNameLabel,
                   ),
-                  validator: (value) {
-                    final trimmed = (value ?? '').trim();
-                    if (trimmed.isEmpty) {
-                      return l10n.customersCreateNameRequired;
-                    }
-                    if (trimmed.length > 180) {
-                      return l10n.customersCreateNameMax;
-                    }
-                    return null;
-                  },
+                  validator: (value) => _validateRequired(
+                    value,
+                    requiredMessage: l10n.customersCreateNameRequired,
+                    maxMessage: l10n.customersCreateNameMax,
+                    maxLength: 180,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
@@ -134,20 +168,20 @@ class _CreateCustomerSheetState extends ConsumerState<CreateCustomerSheet> {
                   decoration: InputDecoration(
                     labelText: l10n.customersCreatePhoneLabel,
                   ),
-                  validator: (value) {
-                    final trimmed = (value ?? '').trim();
-                    if (trimmed.isEmpty) {
-                      return l10n.customersCreatePhoneRequired;
-                    }
-                    if (trimmed.length > 32) {
-                      return l10n.customersCreatePhoneMax;
-                    }
-                    final phonePattern = RegExp(r'^\+?[0-9]{7,15}$');
-                    if (!phonePattern.hasMatch(trimmed)) {
-                      return l10n.customersCreatePhoneInvalid;
-                    }
-                    return null;
-                  },
+                  validator: (value) =>
+                      _validateRequired(
+                        value,
+                        requiredMessage: l10n.customersCreatePhoneRequired,
+                        maxMessage: l10n.customersCreatePhoneMax,
+                        maxLength: 32,
+                      ) ??
+                      _validateOptional(
+                        value,
+                        maxMessage: l10n.customersCreatePhoneMax,
+                        maxLength: 32,
+                        pattern: _phonePattern,
+                        patternMessage: l10n.customersCreatePhoneInvalid,
+                      ),
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
@@ -159,13 +193,11 @@ class _CreateCustomerSheetState extends ConsumerState<CreateCustomerSheet> {
                   decoration: InputDecoration(
                     labelText: l10n.customersCreateAddressLabel,
                   ),
-                  validator: (value) {
-                    final trimmed = (value ?? '').trim();
-                    if (trimmed.length > 320) {
-                      return l10n.customersCreateAddressMax;
-                    }
-                    return null;
-                  },
+                  validator: (value) => _validateOptional(
+                    value,
+                    maxMessage: l10n.customersCreateAddressMax,
+                    maxLength: 320,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 SwitchListTile(
@@ -196,7 +228,7 @@ class _CreateCustomerSheetState extends ConsumerState<CreateCustomerSheet> {
                     const Spacer(),
                     FilledButton(
                       key: CreateCustomerSheet.submitButtonKey,
-                      onPressed: isSubmitting ? null : () => _submit(state),
+                      onPressed: isSubmitting ? null : _submit,
                       child: isSubmitting
                           ? const SizedBox(
                               width: 16,
@@ -221,8 +253,15 @@ class _CreateCustomerSheetState extends ConsumerState<CreateCustomerSheet> {
 
 String _localizeCreateFailure(AppLocalizations l10n, Failure failure) {
   return failure.when(
-    validation: (String? message, Map<String, List<String>>? _) =>
-        message ?? l10n.customersCreateErrorGeneric,
+    validation: (String? message, Map<String, List<String>>? errors) {
+      if (errors != null && errors.isNotEmpty) {
+        return errors.values.first.first;
+      }
+      if (message != null && message.isNotEmpty) {
+        return message;
+      }
+      return l10n.customersCreateErrorGeneric;
+    },
     unauthorized: (String? _) => l10n.customersCreateErrorUnauthorized,
     forbidden: (String? _) => l10n.customersCreateErrorForbidden,
     notFound: (String? _) => l10n.customersCreateErrorGeneric,

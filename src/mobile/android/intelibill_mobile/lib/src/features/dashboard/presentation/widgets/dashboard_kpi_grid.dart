@@ -12,48 +12,49 @@ class DashboardKpiGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
     final cards = <_KpiCardData>[
       _KpiCardData(
         label: l10n.dashboardKpiSalesRevenue,
         value: formatInr(dashboard.salesRevenue),
-        color: const Color(0xFFF27A20),
+        accent: _KpiAccent.primary,
       ),
       _KpiCardData(
         label: l10n.dashboardKpiNetProfit,
         value: formatInr(dashboard.netProfit),
-        color: const Color(0xFF6B8F71),
+        accent: _KpiAccent.secondary,
         changePercent: dashboard.netProfitChangePercent,
       ),
       _KpiCardData(
         label: l10n.dashboardKpiInvoiceCount,
         value: dashboard.salesCount.toString(),
-        color: const Color(0xFF8B7355),
+        accent: _KpiAccent.neutral,
       ),
       _KpiCardData(
         label: l10n.dashboardKpiLowStockItems,
         value: dashboard.lowStockItemCount.toString(),
-        color: const Color(0xFFB85C6D),
+        accent: _KpiAccent.error,
       ),
       _KpiCardData(
         label: l10n.dashboardKpiStockValue,
         value: formatInr(dashboard.stockValue),
-        color: const Color(0xFFF27A20),
+        accent: _KpiAccent.primary,
       ),
       _KpiCardData(
         label: l10n.dashboardKpiCustomerCreditDue,
         value: formatInr(dashboard.customerCreditDue),
-        color: const Color(0xFFF27A20),
+        accent: _KpiAccent.secondary,
       ),
       _KpiCardData(
         label: l10n.dashboardKpiSupplierPayables,
         value: formatInr(dashboard.supplierPayables),
-        color: const Color(0xFF8B7355),
+        accent: _KpiAccent.neutral,
       ),
       _KpiCardData(
         label: l10n.dashboardKpiExpenses,
         value: formatInr(dashboard.netExpense),
-        color: const Color(0xFFB85C6D),
+        accent: _KpiAccent.error,
       ),
     ];
 
@@ -69,19 +70,36 @@ class DashboardKpiGrid extends StatelessWidget {
       ),
       itemBuilder: (context, index) {
         final card = cards[index];
+        final accentColor = _accentColor(colorScheme, card.accent);
+
         return Card(
-          elevation: 0,
-          color: card.color.withValues(alpha: 0.08),
           child: Padding(
             padding: const EdgeInsets.all(14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  card.label,
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+                Row(
+                  children: [
+                    Container(
+                      width: 4,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: accentColor,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        card.label,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const Spacer(),
                 Text(
@@ -98,8 +116,8 @@ class DashboardKpiGrid extends StatelessWidget {
                     '${l10n.dashboardKpiVsPreviousPeriod}',
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: card.changePercent! >= 0
-                          ? Colors.green.shade700
-                          : theme.colorScheme.error,
+                          ? colorScheme.primary
+                          : colorScheme.error,
                     ),
                   ),
                 ],
@@ -110,18 +128,29 @@ class DashboardKpiGrid extends StatelessWidget {
       },
     );
   }
+
+  Color _accentColor(ColorScheme colorScheme, _KpiAccent accent) {
+    return switch (accent) {
+      _KpiAccent.primary => colorScheme.primary,
+      _KpiAccent.secondary => colorScheme.secondary,
+      _KpiAccent.error => colorScheme.error,
+      _KpiAccent.neutral => colorScheme.onSurface,
+    };
+  }
 }
+
+enum _KpiAccent { primary, secondary, error, neutral }
 
 class _KpiCardData {
   const _KpiCardData({
     required this.label,
     required this.value,
-    required this.color,
+    required this.accent,
     this.changePercent,
   });
 
   final String label;
   final String value;
-  final Color color;
+  final _KpiAccent accent;
   final double? changePercent;
 }

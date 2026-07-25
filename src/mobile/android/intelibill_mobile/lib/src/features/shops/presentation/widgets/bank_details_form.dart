@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intelibill_mobile/src/core/localization/app_localizations.dart';
+import 'package:intelibill_mobile/src/features/shops/presentation/widgets/shop_form_card.dart';
 
 class BankDetailsFormData {
   const BankDetailsFormData({
@@ -41,6 +42,7 @@ class BankDetailsForm extends StatefulWidget {
     this.isOptional = false,
     this.initialValue,
     this.onChanged,
+    this.sectionTitle,
     super.key,
   });
 
@@ -59,6 +61,7 @@ class BankDetailsForm extends StatefulWidget {
   final bool isOptional;
   final BankDetailsFormData? initialValue;
   final ValueChanged<BankDetailsFormData>? onChanged;
+  final String? sectionTitle;
 
   @override
   State<BankDetailsForm> createState() => _BankDetailsFormState();
@@ -187,106 +190,111 @@ class _BankDetailsFormState extends State<BankDetailsForm> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
 
-    return Form(
-      key: widget.formKey,
-      autovalidateMode: AutovalidateMode.onUserInteraction,
-      child: Column(
-        children: [
-          TextFormField(
-            key: BankDetailsForm.bankNameFieldKey,
-            controller: _bankNameController,
-            enabled: !widget.isSubmitting,
-            textInputAction: TextInputAction.next,
-            decoration: InputDecoration(
-              labelText: l10n.shopsCreateBankNameLabel,
-              hintText: l10n.shopsCreateBankNameHint,
+    return ShopFormCard(
+      title: widget.sectionTitle,
+      child: Form(
+        key: widget.formKey,
+        autovalidateMode: AutovalidateMode.onUserInteraction,
+        child: Column(
+          children: [
+            TextFormField(
+              key: BankDetailsForm.bankNameFieldKey,
+              controller: _bankNameController,
+              enabled: !widget.isSubmitting,
+              textInputAction: TextInputAction.next,
+              decoration: InputDecoration(
+                labelText: l10n.shopsCreateBankNameLabel,
+                hintText: l10n.shopsCreateBankNameHint,
+              ),
+              onChanged: (_) => _notifyChanged(),
+              validator: (value) => _validateRequired(
+                value,
+                l10n,
+                requiredMessage: l10n.shopsCreateBankNameRequired,
+              ),
             ),
-            onChanged: (_) => _notifyChanged(),
-            validator: (value) => _validateRequired(
-              value,
-              l10n,
-              requiredMessage: l10n.shopsCreateBankNameRequired,
+            const SizedBox(height: 12),
+            TextFormField(
+              key: BankDetailsForm.accountNumberFieldKey,
+              controller: _accountNumberController,
+              enabled: !widget.isSubmitting,
+              textInputAction: TextInputAction.next,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                labelText: l10n.shopsCreateAccountNumberLabel,
+                hintText: l10n.shopsCreateAccountNumberHint,
+              ),
+              onChanged: (_) => _notifyChanged(),
+              validator: (value) => _validateRequired(
+                value,
+                l10n,
+                requiredMessage: l10n.shopsCreateAccountNumberRequired,
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            key: BankDetailsForm.accountNumberFieldKey,
-            controller: _accountNumberController,
-            enabled: !widget.isSubmitting,
-            textInputAction: TextInputAction.next,
-            keyboardType: TextInputType.number,
-            decoration: InputDecoration(
-              labelText: l10n.shopsCreateAccountNumberLabel,
-              hintText: l10n.shopsCreateAccountNumberHint,
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              key: BankDetailsForm.accountTypeFieldKey,
+              initialValue: _selectedAccountType,
+              onChanged: widget.isSubmitting
+                  ? null
+                  : (value) {
+                      setState(() {
+                        _selectedAccountType = value;
+                      });
+                      _notifyChanged();
+                    },
+              decoration: InputDecoration(
+                labelText: l10n.shopsCreateAccountTypeLabel,
+              ),
+              items: _accountTypeOptions(l10n)
+                  .map(
+                    (entry) => DropdownMenuItem<String>(
+                      value: entry.key,
+                      child: Text(entry.value),
+                    ),
+                  )
+                  .toList(),
+              validator: (value) {
+                if (widget.isOptional && _isAllBlank()) {
+                  return null;
+                }
+                return value == null
+                    ? l10n.shopsCreateAccountTypeRequired
+                    : null;
+              },
             ),
-            onChanged: (_) => _notifyChanged(),
-            validator: (value) => _validateRequired(
-              value,
-              l10n,
-              requiredMessage: l10n.shopsCreateAccountNumberRequired,
+            const SizedBox(height: 12),
+            TextFormField(
+              key: BankDetailsForm.ifscCodeFieldKey,
+              controller: _ifscCodeController,
+              enabled: !widget.isSubmitting,
+              textInputAction: TextInputAction.next,
+              decoration: InputDecoration(
+                labelText: l10n.shopsCreateIfscCodeLabel,
+                hintText: l10n.shopsCreateIfscCodeHint,
+              ),
+              onChanged: (_) => _notifyChanged(),
+              validator: (value) => _validateIfsc(value, l10n),
             ),
-          ),
-          const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
-            key: BankDetailsForm.accountTypeFieldKey,
-            initialValue: _selectedAccountType,
-            onChanged: widget.isSubmitting
-                ? null
-                : (value) {
-                    setState(() {
-                      _selectedAccountType = value;
-                    });
-                    _notifyChanged();
-                  },
-            decoration: InputDecoration(
-              labelText: l10n.shopsCreateAccountTypeLabel,
+            const SizedBox(height: 12),
+            TextFormField(
+              key: BankDetailsForm.accountHolderNameFieldKey,
+              controller: _accountHolderController,
+              enabled: !widget.isSubmitting,
+              textInputAction: TextInputAction.done,
+              decoration: InputDecoration(
+                labelText: l10n.shopsCreateAccountHolderNameLabel,
+                hintText: l10n.shopsCreateAccountHolderNameHint,
+              ),
+              onChanged: (_) => _notifyChanged(),
+              validator: (value) => _validateRequired(
+                value,
+                l10n,
+                requiredMessage: l10n.shopsCreateAccountHolderNameRequired,
+              ),
             ),
-            items: _accountTypeOptions(l10n)
-                .map(
-                  (entry) => DropdownMenuItem<String>(
-                    value: entry.key,
-                    child: Text(entry.value),
-                  ),
-                )
-                .toList(),
-            validator: (value) {
-              if (widget.isOptional && _isAllBlank()) {
-                return null;
-              }
-              return value == null ? l10n.shopsCreateAccountTypeRequired : null;
-            },
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            key: BankDetailsForm.ifscCodeFieldKey,
-            controller: _ifscCodeController,
-            enabled: !widget.isSubmitting,
-            textInputAction: TextInputAction.next,
-            decoration: InputDecoration(
-              labelText: l10n.shopsCreateIfscCodeLabel,
-              hintText: l10n.shopsCreateIfscCodeHint,
-            ),
-            onChanged: (_) => _notifyChanged(),
-            validator: (value) => _validateIfsc(value, l10n),
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            key: BankDetailsForm.accountHolderNameFieldKey,
-            controller: _accountHolderController,
-            enabled: !widget.isSubmitting,
-            textInputAction: TextInputAction.done,
-            decoration: InputDecoration(
-              labelText: l10n.shopsCreateAccountHolderNameLabel,
-              hintText: l10n.shopsCreateAccountHolderNameHint,
-            ),
-            onChanged: (_) => _notifyChanged(),
-            validator: (value) => _validateRequired(
-              value,
-              l10n,
-              requiredMessage: l10n.shopsCreateAccountHolderNameRequired,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

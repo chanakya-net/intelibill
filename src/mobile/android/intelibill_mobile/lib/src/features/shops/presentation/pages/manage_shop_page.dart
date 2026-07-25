@@ -10,8 +10,10 @@ import 'package:intelibill_mobile/src/features/auth/presentation/controllers/aut
 import 'package:intelibill_mobile/src/features/shops/domain/entities/shop_details.dart';
 import 'package:intelibill_mobile/src/features/shops/domain/entities/update_shop_request.dart';
 import 'package:intelibill_mobile/src/features/shops/presentation/controllers/shop_controller.dart';
+import 'package:intelibill_mobile/src/features/shops/presentation/widgets/shop_form_card.dart';
 import 'package:intelibill_mobile/src/features/shops/presentation/widgets/shop_info_form.dart';
 import 'package:intelibill_mobile/src/features/shops/presentation/widgets/shop_step_indicator.dart';
+import 'package:intelibill_mobile/src/features/shops/presentation/widgets/shop_success_card.dart';
 
 class ManageShopPage extends ConsumerStatefulWidget {
   const ManageShopPage({super.key});
@@ -109,82 +111,79 @@ class _ManageShopPageState extends ConsumerState<ManageShopPage> {
   }
 
   Widget _buildStepBody(AppLocalizations l10n) {
+    final theme = Theme.of(context);
+
     switch (_currentStep) {
       case 1:
-        return Form(
-          key: _shopSelectorFormKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              DropdownButtonFormField<String>(
-                key: ManageShopPage.shopSelectorKey,
-                initialValue: _selectedShopId,
-                items: _shops
-                    .map(
-                      (shop) => DropdownMenuItem<String>(
-                        value: shop.shopId,
-                        child: Text(shop.shopName),
-                      ),
-                    )
-                    .toList(),
-                onChanged: _isLoading
-                    ? null
-                    : (value) {
-                        setState(() {
-                          _selectedShopId = value;
-                        });
-                      },
-                decoration: InputDecoration(
-                  labelText: l10n.shopsManageSelectShopLabel,
-                ),
-                validator: (value) =>
-                    value == null ? l10n.shopsManageSelectShopRequired : null,
+        return SingleChildScrollView(
+          child: ShopFormCard(
+            title: l10n.shopsManageSelectShopTitle,
+            child: Form(
+              key: _shopSelectorFormKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  DropdownButtonFormField<String>(
+                    key: ManageShopPage.shopSelectorKey,
+                    initialValue: _selectedShopId,
+                    items: _shops
+                        .map(
+                          (shop) => DropdownMenuItem<String>(
+                            value: shop.shopId,
+                            child: Text(shop.shopName),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: _isLoading
+                        ? null
+                        : (value) {
+                            setState(() {
+                              _selectedShopId = value;
+                            });
+                          },
+                    decoration: InputDecoration(
+                      labelText: l10n.shopsManageSelectShopLabel,
+                    ),
+                    validator: (value) => value == null
+                        ? l10n.shopsManageSelectShopRequired
+                        : null,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    l10n.shopsManageSelectShopHint,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
-              Text(
-                l10n.shopsManageSelectShopHint,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
+            ),
           ),
         );
       case 2:
         if (_loadedShop == null) {
-          return Center(child: Text(l10n.commonLoading));
+          return Center(
+            child: CircularProgressIndicator(color: theme.colorScheme.primary),
+          );
         }
         return SingleChildScrollView(
-          child: Column(
-            children: [
-              ShopInfoForm(
-                formKey: _shopInfoFormKey,
-                isSubmitting: _isLoading,
-                initialValue: _shopInfo,
-                onChanged: (data) {
-                  _shopInfo = data;
-                },
-              ),
-            ],
+          child: ShopInfoForm(
+            formKey: _shopInfoFormKey,
+            isSubmitting: _isLoading,
+            initialValue: _shopInfo,
+            sectionTitle: l10n.shopsManageEditDetailsTitle,
+            onChanged: (data) {
+              _shopInfo = data;
+            },
           ),
         );
       case 3:
         return Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.check_circle, size: 48, color: Colors.green),
-              const SizedBox(height: 12),
-              Text(
-                l10n.shopsManageSuccessTitle,
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                l10n.shopsManageSuccessMessage(
-                  _loadedShop?.name ?? l10n.shopsManageSuccessDefaultShopName,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
+          child: ShopSuccessCard(
+            title: l10n.shopsManageSuccessTitle,
+            message: l10n.shopsManageSuccessMessage(
+              _loadedShop?.name ?? l10n.shopsManageSuccessDefaultShopName,
+            ),
           ),
         );
       default:
@@ -193,16 +192,21 @@ class _ManageShopPageState extends ConsumerState<ManageShopPage> {
   }
 
   Widget _buildActions(AppLocalizations l10n) {
+    final theme = Theme.of(context);
+
     switch (_currentStep) {
       case 1:
         return FilledButton(
           key: ManageShopPage.nextButtonKey,
           onPressed: _isLoading ? null : _handleLoadSelectedShop,
           child: _isLoading
-              ? const SizedBox(
+              ? SizedBox(
                   width: 16,
                   height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: theme.colorScheme.onPrimary,
+                  ),
                 )
               : Text(l10n.shopsCreateNextButton),
         );
@@ -211,10 +215,13 @@ class _ManageShopPageState extends ConsumerState<ManageShopPage> {
           key: ManageShopPage.saveButtonKey,
           onPressed: _isLoading ? null : _handleSave,
           child: _isLoading
-              ? const SizedBox(
+              ? SizedBox(
                   width: 16,
                   height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: theme.colorScheme.onPrimary,
+                  ),
                 )
               : Text(l10n.commonSave),
         );

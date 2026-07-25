@@ -37,6 +37,18 @@ class _PurchaseOrderDraftLineCardState
   }
 
   @override
+  void didUpdateWidget(PurchaseOrderDraftLineCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.line.expectedQuantity.toString() != _quantityController.text) {
+      _quantityController.text = widget.line.expectedQuantity.toString();
+    }
+    final nextCost = widget.line.unitCost.toStringAsFixed(2);
+    if (nextCost != _unitCostController.text) {
+      _unitCostController.text = nextCost;
+    }
+  }
+
+  @override
   void dispose() {
     _quantityController.dispose();
     _unitCostController.dispose();
@@ -52,20 +64,26 @@ class _PurchaseOrderDraftLineCardState
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
     return Card(
+      margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
               widget.line.description,
-              style: Theme.of(context).textTheme.titleMedium,
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
             Text(
               '${l10n.purchaseOrderBuilderItemIdLabel}: ${widget.line.itemId}',
-              style: Theme.of(context).textTheme.bodySmall,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 12),
             Row(
@@ -80,7 +98,7 @@ class _PurchaseOrderDraftLineCardState
                     onFieldSubmitted: (_) => _updateLine(),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 12),
                 Expanded(
                   child: TextFormField(
                     controller: _unitCostController,
@@ -95,16 +113,19 @@ class _PurchaseOrderDraftLineCardState
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             Text(
               '${l10n.purchaseOrderBuilderLineTotalLabel}: '
               '${widget.line.lineTotal.toStringAsFixed(2)}',
-              style: Theme.of(context).textTheme.labelLarge,
+              style: theme.textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: theme.textTheme.headlineSmall?.color,
+              ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             Align(
               alignment: Alignment.centerRight,
-              child: FilledButton.tonal(
+              child: TextButton(
                 onPressed: widget.onRemove,
                 child: Text(l10n.purchaseOrderBuilderRemoveLineLabel),
               ),
