@@ -1,6 +1,5 @@
-import { Injectable, PLATFORM_ID, computed, inject, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { isPlatformBrowser } from '@angular/common';
 import { Router } from '@angular/router';
 
 import { catchError, map, Observable, of, switchMap, tap } from 'rxjs';
@@ -40,7 +39,6 @@ export class AuthSessionService {
   private readonly localizationService = inject(LocalizationService);
   private readonly offlineSalesDeviceSettingsStorage = inject(OfflineSalesDeviceSettingsStorage);
   private readonly offlineSalesSnapshotDb = inject(OfflineSalesSnapshotIndexedDbService);
-  private readonly platformId = inject(PLATFORM_ID);
 
   private readonly sessionSignal = signal<AuthSession | null>(null);
   private sessionChannel: BroadcastChannel | null = null;
@@ -61,14 +59,12 @@ export class AuthSessionService {
   });
 
   constructor() {
-    if (this.isBrowser()) {
-      this.sessionSignal.set(this.storage.loadSession());
-      this.sessionChannel = new BroadcastChannel('intelibill.auth.session');
-      this.sessionChannel.addEventListener('message', (event: MessageEvent<SessionBroadcastMessage>) => {
-        this.handleSessionBroadcast(event.data);
-      });
-      this.tokenService.scheduleProactiveRefresh(this.tokenState(), this.sessionSignal());
-    }
+    this.sessionSignal.set(this.storage.loadSession());
+    this.sessionChannel = new BroadcastChannel('intelibill.auth.session');
+    this.sessionChannel.addEventListener('message', (event: MessageEvent<SessionBroadcastMessage>) => {
+      this.handleSessionBroadcast(event.data);
+    });
+    this.tokenService.scheduleProactiveRefresh(this.tokenState(), this.sessionSignal());
   }
 
   login(identifier: string, password: string, rememberMe: boolean): Observable<AuthSession> {
@@ -138,11 +134,6 @@ export class AuthSessionService {
   }
 
   signOut(): Observable<void> {
-    if (!this.isBrowser()) {
-      this.sessionSignal.set(null);
-      return of(void 0);
-    }
-
     const refreshToken = this.sessionSignal()?.refreshToken;
     if (!refreshToken) {
       this.clearSession();
@@ -213,14 +204,12 @@ export class AuthSessionService {
   }
 
   getLastRememberedIdentifier(): string {
-    return this.isBrowser() ? this.storage.getLastIdentifier() : '';
+    return this.storage.getLastIdentifier();
   }
 
   clearSession(): void {
-    if (this.isBrowser()) {
-      this.storage.clearSession();
-      this.sessionChannel?.postMessage({ type: 'SESSION_CLEARED' });
-    }
+    this.storage.clearSession();
+    this.sessionChannel?.postMessage({ type: 'SESSION_CLEARED' });
 
     this.tokenService.cancelProactiveRefresh();
     this.sessionSignal.set(null);
@@ -236,11 +225,9 @@ export class AuthSessionService {
 
     void this.localizationService.setLanguage(preferredLanguage);
 
-    if (this.isBrowser()) {
-      this.storage.saveSession(session);
-      this.sessionChannel?.postMessage({ type: 'SESSION_UPDATED', session });
-      this.tokenService.scheduleProactiveRefresh(this.tokenState(), session);
-    }
+    this.storage.saveSession(session);
+    this.sessionChannel?.postMessage({ type: 'SESSION_UPDATED', session });
+    this.tokenService.scheduleProactiveRefresh(this.tokenState(), session);
   }
 
   private toSession(result: AuthResult, rememberMe: boolean): AuthSession {
@@ -279,7 +266,6 @@ export class AuthSessionService {
 
   private tokenState(): AuthSessionState {
     return {
-      isBrowser: () => this.isBrowser(),
       getSession: () => this.sessionSignal(),
       setSession: (session) => this.setSession(session),
       clearSession: () => this.clearSession(),
@@ -287,7 +273,4 @@ export class AuthSessionService {
     };
   }
 
-  private isBrowser(): boolean {
-    return isPlatformBrowser(this.platformId);
-  }
 }

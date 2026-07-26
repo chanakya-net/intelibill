@@ -7,7 +7,7 @@
 | Concern | Choice |
 |---|---|
 | Framework | Angular 21 — standalone components |
-| Rendering | Angular SSR + hydration |
+| Rendering | Client-side only — the app is served as static files by a small Express server that proxies `/api` and `/hubs` |
 | PWA | Service worker + web manifest (`ngsw-config.json`) |
 | UI | PrimeNG 21 + Tailwind CSS 4 |
 | State | NgRx 21 — root store + feature providers |
@@ -19,7 +19,7 @@
 
 ```
 src/frontend/src/app/
-├── app.config.ts          # Global providers: router, HTTP interceptors, NgRx, PrimeNG, Transloco, hydration, SW
+├── app.config.ts          # Global providers: router, HTTP interceptors, NgRx, PrimeNG, Transloco, SW
 ├── app.routes.ts          # Public auth + OAuth callback routes + guarded shell
 ├── core/
 │   ├── auth/              # Auth service, storage, endpoint constants, session models

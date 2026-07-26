@@ -19,7 +19,7 @@ internal static class EdgeExtensions
     internal const string ReadinessTag = "ready";
 
     /// <summary>
-    /// Origins the Angular dev server and its SSR build run on. Applied only when
+    /// Origins the Angular dev server and its container build run on. Applied when
     /// the Development environment configures none of its own, so that a fresh
     /// clone works without an untracked appsettings.Development.json.
     /// </summary>
@@ -96,7 +96,7 @@ internal static class EdgeExtensions
                 if (origins.Count == 0)
                 {
                     // No origins: every cross-origin browser request is denied. Same-
-                    // origin calls through the SSR proxy and non-browser clients such
+                    // origin calls through the web proxy and non-browser clients such
                     // as the mobile app are unaffected.
                     return;
                 }

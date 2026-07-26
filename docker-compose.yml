@@ -67,7 +67,7 @@ services:
       - "4000:4000"
     environment:
       - NODE_ENV=production
-      # Where the SSR server forwards /api and /hubs. Nothing read API_URL.
+      # Where the web server forwards /api and /hubs. Nothing read API_URL.
       - API_ORIGIN=http://backend:8080
     depends_on:
       backend:

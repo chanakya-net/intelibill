@@ -7,10 +7,6 @@ export class CameraStreamService {
   private currentStream: MediaStream | null = null;
 
   async startPreferredCamera(): Promise<MediaStream> {
-    if (typeof window === 'undefined' || typeof location === 'undefined') {
-      throw new Error('Camera access is only available in the browser.');
-    }
-
     if (!window.isSecureContext && location.hostname !== 'localhost') {
       throw new Error(
         'Camera access on mobile needs HTTPS. Start the app with HTTPS or use localhost while testing.',

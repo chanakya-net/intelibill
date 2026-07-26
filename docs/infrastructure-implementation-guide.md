@@ -44,14 +44,14 @@ Do not start environment provisioning until the application changes in step 7 ha
    - construct one periodically refreshed Entra-aware `NpgsqlDataSource` and use it for EF and PostgreSQL distributed cache;
    - create the cache table before runtime and set `CreateIfNotExists=false`;
    - add health endpoints/probes, production CORS, and trusted forwarded headers;
-   - route relative `/api` and `/hubs` through the SSR web origin;
+   - route relative `/api` and `/hubs` through the web origin;
    - secure/group SignalR, distribute OAuth state, and make rate limiting atomic;
    - pin/run containers as non-root and standardise API port `8080`;
    - rotate the committed SMTP credential and scrub repository history.
 8. Bootstrap DB principals and default privileges; verify dev cannot connect to prod, RLS survives pooling, and runtime cannot execute DDL.
 9. Create a self-contained migration bundle/image and a Container Apps job using the migrator identity.
 10. Build and test **both** images once, produce SBOM/scan results, push immutable digests, and record them.
-11. Run dev migration; deploy dev; execute readiness, SSR/API, authentication, tenant isolation, SignalR, mobile URL, and external-service smoke tests.
+11. Run dev migration; deploy dev; execute readiness, web/API, authentication, tenant isolation, SignalR, mobile URL, and external-service smoke tests.
 12. Only after dev succeeds, pass the prod reviewer gate; run prod migration; deploy the same digests; smoke test and retain the prior revision/digests.
 13. **(Domains/certificates deferred to ~2026-08-25.)** Enable alerts/budgets/log caps, run backup restore and rollback drills, then enable the corrected keep-warm schedule if required.
 
@@ -1258,11 +1258,11 @@ Before provisioning apps, also complete these source-level gates:
 - delete the unconditional `await app.Services.ApplyMigrationsAsync()` from API startup;
 - add `/health/live` and `/health/ready` and map Container Apps probes;
 - add exact environment CORS origins and trusted forwarded headers;
-- replace the compiled production `http://localhost:5277/api` and empty hub origin with relative routes proxied by SSR to `API_ORIGIN`;
+- replace the compiled production `http://localhost:5277/api` and empty hub origin with relative routes proxied by the web server to `API_ORIGIN`;
 - require auth on `ProductHub`, group broadcasts by active shop, and configure bearer query tokens only on hub routes;
 - replace in-memory OAuth state; make rate limiting atomic; use Azure SignalR/backplane before API scale-out;
 - create the distributed cache table with the migration identity and disable runtime table creation;
-- standardise API port `8080`, pin both Docker runtimes, match the frontend Node engine, test the Bun/Node SSR command, and run both containers as non-root;
+- standardise API port `8080`, pin both Docker runtimes, match the frontend Node engine, run the web server on Node rather than Bun, and run both containers as non-root;
 - rotate/remove/scrub the committed SMTP credential before deployment.
 
 ### Status — 2026-07-26
@@ -1276,7 +1276,7 @@ Applied on `infra-setup`. Every gate above is done except the four recorded as d
 | `cache_entries` created by migration, `CreateIfNotExists=false` | `20260726120000_AddDistributedCacheTable`; DDL copied from the caching library, verified identical against a fresh database |
 | `/health/live` and `/health/ready`, both excluded from HTTPS redirection | `EdgeExtensions`, `PostgresHealthCheck` |
 | Forwarded headers and exact CORS origins, both configuration-driven | `EdgeExtensions`, `ProxyOptions`, `CorsOptions` |
-| Relative `/api` and `/hubs`, proxied by SSR to `API_ORIGIN` | `environment.prod.ts`, `server.ts` |
+| Relative `/api` and `/hubs`, proxied by the web server to `API_ORIGIN` | `environment.prod.ts`, `server.ts` |
 | `ProductHub` authenticated and grouped by shop; hub-path-only query bearer token | `ProductHub`, `SignalRProductHubNotifier`, `Program.cs` |
 | OAuth state in the distributed cache | `DistributedExternalOAuthStateStore` |
 | Port `8080`, digest-pinned bases, non-root, Node 24 | both `Dockerfile`s, `docker-compose.yml` |
@@ -1284,8 +1284,8 @@ Applied on `infra-setup`. Every gate above is done except the four recorded as d
 
 Two corrections to the gate list above, both found by testing rather than reading:
 
-- **The SSR server cannot run on Bun.** Proxying a WebSocket upgrade means hijacking the raw socket, and under Bun the handshake returns nothing, so every SignalR connection through the proxy fails. Node answers `101` on the same bundle. The runtime image is Node; Bun still installs and builds.
-- **`Proxy:ForwardLimit` is 2 in deployed environments, not 1.** Ingress and the SSR proxy are two hops.
+- **The web server cannot run on Bun.** Proxying a WebSocket upgrade means hijacking the raw socket, and under Bun the handshake returns nothing, so every SignalR connection through the proxy fails. Node answers `101` on the same bundle. The runtime image is Node; Bun still installs and builds.
+- **`Proxy:ForwardLimit` is 2 in deployed environments, not 1.** Ingress and the web proxy are two hops.
 
 Deferred, each for a stated reason:
 
@@ -1794,7 +1794,7 @@ Work through all of these before calling it done.
 | 15 | Rollback works | Deploy a previous digest | Prior version serving |
 | 16 | Startup has no DDL | runtime role + cold start | Starts; cannot create/alter/drop |
 | 17 | Cache is ready | runtime cache operation | Works with `CreateIfNotExists=false` |
-| 18 | Browser routing | production web origin | SSR, `/api`, and `/hubs` work; no localhost |
+| 18 | Browser routing | production web origin | the app, `/api`, and `/hubs` work; no localhost |
 | 19 | Hub tenant isolation | anonymous/cross-shop clients | denied; only own-shop messages |
 | 20 | OAuth is distributed | restart/re-route callback | callback succeeds exactly once |
 | 21 | Scale-out behavior | two API replicas | delivery/limits correct, or max remains 1 |

@@ -18,7 +18,7 @@ AI-powered inventory management system.
 | Messaging / CQRS | Wolverine 5.24 |
 | Validation | FluentValidation 12 |
 | Error handling | ErrorOr 2.0 |
-| Frontend | Angular 21, SSR, PWA, Tailwind CSS 4, PrimeNG 21, NgRx 21, Transloco, Bun |
+| Frontend | Angular 21 (client-rendered), PWA, Tailwind CSS 4, PrimeNG 21, NgRx 21, Transloco, Bun |
 | Mobile | Flutter Android (Riverpod, GoRouter, Dio, Freezed) |
 
 ## Repository Structure
@@ -32,7 +32,7 @@ intelibill/
 │   │   ├── Intelibill.Application/
 │   │   ├── Intelibill.Infrastructure/
 │   │   └── Intelibill.Api/
-│   ├── frontend/               # Angular (Bun, SSR, PWA, NgRx, offline IndexedDB)
+│   ├── frontend/               # Angular (Bun, PWA, NgRx, offline IndexedDB)
 │   └── mobile/
 │       └── android/
 │           └── intelibill_mobile/  # Flutter Android

@@ -1,5 +1,4 @@
 import { signal } from '@angular/core';
-import { PLATFORM_ID } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -60,7 +59,6 @@ describe.skip('ShopUpdatesSignalRService', () => {
     TestBed.configureTestingModule({
       providers: [
         ShopUpdatesSignalRService,
-        { provide: PLATFORM_ID, useValue: 'browser' },
         { provide: AuthService, useValue: authService },
       ],
     });
@@ -144,25 +142,5 @@ describe.skip('ShopUpdatesSignalRService', () => {
     expect(mockConnection.stop).toHaveBeenCalled();
     expect(mockConnection.start.mock.calls.length).toBeGreaterThan(startsBeforeChange);
     expect(capturedUrls.length).toBeGreaterThan(urlsBeforeChange);
-  });
-
-  it('does not connect on a non-browser platform', async () => {
-    TestBed.resetTestingModule();
-    capturedUrls.length = 0;
-    mockConnection.start.mockClear();
-
-    TestBed.configureTestingModule({
-      providers: [
-        ShopUpdatesSignalRService,
-        { provide: PLATFORM_ID, useValue: 'server' },
-        { provide: AuthService, useValue: authService },
-      ],
-    });
-
-    const serverService = TestBed.inject(ShopUpdatesSignalRService);
-    await serverService.startConnection();
-
-    expect(capturedUrls).toHaveLength(0);
-    expect(mockConnection.start).not.toHaveBeenCalled();
   });
 });

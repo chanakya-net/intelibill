@@ -480,6 +480,26 @@ This is defence in depth rather than a response to a known flaw. It costs a few 
 
 ---
 
+## 20. No server-side rendering
+
+*Added 2026-07-26. Reverses the Angular default the project was scaffolded with.*
+
+**Context.** The web application was built with `outputMode: server` and SSR enabled. The question was whether it earned its place, and measurement said no — twice over.
+
+**What it was actually doing: nothing.** Angular 21 will only render for a hostname on an allowlist, and `security.allowedHosts` in `angular.json` was `[]`. Every request was rejected and fell back to client rendering, silently, with a 200. `/`, `/login`, `/register`, and `/dashboard` all returned the same 10,287-byte shell with an empty `<app-root>`. The log line was `URL with hostname "..." is not allowed. Falling back to client side rendering. This will become a 400 Bad Request in a future major version.`
+
+**What it would have done if configured.** With the allowlist set and the API reachable, `/login` rendered 6.7 kB of real markup. With the allowlist set and the API *unreachable* at render time, `/login` and `/register` returned a 500 whose body was a raw stack trace. So the misconfiguration was the only thing preventing error pages on the login screen.
+
+**What it could ever have been worth.** Every route except the auth pages is behind `authGuard`, and the session lives in browser storage, so the server can only render the login screen. `dashboard` and `auth/callback` had already opted out with `RenderMode.Client`, the second because SSR consumed the OAuth state token before the browser could. There is no `TransferState` anywhere, so even a rendered page refetched all of its data after hydration. Nothing here is public, so there is no SEO argument.
+
+**Decision.** Remove it. `dist/INVENTORY/server` drops from 5.3 MB across 110 files to a single 1 MB bundle, and eleven files stop carrying `isPlatformBrowser` and `typeof window` branches that existed only to survive a server pass.
+
+**What stays.** The web container and its Express process. The browser must reach `/api` and `/hubs` on the origin that served the page — that is what removes cross-origin requests and the CORS configuration with them — so the server now serves static files, answers deep links with `index.html`, and proxies. Deployment shape and cost are unchanged.
+
+**Revisit when** a public, indexable, or link-previewed surface appears — a marketing page, a shared invoice link, an embeddable receipt. Those are worth rendering; an authenticated inventory application is not. Reversing means restoring three files and the `angular.json` entries, and this time configuring `allowedHosts` per environment.
+
+---
+
 ## Decisions deliberately deferred
 
 | Item | Why deferred | Revisit when |

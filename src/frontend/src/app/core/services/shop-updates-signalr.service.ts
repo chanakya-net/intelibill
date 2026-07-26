@@ -1,5 +1,4 @@
-import { Injectable, PLATFORM_ID, effect, inject } from '@angular/core';
-import { isPlatformBrowser } from '@angular/common';
+import { Injectable, effect, inject } from '@angular/core';
 import * as signalR from '@microsoft/signalr';
 import { Observable, Subject } from 'rxjs';
 import { filter } from 'rxjs/operators';
@@ -17,7 +16,6 @@ export interface ShopUpdatePayload {
 @Injectable({ providedIn: 'root' })
 export class ShopUpdatesSignalRService {
   private readonly authService = inject(AuthService);
-  private readonly platformId = inject(PLATFORM_ID);
 
   private connection: signalR.HubConnection | null = null;
   private connectionKey = '';
@@ -58,10 +56,6 @@ export class ShopUpdatesSignalRService {
   }
 
   private async syncConnection(): Promise<void> {
-    if (!isPlatformBrowser(this.platformId)) {
-      return;
-    }
-
     this.connectionSyncRequested = true;
     if (this.connectionSyncPromise) {
       return this.connectionSyncPromise;

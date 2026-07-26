@@ -24,17 +24,17 @@ COPY ["src/frontend/", "./"]
 # Build the Angular application for production
 RUN bun run build
 
-# Node, not Bun, runs the server. The SSR process proxies /hubs to the API, and
-# proxying a WebSocket upgrade means hijacking the raw socket: under Bun that
-# handshake returns nothing, so every SignalR connection fails. Verified both
-# ways against the built bundle -- Node answers 101, Bun answers nothing.
-# Bun stays in the build stage, where it installs and builds correctly.
+# Node, not Bun, runs the server. It proxies /hubs to the API, and proxying a
+# WebSocket upgrade means hijacking the raw socket: under Bun that handshake
+# returns nothing, so every SignalR connection fails. Verified both ways against
+# the built bundle -- Node answers 101, Bun answers nothing. Bun stays in the
+# build stage, where it installs and builds correctly.
 FROM node:24-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d AS runtime
 WORKDIR /app
 
-# The Angular SSR build bundles express and the proxy into server.mjs, leaving
-# only Node built-ins external, so the runtime image needs neither package.json
-# nor node_modules.
+# The build bundles express and the proxy into server.mjs, leaving only Node
+# built-ins external, so the runtime image needs neither package.json nor
+# node_modules.
 COPY --from=build /app/dist /app/dist
 
 ENV NODE_ENV=production \

@@ -14,7 +14,7 @@ The platform choices are suitable, but the application and the original deployme
 
 1. The API currently runs EF migrations during every startup. A deployment must instead run one dedicated migration job before changing application revisions.
 2. The current Npgsql registrations require a password. Entra authentication must be wired into the EF data source, distributed PostgreSQL cache, and design-time/migration path.
-3. The production web bundle calls `http://localhost:5277/api`, so a deployed browser cannot reach the API. Use relative `/api` and `/hubs` URLs behind an SSR reverse proxy, or load an external runtime configuration before Angular bootstraps.
+3. The production web bundle calls `http://localhost:5277/api`, so a deployed browser cannot reach the API. Use relative `/api` and `/hubs` URLs behind the web container's reverse proxy, or load an external runtime configuration before Angular bootstraps.
 4. The backend container does not bind the documented port `5277`; `EXPOSE` does not configure ASP.NET Core. Standardise on port `8080` or set `ASPNETCORE_HTTP_PORTS=5277`.
 5. The API has no health-check endpoint, while the keep-warm job calls `/health`. Add `/health/live` and `/health/ready`, plus Container Apps probes.
 6. Production CORS allows only localhost origins. Configure exact production origins and trusted forwarded headers.
@@ -29,7 +29,7 @@ Provisioning Container Apps before these gates are closed produces containers th
 
 ## 2. Recommended target
 
-Use two environments, each with an Angular SSR web container and an ASP.NET Core API container on Azure Container Apps.
+Use two environments, each with an Angular web container and an ASP.NET Core API container on Azure Container Apps.
 
 - Keep OpenTofu state in an Azure Storage account using Entra data-plane authentication.
 - Because the repository is public, use public GHCR by default: GitHub documents public packages as free and anonymous pulls require no stored credential. ACR Basic remains an optional Azure-local private registry for about $5.07/month.
@@ -56,7 +56,7 @@ GitHub Actions (OIDC; pinned actions)
                       private endpoint/VNet
 ```
 
-The web container should be the browser-facing origin and proxy `/api` and `/hubs` to the API. That preserves build-once promotion: the compiled Angular application uses relative URLs while each environment supplies `API_ORIGIN` to the SSR process.
+The web container should be the browser-facing origin and proxy `/api` and `/hubs` to the API. That preserves build-once promotion: the compiled Angular application uses relative URLs while each environment supplies `API_ORIGIN` to the web process.
 
 ---
 
@@ -80,7 +80,7 @@ Do not move the whole authoritative DNS zone without first copying and validatin
 | Key Vault | JWT key and enabled integration secrets |
 | Log Analytics workspace | Container stdout/stderr and platform logs |
 | Container Apps environment | Compute, ingress, networking, and logging boundary |
-| Container App: web | Angular SSR and reverse proxy, port `4000` |
+| Container App: web | Angular static files and reverse proxy, port `4000` |
 | Container App: API | ASP.NET Core, standardised port `8080` |
 | Container Apps migration job | One-shot EF migration bundle under migrator identity |
 | Production keep-warm job | Optional business-hours availability |
@@ -172,13 +172,13 @@ Use at least 14 days of production point-in-time retention where the workload wa
 | Database | Optional password locally; periodic Entra tokens in all Npgsql consumers; explicit pool size and SSL |
 | Cache | Create `cache_entries` during migration/bootstrap; `CreateIfNotExists=false` in production |
 | OAuth | Replace `InMemoryExternalOAuthStateStore` with distributed PostgreSQL/cache storage |
-| Web/API routing | Relative `/api` and `/hubs`, SSR reverse proxy using per-environment `API_ORIGIN` |
+| Web/API routing | Relative `/api` and `/hubs`, web reverse proxy using per-environment `API_ORIGIN` |
 | CORS/proxy | Exact production origins; trusted forwarded headers before HTTPS redirect/rate limiting |
 | Health | `/health/live` and `/health/ready`; web live endpoint; startup/readiness/liveness probes |
 | SignalR auth | Require authentication on `ProductHub`; group by active shop; read query-string bearer token only on hub paths |
 | SignalR scale | Azure SignalR Service or tested Redis backplane; session affinity for transports that require it |
 | Rate limiting | Atomic shared limiter, not distributed-cache read/modify/write; use trusted forwarded client IP |
-| Containers | Pin base images/digests, match frontend Node engine, verify Bun runtime can execute the Node SSR command, and run as non-root |
+| Containers | Pin base images/digests, match frontend Node engine, run the web server on Node rather than Bun, and run as non-root |
 | Mobile | Pass `--dart-define=API_BASE_URL=https://api.<domain>/api` in release builds |
 | External services | Supply production SMTP, OAuth, product-lookup, HSN, and OTLP values; configure timeouts/retries and egress |
 | Secrets | Rotate the committed SMTP credential and all possibly exposed test keys; remove/scrub history |
@@ -193,7 +193,7 @@ Required production configuration includes:
 - enabled email and external-auth credentials/callback URLs;
 - product lookup and HSN service URLs/keys;
 - `Observability__Environment`, service name, endpoint, and `Observability__NewRelic__ApiKey`;
-- SSR `API_ORIGIN`.
+- web `API_ORIGIN`.
 
 ---
 
@@ -210,7 +210,7 @@ Use this dependency order:
 7. Add secret values out of band. Do not read their values through an OpenTofu data source: sensitive data sources are still persisted in state. Construct versionless URIs as `${vault_uri}secrets/<name>` and let Container Apps resolve them.
 8. Bootstrap database principals, revoke inappropriate public access, create the cache table, and test cross-environment denial and RLS.
 9. Build backend and frontend once; run unit/integration tests, scan, sign if required, push by digest, and record both digests.
-10. Run the dev migration job; deploy both dev digests; run health, login, data-isolation, SSR, SignalR, and external-integration smoke tests.
+10. Run the dev migration job; deploy both dev digests; run health, login, data-isolation, web-routing, SignalR, and external-integration smoke tests.
 11. Only after dev succeeds, enter the production reviewer gate; run the production migration job; deploy the same digests; smoke test; retain the previous digests for rollback.
 12. Bind domains/certificates through one declared owner (OpenTofu/`azapi` or an explicitly documented manual step), not a mixture of IaC and untracked CLI mutations.
 13. Enable keep-warm, dashboards, alerts, budgets, backup/restore checks, and incident/rollback runbooks.
@@ -319,7 +319,7 @@ Provider charges have no setup fee, but implementation has material labour. A de
 | Private/public database unreachable | Network test runs from the actual API and migration-job identities |
 | Entra token expires | Connection recycle test remains successful beyond token refresh |
 | Cache table creation denied | Table exists before runtime; runtime role has DML only |
-| Browser uses localhost API | Production SSR/browser smoke test exercises API and both hubs |
+| Browser uses localhost API | Production browser smoke test exercises API and both hubs |
 | Replica-local OAuth state | Callback succeeds after forced replica restart/redistribution |
 | SignalR split broadcasts | Multi-replica test proves delivery through service/backplane, or API max stays 1 |
 | Rate-limit race/proxy spoof | Concurrent multi-replica and forwarded-header tests pass |
