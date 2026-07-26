@@ -64,6 +64,7 @@ resource "azurerm_role_definition" "container_app_deployer" {
       "Microsoft.App/containerApps/revisions/activate/action",
       "Microsoft.App/containerApps/revisions/deactivate/action",
       "Microsoft.App/jobs/read",
+      "Microsoft.App/jobs/write",
       "Microsoft.App/jobs/start/action",
       "Microsoft.App/jobs/executions/read",
       "Microsoft.Resources/subscriptions/resourceGroups/read",
@@ -75,18 +76,6 @@ resource "azurerm_role_definition" "container_app_deployer" {
   }
 
   assignable_scopes = [data.azurerm_subscription.current.id]
-}
-
-# TEMPORARY SCOPE. Group scope means the dev deploy identity can currently update
-# production's Container App, because both live in this one group. Phase 10.2
-# re-assigns each deploy identity at its own Container App resource and this
-# assignment is removed — deploy only ever updates existing resources, so unlike
-# infrastructure apply it does not need group-level write.
-resource "azurerm_role_assignment" "deploy" {
-  for_each           = local.environments
-  scope              = azurerm_resource_group.shared.id
-  role_definition_id = azurerm_role_definition.container_app_deployer.role_definition_resource_id
-  principal_id       = azurerm_user_assigned_identity.deploy[each.key].principal_id
 }
 
 # Public GHCR needs no registry role assignment: pushes use the job-scoped
