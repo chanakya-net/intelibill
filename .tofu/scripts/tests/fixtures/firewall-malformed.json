@@ -1,0 +1,22 @@
+[
+  {
+    "name": "container-apps-dev-20-10-0-1",
+    "startIpAddress": "20.10.0.1",
+    "endIpAddress": "20.10.0.1"
+  },
+  {
+    "name": "container-apps-dev-20-10-0-2",
+    "startIpAddress": "20.10.0.2",
+    "endIpAddress": "20.10.0.20"
+  },
+  {
+    "name": "container-apps-dev-20-10-0-3",
+    "startIpAddress": "20.10.0.3",
+    "endIpAddress": "20.10.0.3"
+  },
+  {
+    "name": "container-apps-prod-20-20-0-1",
+    "startIpAddress": "20.20.0.1",
+    "endIpAddress": "20.20.0.1"
+  }
+]
