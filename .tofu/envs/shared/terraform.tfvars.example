@@ -13,6 +13,10 @@ resource_group_name = "intelibill-shared"
 //     --query "value[0].reason" -o tsv
 location = "centralindia"
 
+// Daily Log Analytics ingestion budget fuse. Keep at 0.1 GB unless measured
+// diagnostic volume proves a higher limit is needed.
+log_analytics_daily_quota_gb = 0.1
+
 // Public-network launch exception. Add the Container Apps outbound IPs after
 // Phase 10, and nothing else. Migration IPs are added and removed inside the
 // workflow run that needs them, not here.

@@ -15,6 +15,15 @@ output "postgres_server_id" {
   value       = module.database.server_id
 }
 
+output "log_analytics" {
+  description = "Shared Azure Monitor destination; no workspace keys are exposed"
+  value = {
+    id           = module.shared_monitoring.workspace.id
+    name         = module.shared_monitoring.workspace.name
+    workspace_id = module.shared_monitoring.workspace.customer_id
+  }
+}
+
 output "dns_zone_name" {
   description = "DNS zone name, or null when DNS is not managed here"
   value       = var.domain_name == null ? null : module.dns[0].zone_name

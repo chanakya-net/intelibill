@@ -58,6 +58,12 @@ variable "backup_retention_days" {
   default     = 14
 }
 
+variable "log_analytics_daily_quota_gb" {
+  description = "Daily ingestion budget fuse for the shared Log Analytics workspace"
+  type        = number
+  default     = 0.1
+}
+
 # Distinct names because both live on one server. The application takes its
 # database name from configuration, so this is the only place it is decided.
 variable "databases" {

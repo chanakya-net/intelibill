@@ -27,6 +27,15 @@ module "database" {
   allowed_ip_rules      = var.allowed_ip_rules
 }
 
+module "shared_monitoring" {
+  source = "../../modules/shared-monitoring"
+
+  resource_group_name = data.azurerm_resource_group.shared.name
+  location            = var.location
+  postgres_server_id  = module.database.server_id
+  daily_quota_gb      = var.log_analytics_daily_quota_gb
+}
+
 module "dns" {
   source = "../../modules/dns"
   count  = var.domain_name == null ? 0 : 1
