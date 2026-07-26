@@ -9,24 +9,27 @@ namespace Intelibill.Api.Unit.Tests.Services;
 public class SignalRProductHubNotifierTests
 {
     private readonly IHubContext<ProductHub> _hubContext = Substitute.For<IHubContext<ProductHub>>();
-    private readonly IClientProxy _allClients = Substitute.For<IClientProxy>();
+    private readonly IHubClients _hubClients = Substitute.For<IHubClients>();
+    private readonly IClientProxy _groupClients = Substitute.For<IClientProxy>();
     private readonly SignalRProductHubNotifier _notifier;
 
     public SignalRProductHubNotifierTests()
     {
-        _hubContext.Clients.All.Returns(_allClients);
+        _hubContext.Clients.Returns(_hubClients);
+        _hubClients.Group(Arg.Any<string>()).Returns(_groupClients);
         _notifier = new SignalRProductHubNotifier(_hubContext);
     }
 
     [Fact]
-    public async Task NotifyProductCreatedAsync_SendsProductAddedEvent_WithCorrectMethodName()
+    public async Task NotifyProductCreatedAsync_SendsProductAddedEvent_ToTheActiveShopGroupOnly()
     {
         var itemId = Guid.NewGuid();
         var shopId = Guid.NewGuid();
 
         await _notifier.NotifyProductCreatedAsync(itemId, "BAR001", "Rice", shopId);
 
-        await _allClients.Received(1).SendCoreAsync(
+        _hubClients.Received(1).Group(ProductHub.ActiveShopGroupName(shopId));
+        await _groupClients.Received(1).SendCoreAsync(
             "ProductAdded",
             Arg.Any<object?[]>(),
             Arg.Any<CancellationToken>());
@@ -39,7 +42,7 @@ public class SignalRProductHubNotifierTests
         var shopId = Guid.NewGuid();
         object?[]? capturedArgs = null;
 
-        await _allClients
+        await _groupClients
             .SendCoreAsync(
                 Arg.Any<string>(),
                 Arg.Do<object?[]>(a => capturedArgs = a),
@@ -67,7 +70,7 @@ public class SignalRProductHubNotifierTests
 
         await _notifier.NotifyProductCreatedAsync(itemId, "BAR001", "Rice", shopId, cts.Token);
 
-        await _allClients.Received(1).SendCoreAsync(
+        await _groupClients.Received(1).SendCoreAsync(
             Arg.Any<string>(),
             Arg.Any<object?[]>(),
             cts.Token);
@@ -76,7 +79,7 @@ public class SignalRProductHubNotifierTests
     [Fact]
     public async Task NotifyProductCreatedAsync_WhenSendAsyncThrows_ExceptionPropagates()
     {
-        _allClients
+        _groupClients
             .SendCoreAsync(Arg.Any<string>(), Arg.Any<object?[]>(), Arg.Any<CancellationToken>())
             .ThrowsAsync(new InvalidOperationException("Hub unavailable"));
 
@@ -90,7 +93,7 @@ public class SignalRProductHubNotifierTests
         using var cts = new CancellationTokenSource();
         await cts.CancelAsync();
 
-        _allClients
+        _groupClients
             .SendCoreAsync(Arg.Any<string>(), Arg.Any<object?[]>(), Arg.Any<CancellationToken>())
             .ThrowsAsync(new OperationCanceledException());
 

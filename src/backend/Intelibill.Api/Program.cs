@@ -90,6 +90,25 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
             ValidateLifetime = true,
             ClockSkew = TimeSpan.Zero,
         };
+
+        bearerOptions.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                // SignalR's WebSocket and SSE transports cannot set an Authorization
+                // header, so the client passes the token in the query string. Accept
+                // it on hub paths only — anywhere else a token in the URL would end
+                // up in access logs and referrers.
+                var accessToken = context.Request.Query["access_token"].ToString();
+                if (!string.IsNullOrEmpty(accessToken)
+                    && context.HttpContext.Request.Path.StartsWithSegments("/hubs"))
+                {
+                    context.Token = accessToken;
+                }
+
+                return Task.CompletedTask;
+            },
+        };
     });
 
 builder.Services.AddAuthorization(options =>
