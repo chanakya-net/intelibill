@@ -179,4 +179,131 @@ run "wires_existing_foundations_into_prod_workloads" {
     condition     = output.container_apps.observability_secret_configured
     error_message = "The optional observability secret name must be forwarded to the environment module."
   }
+
+  assert {
+    condition = (
+      module.environment_infrastructure.resolved_contract.api.identity_ids == toset([
+        "/subscriptions/00000000-0000-0000-0000-000000000011/resourceGroups/intelibill-shared/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-intelibill-app-prod",
+      ]) &&
+      module.environment_infrastructure.resolved_contract.migration_job.identity_ids == toset([
+        "/subscriptions/00000000-0000-0000-0000-000000000011/resourceGroups/intelibill-shared/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-intelibill-migrator-prod",
+      ])
+    )
+    error_message = "API and migration workloads must retain their distinct existing identity resource IDs."
+  }
+
+  assert {
+    condition = (
+      module.environment_infrastructure.resolved_contract.api.identity_ids != null &&
+      length(regexall("(?m)^\\s*app_identity\\s*=\\s*module\\.workload_identities\\.identities\\.app\\s*$", file("${path.root}/main.tf"))) == 1 &&
+      length(regexall("(?m)^\\s*migrator_identity\\s*=\\s*module\\.workload_identities\\.identities\\.migrator\\s*$", file("${path.root}/main.tf"))) == 1 &&
+      length(regexall("(?m)^\\s*key_vault\\s*=\\s*module\\.key_vault\\s*$", file("${path.root}/main.tf"))) == 1
+    )
+    error_message = "Identity objects and the Key Vault contract must be passed directly from their existing modules."
+  }
+
+  assert {
+    condition = {
+      for setting in module.environment_infrastructure.resolved_contract.api.env :
+      setting.name => setting.value
+      if contains(["AZURE_CLIENT_ID", "Database__Username"], setting.name)
+      } == {
+      AZURE_CLIENT_ID    = "00000000-0000-0000-0000-000000000015"
+      Database__Username = "id-intelibill-app-prod"
+    }
+    error_message = "The API must receive the application identity client ID and database username."
+  }
+
+  assert {
+    condition = {
+      for setting in module.environment_infrastructure.resolved_contract.migration_job.env :
+      setting.name => setting.value
+      if contains(["AZURE_CLIENT_ID", "Database__Username"], setting.name)
+      } == {
+      AZURE_CLIENT_ID    = "00000000-0000-0000-0000-000000000017"
+      Database__Username = "id-intelibill-migrator-prod"
+    }
+    error_message = "The migration job must receive the migrator identity client ID and database username."
+  }
+
+  assert {
+    condition = {
+      for setting in module.environment_infrastructure.resolved_contract.api.env :
+      setting.name => setting.value
+      if startswith(setting.name, "Database__") && setting.name != "Database__Username"
+      } == {
+      Database__Database     = "intelibill_prod"
+      Database__Host         = "intelibill-pg-01.postgres.database.azure.com"
+      Database__MaxPoolSize  = "12"
+      Database__Port         = "5432"
+      Database__UseEntraAuth = "true"
+    }
+    error_message = "The API must receive the complete prod database connection contract."
+  }
+
+  assert {
+    condition = {
+      for setting in module.environment_infrastructure.resolved_contract.migration_job.env :
+      setting.name => setting.value
+      if startswith(setting.name, "Database__") && setting.name != "Database__Username"
+      } == {
+      Database__Database     = "intelibill_prod"
+      Database__Host         = "intelibill-pg-01.postgres.database.azure.com"
+      Database__MaxPoolSize  = "12"
+      Database__Port         = "5432"
+      Database__UseEntraAuth = "true"
+    }
+    error_message = "The migration job must receive the complete prod database connection contract."
+  }
+
+  assert {
+    condition = (
+      module.environment_infrastructure.resolved_contract.key_vault_diagnostic_target_id == "/subscriptions/00000000-0000-0000-0000-000000000011/resourceGroups/intelibill-shared/providers/Microsoft.KeyVault/vaults/kv-intelibill-prod" &&
+      {
+        for setting in module.environment_infrastructure.resolved_contract.api.env :
+        setting.name => setting.value
+        if setting.name == "Jwt__KeyVaultKeyId"
+        } == {
+        Jwt__KeyVaultKeyId = "https://kv-intelibill-prod.vault.azure.net/secrets/jwt-signing-key"
+      }
+    )
+    error_message = "The API and diagnostics must receive the existing prod Key Vault outputs."
+  }
+
+  assert {
+    condition = (
+      {
+        for setting in module.environment_infrastructure.resolved_contract.api.env :
+        setting.name => setting.secret_name
+        if setting.secret_name != null
+        } == {
+        Observability__NewRelic__ApiKey = "new-relic-api-key"
+      } &&
+      {
+        for secret in module.environment_infrastructure.resolved_contract.api.secret_references :
+        secret.name => {
+          identity            = secret.identity
+          key_vault_secret_id = secret.key_vault_secret_id
+        }
+        } == {
+        new-relic-api-key = {
+          identity            = "/subscriptions/00000000-0000-0000-0000-000000000011/resourceGroups/intelibill-shared/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-intelibill-app-prod"
+          key_vault_secret_id = "https://kv-intelibill-prod.vault.azure.net/secrets/new-relic-api-key"
+        }
+      }
+    )
+    error_message = "The optional New Relic secret must use the app identity and prod Key Vault URI."
+  }
+
+  assert {
+    condition = (
+      toset(keys(module.environment_infrastructure.resolved_contract.deploy_role_assignments)) == toset(["api", "migrate", "web"]) &&
+      alltrue([
+        for assignment in values(module.environment_infrastructure.resolved_contract.deploy_role_assignments) :
+        assignment.principal_id == "00000000-0000-0000-0000-000000000013" &&
+        assignment.role_definition_id == "/subscriptions/00000000-0000-0000-0000-000000000011/providers/Microsoft.Authorization/roleDefinitions/00000000-0000-0000-0000-000000000014"
+      ])
+    )
+    error_message = "All three prod workload RBAC assignments must use the discovered deploy principal and custom role."
+  }
 }
