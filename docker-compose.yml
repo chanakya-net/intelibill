@@ -22,11 +22,19 @@ services:
       context: .
       dockerfile: src/backend/Dockerfile
     container_name: intelibill_backend
+    # The container listens on 8080, the same port it uses when deployed. The
+    # host mapping stays 5277 so local tooling and the Angular development
+    # environment file keep working unchanged.
+    #
+    # Schema is not created here: startup no longer migrates. Run
+    #   dotnet ef database update --project src/backend/Intelibill.Infrastructure \
+    #     --startup-project src/backend/Intelibill.Api
+    # against this database first.
     ports:
-      - "5277:5277"
+      - "5277:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
-      - ASPNETCORE_URLS=http://+:5277
+      - ASPNETCORE_HTTP_PORTS=8080
       - Database__Host=postgres
       - Database__Port=5432
       - Database__Database=intelibill_dev
@@ -40,9 +48,10 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      # Check if the API is responding on port 5277.
-      # curl's failure (-f) will indicate if the server is not starting or listening.
-      test: ["CMD", "curl", "-s", "--max-time", "25", "http://localhost:5277/"]
+      # The API's own liveness endpoint: -f turns a non-2xx answer into a failure,
+      # so a process that is listening but broken is reported as unhealthy rather
+      # than healthy.
+      test: ["CMD", "curl", "-f", "--max-time", "25", "http://localhost:8080/health/live"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -58,7 +67,8 @@ services:
       - "4000:4000"
     environment:
       - NODE_ENV=production
-      - API_URL=http://backend:5277
+      # Where the SSR server forwards /api and /hubs. Nothing read API_URL.
+      - API_ORIGIN=http://backend:8080
     depends_on:
       backend:
         condition: service_healthy
