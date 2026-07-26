@@ -39,19 +39,7 @@ builder.Services.AddScoped<ICurrentSessionContext, HttpCurrentSessionContext>();
 builder.Services.AddScoped<RateLimitFilter>();
 builder.Services.AddSingleton<IRateLimitPolicyResolver, RateLimitPolicyResolver>();
 
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("FrontendDev", policy =>
-    {
-        policy
-            .WithOrigins(
-                "http://localhost:4200", "https://localhost:4200",
-                "http://localhost:4000", "https://localhost:4000")
-            .AllowAnyHeader()
-            .AllowAnyMethod()
-            .AllowCredentials();
-    });
-});
+builder.Services.AddEdge(configuration, builder.Environment);
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(configuration);
@@ -157,6 +145,10 @@ var app = builder.Build();
 // apply the new schema while the previous revision is still serving traffic.
 // Local setup: dotnet ef database update (see CLAUDE.md).
 
+// Before anything that reads the scheme, the client address, or the host: behind
+// ingress every request otherwise looks like plain HTTP arriving from the proxy.
+app.UseForwardedHeaders();
+
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 if (app.Environment.IsDevelopment())
@@ -165,8 +157,14 @@ if (app.Environment.IsDevelopment())
     app.MapScalarApiReference();
 }
 
-app.UseHttpsRedirection();
-app.UseCors("FrontendDev");
+// Platform probes arrive over plain HTTP inside the environment. Redirecting
+// them to HTTPS answers 307, which reads as a failed probe, and the revision
+// never becomes healthy.
+app.UseWhen(
+    context => !context.Request.Path.StartsWithSegments("/health"),
+    branch => branch.UseHttpsRedirection());
+
+app.UseCors(EdgeExtensions.CorsPolicyName);
 app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
@@ -176,6 +174,7 @@ app.MapControllers();
 app.MapWolverineEndpoints();
 app.MapHub<ProductHub>("/hubs/products");
 app.MapHub<ShopUpdatesHub>("/hubs/shop-updates");
+app.MapHealthEndpoints();
 
 app.Run();
 
