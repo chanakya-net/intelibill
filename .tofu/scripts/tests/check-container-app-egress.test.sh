@@ -295,8 +295,14 @@ mkdir "${TEST_TMP}/fake-bin"
 cat >"${TEST_TMP}/fake-bin/az" <<'SH'
 #!/usr/bin/env bash
 set -euo pipefail
-printf '%s\0' "$@" >>"${AZ_CALL_LOG:?}"
-printf '\n' >>"${AZ_CALL_LOG}"
+{
+  separator=""
+  for argument in "$@"; do
+    printf '%s%s' "${separator}" "${argument}"
+    separator=$'\t'
+  done
+  printf '\n'
+} >>"${AZ_CALL_LOG:?}"
 
 mode="${AZ_TEST_MODE:-success}"
 
@@ -365,13 +371,81 @@ SH
 chmod +x "${TEST_TMP}/fake-bin/az"
 
 AZ_CALL_LOG="${TEST_TMP}/az-calls"
-expect_az_call_count() {
-  local expected_count="$1"
+AZ_EXPECTED_CALL_LOG="${TEST_TMP}/az-calls-expected"
+
+append_expected_az_call() {
+  local separator=""
+  local argument
+  for argument in "$@"; do
+    printf '%s%s' "${separator}" "${argument}"
+    separator=$'\t'
+  done
+  printf '\n'
+}
+
+append_expected_app_call() {
+  append_expected_az_call \
+    containerapp show \
+    --name "$1" \
+    --resource-group intelibill-shared \
+    --query properties.outboundIpAddresses \
+    --output json
+}
+
+append_expected_job_call() {
+  append_expected_az_call \
+    containerapp job show \
+    --name "$1" \
+    --resource-group intelibill-shared \
+    --query properties.outboundIpAddresses \
+    --output json
+}
+
+append_expected_firewall_call() {
+  append_expected_az_call \
+    postgres flexible-server firewall-rule list \
+    --resource-group intelibill-shared \
+    --name intelibill-pg-01 \
+    --output json
+}
+
+expect_az_call_sequence() {
+  local scenario="$1"
   local name="$2"
-  local actual_count
-  actual_count="$(wc -l <"${AZ_CALL_LOG}")"
-  [[ "${actual_count}" -eq "${expected_count}" ]] ||
-    fail "${name} (expected ${expected_count}, got ${actual_count})"
+  : >"${AZ_EXPECTED_CALL_LOG}"
+  case "${scenario}" in
+    first-dev-app)
+      append_expected_app_call intelibill-dev-api
+      ;;
+    dev-workloads)
+      append_expected_app_call intelibill-dev-api
+      append_expected_app_call intelibill-dev-web
+      append_expected_job_call intelibill-dev-migrate
+      ;;
+    dev-full)
+      append_expected_app_call intelibill-dev-api
+      append_expected_app_call intelibill-dev-web
+      append_expected_job_call intelibill-dev-migrate
+      append_expected_firewall_call
+      ;;
+    all-full)
+      append_expected_app_call intelibill-dev-api
+      append_expected_app_call intelibill-dev-web
+      append_expected_job_call intelibill-dev-migrate
+      append_expected_app_call intelibill-prod-api
+      append_expected_app_call intelibill-prod-web
+      append_expected_job_call intelibill-prod-migrate
+      append_expected_firewall_call
+      ;;
+    *)
+      fail "unknown expected Azure call scenario: ${scenario}"
+      ;;
+  esac >"${AZ_EXPECTED_CALL_LOG}"
+
+  if ! cmp -s "${AZ_EXPECTED_CALL_LOG}" "${AZ_CALL_LOG}"; then
+    diff -u "${AZ_EXPECTED_CALL_LOG}" "${AZ_CALL_LOG}" >&2 || true
+    fail "${name}"
+  fi
   pass "${name}"
 }
 
@@ -379,21 +453,27 @@ expect_az_call_count() {
 expect_success \
   "live discovery unions api web and migration arrays" \
   env AZ_CALL_LOG="${AZ_CALL_LOG}" PATH="${TEST_TMP}/fake-bin:${PATH}" "${CHECKER}"
-expect_az_call_count 7 "full live discovery invokes exactly seven Azure CLI calls"
+expect_az_call_sequence \
+  all-full \
+  "full live discovery invokes each exact Azure CLI call once"
 
 : >"${AZ_CALL_LOG}"
 expect_success \
   "dev-only live discovery limits workload lookups" \
   env AZ_CALL_LOG="${AZ_CALL_LOG}" PATH="${TEST_TMP}/fake-bin:${PATH}" \
   "${CHECKER}" --environment dev
-expect_az_call_count 4 "dev-only live discovery invokes exactly four Azure CLI calls"
+expect_az_call_sequence \
+  dev-full \
+  "dev-only live discovery invokes each exact Azure CLI call once"
 
 : >"${AZ_CALL_LOG}"
 expect_failure \
   "live lookup failure fails closed" \
   env AZ_TEST_MODE=lookup-failure AZ_CALL_LOG="${AZ_CALL_LOG}" \
   PATH="${TEST_TMP}/fake-bin:${PATH}" "${CHECKER}"
-expect_az_call_count 1 "failed first workload lookup stops live discovery"
+expect_az_call_sequence \
+  first-dev-app \
+  "failed first workload lookup records only the exact dev API call"
 if rg -q 'sensitive lookup detail' "${TEST_TMP}/stdout" "${TEST_TMP}/stderr"; then
   fail "live lookup failure redacts Azure CLI diagnostics"
 fi
@@ -404,21 +484,27 @@ expect_failure \
   "live non-array response fails closed" \
   env AZ_TEST_MODE=non-array AZ_CALL_LOG="${AZ_CALL_LOG}" \
   PATH="${TEST_TMP}/fake-bin:${PATH}" "${CHECKER}"
-expect_az_call_count 3 "non-array migration response stops live discovery"
+expect_az_call_sequence \
+  dev-workloads \
+  "non-array migration response records each exact dev workload call once"
 
 : >"${AZ_CALL_LOG}"
 expect_failure \
   "live workload multiple JSON documents fail closed" \
   env AZ_TEST_MODE=workload-multiple-docs AZ_CALL_LOG="${AZ_CALL_LOG}" \
   PATH="${TEST_TMP}/fake-bin:${PATH}" "${CHECKER}"
-expect_az_call_count 3 "multiple-document migration response stops live discovery"
+expect_az_call_sequence \
+  dev-workloads \
+  "multiple-document migration response records each exact dev workload call once"
 
 : >"${AZ_CALL_LOG}"
 expect_failure \
   "live firewall lookup failure fails closed" \
   env AZ_TEST_MODE=firewall-failure AZ_CALL_LOG="${AZ_CALL_LOG}" \
   PATH="${TEST_TMP}/fake-bin:${PATH}" "${CHECKER}"
-expect_az_call_count 7 "firewall lookup failure follows six workload lookups"
+expect_az_call_sequence \
+  all-full \
+  "firewall failure follows each exact workload call once"
 if rg -q 'sensitive firewall detail' "${TEST_TMP}/stdout" "${TEST_TMP}/stderr"; then
   fail "live firewall failure redacts Azure CLI diagnostics"
 fi
@@ -429,13 +515,17 @@ expect_failure \
   "live firewall non-array response fails closed" \
   env AZ_TEST_MODE=firewall-non-array AZ_CALL_LOG="${AZ_CALL_LOG}" \
   PATH="${TEST_TMP}/fake-bin:${PATH}" "${CHECKER}"
-expect_az_call_count 7 "firewall non-array response follows six workload lookups"
+expect_az_call_sequence \
+  all-full \
+  "firewall non-array response follows each exact workload call once"
 
 : >"${AZ_CALL_LOG}"
 expect_failure \
   "live firewall multiple JSON documents fail closed" \
   env AZ_TEST_MODE=firewall-multiple-docs AZ_CALL_LOG="${AZ_CALL_LOG}" \
   PATH="${TEST_TMP}/fake-bin:${PATH}" "${CHECKER}"
-expect_az_call_count 7 "firewall multiple documents follow six workload lookups"
+expect_az_call_sequence \
+  all-full \
+  "firewall multiple documents follow each exact workload call once"
 
 printf '1..%d\n' "${pass_count}"
