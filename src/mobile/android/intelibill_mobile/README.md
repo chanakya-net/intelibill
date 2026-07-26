@@ -66,6 +66,21 @@ To find your machine's LAN IP:
 - **macOS/Linux**: `ifconfig | grep "inet " | grep -v 127.0.0.1`
 - **Windows**: `ipconfig`
 
+### Release builds
+
+`API_BASE_URL` is compiled in at build time. Without it a release APK falls back
+to the emulator address above, which no real device can reach and which is
+cleartext, so the build script requires it and the app refuses to start if one
+was built anyway:
+
+```bash
+API_BASE_URL=https://<api-host>/api ./tool/build-release.sh
+```
+
+The host is the deployed API origin — currently a Container Apps hostname, and a
+custom domain once DNS is resolved. Changing where the API lives means rebuilding
+the app, unlike the web client, which resolves it at runtime.
+
 ### Flutter version
 
 Mobile CI pins Flutter via `.flutter-version` (currently **3.44.2**). Use the same version locally to avoid codegen drift:
