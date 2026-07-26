@@ -178,7 +178,7 @@ public static class DependencyInjection
 
         services.AddScoped<IExternalOAuthCodeProvider, GoogleAuthProvider>();
         services.AddScoped<IExternalOAuthCodeProvider, FacebookAuthProvider>();
-        services.AddScoped<IExternalOAuthStateStore, InMemoryExternalOAuthStateStore>();
+        services.AddScoped<IExternalOAuthStateStore, DistributedExternalOAuthStateStore>();
         services.AddScoped<IExternalOAuthFlowService, ExternalOAuthFlowService>();
 
         services.AddHttpClient(ExternalProductLookupService.HttpClientName, (sp, client) =>
