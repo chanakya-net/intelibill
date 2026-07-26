@@ -152,7 +152,10 @@ builder.Services.AddWolverine(ExtensionDiscovery.ManualOnly, opts =>
 
 var app = builder.Build();
 
-await app.Services.ApplyMigrationsAsync();
+// Schema is owned by the migration job, not by application startup. Migrating
+// here would need DDL rights at runtime, would race between replicas, and would
+// apply the new schema while the previous revision is still serving traffic.
+// Local setup: dotnet ef database update (see CLAUDE.md).
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 

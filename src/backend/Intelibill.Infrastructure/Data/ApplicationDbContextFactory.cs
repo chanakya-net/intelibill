@@ -20,10 +20,15 @@ public sealed class ApplicationDbContextFactory : IDesignTimeDbContextFactory<Ap
         var databaseOptions = configuration.GetSection(DatabaseOptions.SectionName).Get<DatabaseOptions>()
             ?? throw new InvalidOperationException("Database configuration is missing for design-time ApplicationDbContext creation.");
 
+        // Through the same factory the runtime uses, so `dotnet ef` and the
+        // migration bundle authenticate exactly the way the application does —
+        // including with Entra tokens, which no connection string can express.
+        var dataSource = NpgsqlDataSourceFactory.Create(databaseOptions);
+
         var optionsBuilder = new DbContextOptionsBuilder<ApplicationDbContext>();
         optionsBuilder
             .UseNpgsql(
-                databaseOptions.ToConnectionString(),
+                dataSource,
                 npgsql => npgsql.MigrationsAssembly(typeof(DependencyInjection).Assembly.FullName))
             .UseSnakeCaseNamingConvention();
 
