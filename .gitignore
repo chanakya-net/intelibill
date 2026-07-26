@@ -274,3 +274,30 @@ appsettings.Local.json
 secrets.json
 *.pfx
 *.p12
+
+# ------------------------------------------------------------
+# OpenTofu / Terraform
+# ------------------------------------------------------------
+# State holds every resource attribute in plaintext — never commit it.
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+
+# Provider binaries and module cache (re-fetched by `tofu init`).
+.terraform/
+
+# Saved plans can embed state values.
+*.tfplan
+crash.log
+crash.*.log
+
+# Per-operator variable values. Commit the .example instead.
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+
+# .terraform.lock.hcl is deliberately NOT ignored — provider pinning is a
+# security control, not a local artifact.
+
+# NOTE: .terraform.lock.hcl is intentionally NOT ignored — commit it so
+# provider versions are reproducible across machines and CI.

@@ -1,0 +1,14 @@
+// Copy to terraform.tfvars and fill in. That file is gitignored.
+
+// az account show --query id -o tsv
+subscription_id = "00000000-0000-0000-0000-000000000000"
+
+resource_group_name = "intelibill-shared"
+location            = "southindia"
+
+// Globally unique across all of Azure: 3-24 chars, lowercase alphanumeric.
+state_storage_account_name = "intelibilltfstate01"
+
+// Defaults to chanakya-net/intelibill. Every federated subject is built from
+// this, so a fork or rename needs it changed or the credentials match nothing.
+// github_repository = "owner/name"

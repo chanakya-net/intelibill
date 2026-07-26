@@ -1,0 +1,80 @@
+# Throwaway. Delete once Phase 4.5 passes — see docs/infrastructure-implementation-guide.md.
+#
+# Proves two things before any real pipeline depends on them:
+#   1. the infra identity can reach what it owns, and
+#   2. the deploy identity cannot reach state.
+#
+# The second job is the one that matters. A passing (1) with a broken (2) is
+# exactly the over-broad grant Phase 3 was redesigned to prevent.
+name: OIDC smoke test
+
+on:
+  push:
+    branches: [infra-setup]
+    paths: ['.github/workflows/oidc-smoke-test.yml']
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  STATE_ACCOUNT: intelibilltfstate01
+
+jobs:
+  infra_can_reach_its_own:
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID_INFRA }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      # `az group list` would return an empty list rather than an error for a
+      # resource-group-scoped identity, so a working setup would look broken.
+      - name: Owns its resource group
+        run: az group show -n intelibill-dev -o table
+
+      - name: Can read its own state container
+        run: |
+          az storage blob list --container-name tfstate-dev \
+            --account-name "$STATE_ACCOUNT" --auth-mode login -o table
+
+      - name: Cannot read the other environment's state
+        run: |
+          if az storage blob list --container-name tfstate-prod \
+               --account-name "$STATE_ACCOUNT" --auth-mode login -o none 2>/dev/null; then
+            echo "::error::dev infra identity can read prod state; container scoping is not holding"
+            exit 1
+          fi
+          echo "correctly denied"
+
+  deploy_is_confined:
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID_DEPLOY }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Cannot read state at all
+        run: |
+          if az storage blob list --container-name tfstate-dev \
+               --account-name "$STATE_ACCOUNT" --auth-mode login -o none 2>/dev/null; then
+            echo "::error::deploy identity can read state; the identity split is not holding"
+            exit 1
+          fi
+          echo "correctly denied"
+
+      - name: Cannot create resources
+        run: |
+          if az group create -n intelibill-smoke-should-fail -l southindia -o none 2>/dev/null; then
+            echo "::error::deploy identity created a resource group; it holds far more than deploy rights"
+            az group delete -n intelibill-smoke-should-fail --yes --no-wait || true
+            exit 1
+          fi
+          echo "correctly denied"
