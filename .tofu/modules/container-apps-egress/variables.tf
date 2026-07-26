@@ -14,10 +14,11 @@ variable "advertised_outbound_ip_addresses" {
         for ip in addresses :
         can(regex("^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$", ip)) &&
         can(cidrnetmask("${ip}/32")) &&
+        try(cidrhost("${ip}/32", 0) == ip, false) &&
         !contains(["0.0.0.0", "255.255.255.255"], ip)
       ]
     ]))
-    error_message = "Advertised outbound addresses must be real dotted-decimal IPv4 addresses other than 0.0.0.0 and 255.255.255.255."
+    error_message = "Advertised outbound addresses must be canonical dotted-decimal IPv4 addresses other than 0.0.0.0 and 255.255.255.255."
   }
 }
 
@@ -37,9 +38,10 @@ variable "retained_outbound_ip_addresses" {
         for ip in addresses :
         can(regex("^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$", ip)) &&
         can(cidrnetmask("${ip}/32")) &&
+        try(cidrhost("${ip}/32", 0) == ip, false) &&
         !contains(["0.0.0.0", "255.255.255.255"], ip)
       ]
     ]))
-    error_message = "Retained outbound addresses must be real dotted-decimal IPv4 addresses other than 0.0.0.0 and 255.255.255.255."
+    error_message = "Retained outbound addresses must be canonical dotted-decimal IPv4 addresses other than 0.0.0.0 and 255.255.255.255."
   }
 }

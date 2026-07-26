@@ -162,3 +162,51 @@ run "validates_retained_addresses_too" {
 
   expect_failures = [var.retained_outbound_ip_addresses]
 }
+
+run "rejects_advertised_leading_zero_ipv4" {
+  command = plan
+
+  variables {
+    advertised_outbound_ip_addresses = {
+      dev = ["20.10.0.01"]
+    }
+  }
+
+  expect_failures = [var.advertised_outbound_ip_addresses]
+}
+
+run "rejects_advertised_disguised_zero_sentinel" {
+  command = plan
+
+  variables {
+    advertised_outbound_ip_addresses = {
+      dev = ["000.000.000.000"]
+    }
+  }
+
+  expect_failures = [var.advertised_outbound_ip_addresses]
+}
+
+run "rejects_retained_leading_zero_ipv4" {
+  command = plan
+
+  variables {
+    retained_outbound_ip_addresses = {
+      prod = ["20.10.0.01"]
+    }
+  }
+
+  expect_failures = [var.retained_outbound_ip_addresses]
+}
+
+run "rejects_retained_disguised_zero_sentinel" {
+  command = plan
+
+  variables {
+    retained_outbound_ip_addresses = {
+      prod = ["000.000.000.000"]
+    }
+  }
+
+  expect_failures = [var.retained_outbound_ip_addresses]
+}
