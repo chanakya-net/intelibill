@@ -1008,8 +1008,8 @@ dotnet build src/backend/Intelibill.slnx
 dotnet test tests/backend/unit/Intelibill.Domain.Unit.Tests
 dotnet test tests/backend/unit/Intelibill.Application.Unit.Tests
 dotnet test tests/backend/unit/Intelibill.Api.Unit.Tests
-bun --cwd src/frontend run build
-bun --cwd src/frontend run test
+bun run --cwd src/frontend build
+bun run --cwd src/frontend test
 bash -lc 'cd src/mobile/android/intelibill_mobile && flutter analyze && flutter test'
 ```
 
