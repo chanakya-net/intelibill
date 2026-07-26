@@ -15,6 +15,16 @@ output "postgres_server_id" {
   value       = module.database.server_id
 }
 
+output "container_apps_firewall_ips" {
+  description = "Current Container Apps outbound addresses read from dev and prod state"
+  value       = local.container_apps_firewall_ips
+}
+
+output "retained_container_apps_outbound_ips" {
+  description = "Previously advertised addresses retained for the current transition apply"
+  value       = var.retained_container_apps_outbound_ips
+}
+
 output "log_analytics" {
   description = "Shared Azure Monitor destination; no workspace keys are exposed"
   value = {

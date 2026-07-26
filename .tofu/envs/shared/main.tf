@@ -5,6 +5,57 @@ data "azurerm_resource_group" "shared" {
   name = var.resource_group_name
 }
 
+data "terraform_remote_state" "dev" {
+  backend = "azurerm"
+  config = {
+    resource_group_name  = "intelibill-shared"
+    storage_account_name = "intelibilltfstate01"
+    container_name       = "tfstate-dev"
+    key                  = "dev.tfstate"
+    use_azuread_auth     = true
+  }
+  defaults = {
+    container_apps = {
+      outbound_ip_addresses = []
+    }
+  }
+}
+
+data "terraform_remote_state" "prod" {
+  backend = "azurerm"
+  config = {
+    resource_group_name  = "intelibill-shared"
+    storage_account_name = "intelibilltfstate01"
+    container_name       = "tfstate-prod"
+    key                  = "prod.tfstate"
+    use_azuread_auth     = true
+  }
+  defaults = {
+    container_apps = {
+      outbound_ip_addresses = []
+    }
+  }
+}
+
+locals {
+  container_apps_firewall_ips = {
+    dev  = toset(data.terraform_remote_state.dev.outputs.container_apps.outbound_ip_addresses)
+    prod = toset(data.terraform_remote_state.prod.outputs.container_apps.outbound_ip_addresses)
+  }
+
+  database_allowed_ip_rules = merge(
+    var.allowed_ip_rules,
+    module.container_apps_egress.allowed_ip_rules,
+  )
+}
+
+module "container_apps_egress" {
+  source = "../../modules/container-apps-egress"
+
+  advertised_outbound_ip_addresses = local.container_apps_firewall_ips
+  retained_outbound_ip_addresses   = var.retained_container_apps_outbound_ips
+}
+
 # One server hosting both environments as separate databases. Chosen for cost:
 # roughly half the compute bill of a server per environment.
 #
@@ -24,7 +75,7 @@ module "database" {
   postgres_sku          = var.postgres_sku
   storage_mb            = var.storage_mb
   backup_retention_days = var.backup_retention_days
-  allowed_ip_rules      = var.allowed_ip_rules
+  allowed_ip_rules      = local.database_allowed_ip_rules
 }
 
 module "shared_monitoring" {

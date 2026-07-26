@@ -86,6 +86,15 @@ variable "allowed_ip_rules" {
   default = {}
 }
 
+variable "retained_container_apps_outbound_ips" {
+  description = "Previously advertised exact addresses retained for one reviewed transition apply"
+  type        = map(set(string))
+  default = {
+    dev  = []
+    prod = []
+  }
+}
+
 # Left null until the domain and registrar access are confirmed. The zone is
 # skipped entirely rather than created against a guessed name, because Phase 6
 # delegation against the wrong zone is an outage, not a typo.
