@@ -27,7 +27,7 @@ run "shared_monitoring_contract" {
       azurerm_log_analytics_workspace.main.sku == "PerGB2018" &&
       azurerm_log_analytics_workspace.main.retention_in_days == 30 &&
       azurerm_log_analytics_workspace.main.daily_quota_gb == 0.1 &&
-      azurerm_log_analytics_workspace.main.local_authentication_disabled
+      !azurerm_log_analytics_workspace.main.local_authentication_enabled
     )
     error_message = "The workspace cost and authentication guardrails changed."
   }

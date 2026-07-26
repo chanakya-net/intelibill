@@ -7,13 +7,13 @@ terraform {
 }
 
 resource "azurerm_log_analytics_workspace" "main" {
-  name                          = "intelibill-logs"
-  resource_group_name           = var.resource_group_name
-  location                      = var.location
-  sku                           = "PerGB2018"
-  retention_in_days             = 30
-  daily_quota_gb                = var.daily_quota_gb
-  local_authentication_disabled = true
+  name                         = "intelibill-logs"
+  resource_group_name          = var.resource_group_name
+  location                     = var.location
+  sku                          = "PerGB2018"
+  retention_in_days            = 30
+  daily_quota_gb               = var.daily_quota_gb
+  local_authentication_enabled = false
 }
 
 resource "azurerm_monitor_diagnostic_setting" "postgres" {
