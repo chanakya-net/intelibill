@@ -1,5 +1,4 @@
 using Azure.Core;
-using Azure.Identity;
 using Intelibill.Infrastructure.Options;
 using Microsoft.Extensions.Logging;
 using Npgsql;
@@ -36,12 +35,7 @@ internal static class NpgsqlDataSourceFactory
 
         if (options.UseEntraAuth)
         {
-            var credential = new DefaultAzureCredential(new DefaultAzureCredentialOptions
-            {
-                // Null falls back to AZURE_CLIENT_ID. A host carrying more than one
-                // user-assigned identity has no default, so one of the two must say.
-                ManagedIdentityClientId = options.ManagedIdentityClientId,
-            });
+            var credential = AzureCredentials.Create(options.ManagedIdentityClientId);
 
             builder.UsePeriodicPasswordProvider(
                 async (_, cancellationToken) =>

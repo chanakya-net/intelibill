@@ -65,6 +65,7 @@ public static class DependencyInjection
             .Bind(configuration.GetSection(JwtOptions.SectionName))
             .ValidateDataAnnotations()
             .ValidateOnStart();
+        services.AddSingleton<IValidateOptions<JwtOptions>, JwtOptionsValidator>();
 
         services.AddOptions<ExternalAuthOptions>()
             .Bind(configuration.GetSection(ExternalAuthOptions.SectionName))
@@ -117,6 +118,28 @@ public static class DependencyInjection
         services.AddScoped<ICreditNoteRepository, CreditNoteRepository>();
 
         // ── Auth services ─────────────────────────────────────────────────────
+        // Singleton: the Key Vault signer caches the resolved key version and the
+        // client that signs with it, and neither belongs to a request.
+        services.AddSingleton<IJwtSigner>(sp =>
+        {
+            var jwt = sp.GetRequiredService<IOptions<JwtOptions>>().Value;
+            var timeProvider = sp.GetRequiredService<TimeProvider>();
+
+            return jwt.SigningMode switch
+            {
+                JwtSigningMode.KeyVault => new KeyVaultJwtSigner(sp.GetRequiredService<IOptions<JwtOptions>>(), timeProvider),
+                _ => new HmacJwtSigner(sp.GetRequiredService<IOptions<JwtOptions>>()),
+            };
+        });
+
+        // Only registered in Key Vault mode: constructing it requires a key id,
+        // and the HMAC path validates with the same secret it signs with.
+        if (configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()?.SigningMode == JwtSigningMode.KeyVault)
+        {
+            services.AddSingleton<KeyVaultJwtValidationKeyProvider>();
+        }
+
+        services.AddSingleton(TimeProvider.System);
         services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();
         services.AddSingleton<ISmtpClientFactory, MailKitSmtpClientFactory>();

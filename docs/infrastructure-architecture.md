@@ -188,7 +188,7 @@ The product has no required durable local filesystem state. PostgreSQL and the d
 Required production configuration includes:
 
 - `Database__Host`, `Database__Port`, `Database__Database`, `Database__Username`, Entra mode, pool size, and SSL;
-- `Jwt__Secret`, issuer, audience, and expiry settings;
+- `Jwt__SigningMode`, `Jwt__KeyVaultKeyId`, issuer, audience, and expiry settings (no `Jwt__Secret` in a deployed environment — see [decision §21](infrastructure-decisions.md#21-jwt-signing-moves-into-key-vault));
 - `App__BaseUrl`, exact CORS origins, and trusted proxy/network settings;
 - enabled email and external-auth credentials/callback URLs;
 - product lookup and HSN service URLs/keys;

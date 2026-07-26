@@ -1267,7 +1267,7 @@ Before provisioning apps, also complete these source-level gates:
 
 ### Status — 2026-07-26
 
-Applied on `infra-setup`. Every gate above is done except the four recorded as deferred below.
+Applied on `infra-setup`. Every gate above is done except **8.4 telemetry**, which is outstanding, and the items recorded as deferred below.
 
 | Gate | Where |
 |---|---|
@@ -1287,11 +1287,13 @@ Two corrections to the gate list above, both found by testing rather than readin
 - **The web server cannot run on Bun.** Proxying a WebSocket upgrade means hijacking the raw socket, and under Bun the handshake returns nothing, so every SignalR connection through the proxy fails. Node answers `101` on the same bundle. The runtime image is Node; Bun still installs and builds.
 - **`Proxy:ForwardLimit` is 2 in deployed environments, not 1.** Ingress and the web proxy are two hops.
 
+**Not done — 8.4 operational telemetry.** `Program.cs` already registers OpenTelemetry and the OTLP exporter, and the per-environment endpoint and key are configuration handled by Phases 9 and 10. The **instruments** listed in 8.4 are missing: database pool wait, PostgreSQL token refresh, cache failures, SignalR connection count, migration version, replica restart/OOM, and external-service latency. Nothing else depends on them, so Phase 9 proceeds; without them the first production incident is diagnosed from logs alone. Deferred by the owner on 2026-07-26 to be picked up after the environment layers exist and there is a real OTLP endpoint to point at.
+
 Deferred, each for a stated reason:
 
 - **Azure SignalR or a backplane** — needed only above one API replica, which is outstanding decision 3.
 - **Atomic rate limiting** — the limiter is still a distributed-cache read/modify/write. Deprioritised by the owner.
-- **Key Vault and observability values** — Phase 9 and Phase 10, not source changes.
+- **Key Vault and observability configuration values** — Phase 9 and Phase 10, not source changes.
 - **SMTP credential rotation** — the audit called it committed; it is not. `appsettings.Development.json` is gitignored and the value appears nowhere in history (`git log --all -S`), so there is no history to scrub. Rotating it is still worth doing, since it sat in plaintext locally, but that is an account action rather than a code change.
 
 ### 8.1 Make `Password` optional
@@ -1398,30 +1400,79 @@ Also build/test the Bun frontend and Flutter app, then smoke-test the built cont
 
 ---
 
-## Phase 9 — Key Vault secret values
+## Phase 9 — Key Vault contents
 
-**Goal.** After the environment vault, identity, RBAC, soft delete, and purge protection exist, put the JWT signing key and every enabled integration secret into each environment's vault.
+**Goal.** Fill each environment's vault: the JWT signing key, and whatever integration credentials are actually enabled.
 
-**Why manual.** Generating them with `random_password` would write the plaintext into Tofu state — [decision §7](infrastructure-decisions.md#7-key-vault-secrets-created-out-of-band). The JWT signing key is the credential that mints valid tokens for any user in any shop.
+### Status — 2026-07-26
 
-```bash
-for ENV in dev prod; do
-  az keyvault secret set --vault-name "intelibill-${ENV}-kv" \
-    --name jwt-secret --value "$(openssl rand -base64 48)"
-  az keyvault secret set --vault-name "intelibill-${ENV}-kv" \
-    --name newrelic-licence-key --value "<licence key>"
-done
+Applied. `intelibill-dev-kv` and `intelibill-prod-kv` exist, both RBAC-authorised, with the `jwt-signing` key created and an automatic rotation policy on it. What remains is integration credentials, and only for integrations that get switched on.
+
+| Vault | Soft delete | Purge protection |
+|---|---|---|
+| `intelibill-dev-kv` | 7 days | off |
+| `intelibill-prod-kv` | 90 days | **on — irreversible** |
+
+Purge protection is deliberately not enabled on dev. It cannot be turned off once set, and it reserves the vault name for the whole retention window, so a destroyed dev environment could not be rebuilt for 7 days. Production is worth that trade; a scratch environment is not.
+
+### 9.1 The JWT signing key is not a secret any more
+
+**It is a key, generated inside the vault, and it is Terraform's.** This replaces the original plan of generating a shared HMAC secret with `openssl` and pasting it in.
+
+Key Vault will not generate the symmetric material HS256 needs — verified against the live vault:
+
+```
+oct      → BadParameter: Software oct key type is not supported. Use oct-HSM.
+oct-HSM  → Forbidden: Hardware key operation not allowed on standard vault
 ```
 
-Use **different** JWT secrets per environment. A shared secret means a dev-issued token is valid in production.
+`oct-HSM` requires a Managed HSM, which costs more per hour than this estate costs per month. So the application moved to **RS256 with a vault-generated RSA key** ([decision §21](infrastructure-decisions.md#21-jwt-signing-moves-into-key-vault)). The private key has no export operation: the API asks the vault for a signature and never holds the means to produce one elsewhere.
 
-Do not use a secret `data` source either: the provider reads its `value`, and OpenTofu retains data-source attributes in state. Construct a versionless URI without reading the secret:
+There is nothing to enter by hand, and nothing sensitive in state — `azurerm_key_vault_key` records the public half and metadata only:
 
 ```hcl
-key_vault_secret_id = "${azurerm_key_vault.main.vault_uri}secrets/jwt-secret"
+resource "azurerm_key_vault_key" "jwt_signing" {
+  name     = "jwt-signing"
+  key_type = "RSA"
+  key_opts = ["sign", "verify"]
+
+  rotation_policy {
+    expire_after         = "P1Y"
+    notify_before_expiry = "P30D"
+    automatic { time_before_expiry = "P30D" }
+  }
+}
 ```
 
-Container Apps resolves the value under the runtime managed identity. Include SMTP, enabled OAuth providers, product lookup, HSN service, and OTLP/New Relic credentials only when those integrations are enabled. CI never reads them.
+Rotation is the vault's job. The API resolves the current version when it signs, and resolves validation keys by `kid`, so a rotation needs no redeploy and does not invalidate tokens already issued.
+
+Configure the application with the **versionless** key id — a version in this value would pin the app to one key version and defeat the rotation policy:
+
+```
+Jwt__SigningMode   = KeyVault
+Jwt__KeyVaultKeyId = https://intelibill-prod-kv.vault.azure.net/keys/jwt-signing
+```
+
+`Jwt__Secret` must be **absent** in a deployed environment. It is not merely unused: `JwtOptionsValidator` refuses to start with both set, because a secret arriving alongside Key Vault settings almost always means another environment's configuration leaked in, and the failure it prevents is an environment silently signing with a forgeable key.
+
+### 9.2 Integration secrets, out of band
+
+These are still values a human pastes, because they are issued by other people's systems. **Why manual:** generating or reading them through Terraform puts plaintext in state — [decision §7](infrastructure-decisions.md#7-key-vault-secrets-created-out-of-band).
+
+```bash
+az keyvault secret set --vault-name intelibill-prod-kv \
+  --name newrelic-licence-key --value "<licence key>"
+```
+
+Enter only what is switched on: SMTP, enabled OAuth providers, product lookup, HSN service, and OTLP/New Relic credentials. Nothing is enabled yet, so nothing is outstanding here beyond the telemetry key.
+
+Do not use a secret `data` source: the provider reads `value`, and OpenTofu retains data-source attributes in state. Construct a versionless URI without reading the secret:
+
+```hcl
+key_vault_secret_id = "${azurerm_key_vault.main.vault_uri}secrets/newrelic-licence-key"
+```
+
+Container Apps resolves it under the runtime managed identity. CI never reads it.
 
 ---
 

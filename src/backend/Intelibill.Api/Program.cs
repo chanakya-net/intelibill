@@ -12,6 +12,7 @@ using Intelibill.Infrastructure;
 using Intelibill.Infrastructure.Extensions;
 using Scalar.AspNetCore;
 using Intelibill.Infrastructure.Options;
+using Intelibill.Infrastructure.Services.Auth;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -64,13 +65,12 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer();
 
 builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
-    .Configure<IOptions<JwtOptions>>((bearerOptions, jwtOptions) =>
+    .Configure<IOptions<JwtOptions>, IServiceProvider>((bearerOptions, jwtOptions, services) =>
     {
         var jwt = jwtOptions.Value;
         bearerOptions.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.Secret)),
             ValidateIssuer = true,
             ValidIssuer = jwt.Issuer,
             ValidateAudience = true,
@@ -78,6 +78,21 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
             ValidateLifetime = true,
             ClockSkew = TimeSpan.Zero,
         };
+
+        if (jwt.SigningMode == JwtSigningMode.KeyVault)
+        {
+            // Resolved per token rather than pinned, so a key version created by
+            // Key Vault's rotation policy is picked up without a redeploy and
+            // tokens signed by the previous version keep validating until they
+            // expire.
+            bearerOptions.TokenValidationParameters.IssuerSigningKeyResolver =
+                services.GetRequiredService<KeyVaultJwtValidationKeyProvider>().Resolve;
+        }
+        else
+        {
+            bearerOptions.TokenValidationParameters.IssuerSigningKey =
+                new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.Secret!));
+        }
 
         bearerOptions.Events = new JwtBearerEvents
         {

@@ -43,7 +43,7 @@ public sealed class CreateShopCommandHandler(
         await supplierRepository.AddAsync(Supplier.CreateUnknownSystemSupplier(shop.Id), cancellationToken);
 
         var (activeShopId, activeShopRole, shops) = AuthShopSelection.Resolve(user, shop.Id);
-        var (accessToken, accessTokenExpiry) = tokenService.GenerateAccessToken(user, activeShopId, activeShopRole);
+        var (accessToken, accessTokenExpiry) = await tokenService.GenerateAccessTokenAsync(user, activeShopId, activeShopRole, cancellationToken);
         var refreshToken = tokenService.CreateRefreshToken(user.Id);
 
         await refreshTokenRepository.AddAsync(refreshToken, cancellationToken);

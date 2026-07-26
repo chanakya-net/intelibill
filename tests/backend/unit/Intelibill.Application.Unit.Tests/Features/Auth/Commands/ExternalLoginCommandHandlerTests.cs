@@ -61,7 +61,7 @@ public class ExternalLoginCommandHandlerTests
         _userRepository.GetByExternalLoginAsync(command.Provider, userInfo.ProviderKey, Arg.Any<CancellationToken>()).Returns((User?)null);
         _userRepository.GetByEmailAsync(userInfo.Email!, Arg.Any<CancellationToken>()).Returns((User?)null);
 
-        _tokenService.GenerateAccessToken(Arg.Any<User>(), Arg.Any<Guid?>(), Arg.Any<string?>()).Returns(("accessToken", DateTimeOffset.UtcNow.AddMinutes(15)));
+        _tokenService.GenerateAccessTokenAsync(Arg.Any<User>(), Arg.Any<Guid?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns(("accessToken", DateTimeOffset.UtcNow.AddMinutes(15)));
         var refreshToken = Domain.Entities.RefreshToken.Create(Guid.NewGuid(), "refreshToken", DateTimeOffset.UtcNow.AddDays(7));
         _tokenService.CreateRefreshToken(Arg.Any<Guid>()).Returns(refreshToken);
 
@@ -83,7 +83,7 @@ public class ExternalLoginCommandHandlerTests
         _mockProvider.ValidateTokenAsync(command.Token, Arg.Any<CancellationToken>()).Returns(userInfo);
         _userRepository.GetByExternalLoginAsync(command.Provider, userInfo.ProviderKey, Arg.Any<CancellationToken>()).Returns(existingUser);
 
-        _tokenService.GenerateAccessToken(Arg.Any<User>(), Arg.Any<Guid?>(), Arg.Any<string?>()).Returns(("accessToken", DateTimeOffset.UtcNow.AddMinutes(15)));
+        _tokenService.GenerateAccessTokenAsync(Arg.Any<User>(), Arg.Any<Guid?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns(("accessToken", DateTimeOffset.UtcNow.AddMinutes(15)));
         var refreshToken = Domain.Entities.RefreshToken.Create(Guid.NewGuid(), "refreshToken", DateTimeOffset.UtcNow.AddDays(7));
         _tokenService.CreateRefreshToken(Arg.Any<Guid>()).Returns(refreshToken);
 
