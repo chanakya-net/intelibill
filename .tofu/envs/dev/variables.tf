@@ -25,3 +25,15 @@ variable "secret_officer_object_ids" {
   type        = list(string)
   default     = []
 }
+
+variable "bootstrap_image" {
+  description = "Digest-pinned bootstrap image; deployment pipelines later own workload image changes"
+  type        = string
+  default     = "ghcr.io/mendhak/http-https-echo@sha256:0fefe04350131d7bb28355e3bf037062643e45f4a8a32f23679529e1b09d8ce4"
+}
+
+variable "new_relic_api_key_secret_name" {
+  description = "Out-of-band Key Vault secret name, or null until the integration key exists"
+  type        = string
+  default     = null
+}

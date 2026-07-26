@@ -5,3 +5,6 @@ location        = "centralindia"
 // Object IDs that may write Key Vault secret values in Phase 9.
 // az ad signed-in-user show --query id -o tsv
 secret_officer_object_ids = ["00000000-0000-0000-0000-000000000000"]
+
+// Set only after the New Relic API key has been entered out of band.
+new_relic_api_key_secret_name = null
