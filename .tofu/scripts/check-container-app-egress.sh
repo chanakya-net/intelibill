@@ -126,7 +126,8 @@ if [[ -z "${advertised_file}" ]]; then
           --output json
       fi
 
-      jq -e 'type == "array"' "${lookup_file}" >/dev/null 2>&1 ||
+      jq -es 'length == 1 and (.[0] | type == "array")' \
+        "${lookup_file}" >/dev/null 2>&1 ||
         fail "Azure outbound-address lookup returned an invalid shape"
 
       jq -S \
@@ -203,9 +204,25 @@ advertised_count="$(
 ((advertised_count > 0)) ||
   fail "the selected environments advertise no outbound IPv4 addresses"
 
-if ! jq -eS 'if type == "array" then . else error("not an array") end' "${firewall_file}" \
+if ! jq -eSs \
+  '
+    if
+      length == 1 and
+      (.[0] | type == "array") and
+      all(
+        .[0][];
+        . as $rule |
+        ($rule | type == "object") and
+        ($rule.name | type == "string") and
+        ($rule.startIpAddress | type == "string") and
+        ($rule.endIpAddress | type == "string")
+      )
+    then .[0]
+    else error("invalid firewall rule array")
+    end
+  ' "${firewall_file}" \
   >"${work_dir}/firewall-normalized.json" 2>/dev/null; then
-  fail "firewall input must be a JSON array"
+  fail "firewall input must be a JSON array of string-valued rules"
 fi
 
 if ! jq -nS \
@@ -251,12 +268,14 @@ if ! jq -nS \
       ($rule.name | type == "string") and
       ($rule.name | startswith("container-apps-")) and
       (
-        (["dev", "prod"] - $environments) as $unselected |
-        all(
-          $unselected[];
+        if ($environments | length) == 2
+        then true
+        else any(
+          $environments[];
           . as $environment |
-          ($rule.name | startswith("container-apps-" + $environment + "-") | not)
+          ($rule.name | startswith("container-apps-" + $environment + "-"))
         )
+        end
       );
 
     def well_formed_managed:
@@ -299,13 +318,13 @@ if ! jq -nS \
           .endIpAddress == "0.0.0.0" or
           .endIpAddress == "255.255.255.255"
         ) |
-        (.name // "<unnamed>" | tostring)
+        .name
       ],
       malformed: [
         $firewall[] |
         select(relevant_managed) |
         select(well_formed_managed | not) |
-        (.name // "<unnamed>" | tostring)
+        .name
       ],
       stale: [
         $firewall[] |

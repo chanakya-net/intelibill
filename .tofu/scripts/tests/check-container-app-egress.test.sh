@@ -115,6 +115,55 @@ expect_success \
   "dev-only selection ignores prod managed rules" \
   "${CHECKER}" "${fixture_args[@]}" --environment dev
 
+cat >"${TEST_TMP}/firewall-unrelated-managed-prefix.json" <<'JSON'
+[
+  {
+    "name": "container-apps-dev-20-10-0-1",
+    "startIpAddress": "20.10.0.1",
+    "endIpAddress": "20.10.0.1"
+  },
+  {
+    "name": "container-apps-dev-20-10-0-2",
+    "startIpAddress": "20.10.0.2",
+    "endIpAddress": "20.10.0.2"
+  },
+  {
+    "name": "container-apps-dev-20-10-0-3",
+    "startIpAddress": "20.10.0.3",
+    "endIpAddress": "20.10.0.3"
+  },
+  {
+    "name": "container-apps-prod-20-20-0-1",
+    "startIpAddress": "20.20.0.1",
+    "endIpAddress": "20.20.0.1"
+  },
+  {
+    "name": "container-apps-stage-20-30-0-1",
+    "startIpAddress": "20.30.0.1",
+    "endIpAddress": "20.30.0.1"
+  }
+]
+JSON
+expect_success \
+  "dev-only selection ignores unrelated managed prefixes" \
+  "${CHECKER}" \
+  --advertised-file "${FIXTURES}/advertised-ok.json" \
+  --firewall-file "${TEST_TMP}/firewall-unrelated-managed-prefix.json" \
+  --environment dev
+
+expect_failure \
+  "full selection rejects unrelated managed prefixes" \
+  "${CHECKER}" \
+  --advertised-file "${FIXTURES}/advertised-ok.json" \
+  --firewall-file "${TEST_TMP}/firewall-unrelated-managed-prefix.json"
+
+expect_failure \
+  "dev-only selection still rejects broad operator rules" \
+  "${CHECKER}" \
+  --advertised-file "${FIXTURES}/advertised-ok.json" \
+  --firewall-file "${FIXTURES}/firewall-broad.json" \
+  --environment dev
+
 expect_failure \
   "invalid environment fails" \
   "${CHECKER}" "${fixture_args[@]}" --environment staging
@@ -142,57 +191,251 @@ expect_failure \
   --retained-file "${TEST_TMP}/retained-sentinel.json" \
   --firewall-file "${FIXTURES}/firewall-ok.json"
 
+cat >"${TEST_TMP}/firewall-empty-object.json" <<'JSON'
+[
+  {},
+  {
+    "name": "container-apps-dev-20-10-0-1",
+    "startIpAddress": "20.10.0.1",
+    "endIpAddress": "20.10.0.1"
+  },
+  {
+    "name": "container-apps-dev-20-10-0-2",
+    "startIpAddress": "20.10.0.2",
+    "endIpAddress": "20.10.0.2"
+  },
+  {
+    "name": "container-apps-dev-20-10-0-3",
+    "startIpAddress": "20.10.0.3",
+    "endIpAddress": "20.10.0.3"
+  },
+  {
+    "name": "container-apps-prod-20-20-0-1",
+    "startIpAddress": "20.20.0.1",
+    "endIpAddress": "20.20.0.1"
+  }
+]
+JSON
+expect_failure \
+  "firewall element cannot be an empty object" \
+  "${CHECKER}" \
+  --advertised-file "${FIXTURES}/advertised-ok.json" \
+  --firewall-file "${TEST_TMP}/firewall-empty-object.json"
+
+cat >"${TEST_TMP}/firewall-missing-field.json" <<'JSON'
+[
+  {
+    "name": "operator-missing-end",
+    "startIpAddress": "198.51.100.10"
+  },
+  {
+    "name": "container-apps-dev-20-10-0-1",
+    "startIpAddress": "20.10.0.1",
+    "endIpAddress": "20.10.0.1"
+  },
+  {
+    "name": "container-apps-dev-20-10-0-2",
+    "startIpAddress": "20.10.0.2",
+    "endIpAddress": "20.10.0.2"
+  },
+  {
+    "name": "container-apps-dev-20-10-0-3",
+    "startIpAddress": "20.10.0.3",
+    "endIpAddress": "20.10.0.3"
+  },
+  {
+    "name": "container-apps-prod-20-20-0-1",
+    "startIpAddress": "20.20.0.1",
+    "endIpAddress": "20.20.0.1"
+  }
+]
+JSON
+expect_failure \
+  "firewall element requires every address field" \
+  "${CHECKER}" \
+  --advertised-file "${FIXTURES}/advertised-ok.json" \
+  --firewall-file "${TEST_TMP}/firewall-missing-field.json"
+
+cat >"${TEST_TMP}/firewall-wrong-field-type.json" <<'JSON'
+[
+  {
+    "name": 42,
+    "startIpAddress": "198.51.100.10",
+    "endIpAddress": "198.51.100.10"
+  },
+  {
+    "name": "container-apps-dev-20-10-0-1",
+    "startIpAddress": "20.10.0.1",
+    "endIpAddress": "20.10.0.1"
+  },
+  {
+    "name": "container-apps-dev-20-10-0-2",
+    "startIpAddress": "20.10.0.2",
+    "endIpAddress": "20.10.0.2"
+  },
+  {
+    "name": "container-apps-dev-20-10-0-3",
+    "startIpAddress": "20.10.0.3",
+    "endIpAddress": "20.10.0.3"
+  },
+  {
+    "name": "container-apps-prod-20-20-0-1",
+    "startIpAddress": "20.20.0.1",
+    "endIpAddress": "20.20.0.1"
+  }
+]
+JSON
+expect_failure \
+  "firewall element fields must be strings" \
+  "${CHECKER}" \
+  --advertised-file "${FIXTURES}/advertised-ok.json" \
+  --firewall-file "${TEST_TMP}/firewall-wrong-field-type.json"
+
 mkdir "${TEST_TMP}/fake-bin"
 cat >"${TEST_TMP}/fake-bin/az" <<'SH'
 #!/usr/bin/env bash
 set -euo pipefail
-if [[ "${AZ_TEST_MODE:-success}" == "lookup-failure" && "$1 $2" == "containerapp show" ]]; then
-  printf 'sensitive lookup detail must not escape\n' >&2
-  exit 23
-fi
-if [[ "${AZ_TEST_MODE:-success}" == "non-array" && "$1 $2" == "containerapp job" ]]; then
-  printf '{"unexpected":"shape"}\n'
-  exit 0
-fi
-case "$1 $2" in
-  "containerapp show")
-    case " $* " in
-      *" intelibill-dev-api "*) printf '["20.10.0.1"]\n' ;;
-      *" intelibill-dev-web "*) printf '["20.10.0.2"]\n' ;;
-      *" intelibill-prod-api "*|*" intelibill-prod-web "*) printf '["20.20.0.1"]\n' ;;
-      *) exit 24 ;;
-    esac
-    ;;
-  "containerapp job")
-    case " $* " in
-      *" intelibill-dev-migrate "*) printf '["20.10.0.3"]\n' ;;
-      *" intelibill-prod-migrate "*) printf '["20.20.0.1"]\n' ;;
-      *) exit 24 ;;
-    esac
-    ;;
-  "postgres flexible-server")
+printf '%s\0' "$@" >>"${AZ_CALL_LOG:?}"
+printf '\n' >>"${AZ_CALL_LOG}"
+
+mode="${AZ_TEST_MODE:-success}"
+
+if (($# == 10)) &&
+  [[ "$1" == "containerapp" ]] &&
+  [[ "$2" == "show" ]] &&
+  [[ "$3" == "--name" ]] &&
+  [[ "$5" == "--resource-group" && "$6" == "intelibill-shared" ]] &&
+  [[ "$7" == "--query" && "$8" == "properties.outboundIpAddresses" ]] &&
+  [[ "$9" == "--output" && "${10}" == "json" ]]; then
+  if [[ "${mode}" == "lookup-failure" && "$4" == "intelibill-dev-api" ]]; then
+    printf 'sensitive lookup detail must not escape\n' >&2
+    exit 23
+  fi
+  case "$4" in
+    intelibill-dev-api) printf '["20.10.0.1"]\n' ;;
+    intelibill-dev-web) printf '["20.10.0.2"]\n' ;;
+    intelibill-prod-api|intelibill-prod-web) printf '["20.20.0.1"]\n' ;;
+    *) exit 24 ;;
+  esac
+elif (($# == 11)) &&
+  [[ "$1" == "containerapp" ]] &&
+  [[ "$2" == "job" && "$3" == "show" ]] &&
+  [[ "$4" == "--name" ]] &&
+  [[ "$6" == "--resource-group" && "$7" == "intelibill-shared" ]] &&
+  [[ "$8" == "--query" && "$9" == "properties.outboundIpAddresses" ]] &&
+  [[ "${10}" == "--output" && "${11}" == "json" ]]; then
+  if [[ "${mode}" == "non-array" && "$5" == "intelibill-dev-migrate" ]]; then
+    printf '{"unexpected":"shape"}\n'
+    exit 0
+  fi
+  if [[ "${mode}" == "workload-multiple-docs" && "$5" == "intelibill-dev-migrate" ]]; then
+    printf '["20.10.0.3"]\n["203.0.113.99"]\n'
+    exit 0
+  fi
+  case "$5" in
+    intelibill-dev-migrate) printf '["20.10.0.3"]\n' ;;
+    intelibill-prod-migrate) printf '["20.20.0.1"]\n' ;;
+    *) exit 24 ;;
+  esac
+elif (($# == 10)) &&
+  [[ "$1" == "postgres" ]] &&
+  [[ "$2" == "flexible-server" && "$3" == "firewall-rule" && "$4" == "list" ]] &&
+  [[ "$5" == "--resource-group" && "$6" == "intelibill-shared" ]] &&
+  [[ "$7" == "--name" && "$8" == "intelibill-pg-01" ]] &&
+  [[ "$9" == "--output" && "${10}" == "json" ]]; then
+  if [[ "${mode}" == "firewall-failure" ]]; then
+    printf 'sensitive firewall detail must not escape\n' >&2
+    exit 26
+  fi
+  if [[ "${mode}" == "firewall-non-array" ]]; then
+    printf '{"unexpected":"shape"}\n'
+    exit 0
+  fi
+  printf '%s\n' \
+    '[{"name":"container-apps-dev-20-10-0-1","startIpAddress":"20.10.0.1","endIpAddress":"20.10.0.1"},{"name":"container-apps-dev-20-10-0-2","startIpAddress":"20.10.0.2","endIpAddress":"20.10.0.2"},{"name":"container-apps-dev-20-10-0-3","startIpAddress":"20.10.0.3","endIpAddress":"20.10.0.3"},{"name":"container-apps-prod-20-20-0-1","startIpAddress":"20.20.0.1","endIpAddress":"20.20.0.1"}]'
+  if [[ "${mode}" == "firewall-multiple-docs" ]]; then
     printf '%s\n' \
-      '[{"name":"container-apps-dev-20-10-0-1","startIpAddress":"20.10.0.1","endIpAddress":"20.10.0.1"},{"name":"container-apps-dev-20-10-0-2","startIpAddress":"20.10.0.2","endIpAddress":"20.10.0.2"},{"name":"container-apps-dev-20-10-0-3","startIpAddress":"20.10.0.3","endIpAddress":"20.10.0.3"},{"name":"container-apps-prod-20-20-0-1","startIpAddress":"20.20.0.1","endIpAddress":"20.20.0.1"}]'
-    ;;
-  *) exit 25 ;;
-esac
+      '[{"name":"operator-anywhere","startIpAddress":"0.0.0.0","endIpAddress":"255.255.255.255"},{"name":"container-apps-legacy-198-51-100-7","startIpAddress":"198.51.100.7","endIpAddress":"198.51.100.7"}]'
+  fi
+else
+  printf 'unexpected Azure CLI arguments\n' >&2
+  exit 25
+fi
 SH
 chmod +x "${TEST_TMP}/fake-bin/az"
 
+AZ_CALL_LOG="${TEST_TMP}/az-calls"
+expect_az_call_count() {
+  local expected_count="$1"
+  local name="$2"
+  local actual_count
+  actual_count="$(wc -l <"${AZ_CALL_LOG}")"
+  [[ "${actual_count}" -eq "${expected_count}" ]] ||
+    fail "${name} (expected ${expected_count}, got ${actual_count})"
+  pass "${name}"
+}
+
+: >"${AZ_CALL_LOG}"
 expect_success \
   "live discovery unions api web and migration arrays" \
-  env PATH="${TEST_TMP}/fake-bin:${PATH}" "${CHECKER}"
+  env AZ_CALL_LOG="${AZ_CALL_LOG}" PATH="${TEST_TMP}/fake-bin:${PATH}" "${CHECKER}"
+expect_az_call_count 7 "full live discovery invokes exactly seven Azure CLI calls"
 
+: >"${AZ_CALL_LOG}"
+expect_success \
+  "dev-only live discovery limits workload lookups" \
+  env AZ_CALL_LOG="${AZ_CALL_LOG}" PATH="${TEST_TMP}/fake-bin:${PATH}" \
+  "${CHECKER}" --environment dev
+expect_az_call_count 4 "dev-only live discovery invokes exactly four Azure CLI calls"
+
+: >"${AZ_CALL_LOG}"
 expect_failure \
   "live lookup failure fails closed" \
-  env AZ_TEST_MODE=lookup-failure PATH="${TEST_TMP}/fake-bin:${PATH}" "${CHECKER}"
+  env AZ_TEST_MODE=lookup-failure AZ_CALL_LOG="${AZ_CALL_LOG}" \
+  PATH="${TEST_TMP}/fake-bin:${PATH}" "${CHECKER}"
+expect_az_call_count 1 "failed first workload lookup stops live discovery"
 if rg -q 'sensitive lookup detail' "${TEST_TMP}/stdout" "${TEST_TMP}/stderr"; then
   fail "live lookup failure redacts Azure CLI diagnostics"
 fi
 pass "live lookup failure redacts Azure CLI diagnostics"
 
+: >"${AZ_CALL_LOG}"
 expect_failure \
   "live non-array response fails closed" \
-  env AZ_TEST_MODE=non-array PATH="${TEST_TMP}/fake-bin:${PATH}" "${CHECKER}"
+  env AZ_TEST_MODE=non-array AZ_CALL_LOG="${AZ_CALL_LOG}" \
+  PATH="${TEST_TMP}/fake-bin:${PATH}" "${CHECKER}"
+expect_az_call_count 3 "non-array migration response stops live discovery"
+
+: >"${AZ_CALL_LOG}"
+expect_failure \
+  "live workload multiple JSON documents fail closed" \
+  env AZ_TEST_MODE=workload-multiple-docs AZ_CALL_LOG="${AZ_CALL_LOG}" \
+  PATH="${TEST_TMP}/fake-bin:${PATH}" "${CHECKER}"
+expect_az_call_count 3 "multiple-document migration response stops live discovery"
+
+: >"${AZ_CALL_LOG}"
+expect_failure \
+  "live firewall lookup failure fails closed" \
+  env AZ_TEST_MODE=firewall-failure AZ_CALL_LOG="${AZ_CALL_LOG}" \
+  PATH="${TEST_TMP}/fake-bin:${PATH}" "${CHECKER}"
+expect_az_call_count 7 "firewall lookup failure follows six workload lookups"
+if rg -q 'sensitive firewall detail' "${TEST_TMP}/stdout" "${TEST_TMP}/stderr"; then
+  fail "live firewall failure redacts Azure CLI diagnostics"
+fi
+pass "live firewall failure redacts Azure CLI diagnostics"
+
+: >"${AZ_CALL_LOG}"
+expect_failure \
+  "live firewall non-array response fails closed" \
+  env AZ_TEST_MODE=firewall-non-array AZ_CALL_LOG="${AZ_CALL_LOG}" \
+  PATH="${TEST_TMP}/fake-bin:${PATH}" "${CHECKER}"
+expect_az_call_count 7 "firewall non-array response follows six workload lookups"
+
+: >"${AZ_CALL_LOG}"
+expect_failure \
+  "live firewall multiple JSON documents fail closed" \
+  env AZ_TEST_MODE=firewall-multiple-docs AZ_CALL_LOG="${AZ_CALL_LOG}" \
+  PATH="${TEST_TMP}/fake-bin:${PATH}" "${CHECKER}"
+expect_az_call_count 7 "firewall multiple documents follow six workload lookups"
 
 printf '1..%d\n' "${pass_count}"
