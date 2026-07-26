@@ -21,7 +21,7 @@ This section supersedes conflicting examples later in the original runbook. The 
 | 5 Shared infrastructure | Incorrect as written | Prefer public GHCR; ~~use separate DB servers~~ **overridden: one shared server, see [decision §8](infrastructure-decisions.md#8-one-shared-postgresql-server-two-databases)**; add PostgreSQL `tenant_id`; ~~choose public-firewall exception or private production network~~ **locked: public** | DB `$16.09/month` lean; optional ACR `+$5.07` |
 | 6 DNS | Operationally risky | **⏸ DEFERRED to ~2026-08-25.** When resumed: inventory/copy all DNS and DNSSEC records before delegation, or keep current authoritative DNS and add only app records | `$0` while deferred; Azure DNS `$0.50/month` + queries later |
 | 7 Database bootstrap | Topology and network dependent | Bootstrap each server independently; create Entra principals, default privileges, cache table, and isolation/RLS tests. Run from a routed in-Azure job for private DB | no separate service fee |
-| 8 Application changes | Materially incomplete | Complete every gate in [architecture §6](infrastructure-architecture.md#6-application-production-contract), including migrations, web routing, health, CORS/proxy, SignalR, OAuth state, cache, and secrets | engineering effort |
+| 8 Application changes | ✅ **Applied 2026-07-26** — see [status](#status--2026-07-26) | Complete every gate in [architecture §6](infrastructure-architecture.md#6-application-production-contract), including migrations, web routing, health, CORS/proxy, SignalR, OAuth state, cache, and secrets | engineering effort |
 | 9 Secret values | Sequenced before the vault exists | First create vault/identity/RBAC; then add different per-env values. Never read values through an OpenTofu data source | Key Vault `<$0.10/month` expected |
 | 10 Environment infrastructure | Incomplete HCL | Add ingress/target ports, complete configuration, versionless Key Vault URIs, probes, network path, web app, and migration job. API max replicas is 1 initially | Container Apps about `$10–34/month` prod at assumed hours |
 | 11 Pipelines | Incomplete and unsafe | Build both images once, dev then prod sequentially; tests/scans; migration job; smoke tests; digest rollback. Routine deploy identity must not be a broad infra identity | Actions `$0` for standard public-repo runners |
@@ -1265,6 +1265,35 @@ Before provisioning apps, also complete these source-level gates:
 - standardise API port `8080`, pin both Docker runtimes, match the frontend Node engine, test the Bun/Node SSR command, and run both containers as non-root;
 - rotate/remove/scrub the committed SMTP credential before deployment.
 
+### Status — 2026-07-26
+
+Applied on `infra-setup`. Every gate above is done except the four recorded as deferred below.
+
+| Gate | Where |
+|---|---|
+| Startup migrations removed; schema owned by the migration job | `Program.cs`; local setup is `dotnet ef database update` |
+| Entra token auth, one shared `NpgsqlDataSource`, `MaxPoolSize` 12, `SslMode.Require` | `NpgsqlDataSourceFactory`, `DatabaseOptions`, `DatabaseOptionsValidator` |
+| `cache_entries` created by migration, `CreateIfNotExists=false` | `20260726120000_AddDistributedCacheTable`; DDL copied from the caching library, verified identical against a fresh database |
+| `/health/live` and `/health/ready`, both excluded from HTTPS redirection | `EdgeExtensions`, `PostgresHealthCheck` |
+| Forwarded headers and exact CORS origins, both configuration-driven | `EdgeExtensions`, `ProxyOptions`, `CorsOptions` |
+| Relative `/api` and `/hubs`, proxied by SSR to `API_ORIGIN` | `environment.prod.ts`, `server.ts` |
+| `ProductHub` authenticated and grouped by shop; hub-path-only query bearer token | `ProductHub`, `SignalRProductHubNotifier`, `Program.cs` |
+| OAuth state in the distributed cache | `DistributedExternalOAuthStateStore` |
+| Port `8080`, digest-pinned bases, non-root, Node 24 | both `Dockerfile`s, `docker-compose.yml` |
+| Mobile release `API_BASE_URL` required | `tool/build-release.sh`, `AppConfig` |
+
+Two corrections to the gate list above, both found by testing rather than reading:
+
+- **The SSR server cannot run on Bun.** Proxying a WebSocket upgrade means hijacking the raw socket, and under Bun the handshake returns nothing, so every SignalR connection through the proxy fails. Node answers `101` on the same bundle. The runtime image is Node; Bun still installs and builds.
+- **`Proxy:ForwardLimit` is 2 in deployed environments, not 1.** Ingress and the SSR proxy are two hops.
+
+Deferred, each for a stated reason:
+
+- **Azure SignalR or a backplane** — needed only above one API replica, which is outstanding decision 3.
+- **Atomic rate limiting** — the limiter is still a distributed-cache read/modify/write. Deprioritised by the owner.
+- **Key Vault and observability values** — Phase 9 and Phase 10, not source changes.
+- **SMTP credential rotation** — the audit called it committed; it is not. `appsettings.Development.json` is gitignored and the value appears nowhere in history (`git log --all -S`), so there is no history to scrub. Rotating it is still worth doing, since it sat in plaintext locally, but that is an account action rather than a code change.
+
 ### 8.1 Make `Password` optional
 
 `src/backend/Intelibill.Infrastructure/Options/DatabaseOptions.cs` currently marks `Password` as `[Required]` and concatenates it into the connection string. Under Entra auth there is no password. Drop `[Required]`, and add the pool setting:
@@ -1810,5 +1839,5 @@ Work through all of these before calling it done.
 2. **⏸ Domain and registrar access — deferred 2026-07-26, revisit around 2026-08-25.** Phases 6 and 12 are parked; nothing else depends on them. Applications run on Container Apps `*.azurecontainerapps.io` hostnames until then. When resumed, remember the mobile `API_BASE_URL`, web `API_ORIGIN`, CORS origins, and OAuth redirect URIs all move with the hostname.
 3. Confirm launch is one API replica, or fund the SignalR/distributed-state/rate-limit changes plus Azure SignalR/backplane.
 4. Confirm the actual business timezone and warm-hours availability target.
-5. Add the existing Flutter `API_BASE_URL` `--dart-define` to release builds.
+5. ~~Add the existing Flutter `API_BASE_URL` `--dart-define` to release builds.~~ **Done (Phase 8).** `tool/build-release.sh` requires it and rejects a non-https value; `AppConfig` repeats both checks at startup so an APK built another way fails visibly instead of appearing offline.
 6. Treat the migration tree, not stale repository summaries, as the migration source of truth.
