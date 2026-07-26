@@ -33,9 +33,9 @@ Use two environments, each with an Angular SSR web container and an ASP.NET Core
 
 - Keep OpenTofu state in an Azure Storage account using Entra data-plane authentication.
 - Because the repository is public, use public GHCR by default: GitHub documents public packages as free and anonymous pulls require no stored credential. ACR Basic remains an optional Azure-local private registry for about $5.07/month.
-- Use a PostgreSQL Flexible Server per environment. This prevents development load, maintenance, and point-in-time recovery from affecting production.
-- For a controlled lean launch, use B1ms for each database and cap the API at one replica. Move production to B2s or General Purpose only after measuring CPU credits, connections, and latency.
-- For real customer data, prefer a production Container Apps environment integrated with a custom VNet and PostgreSQL private access. Public access with tightly controlled outbound IP rules is a lower-cost launch exception, not the preferred end state.
+- ~~Use a PostgreSQL Flexible Server per environment.~~ **Overridden on cost:** one shared server with a database per environment, accepting that development load, maintenance windows, point-in-time recovery, and CPU credits are shared, and that dev/prod separation rests on in-database grants — [decision §8](infrastructure-decisions.md#8-one-shared-postgresql-server-two-databases).
+- For a controlled lean launch, use one B1ms for the shared server and cap the API at one replica. Note that both environments then draw from a single server's connection limit. Moving to B2s erases the sharing saving, at which point separate servers are the better trade.
+- ~~For real customer data, prefer a production Container Apps environment integrated with a custom VNet and PostgreSQL private access.~~ **Locked to public access** with a narrow firewall allowlist, on cost. This is the lower-cost launch exception rather than the preferred end state; it is defensible here only because Entra-only authentication means no database password exists to guess.
 - Use the application's existing OpenTelemetry pipeline to export traces/logs; do not install the New Relic .NET agent as a second instrumentation stack.
 
 ```
@@ -108,7 +108,7 @@ Use separate identities for separate duties:
 | Identity | Minimum scope |
 |---|---|
 | plan | Reader on every planned resource plus `Storage Blob Data Reader` on its state container |
-| infrastructure apply | Contributor on owned resource groups; role-assignment rights only at scopes where the module creates assignments |
+| infrastructure apply | Contributor + RBAC Administrator on the single resource group. One group means one blast radius: "create" cannot be scoped below group level, so this cannot be narrowed without splitting the group — [decision §19](infrastructure-decisions.md#19-one-resource-group-for-everything) |
 | deploy | Push image if using ACR, update Container Apps, start migration job; no general resource creation |
 | application runtime | Key Vault secret read; optional registry pull; database DML only |
 | migrator | Database DDL/DML for its environment only |
@@ -205,7 +205,7 @@ Use this dependency order:
 2. Grant state blob data-plane roles; migrate state and verify locking/versioning.
 3. Create narrowly scoped plan/apply/deploy identities and OIDC federated credentials.
 4. Configure GitHub `dev` and `prod` environments, required reviewers, concurrency locks, and non-secret IDs.
-5. Provision registry choice, DNS records, and the two PostgreSQL servers. For private production, provision the VNet/private DNS/Container Apps environment before database bootstrap.
+5. Provision registry choice, DNS records, and one shared PostgreSQL server with a database per environment ([decision §8](infrastructure-decisions.md#8-one-shared-postgresql-server-two-databases)). The public-network path is locked in, so there is no VNet or private DNS to provision.
 6. Create environment Key Vaults and runtime/migrator identities with RBAC and purge protection.
 7. Add secret values out of band. Do not read their values through an OpenTofu data source: sensitive data sources are still persisted in state. Construct versionless URIs as `${vault_uri}secrets/<name>` and let Container Apps resolve them.
 8. Bootstrap database principals, revoke inappropriate public access, create the cache table, and test cross-environment denial and RLS.
@@ -283,6 +283,7 @@ Container Apps example: two 0.5-vCPU/1-GiB replicas for 365 hours use 1,314,000 
 | Scenario | Included assumptions | Monthly total |
 |---|---|---:|
 | **Lean controlled launch** | separate dev/prod B1ms; public GHCR; API max 1; business-hours mostly-idle prod; light dev; DNS/KV/state; `<5 GB` logs | **about $43.40 + egress/external services** |
+| **As actually built** | **one shared** B1ms (−$16.09 against the row above); public GHCR; public DB access; API max 1; no DNS zone yet | **about $27 at East US rates — re-price for `centralindia`** |
 | Lean launch with ACR | lean scenario plus ACR Basic | **about $48.50 + variable usage** |
 | **Scale-ready, public DB access** | prod B2s + dev B1ms; Azure SignalR Standard; business-hours containers; public GHCR | **about $130/month + variable usage** |
 | **Scale-ready, private production network** | scale-ready scenario plus production custom VNet/private DNS fixed resources | **about $152–156/month + variable usage** |

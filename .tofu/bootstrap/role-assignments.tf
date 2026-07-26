@@ -5,51 +5,38 @@ data "azurerm_subscription" "current" {}
 # `Microsoft.Authorization/roleAssignments/write`, and neither Reader nor Contributor
 # grants blob *data* access. Every scope below is therefore granted explicitly.
 
-# --- Infrastructure apply: environment layers -------------------------------
-resource "azurerm_role_assignment" "infra_apply_env" {
-  for_each             = azurerm_resource_group.env
-  scope                = each.value.id
-  role_definition_name = "Contributor"
-  principal_id         = azurerm_user_assigned_identity.infra_apply[each.key].principal_id
-}
-
-# Needed because the environment layer creates its own role assignments (app
-# identity to Key Vault, migrator to the job). The role name must be exact —
-# Tofu resolves `role_definition_name` by literal match.
-resource "azurerm_role_assignment" "infra_apply_env_rbac" {
-  for_each             = azurerm_resource_group.env
-  scope                = each.value.id
-  role_definition_name = "Role Based Access Control Administrator"
-  principal_id         = azurerm_user_assigned_identity.infra_apply[each.key].principal_id
-}
-
-resource "azurerm_role_assignment" "infra_apply_env_state" {
-  for_each             = azurerm_resource_group.env
-  scope                = azurerm_storage_container.state[each.key].id
-  role_definition_name = "Storage Blob Data Contributor"
-  principal_id         = azurerm_user_assigned_identity.infra_apply[each.key].principal_id
-}
-
-# --- Infrastructure apply: shared layer -------------------------------------
-# Scoped to the shared resource group only. The environment identities get no
-# rights here: an environment apply that needs something shared is a signal that
-# the resource belongs in the shared layer, not that this grant should widen.
-resource "azurerm_role_assignment" "infra_apply_shared" {
+# --- Infrastructure apply ---------------------------------------------------
+# Everything lives in one resource group, so this is the whole estate. Creating
+# resources requires write at group scope — it cannot be narrowed to resources
+# that do not exist yet — which is why a single group means a single blast radius.
+resource "azurerm_role_assignment" "infra_apply" {
   scope                = azurerm_resource_group.shared.id
   role_definition_name = "Contributor"
-  principal_id         = azurerm_user_assigned_identity.infra_apply_shared.principal_id
+  principal_id         = azurerm_user_assigned_identity.infra_apply.principal_id
 }
 
-resource "azurerm_role_assignment" "infra_apply_shared_state" {
-  scope                = azurerm_storage_container.state["shared"].id
+# Needed because the environment layers create their own role assignments
+# (app identity to Key Vault, migrator to the job).
+resource "azurerm_role_assignment" "infra_apply_rbac" {
+  scope                = azurerm_resource_group.shared.id
+  role_definition_name = "Role Based Access Control Administrator"
+  principal_id         = azurerm_user_assigned_identity.infra_apply.principal_id
+}
+
+# One identity applies all three layers, so it needs write on all three state
+# containers. The containers remain separate to keep a mistaken backend `key`
+# from landing in the wrong layer, but they no longer isolate dev from prod:
+# that isolation left with the per-environment identities.
+resource "azurerm_role_assignment" "infra_apply_state" {
+  for_each             = local.state_layers
+  scope                = azurerm_storage_container.state[each.key].id
   role_definition_name = "Storage Blob Data Contributor"
-  principal_id         = azurerm_user_assigned_identity.infra_apply_shared.principal_id
+  principal_id         = azurerm_user_assigned_identity.infra_apply.principal_id
 }
 
 # --- Plan: read-only --------------------------------------------------------
 resource "azurerm_role_assignment" "plan_reader" {
-  for_each             = merge(azurerm_resource_group.env, { shared = azurerm_resource_group.shared })
-  scope                = each.value.id
+  scope                = azurerm_resource_group.shared.id
   role_definition_name = "Reader"
   principal_id         = azurerm_user_assigned_identity.plan.principal_id
 }
@@ -90,11 +77,14 @@ resource "azurerm_role_definition" "container_app_deployer" {
   assignable_scopes = [data.azurerm_subscription.current.id]
 }
 
-# Assigned at resource-group scope, so the Container Apps created in Phase 10
-# inherit it without a second bootstrap pass.
+# TEMPORARY SCOPE. Group scope means the dev deploy identity can currently update
+# production's Container App, because both live in this one group. Phase 10.2
+# re-assigns each deploy identity at its own Container App resource and this
+# assignment is removed — deploy only ever updates existing resources, so unlike
+# infrastructure apply it does not need group-level write.
 resource "azurerm_role_assignment" "deploy" {
-  for_each           = azurerm_resource_group.env
-  scope              = each.value.id
+  for_each           = local.environments
+  scope              = azurerm_resource_group.shared.id
   role_definition_id = azurerm_role_definition.container_app_deployer.role_definition_resource_id
   principal_id       = azurerm_user_assigned_identity.deploy[each.key].principal_id
 }

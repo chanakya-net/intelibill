@@ -14,7 +14,8 @@ The original decisions remain below as useful history, but the following amendme
 |---|---|---|
 | §5 ACR over GHCR | **Public GHCR by default; ACR optional** | The repository itself is public. Public GHCR can be pulled anonymously and current public-package storage/bandwidth is free; the original proprietary-code and private-quota arguments do not apply. |
 | §7 secret URI through a data source | **Out-of-band value, URI constructed without reading the data source** | A Key Vault secret data source exposes `value`, which is persisted in OpenTofu state even if marked sensitive. Use the known vault URI and secret name. |
-| §8 one shared database server | **One server per environment** | Current East US B1ms + 32 GB is $16.09/month; two are $32.18. Independent recovery, maintenance, CPU credits, and access control justify the cost. |
+| §8 one shared database server | ~~One server per environment~~ → **reverted to one shared server, two databases** (2026-07-26) | The audit's separate-server recommendation was overridden on cost: at one B1ms per environment the split is ~$16/month for isolation the project is willing to enforce with grants instead. The audit's own counter-argument assumed a B2s resize that has not happened. See §8 for the risks now accepted and the controls that replace topology. |
+| §3 per-environment apply identities | **One `id-gha-infra-apply` for all layers** (2026-07-26) | Follows from [§19](#19-one-resource-group-for-everything). With one resource group, per-environment apply identities hold identical Contributor rights over it, so separate identities would imply a boundary that does not exist. Deploy identities stay separate because they only update existing resources and can be scoped to them. |
 | §9 unconditional B2s | **B1ms for a one-replica controlled launch; resize from measurements** | B2s + 32 GB is currently $53.32/month, not $28. The application cannot safely run five API replicas until its SignalR, OAuth state, and rate limiting are fixed. |
 | §13 ten-minute keep-warm | **Timezone-correct interval shorter than five minutes, or min replica 1** | Container Apps schedules use UTC and the default scale-down cooldown is 300 seconds. The proposed cron was neither IST business hours nor frequent enough to keep a replica warm. `/health` does not yet exist. |
 | §15 New Relic .NET agent | **Keep the existing OpenTelemetry/OTLP path** | The API already registers OpenTelemetry and an OTLP exporter. Adding an agent duplicates instrumentation and telemetry. |
@@ -219,26 +220,36 @@ Referencing by `data` source means state holds a vault URI, which is not a secre
 
 ## 8. One shared PostgreSQL server, two databases
 
-> **Superseded by the 2026-07-25 audit.** Provision separate servers before the first production write.
+> **Reinstated 2026-07-26, after the 2026-07-25 audit had superseded it.** The audit recommended separate servers; that was overridden on cost. Implemented as `intelibill-pg-01` in `centralindia` with databases `intelibill_dev` and `intelibill_prod`.
 
 **Context.** Two environments need PostgreSQL. Two B1ms servers cost roughly $32/month, against roughly $16 for one.
 
-**Decision.** One shared server, one database per environment. **Flagged for review** — see below.
+**Decision.** One shared server, one database per environment.
 
-**Why.** Chosen to save approximately $16/month when the alternative was two B1ms servers.
+**Why.** Saves approximately $16/month. The audit's counter-argument assumed decision §9's B2s resize, which reduced the saving to ~$4 and made splitting obviously correct — but the API is staying at one replica and B1ms for the controlled launch, so **the full ~$16 saving does apply today**. The trade is real and was accepted with the risks below in view.
 
-**The saving did not survive.** Decision §9 sizes the shared server up to B2s to clear a connection-count ceiling, bringing it to roughly $28/month against roughly $32 for two separate B1ms servers. **The actual saving is now about $4/month.**
-
-**What that $4 costs.**
+**What the saving costs.**
 
 - *Point-in-time restore is server-wide.* Restoring production to an earlier point also rewinds dev. Recovering one database alone means restoring to a new server, then `pg_dump`/`pg_restore` across — during an incident, under pressure.
 - *Isolation is a `GRANT` away from failing.* PostgreSQL grants `CONNECT` to `PUBLIC` on every new database by default. Without the explicit `REVOKE CONNECT ... FROM PUBLIC`, the dev role can open the production database. One missing statement, no error, silent exposure.
 - *Resource contention is shared.* A runaway dev query consumes IOPS and memory the production workload needs. Burstable SKUs make this worse: exhausting the CPU credit balance throttles everything on the server.
 - *Maintenance windows are shared.* Server restarts hit both environments.
 
-**Recommendation.** Revisit. At a $4/month delta, separate servers are the better trade — independent restore, independent blast radius, and no dependency on one `REVOKE` statement being correct. This decision is recorded as chosen but not endorsed.
+**What replaces the missing topology.** Since isolation is now grant-based, these are not optional:
 
-**Reversing.** Cheap if done before production data exists: provision a second server, point dev at it. After that it is a migration. **Decide before the first production write.**
+- `REVOKE CONNECT ... FROM PUBLIC` on **both** databases, plus explicit `REVOKE ALL` of each environment's principals from the other's database — implementation guide 7.4.
+- No principal created with `isAdmin = true`. A server admin reaches both databases regardless of `CONNECT` grants.
+- The four-way `has_database_privilege` check in 7.5, re-run after **every** grant change, not only at bootstrap. The two expected `false` results are the boundary.
+- Firewall rules kept minimal, remembering that every rule admits traffic to the production database too — including the temporary migration rule added while deploying dev.
+- Backup retention set to production's requirement (14 days) because it is a per-server setting.
+
+**Revisit when any of these happen.** The economics or the risk changes materially:
+
+- **Resizing to B2s** — two B1ms servers then cost less than one B2s, and the cost argument for sharing disappears entirely.
+- **Connection pressure** — both environments draw from one server's connection limit, which is low on B1ms.
+- **First real customer data**, where a server-wide point-in-time restore stops being an acceptable recovery story.
+
+**Reversing.** Cheap while the databases are empty: add a second server and point dev at it. After production data exists it is a migration with downtime. The decision is revisitable but not free — **the cheap window is now.**
 
 ---
 
@@ -440,6 +451,32 @@ This is defence in depth rather than a response to a known flaw. It costs a few 
 **Interaction with RLS.** Existing migrations use `FORCE ROW LEVEL SECURITY`, so policies apply even to the table owner. This matters specifically on Flexible Server, where there is no superuser and the migrator identity typically owns the tables it creates — under `ENABLE` alone, RLS would be silently bypassed for the owner. The existing choice of `FORCE` is correct and must be preserved in future migrations.
 
 **Costs.** Two more identities per environment, and migrations must run under the right one. Ownership of newly created objects needs attention so the runtime identity retains access to tables the migrator creates — handled by `ALTER DEFAULT PRIVILEGES`.
+
+---
+
+## 19. One resource group for everything
+
+*Added 2026-07-26, replacing the per-environment resource groups created in bootstrap.*
+
+**Context.** Bootstrap originally created `intelibill-shared`, `intelibill-dev`, and `intelibill-prod`. Three groups for one small system is three places to look, and the portal view was the stated problem.
+
+**Decision.** One group, `intelibill-shared`, holds every resource. The two environment groups were destroyed. The name is inherited — Azure cannot rename a resource group, and relocating the state storage account to a better-named group was judged riskier than living with the name.
+
+**What it costs.** Creating a resource requires write permission at group scope; "create" cannot be scoped to a resource that does not yet exist. So every apply identity must hold Contributor over the group holding production. Per-environment apply identities would have had *identical* rights — a boundary in name only — which is why they were collapsed into one `id-gha-infra-apply` (see the amendment table). Concretely:
+
+- an apply reached through the **dev** gate holds Contributor and RBAC Administrator over production's Container Apps, Key Vault, and the database server;
+- one apply identity needs blob data Contributor on all three state containers, so state is no longer isolated per layer either;
+- `deploy_dev` can update production's Container App until Phase 10.2 narrows both deploy identities to individual app resources.
+
+**What still separates the environments.**
+
+- The **reviewer gate** on the `prod` and `shared` GitHub environments. With the Azure layer flattened, this is the primary control, which makes `infra-apply.yml` and the environment protection rules security-relevant code.
+- The **database grants** in implementation guide 7.4, and the four-way check in 7.5.
+- The **deploy identities**, once re-scoped to app resources in 10.2. Deploy never creates, so unlike apply it can be narrowed properly.
+
+**Why this is defensible at this stage.** One maintainer, one subscription, no production data yet, and every path to production still passes a human approval. It would not be defensible with several engineers merging concurrently, or under a compliance regime requiring environment separation.
+
+**Revisit when** a second engineer can merge to `main`, when real customer data lands, or if an apply ever damages production through the dev gate. Reversing means recreating the environment groups, moving resources, and re-splitting the apply identity — cheap now, a migration later.
 
 ---
 

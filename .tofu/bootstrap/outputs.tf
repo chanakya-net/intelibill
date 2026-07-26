@@ -7,14 +7,9 @@ output "plan_client_id" {
   value       = azurerm_user_assigned_identity.plan.client_id
 }
 
-output "infra_apply_shared_client_id" {
-  description = "Client ID for the shared-layer infrastructure apply identity"
-  value       = azurerm_user_assigned_identity.infra_apply_shared.client_id
-}
-
-output "infra_apply_client_ids" {
-  description = "Client IDs for the per-environment infrastructure apply identities"
-  value       = { for env, id in azurerm_user_assigned_identity.infra_apply : env => id.client_id }
+output "infra_apply_client_id" {
+  description = "Client ID for the infrastructure apply identity, used by every layer"
+  value       = azurerm_user_assigned_identity.infra_apply.client_id
 }
 
 output "deploy_client_ids" {
@@ -27,12 +22,16 @@ output "principal_ids" {
   description = "Principal IDs of every GitHub-facing identity, keyed by purpose"
   value = merge(
     {
-      plan               = azurerm_user_assigned_identity.plan.principal_id
-      infra_apply_shared = azurerm_user_assigned_identity.infra_apply_shared.principal_id
+      plan        = azurerm_user_assigned_identity.plan.principal_id
+      infra_apply = azurerm_user_assigned_identity.infra_apply.principal_id
     },
-    { for env, id in azurerm_user_assigned_identity.infra_apply : "infra_apply_${env}" => id.principal_id },
     { for env, id in azurerm_user_assigned_identity.deploy : "deploy_${env}" => id.principal_id },
   )
+}
+
+output "resource_group_name" {
+  description = "The single resource group holding every resource"
+  value       = azurerm_resource_group.shared.name
 }
 
 output "state_containers" {

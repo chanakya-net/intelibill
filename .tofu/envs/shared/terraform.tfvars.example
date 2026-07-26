@@ -1,0 +1,29 @@
+// Copy to terraform.tfvars and fill in. That file is gitignored.
+
+// az account show --query "{id:id, tenant:tenantId}" -o tsv
+subscription_id = "00000000-0000-0000-0000-000000000000"
+tenant_id       = "00000000-0000-0000-0000-000000000000"
+
+resource_group_name = "intelibill-shared"
+
+// southindia and eastus are offer-restricted for this subscription; PostgreSQL
+// creation fails there. Check a candidate region first:
+//   az rest --method get --url "https://management.azure.com/subscriptions/$SUB\
+//     /providers/Microsoft.DBforPostgreSQL/locations/<loc>/capabilities?api-version=2024-08-01" \
+//     --query "value[0].reason" -o tsv
+location = "centralindia"
+
+// Public-network launch exception. Add the Container Apps outbound IPs after
+// Phase 10, and nothing else. Migration IPs are added and removed inside the
+// workflow run that needs them, not here.
+//
+// dev_allowed_ip_rules = {
+//   containerapps-dev = { start_ip = "20.0.0.1", end_ip = "20.0.0.1" }
+// }
+
+// Leave unset until the domain and registrar access are confirmed.
+// domain_name = "example.com"
+
+// az ad signed-in-user show --query "{oid:id, upn:userPrincipalName}" -o tsv
+admin_object_id      = "00000000-0000-0000-0000-000000000000"
+admin_principal_name = "you@example.com"
