@@ -133,7 +133,14 @@ builder.Services.AddAuthorization(options =>
 });
 
 // ── Wolverine ─────────────────────────────────────────────────────────────────
-builder.Services.AddWolverine(opts =>
+// ExtensionDiscovery.ManualOnly: automatic discovery probes every file in the
+// output directory for [WolverineModule], including the Windows native binaries
+// that QuestPDF and SkiaSharp ship (runtimes/win-*/native/*.dll), and logs a
+// banner for each one it cannot load. Nothing here relies on a discovered
+// extension — FluentValidation and HTTP are both registered explicitly below and
+// in AddWolverineHttp — so the scan produced noise and startup delay and no
+// behaviour.
+builder.Services.AddWolverine(ExtensionDiscovery.ManualOnly, opts =>
 {
     opts.Discovery.IncludeAssembly(typeof(Intelibill.Application.DependencyInjection).Assembly);
     opts.UseFluentValidation(RegistrationBehavior.ExplicitRegistration);
