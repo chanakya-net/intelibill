@@ -1,0 +1,606 @@
+name: Application Release
+
+"on":
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/scripts/**
+      - .github/workflows/deploy.yml
+      - src/backend/**
+      - src/frontend/**
+      - tests/backend/**
+      - Directory.Build.props
+      - Directory.Packages.props
+      - global.json
+  push:
+    branches:
+      - main
+    paths:
+      - .github/scripts/**
+      - .github/workflows/deploy.yml
+      - src/backend/**
+      - src/frontend/**
+      - tests/backend/**
+      - Directory.Build.props
+      - Directory.Packages.props
+      - global.json
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Publish images only, release dev, or promote through production
+        required: true
+        default: dev
+        type: choice
+        options:
+          - publish
+          - dev
+          - prod
+
+permissions:
+  contents: read
+
+concurrency:
+  group: >-
+    application-release-${{
+      github.event_name == 'pull_request' &&
+      format('pr-{0}', github.event.pull_request.number) ||
+      'main'
+    }}
+  cancel-in-progress: false
+
+env:
+  API_IMAGE: ghcr.io/chanakya-net/intelibill/api
+  WEB_IMAGE: ghcr.io/chanakya-net/intelibill/web
+  MIGRATE_IMAGE: ghcr.io/chanakya-net/intelibill/migrate
+  RESOURCE_GROUP: intelibill-shared
+
+jobs:
+  validate:
+    name: Build and test application
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Test delivery helpers and workflow contracts
+        run: |
+          .github/scripts/tests/wait-for-container-app-job.test.sh
+          .github/scripts/tests/wait-for-container-app-revisions.test.sh
+          .github/scripts/tests/validate-phase-11-workflows.test.sh
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+        with:
+          global-json-file: global.json
+
+      - name: Restore backend
+        run: dotnet restore src/backend/Intelibill.slnx
+
+      - name: Build backend
+        run: dotnet build src/backend/Intelibill.slnx --configuration Release --no-restore
+
+      - name: Test backend
+        run: dotnet test src/backend/Intelibill.slnx --configuration Release --no-build --verbosity normal
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.3.11
+
+      - name: Install frontend dependencies
+        working-directory: src/frontend
+        run: bun install --frozen-lockfile
+
+      - name: Build frontend
+        working-directory: src/frontend
+        run: bun run build
+
+      - name: Test frontend
+        working-directory: src/frontend
+        run: CI=true bun run test --watch=false
+
+      - name: Build pull-request API image
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          docker build \
+            --file src/backend/Dockerfile \
+            --tag "intelibill-api-pr:${GITHUB_SHA}" \
+            .
+
+      - name: Build pull-request web image
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          docker build \
+            --file src/frontend/Dockerfile \
+            --tag "intelibill-web-pr:${GITHUB_SHA}" \
+            .
+
+      - name: Build pull-request migration image
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          docker build \
+            --file src/backend/Dockerfile.migrate \
+            --tag "intelibill-migrate-pr:${GITHUB_SHA}" \
+            .
+
+      - name: Scan pull-request API image
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        with:
+          image-ref: intelibill-api-pr:${{ github.sha }}
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+
+      - name: Scan pull-request web image
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        with:
+          image-ref: intelibill-web-pr:${{ github.sha }}
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+
+      - name: Scan pull-request migration image
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        with:
+          image-ref: intelibill-migrate-pr:${{ github.sha }}
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+
+  build:
+    name: Build, publish, and scan images
+    needs: validate
+    if: ${{ github.event_name != 'pull_request' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      api-image: ${{ steps.references.outputs.api-image }}
+      web-image: ${{ steps.references.outputs.web-image }}
+      migrate-image: ${{ steps.references.outputs.migrate-image }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Login to GHCR
+        uses: docker/login-action@abd2ef45e78c5afb21d64d4ca52ee8550d9572c7 # v4.5.1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Build and push API
+        id: api
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          file: src/backend/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.API_IMAGE }}:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+          provenance: mode=max
+          sbom: true
+
+      - name: Build and push web
+        id: web
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          file: src/frontend/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.WEB_IMAGE }}:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+          provenance: mode=max
+          sbom: true
+
+      - name: Build and push migration bundle
+        id: migrate
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          file: src/backend/Dockerfile.migrate
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.MIGRATE_IMAGE }}:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=migrate
+          cache-to: type=gha,mode=max,scope=migrate
+          provenance: mode=max
+          sbom: true
+
+      - name: Capture immutable image references
+        id: references
+        env:
+          API_DIGEST: ${{ steps.api.outputs.digest }}
+          WEB_DIGEST: ${{ steps.web.outputs.digest }}
+          MIGRATE_DIGEST: ${{ steps.migrate.outputs.digest }}
+        run: |
+          set -euo pipefail
+          digest_pattern='^sha256:[0-9a-f]{64}$'
+          for digest_name in API_DIGEST WEB_DIGEST MIGRATE_DIGEST; do
+            if [[ ! "${!digest_name}" =~ ${digest_pattern} ]]; then
+              printf 'Invalid image digest from Buildx: %s\n' "${digest_name}" >&2
+              exit 1
+            fi
+          done
+          printf 'api-image=%s@%s\n' "${API_IMAGE}" "${API_DIGEST}" >>"${GITHUB_OUTPUT}"
+          printf 'web-image=%s@%s\n' "${WEB_IMAGE}" "${WEB_DIGEST}" >>"${GITHUB_OUTPUT}"
+          printf 'migrate-image=%s@%s\n' "${MIGRATE_IMAGE}" "${MIGRATE_DIGEST}" >>"${GITHUB_OUTPUT}"
+
+      - name: Scan API image
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        env:
+          TRIVY_USERNAME: ${{ github.actor }}
+          TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          image-ref: >-
+            ${{ steps.references.outputs.api-image }}
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+
+      - name: Scan web image
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        env:
+          TRIVY_USERNAME: ${{ github.actor }}
+          TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          image-ref: >-
+            ${{ steps.references.outputs.web-image }}
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+
+      - name: Scan migration image
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        env:
+          TRIVY_USERNAME: ${{ github.actor }}
+          TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          image-ref: >-
+            ${{ steps.references.outputs.migrate-image }}
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+
+      - name: Record build outputs
+        env:
+          API_IMAGE_REF: ${{ steps.references.outputs.api-image }}
+          WEB_IMAGE_REF: ${{ steps.references.outputs.web-image }}
+          MIGRATE_IMAGE_REF: ${{ steps.references.outputs.migrate-image }}
+        run: |
+          {
+            printf '## Immutable release artifacts\n\n'
+            printf -- '- Commit: `%s`\n' "${GITHUB_SHA}"
+            printf -- '- API: `%s`\n' "${API_IMAGE_REF}"
+            printf -- '- Web: `%s`\n' "${WEB_IMAGE_REF}"
+            printf -- '- Migration: `%s`\n' "${MIGRATE_IMAGE_REF}"
+          } >>"${GITHUB_STEP_SUMMARY}"
+
+  dev:
+    name: Release dev
+    needs: build
+    if: >-
+      needs.build.result == 'success' &&
+      vars.GHCR_PUBLIC == 'true' &&
+      (
+        github.event_name == 'push' ||
+        inputs.target == 'dev' ||
+        inputs.target == 'prod'
+      )
+    runs-on: ubuntu-latest
+    environment: dev
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout deployment helpers
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Azure login with dev deploy identity
+        id: azure-login
+        uses: azure/login@eec3c95657c1536435858eda1f3ff5437fee8474 # v2.3.0
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID_DEPLOY }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Capture previous dev images
+        id: previous
+        run: |
+          set -euo pipefail
+          previous_api="$(
+            az containerapp show \
+              --resource-group "${RESOURCE_GROUP}" \
+              --name intelibill-dev-api \
+              --query properties.template.containers[0].image \
+              --output tsv
+          )"
+          previous_web="$(
+            az containerapp show \
+              --resource-group "${RESOURCE_GROUP}" \
+              --name intelibill-dev-web \
+              --query properties.template.containers[0].image \
+              --output tsv
+          )"
+          [[ -n "${previous_api}" && -n "${previous_web}" ]]
+          printf 'PREVIOUS_API_IMAGE=%s\n' "${previous_api}" >>"${GITHUB_ENV}"
+          printf 'PREVIOUS_WEB_IMAGE=%s\n' "${previous_web}" >>"${GITHUB_ENV}"
+
+      - name: Run dev migration
+        env:
+          MIGRATE_IMAGE_REF: ${{ needs.build.outputs.migrate-image }}
+        run: |
+          set -euo pipefail
+          az containerapp job update \
+            --resource-group "${RESOURCE_GROUP}" \
+            --name intelibill-dev-migrate \
+            --container-name migrate \
+            --image "${MIGRATE_IMAGE_REF}" \
+            --output none
+          execution_name="$(
+            az containerapp job start \
+              --resource-group "${RESOURCE_GROUP}" \
+              --name intelibill-dev-migrate \
+              --query name \
+              --output tsv
+          )"
+          [[ -n "${execution_name}" ]]
+          .github/scripts/wait-for-container-app-job.sh \
+            "${RESOURCE_GROUP}" \
+            intelibill-dev-migrate \
+            "${execution_name}"
+
+      - name: Deploy dev application images
+        env:
+          API_IMAGE_REF: ${{ needs.build.outputs.api-image }}
+          WEB_IMAGE_REF: ${{ needs.build.outputs.web-image }}
+        run: |
+          set -euo pipefail
+          printf 'API_ROLLBACK_REQUIRED=true\n' >>"${GITHUB_ENV}"
+          az containerapp update \
+            --resource-group "${RESOURCE_GROUP}" \
+            --name intelibill-dev-api \
+            --image "${API_IMAGE_REF}" \
+            --output none
+          printf 'WEB_ROLLBACK_REQUIRED=true\n' >>"${GITHUB_ENV}"
+          az containerapp update \
+            --resource-group "${RESOURCE_GROUP}" \
+            --name intelibill-dev-web \
+            --image "${WEB_IMAGE_REF}" \
+            --output none
+
+      - name: Smoke dev release
+        run: |
+          .github/scripts/wait-for-container-app-revisions.sh \
+            "${RESOURCE_GROUP}" \
+            intelibill-dev-api \
+            intelibill-dev-web
+
+      - name: Record dev release
+        env:
+          API_IMAGE_REF: ${{ needs.build.outputs.api-image }}
+          WEB_IMAGE_REF: ${{ needs.build.outputs.web-image }}
+          MIGRATE_IMAGE_REF: ${{ needs.build.outputs.migrate-image }}
+        run: |
+          {
+            printf '## Dev release\n\n'
+            printf -- '- API: `%s` (previous `%s`)\n' "${API_IMAGE_REF}" "${PREVIOUS_API_IMAGE}"
+            printf -- '- Web: `%s` (previous `%s`)\n' "${WEB_IMAGE_REF}" "${PREVIOUS_WEB_IMAGE}"
+            printf -- '- Migration: `%s`\n' "${MIGRATE_IMAGE_REF}"
+          } >>"${GITHUB_STEP_SUMMARY}"
+
+      - name: Restore previous dev images after failure
+        if: >-
+          failure() &&
+          steps.azure-login.outcome == 'success' &&
+          steps.previous.outcome == 'success'
+        run: |
+          set -euo pipefail
+          restored=false
+          if [[ "${API_ROLLBACK_REQUIRED:-false}" == "true" ]]; then
+            az containerapp update \
+              --resource-group "${RESOURCE_GROUP}" \
+              --name intelibill-dev-api \
+              --image "${PREVIOUS_API_IMAGE}" \
+              --output none
+            restored=true
+          fi
+          if [[ "${WEB_ROLLBACK_REQUIRED:-false}" == "true" ]]; then
+            az containerapp update \
+              --resource-group "${RESOURCE_GROUP}" \
+              --name intelibill-dev-web \
+              --image "${PREVIOUS_WEB_IMAGE}" \
+              --output none
+            restored=true
+          fi
+          if [[ "${restored}" == "true" ]]; then
+            .github/scripts/wait-for-container-app-revisions.sh \
+              "${RESOURCE_GROUP}" \
+              intelibill-dev-api \
+              intelibill-dev-web
+          fi
+
+  prod:
+    name: Release production
+    needs:
+      - build
+      - dev
+    if: >-
+      needs.build.result == 'success' &&
+      needs.dev.result == 'success' &&
+      vars.GHCR_PUBLIC == 'true' &&
+      (
+        github.event_name == 'push' ||
+        inputs.target == 'prod'
+      )
+    runs-on: ubuntu-latest
+    environment: prod
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout deployment helpers
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Azure login with production deploy identity
+        id: azure-login
+        uses: azure/login@eec3c95657c1536435858eda1f3ff5437fee8474 # v2.3.0
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID_DEPLOY }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Capture previous production images
+        id: previous
+        run: |
+          set -euo pipefail
+          previous_api="$(
+            az containerapp show \
+              --resource-group "${RESOURCE_GROUP}" \
+              --name intelibill-prod-api \
+              --query properties.template.containers[0].image \
+              --output tsv
+          )"
+          previous_web="$(
+            az containerapp show \
+              --resource-group "${RESOURCE_GROUP}" \
+              --name intelibill-prod-web \
+              --query properties.template.containers[0].image \
+              --output tsv
+          )"
+          [[ -n "${previous_api}" && -n "${previous_web}" ]]
+          printf 'PREVIOUS_API_IMAGE=%s\n' "${previous_api}" >>"${GITHUB_ENV}"
+          printf 'PREVIOUS_WEB_IMAGE=%s\n' "${previous_web}" >>"${GITHUB_ENV}"
+
+      - name: Run production migration
+        env:
+          MIGRATE_IMAGE_REF: ${{ needs.build.outputs.migrate-image }}
+        run: |
+          set -euo pipefail
+          az containerapp job update \
+            --resource-group "${RESOURCE_GROUP}" \
+            --name intelibill-prod-migrate \
+            --container-name migrate \
+            --image "${MIGRATE_IMAGE_REF}" \
+            --output none
+          execution_name="$(
+            az containerapp job start \
+              --resource-group "${RESOURCE_GROUP}" \
+              --name intelibill-prod-migrate \
+              --query name \
+              --output tsv
+          )"
+          [[ -n "${execution_name}" ]]
+          .github/scripts/wait-for-container-app-job.sh \
+            "${RESOURCE_GROUP}" \
+            intelibill-prod-migrate \
+            "${execution_name}"
+
+      - name: Deploy production application images
+        env:
+          API_IMAGE_REF: ${{ needs.build.outputs.api-image }}
+          WEB_IMAGE_REF: ${{ needs.build.outputs.web-image }}
+        run: |
+          set -euo pipefail
+          printf 'API_ROLLBACK_REQUIRED=true\n' >>"${GITHUB_ENV}"
+          az containerapp update \
+            --resource-group "${RESOURCE_GROUP}" \
+            --name intelibill-prod-api \
+            --image "${API_IMAGE_REF}" \
+            --output none
+          printf 'WEB_ROLLBACK_REQUIRED=true\n' >>"${GITHUB_ENV}"
+          az containerapp update \
+            --resource-group "${RESOURCE_GROUP}" \
+            --name intelibill-prod-web \
+            --image "${WEB_IMAGE_REF}" \
+            --output none
+
+      - name: Smoke production release
+        run: |
+          .github/scripts/wait-for-container-app-revisions.sh \
+            "${RESOURCE_GROUP}" \
+            intelibill-prod-api \
+            intelibill-prod-web
+
+      - name: Record production release
+        env:
+          API_IMAGE_REF: ${{ needs.build.outputs.api-image }}
+          WEB_IMAGE_REF: ${{ needs.build.outputs.web-image }}
+          MIGRATE_IMAGE_REF: ${{ needs.build.outputs.migrate-image }}
+        run: |
+          {
+            printf '## Production release\n\n'
+            printf -- '- API: `%s` (previous `%s`)\n' "${API_IMAGE_REF}" "${PREVIOUS_API_IMAGE}"
+            printf -- '- Web: `%s` (previous `%s`)\n' "${WEB_IMAGE_REF}" "${PREVIOUS_WEB_IMAGE}"
+            printf -- '- Migration: `%s`\n' "${MIGRATE_IMAGE_REF}"
+          } >>"${GITHUB_STEP_SUMMARY}"
+
+      - name: Restore previous production images after failure
+        if: >-
+          failure() &&
+          steps.azure-login.outcome == 'success' &&
+          steps.previous.outcome == 'success'
+        run: |
+          set -euo pipefail
+          restored=false
+          if [[ "${API_ROLLBACK_REQUIRED:-false}" == "true" ]]; then
+            az containerapp update \
+              --resource-group "${RESOURCE_GROUP}" \
+              --name intelibill-prod-api \
+              --image "${PREVIOUS_API_IMAGE}" \
+              --output none
+            restored=true
+          fi
+          if [[ "${WEB_ROLLBACK_REQUIRED:-false}" == "true" ]]; then
+            az containerapp update \
+              --resource-group "${RESOURCE_GROUP}" \
+              --name intelibill-prod-web \
+              --image "${PREVIOUS_WEB_IMAGE}" \
+              --output none
+            restored=true
+          fi
+          if [[ "${restored}" == "true" ]]; then
+            .github/scripts/wait-for-container-app-revisions.sh \
+              "${RESOURCE_GROUP}" \
+              intelibill-prod-api \
+              intelibill-prod-web
+          fi

@@ -9,9 +9,9 @@ public sealed class ApplicationDbContextFactory : IDesignTimeDbContextFactory<Ap
 {
     public ApplicationDbContext CreateDbContext(string[] args)
     {
-        var apiProjectPath = ResolveApiProjectPath();
+        var configurationBasePath = ResolveConfigurationBasePath(Directory.GetCurrentDirectory());
         var configuration = new ConfigurationBuilder()
-            .SetBasePath(apiProjectPath)
+            .SetBasePath(configurationBasePath)
             .AddJsonFile("appsettings.json", optional: true)
             .AddJsonFile("appsettings.Development.json", optional: true)
             .AddEnvironmentVariables()
@@ -35,12 +35,12 @@ public sealed class ApplicationDbContextFactory : IDesignTimeDbContextFactory<Ap
         return new ApplicationDbContext(optionsBuilder.Options);
     }
 
-    private static string ResolveApiProjectPath()
+    internal static string ResolveConfigurationBasePath(string currentDirectory)
     {
         var candidates = new[]
         {
-            Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "src/backend/Intelibill.Api")),
-            Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "../Intelibill.Api")),
+            Path.GetFullPath(Path.Combine(currentDirectory, "src/backend/Intelibill.Api")),
+            Path.GetFullPath(Path.Combine(currentDirectory, "../Intelibill.Api")),
         };
 
         foreach (var candidate in candidates)
@@ -51,6 +51,9 @@ public sealed class ApplicationDbContextFactory : IDesignTimeDbContextFactory<Ap
             }
         }
 
-        throw new InvalidOperationException("Could not resolve the Intelibill.Api project path for design-time configuration.");
+        // A migration bundle contains no source tree. Its working directory is
+        // still a valid base for optional JSON files, while environment
+        // variables provide the production database configuration.
+        return Path.GetFullPath(currentDirectory);
     }
 }

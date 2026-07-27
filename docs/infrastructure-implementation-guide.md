@@ -24,7 +24,7 @@ This section supersedes conflicting examples later in the original runbook. The 
 | 8 Application changes | ✅ **Applied 2026-07-26** — see [status](#status--2026-07-26) | Complete every gate in [architecture §6](infrastructure-architecture.md#6-application-production-contract), including migrations, web routing, health, CORS/proxy, SignalR, OAuth state, cache, and secrets | engineering effort |
 | 9 Secret values | Sequenced before the vault exists | First create vault/identity/RBAC; then add different per-env values. Never read values through an OpenTofu data source | Key Vault `<$0.10/month` expected |
 | 10 Environment infrastructure | Incomplete HCL | Add ingress/target ports, complete configuration, versionless Key Vault URIs, probes, network path, web app, and migration job. API max replicas is 1 initially | Container Apps about `$10–34/month` prod at assumed hours |
-| 11 Pipelines | Incomplete and unsafe | Build both images once, dev then prod sequentially; tests/scans; migration job; smoke tests; digest rollback. Routine deploy identity must not be a broad infra identity | Actions `$0` for standard public-repo runners |
+| 11 Pipelines | ✅ **Implemented on `infra-setup` 2026-07-27; activation awaits merge and public GHCR packages** | Build all three images once, dev then prod sequentially; tests/scans; migration job; smoke tests; digest rollback. Routine deploy identity is separate from infrastructure apply | Actions `$0` for standard public-repo runners |
 | 12 Custom domains | **⏸ DEFERRED, blocked by Phase 6** | Manage binding/cert through IaC or explicitly manual commands, not both; verify `asuid`/CNAME and rollback | managed certificate `$0` |
 | 13 Keep-warm | Does not work as stated | Cron is UTC, ten minutes exceeds the 300-second cooldown, Azure CLI image is oversized/mutable, and `/health` is absent | roughly `$0.03–$0.20/month` |
 | 14 Verification | Missing production gates | Add tenant hub isolation, browser/API/hub routing, distributed OAuth, multi-replica behavior, cache privileges, backup restore, secrets/state scan, and cost alert checks | test/load usage only |
@@ -902,7 +902,13 @@ resource "azurerm_postgresql_flexible_server_configuration" "require_tls" {
 
 `connection_throttle.enable` slows repeated failed authentication from one host — the main remaining nuisance once passwords are disabled. The connection logs are what let you tell a scanner from an outage.
 
-**What the public choice costs you later.** Migrations can run from a hosted GitHub runner with a temporary single-IP rule (Phase 11.4), which is simpler than the private path's in-Azure job. In exchange, the Container Apps outbound IPs must be allowlisted after Phase 10 and re-checked whenever the environment is recreated, and the server is exposed to internet-wide scanning traffic for as long as any rule exists. Moving to private access later means a VNet, private DNS zones, and VNet-integrated Container Apps — roughly $110/month more, and a migration path that cannot use hosted runners.
+**What the public choice costs you later.** The Container Apps outbound IPs
+must be allowlisted after Phase 10 and re-checked whenever the environment is
+recreated, and the server is exposed to internet-wide scanning traffic for as
+long as any rule exists. Phase 11 still runs migrations from the in-Azure
+Container Apps job so a hosted runner never needs a temporary rule into the
+server. Moving to private access later means a VNet, private DNS zones, and
+VNet-integrated Container Apps — roughly $110/month more.
 
 ### 5.3 Registry and DNS
 
@@ -1651,11 +1657,23 @@ The image should still be the quickstart placeholder — that is correct at this
 
 ### 11.1 `infra-plan.yml`
 
-Triggers on trusted same-repository pull requests touching `.tofu/**`. Logs in with the repository-scoped `vars.AZURE_CLIENT_ID_PLAN` — resource Reader plus state blob data Reader — and posts the plan as a PR comment. It declares **no** `environment:`, which is why that variable is repository-scoped rather than environment-scoped. It cannot mutate Azure, but a malicious plan can still exfiltrate readable state, so reject fork PRs, never use `pull_request_target`, and pin actions/providers.
+Triggers on trusted same-repository pull requests touching `.tofu/envs/**`,
+`.tofu/modules/**`, `.tofu/scripts/**`, or the workflow itself. Bootstrap is
+manual because it owns the state and identities used by CI. The workflow logs
+in with the repository-scoped `vars.AZURE_CLIENT_ID_PLAN` — resource Reader
+plus state blob data Reader — and posts the plan as a PR comment. It declares
+**no** `environment:`, which is why that variable is repository-scoped rather
+than environment-scoped. It cannot mutate Azure, but a malicious plan can still
+exfiltrate readable state, so reject fork PRs, never use
+`pull_request_target`, and pin actions/providers.
 
 ### 11.2 `infra-apply.yml`
 
-Triggers on push to `main` touching `.tofu/**`. One job per layer, sequential: `shared` behind `environment: shared`, then `dev` behind `environment: dev`, then `prod` behind `environment: prod`. Every job uses that environment's `vars.AZURE_CLIENT_ID_INFRA`.
+Triggers on push to `main` touching an automatically managed environment root,
+module, script, or the workflow itself. One job per layer, sequential: `shared`
+behind `environment: shared`, then `dev` behind `environment: dev`, then
+`prod` behind `environment: prod`. Every job uses that environment's
+`vars.AZURE_CLIENT_ID_INFRA`.
 
 Each job runs in its own layer directory, so it picks up that layer's backend container and can only reach its own state. A job that needs to touch another layer's resources is telling you the resource is in the wrong layer.
 
@@ -1663,7 +1681,9 @@ Each job runs in its own layer directory, so it picks up that layer's backend co
 
 Uses `vars.AZURE_CLIENT_ID_DEPLOY`, never `AZURE_CLIENT_ID_INFRA` — the audit's "routine deploy identity must not be a broad infra identity" is enforced by which variable this workflow names.
 
-Build/test/scan the backend and frontend, push both once, and capture **two digests**, not only the backend tag. The example below is ACR-specific; substitute `ghcr.io/chanakya-net/intelibill/...` and `docker/login-action` with `GITHUB_TOKEN` for the default public-GHCR path.
+Build/test/scan the backend and frontend, create the API, web, and migration
+images once, and capture **three digests**. The implemented workflow publishes
+`ghcr.io/chanakya-net/intelibill/{api,web,migrate}` with `GITHUB_TOKEN`.
 
 ```yaml
 - name: Build and push
@@ -1690,7 +1710,11 @@ Production consumes the **same API and web digest outputs**—never a rebuild. T
 
 ### 11.4 Migrations
 
-For the recommended private production network, publish `dotnet ef migrations bundle` or a dedicated migrator image, configure it with the migrator UAMI, and start/wait for the Container Apps job:
+The applied Phase 10 topology already has one manual Container Apps migration
+job per environment, attached to that environment's migrator UAMI. Phase 11
+publishes a self-contained `dotnet ef migrations bundle` image, updates the
+existing job by digest, starts one named execution, and waits for that exact
+execution:
 
 ```yaml
 - name: Run migration job
@@ -1703,39 +1727,20 @@ For the recommended private production network, publish `dotnet ef migrations bu
 
 The bundle/job uses an Entra-aware runtime configuration, and the running API never calls `Database.MigrateAsync()`. Use expand/contract migrations because the old revision is still serving until the job succeeds.
 
-This is the locked path for this deployment: **public network, hosted runner, temporary single-IP rule.**
-
-```yaml
-- name: Add firewall rule
-  run: |
-    IP=$(curl -s https://api.ipify.org)
-    az postgres flexible-server firewall-rule create \
-      -g intelibill-shared -s intelibill-pg-01 \
-      -n "gha-${{ github.run_id }}" \
-      --start-ip-address "$IP" --end-ip-address "$IP"
-
-- name: Apply migrations
-  run: dotnet ef database update \
-        --project src/backend/Intelibill.Infrastructure \
-        --startup-project src/backend/Intelibill.Api
-
-- name: Remove firewall rule
-  if: always()
-  run: |
-    az postgres flexible-server firewall-rule delete \
-      -g intelibill-shared -s intelibill-pg-01 \
-      -n "gha-${{ github.run_id }}" --yes
-```
-
-`if: always()` is essential. Without it a failed migration leaves the rule behind permanently, and rules accumulate silently.
-
-**On a shared server this rule opens the host holding production data, even when migrating dev.** The runner can reach `intelibill_prod`'s port for the length of the job; only the `CONNECT` grants from 7.4 stop it from getting further. That is another reason the migration job must target its database explicitly by name and never fall back to a default.
-
-"Allow Azure services" does **not** cover GitHub runners — they are not Azure resources. Hence the per-run rule.
+This supersedes the earlier hosted-runner temporary-firewall design. The
+database remains public with the Phase 10-derived Container Apps outbound
+allowlist, but no workflow adds a runner IP or broadens that inventory. A
+failed, malformed, or timed-out migration stops before either application
+image changes.
 
 ### 11.5 Verify
 
-Run `deploy.yml` manually against dev. Confirm the app now runs your image rather than the placeholder, and that the firewall rule is gone afterwards:
+The first merge creates private GHCR packages. Confirm all three build/scan
+jobs pass, make `api`, `web`, and `migrate` public in GitHub package settings,
+then set repository variable `GHCR_PUBLIC=true`. Run `deploy.yml` manually with
+target `prod`; it deploys dev first and then waits at the protected production
+environment. Confirm both environments use digest references and no unmanaged
+firewall rule was introduced:
 
 ```bash
 az postgres flexible-server firewall-rule list \

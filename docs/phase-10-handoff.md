@@ -23,7 +23,7 @@ Read first: [infrastructure-decisions.md](infrastructure-decisions.md) §7, §8,
 | 8 application production contract | done **except 8.4 telemetry instruments** |
 | 9 Key Vault | vaults and signing keys applied; integration secrets outstanding |
 | **10 environment infrastructure** | **done, applied, and independently verified 2026-07-27** |
-| 11 pipelines | not started |
+| 11 pipelines | implemented on `infra-setup`; activation awaits merge and public GHCR packages |
 | 12 domains | ⏸ blocked by phase 6 |
 | 13–14 keep-warm, verification | not started |
 
@@ -71,6 +71,12 @@ Read them from `tofu -chdir=.tofu/envs/<env> output -json identities` rather tha
 
 `plan`, `infra_apply`, `deploy_dev`, `deploy_prod`. Environments `dev`, `prod`, `shared` exist, each carrying `AZURE_CLIENT_ID_INFRA`, `AZURE_SUBSCRIPTION_ID`, `AZURE_TENANT_ID`; `dev` and `prod` also carry `AZURE_CLIENT_ID_DEPLOY`.
 
+Phase 11 adds the repository variables required by the three environment roots:
+`TOFU_ADMIN_OBJECT_ID`, `TOFU_ADMIN_PRINCIPAL_NAME`,
+`TOFU_SECRET_OFFICER_OBJECT_IDS`, and the release gate
+`GHCR_PUBLIC=false`. The `shared` and `prod` environments retain their reviewer
+and protected-branch rules with administrator bypass disabled.
+
 ### Database grants already in place (Phase 7)
 
 Per environment: `CONNECT` for its own app and migrator only, `REVOKE CONNECT/TEMPORARY … FROM PUBLIC`, schema `USAGE` for the app, `CREATE` for the migrator, and `ALTER DEFAULT PRIVILEGES` so the app gets DML on whatever the migrator creates later. The cross-environment `CONNECT` matrix returns `t,t,f,f` — **those two false results are the entire dev/prod data boundary**, since both databases live on one server.
@@ -91,10 +97,12 @@ Azure's live representation omits `minReplicas` when it is the zero default;
 all four live resources explicitly reported `maxReplicas = 1`. The API remains
 internal and the web app remains the only public browser origin.
 
-Both environments still use the immutable bootstrap image. Phase 11 must
-replace the migration-job image before starting it, wait for a successful
-execution, and only then deploy the real API and web images. Phase 10 did not
-start either job.
+Both environments still use the immutable bootstrap image. The Phase 11
+workflow replaces the migration-job image before starting it, waits for a
+successful named execution, and only then deploys the real API and web images.
+It cannot run until the branch is merged, all three GHCR packages have been
+made public, and `GHCR_PUBLIC` is changed to `true`. Phase 10 did not start
+either job.
 
 ### Public-network exception and current derived address snapshot
 
@@ -850,7 +858,7 @@ Each of these was found by testing, not by reading:
 
 ```bash
 dotnet build src/backend/Intelibill.slnx
-dotnet test tests/backend/unit/Intelibill.Api.Unit.Tests          # 402
+dotnet test tests/backend/unit/Intelibill.Api.Unit.Tests          # 403
 dotnet test tests/backend/unit/Intelibill.Application.Unit.Tests  # 931
 dotnet test tests/backend/unit/Intelibill.Domain.Unit.Tests       # 201
 dotnet test tests/backend/integration/Intelibill.Integration.Tests # 341, needs Docker
