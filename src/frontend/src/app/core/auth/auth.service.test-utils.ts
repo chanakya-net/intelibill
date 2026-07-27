@@ -1,6 +1,5 @@
 import '@angular/compiler';
 
-import { PLATFORM_ID } from '@angular/core';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
@@ -166,7 +165,6 @@ export function createAuthServiceTestHarness(): {
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
-        { provide: PLATFORM_ID, useValue: 'browser' },
         { provide: AuthStorage, useValue: storage },
         { provide: Router, useValue: router },
         { provide: LocalizationService, useValue: localizationService },

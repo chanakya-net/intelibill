@@ -1,68 +1,90 @@
-import {
-  AngularNodeAppEngine,
-  createNodeRequestHandler,
-  isMainModule,
-  writeResponseToNodeResponse,
-} from '@angular/ssr/node';
 import express from 'express';
+import { createProxyMiddleware } from 'http-proxy-middleware';
 import { join } from 'node:path';
 
+/**
+ * Serves the built single-page application and forwards its API calls.
+ *
+ * There is no server-side rendering here. Every route in this application is
+ * behind an authentication guard whose session lives in browser storage, so a
+ * server render could only ever produce the login screen, and the two routes
+ * that mattered most had already opted out of it.
+ *
+ * The process remains because the browser must reach `/api` and `/hubs` on the
+ * origin that served the page: that is what removes cross-origin requests, and
+ * with them the CORS configuration and the second hostname in the bundle.
+ */
 const browserDistFolder = join(import.meta.dirname, '../browser');
+const indexHtml = join(browserDistFolder, 'index.html');
 
 const app = express();
-const angularApp = new AngularNodeAppEngine();
 
 /**
- * Example Express Rest API endpoints can be defined here.
- * Uncomment and define endpoints as necessary.
- *
- * Example:
- * ```ts
- * app.get('/api/{*splat}', (req, res) => {
- *   // Handle API request
- * });
- * ```
+ * API_ORIGIN is the API's own origin (scheme, host, port). Without it the proxy
+ * is not mounted: `ng serve` talks to the API directly through the absolute URL
+ * in the development environment file.
  */
+const apiOrigin = process.env['API_ORIGIN'];
+
+const apiProxy = apiOrigin
+  ? createProxyMiddleware({
+      target: apiOrigin,
+      changeOrigin: true,
+      // SignalR upgrades /hubs to a WebSocket; without this the negotiate call
+      // succeeds and the connection that follows it does not.
+      ws: true,
+      // Pass the client address and scheme on, so the API's forwarded-headers
+      // configuration can see past this hop. It is the second proxy in the
+      // chain, after the platform ingress.
+      xfwd: true,
+      pathFilter: ['/api/**', '/hubs/**'],
+    })
+  : null;
+
+if (apiProxy) {
+  app.use(apiProxy);
+}
 
 /**
- * Serve static files from /browser
+ * Hashed build output is immutable and cached for a year. index.html is not: it
+ * names those hashed files, so a cached copy would keep pointing at the previous
+ * deployment's assets.
  */
 app.use(
   express.static(browserDistFolder, {
     maxAge: '1y',
     index: false,
     redirect: false,
+    setHeaders: (res, path) => {
+      if (path === indexHtml) {
+        res.setHeader('Cache-Control', 'no-cache');
+      }
+    },
   }),
 );
 
 /**
- * Handle all other requests by rendering the Angular application.
+ * Anything left is a client-side route. The application resolves it after the
+ * bundle loads, so a deep link such as /sales/123/print has to be answered with
+ * the shell rather than a 404.
  */
-app.use((req, res, next) => {
-  angularApp
-    .handle(req)
-    .then((response) =>
-      response ? writeResponseToNodeResponse(response, res) : next(),
-    )
-    .catch(next);
+app.use((_req, res) => {
+  res.setHeader('Cache-Control', 'no-cache');
+  res.sendFile(indexHtml);
 });
 
-/**
- * Start the server if this module is the main entry point, or it is ran via PM2.
- * The server listens on the port defined by the `PORT` environment variable, or defaults to 4000.
- */
-if (isMainModule(import.meta.url) || process.env['pm_id']) {
-  const port = process.env['PORT'] || 4000;
-  app.listen(port, (error) => {
-    if (error) {
-      throw error;
-    }
+const port = Number(process.env['PORT'] ?? 4000);
 
-    console.log(`Node Express server listening on http://localhost:${port}`);
-  });
+const server = app.listen(port, (error?: Error) => {
+  if (error) {
+    throw error;
+  }
+
+  console.log(`Web server listening on http://localhost:${port}`);
+});
+
+if (apiProxy) {
+  // Upgrade requests never reach the Express middleware chain, so the proxy has
+  // to be attached to the server's own 'upgrade' event.
+  server.on('upgrade', apiProxy.upgrade);
 }
-
-/**
- * Request handler used by the Angular CLI (for dev-server and during build) or Firebase Cloud Functions.
- */
-export const reqHandler = createNodeRequestHandler(app);

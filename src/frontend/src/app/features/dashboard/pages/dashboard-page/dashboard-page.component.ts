@@ -1,5 +1,5 @@
-import { CommonModule, isPlatformBrowser } from '@angular/common';
-import { Component, computed, inject, PLATFORM_ID, signal } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { TranslocoPipe } from '@ngneat/transloco';
@@ -272,7 +272,6 @@ type TranslatableText = Readonly<{
 export class DashboardPageComponent {
   private readonly dashboardService = inject(DashboardService);
   private readonly permissions = inject(ShopPermissionsService);
-  private readonly platformId = inject(PLATFORM_ID);
   private readonly router = inject(Router);
   private readonly offlineSalesQueueSync = inject(OfflineSalesQueueSyncService);
 
@@ -400,10 +399,6 @@ export class DashboardPageComponent {
   });
 
   constructor() {
-    if (!isPlatformBrowser(this.platformId)) {
-      return;
-    }
-
     this.loadDashboard();
     void this.offlineSalesQueueSync.refreshActiveStatusCounts();
   }

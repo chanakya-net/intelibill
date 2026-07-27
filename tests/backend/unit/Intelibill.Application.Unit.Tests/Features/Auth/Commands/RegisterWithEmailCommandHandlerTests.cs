@@ -56,7 +56,7 @@ public class RegisterWithEmailCommandHandlerTests
         _passwordHasher.Hash(command.Password).Returns("hashedPassword");
 
         var expiry = DateTimeOffset.UtcNow.AddMinutes(15);
-        _tokenService.GenerateAccessToken(Arg.Any<User>(), Arg.Any<Guid?>(), Arg.Any<string?>()).Returns(("accessToken", expiry));
+        _tokenService.GenerateAccessTokenAsync(Arg.Any<User>(), Arg.Any<Guid?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns(("accessToken", expiry));
 
         var refreshToken = Domain.Entities.RefreshToken.Create(Guid.NewGuid(), "refreshToken", DateTimeOffset.UtcNow.AddDays(7));
         _tokenService.CreateRefreshToken(Arg.Any<Guid>()).Returns(refreshToken);

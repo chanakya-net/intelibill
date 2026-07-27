@@ -12,7 +12,6 @@ const CLOCK_SKEW_BUFFER_MS = 30_000;
 const PROACTIVE_REFRESH_LEAD_MS = 60_000;
 
 export interface AuthSessionState {
-  isBrowser(): boolean;
   getSession(): AuthSession | null;
   setSession(session: AuthSession): void;
   clearSession(): void;
@@ -30,10 +29,6 @@ export class AuthTokenService {
   private proactiveRefreshTimerId: ReturnType<typeof setTimeout> | null = null;
 
   bootstrapSessionWithStatus(state: AuthSessionState): Observable<BootstrapSessionStatus> {
-    if (!state.isBrowser()) {
-      return of('READY');
-    }
-
     if (this.bootstrapInFlight$) {
       return this.bootstrapInFlight$;
     }
@@ -81,10 +76,6 @@ export class AuthTokenService {
     state: AuthSessionState,
     options?: { readonly preserveSessionOnError?: boolean }
   ): Observable<AuthSession | null> {
-    if (!state.isBrowser()) {
-      return of(null);
-    }
-
     if (this.refreshInFlight$) {
       return this.refreshInFlight$;
     }
@@ -133,7 +124,7 @@ export class AuthTokenService {
 
   scheduleProactiveRefresh(state: AuthSessionState, session: AuthSession | null): void {
     this.cancelProactiveRefresh();
-    if (!state.isBrowser() || !session) return;
+    if (!session) return;
 
     const expiresAt = Date.parse(session.accessTokenExpiresAt);
     if (Number.isNaN(expiresAt)) return;

@@ -31,7 +31,7 @@ public sealed class LoginCommandHandler(
             return Errors.Auth.UserLoginDisabled;
 
         var (activeShopId, activeShopRole, shops) = AuthShopSelection.Resolve(user);
-        var (accessToken, accessTokenExpiry) = tokenService.GenerateAccessToken(user, activeShopId, activeShopRole);
+        var (accessToken, accessTokenExpiry) = await tokenService.GenerateAccessTokenAsync(user, activeShopId, activeShopRole, cancellationToken);
         var refreshToken = tokenService.CreateRefreshToken(user.Id);
 
         await refreshTokenRepository.AddAsync(refreshToken, cancellationToken);

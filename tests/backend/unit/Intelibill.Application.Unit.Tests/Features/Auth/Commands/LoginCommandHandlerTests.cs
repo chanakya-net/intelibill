@@ -56,7 +56,7 @@ public class LoginCommandHandlerTests
 
         _userRepository.GetByEmailAsync("test@test.com", Arg.Any<CancellationToken>()).Returns(user);
         _passwordHasher.Verify(command.Password, user.PasswordHash!).Returns(true);
-        _tokenService.GenerateAccessToken(user, Arg.Any<Guid?>(), Arg.Any<string?>()).Returns(("accessToken", DateTimeOffset.UtcNow.AddMinutes(15)));
+        _tokenService.GenerateAccessTokenAsync(user, Arg.Any<Guid?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns(("accessToken", DateTimeOffset.UtcNow.AddMinutes(15)));
 
         var refreshToken = Domain.Entities.RefreshToken.Create(user.Id, "refreshToken", DateTimeOffset.UtcNow.AddDays(7));
         _tokenService.CreateRefreshToken(user.Id).Returns(refreshToken);
@@ -95,7 +95,7 @@ public class LoginCommandHandlerTests
         var user = User.CreateWithEmail("test.user@test.com", "hashed", "First", "Last");
         _userRepository.GetByEmailAsync("test.user@test.com", Arg.Any<CancellationToken>()).Returns(user);
         _passwordHasher.Verify(command.Password, user.PasswordHash!).Returns(true);
-        _tokenService.GenerateAccessToken(user, Arg.Any<Guid?>(), Arg.Any<string?>()).Returns(("accessToken", DateTimeOffset.UtcNow.AddMinutes(15)));
+        _tokenService.GenerateAccessTokenAsync(user, Arg.Any<Guid?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns(("accessToken", DateTimeOffset.UtcNow.AddMinutes(15)));
         _tokenService.CreateRefreshToken(user.Id).Returns(Domain.Entities.RefreshToken.Create(user.Id, "refreshToken", DateTimeOffset.UtcNow.AddDays(7)));
 
         _ = await _handler.HandleAsync(command, CancellationToken.None);
@@ -112,7 +112,7 @@ public class LoginCommandHandlerTests
 
         _userRepository.GetByPhoneAsync("+911234567890", Arg.Any<CancellationToken>()).Returns(user);
         _passwordHasher.Verify(command.Password, user.PasswordHash!).Returns(true);
-        _tokenService.GenerateAccessToken(user, Arg.Any<Guid?>(), Arg.Any<string?>()).Returns(("accessToken", DateTimeOffset.UtcNow.AddMinutes(15)));
+        _tokenService.GenerateAccessTokenAsync(user, Arg.Any<Guid?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns(("accessToken", DateTimeOffset.UtcNow.AddMinutes(15)));
         _tokenService.CreateRefreshToken(user.Id).Returns(Domain.Entities.RefreshToken.Create(user.Id, "refreshToken", DateTimeOffset.UtcNow.AddDays(7)));
 
         var result = await _handler.HandleAsync(command, CancellationToken.None);

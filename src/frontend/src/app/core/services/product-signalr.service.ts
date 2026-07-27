@@ -1,5 +1,4 @@
-import { Injectable, PLATFORM_ID, inject } from '@angular/core';
-import { isPlatformBrowser } from '@angular/common';
+import { Injectable, inject } from '@angular/core';
 import * as signalR from '@microsoft/signalr';
 
 import { AuthService } from '../auth/auth.service';
@@ -18,12 +17,11 @@ interface ProductAddedPayload {
 export class ProductSignalRService {
   private readonly authService = inject(AuthService);
   private readonly catalogSync = inject(ProductCatalogSyncService);
-  private readonly platformId = inject(PLATFORM_ID);
 
   private connection: signalR.HubConnection | null = null;
 
   async startConnection(): Promise<void> {
-    if (!isPlatformBrowser(this.platformId) || this.connection) {
+    if (this.connection) {
       return;
     }
 

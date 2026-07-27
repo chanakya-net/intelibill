@@ -1,0 +1,19 @@
+.git
+**/bin
+**/obj
+**/node_modules
+**/.angular
+**/coverage
+
+# Local configuration and credentials must never enter Docker build contexts.
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+**/appsettings.Development.json
+**/appsettings.Local.json
+**/secrets.json
+**/*.pfx
+**/*.p12

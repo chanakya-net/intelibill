@@ -1,0 +1,111 @@
+# Throwaway. Delete once this passes — see docs/infrastructure-implementation-guide.md 4.5.
+#
+# Updated for the single-resource-group topology. What changed and why it matters:
+#
+# There is now ONE infrastructure apply identity holding Contributor over the one
+# resource group, so "dev apply cannot reach prod" is no longer true and is no
+# longer asserted. Asserting it would fail for the wrong reason and train us to
+# ignore this workflow.
+#
+# What IS still a boundary, and therefore what this tests:
+#   1. the apply identity can reach the group it owns;
+#   2. the deploy identity cannot read state and cannot create resources.
+#
+# Deploy confinement is the separation that survived the flattening, so (2) is
+# the point of this file.
+name: OIDC smoke test
+run-name: "${{ github.workflow }} · ${{ github.event.pull_request.number && format('PR #{0}', github.event.pull_request.number) || github.ref_name }}"
+
+on:
+  push:
+    branches: [infra-setup]
+    paths: ['.github/workflows/oidc-smoke-test.yml']
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  STATE_ACCOUNT: intelibilltfstate01
+  RESOURCE_GROUP: intelibill-shared
+
+jobs:
+  infra_can_reach_its_group:
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID_INFRA }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      # `az group list` would return an empty list rather than an error for a
+      # group-scoped identity, so a working setup would look broken.
+      - name: Owns its resource group
+        run: az group show -n "$RESOURCE_GROUP" -o table
+
+      # One apply identity applies every layer, so it legitimately reads all
+      # three containers. This is by design, not a finding.
+      - name: Can read every state container
+        run: |
+          for C in tfstate-shared tfstate-dev tfstate-prod; do
+            echo "== $C =="
+            az storage blob list --container-name "$C" \
+              --account-name "$STATE_ACCOUNT" --auth-mode login -o table
+          done
+
+  deploy_is_confined:
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID_DEPLOY }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      # A denial test that only checks "the command failed" passes for any
+      # reason at all — a typo, a missing resource, a broken CLI. Each of these
+      # asserts the failure was specifically an authorization failure.
+      - name: Cannot read state
+        run: |
+          OUT=$(az storage blob list --container-name tfstate-dev \
+                  --account-name "$STATE_ACCOUNT" --auth-mode login -o none 2>&1) && RC=0 || RC=$?
+          if [ "$RC" -eq 0 ]; then
+            echo "::error::deploy identity can read state; the duty split is not holding"
+            exit 1
+          fi
+          grep -qiE 'AuthorizationPermissionMismatch|AuthorizationFailed|not authorized|Forbidden|required permissions' <<<"$OUT" || {
+            echo "::error::denied, but not for an authorization reason — this test proved nothing:"
+            echo "$OUT"; exit 1; }
+          echo "correctly denied by RBAC"
+
+      - name: Cannot create resources
+        run: |
+          OUT=$(az group create -n intelibill-smoke-should-fail -l centralindia -o none 2>&1) && RC=0 || RC=$?
+          if [ "$RC" -eq 0 ]; then
+            echo "::error::deploy identity created a resource group; it holds far more than deploy rights"
+            az group delete -n intelibill-smoke-should-fail --yes --no-wait || true
+            exit 1
+          fi
+          grep -qiE 'AuthorizationFailed|not authorized|Forbidden|required permissions' <<<"$OUT" || {
+            echo "::error::denied, but not for an authorization reason:"; echo "$OUT"; exit 1; }
+          echo "correctly denied by RBAC"
+
+      # Deploy holds no Contributor, so it must not be able to touch the database
+      # server that now shares this resource group. Requires the server to exist:
+      # a ResourceNotFound here is an inconclusive test, not a pass.
+      - name: Cannot modify the database server
+        run: |
+          OUT=$(az postgres flexible-server update -g "$RESOURCE_GROUP" \
+                  -n intelibill-pg-01 --backup-retention 15 -o none 2>&1) && RC=0 || RC=$?
+          if [ "$RC" -eq 0 ]; then
+            echo "::error::deploy identity modified the database server"
+            exit 1
+          fi
+          grep -qiE 'AuthorizationFailed|not authorized|Forbidden|required permissions' <<<"$OUT" || {
+            echo "::error::denied, but not by RBAC — if this says ResourceNotFound the server does not exist yet and the test is inconclusive:"
+            echo "$OUT"; exit 1; }
+          echo "correctly denied by RBAC"

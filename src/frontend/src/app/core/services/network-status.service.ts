@@ -1,5 +1,4 @@
-import { isPlatformBrowser } from '@angular/common';
-import { Injectable, PLATFORM_ID, inject, signal } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
 import { CONNECTIVITY_ENDPOINTS } from '../auth/auth.constants';
 
 const PING_TIMEOUT_MS = 5_000;
@@ -17,18 +16,12 @@ function delay(ms: number): Promise<void> {
 
 @Injectable({ providedIn: 'root' })
 export class NetworkStatusService {
-  private readonly platformId = inject(PLATFORM_ID);
-
-  readonly isOnline = signal<boolean>(this.isBrowser() ? navigator.onLine : true);
+  readonly isOnline = signal<boolean>(navigator.onLine);
   readonly canReachApi = signal<boolean>(false);
   readonly lastVerifiedAt = signal<Date | null>(null);
   readonly isChecking = signal<boolean>(false);
 
   constructor() {
-    if (!this.isBrowser()) {
-      return;
-    }
-
     window.addEventListener('online', () => {
       this.isOnline.set(true);
       void this.checkConnectivity();
@@ -41,10 +34,6 @@ export class NetworkStatusService {
   }
 
   async checkConnectivity(): Promise<void> {
-    if (!this.isBrowser()) {
-      return;
-    }
-
     if (!navigator.onLine) {
       this.isOnline.set(false);
       this.canReachApi.set(false);
@@ -113,10 +102,6 @@ export class NetworkStatusService {
     } finally {
       clearTimeout(timeout);
     }
-  }
-
-  private isBrowser(): boolean {
-    return isPlatformBrowser(this.platformId);
   }
 
   private withServiceWorkerBypass(url: string): string {

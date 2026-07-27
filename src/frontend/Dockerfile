@@ -1,5 +1,7 @@
-# Use Node.js 22 to build the Angular application (more compatible with Angular SSR builder's route extraction)
-FROM node:22-slim AS build
+# Node 24 matches the engines range in package.json (>=24 <26). The build ran on
+# Node 22 before, outside the range the project declares. Pinned by digest so a
+# rebuild of a given commit cannot pick up a different base.
+FROM node:24-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d AS build
 WORKDIR /app
 
 # Install Bun
@@ -22,19 +24,30 @@ COPY ["src/frontend/", "./"]
 # Build the Angular application for production
 RUN bun run build
 
-# Use Bun as the runtime environment for the SSR application
-FROM oven/bun:latest AS runtime
+# Node, not Bun, runs the server. It proxies /hubs to the API, and proxying a
+# WebSocket upgrade means hijacking the raw socket: under Bun that handshake
+# returns nothing, so every SignalR connection fails. Verified both ways against
+# the built bundle -- Node answers 101, Bun answers nothing. Bun stays in the
+# build stage, where it installs and builds correctly.
+FROM node:24-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d AS runtime
 WORKDIR /app
 
-# Copy the package.json and built SSR application from the build stage
-COPY ["src/frontend/package.json", "./"]
+# The bundled server needs the Node executable only. Remove npm from the final
+# image so its unused package-management dependencies do not add attack surface.
+RUN rm -rf /usr/local/lib/node_modules/npm \
+	&& rm -f /usr/local/bin/npm /usr/local/bin/npx
+
+# The build bundles express and the proxy into server.mjs, leaving only Node
+# built-ins external, so the runtime image needs neither package.json nor
+# node_modules.
 COPY --from=build /app/dist /app/dist
 
-# Expose the default SSR port
+ENV NODE_ENV=production \
+    PORT=4000
+
 EXPOSE 4000
 
-# Set the environment to Production
-ENV NODE_ENV=production
+# Shipped by the Node image; the server only reads from /app/dist.
+USER node
 
-# Run the Angular SSR server
-CMD ["bun", "run", "serve:ssr:INVENTORY"]
+CMD ["node", "dist/INVENTORY/server/server.mjs"]

@@ -1,0 +1,41 @@
+// Copy to terraform.tfvars and fill in. That file is gitignored.
+
+// az account show --query "{id:id, tenant:tenantId}" -o tsv
+subscription_id = "00000000-0000-0000-0000-000000000000"
+tenant_id       = "00000000-0000-0000-0000-000000000000"
+
+resource_group_name = "intelibill-shared"
+
+// southindia and eastus are offer-restricted for this subscription; PostgreSQL
+// creation fails there. Check a candidate region first:
+//   az rest --method get --url "https://management.azure.com/subscriptions/$SUB\
+//     /providers/Microsoft.DBforPostgreSQL/locations/<loc>/capabilities?api-version=2024-08-01" \
+//     --query "value[0].reason" -o tsv
+location = "centralindia"
+
+// Daily Log Analytics ingestion budget fuse. Keep at 0.1 GB unless measured
+// diagnostic volume proves a higher limit is needed.
+log_analytics_daily_quota_gb = 0.1
+
+// Public-network launch exception. Container Apps addresses are derived from
+// dev/prod state automatically. Keep allowed_ip_rules for explicitly reviewed
+// temporary operator access; migration IPs are added and removed inside the
+// workflow run that needs them.
+//
+// allowed_ip_rules = {
+//   operator-review = { start_ip = "198.51.100.10", end_ip = "198.51.100.10" }
+// }
+
+// During an outbound-address transition, retain the previous exact addresses
+// for one reviewed apply, verify connectivity, then remove them on the next.
+// retained_container_apps_outbound_ips = {
+//   dev  = ["20.10.0.9"]
+//   prod = []
+// }
+
+// Leave unset until the domain and registrar access are confirmed.
+// domain_name = "example.com"
+
+// az ad signed-in-user show --query "{oid:id, upn:userPrincipalName}" -o tsv
+admin_object_id      = "00000000-0000-0000-0000-000000000000"
+admin_principal_name = "you@example.com"

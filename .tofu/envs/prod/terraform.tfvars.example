@@ -1,0 +1,11 @@
+// Copy to terraform.tfvars and fill in. That file is gitignored.
+subscription_id = "00000000-0000-0000-0000-000000000000"
+location        = "centralindia"
+
+// Object IDs that may write Key Vault secret values in Phase 9.
+// az ad signed-in-user show --query id -o tsv
+secret_officer_object_ids = ["00000000-0000-0000-0000-000000000000"]
+
+// Set only to its 1-127 character Key Vault secret name (letters, numbers,
+// hyphens) after the New Relic API key has been entered out of band.
+new_relic_api_key_secret_name = null

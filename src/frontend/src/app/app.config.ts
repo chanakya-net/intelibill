@@ -1,9 +1,7 @@
-import { isPlatformBrowser } from '@angular/common';
 import {
   APP_INITIALIZER,
   ApplicationConfig,
   Injector,
-  PLATFORM_ID,
   inject,
   provideBrowserGlobalErrorListeners,
   isDevMode,
@@ -19,7 +17,6 @@ import { providePrimeNG } from 'primeng/config';
 
 import { routes } from './app.routes';
 import { metaReducers, rootReducers } from './core/state';
-import { provideClientHydration, withEventReplay } from '@angular/platform-browser';
 import { provideServiceWorker } from '@angular/service-worker';
 import { firstValueFrom } from 'rxjs';
 import { provideTransloco, translocoConfig } from '@ngneat/transloco';
@@ -85,7 +82,6 @@ export const appConfig: ApplicationConfig = {
       }),
       loader: TranslocoHttpLoader,
     }),
-    provideClientHydration(withEventReplay()),
     provideServiceWorker('ngsw-worker.js', {
       enabled: !isDevMode(),
       registrationStrategy: 'registerWhenStable:30000',
@@ -102,17 +98,14 @@ function initializeAppServices(): () => Promise<void> {
   const localizationService = inject(LocalizationService);
   const authService = inject(AuthService);
   const injector = inject(Injector);
-  const platformId = inject(PLATFORM_ID);
 
   return async () => {
     await localizationService.initialize();
     await firstValueFrom(authService.bootstrapSession());
 
-    if (isPlatformBrowser(platformId)) {
-      const offlineSalesQueueSync = injector.get(OfflineSalesQueueSyncService);
-      offlineSalesQueueSync.startAutoSyncWatchers();
-      offlineSalesQueueSync.runStartupSync();
-      await injector.get(ProductSignalRService).startConnection();
-    }
+    const offlineSalesQueueSync = injector.get(OfflineSalesQueueSyncService);
+    offlineSalesQueueSync.startAutoSyncWatchers();
+    offlineSalesQueueSync.runStartupSync();
+    await injector.get(ProductSignalRService).startConnection();
   };
 }

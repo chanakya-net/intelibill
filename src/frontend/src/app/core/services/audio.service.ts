@@ -51,10 +51,6 @@ export class AudioService {
   }
 
   private supportsAudioContext(): boolean {
-    if (typeof window === 'undefined') {
-      return false;
-    }
-
     const audioWindow = window as AudioContextWindow;
     return typeof window.AudioContext !== 'undefined' || typeof audioWindow.webkitAudioContext !== 'undefined';
   }

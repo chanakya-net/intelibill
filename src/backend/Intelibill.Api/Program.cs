@@ -12,6 +12,7 @@ using Intelibill.Infrastructure;
 using Intelibill.Infrastructure.Extensions;
 using Scalar.AspNetCore;
 using Intelibill.Infrastructure.Options;
+using Intelibill.Infrastructure.Services.Auth;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -39,19 +40,7 @@ builder.Services.AddScoped<ICurrentSessionContext, HttpCurrentSessionContext>();
 builder.Services.AddScoped<RateLimitFilter>();
 builder.Services.AddSingleton<IRateLimitPolicyResolver, RateLimitPolicyResolver>();
 
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("FrontendDev", policy =>
-    {
-        policy
-            .WithOrigins(
-                "http://localhost:4200", "https://localhost:4200",
-                "http://localhost:4000", "https://localhost:4000")
-            .AllowAnyHeader()
-            .AllowAnyMethod()
-            .AllowCredentials();
-    });
-});
+builder.Services.AddEdge(configuration, builder.Environment);
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(configuration);
@@ -76,19 +65,52 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer();
 
 builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
-    .Configure<IOptions<JwtOptions>>((bearerOptions, jwtOptions) =>
+    .Configure<IOptions<JwtOptions>, IServiceProvider>((bearerOptions, jwtOptions, services) =>
     {
         var jwt = jwtOptions.Value;
         bearerOptions.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.Secret)),
             ValidateIssuer = true,
             ValidIssuer = jwt.Issuer,
             ValidateAudience = true,
             ValidAudience = jwt.Audience,
             ValidateLifetime = true,
             ClockSkew = TimeSpan.Zero,
+        };
+
+        if (jwt.SigningMode == JwtSigningMode.KeyVault)
+        {
+            // Resolved per token rather than pinned, so a key version created by
+            // Key Vault's rotation policy is picked up without a redeploy and
+            // tokens signed by the previous version keep validating until they
+            // expire.
+            bearerOptions.TokenValidationParameters.IssuerSigningKeyResolver =
+                services.GetRequiredService<KeyVaultJwtValidationKeyProvider>().Resolve;
+        }
+        else
+        {
+            bearerOptions.TokenValidationParameters.IssuerSigningKey =
+                new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.Secret!));
+        }
+
+        bearerOptions.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                // SignalR's WebSocket and SSE transports cannot set an Authorization
+                // header, so the client passes the token in the query string. Accept
+                // it on hub paths only — anywhere else a token in the URL would end
+                // up in access logs and referrers.
+                var accessToken = context.Request.Query["access_token"].ToString();
+                if (!string.IsNullOrEmpty(accessToken)
+                    && context.HttpContext.Request.Path.StartsWithSegments("/hubs"))
+                {
+                    context.Token = accessToken;
+                }
+
+                return Task.CompletedTask;
+            },
         };
     });
 
@@ -114,7 +136,14 @@ builder.Services.AddAuthorization(options =>
 });
 
 // ── Wolverine ─────────────────────────────────────────────────────────────────
-builder.Services.AddWolverine(opts =>
+// ExtensionDiscovery.ManualOnly: automatic discovery probes every file in the
+// output directory for [WolverineModule], including the Windows native binaries
+// that QuestPDF and SkiaSharp ship (runtimes/win-*/native/*.dll), and logs a
+// banner for each one it cannot load. Nothing here relies on a discovered
+// extension — FluentValidation and HTTP are both registered explicitly below and
+// in AddWolverineHttp — so the scan produced noise and startup delay and no
+// behaviour.
+builder.Services.AddWolverine(ExtensionDiscovery.ManualOnly, opts =>
 {
     opts.Discovery.IncludeAssembly(typeof(Intelibill.Application.DependencyInjection).Assembly);
     opts.UseFluentValidation(RegistrationBehavior.ExplicitRegistration);
@@ -126,7 +155,14 @@ builder.Services.AddWolverine(opts =>
 
 var app = builder.Build();
 
-await app.Services.ApplyMigrationsAsync();
+// Schema is owned by the migration job, not by application startup. Migrating
+// here would need DDL rights at runtime, would race between replicas, and would
+// apply the new schema while the previous revision is still serving traffic.
+// Local setup: dotnet ef database update (see CLAUDE.md).
+
+// Before anything that reads the scheme, the client address, or the host: behind
+// ingress every request otherwise looks like plain HTTP arriving from the proxy.
+app.UseForwardedHeaders();
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
@@ -136,8 +172,14 @@ if (app.Environment.IsDevelopment())
     app.MapScalarApiReference();
 }
 
-app.UseHttpsRedirection();
-app.UseCors("FrontendDev");
+// Platform probes arrive over plain HTTP inside the environment. Redirecting
+// them to HTTPS answers 307, which reads as a failed probe, and the revision
+// never becomes healthy.
+app.UseWhen(
+    context => !context.Request.Path.StartsWithSegments("/health"),
+    branch => branch.UseHttpsRedirection());
+
+app.UseCors(EdgeExtensions.CorsPolicyName);
 app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
@@ -147,6 +189,7 @@ app.MapControllers();
 app.MapWolverineEndpoints();
 app.MapHub<ProductHub>("/hubs/products");
 app.MapHub<ShopUpdatesHub>("/hubs/shop-updates");
+app.MapHealthEndpoints();
 
 app.Run();
 

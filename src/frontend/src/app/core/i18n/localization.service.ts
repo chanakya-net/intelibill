@@ -1,5 +1,4 @@
-import { PLATFORM_ID, Injectable, inject, signal } from '@angular/core';
-import { isPlatformBrowser } from '@angular/common';
+import { Injectable, inject, signal } from '@angular/core';
 import { Store } from '@ngrx/store';
 
 import { firstValueFrom } from 'rxjs';
@@ -15,8 +14,6 @@ export class LocalizationService {
   private readonly transloco = inject(TranslocoService);
   private readonly storage = inject(AuthStorage);
   private readonly store = inject(Store<RootState>);
-  private readonly platformId = inject(PLATFORM_ID);
-
   private readonly currentLanguageSignal = signal<string>(DEFAULT_LANGUAGE);
 
   readonly currentLanguage = this.currentLanguageSignal.asReadonly();
@@ -35,7 +32,7 @@ export class LocalizationService {
     this.currentLanguageSignal.set(normalizedLanguage);
     this.store.dispatch(AppShellActions.setLanguage({ language: normalizedLanguage }));
 
-    if (persist && this.isBrowser()) {
+    if (persist) {
       this.storage.saveLanguage(normalizedLanguage);
     }
   }
@@ -45,10 +42,6 @@ export class LocalizationService {
   }
 
   private getInitialLanguage(): string {
-    if (!this.isBrowser()) {
-      return DEFAULT_LANGUAGE;
-    }
-
     return this.normalizeLanguage(this.storage.getLanguage());
   }
 
@@ -62,7 +55,4 @@ export class LocalizationService {
       : DEFAULT_LANGUAGE;
   }
 
-  private isBrowser(): boolean {
-    return isPlatformBrowser(this.platformId);
-  }
 }

@@ -24,6 +24,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Caching.Postgres;
+using Npgsql;
 
 namespace Intelibill.Infrastructure;
 
@@ -36,12 +37,20 @@ public static class DependencyInjection
             .Bind(configuration.GetSection(DatabaseOptions.SectionName))
             .ValidateDataAnnotations()
             .ValidateOnStart();
+        services.AddSingleton<IValidateOptions<DatabaseOptions>, DatabaseOptionsValidator>();
+
+        // One data source for the whole process, shared by EF and the distributed
+        // cache below. Two of them would mean two connection pools and, under
+        // Entra, two independent token refresh loops.
+        services.AddSingleton(sp => NpgsqlDataSourceFactory.Create(
+            sp.GetRequiredService<IOptions<DatabaseOptions>>().Value,
+            sp.GetRequiredService<ILoggerFactory>()));
 
         services.AddDbContext<ApplicationDbContext>((sp, options) =>
         {
-            var dbOptions = sp.GetRequiredService<IOptions<DatabaseOptions>>().Value;
+            var dataSource = sp.GetRequiredService<NpgsqlDataSource>();
             var sessionInterceptor = sp.GetRequiredService<PostgresSessionContextInterceptor>();
-            options.UseNpgsql(dbOptions.ToConnectionString(), npgsql =>
+            options.UseNpgsql(dataSource, npgsql =>
                 npgsql.MigrationsAssembly(typeof(DependencyInjection).Assembly.FullName))
                 .AddInterceptors(sessionInterceptor)
                 .UseSnakeCaseNamingConvention();
@@ -56,6 +65,7 @@ public static class DependencyInjection
             .Bind(configuration.GetSection(JwtOptions.SectionName))
             .ValidateDataAnnotations()
             .ValidateOnStart();
+        services.AddSingleton<IValidateOptions<JwtOptions>, JwtOptionsValidator>();
 
         services.AddOptions<ExternalAuthOptions>()
             .Bind(configuration.GetSection(ExternalAuthOptions.SectionName))
@@ -108,6 +118,28 @@ public static class DependencyInjection
         services.AddScoped<ICreditNoteRepository, CreditNoteRepository>();
 
         // ── Auth services ─────────────────────────────────────────────────────
+        // Singleton: the Key Vault signer caches the resolved key version and the
+        // client that signs with it, and neither belongs to a request.
+        services.AddSingleton<IJwtSigner>(sp =>
+        {
+            var jwt = sp.GetRequiredService<IOptions<JwtOptions>>().Value;
+            var timeProvider = sp.GetRequiredService<TimeProvider>();
+
+            return jwt.SigningMode switch
+            {
+                JwtSigningMode.KeyVault => new KeyVaultJwtSigner(sp.GetRequiredService<IOptions<JwtOptions>>(), timeProvider),
+                _ => new HmacJwtSigner(sp.GetRequiredService<IOptions<JwtOptions>>()),
+            };
+        });
+
+        // Only registered in Key Vault mode: constructing it requires a key id,
+        // and the HMAC path validates with the same secret it signs with.
+        if (configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()?.SigningMode == JwtSigningMode.KeyVault)
+        {
+            services.AddSingleton<KeyVaultJwtValidationKeyProvider>();
+        }
+
+        services.AddSingleton(TimeProvider.System);
         services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();
         services.AddSingleton<ISmtpClientFactory, MailKitSmtpClientFactory>();
@@ -138,19 +170,22 @@ public static class DependencyInjection
             .Bind(configuration.GetSection(DistributedCacheOptions.SectionName))
             .ValidateOnStart();
 
-        services.AddDistributedPostgresCache(options =>
-        {
-            var dbOptions = configuration.GetSection(DatabaseOptions.SectionName).Get<DatabaseOptions>()
-                ?? throw new InvalidOperationException("DatabaseOptions not configured.");
-            var cacheOptions = configuration.GetSection(DistributedCacheOptions.SectionName).Get<DistributedCacheOptions>()
-                ?? new DistributedCacheOptions();
+        // Registers the cache itself; the configuration below runs after this one
+        // and supplies the shared data source, which cannot be resolved from a
+        // plain setup action.
+        services.AddDistributedPostgresCache(_ => { });
 
-            options.ConnectionString = dbOptions.ToConnectionString();
-            options.SchemaName = cacheOptions.SchemaName;
-            options.TableName = cacheOptions.TableName;
-            options.CreateIfNotExists = cacheOptions.CreateIfNotExists;
-            options.ExpiredItemsDeletionInterval = cacheOptions.ExpiredItemsDeletionInterval;
-        });
+        services.AddOptions<PostgresCacheOptions>()
+            .Configure<NpgsqlDataSource, IOptions<DistributedCacheOptions>>((cache, dataSource, cacheOptions) =>
+            {
+                var options = cacheOptions.Value;
+
+                cache.DataSource = dataSource;
+                cache.SchemaName = options.SchemaName;
+                cache.TableName = options.TableName;
+                cache.CreateIfNotExists = options.CreateIfNotExists;
+                cache.ExpiredItemsDeletionInterval = options.ExpiredItemsDeletionInterval;
+            });
 
         services.AddHttpClient(nameof(GoogleAuthProvider));
         services.AddHttpClient(nameof(FacebookAuthProvider));
@@ -166,7 +201,7 @@ public static class DependencyInjection
 
         services.AddScoped<IExternalOAuthCodeProvider, GoogleAuthProvider>();
         services.AddScoped<IExternalOAuthCodeProvider, FacebookAuthProvider>();
-        services.AddScoped<IExternalOAuthStateStore, InMemoryExternalOAuthStateStore>();
+        services.AddScoped<IExternalOAuthStateStore, DistributedExternalOAuthStateStore>();
         services.AddScoped<IExternalOAuthFlowService, ExternalOAuthFlowService>();
 
         services.AddHttpClient(ExternalProductLookupService.HttpClientName, (sp, client) =>
@@ -196,34 +231,5 @@ public static class DependencyInjection
         services.AddScoped<IPurchaseOrderReceiptNumberGenerator, PurchaseOrderReceiptNumberGenerator>();
 
         return services;
-    }
-
-    private static readonly Action<ILogger, Exception?> LogApplyingMigrations =
-        LoggerMessage.Define(LogLevel.Information, new EventId(1, nameof(ApplyMigrationsAsync)), "Applying migrations...");
-
-    private static readonly Action<ILogger, Exception?> LogMigrationsApplied =
-        LoggerMessage.Define(LogLevel.Information, new EventId(2, nameof(ApplyMigrationsAsync)), "Migrations applied successfully.");
-
-    private static readonly Action<ILogger, Exception?> LogMigrationError =
-        LoggerMessage.Define(LogLevel.Error, new EventId(3, nameof(ApplyMigrationsAsync)), "An error occurred while applying migrations.");
-
-    public static async Task ApplyMigrationsAsync(this IServiceProvider serviceProvider)
-    {
-        using var scope = serviceProvider.CreateScope();
-        var services = scope.ServiceProvider;
-        var logger = services.GetRequiredService<ILogger<ApplicationDbContext>>();
-
-        try
-        {
-            var context = services.GetRequiredService<ApplicationDbContext>();
-            LogApplyingMigrations(logger, null);
-            await context.Database.MigrateAsync();
-            LogMigrationsApplied(logger, null);
-        }
-        catch (Exception ex)
-        {
-            LogMigrationError(logger, ex);
-            throw;
-        }
     }
 }
