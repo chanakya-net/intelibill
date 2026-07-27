@@ -154,15 +154,280 @@ The final checker output was:
 Egress allowlist verified: 362 expected address(es), 362 managed rule(s).
 ```
 
-For any future address change, use the retained-address two-apply procedure:
+For any future address change, use this exact retained-address two-apply
+procedure. The examples use `dev`; set `environment_name=prod` for production.
+Never refresh both environment states when only one environment changed.
 
-1. Put the previous exact addresses for the affected environment in shared
-   input `retained_container_apps_outbound_ips`. Review and apply shared state
-   so newly advertised rules are added while old rules remain. Wait for
-   firewall propagation, a successful readiness check, and a green drift
-   check.
-2. Clear the retained set. Review a second shared plan whose only removals are
-   stale exact rules, apply it, and rerun the drift checker.
+1. **Before the change, capture and verify the old live set.** Do this before
+   any planned environment operation that could rotate egress. For an
+   unannounced provider-side change, the pre-refresh environment output plus
+   the exact environment-named firewall rules are the recoverable old set;
+   never substitute the snapshot printed in this document.
+
+   ```bash
+   set -euo pipefail
+   environment_name=dev
+   [[ "${environment_name}" == dev || "${environment_name}" == prod ]]
+   transition_dir="$(mktemp -d)"
+
+   discover_live_addresses() {
+     local selected_environment="$1"
+     local api_addresses web_addresses job_addresses
+     api_addresses="$(
+       az containerapp show --resource-group intelibill-shared \
+         --name "intelibill-${selected_environment}-api" \
+         --query properties.outboundIpAddresses -o json
+     )"
+     web_addresses="$(
+       az containerapp show --resource-group intelibill-shared \
+         --name "intelibill-${selected_environment}-web" \
+         --query properties.outboundIpAddresses -o json
+     )"
+     job_addresses="$(
+       az containerapp job show --resource-group intelibill-shared \
+         --name "intelibill-${selected_environment}-migrate" \
+         --query properties.outboundIpAddresses -o json
+     )"
+     jq -nS \
+       --argjson api "${api_addresses}" \
+       --argjson web "${web_addresses}" \
+       --argjson job "${job_addresses}" \
+       '[$api[], $web[], $job[]] | unique | sort'
+   }
+
+   discover_live_addresses "${environment_name}" \
+     >"${transition_dir}/old-live.json"
+   tofu -chdir=".tofu/envs/${environment_name}" \
+     output -json container_apps |
+     jq -S '.outbound_ip_addresses | unique | sort' \
+       >"${transition_dir}/old-state.json"
+   jq -e -s \
+     'length == 2 and .[0] == .[1] and (.[0] | length > 0)' \
+     "${transition_dir}/old-live.json" \
+     "${transition_dir}/old-state.json" >/dev/null
+   ```
+
+2. **Discover and validate the new live set after Azure reports the change.**
+   Stop if either set is empty, malformed, sentinel-valued, or unchanged.
+
+   ```bash
+   discover_live_addresses "${environment_name}" \
+     >"${transition_dir}/new-live.json"
+   jq -e -s '
+     def canonical_ipv4:
+       type == "string" and
+       test("^(0|[1-9][0-9]{0,2})(\\.(0|[1-9][0-9]{0,2})){3}$") and
+       (split(".") | all(.[]; tonumber >= 0 and tonumber <= 255)) and
+       . != "0.0.0.0" and . != "255.255.255.255";
+     length == 2 and
+     all(.[]; type == "array" and length > 0 and all(.[]; canonical_ipv4)) and
+     .[0] != .[1]
+   ' "${transition_dir}/old-live.json" \
+     "${transition_dir}/new-live.json" >/dev/null
+   ```
+
+3. **Persist only the affected environment's computed output.** A normal
+   shared plan still sees the old remote-state output. Create and review a
+   saved `-refresh-only` plan, prove that it contains no Azure mutation and
+   only the affected API/web/job drift, then apply that exact plan. This apply
+   updates environment state and root outputs only.
+
+   ```bash
+   refresh_plan="${transition_dir}/${environment_name}-refresh.tfplan"
+   set +e
+   tofu -chdir=".tofu/envs/${environment_name}" plan \
+     -refresh-only -detailed-exitcode -out="${refresh_plan}"
+   refresh_exit=$?
+   set -e
+   [[ "${refresh_exit}" -eq 2 ]]
+
+   tofu -chdir=".tofu/envs/${environment_name}" \
+     show -json "${refresh_plan}" >"${transition_dir}/refresh-plan.json"
+   jq -e --slurpfile new "${transition_dir}/new-live.json" '
+     .errored == false and
+     (
+       [.resource_changes[]? |
+         select(.change.actions != ["no-op"])] |
+       length == 0
+     ) and
+     (
+       [.resource_drift[]? |
+         select(.change.actions != ["no-op"]) |
+         .address] as $drift |
+       ($drift | length > 0) and
+       all(
+         $drift[];
+         . == "module.environment_infrastructure.azurerm_container_app.api" or
+         . == "module.environment_infrastructure.azurerm_container_app.web" or
+         . == "module.environment_infrastructure.azurerm_container_app_job.migrate"
+       )
+     ) and
+     (
+       .planned_values.outputs.container_apps.value.outbound_ip_addresses |
+       unique | sort
+     ) == $new[0]
+   ' "${transition_dir}/refresh-plan.json" >/dev/null
+
+   tofu -chdir=".tofu/envs/${environment_name}" apply "${refresh_plan}"
+   tofu -chdir=".tofu/envs/${environment_name}" \
+     output -json container_apps |
+     jq -S '.outbound_ip_addresses | unique | sort' \
+       >"${transition_dir}/persisted-new.json"
+   jq -e -s '.[0] == .[1]' \
+     "${transition_dir}/new-live.json" \
+     "${transition_dir}/persisted-new.json" >/dev/null
+   ```
+
+4. **Create one retained source for both shared state and the checker.** The
+   old affected-environment set must appear identically in both files.
+
+   ```bash
+   jq -nS \
+     --arg environment "${environment_name}" \
+     --slurpfile old "${transition_dir}/old-live.json" \
+     '{dev: [], prod: []} | .[$environment] = $old[0]' \
+     >"${transition_dir}/retained.json"
+   jq -nS \
+     --slurpfile retained "${transition_dir}/retained.json" \
+     '{retained_container_apps_outbound_ips: $retained[0]}' \
+     >"${transition_dir}/shared-retained.tfvars.json"
+   jq -e \
+     --slurpfile retained "${transition_dir}/retained.json" \
+     '.retained_container_apps_outbound_ips == $retained[0]' \
+     "${transition_dir}/shared-retained.tfvars.json" >/dev/null
+   ```
+
+5. **First shared apply: add every new exact rule and delete nothing.** The
+   machine guard below requires the complete active plan to equal
+   `new-live - old-live`, create-only, with identical start/end addresses.
+
+   ```bash
+   first_plan="${transition_dir}/shared-add-new.tfplan"
+   set +e
+   tofu -chdir=.tofu/envs/shared plan \
+     -detailed-exitcode \
+     -var-file="${transition_dir}/shared-retained.tfvars.json" \
+     -out="${first_plan}"
+   first_exit=$?
+   set -e
+   [[ "${first_exit}" -eq 0 || "${first_exit}" -eq 2 ]]
+   tofu -chdir=.tofu/envs/shared show -json "${first_plan}" \
+     >"${transition_dir}/shared-add-new.json"
+
+   jq -e \
+     --arg environment "${environment_name}" \
+     --slurpfile old "${transition_dir}/old-live.json" \
+     --slurpfile new "${transition_dir}/new-live.json" '
+     def rule_name($ip):
+       "container-apps-" + $environment + "-" + ($ip | gsub("\\."; "-"));
+     (($new[0] - $old[0]) |
+       map({
+         actions: ["create"],
+         name: rule_name(.),
+         start: .,
+         end: .
+       }) |
+       sort_by(.name)) as $expected |
+     ([.resource_changes[]? |
+       select(.change.actions != ["no-op"]) |
+       {
+         address,
+         actions: .change.actions,
+         name: .change.after.name,
+         start: .change.after.start_ip_address,
+         end: .change.after.end_ip_address
+       }] |
+       sort_by(.name)) as $active |
+     ($active | map(del(.address))) == $expected and
+     all(
+       $active[];
+       .address |
+       startswith(
+         "module.database." +
+         "azurerm_postgresql_flexible_server_firewall_rule.allowed["
+       )
+     )
+   ' "${transition_dir}/shared-add-new.json" >/dev/null
+
+   tofu -chdir=.tofu/envs/shared apply "${first_plan}"
+   .tofu/scripts/check-container-app-egress.sh \
+     --environment "${environment_name}" \
+     --retained-file "${transition_dir}/retained.json"
+   ```
+
+   Wait for PostgreSQL firewall propagation. With the real Phase 11+ images
+   deployed, require `GET /health/ready` to return 200 from inside the
+   Container Apps environment; the Node web container can perform that
+   internal check without exposing the API:
+
+   ```bash
+   az containerapp exec --resource-group intelibill-shared \
+     --name "intelibill-${environment_name}-web" \
+     --command "node -e \"fetch(process.env.API_ORIGIN + '/health/ready').then(r => { console.log(r.status); if (!r.ok) process.exit(1); }).catch(() => process.exit(1))\""
+   ```
+
+   Do not retire old rules based only on bootstrap-image health or a resource
+   provisioning status.
+
+6. **Second shared apply: clear retention and delete only stale exact rules.**
+   Pass an explicit empty map, rather than relying on an operator's local
+   tfvars. The guard requires the complete active plan to equal
+   `old-live - new-live`, delete-only.
+
+   ```bash
+   jq -nS \
+     '{retained_container_apps_outbound_ips: {dev: [], prod: []}}' \
+     >"${transition_dir}/shared-clear-retained.tfvars.json"
+   second_plan="${transition_dir}/shared-remove-stale.tfplan"
+   set +e
+   tofu -chdir=.tofu/envs/shared plan \
+     -detailed-exitcode \
+     -var-file="${transition_dir}/shared-clear-retained.tfvars.json" \
+     -out="${second_plan}"
+   second_exit=$?
+   set -e
+   [[ "${second_exit}" -eq 0 || "${second_exit}" -eq 2 ]]
+   tofu -chdir=.tofu/envs/shared show -json "${second_plan}" \
+     >"${transition_dir}/shared-remove-stale.json"
+
+   jq -e \
+     --arg environment "${environment_name}" \
+     --slurpfile old "${transition_dir}/old-live.json" \
+     --slurpfile new "${transition_dir}/new-live.json" '
+     def rule_name($ip):
+       "container-apps-" + $environment + "-" + ($ip | gsub("\\."; "-"));
+     (($old[0] - $new[0]) |
+       map({
+         actions: ["delete"],
+         name: rule_name(.),
+         start: .,
+         end: .
+       }) |
+       sort_by(.name)) as $expected |
+     ([.resource_changes[]? |
+       select(.change.actions != ["no-op"]) |
+       {
+         address,
+         actions: .change.actions,
+         name: .change.before.name,
+         start: .change.before.start_ip_address,
+         end: .change.before.end_ip_address
+       }] |
+       sort_by(.name)) as $active |
+     ($active | map(del(.address))) == $expected and
+     all(
+       $active[];
+       .address |
+       startswith(
+         "module.database." +
+         "azurerm_postgresql_flexible_server_firewall_rule.allowed["
+       )
+     )
+   ' "${transition_dir}/shared-remove-stale.json" >/dev/null
+
+   tofu -chdir=.tofu/envs/shared apply "${second_plan}"
+   .tofu/scripts/check-container-app-egress.sh
+   ```
 
 Never swap old and new rules in one propagation window, summarize addresses
 into a range, or fall back to the broad Azure-services exception.
@@ -210,7 +475,7 @@ limitation, not an Azure, OpenTofu, drift, idempotence, or logging failure.
 
 ---
 
-## 4. The application contract Phase 10 must satisfy
+## 4. The application contract Phase 10 satisfies
 
 This is the part the guide's Phase 10 examples predate. All of it is verified working locally.
 
@@ -297,7 +562,7 @@ The JWT signing key is **not** a secret reference — it is a key the app reache
 ```
 .tofu/bootstrap/      state storage, GitHub OIDC identities, role assignments
 .tofu/envs/shared/    PostgreSQL, DNS (deferred)
-.tofu/envs/dev/       workload identities + key vault   ← Phase 10 grows this
+.tofu/envs/dev/       identities, key vault, Container Apps, diagnostics, roles
 .tofu/envs/prod/      same
 .tofu/modules/        database, dns, workload-identities, key-vault
 ```
@@ -329,10 +594,18 @@ outbound addresses; and the approved diagnostic settings.
 **10B completed:** one manual migration job, API app, and web app per
 environment, plus all six resource-scoped role assignments.
 
-Points the guide gets right and are worth honouring:
+The implemented constraints worth preserving are:
 
 - `ignore_changes` on the container image, so the deploy pipeline owns the tag and Tofu does not revert it to the quickstart image ([decision §14](infrastructure-decisions.md#14-ignore_changes-on-the-container-image)).
-- **Narrow the deploy identities to individual app resources in 10.2, then remove the group-scoped `azurerm_role_assignment.deploy` from `bootstrap/role-assignments.tf` and re-apply bootstrap.** Until that happens `deploy_dev` can update production's Container App, because one resource group holds everything. This is the single most important security step in Phase 10 — [decision §19](infrastructure-decisions.md#19-one-resource-group-for-everything) accepted the flattened boundary specifically on the promise that this step restores it.
+- **Keep deploy identities narrowed to their three environment-specific
+  resources.** The former group-scoped
+  `azurerm_role_assignment.deploy` entries are absent from bootstrap state and
+  configuration. Reintroducing either would let one environment's deploy
+  identity update the other's Container Apps because both environments share
+  one resource group. Decision
+  [§19](infrastructure-decisions.md#19-one-resource-group-for-everything)
+  accepts the flattened resource group only with this narrower routine
+  deployment boundary.
 - Images come from public GHCR, so there is no `registry` block and no `AcrPull` assignment.
 
 ---

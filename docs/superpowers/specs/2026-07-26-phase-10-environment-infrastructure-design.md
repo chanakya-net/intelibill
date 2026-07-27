@@ -285,12 +285,16 @@ that risk as follows:
 7. Every infrastructure plan and live verification runs the drift check.
    Phase 11 schedules it through the plan workflow so provider-side changes are
    reported even when no repository change occurs.
-8. When addresses change, the first reviewed apply passes the previous
-   addresses through `retained_container_apps_outbound_ips`, adds all newly
-   advertised addresses, and waits for PostgreSQL firewall propagation plus a
-   successful readiness check. A second reviewed apply clears the retained set
-   and removes stale rules. This avoids exchanging old and new rules in one
-   propagation window.
+8. When addresses change, capture the old and new live sets and apply a saved
+   `-refresh-only` plan for only the affected environment so its new computed
+   output is persisted before shared state plans. Derive both
+   `retained_container_apps_outbound_ips` and the checker's `--retained-file`
+   JSON from the same old set. Machine-guard the first shared saved plan to
+   create exactly `new - old` and delete nothing; after apply, require the
+   retained-aware checker plus a successful real readiness check. Explicitly
+   clear retention, machine-guard the second shared saved plan to delete
+   exactly `old - new`, apply, and run the bare combined checker. This avoids
+   exchanging old and new rules in one propagation window.
 
 The broad Azure-services rule remains prohibited. Entra authentication and
 database grants remain independent controls; firewall reachability alone grants
@@ -447,8 +451,16 @@ head `e8c11915`. Fresh post-apply verification established:
 
 The address fingerprints are a derived, non-canonical snapshot; the live Azure
 sets and `.tofu/scripts/check-container-app-egress.sh` remain authoritative for
-operations. Future address changes must use the two-apply retained-address
-procedure defined above.
+operations. Future address changes must use the exact runbook in
+`docs/phase-10-handoff.md`: capture the pre-change live set, discover the new
+set, review and apply a saved `-refresh-only` plan for only the affected
+environment so its computed output reaches remote state, and build both shared
+tfvars and checker `--retained-file` JSON from the same old set. The first
+shared saved plan is machine-guarded to create only `new - old` exact rules and
+delete none; after firewall propagation, a retained-aware drift check and real
+application readiness check must pass. The second saved plan explicitly clears
+retention and is machine-guarded to delete only `old - new` exact rules. A bare
+combined checker must pass after that second apply.
 
 Separately, Graphify extracts the repository AST successfully but cannot
 generate HTML for the 14,305-node graph because it exceeds the visualization
