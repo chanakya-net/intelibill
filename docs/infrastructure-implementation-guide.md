@@ -297,7 +297,7 @@ Four identities in three families. The split is by **duty**, not by environment:
 | Identity | Reached by | Holds |
 |---|---|---|
 | `plan` | any pull request | Reader on the group, blob data Reader on all state |
-| `infra_apply` | `dev`, `prod`, or `shared` environment | Contributor + RBAC admin on the group, blob data Contributor on all state |
+| `infra_apply` | `dev`, `prod`, or `shared` environment | Contributor + RBAC admin + Key Vault Crypto Officer on the group, blob data Contributor on all state |
 | `deploy[dev\|prod]` | `dev`/`prod` environment | update a Container App, start a job |
 
 **What still separates dev from prod**, with the Azure layer gone:
@@ -439,6 +439,15 @@ resource "azurerm_role_assignment" "infra_apply_rbac" {
   principal_id         = azurerm_user_assigned_identity.infra_apply.principal_id
 }
 
+# Environment state owns each JWT signing key and rotation policy. Contributor
+# and RBAC Administrator have no Key Vault data actions; this role manages keys
+# without granting access to secret values.
+resource "azurerm_role_assignment" "infra_apply_key_vault_crypto_officer" {
+  scope                = azurerm_resource_group.shared.id
+  role_definition_name = "Key Vault Crypto Officer"
+  principal_id         = azurerm_user_assigned_identity.infra_apply.principal_id
+}
+
 # One identity applies all three layers, so it needs write on all three
 # containers. They stay separate to keep a mistaken backend `key` out of the
 # wrong layer — an operability guard, not an isolation one.
@@ -468,6 +477,11 @@ Scope the blob assignments to the **container**, never the storage account. Acco
 Use `.id` on the container, not `.resource_manager_id`, which the provider deprecated for removal in 5.0. Also avoid `for_each` over the whole `azurerm_storage_container.state` resource — that evaluates deprecated attributes and produces warnings; iterate `local.state_layers` instead.
 
 `RBAC Administrator` at group scope, held by an identity that any merge can reach through the `dev` gate, is the sharpest edge in this design. It can grant itself anything within the group. Accepting it is the price of a single group plus environment layers that manage their own role assignments; the mitigation is the reviewer gate and reviewing `infra-apply.yml` changes as security-relevant.
+
+`Key Vault Crypto Officer` is also group-scoped because the same apply identity
+owns the signing keys and rotation policies in both environment states. It has
+key data actions but no secret data actions; do not replace or supplement it
+with `Key Vault Secrets Officer`.
 
 **The deploy identity needs a custom role.** No built-in role covers "update this app's image and start its migration job" without also granting delete, secret listing, or environment-wide control:
 

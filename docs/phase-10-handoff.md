@@ -71,6 +71,12 @@ Read them from `tofu -chdir=.tofu/envs/<env> output -json identities` rather tha
 
 `plan`, `infra_apply`, `deploy_dev`, `deploy_prod`. Environments `dev`, `prod`, `shared` exist, each carrying `AZURE_CLIENT_ID_INFRA`, `AZURE_SUBSCRIPTION_ID`, `AZURE_TENANT_ID`; `dev` and `prod` also carry `AZURE_CLIENT_ID_DEPLOY`.
 
+The shared `infra_apply` principal has Contributor, RBAC Administrator, and
+Key Vault Crypto Officer at resource-group scope plus blob data Contributor on
+all three environment state containers. Crypto Officer is required because the
+dev and prod states manage JWT signing keys and rotation policies; the identity
+has no Key Vault secrets role.
+
 Phase 11 adds the repository variables required by the three environment roots:
 `TOFU_ADMIN_OBJECT_ID`, `TOFU_ADMIN_PRINCIPAL_NAME`,
 `TOFU_SECRET_OFFICER_OBJECT_IDS`, and the release gate

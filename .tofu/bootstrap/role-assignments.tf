@@ -23,6 +23,15 @@ resource "azurerm_role_assignment" "infra_apply_rbac" {
   principal_id         = azurerm_user_assigned_identity.infra_apply.principal_id
 }
 
+# Dev and prod state own their Key Vault signing keys and rotation policies.
+# Contributor and RBAC Administrator have no Key Vault data actions, so the
+# apply identity needs key management without any access to secret values.
+resource "azurerm_role_assignment" "infra_apply_key_vault_crypto_officer" {
+  scope                = azurerm_resource_group.shared.id
+  role_definition_name = "Key Vault Crypto Officer"
+  principal_id         = azurerm_user_assigned_identity.infra_apply.principal_id
+}
+
 # One identity applies all three layers, so it needs write on all three state
 # containers. The containers remain separate to keep a mistaken backend `key`
 # from landing in the wrong layer, but they no longer isolate dev from prod:
