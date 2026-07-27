@@ -72,8 +72,9 @@ variable "databases" {
   default     = ["intelibill_dev", "intelibill_prod"]
 }
 
-# Public-network launch exception. Empty until Phase 10 produces the Container
-# Apps outbound IPs; migration IPs are added and removed within a single run.
+# Public-network launch exception. Container Apps rules are derived from the
+# environment states; this input is only for explicitly reviewed operator
+# access that is removed as soon as the operation ends.
 #
 # One rule list for one server: an allowlisted address can reach both databases,
 # so per-environment separation has to come from grants, not from here.

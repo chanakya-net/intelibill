@@ -455,6 +455,46 @@ run "optional_secret_contract" {
   }
 }
 
+run "reject_empty_secret_name" {
+  command = plan
+
+  variables {
+    new_relic_api_key_secret_name = ""
+  }
+
+  expect_failures = [var.new_relic_api_key_secret_name]
+}
+
+run "reject_path_secret_name" {
+  command = plan
+
+  variables {
+    new_relic_api_key_secret_name = "integrations/new-relic-api-key"
+  }
+
+  expect_failures = [var.new_relic_api_key_secret_name]
+}
+
+run "reject_versioned_secret_name" {
+  command = plan
+
+  variables {
+    new_relic_api_key_secret_name = "new-relic-api-key/0123456789abcdef0123456789abcdef"
+  }
+
+  expect_failures = [var.new_relic_api_key_secret_name]
+}
+
+run "reject_invalid_secret_name_character" {
+  command = plan
+
+  variables {
+    new_relic_api_key_secret_name = "new_relic_api_key"
+  }
+
+  expect_failures = [var.new_relic_api_key_secret_name]
+}
+
 run "reject_tagged_image" {
   command = plan
 

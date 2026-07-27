@@ -1,7 +1,6 @@
-# Phase 10 grows this layer into Container Apps, Key Vault, and Log Analytics.
-# Created early because Phase 7.3 registers database principals named after
-# these identities: if they were created later their principal IDs would change
-# and the SQL grants would silently stop matching.
+# Phase 10 attaches the existing workload identities to Container Apps without
+# replacing them. Phase 7.3 registered database principals against their object
+# IDs, so replacement would silently detach every SQL grant.
 locals {
   env           = "prod"
   database_name = "intelibill_prod"
@@ -38,9 +37,8 @@ module "workload_identities" {
 
 data "azurerm_client_config" "current" {}
 
-# 10A foundation, applied ahead of Phase 9: the vault has to exist before there
-# is anywhere to put a secret. Container Apps, Log Analytics, and the workloads
-# that reference these secrets arrive in 10B.
+# The Phase 9 Key Vault remains owned by this environment state. Phase 10
+# workloads consume its IDs and versionless references without reading values.
 module "key_vault" {
   source = "../../modules/key-vault"
 

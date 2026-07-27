@@ -184,7 +184,7 @@ normalize_address_map() {
       . as $input |
       reduce $selected[] as $environment
         ({}; .[$environment] = (($input[$environment] // []) | unique | sort))
-    ' "${input_file}" >"${output_file}" 2>/dev/null; then
+    ' -- "${input_file}" >"${output_file}" 2>/dev/null; then
     fail "${label} input must contain canonical, non-sentinel IPv4 arrays keyed by dev or prod"
   fi
 }
@@ -198,11 +198,9 @@ normalize_address_map \
   "retained" \
   "${work_dir}/retained-normalized.json"
 
-advertised_count="$(
-  jq '[.[] | .[]] | unique | length' "${work_dir}/advertised-normalized.json"
-)"
-((advertised_count > 0)) ||
-  fail "the selected environments advertise no outbound IPv4 addresses"
+jq -e 'all(.[]; length > 0)' \
+  "${work_dir}/advertised-normalized.json" >/dev/null ||
+  fail "every selected environment must advertise at least one outbound IPv4 address"
 
 if ! jq -eSs \
   '
@@ -220,7 +218,7 @@ if ! jq -eSs \
     then .[0]
     else error("invalid firewall rule array")
     end
-  ' "${firewall_file}" \
+  ' -- "${firewall_file}" \
   >"${work_dir}/firewall-normalized.json" 2>/dev/null; then
   fail "firewall input must be a JSON array of string-valued rules"
 fi

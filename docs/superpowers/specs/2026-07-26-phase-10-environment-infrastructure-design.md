@@ -188,7 +188,10 @@ no integration secret exists yet. When the out-of-band secret
 `new-relic-api-key` exists, setting its secret-name variable adds a versionless
 Key Vault reference and maps it to
 `Observability__NewRelic__ApiKey`. Deploying the real API image is blocked
-operationally until that secret has been configured.
+operationally until that secret has been configured. A non-null input must be
+one Azure Key Vault secret-name segment: 1–127 ASCII letters, digits, or
+hyphens. Paths and version suffixes are rejected so URI construction remains
+versionless.
 
 ### Web Container App
 
@@ -280,12 +283,21 @@ that risk as follows:
    transition. It defaults to empty and accepts only individual IPv4
    addresses.
 6. A drift-check script compares Azure's current advertised address union with
-   the managed PostgreSQL rules. It exits nonzero for missing addresses, broad
-   rules, malformed ranges, or an empty advertised set.
-7. Every infrastructure plan and live verification runs the drift check.
+   the managed PostgreSQL rules. Every selected environment must advertise at
+   least one canonical IPv4 address. The script exits nonzero for an empty
+   selected environment, missing addresses, broad rules, or malformed ranges.
+7. Outside a retained-address transition, every saved shared plan is passed to
+   `guard-shared-egress-plan.sh` immediately before apply. The guard extracts
+   the plan's final PostgreSQL firewall inventory from `tofu show -json` and
+   gives it to the drift checker through `--firewall-file`. The checker then
+   requires that final inventory to exactly match both live environment
+   address sets, so a plan cannot silently remove one environment's allowlist.
+   The normal guard deliberately accepts no environment narrowing, retained
+   file, or advertised fixture override.
+8. Every infrastructure plan and live verification runs the drift check.
    Phase 11 schedules it through the plan workflow so provider-side changes are
    reported even when no repository change occurs.
-8. When addresses change, always recover old from two pre-refresh sources: the
+9. When addresses change, always recover old from two pre-refresh sources: the
    affected environment's persisted output and its exact environment-prefixed
    single-IP firewall rules. Require those sources to be equal, nonempty, and
    canonical. In the planned branch, require current live to equal old before
@@ -351,6 +363,26 @@ The initial live application is deliberately staged:
 Every saved plan is applied directly. Apply output is never piped through a
 command that can hide its exit code.
 
+After the one-time staged bootstrap above, every ordinary shared apply uses a
+combined final-inventory guard:
+
+```bash
+repository_root="$(pwd -P)"
+shared_plan="${repository_root}/.tofu/envs/shared/shared.tfplan"
+
+tofu -chdir=.tofu/envs/shared plan -out="${shared_plan}"
+tofu -chdir=.tofu/envs/shared show "${shared_plan}"
+.tofu/scripts/guard-shared-egress-plan.sh --plan-file "${shared_plan}"
+tofu -chdir=.tofu/envs/shared apply "${shared_plan}"
+.tofu/scripts/check-container-app-egress.sh
+```
+
+Run the guard immediately before apply. It checks both live environments and
+the saved plan's final firewall values without changing Azure or state. The
+retained-address procedure remains the only exception because its first and
+second shared plans intentionally contain transitional inventories; those
+plans use their stricter create-only and delete-only machine guards.
+
 ## Failure Handling
 
 - Provider registration failure stops before any OpenTofu apply.
@@ -381,6 +413,7 @@ resources. Tests assert:
   blocks, and `AcrPull`;
 - digest-only bootstrap image validation;
 - versionless Key Vault secret URI construction;
+- Azure-compatible single-segment Key Vault secret-name validation;
 - diagnostic categories and shared workspace routing;
 - resource-scoped deploy assignments;
 - narrow firewall rule construction from remote output sets.
@@ -395,6 +428,8 @@ tofu -chdir=.tofu/envs/dev validate
 tofu -chdir=.tofu/envs/prod validate
 tofu -chdir=.tofu/modules/environment-infrastructure test
 tofu -chdir=.tofu/envs/shared test
+bash .tofu/scripts/tests/check-container-app-egress.test.sh
+bash .tofu/scripts/tests/guard-shared-egress-plan.test.sh
 ```
 
 Fresh saved plans for shared, dev, prod, and bootstrap must show no identity or

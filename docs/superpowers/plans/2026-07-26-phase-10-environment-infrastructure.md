@@ -20,6 +20,9 @@
 - Configure `HTTP_PORT=8080` for the API bootstrap and `HTTP_PORT=4000` for the web bootstrap so the final ingress and probes are valid before application images are published.
 - Keep `ignore_changes` limited to each workload container image. The deploy pipeline owns image drift; OpenTofu owns all other workload configuration.
 - Apply saved plan files directly. Do not pipe `tofu apply` through another process.
+- After the one-time staged rollout, pass every ordinary shared saved plan
+  through `.tofu/scripts/guard-shared-egress-plan.sh` immediately before apply.
+  Retained transitions use their specialized create-only/delete-only guards.
 - Commit after each green task. Do not commit `.terraform/`, plan files, state, identity snapshots, or generated drift-check input.
 
 ---
@@ -311,7 +314,12 @@ Expected: failure because the environment resources do not exist.
 
 - [ ] **Step 3: Implement validated inputs and shared locals**
 
-Declare `env` with `dev|prod` validation; exact identity, vault, and database object types; nullable `new_relic_api_key_secret_name`; and the digest-only image validation:
+Declare `env` with `dev|prod` validation; exact identity, vault, and database
+object types; nullable `new_relic_api_key_secret_name`; and the digest-only
+image validation. A non-null secret name must match
+`^[0-9A-Za-z-]{1,127}$`, which keeps it to one Azure-compatible secret-name
+segment and prevents a caller from appending a path or version to the
+versionless URI.
 
 ```hcl
 variable "bootstrap_image" {
@@ -778,7 +786,9 @@ git commit -m "feat(infra): reconcile Container Apps egress"
 **Files:**
 
 - Create: `.tofu/scripts/check-container-app-egress.sh`
+- Create: `.tofu/scripts/guard-shared-egress-plan.sh`
 - Create: `.tofu/scripts/tests/check-container-app-egress.test.sh`
+- Create: `.tofu/scripts/tests/guard-shared-egress-plan.test.sh`
 - Create: `.tofu/scripts/tests/fixtures/advertised-ok.json`
 - Create: `.tofu/scripts/tests/fixtures/advertised-empty.json`
 - Create: `.tofu/scripts/tests/fixtures/firewall-ok.json`
@@ -825,7 +835,7 @@ The firewall fixture is the Azure CLI array shape with `name`, `startIpAddress`,
 The test harness must assert:
 
 - matching exact rules exit `0`;
-- empty advertised union exits nonzero;
+- an empty advertised array for any selected environment exits nonzero;
 - missing current address exits nonzero;
 - broad `0.0.0.0` to `255.255.255.255` exits nonzero;
 - malformed or non-identical managed rule range exits nonzero;
@@ -833,6 +843,9 @@ The test harness must assert:
 - the same rule exits `0` when explicitly present in the retained input;
 - an operator rule with a non-`container-apps-` name does not satisfy a missing managed address.
 - an invalid or repeated `--environment` value exits nonzero.
+- single-environment selection ignores an empty unselected environment but
+  still rejects an empty selected environment;
+- fixture filenames beginning with `-` are treated as paths.
 
 - [ ] **Step 2: Run the shell test and confirm RED**
 
@@ -852,7 +865,7 @@ Implement with `set -euo pipefail`. Require `az` only when live files are absent
 - union API, web, and migration addresses per environment;
 - limit both live discovery and managed-rule comparison to the selected
   environment set;
-- fail if the total advertised set is empty;
+- fail unless every selected environment advertises at least one address;
 - derive the expected rule name with dots replaced by hyphens;
 - require every expected rule to have identical start/end values;
 - reject any broad rule regardless of its name;
@@ -863,18 +876,66 @@ Implement with `set -euo pipefail`. Require `az` only when live files are absent
 
 The live collection must fail closed if any app/job lookup fails or returns a non-array.
 
-- [ ] **Step 4: Run GREEN verification and make scripts executable**
+- [ ] **Step 4: Write failing normal shared-plan guard tests**
+
+The guard interface is:
+
+```text
+guard-shared-egress-plan.sh
+  --plan-file FILE
+  [--resource-group NAME]
+  [--postgres-server NAME]
+```
+
+Use fake `tofu show -json` and Azure workload-discovery boundaries with the real
+drift checker. Assert that an exact final planned inventory passes, while an
+inventory missing all rules for one environment, a broad rule, malformed
+planned values, or a failed OpenTofu show exits nonzero. The normal guard must
+reject `--retained-file`, `--advertised-file`, and `--environment`; those
+overrides cannot replace combined live discovery before an ordinary apply.
 
 Run:
 
 ```bash
-chmod +x .tofu/scripts/check-container-app-egress.sh .tofu/scripts/tests/check-container-app-egress.test.sh
+bash .tofu/scripts/tests/guard-shared-egress-plan.test.sh
+```
+
+Expected: failure because the guard does not exist.
+
+- [ ] **Step 5: Implement final saved-plan inventory validation**
+
+Render the absolute saved plan with:
+
+```bash
+tofu -chdir=.tofu/envs/shared show -json <absolute-plan-path>
+```
+
+Fail closed without printing OpenTofu diagnostics. Recursively extract the
+final planned values for every managed
+`azurerm_postgresql_flexible_server_firewall_rule` into Azure CLI-shaped
+objects containing `name`, `startIpAddress`, and `endIpAddress`. Invoke
+`check-container-app-egress.sh --firewall-file <extracted-file>` without an
+environment or retained-file option. With no advertised fixture, the checker
+discovers both live environment sets, requires each to be nonempty, and proves
+the saved plan's final managed inventory exactly matches them.
+
+- [ ] **Step 6: Run GREEN verification and make scripts executable**
+
+Run:
+
+```bash
+chmod +x \
+  .tofu/scripts/check-container-app-egress.sh \
+  .tofu/scripts/guard-shared-egress-plan.sh \
+  .tofu/scripts/tests/check-container-app-egress.test.sh \
+  .tofu/scripts/tests/guard-shared-egress-plan.test.sh
 bash .tofu/scripts/tests/check-container-app-egress.test.sh
+bash .tofu/scripts/tests/guard-shared-egress-plan.test.sh
 ```
 
 Expected: all fixture cases pass.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add .tofu/scripts
@@ -985,6 +1046,7 @@ tofu -chdir=.tofu/envs/shared test
 tofu -chdir=.tofu/envs/dev test
 tofu -chdir=.tofu/envs/prod test
 bash .tofu/scripts/tests/check-container-app-egress.test.sh
+bash .tofu/scripts/tests/guard-shared-egress-plan.test.sh
 bash .tofu/bootstrap/tests/deploy-role.test.sh
 ```
 
@@ -1154,11 +1216,19 @@ Run:
 ```bash
 tofu -chdir=.tofu/envs/shared plan -out=phase10-shared-all-egress.tfplan
 tofu -chdir=.tofu/envs/shared show phase10-shared-all-egress.tfplan
+.tofu/scripts/guard-shared-egress-plan.sh \
+  --plan-file "$(pwd -P)/.tofu/envs/shared/phase10-shared-all-egress.tfplan"
 tofu -chdir=.tofu/envs/shared apply phase10-shared-all-egress.tfplan
 .tofu/scripts/check-container-app-egress.sh
 ```
 
 Expected: every current dev/prod API, web, and migration-job outbound address has one exact managed firewall rule; no broad or stale managed rule exists.
+
+Task 8 Steps 3 and 5 are one-time staged-bootstrap exceptions because both
+environment outputs do not exist yet. Once Step 7 establishes both
+environments, every ordinary shared saved plan must use the combined guard.
+Future retained transitions instead use the handoff's stricter add-only and
+delete-only plan guards.
 
 - [ ] **Step 8: Remove the temporary group grants last**
 

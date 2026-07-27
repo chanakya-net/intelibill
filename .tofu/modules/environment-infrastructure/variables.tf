@@ -73,10 +73,19 @@ variable "database" {
 }
 
 variable "new_relic_api_key_secret_name" {
-  description = "Optional Key Vault secret name containing the New Relic API key"
+  description = "Optional single Key Vault secret-name segment containing the New Relic API key"
   type        = string
   default     = null
   nullable    = true
+
+  validation {
+    condition = (
+      var.new_relic_api_key_secret_name == null ?
+      true :
+      can(regex("^[0-9A-Za-z-]{1,127}$", var.new_relic_api_key_secret_name))
+    )
+    error_message = "new_relic_api_key_secret_name must be null or a 1-127 character Key Vault secret name containing only letters, numbers, and hyphens."
+  }
 }
 
 variable "bootstrap_image" {

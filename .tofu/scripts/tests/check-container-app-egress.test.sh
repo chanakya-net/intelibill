@@ -67,6 +67,17 @@ expect_success \
   "fixture mode does not require Azure CLI" \
   env PATH="${TEST_TMP}/no-az-bin" "${CHECKER}" "${fixture_args[@]}"
 
+cp "${FIXTURES}/advertised-ok.json" "${TEST_TMP}/-advertised.json"
+cp "${FIXTURES}/firewall-ok.json" "${TEST_TMP}/-firewall.json"
+expect_success \
+  "fixture filenames beginning with a dash are treated as paths" \
+  bash -c '
+    cd "$1"
+    "$2" \
+      --advertised-file -advertised.json \
+      --firewall-file -firewall.json
+  ' _ "${TEST_TMP}" "${CHECKER}"
+
 expect_failure \
   "empty advertised set fails even without retained addresses" \
   "${CHECKER}" \
@@ -79,6 +90,80 @@ expect_failure \
   --advertised-file "${FIXTURES}/advertised-empty.json" \
   --retained-file "${FIXTURES}/retained.json" \
   --firewall-file "${FIXTURES}/firewall-stale.json"
+
+cat >"${TEST_TMP}/advertised-dev-empty.json" <<'JSON'
+{"dev":[],"prod":["20.20.0.1"]}
+JSON
+cat >"${TEST_TMP}/firewall-prod-only.json" <<'JSON'
+[
+  {
+    "name": "container-apps-prod-20-20-0-1",
+    "startIpAddress": "20.20.0.1",
+    "endIpAddress": "20.20.0.1"
+  }
+]
+JSON
+expect_failure \
+  "combined selection rejects an empty dev advertised set" \
+  "${CHECKER}" \
+  --advertised-file "${TEST_TMP}/advertised-dev-empty.json" \
+  --firewall-file "${TEST_TMP}/firewall-prod-only.json"
+
+expect_success \
+  "prod-only selection accepts prod when unselected dev is empty" \
+  "${CHECKER}" \
+  --advertised-file "${TEST_TMP}/advertised-dev-empty.json" \
+  --firewall-file "${TEST_TMP}/firewall-prod-only.json" \
+  --environment prod
+
+expect_failure \
+  "dev-only selection rejects selected dev when it is empty" \
+  "${CHECKER}" \
+  --advertised-file "${TEST_TMP}/advertised-dev-empty.json" \
+  --firewall-file "${TEST_TMP}/firewall-prod-only.json" \
+  --environment dev
+
+cat >"${TEST_TMP}/advertised-prod-empty.json" <<'JSON'
+{"dev":["20.10.0.1","20.10.0.2","20.10.0.3"],"prod":[]}
+JSON
+cat >"${TEST_TMP}/firewall-dev-only.json" <<'JSON'
+[
+  {
+    "name": "container-apps-dev-20-10-0-1",
+    "startIpAddress": "20.10.0.1",
+    "endIpAddress": "20.10.0.1"
+  },
+  {
+    "name": "container-apps-dev-20-10-0-2",
+    "startIpAddress": "20.10.0.2",
+    "endIpAddress": "20.10.0.2"
+  },
+  {
+    "name": "container-apps-dev-20-10-0-3",
+    "startIpAddress": "20.10.0.3",
+    "endIpAddress": "20.10.0.3"
+  }
+]
+JSON
+expect_failure \
+  "combined selection rejects an empty prod advertised set" \
+  "${CHECKER}" \
+  --advertised-file "${TEST_TMP}/advertised-prod-empty.json" \
+  --firewall-file "${TEST_TMP}/firewall-dev-only.json"
+
+expect_success \
+  "dev-only selection accepts dev when unselected prod is empty" \
+  "${CHECKER}" \
+  --advertised-file "${TEST_TMP}/advertised-prod-empty.json" \
+  --firewall-file "${TEST_TMP}/firewall-dev-only.json" \
+  --environment dev
+
+expect_failure \
+  "prod-only selection rejects selected prod when it is empty" \
+  "${CHECKER}" \
+  --advertised-file "${TEST_TMP}/advertised-prod-empty.json" \
+  --firewall-file "${TEST_TMP}/firewall-dev-only.json" \
+  --environment prod
 
 expect_failure \
   "missing managed address is not satisfied by operator rule" \

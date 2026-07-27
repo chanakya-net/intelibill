@@ -154,6 +154,32 @@ The final checker output was:
 Egress allowlist verified: 362 expected address(es), 362 managed rule(s).
 ```
 
+For every ordinary shared change after this completed rollout, guard the saved
+plan's **final** firewall inventory against both live environment address sets
+immediately before apply:
+
+```bash
+repository_root="$(pwd -P)"
+shared_plan="${repository_root}/.tofu/envs/shared/shared.tfplan"
+
+tofu -chdir=.tofu/envs/shared plan -out="${shared_plan}"
+tofu -chdir=.tofu/envs/shared show "${shared_plan}"
+.tofu/scripts/guard-shared-egress-plan.sh --plan-file "${shared_plan}"
+tofu -chdir=.tofu/envs/shared apply "${shared_plan}"
+.tofu/scripts/check-container-app-egress.sh
+```
+
+Run these commands from the repository root. The guard uses
+`tofu show -json` to extract every planned PostgreSQL firewall rule, passes that
+final inventory to the existing checker through `--firewall-file`, and requires
+nonempty exact matches for both live `dev` and `prod`. It performs no apply and
+does not mutate state. It accepts no `--environment`, `--retained-file`, or
+`--advertised-file` override, so an ordinary plan cannot narrow away, retain,
+or substitute fixture data for either live environment. The following retained
+transition is the only exception: its two shared plans intentionally contain
+transitional inventories and therefore use the stricter create-only and
+delete-only guards shown below.
+
 For any future address change, use this exact retained-address two-apply
 procedure. The examples use `dev`; set `environment_name=prod` for production.
 Never refresh both environment states when only one environment changed.
@@ -728,6 +754,11 @@ Build versionless secret references and let Container Apps resolve them under th
 key_vault_secret_id = "${module.key_vault.vault_uri}secrets/<name>"
 ```
 
+`<name>` is one Key Vault secret-name segment, not a path or secret URI: 1–127
+ASCII letters, digits, or hyphens. The module rejects empty names, slashes,
+version suffixes, and other characters before constructing the versionless
+reference.
+
 Never use a Key Vault secret `data` source: the provider reads `value` and OpenTofu persists data-source attributes in state ([decision §7](infrastructure-decisions.md#7-key-vault-secrets-created-out-of-band)).
 
 The JWT signing key is **not** a secret reference — it is a key the app reaches directly through `Jwt__KeyVaultKeyId`. Nothing about it needs to pass through Container Apps secrets.
@@ -752,6 +783,10 @@ tofu init
 tofu plan -out=tfplan
 tofu apply tfplan          # never pipe apply into tail — the exit code comes from the pipe
 ```
+
+The shared root is different: after both environments exist, use the guarded
+saved-plan sequence in the public-network section above for every ordinary
+shared apply. Do not apply an unguarded shared saved plan.
 
 Conventions worth matching: modules take a `env` variable validated to `dev|prod`; outputs carry names, IDs, and URIs but never credentials; comments explain *why*, particularly where a choice looks odd.
 
