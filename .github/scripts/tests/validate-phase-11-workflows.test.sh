@@ -45,6 +45,7 @@ end
 plan = load_workflow(workflow_dir, "infra-plan.yml")
 apply = load_workflow(workflow_dir, "infra-apply.yml")
 deploy = load_workflow(workflow_dir, "deploy.yml")
+oidc_smoke = load_workflow(workflow_dir, "oidc-smoke-test.yml")
 
 Dir.glob(File.join(workflow_dir, "*.{yml,yaml}")).sort.each do |path|
   workflow = load_workflow(workflow_dir, File.basename(path))
@@ -69,6 +70,25 @@ end
       )
     end
   end
+end
+
+deploy_confinement_steps = oidc_smoke
+  .fetch("jobs")
+  .fetch("deploy_is_confined")
+  .fetch("steps")
+[
+  "Cannot read state",
+  "Cannot create resources",
+  "Cannot modify the database server",
+].each do |step_name|
+  denial_step = deploy_confinement_steps.find do |step|
+    step.fetch("name", "") == step_name
+  end
+  assert(!denial_step.nil?, "OIDC smoke test is missing '#{step_name}'")
+  assert(
+    denial_step.fetch("run", "").include?("required permissions"),
+    "#{step_name} does not recognize Azure CLI's generic RBAC denial",
+  )
 end
 
 plan_triggers = triggers(plan)

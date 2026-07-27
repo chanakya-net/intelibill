@@ -15,6 +15,14 @@ RUN dotnet restore "src/backend/Intelibill.Api/Intelibill.Api.csproj"
 
 COPY ["src/backend/", "src/backend/"]
 
+# EF tooling constructs the DbContext while generating the bundle but never
+# connects to this database. These non-secret values exist only in the discarded
+# build stage; the runtime bundle reads its real Database__* configuration.
+ENV Database__Host=localhost \
+    Database__Database=intelibill_build \
+    Database__Username=intelibill_build \
+    Database__UseEntraAuth=true
+
 ARG TARGETARCH
 RUN dotnet tool install --tool-path /tools dotnet-ef --version 10.0.4 \
     && case "${TARGETARCH}" in \

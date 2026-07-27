@@ -3,12 +3,35 @@ set -euo pipefail
 
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 dockerfile="${repository_root}/src/backend/Dockerfile.migrate"
+dockerignore="${repository_root}/.dockerignore"
 image_tag="intelibill-migrate-contract:local"
 
 [[ -f "${dockerfile}" ]] || {
   printf 'Migration Dockerfile is missing: %s\n' "${dockerfile}" >&2
   exit 1
 }
+[[ -f "${dockerignore}" ]] || {
+  printf 'Repository Docker ignore file is missing: %s\n' "${dockerignore}" >&2
+  exit 1
+}
+
+for local_settings in appsettings.Development.json appsettings.Local.json; do
+  grep -Fqx "**/${local_settings}" "${dockerignore}" || {
+    printf 'Docker build context does not exclude local settings: %s\n' "${local_settings}" >&2
+    exit 1
+  }
+done
+
+for setting in Database__Host Database__Database Database__Username Database__UseEntraAuth; do
+  grep -Fq "${setting}=" "${dockerfile}" || {
+    printf 'Migration bundle build is missing design-time setting: %s\n' "${setting}" >&2
+    exit 1
+  }
+done
+if grep -Fq "Database__Password=" "${dockerfile}"; then
+  printf 'Migration bundle build must not store a password-shaped value in an image layer.\n' >&2
+  exit 1
+fi
 
 if ! docker info >/dev/null 2>&1; then
   printf 'Docker daemon unavailable; migration image build requires CI or a running local daemon.\n' >&2

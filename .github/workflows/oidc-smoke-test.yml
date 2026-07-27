@@ -77,7 +77,7 @@ jobs:
             echo "::error::deploy identity can read state; the duty split is not holding"
             exit 1
           fi
-          grep -qiE 'AuthorizationPermissionMismatch|AuthorizationFailed|not authorized|Forbidden' <<<"$OUT" || {
+          grep -qiE 'AuthorizationPermissionMismatch|AuthorizationFailed|not authorized|Forbidden|required permissions' <<<"$OUT" || {
             echo "::error::denied, but not for an authorization reason — this test proved nothing:"
             echo "$OUT"; exit 1; }
           echo "correctly denied by RBAC"
@@ -90,7 +90,7 @@ jobs:
             az group delete -n intelibill-smoke-should-fail --yes --no-wait || true
             exit 1
           fi
-          grep -qiE 'AuthorizationFailed|not authorized|Forbidden' <<<"$OUT" || {
+          grep -qiE 'AuthorizationFailed|not authorized|Forbidden|required permissions' <<<"$OUT" || {
             echo "::error::denied, but not for an authorization reason:"; echo "$OUT"; exit 1; }
           echo "correctly denied by RBAC"
 
@@ -105,7 +105,7 @@ jobs:
             echo "::error::deploy identity modified the database server"
             exit 1
           fi
-          grep -qiE 'AuthorizationFailed|not authorized|Forbidden' <<<"$OUT" || {
+          grep -qiE 'AuthorizationFailed|not authorized|Forbidden|required permissions' <<<"$OUT" || {
             echo "::error::denied, but not by RBAC — if this says ResourceNotFound the server does not exist yet and the test is inconclusive:"
             echo "$OUT"; exit 1; }
           echo "correctly denied by RBAC"
