@@ -266,6 +266,12 @@ expect_failure \
 
 : >"${tofu_call_log}"
 expect_failure \
+  "normal plan guard cannot narrow live discovery to one environment" \
+  run_guard "${TEST_TMP}/plan-ok.json" \
+  --environment dev
+
+: >"${tofu_call_log}"
+expect_failure \
   "normal plan guard cannot override live advertised discovery" \
   run_guard "${TEST_TMP}/plan-ok.json" \
   --advertised-file "${FIXTURES}/advertised-ok.json"
