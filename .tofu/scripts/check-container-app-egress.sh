@@ -147,7 +147,7 @@ if [[ -z "${firewall_file}" ]]; then
     "${firewall_file}" \
     postgres flexible-server firewall-rule list \
     --resource-group "${resource_group}" \
-    --name "${postgres_server}" \
+    --server-name "${postgres_server}" \
     --output json
 fi
 

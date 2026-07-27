@@ -347,7 +347,7 @@ elif (($# == 10)) &&
   [[ "$1" == "postgres" ]] &&
   [[ "$2" == "flexible-server" && "$3" == "firewall-rule" && "$4" == "list" ]] &&
   [[ "$5" == "--resource-group" && "$6" == "intelibill-shared" ]] &&
-  [[ "$7" == "--name" && "$8" == "intelibill-pg-01" ]] &&
+  [[ "$7" == "--server-name" && "$8" == "intelibill-pg-01" ]] &&
   [[ "$9" == "--output" && "${10}" == "json" ]]; then
   if [[ "${mode}" == "firewall-failure" ]]; then
     printf 'sensitive firewall detail must not escape\n' >&2
@@ -405,7 +405,7 @@ append_expected_firewall_call() {
   append_expected_az_call \
     postgres flexible-server firewall-rule list \
     --resource-group intelibill-shared \
-    --name intelibill-pg-01 \
+    --server-name intelibill-pg-01 \
     --output json
 }
 
