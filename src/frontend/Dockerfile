@@ -32,6 +32,11 @@ RUN bun run build
 FROM node:24-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d AS runtime
 WORKDIR /app
 
+# The bundled server needs the Node executable only. Remove npm from the final
+# image so its unused package-management dependencies do not add attack surface.
+RUN rm -rf /usr/local/lib/node_modules/npm \
+	&& rm -f /usr/local/bin/npm /usr/local/bin/npx
+
 # The build bundles express and the proxy into server.mjs, leaving only Node
 # built-ins external, so the runtime image needs neither package.json nor
 # node_modules.
