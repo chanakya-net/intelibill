@@ -1165,12 +1165,65 @@ Expected: every current dev/prod API, web, and migration-job outbound address ha
 First prove all six scoped assignments exist:
 
 ```bash
-az role assignment list \
-  --resource-group intelibill-shared \
-  --all \
-  --query "[?roleDefinitionName=='Intelibill Container App Deployer'].{principal:principalName,scope:scope}" \
-  -o table
+set -euo pipefail
+
+resource_group="intelibill-shared"
+deploy_role="Intelibill Container App Deployer"
+verified_assignment_count=0
+
+for environment in dev prod; do
+  for component in api web migrate; do
+    if [[ "${component}" == "migrate" ]]; then
+      resource_id="$(
+        az containerapp job show \
+          --resource-group "${resource_group}" \
+          --name "intelibill-${environment}-migrate" \
+          --query id \
+          -o tsv
+      )"
+    else
+      resource_id="$(
+        az containerapp show \
+          --resource-group "${resource_group}" \
+          --name "intelibill-${environment}-${component}" \
+          --query id \
+          -o tsv
+      )"
+    fi
+
+    role_assignments="$(
+      az role assignment list \
+        --scope "${resource_id}" \
+        --query "[?roleDefinitionName=='${deploy_role}'].{principalId:principalId,scope:scope}" \
+        -o json
+    )"
+
+    if ! jq -e \
+      --arg expected_scope "${resource_id}" \
+      '[.[] | select((.scope | ascii_downcase) == ($expected_scope | ascii_downcase))] | length == 1' \
+      <<<"${role_assignments}" >/dev/null; then
+      printf 'Expected exactly one deploy assignment at %s\n' "${resource_id}" >&2
+      exit 1
+    fi
+
+    jq \
+      --arg expected_scope "${resource_id}" \
+      '[.[] | select((.scope | ascii_downcase) == ($expected_scope | ascii_downcase))]' \
+      <<<"${role_assignments}"
+    verified_assignment_count=$((verified_assignment_count + 1))
+  done
+done
+
+[[ "${verified_assignment_count}" -eq 6 ]]
 ```
+
+The scope comparison normalizes only case because Azure resource IDs are
+case-insensitive; parent, child, and unrelated scopes cannot satisfy it.
+Pre-apply validation on 2026-07-27 exercised this read-only shell/JMESPath
+sequence against all three existing dev resources and found exactly one
+assignment per exact resource scope. The prod resource lookup correctly failed
+with `ResourceNotFound` because Task 8 Step 6 had not run yet, so execute the
+full six-resource proof only after the prod apply completes.
 
 Then apply the already-reviewed bootstrap plan only after confirming three dev and three prod resource scopes:
 
@@ -1217,6 +1270,8 @@ Expected: API external is `false`, web external is `true`, and both max values a
 Run:
 
 ```bash
+set -euo pipefail
+
 for environment in dev prod; do
   az containerapp job show \
     --resource-group intelibill-shared \
@@ -1237,15 +1292,86 @@ do
   az monitor diagnostic-settings list --resource "$target" -o json
 done
 
-az role assignment list \
-  --resource-group intelibill-shared \
-  --all \
-  --query "[?roleDefinitionName=='Intelibill Container App Deployer'].{principal:principalName,scope:scope}" \
-  -o json
+resource_group="intelibill-shared"
+deploy_role="Intelibill Container App Deployer"
+verified_assignment_count=0
+
+for environment in dev prod; do
+  for component in api web migrate; do
+    if [[ "${component}" == "migrate" ]]; then
+      resource_id="$(
+        az containerapp job show \
+          --resource-group "${resource_group}" \
+          --name "intelibill-${environment}-migrate" \
+          --query id \
+          -o tsv
+      )"
+    else
+      resource_id="$(
+        az containerapp show \
+          --resource-group "${resource_group}" \
+          --name "intelibill-${environment}-${component}" \
+          --query id \
+          -o tsv
+      )"
+    fi
+
+    role_assignments="$(
+      az role assignment list \
+        --scope "${resource_id}" \
+        --query "[?roleDefinitionName=='${deploy_role}'].{principalId:principalId,scope:scope}" \
+        -o json
+    )"
+
+    if ! jq -e \
+      --arg expected_scope "${resource_id}" \
+      '[.[] | select((.scope | ascii_downcase) == ($expected_scope | ascii_downcase))] | length == 1' \
+      <<<"${role_assignments}" >/dev/null; then
+      printf 'Expected exactly one deploy assignment at %s\n' "${resource_id}" >&2
+      exit 1
+    fi
+
+    jq \
+      --arg expected_scope "${resource_id}" \
+      '[.[] | select((.scope | ascii_downcase) == ($expected_scope | ascii_downcase))]' \
+      <<<"${role_assignments}"
+    verified_assignment_count=$((verified_assignment_count + 1))
+  done
+done
+
+[[ "${verified_assignment_count}" -eq 6 ]]
+
+resource_group_id="$(
+  az group show \
+    --name "${resource_group}" \
+    --query id \
+    -o tsv
+)"
+group_role_assignments="$(
+  az role assignment list \
+    --scope "${resource_group_id}" \
+    --query "[?roleDefinitionName=='${deploy_role}'].{principalId:principalId,scope:scope}" \
+    -o json
+)"
+
+if ! jq -e \
+  --arg expected_scope "${resource_group_id}" \
+  '[.[] | select((.scope | ascii_downcase) == ($expected_scope | ascii_downcase))] | length == 0' \
+  <<<"${group_role_assignments}" >/dev/null; then
+  printf 'Deploy assignment still exists at resource-group scope %s\n' \
+    "${resource_group_id}" >&2
+  exit 1
+fi
 ```
 
-Verify the exact categories from Tasks 1 and 2. Verify no deploy assignment
-scope equals the resource-group ID.
+Read-only validation on 2026-07-27 confirmed the resource-group query works
+with Azure CLI 2.88 and finds the two temporary group-scoped grants before
+bootstrap cleanup. Therefore, the zero-assignment assertion is intentionally a
+post-Task 8 Step 8 check.
+
+Verify the exact categories from Tasks 1 and 2. The role proof must find exactly
+six resource-scoped assignments and zero deploy assignments whose scope equals
+the resource-group ID.
 
 - [ ] **Step 3: Confirm identities and idempotence**
 
