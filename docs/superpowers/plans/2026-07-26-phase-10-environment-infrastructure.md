@@ -1172,6 +1172,14 @@ deploy_role="Intelibill Container App Deployer"
 verified_assignment_count=0
 
 for environment in dev prod; do
+  deploy_principal_id="$(
+    az identity show \
+      --resource-group "${resource_group}" \
+      --name "id-gha-deploy-${environment}" \
+      --query principalId \
+      -o tsv
+  )"
+
   for component in api web migrate; do
     if [[ "${component}" == "migrate" ]]; then
       resource_id="$(
@@ -1200,15 +1208,28 @@ for environment in dev prod; do
 
     if ! jq -e \
       --arg expected_scope "${resource_id}" \
-      '[.[] | select((.scope | ascii_downcase) == ($expected_scope | ascii_downcase))] | length == 1' \
+      --arg expected_principal_id "${deploy_principal_id}" \
+      '[
+        .[] |
+        select((.scope | ascii_downcase) == ($expected_scope | ascii_downcase))
+      ] as $exact_scope_assignments |
+      ($exact_scope_assignments | length == 1) and
+      (
+        ($exact_scope_assignments[0].principalId | ascii_downcase) ==
+        ($expected_principal_id | ascii_downcase)
+      )' \
       <<<"${role_assignments}" >/dev/null; then
-      printf 'Expected exactly one deploy assignment at %s\n' "${resource_id}" >&2
+      printf 'Expected exactly one deploy assignment for %s at %s\n' \
+        "${deploy_principal_id}" "${resource_id}" >&2
       exit 1
     fi
 
     jq \
       --arg expected_scope "${resource_id}" \
-      '[.[] | select((.scope | ascii_downcase) == ($expected_scope | ascii_downcase))]' \
+      '[
+        .[] |
+        select((.scope | ascii_downcase) == ($expected_scope | ascii_downcase))
+      ]' \
       <<<"${role_assignments}"
     verified_assignment_count=$((verified_assignment_count + 1))
   done
@@ -1217,13 +1238,14 @@ done
 [[ "${verified_assignment_count}" -eq 6 ]]
 ```
 
-The scope comparison normalizes only case because Azure resource IDs are
-case-insensitive; parent, child, and unrelated scopes cannot satisfy it.
-Pre-apply validation on 2026-07-27 exercised this read-only shell/JMESPath
-sequence against all three existing dev resources and found exactly one
-assignment per exact resource scope. The prod resource lookup correctly failed
-with `ResourceNotFound` because Task 8 Step 6 had not run yet, so execute the
-full six-resource proof only after the prod apply completes.
+The scope and principal GUID comparisons normalize only case because Azure
+resource IDs are case-insensitive; parent, child, unrelated scopes, and other
+principals cannot satisfy the proof.
+Read-only validation on 2026-07-27 exercised this shell/JMESPath sequence
+against all six resources after the prod apply. Each dev scope had exactly one
+assignment for deploy principal `4475d63e-2970-455f-935d-f4de25a0d7d4`, and
+each prod scope had exactly one assignment for deploy principal
+`be616680-7dd9-450a-85e7-cf52f28e05a4`.
 
 Then apply the already-reviewed bootstrap plan only after confirming three dev and three prod resource scopes:
 
@@ -1297,6 +1319,14 @@ deploy_role="Intelibill Container App Deployer"
 verified_assignment_count=0
 
 for environment in dev prod; do
+  deploy_principal_id="$(
+    az identity show \
+      --resource-group "${resource_group}" \
+      --name "id-gha-deploy-${environment}" \
+      --query principalId \
+      -o tsv
+  )"
+
   for component in api web migrate; do
     if [[ "${component}" == "migrate" ]]; then
       resource_id="$(
@@ -1325,15 +1355,28 @@ for environment in dev prod; do
 
     if ! jq -e \
       --arg expected_scope "${resource_id}" \
-      '[.[] | select((.scope | ascii_downcase) == ($expected_scope | ascii_downcase))] | length == 1' \
+      --arg expected_principal_id "${deploy_principal_id}" \
+      '[
+        .[] |
+        select((.scope | ascii_downcase) == ($expected_scope | ascii_downcase))
+      ] as $exact_scope_assignments |
+      ($exact_scope_assignments | length == 1) and
+      (
+        ($exact_scope_assignments[0].principalId | ascii_downcase) ==
+        ($expected_principal_id | ascii_downcase)
+      )' \
       <<<"${role_assignments}" >/dev/null; then
-      printf 'Expected exactly one deploy assignment at %s\n' "${resource_id}" >&2
+      printf 'Expected exactly one deploy assignment for %s at %s\n' \
+        "${deploy_principal_id}" "${resource_id}" >&2
       exit 1
     fi
 
     jq \
       --arg expected_scope "${resource_id}" \
-      '[.[] | select((.scope | ascii_downcase) == ($expected_scope | ascii_downcase))]' \
+      '[
+        .[] |
+        select((.scope | ascii_downcase) == ($expected_scope | ascii_downcase))
+      ]' \
       <<<"${role_assignments}"
     verified_assignment_count=$((verified_assignment_count + 1))
   done
@@ -1370,8 +1413,8 @@ bootstrap cleanup. Therefore, the zero-assignment assertion is intentionally a
 post-Task 8 Step 8 check.
 
 Verify the exact categories from Tasks 1 and 2. The role proof must find exactly
-six resource-scoped assignments and zero deploy assignments whose scope equals
-the resource-group ID.
+six resource-scoped assignments bound to the matching environment deploy
+identity and zero deploy assignments whose scope equals the resource-group ID.
 
 - [ ] **Step 3: Confirm identities and idempotence**
 
