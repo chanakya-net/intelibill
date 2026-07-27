@@ -33,6 +33,20 @@ if grep -Fq "Database__Password=" "${dockerfile}"; then
   exit 1
 fi
 
+grep -Fq -- '--target-runtime "${runtime_id}"' "${dockerfile}" || {
+  printf 'Migration bundle must target the requested runtime architecture.\n' >&2
+  exit 1
+}
+if grep -Eq -- '^[[:space:]]*--runtime[[:space:]]+"\$\{runtime_id\}"' "${dockerfile}"; then
+  printf 'EF design-time runtime must remain on BUILDPLATFORM when cross-building the migration bundle.\n' >&2
+  exit 1
+fi
+restore_count="$(grep -Ec '^[[:space:]]*(RUN|&&)[[:space:]]+dotnet restore' "${dockerfile}")"
+if [[ "${restore_count}" -ne 1 ]]; then
+  printf 'Migration bundle should use the single BUILDPLATFORM restore, found: %s\n' "${restore_count}" >&2
+  exit 1
+fi
+
 if ! docker info >/dev/null 2>&1; then
   printf 'Docker daemon unavailable; migration image build requires CI or a running local daemon.\n' >&2
   exit 1
