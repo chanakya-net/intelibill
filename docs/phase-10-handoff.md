@@ -269,10 +269,7 @@ Never refresh both environment states when only one environment changed.
        jq -e -s '.[0] == .[1]' \
          "${transition_dir}/old.json" \
          "${transition_dir}/current-live.json" >/dev/null
-       planned_environment_plan="${
-         PLANNED_ENVIRONMENT_PLAN:?
-         set the absolute path of the reviewed affected-environment saved plan
-       }"
+       planned_environment_plan="${PLANNED_ENVIRONMENT_PLAN:?set PLANNED_ENVIRONMENT_PLAN to the reviewed saved plan path}"
        [[ "${planned_environment_plan}" == /* ]]
        tofu -chdir=".tofu/envs/${environment_name}" \
          show "${planned_environment_plan}"
