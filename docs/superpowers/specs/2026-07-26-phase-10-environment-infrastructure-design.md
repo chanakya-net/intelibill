@@ -285,16 +285,26 @@ that risk as follows:
 7. Every infrastructure plan and live verification runs the drift check.
    Phase 11 schedules it through the plan workflow so provider-side changes are
    reported even when no repository change occurs.
-8. When addresses change, capture the old and new live sets and apply a saved
-   `-refresh-only` plan for only the affected environment so its new computed
-   output is persisted before shared state plans. Derive both
+8. When addresses change, always recover old from two pre-refresh sources: the
+   affected environment's persisted output and its exact environment-prefixed
+   single-IP firewall rules. Require those sources to be equal, nonempty, and
+   canonical. In the planned branch, require current live to equal old before
+   the reviewed environment operation, then discover a distinct new set. In
+   the unannounced branch, require current live to differ from old and use that
+   single captured current set as new without overwriting or rediscovering old.
+   Apply a saved `-refresh-only` plan for only the affected environment when
+   needed so its new computed output is persisted before shared state plans.
+   Derive both
    `retained_container_apps_outbound_ips` and the checker's `--retained-file`
    JSON from the same old set. Machine-guard the first shared saved plan to
    create exactly `new - old` and delete nothing; after apply, require the
-   retained-aware checker plus a successful real readiness check. Explicitly
-   clear retention, machine-guard the second shared saved plan to delete
-   exactly `old - new`, apply, and run the bare combined checker. This avoids
-   exchanging old and new rules in one propagation window.
+   retained-aware checker plus a successful real readiness check. The
+   readiness gate must first wake the scale-to-zero public web app, poll with a
+   bounded deadline for a running explicit revision/replica, and then require a
+   bounded internal `/health/ready` HTTP 200 from that replica. Explicitly clear
+   retention, machine-guard the second shared saved plan to delete exactly
+   `old - new`, apply, and run the bare combined checker. This avoids exchanging
+   old and new rules in one propagation window.
 
 The broad Azure-services rule remains prohibited. Entra authentication and
 database grants remain independent controls; firewall reachability alone grants
@@ -452,15 +462,19 @@ head `e8c11915`. Fresh post-apply verification established:
 The address fingerprints are a derived, non-canonical snapshot; the live Azure
 sets and `.tofu/scripts/check-container-app-egress.sh` remain authoritative for
 operations. Future address changes must use the exact runbook in
-`docs/phase-10-handoff.md`: capture the pre-change live set, discover the new
-set, review and apply a saved `-refresh-only` plan for only the affected
-environment so its computed output reaches remote state, and build both shared
-tfvars and checker `--retained-file` JSON from the same old set. The first
-shared saved plan is machine-guarded to create only `new - old` exact rules and
-delete none; after firewall propagation, a retained-aware drift check and real
-application readiness check must pass. The second saved plan explicitly clears
-retention and is machine-guarded to delete only `old - new` exact rules. A bare
-combined checker must pass after that second apply.
+`docs/phase-10-handoff.md`: validate persisted output and exact
+environment-prefixed firewall rules as the same old set, then enter either the
+planned branch (`current == old`, reviewed operation, discover distinct new) or
+the unannounced branch (`current != old`, current becomes new once). Review and
+apply the affected environment's saved `-refresh-only` plan when state has not
+already persisted new, and build both shared tfvars and checker
+`--retained-file` JSON from old. The first shared saved plan is machine-guarded
+to create only `new - old` exact rules and delete none. After firewall
+propagation, a retained-aware drift check and the Phase 11+ gate must wake the
+public web app, find a running explicit revision/replica within a bounded
+deadline, and obtain an internal `/health/ready` HTTP 200. The second saved plan
+explicitly clears retention and is machine-guarded to delete only `old - new`
+exact rules. A bare combined checker must pass after that second apply.
 
 Separately, Graphify extracts the repository AST successfully but cannot
 generate HTML for the 14,305-node graph because it exceeds the visualization

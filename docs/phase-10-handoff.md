@@ -158,17 +158,27 @@ For any future address change, use this exact retained-address two-apply
 procedure. The examples use `dev`; set `environment_name=prod` for production.
 Never refresh both environment states when only one environment changed.
 
-1. **Before the change, capture and verify the old live set.** Do this before
-   any planned environment operation that could rotate egress. For an
-   unannounced provider-side change, the pre-refresh environment output plus
-   the exact environment-named firewall rules are the recoverable old set;
-   never substitute the snapshot printed in this document.
+1. **Capture the old set from both persistent sources before any refresh.**
+   The affected environment's persisted output and its exact
+   `container-apps-<env>-*` PostgreSQL rules must be nonempty, canonical, and
+   equal. This works both before a planned operation and after an unannounced
+   provider rotation because neither source has been refreshed yet. Never
+   substitute the snapshot printed in this document.
 
    ```bash
    set -euo pipefail
    environment_name=dev
    [[ "${environment_name}" == dev || "${environment_name}" == prod ]]
    transition_dir="$(mktemp -d)"
+
+   canonical_address_array='
+     def canonical_ipv4:
+       type == "string" and
+       test("^(0|[1-9][0-9]{0,2})(\\.(0|[1-9][0-9]{0,2})){3}$") and
+       (split(".") | all(.[]; tonumber >= 0 and tonumber <= 255)) and
+       . != "0.0.0.0" and . != "255.255.255.255";
+     type == "array" and length > 0 and all(.[]; canonical_ipv4)
+   '
 
    discover_live_addresses() {
      local selected_environment="$1"
@@ -195,55 +205,151 @@ Never refresh both environment states when only one environment changed.
        '[$api[], $web[], $job[]] | unique | sort'
    }
 
-   discover_live_addresses "${environment_name}" \
-     >"${transition_dir}/old-live.json"
    tofu -chdir=".tofu/envs/${environment_name}" \
      output -json container_apps |
      jq -S '.outbound_ip_addresses | unique | sort' \
        >"${transition_dir}/old-state.json"
-   jq -e -s \
-     'length == 2 and .[0] == .[1] and (.[0] | length > 0)' \
-     "${transition_dir}/old-live.json" \
+
+   firewall_prefix="container-apps-${environment_name}-"
+   az postgres flexible-server firewall-rule list \
+     --resource-group intelibill-shared \
+     --server-name intelibill-pg-01 -o json |
+     jq -eS --arg prefix "${firewall_prefix}" '
+       def canonical_ipv4:
+         type == "string" and
+         test("^(0|[1-9][0-9]{0,2})(\\.(0|[1-9][0-9]{0,2})){3}$") and
+         (split(".") | all(.[]; tonumber >= 0 and tonumber <= 255)) and
+         . != "0.0.0.0" and . != "255.255.255.255";
+       [.[] | select(.name | startswith($prefix))] as $rules |
+       if
+         ($rules | length) == 0 or
+         any(
+           $rules[];
+           (.startIpAddress | canonical_ipv4 | not) or
+           (.endIpAddress | canonical_ipv4 | not) or
+           .startIpAddress != .endIpAddress or
+           .name != ($prefix + (.startIpAddress | gsub("\\."; "-")))
+         )
+       then error("affected-environment firewall rules are invalid")
+       else [$rules[].startIpAddress] | unique | sort
+       end
+     ' >"${transition_dir}/old-firewall.json"
+
+   jq -e "${canonical_address_array}" \
      "${transition_dir}/old-state.json" >/dev/null
+   jq -e "${canonical_address_array}" \
+     "${transition_dir}/old-firewall.json" >/dev/null
+   jq -e -s '.[0] == .[1]' \
+     "${transition_dir}/old-state.json" \
+     "${transition_dir}/old-firewall.json" >/dev/null
+   jq -S '.' "${transition_dir}/old-state.json" \
+     >"${transition_dir}/old.json"
+
+   discover_live_addresses "${environment_name}" \
+     >"${transition_dir}/current-live.json"
+   jq -e "${canonical_address_array}" \
+     "${transition_dir}/current-live.json" >/dev/null
    ```
 
-2. **Discover and validate the new live set after Azure reports the change.**
-   Stop if either set is empty, malformed, sentinel-valued, or unchanged.
+2. **Choose one executable entry branch and converge on `old.json` plus
+   `new.json`.**
+
+   - For a **planned** transition, current live must still equal the validated
+     old set. Supply the absolute path of the already reviewed affected-
+     environment saved plan; this runbook does not authorize its contents.
+     Apply it directly, then discover the distinct new live set.
+   - For an **unannounced** provider rotation, current live must already differ
+     from old. Treat that one captured current set as new; do not overwrite old
+     with it and do not rediscover it into a second file.
 
    ```bash
-   discover_live_addresses "${environment_name}" \
-     >"${transition_dir}/new-live.json"
-   jq -e -s '
-     def canonical_ipv4:
-       type == "string" and
-       test("^(0|[1-9][0-9]{0,2})(\\.(0|[1-9][0-9]{0,2})){3}$") and
-       (split(".") | all(.[]; tonumber >= 0 and tonumber <= 255)) and
-       . != "0.0.0.0" and . != "255.255.255.255";
-     length == 2 and
-     all(.[]; type == "array" and length > 0 and all(.[]; canonical_ipv4)) and
-     .[0] != .[1]
-   ' "${transition_dir}/old-live.json" \
-     "${transition_dir}/new-live.json" >/dev/null
+   transition_mode="${TRANSITION_MODE:?set planned or unannounced}"
+   case "${transition_mode}" in
+     planned)
+       jq -e -s '.[0] == .[1]' \
+         "${transition_dir}/old.json" \
+         "${transition_dir}/current-live.json" >/dev/null
+       planned_environment_plan="${
+         PLANNED_ENVIRONMENT_PLAN:?
+         set the absolute path of the reviewed affected-environment saved plan
+       }"
+       [[ "${planned_environment_plan}" == /* ]]
+       tofu -chdir=".tofu/envs/${environment_name}" \
+         show "${planned_environment_plan}"
+       tofu -chdir=".tofu/envs/${environment_name}" \
+         apply "${planned_environment_plan}"
+       discovery_deadline=$((SECONDS + 180))
+       while ((SECONDS < discovery_deadline)); do
+         discover_live_addresses "${environment_name}" \
+           >"${transition_dir}/new.json"
+         if jq -e -s '.[0] != .[1]' \
+           "${transition_dir}/old.json" \
+           "${transition_dir}/new.json" >/dev/null
+         then
+           break
+         fi
+         sleep 5
+       done
+       ;;
+     unannounced)
+       jq -e -s '.[0] != .[1]' \
+         "${transition_dir}/old.json" \
+         "${transition_dir}/current-live.json" >/dev/null
+       jq -S '.' "${transition_dir}/current-live.json" \
+         >"${transition_dir}/new.json"
+       ;;
+     *)
+       printf 'TRANSITION_MODE must be planned or unannounced\n' >&2
+       exit 1
+       ;;
+   esac
+
+   jq -e "${canonical_address_array}" \
+     "${transition_dir}/old.json" >/dev/null
+   jq -e "${canonical_address_array}" \
+     "${transition_dir}/new.json" >/dev/null
+   jq -e -s '.[0] != .[1]' \
+     "${transition_dir}/old.json" \
+     "${transition_dir}/new.json" >/dev/null
    ```
 
 3. **Persist only the affected environment's computed output.** A normal
-   shared plan still sees the old remote-state output. Create and review a
-   saved `-refresh-only` plan, prove that it contains no Azure mutation and
-   only the affected API/web/job drift, then apply that exact plan. This apply
-   updates environment state and root outputs only.
+   shared plan sees the old remote-state output until the affected environment
+   state contains new. A planned OpenTofu apply may already have persisted it;
+   an unannounced rotation has not. In either case, create, review, and apply a
+   saved `-refresh-only` plan. Require exit 0 when state already equals new or
+   exit 2 when workload drift must be persisted. The plan must contain no Azure
+   mutation, and any drift must be limited to the affected API/web/job.
 
    ```bash
+   tofu -chdir=".tofu/envs/${environment_name}" \
+     output -json container_apps |
+     jq -S '.outbound_ip_addresses | unique | sort' \
+       >"${transition_dir}/pre-refresh-state.json"
+   if jq -e -s '.[0] == .[1]' \
+     "${transition_dir}/pre-refresh-state.json" \
+     "${transition_dir}/new.json" >/dev/null
+   then
+     expected_refresh_exit=0
+     expect_resource_drift=false
+   else
+     expected_refresh_exit=2
+     expect_resource_drift=true
+   fi
+
    refresh_plan="${transition_dir}/${environment_name}-refresh.tfplan"
    set +e
    tofu -chdir=".tofu/envs/${environment_name}" plan \
      -refresh-only -detailed-exitcode -out="${refresh_plan}"
    refresh_exit=$?
    set -e
-   [[ "${refresh_exit}" -eq 2 ]]
+   [[ "${refresh_exit}" -eq "${expected_refresh_exit}" ]]
 
    tofu -chdir=".tofu/envs/${environment_name}" \
      show -json "${refresh_plan}" >"${transition_dir}/refresh-plan.json"
-   jq -e --slurpfile new "${transition_dir}/new-live.json" '
+   jq -e \
+     --argjson expect_resource_drift "${expect_resource_drift}" \
+     --slurpfile new "${transition_dir}/new.json" '
      .errored == false and
      (
        [.resource_changes[]? |
@@ -254,7 +360,12 @@ Never refresh both environment states when only one environment changed.
        [.resource_drift[]? |
          select(.change.actions != ["no-op"]) |
          .address] as $drift |
-       ($drift | length > 0) and
+       (
+         if $expect_resource_drift
+         then ($drift | length > 0)
+         else ($drift | length == 0)
+         end
+       ) and
        all(
          $drift[];
          . == "module.environment_infrastructure.azurerm_container_app.api" or
@@ -274,7 +385,7 @@ Never refresh both environment states when only one environment changed.
      jq -S '.outbound_ip_addresses | unique | sort' \
        >"${transition_dir}/persisted-new.json"
    jq -e -s '.[0] == .[1]' \
-     "${transition_dir}/new-live.json" \
+     "${transition_dir}/new.json" \
      "${transition_dir}/persisted-new.json" >/dev/null
    ```
 
@@ -284,7 +395,7 @@ Never refresh both environment states when only one environment changed.
    ```bash
    jq -nS \
      --arg environment "${environment_name}" \
-     --slurpfile old "${transition_dir}/old-live.json" \
+     --slurpfile old "${transition_dir}/old.json" \
      '{dev: [], prod: []} | .[$environment] = $old[0]' \
      >"${transition_dir}/retained.json"
    jq -nS \
@@ -299,7 +410,7 @@ Never refresh both environment states when only one environment changed.
 
 5. **First shared apply: add every new exact rule and delete nothing.** The
    machine guard below requires the complete active plan to equal
-   `new-live - old-live`, create-only, with identical start/end addresses.
+   `new - old`, create-only, with identical start/end addresses.
 
    ```bash
    first_plan="${transition_dir}/shared-add-new.tfplan"
@@ -316,8 +427,8 @@ Never refresh both environment states when only one environment changed.
 
    jq -e \
      --arg environment "${environment_name}" \
-     --slurpfile old "${transition_dir}/old-live.json" \
-     --slurpfile new "${transition_dir}/new-live.json" '
+     --slurpfile old "${transition_dir}/old.json" \
+     --slurpfile new "${transition_dir}/new.json" '
      def rule_name($ip):
        "container-apps-" + $environment + "-" + ($ip | gsub("\\."; "-"));
      (($new[0] - $old[0]) |
@@ -355,15 +466,84 @@ Never refresh both environment states when only one environment changed.
      --retained-file "${transition_dir}/retained.json"
    ```
 
-   Wait for PostgreSQL firewall propagation. With the real Phase 11+ images
-   deployed, require `GET /health/ready` to return 200 from inside the
-   Container Apps environment; the Node web container can perform that
-   internal check without exposing the API:
+   Wait for PostgreSQL firewall propagation. The readiness gate below is only
+   valid after the real Phase 11+ Node web and API images are deployed; do not
+   run it against the bootstrap image. It first resolves the public web FQDN
+   and single active revision, uses bounded harmless GETs to wake a
+   scale-to-zero web app, and polls Azure for a ready/running replica with a
+   hard three-minute deadline.
 
    ```bash
-   az containerapp exec --resource-group intelibill-shared \
-     --name "intelibill-${environment_name}-web" \
-     --command "node -e \"fetch(process.env.API_ORIGIN + '/health/ready').then(r => { console.log(r.status); if (!r.ok) process.exit(1); }).catch(() => process.exit(1))\""
+   web_name="intelibill-${environment_name}-web"
+   public_web_fqdn="$(
+     az containerapp show --resource-group intelibill-shared \
+       --name "${web_name}" \
+       --query properties.configuration.ingress.fqdn -o tsv
+   )"
+   active_revisions="$(
+     az containerapp revision list --resource-group intelibill-shared \
+       --name "${web_name}" --query '[?properties.active]' -o json
+   )"
+   [[ -n "${public_web_fqdn}" ]]
+   [[ "$(jq 'length' <<<"${active_revisions}")" -eq 1 ]]
+   active_revision="$(jq -r '.[0].name' <<<"${active_revisions}")"
+
+   wake_deadline=$((SECONDS + 180))
+   wake_status=""
+   replica_name=""
+   while ((SECONDS < wake_deadline)); do
+     wake_status="$(
+       curl --silent --show-error --max-time 10 \
+         --output /dev/null --write-out '%{http_code}' \
+         "https://${public_web_fqdn}/phase-10-readiness-wake" || true
+     )"
+     replica_json="$(
+       az containerapp replica list \
+         --resource-group intelibill-shared \
+         --name "${web_name}" \
+         --revision "${active_revision}" -o json
+     )"
+     replica_name="$(
+       jq -r '
+         [
+           .[] |
+           select(.properties.runningState == "Running") |
+           select(
+             any(
+               .properties.containers[];
+               .name == "web" and
+               .ready == true and
+               .runningState == "Running"
+             )
+           )
+         ][0].name // empty
+       ' <<<"${replica_json}"
+     )"
+     if [[ "${wake_status}" == 200 && -n "${replica_name}" ]]; then
+       break
+     fi
+     sleep 5
+   done
+   [[ "${wake_status}" == 200 && -n "${replica_name}" ]]
+   ```
+
+   Then target that explicit revision and replica. The Node probe has its own
+   two-minute deadline, retries the internal API readiness URL, prints a stable
+   success marker only for HTTP 200, and exits nonzero otherwise. Require both
+   the CLI exit and marker before removing stale rules:
+
+   ```bash
+   readiness_output="$(
+     az containerapp exec \
+       --resource-group intelibill-shared \
+       --name "${web_name}" \
+       --revision "${active_revision}" \
+       --replica "${replica_name}" \
+       --container web \
+       --command "node -e \"const end=Date.now()+120000; (async()=>{ while(Date.now()<end){ try { const r=await fetch(process.env.API_ORIGIN + '/health/ready',{signal:AbortSignal.timeout(5000)}); if(r.status===200){ console.log('PHASE10_READINESS_HTTP_200'); return; } } catch {} await new Promise(resolve=>setTimeout(resolve,5000)); } process.exit(1); })();\""
+   )"
+   printf '%s\n' "${readiness_output}"
+   grep -Fq 'PHASE10_READINESS_HTTP_200' <<<"${readiness_output}"
    ```
 
    Do not retire old rules based only on bootstrap-image health or a resource
@@ -372,7 +552,7 @@ Never refresh both environment states when only one environment changed.
 6. **Second shared apply: clear retention and delete only stale exact rules.**
    Pass an explicit empty map, rather than relying on an operator's local
    tfvars. The guard requires the complete active plan to equal
-   `old-live - new-live`, delete-only.
+   `old - new`, delete-only.
 
    ```bash
    jq -nS \
@@ -392,8 +572,8 @@ Never refresh both environment states when only one environment changed.
 
    jq -e \
      --arg environment "${environment_name}" \
-     --slurpfile old "${transition_dir}/old-live.json" \
-     --slurpfile new "${transition_dir}/new-live.json" '
+     --slurpfile old "${transition_dir}/old.json" \
+     --slurpfile new "${transition_dir}/new.json" '
      def rule_name($ip):
        "container-apps-" + $environment + "-" + ($ip | gsub("\\."; "-"));
      (($old[0] - $new[0]) |
