@@ -97,6 +97,10 @@ assert(
   "read-only pull-request plans must not acquire the state lock",
 )
 assert(
+  plan_commands.include?("-refresh=false"),
+  "read-only pull-request plans must not refresh privileged resource data",
+)
+assert(
   plan_job.fetch("if").include?(
     "github.event.pull_request.head.repo.full_name == github.repository",
   ),

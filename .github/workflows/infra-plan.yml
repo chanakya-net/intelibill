@@ -102,6 +102,7 @@ jobs:
             -input=false \
             -lock=false \
             -no-color \
+            -refresh=false \
             -detailed-exitcode \
             -out="${PLAN_FILE}" \
             >"${PLAN_LOG}" 2>&1
