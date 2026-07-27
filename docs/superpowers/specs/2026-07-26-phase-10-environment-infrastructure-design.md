@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-26
 
-**Status:** Approved for implementation
+**Status:** Implemented and verified
 
 **Branch:** `infra-setup`
 
@@ -416,3 +416,41 @@ Phase 10 is complete when:
   are absent;
 - formatting, validation, contract tests, saved plans, and live verification
   pass with no unexplained drift.
+
+## Implementation Verification
+
+Phase 10 was applied on 2026-07-27 and independently reviewed at implementation
+head `e8c11915`. Fresh post-apply verification established:
+
+- both API ingresses are internal, both web ingresses are external, every
+  generated FQDN is present, and all four apps remain capped at one replica;
+- both migration jobs are manual, carry the intended migrator identities, and
+  have zero executions;
+- the derived live egress snapshots contain 181 addresses per environment
+  (dev SHA-256
+  `25cdaa25bcb51b120eca6563def49c030d3181dda4f437ca3e9df1f98a856648`,
+  prod SHA-256
+  `c400ecdfeaf34ce0959a1cdb194f577af37969594b64dff614727ae7b8cd0395`);
+- all 362 managed PostgreSQL rules are exact single-IP rules, no broad rule
+  exists, and the combined drift checker reports 362 expected and 362 managed;
+- all six deploy assignments bind the correct environment deploy principal to
+  its API, web, and migration-job resource, with no deploy assignment at
+  resource-group scope;
+- all four workload identity principal IDs match their pre-Phase-10 values,
+  and the optional New Relic secret reference remains disabled;
+- shared, dev, prod, and bootstrap idempotence plans all exit 0 with no
+  changes;
+- the exact diagnostic settings are active, and Log Analytics contains recent
+  dev/prod Container Apps console, system, and HTTP evidence, PostgreSQL
+  log/metric evidence, and dev/prod Key Vault audit/metric evidence. HTTP
+  evidence arrived after about ten minutes of ingestion lag.
+
+The address fingerprints are a derived, non-canonical snapshot; the live Azure
+sets and `.tofu/scripts/check-container-app-egress.sh` remain authoritative for
+operations. Future address changes must use the two-apply retained-address
+procedure defined above.
+
+Separately, Graphify extracts the repository AST successfully but cannot
+generate HTML for the 14,305-node graph because it exceeds the visualization
+size limit. That tooling limitation is unrelated to the infrastructure
+acceptance gates.

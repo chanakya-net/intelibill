@@ -1,6 +1,12 @@
 # Phase 10 handoff — environment infrastructure
 
-**Written 2026-07-26 on branch `infra-setup` at commit `a6ea6d01`.** Everything below was verified against the live subscription on that date, not recalled from the runbook. Where this document and [infrastructure-implementation-guide.md](infrastructure-implementation-guide.md) disagree, this document is newer — the guide's Phase 8 and Phase 9 text has been amended, but its Phase 10 HCL examples predate the application as it now stands.
+**Updated 2026-07-27 on branch `infra-setup`.** Phase 10 was applied and
+independently reviewed at implementation head `e8c11915`; the documentation
+commit that records this evidence necessarily follows that head. Everything
+below was verified against the live subscription, not recalled from the
+runbook. Where this document and
+[infrastructure-implementation-guide.md](infrastructure-implementation-guide.md)
+disagree, this document is newer.
 
 Read first: [infrastructure-decisions.md](infrastructure-decisions.md) §7, §8, §18, §19, §20, §21 — those are the constraints you cannot design around without reopening a decision.
 
@@ -16,7 +22,7 @@ Read first: [infrastructure-decisions.md](infrastructure-decisions.md) §7, §8,
 | 7 database bootstrap (principals, grants, isolation) | done and verified |
 | 8 application production contract | done **except 8.4 telemetry instruments** |
 | 9 Key Vault | vaults and signing keys applied; integration secrets outstanding |
-| **10 environment infrastructure** | **not started — this is you** |
+| **10 environment infrastructure** | **done, applied, and independently verified 2026-07-27** |
 | 11 pipelines | not started |
 | 12 domains | ⏸ blocked by phase 6 |
 | 13–14 keep-warm, verification | not started |
@@ -37,9 +43,20 @@ intelibill-dev-kv     RBAC, soft delete 7 days, purge protection OFF
 intelibill-prod-kv    RBAC, soft delete 90 days, purge protection ON (irreversible)
                       both hold key `jwt-signing` (RSA 2048, sign/verify, rotation policy)
 intelibilltfstate01   OpenTofu state, containers tfstate-{shared,dev,prod}
+intelibill-logs       Log Analytics, PerGB2018, 30-day retention, 0.1 GB/day cap
+intelibill-dev-env    Container Apps environment (Consumption)
+  intelibill-dev-api  internal ingress; generated internal FQDN
+  intelibill-dev-web  external ingress; generated public FQDN
+  intelibill-dev-migrate
+                      manual migration job; never executed
+intelibill-prod-env   Container Apps environment (Consumption)
+  intelibill-prod-api internal ingress; generated internal FQDN
+  intelibill-prod-web external ingress; generated public FQDN
+  intelibill-prod-migrate
+                      manual migration job; never executed
 ```
 
-### Workload identities (Phase 10 attaches these to the apps)
+### Workload identities (attached without replacement)
 
 | Environment | Role | Name | Client ID | Principal ID |
 |---|---|---|---|---|
@@ -60,14 +77,136 @@ Per environment: `CONNECT` for its own app and migrator only, `REVOKE CONNECT/TE
 
 ---
 
-## 3. Blockers to clear before you write HCL
+## 3. Phase 10 completion evidence
 
-1. **`Microsoft.App` is not registered on this subscription.** Container Apps creation fails until it is. `Microsoft.OperationalInsights` is registered.
-   ```bash
-   az provider register -n Microsoft.App --wait
-   ```
-2. **PostgreSQL has zero firewall rules.** The Phase 7 temporary rule was removed, so nothing can currently reach the server. The Container Apps environment's outbound IPs must be allowlisted or every app start fails on connection. Do **not** enable the blanket "Allow Azure services" rule — [decision §8](infrastructure-decisions.md#8-one-shared-postgresql-server-two-databases) accepted public networking on the basis of a *narrow* allowlist.
-3. **Two open decisions.** Launch replica cap (outstanding item 3) determines whether SignalR needs a backplane; business timezone and warm-hours (item 4) determine the Phase 13 cron. API max replicas is 1 until someone says otherwise — the rate limiter is still non-atomic and there is no SignalR backplane.
+### Live workload behavior
+
+| Environment | API | Web | Migration job |
+|---|---|---|---|
+| dev | `intelibill-dev-api`; internal; `intelibill-dev-api.internal.jollypond-9e71a2fb.centralindia.azurecontainerapps.io` | `intelibill-dev-web`; external; `intelibill-dev-web.jollypond-9e71a2fb.centralindia.azurecontainerapps.io` | `intelibill-dev-migrate`; manual; migrator principal `d4463264-a136-467a-af6d-e174d99dab26`; 0 executions |
+| prod | `intelibill-prod-api`; internal; `intelibill-prod-api.internal.politebush-ac4f5ec3.centralindia.azurecontainerapps.io` | `intelibill-prod-web`; external; `intelibill-prod-web.politebush-ac4f5ec3.centralindia.azurecontainerapps.io` | `intelibill-prod-migrate`; manual; migrator principal `051aad50-f111-4c7d-8ba6-75630cba1b64`; 0 executions |
+
+API and web resources are configured for minimum 0 and maximum 1 replica.
+Azure's live representation omits `minReplicas` when it is the zero default;
+all four live resources explicitly reported `maxReplicas = 1`. The API remains
+internal and the web app remains the only public browser origin.
+
+Both environments still use the immutable bootstrap image. Phase 11 must
+replace the migration-job image before starting it, wait for a successful
+execution, and only then deploy the real API and web images. Phase 10 did not
+start either job.
+
+### Public-network exception and current derived address snapshot
+
+The public PostgreSQL exception remains intentionally narrow. Live verification
+found 362 managed firewall rules: 181 named `container-apps-dev-*` and 181
+named `container-apps-prod-*`. Every rule has identical start and end IPv4
+addresses; there are zero broad, ranged, operator, or otherwise unmanaged
+rules. In particular, the Azure-services `0.0.0.0` exception is absent.
+
+The following snapshot is **derived and non-canonical**. Azure may change
+Container Apps outbound addresses; OpenTofu state and this document are not a
+source of truth for future reachability.
+
+| Environment | Derived unique advertised addresses | SHA-256 of sorted addresses, one address plus newline per record |
+|---|---:|---|
+| dev | 181 | `25cdaa25bcb51b120eca6563def49c030d3181dda4f437ca3e9df1f98a856648` |
+| prod | 181 | `c400ecdfeaf34ce0959a1cdb194f577af37969594b64dff614727ae7b8cd0395` |
+
+Retrieve and fingerprint the live API, web, and job union:
+
+```bash
+for environment_name in dev prod; do
+  api_addresses="$(
+    az containerapp show --resource-group intelibill-shared \
+      --name "intelibill-${environment_name}-api" \
+      --query properties.outboundIpAddresses -o json
+  )"
+  web_addresses="$(
+    az containerapp show --resource-group intelibill-shared \
+      --name "intelibill-${environment_name}-web" \
+      --query properties.outboundIpAddresses -o json
+  )"
+  job_addresses="$(
+    az containerapp job show --resource-group intelibill-shared \
+      --name "intelibill-${environment_name}-migrate" \
+      --query properties.outboundIpAddresses -o json
+  )"
+  sorted_addresses="$(
+    jq -n \
+      --argjson api "${api_addresses}" \
+      --argjson web "${web_addresses}" \
+      --argjson job "${job_addresses}" \
+      '[$api[], $web[], $job[]] | unique | sort'
+  )"
+  printf '%s count=%s sha256=%s\n' \
+    "${environment_name}" \
+    "$(jq 'length' <<<"${sorted_addresses}")" \
+    "$(jq -r '.[]' <<<"${sorted_addresses}" | shasum -a 256 | awk '{print $1}')"
+done
+
+.tofu/scripts/check-container-app-egress.sh
+```
+
+The final checker output was:
+
+```text
+Egress allowlist verified: 362 expected address(es), 362 managed rule(s).
+```
+
+For any future address change, use the retained-address two-apply procedure:
+
+1. Put the previous exact addresses for the affected environment in shared
+   input `retained_container_apps_outbound_ips`. Review and apply shared state
+   so newly advertised rules are added while old rules remain. Wait for
+   firewall propagation, a successful readiness check, and a green drift
+   check.
+2. Clear the retained set. Review a second shared plan whose only removals are
+   stale exact rules, apply it, and rerun the drift checker.
+
+Never swap old and new rules in one propagation window, summarize addresses
+into a range, or fall back to the broad Azure-services exception.
+
+### Deploy scopes and identity preservation
+
+The custom `Intelibill Container App Deployer` role has exactly these six
+routine deployment assignments:
+
+| Deploy principal | Exact resource scopes |
+|---|---|
+| dev `4475d63e-2970-455f-935d-f4de25a0d7d4` | `.../Microsoft.App/containerApps/intelibill-dev-api`; `.../Microsoft.App/containerApps/intelibill-dev-web`; `.../Microsoft.App/jobs/intelibill-dev-migrate` |
+| prod `be616680-7dd9-450a-85e7-cf52f28e05a4` | `.../Microsoft.App/containerApps/intelibill-prod-api`; `.../Microsoft.App/containerApps/intelibill-prod-web`; `.../Microsoft.App/jobs/intelibill-prod-migrate` |
+
+There is no deploy assignment whose scope equals resource group
+`intelibill-shared`. The four app/migrator principal IDs in the identity table
+above match the pre-Phase-10 baseline exactly.
+
+The optional `new-relic-api-key` reference remains disabled in both
+environments (`observability_secret_configured = false`). No integration
+secret value was read or persisted.
+
+### Idempotence and monitoring
+
+Fresh `tofu plan -detailed-exitcode` runs for shared, dev, prod, and bootstrap
+all exited 0 with `No changes`. Diagnostic settings route exactly:
+
+- Container Apps: `ContainerAppConsoleLogs`, `ContainerAppSystemLogs`,
+  `ContainerAppHTTPLogs`, and `AllMetrics`;
+- PostgreSQL: `PostgreSQLLogs` and `AllMetrics`;
+- each Key Vault: `AuditEvent` and `AllMetrics`.
+
+After read-only public web and Key Vault metadata probes, the shared workspace
+contained recent console, system, and HTTP records for both Container Apps
+environments; PostgreSQL log and metric records; and audit and metric records
+for both Key Vaults. HTTP records arrived after about ten minutes of ingestion
+lag. Both migration-job execution counts were queried again afterward and
+remained zero.
+
+### Separate repository-tooling limitation
+
+Graphify AST extraction succeeds, but HTML visualization generation exceeds
+the size limit for the 14,305-node graph. This is a repository visualization
+limitation, not an Azure, OpenTofu, drift, idempotence, or logging failure.
 
 ---
 
@@ -178,13 +317,17 @@ Conventions worth matching: modules take a `env` variable validated to `dev|prod
 
 ---
 
-## 7. What Phase 10 has to build
+## 7. What Phase 10 built
 
-Split as the guide says — **10A foundation, then 10B workloads** — except the vault half of 10A is already done.
+Phase 10 kept the guide's **10A foundation, then 10B workloads** split, with
+the previously completed Key Vault resources reused.
 
-**10A remaining:** Log Analytics workspace per environment (or one shared, with a retention cap), the Container Apps environment, PostgreSQL firewall rules for its outbound IPs, and diagnostic settings.
+**10A completed:** one shared, capped Log Analytics workspace; one Container
+Apps environment per application environment; exact PostgreSQL rules for live
+outbound addresses; and the approved diagnostic settings.
 
-**10B:** the migration job, the API app, the web app, and the role assignments in guide §10.2.
+**10B completed:** one manual migration job, API app, and web app per
+environment, plus all six resource-scoped role assignments.
 
 Points the guide gets right and are worth honouring:
 
@@ -210,7 +353,7 @@ Each of these was found by testing, not by reading:
 
 ## 9. Outstanding work not in Phase 10
 
-- **8.4 telemetry instruments** — deliberately deferred by the owner. OpenTelemetry and the OTLP exporter are registered, but there are no metrics for database pool wait, PostgreSQL token refresh, cache failures, SignalR connections, migration version, replica restarts, or external-service latency. Natural to fold in during Phase 10, when a real OTLP endpoint exists.
+- **8.4 telemetry instruments** — deliberately deferred by the owner. OpenTelemetry and the OTLP exporter are registered, but there are no metrics for database pool wait, PostgreSQL token refresh, cache failures, SignalR connections, migration version, replica restarts, or external-service latency. The Phase 10 workspace now exists; adding the application instruments remains later work.
 - **Atomic rate limiting** — still a distributed-cache read/modify/write. Deprioritised by the owner.
 - **Azure SignalR or a backplane** — needed only above one API replica.
 - **SMTP credential rotation** — an account action; the value is not in git history.
