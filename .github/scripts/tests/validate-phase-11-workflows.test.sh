@@ -93,6 +93,10 @@ assert(plan_commands.include?("vars.AZURE_CLIENT_ID_PLAN"), "plan identity missi
 assert(!plan_commands.include?("vars.AZURE_CLIENT_ID_INFRA"), "plan uses infra identity")
 assert(!plan_commands.include?("vars.AZURE_CLIENT_ID_DEPLOY"), "plan uses deploy identity")
 assert(
+  plan_commands.include?("-lock=false"),
+  "read-only pull-request plans must not acquire the state lock",
+)
+assert(
   plan_job.fetch("if").include?(
     "github.event.pull_request.head.repo.full_name == github.repository",
   ),
