@@ -46,6 +46,17 @@ plan = load_workflow(workflow_dir, "infra-plan.yml")
 apply = load_workflow(workflow_dir, "infra-apply.yml")
 deploy = load_workflow(workflow_dir, "deploy.yml")
 
+Dir.glob(File.join(workflow_dir, "*.{yml,yaml}")).sort.each do |path|
+  workflow = load_workflow(workflow_dir, File.basename(path))
+  run_name = workflow.fetch("run-name", "").to_s
+  assert(run_name.include?("github.workflow"), "#{File.basename(path)}: run name omits workflow")
+  assert(
+    run_name.include?("github.event.pull_request.number") &&
+      run_name.include?("github.ref_name"),
+    "#{File.basename(path)}: run name omits event context",
+  )
+end
+
 [plan, apply, deploy].each do |workflow|
   workflow.fetch("jobs").each_value do |job|
     checkout_steps = Array(job["steps"]).select do |step|
