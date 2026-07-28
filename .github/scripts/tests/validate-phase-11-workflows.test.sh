@@ -186,15 +186,76 @@ assert(
   deploy_triggers.key?("pull_request"),
   "release workflow must validate changed images before merge",
 )
-release_build = deploy_jobs.fetch("build")
-assert(
-  release_build.fetch("if").include?("github.event_name != 'pull_request'"),
-  "pull-request code must not enter the package-write job",
-)
-assert(
-  release_build.dig("permissions", "packages") == "write",
-  "release build requires package write permission",
-)
+release_images = {
+  "build_api" => {
+    "dockerfile" => "src/backend/Dockerfile",
+    "repository" => "${{ env.API_IMAGE }}",
+    "consumer" => "needs.build_api.outputs.image",
+  },
+  "build_web" => {
+    "dockerfile" => "src/frontend/Dockerfile",
+    "repository" => "${{ env.WEB_IMAGE }}",
+    "consumer" => "needs.build_web.outputs.image",
+  },
+  "build_migrate" => {
+    "dockerfile" => "src/backend/Dockerfile.migrate",
+    "repository" => "${{ env.MIGRATE_IMAGE }}",
+    "consumer" => "needs.build_migrate.outputs.image",
+  },
+}
+release_images.each_key do |job_name|
+  assert(
+    deploy_jobs.key?(job_name),
+    "#{job_name} must be an independent release-image job",
+  )
+end
+release_images.each do |job_name, image|
+  release_build = deploy_jobs.fetch(job_name)
+  assert(
+    release_build["needs"] == "validate",
+    "#{job_name} must depend only on validation so image builds can run in parallel",
+  )
+  assert(
+    release_build.fetch("if").include?("github.event_name != 'pull_request'"),
+    "#{job_name} must reject pull-request package writes",
+  )
+  assert(
+    release_build.dig("permissions", "packages") == "write",
+    "#{job_name} requires package write permission",
+  )
+  assert(
+    release_build.dig("outputs", "image").to_s.include?("steps.reference.outputs.image"),
+    "#{job_name} immutable image output missing",
+  )
+  build_step = release_build.fetch("steps").find do |step|
+    step.fetch("uses", "").start_with?("docker/build-push-action@")
+  end
+  assert(!build_step.nil?, "#{job_name} image build missing")
+  assert(
+    build_step.dig("with", "file") == image.fetch("dockerfile"),
+    "#{job_name} does not build #{image.fetch("dockerfile")}",
+  )
+  assert(
+    build_step.dig("with", "push") == true,
+    "#{job_name} does not publish its image",
+  )
+  assert(
+    build_step.dig("with", "tags").to_s.include?(image.fetch("repository")),
+    "#{job_name} does not publish to #{image.fetch("repository")}",
+  )
+  login_step = release_build.fetch("steps").find do |step|
+    step.fetch("name", "") == "Login to GHCR"
+  end
+  assert(!login_step.nil?, "#{job_name} GHCR login step missing")
+  scan_step = release_build.fetch("steps").find do |step|
+    step.fetch("uses", "").start_with?("aquasecurity/trivy-action@")
+  end
+  assert(!scan_step.nil?, "#{job_name} image scan missing")
+  assert(
+    scan_step.dig("with", "image-ref").to_s.include?("steps.reference.outputs.image"),
+    "#{job_name} does not scan its immutable image",
+  )
+end
 validation_commands = commands(deploy_jobs.fetch("validate"))
 %w[
   src/backend/Dockerfile
@@ -206,10 +267,13 @@ validation_commands = commands(deploy_jobs.fetch("validate"))
     "pull-request validation does not build #{dockerfile}",
   )
 end
-assert(deploy_jobs.dig("dev", "needs") == "build", "dev release must follow build")
 assert(
-  deploy_jobs.dig("prod", "needs") == %w[build dev],
-  "prod release must follow the same build and dev",
+  deploy_jobs.dig("dev", "needs") == release_images.keys,
+  "dev release must follow all parallel image builds",
+)
+assert(
+  deploy_jobs.dig("prod", "needs") == [*release_images.keys, "dev"],
+  "prod release must follow the same image builds and dev",
 )
 assert(deploy_jobs.dig("dev", "environment") == "dev", "dev environment missing")
 assert(deploy_jobs.dig("prod", "environment") == "prod", "prod gate missing")
@@ -223,14 +287,6 @@ assert(
   deploy.dig("concurrency", "cancel-in-progress") == false,
   "production releases must not cancel in progress",
 )
-build_outputs = deploy_jobs.dig("build", "outputs")
-%w[api-image web-image migrate-image].each do |output|
-  assert(build_outputs.key?(output), "build output #{output} missing")
-end
-login_step = deploy_jobs.fetch("build").fetch("steps").find do |step|
-  step.fetch("name", "") == "Login to GHCR"
-end
-assert(!login_step.nil?, "GHCR login step missing")
 deploy_commands = deploy_jobs.values.map { |job| commands(job) }.join("\n")
 assert(deploy_commands.include?("vars.AZURE_CLIENT_ID_DEPLOY"), "deploy identity missing")
 assert(!deploy_commands.include?("vars.AZURE_CLIENT_ID_INFRA"), "release uses infra identity")
@@ -243,10 +299,10 @@ assert(deploy_jobs.to_s.include?("GHCR_PUBLIC"), "public-package deployment gate
   assert(!migration_index.nil?, "#{environment} migration command missing")
   assert(!api_update_index.nil?, "#{environment} API update missing")
   assert(migration_index < api_update_index, "#{environment} deploys before migration")
-  %w[api-image web-image migrate-image].each do |output|
+  release_images.each_value do |image|
     assert(
-      job_commands.include?("needs.build.outputs.#{output}"),
-      "#{environment} does not consume #{output}",
+      job_commands.include?(image.fetch("consumer")),
+      "#{environment} does not consume #{image.fetch("consumer")}",
     )
   end
   assert(
