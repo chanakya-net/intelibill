@@ -144,13 +144,13 @@ run "dev_contract" {
   assert {
     condition = (
       azurerm_container_app.api.workload_profile_name == "Consumption" &&
-      azurerm_container_app.api.template[0].container[0].cpu == 0.25 &&
-      azurerm_container_app.api.template[0].container[0].memory == "0.5Gi" &&
+      azurerm_container_app.api.template[0].container[0].cpu == 1 &&
+      azurerm_container_app.api.template[0].container[0].memory == "2Gi" &&
       azurerm_container_app.web.workload_profile_name == "Consumption" &&
       azurerm_container_app.web.template[0].container[0].cpu == 0.25 &&
       azurerm_container_app.web.template[0].container[0].memory == "0.5Gi"
     )
-    error_message = "Dev API and web sizing must remain at the approved consumption floor."
+    error_message = "Dev API must use 1 vCPU / 2 GiB while the web remains at the consumption floor."
   }
 
   assert {
@@ -393,8 +393,8 @@ run "prod_sizing_contract" {
       azurerm_container_app.api.name == "intelibill-prod-api" &&
       azurerm_container_app.web.name == "intelibill-prod-web" &&
       azurerm_container_app_job.migrate.name == "intelibill-prod-migrate" &&
-      azurerm_container_app.api.template[0].container[0].cpu == 0.5 &&
-      azurerm_container_app.api.template[0].container[0].memory == "1Gi" &&
+      azurerm_container_app.api.template[0].container[0].cpu == 0.75 &&
+      azurerm_container_app.api.template[0].container[0].memory == "1.5Gi" &&
       azurerm_container_app.web.template[0].container[0].cpu == 0.5 &&
       azurerm_container_app.web.template[0].container[0].memory == "1Gi" &&
       azurerm_container_app.api.template[0].max_replicas == 1 &&

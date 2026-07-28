@@ -5,6 +5,7 @@ using Intelibill.Api.Middleware;
 using Intelibill.Api.Middleware.RateLimiting;
 using Intelibill.Api.Options;
 using Intelibill.Api.Services;
+using Intelibill.Api.Startup;
 using Intelibill.Application;
 using Intelibill.Application.Common.Behaviours;
 using Intelibill.Application.Common.Interfaces;
@@ -13,6 +14,7 @@ using Intelibill.Infrastructure.Extensions;
 using Scalar.AspNetCore;
 using Intelibill.Infrastructure.Options;
 using Intelibill.Infrastructure.Services.Auth;
+using JasperFx;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -44,10 +46,12 @@ builder.Services.AddEdge(configuration, builder.Environment);
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(configuration);
+builder.Services.AddApplicationModelWarmup();
 builder.Services.AddSignalR();
 builder.Services.AddScoped<IProductHubNotifier, SignalRProductHubNotifier>();
 builder.Services.AddScoped<IShopUpdatesNotifier, SignalRShopUpdatesNotifier>();
 builder.Services.AddWolverineHttp();
+builder.Services.AddProductionWolverineCodeGeneration();
 
 // ── App options ───────────────────────────────────────────────────────────────
 builder.Services.AddOptions<AppOptions>()
@@ -191,6 +195,6 @@ app.MapHub<ProductHub>("/hubs/products");
 app.MapHub<ShopUpdatesHub>("/hubs/shop-updates");
 app.MapHealthEndpoints();
 
-app.Run();
+return await app.RunJasperFxCommands(args);
 
 public partial class Program;

@@ -23,7 +23,8 @@ COPY ["src/backend/", "src/backend/"]
 
 # Build and publish the API project
 WORKDIR "/app/src/backend/Intelibill.Api"
-RUN dotnet publish "Intelibill.Api.csproj" -c Release -o /app/publish /p:UseAppHost=false
+RUN dotnet run --no-launch-profile --no-restore -c Release -- codegen write \
+    && dotnet publish "Intelibill.Api.csproj" --no-restore -c Release -o /app/publish /p:UseAppHost=false
 
 # Use the ASP.NET 10.0 runtime for the final image
 FROM mcr.microsoft.com/dotnet/aspnet:10.0@sha256:1fa23fc4872d95fd71c2833ebe65d7e84a43b2d51a31d119516852f13d9505a7 AS runtime
