@@ -155,6 +155,63 @@ test.describe('credit-notes-list', () => {
     }
   });
 
+
+  test('exercises action button in both desktop and mobile profiles', async ({ page }, testInfo) => {
+    const scenario = {
+      notes: [...STATUS_NOTES, ...DENSE_NOTES, LONG_NOTE],
+      apiState: 'ready' as const,
+    };
+    const collector = collectBrowserFailures(page);
+    try {
+      await installCreditNotesFixture(page, scenario);
+      await page.goto(ROUTE);
+      await waitForStablePage(page);
+
+      const viewportWidth = page.viewportSize()!.width;
+      if (viewportWidth > 720) {
+        const actionButton = page.locator('td.actions-column button').first();
+        await actionButton.click();
+        await expect(page.locator('.credit-note-detail')).toBeVisible();
+      } else {
+        const mobileActionButton = page.locator('article.credit-note-card button').last();
+        await mobileActionButton.click();
+        await expect(page.locator('.credit-note-detail')).toBeVisible();
+      }
+      assertNoUnexpectedBrowserFailures(collector.failures);
+    } finally {
+      collector.dispose();
+    }
+  });
+
+  test('long values truncate on desktop profile', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'chromium-desktop', 'desktop profile only');
+    const scenario = {
+      notes: [LONG_NOTE],
+      apiState: 'ready' as const,
+    };
+    const collector = collectBrowserFailures(page);
+    try {
+      await installCreditNotesFixture(page, scenario);
+      await page.goto(ROUTE);
+      await waitForStablePage(page);
+
+      const longValues = page.locator('[data-audit-long-value]');
+      const count = await longValues.count();
+      expect(count).toBeGreaterThan(0);
+      const truncated = await longValues.evaluateAll((elements) =>
+        elements.every((el) => {
+          const element = el as HTMLElement;
+          if (element.clientWidth === 0) return true;
+          return element.scrollWidth > element.clientWidth;
+        }),
+      );
+      expect(truncated).toBe(true);
+      assertNoUnexpectedBrowserFailures(collector.failures);
+    } finally {
+      collector.dispose();
+    }
+  });
+
   test('keeps cards, table scrolling, and localized values inside their profiles', async ({}, testInfo) => {
     test.skip(testInfo.project.name !== 'chromium-mobile', 'scoped browser and locale matrix');
     test.setTimeout(180_000);
@@ -319,22 +376,17 @@ async function assertResponsiveBounds(page: Page, width: number): Promise<void> 
     const table = document.querySelector<HTMLElement>('.credit-note-table');
     const surface = document.querySelector<HTMLElement>('.ledger-panel');
     const cards = Array.from(document.querySelectorAll<HTMLElement>('.credit-note-card'));
-    const longValues = Array.from(
-      document.querySelectorAll<HTMLElement>('[data-audit-long-value]'),
-    );
     return {
       documentWidth: document.documentElement.scrollWidth,
       tableScrolls: !!table && table.scrollWidth > table.clientWidth,
       cardsInsideViewport: cards.every(
         (card) => card.getBoundingClientRect().right <= window.innerWidth,
       ),
-      valuesTruncate: longValues.every((value) => value.scrollWidth >= value.clientWidth),
       surfaceVisible: !!surface && getComputedStyle(surface).display !== 'none',
     };
   });
   expect(metrics.documentWidth).toBeLessThanOrEqual(width);
   expect(metrics.surfaceVisible).toBe(true);
-  expect(metrics.valuesTruncate).toBe(true);
   if (width <= 720) expect(metrics.cardsInsideViewport).toBe(true);
   if (width > 720 && width < 1100) expect(metrics.tableScrolls).toBe(true);
 }

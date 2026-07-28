@@ -66,7 +66,8 @@ export class CreditNotesPageComponent implements OnInit, OnDestroy {
   readonly selectedCreditNote = signal<CreditNoteDetailDto | null>(null);
   readonly loadingNotes = signal(false);
   readonly loadingDetail = signal(false);
-  readonly errorMessage = signal('');
+  readonly listErrorMessage = signal('');
+  readonly detailErrorMessage = signal('');
   readonly voidDialogVisible = signal(false);
   readonly voidTargetCreditNote = signal<CreditNoteDetailDto | null>(null);
   readonly voidReason = signal('');
@@ -261,7 +262,7 @@ export class CreditNotesPageComponent implements OnInit, OnDestroy {
     };
 
     this.loadingNotes.set(true);
-    this.errorMessage.set('');
+    this.listErrorMessage.set('');
 
     try {
       const response = await firstValueFrom(this.saleService.getCreditNotes(params));
@@ -270,7 +271,7 @@ export class CreditNotesPageComponent implements OnInit, OnDestroy {
       this.pageNumber.set(response.pageNumber);
       this.pageSize.set(response.pageSize);
     } catch {
-      this.errorMessage.set('sales.creditNotes.errors.loadFailed');
+      this.listErrorMessage.set('sales.creditNotes.errors.loadFailed');
     } finally {
       this.loadingNotes.set(false);
     }
@@ -278,7 +279,7 @@ export class CreditNotesPageComponent implements OnInit, OnDestroy {
 
   private async loadCreditNoteDetail(code: string): Promise<void> {
     this.loadingDetail.set(true);
-    this.errorMessage.set('');
+    this.detailErrorMessage.set('');
     this.selectedCreditNote.set(null);
 
     try {
@@ -286,7 +287,7 @@ export class CreditNotesPageComponent implements OnInit, OnDestroy {
       this.selectedCreditNote.set(detail);
     } catch {
       this.selectedCreditNote.set(null);
-      this.errorMessage.set('sales.creditNotes.errors.verifyFailed');
+      this.detailErrorMessage.set('sales.creditNotes.errors.verifyFailed');
     } finally {
       this.loadingDetail.set(false);
     }

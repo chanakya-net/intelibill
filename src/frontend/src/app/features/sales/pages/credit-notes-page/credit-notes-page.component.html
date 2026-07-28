@@ -31,6 +31,12 @@
           [disabled]="loadingDetail() || !verifyCode().trim()"
         ></button>
       </div>
+      @if (detailErrorMessage()) {
+        <div class="error-state error" role="alert">
+          <i class="pi pi-exclamation-circle" aria-hidden="true"></i>
+          <p>{{ detailErrorMessage() | transloco }}</p>
+        </div>
+      }
     </div>
 
     <div class="command-group">
@@ -104,10 +110,10 @@
 
     @if (loadingNotes()) {
       <div class="loading-state" role="status">{{ 'sales.creditNotes.loading' | transloco }}</div>
-    } @else if (errorMessage()) {
+    } @else if (listErrorMessage()) {
       <div class="error-state error" role="alert">
         <i class="pi pi-exclamation-circle" aria-hidden="true"></i>
-        <p>{{ errorMessage() | transloco }}</p>
+        <p>{{ listErrorMessage() | transloco }}</p>
       </div>
     } @else {
       <div class="desktop-table credit-note-table">
