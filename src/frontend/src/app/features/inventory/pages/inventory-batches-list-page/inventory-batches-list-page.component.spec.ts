@@ -80,6 +80,17 @@ describe('InventoryBatchesListPageComponent', () => {
     expect(component.batches()[0].itemName).toBe('Rice');
   });
 
+  it('exposes a list error instead of treating a failed load as empty', () => {
+    fixture.detectChanges();
+
+    httpMock
+      .expectOne(`${API_BASE_URL}/inventory/batches`)
+      .flush({ title: 'Inventory.LoadFailed' }, { status: 503, statusText: 'Service Unavailable' });
+
+    expect(component.loadError()).toBe(true);
+    expect(component.batches()).toEqual([]);
+  });
+
   it('should open edit dialog with populated form', () => {
     fixture.detectChanges();
     httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
@@ -155,14 +166,10 @@ describe('InventoryBatchesListPageComponent', () => {
     );
 
     transloco.setActiveLang('en');
-    expect(component.directionOptions()[0].label).toBe(
-      'en:inventory.adjustmentDirection.decrease',
-    );
+    expect(component.directionOptions()[0].label).toBe('en:inventory.adjustmentDirection.decrease');
 
     transloco.setActiveLang('hi');
-    expect(component.directionOptions()[0].label).toBe(
-      'hi:inventory.adjustmentDirection.decrease',
-    );
+    expect(component.directionOptions()[0].label).toBe('hi:inventory.adjustmentDirection.decrease');
   });
 
   it('should require notes for other gain or loss adjustment reasons', () => {
