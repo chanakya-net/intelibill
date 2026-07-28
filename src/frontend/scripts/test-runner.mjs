@@ -66,5 +66,6 @@ if (exitCode === 0 && args.length === 0) {
 process.exit(exitCode);
 
 function normalizeIncludePath(path) {
-  return path.startsWith('tests/') ? `../${path}` : path;
+  if (path.startsWith('tests/')) return `../${path}`;
+  return path.includes('/') || path.includes('*') ? path : `**/${path}`;
 }

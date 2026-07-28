@@ -141,6 +141,28 @@ describe('ShellComponent', () => {
   }
 
   beforeEach(() => {
+    const currentSession = sessionSignal();
+    sessionSignal.set({
+      ...currentSession,
+      activeShopId: 'shop-1',
+      shops: [
+        {
+          shopId: 'shop-1',
+          shopName: 'Main',
+          role: 'Owner',
+          isDefault: true,
+          lastUsedAt: null,
+        },
+        {
+          shopId: 'shop-2',
+          shopName: 'Secondary',
+          role: 'Owner',
+          isDefault: false,
+          lastUsedAt: null,
+        },
+      ],
+    });
+    shopsSignal.set(sessionSignal().shops);
     currentLanguage.set(DEFAULT_LANGUAGE);
     authService.signOutAndRedirect.mockReset();
     authService.signOutAndRedirect.mockReturnValue(of(void 0));
@@ -270,4 +292,25 @@ describe('ShellComponent', () => {
       expect.objectContaining({ type: '[App Shell] Toggle Sidebar Pinned' }),
     );
   });
+
+  it.each(['Owner', 'Manager', 'Staff'])(
+    'lets an assigned %s open the shop menu and request a shop switch',
+    (role) => {
+      const currentSession = sessionSignal();
+      const shops = currentSession.shops.map((shop) => ({ ...shop, role }));
+      sessionSignal.set({ ...currentSession, shops });
+      shopsSignal.set(shops);
+      const component = setup();
+      store.dispatch.mockClear();
+
+      component.onToggleShopMenu();
+      expect(component.isShopMenuOpen()).toBe(true);
+
+      component.onSelectShop('shop-2');
+      expect(store.dispatch).toHaveBeenCalledWith(
+        ShopsActions.setDefaultShopRequested({ shopId: 'shop-2' }),
+      );
+      expect(component.isShopMenuOpen()).toBe(false);
+    },
+  );
 });
