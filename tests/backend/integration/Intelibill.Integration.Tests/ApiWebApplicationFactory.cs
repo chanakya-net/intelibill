@@ -89,9 +89,10 @@ public sealed class ApiWebApplicationFactory(PostgreSqlTestFixture? fixture = nu
             services.RemoveAll<DbContextOptions<ApplicationDbContext>>();
             services.RemoveAll<ApplicationDbContext>();
 
-            services.AddDbContext<ApplicationDbContext>((_, options) =>
+            services.AddDbContext<ApplicationDbContext>((sp, options) =>
             {
                 options.UseNpgsql(DbContainer.GetConnectionString())
+                    .AddInterceptors(sp.GetServices<IInterceptor>())
                     .UseSnakeCaseNamingConvention()
                     .ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));
             });

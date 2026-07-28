@@ -9,6 +9,7 @@ using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Infrastructure.Data;
 using Intelibill.Infrastructure.Data.Interceptors;
 using Intelibill.Infrastructure.Options;
+using Intelibill.Infrastructure.Observability;
 using Intelibill.Infrastructure.Repositories;
 using Intelibill.Infrastructure.Services.Auth;
 using Intelibill.Infrastructure.Services.Auth.ExternalAuth;
@@ -18,6 +19,7 @@ using Intelibill.Application.Features.Exports.Sales;
 using Intelibill.Infrastructure.Services.ProductLookup;
 using Intelibill.Infrastructure.Services.PurchaseOrders;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -50,13 +52,17 @@ public static class DependencyInjection
         {
             var dataSource = sp.GetRequiredService<NpgsqlDataSource>();
             var sessionInterceptor = sp.GetRequiredService<PostgresSessionContextInterceptor>();
+            var telemetryInterceptors = sp.GetServices<IInterceptor>();
             options.UseNpgsql(dataSource, npgsql =>
                 npgsql.MigrationsAssembly(typeof(DependencyInjection).Assembly.FullName))
                 .AddInterceptors(sessionInterceptor)
+                .AddInterceptors(telemetryInterceptors)
                 .UseSnakeCaseNamingConvention();
         });
 
         services.AddScoped<PostgresSessionContextInterceptor>();
+        services.AddSingleton<RequestDatabaseTelemetryAccessor>();
+        services.AddScoped<IInterceptor, RequestDatabaseCommandInterceptor>();
 
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
