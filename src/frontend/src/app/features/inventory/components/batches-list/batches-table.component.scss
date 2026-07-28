@@ -75,8 +75,11 @@
 
 .batch-card-content {
   display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr) auto auto;
-  align-items: start;
+  grid-template-areas:
+    'selection avatar price actions'
+    'selection details details details';
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
   gap: 0.75rem;
 }
 
@@ -87,7 +90,25 @@
 }
 
 .batch-card-details {
+  grid-area: details;
   min-width: 0;
+}
+
+.batch-card-selection {
+  grid-area: selection;
+}
+
+.batch-card-avatar {
+  grid-area: avatar;
+}
+
+.batch-card-price {
+  grid-area: price;
+}
+
+.batch-card-actions {
+  grid-area: actions;
+  justify-self: end;
 }
 
 .batch-card-item-name {

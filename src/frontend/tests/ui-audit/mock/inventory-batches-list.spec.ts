@@ -40,6 +40,29 @@ test.describe('inventory-batches-list', () => {
     }
   });
 
+  test('renders a successful empty response without loading or error UI', async ({
+    page,
+  }, testInfo) => {
+    const collector = collectBrowserFailures(page);
+    try {
+      await openBatches(page, 'ready', []);
+      const isMobile = testInfo.project.name === 'chromium-mobile';
+      const emptyState = page.locator(isMobile ? '.mobile-empty-state' : '.empty-state');
+
+      await expect(emptyState).toBeVisible();
+      await expect(emptyState).toContainText('No products added yet');
+      await expect(
+        page.locator(
+          isMobile ? '.batch-card-item' : '.desktop-table tbody tr:has(td:not([colspan]))',
+        ),
+      ).toHaveCount(0);
+      await expect(page.locator('.batches-table-loading, .batches-error')).toBeHidden();
+      assertNoUnexpectedBrowserFailures(collector.failures);
+    } finally {
+      collector.dispose();
+    }
+  });
+
   test('filters populated data, exposes no-results, and opens row actions', async ({
     page,
   }, testInfo) => {
@@ -57,7 +80,22 @@ test.describe('inventory-batches-list', () => {
 
       await search.fill('does-not-exist');
       await expect(page.locator(isMobile ? '.mobile-empty-state' : '.empty-state')).toBeVisible();
-      await search.fill('active');
+      await search.fill('');
+
+      await selectBatchStatus(page, 'Voided');
+      await expect(rows).toHaveCount(1);
+      await expect(rows).toContainText('Voided inventory batch');
+
+      await selectBatchStatus(page, 'All');
+      await selectBatchDate(page, 'batch-from-date', '2026-6-28');
+      await expect(rows).toHaveCount(2);
+      await selectBatchDate(page, 'batch-to-date', '2026-6-28');
+      await expect(rows).toHaveCount(1);
+      await expect(rows).toContainText('Voided inventory batch');
+
+      await page.getByRole('button', { name: 'Clear' }).click();
+      await expect(search).toHaveValue('');
+      await expect(rows).toHaveCount(BATCHES.length);
 
       const actions = rows.first().getByRole('button', { name: 'Actions' });
       await actions.click();
@@ -78,19 +116,13 @@ test.describe('inventory-batches-list', () => {
   }) => {
     const collector = collectBrowserFailures(page);
     try {
-      await page.setViewportSize({ width: 1440, height: 900 });
+      await page.setViewportSize({ width: 1024, height: 900 });
       await openBatches(page, 'ready', DENSE_BATCHES);
       await expect(page.locator('.desktop-table')).toBeVisible();
       await expect(page.locator('.mobile-grid-container')).toBeHidden();
       await expect(page.locator('.p-paginator')).toBeVisible();
       await expect(page.locator('.p-datatable-table-container')).toHaveCount(1);
-      await expect
-        .poll(() =>
-          page
-            .locator('.p-datatable-table-container')
-            .evaluate((element) => element.scrollWidth >= element.clientWidth),
-        )
-        .toBe(true);
+      await assertDesktopHorizontalScroll(page);
       await page.locator('.p-paginator-next').click();
       await expect(page.locator('.desktop-table tbody')).toContainText('Dense batch item 9');
 
@@ -101,7 +133,8 @@ test.describe('inventory-batches-list', () => {
       await expect(page.locator('.batch-card-item')).toHaveCount(DENSE_BATCHES.length);
       const longCard = page.locator('.batch-card-item').filter({ hasText: LONG_BATCH.itemName });
       await expect(longCard).toHaveCount(1);
-      await assertBounds(page, '.batch-card-item, .batches-filter-bar, .batches-header');
+      await assertBounds(page, '.batches-filter-bar, .batches-header');
+      await assertCardContentsBounded(longCard);
 
       const actions = longCard.getByRole('button', {
         name: 'Actions',
@@ -160,8 +193,12 @@ const LONG_BATCH = createBatch('1', {
 });
 const BATCHES = [
   LONG_BATCH,
-  createBatch('2', { itemName: 'Voided inventory batch', isVoided: true }),
-  createBatch('3', { itemName: 'Active stock batch' }),
+  createBatch('2', {
+    itemName: 'Voided inventory batch',
+    isVoided: true,
+    createdAt: '2026-07-28T00:00:00.000Z',
+  }),
+  createBatch('3', { itemName: 'Active stock batch', createdAt: '2026-07-27T00:00:00.000Z' }),
 ];
 const DENSE_BATCHES = Array.from({ length: 12 }, (_, index) =>
   index === 0
@@ -239,6 +276,52 @@ async function assertBounds(page: Page, selector: string): Promise<void> {
   );
 
   expect(outsideViewport).toBe(false);
+}
+
+async function assertDesktopHorizontalScroll(page: Page): Promise<void> {
+  const tableContainer = page.locator('.p-datatable-table-container');
+  const styles = await tableContainer.evaluate((element) => getComputedStyle(element).overflowX);
+
+  expect(styles).toMatch(/auto|scroll/);
+  await expect
+    .poll(() => tableContainer.evaluate((element) => element.scrollWidth > element.clientWidth))
+    .toBe(true);
+}
+
+async function assertCardContentsBounded(card: ReturnType<Page['locator']>): Promise<void> {
+  const geometry = await card.evaluate((element) => {
+    const cardBounds = element.getBoundingClientRect();
+    const details = element.querySelector<HTMLElement>('.batch-card-details');
+    const children = Array.from(element.querySelectorAll<HTMLElement>('.batch-card-content > *'));
+
+    return {
+      cardHeight: cardBounds.height,
+      detailsWidth: details?.getBoundingClientRect().width ?? 0,
+      hasOverflowingChild: children.some((child) => {
+        const bounds = child.getBoundingClientRect();
+        return bounds.left < cardBounds.left - 2 || bounds.right > cardBounds.right + 2;
+      }),
+    };
+  });
+
+  expect(geometry.detailsWidth).toBeGreaterThanOrEqual(160);
+  expect(geometry.cardHeight).toBeLessThan(500);
+  expect(geometry.hasOverflowingChild).toBe(false);
+}
+
+async function selectBatchStatus(page: Page, label: string): Promise<void> {
+  await page.locator('p-select[name="batchFilterStatus"]').click();
+  await page.getByRole('option', { name: label, exact: true }).click();
+}
+
+async function selectBatchDate(page: Page, inputId: string, dateKey: string): Promise<void> {
+  const input = page.locator(`#${inputId}`);
+  const calendar = page.locator('.p-datepicker-panel:visible');
+
+  await input.click();
+  await expect(calendar).toBeVisible();
+  await calendar.locator(`[data-date="${dateKey}"]`).click();
+  await expect(calendar).toBeHidden();
 }
 
 function filterBatchRequestFailures(failures: readonly BrowserFailure[]): BrowserFailure[] {
