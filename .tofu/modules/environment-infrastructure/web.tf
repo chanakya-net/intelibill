@@ -29,8 +29,8 @@ resource "azurerm_container_app" "web" {
     container {
       name   = "web"
       image  = var.bootstrap_image
-      cpu    = local.app_resources[var.env].cpu
-      memory = local.app_resources[var.env].memory
+      cpu    = local.web_resources[var.env].cpu
+      memory = local.web_resources[var.env].memory
 
       dynamic "env" {
         for_each = local.web_environment
