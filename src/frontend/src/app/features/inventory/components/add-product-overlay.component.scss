@@ -133,6 +133,12 @@
   font-size: 0.9rem;
 }
 
+.validation-message {
+  color: #b91c1c;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
 .dialog-actions {
   display: flex;
   justify-content: flex-end;
@@ -160,6 +166,7 @@
   .product-form-dialog .p-dialog-content {
     padding: 0.35rem 1.15rem 1rem;
     background: transparent;
+    overflow-y: auto;
   }
 
   .product-form-dialog .p-dialog-footer {

@@ -14,7 +14,17 @@ import type { Item } from '../services/inventory.models';
 @Component({
   selector: 'app-inventory-table',
   standalone: true,
-  imports: [CommonModule, AvatarModule, BadgeModule, ButtonModule, CardModule, PaginatorModule, TagModule, TableModule, TranslocoPipe],
+  imports: [
+    CommonModule,
+    AvatarModule,
+    BadgeModule,
+    ButtonModule,
+    CardModule,
+    PaginatorModule,
+    TagModule,
+    TableModule,
+    TranslocoPipe,
+  ],
   templateUrl: './inventory-table.component.html',
   styleUrl: './inventory-table.component.scss',
 })
@@ -76,7 +86,9 @@ export class InventoryTableComponent {
 
     const selectedItems = (this.selectedItems ?? []).filter((existing) => next.has(existing.id));
     const alreadySelectedIds = new Set(selectedItems.map((existing) => existing.id));
-    const missing = this.items.filter((candidate) => next.has(candidate.id) && !alreadySelectedIds.has(candidate.id));
+    const missing = this.items.filter(
+      (candidate) => next.has(candidate.id) && !alreadySelectedIds.has(candidate.id),
+    );
     this.selectedItemsChange.emit([...selectedItems, ...missing]);
   }
 
@@ -84,10 +96,11 @@ export class InventoryTableComponent {
     return this.selected.has(item.id);
   }
 
-  onPageChange(event: any): void {
+  onPageChange(event: { first?: number; page?: number; rows?: number }): void {
     const rows = event.rows ?? this.pageSize;
     const isPageSizeChange = rows !== this.pageSize;
-    const page = isPageSizeChange ? 1 : (event.page ?? 0) + 1;
+    const first = event.first ?? (event.page ?? 0) * rows;
+    const page = isPageSizeChange ? 1 : Math.floor(first / rows) + 1;
     this.pageChange.emit({ page, rows });
   }
 
@@ -106,8 +119,14 @@ export class InventoryTableComponent {
 
   productAvatarColor(name: string): string {
     const colors = [
-      '#b45309', '#0369a1', '#15803d', '#7c3aed',
-      '#be185d', '#c2410c', '#0f766e', '#1d4ed8',
+      '#b45309',
+      '#0369a1',
+      '#15803d',
+      '#7c3aed',
+      '#be185d',
+      '#c2410c',
+      '#0f766e',
+      '#1d4ed8',
     ];
     let hash = 0;
     for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);

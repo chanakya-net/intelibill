@@ -6,7 +6,7 @@
   [draggable]="false"
   [resizable]="false"
   styleClass="product-form-dialog"
-  [style]="{ width: 'min(640px, 96vw)' }"
+  [style]="{ width: 'min(640px, 96vw)', maxHeight: 'calc(100dvh - 1rem)' }"
   (onHide)="onClose()"
   [attr.aria-label]="'inventory.productForm' | transloco"
 >
@@ -40,6 +40,9 @@
             [fluid]="true"
             styleClass="editor-control"
           />
+          @if (form.controls.name.invalid && form.controls.name.touched) {
+            <small class="validation-message">{{ 'errors.items.nameRequired' | transloco }}</small>
+          }
         </div>
 
         <div class="field wide">
@@ -78,6 +81,9 @@
         <div class="field">
           <label for="add-product-uom">{{ 'inventory.uom' | transloco }}</label>
           <input id="add-product-uom" pInputText type="text" class="w-full" formControlName="uom" />
+          @if (form.controls.uom.invalid && form.controls.uom.touched) {
+            <small class="validation-message">{{ 'errors.items.uomRequired' | transloco }}</small>
+          }
         </div>
 
         <div class="field">
