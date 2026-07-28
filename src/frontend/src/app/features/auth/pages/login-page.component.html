@@ -78,7 +78,7 @@
           pButton
           type="submit"
           [label]="isHttpLoading() ? ('auth.signingIn' | transloco) : ('auth.loginCta' | transloco)"
-          [disabled]="form.invalid || isHttpLoading()"
+          [disabled]="isHttpLoading()"
           class="auth-submit w-full"
         ></button>
 
