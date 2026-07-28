@@ -36,6 +36,7 @@
           [dropdown]="true"
           [forceSelection]="true"
           [placeholder]="'inventory.searchBatchPlaceholder' | transloco"
+          [panelStyle]="{ width: 'min(34rem, calc(100vw - 1rem))', maxWidth: 'calc(100vw - 1rem)' }"
           appendTo="body"
           [fluid]="true"
           styleClass="editor-control"
@@ -62,6 +63,7 @@
             [options]="directionOptions()"
             optionLabel="label"
             optionValue="value"
+            [panelStyle]="{ maxWidth: 'calc(100vw - 1rem)' }"
             appendTo="body"
             [fluid]="true"
             styleClass="editor-control"
@@ -75,6 +77,7 @@
             [options]="adjustmentReasonOptions()"
             optionLabel="label"
             optionValue="value"
+            [panelStyle]="{ maxWidth: 'calc(100vw - 1rem)' }"
             appendTo="body"
             [fluid]="true"
             styleClass="editor-control"
@@ -83,7 +86,9 @@
       </div>
 
       @if (selectedBatchDecreaseBlocked()) {
-        <p class="validation-message">{{ 'inventory.decreaseBlockedForEmptyBatch' | transloco }}</p>
+        <p class="validation-message" data-testid="adjustment-validation">
+          {{ 'inventory.decreaseBlockedForEmptyBatch' | transloco }}
+        </p>
       }
 
       <div class="editor-grid">
@@ -111,6 +116,7 @@
             [showIcon]="true"
             iconDisplay="input"
             [showButtonBar]="true"
+            [panelStyle]="{ maxWidth: 'calc(100vw - 1rem)' }"
             appendTo="body"
             [fluid]="true"
             styleClass="editor-control"
@@ -137,6 +143,7 @@
       <button
         pButton
         type="button"
+        data-testid="cancel-adjustment-action"
         severity="secondary"
         [outlined]="true"
         [label]="'common.cancel' | transloco"
@@ -146,6 +153,7 @@
       <button
         pButton
         type="button"
+        data-testid="submit-adjustment-action"
         [label]="'inventory.submitAdjustment' | transloco"
         [loading]="saving"
         [disabled]="!selectedBatch() || adjustmentForm.invalid || saving"
