@@ -53,6 +53,18 @@ const DETAIL = {
   createdAt: '2026-07-20T09:30:00Z',
 };
 
+const LOCALE_EXPECTATIONS = {
+  'bn-IN': 'এই খরচটি রেকর্ড বা সংশোধন করা যায়নি। অনুগ্রহ করে আবার চেষ্টা করুন।',
+  'en-IN': 'Unable to record or correct this expense. Please try again.',
+  'gu-IN': 'આ ખર્ચ નોંધવામાં અથવા સુધારવામાં અસમર્થ. કૃપા કરીને ફરી પ્રયાસ કરો.',
+  'hi-IN': 'इस खर्च को दर्ज या सुधारने में असमर्थ। कृपया पुनः प्रयास करें।',
+  'kn-IN': 'ಈ ವೆಚ್ಚವನ್ನು ದಾಖಲಿಸಲು ಅಥವಾ ಸರಿಪಡಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.',
+  'ml-IN': 'ഈ ചെലവ് രേഖപ്പെടുത്താനോ തിരുത്താനോ കഴിഞ്ഞില്ല. ദയവായി വീണ്ടും ശ്രമിക്കുക.',
+  'mr-IN': 'हा खर्च नोंदवता किंवा दुरुस्त करता आला नाही. कृपया पुन्हा प्रयत्न करा.',
+  'ta-IN': 'இந்தச் செலவை பதிவு செய்யவோ திருத்தவோ முடியவில்லை. மீண்டும் முயற்சிக்கவும்.',
+  'te-IN': 'ఈ ఖర్చును నమోదు చేయడం లేదా సరిచేయడం సాధ్యపడలేదు. దయచేసి మళ్లీ ప్రయత్నించండి.',
+} as const;
+
 test.describe('expenses', () => {
   test('renders desktop table, mobile cards, filters, status values, and pagination', async ({
     page,
@@ -203,6 +215,10 @@ test.describe('expenses', () => {
         await expect(statusCells.first()).toBeVisible();
         const voidedCells = page.locator('.desktop-table tbody').getByText(expected.statusVoided);
         await expect(voidedCells.first()).toBeVisible();
+      } else {
+        const activeCard = page.locator('.expense-card').filter({ hasText: expected.statusActive });
+        await expect(activeCard.first().locator('.status-badge')).toHaveText(expected.statusActive);
+        await expect(activeCard.first().locator('.expense-card__actions')).toContainText('सुधारें');
       }
 
       // Open record overlay and assert translated button label and validation text
@@ -224,6 +240,32 @@ test.describe('expenses', () => {
       );
     } finally {
       collector.dispose();
+    }
+  });
+
+  test('resolves fallback feedback for record and correction overlays in every locale', async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== 'chromium-desktop', 'locale feedback matrix');
+    for (const [locale, expectedError] of Object.entries(LOCALE_EXPECTATIONS)) {
+      await openExpenses(page, { locale, postError: 'expenses.errors.unexpected' });
+      await page.setViewportSize({ width: 1440, height: 900 });
+
+      await page.locator('.expenses-hero__actions button').click();
+      const record = page.locator('app-record-expense-overlay .overlay');
+      await fillExpenseForm(page, record, 'Travel');
+      await record.locator('button[type="submit"]').click();
+      await expect(record).toBeVisible();
+      await expect(record.locator('.error-message')).toHaveText(expectedError);
+      await record.locator('.close-button').click();
+
+      await page.locator('.desktop-table tbody tr').first().getByRole('button').click();
+      const correct = page.locator('app-correct-expense-overlay .overlay');
+      await correct.locator('input[formcontrolname="paidTo"]').fill('Corrected recipient');
+      await correct.locator('button[type="submit"]').click();
+      await expect(correct).toBeVisible();
+      await expect(correct.locator('.error-message')).toHaveText(expectedError);
+      await correct.locator('.close-button').click();
     }
   });
 
@@ -268,16 +310,11 @@ test.describe('expenses', () => {
 
         if (request.method() === 'POST') {
           postCallCount++;
-          // First POST succeeds; second POST fails
-          if (postCallCount === 2) {
-            await route.fulfill({
-              status: 500,
-              contentType: 'application/json',
-              body: JSON.stringify({ detail: 'Server error during correction. Please try again.' }),
-            });
-            return;
-          }
-          await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(DETAIL) });
+          await route.fulfill({
+            status: 500,
+            contentType: 'application/json',
+            body: JSON.stringify({ detail: 'Unable to save expense. Please try again.' }),
+          });
           return;
         }
 
@@ -323,17 +360,27 @@ test.describe('expenses', () => {
       await correct.locator('input[formcontrolname="paidTo"]').fill('New Recipient');
       await correct.getByRole('button', { name: 'Correct Expense' }).click();
       await page.waitForLoadState('networkidle');
-      // Overlay retains focus and error feedback remains visible
       await expect(correct).toBeVisible();
+      await expect(correct.locator('.error-message')).toHaveText(
+        'Unable to save expense. Please try again.',
+      );
+      expect(postCallCount).toBe(1);
+      await correct.locator('.close-button').click();
+
+      await page.getByRole('button', { name: 'Record Expense' }).click();
+      const record = page.locator('app-record-expense-overlay .overlay');
+      await fillExpenseForm(page, record, 'Travel');
+      await record.getByRole('button', { name: 'Record Expense' }).click();
+      await expect(record).toBeVisible();
+      await expect(record.locator('.error-message')).toHaveText(
+        'Unable to save expense. Please try again.',
+      );
+      expect(postCallCount).toBe(2);
 
       assertNoUnexpectedBrowserFailures(
         collector.failures.filter(
           (failure) =>
-            !(
-              failure.kind === 'request' &&
-              (failure.message === 'net::ERR_ABORTED' || failure.message === 'net::ERR_HTTP_RESPONSE_CODE_FAILURE') &&
-              failure.url?.includes('/api/expenses')
-            ),
+            !isExpectedExpensePostFailure(failure),
         ),
       );
     } finally {
@@ -377,6 +424,7 @@ async function openExpenses(
     readonly locale?: string;
     readonly totalCount?: number;
     readonly pageSize?: number;
+    readonly postError?: string;
   } = {},
 ): Promise<void> {
   await mockExternalRequests(page, { authenticated: true, locale: options.locale ?? 'en-IN' });
@@ -411,6 +459,14 @@ async function openExpenses(
       return;
     }
     if (request.method() === 'POST') {
+      if (options.postError) {
+        await route.fulfill({
+          status: 500,
+          contentType: 'application/json',
+          body: JSON.stringify({ detail: options.postError }),
+        });
+        return;
+      }
       const body = request.postDataJSON() as Record<string, unknown>;
       const updated = {
         ...DETAIL,
@@ -489,4 +545,16 @@ async function assertNoHorizontalOverflow(page: Page): Promise<void> {
   }));
   expect(dimensions.body).toBeLessThanOrEqual(dimensions.viewport + 5);
   expect(dimensions.document).toBeLessThanOrEqual(dimensions.viewport + 5);
+}
+
+function isExpectedExpensePostFailure(failure: {
+  readonly kind: string;
+  readonly message: string;
+  readonly url?: string;
+}): boolean {
+  if (failure.kind === 'console') {
+    return failure.message.includes('status of 500');
+  }
+
+  return failure.kind === 'response' && failure.message === 'HTTP 500' && failure.url?.includes('/api/expenses') === true;
 }
