@@ -126,7 +126,10 @@ function inspectAtRule(atRule, document, state) {
   const location = { ...entry('', '', document, atRule).source, kind: `sass-${name}` };
   if (name === 'keyframes') state.entries.push(entry('keyframes', `@keyframes ${first}`, document, atRule));
   if (name === 'mixin' || name === 'function') state.entries.push(entry(`sass-${name}`, `@${name} ${first}`, document, atRule));
-  if (name === 'include') addReference(state.references, `@mixin ${first}`, location);
+  if (name === 'include') {
+    const mixin = atRule.params.match(/^\s*(?:[\w$-]+\.)?([\w-]+)/)?.[1] ?? first;
+    addReference(state.references, `@mixin ${mixin}`, location);
+  }
   if (name === 'extend') addReference(state.references, first, location);
   if (name === 'use' || name === 'forward' || name === 'import') {
     const specifier = atRule.params.match(/['"]([^'"]+)['"]/)?.[1] ?? atRule.params.split(/\s/)[0];

@@ -87,7 +87,14 @@ $unused-sass: pink;
 @mixin card { border: 1px solid $accent; }
 @mixin orphan { color: pink; }
 %shared { padding: 1rem; }
+@mixin card-namespaced { display: flex; }
 .sass-user { @include card; @extend %shared; }
+`,
+  );
+  await writeFile(
+    join(root, 'src', 'namespaced.scss'),
+    `@use './theme' as t;
+.consumer { @include t.card-namespaced; }
 `,
   );
   await writeFile(join(root, 'src', '_tokens.scss'), '$accent: rebeccapurple;\n');
@@ -225,6 +232,13 @@ describe('static first-party style usage audit', () => {
         column: expect.any(Number),
       });
     }
+  });
+
+  it('resolves namespaced Sass includes to the mixin name', async () => {
+    const report = await analyzeStyleUsage({ rootDir: await fixtureProject() });
+
+    expect(entry(report, '@mixin card-namespaced')?.disposition).toBe('used');
+    expect(entry(report, '@mixin card-namespaced')?.references.length).toBeGreaterThan(0);
   });
 
   it('matches classes inside Angular control-flow and deferred blocks', async () => {
