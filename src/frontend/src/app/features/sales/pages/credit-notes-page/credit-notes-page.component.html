@@ -51,6 +51,7 @@
       <div class="command-group">
         <label class="control-label">{{ 'sales.creditNotes.controls.status' | transloco }}</label>
         <p-select
+          class="credit-note-status-filter"
           [ngModel]="statusFilter()"
           (ngModelChange)="onStatusChange($event)"
           [options]="statusOptions"
@@ -90,11 +91,7 @@
     </div>
   </section>
 
-  @if (errorMessage()) {
-    <p class="error">{{ errorMessage() | transloco }}</p>
-  }
-
-  <section class="ledger-panel">
+  <section class="ledger-panel credit-notes-list" [attr.aria-busy]="loadingNotes()">
     <header class="ledger-header">
       <div>
         <h2>{{ 'sales.creditNotes.list.title' | transloco }}</h2>
@@ -106,9 +103,14 @@
     </header>
 
     @if (loadingNotes()) {
-      <div class="loading-state">{{ 'sales.creditNotes.loading' | transloco }}</div>
+      <div class="loading-state" role="status">{{ 'sales.creditNotes.loading' | transloco }}</div>
+    } @else if (errorMessage()) {
+      <div class="error-state error" role="alert">
+        <i class="pi pi-exclamation-circle" aria-hidden="true"></i>
+        <p>{{ errorMessage() | transloco }}</p>
+      </div>
     } @else {
-      <div class="desktop-table">
+      <div class="desktop-table credit-note-table">
         <p-table [value]="notes()" class="p-datatable-sm">
           <ng-template pTemplate="header">
             <tr>
@@ -120,13 +122,25 @@
               <th>{{ 'sales.creditNotes.table.invoice' | transloco }}</th>
               <th>{{ 'sales.creditNotes.table.returnNumber' | transloco }}</th>
               <th>{{ 'sales.creditNotes.table.issuedAt' | transloco }}</th>
+              <th class="actions-column">
+                <span class="sr-only">{{ 'sales.creditNotes.detail.eyebrow' | transloco }}</span>
+              </th>
             </tr>
           </ng-template>
           <ng-template pTemplate="body" let-note>
-            <tr class="clickable-row" (click)="openCreditNoteFromList(note)">
-              <td class="font-bold">{{ note.code }}</td>
+            <tr
+              class="clickable-row credit-note-row"
+              tabindex="0"
+              (click)="openCreditNoteFromList(note)"
+              (keydown.enter)="openCreditNoteFromList(note)"
+              (keydown.space)="$event.preventDefault(); openCreditNoteFromList(note)"
+            >
+              <td class="font-bold">
+                <span class="truncate-value" [title]="note.code">{{ note.code }}</span>
+              </td>
               <td>
                 <p-tag
+                  class="credit-note-status"
                   [severity]="getStatusSeverity(note.status)"
                   [value]="getStatusTranslationKey(note.status) | transloco"
                 ></p-tag>
@@ -134,21 +148,46 @@
               <td class="text-right">{{ formatCurrency(note.availableBalance) }}</td>
               <td class="text-right">{{ formatCurrency(note.originalAmount) }}</td>
               <td>
-                @if (note.customerName) {
-                  {{ note.customerName }}
-                } @else {
-                  <span class="muted">{{ 'sales.history.walkIn' | transloco }}</span>
-                }
+                <span
+                  class="truncate-value"
+                  [attr.data-audit-long-value]="note.customerName ? '' : null"
+                  [title]="note.customerName || ('sales.history.walkIn' | transloco)"
+                >
+                  @if (note.customerName) {
+                    {{ note.customerName }}
+                  } @else {
+                    <span class="muted">{{ 'sales.history.walkIn' | transloco }}</span>
+                  }
+                </span>
               </td>
-              <td>{{ note.invoiceNumber }}</td>
-              <td>{{ note.returnNumber }}</td>
+              <td>
+                <span class="truncate-value" [title]="note.invoiceNumber">{{
+                  note.invoiceNumber
+                }}</span>
+              </td>
+              <td>
+                <span class="truncate-value" [title]="note.returnNumber">{{
+                  note.returnNumber
+                }}</span>
+              </td>
               <td>{{ formatDateTime(note.issuedAt) }}</td>
+              <td class="actions-column">
+                <button
+                  pButton
+                  type="button"
+                  text="true"
+                  severity="secondary"
+                  icon="pi pi-arrow-up-right"
+                  [attr.aria-label]="note.code"
+                  (click)="$event.stopPropagation(); openCreditNoteFromList(note)"
+                ></button>
+              </td>
             </tr>
           </ng-template>
           <ng-template pTemplate="emptymessage">
             <tr>
-              <td colspan="8" class="empty-cell">
-                <div class="empty-state">
+              <td colspan="9" class="empty-cell">
+                <div class="empty-state credit-note-empty">
                   <i class="pi pi-file-edit empty-icon"></i>
                   <h3>{{ 'sales.creditNotes.empty.title' | transloco }}</h3>
                   <p>{{ 'sales.creditNotes.empty.description' | transloco }}</p>
@@ -161,30 +200,64 @@
 
       <div class="mobile-list">
         @for (note of notes(); track note.creditNoteId) {
-          <article class="mobile-card" (click)="openCreditNoteFromList(note)">
+          <article class="mobile-card credit-note-card" (click)="openCreditNoteFromList(note)">
             <header>
               <div>
-                <h3>{{ note.code }}</h3>
+                <h3 class="truncate-value" [title]="note.code">{{ note.code }}</h3>
                 <p class="mobile-subtitle">{{ formatDateTime(note.issuedAt) }}</p>
               </div>
               <p-tag
+                class="credit-note-status"
                 [severity]="getStatusSeverity(note.status)"
                 [value]="getStatusTranslationKey(note.status) | transloco"
               ></p-tag>
             </header>
 
             <div class="mobile-grid">
-              <p><strong>{{ 'sales.creditNotes.table.balance' | transloco }}:</strong> {{ formatCurrency(note.availableBalance) }}</p>
-              <p><strong>{{ 'sales.creditNotes.table.originalAmount' | transloco }}:</strong> {{ formatCurrency(note.originalAmount) }}</p>
-              <p><strong>{{ 'sales.creditNotes.table.customer' | transloco }}:</strong> {{ note.customerName || ('sales.history.walkIn' | transloco) }}</p>
-              <p><strong>{{ 'sales.creditNotes.table.invoice' | transloco }}:</strong> {{ note.invoiceNumber }}</p>
-              <p><strong>{{ 'sales.creditNotes.table.returnNumber' | transloco }}:</strong> {{ note.returnNumber }}</p>
+              <p>
+                <strong>{{ 'sales.creditNotes.table.balance' | transloco }}:</strong>
+                {{ formatCurrency(note.availableBalance) }}
+              </p>
+              <p>
+                <strong>{{ 'sales.creditNotes.table.originalAmount' | transloco }}:</strong>
+                {{ formatCurrency(note.originalAmount) }}
+              </p>
+              <p>
+                <strong>{{ 'sales.creditNotes.table.customer' | transloco }}:</strong>
+                <span
+                  class="truncate-value"
+                  [attr.data-audit-long-value]="note.customerName ? '' : null"
+                  [title]="note.customerName || ('sales.history.walkIn' | transloco)"
+                  >{{ note.customerName || ('sales.history.walkIn' | transloco) }}</span
+                >
+              </p>
+              <p>
+                <strong>{{ 'sales.creditNotes.table.invoice' | transloco }}:</strong>
+                <span class="truncate-value" [title]="note.invoiceNumber">{{
+                  note.invoiceNumber
+                }}</span>
+              </p>
+              <p>
+                <strong>{{ 'sales.creditNotes.table.returnNumber' | transloco }}:</strong>
+                <span class="truncate-value" [title]="note.returnNumber">{{
+                  note.returnNumber
+                }}</span>
+              </p>
             </div>
+            <button
+              pButton
+              type="button"
+              outlined="true"
+              severity="secondary"
+              icon="pi pi-arrow-up-right"
+              [label]="'sales.creditNotes.detail.eyebrow' | transloco"
+              (click)="$event.stopPropagation(); openCreditNoteFromList(note)"
+            ></button>
           </article>
         }
 
         @if (notes().length === 0) {
-          <div class="mobile-empty">
+          <div class="mobile-empty credit-note-empty">
             <i class="pi pi-file-edit empty-icon"></i>
             <h3>{{ 'sales.creditNotes.empty.title' | transloco }}</h3>
             <p>{{ 'sales.creditNotes.empty.description' | transloco }}</p>
@@ -194,7 +267,10 @@
 
       <footer class="pager">
         <div class="showing">
-          {{ 'sales.creditNotes.pagination.showing' | transloco: { total: totalCount(), page: pageNumber(), pages: totalPages() } }}
+          {{
+            'sales.creditNotes.pagination.showing'
+              | transloco: { total: totalCount(), page: pageNumber(), pages: totalPages() }
+          }}
         </div>
         <div class="pager-actions">
           <button
@@ -222,7 +298,7 @@
   </section>
 
   @if (selectedCreditNote()) {
-    <section class="detail-panel">
+    <section class="detail-panel credit-note-detail">
       <header class="detail-header">
         <div>
           <p class="eyebrow">{{ 'sales.creditNotes.detail.eyebrow' | transloco }}</p>
@@ -294,7 +370,6 @@
           </article>
         }
       </div>
-
     </section>
   }
 </section>
