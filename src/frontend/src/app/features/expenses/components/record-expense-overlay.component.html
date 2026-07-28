@@ -24,7 +24,11 @@
     </header>
 
     <form class="overlay-form" [formGroup]="form" (ngSubmit)="onSubmit()">
-      <label>
+      <label
+        [class.field-invalid]="
+          form.controls.categoryName.touched && form.controls.categoryName.invalid
+        "
+      >
         <span>{{ 'expenses.category' | transloco }}</span>
         <p-select
           formControlName="categoryName"
@@ -34,13 +38,22 @@
           [placeholder]="'expenses.category' | transloco"
           [editable]="true"
           [fluid]="true"
+          [attr.aria-invalid]="
+            form.controls.categoryName.touched && form.controls.categoryName.invalid
+          "
+          aria-describedby="record-category-error"
         ></p-select>
+        @if (form.controls.categoryName.touched && form.controls.categoryName.invalid) {
+          <p id="record-category-error" class="field-error">{{ 'common.required' | transloco }}</p>
+        }
       </label>
 
-      <label>
+      <label [class.field-invalid]="form.controls.amount.touched && form.controls.amount.invalid">
         <span>{{ 'expenses.amount' | transloco }}</span>
         <p-inputgroup [pt]="currencyGroupPt">
-          <p-inputgroup-addon [pt]="currencyAddonPt">{{ 'common.currencySymbol' | transloco }}</p-inputgroup-addon>
+          <p-inputgroup-addon [pt]="currencyAddonPt">{{
+            'common.currencySymbol' | transloco
+          }}</p-inputgroup-addon>
           <p-inputNumber
             formControlName="amount"
             mode="decimal"
@@ -48,13 +61,27 @@
             [maxFractionDigits]="2"
             [fluid]="true"
             [pt]="currencyInputPt"
+            [attr.aria-invalid]="form.controls.amount.touched && form.controls.amount.invalid"
+            aria-describedby="record-amount-error"
           ></p-inputNumber>
         </p-inputgroup>
+        @if (form.controls.amount.touched && form.controls.amount.invalid) {
+          <p id="record-amount-error" class="field-error">{{ 'common.required' | transloco }}</p>
+        }
       </label>
 
-      <label>
+      <label [class.field-invalid]="form.controls.paidTo.touched && form.controls.paidTo.invalid">
         <span>{{ 'expenses.paidTo' | transloco }}</span>
-        <input pInputText type="text" formControlName="paidTo" />
+        <input
+          pInputText
+          type="text"
+          formControlName="paidTo"
+          [attr.aria-invalid]="form.controls.paidTo.touched && form.controls.paidTo.invalid"
+          aria-describedby="record-paid-to-error"
+        />
+        @if (form.controls.paidTo.touched && form.controls.paidTo.invalid) {
+          <p id="record-paid-to-error" class="field-error">{{ 'common.required' | transloco }}</p>
+        }
       </label>
 
       <label>
@@ -90,17 +117,14 @@
           pButton
           type="submit"
           [label]="'expenses.recordExpense' | transloco"
-          [disabled]="form.invalid || isSubmitting()"
+          [disabled]="isSubmitting()"
         ></button>
       </div>
     </form>
 
     @if (isSubmitting()) {
       <div class="submit-overlay">
-        <p-progressSpinner
-          styleClass="h-8 w-8"
-          strokeWidth="6"
-        ></p-progressSpinner>
+        <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
       </div>
     }
   </div>

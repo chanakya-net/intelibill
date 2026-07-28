@@ -23,12 +23,14 @@ export class ExpensesEffects {
               totalCount: response.totalCount,
               page: response.pageNumber,
               pageSize: response.pageSize,
-            })
+            }),
           ),
-          catchError((error) => of(ExpensesActions.loadExpensesFailed({ errorMessage: error.message })))
-        )
-      )
-    )
+          catchError((error) =>
+            of(ExpensesActions.loadExpensesFailed({ errorMessage: getExpenseErrorMessage(error) })),
+          ),
+        ),
+      ),
+    ),
   );
 
   loadExpenseDetail$ = createEffect(() =>
@@ -37,10 +39,16 @@ export class ExpensesEffects {
       switchMap(({ expenseId }) =>
         this.expenseService.getExpenseById(expenseId).pipe(
           map((expense) => ExpensesActions.loadExpenseDetailSucceeded({ expense })),
-          catchError((error) => of(ExpensesActions.loadExpenseDetailFailed({ errorMessage: error.message })))
-        )
-      )
-    )
+          catchError((error) =>
+            of(
+              ExpensesActions.loadExpenseDetailFailed({
+                errorMessage: getExpenseErrorMessage(error),
+              }),
+            ),
+          ),
+        ),
+      ),
+    ),
   );
 
   loadCategories$ = createEffect(() =>
@@ -49,10 +57,14 @@ export class ExpensesEffects {
       switchMap(() =>
         this.categoryService.getCategories().pipe(
           map((categories) => ExpensesActions.loadCategoriesSucceeded({ categories })),
-          catchError((error) => of(ExpensesActions.loadCategoriesFailed({ errorMessage: error.message })))
-        )
-      )
-    )
+          catchError((error) =>
+            of(
+              ExpensesActions.loadCategoriesFailed({ errorMessage: getExpenseErrorMessage(error) }),
+            ),
+          ),
+        ),
+      ),
+    ),
   );
 
   recordExpense$ = createEffect(() =>
@@ -61,10 +73,14 @@ export class ExpensesEffects {
       switchMap(({ payload }) =>
         this.expenseService.recordExpense(payload).pipe(
           map((expense) => ExpensesActions.recordExpenseSucceeded({ expense })),
-          catchError((error) => of(ExpensesActions.recordExpenseFailed({ errorMessage: error.message })))
-        )
-      )
-    )
+          catchError((error) =>
+            of(
+              ExpensesActions.recordExpenseFailed({ errorMessage: getExpenseErrorMessage(error) }),
+            ),
+          ),
+        ),
+      ),
+    ),
   );
 
   correctExpense$ = createEffect(() =>
@@ -73,9 +89,20 @@ export class ExpensesEffects {
       switchMap(({ expenseId, payload }) =>
         this.expenseService.correctExpense(expenseId, payload).pipe(
           map((expense) => ExpensesActions.correctExpenseSucceeded({ expense })),
-          catchError((error) => of(ExpensesActions.correctExpenseFailed({ errorMessage: error.message })))
-        )
-      )
-    )
+          catchError((error) =>
+            of(
+              ExpensesActions.correctExpenseFailed({ errorMessage: getExpenseErrorMessage(error) }),
+            ),
+          ),
+        ),
+      ),
+    ),
   );
+}
+
+function getExpenseErrorMessage(error: {
+  error?: { detail?: string; title?: string };
+  message?: string;
+}): string {
+  return error.error?.detail || error.error?.title || error.message || 'expenses.errors.unexpected';
 }

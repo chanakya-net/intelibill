@@ -10,7 +10,11 @@
 .overlay-backdrop {
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at top right, rgba(255, 190, 120, 0.35), rgba(22, 18, 12, 0.5));
+  background: radial-gradient(
+    circle at top right,
+    rgba(255, 190, 120, 0.35),
+    rgba(22, 18, 12, 0.5)
+  );
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
 }
@@ -77,6 +81,16 @@ label {
 label span {
   font-size: 0.82rem;
   color: #57534e;
+}
+
+.field-error {
+  margin: 0;
+  color: #b42318;
+  font-size: 0.78rem;
+}
+
+.field-invalid label span {
+  color: #b42318;
 }
 
 label input[pInputText] {
