@@ -8,6 +8,10 @@
     "build": "ng build && bun run build:server",
     "watch": "ng build --watch --configuration development",
     "test": "node ./scripts/test-runner.mjs",
+    "audit:ui:setup": "bun run scripts/run-ui-audit.mjs --setup",
+    "audit:ui": "bun run scripts/run-ui-audit.mjs",
+    "audit:ui:mocked": "bun run scripts/run-ui-audit.mjs --mocked",
+    "audit:ui:baseline": "bun run scripts/run-ui-audit.mjs --baseline",
     "build:server": "bun build src/server.ts --target=node --outfile=dist/INVENTORY/server/server.mjs",
     "serve": "node dist/INVENTORY/server/server.mjs"
   },
@@ -53,6 +57,7 @@
     "@angular/build": "^21.2.4",
     "@angular/cli": "^21.2.4",
     "@angular/compiler-cli": "^21.2.0",
+    "@playwright/test": "1.62.0",
     "@types/express": "^5.0.1",
     "@types/node": "^25.6.0",
     "@vitest/coverage-v8": "^4.1.2",

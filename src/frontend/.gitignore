@@ -39,6 +39,10 @@ testem.log
 /typings
 __screenshots__/
 
+# Local deterministic UI audit output and approved baselines
+/.ui-audit
+/tests/ui-audit/baselines
+
 # System files
 .DS_Store
 Thumbs.db
