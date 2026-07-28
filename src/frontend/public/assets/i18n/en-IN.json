@@ -19,7 +19,8 @@
     "inactive": "Inactive",
     "remove": "Remove",
     "status": "Status",
-    "void": "Void"
+    "void": "Void",
+    "required": "This field is required"
   },
   "languages": {
     "en-IN": "English",
@@ -1605,7 +1606,10 @@
       "ariaLabel": "Expense summary"
     },
     "ledgerMetrics": "Expense ledger metrics",
-    "ledgerResults": "Expense ledger results"
+    "ledgerResults": "Expense ledger results",
+    "errors": {
+      "unexpected": "Unable to record or correct this expense. Please try again."
+    }
   },
   "discounts": {
     "title": "Discount Rules",

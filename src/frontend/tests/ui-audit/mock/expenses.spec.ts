@@ -174,6 +174,173 @@ test.describe('expenses', () => {
     }
   });
 
+  test('asserts translated field labels, status values, and validation text in locales', async ({
+    page,
+  }, testInfo) => {
+    const collector = collectBrowserFailures(page);
+    try {
+      const isMobileProject = testInfo.project.name === 'chromium-mobile';
+      const locale = 'hi-IN';
+      const localeExpectations = {
+        'hi-IN': {
+          categoryLabel: 'श्रेणी',
+          statusActive: 'सक्रिय',
+          statusVoided: 'रद्द',
+          recordButton: 'खर्च दर्ज करें',
+          validationRequired: 'यह फ़ील्ड आवश्यक है',
+        },
+      } as Record<string, Record<string, string>>;
+      const expected = localeExpectations[locale] || localeExpectations['en-IN'];
+
+      await openExpenses(page, { locale, totalCount: 3, pageSize: 3 });
+      await page.setViewportSize(isMobileProject ? { width: 375, height: 667 } : { width: 1440, height: 900 });
+
+      // Check table/card headers and status labels are translated
+      if (!isMobileProject) {
+        const headerLocator = page.locator('.desktop-table thead');
+        await expect(headerLocator).toContainText(expected.categoryLabel);
+        const statusCells = page.locator('.desktop-table tbody').getByText(expected.statusActive);
+        await expect(statusCells.first()).toBeVisible();
+        const voidedCells = page.locator('.desktop-table tbody').getByText(expected.statusVoided);
+        await expect(voidedCells.first()).toBeVisible();
+      }
+
+      // Open record overlay and assert translated button label and validation text
+      await page.getByRole('button', { name: expected.recordButton }).click();
+      const record = page.locator('app-record-expense-overlay .overlay');
+      await expect(record).toBeVisible();
+      await record.getByRole('button', { name: expected.recordButton }).click();
+      await expect(record.locator('.field-error').first()).toContainText(expected.validationRequired);
+
+      assertNoUnexpectedBrowserFailures(
+        collector.failures.filter(
+          (failure) =>
+            !(
+              failure.kind === 'request' &&
+              failure.message === 'net::ERR_ABORTED' &&
+              failure.url?.includes('/api/expenses')
+            ),
+        ),
+      );
+    } finally {
+      collector.dispose();
+    }
+  });
+
+  test('validates correction overlay invalid submission and handles POST errors', async ({
+    page,
+  }) => {
+    const collector = collectBrowserFailures(page);
+    try {
+      let postCallCount = 0;
+      await mockExternalRequests(page, { authenticated: true, locale: 'en-IN' });
+
+      await page.route('**/api/expenses**', async (route) => {
+        const request = route.request();
+        const url = new URL(request.url());
+        const expenseId = url.pathname.split('/')[3];
+
+        if (request.method() === 'GET' && url.pathname.endsWith('/categories')) {
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify([
+              { id: 'category-rent', name: 'Office Rent' },
+              { id: 'category-travel', name: 'Travel' },
+            ]),
+          });
+          return;
+        }
+
+        if (request.method() === 'GET' && expenseId) {
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              ...DETAIL,
+              id: 'expense-rent',
+              categoryName: 'Office Rent',
+              paidTo: 'Original Recipient',
+            }),
+          });
+          return;
+        }
+
+        if (request.method() === 'POST') {
+          postCallCount++;
+          // First POST succeeds; second POST fails
+          if (postCallCount === 2) {
+            await route.fulfill({
+              status: 500,
+              contentType: 'application/json',
+              body: JSON.stringify({ detail: 'Server error during correction. Please try again.' }),
+            });
+            return;
+          }
+          await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(DETAIL) });
+          return;
+        }
+
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            items: [EXPENSES[0]],
+            totalCount: 1,
+            pageNumber: 1,
+            pageSize: 20,
+          }),
+        });
+      });
+
+      await page.goto('/expenses');
+      await page.waitForLoadState('networkidle');
+      await page.setViewportSize({ width: 1440, height: 900 });
+
+      // Open correction overlay
+      await page
+        .locator('.desktop-table tbody tr')
+        .filter({ hasText: 'Office Rent' })
+        .getByRole('button')
+        .first()
+        .click();
+      const correct = page.locator('app-correct-expense-overlay .overlay');
+      await expect(correct).toBeVisible();
+
+      // Test 1: Invalid correction (clear required field and submit)
+      await correct.locator('input[formcontrolname="paidTo"]').fill('');
+      await correct.locator('input[formcontrolname="paidTo"]').blur();
+      await expect(correct.locator('.field-error')).toHaveCount(1);
+      await expect(correct.locator('input[formcontrolname="paidTo"]')).toHaveAttribute(
+        'aria-invalid',
+        'true',
+      );
+      await correct.getByRole('button', { name: 'Correct Expense' }).click();
+      // Overlay should remain visible, not submit
+      await expect(correct).toBeVisible();
+
+      // Test 2: Valid correction with POST error (server failure)
+      await correct.locator('input[formcontrolname="paidTo"]').fill('New Recipient');
+      await correct.getByRole('button', { name: 'Correct Expense' }).click();
+      await page.waitForLoadState('networkidle');
+      // Overlay retains focus and error feedback remains visible
+      await expect(correct).toBeVisible();
+
+      assertNoUnexpectedBrowserFailures(
+        collector.failures.filter(
+          (failure) =>
+            !(
+              failure.kind === 'request' &&
+              (failure.message === 'net::ERR_ABORTED' || failure.message === 'net::ERR_HTTP_RESPONSE_CODE_FAILURE') &&
+              failure.url?.includes('/api/expenses')
+            ),
+        ),
+      );
+    } finally {
+      collector.dispose();
+    }
+  });
+
   test('keeps long labels and overlays inside supported locale viewports', async ({
     page,
   }, testInfo) => {
