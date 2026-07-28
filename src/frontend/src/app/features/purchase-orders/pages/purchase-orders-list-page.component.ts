@@ -18,7 +18,7 @@ import { SelectModule } from 'primeng/select';
 import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
 import { ButtonModule } from 'primeng/button';
-import { MenuModule } from 'primeng/menu';
+import { Menu, MenuModule } from 'primeng/menu';
 import { startWith } from 'rxjs';
 
 import { ShopPermissionsService } from '../../../core/layout/shop-permissions.service';
@@ -221,126 +221,128 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
             <p class="directory-error" role="alert">{{ facade.errorMessage() | transloco }}</p>
           }
 
-          <div
-            class="directory-panel__surface"
-            role="region"
-            tabindex="0"
-            [attr.aria-label]="'purchaseOrders.list.metrics' | transloco"
-          >
-            <p-table [value]="[...facade.orders()]" dataKey="purchaseOrderId">
-              <ng-template pTemplate="header">
-                <tr>
-                  <th>{{ 'purchaseOrders.poNumber' | transloco }}</th>
-                  <th>{{ 'purchaseOrders.list.supplier' | transloco }}</th>
-                  <th>{{ 'purchaseOrders.list.supplierReference' | transloco }}</th>
-                  <th>{{ 'purchaseOrders.statusLabel' | transloco }}</th>
-                  <th>{{ 'purchaseOrders.receivedProgress' | transloco }}</th>
-                  <th>{{ 'purchaseOrders.lineCount' | transloco }}</th>
-                  <th>{{ 'purchaseOrders.expectedTotal' | transloco }}</th>
-                  <th>{{ 'purchaseOrders.createdAt' | transloco }}</th>
-                  <th>{{ 'purchaseOrders.actionsLabel' | transloco }}</th>
-                </tr>
-              </ng-template>
-              <ng-template pTemplate="body" let-order>
-                <tr class="po-table-row" (click)="openOrder(order.purchaseOrderId)">
-                  <td class="po-number">{{ order.purchaseOrderNumber }}</td>
-                  <td
-                    class="po-table-cell po-table-supplier"
-                    [attr.title]="order.supplierName || null"
-                  >
-                    {{ order.supplierName || '—' }}
-                  </td>
-                  <td
-                    class="po-table-cell po-table-reference"
-                    [attr.title]="order.supplierReference || null"
-                  >
-                    {{ order.supplierReference || '—' }}
-                  </td>
-                  <td>
-                    <span
-                      class="po-status-pill"
-                      [ngClass]="'po-status-pill--' + statusTone(order.status)"
+          @if (!facade.errorMessage() || facade.orders().length > 0) {
+            <div
+              class="directory-panel__surface"
+              role="region"
+              tabindex="0"
+              [attr.aria-label]="'purchaseOrders.list.metrics' | transloco"
+            >
+              <p-table [value]="[...facade.orders()]" dataKey="purchaseOrderId">
+                <ng-template pTemplate="header">
+                  <tr>
+                    <th>{{ 'purchaseOrders.poNumber' | transloco }}</th>
+                    <th>{{ 'purchaseOrders.list.supplier' | transloco }}</th>
+                    <th>{{ 'purchaseOrders.list.supplierReference' | transloco }}</th>
+                    <th>{{ 'purchaseOrders.statusLabel' | transloco }}</th>
+                    <th>{{ 'purchaseOrders.receivedProgress' | transloco }}</th>
+                    <th>{{ 'purchaseOrders.lineCount' | transloco }}</th>
+                    <th>{{ 'purchaseOrders.expectedTotal' | transloco }}</th>
+                    <th>{{ 'purchaseOrders.createdAt' | transloco }}</th>
+                    <th>{{ 'purchaseOrders.actionsLabel' | transloco }}</th>
+                  </tr>
+                </ng-template>
+                <ng-template pTemplate="body" let-order>
+                  <tr class="po-table-row" (click)="openOrder(order.purchaseOrderId)">
+                    <td class="po-number">{{ order.purchaseOrderNumber }}</td>
+                    <td
+                      class="po-table-cell po-table-supplier"
+                      [attr.title]="order.supplierName || null"
                     >
-                      {{ 'purchaseOrders.status.' + order.status | transloco }}
-                    </span>
-                  </td>
-                  <td>{{ receivedProgress(order.receivedQuantity, order.expectedQuantity) }}</td>
-                  <td>{{ order.lineCount }}</td>
-                  <td class="money">{{ order.expectedTotal | number: '1.2-2' }}</td>
-                  <td>{{ order.createdAt | date: 'short' }}</td>
-                  <td>
-                    @if (permissions.canManagePurchaseOrders() && order.status === 'Draft') {
-                      <div class="po-row-actions">
+                      {{ order.supplierName || '—' }}
+                    </td>
+                    <td
+                      class="po-table-cell po-table-reference"
+                      [attr.title]="order.supplierReference || null"
+                    >
+                      {{ order.supplierReference || '—' }}
+                    </td>
+                    <td>
+                      <span
+                        class="po-status-pill"
+                        [ngClass]="'po-status-pill--' + statusTone(order.status)"
+                      >
+                        {{ 'purchaseOrders.status.' + order.status | transloco }}
+                      </span>
+                    </td>
+                    <td>{{ receivedProgress(order.receivedQuantity, order.expectedQuantity) }}</td>
+                    <td>{{ order.lineCount }}</td>
+                    <td class="money">{{ order.expectedTotal | number: '1.2-2' }}</td>
+                    <td>{{ order.createdAt | date: 'short' }}</td>
+                    <td>
+                      @if (permissions.canManagePurchaseOrders() && order.status === 'Draft') {
+                        <div class="po-row-actions">
+                          <button
+                            pButton
+                            type="button"
+                            severity="secondary"
+                            icon="pi pi-pencil"
+                            [label]="'purchaseOrders.editPo' | transloco"
+                            (click)="openEditOrder(order.purchaseOrderId, $event)"
+                          ></button>
+                          <button
+                            pButton
+                            type="button"
+                            severity="success"
+                            icon="pi pi-send"
+                            [label]="'purchaseOrders.actions.placeOrder' | transloco"
+                            (click)="placeOrder(order.purchaseOrderId, $event)"
+                          ></button>
+                          <button
+                            pButton
+                            type="button"
+                            severity="danger"
+                            icon="pi pi-trash"
+                            [label]="'purchaseOrders.actions.deleteDraft' | transloco"
+                            (click)="deleteDraft(order.purchaseOrderId, $event)"
+                          ></button>
+                        </div>
+                      } @else if (
+                        permissions.canManagePurchaseOrders() &&
+                        (order.status === 'Placed' || order.status === 'PartiallyReceived')
+                      ) {
+                        <div class="po-row-actions">
+                          <button
+                            pButton
+                            type="button"
+                            severity="success"
+                            icon="pi pi-inbox"
+                            [label]="'purchaseOrders.actions.receive' | transloco"
+                            (click)="openReceiveOrder(order.purchaseOrderId, $event)"
+                          ></button>
+                        </div>
+                      }
+                      @if (canOpenActionMenu(order)) {
                         <button
                           pButton
                           type="button"
-                          severity="secondary"
-                          icon="pi pi-pencil"
-                          [label]="'purchaseOrders.editPo' | transloco"
-                          (click)="openEditOrder(order.purchaseOrderId, $event)"
+                          class="po-row-action-menu-trigger"
+                          icon="pi pi-ellipsis-v"
+                          [label]="'purchaseOrders.actionsLabel' | transloco"
+                          (click)="openActionMenu(order, $event, actionMenu)"
                         ></button>
-                        <button
-                          pButton
-                          type="button"
-                          severity="success"
-                          icon="pi pi-send"
-                          [label]="'purchaseOrders.actions.placeOrder' | transloco"
-                          (click)="placeOrder(order.purchaseOrderId, $event)"
-                        ></button>
-                        <button
-                          pButton
-                          type="button"
-                          severity="danger"
-                          icon="pi pi-trash"
-                          [label]="'purchaseOrders.actions.deleteDraft' | transloco"
-                          (click)="deleteDraft(order.purchaseOrderId, $event)"
-                        ></button>
-                      </div>
-                    } @else if (
-                      permissions.canManagePurchaseOrders() &&
-                      (order.status === 'Placed' || order.status === 'PartiallyReceived')
-                    ) {
-                      <div class="po-row-actions">
-                        <button
-                          pButton
-                          type="button"
-                          severity="success"
-                          icon="pi pi-inbox"
-                          [label]="'purchaseOrders.actions.receive' | transloco"
-                          (click)="openReceiveOrder(order.purchaseOrderId, $event)"
-                        ></button>
-                      </div>
-                    }
-                    @if (permissions.canManagePurchaseOrders()) {
-                      <button
-                        pButton
-                        type="button"
-                        class="po-row-action-menu-trigger"
-                        icon="pi pi-ellipsis-v"
-                        [label]="'purchaseOrders.actionsLabel' | transloco"
-                        (click)="prepareActionMenu(order, $event); actionMenu.toggle($event)"
-                      ></button>
-                    }
-                  </td>
-                </tr>
-              </ng-template>
-              <ng-template pTemplate="emptymessage">
-                <tr>
-                  <td colspan="9" class="empty-state">
-                    {{ 'purchaseOrders.noResults' | transloco }}
-                  </td>
-                </tr>
-              </ng-template>
-            </p-table>
-          </div>
+                      }
+                    </td>
+                  </tr>
+                </ng-template>
+                <ng-template pTemplate="emptymessage">
+                  <tr>
+                    <td colspan="9" class="empty-state">
+                      {{ 'purchaseOrders.noResults' | transloco }}
+                    </td>
+                  </tr>
+                </ng-template>
+              </p-table>
+            </div>
 
-          <p-paginator
-            [first]="first"
-            [rows]="pagination.pageSize"
-            [totalRecords]="pagination.totalCount"
-            [rowsPerPageOptions]="[20, 50, 100]"
-            (onPageChange)="onPageChange($event)"
-          />
+            <p-paginator
+              [first]="first"
+              [rows]="pagination.pageSize"
+              [totalRecords]="pagination.totalCount"
+              [rowsPerPageOptions]="[20, 50, 100]"
+              (onPageChange)="onPageChange($event)"
+            />
+          }
         </section>
       }
     </section>
@@ -552,7 +554,7 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
       }
       .po-filter-bar {
         display: grid;
-        grid-template-columns: minmax(18rem, 1fr) 10rem 13rem 13rem auto;
+        grid-template-columns: minmax(12rem, 1fr) 10rem minmax(8rem, 13rem) minmax(8rem, 13rem) auto;
         align-items: center;
         gap: 0.55rem;
       }
@@ -914,9 +916,14 @@ export class PurchaseOrdersListPageComponent implements OnInit {
     void this.router.navigate(['/inventory/purchase-orders', purchaseOrderId]);
   }
 
-  protected prepareActionMenu(order: PurchaseOrderListItem, event: Event): void {
+  protected openActionMenu(order: PurchaseOrderListItem, event: Event, menu: Menu): void {
     event.stopPropagation();
     this.actionOrder.set(order);
+    queueMicrotask(() => menu.toggle(event));
+  }
+
+  protected canOpenActionMenu(order: PurchaseOrderListItem): boolean {
+    return this.permissions.canManagePurchaseOrders() && this.hasMenuActions(order);
   }
 
   protected openEditOrder(purchaseOrderId: string, event?: Event): void {
@@ -1006,6 +1013,12 @@ export class PurchaseOrdersListPageComponent implements OnInit {
 
   private actionItem(labelKey: string, icon: string, command: () => void): MenuItem {
     return { label: this.translocoService.translate(labelKey), icon, command };
+  }
+
+  private hasMenuActions(order: PurchaseOrderListItem): boolean {
+    return (
+      order.status === 'Draft' || order.status === 'Placed' || order.status === 'PartiallyReceived'
+    );
   }
 
   private toDatePickerValue(value: Date | string | null): Date | null {
