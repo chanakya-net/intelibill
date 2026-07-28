@@ -1,5 +1,7 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
 
+import { SUPPORTED_LANGUAGES } from '../../../src/app/core/i18n/language.constants';
+import type { SaleListItemDto } from '../../../src/app/features/sales/services/sale.models';
 import {
   assertNoUnexpectedBrowserFailures,
   collectBrowserFailures,
@@ -9,7 +11,7 @@ import {
 
 type SalesState = 'ready' | 'loading' | 'empty' | 'error';
 
-const LONG_SALES = [
+const LONG_SALES: readonly SaleListItemDto[] = [
   sale({
     saleId: 'sale-paid',
     invoiceNumber: 'INV-2026-VERY-LONG-REFERENCE-0000000000001',
@@ -32,15 +34,47 @@ const LONG_SALES = [
     status: 'refunded',
     refundAmount: 40,
   }),
-] as const;
+];
+
+const PAGE_TWO_SALES: readonly SaleListItemDto[] = [
+  sale({
+    saleId: 'sale-paid',
+    invoiceNumber: 'INV-PAGE-TWO-ONLY',
+    customerName: 'Page Two Customer',
+    paymentMethod: 1,
+    status: 'paid',
+  }),
+];
+
+const FILTERED_SALES: readonly SaleListItemDto[] = [
+  sale({
+    saleId: 'sale-filtered',
+    invoiceNumber: 'INV-FILTERED-PAID',
+    customerName: 'Filtered Paid Customer',
+    paymentMethod: 1,
+    status: 'paid',
+  }),
+];
+
+const SEARCH_SALES: readonly SaleListItemDto[] = [
+  sale({
+    saleId: 'sale-searched',
+    invoiceNumber: 'INV-SEARCHED-PAID',
+    customerName: 'Alexandria Search Result',
+    paymentMethod: 1,
+    status: 'paid',
+  }),
+];
 
 test.describe('sales-history', () => {
-  test('renders dense sales values, filter controls, pagination, and row action', async ({
+  test('filters, clears, paginates, and opens a dense sales row', async ({
     page,
   }) => {
     const collector = collectBrowserFailures(page);
+    const salesRequests: string[] = [];
     try {
-      await openSales(page, 'ready');
+      await installSalesScenario(page, 'ready', [], salesRequests);
+      await visitSales(page);
 
       await expect(page.locator('tbody')).toContainText(LONG_SALES[0].invoiceNumber);
       await expect(page.locator('tbody')).toContainText('Partially paid');
@@ -49,12 +83,37 @@ test.describe('sales-history', () => {
       await expect(page.locator('.status-filter')).toContainText('Partially paid');
       await expect(page.locator('.page-status')).toContainText('Page 1 of 3');
 
+      const statusResponse = waitForSalesResponse(page, { status: 'paid', page: '1' });
+      await page.locator('.status-filter').getByRole('button', { name: 'Paid', exact: true }).click();
+      await statusResponse;
+      await expect(page.locator('tbody')).toContainText(FILTERED_SALES[0].invoiceNumber);
+
+      const searchResponse = waitForSalesResponse(page, {
+        status: 'paid',
+        search: 'Alexandria',
+        page: '1',
+      });
+      await page.locator('.search-field input').fill('Alexandria');
+      await searchResponse;
+      await expect(page.locator('tbody')).toContainText(SEARCH_SALES[0].invoiceNumber);
+
+      const clearResponse = waitForSalesResponse(page, { page: '1', status: null, search: null });
+      await page.locator('.clear-filters-btn').click();
+      await clearResponse;
+      await expect(page.locator('.search-field input')).toHaveValue('');
+      await expect(page.locator('tbody')).toContainText(LONG_SALES[0].invoiceNumber);
+
+      const requestCountBeforePageTwo = salesRequests.length;
       const pageTwoResponse = page.waitForResponse((response) => {
         const url = new URL(response.url());
         return url.pathname === '/api/sales' && url.searchParams.get('page') === '2';
       });
       await page.getByRole('button', { name: /next page/i }).click();
       await pageTwoResponse;
+      await expect(page.locator('.page-status')).toContainText('Page 2 of 3');
+      await expect(page.locator('.showing')).toContainText(/21.*40.*60/);
+      await expect(page.locator('tbody')).toContainText(PAGE_TWO_SALES[0].invoiceNumber);
+      expect(salesRequests.slice(requestCountBeforePageTwo)).toHaveLength(1);
 
       const saleDetailResponse = page.waitForResponse(
         (response) => new URL(response.url()).pathname === '/api/sales/sale-paid',
@@ -72,27 +131,30 @@ test.describe('sales-history', () => {
     }
   });
 
-  test('keeps the sales table scrollable without page overflow at audit viewports', async ({
-    page,
-  }) => {
+  test('keeps sales controls and dense data usable in every locale and audit viewport', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'chromium-mobile', 'manual locale and viewport matrix');
+    test.setTimeout(120_000);
     const collector = collectBrowserFailures(page);
     try {
-      await installSalesScenario(page, 'ready');
-      for (const viewport of [
-        { width: 1440, height: 900 },
-        { width: 768, height: 1024 },
-        { width: 360, height: 800 },
-      ]) {
-        await page.setViewportSize(viewport);
-        await visitSales(page);
-        await expect(page.locator('tbody')).toContainText(LONG_SALES[0].customerName);
-        await expect(page.locator('.table-wrap')).toHaveCSS('overflow-x', 'auto');
-        const tableDimensions = await page.locator('.table-wrap').evaluate((element) => ({
-          clientWidth: element.clientWidth,
-          scrollWidth: element.scrollWidth,
-        }));
-        expect(tableDimensions.scrollWidth).toBeGreaterThanOrEqual(tableDimensions.clientWidth);
-        await assertNoPageOverflow(page);
+      for (const locale of SUPPORTED_LANGUAGES) {
+        for (const viewport of [
+          { width: 1440, height: 900 },
+          { width: 360, height: 800 },
+        ]) {
+          await installSalesScenario(page, 'ready', [], [], locale);
+          await page.setViewportSize(viewport);
+          await visitSales(page);
+          await expect(page.locator('tbody')).toContainText(LONG_SALES[0].customerName!);
+          await expect(page.locator('.table-wrap')).toHaveCSS('overflow-x', 'auto');
+          const tableDimensions = await page.locator('.table-wrap').evaluate((element) => ({
+            clientWidth: element.clientWidth,
+            scrollWidth: element.scrollWidth,
+          }));
+          expect(tableDimensions.scrollWidth).toBeGreaterThanOrEqual(tableDimensions.clientWidth);
+          await assertSalesControlsFit(page);
+          await expect(page.locator('.sales-ledger-page')).not.toContainText('sales.history.');
+          await assertNoPageOverflow(page);
+        }
       }
       assertNoUnexpectedBrowserFailures(collector.failures);
     } finally {
@@ -170,9 +232,14 @@ async function installSalesScenario(
   page: Page,
   state: SalesState,
   exportRequests: string[] = [],
+  salesRequests: string[] = [],
+  locale = 'en-IN',
 ): Promise<void> {
-  await mockExternalRequests(page, { authenticated: true });
-  await page.route('**/api/sales?**', async (route) => fulfillSales(route, state));
+  await mockExternalRequests(page, { authenticated: true, locale });
+  await page.route('**/api/sales?**', async (route) => {
+    salesRequests.push(route.request().url());
+    await fulfillSales(route, state);
+  });
   await page.route('**/api/sales/sale-paid', async (route) => fulfillSaleDetail(route));
   await page.route('**/api/exports/sales?**', async (route) => {
     exportRequests.push(route.request().url());
@@ -205,10 +272,10 @@ async function fulfillSales(route: Route, state: SalesState): Promise<void> {
     return;
   }
 
-  const items = state === 'empty' ? [] : LONG_SALES;
   const requestUrl = new URL(route.request().url());
   const pageNumber = Number(requestUrl.searchParams.get('page') ?? '1');
   const pageSize = Number(requestUrl.searchParams.get('pageSize') ?? '20');
+  const items = getSalesItems(state, requestUrl, pageNumber);
   await route.fulfill({
     status: 200,
     contentType: 'application/json',
@@ -220,6 +287,17 @@ async function fulfillSales(route: Route, state: SalesState): Promise<void> {
       summary: { periodSales: 123456.78, invoiceCount: items.length, refundAmount: 40 },
     }),
   });
+}
+
+function getSalesItems(
+  state: SalesState,
+  requestUrl: URL,
+  pageNumber: number,
+): readonly SaleListItemDto[] {
+  if (state === 'empty') return [];
+  if (requestUrl.searchParams.get('search') === 'Alexandria') return SEARCH_SALES;
+  if (requestUrl.searchParams.get('status') === 'paid') return FILTERED_SALES;
+  return pageNumber === 2 ? PAGE_TWO_SALES : LONG_SALES;
 }
 
 async function fulfillSaleDetail(route: Route): Promise<void> {
@@ -246,12 +324,37 @@ async function assertNoPageOverflow(page: Page): Promise<void> {
   expect(dimensions.document).toBeLessThanOrEqual(dimensions.viewport + 5);
 }
 
+async function assertSalesControlsFit(page: Page): Promise<void> {
+  const clippedControls = await page
+    .locator('.status-filter, .search-actions, .inline-export, .pagination-bar')
+    .evaluateAll((elements) =>
+      elements
+        .map((element) => element.getBoundingClientRect())
+        .filter((bounds) => bounds.left < 0 || bounds.right > window.innerWidth),
+    );
+  expect(clippedControls).toHaveLength(0);
+}
+
+function waitForSalesResponse(
+  page: Page,
+  expected: Record<string, string | null>,
+): Promise<import('@playwright/test').Response> {
+  return page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return (
+      url.pathname === '/api/sales' &&
+      Object.entries(expected).every(([key, value]) => url.searchParams.get(key) === value)
+    );
+  });
+}
+
 function sale(
-  overrides: Partial<(typeof LONG_SALES)[number]> & { saleId: string; invoiceNumber: string },
-) {
+  overrides: Partial<SaleListItemDto> & Pick<SaleListItemDto, 'saleId' | 'invoiceNumber'>,
+): SaleListItemDto {
+  const { saleId, invoiceNumber, ...saleOverrides } = overrides;
   return {
-    saleId: overrides.saleId,
-    invoiceNumber: overrides.invoiceNumber,
+    saleId,
+    invoiceNumber,
     customerId: null,
     paymentMethod: 1,
     soldAt: '2026-05-27T10:00:00.000Z',
@@ -269,6 +372,6 @@ function sale(
     refundAmount: 0,
     dueReductionAmount: 0,
     creditNoteAppliedAmount: 0,
-    ...overrides,
+    ...saleOverrides,
   };
 }

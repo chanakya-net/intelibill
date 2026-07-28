@@ -124,7 +124,7 @@ export class SalesPageComponent {
     });
 
     effect(() => {
-      if (this.isLoading()) {
+      if (this.isLoading() || this.serverError()) {
         return;
       }
 

@@ -197,6 +197,30 @@ describe('SalesPageComponent', () => {
     expect(salesFacade.loadSales.mock.calls.at(-1)?.[0]).toMatchObject({ status: 'paid', page: 1 });
   });
 
+  it('keeps the selected page after a page request fails', () => {
+    const fixture = TestBed.createComponent(SalesPageComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    vi.runOnlyPendingTimers();
+    salesPaginationSignal.set({ totalCount: 60, pageNumber: 1, pageSize: 20 });
+    fixture.detectChanges();
+    salesFacade.loadSales.mockClear();
+
+    component.onPageChange(2);
+    fixture.detectChanges();
+    expect(salesFacade.loadSales).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2 }));
+
+    loadingSignal.set(true);
+    fixture.detectChanges();
+    errorSignal.set('Unable to load sales.');
+    loadingSignal.set(false);
+    fixture.detectChanges();
+
+    expect(component.pageNumber()).toBe(2);
+    expect(component.pageSize()).toBe(20);
+    expect(salesFacade.loadSales).toHaveBeenCalledTimes(1);
+  });
+
   it('exports the current report level and date range', () => {
     const response = new HttpResponse({ status: 200, body: new Blob(['sales']) });
     salesExportService.exportSales.mockReturnValue(of(response));
