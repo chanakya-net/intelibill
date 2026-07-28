@@ -233,7 +233,7 @@ export class ShellMenuService {
       });
     }
 
-    if (this.permissions.isOwnerOfActiveShop() && actions.hasShops) {
+    if (this.permissions.isOwnerOrManagerOfActiveShop() && actions.hasShops) {
       items.push({
         label: this.localizationService.translate('shell.manageShop'),
         icon: 'pi pi-wrench',

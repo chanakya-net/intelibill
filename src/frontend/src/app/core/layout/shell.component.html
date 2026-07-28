@@ -157,14 +157,16 @@
                     [class.is-current]="shop.shopId === activeShopId()"
                     (click)="onSelectShop(shop.shopId)"
                   >
-                    {{ shop.shopName
-                    }}{{
-                      shopDetailsById()[shop.shopId]?.pincode?.trim()
-                        ? ` - ${shopDetailsById()[shop.shopId]?.pincode?.trim()}`
-                        : ''
-                    }}
+                    <span class="shop-menu-item-label">
+                      {{ shop.shopName
+                      }}{{
+                        shopDetailsById()[shop.shopId]?.pincode?.trim()
+                          ? ` - ${shopDetailsById()[shop.shopId]?.pincode?.trim()}`
+                          : ''
+                      }}
+                    </span>
                     @if (shop.shopId === activeShopId()) {
-                      <span>{{ 'shell.active' | transloco }}</span>
+                      <span class="shop-menu-item-status">{{ 'shell.active' | transloco }}</span>
                     }
                   </button>
                 }

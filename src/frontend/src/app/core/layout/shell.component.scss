@@ -3,7 +3,10 @@
   --shell-sidebar-collapsed-width: 4.5rem;
   --shell-header-pill-height: 2.72rem;
   display: flex;
+  width: 100%;
+  min-width: 0;
   min-height: 100vh;
+  min-height: 100dvh;
   background:
     radial-gradient(circle at 12% 12%, rgba(251, 146, 60, 0.16), transparent 42%),
     radial-gradient(circle at 88% 18%, rgba(245, 158, 11, 0.14), transparent 46%),
@@ -18,7 +21,7 @@
   flex-direction: column;
   width: var(--shell-sidebar-width);
   min-height: 100vh;
-  height: 100vh;
+  height: 100dvh;
   flex: 0 0 var(--shell-sidebar-width);
   overflow: hidden;
   border-right: 1px solid rgba(254, 215, 170, 0.75);
@@ -151,6 +154,7 @@
   justify-content: flex-end;
   gap: 1rem;
   padding: 0.72rem 1.5rem;
+  min-width: 0;
 }
 
 .shell-header-spacer {
@@ -313,6 +317,9 @@
   z-index: 55;
   min-width: 15rem;
   max-width: 20rem;
+  max-height: min(24rem, calc(100dvh - 5rem));
+  overflow-x: hidden;
+  overflow-y: auto;
   padding: 0.3rem;
   border-radius: 0.85rem;
   border: 1px solid #fed7aa;
@@ -343,7 +350,15 @@
     color: #7c2d12;
   }
 
-  span {
+  .shop-menu-item-label {
+    min-width: 0;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    text-overflow: ellipsis;
+  }
+
+  .shop-menu-item-status {
+    flex: 0 0 auto;
     color: #9a3412;
     font-size: 0.7rem;
     font-weight: 700;
@@ -384,17 +399,14 @@
   .shell-main {
     padding: 1rem 0.9rem 1.5rem;
   }
-}
 
-@media (max-width: 640px) {
-  .shell-header-inner {
-    padding: 0.5rem 0.75rem;
-    gap: 0.5rem;
+  .shell-header-spacer {
+    display: none;
   }
 
   .shell-header-controls {
-    gap: 0.35rem;
-    max-width: 100%;
+    width: 100%;
+    flex: 1 1 auto;
   }
 
   .shell-shop {
@@ -415,8 +427,26 @@
     font-size: 0.8rem;
 
     .active-shop-caption {
+      min-width: 0;
       max-width: none;
     }
+  }
+
+  .shop-menu {
+    width: min(20rem, calc(100vw - 1.5rem));
+    max-width: calc(100vw - 1.5rem);
+  }
+}
+
+@media (max-width: 640px) {
+  .shell-header-inner {
+    padding: 0.5rem 0.75rem;
+    gap: 0.5rem;
+  }
+
+  .shell-header-controls {
+    gap: 0.35rem;
+    max-width: 100%;
   }
 
   .shell-actions {
