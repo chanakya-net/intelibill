@@ -366,6 +366,12 @@ jobs:
       - name: Run dev migration
         env:
           MIGRATE_IMAGE_REF: ${{ needs.build.outputs.migrate-image }}
+          # A cold pull of the migration image has taken 14 minutes, so the
+          # default 10-minute budget reported a timeout before the container
+          # had started and hid the real failure. Wait as long as the job's own
+          # replica_timeout_in_seconds (1800) allows; the poller still exits as
+          # soon as the execution reaches a terminal status.
+          MAX_POLLS: 360
         run: |
           set -euo pipefail
           az containerapp job update \
@@ -515,6 +521,9 @@ jobs:
       - name: Run production migration
         env:
           MIGRATE_IMAGE_REF: ${{ needs.build.outputs.migrate-image }}
+          # Matches the dev budget: a cold image pull can outlast the default
+          # 10 minutes, and the poller exits early on any terminal status.
+          MAX_POLLS: 360
         run: |
           set -euo pipefail
           az containerapp job update \
