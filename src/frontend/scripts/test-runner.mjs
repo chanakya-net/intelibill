@@ -5,6 +5,7 @@ const args = process.argv.slice(2);
 const runIndex = args.indexOf('--run');
 
 let commandArgs = ['test'];
+let command = 'ng';
 
 if (runIndex !== -1) {
   const includePath = args[runIndex + 1];
@@ -14,7 +15,12 @@ if (runIndex !== -1) {
   }
 
   const forwardedArgs = args.filter((_, index) => index !== runIndex && index !== runIndex + 1);
-  commandArgs = ['test', '--include', includePath, '--watch=false', ...forwardedArgs];
+  if (includePath.startsWith('scripts/')) {
+    command = 'bun';
+    commandArgs = ['test', includePath, ...forwardedArgs];
+  } else {
+    commandArgs = ['test', '--include', includePath, '--watch=false', ...forwardedArgs];
+  }
 } else {
   const firstArg = args[0];
   const looksLikeIncludePattern =
@@ -35,7 +41,7 @@ if (runIndex !== -1) {
   }
 }
 
-const result = spawnSync('ng', commandArgs, {
+const result = spawnSync(command, commandArgs, {
   stdio: 'inherit',
   env: process.env,
 });
