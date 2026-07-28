@@ -93,6 +93,15 @@
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
+  min-width: 0;
+  max-width: 100%;
+
+  strong,
+  span {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
 
   span {
     color: #8b6e57;
@@ -126,23 +135,34 @@
       radial-gradient(circle at top left, rgba(255, 224, 188, 0.35), transparent 34%),
       linear-gradient(180deg, #fffaf4 0%, #f8efe4 100%);
     box-shadow: 0 18px 42px rgba(87, 54, 20, 0.12);
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100dvh - 1rem);
+    max-width: calc(100vw - 1rem);
   }
 
   .product-form-dialog .p-dialog-header {
     padding: 1rem 1.15rem 0.35rem;
     border-bottom: 0;
     background: transparent;
+    flex: 0 0 auto;
+    min-width: 0;
   }
 
   .product-form-dialog .p-dialog-content {
     padding: 0.35rem 1.15rem 1rem;
     background: transparent;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
   }
 
   .product-form-dialog .p-dialog-footer {
     padding: 0.35rem 1.15rem 1rem;
     border-top: 1px solid #ead7c1;
     background: rgba(255, 252, 248, 0.72);
+    flex: 0 0 auto;
   }
 
   .editor-control,
@@ -186,6 +206,14 @@
 }
 
 @media (max-width: 640px) {
+  .dialog-header h2,
+  .dialog-header .subtitle,
+  .field label,
+  .section-label,
+  .validation-message {
+    overflow-wrap: anywhere;
+  }
+
   .dialog-actions {
     flex-direction: column-reverse;
     align-items: stretch;
