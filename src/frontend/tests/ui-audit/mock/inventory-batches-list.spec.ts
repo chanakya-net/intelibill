@@ -111,7 +111,7 @@ test.describe('inventory-batches-list', () => {
     }
   });
 
-  test('preserves table scrolling, pagination, and bounded mobile cards for dense long values', async ({
+  test('preserves table scrolling, pagination, and bounded cells/cards for dense long values', async ({
     page,
   }) => {
     const collector = collectBrowserFailures(page);
@@ -125,6 +125,7 @@ test.describe('inventory-batches-list', () => {
       await assertDesktopHorizontalScroll(page);
       await page.locator('.p-paginator-next').click();
       await expect(page.locator('.desktop-table tbody')).toContainText('Dense batch item 9');
+      await assertDesktopCellsBounded(page);
 
       await page.setViewportSize({ width: 375, height: 667 });
       await page.reload();
@@ -286,6 +287,55 @@ async function assertDesktopHorizontalScroll(page: Page): Promise<void> {
   await expect
     .poll(() => tableContainer.evaluate((element) => element.scrollWidth > element.clientWidth))
     .toBe(true);
+}
+
+async function assertDesktopCellsBounded(page: Page): Promise<void> {
+  const longValues = [LONG_BATCH.itemName, LONG_BATCH.barcode, LONG_BATCH.batchNumber];
+  const geometry = await page
+    .locator('.p-datatable-table-container')
+    .evaluate(measureDesktopCells, longValues);
+
+  expect(geometry.cellCount).toBeGreaterThan(0);
+  expect(geometry.longCellCount).toBe(longValues.length);
+  expect(geometry.escaped).toEqual([]);
+  expect(geometry.overlapped).toEqual([]);
+}
+
+function measureDesktopCells(container: HTMLElement, values: readonly string[]) {
+  const table = container.querySelector<HTMLTableElement>('table');
+  if (!table) return { cellCount: 0, longCellCount: 0, escaped: [], overlapped: [] };
+
+  const tableBounds = table.getBoundingClientRect();
+  const cells = Array.from(table.querySelectorAll<HTMLElement>('thead th, tbody td')).filter(
+    (cell) => cell.getBoundingClientRect().width > 0,
+  );
+  const escaped = cells.filter((cell) => {
+    const bounds = cell.getBoundingClientRect();
+    return (
+      bounds.left < tableBounds.left - 1 ||
+      bounds.right > tableBounds.right + 1 ||
+      cell.scrollWidth > cell.clientWidth + 1 ||
+      cell.scrollHeight > cell.clientHeight + 1
+    );
+  });
+  const longCells = cells.filter((cell) =>
+    values.some((value) => cell.textContent?.includes(value)),
+  );
+  const overlapped = longCells.filter((cell) => {
+    const bounds = cell.getBoundingClientRect();
+    return Array.from(cell.parentElement?.children ?? []).some((sibling) => {
+      if (sibling === cell) return false;
+      const siblingBounds = sibling.getBoundingClientRect();
+      return bounds.left < siblingBounds.right - 1 && bounds.right > siblingBounds.left + 1;
+    });
+  });
+
+  return {
+    cellCount: cells.length,
+    longCellCount: longCells.length,
+    escaped: escaped.map((cell) => cell.textContent?.trim().slice(0, 80)),
+    overlapped: overlapped.map((cell) => cell.textContent?.trim().slice(0, 80)),
+  };
 }
 
 async function assertCardContentsBounded(card: ReturnType<Page['locator']>): Promise<void> {
