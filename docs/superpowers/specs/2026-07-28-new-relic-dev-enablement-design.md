@@ -1,6 +1,6 @@
 # Dev New Relic Enablement Design
 
-**Date:** 2026-07-28  
+**Date:** 2026-07-28
 **Scope:** Backend API telemetry in the dev environment only
 
 ## Goal
