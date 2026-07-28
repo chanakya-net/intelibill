@@ -1,5 +1,6 @@
 :host {
   display: block;
+  min-width: 0;
 }
 
 .profit-loss-page {
@@ -12,6 +13,9 @@
     radial-gradient(circle at right 12rem top 10rem, rgba(209, 184, 159, 0.28), transparent 26%),
     linear-gradient(180deg, #fbf5ec 0%, #f7efe4 100%);
   min-height: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
 }
 
 .profit-loss-hero {
@@ -63,6 +67,8 @@ h1 {
   font-weight: 700;
   font-size: 0.825rem;
   align-self: flex-start;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .kpi-row {
@@ -81,6 +87,7 @@ h1 {
   border-radius: 1rem;
   background: linear-gradient(180deg, rgba(255, 251, 247, 0.96), rgba(255, 245, 235, 0.98));
   box-shadow: 0 8px 22px rgba(85, 49, 18, 0.07);
+  min-width: 0;
 }
 
 .kpi-label {
@@ -124,6 +131,7 @@ h1 {
   padding: 1rem;
   display: grid;
   gap: 0.9rem;
+  min-width: 0;
 }
 
 .ledger-header {
@@ -132,6 +140,11 @@ h1 {
   align-items: flex-start;
   gap: 1rem;
   flex-wrap: wrap;
+  min-width: 0;
+}
+
+.ledger-header > * {
+  min-width: 0;
 }
 
 .ledger-header h2 {
@@ -245,20 +258,24 @@ h1 {
 .report-content {
   display: grid;
   gap: 1rem;
+  min-width: 0;
 }
 
 .desktop-table {
   width: 100%;
-}
-
-.report-table-wrap :where(th, td) {
-  white-space: nowrap;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid #e9d8ca;
+  border-radius: 0.75rem;
 }
 
 :host ::ng-deep .profit-loss-page .p-datatable-sm {
-  border: 1px solid #e9d8ca;
-  border-radius: 0.75rem;
-  overflow: hidden;
+  min-width: 78rem;
+}
+
+:host ::ng-deep .profit-loss-page .p-datatable-sm :where(th, td) {
+  white-space: nowrap;
 }
 
 :host ::ng-deep .profit-loss-page .p-datatable-sm .p-datatable-thead > tr > th {
@@ -308,6 +325,7 @@ h1 {
   padding: 0.7rem;
   display: grid;
   gap: 0.35rem;
+  min-width: 0;
 }
 
 .mobile-report-card header {
@@ -315,12 +333,15 @@ h1 {
   justify-content: space-between;
   gap: 0.5rem;
   align-items: center;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .mobile-report-card h3 {
   margin: 0;
   font-size: 0.95rem;
   color: #2b221d;
+  min-width: 0;
 }
 
 .mobile-badges {
@@ -329,6 +350,7 @@ h1 {
   gap: 0.35rem;
   color: #75685f;
   font-size: 0.78rem;
+  flex-wrap: wrap;
 }
 
 .mobile-identity {
@@ -347,6 +369,7 @@ h1 {
 .mobile-grid p {
   margin: 0;
   font-size: 0.86rem;
+  min-width: 0;
 }
 
 .mobile-grid .margin {
@@ -405,6 +428,7 @@ h1 {
   display: flex;
   align-items: center;
   gap: 0.35rem;
+  flex-wrap: wrap;
 }
 
 .pager-btn {
@@ -506,5 +530,9 @@ h1 {
   .pager {
     width: 100%;
     justify-content: space-between;
+  }
+
+  .mobile-grid {
+    grid-template-columns: 1fr;
   }
 }

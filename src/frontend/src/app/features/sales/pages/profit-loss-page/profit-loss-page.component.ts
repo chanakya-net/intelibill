@@ -141,16 +141,10 @@ export class ProfitLossPageComponent {
     });
 
     effect(() => {
-      const { pageNumber: storePageNumber, pageSize: storePageSize } = this.pagination();
+      const { pageSize: storePageSize } = this.pagination();
       const normalizedSize = this.getDefaultPageSize(storePageSize);
       if (normalizedSize !== this.pageSize()) {
         untracked(() => this.pageSize.set(normalizedSize));
-      }
-      // Sync store page number to local only when local state is at default (page 1)
-      // and differs from store. This prevents user's active page navigation selections
-      // from being temporarily reverted by stale store values before a request resolves.
-      if (storePageNumber && this.pageNumber() === 1 && storePageNumber !== 1) {
-        untracked(() => this.pageNumber.set(storePageNumber));
       }
     });
 
@@ -173,7 +167,12 @@ export class ProfitLossPageComponent {
   }
 
   totalAmount(value: number): string {
-    return `₹${value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const sign = value < 0 ? '-' : '';
+    const amount = Math.abs(value).toLocaleString('en-IN', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    return `${sign}₹${amount}`;
   }
 
   formatMarginPercent(value: number | null): string {
