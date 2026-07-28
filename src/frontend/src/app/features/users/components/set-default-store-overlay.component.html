@@ -12,13 +12,13 @@
         [rounded]="true"
         class="overlay-close"
         [disabled]="isSubmitting()"
-        aria-label="Close default store selection"
+        [attr.aria-label]="'shops.defaultStore.close' | transloco"
         (click)="onClose()"
       ></button>
 
-      <p class="overlay-kicker">Workspace</p>
-      <h2>Set Default Store</h2>
-      <p>Select which store should be active by default when you sign in.</p>
+      <p class="overlay-kicker">{{ 'shops.defaultStore.workspace' | transloco }}</p>
+      <h2>{{ 'shops.defaultStore.title' | transloco }}</h2>
+      <p>{{ 'shops.defaultStore.description' | transloco }}</p>
     </header>
 
     <div class="overlay-form space-y-3">
@@ -36,7 +36,7 @@
       }
 
       @if (serverError()) {
-        <p class="server-error">{{ serverError() }}</p>
+        <p class="server-error">{{ serverError() | transloco }}</p>
       }
     </div>
 

@@ -27,7 +27,7 @@ export class SalesEffects {
           catchError((error) =>
             of(
               SalesActions.loadSalesFailed({
-                errorMessage: error.error?.detail || 'Failed to load sales',
+                errorMessage: error.error?.detail || 'errors.sales.loadFailed',
               })
             )
           )
@@ -45,7 +45,7 @@ export class SalesEffects {
           catchError((error) =>
             of(
               SalesActions.loadProfitLossReportFailed({
-                errorMessage: error.error?.detail || 'Failed to load profit loss report',
+                errorMessage: error.error?.detail || 'errors.sales.profitLossLoadFailed',
               })
             )
           )
@@ -63,7 +63,7 @@ export class SalesEffects {
           catchError((error) =>
             of(
               SalesActions.loadSaleDetailFailed({
-                errorMessage: error.error?.detail || 'Failed to load sale details',
+                errorMessage: error.error?.detail || 'errors.sales.detailLoadFailed',
               })
             )
           )
@@ -81,7 +81,10 @@ export class SalesEffects {
           catchError((error) =>
             of(
               SalesActions.previewSaleReturnFailed({
-                errorMessage: error.error?.detail || error.error?.title || 'Failed to preview sale return',
+                errorMessage:
+                  error.error?.detail ||
+                  error.error?.title ||
+                  'errors.sales.returnPreviewFailed',
               })
             )
           )
@@ -99,7 +102,10 @@ export class SalesEffects {
           catchError((error) =>
             of(
               SalesActions.recordSaleReturnFailed({
-                errorMessage: error.error?.detail || error.error?.title || 'Failed to record sale return',
+                errorMessage:
+                  error.error?.detail ||
+                  error.error?.title ||
+                  'errors.sales.returnRecordFailed',
               })
             )
           )
@@ -118,7 +124,10 @@ export class SalesEffects {
           catchError((error) =>
             of(
               SalesActions.voidSaleReturnFailed({
-                errorMessage: error.error?.detail || error.error?.title || 'Failed to void sale return',
+                errorMessage:
+                  error.error?.detail ||
+                  error.error?.title ||
+                  'errors.sales.returnVoidFailed',
               })
             )
           )
@@ -136,7 +145,7 @@ export class SalesEffects {
           catchError((error) =>
             of(
               SalesActions.recordSaleFailed({
-                errorMessage: error.error?.detail || 'Failed to record sale',
+                errorMessage: error.error?.detail || 'errors.sales.recordFailed',
               })
             )
           )

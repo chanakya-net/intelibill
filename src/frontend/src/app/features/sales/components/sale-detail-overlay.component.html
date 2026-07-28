@@ -20,7 +20,9 @@
         <div class="sale-detail-title-row">
           <div class="sale-detail-title-wrap">
             <h2>{{ 'sales.detail.title' | transloco }}</h2>
-            <span class="sale-detail-payment-pill">Payment {{ paymentMethodLabel() }}</span>
+            <span class="sale-detail-payment-pill">{{
+              'sales.detail.paymentWithMethod' | transloco: { method: paymentMethodLabel() }
+            }}</span>
           </div>
           <button
             type="button"

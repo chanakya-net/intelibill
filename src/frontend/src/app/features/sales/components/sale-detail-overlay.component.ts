@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output, computed, inject, signal } from '@angular/core';
-import { TranslocoPipe } from '@ngneat/transloco';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import { ButtonModule } from 'primeng/button';
 import { DialogModule } from 'primeng/dialog';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
@@ -36,6 +37,10 @@ import { SaleVoidReturnDialogComponent } from './sale-detail/sale-void-return-di
 export class SaleDetailOverlayComponent {
   private readonly salesFacade = inject(SalesFacade);
   private readonly authService = inject(AuthService);
+  private readonly transloco = inject(TranslocoService);
+  private readonly activeLanguage = toSignal(this.transloco.langChanges$, {
+    initialValue: this.transloco.getActiveLang(),
+  });
 
   @Input() visible = false;
   @Output() readonly visibleChange = new EventEmitter<boolean>();
@@ -62,13 +67,20 @@ export class SaleDetailOverlayComponent {
     () => this.sale()?.items.filter((item) => item.returnableQuantity > 0) ?? [],
   );
 
-  readonly paymentMethodLabel = computed(() =>
-    getPaymentMethodLabel(this.sale()?.paymentMethod ?? 0),
-  );
+  readonly paymentMethodLabel = computed(() => {
+    this.activeLanguage();
+    return this.transloco.translate(this.paymentMethodLabelKey(this.sale()?.paymentMethod ?? 0));
+  });
 
-  readonly customerName = computed(() => this.sale()?.customerName || 'Walk-in Customer');
+  readonly customerName = computed(() => {
+    this.activeLanguage();
+    return this.sale()?.customerName || this.transloco.translate('sales.invoice.walkInCustomer');
+  });
 
-  readonly customerPhone = computed(() => this.sale()?.customerPhone || 'Not provided');
+  readonly customerPhone = computed(() => {
+    this.activeLanguage();
+    return this.sale()?.customerPhone || this.transloco.translate('sales.detail.notProvided');
+  });
 
   readonly canPreviewReturns = computed(() => {
     const role = this.activeShopRole().toLowerCase();
@@ -121,7 +133,7 @@ export class SaleDetailOverlayComponent {
   }
 
   returnStatusLabel(saleReturn: SaleReturnDto): string {
-    return saleReturn.isVoided ? 'Voided' : 'Active';
+    return this.transloco.translate(saleReturn.isVoided ? 'sales.invoice.voided' : 'common.active');
   }
 
   returnStatusSeverity(
@@ -132,9 +144,16 @@ export class SaleDetailOverlayComponent {
 
   returnFooterNote(): string {
     if (this.canPreviewReturns()) {
-      return 'Return items stays available because at least one sold line is still marked returnable. Print actions are grouped with the receipt, not mixed into the line-item table.';
+      return this.transloco.translate('sales.detail.returnFooterAvailable');
     }
 
-    return 'Return items are unavailable because this receipt has no remaining returnable lines. Print actions are grouped with the receipt, not mixed into the line-item table.';
+    return this.transloco.translate('sales.detail.returnFooterUnavailable');
+  }
+
+  private paymentMethodLabelKey(method: number): string {
+    const label = getPaymentMethodLabel(method).toLowerCase();
+    return ['cash', 'upi', 'card', 'credit'].includes(label)
+      ? `sales.newSale.paymentMethods.${label}`
+      : 'shops.unknown';
   }
 }

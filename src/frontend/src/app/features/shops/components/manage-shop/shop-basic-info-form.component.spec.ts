@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { TranslocoTestingModule } from '@ngneat/transloco';
 
 import { ShopDetailsDto } from '../../services/shop.service';
 import { ShopBasicInfoFormComponent } from './shop-basic-info-form.component';
@@ -21,7 +22,14 @@ describe('ShopBasicInfoFormComponent', () => {
     accountHolderName: null,
   };
 
-  beforeEach(() => TestBed.configureTestingModule({ imports: [ShopBasicInfoFormComponent] }));
+  beforeEach(() =>
+    TestBed.configureTestingModule({
+      imports: [
+        ShopBasicInfoFormComponent,
+        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+      ],
+    }),
+  );
 
   it('patches initial values into the reactive form', () => {
     const fixture = TestBed.createComponent(ShopBasicInfoFormComponent);

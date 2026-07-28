@@ -1,27 +1,45 @@
 <main class="credit-note-print-page">
-  <div class="screen-controls" [attr.aria-label]="'sales.creditNotes.print.controlsLabel' | transloco">
+  <div
+    class="screen-controls"
+    [attr.aria-label]="'sales.creditNotes.print.controlsLabel' | transloco"
+  >
     <button type="button" class="screen-controls__button" (click)="onPrintAgain()">
       {{ 'sales.creditNotes.print.printAgain' | transloco }}
     </button>
-    <button type="button" class="screen-controls__button screen-controls__button--secondary" (click)="onClose()">
+    <button
+      type="button"
+      class="screen-controls__button screen-controls__button--secondary"
+      (click)="onClose()"
+    >
       {{ 'sales.creditNotes.print.close' | transloco }}
     </button>
   </div>
 
-  <section *ngIf="isLoading()" class="print-state" aria-live="polite">{{ 'common.loading' | transloco }}</section>
-
-  <section *ngIf="errorMessage()" class="print-state print-state--error" role="alert">
-    {{ errorMessage() }}
+  <section *ngIf="isLoading()" class="print-state" aria-live="polite">
+    {{ 'common.loading' | transloco }}
   </section>
 
-  <article *ngIf="!isLoading() && !errorMessage() && creditNote() as loadedCreditNote" class="credit-note">
+  <section *ngIf="errorMessage()" class="print-state print-state--error" role="alert">
+    {{ errorMessage().startsWith('sales.') ? (errorMessage() | transloco) : errorMessage() }}
+  </section>
+
+  <article
+    *ngIf="!isLoading() && !errorMessage() && creditNote() as loadedCreditNote"
+    class="credit-note"
+  >
     <header class="credit-note__header">
       <div class="credit-note__shop">
         <p class="credit-note__eyebrow">{{ 'sales.creditNotes.print.title' | transloco }}</p>
         <h1>{{ shop()?.name }}</h1>
-        <p class="credit-note__shop-line">{{ shop()?.address }}, {{ shop()?.city }}, {{ shop()?.state }} {{ shop()?.pincode }}</p>
-        <p *ngIf="shop()?.mobileNumber" class="credit-note__shop-meta">Phone: {{ shop()?.mobileNumber }}</p>
-        <p *ngIf="shop()?.gstNumber" class="credit-note__shop-meta">GSTIN: {{ shop()?.gstNumber }}</p>
+        <p class="credit-note__shop-line">
+          {{ shop()?.address }}, {{ shop()?.city }}, {{ shop()?.state }} {{ shop()?.pincode }}
+        </p>
+        <p *ngIf="shop()?.mobileNumber" class="credit-note__shop-meta">
+          {{ 'sales.invoice.phone' | transloco }}: {{ shop()?.mobileNumber }}
+        </p>
+        <p *ngIf="shop()?.gstNumber" class="credit-note__shop-meta">
+          {{ 'sales.invoice.gstin' | transloco }}: {{ shop()?.gstNumber }}
+        </p>
       </div>
 
       <div
@@ -29,7 +47,9 @@
         [class.credit-note__status--expired]="isExpired(loadedCreditNote)"
         [class.credit-note__status--voided]="isVoided(loadedCreditNote)"
       >
-        <span class="credit-note__status-label">{{ 'sales.creditNotes.print.statusLabel' | transloco }}</span>
+        <span class="credit-note__status-label">{{
+          'sales.creditNotes.print.statusLabel' | transloco
+        }}</span>
         <strong>{{ statusKey(loadedCreditNote) | transloco }}</strong>
         <span class="credit-note__code">{{ loadedCreditNote.code }}</span>
       </div>
@@ -41,11 +61,17 @@
         <dl>
           <div>
             <dt>{{ 'sales.creditNotes.print.issueDate' | transloco }}</dt>
-            <dd>{{ loadedCreditNote.issuedAt | date:'dd MMM yyyy' }}</dd>
+            <dd>{{ loadedCreditNote.issuedAt | date: 'dd MMM yyyy' }}</dd>
           </div>
           <div>
             <dt>{{ 'sales.creditNotes.print.expiryDate' | transloco }}</dt>
-            <dd>{{ loadedCreditNote.expiresAt ? (loadedCreditNote.expiresAt | date:'dd MMM yyyy') : '-' }}</dd>
+            <dd>
+              {{
+                loadedCreditNote.expiresAt
+                  ? (loadedCreditNote.expiresAt | date: 'dd MMM yyyy')
+                  : '-'
+              }}
+            </dd>
           </div>
           <div>
             <dt>{{ 'sales.creditNotes.print.invoiceNumber' | transloco }}</dt>
@@ -63,7 +89,11 @@
         <dl>
           <div>
             <dt>{{ 'sales.creditNotes.print.customer' | transloco }}</dt>
-            <dd>{{ loadedCreditNote.customerDisplayName || 'Walk-in Customer' }}</dd>
+            <dd>
+              {{
+                loadedCreditNote.customerDisplayName || ('sales.invoice.walkInCustomer' | transloco)
+              }}
+            </dd>
           </div>
           <div>
             <dt>{{ 'sales.creditNotes.print.reason' | transloco }}</dt>
@@ -80,16 +110,23 @@
     <section class="credit-note__totals">
       <div class="credit-note__metric">
         <span>{{ 'sales.creditNotes.print.originalAmount' | transloco }}</span>
-        <strong>{{ loadedCreditNote.originalAmount | currency:'INR':'symbol':'1.2-2' }}</strong>
+        <strong>{{
+          loadedCreditNote.originalAmount | currency: 'INR' : 'symbol' : '1.2-2'
+        }}</strong>
       </div>
       <div class="credit-note__metric">
         <span>{{ 'sales.creditNotes.print.availableBalance' | transloco }}</span>
-        <strong>{{ loadedCreditNote.availableBalance | currency:'INR':'symbol':'1.2-2' }}</strong>
+        <strong>{{
+          loadedCreditNote.availableBalance | currency: 'INR' : 'symbol' : '1.2-2'
+        }}</strong>
       </div>
     </section>
 
     <section class="credit-note__markers">
-      <p *ngIf="isExpired(loadedCreditNote)" class="credit-note__marker credit-note__marker--expired">
+      <p
+        *ngIf="isExpired(loadedCreditNote)"
+        class="credit-note__marker credit-note__marker--expired"
+      >
         {{ 'sales.creditNotes.print.expiredMarker' | transloco }}
       </p>
       <p *ngIf="isVoided(loadedCreditNote)" class="credit-note__marker credit-note__marker--voided">

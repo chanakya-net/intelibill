@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
-import { TranslocoTestingModule } from '@ngneat/transloco';
+import { TranslocoService, TranslocoTestingModule } from '@ngneat/transloco';
 import { MessageService } from 'primeng/api';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -144,6 +144,24 @@ describe('InventoryBatchesListPageComponent', () => {
     );
     expect(component.adjustmentReasonOptions().map((option) => option.value)).not.toContain(
       'Damaged',
+    );
+  });
+
+  it('recomputes localized adjustment options after a language switch', () => {
+    httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
+    const transloco = TestBed.inject(TranslocoService);
+    vi.spyOn(transloco, 'translate').mockImplementation(
+      (key) => `${transloco.getActiveLang()}:${String(key)}`,
+    );
+
+    transloco.setActiveLang('en');
+    expect(component.directionOptions()[0].label).toBe(
+      'en:inventory.adjustmentDirection.decrease',
+    );
+
+    transloco.setActiveLang('hi');
+    expect(component.directionOptions()[0].label).toBe(
+      'hi:inventory.adjustmentDirection.decrease',
     );
   });
 

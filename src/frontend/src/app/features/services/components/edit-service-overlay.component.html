@@ -30,7 +30,14 @@
         <div class="editor-grid">
           <div class="field">
             <label for="edit-service-code">{{ 'services.code' | transloco }}</label>
-            <input id="edit-service-code" pInputText type="text" class="w-full" [value]="service.code" readonly />
+            <input
+              id="edit-service-code"
+              pInputText
+              type="text"
+              class="w-full"
+              [value]="service.code"
+              readonly
+            />
           </div>
 
           <div class="field">
@@ -89,7 +96,7 @@
               styleClass="editor-control"
             />
             @if (suggestedTaxSlabs().length > 0) {
-              <div class="suggestion-list" aria-label="Tax suggestions">
+              <div class="suggestion-list" [attr.aria-label]="'hsn.taxSuggestions' | transloco">
                 @for (taxPercentage of suggestedTaxSlabs(); track taxPercentage) {
                   <button
                     pButton
@@ -107,9 +114,15 @@
 
           <div class="field">
             <label for="edit-service-hsn">{{ 'services.hsnSac' | transloco }}</label>
-            <input id="edit-service-hsn" pInputText type="text" class="w-full" formControlName="hsnCode" />
+            <input
+              id="edit-service-hsn"
+              pInputText
+              type="text"
+              class="w-full"
+              formControlName="hsnCode"
+            />
             @if (suggestedHsnCodes().length > 0) {
-              <div class="suggestion-list" aria-label="HSN suggestions">
+              <div class="suggestion-list" [attr.aria-label]="'hsn.hsnSuggestions' | transloco">
                 @for (hsnCode of suggestedHsnCodes(); track hsnCode) {
                   <button
                     pButton
@@ -126,7 +139,11 @@
           </div>
 
           <div class="field checkbox-field wide">
-            <p-checkbox inputId="edit-service-tax-included" formControlName="taxIncluded" [binary]="true" />
+            <p-checkbox
+              inputId="edit-service-tax-included"
+              formControlName="taxIncluded"
+              [binary]="true"
+            />
             <label for="edit-service-tax-included">{{ 'services.taxIncluded' | transloco }}</label>
           </div>
         </div>

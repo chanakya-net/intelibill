@@ -85,6 +85,13 @@ export class ManageShopOverlayComponent implements OnInit {
   readonly bankForm = createManageBankForm(this.formBuilder);
   readonly progressSpinnerPt = { root: { class: 'manage-shop-spinner-root' } };
 
+  roleLabelKey(role: string): string {
+    const normalized = role.toLowerCase();
+    return ['owner', 'manager', 'staff'].includes(normalized)
+      ? `users.${normalized}`
+      : 'shops.unknown';
+  }
+
   constructor() {
     effect(() => {
       const details = this.selectedShopDetails();

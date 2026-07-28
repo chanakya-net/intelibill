@@ -101,7 +101,7 @@ describe('CustomersEffects', () => {
     actions$.next(CustomersActions.addCustomerRequested({ payload: { name: 'A', phoneNumber: '+9198', address: null, isActive: true, creditLimit: 0 } }));
 
     await expect(output).resolves.toEqual(
-      CustomersActions.addCustomerFailed({ errorMessage: 'Failed to add customer' })
+      CustomersActions.addCustomerFailed({ errorMessage: 'errors.customers.addFailed' })
     );
   });
 

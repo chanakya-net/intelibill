@@ -111,7 +111,9 @@ export class SalesPageComponent {
     return Math.min(totalCount, pageNumber * pageSize);
   });
 
-  readonly paginationItems = computed(() => this.getPaginationItems(this.totalPages(), this.pageNumber()));
+  readonly paginationItems = computed(() =>
+    this.getPaginationItems(this.totalPages(), this.pageNumber()),
+  );
 
   constructor() {
     effect((onCleanup) => {
@@ -147,12 +149,16 @@ export class SalesPageComponent {
       this.salesFacade.loadSales(params);
     });
 
-    void this.offlineSalesQueueSync.cleanupSyncedRecords()
+    void this.offlineSalesQueueSync
+      .cleanupSyncedRecords()
       .then(() => this.offlineSalesQueueSync.refreshActiveStatusCounts());
   }
 
-  paymentMethodLabel(method: number): string {
-    return getPaymentMethodLabel(method);
+  paymentMethodLabelKey(method: number): string {
+    const label = getPaymentMethodLabel(method).toLowerCase();
+    return ['cash', 'upi', 'card', 'credit'].includes(label)
+      ? `sales.newSale.paymentMethods.${label}`
+      : 'shops.unknown';
   }
 
   paymentMethodSeverity(method: number): 'success' | 'info' | 'warn' | 'danger' | 'secondary' {
@@ -221,7 +227,8 @@ export class SalesPageComponent {
     if (this.isRetryingOfflineQueue()) return;
 
     this.isRetryingOfflineQueue.set(true);
-    void this.offlineSalesQueueSync.retryActiveShop()
+    void this.offlineSalesQueueSync
+      .retryActiveShop()
       .finally(() => this.isRetryingOfflineQueue.set(false));
   }
 
@@ -261,7 +268,10 @@ export class SalesPageComponent {
     return date;
   }
 
-  private getPaginationItems(totalPages: number, currentPage: number): ReadonlyArray<number | 'ellipsis'> {
+  private getPaginationItems(
+    totalPages: number,
+    currentPage: number,
+  ): ReadonlyArray<number | 'ellipsis'> {
     if (totalPages <= 7) {
       return Array.from({ length: totalPages }, (_, i) => i + 1);
     }

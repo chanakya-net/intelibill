@@ -1,10 +1,18 @@
 import { TestBed } from '@angular/core/testing';
+import { TranslocoTestingModule } from '@ngneat/transloco';
 import { vi } from 'vitest';
 
 import { ShopLogoUploadComponent } from './shop-logo-upload.component';
 
 describe('ShopLogoUploadComponent', () => {
-  beforeEach(() => TestBed.configureTestingModule({ imports: [ShopLogoUploadComponent] }));
+  beforeEach(() =>
+    TestBed.configureTestingModule({
+      imports: [
+        ShopLogoUploadComponent,
+        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+      ],
+    }),
+  );
 
   it('shows the current logo preview', () => {
     const fixture = TestBed.createComponent(ShopLogoUploadComponent);

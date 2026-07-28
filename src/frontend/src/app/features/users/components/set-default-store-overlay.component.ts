@@ -9,6 +9,7 @@ import {
   signal,
 } from '@angular/core';
 import { Store } from '@ngrx/store';
+import { TranslocoPipe } from '@ngneat/transloco';
 
 import { ButtonModule } from 'primeng/button';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
@@ -26,7 +27,7 @@ import {
 @Component({
   selector: 'app-set-default-store-overlay',
   standalone: true,
-  imports: [ButtonModule, ProgressSpinnerModule],
+  imports: [ButtonModule, ProgressSpinnerModule, TranslocoPipe],
   templateUrl: './set-default-store-overlay.component.html',
   styleUrl: './set-default-store-overlay.component.scss',
 })

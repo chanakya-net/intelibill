@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { Component, Input } from '@angular/core';
-import { TranslocoPipe } from '@ngneat/transloco';
+import { Component, Input, inject } from '@angular/core';
+import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 
 import { SALE_RETURN_CONDITIONS } from '../services/sale.models';
 import type { SaleDto, SaleItemDto } from '../services/sale.models';
@@ -14,6 +14,8 @@ import { ShopDetails } from '../../shops/services/shop.service';
   styleUrl: './sale-invoice-a4.component.scss',
 })
 export class SaleInvoiceA4Component {
+  private readonly transloco = inject(TranslocoService);
+
   @Input() sale!: SaleDto;
   @Input() shop!: ShopDetails;
   @Input() pendingSync = false;
@@ -35,24 +37,29 @@ export class SaleInvoiceA4Component {
   }
 
   getPaymentMethodLabel(method: number): string {
-    const map: Record<number, string> = { 1: 'Cash', 2: 'UPI', 3: 'Card', 4: 'Credit' };
-    return map[method] ?? 'Unknown';
+    const map: Record<number, string> = {
+      1: 'sales.newSale.paymentMethods.cash',
+      2: 'sales.newSale.paymentMethods.upi',
+      3: 'sales.newSale.paymentMethods.card',
+      4: 'sales.newSale.paymentMethods.credit',
+    };
+    return this.transloco.translate(map[method] ?? 'shops.unknown');
   }
 
   getReturnConditionLabel(condition: 1 | 2 | null): string {
     if (condition === null) {
-      return 'Refund only';
+      return this.transloco.translate('sales.returns.preview.refundOnlyService');
     }
 
     const condition_map = SALE_RETURN_CONDITIONS.find((c) => c.value === condition);
-    return condition_map?.label ?? 'Unknown';
+    return this.transloco.translate(condition_map?.labelKey ?? 'shops.unknown');
   }
 
   getCustomerDisplay(): string {
     if (this.sale.customerId) {
-      return this.sale.customerName || 'Customer';
+      return this.sale.customerName || this.transloco.translate('sales.invoice.customer');
     }
-    return 'Walk-in';
+    return this.transloco.translate('sales.history.walkIn');
   }
 
   getCustomerPhone(): string | null {
@@ -60,11 +67,11 @@ export class SaleInvoiceA4Component {
   }
 
   hasGoods(): boolean {
-    return this.sale.items.some(i => i.lineType === 'Goods');
+    return this.sale.items.some((i) => i.lineType === 'Goods');
   }
 
   hasServices(): boolean {
-    return this.sale.items.some(i => i.lineType === 'Service');
+    return this.sale.items.some((i) => i.lineType === 'Service');
   }
 
   isMixedBill(): boolean {
@@ -72,10 +79,10 @@ export class SaleInvoiceA4Component {
   }
 
   getGoodsItems(): SaleItemDto[] {
-    return this.sale.items.filter(i => i.lineType === 'Goods');
+    return this.sale.items.filter((i) => i.lineType === 'Goods');
   }
 
   getServiceItems(): SaleItemDto[] {
-    return this.sale.items.filter(i => i.lineType === 'Service');
+    return this.sale.items.filter((i) => i.lineType === 'Service');
   }
 }

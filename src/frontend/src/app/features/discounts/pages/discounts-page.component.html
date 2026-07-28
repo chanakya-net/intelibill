@@ -6,13 +6,18 @@
       <p class="subtitle">{{ 'discounts.subtitle' | transloco }}</p>
       <div class="discounts-hero__meta">
         <span class="meta-chip meta-chip--primary">
-          {{ 'discounts.showingCount' | transloco:{ visible: listItems().length, total: totalCount() } }}
+          {{
+            'discounts.showingCount'
+              | transloco: { visible: listItems().length, total: totalCount() }
+          }}
         </span>
         @if (selectedRule()) {
           <span class="meta-chip">{{ selectedRuleTitle() }}</span>
         }
         <span class="meta-chip">
-          {{ 'discounts.pagination.pageInfo' | transloco:{ page: pageNumber(), total: totalCount() } }}
+          {{
+            'discounts.pagination.pageInfo' | transloco: { page: pageNumber(), total: totalCount() }
+          }}
         </span>
       </div>
     </div>
@@ -29,11 +34,11 @@
     </div>
   </header>
 
-  <div class="summary-grid" aria-label="Discount rules summary">
+  <div class="summary-grid" [attr.aria-label]="'discounts.summary.ariaLabel' | transloco">
     @for (card of summaryCards(); track card.labelKey) {
       <article class="summary-card" [ngClass]="'summary-card--' + card.tone">
         <div class="summary-card__label">{{ card.labelKey | transloco }}</div>
-        <div class="summary-card__value">{{ card.value | number:'1.0-0' }}</div>
+        <div class="summary-card__value">{{ card.value | number: '1.0-0' }}</div>
       </article>
     }
   </div>
@@ -71,10 +76,13 @@
           <p class="directory-panel__subtitle">{{ 'discounts.subtitle' | transloco }}</p>
         </div>
 
-        <div class="directory-panel__metrics" aria-label="Discount rules metrics">
+        <div
+          class="directory-panel__metrics"
+          [attr.aria-label]="'discounts.directoryMetrics' | transloco"
+        >
           @for (metric of directoryMetrics(); track metric.labelKey) {
             <span class="metric-chip">
-              <strong>{{ metric.value | number:'1.0-0' }}</strong>
+              <strong>{{ metric.value | number: '1.0-0' }}</strong>
               <span>{{ metric.labelKey | transloco }}</span>
             </span>
           }
@@ -113,7 +121,11 @@
           <header class="detail-panel__header">
             <div>
               <p class="detail-panel__eyebrow">{{ 'discounts.detail.title' | transloco }}</p>
-              <h3>{{ selectedRule() ? selectedRuleTitle() : ('discounts.detail.emptyTitle' | transloco) }}</h3>
+              <h3>
+                {{
+                  selectedRule() ? selectedRuleTitle() : ('discounts.detail.emptyTitle' | transloco)
+                }}
+              </h3>
             </div>
 
             @if (selectedRule() && selectedRule()?.isActive) {
@@ -154,7 +166,9 @@
           @if (!detailLoading() && selectedRule()) {
             <div class="detail-header">
               <div>
-                <p class="rule-type">{{ ('discounts.ruleType.' + selectedRule()!.ruleType) | transloco }}</p>
+                <p class="rule-type">
+                  {{ 'discounts.ruleType.' + selectedRule()!.ruleType | transloco }}
+                </p>
               </div>
               <p-tag
                 [value]="selectedRuleStatusKey() | transloco"
@@ -166,7 +180,8 @@
               <div class="detail-field">
                 <p class="label">{{ 'discounts.detail.validity' | transloco }}</p>
                 <p class="value">
-                  {{ formatDate(selectedRule()!.startsAt) }} → {{ formatDate(selectedRule()!.endsAt) }}
+                  {{ formatDate(selectedRule()!.startsAt) }} →
+                  {{ formatDate(selectedRule()!.endsAt) }}
                 </p>
               </div>
 

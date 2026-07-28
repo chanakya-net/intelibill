@@ -1,7 +1,18 @@
 import { CommonModule } from '@angular/common';
-import { Component, DestroyRef, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges, inject } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  EventEmitter,
+  Input,
+  OnChanges,
+  OnInit,
+  Output,
+  SimpleChanges,
+  inject,
+} from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { TranslocoPipe } from '@ngneat/transloco';
 
 import { InputTextModule } from 'primeng/inputtext';
 
@@ -11,7 +22,7 @@ import { INDIA_GST_REGEX, toOptionalTrimmed } from './manage-shop-form.helper';
 @Component({
   selector: 'app-shop-basic-info-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, InputTextModule],
+  imports: [CommonModule, ReactiveFormsModule, InputTextModule, TranslocoPipe],
   templateUrl: './shop-basic-info-form.component.html',
 })
 export class ShopBasicInfoFormComponent implements OnInit, OnChanges {
@@ -34,7 +45,9 @@ export class ShopBasicInfoFormComponent implements OnInit, OnChanges {
   });
 
   constructor() {
-    this.form.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.emitFormChange());
+    this.form.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.emitFormChange());
   }
 
   ngOnInit(): void {
@@ -63,7 +76,7 @@ export class ShopBasicInfoFormComponent implements OnInit, OnChanges {
         mobileNumber: values?.mobileNumber ?? '',
         gstNumber: values?.gstNumber ?? '',
       },
-      { emitEvent: false }
+      { emitEvent: false },
     );
   }
 

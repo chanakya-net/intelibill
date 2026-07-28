@@ -1,4 +1,13 @@
-import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, inject } from '@angular/core';
+import {
+  Component,
+  EventEmitter,
+  Input,
+  OnChanges,
+  Output,
+  SimpleChanges,
+  inject,
+} from '@angular/core';
+import { TranslocoPipe } from '@ngneat/transloco';
 import { MenuItem, MenuItemCommandEvent } from 'primeng/api';
 import { PanelMenuModule } from 'primeng/panelmenu';
 
@@ -7,7 +16,7 @@ import { ShellMenuService } from './shell-menu.service';
 @Component({
   selector: 'app-sidebar-nav',
   standalone: true,
-  imports: [PanelMenuModule],
+  imports: [PanelMenuModule, TranslocoPipe],
   templateUrl: './sidebar-nav.component.html',
   styleUrl: './sidebar-nav.component.scss',
 })

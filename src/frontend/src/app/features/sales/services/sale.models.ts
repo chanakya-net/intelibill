@@ -70,7 +70,9 @@ export function mapPayoutDestinationSelectionToReturnPayoutDestination(
   return destination === 4 ? ReturnPayoutDestination.CreditNote : ReturnPayoutDestination.Refund;
 }
 
-export function mapPaymentMethodToPayoutDestination(method: number | null): ReturnPayoutDestination | null {
+export function mapPaymentMethodToPayoutDestination(
+  method: number | null,
+): ReturnPayoutDestination | null {
   if (method === null) return null;
   return ReturnPayoutDestination.Refund;
 }
@@ -87,7 +89,9 @@ export function getPaymentMethodLabel(method: number): string {
   return PAYMENT_METHOD_VALUES.find((entry) => entry.value === method)?.label ?? 'Unknown';
 }
 
-export function getPaymentMethodSeverity(method: number): 'success' | 'info' | 'warn' | 'danger' | 'secondary' {
+export function getPaymentMethodSeverity(
+  method: number,
+): 'success' | 'info' | 'warn' | 'danger' | 'secondary' {
   switch (method) {
     case 1:
       return 'success';
@@ -382,9 +386,9 @@ export interface SalesHistoryQueryParams {
 
 export type SaleReturnCondition = 1 | 2;
 
-export const SALE_RETURN_CONDITIONS: { value: SaleReturnCondition; label: string }[] = [
-  { value: 1, label: 'Restockable' },
-  { value: 2, label: 'Wastage' },
+export const SALE_RETURN_CONDITIONS: { value: SaleReturnCondition; labelKey: string }[] = [
+  { value: 1, labelKey: 'sales.returns.preview.conditions.restockable' },
+  { value: 2, labelKey: 'sales.returns.preview.conditions.wastage' },
 ];
 
 export interface PreviewSaleReturnItemRequest {

@@ -27,13 +27,13 @@
       @if (validationMessages().length > 0) {
         <div class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
           @for (message of validationMessages(); track message) {
-            <p>{{ message }}</p>
+            <p>{{ message | transloco }}</p>
           }
         </div>
       }
       @if (previewError()) {
         <div class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          {{ previewError() }}
+          {{ previewError() | transloco }}
         </div>
       }
     </div>
@@ -55,4 +55,3 @@
     />
   </ng-template>
 </p-dialog>
-

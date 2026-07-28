@@ -5,7 +5,10 @@
         <span>{{ 'inventory.name' | transloco }}</span>
         @if (state.isLoadingHsn()) {
           <div class="hsn-loading">
-            <p-progressSpinner [style]="{ width: '1.25rem', height: '1.25rem' }" strokeWidth="6"></p-progressSpinner>
+            <p-progressSpinner
+              [style]="{ width: '1.25rem', height: '1.25rem' }"
+              strokeWidth="6"
+            ></p-progressSpinner>
             <span>{{ 'hsn.loading' | transloco }}</span>
           </div>
         }
@@ -56,8 +59,12 @@
 
     <div class="optional-details-toggle-row">
       <div class="optional-details-toggle-text">
-        <div class="optional-details-toggle-heading">{{ 'inventory.optionalDetailsHeading' | transloco }}</div>
-        <div class="optional-details-toggle-summary">{{ 'inventory.optionalDetailsSummary' | transloco }}</div>
+        <div class="optional-details-toggle-heading">
+          {{ 'inventory.optionalDetailsHeading' | transloco }}
+        </div>
+        <div class="optional-details-toggle-summary">
+          {{ 'inventory.optionalDetailsSummary' | transloco }}
+        </div>
       </div>
       <button
         pButton
@@ -70,8 +77,10 @@
         [attr.aria-expanded]="optionalDetailsExpanded()"
         [attr.aria-controls]="'batch-row-form-optional-details'"
         [attr.aria-label]="
-          (optionalDetailsExpanded() ? 'inventory.optionalDetailsCollapseLabel' : 'inventory.optionalDetailsExpandLabel')
-            | transloco
+          (optionalDetailsExpanded()
+            ? 'inventory.optionalDetailsCollapseLabel'
+            : 'inventory.optionalDetailsExpandLabel'
+          ) | transloco
         "
       ></button>
     </div>
@@ -145,17 +154,24 @@
               mode="decimal"
               [maxFractionDigits]="2"
               [fluid]="true"
-              placeholder="ex: 200"
+              [placeholder]="'inventory.quantityPlaceholder' | transloco"
               [minFractionDigits]="2"
             ></p-inputNumber>
             <p-select
               formControlName="taxIncluded"
               [options]="state.taxModeOptions()"
-              optionLabel="label"
+              optionLabel="labelKey"
               optionValue="value"
               [fluid]="true"
               appendTo="body"
-            ></p-select>
+            >
+              <ng-template pTemplate="selectedItem" let-option>
+                {{ option?.labelKey | transloco }}
+              </ng-template>
+              <ng-template pTemplate="item" let-option>
+                {{ option.labelKey | transloco }}
+              </ng-template>
+            </p-select>
           </p-inputgroup>
         </label>
 

@@ -43,14 +43,22 @@
             </div>
             <div class="flex flex-col gap-0.5 mt-0.5">
               <div class="flex items-center gap-1.5">
-                <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none">Batch</span>
+                <span
+                  class="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none"
+                  >{{ 'inventory.batchNumber' | transloco }}</span
+                >
                 <span class="text-slate-500 font-mono text-xs tracking-tighter leading-none">
                   {{ batch.batchNumber }}
                 </span>
               </div>
               <div class="flex items-center gap-1.5">
-                <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none">Qty</span>
-                <span class="text-xs font-bold text-slate-700 leading-none">{{ batch.quantity }}</span>
+                <span
+                  class="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none"
+                  >{{ 'inventory.quantity' | transloco }}</span
+                >
+                <span class="text-xs font-bold text-slate-700 leading-none">{{
+                  batch.quantity
+                }}</span>
               </div>
             </div>
           </div>
@@ -70,7 +78,9 @@
                 icon="pi pi-print"
                 [outlined]="true"
                 severity="secondary"
-                [pt]="{ root: { class: 'w-8 h-8 p-0 border-slate-200 text-slate-500 hover:bg-slate-50' } }"
+                [pt]="{
+                  root: { class: 'w-8 h-8 p-0 border-slate-200 text-slate-500 hover:bg-slate-50' },
+                }"
                 (click)="$event.stopPropagation(); onRowAction('printLabels', batch.id)"
                 [disabled]="batch.isVoided"
                 [attr.aria-label]="'inventory.printLabels' | transloco"
@@ -79,7 +89,9 @@
                 icon="pi pi-sliders-h"
                 [outlined]="true"
                 severity="secondary"
-                [pt]="{ root: { class: 'w-8 h-8 p-0 border-slate-200 text-slate-500 hover:bg-slate-50' } }"
+                [pt]="{
+                  root: { class: 'w-8 h-8 p-0 border-slate-200 text-slate-500 hover:bg-slate-50' },
+                }"
                 (click)="$event.stopPropagation(); onRowAction('adjust', batch.id)"
                 [disabled]="batch.isVoided"
                 [attr.aria-label]="'inventory.adjustBatch' | transloco"
@@ -88,7 +100,9 @@
                 icon="pi pi-pencil"
                 [outlined]="true"
                 severity="secondary"
-                [pt]="{ root: { class: 'w-8 h-8 p-0 border-slate-200 text-slate-500 hover:bg-slate-50' } }"
+                [pt]="{
+                  root: { class: 'w-8 h-8 p-0 border-slate-200 text-slate-500 hover:bg-slate-50' },
+                }"
                 (click)="$event.stopPropagation(); onRowAction('edit', batch.id)"
                 [disabled]="batch.isVoided"
                 [attr.aria-label]="'common.edit' | transloco"
@@ -97,7 +111,9 @@
                 icon="pi pi-trash"
                 [outlined]="true"
                 severity="danger"
-                [pt]="{ root: { class: 'w-8 h-8 p-0 border-red-200 text-red-500 hover:bg-red-50' } }"
+                [pt]="{
+                  root: { class: 'w-8 h-8 p-0 border-red-200 text-red-500 hover:bg-red-50' },
+                }"
                 (click)="$event.stopPropagation(); onRowAction('void', batch.id)"
                 [disabled]="batch.isVoided"
                 [attr.aria-label]="'common.void' | transloco"
@@ -124,7 +140,14 @@
     [paginator]="batches.length > 10"
     [rows]="10"
     [rowsPerPageOptions]="[10, 25, 50]"
-    [globalFilterFields]="['itemName', 'barcode', 'batchNumber', 'quantity', 'salesPrice', 'isVoided']"
+    [globalFilterFields]="[
+      'itemName',
+      'barcode',
+      'batchNumber',
+      'quantity',
+      'salesPrice',
+      'isVoided',
+    ]"
     [sortField]="'itemName'"
     [sortOrder]="1"
     [scrollable]="true"
@@ -220,9 +243,7 @@
         <td>{{ batch.barcode }}</td>
         <td>{{ batch.batchNumber }}</td>
         <td>{{ batch.quantity }}</td>
-        <td>
-          {{ 'common.currencySymbol' | transloco }} {{ batch.salesPrice | number: '1.2-2' }}
-        </td>
+        <td>{{ 'common.currencySymbol' | transloco }} {{ batch.salesPrice | number: '1.2-2' }}</td>
         <td>
           @if (batch.isVoided) {
             <p-tag severity="danger" [value]="'inventory.voided' | transloco"></p-tag>
@@ -272,7 +293,9 @@
     <ng-template pTemplate="emptymessage">
       <tr>
         <td [attr.colspan]="8">
-          <div class="empty-state"><p>{{ 'inventory.noItemsFound' | transloco }}</p></div>
+          <div class="empty-state">
+            <p>{{ 'inventory.noItemsFound' | transloco }}</p>
+          </div>
         </td>
       </tr>
     </ng-template>

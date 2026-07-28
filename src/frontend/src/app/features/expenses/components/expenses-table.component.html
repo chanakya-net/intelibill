@@ -1,4 +1,4 @@
-<section class="expenses-table-shell" aria-label="Expense ledger results">
+<section class="expenses-table-shell" [attr.aria-label]="'expenses.ledgerResults' | transloco">
   <div class="mobile-grid-container">
     @for (expense of tableExpenses; track expense.id) {
       <article class="expense-card" [class.expense-card--voided]="expense.isVoided">
@@ -17,7 +17,11 @@
             </span>
           </div>
 
-          <span class="status-badge" [class.status-badge--voided]="expense.isVoided" [class.status-badge--active]="!expense.isVoided">
+          <span
+            class="status-badge"
+            [class.status-badge--voided]="expense.isVoided"
+            [class.status-badge--active]="!expense.isVoided"
+          >
             <span class="status-dot"></span>
             {{ (expense.isVoided ? 'expenses.voided' : 'expenses.active') | transloco }}
           </span>
@@ -26,11 +30,14 @@
         <div class="expense-card__metrics">
           <div>
             <span>{{ 'expenses.amount' | transloco }}</span>
-            <strong>{{ 'common.currencySymbol' | transloco }}{{ expense.amount | number:'1.2-2' }}</strong>
+            <strong
+              >{{ 'common.currencySymbol' | transloco
+              }}{{ expense.amount | number: '1.2-2' }}</strong
+            >
           </div>
           <div>
             <span>{{ 'expenses.expenseDate' | transloco }}</span>
-            <strong>{{ expense.expenseDate | dateOnly:'mediumDate' }}</strong>
+            <strong>{{ expense.expenseDate | dateOnly: 'mediumDate' }}</strong>
           </div>
         </div>
 
@@ -91,10 +98,16 @@
             </div>
           </td>
           <td>{{ expense.paidTo }}</td>
-          <td class="money">{{ 'common.currencySymbol' | transloco }}{{ expense.amount | number:'1.2-2' }}</td>
-          <td>{{ expense.expenseDate | dateOnly:'mediumDate' }}</td>
+          <td class="money">
+            {{ 'common.currencySymbol' | transloco }}{{ expense.amount | number: '1.2-2' }}
+          </td>
+          <td>{{ expense.expenseDate | dateOnly: 'mediumDate' }}</td>
           <td>
-            <span class="status-badge" [class.status-badge--voided]="expense.isVoided" [class.status-badge--active]="!expense.isVoided">
+            <span
+              class="status-badge"
+              [class.status-badge--voided]="expense.isVoided"
+              [class.status-badge--active]="!expense.isVoided"
+            >
               <span class="status-dot"></span>
               {{ (expense.isVoided ? 'expenses.voided' : 'expenses.active') | transloco }}
             </span>
@@ -129,7 +142,9 @@
         <tr>
           <td [attr.colspan]="canManageExpenses ? 6 : 5">
             <div class="table-footer">
-              <span>{{ 'expenses.showingCount' | transloco:{ visible: visibleRows, total: totalRows } }}</span>
+              <span>{{
+                'expenses.showingCount' | transloco: { visible: visibleRows, total: totalRows }
+              }}</span>
               @if (showPagination) {
                 <div class="pagination-controls">
                   <p-button
@@ -140,7 +155,7 @@
                     [text]="true"
                   />
                   <span class="page-info">
-                    {{ 'expenses.pageInfo' | transloco:{ currentPage, totalPages } }}
+                    {{ 'expenses.pageInfo' | transloco: { currentPage, totalPages } }}
                   </span>
                   <p-button
                     icon="pi pi-chevron-right"

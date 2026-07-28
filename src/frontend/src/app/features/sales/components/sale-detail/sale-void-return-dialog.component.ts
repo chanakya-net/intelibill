@@ -107,7 +107,7 @@ export class SaleVoidReturnDialogComponent {
 
     const reason = this.normalizeOptional(this.voidReason());
     if (!reason) {
-      this.validationMessages.set(['Void reason is required.']);
+      this.validationMessages.set(['sales.returns.void.reasonRequired']);
       return;
     }
 

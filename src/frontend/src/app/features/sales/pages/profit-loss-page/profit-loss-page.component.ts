@@ -71,7 +71,10 @@ export class ProfitLossPageComponent {
     { label: 'sales.profitLoss.filters.type.all', value: 'all' as const },
     { label: 'sales.profitLoss.filters.type.sale', value: 'sale' as const },
     { label: 'sales.profitLoss.filters.type.saleReturn', value: 'saleReturn' as const },
-    { label: 'sales.profitLoss.filters.type.inventoryAdjustment', value: 'inventoryAdjustment' as const },
+    {
+      label: 'sales.profitLoss.filters.type.inventoryAdjustment',
+      value: 'inventoryAdjustment' as const,
+    },
   ];
 
   readonly pageSizeOptions = [
@@ -126,7 +129,9 @@ export class ProfitLossPageComponent {
     return Math.min(totalCount, pageNumber * pageSize);
   });
 
-  readonly paginationItems = computed(() => this.getPaginationItems(this.totalPages(), this.pageNumber()));
+  readonly paginationItems = computed(() =>
+    this.getPaginationItems(this.totalPages(), this.pageNumber()),
+  );
 
   constructor() {
     effect((onCleanup) => {
@@ -243,11 +248,14 @@ export class ProfitLossPageComponent {
     this.salesExportService.exportProfitLoss(params).subscribe({
       next: (response) => {
         this.isExporting.set(false);
-        const filename = this.salesExportService.extractFilenameWithPrefix(response, 'profit-loss-export');
+        const filename = this.salesExportService.extractFilenameWithPrefix(
+          response,
+          'profit-loss-export',
+        );
         const blob = response.body;
 
         if (!blob) {
-          this.exportError.set('Unable to export profit and loss report.');
+          this.exportError.set('sales.profitLoss.errors.exportFailed');
           return;
         }
 
@@ -255,7 +263,7 @@ export class ProfitLossPageComponent {
       },
       error: () => {
         this.isExporting.set(false);
-        this.exportError.set('Unable to export profit and loss report.');
+        this.exportError.set('sales.profitLoss.errors.exportFailed');
       },
     });
   }
@@ -312,7 +320,10 @@ export class ProfitLossPageComponent {
     return Math.max(1, value || 20);
   }
 
-  private getPaginationItems(totalPages: number, currentPage: number): ReadonlyArray<number | 'ellipsis'> {
+  private getPaginationItems(
+    totalPages: number,
+    currentPage: number,
+  ): ReadonlyArray<number | 'ellipsis'> {
     if (totalPages <= 7) {
       return Array.from({ length: totalPages }, (_, index) => index + 1);
     }

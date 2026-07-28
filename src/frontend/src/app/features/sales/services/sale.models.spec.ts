@@ -39,9 +39,15 @@ describe('sale.models', () => {
       expect(SALE_RETURN_CONDITIONS).toHaveLength(2);
     });
 
-    it('maps condition values to expected labels', () => {
-      expect(SALE_RETURN_CONDITIONS[0]).toEqual({ value: 1, label: 'Restockable' });
-      expect(SALE_RETURN_CONDITIONS[1]).toEqual({ value: 2, label: 'Wastage' });
+    it('maps condition values to localization keys', () => {
+      expect(SALE_RETURN_CONDITIONS[0]).toEqual({
+        value: 1,
+        labelKey: 'sales.returns.preview.conditions.restockable',
+      });
+      expect(SALE_RETURN_CONDITIONS[1]).toEqual({
+        value: 2,
+        labelKey: 'sales.returns.preview.conditions.wastage',
+      });
     });
   });
 

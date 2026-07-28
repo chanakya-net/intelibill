@@ -1,6 +1,6 @@
 import { CommonModule, CurrencyPipe } from '@angular/common';
-import { Component, EventEmitter, Input, Output } from '@angular/core';
-import { TranslocoPipe } from '@ngneat/transloco';
+import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
+import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import { AvatarModule } from 'primeng/avatar';
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
@@ -12,11 +12,22 @@ import { Supplier } from '../services/supplier.service';
 @Component({
   selector: 'app-suppliers-table',
   standalone: true,
-  imports: [CommonModule, AvatarModule, ButtonModule, CardModule, TagModule, TableModule, TranslocoPipe, CurrencyPipe],
+  imports: [
+    CommonModule,
+    AvatarModule,
+    ButtonModule,
+    CardModule,
+    TagModule,
+    TableModule,
+    TranslocoPipe,
+    CurrencyPipe,
+  ],
   templateUrl: './suppliers-table.component.html',
   styleUrl: './suppliers-table.component.scss',
 })
 export class SuppliersTableComponent {
+  private readonly transloco = inject(TranslocoService);
+
   @Input({ required: true }) suppliers: readonly Supplier[] = [];
   @Input() canManageSuppliers = false;
   @Input() canMakePayment = false;
@@ -37,8 +48,14 @@ export class SuppliersTableComponent {
 
   supplierAvatarColor(name: string): string {
     const colors = [
-      '#b45309', '#0369a1', '#15803d', '#7c3aed',
-      '#be185d', '#c2410c', '#0f766e', '#1d4ed8',
+      '#b45309',
+      '#0369a1',
+      '#15803d',
+      '#7c3aed',
+      '#be185d',
+      '#c2410c',
+      '#0f766e',
+      '#1d4ed8',
     ];
     let hash = 0;
     for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
@@ -66,11 +83,15 @@ export class SuppliersTableComponent {
 
   getBalanceLabel(supplier: Supplier): string {
     if (supplier.balanceDue > 0) {
-      return `Amount Due: ${this.formatCurrency(supplier.balanceDue)}`;
+      return this.transloco.translate('suppliers.balanceLabels.amountDue', {
+        amount: this.formatCurrency(supplier.balanceDue),
+      });
     }
     if (supplier.balanceDue < 0) {
-      return `Extra Payment: ${this.formatCurrency(Math.abs(supplier.balanceDue))}`;
+      return this.transloco.translate('suppliers.balanceLabels.extraPayment', {
+        amount: this.formatCurrency(Math.abs(supplier.balanceDue)),
+      });
     }
-    return 'No Balance';
+    return this.transloco.translate('suppliers.balanceLabels.none');
   }
 }

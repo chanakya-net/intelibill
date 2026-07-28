@@ -1,7 +1,7 @@
 <nav
   class="sidebar-nav"
   [class.is-collapsed]="collapsed"
-  aria-label="Main navigation"
+  [attr.aria-label]="'shell.mainNavigation' | transloco"
   (click)="onSidebarClick($event)"
 >
   <p-panelmenu

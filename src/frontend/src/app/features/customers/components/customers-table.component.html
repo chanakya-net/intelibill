@@ -1,4 +1,4 @@
-<section class="customers-table-shell" aria-label="Customer directory results">
+<section class="customers-table-shell" [attr.aria-label]="'customers.directoryResults' | transloco">
   <div class="mobile-grid-container">
     @for (customer of tableCustomers; track customer.customerId) {
       <article
@@ -8,7 +8,11 @@
         [class.customer-card--credit]="customerStatus(customer) === 'inCredit'"
       >
         <header class="customer-card__header">
-          <button type="button" class="customer-card__identity" (click)="onOpenCustomerAccount(customer)">
+          <button
+            type="button"
+            class="customer-card__identity"
+            (click)="onOpenCustomerAccount(customer)"
+          >
             <p-avatar
               [label]="customerInitials(customer.name)"
               [style]="{ 'background-color': customerAvatarColor(customer.name), color: '#ffffff' }"
@@ -30,11 +34,17 @@
         <div class="customer-card__metrics">
           <div>
             <span>{{ 'customers.account.outstandingDue' | transloco }}</span>
-            <strong>{{ 'common.currencySymbol' | transloco }}{{ (customer.outstandingDue ?? 0) | number:'1.2-2' }}</strong>
+            <strong
+              >{{ 'common.currencySymbol' | transloco
+              }}{{ customer.outstandingDue ?? 0 | number: '1.2-2' }}</strong
+            >
           </div>
           <div>
             <span>{{ 'customers.creditLimit' | transloco }}</span>
-            <strong>{{ 'common.currencySymbol' | transloco }}{{ customer.creditLimit | number:'1.2-2' }}</strong>
+            <strong
+              >{{ 'common.currencySymbol' | transloco
+              }}{{ customer.creditLimit | number: '1.2-2' }}</strong
+            >
           </div>
         </div>
 
@@ -97,7 +107,11 @@
       <ng-template pTemplate="body" let-customer>
         <tr [class.customer-row--inactive]="customerStatus(customer) === 'inactive'">
           <td>
-            <button type="button" class="customer-name-link" (click)="onOpenCustomerAccount(customer)">
+            <button
+              type="button"
+              class="customer-name-link"
+              (click)="onOpenCustomerAccount(customer)"
+            >
               <span
                 class="customer-name-link__avatar"
                 [style.background-color]="customerAvatarColor(customer.name)"
@@ -112,16 +126,29 @@
             </button>
           </td>
           <td>{{ customer.phoneNumber }}</td>
-          <td class="money money--outstanding">{{ 'common.currencySymbol' | transloco }}{{ (customer.outstandingDue ?? 0) | number:'1.2-2' }}</td>
-          <td class="money">{{ 'common.currencySymbol' | transloco }}{{ customer.creditLimit | number:'1.2-2' }}</td>
+          <td class="money money--outstanding">
+            {{ 'common.currencySymbol' | transloco
+            }}{{ customer.outstandingDue ?? 0 | number: '1.2-2' }}
+          </td>
+          <td class="money">
+            {{ 'common.currencySymbol' | transloco }}{{ customer.creditLimit | number: '1.2-2' }}
+          </td>
           <td>
             <div class="usage-cell">
               <div class="usage-cell__top">
-                <span>{{ 'common.currencySymbol' | transloco }}{{ (customer.outstandingDue ?? 0) | number:'1.2-2' }} / {{ 'common.currencySymbol' | transloco }}{{ customer.creditLimit | number:'1.2-2' }}</span>
+                <span
+                  >{{ 'common.currencySymbol' | transloco
+                  }}{{ customer.outstandingDue ?? 0 | number: '1.2-2' }} /
+                  {{ 'common.currencySymbol' | transloco
+                  }}{{ customer.creditLimit | number: '1.2-2' }}</span
+                >
                 <small>{{ customerUsageLabel(customer) }}</small>
               </div>
               <div class="usage-bar" aria-hidden="true">
-                <span class="usage-bar__fill" [style.width.%]="customerUsagePercent(customer)"></span>
+                <span
+                  class="usage-bar__fill"
+                  [style.width.%]="customerUsagePercent(customer)"
+                ></span>
               </div>
             </div>
           </td>
@@ -168,7 +195,9 @@
         <tr>
           <td colspan="7">
             <div class="table-footer">
-              <span>{{ 'customers.showingCount' | transloco:{ visible: visibleRows, total: totalRows } }}</span>
+              <span>{{
+                'customers.showingCount' | transloco: { visible: visibleRows, total: totalRows }
+              }}</span>
             </div>
           </td>
         </tr>

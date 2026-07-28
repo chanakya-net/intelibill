@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { TranslocoPipe } from '@ngneat/transloco';
 
 import { ButtonModule } from 'primeng/button';
 
@@ -8,7 +9,7 @@ import { ShopMemberDto, ShopRole } from '../../services/shop.service';
 @Component({
   selector: 'app-shop-members-table',
   standalone: true,
-  imports: [CommonModule, ButtonModule],
+  imports: [CommonModule, ButtonModule, TranslocoPipe],
   templateUrl: './shop-members-table.component.html',
 })
 export class ShopMembersTableComponent {
@@ -25,7 +26,20 @@ export class ShopMembersTableComponent {
   }
 
   displayName(member: ShopMemberDto): string {
-    return member.fullName?.trim() || [member.firstName, member.lastName].filter(Boolean).join(' ').trim() || member.email?.trim() || member.phoneNumber?.trim() || member.userId;
+    return (
+      member.fullName?.trim() ||
+      [member.firstName, member.lastName].filter(Boolean).join(' ').trim() ||
+      member.email?.trim() ||
+      member.phoneNumber?.trim() ||
+      member.userId
+    );
+  }
+
+  roleLabelKey(role: string): string {
+    const normalized = role.toLowerCase();
+    return ['owner', 'manager', 'staff'].includes(normalized)
+      ? `users.${normalized}`
+      : 'shops.unknown';
   }
 
   onRoleChanged(userId: string, role: string): void {
