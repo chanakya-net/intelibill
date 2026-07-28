@@ -72,6 +72,7 @@ module "environment_infrastructure" {
     name          = local.database_name
     max_pool_size = 12
   }
+  new_relic_otlp_endpoint       = "https://otlp.eu01.nr-data.net:4318"
   new_relic_api_key_secret_name = var.new_relic_api_key_secret_name
   bootstrap_image               = var.bootstrap_image
 }
