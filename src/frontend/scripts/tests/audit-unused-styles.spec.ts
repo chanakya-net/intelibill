@@ -39,7 +39,12 @@ async function fixtureProject(): Promise<string> {
   await writeFile(
     join(root, 'src', 'styles.css'),
     `@import './theme.scss';
-:root { --brand: #123456; --unused-token: 1rem; }
+:root {
+  --brand: #123456;
+  --typescript-brand: #654321;
+  --template-brand: #abcdef;
+  --unused-token: 1rem;
+}
 .literal { color: var(--brand); animation: pulse 1s; }
 .bound {}
 .ng-array {}
@@ -49,7 +54,18 @@ async function fixtureProject(): Promise<string> {
 .host-bound {}
 .bound-host {}
 .ts-string {}
+.if-only {}
+.else-only {}
+.switch-only {}
+.switch-default-only {}
+.for-only {}
+.for-empty-only {}
+.defer-only {}
+.defer-placeholder-only {}
+.defer-loading-only {}
+.defer-error-only {}
 .dynamic-success {}
+.status-danger {}
 .feature-only {}
 .p-button {}
 .pi-check {}
@@ -83,9 +99,33 @@ $unused-sass: pink;
     join(root, 'src', 'app', 'example.component.html'),
     `<main class="literal component-class inline-class hoverable"
   [class.bound]="enabled"
+  [style.--template-brand]="tone"
   [ngClass]="['ng-array', { 'ng-object': enabled }, enabled ? 'ng-conditional' : 'other']">
   <p-button styleClass="p-button"></p-button>
-</main>`,
+</main>
+@if (enabled) {
+  <span class="if-only"></span>
+} @else {
+  <span class="else-only"></span>
+}
+@switch (tone) {
+  @case ('success') { <span class="switch-only"></span> }
+  @default { <span class="switch-default-only"></span> }
+}
+@for (item of items; track item) {
+  <span class="for-only"></span>
+} @empty {
+  <span class="for-empty-only"></span>
+}
+@defer {
+  <span class="defer-only"></span>
+} @placeholder {
+  <span class="defer-placeholder-only"></span>
+} @loading {
+  <span class="defer-loading-only"></span>
+} @error {
+  <span class="defer-error-only"></span>
+}`,
   );
   await writeFile(
     join(root, 'src', 'app', 'example.component.ts'),
@@ -101,6 +141,8 @@ export class ExampleComponent {
   @HostBinding('class.bound-host') boundHost = true;
   readonly className = 'ts-string';
   readonly dynamicClass = 'dynamic-' + this.tone;
+  readonly templateDynamicClass = \`status-\${this.tone}\`;
+  readonly brand = document.body.style.getPropertyValue('--typescript-brand');
   readonly featureClass = this.enabled ? 'feature-only' : '';
   tone = 'success';
   enabled = true;
@@ -182,6 +224,43 @@ describe('static first-party style usage audit', () => {
         line: expect.any(Number),
         column: expect.any(Number),
       });
+    }
+  });
+
+  it('matches classes inside Angular control-flow and deferred blocks', async () => {
+    const report = await analyzeStyleUsage({ rootDir: await fixtureProject() });
+
+    for (const name of [
+      '.if-only',
+      '.else-only',
+      '.switch-only',
+      '.switch-default-only',
+      '.for-only',
+      '.for-empty-only',
+      '.defer-only',
+      '.defer-placeholder-only',
+      '.defer-loading-only',
+      '.defer-error-only',
+    ]) {
+      expect(entry(report, name)?.disposition, name).toBe('used');
+    }
+  });
+
+  it('retains selectors matching TypeScript template-literal class prefixes', async () => {
+    const report = await analyzeStyleUsage({ rootDir: await fixtureProject() });
+
+    expect(entry(report, '.status-danger')).toMatchObject({
+      disposition: 'uncertain',
+      risks: expect.arrayContaining(['dynamic-class']),
+    });
+  });
+
+  it('matches custom properties referenced from TypeScript and Angular style bindings', async () => {
+    const report = await analyzeStyleUsage({ rootDir: await fixtureProject() });
+
+    for (const name of ['--typescript-brand', '--template-brand']) {
+      expect(entry(report, name)?.disposition, name).toBe('used');
+      expect(entry(report, name)?.references.length, name).toBeGreaterThan(0);
     }
   });
 

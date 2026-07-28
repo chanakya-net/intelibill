@@ -41,9 +41,15 @@ if (runIndex !== -1) {
   }
 }
 
-const result = spawnSync(command, commandArgs, {
-  stdio: 'inherit',
-  env: process.env,
-});
+function run(executable, executableArgs) {
+  return spawnSync(executable, executableArgs, {
+    stdio: 'inherit',
+    env: process.env,
+  }).status ?? 1;
+}
 
-process.exit(result.status ?? 1);
+let exitCode = run(command, commandArgs);
+if (exitCode === 0 && args.length === 0) {
+  exitCode = run('bun', ['test', 'scripts/tests']);
+}
+process.exit(exitCode);

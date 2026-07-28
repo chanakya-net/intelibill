@@ -1,12 +1,16 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { dirname, join, normalize, relative, resolve } from 'node:path';
 import process from 'node:process';
-import { parseTemplate } from '@angular/compiler';
 import postcss from 'postcss';
 import selectorParser from 'postcss-selector-parser';
 import scss from 'postcss-scss';
-import ts from 'typescript';
 import { writeRedactedArtifacts } from '../tests/ui-audit/support/artifact-redaction.ts';
+import {
+  addReference,
+  inspectConfiguration,
+  inspectTemplate,
+  inspectTypeScript,
+} from './style-audit-references.mjs';
 const STYLE_EXTENSIONS = /\.(?:css|scss|sass)$/i;
 const CONFIGURATION = /^(?:angular|package|tsconfig[^/]*|ngsw-config)\.json$|postcss|tailwind/i;
 const STRONG_RISKS = new Set([
@@ -39,144 +43,6 @@ async function discoverFiles(root) {
   return found.sort();
 }
 const toPath = (root, path) => relative(root, path).replaceAll('\\', '/');
-const propertyName = (node) =>
-  ts.isIdentifier(node) || ts.isStringLiteral(node) ? node.text : undefined;
-const literals = (node) => {
-  if (ts.isStringLiteralLike(node)) return [node];
-  return ts.isArrayLiteralExpression(node)
-    ? node.elements.filter((item) => ts.isStringLiteralLike(item))
-    : [];
-};
-function sourceLocation(path, content, offset, baseLine = 1, baseColumn = 1) {
-  const before = content.slice(0, Math.max(0, offset)).split('\n');
-  return {
-    path,
-    line: baseLine + before.length - 1,
-    column: (before.length === 1 ? baseColumn - 1 : 0) + before.at(-1).length + 1,
-  };
-}
-function addReference(referenceMap, token, reference) {
-  if (!token) return;
-  const references = referenceMap.get(token) ?? [];
-  const key = `${reference.path}:${reference.line}:${reference.column}:${reference.kind}`;
-  if (!references.some((item) => item.key === key)) references.push({ ...reference, key });
-  referenceMap.set(token, references);
-}
-function addStringReferences(referenceMap, value, location, kind) {
-  for (const match of value.matchAll(/-?[_a-zA-Z][\w:-]*/g)) {
-    addReference(referenceMap, match[0], {
-      ...location,
-      column: location.column + (match.index ?? 0),
-      kind,
-    });
-  }
-}
-function addDynamicReferences(dynamicReferences, value, location) {
-  for (const match of value.matchAll(/['"`]([_a-zA-Z][\w-]*-)['"`]\s*(?:\+|\$\{)/g)) {
-    dynamicReferences.push({ prefix: match[1], reference: { ...location, kind: 'dynamic-class' } });
-  }
-}
-function literalDocument(root, source, node, kind) {
-  const start = source.getLineAndCharacterOfPosition(node.getStart(source) + 1);
-  return {
-    path: toPath(root, source.fileName),
-    content: node.text,
-    kind,
-    baseLine: start.line + 1,
-    baseColumn: start.character + 1,
-  };
-}
-function inspectTypeScript(root, absolute, content, state) {
-  const path = toPath(root, absolute);
-  const source = ts.createSourceFile(absolute, content, ts.ScriptTarget.Latest, true);
-  const visit = (node) => {
-    if (ts.isPropertyAssignment(node)) {
-      const name = propertyName(node.name);
-      const values = literals(node.initializer);
-      if (name === 'styles') {
-        state.inlineStyles.push(...values.map((item) => literalDocument(root, source, item, 'inline-style')));
-        return;
-      }
-      if (name === 'template') {
-        state.inlineTemplates.push(...values.map((item) => literalDocument(root, source, item, 'inline-template')));
-        return;
-      }
-      if (name === 'styleUrl' || name === 'styleUrls') {
-        for (const item of values) state.componentStyles.add(resolve(dirname(absolute), item.text));
-        return;
-      }
-      if (name === 'templateUrl') {
-        for (const item of values) state.templates.add(resolve(dirname(absolute), item.text));
-        return;
-      }
-    }
-    if (ts.isImportDeclaration(node)) return;
-    if (ts.isStringLiteralLike(node)) {
-      const start = source.getLineAndCharacterOfPosition(node.getStart(source) + 1);
-      const location = { path, line: start.line + 1, column: start.character + 1 };
-      addStringReferences(state.references, node.text, location, 'typescript-string');
-      addDynamicReferences(state.dynamicReferences, node.text, location);
-    }
-    if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.PlusToken) {
-      const text = node.getText(source);
-      const start = source.getLineAndCharacterOfPosition(node.getStart(source));
-      addDynamicReferences(state.dynamicReferences, text, {
-        path,
-        line: start.line + 1,
-        column: start.character + 1,
-      });
-    }
-    ts.forEachChild(node, visit);
-  };
-  visit(source);
-}
-function inspectConfiguration(file, state) {
-  const source = ts.parseJsonText(file.absolute, file.content);
-  const visit = (node) => {
-    if (ts.isStringLiteral(node)) {
-      const start = source.getLineAndCharacterOfPosition(node.getStart(source) + 1);
-      addStringReferences(state.references, node.text, {
-        path: file.path,
-        line: start.line + 1,
-        column: start.character + 1,
-      }, 'configuration-string');
-    }
-    ts.forEachChild(node, visit);
-  };
-  visit(source);
-}
-function inspectTemplate(document, state) {
-  const location = (offset) =>
-    sourceLocation(document.path, document.content, offset, document.baseLine, document.baseColumn);
-  const parsed = parseTemplate(document.content, document.path, { preserveWhitespaces: true });
-  for (const error of parsed.errors ?? []) {
-    state.diagnostics.push({ path: document.path, message: String(error) });
-  }
-  const visit = (node) => {
-    for (const attribute of node.attributes ?? []) {
-      if (!['class', 'styleClass'].includes(attribute.name)) continue;
-      addStringReferences(
-        state.references,
-        attribute.value,
-        location(attribute.valueSpan?.start.offset ?? attribute.sourceSpan.start.offset),
-        `angular-${attribute.name}`,
-      );
-    }
-    for (const input of node.inputs ?? []) {
-      const raw = input.sourceSpan.toString();
-      const classMatch = raw.match(/^\[class\.([^\]]+)]/);
-      if (classMatch) addReference(state.references, classMatch[1], { ...location(input.sourceSpan.start.offset), kind: 'angular-class-binding' });
-      if (['ngClass', 'styleClass', 'class'].includes(input.name)) {
-        const value = input.valueSpan?.toString() ?? raw;
-        addStringReferences(state.references, value, location(input.sourceSpan.start.offset), `angular-${input.name}`);
-        addDynamicReferences(state.dynamicReferences, value, location(input.sourceSpan.start.offset));
-      }
-    }
-    for (const child of node.children ?? []) visit(child);
-  };
-  for (const node of parsed.nodes) visit(node);
-}
-
 function selectorDetails(selector) {
   const classes = [];
   const normalizedSelector = selectorParser((root) => {
@@ -184,7 +50,6 @@ function selectorDetails(selector) {
   }).processSync(selector, { lossless: false });
   return { classes, normalizedSelector };
 }
-
 function risksForSelector(selector, classes, rule) {
   const risks = [];
   if (selector.includes('#{')) risks.push('dynamic-selector');
@@ -201,11 +66,9 @@ function risksForSelector(selector, classes, rule) {
   }
   return [...new Set(risks)];
 }
-
 function isFrameworkClass(name) {
   return /^(?:p-|pi-|sm:|md:|lg:|xl:|2xl:|hover:|focus:|dark:|[mp][trblxy]?-\d|[wh]-\d|text-|bg-|rounded|border|flex$|grid$|block$|hidden$)/.test(name);
 }
-
 function entry(kind, normalizedEntry, document, node, risks = [], details = {}) {
   const start = node.source?.start ?? { line: 1, column: 1 };
   return {
@@ -223,7 +86,6 @@ function entry(kind, normalizedEntry, document, node, risks = [], details = {}) 
     ...details,
   };
 }
-
 function inspectStyle(document, state) {
   let root;
   try {
@@ -258,7 +120,6 @@ function inspectStyle(document, state) {
   });
   root.walkAtRules((atRule) => inspectAtRule(atRule, document, state));
 }
-
 function inspectAtRule(atRule, document, state) {
   const name = atRule.name.toLowerCase();
   const first = atRule.params.match(/[%$]?[\w-]+/)?.[0] ?? atRule.params.trim();
@@ -280,7 +141,6 @@ function inspectAtRule(atRule, document, state) {
     state.entries.push(entry(`${name}-rule`, `@${name} ${atRule.params}`.trim(), document, atRule, [risk]));
   }
 }
-
 function resolveDependency(from, specifier, stylePaths) {
   if (!specifier.startsWith('.')) return null;
   const base = normalize(join(dirname(from), specifier)).replaceAll('\\', '/');
@@ -289,7 +149,6 @@ function resolveDependency(from, specifier, stylePaths) {
   candidates.push(`${base.slice(0, slash + 1)}_${base.slice(slash + 1)}.scss`);
   return candidates.find((candidate) => stylePaths.has(candidate)) ?? null;
 }
-
 function finalize(state) {
   for (const item of state.entries) {
     const references = new Map();
@@ -310,7 +169,6 @@ function finalize(state) {
   }
   state.entries.sort((a, b) => compareLocation(a.source, b.source) || a.normalizedEntry.localeCompare(b.normalizedEntry));
 }
-
 const compareLocation = (a, b) => a.path.localeCompare(b.path) || a.line - b.line || a.column - b.column;
 const riskReason = (risk) => ({
   'conditional-rule': 'Conditional rule may activate outside static evidence.',
@@ -326,7 +184,6 @@ const riskReason = (risk) => ({
   'sass-nesting': 'Nested Sass selector expansion is not proven.',
   'structural-selector': 'Element or structural selector usage is not statically complete.',
 }[risk] ?? `Retained because of ${risk}.`);
-
 export async function analyzeStyleUsage(options = {}) {
   const root = resolve(options.rootDir ?? process.cwd());
   const files = await discoverFiles(root);
@@ -373,15 +230,12 @@ export async function analyzeStyleUsage(options = {}) {
     entries: state.entries,
   };
 }
-
 const escapeHtml = (value) => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
-
 export function renderStyleUsageHtml(report) {
   const rows = report.entries.map((item) => `<tr><td>${escapeHtml(item.disposition)}</td><td>${escapeHtml(item.kind)}</td><td><code>${escapeHtml(item.normalizedEntry)}</code></td><td>${escapeHtml(`${item.source.path}:${item.source.line}:${item.source.column}`)}</td><td>${item.references.map((ref) => escapeHtml(`${ref.path}:${ref.line}`)).join('<br>')}</td><td>${escapeHtml(item.risks.join(', '))}</td><td>${escapeHtml(item.allowlistReason ?? '')}</td></tr>`).join('');
   const counts = report.summary.dispositions;
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Static first-party style usage</title><style>body{font:14px system-ui;margin:2rem}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:.4rem;text-align:left;vertical-align:top}code{white-space:pre-wrap}</style></head><body><h1>Static first-party style usage</h1><p>Used: ${counts.used}; removable candidates: ${counts['removable-candidate']}; uncertain: ${counts.uncertain}. Uncertainty always retains source.</p><table><thead><tr><th>Disposition</th><th>Kind</th><th>Entry</th><th>Source</th><th>References</th><th>Risks</th><th>Allowlist reason</th></tr></thead><tbody>${rows}</tbody></table></body></html>`;
 }
-
 export async function runStyleAudit(options = {}) {
   const rootDir = resolve(options.rootDir ?? process.cwd());
   const report = await analyzeStyleUsage({ rootDir });
@@ -393,7 +247,6 @@ export async function runStyleAudit(options = {}) {
   });
   return report;
 }
-
 if (import.meta.main) {
   const report = await runStyleAudit();
   console.log(`Style usage evidence: ${report.summary.total} entries (${report.summary.dispositions.uncertain} uncertain).`);
