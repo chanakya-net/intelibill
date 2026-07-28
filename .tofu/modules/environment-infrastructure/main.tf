@@ -8,7 +8,7 @@ terraform {
 
 locals {
   api_resources = {
-    dev  = { cpu = 0.5, memory = "1Gi" }
+    dev  = { cpu = 1, memory = "2Gi" }
     prod = { cpu = 0.75, memory = "1.5Gi" }
   }
 

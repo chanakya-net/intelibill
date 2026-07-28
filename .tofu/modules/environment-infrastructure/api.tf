@@ -33,7 +33,7 @@ resource "azurerm_container_app" "api" {
   }
 
   template {
-    min_replicas = var.env == "dev" ? 1 : 0
+    min_replicas = 0
     max_replicas = 1
 
     http_scale_rule {
