@@ -86,6 +86,7 @@ export class SalesPageComponent {
   readonly statusFilterOptions = [
     { label: 'sales.history.status.all', value: 'all' as const },
     { label: 'sales.history.status.paid', value: 'paid' as const },
+    { label: 'sales.history.status.partiallyPaid', value: 'partiallyPaid' as const },
     { label: 'sales.history.status.refunded', value: 'refunded' as const },
     { label: 'sales.history.status.unknown', value: 'unknown' as const },
   ];
@@ -123,11 +124,18 @@ export class SalesPageComponent {
     });
 
     effect(() => {
+      if (this.isLoading() || this.serverError()) {
+        return;
+      }
+
       const { pageNumber: storePageNumber, pageSize: storePageSize } = this.salesPagination();
-      if (storePageNumber && storePageNumber !== this.pageNumber()) {
+      const currentPageNumber = untracked(() => this.pageNumber());
+      const currentPageSize = untracked(() => this.pageSize());
+
+      if (storePageNumber && storePageNumber !== currentPageNumber) {
         untracked(() => this.pageNumber.set(storePageNumber));
       }
-      if (storePageSize > 0 && storePageSize !== this.pageSize()) {
+      if (storePageSize > 0 && storePageSize !== currentPageSize) {
         untracked(() => this.pageSize.set(storePageSize));
       }
     });
