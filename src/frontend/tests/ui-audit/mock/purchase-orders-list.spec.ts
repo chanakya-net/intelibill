@@ -5,6 +5,7 @@ import {
   test,
   webkit,
   type BrowserType,
+  type Locator,
   type Page,
 } from '@playwright/test';
 
@@ -288,8 +289,28 @@ function waitForListRequest(
 async function selectOrderDate(page: Page, index: number): Promise<void> {
   await page.locator('input.po-filter-bar__date-input').nth(index).click();
   const panel = page.locator('.p-datepicker-panel:visible');
-  await panel.locator('.p-datepicker-prev-button').click();
+  await selectDatePickerYear(panel, 2026);
+  await panel.locator('.p-datepicker-month').nth(5).click();
   await panel.locator('.p-datepicker-day').getByText('15', { exact: true }).click();
+}
+
+async function selectDatePickerYear(panel: Locator, targetYear: number): Promise<void> {
+  await panel.locator('.p-datepicker-select-year').click();
+  const years = panel.locator('.p-datepicker-year');
+
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const target = years.getByText(String(targetYear), { exact: true });
+    if (await target.count()) {
+      await target.click();
+      return;
+    }
+
+    const firstYear = Number((await years.first().textContent())?.trim());
+    const direction = targetYear < firstYear ? 'prev' : 'next';
+    await panel.locator(`.p-datepicker-${direction}-button`).click();
+  }
+
+  throw new Error(`Could not select date-picker year ${targetYear}.`);
 }
 
 async function withPurchaseOrdersPage(
