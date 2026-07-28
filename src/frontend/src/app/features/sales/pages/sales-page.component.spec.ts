@@ -211,8 +211,9 @@ describe('SalesPageComponent', () => {
     component.reportLevel.set('lineItems');
     fixture.detectChanges();
 
-    const exportButton = fixture.nativeElement.querySelector('button[data-export-format="pdf"]') as HTMLButtonElement;
-    exportButton.click();
+    const toolbarDebug = fixture.debugElement.query(By.css('app-sales-export-toolbar'));
+    expect(toolbarDebug).toBeTruthy();
+    (toolbarDebug.componentInstance as { exportToPdf: () => void }).exportToPdf();
     fixture.detectChanges();
 
     expect(salesExportService.exportSales).toHaveBeenCalledWith({
@@ -330,13 +331,14 @@ describe('SalesPageComponent', () => {
   });
 
   describe('Layout regression coverage', () => {
-    it('header layout: sales-ledger-header exists with flex layout', () => {
+    it('controls layout: ledger title sits on the same row as period controls', () => {
       const fixture = TestBed.createComponent(SalesPageComponent);
       fixture.detectChanges();
 
-      const header = fixture.nativeElement.querySelector('.sales-ledger-header');
-      expect(header).toBeTruthy();
-      const style = window.getComputedStyle(header);
+      const controlsRow = fixture.nativeElement.querySelector('.controls-row');
+      expect(controlsRow).toBeTruthy();
+      expect(controlsRow.querySelector('.ledger-title')).toBeTruthy();
+      const style = window.getComputedStyle(controlsRow);
       expect(style.display).toBe('flex');
     });
 
@@ -349,6 +351,8 @@ describe('SalesPageComponent', () => {
       expect(toolbar).toBeTruthy();
       const style = window.getComputedStyle(toolbar);
       expect(style.display).toBe('block');
+      expect(toolbar.querySelector('[data-export-trigger]')).toBeTruthy();
+      expect(toolbar.querySelector('p-menu')).toBeTruthy();
     });
 
     it('filters layout: clear filters is grouped with the search box', () => {

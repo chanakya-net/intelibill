@@ -1381,6 +1381,7 @@
     },
     "searchPlaceholder": "ಮಾರಾಟವನ್ನು ಹುಡುಕಿ...",
     "export": {
+      "action": "Export",
       "title": "Sales Export",
       "dateRange": "Date range",
       "startDate": "Start date",

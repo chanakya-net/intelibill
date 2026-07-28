@@ -1,9 +1,12 @@
 import { HttpErrorResponse, HttpResponse } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
-import { Component, inject, input, signal } from '@angular/core';
+import { Component, computed, inject, input, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
-
+import { MenuItem } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
+import { MenuModule } from 'primeng/menu';
+import { startWith } from 'rxjs';
 
 import { SalesExportFormat, SalesExportParams, SalesExportService } from '../services/sales-export.service';
 import { formatLocalIsoDate } from '../../../shared/utils/date-time.util';
@@ -11,19 +14,55 @@ import { formatLocalIsoDate } from '../../../shared/utils/date-time.util';
 @Component({
   selector: 'app-sales-export-toolbar',
   standalone: true,
-  imports: [CommonModule, ButtonModule, TranslocoPipe],
+  imports: [CommonModule, ButtonModule, MenuModule, TranslocoPipe],
   templateUrl: './sales-export-toolbar.component.html',
   styleUrl: './sales-export-toolbar.component.scss',
 })
 export class SalesExportToolbarComponent {
   private readonly exportService = inject(SalesExportService);
   private readonly translocoService = inject(TranslocoService);
+  private readonly activeLang = toSignal(
+    this.translocoService.langChanges$.pipe(startWith(this.translocoService.getActiveLang())),
+    { initialValue: this.translocoService.getActiveLang() },
+  );
 
   readonly startDate = input<Date>(this.getDefaultStartDate());
   readonly endDate = input<Date>(this.getDefaultEndDate());
   readonly level = input<SalesExportParams['level']>('summary');
   readonly isExporting = signal(false);
   readonly exportError = signal('');
+
+  readonly exportMenuItems = computed<MenuItem[]>(() => {
+    this.activeLang();
+    const exporting = this.isExporting();
+
+    return [
+      {
+        id: 'xlsx',
+        label: this.translocoService.translate('sales.export.format.excel'),
+        icon: 'pi pi-file-excel',
+        disabled: exporting,
+        automationId: 'xlsx',
+        command: () => this.exportToExcel(),
+      },
+      {
+        id: 'pdf',
+        label: this.translocoService.translate('sales.export.format.pdf'),
+        icon: 'pi pi-file-pdf',
+        disabled: exporting,
+        automationId: 'pdf',
+        command: () => this.exportToPdf(),
+      },
+      {
+        id: 'tallyXml',
+        label: this.translocoService.translate('sales.export.format.tally'),
+        icon: 'pi pi-download',
+        disabled: exporting,
+        automationId: 'tallyXml',
+        command: () => this.exportToTally(),
+      },
+    ];
+  });
 
   exportToExcel(): void {
     this.export('xlsx');

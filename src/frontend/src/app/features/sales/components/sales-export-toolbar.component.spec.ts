@@ -73,6 +73,16 @@ describe('SalesExportToolbarComponent', () => {
     expect(fixture.componentInstance.level()).toBe('lineItems');
   });
 
+  it('renders a PrimeNG export menu trigger with format actions', () => {
+    const fixture = TestBed.createComponent(SalesExportToolbarComponent);
+    fixture.detectChanges();
+
+    const trigger = fixture.nativeElement.querySelector('[data-export-trigger]') as HTMLButtonElement;
+    expect(trigger).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('p-menu')).toBeTruthy();
+    expect(fixture.componentInstance.exportMenuItems().map((item) => item.id)).toEqual(['xlsx', 'pdf', 'tallyXml']);
+  });
+
   it('exports the controlled values with requested format', () => {
     const response = new HttpResponse({ status: 200, body: new Blob(['sales']) });
     salesExportService.exportSales.mockReturnValue(of(response));
@@ -103,8 +113,7 @@ describe('SalesExportToolbarComponent', () => {
     fixture.componentRef.setInput('endDate', new Date('2026-05-01T12:00:00.000Z'));
     fixture.detectChanges();
 
-    const button = fixture.nativeElement.querySelector('button[data-export-format="xlsx"]') as HTMLButtonElement;
-    button.click();
+    fixture.componentInstance.exportToExcel();
     fixture.detectChanges();
 
     expect(salesExportService.exportSales).not.toHaveBeenCalled();
@@ -118,14 +127,14 @@ describe('SalesExportToolbarComponent', () => {
     const fixture = TestBed.createComponent(SalesExportToolbarComponent);
     fixture.detectChanges();
     const native = fixture.nativeElement as HTMLElement;
-    const button = native.querySelector('button[data-export-format="xlsx"]') as HTMLButtonElement;
+    const trigger = native.querySelector('[data-export-trigger]') as HTMLButtonElement;
 
-    button.click();
+    fixture.componentInstance.exportToExcel();
     fixture.detectChanges();
 
     expect(fixture.componentInstance.isExporting()).toBe(true);
-    expect(button.disabled).toBe(true);
-    expect(native.querySelector('button[data-export-format="pdf"]')).not.toBeNull();
+    expect(trigger.disabled).toBe(true);
+    expect(fixture.componentInstance.exportMenuItems().every((item) => item.disabled)).toBe(true);
 
     const response = new HttpResponse({ status: 200, body: new Blob(['sales']) });
     subject.next(response);
@@ -133,7 +142,7 @@ describe('SalesExportToolbarComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.componentInstance.isExporting()).toBe(false);
-    expect(button.disabled).toBe(false);
+    expect(trigger.disabled).toBe(false);
   });
 
   it('shows backend errors as export error messages', async () => {
@@ -145,9 +154,8 @@ describe('SalesExportToolbarComponent', () => {
 
     const fixture = TestBed.createComponent(SalesExportToolbarComponent);
     fixture.detectChanges();
-    const button = fixture.nativeElement.querySelector('button[data-export-format="tallyXml"]') as HTMLButtonElement;
 
-    button.click();
+    fixture.componentInstance.exportToTally();
     fixture.detectChanges();
 
     expect(fixture.componentInstance.exportError()).toBe('Export generation failed');
