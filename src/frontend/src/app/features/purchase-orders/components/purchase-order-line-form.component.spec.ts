@@ -50,6 +50,17 @@ describe('PurchaseOrderLineFormComponent', () => {
     expect(emitted).toEqual([{ itemId: 'item-1', description: 'Widget', expectedQuantity: 2, unitCost: 10 }]);
   });
 
+  it('renders quantity as a horizontal stepper distinct from unit cost', () => {
+    fixture.detectChanges();
+    const host = fixture.nativeElement as HTMLElement;
+    const qty = host.querySelector('.po-line-form__qty-input');
+    const inputs = host.querySelectorAll('p-inputnumber');
+
+    expect(qty).toBeTruthy();
+    expect(qty?.classList.contains('p-inputnumber-horizontal')).toBe(true);
+    expect(inputs.length).toBe(2);
+  });
+
   it('updates item autocomplete suggestions from the query', () => {
     catalog.filterByName.mockReturnValue([
       { itemId: 'item-1', name: 'Widget', barcode: 'W1' },

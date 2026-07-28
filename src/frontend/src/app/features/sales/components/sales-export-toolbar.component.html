@@ -1,52 +1,26 @@
 <section class="sales-export-toolbar">
-  <h2 class="toolbar-heading">{{ 'sales.export.title' | transloco }}</h2>
+  <button
+    pButton
+    type="button"
+    class="export-trigger"
+    icon="pi pi-chevron-down"
+    iconPos="right"
+    data-export-trigger
+    [label]="'sales.export.action' | transloco"
+    [loading]="isExporting()"
+    [disabled]="isExporting()"
+    [attr.aria-label]="'sales.export.action' | transloco"
+    aria-haspopup="menu"
+    (click)="exportMenu.toggle($event)"
+  ></button>
 
-  <div class="export-controls">
-    <div class="format-buttons">
-      <button
-        pButton
-        type="button"
-        icon="pi pi-file-excel"
-        data-export-format="xlsx"
-        [label]="'sales.export.format.excel' | transloco"
-        [loading]="isExporting()"
-        [disabled]="isExporting()"
-        severity="success"
-        outlined="true"
-        size="small"
-        [attr.aria-label]="'sales.export.format.excel' | transloco"
-        (click)="exportToExcel()"
-      ></button>
-      <button
-        pButton
-        type="button"
-        icon="pi pi-file-pdf"
-        data-export-format="pdf"
-        [label]="'sales.export.format.pdf' | transloco"
-        [loading]="isExporting()"
-        [disabled]="isExporting()"
-        severity="info"
-        outlined="true"
-        size="small"
-        [attr.aria-label]="'sales.export.format.pdf' | transloco"
-        (click)="exportToPdf()"
-      ></button>
-      <button
-        pButton
-        type="button"
-        icon="pi pi-download"
-        data-export-format="tallyXml"
-        [label]="'sales.export.format.tally' | transloco"
-        [loading]="isExporting()"
-        [disabled]="isExporting()"
-        severity="secondary"
-        outlined="true"
-        size="small"
-        [attr.aria-label]="'sales.export.format.tally' | transloco"
-        (click)="exportToTally()"
-      ></button>
-    </div>
-  </div>
+  <p-menu
+    #exportMenu
+    [model]="exportMenuItems()"
+    [popup]="true"
+    appendTo="body"
+    styleClass="sales-export-menu"
+  />
 
   @if (isExporting()) {
     <p class="export-status">{{ 'sales.export.loading' | transloco }}</p>

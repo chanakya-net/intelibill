@@ -33,8 +33,9 @@ resource "azurerm_container_app" "api" {
   }
 
   template {
-    min_replicas = 0
-    max_replicas = 1
+    min_replicas               = 0
+    max_replicas               = 1
+    cooldown_period_in_seconds = var.env == "dev" ? 1800 : null
 
     http_scale_rule {
       name                = "http-concurrency"

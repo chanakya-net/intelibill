@@ -1381,6 +1381,7 @@
     },
     "searchPlaceholder": "വിൽപ്പന തിരയുക...",
     "export": {
+      "action": "Export",
       "title": "Sales Export",
       "dateRange": "Date range",
       "startDate": "Start date",

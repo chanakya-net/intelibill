@@ -157,14 +157,16 @@ run "dev_contract" {
     condition = (
       azurerm_container_app.api.template[0].min_replicas == 0 &&
       azurerm_container_app.api.template[0].max_replicas == 1 &&
+      azurerm_container_app.api.template[0].cooldown_period_in_seconds == 1800 &&
       azurerm_container_app.api.template[0].http_scale_rule[0].name == "http-concurrency" &&
       azurerm_container_app.api.template[0].http_scale_rule[0].concurrent_requests == "50" &&
       azurerm_container_app.web.template[0].min_replicas == 0 &&
       azurerm_container_app.web.template[0].max_replicas == 1 &&
+      azurerm_container_app.web.template[0].cooldown_period_in_seconds == 1800 &&
       azurerm_container_app.web.template[0].http_scale_rule[0].name == "http-concurrency" &&
       azurerm_container_app.web.template[0].http_scale_rule[0].concurrent_requests == "50"
     )
-    error_message = "Both apps must scale from zero to one on HTTP concurrency 50."
+    error_message = "Both dev apps must scale from zero to one on HTTP concurrency 50 and wait 1,800 seconds before returning to zero."
   }
 
   assert {
@@ -398,9 +400,11 @@ run "prod_sizing_contract" {
       azurerm_container_app.web.template[0].container[0].cpu == 0.5 &&
       azurerm_container_app.web.template[0].container[0].memory == "1Gi" &&
       azurerm_container_app.api.template[0].max_replicas == 1 &&
-      azurerm_container_app.web.template[0].max_replicas == 1
+      azurerm_container_app.api.template[0].cooldown_period_in_seconds == null &&
+      azurerm_container_app.web.template[0].max_replicas == 1 &&
+      azurerm_container_app.web.template[0].cooldown_period_in_seconds == null
     )
-    error_message = "Prod must use its names and approved sizing without raising either replica cap."
+    error_message = "Prod must use its names and approved sizing without raising either replica cap or overriding the default cooldown."
   }
 }
 

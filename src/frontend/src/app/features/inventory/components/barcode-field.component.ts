@@ -54,7 +54,7 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
               type="button"
               [label]="'inventory.generateBarcode' | transloco"
               severity="secondary"
-              text
+              outlined
               class="generate-barcode-button"
               [loading]="barcodeGenerating"
               (click)="generateRequested.emit()"
@@ -84,7 +84,13 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
     :host { display: grid; min-width: 0; }
     label { display: grid; gap: .25rem; font-size: .875rem; min-width: 0; }
     .barcode-field-wrapper { position: relative; min-width: 0; }
-    .barcode-input-group { width: 100%; }
+    .barcode-input-group,
+    :host ::ng-deep .barcode-input-group.p-inputgroup {
+      display: flex;
+      align-items: stretch;
+      width: 100%;
+      min-width: 0;
+    }
     .barcode-loading-overlay {
       position: absolute;
       top: 0;
@@ -99,10 +105,37 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
     .error-message { margin: 0; color: var(--p-red-600); font-size: .875rem; }
     .barcode-replace-confirm { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; }
     .barcode-replace-confirm span { flex: 1 1 10rem; }
-    :host ::ng-deep .barcode-input-group .p-autocomplete { flex: 1 1 auto; min-width: 0; }
-    :host ::ng-deep .barcode-input-group .p-autocomplete,
+    :host ::ng-deep .barcode-input-group .p-autocomplete {
+      flex: 1 1 auto;
+      min-width: 0;
+      width: 1%;
+    }
     :host ::ng-deep .barcode-input-group .p-autocomplete-input,
-    :host ::ng-deep .barcode-input-group .p-inputtext { width: 100%; }
+    :host ::ng-deep .barcode-input-group .p-inputtext {
+      width: 100%;
+    }
+    :host ::ng-deep .barcode-input-group .p-inputgroupaddon {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: stretch;
+      padding: 0;
+    }
+    :host ::ng-deep .barcode-input-group .camera-button,
+    :host ::ng-deep .barcode-input-group .generate-barcode-button {
+      border-radius: 0;
+      height: 100%;
+      min-height: 2.75rem;
+    }
+    :host ::ng-deep .barcode-input-group .camera-button {
+      min-width: 2.75rem;
+      width: 2.75rem;
+      padding: 0;
+    }
+    :host ::ng-deep .barcode-input-group .generate-barcode-button {
+      padding-inline: 0.85rem;
+      white-space: nowrap;
+      font-weight: 700;
+    }
   `],
 })
 export class InventoryBarcodeFieldComponent {

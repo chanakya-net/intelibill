@@ -82,12 +82,27 @@ import type { CreatePurchaseOrderLineRequest } from '../services/purchase-order.
     </form>
   `,
   styles: [`
-    .po-line-form { display: grid; gap: .75rem; grid-template-columns: minmax(14rem, 1fr) minmax(9.5rem, 10.5rem) 9rem auto auto; align-items: end; }
-    label { display: grid; gap: .35rem; font-size: .875rem; font-weight: 700; color: #1f2937; }
+    .po-line-form {
+      display: grid;
+      gap: .75rem;
+      grid-template-columns: minmax(0, 1fr) 11.5rem 9rem auto auto;
+      align-items: end;
+    }
+    label {
+      display: grid;
+      gap: .35rem;
+      min-width: 0;
+      font-size: .875rem;
+      font-weight: 700;
+      color: #1f2937;
+    }
     .po-line-form__error { grid-column: 1 / -1; margin: 0; color: #b42318; font-size: .875rem; }
     .po-line-form .p-autocomplete,
     .po-line-form .p-inputnumber {
       width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
     }
     .po-line-form .p-inputtext,
     .po-line-form .p-autocomplete-input,
@@ -112,19 +127,34 @@ import type { CreatePurchaseOrderLineRequest } from '../services/purchase-order.
     .po-line-form .po-line-form__qty-input.p-inputnumber {
       display: flex;
       width: 100%;
+      max-width: 100%;
     }
-    .po-line-form .po-line-form__qty-input .p-inputnumber-input {
+    .po-line-form .po-line-form__qty-input .p-inputnumber-input,
+    .po-line-form .po-line-form__qty-input .p-inputtext {
       flex: 1 1 auto;
-      min-width: 2.5rem;
-      width: auto;
+      min-width: 0;
+      width: 1%;
+      border-radius: 0;
       text-align: center;
       padding-inline: 0.35rem;
     }
     .po-line-form .po-line-form__qty-input .p-inputnumber-button {
-      flex: 0 0 auto;
+      flex: 0 0 2.5rem;
+      width: 2.5rem;
+      min-height: 2.75rem;
       border-color: #cbd5e1;
       background: #fff7ed;
       color: #c2410c;
+    }
+    .po-line-form .po-line-form__qty-input .p-inputnumber-decrement-button {
+      border-start-start-radius: 0.75rem;
+      border-end-start-radius: 0.75rem;
+      border-inline-end: 0;
+    }
+    .po-line-form .po-line-form__qty-input .p-inputnumber-increment-button {
+      border-start-end-radius: 0.75rem;
+      border-end-end-radius: 0.75rem;
+      border-inline-start: 0;
     }
     @media (max-width: 760px) { .po-line-form { grid-template-columns: 1fr; } }
   `],

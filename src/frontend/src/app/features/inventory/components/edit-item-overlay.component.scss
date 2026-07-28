@@ -186,6 +186,12 @@
     font-weight: 600;
   }
 
+  app-inventory-barcode-field .barcode-input-group .p-autocomplete {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 1%;
+  }
+
   app-inventory-barcode-field .barcode-input-group .p-autocomplete-input,
   app-inventory-barcode-field .barcode-input-group .p-inputtext {
     min-height: 2.75rem;

@@ -1381,6 +1381,7 @@
     },
     "searchPlaceholder": "విక్రయాలను శోధించండి...",
     "export": {
+      "action": "Export",
       "title": "Sales Export",
       "dateRange": "Date range",
       "startDate": "Start date",

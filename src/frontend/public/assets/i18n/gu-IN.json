@@ -1381,6 +1381,7 @@
     },
     "searchPlaceholder": "વેચાણ શોધો...",
     "export": {
+      "action": "Export",
       "title": "Sales Export",
       "dateRange": "Date range",
       "startDate": "Start date",
