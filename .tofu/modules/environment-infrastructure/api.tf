@@ -33,7 +33,7 @@ resource "azurerm_container_app" "api" {
   }
 
   template {
-    min_replicas = 0
+    min_replicas = var.env == "dev" ? 1 : 0
     max_replicas = 1
 
     http_scale_rule {
@@ -44,8 +44,8 @@ resource "azurerm_container_app" "api" {
     container {
       name   = "api"
       image  = var.bootstrap_image
-      cpu    = local.app_resources[var.env].cpu
-      memory = local.app_resources[var.env].memory
+      cpu    = local.api_resources[var.env].cpu
+      memory = local.api_resources[var.env].memory
 
       dynamic "env" {
         for_each = local.api_environment
