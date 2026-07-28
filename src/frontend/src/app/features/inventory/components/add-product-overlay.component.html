@@ -82,11 +82,21 @@
 
         <div class="field">
           <label for="add-product-hsn">{{ 'hsn.hsnCode' | transloco }}</label>
-          <input id="add-product-hsn" pInputText type="text" class="w-full" formControlName="hsnCode" />
+          <input
+            id="add-product-hsn"
+            pInputText
+            type="text"
+            class="w-full"
+            formControlName="hsnCode"
+          />
           @if (suggestedHsnCodes().length > 0) {
-            <div class="suggestion-list" aria-label="HSN suggestions">
+            <div class="suggestion-list" [attr.aria-label]="'hsn.hsnSuggestions' | transloco">
               @for (hsnCode of suggestedHsnCodes(); track hsnCode) {
-                <button type="button" class="suggestion-chip" (click)="selectSuggestedHsnCode(hsnCode)">
+                <button
+                  type="button"
+                  class="suggestion-chip"
+                  (click)="selectSuggestedHsnCode(hsnCode)"
+                >
                   {{ hsnCode }}
                 </button>
               }
@@ -108,9 +118,13 @@
             styleClass="editor-control"
           />
           @if (suggestedTaxSlabs().length > 0) {
-            <div class="suggestion-list" aria-label="Tax suggestions">
+            <div class="suggestion-list" [attr.aria-label]="'hsn.taxSuggestions' | transloco">
               @for (taxPercentage of suggestedTaxSlabs(); track taxPercentage) {
-                <button type="button" class="suggestion-chip" (click)="selectSuggestedTaxSlab(taxPercentage)">
+                <button
+                  type="button"
+                  class="suggestion-chip"
+                  (click)="selectSuggestedTaxSlab(taxPercentage)"
+                >
                   {{ taxPercentage }}
                 </button>
               }

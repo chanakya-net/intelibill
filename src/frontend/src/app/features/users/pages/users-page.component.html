@@ -6,10 +6,17 @@
       <p class="subtitle">{{ 'users.subtitle' | transloco }}</p>
       <div class="users-hero__meta">
         <span class="meta-chip meta-chip--primary">
-          {{ 'users.showingCount' | transloco:{ visible: filteredUsers().length, total: totalUsers() } }}
+          {{
+            'users.showingCount'
+              | transloco: { visible: filteredUsers().length, total: totalUsers() }
+          }}
         </span>
-        <span class="meta-chip">{{ 'users.summary.managers' | transloco }}: {{ managerCount() }}</span>
-        <span class="meta-chip">{{ 'users.summary.loginEnabled' | transloco }}: {{ loginEnabledCount() }}</span>
+        <span class="meta-chip"
+          >{{ 'users.summary.managers' | transloco }}: {{ managerCount() }}</span
+        >
+        <span class="meta-chip"
+          >{{ 'users.summary.loginEnabled' | transloco }}: {{ loginEnabledCount() }}</span
+        >
       </div>
     </div>
 
@@ -26,11 +33,11 @@
     }
   </header>
 
-  <div class="summary-grid" aria-label="Team summary">
+  <div class="summary-grid" [attr.aria-label]="'users.summary.ariaLabel' | transloco">
     @for (card of summaryCards(); track card.labelKey) {
       <article class="summary-card" [ngClass]="'summary-card--' + card.tone">
         <div class="summary-card__label">{{ card.labelKey | transloco }}</div>
-        <div class="summary-card__value">{{ card.value | number:'1.0-0' }}</div>
+        <div class="summary-card__value">{{ card.value | number: '1.0-0' }}</div>
       </article>
     }
   </div>
@@ -68,10 +75,13 @@
           <p class="directory-panel__subtitle">{{ 'users.subtitle' | transloco }}</p>
         </div>
 
-        <div class="directory-panel__metrics" aria-label="Team directory metrics">
+        <div
+          class="directory-panel__metrics"
+          [attr.aria-label]="'users.directoryMetrics' | transloco"
+        >
           @for (metric of directoryMetrics(); track metric.labelKey) {
             <span class="metric-chip">
-              <strong>{{ metric.value | number:'1.0-0' }}</strong>
+              <strong>{{ metric.value | number: '1.0-0' }}</strong>
               <span>{{ metric.labelKey | transloco }}</span>
             </span>
           }
@@ -93,7 +103,10 @@
               <div class="user-card__main">
                 <p-avatar
                   [label]="userInitials(user.firstName, user.lastName)"
-                  [style]="{ 'background-color': userAvatarColor(user.firstName, user.lastName), color: '#fffaf5' }"
+                  [style]="{
+                    'background-color': userAvatarColor(user.firstName, user.lastName),
+                    color: '#fffaf5',
+                  }"
                   shape="circle"
                   size="large"
                 />
@@ -112,8 +125,15 @@
               </div>
 
               <div class="user-card__actions">
-                <span class="login-pill" [ngClass]="user.isLoginEnabled ? 'login-pill--enabled' : 'login-pill--disabled'">
-                  {{ user.isLoginEnabled ? ('users.enabled' | transloco) : ('users.disabled' | transloco) }}
+                <span
+                  class="login-pill"
+                  [ngClass]="user.isLoginEnabled ? 'login-pill--enabled' : 'login-pill--disabled'"
+                >
+                  {{
+                    user.isLoginEnabled
+                      ? ('users.enabled' | transloco)
+                      : ('users.disabled' | transloco)
+                  }}
                 </span>
                 @if (canEditUsers() && canEditRole(user.role)) {
                   <button
@@ -210,8 +230,15 @@
                 </span>
               </td>
               <td>
-                <span class="login-pill" [ngClass]="user.isLoginEnabled ? 'login-pill--enabled' : 'login-pill--disabled'">
-                  {{ user.isLoginEnabled ? ('users.enabled' | transloco) : ('users.disabled' | transloco) }}
+                <span
+                  class="login-pill"
+                  [ngClass]="user.isLoginEnabled ? 'login-pill--enabled' : 'login-pill--disabled'"
+                >
+                  {{
+                    user.isLoginEnabled
+                      ? ('users.enabled' | transloco)
+                      : ('users.disabled' | transloco)
+                  }}
                 </span>
               </td>
               @if (canEditUsers()) {

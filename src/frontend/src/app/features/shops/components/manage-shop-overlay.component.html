@@ -29,13 +29,15 @@
                 <label for="manage-shop-id">{{ 'shops.selectShop' | transloco }}</label>
                 <select id="manage-shop-id" formControlName="shopId" class="shop-select" [disabled]="isSubmitting() || isLoadingDetails()" (change)="onShopSelectionChange()">
                   @for (shop of shops; track shop.shopId) {
-                    <option [value]="shop.shopId">{{ shop.shopName }} ({{ shop.role }})</option>
+                    <option [value]="shop.shopId">
+                      {{ shop.shopName }} ({{ roleLabelKey(shop.role) | transloco }})
+                    </option>
                   }
                 </select>
               </div>
 
               @if (!isSelectedShopOwner()) {
-                <p class="owner-hint">{{ 'shops.selectedShopRoleIs' | transloco }} {{ selectedShopRole() || ('shops.unknown' | transloco) }}. {{ 'shops.onlyOwnersCanSave' | transloco }}</p>
+                <p class="owner-hint">{{ 'shops.selectedShopRoleIs' | transloco }} {{ roleLabelKey(selectedShopRole()) | transloco }}. {{ 'shops.onlyOwnersCanSave' | transloco }}</p>
               }
 
               <app-shop-basic-info-form [initialValues]="selectedShopDetails()" [disabled]="isSubmitting() || isLoadingDetails()" (formChange)="onBasicInfoFormChange($event)"></app-shop-basic-info-form>
@@ -59,7 +61,7 @@
             <form [formGroup]="bankForm" (ngSubmit)="onSaveBankDetails()" class="overlay-form space-y-4">
               <p class="text-sm text-muted mb-2">{{ 'shops.bankDetailsOptional' | transloco }}</p>
               @if (!isSelectedShopOwner()) {
-                <p class="owner-hint">{{ 'shops.selectedShopRoleIs' | transloco }} {{ selectedShopRole() || ('shops.unknown' | transloco) }}. {{ 'shops.onlyOwnersCanSave' | transloco }}</p>
+                <p class="owner-hint">{{ 'shops.selectedShopRoleIs' | transloco }} {{ roleLabelKey(selectedShopRole()) | transloco }}. {{ 'shops.onlyOwnersCanSave' | transloco }}</p>
               }
               <app-bank-account-form [form]="bankForm" idPrefix="manage"></app-bank-account-form>
               @if (serverError()) {

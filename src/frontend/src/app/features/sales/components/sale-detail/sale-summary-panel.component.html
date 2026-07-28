@@ -1,6 +1,6 @@
 <div class="sale-summary">
   <section class="sale-summary-card">
-    <h3>Customer &amp; payment</h3>
+    <h3>{{ 'sales.detail.customerAndPayment' | transloco }}</h3>
 
     <div class="sale-summary-field">
       <span>{{ 'sales.newSale.customerName' | transloco }}</span>
@@ -19,7 +19,7 @@
   </section>
 
   <section class="sale-summary-card">
-    <h3>Receipt total</h3>
+    <h3>{{ 'sales.detail.receiptTotal' | transloco }}</h3>
 
     <div class="sale-summary-row">
       @if (hasDiscount()) {
@@ -41,14 +41,19 @@
     @if (hasCreditNoteSettlement()) {
       <div class="sale-summary-row sale-summary-row-credit-note">
         <span>{{ 'sales.detail.settlement.creditNoteApplied' | transloco }}</span>
-        <strong>{{ sale.creditNoteAppliedAmount | currency: currency : 'symbol' : '1.2-2' }}</strong>
+        <strong>{{
+          sale.creditNoteAppliedAmount | currency: currency : 'symbol' : '1.2-2'
+        }}</strong>
       </div>
       @if (creditNoteRedemptionSummaries().length > 0) {
         <div class="sale-summary-settlement-codes">
           <span>{{ 'sales.detail.settlement.creditNoteCodes' | transloco }}</span>
           <div class="sale-summary-code-list">
             @for (settlement of creditNoteRedemptionSummaries(); track settlement.creditNoteId) {
-              <span>{{ settlement.code }} · {{ settlement.amount | currency: currency : 'symbol' : '1.2-2' }}</span>
+              <span
+                >{{ settlement.code }} ·
+                {{ settlement.amount | currency: currency : 'symbol' : '1.2-2' }}</span
+              >
             }
           </div>
         </div>

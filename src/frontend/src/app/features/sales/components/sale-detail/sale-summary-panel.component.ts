@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { Component, Input } from '@angular/core';
-import { TranslocoPipe } from '@ngneat/transloco';
+import { Component, Input, inject } from '@angular/core';
+import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import {
   getPaymentMethodLabel,
   type SaleCreditNoteRedemptionSummaryDto,
@@ -15,6 +15,8 @@ import {
   styleUrl: './sale-summary-panel.component.scss',
 })
 export class SaleSummaryPanelComponent {
+  private readonly transloco = inject(TranslocoService);
+
   @Input({ required: true }) sale!: SaleDto;
   @Input() currency = 'INR';
 
@@ -35,14 +37,19 @@ export class SaleSummaryPanelComponent {
   }
 
   paymentMethodLabel(): string {
-    return getPaymentMethodLabel(this.sale.paymentMethod);
+    const label = getPaymentMethodLabel(this.sale.paymentMethod).toLowerCase();
+    return this.transloco.translate(
+      ['cash', 'upi', 'card', 'credit'].includes(label)
+        ? `sales.newSale.paymentMethods.${label}`
+        : 'shops.unknown',
+    );
   }
 
   customerName(): string {
-    return this.sale.customerName || 'Walk-in Customer';
+    return this.sale.customerName || this.transloco.translate('sales.invoice.walkInCustomer');
   }
 
   customerPhone(): string {
-    return this.sale.customerPhone || 'Not provided';
+    return this.sale.customerPhone || this.transloco.translate('sales.detail.notProvided');
   }
 }

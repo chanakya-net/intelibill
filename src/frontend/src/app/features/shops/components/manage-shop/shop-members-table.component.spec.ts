@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { TranslocoTestingModule } from '@ngneat/transloco';
 
 import { ShopMembersTableComponent } from './shop-members-table.component';
 
@@ -8,7 +9,14 @@ describe('ShopMembersTableComponent', () => {
     { userId: 'user-2', firstName: 'Rahul', lastName: 'Sharma', phoneNumber: '9876543210', role: 'Staff' },
   ] as const;
 
-  beforeEach(() => TestBed.configureTestingModule({ imports: [ShopMembersTableComponent] }));
+  beforeEach(() =>
+    TestBed.configureTestingModule({
+      imports: [
+        ShopMembersTableComponent,
+        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+      ],
+    }),
+  );
 
   it('renders members and emits role changes', () => {
     const fixture = TestBed.createComponent(ShopMembersTableComponent);

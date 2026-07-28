@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { Component, Input } from '@angular/core';
-import { TranslocoPipe } from '@ngneat/transloco';
+import { Component, Input, inject } from '@angular/core';
+import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import type { SaleItemDto } from '../../services/sale.models';
 
 @Component({
@@ -11,6 +11,8 @@ import type { SaleItemDto } from '../../services/sale.models';
   styleUrl: './sale-line-items-table.component.scss',
 })
 export class SaleLineItemsTableComponent {
+  private readonly transloco = inject(TranslocoService);
+
   @Input({ required: true }) items: readonly SaleItemDto[] = [];
   @Input() currency = 'INR';
   @Input() totalTaxAmount: number | null = null;
@@ -107,23 +109,43 @@ export class SaleLineItemsTableComponent {
     return this.items.filter((i) => i.lineType === 'Service');
   }
 
-  getSections(): { title: string; summary: string; items: SaleItemDto[] }[] {
-    const sections: { title: string; summary: string; items: SaleItemDto[] }[] = [];
+  getSections(): {
+    kind: 'goods' | 'services';
+    title: string;
+    summary: string;
+    items: SaleItemDto[];
+  }[] {
+    const sections: {
+      kind: 'goods' | 'services';
+      title: string;
+      summary: string;
+      items: SaleItemDto[];
+    }[] = [];
     const goodsItems = this.getGoodsItems();
     const serviceItems = this.getServiceItems();
 
     if (goodsItems.length > 0) {
       sections.push({
-        title: 'Goods sold',
-        summary: `${goodsItems.length} ${goodsItems.length === 1 ? 'item' : 'items'}`,
+        kind: 'goods',
+        title: this.transloco.translate('sales.detail.goodsSold'),
+        summary: this.transloco.translate(
+          goodsItems.length === 1 ? 'sales.detail.itemCountOne' : 'sales.detail.itemCountMany',
+          { count: goodsItems.length },
+        ),
         items: goodsItems,
       });
     }
 
     if (serviceItems.length > 0) {
       sections.push({
-        title: 'Services sold',
-        summary: `${serviceItems.length} ${serviceItems.length === 1 ? 'service' : 'services'}`,
+        kind: 'services',
+        title: this.transloco.translate('sales.detail.servicesSold'),
+        summary: this.transloco.translate(
+          serviceItems.length === 1
+            ? 'sales.detail.serviceCountOne'
+            : 'sales.detail.serviceCountMany',
+          { count: serviceItems.length },
+        ),
         items: serviceItems,
       });
     }

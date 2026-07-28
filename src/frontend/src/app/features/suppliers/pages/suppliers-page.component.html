@@ -6,13 +6,14 @@
       <p class="subtitle">{{ 'suppliers.subtitle' | transloco }}</p>
       <div class="suppliers-hero__meta">
         <span class="meta-chip meta-chip--primary">
-          {{ totalSuppliers() | number:'1.0-0' }} {{ 'suppliers.title' | transloco | lowercase }}
+          {{ totalSuppliers() | number: '1.0-0' }} {{ 'suppliers.title' | transloco | lowercase }}
         </span>
         <span class="meta-chip">
-          {{ activeSuppliers() | number:'1.0-0' }} {{ 'suppliers.active' | transloco | lowercase }}
+          {{ activeSuppliers() | number: '1.0-0' }} {{ 'suppliers.active' | transloco | lowercase }}
         </span>
         <span class="meta-chip">
-          {{ preferredSuppliers() | number:'1.0-0' }} {{ 'suppliers.preferred' | transloco | lowercase }}
+          {{ preferredSuppliers() | number: '1.0-0' }}
+          {{ 'suppliers.preferred' | transloco | lowercase }}
         </span>
       </div>
     </div>
@@ -28,26 +29,30 @@
     }
   </header>
 
-  <div class="summary-grid" aria-label="Supplier summary">
+  <div class="summary-grid" [attr.aria-label]="'suppliers.summary.ariaLabel' | transloco">
     <article class="summary-card">
-      <div class="summary-card__label">Total suppliers</div>
-      <div class="summary-card__value">{{ totalSuppliers() | number:'1.0-0' }}</div>
-      <p class="summary-card__hint">{{ preferredSuppliers() | number:'1.0-0' }} preferred vendors</p>
+      <div class="summary-card__label">{{ 'suppliers.summary.total' | transloco }}</div>
+      <div class="summary-card__value">{{ totalSuppliers() | number: '1.0-0' }}</div>
+      <p class="summary-card__hint">
+        {{ 'suppliers.summary.preferredCount' | transloco: { count: preferredSuppliers() } }}
+      </p>
     </article>
     <article class="summary-card">
-      <div class="summary-card__label">Pending payables</div>
-      <div class="summary-card__value">{{ pendingPayables() | currency: 'INR' : 'symbol' : '1.0-2' }}</div>
-      <p class="summary-card__hint">Outstanding supplier balance</p>
+      <div class="summary-card__label">{{ 'suppliers.summary.pendingPayables' | transloco }}</div>
+      <div class="summary-card__value">
+        {{ pendingPayables() | currency: 'INR' : 'symbol' : '1.0-2' }}
+      </div>
+      <p class="summary-card__hint">{{ 'suppliers.summary.outstandingBalance' | transloco }}</p>
     </article>
     <article class="summary-card">
-      <div class="summary-card__label">Active suppliers</div>
-      <div class="summary-card__value">{{ activeSuppliers() | number:'1.0-0' }}</div>
-      <p class="summary-card__hint">Current vendor network</p>
+      <div class="summary-card__label">{{ 'suppliers.summary.active' | transloco }}</div>
+      <div class="summary-card__value">{{ activeSuppliers() | number: '1.0-0' }}</div>
+      <p class="summary-card__hint">{{ 'suppliers.summary.activeHint' | transloco }}</p>
     </article>
     <article class="summary-card">
-      <div class="summary-card__label">Preferred</div>
-      <div class="summary-card__value">{{ preferredSuppliers() | number:'1.0-0' }}</div>
-      <p class="summary-card__hint">Priority procurement partners</p>
+      <div class="summary-card__label">{{ 'suppliers.preferred' | transloco }}</div>
+      <div class="summary-card__value">{{ preferredSuppliers() | number: '1.0-0' }}</div>
+      <p class="summary-card__hint">{{ 'suppliers.summary.preferredHint' | transloco }}</p>
     </article>
   </div>
 
@@ -89,7 +94,7 @@
       </div>
 
       <footer class="directory-panel__footer">
-        {{ totalSuppliers() | number:'1.0-0' }} {{ 'suppliers.title' | transloco | lowercase }}
+        {{ totalSuppliers() | number: '1.0-0' }} {{ 'suppliers.title' | transloco | lowercase }}
       </footer>
     </section>
   }

@@ -81,7 +81,11 @@ type TranslatableText = Readonly<{
         </div>
 
         <div class="dashboard-hero__controls">
-          <div class="period-toggle" role="group" [attr.aria-label]="'dashboard.ranges.ariaLabel' | transloco">
+          <div
+            class="period-toggle"
+            role="group"
+            [attr.aria-label]="'dashboard.ranges.ariaLabel' | transloco"
+          >
             <button
               type="button"
               class="period-toggle__button"
@@ -172,7 +176,9 @@ type TranslatableText = Readonly<{
             <p-card class="latest-sales-panel">
               <ng-template pTemplate="header">
                 <div class="latest-sales-panel__header">
-                  <p class="latest-sales-panel__eyebrow">{{ 'dashboard.latestSales.eyebrow' | transloco }}</p>
+                  <p class="latest-sales-panel__eyebrow">
+                    {{ 'dashboard.latestSales.eyebrow' | transloco }}
+                  </p>
                   <h2>{{ 'dashboard.latestSales.title' | transloco }}</h2>
                 </div>
               </ng-template>
@@ -188,10 +194,14 @@ type TranslatableText = Readonly<{
                     <li class="latest-sales-list__item">
                       <div class="latest-sales-list__primary">
                         <span class="latest-sales-list__invoice">{{ sale.invoiceNumber }}</span>
-                        <span class="latest-sales-list__customer">{{ sale.customerDisplayName }}</span>
+                        <span class="latest-sales-list__customer">{{
+                          sale.customerDisplayName
+                        }}</span>
                       </div>
                       <div class="latest-sales-list__meta">
-                        <strong>{{ sale.totalAmount | currency: 'INR' : 'symbol' : '1.0-0' }}</strong>
+                        <strong>{{
+                          sale.totalAmount | currency: 'INR' : 'symbol' : '1.0-0'
+                        }}</strong>
                         <span>{{ sale.soldAt | date: 'dd MMM, h:mm a' }}</span>
                       </div>
                     </li>
@@ -219,7 +229,9 @@ type TranslatableText = Readonly<{
               <ng-template pTemplate="header">
                 <div class="alerts-panel__header">
                   <div>
-                    <p class="alerts-panel__eyebrow">{{ 'dashboard.alerts.eyebrow' | transloco }}</p>
+                    <p class="alerts-panel__eyebrow">
+                      {{ 'dashboard.alerts.eyebrow' | transloco }}
+                    </p>
                     <h2>{{ 'dashboard.alerts.needsAttention' | transloco }}</h2>
                   </div>
                 </div>
@@ -231,15 +243,20 @@ type TranslatableText = Readonly<{
                 <ul class="alerts-list">
                   @for (alert of displayAlerts(); track alert.id) {
                     <li class="alerts-list__item" [attr.data-testid]="alert.testId">
-                      <span class="alerts-list__badge" [ngClass]="'alerts-list__badge--' + alert.badgeTone">
+                      <span
+                        class="alerts-list__badge"
+                        [ngClass]="'alerts-list__badge--' + alert.badgeTone"
+                      >
                         {{
-                          alert.badgeLabelKey
-                            ? (alert.badgeLabelKey | transloco)
-                            : alert.badgeLabel
+                          alert.badgeLabelKey ? (alert.badgeLabelKey | transloco) : alert.badgeLabel
                         }}
                       </span>
                       <p class="alerts-list__message">{{ alert.message }}</p>
-                      <button type="button" class="alerts-list__action" (click)="openAlertRoute(alert.actionRoute)">
+                      <button
+                        type="button"
+                        class="alerts-list__action"
+                        (click)="openAlertRoute(alert.actionRoute)"
+                      >
                         {{ 'dashboard.alerts.view' | transloco }}
                       </button>
                     </li>
@@ -249,10 +266,15 @@ type TranslatableText = Readonly<{
             </p-card>
           </div>
         } @else if (!errorMessage()) {
-          <p class="dashboard-page__status">{{ dashboardStatus().key | transloco: dashboardStatus().params }}</p>
+          <p class="dashboard-page__status">
+            {{ dashboardStatus().key | transloco: dashboardStatus().params }}
+          </p>
         }
 
-        <section class="dashboard-quick-actions" [attr.aria-label]="'dashboard.quickActions.ariaLabel' | transloco">
+        <section
+          class="dashboard-quick-actions"
+          [attr.aria-label]="'dashboard.quickActions.ariaLabel' | transloco"
+        >
           @for (action of quickActions; track action.route) {
             <button
               pButton
@@ -282,17 +304,20 @@ export class DashboardPageComponent {
   customFrom: Date | null = null;
   customTo: Date | null = null;
 
-  readonly pendingPurchaseOrderAlerts = computed(() =>
-    this.dashboard()?.alerts.filter((alert) => alert.alertType === 'PendingPurchaseOrder') ?? [],
+  readonly pendingPurchaseOrderAlerts = computed(
+    () =>
+      this.dashboard()?.alerts.filter((alert) => alert.alertType === 'PendingPurchaseOrder') ?? [],
   );
-  readonly expiringBatchAlerts = computed(() =>
-    this.dashboard()?.alerts.filter((alert) => alert.alertType === 'ExpiringBatch') ?? [],
+  readonly expiringBatchAlerts = computed(
+    () => this.dashboard()?.alerts.filter((alert) => alert.alertType === 'ExpiringBatch') ?? [],
   );
-  readonly lowStockAlerts = computed(() =>
-    this.dashboard()?.alerts.filter((alert) => alert.alertType === 'LowStock') ?? [],
+  readonly lowStockAlerts = computed(
+    () => this.dashboard()?.alerts.filter((alert) => alert.alertType === 'LowStock') ?? [],
   );
   readonly offlineQueueCounts = this.offlineSalesQueueSync.visibleCounts;
-  readonly offlineQueueActionableCount = computed(() => this.getDisplayedOfflineQueueCount(this.offlineQueueCounts()));
+  readonly offlineQueueActionableCount = computed(() =>
+    this.getDisplayedOfflineQueueCount(this.offlineQueueCounts()),
+  );
   readonly offlineQueueAlert = computed(() => {
     const counts = this.offlineQueueCounts();
     const visibleCount = this.getDisplayedOfflineQueueCount(counts);
@@ -302,13 +327,15 @@ export class DashboardPageComponent {
     }
 
     return {
-      title: 'Offline sales queue',
+      title: '',
       titleKey: 'dashboard.offlineQueue.title',
       message: '',
       messageKey:
-        visibleCount === 1 ? 'dashboard.offlineQueue.messageSingular' : 'dashboard.offlineQueue.messagePlural',
+        visibleCount === 1
+          ? 'dashboard.offlineQueue.messageSingular'
+          : 'dashboard.offlineQueue.messagePlural',
       messageParams: this.buildOfflineQueueMessageParams(counts, visibleCount),
-      actionLabel: 'Open Sales',
+      actionLabel: '',
       actionLabelKey: 'dashboard.offlineQueue.openSales',
       actionRoute: '/sales',
     } satisfies DashboardActionAlert;
@@ -436,7 +463,11 @@ export class DashboardPageComponent {
       return `${startDate} – ${endDate}`;
     }
 
-    const formatter = new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+    const formatter = new Intl.DateTimeFormat('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
     return `${formatter.format(start)} – ${formatter.format(end)}`;
   }
 

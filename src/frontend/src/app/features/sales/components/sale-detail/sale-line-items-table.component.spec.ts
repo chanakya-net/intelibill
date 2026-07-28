@@ -45,7 +45,11 @@ describe('SaleLineItemsTableComponent', () => {
     await TestBed.configureTestingModule({
       imports: [
         SaleLineItemsTableComponent,
-        TranslocoTestingModule.forRoot({ langs: { 'en-IN': enIN }, preloadLangs: true }),
+        TranslocoTestingModule.forRoot({
+          langs: { 'en-IN': enIN },
+          translocoConfig: { defaultLang: 'en-IN', availableLangs: ['en-IN'] },
+          preloadLangs: true,
+        }),
       ],
     }).compileComponents();
 
@@ -70,7 +74,11 @@ describe('SaleLineItemsTableComponent', () => {
     await TestBed.configureTestingModule({
       imports: [
         SaleLineItemsTableComponent,
-        TranslocoTestingModule.forRoot({ langs: { 'en-IN': enIN }, preloadLangs: true }),
+        TranslocoTestingModule.forRoot({
+          langs: { 'en-IN': enIN },
+          translocoConfig: { defaultLang: 'en-IN', availableLangs: ['en-IN'] },
+          preloadLangs: true,
+        }),
       ],
     }).compileComponents();
 
@@ -101,7 +109,11 @@ describe('SaleLineItemsTableComponent', () => {
     await TestBed.configureTestingModule({
       imports: [
         SaleLineItemsTableComponent,
-        TranslocoTestingModule.forRoot({ langs: { 'en-IN': enIN }, preloadLangs: true }),
+        TranslocoTestingModule.forRoot({
+          langs: { 'en-IN': enIN },
+          translocoConfig: { defaultLang: 'en-IN', availableLangs: ['en-IN'] },
+          preloadLangs: true,
+        }),
       ],
     }).compileComponents();
 
@@ -124,7 +136,11 @@ describe('SaleLineItemsTableComponent', () => {
     await TestBed.configureTestingModule({
       imports: [
         SaleLineItemsTableComponent,
-        TranslocoTestingModule.forRoot({ langs: { 'en-IN': enIN }, preloadLangs: true }),
+        TranslocoTestingModule.forRoot({
+          langs: { 'en-IN': enIN },
+          translocoConfig: { defaultLang: 'en-IN', availableLangs: ['en-IN'] },
+          preloadLangs: true,
+        }),
       ],
     }).compileComponents();
 

@@ -3,18 +3,18 @@
     <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6" />
   </div>
 } @else {
-  <div class="summary-grid" aria-label="Adjustment summary">
+  <div class="summary-grid" [attr.aria-label]="'inventory.adjustmentSummary' | transloco">
     <article class="summary-card summary-card--amber">
       <div class="summary-card__label">{{ 'inventory.summary.totalAdjustments' | transloco }}</div>
-      <div class="summary-card__value">{{ totalRows | number:'1.0-0' }}</div>
+      <div class="summary-card__value">{{ totalRows | number: '1.0-0' }}</div>
     </article>
     <article class="summary-card summary-card--sage">
       <div class="summary-card__label">{{ 'inventory.summary.increaseQuantity' | transloco }}</div>
-      <div class="summary-card__value">{{ increaseQuantity | number:'1.0-2' }}</div>
+      <div class="summary-card__value">{{ increaseQuantity | number: '1.0-2' }}</div>
     </article>
     <article class="summary-card summary-card--terracotta">
       <div class="summary-card__label">{{ 'inventory.summary.decreaseQuantity' | transloco }}</div>
-      <div class="summary-card__value">{{ decreaseQuantity | number:'1.0-2' }}</div>
+      <div class="summary-card__value">{{ decreaseQuantity | number: '1.0-2' }}</div>
     </article>
     <article class="summary-card summary-card--ink">
       <div class="summary-card__label">{{ 'inventory.summary.netMovement' | transloco }}</div>

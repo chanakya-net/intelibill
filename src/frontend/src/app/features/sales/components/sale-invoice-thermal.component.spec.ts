@@ -206,7 +206,7 @@ describe('SaleInvoiceThermalComponent', () => {
 
     const text = fixture.nativeElement.textContent ?? '';
     expect(text).toContain('Rice 5kg');
-    expect(text).toContain('2 x ₹50.00');
+    expect(text).toContain('2 × ₹50.00');
     expect(text).toContain('Tax 5%: ₹5.00');
     expect(text).toContain('Discount: -₹10.00');
     expect(text).toContain('₹105.00');
@@ -223,8 +223,8 @@ describe('SaleInvoiceThermalComponent', () => {
     fixture.detectChanges();
 
     const text = fixture.nativeElement.textContent ?? '';
-    expect(text).toContain('sales.newSale.cart.goodsSection');
-    expect(text).toContain('sales.newSale.cart.servicesSection');
+    expect(text).toContain('Goods');
+    expect(text).toContain('Services');
     expect(text).toContain('HSN: 2710');
     expect(text).toContain('SAC: 9987');
   });
@@ -271,7 +271,7 @@ describe('SaleInvoiceThermalComponent', () => {
     expect(summary?.textContent).toContain('Due');
     expect(summary?.textContent).toContain('₹40.00');
     expect(summary?.textContent).toContain('₹55.00');
-    expect(summary?.textContent).toContain('Partially paid');
+    expect(summary?.textContent).toContain('Partially Paid');
     expect(summary?.textContent).toContain('Subtotal');
   });
 

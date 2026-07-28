@@ -8,27 +8,32 @@
   <div class="kpi-row">
     <div class="kpi-card">
       <p class="kpi-label">{{ 'sales.history.kpi.periodSales' | transloco }}</p>
-      <p class="kpi-value">₹{{ (salesHistorySummary()?.periodSales ?? 0) | number:'1.0-0' }}</p>
+      <p class="kpi-value">₹{{ salesHistorySummary()?.periodSales ?? 0 | number: '1.0-0' }}</p>
     </div>
     <div class="kpi-card">
       <p class="kpi-label">{{ 'sales.history.kpi.invoices' | transloco }}</p>
-      <p class="kpi-value">{{ (salesHistorySummary()?.invoiceCount ?? 0) | number }}</p>
+      <p class="kpi-value">{{ salesHistorySummary()?.invoiceCount ?? 0 | number }}</p>
     </div>
     <div class="kpi-card">
       <p class="kpi-label">{{ 'sales.history.kpi.refunds' | transloco }}</p>
-      <p class="kpi-value">₹{{ (salesHistorySummary()?.refundAmount ?? 0) | number:'1.0-0' }}</p>
+      <p class="kpi-value">₹{{ salesHistorySummary()?.refundAmount ?? 0 | number: '1.0-0' }}</p>
     </div>
   </div>
 
   @if (serverError()) {
-    <p class="error">{{ serverError() }}</p>
+    <p class="error">{{ serverError() | transloco }}</p>
   }
 
   @if (hasOfflineQueueStatus()) {
-    <section class="offline-queue-status" [attr.aria-label]="'sales.history.offlineQueue.ariaLabel' | transloco">
+    <section
+      class="offline-queue-status"
+      [attr.aria-label]="'sales.history.offlineQueue.ariaLabel' | transloco"
+    >
       <div class="offline-queue-status-header">
         <div>
-          <p class="offline-queue-eyebrow">{{ 'sales.history.offlineQueue.eyebrow' | transloco }}</p>
+          <p class="offline-queue-eyebrow">
+            {{ 'sales.history.offlineQueue.eyebrow' | transloco }}
+          </p>
           <h2>{{ 'sales.history.offlineQueue.title' | transloco }}</h2>
         </div>
         <p-button
@@ -42,11 +47,26 @@
         />
       </div>
       <div class="offline-queue-counts">
-        <span class="offline-queue-chip pending">{{ 'sales.history.offlineQueue.pending' | transloco }} {{ offlineQueueCounts().pending }}</span>
-        <span class="offline-queue-chip syncing">{{ 'sales.history.offlineQueue.syncing' | transloco }} {{ offlineQueueCounts().syncing }}</span>
-        <span class="offline-queue-chip failed">{{ 'sales.history.offlineQueue.failed' | transloco }} {{ offlineQueueCounts().failed }}</span>
-        <span class="offline-queue-chip warning">{{ 'sales.history.offlineQueue.warnings' | transloco }} {{ offlineQueueCounts().warning }}</span>
-        <span class="offline-queue-chip review">{{ 'sales.history.offlineQueue.needsReview' | transloco }} {{ offlineQueueCounts().needsReview }}</span>
+        <span class="offline-queue-chip pending"
+          >{{ 'sales.history.offlineQueue.pending' | transloco }}
+          {{ offlineQueueCounts().pending }}</span
+        >
+        <span class="offline-queue-chip syncing"
+          >{{ 'sales.history.offlineQueue.syncing' | transloco }}
+          {{ offlineQueueCounts().syncing }}</span
+        >
+        <span class="offline-queue-chip failed"
+          >{{ 'sales.history.offlineQueue.failed' | transloco }}
+          {{ offlineQueueCounts().failed }}</span
+        >
+        <span class="offline-queue-chip warning"
+          >{{ 'sales.history.offlineQueue.warnings' | transloco }}
+          {{ offlineQueueCounts().warning }}</span
+        >
+        <span class="offline-queue-chip review"
+          >{{ 'sales.history.offlineQueue.needsReview' | transloco }}
+          {{ offlineQueueCounts().needsReview }}</span
+        >
       </div>
     </section>
   }
@@ -79,7 +99,9 @@
         </div>
 
         <div class="control-group">
-          <label class="control-label">{{ 'sales.history.controls.reportLevel' | transloco }}</label>
+          <label class="control-label">{{
+            'sales.history.controls.reportLevel' | transloco
+          }}</label>
           <p-select
             [ngModel]="reportLevel()"
             (ngModelChange)="reportLevel.set($event)"
@@ -186,7 +208,10 @@
               <td class="invoice-cell">
                 <div class="invoice-main">{{ sale.invoiceNumber }}</div>
                 <div class="invoice-sub">
-                  <p-tag [severity]="paymentMethodSeverity(sale.paymentMethod)" [value]="paymentMethodLabel(sale.paymentMethod)" />
+                  <p-tag
+                    [severity]="paymentMethodSeverity(sale.paymentMethod)"
+                    [value]="paymentMethodLabelKey(sale.paymentMethod) | transloco"
+                  />
                   <span class="sep">•</span>
                   <span>{{ sale.itemCount }} {{ 'sales.history.items' | transloco }}</span>
                   @if (sale.returnNumbers.length > 0) {
@@ -201,22 +226,40 @@
                   <div class="muted">{{ sale.customerPhone }}</div>
                 }
               </td>
-              <td class="col-date">{{ sale.soldAt | date:'dd MMM yyyy, h:mm a' }}</td>
+              <td class="col-date">{{ sale.soldAt | date: 'dd MMM yyyy, h:mm a' }}</td>
               <td class="col-status">
-                <p-tag [severity]="statusSeverity(sale.status)" [value]="statusLabelKey(sale.status) | transloco" />
+                <p-tag
+                  [severity]="statusSeverity(sale.status)"
+                  [value]="statusLabelKey(sale.status) | transloco"
+                />
               </td>
               <td class="col-amount amount-cell">
                 <div class="amount-action-row">
                   <div>
-                    <div class="amount-main">₹{{ sale.totalAmount | number:'1.2-2' }}</div>
+                    <div class="amount-main">₹{{ sale.totalAmount | number: '1.2-2' }}</div>
                     @if (sale.status === 'partiallyPaid' && sale.dueAmount > 0) {
-                      <div class="amount-sub">{{ 'sales.history.amount.due' | transloco }}: ₹{{ sale.dueAmount | number:'1.2-2' }}</div>
+                      <div class="amount-sub">
+                        {{ 'sales.history.amount.due' | transloco }}: ₹{{
+                          sale.dueAmount | number: '1.2-2'
+                        }}
+                      </div>
                     }
-                    @if ((sale.status === 'refunded' || sale.status === 'returned') && sale.refundAmount > 0) {
-                      <div class="amount-sub negative">{{ 'sales.history.amount.refund' | transloco }}: ₹{{ sale.refundAmount | number:'1.2-2' }}</div>
+                    @if (
+                      (sale.status === 'refunded' || sale.status === 'returned') &&
+                      sale.refundAmount > 0
+                    ) {
+                      <div class="amount-sub negative">
+                        {{ 'sales.history.amount.refund' | transloco }}: ₹{{
+                          sale.refundAmount | number: '1.2-2'
+                        }}
+                      </div>
                     }
                     @if (sale.creditNoteAppliedAmount > 0) {
-                      <div class="amount-sub credit-note">{{ 'sales.history.amount.creditNoteApplied' | transloco }}: ₹{{ sale.creditNoteAppliedAmount | number:'1.2-2' }}</div>
+                      <div class="amount-sub credit-note">
+                        {{ 'sales.history.amount.creditNoteApplied' | transloco }}: ₹{{
+                          sale.creditNoteAppliedAmount | number: '1.2-2'
+                        }}
+                      </div>
                     }
                   </div>
                   <p-button
@@ -240,7 +283,9 @@
                   <i class="pi pi-receipt empty-icon"></i>
                   <div>
                     <div class="empty-title">{{ 'sales.history.noSales' | transloco }}</div>
-                    <div class="empty-subtitle">{{ 'sales.history.noSalesDescription' | transloco }}</div>
+                    <div class="empty-subtitle">
+                      {{ 'sales.history.noSalesDescription' | transloco }}
+                    </div>
                   </div>
                 </div>
               </td>
@@ -252,7 +297,11 @@
 
     <footer class="pagination-bar">
       <div class="showing">
-        {{ 'sales.history.pagination.showing' | transloco: { start: rangeStart(), end: rangeEnd(), total: salesPagination().totalCount } }}
+        {{
+          'sales.history.pagination.showing'
+            | transloco
+              : { start: rangeStart(), end: rangeEnd(), total: salesPagination().totalCount }
+        }}
       </div>
 
       <div class="page-size">
@@ -282,7 +331,10 @@
         ></button>
 
         <div class="page-status">
-          {{ 'sales.history.pagination.pageStatus' | transloco: { page: pageNumber(), totalPages: totalPages() } }}
+          {{
+            'sales.history.pagination.pageStatus'
+              | transloco: { page: pageNumber(), totalPages: totalPages() }
+          }}
         </div>
 
         <div class="page-buttons">
@@ -318,8 +370,5 @@
     </footer>
   </section>
 
-  <app-sale-detail-overlay
-    [visible]="showDetailOverlay()"
-    (visibleChange)="onCloseDetail()"
-  />
+  <app-sale-detail-overlay [visible]="showDetailOverlay()" (visibleChange)="onCloseDetail()" />
 </section>

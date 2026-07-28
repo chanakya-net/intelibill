@@ -13,7 +13,7 @@
       <header class="return-preview-header">
         <div class="return-preview-title-row">
           <div>
-            <p class="return-preview-eyebrow">Returns</p>
+            <p class="return-preview-eyebrow">{{ 'sales.invoice.returns' | transloco }}</p>
             <div class="return-preview-title-wrap">
               <h2>{{ 'sales.returns.preview.title' | transloco }}</h2>
               <span class="return-preview-status">
@@ -42,11 +42,11 @@
             <strong>{{ sale.invoiceNumber }}</strong>
           </div>
           <div class="return-preview-meta-card">
-            <span>Customer</span>
+            <span>{{ 'sales.invoice.customer' | transloco }}</span>
             <strong>{{ customerName() }}</strong>
           </div>
           <div class="return-preview-meta-card">
-            <span>Original total</span>
+            <span>{{ 'sales.returns.preview.originalTotal' | transloco }}</span>
             <strong>{{ sale.totalAmount | currency: currency : 'symbol' : '1.2-2' }}</strong>
           </div>
         </div>
@@ -87,10 +87,13 @@
             <section class="return-preview-lines-card">
               <header class="return-preview-card-header">
                 <div>
-                  <h3>Items eligible for return</h3>
-                  <p>Select lines, set quantity, confirm condition, and review the refund impact.</p>
+                  <h3>{{ 'sales.returns.preview.eligibleItems' | transloco }}</h3>
+                  <p>{{ 'sales.returns.preview.eligibleItemsDescription' | transloco }}</p>
                 </div>
-                <span>{{ getReturnableLineCount() }} returnable lines</span>
+                <span>{{
+                  'sales.returns.preview.returnableLineCount'
+                    | transloco: { count: getReturnableLineCount() }
+                }}</span>
               </header>
 
               <div class="return-preview-lines">
@@ -106,15 +109,20 @@
                     </div>
 
                     <div class="return-preview-item">
-                      <strong>{{ item.itemName || ('sales.detail.unknownItem' | transloco) }}</strong>
+                      <strong>{{
+                        item.itemName || ('sales.detail.unknownItem' | transloco)
+                      }}</strong>
                       <span
-                        >Sold qty {{ item.quantity }} · {{ lineTypeLabel(item) }} ·
-                        {{ returnLineHint(item) }}</span
+                        >{{
+                          'sales.returns.preview.soldQuantity'
+                            | transloco: { quantity: item.quantity }
+                        }}
+                        · {{ lineTypeLabel(item) }} · {{ returnLineHint(item) }}</span
                       >
                     </div>
 
                     <div class="return-preview-control">
-                      <span>Qty to return</span>
+                      <span>{{ 'sales.returns.preview.quantityToReturn' | transloco }}</span>
                       <div class="return-preview-stepper">
                         <button
                           type="button"
@@ -145,7 +153,7 @@
                       <span>{{ 'sales.returns.preview.col.condition' | transloco }}</span>
                       <p-select
                         [options]="returnConditionOptions"
-                        optionLabel="label"
+                        optionLabel="labelKey"
                         optionValue="value"
                         appendTo="body"
                         styleClass="return-preview-select"
@@ -155,7 +163,14 @@
                         [ngModel]="getDraft(item.saleItemId)?.condition"
                         (ngModelChange)="updateReturnCondition(item, $event)"
                         [placeholder]="getLineConditionPlaceholder(item)"
-                      />
+                      >
+                        <ng-template pTemplate="selectedItem" let-option>
+                          {{ option?.labelKey | transloco }}
+                        </ng-template>
+                        <ng-template pTemplate="item" let-option>
+                          {{ option.labelKey | transloco }}
+                        </ng-template>
+                      </p-select>
                     </label>
 
                     @if (hasFinancialAccess()) {
@@ -175,7 +190,7 @@
                       <span>{{ 'sales.returns.preview.col.notes' | transloco }}</span>
                       <input
                         type="text"
-                        placeholder="Optional note"
+                        [placeholder]="'sales.returns.preview.notesPlaceholder' | transloco"
                         [disabled]="!(getDraft(item.saleItemId)?.selected ?? false)"
                         [ngModel]="getDraft(item.saleItemId)?.notes ?? ''"
                         (ngModelChange)="updateNotes(item, $event)"
@@ -192,7 +207,7 @@
                     <input
                       type="number"
                       min="0"
-                      placeholder="Optional amount, e.g. ₹50.00"
+                      [placeholder]="'sales.returns.preview.amountPlaceholder' | transloco"
                       [ngModel]="dueReductionOverrideAmount()"
                       (ngModelChange)="updateDueReductionOverride($event)"
                     />
@@ -201,7 +216,7 @@
                     <span>{{ 'sales.returns.preview.overrideReason' | transloco }}</span>
                     <input
                       type="text"
-                      placeholder="Manager approval note"
+                      [placeholder]="'sales.returns.preview.approvalNotePlaceholder' | transloco"
                       [ngModel]="dueOverrideReason()"
                       (ngModelChange)="updateDueOverrideReason($event)"
                     />
@@ -220,7 +235,7 @@
 
             @if (previewError()) {
               <div class="return-preview-alert is-error">
-                {{ previewError() }}
+                {{ previewError() | transloco }}
               </div>
             }
 
@@ -228,15 +243,24 @@
               <section class="return-preview-side-card return-preview-result">
                 <header>
                   <h3>{{ 'sales.returns.preview.calculatedEffects' | transloco }}</h3>
-                  <span>Preview ready</span>
+                  <span>{{ 'sales.returns.preview.previewReady' | transloco }}</span>
                 </header>
                 <div class="return-preview-result-lines">
                   @for (line of returnPreview()!.lines; track line.saleItemId) {
                     <div class="return-preview-result-line">
                       <strong>{{ getPreviewItemName(line.saleItemId) }}</strong>
                       <span
-                        >{{ line.requestedQuantity }} qty ·
-                        {{ line.willRestock ? 'Restock' : 'No restock' }}</span
+                        >{{
+                          'sales.returns.preview.quantityShort'
+                            | transloco: { quantity: line.requestedQuantity }
+                        }}
+                        ·
+                        {{
+                          (line.willRestock
+                            ? 'sales.returns.preview.restock'
+                            : 'sales.returns.preview.noRestock'
+                          ) | transloco
+                        }}</span
                       >
                       @if (getPreviewLineRefundAmount(line.saleItemId) !== null) {
                         <b>
@@ -255,25 +279,25 @@
 
           <aside class="return-preview-side">
             <section class="return-preview-side-card return-preview-impact">
-              <h3>Refund impact</h3>
+              <h3>{{ 'sales.returns.preview.refundImpact' | transloco }}</h3>
               <div class="return-preview-impact-row">
-                <span>Selected lines</span>
+                <span>{{ 'sales.returns.preview.selectedLines' | transloco }}</span>
                 <strong>{{ getSelectedStatusLabel() }}</strong>
               </div>
               <div class="return-preview-impact-row">
-                <span>Item refund</span>
+                <span>{{ 'sales.returns.preview.itemRefund' | transloco }}</span>
                 <strong>{{
                   displayedItemRefundTotal() | currency: currency : 'symbol' : '1.2-2'
                 }}</strong>
               </div>
               <div class="return-preview-impact-row">
-                <span>Tax reversal</span>
+                <span>{{ 'sales.returns.preview.taxReversal' | transloco }}</span>
                 <strong>{{
                   displayedTaxReversalTotal() | currency: currency : 'symbol' : '1.2-2'
                 }}</strong>
               </div>
               <div class="return-preview-impact-total">
-                <span>Total refund</span>
+                <span>{{ 'sales.returns.preview.totalRefund' | transloco }}</span>
                 <strong>{{
                   displayedRefundTotal() | currency: currency : 'symbol' : '1.2-2'
                 }}</strong>
@@ -281,14 +305,24 @@
             </section>
 
             <section class="return-preview-side-card">
-              <h3>Return policy check</h3>
-              <p><strong>Inventory:</strong> {{ getPolicyInventoryLine() }}</p>
-              <p><strong>Finance:</strong> {{ getPolicyFinanceLine() }}</p>
-              <p><strong>Receipt:</strong> {{ getPolicyReceiptLine() }}</p>
+              <h3>{{ 'sales.returns.preview.policyCheck' | transloco }}</h3>
+              <p>
+                <strong>{{ 'sales.returns.preview.policyInventory' | transloco }}:</strong>
+                {{ getPolicyInventoryLine() }}
+              </p>
+              <p>
+                <strong>{{ 'sales.returns.preview.policyFinance' | transloco }}:</strong>
+                {{ getPolicyFinanceLine() }}
+              </p>
+              <p>
+                <strong>{{ 'sales.returns.preview.policyReceipt' | transloco }}:</strong>
+                {{ getPolicyReceiptLine() }}
+              </p>
             </section>
 
             @if (
-              returnPreview()?.financial?.payoutAmount && returnPreview()!.financial!.payoutAmount > 0
+              returnPreview()?.financial?.payoutAmount &&
+              returnPreview()!.financial!.payoutAmount > 0
             ) {
               <label class="return-preview-side-card return-preview-payout">
                 <span>{{ 'sales.returns.preview.payoutDestination' | transloco }}</span>
@@ -300,7 +334,7 @@
                   styleClass="return-preview-select"
                   [ngModel]="payoutDestination()"
                   (ngModelChange)="updatePayoutDestination($event)"
-                  placeholder="Required"
+                  [placeholder]="'sales.returns.preview.required' | transloco"
                 >
                   <ng-template pTemplate="selectedItem" let-option>
                     {{ option?.labelKey | transloco }}
@@ -375,7 +409,7 @@
           <p>{{ getFooterNote() }}</p>
           <div class="return-preview-actions">
             <p-button
-              label="Preview refund"
+              [label]="'sales.returns.preview.previewRefund' | transloco"
               icon="pi pi-calculator"
               severity="danger"
               [outlined]="true"

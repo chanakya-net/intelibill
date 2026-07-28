@@ -182,10 +182,8 @@ export class BarcodeScannerDialogComponent implements OnChanges, OnDestroy {
           this.scannerError.set('inventory.scannerDetectionError');
         },
       );
-    } catch (error) {
-      this.scannerError.set(
-        error instanceof Error ? error.message : 'inventory.scannerOpenError',
-      );
+    } catch {
+      this.scannerError.set('inventory.scannerOpenError');
       this.visibleChange.emit(false);
     } finally {
       this.scannerInitializing.set(false);

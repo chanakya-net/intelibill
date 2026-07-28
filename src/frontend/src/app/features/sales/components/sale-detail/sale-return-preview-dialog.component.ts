@@ -10,7 +10,7 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { TranslocoPipe } from '@ngneat/transloco';
+import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import { ButtonModule } from 'primeng/button';
 import { CheckboxModule } from 'primeng/checkbox';
 import { DialogModule } from 'primeng/dialog';
@@ -59,6 +59,7 @@ interface ReturnLineDraft {
 export class SaleReturnPreviewDialogComponent {
   private readonly salesFacade = inject(SalesFacade);
   private readonly authService = inject(AuthService);
+  private readonly transloco = inject(TranslocoService);
 
   readonly isVisible = signal(false);
 
@@ -93,7 +94,9 @@ export class SaleReturnPreviewDialogComponent {
   readonly dueOverrideReason = signal('');
   readonly dueOverrideConfirmed = signal(false);
   readonly payoutDestination = signal<number | null>(null);
-  readonly creditNoteExpiryMode = signal<'NoExpiry' | '30Days' | '60Days' | '90Days' | 'Custom'>('NoExpiry');
+  readonly creditNoteExpiryMode = signal<'NoExpiry' | '30Days' | '60Days' | '90Days' | 'Custom'>(
+    'NoExpiry',
+  );
   readonly creditNoteExpiryDate = signal<string | null>(null);
   readonly recordedCreditNoteSummary = signal<SaleReturnCreditNoteSummaryDto | null>(null);
   readonly submittedReturnIds = signal<readonly string[]>([]);
@@ -412,7 +415,7 @@ export class SaleReturnPreviewDialogComponent {
   getPreviewItemName(saleItemId: string): string {
     return (
       this.saleInput()?.items.find((line) => line.saleItemId === saleItemId)?.itemName ||
-      'Unknown Item'
+      this.transloco.translate('sales.detail.unknownItem')
     );
   }
 
@@ -428,19 +431,27 @@ export class SaleReturnPreviewDialogComponent {
   }
 
   customerName(): string {
-    return this.saleInput()?.customerName || 'Walk-in Customer';
+    return (
+      this.saleInput()?.customerName || this.transloco.translate('sales.invoice.walkInCustomer')
+    );
   }
 
   lineTypeLabel(item: SaleItemDto): string {
-    return item.lineType === 'Service' ? 'Service' : 'Goods';
+    return this.transloco.translate(
+      item.lineType === 'Service' ? 'sales.newSale.servicesSection' : 'sales.newSale.goodsSection',
+    );
   }
 
   returnLineHint(item: SaleItemDto): string {
     if (this.isServiceLine(item)) {
-      return 'Manager approval required';
+      return this.transloco.translate('sales.returns.preview.managerApprovalRequired');
     }
 
-    return item.returnableQuantity > 0 ? 'Returnable' : 'Fully returned';
+    return this.transloco.translate(
+      item.returnableQuantity > 0
+        ? 'sales.returns.preview.returnable'
+        : 'sales.returns.preview.fullyReturned',
+    );
   }
 
   getReturnableLineCount(): number {
@@ -448,7 +459,11 @@ export class SaleReturnPreviewDialogComponent {
   }
 
   getLineConditionPlaceholder(item: SaleItemDto): string {
-    return this.isServiceLine(item) ? 'Refund-only service' : 'Required';
+    return this.transloco.translate(
+      this.isServiceLine(item)
+        ? 'sales.returns.preview.refundOnlyService'
+        : 'sales.returns.preview.required',
+    );
   }
 
   decreaseReturnQuantity(item: SaleItemDto): void {
@@ -462,25 +477,29 @@ export class SaleReturnPreviewDialogComponent {
   }
 
   getSelectedStatusLabel(): string {
-    return `${this.selectedLineCount()} of ${this.getReturnableLineCount()}`;
+    return this.transloco.translate('sales.returns.preview.selectedStatus', {
+      selected: this.selectedLineCount(),
+      total: this.getReturnableLineCount(),
+    });
   }
 
   getPolicyInventoryLine(): string {
     const firstGoods = this.returnableItems().find((item) => item.lineType === 'Goods');
-    const itemName = firstGoods?.itemName ?? 'Returnable goods';
-    return `${itemName} can return to stock if sealed.`;
+    const itemName =
+      firstGoods?.itemName ?? this.transloco.translate('sales.returns.preview.returnableGoods');
+    return this.transloco.translate('sales.returns.preview.policyInventoryLine', { itemName });
   }
 
   getPolicyFinanceLine(): string {
-    return 'Service refunds require a reason before recording.';
+    return this.transloco.translate('sales.returns.preview.policyFinanceLine');
   }
 
   getPolicyReceiptLine(): string {
-    return 'A return receipt will be generated after confirmation.';
+    return this.transloco.translate('sales.returns.preview.policyReceiptLine');
   }
 
   getFooterNote(): string {
-    return 'Preview the financial impact before recording. Only selected lines will affect stock, tax reversal, and customer balance.';
+    return this.transloco.translate('sales.returns.preview.footerNote');
   }
 
   private getTaxReversalAmount(item: SaleItemDto, quantity: number): number {
@@ -508,8 +527,7 @@ export class SaleReturnPreviewDialogComponent {
       )
       .slice()
       .sort(
-        (left, right) =>
-          new Date(right.returnedAt).getTime() - new Date(left.returnedAt).getTime(),
+        (left, right) => new Date(right.returnedAt).getTime() - new Date(left.returnedAt).getTime(),
       )[0];
 
     return latestReturn?.creditNote ?? null;
@@ -559,32 +577,51 @@ export class SaleReturnPreviewDialogComponent {
     const errors: string[] = [];
 
     if (!sale || selectedDrafts.length === 0) {
-      return ['Select at least one return line.'];
+      return [this.transloco.translate('sales.returns.preview.validation.selectLine')];
     }
 
     for (const draft of selectedDrafts) {
       const item = sale.items.find((line) => line.saleItemId === draft.saleItemId);
-      const itemName = item?.itemName || 'Selected item';
+      const itemName =
+        item?.itemName ?? this.transloco.translate('sales.returns.preview.validation.selectedItem');
 
       if (!item) {
-        errors.push(`${itemName} is no longer available.`);
+        errors.push(
+          this.transloco.translate('sales.returns.preview.validation.itemUnavailable', {
+            itemName,
+          }),
+        );
         continue;
       }
 
       if (draft.quantity <= 0) {
-        errors.push(`Enter quantity for ${itemName}.`);
+        errors.push(
+          this.transloco.translate('sales.returns.preview.validation.quantityRequired', {
+            itemName,
+          }),
+        );
       }
 
       if (draft.quantity > item.returnableQuantity) {
-        errors.push(`${itemName} exceeds returnable quantity.`);
+        errors.push(
+          this.transloco.translate('sales.returns.preview.validation.quantityExceeded', {
+            itemName,
+          }),
+        );
       }
 
       if (!draft.condition && item.lineType !== 'Service') {
-        errors.push(`Select condition for ${itemName}.`);
+        errors.push(
+          this.transloco.translate('sales.returns.preview.validation.conditionRequired', {
+            itemName,
+          }),
+        );
       }
 
       if (this.hasFinancialAccess() && draft.approvedRefundAmount === null) {
-        errors.push(`Enter refund amount for ${itemName}.`);
+        errors.push(
+          this.transloco.translate('sales.returns.preview.validation.refundRequired', { itemName }),
+        );
       }
     }
 
@@ -595,16 +632,16 @@ export class SaleReturnPreviewDialogComponent {
     const errors = this.validateReturnDrafts();
 
     if (!this.canSubmitReturns()) {
-      errors.push('You do not have permission to record returns.');
+      errors.push(this.transloco.translate('sales.returns.preview.validation.permissionDenied'));
     }
 
     if (this.dueReductionOverrideAmount() !== null && !this.dueOverrideConfirmed()) {
-      errors.push('Confirm due override before recording.');
+      errors.push(this.transloco.translate('sales.returns.preview.validation.confirmDueOverride'));
     }
 
     const payoutAmount = this.returnPreview()?.financial?.payoutAmount ?? 0;
     if (payoutAmount > 0 && !this.payoutDestination()) {
-      errors.push('Select payout destination.');
+      errors.push(this.transloco.translate('sales.returns.preview.validation.payoutRequired'));
     }
 
     const isCreditNote =
@@ -613,13 +650,13 @@ export class SaleReturnPreviewDialogComponent {
     if (isCreditNote && this.creditNoteExpiryMode() === 'Custom') {
       const dateStr = this.creditNoteExpiryDate();
       if (!dateStr) {
-        errors.push('Select an expiry date for custom credit note expiry.');
+        errors.push(this.transloco.translate('sales.returns.preview.validation.expiryRequired'));
       } else {
         const selectedDate = new Date(`${dateStr}T00:00:00Z`);
         const today = new Date();
         today.setUTCHours(0, 0, 0, 0);
         if (selectedDate < today) {
-          errors.push('Expiry date cannot be in the past.');
+          errors.push(this.transloco.translate('sales.returns.preview.validation.expiryPast'));
         }
       }
     }

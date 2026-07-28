@@ -1,6 +1,7 @@
 import { signal, Signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Store } from '@ngrx/store';
+import { TranslocoTestingModule } from '@ngneat/transloco';
 import { vi } from 'vitest';
 
 import { SetDefaultStoreOverlayComponent } from './set-default-store-overlay.component';
@@ -44,7 +45,10 @@ describe('SetDefaultStoreOverlayComponent', () => {
 
   function setup(): { component: SetDefaultStoreOverlayComponent; fixture: ReturnType<typeof TestBed.createComponent<SetDefaultStoreOverlayComponent>> } {
     TestBed.configureTestingModule({
-      imports: [SetDefaultStoreOverlayComponent],
+      imports: [
+        SetDefaultStoreOverlayComponent,
+        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+      ],
       providers: [{ provide: Store, useValue: store }],
     });
 

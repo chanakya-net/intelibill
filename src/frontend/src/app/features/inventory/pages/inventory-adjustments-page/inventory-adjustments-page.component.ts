@@ -1,6 +1,13 @@
 import { CommonModule, DatePipe, DecimalPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
-import { AbstractControl, FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { toSignal } from '@angular/core/rxjs-interop';
+import {
+  AbstractControl,
+  FormBuilder,
+  FormsModule,
+  ReactiveFormsModule,
+  Validators,
+} from '@angular/forms';
 import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import { MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
@@ -18,7 +25,10 @@ import { ToastModule } from 'primeng/toast';
 
 import { finalize } from 'rxjs';
 
-import { formatLocalIsoDate, parseDateOnlyAsLocalDate } from '../../../../shared/utils/date-time.util';
+import {
+  formatLocalIsoDate,
+  parseDateOnlyAsLocalDate,
+} from '../../../../shared/utils/date-time.util';
 import {
   AdjustmentRowDto,
   InventoryAdjustmentDirection,
@@ -72,6 +82,9 @@ export class InventoryAdjustmentsPageComponent {
   private readonly formBuilder = inject(FormBuilder);
   private readonly messageService = inject(MessageService);
   private readonly translocoService = inject(TranslocoService);
+  private readonly activeLanguage = toSignal(this.translocoService.langChanges$, {
+    initialValue: this.translocoService.getActiveLang(),
+  });
   private readonly authService = inject(AuthService);
 
   readonly adjustments = signal<InventoryAdjustmentHistoryItem[]>([]);
@@ -87,14 +100,16 @@ export class InventoryAdjustmentsPageComponent {
   readonly selectedAdjustment = signal<InventoryAdjustmentHistoryItem | null>(null);
   readonly fromDateValue = signal<Date | null>(null);
   readonly toDateValue = signal<Date | null>(null);
-  readonly adjustmentSummaryRows = computed(() => this.adjustments().map((adjustment) => ({
-    batchId: adjustment.batchId,
-    direction: adjustment.direction,
-    reason: adjustment.reason,
-    quantity: adjustment.quantity,
-    performedAt: adjustment.performedAt,
-    notes: adjustment.notes,
-  })));
+  readonly adjustmentSummaryRows = computed(() =>
+    this.adjustments().map((adjustment) => ({
+      batchId: adjustment.batchId,
+      direction: adjustment.direction,
+      reason: adjustment.reason,
+      quantity: adjustment.quantity,
+      performedAt: adjustment.performedAt,
+      notes: adjustment.notes,
+    })),
+  );
 
   readonly session = this.authService.session;
   readonly activeShopRole = computed(() => {
@@ -105,7 +120,9 @@ export class InventoryAdjustmentsPageComponent {
       session.shops.find((shop) => shop.isDefault);
     return activeShop?.role ?? '';
   });
-  readonly canCreateAdjustments = computed(() => ['owner', 'manager'].includes(this.activeShopRole().toLowerCase()));
+  readonly canCreateAdjustments = computed(() =>
+    ['owner', 'manager'].includes(this.activeShopRole().toLowerCase()),
+  );
   readonly canVoidAdjustments = computed(() => this.activeShopRole().toLowerCase() === 'owner');
 
   readonly availableBatches = computed(() => this.batches().filter((batch) => !batch.isVoided));
@@ -124,7 +141,8 @@ export class InventoryAdjustmentsPageComponent {
 
   readonly itemOptions = computed(() => {
     const seen = new Map<string, SelectOption<string>>();
-    for (const batch of this.availableBatches()) seen.set(batch.itemId, { label: batch.itemName, value: batch.itemId });
+    for (const batch of this.availableBatches())
+      seen.set(batch.itemId, { label: batch.itemName, value: batch.itemId });
     return [...seen.values()].sort((a, b) => a.label.localeCompare(b.label));
   });
 
@@ -134,23 +152,51 @@ export class InventoryAdjustmentsPageComponent {
       .sort((a, b) => a.label.localeCompare(b.label)),
   );
 
-  readonly reasonOptionsByDirection: { Decrease: SelectOption<InventoryAdjustmentReason>[]; Increase: SelectOption<InventoryAdjustmentReason>[] } = {
-    Decrease: [
-      { label: this.translate('inventory.adjustmentReason.damaged'), value: 'Damaged' }, { label: this.translate('inventory.adjustmentReason.expired'), value: 'Expired' }, { label: this.translate('inventory.adjustmentReason.stolen'), value: 'Stolen' }, { label: this.translate('inventory.adjustmentReason.missingLost'), value: 'MissingLost' }, { label: this.translate('inventory.adjustmentReason.stockCountCorrection'), value: 'StockCountCorrection' }, { label: this.translate('inventory.adjustmentReason.otherLoss'), value: 'OtherLoss' },
-    ],
-    Increase: [
-      { label: this.translate('inventory.adjustmentReason.foundStock'), value: 'FoundStock' }, { label: this.translate('inventory.adjustmentReason.stockCountCorrection'), value: 'StockCountCorrection' }, { label: this.translate('inventory.adjustmentReason.returnRestockCorrection'), value: 'ReturnRestockCorrection' }, { label: this.translate('inventory.adjustmentReason.otherGain'), value: 'OtherGain' },
-    ],
-  };
+  readonly reasonOptionsByDirection = computed<{
+    Decrease: SelectOption<InventoryAdjustmentReason>[];
+    Increase: SelectOption<InventoryAdjustmentReason>[];
+  }>(() => {
+    this.activeLanguage();
+    return {
+      Decrease: [
+        { label: this.translate('inventory.adjustmentReason.damaged'), value: 'Damaged' },
+        { label: this.translate('inventory.adjustmentReason.expired'), value: 'Expired' },
+        { label: this.translate('inventory.adjustmentReason.stolen'), value: 'Stolen' },
+        { label: this.translate('inventory.adjustmentReason.missingLost'), value: 'MissingLost' },
+        {
+          label: this.translate('inventory.adjustmentReason.stockCountCorrection'),
+          value: 'StockCountCorrection',
+        },
+        { label: this.translate('inventory.adjustmentReason.otherLoss'), value: 'OtherLoss' },
+      ],
+      Increase: [
+        { label: this.translate('inventory.adjustmentReason.foundStock'), value: 'FoundStock' },
+        {
+          label: this.translate('inventory.adjustmentReason.stockCountCorrection'),
+          value: 'StockCountCorrection',
+        },
+        {
+          label: this.translate('inventory.adjustmentReason.returnRestockCorrection'),
+          value: 'ReturnRestockCorrection',
+        },
+        { label: this.translate('inventory.adjustmentReason.otherGain'), value: 'OtherGain' },
+      ],
+    };
+  });
 
-  readonly directionOptions = signal<SelectOption<InventoryAdjustmentDirection>[]>([
-    { label: this.translate('inventory.adjustmentDirection.decrease'), value: 'Decrease' },
-    { label: this.translate('inventory.adjustmentDirection.increase'), value: 'Increase' },
-  ]);
+  readonly directionOptions = computed<SelectOption<InventoryAdjustmentDirection>[]>(() => {
+    this.activeLanguage();
+    return [
+      { label: this.translate('inventory.adjustmentDirection.decrease'), value: 'Decrease' },
+      { label: this.translate('inventory.adjustmentDirection.increase'), value: 'Increase' },
+    ];
+  });
 
   readonly reasonOptions = computed<SelectOption<InventoryAdjustmentReason>[]>(() => {
     const direction = this.filterForm.controls.direction.value;
-    return direction === 'Increase' ? this.reasonOptionsByDirection.Increase : this.reasonOptionsByDirection.Decrease;
+    return direction === 'Increase'
+      ? this.reasonOptionsByDirection().Increase
+      : this.reasonOptionsByDirection().Decrease;
   });
 
   readonly filterForm = this.formBuilder.group({
@@ -164,7 +210,15 @@ export class InventoryAdjustmentsPageComponent {
   });
 
   readonly voidForm = this.formBuilder.nonNullable.group({
-    reason: ['', [Validators.required, (control: AbstractControl<string>) => (control.value.trim().length === 0 ? { required: true } : null), Validators.maxLength(500)]],
+    reason: [
+      '',
+      [
+        Validators.required,
+        (control: AbstractControl<string>) =>
+          control.value.trim().length === 0 ? { required: true } : null,
+        Validators.maxLength(500),
+      ],
+    ],
   });
 
   constructor() {
@@ -198,7 +252,11 @@ export class InventoryAdjustmentsPageComponent {
           this.pageSize.set(response.pageSize);
         },
         error: () =>
-          this.messageService.add({ severity: 'error', summary: this.translocoService.translate('inventory.loadAdjustmentsError'), life: 3500 }),
+          this.messageService.add({
+            severity: 'error',
+            summary: this.translocoService.translate('inventory.loadAdjustmentsError'),
+            life: 3500,
+          }),
       });
   }
 
@@ -206,7 +264,11 @@ export class InventoryAdjustmentsPageComponent {
     this.inventoryService.getInventoryBatches().subscribe({
       next: (batches) => this.batches.set([...batches]),
       error: () =>
-        this.messageService.add({ severity: 'error', summary: this.translocoService.translate('inventory.loadBatchesError'), life: 3500 }),
+        this.messageService.add({
+          severity: 'error',
+          summary: this.translocoService.translate('inventory.loadBatchesError'),
+          life: 3500,
+        }),
     });
   }
 
@@ -215,7 +277,15 @@ export class InventoryAdjustmentsPageComponent {
   }
 
   onClearFilters(): void {
-    this.filterForm.reset({ itemId: '', batchId: '', direction: null, reason: null, from: '', to: '', includeVoided: false });
+    this.filterForm.reset({
+      itemId: '',
+      batchId: '',
+      direction: null,
+      reason: null,
+      from: '',
+      to: '',
+      includeVoided: false,
+    });
     this.fromDateValue.set(null);
     this.toDateValue.set(null);
     this.loadHistory(1);
@@ -242,8 +312,10 @@ export class InventoryAdjustmentsPageComponent {
   }
 
   reasonLabel(reason: InventoryAdjustmentReason): string {
-    const option = [...this.reasonOptionsByDirection.Decrease, ...this.reasonOptionsByDirection.Increase]
-      .find((entry) => entry.value === reason);
+    const option = [
+      ...this.reasonOptionsByDirection().Decrease,
+      ...this.reasonOptionsByDirection().Increase,
+    ].find((entry) => entry.value === reason);
     return option?.label ?? reason;
   }
 
@@ -270,8 +342,13 @@ export class InventoryAdjustmentsPageComponent {
           this.loadBatches();
         },
         error: (err) => {
-          const detail = err.error?.detail || this.translocoService.translate('inventory.adjustBatchError');
-          this.messageService.add({ severity: 'error', summary: 'Error', detail });
+          const detail =
+            err.error?.detail || this.translocoService.translate('inventory.adjustBatchError');
+          this.messageService.add({
+            severity: 'error',
+            summary: this.translocoService.translate('common.error'),
+            detail,
+          });
         },
       });
   }
@@ -312,8 +389,13 @@ export class InventoryAdjustmentsPageComponent {
           this.loadHistory(1);
         },
         error: (err) => {
-          const detail = err.error?.detail || this.translocoService.translate('inventory.voidAdjustmentError');
-          this.messageService.add({ severity: 'error', summary: 'Error', detail });
+          const detail =
+            err.error?.detail || this.translocoService.translate('inventory.voidAdjustmentError');
+          this.messageService.add({
+            severity: 'error',
+            summary: this.translocoService.translate('common.error'),
+            detail,
+          });
         },
       });
   }

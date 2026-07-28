@@ -4,10 +4,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AutoCompleteCompleteEvent } from 'primeng/autocomplete';
 import { firstValueFrom } from 'rxjs';
 
-import {
-  HsnLookupResult,
-  ProductDetailsDto,
-} from '../services/inventory.models';
+import { HsnLookupResult, ProductDetailsDto } from '../services/inventory.models';
 import { InventoryService } from '../services/inventory.service';
 import { InventoryBatchDefaultsService } from './inventory-batch-defaults.service';
 import { InventoryInboundDraftRow } from '../../../core/storage/inventory-draft-indexeddb.service';
@@ -44,12 +41,14 @@ export class BatchRowFormStateService {
   readonly barcodeSuggestions = signal<string[]>([]);
   readonly supplierSuggestions = signal<string[]>([]);
   readonly taxModeOptions = signal([
-    { label: 'With Tax', value: true },
-    { label: 'Without Tax', value: false },
+    { labelKey: 'inventory.withTax', value: true },
+    { labelKey: 'inventory.withoutTax', value: false },
   ]);
 
   readonly pickerHsnOptions = computed(() => [...(this.hsnResult()?.hsnCodes ?? [])]);
-  readonly pickerTaxOptions = computed(() => (this.hsnResult()?.taxScenarios ?? []).map((s) => s.taxPercentage));
+  readonly pickerTaxOptions = computed(() =>
+    (this.hsnResult()?.taxScenarios ?? []).map((s) => s.taxPercentage),
+  );
   readonly suppliers = this.suppliersFacade.suppliers;
   readonly form = this.formBuilder.nonNullable.group({
     itemName: ['', [Validators.required, Validators.maxLength(180)]],
@@ -73,11 +72,13 @@ export class BatchRowFormStateService {
   private clearHsnSelectionOnNextItemNameChange = false;
 
   constructor() {
-    this.form.controls.itemName.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((value) => {
-      if (this.clearHsnSelectionOnNextItemNameChange && value.trim().length > 0) {
-        this.clearHsnSelection();
-      }
-    });
+    this.form.controls.itemName.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((value) => {
+        if (this.clearHsnSelectionOnNextItemNameChange && value.trim().length > 0) {
+          this.clearHsnSelection();
+        }
+      });
 
     this.resetForm();
   }
@@ -87,7 +88,9 @@ export class BatchRowFormStateService {
   }
 
   onFilterBarcode(event: AutoCompleteCompleteEvent): void {
-    this.barcodeSuggestions.set(this.catalogSync.filterByBarcode(event.query).map((entry) => entry.barcode));
+    this.barcodeSuggestions.set(
+      this.catalogSync.filterByBarcode(event.query).map((entry) => entry.barcode),
+    );
   }
 
   onNameSelected(name: string): void {
@@ -140,7 +143,9 @@ export class BatchRowFormStateService {
         this.pickerHsnCode = result.hsnCodes[0] ?? null;
         this.pickerTaxRate = result.taxScenarios[0]?.taxPercentage ?? null;
         this.filteredPickerHsnOptions.set([...result.hsnCodes]);
-        this.filteredPickerTaxOptions.set(result.taxScenarios.map((scenario) => scenario.taxPercentage));
+        this.filteredPickerTaxOptions.set(
+          result.taxScenarios.map((scenario) => scenario.taxPercentage),
+        );
         this.pickerOpen.set(true);
       }
     } catch {
@@ -192,7 +197,9 @@ export class BatchRowFormStateService {
         this.pickerHsnCode = result.hsnCodes[0] ?? null;
         this.pickerTaxRate = result.taxScenarios[0]?.taxPercentage ?? null;
         this.filteredPickerHsnOptions.set([...result.hsnCodes]);
-        this.filteredPickerTaxOptions.set(result.taxScenarios.map((scenario) => scenario.taxPercentage));
+        this.filteredPickerTaxOptions.set(
+          result.taxScenarios.map((scenario) => scenario.taxPercentage),
+        );
         this.pickerOpen.set(true);
       }
     } finally {
@@ -210,7 +217,9 @@ export class BatchRowFormStateService {
   filterPickerTax(event: AutoCompleteCompleteEvent): void {
     const filter = (event.query ?? '').toLowerCase();
     this.filteredPickerTaxOptions.set(
-      this.pickerTaxOptions().filter((taxPercentage) => taxPercentage.toLowerCase().includes(filter)),
+      this.pickerTaxOptions().filter((taxPercentage) =>
+        taxPercentage.toLowerCase().includes(filter),
+      ),
     );
   }
 
@@ -261,9 +270,13 @@ export class BatchRowFormStateService {
     this.barcodeGenerateError.set('');
   }
 
-  async fetchProductDetails(
-    options?: { lookupHsnIfMissing?: boolean },
-  ): Promise<{ readonly patched: boolean; readonly hsnApplied: boolean; readonly error: boolean }> {
+  async fetchProductDetails(options?: {
+    lookupHsnIfMissing?: boolean;
+  }): Promise<{
+    readonly patched: boolean;
+    readonly hsnApplied: boolean;
+    readonly error: boolean;
+  }> {
     const lookupHsnIfMissing = options?.lookupHsnIfMissing ?? false;
     const itemName = this.form.controls.itemName.value?.trim();
     const barcode = this.form.controls.barcode.value?.trim();
@@ -401,7 +414,9 @@ export class BatchRowFormStateService {
       expiryDate: row.expiryDate ?? '',
       manufacturingDate: row.manufacturingDate ?? '',
       supplierName:
-        this.getSupplierDisplayName(row.supplierId) === '-' ? '' : this.getSupplierDisplayName(row.supplierId),
+        this.getSupplierDisplayName(row.supplierId) === '-'
+          ? ''
+          : this.getSupplierDisplayName(row.supplierId),
       referenceNumber: row.referenceNumber ?? '',
       notes: row.notes ?? '',
     });
@@ -444,7 +459,9 @@ export class BatchRowFormStateService {
       return '-';
     }
 
-    return this.suppliers().find((supplier) => supplier.supplierId === supplierId)?.name ?? supplierId;
+    return (
+      this.suppliers().find((supplier) => supplier.supplierId === supplierId)?.name ?? supplierId
+    );
   }
 
   private buildProductDetailsPatch(details: ProductDetailsDto): Partial<{
@@ -486,7 +503,9 @@ export class BatchRowFormStateService {
     }
 
     if (!this.form.controls.totalPurchaseCost.dirty) {
-      patch.totalPurchaseCost = Number((details.costPrice * Number(this.form.controls.quantity.value)).toFixed(2));
+      patch.totalPurchaseCost = Number(
+        (details.costPrice * Number(this.form.controls.quantity.value)).toFixed(2),
+      );
     }
 
     if (!this.form.controls.mrp.dirty) {
@@ -538,5 +557,4 @@ export class BatchRowFormStateService {
 
     return `${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
   }
-
 }

@@ -157,7 +157,7 @@ describe('SalesEffects', () => {
     actions$.next(SalesActions.loadSalesRequested({}));
 
     await expect(output).resolves.toEqual(
-      SalesActions.loadSalesFailed({ errorMessage: 'Failed to load sales' })
+      SalesActions.loadSalesFailed({ errorMessage: 'errors.sales.loadFailed' })
     );
   });
 

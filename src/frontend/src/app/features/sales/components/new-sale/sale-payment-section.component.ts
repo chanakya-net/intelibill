@@ -10,7 +10,11 @@ import { InputTextModule } from 'primeng/inputtext';
 import { SelectModule } from 'primeng/select';
 import { TranslocoPipe } from '@ngneat/transloco';
 
-import { AppliedCreditNote, CreditNoteVerifyResponseDto, PaymentMethod } from '../../../../features/sales/services/sale.models';
+import {
+  AppliedCreditNote,
+  CreditNoteVerifyResponseDto,
+  PaymentMethod,
+} from '../../../../features/sales/services/sale.models';
 
 export interface PaymentMethodOption {
   readonly value: number;
@@ -67,13 +71,20 @@ export class SalePaymentSectionComponent {
   @Output() creditNoteCodeChanged = new EventEmitter<string>();
   @Output() creditNoteVerifyRequested = new EventEmitter<void>();
   @Output() creditNoteApplyRequested = new EventEmitter<void>();
-  @Output() appliedCreditNoteAmountChanged = new EventEmitter<{ creditNoteId: string; amount: number | null }>();
+  @Output() appliedCreditNoteAmountChanged = new EventEmitter<{
+    creditNoteId: string;
+    amount: number | null;
+  }>();
   @Output() appliedCreditNoteRemoved = new EventEmitter<string>();
   @Output() creditNoteCustomerMismatchConfirmedChanged = new EventEmitter<boolean>();
   @Output() creditNoteCustomerMismatchCancelled = new EventEmitter<void>();
 
   onMethodChange(value: PaymentMethod): void {
     this.methodChanged.emit(value);
+  }
+
+  paymentMethodLabelKey(method: PaymentMethod): string {
+    return `sales.newSale.paymentMethods.${method.toLowerCase()}`;
   }
 
   onPaidAmountChange(value: number | null): void {

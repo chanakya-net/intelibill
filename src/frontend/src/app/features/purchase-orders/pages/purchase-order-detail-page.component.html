@@ -24,27 +24,30 @@
         <div class="po-detail-title-row">
           <h1>{{ order.purchaseOrderNumber }}</h1>
           <span class="po-status-pill" [ngClass]="'po-status-pill--' + statusTone(order.status)">
-            {{ ('purchaseOrders.status.' + order.status) | transloco }}
+            {{ 'purchaseOrders.status.' + order.status | transloco }}
           </span>
         </div>
         <div class="po-hero__meta">
           @if (order.supplierName || order.supplierId) {
             <span class="meta-chip meta-chip--primary">
-              {{ 'purchaseOrders.detail.supplier' | transloco }}: {{ order.supplierName || order.supplierId }}
+              {{ 'purchaseOrders.detail.supplier' | transloco }}:
+              {{ order.supplierName || order.supplierId }}
             </span>
           }
           @if (order.orderDate) {
             <span class="meta-chip">
-              {{ 'purchaseOrders.detail.orderDate' | transloco }}: {{ order.orderDate | date:'mediumDate' }}
+              {{ 'purchaseOrders.detail.orderDate' | transloco }}:
+              {{ order.orderDate | date: 'mediumDate' }}
             </span>
           }
           @if (order.expectedDeliveryDate) {
             <span class="meta-chip">
-              {{ 'purchaseOrders.detail.expectedDeliveryDate' | transloco }}: {{ order.expectedDeliveryDate | date:'mediumDate' }}
+              {{ 'purchaseOrders.detail.expectedDeliveryDate' | transloco }}:
+              {{ order.expectedDeliveryDate | date: 'mediumDate' }}
             </span>
           }
           <span class="meta-chip">
-            {{ 'purchaseOrders.createdAt' | transloco }}: {{ order.createdAt | date:'short' }}
+            {{ 'purchaseOrders.createdAt' | transloco }}: {{ order.createdAt | date: 'short' }}
           </span>
         </div>
       </div>
@@ -86,7 +89,10 @@
             (click)="deleteDraft(order.purchaseOrderId)"
           ></button>
         }
-        @if (permissions.canManagePurchaseOrders() && (order.status === 'Placed' || order.status === 'PartiallyReceived')) {
+        @if (
+          permissions.canManagePurchaseOrders() &&
+          (order.status === 'Placed' || order.status === 'PartiallyReceived')
+        ) {
           <button
             pButton
             type="button"
@@ -98,17 +104,17 @@
       </div>
     </header>
 
-    <div class="summary-grid" aria-label="Purchase order summary">
+    <div class="summary-grid" [attr.aria-label]="'purchaseOrders.summary.ariaLabel' | transloco">
       @for (card of summaryCards(order); track card.labelKey) {
         <article class="summary-card" [ngClass]="'summary-card--' + card.tone">
           <div class="summary-card__label">{{ card.labelKey | transloco }}</div>
           <div class="summary-card__value">
             @if (card.variant === 'money') {
-              {{ card.value | number:'1.2-2' }}
+              {{ card.value | number: '1.2-2' }}
             } @else if (card.variant === 'progress') {
               {{ totalReceivedQuantity(order) }} / {{ totalExpectedQuantity(order) }}
             } @else {
-              {{ card.value | number:'1.0-0' }}
+              {{ card.value | number: '1.0-0' }}
             }
           </div>
         </article>
@@ -167,15 +173,23 @@
           <p class="directory-panel__eyebrow">{{ 'purchaseOrders.detail.lines' | transloco }}</p>
           <h2>{{ 'purchaseOrders.detail.title' | transloco }}</h2>
         </div>
-        <div class="directory-panel__metrics" aria-label="Purchase order detail metrics">
+        <div
+          class="directory-panel__metrics"
+          [attr.aria-label]="'purchaseOrders.detail.metrics' | transloco"
+        >
           <span class="metric-chip">
-            <strong>{{ order.expectedTotal | number:'1.2-2' }}</strong>
+            <strong>{{ order.expectedTotal | number: '1.2-2' }}</strong>
             <span>{{ 'purchaseOrders.expectedTotal' | transloco }}</span>
           </span>
         </div>
       </header>
 
-      @if (order.supplierReferenceNumber || order.notes || order.cancellationReason || order.closeReason) {
+      @if (
+        order.supplierReferenceNumber ||
+        order.notes ||
+        order.cancellationReason ||
+        order.closeReason
+      ) {
         <div class="po-detail-meta-grid">
           @if (order.supplierReferenceNumber) {
             <article class="po-detail-meta-card">
@@ -222,8 +236,8 @@
               <td>{{ line.expectedQuantity }}</td>
               <td>{{ line.receivedQuantity ?? 0 }}</td>
               <td>{{ line.remainingQuantity ?? line.expectedQuantity }}</td>
-              <td class="money">{{ line.unitCost | number:'1.2-2' }}</td>
-              <td class="money">{{ line.lineTotal | number:'1.2-2' }}</td>
+              <td class="money">{{ line.unitCost | number: '1.2-2' }}</td>
+              <td class="money">{{ line.lineTotal | number: '1.2-2' }}</td>
             </tr>
           </ng-template>
         </p-table>
@@ -232,7 +246,10 @@
 
     <app-purchase-order-receipt-history [receipts]="order.receipts ?? []" />
 
-    @if (permissions.canManagePurchaseOrders() && (order.status === 'Placed' || order.status === 'PartiallyReceived')) {
+    @if (
+      permissions.canManagePurchaseOrders() &&
+      (order.status === 'Placed' || order.status === 'PartiallyReceived')
+    ) {
       <app-receive-purchase-order-dialog
         [order]="order"
         [visible]="showReceiveDialog()"

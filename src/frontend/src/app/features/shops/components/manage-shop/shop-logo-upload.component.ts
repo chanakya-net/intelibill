@@ -1,12 +1,23 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges, signal } from '@angular/core';
+import {
+  Component,
+  EventEmitter,
+  Input,
+  OnChanges,
+  OnDestroy,
+  OnInit,
+  Output,
+  SimpleChanges,
+  signal,
+} from '@angular/core';
+import { TranslocoPipe } from '@ngneat/transloco';
 
 import { ButtonModule } from 'primeng/button';
 
 @Component({
   selector: 'app-shop-logo-upload',
   standalone: true,
-  imports: [CommonModule, ButtonModule],
+  imports: [CommonModule, ButtonModule, TranslocoPipe],
   templateUrl: './shop-logo-upload.component.html',
 })
 export class ShopLogoUploadComponent implements OnInit, OnChanges, OnDestroy {

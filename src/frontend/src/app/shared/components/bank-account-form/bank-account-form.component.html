@@ -30,12 +30,19 @@
         [id]="idPrefix + '-account-type'"
         formControlName="accountType"
         [options]="accountTypeOptions"
-        optionLabel="label"
+        optionLabel="labelKey"
         optionValue="value"
         [placeholder]="'shops.placeholders.accountType' | transloco"
         class="w-full"
         appendTo="body"
-      ></p-select>
+      >
+        <ng-template pTemplate="selectedItem" let-option>
+          {{ option?.labelKey | transloco }}
+        </ng-template>
+        <ng-template pTemplate="item" let-option>
+          {{ option.labelKey | transloco }}
+        </ng-template>
+      </p-select>
     </div>
   </div>
 
@@ -56,7 +63,9 @@
   </div>
 
   <div class="field-wrap space-y-1.5">
-    <label [for]="idPrefix + '-account-holder-name'">{{ 'shops.accountHolderName' | transloco }}</label>
+    <label [for]="idPrefix + '-account-holder-name'">{{
+      'shops.accountHolderName' | transloco
+    }}</label>
     <input
       [id]="idPrefix + '-account-holder-name'"
       type="text"

@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { TranslocoTestingModule } from '@ngneat/transloco';
 import { MenuItem } from 'primeng/api';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -25,7 +26,10 @@ describe('SidebarNavComponent', () => {
     childCommand.mockReset();
 
     TestBed.configureTestingModule({
-      imports: [SidebarNavComponent],
+      imports: [
+        SidebarNavComponent,
+        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+      ],
       providers: [{ provide: ShellMenuService, useValue: { panelMenuPt: {} } }],
     });
   });

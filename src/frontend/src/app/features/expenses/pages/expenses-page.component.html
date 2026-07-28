@@ -5,9 +5,17 @@
       <h1>{{ 'expenses.title' | transloco }}</h1>
       <p class="subtitle">{{ 'expenses.subtitle' | transloco }}</p>
       <div class="expenses-hero__meta">
-        <span class="meta-chip meta-chip--primary">{{ 'expenses.showingCount' | transloco:{ visible: filteredRowCount(), total: totalExpenses() } }}</span>
-        <span class="meta-chip">{{ 'expenses.summary.pageAmount' | transloco }}: {{ 'common.currencySymbol' | transloco }}{{ pageAmount() | number:'1.2-2' }}</span>
-        <span class="meta-chip">{{ 'expenses.summary.activeCount' | transloco }}: {{ activeCount() }}</span>
+        <span class="meta-chip meta-chip--primary">{{
+          'expenses.showingCount'
+            | transloco: { visible: filteredRowCount(), total: totalExpenses() }
+        }}</span>
+        <span class="meta-chip"
+          >{{ 'expenses.summary.pageAmount' | transloco }}: {{ 'common.currencySymbol' | transloco
+          }}{{ pageAmount() | number: '1.2-2' }}</span
+        >
+        <span class="meta-chip"
+          >{{ 'expenses.summary.activeCount' | transloco }}: {{ activeCount() }}</span
+        >
       </div>
     </div>
 
@@ -23,15 +31,15 @@
     }
   </header>
 
-  <div class="summary-grid" aria-label="Expense summary">
+  <div class="summary-grid" [attr.aria-label]="'expenses.summary.ariaLabel' | transloco">
     @for (card of summaryCards(); track card.labelKey) {
       <article class="summary-card" [ngClass]="'summary-card--' + card.tone">
         <div class="summary-card__label">{{ card.labelKey | transloco }}</div>
         <div class="summary-card__value">
           @if (card.variant === 'money') {
-            {{ 'common.currencySymbol' | transloco }}{{ card.value | number:'1.2-2' }}
+            {{ 'common.currencySymbol' | transloco }}{{ card.value | number: '1.2-2' }}
           } @else {
-            {{ card.value | number:'1.0-0' }}
+            {{ card.value | number: '1.0-0' }}
           }
         </div>
       </article>
@@ -71,14 +79,17 @@
           <p class="directory-panel__subtitle">{{ 'expenses.subtitle' | transloco }}</p>
         </div>
 
-        <div class="directory-panel__metrics" aria-label="Expense ledger metrics">
+        <div
+          class="directory-panel__metrics"
+          [attr.aria-label]="'expenses.ledgerMetrics' | transloco"
+        >
           @for (metric of directoryMetrics(); track metric.labelKey) {
             <span class="metric-chip">
               <strong>
                 @if (metric.variant === 'money') {
-                  {{ 'common.currencySymbol' | transloco }}{{ metric.value | number:'1.2-2' }}
+                  {{ 'common.currencySymbol' | transloco }}{{ metric.value | number: '1.2-2' }}
                 } @else {
-                  {{ metric.value | number:'1.0-0' }}
+                  {{ metric.value | number: '1.0-0' }}
                 }
               </strong>
               <span>{{ metric.labelKey | transloco }}</span>

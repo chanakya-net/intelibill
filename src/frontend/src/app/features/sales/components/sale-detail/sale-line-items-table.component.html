@@ -1,5 +1,5 @@
 <div class="sale-lines">
-  @for (section of getSections(); track section.title) {
+  @for (section of getSections(); track section.kind) {
     <section class="sale-lines-section">
       <header class="sale-lines-heading">
         <h3>{{ section.title }}</h3>
@@ -12,7 +12,7 @@
       <div class="sale-lines-table" role="table">
         <div class="sale-lines-row sale-lines-row-head" role="row">
           <span role="columnheader">{{
-            section.title === 'Goods sold' ? 'Product' : 'Service'
+            (section.kind === 'goods' ? 'inventory.product' : 'services.title') | transloco
           }}</span>
           <span role="columnheader">{{ 'services.hsnSac' | transloco }}</span>
           <span role="columnheader">{{ 'sales.detail.qty' | transloco }}</span>
@@ -27,7 +27,11 @@
             <div class="sale-lines-product" role="cell">
               <strong>{{ item.itemName || ('sales.detail.unknownItem' | transloco) }}</strong>
               <span>{{
-                item.lineCode || (section.title === 'Goods sold' ? 'Goods sale' : 'Service sale')
+                item.lineCode ||
+                  ((section.kind === 'goods'
+                    ? 'sales.detail.goodsSale'
+                    : 'sales.detail.serviceSale'
+                  ) | transloco)
               }}</span>
             </div>
             <span role="cell">{{ getLineCode(item) }}</span>
@@ -41,7 +45,7 @@
             </span>
             <span role="cell">
               <span class="sale-lines-returnable" [class.is-no]="!isReturnable(item)">
-                {{ isReturnable(item) ? 'Yes' : 'No' }}
+                {{ (isReturnable(item) ? 'suppliers.yes' : 'suppliers.no') | transloco }}
               </span>
             </span>
             <span class="sale-lines-total" role="cell">

@@ -28,7 +28,7 @@
   }
 
   @if (vm.serverError()) {
-    <p class="error">{{ vm.serverError() }}</p>
+    <p class="error">{{ vm.serverError() | transloco }}</p>
   }
 
   <div class="new-sale-workspace">

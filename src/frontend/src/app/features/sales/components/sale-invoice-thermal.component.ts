@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { Component, Input } from '@angular/core';
-import { TranslocoPipe } from '@ngneat/transloco';
+import { Component, Input, inject } from '@angular/core';
+import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 
 import type { SaleDto, SaleItemDto } from '../services/sale.models';
 import { ShopDetails } from '../../shops/services/shop.service';
@@ -13,6 +13,8 @@ import { ShopDetails } from '../../shops/services/shop.service';
   styleUrl: './sale-invoice-thermal.component.scss',
 })
 export class SaleInvoiceThermalComponent {
+  private readonly transloco = inject(TranslocoService);
+
   @Input() sale!: SaleDto;
   @Input() shop!: ShopDetails;
   @Input() pendingSync = false;
@@ -34,13 +36,19 @@ export class SaleInvoiceThermalComponent {
   }
 
   get shopAddress(): string {
-    return [this.shop.address, this.shop.city, this.shop.state, this.shop.pincode].filter(Boolean).join(', ');
+    return [this.shop.address, this.shop.city, this.shop.state, this.shop.pincode]
+      .filter(Boolean)
+      .join(', ');
   }
 
   getPaymentMethodLabel(method: number): string {
-    const map: Record<number, string> = { 1: 'Cash', 2: 'UPI', 3: 'Card', 4: 'Credit' };
-
-    return map[method] ?? 'Unknown';
+    const map: Record<number, string> = {
+      1: 'sales.newSale.paymentMethods.cash',
+      2: 'sales.newSale.paymentMethods.upi',
+      3: 'sales.newSale.paymentMethods.card',
+      4: 'sales.newSale.paymentMethods.credit',
+    };
+    return this.transloco.translate(map[method] ?? 'shops.unknown');
   }
 
   getCustomerDisplay(): string {
@@ -48,7 +56,7 @@ export class SaleInvoiceThermalComponent {
       return this.sale.customerName;
     }
 
-    return 'Walk-in';
+    return this.transloco.translate('sales.history.walkIn');
   }
 
   getCustomerPhone(): string | null {
@@ -61,22 +69,22 @@ export class SaleInvoiceThermalComponent {
 
   getPaymentStatus(): string {
     if (this.sale.dueAmount === 0) {
-      return 'Paid';
+      return this.transloco.translate('sales.invoice.paid');
     }
 
     if (this.sale.paidAmount > 0) {
-      return 'Partially paid';
+      return this.transloco.translate('sales.invoice.partiallyPaid');
     }
 
-    return 'Unpaid';
+    return this.transloco.translate('sales.invoice.unpaid');
   }
 
   hasGoods(): boolean {
-    return this.sale.items.some(i => i.lineType === 'Goods');
+    return this.sale.items.some((i) => i.lineType === 'Goods');
   }
 
   hasServices(): boolean {
-    return this.sale.items.some(i => i.lineType === 'Service');
+    return this.sale.items.some((i) => i.lineType === 'Service');
   }
 
   isMixedBill(): boolean {
@@ -84,10 +92,10 @@ export class SaleInvoiceThermalComponent {
   }
 
   getGoodsItems(): SaleItemDto[] {
-    return this.sale.items.filter(i => i.lineType === 'Goods');
+    return this.sale.items.filter((i) => i.lineType === 'Goods');
   }
 
   getServiceItems(): SaleItemDto[] {
-    return this.sale.items.filter(i => i.lineType === 'Service');
+    return this.sale.items.filter((i) => i.lineType === 'Service');
   }
 }

@@ -56,12 +56,12 @@ export class CreditNotePrintPageComponent {
     const activeShopId = this.authService.session()?.activeShopId;
 
     if (!code) {
-      this.errorMessage.set('Credit note was not found.');
+      this.errorMessage.set('sales.creditNotes.print.errors.notFound');
       return;
     }
 
     if (!activeShopId) {
-      this.errorMessage.set('Active shop was not found.');
+      this.errorMessage.set('sales.invoice.errors.activeShopNotFound');
       return;
     }
 
@@ -79,7 +79,7 @@ export class CreditNotePrintPageComponent {
         setTimeout(() => window.print());
       },
       error: (error) => {
-        this.errorMessage.set(error.error?.detail || 'Unable to load printable credit note.');
+        this.errorMessage.set(error.error?.detail || 'sales.creditNotes.print.errors.loadFailed');
         this.isLoading.set(false);
       },
     });

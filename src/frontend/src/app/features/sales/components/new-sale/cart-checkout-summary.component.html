@@ -1,11 +1,11 @@
 <div class="summary-box flex-1">
   <div class="flex justify-between text-sm text-slate-600">
     <span>{{ 'sales.newSale.subtotal' | transloco }}</span>
-    <span>₹{{ computedSubtotal | number:'1.2-2' }}</span>
+    <span>₹{{ computedSubtotal | number: '1.2-2' }}</span>
   </div>
   <div class="flex justify-between text-sm text-slate-500">
     <span>{{ 'sales.newSale.tax' | transloco }}</span>
-    <span>₹{{ totalTaxAmount | number:'1.2-2' }}</span>
+    <span>₹{{ totalTaxAmount | number: '1.2-2' }}</span>
   </div>
 
   <div class="sale-discount-row mt-2">
@@ -14,16 +14,23 @@
         @if (configuredSaleDiscountPercent !== null) {
           <p-tag
             severity="info"
-            [value]="'sales.newSale.discounts.configuredSalePercent' | transloco:{ percent: configuredSaleDiscountPercent }"
+            [value]="
+              'sales.newSale.discounts.configuredSalePercent'
+                | transloco: { percent: configuredSaleDiscountPercent }
+            "
           />
         }
 
         @if (saleDiscountType !== 0 && saleDiscountValue > 0) {
           <p-tag
             severity="secondary"
-            [value]="saleDiscountType === 1
-              ? ('sales.newSale.discounts.instantPercent' | transloco:{ value: saleDiscountValue })
-              : ('sales.newSale.discounts.instantFlat' | transloco:{ value: (saleDiscountValue | number:'1.0-2') })"
+            [value]="
+              saleDiscountType === 1
+                ? ('sales.newSale.discounts.instantPercent'
+                  | transloco: { value: saleDiscountValue })
+                : ('sales.newSale.discounts.instantFlat'
+                  | transloco: { value: (saleDiscountValue | number: '1.0-2') })
+            "
           />
         }
       </div>
@@ -40,7 +47,9 @@
     </div>
 
     @if (preview !== null && !isSaleDiscountEligible) {
-      <p class="text-xs text-slate-500 mt-1">{{ 'sales.newSale.discounts.saleNotEligible' | transloco }}</p>
+      <p class="text-xs text-slate-500 mt-1">
+        {{ 'sales.newSale.discounts.saleNotEligible' | transloco }}
+      </p>
     }
 
     @if (isDiscountEditorOpen) {
@@ -81,14 +90,16 @@
 
   @if (totalDiscountAmount > 0) {
     <div class="flex justify-between text-sm text-emerald-700">
-      <span>{{ 'sales.newSale.discount' | transloco }}</span>
-      <span>-₹{{ totalDiscountAmount | number:'1.2-2' }}</span>
+      <span>{{ 'sales.invoice.discount' | transloco }}</span>
+      <span>-₹{{ totalDiscountAmount | number: '1.2-2' }}</span>
     </div>
   }
 
-  <div class="flex justify-between font-bold text-lg text-orange-600 border-t border-orange-100 mt-1 pt-1">
+  <div
+    class="flex justify-between font-bold text-lg text-orange-600 border-t border-orange-100 mt-1 pt-1"
+  >
     <span>{{ 'sales.newSale.totalDue' | transloco }}</span>
-    <span>₹{{ totalAmount | number:'1.2-2' }}</span>
+    <span>₹{{ totalAmount | number: '1.2-2' }}</span>
   </div>
 
   <div class="record-sale-action">
@@ -109,7 +120,7 @@
   @if (balanceDue > 0) {
     <div class="flex justify-between text-sm text-slate-600 mt-1">
       <span>{{ 'sales.newSale.balanceDue' | transloco }}</span>
-      <span>₹{{ balanceDue | number:'1.2-2' }}</span>
+      <span>₹{{ balanceDue | number: '1.2-2' }}</span>
     </div>
   }
 </div>

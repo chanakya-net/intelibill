@@ -13,7 +13,13 @@
     "currencySymbol": "₹",
     "search": "Search...",
     "loading": "Loading...",
-    "all": "All"
+    "all": "All",
+    "active": "Active",
+    "error": "Error",
+    "inactive": "Inactive",
+    "remove": "Remove",
+    "status": "Status",
+    "void": "Void"
   },
   "languages": {
     "en-IN": "English",
@@ -66,7 +72,8 @@
       "emailRequired": "Email is required.",
       "passwordRequired": "Password is required.",
       "loginIdentifierRequired": "Enter your email or mobile number."
-    }
+    },
+    "phoneNumber": "Phone Number"
   },
   "register": {
     "newHere": "New Here",
@@ -122,7 +129,10 @@
     "offlineSalesDisabled": "Offline sales disabled. Click to enable.",
     "offlineSalesEnabling": "Enabling offline sales…",
     "pinSidebar": "Pin sidebar",
-    "unpinSidebar": "Unpin sidebar"
+    "unpinSidebar": "Unpin sidebar",
+    "collapseSidebar": "Collapse sidebar",
+    "expandSidebar": "Expand sidebar",
+    "mainNavigation": "Main navigation"
   },
   "dashboard": {
     "header": {
@@ -314,13 +324,15 @@
       "totalUsers": "Total Members",
       "managers": "Managers",
       "staff": "Staff",
-      "loginEnabled": "Login Enabled"
+      "loginEnabled": "Login Enabled",
+      "ariaLabel": "Team summary"
     },
     "validation": {
       "passwordConfirmationMustMatch": "Password and confirm password must match.",
       "selectAtLeastOneShop": "Select at least one shop."
     },
-    "searchPlaceholder": "Search users..."
+    "searchPlaceholder": "Search users...",
+    "directoryMetrics": "Team directory metrics"
   },
   "suppliers": {
     "supplierDirectory": "Supplier Directory",
@@ -379,7 +391,23 @@
     "paymentNotes": "Notes (optional)",
     "recordPayment": "Record Payment",
     "paymentActions": "Payment",
-    "searchPlaceholder": "Search suppliers..."
+    "searchPlaceholder": "Search suppliers...",
+    "balanceLabels": {
+      "amountDue": "Amount Due: {{ amount }}",
+      "extraPayment": "Extra Payment: {{ amount }}",
+      "none": "No Balance"
+    },
+    "information": "Supplier information",
+    "summary": {
+      "active": "Active suppliers",
+      "activeHint": "Current vendor network",
+      "ariaLabel": "Supplier summary",
+      "outstandingBalance": "Outstanding supplier balance",
+      "pendingPayables": "Pending payables",
+      "preferredCount": "{{ count }} preferred vendors",
+      "preferredHint": "Priority procurement partners",
+      "total": "Total suppliers"
+    }
   },
   "customers": {
     "customerDirectory": "Customer Directory",
@@ -448,7 +476,8 @@
       "totalCreditIssued": "Total Credit Issued",
       "accountsWithCredit": "Accounts With Credit",
       "monthlyRevenue": "Monthly Revenue",
-      "filteredRows": "Filtered Rows"
+      "filteredRows": "Filtered Rows",
+      "ariaLabel": "Customer summary"
     },
     "statuses": {
       "active": "Active",
@@ -461,7 +490,13 @@
     "inCredit": "In Credit",
     "monthlyRevenue": "Monthly Revenue",
     "newTransaction": "New Transaction",
-    "showingCount": "Showing {{visible}} of {{total}} customers"
+    "showingCount": "Showing {{visible}} of {{total}} customers",
+    "accountSummary": "Customer account summary",
+    "directoryMetrics": "Customer directory metrics",
+    "directoryResults": "Customer directory results",
+    "ledgerFilters": "Ledger filters",
+    "recordPayment": "Record payment",
+    "transactionLedger": "Transaction ledger"
   },
   "inventory": {
     "directory": "Inventory Directory",
@@ -674,7 +709,12 @@
         "header": "Print barcode?",
         "message": "Do you want to print a barcode label for the newly created product?"
       }
-    }
+    },
+    "decreaseBlockedForEmptyBatch": "Stock cannot be decreased because this batch is empty.",
+    "product": "Product",
+    "quantityPlaceholder": "Ex: 200",
+    "withTax": "With Tax",
+    "withoutTax": "Without Tax"
   },
   "hsn": {
     "suggestion": "HSN Suggestion",
@@ -684,7 +724,9 @@
     "enterManually": "Enter Manually",
     "chip": "HSN: {{ hsnCode }} · {{ taxPercentage }}%",
     "change": "Change",
-    "loading": "Looking up HSN..."
+    "loading": "Looking up HSN...",
+    "hsnSuggestions": "HSN suggestions",
+    "taxSuggestions": "Tax suggestions"
   },
   "profile": {
     "account": "Account",
@@ -766,6 +808,23 @@
       "pincodeRequired": "Pincode is required.",
       "gstInvalid": "Enter a valid Indian GSTIN.",
       "ifscInvalid": "Enter a valid Indian IFSC code (e.g. SBIN0001234)."
+    },
+    "defaultStore": {
+      "close": "Close default store selection",
+      "description": "Select which store should be active by default when you sign in.",
+      "title": "Set Default Store",
+      "workspace": "Workspace"
+    },
+    "logo": {
+      "empty": "No logo selected",
+      "label": "Shop logo",
+      "previewAlt": "Shop logo preview",
+      "remove": "Remove logo"
+    },
+    "members": {
+      "empty": "No members loaded.",
+      "member": "Member",
+      "title": "Members"
     }
   },
   "notFound": {
@@ -814,7 +873,8 @@
       "unableToUpdateSupplier": "Unable to update supplier right now. Please try again.",
       "onlyOwnerOrManagerCanMakePayment": "Only owner or manager can record payments for this shop.",
       "paymentAmountMustBePositive": "Payment amount must be greater than zero.",
-      "unableToMakePayment": "Unable to record payment right now. Please try again."
+      "unableToMakePayment": "Unable to record payment right now. Please try again.",
+      "unableToLoadLedger": "Unable to load supplier ledger right now. Please try again."
     },
     "items": {
       "activeShopNotSelected": "Please select an active shop before adding products.",
@@ -851,6 +911,20 @@
       "unableToAdd": "Unable to add bank account right now. Please try again.",
       "unableToUpdate": "Unable to update bank account right now. Please try again.",
       "unableToDelete": "Unable to delete bank account right now. Please try again."
+    },
+    "customers": {
+      "loadFailed": "Unable to load customers.",
+      "addFailed": "Unable to add customer.",
+      "editFailed": "Unable to update customer."
+    },
+    "sales": {
+      "loadFailed": "Unable to load sales.",
+      "profitLossLoadFailed": "Unable to load profit and loss report.",
+      "detailLoadFailed": "Unable to load sale details.",
+      "returnPreviewFailed": "Unable to preview sale return.",
+      "returnRecordFailed": "Unable to record sale return.",
+      "returnVoidFailed": "Unable to void sale return.",
+      "recordFailed": "Unable to record sale."
     }
   },
   "sales": {
@@ -1071,7 +1145,14 @@
         "customerMismatchDetails": "Confirm this mismatch before applying the credit note to this sale.",
         "confirmMismatchBtn": "Confirm mismatch",
         "customerMismatchConfirmed": "Mismatch confirmed. The sale can be submitted.",
-        "customerMismatchConfirmRequired": "Please confirm the customer mismatch before submitting."
+        "customerMismatchConfirmRequired": "Please confirm the customer mismatch before submitting.",
+        "codeLabel": "Credit note code"
+      },
+      "paymentMethods": {
+        "card": "Card",
+        "cash": "Cash",
+        "credit": "Credit",
+        "upi": "UPI"
       }
     },
     "detail": {
@@ -1096,7 +1177,21 @@
       "settlement": {
         "creditNoteApplied": "Credit Note Settlement",
         "creditNoteCodes": "Credit Note Codes"
-      }
+      },
+      "customerAndPayment": "Customer & Payment",
+      "goodsSale": "Goods sale",
+      "goodsSold": "Goods sold",
+      "itemCountMany": "{{ count }} items",
+      "itemCountOne": "{{ count }} item",
+      "notProvided": "Not provided",
+      "paymentWithMethod": "Payment: {{ method }}",
+      "receiptTotal": "Receipt total",
+      "returnFooterAvailable": "Return items remain available because at least one sold line is returnable. Print actions are grouped with the receipt.",
+      "returnFooterUnavailable": "Return items are unavailable because this receipt has no remaining returnable lines. Print actions are grouped with the receipt.",
+      "serviceCountMany": "{{ count }} services",
+      "serviceCountOne": "{{ count }} service",
+      "serviceSale": "Service sale",
+      "servicesSold": "Services sold"
     },
     "invoice": {
       "returnItems": "Return items",
@@ -1128,7 +1223,20 @@
       "refundAmount": "Refund Amount",
       "voided": "Voided",
       "voidReason": "Void Reason",
-      "hsn": "HSN"
+      "hsn": "HSN",
+      "errors": {
+        "activeShopNotFound": "Active shop was not found.",
+        "loadFailed": "Unable to load invoice.",
+        "offlineDeviceNotFound": "Offline device was not found.",
+        "offlineInvoiceNotFound": "Offline invoice was not found.",
+        "offlineLoadFailed": "Unable to load offline invoice.",
+        "saleNotFound": "Sale was not found."
+      },
+      "gstin": "GSTIN",
+      "phone": "Phone",
+      "printControls": "Invoice print controls",
+      "sac": "SAC",
+      "unpaid": "Unpaid"
     },
     "profitLoss": {
       "eyebrow": "Sales Report",
@@ -1203,6 +1311,9 @@
         "next": "Next",
         "page": "Page {{page}}",
         "ariaLabel": "P&L pagination"
+      },
+      "errors": {
+        "exportFailed": "Unable to export profit and loss report."
       }
     },
     "returns": {
@@ -1219,6 +1330,7 @@
         "title": "Void return",
         "returnLabel": "Return",
         "reason": "Reason",
+        "reasonRequired": "Void reason is required.",
         "submit": "Void return"
       },
       "preview": {
@@ -1261,7 +1373,59 @@
         "successTitle": "Credit note created",
         "successDescription": "The return has been recorded and the credit note is ready to print.",
         "successCodeLabel": "Credit note code",
-        "printCreditNoteBtn": "Print credit note"
+        "printCreditNoteBtn": "Print credit note",
+        "amountPlaceholder": "Optional amount, e.g. ₹50.00",
+        "approvalNotePlaceholder": "Manager approval note",
+        "conditions": {
+          "restockable": "Restockable",
+          "wastage": "Wastage"
+        },
+        "eligibleItems": "Items eligible for return",
+        "eligibleItemsDescription": "Select lines, set quantity, confirm condition, and review the refund impact.",
+        "footerNote": "Preview the financial impact before recording. Only selected lines affect stock, tax reversal, and customer balance.",
+        "fullyReturned": "Fully returned",
+        "itemRefund": "Item refund",
+        "managerApprovalRequired": "Manager approval required",
+        "noRestock": "No restock",
+        "notesPlaceholder": "Optional note",
+        "originalTotal": "Original total",
+        "policyCheck": "Return policy check",
+        "policyFinance": "Finance",
+        "policyFinanceLine": "Service refunds require a reason before recording.",
+        "policyInventory": "Inventory",
+        "policyInventoryLine": "{{ itemName }} can return to stock if sealed.",
+        "policyReceipt": "Receipt",
+        "policyReceiptLine": "A return receipt will be generated after confirmation.",
+        "previewReady": "Preview ready",
+        "previewRefund": "Preview refund",
+        "quantityShort": "{{ quantity }} qty",
+        "quantityToReturn": "Qty to return",
+        "refundImpact": "Refund impact",
+        "refundOnlyService": "Refund-only service",
+        "required": "Required",
+        "restock": "Restock",
+        "returnable": "Returnable",
+        "returnableGoods": "Returnable goods",
+        "returnableLineCount": "{{ count }} returnable lines",
+        "selectedLines": "Selected lines",
+        "selectedStatus": "{{ selected }} of {{ total }}",
+        "soldQuantity": "Sold qty {{ quantity }}",
+        "taxReversal": "Tax reversal",
+        "totalRefund": "Total refund",
+        "validation": {
+          "conditionRequired": "Select condition for {{ itemName }}.",
+          "confirmDueOverride": "Confirm due override before recording.",
+          "expiryPast": "Expiry date cannot be in the past.",
+          "expiryRequired": "Select an expiry date for custom credit note expiry.",
+          "itemUnavailable": "{{ itemName }} is no longer available.",
+          "payoutRequired": "Select payout destination.",
+          "permissionDenied": "You do not have permission to record returns.",
+          "quantityExceeded": "{{ itemName }} exceeds returnable quantity.",
+          "quantityRequired": "Enter quantity for {{ itemName }}.",
+          "refundRequired": "Enter refund amount for {{ itemName }}.",
+          "selectLine": "Select at least one return line.",
+          "selectedItem": "Selected item"
+        }
       }
     },
     "creditNotes": {
@@ -1299,6 +1463,10 @@
           "Expired": "Expired",
           "FullyRedeemed": "Fully Redeemed",
           "Voided": "Voided"
+        },
+        "errors": {
+          "loadFailed": "Unable to load printable credit note.",
+          "notFound": "Credit note was not found."
         }
       },
       "verify": {
@@ -1433,8 +1601,11 @@
       "pageAmount": "Page Amount",
       "activeCount": "Active Expenses",
       "voidedCount": "Voided Expenses",
-      "filteredRows": "Filtered Rows"
-    }
+      "filteredRows": "Filtered Rows",
+      "ariaLabel": "Expense summary"
+    },
+    "ledgerMetrics": "Expense ledger metrics",
+    "ledgerResults": "Expense ledger results"
   },
   "discounts": {
     "title": "Discount Rules",
@@ -1445,7 +1616,8 @@
       "activeOnPage": "Active on page",
       "disabledOnPage": "Disabled on page",
       "expiredOnPage": "Expired on page",
-      "onThisPage": "On this page"
+      "onThisPage": "On this page",
+      "ariaLabel": "Discount rules summary"
     },
     "actions": {
       "disable": "Disable"
@@ -1604,7 +1776,8 @@
       "startsAt": "Starts At",
       "endsAt": "Ends At",
       "isActive": "Status"
-    }
+    },
+    "directoryMetrics": "Discount rules metrics"
   },
   "offlineSalesDevice": {
     "title": "Offline billing for this device",
@@ -1641,7 +1814,8 @@
       "pendingReceipt": "Pending Receipt",
       "receivedProgress": "Received Progress",
       "expectedTotal": "Expected Total",
-      "filteredRows": "Filtered Rows"
+      "filteredRows": "Filtered Rows",
+      "ariaLabel": "Purchase order summary"
     },
     "poNumber": "PO Number",
     "searchPlaceholder": "Search PO number, supplier, reference, or item",
@@ -1773,7 +1947,8 @@
       "pricing": "Sales / MRP",
       "tax": "Tax",
       "stockTransaction": "Stock transaction",
-      "voided": "Voided"
+      "voided": "Voided",
+      "count": "Receipt count"
     },
     "receiveDialog": {
       "title": "Receive purchase order",
@@ -1821,7 +1996,8 @@
       "noDrafts": "No draft purchase orders found.",
       "noResults": "No purchase orders found.",
       "supplier": "Supplier",
-      "supplierReference": "Supplier Reference"
+      "supplierReference": "Supplier Reference",
+      "metrics": "Purchase order directory metrics"
     },
     "detail": {
       "title": "Purchase Order Details",
@@ -1832,7 +2008,8 @@
       "notes": "Notes",
       "receivedQuantity": "Received quantity",
       "cancellationReason": "Cancellation Reason",
-      "lines": "Lines"
+      "lines": "Lines",
+      "metrics": "Purchase order detail metrics"
     },
     "receive": {
       "title": "Receive Purchase Order",

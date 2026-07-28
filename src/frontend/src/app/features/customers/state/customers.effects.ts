@@ -19,7 +19,7 @@ export class CustomersEffects {
           catchError((error) =>
             of(
               CustomersActions.loadCustomersFailed({
-                errorMessage: error.error?.detail || 'Failed to load customers',
+                errorMessage: error.error?.detail || 'errors.customers.loadFailed',
               })
             )
           )
@@ -37,7 +37,7 @@ export class CustomersEffects {
           catchError((error) =>
             of(
               CustomersActions.addCustomerFailed({
-                errorMessage: error.error?.detail || 'Failed to add customer',
+                errorMessage: error.error?.detail || 'errors.customers.addFailed',
               })
             )
           )
@@ -55,7 +55,7 @@ export class CustomersEffects {
           catchError((error) =>
             of(
               CustomersActions.editCustomerFailed({
-                errorMessage: error.error?.detail || 'Failed to edit customer',
+                errorMessage: error.error?.detail || 'errors.customers.editFailed',
               })
             )
           )

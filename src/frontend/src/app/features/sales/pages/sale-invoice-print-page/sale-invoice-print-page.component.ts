@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { TranslocoPipe } from '@ngneat/transloco';
+import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import { forkJoin } from 'rxjs';
 
 import { AuthService } from '../../../../core/auth/auth.service';
@@ -30,6 +30,7 @@ export class SaleInvoicePrintPageComponent {
   private readonly authService = inject(AuthService);
   private readonly deviceSettingsStorage = inject(OfflineSalesDeviceSettingsStorage);
   private readonly offlineQueueDb = inject(OfflineSalesQueueIndexedDbService);
+  private readonly transloco = inject(TranslocoService);
 
   readonly isLoading = signal(false);
   readonly errorMessage = signal('');
@@ -55,12 +56,12 @@ export class SaleInvoicePrintPageComponent {
     const activeShopId = this.authService.session()?.activeShopId;
 
     if (!saleId) {
-      this.errorMessage.set('Sale was not found.');
+      this.errorMessage.set('sales.invoice.errors.saleNotFound');
       return;
     }
 
     if (!activeShopId) {
-      this.errorMessage.set('Active shop was not found.');
+      this.errorMessage.set('sales.invoice.errors.activeShopNotFound');
       return;
     }
 
@@ -85,7 +86,7 @@ export class SaleInvoicePrintPageComponent {
         setTimeout(() => window.print());
       },
       error: (error) => {
-        this.errorMessage.set(error.error?.detail || 'Unable to load invoice.');
+        this.errorMessage.set(error.error?.detail || 'sales.invoice.errors.loadFailed');
         this.isLoading.set(false);
       },
     });
@@ -96,7 +97,7 @@ export class SaleInvoicePrintPageComponent {
     const deviceId = settings?.deviceId ?? '';
 
     if (!deviceId) {
-      this.errorMessage.set('Offline device was not found.');
+      this.errorMessage.set('sales.invoice.errors.offlineDeviceNotFound');
       return;
     }
 
@@ -106,7 +107,7 @@ export class SaleInvoicePrintPageComponent {
     try {
       const queuedSale = await this.offlineQueueDb.getQueuedSale(shopId, deviceId, clientSaleId);
       if (!queuedSale) {
-        this.errorMessage.set('Offline invoice was not found.');
+        this.errorMessage.set('sales.invoice.errors.offlineInvoiceNotFound');
         this.isLoading.set(false);
         return;
       }
@@ -116,7 +117,7 @@ export class SaleInvoicePrintPageComponent {
       this.isLoading.set(false);
       setTimeout(() => window.print());
     } catch {
-      this.errorMessage.set('Unable to load offline invoice.');
+      this.errorMessage.set('sales.invoice.errors.offlineLoadFailed');
       this.isLoading.set(false);
     }
   }
@@ -133,13 +134,14 @@ export class SaleInvoicePrintPageComponent {
 
   private buildOfflineShopDetails(shopId: string): ShopDetails {
     const session = this.authService.session();
-    const activeShop = session?.shops.find((shop) => shop.shopId === shopId)
-      ?? session?.shops.find((shop) => shop.isDefault)
-      ?? null;
+    const activeShop =
+      session?.shops.find((shop) => shop.shopId === shopId) ??
+      session?.shops.find((shop) => shop.isDefault) ??
+      null;
 
     return {
       shopId,
-      name: activeShop?.shopName ?? 'Shop',
+      name: activeShop?.shopName ?? this.transloco.translate('shops.unknown'),
       address: '',
       city: '',
       state: '',

@@ -295,7 +295,9 @@ describe('SaleInvoicePrintPageComponent', () => {
     expect(deviceSettingsStorage.loadSettings).toHaveBeenCalledWith('shop-1');
     expect(deviceSettingsStorage.getOrCreateDeviceId).not.toHaveBeenCalled();
     expect(offlineQueueDb.getQueuedSale).not.toHaveBeenCalled();
-    expect(fixture.componentInstance.errorMessage()).toBe('Offline device was not found.');
+    expect(fixture.componentInstance.errorMessage()).toBe(
+      'sales.invoice.errors.offlineDeviceNotFound',
+    );
     expect(window.print).not.toHaveBeenCalled();
   });
 
