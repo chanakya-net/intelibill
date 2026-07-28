@@ -22,21 +22,22 @@ import {
   waitForStablePage,
 } from '../support/audit-page';
 
-const MANAGEMENT_ROLES = [
-  { role: 'Owner', offlineEnabled: true },
-  { role: 'Manager', offlineEnabled: false },
-] as const;
+const MANAGEMENT_ROLES = ['Owner', 'Manager'] as const;
 const BROWSER_TYPES = [chromium, firefox, webkit] as const;
+// Chart.js paints the bottom legend into the canvas, so the legend is probed as the
+// bottom band of the bitmap rather than through the DOM.
+const CHART_LEGEND_BAND_RATIO = 0.15;
+const CHART_MIN_PAINTED_RATIO = 0.001;
 
 test.describe('dashboard', () => {
   test('redirects staff to sales and renders dashboard for management roles', async ({}, testInfo) => {
     test.skip(testInfo.project.name !== 'chromium-mobile', 'representative role profiles');
 
-    for (const profile of MANAGEMENT_ROLES) {
+    for (const role of MANAGEMENT_ROLES) {
       await withDashboardPage(
         chromium,
         { width: 1440, height: 900 },
-        createDashboardScenario(profile),
+        createDashboardScenario({ role }),
         async (page) => {
           await expect(page.locator('.dashboard-page')).toBeVisible();
           await expect(page).toHaveURL(/\/dashboard$/);
@@ -152,7 +153,8 @@ test.describe('dashboard', () => {
 
   test('renders localized dashboards inside mobile and desktop widths', async ({}, testInfo) => {
     test.skip(testInfo.project.name !== 'chromium-mobile', 'manual locale matrix');
-    test.setTimeout(240_000);
+    // 9 languages x 2 viewports x 3 scenarios, each with its own browser launch.
+    test.setTimeout(480_000);
 
     for (const locale of SUPPORTED_LANGUAGES) {
       for (const viewport of SHELL_LOCALE_VIEWPORTS) {
@@ -333,19 +335,56 @@ async function assertLongContentFits(page: Page): Promise<void> {
   expect(invoicesTruncateInsideViewport).toBe(true);
 }
 
-async function assertChartCanvasesRendered(page: Page): Promise<void> {
-  const canvases = await page.locator('.dashboard-chart-card canvas').evaluateAll((elements) =>
-    elements.map((element) => {
-      const canvas = element as HTMLCanvasElement;
-      const box = canvas.getBoundingClientRect();
-      return { width: box.width, height: box.height, pixels: canvas.toDataURL().length };
-    }),
+interface ChartCanvasProbe {
+  readonly width: number;
+  readonly height: number;
+  readonly area: number;
+  readonly painted: number;
+  readonly legendPainted: number;
+}
+
+async function probeChartCanvases(page: Page): Promise<ChartCanvasProbe[]> {
+  return page.locator('.dashboard-chart-card canvas').evaluateAll(
+    (elements, bandRatio) =>
+      elements.map((element) => {
+        const canvas = element as HTMLCanvasElement;
+        const box = canvas.getBoundingClientRect();
+        const context = canvas.getContext('2d')!;
+        const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
+        const legendFirstRow = Math.floor(canvas.height * (1 - bandRatio));
+        let painted = 0;
+        let legendPainted = 0;
+
+        for (let offset = 3; offset < data.length; offset += 4) {
+          if (data[offset] === 0) {
+            continue;
+          }
+          painted += 1;
+          if (Math.floor(offset / 4 / canvas.width) >= legendFirstRow) {
+            legendPainted += 1;
+          }
+        }
+
+        return {
+          width: box.width,
+          height: box.height,
+          area: canvas.width * canvas.height,
+          painted,
+          legendPainted,
+        };
+      }),
+    CHART_LEGEND_BAND_RATIO,
   );
+}
+
+async function assertChartCanvasesRendered(page: Page): Promise<void> {
+  const canvases = await probeChartCanvases(page);
 
   expect(canvases).toHaveLength(2);
   for (const canvas of canvases) {
     expect(canvas.width).toBeGreaterThan(0);
     expect(canvas.height).toBeGreaterThan(0);
-    expect(canvas.pixels).toBeGreaterThan(100);
+    expect(canvas.painted).toBeGreaterThan(canvas.area * CHART_MIN_PAINTED_RATIO);
+    expect(canvas.legendPainted).toBeGreaterThan(0);
   }
 }

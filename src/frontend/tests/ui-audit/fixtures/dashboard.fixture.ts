@@ -39,6 +39,9 @@ export function createDashboardScenario(options: DashboardScenarioOptions = {}):
     offlineEnabled: options.offlineEnabled,
     longLabels,
   });
+  // The shell fixture's 2099 expiries are ~73 years past the clock these specs pin
+  // (2026-07-29), which overflows the 32-bit setTimeout ceiling and makes the session
+  // refresh timer fire immediately. Keep the expiries within weeks of the pinned clock.
   const shell = {
     ...baseShell,
     session: {
