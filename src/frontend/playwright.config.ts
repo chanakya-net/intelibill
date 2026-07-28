@@ -8,11 +8,7 @@ export default defineConfig({
   workers: 1,
   forbidOnly: Boolean(process.env.CI),
   retries: 0,
-  reporter: [
-    ['list'],
-    ['html', { outputFolder: '.ui-audit/html-report', open: 'never' }],
-    ['json', { outputFile: '.ui-audit/results.json' }],
-  ],
+  reporter: [['list']],
   use: {
     baseURL: 'http://127.0.0.1:4300',
     browserName: 'chromium',

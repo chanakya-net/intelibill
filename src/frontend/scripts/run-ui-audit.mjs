@@ -21,7 +21,7 @@ const result = spawnSync(process.execPath, command, {
   stdio: 'inherit',
   env: {
     ...process.env,
-    ...(baseline ? { UI_AUDIT_UPDATE_BASELINE: '1' } : {}),
+    UI_AUDIT_UPDATE_BASELINE: baseline ? '1' : '0',
   },
 });
 
