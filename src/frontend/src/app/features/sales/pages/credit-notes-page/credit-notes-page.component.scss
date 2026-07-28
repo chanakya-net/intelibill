@@ -36,6 +36,7 @@
   padding: 1rem;
   display: grid;
   gap: 0.85rem;
+  min-width: 0;
 }
 
 .eyebrow {
@@ -154,8 +155,60 @@ h1 {
   color: #6f655d;
 }
 
+.error-state {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 1rem 0.25rem 0.35rem;
+  color: #9a3412;
+  font-weight: 600;
+}
+
+.error-state p {
+  margin: 0;
+}
+
 .desktop-table {
   overflow-x: auto;
+  max-width: 100%;
+  min-width: 0;
+  overscroll-behavior-inline: contain;
+}
+
+:host ::ng-deep .credit-note-table table,
+:host ::ng-deep .credit-note-table .p-datatable-table {
+  min-width: 980px;
+  table-layout: fixed;
+}
+
+:host ::ng-deep .credit-note-table > p-table {
+  display: block;
+  min-width: 980px;
+}
+
+:host ::ng-deep .credit-note-table th,
+:host ::ng-deep .credit-note-table td {
+  min-width: 7rem;
+  vertical-align: middle;
+}
+
+:host ::ng-deep .credit-note-table th:first-child,
+:host ::ng-deep .credit-note-table td:first-child {
+  min-width: 13rem;
+}
+
+.actions-column {
+  width: 4rem;
+  min-width: 4rem !important;
+  text-align: center;
+}
+
+.truncate-value {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .clickable-row {
@@ -164,6 +217,12 @@ h1 {
 
 .clickable-row:hover {
   background: #fff5e9;
+}
+
+.clickable-row:focus-visible,
+.mobile-card:focus-within {
+  outline: 2px solid #b45309;
+  outline-offset: -2px;
 }
 
 .text-right {
@@ -221,11 +280,16 @@ h1 {
 .mobile-list {
   display: grid;
   gap: 0.75rem;
+  min-width: 0;
+  width: 100%;
 }
 
 .mobile-card {
   display: grid;
   gap: 0.7rem;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
   padding: 0.9rem 0.95rem;
   border-radius: 1rem;
   border: 1px solid #eadccf;
@@ -238,12 +302,21 @@ h1 {
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
+  min-width: 0;
+}
+
+.mobile-card header > div {
+  min-width: 0;
 }
 
 .mobile-card h3 {
   margin: 0;
   color: #2a1b12;
   font-size: 1.02rem;
+}
+
+.mobile-card > button {
+  justify-self: start;
 }
 
 .mobile-subtitle {
@@ -255,11 +328,14 @@ h1 {
 .mobile-grid {
   display: grid;
   gap: 0.35rem;
+  min-width: 0;
   color: #4b3d32;
 }
 
 .mobile-grid p {
   margin: 0;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .pager {
@@ -385,6 +461,18 @@ h1 {
 
 .compact {
   align-items: end;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 @media (max-width: 1080px) {
