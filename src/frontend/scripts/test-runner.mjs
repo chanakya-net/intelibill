@@ -53,10 +53,12 @@ if (runIndex !== -1) {
 }
 
 function run(executable, executableArgs) {
-  return spawnSync(executable, executableArgs, {
-    stdio: 'inherit',
-    env: process.env,
-  }).status ?? 1;
+  return (
+    spawnSync(executable, executableArgs, {
+      stdio: 'inherit',
+      env: process.env,
+    }).status ?? 1
+  );
 }
 
 let exitCode = run(command, commandArgs);
@@ -67,5 +69,5 @@ process.exit(exitCode);
 
 function normalizeIncludePath(path) {
   if (path.startsWith('tests/')) return `../${path}`;
-  return path.includes('/') || path.includes('*') ? path : `**/${path}`;
+  return path.includes('/') || path.includes('*') ? path : `**/*${path}*.spec.ts`;
 }
