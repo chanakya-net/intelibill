@@ -77,6 +77,7 @@ SH
 chmod +x "${test_tmp}/fake-bin/curl"
 
 healthy='[{"name":"revision-a","health":"Healthy","running":"Running"}]'
+running_at_max='[{"name":"revision-a","health":"Healthy","running":"RunningAtMaxScale"}]'
 scaled_to_zero='[{"name":"revision-a","health":"Healthy","running":"ScaledToZero"}]'
 multiple='[
   {"name":"revision-a","health":"Healthy","running":"Running"},
@@ -131,6 +132,10 @@ expect_failure() {
 expect_success \
   "healthy revisions and public routes pass" \
   "${healthy}" "${healthy}" 200 200
+
+expect_success \
+  "healthy revisions running at max scale and public routes pass" \
+  "${running_at_max}" "${running_at_max}" 200 200
 
 expect_success \
   "healthy scale-to-zero revisions are woken by public routes" \

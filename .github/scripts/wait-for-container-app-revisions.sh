@@ -35,6 +35,7 @@ healthy_revision() {
     .[0].health == "Healthy" and
     (
       .[0].running == "Running" or
+      .[0].running == "RunningAtMaxScale" or
       .[0].running == "ScaledToZero"
     )
   ' >/dev/null 2>&1

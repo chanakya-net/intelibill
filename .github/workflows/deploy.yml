@@ -158,8 +158,8 @@ jobs:
           ignore-unfixed: true
           severity: HIGH,CRITICAL
 
-  build:
-    name: Build, publish, and scan images
+  build_api:
+    name: Build, publish, and scan API image
     needs: validate
     if: ${{ github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
@@ -167,9 +167,7 @@ jobs:
       contents: read
       packages: write
     outputs:
-      api-image: ${{ steps.references.outputs.api-image }}
-      web-image: ${{ steps.references.outputs.web-image }}
-      migrate-image: ${{ steps.references.outputs.migrate-image }}
+      image: ${{ steps.reference.outputs.image }}
 
     steps:
       - name: Checkout
@@ -188,7 +186,7 @@ jobs:
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
 
       - name: Build and push API
-        id: api
+        id: image
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
@@ -204,8 +202,71 @@ jobs:
           provenance: mode=max
           sbom: true
 
+      - name: Capture immutable API image reference
+        id: reference
+        env:
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
+          IMAGE_REPOSITORY: ${{ env.API_IMAGE }}
+        run: |
+          set -euo pipefail
+          if [[ ! "${IMAGE_DIGEST}" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            printf 'Invalid API image digest from Buildx: %s\n' "${IMAGE_DIGEST}" >&2
+            exit 1
+          fi
+          printf 'image=%s@%s\n' "${IMAGE_REPOSITORY}" "${IMAGE_DIGEST}" >>"${GITHUB_OUTPUT}"
+
+      - name: Scan API image
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        env:
+          TRIVY_USERNAME: ${{ github.actor }}
+          TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          image-ref: >-
+            ${{ steps.reference.outputs.image }}
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+
+      - name: Record API image
+        env:
+          IMAGE_REF: ${{ steps.reference.outputs.image }}
+        run: |
+          {
+            printf '## Immutable API release artifact\n\n'
+            printf -- '- Commit: `%s`\n' "${GITHUB_SHA}"
+            printf -- '- Image: `%s`\n' "${IMAGE_REF}"
+          } >>"${GITHUB_STEP_SUMMARY}"
+
+  build_web:
+    name: Build, publish, and scan web image
+    needs: validate
+    if: ${{ github.event_name != 'pull_request' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.reference.outputs.image }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Login to GHCR
+        uses: docker/login-action@abd2ef45e78c5afb21d64d4ca52ee8550d9572c7 # v4.5.1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
       - name: Build and push web
-        id: web
+        id: image
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
@@ -221,8 +282,71 @@ jobs:
           provenance: mode=max
           sbom: true
 
+      - name: Capture immutable web image reference
+        id: reference
+        env:
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
+          IMAGE_REPOSITORY: ${{ env.WEB_IMAGE }}
+        run: |
+          set -euo pipefail
+          if [[ ! "${IMAGE_DIGEST}" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            printf 'Invalid web image digest from Buildx: %s\n' "${IMAGE_DIGEST}" >&2
+            exit 1
+          fi
+          printf 'image=%s@%s\n' "${IMAGE_REPOSITORY}" "${IMAGE_DIGEST}" >>"${GITHUB_OUTPUT}"
+
+      - name: Scan web image
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        env:
+          TRIVY_USERNAME: ${{ github.actor }}
+          TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          image-ref: >-
+            ${{ steps.reference.outputs.image }}
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+
+      - name: Record web image
+        env:
+          IMAGE_REF: ${{ steps.reference.outputs.image }}
+        run: |
+          {
+            printf '## Immutable web release artifact\n\n'
+            printf -- '- Commit: `%s`\n' "${GITHUB_SHA}"
+            printf -- '- Image: `%s`\n' "${IMAGE_REF}"
+          } >>"${GITHUB_STEP_SUMMARY}"
+
+  build_migrate:
+    name: Build, publish, and scan migration image
+    needs: validate
+    if: ${{ github.event_name != 'pull_request' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.reference.outputs.image }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Login to GHCR
+        uses: docker/login-action@abd2ef45e78c5afb21d64d4ca52ee8550d9572c7 # v4.5.1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
       - name: Build and push migration bundle
-        id: migrate
+        id: image
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
@@ -238,50 +362,18 @@ jobs:
           provenance: mode=max
           sbom: true
 
-      - name: Capture immutable image references
-        id: references
+      - name: Capture immutable migration image reference
+        id: reference
         env:
-          API_DIGEST: ${{ steps.api.outputs.digest }}
-          WEB_DIGEST: ${{ steps.web.outputs.digest }}
-          MIGRATE_DIGEST: ${{ steps.migrate.outputs.digest }}
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
+          IMAGE_REPOSITORY: ${{ env.MIGRATE_IMAGE }}
         run: |
           set -euo pipefail
-          digest_pattern='^sha256:[0-9a-f]{64}$'
-          for digest_name in API_DIGEST WEB_DIGEST MIGRATE_DIGEST; do
-            if [[ ! "${!digest_name}" =~ ${digest_pattern} ]]; then
-              printf 'Invalid image digest from Buildx: %s\n' "${digest_name}" >&2
-              exit 1
-            fi
-          done
-          printf 'api-image=%s@%s\n' "${API_IMAGE}" "${API_DIGEST}" >>"${GITHUB_OUTPUT}"
-          printf 'web-image=%s@%s\n' "${WEB_IMAGE}" "${WEB_DIGEST}" >>"${GITHUB_OUTPUT}"
-          printf 'migrate-image=%s@%s\n' "${MIGRATE_IMAGE}" "${MIGRATE_DIGEST}" >>"${GITHUB_OUTPUT}"
-
-      - name: Scan API image
-        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
-        env:
-          TRIVY_USERNAME: ${{ github.actor }}
-          TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          image-ref: >-
-            ${{ steps.references.outputs.api-image }}
-          format: table
-          exit-code: "1"
-          ignore-unfixed: true
-          severity: HIGH,CRITICAL
-
-      - name: Scan web image
-        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
-        env:
-          TRIVY_USERNAME: ${{ github.actor }}
-          TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          image-ref: >-
-            ${{ steps.references.outputs.web-image }}
-          format: table
-          exit-code: "1"
-          ignore-unfixed: true
-          severity: HIGH,CRITICAL
+          if [[ ! "${IMAGE_DIGEST}" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            printf 'Invalid migration image digest from Buildx: %s\n' "${IMAGE_DIGEST}" >&2
+            exit 1
+          fi
+          printf 'image=%s@%s\n' "${IMAGE_REPOSITORY}" "${IMAGE_DIGEST}" >>"${GITHUB_OUTPUT}"
 
       - name: Scan migration image
         uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
@@ -290,31 +382,32 @@ jobs:
           TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
         with:
           image-ref: >-
-            ${{ steps.references.outputs.migrate-image }}
+            ${{ steps.reference.outputs.image }}
           format: table
           exit-code: "1"
           ignore-unfixed: true
           severity: HIGH,CRITICAL
 
-      - name: Record build outputs
+      - name: Record migration image
         env:
-          API_IMAGE_REF: ${{ steps.references.outputs.api-image }}
-          WEB_IMAGE_REF: ${{ steps.references.outputs.web-image }}
-          MIGRATE_IMAGE_REF: ${{ steps.references.outputs.migrate-image }}
+          IMAGE_REF: ${{ steps.reference.outputs.image }}
         run: |
           {
-            printf '## Immutable release artifacts\n\n'
+            printf '## Immutable migration release artifact\n\n'
             printf -- '- Commit: `%s`\n' "${GITHUB_SHA}"
-            printf -- '- API: `%s`\n' "${API_IMAGE_REF}"
-            printf -- '- Web: `%s`\n' "${WEB_IMAGE_REF}"
-            printf -- '- Migration: `%s`\n' "${MIGRATE_IMAGE_REF}"
+            printf -- '- Image: `%s`\n' "${IMAGE_REF}"
           } >>"${GITHUB_STEP_SUMMARY}"
 
   dev:
     name: Release dev
-    needs: build
+    needs:
+      - build_api
+      - build_web
+      - build_migrate
     if: >-
-      needs.build.result == 'success' &&
+      needs.build_api.result == 'success' &&
+      needs.build_web.result == 'success' &&
+      needs.build_migrate.result == 'success' &&
       vars.GHCR_PUBLIC == 'true' &&
       (
         github.event_name == 'push' ||
@@ -365,7 +458,7 @@ jobs:
 
       - name: Run dev migration
         env:
-          MIGRATE_IMAGE_REF: ${{ needs.build.outputs.migrate-image }}
+          MIGRATE_IMAGE_REF: ${{ needs.build_migrate.outputs.image }}
           # A cold pull of the migration image has taken 14 minutes, so the
           # default 10-minute budget reported a timeout before the container
           # had started and hid the real failure. Wait as long as the job's own
@@ -395,8 +488,8 @@ jobs:
 
       - name: Deploy dev application images
         env:
-          API_IMAGE_REF: ${{ needs.build.outputs.api-image }}
-          WEB_IMAGE_REF: ${{ needs.build.outputs.web-image }}
+          API_IMAGE_REF: ${{ needs.build_api.outputs.image }}
+          WEB_IMAGE_REF: ${{ needs.build_web.outputs.image }}
         run: |
           set -euo pipefail
           printf 'API_ROLLBACK_REQUIRED=true\n' >>"${GITHUB_ENV}"
@@ -421,9 +514,9 @@ jobs:
 
       - name: Record dev release
         env:
-          API_IMAGE_REF: ${{ needs.build.outputs.api-image }}
-          WEB_IMAGE_REF: ${{ needs.build.outputs.web-image }}
-          MIGRATE_IMAGE_REF: ${{ needs.build.outputs.migrate-image }}
+          API_IMAGE_REF: ${{ needs.build_api.outputs.image }}
+          WEB_IMAGE_REF: ${{ needs.build_web.outputs.image }}
+          MIGRATE_IMAGE_REF: ${{ needs.build_migrate.outputs.image }}
         run: |
           {
             printf '## Dev release\n\n'
@@ -466,10 +559,14 @@ jobs:
   prod:
     name: Release production
     needs:
-      - build
+      - build_api
+      - build_web
+      - build_migrate
       - dev
     if: >-
-      needs.build.result == 'success' &&
+      needs.build_api.result == 'success' &&
+      needs.build_web.result == 'success' &&
+      needs.build_migrate.result == 'success' &&
       needs.dev.result == 'success' &&
       vars.GHCR_PUBLIC == 'true' &&
       (
@@ -520,7 +617,7 @@ jobs:
 
       - name: Run production migration
         env:
-          MIGRATE_IMAGE_REF: ${{ needs.build.outputs.migrate-image }}
+          MIGRATE_IMAGE_REF: ${{ needs.build_migrate.outputs.image }}
           # Matches the dev budget: a cold image pull can outlast the default
           # 10 minutes, and the poller exits early on any terminal status.
           MAX_POLLS: 360
@@ -547,8 +644,8 @@ jobs:
 
       - name: Deploy production application images
         env:
-          API_IMAGE_REF: ${{ needs.build.outputs.api-image }}
-          WEB_IMAGE_REF: ${{ needs.build.outputs.web-image }}
+          API_IMAGE_REF: ${{ needs.build_api.outputs.image }}
+          WEB_IMAGE_REF: ${{ needs.build_web.outputs.image }}
         run: |
           set -euo pipefail
           printf 'API_ROLLBACK_REQUIRED=true\n' >>"${GITHUB_ENV}"
@@ -573,9 +670,9 @@ jobs:
 
       - name: Record production release
         env:
-          API_IMAGE_REF: ${{ needs.build.outputs.api-image }}
-          WEB_IMAGE_REF: ${{ needs.build.outputs.web-image }}
-          MIGRATE_IMAGE_REF: ${{ needs.build.outputs.migrate-image }}
+          API_IMAGE_REF: ${{ needs.build_api.outputs.image }}
+          WEB_IMAGE_REF: ${{ needs.build_web.outputs.image }}
+          MIGRATE_IMAGE_REF: ${{ needs.build_migrate.outputs.image }}
         run: |
           {
             printf '## Production release\n\n'
