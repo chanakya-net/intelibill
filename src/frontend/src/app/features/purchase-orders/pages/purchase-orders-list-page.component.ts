@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { TranslocoPipe } from '@ngneat/transloco';
@@ -8,7 +9,7 @@ import { TranslocoService } from '@ngneat/transloco';
 import { InputTextModule } from 'primeng/inputtext';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { CardModule } from 'primeng/card';
-import { ConfirmationService } from 'primeng/api';
+import { ConfirmationService, MenuItem } from 'primeng/api';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { DatePickerModule } from 'primeng/datepicker';
 import { PaginatorModule } from 'primeng/paginator';
@@ -17,6 +18,8 @@ import { SelectModule } from 'primeng/select';
 import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
 import { ButtonModule } from 'primeng/button';
+import { MenuModule } from 'primeng/menu';
+import { startWith } from 'rxjs';
 
 import { ShopPermissionsService } from '../../../core/layout/shop-permissions.service';
 import { formatLocalIsoDate, parseDateOnlyAsLocalDate } from '../../../shared/utils/date-time.util';
@@ -25,6 +28,7 @@ import {
   DEFAULT_PURCHASE_ORDER_LIST_FILTERS,
   PurchaseOrderDetail,
   PurchaseOrderListFilters,
+  PurchaseOrderListItem,
   PurchaseOrderStatus,
   ReceivePurchaseOrderRequest,
 } from '../services/purchase-order.service';
@@ -49,6 +53,7 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
     TableModule,
     TagModule,
     ButtonModule,
+    MenuModule,
     ReceivePurchaseOrderDialogComponent,
     PurchaseOrderBuilderPageComponent,
   ],
@@ -56,6 +61,13 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
   template: `
     <section class="po-page">
       <p-confirmDialog />
+      <p-menu
+        #actionMenu
+        [model]="actionMenuItems()"
+        [popup]="true"
+        appendTo="body"
+        styleClass="po-row-action-menu"
+      />
 
       <header class="po-hero">
         <div class="po-hero__copy">
@@ -112,7 +124,11 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
       </div>
 
       @if (facade.isLoadingList()) {
-        <section class="directory-panel directory-panel--loading" aria-busy="true">
+        <section
+          class="directory-panel directory-panel--loading"
+          aria-busy="true"
+          [attr.aria-label]="'common.loading' | transloco"
+        >
           <div class="loading">
             <p-progressSpinner />
           </div>
@@ -201,11 +217,22 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
             />
           </div>
 
-          <div class="directory-panel__surface">
+          @if (facade.errorMessage()) {
+            <p class="directory-error" role="alert">{{ facade.errorMessage() | transloco }}</p>
+          }
+
+          <div
+            class="directory-panel__surface"
+            role="region"
+            tabindex="0"
+            [attr.aria-label]="'purchaseOrders.list.metrics' | transloco"
+          >
             <p-table [value]="[...facade.orders()]" dataKey="purchaseOrderId">
               <ng-template pTemplate="header">
                 <tr>
                   <th>{{ 'purchaseOrders.poNumber' | transloco }}</th>
+                  <th>{{ 'purchaseOrders.list.supplier' | transloco }}</th>
+                  <th>{{ 'purchaseOrders.list.supplierReference' | transloco }}</th>
                   <th>{{ 'purchaseOrders.statusLabel' | transloco }}</th>
                   <th>{{ 'purchaseOrders.receivedProgress' | transloco }}</th>
                   <th>{{ 'purchaseOrders.lineCount' | transloco }}</th>
@@ -217,6 +244,18 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
               <ng-template pTemplate="body" let-order>
                 <tr class="po-table-row" (click)="openOrder(order.purchaseOrderId)">
                   <td class="po-number">{{ order.purchaseOrderNumber }}</td>
+                  <td
+                    class="po-table-cell po-table-supplier"
+                    [attr.title]="order.supplierName || null"
+                  >
+                    {{ order.supplierName || '—' }}
+                  </td>
+                  <td
+                    class="po-table-cell po-table-reference"
+                    [attr.title]="order.supplierReference || null"
+                  >
+                    {{ order.supplierReference || '—' }}
+                  </td>
                   <td>
                     <span
                       class="po-status-pill"
@@ -272,12 +311,22 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
                         ></button>
                       </div>
                     }
+                    @if (permissions.canManagePurchaseOrders()) {
+                      <button
+                        pButton
+                        type="button"
+                        class="po-row-action-menu-trigger"
+                        icon="pi pi-ellipsis-v"
+                        [label]="'purchaseOrders.actionsLabel' | transloco"
+                        (click)="prepareActionMenu(order, $event); actionMenu.toggle($event)"
+                      ></button>
+                    }
                   </td>
                 </tr>
               </ng-template>
               <ng-template pTemplate="emptymessage">
                 <tr>
-                  <td colspan="7" class="empty-state">
+                  <td colspan="9" class="empty-state">
                     {{ 'purchaseOrders.noResults' | transloco }}
                   </td>
                 </tr>
@@ -491,7 +540,9 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
         font-weight: 700;
       }
       .directory-panel__surface {
-        overflow: hidden;
+        overflow-x: auto;
+        overflow-y: hidden;
+        overscroll-behavior-inline: contain;
         border: 1px solid #eedcc8;
         border-radius: 0.9rem;
         background: #fffaf4;
@@ -528,6 +579,18 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
       .money {
         font-weight: 800;
         color: #2a1b12;
+      }
+      .po-table-cell {
+        max-width: 15rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .po-table-supplier {
+        max-width: 17rem;
+      }
+      .po-table-reference {
+        max-width: 15rem;
       }
       .po-status-pill {
         display: inline-flex;
@@ -576,6 +639,15 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
         text-align: center;
         color: #8b6e57;
       }
+      .directory-error {
+        margin: 0;
+        padding: 0.65rem 0.8rem;
+        border: 1px solid #fecaca;
+        border-radius: 0.75rem;
+        background: #fff1f2;
+        color: #b91c1c;
+        font-weight: 700;
+      }
       .loading {
         display: flex;
         justify-content: center;
@@ -594,6 +666,7 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
       }
       :host ::ng-deep .directory-panel__surface .p-datatable-table {
         border-collapse: collapse;
+        min-width: 78rem;
       }
       :host ::ng-deep .directory-panel__surface .p-datatable-thead > tr > th {
         border-color: #ead7c1;
@@ -620,6 +693,14 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
         min-height: 2.1rem;
         padding: 0.35rem 0.6rem;
       }
+      :host ::ng-deep .po-row-action-menu {
+        min-width: 12rem;
+      }
+      .po-row-action-menu-trigger {
+        min-height: 2.1rem;
+        margin-left: 0.35rem;
+        white-space: nowrap;
+      }
       @media (max-width: 1100px) {
         .summary-grid {
           grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -643,6 +724,12 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
         .directory-panel {
           border-radius: 1rem;
         }
+        .po-row-actions {
+          display: none;
+        }
+        .po-row-action-menu-trigger {
+          margin-left: 0;
+        }
       }
     `,
   ],
@@ -653,11 +740,16 @@ export class PurchaseOrdersListPageComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly confirmationService = inject(ConfirmationService);
   private readonly translocoService = inject(TranslocoService);
+  private readonly activeLang = toSignal(
+    this.translocoService.langChanges$.pipe(startWith(this.translocoService.getActiveLang())),
+    { initialValue: this.translocoService.getActiveLang() },
+  );
 
   protected readonly showBuilderOverlay = signal(false);
   protected readonly editingPoId = signal<string | null>(null);
   protected readonly showReceiveDialog = signal(false);
   protected readonly receivingPoId = signal<string | null>(null);
+  protected readonly actionOrder = signal<PurchaseOrderListItem | null>(null);
   protected readonly orderDateFromValue = signal<Date | null>(null);
   protected readonly orderDateToValue = signal<Date | null>(null);
 
@@ -665,8 +757,43 @@ export class PurchaseOrdersListPageComponent implements OnInit {
     { labelKey: 'common.all', value: '' },
     { labelKey: 'purchaseOrders.status.Draft', value: 'Draft' },
     { labelKey: 'purchaseOrders.status.Placed', value: 'Placed' },
+    { labelKey: 'purchaseOrders.status.PartiallyReceived', value: 'PartiallyReceived' },
+    { labelKey: 'purchaseOrders.status.Received', value: 'Received' },
+    { labelKey: 'purchaseOrders.status.Closed', value: 'Closed' },
     { labelKey: 'purchaseOrders.status.Cancelled', value: 'Cancelled' },
   ];
+
+  protected readonly actionMenuItems = computed<MenuItem[]>(() => {
+    this.activeLang();
+    const order = this.actionOrder();
+    if (!order || !this.permissions.canManagePurchaseOrders()) {
+      return [];
+    }
+
+    if (order.status === 'Draft') {
+      return [
+        this.actionItem('purchaseOrders.editPo', 'pi pi-pencil', () =>
+          this.openEditOrder(order.purchaseOrderId),
+        ),
+        this.actionItem('purchaseOrders.actions.placeOrder', 'pi pi-send', () =>
+          this.placeOrder(order.purchaseOrderId),
+        ),
+        this.actionItem('purchaseOrders.actions.deleteDraft', 'pi pi-trash', () =>
+          this.deleteDraft(order.purchaseOrderId),
+        ),
+      ];
+    }
+
+    if (order.status === 'Placed' || order.status === 'PartiallyReceived') {
+      return [
+        this.actionItem('purchaseOrders.actions.receive', 'pi pi-inbox', () =>
+          this.openReceiveOrder(order.purchaseOrderId),
+        ),
+      ];
+    }
+
+    return [];
+  });
 
   protected get filters(): PurchaseOrderListFilters {
     return this.facade.filters();
@@ -787,14 +914,19 @@ export class PurchaseOrdersListPageComponent implements OnInit {
     void this.router.navigate(['/inventory/purchase-orders', purchaseOrderId]);
   }
 
-  protected openEditOrder(purchaseOrderId: string, event: Event): void {
+  protected prepareActionMenu(order: PurchaseOrderListItem, event: Event): void {
     event.stopPropagation();
+    this.actionOrder.set(order);
+  }
+
+  protected openEditOrder(purchaseOrderId: string, event?: Event): void {
+    event?.stopPropagation();
     this.editingPoId.set(purchaseOrderId);
     this.showBuilderOverlay.set(true);
   }
 
-  protected deleteDraft(purchaseOrderId: string, event: Event): void {
-    event.stopPropagation();
+  protected deleteDraft(purchaseOrderId: string, event?: Event): void {
+    event?.stopPropagation();
     this.confirmationService.confirm({
       message: this.translocoService.translate('purchaseOrders.dialog.deleteDraftBody'),
       header: this.translocoService.translate('purchaseOrders.dialog.deleteDraftTitle'),
@@ -805,13 +937,13 @@ export class PurchaseOrdersListPageComponent implements OnInit {
     });
   }
 
-  protected placeOrder(purchaseOrderId: string, event: Event): void {
-    event.stopPropagation();
+  protected placeOrder(purchaseOrderId: string, event?: Event): void {
+    event?.stopPropagation();
     this.facade.placeOrder(purchaseOrderId);
   }
 
-  protected openReceiveOrder(purchaseOrderId: string, event: Event): void {
-    event.stopPropagation();
+  protected openReceiveOrder(purchaseOrderId: string, event?: Event): void {
+    event?.stopPropagation();
     this.receivingPoId.set(purchaseOrderId);
     this.showReceiveDialog.set(true);
     this.facade.loadDetail(purchaseOrderId);
@@ -870,6 +1002,10 @@ export class PurchaseOrdersListPageComponent implements OnInit {
   protected statusTone(status: PurchaseOrderStatus): string {
     if (status === 'PartiallyReceived') return 'partial';
     return status.toLowerCase();
+  }
+
+  private actionItem(labelKey: string, icon: string, command: () => void): MenuItem {
+    return { label: this.translocoService.translate(labelKey), icon, command };
   }
 
   private toDatePickerValue(value: Date | string | null): Date | null {
