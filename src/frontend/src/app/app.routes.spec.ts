@@ -12,6 +12,13 @@ import { shellRoutes } from './core/layout/shell.routes';
 import { DashboardPageComponent } from './features/dashboard/pages/dashboard-page/dashboard-page.component';
 import { CreditNotePrintPageComponent } from './features/sales/pages/credit-note-print-page/credit-note-print-page.component';
 import { ServicesPageComponent } from './features/services/pages/services-page.component';
+import {
+  ROUTE_MANIFEST,
+  diffRouteCoverage,
+  flattenRouteDestinations,
+} from '../../tests/ui-audit/route-manifest';
+import { registerRoutes } from './features/auth/register.routes';
+import { bankAccountsRoutes } from './features/bank-accounts/bank-accounts.routes';
 
 describe('app routes', () => {
   const authService = {
@@ -148,5 +155,27 @@ describe('app routes', () => {
 
     expect(result).toEqual({ redirected: true });
     expect(authService.canUseOfflineSalesAuthGrace).not.toHaveBeenCalled();
+  });
+
+  it('covers every routed destination in the ui audit manifest', async () => {
+    const [appDestinations, shellDestinations, registerDestinations, bankAccountDestinations] =
+      await Promise.all([
+        flattenRouteDestinations(routes),
+        flattenRouteDestinations(shellRoutes),
+        flattenRouteDestinations(registerRoutes, 'register'),
+        flattenRouteDestinations(bankAccountsRoutes, 'bank-accounts'),
+      ]);
+    const coverage = diffRouteCoverage(
+      [
+        ...appDestinations,
+        ...shellDestinations,
+        ...registerDestinations,
+        ...bankAccountDestinations,
+      ],
+      ROUTE_MANIFEST.map((entry) => entry.path)
+    );
+
+    expect(coverage.missingFromManifest).toEqual([]);
+    expect(coverage.missingFromRoutes).toEqual([]);
   });
 });

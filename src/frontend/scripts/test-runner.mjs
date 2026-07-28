@@ -14,7 +14,13 @@ if (runIndex !== -1) {
   }
 
   const forwardedArgs = args.filter((_, index) => index !== runIndex && index !== runIndex + 1);
-  commandArgs = ['test', '--include', includePath, '--watch=false', ...forwardedArgs];
+  commandArgs = [
+    'test',
+    '--include',
+    normalizeIncludePath(includePath),
+    '--watch=false',
+    ...forwardedArgs,
+  ];
 } else {
   const firstArg = args[0];
   const looksLikeIncludePattern =
@@ -26,12 +32,17 @@ if (runIndex !== -1) {
 
   if (looksLikeIncludePattern) {
     const includePath =
-      firstArg.includes('/') || firstArg.includes('*')
-        ? firstArg
-        : `**/*${firstArg}*.spec.ts`;
+      firstArg.includes('/') || firstArg.includes('*') ? firstArg : `**/*${firstArg}*.spec.ts`;
     commandArgs = ['test', '--include', includePath, '--watch=false'];
   } else {
-    commandArgs = ['test', ...args];
+    commandArgs = [
+      'test',
+      '--include',
+      '**/*.spec.ts',
+      '--include',
+      '../tests/ui-audit/route-manifest.spec.ts',
+      ...args,
+    ];
   }
 }
 
@@ -41,3 +52,7 @@ const result = spawnSync('ng', commandArgs, {
 });
 
 process.exit(result.status ?? 1);
+
+function normalizeIncludePath(path) {
+  return path.startsWith('tests/') ? `../${path}` : path;
+}
