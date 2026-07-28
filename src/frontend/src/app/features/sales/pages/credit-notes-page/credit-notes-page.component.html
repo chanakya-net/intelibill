@@ -142,7 +142,9 @@
               (keydown.space)="$event.preventDefault(); openCreditNoteFromList(note)"
             >
               <td class="font-bold">
-                <span class="truncate-value" [title]="note.code">{{ note.code }}</span>
+                <span class="truncate-value" data-audit-long-value="code" [title]="note.code">{{
+                  note.code
+                }}</span>
               </td>
               <td>
                 <p-tag
@@ -156,7 +158,7 @@
               <td>
                 <span
                   class="truncate-value"
-                  [attr.data-audit-long-value]="note.customerName ? '' : null"
+                  data-audit-long-value="customer"
                   [title]="note.customerName || ('sales.history.walkIn' | transloco)"
                 >
                   @if (note.customerName) {
@@ -167,12 +169,20 @@
                 </span>
               </td>
               <td>
-                <span class="truncate-value" [title]="note.invoiceNumber">{{
+                <span
+                  class="truncate-value"
+                  data-audit-long-value="invoice"
+                  [title]="note.invoiceNumber"
+                  >{{
                   note.invoiceNumber
                 }}</span>
               </td>
               <td>
-                <span class="truncate-value" [title]="note.returnNumber">{{
+                <span
+                  class="truncate-value"
+                  data-audit-long-value="return"
+                  [title]="note.returnNumber"
+                  >{{
                   note.returnNumber
                 }}</span>
               </td>
@@ -209,7 +219,9 @@
           <article class="mobile-card credit-note-card" (click)="openCreditNoteFromList(note)">
             <header>
               <div>
-                <h3 class="truncate-value" [title]="note.code">{{ note.code }}</h3>
+                <h3 class="truncate-value" data-audit-long-value="code" [title]="note.code">
+                  {{ note.code }}
+                </h3>
                 <p class="mobile-subtitle">{{ formatDateTime(note.issuedAt) }}</p>
               </div>
               <p-tag
@@ -232,20 +244,28 @@
                 <strong>{{ 'sales.creditNotes.table.customer' | transloco }}:</strong>
                 <span
                   class="truncate-value"
-                  [attr.data-audit-long-value]="note.customerName ? '' : null"
+                  data-audit-long-value="customer"
                   [title]="note.customerName || ('sales.history.walkIn' | transloco)"
                   >{{ note.customerName || ('sales.history.walkIn' | transloco) }}</span
                 >
               </p>
               <p>
                 <strong>{{ 'sales.creditNotes.table.invoice' | transloco }}:</strong>
-                <span class="truncate-value" [title]="note.invoiceNumber">{{
+                <span
+                  class="truncate-value"
+                  data-audit-long-value="invoice"
+                  [title]="note.invoiceNumber"
+                  >{{
                   note.invoiceNumber
                 }}</span>
               </p>
               <p>
                 <strong>{{ 'sales.creditNotes.table.returnNumber' | transloco }}:</strong>
-                <span class="truncate-value" [title]="note.returnNumber">{{
+                <span
+                  class="truncate-value"
+                  data-audit-long-value="return"
+                  [title]="note.returnNumber"
+                  >{{
                   note.returnNumber
                 }}</span>
               </p>

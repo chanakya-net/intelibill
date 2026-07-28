@@ -54,6 +54,7 @@ type ApiState = 'ready' | 'loading' | 'error';
 interface Scenario {
   readonly notes: readonly CreditNoteListItemDto[];
   readonly apiState: ApiState;
+  readonly detailApiState?: ApiState;
   readonly locale?: (typeof SUPPORTED_LANGUAGES)[number];
 }
 
@@ -183,8 +184,34 @@ test.describe('credit-notes-list', () => {
     }
   });
 
-  test('long values truncate on desktop profile', async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== 'chromium-desktop', 'desktop profile only');
+  test('keeps list entries visible when detail verification fails', async ({ page }) => {
+    const scenario = {
+      notes: [LONG_NOTE],
+      apiState: 'ready' as const,
+      detailApiState: 'error' as const,
+    };
+    const detailUrl = `${API_BASE}/credit-notes/${LONG_NOTE.code}`;
+    const collector = collectBrowserFailures(page, {
+      ignoreConsole: (message) => message.includes('status of 503'),
+      ignoreResponse: (response) => response.url() === detailUrl && response.status() === 503,
+    });
+    try {
+      await installCreditNotesFixture(page, scenario);
+      await page.goto(ROUTE);
+      await waitForStablePage(page);
+
+      await visibleEntries(page).first().click();
+      await expect(page.getByRole('alert')).toContainText(/Unable to verify credit note/i);
+      await expect(page.locator('.credit-note-detail')).toHaveCount(0);
+      await expect(visibleEntries(page)).toHaveCount(1);
+      await expect(visibleEntries(page)).toContainText(LONG_NOTE.code);
+      assertNoUnexpectedBrowserFailures(collector.failures);
+    } finally {
+      collector.dispose();
+    }
+  });
+
+  test('long values truncate in visible table and card profiles', async ({ page }) => {
     const scenario = {
       notes: [LONG_NOTE],
       apiState: 'ready' as const,
@@ -195,14 +222,21 @@ test.describe('credit-notes-list', () => {
       await page.goto(ROUTE);
       await waitForStablePage(page);
 
-      const longValues = page.locator('[data-audit-long-value]');
-      const count = await longValues.count();
-      expect(count).toBeGreaterThan(0);
+      const longValues = page.locator('[data-audit-long-value]:visible');
+      await expect(longValues).toHaveCount(4);
+      const titles = await longValues.evaluateAll((elements) =>
+        Object.fromEntries(
+          elements.map((element) => {
+            const value = element as HTMLElement;
+            return [value.dataset.auditLongValue, value.title];
+          }),
+        ),
+      );
+      expect(titles).toEqual(longNoteValues());
       const truncated = await longValues.evaluateAll((elements) =>
         elements.every((el) => {
           const element = el as HTMLElement;
-          if (element.clientWidth === 0) return true;
-          return element.scrollWidth > element.clientWidth;
+          return element.clientWidth > 0 && element.scrollWidth > element.clientWidth;
         }),
       );
       expect(truncated).toBe(true);
@@ -255,7 +289,7 @@ async function installCreditNotesFixture(page: Page, scenario: Scenario): Promis
   await installShellFixture(page, createShellScenario({ locale: scenario.locale }));
   const state = [...scenario.notes];
   await page.route(`${API_BASE}/credit-notes**`, (route) =>
-    handleCreditNoteRoute(route, state, scenario.apiState),
+    handleCreditNoteRoute(route, state, scenario.apiState, scenario.detailApiState),
   );
 }
 
@@ -263,12 +297,16 @@ async function handleCreditNoteRoute(
   route: Route,
   notes: CreditNoteListItemDto[],
   apiState: ApiState,
+  detailApiState?: ApiState,
 ): Promise<void> {
   if (apiState === 'loading') return new Promise(() => undefined);
-  if (apiState === 'error') return fulfillJson(route, { title: 'CreditNote.LoadFailed' }, 503);
   const url = new URL(route.request().url());
   const code = url.pathname.split('/').filter(Boolean).at(-1);
   if (route.request().method() === 'GET' && code && code !== 'credit-notes') {
+    if (detailApiState === 'loading') return new Promise(() => undefined);
+    if (detailApiState === 'error') {
+      return fulfillJson(route, { title: 'CreditNote.VerifyFailed' }, 503);
+    }
     const item = notes.find((candidate) => candidate.code === decodeURIComponent(code));
     return fulfillJson(
       route,
@@ -276,6 +314,7 @@ async function handleCreditNoteRoute(
       item ? 200 : 404,
     );
   }
+  if (apiState === 'error') return fulfillJson(route, { title: 'CreditNote.LoadFailed' }, 503);
   const search = (url.searchParams.get('search') ?? '').toLocaleLowerCase();
   const status = url.searchParams.get('status') ?? '';
   const page = Number(url.searchParams.get('page') ?? '1');
@@ -393,4 +432,13 @@ async function assertResponsiveBounds(page: Page, width: number): Promise<void> 
 
 function visibleEntries(page: Page) {
   return page.locator('.credit-note-row:visible, .credit-note-card:visible');
+}
+
+function longNoteValues(): Record<string, string> {
+  return {
+    code: LONG_NOTE.code,
+    customer: LONG_NOTE.customerName!,
+    invoice: LONG_NOTE.invoiceNumber,
+    return: LONG_NOTE.returnNumber,
+  };
 }
