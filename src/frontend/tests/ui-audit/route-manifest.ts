@@ -9,22 +9,27 @@ import type {
   RouteCoverageDiff,
   RouteManifestEntry,
   RouteState,
+  RouteStateProfile,
 } from './route-manifest.types';
 
 const ALL_LOCALES = [...SUPPORTED_LANGUAGES];
 const ALL_ROLES: readonly AuditRole[] = ['owner', 'manager', 'staff'];
 const MANAGEMENT_ROLES: readonly AuditRole[] = ['owner', 'manager'];
 const ALL_VIEWPORTS: readonly AuditViewport[] = AUDIT_VIEWPORTS.map((viewport) => viewport.name);
-const STANDARD_STATES: readonly RouteState[] = ['default', 'loading', 'empty', 'error'];
-const FORM_STATES: readonly RouteState[] = ['default', 'submitting', 'validation-error', 'error'];
-const PRINT_STATES: readonly RouteState[] = ['default', 'loading', 'error'];
+const ROUTE_STATE_PROFILES = {
+  standard: ['default', 'loading', 'empty', 'error'],
+  form: ['default', 'submitting', 'validation-error', 'error'],
+  print: ['default', 'loading', 'error'],
+  callback: ['default', 'loading', 'error'],
+  minimal: ['default'],
+} as const satisfies Record<RouteStateProfile, readonly RouteState[]>;
 
 export const ROUTE_MANIFEST: readonly RouteManifestEntry[] = [
-  publicRoute('login', FORM_STATES),
-  publicRoute('forgot-password', FORM_STATES),
-  publicRoute('register', FORM_STATES),
-  publicRoute('reset-password', FORM_STATES),
-  publicRoute('auth/callback', ['default', 'loading', 'error']),
+  publicRoute('login', 'form'),
+  publicRoute('forgot-password', 'form'),
+  publicRoute('register', 'form'),
+  publicRoute('reset-password', 'form'),
+  publicRoute('auth/callback', 'callback'),
   printRoute('sales/:saleId/print', 'sale-invoice', () => ({ saleId: 'sale-001' })),
   printRoute('sales/credit-notes/:code/print', 'credit-note', () => ({ code: 'credit-note-001' })),
   printRoute('inventory/purchase-orders/:purchaseOrderId/print', 'purchase-order', () => ({
@@ -71,8 +76,20 @@ export function diffRouteCoverage(
   };
 }
 
-function publicRoute(path: string, states: readonly RouteState[]): RouteManifestEntry {
-  return metadata(path, 'public', 'anonymous', states, []);
+export function hasValidRouteStateProfile(
+  entry: Pick<RouteManifestEntry, 'stateProfile' | 'states'>,
+): boolean {
+  const expectedStates = ROUTE_STATE_PROFILES[entry.stateProfile];
+
+  return (
+    expectedStates !== undefined &&
+    expectedStates.length === entry.states.length &&
+    expectedStates.every((state, index) => entry.states[index] === state)
+  );
+}
+
+function publicRoute(path: string, stateProfile: RouteStateProfile): RouteManifestEntry {
+  return metadata(path, 'public', 'anonymous', stateProfile, []);
 }
 
 function printRoute(
@@ -81,7 +98,7 @@ function printRoute(
   parameterFactory: NonNullable<RouteManifestEntry['parameterFactory']>,
 ): RouteManifestEntry {
   return {
-    ...metadata(path, 'standalone-print', 'authenticated', PRINT_STATES, ALL_ROLES),
+    ...metadata(path, 'standalone-print', 'authenticated', 'print', ALL_ROLES),
     parameterFactory,
     printProfile: { document, layout: 'print' },
     intentionalLayoutExceptions: [{ reason: 'standalone-print' }],
@@ -89,7 +106,7 @@ function printRoute(
 }
 
 function wildcardRoute(): RouteManifestEntry {
-  return metadata('**', 'wildcard', 'anonymous', ['default'], []);
+  return metadata('**', 'wildcard', 'anonymous', 'minimal', []);
 }
 
 function shellRoute(
@@ -97,21 +114,22 @@ function shellRoute(
   roles: readonly AuditRole[] = ALL_ROLES,
   parameterFactory?: NonNullable<RouteManifestEntry['parameterFactory']>,
 ): RouteManifestEntry {
-  return { ...metadata(path, 'shell', 'authenticated', STANDARD_STATES, roles), parameterFactory };
+  return { ...metadata(path, 'shell', 'authenticated', 'standard', roles), parameterFactory };
 }
 
 function metadata(
   path: string,
   zone: RouteManifestEntry['zone'],
   authMode: RouteManifestEntry['authMode'],
-  states: readonly RouteState[],
+  stateProfile: RouteStateProfile,
   roles: readonly AuditRole[],
 ): RouteManifestEntry {
   return {
     path,
     zone,
     authMode,
-    states,
+    stateProfile,
+    states: ROUTE_STATE_PROFILES[stateProfile],
     roles,
     featureFlags: [],
     locales: ALL_LOCALES,

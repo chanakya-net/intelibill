@@ -17,8 +17,6 @@ import {
   diffRouteCoverage,
   flattenRouteDestinations,
 } from '../../tests/ui-audit/route-manifest';
-import { registerRoutes } from './features/auth/register.routes';
-import { bankAccountsRoutes } from './features/bank-accounts/bank-accounts.routes';
 
 describe('app routes', () => {
   const authService = {
@@ -158,24 +156,29 @@ describe('app routes', () => {
   });
 
   it('covers every routed destination in the ui audit manifest', async () => {
-    const [appDestinations, shellDestinations, registerDestinations, bankAccountDestinations] =
-      await Promise.all([
-        flattenRouteDestinations(routes),
-        flattenRouteDestinations(shellRoutes),
-        flattenRouteDestinations(registerRoutes, 'register'),
-        flattenRouteDestinations(bankAccountsRoutes, 'bank-accounts'),
-      ]);
-    const coverage = diffRouteCoverage(
-      [
-        ...appDestinations,
-        ...shellDestinations,
-        ...registerDestinations,
-        ...bankAccountDestinations,
-      ],
-      ROUTE_MANIFEST.map((entry) => entry.path)
-    );
+    const appDestinations = await flattenRouteDestinations(routes);
+    const coverage = diffRouteCoverage(appDestinations, ROUTE_MANIFEST.map((entry) => entry.path));
 
     expect(coverage.missingFromManifest).toEqual([]);
     expect(coverage.missingFromRoutes).toEqual([]);
+  });
+
+  it('detects a removed lazy route mount as catalog drift', async () => {
+    const routesWithoutBankAccounts = routes.map((route) =>
+      route.path === ''
+        ? {
+            ...route,
+            loadChildren: async () =>
+              shellRoutes.map((shellRoute) => ({
+                ...shellRoute,
+                children: shellRoute.children?.filter((child) => child.path !== 'bank-accounts'),
+              })),
+          }
+        : route,
+    );
+    const destinations = await flattenRouteDestinations(routesWithoutBankAccounts);
+    const coverage = diffRouteCoverage(destinations, ROUTE_MANIFEST.map((entry) => entry.path));
+
+    expect(coverage.missingFromRoutes).toEqual(['bank-accounts']);
   });
 });

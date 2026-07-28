@@ -3,7 +3,12 @@ import { describe, expect, it } from 'vitest';
 
 import { SUPPORTED_LANGUAGES } from '../../src/app/core/i18n/language.constants';
 import { AUDIT_VIEWPORTS } from './support/layout-assertions';
-import { ROUTE_MANIFEST, diffRouteCoverage, flattenRouteDestinations } from './route-manifest';
+import {
+  ROUTE_MANIFEST,
+  diffRouteCoverage,
+  flattenRouteDestinations,
+  hasValidRouteStateProfile,
+} from './route-manifest';
 
 describe('UI audit route manifest', () => {
   it('catalogs every routed destination exactly once', () => {
@@ -32,8 +37,7 @@ describe('UI audit route manifest', () => {
     const viewports = new Set(AUDIT_VIEWPORTS.map((viewport) => viewport.name));
 
     for (const entry of ROUTE_MANIFEST) {
-      expect(entry.states).toContain('default');
-      expect(new Set(entry.states)).toHaveLength(entry.states.length);
+      expect(hasValidRouteStateProfile(entry)).toBe(true);
       expect(entry.roles.every((role) => roles.has(role))).toBe(true);
       expect(entry.locales.length).toBeGreaterThan(0);
       expect(entry.locales.every((locale) => locales.has(locale))).toBe(true);
@@ -47,6 +51,15 @@ describe('UI audit route manifest', () => {
         entry.zone === 'public' || entry.zone === 'wildcard' ? 'anonymous' : 'authenticated',
       );
     }
+  });
+
+  it('rejects invalid route state combinations', () => {
+    const malformedEntry = {
+      ...ROUTE_MANIFEST[0],
+      states: ['default', 'empty', 'validation-error'] as const,
+    };
+
+    expect(hasValidRouteStateProfile(malformedEntry)).toBe(false);
   });
 
   it('requires print metadata exactly on standalone print destinations', () => {
