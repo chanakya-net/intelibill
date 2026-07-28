@@ -21,14 +21,23 @@
   <div class="batches-panel">
     <app-batches-filter-bar [filters]="batchFilters()" (filtersChange)="onFiltersChange($event)" />
 
-    <app-batches-table
-      [batches]="filteredBatches()"
-      [loading]="loading()"
-      [selectedBatchIds]="selectedBatchIds()"
-      (batchClicked)="onBatchTableSelect($event)"
-      (batchAction)="onBatchTableAction($event)"
-      (selectionChange)="onBatchSelectionChange($event)"
-    />
+    @if (loading()) {
+      <div class="batches-table-loading" role="status" aria-live="polite">
+        {{ 'common.loading' | transloco }}
+      </div>
+    } @else if (loadError()) {
+      <div class="batches-error" role="alert">
+        {{ 'inventory.loadBatchesError' | transloco }}
+      </div>
+    } @else {
+      <app-batches-table
+        [batches]="filteredBatches()"
+        [selectedBatchIds]="selectedBatchIds()"
+        (batchClicked)="onBatchTableSelect($event)"
+        (batchAction)="onBatchTableAction($event)"
+        (selectionChange)="onBatchSelectionChange($event)"
+      />
+    }
   </div>
 </section>
 

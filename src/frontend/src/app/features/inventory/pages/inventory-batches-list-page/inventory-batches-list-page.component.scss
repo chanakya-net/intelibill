@@ -65,6 +65,22 @@ h1 {
   box-shadow: 0 10px 30px rgba(78, 49, 20, 0.07);
 }
 
+.batches-table-loading,
+.batches-error {
+  padding: 1rem;
+  border-radius: 0.75rem;
+}
+
+.batches-table-loading {
+  color: #6f5a48;
+}
+
+.batches-error {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
 .text-secondary {
   color: var(--text-color-secondary);
 }

@@ -101,6 +101,7 @@ export class InventoryBatchesListPageComponent {
   readonly currencySelectPt = CURRENCY_SELECT_PT;
   readonly batches = signal<InventoryBatchDto[]>([]);
   readonly loading = signal(false);
+  readonly loadError = signal(false);
   readonly selectedBatchIds = signal<readonly string[]>([]);
   readonly isEditDialogOpen = signal(false);
   readonly isAdjustmentDialogOpen = signal(false);
@@ -293,12 +294,17 @@ export class InventoryBatchesListPageComponent {
 
   loadBatches(): void {
     this.loading.set(true);
+    this.loadError.set(false);
     this.inventoryService
       .getInventoryBatches()
       .pipe(finalize(() => this.loading.set(false)))
       .subscribe({
         next: (data) => this.batches.set([...data]),
-        error: () => this.showError('inventory.loadBatchesError'),
+        error: () => {
+          this.batches.set([]);
+          this.loadError.set(true);
+          this.showError('inventory.loadBatchesError');
+        },
       });
   }
   onEditBatch(batch: InventoryBatchDto): void {
