@@ -4,13 +4,21 @@
       <span>
         {{
           'hsn.chip'
-            | transloco: {
-                hsnCode: state.selectedHsnCode(),
-                taxPercentage: state.form.controls.taxRatePercent.value
-              }
+            | transloco
+              : {
+                  hsnCode: state.selectedHsnCode(),
+                  taxPercentage: state.form.controls.taxRatePercent.value,
+                }
         }}
       </span>
-      <button pButton type="button" [text]="true" size="small" class="hsn-chip-change" (click)="state.onChangeHsnClick()">
+      <button
+        pButton
+        type="button"
+        [text]="true"
+        size="small"
+        class="hsn-chip-change"
+        (click)="state.onChangeHsnClick()"
+      >
         {{ 'hsn.change' | transloco }}
       </button>
     </div>
@@ -44,6 +52,13 @@
           [label]="'hsn.apply' | transloco"
           [disabled]="!state.pickerHsnCode || !state.pickerTaxRate"
           (click)="state.applyHsnSelection(state.pickerHsnCode!, state.pickerTaxRate!)"
+        ></button>
+        <button
+          pButton
+          type="button"
+          severity="secondary"
+          [label]="'common.cancel' | transloco"
+          (click)="state.dismissPicker()"
         ></button>
       </section>
     }

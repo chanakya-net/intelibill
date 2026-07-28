@@ -96,7 +96,7 @@ export class InventoryBatchPageComponent {
     if (!row) return;
 
     this.saveSummary.set(null);
-    this.rowFormState.loadDraftRow(row);
+    this.batchRowForm.populateFromRow(row);
     void this.draftState.removeRow(this.activeShopId(), clientRowId);
   }
 

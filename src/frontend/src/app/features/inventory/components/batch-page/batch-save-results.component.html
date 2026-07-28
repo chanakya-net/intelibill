@@ -1,4 +1,4 @@
-<div class="table-card">
+<div class="table-card" [attr.aria-busy]="loadingDraft() || isSaving">
   @if (saveSummary) {
     <div class="save-summary" [class.save-summary--partial]="saveSummary.failedCount > 0">
       <strong>
@@ -14,14 +14,15 @@
 
   <div class="table-header">
     <h2>{{ 'inventory.pendingRows' | transloco }}</h2>
-    <div class="row-count">
-      {{ 'inventory.rowCount' | transloco }}: {{ pendingRows().length }}
-    </div>
+    <div class="row-count">{{ 'inventory.rowCount' | transloco }}: {{ pendingRows().length }}</div>
   </div>
 
   @if (loadingDraft() || isSaving) {
-    <div class="loading">
-      <p-progressSpinner [style]="{ width: '2rem', height: '2rem' }" strokeWidth="6"></p-progressSpinner>
+    <div class="loading" role="status" aria-live="polite">
+      <p-progressSpinner
+        [style]="{ width: '2rem', height: '2rem' }"
+        strokeWidth="6"
+      ></p-progressSpinner>
     </div>
   }
 
@@ -33,7 +34,10 @@
           [class.pending-row-card--failed]="failedClientRowIds().has(row.clientRowId)"
           [class.pending-row-card--scanned]="highlightedRowId === row.clientRowId"
         >
-          <div class="pending-row-avatar" [style.background-color]="pendingRowAvatarColor(row.itemName)">
+          <div
+            class="pending-row-avatar"
+            [style.background-color]="pendingRowAvatarColor(row.itemName)"
+          >
             <span>{{ pendingRowInitials(row.itemName) }}</span>
           </div>
           <div class="pending-row-body">
@@ -83,7 +87,12 @@
       }
     </div>
 
-    <p-table class="desktop-pending-table p-datatable-sm" [value]="pendingRows()" [scrollable]="true" scrollHeight="420px">
+    <p-table
+      class="desktop-pending-table p-datatable-sm"
+      [value]="pendingRows()"
+      [scrollable]="true"
+      scrollHeight="420px"
+    >
       <ng-template pTemplate="header">
         <tr>
           <th>{{ 'inventory.name' | transloco }}</th>
@@ -93,7 +102,10 @@
         </tr>
       </ng-template>
       <ng-template pTemplate="body" let-row>
-        <tr [class.failed-row]="failedClientRowIds().has(row.clientRowId)" [class.scanned-row]="highlightedRowId === row.clientRowId">
+        <tr
+          [class.failed-row]="failedClientRowIds().has(row.clientRowId)"
+          [class.scanned-row]="highlightedRowId === row.clientRowId"
+        >
           <td>
             <div>{{ row.itemName }}</div>
             @if (failedRowErrorTextById().get(row.clientRowId); as rowErrorText) {
