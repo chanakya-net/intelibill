@@ -1,6 +1,7 @@
 using System.Diagnostics.Metrics;
 using System.Net.Http;
 using Intelibill.Infrastructure.Options;
+using Intelibill.Infrastructure.Observability;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Http.Resilience;
@@ -65,6 +66,7 @@ public static class OpenTelemetryServiceCollectionExtensions
 
         // Custom application meter — injected by application code
         services.AddSingleton(new Meter(ApplicationMeterName));
+        services.AddSingleton<RequestTelemetryMetrics>();
 
         services
             .AddOpenTelemetry()
@@ -85,7 +87,7 @@ public static class OpenTelemetryServiceCollectionExtensions
             builder
                 .AddAspNetCoreInstrumentation()
                 .AddHttpClientInstrumentation()
-                .AddEntityFrameworkCoreInstrumentation(o => o.SetDbStatementForText = true)
+                .AddEntityFrameworkCoreInstrumentation(o => o.SetDbStatementForText = false)
                 .AddSource("Wolverine")
                 .SetSampler(new ParentBasedSampler(
                     new TraceIdRatioBasedSampler(tracingOpts.SamplingRatio)))

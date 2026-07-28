@@ -168,6 +168,7 @@ var app = builder.Build();
 // ingress every request otherwise looks like plain HTTP arriving from the proxy.
 app.UseForwardedHeaders();
 
+app.UseMiddleware<RequestDatabaseTelemetryMiddleware>();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 if (app.Environment.IsDevelopment())
