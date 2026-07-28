@@ -301,3 +301,6 @@ crash.*.log
 
 # NOTE: .terraform.lock.hcl is intentionally NOT ignored — commit it so
 # provider versions are reproducible across machines and CI.
+
+# Local linked worktrees used for isolated feature development.
+.worktrees/

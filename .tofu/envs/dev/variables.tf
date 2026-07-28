@@ -35,5 +35,5 @@ variable "bootstrap_image" {
 variable "new_relic_api_key_secret_name" {
   description = "Out-of-band Key Vault secret-name segment, or null until the integration key exists"
   type        = string
-  default     = null
+  default     = "new-relic-api-key"
 }

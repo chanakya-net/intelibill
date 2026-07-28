@@ -72,6 +72,21 @@ variable "database" {
   })
 }
 
+variable "new_relic_otlp_endpoint" {
+  description = "New Relic OTLP HTTP/protobuf base endpoint"
+  type        = string
+  default     = "https://otlp.nr-data.net:4318"
+
+  validation {
+    condition = contains([
+      "https://otlp.nr-data.net:4318",
+      "https://otlp.eu01.nr-data.net:4318",
+      "https://otlp.jp.nr-data.net:4318",
+    ], var.new_relic_otlp_endpoint)
+    error_message = "new_relic_otlp_endpoint must be an approved New Relic regional OTLP HTTP/protobuf endpoint."
+  }
+}
+
 variable "new_relic_api_key_secret_name" {
   description = "Optional single Key Vault secret-name segment containing the New Relic API key"
   type        = string

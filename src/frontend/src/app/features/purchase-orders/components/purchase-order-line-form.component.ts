@@ -39,6 +39,7 @@ import type { CreatePurchaseOrderLineRequest } from '../services/purchase-order.
       <label>
         <span>{{ 'purchaseOrders.builder.qty' | transloco }}</span>
         <p-inputNumber
+          styleClass="po-line-form__qty-input"
           formControlName="expectedQuantity"
           [min]="1"
           [showButtons]="true"
@@ -81,7 +82,7 @@ import type { CreatePurchaseOrderLineRequest } from '../services/purchase-order.
     </form>
   `,
   styles: [`
-    .po-line-form { display: grid; gap: .75rem; grid-template-columns: minmax(14rem, 1fr) 7rem 9rem auto auto; align-items: end; }
+    .po-line-form { display: grid; gap: .75rem; grid-template-columns: minmax(14rem, 1fr) minmax(9.5rem, 10.5rem) 9rem auto auto; align-items: end; }
     label { display: grid; gap: .35rem; font-size: .875rem; font-weight: 700; color: #1f2937; }
     .po-line-form__error { grid-column: 1 / -1; margin: 0; color: #b42318; font-size: .875rem; }
     .po-line-form .p-autocomplete,
@@ -108,7 +109,19 @@ import type { CreatePurchaseOrderLineRequest } from '../services/purchase-order.
       box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.16);
       outline: 0;
     }
-    .po-line-form .p-inputnumber-button {
+    .po-line-form .po-line-form__qty-input.p-inputnumber {
+      display: flex;
+      width: 100%;
+    }
+    .po-line-form .po-line-form__qty-input .p-inputnumber-input {
+      flex: 1 1 auto;
+      min-width: 2.5rem;
+      width: auto;
+      text-align: center;
+      padding-inline: 0.35rem;
+    }
+    .po-line-form .po-line-form__qty-input .p-inputnumber-button {
+      flex: 0 0 auto;
       border-color: #cbd5e1;
       background: #fff7ed;
       color: #c2410c;

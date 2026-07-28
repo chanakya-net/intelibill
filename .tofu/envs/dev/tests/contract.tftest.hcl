@@ -111,9 +111,8 @@ run "wires_existing_foundations_into_dev_workloads" {
   command = plan
 
   variables {
-    subscription_id               = "00000000-0000-0000-0000-000000000001"
-    new_relic_api_key_secret_name = "new-relic-api-key"
-    bootstrap_image               = "ghcr.io/mendhak/http-https-echo@sha256:0fefe04350131d7bb28355e3bf037062643e45f4a8a32f23679529e1b09d8ce4"
+    subscription_id = "00000000-0000-0000-0000-000000000001"
+    bootstrap_image = "ghcr.io/mendhak/http-https-echo@sha256:0fefe04350131d7bb28355e3bf037062643e45f4a8a32f23679529e1b09d8ce4"
   }
 
   assert {

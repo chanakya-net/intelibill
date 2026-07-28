@@ -409,6 +409,7 @@ run "optional_secret_contract" {
 
   variables {
     new_relic_api_key_secret_name = "new-relic-api-key"
+    new_relic_otlp_endpoint       = "https://otlp.eu01.nr-data.net:4318"
   }
 
   override_resource {
@@ -449,7 +450,11 @@ run "optional_secret_contract" {
       {
         for setting in azurerm_container_app.api.template[0].container[0].env :
         setting.name => coalesce(setting.value, setting.secret_name)
-      }["Observability__NewRelic__ApiKey"] == "new-relic-api-key"
+      }["Observability__NewRelic__ApiKey"] == "new-relic-api-key" &&
+      {
+        for setting in azurerm_container_app.api.template[0].container[0].env :
+        setting.name => coalesce(setting.value, setting.secret_name)
+      }["Observability__NewRelic__OtlpEndpoint"] == "https://otlp.eu01.nr-data.net:4318"
     )
     error_message = "The optional New Relic key must use a versionless Key Vault reference."
   }

@@ -36,7 +36,7 @@ locals {
     Proxy__Enabled                        = "true"
     Proxy__ForwardLimit                   = "2"
     Proxy__TrustAnyProxy                  = "true"
-    Observability__NewRelic__OtlpEndpoint = "https://otlp.nr-data.net:4318"
+    Observability__NewRelic__OtlpEndpoint = var.new_relic_otlp_endpoint
     Observability__NewRelic__ServiceName  = "Intelibill.Api"
     Observability__NewRelic__Environment  = var.env
   }
