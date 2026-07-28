@@ -1,15 +1,39 @@
 import { expect, test, type Page } from '@playwright/test';
-
 import { createShellScenario, installShellFixture } from '../fixtures/shell.fixture';
+import {
+  assertFieldsFitViewport,
+  assertOverlayFitsViewport,
+  filterDeclaredBatchFailures,
+  pendingCollectionFor,
+  pendingRowsFor,
+} from './inventory-batch-entry.support';
 import {
   assertNoUnexpectedBrowserFailures,
   collectBrowserFailures,
+  type BrowserFailure,
+  type FailureCollector,
   waitForStablePage,
 } from '../support/audit-page';
 
 const API_BASE = 'http://localhost:5277/api';
-
+const SAVE_URL = `${API_BASE}/inventory/inbound/batch`;
+const collectors = new WeakMap<Page, FailureCollector>();
 test.describe('inventory-batch-entry', () => {
+  test.beforeEach(({ page }) => {
+    collectors.set(page, collectBrowserFailures(page));
+  });
+
+  test.afterEach(({ page }) => {
+    const collector = collectors.get(page);
+    if (!collector) return;
+
+    try {
+      assertNoUnexpectedBrowserFailures(filterDeclaredBatchFailures(collector.failures, SAVE_URL));
+    } finally {
+      collector.dispose();
+    }
+  });
+
   test('marks pending results busy while a save is in progress', async ({ page }) => {
     await openBatchPage(page, { save: 'pending' });
     await seedDraft(page, [draftRow('pending-1', 'Pending save row')]);
@@ -22,7 +46,7 @@ test.describe('inventory-batch-entry', () => {
     await expect(page.locator('.loading')).toHaveAttribute('role', 'status');
   });
 
-  test('keeps empty and validation actions explicit', async ({ page }) => {
+  test('keeps empty draft actions explicit', async ({ page }) => {
     await openBatchPage(page, { save: 'success' });
 
     await expect(page.getByRole('heading', { name: 'No pending rows' }).first()).toBeVisible();
@@ -31,29 +55,76 @@ test.describe('inventory-batch-entry', () => {
     await expect(page.getByRole('button', { name: 'Add Row' })).toBeDisabled();
   });
 
-  test('fits long draft rows and keeps actions reachable', async ({ page }, testInfo) => {
+  test('shows pricing validation before adding an otherwise valid row', async ({ page }) => {
     await openBatchPage(page, { save: 'success' }, 'hi-IN');
-    await seedDraft(page, [
+
+    await page.locator('.item-name-autocomplete input').fill('मूल्य सत्यापन आइटम');
+    await page.locator('.barcode-autocomplete input').fill('AUDIT-PRICE-GUARD');
+    await expect(page.getByRole('button', { name: /पंक्ति जोड़ें|Add Row/ })).toBeEnabled();
+
+    await page.getByRole('button', { name: /पंक्ति जोड़ें|Add Row/ }).click();
+
+    await expect(page.locator('.pricing-guard')).toContainText(/MRP.*Sales Price|MRP.*बिक्री/);
+    await expect(page.locator('#batch-row-form-optional-details')).toBeVisible();
+    await expect(page.getByRole('spinbutton', { name: /एमआरपी|MRP/ })).toBeVisible();
+    await expect(page.getByRole('spinbutton', { name: /बिक्री मूल्य|Sales Price/ })).toBeVisible();
+    await expect(visiblePendingRows(page)).toHaveCount(0);
+    await assertNoHorizontalOverflow(page);
+    await assertFieldsFitViewport(page, '.row-form > *:visible');
+  });
+
+  test('edits a pending row with all optional details exposed', async ({ page }, testInfo) => {
+    await openBatchPage(page, { save: 'success' });
+    const row = {
+      ...draftRow('edit-1', 'Editable audit inventory item'),
+      itemDescription: 'Editable description',
+      batchNumber: 'EDIT-BATCH-001',
+      mrp: 24,
+      salesPrice: 22,
+      hsnCode: '0401',
+      expiryDate: '2027-01-15',
+      notes: 'Editable audit notes',
+    };
+    await seedDraft(page, [row]);
+    await page.reload();
+    await waitForBatchPage(page);
+
+    await editButtonFor(page, testInfo.project.name).click();
+
+    await expect(page.locator('.item-name-autocomplete input')).toHaveValue(row.itemName);
+    await expect(page.locator('.barcode-autocomplete input')).toHaveValue(row.barcode);
+    await expect(page.locator('#batch-row-form-optional-details')).toBeVisible();
+    await expect(page.locator('input[formcontrolname="batchNumber"]')).toHaveValue(row.batchNumber);
+    await expect(page.locator('textarea[formcontrolname="notes"]')).toHaveValue(row.notes);
+    await expect(page.locator('.hsn-chip')).toContainText('0401');
+    await expect(page.getByRole('button', { name: 'Add Row' })).toBeVisible();
+    await expect(visiblePendingRows(page)).toHaveCount(0);
+    await assertNoHorizontalOverflow(page);
+    await assertFieldsFitViewport(page, '.row-form > *:visible');
+  });
+
+  test('fits long draft rows and scrolls every pending representation', async ({ page }, testInfo) => {
+    await openBatchPage(page, { save: 'success' }, 'hi-IN');
+    await seedDraft(page, Array.from({ length: 14 }, (_, index) =>
       draftRow(
-        'long-1',
-        'असाधारण रूप से लंबा ऑडिट इन्वेंटरी आइटम जिसका नाम छोटे मोबाइल स्क्रीन पर भी पढ़ने योग्य रहना चाहिए',
+        `long-${index + 1}`,
+        index === 0
+          ? 'असाधारण रूप से लंबा ऑडिट इन्वेंटरी आइटम जिसका नाम छोटे मोबाइल स्क्रीन पर भी पढ़ने योग्य रहना चाहिए'
+          : `Another exceptionally long inbound inventory item name ${index + 1}`,
       ),
-      draftRow(
-        'long-2',
-        'Another exceptionally long inbound inventory item name for desktop table truncation',
-      ),
-    ]);
+    ));
     await page.reload();
     await waitForBatchPage(page);
 
     await expect(page.getByText('लंबित पंक्तियाँ')).toBeVisible();
     await assertNoHorizontalOverflow(page);
-    const rows = page.locator(
-      testInfo.project.name === 'chromium-mobile'
-        ? '.pending-row-card'
-        : '.desktop-pending-table tbody tr',
-    );
-    await expect(rows).toHaveCount(2);
+    const rows = pendingRowsFor(page, testInfo.project.name);
+    await expect(rows).toHaveCount(14);
+    const collection = pendingCollectionFor(page, testInfo.project.name);
+    await expect(collection).toBeVisible();
+    await expect.poll(() => collection.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true);
+    await rows.last().getByRole('button', { name: /संपादित करें|Edit/ }).scrollIntoViewIfNeeded();
+    await expect(rows.last().getByRole('button', { name: /संपादित करें|Edit/ })).toBeVisible();
     await page.getByRole('button', { name: /सहेजें|Save/ }).scrollIntoViewIfNeeded();
     await expect(page.getByRole('button', { name: /सहेजें|Save/ })).toBeVisible();
   });
@@ -68,6 +139,14 @@ test.describe('inventory-batch-entry', () => {
     await nameInput.press('Tab');
     await hsnRequest;
     await expect(page.getByText('HSN Suggestion')).toBeVisible();
+    const hsnDropdown = page.locator('.hsn-picker-input .p-autocomplete-dropdown').first();
+    await hsnDropdown.click();
+    const hsnOverlay = page.locator('.p-autocomplete-overlay:visible').last();
+    await expect(hsnOverlay).toBeVisible();
+    await expect(hsnOverlay.getByText('0401')).toBeVisible();
+    await assertOverlayFitsViewport(hsnOverlay);
+    await page.keyboard.press('Escape');
+    await expect(hsnOverlay).toBeHidden();
     await page.getByRole('button', { name: 'Cancel' }).click();
     await expect(page.getByText('HSN Suggestion')).toHaveCount(0);
 
@@ -83,6 +162,9 @@ test.describe('inventory-batch-entry', () => {
 
     await page.getByRole('button', { name: 'Generate' }).click();
     await expect(page.locator('.barcode-autocomplete input')).toHaveValue('AUDIT-GENERATED-001');
+    await page.getByRole('button', { name: 'Generate' }).click();
+    await expect(page.locator('.barcode-replace-confirm')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Replace' })).toBeVisible();
   });
 
   test('shows partial results and retains failed draft rows', async ({ page }) => {
@@ -140,6 +222,18 @@ test.describe('inventory-batch-entry', () => {
     await expect(visiblePendingRows(page)).toContainText('Restored draft');
     await expect(page.getByText('Rows: 1')).toBeVisible();
   });
+
+  test('filters only the declared save failure from lifecycle monitoring', () => {
+    const failures: BrowserFailure[] = [
+      { kind: 'response', message: 'HTTP 503', url: `${API_BASE}/inventory/inbound/batch` },
+      { kind: 'console', message: 'unexpected injected failure' },
+    ];
+
+    expect(filterDeclaredBatchFailures(failures, SAVE_URL)).toEqual([failures[1]]);
+    expect(() => assertNoUnexpectedBrowserFailures(filterDeclaredBatchFailures(failures, SAVE_URL))).toThrow(
+      'unexpected injected failure',
+    );
+  });
 });
 
 type BatchScenario = { readonly save: 'pending' | 'success' | 'partial' | 'error' };
@@ -154,6 +248,15 @@ async function openBatchPage(page: Page, scenario: BatchScenario, locale = 'en-I
 }
 
 async function installBatchRoutes(page: Page, scenario: BatchScenario): Promise<void> {
+  await page.route(`${API_BASE}/items/details**`, (route) =>
+    route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        name: '', description: '', uom: 'PCS', costPrice: 0, mrp: 0, salesPrice: 0,
+        supplierId: null, supplierName: null, hsnCode: null, taxIncluded: null, taxRatePercent: null,
+      }),
+    }),
+  );
   await page.route(`${API_BASE}/hsn/lookup`, (route) =>
     route.fulfill({
       contentType: 'application/json',
@@ -253,14 +356,8 @@ async function seedDraft(page: Page, rows: readonly ReturnType<typeof draftRow>[
 }
 
 async function waitForBatchPage(page: Page): Promise<void> {
-  const collector = collectBrowserFailures(page);
-  try {
-    await waitForStablePage(page);
-    await expect(page.locator('.inventory-batch-page')).toBeVisible();
-    assertNoUnexpectedBrowserFailures(collector.failures);
-  } finally {
-    collector.dispose();
-  }
+  await waitForStablePage(page);
+  await expect(page.locator('.inventory-batch-page')).toBeVisible();
 }
 
 async function assertNoHorizontalOverflow(page: Page): Promise<void> {
@@ -270,7 +367,11 @@ async function assertNoHorizontalOverflow(page: Page): Promise<void> {
 }
 
 function visiblePendingRows(page: Page) {
-  return page.locator('.pending-row-card:visible, .desktop-pending-table tbody tr:visible');
+  return page.locator('.pending-row-card:visible, .desktop-pending-table tbody tr:not(:has(.empty-state)):visible');
+}
+
+function editButtonFor(page: Page, projectName: string) {
+  return pendingRowsFor(page, projectName).first().getByRole('button', { name: 'Edit' });
 }
 
 function draftRow(clientRowId: string, itemName: string) {
