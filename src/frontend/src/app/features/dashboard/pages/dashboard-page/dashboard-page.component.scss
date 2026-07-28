@@ -284,8 +284,10 @@
 .latest-sales-list__primary {
   display: flex;
   flex-direction: column;
+  flex: 1;
   gap: 0.2rem;
   min-width: 0;
+  max-width: 100%;
 }
 
 .latest-sales-list__invoice {
@@ -446,5 +448,9 @@
 
   .latest-sales-list__meta {
     align-items: flex-start;
+  }
+
+  .latest-sales-list__primary {
+    width: 100%;
   }
 }

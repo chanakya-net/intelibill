@@ -35,11 +35,13 @@
 
 .kpi-value {
   margin: 0;
+  max-width: 100%;
   color: #271911;
   font-family: Georgia, 'Times New Roman', serif;
   font-size: clamp(1.55rem, 1.8vw, 2.05rem);
   font-weight: 700;
   line-height: 1;
+  overflow-wrap: anywhere;
 }
 
 .kpi-card--amber {
