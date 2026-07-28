@@ -72,7 +72,11 @@ export function assertNoUnexpectedBrowserFailures(failures: readonly BrowserFail
   }
 }
 
-export async function mockExternalRequests(page: Page): Promise<void> {
+export interface MockExternalRequestsOptions {
+  readonly returnEmptyAccounts?: boolean;
+}
+
+export async function mockExternalRequests(page: Page, options: MockExternalRequestsOptions = {}): Promise<void> {
   await page.routeWebSocket('ws://localhost:5277/**', (webSocket) => {
     webSocket.onMessage((message) => {
       if (typeof message === 'string' && message.includes('"protocol"')) {
@@ -102,6 +106,35 @@ export async function mockExternalRequests(page: Page): Promise<void> {
           negotiateVersion: 1,
           availableTransports: [{ transport: 'WebSockets', transferFormats: ['Text'] }],
         }),
+      });
+      return;
+    }
+
+    // Mock bank accounts API
+    if (requestUrl.pathname.includes('/api/bank-accounts')) {
+      const accounts = options.returnEmptyAccounts ? [] : [
+        {
+          id: '1',
+          bankName: 'HDFC Bank',
+          accountNumber: '1234567890123456',
+          accountType: 'Savings',
+          ifscCode: 'HDFC0001234',
+          accountHolderName: 'John Doe',
+        },
+        {
+          id: '2',
+          bankName: 'ICICI Bank',
+          accountNumber: '9876543210987654',
+          accountType: 'Current',
+          ifscCode: 'ICIC0005678',
+          accountHolderName: 'Jane Smith',
+        },
+      ];
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(accounts),
       });
       return;
     }
