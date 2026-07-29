@@ -80,6 +80,23 @@ export interface MockExternalRequestsOptions {
   readonly accounts?: readonly MockBankAccount[];
   readonly bankAccountsState?: 'ready' | 'loading' | 'error';
   readonly bankAccountErrorStatus?: number;
+  readonly returnEmptyCustomers?: boolean;
+  readonly customers?: readonly MockCustomer[];
+  readonly customersState?: 'ready' | 'loading' | 'error';
+  readonly customersErrorStatus?: number;
+}
+
+export interface MockCustomer {
+  readonly customerId: string;
+  readonly name: string;
+  readonly phoneNumber: string;
+  readonly address: string | null;
+  readonly isActive: boolean;
+  readonly creditLimit: number;
+  readonly purchaseCount: number;
+  readonly lifetimeRevenue: number;
+  readonly currentMonthRevenue: number;
+  readonly outstandingDue?: number;
 }
 
 export interface MockBankAccount {
@@ -109,6 +126,63 @@ const DEFAULT_BANK_ACCOUNTS: readonly MockBankAccount[] = [
     accountHolderName: 'Jane Smith',
   },
 ];
+
+const DEFAULT_CUSTOMERS: readonly MockCustomer[] = [
+  {
+    customerId: '1',
+    name: 'John Doe',
+    phoneNumber: '+91-9876543210',
+    address: '123 Main St, Bengaluru',
+    isActive: true,
+    creditLimit: 50000,
+    purchaseCount: 10,
+    lifetimeRevenue: 150000,
+    currentMonthRevenue: 5000,
+    outstandingDue: 2000,
+  },
+  {
+    customerId: '2',
+    name: 'Jane Smith',
+    phoneNumber: '+91-9123456789',
+    address: '456 Oak Avenue, Pune',
+    isActive: true,
+    creditLimit: 75000,
+    purchaseCount: 25,
+    lifetimeRevenue: 350000,
+    currentMonthRevenue: 12000,
+    outstandingDue: 5000,
+  },
+];
+
+export interface MockCustomerAccount {
+  readonly customerId: string;
+  readonly name: string;
+  readonly phoneNumber: string;
+  readonly outstandingDue: number;
+  readonly sales: readonly MockCustomerAccountSale[];
+  readonly ledgerEntries: readonly MockCustomerLedgerEntry[];
+  readonly paymentHistory: readonly MockCustomerLedgerEntry[];
+}
+
+export interface MockCustomerAccountSale {
+  readonly saleId: string;
+  readonly invoiceNumber: string;
+  readonly paymentMethod: number;
+  readonly soldAt: string;
+  readonly paidAmount: number;
+  readonly dueAmount: number;
+  readonly totalAmount: number;
+}
+
+export interface MockCustomerLedgerEntry {
+  readonly entryId: string;
+  readonly saleId: string | null;
+  readonly entryType: number;
+  readonly amount: number;
+  readonly entryDate: string;
+  readonly notes: string | null;
+  readonly runningBalance: number;
+}
 
 export async function mockExternalRequests(
   page: Page,
@@ -157,6 +231,11 @@ export async function mockExternalRequests(
     ...(options.accounts ?? (options.returnEmptyAccounts ? [] : DEFAULT_BANK_ACCOUNTS)),
   ];
   const listState = options.bankAccountsState ?? 'ready';
+
+  let customers = [
+    ...(options.customers ?? (options.returnEmptyCustomers ? [] : DEFAULT_CUSTOMERS)),
+  ];
+  const customersListState = options.customersState ?? 'ready';
 
   await page.routeWebSocket('ws://localhost:5277/**', (webSocket) => {
     webSocket.onMessage((message) => {
@@ -276,6 +355,66 @@ export async function mockExternalRequests(
       return;
     }
 
+    if (requestUrl.pathname === '/api/customers') {
+      if (route.request().method() === 'GET') {
+        if (customersListState === 'loading') await delay(1_000);
+        if (customersListState === 'error') {
+          await fulfillCustomerError(route, options.customersErrorStatus ?? 503);
+          return;
+        }
+        await fulfillJson(route, customers);
+        return;
+      }
+      if (route.request().method() === 'POST') {
+        const customer = createCustomer(route.request(), customers.length + 1);
+        customers = [...customers, customer];
+        await fulfillJson(route, customer);
+        return;
+      }
+    }
+
+    const customerId = requestUrl.pathname.match(/^\/api\/customers\/([^/]+)$/)?.[1];
+    if (customerId && route.request().method() === 'PUT') {
+      const payload = route.request().postDataJSON() as Partial<MockCustomer>;
+      const customer = {
+        ...customers.find((item) => item.customerId === customerId),
+        ...payload,
+        customerId,
+      } as MockCustomer;
+      customers = customers.map((item) => (item.customerId === customerId ? customer : item));
+      await fulfillJson(route, customer);
+      return;
+    }
+    if (customerId && route.request().method() === 'DELETE') {
+      customers = customers.filter((item) => item.customerId !== customerId);
+      await route.fulfill({ status: 204 });
+      return;
+    }
+
+    const accountMatch = requestUrl.pathname.match(/^\/api\/customers\/([^/]+)\/account$/);
+    if (accountMatch?.[1]) {
+      const id = accountMatch[1];
+      const customer = customers.find((c) => c.customerId === id);
+      if (customer) {
+        const account: MockCustomerAccount = {
+          customerId: customer.customerId,
+          name: customer.name,
+          phoneNumber: customer.phoneNumber,
+          outstandingDue: customer.outstandingDue ?? 0,
+          sales: [],
+          ledgerEntries: [],
+          paymentHistory: [],
+        };
+        await fulfillJson(route, account);
+        return;
+      }
+    }
+
+    if (requestUrl.pathname.startsWith('/api/customers/') && !requestUrl.pathname.includes('/account') && !requestUrl.pathname.includes('/payments')) {
+      await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+      return;
+    }
+
     await route.fulfill({ status: 200, contentType: 'text/plain', body: '' });
   });
 }
@@ -283,6 +422,11 @@ export async function mockExternalRequests(
 function createAccount(request: Request, sequence: number): MockBankAccount {
   const payload = request.postDataJSON() as Omit<MockBankAccount, 'id'>;
   return { ...payload, id: `created-${sequence}` };
+}
+
+function createCustomer(request: Request, sequence: number): MockCustomer {
+  const payload = request.postDataJSON() as Omit<MockCustomer, 'customerId'>;
+  return { ...payload, customerId: `created-${sequence}` };
 }
 
 async function fulfillBankAccountError(
@@ -293,6 +437,17 @@ async function fulfillBankAccountError(
     status,
     contentType: 'application/json',
     body: JSON.stringify({ title: 'BankAccounts.LoadFailed' }),
+  });
+}
+
+async function fulfillCustomerError(
+  route: import('@playwright/test').Route,
+  status: number,
+): Promise<void> {
+  await route.fulfill({
+    status,
+    contentType: 'application/json',
+    body: JSON.stringify({ title: 'Customers.LoadFailed' }),
   });
 }
 
