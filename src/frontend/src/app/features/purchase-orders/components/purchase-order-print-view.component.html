@@ -31,21 +31,21 @@
     </header>
 
     <section class="po-document__grid">
-      <div>
+      <div class="po-document__supplier">
         <h2>{{ 'purchaseOrders.print.supplierSection' | transloco }}</h2>
         <dl>
           <div>
             <dt>{{ 'purchaseOrders.builder.supplier' | transloco }}</dt>
-            <dd>{{ loadedOrder.supplierName || loadedOrder.supplierId || '-' }}</dd>
+            <dd class="po-document__supplier--name">{{ loadedOrder.supplierName || loadedOrder.supplierId || '-' }}</dd>
           </div>
           <div>
             <dt>{{ 'purchaseOrders.builder.supplierReferenceNumber' | transloco }}</dt>
-            <dd>{{ loadedOrder.supplierReferenceNumber || loadedOrder.supplierReference || '-' }}</dd>
+            <dd class="po-document__supplier--reference">{{ loadedOrder.supplierReferenceNumber || loadedOrder.supplierReference || '-' }}</dd>
           </div>
         </dl>
       </div>
 
-      <div>
+      <div class="po-document__order">
         <h2>{{ 'purchaseOrders.print.orderSection' | transloco }}</h2>
         <dl>
           <div>
@@ -54,7 +54,7 @@
           </div>
           <div>
             <dt>{{ 'purchaseOrders.statusLabel' | transloco }}</dt>
-            <dd>{{ 'purchaseOrders.status.' + loadedOrder.status | transloco }}</dd>
+            <dd class="po-document__status">{{ 'purchaseOrders.status.' + loadedOrder.status | transloco }}</dd>
           </div>
           <div>
             <dt>{{ 'purchaseOrders.builder.orderDate' | transloco }}</dt>
@@ -71,6 +71,13 @@
     <section class="po-document__notes">
       <h2>{{ 'purchaseOrders.notes' | transloco }}</h2>
       <p>{{ loadedOrder.notes || '-' }}</p>
+    </section>
+
+    <section class="po-document__receipts" *ngIf="loadedOrder.receipts && loadedOrder.receipts.length > 0">
+      <h2>{{ 'purchaseOrders.receipts.title' | transloco }}</h2>
+      <div class="receipt-status" *ngFor="let receipt of loadedOrder.receipts">
+        <p><strong>{{ receipt.receiptNumber }}</strong> — {{ receipt.receivedAt | date:'short' }} ({{ receipt.receivedByDisplayName }})</p>
+      </div>
     </section>
 
     <table>
