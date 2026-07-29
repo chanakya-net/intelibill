@@ -80,6 +80,26 @@ export interface MockExternalRequestsOptions {
   readonly accounts?: readonly MockBankAccount[];
   readonly bankAccountsState?: 'ready' | 'loading' | 'error';
   readonly bankAccountErrorStatus?: number;
+  readonly returnEmptyCustomers?: boolean;
+  readonly customers?: readonly MockCustomer[];
+  readonly customersState?: 'ready' | 'loading' | 'error';
+  readonly customersErrorStatus?: number;
+  readonly customerAccounts?: Record<string, MockCustomerAccount>;
+  readonly customerAccountError?: number;
+  readonly customerPaymentError?: number;
+}
+
+export interface MockCustomer {
+  readonly customerId: string;
+  readonly name: string;
+  readonly phoneNumber: string;
+  readonly address: string | null;
+  readonly isActive: boolean;
+  readonly creditLimit: number;
+  readonly purchaseCount: number;
+  readonly lifetimeRevenue: number;
+  readonly currentMonthRevenue: number;
+  readonly outstandingDue?: number;
 }
 
 export interface MockBankAccount {
@@ -109,6 +129,171 @@ const DEFAULT_BANK_ACCOUNTS: readonly MockBankAccount[] = [
     accountHolderName: 'Jane Smith',
   },
 ];
+
+const DEFAULT_CUSTOMERS: readonly MockCustomer[] = [
+  {
+    customerId: '1',
+    name: 'John Doe',
+    phoneNumber: '+91-9876543210',
+    address: '123 Main St, Bengaluru',
+    isActive: true,
+    creditLimit: 50000,
+    purchaseCount: 10,
+    lifetimeRevenue: 150000,
+    currentMonthRevenue: 5000,
+    outstandingDue: 2000,
+  },
+  {
+    customerId: '2',
+    name: 'Jane Smith',
+    phoneNumber: '+91-9123456789',
+    address: '456 Oak Avenue, Pune',
+    isActive: true,
+    creditLimit: 75000,
+    purchaseCount: 25,
+    lifetimeRevenue: 350000,
+    currentMonthRevenue: 12000,
+    outstandingDue: 5000,
+  },
+];
+
+const DEFAULT_CUSTOMER_ACCOUNTS: Readonly<Record<string, MockCustomerAccount>> = {
+  '1': {
+    customerId: '1',
+    name: 'John Doe',
+    phoneNumber: '+91-9876543210',
+    outstandingDue: 2000,
+    sales: [
+      {
+        saleId: 'sale-1',
+        invoiceNumber: 'INV-001',
+        paymentMethod: 0,
+        soldAt: '2025-01-15T10:30:00Z',
+        paidAmount: 8000,
+        dueAmount: 2000,
+        totalAmount: 10000,
+      },
+      {
+        saleId: 'sale-2',
+        invoiceNumber: 'INV-002',
+        paymentMethod: 1,
+        soldAt: '2025-02-20T14:45:00Z',
+        paidAmount: 15000,
+        dueAmount: 0,
+        totalAmount: 15000,
+      },
+    ],
+    ledgerEntries: [
+      {
+        entryId: 'ledger-1',
+        saleId: 'sale-1',
+        entryType: 0,
+        amount: 10000,
+        entryDate: '2025-01-15T10:30:00Z',
+        notes: 'Initial sale',
+        runningBalance: 10000,
+      },
+      {
+        entryId: 'ledger-2',
+        saleId: null,
+        entryType: 1,
+        amount: 8000,
+        entryDate: '2025-01-20T11:00:00Z',
+        notes: 'Partial payment',
+        runningBalance: 2000,
+      },
+    ],
+    paymentHistory: [
+      {
+        entryId: 'payment-1',
+        saleId: null,
+        entryType: 1,
+        amount: 8000,
+        entryDate: '2025-01-20T11:00:00Z',
+        notes: 'Bank transfer',
+        runningBalance: 2000,
+      },
+    ],
+  },
+  '2': {
+    customerId: '2',
+    name: 'Jane Smith',
+    phoneNumber: '+91-9123456789',
+    outstandingDue: 5000,
+    sales: [
+      {
+        saleId: 'sale-3',
+        invoiceNumber: 'INV-003',
+        paymentMethod: 0,
+        soldAt: '2025-02-10T09:15:00Z',
+        paidAmount: 20000,
+        dueAmount: 5000,
+        totalAmount: 25000,
+      },
+    ],
+    ledgerEntries: [
+      {
+        entryId: 'ledger-3',
+        saleId: 'sale-3',
+        entryType: 0,
+        amount: 25000,
+        entryDate: '2025-02-10T09:15:00Z',
+        notes: 'Bulk order',
+        runningBalance: 25000,
+      },
+      {
+        entryId: 'ledger-4',
+        saleId: null,
+        entryType: 1,
+        amount: 20000,
+        entryDate: '2025-02-15T15:30:00Z',
+        notes: 'Advance payment',
+        runningBalance: 5000,
+      },
+    ],
+    paymentHistory: [
+      {
+        entryId: 'payment-2',
+        saleId: null,
+        entryType: 1,
+        amount: 20000,
+        entryDate: '2025-02-15T15:30:00Z',
+        notes: 'Cheque deposit',
+        runningBalance: 5000,
+      },
+    ],
+  },
+};
+
+export interface MockCustomerAccount {
+  readonly customerId: string;
+  readonly name: string;
+  readonly phoneNumber: string;
+  readonly outstandingDue: number;
+  readonly sales: readonly MockCustomerAccountSale[];
+  readonly ledgerEntries: readonly MockCustomerLedgerEntry[];
+  readonly paymentHistory: readonly MockCustomerLedgerEntry[];
+}
+
+export interface MockCustomerAccountSale {
+  readonly saleId: string;
+  readonly invoiceNumber: string;
+  readonly paymentMethod: number;
+  readonly soldAt: string;
+  readonly paidAmount: number;
+  readonly dueAmount: number;
+  readonly totalAmount: number;
+}
+
+export interface MockCustomerLedgerEntry {
+  readonly entryId: string;
+  readonly saleId: string | null;
+  readonly entryType: number;
+  readonly amount: number;
+  readonly entryDate: string;
+  readonly notes: string | null;
+  readonly runningBalance: number;
+}
 
 export async function mockExternalRequests(
   page: Page,
@@ -158,6 +343,15 @@ export async function mockExternalRequests(
   ];
   const listState = options.bankAccountsState ?? 'ready';
 
+  let customers = [
+    ...(options.customers ?? (options.returnEmptyCustomers ? [] : DEFAULT_CUSTOMERS)),
+  ];
+  const customersListState = options.customersState ?? 'ready';
+  let customerAccounts = cloneCustomerAccounts({
+    ...DEFAULT_CUSTOMER_ACCOUNTS,
+    ...options.customerAccounts,
+  });
+
   await page.routeWebSocket('ws://localhost:5277/**', (webSocket) => {
     webSocket.onMessage((message) => {
       if (typeof message === 'string' && message.includes('"protocol"')) {
@@ -170,7 +364,7 @@ export async function mockExternalRequests(
     const requestUrl = new URL(route.request().url());
     const isLocalApp =
       (requestUrl.hostname === '127.0.0.1' || requestUrl.hostname === 'localhost') &&
-      requestUrl.port === '4300';
+      requestUrl.port !== '5277';
 
     if (isLocalApp || requestUrl.protocol === 'data:') {
       await route.continue();
@@ -276,6 +470,102 @@ export async function mockExternalRequests(
       return;
     }
 
+    if (requestUrl.pathname === '/api/customers') {
+      if (route.request().method() === 'GET') {
+        if (customersListState === 'loading') await delay(1_000);
+        if (customersListState === 'error') {
+          await fulfillCustomerError(route, options.customersErrorStatus ?? 503);
+          return;
+        }
+        await fulfillJson(route, customers);
+        return;
+      }
+      if (route.request().method() === 'POST') {
+        const customer = createCustomer(route.request(), customers.length + 1);
+        customers = [...customers, customer];
+        await fulfillJson(route, customer);
+        return;
+      }
+    }
+
+    const customerId = requestUrl.pathname.match(/^\/api\/customers\/([^/]+)$/)?.[1];
+    if (customerId && route.request().method() === 'PUT') {
+      const payload = route.request().postDataJSON() as Partial<MockCustomer>;
+      const customer = {
+        ...customers.find((item) => item.customerId === customerId),
+        ...payload,
+        customerId,
+      } as MockCustomer;
+      customers = customers.map((item) => (item.customerId === customerId ? customer : item));
+      await fulfillJson(route, customer);
+      return;
+    }
+    if (customerId && route.request().method() === 'DELETE') {
+      customers = customers.filter((item) => item.customerId !== customerId);
+      await route.fulfill({ status: 204 });
+      return;
+    }
+
+    const accountMatch = requestUrl.pathname.match(/^\/api\/customers\/([^/]+)\/account$/);
+    if (accountMatch?.[1]) {
+      if (options.customerAccountError) {
+        await fulfillCustomerAccountError(route, options.customerAccountError);
+        return;
+      }
+      const id = accountMatch[1];
+      const account = customerAccounts[id];
+      if (account) {
+        await fulfillJson(route, account);
+        return;
+      }
+    }
+
+    const paymentMatch = requestUrl.pathname.match(/^\/api\/customers\/([^/]+)\/payments$/);
+    if (paymentMatch?.[1] && route.request().method() === 'POST') {
+      const customerId = paymentMatch[1];
+      if (options.customerPaymentError) {
+        await route.fulfill({
+          status: options.customerPaymentError,
+          contentType: 'application/json',
+          body: JSON.stringify({ title: 'Payment.Failed' }),
+        });
+        return;
+      }
+      const account = customerAccounts[customerId];
+      if (account && account.ledgerEntries.length > 0) {
+        const payload = route.request().postDataJSON() as { amount?: number };
+        const newEntry: MockCustomerLedgerEntry = {
+          entryId: `payment-${Date.now()}`,
+          saleId: null,
+          entryType: 1,
+          amount: payload.amount ?? 0,
+          entryDate: new Date().toISOString(),
+          notes: 'Payment submitted',
+          runningBalance: Math.max(0, account.outstandingDue - (payload.amount ?? 0)),
+        };
+        customerAccounts = {
+          ...customerAccounts,
+          [customerId]: {
+            ...account,
+            outstandingDue: newEntry.runningBalance,
+            ledgerEntries: [...account.ledgerEntries, newEntry],
+            paymentHistory: [...account.paymentHistory, newEntry],
+          },
+        };
+        await fulfillJson(route, newEntry);
+        return;
+      }
+    }
+
+    if (
+      requestUrl.pathname.startsWith('/api/customers/') &&
+      !requestUrl.pathname.includes('/account') &&
+      !requestUrl.pathname.includes('/payments')
+    ) {
+      await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+      return;
+    }
+
     await route.fulfill({ status: 200, contentType: 'text/plain', body: '' });
   });
 }
@@ -283,6 +573,27 @@ export async function mockExternalRequests(
 function createAccount(request: Request, sequence: number): MockBankAccount {
   const payload = request.postDataJSON() as Omit<MockBankAccount, 'id'>;
   return { ...payload, id: `created-${sequence}` };
+}
+
+function createCustomer(request: Request, sequence: number): MockCustomer {
+  const payload = request.postDataJSON() as Omit<MockCustomer, 'customerId'>;
+  return { ...payload, customerId: `created-${sequence}` };
+}
+
+function cloneCustomerAccounts(
+  accounts: Readonly<Record<string, MockCustomerAccount>>,
+): Record<string, MockCustomerAccount> {
+  return Object.fromEntries(
+    Object.entries(accounts).map(([customerId, account]) => [
+      customerId,
+      {
+        ...account,
+        sales: [...account.sales],
+        ledgerEntries: [...account.ledgerEntries],
+        paymentHistory: [...account.paymentHistory],
+      },
+    ]),
+  );
 }
 
 async function fulfillBankAccountError(
@@ -293,6 +604,28 @@ async function fulfillBankAccountError(
     status,
     contentType: 'application/json',
     body: JSON.stringify({ title: 'BankAccounts.LoadFailed' }),
+  });
+}
+
+async function fulfillCustomerError(
+  route: import('@playwright/test').Route,
+  status: number,
+): Promise<void> {
+  await route.fulfill({
+    status,
+    contentType: 'application/json',
+    body: JSON.stringify({ title: 'Customers.LoadFailed' }),
+  });
+}
+
+async function fulfillCustomerAccountError(
+  route: import('@playwright/test').Route,
+  status: number,
+): Promise<void> {
+  await route.fulfill({
+    status,
+    contentType: 'application/json',
+    body: JSON.stringify({ detail: 'Unable to load customer account right now.' }),
   });
 }
 
