@@ -42,6 +42,7 @@ __screenshots__/
 # Local deterministic UI audit output and approved baselines
 /.ui-audit
 /tests/ui-audit/baselines
+/tests/ui-audit/live/*.env
 
 # System files
 .DS_Store
