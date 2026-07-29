@@ -38,7 +38,7 @@
 }
 
 .print-state,
-.invoice {
+.invoice-document {
   margin: 0 auto;
   max-width: 210mm;
   background: #ffffff;
@@ -54,13 +54,15 @@
   color: #b91c1c;
 }
 
-.invoice {
+.invoice-document {
+  box-sizing: border-box;
+  width: min(100%, 210mm);
   min-height: 297mm;
   padding: 18mm;
   box-shadow: 0 12px 30px rgb(15 23 42 / 12%);
 }
 
-.invoice--thermal {
+.invoice-document--thermal {
   max-width: 80mm;
   width: 80mm;
   min-height: auto;
@@ -137,11 +139,12 @@
   }
 
   .print-state,
-  .invoice {
+  .invoice-document {
     max-width: none;
   }
 
-  .invoice {
+  .invoice-document {
+    width: 100%;
     min-height: auto;
     padding: 0;
     box-shadow: none;

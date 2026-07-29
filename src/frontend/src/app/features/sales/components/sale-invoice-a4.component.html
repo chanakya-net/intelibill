@@ -7,9 +7,7 @@
 
     <div class="invoice__shop-info">
       <h1 class="invoice__shop-name">{{ shop.name }}</h1>
-      <p class="invoice__shop-address">
-        {{ shop.address }}, {{ shop.city }}, {{ shop.state }} {{ shop.pincode }}
-      </p>
+      <p *ngIf="shopAddress" class="invoice__shop-address">{{ shopAddress }}</p>
       <p *ngIf="shop.mobileNumber" class="invoice__shop-phone">
         {{ 'sales.invoice.phone' | transloco }}: {{ shop.mobileNumber }}
       </p>

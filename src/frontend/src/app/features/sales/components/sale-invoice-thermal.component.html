@@ -2,10 +2,10 @@
   <header class="thermal-invoice__section thermal-invoice__header">
     <p class="thermal-invoice__shop-name">{{ shop.name }}</p>
     <p *ngIf="shopAddress" class="thermal-invoice__line">{{ shopAddress }}</p>
-    <p *ngIf="shop.mobileNumber" class="thermal-invoice__line">
+    <p *ngIf="shop.mobileNumber" class="thermal-invoice__line thermal-invoice__shop-phone">
       {{ 'sales.invoice.phone' | transloco }}: {{ shop.mobileNumber }}
     </p>
-    <p *ngIf="shop.gstNumber" class="thermal-invoice__line">
+    <p *ngIf="shop.gstNumber" class="thermal-invoice__line thermal-invoice__shop-gst">
       {{ 'sales.invoice.gstin' | transloco }}: {{ shop.gstNumber }}
     </p>
   </header>
@@ -135,7 +135,7 @@
     </ng-template>
   </section>
 
-  <section class="thermal-invoice__section">
+  <section class="thermal-invoice__section thermal-invoice__totals">
     <div class="thermal-invoice__summary-row">
       <span>{{ 'sales.invoice.totalBeforeDiscount' | transloco }}</span>
       <span>{{ sale.totalBeforeDiscount | currency: 'INR' : 'symbol' : '1.2-2' }}</span>
