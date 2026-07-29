@@ -47,6 +47,12 @@
         </div>
       </fieldset>
 
+      @if (shopSelectionInvalid) {
+        <p class="error-message">
+          {{ 'users.validation.selectAtLeastOneShop' | transloco }}
+        </p>
+      }
+
       <label>
         <span>{{ 'common.firstName' | transloco }}</span>
         <input pInputText type="text" formControlName="firstName" autocomplete="given-name" />

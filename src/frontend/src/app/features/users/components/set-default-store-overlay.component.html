@@ -1,4 +1,9 @@
-<section class="profile-overlay" aria-modal="true" role="dialog">
+<section
+  class="profile-overlay"
+  aria-modal="true"
+  role="dialog"
+  [attr.aria-label]="'shops.defaultStore.title' | transloco"
+>
   <div class="overlay-backdrop"></div>
 
   <article class="overlay-card" [class.card-busy]="isSubmitting()">

@@ -32,6 +32,13 @@
   min-width: 0;
 }
 
+.users-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
 .eyebrow,
 .directory-panel__eyebrow {
   margin: 0;

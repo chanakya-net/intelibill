@@ -25,11 +25,12 @@
   z-index: 1;
   width: 100%;
   max-width: 32rem;
+  max-height: calc(100vh - 2rem);
   border-radius: 1.5rem;
   border: 1px solid rgba(226, 232, 240, 0.9);
   background: #ffffff;
   box-shadow: 0 24px 52px rgba(2, 6, 23, 0.33);
-  overflow: hidden;
+  overflow: auto;
 }
 
 .overlay-header {
