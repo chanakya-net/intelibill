@@ -366,6 +366,7 @@
     "isActive": "সক্রিয় আছে",
     "isPreferred": "পছন্দের আছে",
     "balance": "ব্যালেন্স",
+    "balanceDue": "বকেয়া পরিমাণ",
     "ledgerEntries": "লেজার এন্ট্রি",
     "entryType": "এন্ট্রি ধরন",
     "amount": "পরিমাণ",
@@ -378,6 +379,9 @@
     "searchEntryDate": "তারিখ খুঁজুন",
     "searchNotes": "নোট খুঁজুন",
     "totalAmount": "মোট পরিমাণ",
+    "all": "সব",
+    "goodsReceived": "পণ্য গ্রহণ",
+    "payments": "পেমেন্ট",
     "entryTypes": {
       "goodsReceived": "পণ্য গ্রহণ",
       "paymentMade": "পেমেন্ট করা হয়েছে",

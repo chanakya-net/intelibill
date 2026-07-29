@@ -111,10 +111,12 @@ test.describe('suppliers', () => {
   test('validates, submits, and edits supplier forms', async ({ page }) => {
     const collector = collectBrowserFailures(page);
     let mutationRequests = 0;
+    let addPayload: unknown;
     let editPayload: unknown;
     page.on('request', (request) => {
       if (!request.url().includes('/api/suppliers') || request.method() === 'GET') return;
       mutationRequests += 1;
+      if (request.method() === 'POST') addPayload = request.postDataJSON();
       if (request.method() === 'PUT') editPayload = request.postDataJSON();
     });
 
@@ -125,26 +127,29 @@ test.describe('suppliers', () => {
       await expect(addOverlay).toBeVisible();
       await addOverlay.getByRole('button', { name: /add supplier/i }).click();
       await expect(addOverlay.locator('input[formcontrolname="name"]')).toHaveClass(/ng-invalid/);
-      await expect(addOverlay.locator('input[formcontrolname="contactPersonPhone"]')).toHaveClass(
-        /ng-invalid/,
-      );
       expect(mutationRequests).toBe(0);
 
       await fillSupplierForm(addOverlay, {
         name: 'Created Audit Supplier',
         contactPersonName: 'New Contact',
-        contactPersonPhone: '+919111111111',
+        contactPersonPhone: '123',
         address: 'Created Street',
         city: 'Created City',
         state: 'Created State',
         pin: '560003',
       });
       await addOverlay.getByRole('button', { name: /add supplier/i }).click();
+      await expect(addOverlay.locator('input[formcontrolname="contactPersonPhone"]')).toHaveClass(/ng-invalid/);
+      expect(mutationRequests).toBe(0);
+
+      await addOverlay.locator('input[formcontrolname="contactPersonPhone"]').fill('');
+      await addOverlay.getByRole('button', { name: /add supplier/i }).click();
       await expect(addOverlay).toBeHidden();
       await expect(
         visibleSupplierRows(page).filter({ hasText: 'Created Audit Supplier' }),
       ).toBeVisible();
       expect(mutationRequests).toBe(1);
+      expect(addPayload).toMatchObject({ contactPersonPhone: null });
 
       const supplierRow = visibleSupplierRows(page).filter({ hasText: 'Audit Supplier One' });
       await supplierRow.getByRole('button', { name: /edit supplier/i }).click();
@@ -152,10 +157,15 @@ test.describe('suppliers', () => {
       await expect(editOverlay).toBeVisible();
       await expect(editOverlay.locator('input[formcontrolname="name"]')).toHaveValue('Audit Supplier One');
       await editOverlay.locator('input[formcontrolname="name"]').fill('Updated Audit Supplier');
-      await editOverlay.locator('input[formcontrolname="contactPersonPhone"]').fill('+919876543210');
+      await editOverlay.locator('input[formcontrolname="contactPersonPhone"]').fill('123');
+      await editOverlay.getByRole('button', { name: /edit supplier/i }).click();
+      await expect(editOverlay.locator('input[formcontrolname="contactPersonPhone"]')).toHaveClass(/ng-invalid/);
+      expect(mutationRequests).toBe(1);
+
+      await editOverlay.locator('input[formcontrolname="contactPersonPhone"]').fill('');
       await editOverlay.getByRole('button', { name: /edit supplier/i }).click();
       expect(mutationRequests).toBe(2);
-      expect(editPayload).toMatchObject({ name: 'Updated Audit Supplier' });
+      expect(editPayload).toMatchObject({ name: 'Updated Audit Supplier', contactPersonPhone: null });
       await expect(editOverlay).toBeHidden();
       assertNoUnexpectedBrowserFailures(collector.failures);
     } finally {
@@ -207,6 +217,29 @@ test.describe('suppliers', () => {
     }
   });
 
+  test('opens the make payment overlay from supplier actions and closes after success', async ({ page }) => {
+    const collector = collectBrowserFailures(page);
+    let paymentRequests = 0;
+    page.on('request', (request) => {
+      if (request.method() === 'POST' && request.url().includes('/api/suppliers/') && request.url().includes('/payments')) {
+        paymentRequests += 1;
+      }
+    });
+
+    try {
+      await openSuppliers(page);
+      const paymentOverlay = await openMakePaymentOverlay(page);
+      await expect(paymentOverlay).toContainText('Audit Supplier One');
+      await paymentOverlay.getByRole('spinbutton', { name: 'Amount ₹' }).fill('1000');
+      await paymentOverlay.getByRole('button', { name: 'Record Payment', exact: true }).click();
+      expect(paymentRequests).toBe(1);
+      await expect(paymentOverlay).toBeHidden();
+      assertNoUnexpectedBrowserFailures(collector.failures);
+    } finally {
+      collector.dispose();
+    }
+  });
+
   test('displays supplier detail and payment errors from explicit API responses', async ({ page }) => {
     const detailCollector = collectBrowserFailures(page, supplierErrorIgnores('/ledger', 503));
     try {
@@ -230,14 +263,15 @@ test.describe('suppliers', () => {
     });
     try {
       await openSuppliers(page, { supplierMock: { supplierPaymentError: 500 } });
-      const detail = await openSupplierDetail(page);
-      await detail.getByRole('spinbutton', { name: 'Amount ₹' }).fill('1000');
-      await detail.getByRole('button', { name: 'Record Payment', exact: true }).click();
+      const paymentOverlay = await openMakePaymentOverlay(page);
+      await paymentOverlay.getByRole('spinbutton', { name: 'Amount ₹' }).fill('1000');
+      await paymentOverlay.getByRole('button', { name: 'Record Payment', exact: true }).click();
       expect(paymentRequests).toBe(1);
-      await expect(detail.locator('.error')).toHaveText(
+      await expect(paymentOverlay.locator('.error-message')).toHaveText(
         'Unable to record payment right now. Please try again.',
       );
-      await expect(detail.locator('.ledger-table tbody tr')).toHaveCount(2);
+      await paymentOverlay.getByRole('button', { name: 'Close', exact: true }).click();
+      await expect(paymentOverlay).toBeHidden();
       assertNoUnexpectedBrowserFailures(paymentCollector.failures);
     } finally {
       paymentCollector.dispose();
@@ -272,6 +306,12 @@ test.describe('suppliers', () => {
         await assertNoHorizontalOverflow(page);
         await page.keyboard.press('Escape');
         await expect(detail).toBeHidden();
+
+        const paymentOverlay = await openMakePaymentOverlay(page, LONG_SUPPLIER.name);
+        await assertWithinViewport(page, paymentOverlay.locator('.overlay-card'));
+        await assertNoHorizontalOverflow(page);
+        await paymentOverlay.getByRole('button', { name: 'Close', exact: true }).click();
+        await expect(paymentOverlay).toBeHidden();
       }
       assertNoUnexpectedBrowserFailures(collector.failures);
     } finally {
@@ -331,6 +371,14 @@ async function openSupplierDetail(page: Page, supplierName = 'Audit Supplier One
   await expect(dialog).toBeVisible();
   await expect(dialog.locator('.supplier-detail, .error')).toBeVisible();
   return dialog;
+}
+
+async function openMakePaymentOverlay(page: Page, supplierName = 'Audit Supplier One'): Promise<Locator> {
+  const supplierRow = visibleSupplierRows(page).filter({ hasText: supplierName });
+  await supplierRow.getByRole('button', { name: 'Make Payment', exact: true }).click();
+  const overlay = page.locator('app-make-payment-overlay .overlay');
+  await expect(overlay).toBeVisible();
+  return overlay;
 }
 
 function supplierErrorIgnores(

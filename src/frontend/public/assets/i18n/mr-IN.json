@@ -366,6 +366,7 @@
     "isActive": "सक्रिय आहे",
     "isPreferred": "पसंतीचा आहे",
     "balance": "शिल्लक",
+    "balanceDue": "देय शिल्लक",
     "ledgerEntries": "खाते नोंदी",
     "entryType": "नोंदीचा प्रकार",
     "amount": "रक्कम",
@@ -378,6 +379,9 @@
     "searchEntryDate": "तारीख शोधा",
     "searchNotes": "टिपणी शोधा",
     "totalAmount": "एकूण रक्कम",
+    "all": "सर्व",
+    "goodsReceived": "माल प्राप्त",
+    "payments": "देयके",
     "entryTypes": {
       "goodsReceived": "माल प्राप्त",
       "paymentMade": "देयक केले",

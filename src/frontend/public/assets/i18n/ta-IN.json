@@ -366,6 +366,7 @@
     "isActive": "செயலில் உள்ளது",
     "isPreferred": "முன்னுரிமை உள்ளது",
     "balance": "இருப்பு",
+    "balanceDue": "செலுத்த வேண்டிய இருப்பு",
     "ledgerEntries": "லெட்ஜர் பதிவுகள்",
     "entryType": "பதிவு வகை",
     "amount": "தொகை",
@@ -378,6 +379,9 @@
     "searchEntryDate": "தேதியைத் தேடு",
     "searchNotes": "குறிப்புகளைத் தேடு",
     "totalAmount": "மொத்த தொகை",
+    "all": "அனைத்தும்",
+    "goodsReceived": "பொருட்கள் பெற்றல்",
+    "payments": "கொடுப்பனவுகள்",
     "entryTypes": {
       "goodsReceived": "பொருட்கள் பெற்றல்",
       "paymentMade": "பணம் செலுத்தப்பட்டது",

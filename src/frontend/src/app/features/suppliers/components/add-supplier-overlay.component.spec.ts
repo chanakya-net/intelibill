@@ -57,6 +57,25 @@ describe('AddSupplierOverlayComponent', () => {
     expect(suppliersFacade.addSupplier).not.toHaveBeenCalled();
   });
 
+  it('submits an empty optional contact phone as null', () => {
+    const component = setup();
+
+    component.form.patchValue({
+      name: 'Fresh Foods',
+      address: '42 MG Road',
+      city: 'Bengaluru',
+      state: 'Karnataka',
+      pin: '560001',
+    });
+
+    component.onSubmit();
+
+    expect(component.form.controls.contactPersonPhone.valid).toBe(true);
+    expect(suppliersFacade.addSupplier).toHaveBeenCalledWith(
+      expect.objectContaining({ contactPersonPhone: null }),
+    );
+  });
+
   it('dispatches add supplier request with trimmed payload', () => {
     const component = setup();
 

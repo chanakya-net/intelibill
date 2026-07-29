@@ -366,6 +366,7 @@
     "isActive": "सक्रिय है",
     "isPreferred": "प्राथमिक है",
     "balance": "शेष राशि",
+    "balanceDue": "देय शेष",
     "ledgerEntries": "लेजर प्रविष्टियाँ",
     "entryType": "प्रविष्टि प्रकार",
     "amount": "राशि",
@@ -378,6 +379,9 @@
     "searchEntryDate": "तिथि खोजें",
     "searchNotes": "टिप्पणियाँ खोजें",
     "totalAmount": "कुल राशि",
+    "all": "सभी",
+    "goodsReceived": "माल प्राप्त",
+    "payments": "भुगतान",
     "entryTypes": {
       "goodsReceived": "माल प्राप्त",
       "paymentMade": "भुगतान किया गया",
