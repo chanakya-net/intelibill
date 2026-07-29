@@ -28,6 +28,7 @@ import {
   assertActiveLocale,
   assertAuthenticatedDestination,
   assertAuthLayout,
+  assertCallbackLayout,
   auditPublicPage,
   expectedError,
   fillRegisterForm,
@@ -37,6 +38,17 @@ import {
 
 const RESET_QUERY = '?email=audit%40example.com&token=valid-token';
 const AUTH_ROUTES = ['/login', '/register', '/forgot-password', `/reset-password${RESET_QUERY}`] as const;
+const CALLBACK_BUSY_COPY = {
+  'en-IN': 'Finishing external authentication.',
+  'hi-IN': 'बाहरी प्रमाणीकरण समाप्त कर रहा है।',
+  'ta-IN': 'வெளிப்புற அங்கீகாரத்தை முடிக்கிறது.',
+  'te-IN': 'బాహ్య ప్రామాణీకరణను ముగిస్తోంది.',
+  'bn-IN': 'বাহ্যিক প্রমাণীকরণ সমাপ্ত হচ্ছে।',
+  'ml-IN': 'ബാഹ്യ ആധികാരികത പൂർത്തിയാക്കുന്നു.',
+  'kn-IN': 'ಬಾಹ್ಯ ದೃಢೀಕರಣವನ್ನು ಪೂರ್ಣಗೊಳಿಸಲಾಗುತ್ತಿದೆ.',
+  'mr-IN': 'बाह्य प्रमाणीकरण पूर्ण होत आहे.',
+  'gu-IN': 'બાહ્ય પ્રમાણીકરણ પૂર્ણ થઈ રહ્યું છે.',
+} as const;
 
 function viewportFor(projectName: string) {
   return projectName.includes('mobile') ? AUDIT_VIEWPORTS[0] : AUDIT_VIEWPORTS[1];
@@ -304,6 +316,26 @@ test.describe('public-pages: locales and wildcard', () => {
       });
     } finally {
       await longLabelPage.close();
+    }
+  });
+
+  test('renders localized callback copy within bounds', async ({ page }, info) => {
+    const viewport = viewportFor(info.project.name);
+    for (const language of SUPPORTED_LANGUAGES) {
+      const callbackPage = await isolatedLocalePage(page.context(), language);
+      try {
+        await auditPublicPage(
+          callbackPage,
+          '/auth/callback?code=auth-code&state=auth-state',
+          mockExternalCallbackDelayed,
+          async (current) => {
+            await expect(current.getByText(CALLBACK_BUSY_COPY[language])).toBeVisible();
+            await assertCallbackLayout(current, viewport);
+          },
+        );
+      } finally {
+        await callbackPage.close();
+      }
     }
   });
 

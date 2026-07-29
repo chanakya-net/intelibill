@@ -52,6 +52,7 @@ export async function assertAuthLayout(page: Page, viewport: Viewport): Promise<
   const metrics = await page.evaluate(() => {
     const rect = (selector: string) => document.querySelector<HTMLElement>(selector)?.getBoundingClientRect();
     const card = rect('.auth-card');
+    const form = rect('.auth-card form');
     const language = rect('#language');
     const panel = document.querySelector<HTMLElement>('.visual-panel');
     const stage = document.querySelector<HTMLElement>('.auth-stage');
@@ -59,6 +60,7 @@ export async function assertAuthLayout(page: Page, viewport: Viewport): Promise<
     return {
       documentWidth: document.documentElement.scrollWidth,
       card: card && { left: card.left, right: card.right, top: card.top, bottom: card.bottom },
+      form: form && { left: form.left, right: form.right },
       language: language && { left: language.left, right: language.right, top: language.top, bottom: language.bottom },
       panelDisplay: panel ? getComputedStyle(panel).display : null,
       stageColumns: stage ? getComputedStyle(stage).gridTemplateColumns : null,
@@ -67,11 +69,16 @@ export async function assertAuthLayout(page: Page, viewport: Viewport): Promise<
 
   expect(metrics.documentWidth).toBeLessThanOrEqual(viewport.width + 1);
   expect(metrics.card).not.toBeNull();
+  expect(metrics.form).not.toBeNull();
   expect(metrics.language).not.toBeNull();
   expect(metrics.card!.left).toBeGreaterThanOrEqual(0);
   expect(metrics.card!.right).toBeLessThanOrEqual(viewport.width + 1);
+  expect(metrics.form!.left).toBeGreaterThanOrEqual(metrics.card!.left);
+  expect(metrics.form!.right).toBeLessThanOrEqual(metrics.card!.right);
   expect(metrics.language!.left).toBeGreaterThanOrEqual(metrics.card!.left);
   expect(metrics.language!.right).toBeLessThanOrEqual(metrics.card!.right);
+  expect(metrics.language!.top).toBeGreaterThanOrEqual(metrics.card!.top);
+  expect(metrics.language!.bottom).toBeLessThanOrEqual(metrics.card!.bottom);
 
   if (viewport.name === 'mobile') {
     expect(metrics.panelDisplay).toBe('none');
@@ -83,6 +90,23 @@ export async function assertAuthLayout(page: Page, viewport: Viewport): Promise<
   expect(metrics.card!.bottom).toBeLessThanOrEqual(viewport.height + 1);
   expect(metrics.panelDisplay).not.toBe('none');
   expect(metrics.stageColumns).toContain(' ');
+}
+
+export async function assertCallbackLayout(page: Page, viewport: Viewport): Promise<void> {
+  const metrics = await page.evaluate(() => {
+    const card = document.querySelector<HTMLElement>('.auth-card')?.getBoundingClientRect();
+    return {
+      documentWidth: document.documentElement.scrollWidth,
+      card: card && { left: card.left, right: card.right, top: card.top, bottom: card.bottom },
+    };
+  });
+
+  expect(metrics.documentWidth).toBeLessThanOrEqual(viewport.width + 1);
+  expect(metrics.card).not.toBeNull();
+  expect(metrics.card!.left).toBeGreaterThanOrEqual(0);
+  expect(metrics.card!.right).toBeLessThanOrEqual(viewport.width + 1);
+  expect(metrics.card!.top).toBeGreaterThanOrEqual(0);
+  expect(metrics.card!.bottom).toBeLessThanOrEqual(viewport.height + 1);
 }
 
 export async function assertAuthenticatedDestination(page: Page): Promise<void> {
