@@ -1,13 +1,24 @@
 import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { ROUTE_MANIFEST } from '../../tests/ui-audit/route-manifest';
+import {
+  buildScenarioCatalog,
+  scenarioId,
+  writeCoverageArtifact,
+} from '../../tests/ui-audit/support/css-coverage';
+
 // @ts-expect-error The production analyzer is intentionally a JavaScript CLI module.
 import {
   analyzeStyleUsage,
+  isRuntimeObservable,
+  loadRuntimeCoverage,
+  mapRuntimeCoverage,
   renderStyleUsageHtml,
   runStyleAudit,
 } from '../audit-unused-styles.mjs';
@@ -72,6 +83,9 @@ async function fixtureProject(): Promise<string> {
 .md\\:block {}
 .tooltip::before { content: "help"; }
 .unused {}
+.runtime-covered {}
+.runtime-uncovered {}
+.runtime-unobserved {}
 @keyframes pulse { from { opacity: 0; } to { opacity: 1; } }
 @keyframes dormant { from { opacity: 0; } to { opacity: 1; } }
 @media (min-width: 40rem) { .responsive-only { display: block; } }
@@ -185,6 +199,282 @@ afterEach(async () => {
 });
 
 describe('static first-party style usage audit', () => {
+  it('builds a complete deterministic scenario catalog from the route manifest', () => {
+    const catalog = buildScenarioCatalog(ROUTE_MANIFEST);
+
+    expect(buildScenarioCatalog(ROUTE_MANIFEST)).toEqual(catalog);
+    expect(new Set(catalog.map((scenario) => scenario.id)).size).toBe(catalog.length);
+    for (const route of ROUTE_MANIFEST) {
+      for (const state of route.states) {
+        for (const viewport of route.viewports) {
+          expect(
+            catalog.some(
+              (scenario) =>
+                scenario.kind === 'core' &&
+                scenario.route === route.path &&
+                scenario.state === state &&
+                scenario.viewport === viewport,
+            ),
+            `${route.path}/${state}/${viewport}`,
+          ).toBe(true);
+        }
+      }
+    }
+    expect(new Set(catalog.filter(({ route }) => route === 'login').map(({ locale }) => locale)))
+      .toEqual(new Set(ROUTE_MANIFEST[0].locales));
+    expect(new Set(catalog.filter(({ route }) => route === 'dashboard').map(({ role }) => role)))
+      .toEqual(new Set(['owner', 'manager']));
+    expect(catalog).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ route: 'login', offline: true }),
+        expect.objectContaining({ route: 'sales/new', offline: true }),
+        expect.objectContaining({ route: 'login', state: 'submitting', interaction: 'submit' }),
+        expect.objectContaining({ zone: 'standalone-print', media: 'print' }),
+      ]),
+    );
+    expect(catalog[0].id).toBe(scenarioId(catalog[0]));
+  });
+
+  it('persists and reloads per-scenario coverage artifacts with metadata', async () => {
+    const rootDir = await fixtureProject();
+    const coverageDir = join(rootDir, '.ui-audit', 'style-usage', 'runtime');
+    const scenarios = buildScenarioCatalog(ROUTE_MANIFEST).slice(0, 2);
+    const stylesheet = '.covered { color: green; } .uncovered { color: red; }';
+    for (const scenario of scenarios) {
+      await writeCoverageArtifact({
+        coverageDir,
+        scenario,
+        browser: { name: 'chromium', version: '140.0' },
+        entries: [
+          {
+            url: 'http://127.0.0.1:4300/styles.css?token=secret-value',
+            text: stylesheet,
+            ranges: [{ start: 0, end: 27 }],
+          },
+        ],
+      });
+    }
+
+    const runtime = await loadRuntimeCoverage({
+      coverageDir,
+      expectedScenarios: scenarios,
+    });
+    expect(runtime).toMatchObject({
+      status: 'complete',
+      missingScenarioIds: [],
+      failedScenarioIds: [],
+    });
+    expect(runtime.scenarios).toHaveLength(2);
+    expect(runtime.scenarios[0]).toMatchObject({
+      schemaVersion: 1,
+      browser: { name: 'chromium', version: '140.0' },
+      status: 'success',
+      scenario: { id: expect.any(String), viewport: expect.any(String) },
+      sheets: [{ hash: expect.stringMatching(/^[a-f0-9]{64}$/), ranges: [{ start: 0, end: 27 }] }],
+    });
+    expect(await readdir(join(coverageDir, 'stylesheets'))).toHaveLength(1);
+    expect(JSON.stringify(runtime.scenarios)).not.toContain('secret-value');
+  });
+
+  it('redacts captured stylesheet text without shifting Chromium coverage offsets', async () => {
+    const rootDir = await fixtureProject();
+    const coverageDir = join(rootDir, '.ui-audit', 'style-usage', 'runtime');
+    const scenario = buildScenarioCatalog(ROUTE_MANIFEST)[0];
+    const stylesheet = '/*! framework 4.1.11 */\n.x{}';
+    const ruleStart = stylesheet.indexOf('.x{}');
+    await writeCoverageArtifact({
+      coverageDir,
+      scenario,
+      browser: { name: 'chromium', version: '140.0' },
+      entries: [{
+        url: '',
+        text: stylesheet,
+        ranges: [{ start: ruleStart, end: stylesheet.length }],
+      }],
+    });
+
+    const runtime = await loadRuntimeCoverage({ coverageDir, expectedScenarios: [scenario] });
+    const captured = [...runtime.stylesheetTexts.values()][0];
+    expect(captured).toHaveLength(stylesheet.length);
+    expect(captured).not.toContain('4.1.11');
+    expect(mapRuntimeCoverage(runtime)).toContainEqual(expect.objectContaining({
+      kind: 'selector',
+      normalizedEntry: '.x',
+      status: 'covered',
+    }));
+  });
+
+  it('maps covered and uncovered runtime ranges to normalized entries', async () => {
+    const rootDir = await fixtureProject();
+    const coverageDir = join(rootDir, '.ui-audit', 'style-usage', 'runtime');
+    const catalog = buildScenarioCatalog(ROUTE_MANIFEST);
+    const scenarios = [
+      catalog.find(({ kind, route }) => kind === 'core' && route === 'login')!,
+      catalog.find(({ kind }) => kind === 'print')!,
+    ];
+    const stylesheet = `.covered[_ngcontent-ng-c1] { color: green; --covered-token: 1; }
+.uncovered[_nghost-ng-c2] { color: red; --uncovered-token: 1; }
+@media print { .print-only[_ngcontent-ng-c1] { display: block; } }`;
+    const ranges = [
+      [{ start: 0, end: stylesheet.indexOf('.uncovered') }],
+      [{ start: stylesheet.indexOf('.print-only'), end: stylesheet.length }],
+    ];
+    for (const [index, scenario] of scenarios.entries()) {
+      await writeCoverageArtifact({
+        coverageDir,
+        scenario,
+        browser: { name: 'chromium', version: '140.0' },
+        entries: [{ url: '', text: stylesheet, ranges: ranges[index] }],
+      });
+    }
+
+    const runtime = await loadRuntimeCoverage({ coverageDir, expectedScenarios: scenarios });
+    const evidence = mapRuntimeCoverage(runtime);
+    const find = (kind: string, name: string) =>
+      evidence.find((item: any) => item.kind === kind && item.normalizedEntry === name);
+    expect(find('selector', '.covered')).toMatchObject({
+      status: 'covered',
+      coveredScenarios: [scenarios[0].id],
+    });
+    expect(find('selector', '.uncovered')).toMatchObject({
+      status: 'uncovered',
+      coveredScenarios: [],
+      observedScenarios: expect.arrayContaining(scenarios.map(({ id }) => id)),
+    });
+    expect(find('media-rule', '@media print')).toMatchObject({
+      status: 'covered',
+      coveredScenarios: [scenarios[1].id],
+    });
+    expect(find('custom-property', '--uncovered-token')?.status).toBe('uncovered');
+    expect(isRuntimeObservable('selector')).toBe(true);
+    expect(isRuntimeObservable('keyframes')).toBe(false);
+    expect(isRuntimeObservable('sass-mixin')).toBe(false);
+  });
+
+  it('merges static and runtime evidence into conservative dispositions', async () => {
+    const rootDir = await fixtureProject();
+    const coverageDir = join(rootDir, '.ui-audit', 'style-usage', 'runtime');
+    const scenario = buildScenarioCatalog(ROUTE_MANIFEST)[0];
+    const stylesheet = `.runtime-covered { color: green; }
+.runtime-uncovered { color: red; }
+.literal { color: blue; }
+.dynamic-success { color: orange; }`;
+    await writeCoverageArtifact({
+      coverageDir,
+      scenario,
+      browser: { name: 'chromium', version: '140.0' },
+      entries: [{
+        url: '',
+        text: stylesheet,
+        ranges: [
+          { start: 0, end: stylesheet.indexOf('.runtime-uncovered') },
+          { start: stylesheet.indexOf('.dynamic-success'), end: stylesheet.length },
+        ],
+      }],
+    });
+
+    const report = await analyzeStyleUsage({
+      rootDir,
+      runtime: { coverageDir, expectedScenarios: [scenario] },
+    });
+    expect(entry(report, '.runtime-covered')).toMatchObject({
+      disposition: 'uncertain',
+      runtime: { status: 'covered', coveredScenarios: [scenario.id] },
+      allowlistReason: expect.stringContaining('runtime'),
+    });
+    expect(entry(report, '.runtime-uncovered')).toMatchObject({
+      disposition: 'removable-candidate',
+      runtime: { status: 'uncovered', coveredScenarios: [] },
+    });
+    expect(entry(report, '.runtime-unobserved')).toMatchObject({
+      disposition: 'uncertain',
+      runtime: { status: 'not-observed' },
+    });
+    expect(entry(report, '.literal').disposition).toBe('used');
+    expect(entry(report, '.dynamic-success')).toMatchObject({
+      disposition: 'uncertain',
+      risks: expect.arrayContaining(['dynamic-class']),
+    });
+  });
+
+  it('fails closed when the scenario catalog is incomplete', async () => {
+    const rootDir = await fixtureProject();
+    const coverageDir = join(rootDir, '.ui-audit', 'style-usage', 'runtime');
+    const scenarios = buildScenarioCatalog(ROUTE_MANIFEST).slice(0, 3);
+    await writeCoverageArtifact({
+      coverageDir,
+      scenario: scenarios[0],
+      browser: { name: 'chromium', version: '140.0' },
+      entries: [{ url: '', text: '.runtime-uncovered {}', ranges: [] }],
+    });
+    await writeCoverageArtifact({
+      coverageDir,
+      scenario: scenarios[1],
+      browser: { name: 'chromium', version: '140.0' },
+      error: new Error('navigation failed'),
+    });
+
+    const report = await runStyleAudit({
+      rootDir,
+      runtime: { coverageDir, expectedScenarios: scenarios },
+    });
+    expect(report.runtime).toMatchObject({
+      status: 'incomplete',
+      successfulScenarioCount: 1,
+      failedScenarioIds: [scenarios[1].id],
+      missingScenarioIds: [scenarios[2].id],
+    });
+    expect(entry(report, '.runtime-uncovered')).toMatchObject({
+      disposition: 'uncertain',
+      allowlistReason: expect.stringContaining('incomplete'),
+    });
+    expect(
+      await readFile(join(rootDir, '.ui-audit', 'style-usage', 'report.json'), 'utf8'),
+    ).toContain('"status": "incomplete"');
+    const result = spawnSync(
+      process.execPath,
+      ['run', join(import.meta.dir, '..', 'audit-unused-styles.mjs')],
+      { cwd: rootDir, encoding: 'utf8' },
+    );
+    expect(result.status).toBe(1);
+  });
+
+  it('renders merged static/runtime evidence in redacted JSON and HTML', async () => {
+    const rootDir = await fixtureProject();
+    const coverageDir = join(rootDir, '.ui-audit', 'style-usage', 'runtime');
+    const scenario = buildScenarioCatalog(ROUTE_MANIFEST)[0];
+    await writeCoverageArtifact({
+      coverageDir,
+      scenario,
+      browser: { name: 'chromium', version: '140.0' },
+      entries: [{
+        url: 'http://localhost/styles.css?token=secret-value',
+        text: '.runtime-covered {}',
+        ranges: [{ start: 0, end: 21 }],
+      }],
+    });
+
+    await runStyleAudit({
+      rootDir,
+      runtime: { coverageDir, expectedScenarios: [scenario] },
+    });
+    const json = await readFile(join(rootDir, '.ui-audit', 'style-usage', 'report.json'), 'utf8');
+    const html = await readFile(join(rootDir, '.ui-audit', 'style-usage', 'report.html'), 'utf8');
+    const parsed = JSON.parse(json);
+    expect(parsed).toMatchObject({
+      runtime: { status: 'complete', scenarios: [{ scenario: { id: scenario.id } }] },
+    });
+    expect(entry(parsed, '.runtime-covered')).toMatchObject({
+      source: { path: 'src/styles.css' },
+      runtime: { status: 'covered', coveredScenarios: [scenario.id] },
+    });
+    expect(html).toContain('Runtime CSS coverage: complete');
+    expect(html).toContain('Covered scenarios');
+    expect(html).toContain(scenario.id);
+    expect(`${json}${html}`).not.toContain(rootDir);
+    expect(`${json}${html}`).not.toContain('secret-value');
+  });
+
   it('inventories active, alternate, component, inline, Sass, template, TypeScript, and configuration sources', async () => {
     const report = await analyzeStyleUsage({ rootDir: await fixtureProject() });
 
