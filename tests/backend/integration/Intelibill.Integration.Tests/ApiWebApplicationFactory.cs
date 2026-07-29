@@ -1,3 +1,4 @@
+using System.Net;
 using Intelibill.Infrastructure.Data;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -100,9 +101,22 @@ public sealed class ApiWebApplicationFactory(PostgreSqlTestFixture? fixture = nu
             services.RemoveAll<IDistributedCache>();
             services.AddSingleton<IDistributedCache, NoOpDistributedCache>();
 
+            services.AddHttpClient("OtlpTraceExporter")
+                .ConfigurePrimaryHttpMessageHandler(static () => new NoOpOtlpHandler());
+            services.AddHttpClient("OtlpMetricExporter")
+                .ConfigurePrimaryHttpMessageHandler(static () => new NoOpOtlpHandler());
+
             _configureTestServices?.Invoke(services);
         });
     }
+}
+
+internal sealed class NoOpOtlpHandler : HttpMessageHandler
+{
+    protected override Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken) =>
+        Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK));
 }
 
 internal sealed class NoOpDistributedCache : IDistributedCache

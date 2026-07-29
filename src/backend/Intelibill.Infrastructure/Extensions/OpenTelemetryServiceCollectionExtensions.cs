@@ -19,7 +19,8 @@ namespace Intelibill.Infrastructure.Extensions;
 
 public static class OpenTelemetryServiceCollectionExtensions
 {
-    private const string OtlpHttpClientName = "otlp-exporter";
+    private const string OtlpTraceHttpClientName = "OtlpTraceExporter";
+    private const string OtlpMetricHttpClientName = "OtlpMetricExporter";
     public const string ApplicationMeterName = "InteliBill.Application";
 
     public static IServiceCollection AddInteliBillOpenTelemetry(
@@ -46,23 +47,26 @@ public static class OpenTelemetryServiceCollectionExtensions
             ]));
         }
 
-        // Polly-wrapped OTLP HTTP client
-        services
-            .AddHttpClient(OtlpHttpClientName, client =>
-                client.DefaultRequestHeaders.Add("api-key", newRelic.ApiKey))
-            .AddResilienceHandler("otlp-circuit-breaker", pipeline =>
-                pipeline.AddCircuitBreaker(new CircuitBreakerStrategyOptions<HttpResponseMessage>
-                {
-                    FailureRatio = cbOpts.FailureThreshold / 100.0,
-                    SamplingDuration = TimeSpan.FromSeconds(cbOpts.SamplingDurationSeconds),
-                    MinimumThroughput = cbOpts.MinimumThroughput,
-                    BreakDuration = TimeSpan.FromSeconds(cbOpts.BreakDurationSeconds),
-                    OnOpened = _ =>
+        // The OTLP exporter resolves these built-in named clients on .NET 8+.
+        foreach (var clientName in new[] { OtlpTraceHttpClientName, OtlpMetricHttpClientName })
+        {
+            services
+                .AddHttpClient(clientName, client =>
+                    client.DefaultRequestHeaders.Add("api-key", newRelic.ApiKey))
+                .AddResilienceHandler("otlp-circuit-breaker", pipeline =>
+                    pipeline.AddCircuitBreaker(new CircuitBreakerStrategyOptions<HttpResponseMessage>
                     {
-                        Log.Warning("New Relic OTLP endpoint unavailable — circuit open. Telemetry dropped.");
-                        return ValueTask.CompletedTask;
-                    }
-                }));
+                        FailureRatio = cbOpts.FailureThreshold / 100.0,
+                        SamplingDuration = TimeSpan.FromSeconds(cbOpts.SamplingDurationSeconds),
+                        MinimumThroughput = cbOpts.MinimumThroughput,
+                        BreakDuration = TimeSpan.FromSeconds(cbOpts.BreakDurationSeconds),
+                        OnOpened = _ =>
+                        {
+                            Log.Warning("New Relic OTLP endpoint unavailable — circuit open. Telemetry dropped.");
+                            return ValueTask.CompletedTask;
+                        }
+                    }));
+        }
 
         // Custom application meter — injected by application code
         services.AddSingleton(new Meter(ApplicationMeterName));
@@ -77,14 +81,8 @@ public static class OpenTelemetryServiceCollectionExtensions
                 .AddAttributes(new Dictionary<string, object>
                 {
                     ["deployment.environment"] = newRelic.Environment
-                }));
-
-        // Tracing — resolved with IServiceProvider to wire up OTLP HttpClient
-        services.ConfigureOpenTelemetryTracerProvider((sp, builder) =>
-        {
-            var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
-
-            builder
+                }))
+            .WithTracing(builder => builder
                 .AddAspNetCoreInstrumentation()
                 .AddHttpClientInstrumentation()
                 .AddEntityFrameworkCoreInstrumentation(o => o.SetDbStatementForText = false)
@@ -95,30 +93,23 @@ public static class OpenTelemetryServiceCollectionExtensions
                 {
                     o.Protocol = OtlpExportProtocol.HttpProtobuf;
                     o.Endpoint = new Uri($"{newRelic.OtlpEndpoint.TrimEnd('/')}/v1/traces");
-                    o.HttpClientFactory = () => httpClientFactory.CreateClient(OtlpHttpClientName);
-                });
-        });
-
-        // Metrics — same Polly-wrapped client
-        services.ConfigureOpenTelemetryMeterProvider((sp, builder) =>
-        {
-            var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
-
-            builder
-                .AddAspNetCoreInstrumentation()
-                .AddHttpClientInstrumentation()
-                .AddMeter(ApplicationMeterName);
-
-            if (metricsOpts.EnableRuntimeMetrics)
-                builder.AddRuntimeInstrumentation();
-
-            builder.AddOtlpExporter(o =>
+                }))
+            .WithMetrics(builder =>
             {
-                o.Protocol = OtlpExportProtocol.HttpProtobuf;
-                o.Endpoint = new Uri($"{newRelic.OtlpEndpoint.TrimEnd('/')}/v1/metrics");
-                o.HttpClientFactory = () => httpClientFactory.CreateClient(OtlpHttpClientName);
+                builder
+                    .AddAspNetCoreInstrumentation()
+                    .AddHttpClientInstrumentation()
+                    .AddMeter(ApplicationMeterName);
+
+                if (metricsOpts.EnableRuntimeMetrics)
+                    builder.AddRuntimeInstrumentation();
+
+                builder.AddOtlpExporter(o =>
+                {
+                    o.Protocol = OtlpExportProtocol.HttpProtobuf;
+                    o.Endpoint = new Uri($"{newRelic.OtlpEndpoint.TrimEnd('/')}/v1/metrics");
+                });
             });
-        });
 
         return services;
     }
