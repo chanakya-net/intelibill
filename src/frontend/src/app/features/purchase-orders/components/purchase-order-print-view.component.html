@@ -74,7 +74,7 @@
     </section>
 
     <section class="po-document__receipts" *ngIf="loadedOrder.receipts && loadedOrder.receipts.length > 0">
-      <h2>{{ 'purchaseOrders.receipts' | transloco }}</h2>
+      <h2>{{ 'purchaseOrders.receipts.title' | transloco }}</h2>
       <div class="receipt-status" *ngFor="let receipt of loadedOrder.receipts">
         <p><strong>{{ receipt.receiptNumber }}</strong> — {{ receipt.receivedAt | date:'short' }} ({{ receipt.receivedByDisplayName }})</p>
       </div>

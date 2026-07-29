@@ -19,6 +19,9 @@ import {
 
 const API_BASE = 'http://localhost:5277/api';
 
+export const LONG_SHOP_ADDRESS =
+  'Unit 17, Deterministic International Trade Centre, 1847 Long Address Verification Avenue, Industrial Layout Phase 4';
+
 export type PurchaseOrdersApiState = 'ready' | 'loading' | 'error';
 
 export interface PurchaseOrdersScenario {
@@ -75,8 +78,9 @@ export const DENSE_PURCHASE_ORDERS = Array.from({ length: 40 }, (_, index) =>
 export function createPurchaseOrdersScenario(
   options: PurchaseOrdersScenarioOptions = {},
 ): PurchaseOrdersScenario {
+  const shell = createShellScenario(options);
   return {
-    shell: createShellScenario(options),
+    shell: options.withLongShopAddress ? withLongShopAddress(shell) : shell,
     orders: options.orders ?? PURCHASE_ORDER_STATUSES,
     apiState: options.apiState ?? 'ready',
     withLongLines: options.withLongLines ?? false,
@@ -85,6 +89,18 @@ export function createPurchaseOrdersScenario(
     withLongNotes: options.withLongNotes ?? false,
     withDenseLines: options.withDenseLines ?? false,
     withLongShopAddress: options.withLongShopAddress ?? false,
+  };
+}
+
+function withLongShopAddress(shell: ShellScenario): ShellScenario {
+  const shopId = shell.session.activeShopId;
+  const shop = shell.shopDetails[shopId];
+  return {
+    ...shell,
+    shopDetails: {
+      ...shell.shopDetails,
+      [shopId]: { ...shop, address: LONG_SHOP_ADDRESS },
+    },
   };
 }
 

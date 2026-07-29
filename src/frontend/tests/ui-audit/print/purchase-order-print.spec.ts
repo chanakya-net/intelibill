@@ -8,6 +8,7 @@ import {
 import {
   PURCHASE_ORDER_STATUSES,
   DENSE_PURCHASE_ORDERS,
+  LONG_SHOP_ADDRESS,
   createPurchaseOrdersScenario,
   installPurchaseOrdersFixture,
   type PurchaseOrdersScenario,
@@ -42,11 +43,13 @@ test.describe('purchase-order-print (A4 media audit)', () => {
       createPurchaseOrdersScenario({
         orders: [order],
         withLongSupplierDetails: true,
+        withLongShopAddress: true,
       }),
       order.purchaseOrderId,
       async () => {
         await assertDocumentSections(page);
         await assertLongSupplierDetailsVisible(page);
+        await assertLongShopAddressVisible(page);
         await assertA4Output(page, 1);
         await assertNoClippingOrOverlap(page);
       },
@@ -82,7 +85,9 @@ test.describe('purchase-order-print (A4 media audit)', () => {
       async () => {
         await assertDocumentSections(page);
         await assertDenseLineItemsPresent(page);
+        await assertDenseGrandTotalVisible(page);
         await assertTablePagination(page);
+        await assertA4Output(page, 2);
         await assertNoClippingOrOverlap(page);
       },
     );
@@ -214,10 +219,18 @@ async function assertLongSupplierDetailsVisible(page: Page): Promise<void> {
   await expect(supplierRef).toContainText('SUPPLIER-REFERENCE-WITH-A-LONG-DETERMINISTIC-VALUE-2026-000001');
 }
 
+async function assertLongShopAddressVisible(page: Page): Promise<void> {
+  await expect(page.locator('.po-document__shop')).toContainText(LONG_SHOP_ADDRESS);
+}
+
 async function assertDenseLineItemsPresent(page: Page): Promise<void> {
   const rows = page.locator('table tbody tr');
   const count = await rows.count();
   expect(count).toBeGreaterThanOrEqual(30);
+}
+
+async function assertDenseGrandTotalVisible(page: Page): Promise<void> {
+  await expect(page.locator('table tfoot th.numeric').last()).toContainText('39,025.00');
 }
 
 async function assertTablePagination(page: Page): Promise<void> {
@@ -228,12 +241,15 @@ async function assertTablePagination(page: Page): Promise<void> {
 
 async function assertReceiptStatusVisible(page: Page): Promise<void> {
   const statusField = page.locator('.po-document__status');
-  await expect(statusField).toBeVisible();
+  await expect(statusField).toHaveText('Partially Received');
   const receipts = page.locator('.po-document__receipts');
   await expect(receipts).toBeVisible();
+  await expect(receipts.locator('h2')).toHaveText('Receipts');
   const receiptItems = page.locator('.receipt-status');
-  const count = await receiptItems.count();
-  expect(count).toBeGreaterThan(0);
+  await expect(receiptItems).toHaveCount(2);
+  await expect(receiptItems.nth(0)).toContainText('REC-2026-001');
+  await expect(receiptItems.nth(0)).toContainText('7/15/26');
+  await expect(receiptItems.nth(0)).toContainText('John Doe');
 }
 
 async function assertExactPrintFonts(page: Page): Promise<void> {
