@@ -16,6 +16,7 @@ export class DiscountsDisableDialogComponent {
   @Input({ required: true }) visible = false;
   @Input() disableSubmitting = false;
   @Input() disableReason = '';
+  @Input() errorKey = '';
 
   @Output() closeRequested = new EventEmitter<void>();
   @Output() disableReasonChange = new EventEmitter<string>();
@@ -26,10 +27,16 @@ export class DiscountsDisableDialogComponent {
   }
 
   onCloseRequested(): void {
+    if (this.disableSubmitting) return;
     this.closeRequested.emit();
   }
 
+  onDialogHide(): void {
+    this.onCloseRequested();
+  }
+
   onConfirm(): void {
+    if (this.disableSubmitting) return;
     this.confirm.emit();
   }
 }

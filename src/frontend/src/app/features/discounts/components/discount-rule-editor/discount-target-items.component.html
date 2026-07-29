@@ -2,7 +2,9 @@
   <p class="section-label">{{ 'discounts.editor.sections.targetBatch' | transloco }}</p>
 
   <div class="field wide">
-    <label for="discount-rule-batch-search">{{ 'discounts.editor.fields.batchSearch' | transloco }}</label>
+    <label for="discount-rule-batch-search">{{
+      'discounts.editor.fields.batchSearch' | transloco
+    }}</label>
     <p-iconfield iconPosition="left" class="batch-search-field">
       <p-inputicon>
         <i class="pi pi-search" aria-hidden="true"></i>
@@ -13,18 +15,33 @@
         type="text"
         class="w-full"
         [value]="batchSearchTerm()"
-        (input)="onBatchSearchTermChange(($any($event.target)).value)"
+        (input)="onBatchSearchTermChange($any($event.target).value)"
         [placeholder]="'discounts.editor.fields.batchSearch' | transloco"
+        [attr.aria-invalid]="isControlInvalid() || !!batchSearchError()"
+        [attr.aria-describedby]="
+          batchSearchError()
+            ? 'discount-batch-search-error'
+            : isControlInvalid()
+              ? 'discount-batch-selection-error'
+              : null
+        "
       />
       @if (batchSearchTerm()) {
-        <p-inputicon iconPosition="right" class="clear-icon" (click)="clearBatchSearch()">
+        <button
+          type="button"
+          class="clear-icon"
+          [attr.aria-label]="'common.clear' | transloco"
+          (click)="clearBatchSearch()"
+        >
           <i class="pi pi-times" aria-hidden="true"></i>
-        </p-inputicon>
+        </button>
       }
     </p-iconfield>
 
     <p class="selected-batch">
-      <span class="selected-batch__label">{{ 'discounts.editor.fields.selectedBatch' | transloco }}:</span>
+      <span class="selected-batch__label"
+        >{{ 'discounts.editor.fields.selectedBatch' | transloco }}:</span
+      >
       <span class="selected-batch__value">
         {{ selectedBatchLabel() || ('discounts.editor.fields.noneSelected' | transloco) }}
       </span>
@@ -36,6 +53,15 @@
       <p class="hint">{{ 'discounts.editor.batchSearch.minChars' | transloco }}</p>
     } @else if (batchSearchNoResults()) {
       <p class="hint hint--warning">{{ 'discounts.editor.batchSearch.noResults' | transloco }}</p>
+    }
+    @if (batchSearchError()) {
+      <p id="discount-batch-search-error" class="hint hint--error" role="alert">
+        {{ batchSearchError() | transloco }}
+      </p>
+    } @else if (isControlInvalid()) {
+      <p id="discount-batch-selection-error" class="hint hint--error" role="alert">
+        {{ 'discounts.editor.errors.fixValidation' | transloco }}
+      </p>
     }
 
     @if (batchSearchResults().length > 0) {
@@ -51,14 +77,20 @@
           >
             <span class="batch-result-primary">{{ batch.itemName }} · {{ batch.batchNumber }}</span>
             <span class="batch-result-metric">
-              {{ 'discounts.editor.batchSearch.quantityAvailable' | transloco: { quantity: batch.quantity } }}
+              {{
+                'discounts.editor.batchSearch.quantityAvailable'
+                  | transloco: { quantity: batch.quantity }
+              }}
             </span>
             <span class="batch-result-metric">
               {{ 'discounts.editor.batchSearch.price' | transloco: { price: batch.salesPrice } }}
             </span>
             @if (batch.expiryDate) {
               <span class="batch-result-metric">
-                {{ 'discounts.editor.batchSearch.expiry' | transloco: { date: (batch.expiryDate | dateOnly: 'mediumDate') } }}
+                {{
+                  'discounts.editor.batchSearch.expiry'
+                    | transloco: { date: (batch.expiryDate | dateOnly: 'mediumDate') }
+                }}
               </span>
             }
           </button>

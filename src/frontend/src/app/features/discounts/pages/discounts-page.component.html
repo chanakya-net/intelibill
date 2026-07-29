@@ -291,6 +291,7 @@
     [visible]="showDisableDialog()"
     [disableSubmitting]="disableSubmitting()"
     [disableReason]="disableReason()"
+    [errorKey]="disableError()"
     (closeRequested)="onCloseDisableDialog()"
     (disableReasonChange)="disableReason.set($event)"
     (confirm)="onConfirmDisable()"

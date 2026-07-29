@@ -1,18 +1,30 @@
 <p-dialog
   [visible]="visible"
   [modal]="true"
-  [dismissableMask]="true"
-  [closable]="false"
+  [dismissableMask]="!disableSubmitting"
+  [closable]="!disableSubmitting"
+  [closeOnEscape]="!disableSubmitting"
+  [draggable]="false"
+  [resizable]="false"
+  styleClass="discounts-disable-dialog"
   [style]="{ width: 'min(560px, 95vw)' }"
+  (onHide)="onDialogHide()"
 >
-  <ng-template pTemplate="header">
-    <h2 class="dialog-title">{{ 'discounts.disableDialog.title' | transloco }}</h2>
+  <ng-template pTemplate="header" let-ariaLabelledBy="ariaLabelledBy">
+    <h2 class="dialog-title" [id]="ariaLabelledBy">
+      {{ 'discounts.disableDialog.title' | transloco }}
+    </h2>
   </ng-template>
 
   <div class="dialog-content space-y-3">
     <p>{{ 'discounts.disableDialog.description' | transloco }}</p>
+    @if (errorKey) {
+      <p class="dialog-error" role="alert">{{ errorKey | transloco }}</p>
+    }
     <div class="field-wrap space-y-1.5">
-      <label for="discounts-disable-reason">{{ 'discounts.disableDialog.reasonLabel' | transloco }}</label>
+      <label for="discounts-disable-reason">{{
+        'discounts.disableDialog.reasonLabel' | transloco
+      }}</label>
       <textarea
         id="discounts-disable-reason"
         pInputTextarea
@@ -43,7 +55,11 @@
         pButton
         type="button"
         severity="danger"
-        [label]="disableSubmitting ? ('discounts.disableDialog.disabling' | transloco) : ('discounts.disableDialog.confirm' | transloco)"
+        [label]="
+          disableSubmitting
+            ? ('discounts.disableDialog.disabling' | transloco)
+            : ('discounts.disableDialog.confirm' | transloco)
+        "
         [disabled]="disableSubmitting"
         (click)="onConfirm()"
         data-testid="discounts-disable-confirm"

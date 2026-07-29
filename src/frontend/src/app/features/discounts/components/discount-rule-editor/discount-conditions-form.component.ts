@@ -1,8 +1,16 @@
-import { Component, DestroyRef, EventEmitter, Input, Output, computed, inject } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  EventEmitter,
+  Input,
+  Output,
+  computed,
+  inject,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { TranslocoPipe } from '@ngneat/transloco';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
+import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import { CheckboxModule } from 'primeng/checkbox';
 import { DatePickerModule } from 'primeng/datepicker';
 import { IconFieldModule } from 'primeng/iconfield';
@@ -69,6 +77,7 @@ const createDefaultConditions = (): DiscountConditions => ({
 export class DiscountConditionsFormComponent {
   private readonly formBuilder = inject(FormBuilder);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly transloco = inject(TranslocoService);
   private suppressConditionEmit = false;
 
   @Input() set initialConditions(value: DiscountConditions | null) {
@@ -82,8 +91,13 @@ export class DiscountConditionsFormComponent {
   @Output() readonly conditionsChange = new EventEmitter<DiscountConditions>();
 
   readonly form = this.formBuilder.nonNullable.group({
-    ruleType: this.formBuilder.nonNullable.control<DiscountRuleType>('BatchPercentage', [Validators.required]),
-    name: this.formBuilder.nonNullable.control('', [Validators.required, Validators.maxLength(200)]),
+    ruleType: this.formBuilder.nonNullable.control<DiscountRuleType>('BatchPercentage', [
+      Validators.required,
+    ]),
+    name: this.formBuilder.nonNullable.control('', [
+      Validators.required,
+      Validators.maxLength(200),
+    ]),
     description: this.formBuilder.nonNullable.control(''),
     percentage: this.formBuilder.nonNullable.control(10, [
       Validators.required,
@@ -98,14 +112,30 @@ export class DiscountConditionsFormComponent {
     disabledReason: this.formBuilder.nonNullable.control(''),
   });
 
-  readonly ruleTypeOptions: SelectOption<DiscountRuleType>[] = [
+  private readonly activeLanguage = toSignal(this.transloco.langChanges$, {
+    initialValue: this.transloco.getActiveLang(),
+  });
+  private readonly ruleTypeOptionKeys: SelectOption<DiscountRuleType>[] = [
     { label: 'discounts.editor.ruleType.batchPercentage', value: 'BatchPercentage' },
     { label: 'discounts.editor.ruleType.salePercentage', value: 'SalePercentage' },
-    { label: 'discounts.editor.ruleType.saleThresholdPercentage', value: 'SaleThresholdPercentage' },
+    {
+      label: 'discounts.editor.ruleType.saleThresholdPercentage',
+      value: 'SaleThresholdPercentage',
+    },
   ];
+  readonly ruleTypeOptions = computed(() => {
+    this.activeLanguage();
+    return this.ruleTypeOptionKeys.map((option) => ({
+      ...option,
+      label: this.transloco.translate(option.label),
+    }));
+  });
 
-  readonly isBatchRule = computed(() => this.form.controls.ruleType.value === 'BatchPercentage');
-  readonly isThresholdRule = computed(() => this.form.controls.ruleType.value === 'SaleThresholdPercentage');
+  private readonly ruleType = toSignal(this.form.controls.ruleType.valueChanges, {
+    initialValue: this.form.controls.ruleType.value,
+  });
+  readonly isBatchRule = computed(() => this.ruleType() === 'BatchPercentage');
+  readonly isThresholdRule = computed(() => this.ruleType() === 'SaleThresholdPercentage');
 
   constructor() {
     this.form.controls.ruleType.valueChanges
@@ -128,6 +158,11 @@ export class DiscountConditionsFormComponent {
 
   markAllAsTouched(): void {
     this.form.markAllAsTouched();
+  }
+
+  isControlInvalid(control: keyof typeof this.form.controls): boolean {
+    const field = this.form.controls[control];
+    return field.touched && field.invalid;
   }
 
   private applyInitialConditions(next: DiscountConditions): void {

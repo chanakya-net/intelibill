@@ -7,20 +7,21 @@
         <label for="discount-rule-type">{{ 'discounts.editor.fields.ruleType' | transloco }}</label>
         <p-select
           inputId="discount-rule-type"
-          [options]="ruleTypeOptions"
+          [options]="ruleTypeOptions()"
           optionLabel="label"
           optionValue="value"
           appendTo="body"
           formControlName="ruleType"
+          [ariaLabel]="'discounts.editor.fields.ruleType' | transloco"
           styleClass="editor-control"
         >
           <ng-template pTemplate="selectedItem" let-option>
             @if (option) {
-              {{ option.label | transloco }}
+              {{ option.label }}
             }
           </ng-template>
           <ng-template pTemplate="item" let-option>
-            {{ option.label | transloco }}
+            {{ option.label }}
           </ng-template>
         </p-select>
       </div>
@@ -28,15 +29,30 @@
       <div class="field">
         <label for="discount-rule-name">{{ 'discounts.editor.fields.name' | transloco }}</label>
         <p-iconfield iconPosition="right" class="editor-iconfield">
-          <input id="discount-rule-name" pInputText type="text" class="w-full" formControlName="name" />
+          <input
+            id="discount-rule-name"
+            pInputText
+            type="text"
+            class="w-full"
+            formControlName="name"
+            [attr.aria-invalid]="isControlInvalid('name')"
+            [attr.aria-describedby]="isControlInvalid('name') ? 'discount-rule-name-error' : null"
+          />
           <p-inputicon>
             <i class="pi pi-tag" aria-hidden="true"></i>
           </p-inputicon>
         </p-iconfield>
+        @if (isControlInvalid('name')) {
+          <small id="discount-rule-name-error" class="field-error" role="alert">
+            {{ 'discounts.editor.errors.fixValidation' | transloco }}
+          </small>
+        }
       </div>
 
       <div class="field wide">
-        <label for="discount-rule-description">{{ 'discounts.editor.fields.description' | transloco }}</label>
+        <label for="discount-rule-description">{{
+          'discounts.editor.fields.description' | transloco
+        }}</label>
         <textarea
           id="discount-rule-description"
           pInputTextarea
@@ -53,7 +69,9 @@
 
     <div class="editor-grid">
       <div class="field">
-        <label for="discount-rule-percentage">{{ 'discounts.editor.fields.percentage' | transloco }}</label>
+        <label for="discount-rule-percentage">{{
+          'discounts.editor.fields.percentage' | transloco
+        }}</label>
         <p-inputNumber
           inputId="discount-rule-percentage"
           formControlName="percentage"
@@ -64,12 +82,23 @@
           suffix="%"
           [fluid]="true"
           styleClass="editor-control"
+          [attr.aria-invalid]="isControlInvalid('percentage')"
+          [ariaDescribedBy]="
+            isControlInvalid('percentage') ? 'discount-rule-percentage-error' : undefined
+          "
         />
+        @if (isControlInvalid('percentage')) {
+          <small id="discount-rule-percentage-error" class="field-error" role="alert">
+            {{ 'discounts.editor.errors.fixValidation' | transloco }}
+          </small>
+        }
       </div>
 
       @if (isThresholdRule()) {
         <div class="field">
-          <label for="discount-rule-threshold">{{ 'discounts.editor.fields.thresholdAmount' | transloco }}</label>
+          <label for="discount-rule-threshold">{{
+            'discounts.editor.fields.thresholdAmount' | transloco
+          }}</label>
           <p-inputNumber
             inputId="discount-rule-threshold"
             formControlName="thresholdAmount"
@@ -78,12 +107,23 @@
             [maxFractionDigits]="2"
             [fluid]="true"
             styleClass="editor-control"
+            [attr.aria-invalid]="isControlInvalid('thresholdAmount')"
+            [ariaDescribedBy]="
+              isControlInvalid('thresholdAmount') ? 'discount-rule-threshold-error' : undefined
+            "
           />
+          @if (isControlInvalid('thresholdAmount')) {
+            <small id="discount-rule-threshold-error" class="field-error" role="alert">
+              {{ 'discounts.editor.errors.fixValidation' | transloco }}
+            </small>
+          }
         </div>
       }
 
       <div class="field">
-        <label for="discount-rule-starts-at">{{ 'discounts.editor.fields.startsAt' | transloco }}</label>
+        <label for="discount-rule-starts-at">{{
+          'discounts.editor.fields.startsAt' | transloco
+        }}</label>
         <p-datepicker
           ngSkipHydration
           inputId="discount-rule-starts-at"
@@ -101,7 +141,9 @@
       </div>
 
       <div class="field">
-        <label for="discount-rule-ends-at">{{ 'discounts.editor.fields.endsAt' | transloco }}</label>
+        <label for="discount-rule-ends-at">{{
+          'discounts.editor.fields.endsAt' | transloco
+        }}</label>
         <p-datepicker
           ngSkipHydration
           inputId="discount-rule-ends-at"
@@ -152,7 +194,9 @@
 
       @if (mode === 'edit') {
         <div class="field wide">
-          <label for="discount-rule-disabled-reason">{{ 'discounts.editor.fields.disabledReason' | transloco }}</label>
+          <label for="discount-rule-disabled-reason">{{
+            'discounts.editor.fields.disabledReason' | transloco
+          }}</label>
           <textarea
             id="discount-rule-disabled-reason"
             pInputTextarea

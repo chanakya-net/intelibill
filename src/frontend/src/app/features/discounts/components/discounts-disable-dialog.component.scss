@@ -8,4 +8,37 @@
   display: flex;
   justify-content: flex-end;
   gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.dialog-error {
+  margin: 0;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid #fecaca;
+  border-radius: 0.75rem;
+  background: #fff1f2;
+  color: #b91c1c;
+}
+
+:host ::ng-deep {
+  .discounts-disable-dialog {
+    max-width: calc(100vw - 1rem);
+    max-height: calc(100dvh - 1rem);
+    overflow: hidden;
+  }
+
+  .discounts-disable-dialog .p-dialog-content {
+    overflow-y: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .dialog-footer {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .dialog-footer button {
+    width: 100%;
+  }
 }

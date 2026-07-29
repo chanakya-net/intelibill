@@ -1,6 +1,7 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output, computed, inject } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
-import { TranslocoPipe } from '@ngneat/transloco';
+import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import { IconFieldModule } from 'primeng/iconfield';
 import { InputIconModule } from 'primeng/inputicon';
 import { InputTextModule } from 'primeng/inputtext';
@@ -31,6 +32,10 @@ interface SelectOption<T> {
   styleUrl: './discounts-filter-bar.component.scss',
 })
 export class DiscountsFilterBarComponent {
+  private readonly transloco = inject(TranslocoService);
+  private readonly activeLanguage = toSignal(this.transloco.langChanges$, {
+    initialValue: this.transloco.getActiveLang(),
+  });
   @Input({ required: true }) searchValue = '';
   @Input({ required: true }) statusFilter: DiscountStatusFilter = 'active';
   @Input({ required: true }) ruleTypeFilter: DiscountRuleType | '' = '';
@@ -41,26 +46,30 @@ export class DiscountsFilterBarComponent {
   @Output() ruleTypeFilterChange = new EventEmitter<DiscountRuleType | ''>();
   @Output() sortValueChange = new EventEmitter<DiscountSortOption>();
 
-  readonly statusOptions: SelectOption<DiscountStatusFilter>[] = [
+  private readonly statusOptionKeys: SelectOption<DiscountStatusFilter>[] = [
     { label: 'discounts.filters.status.active', value: 'active' },
     { label: 'discounts.filters.status.disabled', value: 'disabled' },
     { label: 'discounts.filters.status.expired', value: 'expired' },
     { label: 'discounts.filters.status.all', value: 'all' },
   ];
 
-  readonly ruleTypeOptions: SelectOption<DiscountRuleType | ''>[] = [
+  private readonly ruleTypeOptionKeys: SelectOption<DiscountRuleType | ''>[] = [
     { label: 'discounts.filters.type.all', value: '' },
     { label: 'discounts.ruleType.BatchPercentage', value: 'BatchPercentage' },
     { label: 'discounts.ruleType.SalePercentage', value: 'SalePercentage' },
     { label: 'discounts.ruleType.SaleThresholdPercentage', value: 'SaleThresholdPercentage' },
   ];
 
-  readonly sortOptions: SelectOption<DiscountSortOption>[] = [
+  private readonly sortOptionKeys: SelectOption<DiscountSortOption>[] = [
     { label: 'discounts.filters.sort.createdDesc', value: 'created_desc' },
     { label: 'discounts.filters.sort.createdAsc', value: 'created_asc' },
     { label: 'discounts.filters.sort.nameAsc', value: 'name_asc' },
     { label: 'discounts.filters.sort.nameDesc', value: 'name_desc' },
   ];
+
+  readonly statusOptions = computed(() => this.translateOptions(this.statusOptionKeys));
+  readonly ruleTypeOptions = computed(() => this.translateOptions(this.ruleTypeOptionKeys));
+  readonly sortOptions = computed(() => this.translateOptions(this.sortOptionKeys));
 
   onSearchChange(value: string): void {
     this.searchValueChange.emit(value);
@@ -80,5 +89,13 @@ export class DiscountsFilterBarComponent {
 
   clearSearch(): void {
     this.onSearchChange('');
+  }
+
+  private translateOptions<T>(options: readonly SelectOption<T>[]): SelectOption<T>[] {
+    this.activeLanguage();
+    return options.map((option) => ({
+      ...option,
+      label: this.transloco.translate(option.label),
+    }));
   }
 }
