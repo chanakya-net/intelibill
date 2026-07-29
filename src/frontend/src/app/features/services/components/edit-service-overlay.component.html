@@ -58,7 +58,11 @@
             />
             @if (form.controls.name.invalid && form.controls.name.touched) {
               <p id="edit-service-name-error" class="field-error">
-                {{ 'common.required' | transloco }}
+                @if (form.controls.name.errors?.['required']) {
+                  {{ 'common.required' | transloco }}
+                } @else {
+                  {{ 'services.validation.nameMaxLength' | transloco }}
+                }
               </p>
             }
           </div>
@@ -73,7 +77,21 @@
               [maxFractionDigits]="2"
               [fluid]="true"
               styleClass="editor-control"
+              [ariaDescribedBy]="
+                form.controls.price.invalid && form.controls.price.touched
+                  ? 'edit-service-price-error'
+                  : undefined
+              "
             />
+            @if (form.controls.price.invalid && form.controls.price.touched) {
+              <p id="edit-service-price-error" class="field-error">
+                @if (form.controls.price.errors?.['required']) {
+                  {{ 'common.required' | transloco }}
+                } @else {
+                  {{ 'services.validation.priceMin' | transloco }}
+                }
+              </p>
+            }
           </div>
 
           <div class="field wide">
@@ -84,7 +102,20 @@
               rows="3"
               class="w-full"
               formControlName="description"
+              [attr.aria-invalid]="
+                form.controls.description.invalid && form.controls.description.touched
+              "
+              [attr.aria-describedby]="
+                form.controls.description.invalid && form.controls.description.touched
+                  ? 'edit-service-description-error'
+                  : null
+              "
             ></textarea>
+            @if (form.controls.description.invalid && form.controls.description.touched) {
+              <p id="edit-service-description-error" class="field-error">
+                {{ 'services.validation.descriptionMaxLength' | transloco }}
+              </p>
+            }
           </div>
         </div>
       </section>
@@ -105,7 +136,21 @@
               suffix="%"
               [fluid]="true"
               styleClass="editor-control"
+              [ariaDescribedBy]="
+                form.controls.taxRatePercent.invalid && form.controls.taxRatePercent.touched
+                  ? 'edit-service-tax-error'
+                  : undefined
+              "
             />
+            @if (form.controls.taxRatePercent.invalid && form.controls.taxRatePercent.touched) {
+              <p id="edit-service-tax-error" class="field-error">
+                @if (form.controls.taxRatePercent.errors?.['required']) {
+                  {{ 'common.required' | transloco }}
+                } @else {
+                  {{ 'services.validation.taxRateRange' | transloco }}
+                }
+              </p>
+            }
             @if (suggestedTaxSlabs().length > 0) {
               <div class="suggestion-list" [attr.aria-label]="'hsn.taxSuggestions' | transloco">
                 @for (taxPercentage of suggestedTaxSlabs(); track taxPercentage) {
@@ -131,7 +176,18 @@
               type="text"
               class="w-full"
               formControlName="hsnCode"
+              [attr.aria-invalid]="form.controls.hsnCode.invalid && form.controls.hsnCode.touched"
+              [attr.aria-describedby]="
+                form.controls.hsnCode.invalid && form.controls.hsnCode.touched
+                  ? 'edit-service-hsn-error'
+                  : null
+              "
             />
+            @if (form.controls.hsnCode.invalid && form.controls.hsnCode.touched) {
+              <p id="edit-service-hsn-error" class="field-error">
+                {{ 'services.validation.hsnSacPattern' | transloco }}
+              </p>
+            }
             @if (suggestedHsnCodes().length > 0) {
               <div class="suggestion-list" [attr.aria-label]="'hsn.hsnSuggestions' | transloco">
                 @for (hsnCode of suggestedHsnCodes(); track hsnCode) {

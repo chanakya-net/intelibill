@@ -38,7 +38,19 @@ interface ServiceScenarioOptions {
   readonly listState?: 'ready' | 'error';
   readonly failFirstMutation?: boolean;
   readonly services?: readonly Service[];
+  readonly locale?: string;
 }
+
+const DENSE_SERVICES: readonly Service[] = Array.from({ length: 23 }, (_, index) => ({
+  ...SERVICES[index % SERVICES.length],
+  serviceId: `dense-service-${index + 1}`,
+  code: `SRV-${String(index + 1).padStart(4, '0')}`,
+  name: `Audit service ${index + 1}`,
+  description:
+    index === 20
+      ? 'Long service description retained after pagination to verify responsive wrapping in every layout.'
+      : `Service description ${index + 1}.`,
+}));
 
 test.describe('services', () => {
   test('renders service data as a table on desktop and cards on mobile', async ({
@@ -100,6 +112,50 @@ test.describe('services', () => {
     }
   });
 
+  test('explains every blocking add and edit validation error', async ({ page }) => {
+    await openServices(page);
+    await page.getByRole('button', { name: 'Add Service' }).click();
+    const addDialog = page.locator('.service-editor-dialog');
+    await submitInvalidServiceForm(addDialog);
+    await expect(addDialog.locator('#add-service-name-error')).toHaveText(
+      'Service name must be 180 characters or fewer.',
+    );
+    await expect(addDialog.locator('#add-service-description-error')).toHaveText(
+      'Description must be 320 characters or fewer.',
+    );
+    await expect(addDialog.locator('#add-service-price-error')).toHaveText(
+      'This field is required',
+    );
+    await expect(addDialog.locator('#add-service-tax-error')).toHaveText('This field is required');
+    await expect(addDialog.locator('#add-service-hsn-error')).toHaveText(
+      'Enter a valid 4 to 8 digit HSN/SAC code.',
+    );
+    await expect(addDialog.locator('input[formcontrolname="name"]')).toHaveAttribute(
+      'aria-describedby',
+      'add-service-name-error',
+    );
+    await expect(addDialog.locator('input#add-service-price')).toHaveAttribute(
+      'aria-describedby',
+      'add-service-price-error',
+    );
+
+    await addDialog.getByRole('button', { name: 'Cancel' }).click();
+    await visibleServices(page)
+      .filter({ hasText: 'Installation' })
+      .locator('button')
+      .first()
+      .click();
+    const editDialog = page.locator('.service-editor-dialog');
+    await submitInvalidServiceForm(editDialog);
+    await expect(editDialog.locator('#edit-service-name-error')).toHaveText(
+      'Service name must be 180 characters or fewer.',
+    );
+    await expect(editDialog.locator('input#edit-service-tax')).toHaveAttribute(
+      'aria-describedby',
+      'edit-service-tax-error',
+    );
+  });
+
   test('filters services and reports list and save errors', async ({ page }) => {
     const collector = collectBrowserFailures(page, {
       ignoreConsole: (message) =>
@@ -128,6 +184,10 @@ test.describe('services', () => {
 
       await openServices(page, { listState: 'error' });
       await expect(page.locator('.error')).toHaveText('Unable to load services.');
+      await expect(page.locator('.empty-state')).toHaveCount(0);
+
+      await openServices(page, { services: [] });
+      await expect(page.locator('.empty-state:visible')).toBeVisible();
       assertNoUnexpectedBrowserFailures(collector.failures);
     } finally {
       collector.dispose();
@@ -139,22 +199,32 @@ test.describe('services', () => {
     await expect(page).toHaveURL(/\/(dashboard|sales)$/);
   });
 
-  test('keeps dense service values inside the mobile viewport', async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== 'chromium-mobile', 'mobile layout coverage');
-    const longService: Service = {
-      ...SERVICES[0],
-      code: 'SRV-VERY-LONG-SERVICE-CODE-THAT-MUST-NOT-ESCAPE-THE-CARD-BOUNDARY-0001',
-      name: 'Installation and commissioning for complex multi-location enterprise equipment',
-      description: 'A deliberately long service description used to verify responsive wrapping.',
-    };
-    await openServices(page, { services: [longService] });
-    await expect(page.locator('.service-card')).toContainText(longService.name);
+  test('paginates dense long service values within every viewport', async ({ page }) => {
+    await openServices(page, { services: DENSE_SERVICES });
+    await expect(visibleServices(page)).toHaveCount(20);
+    await expect(visibleServices(page).filter({ hasText: 'Audit service 20' })).toBeVisible();
+    await page.locator('.p-paginator-next').click();
+    await expect(visibleServices(page)).toHaveCount(3);
+    await expect(visibleServices(page).filter({ hasText: 'Audit service 21' })).toBeVisible();
     await assertNoHorizontalOverflow(page);
+  });
+
+  test('localizes services controls, list, and overlays', async ({ page }) => {
+    await openServices(page, { locale: 'hi-IN' });
+    await expect(page.locator('.services-page h1')).toHaveText('सेवाएँ');
+    await expect(page.locator('input[placeholder="सेवाएँ खोजें..."]')).toBeVisible();
+    await expect(page.locator('.table-caption')).toHaveText('1 - 2 में से 2');
+    await expect(visibleServices(page).filter({ hasText: 'Installation' })).toBeVisible();
+    await page.getByRole('button', { name: 'सेवा जोड़ें' }).click();
+    await expect(page.locator('.service-editor-dialog h2')).toHaveText('सेवा जोड़ें');
+    await expect(page.locator('.service-editor-dialog label[for="add-service-name"]')).toHaveText(
+      'नाम',
+    );
   });
 });
 
 async function openServices(page: Page, options: ServiceScenarioOptions = {}): Promise<void> {
-  await mockExternalRequests(page, { authenticated: true });
+  await mockExternalRequests(page, { authenticated: true, locale: options.locale });
   if (options.role === 'Staff') {
     await page.addInitScript(() => {
       const key = 'inventory.auth.session.local';
@@ -240,6 +310,15 @@ async function fillServiceForm(
   await dialog.locator('input[id$="-service-price"]').fill(values.price);
   await dialog.locator('input[formcontrolname="hsnCode"]').fill('9987');
   await dialog.locator('input[id$="-service-tax"]').fill('18');
+}
+
+async function submitInvalidServiceForm(dialog: ReturnType<Page['getByRole']>): Promise<void> {
+  await dialog.locator('input[formcontrolname="name"]').fill('N'.repeat(181));
+  await dialog.locator('textarea[formcontrolname="description"]').fill('D'.repeat(321));
+  await dialog.locator('input[id$="-service-price"]').fill('');
+  await dialog.locator('input[id$="-service-tax"]').fill('');
+  await dialog.locator('input[formcontrolname="hsnCode"]').fill('ABC');
+  await dialog.getByRole('button', { name: /Add Service|Save Changes/ }).click();
 }
 
 async function assertNoHorizontalOverflow(page: Page): Promise<void> {

@@ -12,11 +12,7 @@ import { SelectModule } from 'primeng/select';
 import { SkeletonModule } from 'primeng/skeleton';
 
 import { ShopPermissionsService } from '../../../core/layout/shop-permissions.service';
-import type {
-  Service,
-  ServiceStatusFilter,
-  ServiceSummary,
-} from '../services/service.models';
+import type { Service, ServiceStatusFilter, ServiceSummary } from '../services/service.models';
 import { ServiceService } from '../services/service.service';
 import { AddServiceOverlayComponent } from '../components/add-service-overlay.component';
 import { EditServiceOverlayComponent } from '../components/edit-service-overlay.component';
@@ -59,7 +55,8 @@ export class ServicesPageComponent {
   readonly pageSize = signal(20);
   readonly services = signal<readonly Service[]>([]);
   readonly isLoading = signal(false);
-  readonly errorMessage = signal('');
+  readonly loadErrorMessage = signal('');
+  readonly actionErrorMessage = signal('');
   readonly isMutating = signal(false);
   readonly showAddOverlay = signal(false);
   readonly editingService = signal<Service | null>(null);
@@ -128,7 +125,7 @@ export class ServicesPageComponent {
 
   loadServices(): void {
     this.isLoading.set(true);
-    this.errorMessage.set('');
+    this.loadErrorMessage.set('');
 
     this.serviceService
       .getServices({
@@ -142,7 +139,7 @@ export class ServicesPageComponent {
           this.pageNumber.set(1);
         },
         error: () => {
-          this.errorMessage.set('services.loadFailed');
+          this.loadErrorMessage.set('services.loadFailed');
           this.isLoading.set(false);
         },
       });
@@ -176,7 +173,7 @@ export class ServicesPageComponent {
       return;
     }
 
-    this.errorMessage.set('');
+    this.actionErrorMessage.set('');
     this.showAddOverlay.set(true);
   }
 
@@ -189,7 +186,7 @@ export class ServicesPageComponent {
       return;
     }
 
-    this.errorMessage.set('');
+    this.actionErrorMessage.set('');
     this.editingService.set(service);
   }
 
@@ -209,7 +206,7 @@ export class ServicesPageComponent {
     }
 
     this.isMutating.set(true);
-    this.errorMessage.set('');
+    this.actionErrorMessage.set('');
 
     const request = service.isActive
       ? this.serviceService.deactivateService(service.serviceId)
@@ -221,7 +218,7 @@ export class ServicesPageComponent {
         this.loadServices();
       },
       error: () => {
-        this.errorMessage.set('services.toggleFailed');
+        this.actionErrorMessage.set('services.toggleFailed');
         this.isMutating.set(false);
       },
     });

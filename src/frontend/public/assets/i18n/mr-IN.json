@@ -264,7 +264,15 @@
     "deactivate": "निष्क्रिय करा",
     "loadFailed": "सेवा लोड करण्यात अक्षम.",
     "saveFailed": "सेवा जतन करण्यात अक्षम.",
-    "toggleFailed": "सेवा स्थिती अद्यतनित करण्यात अक्षम."
+    "toggleFailed": "सेवा स्थिती अद्यतनित करण्यात अक्षम.",
+    "paginationFooter": "{{total}} पैकी {{start}} - {{end}}",
+    "validation": {
+      "nameMaxLength": "सेवा नाव 180 वर्णांचे किंवा कमी असावे.",
+      "descriptionMaxLength": "वर्णन 320 वर्णांचे किंवा कमी असावे.",
+      "priceMin": "किंमत शून्य किंवा अधिक असावी.",
+      "taxRateRange": "कर दर 0 आणि 100 दरम्यान असावा.",
+      "hsnSacPattern": "वैध 4 ते 8 अंकी HSN/SAC कोड प्रविष्ट करा."
+    }
   },
   "bankAccounts": {
     "directory": "बँक खाते यादी",

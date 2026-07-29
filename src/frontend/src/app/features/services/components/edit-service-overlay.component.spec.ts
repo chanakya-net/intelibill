@@ -26,7 +26,11 @@ describe('EditServiceOverlayComponent', () => {
     serviceService.updateService.mockClear();
     inventoryService.lookupHsn.mockClear();
     TestBed.configureTestingModule({
-      imports: [EditServiceOverlayComponent, ReactiveFormsModule, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
+      imports: [
+        EditServiceOverlayComponent,
+        ReactiveFormsModule,
+        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+      ],
       providers: [
         { provide: ServiceService, useValue: serviceService },
         { provide: InventoryService, useValue: inventoryService },
@@ -130,5 +134,41 @@ describe('EditServiceOverlayComponent', () => {
       taxRatePercent: 12,
       taxIncluded: false,
     });
+  });
+
+  it('renders validation feedback for every blocking edit field', () => {
+    const fixture = TestBed.createComponent(EditServiceOverlayComponent);
+    const component = fixture.componentInstance;
+    component.service = {
+      serviceId: 'srv-1',
+      code: 'SRV-0001',
+      name: 'Installation',
+      description: null,
+      price: 250,
+      hsnCode: '9987',
+      taxRatePercent: 18,
+      taxIncluded: true,
+      isActive: true,
+    };
+    fixture.detectChanges();
+    component.form.patchValue({
+      name: '',
+      description: 'D'.repeat(321),
+      price: -1,
+      taxRatePercent: 101,
+      hsnCode: 'invalid',
+    });
+    component.form.markAllAsTouched();
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+
+    expect(host.querySelectorAll('.field-error')).toHaveLength(5);
+    expect(
+      host.querySelector('input[formcontrolname="hsnCode"]')?.getAttribute('aria-describedby'),
+    ).toBe('edit-service-hsn-error');
+    expect(host.querySelector('input#edit-service-tax')?.getAttribute('aria-describedby')).toBe(
+      'edit-service-tax-error',
+    );
   });
 });

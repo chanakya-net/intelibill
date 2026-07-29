@@ -10,31 +10,39 @@ import { AddServiceOverlayComponent } from './add-service-overlay.component';
 
 describe('AddServiceOverlayComponent', () => {
   const serviceService = {
-    addService: vi.fn(() => of({
-      serviceId: 'srv-1',
-      code: 'SRV-0001',
-      name: 'Installation',
-      description: null,
-      price: 250,
-      hsnCode: '9987',
-      taxRatePercent: 18,
-      taxIncluded: true,
-      isActive: true,
-    })),
+    addService: vi.fn(() =>
+      of({
+        serviceId: 'srv-1',
+        code: 'SRV-0001',
+        name: 'Installation',
+        description: null,
+        price: 250,
+        hsnCode: '9987',
+        taxRatePercent: 18,
+        taxIncluded: true,
+        isActive: true,
+      }),
+    ),
   };
 
   const inventoryService = {
-    lookupHsn: vi.fn(() => of({
-      hsnCodes: ['9987'],
-      taxScenarios: [{ taxPercentage: '18%' }],
-    })),
+    lookupHsn: vi.fn(() =>
+      of({
+        hsnCodes: ['9987'],
+        taxScenarios: [{ taxPercentage: '18%' }],
+      }),
+    ),
   };
 
   beforeEach(() => {
     serviceService.addService.mockClear();
     inventoryService.lookupHsn.mockClear();
     TestBed.configureTestingModule({
-      imports: [AddServiceOverlayComponent, ReactiveFormsModule, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
+      imports: [
+        AddServiceOverlayComponent,
+        ReactiveFormsModule,
+        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+      ],
       providers: [
         { provide: ServiceService, useValue: serviceService },
         { provide: InventoryService, useValue: inventoryService },
@@ -111,6 +119,34 @@ describe('AddServiceOverlayComponent', () => {
 
     expect(serviceService.addService).not.toHaveBeenCalled();
     expect(component.form.touched).toBe(true);
+  });
+
+  it('renders specific validation feedback with accessible control descriptions', () => {
+    const fixture = TestBed.createComponent(AddServiceOverlayComponent);
+    const component = fixture.componentInstance;
+    component.form.patchValue({
+      name: 'N'.repeat(181),
+      description: 'D'.repeat(321),
+      price: -1,
+      taxRatePercent: 101,
+      hsnCode: 'invalid',
+    });
+    component.form.markAllAsTouched();
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+
+    expect(host.querySelector('#add-service-name-error')).toBeTruthy();
+    expect(host.querySelector('#add-service-description-error')).toBeTruthy();
+    expect(host.querySelector('#add-service-price-error')).toBeTruthy();
+    expect(host.querySelector('#add-service-tax-error')).toBeTruthy();
+    expect(host.querySelector('#add-service-hsn-error')).toBeTruthy();
+    expect(
+      host.querySelector('input[formcontrolname="name"]')?.getAttribute('aria-describedby'),
+    ).toBe('add-service-name-error');
+    expect(host.querySelector('input#add-service-price')?.getAttribute('aria-describedby')).toBe(
+      'add-service-price-error',
+    );
   });
 
   it('reuses HSN lookup suggestions for the service name', async () => {

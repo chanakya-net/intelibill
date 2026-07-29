@@ -4,8 +4,13 @@
       <i class="pi pi-list"></i>
       {{ 'services.title' | transloco }}
     </p>
-    @if (paginationLabel()) {
-      <span class="table-caption">{{ paginationLabel() }}</span>
+    @if (totalCount) {
+      <span class="table-caption">
+        {{
+          'services.paginationFooter'
+            | transloco: { start: footerStart, end: footerEnd, total: totalCount }
+        }}
+      </span>
     }
   </div>
 

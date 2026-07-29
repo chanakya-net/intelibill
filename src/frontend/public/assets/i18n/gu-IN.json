@@ -264,7 +264,15 @@
     "deactivate": "નિષ્ક્રિય કરો",
     "loadFailed": "સેવાઓ લોડ કરવામાં અસમર્થ.",
     "saveFailed": "સેવા સાચવવામાં અસમર્થ.",
-    "toggleFailed": "સેવા સ્થિતિ અપડેટ કરવામાં અસમર્થ."
+    "toggleFailed": "સેવા સ્થિતિ અપડેટ કરવામાં અસમર્થ.",
+    "paginationFooter": "{{total}} માંથી {{start}} - {{end}}",
+    "validation": {
+      "nameMaxLength": "સેવાનું નામ 180 અક્ષરો અથવા ઓછું હોવું જોઈએ.",
+      "descriptionMaxLength": "વર્ણન 320 અક્ષરો અથવા ઓછું હોવું જોઈએ.",
+      "priceMin": "કિંમત શૂન્ય અથવા વધુ હોવી જોઈએ.",
+      "taxRateRange": "કર દર 0 અને 100 વચ્ચે હોવો જોઈએ.",
+      "hsnSacPattern": "માન્ય 4 થી 8 અંકનો HSN/SAC કોડ દાખલ કરો."
+    }
   },
   "bankAccounts": {
     "directory": "બેંક ખાતા સૂચિ",

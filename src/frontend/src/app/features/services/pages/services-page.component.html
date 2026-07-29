@@ -17,105 +17,108 @@
     }
   </header>
 
-  @if (errorMessage()) {
-    <p class="error">{{ errorMessage() | transloco }}</p>
-  }
-
-  <div class="summary-cards-container">
-    <div class="summary-card total">
-      <div class="summary-card-icon"><i class="pi pi-list"></i></div>
-      <div class="summary-card-content">
-        <span class="summary-card-label">{{ 'services.totalServices' | transloco }}</span>
-        <span class="summary-card-value">{{ summary().totalServices }}</span>
-      </div>
-    </div>
-
-    <div class="summary-card active">
-      <div class="summary-card-icon"><i class="pi pi-check-circle"></i></div>
-      <div class="summary-card-content">
-        <span class="summary-card-label">{{ 'services.activeServices' | transloco }}</span>
-        <span class="summary-card-value">{{ summary().activeServices }}</span>
-      </div>
-    </div>
-
-    <div class="summary-card inactive">
-      <div class="summary-card-icon"><i class="pi pi-ban"></i></div>
-      <div class="summary-card-content">
-        <span class="summary-card-label">{{ 'services.inactiveServices' | transloco }}</span>
-        <span class="summary-card-value">{{ summary().inactiveServices }}</span>
-      </div>
-    </div>
-
-    <div class="summary-card value">
-      <div class="summary-card-icon"><i class="pi pi-indian-rupee"></i></div>
-      <div class="summary-card-content">
-        <span class="summary-card-label">{{ 'services.totalValue' | transloco }}</span>
-        <span class="summary-card-value"
-          >{{ 'common.currencySymbol' | transloco
-          }}{{ summary().totalValue | number: '1.2-2' }}</span
-        >
-      </div>
-    </div>
-  </div>
-
-  <div class="services-panel">
-    <div class="filters">
-      <p-iconfield iconPosition="left" class="search-field">
-        <p-inputicon>
-          <i class="pi pi-search"></i>
-        </p-inputicon>
-        <input
-          pInputText
-          type="text"
-          [value]="searchValue()"
-          (input)="onSearchChange($any($event.target).value)"
-          [placeholder]="'services.searchPlaceholder' | transloco"
-        />
-      </p-iconfield>
-
-      <p-select
-        inputId="services-status-filter"
-        [options]="statusOptions"
-        optionLabel="label"
-        optionValue="value"
-        [ngModel]="statusFilter()"
-        (ngModelChange)="onStatusFilterChange($event)"
-        [ngModelOptions]="{ standalone: true }"
-        appendTo="body"
-      >
-        <ng-template #selectedItem let-option>
-          @if (option) {
-            {{ option.label | transloco }}
-          }
-        </ng-template>
-        <ng-template #item let-option>
-          {{ option.label | transloco }}
-        </ng-template>
-      </p-select>
-    </div>
-
-    @if (isLoading()) {
-      <div class="loading-state">
-        @for (i of [1, 2, 3, 4]; track i) {
-          <p-skeleton height="3rem"></p-skeleton>
-        }
-      </div>
-    } @else {
-      <app-services-table
-        [services]="pagedServices()"
-        [canManageServices]="canManageServices()"
-        [isSubmitting]="isMutating()"
-        [pageNumber]="pageNumber()"
-        [pageSize]="pageSize()"
-        [totalCount]="filteredServices().length"
-        [footerStart]="footerStart()"
-        [footerEnd]="footerEnd()"
-        (editService)="onOpenEditService($event)"
-        (toggleService)="onToggleService($event)"
-        (pageChange)="onTablePageChange($event)"
-      />
+  @if (loadErrorMessage()) {
+    <p class="error" role="alert">{{ loadErrorMessage() | transloco }}</p>
+  } @else {
+    @if (actionErrorMessage()) {
+      <p class="error" role="alert">{{ actionErrorMessage() | transloco }}</p>
     }
-  </div>
+    <div class="summary-cards-container">
+      <div class="summary-card total">
+        <div class="summary-card-icon"><i class="pi pi-list"></i></div>
+        <div class="summary-card-content">
+          <span class="summary-card-label">{{ 'services.totalServices' | transloco }}</span>
+          <span class="summary-card-value">{{ summary().totalServices }}</span>
+        </div>
+      </div>
+
+      <div class="summary-card active">
+        <div class="summary-card-icon"><i class="pi pi-check-circle"></i></div>
+        <div class="summary-card-content">
+          <span class="summary-card-label">{{ 'services.activeServices' | transloco }}</span>
+          <span class="summary-card-value">{{ summary().activeServices }}</span>
+        </div>
+      </div>
+
+      <div class="summary-card inactive">
+        <div class="summary-card-icon"><i class="pi pi-ban"></i></div>
+        <div class="summary-card-content">
+          <span class="summary-card-label">{{ 'services.inactiveServices' | transloco }}</span>
+          <span class="summary-card-value">{{ summary().inactiveServices }}</span>
+        </div>
+      </div>
+
+      <div class="summary-card value">
+        <div class="summary-card-icon"><i class="pi pi-indian-rupee"></i></div>
+        <div class="summary-card-content">
+          <span class="summary-card-label">{{ 'services.totalValue' | transloco }}</span>
+          <span class="summary-card-value"
+            >{{ 'common.currencySymbol' | transloco
+            }}{{ summary().totalValue | number: '1.2-2' }}</span
+          >
+        </div>
+      </div>
+    </div>
+
+    <div class="services-panel">
+      <div class="filters">
+        <p-iconfield iconPosition="left" class="search-field">
+          <p-inputicon>
+            <i class="pi pi-search"></i>
+          </p-inputicon>
+          <input
+            pInputText
+            type="text"
+            [value]="searchValue()"
+            (input)="onSearchChange($any($event.target).value)"
+            [placeholder]="'services.searchPlaceholder' | transloco"
+          />
+        </p-iconfield>
+
+        <p-select
+          inputId="services-status-filter"
+          [options]="statusOptions"
+          optionLabel="label"
+          optionValue="value"
+          [ngModel]="statusFilter()"
+          (ngModelChange)="onStatusFilterChange($event)"
+          [ngModelOptions]="{ standalone: true }"
+          appendTo="body"
+        >
+          <ng-template #selectedItem let-option>
+            @if (option) {
+              {{ option.label | transloco }}
+            }
+          </ng-template>
+          <ng-template #item let-option>
+            {{ option.label | transloco }}
+          </ng-template>
+        </p-select>
+      </div>
+
+      @if (isLoading()) {
+        <div class="loading-state">
+          @for (i of [1, 2, 3, 4]; track i) {
+            <p-skeleton height="3rem"></p-skeleton>
+          }
+        </div>
+      } @else {
+        <app-services-table
+          [services]="pagedServices()"
+          [canManageServices]="canManageServices()"
+          [isSubmitting]="isMutating()"
+          [pageNumber]="pageNumber()"
+          [pageSize]="pageSize()"
+          [totalCount]="filteredServices().length"
+          [footerStart]="footerStart()"
+          [footerEnd]="footerEnd()"
+          (editService)="onOpenEditService($event)"
+          (toggleService)="onToggleService($event)"
+          (pageChange)="onTablePageChange($event)"
+        />
+      }
+    </div>
+  }
 
   @if (showAddOverlay()) {
     <app-add-service-overlay
