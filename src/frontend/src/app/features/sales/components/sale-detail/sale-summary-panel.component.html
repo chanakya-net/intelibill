@@ -13,8 +13,24 @@
     </div>
 
     <div class="sale-summary-field">
-      <span>{{ 'sales.detail.payment' | transloco }}</span>
+      <span>{{ 'sales.invoice.paymentMode' | transloco }}</span>
       <strong class="sale-summary-pill">{{ paymentMethodLabel() }}</strong>
+    </div>
+
+    <div class="sale-summary-field">
+      <span>{{ 'sales.invoice.paymentStatus' | transloco }}</span>
+      <strong class="sale-summary-pill">{{ paymentStatusLabel() }}</strong>
+    </div>
+
+    <div class="sale-summary-payment-grid">
+      <div class="sale-summary-field">
+        <span>{{ 'sales.invoice.paidAmount' | transloco }}</span>
+        <strong>{{ sale.paidAmount | currency: currency : 'symbol' : '1.2-2' }}</strong>
+      </div>
+      <div class="sale-summary-field">
+        <span>{{ 'sales.invoice.dueAmount' | transloco }}</span>
+        <strong>{{ sale.dueAmount | currency: currency : 'symbol' : '1.2-2' }}</strong>
+      </div>
     </div>
   </section>
 

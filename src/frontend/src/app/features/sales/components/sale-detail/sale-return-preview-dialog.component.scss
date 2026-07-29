@@ -1,4 +1,5 @@
 :host ::ng-deep .return-preview-dialog {
+  max-height: calc(100dvh - 1rem);
   overflow: hidden;
   border: 1px solid #ded4c7;
   border-radius: 20px;
@@ -7,6 +8,8 @@
 }
 
 :host ::ng-deep .return-preview-dialog .p-dialog-content {
+  max-height: calc(100dvh - 1rem);
+  overflow-y: auto;
   padding: 0;
   background: #fffaf2;
   color: #241713;
@@ -144,6 +147,7 @@
 .return-preview-meta-card strong {
   display: block;
   margin-top: 0.55rem;
+  overflow-wrap: anywhere;
   color: #241713;
   font-size: 0.92rem;
 }
@@ -298,6 +302,7 @@
 }
 
 .return-preview-item strong {
+  overflow-wrap: anywhere;
   color: #241713;
   font-weight: 900;
 }
@@ -305,6 +310,7 @@
 .return-preview-item span,
 .return-preview-side-card p,
 .return-preview-footer p {
+  overflow-wrap: anywhere;
   color: #75675d;
 }
 
@@ -481,6 +487,7 @@
 }
 
 .return-preview-alert {
+  overflow-wrap: anywhere;
   border-radius: 12px;
   padding: 1rem 1.15rem;
   font-size: 0.92rem;
@@ -520,6 +527,21 @@
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 0.65rem;
+}
+
+.return-preview-title-wrap,
+.return-preview-card-header,
+.return-preview-impact-row,
+.return-preview-impact-total,
+.return-preview-footer {
+  min-width: 0;
+}
+
+.return-preview-success-summary strong,
+.return-preview-result-line,
+.return-preview-alert,
+.return-preview-footer p {
+  overflow-wrap: anywhere;
 }
 
 @media (max-width: 1120px) {

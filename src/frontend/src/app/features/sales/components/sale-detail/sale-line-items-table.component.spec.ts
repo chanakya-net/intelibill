@@ -66,8 +66,71 @@ describe('SaleLineItemsTableComponent', () => {
     expect(text).toContain('Soap');
     expect(text).toContain('Brush');
     expect(text).toContain('₹110.00');
-    expect(text).toContain('₹22.00');
+    expect(text).toContain('₹20.00');
     expect(text).toContain('-₹20.00');
+  });
+
+  it('renders authoritative discounted totals for tax-exclusive lines and sections', async () => {
+    await TestBed.configureTestingModule({
+      imports: [
+        SaleLineItemsTableComponent,
+        TranslocoTestingModule.forRoot({
+          langs: { 'en-IN': enIN },
+          translocoConfig: { defaultLang: 'en-IN', availableLangs: ['en-IN'] },
+          preloadLangs: true,
+        }),
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(SaleLineItemsTableComponent);
+    fixture.componentInstance.items = [
+      makeItem({
+        quantity: 2,
+        salesPrice: 110,
+        totalAmount: 205,
+        itemDiscountAmount: 15,
+      }),
+      makeItem({
+        saleItemId: 'line-2',
+        itemName: 'Brush',
+        quantity: 1,
+        salesPrice: 100,
+        totalAmount: 95,
+        itemDiscountAmount: 5,
+        savingsAmount: 5,
+      }),
+    ];
+    fixture.detectChanges();
+
+    const text = fixture.nativeElement.textContent as string;
+    expect(text).toContain('₹205.00');
+    expect(text).toContain('₹95.00');
+    expect(text).toContain('₹300.00');
+    expect(text).not.toContain('₹320.00');
+
+    const firstLineTax = fixture.nativeElement.querySelector('.sale-lines-row .sale-lines-tax');
+    expect(firstLineTax.textContent).toContain('₹20.00');
+    expect(firstLineTax.textContent).not.toContain('₹22.00');
+  });
+
+  it('derives line tax when the authoritative amount is unavailable', async () => {
+    await TestBed.configureTestingModule({
+      imports: [
+        SaleLineItemsTableComponent,
+        TranslocoTestingModule.forRoot({
+          langs: { 'en-IN': enIN },
+          translocoConfig: { defaultLang: 'en-IN', availableLangs: ['en-IN'] },
+          preloadLangs: true,
+        }),
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(SaleLineItemsTableComponent);
+    fixture.componentInstance.items = [makeItem({ taxAmount: Number.NaN })];
+    fixture.detectChanges();
+
+    const lineTax = fixture.nativeElement.querySelector('.sale-lines-tax');
+    expect(lineTax.textContent).toContain('₹22.00');
   });
 
   it('groups goods and services only for mixed bills', async () => {
