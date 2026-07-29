@@ -187,6 +187,7 @@ export class BarcodeScannerDialogComponent implements OnChanges, OnDestroy {
         },
       );
     } catch {
+      await this.stopScannerSession(videoElement);
       this.scannerError.set('inventory.scannerOpenError');
     } finally {
       this.scannerInitializing.set(false);
