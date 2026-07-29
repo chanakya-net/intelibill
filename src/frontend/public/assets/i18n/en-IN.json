@@ -366,6 +366,7 @@
     "isActive": "Is Active",
     "isPreferred": "Is Preferred",
     "balance": "Balance",
+    "balanceDue": "Balance Due",
     "ledgerEntries": "Ledger Entries",
     "entryType": "Entry Type",
     "amount": "Amount",
@@ -378,6 +379,9 @@
     "searchEntryDate": "Search date",
     "searchNotes": "Search notes",
     "totalAmount": "Total Amount",
+    "all": "All",
+    "goodsReceived": "Goods Received",
+    "payments": "Payments",
     "entryTypes": {
       "goodsReceived": "Goods Received",
       "paymentMade": "Payment Made",

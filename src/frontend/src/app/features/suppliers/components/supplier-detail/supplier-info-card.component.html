@@ -43,5 +43,9 @@
       <span class="label">{{ 'suppliers.address' | transloco }}:</span>
       <span class="value">{{ supplier.address || '-' }}</span>
     </div>
+    <div class="info-row">
+      <span class="label">{{ 'suppliers.balanceDue' | transloco }}:</span>
+      <span class="value">{{ supplier.balanceDue | currency: 'INR' : 'symbol' : '1.0-2' }}</span>
+    </div>
   </div>
 </section>

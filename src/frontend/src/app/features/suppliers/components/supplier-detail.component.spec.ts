@@ -26,11 +26,18 @@ describe('SupplierDetailComponent', () => {
     ledgerEntries: ledgerEntriesSignal,
     ledgerIsLoading: ledgerIsLoadingSignal,
     ledgerErrorMessage: signal(''),
+    isSubmitting: signal(false),
+    errorMessage: signal(''),
+    lastMutationType: signal<'add-supplier' | 'edit-supplier' | 'make-payment' | null>(null),
+    lastMutationSucceeded: signal(false),
     loadLedger: vi.fn((supplierId: string) => {
       void supplierId;
       ledgerEntriesSignal.set(ledgerEntries);
     }),
     clearLedger: vi.fn(),
+    clearError: vi.fn(),
+    clearMutationStatus: vi.fn(),
+    makePayment: vi.fn(),
   };
 
   beforeEach(() => {

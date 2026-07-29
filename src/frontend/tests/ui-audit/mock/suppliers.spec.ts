@@ -138,7 +138,6 @@ test.describe('suppliers', () => {
         city: 'Created City',
         state: 'Created State',
         pin: '560003',
-        gstNumber: '29CREATED1234F1Z5',
       });
       await addOverlay.getByRole('button', { name: /add supplier/i }).click();
       await expect(addOverlay).toBeHidden();
@@ -196,7 +195,7 @@ test.describe('suppliers', () => {
       await openSuppliers(page);
       const detail = await openSupplierDetail(page);
       await detail.getByRole('spinbutton', { name: 'Amount ₹' }).fill('1000');
-      await detail.getByRole('button', { name: 'suppliers.recordPayment', exact: true }).click();
+      await detail.getByRole('button', { name: 'Record Payment', exact: true }).click();
       expect(paymentRequests).toBe(1);
       await expect(detail.locator('.ledger-table tbody tr')).toHaveCount(3);
       await detail.getByRole('button', { name: 'Payments', exact: true }).click();
@@ -214,7 +213,7 @@ test.describe('suppliers', () => {
       await openSuppliers(page, { supplierMock: { supplierLedgerError: 503 } });
       const dialog = await openSupplierDetail(page);
       await expect(dialog.locator('.error')).toHaveText(
-        'Unable to load supplier ledger right now.',
+        'Unable to load supplier ledger right now. Please try again.',
       );
       await expect(dialog.locator('.supplier-detail')).toBeHidden();
       assertNoUnexpectedBrowserFailures(detailCollector.failures);
@@ -233,9 +232,11 @@ test.describe('suppliers', () => {
       await openSuppliers(page, { supplierMock: { supplierPaymentError: 500 } });
       const detail = await openSupplierDetail(page);
       await detail.getByRole('spinbutton', { name: 'Amount ₹' }).fill('1000');
-      await detail.getByRole('button', { name: 'suppliers.recordPayment', exact: true }).click();
+      await detail.getByRole('button', { name: 'Record Payment', exact: true }).click();
       expect(paymentRequests).toBe(1);
-      await expect(detail.locator('.error')).toHaveText('Unable to record payment right now.');
+      await expect(detail.locator('.error')).toHaveText(
+        'Unable to record payment right now. Please try again.',
+      );
       await expect(detail.locator('.ledger-table tbody tr')).toHaveCount(2);
       assertNoUnexpectedBrowserFailures(paymentCollector.failures);
     } finally {
@@ -246,7 +247,10 @@ test.describe('suppliers', () => {
   test('keeps dense long values and overlays within responsive bounds', async ({ page }) => {
     const collector = collectBrowserFailures(page);
     try {
-      await mockExternalRequests(page, { authenticated: true, suppliers: [LONG_SUPPLIER] });
+      await mockExternalRequests(page, {
+        authenticated: true,
+        supplierMock: { suppliers: [LONG_SUPPLIER] },
+      });
       for (const viewport of [
         { width: 1920, height: 1080 },
         { width: 768, height: 1024 },
@@ -306,7 +310,6 @@ async function fillSupplierForm(
     city: string;
     state: string;
     pin: string;
-    gstNumber: string;
   },
 ): Promise<void> {
   await overlay.locator('input[formcontrolname="name"]').fill(values.name);
@@ -316,7 +319,6 @@ async function fillSupplierForm(
   await overlay.locator('input[formcontrolname="city"]').fill(values.city);
   await overlay.locator('input[formcontrolname="state"]').fill(values.state);
   await overlay.locator('input[formcontrolname="pin"]').fill(values.pin);
-  await overlay.locator('input[formcontrolname="gstNumber"]').fill(values.gstNumber);
 }
 
 async function openSupplierDetail(page: Page, supplierName = 'Audit Supplier One'): Promise<Locator> {

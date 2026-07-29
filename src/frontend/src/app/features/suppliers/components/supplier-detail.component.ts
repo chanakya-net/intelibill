@@ -1,15 +1,16 @@
 import { CommonModule } from '@angular/common';
-import { Component, Input, computed, inject, output, signal } from '@angular/core';
+import { Component, Input, computed, effect, inject, output, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import { ButtonModule } from 'primeng/button';
 import { DialogModule } from 'primeng/dialog';
 
-import { SupplierLedgerEntry } from '../services/supplier-ledger.service';
+import { MakePaymentRequest, SupplierLedgerEntry } from '../services/supplier-ledger.service';
 import { Supplier } from '../services/supplier.service';
 import { SuppliersFacade } from '../state/suppliers.facade';
 import { SupplierInfoCardComponent } from './supplier-detail/supplier-info-card.component';
 import { SupplierLedgerTableComponent } from './supplier-detail/supplier-ledger-table.component';
+import { SupplierPaymentFormComponent } from './supplier-detail/supplier-payment-form.component';
 
 @Component({
   selector: 'app-supplier-detail',
@@ -20,6 +21,7 @@ import { SupplierLedgerTableComponent } from './supplier-detail/supplier-ledger-
     ButtonModule,
     SupplierInfoCardComponent,
     SupplierLedgerTableComponent,
+    SupplierPaymentFormComponent,
     TranslocoPipe,
   ],
   templateUrl: './supplier-detail.component.html',
@@ -30,11 +32,14 @@ export class SupplierDetailComponent {
   private readonly transloco = inject(TranslocoService);
   private readonly currentLang = toSignal(this.transloco.langChanges$, { initialValue: '' });
 
+  @Input() canMakePayment = false;
+
   @Input() set supplier(value: Supplier | null) {
     this.currentSupplier.set(value);
   }
 
   @Input() set supplierId(value: string | null) {
+    this.currentSupplierId.set(value);
     if (value) {
       this.isOpen.set(true);
       this.facade.loadLedger(value);
@@ -43,8 +48,36 @@ export class SupplierDetailComponent {
 
   readonly closeRequested = output<void>();
   readonly currentSupplier = signal<Supplier | null>(null);
+  readonly currentSupplierId = signal<string | null>(null);
   readonly isOpen = signal(false);
   readonly ledgerFilter = signal<'all' | 'goods' | 'payments'>('all');
+
+  protected readonly isSubmittingPayment = this.facade.isSubmitting;
+  protected readonly paymentErrorMessage = this.facade.errorMessage;
+
+  constructor() {
+    effect(() => {
+      if (!this.facade.lastMutationSucceeded() || this.facade.lastMutationType() !== 'make-payment') {
+        return;
+      }
+      const supplierId = this.currentSupplierId();
+      if (!supplierId) {
+        return;
+      }
+      this.facade.loadLedger(supplierId);
+      this.facade.clearMutationStatus();
+    });
+  }
+
+  onPaymentSubmitted(payload: MakePaymentRequest): void {
+    const supplierId = this.currentSupplierId();
+    if (!supplierId) {
+      return;
+    }
+    this.facade.clearError();
+    this.facade.clearMutationStatus();
+    this.facade.makePayment(supplierId, payload);
+  }
 
   protected readonly isLoading = this.facade.ledgerIsLoading;
 
@@ -114,6 +147,7 @@ export class SupplierDetailComponent {
   onVisibilityChange(visible: boolean): void {
     this.isOpen.set(visible);
     if (!visible) {
+      this.currentSupplierId.set(null);
       this.facade.clearLedger();
       this.closeRequested.emit();
     }

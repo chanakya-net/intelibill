@@ -1,10 +1,11 @@
+<app-suppliers-filter-bar
+  [searchValue]="searchValue()"
+  [statusFilter]="statusFilter()"
+  (searchValueChange)="onSearchChange($event)"
+  (statusFilterChange)="onStatusChange($event)"
+/>
+
 <div class="mobile-grid-container">
-  <app-suppliers-filter-bar
-    [searchValue]="searchValue()"
-    [statusFilter]="statusFilter()"
-    (searchValueChange)="onSearchChange($event)"
-    (statusFilterChange)="onStatusChange($event)"
-  />
   <div class="supplier-list">
     @for (supplier of filteredSuppliers(); track supplier.supplierId) {
       <p-card
@@ -70,7 +71,7 @@
                     root: { class: 'w-8 h-8 p-0 border-slate-200 text-slate-500 hover:bg-slate-50' }
                   }"
                   (click)="$event.stopPropagation(); onOpenEditSupplier(supplier)"
-                  [attr.aria-label]="'suppliers.editSupplier' | transloco"
+                  [ariaLabel]="'suppliers.editSupplier' | transloco"
                 />
               }
               @if (canMakePayment) {
@@ -82,7 +83,7 @@
                     root: { class: 'w-8 h-8 p-0 border-green-200 text-green-600 hover:bg-green-50' }
                   }"
                   (click)="$event.stopPropagation(); onOpenMakePayment(supplier)"
-                  [attr.aria-label]="'suppliers.makePayment' | transloco"
+                  [ariaLabel]="'suppliers.makePayment' | transloco"
                 />
               }
             </div>

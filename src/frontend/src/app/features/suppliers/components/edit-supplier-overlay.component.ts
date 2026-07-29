@@ -46,7 +46,7 @@ export class EditSupplierOverlayComponent implements OnInit, OnChanges {
   readonly form = this.formBuilder.nonNullable.group({
     name: ['', [Validators.required, Validators.maxLength(180)]],
     contactPersonName: ['', [Validators.maxLength(120)]],
-    contactPersonPhone: ['', [Validators.maxLength(32), Validators.pattern(/^[+]?\d{7,15}$/)]],
+    contactPersonPhone: ['', [Validators.required, Validators.maxLength(32), Validators.pattern(/^[+]?\d{7,15}$/)]],
     address: ['', [Validators.required, Validators.maxLength(320)]],
     city: ['', [Validators.required, Validators.maxLength(120)]],
     state: ['', [Validators.required, Validators.maxLength(120)]],
