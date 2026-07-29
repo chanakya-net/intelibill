@@ -54,6 +54,10 @@ export class SaleLineItemsTableComponent {
   }
 
   getLineTaxAmount(item: SaleItemDto): number {
+    if (Number.isFinite(item.taxAmount)) {
+      return item.taxAmount;
+    }
+
     return this.getLineTaxAmountForMode(item, this.isPriceIncludingTax(item));
   }
 

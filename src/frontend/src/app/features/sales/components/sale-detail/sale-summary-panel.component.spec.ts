@@ -114,7 +114,21 @@ describe('SaleSummaryPanelComponent', () => {
     fixture.componentInstance.sale = makeSale({ paidAmount: 220, dueAmount: 0 });
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent as string).toContain('Paid');
+    const statusPill = fixture.nativeElement.querySelectorAll('.sale-summary-pill')[1];
+    expect(statusPill.textContent.trim()).toBe('Paid');
+    expect(statusPill.textContent).not.toContain('Partially Paid');
+  });
+
+  it('renders unpaid status when no payment has been made', async () => {
+    await setup();
+
+    const fixture = TestBed.createComponent(SaleSummaryPanelComponent);
+    fixture.componentInstance.sale = makeSale({ paidAmount: 0, dueAmount: 220 });
+    fixture.detectChanges();
+
+    const statusPill = fixture.nativeElement.querySelectorAll('.sale-summary-pill')[1];
+    expect(statusPill.textContent.trim()).toBe('Unpaid');
+    expect(statusPill.textContent).not.toContain('Partially Paid');
   });
 });
 

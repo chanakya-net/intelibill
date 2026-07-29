@@ -139,6 +139,9 @@ test.describe('sale-detail', () => {
         await expect(detail.locator('.p-dialog-content')).toHaveCSS('overflow-y', 'auto');
         await expect(detail.locator('.sale-lines-section').first()).toHaveCSS('overflow-x', 'auto');
         await expect(detail).not.toContainText(/sales\.(detail|invoice|returns)\./);
+        const detailFinalAction = detail.locator('.sale-detail-actions .p-button').last();
+        await detailFinalAction.scrollIntoViewIfNeeded();
+        await expect(detailFinalAction).toBeInViewport();
 
         await detail.locator('.sale-detail-actions .p-button').first().click();
         const preview = page.locator('.return-preview-dialog:visible');
@@ -146,6 +149,9 @@ test.describe('sale-detail', () => {
         await expect(preview.locator('.p-dialog-content')).toHaveCSS('overflow-y', 'auto');
         await expect(preview.locator('.return-preview-lines-card')).toHaveCSS('overflow-x', 'auto');
         await expect(preview).not.toContainText(/sales\.returns\.preview\./);
+        const previewFinalAction = preview.locator('.return-preview-actions .p-button').last();
+        await previewFinalAction.scrollIntoViewIfNeeded();
+        await expect(previewFinalAction).toBeInViewport();
         await assertNoDocumentOverflow(page, viewport.width);
       }
     }
