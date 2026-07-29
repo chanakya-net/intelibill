@@ -375,7 +375,7 @@ async function openSupplierDetail(page: Page, supplierName = 'Audit Supplier One
 
 async function openMakePaymentOverlay(page: Page, supplierName = 'Audit Supplier One'): Promise<Locator> {
   const supplierRow = visibleSupplierRows(page).filter({ hasText: supplierName });
-  await supplierRow.getByRole('button', { name: 'Make Payment', exact: true }).click();
+  await supplierRow.getByRole('button', { name: 'Make Payment' }).click();
   const overlay = page.locator('app-make-payment-overlay .overlay');
   await expect(overlay).toBeVisible();
   return overlay;
