@@ -99,6 +99,18 @@ export async function installInventoryFixture(
 
 async function installBarcodeScannerMock(page: Page, state: InventoryScannerState): Promise<void> {
   await page.addInitScript((scannerState) => {
+    if (scannerState === 'error') {
+      Object.defineProperty(navigator, 'mediaDevices', {
+        configurable: true,
+        value: {
+          getUserMedia: async () => {
+            throw new Error('Deterministic scanner startup failure');
+          },
+        },
+      });
+      return;
+    }
+
     class AuditBarcodeDetector {
       static async getSupportedFormats(): Promise<string[]> {
         return ['code_128'];
