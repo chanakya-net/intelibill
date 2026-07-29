@@ -1,0 +1,34 @@
+.batch-search-bar {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.batch-search-input {
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+
+.batch-search-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+@media (max-width: 640px) {
+  .batch-search-bar {
+    flex-direction: column;
+  }
+
+  .batch-search-input,
+  .batch-search-actions {
+    width: 100%;
+  }
+
+  .batch-search-actions {
+    justify-content: space-between;
+  }
+}
