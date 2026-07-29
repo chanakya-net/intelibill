@@ -1,5 +1,5 @@
 import { CommonModule, CurrencyPipe } from '@angular/common';
-import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
+import { Component, EventEmitter, Input, Output, computed, inject, signal } from '@angular/core';
 import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import { AvatarModule } from 'primeng/avatar';
 import { ButtonModule } from 'primeng/button';
@@ -8,6 +8,7 @@ import { TagModule } from 'primeng/tag';
 import { TableModule } from 'primeng/table';
 
 import { Supplier } from '../services/supplier.service';
+import { SuppliersFilterBarComponent } from './suppliers-filter-bar.component';
 
 @Component({
   selector: 'app-suppliers-table',
@@ -21,6 +22,7 @@ import { Supplier } from '../services/supplier.service';
     TableModule,
     TranslocoPipe,
     CurrencyPipe,
+    SuppliersFilterBarComponent,
   ],
   templateUrl: './suppliers-table.component.html',
   styleUrl: './suppliers-table.component.scss',
@@ -36,8 +38,43 @@ export class SuppliersTableComponent {
   @Output() editSupplier = new EventEmitter<Supplier>();
   @Output() makePayment = new EventEmitter<Supplier>();
 
+  readonly searchValue = signal('');
+  readonly statusFilter = signal<'all' | 'active' | 'inactive'>('all');
+
+  readonly filteredSuppliers = computed(() => {
+    let result = [...this.suppliers];
+    const search = this.searchValue().toLowerCase();
+    const status = this.statusFilter();
+
+    if (search) {
+      result = result.filter(
+        (s) =>
+          s.name.toLowerCase().includes(search) ||
+          s.contactPersonName?.toLowerCase().includes(search) ||
+          s.contactPersonPhone?.toLowerCase().includes(search) ||
+          s.city.toLowerCase().includes(search),
+      );
+    }
+
+    if (status === 'active') {
+      result = result.filter((s) => s.isActive);
+    } else if (status === 'inactive') {
+      result = result.filter((s) => !s.isActive);
+    }
+
+    return result;
+  });
+
   get tableSuppliers(): Supplier[] {
-    return [...this.suppliers];
+    return this.filteredSuppliers();
+  }
+
+  onSearchChange(value: string): void {
+    this.searchValue.set(value);
+  }
+
+  onStatusChange(value: 'all' | 'active' | 'inactive'): void {
+    this.statusFilter.set(value);
   }
 
   supplierInitials(name: string): string {

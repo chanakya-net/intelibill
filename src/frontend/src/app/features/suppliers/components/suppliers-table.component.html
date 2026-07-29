@@ -1,4 +1,10 @@
 <div class="mobile-grid-container">
+  <app-suppliers-filter-bar
+    [searchValue]="searchValue()"
+    [statusFilter]="statusFilter()"
+    (searchValueChange)="onSearchChange($event)"
+    (statusFilterChange)="onStatusChange($event)"
+  />
   <div class="supplier-list">
     @for (supplier of suppliers; track supplier.supplierId) {
       <p-card
