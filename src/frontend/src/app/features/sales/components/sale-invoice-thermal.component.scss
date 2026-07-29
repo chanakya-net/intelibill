@@ -157,8 +157,9 @@
   }
 
   @page {
-    // Chromium accepts fixed height better than auto; 297mm keeps receipts on
-    // print-height pages while still allowing pagination for long outputs.
+    // Fallback only: SaleInvoiceThermalComponent injects a content-fitted
+    // @page rule after render that overrides this by cascade order, sizing
+    // normal receipts to their actual content height instead of a full page.
     size: 80mm 297mm;
     margin: 0;
   }

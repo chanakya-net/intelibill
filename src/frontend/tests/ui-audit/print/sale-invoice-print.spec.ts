@@ -10,6 +10,7 @@ import {
   DENSE_SALE,
   LARGE_VALUE_SALE,
   LONG_ADDRESS_SALE,
+  LONG_DESCRIPTION_TAIL_MARKER,
   NORMAL_SALE,
   OPTIONAL_FIELDS_SALE,
   createSaleInvoiceScenario,
@@ -61,7 +62,12 @@ test.describe('sale-invoice-print (A4 media audit)', () => {
             sale.invoiceNumber,
             sale.customerName,
             'Deterministic long invoice description for A4 pagination coverage.',
+            LONG_DESCRIPTION_TAIL_MARKER,
           ],
+          pageSpanFragments: {
+            earlier: 'Deterministic long invoice description for A4 pagination coverage.',
+            later: LONG_DESCRIPTION_TAIL_MARKER,
+          },
         });
         await assertNoClippingOrOverlap(page);
       },
@@ -84,6 +90,10 @@ test.describe('sale-invoice-print (A4 media audit)', () => {
             'Item A',
             'Item B',
             'Installation Service',
+            // Proves totals render intact alongside all dense items on the same
+            // printed page, not merely in the pre-pagination DOM snapshot.
+            formatCurrency(DENSE_SALE.totalAmount),
+            'Grand Total',
           ],
         });
         await assertNoClippingOrOverlap(page);
@@ -189,6 +199,7 @@ test.describe('sale-invoice-print (80mm thermal media audit)', () => {
             'Grand Total',
           ],
           maxHeightMm: 350,
+          expectContentFittedHeight: true,
         });
       },
     );
@@ -227,6 +238,7 @@ test.describe('sale-invoice-print (80mm thermal media audit)', () => {
         await assertThermalOutput(page, {
           requiredFragments: [DENSE_SALE.invoiceNumber, 'Item A', 'Item B', 'Installation Service'],
           maxHeightMm: 350,
+          expectContentFittedHeight: true,
         });
         await assertNoClippingOrOverlapThermal(page);
       },
@@ -245,6 +257,7 @@ test.describe('sale-invoice-print (80mm thermal media audit)', () => {
         await assertThermalOutput(page, {
           requiredFragments: [LARGE_VALUE_SALE.invoiceNumber, 'Bulk Equipment'],
           maxHeightMm: 350,
+          expectContentFittedHeight: true,
         });
         await assertNoClippingOrOverlapThermal(page);
       },
@@ -269,6 +282,7 @@ test.describe('sale-invoice-print (80mm thermal media audit)', () => {
         await assertThermalOutput(page, {
           requiredFragments: [OPTIONAL_FIELDS_SALE.invoiceNumber, 'Walk-in'],
           maxHeightMm: 350,
+          expectContentFittedHeight: true,
         });
       },
     );
@@ -433,12 +447,28 @@ interface PdfObjectRecord {
 
 interface A4OutputExpectation {
   readonly requiredFragments?: readonly string[];
+  /**
+   * Proves content genuinely spans pages instead of the aggregate-fragment
+   * check merely finding `earlier` near the top of the joined text. Asserts
+   * `earlier` is found on a strictly earlier printed page than `later`.
+   */
+  readonly pageSpanFragments?: { readonly earlier: string; readonly later: string };
 }
 
 interface ThermalOutputExpectation {
   readonly requiredFragments?: readonly string[];
   readonly maxHeightMm?: number;
+  /**
+   * When true, asserts the printed page is sized to the actual rendered
+   * content height (a short, content-fitted receipt) rather than a fixed
+   * full-length page with a blank tail. Only valid for content short enough
+   * to fit on a single content-fitted page (see THERMAL_MAX_SINGLE_PAGE_HEIGHT_MM
+   * in sale-invoice-thermal.component.ts) — long content instead paginates.
+   */
+  readonly expectContentFittedHeight?: boolean;
 }
+
+const THERMAL_CONTENT_HEIGHT_TOLERANCE_MM = 6;
 
 async function assertA4Output(
   page: Page,
@@ -485,6 +515,14 @@ async function assertA4Output(
     assertPdfFragmentsExist(printedPages, expectation.requiredFragments ?? []);
   }
 
+  if (expectation.pageSpanFragments) {
+    assertPdfFragmentSpansPages(
+      printedPages,
+      expectation.pageSpanFragments.earlier,
+      expectation.pageSpanFragments.later,
+    );
+  }
+
   const mediaBoxes = extractMediaBoxesPt(pdf.toString('latin1'));
   expect(mediaBoxes.length).toBeGreaterThan(0);
   for (const box of mediaBoxes) {
@@ -518,6 +556,7 @@ async function assertThermalOutput(
       font: style.fontFamily,
       overflow: article.scrollWidth > article.clientWidth,
       pageRule: pageRule?.cssText ?? '',
+      contentHeightPx: article.scrollHeight,
     };
   });
 
@@ -526,6 +565,7 @@ async function assertThermalOutput(
   expect(output.font).toContain('Courier New');
   expect(output.overflow).toBe(false);
   expect(output.pageRule.toLowerCase()).toContain('80mm');
+  const contentHeightMm = (output.contentHeightPx / 96) * 25.4;
 
   // Generate the actual thermal print artifact and prove the printer-selected
   // width comes from the 80mm @page CSS rule, not an assumption about the DOM.
@@ -539,6 +579,19 @@ async function assertThermalOutput(
     if (expectation.maxHeightMm) {
       expect(box.height).toBeLessThanOrEqual(expectation.maxHeightMm * PT_PER_MM);
     }
+  }
+
+  if (expectation.expectContentFittedHeight) {
+    // Proves the printed page is sized to actual content, not a fixed
+    // full-length page — a regression to a fixed 297mm (or larger) page would
+    // leave a blank tail far outside this tolerance band.
+    expect(printedPages.length).toBe(1);
+    expect(mediaBoxes.length).toBe(1);
+    const pageHeightMm = mediaBoxes[0].height / PT_PER_MM;
+    expect(pageHeightMm).toBeGreaterThanOrEqual(
+      contentHeightMm - THERMAL_CONTENT_HEIGHT_TOLERANCE_MM,
+    );
+    expect(pageHeightMm).toBeLessThanOrEqual(contentHeightMm + THERMAL_CONTENT_HEIGHT_TOLERANCE_MM);
   }
 
   expect(printedPages.length).toBeGreaterThanOrEqual(1);
@@ -563,6 +616,32 @@ function assertPdfFragmentsExist(
     const normalized = normalizePdfText(rawFragment);
     expect(pdfText).toContain(normalized);
   }
+}
+
+function assertPdfFragmentSpansPages(
+  printedPages: readonly PdfPageArtifact[],
+  earlierFragment: string,
+  laterFragment: string,
+): void {
+  const normalizedEarlier = normalizePdfText(earlierFragment);
+  const normalizedLater = normalizePdfText(laterFragment);
+  const earlierPageIndex = printedPages.findIndex((pageArtifact) =>
+    normalizePdfText(pageArtifact.text).includes(normalizedEarlier),
+  );
+  const laterPageIndex = printedPages.findIndex((pageArtifact) =>
+    normalizePdfText(pageArtifact.text).includes(normalizedLater),
+  );
+  expect(
+    earlierPageIndex,
+    'earlier fragment must be present on a printed page',
+  ).toBeGreaterThanOrEqual(0);
+  expect(laterPageIndex, 'later fragment must be present on a printed page').toBeGreaterThanOrEqual(
+    0,
+  );
+  expect(
+    laterPageIndex,
+    'later fragment must land on a strictly later page than the earlier fragment, proving content is not cropped mid-pagination',
+  ).toBeGreaterThan(earlierPageIndex);
 }
 
 function parsePdfPages(pdfText: string): PdfPageArtifact[] {

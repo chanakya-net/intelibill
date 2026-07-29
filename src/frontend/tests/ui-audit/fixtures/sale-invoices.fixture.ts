@@ -12,10 +12,16 @@ const API_BASE = 'http://localhost:5277/api';
 
 export type SaleInvoiceApiState = 'ready' | 'loading' | 'error';
 
-export const LONG_DESCRIPTION = Array.from(
+// Distinctive terminal token appended after the repeated sentences. Tests use
+// it to prove the entire long description survives to a printed page — not
+// just the opening sentence that happens to sit at the very start of the
+// block — and to prove it lands on a later page than the opening sentence.
+export const LONG_DESCRIPTION_TAIL_MARKER = 'ZZDETERMINISTICTAILMARKERZZ';
+
+export const LONG_DESCRIPTION = `${Array.from(
   { length: 160 },
   () => 'Deterministic long invoice description for A4 pagination coverage.',
-).join(' ');
+).join(' ')} ${LONG_DESCRIPTION_TAIL_MARKER}`;
 
 export interface SaleInvoiceScenario {
   readonly shell: ShellScenario;
