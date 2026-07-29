@@ -443,12 +443,14 @@ describe('static first-party style usage audit', () => {
     const rootDir = await fixtureProject();
     const coverageDir = join(rootDir, '.ui-audit', 'style-usage', 'runtime');
     const scenario = buildScenarioCatalog(ROUTE_MANIFEST)[0];
+    const jwt =
+      'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c';
     await writeCoverageArtifact({
       coverageDir,
       scenario,
       browser: { name: 'chromium', version: '140.0' },
       entries: [{
-        url: 'http://localhost/styles.css?token=secret-value',
+        url: `http://localhost/styles.css?credential=${jwt}`,
         text: '.runtime-covered {}',
         ranges: [{ start: 0, end: 21 }],
       }],
@@ -462,17 +464,25 @@ describe('static first-party style usage audit', () => {
     const html = await readFile(join(rootDir, '.ui-audit', 'style-usage', 'report.html'), 'utf8');
     const parsed = JSON.parse(json);
     expect(parsed).toMatchObject({
-      runtime: { status: 'complete', scenarios: [{ scenario: { id: scenario.id } }] },
+      runtime: {
+        status: 'complete',
+        scenarios: [{ scenario: { id: scenario.id }, browser: { version: '140.0' } }],
+      },
     });
     expect(entry(parsed, '.runtime-covered')).toMatchObject({
       source: { path: 'src/styles.css' },
       runtime: { status: 'covered', coveredScenarios: [scenario.id] },
     });
+    expect(entry(parsed, '.component-class')).toMatchObject({
+      source: { path: 'src/app/example.component.scss' },
+      references: [expect.objectContaining({ path: 'src/app/example.component.html' })],
+    });
     expect(html).toContain('Runtime CSS coverage: complete');
     expect(html).toContain('Covered scenarios');
     expect(html).toContain(scenario.id);
+    expect(`${json}${html}`).toContain('[REDACTED]');
     expect(`${json}${html}`).not.toContain(rootDir);
-    expect(`${json}${html}`).not.toContain('secret-value');
+    expect(`${json}${html}`).not.toContain(jwt);
   });
 
   it('inventories active, alternate, component, inline, Sass, template, TypeScript, and configuration sources', async () => {

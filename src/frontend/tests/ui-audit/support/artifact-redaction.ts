@@ -5,7 +5,7 @@ const SENSITIVE_KEY = /password|token|secret|api.?key|authorization|cookie/i;
 const SENSITIVE_TEXT =
   /(password|passwd|token|secret|api[_-]?key|authorization|cookie|set-cookie)\s*([:=])\s*(['"]?)([^'"\s<;,}]+)\3/gi;
 const BEARER_TOKEN = /\bBearer\s+[A-Za-z0-9._~+/=-]+/gi;
-const JWT = /\b[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g;
+const JWT = /\b[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g;
 
 export function redactArtifact(value: unknown): unknown {
   if (typeof value === 'string') {

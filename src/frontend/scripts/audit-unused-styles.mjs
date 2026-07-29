@@ -222,7 +222,7 @@ function runtimeSummary(runtime) {
     failedScenarioIds: runtime.failedScenarioIds,
     scenarios: runtime.scenarios.map(({ scenario, browser, status, sheets }) => ({
       scenario,
-      browser: { ...browser, version: browser.version.replaceAll('.', '-') },
+      browser,
       status,
       sheets,
     })),
