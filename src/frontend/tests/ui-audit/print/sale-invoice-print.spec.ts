@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page, type Route } from '@playwright/test';
+import { inflateSync } from 'node:zlib';
 
 import {
   assertNoUnexpectedBrowserFailures,
@@ -34,7 +35,14 @@ test.describe('sale-invoice-print (A4 media audit)', () => {
         await assertScreenControlsHidden(page);
         await assertExactPrintFonts(page);
         await assertA4Totals(page, sale);
-        await assertA4Output(page, 1);
+        await assertA4Output(page, 1, {
+          requiredFragments: [
+            sale.invoiceNumber,
+            sale.customerName!,
+            'Premium Widget',
+            'INV-2026-001',
+          ],
+        });
       },
     );
   });
@@ -48,7 +56,13 @@ test.describe('sale-invoice-print (A4 media audit)', () => {
       'a4',
       async () => {
         await assertDocumentSections(page);
-        await assertA4Output(page, 2);
+        await assertA4Output(page, 2, {
+          requiredFragments: [
+            sale.invoiceNumber,
+            sale.customerName,
+            'Deterministic long invoice description for A4 pagination coverage.',
+          ],
+        });
         await assertNoClippingOrOverlap(page);
       },
     );
@@ -63,7 +77,15 @@ test.describe('sale-invoice-print (A4 media audit)', () => {
       async () => {
         await assertDocumentSections(page);
         await assertA4Totals(page, DENSE_SALE);
-        await assertA4Output(page, 1);
+        await assertA4Output(page, 1, {
+          requiredFragments: [
+            DENSE_SALE.invoiceNumber,
+            DENSE_SALE.customerName,
+            'Item A',
+            'Item B',
+            'Installation Service',
+          ],
+        });
         await assertNoClippingOrOverlap(page);
       },
     );
@@ -77,7 +99,9 @@ test.describe('sale-invoice-print (A4 media audit)', () => {
       'a4',
       async () => {
         await assertA4Totals(page, LARGE_VALUE_SALE);
-        await assertA4Output(page, 1);
+        await assertA4Output(page, 1, {
+          requiredFragments: [LARGE_VALUE_SALE.invoiceNumber, 'Bulk Equipment'],
+        });
         await assertNoClippingOrOverlap(page);
       },
     );
@@ -98,7 +122,9 @@ test.describe('sale-invoice-print (A4 media audit)', () => {
         await expect(page.locator('.invoice__shop-phone, .invoice__shop-gst')).toHaveCount(0);
         await assertDocumentSections(page);
         await assertA4Totals(page, OPTIONAL_FIELDS_SALE);
-        await assertA4Output(page, 1);
+        await assertA4Output(page, 1, {
+          requiredFragments: [OPTIONAL_FIELDS_SALE.invoiceNumber, 'Basic Item', 'Walk-in'],
+        });
       },
     );
   });
@@ -155,7 +181,15 @@ test.describe('sale-invoice-print (80mm thermal media audit)', () => {
         await assertThermalDocumentSections(page);
         await assertScreenControlsHidden(page);
         await assertThermalTotals(page, sale);
-        await assertThermalOutput(page);
+        await assertThermalOutput(page, {
+          requiredFragments: [
+            sale.invoiceNumber,
+            sale.customerName!,
+            'Premium Widget',
+            'Grand Total',
+          ],
+          maxHeightMm: 350,
+        });
       },
     );
   });
@@ -168,7 +202,14 @@ test.describe('sale-invoice-print (80mm thermal media audit)', () => {
       'thermal',
       async () => {
         await assertThermalDocumentSections(page);
-        await assertThermalOutput(page);
+        await assertThermalOutput(page, {
+          requiredFragments: [
+            LONG_ADDRESS_SALE.invoiceNumber,
+            LONG_ADDRESS_SALE.customerName,
+            'Deterministic long invoice description for A4 pagination coverage.',
+          ],
+          maxHeightMm: 350,
+        });
         await assertNoClippingOrOverlapThermal(page);
       },
     );
@@ -183,7 +224,10 @@ test.describe('sale-invoice-print (80mm thermal media audit)', () => {
       async () => {
         await assertThermalDocumentSections(page);
         await assertThermalTotals(page, DENSE_SALE);
-        await assertThermalOutput(page);
+        await assertThermalOutput(page, {
+          requiredFragments: [DENSE_SALE.invoiceNumber, 'Item A', 'Item B', 'Installation Service'],
+          maxHeightMm: 350,
+        });
         await assertNoClippingOrOverlapThermal(page);
       },
     );
@@ -198,7 +242,10 @@ test.describe('sale-invoice-print (80mm thermal media audit)', () => {
       async () => {
         await assertThermalDocumentSections(page);
         await assertThermalTotals(page, LARGE_VALUE_SALE);
-        await assertThermalOutput(page);
+        await assertThermalOutput(page, {
+          requiredFragments: [LARGE_VALUE_SALE.invoiceNumber, 'Bulk Equipment'],
+          maxHeightMm: 350,
+        });
         await assertNoClippingOrOverlapThermal(page);
       },
     );
@@ -219,7 +266,10 @@ test.describe('sale-invoice-print (80mm thermal media audit)', () => {
           page.locator('.thermal-invoice__shop-phone, .thermal-invoice__shop-gst'),
         ).toHaveCount(0);
         await assertThermalTotals(page, OPTIONAL_FIELDS_SALE);
-        await assertThermalOutput(page);
+        await assertThermalOutput(page, {
+          requiredFragments: [OPTIONAL_FIELDS_SALE.invoiceNumber, 'Walk-in'],
+          maxHeightMm: 350,
+        });
       },
     );
   });
@@ -367,7 +417,34 @@ const A4_HEIGHT_PT = 297 * PT_PER_MM;
 const THERMAL_WIDTH_PT = 80 * PT_PER_MM;
 const PDF_DIMENSION_TOLERANCE_PT = 2;
 
-async function assertA4Output(page: Page, minimumPages: number): Promise<void> {
+interface PdfPageArtifact {
+  readonly width: number;
+  readonly height: number;
+  readonly text: string;
+}
+
+type FontToUnicodeMap = ReadonlyMap<string, string>;
+
+interface PdfObjectRecord {
+  readonly objectId: number;
+  readonly dictionary: string;
+  readonly stream?: string;
+}
+
+interface A4OutputExpectation {
+  readonly requiredFragments?: readonly string[];
+}
+
+interface ThermalOutputExpectation {
+  readonly requiredFragments?: readonly string[];
+  readonly maxHeightMm?: number;
+}
+
+async function assertA4Output(
+  page: Page,
+  minimumPages: number,
+  expectation: A4OutputExpectation = {},
+): Promise<void> {
   const printStyles = await page.locator('article.invoice').evaluate((article) => {
     const targets = [
       article.querySelector('.invoice__header'),
@@ -392,14 +469,23 @@ async function assertA4Output(page: Page, minimumPages: number): Promise<void> {
   expect(printStyles.breaks).toEqual(['avoid', 'avoid', 'avoid', 'avoid']);
   expect(printStyles.pageRule.toLowerCase()).toContain('size: a4');
 
-  // Omit format/width/height so the generated MediaBox reflects the page's own
-  // @page CSS rule (via preferCSSPageSize) rather than a size forced by the test.
   const pdf = await page.pdf({ preferCSSPageSize: true, printBackground: true });
-  const pdfText = pdf.toString('latin1');
-  const pageCount = (pdfText.match(/\/Type\s*\/Page\b/g) ?? []).length;
-  expect(pageCount).toBeGreaterThanOrEqual(minimumPages);
+  const printedPages = parsePdfPages(pdf.toString('latin1'));
+  expect(printedPages.length).toBeGreaterThanOrEqual(minimumPages);
+  for (const pageArtifact of printedPages) {
+    expect(pageArtifact.text.trim()).not.toEqual('');
+    const { width: pageWidth, height: pageHeight } = pageArtifact;
+    expect(pageWidth).toBeGreaterThanOrEqual(A4_WIDTH_PT - PDF_DIMENSION_TOLERANCE_PT);
+    expect(pageWidth).toBeLessThanOrEqual(A4_WIDTH_PT + PDF_DIMENSION_TOLERANCE_PT);
+    expect(pageHeight).toBeGreaterThanOrEqual(A4_HEIGHT_PT - PDF_DIMENSION_TOLERANCE_PT);
+    expect(pageHeight).toBeLessThanOrEqual(A4_HEIGHT_PT + PDF_DIMENSION_TOLERANCE_PT);
+  }
 
-  const mediaBoxes = extractMediaBoxesPt(pdfText);
+  if ((expectation.requiredFragments?.length ?? 0) > 0) {
+    assertPdfFragmentsExist(printedPages, expectation.requiredFragments ?? []);
+  }
+
+  const mediaBoxes = extractMediaBoxesPt(pdf.toString('latin1'));
   expect(mediaBoxes.length).toBeGreaterThan(0);
   for (const box of mediaBoxes) {
     expect(box.width).toBeGreaterThanOrEqual(A4_WIDTH_PT - PDF_DIMENSION_TOLERANCE_PT);
@@ -409,7 +495,10 @@ async function assertA4Output(page: Page, minimumPages: number): Promise<void> {
   }
 }
 
-async function assertThermalOutput(page: Page): Promise<void> {
+async function assertThermalOutput(
+  page: Page,
+  expectation: ThermalOutputExpectation = {},
+): Promise<void> {
   const thermalArticle = page.locator('article.thermal-invoice');
   await expect(thermalArticle).toBeVisible();
 
@@ -441,12 +530,491 @@ async function assertThermalOutput(page: Page): Promise<void> {
   // Generate the actual thermal print artifact and prove the printer-selected
   // width comes from the 80mm @page CSS rule, not an assumption about the DOM.
   const pdf = await page.pdf({ preferCSSPageSize: true, printBackground: true });
+  const printedPages = parsePdfPages(pdf.toString('latin1'));
   const mediaBoxes = extractMediaBoxesPt(pdf.toString('latin1'));
   expect(mediaBoxes.length).toBeGreaterThan(0);
   for (const box of mediaBoxes) {
     expect(box.width).toBeGreaterThanOrEqual(THERMAL_WIDTH_PT - PDF_DIMENSION_TOLERANCE_PT);
     expect(box.width).toBeLessThanOrEqual(THERMAL_WIDTH_PT + PDF_DIMENSION_TOLERANCE_PT);
+    if (expectation.maxHeightMm) {
+      expect(box.height).toBeLessThanOrEqual(expectation.maxHeightMm * PT_PER_MM);
+    }
   }
+
+  expect(printedPages.length).toBeGreaterThanOrEqual(1);
+  for (const pageArtifact of printedPages) {
+    expect(pageArtifact.text.trim()).not.toEqual('');
+    if (expectation.maxHeightMm) {
+      expect(pageArtifact.height).toBeLessThanOrEqual(expectation.maxHeightMm * PT_PER_MM);
+    }
+  }
+
+  if ((expectation.requiredFragments?.length ?? 0) > 0) {
+    assertPdfFragmentsExist(printedPages, expectation.requiredFragments ?? []);
+  }
+}
+
+function assertPdfFragmentsExist(
+  printedPages: readonly PdfPageArtifact[],
+  requiredFragments: readonly string[],
+): void {
+  const pdfText = normalizePdfText(printedPages.map((page) => page.text).join(' '));
+  for (const rawFragment of requiredFragments) {
+    const normalized = normalizePdfText(rawFragment);
+    expect(pdfText).toContain(normalized);
+  }
+}
+
+function parsePdfPages(pdfText: string): PdfPageArtifact[] {
+  const objects = parsePdfObjects(pdfText);
+  const objectsById = new Map(
+    objects.map((object): [number, PdfObjectRecord] => [object.objectId, object]),
+  );
+  const toUnicodeCache = new Map<number, FontToUnicodeMap | null>();
+  const pageRecords = objects
+    .filter((object) => /\/Type\s*\/Page\b/.test(object.dictionary))
+    .sort((a, b) => a.objectId - b.objectId);
+
+  return pageRecords
+    .map((pageRecord) => {
+      const mediaBox = extractMediaBox(pageRecord.dictionary) ?? {
+        width: 0,
+        height: 0,
+      };
+      const contents = parseContents(pageRecord.dictionary)
+        .map((objectId) => objectsById.get(objectId))
+        .filter((object): object is PdfObjectRecord => Boolean(object));
+      const fontMap = buildPageFontMaps(
+        extractFontResourceIds(pageRecord.dictionary, objectsById),
+        objectsById,
+        toUnicodeCache,
+      );
+
+      const text = normalizePdfText(
+        contents
+          .map((content) =>
+            content.stream
+              ? normalizePdfText(extractPdfTextContent(content, content.dictionary, fontMap))
+              : '',
+          )
+          .join(' '),
+      );
+      return { ...mediaBox, text };
+    })
+    .filter((page) => page.width > 0 && page.height > 0);
+}
+
+function parsePdfObjects(pdfText: string): PdfObjectRecord[] {
+  const objectPattern = /(\d+)\s+\d+\s+obj([\s\S]*?)(?=endobj)/g;
+  const objects: PdfObjectRecord[] = [];
+  let objectMatch: RegExpExecArray | null;
+
+  while ((objectMatch = objectPattern.exec(pdfText)) !== null) {
+    const [, objectId, rawBody] = objectMatch;
+    const streamMatch = /stream\r?\n([\s\S]*?)\r?\nendstream/.exec(rawBody);
+    objects.push({
+      objectId: Number(objectId),
+      dictionary: rawBody,
+      stream: streamMatch?.[1],
+    });
+  }
+  return objects;
+}
+
+function parseContents(pageDictionary: string): number[] {
+  const contents = /\/Contents\s+(\[[^\]]*\]|\d+\s+\d+\s+R)/.exec(pageDictionary);
+  if (!contents) {
+    return [];
+  }
+
+  const referenceBlock = contents[1];
+  const referenceMatch = Array.from(referenceBlock.matchAll(/(\d+)\s+\d+\s+R/g));
+  if (referenceMatch.length > 0) {
+    return referenceMatch.map((match) => Number(match[1]));
+  }
+
+  const single = /(\d+)\s+\d+\s+R/.exec(referenceBlock);
+  return single ? [Number(single[1])] : [];
+}
+
+function extractMediaBox(pageDictionary: string): { width: number; height: number } | null {
+  const mediaMatch = /\/MediaBox\s*\[([^\]]+)\]/.exec(pageDictionary);
+  const values =
+    mediaMatch?.[1]
+      ?.split(/\s+/)
+      .map((value) => Number.parseFloat(value))
+      ?.filter((value) => Number.isFinite(value)) ?? [];
+  if (values.length < 4) {
+    return null;
+  }
+  return { width: values[2] - values[0], height: values[3] - values[1] };
+}
+
+function extractFontResourceIds(
+  pageDictionary: string,
+  objectsById: Map<number, PdfObjectRecord>,
+): Map<string, number> {
+  let currentDictionary: string | undefined = pageDictionary;
+  const visitedPages = new Set<number>();
+  while (currentDictionary) {
+    const inlineFontMatch = /\/Font\s*<<([\s\S]*?)>>/.exec(currentDictionary);
+    if (inlineFontMatch) {
+      return parseFontRefs(inlineFontMatch[1]);
+    }
+
+    const resourcesMatch = /\/Resources\s+(\d+)\s+\d+\s+R/.exec(currentDictionary);
+    const resourcesObject = resourcesMatch ? objectsById.get(Number(resourcesMatch[1])) : undefined;
+    if (resourcesObject) {
+      const fontMatch = /\/Font\s*<<([\s\S]*?)>>/.exec(resourcesObject.dictionary);
+      if (fontMatch) {
+        return parseFontRefs(fontMatch[1]);
+      }
+      currentDictionary = resourcesObject.dictionary;
+      continue;
+    }
+
+    const parentObjectId = /\/Parent\s+(\d+)\s+\d+\s+R/.exec(currentDictionary)?.[1];
+    if (!parentObjectId) {
+      return new Map();
+    }
+
+    const parentObject = objectsById.get(Number(parentObjectId));
+    if (!parentObject || visitedPages.has(parentObject.objectId)) {
+      return new Map();
+    }
+
+    visitedPages.add(parentObject.objectId);
+    currentDictionary = parentObject.dictionary;
+  }
+  return new Map();
+}
+
+function parseFontRefs(fontSection: string): Map<string, number> {
+  const entries = new Map<string, number>();
+  const fontMatch = /\/([A-Za-z0-9#]+)\s+(\d+)\s+\d+\s+R/g;
+  let fontMatchResult: RegExpExecArray | null;
+  while ((fontMatchResult = fontMatch.exec(fontSection)) !== null) {
+    const [, fontName, objectId] = fontMatchResult;
+    entries.set(fontName, Number(objectId));
+  }
+
+  return entries;
+}
+
+function buildPageFontMaps(
+  fontReferences: Map<string, number>,
+  objectsById: Map<number, PdfObjectRecord>,
+  toUnicodeCache: Map<number, FontToUnicodeMap | null>,
+): Map<string, FontToUnicodeMap> {
+  const fontMaps = new Map<string, FontToUnicodeMap>();
+  for (const [fontName, fontObjectId] of fontReferences) {
+    const unicodeMap = getFontToUnicodeMap(fontObjectId, objectsById, toUnicodeCache);
+    if (unicodeMap) {
+      fontMaps.set(fontName, unicodeMap);
+    }
+  }
+  return fontMaps;
+}
+
+function getFontToUnicodeMap(
+  fontObjectId: number,
+  objectsById: Map<number, PdfObjectRecord>,
+  toUnicodeCache: Map<number, FontToUnicodeMap | null>,
+): FontToUnicodeMap | null {
+  const cached = toUnicodeCache.get(fontObjectId);
+  if (cached !== undefined) {
+    return cached;
+  }
+
+  const fontObject = objectsById.get(fontObjectId);
+  const toUnicodeMatch = /\/ToUnicode\s+(\d+)\s+\d+\s+R/.exec(fontObject?.dictionary ?? '');
+  if (!toUnicodeMatch) {
+    toUnicodeCache.set(fontObjectId, null);
+    return null;
+  }
+
+  const toUnicodeObject = objectsById.get(Number(toUnicodeMatch[1]));
+  if (!toUnicodeObject) {
+    toUnicodeCache.set(fontObjectId, null);
+    return null;
+  }
+
+  const map = parseToUnicodeMap(toUnicodeObject);
+  toUnicodeCache.set(fontObjectId, map.size > 0 ? map : null);
+  return map.size > 0 ? map : null;
+}
+
+function extractPdfTextContent(
+  content: PdfObjectRecord,
+  dictionary: string,
+  fontMaps: Map<string, FontToUnicodeMap>,
+): string {
+  const isFlate = /\/Filter\s*\/?\[?[^\]]*\/FlateDecode/.test(dictionary);
+  const raw = content.stream ? Buffer.from(content.stream, 'latin1') : Buffer.alloc(0);
+  const decoded = isFlate ? inflateSync(raw) : raw;
+  const contentText = decoded.toString('latin1');
+  const tokenPattern =
+    /\/([^\s]+)\s+\d+(?:\.\d+)?\s+Tf|<([0-9A-Fa-f\s]+)>\s+Tj|(\((?:\\.|[^\\)])*\))\s+Tj|\[(.*?)\]\s+TJ|<([0-9A-Fa-f\s]+)>\s+TJ/g;
+  const tokens = contentText.matchAll(tokenPattern);
+  const textParts: string[] = [];
+  let activeFont: string | undefined;
+  for (const tokenMatch of tokens) {
+    const [, fontName, hexText, literalText, arrayContent, tjHexText] = tokenMatch;
+    if (fontName) {
+      activeFont = fontName;
+      continue;
+    }
+
+    if (hexText) {
+      textParts.push(decodePdfHexTextByFont(hexText, activeFont, fontMaps));
+      continue;
+    }
+
+    if (literalText) {
+      textParts.push(decodePdfLiteralText(literalText));
+      continue;
+    }
+
+    const values = tjHexText ? [decodePdfHexTextByFont(tjHexText, activeFont, fontMaps)] : [];
+    if (arrayContent) {
+      const inlineHexes = Array.from(
+        arrayContent.matchAll(/<([0-9A-Fa-f\s]+)>|\((?:\\.|[^\\)])*\)/g),
+      );
+      const decodedArrayText = inlineHexes
+        .map((inlineMatch) =>
+          inlineMatch[1]
+            ? decodePdfHexTextByFont(inlineMatch[1], activeFont, fontMaps)
+            : decodePdfLiteralText(inlineMatch[0]),
+        )
+        .filter((fragment) => fragment.length > 0)
+        .join(' ');
+      if (decodedArrayText.length > 0) {
+        values.push(decodedArrayText);
+      }
+    }
+
+    textParts.push(values.filter(Boolean).join(' '));
+  }
+
+  return textParts.filter(Boolean).join(' ');
+}
+
+function decodePdfHexTextByFont(
+  value: string,
+  activeFont: string | undefined,
+  fontMaps: Map<string, FontToUnicodeMap>,
+): string {
+  const map = activeFont ? fontMaps.get(activeFont) : undefined;
+  if (!map || map.size === 0) {
+    return decodePdfHexText(value);
+  }
+
+  const normalized = value.replace(/\s+/g, '').toUpperCase();
+  if (normalized.length === 0) {
+    return '';
+  }
+  const keyLength = map.keys().next().value?.length ?? 4;
+  const hexChunks = chunkHexString(normalized, keyLength);
+  const decoded = hexChunks
+    .map((chunk) => map.get(chunk) ?? map.get(chunk.padEnd(keyLength, '0')))
+    .filter((value) => value !== undefined)
+    .join('');
+  if (decoded.length > 0) {
+    return decoded;
+  }
+
+  const utf16Text = decodePdfHexUtf16(value);
+  return utf16Text.length > 0 ? utf16Text : decodePdfHexText(value);
+}
+
+function chunkHexString(value: string, chunkLength: number): string[] {
+  const chunks: string[] = [];
+  for (let index = 0; index + chunkLength <= value.length; index += chunkLength) {
+    chunks.push(value.slice(index, index + chunkLength));
+  }
+  return chunks;
+}
+
+function parseToUnicodeMap(object: PdfObjectRecord): FontToUnicodeMap {
+  const isFlate = /\/Filter\s*\/?\[?[^\]]*\/FlateDecode/.test(object.dictionary);
+  const raw = object.stream ? Buffer.from(object.stream, 'latin1') : Buffer.alloc(0);
+  const decoded = isFlate ? inflateSync(raw) : raw;
+  const cmapText = decoded.toString('latin1');
+  const map = new Map<string, string>();
+  parseToUnicodeBfchar(cmapText, map);
+  parseToUnicodeBfrange(cmapText, map);
+  return map;
+}
+
+function parseToUnicodeBfchar(cmapText: string, map: FontToUnicodeMap): void {
+  const bfcharPattern = /beginbfchar\s*([\s\S]*?)endbfchar/g;
+  let blockMatch: RegExpExecArray | null;
+
+  while ((blockMatch = bfcharPattern.exec(cmapText)) !== null) {
+    const block = blockMatch[1];
+    const mappingPattern = /<([0-9A-Fa-f]+)>\s+<([0-9A-Fa-f]+)>/g;
+    let mappingMatch: RegExpExecArray | null;
+    while ((mappingMatch = mappingPattern.exec(block)) !== null) {
+      const [, source, mapped] = mappingMatch;
+      map.set(source.toUpperCase(), decodeUnicodeHexToText(mapped));
+    }
+  }
+}
+
+function parseToUnicodeBfrange(cmapText: string, map: FontToUnicodeMap): void {
+  const bfrangePattern = /beginbfrange\s*([\s\S]*?)endbfrange/g;
+  let blockMatch: RegExpExecArray | null;
+
+  while ((blockMatch = bfrangePattern.exec(cmapText)) !== null) {
+    const block = blockMatch[1];
+    const lines = block.split(/\r?\n/);
+    for (const line of lines) {
+      const tokens = line.match(/<[^>]+>|\[[^\]]*\]/g);
+      if (!tokens || tokens.length < 3) {
+        continue;
+      }
+
+      const sourceStart = tokens[0]?.replace(/[<>]/g, '');
+      const sourceEnd = tokens[1]?.replace(/[<>]/g, '');
+      if (!sourceStart || !sourceEnd) {
+        continue;
+      }
+
+      const destinationRange = tokens[2];
+      const rangeStart = Number.parseInt(sourceStart, 16);
+      const rangeEnd = Number.parseInt(sourceEnd, 16);
+      if (!Number.isFinite(rangeStart) || !Number.isFinite(rangeEnd) || rangeStart > rangeEnd) {
+        continue;
+      }
+
+      const destinationTokens = destinationRange.startsWith('[')
+        ? Array.from(destinationRange.matchAll(/<([^>]+)>/g)).map((match) => match[1])
+        : [destinationRange.replace(/[<>]/g, '')];
+      if (destinationTokens.length === 0) {
+        continue;
+      }
+
+      for (let sourceCode = rangeStart; sourceCode <= rangeEnd; sourceCode += 1) {
+        const target = normalizeBfrangeDestination(destinationTokens, sourceCode, rangeStart);
+        if (target.length > 0) {
+          map.set(sourceCode.toString(16).toUpperCase().padStart(sourceStart.length, '0'), target);
+        }
+      }
+    }
+  }
+}
+
+function normalizeBfrangeDestination(
+  destinations: readonly string[],
+  sourceCode: number,
+  rangeStart: number,
+): string {
+  if (destinations.length > 1) {
+    const destination = destinations[sourceCode - rangeStart];
+    return destination ? decodeUnicodeHexToText(destination) : '';
+  }
+
+  const destinationText = destinations[0] ? decodeUnicodeHexToText(destinations[0]) : '';
+  if (destinationText.length <= 1) {
+    const offsetCode = destinationText.codePointAt(0);
+    return offsetCode === undefined
+      ? ''
+      : String.fromCodePoint(offsetCode + (sourceCode - rangeStart));
+  }
+
+  if (sourceCode === rangeStart) {
+    return destinationText;
+  }
+
+  return '';
+}
+
+function decodeUnicodeHexToText(value: string): string {
+  const cleaned = value.replace(/\s+/g, '');
+  let decoded = '';
+  for (let index = 0; index + 3 < cleaned.length; index += 4) {
+    const code = Number.parseInt(cleaned.slice(index, index + 4), 16);
+    if (!Number.isNaN(code)) {
+      decoded += String.fromCodePoint(code);
+    }
+  }
+  return decoded;
+}
+
+function decodePdfLiteralText(token: string): string {
+  const raw = token.slice(1, -1);
+  let value = '';
+
+  for (let index = 0; index < raw.length; index += 1) {
+    const char = raw[index];
+    if (char !== '\\') {
+      value += char;
+      continue;
+    }
+
+    const escape = raw[index + 1];
+    if (!escape) {
+      break;
+    }
+
+    index += 1;
+    if (/\d/.test(escape)) {
+      const octal = `${escape}${raw[index + 1] ?? ''}${raw[index + 2] ?? ''}`.replace(
+        /[^0-7].*/,
+        '',
+      );
+      index += octal.length - 1;
+      value += String.fromCharCode(Number.parseInt(octal, 8));
+      continue;
+    }
+
+    value +=
+      {
+        n: '\n',
+        r: '\r',
+        t: '\t',
+        b: '\b',
+        f: '\f',
+        '(': '(',
+        ')': ')',
+        '\\': '\\',
+      }[escape] ?? escape;
+  }
+  return value;
+}
+
+function decodePdfHexText(value: string): string {
+  const tokens = value.replace(/\s+/g, '');
+  const pairs = tokens.length % 2 === 0 ? tokens : `${tokens}0`;
+  let decoded = '';
+  for (let index = 0; index < pairs.length; index += 2) {
+    const byte = Number.parseInt(pairs.slice(index, index + 2), 16);
+    decoded += Number.isNaN(byte) ? '' : String.fromCharCode(byte);
+  }
+  return decoded;
+}
+
+function decodePdfHexUtf16(value: string): string {
+  const tokens = value.replace(/\s+/g, '');
+  if (tokens.length % 4 !== 0) {
+    return '';
+  }
+
+  let decoded = '';
+  for (let index = 0; index + 3 < tokens.length; index += 4) {
+    const codePoint = Number.parseInt(tokens.slice(index, index + 4), 16);
+    if (!Number.isNaN(codePoint)) {
+      decoded += String.fromCodePoint(codePoint);
+    }
+  }
+  return decoded;
+}
+
+function normalizePdfText(text: string): string {
+  return text
+    .replace(/\u0000/g, '')
+    .replace(/\s+/g, '')
+    .trim();
 }
 
 interface PdfPageBox {
