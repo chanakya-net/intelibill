@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, OnDestroy, Output, inject, signal } from '@angular/core';
 import { ReactiveFormsModule, Validators, FormBuilder } from '@angular/forms';
-import { finalize, Subject, debounceTime, EMPTY, switchMap, takeUntil } from 'rxjs';
+import { catchError, finalize, Subject, debounceTime, EMPTY, of, switchMap, takeUntil } from 'rxjs';
 import { TranslocoPipe } from '@ngneat/transloco';
 import { ButtonModule } from 'primeng/button';
 import { IconFieldModule } from 'primeng/iconfield';
@@ -51,63 +51,73 @@ export class DiscountTargetItemsComponent implements OnDestroy {
   readonly batchSearchTerm = signal('');
   readonly batchSearchResults = signal<readonly AvailableBatchDto[]>([]);
   readonly batchSearchNoResults = signal(false);
+  readonly batchSearchError = signal('');
   readonly selectedBatchLabel = signal('');
   readonly searchLoading = signal(false);
   readonly batchSearchMinCharsRequired = signal(true);
 
   readonly form = this.formBuilder.nonNullable.group({
-    inventoryBatchId: this.formBuilder.nonNullable.control('', [Validators.required, Validators.maxLength(64)]),
+    inventoryBatchId: this.formBuilder.nonNullable.control('', [
+      Validators.required,
+      Validators.maxLength(64),
+    ]),
   });
 
   constructor() {
-    this.batchSearch$.pipe(
-      debounceTime(300),
-      switchMap((searchTerm) => {
-        const trimmed = searchTerm.trim();
-        this.batchSearchMinCharsRequired.set(trimmed.length < 3);
+    this.batchSearch$
+      .pipe(
+        debounceTime(300),
+        switchMap((searchTerm) => {
+          const trimmed = searchTerm.trim();
+          this.batchSearchMinCharsRequired.set(trimmed.length < 3);
+          this.batchSearchError.set('');
 
-        if (trimmed.length < 3) {
-          this.batchSearchResults.set([]);
+          if (trimmed.length < 3) {
+            this.batchSearchResults.set([]);
+            this.batchSearchNoResults.set(false);
+            this.searchLoading.set(false);
+            return EMPTY;
+          }
+
+          this.searchLoading.set(true);
           this.batchSearchNoResults.set(false);
-          this.searchLoading.set(false);
-          return EMPTY;
-        }
-
-        this.searchLoading.set(true);
-        this.batchSearchNoResults.set(false);
-        this.form.controls.inventoryBatchId.setValue('');
-        return this.inventoryService.getAvailableBatchesBySearchTerm(trimmed).pipe(
-          finalize(() => this.searchLoading.set(false)),
-          takeUntil(this.destroy$),
-        );
-      }),
-      takeUntil(this.destroy$),
-    ).subscribe({
-      next: (batches) => {
-        if (batches.length === 1) {
-          this.batchSearchResults.set([]);
-          this.batchSearchNoResults.set(false);
-          this.onSelectBatch(batches[0]);
-          return;
-        }
-
-        if (batches.length === 0) {
-          this.batchSearchResults.set([]);
-          this.batchSearchNoResults.set(true);
           this.form.controls.inventoryBatchId.setValue('');
-          this.selectedBatchLabel.set('');
-          this.selectionChange.emit([]);
-          return;
-        }
+          return this.inventoryService.getAvailableBatchesBySearchTerm(trimmed).pipe(
+            catchError(() => {
+              this.batchSearchResults.set([]);
+              this.batchSearchNoResults.set(false);
+              this.batchSearchError.set('discounts.errors.batchSearchFailed');
+              return of(null);
+            }),
+            finalize(() => this.searchLoading.set(false)),
+            takeUntil(this.destroy$),
+          );
+        }),
+        takeUntil(this.destroy$),
+      )
+      .subscribe({
+        next: (batches) => {
+          if (batches === null) return;
+          if (batches.length === 1) {
+            this.batchSearchResults.set([]);
+            this.batchSearchNoResults.set(false);
+            this.onSelectBatch(batches[0]);
+            return;
+          }
 
-        this.batchSearchResults.set(batches);
-        this.batchSearchNoResults.set(false);
-      },
-      error: () => {
-        this.batchSearchResults.set([]);
-        this.batchSearchNoResults.set(false);
-      },
-    });
+          if (batches.length === 0) {
+            this.batchSearchResults.set([]);
+            this.batchSearchNoResults.set(true);
+            this.form.controls.inventoryBatchId.setValue('');
+            this.selectedBatchLabel.set('');
+            this.selectionChange.emit([]);
+            return;
+          }
+
+          this.batchSearchResults.set(batches);
+          this.batchSearchNoResults.set(false);
+        },
+      });
   }
 
   isValid(): boolean {
@@ -147,6 +157,14 @@ export class DiscountTargetItemsComponent implements OnDestroy {
   }
 
   clearBatchSearch(): void {
+    this.batchSearchResults.set([]);
+    this.batchSearchNoResults.set(false);
+    this.batchSearchError.set('');
     this.onBatchSearchTermChange('');
+  }
+
+  isControlInvalid(): boolean {
+    const control = this.form.controls.inventoryBatchId;
+    return control.touched && control.invalid;
   }
 }

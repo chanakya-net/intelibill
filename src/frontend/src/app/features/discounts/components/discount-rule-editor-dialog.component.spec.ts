@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@ngneat/transloco';
-import { of, throwError } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -34,7 +34,9 @@ describe('DiscountRuleEditorDialogComponent', () => {
     ...overrides,
   });
 
-  const makePreview = (overrides: Partial<DiscountRulePreviewDto> = {}): DiscountRulePreviewDto => ({
+  const makePreview = (
+    overrides: Partial<DiscountRulePreviewDto> = {},
+  ): DiscountRulePreviewDto => ({
     affectedCount: 1,
     affectedSample: [
       {
@@ -115,8 +117,13 @@ describe('DiscountRuleEditorDialogComponent', () => {
       }),
     );
     expect(discountService.createDiscountRule).toHaveBeenCalledWith(
-      expect.objectContaining({ name: '10% off Rice', ruleType: 'BatchPercentage', inventoryBatchId: 'batch-1' }),
+      expect.objectContaining({
+        name: '10% off Rice',
+        ruleType: 'BatchPercentage',
+        inventoryBatchId: 'batch-1',
+      }),
     );
+    expect(component.visible()).toBe(false);
   });
 
   it('does not submit without selected batch', () => {
@@ -172,7 +179,9 @@ describe('DiscountRuleEditorDialogComponent', () => {
   it('loads an existing rule and submits replacement', () => {
     const component = TestBed.createComponent(DiscountRuleEditorDialogComponent).componentInstance;
     discountService.previewDiscountRule.mockReturnValue(of(makePreview()));
-    discountService.replaceDiscountRule.mockReturnValue(of(makeRule({ name: 'Updated rule', id: 'rule-2' })));
+    discountService.replaceDiscountRule.mockReturnValue(
+      of(makeRule({ name: 'Updated rule', id: 'rule-2' })),
+    );
 
     component.open('edit', makeRule());
     expect(component.conditions().name).toBe('10% off batch');
@@ -192,13 +201,47 @@ describe('DiscountRuleEditorDialogComponent', () => {
 
   it('shows preview error and does not submit when preview fails', () => {
     const component = TestBed.createComponent(DiscountRuleEditorDialogComponent).componentInstance;
-    discountService.previewDiscountRule.mockReturnValue(throwError(() => new Error('preview failed')));
+    discountService.previewDiscountRule.mockReturnValue(
+      throwError(() => new Error('preview failed')),
+    );
     setBatchConditions(component, { ruleType: 'SalePercentage', name: 'Sale rule', percentage: 5 });
 
     component.onSubmit();
 
     expect(component.submitErrorKey()).toBe('discounts.errors.previewFailed');
     expect(discountService.createDiscountRule).not.toHaveBeenCalled();
+  });
+
+  it('clears stale preview and feedback when conditions change', () => {
+    const component = TestBed.createComponent(DiscountRuleEditorDialogComponent).componentInstance;
+    const preview$ = new Subject<DiscountRulePreviewDto>();
+    discountService.previewDiscountRule.mockReturnValue(preview$);
+    component.open('create');
+    setBatchConditions(component, { name: 'First version' });
+    component.onPreviewRule();
+
+    component.submitErrorKey.set('discounts.errors.createFailed');
+    component.onConditionsChange({ ...component.conditions(), name: 'Changed version' });
+    preview$.next(makePreview());
+
+    expect(component.preview()).toBeNull();
+    expect(component.submitErrorKey()).toBe('');
+  });
+
+  it('ignores conflicting preview and save actions while a request is active', () => {
+    const preview$ = new Subject<DiscountRulePreviewDto>();
+    const component = TestBed.createComponent(DiscountRuleEditorDialogComponent).componentInstance;
+    discountService.previewDiscountRule.mockReturnValue(preview$);
+    component.open('create');
+    setBatchConditions(component, { name: 'Serialized rule' });
+
+    component.onPreviewRule();
+    component.onSubmit();
+
+    expect(discountService.previewDiscountRule).toHaveBeenCalledTimes(1);
+    expect(component.visible()).toBe(true);
+    component.close();
+    expect(component.visible()).toBe(true);
   });
 
   it('prefills datetime-local values using local time', () => {

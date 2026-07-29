@@ -5,37 +5,54 @@
 }
 
 @if (!listLoading) {
-  <p-table [value]="$any(listItems)" [scrollable]="true" class="p-datatable-sm" data-testid="discounts-table">
-    <ng-template pTemplate="header">
-      <tr>
-        <th>{{ 'discounts.fields.name' | transloco }}</th>
-        <th>{{ 'discounts.fields.ruleType' | transloco }}</th>
-        <th>{{ 'discounts.fields.isActive' | transloco }}</th>
-        <th>{{ 'discounts.fields.startsAt' | transloco }}</th>
-        <th>{{ 'discounts.fields.endsAt' | transloco }}</th>
-      </tr>
-    </ng-template>
-    <ng-template pTemplate="body" let-item>
-      <tr
-        class="row-click"
-        [class.row-selected]="item.id === selectedRuleId"
-        role="button"
-        tabindex="0"
-        (click)="onSelectRule(item.id)"
-        (keydown.enter)="onSelectRule(item.id)"
-        (keydown.space)="onSelectRule(item.id)"
-        [attr.data-testid]="'discounts-row-' + item.id"
+  @if (listItems.length === 0) {
+    <div class="empty-state" data-testid="discounts-empty">
+      <p>{{ 'discounts.detail.emptySubtitle' | transloco }}</p>
+    </div>
+  } @else {
+    <div class="table-scroll">
+      <p-table
+        [value]="$any(listItems)"
+        [scrollable]="true"
+        class="p-datatable-sm"
+        data-testid="discounts-table"
       >
-        <td>{{ item.name }}</td>
-        <td>{{ ('discounts.ruleType.' + item.ruleType) | transloco }}</td>
-        <td>
-          <p-tag [value]="statusKey(item) | transloco" [severity]="statusSeverity(item)"></p-tag>
-        </td>
-        <td>{{ formatDate(item.startsAt) }}</td>
-        <td>{{ formatDate(item.endsAt) }}</td>
-      </tr>
-    </ng-template>
-  </p-table>
+        <ng-template pTemplate="header">
+          <tr>
+            <th>{{ 'discounts.fields.name' | transloco }}</th>
+            <th>{{ 'discounts.fields.ruleType' | transloco }}</th>
+            <th>{{ 'discounts.fields.isActive' | transloco }}</th>
+            <th>{{ 'discounts.fields.startsAt' | transloco }}</th>
+            <th>{{ 'discounts.fields.endsAt' | transloco }}</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-item>
+          <tr
+            class="row-click"
+            [class.row-selected]="item.id === selectedRuleId"
+            role="button"
+            tabindex="0"
+            [attr.aria-current]="item.id === selectedRuleId"
+            (click)="onSelectRule(item.id)"
+            (keydown.enter)="onSelectRule(item.id)"
+            (keydown.space)="onSelectRule(item.id)"
+            [attr.data-testid]="'discounts-row-' + item.id"
+          >
+            <td>{{ item.name }}</td>
+            <td>{{ 'discounts.ruleType.' + item.ruleType | transloco }}</td>
+            <td>
+              <p-tag
+                [value]="statusKey(item) | transloco"
+                [severity]="statusSeverity(item)"
+              ></p-tag>
+            </td>
+            <td>{{ formatDate(item.startsAt) }}</td>
+            <td>{{ formatDate(item.endsAt) }}</td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </div>
+  }
 
   <div class="pagination">
     <button
@@ -49,7 +66,10 @@
       [attr.aria-label]="'discounts.pagination.prev' | transloco"
     ></button>
     <p class="page-info">
-      {{ 'discounts.pagination.pageInfo' | transloco: { page: pageNumber, pageSize: pageSize, total: totalCount } }}
+      {{
+        'discounts.pagination.pageInfo'
+          | transloco: { page: pageNumber, pageSize: pageSize, total: totalCount }
+      }}
     </p>
     <button
       pButton

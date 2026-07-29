@@ -77,20 +77,23 @@ export class DiscountsPageComponent {
   readonly showDisableDialog = signal(false);
   readonly disableReason = signal('');
   readonly disableSubmitting = signal(false);
+  readonly disableError = signal('');
+
+  private listRequestId = 0;
+  private detailRequestId = 0;
+  private retainSelectedDetailAfterRefresh = false;
 
   readonly selectedRuleTitle = computed(() => this.selectedRule()?.name ?? '');
   readonly selectedRuleStatusKey = computed(() => this.getRuleStatusKey(this.selectedRule()));
 
   readonly activeOnPageCount = computed(
-    () =>
-      this.listItems().filter((item) => item.isActive && !this.isExpired(item.endsAt)).length,
+    () => this.listItems().filter((item) => item.isActive && !this.isExpired(item.endsAt)).length,
   );
   readonly disabledOnPageCount = computed(
     () => this.listItems().filter((item) => !item.isActive).length,
   );
   readonly expiredOnPageCount = computed(
-    () =>
-      this.listItems().filter((item) => item.isActive && this.isExpired(item.endsAt)).length,
+    () => this.listItems().filter((item) => item.isActive && this.isExpired(item.endsAt)).length,
   );
 
   readonly summaryCards = computed<DiscountSummaryCard[]>(() => [
@@ -185,6 +188,7 @@ export class DiscountsPageComponent {
     const rule = this.selectedRule();
     if (!rule || !rule.isActive) return;
     this.disableReason.set('');
+    this.disableError.set('');
     this.showDisableDialog.set(true);
   }
 
@@ -208,13 +212,15 @@ export class DiscountsPageComponent {
     if (this.disableSubmitting()) return;
     this.showDisableDialog.set(false);
     this.disableReason.set('');
+    this.disableError.set('');
   }
 
   onConfirmDisable(): void {
     const id = this.selectedRuleId();
-    if (!id) return;
+    if (!id || this.disableSubmitting()) return;
 
     this.disableSubmitting.set(true);
+    this.disableError.set('');
     const reason = this.disableReason().trim();
 
     this.discountService.disableDiscountRule(id, reason ? reason : null).subscribe({
@@ -222,11 +228,12 @@ export class DiscountsPageComponent {
         this.selectedRule.set(rule);
         this.disableSubmitting.set(false);
         this.showDisableDialog.set(false);
+        this.retainSelectedDetailAfterRefresh = true;
         this.refreshList();
       },
       error: () => {
         this.disableSubmitting.set(false);
-        this.detailError.set('discounts.errors.disableFailed');
+        this.disableError.set('discounts.errors.disableFailed');
       },
     });
   }
@@ -272,11 +279,13 @@ export class DiscountsPageComponent {
   }
 
   private loadList(params: GetDiscountRulesParams): void {
+    const requestId = ++this.listRequestId;
     this.listLoading.set(true);
     this.listError.set('');
 
     this.discountService.getDiscountRules(params).subscribe({
       next: (result) => {
+        if (requestId !== this.listRequestId) return;
         this.listItems.set(result.items);
         this.totalCount.set(result.totalCount);
         this.pageNumber.set(result.pageNumber);
@@ -284,28 +293,50 @@ export class DiscountsPageComponent {
         this.listLoading.set(false);
 
         const selectedId = this.selectedRuleId();
-        if (!selectedId && result.items.length > 0) {
-          this.selectedRuleId.set(result.items[0].id);
+        const selectionStillVisible = result.items.some((item) => item.id === selectedId);
+        if (this.retainSelectedDetailAfterRefresh && selectedId) {
+          this.retainSelectedDetailAfterRefresh = false;
+          return;
         }
+
+        const nextId = selectionStillVisible ? selectedId : (result.items[0]?.id ?? null);
+        if (nextId === selectedId) return;
+
+        this.detailRequestId += 1;
+        this.detailLoading.set(false);
+        this.selectedRule.set(null);
+        this.detailError.set('');
+        this.selectedRuleId.set(nextId);
       },
       error: () => {
+        if (requestId !== this.listRequestId) return;
         this.listLoading.set(false);
         this.listError.set('discounts.errors.listFailed');
+        this.listItems.set([]);
+        this.totalCount.set(0);
+        this.detailRequestId += 1;
+        this.detailLoading.set(false);
+        this.selectedRuleId.set(null);
+        this.selectedRule.set(null);
       },
     });
   }
 
   private loadDetail(id: string): void {
+    const requestId = ++this.detailRequestId;
     this.detailLoading.set(true);
     this.detailError.set('');
 
     this.discountService.getDiscountRule(id).subscribe({
       next: (rule) => {
+        if (requestId !== this.detailRequestId || this.selectedRuleId() !== id) return;
         this.selectedRule.set(rule);
         this.detailLoading.set(false);
       },
       error: () => {
+        if (requestId !== this.detailRequestId || this.selectedRuleId() !== id) return;
         this.detailLoading.set(false);
+        this.selectedRule.set(null);
         this.detailError.set('discounts.errors.detailFailed');
       },
     });

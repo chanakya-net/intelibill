@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { of, Subject } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 
@@ -7,18 +7,20 @@ import { InventoryService } from '../../../inventory/services/inventory.service'
 import { DiscountTargetItemsComponent } from './discount-target-items.component';
 
 describe('DiscountTargetItemsComponent', () => {
-  const makeBatch = (overrides: Partial<{
-    barcode: string;
-    itemName: string;
-    batchNumber: string;
-    inventoryBatchId: string;
-    quantity: number;
-    salesPrice: number;
-    mrp: number;
-    taxRatePercent: number;
-    taxIncluded: boolean;
-    expiryDate: string | null;
-  }> = {}) => ({
+  const makeBatch = (
+    overrides: Partial<{
+      barcode: string;
+      itemName: string;
+      batchNumber: string;
+      inventoryBatchId: string;
+      quantity: number;
+      salesPrice: number;
+      mrp: number;
+      taxRatePercent: number;
+      taxIncluded: boolean;
+      expiryDate: string | null;
+    }> = {},
+  ) => ({
     barcode: '111',
     itemName: 'Rice',
     batchNumber: 'BATCH-001',
@@ -40,7 +42,10 @@ describe('DiscountTargetItemsComponent', () => {
     inventoryService.getAvailableBatchesBySearchTerm.mockReset();
 
     TestBed.configureTestingModule({
-      imports: [DiscountTargetItemsComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
+      imports: [
+        DiscountTargetItemsComponent,
+        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+      ],
       providers: [{ provide: InventoryService, useValue: inventoryService }],
     });
   });
@@ -82,9 +87,17 @@ describe('DiscountTargetItemsComponent', () => {
   it('keeps only latest in-flight batch search result', () => {
     const firstResults$ = new Subject<readonly ReturnType<typeof makeBatch>[]>();
     const secondResults$ = new Subject<readonly ReturnType<typeof makeBatch>[]>();
-    const batchA = makeBatch({ inventoryBatchId: 'batch-a', itemName: 'Alpha', batchNumber: 'A-1' });
+    const batchA = makeBatch({
+      inventoryBatchId: 'batch-a',
+      itemName: 'Alpha',
+      batchNumber: 'A-1',
+    });
     const batchB = makeBatch({ inventoryBatchId: 'batch-b', itemName: 'Beta', batchNumber: 'B-1' });
-    const batchC = makeBatch({ inventoryBatchId: 'batch-c', itemName: 'Gamma', batchNumber: 'C-1' });
+    const batchC = makeBatch({
+      inventoryBatchId: 'batch-c',
+      itemName: 'Gamma',
+      batchNumber: 'C-1',
+    });
 
     inventoryService.getAvailableBatchesBySearchTerm.mockImplementation((term: string) => {
       if (term === 'ric') return firstResults$;
@@ -168,6 +181,26 @@ describe('DiscountTargetItemsComponent', () => {
       expect(component.batchSearchNoResults()).toBe(true);
       expect(component.form.controls.inventoryBatchId.value).toBe('');
       expect(component.selectedBatchLabel()).toBe('');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('shows retryable feedback when batch search fails', () => {
+    const fixture = TestBed.createComponent(DiscountTargetItemsComponent);
+    const component = fixture.componentInstance;
+    inventoryService.getAvailableBatchesBySearchTerm.mockReturnValue(
+      throwError(() => new Error('search failed')),
+    );
+
+    vi.useFakeTimers();
+    try {
+      component.onBatchSearchTermChange('rice');
+      vi.advanceTimersByTime(300);
+      fixture.detectChanges();
+
+      expect(component.batchSearchError()).toBe('discounts.errors.batchSearchFailed');
+      expect(fixture.nativeElement.querySelector('[role="alert"]')).not.toBeNull();
     } finally {
       vi.useRealTimers();
     }

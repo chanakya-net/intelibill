@@ -1,10 +1,14 @@
-import { of, throwError } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 import { TestBed } from '@angular/core/testing';
 import { TranslocoService, TranslocoTestingModule } from '@ngneat/transloco';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { InventoryService } from '../../inventory/services/inventory.service';
-import { DiscountRuleDto, DiscountRuleListItemDto, DiscountService } from '../services/discount.service';
+import {
+  DiscountRuleDto,
+  DiscountRuleListItemDto,
+  DiscountService,
+} from '../services/discount.service';
 import { DiscountsPageComponent } from './discounts-page.component';
 
 describe('DiscountsPageComponent', () => {
@@ -109,7 +113,9 @@ describe('DiscountsPageComponent', () => {
     },
   };
 
-  const makeListItem = (overrides: Partial<DiscountRuleListItemDto> = {}): DiscountRuleListItemDto => ({
+  const makeListItem = (
+    overrides: Partial<DiscountRuleListItemDto> = {},
+  ): DiscountRuleListItemDto => ({
     id: 'rule-1',
     ruleType: 'BatchPercentage',
     name: '10% off batch',
@@ -242,7 +248,9 @@ describe('DiscountsPageComponent', () => {
       (element) => (element as HTMLElement).textContent?.trim() ?? '',
     );
 
-    expect(selectedLabels).toEqual(expect.arrayContaining(['Active', 'All types', 'Created newest']));
+    expect(selectedLabels).toEqual(
+      expect.arrayContaining(['Active', 'All types', 'Created newest']),
+    );
     expect(selectedLabels.some((label) => label.includes('discounts.filters.'))).toBe(false);
   });
 
@@ -263,7 +271,11 @@ describe('DiscountsPageComponent', () => {
     );
 
     expect(selectedLabels).toEqual(
-      expect.arrayContaining(['Active translated', 'All types translated', 'Created newest translated']),
+      expect.arrayContaining([
+        'Active translated',
+        'All types translated',
+        'Created newest translated',
+      ]),
     );
     expect(selectedLabels.some((label) => label.includes('discounts.filters.'))).toBe(false);
   });
@@ -272,7 +284,9 @@ describe('DiscountsPageComponent', () => {
     const fixture = TestBed.createComponent(DiscountsPageComponent);
     fixture.detectChanges();
 
-    const createButton = fixture.nativeElement.querySelector('[data-testid="discounts-create-rule"]');
+    const createButton = fixture.nativeElement.querySelector(
+      '[data-testid="discounts-create-rule"]',
+    );
     const editButton = fixture.nativeElement.querySelector('[data-testid="discounts-edit-rule"]');
     const disableButton = fixture.nativeElement.querySelector('[data-testid="discounts-disable"]');
 
@@ -292,11 +306,89 @@ describe('DiscountsPageComponent', () => {
     expect(fixture.componentInstance.selectedRule()?.id).toBe('rule-1');
   });
 
+  it('reconciles selection when the returned page no longer contains the selected rule', () => {
+    const fixture = TestBed.createComponent(DiscountsPageComponent);
+    fixture.detectChanges();
+
+    discountService.getDiscountRules.mockReturnValue(
+      of({
+        items: [makeListItem({ id: 'rule-2', name: 'Replacement row' })],
+        totalCount: 1,
+        pageNumber: 1,
+        pageSize: 20,
+      }),
+    );
+    discountService.getDiscountRule.mockReturnValue(of(makeRuleDto({ id: 'rule-2' })));
+
+    fixture.componentInstance.onSearchChange('replacement');
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.selectedRuleId()).toBe('rule-2');
+    expect(fixture.componentInstance.selectedRule()?.id).toBe('rule-2');
+  });
+
+  it('clears stale detail when the returned page is empty', () => {
+    const fixture = TestBed.createComponent(DiscountsPageComponent);
+    fixture.detectChanges();
+
+    discountService.getDiscountRules.mockReturnValue(
+      of({ items: [], totalCount: 0, pageNumber: 1, pageSize: 20 }),
+    );
+
+    fixture.componentInstance.onSearchChange('missing');
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.selectedRuleId()).toBeNull();
+    expect(fixture.componentInstance.selectedRule()).toBeNull();
+  });
+
+  it('ignores a stale list response after a newer filter request completes', () => {
+    const stale = new Subject<{
+      items: DiscountRuleListItemDto[];
+      totalCount: number;
+      pageNumber: number;
+      pageSize: number;
+    }>();
+    discountService.getDiscountRules.mockImplementation((params: { search?: string }) => {
+      if (params.search === 'stale') return stale;
+      if (params.search === 'current') {
+        return of({
+          items: [makeListItem({ id: 'rule-current' })],
+          totalCount: 1,
+          pageNumber: 1,
+          pageSize: 20,
+        });
+      }
+      return of({ items: [makeListItem()], totalCount: 1, pageNumber: 1, pageSize: 20 });
+    });
+    discountService.getDiscountRule.mockImplementation((id: string) =>
+      of(makeRuleDto({ id })),
+    );
+    const fixture = TestBed.createComponent(DiscountsPageComponent);
+    fixture.detectChanges();
+
+    fixture.componentInstance.onSearchChange('stale');
+    fixture.detectChanges();
+    fixture.componentInstance.onSearchChange('current');
+    fixture.detectChanges();
+    stale.next({
+      items: [makeListItem({ id: 'rule-stale' })],
+      totalCount: 1,
+      pageNumber: 1,
+      pageSize: 20,
+    });
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.selectedRuleId()).toBe('rule-current');
+  });
+
   it('disables an active rule and refreshes list', () => {
     const fixture = TestBed.createComponent(DiscountsPageComponent);
     fixture.detectChanges();
 
-    discountService.disableDiscountRule.mockReturnValue(of(makeRuleDto({ isActive: false, disabledAt: '2026-02-01T00:00:00Z' })));
+    discountService.disableDiscountRule.mockReturnValue(
+      of(makeRuleDto({ isActive: false, disabledAt: '2026-02-01T00:00:00Z' })),
+    );
     discountService.getDiscountRules.mockClear();
 
     const component = fixture.componentInstance;
@@ -311,7 +403,7 @@ describe('DiscountsPageComponent', () => {
     expect(component.selectedRule()?.isActive).toBe(false);
   });
 
-  it('shows disable error message when API call fails', () => {
+  it('shows disable error inside the still-open confirmation dialog when API call fails', () => {
     const fixture = TestBed.createComponent(DiscountsPageComponent);
     fixture.detectChanges();
 
@@ -321,6 +413,8 @@ describe('DiscountsPageComponent', () => {
     component.onOpenDisableDialog();
     component.onConfirmDisable();
 
-    expect(component.detailError()).toBe('discounts.errors.disableFailed');
+    expect(component.disableError()).toBe('discounts.errors.disableFailed');
+    expect(component.detailError()).toBe('');
+    expect(component.showDisableDialog()).toBe(true);
   });
 });

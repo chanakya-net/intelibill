@@ -44,6 +44,15 @@
   gap: 1rem;
 }
 
+.editor-fields {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
 .error-banner {
   margin: 0;
   padding: 0.7rem 0.85rem;
@@ -73,6 +82,8 @@
 
 :host ::ng-deep {
   .discount-rule-editor-dialog {
+    max-width: calc(100vw - 1rem);
+    max-height: calc(100dvh - 1rem);
     border: 1px solid #ead7c1;
     border-radius: 1.2rem;
     overflow: hidden;
@@ -89,6 +100,9 @@
   }
 
   .discount-rule-editor-dialog .p-dialog-content {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     padding: 0.35rem 1.15rem 1rem;
     background: transparent;
   }
@@ -183,6 +197,7 @@
   margin: 0;
   color: #2a1b12;
   font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
 .sample-values {
@@ -216,6 +231,16 @@
 }
 
 @media (max-width: 760px) {
+  .editor-header {
+    padding-right: 0.5rem;
+  }
+
+  .preview-header,
+  .sample-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   .sample-values {
     width: 100%;
     min-width: 0;
@@ -225,5 +250,14 @@
 
   .sample-metric {
     align-items: flex-start;
+  }
+
+  .editor-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .editor-actions button {
+    width: 100%;
   }
 }
