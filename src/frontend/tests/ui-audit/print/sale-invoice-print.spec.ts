@@ -207,15 +207,19 @@ async function withPrintState(
 ): Promise<void> {
   const collector = collectBrowserFailures(page);
   try {
-    // Install sales invoice routes first, then shell fixtures
     const saleState: SaleInvoiceFixtureState = {
       apiState: scenario.apiState,
       sales: new Map(scenario.sales.map((sale) => [sale.saleId, sale])),
     };
+
+    // Install shell first to setup auth and base routes
+    await installShellFixture(page, scenario.shell);
+
+    // Then override sales routes for print-specific API calls
     await page.route('http://localhost:5277/api/sales/**', (route) =>
       handleSaleRoute(route, saleState),
     );
-    await installShellFixture(page, scenario.shell);
+
     const templateParam = template === 'thermal' ? '?template=thermal' : '';
     await page.goto(`${ROUTE}/${saleId}/print${templateParam}`);
     await page.emulateMedia({ media: 'print', colorScheme: 'light' });
