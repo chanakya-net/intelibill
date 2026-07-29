@@ -61,7 +61,7 @@ test.describe('suppliers', () => {
   test('renders supplier tables or cards and filters known fixtures', async ({ page }) => {
     const collector = collectBrowserFailures(page);
     try {
-      await openSuppliers(page, { suppliers: FILTER_SUPPLIERS });
+      await openSuppliers(page, { supplierMock: { suppliers: FILTER_SUPPLIERS } });
       const rows = visibleSupplierRows(page);
       await expect(rows).toHaveCount(2);
       await expect(rows).toContainText(['Active Audit Supplier', 'Inactive Audit Supplier']);
@@ -87,12 +87,12 @@ test.describe('suppliers', () => {
   });
 
   test('renders loading, error, and empty supplier states', async ({ page }) => {
-    await openSuppliers(page, { suppliersState: 'loading' });
+    await openSuppliers(page, { supplierMock: { suppliersState: 'loading' } });
     await expect(page.locator('.directory-panel--loading[aria-busy="true"]')).toBeVisible();
 
     const collector = collectBrowserFailures(page, supplierErrorIgnores('/api/suppliers', 503));
     try {
-      await openSuppliers(page, { suppliersState: 'error' });
+      await openSuppliers(page, { supplierMock: { suppliersState: 'error' } });
       await expect(page.locator('.error')).toContainText('Unable to load suppliers');
       await expect(page.locator('.directory-panel__surface')).toBeVisible();
       assertNoUnexpectedBrowserFailures(collector.failures);
@@ -100,7 +100,7 @@ test.describe('suppliers', () => {
       collector.dispose();
     }
 
-    await openSuppliers(page, { returnEmptySuppliers: true });
+    await openSuppliers(page, { supplierMock: { returnEmptySuppliers: true } });
     const emptyState = page.locator(
       '.desktop-table:visible .empty-state, .mobile-grid-container:visible .mobile-empty-state',
     );
@@ -196,7 +196,7 @@ test.describe('suppliers', () => {
       await openSuppliers(page);
       const detail = await openSupplierDetail(page);
       await detail.getByRole('spinbutton', { name: 'Amount ₹' }).fill('1000');
-      await detail.getByRole('button', { name: /submit payment/i }).click();
+      await detail.getByRole('button', { name: 'suppliers.recordPayment', exact: true }).click();
       expect(paymentRequests).toBe(1);
       await expect(detail.locator('.ledger-table tbody tr')).toHaveCount(3);
       await detail.getByRole('button', { name: 'Payments', exact: true }).click();
@@ -209,12 +209,12 @@ test.describe('suppliers', () => {
   });
 
   test('displays supplier detail and payment errors from explicit API responses', async ({ page }) => {
-    const detailCollector = collectBrowserFailures(page, supplierErrorIgnores('/detail', 503));
+    const detailCollector = collectBrowserFailures(page, supplierErrorIgnores('/ledger', 503));
     try {
-      await openSuppliers(page, { supplierDetailError: 503 });
+      await openSuppliers(page, { supplierMock: { supplierLedgerError: 503 } });
       const dialog = await openSupplierDetail(page);
       await expect(dialog.locator('.error')).toHaveText(
-        'Unable to load supplier details right now.',
+        'Unable to load supplier ledger right now.',
       );
       await expect(dialog.locator('.supplier-detail')).toBeHidden();
       assertNoUnexpectedBrowserFailures(detailCollector.failures);
@@ -230,16 +230,16 @@ test.describe('suppliers', () => {
       }
     });
     try {
-      await openSuppliers(page, { supplierPaymentError: 500 });
+      await openSuppliers(page, { supplierMock: { supplierPaymentError: 500 } });
       const detail = await openSupplierDetail(page);
       await detail.getByRole('spinbutton', { name: 'Amount ₹' }).fill('1000');
-      await detail.getByRole('button', { name: /submit payment/i }).click();
+      await detail.getByRole('button', { name: 'suppliers.recordPayment', exact: true }).click();
       expect(paymentRequests).toBe(1);
       await expect(detail.locator('.error')).toHaveText('Unable to record payment right now.');
       await expect(detail.locator('.ledger-table tbody tr')).toHaveCount(2);
       assertNoUnexpectedBrowserFailures(paymentCollector.failures);
     } finally {
-      collector.dispose();
+      paymentCollector.dispose();
     }
   });
 
@@ -321,7 +321,7 @@ async function fillSupplierForm(
 
 async function openSupplierDetail(page: Page, supplierName = 'Audit Supplier One'): Promise<Locator> {
   const trigger = page
-    .locator('.supplier-name-link:visible, .supplier-card__identity:visible')
+    .locator('.supplier-name-link:visible, .supplier-card:visible')
     .filter({ hasText: supplierName });
   await expect(trigger).toBeVisible();
   await trigger.click();

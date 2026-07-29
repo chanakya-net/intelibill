@@ -40,10 +40,11 @@
         </div>
       </div>
 
-      <app-supplier-ledger-table [entries]="tableEntries()" [loading]="isLoading()" />
-
-      <h3 class="details-heading" style="margin-top: 2rem;">{{ 'suppliers.makePayment' | transloco }}</h3>
-      <app-supplier-payment-form />
+      @if (facade.ledgerErrorMessage()) {
+        <div class="error">{{ facade.ledgerErrorMessage() }}</div>
+      } @else {
+        <app-supplier-ledger-table [entries]="tableEntries()" [loading]="isLoading()" />
+      }
     </div>
   </div>
 </p-dialog>

@@ -2,6 +2,8 @@ import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
 import type { ConsoleMessage, Page, Request, Response } from '@playwright/test';
+import type { SupplierMockOptions } from './suppliers-mock';
+import { getSupplierDefaults, createSupplierRouteHandler } from './suppliers-mock';
 
 export interface BrowserFailure {
   readonly kind: 'console' | 'pageerror' | 'request' | 'response';
@@ -87,13 +89,7 @@ export interface MockExternalRequestsOptions {
   readonly customerAccounts?: Record<string, MockCustomerAccount>;
   readonly customerAccountError?: number;
   readonly customerPaymentError?: number;
-  readonly returnEmptySuppliers?: boolean;
-  readonly suppliers?: readonly MockSupplier[];
-  readonly suppliersState?: 'ready' | 'loading' | 'error';
-  readonly suppliersErrorStatus?: number;
-  readonly supplierDetails?: Record<string, MockSupplierDetail>;
-  readonly supplierDetailError?: number;
-  readonly supplierPaymentError?: number;
+  readonly supplierMock?: SupplierMockOptions;
 }
 
 export interface MockCustomer {
@@ -302,147 +298,6 @@ export interface MockCustomerLedgerEntry {
   readonly runningBalance: number;
 }
 
-export interface MockSupplier {
-  readonly supplierId: string;
-  readonly name: string;
-  readonly contactPersonName: string | null;
-  readonly contactPersonPhone: string | null;
-  readonly address: string;
-  readonly city: string;
-  readonly state: string;
-  readonly pin: string;
-  readonly gstNumber?: string | null;
-  readonly isSystem: boolean;
-  readonly isActive: boolean;
-  readonly isPreferred: boolean;
-  readonly balanceDue: number;
-}
-
-export interface MockSupplierDetail {
-  readonly supplierId: string;
-  readonly name: string;
-  readonly contactPersonName: string | null;
-  readonly contactPersonPhone: string | null;
-  readonly balanceDue: number;
-  readonly ledgerEntries: readonly MockSupplierLedgerEntry[];
-  readonly paymentHistory: readonly MockSupplierLedgerEntry[];
-}
-
-export interface MockSupplierLedgerEntry {
-  readonly id: string;
-  readonly supplierId: string;
-  readonly entryType: 'GOODS_RECEIVED' | 'PAYMENT_MADE' | 'RECORD_ADJUSTED' | number;
-  readonly amount: number;
-  readonly entryDate: string;
-  readonly notes: string | null;
-}
-
-const DEFAULT_SUPPLIERS: readonly MockSupplier[] = [
-  {
-    supplierId: '1',
-    name: 'Audit Supplier One',
-    contactPersonName: 'Supplier Contact',
-    contactPersonPhone: '+919876543210',
-    address: '123 Supplier St, Bengaluru',
-    city: 'Bengaluru',
-    state: 'Karnataka',
-    pin: '560001',
-    gstNumber: '29SUPPLIER1234F1Z5',
-    isSystem: false,
-    isActive: true,
-    isPreferred: false,
-    balanceDue: 50000,
-  },
-  {
-    supplierId: '2',
-    name: 'Audit Supplier Two',
-    contactPersonName: 'Another Contact',
-    contactPersonPhone: '+919123456789',
-    address: '456 Supplier Avenue, Pune',
-    city: 'Pune',
-    state: 'Maharashtra',
-    pin: '411001',
-    gstNumber: '27SUPPLIER2234F1Z5',
-    isSystem: false,
-    isActive: true,
-    isPreferred: true,
-    balanceDue: 75000,
-  },
-];
-
-const DEFAULT_SUPPLIER_DETAILS: Readonly<Record<string, MockSupplierDetail>> = {
-  '1': {
-    supplierId: '1',
-    name: 'Audit Supplier One',
-    contactPersonName: 'Supplier Contact',
-    contactPersonPhone: '+919876543210',
-    balanceDue: 50000,
-    ledgerEntries: [
-      {
-        id: 'ledger-1',
-        supplierId: '1',
-        entryType: 'GOODS_RECEIVED',
-        amount: 50000,
-        entryDate: '2025-01-15T10:30:00Z',
-        notes: 'Purchase order received',
-      },
-      {
-        id: 'ledger-2',
-        supplierId: '1',
-        entryType: 'PAYMENT_MADE',
-        amount: 0,
-        entryDate: '2025-01-20T11:00:00Z',
-        notes: null,
-      },
-    ],
-    paymentHistory: [
-      {
-        id: 'payment-1',
-        supplierId: '1',
-        entryType: 'PAYMENT_MADE',
-        amount: 0,
-        entryDate: '2025-01-20T11:00:00Z',
-        notes: null,
-      },
-    ],
-  },
-  '2': {
-    supplierId: '2',
-    name: 'Audit Supplier Two',
-    contactPersonName: 'Another Contact',
-    contactPersonPhone: '+919123456789',
-    balanceDue: 75000,
-    ledgerEntries: [
-      {
-        id: 'ledger-3',
-        supplierId: '2',
-        entryType: 'GOODS_RECEIVED',
-        amount: 75000,
-        entryDate: '2025-02-10T09:15:00Z',
-        notes: 'Bulk order',
-      },
-      {
-        id: 'ledger-4',
-        supplierId: '2',
-        entryType: 'PAYMENT_MADE',
-        amount: 0,
-        entryDate: '2025-02-15T15:30:00Z',
-        notes: null,
-      },
-    ],
-    paymentHistory: [
-      {
-        id: 'payment-2',
-        supplierId: '2',
-        entryType: 'PAYMENT_MADE',
-        amount: 0,
-        entryDate: '2025-02-15T15:30:00Z',
-        notes: null,
-      },
-    ],
-  },
-};
-
 export async function mockExternalRequests(
   page: Page,
   options: MockExternalRequestsOptions = {},
@@ -500,14 +355,9 @@ export async function mockExternalRequests(
     ...options.customerAccounts,
   });
 
-  let suppliers = [
-    ...(options.suppliers ?? (options.returnEmptySuppliers ? [] : DEFAULT_SUPPLIERS)),
-  ];
-  const suppliersListState = options.suppliersState ?? 'ready';
-  let supplierDetails = cloneSupplierDetails({
-    ...DEFAULT_SUPPLIER_DETAILS,
-    ...options.supplierDetails,
-  });
+  const { suppliers, supplierDetails } = getSupplierDefaults(options.supplierMock ?? {});
+  const mutableSupplierState = { suppliers, supplierDetails };
+  const handleSupplierRoute = createSupplierRouteHandler(mutableSupplierState, options.supplierMock ?? {});
 
   await page.routeWebSocket('ws://localhost:5277/**', (webSocket) => {
     webSocket.onMessage((message) => {
@@ -723,101 +573,7 @@ export async function mockExternalRequests(
       return;
     }
 
-    if (requestUrl.pathname === '/api/suppliers') {
-      if (route.request().method() === 'GET') {
-        if (suppliersListState === 'loading') await delay(1_000);
-        if (suppliersListState === 'error') {
-          await fulfillSupplierError(route, options.suppliersErrorStatus ?? 503);
-          return;
-        }
-        await fulfillJson(route, suppliers);
-        return;
-      }
-      if (route.request().method() === 'POST') {
-        const supplier = createSupplier(route.request(), suppliers.length + 1);
-        suppliers = [...suppliers, supplier];
-        await fulfillJson(route, supplier);
-        return;
-      }
-    }
-
-    const supplierId = requestUrl.pathname.match(/^\/api\/suppliers\/([^/]+)$/)?.[1];
-    if (supplierId && route.request().method() === 'PUT') {
-      const payload = route.request().postDataJSON() as Partial<MockSupplier>;
-      const supplier = {
-        ...suppliers.find((item) => item.supplierId === supplierId),
-        ...payload,
-        supplierId,
-      } as MockSupplier;
-      suppliers = suppliers.map((item) => (item.supplierId === supplierId ? supplier : item));
-      await fulfillJson(route, supplier);
-      return;
-    }
-    if (supplierId && route.request().method() === 'DELETE') {
-      suppliers = suppliers.filter((item) => item.supplierId !== supplierId);
-      await route.fulfill({ status: 204 });
-      return;
-    }
-
-    const supplierDetailPath = requestUrl.pathname.match(/^\/api\/suppliers\/([^/]+)\/detail$/)?.[1];
-    if (supplierDetailPath) {
-      if (route.request().method() === 'GET') {
-        if (options.supplierDetailError) {
-          await fulfillSupplierDetailError(route, options.supplierDetailError);
-          return;
-        }
-        const detail = supplierDetails[supplierDetailPath];
-        await fulfillJson(route, detail || { supplierId: supplierDetailPath });
-        return;
-      }
-    }
-
-    const supplierLedgerPath = requestUrl.pathname.match(/^\/api\/suppliers\/([^/]+)\/ledger$/)?.[1];
-    if (supplierLedgerPath) {
-      if (route.request().method() === 'GET') {
-        const detail = supplierDetails[supplierLedgerPath];
-        await fulfillJson(route, detail?.ledgerEntries || []);
-        return;
-      }
-    }
-
-    const supplierPaymentPath = requestUrl.pathname.match(/^\/api\/suppliers\/([^/]+)\/payments$/)?.[1];
-    if (supplierPaymentPath) {
-      if (route.request().method() === 'POST') {
-        if (options.supplierPaymentError) {
-          await fulfillSupplierPaymentError(route, options.supplierPaymentError);
-          return;
-        }
-        const detail = supplierDetails[supplierPaymentPath];
-        if (detail) {
-          const payload = route.request().postDataJSON() as { amount: number; paymentDate: string; notes: string | null };
-          const newEntry: MockSupplierLedgerEntry = {
-            id: `payment-${Date.now()}`,
-            supplierId: supplierPaymentPath,
-            entryType: 'PAYMENT_MADE',
-            amount: payload.amount,
-            entryDate: payload.paymentDate,
-            notes: payload.notes,
-          };
-          supplierDetails[supplierPaymentPath] = {
-            ...detail,
-            balanceDue: Math.max(0, detail.balanceDue - payload.amount),
-            ledgerEntries: [...detail.ledgerEntries, newEntry],
-            paymentHistory: [...detail.paymentHistory, newEntry],
-          };
-          await fulfillJson(route, newEntry);
-          return;
-        }
-      }
-    }
-
-    if (
-      requestUrl.pathname.startsWith('/api/suppliers/') &&
-      !requestUrl.pathname.includes('/detail') &&
-      !requestUrl.pathname.includes('/ledger') &&
-      !requestUrl.pathname.includes('/payments')
-    ) {
-      await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+    if (await handleSupplierRoute(route)) {
       return;
     }
 
@@ -941,59 +697,6 @@ export async function compareScreenshot(options: {
   }
 
   return { status: 'matched', bytes };
-}
-
-function createSupplier(request: Request, sequence: number): MockSupplier {
-  const payload = request.postDataJSON() as Omit<MockSupplier, 'supplierId'>;
-  return { ...payload, supplierId: `created-${sequence}` };
-}
-
-function cloneSupplierDetails(
-  details: Readonly<Record<string, MockSupplierDetail>>,
-): Record<string, MockSupplierDetail> {
-  return Object.fromEntries(
-    Object.entries(details).map(([supplierId, detail]) => [
-      supplierId,
-      {
-        ...detail,
-        ledgerEntries: [...detail.ledgerEntries],
-        paymentHistory: [...detail.paymentHistory],
-      },
-    ]),
-  );
-}
-
-async function fulfillSupplierError(
-  route: import('@playwright/test').Route,
-  status: number,
-): Promise<void> {
-  await route.fulfill({
-    status,
-    contentType: 'application/json',
-    body: JSON.stringify({ title: 'Suppliers.LoadFailed' }),
-  });
-}
-
-async function fulfillSupplierDetailError(
-  route: import('@playwright/test').Route,
-  status: number,
-): Promise<void> {
-  await route.fulfill({
-    status,
-    contentType: 'application/json',
-    body: JSON.stringify({ detail: 'Unable to load supplier details right now.' }),
-  });
-}
-
-async function fulfillSupplierPaymentError(
-  route: import('@playwright/test').Route,
-  status: number,
-): Promise<void> {
-  await route.fulfill({
-    status,
-    contentType: 'application/json',
-    body: JSON.stringify({ detail: 'Unable to record payment right now.' }),
-  });
 }
 
 async function fileExists(path: string): Promise<boolean> {

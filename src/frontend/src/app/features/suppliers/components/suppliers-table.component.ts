@@ -1,5 +1,5 @@
 import { CommonModule, CurrencyPipe } from '@angular/common';
-import { Component, EventEmitter, Input, Output, computed, inject, signal } from '@angular/core';
+import { Component, EventEmitter, Input, Output, computed, inject, input, signal } from '@angular/core';
 import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import { AvatarModule } from 'primeng/avatar';
 import { ButtonModule } from 'primeng/button';
@@ -30,7 +30,7 @@ import { SuppliersFilterBarComponent } from './suppliers-filter-bar.component';
 export class SuppliersTableComponent {
   private readonly transloco = inject(TranslocoService);
 
-  @Input({ required: true }) suppliers: readonly Supplier[] = [];
+  readonly suppliers = input.required<readonly Supplier[]>();
   @Input() canManageSuppliers = false;
   @Input() canMakePayment = false;
 
@@ -42,7 +42,7 @@ export class SuppliersTableComponent {
   readonly statusFilter = signal<'all' | 'active' | 'inactive'>('all');
 
   readonly filteredSuppliers = computed(() => {
-    let result = [...this.suppliers];
+    let result = [...this.suppliers()];
     const search = this.searchValue().toLowerCase();
     const status = this.statusFilter();
 

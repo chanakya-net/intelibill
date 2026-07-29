@@ -10,7 +10,6 @@ import { Supplier } from '../services/supplier.service';
 import { SuppliersFacade } from '../state/suppliers.facade';
 import { SupplierInfoCardComponent } from './supplier-detail/supplier-info-card.component';
 import { SupplierLedgerTableComponent } from './supplier-detail/supplier-ledger-table.component';
-import { SupplierPaymentFormComponent } from './supplier-detail/supplier-payment-form.component';
 
 @Component({
   selector: 'app-supplier-detail',
@@ -21,14 +20,13 @@ import { SupplierPaymentFormComponent } from './supplier-detail/supplier-payment
     ButtonModule,
     SupplierInfoCardComponent,
     SupplierLedgerTableComponent,
-    SupplierPaymentFormComponent,
     TranslocoPipe,
   ],
   templateUrl: './supplier-detail.component.html',
   styleUrl: './supplier-detail.component.scss',
 })
 export class SupplierDetailComponent {
-  private readonly facade = inject(SuppliersFacade);
+  readonly facade = inject(SuppliersFacade);
   private readonly transloco = inject(TranslocoService);
   private readonly currentLang = toSignal(this.transloco.langChanges$, { initialValue: '' });
 

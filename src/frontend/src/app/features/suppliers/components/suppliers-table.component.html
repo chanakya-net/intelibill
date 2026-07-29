@@ -6,7 +6,7 @@
     (statusFilterChange)="onStatusChange($event)"
   />
   <div class="supplier-list">
-    @for (supplier of suppliers; track supplier.supplierId) {
+    @for (supplier of filteredSuppliers(); track supplier.supplierId) {
       <p-card
         class="supplier-card-item cursor-pointer"
         [class.opacity-50]="!supplier.isActive"
@@ -91,7 +91,7 @@
       </p-card>
     }
 
-    @if (suppliers.length === 0) {
+    @if (filteredSuppliers().length === 0) {
       <div class="mobile-empty-state">
         <h2 class="text-xl font-bold text-slate-700">{{ 'suppliers.noSuppliersFound' | transloco }}</h2>
         <p class="text-slate-500">{{ 'suppliers.noSuppliersDescription' | transloco }}</p>
