@@ -157,7 +157,10 @@
   }
 
   @page {
-    size: 80mm auto;
+    // Chromium's PDF/print engine does not honor a two-value @page size with
+    // an "auto" height (it silently falls back to Letter); use a fixed,
+    // generously tall page so continuous receipt content still fits.
+    size: 80mm 3000mm;
     margin: 0;
   }
 

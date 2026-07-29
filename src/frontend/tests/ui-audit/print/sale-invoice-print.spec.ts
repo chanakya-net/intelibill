@@ -1,4 +1,4 @@
-import { expect, test, type Page, type Route } from '@playwright/test';
+import { expect, test, type Locator, type Page, type Route } from '@playwright/test';
 
 import {
   assertNoUnexpectedBrowserFailures,
@@ -33,6 +33,7 @@ test.describe('sale-invoice-print (A4 media audit)', () => {
         await assertDocumentSections(page);
         await assertScreenControlsHidden(page);
         await assertExactPrintFonts(page);
+        await assertA4Totals(page, sale);
         await assertA4Output(page, 1);
       },
     );
@@ -61,6 +62,7 @@ test.describe('sale-invoice-print (A4 media audit)', () => {
       'a4',
       async () => {
         await assertDocumentSections(page);
+        await assertA4Totals(page, DENSE_SALE);
         await assertA4Output(page, 1);
         await assertNoClippingOrOverlap(page);
       },
@@ -74,8 +76,7 @@ test.describe('sale-invoice-print (A4 media audit)', () => {
       LARGE_VALUE_SALE.saleId,
       'a4',
       async () => {
-        await expect(page.locator('.invoice__totals-value').first()).toContainText('80,000');
-        await expect(page.locator('.invoice__totals-value').nth(1)).toContainText('5,000');
+        await assertA4Totals(page, LARGE_VALUE_SALE);
         await assertA4Output(page, 1);
         await assertNoClippingOrOverlap(page);
       },
@@ -96,6 +97,7 @@ test.describe('sale-invoice-print (A4 media audit)', () => {
         await expect(page.locator('.invoice__customer-phone')).toHaveCount(0);
         await expect(page.locator('.invoice__shop-phone, .invoice__shop-gst')).toHaveCount(0);
         await assertDocumentSections(page);
+        await assertA4Totals(page, OPTIONAL_FIELDS_SALE);
         await assertA4Output(page, 1);
       },
     );
@@ -152,6 +154,7 @@ test.describe('sale-invoice-print (80mm thermal media audit)', () => {
       async () => {
         await assertThermalDocumentSections(page);
         await assertScreenControlsHidden(page);
+        await assertThermalTotals(page, sale);
         await assertThermalOutput(page);
       },
     );
@@ -179,6 +182,7 @@ test.describe('sale-invoice-print (80mm thermal media audit)', () => {
       'thermal',
       async () => {
         await assertThermalDocumentSections(page);
+        await assertThermalTotals(page, DENSE_SALE);
         await assertThermalOutput(page);
         await assertNoClippingOrOverlapThermal(page);
       },
@@ -193,6 +197,7 @@ test.describe('sale-invoice-print (80mm thermal media audit)', () => {
       'thermal',
       async () => {
         await assertThermalDocumentSections(page);
+        await assertThermalTotals(page, LARGE_VALUE_SALE);
         await assertThermalOutput(page);
         await assertNoClippingOrOverlapThermal(page);
       },
@@ -213,6 +218,7 @@ test.describe('sale-invoice-print (80mm thermal media audit)', () => {
         await expect(
           page.locator('.thermal-invoice__shop-phone, .thermal-invoice__shop-gst'),
         ).toHaveCount(0);
+        await assertThermalTotals(page, OPTIONAL_FIELDS_SALE);
         await assertThermalOutput(page);
       },
     );
@@ -355,6 +361,12 @@ async function assertExactPrintFonts(page: Page): Promise<void> {
   expect(fonts.heading).toBe('Georgia, "Times New Roman", serif');
 }
 
+const PT_PER_MM = 72 / 25.4;
+const A4_WIDTH_PT = 210 * PT_PER_MM;
+const A4_HEIGHT_PT = 297 * PT_PER_MM;
+const THERMAL_WIDTH_PT = 80 * PT_PER_MM;
+const PDF_DIMENSION_TOLERANCE_PT = 2;
+
 async function assertA4Output(page: Page, minimumPages: number): Promise<void> {
   const printStyles = await page.locator('article.invoice').evaluate((article) => {
     const targets = [
@@ -380,14 +392,21 @@ async function assertA4Output(page: Page, minimumPages: number): Promise<void> {
   expect(printStyles.breaks).toEqual(['avoid', 'avoid', 'avoid', 'avoid']);
   expect(printStyles.pageRule.toLowerCase()).toContain('size: a4');
 
-  const pdf = await page.pdf({
-    format: 'A4',
-    margin: { top: '12mm', right: '12mm', bottom: '12mm', left: '12mm' },
-    preferCSSPageSize: true,
-    printBackground: true,
-  });
-  const pageCount = (pdf.toString('latin1').match(/\/Type\s*\/Page\b/g) ?? []).length;
+  // Omit format/width/height so the generated MediaBox reflects the page's own
+  // @page CSS rule (via preferCSSPageSize) rather than a size forced by the test.
+  const pdf = await page.pdf({ preferCSSPageSize: true, printBackground: true });
+  const pdfText = pdf.toString('latin1');
+  const pageCount = (pdfText.match(/\/Type\s*\/Page\b/g) ?? []).length;
   expect(pageCount).toBeGreaterThanOrEqual(minimumPages);
+
+  const mediaBoxes = extractMediaBoxesPt(pdfText);
+  expect(mediaBoxes.length).toBeGreaterThan(0);
+  for (const box of mediaBoxes) {
+    expect(box.width).toBeGreaterThanOrEqual(A4_WIDTH_PT - PDF_DIMENSION_TOLERANCE_PT);
+    expect(box.width).toBeLessThanOrEqual(A4_WIDTH_PT + PDF_DIMENSION_TOLERANCE_PT);
+    expect(box.height).toBeGreaterThanOrEqual(A4_HEIGHT_PT - PDF_DIMENSION_TOLERANCE_PT);
+    expect(box.height).toBeLessThanOrEqual(A4_HEIGHT_PT + PDF_DIMENSION_TOLERANCE_PT);
+  }
 }
 
 async function assertThermalOutput(page: Page): Promise<void> {
@@ -418,6 +437,122 @@ async function assertThermalOutput(page: Page): Promise<void> {
   expect(output.font).toContain('Courier New');
   expect(output.overflow).toBe(false);
   expect(output.pageRule.toLowerCase()).toContain('80mm');
+
+  // Generate the actual thermal print artifact and prove the printer-selected
+  // width comes from the 80mm @page CSS rule, not an assumption about the DOM.
+  const pdf = await page.pdf({ preferCSSPageSize: true, printBackground: true });
+  const mediaBoxes = extractMediaBoxesPt(pdf.toString('latin1'));
+  expect(mediaBoxes.length).toBeGreaterThan(0);
+  for (const box of mediaBoxes) {
+    expect(box.width).toBeGreaterThanOrEqual(THERMAL_WIDTH_PT - PDF_DIMENSION_TOLERANCE_PT);
+    expect(box.width).toBeLessThanOrEqual(THERMAL_WIDTH_PT + PDF_DIMENSION_TOLERANCE_PT);
+  }
+}
+
+interface PdfPageBox {
+  readonly width: number;
+  readonly height: number;
+}
+
+function extractMediaBoxesPt(pdfText: string): PdfPageBox[] {
+  const pattern = /\/MediaBox\s*\[\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\]/g;
+  const boxes: PdfPageBox[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(pdfText)) !== null) {
+    const [, x0, y0, x1, y1] = match;
+    boxes.push({ width: Number(x1) - Number(x0), height: Number(y1) - Number(y0) });
+  }
+  return boxes;
+}
+
+function formatCurrency(value: number): string {
+  return `₹${value.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function exactText(value: string): RegExp {
+  return new RegExp(`^\\s*${escapeRegExp(value)}\\s*$`);
+}
+
+async function assertA4Totals(page: Page, sale: SaleDto): Promise<void> {
+  await assertTotalsRow(
+    page.locator('.invoice__totals-row'),
+    '.invoice__totals-label',
+    '.invoice__totals-value',
+    'Subtotal (Before Discount)',
+    formatCurrency(sale.totalBeforeDiscount),
+  );
+  await assertTotalsRow(
+    page.locator('.invoice__totals-row'),
+    '.invoice__totals-label',
+    '.invoice__totals-value',
+    'Discount',
+    `-${formatCurrency(sale.totalDiscountAmount)}`,
+  );
+  await assertTotalsRow(
+    page.locator('.invoice__totals-row'),
+    '.invoice__totals-label',
+    '.invoice__totals-value',
+    'Tax',
+    formatCurrency(sale.totalTaxAmount),
+  );
+  await assertTotalsRow(
+    page.locator('.invoice__totals-row'),
+    '.invoice__totals-label',
+    '.invoice__totals-value',
+    'Grand Total',
+    formatCurrency(sale.totalAmount),
+  );
+}
+
+async function assertThermalTotals(page: Page, sale: SaleDto): Promise<void> {
+  await assertTotalsRow(
+    page.locator('.thermal-invoice__summary-row'),
+    'span >> nth=0',
+    'span >> nth=1',
+    'Subtotal (Before Discount)',
+    formatCurrency(sale.totalBeforeDiscount),
+  );
+  await assertTotalsRow(
+    page.locator('.thermal-invoice__summary-row'),
+    'span >> nth=0',
+    'span >> nth=1',
+    'Discount',
+    `-${formatCurrency(sale.totalDiscountAmount)}`,
+  );
+  await assertTotalsRow(
+    page.locator('.thermal-invoice__summary-row'),
+    'span >> nth=0',
+    'span >> nth=1',
+    'Tax',
+    formatCurrency(sale.totalTaxAmount),
+  );
+  await assertTotalsRow(
+    page.locator('.thermal-invoice__summary-row'),
+    'span >> nth=0',
+    'span >> nth=1',
+    'Grand Total',
+    formatCurrency(sale.totalAmount),
+  );
+}
+
+async function assertTotalsRow(
+  rows: Locator,
+  labelSelector: string,
+  valueSelector: string,
+  label: string,
+  expectedValue: string,
+): Promise<void> {
+  const row = rows.filter({
+    has: rows.page().locator(labelSelector, { hasText: exactText(label) }),
+  });
+  await expect(row.locator(valueSelector)).toHaveText(expectedValue);
 }
 
 async function assertNoClippingOrOverlap(page: Page): Promise<void> {
