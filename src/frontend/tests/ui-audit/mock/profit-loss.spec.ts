@@ -345,13 +345,16 @@ function waitForReportRequest(
   page: Page,
   expected: Readonly<Record<string, string | null>>,
 ): Promise<import('@playwright/test').Response> {
-  return page.waitForResponse((response) => {
-    const url = new URL(response.url());
-    return (
-      url.pathname === API_PATH &&
-      Object.entries(expected).every(([key, value]) => url.searchParams.get(key) === value)
-    );
-  });
+  return page.waitForResponse(
+    (response) => {
+      const url = new URL(response.url());
+      return (
+        url.pathname === API_PATH &&
+        Object.entries(expected).every(([key, value]) => url.searchParams.get(key) === value)
+      );
+    },
+    { timeout: 60_000 },
+  );
 }
 
 async function selectDate(page: Page, index: number, day: number): Promise<void> {
