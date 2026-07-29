@@ -1084,15 +1084,11 @@ dotnet test tests/backend/integration/Intelibill.Integration.Tests
 
 If the documented concurrent purchase-order test alone flakes, rerun that exact test in isolation and record both results. Do not conceal any other failure.
 
-- [ ] **Step 4: Refresh the repository graph**
+- [ ] **Step 4: Verify the repository code graph**
 
-Run:
-
-```bash
-graphify update . --no-viz
-```
-
-If this installation still attempts HTML generation and reports the known graph-size failure after confirming the AST graph is current, record that separately from the infrastructure verification.
+Confirm `.codegraph/` exists and inspect the index with the CodeGraph status
+tool. Use CodeGraph context and symbol tools for subsequent repository
+exploration.
 
 - [ ] **Step 5: Check the worktree**
 

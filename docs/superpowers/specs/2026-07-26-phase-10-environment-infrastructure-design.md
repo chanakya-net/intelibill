@@ -510,8 +510,3 @@ public web app, find a running explicit revision/replica within a bounded
 deadline, and obtain an internal `/health/ready` HTTP 200. The second saved plan
 explicitly clears retention and is machine-guarded to delete only `old - new`
 exact rules. A bare combined checker must pass after that second apply.
-
-Separately, Graphify extracts the repository AST successfully but cannot
-generate HTML for the 14,305-node graph because it exceeds the visualization
-size limit. That tooling limitation is unrelated to the infrastructure
-acceptance gates.

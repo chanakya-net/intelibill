@@ -143,17 +143,17 @@ Add to `.csproj` (no version):
 <PackageReference Include="Pkg.Name" />
 ```
 
-## Graphify Knowledge Graph
+## CodeGraph
 
-Graph at `graphify-out/`
+`.codegraph/` is the repository's code knowledge graph.
 
-**Before architecture/codebase Q**: read `graphify-out/GRAPH_REPORT.md` (god nodes, communities) + `graphify-out/wiki/index.md` (if exists)
-
-**Workflow**: `/graphify` → read GRAPH_REPORT.md → use graphify tools (not CodeGraph unless asked)
-
-**After changes**: `graphify update .` (AST-only, no API cost)
-
-**Direct lookups**: `rg`, `rg --files`, file reads OK
+- Use `codegraph_context` first for broad codebase tasks.
+- Use `codegraph_search` and `codegraph_node` for symbol lookup.
+- Use `codegraph_callers` and `codegraph_callees` to trace execution.
+- Use `codegraph_impact` before changing shared symbols.
+- Use `rg`, `rg --files`, and direct file reads for configuration, documentation,
+  and other non-symbol searches.
+- If `.codegraph/` is missing, ask before running `codegraph init -i`.
 
 ## Links (Reference—Don't Duplicate)
 
