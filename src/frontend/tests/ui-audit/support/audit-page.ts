@@ -85,6 +85,7 @@ export interface MockExternalRequestsOptions {
   readonly customersState?: 'ready' | 'loading' | 'error';
   readonly customersErrorStatus?: number;
   readonly customerAccounts?: Record<string, MockCustomerAccount>;
+  readonly customerAccountError?: number;
   readonly customerPaymentError?: number;
 }
 
@@ -156,7 +157,7 @@ const DEFAULT_CUSTOMERS: readonly MockCustomer[] = [
   },
 ];
 
-const DEFAULT_CUSTOMER_ACCOUNTS: Record<string, MockCustomerAccount> = {
+const DEFAULT_CUSTOMER_ACCOUNTS: Readonly<Record<string, MockCustomerAccount>> = {
   '1': {
     customerId: '1',
     name: 'John Doe',
@@ -346,7 +347,10 @@ export async function mockExternalRequests(
     ...(options.customers ?? (options.returnEmptyCustomers ? [] : DEFAULT_CUSTOMERS)),
   ];
   const customersListState = options.customersState ?? 'ready';
-  const customerAccounts = { ...DEFAULT_CUSTOMER_ACCOUNTS, ...options.customerAccounts };
+  let customerAccounts = cloneCustomerAccounts({
+    ...DEFAULT_CUSTOMER_ACCOUNTS,
+    ...options.customerAccounts,
+  });
 
   await page.routeWebSocket('ws://localhost:5277/**', (webSocket) => {
     webSocket.onMessage((message) => {
@@ -360,7 +364,7 @@ export async function mockExternalRequests(
     const requestUrl = new URL(route.request().url());
     const isLocalApp =
       (requestUrl.hostname === '127.0.0.1' || requestUrl.hostname === 'localhost') &&
-      requestUrl.port === '4300';
+      requestUrl.port !== '5277';
 
     if (isLocalApp || requestUrl.protocol === 'data:') {
       await route.continue();
@@ -504,6 +508,10 @@ export async function mockExternalRequests(
 
     const accountMatch = requestUrl.pathname.match(/^\/api\/customers\/([^/]+)\/account$/);
     if (accountMatch?.[1]) {
+      if (options.customerAccountError) {
+        await fulfillCustomerAccountError(route, options.customerAccountError);
+        return;
+      }
       const id = accountMatch[1];
       const account = customerAccounts[id];
       if (account) {
@@ -535,15 +543,25 @@ export async function mockExternalRequests(
           notes: 'Payment submitted',
           runningBalance: Math.max(0, account.outstandingDue - (payload.amount ?? 0)),
         };
-        account.ledgerEntries.push(newEntry);
-        account.paymentHistory.push(newEntry);
-        account.outstandingDue = newEntry.runningBalance;
+        customerAccounts = {
+          ...customerAccounts,
+          [customerId]: {
+            ...account,
+            outstandingDue: newEntry.runningBalance,
+            ledgerEntries: [...account.ledgerEntries, newEntry],
+            paymentHistory: [...account.paymentHistory, newEntry],
+          },
+        };
         await fulfillJson(route, newEntry);
         return;
       }
     }
 
-    if (requestUrl.pathname.startsWith('/api/customers/') && !requestUrl.pathname.includes('/account') && !requestUrl.pathname.includes('/payments')) {
+    if (
+      requestUrl.pathname.startsWith('/api/customers/') &&
+      !requestUrl.pathname.includes('/account') &&
+      !requestUrl.pathname.includes('/payments')
+    ) {
       await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
       return;
     }
@@ -560,6 +578,22 @@ function createAccount(request: Request, sequence: number): MockBankAccount {
 function createCustomer(request: Request, sequence: number): MockCustomer {
   const payload = request.postDataJSON() as Omit<MockCustomer, 'customerId'>;
   return { ...payload, customerId: `created-${sequence}` };
+}
+
+function cloneCustomerAccounts(
+  accounts: Readonly<Record<string, MockCustomerAccount>>,
+): Record<string, MockCustomerAccount> {
+  return Object.fromEntries(
+    Object.entries(accounts).map(([customerId, account]) => [
+      customerId,
+      {
+        ...account,
+        sales: [...account.sales],
+        ledgerEntries: [...account.ledgerEntries],
+        paymentHistory: [...account.paymentHistory],
+      },
+    ]),
+  );
 }
 
 async function fulfillBankAccountError(
@@ -581,6 +615,17 @@ async function fulfillCustomerError(
     status,
     contentType: 'application/json',
     body: JSON.stringify({ title: 'Customers.LoadFailed' }),
+  });
+}
+
+async function fulfillCustomerAccountError(
+  route: import('@playwright/test').Route,
+  status: number,
+): Promise<void> {
+  await route.fulfill({
+    status,
+    contentType: 'application/json',
+    body: JSON.stringify({ detail: 'Unable to load customer account right now.' }),
   });
 }
 
