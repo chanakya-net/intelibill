@@ -374,6 +374,7 @@
     "isActive": "ಸಕ್ರಿಯವಾಗಿದೆ",
     "isPreferred": "ಆದ್ಯತೆಯಾಗಿದೆ",
     "balance": "ಬಾಕಿ",
+    "balanceDue": "ಬಾಕಿ ಮೊತ್ತ",
     "ledgerEntries": "ಲೆಡ್ಜರ್ ನಮೂದುಗಳು",
     "entryType": "ನಮೂದು ಪ್ರಕಾರ",
     "amount": "ಮೊತ್ತ",
@@ -386,6 +387,9 @@
     "searchEntryDate": "ದಿನಾಂಕ ಹುಡುಕಿ",
     "searchNotes": "ಟಿಪ್ಪಣಿಗಳು ಹುಡುಕಿ",
     "totalAmount": "ಒಟ್ಟು ಮೊತ್ತ",
+    "all": "ಎಲ್ಲಾ",
+    "goodsReceived": "ಸರಕು ಸ್ವೀಕೃತ",
+    "payments": "ಪಾವತಿಗಳು",
     "entryTypes": {
       "goodsReceived": "ಸರಕು ಸ್ವೀಕೃತ",
       "paymentMade": "ಪಾವತಿ ಮಾಡಲಾಗಿದೆ",

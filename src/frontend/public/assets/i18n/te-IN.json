@@ -374,6 +374,7 @@
     "isActive": "సక్రియంగా ఉంది",
     "isPreferred": "ప్రాధాన్యంగా ఉంది",
     "balance": "బ్యాలెన్స్",
+    "balanceDue": "చెల్లించవలసిన బకాయి",
     "ledgerEntries": "లెడ్జర్ ఎంట్రీలు",
     "entryType": "ఎంట్రీ రకం",
     "amount": "మొత్తం",
@@ -386,6 +387,9 @@
     "searchEntryDate": "తేదీ వెతకండి",
     "searchNotes": "గమనికలు వెతకండి",
     "totalAmount": "మొత్తం మొత్తం",
+    "all": "అన్నీ",
+    "goodsReceived": "సరుకు స్వీకరించబడింది",
+    "payments": "చెల్లింపులు",
     "entryTypes": {
       "goodsReceived": "సరుకు స్వీకరించబడింది",
       "paymentMade": "చెల్లింపు చేయబడింది",

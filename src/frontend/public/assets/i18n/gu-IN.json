@@ -374,6 +374,7 @@
     "isActive": "સક્રિય છે",
     "isPreferred": "પ્રાધાન્ય છે",
     "balance": "બૅલેન્સ",
+    "balanceDue": "બાકી રકમ",
     "ledgerEntries": "ખાતા નોંધ",
     "entryType": "નોંધ પ્રકાર",
     "amount": "રકમ",
@@ -386,6 +387,9 @@
     "searchEntryDate": "તારીખ શોધો",
     "searchNotes": "નોંધ શોધો",
     "totalAmount": "કુલ રકમ",
+    "all": "બધા",
+    "goodsReceived": "માલ પ્રાપ્ત",
+    "payments": "ચુકવણીઓ",
     "entryTypes": {
       "goodsReceived": "માલ પ્રાપ્ત",
       "paymentMade": "ચુકવણી કરી",

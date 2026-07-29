@@ -374,6 +374,7 @@
     "isActive": "സജീവമാണോ",
     "isPreferred": "മുൻഗണനയാണോ",
     "balance": "ബാലൻസ്",
+    "balanceDue": "ബാക്കിയുള്ള തുക",
     "ledgerEntries": "ലെഡ്ജർ എൻട്രികൾ",
     "entryType": "എൻട്രി തരം",
     "amount": "തുക",
@@ -386,6 +387,9 @@
     "searchEntryDate": "തീയതി തിരയുക",
     "searchNotes": "കുറിപ്പുകൾ തിരയുക",
     "totalAmount": "ആകെ തുക",
+    "all": "എല്ലാം",
+    "goodsReceived": "സാധനങ്ങൾ ലഭിച്ചു",
+    "payments": "പണമടപ്പുകൾ",
     "entryTypes": {
       "goodsReceived": "സാധനങ്ങൾ ലഭിച്ചു",
       "paymentMade": "പേയ്മെന്റ് നടത്തി",

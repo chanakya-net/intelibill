@@ -2,6 +2,8 @@ import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
 import type { ConsoleMessage, Page, Request, Response } from '@playwright/test';
+import type { SupplierMockOptions } from './suppliers-mock';
+import { getSupplierDefaults, createSupplierRouteHandler } from './suppliers-mock';
 
 export interface BrowserFailure {
   readonly kind: 'console' | 'pageerror' | 'request' | 'response';
@@ -88,6 +90,7 @@ export interface MockExternalRequestsOptions {
   readonly customerAccounts?: Record<string, MockCustomerAccount>;
   readonly customerAccountError?: number;
   readonly customerPaymentError?: number;
+  readonly supplierMock?: SupplierMockOptions;
 }
 
 export interface MockCustomer {
@@ -359,6 +362,10 @@ export async function mockExternalRequests(
     ...options.customerAccounts,
   });
 
+  const { suppliers, supplierDetails } = getSupplierDefaults(options.supplierMock ?? {});
+  const mutableSupplierState = { suppliers, supplierDetails };
+  const handleSupplierRoute = createSupplierRouteHandler(mutableSupplierState, options.supplierMock ?? {});
+
   await page.routeWebSocket('ws://localhost:5277/**', (webSocket) => {
     webSocket.onMessage((message) => {
       if (typeof message === 'string' && message.includes('"protocol"')) {
@@ -570,6 +577,10 @@ export async function mockExternalRequests(
       !requestUrl.pathname.includes('/payments')
     ) {
       await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+      return;
+    }
+
+    if (await handleSupplierRoute(route)) {
       return;
     }
 

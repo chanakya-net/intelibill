@@ -33,7 +33,7 @@ describe('SuppliersTableComponent', () => {
 
     fixture = TestBed.createComponent(SuppliersTableComponent);
     component = fixture.componentInstance;
-    component.suppliers = mockSuppliers;
+    fixture.componentRef.setInput('suppliers', mockSuppliers);
     component.canManageSuppliers = true;
   });
 

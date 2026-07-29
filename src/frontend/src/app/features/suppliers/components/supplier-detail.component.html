@@ -1,19 +1,64 @@
 <p-dialog
-  [(visible)]="isOpen"
+  [visible]="isOpen()"
   (visibleChange)="onVisibilityChange($event)"
   [header]="'suppliers.ledgerEntries' | transloco"
   [modal]="true"
   [style]="{ width: '100%', maxWidth: '1120px' }"
   [draggable]="false"
+  [styleClass]="'supplier-detail-dialog'"
 >
   <div class="ledger-content">
     @if (currentSupplier()) {
       <app-supplier-info-card [supplier]="currentSupplier()!" />
     }
 
-    <h3 class="details-heading">{{ 'suppliers.details' | transloco }}</h3>
+    @if (facade.ledgerErrorMessage()) {
+      <div class="error">{{ facade.ledgerErrorMessage() | transloco }}</div>
+    } @else {
+      <div class="supplier-detail">
+        <div class="ledger-controls">
+          <h3 class="details-heading">{{ 'suppliers.details' | transloco }}</h3>
+          <div class="filter-buttons">
+            <p-button
+              [label]="'suppliers.all' | transloco"
+              [outlined]="ledgerFilter() !== 'all'"
+              severity="secondary"
+              size="small"
+              (click)="ledgerFilter.set('all')"
+            />
+            <p-button
+              [label]="'suppliers.goodsReceived' | transloco"
+              [outlined]="ledgerFilter() !== 'goods'"
+              severity="secondary"
+              size="small"
+              (click)="ledgerFilter.set('goods')"
+            />
+            <p-button
+              [label]="'suppliers.payments' | transloco"
+              [outlined]="ledgerFilter() !== 'payments'"
+              severity="secondary"
+              size="small"
+              (click)="ledgerFilter.set('payments')"
+            />
+          </div>
+        </div>
 
-    <app-supplier-ledger-table [entries]="tableEntries()" [loading]="isLoading()" />
+        <app-supplier-ledger-table [entries]="tableEntries()" [loading]="isLoading()" />
+
+        @if (canMakePayment) {
+          <div class="payment-section">
+            <h3 class="details-heading">{{ 'suppliers.recordPayment' | transloco }}</h3>
+            @if (paymentErrorMessage()) {
+              <div class="error">{{ paymentErrorMessage() | transloco }}</div>
+            }
+            <app-supplier-payment-form
+              [submitting]="isSubmittingPayment()"
+              (paymentSubmitted)="onPaymentSubmitted($event)"
+            />
+          </div>
+        }
+      </div>
+    }
   </div>
 </p-dialog>
 
