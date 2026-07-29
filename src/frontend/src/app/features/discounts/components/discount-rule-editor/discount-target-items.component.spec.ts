@@ -205,4 +205,16 @@ describe('DiscountTargetItemsComponent', () => {
       vi.useRealTimers();
     }
   });
+
+  it('links touched target validation feedback to the batch search input', () => {
+    const fixture = TestBed.createComponent(DiscountTargetItemsComponent);
+    fixture.componentInstance.markAllAsTouched();
+    fixture.detectChanges();
+
+    const search = fixture.nativeElement.querySelector(
+      '#discount-rule-batch-search',
+    ) as HTMLInputElement;
+    expect(search.getAttribute('aria-describedby')).toBe('discount-batch-selection-error');
+    expect(fixture.nativeElement.querySelector('#discount-batch-selection-error')).not.toBeNull();
+  });
 });

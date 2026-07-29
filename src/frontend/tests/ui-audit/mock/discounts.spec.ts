@@ -47,7 +47,7 @@ test.describe('discounts', () => {
 
     const empty = await isolatedPage(browser, testInfo);
     await open(empty, createShellScenario(), state({ rules: [] }));
-    await expect(empty.locator('[data-testid="discounts-empty"]')).toBeVisible();
+    await expect(empty.locator('[data-testid="discounts-empty"]')).toHaveText('No discount rules match these filters.');
     await empty.context().close();
 
     const failed = await isolatedPage(browser, testInfo);
@@ -74,7 +74,10 @@ test.describe('discounts', () => {
     await page.locator('[data-testid="discounts-search"]').fill('Active batch');
     await expect(page.locator('.detail-panel h3')).toHaveText('Active batch');
     await expect(page.locator('.detail-panel')).not.toContainText('Expired threshold');
-    await page.locator('[data-testid="discounts-search"]').fill('');
+    const clearSearch = page.getByRole('button', { name: 'Clear' });
+    await expect(clearSearch).toBeVisible();
+    await clearSearch.click();
+    await expect(page.locator('[data-testid="discounts-search"]')).toHaveValue('');
     await select(page, 'discounts-status-filter', 'Active');
     await select(page, 'discounts-type-filter', 'Batch Discount');
     await select(page, 'discounts-type-filter', 'All types');
@@ -113,6 +116,11 @@ test.describe('discounts', () => {
     await expect(dialog.getByRole('alert')).toContainText('Could not load batch search results');
     await search.fill('rice flour');
     await expect(dialog.locator('.batch-result')).toHaveCount(2);
+    const clearBatchSearch = dialog.getByRole('button', { name: 'Clear' });
+    await expect(clearBatchSearch).toBeVisible();
+    await clearBatchSearch.click();
+    await expect(search).toHaveValue('');
+    await expect(dialog.locator('.batch-result')).toHaveCount(0);
     clean();
   });
 
@@ -179,6 +187,7 @@ test.describe('discounts', () => {
         await page.goto('/discounts');
         await waitForStablePage(page);
         await assertNoOverflow(page);
+        if (viewport.width === 360) await assertTableScrollContained(page);
         await expect(page.locator('body')).not.toContainText(/discounts\.[A-Za-z]/);
         await page.locator('[data-testid="discounts-create-rule"]').click();
         await assertDialogFits(editor(page));
@@ -373,6 +382,38 @@ async function assertDialogFits(dialog: Locator): Promise<void> {
     const box = element.getBoundingClientRect();
     return box.left >= 0 && box.top >= 0 && box.right <= innerWidth && box.bottom <= innerHeight;
   })).toBe(true);
+  const scrollState = await dialog.locator('.p-dialog-content').evaluate((element) => {
+    const maxScroll = element.scrollHeight - element.clientHeight;
+    element.scrollTop = element.scrollHeight;
+    const lastChild = element.lastElementChild?.getBoundingClientRect();
+    const contentBox = element.getBoundingClientRect();
+    return {
+      maxScroll,
+      overflowY: getComputedStyle(element).overflowY,
+      reachedBottom: maxScroll <= 0 || element.scrollTop >= maxScroll - 1,
+      lastChildReachable: !lastChild || lastChild.bottom <= contentBox.bottom + 1,
+    };
+  });
+  if (scrollState.maxScroll > 0) {
+    expect(['auto', 'scroll']).toContain(scrollState.overflowY);
+    expect(scrollState.reachedBottom).toBe(true);
+    expect(scrollState.lastChildReachable).toBe(true);
+  }
+}
+
+async function assertTableScrollContained(page: Page): Promise<void> {
+  const state = await page.locator('.table-scroll .p-datatable-table-container').evaluate((element) => {
+    element.scrollLeft = element.scrollWidth;
+    return {
+      overflowX: getComputedStyle(element).overflowX,
+      overflows: element.scrollWidth > element.clientWidth,
+      scrolled: element.scrollLeft > 0,
+    };
+  });
+  expect(state.overflows).toBe(true);
+  expect(['auto', 'scroll']).toContain(state.overflowX);
+  expect(state.scrolled).toBe(true);
+  await assertNoOverflow(page);
 }
 
 function json(route: Route, body: unknown, status = 200): Promise<void> {

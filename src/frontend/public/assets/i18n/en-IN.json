@@ -1627,7 +1627,8 @@
       "disable": "Disable"
     },
     "list": {
-      "title": "Rules"
+      "title": "Rules",
+      "empty": "No discount rules match these filters."
     },
     "detail": {
       "title": "Rule details",

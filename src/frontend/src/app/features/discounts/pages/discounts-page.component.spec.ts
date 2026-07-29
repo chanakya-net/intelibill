@@ -403,6 +403,57 @@ describe('DiscountsPageComponent', () => {
     expect(component.selectedRule()?.isActive).toBe(false);
   });
 
+  it('reconciles selection after a failed post-disable refresh', () => {
+    TestBed.overrideComponent(DiscountsPageComponent, { set: { template: '' } });
+    type ListResult = {
+      items: DiscountRuleListItemDto[];
+      totalCount: number;
+      pageNumber: number;
+      pageSize: number;
+    };
+    const initialList = new Subject<ListResult>();
+    const failedRefresh = new Subject<ListResult>();
+    const reselectedList = new Subject<ListResult>();
+    const filteredList = new Subject<ListResult>();
+    discountService.getDiscountRules.mockReturnValueOnce(initialList).mockReturnValueOnce(failedRefresh).mockReturnValueOnce(reselectedList).mockReturnValueOnce(filteredList);
+    discountService.getDiscountRule.mockImplementation((id: string) => of(makeRuleDto({ id, name: id === 'rule-2' ? 'Different rule' : '10% off batch' })));
+    discountService.disableDiscountRule.mockReturnValue(of(makeRuleDto({ isActive: false, disabledAt: '2026-02-01T00:00:00Z' })));
+    const fixture = TestBed.createComponent(DiscountsPageComponent);
+    fixture.detectChanges();
+    initialList.next({
+      items: [makeListItem()],
+      totalCount: 1,
+      pageNumber: 1,
+      pageSize: 20,
+    });
+    fixture.detectChanges();
+
+    fixture.componentInstance.onConfirmDisable();
+    failedRefresh.error(new Error('refresh failed'));
+    fixture.componentInstance.onStatusFilterChange('disabled');
+    fixture.detectChanges();
+    reselectedList.next({
+      items: [makeListItem({ isActive: false })],
+      totalCount: 1,
+      pageNumber: 1,
+      pageSize: 20,
+    });
+    fixture.detectChanges();
+    fixture.componentInstance.onRuleTypeFilterChange('SalePercentage');
+    fixture.detectChanges();
+    filteredList.next({
+      items: [makeListItem({ id: 'rule-2', name: 'Different rule' })],
+      totalCount: 1,
+      pageNumber: 1,
+      pageSize: 20,
+    });
+    fixture.detectChanges();
+
+    expect(discountService.getDiscountRules).toHaveBeenCalledTimes(4);
+    expect(fixture.componentInstance.selectedRuleId()).toBe('rule-2');
+    expect(fixture.componentInstance.selectedRule()?.id).toBe('rule-2');
+  });
+
   it('shows disable error inside the still-open confirmation dialog when API call fails', () => {
     const fixture = TestBed.createComponent(DiscountsPageComponent);
     fixture.detectChanges();

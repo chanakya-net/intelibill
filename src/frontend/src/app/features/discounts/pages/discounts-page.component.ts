@@ -81,7 +81,6 @@ export class DiscountsPageComponent {
 
   private listRequestId = 0;
   private detailRequestId = 0;
-  private retainSelectedDetailAfterRefresh = false;
 
   readonly selectedRuleTitle = computed(() => this.selectedRule()?.name ?? '');
   readonly selectedRuleStatusKey = computed(() => this.getRuleStatusKey(this.selectedRule()));
@@ -228,8 +227,7 @@ export class DiscountsPageComponent {
         this.selectedRule.set(rule);
         this.disableSubmitting.set(false);
         this.showDisableDialog.set(false);
-        this.retainSelectedDetailAfterRefresh = true;
-        this.refreshList();
+        this.refreshList(true);
       },
       error: () => {
         this.disableSubmitting.set(false);
@@ -266,7 +264,7 @@ export class DiscountsPageComponent {
     return 'success';
   }
 
-  private refreshList(): void {
+  private refreshList(retainSelectedDetail = false): void {
     const params: GetDiscountRulesParams = {
       status: this.statusFilter(),
       ruleType: this.ruleTypeFilter() || undefined,
@@ -275,10 +273,10 @@ export class DiscountsPageComponent {
       page: this.pageNumber(),
       pageSize: this.pageSize(),
     };
-    this.loadList(params);
+    this.loadList(params, retainSelectedDetail);
   }
 
-  private loadList(params: GetDiscountRulesParams): void {
+  private loadList(params: GetDiscountRulesParams, retainSelectedDetail = false): void {
     const requestId = ++this.listRequestId;
     this.listLoading.set(true);
     this.listError.set('');
@@ -294,8 +292,7 @@ export class DiscountsPageComponent {
 
         const selectedId = this.selectedRuleId();
         const selectionStillVisible = result.items.some((item) => item.id === selectedId);
-        if (this.retainSelectedDetailAfterRefresh && selectedId) {
-          this.retainSelectedDetailAfterRefresh = false;
+        if (retainSelectedDetail && selectedId) {
           return;
         }
 

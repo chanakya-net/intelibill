@@ -18,12 +18,23 @@
         (input)="onBatchSearchTermChange($any($event.target).value)"
         [placeholder]="'discounts.editor.fields.batchSearch' | transloco"
         [attr.aria-invalid]="isControlInvalid() || !!batchSearchError()"
-        [attr.aria-describedby]="batchSearchError() ? 'discount-batch-search-error' : null"
+        [attr.aria-describedby]="
+          batchSearchError()
+            ? 'discount-batch-search-error'
+            : isControlInvalid()
+              ? 'discount-batch-selection-error'
+              : null
+        "
       />
       @if (batchSearchTerm()) {
-        <p-inputicon iconPosition="right" class="clear-icon" (click)="clearBatchSearch()">
+        <button
+          type="button"
+          class="clear-icon"
+          [attr.aria-label]="'common.clear' | transloco"
+          (click)="clearBatchSearch()"
+        >
           <i class="pi pi-times" aria-hidden="true"></i>
-        </p-inputicon>
+        </button>
       }
     </p-iconfield>
 
@@ -48,7 +59,7 @@
         {{ batchSearchError() | transloco }}
       </p>
     } @else if (isControlInvalid()) {
-      <p class="hint hint--error" role="alert">
+      <p id="discount-batch-selection-error" class="hint hint--error" role="alert">
         {{ 'discounts.editor.errors.fixValidation' | transloco }}
       </p>
     }

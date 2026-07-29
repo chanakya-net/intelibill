@@ -79,6 +79,11 @@ describe('DiscountsTableComponent', () => {
     component.listItems = [];
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('[data-testid="discounts-empty"]')).not.toBeNull();
+    const emptyState = fixture.nativeElement.querySelector(
+      '[data-testid="discounts-empty"]',
+    ) as HTMLElement;
+    expect(emptyState).not.toBeNull();
+    expect(emptyState.textContent).toContain('discounts.list.empty');
+    expect(emptyState.textContent).not.toContain('discounts.detail.emptySubtitle');
   });
 });

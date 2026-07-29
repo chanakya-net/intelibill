@@ -19,6 +19,10 @@
 }
 
 :host ::ng-deep {
+  .p-datatable-table-container {
+    overflow-x: auto;
+  }
+
   .p-datatable-table {
     min-width: 46rem;
   }

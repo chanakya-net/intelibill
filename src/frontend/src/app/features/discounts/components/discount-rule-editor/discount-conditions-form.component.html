@@ -83,9 +83,12 @@
           [fluid]="true"
           styleClass="editor-control"
           [attr.aria-invalid]="isControlInvalid('percentage')"
+          [ariaDescribedBy]="
+            isControlInvalid('percentage') ? 'discount-rule-percentage-error' : undefined
+          "
         />
         @if (isControlInvalid('percentage')) {
-          <small class="field-error" role="alert">
+          <small id="discount-rule-percentage-error" class="field-error" role="alert">
             {{ 'discounts.editor.errors.fixValidation' | transloco }}
           </small>
         }
@@ -105,9 +108,12 @@
             [fluid]="true"
             styleClass="editor-control"
             [attr.aria-invalid]="isControlInvalid('thresholdAmount')"
+            [ariaDescribedBy]="
+              isControlInvalid('thresholdAmount') ? 'discount-rule-threshold-error' : undefined
+            "
           />
           @if (isControlInvalid('thresholdAmount')) {
-            <small class="field-error" role="alert">
+            <small id="discount-rule-threshold-error" class="field-error" role="alert">
               {{ 'discounts.editor.errors.fixValidation' | transloco }}
             </small>
           }
