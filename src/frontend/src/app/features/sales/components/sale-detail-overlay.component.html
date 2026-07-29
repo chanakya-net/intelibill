@@ -10,8 +10,19 @@
   [showHeader]="false"
 >
   @if (isLoading()) {
-    <div class="sale-detail-loading">
+    <div class="sale-detail-loading" role="status" aria-live="polite" aria-busy="true">
       <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6" />
+      <span>{{ 'common.loading' | transloco }}</span>
+    </div>
+  }
+  @if (!isLoading() && !sale() && errorMessage()) {
+    <div class="sale-detail-error" role="alert">
+      <p>{{ errorMessage() | transloco }}</p>
+      <p-button
+        [label]="'sales.invoice.close' | transloco"
+        severity="secondary"
+        (click)="onClose()"
+      />
     </div>
   }
   @if (!isLoading() && sale()) {

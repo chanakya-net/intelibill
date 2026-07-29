@@ -5,7 +5,9 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 
-const enIN = JSON.parse(readFileSync(join(process.cwd(), 'public/assets/i18n/en-IN.json'), 'utf-8')) as Record<string, unknown>;
+const enIN = JSON.parse(
+  readFileSync(join(process.cwd(), 'public/assets/i18n/en-IN.json'), 'utf-8'),
+) as Record<string, unknown>;
 
 import { AuthService } from '../../../core/auth/auth.service';
 import type { SaleDto, SaleReturnDto, SaleReturnPreviewDto } from '../services/sale.models';
@@ -86,13 +88,16 @@ const makeSale = (overrides: Partial<SaleDto> = {}): SaleDto => ({
 
 describe('SaleDetailOverlayComponent', () => {
   const selectedSale = signal<SaleDto | null>(makeSale());
+  const loadingSaleDetail = signal(false);
+  const errorMessage = signal('');
   const returnPreview = signal<SaleReturnPreviewDto | null>(null);
   const mutationType = signal<'record-sale' | 'record-return' | 'void-return' | null>(null);
   const mutationSucceeded = signal(false);
 
   const salesFacade = {
     selectedSale,
-    loadingSaleDetail: signal(false),
+    loadingSaleDetail,
+    errorMessage,
     returnPreview,
     loadingReturnPreview: signal(false),
     submitting: signal(false),
@@ -113,14 +118,24 @@ describe('SaleDetailOverlayComponent', () => {
       accessTokenExpiresAt: '',
       refreshTokenExpiresAt: '',
       rememberMe: false,
-      user: { id: 'user-1', email: 'owner@test.com', phoneNumber: null, firstName: 'Owner', lastName: 'User' },
+      user: {
+        id: 'user-1',
+        email: 'owner@test.com',
+        phoneNumber: null,
+        firstName: 'Owner',
+        lastName: 'User',
+      },
       activeShopId: 'shop-1',
-      shops: [{ shopId: 'shop-1', shopName: 'Shop', role: 'Owner', isDefault: true, lastUsedAt: null }],
+      shops: [
+        { shopId: 'shop-1', shopName: 'Shop', role: 'Owner', isDefault: true, lastUsedAt: null },
+      ],
     }),
   };
 
   async function setup(saleOverrides: Partial<SaleDto> | null = {}) {
     selectedSale.set(saleOverrides === null ? null : makeSale(saleOverrides));
+    loadingSaleDetail.set(false);
+    errorMessage.set('');
 
     await TestBed.configureTestingModule({
       imports: [
@@ -165,6 +180,30 @@ describe('SaleDetailOverlayComponent', () => {
     expect(text).toContain('Reason: Duplicate return');
     expect(fixture.nativeElement.querySelector('[aria-label="Void RET-1"]')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('[aria-label="Void RET-2"]')).toBeNull();
+  });
+
+  it('renders an accessible busy state while detail loads', async () => {
+    const { component, fixture } = await setup(null);
+    loadingSaleDetail.set(true);
+    component.visible = true;
+    fixture.detectChanges();
+
+    const loading = fixture.nativeElement.querySelector('.sale-detail-loading');
+    expect(loading?.getAttribute('role')).toBe('status');
+    expect(loading?.getAttribute('aria-live')).toBe('polite');
+    expect(loading?.textContent).toContain('Loading...');
+  });
+
+  it('renders detail load failure as an alert with a reachable close action', async () => {
+    const { component, fixture } = await setup(null);
+    errorMessage.set('Unable to load sale details.');
+    component.visible = true;
+    fixture.detectChanges();
+
+    const error = fixture.nativeElement.querySelector('.sale-detail-error');
+    expect(error?.getAttribute('role')).toBe('alert');
+    expect(error?.textContent).toContain('Unable to load sale details.');
+    expect(error?.textContent).toContain('Close');
   });
 
   it('opens A4 print page when printA4 is called', async () => {

@@ -45,6 +45,12 @@ export class SaleSummaryPanelComponent {
     );
   }
 
+  paymentStatusLabel(): string {
+    return this.transloco.translate(
+      this.sale.dueAmount > 0 ? 'sales.invoice.partiallyPaid' : 'sales.invoice.paid',
+    );
+  }
+
   customerName(): string {
     return this.sale.customerName || this.transloco.translate('sales.invoice.walkInCustomer');
   }

@@ -58,7 +58,7 @@ export class SaleLineItemsTableComponent {
   }
 
   getLineTotal(item: SaleItemDto): number {
-    return item.quantity * item.salesPrice;
+    return item.totalAmount;
   }
 
   getSectionTotal(items: readonly SaleItemDto[]): number {

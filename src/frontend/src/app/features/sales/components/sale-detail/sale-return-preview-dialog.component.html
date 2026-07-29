@@ -9,7 +9,7 @@
   [showHeader]="false"
 >
   @if (sale) {
-    <article class="return-preview-shell">
+    <article class="return-preview-shell" [attr.aria-busy]="isPreviewLoading()">
       <header class="return-preview-header">
         <div class="return-preview-title-row">
           <div>
@@ -53,7 +53,7 @@
       </header>
 
       @if (recordedCreditNoteSummary(); as creditNote) {
-        <section class="return-preview-success">
+        <section class="return-preview-success" role="status" aria-live="polite">
           <div class="return-preview-success-card">
             <p class="return-preview-success-eyebrow">
               {{ 'sales.returns.preview.successEyebrow' | transloco }}
@@ -226,7 +226,7 @@
             </section>
 
             @if (validationMessages().length > 0) {
-              <div class="return-preview-alert is-error">
+              <div class="return-preview-alert is-error" role="alert">
                 @for (message of validationMessages(); track message) {
                   <p>{{ message }}</p>
                 }
@@ -234,13 +234,17 @@
             }
 
             @if (previewError()) {
-              <div class="return-preview-alert is-error">
+              <div class="return-preview-alert is-error" role="alert">
                 {{ previewError() | transloco }}
               </div>
             }
 
             @if (returnPreview()) {
-              <section class="return-preview-side-card return-preview-result">
+              <section
+                class="return-preview-side-card return-preview-result"
+                role="status"
+                aria-live="polite"
+              >
                 <header>
                   <h3>{{ 'sales.returns.preview.calculatedEffects' | transloco }}</h3>
                   <span>{{ 'sales.returns.preview.previewReady' | transloco }}</span>
@@ -395,7 +399,7 @@
             }
 
             @if (returnPreview()?.warnings?.length) {
-              <div class="return-preview-alert is-warning">
+              <div class="return-preview-alert is-warning" role="alert">
                 <strong>{{ 'sales.returns.preview.warnings' | transloco }}</strong>
                 @for (warning of returnPreview()!.warnings; track warning.code + warning.message) {
                   <p>{{ warning.message }}</p>

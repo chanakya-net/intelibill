@@ -47,6 +47,7 @@ export class SaleDetailOverlayComponent {
 
   readonly sale = this.salesFacade.selectedSale;
   readonly isLoading = this.salesFacade.loadingSaleDetail;
+  readonly errorMessage = this.salesFacade.errorMessage;
 
   readonly showReturnPreview = signal(false);
   readonly showVoidReturn = signal(false);

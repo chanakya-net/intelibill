@@ -259,6 +259,32 @@ describe('SaleReturnPreviewDialogComponent', () => {
     expect(text).not.toContain('sales.returns.preview.col.returnQty');
   });
 
+  it('marks the preview surface busy while calculation is loading', async () => {
+    const { fixture, component, facade } = await createComponent();
+    component.sale = makeSale();
+    component.visible = true;
+    facade.loadingReturnPreview.set(true);
+    fixture.detectChanges();
+
+    expect(
+      fixture.nativeElement.querySelector('.return-preview-shell')?.getAttribute('aria-busy'),
+    ).toBe('true');
+  });
+
+  it('announces validation and API preview failures as alerts', async () => {
+    const { fixture, component, facade } = await createComponent();
+    component.sale = makeSale();
+    component.visible = true;
+    fixture.detectChanges();
+    component.previewReturn();
+    facade.returnPreviewErrorMessage.set('Unable to preview sale return.');
+    fixture.detectChanges();
+
+    const alerts = fixture.nativeElement.querySelectorAll('.return-preview-alert[role="alert"]');
+    expect(alerts.length).toBe(2);
+    expect(fixture.nativeElement.textContent as string).toContain('Unable to preview sale return.');
+  });
+
   it('shows payout destination selector when preview payout amount exists', async () => {
     const { fixture, component, facade } = await createComponent();
     component.sale = makeSale();
@@ -414,10 +440,12 @@ describe('SaleReturnPreviewDialogComponent', () => {
     component.visible = true;
     fixture.detectChanges();
 
-    expect((component as unknown as { creditNoteExpiryMode(): string | null }).creditNoteExpiryMode()).toBe(
-      'NoExpiry',
-    );
-    expect((component as unknown as { creditNoteExpiryDate(): string | null }).creditNoteExpiryDate()).toBeNull();
+    expect(
+      (component as unknown as { creditNoteExpiryMode(): string | null }).creditNoteExpiryMode(),
+    ).toBe('NoExpiry');
+    expect(
+      (component as unknown as { creditNoteExpiryDate(): string | null }).creditNoteExpiryDate(),
+    ).toBeNull();
   });
 
   it('credit note expiry controls hidden for non-credit payout', async () => {
@@ -481,11 +509,13 @@ describe('SaleReturnPreviewDialogComponent', () => {
     component.visible = true;
     fixture.detectChanges();
 
-    (component as unknown as { updateCreditNoteExpiryMode(mode: string): void }).updateCreditNoteExpiryMode(
-      '30Days',
-    );
+    (
+      component as unknown as { updateCreditNoteExpiryMode(mode: string): void }
+    ).updateCreditNoteExpiryMode('30Days');
 
-    const mode = (component as unknown as { creditNoteExpiryMode(): string }).creditNoteExpiryMode();
+    const mode = (
+      component as unknown as { creditNoteExpiryMode(): string }
+    ).creditNoteExpiryMode();
     expect(mode).toBe('30Days');
   });
 
@@ -495,12 +525,12 @@ describe('SaleReturnPreviewDialogComponent', () => {
     component.visible = true;
     fixture.detectChanges();
 
-    (component as unknown as { updateCreditNoteExpiryMode(mode: string): void }).updateCreditNoteExpiryMode(
-      'Custom',
-    );
-    (component as unknown as { updateCreditNoteExpiryDate(date: string | null): void }).updateCreditNoteExpiryDate(
-      '2026-12-31',
-    );
+    (
+      component as unknown as { updateCreditNoteExpiryMode(mode: string): void }
+    ).updateCreditNoteExpiryMode('Custom');
+    (
+      component as unknown as { updateCreditNoteExpiryDate(date: string | null): void }
+    ).updateCreditNoteExpiryDate('2026-12-31');
 
     expect(
       (component as unknown as { creditNoteExpiryMode(): string }).creditNoteExpiryMode(),
@@ -537,9 +567,9 @@ describe('SaleReturnPreviewDialogComponent', () => {
     const item = component.sale!.items[0];
     component.toggleReturnLine(item, true);
     component.updatePayoutDestination(4); // Credit note
-    (component as unknown as { updateCreditNoteExpiryMode(mode: string): void }).updateCreditNoteExpiryMode(
-      '30Days',
-    );
+    (
+      component as unknown as { updateCreditNoteExpiryMode(mode: string): void }
+    ).updateCreditNoteExpiryMode('30Days');
     component.submitReturn();
 
     expect(facade.recordSaleReturn).toHaveBeenCalledTimes(1);
@@ -576,12 +606,12 @@ describe('SaleReturnPreviewDialogComponent', () => {
     const item = component.sale!.items[0];
     component.toggleReturnLine(item, true);
     component.updatePayoutDestination(4); // Credit note
-    (component as unknown as { updateCreditNoteExpiryMode(mode: string): void }).updateCreditNoteExpiryMode(
-      'Custom',
-    );
-    (component as unknown as { updateCreditNoteExpiryDate(date: string | null): void }).updateCreditNoteExpiryDate(
-      '2026-12-31',
-    );
+    (
+      component as unknown as { updateCreditNoteExpiryMode(mode: string): void }
+    ).updateCreditNoteExpiryMode('Custom');
+    (
+      component as unknown as { updateCreditNoteExpiryDate(date: string | null): void }
+    ).updateCreditNoteExpiryDate('2026-12-31');
     component.submitReturn();
 
     expect(facade.recordSaleReturn).toHaveBeenCalledTimes(1);
@@ -639,7 +669,9 @@ describe('SaleReturnPreviewDialogComponent', () => {
     expect(text).toContain('Credit note created');
     expect(text).toContain('CN-2026-0007');
 
-    const printButton = fixture.nativeElement.querySelector('.return-preview-success-actions .p-button');
+    const printButton = fixture.nativeElement.querySelector(
+      '.return-preview-success-actions .p-button',
+    );
     expect(printButton).not.toBeNull();
 
     component.printRecordedCreditNote();

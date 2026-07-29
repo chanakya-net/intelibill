@@ -7,7 +7,9 @@ import { describe, expect, it } from 'vitest';
 import type { SaleDto } from '../../services/sale.models';
 import { SaleSummaryPanelComponent } from './sale-summary-panel.component';
 
-const enIN = JSON.parse(readFileSync(join(process.cwd(), 'public/assets/i18n/en-IN.json'), 'utf-8')) as Record<string, unknown>;
+const enIN = JSON.parse(
+  readFileSync(join(process.cwd(), 'public/assets/i18n/en-IN.json'), 'utf-8'),
+) as Record<string, unknown>;
 
 const makeSale = (overrides: Partial<SaleDto> = {}): SaleDto => ({
   saleId: 'sale-1',
@@ -35,7 +37,10 @@ describe('SaleSummaryPanelComponent', () => {
     await setup();
 
     const fixture = TestBed.createComponent(SaleSummaryPanelComponent);
-    fixture.componentInstance.sale = makeSale({ totalDiscountAmount: 20, totalBeforeDiscount: 240 });
+    fixture.componentInstance.sale = makeSale({
+      totalDiscountAmount: 20,
+      totalBeforeDiscount: 240,
+    });
     fixture.detectChanges();
 
     const text = fixture.nativeElement.textContent as string;
@@ -73,6 +78,43 @@ describe('SaleSummaryPanelComponent', () => {
     expect(text).toContain('CN-002');
     expect(text).not.toContain('discount');
     expect(text).not.toContain('cash payment');
+  });
+
+  it('renders paid, due, status, and credit-note settlement', async () => {
+    await setup();
+
+    const fixture = TestBed.createComponent(SaleSummaryPanelComponent);
+    fixture.componentInstance.sale = makeSale({
+      paidAmount: 180,
+      dueAmount: 15,
+      creditNoteAppliedAmount: 25,
+      creditNoteRedemptionSummaries: [
+        { creditNoteId: 'cn-1', code: 'CN-LONG-SETTLEMENT-001', amount: 25 },
+      ],
+    });
+    fixture.detectChanges();
+
+    const text = fixture.nativeElement.textContent as string;
+    expect(text).toContain('Payment Mode');
+    expect(text).toContain('Cash');
+    expect(text).toContain('Paid Amount');
+    expect(text).toContain('₹180.00');
+    expect(text).toContain('Due Amount');
+    expect(text).toContain('₹15.00');
+    expect(text).toContain('Payment Status');
+    expect(text).toContain('Partially Paid');
+    expect(text).toContain('Credit Note Settlement');
+    expect(text).toContain('CN-LONG-SETTLEMENT-001');
+  });
+
+  it('renders fully paid status when no amount remains due', async () => {
+    await setup();
+
+    const fixture = TestBed.createComponent(SaleSummaryPanelComponent);
+    fixture.componentInstance.sale = makeSale({ paidAmount: 220, dueAmount: 0 });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent as string).toContain('Paid');
   });
 });
 
