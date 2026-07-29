@@ -23,8 +23,8 @@
   <ng-container *ngIf="!isLoading() && !errorMessage() && sale() as loadedSale">
     <article
       *ngIf="shop() as loadedShop"
-      class="invoice"
-      [class.invoice--thermal]="template() === 'thermal'"
+      class="invoice-document"
+      [class.invoice-document--thermal]="template() === 'thermal'"
     >
       <app-sale-invoice-a4
         *ngIf="template() === 'a4'"

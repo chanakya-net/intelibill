@@ -12,6 +12,11 @@ const API_BASE = 'http://localhost:5277/api';
 
 export type SaleInvoiceApiState = 'ready' | 'loading' | 'error';
 
+export const LONG_DESCRIPTION = Array.from(
+  { length: 160 },
+  () => 'Deterministic long invoice description for A4 pagination coverage.',
+).join(' ');
+
 export interface SaleInvoiceScenario {
   readonly shell: ShellScenario;
   readonly sales: readonly SaleDto[];
@@ -21,6 +26,8 @@ export interface SaleInvoiceScenario {
 export interface SaleInvoiceScenarioOptions extends ShellScenarioOptions {
   readonly sales?: readonly SaleDto[];
   readonly apiState?: SaleInvoiceApiState;
+  readonly longAddress?: boolean;
+  readonly optionalShopFields?: boolean;
 }
 
 export const NORMAL_SALE: SaleDto = {
@@ -78,6 +85,7 @@ export const LONG_ADDRESS_SALE: SaleDto = {
   customerId: 'customer-2',
   customerName: 'Very Long Customer Name With Multiple Words For Audit Coverage',
   customerPhone: '+919876543210',
+  items: [{ ...NORMAL_SALE.items[0], itemName: LONG_DESCRIPTION }],
 };
 
 export const DENSE_SALE: SaleDto = {
@@ -190,11 +198,11 @@ export const LARGE_VALUE_SALE: SaleDto = {
   customerPhone: '+919876543210',
   paymentMethod: 3,
   soldAt: '2026-07-20T10:00:00Z',
-  paidAmount: 99999.90,
+  paidAmount: 99999.9,
   dueAmount: 0,
   totalBeforeDiscount: 80000,
   totalDiscountAmount: 5000,
-  totalAmount: 99999.90,
+  totalAmount: 99999.9,
   totalTaxAmount: 25000,
   creditNoteAppliedAmount: 0,
   items: [
@@ -281,11 +289,40 @@ export const OPTIONAL_FIELDS_SALE: SaleDto = {
 export function createSaleInvoiceScenario(
   options: SaleInvoiceScenarioOptions = {},
 ): SaleInvoiceScenario {
+  const baseShell = createShellScenario(options);
+  const shell = withInvoiceShopDetails(baseShell, options);
+
   return {
-    shell: createShellScenario(options),
+    shell,
     sales: options.sales ?? [NORMAL_SALE],
     apiState: options.apiState ?? 'ready',
   };
+}
+
+function withInvoiceShopDetails(
+  shell: ShellScenario,
+  options: SaleInvoiceScenarioOptions,
+): ShellScenario {
+  if (!options.longAddress && !options.optionalShopFields) {
+    return shell;
+  }
+
+  const shopDetails = Object.fromEntries(
+    Object.entries(shell.shopDetails).map(([shopId, details]) => [
+      shopId,
+      {
+        ...details,
+        address: options.longAddress
+          ? '123 Deterministic Audit Avenue, Building C, Floor 7, Long Address District'
+          : details.address,
+        city: options.longAddress ? 'Bengaluru Metropolitan Commerce Zone' : details.city,
+        mobileNumber: options.optionalShopFields ? null : details.mobileNumber,
+        gstNumber: options.optionalShopFields ? null : details.gstNumber,
+      },
+    ]),
+  );
+
+  return { ...shell, shopDetails };
 }
 
 export async function installSaleInvoiceFixture(

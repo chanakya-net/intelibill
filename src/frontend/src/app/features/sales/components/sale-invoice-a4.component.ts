@@ -66,6 +66,12 @@ export class SaleInvoiceA4Component {
     return this.sale.customerId ? this.sale.customerPhone : null;
   }
 
+  get shopAddress(): string {
+    return [this.shop.address, this.shop.city, this.shop.state, this.shop.pincode]
+      .filter(Boolean)
+      .join(', ');
+  }
+
   hasGoods(): boolean {
     return this.sale.items.some((i) => i.lineType === 'Goods');
   }

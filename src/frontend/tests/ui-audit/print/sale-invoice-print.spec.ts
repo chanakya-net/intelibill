@@ -19,11 +19,6 @@ import type { SaleDto } from '../../../src/app/features/sales/services/sale.mode
 import type { SaleInvoiceApiState } from '../fixtures/sale-invoices.fixture';
 
 const ROUTE = '/sales';
-const LONG_DESCRIPTION = Array.from(
-  { length: 350 },
-  () => 'Deterministic long invoice description for A4 pagination coverage.',
-).join(' ');
-
 test.describe('sale-invoice-print (A4 media audit)', () => {
   test('renders normal document sections, totals, deterministic fonts, and no controls', async ({
     page,
@@ -47,7 +42,7 @@ test.describe('sale-invoice-print (A4 media audit)', () => {
     const sale = LONG_ADDRESS_SALE;
     await withPrintDocument(
       page,
-      createSaleInvoiceScenario({ sales: [sale] }),
+      createSaleInvoiceScenario({ sales: [sale], longAddress: true }),
       sale.saleId,
       'a4',
       async () => {
@@ -90,11 +85,16 @@ test.describe('sale-invoice-print (A4 media audit)', () => {
   test('renders optional fields correctly when customer is walk-in', async ({ page }) => {
     await withPrintDocument(
       page,
-      createSaleInvoiceScenario({ sales: [OPTIONAL_FIELDS_SALE] }),
+      createSaleInvoiceScenario({
+        sales: [OPTIONAL_FIELDS_SALE],
+        optionalShopFields: true,
+      }),
       OPTIONAL_FIELDS_SALE.saleId,
       'a4',
       async () => {
         await expect(page.locator('.invoice__customer')).toContainText('Walk-in');
+        await expect(page.locator('.invoice__customer-phone')).toHaveCount(0);
+        await expect(page.locator('.invoice__shop-phone, .invoice__shop-gst')).toHaveCount(0);
         await assertDocumentSections(page);
         await assertA4Output(page, 1);
       },
@@ -157,6 +157,20 @@ test.describe('sale-invoice-print (80mm thermal media audit)', () => {
     );
   });
 
+  test('keeps long address and content within thermal receipt width', async ({ page }) => {
+    await withPrintDocument(
+      page,
+      createSaleInvoiceScenario({ sales: [LONG_ADDRESS_SALE], longAddress: true }),
+      LONG_ADDRESS_SALE.saleId,
+      'thermal',
+      async () => {
+        await assertThermalDocumentSections(page);
+        await assertThermalOutput(page);
+        await assertNoClippingOrOverlapThermal(page);
+      },
+    );
+  });
+
   test('renders dense thermal document without overflow', async ({ page }) => {
     await withPrintDocument(
       page,
@@ -182,6 +196,56 @@ test.describe('sale-invoice-print (80mm thermal media audit)', () => {
         await assertThermalOutput(page);
         await assertNoClippingOrOverlapThermal(page);
       },
+    );
+  });
+
+  test('renders optional customer and shop fields without empty rows', async ({ page }) => {
+    await withPrintDocument(
+      page,
+      createSaleInvoiceScenario({
+        sales: [OPTIONAL_FIELDS_SALE],
+        optionalShopFields: true,
+      }),
+      OPTIONAL_FIELDS_SALE.saleId,
+      'thermal',
+      async () => {
+        await expect(page.locator('.thermal-invoice__customer')).toContainText('Walk-in');
+        await expect(
+          page.locator('.thermal-invoice__shop-phone, .thermal-invoice__shop-gst'),
+        ).toHaveCount(0);
+        await assertThermalOutput(page);
+      },
+    );
+  });
+
+  test('renders loading and error thermal documents without invoice content', async ({ page }) => {
+    await withPrintState(
+      page,
+      createSaleInvoiceScenario({ apiState: 'loading' }),
+      NORMAL_SALE.saleId,
+      'thermal',
+      async () => {
+        await expect(page.locator('.print-state')).toBeVisible();
+        await expect(page.locator('article.invoice')).toHaveCount(0);
+        await assertScreenControlsHidden(page);
+      },
+    );
+
+    const declaredError = {
+      url: `http://localhost:5277/api/sales/${NORMAL_SALE.saleId}`,
+      status: 503,
+    };
+    await withPrintState(
+      page,
+      createSaleInvoiceScenario({ apiState: 'error' }),
+      NORMAL_SALE.saleId,
+      'thermal',
+      async () => {
+        await expect(page.locator('.print-state--error[role="alert"]')).toBeVisible();
+        await expect(page.locator('article.invoice')).toHaveCount(0);
+        await assertScreenControlsHidden(page);
+      },
+      declaredError,
     );
   });
 });
@@ -330,13 +394,30 @@ async function assertThermalOutput(page: Page): Promise<void> {
   const thermalArticle = page.locator('article.thermal-invoice');
   await expect(thermalArticle).toBeVisible();
 
-  const width = await thermalArticle.evaluate((article) => {
+  const output = await thermalArticle.evaluate((article) => {
     const style = getComputedStyle(article);
-    return parseFloat(style.width);
+    const pageRule = Array.from(document.styleSheets)
+      .flatMap((sheet) => {
+        try {
+          return Array.from(sheet.cssRules);
+        } catch {
+          return [];
+        }
+      })
+      .find((rule) => rule.cssText.includes('@page'));
+    return {
+      width: parseFloat(style.width),
+      font: style.fontFamily,
+      overflow: article.scrollWidth > article.clientWidth,
+      pageRule: pageRule?.cssText ?? '',
+    };
   });
 
-  const mmWidth = (width / 96) * 25.4; // Convert px to mm (assuming 96 DPI)
-  expect(mmWidth).toBeLessThanOrEqual(85); // Allow 5mm margin for 80mm target
+  const mmWidth = (output.width / 96) * 25.4;
+  expect(mmWidth).toBeLessThanOrEqual(80);
+  expect(output.font).toContain('Courier New');
+  expect(output.overflow).toBe(false);
+  expect(output.pageRule.toLowerCase()).toContain('80mm');
 }
 
 async function assertNoClippingOrOverlap(page: Page): Promise<void> {
@@ -382,11 +463,16 @@ async function assertNoClippingOrOverlapThermal(page: Page): Promise<void> {
       clipped:
         element.scrollHeight > element.clientHeight || element.scrollWidth > element.clientWidth,
     }));
-    const horizontalOverflow = boxes.some((box) => box.rect.width > 226.77); // 80mm in px at 96 DPI
-    return { clipped: boxes.filter((box) => box.clipped).map((box) => box.name), horizontalOverflow };
+    const horizontalOverflow = boxes
+      .filter((box) => box.rect.width > article.clientWidth + 0.5)
+      .map((box) => ({ name: box.name, width: box.rect.width }));
+    return {
+      clipped: boxes.filter((box) => box.clipped).map((box) => box.name),
+      horizontalOverflow,
+    };
   });
   expect(result.clipped).toEqual([]);
-  expect(result.horizontalOverflow).toBe(false);
+  expect(result.horizontalOverflow).toEqual([]);
 }
 
 interface DeclaredError {

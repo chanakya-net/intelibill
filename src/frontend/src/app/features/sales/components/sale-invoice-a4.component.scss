@@ -1,16 +1,29 @@
 @page {
   size: A4;
-  margin: 20mm;
+  margin: 12mm;
+}
+
+:host {
+  display: block;
+  max-width: 100%;
 }
 
 .invoice {
   position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   font-family: Arial, sans-serif;
   font-size: 11pt;
   line-height: 1.4;
   color: #333;
   background: white;
-  padding: 20px;
+  overflow-wrap: anywhere;
+
+  h1 {
+    font-family: Georgia, 'Times New Roman', serif;
+  }
 
   &__header {
     display: flex;
@@ -38,6 +51,7 @@
 
   &__shop-info {
     flex: 1;
+    min-width: 0;
   }
 
   &__shop-name {
@@ -55,12 +69,14 @@
 
   &__meta {
     text-align: right;
+    min-width: 0;
   }
 
   &__meta-item {
     display: flex;
     gap: 10px;
     margin-bottom: 5px;
+    min-width: 0;
   }
 
   &__meta-label {
@@ -69,6 +85,7 @@
 
   &__meta-value {
     min-width: 100px;
+    overflow-wrap: anywhere;
   }
 
   &__customer {
@@ -95,9 +112,12 @@
 
   &__items {
     width: 100%;
+    max-width: 100%;
+    table-layout: fixed;
     border-collapse: collapse;
     margin: 20px 0;
     font-size: 10pt;
+    break-inside: avoid;
 
     thead {
       background: #f0f0f0;
@@ -109,6 +129,8 @@
       border: 1px solid #ddd;
       padding: 8px;
       text-align: left;
+      min-width: 0;
+      overflow-wrap: anywhere;
 
       &:nth-child(n + 2) {
         text-align: right;
@@ -133,17 +155,44 @@
   }
 
   &__col-item {
-    flex: 2;
+    width: 25%;
+  }
+
+  &__col-hsn {
+    width: 8%;
+  }
+
+  &__col-qty {
+    width: 7%;
+  }
+
+  &__col-price,
+  &__col-discount,
+  &__col-taxable,
+  &__col-tax-amt,
+  &__col-total {
+    width: 10%;
+  }
+
+  &__col-tax {
+    width: 10%;
+  }
+
+  &__header,
+  &__customer,
+  &__totals,
+  &__returns,
+  &__return-block {
+    break-inside: avoid;
   }
 
   &__col-qty,
+  &__col-price,
   &__col-discount,
   &__col-taxable,
   &__col-tax,
   &__col-tax-amt,
-  &__col-total,
-  &__col-price {
-    width: 80px;
+  &__col-total {
     text-align: right;
   }
 
@@ -232,7 +281,9 @@
 
   &__totals-value {
     text-align: right;
-    min-width: 100px;
+    min-width: 0;
+    max-width: 55%;
+    overflow-wrap: anywhere;
   }
 
   &__divider {
@@ -253,12 +304,14 @@
 
   &__payment-label {
     font-weight: bold;
-    min-width: 120px;
+    min-width: 0;
   }
 
   &__payment-value {
     text-align: right;
-    min-width: 100px;
+    min-width: 0;
+    max-width: 55%;
+    overflow-wrap: anywhere;
 
     &.invoice__status-paid {
       color: #28a745;
@@ -284,10 +337,10 @@
   }
 
   .invoice__items tbody tr {
-    page-break-inside: avoid;
+    break-inside: avoid;
   }
 
   .invoice__return-block {
-    page-break-inside: avoid;
+    break-inside: avoid;
   }
 }
