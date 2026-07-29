@@ -5,16 +5,19 @@
         class="product-card-item cursor-pointer"
         (click)="canManageInventory && onOpenItem(item)"
         [pt]="{
-          root: { class: 'border border-orange-100 shadow-none hover:border-orange-200 transition-colors duration-200' },
+          root: {
+            class:
+              'border border-orange-100 shadow-none hover:border-orange-200 transition-colors duration-200',
+          },
           body: { class: 'p-3' },
-          content: { class: 'p-0' }
+          content: { class: 'p-0' },
         }"
       >
         <div class="flex items-center gap-3">
           <!-- Left: Avatar -->
           <p-avatar
             [label]="productInitials(item.name)"
-            [style]="{'background-color': productAvatarColor(item.name), 'color': '#ffffff'}"
+            [style]="{ 'background-color': productAvatarColor(item.name), color: '#ffffff' }"
             shape="circle"
             size="large"
             class="shadow-sm flex-shrink-0"
@@ -26,44 +29,76 @@
               {{ item.name }}
             </div>
             <div class="flex items-center gap-2 flex-wrap">
-              <span class="text-slate-500 text-xs font-medium uppercase tracking-wider">{{ item.uom }}</span>
+              <span class="text-slate-500 text-xs font-medium uppercase tracking-wider">{{
+                item.uom
+              }}</span>
               <span class="text-slate-300">•</span>
-              <code class="text-slate-400 text-xs font-mono truncate max-w-[80px]">{{ item.barcode }}</code>
+              <code class="text-slate-400 text-xs font-mono truncate max-w-[80px]">{{
+                item.barcode
+              }}</code>
               <span class="text-slate-300">•</span>
               <p-tag [severity]="item.isActive ? 'success' : 'danger'">
                 <ng-template pTemplate="content">
                   <div class="flex items-center gap-1">
                     <span class="status-dot" [class.active]="item.isActive"></span>
-                    <span>{{ item.isActive ? ('inventory.active' | transloco) : ('inventory.inactive' | transloco) }}</span>
+                    <span>{{
+                      item.isActive
+                        ? ('inventory.active' | transloco)
+                        : ('inventory.inactive' | transloco)
+                    }}</span>
                   </div>
                 </ng-template>
               </p-tag>
             </div>
             <div class="flex items-center gap-3 mt-1 text-xs text-slate-600 flex-wrap">
-              <span>{{ 'inventory.currentStock' | transloco }}: <strong>{{ item.currentStock }}</strong></span>
-              <span>{{ 'inventory.status' | transloco }}: <strong>{{ stockStatusLabelKey(item.stockStatus) | transloco }}</strong></span>
-              <span>{{ 'inventory.currentStockValue' | transloco }}: <strong>{{ 'common.currencySymbol' | transloco }}{{ item.currentStockValue | number:'1.2-2' }}</strong></span>
+              <span
+                >{{ 'inventory.currentStock' | transloco }}:
+                <strong>{{ item.currentStock }}</strong></span
+              >
+              <span
+                >{{ 'inventory.status' | transloco }}:
+                <strong>{{ stockStatusLabelKey(item.stockStatus) | transloco }}</strong></span
+              >
+              <span
+                >{{ 'inventory.currentStockValue' | transloco }}:
+                <strong
+                  >{{ 'common.currencySymbol' | transloco
+                  }}{{ item.currentStockValue | number: '1.2-2' }}</strong
+                ></span
+              >
             </div>
           </div>
 
           <!-- Right: Stock & Actions -->
           <div class="flex flex-col items-end gap-2 flex-shrink-0">
-            <p-tag [severity]="stockStatusSeverity(item.stockStatus)" [value]="stockStatusLabelKey(item.stockStatus) | transloco"></p-tag>
+            <p-tag
+              [severity]="stockStatusSeverity(item.stockStatus)"
+              [value]="stockStatusLabelKey(item.stockStatus) | transloco"
+            ></p-tag>
             @if (canManageInventory) {
               <div class="flex items-center gap-2">
                 <p-button
                   icon="pi pi-print"
                   [outlined]="true"
                   severity="secondary"
-                  [pt]="{ root: { class: 'w-8 h-8 p-0 border-slate-200 text-slate-500 hover:bg-slate-50' } }"
+                  [pt]="{
+                    root: {
+                      class: 'w-8 h-8 p-0 border-slate-200 text-slate-500 hover:bg-slate-50',
+                    },
+                  }"
                   (click)="$event.stopPropagation(); onPrintLabel(item)"
                   [disabled]="isSubmitting"
+                  [ariaLabel]="'inventory.printLabel' | transloco"
                 />
                 <p-button
                   [icon]="isSelected(item) ? 'pi pi-check-square' : 'pi pi-square'"
                   [outlined]="true"
                   severity="secondary"
-                  [pt]="{ root: { class: 'w-8 h-8 p-0 border-slate-200 text-slate-500 hover:bg-slate-50' } }"
+                  [pt]="{
+                    root: {
+                      class: 'w-8 h-8 p-0 border-slate-200 text-slate-500 hover:bg-slate-50',
+                    },
+                  }"
                   (click)="$event.stopPropagation(); toggleSelection(item)"
                   [disabled]="isSubmitting"
                 />
@@ -71,9 +106,14 @@
                   icon="pi pi-pencil"
                   [outlined]="true"
                   severity="secondary"
-                  [pt]="{ root: { class: 'w-8 h-8 p-0 border-slate-200 text-slate-500 hover:bg-slate-50' } }"
+                  [pt]="{
+                    root: {
+                      class: 'w-8 h-8 p-0 border-slate-200 text-slate-500 hover:bg-slate-50',
+                    },
+                  }"
                   (click)="$event.stopPropagation(); onEditItem(item)"
                   [disabled]="isSubmitting"
+                  [ariaLabel]="'common.edit' | transloco"
                 />
               </div>
             }
@@ -165,7 +205,7 @@
           <div class="flex items-center gap-3">
             <p-avatar
               [label]="productInitials(item.name)"
-              [style]="{'background-color': productAvatarColor(item.name), 'color': '#ffffff'}"
+              [style]="{ 'background-color': productAvatarColor(item.name), color: '#ffffff' }"
               shape="circle"
               size="normal"
               class="shadow-sm flex-shrink-0"
@@ -178,28 +218,45 @@
             </div>
           </div>
         </td>
-        <td><code class="text-xs text-slate-600 font-mono">{{ item.barcode }}</code></td>
-        <td><span class="text-slate-500 font-medium uppercase tracking-wider text-xs">{{ item.uom }}</span></td>
-        <td><span class="font-semibold text-slate-800">{{ item.currentStock }}</span></td>
+        <td>
+          <code class="text-xs text-slate-600 font-mono">{{ item.barcode }}</code>
+        </td>
+        <td>
+          <span class="text-slate-500 font-medium uppercase tracking-wider text-xs">{{
+            item.uom
+          }}</span>
+        </td>
+        <td>
+          <span class="font-semibold text-slate-800">{{ item.currentStock }}</span>
+        </td>
         <td>
           @if (item.unitPrice === null) {
             <span class="text-slate-400">—</span>
           } @else {
-            {{ 'common.currencySymbol' | transloco }}{{ item.unitPrice | number:'1.2-2' }}
+            {{ 'common.currencySymbol' | transloco }}{{ item.unitPrice | number: '1.2-2' }}
           }
         </td>
-        <td>{{ 'common.currencySymbol' | transloco }}{{ item.currentStockValue | number:'1.2-2' }}</td>
+        <td>
+          {{ 'common.currencySymbol' | transloco }}{{ item.currentStockValue | number: '1.2-2' }}
+        </td>
         <td>
           <div class="status-group">
             <p-tag [severity]="item.isActive ? 'success' : 'danger'">
               <ng-template pTemplate="content">
                 <div class="flex items-center gap-1.5">
                   <span class="status-dot" [class.active]="item.isActive"></span>
-                  <span>{{ item.isActive ? ('inventory.active' | transloco) : ('inventory.inactive' | transloco) }}</span>
+                  <span>{{
+                    item.isActive
+                      ? ('inventory.active' | transloco)
+                      : ('inventory.inactive' | transloco)
+                  }}</span>
                 </div>
               </ng-template>
             </p-tag>
-            <p-tag [severity]="stockStatusSeverity(item.stockStatus)" [value]="stockStatusLabelKey(item.stockStatus) | transloco"></p-tag>
+            <p-tag
+              [severity]="stockStatusSeverity(item.stockStatus)"
+              [value]="stockStatusLabelKey(item.stockStatus) | transloco"
+            ></p-tag>
           </div>
         </td>
         <td>
@@ -210,7 +267,7 @@
                 [icon]="'pi pi-pencil'"
                 [rounded]="true"
                 [text]="true"
-                [attr.aria-label]="'common.edit' | transloco"
+                [ariaLabel]="'common.edit' | transloco"
                 (click)="onEditItem(item)"
                 [disabled]="isSubmitting"
               ></p-button>
@@ -220,7 +277,7 @@
                 [icon]="'pi pi-print'"
                 [rounded]="true"
                 [text]="true"
-                [attr.aria-label]="'inventory.printLabel' | transloco"
+                [ariaLabel]="'inventory.printLabel' | transloco"
                 (click)="onPrintLabel(item)"
                 [disabled]="isSubmitting"
               ></p-button>

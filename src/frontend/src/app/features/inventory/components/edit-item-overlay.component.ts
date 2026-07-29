@@ -14,12 +14,17 @@ import { InputTextModule } from 'primeng/inputtext';
 import { TextareaModule } from 'primeng/textarea';
 
 import { InventoryBarcodeFieldComponent } from './barcode-field.component';
+import { BarcodeScannerDialogComponent } from '../../../shared/components/barcode-scanner-dialog.component';
 
 import { RootState } from '../../../core/state/app.state';
 import { InventoryActions } from '../state/inventory.actions';
-import { selectInventoryErrorMessage, selectInventorySubmitting } from '../state/inventory.selectors';
+import {
+  selectInventoryErrorMessage,
+  selectInventorySubmitting,
+} from '../state/inventory.selectors';
 import { InventoryService } from '../services/inventory.service';
 import type { Item } from '../services/inventory.models';
+import type { BarcodeDetection } from '../../../core/services/barcode-detector.service';
 
 @Component({
   selector: 'app-edit-item-overlay',
@@ -34,6 +39,7 @@ import type { Item } from '../services/inventory.models';
     BadgeModule,
     ButtonModule,
     InventoryBarcodeFieldComponent,
+    BarcodeScannerDialogComponent,
     TranslocoPipe,
   ],
   templateUrl: './edit-item-overlay.component.html',
@@ -53,6 +59,7 @@ export class EditItemOverlayComponent implements OnInit {
   readonly barcodeGenerating = signal(false);
   readonly barcodeGenerateError = signal('');
   readonly barcodeReplaceConfirmVisible = signal(false);
+  readonly isScannerOpen = signal(false);
   readonly barcodeSuggestions: string[] = [];
   private pendingGeneratedBarcode: string | null = null;
 
@@ -112,6 +119,25 @@ export class EditItemOverlayComponent implements OnInit {
     this.barcodeReplaceConfirmVisible.set(false);
   }
 
+  openScanner(): void {
+    this.isScannerOpen.set(true);
+  }
+
+  onScannerVisibilityChange(visible: boolean): void {
+    this.isScannerOpen.set(visible);
+  }
+
+  onBarcodeDetected(detection: BarcodeDetection): void {
+    const barcode = detection.value.trim();
+    if (!barcode) {
+      return;
+    }
+
+    this.form.controls.barcode.setValue(barcode);
+    this.form.controls.barcode.markAsTouched();
+    this.isScannerOpen.set(false);
+  }
+
   onClose(): void {
     if (this.isSubmitting()) {
       return;
@@ -143,7 +169,7 @@ export class EditItemOverlayComponent implements OnInit {
           hsnCode: this.nullableTrimmed(this.form.controls.hsnCode.value),
           defaultTaxRatePercent: Number(this.form.controls.defaultTaxRatePercent.value),
         },
-      })
+      }),
     );
   }
 

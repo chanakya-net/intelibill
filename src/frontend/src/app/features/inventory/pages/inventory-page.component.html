@@ -17,8 +17,8 @@
     }
   </header>
 
-  @if (serverError()) {
-    <p class="error">{{ serverError() | transloco }}</p>
+  @if (loadError()) {
+    <p class="error">{{ loadError() | transloco }}</p>
   }
 
   <!-- Four Summary Cards -->
@@ -29,7 +29,9 @@
       </div>
       <div class="summary-card-content">
         <span class="summary-card-label">{{ 'inventory.activeProducts' | transloco }}</span>
-        <span class="summary-card-value">{{ summary()?.activeItems ?? 0 }} / {{ summary()?.totalItems ?? 0 }}</span>
+        <span class="summary-card-value"
+          >{{ summary()?.activeItems ?? 0 }} / {{ summary()?.totalItems ?? 0 }}</span
+        >
       </div>
     </div>
 
@@ -40,7 +42,8 @@
       <div class="summary-card-content">
         <span class="summary-card-label">{{ 'inventory.currentStockValue' | transloco }}</span>
         <span class="summary-card-value"
-          >{{ 'common.currencySymbol' | transloco }}{{ (summary()?.totalStockValue ?? 0) | number: '1.2-2' }}</span
+          >{{ 'common.currencySymbol' | transloco
+          }}{{ summary()?.totalStockValue ?? 0 | number: '1.2-2' }}</span
         >
       </div>
     </div>
@@ -87,7 +90,11 @@
 
         @if (pagination().totalCount) {
           <span class="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded-full font-medium">
-            {{ 'inventory.paginationFooter' | transloco: { start: footerStart(), end: footerEnd(), total: pagination().totalCount } }}
+            {{
+              'inventory.paginationFooter'
+                | transloco
+                  : { start: footerStart(), end: footerEnd(), total: pagination().totalCount }
+            }}
           </span>
         }
       </div>
@@ -99,14 +106,17 @@
         <div class="mobile-search-bar">
           <p-skeleton width="100%" height="40px" borderRadius="6px"></p-skeleton>
         </div>
-        
+
         <div class="product-list flex flex-col gap-3 px-1">
           @for (i of [1, 2, 3, 4]; track i) {
-            <p-card class="product-card-item" [pt]="{
-              root: { class: 'border border-orange-100 shadow-none' },
-              body: { class: 'p-3' },
-              content: { class: 'p-0' }
-            }">
+            <p-card
+              class="product-card-item"
+              [pt]="{
+                root: { class: 'border border-orange-100 shadow-none' },
+                body: { class: 'p-3' },
+                content: { class: 'p-0' },
+              }"
+            >
               <div class="flex items-center gap-4">
                 <p-skeleton shape="circle" size="3rem" class="flex-shrink-0"></p-skeleton>
                 <div class="flex-1 flex flex-col gap-2">
@@ -154,14 +164,16 @@
               <td><p-skeleton width="50%"></p-skeleton></td>
               <td><p-skeleton width="50%"></p-skeleton></td>
               <td><p-skeleton width="80%"></p-skeleton></td>
-              <td><p-skeleton width="2rem" height="2rem" shape="circle" class="mx-auto"></p-skeleton></td>
+              <td>
+                <p-skeleton width="2rem" height="2rem" shape="circle" class="mx-auto"></p-skeleton>
+              </td>
             </tr>
           </ng-template>
         </p-table>
       </div>
     }
 
-    @if (!isLoadingItems()) {
+    @if (!isLoadingItems() && !loadError()) {
       <app-inventory-filter-bar
         [searchValue]="searchValue()"
         [statusFilter]="statusFilter()"

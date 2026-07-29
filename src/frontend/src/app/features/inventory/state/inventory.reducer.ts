@@ -18,6 +18,7 @@ export interface InventoryState extends EntityState<Item> {
   readonly loadingItems: boolean;
   readonly submitting: boolean;
   readonly errorMessage: string;
+  readonly loadErrorMessage: string;
   readonly lastMutationType: ItemMutationType | null;
   readonly lastMutationSucceeded: boolean;
   readonly lastAddedItem: Item | null;
@@ -32,6 +33,7 @@ const initialState: InventoryState = inventoryAdapter.getInitialState({
   loadingItems: false,
   submitting: false,
   errorMessage: '',
+  loadErrorMessage: '',
   lastMutationType: null,
   lastMutationSucceeded: false,
   lastAddedItem: null,
@@ -53,23 +55,28 @@ export const inventoryReducer = createReducer(
     ...state,
     loadingItems: true,
     errorMessage: '',
+    loadErrorMessage: '',
     latestQuery: query ?? state.latestQuery,
   })),
-  on(InventoryActions.loadItemsSucceeded, (state, { items, totalCount, pageNumber, pageSize, summary }) =>
-    inventoryAdapter.setAll([...items], {
-      ...state,
-      loadingItems: false,
-      errorMessage: '',
-      totalCount,
-      pageNumber,
-      pageSize,
-      summary,
-    })
+  on(
+    InventoryActions.loadItemsSucceeded,
+    (state, { items, totalCount, pageNumber, pageSize, summary }) =>
+      inventoryAdapter.setAll([...items], {
+        ...state,
+        loadingItems: false,
+        errorMessage: '',
+        loadErrorMessage: '',
+        totalCount,
+        pageNumber,
+        pageSize,
+        summary,
+      }),
   ),
   on(InventoryActions.loadItemsFailed, (state, { errorMessage }) => ({
     ...state,
     loadingItems: false,
     errorMessage,
+    loadErrorMessage: errorMessage,
   })),
 
   on(InventoryActions.addItemRequested, (state) => ({
@@ -126,7 +133,7 @@ export const inventoryReducer = createReducer(
     lastMutationType: null,
     lastMutationSucceeded: false,
     lastAddedItem: null,
-  }))
+  })),
 );
 
 export const inventoryFeature = createFeature({

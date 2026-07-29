@@ -13,11 +13,13 @@ import { InputTextModule } from 'primeng/inputtext';
 import { TextareaModule } from 'primeng/textarea';
 
 import { InventoryBarcodeFieldComponent } from './barcode-field.component';
+import { BarcodeScannerDialogComponent } from '../../../shared/components/barcode-scanner-dialog.component';
 
 import { RootState } from '../../../core/state/app.state';
 import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
 import { InventoryActions } from '../state/inventory.actions';
 import { InventoryService } from '../services/inventory.service';
+import type { BarcodeDetection } from '../../../core/services/barcode-detector.service';
 import {
   selectInventoryErrorMessage,
   selectInventorySubmitting,
@@ -36,6 +38,7 @@ import {
     CheckboxModule,
     ButtonModule,
     InventoryBarcodeFieldComponent,
+    BarcodeScannerDialogComponent,
     TranslocoPipe,
   ],
   templateUrl: './add-product-overlay.component.html',
@@ -56,6 +59,7 @@ export class AddProductOverlayComponent implements OnInit {
   readonly barcodeGenerating = signal(false);
   readonly barcodeGenerateError = signal('');
   readonly barcodeReplaceConfirmVisible = signal(false);
+  readonly isScannerOpen = signal(false);
   private pendingGeneratedBarcode: string | null = null;
 
   @Output() readonly closeRequested = new EventEmitter<void>();
@@ -163,6 +167,25 @@ export class AddProductOverlayComponent implements OnInit {
     this.barcodeReplaceConfirmVisible.set(false);
   }
 
+  openScanner(): void {
+    this.isScannerOpen.set(true);
+  }
+
+  onScannerVisibilityChange(visible: boolean): void {
+    this.isScannerOpen.set(visible);
+  }
+
+  onBarcodeDetected(detection: BarcodeDetection): void {
+    const barcode = detection.value.trim();
+    if (!barcode) {
+      return;
+    }
+
+    this.form.controls.barcode.setValue(barcode);
+    this.form.controls.barcode.markAsTouched();
+    this.isScannerOpen.set(false);
+  }
+
   onClose(): void {
     if (this.isSubmitting()) {
       return;
@@ -218,7 +241,9 @@ export class AddProductOverlayComponent implements OnInit {
 
       const suggestedHsn = result.hsnCodes.length === 1 ? result.hsnCodes[0] : null;
       const suggestedTaxRate =
-        result.taxScenarios.length === 1 ? this.parseTaxPercentage(result.taxScenarios[0].taxPercentage) : null;
+        result.taxScenarios.length === 1
+          ? this.parseTaxPercentage(result.taxScenarios[0].taxPercentage)
+          : null;
 
       if (!this.form.controls.hsnCode.dirty && suggestedHsn) {
         this.form.controls.hsnCode.setValue(suggestedHsn);

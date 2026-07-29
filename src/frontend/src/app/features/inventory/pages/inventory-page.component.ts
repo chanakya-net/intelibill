@@ -40,6 +40,7 @@ import {
   selectInventoryLastAddedItem,
   selectInventoryLastMutationSucceeded,
   selectInventoryLastMutationType,
+  selectInventoryLoadErrorMessage,
   selectInventoryLoadingItems,
   selectInventorySubmitting,
   selectInventoryPagination,
@@ -106,6 +107,7 @@ export class InventoryPageComponent {
   readonly isLoadingItems = this.store.selectSignal(selectInventoryLoadingItems);
   readonly isSubmitting = this.store.selectSignal(selectInventorySubmitting);
   readonly serverError = this.store.selectSignal(selectInventoryErrorMessage);
+  readonly loadError = this.store.selectSignal(selectInventoryLoadErrorMessage);
   readonly lastMutationType = this.store.selectSignal(selectInventoryLastMutationType);
   readonly lastMutationSucceeded = this.store.selectSignal(selectInventoryLastMutationSucceeded);
   readonly lastAddedItem = this.store.selectSignal(selectInventoryLastAddedItem);
@@ -117,7 +119,9 @@ export class InventoryPageComponent {
       return '';
     }
 
-    const activeShop = session.shops.find((shop) => shop.shopId === session.activeShopId) ?? session.shops.find((shop) => shop.isDefault);
+    const activeShop =
+      session.shops.find((shop) => shop.shopId === session.activeShopId) ??
+      session.shops.find((shop) => shop.isDefault);
     return activeShop?.role ?? '';
   });
   readonly canManageInventory = computed(() => {
@@ -185,7 +189,7 @@ export class InventoryPageComponent {
           pageNumber: this.pageNumber(),
           pageSize: this.pageSize(),
         },
-      })
+      }),
     );
   }
 
