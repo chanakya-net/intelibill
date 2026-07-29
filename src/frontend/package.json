@@ -13,6 +13,7 @@
     "audit:ui": "bun run scripts/run-ui-audit.mjs",
     "audit:ui:mocked": "bun run scripts/run-ui-audit.mjs --mocked",
     "audit:ui:baseline": "bun run scripts/run-ui-audit.mjs --baseline",
+    "audit:ui:live": "bun x playwright test --config tests/ui-audit/live/playwright.live.config.ts",
     "build:server": "bun build src/server.ts --target=node --outfile=dist/INVENTORY/server/server.mjs",
     "serve": "node dist/INVENTORY/server/server.mjs"
   },
