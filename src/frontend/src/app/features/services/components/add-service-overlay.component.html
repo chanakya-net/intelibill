@@ -37,7 +37,18 @@
               class="w-full"
               formControlName="name"
               (blur)="onNameBlur()"
+              [attr.aria-invalid]="form.controls.name.invalid && form.controls.name.touched"
+              [attr.aria-describedby]="
+                form.controls.name.invalid && form.controls.name.touched
+                  ? 'add-service-name-error'
+                  : null
+              "
             />
+            @if (form.controls.name.invalid && form.controls.name.touched) {
+              <p id="add-service-name-error" class="field-error">
+                {{ 'common.required' | transloco }}
+              </p>
+            }
           </div>
 
           <div class="field">

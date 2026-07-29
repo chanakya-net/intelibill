@@ -56,6 +56,53 @@
   overflow: hidden;
 }
 
+.mobile-service-list {
+  display: none;
+  gap: 0.75rem;
+}
+
+.service-card {
+  display: grid;
+  gap: 0.7rem;
+  min-width: 0;
+  padding: 0.9rem;
+  border: 1px solid #f1e4d7;
+  border-radius: 0.9rem;
+  background: #fffdfa;
+}
+
+.service-card__header,
+.service-card__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.service-card__details {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin: 0;
+
+  div {
+    min-width: 0;
+  }
+
+  dt {
+    color: #78716c;
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+
+  dd {
+    margin: 0.15rem 0 0;
+    color: #292524;
+    font-size: 0.82rem;
+    overflow-wrap: anywhere;
+  }
+}
+
 .code-cell {
   font-size: 0.8rem;
   color: #92400e;
@@ -70,11 +117,13 @@
 .service-name {
   font-weight: 700;
   color: #1c1917;
+  overflow-wrap: anywhere;
 }
 
 .service-description {
   color: #78716c;
   font-size: 0.85rem;
+  overflow-wrap: anywhere;
 }
 
 .tax-cell {
@@ -162,5 +211,19 @@
     border: 1px solid #f1f0ee !important;
     padding: 0.5rem !important;
     border-radius: 8px;
+  }
+}
+
+@media (max-width: 640px) {
+  .desktop-table {
+    display: none;
+  }
+
+  .mobile-service-list {
+    display: grid;
+  }
+
+  .service-card__actions {
+    justify-content: flex-end;
   }
 }

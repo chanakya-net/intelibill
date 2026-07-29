@@ -51,7 +51,8 @@
       <div class="summary-card-content">
         <span class="summary-card-label">{{ 'services.totalValue' | transloco }}</span>
         <span class="summary-card-value"
-          >{{ 'common.currencySymbol' | transloco }}{{ summary().totalValue | number:'1.2-2' }}</span
+          >{{ 'common.currencySymbol' | transloco
+          }}{{ summary().totalValue | number: '1.2-2' }}</span
         >
       </div>
     </div>
@@ -73,6 +74,7 @@
       </p-iconfield>
 
       <p-select
+        inputId="services-status-filter"
         [options]="statusOptions"
         optionLabel="label"
         optionValue="value"
@@ -116,7 +118,10 @@
   </div>
 
   @if (showAddOverlay()) {
-    <app-add-service-overlay (saved)="onServiceSaved()" (closeRequested)="onCloseAddService()"></app-add-service-overlay>
+    <app-add-service-overlay
+      (saved)="onServiceSaved()"
+      (closeRequested)="onCloseAddService()"
+    ></app-add-service-overlay>
   }
 
   @if (editingService()) {
