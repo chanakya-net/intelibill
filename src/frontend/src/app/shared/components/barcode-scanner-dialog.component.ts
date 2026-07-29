@@ -49,7 +49,11 @@ import { CameraStreamService } from '../../core/services/camera-stream.service';
 
         @if (scannerError()) {
           <p class="scanner-error">
-            {{ scannerError().startsWith('inventory.') ? (scannerError() | transloco) : scannerError() }}
+            {{
+              scannerError().startsWith('inventory.')
+                ? (scannerError() | transloco)
+                : scannerError()
+            }}
           </p>
         }
       </div>
@@ -184,7 +188,6 @@ export class BarcodeScannerDialogComponent implements OnChanges, OnDestroy {
       );
     } catch {
       this.scannerError.set('inventory.scannerOpenError');
-      this.visibleChange.emit(false);
     } finally {
       this.scannerInitializing.set(false);
     }

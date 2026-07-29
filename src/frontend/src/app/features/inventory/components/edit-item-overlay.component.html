@@ -48,13 +48,18 @@
             [barcodeGenerating]="barcodeGenerating()"
             [barcodeGenerateError]="barcodeGenerateError()"
             [barcodeReplaceConfirmVisible]="barcodeReplaceConfirmVisible()"
-            [showScanner]="false"
             replaceConfirmKey="inventory.generateBarcodeReplaceConfirmEdit"
             (filterRequested)="onFilterBarcode($event)"
+            (scannerRequested)="openScanner()"
             (generateRequested)="onGenerateBarcode()"
             (confirmReplace)="confirmBarcodeReplace()"
             (cancelReplace)="cancelBarcodeReplace()"
           />
+          @if (form.controls.barcode.invalid && form.controls.barcode.touched) {
+            <small class="validation-message">{{
+              'errors.items.barcodeRequired' | transloco
+            }}</small>
+          }
         </div>
 
         <div class="field wide">
@@ -152,3 +157,9 @@
     </div>
   </ng-template>
 </p-dialog>
+
+<app-barcode-scanner-dialog
+  [visible]="isScannerOpen()"
+  (visibleChange)="onScannerVisibilityChange($event)"
+  (detected)="onBarcodeDetected($event)"
+/>

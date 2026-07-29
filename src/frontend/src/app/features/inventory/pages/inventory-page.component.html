@@ -17,8 +17,8 @@
     }
   </header>
 
-  @if (serverError()) {
-    <p class="error">{{ serverError() | transloco }}</p>
+  @if (loadError()) {
+    <p class="error">{{ loadError() | transloco }}</p>
   }
 
   <!-- Four Summary Cards -->
@@ -173,7 +173,7 @@
       </div>
     }
 
-    @if (!isLoadingItems() && !serverError()) {
+    @if (!isLoadingItems() && !loadError()) {
       <app-inventory-filter-bar
         [searchValue]="searchValue()"
         [statusFilter]="statusFilter()"

@@ -6,6 +6,7 @@ import {
   selectInventoryLastAddedItem,
   selectInventoryLastMutationSucceeded,
   selectInventoryLastMutationType,
+  selectInventoryLoadErrorMessage,
   selectInventoryLatestQuery,
   selectInventoryLoadingItems,
   selectInventoryPagination,
@@ -57,6 +58,7 @@ describe('inventory selectors', () => {
     loadingItems: true,
     submitting: true,
     errorMessage: 'errors.items.unableToLoadItems',
+    loadErrorMessage: 'errors.items.unableToLoadItems',
     lastMutationType: 'add-item',
     lastMutationSucceeded: true,
     lastAddedItem: itemTwo,
@@ -97,6 +99,10 @@ describe('inventory selectors', () => {
 
   it('selects error message', () => {
     expect(selectInventoryErrorMessage(rootState as never)).toBe('errors.items.unableToLoadItems');
+  });
+
+  it('selects the catalog-load error separately from mutation errors', () => {
+    expect(selectInventoryLoadErrorMessage(rootState as never)).toBe('errors.items.unableToLoadItems');
   });
 
   it('selects last mutation type', () => {

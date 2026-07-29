@@ -15,18 +15,21 @@ import {
 const API_BASE = 'http://localhost:5277/api';
 
 export type InventoryApiState = 'ready' | 'loading' | 'error';
+export type InventoryScannerState = 'detected' | 'error';
 
 export interface InventoryScenario {
   readonly shell: ShellScenario;
   readonly items: readonly Item[];
   readonly apiState: InventoryApiState;
   readonly mutationState: 'ready' | 'error';
+  readonly scannerState: InventoryScannerState | null;
 }
 
 export interface InventoryScenarioOptions extends ShellScenarioOptions {
   readonly items?: readonly Item[];
   readonly apiState?: InventoryApiState;
   readonly mutationState?: InventoryScenario['mutationState'];
+  readonly scannerState?: InventoryScannerState;
 }
 
 export const LONG_INVENTORY_ITEM = item('long-item', {
@@ -67,6 +70,7 @@ export function createInventoryScenario(options: InventoryScenarioOptions = {}):
     items: options.items ?? INVENTORY_ITEMS,
     apiState: options.apiState ?? 'ready',
     mutationState: options.mutationState ?? 'ready',
+    scannerState: options.scannerState ?? null,
   };
 }
 
@@ -75,6 +79,9 @@ export async function installInventoryFixture(
   scenario: InventoryScenario,
 ): Promise<void> {
   await installShellFixture(page, scenario.shell);
+  if (scenario.scannerState) {
+    await installBarcodeScannerMock(page, scenario.scannerState);
+  }
   const state: InventoryFixtureState = {
     items: [...scenario.items],
     apiState: scenario.apiState,
@@ -88,6 +95,45 @@ export async function installInventoryFixture(
       taxScenarios: [{ condition: 'Audit rate', taxPercentage: '5%' }],
     }),
   );
+}
+
+async function installBarcodeScannerMock(page: Page, state: InventoryScannerState): Promise<void> {
+  await page.addInitScript((scannerState) => {
+    class AuditBarcodeDetector {
+      static async getSupportedFormats(): Promise<string[]> {
+        return ['code_128'];
+      }
+
+      async detect(): Promise<Array<{ rawValue: string; format: string }>> {
+        if (scannerState === 'error') {
+          throw new Error('Deterministic scanner failure');
+        }
+        return [{ rawValue: 'SCANNED-AUDIT-001', format: 'code_128' }];
+      }
+    }
+
+    Object.defineProperty(window, 'BarcodeDetector', {
+      configurable: true,
+      value: AuditBarcodeDetector,
+    });
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: { getUserMedia: async () => new MediaStream() },
+    });
+    Object.defineProperty(HTMLMediaElement.prototype, 'readyState', {
+      configurable: true,
+      get: () => HTMLMediaElement.HAVE_ENOUGH_DATA,
+    });
+    const sourceObject = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'srcObject');
+    Object.defineProperty(HTMLMediaElement.prototype, 'srcObject', {
+      configurable: true,
+      get: sourceObject?.get,
+      set(value) {
+        sourceObject?.set?.call(this, value);
+        queueMicrotask(() => this.dispatchEvent(new Event('loadedmetadata')));
+      },
+    });
+  }, state);
 }
 
 interface InventoryFixtureState {
