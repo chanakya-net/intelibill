@@ -19,7 +19,8 @@
     "inactive": "Inactive",
     "remove": "Remove",
     "status": "Status",
-    "void": "Void"
+    "void": "Void",
+    "required": "This field is required"
   },
   "languages": {
     "en-IN": "English",
@@ -263,7 +264,15 @@
     "deactivate": "Deactivate",
     "loadFailed": "Unable to load services.",
     "saveFailed": "Unable to save service.",
-    "toggleFailed": "Unable to update service status."
+    "toggleFailed": "Unable to update service status.",
+    "paginationFooter": "{{start}} - {{end}} of {{total}}",
+    "validation": {
+      "nameMaxLength": "Service name must be 180 characters or fewer.",
+      "descriptionMaxLength": "Description must be 320 characters or fewer.",
+      "priceMin": "Price must be zero or greater.",
+      "taxRateRange": "Tax rate must be between 0 and 100.",
+      "hsnSacPattern": "Enter a valid 4 to 8 digit HSN/SAC code."
+    }
   },
   "bankAccounts": {
     "directory": "Bank Account Directory",
@@ -365,6 +374,7 @@
     "isActive": "Is Active",
     "isPreferred": "Is Preferred",
     "balance": "Balance",
+    "balanceDue": "Balance Due",
     "ledgerEntries": "Ledger Entries",
     "entryType": "Entry Type",
     "amount": "Amount",
@@ -377,6 +387,9 @@
     "searchEntryDate": "Search date",
     "searchNotes": "Search notes",
     "totalAmount": "Total Amount",
+    "all": "All",
+    "goodsReceived": "Goods Received",
+    "payments": "Payments",
     "entryTypes": {
       "goodsReceived": "Goods Received",
       "paymentMade": "Payment Made",
@@ -1605,7 +1618,10 @@
       "ariaLabel": "Expense summary"
     },
     "ledgerMetrics": "Expense ledger metrics",
-    "ledgerResults": "Expense ledger results"
+    "ledgerResults": "Expense ledger results",
+    "errors": {
+      "unexpected": "Unable to record or correct this expense. Please try again."
+    }
   },
   "discounts": {
     "title": "Discount Rules",
@@ -1623,7 +1639,8 @@
       "disable": "Disable"
     },
     "list": {
-      "title": "Rules"
+      "title": "Rules",
+      "empty": "No discount rules match these filters."
     },
     "detail": {
       "title": "Rule details",

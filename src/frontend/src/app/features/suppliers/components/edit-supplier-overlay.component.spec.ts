@@ -65,6 +65,19 @@ describe('EditSupplierOverlayComponent', () => {
     expect(suppliersFacade.editSupplier).not.toHaveBeenCalled();
   });
 
+  it('submits an empty optional contact phone as null', () => {
+    const component = setup();
+
+    component.form.controls.contactPersonPhone.setValue('');
+    component.onSubmit();
+
+    expect(component.form.controls.contactPersonPhone.valid).toBe(true);
+    expect(suppliersFacade.editSupplier).toHaveBeenCalledWith(
+      's1',
+      expect.objectContaining({ contactPersonPhone: null }),
+    );
+  });
+
   it('dispatches edit supplier request with trimmed payload', () => {
     const component = setup();
 

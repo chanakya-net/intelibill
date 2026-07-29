@@ -250,7 +250,7 @@ export class ShellComponent {
   }
 
   onToggleShopMenu(): void {
-    if (this.shops().length === 0 || !this.shopPermissionsService.isOwnerOfActiveShop()) return;
+    if (this.shops().length === 0) return;
     this.isShopMenuOpen.set(!this.isShopMenuOpen());
   }
 

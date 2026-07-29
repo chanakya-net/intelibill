@@ -13,6 +13,7 @@ import { TextareaModule } from 'primeng/textarea';
 import { InventoryService } from '../../inventory/services/inventory.service';
 import type { Service } from '../services/service.models';
 import { ServiceService } from '../services/service.service';
+import { numericFieldPt } from './service-form-a11y';
 
 @Component({
   selector: 'app-edit-service-overlay',
@@ -34,6 +35,8 @@ export class EditServiceOverlayComponent implements OnInit {
   private readonly formBuilder = inject(FormBuilder);
   private readonly serviceService = inject(ServiceService);
   private readonly inventoryService = inject(InventoryService);
+
+  readonly numericFieldPt = numericFieldPt;
 
   readonly isSubmitting = signal(false);
   readonly isLoadingHsn = signal(false);

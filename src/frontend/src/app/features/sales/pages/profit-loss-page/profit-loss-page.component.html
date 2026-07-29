@@ -15,17 +15,19 @@
     </p>
   </header>
 
-  <section class="kpi-row">
-    @for (kpi of kpiCards; track kpi.label) {
-      <article class="kpi-card" [ngClass]="'kpi-card--' + kpi.tone">
-        <p class="kpi-label">{{ kpi.label | transloco }}</p>
-        <p class="kpi-value">{{ getKpiValue(kpi) }}</p>
-      </article>
-    }
-  </section>
+  @if (!serverError()) {
+    <section class="kpi-row">
+      @for (kpi of kpiCards; track kpi.label) {
+        <article class="kpi-card" [ngClass]="'kpi-card--' + kpi.tone">
+          <p class="kpi-label">{{ kpi.label | transloco }}</p>
+          <p class="kpi-value">{{ getKpiValue(kpi) }}</p>
+        </article>
+      }
+    </section>
+  }
 
   @if (serverError()) {
-    <p class="error">{{ serverError() | transloco }}</p>
+    <p class="error" role="alert">{{ serverError() | transloco }}</p>
   }
 
   <section class="ledger-panel">
@@ -42,7 +44,7 @@
         [outlined]="true"
         severity="secondary"
         class="export-btn"
-        [disabled]="isLoading() || isExporting()"
+        [disabled]="isLoading() || isExporting() || !!serverError()"
         (click)="onExport()"
         data-qa="profit-loss-export"
       ></button>
@@ -55,9 +57,12 @@
     @if (!serverError()) {
       <div class="controls-wrap">
         <div class="control-group">
-          <label class="control-label">{{ 'sales.profitLoss.controls.from' | transloco }}</label>
+          <label class="control-label" for="profit-loss-from">{{
+            'sales.profitLoss.controls.from' | transloco
+          }}</label>
           <p-datepicker
             ngSkipHydration
+            inputId="profit-loss-from"
             [ngModel]="fromDate()"
             (ngModelChange)="fromDate.set($event)"
             dateFormat="dd/mm/yy"
@@ -66,9 +71,12 @@
         </div>
 
         <div class="control-group">
-          <label class="control-label">{{ 'sales.profitLoss.controls.to' | transloco }}</label>
+          <label class="control-label" for="profit-loss-to">{{
+            'sales.profitLoss.controls.to' | transloco
+          }}</label>
           <p-datepicker
             ngSkipHydration
+            inputId="profit-loss-to"
             [ngModel]="toDate()"
             (ngModelChange)="toDate.set($event)"
             dateFormat="dd/mm/yy"
@@ -77,8 +85,11 @@
         </div>
 
         <div class="control-group">
-          <label class="control-label">{{ 'sales.profitLoss.controls.type' | transloco }}</label>
+          <label class="control-label" for="profit-loss-type">{{
+            'sales.profitLoss.controls.type' | transloco
+          }}</label>
           <p-select
+            inputId="profit-loss-type"
             [ngModel]="typeFilter()"
             (ngModelChange)="typeFilter.set($event)"
             [options]="typeFilterOptions"
@@ -104,6 +115,7 @@
             outlined="true"
             severity="secondary"
             [label]="'sales.profitLoss.controls.clearFilters' | transloco"
+            [disabled]="isLoading()"
             (click)="clearFilters()"
           ></button>
 
@@ -117,7 +129,7 @@
               [placeholder]="'sales.profitLoss.controls.searchPlaceholder' | transloco"
               [disabled]="isLoading()"
             />
-            @if (searchValue()) {
+            @if (searchValue() && !isLoading()) {
               <p-inputicon
                 iconPosition="right"
                 class="cursor-pointer"
@@ -131,7 +143,7 @@
       </div>
 
       @if (isLoading()) {
-        <section class="loading-state">
+        <section class="loading-state" role="status" aria-live="polite" aria-busy="true">
           <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
         </section>
 
@@ -146,7 +158,12 @@
         </div>
       } @else {
         <div class="report-content">
-          <div class="desktop-table">
+          <div
+            class="desktop-table"
+            role="region"
+            tabindex="0"
+            [attr.aria-label]="'sales.profitLoss.ledgerTitle' | transloco"
+          >
             <p-table [value]="tableData()" class="p-datatable-sm">
               <ng-template pTemplate="header">
                 <tr>
@@ -243,11 +260,21 @@
                 <div class="mobile-grid">
                   <p>
                     <strong>{{ 'sales.profitLoss.revenueInclTax' | transloco }}:</strong>
-                    {{ totalAmount(item.revenueAfterTax) }}
+                    <span>{{ totalAmount(item.revenueAfterTax) }}</span>
                   </p>
                   <p>
                     <strong>{{ 'sales.profitLoss.cost' | transloco }}:</strong>
-                    {{ totalAmount(item.totalCost) }}
+                    <span>{{ totalAmount(item.totalCost) }}</span>
+                  </p>
+                  <p>
+                    <strong>{{ 'sales.profitLoss.wastageCost' | transloco }}:</strong>
+                    <span>{{ totalAmount(item.wastageCost) }}</span>
+                  </p>
+                  <p>
+                    <strong>{{ 'sales.profitLoss.profitBeforeTax' | transloco }}:</strong>
+                    <span [class.negative]="item.profitBeforeTax < 0">{{
+                      totalAmount(item.profitBeforeTax)
+                    }}</span>
                   </p>
                   <p>
                     <strong>{{ 'sales.profitLoss.profitAfterTax' | transloco }}:</strong>
@@ -257,7 +284,7 @@
                   </p>
                   <p class="margin">
                     <strong>{{ 'sales.profitLoss.table.margin' | transloco }}:</strong>
-                    {{ formatMarginPercent(item.marginPercent) }}
+                    <span>{{ formatMarginPercent(item.marginPercent) }}</span>
                   </p>
                 </div>
               </article>
@@ -274,99 +301,103 @@
         </div>
       }
 
-      <footer class="report-footer">
-        <div class="totals-grid">
-          <p>
-            {{ 'sales.profitLoss.footer.invoices' | transloco }}: {{ summary()?.invoiceCount ?? 0 }}
-          </p>
-          <p>
-            {{ 'sales.profitLoss.footer.returns' | transloco }}: {{ summary()?.returnCount ?? 0 }}
-          </p>
-          <p>
-            {{ 'sales.profitLoss.footer.adjustments' | transloco }}:
-            {{ summary()?.adjustmentCount ?? 0 }}
-          </p>
-        </div>
+      @if (!isLoading()) {
+        <footer class="report-footer">
+          <div class="totals-grid">
+            <p>
+              {{ 'sales.profitLoss.footer.invoices' | transloco }}:
+              {{ summary()?.invoiceCount ?? 0 }}
+            </p>
+            <p>
+              {{ 'sales.profitLoss.footer.returns' | transloco }}: {{ summary()?.returnCount ?? 0 }}
+            </p>
+            <p>
+              {{ 'sales.profitLoss.footer.adjustments' | transloco }}:
+              {{ summary()?.adjustmentCount ?? 0 }}
+            </p>
+          </div>
 
-        <div class="showing">
-          {{
-            'sales.profitLoss.pagination.showing'
-              | transloco: { start: rangeStart(), end: rangeEnd(), total: pagination().totalCount }
-          }}
-        </div>
+          <div class="showing">
+            {{
+              'sales.profitLoss.pagination.showing'
+                | transloco
+                  : { start: rangeStart(), end: rangeEnd(), total: pagination().totalCount }
+            }}
+          </div>
 
-        <div class="page-controls">
-          <span class="page-size-label">{{
-            'sales.profitLoss.pagination.pageSize' | transloco
-          }}</span>
-          <p-select
-            [ngModel]="pageSize()"
-            (ngModelChange)="onPageSizeChange($event)"
-            [options]="pageSizeOptions"
-            optionLabel="label"
-            optionValue="value"
-            styleClass="w-20"
-            [disabled]="isLoading()"
-          />
+          <div class="page-controls">
+            <span class="page-size-label">{{
+              'sales.profitLoss.pagination.pageSize' | transloco
+            }}</span>
+            <p-select
+              [ngModel]="pageSize()"
+              (ngModelChange)="onPageSizeChange($event)"
+              [options]="pageSizeOptions"
+              optionLabel="label"
+              optionValue="value"
+              styleClass="w-20"
+              [disabled]="isLoading()"
+            />
 
-          <nav
-            class="pager"
-            [attr.aria-label]="'sales.profitLoss.pagination.ariaLabel' | transloco"
-          >
-            <button
-              pButton
-              type="button"
-              outlined="true"
-              severity="secondary"
-              icon="pi pi-chevron-left"
-              class="pager-btn"
-              [disabled]="pageNumber() === 1"
-              (click)="onPageChange(pageNumber() - 1)"
-              [attr.aria-label]="'sales.profitLoss.pagination.prev' | transloco"
-            ></button>
+            <nav
+              class="pager"
+              [attr.aria-label]="'sales.profitLoss.pagination.ariaLabel' | transloco"
+            >
+              <button
+                pButton
+                type="button"
+                outlined="true"
+                severity="secondary"
+                icon="pi pi-chevron-left"
+                class="pager-btn"
+                [disabled]="pageNumber() === 1"
+                (click)="onPageChange(pageNumber() - 1)"
+                [attr.aria-label]="'sales.profitLoss.pagination.prev' | transloco"
+              ></button>
 
-            <div class="page-status">
-              {{
-                'sales.profitLoss.pagination.pageStatus'
-                  | transloco: { page: pageNumber(), totalPages: totalPages() }
-              }}
-            </div>
+              <div class="page-status">
+                {{
+                  'sales.profitLoss.pagination.pageStatus'
+                    | transloco: { page: pageNumber(), totalPages: totalPages() }
+                }}
+              </div>
 
-            <div class="page-buttons">
-              @for (item of paginationItems(); track item) {
-                @if (item === 'ellipsis') {
-                  <span class="ellipsis">…</span>
-                } @else {
-                  <button
-                    type="button"
-                    class="page-btn"
-                    [class.active]="item === pageNumber()"
-                    [disabled]="isLoading()"
-                    (click)="onPageChange(item)"
-                    [attr.aria-label]="
-                      'sales.profitLoss.pagination.page' | transloco: { page: item }
-                    "
-                  >
-                    {{ item }}
-                  </button>
+              <div class="page-buttons">
+                @for (item of paginationItems(); track item) {
+                  @if (item === 'ellipsis') {
+                    <span class="ellipsis">…</span>
+                  } @else {
+                    <button
+                      type="button"
+                      class="page-btn"
+                      [class.active]="item === pageNumber()"
+                      [disabled]="isLoading()"
+                      (click)="onPageChange(item)"
+                      [attr.aria-label]="
+                        'sales.profitLoss.pagination.page' | transloco: { page: item }
+                      "
+                    >
+                      {{ item }}
+                    </button>
+                  }
                 }
-              }
-            </div>
+              </div>
 
-            <button
-              pButton
-              type="button"
-              outlined="true"
-              severity="secondary"
-              icon="pi pi-chevron-right"
-              class="pager-btn"
-              [disabled]="pageNumber() >= totalPages()"
-              (click)="onPageChange(pageNumber() + 1)"
-              [attr.aria-label]="'sales.profitLoss.pagination.next' | transloco"
-            ></button>
-          </nav>
-        </div>
-      </footer>
+              <button
+                pButton
+                type="button"
+                outlined="true"
+                severity="secondary"
+                icon="pi pi-chevron-right"
+                class="pager-btn"
+                [disabled]="pageNumber() >= totalPages()"
+                (click)="onPageChange(pageNumber() + 1)"
+                [attr.aria-label]="'sales.profitLoss.pagination.next' | transloco"
+              ></button>
+            </nav>
+          </div>
+        </footer>
+      }
     }
   </section>
 </section>

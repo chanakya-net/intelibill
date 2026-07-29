@@ -24,7 +24,10 @@ describe('DiscountConditionsFormComponent', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [DiscountConditionsFormComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
+      imports: [
+        DiscountConditionsFormComponent,
+        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+      ],
     });
   });
 
@@ -51,8 +54,11 @@ describe('DiscountConditionsFormComponent', () => {
     fixture.detectChanges();
 
     component.form.controls.ruleType.setValue('SaleThresholdPercentage');
+    fixture.detectChanges();
     component.form.controls.thresholdAmount.setValue(null);
     component.form.controls.thresholdAmount.updateValueAndValidity();
+
+    expect(fixture.nativeElement.querySelector('#discount-rule-threshold')).not.toBeNull();
     expect(component.form.controls.thresholdAmount.valid).toBe(false);
     component.form.controls.thresholdAmount.setValue(0.1);
     expect(component.form.controls.thresholdAmount.valid).toBe(true);
@@ -64,8 +70,38 @@ describe('DiscountConditionsFormComponent', () => {
     fixture.detectChanges();
 
     component.form.controls.ruleType.setValue('BatchPercentage');
+    fixture.detectChanges();
     component.form.controls.thresholdAmount.setValue(0.1);
     component.form.controls.thresholdAmount.updateValueAndValidity();
+
+    expect(fixture.nativeElement.querySelector('#discount-rule-threshold')).toBeNull();
     expect(component.form.controls.thresholdAmount.valid).toBe(true);
+  });
+
+  it('describes touched invalid controls to assistive technology', () => {
+    const fixture = TestBed.createComponent(DiscountConditionsFormComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    component.form.controls.ruleType.setValue('SaleThresholdPercentage');
+    component.form.controls.name.setValue('');
+    component.form.controls.percentage.setValue(0);
+    component.form.controls.thresholdAmount.setValue(null);
+    component.markAllAsTouched();
+    fixture.detectChanges();
+
+    const name = fixture.nativeElement.querySelector('#discount-rule-name') as HTMLInputElement;
+    const percentage = fixture.nativeElement.querySelector(
+      '#discount-rule-percentage',
+    ) as HTMLInputElement;
+    const threshold = fixture.nativeElement.querySelector(
+      '#discount-rule-threshold',
+    ) as HTMLInputElement;
+    expect(name.getAttribute('aria-invalid')).toBe('true');
+    expect(name.getAttribute('aria-describedby')).toBe('discount-rule-name-error');
+    expect(percentage.getAttribute('aria-describedby')).toBe('discount-rule-percentage-error');
+    expect(threshold.getAttribute('aria-describedby')).toBe('discount-rule-threshold-error');
+    expect(fixture.nativeElement.querySelector('#discount-rule-percentage-error')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('#discount-rule-threshold-error')).not.toBeNull();
   });
 });

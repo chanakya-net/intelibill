@@ -114,6 +114,7 @@
     <app-supplier-detail
       [supplier]="detailSupplier()"
       [supplierId]="detailSupplierId()"
+      [canMakePayment]="canMakePayment()"
       (closeRequested)="onCloseSupplierDetail()"
     ></app-supplier-detail>
   }

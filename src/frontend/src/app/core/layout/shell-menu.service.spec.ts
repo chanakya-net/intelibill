@@ -56,6 +56,23 @@ describe('ShellMenuService', () => {
     return menuItems.some((item) => item.label === label);
   }
 
+  function profileLabels(service: ShellMenuService): (string | undefined)[] {
+    return service
+      .profileMenuItems({
+        onLanguageSelected: vi.fn(),
+        closeMenus: vi.fn(),
+        isSigningOut: false,
+        navigate: vi.fn(),
+        onSignOut: vi.fn(),
+        hasShops: true,
+        onOpenAddShop: vi.fn(),
+        onOpenManageShop: vi.fn(),
+        onOpenUpdateProfile: vi.fn(),
+        onOpenChangePassword: vi.fn(),
+      })
+      .map((item) => item.label);
+  }
+
   it('builds owner main and inventory menus', () => {
     const service = createService();
     roleSignal.set('Owner');
@@ -137,5 +154,49 @@ describe('ShellMenuService', () => {
     expect(hasLabel(staffSalesItems, 'i18n:shell.salesHistory')).toBe(true);
     expect(hasLabel(staffSalesItems, 'i18n:shell.creditNotes')).toBe(true);
     expect(hasLabel(staffSalesItems, 'i18n:shell.profitLossReport')).toBe(false);
+  });
+
+  it.each([
+    {
+      role: 'Owner',
+      labels: [
+        'i18n:shell.manageUsers',
+        'i18n:shell.updateProfile',
+        'i18n:shell.changePassword',
+        'i18n:shell.addShop',
+        'i18n:shell.manageShop',
+        'i18n:shell.manageDiscounts',
+        'i18n:shell.manageBankAccounts',
+        'i18n:shell.language',
+        'i18n:shell.logout',
+      ],
+    },
+    {
+      role: 'Manager',
+      labels: [
+        'i18n:shell.manageUsers',
+        'i18n:shell.updateProfile',
+        'i18n:shell.changePassword',
+        'i18n:shell.manageShop',
+        'i18n:shell.manageDiscounts',
+        'i18n:shell.language',
+        'i18n:shell.logout',
+      ],
+    },
+    {
+      role: 'Staff',
+      labels: [
+        'i18n:shell.manageUsers',
+        'i18n:shell.updateProfile',
+        'i18n:shell.changePassword',
+        'i18n:shell.language',
+        'i18n:shell.logout',
+      ],
+    },
+  ])('builds exact $role profile controls', ({ role, labels }) => {
+    const service = createService();
+    roleSignal.set(role);
+
+    expect(profileLabels(service)).toEqual(labels);
   });
 });

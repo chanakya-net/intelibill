@@ -86,7 +86,7 @@
         <!-- Step 1: Shop Info -->
         <p-step-panel [value]="1">
           <ng-template #content>
-            <form [formGroup]="shopForm" (ngSubmit)="onNextFromStep1()" class="overlay-form space-y-4">
+            <form [formGroup]="shopForm" (ngSubmit)="onNextFromStep1()" class="overlay-form overlay-step-content space-y-4">
               <div class="field-wrap space-y-1.5">
                 <label for="shop-name">{{ 'shops.shopName' | transloco }}</label>
                 <input
@@ -225,7 +225,7 @@
                 <p class="server-error">{{ serverError() | transloco }}</p>
               }
 
-              <div class="flex pt-4 justify-end">
+              <div class="overlay-actions flex pt-4 justify-end">
                 <button
                   pButton
                   type="submit"
@@ -244,7 +244,7 @@
         <!-- Step 2: Bank Details (optional) -->
         <p-step-panel [value]="2">
           <ng-template #content>
-            <form [formGroup]="bankForm" (ngSubmit)="onSaveFromStep2()" class="overlay-form space-y-4">
+            <form [formGroup]="bankForm" (ngSubmit)="onSaveFromStep2()" class="overlay-form overlay-step-content space-y-4">
               <div class="text-sm text-muted mb-2">{{ 'shops.bankDetailsOptional' | transloco }}</div>
 
               <app-bank-account-form [form]="bankForm" idPrefix="create"></app-bank-account-form>
@@ -253,7 +253,7 @@
                 <p class="server-error">{{ serverError() | transloco }}</p>
               }
 
-              <div class="flex pt-4 justify-between">
+              <div class="overlay-actions flex pt-4 justify-between">
                 <div class="flex gap-2">
                   <p-button
                     type="button"
@@ -289,7 +289,7 @@
         <!-- Step 3: Success -->
         <p-step-panel [value]="3">
           <ng-template #content>
-            <div class="flex flex-col items-center gap-4 py-8">
+            <div class="overlay-step-content flex flex-col items-center gap-4 py-8">
               <span class="flex items-center justify-center w-16 h-16 rounded-full bg-green-100 text-green-600">
                 <i class="pi pi-check text-3xl"></i>
               </span>

@@ -20,8 +20,16 @@
       </div>
     </div>
 
-    @if (canAddUsers()) {
-      <div class="users-hero__actions">
+    <div class="users-hero__actions">
+      <button
+        pButton
+        type="button"
+        [label]="'shops.defaultStore.title' | transloco"
+        icon="pi pi-shop"
+        severity="secondary"
+        (click)="onOpenDefaultStore()"
+      ></button>
+      @if (canAddUsers()) {
         <button
           pButton
           type="button"
@@ -29,8 +37,8 @@
           icon="pi pi-user-plus"
           (click)="onOpenAddUser()"
         ></button>
-      </div>
-    }
+      }
+    </div>
   </header>
 
   <div class="summary-grid" [attr.aria-label]="'users.summary.ariaLabel' | transloco">
@@ -281,5 +289,13 @@
       [user]="$any(editingUser())"
       (closeRequested)="onCloseEditUser()"
     ></app-edit-shop-user-overlay>
+  }
+
+  @if (showDefaultStoreOverlay()) {
+    <app-set-default-store-overlay
+      [shops]="session()?.shops ?? []"
+      [activeShopId]="session()?.activeShopId ?? null"
+      (closeRequested)="onCloseDefaultStore()"
+    ></app-set-default-store-overlay>
   }
 </section>

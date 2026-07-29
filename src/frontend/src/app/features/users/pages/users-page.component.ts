@@ -12,6 +12,7 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { RootState } from '../../../core/state/app.state';
 import { AddShopUserOverlayComponent } from '../components/add-shop-user-overlay.component';
 import { EditShopUserOverlayComponent } from '../components/edit-shop-user-overlay.component';
+import { SetDefaultStoreOverlayComponent } from '../components/set-default-store-overlay.component';
 import { UserRoleFilter, UsersFilterBarComponent } from '../components/users-filter-bar.component';
 import { ShopUser } from '../services/user-account.service';
 import { UsersActions } from '../state/users.actions';
@@ -45,6 +46,7 @@ type UserDirectoryMetric = {
     TableModule,
     AddShopUserOverlayComponent,
     EditShopUserOverlayComponent,
+    SetDefaultStoreOverlayComponent,
     UsersFilterBarComponent,
     TranslocoPipe,
   ],
@@ -86,6 +88,7 @@ export class UsersPageComponent {
 
   readonly showAddUserOverlay = signal(false);
   readonly showEditUserOverlay = signal(false);
+  readonly showDefaultStoreOverlay = signal(false);
   readonly editingUser = signal<ShopUser | null>(null);
   readonly session = this.authService.session;
   readonly activeShopRole = computed(() => {
@@ -182,6 +185,14 @@ export class UsersPageComponent {
 
   onCloseAddUser(): void {
     this.showAddUserOverlay.set(false);
+  }
+
+  onOpenDefaultStore(): void {
+    this.showDefaultStoreOverlay.set(true);
+  }
+
+  onCloseDefaultStore(): void {
+    this.showDefaultStoreOverlay.set(false);
   }
 
   onOpenEditUser(user: ShopUser): void {

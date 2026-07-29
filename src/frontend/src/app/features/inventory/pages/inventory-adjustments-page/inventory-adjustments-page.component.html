@@ -33,18 +33,28 @@
   </header>
 
   <app-adjustment-summary
+    data-testid="adjustment-summary"
+    [attr.aria-busy]="loading()"
     [rows]="adjustmentSummaryRows()"
     [loading]="loading()"
   ></app-adjustment-summary>
 
   @if (loading()) {
-    <section class="directory-panel directory-panel--loading" aria-busy="true">
+    <section
+      class="directory-panel directory-panel--loading"
+      data-testid="adjustment-ledger"
+      aria-busy="true"
+    >
       <div class="loading">
         <p-progressSpinner />
       </div>
     </section>
   } @else {
-    <section class="directory-panel">
+    <section
+      class="directory-panel"
+      data-testid="adjustment-ledger"
+      aria-busy="false"
+    >
       <header class="directory-panel__header">
         <div>
           <p class="directory-panel__eyebrow">{{ 'inventory.adjustmentSummary' | transloco }}</p>
@@ -64,6 +74,7 @@
             optionValue="value"
             [placeholder]="'inventory.item' | transloco"
             [showClear]="true"
+            [panelStyle]="{ maxWidth: 'calc(100vw - 1rem)' }"
             appendTo="body"
             styleClass="adjustments-filter-bar__select"
           ></p-select>
@@ -79,6 +90,7 @@
             optionValue="value"
             [placeholder]="'inventory.batchNumber' | transloco"
             [showClear]="true"
+            [panelStyle]="{ maxWidth: 'calc(100vw - 1rem)' }"
             appendTo="body"
             styleClass="adjustments-filter-bar__select"
           ></p-select>
@@ -94,6 +106,7 @@
             optionValue="value"
             [placeholder]="'inventory.adjustmentDirectionLabel' | transloco"
             [showClear]="true"
+            [panelStyle]="{ maxWidth: 'calc(100vw - 1rem)' }"
             appendTo="body"
             styleClass="adjustments-filter-bar__select"
           ></p-select>
@@ -109,6 +122,7 @@
             optionValue="value"
             [placeholder]="'inventory.adjustmentReasonLabel' | transloco"
             [showClear]="true"
+            [panelStyle]="{ maxWidth: 'calc(100vw - 1rem)' }"
             appendTo="body"
             styleClass="adjustments-filter-bar__select"
           ></p-select>
@@ -127,6 +141,7 @@
             dateFormat="dd/mm/yy"
             [showIcon]="true"
             iconDisplay="input"
+            [panelStyle]="{ maxWidth: 'calc(100vw - 1rem)' }"
             appendTo="body"
             [placeholder]="'dd/mm/yyyy'"
             [maxDate]="toDateValue() ?? undefined"
@@ -146,6 +161,7 @@
             dateFormat="dd/mm/yy"
             [showIcon]="true"
             iconDisplay="input"
+            [panelStyle]="{ maxWidth: 'calc(100vw - 1rem)' }"
             appendTo="body"
             [placeholder]="'dd/mm/yyyy'"
             [minDate]="fromDateValue() ?? undefined"
@@ -355,6 +371,7 @@
 }
 
 <p-dialog
+  styleClass="void-adjustment-dialog"
   [header]="'inventory.voidAdjustment' | transloco"
   [(visible)]="isVoidDialogOpen"
   [modal]="true"
@@ -362,7 +379,12 @@
   [draggable]="false"
   [resizable]="false"
 >
-  <form [formGroup]="voidForm" class="void-form" (ngSubmit)="onSaveVoidAdjustment()">
+  <form
+    [formGroup]="voidForm"
+    class="void-form"
+    data-testid="void-adjustment-dialog"
+    (ngSubmit)="onSaveVoidAdjustment()"
+  >
     @if (selectedAdjustment()) {
       <div class="void-summary">
         <strong>{{ selectedAdjustment()?.adjustmentNumber }}</strong>
@@ -379,7 +401,9 @@
         [placeholder]="'inventory.voidReasonPlaceholder' | transloco"
       ></textarea>
       @if (voidForm.controls.reason.touched && voidForm.controls.reason.invalid) {
-        <span class="validation-message">{{ 'inventory.voidReasonRequired' | transloco }}</span>
+        <span class="validation-message" data-testid="void-validation">
+          {{ 'inventory.voidReasonRequired' | transloco }}
+        </span>
       }
     </div>
 
@@ -387,6 +411,7 @@
       <button
         pButton
         type="button"
+        data-testid="cancel-void-action"
         class="p-button-text"
         [label]="'common.cancel' | transloco"
         [disabled]="voidSaving()"
@@ -395,6 +420,7 @@
       <button
         pButton
         type="submit"
+        data-testid="confirm-void-action"
         severity="danger"
         [label]="'inventory.voidAdjustment' | transloco"
         [loading]="voidSaving()"

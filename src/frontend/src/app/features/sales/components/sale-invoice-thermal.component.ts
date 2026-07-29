@@ -1,9 +1,26 @@
 import { CommonModule } from '@angular/common';
-import { Component, Input, inject } from '@angular/core';
+import {
+  AfterViewInit,
+  Component,
+  ElementRef,
+  Input,
+  OnDestroy,
+  Renderer2,
+  inject,
+} from '@angular/core';
 import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 
 import type { SaleDto, SaleItemDto } from '../services/sale.models';
 import { ShopDetails } from '../../shops/services/shop.service';
+
+const THERMAL_PAGE_WIDTH_MM = 80;
+// A receipt shorter than this fits on one content-sized page with no blank
+// tail. Longer content falls back to this height per page so Chromium keeps
+// pagination behavior for long receipts instead of forcing one giant page.
+const THERMAL_MAX_SINGLE_PAGE_HEIGHT_MM = 297;
+// Rounds up for sub-pixel layout and print-engine rounding.
+const THERMAL_PAGE_HEIGHT_BUFFER_MM = 4;
+const PX_TO_MM = 25.4 / 96;
 
 @Component({
   selector: 'app-sale-invoice-thermal',
@@ -12,12 +29,37 @@ import { ShopDetails } from '../../shops/services/shop.service';
   templateUrl: './sale-invoice-thermal.component.html',
   styleUrl: './sale-invoice-thermal.component.scss',
 })
-export class SaleInvoiceThermalComponent {
+export class SaleInvoiceThermalComponent implements AfterViewInit, OnDestroy {
   private readonly transloco = inject(TranslocoService);
+  private readonly elementRef = inject(ElementRef<HTMLElement>);
+  private readonly renderer = inject(Renderer2);
+  private pageSizeStyleElement: HTMLStyleElement | null = null;
 
   @Input() sale!: SaleDto;
   @Input() shop!: ShopDetails;
   @Input() pendingSync = false;
+
+  ngAfterViewInit(): void {
+    this.applyContentFittedPageSize();
+  }
+
+  ngOnDestroy(): void {
+    this.pageSizeStyleElement?.remove();
+    this.pageSizeStyleElement = null;
+  }
+
+  private applyContentFittedPageSize(): void {
+    const contentHeightMm = this.elementRef.nativeElement.scrollHeight * PX_TO_MM;
+    const pageHeightMm = Math.min(
+      Math.ceil(contentHeightMm) + THERMAL_PAGE_HEIGHT_BUFFER_MM,
+      THERMAL_MAX_SINGLE_PAGE_HEIGHT_MM,
+    );
+
+    const style = this.renderer.createElement('style') as HTMLStyleElement;
+    style.textContent = `@page { size: ${THERMAL_PAGE_WIDTH_MM}mm ${pageHeightMm}mm; margin: 0; }`;
+    this.renderer.appendChild(document.head, style);
+    this.pageSizeStyleElement = style;
+  }
 
   getCreditNoteSettlementCodes(): string[] {
     return this.sale.returns

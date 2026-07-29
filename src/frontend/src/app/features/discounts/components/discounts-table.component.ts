@@ -11,7 +11,14 @@ import { DiscountRuleListItemDto } from '../services/discount.service';
 @Component({
   selector: 'app-discounts-table',
   standalone: true,
-  imports: [CommonModule, ButtonModule, ProgressSpinnerModule, TableModule, TagModule, TranslocoPipe],
+  imports: [
+    CommonModule,
+    ButtonModule,
+    ProgressSpinnerModule,
+    TableModule,
+    TagModule,
+    TranslocoPipe,
+  ],
   templateUrl: './discounts-table.component.html',
   styleUrl: './discounts-table.component.scss',
 })
@@ -23,7 +30,9 @@ export class DiscountsTableComponent {
   @Input() pageNumber = 1;
   @Input() pageSize = 20;
   @Input({ required: true }) statusKey!: (item: DiscountRuleListItemDto) => string;
-  @Input({ required: true }) statusSeverity!: (item: DiscountRuleListItemDto) => 'success' | 'secondary' | 'danger';
+  @Input({ required: true }) statusSeverity!: (
+    item: DiscountRuleListItemDto,
+  ) => 'success' | 'secondary' | 'danger';
   @Input({ required: true }) formatDate!: (value: string | null) => string;
 
   @Output() selectRule = new EventEmitter<string>();
@@ -34,10 +43,12 @@ export class DiscountsTableComponent {
   }
 
   onPreviousPage(): void {
+    if (this.pageNumber <= 1 || this.listLoading) return;
     this.pageChange.emit(this.pageNumber - 1);
   }
 
   onNextPage(): void {
+    if (this.pageNumber * this.pageSize >= this.totalCount || this.listLoading) return;
     this.pageChange.emit(this.pageNumber + 1);
   }
 }

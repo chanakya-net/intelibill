@@ -24,7 +24,7 @@
       <p-step-panels>
         <p-step-panel [value]="1">
           <ng-template #content>
-            <form [formGroup]="form" (ngSubmit)="onSubmit()" class="overlay-form space-y-4">
+            <form [formGroup]="form" (ngSubmit)="onSubmit()" class="overlay-form overlay-step-content space-y-4">
               <div class="field-wrap space-y-1.5">
                 <label for="manage-shop-id">{{ 'shops.selectShop' | transloco }}</label>
                 <select id="manage-shop-id" formControlName="shopId" class="shop-select" [disabled]="isSubmitting() || isLoadingDetails()" (change)="onShopSelectionChange()">
@@ -46,7 +46,7 @@
                 <p class="server-error">{{ serverError() | transloco }}</p>
               }
 
-              <div class="flex pt-4 justify-end gap-2">
+              <div class="overlay-actions flex pt-4 justify-end gap-2">
                 @if (!isSelectedShopOwner() && isSelectedShopOwnerOrManager()) {
                   <button pButton type="button" [label]="'shops.nextStep' | transloco" icon="pi pi-arrow-right" iconPos="right" severity="secondary" [text]="true" [disabled]="isSubmitting() || isLoadingDetails()" (click)="onContinueToOfflineBilling()"></button>
                 }
@@ -58,7 +58,7 @@
 
         <p-step-panel [value]="2">
           <ng-template #content>
-            <form [formGroup]="bankForm" (ngSubmit)="onSaveBankDetails()" class="overlay-form space-y-4">
+            <form [formGroup]="bankForm" (ngSubmit)="onSaveBankDetails()" class="overlay-form overlay-step-content space-y-4">
               <p class="text-sm text-muted mb-2">{{ 'shops.bankDetailsOptional' | transloco }}</p>
               @if (!isSelectedShopOwner()) {
                 <p class="owner-hint">{{ 'shops.selectedShopRoleIs' | transloco }} {{ roleLabelKey(selectedShopRole()) | transloco }}. {{ 'shops.onlyOwnersCanSave' | transloco }}</p>
@@ -67,7 +67,7 @@
               @if (serverError()) {
                 <p class="server-error">{{ serverError() | transloco }}</p>
               }
-              <div class="flex pt-4 justify-between">
+              <div class="overlay-actions flex pt-4 justify-between">
                 <div class="flex gap-2">
                   <p-button type="button" [label]="'shops.previousStep' | transloco" icon="pi pi-arrow-left" severity="secondary" [text]="true" [disabled]="isSubmitting() || isLoadingDetails()" (onClick)="onPreviousStep()" />
                   <p-button type="button" [label]="'shops.skipBankDetails' | transloco" severity="secondary" [text]="true" [disabled]="isSubmitting()" (onClick)="onSkipBankDetails()" />
@@ -80,7 +80,7 @@
 
         <p-step-panel [value]="3">
           <ng-template #content>
-            <div class="overlay-form space-y-4">
+            <div class="overlay-form overlay-step-content space-y-4">
               @if (isSelectedShopOwnerOrManager()) {
                 <div class="offline-card">
                   <h3 class="text-lg font-semibold mb-1">{{ 'offlineSalesDevice.title' | transloco }}</h3>
@@ -107,7 +107,7 @@
                   @if (offlineEnablementErrorKey()) {
                     <p class="server-error mt-4">{{ offlineEnablementErrorKey() | transloco }}</p>
                   }
-                  <div class="flex pt-4 justify-between">
+                  <div class="overlay-actions flex pt-4 justify-between">
                     <p-button type="button" [label]="'shops.previousStep' | transloco" icon="pi pi-arrow-left" severity="secondary" [text]="true" [disabled]="isSubmitting() || isLoadingDetails()" (onClick)="onPreviousStep()" />
                     <button pButton type="button" [label]="isOfflineEnablePending() ? ('offlineSalesDevice.enabling' | transloco) : ('offlineSalesDevice.enable' | transloco)" [loading]="isOfflineEnablePending()" [disabled]="!canEnableOfflineBilling() || isOfflineEnablePending()" class="save-button" (click)="onEnableOfflineBilling()"></button>
                   </div>
@@ -122,7 +122,7 @@
                 <app-shop-members-table [members]="selectedShopDetails()?.members ?? []" [currentUserRole]="selectedShopRole()" [disabled]="isSubmitting() || isLoadingDetails()"></app-shop-members-table>
               }
 
-              <div class="flex justify-end pt-2">
+              <div class="overlay-actions flex justify-end pt-2">
                 <button pButton type="button" [label]="'shops.nextStep' | transloco" icon="pi pi-arrow-right" iconPos="right" class="save-button" [disabled]="isSubmitting() || isLoadingDetails()" (click)="activeStep.set(4)"></button>
               </div>
             </div>
@@ -131,7 +131,7 @@
 
         <p-step-panel [value]="4">
           <ng-template #content>
-            <div class="flex flex-col items-center gap-4 py-8">
+            <div class="overlay-step-content flex flex-col items-center gap-4 py-8">
               <span class="flex items-center justify-center w-16 h-16 rounded-full bg-green-100 text-green-600"><i class="pi pi-check text-3xl"></i></span>
               <div class="text-center">
                 <h3 class="text-lg font-semibold mb-1">{{ 'shops.saveShopChanges' | transloco }}</h3>

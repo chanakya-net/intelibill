@@ -1,23 +1,24 @@
 <p-dialog
   [visible]="visible()"
   [modal]="true"
-  [dismissableMask]="true"
-  [closable]="true"
+  [dismissableMask]="!isBusy()"
+  [closable]="!isBusy()"
+  [closeOnEscape]="!isBusy()"
   [draggable]="false"
   [resizable]="false"
   styleClass="discount-rule-editor-dialog"
   [style]="{ width: 'min(920px, 96vw)' }"
   (onHide)="close()"
 >
-  <ng-template pTemplate="header">
-    <div class="editor-header">
+  <ng-template pTemplate="header" let-ariaLabelledBy="ariaLabelledBy">
+    <div class="editor-header" [id]="ariaLabelledBy">
       <p class="eyebrow">{{ 'shell.manageDiscounts' | transloco }}</p>
       <h2>{{ titleKey() | transloco }}</h2>
       <p class="subtitle">{{ 'discounts.editor.subtitle' | transloco }}</p>
     </div>
   </ng-template>
 
-  <div class="editor-shell">
+  <div class="editor-shell" [attr.aria-busy]="isBusy()">
     @if (submitErrorMessage()) {
       <div class="error-banner" role="alert">{{ submitErrorMessage() }}</div>
     } @else if (submitErrorKey()) {
@@ -25,19 +26,21 @@
     }
 
     <form class="editor-form" (ngSubmit)="onSubmit()">
-      <app-discount-conditions-form
-        [initialConditions]="conditions()"
-        [mode]="mode()"
-        [shouldShowBelowCostReason]="shouldAskBelowCostReason() || conditions().belowCostConfirmed"
-        (conditionsChange)="onConditionsChange($event)"
-      ></app-discount-conditions-form>
+      <fieldset class="editor-fields" [disabled]="isBusy()">
+        <app-discount-conditions-form
+          [initialConditions]="conditions()"
+          [mode]="mode()"
+          [shouldShowBelowCostReason]="shouldAskBelowCostReason() || conditions().belowCostConfirmed"
+          (conditionsChange)="onConditionsChange($event)"
+        ></app-discount-conditions-form>
 
-      @if (isBatchRule()) {
-        <app-discount-target-items
-          [selectedItemIds]="selectedItemIds()"
-          (selectionChange)="onTargetSelectionChange($event)"
-        ></app-discount-target-items>
-      }
+        @if (isBatchRule()) {
+          <app-discount-target-items
+            [selectedItemIds]="selectedItemIds()"
+            (selectionChange)="onTargetSelectionChange($event)"
+          ></app-discount-target-items>
+        }
+      </fieldset>
 
       <div class="editor-actions editor-actions--inline">
         <button
@@ -48,6 +51,7 @@
           icon="pi pi-eye"
           [label]="'discounts.editor.actions.preview' | transloco"
           [loading]="previewLoading()"
+          [disabled]="isBusy()"
           (click)="onPreviewRule()"
         ></button>
       </div>
@@ -59,7 +63,10 @@
           <div class="preview-header">
             <h3>{{ 'discounts.editor.preview.title' | transloco }}</h3>
             <p class="hint">
-              {{ 'discounts.editor.preview.affectedCount' | transloco: { count: preview()!.affectedCount } }}
+              {{
+                'discounts.editor.preview.affectedCount'
+                  | transloco: { count: preview()!.affectedCount }
+              }}
             </p>
           </div>
         </ng-template>
@@ -71,7 +78,7 @@
               @if (preview()!.safeMaxPercentage === null) {
                 {{ 'discounts.editor.preview.notAvailable' | transloco }}
               } @else {
-                {{ preview()!.safeMaxPercentage | number:'1.0-2' }}%
+                {{ preview()!.safeMaxPercentage | number: '1.0-2' }}%
               }
             </p>
           </div>
@@ -101,7 +108,9 @@
 
         @if (preview()!.affectedSample.length > 0) {
           <div class="preview-section">
-            <p class="section-title">{{ 'discounts.editor.preview.affectedSampleTitle' | transloco }}</p>
+            <p class="section-title">
+              {{ 'discounts.editor.preview.affectedSampleTitle' | transloco }}
+            </p>
             <div class="sample-list">
               @for (sample of preview()!.affectedSample; track sample.batchId) {
                 <div class="sample-row">
@@ -111,16 +120,24 @@
                   </div>
                   <div class="sample-values">
                     <div class="sample-metric">
-                      <span class="metric-label">{{ 'discounts.editor.preview.sampleSalesPrice' | transloco }}</span>
-                      <span class="metric-value">{{ sample.salesPrice | number:'1.0-2' }}</span>
+                      <span class="metric-label">{{
+                        'discounts.editor.preview.sampleSalesPrice' | transloco
+                      }}</span>
+                      <span class="metric-value">{{ sample.salesPrice | number: '1.0-2' }}</span>
                     </div>
                     <div class="sample-metric">
-                      <span class="metric-label">{{ 'discounts.editor.preview.sampleCostPrice' | transloco }}</span>
-                      <span class="metric-value">{{ sample.costPrice | number:'1.0-2' }}</span>
+                      <span class="metric-label">{{
+                        'discounts.editor.preview.sampleCostPrice' | transloco
+                      }}</span>
+                      <span class="metric-value">{{ sample.costPrice | number: '1.0-2' }}</span>
                     </div>
                     <div class="sample-metric">
-                      <span class="metric-label">{{ 'discounts.editor.preview.sampleDiscountedPrice' | transloco }}</span>
-                      <span class="metric-value">{{ sample.discountedPrice | number:'1.0-2' }}</span>
+                      <span class="metric-label">{{
+                        'discounts.editor.preview.sampleDiscountedPrice' | transloco
+                      }}</span>
+                      <span class="metric-value">{{
+                        sample.discountedPrice | number: '1.0-2'
+                      }}</span>
                     </div>
                   </div>
                 </div>
@@ -131,7 +148,9 @@
 
         @if (preview()!.belowCostSample.length > 0) {
           <div class="preview-section">
-            <p class="section-title">{{ 'discounts.editor.preview.belowCostSampleTitle' | transloco }}</p>
+            <p class="section-title">
+              {{ 'discounts.editor.preview.belowCostSampleTitle' | transloco }}
+            </p>
             <div class="sample-list">
               @for (sample of preview()!.belowCostSample; track sample.batchId) {
                 <div class="sample-row">
@@ -141,16 +160,24 @@
                   </div>
                   <div class="sample-values">
                     <div class="sample-metric">
-                      <span class="metric-label">{{ 'discounts.editor.preview.sampleSalesPrice' | transloco }}</span>
-                      <span class="metric-value">{{ sample.salesPrice | number:'1.0-2' }}</span>
+                      <span class="metric-label">{{
+                        'discounts.editor.preview.sampleSalesPrice' | transloco
+                      }}</span>
+                      <span class="metric-value">{{ sample.salesPrice | number: '1.0-2' }}</span>
                     </div>
                     <div class="sample-metric">
-                      <span class="metric-label">{{ 'discounts.editor.preview.sampleCostPrice' | transloco }}</span>
-                      <span class="metric-value">{{ sample.costPrice | number:'1.0-2' }}</span>
+                      <span class="metric-label">{{
+                        'discounts.editor.preview.sampleCostPrice' | transloco
+                      }}</span>
+                      <span class="metric-value">{{ sample.costPrice | number: '1.0-2' }}</span>
                     </div>
                     <div class="sample-metric">
-                      <span class="metric-label">{{ 'discounts.editor.preview.sampleDiscountedPrice' | transloco }}</span>
-                      <span class="metric-value">{{ sample.discountedPrice | number:'1.0-2' }}</span>
+                      <span class="metric-label">{{
+                        'discounts.editor.preview.sampleDiscountedPrice' | transloco
+                      }}</span>
+                      <span class="metric-value">{{
+                        sample.discountedPrice | number: '1.0-2'
+                      }}</span>
                     </div>
                   </div>
                 </div>
@@ -170,7 +197,7 @@
         severity="secondary"
         [outlined]="true"
         [label]="'discounts.editor.actions.close' | transloco"
-        [disabled]="saveLoading()"
+        [disabled]="isBusy()"
         (click)="close()"
       ></button>
       <button
@@ -179,6 +206,7 @@
         icon="pi pi-check"
         [label]="saveLabelKey() | transloco"
         [loading]="saveLoading()"
+        [disabled]="isBusy()"
         (click)="onSubmit()"
       ></button>
     </div>

@@ -1,5 +1,6 @@
 :host {
   display: block;
+  min-width: 0;
 }
 
 .loading {
@@ -10,6 +11,37 @@
 
 .row-click {
   cursor: pointer;
+}
+
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+}
+
+:host ::ng-deep {
+  .p-datatable-table-container {
+    overflow-x: auto;
+  }
+
+  .p-datatable-table {
+    min-width: 46rem;
+  }
+
+  td,
+  th {
+    max-width: 18rem;
+    overflow-wrap: anywhere;
+  }
+}
+
+.empty-state {
+  padding: 2rem 1rem;
+  color: #8b6e57;
+  text-align: center;
+}
+
+.empty-state p {
+  margin: 0;
 }
 
 .pagination {

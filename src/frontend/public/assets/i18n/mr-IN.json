@@ -19,7 +19,8 @@
     "inactive": "निष्क्रिय",
     "remove": "काढा",
     "status": "स्थिती",
-    "void": "रद्द करा"
+    "void": "रद्द करा",
+    "required": "हे फील्ड आवश्यक आहे"
   },
   "languages": {
     "en-IN": "इंग्रजी",
@@ -263,7 +264,15 @@
     "deactivate": "निष्क्रिय करा",
     "loadFailed": "सेवा लोड करण्यात अक्षम.",
     "saveFailed": "सेवा जतन करण्यात अक्षम.",
-    "toggleFailed": "सेवा स्थिती अद्यतनित करण्यात अक्षम."
+    "toggleFailed": "सेवा स्थिती अद्यतनित करण्यात अक्षम.",
+    "paginationFooter": "{{total}} पैकी {{start}} - {{end}}",
+    "validation": {
+      "nameMaxLength": "सेवा नाव 180 वर्णांचे किंवा कमी असावे.",
+      "descriptionMaxLength": "वर्णन 320 वर्णांचे किंवा कमी असावे.",
+      "priceMin": "किंमत शून्य किंवा अधिक असावी.",
+      "taxRateRange": "कर दर 0 आणि 100 दरम्यान असावा.",
+      "hsnSacPattern": "वैध 4 ते 8 अंकी HSN/SAC कोड प्रविष्ट करा."
+    }
   },
   "bankAccounts": {
     "directory": "बँक खाते यादी",
@@ -365,6 +374,7 @@
     "isActive": "सक्रिय आहे",
     "isPreferred": "पसंतीचा आहे",
     "balance": "शिल्लक",
+    "balanceDue": "देय शिल्लक",
     "ledgerEntries": "खाते नोंदी",
     "entryType": "नोंदीचा प्रकार",
     "amount": "रक्कम",
@@ -377,6 +387,9 @@
     "searchEntryDate": "तारीख शोधा",
     "searchNotes": "टिपणी शोधा",
     "totalAmount": "एकूण रक्कम",
+    "all": "सर्व",
+    "goodsReceived": "माल प्राप्त",
+    "payments": "देयके",
     "entryTypes": {
       "goodsReceived": "माल प्राप्त",
       "paymentMade": "देयक केले",
@@ -1605,7 +1618,10 @@
       "ariaLabel": "खर्चाचा सारांश"
     },
     "ledgerMetrics": "खर्च खाते मेट्रिक्स",
-    "ledgerResults": "खर्च खाते निकाल"
+    "ledgerResults": "खर्च खाते निकाल",
+    "errors": {
+      "unexpected": "हा खर्च नोंदवता किंवा दुरुस्त करता आला नाही. कृपया पुन्हा प्रयत्न करा."
+    }
   },
   "discounts": {
     "title": "सवलत नियम",
@@ -1623,7 +1639,8 @@
       "disable": "निष्क्रिय करा"
     },
     "list": {
-      "title": "नियम"
+      "title": "नियम",
+      "empty": "या फिल्टरशी जुळणारे कोणतेही सवलत नियम नाहीत."
     },
     "detail": {
       "title": "नियम तपशील",

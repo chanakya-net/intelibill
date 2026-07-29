@@ -8,7 +8,9 @@ import { BarcodeScannerDialogComponent } from './barcode-scanner-dialog.componen
 
 describe('BarcodeScannerDialogComponent', () => {
   const stopHandler = vi.fn();
-  let onDetectedCallback: ((detection: { value: string; format: string; engine: 'native' | 'zxing' }) => void) | null = null;
+  let onDetectedCallback: (
+    (detection: { value: string; format: string; engine: 'native' | 'zxing' }) => void
+  ) | null = null;
 
   const barcodeDetectorService = {
     start: vi.fn(async (_video: HTMLVideoElement, onDetected: typeof onDetectedCallback) => {
@@ -84,7 +86,7 @@ describe('BarcodeScannerDialogComponent', () => {
     expect(cameraStreamService.stopCurrentStream).toHaveBeenCalledTimes(1);
   });
 
-  it('emits visibleChange false when camera fails to open', async () => {
+  it('keeps the scanner open and shows an error when camera fails to open', async () => {
     cameraStreamService.startPreferredCamera.mockRejectedValueOnce(new Error('camera unavailable'));
 
     const fixture = TestBed.createComponent(BarcodeScannerDialogComponent);
@@ -95,6 +97,24 @@ describe('BarcodeScannerDialogComponent', () => {
 
     await component['startScannerSession'](video);
 
-    expect(visibleSpy).toHaveBeenCalledWith(false);
+    expect(component.scannerError()).toBe('inventory.scannerOpenError');
+    expect(visibleSpy).not.toHaveBeenCalledWith(false);
+  });
+
+  it('cleans up acquired camera resources when startup fails after camera opens', async () => {
+    cameraStreamService.attachToVideo.mockRejectedValueOnce(new Error('preview unavailable'));
+
+    const fixture = TestBed.createComponent(BarcodeScannerDialogComponent);
+    const component = fixture.componentInstance;
+    const visibleSpy = vi.fn();
+    component.visibleChange.subscribe(visibleSpy);
+    const video = document.createElement('video');
+
+    await component['startScannerSession'](video);
+
+    expect(component.scannerError()).toBe('inventory.scannerOpenError');
+    expect(visibleSpy).not.toHaveBeenCalledWith(false);
+    expect(cameraStreamService.detachVideo).toHaveBeenCalledWith(video);
+    expect(cameraStreamService.stopCurrentStream).toHaveBeenCalledTimes(1);
   });
 });

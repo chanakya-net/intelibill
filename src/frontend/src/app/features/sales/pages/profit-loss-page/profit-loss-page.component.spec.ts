@@ -253,6 +253,21 @@ describe('ProfitLossPageComponent', () => {
     );
   });
 
+  it('keeps a filter-triggered page reset when the previous response was page two', () => {
+    paginationSignal.set({ totalCount: 63, pageNumber: 2, pageSize: 20 });
+    const fixture = TestBed.createComponent(ProfitLossPageComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    component.fromDate.set(new Date('2026-05-10T00:00:00.000Z'));
+    fixture.detectChanges();
+
+    expect(component.pageNumber()).toBe(1);
+    expect(salesFacade.loadProfitLossReport).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 1 }),
+    );
+  });
+
   it('clearFilters restores default state', () => {
     const fixture = TestBed.createComponent(ProfitLossPageComponent);
     const component = fixture.componentInstance;
@@ -310,6 +325,31 @@ describe('ProfitLossPageComponent', () => {
     expect(text).toContain('₹2,200.00');
     expect(text).toContain('₹800.00');
     expect(text).toContain('18.6%');
+  });
+
+  it('formats signed report values with the sign before the currency symbol', () => {
+    summarySignal.set({
+      netProfitAfterTax: -1234567890.5,
+      revenueIncludingTax: 2200,
+      totalCost: 1234567890.5,
+      averageMarginPercent: -18.57,
+      invoiceCount: 4,
+      returnCount: 1,
+      adjustmentCount: 2,
+    });
+    reportSignal.set([
+      createReportItem({
+        profitBeforeTax: -1234567890.5,
+        profitAfterTax: -987654321.25,
+      }),
+    ]);
+
+    const fixture = TestBed.createComponent(ProfitLossPageComponent);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.totalAmount(-1234567890.5)).toBe('-₹1,23,45,67,890.50');
+    expect(fixture.nativeElement.textContent).toContain('-₹1,23,45,67,890.50');
+    expect(fixture.nativeElement.textContent).not.toContain('₹-');
   });
 
   it('exports the current profit-loss filters and downloads the file', () => {
@@ -397,6 +437,40 @@ describe('ProfitLossPageComponent', () => {
 
     expect(errorFixture.nativeElement.textContent).toContain('Something went wrong');
     expect(errorFixture.nativeElement.querySelector('.empty-state')).toBeNull();
+  });
+
+  it('gives loading and error feedback accessible semantics without stale report actions', () => {
+    reportSignal.set([createReportItem({ referenceNumber: 'STALE-ROW' })]);
+    summarySignal.set({
+      netProfitAfterTax: 1200,
+      revenueIncludingTax: 2200,
+      totalCost: 800,
+      averageMarginPercent: 18.57,
+      invoiceCount: 1,
+      returnCount: 0,
+      adjustmentCount: 0,
+    });
+    loadingSignal.set(true);
+
+    const fixture = TestBed.createComponent(ProfitLossPageComponent);
+    fixture.detectChanges();
+
+    const loading = fixture.nativeElement.querySelector('.loading-state');
+    expect(loading.getAttribute('role')).toBe('status');
+    expect(loading.getAttribute('aria-busy')).toBe('true');
+    expect(fixture.nativeElement.querySelector('.clear-filters-btn').disabled).toBe(true);
+    expect(fixture.nativeElement.querySelector('.report-footer')).toBeNull();
+
+    loadingSignal.set(false);
+    errorSignal.set('Unable to load profit and loss report.');
+    fixture.detectChanges();
+
+    const error = fixture.nativeElement.querySelector('.error');
+    expect(error.getAttribute('role')).toBe('alert');
+    expect(fixture.nativeElement.querySelector('.kpi-row')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.report-content')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.report-footer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.export-btn').disabled).toBe(true);
   });
 
   it('renders mobile cards with core values', () => {

@@ -19,7 +19,8 @@
     "inactive": "નિષ્ક્રિય",
     "remove": "દૂર કરો",
     "status": "સ્થિતિ",
-    "void": "રદબાતલ"
+    "void": "રદબાતલ",
+    "required": "આ ફીલ્ડ આવશ્યક છે"
   },
   "languages": {
     "en-IN": "અંગ્રેજી",
@@ -263,7 +264,15 @@
     "deactivate": "નિષ્ક્રિય કરો",
     "loadFailed": "સેવાઓ લોડ કરવામાં અસમર્થ.",
     "saveFailed": "સેવા સાચવવામાં અસમર્થ.",
-    "toggleFailed": "સેવા સ્થિતિ અપડેટ કરવામાં અસમર્થ."
+    "toggleFailed": "સેવા સ્થિતિ અપડેટ કરવામાં અસમર્થ.",
+    "paginationFooter": "{{total}} માંથી {{start}} - {{end}}",
+    "validation": {
+      "nameMaxLength": "સેવાનું નામ 180 અક્ષરો અથવા ઓછું હોવું જોઈએ.",
+      "descriptionMaxLength": "વર્ણન 320 અક્ષરો અથવા ઓછું હોવું જોઈએ.",
+      "priceMin": "કિંમત શૂન્ય અથવા વધુ હોવી જોઈએ.",
+      "taxRateRange": "કર દર 0 અને 100 વચ્ચે હોવો જોઈએ.",
+      "hsnSacPattern": "માન્ય 4 થી 8 અંકનો HSN/SAC કોડ દાખલ કરો."
+    }
   },
   "bankAccounts": {
     "directory": "બેંક ખાતા સૂચિ",
@@ -365,6 +374,7 @@
     "isActive": "સક્રિય છે",
     "isPreferred": "પ્રાધાન્ય છે",
     "balance": "બૅલેન્સ",
+    "balanceDue": "બાકી રકમ",
     "ledgerEntries": "ખાતા નોંધ",
     "entryType": "નોંધ પ્રકાર",
     "amount": "રકમ",
@@ -377,6 +387,9 @@
     "searchEntryDate": "તારીખ શોધો",
     "searchNotes": "નોંધ શોધો",
     "totalAmount": "કુલ રકમ",
+    "all": "બધા",
+    "goodsReceived": "માલ પ્રાપ્ત",
+    "payments": "ચુકવણીઓ",
     "entryTypes": {
       "goodsReceived": "માલ પ્રાપ્ત",
       "paymentMade": "ચુકવણી કરી",
@@ -1605,7 +1618,10 @@
       "ariaLabel": "ખર્ચનો સારાંશ"
     },
     "ledgerMetrics": "ખર્ચ ખાતાવહી મેટ્રિક્સ",
-    "ledgerResults": "ખર્ચ ખાતાના પરિણામો"
+    "ledgerResults": "ખર્ચ ખાતાના પરિણામો",
+    "errors": {
+      "unexpected": "આ ખર્ચ નોંધવામાં અથવા સુધારવામાં અસમર્થ. કૃપા કરીને ફરી પ્રયાસ કરો."
+    }
   },
   "discounts": {
     "title": "છૂટ નિયમો",
@@ -1623,7 +1639,8 @@
       "disable": "નિષ્ક્રિય કરો"
     },
     "list": {
-      "title": "નિયમો"
+      "title": "નિયમો",
+      "empty": "આ ફિલ્ટર્સ સાથે મેળ ખાતા કોઈ ડિસ્કાઉન્ટ નિયમો નથી."
     },
     "detail": {
       "title": "નિયમ વિગતો",

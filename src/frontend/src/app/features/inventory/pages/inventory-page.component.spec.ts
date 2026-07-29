@@ -19,6 +19,7 @@ import {
   selectInventoryLastAddedItem,
   selectInventoryLastMutationSucceeded,
   selectInventoryLastMutationType,
+  selectInventoryLoadErrorMessage,
   selectInventoryLoadingItems,
   selectInventorySubmitting,
   selectInventoryPagination,
@@ -65,6 +66,7 @@ describe('InventoryPageComponent', () => {
   const submittingSignal = signal(false);
   const loadingItemsSignal = signal(false);
   const errorSignal = signal('');
+  const loadErrorSignal = signal('');
   const lastMutationTypeSignal = signal<'add-item' | 'update-item' | null>(null);
   const lastMutationSucceededSignal = signal(false);
   const lastAddedItemSignal = signal<Item | null>(null);
@@ -95,6 +97,10 @@ describe('InventoryPageComponent', () => {
 
       if (selector === selectInventoryErrorMessage) {
         return errorSignal;
+      }
+
+      if (selector === selectInventoryLoadErrorMessage) {
+        return loadErrorSignal;
       }
 
       if (selector === selectInventoryLastMutationType) {
@@ -174,6 +180,7 @@ describe('InventoryPageComponent', () => {
     submittingSignal.set(false);
     loadingItemsSignal.set(false);
     errorSignal.set('');
+    loadErrorSignal.set('');
     lastMutationTypeSignal.set(null);
     lastMutationSucceededSignal.set(false);
     lastAddedItemSignal.set(null);

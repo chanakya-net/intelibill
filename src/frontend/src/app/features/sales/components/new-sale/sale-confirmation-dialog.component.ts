@@ -23,6 +23,7 @@ export interface CreateSaleResponse {
   standalone: true,
   imports: [CommonModule, DialogModule, ButtonModule, TranslocoPipe],
   templateUrl: './sale-confirmation-dialog.component.html',
+  styleUrl: './sale-confirmation-dialog.component.scss',
 })
 export class SaleConfirmationDialogComponent {
   @Input() visible = false;

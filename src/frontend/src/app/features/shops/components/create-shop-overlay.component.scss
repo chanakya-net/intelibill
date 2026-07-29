@@ -4,10 +4,11 @@
 .create-shop-overlay {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  z-index: 1200;
   display: grid;
   place-items: center;
   padding: 1rem;
+  overflow: hidden;
 }
 
 .overlay-backdrop {
@@ -26,7 +27,10 @@
   z-index: 1;
   width: 100%;
   max-width: 42rem;
-  max-height: calc(100vh - 2rem);
+  max-height: calc(100dvh - 2rem);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   border-radius: 1.5rem;
   border: 1px solid rgba(226, 232, 240, 0.9);
   background: #ffffff;
@@ -37,7 +41,10 @@
 
 .overlay-header {
   position: relative;
+  flex: 0 0 auto;
+  min-width: 0;
   padding: 1.6rem 1.6rem 0.8rem;
+  padding-right: 4rem;
 
   h2 {
     margin-top: 0.2rem;
@@ -75,9 +82,16 @@
 }
 
 .overlay-form {
-  max-height: calc(100vh - 15rem);
+  min-height: 0;
+  max-height: calc(100dvh - 13rem);
+  overflow-x: hidden;
   overflow-y: auto;
   padding: 1.25rem 1.6rem 1.7rem;
+}
+
+.overlay-actions {
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .field-grid {
@@ -150,14 +164,16 @@ input.p-inputtext {
 
 @media (max-width: 640px) {
   .create-shop-overlay {
-    padding: 0.8rem;
+    padding: 0.5rem;
   }
 
   .overlay-card {
-    max-height: calc(100vh - 1.5rem);
+    max-height: calc(100dvh - 1rem);
   }
 
   .overlay-header {
+    padding: 1.1rem 3.5rem 0.55rem 1rem;
+
     h2 {
       font-size: 1.62rem;
     }
@@ -168,6 +184,16 @@ input.p-inputtext {
   }
 
   .overlay-form {
-    padding: 1rem 1.2rem 1.3rem;
+    max-height: calc(100dvh - 10.5rem);
+    padding: 0.85rem 1rem 1rem;
+  }
+
+  .overlay-actions {
+    align-items: stretch;
+    flex-direction: column;
+
+    > * {
+      width: 100%;
+    }
   }
 }

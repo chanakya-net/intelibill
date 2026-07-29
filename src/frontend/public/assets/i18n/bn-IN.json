@@ -19,7 +19,8 @@
     "inactive": "নিষ্ক্রিয়",
     "remove": "সরান",
     "status": "স্ট্যাটাস",
-    "void": "অকার্যকর"
+    "void": "অকার্যকর",
+    "required": "এই ক্ষেত্রটি আবশ্যক"
   },
   "languages": {
     "en-IN": "ইংরেজি",
@@ -263,7 +264,15 @@
     "deactivate": "নিষ্ক্রিয় করুন",
     "loadFailed": "পরিষেবাগুলি লোড করতে অক্ষম৷",
     "saveFailed": "পরিষেবা সংরক্ষণ করতে অক্ষম৷",
-    "toggleFailed": "পরিষেবার স্থিতি আপডেট করতে অক্ষম৷"
+    "toggleFailed": "পরিষেবার স্থিতি আপডেট করতে অক্ষম৷",
+    "paginationFooter": "{{total}}টির মধ্যে {{start}} - {{end}}",
+    "validation": {
+      "nameMaxLength": "পরিষেবার নাম 180 অক্ষর বা কম হতে হবে।",
+      "descriptionMaxLength": "বিবরণ 320 অক্ষর বা কম হতে হবে।",
+      "priceMin": "মূল্য শূন্য বা তার বেশি হতে হবে।",
+      "taxRateRange": "কর হার 0 থেকে 100-এর মধ্যে হতে হবে।",
+      "hsnSacPattern": "বৈধ 4 থেকে 8 সংখ্যার HSN/SAC কোড লিখুন।"
+    }
   },
   "bankAccounts": {
     "directory": "ব্যাঙ্ক অ্যাকাউন্ট তালিকা",
@@ -365,6 +374,7 @@
     "isActive": "সক্রিয় আছে",
     "isPreferred": "পছন্দের আছে",
     "balance": "ব্যালেন্স",
+    "balanceDue": "বকেয়া পরিমাণ",
     "ledgerEntries": "লেজার এন্ট্রি",
     "entryType": "এন্ট্রি ধরন",
     "amount": "পরিমাণ",
@@ -377,6 +387,9 @@
     "searchEntryDate": "তারিখ খুঁজুন",
     "searchNotes": "নোট খুঁজুন",
     "totalAmount": "মোট পরিমাণ",
+    "all": "সব",
+    "goodsReceived": "পণ্য গ্রহণ",
+    "payments": "পেমেন্ট",
     "entryTypes": {
       "goodsReceived": "পণ্য গ্রহণ",
       "paymentMade": "পেমেন্ট করা হয়েছে",
@@ -1605,7 +1618,10 @@
       "ariaLabel": "ব্যয়ের সারাংশ"
     },
     "ledgerMetrics": "খরচ লেজার মেট্রিক্স",
-    "ledgerResults": "খরচ খাতা ফলাফল"
+    "ledgerResults": "খরচ খাতা ফলাফল",
+    "errors": {
+      "unexpected": "এই খরচটি রেকর্ড বা সংশোধন করা যায়নি। অনুগ্রহ করে আবার চেষ্টা করুন।"
+    }
   },
   "discounts": {
     "title": "ছাড়ের নিয়ম",
@@ -1623,7 +1639,8 @@
       "disable": "নিষ্ক্রিয় করুন"
     },
     "list": {
-      "title": "নিয়ম"
+      "title": "নিয়ম",
+      "empty": "এই ফিল্টারগুলোর সঙ্গে মেলে এমন কোনো ছাড়ের নিয়ম নেই।"
     },
     "detail": {
       "title": "নিয়মের বিবরণ",

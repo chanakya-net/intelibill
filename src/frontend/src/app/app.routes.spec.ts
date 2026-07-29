@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { authGuard } from './core/guards/auth.guard';
 import { dashboardGuard } from './core/guards/dashboard.guard';
+import { servicesGuard } from './core/guards/services.guard';
 import { discountsGuard } from './core/guards/discounts.guard';
 import { AuthService } from './core/auth/auth.service';
 import { routes } from './app.routes';
@@ -12,6 +13,11 @@ import { shellRoutes } from './core/layout/shell.routes';
 import { DashboardPageComponent } from './features/dashboard/pages/dashboard-page/dashboard-page.component';
 import { CreditNotePrintPageComponent } from './features/sales/pages/credit-note-print-page/credit-note-print-page.component';
 import { ServicesPageComponent } from './features/services/pages/services-page.component';
+import {
+  ROUTE_MANIFEST,
+  diffRouteCoverage,
+  flattenRouteDestinations,
+} from '../../tests/ui-audit/route-manifest';
 
 describe('app routes', () => {
   const authService = {
@@ -113,12 +119,12 @@ describe('app routes', () => {
     await expect(dashboardRoute?.loadComponent?.()).resolves.toBe(DashboardPageComponent);
   });
 
-  it('lets the services route render its own permission-aware page', async () => {
+  it('guards the services route and renders its permission-aware page', async () => {
     const shellRoot = shellRoutes.find((route) => route.path === '');
     const servicesRoute = shellRoot?.children?.find((route) => route.path === 'services');
 
     expect(servicesRoute).toBeDefined();
-    expect(servicesRoute?.canActivate).toBeUndefined();
+    expect(servicesRoute?.canActivate).toContain(servicesGuard);
     await expect(servicesRoute?.loadComponent?.()).resolves.toBe(ServicesPageComponent);
   });
 
@@ -148,5 +154,32 @@ describe('app routes', () => {
 
     expect(result).toEqual({ redirected: true });
     expect(authService.canUseOfflineSalesAuthGrace).not.toHaveBeenCalled();
+  });
+
+  it('covers every routed destination in the ui audit manifest', async () => {
+    const appDestinations = await flattenRouteDestinations(routes);
+    const coverage = diffRouteCoverage(appDestinations, ROUTE_MANIFEST.map((entry) => entry.path));
+
+    expect(coverage.missingFromManifest).toEqual([]);
+    expect(coverage.missingFromRoutes).toEqual([]);
+  });
+
+  it('detects a removed lazy route mount as catalog drift', async () => {
+    const routesWithoutBankAccounts = routes.map((route) =>
+      route.path === ''
+        ? {
+            ...route,
+            loadChildren: async () =>
+              shellRoutes.map((shellRoute) => ({
+                ...shellRoute,
+                children: shellRoute.children?.filter((child) => child.path !== 'bank-accounts'),
+              })),
+          }
+        : route,
+    );
+    const destinations = await flattenRouteDestinations(routesWithoutBankAccounts);
+    const coverage = diffRouteCoverage(destinations, ROUTE_MANIFEST.map((entry) => entry.path));
+
+    expect(coverage.missingFromRoutes).toEqual(['bank-accounts']);
   });
 });

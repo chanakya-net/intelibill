@@ -1,11 +1,13 @@
 import { CommonModule, DecimalPipe } from '@angular/common';
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { TranslocoPipe } from '@ngneat/transloco';
+import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import { AvatarModule } from 'primeng/avatar';
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
 import { CheckboxModule } from 'primeng/checkbox';
+import { MenuItem } from 'primeng/api';
+import { MenuModule } from 'primeng/menu';
 import { TagModule } from 'primeng/tag';
 import { TableModule } from 'primeng/table';
 
@@ -27,6 +29,7 @@ export interface BatchTableAction {
     ButtonModule,
     CardModule,
     CheckboxModule,
+    MenuModule,
     TagModule,
     TableModule,
     TranslocoPipe,
@@ -35,6 +38,7 @@ export interface BatchTableAction {
   styleUrl: './batches-table.component.scss',
 })
 export class BatchesTableComponent {
+  private readonly translocoService = inject(TranslocoService);
   @Input({ required: true }) batches: InventoryBatchDto[] = [];
   @Input() loading = false;
   @Input() set selectedBatchIds(value: readonly string[] | null | undefined) {
@@ -53,6 +57,15 @@ export class BatchesTableComponent {
 
   onRowAction(action: 'edit' | 'adjust' | 'void' | 'printLabels', batchId: string): void {
     this.batchAction.emit({ action, batchId });
+  }
+
+  rowActionItems(batch: InventoryBatchDto): MenuItem[] {
+    return [
+      this.rowActionItem('printLabels', 'inventory.printLabels', 'pi pi-print', batch),
+      this.rowActionItem('adjust', 'inventory.adjustBatch', 'pi pi-sliders-h', batch),
+      this.rowActionItem('edit', 'common.edit', 'pi pi-pencil', batch),
+      this.rowActionItem('void', 'common.void', 'pi pi-trash', batch),
+    ];
   }
 
   onRowSelectionChange(batch: InventoryBatchDto, selected: boolean): void {
@@ -81,7 +94,10 @@ export class BatchesTableComponent {
 
   isAllSelectableSelected(): boolean {
     const selectableIds = this.batches.filter((batch) => !batch.isVoided).map((batch) => batch.id);
-    return selectableIds.length > 0 && selectableIds.every((batchId) => this.selectedBatchIdSet.has(batchId));
+    return (
+      selectableIds.length > 0 &&
+      selectableIds.every((batchId) => this.selectedBatchIdSet.has(batchId))
+    );
   }
 
   hasSelectableBatches(): boolean {
@@ -121,5 +137,20 @@ export class BatchesTableComponent {
     }
 
     return colors[Math.abs(hash) % colors.length];
+  }
+
+  private rowActionItem(
+    action: BatchTableAction['action'],
+    labelKey: string,
+    icon: string,
+    batch: InventoryBatchDto,
+  ): MenuItem {
+    return {
+      id: action,
+      label: this.translocoService.translate(labelKey),
+      icon,
+      disabled: batch.isVoided,
+      command: () => this.onRowAction(action, batch.id),
+    };
   }
 }

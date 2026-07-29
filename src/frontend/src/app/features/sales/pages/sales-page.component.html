@@ -21,7 +21,7 @@
   </div>
 
   @if (serverError()) {
-    <p class="error">{{ serverError() | transloco }}</p>
+    <p class="error" role="alert">{{ serverError() | transloco }}</p>
   }
 
   @if (hasOfflineQueueStatus()) {
@@ -154,6 +154,7 @@
           outlined="true"
           severity="secondary"
           [label]="'sales.history.controls.clearFilters' | transloco"
+          [disabled]="isLoading()"
           (click)="clearFilters()"
         ></button>
 
@@ -165,12 +166,13 @@
             [ngModel]="searchValue()"
             (ngModelChange)="searchValue.set($event)"
             [placeholder]="'sales.history.controls.searchPlaceholder' | transloco"
+            [disabled]="isLoading()"
           />
         </p-iconfield>
       </div>
     </div>
 
-    <div class="table-wrap">
+    <div class="table-wrap" tabindex="0">
       @if (isLoading()) {
         <p-table [value]="[1, 2, 3, 4, 5]" class="p-datatable-sm ledger-table">
           <ng-template pTemplate="header">

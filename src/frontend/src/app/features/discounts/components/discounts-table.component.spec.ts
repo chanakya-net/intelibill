@@ -23,7 +23,10 @@ describe('DiscountsTableComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [DiscountsTableComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
+      imports: [
+        DiscountsTableComponent,
+        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(DiscountsTableComponent);
@@ -40,5 +43,47 @@ describe('DiscountsTableComponent', () => {
 
     expect(host.textContent).toContain('New Customer');
     expect(host.textContent).toContain('discounts.ruleType.SalePercentage');
+  });
+
+  it('marks the selected row and supports keyboard selection', () => {
+    component.selectedRuleId = 'd1';
+    fixture.detectChanges();
+    const row = fixture.nativeElement.querySelector(
+      '[data-testid="discounts-row-d1"]',
+    ) as HTMLElement;
+    const selected: string[] = [];
+    component.selectRule.subscribe((id) => selected.push(id));
+
+    row.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+
+    expect(row.getAttribute('aria-current')).toBe('true');
+    expect(selected).toEqual(['d1']);
+  });
+
+  it('does not emit pagination outside valid bounds', () => {
+    const pages: number[] = [];
+    component.pageChange.subscribe((page) => pages.push(page));
+    component.pageNumber = 1;
+    component.pageSize = 20;
+    component.totalCount = 21;
+
+    component.onPreviousPage();
+    component.onNextPage();
+    component.pageNumber = 2;
+    component.onNextPage();
+
+    expect(pages).toEqual([2]);
+  });
+
+  it('renders an empty state when no rules match', () => {
+    component.listItems = [];
+    fixture.detectChanges();
+
+    const emptyState = fixture.nativeElement.querySelector(
+      '[data-testid="discounts-empty"]',
+    ) as HTMLElement;
+    expect(emptyState).not.toBeNull();
+    expect(emptyState.textContent).toContain('discounts.list.empty');
+    expect(emptyState.textContent).not.toContain('discounts.detail.emptySubtitle');
   });
 });

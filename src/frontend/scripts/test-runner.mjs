@@ -5,6 +5,7 @@ const args = process.argv.slice(2);
 const runIndex = args.indexOf('--run');
 
 let commandArgs = ['test'];
+let command = 'ng';
 
 if (runIndex !== -1) {
   const includePath = args[runIndex + 1];
@@ -14,7 +15,18 @@ if (runIndex !== -1) {
   }
 
   const forwardedArgs = args.filter((_, index) => index !== runIndex && index !== runIndex + 1);
-  commandArgs = ['test', '--include', includePath, '--watch=false', ...forwardedArgs];
+  if (includePath.startsWith('scripts/')) {
+    command = 'bun';
+    commandArgs = ['test', includePath, ...forwardedArgs];
+  } else {
+    commandArgs = [
+      'test',
+      '--include',
+      normalizeIncludePath(includePath),
+      '--watch=false',
+      ...forwardedArgs,
+    ];
+  }
 } else {
   const firstArg = args[0];
   const looksLikeIncludePattern =
@@ -26,18 +38,36 @@ if (runIndex !== -1) {
 
   if (looksLikeIncludePattern) {
     const includePath =
-      firstArg.includes('/') || firstArg.includes('*')
-        ? firstArg
-        : `**/*${firstArg}*.spec.ts`;
+      firstArg.includes('/') || firstArg.includes('*') ? firstArg : `**/*${firstArg}*.spec.ts`;
     commandArgs = ['test', '--include', includePath, '--watch=false'];
   } else {
-    commandArgs = ['test', ...args];
+    commandArgs = [
+      'test',
+      '--include',
+      '**/*.spec.ts',
+      '--include',
+      '../tests/ui-audit/route-manifest.spec.ts',
+      ...args,
+    ];
   }
 }
 
-const result = spawnSync('ng', commandArgs, {
-  stdio: 'inherit',
-  env: process.env,
-});
+function run(executable, executableArgs) {
+  return (
+    spawnSync(executable, executableArgs, {
+      stdio: 'inherit',
+      env: process.env,
+    }).status ?? 1
+  );
+}
 
-process.exit(result.status ?? 1);
+let exitCode = run(command, commandArgs);
+if (exitCode === 0 && args.length === 0) {
+  exitCode = run('bun', ['test', 'scripts/tests']);
+}
+process.exit(exitCode);
+
+function normalizeIncludePath(path) {
+  if (path.startsWith('tests/')) return `../${path}`;
+  return path.includes('/') || path.includes('*') ? path : `**/*${path}*.spec.ts`;
+}

@@ -51,7 +51,7 @@ describe('EditShopUserOverlayComponent', () => {
     }),
   };
 
-  function setup(): EditShopUserOverlayComponent {
+  function setup(role = 'Staff', shopIds: string[] = ['s1']): EditShopUserOverlayComponent {
     TestBed.configureTestingModule({
       imports: [EditShopUserOverlayComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
       providers: [
@@ -67,9 +67,9 @@ describe('EditShopUserOverlayComponent', () => {
       lastName: 'User',
       email: 'sales@test.com',
       phoneNumber: '+15551234567',
-      role: 'Staff',
+      role,
       isLoginEnabled: true,
-      shopIds: ['s1'],
+      shopIds,
     };
     fixture.detectChanges();
     return fixture.componentInstance;
@@ -127,5 +127,48 @@ describe('EditShopUserOverlayComponent', () => {
         },
       })
     );
+  });
+
+  it('does not submit when no shop is selected', () => {
+    const component = setup();
+
+    component.onToggleShop('s1', false);
+    component.onSubmit();
+
+    expect(dispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: UsersActions.editShopUserRequested.type })
+    );
+  });
+
+  it('does not submit when every shop the actor can see is unchecked', () => {
+    const component = setup('Staff', ['s1', 's-outside-session']);
+
+    component.onToggleShop('s1', false);
+    component.onSubmit();
+
+    expect(component.shopSelectionInvalid).toBe(true);
+    expect(dispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: UsersActions.editShopUserRequested.type })
+    );
+  });
+
+  it('keeps memberships outside the session in the payload when a visible shop stays selected', () => {
+    const component = setup('Staff', ['s1', 's-outside-session']);
+
+    component.onSubmit();
+
+    expect(component.shopSelectionInvalid).toBe(false);
+    expect(dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: UsersActions.editShopUserRequested.type,
+        payload: expect.objectContaining({ shopIds: ['s1', 's-outside-session'] }),
+      })
+    );
+  });
+
+  it('normalizes a case-insensitive manager role when patching the form', () => {
+    const component = setup('manager');
+
+    expect(component.form.controls.role.value).toBe('Manager');
   });
 });

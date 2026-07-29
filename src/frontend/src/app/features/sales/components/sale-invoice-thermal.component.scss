@@ -4,6 +4,8 @@
 
 .thermal-invoice {
   width: 80mm;
+  max-width: 100%;
+  min-width: 0;
   color: #000;
   background: #fff;
   font-family: 'Courier New', ui-monospace, monospace;
@@ -11,6 +13,7 @@
   line-height: 1.3;
   padding: 2mm;
   box-sizing: border-box;
+  overflow-wrap: anywhere;
 }
 
 .thermal-invoice__section {
@@ -45,9 +48,11 @@
 .thermal-invoice__summary-row,
 .thermal-invoice__payment-row,
 .thermal-invoice__return {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, auto);
   gap: 6px;
+  min-width: 0;
+  align-items: start;
 }
 
 .thermal-invoice__item-row--detail,
@@ -66,17 +71,30 @@
 .thermal-invoice__item-name {
   display: block;
   word-break: break-word;
-  max-width: 42mm;
+  min-width: 0;
 }
 
 .thermal-invoice__value {
-  white-space: nowrap;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-align: right;
 }
 
 .thermal-invoice__summary-row--total {
   font-weight: 700;
   border-top: 1px solid #000;
   padding-top: 2px;
+}
+
+.thermal-invoice__summary-row > :last-child,
+.thermal-invoice__payment-row > :last-child,
+.thermal-invoice__item-row > :last-child,
+.thermal-invoice__meta > :last-child {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-align: right;
 }
 
 .thermal-invoice__status {
@@ -139,12 +157,16 @@
   }
 
   @page {
-    size: 80mm auto;
+    // Fallback only: SaleInvoiceThermalComponent injects a content-fitted
+    // @page rule after render that overrides this by cascade order, sizing
+    // normal receipts to their actual content height instead of a full page.
+    size: 80mm 297mm;
     margin: 0;
   }
 
   .thermal-invoice {
     width: 80mm;
+    max-width: 100%;
     padding: 2mm;
     box-shadow: none;
   }

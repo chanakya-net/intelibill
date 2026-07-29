@@ -5,15 +5,28 @@
   [closable]="false"
   [draggable]="false"
   [resizable]="false"
-  [style]="{ width: '450px' }"
+  [style]="{ width: 'min(28rem, calc(100vw - 1.5rem))' }"
 >
-  <div class="flex flex-col items-center py-4 text-center">
-    <i [ngClass]="saleResult?.isOffline ? 'pi pi-clock text-6xl text-amber-500 mb-4' : 'pi pi-check-circle text-6xl text-green-500 mb-4'"></i>
+  <div class="sale-confirmation flex flex-col items-center py-4 text-center">
+    <i
+      [ngClass]="
+        saleResult?.isOffline
+          ? 'pi pi-clock text-6xl text-amber-500 mb-4'
+          : 'pi pi-check-circle text-6xl text-green-500 mb-4'
+      "
+    ></i>
     <h2 class="text-xl font-bold mb-2">
-      {{ (saleResult?.isOffline ? 'sales.newSale.offline.confirmation.queued' : 'sales.newSale.confirmation.success') | transloco }}
+      {{
+        (saleResult?.isOffline
+          ? 'sales.newSale.offline.confirmation.queued'
+          : 'sales.newSale.confirmation.success'
+        ) | transloco
+      }}
     </h2>
     @if (saleResult?.isOffline) {
-      <p class="text-slate-600 mb-4">{{ 'sales.newSale.offline.confirmation.description' | transloco }}</p>
+      <p class="text-slate-600 mb-4">
+        {{ 'sales.newSale.offline.confirmation.description' | transloco }}
+      </p>
     }
 
     @if (saleResult; as sale) {
@@ -24,20 +37,31 @@
         </div>
         <div class="flex justify-between">
           <span class="text-slate-500">{{ 'sales.invoice.totalAmount' | transloco }}</span>
-          <span class="font-bold text-orange-600">₹{{ sale.totalAmount | number:'1.2-2' }}</span>
+          <span class="font-bold text-orange-600">₹{{ sale.totalAmount | number: '1.2-2' }}</span>
         </div>
         @if ((sale.creditNoteAppliedAmount ?? 0) > 0) {
           <div class="flex justify-between mt-2">
-            <span class="text-slate-500">{{ 'sales.detail.settlement.creditNoteApplied' | transloco }}</span>
-            <span class="font-bold text-slate-700">₹{{ sale.creditNoteAppliedAmount | number:'1.2-2' }}</span>
+            <span class="text-slate-500">{{
+              'sales.detail.settlement.creditNoteApplied' | transloco
+            }}</span>
+            <span class="font-bold text-slate-700"
+              >₹{{ sale.creditNoteAppliedAmount | number: '1.2-2' }}</span
+            >
           </div>
           @if (sale.creditNoteRedemptionSummaries?.length) {
             <div class="mt-2 text-slate-500">
-              <span class="block mb-1">{{ 'sales.detail.settlement.creditNoteCodes' | transloco }}</span>
+              <span class="block mb-1">{{
+                'sales.detail.settlement.creditNoteCodes' | transloco
+              }}</span>
               <div class="flex flex-wrap gap-2">
-                @for (settlement of sale.creditNoteRedemptionSummaries; track settlement.creditNoteId) {
-                  <span class="rounded-full bg-white px-2 py-1 text-xs text-slate-700 ring-1 ring-slate-200">
-                    {{ settlement.code }} · ₹{{ settlement.amount | number:'1.2-2' }}
+                @for (
+                  settlement of sale.creditNoteRedemptionSummaries;
+                  track settlement.creditNoteId
+                ) {
+                  <span
+                    class="rounded-full bg-white px-2 py-1 text-xs text-slate-700 ring-1 ring-slate-200"
+                  >
+                    {{ settlement.code }} · ₹{{ settlement.amount | number: '1.2-2' }}
                   </span>
                 }
               </div>
@@ -46,7 +70,7 @@
         }
       </div>
 
-      <div class="grid grid-cols-2 gap-3 w-full mb-4">
+      <div class="sale-confirmation-print-actions grid grid-cols-2 gap-3 w-full mb-4">
         <p-button
           [label]="printA4ButtonLabel | transloco"
           icon="pi pi-file"

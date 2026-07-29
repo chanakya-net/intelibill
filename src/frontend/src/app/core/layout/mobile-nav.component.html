@@ -26,24 +26,28 @@
   styleClass="mobile-nav-drawer"
   [header]="'shell.appName' | transloco"
 >
-  <p-panelmenu
-    [model]="drawerMenuItems"
-    [multiple]="true"
-    styleClass="shell-panelmenu shell-panelmenu-mobile"
-    [pt]="panelMenuPt"
-  ></p-panelmenu>
-
-  @if (profileDrawerMenuItems.length > 0) {
-    <div
-      class="mobile-profile-section"
-      [style.--profile-initials]="'&quot;' + profileInitials + '&quot;'"
-    >
+  <div class="mobile-drawer-content">
+    <nav class="mobile-drawer-navigation" [attr.aria-label]="'shell.mainNavigation' | transloco">
       <p-panelmenu
-        [model]="profileDrawerMenuItems"
-        [multiple]="false"
-        styleClass="shell-panelmenu shell-panelmenu-profile shell-panelmenu-mobile"
+        [model]="drawerMenuItems"
+        [multiple]="true"
+        styleClass="shell-panelmenu shell-panelmenu-mobile"
         [pt]="panelMenuPt"
       ></p-panelmenu>
-    </div>
-  }
+    </nav>
+
+    @if (profileDrawerMenuItems.length > 0) {
+      <div
+        class="mobile-profile-section"
+        [style.--profile-initials]="'&quot;' + profileInitials + '&quot;'"
+      >
+        <p-panelmenu
+          [model]="profileDrawerMenuItems"
+          [multiple]="false"
+          styleClass="shell-panelmenu shell-panelmenu-profile shell-panelmenu-mobile"
+          [pt]="panelMenuPt"
+        ></p-panelmenu>
+      </div>
+    }
+  </div>
 </p-drawer>

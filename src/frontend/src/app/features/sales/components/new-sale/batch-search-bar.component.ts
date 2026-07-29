@@ -23,6 +23,7 @@ import { TranslocoPipe } from '@ngneat/transloco';
     TranslocoPipe,
   ],
   templateUrl: './batch-search-bar.component.html',
+  styleUrl: './batch-search-bar.component.scss',
 })
 export class BatchSearchBarComponent {
   @Input() searchTerm = '';

@@ -27,7 +27,7 @@
   }
 
   @if (exportError()) {
-    <p class="error" data-export-error>
+    <p class="error" data-export-error role="alert">
       {{ exportError() }}
     </p>
   }

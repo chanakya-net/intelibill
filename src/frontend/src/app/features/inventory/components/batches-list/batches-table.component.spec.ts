@@ -36,7 +36,10 @@ describe('BatchesTableComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [BatchesTableComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
+      imports: [
+        BatchesTableComponent,
+        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(BatchesTableComponent);
@@ -45,7 +48,8 @@ describe('BatchesTableComponent', () => {
   });
 
   it('should emit batch action payload', () => {
-    const events: Array<{ action: 'edit' | 'adjust' | 'void' | 'printLabels'; batchId: string }> = [];
+    const events: Array<{ action: 'edit' | 'adjust' | 'void' | 'printLabels'; batchId: string }> =
+      [];
     component.batchAction.subscribe((value) => events.push(value));
 
     component.onRowAction('edit', 'b1');
@@ -55,6 +59,13 @@ describe('BatchesTableComponent', () => {
       { action: 'edit', batchId: 'b1' },
       { action: 'printLabels', batchId: 'b1' },
     ]);
+  });
+
+  it('keeps every row action available through one menu', () => {
+    const menuItems = component.rowActionItems(mockBatches[0]);
+
+    expect(menuItems.map((item) => item.id)).toEqual(['printLabels', 'adjust', 'edit', 'void']);
+    expect(menuItems.every((item) => item.disabled === false)).toBe(true);
   });
 
   it('should emit selection updates for selectable rows', () => {

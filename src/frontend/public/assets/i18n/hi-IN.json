@@ -19,7 +19,8 @@
     "inactive": "निष्क्रिय",
     "remove": "हटाओ",
     "status": "स्थिति",
-    "void": "रद्द करें"
+    "void": "रद्द करें",
+    "required": "यह फ़ील्ड आवश्यक है"
   },
   "languages": {
     "en-IN": "अंग्रेज़ी",
@@ -263,7 +264,15 @@
     "deactivate": "निष्क्रिय करें",
     "loadFailed": "सेवाएँ लोड करने में असमर्थ.",
     "saveFailed": "सेवा सहेजने में असमर्थ.",
-    "toggleFailed": "सेवा स्थिति अद्यतन करने में असमर्थ."
+    "toggleFailed": "सेवा स्थिति अद्यतन करने में असमर्थ.",
+    "paginationFooter": "{{start}} - {{end}} में से {{total}}",
+    "validation": {
+      "nameMaxLength": "सेवा नाम 180 वर्णों या कम का होना चाहिए।",
+      "descriptionMaxLength": "विवरण 320 वर्णों या कम का होना चाहिए।",
+      "priceMin": "कीमत शून्य या अधिक होनी चाहिए।",
+      "taxRateRange": "कर दर 0 और 100 के बीच होनी चाहिए।",
+      "hsnSacPattern": "मान्य 4 से 8 अंकों का HSN/SAC कोड दर्ज करें।"
+    }
   },
   "bankAccounts": {
     "directory": "बैंक खाता निर्देशिका",
@@ -365,6 +374,7 @@
     "isActive": "सक्रिय है",
     "isPreferred": "प्राथमिक है",
     "balance": "शेष राशि",
+    "balanceDue": "देय शेष",
     "ledgerEntries": "लेजर प्रविष्टियाँ",
     "entryType": "प्रविष्टि प्रकार",
     "amount": "राशि",
@@ -377,6 +387,9 @@
     "searchEntryDate": "तिथि खोजें",
     "searchNotes": "टिप्पणियाँ खोजें",
     "totalAmount": "कुल राशि",
+    "all": "सभी",
+    "goodsReceived": "माल प्राप्त",
+    "payments": "भुगतान",
     "entryTypes": {
       "goodsReceived": "माल प्राप्त",
       "paymentMade": "भुगतान किया गया",
@@ -1605,7 +1618,10 @@
       "ariaLabel": "व्यय सारांश"
     },
     "ledgerMetrics": "व्यय खाता मेट्रिक्स",
-    "ledgerResults": "व्यय बही परिणाम"
+    "ledgerResults": "व्यय बही परिणाम",
+    "errors": {
+      "unexpected": "इस खर्च को दर्ज या सुधारने में असमर्थ। कृपया पुनः प्रयास करें।"
+    }
   },
   "discounts": {
     "title": "छूट नियम",
@@ -1623,7 +1639,8 @@
       "disable": "निष्क्रिय करें"
     },
     "list": {
-      "title": "नियम"
+      "title": "नियम",
+      "empty": "इन फ़िल्टरों से मेल खाने वाला कोई छूट नियम नहीं है।"
     },
     "detail": {
       "title": "नियम विवरण",

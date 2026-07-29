@@ -76,16 +76,18 @@
         <p class="server-error">{{ serverError() | transloco }}</p>
       }
 
-      <button
-        pButton
-        type="submit"
-        [label]="
-          isSubmitting() ? ('profile.updating' | transloco) : ('profile.updateProfile' | transloco)
-        "
-        [loading]="isSubmitting()"
-        [disabled]="form.invalid || isSubmitting()"
-        class="submit-button w-full"
-      ></button>
+      <div class="overlay-actions">
+        <button
+          pButton
+          type="submit"
+          [label]="
+            isSubmitting() ? ('profile.updating' | transloco) : ('profile.updateProfile' | transloco)
+          "
+          [loading]="isSubmitting()"
+          [disabled]="form.invalid || isSubmitting()"
+          class="submit-button w-full"
+        ></button>
+      </div>
     </form>
 
     @if (isSubmitting()) {

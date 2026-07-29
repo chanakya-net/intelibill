@@ -81,6 +81,21 @@ describe('inventoryReducer', () => {
     });
   });
 
+  it('keeps a mutation error separate from a catalog-load error', () => {
+    const mutationFailure = inventoryReducer(
+      initialState,
+      InventoryActions.addItemFailed({ errorMessage: 'errors.items.unableToAddItem' })
+    );
+    const loadFailure = inventoryReducer(
+      mutationFailure,
+      InventoryActions.loadItemsFailed({ errorMessage: 'errors.items.unableToLoadItems' })
+    );
+
+    expect(mutationFailure.loadErrorMessage).toBe('');
+    expect(loadFailure.loadErrorMessage).toBe('errors.items.unableToLoadItems');
+    expect(loadFailure.errorMessage).toBe('errors.items.unableToLoadItems');
+  });
+
   it('keeps items unchanged when add item succeeds', () => {
     const state: InventoryState = {
       ...initialState,
