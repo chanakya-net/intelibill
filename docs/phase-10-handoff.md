@@ -684,12 +684,6 @@ for both Key Vaults. HTTP records arrived after about ten minutes of ingestion
 lag. Both migration-job execution counts were queried again afterward and
 remained zero.
 
-### Separate repository-tooling limitation
-
-Graphify AST extraction succeeds, but HTML visualization generation exceeds
-the size limit for the 14,305-node graph. This is a repository visualization
-limitation, not an Azure, OpenTofu, drift, idempotence, or logging failure.
-
 ---
 
 ## 4. The application contract Phase 10 satisfies

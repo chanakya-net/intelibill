@@ -47,6 +47,7 @@
     "hono": "^4.12.12",
     "http-proxy-middleware": "^4.2.0",
     "picomatch": "^4.0.4",
+    "playwright": "^1.62.0",
     "postcss": "^8.5.8",
     "primeicons": "^7.0.0",
     "primeng": "^21.1.3",

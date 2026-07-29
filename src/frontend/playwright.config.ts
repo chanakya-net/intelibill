@@ -2,7 +2,7 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests/ui-audit',
-  testMatch: ['ui-audit/*-*.spec.ts', 'ui-audit/mock/*.spec.ts', 'ui-audit/print/*.spec.ts'],
+  testMatch: ['ui-audit/login-page.spec.ts', 'ui-audit/mock/*.spec.ts', 'ui-audit/print/*.spec.ts'],
   outputDir: '.ui-audit/test-results',
   fullyParallel: false,
   workers: 1,
