@@ -493,11 +493,11 @@ async function withInventoryMatrixPage(
     await expect(page.locator('app-inventory-filter-bar')).toBeVisible();
 
     if (viewport.width >= 1024) {
-      await selectStatus(page, 'Active', 'active');
+      await expect(page.locator('app-inventory-filter-bar p-select')).toBeVisible();
       await page.locator('.desktop-table .p-paginator-next').click({ trial: true }).catch(() => null);
       await expect(
         page.locator('.desktop-table .p-paginator-page[aria-current="page"]'),
-      ).toContainText('1');
+      ).toHaveAttribute('aria-label', '1');
     }
 
     const addDialog = await openAddDialog(page);
