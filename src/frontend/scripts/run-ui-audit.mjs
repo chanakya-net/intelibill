@@ -8,6 +8,12 @@ const mocked = args.includes('--mocked');
 const forwardedArgs = args.filter(
   (argument) => !['--setup', '--baseline', '--mocked'].includes(argument),
 );
+const defaultBaselineTargets = [
+  'tests/ui-audit/login-page.spec.ts',
+  'tests/ui-audit/mock',
+  'tests/ui-audit/print',
+];
+const testTargets = baseline && forwardedArgs.length === 0 ? defaultBaselineTargets : forwardedArgs;
 
 if (args.includes('--update-snapshots') && !baseline) {
   console.error('Baseline writes require the explicit audit:ui:baseline command.');
@@ -22,7 +28,7 @@ const command = setup
       'test',
       '--config',
       'playwright.config.ts',
-      ...(mocked ? ['tests/ui-audit/mock', 'tests/ui-audit/print'] : []),
+      ...(mocked ? ['tests/ui-audit/mock', 'tests/ui-audit/print'] : testTargets),
       ...forwardedArgs,
     ];
 const result = spawnSync(process.execPath, command, {
