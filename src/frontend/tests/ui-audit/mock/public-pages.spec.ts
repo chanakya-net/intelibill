@@ -1,633 +1,318 @@
 import { expect, test } from '@playwright/test';
 
+import { AUTH_ENDPOINTS } from '../../../src/app/core/auth/auth.constants';
 import { SUPPORTED_LANGUAGES } from '../../../src/app/core/i18n/language.constants';
 import {
+  mockAuthenticatedShellRequests,
+  mockExternalCallbackDelayed,
   mockExternalCallbackError,
   mockExternalCallbackSuccess,
+  mockForgotPasswordDelayed,
   mockForgotPasswordError,
   mockForgotPasswordRateLimited,
   mockForgotPasswordSuccess,
   mockLoginDelayed,
   mockLoginError,
   mockLoginSuccess,
+  mockLongTranslation,
   mockRegisterDelayed,
   mockRegisterError,
   mockRegisterSuccess,
+  mockResetPasswordDelayed,
   mockResetPasswordInvalidToken,
   mockResetPasswordRateLimited,
   mockResetPasswordSuccess,
-  setStoredLanguage,
 } from '../fixtures/auth.fixture';
+import { AUDIT_VIEWPORTS } from '../support/layout-assertions';
 import {
-  assertNoUnexpectedBrowserFailures,
-  collectBrowserFailures,
-  mockExternalRequests,
-  waitForStablePage,
-} from '../support/audit-page';
-import { AUDIT_VIEWPORTS, assertLoginLayout } from '../support/layout-assertions';
+  assertActiveLocale,
+  assertAuthenticatedDestination,
+  assertAuthLayout,
+  auditPublicPage,
+  expectedError,
+  fillRegisterForm,
+  fillResetForm,
+  isolatedLocalePage,
+} from './public-pages.helpers';
 
-function getAuditViewport(projectName: string) {
+const RESET_QUERY = '?email=audit%40example.com&token=valid-token';
+const AUTH_ROUTES = ['/login', '/register', '/forgot-password', `/reset-password${RESET_QUERY}`] as const;
+
+function viewportFor(projectName: string) {
   return projectName.includes('mobile') ? AUDIT_VIEWPORTS[0] : AUDIT_VIEWPORTS[1];
 }
 
-async function assertNoHorizontalOverflow(page: import('@playwright/test').Page, width: number): Promise<void> {
-  const documentWidth = await page.evaluate(() => document.documentElement.scrollWidth);
-  expect(documentWidth).toBeLessThanOrEqual(width + 1);
+async function fillLoginForm(page: import('@playwright/test').Page, password = 'correct-horse-battery'): Promise<void> {
+  await page.locator('#identifier').fill('audit@example.com');
+  await page.locator('#password').fill(password);
 }
 
-async function waitForAuthNavigationAway(page: import('@playwright/test').Page): Promise<void> {
-  await page.waitForURL((url) => !['/login', '/register', '/auth/callback'].includes(url.pathname));
+async function fillEmail(page: import('@playwright/test').Page): Promise<void> {
+  await page.locator('#email').fill('audit@example.com');
 }
 
 test.describe('public-pages: login', () => {
-  test('renders default state without failures', async ({ page }, testInfo) => {
-    const collector = collectBrowserFailures(page);
-    try {
-      await mockExternalRequests(page);
-      await page.goto('/login');
-      await waitForStablePage(page);
-
-      await assertLoginLayout(page, getAuditViewport(testInfo.project.name));
-      await expect(page.locator('.auth-card')).toBeVisible();
-      await expect(page.locator('#identifier')).toBeVisible();
-      await expect(page.locator('#password')).toBeVisible();
-      assertNoUnexpectedBrowserFailures(collector.failures);
-    } finally {
-      collector.dispose();
-    }
+  test('renders default layout', async ({ page }, info) => {
+    await auditPublicPage(page, '/login', undefined, async (current) => {
+      await assertAuthLayout(current, viewportFor(info.project.name));
+      await expect(current.locator('#identifier')).toBeVisible();
+    });
   });
 
-  test('shows validation errors for empty required fields', async ({ page }) => {
-    const collector = collectBrowserFailures(page);
-    try {
-      await mockExternalRequests(page);
-      await page.goto('/login');
-      await waitForStablePage(page);
-
-      await page.locator('button[type="submit"]').click();
-
-      await expect(page.locator('.field-error').first()).toBeVisible();
-      assertNoUnexpectedBrowserFailures(collector.failures);
-    } finally {
-      collector.dispose();
-    }
+  test('shows validation errors', async ({ page }) => {
+    await auditPublicPage(page, '/login', undefined, async (current) => {
+      await current.locator('button[type="submit"]').click();
+      await expect(current.locator('.field-error').first()).toBeVisible();
+    });
   });
 
-  test('shows loading state while submitting', async ({ page }) => {
-    const collector = collectBrowserFailures(page);
-    try {
-      await mockExternalRequests(page);
-      await mockLoginDelayed(page);
-      await page.goto('/login');
-      await waitForStablePage(page);
-
-      await page.locator('#identifier').fill('audit@example.com');
-      await page.locator('#password').fill('correct-horse-battery');
-      await page.locator('button[type="submit"]').click();
-
-      await expect(page.locator('.form-overlay')).toBeVisible();
-      assertNoUnexpectedBrowserFailures(collector.failures);
-    } finally {
-      collector.dispose();
-    }
+  test('shows submitting state', async ({ page }) => {
+    await auditPublicPage(page, '/login', mockLoginDelayed, async (current) => {
+      await fillLoginForm(current);
+      await current.locator('button[type="submit"]').click();
+      await expect(current.locator('.form-overlay')).toBeVisible();
+    });
   });
 
-  test('shows server error message on invalid credentials', async ({ page }) => {
-    const collector = collectBrowserFailures(page);
-    try {
-      await mockExternalRequests(page);
-      await mockLoginError(page);
-      await page.goto('/login');
-      await waitForStablePage(page);
-
-      await page.locator('#identifier').fill('audit@example.com');
-      await page.locator('#password').fill('wrong-password');
-      await page.locator('button[type="submit"]').click();
-
-      await expect(page.getByText('The email or password is incorrect.')).toBeVisible();
-    } finally {
-      collector.dispose();
-    }
+  test('shows server error', async ({ page }) => {
+    await auditPublicPage(page, '/login', mockLoginError, async (current) => {
+      await fillLoginForm(current, 'wrong-password');
+      await current.locator('button[type="submit"]').click();
+      await expect(current.getByText('The email or password is incorrect.')).toBeVisible();
+    }, expectedError(AUTH_ENDPOINTS.login, 401));
   });
 
-  test('navigates away on successful login', async ({ page }) => {
-    const collector = collectBrowserFailures(page);
-    try {
-      await mockExternalRequests(page);
-      await mockLoginSuccess(page);
-      await page.goto('/login');
-      await waitForStablePage(page);
-
-      await page.locator('#identifier').fill('audit@example.com');
-      await page.locator('#password').fill('correct-horse-battery');
-      await page.locator('button[type="submit"]').click();
-
-      await waitForAuthNavigationAway(page);
-    } finally {
-      collector.dispose();
-    }
+  test('shows reset success feedback', async ({ page }) => {
+    await auditPublicPage(page, '/login?passwordReset=success', undefined, async (current) => {
+      await expect(current.getByText('Your password has been reset. Please sign in with your new password.')).toBeVisible();
+    });
   });
 
-  test('shows password reset success banner from query param', async ({ page }) => {
-    const collector = collectBrowserFailures(page);
-    try {
-      await mockExternalRequests(page);
-      await page.goto('/login?passwordReset=success');
-      await waitForStablePage(page);
-
-      await expect(
-        page.getByText('Your password has been reset. Please sign in with your new password.'),
-      ).toBeVisible();
-      assertNoUnexpectedBrowserFailures(collector.failures);
-    } finally {
-      collector.dispose();
-    }
-  });
-
-  test('renders across every supported locale without overflow', async ({ page }, testInfo) => {
-    const localeViewport =
-      testInfo.project.name === 'chromium-mobile' ? AUDIT_VIEWPORTS[0] : AUDIT_VIEWPORTS[1];
-
-    for (const language of SUPPORTED_LANGUAGES) {
-      const collector = collectBrowserFailures(page);
-      try {
-        await setStoredLanguage(page, language);
-        await mockExternalRequests(page);
-        await page.goto('/login');
-        await waitForStablePage(page);
-
-        await assertLoginLayout(page, localeViewport);
-        await expect(page.locator('.auth-card h2')).not.toHaveText('auth.loginNow');
-        assertNoUnexpectedBrowserFailures(collector.failures);
-      } finally {
-        collector.dispose();
-      }
-    }
+  test('reaches the expected protected destination', async ({ page }) => {
+    await auditPublicPage(page, '/login', async (current) => {
+      await mockAuthenticatedShellRequests(current);
+      await mockLoginSuccess(current);
+    }, async (current) => {
+      await fillLoginForm(current);
+      await current.locator('button[type="submit"]').click();
+      await assertAuthenticatedDestination(current);
+    });
   });
 });
 
 test.describe('public-pages: register', () => {
-  test('renders default state without failures', async ({ page }, testInfo) => {
-    const collector = collectBrowserFailures(page);
-    try {
-      await mockExternalRequests(page);
-      await page.goto('/register');
-      await waitForStablePage(page);
-
-      await assertNoHorizontalOverflow(page, getAuditViewport(testInfo.project.name).width);
-      await expect(page.locator('#email')).toBeVisible();
-      assertNoUnexpectedBrowserFailures(collector.failures);
-    } finally {
-      collector.dispose();
-    }
+  test('renders default layout', async ({ page }, info) => {
+    await auditPublicPage(page, '/register', undefined, (current) => assertAuthLayout(current, viewportFor(info.project.name)));
   });
 
-  test('shows validation errors for invalid fields', async ({ page }) => {
-    const collector = collectBrowserFailures(page);
-    try {
-      await mockExternalRequests(page);
-      await page.goto('/register');
-      await waitForStablePage(page);
-
-      await page.locator('#email').fill('not-an-email');
-      await page.locator('#password').fill('short');
-      await page.locator('#confirmPassword').fill('different');
-      await page.locator('#email').blur();
-      await page.locator('button[type="submit"]').click();
-
-      await expect(page.getByText('Enter a valid email address.')).toBeVisible();
-      await expect(page.getByText('Password must be between 8 and 100 characters.')).toBeVisible();
-      await expect(page.getByText('Passwords do not match.')).toBeVisible();
-      assertNoUnexpectedBrowserFailures(collector.failures);
-    } finally {
-      collector.dispose();
-    }
+  test('shows validation errors', async ({ page }) => {
+    await auditPublicPage(page, '/register', undefined, async (current) => {
+      await current.locator('#email').fill('not-an-email');
+      await current.locator('#password').fill('short');
+      await current.locator('#confirmPassword').fill('different');
+      await current.locator('button[type="submit"]').click();
+      await expect(current.getByText('Enter a valid email address.')).toBeVisible();
+    });
   });
 
-  test('shows loading state while submitting', async ({ page }) => {
-    const collector = collectBrowserFailures(page);
-    try {
-      await mockExternalRequests(page);
-      await mockRegisterDelayed(page);
-      await page.goto('/register');
-      await waitForStablePage(page);
-
-      await fillValidRegisterForm(page);
-      await page.locator('button[type="submit"]').click();
-
-      await expect(page.locator('.form-overlay')).toBeVisible();
-      assertNoUnexpectedBrowserFailures(collector.failures);
-    } finally {
-      collector.dispose();
-    }
+  test('shows submitting state', async ({ page }) => {
+    await auditPublicPage(page, '/register', mockRegisterDelayed, async (current) => {
+      await fillRegisterForm(current);
+      await current.locator('button[type="submit"]').click();
+      await expect(current.locator('.form-overlay')).toBeVisible();
+    });
   });
 
-  test('shows server error message when email already registered', async ({ page }) => {
-    const collector = collectBrowserFailures(page);
-    try {
-      await mockExternalRequests(page);
-      await mockRegisterError(page);
-      await page.goto('/register');
-      await waitForStablePage(page);
-
-      await fillValidRegisterForm(page);
-      await page.locator('button[type="submit"]').click();
-
-      await expect(page.getByText('An account with this email already exists.')).toBeVisible();
-    } finally {
-      collector.dispose();
-    }
+  test('shows server error', async ({ page }) => {
+    await auditPublicPage(page, '/register', mockRegisterError, async (current) => {
+      await fillRegisterForm(current);
+      await current.locator('button[type="submit"]').click();
+      await expect(current.getByText('An account with this email already exists.')).toBeVisible();
+    }, expectedError(AUTH_ENDPOINTS.registerWithEmail, 409));
   });
 
-  test('navigates away on successful registration', async ({ page }) => {
-    const collector = collectBrowserFailures(page);
-    try {
-      await mockExternalRequests(page);
-      await mockRegisterSuccess(page);
-      await page.goto('/register');
-      await waitForStablePage(page);
-
-      await fillValidRegisterForm(page);
-      await page.locator('button[type="submit"]').click();
-
-      await waitForAuthNavigationAway(page);
-    } finally {
-      collector.dispose();
-    }
-  });
-
-  test('renders across every supported locale without overflow', async ({ page }, testInfo) => {
-    const localeViewport =
-      testInfo.project.name === 'chromium-mobile' ? AUDIT_VIEWPORTS[0] : AUDIT_VIEWPORTS[1];
-
-    for (const language of SUPPORTED_LANGUAGES) {
-      const collector = collectBrowserFailures(page);
-      try {
-        await setStoredLanguage(page, language);
-        await mockExternalRequests(page);
-        await page.goto('/register');
-        await waitForStablePage(page);
-
-        await assertNoHorizontalOverflow(page, localeViewport.width);
-        assertNoUnexpectedBrowserFailures(collector.failures);
-      } finally {
-        collector.dispose();
-      }
-    }
+  test('reaches the expected protected destination', async ({ page }) => {
+    await auditPublicPage(page, '/register', async (current) => {
+      await mockAuthenticatedShellRequests(current);
+      await mockRegisterSuccess(current);
+    }, async (current) => {
+      await fillRegisterForm(current);
+      await current.locator('button[type="submit"]').click();
+      await assertAuthenticatedDestination(current);
+    });
   });
 });
 
-test.describe('public-pages: forgot-password', () => {
-  test('renders default state without failures', async ({ page }, testInfo) => {
-    const collector = collectBrowserFailures(page);
-    try {
-      await mockExternalRequests(page);
-      await page.goto('/forgot-password');
-      await waitForStablePage(page);
-
-      await assertLoginLayout(page, getAuditViewport(testInfo.project.name));
-      await expect(page.locator('#email')).toBeVisible();
-      assertNoUnexpectedBrowserFailures(collector.failures);
-    } finally {
-      collector.dispose();
-    }
+test.describe('public-pages: forgot password', () => {
+  test('renders default layout', async ({ page }, info) => {
+    await auditPublicPage(page, '/forgot-password', undefined, (current) => assertAuthLayout(current, viewportFor(info.project.name)));
   });
 
-  test('shows validation error for invalid email', async ({ page }) => {
-    const collector = collectBrowserFailures(page);
-    try {
-      await mockExternalRequests(page);
-      await page.goto('/forgot-password');
-      await waitForStablePage(page);
-
-      await page.locator('#email').fill('not-an-email');
-      await page.locator('button[type="submit"]').click();
-
-      await expect(page.getByText('Enter a valid email address.')).toBeVisible();
-      assertNoUnexpectedBrowserFailures(collector.failures);
-    } finally {
-      collector.dispose();
-    }
+  test('shows validation errors', async ({ page }) => {
+    await auditPublicPage(page, '/forgot-password', undefined, async (current) => {
+      await current.locator('#email').fill('not-an-email');
+      await current.locator('button[type="submit"]').click();
+      await expect(current.getByText('Enter a valid email address.')).toBeVisible();
+    });
   });
 
-  test('shows success message after request submitted', async ({ page }) => {
-    const collector = collectBrowserFailures(page);
-    try {
-      await mockExternalRequests(page);
-      await mockForgotPasswordSuccess(page);
-      await page.goto('/forgot-password');
-      await waitForStablePage(page);
-
-      await page.locator('#email').fill('audit@example.com');
-      await page.locator('button[type="submit"]').click();
-
-      await expect(
-        page.getByText('We will send you a password reset link if your email is found in our records.'),
-      ).toBeVisible();
-      assertNoUnexpectedBrowserFailures(collector.failures);
-    } finally {
-      collector.dispose();
-    }
+  test('shows submitting state', async ({ page }) => {
+    await auditPublicPage(page, '/forgot-password', mockForgotPasswordDelayed, async (current) => {
+      await fillEmail(current);
+      await current.locator('button[type="submit"]').click();
+      await expect(current.locator('form.form-busy')).toBeVisible();
+      await expect(current.locator('button[type="submit"]')).toBeDisabled();
+    });
   });
 
-  test('shows rate-limit error message', async ({ page }) => {
-    const collector = collectBrowserFailures(page);
-    try {
-      await mockExternalRequests(page);
-      await mockForgotPasswordRateLimited(page);
-      await page.goto('/forgot-password');
-      await waitForStablePage(page);
-
-      await page.locator('#email').fill('audit@example.com');
-      await page.locator('button[type="submit"]').click();
-
-      await expect(page.getByText('Too many attempts. Please try again later.')).toBeVisible();
-    } finally {
-      collector.dispose();
-    }
+  test('shows success feedback', async ({ page }) => {
+    await auditPublicPage(page, '/forgot-password', mockForgotPasswordSuccess, async (current) => {
+      await fillEmail(current);
+      await current.locator('button[type="submit"]').click();
+      await expect(current.getByText('We will send you a password reset link if your email is found in our records.')).toBeVisible();
+    });
   });
 
-  test('shows generic error message on server failure', async ({ page }) => {
-    const collector = collectBrowserFailures(page);
-    try {
-      await mockExternalRequests(page);
-      await mockForgotPasswordError(page);
-      await page.goto('/forgot-password');
-      await waitForStablePage(page);
-
-      await page.locator('#email').fill('audit@example.com');
-      await page.locator('button[type="submit"]').click();
-
-      await expect(
-        page.getByText('Unable to process your request. Please try again.'),
-      ).toBeVisible();
-    } finally {
-      collector.dispose();
-    }
-  });
-
-  test('renders across every supported locale without overflow', async ({ page }, testInfo) => {
-    const localeViewport =
-      testInfo.project.name === 'chromium-mobile' ? AUDIT_VIEWPORTS[0] : AUDIT_VIEWPORTS[1];
-
-    for (const language of SUPPORTED_LANGUAGES) {
-      const collector = collectBrowserFailures(page);
-      try {
-        await setStoredLanguage(page, language);
-        await mockExternalRequests(page);
-        await page.goto('/forgot-password');
-        await waitForStablePage(page);
-
-        await assertLoginLayout(page, localeViewport);
-        assertNoUnexpectedBrowserFailures(collector.failures);
-      } finally {
-        collector.dispose();
-      }
-    }
-  });
+  for (const [name, mock, message, status] of [
+    ['rate-limited', mockForgotPasswordRateLimited, 'Too many attempts. Please try again later.', 429],
+    ['server', mockForgotPasswordError, 'Unable to process your request. Please try again.', 500],
+  ] as const) {
+    test(`shows ${name} error feedback`, async ({ page }) => {
+      await auditPublicPage(page, '/forgot-password', mock, async (current) => {
+        await fillEmail(current);
+        await current.locator('button[type="submit"]').click();
+        await expect(current.getByText(message)).toBeVisible();
+      }, expectedError(AUTH_ENDPOINTS.requestPasswordReset, status));
+    });
+  }
 });
 
-test.describe('public-pages: reset-password', () => {
-  const validQuery = '?email=audit%40example.com&token=valid-token';
-
-  test('renders form when link parameters are present', async ({ page }, testInfo) => {
-    const collector = collectBrowserFailures(page);
-    try {
-      await mockExternalRequests(page);
-      await page.goto(`/reset-password${validQuery}`);
-      await waitForStablePage(page);
-
-      await assertLoginLayout(page, getAuditViewport(testInfo.project.name));
-      await expect(page.locator('#password')).toBeVisible();
-      await expect(page.locator('#confirmPassword')).toBeVisible();
-      assertNoUnexpectedBrowserFailures(collector.failures);
-    } finally {
-      collector.dispose();
-    }
+test.describe('public-pages: reset password', () => {
+  test('renders form and invalid-link state', async ({ page }, info) => {
+    await auditPublicPage(page, `/reset-password${RESET_QUERY}`, undefined, (current) => assertAuthLayout(current, viewportFor(info.project.name)));
+    await auditPublicPage(page, '/reset-password', undefined, async (current) => {
+      await expect(current.getByText('This password reset link is invalid or has expired.')).toBeVisible();
+    });
   });
 
-  test('shows invalid-link message when parameters are missing', async ({ page }) => {
-    const collector = collectBrowserFailures(page);
-    try {
-      await mockExternalRequests(page);
-      await page.goto('/reset-password');
-      await waitForStablePage(page);
-
-      await expect(
-        page.getByText('This password reset link is invalid or has expired.'),
-      ).toBeVisible();
-      await expect(page.locator('#password')).toHaveCount(0);
-      assertNoUnexpectedBrowserFailures(collector.failures);
-    } finally {
-      collector.dispose();
-    }
+  test('shows validation errors', async ({ page }) => {
+    await auditPublicPage(page, `/reset-password${RESET_QUERY}`, undefined, async (current) => {
+      await current.locator('#password').fill('longenough1');
+      await current.locator('#confirmPassword').fill('different1');
+      await current.locator('button[type="submit"]').click();
+      await expect(current.getByText('Passwords do not match.')).toBeVisible();
+    });
   });
 
-  test('shows validation error on password mismatch', async ({ page }) => {
-    const collector = collectBrowserFailures(page);
-    try {
-      await mockExternalRequests(page);
-      await page.goto(`/reset-password${validQuery}`);
-      await waitForStablePage(page);
-
-      await page.locator('#password').fill('longenough1');
-      await page.locator('#confirmPassword').fill('different1');
-      await page.locator('#confirmPassword').blur();
-      await page.locator('button[type="submit"]').click();
-
-      await expect(page.getByText('Passwords do not match.')).toBeVisible();
-      assertNoUnexpectedBrowserFailures(collector.failures);
-    } finally {
-      collector.dispose();
-    }
+  test('shows submitting state', async ({ page }) => {
+    await auditPublicPage(page, `/reset-password${RESET_QUERY}`, mockResetPasswordDelayed, async (current) => {
+      await fillResetForm(current);
+      await current.locator('button[type="submit"]').click();
+      await expect(current.locator('.form-overlay')).toBeVisible();
+    });
   });
 
-  test('redirects to login with success banner on submit', async ({ page }) => {
-    const collector = collectBrowserFailures(page);
-    try {
-      await mockExternalRequests(page);
-      await mockResetPasswordSuccess(page);
-      await page.goto(`/reset-password${validQuery}`);
-      await waitForStablePage(page);
-
-      await page.locator('#password').fill('longenough1');
-      await page.locator('#confirmPassword').fill('longenough1');
-      await page.locator('button[type="submit"]').click();
-
-      await page.waitForURL('/login?passwordReset=success');
-      await waitForStablePage(page);
-      await expect(
-        page.getByText('Your password has been reset. Please sign in with your new password.'),
-      ).toBeVisible();
-      assertNoUnexpectedBrowserFailures(collector.failures);
-    } finally {
-      collector.dispose();
-    }
+  test('returns to login with success feedback', async ({ page }) => {
+    await auditPublicPage(page, `/reset-password${RESET_QUERY}`, mockResetPasswordSuccess, async (current) => {
+      await fillResetForm(current);
+      await current.locator('button[type="submit"]').click();
+      await current.waitForURL('/login?passwordReset=success');
+      await expect(current.getByText('Your password has been reset. Please sign in with your new password.')).toBeVisible();
+    });
   });
 
-  test('shows invalid-link message when the reset token is rejected', async ({ page }) => {
-    const collector = collectBrowserFailures(page);
-    try {
-      await mockExternalRequests(page);
-      await mockResetPasswordInvalidToken(page);
-      await page.goto(`/reset-password${validQuery}`);
-      await waitForStablePage(page);
-
-      await page.locator('#password').fill('longenough1');
-      await page.locator('#confirmPassword').fill('longenough1');
-      await page.locator('button[type="submit"]').click();
-
-      await expect(
-        page.getByText('This password reset link is invalid or has expired.'),
-      ).toBeVisible();
-      await expect(page.locator('#password')).toHaveCount(0);
-    } finally {
-      collector.dispose();
-    }
-  });
-
-  test('shows rate-limit error message', async ({ page }) => {
-    const collector = collectBrowserFailures(page);
-    try {
-      await mockExternalRequests(page);
-      await mockResetPasswordRateLimited(page);
-      await page.goto(`/reset-password${validQuery}`);
-      await waitForStablePage(page);
-
-      await page.locator('#password').fill('longenough1');
-      await page.locator('#confirmPassword').fill('longenough1');
-      await page.locator('button[type="submit"]').click();
-
-      await expect(page.getByText('Too many attempts. Please try again later.')).toBeVisible();
-    } finally {
-      collector.dispose();
-    }
-  });
-
-  test('renders across every supported locale without overflow', async ({ page }, testInfo) => {
-    const localeViewport =
-      testInfo.project.name === 'chromium-mobile' ? AUDIT_VIEWPORTS[0] : AUDIT_VIEWPORTS[1];
-
-    for (const language of SUPPORTED_LANGUAGES) {
-      const collector = collectBrowserFailures(page);
-      try {
-        await setStoredLanguage(page, language);
-        await mockExternalRequests(page);
-        await page.goto(`/reset-password${validQuery}`);
-        await waitForStablePage(page);
-
-        await assertLoginLayout(page, localeViewport);
-        assertNoUnexpectedBrowserFailures(collector.failures);
-      } finally {
-        collector.dispose();
-      }
-    }
-  });
+  for (const [name, mock, message, status] of [
+    ['invalid-token', mockResetPasswordInvalidToken, 'This password reset link is invalid or has expired.', 401],
+    ['rate-limited', mockResetPasswordRateLimited, 'Too many attempts. Please try again later.', 429],
+  ] as const) {
+    test(`shows ${name} error feedback`, async ({ page }) => {
+      await auditPublicPage(page, `/reset-password${RESET_QUERY}`, mock, async (current) => {
+        await fillResetForm(current);
+        await current.locator('button[type="submit"]').click();
+        await expect(current.getByText(message)).toBeVisible();
+      }, expectedError(AUTH_ENDPOINTS.confirmPasswordReset, status));
+    });
+  }
 });
 
 test.describe('public-pages: auth callback', () => {
-  test('navigates away on successful callback', async ({ page }) => {
-    const collector = collectBrowserFailures(page);
-    try {
-      await mockExternalRequests(page);
-      await mockExternalCallbackSuccess(page);
-      await page.goto('/auth/callback?code=auth-code&state=auth-state');
-
-      await waitForAuthNavigationAway(page);
-    } finally {
-      collector.dispose();
-    }
+  test('shows busy spinner and copy while exchanging', async ({ page }) => {
+    await auditPublicPage(page, '/auth/callback?code=auth-code&state=auth-state', mockExternalCallbackDelayed, async (current) => {
+      await expect(current.getByText('Finishing external authentication.')).toBeVisible();
+      await expect(current.locator('.p-progressspinner')).toBeVisible();
+    });
   });
 
-  test('shows error and returns to login when the provider reports an error', async ({ page }) => {
-    const collector = collectBrowserFailures(page);
-    try {
-      await mockExternalRequests(page);
-      await page.goto('/auth/callback?error=access_denied');
-      await waitForStablePage(page);
-
-      await page.waitForURL(/\/login\?externalAuthError=/);
-      assertNoUnexpectedBrowserFailures(collector.failures);
-    } finally {
-      collector.dispose();
-    }
+  test('reaches expected protected destination', async ({ page }) => {
+    await auditPublicPage(page, '/auth/callback?code=auth-code&state=auth-state', async (current) => {
+      await mockAuthenticatedShellRequests(current);
+      await mockExternalCallbackSuccess(current);
+    }, assertAuthenticatedDestination);
   });
 
-  test('shows error when callback parameters are missing', async ({ page }) => {
-    const collector = collectBrowserFailures(page);
-    try {
-      await mockExternalRequests(page);
-      await page.goto('/auth/callback');
-      await waitForStablePage(page);
-
-      await page.waitForURL(/\/login\?externalAuthError=/);
-      assertNoUnexpectedBrowserFailures(collector.failures);
-    } finally {
-      collector.dispose();
-    }
-  });
-
-  test('shows error when the callback exchange is rejected', async ({ page }) => {
-    const collector = collectBrowserFailures(page);
-    try {
-      await mockExternalRequests(page);
-      await mockExternalCallbackError(page);
-      await page.goto('/auth/callback?code=auth-code&state=auth-state');
-      await waitForStablePage(page);
-
-      await page.waitForURL(/\/login\?externalAuthError=/);
-    } finally {
-      collector.dispose();
-    }
-  });
+  for (const [name, url, configure, message, expected] of [
+    ['provider rejection', '/auth/callback?error=access_denied', undefined, 'External provider returned an error. Please try again.', undefined],
+    ['missing callback data', '/auth/callback', undefined, 'Missing callback code or state. Please retry sign-in.', undefined],
+    ['rejected exchange', '/auth/callback?code=auth-code&state=auth-state', mockExternalCallbackError, 'Your sign-in session expired. Please try again.', expectedError(AUTH_ENDPOINTS.loginExternalCallback, 401)],
+  ] as const) {
+    test(`shows visible feedback for ${name}`, async ({ page }) => {
+      await auditPublicPage(page, url, configure, async (current) => {
+        await current.waitForURL(/\/login\?externalAuthError=/);
+        const feedback = current.getByText(message);
+        await expect(feedback).toBeVisible();
+        await expect(feedback).toBeInViewport();
+      }, expected);
+    });
+  }
 });
 
-test.describe('public-pages: wildcard 404', () => {
-  test('renders not-found page for unknown routes without failures', async ({ page }, testInfo) => {
-    const collector = collectBrowserFailures(page);
-    try {
-      await mockExternalRequests(page);
-      await page.goto('/this-route-does-not-exist');
-      await waitForStablePage(page);
-
-      await expect(page.getByText('Page Not Found')).toBeVisible();
-      await expect(page.getByRole('link', { name: 'Go Back' })).toBeVisible();
-
-      const overflow = await page.evaluate(() => document.documentElement.scrollWidth);
-      expect(overflow).toBeLessThanOrEqual(getAuditViewport(testInfo.project.name).width + 1);
-      assertNoUnexpectedBrowserFailures(collector.failures);
-    } finally {
-      collector.dispose();
-    }
-  });
-
-  test('renders across every supported locale without overflow', async ({ page }, testInfo) => {
-    const localeViewport =
-      testInfo.project.name === 'chromium-mobile' ? AUDIT_VIEWPORTS[0] : AUDIT_VIEWPORTS[1];
-
+test.describe('public-pages: locales and wildcard', () => {
+  test('uses isolated locale setup, selected language, and long translations', async ({ page }, info) => {
+    const viewport = viewportFor(info.project.name);
     for (const language of SUPPORTED_LANGUAGES) {
-      const collector = collectBrowserFailures(page);
-      try {
-        await setStoredLanguage(page, language);
-        await mockExternalRequests(page);
-        await page.goto('/this-route-does-not-exist');
-        await waitForStablePage(page);
+      for (const route of AUTH_ROUTES) {
+        const localizedPage = await isolatedLocalePage(page.context(), language);
+        try {
+          await auditPublicPage(localizedPage, route, undefined, async (current) => {
+            await assertActiveLocale(current, language);
+            await assertAuthLayout(current, viewport);
+          });
+        } finally {
+          await localizedPage.close();
+        }
+      }
 
-        const overflow = await page.evaluate(() => document.documentElement.scrollWidth);
-        expect(overflow).toBeLessThanOrEqual(localeViewport.width + 1);
-        assertNoUnexpectedBrowserFailures(collector.failures);
+      const wildcardPage = await isolatedLocalePage(page.context(), language);
+      try {
+        await auditPublicPage(wildcardPage, '/this-route-does-not-exist', undefined, async (current) => {
+          await expect(current.locator('h2')).not.toHaveText('notFound.title');
+          const width = await current.evaluate(() => document.documentElement.scrollWidth);
+          expect(width).toBeLessThanOrEqual(viewport.width + 1);
+        });
       } finally {
-        collector.dispose();
+        await wildcardPage.close();
       }
     }
+
+    const longLabelPage = await isolatedLocalePage(page.context(), 'hi-IN');
+    try {
+      await auditPublicPage(longLabelPage, '/login', async (current) => {
+        await mockLongTranslation(current, 'hi-IN');
+      }, async (current) => {
+        await expect(current.locator('.auth-card h2')).toHaveText(/Sign in to continue managing every detail/);
+        await assertAuthLayout(current, viewport);
+      });
+    } finally {
+      await longLabelPage.close();
+    }
+  });
+
+  test('renders wildcard route without failures or overflow', async ({ page }, info) => {
+    await auditPublicPage(page, '/this-route-does-not-exist', undefined, async (current) => {
+      await expect(current.getByText('Page Not Found')).toBeVisible();
+      await expect(current.getByRole('link', { name: 'Go Back' })).toBeVisible();
+      const width = await current.evaluate(() => document.documentElement.scrollWidth);
+      expect(width).toBeLessThanOrEqual(viewportFor(info.project.name).width + 1);
+    });
   });
 });
-
-async function fillValidRegisterForm(page: import('@playwright/test').Page): Promise<void> {
-  await page.locator('#firstName').fill('Audit');
-  await page.locator('#lastName').fill('User');
-  await page.locator('#email').fill('audit@example.com');
-  await page.locator('#phoneNumber').fill('9800000000');
-  await page.locator('#password').fill('longenough1');
-  await page.locator('#confirmPassword').fill('longenough1');
-}

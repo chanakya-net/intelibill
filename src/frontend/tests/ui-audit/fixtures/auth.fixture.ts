@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 
-import { AUTH_ENDPOINTS } from '../../../src/app/core/auth/auth.constants';
+import { AUTH_ENDPOINTS, SHOP_ENDPOINTS } from '../../../src/app/core/auth/auth.constants';
 import type {
   ApiErrorPayload,
   AuthResult,
@@ -134,9 +134,21 @@ export function mockExternalCallbackSuccess(page: Page): Promise<void> {
   });
 }
 
+export function mockExternalCallbackDelayed(page: Page, delayMs = 1500): Promise<void> {
+  return mockEndpoint(page, AUTH_ENDPOINTS.loginExternalCallback, {
+    status: 200,
+    body: MOCK_AUTH_RESULT,
+    delayMs,
+  });
+}
+
 export function mockExternalCallbackError(page: Page): Promise<void> {
   const error: ApiErrorPayload = { title: 'Auth.ExternalStateInvalid' };
   return mockEndpoint(page, AUTH_ENDPOINTS.loginExternalCallback, { status: 401, body: error });
+}
+
+export function mockAuthenticatedShellRequests(page: Page): Promise<void> {
+  return mockEndpoint(page, SHOP_ENDPOINTS.me, { status: 200, body: [] });
 }
 
 export async function setStoredLanguage(page: Page, language: SupportedLanguage): Promise<void> {
@@ -146,4 +158,21 @@ export async function setStoredLanguage(page: Page, language: SupportedLanguage)
     },
     [LANGUAGE_STORAGE_KEY, language] as const,
   );
+}
+
+export async function mockLongTranslation(page: Page, language: SupportedLanguage): Promise<string> {
+  const longLabel =
+    'Sign in to continue managing every detail of your inventory, suppliers, customers, sales, and reports.';
+
+  await page.route(`**/assets/i18n/${language}.json`, async (route) => {
+    const response = await route.fetch();
+    const translation = await response.json() as { auth?: Record<string, unknown> };
+
+    await route.fulfill({
+      response,
+      json: { ...translation, auth: { ...translation.auth, loginNow: longLabel } },
+    });
+  });
+
+  return longLabel;
 }
