@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { authGuard } from './core/guards/auth.guard';
 import { dashboardGuard } from './core/guards/dashboard.guard';
+import { servicesGuard } from './core/guards/services.guard';
 import { discountsGuard } from './core/guards/discounts.guard';
 import { AuthService } from './core/auth/auth.service';
 import { routes } from './app.routes';
@@ -118,12 +119,12 @@ describe('app routes', () => {
     await expect(dashboardRoute?.loadComponent?.()).resolves.toBe(DashboardPageComponent);
   });
 
-  it('lets the services route render its own permission-aware page', async () => {
+  it('guards the services route and renders its permission-aware page', async () => {
     const shellRoot = shellRoutes.find((route) => route.path === '');
     const servicesRoute = shellRoot?.children?.find((route) => route.path === 'services');
 
     expect(servicesRoute).toBeDefined();
-    expect(servicesRoute?.canActivate).toBeUndefined();
+    expect(servicesRoute?.canActivate).toContain(servicesGuard);
     await expect(servicesRoute?.loadComponent?.()).resolves.toBe(ServicesPageComponent);
   });
 

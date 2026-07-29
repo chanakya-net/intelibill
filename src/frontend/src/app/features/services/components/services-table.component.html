@@ -4,92 +4,185 @@
       <i class="pi pi-list"></i>
       {{ 'services.title' | transloco }}
     </p>
-    @if (paginationLabel()) {
-      <span class="table-caption">{{ paginationLabel() }}</span>
+    @if (totalCount) {
+      <span class="table-caption">
+        {{
+          'services.paginationFooter'
+            | transloco: { start: footerStart, end: footerEnd, total: totalCount }
+        }}
+      </span>
     }
   </div>
 
-  <div class="table-shell">
-  <p-table
-    [value]="tableServices"
-    dataKey="serviceId"
-    [scrollable]="true"
-    scrollHeight="calc(100vh - 320px)"
-    class="p-datatable-sm"
-  >
-    <ng-template pTemplate="header">
-      <tr>
-        <th style="min-width: 10rem">{{ 'services.code' | transloco }}</th>
-        <th style="min-width: 16rem">{{ 'services.name' | transloco }}</th>
-        <th style="min-width: 10rem">{{ 'services.price' | transloco }}</th>
-        <th style="min-width: 12rem">{{ 'services.taxRatePercent' | transloco }}</th>
-        <th style="min-width: 12rem">{{ 'services.hsnSac' | transloco }}</th>
-        <th style="min-width: 8rem">{{ 'services.status' | transloco }}</th>
-        <th style="min-width: 10rem; text-align: center">{{ 'common.actions' | transloco }}</th>
-      </tr>
-    </ng-template>
+  <div class="table-shell desktop-table">
+    <p-table
+      [value]="tableServices"
+      dataKey="serviceId"
+      [scrollable]="true"
+      scrollHeight="calc(100vh - 320px)"
+      class="p-datatable-sm"
+    >
+      <ng-template pTemplate="header">
+        <tr>
+          <th style="min-width: 10rem">{{ 'services.code' | transloco }}</th>
+          <th style="min-width: 16rem">{{ 'services.name' | transloco }}</th>
+          <th style="min-width: 10rem">{{ 'services.price' | transloco }}</th>
+          <th style="min-width: 12rem">{{ 'services.taxRatePercent' | transloco }}</th>
+          <th style="min-width: 12rem">{{ 'services.hsnSac' | transloco }}</th>
+          <th style="min-width: 8rem">{{ 'services.status' | transloco }}</th>
+          <th style="min-width: 10rem; text-align: center">{{ 'common.actions' | transloco }}</th>
+        </tr>
+      </ng-template>
 
-    <ng-template pTemplate="body" let-service>
-      <tr>
-        <td><code class="code-cell">{{ service.code }}</code></td>
-        <td>
-          <div class="service-name-cell">
-            <span class="service-name">{{ service.name }}</span>
-            @if (service.description) {
-              <span class="service-description">{{ service.description }}</span>
-            }
-          </div>
-        </td>
-        <td>{{ 'common.currencySymbol' | transloco }}{{ service.price | number:'1.2-2' }}</td>
-        <td>
-          <div class="tax-cell">
-            <span>{{ service.taxRatePercent | number:'1.0-2' }}%</span>
-            <p-tag [severity]="service.taxIncluded ? 'success' : 'secondary'" [value]="taxModeLabelKey(service.taxIncluded) | transloco"></p-tag>
-          </div>
-        </td>
-        <td>{{ service.hsnCode ?? '—' }}</td>
-        <td>
-          <p-tag [severity]="statusSeverity(service.isActive)" [value]="service.isActive ? ('services.active' | transloco) : ('services.inactive' | transloco)"></p-tag>
-        </td>
-        <td>
-          <div class="action-buttons">
-            @if (canManageServices) {
-              <p-button
-                type="button"
-                [icon]="'pi pi-pencil'"
-                [rounded]="true"
-                [text]="true"
-                [attr.aria-label]="'common.edit' | transloco"
-                (click)="onEditService(service)"
-                [disabled]="isSubmitting"
-              ></p-button>
-              <p-button
-                type="button"
-                [icon]="service.isActive ? 'pi pi-ban' : 'pi pi-check'"
-                [rounded]="true"
-                [text]="true"
-                [severity]="service.isActive ? 'danger' : 'success'"
-                [attr.aria-label]="service.isActive ? ('services.deactivate' | transloco) : ('services.activate' | transloco)"
-                (click)="onToggleService(service)"
-                [disabled]="isSubmitting"
-              ></p-button>
-            }
-          </div>
-        </td>
-      </tr>
-    </ng-template>
+      <ng-template pTemplate="body" let-service>
+        <tr>
+          <td>
+            <code class="code-cell">{{ service.code }}</code>
+          </td>
+          <td>
+            <div class="service-name-cell">
+              <span class="service-name">{{ service.name }}</span>
+              @if (service.description) {
+                <span class="service-description">{{ service.description }}</span>
+              }
+            </div>
+          </td>
+          <td>{{ 'common.currencySymbol' | transloco }}{{ service.price | number: '1.2-2' }}</td>
+          <td>
+            <div class="tax-cell">
+              <span>{{ service.taxRatePercent | number: '1.0-2' }}%</span>
+              <p-tag
+                [severity]="service.taxIncluded ? 'success' : 'secondary'"
+                [value]="taxModeLabelKey(service.taxIncluded) | transloco"
+              ></p-tag>
+            </div>
+          </td>
+          <td>{{ service.hsnCode ?? '—' }}</td>
+          <td>
+            <p-tag
+              [severity]="statusSeverity(service.isActive)"
+              [value]="
+                service.isActive
+                  ? ('services.active' | transloco)
+                  : ('services.inactive' | transloco)
+              "
+            ></p-tag>
+          </td>
+          <td>
+            <div class="action-buttons">
+              @if (canManageServices) {
+                <p-button
+                  type="button"
+                  [icon]="'pi pi-pencil'"
+                  [rounded]="true"
+                  [text]="true"
+                  [ariaLabel]="'common.edit' | transloco"
+                  (click)="onEditService(service)"
+                  [disabled]="isSubmitting"
+                ></p-button>
+                <p-button
+                  type="button"
+                  [icon]="service.isActive ? 'pi pi-ban' : 'pi pi-check'"
+                  [rounded]="true"
+                  [text]="true"
+                  [severity]="service.isActive ? 'danger' : 'success'"
+                  [ariaLabel]="
+                    service.isActive
+                      ? ('services.deactivate' | transloco)
+                      : ('services.activate' | transloco)
+                  "
+                  (click)="onToggleService(service)"
+                  [disabled]="isSubmitting"
+                ></p-button>
+              }
+            </div>
+          </td>
+        </tr>
+      </ng-template>
 
-    <ng-template pTemplate="emptymessage">
-      <tr>
-        <td colspan="7">
-          <div class="empty-state">
-            <h2>{{ 'services.noServicesFound' | transloco }}</h2>
-            <p>{{ 'services.noServicesDescription' | transloco }}</p>
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="7">
+            <div class="empty-state">
+              <h2>{{ 'services.noServicesFound' | transloco }}</h2>
+              <p>{{ 'services.noServicesDescription' | transloco }}</p>
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+
+  <div class="mobile-service-list">
+    @for (service of tableServices; track service.serviceId) {
+      <article class="service-card">
+        <div class="service-card__header">
+          <code class="code-cell">{{ service.code }}</code>
+          <p-tag
+            [severity]="statusSeverity(service.isActive)"
+            [value]="
+              service.isActive ? ('services.active' | transloco) : ('services.inactive' | transloco)
+            "
+          />
+        </div>
+        <div class="service-name-cell">
+          <span class="service-name">{{ service.name }}</span>
+          @if (service.description) {
+            <span class="service-description">{{ service.description }}</span>
+          }
+        </div>
+        <dl class="service-card__details">
+          <div>
+            <dt>{{ 'services.price' | transloco }}</dt>
+            <dd>{{ 'common.currencySymbol' | transloco }}{{ service.price | number: '1.2-2' }}</dd>
           </div>
-        </td>
-      </tr>
-    </ng-template>
-  </p-table>
+          <div>
+            <dt>{{ 'services.taxRatePercent' | transloco }}</dt>
+            <dd>{{ service.taxRatePercent | number: '1.0-2' }}%</dd>
+          </div>
+          <div>
+            <dt>{{ 'services.hsnSac' | transloco }}</dt>
+            <dd>{{ service.hsnCode ?? '—' }}</dd>
+          </div>
+        </dl>
+        @if (canManageServices) {
+          <div class="action-buttons service-card__actions">
+            <p-button
+              type="button"
+              icon="pi pi-pencil"
+              [label]="'common.edit' | transloco"
+              [ariaLabel]="'common.edit' | transloco"
+              [text]="true"
+              [disabled]="isSubmitting"
+              (click)="onEditService(service)"
+            />
+            <p-button
+              type="button"
+              [icon]="service.isActive ? 'pi pi-ban' : 'pi pi-check'"
+              [label]="
+                service.isActive
+                  ? ('services.deactivate' | transloco)
+                  : ('services.activate' | transloco)
+              "
+              [ariaLabel]="
+                service.isActive
+                  ? ('services.deactivate' | transloco)
+                  : ('services.activate' | transloco)
+              "
+              [severity]="service.isActive ? 'danger' : 'success'"
+              [text]="true"
+              [disabled]="isSubmitting"
+              (click)="onToggleService(service)"
+            />
+          </div>
+        }
+      </article>
+    } @empty {
+      <div class="empty-state">
+        <h2>{{ 'services.noServicesFound' | transloco }}</h2>
+        <p>{{ 'services.noServicesDescription' | transloco }}</p>
+      </div>
+    }
   </div>
 
   <p-paginator

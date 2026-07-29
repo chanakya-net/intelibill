@@ -25,6 +25,7 @@ import { discountsGuard } from '../guards/discounts.guard';
 import { authGuard } from '../guards/auth.guard';
 import { dashboardGuard } from '../guards/dashboard.guard';
 import { profitLossGuard } from '../guards/profit-loss.guard';
+import { servicesGuard } from '../guards/services.guard';
 
 export const shellRoutes: Routes = [
 	{
@@ -154,6 +155,7 @@ export const shellRoutes: Routes = [
 			},
 			{
 				path: 'services',
+				canActivate: [servicesGuard],
 				loadComponent: () =>
 					import('../../features/services/pages/services-page.component').then(
 						(m) => m.ServicesPageComponent

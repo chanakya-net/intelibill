@@ -1,7 +1,9 @@
 import { CommonModule, DecimalPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
-import { TranslocoPipe } from '@ngneat/transloco';
+import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
+import { merge, startWith } from 'rxjs';
 
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
@@ -12,11 +14,7 @@ import { SelectModule } from 'primeng/select';
 import { SkeletonModule } from 'primeng/skeleton';
 
 import { ShopPermissionsService } from '../../../core/layout/shop-permissions.service';
-import type {
-  Service,
-  ServiceStatusFilter,
-  ServiceSummary,
-} from '../services/service.models';
+import type { Service, ServiceStatusFilter, ServiceSummary } from '../services/service.models';
 import { ServiceService } from '../services/service.service';
 import { AddServiceOverlayComponent } from '../components/add-service-overlay.component';
 import { EditServiceOverlayComponent } from '../components/edit-service-overlay.component';
@@ -26,6 +24,12 @@ interface StatusOption {
   readonly label: string;
   readonly value: ServiceStatusFilter;
 }
+
+const STATUS_FILTER_KEYS: readonly { labelKey: string; value: ServiceStatusFilter }[] = [
+  { labelKey: 'common.all', value: 'all' },
+  { labelKey: 'services.active', value: 'active' },
+  { labelKey: 'services.inactive', value: 'inactive' },
+];
 
 @Component({
   selector: 'app-services-page',
@@ -52,6 +56,13 @@ interface StatusOption {
 export class ServicesPageComponent {
   private readonly serviceService = inject(ServiceService);
   private readonly permissions = inject(ShopPermissionsService);
+  private readonly transloco = inject(TranslocoService);
+
+  /** Recomputes translated labels when the language changes or a translation bundle loads. */
+  private readonly translationsChanged = toSignal(
+    merge(this.transloco.langChanges$, this.transloco.events$).pipe(startWith(null)),
+    { initialValue: null },
+  );
 
   readonly searchValue = signal('');
   readonly statusFilter = signal<ServiceStatusFilter>('all');
@@ -59,18 +70,26 @@ export class ServicesPageComponent {
   readonly pageSize = signal(20);
   readonly services = signal<readonly Service[]>([]);
   readonly isLoading = signal(false);
-  readonly errorMessage = signal('');
+  readonly loadErrorMessage = signal('');
+  readonly actionErrorMessage = signal('');
   readonly isMutating = signal(false);
   readonly showAddOverlay = signal(false);
   readonly editingService = signal<Service | null>(null);
 
   readonly canManageServices = this.permissions.canManageServices;
 
-  readonly statusOptions: StatusOption[] = [
-    { label: 'common.all', value: 'all' },
-    { label: 'services.active', value: 'active' },
-    { label: 'services.inactive', value: 'inactive' },
-  ];
+  /**
+   * PrimeNG derives each option's accessible name from `optionLabel`, so the labels must be
+   * resolved here instead of translated in the template — otherwise assistive technology
+   * announces the raw translation keys.
+   */
+  readonly statusOptions = computed<StatusOption[]>(() => {
+    this.translationsChanged();
+    return STATUS_FILTER_KEYS.map(({ labelKey, value }) => ({
+      label: this.transloco.translate(labelKey),
+      value,
+    }));
+  });
 
   readonly filteredServices = computed(() => {
     const services = this.services();
@@ -128,7 +147,7 @@ export class ServicesPageComponent {
 
   loadServices(): void {
     this.isLoading.set(true);
-    this.errorMessage.set('');
+    this.loadErrorMessage.set('');
 
     this.serviceService
       .getServices({
@@ -142,7 +161,7 @@ export class ServicesPageComponent {
           this.pageNumber.set(1);
         },
         error: () => {
-          this.errorMessage.set('services.loadFailed');
+          this.loadErrorMessage.set('services.loadFailed');
           this.isLoading.set(false);
         },
       });
@@ -176,7 +195,7 @@ export class ServicesPageComponent {
       return;
     }
 
-    this.errorMessage.set('');
+    this.actionErrorMessage.set('');
     this.showAddOverlay.set(true);
   }
 
@@ -189,7 +208,7 @@ export class ServicesPageComponent {
       return;
     }
 
-    this.errorMessage.set('');
+    this.actionErrorMessage.set('');
     this.editingService.set(service);
   }
 
@@ -209,7 +228,7 @@ export class ServicesPageComponent {
     }
 
     this.isMutating.set(true);
-    this.errorMessage.set('');
+    this.actionErrorMessage.set('');
 
     const request = service.isActive
       ? this.serviceService.deactivateService(service.serviceId)
@@ -221,7 +240,7 @@ export class ServicesPageComponent {
         this.loadServices();
       },
       error: () => {
-        this.errorMessage.set('services.toggleFailed');
+        this.actionErrorMessage.set('services.toggleFailed');
         this.isMutating.set(false);
       },
     });

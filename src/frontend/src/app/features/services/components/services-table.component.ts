@@ -12,7 +12,15 @@ import type { Service } from '../services/service.models';
 @Component({
   selector: 'app-services-table',
   standalone: true,
-  imports: [CommonModule, ButtonModule, CardModule, PaginatorModule, TableModule, TagModule, TranslocoPipe],
+  imports: [
+    CommonModule,
+    ButtonModule,
+    CardModule,
+    PaginatorModule,
+    TableModule,
+    TagModule,
+    TranslocoPipe,
+  ],
   templateUrl: './services-table.component.html',
   styleUrl: './services-table.component.scss',
 })
@@ -47,14 +55,6 @@ export class ServicesTableComponent {
     const isPageSizeChange = rows !== this.pageSize;
     const page = isPageSizeChange ? 1 : (event.page ?? 0) + 1;
     this.pageChange.emit({ page, rows });
-  }
-
-  paginationLabel(): string {
-    if (this.totalCount === 0) {
-      return '';
-    }
-
-    return `${this.footerStart} - ${this.footerEnd} of ${this.totalCount}`;
   }
 
   statusSeverity(isActive: boolean): 'success' | 'danger' {

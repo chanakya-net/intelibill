@@ -264,7 +264,15 @@
     "deactivate": "নিষ্ক্রিয় করুন",
     "loadFailed": "পরিষেবাগুলি লোড করতে অক্ষম৷",
     "saveFailed": "পরিষেবা সংরক্ষণ করতে অক্ষম৷",
-    "toggleFailed": "পরিষেবার স্থিতি আপডেট করতে অক্ষম৷"
+    "toggleFailed": "পরিষেবার স্থিতি আপডেট করতে অক্ষম৷",
+    "paginationFooter": "{{total}}টির মধ্যে {{start}} - {{end}}",
+    "validation": {
+      "nameMaxLength": "পরিষেবার নাম 180 অক্ষর বা কম হতে হবে।",
+      "descriptionMaxLength": "বিবরণ 320 অক্ষর বা কম হতে হবে।",
+      "priceMin": "মূল্য শূন্য বা তার বেশি হতে হবে।",
+      "taxRateRange": "কর হার 0 থেকে 100-এর মধ্যে হতে হবে।",
+      "hsnSacPattern": "বৈধ 4 থেকে 8 সংখ্যার HSN/SAC কোড লিখুন।"
+    }
   },
   "bankAccounts": {
     "directory": "ব্যাঙ্ক অ্যাকাউন্ট তালিকা",
