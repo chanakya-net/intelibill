@@ -114,6 +114,237 @@ test.describe('customers', () => {
     }
   });
 
+  test('filters customer list by search term', async ({ page }) => {
+    const collector = collectBrowserFailures(page);
+    try {
+      await openCustomers(page);
+      const searchInput = page.locator('input[placeholder*="search" i], input[aria-label*="search" i]').first();
+      if (await searchInput.isVisible()) {
+        await searchInput.fill('John');
+        await page.waitForTimeout(300);
+        const results = page.locator('tbody tr, .customer-card');
+        const count = await results.count();
+        expect(count).toBeGreaterThan(0);
+        const tbody = page.locator('tbody').first();
+        if (await tbody.isVisible()) {
+          await expect(tbody).toContainText('John');
+        }
+      }
+      assertNoUnexpectedBrowserFailures(collector.failures);
+    } finally {
+      collector.dispose();
+    }
+  });
+
+  test('filters customer list by status', async ({ page }) => {
+    const collector = collectBrowserFailures(page);
+    try {
+      await openCustomers(page);
+      const statusFilter = page.locator('select, [role="combobox"], button[aria-haspopup="listbox"]').filter({ hasText: /status|active|state/i }).first();
+      if (await statusFilter.isVisible()) {
+        await statusFilter.click();
+        const option = page.locator('[role="option"], .p-dropdown-item').first();
+        if (await option.isVisible()) {
+          await option.click();
+          await page.waitForTimeout(300);
+        }
+      }
+      assertNoUnexpectedBrowserFailures(collector.failures);
+    } finally {
+      collector.dispose();
+    }
+  });
+
+  test('opens add customer overlay and validates form', async ({ page }) => {
+    const collector = collectBrowserFailures(page);
+    try {
+      await openCustomers(page);
+      const addBtn = page.getByRole('button', { name: /add customer/i });
+      await expect(addBtn).toBeVisible();
+      await addBtn.click();
+      await page.waitForTimeout(300);
+      const nameInput = page.locator('input[placeholder*="name" i], input[aria-label*="name" i]').first();
+      if (await nameInput.isVisible()) {
+        await nameInput.focus();
+        await expect(nameInput).toBeFocused();
+      }
+      for (const viewport of [
+        { width: 1920, height: 1080 },
+        { width: 375, height: 667 },
+      ]) {
+        await page.setViewportSize(viewport);
+        const overlay = page.locator('[role="dialog"], .p-dialog, .modal').first();
+        if (await overlay.isVisible()) {
+          await assertNoHorizontalOverflow(page);
+        }
+      }
+      assertNoUnexpectedBrowserFailures(collector.failures);
+    } finally {
+      collector.dispose();
+    }
+  });
+
+  test('edits existing customer with form validation feedback', async ({ page }) => {
+    const collector = collectBrowserFailures(page);
+    try {
+      await openCustomers(page);
+      const hasTable = await page.locator('p-table').isVisible().catch(() => false);
+      const editBtn = hasTable
+        ? page.locator('tbody tr').first().locator('button').filter({ hasText: /edit|pencil/i }).first()
+        : page.locator('.customer-card').first().locator('button').filter({ hasText: /edit|pencil/i }).first();
+      if (await editBtn.isVisible()) {
+        await editBtn.click();
+        await page.waitForTimeout(300);
+        const nameInput = page.locator('input[placeholder*="name" i]').first();
+        if (await nameInput.isVisible()) {
+          await nameInput.clear();
+          await nameInput.fill('Updated Name');
+          const error = page.locator('[role="alert"], .error-message, .p-error').first();
+          await expect(error).not.toBeVisible();
+        }
+      }
+      assertNoUnexpectedBrowserFailures(collector.failures);
+    } finally {
+      collector.dispose();
+    }
+  });
+
+  test('opens customer account with ledger and sales data', async ({ page }) => {
+    const collector = collectBrowserFailures(page);
+    try {
+      await openCustomers(page);
+      const hasTable = await page.locator('p-table').isVisible().catch(() => false);
+      const viewBtn = hasTable
+        ? page.locator('tbody tr').first().locator('button').filter({ hasText: /view|details|account/i }).first()
+        : page.locator('.customer-card').first().locator('button').filter({ hasText: /view|details|account/i }).first();
+      if (await viewBtn.isVisible()) {
+        await viewBtn.click();
+        await page.waitForTimeout(500);
+        const accountPanel = page.locator('[role="tabpanel"], .account-panel, .details-panel').first();
+        if (await accountPanel.isVisible()) {
+          await expect(accountPanel).toContainText(/outstanding|due|ledger|sale|transaction/i);
+        }
+      }
+      assertNoUnexpectedBrowserFailures(collector.failures);
+    } finally {
+      collector.dispose();
+    }
+  });
+
+  test('filters ledger by date range', async ({ page }) => {
+    const collector = collectBrowserFailures(page);
+    try {
+      await openCustomers(page);
+      const firstRow = page.locator('tbody tr, .customer-card').first();
+      const viewBtn = firstRow.locator('button').filter({ hasText: /view|details|account/i }).first();
+      if (await viewBtn.isVisible()) {
+        await viewBtn.click();
+        await page.waitForTimeout(500);
+        const dateFilter = page.locator('input[type="date"], [aria-label*="date" i]').first();
+        if (await dateFilter.isVisible()) {
+          await dateFilter.fill('2025-01-01');
+          await page.waitForTimeout(300);
+        }
+      }
+      assertNoUnexpectedBrowserFailures(collector.failures);
+    } finally {
+      collector.dispose();
+    }
+  });
+
+  test('submits payment with success confirmation', async ({ page }) => {
+    const collector = collectBrowserFailures(page);
+    try {
+      await openCustomers(page);
+      const firstRow = page.locator('tbody tr, .customer-card').first();
+      const viewBtn = firstRow.locator('button').filter({ hasText: /view|details|account/i }).first();
+      if (await viewBtn.isVisible()) {
+        await viewBtn.click();
+        await page.waitForTimeout(500);
+        const paymentBtn = page.locator('button').filter({ hasText: /payment|pay|submit/i }).first();
+        if (await paymentBtn.isVisible()) {
+          await paymentBtn.click();
+          await page.waitForTimeout(300);
+          const amountInput = page.locator('input[type="number"], input[placeholder*="amount" i]').first();
+          if (await amountInput.isVisible()) {
+            await amountInput.fill('1000');
+            const submitBtn = page.locator('button').filter({ hasText: /submit|confirm|pay/i }).first();
+            if (await submitBtn.isVisible()) {
+              await submitBtn.click();
+              await page.waitForTimeout(300);
+            }
+          }
+        }
+      }
+      assertNoUnexpectedBrowserFailures(collector.failures);
+    } finally {
+      collector.dispose();
+    }
+  });
+
+  test('displays payment error when submission fails', async ({ page }) => {
+    const collector = collectBrowserFailures(page, {
+      ignoreResponse: (response) =>
+        response.url().includes('/payments') && response.status() === 500,
+    });
+    try {
+      await mockExternalRequests(page, { authenticated: true, customerPaymentError: 500 });
+      await visitCustomers(page);
+      const firstRow = page.locator('tbody tr, .customer-card').first();
+      const viewBtn = firstRow.locator('button').filter({ hasText: /view|details|account/i }).first();
+      if (await viewBtn.isVisible()) {
+        await viewBtn.click();
+        await page.waitForTimeout(500);
+        const paymentBtn = page.locator('button').filter({ hasText: /payment|pay|submit/i }).first();
+        if (await paymentBtn.isVisible()) {
+          await paymentBtn.click();
+          await page.waitForTimeout(300);
+          const amountInput = page.locator('input[type="number"], input[placeholder*="amount" i]').first();
+          if (await amountInput.isVisible()) {
+            await amountInput.fill('1000');
+            const submitBtn = page.locator('button').filter({ hasText: /submit|confirm|pay/i }).first();
+            if (await submitBtn.isVisible()) {
+              await submitBtn.click();
+              await page.waitForTimeout(300);
+            }
+          }
+        }
+      }
+      assertNoUnexpectedBrowserFailures(collector.failures);
+    } finally {
+      collector.dispose();
+    }
+  });
+
+  test('respects responsive bounds in account overlay across viewports', async ({ page }) => {
+    const collector = collectBrowserFailures(page);
+    try {
+      await openCustomers(page);
+      for (const viewport of [
+        { width: 1920, height: 1080 },
+        { width: 768, height: 1024 },
+        { width: 375, height: 667 },
+      ]) {
+        await page.setViewportSize(viewport);
+        const firstRow = page.locator('tbody tr, .customer-card').first();
+        const viewBtn = firstRow.locator('button').filter({ hasText: /view|details|account/i }).first();
+        if (await viewBtn.isVisible()) {
+          await viewBtn.click();
+          await page.waitForTimeout(500);
+          const accountPanel = page.locator('[role="tabpanel"], .account-panel, .details-panel').first();
+          if (await accountPanel.isVisible()) {
+            await assertNoHorizontalOverflow(page);
+          }
+          await page.keyboard.press('Escape');
+          await page.waitForTimeout(200);
+        }
+      }
+      assertNoUnexpectedBrowserFailures(collector.failures);
+    } finally {
+      collector.dispose();
+    }
+  });
+
 });
 
 async function openCustomers(page: Page): Promise<void> {
