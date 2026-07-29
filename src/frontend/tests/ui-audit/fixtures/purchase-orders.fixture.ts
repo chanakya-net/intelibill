@@ -3,6 +3,7 @@ import type { Page, Route } from '@playwright/test';
 import type {
   PurchaseOrderDetail,
   PurchaseOrderListItem,
+  ReceivePurchaseOrderRequest,
 } from '../../../src/app/features/purchase-orders/services/purchase-order.service';
 import {
   createShellScenario,
@@ -10,6 +11,10 @@ import {
   type ShellScenario,
   type ShellScenarioOptions,
 } from './shell.fixture';
+import {
+  longPurchaseOrderLines,
+  purchaseOrderReceiptHistory,
+} from './purchase-orders-detail-data.fixture';
 
 const API_BASE = 'http://localhost:5277/api';
 
@@ -19,11 +24,15 @@ export interface PurchaseOrdersScenario {
   readonly shell: ShellScenario;
   readonly orders: readonly PurchaseOrderListItem[];
   readonly apiState: PurchaseOrdersApiState;
+  readonly withLongLines: boolean;
+  readonly withReceiptHistory: boolean;
 }
 
 export interface PurchaseOrdersScenarioOptions extends ShellScenarioOptions {
   readonly orders?: readonly PurchaseOrderListItem[];
   readonly apiState?: PurchaseOrdersApiState;
+  readonly withLongLines?: boolean;
+  readonly withReceiptHistory?: boolean;
 }
 
 export const PURCHASE_ORDER_STATUSES: readonly PurchaseOrderListItem[] = [
@@ -61,6 +70,8 @@ export function createPurchaseOrdersScenario(
     shell: createShellScenario(options),
     orders: options.orders ?? PURCHASE_ORDER_STATUSES,
     apiState: options.apiState ?? 'ready',
+    withLongLines: options.withLongLines ?? false,
+    withReceiptHistory: options.withReceiptHistory ?? false,
   };
 }
 
@@ -72,7 +83,19 @@ export async function installPurchaseOrdersFixture(
   const state: PurchaseOrdersFixtureState = {
     apiState: scenario.apiState,
     orders: [...scenario.orders],
+    details: new Map(
+      scenario.orders.map((order) => [
+        order.purchaseOrderId,
+        toDetail(order, {
+          withLongLines: scenario.withLongLines,
+          withReceiptHistory: scenario.withReceiptHistory,
+        }),
+      ]),
+    ),
   };
+  await page.route(`${API_BASE}/hsn/lookup`, (route) =>
+    fulfillJson(route, { hsnCodes: [], taxScenarios: [] }),
+  );
   await page.route(`${API_BASE}/purchase-orders**`, (route) =>
     handlePurchaseOrderRoute(route, state),
   );
@@ -81,6 +104,7 @@ export async function installPurchaseOrdersFixture(
 interface PurchaseOrdersFixtureState {
   readonly apiState: PurchaseOrdersApiState;
   orders: PurchaseOrderListItem[];
+  readonly details: Map<string, PurchaseOrderDetail>;
 }
 
 function handlePurchaseOrderRoute(route: Route, state: PurchaseOrdersFixtureState): Promise<void> {
@@ -94,12 +118,15 @@ function handlePurchaseOrderRoute(route: Route, state: PurchaseOrdersFixtureStat
   const url = new URL(route.request().url());
   const segments = url.pathname.split('/').filter(Boolean);
   if (route.request().method() === 'GET' && segments.length === 3) {
-    const order = state.orders.find((item) => item.purchaseOrderId === segments.at(-1));
-    return fulfillJson(
-      route,
-      order ? toDetail(order) : { title: 'PurchaseOrder.NotFound' },
-      order ? 200 : 404,
-    );
+    const order = state.details.get(segments.at(-1) ?? '');
+    return fulfillJson(route, order ?? { title: 'PurchaseOrder.NotFound' }, order ? 200 : 404);
+  }
+  if (
+    route.request().method() === 'POST' &&
+    segments.length === 4 &&
+    segments.at(-1) === 'receipts'
+  ) {
+    return receiveOrder(route, state, segments[2]);
   }
   if (route.request().method() === 'POST' && segments.length === 4 && segments.at(-1) === 'place') {
     return placeOrder(route, state, segments[2]);
@@ -149,7 +176,12 @@ function placeOrder(
   state.orders = state.orders.map((item) =>
     item.purchaseOrderId === purchaseOrderId ? placedOrder : item,
   );
-  return fulfillJson(route, toDetail(placedOrder));
+  const detail = {
+    ...toDetail(placedOrder),
+    lines: state.details.get(placedOrder.purchaseOrderId)?.lines ?? [],
+  };
+  state.details.set(placedOrder.purchaseOrderId, detail);
+  return fulfillJson(route, detail);
 }
 
 function deleteOrder(
@@ -163,7 +195,96 @@ function deleteOrder(
   }
 
   state.orders = state.orders.filter((item) => item.purchaseOrderId !== purchaseOrderId);
+  state.details.delete(purchaseOrderId ?? '');
   return route.fulfill({ status: 204 });
+}
+
+function receiveOrder(
+  route: Route,
+  state: PurchaseOrdersFixtureState,
+  purchaseOrderId: string | undefined,
+): Promise<void> {
+  const order = state.details.get(purchaseOrderId ?? '');
+  const payload = route.request().postDataJSON() as ReceivePurchaseOrderRequest;
+  if (!order || !canReceive(order, payload)) {
+    return fulfillJson(route, { title: 'PurchaseOrder.ReceiptQuantityOverRemaining' }, 422);
+  }
+
+  const lines = applyReceiptLines(order, payload);
+  const status = lines.every((line) => (line.remainingQuantity ?? line.expectedQuantity) === 0)
+    ? 'Received'
+    : 'PartiallyReceived';
+  const receipt = createReceipt(order, payload);
+  const updatedOrder: PurchaseOrderDetail = {
+    ...order,
+    status,
+    receivedQuantity: lines.reduce((total, line) => total + (line.receivedQuantity ?? 0), 0),
+    lines,
+    receipts: [...(order.receipts ?? []), receipt],
+  };
+
+  state.details.set(updatedOrder.purchaseOrderId, updatedOrder);
+  state.orders = state.orders.map((item) =>
+    item.purchaseOrderId === updatedOrder.purchaseOrderId
+      ? { ...item, status, receivedQuantity: updatedOrder.receivedQuantity }
+      : item,
+  );
+  return fulfillJson(route, updatedOrder);
+}
+
+function canReceive(order: PurchaseOrderDetail, payload: ReceivePurchaseOrderRequest): boolean {
+  return (
+    payload.lines.length > 0 &&
+    payload.lines.every((receiptLine) => {
+      const line = order.lines.find((item) => item.lineId === receiptLine.purchaseOrderLineId);
+      const remaining = line?.remainingQuantity ?? line?.expectedQuantity ?? 0;
+      return receiptLine.quantity > 0 && receiptLine.quantity <= remaining;
+    })
+  );
+}
+
+function applyReceiptLines(order: PurchaseOrderDetail, payload: ReceivePurchaseOrderRequest) {
+  return order.lines.map((line) => {
+    const received = payload.lines.find((item) => item.purchaseOrderLineId === line.lineId);
+    if (!received) return line;
+
+    const remaining = line.remainingQuantity ?? line.expectedQuantity;
+    return {
+      ...line,
+      receivedQuantity: (line.receivedQuantity ?? 0) + received.quantity,
+      remainingQuantity: remaining - received.quantity,
+    };
+  });
+}
+
+function createReceipt(order: PurchaseOrderDetail, payload: ReceivePurchaseOrderRequest) {
+  const receiptNumber = `REC-2026-${String((order.receipts?.length ?? 0) + 1).padStart(3, '0')}`;
+  return {
+    receiptId: `receipt-${(order.receipts?.length ?? 0) + 1}`,
+    receiptNumber,
+    receivedAt: '2026-07-29T10:30:00.000Z',
+    referenceNumber: payload.referenceNumber,
+    notes: payload.notes,
+    receivedByUserId: 'user-owner',
+    receivedByDisplayName: 'Owner Auditor',
+    lines: payload.lines.map((line, index) => ({
+      receiptLineId: `${receiptNumber}-line-${index + 1}`,
+      purchaseOrderLineId: line.purchaseOrderLineId,
+      itemId: order.lines.find((item) => item.lineId === line.purchaseOrderLineId)?.itemId ?? '',
+      inventoryBatchId: `batch-${receiptNumber}-${index + 1}`,
+      batchNumber: line.batchNumber,
+      batchVoided: false,
+      stockTransactionId: `transaction-${receiptNumber}-${index + 1}`,
+      quantity: line.quantity,
+      totalPurchaseCost: line.totalPurchaseCost,
+      unitCost: line.quantity ? line.totalPurchaseCost / line.quantity : 0,
+      mrp: line.mrp,
+      salesPrice: line.salesPrice,
+      taxRatePercent: line.taxRatePercent,
+      taxIncluded: line.taxIncluded,
+      purchaseTaxIncluded: line.purchaseTaxIncluded,
+    })),
+  };
 }
 
 function searchableText(order: PurchaseOrderListItem): string {
@@ -177,8 +298,11 @@ function orderDate(order: PurchaseOrderListItem): string {
   return order.createdAt.slice(0, 10);
 }
 
-function toDetail(order: PurchaseOrderListItem): PurchaseOrderDetail {
-  return {
+function toDetail(
+  order: PurchaseOrderListItem,
+  opts: { withLongLines?: boolean; withReceiptHistory?: boolean } = {},
+): PurchaseOrderDetail {
+  const detail: PurchaseOrderDetail = {
     purchaseOrderId: order.purchaseOrderId,
     purchaseOrderNumber: order.purchaseOrderNumber,
     status: order.status,
@@ -190,11 +314,17 @@ function toDetail(order: PurchaseOrderListItem): PurchaseOrderDetail {
     expectedDeliveryDate: null,
     supplierReferenceNumber: order.supplierReference,
     notes: null,
-    lines: [],
+    lines: opts.withLongLines ? longPurchaseOrderLines() : [],
     expectedTotal: order.expectedTotal,
     createdAt: order.createdAt,
     cancellationReason: null,
   };
+
+  if (opts.withReceiptHistory) {
+    detail.receipts = purchaseOrderReceiptHistory();
+  }
+
+  return detail;
 }
 
 function order(

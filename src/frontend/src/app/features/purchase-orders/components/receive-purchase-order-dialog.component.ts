@@ -120,7 +120,7 @@ import { InventoryService } from '../../inventory/services/inventory.service';
               </label>
               <label>
                 {{ 'purchaseOrders.receiveDialog.quantity' | transloco }}
-                <p-inputNumber formControlName="quantity" [min]="1" [max]="remainingFor(row.controls.purchaseOrderLineId.value)" />
+                <p-inputNumber formControlName="quantity" [min]="1" />
               </label>
               <label>
                 {{ 'purchaseOrders.receiveDialog.totalPurchaseCost' | transloco }}
@@ -188,10 +188,10 @@ import { InventoryService } from '../../inventory/services/inventory.service';
         </div>
         <button pButton type="button" severity="secondary" [label]="'purchaseOrders.receiveDialog.addLine' | transloco" (click)="addLine()"></button>
         @if (remainingError()) {
-          <p class="error">{{ 'purchaseOrders.receiveDialog.quantityOverRemaining' | transloco }}</p>
+          <p class="error" role="alert">{{ 'purchaseOrders.receiveDialog.quantityOverRemaining' | transloco }}</p>
         }
         @if (duplicateLineError()) {
-          <p class="error">{{ 'purchaseOrders.receiveDialog.duplicateLine' | transloco }}</p>
+          <p class="error" role="alert">{{ 'purchaseOrders.receiveDialog.duplicateLine' | transloco }}</p>
         }
         <div class="actions">
           <button pButton type="button" severity="secondary" [label]="'purchaseOrders.actions.cancel' | transloco" (click)="hide()"></button>

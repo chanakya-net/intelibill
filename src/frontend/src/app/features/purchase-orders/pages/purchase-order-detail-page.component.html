@@ -260,7 +260,7 @@
     }
   } @else if (facade.errorMessage()) {
     <section class="directory-panel">
-      <p class="po-detail-error">{{ facade.errorMessage() | transloco }}</p>
+      <div role="alert" class="po-detail-error">{{ facade.errorMessage() | transloco }}</div>
       <button
         pButton
         type="button"
