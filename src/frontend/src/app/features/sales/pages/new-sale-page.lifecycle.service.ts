@@ -120,7 +120,7 @@ export abstract class NewSalePageLifecycleService extends NewSalePageStateServic
           const type = this.lastMutationType();
           if (type === 'record-sale') {
             this.showConfirmation.set(true);
-            this.resetTransientState();
+            queueMicrotask(() => this.resetTransientState());
             return;
           } else {
             this.salesFacade.clearMutationStatus();
