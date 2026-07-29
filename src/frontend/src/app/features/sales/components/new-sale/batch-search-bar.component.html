@@ -1,5 +1,5 @@
-<div class="flex gap-2 items-start flex-wrap">
-  <div class="flex-1 min-w-48">
+<div class="batch-search-bar">
+  <div class="batch-search-input">
     <p-autocomplete
       [ngModel]="searchTerm"
       (ngModelChange)="onSearchTermChanged($event)"
@@ -11,31 +11,32 @@
       [fluid]="true"
       (keyup.enter)="onEnterKey()"
     ></p-autocomplete>
-    <div class="flex flex-col gap-2">
-      <p-button
-        type="button"
-        icon="pi pi-camera"
-        severity="secondary"
-        text="true"
-        [attr.aria-label]="'inventory.openScanner' | transloco"
-        (click)="openScanner()"
-      ></p-button>
-    </div>
   </div>
 
-  <p-button
-    [label]="'sales.newSale.search' | transloco"
-    icon="pi pi-search"
-    (click)="emitSearch()"
-    [disabled]="loading"
-  />
+  <div class="batch-search-actions">
+    <p-button
+      type="button"
+      icon="pi pi-camera"
+      severity="secondary"
+      [text]="true"
+      [attr.aria-label]="'inventory.openScanner' | transloco"
+      (click)="openScanner()"
+    />
 
-  <p-button
-    type="button"
-    [label]="'sales.newSale.openPicker' | transloco"
-    icon="pi pi-box"
-    (click)="onOpenPicker()"
-  />
+    <p-button
+      [label]="'sales.newSale.search' | transloco"
+      icon="pi pi-search"
+      (click)="emitSearch()"
+      [disabled]="loading"
+    />
+
+    <p-button
+      type="button"
+      [label]="'sales.newSale.openPicker' | transloco"
+      icon="pi pi-box"
+      (click)="onOpenPicker()"
+    />
+  </div>
 </div>
 
 @if (loading) {
