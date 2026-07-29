@@ -5,35 +5,31 @@ const DEVICE_ID = 'ui-audit-offline-device';
 const SNAPSHOT_ID = 'ui-audit-snapshot';
 const COMPLETED_AT = '2099-01-01T00:00:00.000Z';
 
-export async function seedOfflinePosSnapshot(page: Page): Promise<void> {
-  await page.addInitScript(
-    ({ shopId, deviceId, completedAt }) => {
-      localStorage.setItem(`intelibill.offlineSales.deviceId.v1:${shopId}`, deviceId);
-      localStorage.setItem(
-        `intelibill.offlineSales.deviceSettings.v1:${shopId}:${deviceId}`,
-        JSON.stringify({
-          shopId,
-          deviceId,
-          label: 'UI audit offline device',
-          enabled: true,
-          enabledAt: completedAt,
-          enabledByUserId: 'ui-audit-owner',
-          enabledByUserName: 'UI Audit Owner',
-          lastCompleteSnapshotAt: completedAt,
-          lastApiVerifiedAt: completedAt,
-          lastSnapshotWarningMarker: null,
-          lastReservedLease: {
-            leaseId: 'ui-audit-lease',
-            fiscalYear: '2026-27',
-            remainingCount: 5,
-            expiresAt: '2099-12-31T00:00:00.000Z',
-          },
-        }),
-      );
-    },
-    { shopId: SHOP_ID, deviceId: DEVICE_ID, completedAt: COMPLETED_AT },
-  );
+export function offlinePosLocalStorageEntries(): Readonly<Record<string, string>> {
+  return {
+    [`intelibill.offlineSales.deviceId.v1:${SHOP_ID}`]: DEVICE_ID,
+    [`intelibill.offlineSales.deviceSettings.v1:${SHOP_ID}:${DEVICE_ID}`]: JSON.stringify({
+      shopId: SHOP_ID,
+      deviceId: DEVICE_ID,
+      label: 'UI audit offline device',
+      enabled: true,
+      enabledAt: COMPLETED_AT,
+      enabledByUserId: 'ui-audit-owner',
+      enabledByUserName: 'UI Audit Owner',
+      lastCompleteSnapshotAt: COMPLETED_AT,
+      lastApiVerifiedAt: COMPLETED_AT,
+      lastSnapshotWarningMarker: null,
+      lastReservedLease: {
+        leaseId: 'ui-audit-lease',
+        fiscalYear: '2026-27',
+        remainingCount: 5,
+        expiresAt: '2099-12-31T00:00:00.000Z',
+      },
+    }),
+  };
+}
 
+export async function seedOfflinePosSnapshot(page: Page): Promise<void> {
   await page.goto('/');
   await page.evaluate(
     async ({ shopId, deviceId, snapshotId, completedAt }) => {

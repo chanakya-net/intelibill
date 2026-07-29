@@ -77,6 +77,7 @@ export interface MockExternalRequestsOptions {
   readonly returnEmptyAccounts?: boolean;
   readonly authenticated?: boolean;
   readonly locale?: string;
+  readonly localStorageEntries?: Readonly<Record<string, string>>;
   readonly accounts?: readonly MockBankAccount[];
   readonly bankAccountsState?: 'ready' | 'loading' | 'error';
   readonly bankAccountErrorStatus?: number;
@@ -116,7 +117,7 @@ export async function mockExternalRequests(
 ): Promise<void> {
   if (options.authenticated) {
     await page.addInitScript(
-      ({ locale }) => {
+      ({ locale, localStorageEntries }) => {
         localStorage.clear();
         sessionStorage.clear();
         localStorage.setItem(
@@ -148,8 +149,14 @@ export async function mockExternalRequests(
           }),
         );
         localStorage.setItem('inventory.preferences.language', locale);
+        Object.entries(localStorageEntries).forEach(([key, value]) =>
+          localStorage.setItem(key, value),
+        );
       },
-      { locale: options.locale ?? 'en-IN' },
+      {
+        locale: options.locale ?? 'en-IN',
+        localStorageEntries: options.localStorageEntries ?? {},
+      },
     );
   }
 
