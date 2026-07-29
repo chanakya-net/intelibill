@@ -51,7 +51,7 @@ describe('EditShopUserOverlayComponent', () => {
     }),
   };
 
-  function setup(): EditShopUserOverlayComponent {
+  function setup(role = 'Staff'): EditShopUserOverlayComponent {
     TestBed.configureTestingModule({
       imports: [EditShopUserOverlayComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
       providers: [
@@ -67,7 +67,7 @@ describe('EditShopUserOverlayComponent', () => {
       lastName: 'User',
       email: 'sales@test.com',
       phoneNumber: '+15551234567',
-      role: 'Staff',
+      role,
       isLoginEnabled: true,
       shopIds: ['s1'],
     };
@@ -127,5 +127,22 @@ describe('EditShopUserOverlayComponent', () => {
         },
       })
     );
+  });
+
+  it('does not submit when no shop is selected', () => {
+    const component = setup();
+
+    component.onToggleShop('s1', false);
+    component.onSubmit();
+
+    expect(dispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: UsersActions.editShopUserRequested.type })
+    );
+  });
+
+  it('normalizes a case-insensitive manager role when patching the form', () => {
+    const component = setup('manager');
+
+    expect(component.form.controls.role.value).toBe('Manager');
   });
 });

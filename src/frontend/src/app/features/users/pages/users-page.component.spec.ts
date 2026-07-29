@@ -175,6 +175,17 @@ describe('UsersPageComponent', () => {
     expect(store.dispatch).toHaveBeenCalledWith(UsersActions.clearMutationStatus());
   });
 
+  it('opens and closes the default store overlay', () => {
+    const fixture = TestBed.createComponent(UsersPageComponent);
+    const component = fixture.componentInstance;
+
+    component.onOpenDefaultStore();
+    expect(component.showDefaultStoreOverlay()).toBe(true);
+
+    component.onCloseDefaultStore();
+    expect(component.showDefaultStoreOverlay()).toBe(false);
+  });
+
   it('returns a mutable table copy so sorting does not mutate store state', () => {
     const fixture = TestBed.createComponent(UsersPageComponent);
     const component = fixture.componentInstance;

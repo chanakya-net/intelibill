@@ -51,6 +51,7 @@ export class EditShopUserOverlayComponent implements OnInit, OnChanges {
   @Output() readonly closeRequested = new EventEmitter<void>();
 
   private selectedShopIds: string[] = [];
+  shopSelectionInvalid = false;
 
   readonly form = this.formBuilder.nonNullable.group({
     email: ['', [Validators.required, Validators.email, Validators.maxLength(256)]],
@@ -98,6 +99,11 @@ export class EditShopUserOverlayComponent implements OnInit, OnChanges {
       return;
     }
 
+    if (this.selectedShopIds.length === 0) {
+      this.shopSelectionInvalid = true;
+      return;
+    }
+
     this.store.dispatch(UsersActions.clearError());
     this.store.dispatch(UsersActions.clearMutationStatus());
 
@@ -124,12 +130,15 @@ export class EditShopUserOverlayComponent implements OnInit, OnChanges {
   onToggleShop(shopId: string, isChecked: boolean): void {
     if (isChecked && !this.selectedShopIds.includes(shopId)) {
       this.selectedShopIds = [...this.selectedShopIds, shopId];
+      this.shopSelectionInvalid = false;
       return;
     }
 
     if (!isChecked && this.selectedShopIds.includes(shopId)) {
       this.selectedShopIds = this.selectedShopIds.filter((id) => id !== shopId);
     }
+
+    this.shopSelectionInvalid = this.selectedShopIds.length === 0;
   }
 
   private patchFormFromUser(): void {
@@ -138,13 +147,14 @@ export class EditShopUserOverlayComponent implements OnInit, OnChanges {
     }
 
     this.selectedShopIds = [...(this.user.shopIds ?? [])];
+    this.shopSelectionInvalid = false;
 
     this.form.patchValue({
       email: this.user.email ?? '',
       firstName: this.user.firstName,
       lastName: this.user.lastName,
       phoneNumber: this.user.phoneNumber ?? '',
-      role: this.user.role === 'Manager' ? 'Manager' : 'Staff',
+      role: this.user.role.trim().toLowerCase() === 'manager' ? 'Manager' : 'Staff',
       isLoginEnabled: this.user.isLoginEnabled,
     });
   }
