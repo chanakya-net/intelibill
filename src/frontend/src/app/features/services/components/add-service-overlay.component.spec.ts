@@ -147,6 +147,31 @@ describe('AddServiceOverlayComponent', () => {
     expect(host.querySelector('input#add-service-price')?.getAttribute('aria-describedby')).toBe(
       'add-service-price-error',
     );
+    expect(host.querySelector('input#add-service-price')?.getAttribute('aria-invalid')).toBe('true');
+    expect(host.querySelector('input#add-service-tax')?.getAttribute('aria-describedby')).toBe(
+      'add-service-tax-error',
+    );
+    expect(host.querySelector('input#add-service-tax')?.getAttribute('aria-invalid')).toBe('true');
+  });
+
+  it('drops invalid semantics from numeric controls once they are valid', () => {
+    const fixture = TestBed.createComponent(AddServiceOverlayComponent);
+    const component = fixture.componentInstance;
+    component.form.patchValue({ price: -1, taxRatePercent: 101 });
+    component.form.markAllAsTouched();
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.querySelector('input#add-service-price')?.getAttribute('aria-invalid')).toBe('true');
+
+    component.form.patchValue({ price: 250, taxRatePercent: 18 });
+    fixture.detectChanges();
+
+    expect(host.querySelector('input#add-service-price')?.getAttribute('aria-invalid')).toBeNull();
+    expect(
+      host.querySelector('input#add-service-price')?.getAttribute('aria-describedby'),
+    ).toBeNull();
+    expect(host.querySelector('input#add-service-tax')?.getAttribute('aria-invalid')).toBeNull();
   });
 
   it('reuses HSN lookup suggestions for the service name', async () => {

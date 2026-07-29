@@ -76,7 +76,7 @@
                   [icon]="'pi pi-pencil'"
                   [rounded]="true"
                   [text]="true"
-                  [attr.aria-label]="'common.edit' | transloco"
+                  [ariaLabel]="'common.edit' | transloco"
                   (click)="onEditService(service)"
                   [disabled]="isSubmitting"
                 ></p-button>
@@ -86,7 +86,7 @@
                   [rounded]="true"
                   [text]="true"
                   [severity]="service.isActive ? 'danger' : 'success'"
-                  [attr.aria-label]="
+                  [ariaLabel]="
                     service.isActive
                       ? ('services.deactivate' | transloco)
                       : ('services.activate' | transloco)
@@ -151,6 +151,7 @@
               type="button"
               icon="pi pi-pencil"
               [label]="'common.edit' | transloco"
+              [ariaLabel]="'common.edit' | transloco"
               [text]="true"
               [disabled]="isSubmitting"
               (click)="onEditService(service)"
@@ -159,6 +160,11 @@
               type="button"
               [icon]="service.isActive ? 'pi pi-ban' : 'pi pi-check'"
               [label]="
+                service.isActive
+                  ? ('services.deactivate' | transloco)
+                  : ('services.activate' | transloco)
+              "
+              [ariaLabel]="
                 service.isActive
                   ? ('services.deactivate' | transloco)
                   : ('services.activate' | transloco)

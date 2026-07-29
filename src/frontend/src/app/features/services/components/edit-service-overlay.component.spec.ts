@@ -170,5 +170,18 @@ describe('EditServiceOverlayComponent', () => {
     expect(host.querySelector('input#edit-service-tax')?.getAttribute('aria-describedby')).toBe(
       'edit-service-tax-error',
     );
+    expect(host.querySelector('input#edit-service-tax')?.getAttribute('aria-invalid')).toBe('true');
+    expect(host.querySelector('input#edit-service-price')?.getAttribute('aria-describedby')).toBe(
+      'edit-service-price-error',
+    );
+    expect(host.querySelector('input#edit-service-price')?.getAttribute('aria-invalid')).toBe(
+      'true',
+    );
+
+    component.form.patchValue({ price: 300, taxRatePercent: 12 });
+    fixture.detectChanges();
+
+    expect(host.querySelector('input#edit-service-price')?.getAttribute('aria-invalid')).toBeNull();
+    expect(host.querySelector('input#edit-service-tax')?.getAttribute('aria-invalid')).toBeNull();
   });
 });

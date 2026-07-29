@@ -1,7 +1,9 @@
 import { CommonModule, DecimalPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
-import { TranslocoPipe } from '@ngneat/transloco';
+import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
+import { merge, startWith } from 'rxjs';
 
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
@@ -22,6 +24,12 @@ interface StatusOption {
   readonly label: string;
   readonly value: ServiceStatusFilter;
 }
+
+const STATUS_FILTER_KEYS: readonly { labelKey: string; value: ServiceStatusFilter }[] = [
+  { labelKey: 'common.all', value: 'all' },
+  { labelKey: 'services.active', value: 'active' },
+  { labelKey: 'services.inactive', value: 'inactive' },
+];
 
 @Component({
   selector: 'app-services-page',
@@ -48,6 +56,13 @@ interface StatusOption {
 export class ServicesPageComponent {
   private readonly serviceService = inject(ServiceService);
   private readonly permissions = inject(ShopPermissionsService);
+  private readonly transloco = inject(TranslocoService);
+
+  /** Recomputes translated labels when the language changes or a translation bundle loads. */
+  private readonly translationsChanged = toSignal(
+    merge(this.transloco.langChanges$, this.transloco.events$).pipe(startWith(null)),
+    { initialValue: null },
+  );
 
   readonly searchValue = signal('');
   readonly statusFilter = signal<ServiceStatusFilter>('all');
@@ -63,11 +78,18 @@ export class ServicesPageComponent {
 
   readonly canManageServices = this.permissions.canManageServices;
 
-  readonly statusOptions: StatusOption[] = [
-    { label: 'common.all', value: 'all' },
-    { label: 'services.active', value: 'active' },
-    { label: 'services.inactive', value: 'inactive' },
-  ];
+  /**
+   * PrimeNG derives each option's accessible name from `optionLabel`, so the labels must be
+   * resolved here instead of translated in the template — otherwise assistive technology
+   * announces the raw translation keys.
+   */
+  readonly statusOptions = computed<StatusOption[]>(() => {
+    this.translationsChanged();
+    return STATUS_FILTER_KEYS.map(({ labelKey, value }) => ({
+      label: this.transloco.translate(labelKey),
+      value,
+    }));
+  });
 
   readonly filteredServices = computed(() => {
     const services = this.services();

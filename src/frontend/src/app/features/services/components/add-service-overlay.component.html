@@ -70,6 +70,7 @@
                   ? 'add-service-price-error'
                   : undefined
               "
+              [pt]="numericFieldPt(form.controls.price)"
             />
             @if (form.controls.price.invalid && form.controls.price.touched) {
               <p id="add-service-price-error" class="field-error">
@@ -129,6 +130,7 @@
                   ? 'add-service-tax-error'
                   : undefined
               "
+              [pt]="numericFieldPt(form.controls.taxRatePercent)"
             />
             @if (form.controls.taxRatePercent.invalid && form.controls.taxRatePercent.touched) {
               <p id="add-service-tax-error" class="field-error">

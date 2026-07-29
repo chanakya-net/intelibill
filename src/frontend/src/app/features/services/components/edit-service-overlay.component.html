@@ -82,6 +82,7 @@
                   ? 'edit-service-price-error'
                   : undefined
               "
+              [pt]="numericFieldPt(form.controls.price)"
             />
             @if (form.controls.price.invalid && form.controls.price.touched) {
               <p id="edit-service-price-error" class="field-error">
@@ -141,6 +142,7 @@
                   ? 'edit-service-tax-error'
                   : undefined
               "
+              [pt]="numericFieldPt(form.controls.taxRatePercent)"
             />
             @if (form.controls.taxRatePercent.invalid && form.controls.taxRatePercent.touched) {
               <p id="edit-service-tax-error" class="field-error">

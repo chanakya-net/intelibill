@@ -77,23 +77,15 @@
 
         <p-select
           inputId="services-status-filter"
-          [options]="statusOptions"
+          [options]="statusOptions()"
           optionLabel="label"
           optionValue="value"
           [ngModel]="statusFilter()"
           (ngModelChange)="onStatusFilterChange($event)"
           [ngModelOptions]="{ standalone: true }"
+          [ariaLabel]="'services.status' | transloco"
           appendTo="body"
-        >
-          <ng-template #selectedItem let-option>
-            @if (option) {
-              {{ option.label | transloco }}
-            }
-          </ng-template>
-          <ng-template #item let-option>
-            {{ option.label | transloco }}
-          </ng-template>
-        </p-select>
+        />
       </div>
 
       @if (isLoading()) {
