@@ -175,6 +175,31 @@ describe('UsersPageComponent', () => {
     expect(store.dispatch).toHaveBeenCalledWith(UsersActions.clearMutationStatus());
   });
 
+  // Reloading the directory after a shop switch is owned by
+  // UsersEffects.reloadShopUsersAfterShopSwitch$; the page must not dispatch a second, competing
+  // load when the session changes.
+  it('does not reload the directory itself when the active shop changes', () => {
+    const fixture = TestBed.createComponent(UsersPageComponent);
+    fixture.detectChanges();
+    const loadCount = () =>
+      store.dispatch.mock.calls.filter(
+        ([action]) => (action as { type: string }).type === UsersActions.loadShopUsersRequested.type,
+      ).length;
+
+    expect(loadCount()).toBe(1);
+
+    sessionSignal.set({
+      ...sessionSignal(),
+      activeShopId: 'shop-2',
+      shops: [
+        { shopId: 'shop-2', shopName: 'Outlet', role: 'Owner', isDefault: true, lastUsedAt: null },
+      ],
+    });
+    fixture.detectChanges();
+
+    expect(loadCount()).toBe(1);
+  });
+
   it('opens and closes the default store overlay', () => {
     const fixture = TestBed.createComponent(UsersPageComponent);
     const component = fixture.componentInstance;

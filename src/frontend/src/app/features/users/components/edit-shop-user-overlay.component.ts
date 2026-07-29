@@ -99,7 +99,7 @@ export class EditShopUserOverlayComponent implements OnInit, OnChanges {
       return;
     }
 
-    if (this.selectedShopIds.length === 0) {
+    if (this.visibleSelectedShopIds().length === 0) {
       this.shopSelectionInvalid = true;
       return;
     }
@@ -138,7 +138,16 @@ export class EditShopUserOverlayComponent implements OnInit, OnChanges {
       this.selectedShopIds = this.selectedShopIds.filter((id) => id !== shopId);
     }
 
-    this.shopSelectionInvalid = this.selectedShopIds.length === 0;
+    this.shopSelectionInvalid = this.visibleSelectedShopIds().length === 0;
+  }
+
+  /**
+   * Memberships in shops outside the actor's session are kept in the payload but cannot be
+   * toggled here, so the min-one-shop guard only counts the checkboxes the actor can see.
+   */
+  private visibleSelectedShopIds(): string[] {
+    const visibleShopIds = new Set(this.availableShops().map((shop) => shop.shopId));
+    return this.selectedShopIds.filter((shopId) => visibleShopIds.has(shopId));
   }
 
   private patchFormFromUser(): void {

@@ -35,35 +35,33 @@ interface MutationCounts {
   add: number;
   edit: number;
   setDefault: number;
+  directoryLoads: number;
 }
 test.describe('users', () => {
   test('renders the owner directory with summary counts and user rows', async ({
     page,
   }, testInfo) => {
     const scenario = usersScenario();
-    const collector = collectBrowserFailures(page);
-    try {
-      await openUsers(page, scenario);
-      await expect(page.locator('.summary-card')).toHaveCount(4);
-      await expect(page.locator('.users-hero__meta')).toContainText('Showing 4 of 4 members');
-      await expect(page.locator('.users-hero__meta')).toContainText('Managers: 1');
-      await expect(page.locator('.users-hero__meta')).toContainText('Login Enabled: 3');
-      if (testInfo.project.name === 'chromium-mobile') {
-        await expect(page.locator('.user-card')).toHaveCount(4);
-        await expect(page.locator('.mobile-user-list')).toContainText('Legacy Staff');
-      } else {
-        await expect(page.locator('.desktop-table tbody tr')).toHaveCount(4);
-        await expect(page.locator('.desktop-table tbody')).toContainText('Legacy Staff');
-      }
-      assertFailures(collector.failures, scenario);
-    } finally {
-      collector.dispose();
+    const assertClean = auditFailures(page, scenario);
+    await openUsers(page, scenario);
+    await expect(page.locator('.summary-card')).toHaveCount(4);
+    await expect(page.locator('.users-hero__meta')).toContainText('Showing 4 of 4 members');
+    await expect(page.locator('.users-hero__meta')).toContainText('Managers: 1');
+    await expect(page.locator('.users-hero__meta')).toContainText('Login Enabled: 3');
+    if (testInfo.project.name === 'chromium-mobile') {
+      await expect(page.locator('.user-card')).toHaveCount(4);
+      await expect(page.locator('.mobile-user-list')).toContainText('Legacy Staff');
+    } else {
+      await expect(page.locator('.desktop-table tbody tr')).toHaveCount(4);
+      await expect(page.locator('.desktop-table tbody')).toContainText('Legacy Staff');
     }
+    assertClean();
   });
   test('applies role-aware affordances and loading/error states', async ({ browser }, testInfo) => {
     for (const role of ['Owner', 'Manager', 'Staff'] as const) {
       const scenario = usersScenario({ role });
       const page = await isolatedPage(browser, testInfo);
+      const assertClean = auditFailures(page, scenario);
       await openUsers(page, scenario);
       await expect(page.locator('.users-hero__actions button:has(.pi-shop)')).toBeVisible();
       await expect(page.getByRole('button', { name: 'Add User' })).toHaveCount(
@@ -75,23 +73,32 @@ test.describe('users', () => {
       await expect(page.locator('.desktop-table th').filter({ hasText: 'Actions' })).toHaveCount(
         role === 'Owner' ? 1 : 0,
       );
+      assertClean();
       await page.context().close();
     }
     const page = await isolatedPage(browser, testInfo);
-    if (testInfo.project.name === 'chromium-mobile') {
-      await openUsers(page, usersScenario({ apiStates: { users: 'loading' } }));
+    const isMobile = testInfo.project.name === 'chromium-mobile';
+    const stateScenario = isMobile
+      ? usersScenario({ apiStates: { users: 'loading' } })
+      : usersScenario({
+          declaredErrors: [{ method: 'GET', url: `${API_BASE}/users`, status: 503 }],
+        });
+    const assertStateClean = auditFailures(page, stateScenario);
+    await openUsers(page, stateScenario);
+    if (isMobile) {
       await expect(page.locator('.directory-panel--loading[aria-busy="true"]')).toBeVisible();
     } else {
-      const error = { method: 'GET', url: `${API_BASE}/users`, status: 503 } as const;
-      await openUsers(page, usersScenario({ declaredErrors: [error] }));
       await expect(page.locator('.error')).toHaveText(
         'Unable to load shop users right now. Please try again.',
       );
     }
+    assertStateClean();
     await page.context().close();
   });
   test('filters by search text and role', async ({ page }) => {
-    await openUsers(page, usersScenario());
+    const scenario = usersScenario();
+    const assertClean = auditFailures(page, scenario);
+    await openUsers(page, scenario);
     const search = page.getByPlaceholder('Search users...');
     await search.fill('legacy');
     await expect(visibleUser(page, 'Legacy Staff')).toHaveCount(1);
@@ -102,6 +109,7 @@ test.describe('users', () => {
     await expect(page.locator('.user-card:visible, .desktop-table tbody tr:visible')).toHaveCount(2);
     await search.fill('no matching account');
     await expect(page.locator('.empty-state:visible')).toBeVisible();
+    assertClean();
   });
   test('validates and submits the add user overlay', async ({ page }) => {
     const declaredError = {
@@ -112,6 +120,7 @@ test.describe('users', () => {
     const scenario = usersScenario({ declaredErrors: [declaredError] });
     await installShellFixture(page, scenario);
     const counts = await installMutationRoutes(page, scenario, { addFailures: 1 });
+    const assertClean = auditFailures(page, scenario);
     await page.goto('/users');
     await page.getByRole('button', { name: 'Add User' }).click();
     const dialog = page.getByRole('dialog', { name: 'Add user to shop' });
@@ -135,6 +144,7 @@ test.describe('users', () => {
     await expect(dialog).toBeHidden();
     await expect(visibleUser(page, 'Audit Created')).toBeVisible();
     expect(counts.add).toBe(2);
+    assertClean();
   });
   test('validates and submits the edit user overlay', async ({ page }, testInfo) => {
     const declaredError = {
@@ -145,6 +155,7 @@ test.describe('users', () => {
     const scenario = usersScenario({ declaredErrors: [declaredError] });
     await installShellFixture(page, scenario);
     const counts = await installMutationRoutes(page, scenario, { editFailures: 1 });
+    const assertClean = auditFailures(page, scenario);
     await page.goto('/users');
     await visibleUser(page, 'Mira Manager').locator('button:has(.pi-pencil)').click();
     const dialog = page.getByRole('dialog', { name: 'Edit shop user' });
@@ -170,6 +181,7 @@ test.describe('users', () => {
     await expect(dialog).toBeHidden();
     await expect(visibleUser(page, 'Updated Manager')).toBeVisible();
     expect(counts.edit).toBe(2);
+    assertClean();
   });
   test('opens and submits the default store overlay', async ({ page }) => {
     const declaredError = {
@@ -180,7 +192,9 @@ test.describe('users', () => {
     const scenario = usersScenario({ declaredErrors: [declaredError] });
     await installShellFixture(page, scenario);
     const counts = await installMutationRoutes(page, scenario, { defaultFailures: 1 });
+    const assertClean = auditFailures(page, scenario);
     await page.goto('/users');
+    await expect(visibleUser(page, 'Legacy Staff')).toHaveCount(1);
     await page.locator('.users-hero__actions button:has(.pi-shop)').click();
     const dialog = page.getByRole('dialog', { name: 'Set Default Store' });
     await expect(dialog).toBeVisible();
@@ -195,6 +209,11 @@ test.describe('users', () => {
     await dialog.getByRole('button', { name: /Secondary/ }).click();
     await expect(dialog).toBeHidden();
     expect(counts.setDefault).toBe(2);
+    // The directory is scoped to the active shop, so switching stores must refetch it.
+    await expect(visibleUser(page, 'Legacy Staff')).toHaveCount(0);
+    await expect(page.locator('.users-hero__meta')).toContainText('Showing 2 of 2 members');
+    expect(counts.directoryLoads).toBeGreaterThan(1);
+    assertClean();
   });
   test('fits dense data and overlays in every locale and viewport', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'chromium-mobile', 'manual locale and viewport matrix');
@@ -291,11 +310,21 @@ async function installMutationRoutes(
   scenario: ShellScenario,
   options: MutationOptions = {},
 ): Promise<MutationCounts> {
-  const counts: MutationCounts = { add: 0, edit: 0, setDefault: 0 };
+  const counts: MutationCounts = { add: 0, edit: 0, setDefault: 0, directoryLoads: 0 };
   let addFailures = options.addFailures ?? 0;
   let editFailures = options.editFailures ?? 0;
   let defaultFailures = options.defaultFailures ?? 0;
+  let activeShopId = scenario.session.activeShopId;
 
+  // Serve the directory scoped to the active shop, mirroring GetShopUsersQuery(userId, activeShopId).
+  await page.route(`${API_BASE}/users`, async (route) => {
+    if (route.request().method() !== 'GET') return route.fallback();
+    counts.directoryLoads += 1;
+    await fulfillJson(
+      route,
+      scenario.users.filter((user) => user.shopIds.includes(activeShopId)),
+    );
+  });
   await page.route(`${API_BASE}/users`, async (route) => {
     if (route.request().method() !== 'POST') return route.fallback();
     counts.add += 1;
@@ -319,6 +348,7 @@ async function installMutationRoutes(
     counts.setDefault += 1;
     if (defaultFailures-- > 0) return mutationError(route, 'UiAudit.DeclaredError', 503);
     const { shopId } = route.request().postDataJSON() as { shopId: string };
+    activeShopId = shopId;
     await fulfillJson(route, {
       ...scenario.session,
       activeShopId: shopId,
@@ -333,11 +363,23 @@ async function mutationError(route: Route, title: string, status = 422): Promise
 async function fulfillJson(route: Route, body: unknown, status = 200): Promise<void> {
   await route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
-function assertFailures(
-  failures: Parameters<typeof assertNoUnexpectedBrowserFailures>[0],
-  scenario: ShellScenario,
-): void {
-  assertNoUnexpectedBrowserFailures(filterDeclaredShellFailures(failures, scenario));
+/** Starts collecting browser failures; the returned callback asserts and stops collecting. */
+function auditFailures(page: Page, scenario: ShellScenario): () => void {
+  // Declared errors served by the spec-local mutation routes are not recorded by the shell
+  // fixture, so their console noise has to be ignored here as sibling audits do.
+  const declaredStatuses = scenario.declaredErrors.map((error) => `status of ${error.status} `);
+  const collector = collectBrowserFailures(page, {
+    ignoreConsole: (message) =>
+      message.includes('Failed to load resource') &&
+      declaredStatuses.some((status) => message.includes(status)),
+  });
+  return () => {
+    try {
+      assertNoUnexpectedBrowserFailures(filterDeclaredShellFailures(collector.failures, scenario));
+    } finally {
+      collector.dispose();
+    }
+  };
 }
 function visibleUser(page: Page, name: string): Locator {
   return page.locator('.user-card:visible, .desktop-table tbody tr:visible').filter({
