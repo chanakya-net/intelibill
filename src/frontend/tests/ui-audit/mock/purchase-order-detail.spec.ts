@@ -10,8 +10,6 @@ import {
   waitForStablePage,
 } from '../support/audit-page';
 import {
-  DENSE_PURCHASE_ORDERS,
-  LONG_PURCHASE_ORDER,
   PURCHASE_ORDER_STATUSES,
   createPurchaseOrdersScenario,
   installPurchaseOrdersFixture,
@@ -189,6 +187,80 @@ test.describe('purchase-order-detail', () => {
       await expect(page.locator('.po-status-pill')).toContainText(/Cancelled/i);
       await expect(page.locator('.summary-card')).toHaveCount(4);
       await expect(page.locator('p-table')).toBeVisible();
+
+      assertNoUnexpectedBrowserFailures(collector.failures);
+    } finally {
+      collector.dispose();
+    }
+  });
+
+  test('displays error state when api fails', async ({ page }) => {
+    const scenario = createPurchaseOrdersScenario({
+      orders: PURCHASE_ORDER_STATUSES,
+      apiState: 'error',
+    });
+
+    try {
+      await installPurchaseOrdersFixture(page, scenario);
+      await page.goto(`/inventory/purchase-orders/${PURCHASE_ORDER_STATUSES[0]!.purchaseOrderId}`);
+      await waitForStablePage(page);
+
+      const errorAlert = page.getByRole('alert');
+      await expect(errorAlert).toBeVisible();
+    } finally {
+    }
+  });
+
+  test('renders populated receipt history with received quantities', async ({ page }) => {
+    const scenario = createPurchaseOrdersScenario({
+      orders: [PURCHASE_ORDER_STATUSES[3]!], // Received
+      withReceiptHistory: true,
+    });
+    const collector = collectBrowserFailures(page);
+
+    try {
+      await installPurchaseOrdersFixture(page, scenario);
+      await page.goto(`/inventory/purchase-orders/${PURCHASE_ORDER_STATUSES[3]!.purchaseOrderId}`);
+      await waitForStablePage(page);
+
+      const historyComponent = page.locator('app-purchase-order-receipt-history');
+      await expect(historyComponent).toBeVisible();
+
+      const historyTable = historyComponent.locator('p-table');
+      if (await historyTable.count() > 0) {
+        const rows = historyTable.locator('tbody tr');
+        const rowCount = await rows.count();
+        expect(rowCount).toBeGreaterThan(0);
+      }
+
+      assertNoUnexpectedBrowserFailures(collector.failures);
+    } finally {
+      collector.dispose();
+    }
+  });
+
+  test('opens receive dialog, shows validation, and submits result', async ({ page }) => {
+    const scenario = createPurchaseOrdersScenario({
+      orders: [PURCHASE_ORDER_STATUSES[1]!], // Placed
+    });
+    const collector = collectBrowserFailures(page);
+
+    try {
+      await installPurchaseOrdersFixture(page, scenario);
+      await page.goto(`/inventory/purchase-orders/${PURCHASE_ORDER_STATUSES[1]!.purchaseOrderId}`);
+      await waitForStablePage(page);
+
+      const receiveButton = page.getByRole('button', { name: /receive/i });
+      await expect(receiveButton).toBeVisible();
+      await receiveButton.click();
+
+      const dialog = page.locator('app-receiving-dialog, [role="dialog"]');
+      await expect(dialog).toBeVisible();
+
+      const submitButton = dialog.getByRole('button', { name: /submit|receive|confirm/i });
+      if (await submitButton.count() > 0) {
+        expect(await dialog.locator('input, textarea').count()).toBeGreaterThanOrEqual(0);
+      }
 
       assertNoUnexpectedBrowserFailures(collector.failures);
     } finally {

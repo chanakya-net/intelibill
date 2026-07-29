@@ -19,11 +19,15 @@ export interface PurchaseOrdersScenario {
   readonly shell: ShellScenario;
   readonly orders: readonly PurchaseOrderListItem[];
   readonly apiState: PurchaseOrdersApiState;
+  readonly withLongLines: boolean;
+  readonly withReceiptHistory: boolean;
 }
 
 export interface PurchaseOrdersScenarioOptions extends ShellScenarioOptions {
   readonly orders?: readonly PurchaseOrderListItem[];
   readonly apiState?: PurchaseOrdersApiState;
+  readonly withLongLines?: boolean;
+  readonly withReceiptHistory?: boolean;
 }
 
 export const PURCHASE_ORDER_STATUSES: readonly PurchaseOrderListItem[] = [
@@ -61,6 +65,8 @@ export function createPurchaseOrdersScenario(
     shell: createShellScenario(options),
     orders: options.orders ?? PURCHASE_ORDER_STATUSES,
     apiState: options.apiState ?? 'ready',
+    withLongLines: options.withLongLines ?? false,
+    withReceiptHistory: options.withReceiptHistory ?? false,
   };
 }
 
@@ -72,6 +78,8 @@ export async function installPurchaseOrdersFixture(
   const state: PurchaseOrdersFixtureState = {
     apiState: scenario.apiState,
     orders: [...scenario.orders],
+    withLongLines: scenario.withLongLines,
+    withReceiptHistory: scenario.withReceiptHistory,
   };
   await page.route(`${API_BASE}/purchase-orders**`, (route) =>
     handlePurchaseOrderRoute(route, state),
@@ -81,6 +89,8 @@ export async function installPurchaseOrdersFixture(
 interface PurchaseOrdersFixtureState {
   readonly apiState: PurchaseOrdersApiState;
   orders: PurchaseOrderListItem[];
+  readonly withLongLines: boolean;
+  readonly withReceiptHistory: boolean;
 }
 
 function handlePurchaseOrderRoute(route: Route, state: PurchaseOrdersFixtureState): Promise<void> {
@@ -97,7 +107,7 @@ function handlePurchaseOrderRoute(route: Route, state: PurchaseOrdersFixtureStat
     const order = state.orders.find((item) => item.purchaseOrderId === segments.at(-1));
     return fulfillJson(
       route,
-      order ? toDetail(order) : { title: 'PurchaseOrder.NotFound' },
+      order ? toDetail(order, { withLongLines: state.withLongLines, withReceiptHistory: state.withReceiptHistory }) : { title: 'PurchaseOrder.NotFound' },
       order ? 200 : 404,
     );
   }
@@ -177,8 +187,8 @@ function orderDate(order: PurchaseOrderListItem): string {
   return order.createdAt.slice(0, 10);
 }
 
-function toDetail(order: PurchaseOrderListItem): PurchaseOrderDetail {
-  return {
+function toDetail(order: PurchaseOrderListItem, opts: { withLongLines?: boolean; withReceiptHistory?: boolean } = {}): PurchaseOrderDetail {
+  const detail: PurchaseOrderDetail = {
     purchaseOrderId: order.purchaseOrderId,
     purchaseOrderNumber: order.purchaseOrderNumber,
     status: order.status,
@@ -190,11 +200,103 @@ function toDetail(order: PurchaseOrderListItem): PurchaseOrderDetail {
     expectedDeliveryDate: null,
     supplierReferenceNumber: order.supplierReference,
     notes: null,
-    lines: [],
+    lines: opts.withLongLines ? generateLongLines() : [],
     expectedTotal: order.expectedTotal,
     createdAt: order.createdAt,
     cancellationReason: null,
   };
+
+  if (opts.withReceiptHistory) {
+    detail.receipts = generateReceipts();
+  }
+
+  return detail;
+}
+
+function generateLongLines() {
+  return [
+    {
+      lineId: 'line-1',
+      itemId: 'item-1',
+      description: 'Very Long Description: This is a comprehensive line item description that spans multiple words and could potentially wrap in certain layouts.',
+      expectedQuantity: 100,
+      receivedQuantity: 75,
+      remainingQuantity: 25,
+      unitCost: 125.5,
+      lineTotal: 12550,
+    },
+    {
+      lineId: 'line-2',
+      itemId: 'item-2',
+      description: 'Another Extended Line Item With Additional Context Information for Audit Purposes',
+      expectedQuantity: 50,
+      receivedQuantity: 50,
+      remainingQuantity: 0,
+      unitCost: 250.0,
+      lineTotal: 12500,
+    },
+  ];
+}
+
+function generateReceipts() {
+  return [
+    {
+      receiptId: 'receipt-1',
+      receiptNumber: 'REC-2026-001',
+      receivedAt: '2026-07-15T10:30:00.000Z',
+      referenceNumber: 'REF-001',
+      notes: 'First partial receipt',
+      receivedByUserId: 'user-1',
+      receivedByDisplayName: 'John Doe',
+      lines: [
+        {
+          receiptLineId: 'recline-1',
+          purchaseOrderLineId: 'line-1',
+          itemId: 'item-1',
+          inventoryBatchId: 'batch-1',
+          batchNumber: 'BATCH-2026-001',
+          batchVoided: false,
+          stockTransactionId: 'tx-1',
+          quantity: 50,
+          totalPurchaseCost: 6275,
+          unitCost: 125.5,
+          mrp: 150.0,
+          salesPrice: 155.0,
+          taxRatePercent: 10,
+          taxIncluded: true,
+          purchaseTaxIncluded: false,
+        },
+      ],
+    },
+    {
+      receiptId: 'receipt-2',
+      receiptNumber: 'REC-2026-002',
+      receivedAt: '2026-07-20T14:00:00.000Z',
+      referenceNumber: 'REF-002',
+      notes: 'Second partial receipt',
+      receivedByUserId: 'user-2',
+      receivedByDisplayName: 'Jane Smith',
+      lines: [
+        {
+          receiptLineId: 'recline-2',
+          purchaseOrderLineId: 'line-1',
+          itemId: 'item-1',
+          inventoryBatchId: 'batch-2',
+          batchNumber: 'BATCH-2026-002',
+          batchVoided: false,
+          stockTransactionId: 'tx-2',
+          quantity: 25,
+          totalPurchaseCost: 3137.5,
+          unitCost: 125.5,
+          mrp: 150.0,
+          salesPrice: 155.0,
+          taxRatePercent: 10,
+          taxIncluded: true,
+          purchaseTaxIncluded: false,
+        },
+      ],
+    },
+  ];
 }
 
 function order(
