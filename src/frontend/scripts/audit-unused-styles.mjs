@@ -4,13 +4,21 @@ import process from 'node:process';
 import postcss from 'postcss';
 import selectorParser from 'postcss-selector-parser';
 import scss from 'postcss-scss';
+import { ROUTE_MANIFEST } from '../tests/ui-audit/route-manifest.ts';
 import { writeRedactedArtifacts } from '../tests/ui-audit/support/artifact-redaction.ts';
+import { buildScenarioCatalog } from '../tests/ui-audit/support/css-coverage.ts';
 import {
   addReference,
   inspectConfiguration,
   inspectTemplate,
   inspectTypeScript,
 } from './style-audit-references.mjs';
+import {
+  isRuntimeObservable,
+  loadRuntimeCoverage,
+  mapRuntimeCoverage,
+} from './style-audit-runtime.mjs';
+export { isRuntimeObservable, loadRuntimeCoverage, mapRuntimeCoverage };
 const STYLE_EXTENSIONS = /\.(?:css|scss|sass)$/i;
 const CONFIGURATION = /^(?:angular|package|tsconfig[^/]*|ngsw-config)\.json$|postcss|tailwind/i;
 const STRONG_RISKS = new Set([
@@ -172,6 +180,54 @@ function finalize(state) {
   }
   state.entries.sort((a, b) => compareLocation(a.source, b.source) || a.normalizedEntry.localeCompare(b.normalizedEntry));
 }
+function mergeRuntimeEvidence(entries, runtime, evidence) {
+  const byEntry = new Map(
+    evidence.map((item) => [`${item.kind}\0${item.normalizedEntry}`, item]),
+  );
+  for (const item of entries) {
+    const observable = isRuntimeObservable(item.kind);
+    const matched = byEntry.get(`${item.kind}\0${item.normalizedEntry}`);
+    item.runtime = {
+      status: observable ? matched?.status ?? 'not-observed' : 'not-observable',
+      observedScenarios: matched?.observedScenarios ?? [],
+      coveredScenarios: matched?.coveredScenarios ?? [],
+    };
+    if (item.references.length > 0 || !observable || hasStrongRisk(item)) continue;
+    if (runtime.status === 'incomplete') {
+      retainForRuntime(item, 'Runtime coverage catalog is incomplete.');
+    } else if (matched?.status === 'covered') {
+      retainForRuntime(item, 'Static and runtime evidence conflict; runtime use was observed.');
+    } else if (matched?.status === 'uncovered') {
+      item.disposition = 'removable-candidate';
+      item.allowlistReason = null;
+    } else {
+      retainForRuntime(item, 'Selector was not observed in emitted runtime styles.');
+    }
+  }
+}
+function hasStrongRisk(item) {
+  return item.risks.some((risk) => STRONG_RISKS.has(risk) || risk === 'dynamic-animation');
+}
+function retainForRuntime(item, reason) {
+  item.disposition = 'uncertain';
+  item.allowlistReason = [item.allowlistReason, reason].filter(Boolean).join('; ');
+}
+function runtimeSummary(runtime) {
+  return {
+    status: runtime.status,
+    expectedScenarioCount:
+      runtime.scenarios.length + runtime.missingScenarioIds.length + runtime.failedScenarioIds.length,
+    successfulScenarioCount: runtime.scenarios.length,
+    missingScenarioIds: runtime.missingScenarioIds,
+    failedScenarioIds: runtime.failedScenarioIds,
+    scenarios: runtime.scenarios.map(({ scenario, browser, status, sheets }) => ({
+      scenario,
+      browser,
+      status,
+      sheets,
+    })),
+  };
+}
 const compareLocation = (a, b) => a.path.localeCompare(b.path) || a.line - b.line || a.column - b.column;
 const riskReason = (risk) => ({
   'conditional-rule': 'Conditional rule may activate outside static evidence.',
@@ -202,6 +258,12 @@ export async function analyzeStyleUsage(options = {}) {
   const styleDocuments = styleRecords.map((item) => ({ ...item, kind: 'style', baseLine: 1, baseColumn: 1 }));
   for (const document of [...styleDocuments, ...state.inlineStyles]) inspectStyle(document, state);
   finalize(state);
+  let runtime;
+  if (options.runtime) {
+    const loadedRuntime = await loadRuntimeCoverage(options.runtime);
+    mergeRuntimeEvidence(state.entries, loadedRuntime, mapRuntimeCoverage(loadedRuntime));
+    runtime = runtimeSummary(loadedRuntime);
+  }
   const angular = JSON.parse(records.find((item) => item.path === 'angular.json')?.content ?? '{}');
   const configured = Object.values(angular.projects ?? {}).flatMap((project) => project.architect?.build?.options?.styles ?? []).map((item) => typeof item === 'string' ? item : item.input).filter(Boolean);
   const active = configured.filter((path) => stylePaths.has(path)).sort();
@@ -231,17 +293,42 @@ export async function analyzeStyleUsage(options = {}) {
     diagnostics: state.diagnostics.sort((a, b) => a.path.localeCompare(b.path)),
     summary: { total: state.entries.length, dispositions },
     entries: state.entries,
+    ...(runtime ? { runtime } : {}),
   };
 }
 const escapeHtml = (value) => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
 export function renderStyleUsageHtml(report) {
-  const rows = report.entries.map((item) => `<tr><td>${escapeHtml(item.disposition)}</td><td>${escapeHtml(item.kind)}</td><td><code>${escapeHtml(item.normalizedEntry)}</code></td><td>${escapeHtml(`${item.source.path}:${item.source.line}:${item.source.column}`)}</td><td>${item.references.map((ref) => escapeHtml(`${ref.path}:${ref.line}`)).join('<br>')}</td><td>${escapeHtml(item.risks.join(', '))}</td><td>${escapeHtml(item.allowlistReason ?? '')}</td></tr>`).join('');
   const counts = report.summary.dispositions;
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Static first-party style usage</title><style>body{font:14px system-ui;margin:2rem}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:.4rem;text-align:left;vertical-align:top}code{white-space:pre-wrap}</style></head><body><h1>Static first-party style usage</h1><p>Used: ${counts.used}; removable candidates: ${counts['removable-candidate']}; uncertain: ${counts.uncertain}. Uncertainty always retains source.</p><table><thead><tr><th>Disposition</th><th>Kind</th><th>Entry</th><th>Source</th><th>References</th><th>Risks</th><th>Allowlist reason</th></tr></thead><tbody>${rows}</tbody></table></body></html>`;
+  const runtime = renderRuntimeHtml(report.runtime);
+  const rows = report.entries.map(renderEntryRow).join('');
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Static first-party style usage</title><style>body{font:14px system-ui;margin:2rem}table{border-collapse:collapse;width:100%;margin-block:1rem}th,td{border:1px solid #ccc;padding:.4rem;text-align:left;vertical-align:top}code{white-space:pre-wrap}.incomplete{border:2px solid #a00;padding:.75rem}</style></head><body><h1>Static first-party style usage</h1><p>Used: ${counts.used}; removable candidates: ${counts['removable-candidate']}; uncertain: ${counts.uncertain}. Uncertainty always retains source.</p>${runtime}<h2>Per-entry evidence</h2><table><thead><tr><th>Disposition</th><th>Kind</th><th>Entry</th><th>Source</th><th>References</th><th>Runtime status</th><th>Observed scenarios</th><th>Covered scenarios</th><th>Risks</th><th>Allowlist reason</th></tr></thead><tbody>${rows}</tbody></table></body></html>`;
+}
+function renderEntryRow(item) {
+  const runtime = item.runtime ?? {};
+  return `<tr><td>${escapeHtml(item.disposition)}</td><td>${escapeHtml(item.kind)}</td><td><code>${escapeHtml(item.normalizedEntry)}</code></td><td>${escapeHtml(`${item.source.path}:${item.source.line}:${item.source.column}`)}</td><td>${item.references.map((ref) => escapeHtml(`${ref.path}:${ref.line}`)).join('<br>')}</td><td>${escapeHtml(runtime.status ?? '')}</td><td>${escapeHtml((runtime.observedScenarios ?? []).join(', '))}</td><td>${escapeHtml((runtime.coveredScenarios ?? []).join(', '))}</td><td>${escapeHtml(item.risks.join(', '))}</td><td>${escapeHtml(item.allowlistReason ?? '')}</td></tr>`;
+}
+function renderRuntimeHtml(runtime) {
+  if (!runtime) return '';
+  const scenarioRows = runtime.scenarios.map(({ scenario, browser, sheets }) => {
+    const ranges = sheets.reduce((total, sheet) => total + sheet.ranges.length, 0);
+    const dimensions = [
+      scenario.viewport, scenario.locale, scenario.role ?? 'anonymous',
+      scenario.featureFlags.join(',') || 'no flags', scenario.media,
+      scenario.offline ? 'offline' : 'online', scenario.interaction ?? 'passive',
+    ].join(' / ');
+    return `<tr><td><code>${escapeHtml(scenario.id)}</code></td><td>${escapeHtml(scenario.url)}</td><td>${escapeHtml(scenario.state)}</td><td>${escapeHtml(dimensions)}</td><td>${escapeHtml(`${browser.name} ${browser.version}`)}</td><td>${ranges}</td></tr>`;
+  }).join('');
+  const failures = [...runtime.missingScenarioIds, ...runtime.failedScenarioIds].join(', ');
+  const className = runtime.status === 'complete' ? '' : ' class="incomplete"';
+  return `<section${className}><h2>Runtime CSS coverage: ${escapeHtml(runtime.status)}</h2><p>${runtime.successfulScenarioCount}/${runtime.expectedScenarioCount} scenarios successful.${failures ? ` Missing or failed: ${escapeHtml(failures)}.` : ''}</p><table><thead><tr><th>Scenario</th><th>Route</th><th>State</th><th>Dimensions</th><th>Browser</th><th>Covered ranges</th></tr></thead><tbody>${scenarioRows}</tbody></table></section>`;
 }
 export async function runStyleAudit(options = {}) {
   const rootDir = resolve(options.rootDir ?? process.cwd());
-  const report = await analyzeStyleUsage({ rootDir });
+  const runtime = options.runtime ?? {
+    coverageDir: join(rootDir, '.ui-audit', 'style-usage', 'runtime'),
+    expectedScenarios: buildScenarioCatalog(ROUTE_MANIFEST),
+  };
+  const report = await analyzeStyleUsage({ rootDir, runtime });
   await writeRedactedArtifacts({
     outputDir: join(rootDir, '.ui-audit', 'style-usage'),
     name: 'report',
@@ -253,4 +340,11 @@ export async function runStyleAudit(options = {}) {
 if (import.meta.main) {
   const report = await runStyleAudit();
   console.log(`Style usage evidence: ${report.summary.total} entries (${report.summary.dispositions.uncertain} uncertain).`);
+  if (report.runtime.status !== 'complete') {
+    console.error(
+      `Runtime CSS coverage incomplete: ${report.runtime.missingScenarioIds.length} missing, `
+      + `${report.runtime.failedScenarioIds.length} failed.`,
+    );
+    process.exitCode = 1;
+  }
 }
