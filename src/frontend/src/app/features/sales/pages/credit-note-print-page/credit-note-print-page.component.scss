@@ -1,3 +1,8 @@
+@page {
+  size: A4;
+  margin: 12mm;
+}
+
 :host {
   display: block;
   min-height: 100vh;
@@ -275,5 +280,19 @@
     min-height: auto;
     padding: 0;
     box-shadow: none;
+    width: 100%;
+    box-sizing: border-box;
+    font-family: Arial, sans-serif;
+  }
+
+  .credit-note__header,
+  .credit-note__grid,
+  .credit-note__panel,
+  .credit-note__totals,
+  .credit-note__metric,
+  .credit-note__markers,
+  .credit-note__terms {
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 }

@@ -112,6 +112,9 @@ export function createShellScenario(options: ShellScenarioOptions = {}): ShellSc
 }
 
 export async function installShellFixture(page: Page, scenario: ShellScenario): Promise<void> {
+  await page.evaluate(() => {
+    (window as any).print = () => undefined;
+  });
   await mockExternalRequests(page);
   await seedShellStorage(page, scenario);
   await page.route(`${API_BASE}/**`, async (route) => {

@@ -22,7 +22,7 @@ const command = setup
       'test',
       '--config',
       'playwright.config.ts',
-      ...(mocked ? ['tests/ui-audit/mock'] : []),
+      ...(mocked ? ['tests/ui-audit/mock', 'tests/ui-audit/print'] : []),
       ...forwardedArgs,
     ];
 const result = spawnSync(process.execPath, command, {
