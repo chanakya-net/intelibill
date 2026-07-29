@@ -157,7 +157,7 @@
               ? ('register.creatingAccount' | transloco)
               : ('register.signUp' | transloco)
           "
-          [disabled]="form.invalid || isSubmitting()"
+          [disabled]="isSubmitting()"
           class="auth-submit w-full"
         ></button>
 
