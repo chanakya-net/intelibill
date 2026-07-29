@@ -1,6 +1,4 @@
-import {
-  expect, test, type Browser, type Locator, type Page, type Route, type TestInfo,
-} from '@playwright/test';
+import { expect, test, type Browser, type Locator, type Page, type Route, type TestInfo } from '@playwright/test';
 import { SUPPORTED_LANGUAGES } from '../../../src/app/core/i18n/language.constants';
 import type { ShopUser } from '../../../src/app/features/users/services/user-account.service';
 import {
@@ -26,21 +24,12 @@ interface UsersScenarioOptions {
   readonly apiStates?: Readonly<Partial<Record<'users', ShellApiState>>>;
   readonly declaredErrors?: readonly DeclaredShellError[];
 }
-interface MutationOptions {
-  readonly addFailures?: number;
-  readonly editFailures?: number;
-  readonly defaultFailures?: number;
-}
-interface MutationCounts {
-  add: number;
-  edit: number;
-  setDefault: number;
-  directoryLoads: number;
-}
+type MutationOptions = Readonly<
+  Partial<Record<'addFailures' | 'editFailures' | 'defaultFailures', number>>
+>;
+type MutationCounts = Record<'add' | 'edit' | 'setDefault' | 'directoryLoads', number>;
 test.describe('users', () => {
-  test('renders the owner directory with summary counts and user rows', async ({
-    page,
-  }, testInfo) => {
+  test('renders the owner directory with summary counts and user rows', async ({ page }, testInfo) => {
     const scenario = usersScenario();
     const assertClean = auditFailures(page, scenario);
     await openUsers(page, scenario);
@@ -64,15 +53,12 @@ test.describe('users', () => {
       const assertClean = auditFailures(page, scenario);
       await openUsers(page, scenario);
       await expect(page.locator('.users-hero__actions button:has(.pi-shop)')).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Add User' })).toHaveCount(
-        role === 'Owner' ? 1 : 0,
-      );
+      await expect(page.getByRole('button', { name: 'Add User' })).toHaveCount(role === 'Owner' ? 1 : 0);
       await expect(page.locator('.user-card button:has(.pi-pencil):visible')).toHaveCount(
         role === 'Owner' && testInfo.project.name === 'chromium-mobile' ? 3 : 0,
       );
-      await expect(page.locator('.desktop-table th').filter({ hasText: 'Actions' })).toHaveCount(
-        role === 'Owner' ? 1 : 0,
-      );
+      const actionsHeading = page.locator('.desktop-table th').filter({ hasText: 'Actions' });
+      await expect(actionsHeading).toHaveCount(role === 'Owner' ? 1 : 0);
       assertClean();
       await page.context().close();
     }
@@ -80,17 +66,13 @@ test.describe('users', () => {
     const isMobile = testInfo.project.name === 'chromium-mobile';
     const stateScenario = isMobile
       ? usersScenario({ apiStates: { users: 'loading' } })
-      : usersScenario({
-          declaredErrors: [{ method: 'GET', url: `${API_BASE}/users`, status: 503 }],
-        });
+      : usersScenario({ declaredErrors: [{ method: 'GET', url: `${API_BASE}/users`, status: 503 }] });
     const assertStateClean = auditFailures(page, stateScenario);
     await openUsers(page, stateScenario);
     if (isMobile) {
       await expect(page.locator('.directory-panel--loading[aria-busy="true"]')).toBeVisible();
     } else {
-      await expect(page.locator('.error')).toHaveText(
-        'Unable to load shop users right now. Please try again.',
-      );
+      await expect(page.locator('.error')).toHaveText('Unable to load shop users right now. Please try again.');
     }
     assertStateClean();
     await page.context().close();
@@ -112,11 +94,7 @@ test.describe('users', () => {
     assertClean();
   });
   test('validates and submits the add user overlay', async ({ page }) => {
-    const declaredError = {
-      method: 'POST',
-      url: `${API_BASE}/users`,
-      status: 422,
-    } as const;
+    const declaredError = { method: 'POST', url: `${API_BASE}/users`, status: 422 } as const;
     const scenario = usersScenario({ declaredErrors: [declaredError] });
     await installShellFixture(page, scenario);
     const counts = await installMutationRoutes(page, scenario, { addFailures: 1 });
@@ -133,13 +111,9 @@ test.describe('users', () => {
     await dialog.getByRole('button', { name: 'Add User' }).click();
     await expect(dialog).toContainText('Password and confirm password must match.');
     expect(counts.add).toBe(0);
-    await dialog
-      .locator('p-password[formcontrolname="confirmPassword"] input')
-      .fill('password-one');
+    await dialog.locator('p-password[formcontrolname="confirmPassword"] input').fill('password-one');
     await dialog.getByRole('button', { name: 'Add User' }).click();
-    await expect(dialog.locator('.error-message')).toContainText(
-      'This email is already used by another account.',
-    );
+    await expect(dialog.locator('.error-message')).toContainText('This email is already used by another account.');
     await dialog.getByRole('button', { name: 'Add User' }).click();
     await expect(dialog).toBeHidden();
     await expect(visibleUser(page, 'Audit Created')).toBeVisible();
@@ -148,9 +122,7 @@ test.describe('users', () => {
   });
   test('validates and submits the edit user overlay', async ({ page }, testInfo) => {
     const declaredError = {
-      method: 'PUT',
-      url: `${API_BASE}/users/user-manager`,
-      status: 422,
+      method: 'PUT', url: `${API_BASE}/users/user-manager`, status: 422,
     } as const;
     const scenario = usersScenario({ declaredErrors: [declaredError] });
     await installShellFixture(page, scenario);
@@ -173,9 +145,7 @@ test.describe('users', () => {
 
     await dialog.locator('input[type="checkbox"]').first().check();
     await dialog.getByRole('button', { name: 'Save Changes' }).click();
-    await expect(dialog.locator('.error-message')).toContainText(
-      'Owner account cannot be modified from this screen.',
-    );
+    await expect(dialog.locator('.error-message')).toContainText('Owner account cannot be modified from this screen.');
     await dialog.locator('input[formcontrolname="firstName"]').fill('Updated');
     await dialog.getByRole('button', { name: 'Save Changes' }).click();
     await expect(dialog).toBeHidden();
@@ -184,11 +154,7 @@ test.describe('users', () => {
     assertClean();
   });
   test('opens and submits the default store overlay', async ({ page }) => {
-    const declaredError = {
-      method: 'POST',
-      url: `${API_BASE}/shops/default`,
-      status: 503,
-    } as const;
+    const declaredError = { method: 'POST', url: `${API_BASE}/shops/default`, status: 503 } as const;
     const scenario = usersScenario({ declaredErrors: [declaredError] });
     await installShellFixture(page, scenario);
     const counts = await installMutationRoutes(page, scenario, { defaultFailures: 1 });
@@ -198,14 +164,10 @@ test.describe('users', () => {
     await page.locator('.users-hero__actions button:has(.pi-shop)').click();
     const dialog = page.getByRole('dialog', { name: 'Set Default Store' });
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByRole('button', { name: /Primary/ })).not.toHaveClass(
-      /p-button-outlined/,
-    );
+    await expect(dialog.getByRole('button', { name: /Primary/ })).not.toHaveClass(/p-button-outlined/);
 
     await dialog.getByRole('button', { name: /Secondary/ }).click();
-    await expect(dialog.locator('.server-error')).toHaveText(
-      'Unable to set default store right now. Please try again.',
-    );
+    await expect(dialog.locator('.server-error')).toHaveText('Unable to set default store right now. Please try again.');
     await dialog.getByRole('button', { name: /Secondary/ }).click();
     await expect(dialog).toBeHidden();
     expect(counts.setDefault).toBe(2);
