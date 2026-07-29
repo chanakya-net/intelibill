@@ -7,7 +7,6 @@ import {
 } from '../support/audit-page';
 import {
   PURCHASE_ORDER_STATUSES,
-  LONG_PURCHASE_ORDER,
   DENSE_PURCHASE_ORDERS,
   createPurchaseOrdersScenario,
   installPurchaseOrdersFixture,
@@ -15,10 +14,6 @@ import {
 } from '../fixtures/purchase-orders.fixture';
 
 const ROUTE = '/inventory/purchase-orders';
-const LONG_NOTES = Array.from(
-  { length: 350 },
-  () => 'Deterministic long notes for A4 pagination coverage.',
-).join(' ');
 
 test.describe('purchase-order-print (A4 media audit)', () => {
   test('renders normal document sections, totals, deterministic fonts, and no controls', async ({
@@ -29,7 +24,6 @@ test.describe('purchase-order-print (A4 media audit)', () => {
       page,
       createPurchaseOrdersScenario({
         orders: [order],
-        withLongLines: true,
       }),
       order.purchaseOrderId,
       async () => {
@@ -41,13 +35,31 @@ test.describe('purchase-order-print (A4 media audit)', () => {
     );
   });
 
-  test('keeps long document content on at least two unclipped A4 pages', async ({ page }) => {
-    const order = { ...PURCHASE_ORDER_STATUSES[1]!, purchaseOrderNumber: 'PO-2026-LONG-DOC' };
+  test('keeps long supplier/address on unclipped A4 pages', async ({ page }) => {
+    const order = { ...PURCHASE_ORDER_STATUSES[1]!, purchaseOrderNumber: 'PO-2026-LONG-SUPPLIER' };
     await withPrintDocument(
       page,
       createPurchaseOrdersScenario({
         orders: [order],
-        withLongLines: true,
+        withLongSupplierDetails: true,
+      }),
+      order.purchaseOrderId,
+      async () => {
+        await assertDocumentSections(page);
+        await assertLongSupplierDetailsVisible(page);
+        await assertA4Output(page, 1);
+        await assertNoClippingOrOverlap(page);
+      },
+    );
+  });
+
+  test('keeps long notes on at least two unclipped A4 pages', async ({ page }) => {
+    const order = { ...PURCHASE_ORDER_STATUSES[1]!, purchaseOrderNumber: 'PO-2026-LONG-NOTES' };
+    await withPrintDocument(
+      page,
+      createPurchaseOrdersScenario({
+        orders: [order],
+        withLongNotes: true,
       }),
       order.purchaseOrderId,
       async () => {
@@ -58,17 +70,36 @@ test.describe('purchase-order-print (A4 media audit)', () => {
     );
   });
 
-  test('keeps dense document panels, totals, and sections apart', async ({ page }) => {
+  test('keeps dense line items and totals apart across multiple pages', async ({ page }) => {
     const order = DENSE_PURCHASE_ORDERS[0]!;
     await withPrintDocument(
       page,
       createPurchaseOrdersScenario({
         orders: [order],
-        withLongLines: true,
+        withDenseLines: true,
       }),
       order.purchaseOrderId,
       async () => {
         await assertDocumentSections(page);
+        await assertDenseLineItemsPresent(page);
+        await assertTablePagination(page);
+        await assertNoClippingOrOverlap(page);
+      },
+    );
+  });
+
+  test('renders receipt/status information on purchase order with receipt history', async ({ page }) => {
+    const partiallyReceivedOrder = PURCHASE_ORDER_STATUSES[2]!;
+    await withPrintDocument(
+      page,
+      createPurchaseOrdersScenario({
+        orders: [partiallyReceivedOrder],
+        withReceiptHistory: true,
+      }),
+      partiallyReceivedOrder.purchaseOrderId,
+      async () => {
+        await assertDocumentSections(page);
+        await assertReceiptStatusVisible(page);
         await assertA4Output(page, 1);
         await assertNoClippingOrOverlap(page);
       },
@@ -174,6 +205,35 @@ async function assertDocumentSections(page: Page): Promise<void> {
 
 async function assertScreenControlsHidden(page: Page): Promise<void> {
   await expect(page.locator('.screen-controls')).toBeHidden();
+}
+
+async function assertLongSupplierDetailsVisible(page: Page): Promise<void> {
+  const supplierName = page.locator('.po-document__supplier--name');
+  await expect(supplierName).toContainText('Very Long International Supplier Name With Deterministic Audit Value');
+  const supplierRef = page.locator('.po-document__supplier--reference');
+  await expect(supplierRef).toContainText('SUPPLIER-REFERENCE-WITH-A-LONG-DETERMINISTIC-VALUE-2026-000001');
+}
+
+async function assertDenseLineItemsPresent(page: Page): Promise<void> {
+  const rows = page.locator('table tbody tr');
+  const count = await rows.count();
+  expect(count).toBeGreaterThanOrEqual(30);
+}
+
+async function assertTablePagination(page: Page): Promise<void> {
+  const table = page.locator('table');
+  const tableComputedStyle = await table.evaluate((el) => getComputedStyle(el).breakInside);
+  expect(tableComputedStyle).toBe('avoid');
+}
+
+async function assertReceiptStatusVisible(page: Page): Promise<void> {
+  const statusField = page.locator('.po-document__status');
+  await expect(statusField).toBeVisible();
+  const receipts = page.locator('.po-document__receipts');
+  await expect(receipts).toBeVisible();
+  const receiptItems = page.locator('.receipt-status');
+  const count = await receiptItems.count();
+  expect(count).toBeGreaterThan(0);
 }
 
 async function assertExactPrintFonts(page: Page): Promise<void> {

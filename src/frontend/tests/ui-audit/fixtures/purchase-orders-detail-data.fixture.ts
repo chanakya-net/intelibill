@@ -30,6 +30,19 @@ export function longPurchaseOrderLines(): readonly PurchaseOrderLine[] {
   ];
 }
 
+export function denseLinesPurchaseOrder(): readonly PurchaseOrderLine[] {
+  return Array.from({ length: 35 }, (_, index) => ({
+    lineId: `dense-line-${index + 1}`,
+    itemId: `item-${index + 1}`,
+    description: `Line Item ${index + 1}: Deterministic product description for dense table pagination audit`,
+    expectedQuantity: 10 + (index % 5),
+    receivedQuantity: (index % 3) + 1,
+    remainingQuantity: (10 + (index % 5)) - ((index % 3) + 1),
+    unitCost: 50 + (index * 2.5),
+    lineTotal: (10 + (index % 5)) * (50 + (index * 2.5)),
+  }));
+}
+
 export function purchaseOrderReceiptHistory(): readonly PurchaseOrderReceipt[] {
   return [
     receiptHistoryItem(

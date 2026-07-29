@@ -14,6 +14,7 @@ import {
 import {
   longPurchaseOrderLines,
   purchaseOrderReceiptHistory,
+  denseLinesPurchaseOrder,
 } from './purchase-orders-detail-data.fixture';
 
 const API_BASE = 'http://localhost:5277/api';
@@ -26,6 +27,10 @@ export interface PurchaseOrdersScenario {
   readonly apiState: PurchaseOrdersApiState;
   readonly withLongLines: boolean;
   readonly withReceiptHistory: boolean;
+  readonly withLongSupplierDetails: boolean;
+  readonly withLongNotes: boolean;
+  readonly withDenseLines: boolean;
+  readonly withLongShopAddress: boolean;
 }
 
 export interface PurchaseOrdersScenarioOptions extends ShellScenarioOptions {
@@ -33,6 +38,10 @@ export interface PurchaseOrdersScenarioOptions extends ShellScenarioOptions {
   readonly apiState?: PurchaseOrdersApiState;
   readonly withLongLines?: boolean;
   readonly withReceiptHistory?: boolean;
+  readonly withLongSupplierDetails?: boolean;
+  readonly withLongNotes?: boolean;
+  readonly withDenseLines?: boolean;
+  readonly withLongShopAddress?: boolean;
 }
 
 export const PURCHASE_ORDER_STATUSES: readonly PurchaseOrderListItem[] = [
@@ -72,6 +81,10 @@ export function createPurchaseOrdersScenario(
     apiState: options.apiState ?? 'ready',
     withLongLines: options.withLongLines ?? false,
     withReceiptHistory: options.withReceiptHistory ?? false,
+    withLongSupplierDetails: options.withLongSupplierDetails ?? false,
+    withLongNotes: options.withLongNotes ?? false,
+    withDenseLines: options.withDenseLines ?? false,
+    withLongShopAddress: options.withLongShopAddress ?? false,
   };
 }
 
@@ -89,6 +102,9 @@ export async function installPurchaseOrdersFixture(
         toDetail(order, {
           withLongLines: scenario.withLongLines,
           withReceiptHistory: scenario.withReceiptHistory,
+          withLongSupplierDetails: scenario.withLongSupplierDetails,
+          withLongNotes: scenario.withLongNotes,
+          withDenseLines: scenario.withDenseLines,
         }),
       ]),
     ),
@@ -300,24 +316,37 @@ function orderDate(order: PurchaseOrderListItem): string {
 
 function toDetail(
   order: PurchaseOrderListItem,
-  opts: { withLongLines?: boolean; withReceiptHistory?: boolean } = {},
+  opts: {
+    withLongLines?: boolean;
+    withReceiptHistory?: boolean;
+    withLongSupplierDetails?: boolean;
+    withLongNotes?: boolean;
+    withDenseLines?: boolean;
+  } = {},
 ): PurchaseOrderDetail {
-  const lines = opts.withLongLines ? longPurchaseOrderLines() : [];
-  const LONG_NOTES = opts.withLongLines
+  const lines = opts.withDenseLines ? denseLinesPurchaseOrder() : opts.withLongLines ? longPurchaseOrderLines() : [];
+  const supplierName = opts.withLongSupplierDetails
+    ? 'Very Long International Supplier Name With Deterministic Audit Value'
+    : order.supplierName;
+  const supplierReference = opts.withLongSupplierDetails
+    ? 'SUPPLIER-REFERENCE-WITH-A-LONG-DETERMINISTIC-VALUE-2026-000001'
+    : order.supplierReference;
+  const notes = opts.withLongNotes
     ? Array.from({ length: 350 }, () => 'Deterministic long notes for A4 pagination coverage.').join(' ')
     : null;
+
   const detail: PurchaseOrderDetail = {
     purchaseOrderId: order.purchaseOrderId,
     purchaseOrderNumber: order.purchaseOrderNumber,
     status: order.status,
     supplierId: null,
-    supplierName: order.supplierName,
-    supplierReference: order.supplierReference,
+    supplierName,
+    supplierReference,
     receivedQuantity: order.receivedQuantity,
     orderDate: orderDate(order),
     expectedDeliveryDate: null,
-    supplierReferenceNumber: order.supplierReference,
-    notes: LONG_NOTES,
+    supplierReferenceNumber: supplierReference,
+    notes,
     lines,
     expectedTotal: lines.length > 0 ? lines.reduce((sum, line) => sum + line.lineTotal, 0) : order.expectedTotal,
     createdAt: order.createdAt,
