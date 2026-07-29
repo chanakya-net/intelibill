@@ -302,6 +302,10 @@ function toDetail(
   order: PurchaseOrderListItem,
   opts: { withLongLines?: boolean; withReceiptHistory?: boolean } = {},
 ): PurchaseOrderDetail {
+  const lines = opts.withLongLines ? longPurchaseOrderLines() : [];
+  const LONG_NOTES = opts.withLongLines
+    ? Array.from({ length: 350 }, () => 'Deterministic long notes for A4 pagination coverage.').join(' ')
+    : null;
   const detail: PurchaseOrderDetail = {
     purchaseOrderId: order.purchaseOrderId,
     purchaseOrderNumber: order.purchaseOrderNumber,
@@ -313,9 +317,9 @@ function toDetail(
     orderDate: orderDate(order),
     expectedDeliveryDate: null,
     supplierReferenceNumber: order.supplierReference,
-    notes: null,
-    lines: opts.withLongLines ? longPurchaseOrderLines() : [],
-    expectedTotal: order.expectedTotal,
+    notes: LONG_NOTES,
+    lines,
+    expectedTotal: lines.length > 0 ? lines.reduce((sum, line) => sum + line.lineTotal, 0) : order.expectedTotal,
     createdAt: order.createdAt,
     cancellationReason: null,
   };
