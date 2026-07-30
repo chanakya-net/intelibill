@@ -56,8 +56,6 @@ public sealed class ApiWebApplicationFactory(PostgreSqlTestFixture? fixture = nu
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseEnvironment("Development");
-
         builder.ConfigureLogging(logging =>
         {
             logging.AddFilter("Wolverine.Http.HttpGraph", LogLevel.Error);

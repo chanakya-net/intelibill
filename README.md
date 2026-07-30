@@ -6,8 +6,8 @@ AI-powered inventory management system.
 
 | | Backend | Frontend | Mobile |
 |---|---|---|---|
-| Build | [![Backend CI](.github/badges/backend-build.svg)](https://github.com/chanakya-net/intelibill/actions/workflows/backend-main-ci.yml) | [![Frontend CI](.github/badges/frontend-build.svg)](https://github.com/chanakya-net/intelibill/actions/workflows/frontend-main-ci.yml) | [![Mobile CI](.github/badges/mobile-build.svg)](https://github.com/chanakya-net/intelibill/actions/workflows/mobile-main-ci.yml) |
-| Tests | [![Tests](.github/badges/tests.svg)](https://github.com/chanakya-net/intelibill/actions/workflows/backend-main-ci.yml) | [![Frontend Tests](.github/badges/frontend-tests.svg)](https://github.com/chanakya-net/intelibill/actions/workflows/frontend-main-ci.yml) | [![Mobile Tests](.github/badges/mobile-tests.svg)](https://github.com/chanakya-net/intelibill/actions/workflows/mobile-main-ci.yml) |
+| Build | [![Backend CI](.github/badges/backend-build.svg)](https://github.com/chanakya-net/intelibill/actions/workflows/deploy.yml) | [![Frontend CI](.github/badges/frontend-build.svg)](https://github.com/chanakya-net/intelibill/actions/workflows/deploy.yml) | [![Mobile CI](.github/badges/mobile-build.svg)](https://github.com/chanakya-net/intelibill/actions/workflows/mobile-main-ci.yml) |
+| Tests | [![Tests](.github/badges/tests.svg)](https://github.com/chanakya-net/intelibill/actions/workflows/deploy.yml) | [![Frontend Tests](.github/badges/frontend-tests.svg)](https://github.com/chanakya-net/intelibill/actions/workflows/deploy.yml) | [![Mobile Tests](.github/badges/mobile-tests.svg)](https://github.com/chanakya-net/intelibill/actions/workflows/mobile-main-ci.yml) |
 
 ## Tech Stack
 

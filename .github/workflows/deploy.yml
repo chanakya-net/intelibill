@@ -85,7 +85,27 @@ jobs:
         run: dotnet build src/backend/Intelibill.slnx --configuration Release --no-restore
 
       - name: Test backend
-        run: dotnet test src/backend/Intelibill.slnx --configuration Release --no-build --verbosity normal
+        run: |
+          set -euo pipefail
+
+          mapfile -t test_projects < <(find tests/backend -type f -name '*.csproj' | sort)
+          if [ ${#test_projects[@]} -eq 0 ]; then
+            echo 'No backend test projects found under tests/backend.'
+            exit 1
+          fi
+
+          for project in "${test_projects[@]}"; do
+            project_name=$(basename "${project}" .csproj)
+            project_results_dir="TestResults/${project_name}"
+
+            dotnet test "${project}" \
+              --configuration Release \
+              --no-build \
+              --no-restore \
+              --verbosity normal \
+              --logger "trx;LogFileName=${project_name}.trx" \
+              --results-directory "${project_results_dir}"
+          done
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
@@ -102,7 +122,116 @@ jobs:
 
       - name: Test frontend
         working-directory: src/frontend
-        run: CI=true bun run test --watch=false
+        run: |
+          set -euo pipefail
+          mkdir -p ../../TestResults/frontend
+          rm -rf coverage
+          CI=true FORCE_COLOR=0 bun run test --watch=false --coverage 2>&1 | tee ../../TestResults/frontend/test-output.log
+          sed -E 's/\x1B\[[0-9;]*[mK]//g' ../../TestResults/frontend/test-output.log > ../../TestResults/frontend/test-output.clean.log
+
+      - name: Generate build and test badges
+        if: ${{ github.event_name == 'push' }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p .github/badges
+
+          mapfile -t test_projects < <(find tests/backend -type f -name '*.csproj' | sort)
+          total_tests=0
+          passed_tests=0
+
+          for project in "${test_projects[@]}"; do
+            project_name=$(basename "${project}" .csproj)
+            trx_file="TestResults/${project_name}/${project_name}.trx"
+            if [ ! -f "${trx_file}" ]; then
+              echo "Expected TRX file not found for ${project_name}: ${trx_file}"
+              exit 1
+            fi
+
+            total=$(grep -oP 'Counters[^>]*total="\K[0-9]+' "${trx_file}" | head -1 || true)
+            passed=$(grep -oP 'Counters[^>]*passed="\K[0-9]+' "${trx_file}" | head -1 || true)
+            total_tests=$((total_tests + ${total:-0}))
+            passed_tests=$((passed_tests + ${passed:-0}))
+          done
+
+          backend_color="red"
+          if [ "${total_tests}" -eq 0 ]; then
+            backend_color="lightgrey"
+          elif [ "${passed_tests}" -eq "${total_tests}" ]; then
+            backend_color="brightgreen"
+          elif [ "${passed_tests}" -gt 0 ]; then
+            backend_color="yellow"
+          fi
+
+          backend_message="${passed_tests}/${total_tests} passed"
+          cat > .github/badges/tests.json <<JSON
+          {
+            "schemaVersion": 1,
+            "label": "tests",
+            "message": "${backend_message}",
+            "color": "${backend_color}"
+          }
+          JSON
+
+          encoded_backend_message=$(printf '%s' "${backend_message}" | sed 's/%/%25/g; s/ /%20/g; s|/|%2F|g')
+          curl -fsSL "https://img.shields.io/badge/tests-${encoded_backend_message}-${backend_color}.svg?style=flat" \
+            -o .github/badges/tests.svg
+          curl -fsSL "https://img.shields.io/badge/build-passing-brightgreen.svg?style=flat" \
+            -o .github/badges/backend-build.svg
+
+          frontend_log='TestResults/frontend/test-output.clean.log'
+          tests_line=$(grep -E 'Tests[[:space:]]+[0-9]+[[:space:]]+passed([[:space:]]+\|[[:space:]]+[0-9]+[[:space:]]+skipped)?[[:space:]]+\([0-9]+\)' "${frontend_log}" | tail -1 || true)
+          files_line=$(grep -E 'Test Files[[:space:]]+[0-9]+[[:space:]]+passed([[:space:]]+\|[[:space:]]+[0-9]+[[:space:]]+skipped)?[[:space:]]+\([0-9]+\)' "${frontend_log}" | tail -1 || true)
+          frontend_passed=$(printf '%s\n' "${tests_line}" | sed -n 's/.*Tests[[:space:]]\+\([0-9][0-9]*\)[[:space:]]\+passed.*/\1/p')
+          frontend_total=$(printf '%s\n' "${tests_line}" | sed -n 's/.*(\([0-9][0-9]*\)).*/\1/p')
+          frontend_files=$(printf '%s\n' "${files_line}" | sed -n 's/.*(\([0-9][0-9]*\)).*/\1/p')
+          frontend_passed=${frontend_passed:-0}
+          frontend_total=${frontend_total:-0}
+          frontend_files=${frontend_files:-0}
+
+          if [ "${frontend_files}" -gt 0 ] && [ "${frontend_total}" -eq 0 ]; then
+            echo "Failed to parse frontend test summary from ${frontend_log}."
+            exit 1
+          fi
+
+          frontend_color="red"
+          if [ "${frontend_total}" -eq 0 ]; then
+            frontend_color="lightgrey"
+          elif [ "${frontend_passed}" -eq "${frontend_total}" ]; then
+            frontend_color="brightgreen"
+          elif [ "${frontend_passed}" -gt 0 ]; then
+            frontend_color="yellow"
+          fi
+
+          frontend_message="${frontend_passed}/${frontend_total} passed"
+          cat > .github/badges/frontend-tests.json <<JSON
+          {
+            "schemaVersion": 1,
+            "label": "frontend tests",
+            "message": "${frontend_message}",
+            "color": "${frontend_color}"
+          }
+          JSON
+
+          encoded_frontend_message=$(printf '%s' "${frontend_message}" | sed 's/%/%25/g; s/ /%20/g; s|/|%2F|g')
+          curl -fsSL "https://img.shields.io/badge/frontend%20tests-${encoded_frontend_message}-${frontend_color}.svg?style=flat" \
+            -o .github/badges/frontend-tests.svg
+          curl -fsSL "https://img.shields.io/badge/build-passing-brightgreen.svg?style=flat" \
+            -o .github/badges/frontend-build.svg
+
+      - name: Upload build and test badges
+        if: ${{ github.event_name == 'push' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: application-badges
+          path: |
+            .github/badges/tests.json
+            .github/badges/tests.svg
+            .github/badges/backend-build.svg
+            .github/badges/frontend-tests.json
+            .github/badges/frontend-tests.svg
+            .github/badges/frontend-build.svg
+          if-no-files-found: error
 
       - name: Build pull-request API image
         if: ${{ github.event_name == 'pull_request' }}
@@ -157,6 +286,64 @@ jobs:
           exit-code: "1"
           ignore-unfixed: true
           severity: HIGH,CRITICAL
+
+  badges:
+    name: Publish build and test badges
+    needs: validate
+    if: ${{ github.event_name == 'push' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: true
+
+      - name: Download build and test badges
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: application-badges
+          path: .github/badges
+
+      - name: Commit badge updates
+        run: |
+          set -euo pipefail
+
+          badge_files=(
+            .github/badges/tests.json
+            .github/badges/tests.svg
+            .github/badges/backend-build.svg
+            .github/badges/frontend-tests.json
+            .github/badges/frontend-tests.svg
+            .github/badges/frontend-build.svg
+          )
+
+          if [ -z "$(git status --porcelain -- "${badge_files[@]}")" ]; then
+            echo 'No badge changes to commit.'
+            exit 0
+          fi
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add "${badge_files[@]}"
+          git commit -m 'ci: update application test badges'
+
+          max_attempts=3
+          for attempt in $(seq 1 ${max_attempts}); do
+            if git pull --rebase origin main && git push origin HEAD:main; then
+              echo 'Badge updates pushed successfully.'
+              exit 0
+            fi
+
+            if [ "${attempt}" -lt "${max_attempts}" ]; then
+              echo "Push attempt ${attempt} failed, retrying..."
+              sleep 2
+            fi
+          done
+
+          echo '::warning::Unable to push badge updates after retries. Skipping failure.'
 
   build_api:
     name: Build, publish, and scan API image

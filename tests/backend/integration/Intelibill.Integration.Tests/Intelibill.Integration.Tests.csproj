@@ -4,6 +4,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <IsPackable>false</IsPackable>
     <NoWarn>$(NoWarn);CA1707;CA1852</NoWarn>
+    <RunSettingsFilePath>$(MSBuildThisFileDirectory)integration.runsettings</RunSettingsFilePath>
   </PropertyGroup>
 
   <ItemGroup>
