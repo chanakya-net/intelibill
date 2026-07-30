@@ -47,6 +47,18 @@ apply = load_workflow(workflow_dir, "infra-apply.yml")
 deploy = load_workflow(workflow_dir, "deploy.yml")
 oidc_smoke = load_workflow(workflow_dir, "oidc-smoke-test.yml")
 
+%w[
+  backend-pr-ci.yml
+  backend-main-ci.yml
+  frontend-pr-ci.yml
+  frontend-main-ci.yml
+].each do |duplicate_workflow|
+  assert(
+    !File.exist?(File.join(workflow_dir, duplicate_workflow)),
+    "#{duplicate_workflow} duplicates application validation from deploy.yml",
+  )
+end
+
 Dir.glob(File.join(workflow_dir, "*.{yml,yaml}")).sort.each do |path|
   workflow = load_workflow(workflow_dir, File.basename(path))
   run_name = workflow.fetch("run-name", "").to_s
@@ -59,11 +71,19 @@ Dir.glob(File.join(workflow_dir, "*.{yml,yaml}")).sort.each do |path|
 end
 
 [plan, apply, deploy].each do |workflow|
-  workflow.fetch("jobs").each_value do |job|
+  workflow.fetch("jobs").each do |job_name, job|
     checkout_steps = Array(job["steps"]).select do |step|
       step.is_a?(Hash) && step.fetch("uses", "").start_with?("actions/checkout@")
     end
     checkout_steps.each do |step|
+      if workflow.equal?(deploy) && job_name == "badges"
+        assert(
+          step.dig("with", "persist-credentials") == true,
+          "badge publication must explicitly opt into push credentials",
+        )
+        next
+      end
+
       assert(
         step.dig("with", "persist-credentials") == false,
         "checkout must not persist a workflow token into the build context",
@@ -257,6 +277,14 @@ release_images.each do |job_name, image|
   )
 end
 validation_commands = commands(deploy_jobs.fetch("validate"))
+assert(
+  validation_commands.scan("dotnet test").length == 1,
+  "backend tests must have exactly one owner in application validation",
+)
+assert(
+  validation_commands.scan("bun run test").length == 1,
+  "frontend tests must have exactly one owner in application validation",
+)
 %w[
   src/backend/Dockerfile
   src/frontend/Dockerfile
@@ -267,6 +295,16 @@ validation_commands = commands(deploy_jobs.fetch("validate"))
     "pull-request validation does not build #{dockerfile}",
   )
 end
+badges_job = deploy_jobs.fetch("badges")
+assert(badges_job["needs"] == "validate", "badge publication must follow validation")
+assert(
+  badges_job.fetch("if").include?("github.event_name == 'push'"),
+  "badge publication must run only for main pushes",
+)
+assert(
+  badges_job.dig("permissions", "contents") == "write",
+  "badge publication requires narrowly scoped contents write permission",
+)
 assert(
   deploy_jobs.dig("dev", "needs") == release_images.keys,
   "dev release must follow all parallel image builds",
