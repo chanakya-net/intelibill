@@ -1,5 +1,5 @@
 import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core';
-import { FormBuilder, Validators } from '@angular/forms';
+import { FormBuilder } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AutoCompleteCompleteEvent } from 'primeng/autocomplete';
 import { firstValueFrom } from 'rxjs';
@@ -11,6 +11,7 @@ import { InventoryInboundDraftRow } from '../../../core/storage/inventory-draft-
 import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
 import { Supplier } from '../../suppliers/services/supplier.service';
 import { SuppliersFacade } from '../../suppliers/state/suppliers.facade';
+import { InputValidators } from '../../../shared/forms/input-validation';
 
 export type PrepareScannedRowResult =
   | { status: 'added'; row: InventoryInboundDraftRow }
@@ -50,24 +51,29 @@ export class BatchRowFormStateService {
     (this.hsnResult()?.taxScenarios ?? []).map((s) => s.taxPercentage),
   );
   readonly suppliers = this.suppliersFacade.suppliers;
-  readonly form = this.formBuilder.nonNullable.group({
-    itemName: ['', [Validators.required, Validators.maxLength(180)]],
-    barcode: ['', [Validators.required, Validators.maxLength(120)]],
-    itemDescription: ['', [Validators.maxLength(320)]],
-    uom: ['PCS', [Validators.required, Validators.maxLength(40)]],
-    batchNumber: ['', [Validators.required, Validators.maxLength(80)]],
-    quantity: [1, [Validators.required, Validators.min(0.0001)]],
-    totalPurchaseCost: [0, [Validators.required, Validators.min(0)]],
-    mrp: [0, [Validators.required, Validators.min(0)]],
-    salesPrice: [0, [Validators.required, Validators.min(0)]],
-    taxRatePercent: [0, [Validators.required, Validators.min(0)]],
-    taxIncluded: [true, [Validators.required]],
-    expiryDate: [''],
-    manufacturingDate: [''],
-    supplierName: [''],
-    referenceNumber: ['', [Validators.maxLength(120)]],
-    notes: ['', [Validators.maxLength(320)]],
-  });
+  readonly form = this.formBuilder.nonNullable.group(
+    {
+      itemName: ['', InputValidators.requiredText(180)],
+      barcode: ['', InputValidators.requiredText(128)],
+      itemDescription: ['', InputValidators.optionalText(1000)],
+      uom: ['PCS', InputValidators.requiredText(32)],
+      batchNumber: ['', InputValidators.requiredText(80)],
+      quantity: [1, InputValidators.positiveNumber()],
+      totalPurchaseCost: [0, InputValidators.nonNegativeNumber()],
+      mrp: [0, InputValidators.nonNegativeNumber()],
+      salesPrice: [0, InputValidators.nonNegativeNumber()],
+      taxRatePercent: [0, InputValidators.percentage()],
+      taxIncluded: [true],
+      expiryDate: [''],
+      manufacturingDate: [''],
+      supplierName: [''],
+      referenceNumber: ['', InputValidators.optionalText(120)],
+      notes: ['', InputValidators.optionalText(320)],
+    },
+    {
+      validators: InputValidators.fieldLessThanOrEqual('salesPrice', 'mrp', 'salesPriceExceedsMrp'),
+    },
+  );
 
   private clearHsnSelectionOnNextItemNameChange = false;
 
@@ -270,9 +276,7 @@ export class BatchRowFormStateService {
     this.barcodeGenerateError.set('');
   }
 
-  async fetchProductDetails(options?: {
-    lookupHsnIfMissing?: boolean;
-  }): Promise<{
+  async fetchProductDetails(options?: { lookupHsnIfMissing?: boolean }): Promise<{
     readonly patched: boolean;
     readonly hsnApplied: boolean;
     readonly error: boolean;

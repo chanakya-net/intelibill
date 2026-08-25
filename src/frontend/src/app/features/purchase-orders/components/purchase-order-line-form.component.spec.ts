@@ -10,7 +10,9 @@ import { PurchaseOrderLineFormComponent } from './purchase-order-line-form.compo
 describe('PurchaseOrderLineFormComponent', () => {
   const catalog = {
     filterByName: vi.fn(() => [{ itemId: 'item-1', name: 'Widget', barcode: 'W1' }]),
-    findByName: vi.fn((name: string) => name === 'Widget' ? { itemId: 'item-1', name: 'Widget', barcode: 'W1' } : undefined),
+    findByName: vi.fn((name: string) =>
+      name === 'Widget' ? { itemId: 'item-1', name: 'Widget', barcode: 'W1' } : undefined,
+    ),
     upsertEntry: vi.fn(),
   };
   const inventory = {
@@ -28,9 +30,14 @@ describe('PurchaseOrderLineFormComponent', () => {
     inventory.generateItemBarcode.mockReset();
     inventory.generateItemBarcode.mockReturnValue(of({ barcode: 'IT-PO-000001' }));
     inventory.addItem.mockClear();
-    inventory.addItem.mockReturnValue(of({ id: 'item-2', name: 'New Item', barcode: 'IT-PO-000001' }));
+    inventory.addItem.mockReturnValue(
+      of({ id: 'item-2', name: 'New Item', barcode: 'IT-PO-000001' }),
+    );
     TestBed.configureTestingModule({
-      imports: [PurchaseOrderLineFormComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
+      imports: [
+        PurchaseOrderLineFormComponent,
+        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+      ],
       providers: [
         { provide: ProductCatalogSyncService, useValue: catalog },
         { provide: InventoryService, useValue: inventory },
@@ -47,7 +54,21 @@ describe('PurchaseOrderLineFormComponent', () => {
 
     component.submitLine();
 
-    expect(emitted).toEqual([{ itemId: 'item-1', description: 'Widget', expectedQuantity: 2, unitCost: 10 }]);
+    expect(emitted).toEqual([
+      { itemId: 'item-1', description: 'Widget', expectedQuantity: 2, unitCost: 10 },
+    ]);
+  });
+
+  it('rejects a whitespace-only line description', () => {
+    component.form.patchValue({ description: '   ' });
+
+    expect(component.form.controls.description.hasError('required')).toBe(true);
+  });
+
+  it('rejects a fractional expected quantity', () => {
+    component.form.patchValue({ expectedQuantity: 1.5 });
+
+    expect(component.form.controls.expectedQuantity.hasError('integer')).toBe(true);
   });
 
   it('renders quantity as a horizontal stepper distinct from unit cost', () => {
@@ -80,12 +101,20 @@ describe('PurchaseOrderLineFormComponent', () => {
 
     await component.quickCreateProduct();
 
-    expect(inventory.addItem).toHaveBeenCalledWith(expect.objectContaining({
+    expect(inventory.addItem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'New Item',
+        barcode: 'IT-PO-000001',
+      }),
+    );
+    expect(catalog.upsertEntry).toHaveBeenCalledWith({
+      itemId: 'item-2',
       name: 'New Item',
       barcode: 'IT-PO-000001',
-    }));
-    expect(catalog.upsertEntry).toHaveBeenCalledWith({ itemId: 'item-2', name: 'New Item', barcode: 'IT-PO-000001' });
-    expect(emitted).toEqual([{ itemId: 'item-2', description: 'New Item', expectedQuantity: 3, unitCost: 12 }]);
+    });
+    expect(emitted).toEqual([
+      { itemId: 'item-2', description: 'New Item', expectedQuantity: 3, unitCost: 12 },
+    ]);
   });
 
   it('shows an error and does not emit when quick-create fails', async () => {

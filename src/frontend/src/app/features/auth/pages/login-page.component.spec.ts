@@ -30,7 +30,11 @@ describe('LoginPageComponent', () => {
     navigationState: Record<string, unknown> | null = null,
   ): { component: LoginPageComponent; navigateByUrl: ReturnType<typeof vi.spyOn> } {
     TestBed.configureTestingModule({
-      imports: [LoginPageComponent, RouterTestingModule.withRoutes([]), TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
+      imports: [
+        LoginPageComponent,
+        RouterTestingModule.withRoutes([]),
+        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+      ],
       providers: [
         { provide: AuthService, useValue: authService },
         { provide: Store, useValue: store },
@@ -49,7 +53,9 @@ describe('LoginPageComponent', () => {
     const router = TestBed.inject(Router);
     const navigateByUrl = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
     if (navigationState) {
-      vi.spyOn(router, 'getCurrentNavigation').mockReturnValue({ extras: { state: navigationState } } as never);
+      vi.spyOn(router, 'getCurrentNavigation').mockReturnValue({
+        extras: { state: navigationState },
+      } as never);
     }
     const fixture = TestBed.createComponent(LoginPageComponent);
     fixture.detectChanges();
@@ -109,6 +115,14 @@ describe('LoginPageComponent', () => {
     expect(authService.login).not.toHaveBeenCalled();
   });
 
+  it('rejects whitespace-only credentials', () => {
+    const { component } = setup();
+    component.form.patchValue({ identifier: '   ', password: '   ' });
+
+    expect(component.form.controls.identifier.hasError('required')).toBe(true);
+    expect(component.form.controls.password.hasError('required')).toBe(true);
+  });
+
   it('submits and navigates on success', () => {
     const { component, navigateByUrl } = setup();
     component.form.controls.identifier.setValue('user@example.com');
@@ -145,7 +159,7 @@ describe('LoginPageComponent', () => {
 
   it('maps invalid credential error into friendly message', () => {
     authService.login.mockReturnValue(
-      throwError(() => ({ error: { title: 'Auth.InvalidCredentials' } }))
+      throwError(() => ({ error: { title: 'Auth.InvalidCredentials' } })),
     );
     const { component } = setup();
     component.form.controls.identifier.setValue('user@example.com');
@@ -168,7 +182,7 @@ describe('LoginPageComponent', () => {
 
   it('sets server error when external login init fails', () => {
     authService.initializeExternalLogin.mockReturnValue(
-      throwError(() => ({ error: { title: 'Auth.UnsupportedProvider' } }))
+      throwError(() => ({ error: { title: 'Auth.UnsupportedProvider' } })),
     );
     const { component } = setup();
 
@@ -193,7 +207,10 @@ describe('LoginPageComponent', () => {
   });
 
   it('shows fallback error when external sign-in was pending but no callback error was provided', () => {
-    sessionStorage.setItem('inventory.auth.external.pending', ExternalAuthProvider.Google.toString());
+    sessionStorage.setItem(
+      'inventory.auth.external.pending',
+      ExternalAuthProvider.Google.toString(),
+    );
     const { component } = setup();
 
     expect(component.serverError()).toBe('errors.auth.externalSignInIncomplete');

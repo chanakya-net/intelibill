@@ -1,6 +1,16 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges, inject, signal } from '@angular/core';
-import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import {
+  Component,
+  EventEmitter,
+  Input,
+  OnChanges,
+  OnInit,
+  Output,
+  SimpleChanges,
+  inject,
+  signal,
+} from '@angular/core';
+import { FormArray, FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
 import { AutoCompleteCompleteEvent } from 'primeng/autocomplete';
 import { ButtonModule } from 'primeng/button';
@@ -25,6 +35,7 @@ import {
 import { formatLocalIsoDate } from '../../../shared/utils/date-time.util';
 import { InventoryBatchDefaultsService } from '../../inventory/services/inventory-batch-defaults.service';
 import { InventoryService } from '../../inventory/services/inventory.service';
+import { InputValidators } from '../../../shared/forms/input-validation';
 
 @Component({
   selector: 'app-receive-purchase-order-dialog',
@@ -113,7 +124,9 @@ import { InventoryService } from '../../inventory/services/inventory.service';
                       severity="secondary"
                       text
                       (click)="generateBatchNumber(index)"
-                      [attr.aria-label]="'purchaseOrders.receiveDialog.generateBatchNumber' | transloco"
+                      [attr.aria-label]="
+                        'purchaseOrders.receiveDialog.generateBatchNumber' | transloco
+                      "
                     ></button>
                   </p-inputgroup-addon>
                 </p-inputgroup>
@@ -124,20 +137,40 @@ import { InventoryService } from '../../inventory/services/inventory.service';
               </label>
               <label>
                 {{ 'purchaseOrders.receiveDialog.totalPurchaseCost' | transloco }}
-                <p-inputNumber formControlName="totalPurchaseCost" mode="decimal" [min]="0" [minFractionDigits]="2" />
+                <p-inputNumber
+                  formControlName="totalPurchaseCost"
+                  mode="decimal"
+                  [min]="0"
+                  [minFractionDigits]="2"
+                />
               </label>
               <label>
                 {{ 'purchaseOrders.receiveDialog.mrp' | transloco }}
-                <p-inputNumber formControlName="mrp" mode="decimal" [min]="0" [minFractionDigits]="2" />
+                <p-inputNumber
+                  formControlName="mrp"
+                  mode="decimal"
+                  [min]="0"
+                  [minFractionDigits]="2"
+                />
               </label>
               <label>
                 {{ 'purchaseOrders.receiveDialog.salesPrice' | transloco }}
-                <p-inputNumber formControlName="salesPrice" mode="decimal" [min]="0" [minFractionDigits]="2" />
+                <p-inputNumber
+                  formControlName="salesPrice"
+                  mode="decimal"
+                  [min]="0"
+                  [minFractionDigits]="2"
+                />
               </label>
               <label>
                 {{ 'purchaseOrders.receiveDialog.taxRate' | transloco }}
                 <p-inputgroup>
-                  <p-inputNumber formControlName="taxRatePercent" mode="decimal" [min]="0" [max]="100" />
+                  <p-inputNumber
+                    formControlName="taxRatePercent"
+                    mode="decimal"
+                    [min]="0"
+                    [max]="100"
+                  />
                   <p-inputgroup-addon>
                     <button
                       pButton
@@ -182,35 +215,110 @@ import { InventoryService } from '../../inventory/services/inventory.service';
                 <p-checkbox formControlName="purchaseTaxIncluded" [binary]="true" />
                 {{ 'purchaseOrders.receiveDialog.purchaseTaxIncluded' | transloco }}
               </label>
-              <button pButton type="button" severity="secondary" [label]="'purchaseOrders.receiveDialog.removeLine' | transloco" (click)="removeLine(index)" [disabled]="lines.length === 1"></button>
+              <button
+                pButton
+                type="button"
+                severity="secondary"
+                [label]="'purchaseOrders.receiveDialog.removeLine' | transloco"
+                (click)="removeLine(index)"
+                [disabled]="lines.length === 1"
+              ></button>
             </div>
           }
         </div>
-        <button pButton type="button" severity="secondary" [label]="'purchaseOrders.receiveDialog.addLine' | transloco" (click)="addLine()"></button>
+        <button
+          pButton
+          type="button"
+          severity="secondary"
+          [label]="'purchaseOrders.receiveDialog.addLine' | transloco"
+          (click)="addLine()"
+        ></button>
         @if (remainingError()) {
-          <p class="error" role="alert">{{ 'purchaseOrders.receiveDialog.quantityOverRemaining' | transloco }}</p>
+          <p class="error" role="alert">
+            {{ 'purchaseOrders.receiveDialog.quantityOverRemaining' | transloco }}
+          </p>
         }
         @if (duplicateLineError()) {
-          <p class="error" role="alert">{{ 'purchaseOrders.receiveDialog.duplicateLine' | transloco }}</p>
+          <p class="error" role="alert">
+            {{ 'purchaseOrders.receiveDialog.duplicateLine' | transloco }}
+          </p>
         }
         <div class="actions">
-          <button pButton type="button" severity="secondary" [label]="'purchaseOrders.actions.cancel' | transloco" (click)="hide()"></button>
-          <button pButton type="submit" [label]="'purchaseOrders.actions.receive' | transloco" [disabled]="form.invalid || remainingError() || duplicateLineError() || lines.length === 0 || submitting"></button>
+          <button
+            pButton
+            type="button"
+            severity="secondary"
+            [label]="'purchaseOrders.actions.cancel' | transloco"
+            (click)="hide()"
+          ></button>
+          <button
+            pButton
+            type="submit"
+            [label]="'purchaseOrders.actions.receive' | transloco"
+            [disabled]="
+              form.invalid ||
+              remainingError() ||
+              duplicateLineError() ||
+              lines.length === 0 ||
+              submitting
+            "
+          ></button>
         </div>
       </form>
     </p-dialog>
   `,
-  styles: [`
-    .receive-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
-    label { display: grid; gap: .25rem; font-size: .875rem; }
-    .full-width, .actions, .error, .receipt-lines { grid-column: 1 / -1; }
-    .receipt-lines { display: grid; gap: .75rem; }
-    .receipt-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; padding: .75rem; border: 1px solid var(--p-content-border-color); border-radius: 6px; }
-    .checkbox-row { display: flex; align-items: center; gap: .5rem; }
-    .actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: .5rem; }
-    .error { color: var(--p-red-600); margin: 0; }
-    @media (max-width: 640px) { .receive-form { grid-template-columns: 1fr; } }
-  `],
+  styles: [
+    `
+      .receive-form {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.75rem;
+      }
+      label {
+        display: grid;
+        gap: 0.25rem;
+        font-size: 0.875rem;
+      }
+      .full-width,
+      .actions,
+      .error,
+      .receipt-lines {
+        grid-column: 1 / -1;
+      }
+      .receipt-lines {
+        display: grid;
+        gap: 0.75rem;
+      }
+      .receipt-row {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.75rem;
+        padding: 0.75rem;
+        border: 1px solid var(--p-content-border-color);
+        border-radius: 6px;
+      }
+      .checkbox-row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+      }
+      .error {
+        color: var(--p-red-600);
+        margin: 0;
+      }
+      @media (max-width: 640px) {
+        .receive-form {
+          grid-template-columns: 1fr;
+        }
+      }
+    `,
+  ],
 })
 export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnInit {
   private readonly fb = inject(FormBuilder);
@@ -240,7 +348,9 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnInit {
     lines: this.fb.array([this.createLineGroup()]),
   });
 
-  protected get lines(): FormArray<ReturnType<ReceivePurchaseOrderDialogComponent['createLineGroup']>> {
+  protected get lines(): FormArray<
+    ReturnType<ReceivePurchaseOrderDialogComponent['createLineGroup']>
+  > {
     return this.form.controls.lines;
   }
 
@@ -248,7 +358,9 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnInit {
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['order'] && this.order) {
-      this.receivableLines = [...this.order.lines.filter((line) => (line.remainingQuantity ?? line.expectedQuantity) > 0)];
+      this.receivableLines = [
+        ...this.order.lines.filter((line) => (line.remainingQuantity ?? line.expectedQuantity) > 0),
+      ];
       this.lines.clear();
       this.receivableLines.forEach((line, index) => {
         this.lines.push(this.createLineGroup(line));
@@ -261,7 +373,9 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnInit {
     const searchTerm = this.lineSearch().trim().toLocaleLowerCase();
     return this.lines.controls
       .map((row, index) => ({ index, line: this.findLine(row.controls.purchaseOrderLineId.value) }))
-      .filter(({ line }) => !searchTerm || line?.description.toLocaleLowerCase().includes(searchTerm))
+      .filter(
+        ({ line }) => !searchTerm || line?.description.toLocaleLowerCase().includes(searchTerm),
+      )
       .map(({ index }) => index);
   }
 
@@ -285,7 +399,9 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnInit {
   }
 
   protected addLine(): void {
-    const selected = new Set(this.lines.controls.map((row) => row.controls.purchaseOrderLineId.value));
+    const selected = new Set(
+      this.lines.controls.map((row) => row.controls.purchaseOrderLineId.value),
+    );
     const nextLine = this.receivableLines.find((line) => !selected.has(line.lineId));
     if (nextLine) {
       this.lines.push(this.createLineGroup(nextLine));
@@ -321,7 +437,11 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnInit {
   }
 
   protected onBarcodeFilter(index: number, event: AutoCompleteCompleteEvent): void {
-    this.setRecord(this.barcodeSuggestions, index, this.catalogSync.filterByBarcode(event.query).map((entry) => entry.barcode));
+    this.setRecord(
+      this.barcodeSuggestions,
+      index,
+      this.catalogSync.filterByBarcode(event.query).map((entry) => entry.barcode),
+    );
   }
 
   protected onBarcodeSelected(index: number, barcode: string): void {
@@ -355,7 +475,9 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnInit {
     this.setRecord(this.barcodeGenerating, index, true);
     this.setRecord(this.barcodeGenerateErrors, index, '');
     try {
-      const barcode = (await firstValueFrom(this.inventoryService.generateItemBarcode())).barcode.trim();
+      const barcode = (
+        await firstValueFrom(this.inventoryService.generateItemBarcode())
+      ).barcode.trim();
       if (!barcode) {
         this.setRecord(this.barcodeGenerateErrors, index, 'inventory.generateBarcodeError');
         return;
@@ -408,24 +530,36 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnInit {
   }
 
   private createLineGroup(line?: PurchaseOrderLine) {
-    const remaining = line ? line.remainingQuantity ?? line.expectedQuantity : 1;
-    return this.fb.nonNullable.group({
-      purchaseOrderLineId: [line?.lineId ?? '', Validators.required],
-      barcode: [line ? this.barcodeForLine(line) : '', [Validators.required, Validators.maxLength(120)]],
-      batchNumber: [this.batchDefaults.generateBatchNumber(), Validators.required],
-      quantity: [remaining, [Validators.required, Validators.min(1)]],
-      totalPurchaseCost: [(line?.unitCost ?? 0) * remaining, [Validators.required, Validators.min(0)]],
-      mrp: [0, [Validators.required, Validators.min(0)]],
-      salesPrice: [0, [Validators.required, Validators.min(0)]],
-      taxRatePercent: [0, [Validators.required, Validators.min(0), Validators.max(100)]],
-      taxIncluded: [false],
-      purchaseTaxIncluded: [false],
-      expiryDate: [null as Date | null],
-      manufacturingDate: [null as Date | null],
-    });
+    const remaining = line ? (line.remainingQuantity ?? line.expectedQuantity) : 1;
+    return this.fb.nonNullable.group(
+      {
+        purchaseOrderLineId: [line?.lineId ?? '', InputValidators.requiredText()],
+        barcode: [line ? this.barcodeForLine(line) : '', InputValidators.requiredText(120)],
+        batchNumber: [this.batchDefaults.generateBatchNumber(), InputValidators.requiredText(80)],
+        quantity: [remaining, InputValidators.positiveNumber()],
+        totalPurchaseCost: [(line?.unitCost ?? 0) * remaining, InputValidators.nonNegativeNumber()],
+        mrp: [0, InputValidators.nonNegativeNumber()],
+        salesPrice: [0, InputValidators.nonNegativeNumber()],
+        taxRatePercent: [0, InputValidators.percentage()],
+        taxIncluded: [false],
+        purchaseTaxIncluded: [false],
+        expiryDate: [null as Date | null],
+        manufacturingDate: [null as Date | null],
+      },
+      {
+        validators: InputValidators.fieldLessThanOrEqual(
+          'salesPrice',
+          'mrp',
+          'salesPriceExceedsMrp',
+        ),
+      },
+    );
   }
 
-  private async applyTaxDefault(index: number, options: { readonly respectDirty?: boolean } = {}): Promise<void> {
+  private async applyTaxDefault(
+    index: number,
+    options: { readonly respectDirty?: boolean } = {},
+  ): Promise<void> {
     const respectDirty = options.respectDirty ?? true;
     const row = this.lines.at(index);
     if (!row || (respectDirty && row.controls.taxRatePercent.dirty)) {
@@ -464,10 +598,16 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnInit {
   }
 
   private barcodeForLine(line: PurchaseOrderLine): string {
-    return this.catalogSync.catalogEntries().find((entry) => entry.itemId === line.itemId)?.barcode ?? '';
+    return (
+      this.catalogSync.catalogEntries().find((entry) => entry.itemId === line.itemId)?.barcode ?? ''
+    );
   }
 
-  private setRecord<T>(target: { (): Record<number, T>; set(value: Record<number, T>): void }, index: number, value: T | undefined): void {
+  private setRecord<T>(
+    target: { (): Record<number, T>; set(value: Record<number, T>): void },
+    index: number,
+    value: T | undefined,
+  ): void {
     const current = { ...target() };
     if (value === undefined || value === '' || value === false) {
       delete current[index];
@@ -484,7 +624,13 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnInit {
   }
 
   protected submit(): void {
-    if (this.form.invalid || this.remainingError() || this.duplicateLineError() || this.lines.length === 0) return;
+    if (
+      this.form.invalid ||
+      this.remainingError() ||
+      this.duplicateLineError() ||
+      this.lines.length === 0
+    )
+      return;
 
     const value = this.form.getRawValue();
     this.receive.emit({
@@ -503,7 +649,9 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnInit {
         taxIncluded: line.taxIncluded,
         purchaseTaxIncluded: line.purchaseTaxIncluded,
         expiryDate: line.expiryDate ? formatLocalIsoDate(line.expiryDate) : null,
-        manufacturingDate: line.manufacturingDate ? formatLocalIsoDate(line.manufacturingDate) : null,
+        manufacturingDate: line.manufacturingDate
+          ? formatLocalIsoDate(line.manufacturingDate)
+          : null,
       })),
     });
   }

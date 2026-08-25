@@ -126,7 +126,8 @@ export abstract class NewSalePageCartSubmitService extends NewSalePageCartSelect
     if (this.isSubmitting()) return;
     if (this.isOfflineSubmitting()) return;
     if (this.cart().length === 0 && this.serviceCart().length === 0) return;
-    if (this.paymentForm.invalid) {
+    if (this.customerForm.invalid || this.paymentForm.invalid) {
+      this.customerForm.markAllAsTouched();
       this.paymentForm.markAllAsTouched();
       return;
     }

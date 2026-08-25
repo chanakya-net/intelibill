@@ -121,12 +121,26 @@ describe('AddServiceOverlayComponent', () => {
     expect(component.form.touched).toBe(true);
   });
 
+  it('matches the backend price and description constraints', () => {
+    const fixture = TestBed.createComponent(AddServiceOverlayComponent);
+    const component = fixture.componentInstance;
+
+    component.form.patchValue({
+      name: 'Installation',
+      description: 'D'.repeat(1000),
+      price: 0,
+    });
+
+    expect(component.form.controls.description.valid).toBe(true);
+    expect(component.form.controls.price.hasError('min')).toBe(true);
+  });
+
   it('renders specific validation feedback with accessible control descriptions', () => {
     const fixture = TestBed.createComponent(AddServiceOverlayComponent);
     const component = fixture.componentInstance;
     component.form.patchValue({
       name: 'N'.repeat(181),
-      description: 'D'.repeat(321),
+      description: 'D'.repeat(1001),
       price: -1,
       taxRatePercent: 101,
       hsnCode: 'invalid',
@@ -147,7 +161,9 @@ describe('AddServiceOverlayComponent', () => {
     expect(host.querySelector('input#add-service-price')?.getAttribute('aria-describedby')).toBe(
       'add-service-price-error',
     );
-    expect(host.querySelector('input#add-service-price')?.getAttribute('aria-invalid')).toBe('true');
+    expect(host.querySelector('input#add-service-price')?.getAttribute('aria-invalid')).toBe(
+      'true',
+    );
     expect(host.querySelector('input#add-service-tax')?.getAttribute('aria-describedby')).toBe(
       'add-service-tax-error',
     );
@@ -162,7 +178,9 @@ describe('AddServiceOverlayComponent', () => {
     fixture.detectChanges();
 
     const host = fixture.nativeElement as HTMLElement;
-    expect(host.querySelector('input#add-service-price')?.getAttribute('aria-invalid')).toBe('true');
+    expect(host.querySelector('input#add-service-price')?.getAttribute('aria-invalid')).toBe(
+      'true',
+    );
 
     component.form.patchValue({ price: 250, taxRatePercent: 18 });
     fixture.detectChanges();

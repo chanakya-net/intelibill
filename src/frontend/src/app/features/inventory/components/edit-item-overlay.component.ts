@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, OnInit, Output, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { Store } from '@ngrx/store';
 import { TranslocoPipe } from '@ngneat/transloco';
 import { firstValueFrom } from 'rxjs';
@@ -25,6 +25,7 @@ import {
 import { InventoryService } from '../services/inventory.service';
 import type { Item } from '../services/inventory.models';
 import type { BarcodeDetection } from '../../../core/services/barcode-detector.service';
+import { InputValidators } from '../../../shared/forms/input-validation';
 
 @Component({
   selector: 'app-edit-item-overlay',
@@ -64,12 +65,12 @@ export class EditItemOverlayComponent implements OnInit {
   private pendingGeneratedBarcode: string | null = null;
 
   readonly form = this.formBuilder.nonNullable.group({
-    name: ['', [Validators.required, Validators.maxLength(180)]],
-    barcode: ['', [Validators.required, Validators.maxLength(128)]],
-    description: ['', [Validators.maxLength(1000)]],
-    uom: ['', [Validators.required, Validators.maxLength(32)]],
-    hsnCode: ['', [Validators.pattern(/^\s*\d{4,8}\s*$/)]],
-    defaultTaxRatePercent: [0, [Validators.required, Validators.min(0), Validators.max(100)]],
+    name: ['', InputValidators.requiredText(180)],
+    barcode: ['', InputValidators.requiredText(128)],
+    description: ['', InputValidators.optionalText(1000)],
+    uom: ['', InputValidators.requiredText(32)],
+    hsnCode: ['', InputValidators.hsnSacCode()],
+    defaultTaxRatePercent: [0, InputValidators.percentage()],
   });
 
   ngOnInit(): void {

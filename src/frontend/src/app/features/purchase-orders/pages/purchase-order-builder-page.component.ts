@@ -12,6 +12,7 @@ import { TextareaModule } from 'primeng/textarea';
 import { AuthService } from '../../../core/auth/auth.service';
 import { ShopPermissionsService } from '../../../core/layout/shop-permissions.service';
 import { formatLocalIsoDate, parseDateOnlyAsLocalDate } from '../../../shared/utils/date-time.util';
+import { InputValidators } from '../../../shared/forms/input-validation';
 import { SuppliersFacade } from '../../suppliers/state/suppliers.facade';
 import { PurchaseOrderLineFormComponent } from '../components/purchase-order-line-form.component';
 import { PurchaseOrderLinesTableComponent } from '../components/purchase-order-lines-table.component';
@@ -119,7 +120,7 @@ import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
             type="button"
             icon="pi pi-save"
             [label]="'purchaseOrders.builder.saveDraft' | transloco"
-            [disabled]="facade.isSubmitting()"
+            [disabled]="form.invalid || facade.isSubmitting()"
             (click)="saveDraft()"
           ></button>
           @if (purchaseOrderId) {
@@ -225,8 +226,8 @@ export class PurchaseOrderBuilderPageComponent implements OnInit, OnDestroy {
     supplierName: [''],
     orderDate: [null as Date | null],
     expectedDeliveryDate: [null as Date | null],
-    supplierReferenceNumber: [''],
-    notes: [''],
+    supplierReferenceNumber: ['', InputValidators.optionalText(100)],
+    notes: ['', InputValidators.optionalText(1000)],
   });
 
   protected readonly supplierSuggestions = computed(() =>
@@ -317,6 +318,11 @@ export class PurchaseOrderBuilderPageComponent implements OnInit, OnDestroy {
   }
 
   saveDraft(): void {
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
+
     const payload = this.draftState.toPayload();
     if (this.purchaseOrderId) {
       this.facade.updateDraft(this.purchaseOrderId, payload);

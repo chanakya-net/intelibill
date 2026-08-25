@@ -1,11 +1,5 @@
 import { Component, EventEmitter, OnInit, Output, computed, inject } from '@angular/core';
-import {
-  AbstractControl,
-  FormBuilder,
-  ReactiveFormsModule,
-  ValidationErrors,
-  Validators,
-} from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Store } from '@ngrx/store';
 import { TranslocoPipe } from '@ngneat/transloco';
 
@@ -18,6 +12,7 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { RootState } from '../../../core/state/app.state';
 import { UsersActions } from '../state/users.actions';
 import { selectUsersErrorMessage, selectUsersSubmitting } from '../state/users.selectors';
+import { InputValidators } from '../../../shared/forms/input-validation';
 
 @Component({
   selector: 'app-add-shop-user-overlay',
@@ -47,18 +42,15 @@ export class AddShopUserOverlayComponent implements OnInit {
   readonly form = this.formBuilder.nonNullable.group(
     {
       shopIds: [[] as string[], [Validators.required, Validators.minLength(1)]],
-      email: ['', [Validators.required, Validators.email, Validators.maxLength(256)]],
-      firstName: ['', [Validators.required, Validators.maxLength(100)]],
-      lastName: ['', [Validators.required, Validators.maxLength(100)]],
-      phoneNumber: [
-        '',
-        [Validators.required, Validators.maxLength(32), Validators.pattern(/^\+?[0-9]{7,15}$/)],
-      ],
-      password: ['', [Validators.required, Validators.minLength(8), Validators.maxLength(100)]],
-      confirmPassword: ['', [Validators.required]],
+      email: ['', InputValidators.email()],
+      firstName: ['', InputValidators.requiredText(100)],
+      lastName: ['', InputValidators.requiredText(100)],
+      phoneNumber: ['', InputValidators.phoneNumber()],
+      password: ['', InputValidators.password()],
+      confirmPassword: ['', InputValidators.password()],
       role: ['Manager' as 'Manager' | 'Staff', [Validators.required]],
     },
-    { validators: passwordsMatchValidator },
+    { validators: InputValidators.fieldsMatch('password', 'confirmPassword', 'passwordMismatch') },
   );
 
   constructor() {}
@@ -120,15 +112,4 @@ export class AddShopUserOverlayComponent implements OnInit {
       this.form.controls.shopIds.setValue(selected.filter((id) => id !== shopId));
     }
   }
-}
-
-function passwordsMatchValidator(control: AbstractControl): ValidationErrors | null {
-  const password = control.get('password')?.value;
-  const confirmPassword = control.get('confirmPassword')?.value;
-
-  if (!password || !confirmPassword) {
-    return null;
-  }
-
-  return password === confirmPassword ? null : { passwordMismatch: true };
 }

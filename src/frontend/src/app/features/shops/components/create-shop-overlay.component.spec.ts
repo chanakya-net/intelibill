@@ -18,7 +18,9 @@ describe('CreateShopOverlayComponent', () => {
   const dispatch = vi.fn();
   const isSubmittingSignal = signal(false);
   const errorSignal = signal('');
-  const lastMutationTypeSignal = signal<'create' | 'update' | 'update-bank-details' | 'set-default' | null>(null);
+  const lastMutationTypeSignal = signal<
+    'create' | 'update' | 'update-bank-details' | 'set-default' | null
+  >(null);
   const lastMutationSucceededSignal = signal(false);
   const sessionSignal = signal<{ activeShopId: string } | null>(null);
 
@@ -49,9 +51,15 @@ describe('CreateShopOverlayComponent', () => {
     session: sessionSignal,
   };
 
-  function setup(): { component: CreateShopOverlayComponent; fixture: ReturnType<typeof TestBed.createComponent<CreateShopOverlayComponent>> } {
+  function setup(): {
+    component: CreateShopOverlayComponent;
+    fixture: ReturnType<typeof TestBed.createComponent<CreateShopOverlayComponent>>;
+  } {
     TestBed.configureTestingModule({
-      imports: [CreateShopOverlayComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
+      imports: [
+        CreateShopOverlayComponent,
+        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+      ],
       providers: [
         { provide: Store, useValue: store },
         { provide: AuthService, useValue: authService },
@@ -92,7 +100,7 @@ describe('CreateShopOverlayComponent', () => {
 
     expect(component.shopForm.touched).toBe(true);
     expect(dispatch).not.toHaveBeenCalledWith(
-      expect.objectContaining({ type: ShopsActions.createShopRequested.type })
+      expect.objectContaining({ type: ShopsActions.createShopRequested.type }),
     );
   });
 
@@ -124,7 +132,7 @@ describe('CreateShopOverlayComponent', () => {
           mobileNumber: undefined,
           gstNumber: undefined,
         },
-      })
+      }),
     );
   });
 
@@ -142,7 +150,7 @@ describe('CreateShopOverlayComponent', () => {
 
     expect(component.shopForm.controls.gstNumber.invalid).toBe(true);
     expect(dispatch).not.toHaveBeenCalledWith(
-      expect.objectContaining({ type: ShopsActions.createShopRequested.type })
+      expect.objectContaining({ type: ShopsActions.createShopRequested.type }),
     );
   });
 
@@ -188,7 +196,7 @@ describe('CreateShopOverlayComponent', () => {
           ifscCode: 'SBIN0001234',
           accountHolderName: 'Chandra Kumar',
         },
-      })
+      }),
     );
   });
 
@@ -216,7 +224,7 @@ describe('CreateShopOverlayComponent', () => {
 
     expect(component.activeStep()).toBe(3);
     expect(dispatch).not.toHaveBeenCalledWith(
-      expect.objectContaining({ type: ShopsActions.updateShopBankDetailsRequested.type })
+      expect.objectContaining({ type: ShopsActions.updateShopBankDetailsRequested.type }),
     );
   });
 
@@ -230,7 +238,7 @@ describe('CreateShopOverlayComponent', () => {
 
     expect(component.bankForm.controls.ifscCode.invalid).toBe(true);
     expect(dispatch).not.toHaveBeenCalledWith(
-      expect.objectContaining({ type: ShopsActions.updateShopBankDetailsRequested.type })
+      expect.objectContaining({ type: ShopsActions.updateShopBankDetailsRequested.type }),
     );
   });
 
@@ -295,5 +303,19 @@ describe('CreateShopOverlayComponent', () => {
     component.onClose();
 
     expect(closeSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects whitespace-only required shop fields', () => {
+    const { component } = setup();
+    component.shopForm.patchValue({
+      name: '   ',
+      address: '   ',
+      city: '   ',
+      state: '   ',
+      pincode: '   ',
+    });
+
+    expect(component.shopForm.invalid).toBe(true);
+    expect(component.shopForm.controls.name.hasError('required')).toBe(true);
   });
 });

@@ -18,7 +18,9 @@ describe('AddShopUserOverlayComponent', () => {
   const dispatch = vi.fn();
   const isSubmittingSignal = signal(false);
   const errorSignal = signal('');
-  const lastMutationTypeSignal = signal<'update-profile' | 'change-password' | 'add-shop-user' | null>(null);
+  const lastMutationTypeSignal = signal<
+    'update-profile' | 'change-password' | 'add-shop-user' | null
+  >(null);
   const lastMutationSucceededSignal = signal(false);
   const authService = {
     session: signal({
@@ -27,7 +29,13 @@ describe('AddShopUserOverlayComponent', () => {
       accessTokenExpiresAt: '',
       refreshTokenExpiresAt: '',
       rememberMe: true,
-      user: { id: 'u1', email: 'owner@test.com', phoneNumber: '+15550001111', firstName: 'Owner', lastName: 'User' },
+      user: {
+        id: 'u1',
+        email: 'owner@test.com',
+        phoneNumber: '+15550001111',
+        firstName: 'Owner',
+        lastName: 'User',
+      },
       activeShopId: 's1',
       shops: [
         { shopId: 's1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null },
@@ -64,7 +72,10 @@ describe('AddShopUserOverlayComponent', () => {
     fixture: ReturnType<typeof TestBed.createComponent<AddShopUserOverlayComponent>>;
   } {
     TestBed.configureTestingModule({
-      imports: [AddShopUserOverlayComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
+      imports: [
+        AddShopUserOverlayComponent,
+        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+      ],
       providers: [
         { provide: Store, useValue: store },
         { provide: AuthService, useValue: authService },
@@ -105,8 +116,17 @@ describe('AddShopUserOverlayComponent', () => {
 
     expect(component.form.hasError('passwordMismatch')).toBe(true);
     expect(dispatch).not.toHaveBeenCalledWith(
-      expect.objectContaining({ type: UsersActions.addShopUserRequested.type })
+      expect.objectContaining({ type: UsersActions.addShopUserRequested.type }),
     );
+  });
+
+  it('rejects whitespace-only user names', () => {
+    const { component } = setup();
+    component.form.controls.firstName.setValue('   ');
+    component.form.controls.lastName.setValue('   ');
+
+    expect(component.form.controls.firstName.hasError('required')).toBe(true);
+    expect(component.form.controls.lastName.hasError('required')).toBe(true);
   });
 
   it('dispatches add user action with confirm password in payload', () => {
@@ -137,8 +157,7 @@ describe('AddShopUserOverlayComponent', () => {
           confirmPassword: 'Pass1234!',
           role: 'Staff',
         },
-      })
+      }),
     );
   });
-
 });

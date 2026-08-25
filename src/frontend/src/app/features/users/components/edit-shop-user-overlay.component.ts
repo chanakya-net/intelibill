@@ -9,7 +9,7 @@ import {
   computed,
   inject,
 } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { Store } from '@ngrx/store';
 import { TranslocoPipe } from '@ngneat/transloco';
 
@@ -23,6 +23,7 @@ import { RootState } from '../../../core/state/app.state';
 import { ShopUser } from '../services/user-account.service';
 import { UsersActions } from '../state/users.actions';
 import { selectUsersErrorMessage, selectUsersSubmitting } from '../state/users.selectors';
+import { InputValidators } from '../../../shared/forms/input-validation';
 
 @Component({
   selector: 'app-edit-shop-user-overlay',
@@ -54,14 +55,11 @@ export class EditShopUserOverlayComponent implements OnInit, OnChanges {
   shopSelectionInvalid = false;
 
   readonly form = this.formBuilder.nonNullable.group({
-    email: ['', [Validators.required, Validators.email, Validators.maxLength(256)]],
-    firstName: ['', [Validators.required, Validators.maxLength(100)]],
-    lastName: ['', [Validators.required, Validators.maxLength(100)]],
-    phoneNumber: [
-      '',
-      [Validators.required, Validators.maxLength(32), Validators.pattern(/^\+?[0-9]{7,15}$/)],
-    ],
-    role: ['Manager' as 'Manager' | 'Staff', [Validators.required]],
+    email: ['', InputValidators.email()],
+    firstName: ['', InputValidators.requiredText(100)],
+    lastName: ['', InputValidators.requiredText(100)],
+    phoneNumber: ['', InputValidators.phoneNumber()],
+    role: ['Manager' as 'Manager' | 'Staff', InputValidators.requiredText()],
     isLoginEnabled: [true],
   });
 

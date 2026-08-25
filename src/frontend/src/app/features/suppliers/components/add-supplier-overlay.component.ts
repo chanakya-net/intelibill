@@ -1,5 +1,5 @@
 import { Component, EventEmitter, OnInit, Output, inject } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
 
 import { CheckboxModule } from 'primeng/checkbox';
@@ -7,17 +7,12 @@ import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 
 import { SuppliersFacade } from '../state/suppliers.facade';
+import { InputValidators } from '../../../shared/forms/input-validation';
 
 @Component({
   selector: 'app-add-supplier-overlay',
   standalone: true,
-  imports: [
-    ReactiveFormsModule,
-    InputTextModule,
-    CheckboxModule,
-    ButtonModule,
-    TranslocoPipe,
-  ],
+  imports: [ReactiveFormsModule, InputTextModule, CheckboxModule, ButtonModule, TranslocoPipe],
   templateUrl: './add-supplier-overlay.component.html',
   styleUrl: './add-supplier-overlay.component.scss',
 })
@@ -31,13 +26,13 @@ export class AddSupplierOverlayComponent implements OnInit {
   @Output() readonly closeRequested = new EventEmitter<void>();
 
   readonly form = this.formBuilder.nonNullable.group({
-    name: ['', [Validators.required, Validators.maxLength(180)]],
-    contactPersonName: ['', [Validators.maxLength(120)]],
-    contactPersonPhone: ['', [Validators.maxLength(32), Validators.pattern(/^[+]?\d{7,15}$/)]],
-    address: ['', [Validators.required, Validators.maxLength(320)]],
-    city: ['', [Validators.required, Validators.maxLength(120)]],
-    state: ['', [Validators.required, Validators.maxLength(120)]],
-    pin: ['', [Validators.required, Validators.maxLength(16)]],
+    name: ['', InputValidators.requiredText(180)],
+    contactPersonName: ['', InputValidators.optionalText(120)],
+    contactPersonPhone: ['', InputValidators.phoneNumber({ required: false, maxLength: 32 })],
+    address: ['', InputValidators.requiredText(320)],
+    city: ['', InputValidators.requiredText(120)],
+    state: ['', InputValidators.requiredText(120)],
+    pin: ['', InputValidators.requiredText(16)],
     isActive: [true],
     isPreferred: [false],
   });

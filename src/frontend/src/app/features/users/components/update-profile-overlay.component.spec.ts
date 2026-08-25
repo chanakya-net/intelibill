@@ -48,7 +48,10 @@ describe('UpdateProfileOverlayComponent', () => {
     fixture: ReturnType<typeof TestBed.createComponent<UpdateProfileOverlayComponent>>;
   } {
     TestBed.configureTestingModule({
-      imports: [UpdateProfileOverlayComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
+      imports: [
+        UpdateProfileOverlayComponent,
+        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+      ],
       providers: [{ provide: Store, useValue: store }],
     });
 
@@ -85,8 +88,17 @@ describe('UpdateProfileOverlayComponent', () => {
 
     expect(component.form.touched).toBe(true);
     expect(dispatch).not.toHaveBeenCalledWith(
-      expect.objectContaining({ type: UsersActions.updateProfileRequested.type })
+      expect.objectContaining({ type: UsersActions.updateProfileRequested.type }),
     );
+  });
+
+  it('rejects whitespace-only profile names', () => {
+    const { component } = setup();
+    component.form.controls.firstName.setValue('   ');
+    component.form.controls.lastName.setValue('   ');
+
+    expect(component.form.controls.firstName.hasError('required')).toBe(true);
+    expect(component.form.controls.lastName.hasError('required')).toBe(true);
   });
 
   it('dispatches update action with trimmed values and emits close on success', () => {
@@ -112,7 +124,7 @@ describe('UpdateProfileOverlayComponent', () => {
           phoneNumber: '+15557654321',
           language: 'en-IN',
         },
-      })
+      }),
     );
 
     lastMutationTypeSignal.set('update-profile');

@@ -69,7 +69,10 @@ describe('EditItemOverlayComponent', () => {
 
   function setup(item: Item = mockItem): EditItemOverlayComponent {
     TestBed.configureTestingModule({
-      imports: [EditItemOverlayComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
+      imports: [
+        EditItemOverlayComponent,
+        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+      ],
       providers: [
         { provide: Store, useValue: store },
         { provide: InventoryService, useValue: inventoryService },
@@ -134,8 +137,18 @@ describe('EditItemOverlayComponent', () => {
 
     expect(component.form.touched).toBe(true);
     expect(dispatch).not.toHaveBeenCalledWith(
-      expect.objectContaining({ type: InventoryActions.updateItemRequested.type })
+      expect.objectContaining({ type: InventoryActions.updateItemRequested.type }),
     );
+  });
+
+  it('rejects whitespace-only required item text', () => {
+    const component = setup();
+    component.ngOnInit();
+    component.form.patchValue({ name: '   ', barcode: '   ', uom: '   ' });
+
+    expect(component.form.controls.name.hasError('required')).toBe(true);
+    expect(component.form.controls.barcode.hasError('required')).toBe(true);
+    expect(component.form.controls.uom.hasError('required')).toBe(true);
   });
 
   it('does not submit when form fields exceed maximum length', () => {
@@ -153,7 +166,7 @@ describe('EditItemOverlayComponent', () => {
 
     expect(component.form.touched).toBe(true);
     expect(dispatch).not.toHaveBeenCalledWith(
-      expect.objectContaining({ type: InventoryActions.updateItemRequested.type })
+      expect.objectContaining({ type: InventoryActions.updateItemRequested.type }),
     );
   });
 
@@ -183,7 +196,7 @@ describe('EditItemOverlayComponent', () => {
           hsnCode: '10063090',
           defaultTaxRatePercent: 12,
         },
-      })
+      }),
     );
   });
 
@@ -239,7 +252,7 @@ describe('EditItemOverlayComponent', () => {
         payload: expect.objectContaining({
           description: null,
         }),
-      })
+      }),
     );
   });
 
@@ -300,7 +313,7 @@ describe('EditItemOverlayComponent', () => {
     component.onSubmit();
 
     const callCount = dispatch.mock.calls.filter(
-      (call: any[]) => call[0]?.type === InventoryActions.updateItemRequested.type
+      (call: any[]) => call[0]?.type === InventoryActions.updateItemRequested.type,
     ).length;
 
     expect(callCount).toBe(0);

@@ -74,4 +74,18 @@ describe('ShopBasicInfoFormComponent', () => {
 
     expect(fixture.componentInstance.form.enabled).toBe(true);
   });
+
+  it('rejects whitespace-only required shop fields', () => {
+    const fixture = TestBed.createComponent(ShopBasicInfoFormComponent);
+    fixture.componentInstance.form.patchValue({
+      name: '   ',
+      address: '   ',
+      city: '   ',
+      state: '   ',
+      pincode: '   ',
+    });
+
+    expect(fixture.componentInstance.form.invalid).toBe(true);
+    expect(fixture.componentInstance.form.controls.name.hasError('required')).toBe(true);
+  });
 });
