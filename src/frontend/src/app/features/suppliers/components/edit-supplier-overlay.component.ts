@@ -8,7 +8,7 @@ import {
   SimpleChanges,
   inject,
 } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
 
 import { CheckboxModule } from 'primeng/checkbox';
@@ -18,6 +18,7 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
 
 import { Supplier } from '../services/supplier.service';
 import { SuppliersFacade } from '../state/suppliers.facade';
+import { InputValidators } from '../../../shared/forms/input-validation';
 
 @Component({
   selector: 'app-edit-supplier-overlay',
@@ -44,13 +45,13 @@ export class EditSupplierOverlayComponent implements OnInit, OnChanges {
   @Output() readonly closeRequested = new EventEmitter<void>();
 
   readonly form = this.formBuilder.nonNullable.group({
-    name: ['', [Validators.required, Validators.maxLength(180)]],
-    contactPersonName: ['', [Validators.maxLength(120)]],
-    contactPersonPhone: ['', [Validators.maxLength(32), Validators.pattern(/^[+]?\d{7,15}$/)]],
-    address: ['', [Validators.required, Validators.maxLength(320)]],
-    city: ['', [Validators.required, Validators.maxLength(120)]],
-    state: ['', [Validators.required, Validators.maxLength(120)]],
-    pin: ['', [Validators.required, Validators.maxLength(16)]],
+    name: ['', InputValidators.requiredText(180)],
+    contactPersonName: ['', InputValidators.optionalText(120)],
+    contactPersonPhone: ['', InputValidators.phoneNumber({ required: false, maxLength: 32 })],
+    address: ['', InputValidators.requiredText(320)],
+    city: ['', InputValidators.requiredText(120)],
+    state: ['', InputValidators.requiredText(120)],
+    pin: ['', InputValidators.requiredText(16)],
     isActive: [true],
     isPreferred: [false],
   });

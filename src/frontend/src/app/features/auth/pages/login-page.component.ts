@@ -1,5 +1,5 @@
 import { Component, InjectionToken, OnInit, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Store } from '@ngrx/store';
 import { TranslocoPipe } from '@ngneat/transloco';
@@ -12,6 +12,7 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { ApiErrorPayload, ExternalAuthProvider } from '../../../core/auth/auth.models';
 import { AuthService } from '../../../core/auth/auth.service';
 import { LocalizationService } from '../../../core/i18n/localization.service';
+import { InputValidators } from '../../../shared/forms/input-validation';
 import { NATIVE_LANGUAGE_NAMES, SupportedLanguage } from '../../../core/i18n/language.constants';
 import { RootState } from '../../../core/state/app.state';
 
@@ -20,9 +21,11 @@ export type ExternalLoginRedirect = (authorizationUrl: string) => void;
 export const EXTERNAL_LOGIN_REDIRECT = new InjectionToken<ExternalLoginRedirect>(
   'EXTERNAL_LOGIN_REDIRECT',
   {
-    factory: () => (authorizationUrl: string): void => {
-      window.location.assign(authorizationUrl);
-    },
+    factory:
+      () =>
+      (authorizationUrl: string): void => {
+        window.location.assign(authorizationUrl);
+      },
   },
 );
 
@@ -61,8 +64,8 @@ export class LoginPageComponent implements OnInit {
   readonly nativeLanguageNames = NATIVE_LANGUAGE_NAMES;
 
   readonly form = this.formBuilder.nonNullable.group({
-    identifier: ['', [Validators.required]],
-    password: ['', [Validators.required]],
+    identifier: ['', InputValidators.requiredText()],
+    password: ['', InputValidators.requiredText()],
     rememberMe: [true],
   });
 
@@ -106,8 +109,9 @@ export class LoginPageComponent implements OnInit {
       return;
     }
 
-    const passwordResetSuccess = this.route.snapshot.queryParamMap.get('passwordReset') === 'success'
-      || !!this.router.getCurrentNavigation()?.extras.state?.['passwordResetSuccess'];
+    const passwordResetSuccess =
+      this.route.snapshot.queryParamMap.get('passwordReset') === 'success' ||
+      !!this.router.getCurrentNavigation()?.extras.state?.['passwordResetSuccess'];
     if (passwordResetSuccess) {
       this.successMessage.set('auth.resetPassword.successMessage');
     }

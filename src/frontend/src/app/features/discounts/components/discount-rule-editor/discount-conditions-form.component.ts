@@ -21,6 +21,7 @@ import { SelectModule } from 'primeng/select';
 import { TextareaModule } from 'primeng/textarea';
 
 import { DiscountRuleType } from '../../services/discount.service';
+import { InputValidators } from '../../../../shared/forms/input-validation';
 
 export type DiscountEditorMode = 'create' | 'edit';
 
@@ -94,10 +95,7 @@ export class DiscountConditionsFormComponent {
     ruleType: this.formBuilder.nonNullable.control<DiscountRuleType>('BatchPercentage', [
       Validators.required,
     ]),
-    name: this.formBuilder.nonNullable.control('', [
-      Validators.required,
-      Validators.maxLength(200),
-    ]),
+    name: this.formBuilder.nonNullable.control('', InputValidators.requiredText(200)),
     description: this.formBuilder.nonNullable.control(''),
     percentage: this.formBuilder.nonNullable.control(10, [
       Validators.required,

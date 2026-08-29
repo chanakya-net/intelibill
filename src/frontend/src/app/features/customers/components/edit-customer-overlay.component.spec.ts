@@ -18,7 +18,10 @@ describe('EditCustomerOverlayComponent', () => {
     } as unknown as CustomersFacade;
 
     TestBed.configureTestingModule({
-      imports: [EditCustomerOverlayComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
+      imports: [
+        EditCustomerOverlayComponent,
+        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+      ],
       providers: [{ provide: CustomersFacade, useValue: facade }],
     });
 
@@ -94,5 +97,23 @@ describe('EditCustomerOverlayComponent', () => {
     expect(component.form.invalid).toBe(true);
     expect(facade.editCustomer).not.toHaveBeenCalled();
   });
-});
 
+  it('rejects whitespace-only required customer fields', () => {
+    const customer: Customer = {
+      customerId: 'c1',
+      name: 'Alice',
+      phoneNumber: '+919812345678',
+      address: null,
+      isActive: true,
+      creditLimit: 0,
+      purchaseCount: 0,
+      lifetimeRevenue: 0,
+      currentMonthRevenue: 0,
+    };
+    const { component } = setup(customer);
+    component.form.patchValue({ name: '   ', phoneNumber: '   ' });
+
+    expect(component.form.controls.name.hasError('required')).toBe(true);
+    expect(component.form.controls.phoneNumber.hasError('required')).toBe(true);
+  });
+});

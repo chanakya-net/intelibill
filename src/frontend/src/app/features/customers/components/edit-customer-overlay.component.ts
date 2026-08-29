@@ -12,7 +12,12 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
 
 import { Customer } from '../services/customer.service';
 import { CustomersFacade } from '../state/customers.facade';
-import { CURRENCY_ADDON_PT, CURRENCY_INPUT_GROUP_PT, CURRENCY_INPUT_NUMBER_PT } from '../../../shared/primeng-pt.config';
+import { InputValidators } from '../../../shared/forms/input-validation';
+import {
+  CURRENCY_ADDON_PT,
+  CURRENCY_INPUT_GROUP_PT,
+  CURRENCY_INPUT_NUMBER_PT,
+} from '../../../shared/primeng-pt.config';
 
 @Component({
   selector: 'app-edit-customer-overlay',
@@ -47,11 +52,18 @@ export class EditCustomerOverlayComponent implements OnInit {
   @Output() readonly closeRequested = new EventEmitter<void>();
 
   readonly form = this.formBuilder.nonNullable.group({
-    name: ['', [Validators.required, Validators.maxLength(180)]],
-    phoneNumber: ['', [Validators.required, Validators.maxLength(32), Validators.pattern(/^[+]?\d{7,15}$/)]],
-    address: ['', [Validators.maxLength(320)]],
+    name: ['', InputValidators.requiredText(180)],
+    phoneNumber: ['', InputValidators.phoneNumber()],
+    address: ['', InputValidators.optionalText(320)],
     isActive: [true],
-    creditLimit: [0, [Validators.required, Validators.min(0), Validators.max(99999999.99)]],
+    creditLimit: [
+      0,
+      [
+        ...InputValidators.nonNegativeNumber(),
+        Validators.max(99999999.99),
+        InputValidators.maxFractionDigits(2),
+      ],
+    ],
   });
 
   ngOnInit(): void {

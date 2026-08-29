@@ -153,7 +153,7 @@ describe('EditServiceOverlayComponent', () => {
     fixture.detectChanges();
     component.form.patchValue({
       name: '',
-      description: 'D'.repeat(321),
+      description: 'D'.repeat(1001),
       price: -1,
       taxRatePercent: 101,
       hsnCode: 'invalid',
@@ -183,5 +183,19 @@ describe('EditServiceOverlayComponent', () => {
 
     expect(host.querySelector('input#edit-service-price')?.getAttribute('aria-invalid')).toBeNull();
     expect(host.querySelector('input#edit-service-tax')?.getAttribute('aria-invalid')).toBeNull();
+  });
+
+  it('matches the backend price and description constraints', () => {
+    const fixture = TestBed.createComponent(EditServiceOverlayComponent);
+    const component = fixture.componentInstance;
+
+    component.form.patchValue({
+      name: 'Installation',
+      description: 'D'.repeat(1000),
+      price: 0,
+    });
+
+    expect(component.form.controls.description.valid).toBe(true);
+    expect(component.form.controls.price.hasError('min')).toBe(true);
   });
 });

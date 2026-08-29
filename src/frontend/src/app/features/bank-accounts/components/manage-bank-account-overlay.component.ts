@@ -1,11 +1,12 @@
 import { Component, EventEmitter, Input, OnInit, Output, inject } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
 import { ButtonModule } from 'primeng/button';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { BankAccount } from '../services/bank-account.service';
 import { BankAccountsFacade } from '../state/bank-accounts.facade';
 import { BankAccountFormComponent } from '../../../shared/components/bank-account-form/bank-account-form.component';
+import { InputValidators } from '../../../shared/forms/input-validation';
 
 @Component({
   selector: 'app-manage-bank-account-overlay',
@@ -31,11 +32,11 @@ export class ManageBankAccountOverlayComponent implements OnInit {
   @Output() readonly closeRequested = new EventEmitter<void>();
 
   readonly form = this.formBuilder.nonNullable.group({
-    bankName: ['', [Validators.required, Validators.maxLength(100)]],
-    accountNumber: ['', [Validators.required, Validators.maxLength(50)]],
-    accountType: ['', [Validators.required]],
-    ifscCode: ['', [Validators.pattern(/^[A-Z]{4}0[A-Z0-9]{6}$/)]],
-    accountHolderName: ['', [Validators.maxLength(100)]],
+    bankName: ['', InputValidators.requiredText(100)],
+    accountNumber: ['', InputValidators.requiredText(50)],
+    accountType: ['', InputValidators.requiredText()],
+    ifscCode: ['', InputValidators.ifscCode()],
+    accountHolderName: ['', InputValidators.optionalText(100)],
   });
 
   ngOnInit(): void {

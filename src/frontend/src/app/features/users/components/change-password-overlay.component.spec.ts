@@ -48,7 +48,10 @@ describe('ChangePasswordOverlayComponent', () => {
     fixture: ReturnType<typeof TestBed.createComponent<ChangePasswordOverlayComponent>>;
   } {
     TestBed.configureTestingModule({
-      imports: [ChangePasswordOverlayComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
+      imports: [
+        ChangePasswordOverlayComponent,
+        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+      ],
       providers: [{ provide: Store, useValue: store }],
     });
 
@@ -80,8 +83,22 @@ describe('ChangePasswordOverlayComponent', () => {
 
     expect(component.form.touched).toBe(true);
     expect(dispatch).not.toHaveBeenCalledWith(
-      expect.objectContaining({ type: UsersActions.changePasswordRequested.type })
+      expect.objectContaining({ type: UsersActions.changePasswordRequested.type }),
     );
+  });
+
+  it('rejects a new password equal to the current password', () => {
+    const { component, fixture } = setup();
+    component.form.setValue({
+      currentPassword: 'SamePass123!',
+      newPassword: 'SamePass123!',
+      confirmNewPassword: 'SamePass123!',
+    });
+    component.form.controls.newPassword.markAsTouched();
+    fixture.detectChanges();
+
+    expect(component.form.errors).toEqual({ sameAsCurrent: true });
+    expect(fixture.nativeElement.textContent).toContain('profile.validation.newPasswordMustDiffer');
   });
 
   it('dispatches change password action and emits closeRequested on success', () => {
@@ -103,7 +120,7 @@ describe('ChangePasswordOverlayComponent', () => {
           currentPassword: 'OldPass123!',
           newPassword: 'NewPass123!',
         },
-      })
+      }),
     );
 
     lastMutationTypeSignal.set('change-password');
@@ -132,7 +149,7 @@ describe('ChangePasswordOverlayComponent', () => {
 
     expect(component.form.hasError('passwordMismatch')).toBe(true);
     expect(dispatch).not.toHaveBeenCalledWith(
-      expect.objectContaining({ type: UsersActions.changePasswordRequested.type })
+      expect.objectContaining({ type: UsersActions.changePasswordRequested.type }),
     );
   });
 });

@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, OnInit, Output, effect, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { Store } from '@ngrx/store';
 import { TranslocoPipe } from '@ngneat/transloco';
 
@@ -20,9 +20,7 @@ import {
   selectShopsLastMutationType,
   selectShopsSubmitting,
 } from '../state/shops.selectors';
-
-const INDIA_GST_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/i;
-const INDIA_IFSC_REGEX = /^[A-Z]{4}0[A-Z0-9]{6}$/i;
+import { InputValidators } from '../../../shared/forms/input-validation';
 
 @Component({
   selector: 'app-create-shop-overlay',
@@ -58,22 +56,22 @@ export class CreateShopOverlayComponent implements OnInit {
   @Output() readonly closeRequested = new EventEmitter<void>();
 
   readonly shopForm = this.formBuilder.nonNullable.group({
-    name: ['', [Validators.required, Validators.maxLength(120)]],
-    address: ['', [Validators.required, Validators.maxLength(320)]],
-    city: ['', [Validators.required, Validators.maxLength(120)]],
-    state: ['', [Validators.required, Validators.maxLength(120)]],
-    pincode: ['', [Validators.required, Validators.maxLength(16)]],
-    contactPerson: ['', [Validators.maxLength(120)]],
-    mobileNumber: ['', [Validators.maxLength(32)]],
-    gstNumber: ['', [Validators.maxLength(20), Validators.pattern(INDIA_GST_REGEX)]],
+    name: ['', InputValidators.requiredText(120)],
+    address: ['', InputValidators.requiredText(320)],
+    city: ['', InputValidators.requiredText(120)],
+    state: ['', InputValidators.requiredText(120)],
+    pincode: ['', InputValidators.requiredText(16)],
+    contactPerson: ['', InputValidators.optionalText(120)],
+    mobileNumber: ['', InputValidators.optionalText(32)],
+    gstNumber: ['', InputValidators.gstNumber()],
   });
 
   readonly bankForm = this.formBuilder.nonNullable.group({
-    bankName: ['', [Validators.maxLength(120)]],
-    accountNumber: ['', [Validators.maxLength(50)]],
+    bankName: ['', InputValidators.optionalText(120)],
+    accountNumber: ['', InputValidators.optionalText(50)],
     accountType: [''],
-    ifscCode: ['', [Validators.maxLength(20), Validators.pattern(INDIA_IFSC_REGEX)]],
-    accountHolderName: ['', [Validators.maxLength(120)]],
+    ifscCode: ['', InputValidators.ifscCode()],
+    accountHolderName: ['', InputValidators.optionalText(120)],
   });
 
   readonly progressSpinnerPt = {

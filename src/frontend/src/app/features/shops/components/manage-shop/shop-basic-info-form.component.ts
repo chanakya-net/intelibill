@@ -10,14 +10,15 @@ import {
   SimpleChanges,
   inject,
 } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TranslocoPipe } from '@ngneat/transloco';
 
 import { InputTextModule } from 'primeng/inputtext';
 
 import { ShopDetailsDto, UpdateShopRequest } from '../../services/shop.service';
-import { INDIA_GST_REGEX, toOptionalTrimmed } from './manage-shop-form.helper';
+import { toOptionalTrimmed } from './manage-shop-form.helper';
+import { InputValidators } from '../../../../shared/forms/input-validation';
 
 @Component({
   selector: 'app-shop-basic-info-form',
@@ -34,14 +35,14 @@ export class ShopBasicInfoFormComponent implements OnInit, OnChanges {
   @Output() readonly formChange = new EventEmitter<Partial<UpdateShopRequest>>();
 
   readonly form = this.formBuilder.nonNullable.group({
-    name: ['', [Validators.required, Validators.maxLength(120)]],
-    address: ['', [Validators.required, Validators.maxLength(320)]],
-    city: ['', [Validators.required, Validators.maxLength(120)]],
-    state: ['', [Validators.required, Validators.maxLength(120)]],
-    pincode: ['', [Validators.required, Validators.maxLength(16)]],
-    contactPerson: ['', [Validators.maxLength(120)]],
-    mobileNumber: ['', [Validators.maxLength(32)]],
-    gstNumber: ['', [Validators.maxLength(20), Validators.pattern(INDIA_GST_REGEX)]],
+    name: ['', InputValidators.requiredText(120)],
+    address: ['', InputValidators.requiredText(320)],
+    city: ['', InputValidators.requiredText(120)],
+    state: ['', InputValidators.requiredText(120)],
+    pincode: ['', InputValidators.requiredText(16)],
+    contactPerson: ['', InputValidators.optionalText(120)],
+    mobileNumber: ['', InputValidators.optionalText(32)],
+    gstNumber: ['', InputValidators.gstNumber()],
   });
 
   constructor() {

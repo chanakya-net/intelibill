@@ -1,7 +1,12 @@
 import { computed, DestroyRef, inject, Injectable, Injector, signal } from '@angular/core';
 import { FormBuilder, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { CURRENCY_ADDON_PT, CURRENCY_INPUT_GROUP_PT, CURRENCY_INPUT_NUMBER_PT } from '../../../shared/primeng-pt.config';
+import {
+  CURRENCY_ADDON_PT,
+  CURRENCY_INPUT_GROUP_PT,
+  CURRENCY_INPUT_NUMBER_PT,
+} from '../../../shared/primeng-pt.config';
+import { InputValidators } from '../../../shared/forms/input-validation';
 
 import { AuthService } from '../../../core/auth/auth.service';
 import { NetworkStatusService } from '../../../core/services/network-status.service';
@@ -70,20 +75,22 @@ export abstract class NewSalePageStateService {
     if (sellables.length > 0) {
       return sellables;
     }
-    return this.availableBatches().map((b): SellableDto => ({
-      kind: 'Goods',
-      inventoryBatchId: b.inventoryBatchId,
-      barcode: b.barcode,
-      itemName: b.itemName,
-      batchNumber: b.batchNumber,
-      quantity: b.quantity,
-      salesPrice: b.salesPrice,
-      mrp: b.mrp,
-      taxRatePercent: b.taxRatePercent,
-      taxIncluded: b.taxIncluded,
-      expiryDate: b.expiryDate,
-      hsnCode: b.hsnCode,
-    }));
+    return this.availableBatches().map(
+      (b): SellableDto => ({
+        kind: 'Goods',
+        inventoryBatchId: b.inventoryBatchId,
+        barcode: b.barcode,
+        itemName: b.itemName,
+        batchNumber: b.batchNumber,
+        quantity: b.quantity,
+        salesPrice: b.salesPrice,
+        mrp: b.mrp,
+        taxRatePercent: b.taxRatePercent,
+        taxIncluded: b.taxIncluded,
+        expiryDate: b.expiryDate,
+        hsnCode: b.hsnCode,
+      }),
+    );
   });
   readonly quickProductTiles = computed(() => {
     const seenKeys = new Set<string>();
@@ -188,7 +195,11 @@ export abstract class NewSalePageStateService {
   readonly offlineCatalog = this.offlineSaleState.offlineCatalog;
   readonly offlineCustomers = this.offlineSaleState.offlineCustomers;
   readonly isOfflineSubmitting = signal(false);
-  readonly offlineConfirmation = signal<{ invoiceNumber: string; grandTotal: number; clientSaleId: string } | null>(null);
+  readonly offlineConfirmation = signal<{
+    invoiceNumber: string;
+    grandTotal: number;
+    clientSaleId: string;
+  } | null>(null);
   readonly showOfflineConfirmation = signal(false);
 
   readonly subtotalAmount = computed(() => {
@@ -197,7 +208,10 @@ export abstract class NewSalePageStateService {
       return preview.totalAmount - preview.totalTaxAmount;
     }
     const goodsSubtotal = this.cart().reduce((sum, item) => sum + this.getLineSubtotal(item), 0);
-    const serviceSubtotal = this.serviceCart().reduce((sum, svc) => sum + this.cartState.getServiceLineSubtotal(svc), 0);
+    const serviceSubtotal = this.serviceCart().reduce(
+      (sum, svc) => sum + this.cartState.getServiceLineSubtotal(svc),
+      0,
+    );
     return goodsSubtotal + serviceSubtotal;
   });
   readonly totalTaxAmount = computed(() => {
@@ -206,7 +220,10 @@ export abstract class NewSalePageStateService {
       return preview.totalTaxAmount;
     }
     const goodsTax = this.cart().reduce((sum, item) => sum + this.getLineTaxAmount(item), 0);
-    const serviceTax = this.serviceCart().reduce((sum, svc) => sum + this.cartState.getServiceLineTaxAmount(svc), 0);
+    const serviceTax = this.serviceCart().reduce(
+      (sum, svc) => sum + this.cartState.getServiceLineTaxAmount(svc),
+      0,
+    );
     return goodsTax + serviceTax;
   });
   readonly totalAmount = computed(() => {
@@ -215,7 +232,10 @@ export abstract class NewSalePageStateService {
       return preview.totalAmount;
     }
     const goodsTotal = this.cart().reduce((sum, item) => sum + this.getLineTotal(item), 0);
-    const serviceTotal = this.serviceCart().reduce((sum, svc) => sum + this.cartState.getServiceLineTotal(svc), 0);
+    const serviceTotal = this.serviceCart().reduce(
+      (sum, svc) => sum + this.cartState.getServiceLineTotal(svc),
+      0,
+    );
     return goodsTotal + serviceTotal;
   });
 
@@ -260,24 +280,31 @@ export abstract class NewSalePageStateService {
   ];
 
   readonly canUseCredit = computed(() => !!this.selectedCustomerId());
-  readonly canSelectCreditPaymentMethod = computed(() => this.isOfflineMode() || this.canUseCredit());
+  readonly canSelectCreditPaymentMethod = computed(
+    () => this.isOfflineMode() || this.canUseCredit(),
+  );
   readonly paymentMethodsForSelection = computed(() =>
-    this.paymentMethods.filter((method) => method.value !== 4 || this.canSelectCreditPaymentMethod())
+    this.paymentMethods.filter(
+      (method) => method.value !== 4 || this.canSelectCreditPaymentMethod(),
+    ),
   );
   readonly selectedPaymentMethod = computed(() =>
-    this.getPaymentMethodLabel(this.paymentForm.controls.paymentMethod.value)
+    this.getPaymentMethodLabel(this.paymentForm.controls.paymentMethod.value),
   );
-  readonly loadingCustomers = computed(() => this.readFacadeValue(this.customersFacade.loadingCustomers));
+  readonly loadingCustomers = computed(() =>
+    this.readFacadeValue(this.customersFacade.loadingCustomers),
+  );
 
   readonly totalDiscountAmount = computed(() => this.checkoutPreview()?.totalDiscountAmount ?? 0);
   readonly appliedCreditNotes = signal<AppliedCreditNote[]>([]);
   readonly canApplyCreditNote = computed(() => false);
   readonly totalAppliedCreditNoteAmount = computed(() =>
-    this.appliedCreditNotes().reduce((sum, note) => sum + note.amount, 0)
+    this.appliedCreditNotes().reduce((sum, note) => sum + note.amount, 0),
   );
   readonly batchPickerQuantity = signal(1);
 
-  readonly isLineDiscountEditorOpenFn = (itemId: string): boolean => this.isLineDiscountEditorOpen(itemId);
+  readonly isLineDiscountEditorOpenFn = (itemId: string): boolean =>
+    this.isLineDiscountEditorOpen(itemId);
   readonly hasTaxFn = (item: CartItem): boolean => this.hasTax(item);
   readonly canIncreaseFn = (item: CartItem): boolean => this.canIncreaseCartItem(item);
   readonly getLineSubtotalFn = (item: CartItem): number => this.getLineSubtotal(item);
@@ -286,7 +313,8 @@ export abstract class NewSalePageStateService {
   readonly getUnitSubtotalFn = (item: CartItem): number => this.getUnitSubtotal(item);
   readonly getUnitTaxAmountFn = (item: CartItem): number => this.getUnitTaxAmount(item);
   readonly getUnitFinalPriceFn = (item: CartItem): number => this.getUnitFinalPrice(item);
-  readonly getServiceLineTotalFn = (item: ServiceCartLine): number => this.cartState.getServiceLineTotal(item);
+  readonly getServiceLineTotalFn = (item: ServiceCartLine): number =>
+    this.cartState.getServiceLineTotal(item);
   readonly getPreviewLineFn = (itemId: string) => this.getPreviewLine(itemId);
   readonly getCartItemHsnErrorFn = (itemId: string) => this.getCartItemHsnError(itemId);
   readonly getCartItemTaxErrorFn = (itemId: string) => this.getCartItemTaxError(itemId);
@@ -333,8 +361,8 @@ export abstract class NewSalePageStateService {
   });
 
   readonly customerForm = this.fb.nonNullable.group({
-    customerName: ['', Validators.maxLength(180)],
-    customerPhone: ['', [Validators.maxLength(32), Validators.pattern(/^[+]?\d{7,15}$/)]],
+    customerName: ['', InputValidators.optionalText(180)],
+    customerPhone: ['', InputValidators.phoneNumber({ required: false })],
   });
 
   readonly paymentForm = this.fb.nonNullable.group({
@@ -356,14 +384,16 @@ export abstract class NewSalePageStateService {
       notes.map((note) =>
         note.creditNoteId === creditNoteId
           ? { ...note, amount: this.normalizeCreditNoteAmount(note, amount) }
-          : note
-      )
+          : note,
+      ),
     );
     this.reconcilePaymentSplitAfterCreditNoteChange();
   }
 
   onRemoveAppliedCreditNote(creditNoteId: string): void {
-    this.appliedCreditNotes.update((notes) => notes.filter((note) => note.creditNoteId !== creditNoteId));
+    this.appliedCreditNotes.update((notes) =>
+      notes.filter((note) => note.creditNoteId !== creditNoteId),
+    );
     this.reconcilePaymentSplitAfterCreditNoteChange();
   }
 
@@ -390,11 +420,15 @@ export abstract class NewSalePageStateService {
     const current = this.appliedCreditNotes();
     let remaining = this.roundAmount(totalAmount);
     const normalized = current.map((note) => {
-      const amount = this.roundAmount(Math.max(0, Math.min(note.amount, note.availableBalance, remaining)));
+      const amount = this.roundAmount(
+        Math.max(0, Math.min(note.amount, note.availableBalance, remaining)),
+      );
       remaining = this.roundAmount(Math.max(0, remaining - amount));
       return { ...note, amount };
     });
-    const hasChanged = normalized.some((note, index) => !this.areAmountsEqual(note.amount, current[index]?.amount));
+    const hasChanged = normalized.some(
+      (note, index) => !this.areAmountsEqual(note.amount, current[index]?.amount),
+    );
 
     if (hasChanged) {
       this.appliedCreditNotes.set(normalized);
@@ -402,10 +436,16 @@ export abstract class NewSalePageStateService {
     }
   }
 
-  protected normalizeCreditNoteAmount(note: AppliedCreditNote, amount: number | null | undefined): number {
+  protected normalizeCreditNoteAmount(
+    note: AppliedCreditNote,
+    amount: number | null | undefined,
+  ): number {
     const remainingPayable = this.remainingPayableAmount();
     return this.roundAmount(
-      Math.max(0, Math.min(Number(amount ?? 0), note.availableBalance, remainingPayable + note.amount)),
+      Math.max(
+        0,
+        Math.min(Number(amount ?? 0), note.availableBalance, remainingPayable + note.amount),
+      ),
     );
   }
 
@@ -428,7 +468,10 @@ export abstract class NewSalePageStateService {
   abstract onRemoveCartItem(index: number): void;
   abstract onRemoveServiceItem(clientLineKey: string): void;
   abstract onServiceItemPriceChange(clientLineKey: string, value: number | null | undefined): void;
-  abstract onServiceItemQuantityChange(clientLineKey: string, value: number | null | undefined): void;
+  abstract onServiceItemQuantityChange(
+    clientLineKey: string,
+    value: number | null | undefined,
+  ): void;
   abstract onQuickProductTileSelected(batch: AvailableBatchDto): void;
   abstract canIncreaseCartItem(item: CartItem): boolean;
   abstract hasTax(item: CartItem): boolean;
@@ -453,7 +496,10 @@ export abstract class NewSalePageStateService {
   abstract getCartItemTaxError(clientLineKey: string): string;
   abstract getPaymentMethodLabel(paymentMethod: number): PaymentMethod;
   abstract onCartItemDiscountTypeChange(clientLineKey: string, type: 0 | 1 | 2): void;
-  abstract onCartItemDiscountValueChange(clientLineKey: string, value: number | null | undefined): void;
+  abstract onCartItemDiscountValueChange(
+    clientLineKey: string,
+    value: number | null | undefined,
+  ): void;
   abstract onCartItemHsnCodeChange(clientLineKey: string, value: string | null | undefined): void;
   abstract onCartItemTaxRateChange(clientLineKey: string, value: number | null | undefined): void;
   abstract getLineDiscountLimits(clientLineKey: string): { maxFlat: number; maxPercent: number };
@@ -470,9 +516,16 @@ export abstract class NewSalePageStateService {
   abstract syncPaymentSplitFromDue(rawDue: number | null, total?: number): void;
   abstract enforceNoCustomerCreditRestrictions(): void;
   abstract resetSearchAndPickerState(): void;
-  abstract applyProductDefaultsForLine(clientLineKey: string, itemName: string, barcode: string): void;
+  abstract applyProductDefaultsForLine(
+    clientLineKey: string,
+    itemName: string,
+    barcode: string,
+  ): void;
   abstract getEventNotificationKey(eventType: string): string;
-  abstract detectAndHighlightChangedRows(oldPreview: SalePreviewDto | null, newPreview: SalePreviewDto): void;
+  abstract detectAndHighlightChangedRows(
+    oldPreview: SalePreviewDto | null,
+    newPreview: SalePreviewDto,
+  ): void;
   abstract resetTransientState(): void;
   abstract searchOfflineCatalog(term: string): Promise<void>;
   abstract refreshOfflinePreview(cart: readonly CartItem[]): Promise<void>;

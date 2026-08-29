@@ -200,6 +200,16 @@ function buildService() {
 }
 
 describe('NewSalePageCartSubmitService', () => {
+  it('blocks submission when customer details are invalid', async () => {
+    const { service, recordSale } = buildService();
+    service.customerForm.controls.customerPhone.setValue('invalid-phone');
+
+    await service.onSubmit();
+
+    expect(service.customerForm.controls.customerPhone.touched).toBe(true);
+    expect(recordSale).not.toHaveBeenCalled();
+  });
+
   it('submits sale when payment split matches payable amount after credit notes', async () => {
     const { service, recordSale } = buildService();
 

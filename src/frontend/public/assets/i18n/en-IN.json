@@ -754,7 +754,8 @@
     "retypeNewPassword": "Retype New Password",
     "changing": "Changing...",
     "validation": {
-      "passwordsMustMatch": "New password and retyped password must match."
+      "passwordsMustMatch": "New password and retyped password must match.",
+      "newPasswordMustDiffer": "New password must be different from the current password."
     }
   },
   "shops": {

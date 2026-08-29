@@ -17,7 +17,10 @@ describe('AddCustomerOverlayComponent', () => {
     } as unknown as CustomersFacade;
 
     TestBed.configureTestingModule({
-      imports: [AddCustomerOverlayComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
+      imports: [
+        AddCustomerOverlayComponent,
+        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+      ],
       providers: [{ provide: CustomersFacade, useValue: facade }],
     });
 
@@ -68,5 +71,19 @@ describe('AddCustomerOverlayComponent', () => {
     expect(component.form.invalid).toBe(true);
     expect(facade.addCustomer).not.toHaveBeenCalled();
   });
-});
 
+  it('rejects credit limits with more than two decimal places', () => {
+    const { component } = setup();
+    component.form.controls.creditLimit.setValue(1.234);
+
+    expect(component.form.controls.creditLimit.hasError('maxFractionDigits')).toBe(true);
+  });
+
+  it('rejects whitespace-only required customer fields', () => {
+    const { component } = setup();
+    component.form.patchValue({ name: '   ', phoneNumber: '   ' });
+
+    expect(component.form.controls.name.hasError('required')).toBe(true);
+    expect(component.form.controls.phoneNumber.hasError('required')).toBe(true);
+  });
+});
