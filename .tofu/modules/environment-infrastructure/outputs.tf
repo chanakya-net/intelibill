@@ -82,6 +82,8 @@ output "resolved_contract" {
           setting.name == "AZURE_CLIENT_ID" ||
           startswith(setting.name, "Database__") ||
           setting.name == "Jwt__KeyVaultKeyId" ||
+          startswith(setting.name, "Email__") ||
+          setting.name == "Identity__OutboxKey" ||
           setting.name == "Observability__NewRelic__ApiKey"
         )
       ]

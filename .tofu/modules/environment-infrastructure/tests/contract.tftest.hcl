@@ -227,6 +227,8 @@ run "dev_contract" {
       } == {
       ASPNETCORE_ENVIRONMENT                = "Production"
       ASPNETCORE_HTTP_PORTS                 = "8080"
+      Email__Enabled                        = "false"
+      Email__LocalCapture                   = "false"
       HTTP_PORT                             = "8080"
       AZURE_CLIENT_ID                       = var.app_identity.client_id
       Database__Host                        = var.database.host
@@ -532,4 +534,251 @@ run "reject_short_digest" {
   }
 
   expect_failures = [var.bootstrap_image]
+}
+
+# These assertions catch missing mail wiring, leaked literal credentials,
+# incorrect managed identity/URI, and accidental deployment capture mode.
+run "mail_delivery_key_vault_contract" {
+  command = plan
+
+  variables {
+    new_relic_api_key_secret_name = "new-relic-api-key"
+    mail_delivery = {
+      enabled                = true
+      host                   = "smtp.resend.com"
+      port                   = 587
+      username               = "resend"
+      from_email             = "security@example.com"
+      from_name              = "Intelibill security"
+      password_secret_name   = "resend-smtp-key"
+      outbox_key_secret_name = "identity-mail-aes-key"
+    }
+  }
+
+  assert {
+    condition = {
+      for setting in azurerm_container_app.api.template[0].container[0].env :
+      setting.name => setting.value if startswith(setting.name, "Email__") && setting.secret_name == null
+      } == {
+      Email__Enabled      = "true"
+      Email__LocalCapture = "false"
+      Email__Host         = "smtp.resend.com"
+      Email__Port         = "587"
+      Email__UseStartTls  = "true"
+      Email__Username     = "resend"
+      Email__FromEmail    = "security@example.com"
+      Email__FromName     = "Intelibill security"
+    }
+    error_message = "Enabled deployment mail must receive SMTP sender settings with local capture disabled."
+  }
+
+  assert {
+    condition = {
+      for setting in azurerm_container_app.api.template[0].container[0].env :
+      setting.name => { secret_name = setting.secret_name, literal_absent = setting.value == null }
+      if contains(["Email__Password", "Identity__OutboxKey"], setting.name)
+      } == {
+      Email__Password     = { secret_name = "email-password", literal_absent = true }
+      Identity__OutboxKey = { secret_name = "identity-outbox-key", literal_absent = true }
+    }
+    error_message = "SMTP password and outbox key must be secret references without literal environment values."
+  }
+
+  assert {
+    condition = length(azurerm_container_app.api.secret) == 3 && {
+      for secret in azurerm_container_app.api.secret : secret.name => {
+        identity = secret.identity, uri = secret.key_vault_secret_id, literal_absent = secret.value == null
+      } if secret.name != "new-relic-api-key"
+      } == {
+      email-password = {
+        identity       = var.app_identity.id
+        uri            = "https://intelibill-dev-kv.vault.azure.net/secrets/resend-smtp-key"
+        literal_absent = true
+      }
+      identity-outbox-key = {
+        identity       = var.app_identity.id
+        uri            = "https://intelibill-dev-kv.vault.azure.net/secrets/identity-mail-aes-key"
+        literal_absent = true
+      }
+    }
+    error_message = "Mail references must coexist with observability using versionless vault URIs and app identity, never secret values."
+  }
+}
+
+run "disabled_mail_retains_outbox_key_reference" {
+  command = plan
+  variables {
+    mail_delivery = { outbox_key_secret_name = "identity-mail-aes-key" }
+  }
+  assert {
+    condition = {
+      for setting in azurerm_container_app.api.template[0].container[0].env : setting.name => coalesce(setting.value, setting.secret_name)
+      if startswith(setting.name, "Email__") || setting.name == "Identity__OutboxKey"
+      } == {
+      Email__Enabled      = "false"
+      Email__LocalCapture = "false"
+      Identity__OutboxKey = "identity-outbox-key"
+    }
+    error_message = "Pausing delivery must retain an explicitly supplied persistent outbox key reference."
+  }
+}
+
+run "reject_mail_missing_password_reference" {
+  command = plan
+  variables {
+    mail_delivery = { enabled = true, host = "smtp.resend.com", username = "resend", from_email = "security@example.com", outbox_key_secret_name = "identity-mail-aes-key" }
+  }
+  expect_failures = [var.mail_delivery]
+}
+
+run "reject_mail_missing_outbox_reference" {
+  command = plan
+  variables {
+    mail_delivery = { enabled = true, host = "smtp.resend.com", username = "resend", from_email = "security@example.com", password_secret_name = "resend-smtp-key" }
+  }
+  expect_failures = [var.mail_delivery]
+}
+
+run "reject_mail_missing_smtp_host" {
+  command = plan
+  variables {
+    mail_delivery = { enabled = true, username = "resend", from_email = "security@example.com", password_secret_name = "resend-smtp-key", outbox_key_secret_name = "identity-mail-aes-key" }
+  }
+  expect_failures = [var.mail_delivery]
+}
+
+run "reject_mail_missing_smtp_username" {
+  command = plan
+  variables {
+    mail_delivery = { enabled = true, host = "smtp.resend.com", from_email = "security@example.com", password_secret_name = "resend-smtp-key", outbox_key_secret_name = "identity-mail-aes-key" }
+  }
+  expect_failures = [var.mail_delivery]
+}
+
+run "reject_mail_missing_sender" {
+  command = plan
+  variables {
+    mail_delivery = { enabled = true, host = "smtp.resend.com", username = "resend", password_secret_name = "resend-smtp-key", outbox_key_secret_name = "identity-mail-aes-key" }
+  }
+  expect_failures = [var.mail_delivery]
+}
+
+run "reject_mail_empty_sender_name" {
+  command = plan
+  variables {
+    mail_delivery = { enabled = true, host = "smtp.resend.com", username = "resend", from_email = "security@example.com", from_name = " ", password_secret_name = "resend-smtp-key", outbox_key_secret_name = "identity-mail-aes-key" }
+  }
+  expect_failures = [var.mail_delivery]
+}
+
+run "reject_mail_disabled_starttls" {
+  command = plan
+  variables {
+    mail_delivery = { enabled = true, use_start_tls = false, host = "smtp.resend.com", username = "resend", from_email = "security@example.com", password_secret_name = "resend-smtp-key", outbox_key_secret_name = "identity-mail-aes-key" }
+  }
+  expect_failures = [var.mail_delivery]
+}
+
+run "reject_mail_port_zero" {
+  command = plan
+  variables {
+    mail_delivery = { port = 0 }
+  }
+  expect_failures = [var.mail_delivery]
+}
+
+run "reject_mail_port_high" {
+  command = plan
+  variables {
+    mail_delivery = { port = 65536 }
+  }
+  expect_failures = [var.mail_delivery]
+}
+
+run "reject_mail_port_fractional" {
+  command = plan
+  variables {
+    mail_delivery = { port = 587.5 }
+  }
+  expect_failures = [var.mail_delivery]
+}
+
+run "reject_mail_password_secret_name_empty" {
+  command = plan
+  variables {
+    mail_delivery = { password_secret_name = "" }
+  }
+  expect_failures = [var.mail_delivery]
+}
+
+run "reject_mail_password_secret_name_path" {
+  command = plan
+  variables {
+    mail_delivery = { password_secret_name = "secrets/mail-key" }
+  }
+  expect_failures = [var.mail_delivery]
+}
+
+run "reject_mail_password_secret_name_versioned" {
+  command = plan
+  variables {
+    mail_delivery = { password_secret_name = "mail-key/123" }
+  }
+  expect_failures = [var.mail_delivery]
+}
+
+run "reject_mail_password_secret_name_underscore" {
+  command = plan
+  variables {
+    mail_delivery = { password_secret_name = "mail_key" }
+  }
+  expect_failures = [var.mail_delivery]
+}
+
+run "reject_mail_password_secret_name_too_long" {
+  command = plan
+  variables {
+    mail_delivery = { password_secret_name = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }
+  }
+  expect_failures = [var.mail_delivery]
+}
+
+run "reject_mail_outbox_key_secret_name_empty" {
+  command = plan
+  variables {
+    mail_delivery = { outbox_key_secret_name = "" }
+  }
+  expect_failures = [var.mail_delivery]
+}
+
+run "reject_mail_outbox_key_secret_name_path" {
+  command = plan
+  variables {
+    mail_delivery = { outbox_key_secret_name = "secrets/mail-key" }
+  }
+  expect_failures = [var.mail_delivery]
+}
+
+run "reject_mail_outbox_key_secret_name_versioned" {
+  command = plan
+  variables {
+    mail_delivery = { outbox_key_secret_name = "mail-key/123" }
+  }
+  expect_failures = [var.mail_delivery]
+}
+
+run "reject_mail_outbox_key_secret_name_underscore" {
+  command = plan
+  variables {
+    mail_delivery = { outbox_key_secret_name = "mail_key" }
+  }
+  expect_failures = [var.mail_delivery]
+}
+
+run "reject_mail_outbox_key_secret_name_too_long" {
+  command = plan
+  variables {
+    mail_delivery = { outbox_key_secret_name = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }
+  }
+  expect_failures = [var.mail_delivery]
 }

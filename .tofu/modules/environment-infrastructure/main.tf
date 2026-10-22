@@ -17,8 +17,24 @@ locals {
     prod = { cpu = 0.5, memory = "1Gi" }
   }
 
-  api_environment = {
+  mail_secret_references = {
+    for alias, name in {
+      email-password      = var.mail_delivery.password_secret_name
+      identity-outbox-key = var.mail_delivery.outbox_key_secret_name
+    } : alias => name if name != null
+  }
+
+  mail_secret_environment = {
+    for name, alias in {
+      Email__Password     = "email-password"
+      Identity__OutboxKey = "identity-outbox-key"
+    } : name => alias if contains(keys(local.mail_secret_references), alias)
+  }
+
+  api_environment = merge({
     ASPNETCORE_ENVIRONMENT                = "Production"
+    Email__Enabled                        = tostring(var.mail_delivery.enabled)
+    Email__LocalCapture                   = "false"
     ASPNETCORE_HTTP_PORTS                 = "8080"
     HTTP_PORT                             = "8080"
     AZURE_CLIENT_ID                       = var.app_identity.client_id
@@ -39,7 +55,14 @@ locals {
     Observability__NewRelic__OtlpEndpoint = var.new_relic_otlp_endpoint
     Observability__NewRelic__ServiceName  = "Intelibill.Api"
     Observability__NewRelic__Environment  = var.env
-  }
+    }, var.mail_delivery.enabled ? {
+    Email__Host        = var.mail_delivery.host
+    Email__Port        = tostring(var.mail_delivery.port)
+    Email__UseStartTls = tostring(var.mail_delivery.use_start_tls)
+    Email__Username    = var.mail_delivery.username
+    Email__FromEmail   = var.mail_delivery.from_email
+    Email__FromName    = var.mail_delivery.from_name
+  } : {})
 
   web_environment = {
     HTTP_PORT  = "4000"

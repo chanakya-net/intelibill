@@ -20,6 +20,16 @@ resource "azurerm_container_app" "api" {
     }
   }
 
+  dynamic "secret" {
+    for_each = local.mail_secret_references
+
+    content {
+      name                = secret.key
+      identity            = var.app_identity.id
+      key_vault_secret_id = "${var.key_vault.vault_uri}secrets/${secret.value}"
+    }
+  }
+
   ingress {
     external_enabled           = false
     allow_insecure_connections = false
@@ -63,6 +73,15 @@ resource "azurerm_container_app" "api" {
         content {
           name        = "Observability__NewRelic__ApiKey"
           secret_name = "new-relic-api-key"
+        }
+      }
+
+      dynamic "env" {
+        for_each = local.mail_secret_environment
+
+        content {
+          name        = env.key
+          secret_name = env.value
         }
       }
 

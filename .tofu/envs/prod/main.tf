@@ -72,6 +72,7 @@ module "environment_infrastructure" {
     name          = local.database_name
     max_pool_size = 12
   }
+  mail_delivery                 = var.mail_delivery
   new_relic_api_key_secret_name = var.new_relic_api_key_secret_name
   bootstrap_image               = var.bootstrap_image
 }

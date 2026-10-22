@@ -103,6 +103,49 @@ variable "new_relic_api_key_secret_name" {
   }
 }
 
+variable "mail_delivery" {
+  description = "Optional authenticated STARTTLS mail transport. Supply only Key Vault secret names; values are entered out of band."
+  type = object({
+    enabled                = optional(bool, false)
+    host                   = optional(string, "")
+    port                   = optional(number, 587)
+    use_start_tls          = optional(bool, true)
+    username               = optional(string, "")
+    from_email             = optional(string, "")
+    from_name              = optional(string, "Intelibill")
+    password_secret_name   = optional(string)
+    outbox_key_secret_name = optional(string)
+  })
+  default  = {}
+  nullable = false
+
+  validation {
+    condition = alltrue([
+      for name in [var.mail_delivery.password_secret_name, var.mail_delivery.outbox_key_secret_name] :
+      name == null ? true : can(regex("^[0-9A-Za-z-]{1,127}$", name))
+    ])
+    error_message = "Mail secret names must be null or a single 1-127 character Key Vault name containing only letters, numbers, and hyphens."
+  }
+
+  validation {
+    condition = (
+      var.mail_delivery.port >= 1 && var.mail_delivery.port <= 65535 &&
+      var.mail_delivery.port == floor(var.mail_delivery.port)
+    )
+    error_message = "Mail port must be an integer between 1 and 65535."
+  }
+
+  validation {
+    condition = !var.mail_delivery.enabled || (
+      var.mail_delivery.use_start_tls &&
+      alltrue([for value in [var.mail_delivery.host, var.mail_delivery.username, var.mail_delivery.from_email, var.mail_delivery.from_name] : length(trimspace(value)) > 0]) &&
+      var.mail_delivery.password_secret_name != null &&
+      var.mail_delivery.outbox_key_secret_name != null
+    )
+    error_message = "Enabled mail requires STARTTLS, host, username, sender email/name, SMTP password secret name, and persistent outbox key secret name."
+  }
+}
+
 variable "bootstrap_image" {
   description = "Immutable public multi-architecture image used until pipelines publish application images"
   type        = string
