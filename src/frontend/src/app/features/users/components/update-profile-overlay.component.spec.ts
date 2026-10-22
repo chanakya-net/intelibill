@@ -1,5 +1,6 @@
 import { signal, Signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { Store } from '@ngrx/store';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 import { vi } from 'vitest';
@@ -52,7 +53,7 @@ describe('UpdateProfileOverlayComponent', () => {
         UpdateProfileOverlayComponent,
         TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
       ],
-      providers: [{ provide: Store, useValue: store }],
+      providers: [provideRouter([]), { provide: Store, useValue: store }],
     });
 
     const fixture = TestBed.createComponent(UpdateProfileOverlayComponent);
@@ -82,7 +83,7 @@ describe('UpdateProfileOverlayComponent', () => {
 
   it('does not submit when form is invalid', () => {
     const { component } = setup();
-    component.form.controls.email.setValue('');
+    component.form.controls.firstName.setValue('');
 
     component.onSubmit();
 
@@ -101,7 +102,7 @@ describe('UpdateProfileOverlayComponent', () => {
     expect(component.form.controls.lastName.hasError('required')).toBe(true);
   });
 
-  it('dispatches update action with trimmed values and emits close on success', () => {
+  it('emailChangeKeepsOldAddressUntilConfirmed', () => {
     const { component, fixture } = setup();
     const closeSpy = vi.fn();
     component.closeRequested.subscribe(closeSpy);
@@ -120,7 +121,7 @@ describe('UpdateProfileOverlayComponent', () => {
         payload: {
           firstName: 'Jane',
           lastName: 'Doe',
-          email: 'jane@example.com',
+          email: 'user@example.com',
           phoneNumber: '+15557654321',
           language: 'en-IN',
         },
@@ -140,5 +141,29 @@ describe('UpdateProfileOverlayComponent', () => {
     fixture.detectChanges();
 
     expect(component.serverError()).toBe('This email is already used by another account.');
+  });
+  it('lets email-free accounts save names and phone without claiming an email', () => {
+    const { component, fixture } = setup();
+    fixture.componentRef.setInput('user', {
+      id: 'user-1',
+      email: null,
+      phoneNumber: null,
+      firstName: 'First',
+      lastName: 'Last',
+    });
+    component.ngOnInit();
+    component.form.controls.firstName.setValue('Updated');
+    component.onSubmit();
+    expect(dispatch).toHaveBeenCalledWith(
+      UsersActions.updateProfileRequested({
+        payload: {
+          firstName: 'Updated',
+          lastName: 'Last',
+          email: '',
+          phoneNumber: null,
+          language: 'en-IN',
+        },
+      }),
+    );
   });
 });

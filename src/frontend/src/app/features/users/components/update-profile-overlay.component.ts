@@ -1,4 +1,5 @@
 import { Component, EventEmitter, Input, Output, effect, inject, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { Store } from '@ngrx/store';
 import { TranslocoPipe } from '@ngneat/transloco';
@@ -24,6 +25,7 @@ import { InputValidators } from '../../../shared/forms/input-validation';
   standalone: true,
   imports: [
     ReactiveFormsModule,
+    RouterLink,
     InputTextModule,
     ButtonModule,
     ProgressSpinnerModule,
@@ -49,7 +51,7 @@ export class UpdateProfileOverlayComponent {
   readonly form = this.formBuilder.nonNullable.group({
     firstName: ['', InputValidators.requiredText(100)],
     lastName: ['', InputValidators.requiredText(100)],
-    email: ['', InputValidators.email()],
+    email: ['', InputValidators.email({ required: false })],
     phoneNumber: ['', InputValidators.phoneNumber({ required: false, maxLength: 32 })],
   });
 
@@ -103,7 +105,7 @@ export class UpdateProfileOverlayComponent {
     const payload = {
       firstName: this.form.controls.firstName.value.trim(),
       lastName: this.form.controls.lastName.value.trim(),
-      email: this.form.controls.email.value.trim(),
+      email: this.user.email ?? '',
       phoneNumber: this.toNullable(this.form.controls.phoneNumber.value),
       language: this.user.language ?? this.localizationService.currentLanguage(),
     };

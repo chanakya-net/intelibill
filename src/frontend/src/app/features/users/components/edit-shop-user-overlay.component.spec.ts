@@ -129,7 +129,7 @@ describe('EditShopUserOverlayComponent', () => {
       UsersActions.editShopUserRequested({
         userId: 'u-staff',
         payload: {
-          email: 'sales.updated@test.com',
+          email: 'sales@test.com',
           firstName: 'Sales',
           lastName: 'Updated',
           phoneNumber: '+15551234569',

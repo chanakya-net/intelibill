@@ -55,7 +55,7 @@ export class EditShopUserOverlayComponent implements OnInit, OnChanges {
   shopSelectionInvalid = false;
 
   readonly form = this.formBuilder.nonNullable.group({
-    email: ['', InputValidators.email()],
+    email: ['', InputValidators.email({ required: false })],
     firstName: ['', InputValidators.requiredText(100)],
     lastName: ['', InputValidators.requiredText(100)],
     phoneNumber: ['', InputValidators.phoneNumber()],
@@ -109,7 +109,7 @@ export class EditShopUserOverlayComponent implements OnInit, OnChanges {
       UsersActions.editShopUserRequested({
         userId: this.user.userId,
         payload: {
-          email: this.form.controls.email.value.trim(),
+          email: this.user.email ?? '',
           firstName: this.form.controls.firstName.value.trim(),
           lastName: this.form.controls.lastName.value.trim(),
           phoneNumber: this.form.controls.phoneNumber.value.trim(),

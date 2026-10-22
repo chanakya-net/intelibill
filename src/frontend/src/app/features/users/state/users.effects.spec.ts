@@ -62,7 +62,7 @@ describe('UsersEffects', () => {
           email: 'jane@example.com',
           phoneNumber: null,
         },
-      })
+      }),
     );
 
     await expect(output).resolves.toEqual(UsersActions.updateProfileSucceeded());
@@ -70,7 +70,7 @@ describe('UsersEffects', () => {
 
   it('maps email conflict into updateProfileFailed message', async () => {
     userAccountService.updateMyProfile.mockReturnValue(
-      throwError(() => ({ error: { title: 'Auth.EmailAlreadyInUse' } }))
+      throwError(() => ({ error: { title: 'Auth.EmailAlreadyInUse' } })),
     );
 
     const output = firstValueFrom(effects.updateProfile$.pipe(take(1)));
@@ -83,19 +83,19 @@ describe('UsersEffects', () => {
           email: 'jane@example.com',
           phoneNumber: null,
         },
-      })
+      }),
     );
 
     await expect(output).resolves.toEqual(
       UsersActions.updateProfileFailed({
         errorMessage: 'errors.auth.emailAlreadyInUseByAnother',
-      })
+      }),
     );
   });
 
   it('maps API detail into updateProfileFailed message', async () => {
     userAccountService.updateMyProfile.mockReturnValue(
-      throwError(() => ({ error: { title: 'Unknown', detail: 'Profile update failed.' } }))
+      throwError(() => ({ error: { title: 'Unknown', detail: 'Profile update failed.' } })),
     );
 
     const output = firstValueFrom(effects.updateProfile$.pipe(take(1)));
@@ -108,13 +108,13 @@ describe('UsersEffects', () => {
           email: 'jane@example.com',
           phoneNumber: null,
         },
-      })
+      }),
     );
 
     await expect(output).resolves.toEqual(
       UsersActions.updateProfileFailed({
         errorMessage: 'errors.users.unableToUpdateProfile',
-      })
+      }),
     );
   });
 
@@ -129,7 +129,7 @@ describe('UsersEffects', () => {
           currentPassword: 'OldPass123!',
           newPassword: 'NewPass123!',
         },
-      })
+      }),
     );
 
     await expect(output).resolves.toEqual(UsersActions.changePasswordSucceeded());
@@ -137,7 +137,7 @@ describe('UsersEffects', () => {
 
   it('maps invalid current password into changePasswordFailed message', async () => {
     userAccountService.changeMyPassword.mockReturnValue(
-      throwError(() => ({ error: { title: 'Auth.InvalidCurrentPassword' } }))
+      throwError(() => ({ error: { title: 'Auth.InvalidCurrentPassword' } })),
     );
 
     const output = firstValueFrom(effects.changePassword$.pipe(take(1)));
@@ -148,19 +148,19 @@ describe('UsersEffects', () => {
           currentPassword: 'OldPass123!',
           newPassword: 'NewPass123!',
         },
-      })
+      }),
     );
 
     await expect(output).resolves.toEqual(
       UsersActions.changePasswordFailed({
         errorMessage: 'errors.auth.invalidCurrentPassword',
-      })
+      }),
     );
   });
 
   it('maps fallback message when password API error has no detail', async () => {
     userAccountService.changeMyPassword.mockReturnValue(
-      throwError(() => ({ error: { title: 'Unknown' } }))
+      throwError(() => ({ error: { title: 'Unknown' } })),
     );
 
     const output = firstValueFrom(effects.changePassword$.pipe(take(1)));
@@ -171,13 +171,13 @@ describe('UsersEffects', () => {
           currentPassword: 'OldPass123!',
           newPassword: 'NewPass123!',
         },
-      })
+      }),
     );
 
     await expect(output).resolves.toEqual(
       UsersActions.changePasswordFailed({
         errorMessage: 'errors.users.unableToChangePassword',
-      })
+      }),
     );
   });
 
@@ -194,7 +194,7 @@ describe('UsersEffects', () => {
           isLoginEnabled: true,
           shopIds: ['shop-1'],
         },
-      ])
+      ]),
     );
 
     const output = firstValueFrom(effects.loadShopUsers$.pipe(take(1)));
@@ -215,13 +215,13 @@ describe('UsersEffects', () => {
             shopIds: ['shop-1'],
           },
         ],
-      })
+      }),
     );
   });
 
   it('maps owner-only failure on add user effect', async () => {
     userAccountService.addShopUser.mockReturnValue(
-      throwError(() => ({ error: { title: 'Shop.UserIsNotOwner' } }))
+      throwError(() => ({ error: { title: 'Shop.UserIsNotOwner' } })),
     );
 
     const output = firstValueFrom(effects.addShopUser$.pipe(take(1)));
@@ -238,19 +238,19 @@ describe('UsersEffects', () => {
           confirmPassword: 'Pass1234!',
           role: 'Staff',
         },
-      })
+      }),
     );
 
     await expect(output).resolves.toEqual(
       UsersActions.addShopUserFailed({
         errorMessage: 'errors.users.onlyOwnerCanAddUsers',
-      })
+      }),
     );
   });
 
   it('maps email conflict on add user effect', async () => {
     userAccountService.addShopUser.mockReturnValue(
-      throwError(() => ({ error: { title: 'Auth.EmailAlreadyInUse' } }))
+      throwError(() => ({ error: { title: 'Auth.EmailAlreadyInUse' } })),
     );
 
     const output = firstValueFrom(effects.addShopUser$.pipe(take(1)));
@@ -267,19 +267,19 @@ describe('UsersEffects', () => {
           confirmPassword: 'Pass1234!',
           role: 'Staff',
         },
-      })
+      }),
     );
 
     await expect(output).resolves.toEqual(
       UsersActions.addShopUserFailed({
         errorMessage: 'errors.auth.emailAlreadyInUseByAnother',
-      })
+      }),
     );
   });
 
   it('maps email conflict on edit user effect', async () => {
     userAccountService.editShopUser.mockReturnValue(
-      throwError(() => ({ error: { title: 'Auth.EmailAlreadyInUse' } }))
+      throwError(() => ({ error: { title: 'Auth.EmailAlreadyInUse' } })),
     );
 
     const output = firstValueFrom(effects.editShopUser$.pipe(take(1)));
@@ -295,13 +295,13 @@ describe('UsersEffects', () => {
           role: 'Manager',
           isLoginEnabled: true,
         },
-      })
+      }),
     );
 
     await expect(output).resolves.toEqual(
       UsersActions.editShopUserFailed({
         errorMessage: 'errors.auth.emailAlreadyInUseByAnother',
-      })
+      }),
     );
   });
 
@@ -319,5 +319,28 @@ describe('UsersEffects', () => {
     actions$.next(ShopsActions.createShopSucceeded());
 
     await expect(output).resolves.toEqual(UsersActions.loadShopUsersRequested());
+  });
+  it('explains invitation-required staff creation rather than a generic error', async () => {
+    userAccountService.addShopUser.mockReturnValue(
+      throwError(() => ({ error: { title: 'Auth.InvitationRequired' } })),
+    );
+    const output = firstValueFrom(effects.addShopUser$);
+    actions$.next(
+      UsersActions.addShopUserRequested({
+        payload: {
+          shopIds: ['shop'],
+          email: 'staff@example.com',
+          firstName: 'A',
+          lastName: 'B',
+          phoneNumber: '1234567890',
+          password: 'Password1!',
+          confirmPassword: 'Password1!',
+          role: 'Staff',
+        },
+      }),
+    );
+    expect(await output).toEqual(
+      UsersActions.addShopUserFailed({ errorMessage: 'identity.invitationRequired' }),
+    );
   });
 });

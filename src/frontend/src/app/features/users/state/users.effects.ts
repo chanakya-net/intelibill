@@ -111,7 +111,9 @@ export class UsersEffects {
 }
 
 function getProfileUpdateErrorMessage(error: ApiErrorPayload | undefined): string {
-  const title = error?.title ?? '';
+  const title = error?.code ?? error?.title ?? '';
+  if (title === 'Auth.EmailChangeRequired') return 'identity.emailChangeRequired';
+  if (title === 'Auth.InvitationRequired') return 'identity.invitationRequired';
 
   if (title === 'Auth.EmailAlreadyInUse') {
     return 'errors.auth.emailAlreadyInUseByAnother';
@@ -129,7 +131,9 @@ function getProfileUpdateErrorMessage(error: ApiErrorPayload | undefined): strin
 }
 
 function getChangePasswordErrorMessage(error: ApiErrorPayload | undefined): string {
-  const title = error?.title ?? '';
+  const title = error?.code ?? error?.title ?? '';
+  if (title === 'Auth.EmailChangeRequired') return 'identity.emailChangeRequired';
+  if (title === 'Auth.InvitationRequired') return 'identity.invitationRequired';
 
   if (title === 'Auth.InvalidCurrentPassword') {
     return 'errors.auth.invalidCurrentPassword';
@@ -147,7 +151,9 @@ function getLoadShopUsersErrorMessage(error: ApiErrorPayload | undefined): strin
 }
 
 function getAddShopUserErrorMessage(error: ApiErrorPayload | undefined): string {
-  const title = error?.title ?? '';
+  const title = error?.code ?? error?.title ?? '';
+  if (title === 'Auth.EmailChangeRequired') return 'identity.emailChangeRequired';
+  if (title === 'Auth.InvitationRequired') return 'identity.invitationRequired';
 
   if (title === 'Shop.UserIsNotOwner') {
     return 'errors.users.onlyOwnerCanAddUsers';
@@ -169,7 +175,9 @@ function getAddShopUserErrorMessage(error: ApiErrorPayload | undefined): string 
 }
 
 function getEditShopUserErrorMessage(error: ApiErrorPayload | undefined): string {
-  const title = error?.title ?? '';
+  const title = error?.code ?? error?.title ?? '';
+  if (title === 'Auth.EmailChangeRequired') return 'identity.emailChangeRequired';
+  if (title === 'Auth.InvitationRequired') return 'identity.invitationRequired';
 
   if (title === 'Shop.UserIsNotOwner') {
     return 'errors.users.onlyOwnerCanEditUsers';

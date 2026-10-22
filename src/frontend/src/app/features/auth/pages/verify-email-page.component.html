@@ -1,0 +1,100 @@
+<section class="login-shell min-h-screen p-0">
+  <div class="auth-stage w-full min-h-screen">
+    <article class="auth-card mx-auto w-full max-w-[26rem] rounded-[1.7rem]">
+      <header class="auth-header">
+        <h2>
+          {{
+            (emailChange() ? 'identity.confirmEmailChange' : 'identity.finishSignup') | transloco
+          }}
+        </h2>
+      </header>
+      <div class="space-y-4 p-6">
+        @if (error()) {
+          <p role="alert">{{ error() | transloco }}</p>
+        }
+        @if (valid()) {
+          @if (emailChange()) {
+            <p>{{ 'identity.originalAccountRequired' | transloco }}</p>
+            @if (auth.isAuthenticated()) {
+              <button
+                pButton
+                type="button"
+                (click)="onSubmit()"
+                [disabled]="busy()"
+                [loading]="busy()"
+                [label]="'identity.confirmEmailChange' | transloco"
+              ></button>
+              <button
+                pButton
+                type="button"
+                severity="secondary"
+                (click)="switchAccount()"
+                [disabled]="busy()"
+                [label]="'identity.switchAccount' | transloco"
+              ></button>
+            } @else {
+              <button
+                pButton
+                type="button"
+                (click)="signIn()"
+                [label]="'auth.loginCta' | transloco"
+              ></button>
+            }
+          } @else {
+            <p>{{ 'identity.chooseCredentials' | transloco }}</p>
+            <form [formGroup]="form" (ngSubmit)="onSubmit()" class="space-y-4">
+              <label for="first-name">{{ 'common.firstName' | transloco }}</label
+              ><input
+                id="first-name"
+                pInputText
+                formControlName="firstName"
+                autocomplete="given-name"
+                class="w-full"
+              />
+              <label for="last-name">{{ 'common.lastName' | transloco }}</label
+              ><input
+                id="last-name"
+                pInputText
+                formControlName="lastName"
+                autocomplete="family-name"
+                class="w-full"
+              />
+              <label for="chosen-password">{{ 'auth.password' | transloco }}</label
+              ><p-password
+                inputId="chosen-password"
+                formControlName="password"
+                autocomplete="new-password"
+                [feedback]="false"
+                [toggleMask]="true"
+                styleClass="w-full"
+                inputStyleClass="w-full"
+              ></p-password>
+              <label for="confirm-password">{{ 'register.confirmPassword' | transloco }}</label
+              ><p-password
+                inputId="confirm-password"
+                formControlName="confirmPassword"
+                autocomplete="new-password"
+                [feedback]="false"
+                [toggleMask]="true"
+                styleClass="w-full"
+                inputStyleClass="w-full"
+              ></p-password>
+              @if (form.touched && form.invalid) {
+                <p role="alert">{{ 'identity.credentialsInvalid' | transloco }}</p>
+              }
+              <button
+                pButton
+                type="submit"
+                [disabled]="busy()"
+                [loading]="busy()"
+                [label]="'identity.finishSignup' | transloco"
+              ></button>
+            </form>
+          }
+        }
+        <a routerLink="/register">{{ 'identity.requestFreshLink' | transloco }}</a>
+        <a routerLink="/login">{{ 'register.backToLogin' | transloco }}</a>
+      </div>
+    </article>
+  </div>
+</section>

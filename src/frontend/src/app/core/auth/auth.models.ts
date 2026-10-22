@@ -5,10 +5,24 @@ export interface LoginRequest {
 
 export interface RegisterWithEmailRequest {
   readonly email: string;
+}
+export interface AcceptedMessage {
+  readonly message: string;
+}
+export interface ConfirmEmailEnrollmentRequest {
+  readonly challengeId: string;
+  readonly token: string;
   readonly password: string;
   readonly firstName: string;
   readonly lastName: string;
-  readonly phoneNumber: string;
+}
+export interface ReauthenticationProof {
+  readonly proof: string;
+  readonly expiresAt: string;
+}
+export interface ExternalLinks {
+  readonly providers: readonly ExternalAuthProvider[];
+  readonly hasPassword: boolean;
 }
 
 export interface RequestPasswordResetRequest {
@@ -84,9 +98,14 @@ export interface AuthSession {
 }
 
 export interface ApiErrorPayload {
+  readonly code?: string;
   readonly title?: string;
   readonly detail?: string;
   readonly errors?: Record<string, string[]>;
 }
 
-export type BootstrapSessionStatus = 'READY' | 'UNAUTHENTICATED' | 'API_UNREACHABLE' | 'REFRESH_FAILED';
+export type BootstrapSessionStatus =
+  | 'READY'
+  | 'UNAUTHENTICATED'
+  | 'API_UNREACHABLE'
+  | 'REFRESH_FAILED';

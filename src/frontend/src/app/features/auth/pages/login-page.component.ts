@@ -1,3 +1,6 @@
+import { identityError } from '../../../core/auth/identity-errors';
+import { Location } from '@angular/common';
+import { timeout } from 'rxjs';
 import { Component, InjectionToken, OnInit, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -10,6 +13,7 @@ import { PasswordModule } from 'primeng/password';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 
 import { ApiErrorPayload, ExternalAuthProvider } from '../../../core/auth/auth.models';
+import { IdentityFlowService } from '../../../core/auth/identity-flow.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { LocalizationService } from '../../../core/i18n/localization.service';
 import { InputValidators } from '../../../shared/forms/input-validation';
@@ -56,6 +60,9 @@ export class LoginPageComponent implements OnInit {
   private readonly localizationService = inject(LocalizationService);
   private readonly externalLoginRedirect = inject(EXTERNAL_LOGIN_REDIRECT);
 
+  private readonly location = inject(Location);
+  private readonly identityFlow = inject(IdentityFlowService);
+
   readonly serverError = signal<string | null>(null);
   readonly successMessage = signal<string | null>(null);
   readonly isHttpLoading = this.store.selectSignal((state) => state.httpUi.pendingRequests > 0);
@@ -82,8 +89,35 @@ export class LoginPageComponent implements OnInit {
   };
 
   ngOnInit(): void {
+    const callbackCode = this.route.snapshot.queryParamMap.get('code');
+    const callbackState = this.route.snapshot.queryParamMap.get('state');
+    if (
+      this.identityFlow.hasOAuthIntent() &&
+      (callbackCode || callbackState || this.route.snapshot.queryParamMap.get('error'))
+    ) {
+      this.location.replaceState('/login');
+      if (!callbackCode || !callbackState) {
+        this.failIdentityCallback();
+        return;
+      }
+      this.identityFlow
+        .completeOAuth(callbackCode, callbackState)
+        .pipe(timeout(15000))
+        .subscribe({
+          next: (result) => {
+            if (result === 'redirecting') return;
+            void this.router.navigateByUrl(
+              result === 'security-updated'
+                ? '/login?identity=updated'
+                : '/account/security?identity=pending',
+            );
+          },
+          error: (error) => this.failIdentityCallback(error),
+        });
+      return;
+    }
     if (this.authService.isAuthenticated()) {
-      void this.router.navigateByUrl('/');
+      void this.router.navigateByUrl(this.identityFlow.afterSignIn());
       return;
     }
 
@@ -96,10 +130,11 @@ export class LoginPageComponent implements OnInit {
     const code = this.route.snapshot.queryParamMap.get('code');
     const state = this.route.snapshot.queryParamMap.get('state');
     if (code && state) {
+      this.location.replaceState('/login');
       this.authService.completeExternalLogin(code, state).subscribe({
         next: () => {
           this.clearExternalPendingMarker();
-          void this.router.navigateByUrl('/');
+          void this.router.navigateByUrl(this.identityFlow.afterSignIn());
         },
         error: (error: { error?: ApiErrorPayload }) => {
           this.clearExternalPendingMarker();
@@ -109,6 +144,12 @@ export class LoginPageComponent implements OnInit {
       return;
     }
 
+    const identityStatus = this.route.snapshot.queryParamMap.get('identity');
+    if (identityStatus === 'updated') this.successMessage.set('identity.signInAgain');
+    if (identityStatus === 'failed') this.serverError.set('identity.reauthFailed');
+    if (identityStatus === 'collision') this.serverError.set('identity.collision');
+    if (this.identityFlow.pendingVerification())
+      this.successMessage.set('identity.originalAccountRequired');
     const passwordResetSuccess =
       this.route.snapshot.queryParamMap.get('passwordReset') === 'success' ||
       !!this.router.getCurrentNavigation()?.extras.state?.['passwordResetSuccess'];
@@ -163,7 +204,7 @@ export class LoginPageComponent implements OnInit {
 
     this.authService.login(identifier.trim(), password, rememberMe).subscribe({
       next: () => {
-        void this.router.navigateByUrl('/');
+        void this.router.navigateByUrl(this.identityFlow.afterSignIn());
       },
       error: (error: { error?: ApiErrorPayload }) => {
         this.serverError.set(getAuthErrorMessage(error.error));
@@ -189,11 +230,19 @@ export class LoginPageComponent implements OnInit {
       return '';
     }
 
-    if (error.startsWith('errors.')) {
+    if (error.startsWith('errors.') || error.startsWith('identity.')) {
       return this.localizationService.translate(error);
     }
 
     return error;
+  }
+
+  private failIdentityCallback(error?: Parameters<typeof identityError>[0]): void {
+    this.identityFlow.clearOAuth();
+    const reason = error && identityError(error) === 'identity.collision' ? 'collision' : 'failed';
+    void this.router.navigateByUrl(
+      `${this.authService.isAuthenticated() ? '/account/security' : '/login'}?identity=${reason}`,
+    );
   }
 
   private startExternalLogin(provider: ExternalAuthProvider): void {
@@ -227,7 +276,10 @@ export class LoginPageComponent implements OnInit {
 }
 
 function getAuthErrorMessage(error: ApiErrorPayload | undefined): string {
-  const title = error?.title ?? '';
+  const title = error?.code ?? error?.title ?? '';
+  if (title === 'Auth.AccountLinkRequired') return 'identity.collision';
+  if (title === 'Auth.EmailVerificationRequired') return 'identity.verificationRequired';
+  if (title === 'Auth.RecoverySupportRequired') return 'identity.supportRequired';
 
   if (title === 'Auth.InvalidCredentials') {
     return 'errors.auth.invalidCredentials';
@@ -249,7 +301,10 @@ function getAuthErrorMessage(error: ApiErrorPayload | undefined): string {
 }
 
 function getExternalCallbackErrorMessage(error: ApiErrorPayload | undefined): string {
-  const title = error?.title ?? '';
+  const title = error?.code ?? error?.title ?? '';
+  if (title === 'Auth.AccountLinkRequired') return 'identity.collision';
+  if (title === 'Auth.EmailVerificationRequired') return 'identity.verificationRequired';
+  if (title === 'Auth.RecoverySupportRequired') return 'identity.supportRequired';
 
   if (title === 'Auth.ExternalStateInvalid') {
     return 'errors.auth.externalStateInvalid';

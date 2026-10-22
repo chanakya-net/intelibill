@@ -8,6 +8,7 @@ import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 
 import { AuthSession, ExternalAuthProvider } from '../../../core/auth/auth.models';
+import { IdentityFlowService } from '../../../core/auth/identity-flow.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { EXTERNAL_LOGIN_REDIRECT, LoginPageComponent } from './login-page.component';
 
@@ -20,6 +21,13 @@ describe('LoginPageComponent', () => {
     completeExternalLogin: vi.fn<AuthService['completeExternalLogin']>(),
   };
 
+  const identityFlow = {
+    hasOAuthIntent: vi.fn(),
+    completeOAuth: vi.fn(),
+    afterSignIn: vi.fn(),
+    pendingVerification: vi.fn(),
+    clearOAuth: vi.fn(),
+  };
   const store = {
     selectSignal: vi.fn(() => signal(false)),
   };
@@ -37,6 +45,7 @@ describe('LoginPageComponent', () => {
       ],
       providers: [
         { provide: AuthService, useValue: authService },
+        { provide: IdentityFlowService, useValue: identityFlow },
         { provide: Store, useValue: store },
         { provide: EXTERNAL_LOGIN_REDIRECT, useValue: externalLoginRedirect },
         {
@@ -75,6 +84,11 @@ describe('LoginPageComponent', () => {
     store.selectSignal.mockImplementation(() => signal(false));
     externalLoginRedirect.mockClear();
     sessionStorage.clear();
+    identityFlow.hasOAuthIntent.mockReturnValue(false);
+    identityFlow.afterSignIn.mockReturnValue('/');
+    identityFlow.pendingVerification.mockReturnValue(null);
+    identityFlow.completeOAuth.mockReset();
+    authService.completeExternalLogin.mockClear();
   });
 
   afterEach(() => {
@@ -229,5 +243,21 @@ describe('LoginPageComponent', () => {
 
     expect(component.successMessage()).toBe('auth.resetPassword.successMessage');
     expect(component.serverError()).toBeNull();
+  });
+  it('legacy login callback handles linking before the authenticated redirect', () => {
+    authService.isAuthenticated.mockReturnValue(true);
+    identityFlow.hasOAuthIntent.mockReturnValue(true);
+    identityFlow.completeOAuth.mockReturnValue(of('security-updated'));
+    const { navigateByUrl } = setup({ code: 'code', state: 'state' });
+    expect(identityFlow.completeOAuth).toHaveBeenCalledWith('code', 'state');
+    expect(authService.completeExternalLogin).not.toHaveBeenCalled();
+    expect(navigateByUrl).toHaveBeenCalledWith('/login?identity=updated');
+  });
+  it('password login resumes pending email confirmation without putting bearer proof in navigation', () => {
+    identityFlow.afterSignIn.mockReturnValue('/auth/verify-email');
+    const { component, navigateByUrl } = setup();
+    component.form.patchValue({ identifier: 'old@example.com', password: 'Password123!' });
+    component.onSubmit();
+    expect(navigateByUrl).toHaveBeenCalledWith('/auth/verify-email');
   });
 });

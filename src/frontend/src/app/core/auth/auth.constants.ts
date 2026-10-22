@@ -4,6 +4,16 @@ export const API_BASE_URL = environment.apiBaseUrl;
 export const HUB_BASE_URL = environment.hubBaseUrl;
 
 export const AUTH_ENDPOINTS = {
+  requestEmailEnrollment: `${API_BASE_URL}/auth/enrollment/email/request`,
+  confirmEmailEnrollment: `${API_BASE_URL}/auth/enrollment/email/confirm`,
+  requestEmailClaim: `${API_BASE_URL}/auth/enrollment/email/claim/request`,
+  confirmEmailClaim: `${API_BASE_URL}/auth/enrollment/email/claim/confirm`,
+  reauthenticate: `${API_BASE_URL}/auth/reauthenticate`,
+  reauthenticateCallback: `${API_BASE_URL}/auth/reauthenticate/callback`,
+  requestEmailChange: `${API_BASE_URL}/auth/email-change/request`,
+  confirmEmailChange: `${API_BASE_URL}/auth/email-change/confirm`,
+  externalLinks: `${API_BASE_URL}/auth/external-links`,
+  externalLinksCallback: `${API_BASE_URL}/auth/external-links/callback`,
   registerWithEmail: `${API_BASE_URL}/auth/register/email`,
   login: `${API_BASE_URL}/auth/login`,
   loginWithEmail: `${API_BASE_URL}/auth/login`,
@@ -50,7 +60,8 @@ export const ITEM_ENDPOINTS = {
 export const INVENTORY_ENDPOINTS = {
   inbound: `${API_BASE_URL}/inventory/inbound`,
   inboundBatch: `${API_BASE_URL}/inventory/inbound/batch`,
-  availableBatches: (searchTerm: string) => `${API_BASE_URL}/inventory/batches/available?searchTerm=${encodeURIComponent(searchTerm)}`,
+  availableBatches: (searchTerm: string) =>
+    `${API_BASE_URL}/inventory/batches/available?searchTerm=${encodeURIComponent(searchTerm)}`,
 } as const;
 
 export const ITEM_BARCODE_ENDPOINTS = {
@@ -73,9 +84,11 @@ export const SALE_ENDPOINTS = {
   reserveInvoiceLease: `${API_BASE_URL}/sales/invoice-leases/reserve`,
   offlineSnapshotStream: `${API_BASE_URL}/sales/offline-snapshot/stream`,
   offlineSync: `${API_BASE_URL}/sales/offline-sync`,
-  sellables: (searchTerm: string) => `${API_BASE_URL}/sales/sellables?searchTerm=${encodeURIComponent(searchTerm)}`,
+  sellables: (searchTerm: string) =>
+    `${API_BASE_URL}/sales/sellables?searchTerm=${encodeURIComponent(searchTerm)}`,
   creditNoteByCode: (code: string) => CREDIT_NOTE_ENDPOINTS.detail(code),
-  creditNotePrintByCode: (code: string) => `${API_BASE_URL}/credit-notes/${encodeURIComponent(code)}/print`,
+  creditNotePrintByCode: (code: string) =>
+    `${API_BASE_URL}/credit-notes/${encodeURIComponent(code)}/print`,
 } as const;
 
 export const BANK_ACCOUNT_ENDPOINTS = {

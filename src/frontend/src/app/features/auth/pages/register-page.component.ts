@@ -3,115 +3,66 @@ import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Store } from '@ngrx/store';
 import { TranslocoPipe } from '@ngneat/transloco';
-
 import { ButtonModule } from 'primeng/button';
-import { CheckboxModule } from 'primeng/checkbox';
 import { InputTextModule } from 'primeng/inputtext';
-import { PasswordModule } from 'primeng/password';
-import { ProgressSpinnerModule } from 'primeng/progressspinner';
-
 import { RootState } from '../../../core/state/app.state';
 import { LocalizationService } from '../../../core/i18n/localization.service';
 import { NATIVE_LANGUAGE_NAMES, SupportedLanguage } from '../../../core/i18n/language.constants';
-import { RegisterActions } from '../state/register.actions';
-import { selectRegisterErrorMessage, selectRegisterSubmitting } from '../state/register.selectors';
 import { InputValidators } from '../../../shared/forms/input-validation';
-
+import { RegisterActions } from '../state/register.actions';
+import {
+  selectRegisterErrorMessage,
+  selectRegisterSubmitting,
+  selectRegisterAccepted,
+  selectRegisterEmail,
+  selectRegisterClaim,
+} from '../state/register.selectors';
 @Component({
   selector: 'app-register-page',
   standalone: true,
-  imports: [
-    ReactiveFormsModule,
-    InputTextModule,
-    PasswordModule,
-    CheckboxModule,
-    ButtonModule,
-    RouterLink,
-    ProgressSpinnerModule,
-    TranslocoPipe,
-  ],
+  imports: [ReactiveFormsModule, InputTextModule, ButtonModule, RouterLink, TranslocoPipe],
   templateUrl: './register-page.component.html',
   styleUrl: './register-page.component.scss',
 })
 export class RegisterPageComponent implements OnInit {
-  private readonly formBuilder = inject(FormBuilder);
   private readonly store = inject(Store<RootState>);
   private readonly localizationService = inject(LocalizationService);
-
   readonly serverError = this.store.selectSignal(selectRegisterErrorMessage);
   readonly isSubmitting = this.store.selectSignal(selectRegisterSubmitting);
+  readonly accepted = this.store.selectSignal(selectRegisterAccepted);
+  readonly email = this.store.selectSignal(selectRegisterEmail);
+  readonly claim = this.store.selectSignal(selectRegisterClaim);
   readonly supportedLanguages = this.localizationService.supportedLanguages;
   readonly currentLanguage = this.localizationService.currentLanguage;
   readonly nativeLanguageNames = NATIVE_LANGUAGE_NAMES;
-
-  readonly form = this.formBuilder.nonNullable.group(
-    {
-      firstName: ['', InputValidators.requiredText(100)],
-      lastName: ['', InputValidators.requiredText(100)],
-      email: ['', InputValidators.email()],
-      phoneNumber: ['', InputValidators.requiredText(20)],
-      password: ['', InputValidators.password()],
-      confirmPassword: ['', InputValidators.password()],
-      rememberMe: [true],
-    },
-    { validators: InputValidators.fieldsMatch('password', 'confirmPassword', 'passwordMismatch') },
-  );
-
-  readonly firstNameInputPt = {
-    root: { class: 'register-first-name-input' },
-  };
-
-  readonly lastNameInputPt = {
-    root: { class: 'register-last-name-input' },
-  };
-
-  readonly emailInputPt = {
-    root: { class: 'register-email-input' },
-  };
-
-  readonly phoneNumberInputPt = {
-    root: { class: 'register-phone-number-input' },
-  };
-
-  readonly passwordInputPt = {
-    root: { class: 'register-password-root' },
-  };
-
-  readonly confirmPasswordInputPt = {
-    root: { class: 'register-confirm-password-root' },
-  };
-
-  readonly progressSpinnerPt = {
-    root: { class: 'auth-spinner-root' },
-  };
-
+  readonly form = inject(FormBuilder).nonNullable.group({ email: ['', InputValidators.email()] });
   ngOnInit(): void {
     this.store.dispatch(RegisterActions.clearError());
   }
-
   onSubmit(): void {
+    this.request(false);
+  }
+  onClaim(): void {
+    this.request(true);
+  }
+  onResend(): void {
+    if (!this.isSubmitting())
+      this.store.dispatch(RegisterActions.requested({ email: this.email(), claim: this.claim() }));
+  }
+  onStartOver(): void {
+    this.store.dispatch(RegisterActions.reset());
+  }
+  async onLanguageChanged(language: string): Promise<void> {
+    await this.localizationService.setLanguage(language as SupportedLanguage);
+  }
+  private request(claim: boolean): void {
+    if (this.isSubmitting()) return;
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
     }
-
-    const { firstName, lastName, email, phoneNumber, password, rememberMe } =
-      this.form.getRawValue();
-
-    this.store.dispatch(RegisterActions.clearError());
     this.store.dispatch(
-      RegisterActions.requested({
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        email: email.trim(),
-        phoneNumber: phoneNumber.trim(),
-        password,
-        rememberMe,
-      }),
+      RegisterActions.requested({ email: this.form.controls.email.value.trim(), claim }),
     );
-  }
-
-  async onLanguageChanged(language: string): Promise<void> {
-    await this.localizationService.setLanguage(language as SupportedLanguage);
   }
 }

@@ -5,6 +5,7 @@ import { of, throwError, TimeoutError } from 'rxjs';
 
 import { AuthSession } from '../../../core/auth/auth.models';
 import { AuthService } from '../../../core/auth/auth.service';
+import { IdentityFlowService } from '../../../core/auth/identity-flow.service';
 import { AuthCallbackComponent } from './auth-callback.component';
 
 describe('AuthCallbackComponent', () => {
@@ -13,15 +14,26 @@ describe('AuthCallbackComponent', () => {
     completeExternalLogin: vi.fn<AuthService['completeExternalLogin']>(),
   };
 
+  const flow = {
+    hasOAuthIntent: vi.fn(),
+    completeOAuth: vi.fn(),
+    afterSignIn: () => '/',
+    clearOAuth: vi.fn(),
+  };
+
   const router = {
     navigateByUrl: vi.fn<Router['navigateByUrl']>().mockResolvedValue(true),
   };
 
   function setup(queryParams: Record<string, string>): AuthCallbackComponent {
     TestBed.configureTestingModule({
-      imports: [AuthCallbackComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
+      imports: [
+        AuthCallbackComponent,
+        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+      ],
       providers: [
         { provide: AuthService, useValue: authService },
+        { provide: IdentityFlowService, useValue: flow },
         { provide: Router, useValue: router },
         {
           provide: ActivatedRoute,
@@ -42,6 +54,9 @@ describe('AuthCallbackComponent', () => {
     authService.completeExternalLogin.mockReturnValue(of({} as AuthSession));
     router.navigateByUrl.mockClear();
     sessionStorage.clear();
+    flow.hasOAuthIntent.mockReturnValue(false);
+    flow.completeOAuth.mockReset();
+    authService.completeExternalLogin.mockClear();
   });
 
   afterEach(() => {
@@ -49,9 +64,7 @@ describe('AuthCallbackComponent', () => {
   });
 
   it('redirects to root when callback succeeds', () => {
-    authService.isAuthenticated
-      .mockReturnValueOnce(false)
-      .mockReturnValue(true);
+    authService.isAuthenticated.mockReturnValueOnce(false).mockReturnValue(true);
     setup({ code: 'code-1', state: 'state-1' });
 
     expect(authService.completeExternalLogin).toHaveBeenCalledWith('code-1', 'state-1');
@@ -63,21 +76,29 @@ describe('AuthCallbackComponent', () => {
 
     expect(component.errorMessage()).toBe('errors.auth.missingCallbackData');
     expect(component.isBusy()).toBe(false);
-    expect(router.navigateByUrl).toHaveBeenCalledWith('/login?externalAuthError=errors.auth.missingCallbackData');
-    expect(sessionStorage.getItem('inventory.auth.external.error')).toBe('errors.auth.missingCallbackData');
+    expect(router.navigateByUrl).toHaveBeenCalledWith(
+      '/login?externalAuthError=errors.auth.missingCallbackData',
+    );
+    expect(sessionStorage.getItem('inventory.auth.external.error')).toBe(
+      'errors.auth.missingCallbackData',
+    );
   });
 
   it('maps invalid-state backend error to user message', () => {
     authService.completeExternalLogin.mockReturnValue(
-      throwError(() => ({ error: { title: 'Auth.ExternalStateInvalid' } }))
+      throwError(() => ({ error: { title: 'Auth.ExternalStateInvalid' } })),
     );
 
     const component = setup({ code: 'code-2', state: 'state-2' });
 
     expect(component.errorMessage()).toBe('errors.auth.externalStateInvalid');
     expect(component.isBusy()).toBe(false);
-    expect(router.navigateByUrl).toHaveBeenCalledWith('/login?externalAuthError=errors.auth.externalStateInvalid');
-    expect(sessionStorage.getItem('inventory.auth.external.error')).toBe('errors.auth.externalStateInvalid');
+    expect(router.navigateByUrl).toHaveBeenCalledWith(
+      '/login?externalAuthError=errors.auth.externalStateInvalid',
+    );
+    expect(sessionStorage.getItem('inventory.auth.external.error')).toBe(
+      'errors.auth.externalStateInvalid',
+    );
   });
 
   it('shows timeout message when callback exchange does not finish', () => {
@@ -87,8 +108,12 @@ describe('AuthCallbackComponent', () => {
 
     expect(component.errorMessage()).toBe('errors.auth.signInTimeout');
     expect(component.isBusy()).toBe(false);
-    expect(router.navigateByUrl).toHaveBeenCalledWith('/login?externalAuthError=errors.auth.signInTimeout');
-    expect(sessionStorage.getItem('inventory.auth.external.error')).toBe('errors.auth.signInTimeout');
+    expect(router.navigateByUrl).toHaveBeenCalledWith(
+      '/login?externalAuthError=errors.auth.signInTimeout',
+    );
+    expect(sessionStorage.getItem('inventory.auth.external.error')).toBe(
+      'errors.auth.signInTimeout',
+    );
   });
 
   it('fails with clear message when callback returns without an authenticated session', () => {
@@ -98,7 +123,36 @@ describe('AuthCallbackComponent', () => {
     const component = setup({ code: 'code-4', state: 'state-4' });
 
     expect(component.errorMessage()).toBe('errors.auth.noSessionEstablished');
-    expect(router.navigateByUrl).toHaveBeenCalledWith('/login?externalAuthError=errors.auth.noSessionEstablished');
+    expect(router.navigateByUrl).toHaveBeenCalledWith(
+      '/login?externalAuthError=errors.auth.noSessionEstablished',
+    );
+  });
+  it('processes authenticated link intent before ordinary authenticated redirect and forces login', () => {
+    authService.isAuthenticated.mockReturnValue(true);
+    flow.hasOAuthIntent.mockReturnValue(true);
+    flow.completeOAuth.mockReturnValue(of('security-updated'));
+    setup({ code: 'link-code', state: 'link-state' });
+    expect(flow.completeOAuth).toHaveBeenCalledWith('link-code', 'link-state');
+    expect(authService.completeExternalLogin).not.toHaveBeenCalled();
+    expect(router.navigateByUrl).toHaveBeenCalledWith('/login?identity=updated');
+  });
+  it('expired linking proof never falls back to login-as-provider', () => {
+    authService.isAuthenticated.mockReturnValue(true);
+    flow.hasOAuthIntent.mockReturnValue(true);
+    flow.completeOAuth.mockReturnValue(
+      throwError(() => ({ error: { title: 'Auth.InvalidChallenge' } })),
+    );
+    setup({ code: 'link-code', state: 'link-state' });
+    expect(authService.completeExternalLogin).not.toHaveBeenCalled();
+    expect(router.navigateByUrl).toHaveBeenCalledWith('/account/security?identity=failed');
+  });
+  it('keeps provider-collision guidance when an explicit link is rejected', () => {
+    authService.isAuthenticated.mockReturnValue(true);
+    flow.hasOAuthIntent.mockReturnValue(true);
+    flow.completeOAuth.mockReturnValue(
+      throwError(() => ({ error: { title: 'Auth.AccountLinkRequired' } })),
+    );
+    setup({ code: 'link-code', state: 'link-state' });
+    expect(router.navigateByUrl).toHaveBeenCalledWith('/account/security?identity=collision');
   });
 });
-

@@ -1,3 +1,6 @@
+import { identityError } from '../../../core/auth/identity-errors';
+import { Location } from '@angular/common';
+import { IdentityFlowService } from '../../../core/auth/identity-flow.service';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslocoPipe } from '@ngneat/transloco';
@@ -23,10 +26,39 @@ export class AuthCallbackComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly authService = inject(AuthService);
 
+  private readonly flow = inject(IdentityFlowService);
+  private readonly location = inject(Location);
+
   readonly isBusy = signal(true);
   readonly errorMessage = signal<string | null>(null);
 
   ngOnInit(): void {
+    if (this.flow.hasOAuthIntent()) {
+      this.route.queryParamMap.pipe(take(1)).subscribe((params) => {
+        const code = params.get('code');
+        const state = params.get('state');
+        this.location.replaceState('/auth/callback');
+        if (!code || !state || params.get('error')) {
+          this.failIdentity();
+          return;
+        }
+        this.flow
+          .completeOAuth(code, state)
+          .pipe(timeout(15000))
+          .subscribe({
+            next: (result) => {
+              if (result === 'redirecting') return;
+              void this.router.navigateByUrl(
+                result === 'security-updated'
+                  ? '/login?identity=updated'
+                  : '/account/security?identity=pending',
+              );
+            },
+            error: (error) => this.failIdentity(error),
+          });
+      });
+      return;
+    }
     if (this.authService.isAuthenticated()) {
       this.clearExternalPendingMarker();
       void this.router.navigateByUrl('/');
@@ -34,6 +66,7 @@ export class AuthCallbackComponent implements OnInit {
     }
 
     this.route.queryParamMap.pipe(take(1)).subscribe((params) => {
+      this.location.replaceState('/auth/callback');
       const providerError = params.get('error');
       if (providerError) {
         this.fail('errors.auth.externalProviderError');
@@ -60,7 +93,7 @@ export class AuthCallbackComponent implements OnInit {
 
             this.clearExternalPendingMarker();
 
-            void this.router.navigateByUrl('/');
+            void this.router.navigateByUrl(this.flow.afterSignIn());
           },
           error: (error: { error?: ApiErrorPayload } | TimeoutError) => {
             if (error instanceof TimeoutError) {
@@ -72,6 +105,16 @@ export class AuthCallbackComponent implements OnInit {
           },
         });
     });
+  }
+
+  private failIdentity(error?: Parameters<typeof identityError>[0]): void {
+    this.flow.clearOAuth();
+    this.isBusy.set(false);
+    const reason = error && identityError(error) === 'identity.collision' ? 'collision' : 'failed';
+    this.errorMessage.set(reason === 'collision' ? 'identity.collision' : 'identity.reauthFailed');
+    void this.router.navigateByUrl(
+      `${this.authService.isAuthenticated() ? '/account/security' : '/login'}?identity=${reason}`,
+    );
   }
 
   private fail(messageKey: string): void {
@@ -99,7 +142,8 @@ export class AuthCallbackComponent implements OnInit {
 }
 
 function mapCallbackError(error: ApiErrorPayload | undefined): string {
-  const title = error?.title ?? '';
+  const title = error?.code ?? error?.title ?? '';
+  if (title === 'Auth.AccountLinkRequired') return 'identity.collision';
 
   if (title === 'Auth.ExternalStateInvalid') {
     return 'errors.auth.externalStateInvalid';

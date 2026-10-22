@@ -16,7 +16,14 @@ import { RootState } from '../../../core/state/app.state';
 @Component({
   selector: 'app-forgot-password-page',
   standalone: true,
-  imports: [ReactiveFormsModule, InputTextModule, ButtonModule, RouterLink, ProgressSpinnerModule, TranslocoPipe],
+  imports: [
+    ReactiveFormsModule,
+    InputTextModule,
+    ButtonModule,
+    RouterLink,
+    ProgressSpinnerModule,
+    TranslocoPipe,
+  ],
   templateUrl: './forgot-password-page.component.html',
   styleUrl: './forgot-password-page.component.scss',
 })
@@ -74,7 +81,9 @@ export class ForgotPasswordPageComponent implements OnInit {
       },
       error: (error: { status?: number }) => {
         this.successMessage.set(null);
-        if (error.status === 429) {
+        if (error.status === 503) {
+          this.errorMessage.set('identity.deliveryUnavailable');
+        } else if (error.status === 429) {
           this.errorMessage.set('auth.forgotPassword.rateLimitMessage');
         } else {
           this.errorMessage.set('auth.forgotPassword.errorMessage');

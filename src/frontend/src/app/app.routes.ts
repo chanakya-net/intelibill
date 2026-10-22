@@ -4,6 +4,10 @@ import { authGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
 	{
+		path: 'auth/verify-email',
+		loadComponent: () => import('./features/auth/pages/verify-email-page.component').then((m) => m.VerifyEmailPageComponent),
+	},
+	{
 		path: 'login',
 		loadComponent: () =>
 			import('./features/auth/pages/login-page.component').then(

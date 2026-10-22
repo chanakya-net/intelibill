@@ -65,9 +65,10 @@
 
       <label>
         <span>{{ 'users.email' | transloco }}</span>
-        <input pInputText type="email" formControlName="email" autocomplete="email" />
+        <input pInputText type="email" formControlName="email" readonly autocomplete="email" />
       </label>
 
+      <p>{{ 'identity.emailChangeRequired' | transloco }}</p>
       <label>
         <span>{{ 'users.mobileNumber' | transloco }}</span>
         <input pInputText type="text" formControlName="phoneNumber" autocomplete="tel" />

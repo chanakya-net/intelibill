@@ -31,32 +31,62 @@ describe('AuthService (auth flows)', () => {
     http.verify();
   });
 
-  it('registers with email and sends phone number in the payload', () => {
+  it('requests email enrollment without creating or storing a session', () => {
     const { service, http } = t.setup();
-    const result = buildAuthResult();
-    let emitted: AuthSession | undefined;
+    service.registerWithEmail(' user@example.com ').subscribe();
+    const request = http.expectOne(AUTH_ENDPOINTS.requestEmailEnrollment);
+    expect(request.request.body).toEqual({ email: 'user@example.com' });
+    request.flush({ message: 'generic' }, { status: 202, statusText: 'Accepted' });
+    expect(service.session()).toBeNull();
+    expect(t.storage.saveSession).not.toHaveBeenCalled();
+    expect(t.storage.saveLastIdentifier).not.toHaveBeenCalled();
+    http.verify();
+  });
 
-    service
-      .registerWithEmail('First', 'Last', 'user@example.com', '+15551234567', 'pw', true)
-      .subscribe((session) => {
-        emitted = session;
-      });
+  it('confirms owner-chosen credentials before establishing a session', () => {
+    const { service, http } = t.setup();
+    const payload = {
+      challengeId: 'id',
+      token: 'proof',
+      password: 'Chosen123!',
+      firstName: 'Ada',
+      lastName: 'L',
+    };
+    service.confirmEmailEnrollment(payload).subscribe();
+    const request = http.expectOne(AUTH_ENDPOINTS.confirmEmailEnrollment);
+    expect(request.request.body).toEqual(payload);
+    expect(t.storage.saveSession).not.toHaveBeenCalled();
+    request.flush(buildAuthResult());
+    expect(service.isAuthenticated()).toBe(true);
+    http.verify();
+  });
 
-    const request = http.expectOne(AUTH_ENDPOINTS.registerWithEmail);
-    expect(request.request.method).toBe('POST');
-    expect(request.request.body).toEqual({
-      firstName: 'First',
-      lastName: 'Last',
-      email: 'user@example.com',
-      phoneNumber: '+15551234567',
-      password: 'pw',
-    });
-    request.flush(result);
+  it('email-change acceptance preserves current address but confirmation clears session', () => {
+    const { service, http } = t.setup();
+    service.applyAuthResult(buildAuthResult());
+    service.requestEmailChange('new@example.com', 'recent').subscribe();
+    const request = http.expectOne(AUTH_ENDPOINTS.requestEmailChange);
+    expect(request.request.body).toEqual({ email: 'new@example.com', reauthProof: 'recent' });
+    request.flush({ message: 'pending' }, { status: 202, statusText: 'Accepted' });
+    expect(service.session()?.user.email).toBe('user@example.com');
+    service.confirmEmailChange('id', 'proof').subscribe();
+    http.expectOne(AUTH_ENDPOINTS.confirmEmailChange).flush({ message: 'updated' });
+    expect(service.session()).toBeNull();
+    http.verify();
+  });
 
-    expect(emitted?.accessToken).toBe(result.accessToken);
-    expect(t.storage.saveSession).toHaveBeenCalledTimes(1);
-    expect(t.storage.saveLastIdentifier).toHaveBeenCalledWith('user@example.com');
-
+  it.each(['link', 'unlink'] as const)('%s success clears the current session', (mode) => {
+    const { service, http } = t.setup();
+    service.applyAuthResult(buildAuthResult());
+    if (mode === 'link') service.completeExternalLink('code', 'state', 'recent').subscribe();
+    else service.unlinkExternalProvider(ExternalAuthProvider.Google, 'recent').subscribe();
+    const request = http.expectOne(
+      mode === 'link' ? AUTH_ENDPOINTS.externalLinksCallback : AUTH_ENDPOINTS.externalLinks + '/1',
+    );
+    expect(request.request.body.reauthProof).toBe('recent');
+    expect(request.request.method).toBe(mode === 'link' ? 'POST' : 'DELETE');
+    request.flush(null, { status: 204, statusText: 'No Content' });
+    expect(service.session()).toBeNull();
     http.verify();
   });
 
@@ -108,7 +138,9 @@ describe('AuthService (auth flows)', () => {
     const request = http.expectOne(AUTH_ENDPOINTS.loginExternalInit);
     expect(request.request.method).toBe('POST');
     expect(request.request.body).toEqual({ provider: ExternalAuthProvider.Google });
-    request.flush({ authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth?client_id=test' });
+    request.flush({
+      authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth?client_id=test',
+    });
 
     expect(resultUrl).toContain('accounts.google.com');
     http.verify();

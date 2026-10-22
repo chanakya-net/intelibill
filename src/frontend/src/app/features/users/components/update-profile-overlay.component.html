@@ -55,11 +55,16 @@
           pInputText
           type="email"
           formControlName="email"
+          readonly
           class="w-full"
           autocomplete="email"
         />
       </div>
 
+      <p>{{ 'identity.emailChangeRequired' | transloco }}</p>
+      <a routerLink="/account/security" (click)="onClose()">{{
+        'identity.manageIdentity' | transloco
+      }}</a>
       <div class="field-wrap space-y-1.5">
         <label for="phone">{{ 'users.mobileNumber' | transloco }}</label>
         <input
@@ -81,7 +86,9 @@
           pButton
           type="submit"
           [label]="
-            isSubmitting() ? ('profile.updating' | transloco) : ('profile.updateProfile' | transloco)
+            isSubmitting()
+              ? ('profile.updating' | transloco)
+              : ('profile.updateProfile' | transloco)
           "
           [loading]="isSubmitting()"
           [disabled]="form.invalid || isSubmitting()"

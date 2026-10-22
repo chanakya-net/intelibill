@@ -25,6 +25,7 @@ const ROUTE_STATE_PROFILES = {
 } as const satisfies Record<RouteStateProfile, readonly RouteState[]>;
 
 export const ROUTE_MANIFEST: readonly RouteManifestEntry[] = [
+  publicRoute('auth/verify-email', 'form'),
   publicRoute('login', 'form'),
   publicRoute('forgot-password', 'form'),
   publicRoute('register', 'form'),
@@ -36,6 +37,7 @@ export const ROUTE_MANIFEST: readonly RouteManifestEntry[] = [
     purchaseOrderId: 'purchase-order-001',
   })),
   wildcardRoute(),
+  shellRoute('account/security'),
   shellRoute('dashboard', MANAGEMENT_ROLES),
   shellRoute('sales/new'),
   shellRoute('sales/profit-loss', MANAGEMENT_ROLES),
