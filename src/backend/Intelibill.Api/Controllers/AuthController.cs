@@ -148,12 +148,13 @@ public sealed class AuthController(IMessageBus bus, IOptions<AppOptions> appOpti
         [FromBody] RequestPasswordResetRequest request,
         CancellationToken cancellationToken)
     {
-        await bus.InvokeAsync<ErrorOr.ErrorOr<bool>>(
+        var result = await bus.InvokeAsync<ErrorOr.ErrorOr<bool>>(
             new RequestPasswordResetCommand(request.Email, appOptions.Value.BaseUrl),
             cancellationToken);
 
-        // Always return 200 to avoid revealing whether the email exists.
-        return Ok(new { message = "If an account with that email exists, a reset link has been sent." });
+        if (result.IsError && result.FirstError.Code == "Auth.EmailDeliveryUnavailable")
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new ProblemDetails { Status = 503, Title = result.FirstError.Code, Detail = result.FirstError.Description });
+        return result.ToActionResult(_ => Ok(new { message = "If an account with that email exists, a reset link has been sent." }));
     }
 
     [HttpPost("password-reset/confirm")]

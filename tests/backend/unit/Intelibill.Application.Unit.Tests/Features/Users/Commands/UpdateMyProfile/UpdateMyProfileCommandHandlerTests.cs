@@ -28,7 +28,7 @@ public class UpdateMyProfileCommandHandlerTests
     [Fact]
     public async Task HandleAsync_UserNotFound_ReturnsNotFoundError()
     {
-        var command = new UpdateMyProfileCommand(Guid.NewGuid(), "user@test.com", "+15551234567", "First", "Last");
+        var command = new UpdateMyProfileCommand(Guid.NewGuid(), "user@test.com", "+15551234567", "First", "Last", SecurityVersion: 0);
         _userRepository.GetByIdWithDetailsAsync(command.UserId, Arg.Any<CancellationToken>()).Returns((User?)null);
 
         var result = await _handler.HandleAsync(command, CancellationToken.None);
@@ -41,7 +41,7 @@ public class UpdateMyProfileCommandHandlerTests
     public async Task HandleAsync_EmailConflict_ReturnsConflictError()
     {
         var user = User.CreateWithEmail("current@test.com", "hash", "First", "Last");
-        var command = new UpdateMyProfileCommand(user.Id, "taken@test.com", null, "First", "Last");
+        var command = new UpdateMyProfileCommand(user.Id, "taken@test.com", null, "First", "Last", SecurityVersion: user.SecurityVersion);
 
         _userRepository.GetByIdWithDetailsAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
         _userRepository.ExistsByEmailAsync("taken@test.com", Arg.Any<CancellationToken>()).Returns(true);
@@ -56,7 +56,7 @@ public class UpdateMyProfileCommandHandlerTests
     public async Task HandleAsync_PhoneConflict_ReturnsConflictError()
     {
         var user = User.CreateWithEmail("current@test.com", "hash", "First", "Last");
-        var command = new UpdateMyProfileCommand(user.Id, "current@test.com", "+15551234567", "First", "Last");
+        var command = new UpdateMyProfileCommand(user.Id, "current@test.com", "+15551234567", "First", "Last", SecurityVersion: user.SecurityVersion);
 
         _userRepository.GetByIdWithDetailsAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
         _userRepository.ExistsByPhoneAsync(command.PhoneNumber!, Arg.Any<CancellationToken>()).Returns(true);
@@ -71,7 +71,7 @@ public class UpdateMyProfileCommandHandlerTests
     public async Task HandleAsync_ValidRequest_UpdatesProfileAndReturnsAuthResult()
     {
         var user = User.CreateWithEmail("current@test.com", "hash", "First", "Last");
-        var command = new UpdateMyProfileCommand(user.Id, "current@test.com", "+15551234567", "Updated", "User");
+        var command = new UpdateMyProfileCommand(user.Id, "current@test.com", "+15551234567", "Updated", "User", SecurityVersion: user.SecurityVersion);
 
         _userRepository.GetByIdWithDetailsAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
         _userRepository.ExistsByEmailAsync("current@test.com", Arg.Any<CancellationToken>()).Returns(false);

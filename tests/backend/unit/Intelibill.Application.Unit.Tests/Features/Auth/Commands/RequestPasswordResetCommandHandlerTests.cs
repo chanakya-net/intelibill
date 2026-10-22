@@ -1,7 +1,7 @@
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Auth.Commands.RequestPasswordReset;
 using Intelibill.Domain.Entities;
-using Intelibill.Domain.Interfaces;
+using Microsoft.Extensions.Logging.Abstractions;
 using Intelibill.Domain.Interfaces.Repositories;
 using NSubstitute;
 
@@ -12,12 +12,27 @@ public class RequestPasswordResetCommandHandlerTests
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IPasswordResetTokenRepository _passwordResetTokenRepository = Substitute.For<IPasswordResetTokenRepository>();
     private readonly IEmailService _emailService = Substitute.For<IEmailService>();
-    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
+    private readonly IEmailOwnershipRepository _ownership = Substitute.For<IEmailOwnershipRepository>();
     private readonly RequestPasswordResetCommandHandler _handler;
 
     public RequestPasswordResetCommandHandlerTests()
     {
-        _handler = new RequestPasswordResetCommandHandler(_userRepository, _passwordResetTokenRepository, _emailService, _unitOfWork);
+        _ownership.BeginAsync(Arg.Any<CancellationToken>()).Returns(Substitute.For<IAsyncDisposable>());
+        _ownership.CommitAsync(Arg.Any<CancellationToken>()).Returns(true);
+        _ownership.LockCurrentCredentialAsync(Arg.Any<Guid>(), Arg.Any<long>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(true);
+        _emailService.IsAvailable.Returns(true);
+        _handler = new RequestPasswordResetCommandHandler(_userRepository, _passwordResetTokenRepository, _emailService, _ownership, NullLogger<RequestPasswordResetCommandHandler>.Instance);
+    }
+
+    [Fact]
+    public async Task HandleAsync_DeliveryDisabled_DoesNotLookUpAccount()
+    {
+        _emailService.IsAvailable.Returns(false);
+        var result = await _handler.HandleAsync(new RequestPasswordResetCommand("known@test.com", "https://app.test"), CancellationToken.None);
+        Assert.True(result.IsError);
+        Assert.Equal("Auth.EmailDeliveryUnavailable", result.FirstError.Code);
+        await _userRepository.DidNotReceiveWithAnyArgs().GetByEmailAsync(default!, default);
+        await _passwordResetTokenRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
     }
 
     [Fact]
@@ -45,7 +60,7 @@ public class RequestPasswordResetCommandHandlerTests
 
         Assert.False(result.IsError);
         await _passwordResetTokenRepository.Received(1).AddAsync(Arg.Is<PasswordResetToken>(t => t.UserId == user.Id), Arg.Any<CancellationToken>());
-        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _ownership.Received(1).CommitAsync(Arg.Any<CancellationToken>());
         await _emailService.Received(1).SendPasswordResetAsync(
             Arg.Any<string>(),
             Arg.Any<string>(),

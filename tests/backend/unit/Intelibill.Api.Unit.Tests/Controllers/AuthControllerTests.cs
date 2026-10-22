@@ -233,18 +233,17 @@ public class AuthControllerTests
     }
 
     [Fact]
-    public async Task RequestPasswordReset_WhenCommandReturnsError_StillReturnsOkWithFixedMessage()
+    public async Task RequestPasswordReset_WhenDeliveryUnavailable_ReturnsServiceUnavailable()
     {
-        ArrangeBusResponse<bool>(Errors.Auth.UnsupportedProvider);
+        ArrangeBusResponse<bool>(Error.Failure("Auth.EmailDeliveryUnavailable", "Delivery unavailable"));
 
         var result = await _controller.RequestPasswordReset(
             new RequestPasswordResetRequest("user@test.com"),
             CancellationToken.None);
 
-        var ok = Assert.IsType<OkObjectResult>(result);
-        Assert.Equal(
-            "If an account with that email exists, a reset link has been sent.",
-            GetMessage(ok.Value));
+        var unavailable = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status503ServiceUnavailable, unavailable.StatusCode);
+        Assert.Equal("Auth.EmailDeliveryUnavailable", Assert.IsType<ProblemDetails>(unavailable.Value).Title);
     }
 
     [Fact]

@@ -19,6 +19,8 @@ public sealed class SwitchActiveShopCommandHandler(
         var user = await userRepository.GetByIdWithDetailsAsync(command.UserId, cancellationToken);
         if (user is null)
             return Errors.Shop.UserNotFound;
+        if (user.SecurityVersion != command.SecurityVersion || !user.IsLoginEnabled)
+            return Error.Unauthorized("Auth.SessionInvalidated", "Sign in again to continue.");
 
         var membership = user.ShopMemberships.FirstOrDefault(sm => sm.ShopId == command.ShopId);
         if (membership is null)

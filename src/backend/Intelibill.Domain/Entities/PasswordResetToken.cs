@@ -8,6 +8,8 @@ public sealed class PasswordResetToken : BaseEntity
     public string TokenHash { get; private set; } = string.Empty;
     public DateTimeOffset ExpiresAt { get; private set; }
     public bool IsUsed { get; private set; }
+    public long SecurityVersion { get; private set; } = -1;
+    public string Destination { get; private set; } = string.Empty;
 
     public User User { get; private set; } = null!;
 
@@ -16,12 +18,14 @@ public sealed class PasswordResetToken : BaseEntity
 
     private PasswordResetToken() { }
 
-    public static PasswordResetToken Create(Guid userId, string tokenHash, int expiryMinutes = 15)
+    public static PasswordResetToken Create(Guid userId, string tokenHash, int expiryMinutes = 15, long securityVersion = -1, string destination = "")
     {
         return new PasswordResetToken
         {
             UserId = userId,
             TokenHash = tokenHash,
+            SecurityVersion = securityVersion,
+            Destination = destination.Trim().ToLowerInvariant(),
             ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(expiryMinutes),
         };
     }

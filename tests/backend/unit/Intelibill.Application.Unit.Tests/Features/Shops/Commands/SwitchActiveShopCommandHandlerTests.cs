@@ -28,7 +28,7 @@ public class SwitchActiveShopCommandHandlerTests
         _userRepository.GetByIdWithDetailsAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
 
         var handler = new SwitchActiveShopCommandHandler(_userRepository, _refreshTokenRepository, _tokenService, _unitOfWork);
-        var result = await handler.HandleAsync(new SwitchActiveShopCommand(user.Id, shop.Id), CancellationToken.None);
+        var result = await handler.HandleAsync(new SwitchActiveShopCommand(user.Id, shop.Id, SecurityVersion: user.SecurityVersion), CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal(Errors.Shop.UserIsNotOwnerForSwitch.Code, result.FirstError.Code);

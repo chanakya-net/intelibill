@@ -65,7 +65,7 @@ public sealed class ShopsController : AuthenticatedControllerBase
                 request.Pincode,
                 request.ContactPerson,
                 request.MobileNumber,
-                request.GstNumber),
+                request.GstNumber, SecurityVersion),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -79,7 +79,7 @@ public sealed class ShopsController : AuthenticatedControllerBase
         if (auth is not null) return auth;
 
         var result = await Bus.InvokeAsync<ErrorOr.ErrorOr<AuthResult>>(
-            new SwitchActiveShopCommand(UserId!.Value, request.ShopId),
+            new SwitchActiveShopCommand(UserId!.Value, request.ShopId, SecurityVersion),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -92,7 +92,7 @@ public sealed class ShopsController : AuthenticatedControllerBase
         if (auth is not null) return auth;
 
         var result = await Bus.InvokeAsync<ErrorOr.ErrorOr<AuthResult>>(
-            new SetDefaultShopCommand(UserId!.Value, request.ShopId),
+            new SetDefaultShopCommand(UserId!.Value, request.ShopId, SecurityVersion),
             cancellationToken);
 
         return result.ToActionResult(Ok);

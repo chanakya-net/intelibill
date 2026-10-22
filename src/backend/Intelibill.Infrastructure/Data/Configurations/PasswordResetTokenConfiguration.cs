@@ -11,6 +11,7 @@ internal sealed class PasswordResetTokenConfiguration : IEntityTypeConfiguration
         builder.ToTable("password_reset_tokens");
 
         builder.HasKey(t => t.Id);
+        builder.Property(t => t.Destination).IsRequired().HasMaxLength(256);
 
         builder.Property(t => t.TokenHash)
             .IsRequired()

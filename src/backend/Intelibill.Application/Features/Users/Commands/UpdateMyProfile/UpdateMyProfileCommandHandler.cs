@@ -20,6 +20,8 @@ public sealed class UpdateMyProfileCommandHandler(
         var user = await userRepository.GetByIdWithDetailsAsync(command.UserId, cancellationToken);
         if (user is null)
             return Errors.Auth.UserNotFound;
+        if (user.SecurityVersion != command.SecurityVersion || !user.IsLoginEnabled)
+            return Error.Unauthorized("Auth.SessionInvalidated", "Sign in again to continue.");
 
         var normalizedEmail = string.IsNullOrWhiteSpace(command.Email) ? null : command.Email.Trim().ToLowerInvariant();
         var normalizedPhone = string.IsNullOrWhiteSpace(command.PhoneNumber)

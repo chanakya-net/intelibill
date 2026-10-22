@@ -25,6 +25,8 @@ public abstract class AuthenticatedControllerBase : ControllerBase
     protected Guid? UserId => TryGetGuidClaim(JwtRegisteredClaimNames.Sub)
         ?? TryGetGuidClaim(ClaimTypes.NameIdentifier);
 
+    protected long SecurityVersion => long.TryParse(User.FindFirst("security_version")?.Value, out var version) ? version : -1;
+
     protected Guid? ActiveShopId => TryGetGuidClaim("active_shop_id");
 
     protected string? ActiveShopRole => User.FindFirst("active_shop_role")?.Value;

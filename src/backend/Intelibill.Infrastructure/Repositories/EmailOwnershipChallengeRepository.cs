@@ -28,6 +28,14 @@ internal sealed class EmailOwnershipChallengeRepository(ApplicationDbContext db,
         var recent = db.Set<IdentityMail>().Where(x => x.Destination == destination && x.CreatedAt > now.AddHours(-1));
         return await recent.CountAsync(ct) < 5 && !await recent.AnyAsync(x => x.CreatedAt > now.AddMinutes(-1), ct);
     }
+    public async Task<bool> LockCurrentCredentialAsync(Guid userId, long version, string destination, CancellationToken ct)
+    {
+        // Keep the row lock until proof issuance/redemption commits. Password changes
+        // outside the identity advisory lock must serialize on this row too.
+        var current = await db.Users.FromSqlInterpolated($"SELECT * FROM users WHERE id = {userId} FOR UPDATE").AsNoTracking().SingleOrDefaultAsync(ct);
+        return current is { IsEmailVerified: true, IsLoginEnabled: true, PasswordHash: not null }
+            && current.SecurityVersion == version && string.Equals(current.Email, destination, StringComparison.OrdinalIgnoreCase);
+    }
     public async Task<bool> HasBusinessHistoryAsync(Guid userId, CancellationToken ct)
     {
         // Serialize the eligibility decision with the durable membership-insert marker.

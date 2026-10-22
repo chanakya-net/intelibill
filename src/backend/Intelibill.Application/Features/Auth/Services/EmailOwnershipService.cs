@@ -17,6 +17,7 @@ public sealed class EmailOwnershipService(IEmailOwnershipRepository repository, 
     private static readonly Error Conflict = Error.Conflict("Auth.EmailUnavailable", "This email is unavailable. Request a new verification or sign in to your existing account.");
     private static readonly Error Reauth = Error.Unauthorized("Auth.ReauthenticationRequired", "Please authenticate again.");
     private static readonly Error Unavailable = Error.Failure("Auth.EmailUnavailable", "Email verification delivery is unavailable. Please try again later.");
+    private static readonly Error RecoverySupportRequired = Error.Conflict("Auth.RecoverySupportRequired", "This legacy account requires an ownership review. Contact support; your data has been preserved.");
     public Task<ErrorOr<Guid>> RequestAsync(string email, CancellationToken ct) => RequestCoreAsync(email, "enrollment", ct);
     public Task<ErrorOr<Guid>> RequestClaimAsync(string email, CancellationToken ct) => RequestCoreAsync(email, "claim", ct);
     private async Task<ErrorOr<Guid>> RequestCoreAsync(string email, string purpose, CancellationToken ct)
@@ -99,6 +100,8 @@ public sealed class EmailOwnershipService(IEmailOwnershipRepository repository, 
         await using var transaction = await repository.BeginAsync(ct);
         var user = await ActorAsync(actor, version, ct);
         if (user is null || !await ConsumeProofAsync(actor, version, proof, ct)) return Reauth;
+        if (!user.IsEmailVerified && await repository.HasBusinessHistoryAsync(user.Id, ct))
+            return RecoverySupportRequired;
         if (await users.ExistsByEmailAsync(email, ct) || !await repository.HasSendBudgetAsync(email, clock.GetUtcNow(), ct))
         { await repository.CommitAsync(ct); return Guid.Empty; }
         var challenge = await CreateAsync(email, "email-change", user, ct);
@@ -113,6 +116,8 @@ public sealed class EmailOwnershipService(IEmailOwnershipRepository repository, 
             return Error.Forbidden("Auth.WrongChallengeActor", "Sign in to the account that requested this email change.");
         var user = await ActorAsync(actor, version, ct);
         if (user is null) return Invalid;
+        if (!user.IsEmailVerified && await repository.HasBusinessHistoryAsync(user.Id, ct))
+            return RecoverySupportRequired;
         if (await users.ExistsByEmailAsync(challenge.Destination, ct)) return Conflict;
         var previousEmail = user.IsEmailVerified ? user.Email : null;
         user.VerifyEmail(challenge.Destination);

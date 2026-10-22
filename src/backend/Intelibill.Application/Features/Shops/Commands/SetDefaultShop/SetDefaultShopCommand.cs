@@ -1,3 +1,3 @@
 namespace Intelibill.Application.Features.Shops.Commands.SetDefaultShop;
 
-public sealed record SetDefaultShopCommand(Guid UserId, Guid ShopId);
+public sealed record SetDefaultShopCommand(Guid UserId, Guid ShopId, long SecurityVersion = -1);

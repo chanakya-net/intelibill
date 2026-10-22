@@ -1,4 +1,6 @@
 using System.Net;
+using System.Linq.Expressions;
+using Intelibill.Domain.Interfaces.Repositories;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -21,6 +23,11 @@ public sealed class EmailOwnershipSecurityTests(PostgreSqlTestFixture fixture) :
 {
     private readonly ApiWebApplicationFactory _factory = new(fixture, services =>
     {
+        var original = services.Single(x => x.ServiceType == typeof(IUserRepository));
+        services.Remove(original);
+        services.AddSingleton<ReadBarrier>();
+        services.AddScoped<IUserRepository>(sp => new BarrierUsers(
+            (IUserRepository)ActivatorUtilities.CreateInstance(sp, original.ImplementationType!), sp.GetRequiredService<ReadBarrier>()));
         services.RemoveAll<IExternalAuthProvider>();
         services.AddSingleton<IExternalAuthProvider, FixtureProvider>();
         services.RemoveAll<IEmailService>();
@@ -306,11 +313,224 @@ public sealed class EmailOwnershipSecurityTests(PostgreSqlTestFixture fixture) :
         var proof = await ReauthAsync(first);
         Assert.Equal(HttpStatusCode.Unauthorized, (await second.PostAsJsonAsync("/api/auth/email-change/request", new { email = Email(), reauthProof = proof })).StatusCode);
     }
+    [Theory]
+    [InlineData("profile")]
+    [InlineData("create")]
+    [InlineData("switch")]
+    [InlineData("default")]
+    public async Task AuthenticatedIssuer_InvalidatedBeforeUserLoad_CannotUpgradeBearer(string operation)
+    {
+        using var client = Client(); var email = Email(); Authenticate(client, await EnrollAsync(client, email));
+        var shopRequest = new { name = "Shop", address = "Street", city = "City", state = "State", pincode = "560001" };
+        var created = await client.PostAsJsonAsync("/api/shops", shopRequest);
+        Assert.Equal(HttpStatusCode.OK, created.StatusCode);
+        var auth = await created.Content.ReadFromJsonAsync<JsonElement>(); Authenticate(client, auth);
+        var shopId = auth.GetProperty("activeShopId").GetGuid();
+        var barrier = _factory.Services.GetRequiredService<ReadBarrier>(); barrier.BeforeId = true;
+        var pending = operation switch
+        {
+            "profile" => client.PutAsJsonAsync("/api/users/me", new { email, firstName = "Updated", lastName = "Owner", language = "en-IN" }),
+            "create" => client.PostAsJsonAsync("/api/shops", shopRequest),
+            "switch" => client.PostAsJsonAsync("/api/shops/switch", new { shopId }),
+            _ => client.PostAsJsonAsync("/api/shops/default", new { shopId })
+        };
+        await barrier.Reached.Task.WaitAsync(TimeSpan.FromSeconds(20));
+        using (var concurrent = _factory.Services.CreateScope())
+            await concurrent.ServiceProvider.GetRequiredService<ApplicationDbContext>().Database.ExecuteSqlRawAsync("UPDATE users SET security_version = security_version + 1");
+        barrier.Release.TrySetResult();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await pending).StatusCode);
+    }
+
+    [Fact]
+    public async Task LegacyProviderEmailChange_CannotActivateHistoricalPassword()
+    {
+        using var client = Client(); var email = Email(); var destination = Email(); Guid userId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var user = User.CreateWithEmail(email, scope.ServiceProvider.GetRequiredService<IPasswordHasher>().Hash("AttackerPassword!1"), "Legacy", "Owner");
+            userId = user.Id;
+            user.AddExternalLogin(UserExternalLogin.Create(user.Id, ExternalAuthProvider.Google, "subject-" + email, email).Value);
+            db.Users.Add(user); await db.SaveChangesAsync();
+            await db.Database.ExecuteSqlRawAsync("UPDATE users SET requires_operator_recovery = true");
+        }
+        var login = await client.PostAsJsonAsync("/api/auth/login/external", new { provider = 1, token = email });
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode); Authenticate(client, await login.Content.ReadFromJsonAsync<JsonElement>());
+        var reauth = await client.PostAsJsonAsync("/api/auth/reauthenticate", new { provider = 1, token = email });
+        var proof = (await reauth.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("proof").GetString();
+        var request = await client.PostAsJsonAsync("/api/auth/email-change/request", new { email = destination, reauthProof = proof });
+        Assert.Equal(HttpStatusCode.Conflict, request.StatusCode);
+        Assert.Contains("Auth.RecoverySupportRequired", await request.Content.ReadAsStringAsync());
+        // A challenge issued before this policy was introduced must fail too.
+        var rawToken = "older-challenge"; Guid challengeId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var challenge = EmailOwnershipChallenge.Create("email-change", destination,
+                Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(rawToken))), DateTimeOffset.UtcNow.AddMinutes(10), userId, 0);
+            challengeId = challenge.Id; db.Add(challenge); await db.SaveChangesAsync();
+        }
+        var confirm = await client.PostAsJsonAsync("/api/auth/email-change/confirm", new { challengeId, token = rawToken });
+        Assert.Equal(HttpStatusCode.Conflict, confirm.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsJsonAsync("/api/auth/login", new { identifier = email, password = "AttackerPassword!1" })).StatusCode);
+        using var verify = _factory.Services.CreateScope(); var database = verify.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.False((await database.Users.SingleAsync()).IsEmailVerified);
+        Assert.Null((await database.Set<EmailOwnershipChallenge>().SingleAsync(x => x.Id == challengeId)).ConsumedAt);
+    }
+
+    [Fact]
+    public async Task ResetRequest_AfterConcurrentEmailChange_CannotIssueOldMailboxAuthority()
+    {
+        using var client = Client(); var email = Email(); var destination = Email(); Authenticate(client, await EnrollAsync(client, email));
+        var proof = await ReauthAsync(client);
+        await client.PostAsJsonAsync("/api/auth/email-change/request", new { email = destination, reauthProof = proof });
+        var challenge = await IdentityTestMailbox.ReadAsync(_factory, destination, "email-change");
+        var barrier = _factory.Services.GetRequiredService<ReadBarrier>(); barrier.AfterEmail = true;
+        var pending = client.PostAsJsonAsync("/api/auth/password-reset/request", new { email });
+        await barrier.Reached.Task.WaitAsync(TimeSpan.FromSeconds(20));
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync("/api/auth/email-change/confirm", new { challengeId = challenge.Id, token = challenge.Token })).StatusCode);
+        barrier.Release.TrySetResult();
+        Assert.Equal(HttpStatusCode.OK, (await pending).StatusCode);
+        var delivery = _factory.Services.GetRequiredService<FixtureEmailDelivery>();
+        if (delivery.ResetLink is not null)
+        {
+            var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(new Uri(delivery.ResetLink).Query);
+            var reset = await client.PostAsJsonAsync("/api/auth/password-reset/confirm", new { email = destination, token = query["token"].ToString(), newPassword = "StolenPassword!1" });
+            Assert.Equal(HttpStatusCode.Unauthorized, reset.StatusCode);
+        }
+        using var scope = _factory.Services.CreateScope();
+        Assert.False(await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().PasswordResetTokens.AnyAsync(x => !x.IsUsed));
+    }
+
+    [Fact]
+    public async Task BusinessHistory_StaleWholeEntityWrite_CannotEraseClaimRestriction()
+    {
+        using var client = Client(); var email = Email();
+        using var staleScope = _factory.Services.CreateScope(); var staleDb = staleScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var user = User.CreateWithEmail(email, "untrusted", "Legacy", "Owner"); staleDb.Add(user); await staleDb.SaveChangesAsync();
+        Assert.False(user.RequiresOperatorRecovery);
+        using (var other = _factory.Services.CreateScope())
+        {
+            var db = other.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var shop = Shop.Create("History", "Address", "City", "State", "560001", null, null, null);
+            db.Add(shop); db.Add(ShopMembership.Create(shop.Id, user.Id, ShopRole.Owner, true)); await db.SaveChangesAsync();
+            await db.ShopMemberships.Where(x => x.UserId == user.Id).ExecuteDeleteAsync();
+        }
+        user.UpdateProfile(email, null, "Stale", "Profile", "en-IN"); staleDb.Update(user); await staleDb.SaveChangesAsync();
+        using (var verify = _factory.Services.CreateScope())
+            Assert.True((await verify.ServiceProvider.GetRequiredService<ApplicationDbContext>().Users.SingleAsync()).RequiresOperatorRecovery);
+        await client.PostAsJsonAsync("/api/auth/enrollment/email/claim/request", new { email });
+        var challenge = await IdentityTestMailbox.ReadAsync(_factory, email, "claim");
+        var response = await client.PostAsJsonAsync("/api/auth/enrollment/email/claim/confirm", new { challengeId = challenge.Id, token = challenge.Token, password = "OwnersPassword!1", firstName = "New", lastName = "Owner" });
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Claim_ConcurrentMembershipHistory_IsCheckedAfterStaleUserRead()
+    {
+        using var client = Client(); var email = Email(); Guid userId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var user = User.CreateWithEmail(email, "untrusted", "Legacy", "Owner"); userId = user.Id;
+            db.Add(user); await db.SaveChangesAsync();
+        }
+        await client.PostAsJsonAsync("/api/auth/enrollment/email/claim/request", new { email });
+        var challenge = await IdentityTestMailbox.ReadAsync(_factory, email, "claim");
+        var barrier = _factory.Services.GetRequiredService<ReadBarrier>(); barrier.AfterEmail = true;
+        var pending = client.PostAsJsonAsync("/api/auth/enrollment/email/claim/confirm", new { challengeId = challenge.Id, token = challenge.Token, password = "OwnersPassword!1", firstName = "New", lastName = "Owner" });
+        await barrier.Reached.Task.WaitAsync(TimeSpan.FromSeconds(20));
+        using (var other = _factory.Services.CreateScope())
+        {
+            var db = other.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var shop = Shop.Create("History", "Address", "City", "State", "560001", null, null, null);
+            db.Add(shop); db.Add(ShopMembership.Create(shop.Id, userId, ShopRole.Owner, true)); await db.SaveChangesAsync();
+            await db.ShopMemberships.Where(x => x.UserId == userId).ExecuteDeleteAsync();
+        }
+        barrier.Release.TrySetResult();
+        Assert.Equal(HttpStatusCode.Conflict, (await pending).StatusCode);
+        using var verify = _factory.Services.CreateScope(); var database = verify.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.False((await database.Users.SingleAsync()).IsEmailVerified);
+        Assert.Null((await database.Set<EmailOwnershipChallenge>().SingleAsync(x => x.Id == challenge.Id)).ConsumedAt);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ResetProof_MustMatchCurrentVersionAndDestination(bool staleVersion)
+    {
+        using var client = Client(); var email = Email(); await EnrollAsync(client, email);
+        const string rawToken = "old-mailbox-proof";
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>(); var user = await db.Users.SingleAsync();
+            var hash = Convert.ToBase64String(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(rawToken)));
+            db.Add(PasswordResetToken.Create(user.Id, hash, securityVersion: staleVersion ? user.SecurityVersion - 1 : user.SecurityVersion, destination: staleVersion ? email : "old@test.com"));
+            await db.SaveChangesAsync();
+        }
+        var response = await client.PostAsJsonAsync("/api/auth/password-reset/confirm", new { email, token = rawToken, newPassword = "StolenPassword!1" });
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync("/api/auth/login", new { identifier = email, password = "OwnersPassword!1" })).StatusCode);
+    }
+
+    [Fact]
+    public async Task ResetDeliveryFailure_KnownAndUnknownAddresses_KeepGenericResponse()
+    {
+        using var client = Client(); var email = Email(); await EnrollAsync(client, email);
+        _factory.Services.GetRequiredService<FixtureEmailDelivery>().Fail = true;
+        var known = await client.PostAsJsonAsync("/api/auth/password-reset/request", new { email });
+        var unknown = await client.PostAsJsonAsync("/api/auth/password-reset/request", new { email = Email() });
+        Assert.Equal(HttpStatusCode.OK, known.StatusCode); Assert.Equal(HttpStatusCode.OK, unknown.StatusCode);
+        Assert.Equal(await known.Content.ReadAsStringAsync(), await unknown.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task ResetProof_ConcurrentRedemption_OnlyOneCommitsAndRevokesSession()
+    {
+        using var client = Client(); var email = Email(); var auth = await EnrollAsync(client, email);
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync("/api/auth/password-reset/request", new { email })).StatusCode);
+        var link = _factory.Services.GetRequiredService<FixtureEmailDelivery>().ResetLink!;
+        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(new Uri(link).Query);
+        var request = new { email, token = query["token"].ToString(), newPassword = "UpdatedPassword!1" };
+        var responses = await Task.WhenAll(Enumerable.Range(0, 2).Select(_ => client.PostAsJsonAsync("/api/auth/password-reset/confirm", request)));
+        Assert.Single(responses, x => x.StatusCode == HttpStatusCode.OK);
+        Assert.Single(responses, x => x.StatusCode == HttpStatusCode.Unauthorized);
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync("/api/auth/login", new { identifier = email, password = "UpdatedPassword!1" })).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/api/auth/token/refresh", new { refreshToken = auth.GetProperty("refreshToken").GetString() })).StatusCode);
+    }
+
+    public sealed class ReadBarrier
+    {
+        public bool BeforeId { get; set; }
+        public bool AfterEmail { get; set; }
+        public TaskCompletionSource Reached { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public async Task PauseAsync() { Reached.TrySetResult(); await Release.Task.WaitAsync(TimeSpan.FromSeconds(30)); }
+    }
+    private sealed class BarrierUsers(IUserRepository inner, ReadBarrier barrier) : IUserRepository
+    {
+        public async Task<User?> GetByIdWithDetailsAsync(Guid id, CancellationToken ct = default)
+        { if (barrier.BeforeId) { barrier.BeforeId = false; await barrier.PauseAsync(); } return await inner.GetByIdWithDetailsAsync(id, ct); }
+        public async Task<User?> GetByEmailAsync(string email, CancellationToken ct = default)
+        { var user = await inner.GetByEmailAsync(email, ct); if (barrier.AfterEmail) { barrier.AfterEmail = false; await barrier.PauseAsync(); } return user; }
+        public Task<User?> GetByPhoneAsync(string phone, CancellationToken ct = default) => inner.GetByPhoneAsync(phone, ct);
+        public Task<User?> GetByExternalLoginAsync(ExternalAuthProvider provider, string key, CancellationToken ct = default) => inner.GetByExternalLoginAsync(provider, key, ct);
+        public Task<bool> ExistsByEmailAsync(string email, CancellationToken ct = default) => inner.ExistsByEmailAsync(email, ct);
+        public Task<bool> ExistsByPhoneAsync(string phone, CancellationToken ct = default) => inner.ExistsByPhoneAsync(phone, ct);
+        public Task<bool> ExistsByPhoneAsync(string phone, Guid id, CancellationToken ct = default) => inner.ExistsByPhoneAsync(phone, id, ct);
+        public Task<User?> GetByIdAsync(Guid id, CancellationToken ct = default) => inner.GetByIdAsync(id, ct);
+        public Task<IReadOnlyList<User>> GetAllAsync(CancellationToken ct = default) => inner.GetAllAsync(ct);
+        public Task<IReadOnlyList<User>> FindAsync(Expression<Func<User, bool>> predicate, CancellationToken ct = default) => inner.FindAsync(predicate, ct);
+        public Task AddAsync(User user, CancellationToken ct = default) => inner.AddAsync(user, ct);
+        public void Update(User user) => inner.Update(user);
+        public void Remove(User user) => inner.Remove(user);
+    }
     public sealed class FixtureEmailDelivery : IEmailService
     {
         public bool Fail { get; set; }
         public int Delivered { get; private set; }
-        public Task SendPasswordResetAsync(string toEmail, string resetLink, DateTimeOffset expiresAt, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public string? ResetLink { get; private set; }
+        public Task SendPasswordResetAsync(string toEmail, string resetLink, DateTimeOffset expiresAt, CancellationToken cancellationToken = default) { if (Fail) throw new IOException("Simulated SMTP outage"); ResetLink = resetLink; return Task.CompletedTask; }
         public Task SendIdentityAsync(string toEmail, string subject, string body, CancellationToken cancellationToken = default)
         {
             if (Fail) throw new IOException("Simulated SMTP outage");

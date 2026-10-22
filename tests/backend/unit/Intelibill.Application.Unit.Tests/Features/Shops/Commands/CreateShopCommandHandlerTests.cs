@@ -29,7 +29,7 @@ public class CreateShopCommandHandlerTests
             "560001",
             "Chandra",
             "9876543210",
-            "27AAPFU0939F1ZV");
+            "27AAPFU0939F1ZV", SecurityVersion: user.SecurityVersion);
 
         _userRepository.GetByIdWithDetailsAsync(user.Id, Arg.Any<CancellationToken>())
             .Returns(user);

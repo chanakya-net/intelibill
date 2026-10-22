@@ -1414,6 +1414,12 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<string>("Destination")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("destination");
+
                     b.Property<DateTimeOffset>("ExpiresAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("expires_at");
@@ -1421,6 +1427,10 @@ namespace Intelibill.Infrastructure.Migrations
                     b.Property<bool>("IsUsed")
                         .HasColumnType("boolean")
                         .HasColumnName("is_used");
+
+                    b.Property<long>("SecurityVersion")
+                        .HasColumnType("bigint")
+                        .HasColumnName("security_version");
 
                     b.Property<string>("TokenHash")
                         .IsRequired()

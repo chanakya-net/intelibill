@@ -7,6 +7,7 @@ public interface IEmailOwnershipRepository
     Task<EmailOwnershipChallenge?> FindAsync(Guid id, CancellationToken ct);
     Task SupersedeAsync(string destination, string purpose, Guid? userId, DateTimeOffset now, CancellationToken ct);
     Task<bool> HasSendBudgetAsync(string destination, DateTimeOffset now, CancellationToken ct);
+    Task<bool> LockCurrentCredentialAsync(Guid userId, long version, string destination, CancellationToken ct);
     Task<bool> HasBusinessHistoryAsync(Guid userId, CancellationToken ct);
     Task InvalidateCredentialsAsync(Guid userId, CancellationToken ct);
     void Add(EmailOwnershipChallenge challenge);

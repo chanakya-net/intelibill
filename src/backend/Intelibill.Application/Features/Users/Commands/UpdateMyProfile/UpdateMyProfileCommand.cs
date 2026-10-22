@@ -6,4 +6,4 @@ public sealed record UpdateMyProfileCommand(
     string? PhoneNumber,
     string FirstName,
     string LastName,
-    string Language = "en-IN");
+    string Language = "en-IN", long SecurityVersion = -1);
