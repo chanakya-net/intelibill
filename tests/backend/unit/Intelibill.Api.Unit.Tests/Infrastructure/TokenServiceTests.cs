@@ -31,8 +31,12 @@ public class TokenServiceTests
         return new TokenService(options, signer ?? new HmacJwtSigner(options), timeProvider);
     }
 
-    private static User CreateUser() =>
-        User.CreateWithEmail("Ada", "Lovelace", "ada@example.com", "hashed-password", "9876500001");
+    private static User CreateUser()
+    {
+        var user = User.CreateWithEmail("ada@example.com", "hashed-password", "Ada", "Lovelace", "9876500001");
+        user.VerifyEmail("ada@example.com");
+        return user;
+    }
 
     [Fact]
     public async Task GenerateAccessTokenAsync_ProducesATokenTheStandardHandlerAccepts()

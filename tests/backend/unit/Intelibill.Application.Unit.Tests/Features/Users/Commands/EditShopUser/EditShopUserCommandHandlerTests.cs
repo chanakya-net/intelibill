@@ -18,7 +18,7 @@ public class EditShopUserCommandHandlerTests
     public async Task HandleAsync_WhenActorIsNotOwner_ReturnsForbiddenError()
     {
         var actor = User.CreateWithEmail("manager@test.com", "hash", "Manager", "User");
-        var target = User.CreateWithPhone("+15551231234", "Sales", "User");
+        var target = User.CreateWithEmail("sales@test.com", "hash", "Sales", "User", "+15551231234");
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
 
         var actorMembership = ShopMembership.Create(shop.Id, actor.Id, ShopRole.Manager, true);
@@ -63,7 +63,7 @@ public class EditShopUserCommandHandlerTests
     public async Task HandleAsync_WhenValid_UpdatesUserRoleAndLoginStatus()
     {
         var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
-        var target = User.CreateWithPhone("+15551231234", "Sales", "User");
+        var target = User.CreateWithEmail("sales@test.com", "hash", "Sales", "User", "+15551231234");
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
 
         var actorMembership = ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true);
@@ -71,7 +71,7 @@ public class EditShopUserCommandHandlerTests
         actor.AddShopMembership(actorMembership);
         target.AddShopMembership(targetMembership);
 
-        var command = new EditShopUserCommand(actor.Id, shop.Id, target.Id, "sales.manager@test.com", "Sales", "Manager", "+15551230000", "Manager", false);
+        var command = new EditShopUserCommand(actor.Id, shop.Id, target.Id, "sales@test.com", "Sales", "Manager", "+15551230000", "Manager", false);
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
         _userRepository.GetByIdWithDetailsAsync(target.Id, Arg.Any<CancellationToken>()).Returns(target);
@@ -95,7 +95,7 @@ public class EditShopUserCommandHandlerTests
     public async Task HandleAsync_WhenEmailAlreadyExists_ReturnsConflictError()
     {
         var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
-        var target = User.CreateWithPhone("+15551231234", "Sales", "User");
+        var target = User.CreateWithEmail("sales@test.com", "hash", "Sales", "User", "+15551231234");
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
 
         var actorMembership = ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true);
@@ -113,14 +113,14 @@ public class EditShopUserCommandHandlerTests
         var result = await handler.HandleAsync(command, CancellationToken.None);
 
         Assert.True(result.IsError);
-        Assert.Equal(Errors.Auth.EmailAlreadyInUse.Code, result.FirstError.Code);
+        Assert.Equal("Auth.EmailChangeRequired", result.FirstError.Code);
     }
 
     [Fact]
     public async Task HandleAsync_WhenShopIdsProvided_RemovesMembershipForUncheckedShop()
     {
         var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
-        var target = User.CreateWithPhone("+15551231234", "Sales", "User");
+        var target = User.CreateWithEmail("sales@test.com", "hash", "Sales", "User", "+15551231234");
         var shop1 = Shop.Create("Shop 1", "Address", "City", "State", "560001", null, null, null);
         var shop2 = Shop.Create("Shop 2", "Address", "City", "State", "560001", null, null, null);
 
@@ -159,7 +159,7 @@ public class EditShopUserCommandHandlerTests
     public async Task HandleAsync_WhenShopIdsProvided_AddsMembershipForNewlyCheckedShop()
     {
         var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
-        var target = User.CreateWithPhone("+15551231234", "Sales", "User");
+        var target = User.CreateWithEmail("sales@test.com", "hash", "Sales", "User", "+15551231234");
         var shop1 = Shop.Create("Shop 1", "Address", "City", "State", "560001", null, null, null);
         var shop2 = Shop.Create("Shop 2", "Address", "City", "State", "560001", null, null, null);
 
@@ -197,7 +197,7 @@ public class EditShopUserCommandHandlerTests
     public async Task HandleAsync_WhenShopIdsNull_DoesNotTouchMemberships()
     {
         var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
-        var target = User.CreateWithPhone("+15551231234", "Sales", "User");
+        var target = User.CreateWithEmail("sales@test.com", "hash", "Sales", "User", "+15551231234");
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
 
         var actorMembership = ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true);

@@ -21,25 +21,26 @@ public sealed class UpdateMyProfileCommandHandler(
         if (user is null)
             return Errors.Auth.UserNotFound;
 
-        var normalizedEmail = command.Email.Trim().ToLowerInvariant();
+        var normalizedEmail = string.IsNullOrWhiteSpace(command.Email) ? null : command.Email.Trim().ToLowerInvariant();
         var normalizedPhone = string.IsNullOrWhiteSpace(command.PhoneNumber)
             ? null
             : command.PhoneNumber.Trim();
 
         var emailChanged = !string.Equals(user.Email, normalizedEmail, StringComparison.OrdinalIgnoreCase);
-        if (emailChanged && await userRepository.ExistsByEmailAsync(normalizedEmail, cancellationToken))
-            return Errors.Auth.EmailAlreadyInUse;
+        if (emailChanged)
+            return Error.Conflict("Auth.EmailChangeRequired", "Use verified email change to replace a sign-in address.");
 
         var phoneChanged = !string.Equals(user.PhoneNumber, normalizedPhone, StringComparison.Ordinal);
         if (phoneChanged && normalizedPhone is not null && await userRepository.ExistsByPhoneAsync(normalizedPhone, cancellationToken))
             return Errors.Auth.PhoneAlreadyInUse;
 
-        user.UpdateProfile(normalizedEmail, normalizedPhone, command.FirstName, command.LastName, command.Language);
+        user.UpdateProfile(normalizedEmail ?? string.Empty, normalizedPhone, command.FirstName, command.LastName, command.Language);
         userRepository.Update(user);
 
         var (activeShopId, activeShopRole, shops) = AuthShopSelection.Resolve(user);
         var (accessToken, accessTokenExpiry) = await tokenService.GenerateAccessTokenAsync(user, activeShopId, activeShopRole, cancellationToken);
         var refreshToken = tokenService.CreateRefreshToken(user.Id);
+        refreshToken.BindSecurityVersion(user.SecurityVersion);
 
         await refreshTokenRepository.AddAsync(refreshToken, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);

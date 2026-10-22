@@ -48,7 +48,7 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
     private static async Task<(string AccessToken, string Email)> RegisterAsync(HttpClient client)
     {
         var email = UniqueEmail();
-        var response = await client.PostAsJsonAsync("/api/auth/register/email", new
+        var response = await client.EnrollAsync(new
         {
             email,
             password = "Pass123!Aa",
@@ -103,7 +103,7 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
             role,
         });
 
-        var response = await client.SendAsync(request);
+        var response = await client.SeedVerifiedStaffAsync(request);
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         return (body.GetProperty("userId").GetGuid(), email, password);
@@ -119,27 +119,6 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         return body.GetProperty("accessToken").GetString()!;
-    }
-
-    private string CreateOwnerTokenWithoutShop()
-    {
-        var configuration = _factory.Services.GetRequiredService<IConfiguration>();
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configuration["Jwt:Secret"]!));
-        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-        var claims = new[]
-        {
-            new Claim(JwtRegisteredClaimNames.Sub, Guid.NewGuid().ToString()),
-            new Claim("active_shop_role", "Owner"),
-        };
-
-        var token = new JwtSecurityToken(
-            issuer: configuration["Jwt:Issuer"],
-            audience: configuration["Jwt:Audience"],
-            claims: claims,
-            expires: DateTime.UtcNow.AddMinutes(15),
-            signingCredentials: creds);
-
-        return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
     private static async Task<Guid> SetupInventoryAsync(HttpClient client, string token, string barcode)
@@ -442,16 +421,16 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
     }
 
     [Fact]
-    public async Task GetProfitLossReport_WithoutActiveShop_Returns400()
+    public async Task GetProfitLossReport_WithoutActiveShop_ReturnsForbidden()
     {
         using var client = CreateClient();
-        var token = CreateOwnerTokenWithoutShop();
+        var (token, _) = await RegisterAsync(client);
 
         using var request = new HttpRequestMessage(HttpMethod.Get, "/api/sales/profit-loss");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         var response = await client.SendAsync(request);
 
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     [Fact]

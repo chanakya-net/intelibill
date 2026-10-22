@@ -21,7 +21,7 @@ public sealed class RequestPasswordResetCommandHandler(
         var user = await userRepository.GetByEmailAsync(command.Email, cancellationToken);
 
         // Always return success to avoid revealing whether the email exists.
-        if (user is null || user.PasswordHash is null)
+        if (user is null || !user.IsEmailVerified || !user.IsLoginEnabled || user.PasswordHash is null)
             return true;
 
         // Invalidate any existing tokens before issuing a new one.

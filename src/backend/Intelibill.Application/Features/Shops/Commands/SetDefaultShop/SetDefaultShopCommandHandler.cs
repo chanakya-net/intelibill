@@ -38,6 +38,7 @@ public sealed class SetDefaultShopCommandHandler(
         var (activeShopId, activeShopRole, shops) = AuthShopSelection.Resolve(user, targetMembership.ShopId);
         var (accessToken, accessTokenExpiry) = await tokenService.GenerateAccessTokenAsync(user, activeShopId, activeShopRole, cancellationToken);
         var refreshToken = tokenService.CreateRefreshToken(user.Id);
+        refreshToken.BindSecurityVersion(user.SecurityVersion);
 
         await refreshTokenRepository.AddAsync(refreshToken, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);

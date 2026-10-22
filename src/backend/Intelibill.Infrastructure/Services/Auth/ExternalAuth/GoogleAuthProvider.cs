@@ -81,6 +81,7 @@ internal sealed class GoogleAuthProvider(
         string token,
         CancellationToken cancellationToken = default)
     {
+        if (!IsEnabled) return Errors.Auth.UnsupportedProvider;
         if (string.IsNullOrWhiteSpace(_google.ClientId))
             return Errors.Auth.ExternalProviderError("Google authentication is not configured.");
 
@@ -101,13 +102,18 @@ internal sealed class GoogleAuthProvider(
                 ProviderKey: payload.Subject,
                 Email: payload.Email,
                 FirstName: firstName,
-                LastName: lastName);
+                LastName: lastName,
+                EmailTrust: ClassifyEmailTrust(payload.Email, payload.EmailVerified, payload.HostedDomain));
         }
         catch (InvalidJwtException ex)
         {
             return Error.Unauthorized("Auth.Google.InvalidToken", ex.Message);
         }
     }
+
+    internal static ExternalEmailTrust ClassifyEmailTrust(string? email, bool verified, string? hostedDomain) =>
+        verified && email is not null && (email.EndsWith("@gmail.com", StringComparison.OrdinalIgnoreCase) || !string.IsNullOrWhiteSpace(hostedDomain))
+            ? ExternalEmailTrust.Verified : ExternalEmailTrust.Unverified;
 
     private sealed class GoogleTokenResponse
     {

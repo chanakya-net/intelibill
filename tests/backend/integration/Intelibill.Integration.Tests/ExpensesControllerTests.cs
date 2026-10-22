@@ -39,7 +39,7 @@ public sealed class ExpensesControllerTests(PostgreSqlTestFixture fixture) : IAs
     // Helper: register user, get token
     private static async Task<string> RegisterAsync(HttpClient client)
     {
-        var response = await client.PostAsJsonAsync("/api/auth/register/email", new
+        var response = await client.EnrollAsync(new
         {
             email = UniqueEmail(),
             password = "Pass123!Aa",
@@ -296,7 +296,7 @@ public sealed class ExpensesControllerTests(PostgreSqlTestFixture fixture) : IAs
             confirmPassword = staffPassword,
             role = "Staff",
         });
-        var addUserResponse = await client.SendAsync(addUserRequest);
+        var addUserResponse = await client.SeedVerifiedStaffAsync(addUserRequest);
         addUserResponse.EnsureSuccessStatusCode();
 
         // Login as staff to get staff-scoped token

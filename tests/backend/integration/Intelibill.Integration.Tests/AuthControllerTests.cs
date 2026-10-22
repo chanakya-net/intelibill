@@ -33,11 +33,11 @@ public sealed class AuthControllerTests(PostgreSqlTestFixture fixture) : IAsyncL
     private static string UniquePhone() => $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}";
 
     [Fact]
-    public async Task RegisterWithEmail_ValidRequest_Returns201WithTokens()
+    public async Task ConfirmedEmailEnrollment_Returns200WithTokens()
     {
         using var client = CreateClient();
 
-        var response = await client.PostAsJsonAsync("/api/auth/register/email", new
+        var response = await client.EnrollAsync(new
         {
             email = UniqueEmail(),
             password = "Pass123!Aa",
@@ -46,7 +46,7 @@ public sealed class AuthControllerTests(PostgreSqlTestFixture fixture) : IAsyncL
             phoneNumber = UniquePhone()
         });
 
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.False(string.IsNullOrWhiteSpace(body.GetProperty("accessToken").GetString()));
         Assert.False(string.IsNullOrWhiteSpace(body.GetProperty("refreshToken").GetString()));
@@ -54,23 +54,14 @@ public sealed class AuthControllerTests(PostgreSqlTestFixture fixture) : IAsyncL
     }
 
     [Fact]
-    public async Task RegisterWithEmail_DuplicateEmail_Returns409()
+    public async Task Registration_ExistingEmail_ReturnsGenericAccepted()
     {
         using var client = CreateClient();
         var email = UniqueEmail();
-        await client.PostAsJsonAsync("/api/auth/register/email", new
-        {
-            email, password = "Pass123!Aa", firstName = "Test", lastName = "User",
-            phoneNumber = $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}"
-        });
-
-        var response = await client.PostAsJsonAsync("/api/auth/register/email", new
-        {
-            email, password = "Pass123!Aa", firstName = "Another", lastName = "User",
-            phoneNumber = $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}"
-        });
-
-        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        await client.EnrollAsync(new { email, password = "Pass123!Aa", firstName = "Test", lastName = "User" });
+        var response = await client.PostAsJsonAsync("/api/auth/enrollment/email/request", new { email });
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+        Assert.DoesNotContain("accessToken", await response.Content.ReadAsStringAsync());
     }
 
     [Fact]
@@ -114,7 +105,7 @@ public sealed class AuthControllerTests(PostgreSqlTestFixture fixture) : IAsyncL
     {
         using var client = CreateClient();
         var email = UniqueEmail();
-        await client.PostAsJsonAsync("/api/auth/register/email", new
+        await client.EnrollAsync(new
         {
             email, password = "Pass123!Aa", firstName = "Test", lastName = "User",
             phoneNumber = $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}"
@@ -136,7 +127,7 @@ public sealed class AuthControllerTests(PostgreSqlTestFixture fixture) : IAsyncL
     {
         using var client = CreateClient();
         var email = UniqueEmail();
-        await client.PostAsJsonAsync("/api/auth/register/email", new
+        await client.EnrollAsync(new
         {
             email, password = "Pass123!Aa", firstName = "Test", lastName = "User",
             phoneNumber = $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}"
@@ -172,49 +163,11 @@ public sealed class AuthControllerTests(PostgreSqlTestFixture fixture) : IAsyncL
         var password = "StaffPass1!";
         var email = UniqueEmail();
 
-        var ownerRegister = await client.PostAsJsonAsync("/api/auth/register/email", new
-        {
-            email = UniqueEmail(),
-            password = "Pass123!Aa",
-            firstName = "Owner",
-            lastName = "User",
-            phoneNumber = UniquePhone()
-        });
-        ownerRegister.EnsureSuccessStatusCode();
-        var ownerBody = await ownerRegister.Content.ReadFromJsonAsync<JsonElement>();
-        var ownerToken = ownerBody.GetProperty("accessToken").GetString()!;
-
-        using var createShopRequest = new HttpRequestMessage(HttpMethod.Post, "/api/shops");
-        createShopRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", ownerToken);
-        createShopRequest.Content = JsonContent.Create(new
-        {
-            name = $"Shop {Guid.NewGuid():N}",
-            address = "42 MG Road",
-            city = "Bengaluru",
-            state = "Karnataka",
-            pincode = "560001"
-        });
-        var createShopResponse = await client.SendAsync(createShopRequest);
-        createShopResponse.EnsureSuccessStatusCode();
-        var shopBody = await createShopResponse.Content.ReadFromJsonAsync<JsonElement>();
-        var shopId = shopBody.GetProperty("activeShopId").GetGuid();
-        var scopedOwnerToken = shopBody.GetProperty("accessToken").GetString()!;
-
-        using var addUserRequest = new HttpRequestMessage(HttpMethod.Post, "/api/users");
-        addUserRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", scopedOwnerToken);
-        addUserRequest.Content = JsonContent.Create(new
-        {
-            shopIds = new[] { shopId },
-            email,
-            firstName = "Staff",
-            lastName = "Member",
-            phoneNumber = phone,
-            password,
-            confirmPassword = password,
-            role = "Manager"
-        });
-        var addUserResponse = await client.SendAsync(addUserRequest);
-        addUserResponse.EnsureSuccessStatusCode();
+        var registration = await client.EnrollAsync(new { email, password, firstName = "Phone", lastName = "Owner" });
+        var authentication = await registration.Content.ReadFromJsonAsync<JsonElement>();
+        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", authentication.GetProperty("accessToken").GetString());
+        var profile = await client.PutAsJsonAsync("/api/users/me", new { email, phoneNumber = phone, firstName = "Phone", lastName = "Owner", language = "en-IN" });
+        profile.EnsureSuccessStatusCode();
 
         var response = await client.PostAsJsonAsync("/api/auth/login", new
         {
@@ -236,49 +189,11 @@ public sealed class AuthControllerTests(PostgreSqlTestFixture fixture) : IAsyncL
         var password = "StaffPass1!";
         var email = UniqueEmail();
 
-        var ownerRegister = await client.PostAsJsonAsync("/api/auth/register/email", new
-        {
-            email = UniqueEmail(),
-            password = "Pass123!Aa",
-            firstName = "Owner",
-            lastName = "User",
-            phoneNumber = UniquePhone()
-        });
-        ownerRegister.EnsureSuccessStatusCode();
-        var ownerBody = await ownerRegister.Content.ReadFromJsonAsync<JsonElement>();
-        var ownerToken = ownerBody.GetProperty("accessToken").GetString()!;
-
-        using var createShopRequest = new HttpRequestMessage(HttpMethod.Post, "/api/shops");
-        createShopRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", ownerToken);
-        createShopRequest.Content = JsonContent.Create(new
-        {
-            name = $"Shop {Guid.NewGuid():N}",
-            address = "42 MG Road",
-            city = "Bengaluru",
-            state = "Karnataka",
-            pincode = "560001"
-        });
-        var createShopResponse = await client.SendAsync(createShopRequest);
-        createShopResponse.EnsureSuccessStatusCode();
-        var shopBody = await createShopResponse.Content.ReadFromJsonAsync<JsonElement>();
-        var shopId = shopBody.GetProperty("activeShopId").GetGuid();
-        var scopedOwnerToken = shopBody.GetProperty("accessToken").GetString()!;
-
-        using var addUserRequest = new HttpRequestMessage(HttpMethod.Post, "/api/users");
-        addUserRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", scopedOwnerToken);
-        addUserRequest.Content = JsonContent.Create(new
-        {
-            shopIds = new[] { shopId },
-            email,
-            firstName = "Staff",
-            lastName = "Member",
-            phoneNumber = phone,
-            password,
-            confirmPassword = password,
-            role = "Manager"
-        });
-        var addUserResponse = await client.SendAsync(addUserRequest);
-        addUserResponse.EnsureSuccessStatusCode();
+        var registration = await client.EnrollAsync(new { email, password, firstName = "Phone", lastName = "Owner" });
+        var authentication = await registration.Content.ReadFromJsonAsync<JsonElement>();
+        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", authentication.GetProperty("accessToken").GetString());
+        var profile = await client.PutAsJsonAsync("/api/users/me", new { email, phoneNumber = phone, firstName = "Phone", lastName = "Owner", language = "en-IN" });
+        profile.EnsureSuccessStatusCode();
 
         var mismatchResponse = await client.PostAsJsonAsync("/api/auth/login", new
         {
@@ -329,7 +244,7 @@ public sealed class AuthControllerTests(PostgreSqlTestFixture fixture) : IAsyncL
     public async Task RefreshToken_WithValidToken_Returns200WithRotatedToken()
     {
         using var client = CreateClient();
-        var registerResponse = await client.PostAsJsonAsync("/api/auth/register/email", new
+        var registerResponse = await client.EnrollAsync(new
         {
             email = UniqueEmail(), password = "Pass123!Aa", firstName = "Test", lastName = "User",
             phoneNumber = $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}"
@@ -365,7 +280,7 @@ public sealed class AuthControllerTests(PostgreSqlTestFixture fixture) : IAsyncL
     public async Task RevokeToken_WithValidToken_Returns204()
     {
         using var client = CreateClient();
-        var registerResponse = await client.PostAsJsonAsync("/api/auth/register/email", new
+        var registerResponse = await client.EnrollAsync(new
         {
             email = UniqueEmail(), password = "Pass123!Aa", firstName = "Test", lastName = "User",
             phoneNumber = $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}"
@@ -382,7 +297,7 @@ public sealed class AuthControllerTests(PostgreSqlTestFixture fixture) : IAsyncL
     public async Task RevokeToken_ThenRefresh_Returns401()
     {
         using var client = CreateClient();
-        var registerResponse = await client.PostAsJsonAsync("/api/auth/register/email", new
+        var registerResponse = await client.EnrollAsync(new
         {
             email = UniqueEmail(), password = "Pass123!Aa", firstName = "Test", lastName = "User",
             phoneNumber = $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}"

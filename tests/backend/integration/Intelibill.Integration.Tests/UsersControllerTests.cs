@@ -2,6 +2,11 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Intelibill.Application.Common.Interfaces;
+using Intelibill.Domain.Entities;
+using Intelibill.Domain.Enums;
+using Intelibill.Infrastructure.Data;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace Intelibill.Integration.Tests;
@@ -36,7 +41,7 @@ public sealed class UsersControllerTests(PostgreSqlTestFixture fixture) : IAsync
     private static async Task<(string AccessToken, string Email)> RegisterAsync(HttpClient client)
     {
         var email = UniqueEmail();
-        var response = await client.PostAsJsonAsync("/api/auth/register/email", new
+        var response = await client.EnrollAsync(new
         {
             email,
             password = "Pass123!Aa",
@@ -67,27 +72,18 @@ public sealed class UsersControllerTests(PostgreSqlTestFixture fixture) : IAsync
         return (body.GetProperty("activeShopId").GetGuid(), body.GetProperty("accessToken").GetString()!);
     }
 
-    private static async Task<(Guid UserId, string Email)> AddShopUserAsync(
-        HttpClient client, string ownerToken, Guid shopId, string role = "Manager")
+    private async Task<(Guid UserId, string Email)> AddShopUserAsync(HttpClient client, string ownerToken, Guid shopId, string role = "Manager")
     {
+        _ = (client, ownerToken);
+        // Existing verified staff fixture. New staff onboarding is intentionally gated pending invitations.
         var email = UniqueEmail();
-        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/users");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
-        request.Content = JsonContent.Create(new
-        {
-            shopIds = new[] { shopId },
-            email,
-            firstName = "Staff",
-            lastName = "Member",
-            phoneNumber = UniquePhone(),
-            password = "StaffPass1!",
-            confirmPassword = "StaffPass1!",
-            role
-        });
-        var response = await client.SendAsync(request);
-        response.EnsureSuccessStatusCode();
-        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
-        return (body.GetProperty("userId").GetGuid(), email);
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var user = User.CreateWithEmail(email, scope.ServiceProvider.GetRequiredService<IPasswordHasher>().Hash("StaffPass1!"), "Staff", "Member", UniquePhone());
+        user.VerifyEmail(email);
+        user.AddShopMembership(ShopMembership.Create(shopId, user.Id, Enum.Parse<ShopRole>(role), true));
+        db.Users.Add(user); await db.SaveChangesAsync();
+        return (user.Id, email);
     }
 
     // ── GET /api/users ───────────────────────────────────────────────────────────
@@ -160,7 +156,7 @@ public sealed class UsersControllerTests(PostgreSqlTestFixture fixture) : IAsync
     }
 
     [Fact]
-    public async Task AddShopUser_AsOwner_WithManagerRole_Returns201()
+    public async Task AddShopUser_AsOwner_WithManagerRole_RequiresInvitation()
     {
         using var client = CreateClient();
         var (token, _) = await RegisterAsync(client);
@@ -181,14 +177,12 @@ public sealed class UsersControllerTests(PostgreSqlTestFixture fixture) : IAsync
         });
         var response = await client.SendAsync(request);
 
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal("New", body.GetProperty("firstName").GetString());
-        Assert.Equal("Manager", body.GetProperty("role").GetString());
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Contains("Auth.InvitationRequired", await response.Content.ReadAsStringAsync());
     }
 
     [Fact]
-    public async Task AddShopUser_AsOwner_WithStaffRole_Returns201()
+    public async Task AddShopUser_AsOwner_WithStaffRole_RequiresInvitation()
     {
         using var client = CreateClient();
         var (token, _) = await RegisterAsync(client);
@@ -209,9 +203,8 @@ public sealed class UsersControllerTests(PostgreSqlTestFixture fixture) : IAsync
         });
         var response = await client.SendAsync(request);
 
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal("Staff", body.GetProperty("role").GetString());
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Contains("Auth.InvitationRequired", await response.Content.ReadAsStringAsync());
     }
 
     [Fact]
@@ -310,13 +303,13 @@ public sealed class UsersControllerTests(PostgreSqlTestFixture fixture) : IAsync
         using var client = CreateClient();
         var (token, _) = await RegisterAsync(client);
         var (shopId, ownerToken) = await CreateShopAsync(client, token);
-        var (targetUserId, _) = await AddShopUserAsync(client, ownerToken, shopId);
+        var (targetUserId, targetEmail) = await AddShopUserAsync(client, ownerToken, shopId);
 
         using var editRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/users/{targetUserId}");
         editRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         editRequest.Content = JsonContent.Create(new
         {
-            email = UniqueEmail(),
+            email = targetEmail,
             firstName = "Updated",
             lastName = "Name",
             phoneNumber = UniquePhone(),
@@ -374,13 +367,13 @@ public sealed class UsersControllerTests(PostgreSqlTestFixture fixture) : IAsync
     public async Task UpdateMyProfile_WithValidData_Returns200WithNewToken()
     {
         using var client = CreateClient();
-        var (token, _) = await RegisterAsync(client);
+        var (token, email) = await RegisterAsync(client);
 
         using var request = new HttpRequestMessage(HttpMethod.Put, "/api/users/me");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         request.Content = JsonContent.Create(new
         {
-            email = UniqueEmail(),
+            email,
             phoneNumber = (string?)null,
             firstName = "Updated",
             lastName = "Profile",
@@ -440,7 +433,7 @@ public sealed class UsersControllerTests(PostgreSqlTestFixture fixture) : IAsync
     {
         using var client = CreateClient();
         var email = UniqueEmail();
-        var registerResponse = await client.PostAsJsonAsync("/api/auth/register/email", new
+        var registerResponse = await client.EnrollAsync(new
         {
             email, password = "Pass123!Aa", firstName = "Test", lastName = "User",
             phoneNumber = $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}"
@@ -467,7 +460,7 @@ public sealed class UsersControllerTests(PostgreSqlTestFixture fixture) : IAsync
     {
         using var client = CreateClient();
         var email = UniqueEmail();
-        var registerResponse = await client.PostAsJsonAsync("/api/auth/register/email", new
+        var registerResponse = await client.EnrollAsync(new
         {
             email, password = "Pass123!Aa", firstName = "Test", lastName = "User",
             phoneNumber = $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}"

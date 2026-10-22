@@ -14,6 +14,8 @@ using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Infrastructure;
+using Intelibill.Infrastructure.Options;
+using Intelibill.Infrastructure.Services.Auth;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -44,6 +46,7 @@ public sealed class ShopIsolationIntegrationTests(PostgreSqlTestFixture fixture)
     public async Task SwitchActiveShop_WhenUserDoesNotOwnShop_ReturnsMembershipForbiddenError()
     {
         var user = User.CreateWithEmail("user@test.com", "hash", "First", "Last");
+        user.VerifyEmail("user@test.com");
         var ownShop = CreateTestShop("Own");
         var ownMembership = ShopMembership.Create(ownShop.Id, user.Id, ShopRole.Owner, true);
         ownShop.AddMembership(ownMembership);
@@ -65,6 +68,7 @@ public sealed class ShopIsolationIntegrationTests(PostgreSqlTestFixture fixture)
     public async Task SwitchActiveShop_ForOwnedShop_RotatesTokenWithActiveShopClaim()
     {
         var user = User.CreateWithEmail("user@test.com", "hash", "First", "Last");
+        user.VerifyEmail("user@test.com");
         var firstShop = CreateTestShop("First");
         var firstMembership = ShopMembership.Create(firstShop.Id, user.Id, ShopRole.Owner, true);
         firstShop.AddMembership(firstMembership);
@@ -100,6 +104,7 @@ public sealed class ShopIsolationIntegrationTests(PostgreSqlTestFixture fixture)
     public async Task SwitchActiveShop_WhenTargetRoleIsNotOwner_ReturnsOwnerOnlyError()
     {
         var user = User.CreateWithEmail("user@test.com", "hash", "First", "Last");
+        user.VerifyEmail("user@test.com");
         var firstShop = CreateTestShop("First");
         var firstMembership = ShopMembership.Create(firstShop.Id, user.Id, ShopRole.Owner, true);
         firstShop.AddMembership(firstMembership);
@@ -153,6 +158,7 @@ public sealed class ShopIsolationIntegrationTests(PostgreSqlTestFixture fixture)
     public async Task CreateShop_WhenValid_CreatesDefaultShopAndReturnsAuthResult()
     {
         var user = User.CreateWithEmail("user@test.com", "hash", "First", "Last");
+        user.VerifyEmail("user@test.com");
         var tokenService = BuildTokenService();
         var userRepository = new InMemoryUserRepository(user);
         var shopRepository = new InMemoryShopRepository();
@@ -218,6 +224,7 @@ public sealed class ShopIsolationIntegrationTests(PostgreSqlTestFixture fixture)
     public async Task SetDefaultShop_WhenMembershipMissing_ReturnsForbiddenError()
     {
         var user = User.CreateWithEmail("user@test.com", "hash", "First", "Last");
+        user.VerifyEmail("user@test.com");
         var existingShop = CreateTestShop("Existing");
         var existingMembership = ShopMembership.Create(existingShop.Id, user.Id, ShopRole.Owner, true);
         existingMembership.MarkUsed();
@@ -240,6 +247,7 @@ public sealed class ShopIsolationIntegrationTests(PostgreSqlTestFixture fixture)
     public async Task SetDefaultShop_WhenValid_UpdatesDefaultAndReturnsAuthResult()
     {
         var user = User.CreateWithEmail("user@test.com", "hash", "First", "Last");
+        user.VerifyEmail("user@test.com");
 
         var firstShop = CreateTestShop("First");
         var firstMembership = ShopMembership.Create(firstShop.Id, user.Id, ShopRole.Owner, true);
@@ -283,6 +291,7 @@ public sealed class ShopIsolationIntegrationTests(PostgreSqlTestFixture fixture)
     public async Task GetMyShops_WhenValid_ReturnsDefaultShopFirst()
     {
         var user = User.CreateWithEmail("user@test.com", "hash", "First", "Last");
+        user.VerifyEmail("user@test.com");
 
         var firstShop = CreateTestShop("First");
         var firstMembership = ShopMembership.Create(firstShop.Id, user.Id, ShopRole.Owner, false);
@@ -388,7 +397,7 @@ public sealed class ShopIsolationIntegrationTests(PostgreSqlTestFixture fixture)
         Assert.Contains(result.Errors, e => e.Code == Errors.Shop.UserIsNotOwner.Code);
     }
 
-    private static ITokenService BuildTokenService()
+    private static TokenService BuildTokenService()
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
@@ -406,10 +415,8 @@ public sealed class ShopIsolationIntegrationTests(PostgreSqlTestFixture fixture)
             })
             .Build();
 
-        var services = new ServiceCollection();
-        services.AddInfrastructure(configuration);
-
-        return services.BuildServiceProvider().GetRequiredService<ITokenService>();
+        var options = Microsoft.Extensions.Options.Options.Create(configuration.GetSection("Jwt").Get<JwtOptions>()!);
+        return new TokenService(options, new HmacJwtSigner(options), TimeProvider.System);
     }
 
     private sealed class InMemoryUserRepository(User? user) : IUserRepository

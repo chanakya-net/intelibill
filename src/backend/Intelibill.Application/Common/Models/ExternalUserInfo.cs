@@ -4,4 +4,7 @@ public sealed record ExternalUserInfo(
     string ProviderKey,
     string? Email,
     string FirstName,
-    string LastName);
+    string LastName,
+    ExternalEmailTrust EmailTrust = ExternalEmailTrust.Unknown);
+
+public enum ExternalEmailTrust { Unknown, Unverified, Verified }

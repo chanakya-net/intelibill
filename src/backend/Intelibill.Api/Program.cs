@@ -100,6 +100,15 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
 
         bearerOptions.Events = new JwtBearerEvents
         {
+            OnTokenValidated = async context =>
+            {
+                var subject = context.Principal?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                var version = context.Principal?.FindFirst("security_version")?.Value;
+                if (!Guid.TryParse(subject, out var id) || !long.TryParse(version, out var securityVersion) ||
+                    !await context.HttpContext.RequestServices.GetRequiredService<Intelibill.Infrastructure.Services.Auth.LiveSessionValidator>()
+                        .IsValidAsync(id, securityVersion, context.HttpContext.RequestAborted))
+                    context.Fail("The session is no longer valid. Sign in again.");
+            },
             OnMessageReceived = context =>
             {
                 // SignalR's WebSocket and SSE transports cannot set an Authorization

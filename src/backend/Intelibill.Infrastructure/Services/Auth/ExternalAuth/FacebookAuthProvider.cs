@@ -64,6 +64,7 @@ internal sealed class FacebookAuthProvider(
         string token,
         CancellationToken cancellationToken = default)
     {
+        if (!IsEnabled) return Errors.Auth.UnsupportedProvider;
         if (string.IsNullOrWhiteSpace(_fb.AppId) || string.IsNullOrWhiteSpace(_fb.AppSecret))
             return Errors.Auth.ExternalProviderError("Facebook authentication is not configured.");
 
@@ -77,7 +78,8 @@ internal sealed class FacebookAuthProvider(
 
         var debug = await client.GetFromJsonAsync<FacebookDebugResponse>(debugUrl, cancellationToken);
 
-        if (debug?.Data is null || !debug.Data.IsValid)
+        if (debug?.Data is null || !debug.Data.IsValid || debug.Data.AppId != _fb.AppId || string.IsNullOrWhiteSpace(debug.Data.UserId) ||
+            debug.Data.ExpiresAt <= DateTimeOffset.UtcNow.ToUnixTimeSeconds() || debug.Data.DataAccessExpiresAt <= DateTimeOffset.UtcNow.ToUnixTimeSeconds())
             return Error.Unauthorized("Auth.Facebook.InvalidToken", "The Facebook access token is invalid.");
 
         // Fetch user info using the user's own access token.
@@ -87,7 +89,7 @@ internal sealed class FacebookAuthProvider(
 
         var userInfo = await client.GetFromJsonAsync<FacebookUserResponse>(userUrl, cancellationToken);
 
-        if (userInfo is null)
+        if (userInfo is null || string.IsNullOrWhiteSpace(userInfo.Id) || userInfo.Id != debug.Data.UserId)
             return Error.Unauthorized("Auth.Facebook.UserInfoError", "Failed to retrieve user information from Facebook.");
 
         return new ExternalUserInfo(
@@ -105,6 +107,10 @@ internal sealed class FacebookAuthProvider(
     private sealed class FacebookTokenData
     {
         [JsonPropertyName("is_valid")] public bool IsValid { get; set; }
+        [JsonPropertyName("app_id")] public string? AppId { get; set; }
+        [JsonPropertyName("user_id")] public string? UserId { get; set; }
+        [JsonPropertyName("expires_at")] public long ExpiresAt { get; set; }
+        [JsonPropertyName("data_access_expires_at")] public long DataAccessExpiresAt { get; set; }
     }
 
     private sealed class FacebookUserResponse

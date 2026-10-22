@@ -36,45 +36,9 @@ public sealed class AddShopUserCommandHandler(
         if (!TryParseShopRole(command.Role, out var role))
             return Errors.Users.RoleNotSupported;
 
-        var normalizedEmail = command.Email.Trim().ToLowerInvariant();
-        if (await userRepository.ExistsByEmailAsync(normalizedEmail, cancellationToken))
-            return Errors.Auth.EmailAlreadyInUse;
-
-        var normalizedPhone = command.PhoneNumber.Trim();
-        if (await userRepository.ExistsByPhoneAsync(normalizedPhone, cancellationToken))
-            return Errors.Auth.PhoneAlreadyInUse;
-
-        var passwordHash = passwordHasher.Hash(command.Password);
-        var newUser = User.CreateWithEmail(normalizedEmail, passwordHash, command.FirstName, command.LastName);
-        newUser.UpdateShopUserProfile(normalizedEmail, command.FirstName, command.LastName, normalizedPhone);
-
-        foreach (var shopId in command.ShopIds)
-        {
-            var actorMembership = actorMembershipsByShop[shopId];
-            var shop = actorMembership.Shop ?? await shopRepository.GetByIdAsync(shopId, cancellationToken);
-            if (shop is null)
-                return Errors.Shop.ShopNotFound;
-
-            var membership = ShopMembership.Create(shop.Id, newUser.Id, role, false);
-            shop.AddMembership(membership);
-            newUser.AddShopMembership(membership);
-        }
-
-        await userRepository.AddAsync(newUser, cancellationToken);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
-
-        return new ShopUserDto(
-            newUser.Id,
-            newUser.FirstName,
-            newUser.LastName,
-            newUser.Email,
-            newUser.PhoneNumber,
-            ToRoleLabel(role),
-            newUser.IsLoginEnabled,
-            command.ShopIds.ToList(),
-            newUser.Language);
+        _ = (shopRepository, passwordHasher, unitOfWork, role);
+        return Error.Conflict("Auth.InvitationRequired", "Staff must accept an invitation and verify their own identity. Direct password-based staff creation is unavailable until invitation onboarding is enabled.");
     }
-
     private static bool TryParseShopRole(string roleValue, out ShopRole role)
     {
         var normalizedRole = roleValue.Trim().Replace("_", string.Empty).Replace(" ", string.Empty).ToLowerInvariant();
@@ -95,8 +59,4 @@ public sealed class AddShopUserCommandHandler(
         return false;
     }
 
-    private static string ToRoleLabel(ShopRole role)
-    {
-        return role == ShopRole.Staff ? "Staff" : role.ToString();
-    }
 }

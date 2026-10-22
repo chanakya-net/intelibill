@@ -1,6 +1,7 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Common.Models;
 using Intelibill.Application.Features.Auth.DTOs;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Interfaces;
@@ -34,9 +35,12 @@ public sealed class ExternalLoginCommandHandler(
 
         if (user is null)
         {
-            // No link found. Check if a user exists with the same email (automatic linking).
+            // Email equality is never authority to link an existing account.
             if (userInfo.Email is not null)
-                user = await userRepository.GetByEmailAsync(userInfo.Email, cancellationToken);
+            {
+                if (await userRepository.GetByEmailAsync(userInfo.Email, cancellationToken) is not null)
+                    return Error.Conflict("Auth.AccountLinkRequired", "Sign in to the existing account and explicitly link this provider.");
+            }
 
             if (user is null)
             {
@@ -48,7 +52,7 @@ public sealed class ExternalLoginCommandHandler(
                     ? command.LastName ?? string.Empty
                     : userInfo.LastName;
 
-                user = User.CreateFromExternalProvider(userInfo.Email, firstName, lastName);
+                user = User.CreateFromExternalProvider(userInfo.Email, firstName, lastName, userInfo.EmailTrust == ExternalEmailTrust.Verified);
                 await userRepository.AddAsync(user, cancellationToken);
             }
 
@@ -62,9 +66,12 @@ public sealed class ExternalLoginCommandHandler(
             user.AddExternalLogin(externalLoginResult.Value);
         }
 
+        if (!user.IsLoginEnabled) return Errors.Auth.UserLoginDisabled;
+
         var (activeShopId, activeShopRole, shops) = AuthShopSelection.Resolve(user);
         var (accessToken, accessTokenExpiry) = await tokenService.GenerateAccessTokenAsync(user, activeShopId, activeShopRole, cancellationToken);
         var refreshToken = tokenService.CreateRefreshToken(user.Id);
+        refreshToken.BindSecurityVersion(user.SecurityVersion);
 
         await refreshTokenRepository.AddAsync(refreshToken, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);

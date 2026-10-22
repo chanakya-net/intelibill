@@ -6,12 +6,14 @@ using System.Text.Json.Nodes;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Domain.Entities;
 using Intelibill.Infrastructure.Options;
+using Intelibill.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
 namespace Intelibill.Infrastructure.Services.Auth;
 
-internal sealed class TokenService(IOptions<JwtOptions> options, IJwtSigner signer, TimeProvider timeProvider)
+internal sealed class TokenService(IOptions<JwtOptions> options, IJwtSigner signer, TimeProvider timeProvider, ApplicationDbContext? db = null)
     : ITokenService
 {
     private readonly JwtOptions _jwt = options.Value;
@@ -25,6 +27,14 @@ internal sealed class TokenService(IOptions<JwtOptions> options, IJwtSigner sign
         string? activeShopRole = null,
         CancellationToken cancellationToken = default)
     {
+        if (!user.IsLoginEnabled || (user.Email is not null && !user.IsEmailVerified && user.ExternalLogins.Count == 0))
+            throw new UnauthorizedAccessException("This account requires verified sign-in ownership.");
+        if (db is not null && db.Entry(user).State != EntityState.Added)
+        {
+            var snapshot = db.Entry(user).Property(x => x.SecurityVersion).OriginalValue;
+            if (!await db.Users.AsNoTracking().AnyAsync(x => x.Id == user.Id && x.SecurityVersion == snapshot && x.IsLoginEnabled, cancellationToken))
+                throw new UnauthorizedAccessException("Credentials changed. Authenticate again.");
+        }
         var issuedAt = timeProvider.GetUtcNow();
         var expiresAt = issuedAt.AddMinutes(_jwt.AccessTokenExpiryMinutes);
 
@@ -56,6 +66,7 @@ internal sealed class TokenService(IOptions<JwtOptions> options, IJwtSigner sign
             [JwtRegisteredClaimNames.Nbf] = issuedAt.ToUnixTimeSeconds(),
             [JwtRegisteredClaimNames.Exp] = expiresAt.ToUnixTimeSeconds(),
             [LanguageClaim] = user.Language,
+            ["security_version"] = user.SecurityVersion,
         };
 
         if (user.Email is not null)

@@ -111,5 +111,5 @@ public sealed class UsersController : AuthenticatedControllerBase
 
 public sealed record AddShopUserRequest(IReadOnlyList<Guid> ShopIds, string Email, string FirstName, string LastName, string PhoneNumber, string Password, string ConfirmPassword, string Role);
 public sealed record EditShopUserRequest(string Email, string FirstName, string LastName, string PhoneNumber, string Role, bool IsLoginEnabled, IReadOnlyList<Guid>? ShopIds = null);
-public sealed record UpdateMyProfileRequest(string Email, string? PhoneNumber, string FirstName, string LastName, string Language = "en-IN");
+public sealed record UpdateMyProfileRequest(string? Email, string? PhoneNumber, string FirstName, string LastName, string Language = "en-IN");
 public sealed record ChangeMyPasswordRequest(string CurrentPassword, string NewPassword);

@@ -11,6 +11,7 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<User>
         builder.ToTable("users");
 
         builder.HasKey(u => u.Id);
+        builder.Property(u => u.SecurityVersion).IsConcurrencyToken();
 
         builder.Property(u => u.Email)
             .HasMaxLength(256);

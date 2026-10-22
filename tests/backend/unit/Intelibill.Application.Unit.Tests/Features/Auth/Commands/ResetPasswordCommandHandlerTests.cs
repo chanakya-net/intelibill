@@ -38,7 +38,7 @@ public class ResetPasswordCommandHandlerTests
     public async Task HandleAsync_NoValidResetToken_ReturnsError()
     {
         var command = new ResetPasswordCommand("test@test.com", "token123", "NewPass123!");
-        var user = User.CreateWithEmail(command.Email, "hash", "first", "last");
+        var user = VerifiedUsers.CreateWithEmail(command.Email, "hash", "first", "last");
 
         _userRepository.GetByEmailAsync(command.Email, Arg.Any<CancellationToken>()).Returns(user);
         _passwordResetTokenRepository.GetValidByUserIdAsync(user.Id, Arg.Any<CancellationToken>())
@@ -54,7 +54,7 @@ public class ResetPasswordCommandHandlerTests
     public async Task HandleAsync_ExpiredToken_ReturnsGenericError()
     {
         var command = new ResetPasswordCommand("test@test.com", "token123", "NewPass123!");
-        var user = User.CreateWithEmail(command.Email, "hash", "first", "last");
+        var user = VerifiedUsers.CreateWithEmail(command.Email, "hash", "first", "last");
 
         _userRepository.GetByEmailAsync(command.Email, Arg.Any<CancellationToken>()).Returns(user);
         _passwordResetTokenRepository.GetValidByUserIdAsync(user.Id, Arg.Any<CancellationToken>())
@@ -70,7 +70,7 @@ public class ResetPasswordCommandHandlerTests
     public async Task HandleAsync_UsedToken_ReturnsGenericError()
     {
         var command = new ResetPasswordCommand("test@test.com", "token123", "NewPass123!");
-        var user = User.CreateWithEmail(command.Email, "hash", "first", "last");
+        var user = VerifiedUsers.CreateWithEmail(command.Email, "hash", "first", "last");
 
         _userRepository.GetByEmailAsync(command.Email, Arg.Any<CancellationToken>()).Returns(user);
         _passwordResetTokenRepository.GetValidByUserIdAsync(user.Id, Arg.Any<CancellationToken>())
@@ -86,7 +86,7 @@ public class ResetPasswordCommandHandlerTests
     public async Task HandleAsync_WrongTokenHash_ReturnsGenericError()
     {
         var command = new ResetPasswordCommand("test@test.com", "wrongtoken", "NewPass123!");
-        var user = User.CreateWithEmail(command.Email, "hash", "first", "last");
+        var user = VerifiedUsers.CreateWithEmail(command.Email, "hash", "first", "last");
         var correctRawToken = "correcttoken";
         var hash = Convert.ToBase64String(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(correctRawToken)));
         var token = PasswordResetToken.Create(user.Id, hash);
@@ -107,7 +107,7 @@ public class ResetPasswordCommandHandlerTests
         var rawToken = "token123";
         var hash = Convert.ToBase64String(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(rawToken)));
         var command = new ResetPasswordCommand("test@test.com", rawToken, "NewPass123!");
-        var user = User.CreateWithEmail(command.Email, "oldHash", "first", "last");
+        var user = VerifiedUsers.CreateWithEmail(command.Email, "oldHash", "first", "last");
         var token = PasswordResetToken.Create(user.Id, hash);
 
         _userRepository.GetByEmailAsync(command.Email, Arg.Any<CancellationToken>()).Returns(user);

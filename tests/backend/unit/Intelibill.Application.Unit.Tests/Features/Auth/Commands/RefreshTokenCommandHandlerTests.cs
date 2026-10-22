@@ -46,11 +46,12 @@ public class RefreshTokenCommandHandlerTests
         var newRefreshToken = Domain.Entities.RefreshToken.Create(Guid.NewGuid(), "newRefreshToken", DateTimeOffset.UtcNow.AddDays(7));
         _tokenService.CreateRefreshToken(Arg.Any<Guid>()).Returns(newRefreshToken);
 
-        // Handler accesses token.User to generate access token — token.User is null here since EF won't load it.
-        // The handler will throw NullReferenceException on token.User, so the test validates the rotation behavior:
-        // revoking the old token is a state change on the object itself and observable without User.
-        try { await _handler.HandleAsync(command, CancellationToken.None); } catch { /* User nav prop is null */ }
-
+        var user = VerifiedUsers.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
+        typeof(Domain.Entities.RefreshToken).GetProperty(nameof(Domain.Entities.RefreshToken.User))!.SetValue(token, user);
+        token.BindSecurityVersion(user.SecurityVersion);
+        var result = await _handler.HandleAsync(command, CancellationToken.None);
+        Assert.False(result.IsError);
         Assert.True(token.IsRevoked);
+        await _refreshTokenRepository.Received(1).AddAsync(newRefreshToken, Arg.Any<CancellationToken>());
     }
 }

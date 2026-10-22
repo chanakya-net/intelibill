@@ -37,7 +37,7 @@ public class RequestPasswordResetCommandHandlerTests
     public async Task HandleAsync_UserFound_GeneratesTokenAndSendsEmail()
     {
         var command = new RequestPasswordResetCommand("found@test.com", "https://app.test");
-        var user = User.CreateWithEmail(command.Email, "hash", "first", "last");
+        var user = VerifiedUsers.CreateWithEmail(command.Email, "hash", "first", "last");
 
         _userRepository.GetByEmailAsync(command.Email, Arg.Any<CancellationToken>()).Returns(user);
 
@@ -58,7 +58,7 @@ public class RequestPasswordResetCommandHandlerTests
     {
         var before = DateTimeOffset.UtcNow;
         var command = new RequestPasswordResetCommand("found@test.com", "https://app.test");
-        var user = User.CreateWithEmail(command.Email, "hash", "first", "last");
+        var user = VerifiedUsers.CreateWithEmail(command.Email, "hash", "first", "last");
 
         _userRepository.GetByEmailAsync(command.Email, Arg.Any<CancellationToken>()).Returns(user);
 
@@ -76,7 +76,7 @@ public class RequestPasswordResetCommandHandlerTests
     public async Task HandleAsync_UserFound_InvalidatesPreviousTokens()
     {
         var command = new RequestPasswordResetCommand("found@test.com", "https://app.test");
-        var user = User.CreateWithEmail(command.Email, "hash", "first", "last");
+        var user = VerifiedUsers.CreateWithEmail(command.Email, "hash", "first", "last");
 
         _userRepository.GetByEmailAsync(command.Email, Arg.Any<CancellationToken>()).Returns(user);
 

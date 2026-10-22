@@ -55,7 +55,7 @@ public class AddShopUserCommandHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_WhenValid_AddsStaffMember()
+    public async Task HandleAsync_WhenOwnerCreatesUnprovedIdentity_RequiresInvitation()
     {
         var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
@@ -73,20 +73,10 @@ public class AddShopUserCommandHandlerTests
         var handler = new AddShopUserCommandHandler(_userRepository, _shopRepository, _passwordHasher, _unitOfWork);
         var result = await handler.HandleAsync(command, CancellationToken.None);
 
-        Assert.False(result.IsError);
-        Assert.Equal("Staff", result.Value.Role);
-        Assert.Equal(command.FirstName, result.Value.FirstName);
-        Assert.Equal(command.LastName, result.Value.LastName);
-        Assert.Equal(command.Email, result.Value.Email);
-        Assert.Equal(command.PhoneNumber, result.Value.PhoneNumber);
-
-        await _userRepository.Received(1).AddAsync(Arg.Is<User>(u =>
-            u.FirstName == command.FirstName
-            && u.LastName == command.LastName
-            && u.Email == command.Email
-            && u.PhoneNumber == command.PhoneNumber
-            && u.ShopMemberships.Any(sm => sm.ShopId == shop.Id && sm.Role == ShopRole.Staff)), Arg.Any<CancellationToken>());
-        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        Assert.True(result.IsError);
+        Assert.Equal("Auth.InvitationRequired", result.FirstError.Code);
+        await _userRepository.DidNotReceive().AddAsync(Arg.Any<User>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -106,6 +96,6 @@ public class AddShopUserCommandHandlerTests
         var result = await handler.HandleAsync(command, CancellationToken.None);
 
         Assert.True(result.IsError);
-        Assert.Equal(Errors.Auth.EmailAlreadyInUse.Code, result.FirstError.Code);
+        Assert.Equal("Auth.InvitationRequired", result.FirstError.Code);
     }
 }

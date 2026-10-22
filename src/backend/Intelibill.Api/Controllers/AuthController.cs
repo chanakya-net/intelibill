@@ -31,16 +31,11 @@ public sealed class AuthController(IMessageBus bus, IOptions<AppOptions> appOpti
         [FromBody] RegisterWithEmailRequest request,
         CancellationToken cancellationToken)
     {
-        var result = await bus.InvokeAsync<ErrorOr.ErrorOr<AuthResult>>(
-            new RegisterWithEmailCommand(
-                request.Email,
-                request.Password,
-                request.FirstName,
-                request.LastName,
-                request.PhoneNumber),
-            cancellationToken);
-
-        return result.ToActionResult(auth => CreatedAtAction(nameof(RegisterWithEmail), auth));
+        var service = HttpContext.RequestServices.GetRequiredService<IEmailOwnershipService>();
+        var result = await service.RequestAsync(request.Email, cancellationToken);
+        if (result.IsError && result.FirstError.Type == ErrorOr.ErrorType.Failure)
+            return Problem(statusCode: 503, title: result.FirstError.Code, detail: result.FirstError.Description);
+        return result.ToActionResult(_ => Accepted(new { message = "If this address is eligible, a verification email will arrive shortly." }));
     }
 
     [HttpPost("register/phone")]
@@ -205,10 +200,10 @@ public sealed class AuthController(IMessageBus bus, IOptions<AppOptions> appOpti
 
 public sealed record RegisterWithEmailRequest(
     string Email,
-    string Password,
-    string FirstName,
-    string LastName,
-    string PhoneNumber);
+    string? Password = null,
+    string? FirstName = null,
+    string? LastName = null,
+    string? PhoneNumber = null);
 public sealed record RegisterWithPhoneRequest(string PhoneNumber, string FirstName, string LastName);
 public sealed record LoginWithEmailRequest(string Email, string Password);
 public sealed record LoginRequest(string Identifier, string Password);

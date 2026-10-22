@@ -147,6 +147,12 @@ public static class DependencyInjection
 
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<ITokenService, TokenService>();
+        services.AddScoped<LiveSessionValidator>();
+        services.AddScoped<IEmailOwnershipRepository, EmailOwnershipChallengeRepository>();
+        services.AddScoped<IEmailOwnershipService, Intelibill.Application.Features.Auth.Services.EmailOwnershipService>();
+        services.AddScoped<IdentityMailOutbox>();
+        services.AddScoped<IIdentityMailOutbox>(sp => sp.GetRequiredService<IdentityMailOutbox>());
+        services.AddHostedService<IdentityMailWorker>();
         services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();
         services.AddSingleton<ISmtpClientFactory, MailKitSmtpClientFactory>();
         services.AddSingleton<IEmailService>(sp =>
@@ -193,8 +199,8 @@ public static class DependencyInjection
                 cache.ExpiredItemsDeletionInterval = options.ExpiredItemsDeletionInterval;
             });
 
-        services.AddHttpClient(nameof(GoogleAuthProvider));
-        services.AddHttpClient(nameof(FacebookAuthProvider));
+        services.AddHttpClient(nameof(GoogleAuthProvider)).RemoveAllLoggers();
+        services.AddHttpClient(nameof(FacebookAuthProvider)).RemoveAllLoggers();
         services.AddHttpClient(nameof(TwitterAuthProvider));
 
         // All providers are registered as IExternalAuthProvider so the handler can

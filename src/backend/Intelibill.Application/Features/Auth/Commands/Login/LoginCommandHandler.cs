@@ -30,9 +30,13 @@ public sealed class LoginCommandHandler(
         if (!user.IsLoginEnabled)
             return Errors.Auth.UserLoginDisabled;
 
+        if (user.Email is not null && !user.IsEmailVerified)
+            return Error.Conflict("Auth.EmailVerificationRequired", "Use mailbox recovery to verify your email before signing in.");
+
         var (activeShopId, activeShopRole, shops) = AuthShopSelection.Resolve(user);
         var (accessToken, accessTokenExpiry) = await tokenService.GenerateAccessTokenAsync(user, activeShopId, activeShopRole, cancellationToken);
         var refreshToken = tokenService.CreateRefreshToken(user.Id);
+        refreshToken.BindSecurityVersion(user.SecurityVersion);
 
         await refreshTokenRepository.AddAsync(refreshToken, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);

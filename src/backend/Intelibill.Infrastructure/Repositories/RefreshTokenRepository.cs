@@ -10,6 +10,7 @@ internal sealed class RefreshTokenRepository(ApplicationDbContext context)
 {
     public async Task<RefreshToken?> GetActiveByTokenAsync(string token, CancellationToken cancellationToken = default) =>
         await DbSet
+            .Include(rt => rt.User).ThenInclude(u => u.ExternalLogins)
             .Include(rt => rt.User)
             .ThenInclude(u => u.ShopMemberships)
             .ThenInclude(sm => sm.Shop)

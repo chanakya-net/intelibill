@@ -20,7 +20,7 @@ public sealed class ResetPasswordCommandHandler(
         CancellationToken cancellationToken)
     {
         var user = await userRepository.GetByEmailAsync(command.Email, cancellationToken);
-        if (user is null)
+        if (user is null || !user.IsEmailVerified || !user.IsLoginEnabled)
             return Errors.Auth.InvalidPasswordResetToken;
 
         var resetToken = await passwordResetTokenRepository.GetValidByUserIdAsync(user.Id, cancellationToken);

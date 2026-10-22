@@ -49,7 +49,7 @@ public class UpdateMyProfileCommandHandlerTests
         var result = await _handler.HandleAsync(command, CancellationToken.None);
 
         Assert.True(result.IsError);
-        Assert.Contains(result.Errors, e => e.Code == Errors.Auth.EmailAlreadyInUse.Code);
+        Assert.Contains(result.Errors, e => e.Code == "Auth.EmailChangeRequired");
     }
 
     [Fact]
@@ -71,10 +71,10 @@ public class UpdateMyProfileCommandHandlerTests
     public async Task HandleAsync_ValidRequest_UpdatesProfileAndReturnsAuthResult()
     {
         var user = User.CreateWithEmail("current@test.com", "hash", "First", "Last");
-        var command = new UpdateMyProfileCommand(user.Id, "updated@test.com", "+15551234567", "Updated", "User");
+        var command = new UpdateMyProfileCommand(user.Id, "current@test.com", "+15551234567", "Updated", "User");
 
         _userRepository.GetByIdWithDetailsAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
-        _userRepository.ExistsByEmailAsync("updated@test.com", Arg.Any<CancellationToken>()).Returns(false);
+        _userRepository.ExistsByEmailAsync("current@test.com", Arg.Any<CancellationToken>()).Returns(false);
         _userRepository.ExistsByPhoneAsync(command.PhoneNumber!, Arg.Any<CancellationToken>()).Returns(false);
 
         var refreshToken = RefreshToken.Create(user.Id, "refresh-token", DateTimeOffset.UtcNow.AddDays(7));
@@ -85,7 +85,7 @@ public class UpdateMyProfileCommandHandlerTests
 
         Assert.False(result.IsError);
         Assert.Equal("access-token", result.Value.AccessToken);
-        Assert.Equal("updated@test.com", result.Value.User.Email);
+        Assert.Equal("current@test.com", result.Value.User.Email);
         Assert.Equal("+15551234567", result.Value.User.PhoneNumber);
         Assert.Equal("Updated", result.Value.User.FirstName);
         Assert.Equal("User", result.Value.User.LastName);

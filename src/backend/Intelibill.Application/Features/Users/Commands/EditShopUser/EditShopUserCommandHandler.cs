@@ -43,8 +43,8 @@ public sealed class EditShopUserCommandHandler(
 
         var normalizedEmail = command.Email.Trim().ToLowerInvariant();
         var emailChanged = !string.Equals(targetUser.Email, normalizedEmail, StringComparison.OrdinalIgnoreCase);
-        if (emailChanged && await userRepository.ExistsByEmailAsync(normalizedEmail, cancellationToken))
-            return Errors.Auth.EmailAlreadyInUse;
+        if (emailChanged)
+            return Error.Conflict("Auth.EmailChangeRequired", "Use verified email change to replace a sign-in address.");
 
         var normalizedPhone = command.PhoneNumber.Trim();
         if (await userRepository.ExistsByPhoneAsync(normalizedPhone, targetUser.Id, cancellationToken))

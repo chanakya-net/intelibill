@@ -34,7 +34,7 @@ public class UserTests
     [Fact]
     public void CreateFromExternalProvider_WithEmail_SetsEmailVerified()
     {
-        var user = User.CreateFromExternalProvider("EXTERNAL@test.com", "First", "Last");
+        var user = User.CreateFromExternalProvider("EXTERNAL@test.com", "First", "Last", emailVerified: true);
 
         Assert.Equal("external@test.com", user.Email);
         Assert.True(user.IsEmailVerified);
