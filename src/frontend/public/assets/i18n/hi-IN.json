@@ -754,7 +754,8 @@
     "retypeNewPassword": "नया पासवर्ड फिर से लिखें",
     "changing": "बदला जा रहा है...",
     "validation": {
-      "passwordsMustMatch": "नया पासवर्ड और पुनः लिखा पासवर्ड समान होना चाहिए।"
+      "passwordsMustMatch": "नया पासवर्ड और पुनः लिखा पासवर्ड समान होना चाहिए।",
+      "newPasswordMustDiffer": "नया पासवर्ड वर्तमान पासवर्ड से अलग होना चाहिए।"
     }
   },
   "shops": {

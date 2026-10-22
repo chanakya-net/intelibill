@@ -207,4 +207,23 @@ describe('BatchRowFormStateService', () => {
     state.form.controls.salesPrice.setValue(0);
     expect(state.canAutoAddScannedRow()).toBe(false);
   });
+
+  it('matches inbound inventory text and pricing constraints', () => {
+    const state = setup();
+    state.form.patchValue({
+      itemName: 'N'.repeat(180),
+      barcode: 'B'.repeat(128),
+      itemDescription: 'D'.repeat(1000),
+      uom: 'U'.repeat(32),
+      batchNumber: 'BATCH-1',
+      mrp: 100,
+      salesPrice: 101,
+      taxRatePercent: 101,
+    });
+
+    expect(state.form.controls.barcode.valid).toBe(true);
+    expect(state.form.controls.itemDescription.valid).toBe(true);
+    expect(state.form.hasError('salesPriceExceedsMrp')).toBe(true);
+    expect(state.form.controls.taxRatePercent.hasError('max')).toBe(true);
+  });
 });

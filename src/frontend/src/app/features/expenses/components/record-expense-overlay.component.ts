@@ -16,8 +16,13 @@ import { InputGroupAddonModule } from 'primeng/inputgroupaddon';
 
 import { ExpenseCategoryDto } from '../services/expense-category.service';
 import { ExpensesFacade } from '../state/expenses.facade';
-import { CURRENCY_ADDON_PT, CURRENCY_INPUT_GROUP_PT, CURRENCY_INPUT_NUMBER_PT } from '../../../shared/primeng-pt.config';
+import {
+  CURRENCY_ADDON_PT,
+  CURRENCY_INPUT_GROUP_PT,
+  CURRENCY_INPUT_NUMBER_PT,
+} from '../../../shared/primeng-pt.config';
 import { formatLocalIsoDate } from '../../../shared/utils/date-time.util';
+import { InputValidators } from '../../../shared/forms/input-validation';
 
 @Component({
   selector: 'app-record-expense-overlay',
@@ -51,8 +56,8 @@ export class RecordExpenseOverlayComponent implements OnInit {
   });
   readonly selectableCategories = computed(() =>
     this.categories().filter(
-      (category) => category.name.trim().toLowerCase() !== 'supplier payments'
-    )
+      (category) => category.name.trim().toLowerCase() !== 'supplier payments',
+    ),
   );
   readonly isSubmitting = toSignal(this.expensesFacade.submitting$, {
     initialValue: false,
@@ -64,10 +69,10 @@ export class RecordExpenseOverlayComponent implements OnInit {
   @Output() readonly closeRequested = new EventEmitter<void>();
 
   readonly form = this.formBuilder.nonNullable.group({
-    categoryName: ['', [Validators.required, Validators.maxLength(100)]],
-    amount: [0, [Validators.required, Validators.min(0.01)]],
-    paidTo: ['', [Validators.required, Validators.maxLength(255)]],
-    description: ['', [Validators.maxLength(500)]],
+    categoryName: ['', InputValidators.requiredText(100)],
+    amount: [0, InputValidators.positiveNumber()],
+    paidTo: ['', InputValidators.requiredText(255)],
+    description: ['', InputValidators.optionalText(500)],
     expenseDate: [new Date(), [Validators.required]],
   });
 
@@ -75,10 +80,7 @@ export class RecordExpenseOverlayComponent implements OnInit {
     this.expensesFacade.mutationStatus$
       .pipe(
         takeUntilDestroyed(),
-        filter(
-          (status) =>
-            status.type === 'record-expense' && status.succeeded === true
-        )
+        filter((status) => status.type === 'record-expense' && status.succeeded === true),
       )
       .subscribe(() => {
         this.expensesFacade.loadExpenses();

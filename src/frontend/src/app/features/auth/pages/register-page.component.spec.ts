@@ -27,11 +27,11 @@ describe('RegisterPageComponent', () => {
 
   function setup(): RegisterPageComponent {
     TestBed.configureTestingModule({
-      imports: [RegisterPageComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
-      providers: [
-        provideRouter([]),
-        { provide: Store, useValue: store },
+      imports: [
+        RegisterPageComponent,
+        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
       ],
+      providers: [provideRouter([]), { provide: Store, useValue: store }],
     });
 
     const fixture = TestBed.createComponent(RegisterPageComponent);
@@ -67,8 +67,17 @@ describe('RegisterPageComponent', () => {
 
     expect(component.form.touched).toBe(true);
     expect(dispatch).not.toHaveBeenCalledWith(
-      expect.objectContaining({ type: RegisterActions.requested.type })
+      expect.objectContaining({ type: RegisterActions.requested.type }),
     );
+  });
+
+  it('rejects whitespace-only names', () => {
+    const component = setup();
+    component.form.controls.firstName.setValue('   ');
+    component.form.controls.lastName.setValue('   ');
+
+    expect(component.form.controls.firstName.hasError('required')).toBe(true);
+    expect(component.form.controls.lastName.hasError('required')).toBe(true);
   });
 
   it('marks form invalid when passwords do not match', () => {
@@ -105,7 +114,7 @@ describe('RegisterPageComponent', () => {
         phoneNumber: '+15551234567',
         password: 'Password123!',
         rememberMe: false,
-      })
+      }),
     );
   });
 });

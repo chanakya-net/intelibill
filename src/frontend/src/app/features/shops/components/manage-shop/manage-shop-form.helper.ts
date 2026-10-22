@@ -1,13 +1,11 @@
-import { FormBuilder, FormControl, FormGroup, Validators } from '@angular/forms';
+import { FormBuilder, FormControl, FormGroup } from '@angular/forms';
 
 import {
   ShopDetailsDto,
   UpdateBankDetailsRequest,
   UpdateShopRequest,
 } from '../../services/shop.service';
-
-export const INDIA_GST_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/i;
-export const INDIA_IFSC_REGEX = /^[A-Z]{4}0[A-Z0-9]{6}$/i;
+import { InputValidators } from '../../../../shared/forms/input-validation';
 
 export type ManageShopFormGroup = FormGroup<{
   shopId: FormControl<string>;
@@ -31,29 +29,33 @@ export type ManageShopBankFormGroup = FormGroup<{
 
 export function createManageShopForm(formBuilder: FormBuilder): ManageShopFormGroup {
   return formBuilder.nonNullable.group({
-    shopId: ['', [Validators.required]],
-    name: ['', [Validators.required, Validators.maxLength(120)]],
-    address: ['', [Validators.required, Validators.maxLength(320)]],
-    city: ['', [Validators.required, Validators.maxLength(120)]],
-    state: ['', [Validators.required, Validators.maxLength(120)]],
-    pincode: ['', [Validators.required, Validators.maxLength(16)]],
-    contactPerson: ['', [Validators.maxLength(120)]],
-    mobileNumber: ['', [Validators.maxLength(32)]],
-    gstNumber: ['', [Validators.maxLength(20), Validators.pattern(INDIA_GST_REGEX)]],
+    shopId: ['', InputValidators.requiredText()],
+    name: ['', InputValidators.requiredText(120)],
+    address: ['', InputValidators.requiredText(320)],
+    city: ['', InputValidators.requiredText(120)],
+    state: ['', InputValidators.requiredText(120)],
+    pincode: ['', InputValidators.requiredText(16)],
+    contactPerson: ['', InputValidators.optionalText(120)],
+    mobileNumber: ['', InputValidators.optionalText(32)],
+    gstNumber: ['', InputValidators.gstNumber()],
   });
 }
 
 export function createManageBankForm(formBuilder: FormBuilder): ManageShopBankFormGroup {
   return formBuilder.nonNullable.group({
-    bankName: ['', [Validators.maxLength(120)]],
-    accountNumber: ['', [Validators.maxLength(50)]],
+    bankName: ['', InputValidators.optionalText(120)],
+    accountNumber: ['', InputValidators.optionalText(50)],
     accountType: [''],
-    ifscCode: ['', [Validators.maxLength(20), Validators.pattern(INDIA_IFSC_REGEX)]],
-    accountHolderName: ['', [Validators.maxLength(120)]],
+    ifscCode: ['', InputValidators.ifscCode()],
+    accountHolderName: ['', InputValidators.optionalText(120)],
   });
 }
 
-export function patchManageShopFormsFromDetails(form: ManageShopFormGroup, bankForm: ManageShopBankFormGroup, details: ShopDetailsDto): void {
+export function patchManageShopFormsFromDetails(
+  form: ManageShopFormGroup,
+  bankForm: ManageShopBankFormGroup,
+  details: ShopDetailsDto,
+): void {
   form.patchValue({
     name: details.name,
     address: details.address,
@@ -87,7 +89,9 @@ export function mapManageShopFormToUpdateShopRequest(form: ManageShopFormGroup):
   };
 }
 
-export function mapManageBankFormToUpdateBankDetailsRequest(bankForm: ManageShopBankFormGroup): UpdateBankDetailsRequest {
+export function mapManageBankFormToUpdateBankDetailsRequest(
+  bankForm: ManageShopBankFormGroup,
+): UpdateBankDetailsRequest {
   return {
     bankName: toOptionalTrimmed(bankForm.controls.bankName.value),
     accountNumber: toOptionalTrimmed(bankForm.controls.accountNumber.value),

@@ -30,7 +30,11 @@ describe('ManageBankAccountOverlayComponent', () => {
     errorSignal.set('');
 
     TestBed.configureTestingModule({
-      imports: [ManageBankAccountOverlayComponent, ReactiveFormsModule, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
+      imports: [
+        ManageBankAccountOverlayComponent,
+        ReactiveFormsModule,
+        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+      ],
       providers: [
         { provide: BankAccountsFacade, useValue: bankAccountsFacade },
         provideNoopAnimations(),
@@ -139,6 +143,15 @@ describe('ManageBankAccountOverlayComponent', () => {
 
     expect(bankAccountsFacade.addBankAccount).not.toHaveBeenCalled();
     expect(component.form.touched).toBe(true);
+  });
+
+  it('rejects whitespace-only required bank account fields', () => {
+    const fixture = TestBed.createComponent(ManageBankAccountOverlayComponent);
+    const component = fixture.componentInstance;
+    component.form.patchValue({ bankName: '   ', accountNumber: '   ', accountType: '   ' });
+
+    expect(component.form.invalid).toBe(true);
+    expect(component.form.controls.bankName.hasError('required')).toBe(true);
   });
 
   it('marks ifscCode as invalid if format is wrong', () => {

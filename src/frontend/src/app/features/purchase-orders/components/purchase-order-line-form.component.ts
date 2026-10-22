@@ -8,6 +8,7 @@ import { InputNumberModule } from 'primeng/inputnumber';
 import { firstValueFrom } from 'rxjs';
 
 import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
+import { InputValidators } from '../../../shared/forms/input-validation';
 import { InventoryService } from '../../inventory/services/inventory.service';
 import type { AddItemRequest } from '../../inventory/services/inventory.models';
 import type { CreatePurchaseOrderLineRequest } from '../services/purchase-order.service';
@@ -42,6 +43,7 @@ import type { CreatePurchaseOrderLineRequest } from '../services/purchase-order.
           styleClass="po-line-form__qty-input"
           formControlName="expectedQuantity"
           [min]="1"
+          [maxFractionDigits]="0"
           [showButtons]="true"
           buttonLayout="horizontal"
           decrementButtonIcon="pi pi-minus"
@@ -81,83 +83,96 @@ import type { CreatePurchaseOrderLineRequest } from '../services/purchase-order.
       }
     </form>
   `,
-  styles: [`
-    .po-line-form {
-      display: grid;
-      gap: .75rem;
-      grid-template-columns: minmax(0, 1fr) 11.5rem 9rem auto auto;
-      align-items: end;
-    }
-    label {
-      display: grid;
-      gap: .35rem;
-      min-width: 0;
-      font-size: .875rem;
-      font-weight: 700;
-      color: #1f2937;
-    }
-    .po-line-form__error { grid-column: 1 / -1; margin: 0; color: #b42318; font-size: .875rem; }
-    .po-line-form .p-autocomplete,
-    .po-line-form .p-inputnumber {
-      width: 100%;
-      max-width: 100%;
-      min-width: 0;
-      box-sizing: border-box;
-    }
-    .po-line-form .p-inputtext,
-    .po-line-form .p-autocomplete-input,
-    .po-line-form .p-inputnumber-input {
-      width: 100%;
-      min-height: 2.75rem;
-      border: 1px solid #cbd5e1;
-      border-radius: 0.75rem;
-      background: #ffffff;
-      color: #111827;
-      padding: 0.65rem 0.85rem;
-      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
-      transition: border-color 160ms ease, box-shadow 160ms ease;
-    }
-    .po-line-form .p-inputtext:enabled:focus,
-    .po-line-form .p-autocomplete-input:enabled:focus,
-    .po-line-form .p-inputnumber-input:enabled:focus {
-      border-color: #ea580c;
-      box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.16);
-      outline: 0;
-    }
-    .po-line-form .po-line-form__qty-input.p-inputnumber {
-      display: flex;
-      width: 100%;
-      max-width: 100%;
-    }
-    .po-line-form .po-line-form__qty-input .p-inputnumber-input,
-    .po-line-form .po-line-form__qty-input .p-inputtext {
-      flex: 1 1 auto;
-      min-width: 0;
-      width: 1%;
-      border-radius: 0;
-      text-align: center;
-      padding-inline: 0.35rem;
-    }
-    .po-line-form .po-line-form__qty-input .p-inputnumber-button {
-      flex: 0 0 2.5rem;
-      width: 2.5rem;
-      min-height: 2.75rem;
-      border-color: #cbd5e1;
-      background: #fff7ed;
-      color: #c2410c;
-    }
-    .po-line-form .po-line-form__qty-input .p-inputnumber-decrement-button {
-      border-start-start-radius: 0.75rem;
-      border-end-start-radius: 0.75rem;
-      border-inline-end: 0;
-    }
-    .po-line-form .po-line-form__qty-input .p-inputnumber-increment-button {
-      border-start-end-radius: 0.75rem;
-      border-end-end-radius: 0.75rem;
-      border-inline-start: 0;
-    }
-    @media (max-width: 760px) { .po-line-form { grid-template-columns: 1fr; } }
-  `],
+  styles: [
+    `
+      .po-line-form {
+        display: grid;
+        gap: 0.75rem;
+        grid-template-columns: minmax(0, 1fr) 11.5rem 9rem auto auto;
+        align-items: end;
+      }
+      label {
+        display: grid;
+        gap: 0.35rem;
+        min-width: 0;
+        font-size: 0.875rem;
+        font-weight: 700;
+        color: #1f2937;
+      }
+      .po-line-form__error {
+        grid-column: 1 / -1;
+        margin: 0;
+        color: #b42318;
+        font-size: 0.875rem;
+      }
+      .po-line-form .p-autocomplete,
+      .po-line-form .p-inputnumber {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+      }
+      .po-line-form .p-inputtext,
+      .po-line-form .p-autocomplete-input,
+      .po-line-form .p-inputnumber-input {
+        width: 100%;
+        min-height: 2.75rem;
+        border: 1px solid #cbd5e1;
+        border-radius: 0.75rem;
+        background: #ffffff;
+        color: #111827;
+        padding: 0.65rem 0.85rem;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+        transition:
+          border-color 160ms ease,
+          box-shadow 160ms ease;
+      }
+      .po-line-form .p-inputtext:enabled:focus,
+      .po-line-form .p-autocomplete-input:enabled:focus,
+      .po-line-form .p-inputnumber-input:enabled:focus {
+        border-color: #ea580c;
+        box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.16);
+        outline: 0;
+      }
+      .po-line-form .po-line-form__qty-input.p-inputnumber {
+        display: flex;
+        width: 100%;
+        max-width: 100%;
+      }
+      .po-line-form .po-line-form__qty-input .p-inputnumber-input,
+      .po-line-form .po-line-form__qty-input .p-inputtext {
+        flex: 1 1 auto;
+        min-width: 0;
+        width: 1%;
+        border-radius: 0;
+        text-align: center;
+        padding-inline: 0.35rem;
+      }
+      .po-line-form .po-line-form__qty-input .p-inputnumber-button {
+        flex: 0 0 2.5rem;
+        width: 2.5rem;
+        min-height: 2.75rem;
+        border-color: #cbd5e1;
+        background: #fff7ed;
+        color: #c2410c;
+      }
+      .po-line-form .po-line-form__qty-input .p-inputnumber-decrement-button {
+        border-start-start-radius: 0.75rem;
+        border-end-start-radius: 0.75rem;
+        border-inline-end: 0;
+      }
+      .po-line-form .po-line-form__qty-input .p-inputnumber-increment-button {
+        border-start-end-radius: 0.75rem;
+        border-end-end-radius: 0.75rem;
+        border-inline-start: 0;
+      }
+      @media (max-width: 760px) {
+        .po-line-form {
+          grid-template-columns: 1fr;
+        }
+      }
+    `,
+  ],
 })
 export class PurchaseOrderLineFormComponent {
   private readonly fb = inject(FormBuilder);
@@ -169,8 +184,8 @@ export class PurchaseOrderLineFormComponent {
   readonly itemSuggestions = signal<string[]>([]);
 
   readonly form = this.fb.nonNullable.group({
-    description: ['', [Validators.required, Validators.maxLength(500)]],
-    expectedQuantity: [1, [Validators.required, Validators.min(1)]],
+    description: ['', InputValidators.requiredText(500)],
+    expectedQuantity: [1, InputValidators.positiveInteger()],
     unitCost: [0, [Validators.required, Validators.min(0)]],
   });
 
@@ -197,7 +212,9 @@ export class PurchaseOrderLineFormComponent {
     }
 
     try {
-      const barcode = (await firstValueFrom(this.inventoryService.generateItemBarcode())).barcode.trim();
+      const barcode = (
+        await firstValueFrom(this.inventoryService.generateItemBarcode())
+      ).barcode.trim();
       if (!barcode) {
         this.quickCreateError.set('purchaseOrders.builder.quickCreateFailed');
         return;
@@ -248,7 +265,8 @@ export class PurchaseOrderLineFormComponent {
   }
 
   private filterItemNames(query: string): string[] {
-    return this.catalogSync.filterByName(query)
+    return this.catalogSync
+      .filterByName(query)
       .map((entry) => entry.name)
       .slice(0, 20);
   }

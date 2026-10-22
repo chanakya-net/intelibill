@@ -1,11 +1,5 @@
 import { Component, EventEmitter, OnInit, Output, effect, inject, signal } from '@angular/core';
-import {
-  AbstractControl,
-  FormBuilder,
-  ReactiveFormsModule,
-  ValidationErrors,
-  Validators,
-} from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { Store } from '@ngrx/store';
 import { TranslocoPipe } from '@ngneat/transloco';
 
@@ -21,6 +15,7 @@ import {
   selectUsersLastMutationType,
   selectUsersSubmitting,
 } from '../state/users.selectors';
+import { InputValidators } from '../../../shared/forms/input-validation';
 
 @Component({
   selector: 'app-change-password-overlay',
@@ -49,14 +44,16 @@ export class ChangePasswordOverlayComponent implements OnInit {
 
   readonly form = this.formBuilder.nonNullable.group(
     {
-      currentPassword: ['', [Validators.required]],
-      newPassword: ['', [Validators.required, Validators.minLength(8), Validators.maxLength(100)]],
-      confirmNewPassword: [
-        '',
-        [Validators.required, Validators.minLength(8), Validators.maxLength(100)],
+      currentPassword: ['', InputValidators.requiredText()],
+      newPassword: ['', InputValidators.password()],
+      confirmNewPassword: ['', InputValidators.password()],
+    },
+    {
+      validators: [
+        InputValidators.fieldsMatch('newPassword', 'confirmNewPassword', 'passwordMismatch'),
+        InputValidators.fieldsDiffer('currentPassword', 'newPassword', 'sameAsCurrent'),
       ],
     },
-    { validators: [passwordsMatchValidator] },
   );
 
   readonly progressSpinnerPt = {
@@ -110,15 +107,4 @@ export class ChangePasswordOverlayComponent implements OnInit {
     this.isChangePasswordPending.set(true);
     this.store.dispatch(UsersActions.changePasswordRequested({ payload }));
   }
-}
-
-function passwordsMatchValidator(control: AbstractControl): ValidationErrors | null {
-  const newPassword = control.get('newPassword')?.value;
-  const confirmNewPassword = control.get('confirmNewPassword')?.value;
-
-  if (!newPassword || !confirmNewPassword) {
-    return null;
-  }
-
-  return newPassword === confirmNewPassword ? null : { passwordMismatch: true };
 }

@@ -1,13 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import {
-  AbstractControl,
-  FormBuilder,
-  ReactiveFormsModule,
-  ValidationErrors,
-  ValidatorFn,
-  Validators,
-} from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule, ValidatorFn, Validators } from '@angular/forms';
 import { DecimalPipe } from '@angular/common';
 import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import { MessageService } from 'primeng/api';
@@ -56,6 +49,7 @@ import {
   parseDateOnlyAsLocalDate,
 } from '../../../../shared/utils/date-time.util';
 import { downloadBlob, openPdfBlobInNewTab } from '../../../../shared/utils/blob-download.util';
+import { InputValidators } from '../../../../shared/forms/input-validation';
 interface SelectOption<T extends string | boolean> {
   label: string;
   value: T;
@@ -147,35 +141,39 @@ export class InventoryBatchesListPageComponent {
       { label: this.translate('inventory.adjustmentDirection.increase'), value: 'Increase' },
     ];
   });
-  private readonly decreaseReasonOptions = computed<SelectOption<InventoryAdjustmentReason>[]>(() => {
-    this.activeLanguage();
-    return [
-      { label: this.translate('inventory.adjustmentReason.damaged'), value: 'Damaged' },
-      { label: this.translate('inventory.adjustmentReason.expired'), value: 'Expired' },
-      { label: this.translate('inventory.adjustmentReason.stolen'), value: 'Stolen' },
-      { label: this.translate('inventory.adjustmentReason.missingLost'), value: 'MissingLost' },
-      {
-        label: this.translate('inventory.adjustmentReason.stockCountCorrection'),
-        value: 'StockCountCorrection',
-      },
-      { label: this.translate('inventory.adjustmentReason.otherLoss'), value: 'OtherLoss' },
-    ];
-  });
-  private readonly increaseReasonOptions = computed<SelectOption<InventoryAdjustmentReason>[]>(() => {
-    this.activeLanguage();
-    return [
-      { label: this.translate('inventory.adjustmentReason.foundStock'), value: 'FoundStock' },
-      {
-        label: this.translate('inventory.adjustmentReason.stockCountCorrection'),
-        value: 'StockCountCorrection',
-      },
-      {
-        label: this.translate('inventory.adjustmentReason.returnRestockCorrection'),
-        value: 'ReturnRestockCorrection',
-      },
-      { label: this.translate('inventory.adjustmentReason.otherGain'), value: 'OtherGain' },
-    ];
-  });
+  private readonly decreaseReasonOptions = computed<SelectOption<InventoryAdjustmentReason>[]>(
+    () => {
+      this.activeLanguage();
+      return [
+        { label: this.translate('inventory.adjustmentReason.damaged'), value: 'Damaged' },
+        { label: this.translate('inventory.adjustmentReason.expired'), value: 'Expired' },
+        { label: this.translate('inventory.adjustmentReason.stolen'), value: 'Stolen' },
+        { label: this.translate('inventory.adjustmentReason.missingLost'), value: 'MissingLost' },
+        {
+          label: this.translate('inventory.adjustmentReason.stockCountCorrection'),
+          value: 'StockCountCorrection',
+        },
+        { label: this.translate('inventory.adjustmentReason.otherLoss'), value: 'OtherLoss' },
+      ];
+    },
+  );
+  private readonly increaseReasonOptions = computed<SelectOption<InventoryAdjustmentReason>[]>(
+    () => {
+      this.activeLanguage();
+      return [
+        { label: this.translate('inventory.adjustmentReason.foundStock'), value: 'FoundStock' },
+        {
+          label: this.translate('inventory.adjustmentReason.stockCountCorrection'),
+          value: 'StockCountCorrection',
+        },
+        {
+          label: this.translate('inventory.adjustmentReason.returnRestockCorrection'),
+          value: 'ReturnRestockCorrection',
+        },
+        { label: this.translate('inventory.adjustmentReason.otherGain'), value: 'OtherGain' },
+      ];
+    },
+  );
   private readonly adjustmentFormValue = signal({
     direction: 'Decrease' as InventoryAdjustmentDirection,
     reason: 'Damaged' as InventoryAdjustmentReason,
@@ -201,24 +199,29 @@ export class InventoryBatchesListPageComponent {
       costImpact: Number((signed * batch.costPrice).toFixed(2)),
     };
   });
-  readonly editForm = this.formBuilder.nonNullable.group({
-    newBatchNumber: ['', [Validators.maxLength(80)]],
-    quantity: [0, [Validators.required, Validators.min(0)]],
-    costPrice: [0, [Validators.required, Validators.min(0)]],
-    mrp: [0, [Validators.required, Validators.min(0)]],
-    salesPrice: [0, [Validators.required, Validators.min(0)]],
-    taxRatePercent: [0, [Validators.required, Validators.min(0)]],
-    taxIncluded: [false, [Validators.required]],
-    expiryDate: [null as Date | null],
-    manufacturingDate: [null as Date | null],
-    supplierName: [''],
-    notes: [''],
-    entryDate: [''],
-  });
+  readonly editForm = this.formBuilder.nonNullable.group(
+    {
+      newBatchNumber: ['', InputValidators.optionalText(80)],
+      quantity: [0, InputValidators.nonNegativeNumber()],
+      costPrice: [0, InputValidators.nonNegativeNumber()],
+      mrp: [0, InputValidators.nonNegativeNumber()],
+      salesPrice: [0, InputValidators.nonNegativeNumber()],
+      taxRatePercent: [0, InputValidators.percentage()],
+      taxIncluded: [false],
+      expiryDate: [null as Date | null],
+      manufacturingDate: [null as Date | null],
+      supplierName: [''],
+      notes: [''],
+      entryDate: [''],
+    },
+    {
+      validators: InputValidators.fieldLessThanOrEqual('salesPrice', 'mrp', 'salesPriceExceedsMrp'),
+    },
+  );
   readonly adjustmentForm = this.formBuilder.nonNullable.group({
     direction: ['Decrease' as InventoryAdjustmentDirection, [Validators.required]],
     reason: ['Damaged' as InventoryAdjustmentReason, [Validators.required]],
-    quantity: [1, [Validators.required, Validators.min(0.01), this.maxFractionDigits(2)]],
+    quantity: [1, [...InputValidators.positiveNumber(), InputValidators.maxFractionDigits(2)]],
     performedAt: [null as Date | null],
     notes: [''],
   });
@@ -457,9 +460,8 @@ export class InventoryBatchesListPageComponent {
   }
   private updateAdjustmentQuantityValidators(): void {
     const validators: ValidatorFn[] = [
-      Validators.required,
-      Validators.min(0.01),
-      this.maxFractionDigits(2),
+      ...InputValidators.positiveNumber(),
+      InputValidators.maxFractionDigits(2),
     ];
     const batch = this.selectedBatch();
     if (batch && this.adjustmentForm.controls.direction.value === 'Decrease')
@@ -471,18 +473,10 @@ export class InventoryBatchesListPageComponent {
     const reason = this.adjustmentForm.controls.reason.value;
     const validators =
       reason === 'OtherLoss' || reason === 'OtherGain'
-        ? [Validators.required, Validators.maxLength(500)]
-        : [Validators.maxLength(500)];
+        ? InputValidators.requiredText(500)
+        : InputValidators.optionalText(500);
     this.adjustmentForm.controls.notes.setValidators(validators);
     this.adjustmentForm.controls.notes.updateValueAndValidity({ emitEvent: false });
-  }
-  private maxFractionDigits(digits: number): ValidatorFn {
-    return (control: AbstractControl<number>): ValidationErrors | null => {
-      const decimalPart = control.value?.toString().split('.')[1];
-      return decimalPart && decimalPart.length > digits
-        ? { maxFractionDigits: { requiredDigits: digits } }
-        : null;
-    };
   }
   private matchesSearchFilter(batch: InventoryBatchDto, query: string): boolean {
     return (

@@ -23,10 +23,16 @@ describe('RecordExpenseOverlayComponent', () => {
     clearMutationStatus: vi.fn(),
     recordExpense: vi.fn(),
     loadExpenses: vi.fn(),
-    mutationStatus$: of({ type: null as 'record-expense' | 'correct-expense' | null, succeeded: false }),
+    mutationStatus$: of({
+      type: null as 'record-expense' | 'correct-expense' | null,
+      succeeded: false,
+    }),
   };
 
-  const mutationSubject = new Subject<{ type: 'record-expense' | 'correct-expense' | null; succeeded: boolean }>();
+  const mutationSubject = new Subject<{
+    type: 'record-expense' | 'correct-expense' | null;
+    succeeded: boolean;
+  }>();
 
   beforeEach(() => {
     expensesFacade.loadCategories.mockReset();
@@ -75,6 +81,16 @@ describe('RecordExpenseOverlayComponent', () => {
 
     expect(expensesFacade.recordExpense).not.toHaveBeenCalled();
     expect(component.form.touched).toBe(true);
+  });
+
+  it('rejects whitespace-only required expense text', () => {
+    const fixture = TestBed.createComponent(RecordExpenseOverlayComponent);
+    const component = fixture.componentInstance;
+
+    component.form.patchValue({ categoryName: '   ', paidTo: '   ', amount: 500 });
+
+    expect(component.form.controls.categoryName.hasError('required')).toBe(true);
+    expect(component.form.controls.paidTo.hasError('required')).toBe(true);
   });
 
   it('dispatches recordExpense when form is valid', () => {
@@ -135,7 +151,8 @@ describe('RecordExpenseOverlayComponent', () => {
     const fixture = TestBed.createComponent(RecordExpenseOverlayComponent);
     fixture.detectChanges();
 
-    const categorySelect = fixture.debugElement.query(By.directive(Select)).componentInstance as Select;
+    const categorySelect = fixture.debugElement.query(By.directive(Select))
+      .componentInstance as Select;
 
     expect(categorySelect.editable).toBe(true);
   });

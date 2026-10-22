@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { AbstractControl, FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
 import { TagModule } from 'primeng/tag';
 import { SelectModule } from 'primeng/select';
@@ -33,11 +33,17 @@ export class CartCheckoutSummaryComponent {
   @Input() paymentSplitError = '';
   @Input() isSubmitting = false;
   @Input() cartLength = 0;
+  @Input() customerForm: AbstractControl | null = null;
+  @Input() paymentForm: AbstractControl | null = null;
 
   @Output() saleDiscountEditorToggled = new EventEmitter<void>();
   @Output() saleDiscountTypeChanged = new EventEmitter<0 | 1 | 2>();
   @Output() saleDiscountValueChanged = new EventEmitter<number>();
   @Output() submitRequested = new EventEmitter<void>();
+
+  get formInvalid(): boolean {
+    return !!this.customerForm?.invalid || !!this.paymentForm?.invalid;
+  }
 
   get configuredSaleDiscountPercent(): number | null {
     return this.preview?.configuredSaleRule?.percentage ?? null;

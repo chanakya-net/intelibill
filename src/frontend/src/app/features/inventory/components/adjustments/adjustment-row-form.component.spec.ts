@@ -130,7 +130,9 @@ describe('AdjustmentRowFormComponent', () => {
     component.onSave();
 
     expect(emitted).toHaveLength(1);
-    const dto = emitted[0] as ReturnType<typeof component.rowChange.emit extends (arg: infer T) => unknown ? (arg: T) => T : never>;
+    const dto = emitted[0] as ReturnType<
+      typeof component.rowChange.emit extends (arg: infer T) => unknown ? (arg: T) => T : never
+    >;
     expect((dto as { batchId: string }).batchId).toBe('batch-1');
   });
 
@@ -166,5 +168,15 @@ describe('AdjustmentRowFormComponent', () => {
     const reasonValues = component.adjustmentReasonOptions().map((opt) => opt.value);
     expect(reasonValues).toContain('FoundStock');
     expect(reasonValues).not.toContain('Damaged');
+  });
+
+  it('rejects whitespace-only notes when an other reason requires details', () => {
+    const fixture = setup();
+    const component = fixture.componentInstance;
+
+    component.adjustmentForm.controls.reason.setValue('OtherLoss');
+    component.adjustmentForm.controls.notes.setValue('   ');
+
+    expect(component.adjustmentForm.controls.notes.hasError('required')).toBe(true);
   });
 });

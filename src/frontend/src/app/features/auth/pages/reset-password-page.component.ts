@@ -1,11 +1,5 @@
 import { computed, Component, OnInit, inject, signal } from '@angular/core';
-import {
-  AbstractControl,
-  FormBuilder,
-  ReactiveFormsModule,
-  ValidationErrors,
-  Validators,
-} from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Store } from '@ngrx/store';
 import { TranslocoPipe } from '@ngneat/transloco';
@@ -19,6 +13,7 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { LocalizationService } from '../../../core/i18n/localization.service';
 import { NATIVE_LANGUAGE_NAMES, SupportedLanguage } from '../../../core/i18n/language.constants';
 import { RootState } from '../../../core/state/app.state';
+import { InputValidators } from '../../../shared/forms/input-validation';
 
 @Component({
   selector: 'app-reset-password-page',
@@ -57,10 +52,10 @@ export class ResetPasswordPageComponent implements OnInit {
 
   readonly form = this.formBuilder.nonNullable.group(
     {
-      password: ['', [Validators.required, Validators.minLength(8), Validators.maxLength(100)]],
-      confirmPassword: ['', [Validators.required]],
+      password: ['', InputValidators.password()],
+      confirmPassword: ['', InputValidators.password()],
     },
-    { validators: passwordsMatchValidator },
+    { validators: InputValidators.fieldsMatch('password', 'confirmPassword', 'passwordMismatch') },
   );
 
   readonly passwordInputPt = {
@@ -133,15 +128,4 @@ export class ResetPasswordPageComponent implements OnInit {
     this.linkValid.set(false);
     this.errorMessage.set('auth.resetPassword.invalidLinkMessage');
   }
-}
-
-function passwordsMatchValidator(control: AbstractControl): ValidationErrors | null {
-  const password = control.get('password')?.value;
-  const confirmPassword = control.get('confirmPassword')?.value;
-
-  if (!password || !confirmPassword) {
-    return null;
-  }
-
-  return password === confirmPassword ? null : { passwordMismatch: true };
 }

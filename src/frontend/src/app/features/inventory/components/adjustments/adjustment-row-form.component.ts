@@ -1,6 +1,14 @@
-import { Component, EventEmitter, Input, OnInit, Output, computed, inject, signal } from '@angular/core';
 import {
-  AbstractControl,
+  Component,
+  EventEmitter,
+  Input,
+  OnInit,
+  Output,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
+import {
   FormBuilder,
   ReactiveFormsModule,
   ValidationErrors,
@@ -24,6 +32,7 @@ import {
   InventoryBatchOption,
 } from '../../services/inventory.models';
 import { formatUtcIsoInstant } from '../../../../shared/utils/date-time.util';
+import { InputValidators } from '../../../../shared/forms/input-validation';
 
 interface SelectOption<T extends string> {
   readonly label: string;
@@ -105,7 +114,10 @@ export class AdjustmentRowFormComponent implements OnInit {
   readonly adjustmentForm = this.formBuilder.nonNullable.group({
     direction: ['Decrease' as InventoryAdjustmentDirection, [Validators.required]],
     reason: ['Damaged' as InventoryAdjustmentReason, [Validators.required]],
-    quantity: [1, [Validators.required, Validators.min(0.01), this.maxFractionDigits(2)]],
+    quantity: [
+      1,
+      [Validators.required, Validators.min(0.01), InputValidators.maxFractionDigits(2)],
+    ],
     performedAt: [null as Date | null],
     notes: [''],
   });
@@ -115,7 +127,8 @@ export class AdjustmentRowFormComponent implements OnInit {
 
     this.adjustmentForm.controls.direction.valueChanges.subscribe((direction) => {
       this.adjustmentDirectionValue.set(direction);
-      const options = direction === 'Increase' ? this.increaseReasonOptions : this.decreaseReasonOptions;
+      const options =
+        direction === 'Increase' ? this.increaseReasonOptions : this.decreaseReasonOptions;
       if (!options.some((option) => option.value === this.adjustmentForm.controls.reason.value)) {
         this.adjustmentForm.controls.reason.setValue(options[0].value);
       }
@@ -185,11 +198,15 @@ export class AdjustmentRowFormComponent implements OnInit {
     const validators: ValidatorFn[] = [
       Validators.required,
       Validators.min(0.01),
-      this.maxFractionDigits(2),
+      InputValidators.maxFractionDigits(2),
       this.decreaseBlockedValidator(),
     ];
     const batch = this.selectedBatch();
-    if (batch && this.adjustmentForm.controls.direction.value === 'Decrease' && batch.quantity > 0) {
+    if (
+      batch &&
+      this.adjustmentForm.controls.direction.value === 'Decrease' &&
+      batch.quantity > 0
+    ) {
       validators.push(Validators.max(batch.quantity));
     }
     this.adjustmentForm.controls.quantity.setValidators(validators);
@@ -200,8 +217,8 @@ export class AdjustmentRowFormComponent implements OnInit {
     const reason = this.adjustmentForm.controls.reason.value;
     const validators =
       reason === 'OtherLoss' || reason === 'OtherGain'
-        ? [Validators.required, Validators.maxLength(500)]
-        : [Validators.maxLength(500)];
+        ? InputValidators.requiredText(500)
+        : InputValidators.optionalText(500);
     this.adjustmentForm.controls.notes.setValidators(validators);
     this.adjustmentForm.controls.notes.updateValueAndValidity({ emitEvent: false });
   }
@@ -213,17 +230,6 @@ export class AdjustmentRowFormComponent implements OnInit {
         batch.quantity <= 0 &&
         this.adjustmentForm?.controls.direction.value === 'Decrease'
         ? { decreaseFromEmptyBatch: true }
-        : null;
-    };
-  }
-
-  private maxFractionDigits(digits: number): ValidatorFn {
-    return (control: AbstractControl<number>): ValidationErrors | null => {
-      const value = control.value;
-      if (value === null || value === undefined) return null;
-      const decimalPart = value.toString().split('.')[1];
-      return decimalPart && decimalPart.length > digits
-        ? { maxFractionDigits: { requiredDigits: digits } }
         : null;
     };
   }

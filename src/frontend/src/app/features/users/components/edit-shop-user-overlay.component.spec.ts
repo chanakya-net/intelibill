@@ -53,7 +53,10 @@ describe('EditShopUserOverlayComponent', () => {
 
   function setup(role = 'Staff', shopIds: string[] = ['s1']): EditShopUserOverlayComponent {
     TestBed.configureTestingModule({
-      imports: [EditShopUserOverlayComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
+      imports: [
+        EditShopUserOverlayComponent,
+        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+      ],
       providers: [
         { provide: Store, useValue: store },
         { provide: AuthService, useValue: authService },
@@ -94,8 +97,17 @@ describe('EditShopUserOverlayComponent', () => {
 
     expect(component.form.controls.phoneNumber.invalid).toBe(true);
     expect(dispatch).not.toHaveBeenCalledWith(
-      expect.objectContaining({ type: UsersActions.editShopUserRequested.type })
+      expect.objectContaining({ type: UsersActions.editShopUserRequested.type }),
     );
+  });
+
+  it('rejects whitespace-only user names', () => {
+    const component = setup();
+    component.form.controls.firstName.setValue('   ');
+    component.form.controls.lastName.setValue('   ');
+
+    expect(component.form.controls.firstName.hasError('required')).toBe(true);
+    expect(component.form.controls.lastName.hasError('required')).toBe(true);
   });
 
   it('dispatches edit user action with trimmed payload', () => {
@@ -125,7 +137,7 @@ describe('EditShopUserOverlayComponent', () => {
           isLoginEnabled: false,
           shopIds: ['s1', 's2'],
         },
-      })
+      }),
     );
   });
 
@@ -136,7 +148,7 @@ describe('EditShopUserOverlayComponent', () => {
     component.onSubmit();
 
     expect(dispatch).not.toHaveBeenCalledWith(
-      expect.objectContaining({ type: UsersActions.editShopUserRequested.type })
+      expect.objectContaining({ type: UsersActions.editShopUserRequested.type }),
     );
   });
 
@@ -148,7 +160,7 @@ describe('EditShopUserOverlayComponent', () => {
 
     expect(component.shopSelectionInvalid).toBe(true);
     expect(dispatch).not.toHaveBeenCalledWith(
-      expect.objectContaining({ type: UsersActions.editShopUserRequested.type })
+      expect.objectContaining({ type: UsersActions.editShopUserRequested.type }),
     );
   });
 
@@ -162,7 +174,7 @@ describe('EditShopUserOverlayComponent', () => {
       expect.objectContaining({
         type: UsersActions.editShopUserRequested.type,
         payload: expect.objectContaining({ shopIds: ['s1', 's-outside-session'] }),
-      })
+      }),
     );
   });
 

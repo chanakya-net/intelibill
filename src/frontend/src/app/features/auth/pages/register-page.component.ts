@@ -1,11 +1,5 @@
 import { Component, OnInit, inject } from '@angular/core';
-import {
-  AbstractControl,
-  FormBuilder,
-  ReactiveFormsModule,
-  ValidationErrors,
-  Validators,
-} from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Store } from '@ngrx/store';
 import { TranslocoPipe } from '@ngneat/transloco';
@@ -21,6 +15,7 @@ import { LocalizationService } from '../../../core/i18n/localization.service';
 import { NATIVE_LANGUAGE_NAMES, SupportedLanguage } from '../../../core/i18n/language.constants';
 import { RegisterActions } from '../state/register.actions';
 import { selectRegisterErrorMessage, selectRegisterSubmitting } from '../state/register.selectors';
+import { InputValidators } from '../../../shared/forms/input-validation';
 
 @Component({
   selector: 'app-register-page',
@@ -51,15 +46,15 @@ export class RegisterPageComponent implements OnInit {
 
   readonly form = this.formBuilder.nonNullable.group(
     {
-      firstName: ['', [Validators.required, Validators.maxLength(100)]],
-      lastName: ['', [Validators.required, Validators.maxLength(100)]],
-      email: ['', [Validators.required, Validators.email]],
-      phoneNumber: ['', [Validators.required, Validators.maxLength(20)]],
-      password: ['', [Validators.required, Validators.minLength(8), Validators.maxLength(100)]],
-      confirmPassword: ['', [Validators.required]],
+      firstName: ['', InputValidators.requiredText(100)],
+      lastName: ['', InputValidators.requiredText(100)],
+      email: ['', InputValidators.email()],
+      phoneNumber: ['', InputValidators.requiredText(20)],
+      password: ['', InputValidators.password()],
+      confirmPassword: ['', InputValidators.password()],
       rememberMe: [true],
     },
-    { validators: passwordsMatchValidator },
+    { validators: InputValidators.fieldsMatch('password', 'confirmPassword', 'passwordMismatch') },
   );
 
   readonly firstNameInputPt = {
@@ -100,7 +95,8 @@ export class RegisterPageComponent implements OnInit {
       return;
     }
 
-    const { firstName, lastName, email, phoneNumber, password, rememberMe } = this.form.getRawValue();
+    const { firstName, lastName, email, phoneNumber, password, rememberMe } =
+      this.form.getRawValue();
 
     this.store.dispatch(RegisterActions.clearError());
     this.store.dispatch(
@@ -118,15 +114,4 @@ export class RegisterPageComponent implements OnInit {
   async onLanguageChanged(language: string): Promise<void> {
     await this.localizationService.setLanguage(language as SupportedLanguage);
   }
-}
-
-function passwordsMatchValidator(control: AbstractControl): ValidationErrors | null {
-  const password = control.get('password')?.value;
-  const confirmPassword = control.get('confirmPassword')?.value;
-
-  if (!password || !confirmPassword) {
-    return null;
-  }
-
-  return password === confirmPassword ? null : { passwordMismatch: true };
 }

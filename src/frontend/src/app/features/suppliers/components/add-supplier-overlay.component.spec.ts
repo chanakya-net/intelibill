@@ -20,7 +20,10 @@ describe('AddSupplierOverlayComponent', () => {
 
   function setup(): AddSupplierOverlayComponent {
     TestBed.configureTestingModule({
-      imports: [AddSupplierOverlayComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
+      imports: [
+        AddSupplierOverlayComponent,
+        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+      ],
       providers: [{ provide: SuppliersFacade, useValue: suppliersFacade }],
     });
 
@@ -55,6 +58,22 @@ describe('AddSupplierOverlayComponent', () => {
 
     expect(component.form.controls.contactPersonPhone.invalid).toBe(true);
     expect(suppliersFacade.addSupplier).not.toHaveBeenCalled();
+  });
+
+  it('rejects whitespace-only required supplier fields', () => {
+    const component = setup();
+
+    component.form.patchValue({
+      name: '   ',
+      address: '   ',
+      city: '   ',
+      state: '   ',
+      pin: '   ',
+    });
+
+    expect(component.form.invalid).toBe(true);
+    expect(component.form.controls.name.hasError('required')).toBe(true);
+    expect(component.form.controls.address.hasError('required')).toBe(true);
   });
 
   it('submits an empty optional contact phone as null', () => {

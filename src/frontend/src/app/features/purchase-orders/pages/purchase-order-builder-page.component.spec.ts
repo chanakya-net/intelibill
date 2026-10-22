@@ -115,6 +115,22 @@ describe('PurchaseOrderBuilderPageComponent', () => {
     }));
   });
 
+  it('blocks saving a draft with overlong header fields', async () => {
+    const fixture = TestBed.createComponent(PurchaseOrderBuilderPageComponent);
+    const component = fixture.componentInstance;
+    await component.ngOnInit();
+    component.form.patchValue({
+      supplierReferenceNumber: 'R'.repeat(101),
+      notes: 'N'.repeat(1001),
+    });
+
+    component.saveDraft();
+
+    expect(component.form.controls.supplierReferenceNumber.hasError('maxlength')).toBe(true);
+    expect(component.form.controls.notes.hasError('maxlength')).toBe(true);
+    expect(facade.createDraft).not.toHaveBeenCalled();
+  });
+
   it('ignores a saved local draft from another purchase order on an edit route', async () => {
     records.set('shop-1', {
       shopId: 'shop-1',

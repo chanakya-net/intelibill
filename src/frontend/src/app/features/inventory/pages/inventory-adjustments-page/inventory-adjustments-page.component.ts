@@ -1,13 +1,7 @@
 import { CommonModule, DatePipe, DecimalPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import {
-  AbstractControl,
-  FormBuilder,
-  FormsModule,
-  ReactiveFormsModule,
-  Validators,
-} from '@angular/forms';
+import { FormBuilder, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import { MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
@@ -42,6 +36,7 @@ import { InventoryService } from '../../services/inventory.service';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { AdjustmentRowFormComponent } from '../../components/adjustments/adjustment-row-form.component';
 import { AdjustmentSummaryComponent } from '../../components/adjustments/adjustment-summary.component';
+import { InputValidators } from '../../../../shared/forms/input-validation';
 
 interface SelectOption<T extends string | boolean> {
   readonly label: string;
@@ -210,15 +205,7 @@ export class InventoryAdjustmentsPageComponent {
   });
 
   readonly voidForm = this.formBuilder.nonNullable.group({
-    reason: [
-      '',
-      [
-        Validators.required,
-        (control: AbstractControl<string>) =>
-          control.value.trim().length === 0 ? { required: true } : null,
-        Validators.maxLength(500),
-      ],
-    ],
+    reason: ['', InputValidators.requiredText(500)],
   });
 
   constructor() {

@@ -754,7 +754,8 @@
     "retypeNewPassword": "નવો પાસવર્ડ ફરી ટાઇપ કરો",
     "changing": "બદલી રહ્યા છીએ...",
     "validation": {
-      "passwordsMustMatch": "નવો પાસવર્ડ અને ફરી ટાઇપ કરેલ પાસવર્ડ મેળ ખાવા જોઈએ."
+      "passwordsMustMatch": "નવો પાસવર્ડ અને ફરી ટાઇપ કરેલ પાસવર્ડ મેળ ખાવા જોઈએ.",
+      "newPasswordMustDiffer": "નવો પાસવર્ડ વર્તમાન પાસવર્ડથી અલગ હોવો જોઈએ."
     }
   },
   "shops": {

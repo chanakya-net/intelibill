@@ -229,6 +229,8 @@
           [paymentSplitError]="vm.paymentSplitError()"
           [isSubmitting]="vm.isOfflineMode() ? vm.isOfflineSubmitting() : vm.isSubmitting()"
           [cartLength]="vm.cart().length + vm.serviceCart().length"
+          [customerForm]="vm.customerForm"
+          [paymentForm]="vm.paymentForm"
           (saleDiscountEditorToggled)="vm.toggleSaleDiscountEditor()"
           (saleDiscountTypeChanged)="onSaleDiscountTypeChange($event)"
           (saleDiscountValueChanged)="onSaleDiscountValueChange($event)"

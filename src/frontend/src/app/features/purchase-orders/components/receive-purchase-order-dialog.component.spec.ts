@@ -74,7 +74,9 @@ describe('ReceivePurchaseOrderDialogComponent', () => {
       { itemId: 'item-2', name: 'Complete line', barcode: 'IT-PO-002' },
     ]),
     filterByBarcode: vi.fn((query: string) =>
-      catalogSync.catalogEntries().filter((entry) => entry.barcode.toLowerCase().startsWith(query.toLowerCase())),
+      catalogSync
+        .catalogEntries()
+        .filter((entry) => entry.barcode.toLowerCase().startsWith(query.toLowerCase())),
     ),
   };
 
@@ -161,16 +163,22 @@ describe('ReceivePurchaseOrderDialogComponent', () => {
   it('initializes one receipt row for each receivable PO line', () => {
     const twoLineOrder: PurchaseOrderDetail = {
       ...order,
-      lines: [
-        order.lines[0],
-        { ...order.lines[1], receivedQuantity: 0, remainingQuantity: 2 },
-      ],
+      lines: [order.lines[0], { ...order.lines[1], receivedQuantity: 0, remainingQuantity: 2 }],
     };
     fixture.componentRef.setInput('order', twoLineOrder);
     fixture.detectChanges();
     const component = fixture.componentInstance as unknown as {
       receivableLines: readonly { lineId: string }[];
-      lines: { controls: Array<{ controls: { purchaseOrderLineId: { value: string }, batchNumber: { value: string }, quantity: { value: number }, totalPurchaseCost: { value: number } } }> };
+      lines: {
+        controls: Array<{
+          controls: {
+            purchaseOrderLineId: { value: string };
+            batchNumber: { value: string };
+            quantity: { value: number };
+            totalPurchaseCost: { value: number };
+          };
+        }>;
+      };
       remainingFor: (lineId: string) => number;
     };
 
@@ -251,12 +259,52 @@ describe('ReceivePurchaseOrderDialogComponent', () => {
     };
     const emitSpy = vi.spyOn(component.receive, 'emit');
 
-    component.lines.controls[0].patchValue({ quantity: 4, batchNumber: 'BATCH-1', totalPurchaseCost: 40, mrp: 12, salesPrice: 11 });
+    component.lines.controls[0].patchValue({
+      quantity: 4,
+      batchNumber: 'BATCH-1',
+      totalPurchaseCost: 40,
+      mrp: 12,
+      salesPrice: 11,
+    });
     fixture.detectChanges();
 
     expect(component.remainingError()).toBe(true);
     (fixture.componentInstance as unknown as { submit: () => void }).submit();
     expect(emitSpy).not.toHaveBeenCalled();
+  });
+
+  it('enforces inbound inventory constraints on receipt rows', () => {
+    const component = fixture.componentInstance as unknown as {
+      lines: {
+        controls: Array<{
+          patchValue: (value: unknown) => void;
+          valid: boolean;
+          hasError: (error: string) => boolean;
+          controls: {
+            barcode: { valid: boolean };
+            taxRatePercent: { hasError: (error: string) => boolean };
+          };
+        }>;
+      };
+    };
+    const line = component.lines.controls[0];
+
+    line.patchValue({
+      barcode: 'B'.repeat(120),
+      batchNumber: 'B'.repeat(80),
+      quantity: 1,
+      totalPurchaseCost: 10,
+      mrp: 100,
+      salesPrice: 101,
+      taxRatePercent: 101,
+    });
+
+    expect(line.controls.barcode.valid).toBe(true);
+    expect(line.hasError('salesPriceExceedsMrp')).toBe(true);
+    expect(line.controls.taxRatePercent.hasError('max')).toBe(true);
+
+    line.patchValue({ barcode: 'B'.repeat(121) });
+    expect(line.controls.barcode.valid).toBe(false);
   });
 
   it('emits one-line receive payload with trimmed optional fields', () => {
@@ -291,30 +339,29 @@ describe('ReceivePurchaseOrderDialogComponent', () => {
       referenceNumber: 'REF-1',
       notes: 'Dock 2',
       receivedAt: null,
-      lines: [{
-        purchaseOrderLineId: 'line-1',
-        barcode: 'IT-PO-001',
-        batchNumber: 'BATCH-1',
-        quantity: 2,
-        totalPurchaseCost: 20,
-        mrp: 14,
-        salesPrice: 12,
-        taxRatePercent: 5,
-        taxIncluded: true,
-        purchaseTaxIncluded: false,
-        expiryDate: '2026-12-31',
-        manufacturingDate: null,
-      }],
+      lines: [
+        {
+          purchaseOrderLineId: 'line-1',
+          barcode: 'IT-PO-001',
+          batchNumber: 'BATCH-1',
+          quantity: 2,
+          totalPurchaseCost: 20,
+          mrp: 14,
+          salesPrice: 12,
+          taxRatePercent: 5,
+          taxIncluded: true,
+          purchaseTaxIncluded: false,
+          expiryDate: '2026-12-31',
+          manufacturingDate: null,
+        },
+      ],
     });
   });
 
   it('emits a multi-line payload from prepopulated receipt rows', () => {
     const twoLineOrder: PurchaseOrderDetail = {
       ...order,
-      lines: [
-        order.lines[0],
-        { ...order.lines[1], receivedQuantity: 0, remainingQuantity: 2 },
-      ],
+      lines: [order.lines[0], { ...order.lines[1], receivedQuantity: 0, remainingQuantity: 2 }],
     };
     fixture.componentRef.setInput('order', twoLineOrder);
     fixture.detectChanges();
@@ -325,14 +372,35 @@ describe('ReceivePurchaseOrderDialogComponent', () => {
     };
     const emitSpy = vi.spyOn(component.receive, 'emit');
 
-    component.lines.controls[0].patchValue({ batchNumber: 'BATCH-1', quantity: 1, totalPurchaseCost: 10, mrp: 12, salesPrice: 11 });
+    component.lines.controls[0].patchValue({
+      batchNumber: 'BATCH-1',
+      quantity: 1,
+      totalPurchaseCost: 10,
+      mrp: 12,
+      salesPrice: 11,
+    });
     component.lines.controls[0].patchValue({ barcode: 'IT-PO-001' });
-    component.lines.controls[1].patchValue({ barcode: 'IT-PO-002', batchNumber: 'BATCH-2', quantity: 2, totalPurchaseCost: 8, mrp: 6, salesPrice: 5 });
+    component.lines.controls[1].patchValue({
+      barcode: 'IT-PO-002',
+      batchNumber: 'BATCH-2',
+      quantity: 2,
+      totalPurchaseCost: 8,
+      mrp: 6,
+      salesPrice: 5,
+    });
     component.submit();
 
     expect(emitSpy.mock.calls[0][0].lines).toEqual([
-      expect.objectContaining({ purchaseOrderLineId: 'line-1', barcode: 'IT-PO-001', batchNumber: 'BATCH-1' }),
-      expect.objectContaining({ purchaseOrderLineId: 'line-2', barcode: 'IT-PO-002', batchNumber: 'BATCH-2' }),
+      expect.objectContaining({
+        purchaseOrderLineId: 'line-1',
+        barcode: 'IT-PO-001',
+        batchNumber: 'BATCH-1',
+      }),
+      expect.objectContaining({
+        purchaseOrderLineId: 'line-2',
+        barcode: 'IT-PO-002',
+        batchNumber: 'BATCH-2',
+      }),
     ]);
   });
 

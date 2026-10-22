@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { FormControl, Validators } from '@angular/forms';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -78,5 +79,22 @@ describe('CartCheckoutSummaryComponent', () => {
     button.click();
 
     expect(submitSpy).toHaveBeenCalledOnce();
+  });
+
+  it('disables record sale while checkout forms are invalid', () => {
+    TestBed.configureTestingModule({
+      imports: [
+        CartCheckoutSummaryComponent,
+        TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true }),
+      ],
+    });
+
+    const fixture = TestBed.createComponent(CartCheckoutSummaryComponent);
+    fixture.componentInstance.cartLength = 1;
+    fixture.componentInstance.customerForm = new FormControl('', Validators.required);
+    fixture.detectChanges();
+
+    const buttons = fixture.nativeElement.querySelectorAll('button');
+    expect((buttons[buttons.length - 1] as HTMLButtonElement).disabled).toBe(true);
   });
 });

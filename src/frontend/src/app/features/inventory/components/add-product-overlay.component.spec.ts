@@ -50,8 +50,12 @@ describe('AddProductOverlayComponent', () => {
   const productCatalogSync = {
     filterByName: vi.fn(() => []),
     filterByBarcode: vi.fn(() => []),
-    findByName: vi.fn<(name: string) => { name: string; barcode: string } | undefined>(() => undefined),
-    findByBarcode: vi.fn<(barcode: string) => { name: string; barcode: string } | undefined>(() => undefined),
+    findByName: vi.fn<(name: string) => { name: string; barcode: string } | undefined>(
+      () => undefined,
+    ),
+    findByBarcode: vi.fn<(barcode: string) => { name: string; barcode: string } | undefined>(
+      () => undefined,
+    ),
   };
 
   const emptyLookupResult: HsnLookupResult = {
@@ -66,7 +70,10 @@ describe('AddProductOverlayComponent', () => {
 
   function setup(): AddProductOverlayComponent {
     TestBed.configureTestingModule({
-      imports: [AddProductOverlayComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
+      imports: [
+        AddProductOverlayComponent,
+        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+      ],
       providers: [
         { provide: Store, useValue: store },
         { provide: ProductCatalogSyncService, useValue: productCatalogSync },
@@ -111,8 +118,31 @@ describe('AddProductOverlayComponent', () => {
 
     expect(component.form.touched).toBe(true);
     expect(dispatch).not.toHaveBeenCalledWith(
-      expect.objectContaining({ type: InventoryActions.addItemRequested.type })
+      expect.objectContaining({ type: InventoryActions.addItemRequested.type }),
     );
+  });
+
+  it('rejects whitespace-only required text', () => {
+    const component = setup();
+
+    component.form.patchValue({ name: '   ', barcode: '   ', uom: '   ' });
+
+    expect(component.form.controls.name.hasError('required')).toBe(true);
+    expect(component.form.controls.barcode.hasError('required')).toBe(true);
+    expect(component.form.controls.uom.hasError('required')).toBe(true);
+  });
+
+  it('accepts item text at the backend length limits', () => {
+    const component = setup();
+
+    component.form.patchValue({
+      name: 'N'.repeat(180),
+      barcode: 'B'.repeat(128),
+      description: 'D'.repeat(1000),
+      uom: 'U'.repeat(32),
+    });
+
+    expect(component.form.valid).toBe(true);
   });
 
   it('dispatches add action with trimmed payload values', () => {
@@ -141,7 +171,7 @@ describe('AddProductOverlayComponent', () => {
           defaultTaxRatePercent: 5,
           isActive: true,
         },
-      })
+      }),
     );
   });
 
@@ -158,7 +188,7 @@ describe('AddProductOverlayComponent', () => {
 
     expect(component.form.touched).toBe(true);
     expect(dispatch).not.toHaveBeenCalledWith(
-      expect.objectContaining({ type: InventoryActions.addItemRequested.type })
+      expect.objectContaining({ type: InventoryActions.addItemRequested.type }),
     );
   });
 
@@ -168,9 +198,7 @@ describe('AddProductOverlayComponent', () => {
       hsnCodes: ['0902'],
       taxScenarios: [{ condition: 'General', taxPercentage: '18%' }],
     };
-    inventoryService.lookupHsn.mockReturnValue(
-      of(singleLookupResult),
-    );
+    inventoryService.lookupHsn.mockReturnValue(of(singleLookupResult));
 
     component.form.controls.name.setValue('Premium Tea');
     component.onNameBlur();
@@ -312,7 +340,12 @@ describe('AddProductOverlayComponent', () => {
   it('does not submit generate while already generating', async () => {
     let resolve!: (v: { barcode: string }) => void;
     inventoryService.generateItemBarcode.mockReturnValue(
-      new (await import('rxjs')).Observable((sub) => { resolve = (v) => { sub.next(v); sub.complete(); }; }),
+      new (await import('rxjs')).Observable((sub) => {
+        resolve = (v) => {
+          sub.next(v);
+          sub.complete();
+        };
+      }),
     );
     const component = setup();
 

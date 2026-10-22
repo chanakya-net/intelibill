@@ -69,6 +69,21 @@ describe('InventoryBatchesListPageComponent', () => {
     httpMock.verify();
   });
 
+  it('rejects tax rates above one hundred when editing a batch', () => {
+    component.editForm.controls.taxRatePercent.setValue(101);
+    httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
+
+    expect(component.editForm.controls.taxRatePercent.hasError('max')).toBe(true);
+  });
+
+  it('rejects whitespace-only notes for other adjustment reasons', () => {
+    component.adjustmentForm.controls.reason.setValue('OtherLoss');
+    component.adjustmentForm.controls.notes.setValue('   ');
+    httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
+
+    expect(component.adjustmentForm.controls.notes.hasError('required')).toBe(true);
+  });
+
   it('should load batches on init', () => {
     fixture.detectChanges();
 

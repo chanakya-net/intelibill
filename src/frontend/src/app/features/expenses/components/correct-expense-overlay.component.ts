@@ -17,8 +17,13 @@ import { InputGroupAddonModule } from 'primeng/inputgroupaddon';
 import { ExpenseCategoryDto } from '../services/expense-category.service';
 import { ExpenseDto } from '../services/expense.service';
 import { ExpensesFacade } from '../state/expenses.facade';
-import { CURRENCY_ADDON_PT, CURRENCY_INPUT_GROUP_PT, CURRENCY_INPUT_NUMBER_PT } from '../../../shared/primeng-pt.config';
+import {
+  CURRENCY_ADDON_PT,
+  CURRENCY_INPUT_GROUP_PT,
+  CURRENCY_INPUT_NUMBER_PT,
+} from '../../../shared/primeng-pt.config';
 import { formatLocalIsoDate, parseDateOnlyAsLocalDate } from '../../../shared/utils/date-time.util';
+import { InputValidators } from '../../../shared/forms/input-validation';
 
 @Component({
   selector: 'app-correct-expense-overlay',
@@ -57,8 +62,8 @@ export class CorrectExpenseOverlayComponent implements OnInit {
   });
   readonly selectableCategories = computed(() =>
     this.categories().filter(
-      (category) => category.name.trim().toLowerCase() !== 'supplier payments'
-    )
+      (category) => category.name.trim().toLowerCase() !== 'supplier payments',
+    ),
   );
   readonly isSubmitting = toSignal(this.expensesFacade.submitting$, {
     initialValue: false,
@@ -68,10 +73,10 @@ export class CorrectExpenseOverlayComponent implements OnInit {
   });
 
   readonly form = this.formBuilder.nonNullable.group({
-    categoryName: ['', [Validators.required, Validators.maxLength(100)]],
-    amount: [0, [Validators.required, Validators.min(0.01)]],
-    paidTo: ['', [Validators.required, Validators.maxLength(255)]],
-    description: ['', [Validators.maxLength(500)]],
+    categoryName: ['', InputValidators.requiredText(100)],
+    amount: [0, InputValidators.positiveNumber()],
+    paidTo: ['', InputValidators.requiredText(255)],
+    description: ['', InputValidators.optionalText(500)],
     expenseDate: [new Date(), [Validators.required]],
   });
 
@@ -79,10 +84,7 @@ export class CorrectExpenseOverlayComponent implements OnInit {
     this.expensesFacade.mutationStatus$
       .pipe(
         takeUntilDestroyed(),
-        filter(
-          (status) =>
-            status.type === 'correct-expense' && status.succeeded === true
-        )
+        filter((status) => status.type === 'correct-expense' && status.succeeded === true),
       )
       .subscribe(() => {
         this.expensesFacade.loadExpenses();

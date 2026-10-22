@@ -78,6 +78,16 @@ describe('DiscountConditionsFormComponent', () => {
     expect(component.form.controls.thresholdAmount.valid).toBe(true);
   });
 
+  it('rejects a whitespace-only discount name', () => {
+    const fixture = TestBed.createComponent(DiscountConditionsFormComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    component.form.controls.name.setValue('   ');
+
+    expect(component.form.controls.name.hasError('required')).toBe(true);
+  });
+
   it('describes touched invalid controls to assistive technology', () => {
     const fixture = TestBed.createComponent(DiscountConditionsFormComponent);
     const component = fixture.componentInstance;

@@ -1,5 +1,5 @@
 import { Component, EventEmitter, Input, Output, effect, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { Store } from '@ngrx/store';
 import { TranslocoPipe } from '@ngneat/transloco';
 
@@ -17,6 +17,7 @@ import {
   selectUsersLastMutationType,
   selectUsersSubmitting,
 } from '../state/users.selectors';
+import { InputValidators } from '../../../shared/forms/input-validation';
 
 @Component({
   selector: 'app-update-profile-overlay',
@@ -46,10 +47,10 @@ export class UpdateProfileOverlayComponent {
   @Output() readonly closeRequested = new EventEmitter<void>();
 
   readonly form = this.formBuilder.nonNullable.group({
-    firstName: ['', [Validators.required, Validators.maxLength(100)]],
-    lastName: ['', [Validators.required, Validators.maxLength(100)]],
-    email: ['', [Validators.required, Validators.email, Validators.maxLength(256)]],
-    phoneNumber: ['', [Validators.maxLength(32), Validators.pattern(/^\+?[0-9]{7,15}$/)]],
+    firstName: ['', InputValidators.requiredText(100)],
+    lastName: ['', InputValidators.requiredText(100)],
+    email: ['', InputValidators.email()],
+    phoneNumber: ['', InputValidators.phoneNumber({ required: false, maxLength: 32 })],
   });
 
   readonly progressSpinnerPt = {

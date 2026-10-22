@@ -1,5 +1,5 @@
 import { Component, EventEmitter, OnInit, Output, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
 import { firstValueFrom } from 'rxjs';
 
@@ -13,6 +13,7 @@ import { TextareaModule } from 'primeng/textarea';
 import { InventoryService } from '../../inventory/services/inventory.service';
 import { ServiceService } from '../services/service.service';
 import { numericFieldPt } from './service-form-a11y';
+import { InputValidators } from '../../../shared/forms/input-validation';
 
 @Component({
   selector: 'app-add-service-overlay',
@@ -47,12 +48,12 @@ export class AddServiceOverlayComponent implements OnInit {
   @Output() readonly saved = new EventEmitter<void>();
 
   readonly form = this.formBuilder.nonNullable.group({
-    name: ['', [Validators.required, Validators.maxLength(180)]],
-    description: ['', [Validators.maxLength(320)]],
-    price: [0, [Validators.required, Validators.min(0)]],
-    taxIncluded: [true, [Validators.required]],
-    taxRatePercent: [0, [Validators.required, Validators.min(0), Validators.max(100)]],
-    hsnCode: ['', [Validators.pattern(/^\s*\d{4,8}\s*$/)]],
+    name: ['', InputValidators.requiredText(180)],
+    description: ['', InputValidators.optionalText(1000)],
+    price: [0, InputValidators.positiveNumber()],
+    taxIncluded: [true],
+    taxRatePercent: [0, InputValidators.percentage()],
+    hsnCode: ['', InputValidators.hsnSacCode()],
   });
 
   ngOnInit(): void {
@@ -134,7 +135,9 @@ export class AddServiceOverlayComponent implements OnInit {
 
       const suggestedHsn = result.hsnCodes.length === 1 ? result.hsnCodes[0] : null;
       const suggestedTaxRate =
-        result.taxScenarios.length === 1 ? this.parseTaxPercentage(result.taxScenarios[0].taxPercentage) : null;
+        result.taxScenarios.length === 1
+          ? this.parseTaxPercentage(result.taxScenarios[0].taxPercentage)
+          : null;
 
       if (!this.form.controls.hsnCode.dirty && suggestedHsn) {
         this.form.controls.hsnCode.setValue(suggestedHsn);
