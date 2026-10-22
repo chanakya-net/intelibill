@@ -299,3 +299,6 @@ crash.*.log
 
 # Local linked worktrees used for isolated feature development.
 .worktrees/
+
+# Local implementation backlog
+/pending-tasks/
