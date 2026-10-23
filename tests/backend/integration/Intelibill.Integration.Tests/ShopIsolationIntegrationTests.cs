@@ -58,7 +58,7 @@ public sealed class ShopIsolationIntegrationTests(PostgreSqlTestFixture fixture)
         var unitOfWork = new InMemoryUnitOfWork();
 
         var handler = new SwitchActiveShopCommandHandler(userRepository, refreshTokenRepository, tokenService, unitOfWork);
-        var result = await handler.HandleAsync(new SwitchActiveShopCommand(user.Id, Guid.NewGuid()), CancellationToken.None);
+        var result = await handler.HandleAsync(new SwitchActiveShopCommand(user.Id, Guid.NewGuid(), user.SecurityVersion), CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Contains(result.Errors, e => e.Code == Errors.Shop.MembershipNotFound.Code);
@@ -85,7 +85,7 @@ public sealed class ShopIsolationIntegrationTests(PostgreSqlTestFixture fixture)
         var unitOfWork = new InMemoryUnitOfWork();
 
         var handler = new SwitchActiveShopCommandHandler(userRepository, refreshTokenRepository, tokenService, unitOfWork);
-        var result = await handler.HandleAsync(new SwitchActiveShopCommand(user.Id, secondShop.Id), CancellationToken.None);
+        var result = await handler.HandleAsync(new SwitchActiveShopCommand(user.Id, secondShop.Id, user.SecurityVersion), CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Equal(secondShop.Id, result.Value.ActiveShopId);
@@ -121,7 +121,7 @@ public sealed class ShopIsolationIntegrationTests(PostgreSqlTestFixture fixture)
         var unitOfWork = new InMemoryUnitOfWork();
 
         var handler = new SwitchActiveShopCommandHandler(userRepository, refreshTokenRepository, tokenService, unitOfWork);
-        var result = await handler.HandleAsync(new SwitchActiveShopCommand(user.Id, secondShop.Id), CancellationToken.None);
+        var result = await handler.HandleAsync(new SwitchActiveShopCommand(user.Id, secondShop.Id, user.SecurityVersion), CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Contains(result.Errors, e => e.Code == Errors.Shop.UserIsNotOwnerForSwitch.Code);
@@ -184,7 +184,8 @@ public sealed class ShopIsolationIntegrationTests(PostgreSqlTestFixture fixture)
                 "  560001  ",
                 "  Chandra  ",
                 "  9876543210  ",
-                "  27AAPFU0939F1ZV  "),
+                "  27AAPFU0939F1ZV  ",
+                user.SecurityVersion),
             CancellationToken.None);
 
         Assert.False(result.IsError);
@@ -237,7 +238,7 @@ public sealed class ShopIsolationIntegrationTests(PostgreSqlTestFixture fixture)
         var unitOfWork = new InMemoryUnitOfWork();
 
         var handler = new SetDefaultShopCommandHandler(userRepository, refreshTokenRepository, tokenService, unitOfWork);
-        var result = await handler.HandleAsync(new SetDefaultShopCommand(user.Id, Guid.NewGuid()), CancellationToken.None);
+        var result = await handler.HandleAsync(new SetDefaultShopCommand(user.Id, Guid.NewGuid(), user.SecurityVersion), CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Contains(result.Errors, e => e.Code == Errors.Shop.MembershipNotFound.Code);
@@ -266,7 +267,7 @@ public sealed class ShopIsolationIntegrationTests(PostgreSqlTestFixture fixture)
         var unitOfWork = new InMemoryUnitOfWork();
 
         var handler = new SetDefaultShopCommandHandler(userRepository, refreshTokenRepository, tokenService, unitOfWork);
-        var result = await handler.HandleAsync(new SetDefaultShopCommand(user.Id, secondShop.Id), CancellationToken.None);
+        var result = await handler.HandleAsync(new SetDefaultShopCommand(user.Id, secondShop.Id, user.SecurityVersion), CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Equal(secondShop.Id, result.Value.ActiveShopId);
