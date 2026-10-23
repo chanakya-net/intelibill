@@ -31,6 +31,12 @@ public interface IMembershipAuthorityRepository
 
     Task<User?> FindUserAsync(Guid userId, CancellationToken ct);
 
+    /// <summary>
+    /// Reads one invitation without locking, so a caller can learn which accounts and shop the
+    /// authority-lock protocol has to cover before it starts taking locks.
+    /// </summary>
+    Task<ShopInvitation?> PeekInvitationAsync(Guid invitationId, CancellationToken ct);
+
     Task<ShopInvitation?> LockInvitationAsync(Guid invitationId, CancellationToken ct);
 
     Task<IReadOnlyList<ShopInvitation>> GetInvitationsForShopAsync(Guid shopId, CancellationToken ct);

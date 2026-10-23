@@ -8,7 +8,10 @@ using Intelibill.Application.Features.Shops.Commands.UpdateShopBankDetails;
 using Intelibill.Application.Features.Shops.DTOs;
 using Intelibill.Application.Features.Shops.Queries.GetShopDetails;
 using Intelibill.Application.Features.Shops.Queries.GetMyShops;
+using Intelibill.Application.Features.Users.Commands.InviteShopMember;
+using Intelibill.Application.Features.Users.Commands.RevokeShopInvitation;
 using Intelibill.Application.Features.Users.Commands.UpdateShopMembership;
+using Intelibill.Application.Features.Users.Queries.GetShopInvitations;
 using Intelibill.Application.Features.Users.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -152,6 +155,53 @@ public sealed class ShopsController : AuthenticatedControllerBase
         return result.ToActionResult(Ok);
     }
 
+    /// <summary>
+    /// Invites one email address to this shop. The invitation grants nothing until the person who
+    /// owns that verified address accepts it from their own account.
+    /// </summary>
+    [HttpPost("{shopId:guid}/invitations")]
+    public async Task<IActionResult> InviteShopMember(
+        Guid shopId,
+        [FromBody] InviteShopMemberRequest request,
+        CancellationToken cancellationToken)
+    {
+        var auth = CheckAuth();
+        if (auth is not null) return auth;
+
+        var result = await Bus.InvokeAsync<ErrorOr.ErrorOr<ShopInvitationDto>>(
+            new InviteShopMemberCommand(UserId!.Value, shopId, request.Email, request.Role),
+            cancellationToken);
+
+        return result.ToActionResult(invitation => StatusCode(StatusCodes.Status201Created, invitation));
+    }
+
+    [HttpGet("{shopId:guid}/invitations")]
+    public async Task<IActionResult> GetShopInvitations(Guid shopId, CancellationToken cancellationToken)
+    {
+        var auth = CheckAuth();
+        if (auth is not null) return auth;
+
+        var result = await Bus.InvokeAsync<ErrorOr.ErrorOr<IReadOnlyList<ShopInvitationDto>>>(
+            new GetShopInvitationsQuery(UserId!.Value, shopId),
+            cancellationToken);
+
+        return result.ToActionResult(Ok);
+    }
+
+    /// <summary>Withdraws a still-pending invitation, making its link unusable.</summary>
+    [HttpDelete("{shopId:guid}/invitations/{invitationId:guid}")]
+    public async Task<IActionResult> RevokeShopInvitation(Guid shopId, Guid invitationId, CancellationToken cancellationToken)
+    {
+        var auth = CheckAuth();
+        if (auth is not null) return auth;
+
+        var result = await Bus.InvokeAsync<ErrorOr.ErrorOr<bool>>(
+            new RevokeShopInvitationCommand(UserId!.Value, shopId, invitationId),
+            cancellationToken);
+
+        return result.ToActionResult(_ => NoContent());
+    }
+
     [HttpPut("{shopId:guid}/bank-details")]
     public async Task<IActionResult> UpdateShopBankDetails(Guid shopId, [FromBody] UpdateShopBankDetailsRequest request, CancellationToken cancellationToken)
     {
@@ -184,6 +234,7 @@ public sealed record CreateShopRequest(
     string? GstNumber);
 public sealed record SwitchActiveShopRequest(Guid ShopId);
 public sealed record UpdateShopMembershipRequest(string Role, string Status, long ExpectedVersion);
+public sealed record InviteShopMemberRequest(string Email, string Role);
 public sealed record SetDefaultShopRequest(Guid ShopId);
 public sealed record UpdateShopRequest(
     string Name,

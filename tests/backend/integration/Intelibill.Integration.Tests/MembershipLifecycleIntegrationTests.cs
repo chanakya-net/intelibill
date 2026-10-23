@@ -184,4 +184,160 @@ public sealed class MembershipLifecycleIntegrationTests(PostgreSqlTestFixture fi
             membership.TryGetProperty("shopIds", out _),
             "A membership response must not carry the account's other memberships.");
     }
+
+    private static async Task<HttpResponseMessage> InviteAsync(HttpClient client, string ownerToken, Guid shopId, string email, string role = "Manager")
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/shops/{shopId}/invitations");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        request.Content = JsonContent.Create(new { email, role });
+        return await client.SendAsync(request);
+    }
+
+    private static async Task<HttpResponseMessage> AcceptAsync(HttpClient client, string accessToken, Guid invitationId, string token)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/invitations/{invitationId}/accept");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        request.Content = JsonContent.Create(new { token });
+        return await client.SendAsync(request);
+    }
+
+    private static async Task<HttpResponseMessage> PatchMembershipAsync(
+        HttpClient client, string ownerToken, Guid shopId, Guid targetUserId, string role, string status, long expectedVersion)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Patch, $"/api/shops/{shopId}/members/{targetUserId}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        request.Content = JsonContent.Create(new { role, status, expectedVersion });
+        return await client.SendAsync(request);
+    }
+
+    private async Task<int> CountMembershipsAsync(Guid shopId, Guid userId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        return await db.ShopMemberships.CountAsync(sm => sm.ShopId == shopId && sm.UserId == userId);
+    }
+
+    [Fact]
+    public async Task Invitation_AcceptByWrongVerifiedAddress_Denied()
+    {
+        using var client = CreateClient();
+        var (_, _, ownerToken) = await EnrollAsync(client, "owner");
+        var (shopId, ownerShopToken) = await CreateShopAsync(client, ownerToken);
+
+        var (invitedUserId, invitedEmail, _) = await EnrollAsync(client, "invited");
+        var (bystanderUserId, _, bystanderToken) = await EnrollAsync(client, "bystander");
+
+        var invited = await InviteAsync(client, ownerShopToken, shopId, invitedEmail);
+        Assert.Equal(HttpStatusCode.Created, invited.StatusCode);
+        var (invitationId, token) = await IdentityTestMailbox.ReadInvitationAsync(_factory, invitedEmail);
+
+        // A different verified account holding the link must not be able to redeem it.
+        var response = await AcceptAsync(client, bystanderToken, invitationId, token);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Contains("Users.InvitationWrongAccount", await response.Content.ReadAsStringAsync());
+        Assert.Equal(0, await CountMembershipsAsync(shopId, bystanderUserId));
+        Assert.Equal(0, await CountMembershipsAsync(shopId, invitedUserId));
+    }
+
+    [Fact]
+    public async Task Invitation_TwoAccepts_CreateOneMembership()
+    {
+        using var client = CreateClient();
+        var (_, _, ownerToken) = await EnrollAsync(client, "owner");
+        var (shopId, ownerShopToken) = await CreateShopAsync(client, ownerToken);
+
+        var (invitedUserId, invitedEmail, invitedToken) = await EnrollAsync(client, "invited");
+        (await InviteAsync(client, ownerShopToken, shopId, invitedEmail)).EnsureSuccessStatusCode();
+        var (invitationId, token) = await IdentityTestMailbox.ReadInvitationAsync(_factory, invitedEmail);
+
+        // Two clients redeem the same link at once: a retry, a double-click, or a race.
+        var first = AcceptAsync(client, invitedToken, invitationId, token);
+        var second = AcceptAsync(client, invitedToken, invitationId, token);
+        var responses = await Task.WhenAll(first, second);
+
+        Assert.Equal(1, responses.Count(r => r.StatusCode == HttpStatusCode.OK));
+        Assert.Equal(1, await CountMembershipsAsync(shopId, invitedUserId));
+
+        var accepted = responses.Single(r => r.StatusCode == HttpStatusCode.OK);
+        var membership = await accepted.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(shopId, membership.GetProperty("shopId").GetGuid());
+        Assert.Equal("Manager", membership.GetProperty("role").GetString());
+        Assert.Equal("Active", membership.GetProperty("status").GetString());
+    }
+
+    [Fact]
+    public async Task Invitation_RevokedBeforeAccept_Denied()
+    {
+        using var client = CreateClient();
+        var (_, _, ownerToken) = await EnrollAsync(client, "owner");
+        var (shopId, ownerShopToken) = await CreateShopAsync(client, ownerToken);
+
+        var (invitedUserId, invitedEmail, invitedToken) = await EnrollAsync(client, "invited");
+        (await InviteAsync(client, ownerShopToken, shopId, invitedEmail)).EnsureSuccessStatusCode();
+        var (invitationId, token) = await IdentityTestMailbox.ReadInvitationAsync(_factory, invitedEmail);
+
+        using var revoke = new HttpRequestMessage(HttpMethod.Delete, $"/api/shops/{shopId}/invitations/{invitationId}");
+        revoke.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerShopToken);
+        var revoked = await client.SendAsync(revoke);
+        Assert.Equal(HttpStatusCode.NoContent, revoked.StatusCode);
+
+        var response = await AcceptAsync(client, invitedToken, invitationId, token);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("Users.InvitationNotAcceptable", await response.Content.ReadAsStringAsync());
+        Assert.Equal(0, await CountMembershipsAsync(shopId, invitedUserId));
+    }
+
+    [Fact]
+    public async Task RoleChangeRacesInvitationAcceptance_NoStaleGrant()
+    {
+        using var client = CreateClient();
+        var (_, _, ownerToken) = await EnrollAsync(client, "owner");
+        var (shopId, ownerShopToken) = await CreateShopAsync(client, ownerToken);
+
+        // An existing staff member, suspended, then re-invited as a Manager.
+        var (memberUserId, memberEmail, memberToken) = await EnrollAsync(client, "member");
+        await SeedMembershipAsync(shopId, memberUserId, ShopRole.Staff);
+        var suspended = await PatchMembershipAsync(client, ownerShopToken, shopId, memberUserId, "Staff", "Suspended", 0);
+        Assert.Equal(HttpStatusCode.OK, suspended.StatusCode);
+
+        (await InviteAsync(client, ownerShopToken, shopId, memberEmail)).EnsureSuccessStatusCode();
+        var (invitationId, token) = await IdentityTestMailbox.ReadInvitationAsync(_factory, memberEmail);
+
+        // The owner changes their mind before the invitation is redeemed. The authority version
+        // moves, so the grant issued under the previous decision is void.
+        var changed = await PatchMembershipAsync(client, ownerShopToken, shopId, memberUserId, "Staff", "Suspended", 1);
+        Assert.Equal(HttpStatusCode.OK, changed.StatusCode);
+
+        var response = await AcceptAsync(client, memberToken, invitationId, token);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("Users.InvitationNotAcceptable", await response.Content.ReadAsStringAsync());
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var membership = await db.ShopMemberships.AsNoTracking()
+            .SingleAsync(sm => sm.ShopId == shopId && sm.UserId == memberUserId);
+        Assert.Equal(MembershipStatus.Suspended, membership.Status);
+        Assert.Equal(ShopRole.Staff, membership.Role);
+    }
+
+    [Fact]
+    public async Task UpdateMembership_WithStaleVersion_Conflicts()
+    {
+        using var client = CreateClient();
+        var (_, _, ownerToken) = await EnrollAsync(client, "owner");
+        var (shopId, ownerShopToken) = await CreateShopAsync(client, ownerToken);
+        var (memberUserId, _, _) = await EnrollAsync(client, "member");
+        await SeedMembershipAsync(shopId, memberUserId, ShopRole.Staff);
+
+        (await PatchMembershipAsync(client, ownerShopToken, shopId, memberUserId, "Manager", "Active", 0))
+            .EnsureSuccessStatusCode();
+
+        var stale = await PatchMembershipAsync(client, ownerShopToken, shopId, memberUserId, "Staff", "Removed", 0);
+
+        Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
+        Assert.Contains("Users.MembershipVersionConflict", await stale.Content.ReadAsStringAsync());
+    }
 }

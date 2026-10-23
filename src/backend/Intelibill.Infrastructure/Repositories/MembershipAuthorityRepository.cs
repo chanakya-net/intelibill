@@ -47,6 +47,9 @@ internal sealed class MembershipAuthorityRepository(ApplicationDbContext db, IUn
     public Task<User?> FindUserAsync(Guid userId, CancellationToken ct) =>
         db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct);
 
+    public Task<ShopInvitation?> PeekInvitationAsync(Guid invitationId, CancellationToken ct) =>
+        db.Set<ShopInvitation>().AsNoTracking().FirstOrDefaultAsync(x => x.Id == invitationId, ct);
+
     public async Task<ShopInvitation?> LockInvitationAsync(Guid invitationId, CancellationToken ct)
     {
         _ = await db.Database

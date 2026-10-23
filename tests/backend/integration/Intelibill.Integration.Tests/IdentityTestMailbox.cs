@@ -37,13 +37,34 @@ internal static class IdentityTestMailbox
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var challenge = await db.Set<EmailOwnershipChallenge>().Where(x => x.Destination == email && x.Purpose == purpose).OrderByDescending(x => x.CreatedAt).FirstAsync();
         var mail = await db.Set<IdentityMail>().SingleAsync(x => x.ChallengeId == challenge.Id);
+        return (challenge.Id, ReadToken(mail, email));
+    }
+
+    /// <summary>
+    /// Reads the single-use token out of the most recent shop-invitation mail for one address. The
+    /// token only ever exists in the encrypted outbox row, never in an API response.
+    /// </summary>
+    internal static async Task<(Guid Id, string Token)> ReadInvitationAsync(WebApplicationFactory<Program> factory, string email)
+    {
+        email = email.Trim().ToLowerInvariant();
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var invitation = await db.Set<ShopInvitation>().Where(x => x.Email == email)
+            .OrderByDescending(x => x.CreatedAt).FirstAsync();
+        var mail = await db.Set<IdentityMail>().Where(x => x.ChallengeId == invitation.Id)
+            .OrderByDescending(x => x.CreatedAt).FirstAsync();
+        return (invitation.Id, ReadToken(mail, email));
+    }
+
+    private static string ReadToken(IdentityMail mail, string destination)
+    {
         var data = Convert.FromBase64String(mail.EncryptedContent); var plain = new byte[data.Length - 28];
         using var aes = new AesGcm(Convert.FromBase64String(Key), 16);
-        aes.Decrypt(data.AsSpan(0, 12), data.AsSpan(28), data.AsSpan(12, 16), plain, Encoding.UTF8.GetBytes(email));
+        aes.Decrypt(data.AsSpan(0, 12), data.AsSpan(28), data.AsSpan(12, 16), plain, Encoding.UTF8.GetBytes(destination));
         using var json = JsonDocument.Parse(plain);
         var body = json.RootElement.GetProperty("Body").GetString()!;
         var token = body.Split("&token=", 2)[1].Split('&', 2)[0];
-        return (challenge.Id, Uri.UnescapeDataString(token));
+        return Uri.UnescapeDataString(token);
     }
     internal static async Task<HttpResponseMessage> EnrollAsync<T>(this WebApplicationFactory<Program> factory, HttpClient client, T request)
     {

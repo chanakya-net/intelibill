@@ -21,6 +21,15 @@ internal sealed class IdentityMailOutbox(IEmailOwnershipRepository repository, I
         var body = $"{subject}\n\n{link}\n\nThis single-use link expires at {expiresAt:O}. Choose your own password when confirming enrollment or recovery.\nIf you did not request this, ignore this email.";
         Queue(id, destination, subject, body, expiresAt);
     }
+    public void QueueShopInvitation(Guid invitationId, string destination, string shopName, string role, string token, DateTimeOffset expiresAt)
+    {
+        var baseUrl = configuration["App:BaseUrl"]?.TrimEnd('/') ?? throw new InvalidOperationException("App:BaseUrl is required.");
+        var link = $"{baseUrl}/invitations/accept#invitationId={invitationId}&token={Uri.EscapeDataString(token)}&purpose=shop-invitation";
+        var subject = $"You are invited to {shopName} on Intelibill";
+        var body = $"{subject}\n\n{link}\n\nYou have been invited as {role}. Sign in to the Intelibill account that uses this email address, then open the single-use link above; it expires at {expiresAt:O}.\nAccepting adds this shop to your account. It does not give the shop control of your sign-in details.\nIf you did not expect this, ignore this email.";
+        Queue(invitationId, destination, subject, body, expiresAt);
+    }
+
     public void QueueSecurityNotice(string destination) => Queue(null, destination, "Your Intelibill email changed",
         "Your Intelibill sign-in email was changed. Existing sessions have been signed out. If this was not you, contact support immediately.", DateTimeOffset.UtcNow.AddDays(1));
     private void Queue(Guid? id, string destination, string subject, string body, DateTimeOffset expiresAt)
