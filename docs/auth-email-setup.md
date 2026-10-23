@@ -121,6 +121,8 @@ Do not bulk set `IsEmailVerified=true` because an address or provider link exist
 
 Explicit self-service claims are limited to eligible unverified accounts created after the cutover without business history. Pre-cutover accounts and accounts that have held shop/business access require operator-assisted ownership review. Keep their shop and financial records intact. A support-required response must not be bypassed by changing database flags.
 
+This also affects new provider accounts whose email is not authoritative recovery evidence, including Facebook and Google third-party addresses without hosted-domain evidence. Establish verified email through Account security **before creating or joining a shop**. Account security is available without a shop. Once an unverified account has business history, adding or changing its recovery email requires operator review. Provider-subject sign-in continues; the current recovery marker does not distinguish safe new-provider history from potentially unsafe legacy credential history.
+
 Before public rollout, inventory these accounts using counts and opaque user IDs. With an authorized read-only reporting connection to the intended database, run the following **after migration**, in a read-only transaction. The actual schema uses `users.requires_operator_recovery` and `users.is_email_verified`:
 
 ```sql
@@ -155,7 +157,7 @@ Use a dedicated test mailbox and disposable development data:
 3. Try the same link again and an expired link; both must fail. After the resend cooldown, request another link and confirm the earlier link is no longer usable.
 4. Try an existing address and confirm the request response does not reveal account existence. Check destination limits also apply when email case or whitespace changes.
 5. Try Google/Facebook login with an email matching another Intelibill account. Confirm it requires explicit linking and does not create a link or session automatically.
-6. Authenticate to the existing account, reauthenticate, and explicitly connect a provider. Sign in again through the provider. Confirm removing the final usable login method is rejected.
+6. Authenticate to the existing account, reauthenticate, and explicitly connect a provider. Sign in again through the provider. Confirm removing the final usable login method is rejected. With a new unverified provider account and no shop, open Account security from shop setup, verify email, then return to shop setup. Confirm mandatory onboarding resumes when leaving Account security; authentication must still be required.
 7. Request an email change. Confirmation requires a session for the same existing account as well as the mailbox token; on a different device, sign in with the original email/provider first. Confirm anonymous and different-account attempts fail without consuming the proof. The old address remains active until confirmation, notifications reach the appropriate addresses, and old access/refresh credentials fail afterward.
 8. Exercise a newly eligible unverified account claim and the pre-cutover/business-account support-required outcome. Confirm business data remains intact. Existing email/password users must use the separately reviewed operator recovery procedure.
 9. With queued mail present, restart the API using the same outbox key. Confirm delivery can continue. Simulate a provider outage and verify retries do not create additional usable proofs.
