@@ -1,0 +1,31 @@
+.accept-invitation {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 32rem;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+
+  .eyebrow {
+    margin: 0;
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  &__notice,
+  &__result p {
+    margin: 0;
+  }
+
+  &__result {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .error-message {
+    margin: 0;
+    color: var(--p-red-600, #dc2626);
+  }
+}

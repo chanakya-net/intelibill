@@ -26,6 +26,8 @@ const ROUTE_STATE_PROFILES = {
 
 export const ROUTE_MANIFEST: readonly RouteManifestEntry[] = [
   publicRoute('auth/verify-email', 'form'),
+  // Opened from an invitation email; the invited person may or may not be signed in yet.
+  publicRoute('invitations/accept', 'form'),
   publicRoute('login', 'form'),
   publicRoute('forgot-password', 'form'),
   publicRoute('register', 'form'),

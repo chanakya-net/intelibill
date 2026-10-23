@@ -14,3 +14,10 @@ export const selectUsersLastMutationSucceeded = createSelector(
   selectUsersState,
   (state) => state.lastMutationSucceeded
 );
+export const selectShopInvitations = createSelector(
+  selectUsersState,
+  (state) => state.invitations
+);
+export const selectPendingShopInvitations = createSelector(selectShopInvitations, (invitations) =>
+  invitations.filter((invitation) => invitation.status === 'Pending')
+);

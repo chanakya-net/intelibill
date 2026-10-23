@@ -1,7 +1,7 @@
 import { createEntityAdapter, EntityState } from '@ngrx/entity';
 import { createFeature, createReducer, on } from '@ngrx/store';
 
-import { ShopUser } from '../services/user-account.service';
+import { ShopInvitation, ShopUser } from '../services/user-account.service';
 import { UserMutationType, UsersActions } from './users.actions';
 
 export const usersFeatureKey = 'users';
@@ -16,6 +16,7 @@ export interface UsersState extends EntityState<ShopUser> {
   readonly errorMessage: string;
   readonly lastMutationType: UserMutationType | null;
   readonly lastMutationSucceeded: boolean;
+  readonly invitations: readonly ShopInvitation[];
 }
 
 const initialState: UsersState = usersAdapter.getInitialState({
@@ -24,6 +25,7 @@ const initialState: UsersState = usersAdapter.getInitialState({
   errorMessage: '',
   lastMutationType: null,
   lastMutationSucceeded: false,
+  invitations: [] as readonly ShopInvitation[],
 });
 
 export const usersReducer = createReducer(
@@ -90,57 +92,110 @@ export const usersReducer = createReducer(
     errorMessage,
   })),
 
-  on(UsersActions.addShopUserRequested, (state) => ({
+  on(UsersActions.loadInvitationsSucceeded, (state, { invitations }) => ({
+    ...state,
+    invitations: [...invitations],
+  })),
+  on(UsersActions.loadInvitationsFailed, (state, { errorMessage }) => ({
+    ...state,
+    errorMessage,
+  })),
+
+  on(UsersActions.inviteMemberRequested, (state) => ({
     ...state,
     submitting: true,
     errorMessage: '',
-    lastMutationType: 'add-shop-user',
+    lastMutationType: 'invite-member',
     lastMutationSucceeded: false,
   })),
-  on(UsersActions.addShopUserSucceeded, (state, { user }) =>
-    usersAdapter.addOne(user, {
-      ...state,
-      submitting: false,
-      errorMessage: '',
-      lastMutationType: 'add-shop-user',
-      lastMutationSucceeded: true,
-    })
-  ),
-  on(UsersActions.addShopUserFailed, (state, { errorMessage }) => ({
+  on(UsersActions.inviteMemberSucceeded, (state, { invitation }) => ({
+    ...state,
+    // A resend supersedes the earlier offer, so the list holds one entry per address.
+    invitations: [
+      invitation,
+      ...state.invitations.filter(
+        (existing) =>
+          existing.invitationId !== invitation.invitationId &&
+          existing.email.toLowerCase() !== invitation.email.toLowerCase()
+      ),
+    ],
+    submitting: false,
+    errorMessage: '',
+    lastMutationType: 'invite-member',
+    lastMutationSucceeded: true,
+  })),
+  on(UsersActions.inviteMemberFailed, (state, { errorMessage }) => ({
     ...state,
     submitting: false,
     errorMessage,
-    lastMutationType: 'add-shop-user',
+    lastMutationType: 'invite-member',
     lastMutationSucceeded: false,
   })),
 
-  on(UsersActions.editShopUserRequested, (state) => ({
+  on(UsersActions.revokeInvitationRequested, (state) => ({
     ...state,
     submitting: true,
     errorMessage: '',
-    lastMutationType: 'edit-shop-user',
+    lastMutationType: 'revoke-invitation',
     lastMutationSucceeded: false,
   })),
-  on(UsersActions.editShopUserSucceeded, (state, { user }) =>
-    usersAdapter.updateOne(
-      {
-        id: user.userId,
-        changes: user,
-      },
-      {
-        ...state,
-        submitting: false,
-        errorMessage: '',
-        lastMutationType: 'edit-shop-user',
-        lastMutationSucceeded: true,
-      }
-    )
-  ),
-  on(UsersActions.editShopUserFailed, (state, { errorMessage }) => ({
+  on(UsersActions.revokeInvitationSucceeded, (state, { invitationId }) => ({
+    ...state,
+    invitations: state.invitations.map((invitation) =>
+      invitation.invitationId === invitationId
+        ? { ...invitation, status: 'Revoked' }
+        : invitation
+    ),
+    submitting: false,
+    errorMessage: '',
+    lastMutationType: 'revoke-invitation',
+    lastMutationSucceeded: true,
+  })),
+  on(UsersActions.revokeInvitationFailed, (state, { errorMessage }) => ({
     ...state,
     submitting: false,
     errorMessage,
-    lastMutationType: 'edit-shop-user',
+    lastMutationType: 'revoke-invitation',
+    lastMutationSucceeded: false,
+  })),
+
+  on(UsersActions.updateMembershipRequested, (state) => ({
+    ...state,
+    submitting: true,
+    errorMessage: '',
+    lastMutationType: 'update-membership',
+    lastMutationSucceeded: false,
+  })),
+  on(UsersActions.updateMembershipSucceeded, (state, { membership }) => {
+    const next = {
+      ...state,
+      submitting: false,
+      errorMessage: '',
+      lastMutationType: 'update-membership' as UserMutationType,
+      lastMutationSucceeded: true,
+    };
+
+    // A removed membership leaves the directory; anything else keeps its row with the new
+    // authority and the version to send with the next change.
+    return membership.status === 'Removed'
+      ? usersAdapter.removeOne(membership.userId, next)
+      : usersAdapter.updateOne(
+          {
+            id: membership.userId,
+            changes: {
+              role: membership.role,
+              status: membership.status,
+              membershipVersion: membership.version,
+            },
+          },
+          next
+        );
+  }),
+  on(UsersActions.updateMembershipFailed, (state, { errorMessage }) => ({
+    ...state,
+    submitting: false,
+    errorMessage,
+    lastMutationType: 'update-membership',
     lastMutationSucceeded: false,
   })),
 

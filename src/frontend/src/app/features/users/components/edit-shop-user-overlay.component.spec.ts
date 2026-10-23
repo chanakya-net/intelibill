@@ -51,7 +51,11 @@ describe('EditShopUserOverlayComponent', () => {
     }),
   };
 
-  function setup(role = 'Staff', shopIds: string[] = ['s1']): EditShopUserOverlayComponent {
+  function setup(
+    role = 'Staff',
+    status = 'Active',
+    membershipVersion = 4,
+  ): EditShopUserOverlayComponent {
     TestBed.configureTestingModule({
       imports: [
         EditShopUserOverlayComponent,
@@ -71,8 +75,9 @@ describe('EditShopUserOverlayComponent', () => {
       email: 'sales@test.com',
       phoneNumber: '+15551234567',
       role,
-      isLoginEnabled: true,
-      shopIds,
+      status,
+      membershipVersion,
+      shopIds: ['s1'],
     };
     fixture.detectChanges();
     return fixture.componentInstance;
@@ -89,98 +94,82 @@ describe('EditShopUserOverlayComponent', () => {
     TestBed.resetTestingModule();
   });
 
-  it('does not submit when phone number is invalid', () => {
+  it('editMemberNeverSendsGlobalIdentity', () => {
     const component = setup();
 
-    component.form.controls.phoneNumber.setValue('123');
+    component.form.controls.role.setValue('Manager');
+    component.form.controls.status.setValue('Suspended');
     component.onSubmit();
 
-    expect(component.form.controls.phoneNumber.invalid).toBe(true);
-    expect(dispatch).not.toHaveBeenCalledWith(
-      expect.objectContaining({ type: UsersActions.editShopUserRequested.type }),
+    // The form holds the two shop-scoped values and the version, and no account fields at all.
+    expect(Object.keys(component.form.controls).sort()).toEqual(['role', 'status']);
+    expect(dispatch).toHaveBeenCalledWith(
+      UsersActions.updateMembershipRequested({
+        shopId: 's1',
+        userId: 'u-staff',
+        payload: { role: 'Manager', status: 'Suspended', expectedVersion: 4 },
+      }),
+    );
+
+    const submitted = dispatch.mock.calls
+      .map(([action]) => action as { type: string; payload?: Record<string, unknown> })
+      .find((action) => action.type === UsersActions.updateMembershipRequested.type);
+    expect(Object.keys(submitted?.payload ?? {}).sort()).toEqual([
+      'expectedVersion',
+      'role',
+      'status',
+    ]);
+  });
+
+  it('sends the version the row was read at, so a stale screen is refused', () => {
+    const component = setup('Staff', 'Active', 9);
+
+    component.onSubmit();
+
+    expect(dispatch).toHaveBeenCalledWith(
+      UsersActions.updateMembershipRequested({
+        shopId: 's1',
+        userId: 'u-staff',
+        payload: { role: 'Staff', status: 'Active', expectedVersion: 9 },
+      }),
     );
   });
 
-  it('rejects whitespace-only user names', () => {
+  it('shows the concurrency conflict the server reports instead of retrying', () => {
     const component = setup();
-    component.form.controls.firstName.setValue('   ');
-    component.form.controls.lastName.setValue('   ');
+    errorSignal.set('errors.users.membershipVersionConflict');
 
-    expect(component.form.controls.firstName.hasError('required')).toBe(true);
-    expect(component.form.controls.lastName.hasError('required')).toBe(true);
+    expect(component.serverError()).toBe('errors.users.membershipVersionConflict');
   });
 
-  it('dispatches edit user action with trimmed payload', () => {
+  it('clears the previous error and mutation status before submitting', () => {
     const component = setup();
-
-    component.form.controls.email.setValue('sales.updated@test.com');
-    component.form.controls.firstName.setValue('  Sales  ');
-    component.form.controls.lastName.setValue('  Updated  ');
-    component.form.controls.phoneNumber.setValue('+15551234569');
-    component.form.controls.role.setValue('Manager');
-    component.form.controls.isLoginEnabled.setValue(false);
-    component.onToggleShop('s2', true);
 
     component.onSubmit();
 
     expect(dispatch).toHaveBeenCalledWith(UsersActions.clearError());
     expect(dispatch).toHaveBeenCalledWith(UsersActions.clearMutationStatus());
-    expect(dispatch).toHaveBeenCalledWith(
-      UsersActions.editShopUserRequested({
-        userId: 'u-staff',
-        payload: {
-          email: 'sales@test.com',
-          firstName: 'Sales',
-          lastName: 'Updated',
-          phoneNumber: '+15551234569',
-          role: 'Manager',
-          isLoginEnabled: false,
-          shopIds: ['s1', 's2'],
-        },
-      }),
-    );
   });
 
-  it('does not submit when no shop is selected', () => {
+  it('does not submit while a change is already in flight', () => {
     const component = setup();
-
-    component.onToggleShop('s1', false);
-    component.onSubmit();
-
-    expect(dispatch).not.toHaveBeenCalledWith(
-      expect.objectContaining({ type: UsersActions.editShopUserRequested.type }),
-    );
-  });
-
-  it('does not submit when every shop the actor can see is unchecked', () => {
-    const component = setup('Staff', ['s1', 's-outside-session']);
-
-    component.onToggleShop('s1', false);
-    component.onSubmit();
-
-    expect(component.shopSelectionInvalid).toBe(true);
-    expect(dispatch).not.toHaveBeenCalledWith(
-      expect.objectContaining({ type: UsersActions.editShopUserRequested.type }),
-    );
-  });
-
-  it('keeps memberships outside the session in the payload when a visible shop stays selected', () => {
-    const component = setup('Staff', ['s1', 's-outside-session']);
+    isSubmittingSignal.set(true);
+    dispatch.mockReset();
 
     component.onSubmit();
 
-    expect(component.shopSelectionInvalid).toBe(false);
-    expect(dispatch).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: UsersActions.editShopUserRequested.type,
-        payload: expect.objectContaining({ shopIds: ['s1', 's-outside-session'] }),
-      }),
-    );
+    expect(dispatch).not.toHaveBeenCalled();
   });
 
   it('normalizes a case-insensitive manager role when patching the form', () => {
     const component = setup('manager');
 
     expect(component.form.controls.role.value).toBe('Manager');
+  });
+
+  it('shows the membership status the row arrived with', () => {
+    const component = setup('Staff', 'suspended');
+
+    expect(component.form.controls.status.value).toBe('Suspended');
   });
 });

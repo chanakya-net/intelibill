@@ -14,9 +14,10 @@ import { AddShopUserOverlayComponent } from '../components/add-shop-user-overlay
 import { EditShopUserOverlayComponent } from '../components/edit-shop-user-overlay.component';
 import { SetDefaultStoreOverlayComponent } from '../components/set-default-store-overlay.component';
 import { UserRoleFilter, UsersFilterBarComponent } from '../components/users-filter-bar.component';
-import { ShopUser } from '../services/user-account.service';
+import { ShopInvitation, ShopUser } from '../services/user-account.service';
 import { UsersActions } from '../state/users.actions';
 import {
+  selectShopInvitations,
   selectShopUsers,
   selectUsersErrorMessage,
   selectUsersLastMutationSucceeded,
@@ -114,8 +115,12 @@ export class UsersPageComponent {
       return role === 'staff' || role === 'salesperson';
     }).length,
   );
-  readonly loginEnabledCount = computed(
-    () => this.users().filter((user) => user.isLoginEnabled).length,
+  readonly activeMemberCount = computed(
+    () => this.users().filter((user) => this.isActive(user.status)).length,
+  );
+  readonly invitations = this.store.selectSignal(selectShopInvitations);
+  readonly pendingInvitations = computed(() =>
+    (this.invitations() ?? []).filter((invitation) => invitation.status === 'Pending'),
   );
   readonly summaryCards = computed<UserSummaryCard[]>(() => [
     {
@@ -134,8 +139,8 @@ export class UsersPageComponent {
       tone: 'terracotta',
     },
     {
-      labelKey: 'users.summary.loginEnabled',
-      value: this.loginEnabledCount(),
+      labelKey: 'users.summary.activeMembers',
+      value: this.activeMemberCount(),
       tone: 'ink',
     },
   ]);
@@ -149,13 +154,21 @@ export class UsersPageComponent {
       value: this.managerCount(),
     },
     {
-      labelKey: 'users.summary.loginEnabled',
-      value: this.loginEnabledCount(),
+      labelKey: 'users.summary.activeMembers',
+      value: this.activeMemberCount(),
     },
   ]);
 
   constructor() {
     this.store.dispatch(UsersActions.loadShopUsersRequested());
+
+    // Only an owner may read the invitation list, so it is requested only when one is signed in.
+    effect(() => {
+      const shopId = this.session()?.activeShopId;
+      if (shopId && this.canAddUsers()) {
+        this.store.dispatch(UsersActions.loadInvitationsRequested({ shopId }));
+      }
+    });
 
     effect(() => {
       if (!this.lastMutationSucceeded()) {
@@ -163,15 +176,16 @@ export class UsersPageComponent {
       }
 
       const mutationType = this.lastMutationType();
-      if (mutationType === 'add-shop-user' && this.showAddUserOverlay()) {
+      if (mutationType === 'invite-member' && this.showAddUserOverlay()) {
         this.showAddUserOverlay.set(false);
         this.store.dispatch(UsersActions.clearMutationStatus());
         return;
       }
 
-      if (mutationType === 'edit-shop-user' && this.showEditUserOverlay()) {
+      if (mutationType === 'update-membership' && this.showEditUserOverlay()) {
         this.showEditUserOverlay.set(false);
         this.editingUser.set(null);
+        this.store.dispatch(UsersActions.loadShopUsersRequested());
         this.store.dispatch(UsersActions.clearMutationStatus());
       }
     });
@@ -245,6 +259,56 @@ export class UsersPageComponent {
     }
 
     return role;
+  }
+
+  onResendInvitation(invitation: ShopInvitation): void {
+    const shopId = this.session()?.activeShopId;
+    if (!shopId || !this.canAddUsers()) {
+      return;
+    }
+
+    this.store.dispatch(UsersActions.clearError());
+    // Re-issuing supersedes the earlier offer rather than adding a second redeemable link.
+    this.store.dispatch(
+      UsersActions.inviteMemberRequested({
+        shopId,
+        payload: {
+          email: invitation.email,
+          role: invitation.role.trim().toLowerCase() === 'manager' ? 'Manager' : 'Staff',
+        },
+      }),
+    );
+  }
+
+  onRevokeInvitation(invitation: ShopInvitation): void {
+    const shopId = this.session()?.activeShopId;
+    if (!shopId || !this.canAddUsers()) {
+      return;
+    }
+
+    this.store.dispatch(UsersActions.clearError());
+    this.store.dispatch(
+      UsersActions.revokeInvitationRequested({ shopId, invitationId: invitation.invitationId }),
+    );
+  }
+
+  statusLabel(status: string): string {
+    switch ((status ?? '').trim().toLowerCase()) {
+      case 'suspended':
+        return 'users.statusSuspended';
+      case 'removed':
+        return 'users.statusRemoved';
+      default:
+        return 'users.statusActive';
+    }
+  }
+
+  statusPillClass(status: string): string {
+    return this.isActive(status) ? 'login-pill--enabled' : 'login-pill--disabled';
+  }
+
+  isActive(status: string): boolean {
+    return (status ?? '').trim().toLowerCase() === 'active';
   }
 
   canEditRole(role: string): boolean {

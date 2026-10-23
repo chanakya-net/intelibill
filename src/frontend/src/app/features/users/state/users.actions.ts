@@ -1,8 +1,21 @@
 import { createActionGroup, emptyProps, props } from '@ngrx/store';
 
-import { AddShopUserRequest, ChangeMyPasswordRequest, EditShopUserRequest, ShopUser, UpdateMyProfileRequest } from '../services/user-account.service';
+import {
+  ChangeMyPasswordRequest,
+  InviteMemberRequest,
+  Membership,
+  ShopInvitation,
+  ShopUser,
+  UpdateMembershipRequest,
+  UpdateMyProfileRequest,
+} from '../services/user-account.service';
 
-export type UserMutationType = 'update-profile' | 'change-password' | 'add-shop-user' | 'edit-shop-user';
+export type UserMutationType =
+  | 'update-profile'
+  | 'change-password'
+  | 'invite-member'
+  | 'update-membership'
+  | 'revoke-invitation';
 
 export const UsersActions = createActionGroup({
   source: 'Users',
@@ -19,13 +32,25 @@ export const UsersActions = createActionGroup({
     'Load Shop Users Succeeded': props<{ users: readonly ShopUser[] }>(),
     'Load Shop Users Failed': props<{ errorMessage: string }>(),
 
-    'Add Shop User Requested': props<{ payload: AddShopUserRequest }>(),
-    'Add Shop User Succeeded': props<{ user: ShopUser }>(),
-    'Add Shop User Failed': props<{ errorMessage: string }>(),
+    'Load Invitations Requested': props<{ shopId: string }>(),
+    'Load Invitations Succeeded': props<{ invitations: readonly ShopInvitation[] }>(),
+    'Load Invitations Failed': props<{ errorMessage: string }>(),
 
-    'Edit Shop User Requested': props<{ userId: string; payload: EditShopUserRequest }>(),
-    'Edit Shop User Succeeded': props<{ user: ShopUser }>(),
-    'Edit Shop User Failed': props<{ errorMessage: string }>(),
+    'Invite Member Requested': props<{ shopId: string; payload: InviteMemberRequest }>(),
+    'Invite Member Succeeded': props<{ invitation: ShopInvitation }>(),
+    'Invite Member Failed': props<{ errorMessage: string }>(),
+
+    'Revoke Invitation Requested': props<{ shopId: string; invitationId: string }>(),
+    'Revoke Invitation Succeeded': props<{ invitationId: string }>(),
+    'Revoke Invitation Failed': props<{ errorMessage: string }>(),
+
+    'Update Membership Requested': props<{
+      shopId: string;
+      userId: string;
+      payload: UpdateMembershipRequest;
+    }>(),
+    'Update Membership Succeeded': props<{ membership: Membership }>(),
+    'Update Membership Failed': props<{ errorMessage: string }>(),
 
     'Clear Error': emptyProps(),
     'Clear Mutation Status': emptyProps(),

@@ -1,4 +1,6 @@
 import {
+  selectPendingShopInvitations,
+  selectShopInvitations,
   selectShopUsers,
   selectUsersErrorMessage,
   selectUsersLastMutationSucceeded,
@@ -7,7 +9,7 @@ import {
   selectUsersSubmitting,
 } from './users.selectors';
 import { UsersState } from './users.reducer';
-import { ShopUser } from '../services/user-account.service';
+import { ShopInvitation, ShopUser } from '../services/user-account.service';
 
 const ownerUser: ShopUser = {
   userId: 'u1',
@@ -16,7 +18,8 @@ const ownerUser: ShopUser = {
   email: 'owner@test.com',
   phoneNumber: '+15551234567',
   role: 'Owner',
-  isLoginEnabled: true,
+  status: 'Active',
+  membershipVersion: 0,
   shopIds: ['shop-1'],
 };
 
@@ -27,8 +30,26 @@ const staffUser: ShopUser = {
   email: 'staff@test.com',
   phoneNumber: '+15551234568',
   role: 'Staff',
-  isLoginEnabled: true,
+  status: 'Suspended',
+  membershipVersion: 3,
   shopIds: ['shop-1'],
+};
+
+const pendingInvitation: ShopInvitation = {
+  invitationId: 'i1',
+  shopId: 'shop-1',
+  email: 'invited@test.com',
+  role: 'Manager',
+  status: 'Pending',
+  expiresAt: '2026-11-01T00:00:00Z',
+  createdAt: '2026-10-25T00:00:00Z',
+};
+
+const revokedInvitation: ShopInvitation = {
+  ...pendingInvitation,
+  invitationId: 'i2',
+  email: 'withdrawn@test.com',
+  status: 'Revoked',
 };
 
 describe('users selectors', () => {
@@ -41,8 +62,9 @@ describe('users selectors', () => {
     loadingShopUsers: true,
     submitting: true,
     errorMessage: 'errors.users.unableToLoadShopUsers',
-    lastMutationType: 'add-shop-user',
+    lastMutationType: 'update-membership',
     lastMutationSucceeded: true,
+    invitations: [pendingInvitation, revokedInvitation],
   };
 
   const rootState = {
@@ -66,7 +88,15 @@ describe('users selectors', () => {
   });
 
   it('selects users last mutation type', () => {
-    expect(selectUsersLastMutationType(rootState as never)).toBe('add-shop-user');
+    expect(selectUsersLastMutationType(rootState as never)).toBe('update-membership');
+  });
+
+  it('selects every invitation', () => {
+    expect(selectShopInvitations(rootState as never)).toEqual([pendingInvitation, revokedInvitation]);
+  });
+
+  it('selects only invitations that can still be redeemed', () => {
+    expect(selectPendingShopInvitations(rootState as never)).toEqual([pendingInvitation]);
   });
 
   it('selects users last mutation status', () => {

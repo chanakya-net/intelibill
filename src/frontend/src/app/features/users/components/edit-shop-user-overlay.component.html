@@ -2,7 +2,7 @@
   class="overlay"
   aria-modal="true"
   role="dialog"
-  [attr.aria-label]="'users.editShopUser' | transloco"
+  [attr.aria-label]="'users.editMembership' | transloco"
 >
   <div class="overlay-backdrop" (click)="onClose()"></div>
 
@@ -10,8 +10,13 @@
     <header class="overlay-header">
       <div>
         <p class="eyebrow">{{ 'users.shopUsers' | transloco }}</p>
-        <h2>{{ 'users.editUser' | transloco }}</h2>
-        <p class="description">{{ 'users.editUserDescription' | transloco }}</p>
+        <h2>{{ 'users.editMembership' | transloco }}</h2>
+        <p class="description">
+          {{
+            'users.editMembershipDescription'
+              | transloco: { name: memberName(), shop: activeShopName() }
+          }}
+        </p>
       </div>
       <button
         type="button"
@@ -24,56 +29,6 @@
     </header>
 
     <form class="overlay-form" [formGroup]="form" (ngSubmit)="onSubmit()">
-      <fieldset class="shop-selection">
-        <legend>{{ 'users.shops' | transloco }}</legend>
-        <p class="shop-selection-description">{{ 'users.selectShopsForAccess' | transloco }}</p>
-
-        <div class="shop-options">
-          @for (shop of availableShops(); track shop) {
-            <label class="shop-option">
-              <input
-                type="checkbox"
-                [checked]="isShopSelected(shop.shopId)"
-                (change)="onToggleShop(shop.shopId, $any($event.target).checked)"
-              />
-              <span>
-                {{ shop.shopName }}
-                @if (shop.isDefault) {
-                  <small>{{ 'users.default' | transloco }}</small>
-                }
-              </span>
-            </label>
-          }
-        </div>
-      </fieldset>
-
-      @if (shopSelectionInvalid) {
-        <p class="error-message">
-          {{ 'users.validation.selectAtLeastOneShop' | transloco }}
-        </p>
-      }
-
-      <label>
-        <span>{{ 'common.firstName' | transloco }}</span>
-        <input pInputText type="text" formControlName="firstName" autocomplete="given-name" />
-      </label>
-
-      <label>
-        <span>{{ 'common.lastName' | transloco }}</span>
-        <input pInputText type="text" formControlName="lastName" autocomplete="family-name" />
-      </label>
-
-      <label>
-        <span>{{ 'users.email' | transloco }}</span>
-        <input pInputText type="email" formControlName="email" readonly autocomplete="email" />
-      </label>
-
-      <p>{{ 'identity.emailChangeRequired' | transloco }}</p>
-      <label>
-        <span>{{ 'users.mobileNumber' | transloco }}</span>
-        <input pInputText type="text" formControlName="phoneNumber" autocomplete="tel" />
-      </label>
-
       <label>
         <span>{{ 'users.role' | transloco }}</span>
         <select formControlName="role">
@@ -82,14 +37,16 @@
         </select>
       </label>
 
-      <label class="toggle-row" for="isLoginEnabled">
-        <p-checkbox
-          inputId="isLoginEnabled"
-          formControlName="isLoginEnabled"
-          [binary]="true"
-        ></p-checkbox>
-        <span>{{ 'users.allowUserLogin' | transloco }}</span>
+      <label>
+        <span>{{ 'users.membershipStatus' | transloco }}</span>
+        <select formControlName="status">
+          <option value="Active">{{ 'users.statusActive' | transloco }}</option>
+          <option value="Suspended">{{ 'users.statusSuspended' | transloco }}</option>
+          <option value="Removed">{{ 'users.statusRemoved' | transloco }}</option>
+        </select>
       </label>
+
+      <p class="description">{{ 'users.membershipScopeNotice' | transloco }}</p>
 
       @if (serverError()) {
         <p class="error-message">{{ serverError() | transloco }}</p>

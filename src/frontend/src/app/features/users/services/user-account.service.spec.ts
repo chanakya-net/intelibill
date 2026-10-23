@@ -1,12 +1,11 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { of } from 'rxjs';
 import { vi } from 'vitest';
 
 import { AuthResult } from '../../../core/auth/auth.models';
 import { AuthService } from '../../../core/auth/auth.service';
-import { USER_ENDPOINTS } from '../../../core/auth/auth.constants';
+import { MEMBERSHIP_ENDPOINTS, USER_ENDPOINTS } from '../../../core/auth/auth.constants';
 import { ChangeMyPasswordRequest, UpdateMyProfileRequest, UserAccountService } from './user-account.service';
 
 describe('UserAccountService', () => {
@@ -72,7 +71,19 @@ describe('UserAccountService', () => {
   });
 
   it('getShopUsers sends GET to users list endpoint', () => {
-    const users = [{ userId: 'u1', firstName: 'A', lastName: 'B', email: 'a@b.com', phoneNumber: null, role: 'Manager', isLoginEnabled: true, shopIds: [] }];
+    const users = [
+      {
+        userId: 'u1',
+        firstName: 'A',
+        lastName: 'B',
+        email: 'a@b.com',
+        phoneNumber: null,
+        role: 'Manager',
+        status: 'Active',
+        membershipVersion: 2,
+        shopIds: [],
+      },
+    ];
 
     service.getShopUsers().subscribe((res) => expect(res).toEqual(users));
 
@@ -81,26 +92,112 @@ describe('UserAccountService', () => {
     req.flush(users);
   });
 
-  it('addShopUser sends POST to users endpoint', () => {
-    const payload = { shopIds: ['sh1'], email: 'u@t.com', firstName: 'A', lastName: 'B', phoneNumber: '+9198', password: 'Pass1!', confirmPassword: 'Pass1!', role: 'Manager' as const };
-    const user = { userId: 'u1', ...payload, isLoginEnabled: true };
+  it('editMemberNeverSendsGlobalIdentity', () => {
+    const membership = {
+      userId: 'u1',
+      shopId: 'sh1',
+      displayName: 'A B',
+      role: 'Manager',
+      status: 'Active',
+      version: 3,
+    };
 
-    service.addShopUser(payload).subscribe((res) => expect(res).toEqual(user));
+    service
+      .updateMembership('sh1', 'u1', { role: 'Manager', status: 'Active', expectedVersion: 2 })
+      .subscribe((res) => expect(res).toEqual(membership));
 
-    const req = httpMock.expectOne(USER_ENDPOINTS.add);
-    expect(req.request.method).toBe('POST');
-    req.flush(user);
+    const req = httpMock.expectOne(MEMBERSHIP_ENDPOINTS.update('sh1', 'u1'));
+    expect(req.request.method).toBe('PATCH');
+    // Role, status and the version read with the row — and nothing that belongs to the account.
+    expect(req.request.body).toEqual({ role: 'Manager', status: 'Active', expectedVersion: 2 });
+    expect(Object.keys(req.request.body as object).sort()).toEqual([
+      'expectedVersion',
+      'role',
+      'status',
+    ]);
+    req.flush(membership);
   });
 
-  it('editShopUser sends PUT to users/:id endpoint', () => {
-    const userId = 'u1';
-    const payload = { email: 'u@t.com', firstName: 'A', lastName: 'B', phoneNumber: '+9198', role: 'Manager' as const, isLoginEnabled: true };
-    const user = { userId, ...payload, shopIds: [] };
+  it('surfaces a membership version conflict instead of retrying the change', () => {
+    let conflictCode = '';
 
-    service.editShopUser(userId, payload).subscribe((res) => expect(res).toEqual(user));
+    service
+      .updateMembership('sh1', 'u1', { role: 'Staff', status: 'Removed', expectedVersion: 1 })
+      .subscribe({
+        next: () => expect.unreachable('a stale version must not succeed'),
+        error: (response: { status: number; error: { code: string } }) => {
+          expect(response.status).toBe(409);
+          conflictCode = response.error.code;
+        },
+      });
 
-    const req = httpMock.expectOne(USER_ENDPOINTS.update(userId));
-    expect(req.request.method).toBe('PUT');
-    req.flush(user);
+    httpMock
+      .expectOne(MEMBERSHIP_ENDPOINTS.update('sh1', 'u1'))
+      .flush(
+        { code: 'Users.MembershipVersionConflict', description: 'Reload and try again.' },
+        { status: 409, statusText: 'Conflict' },
+      );
+
+    expect(conflictCode).toBe('Users.MembershipVersionConflict');
+  });
+
+  it('inviteMember posts only the address and the role', () => {
+    const invitation = {
+      invitationId: 'i1',
+      shopId: 'sh1',
+      email: 'invited@test.com',
+      role: 'Manager',
+      status: 'Pending',
+      expiresAt: '2026-11-01T00:00:00Z',
+      createdAt: '2026-10-25T00:00:00Z',
+    };
+
+    service
+      .inviteMember('sh1', { email: 'invited@test.com', role: 'Manager' })
+      .subscribe((res) => expect(res).toEqual(invitation));
+
+    const req = httpMock.expectOne(MEMBERSHIP_ENDPOINTS.invitations('sh1'));
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ email: 'invited@test.com', role: 'Manager' });
+    req.flush(invitation);
+  });
+
+  it('getInvitations sends GET to the shop invitations endpoint', () => {
+    service.getInvitations('sh1').subscribe((res) => expect(res).toEqual([]));
+
+    const req = httpMock.expectOne(MEMBERSHIP_ENDPOINTS.invitations('sh1'));
+    expect(req.request.method).toBe('GET');
+    req.flush([]);
+  });
+
+  it('revokeInvitation sends DELETE for one invitation', () => {
+    let completed = false;
+
+    service.revokeInvitation('sh1', 'i1').subscribe({ complete: () => (completed = true) });
+
+    const req = httpMock.expectOne(MEMBERSHIP_ENDPOINTS.invitation('sh1', 'i1'));
+    expect(req.request.method).toBe('DELETE');
+    req.flush(null);
+
+    expect(completed).toBe(true);
+  });
+
+  it('acceptInvitation sends the token in the body, never in the URL', () => {
+    const membership = {
+      userId: 'u9',
+      shopId: 'sh1',
+      displayName: 'Invited Person',
+      role: 'Manager',
+      status: 'Active',
+      version: 0,
+    };
+
+    service.acceptInvitation('i1', 'SECRET-TOKEN').subscribe((res) => expect(res).toEqual(membership));
+
+    const req = httpMock.expectOne(MEMBERSHIP_ENDPOINTS.acceptInvitation('i1'));
+    expect(req.request.method).toBe('POST');
+    expect(req.request.url).not.toContain('SECRET-TOKEN');
+    expect(req.request.body).toEqual({ token: 'SECRET-TOKEN' });
+    req.flush(membership);
   });
 });

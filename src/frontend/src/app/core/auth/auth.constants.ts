@@ -35,6 +35,16 @@ export const SHOP_ENDPOINTS = {
   addBankAccount: (_: string) => `${API_BASE_URL}/bank-accounts`,
 } as const;
 
+export const MEMBERSHIP_ENDPOINTS = {
+  // Shop-scoped membership administration. Role and status only: the account behind a membership
+  // belongs to its holder.
+  update: (shopId: string, userId: string) => `${API_BASE_URL}/shops/${shopId}/members/${userId}`,
+  invitations: (shopId: string) => `${API_BASE_URL}/shops/${shopId}/invitations`,
+  invitation: (shopId: string, invitationId: string) =>
+    `${API_BASE_URL}/shops/${shopId}/invitations/${invitationId}`,
+  acceptInvitation: (invitationId: string) => `${API_BASE_URL}/invitations/${invitationId}/accept`,
+} as const;
+
 export const USER_ENDPOINTS = {
   list: `${API_BASE_URL}/users`,
   add: `${API_BASE_URL}/users`,
