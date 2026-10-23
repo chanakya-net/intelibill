@@ -19,6 +19,7 @@ public class ApplicationDbContext(
     public DbSet<Shop> Shops => Set<Shop>();
     public DbSet<BankAccount> BankAccounts => Set<BankAccount>();
     public DbSet<ShopMembership> ShopMemberships => Set<ShopMembership>();
+    public DbSet<ShopInvitation> ShopInvitations => Set<ShopInvitation>();
     public DbSet<Supplier> Suppliers => Set<Supplier>();
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<CustomerLedgerEntry> CustomerLedgerEntries => Set<CustomerLedgerEntry>();

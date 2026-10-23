@@ -8,6 +8,8 @@ using Intelibill.Application.Features.Shops.Commands.UpdateShopBankDetails;
 using Intelibill.Application.Features.Shops.DTOs;
 using Intelibill.Application.Features.Shops.Queries.GetShopDetails;
 using Intelibill.Application.Features.Shops.Queries.GetMyShops;
+using Intelibill.Application.Features.Users.Commands.UpdateShopMembership;
+using Intelibill.Application.Features.Users.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Wolverine;
@@ -122,6 +124,34 @@ public sealed class ShopsController : AuthenticatedControllerBase
         return result.ToActionResult(Ok);
     }
 
+    /// <summary>
+    /// Changes one member's shop-scoped role and status. Ownership of the shop is re-read live
+    /// inside the handler's authority lock, so the caller's <c>active_shop_role</c> claim is not
+    /// what authorizes the change and the shop need not be the caller's active one.
+    /// </summary>
+    [HttpPatch("{shopId:guid}/members/{targetUserId:guid}")]
+    public async Task<IActionResult> UpdateShopMembership(
+        Guid shopId,
+        Guid targetUserId,
+        [FromBody] UpdateShopMembershipRequest request,
+        CancellationToken cancellationToken)
+    {
+        var auth = CheckAuth();
+        if (auth is not null) return auth;
+
+        var result = await Bus.InvokeAsync<ErrorOr.ErrorOr<MembershipDto>>(
+            new UpdateShopMembershipCommand(
+                UserId!.Value,
+                shopId,
+                targetUserId,
+                request.Role,
+                request.Status,
+                request.ExpectedVersion),
+            cancellationToken);
+
+        return result.ToActionResult(Ok);
+    }
+
     [HttpPut("{shopId:guid}/bank-details")]
     public async Task<IActionResult> UpdateShopBankDetails(Guid shopId, [FromBody] UpdateShopBankDetailsRequest request, CancellationToken cancellationToken)
     {
@@ -153,6 +183,7 @@ public sealed record CreateShopRequest(
     string? MobileNumber,
     string? GstNumber);
 public sealed record SwitchActiveShopRequest(Guid ShopId);
+public sealed record UpdateShopMembershipRequest(string Role, string Status, long ExpectedVersion);
 public sealed record SetDefaultShopRequest(Guid ShopId);
 public sealed record UpdateShopRequest(
     string Name,
