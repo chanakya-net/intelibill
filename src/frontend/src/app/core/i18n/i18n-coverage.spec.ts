@@ -31,6 +31,7 @@ const NON_TRANSLATION_DOTTED_LITERALS = new Set([
   'inventory.auth.session.local',
   'inventory.auth.session.temporary',
   'inventory.preferences.language',
+  'inventory.invitations.pending',
 ]);
 
 const INVARIANT_TRANSLATION_VALUES = new Set([

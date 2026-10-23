@@ -34,8 +34,17 @@ internal sealed partial class IdentityMailWorker(IServiceScopeFactory scopes, IL
             mail = await db.Set<IdentityMail>().Where(x => x.CompletedAt == null && x.NextAttemptAt <= now && x.Attempts < 5)
                 .OrderBy(x => x.CreatedAt).FirstOrDefaultAsync(ct);
             if (mail is null) return;
-            var challenge = mail.ChallengeId is { } id ? await repository.FindAsync(id, ct) : null;
-            if (mail.ExpiresAt <= now || (mail.ChallengeId is not null && (challenge is null || challenge.ConsumedAt is not null)))
+            // Each id is resolved against its own table. Treating an invitation id as a challenge
+            // id made every lookup miss, and the miss was read as "superseded" and discarded.
+            var challenge = mail.ChallengeId is { } challengeId ? await repository.FindAsync(challengeId, ct) : null;
+            var superseded = mail.ChallengeId is not null && (challenge is null || challenge.ConsumedAt is not null);
+            if (mail.InvitationId is { } invitationId)
+            {
+                var invitation = await db.Set<ShopInvitation>().FirstOrDefaultAsync(x => x.Id == invitationId, ct);
+                superseded = invitation is null || !invitation.IsPending(now);
+            }
+
+            if (mail.ExpiresAt <= now || superseded)
             { mail.Complete(now); await repository.CommitAsync(ct); return; }
             mail.Failed(now); // Durable bounded lease; 60s first attempt > the 30s SMTP timeout.
             await repository.CommitAsync(ct);

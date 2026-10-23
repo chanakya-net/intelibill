@@ -3,10 +3,16 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslocoPipe } from '@ngneat/transloco';
 import { ButtonModule } from 'primeng/button';
-import { finalize } from 'rxjs';
+import { catchError, finalize, map, of, switchMap } from 'rxjs';
 
 import { ApiErrorPayload } from '../../../core/auth/auth.models';
 import { AuthService } from '../../../core/auth/auth.service';
+import {
+  clearPendingInvitation,
+  PendingInvitation,
+  readPendingInvitation,
+  storePendingInvitation,
+} from '../../../core/auth/pending-invitation';
 import { Membership, UserAccountService } from '../services/user-account.service';
 
 /**
@@ -43,12 +49,27 @@ export class AcceptInvitationPageComponent implements OnInit {
   ngOnInit(): void {
     const fragment = this.route.snapshot.fragment;
 
-    // The token must not survive in the address bar, browser history or a referrer header.
+    // The token must not survive in the address bar, browser history or a referrer header. It is
+    // handed to this tab's session storage first, so that signing in — the normal state for
+    // someone being onboarded — does not throw the invitation away and force a second trip to
+    // the email.
+    const link = this.readLink(fragment) ?? readPendingInvitation();
     this.location.replaceState('/invitations/accept');
 
-    if (!fragment) {
+    if (link === null) {
       this.error.set('users.invitationLinkInvalid');
       return;
+    }
+
+    this.invitationId = link.invitationId;
+    this.token = link.token;
+    storePendingInvitation(link);
+    this.ready.set(true);
+  }
+
+  private readLink(fragment: string | null): PendingInvitation | null {
+    if (!fragment) {
+      return null;
     }
 
     const params = new URLSearchParams(fragment);
@@ -61,13 +82,10 @@ export class AcceptInvitationPageComponent implements OnInit {
       !invitationId ||
       !token
     ) {
-      this.error.set('users.invitationLinkInvalid');
-      return;
+      return null;
     }
 
-    this.invitationId = invitationId;
-    this.token = token;
-    this.ready.set(true);
+    return { invitationId, token };
   }
 
   onAccept(): void {
@@ -80,7 +98,18 @@ export class AcceptInvitationPageComponent implements OnInit {
 
     this.users
       .acceptInvitation(this.invitationId, this.token)
-      .pipe(finalize(() => this.busy.set(false)))
+      .pipe(
+        // The new membership only reaches the app through a token, so renew the session before
+        // leaving this page; otherwise the new member lands with no active shop until their
+        // access token expires.
+        switchMap((membership) =>
+          this.auth.refreshAccessToken().pipe(
+            catchError(() => of(null)),
+            map(() => membership),
+          ),
+        ),
+        finalize(() => this.busy.set(false)),
+      )
       .subscribe({
         next: (membership) => {
           this.accepted.set(membership);
@@ -88,6 +117,7 @@ export class AcceptInvitationPageComponent implements OnInit {
           this.invitationId = null;
           this.token = null;
           this.ready.set(false);
+          clearPendingInvitation();
         },
         error: (response: { error?: ApiErrorPayload }) =>
           this.error.set(acceptInvitationError(response.error)),

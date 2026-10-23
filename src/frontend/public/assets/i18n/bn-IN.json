@@ -360,7 +360,7 @@
     "acceptInvitationTitle": "দোকানের আমন্ত্রণ",
     "acceptInvitation": "আমন্ত্রণ গ্রহণ করুন",
     "acceptInvitationDescription": "গ্রহণ করলে এই দোকান আপনার অ্যাকাউন্টে যুক্ত হয়। এতে দোকান আপনার সাইন-ইন তথ্যের নিয়ন্ত্রণ পায় না।",
-    "invitationSignInFirst": "আমন্ত্রিত ইমেল ঠিকানাটি যে অ্যাকাউন্টে আছে সেটিতে সাইন ইন করুন, তারপর এই লিঙ্কটি আবার খুলুন।",
+    "invitationSignInFirst": "আমন্ত্রিত ইমেল ঠিকানাটি যে অ্যাকাউন্টে আছে সেটিতে সাইন ইন করুন। আমরা আপনাকে সোজা এখানেই ফিরিয়ে আনব।",
     "invitationAccepted": "আমন্ত্রণ গৃহীত হয়েছে",
     "invitationAcceptedDetail": "আপনি {{role}} হিসেবে যুক্ত হয়েছেন। কাজ শুরু করতে দোকান বদলান।",
     "invitationContinue": "এগিয়ে যান",
@@ -914,7 +914,8 @@
       "membershipVersionConflict": "আপনি সম্পাদনা করার সময় এই সদস্যপদ বদলে গেছে। আবার লোড করে চেষ্টা করুন।",
       "membershipOperationRequired": "দোকান পরিচালনা সদস্যপদ বদলায়, অ্যাকাউন্ট নয়। বদলে ভূমিকা ও অবস্থা হালনাগাদ করুন।",
       "membershipNotFound": "এই ব্যক্তি এই দোকানের সদস্য নন।",
-      "membershipStatusNotSupported": "অবস্থা সক্রিয়, স্থগিত বা অপসারিত হতে হবে।"
+      "membershipStatusNotSupported": "অবস্থা সক্রিয়, স্থগিত বা অপসারিত হতে হবে।",
+      "cannotModifyOwnMembership": "আপনি এই স্ক্রিন থেকে নিজের সদস্যপদ বদলাতে পারবেন না।"
     },
     "suppliers": {
       "unableToLoadSuppliers": "এই মুহূর্তে সরবরাহকারী লোড করা যাচ্ছে না। আবার চেষ্টা করুন।",

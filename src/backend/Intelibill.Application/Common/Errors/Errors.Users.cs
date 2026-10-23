@@ -15,6 +15,9 @@ public static partial class Errors
         public static Error CannotModifyOwner =>
             Error.Forbidden("Users.CannotModifyOwner", "Owner accounts cannot be modified from this endpoint.");
 
+        public static Error CannotModifyOwnMembership =>
+            Error.Forbidden("Users.CannotModifyOwnMembership", "You cannot change your own membership from this endpoint.");
+
         public static Error MembershipStatusNotSupported =>
             Error.Validation("Users.MembershipStatusNotSupported", "Status must be Active, Suspended or Removed.");
 

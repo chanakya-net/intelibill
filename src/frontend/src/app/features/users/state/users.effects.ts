@@ -219,6 +219,8 @@ function getUpdateMembershipErrorMessage(error: ApiErrorPayload | undefined): st
       return 'errors.users.membershipOperationRequired';
     case 'Users.CannotModifyOwner':
       return 'errors.users.ownerCannotBeModified';
+    case 'Users.CannotModifyOwnMembership':
+      return 'errors.users.cannotModifyOwnMembership';
     case 'Users.MembershipNotFound':
       return 'errors.users.membershipNotFound';
     case 'Users.MembershipStatusNotSupported':

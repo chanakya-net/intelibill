@@ -25,5 +25,6 @@ internal sealed class IdentityMailConfiguration : IEntityTypeConfiguration<Ident
         builder.Property(x => x.Destination).HasMaxLength(256);
         builder.HasIndex(x => new { x.Destination, x.CreatedAt });
         builder.HasIndex(x => new { x.CompletedAt, x.NextAttemptAt });
+        builder.HasIndex(x => x.InvitationId);
     }
 }

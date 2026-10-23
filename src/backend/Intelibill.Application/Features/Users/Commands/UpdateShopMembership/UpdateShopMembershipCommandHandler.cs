@@ -21,7 +21,7 @@ public sealed class UpdateShopMembershipCommandHandler(
             return Errors.Users.MembershipStatusNotSupported;
 
         if (command.ActorUserId == command.TargetUserId)
-            return Errors.Users.CannotModifyOwner;
+            return Errors.Users.CannotModifyOwnMembership;
 
         await using var transaction = await authority.BeginAsync(cancellationToken);
 

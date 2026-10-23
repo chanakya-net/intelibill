@@ -7,6 +7,7 @@ import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 
 import { AuthService } from '../../../core/auth/auth.service';
+import { clearPendingInvitation, readPendingInvitation } from '../../../core/auth/pending-invitation';
 import { UserAccountService } from '../services/user-account.service';
 import { AcceptInvitationPageComponent } from './accept-invitation-page.component';
 
@@ -15,8 +16,10 @@ describe('AcceptInvitationPageComponent', () => {
   const replaceState = vi.fn();
   const navigate = vi.fn();
 
+  const refreshAccessToken = vi.fn();
   const authService = {
     session: signal<{ activeShopId: string | null } | null>({ activeShopId: 's1' }),
+    refreshAccessToken,
   };
 
   function setup(fragment: string | null): AcceptInvitationPageComponent {
@@ -43,7 +46,13 @@ describe('AcceptInvitationPageComponent', () => {
     acceptInvitation.mockReset();
     replaceState.mockReset();
     navigate.mockReset();
+    refreshAccessToken.mockReset();
+    refreshAccessToken.mockReturnValue(of({ activeShopId: 's2' }));
+    authService.session.set({ activeShopId: 's1' });
+    clearPendingInvitation();
   });
+
+  afterAll(() => clearPendingInvitation());
 
   afterEach(() => TestBed.resetTestingModule());
 
@@ -115,5 +124,64 @@ describe('AcceptInvitationPageComponent', () => {
     component.onAccept();
 
     expect(component.error()).toBe('users.invitationNotAcceptable');
+  });
+
+  it('keeps the link usable when it is opened before signing in', () => {
+    authService.session.set(null);
+
+    const component = setup('invitationId=i1&token=SECRET&purpose=shop-invitation');
+
+    // The address bar is still cleaned, but the link itself survives the sign-in detour instead
+    // of forcing a second trip to the invitation email.
+    expect(replaceState).toHaveBeenCalledWith('/invitations/accept');
+    expect(component.error()).toBe('');
+    expect(readPendingInvitation()).toEqual({ invitationId: 'i1', token: 'SECRET' });
+  });
+
+  it('picks the held link up again after the person signs in', () => {
+    authService.session.set(null);
+    setup('invitationId=i1&token=SECRET');
+    TestBed.resetTestingModule();
+
+    authService.session.set({ activeShopId: 's1' });
+    acceptInvitation.mockReturnValue(
+      of({ userId: 'u9', shopId: 's2', displayName: 'Invited', role: 'Manager', status: 'Active', version: 0 }),
+    );
+
+    // Back on the page with no fragment at all, because sign-in navigated away and back.
+    const component = setup(null);
+    expect(component.ready()).toBe(true);
+    expect(component.error()).toBe('');
+
+    component.onAccept();
+    expect(acceptInvitation).toHaveBeenCalledWith('i1', 'SECRET');
+    expect(readPendingInvitation()).toBeNull();
+  });
+
+  it('renews the session on success so the new shop is usable at once', () => {
+    acceptInvitation.mockReturnValue(
+      of({ userId: 'u9', shopId: 's2', displayName: 'Invited', role: 'Manager', status: 'Active', version: 0 }),
+    );
+
+    const component = setup('invitationId=i1&token=SECRET');
+    component.onAccept();
+
+    // Without this the new member's token still carries no membership in the shop they just
+    // joined, and every shop-scoped call fails until it expires.
+    expect(refreshAccessToken).toHaveBeenCalledTimes(1);
+    expect(component.accepted()).not.toBeNull();
+  });
+
+  it('still reports success when the session renewal itself fails', () => {
+    acceptInvitation.mockReturnValue(
+      of({ userId: 'u9', shopId: 's2', displayName: 'Invited', role: 'Manager', status: 'Active', version: 0 }),
+    );
+    refreshAccessToken.mockReturnValue(throwError(() => new Error('offline')));
+
+    const component = setup('invitationId=i1&token=SECRET');
+    component.onAccept();
+
+    expect(component.accepted()).not.toBeNull();
+    expect(component.error()).toBe('');
   });
 });

@@ -178,7 +178,7 @@ public sealed class AuthController(IMessageBus bus, IOptions<AppOptions> appOpti
         CancellationToken cancellationToken)
     {
         var result = await bus.InvokeAsync<ErrorOr.ErrorOr<AuthResult>>(
-            new RefreshTokenCommand(request.RefreshToken),
+            new RefreshTokenCommand(request.RefreshToken, request.ActiveShopId),
             cancellationToken);
 
         return result.ToActionResult(auth => Ok(auth));
@@ -213,5 +213,5 @@ public sealed record ExternalLoginInitRequest(ExternalAuthProvider Provider);
 public sealed record ExternalLoginCallbackRequest(string Code, string State, string? FirstName, string? LastName);
 public sealed record RequestPasswordResetRequest(string Email);
 public sealed record ResetPasswordRequest(string Email, string Token, string NewPassword);
-public sealed record RefreshTokenRequest(string RefreshToken);
+public sealed record RefreshTokenRequest(string RefreshToken, Guid? ActiveShopId = null);
 public sealed record RevokeTokenRequest(string RefreshToken);

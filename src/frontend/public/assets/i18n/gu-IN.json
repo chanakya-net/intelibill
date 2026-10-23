@@ -360,7 +360,7 @@
     "acceptInvitationTitle": "દુકાન આમંત્રણ",
     "acceptInvitation": "આમંત્રણ સ્વીકારો",
     "acceptInvitationDescription": "સ્વીકારવાથી આ દુકાન તમારા ખાતામાં ઉમેરાય છે. આથી દુકાનને તમારી સાઇન-ઇન વિગતો પર નિયંત્રણ મળતું નથી.",
-    "invitationSignInFirst": "આમંત્રિત ઈમેલ સરનામું વાપરતા ખાતામાં સાઇન ઇન કરો, પછી આ લિંક ફરી ખોલો.",
+    "invitationSignInFirst": "આમંત્રિત ઈમેલ સરનામું વાપરતા ખાતામાં સાઇન ઇન કરો. અમે તમને સીધા અહીં પાછા લાવીશું.",
     "invitationAccepted": "આમંત્રણ સ્વીકારાયું",
     "invitationAcceptedDetail": "તમે {{role}} તરીકે જોડાયા. કામ શરૂ કરવા દુકાન બદલો.",
     "invitationContinue": "આગળ વધો",
@@ -914,7 +914,8 @@
       "membershipVersionConflict": "તમે સંપાદન કરતા હતા ત્યારે આ સભ્યપદ બદલાયું. ફરી લોડ કરીને પ્રયાસ કરો.",
       "membershipOperationRequired": "દુકાન વ્યવસ્થાપન સભ્યપદ બદલે છે, ખાતું નહીં. તેના બદલે ભૂમિકા અને સ્થિતિ અપડેટ કરો.",
       "membershipNotFound": "આ વ્યક્તિ આ દુકાનના સભ્ય નથી.",
-      "membershipStatusNotSupported": "સ્થિતિ સક્રિય, સ્થગિત અથવા દૂર કરેલ હોવી જોઈએ."
+      "membershipStatusNotSupported": "સ્થિતિ સક્રિય, સ્થગિત અથવા દૂર કરેલ હોવી જોઈએ.",
+      "cannotModifyOwnMembership": "તમે આ સ્ક્રીનથી તમારું પોતાનું સભ્યપદ બદલી શકતા નથી."
     },
     "suppliers": {
       "unableToLoadSuppliers": "અત્યારે સપ્લાયર લોડ કરવામાં અસમર્થ. કૃપા કરી ફરી પ્રયાસ કરો.",

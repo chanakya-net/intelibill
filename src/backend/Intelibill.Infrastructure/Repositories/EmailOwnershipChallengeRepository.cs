@@ -25,7 +25,11 @@ internal sealed class EmailOwnershipChallengeRepository(ApplicationDbContext db,
     }
     public async Task<bool> HasSendBudgetAsync(string destination, DateTimeOffset now, CancellationToken ct)
     {
-        var recent = db.Set<IdentityMail>().Where(x => x.Destination == destination && x.CreatedAt > now.AddHours(-1));
+        // Invitation mail is excluded: it is sent by a shop about someone else, so counting it
+        // here would let any owner spend — and so deny — that person's own enrollment, email
+        // change and account-recovery budget. Invitations carry their own per-shop ceiling.
+        var recent = db.Set<IdentityMail>().Where(x =>
+            x.Destination == destination && x.InvitationId == null && x.CreatedAt > now.AddHours(-1));
         return await recent.CountAsync(ct) < 5 && !await recent.AnyAsync(x => x.CreatedAt > now.AddMinutes(-1), ct);
     }
     public async Task<bool> LockCurrentCredentialAsync(Guid userId, long version, string destination, CancellationToken ct)

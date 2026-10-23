@@ -48,9 +48,6 @@ public interface IMembershipAuthorityRepository
     /// </summary>
     Task RevokePendingInvitationsAsync(Guid shopId, string? email, DateTimeOffset now, CancellationToken ct);
 
-    /// <summary>Voids pending invitations issued by one administrator for one shop.</summary>
-    Task RevokeInvitationsFromInviterAsync(Guid shopId, Guid inviterUserId, DateTimeOffset now, CancellationToken ct);
-
     Task<int> CountRecentInvitationsAsync(Guid shopId, DateTimeOffset since, CancellationToken ct);
 
     void AddInvitation(ShopInvitation invitation);

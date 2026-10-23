@@ -26,7 +26,11 @@ public sealed class RefreshTokenCommandHandler(
         refreshTokenRepository.Update(existing);
 
         var user = existing.User;
-        var (activeShopId, activeShopRole, shops) = AuthShopSelection.Resolve(user);
+        // Renew in the shop the session was already working in when that membership is still
+        // live. Without this, a role change — which the live session check rejects — would come
+        // back scoped to whichever other shop was used most recently, and a client that replays
+        // the failed request would commit it against that other shop.
+        var (activeShopId, activeShopRole, shops) = AuthShopSelection.Resolve(user, command.PreferredShopId);
         var (accessToken, accessTokenExpiry) = await tokenService.GenerateAccessTokenAsync(user, activeShopId, activeShopRole, cancellationToken);
         var newRefreshToken = tokenService.CreateRefreshToken(user.Id);
         newRefreshToken.BindSecurityVersion(user.SecurityVersion);

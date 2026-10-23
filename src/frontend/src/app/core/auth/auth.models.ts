@@ -37,6 +37,8 @@ export interface ResetPasswordRequest {
 
 export interface RefreshTokenRequest {
   readonly refreshToken: string;
+  /** The shop the expiring token was scoped to, so renewal stays in that shop when it still can. */
+  readonly activeShopId?: string | null;
 }
 
 export enum ExternalAuthProvider {

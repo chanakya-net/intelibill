@@ -51,7 +51,7 @@ internal static class IdentityTestMailbox
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var invitation = await db.Set<ShopInvitation>().Where(x => x.Email == email)
             .OrderByDescending(x => x.CreatedAt).FirstAsync();
-        var mail = await db.Set<IdentityMail>().Where(x => x.ChallengeId == invitation.Id)
+        var mail = await db.Set<IdentityMail>().Where(x => x.InvitationId == invitation.Id)
             .OrderByDescending(x => x.CreatedAt).FirstAsync();
         return (invitation.Id, ReadToken(mail, email));
     }

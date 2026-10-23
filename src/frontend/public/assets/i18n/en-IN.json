@@ -360,7 +360,7 @@
     "acceptInvitationTitle": "Shop Invitation",
     "acceptInvitation": "Accept Invitation",
     "acceptInvitationDescription": "Accepting adds this shop to your account. It does not give the shop control of your sign-in details.",
-    "invitationSignInFirst": "Sign in to the account that uses the invited email address, then open this link again.",
+    "invitationSignInFirst": "Sign in to the account that uses the invited email address. We will bring you straight back here.",
     "invitationAccepted": "Invitation accepted",
     "invitationAcceptedDetail": "You joined as {{role}}. Switch to the shop to start working in it.",
     "invitationContinue": "Continue",
@@ -914,7 +914,8 @@
       "membershipVersionConflict": "This membership changed while you were editing it. Reload and try again.",
       "membershipOperationRequired": "Shop administration changes a membership, not an account. Update the role and status instead.",
       "membershipNotFound": "This person is not a member of this shop.",
-      "membershipStatusNotSupported": "Status must be Active, Suspended or Removed."
+      "membershipStatusNotSupported": "Status must be Active, Suspended or Removed.",
+      "cannotModifyOwnMembership": "You cannot change your own membership from this screen."
     },
     "suppliers": {
       "unableToLoadSuppliers": "Unable to load suppliers right now. Please try again.",

@@ -2,6 +2,7 @@ import { Injectable, InjectionToken, inject } from '@angular/core';
 import { Observable, map, of, switchMap, throwError } from 'rxjs';
 import { AuthService } from './auth.service';
 import { ExternalAuthProvider, ReauthenticationProof } from './auth.models';
+import { ACCEPT_INVITATION_ROUTE, readPendingInvitation } from './pending-invitation';
 
 export type IdentityOperation =
   | { kind: 'email'; email: string }
@@ -68,7 +69,13 @@ export class IdentityFlowService {
     this.remove(VERIFICATION_KEY);
   }
   afterSignIn(): string {
-    return this.pendingVerification() ? '/auth/verify-email' : '/';
+    if (this.pendingVerification()) {
+      return '/auth/verify-email';
+    }
+
+    // Someone who opened an invitation link before signing in is returned to it, so the single
+    // trip from the email is enough.
+    return readPendingInvitation() ? ACCEPT_INVITATION_ROUTE : '/';
   }
 
   startProviderReauth(

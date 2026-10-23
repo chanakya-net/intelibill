@@ -251,10 +251,18 @@ public sealed class MembershipLifecycleIntegrationTests(PostgreSqlTestFixture fi
         (await InviteAsync(client, ownerShopToken, shopId, invitedEmail)).EnsureSuccessStatusCode();
         var (invitationId, token) = await IdentityTestMailbox.ReadInvitationAsync(_factory, invitedEmail);
 
-        // Two clients redeem the same link at once: a retry, a double-click, or a race.
-        var first = AcceptAsync(client, invitedToken, invitationId, token);
-        var second = AcceptAsync(client, invitedToken, invitationId, token);
-        var responses = await Task.WhenAll(first, second);
+        // Two clients redeem the same link at once. The barrier makes both requests leave
+        // together, so this exercises the row lock rather than just replay rejection.
+        var released = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var attempts = Enumerable.Range(0, 4)
+            .Select(async _ =>
+            {
+                await released.Task;
+                return await AcceptAsync(client, invitedToken, invitationId, token);
+            })
+            .ToList();
+        released.SetResult();
+        var responses = await Task.WhenAll(attempts);
 
         Assert.Equal(1, responses.Count(r => r.StatusCode == HttpStatusCode.OK));
         Assert.Equal(1, await CountMembershipsAsync(shopId, invitedUserId));
@@ -429,5 +437,104 @@ public sealed class MembershipLifecycleIntegrationTests(PostgreSqlTestFixture fi
         using var request = new HttpRequestMessage(HttpMethod.Get, path);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
         return await client.SendAsync(request);
+    }
+
+    [Fact]
+    public async Task SuspendedShop_LeavesTheRenewedSessionEntirely()
+    {
+        using var client = CreateClient();
+        var (_, _, ownerAToken) = await EnrollAsync(client, "owner-a");
+        var (shopA, ownerAShopToken) = await CreateShopAsync(client, ownerAToken);
+
+        var (sharedUserId, _, sharedToken) = await EnrollAsync(client, "shared");
+        var (shopB, sharedShopBToken) = await CreateShopAsync(client, sharedToken);
+        await SeedMembershipAsync(shopA, sharedUserId, ShopRole.Staff);
+
+        var switched = await SwitchAsync(client, sharedShopBToken, shopA);
+        Assert.Equal(HttpStatusCode.OK, switched.StatusCode);
+        var inShopA = await switched.Content.ReadFromJsonAsync<JsonElement>();
+        var refreshToken = inShopA.GetProperty("refreshToken").GetString()!;
+        Assert.Equal(shopA, inShopA.GetProperty("activeShopId").GetGuid());
+
+        // While the session is scoped to shop A, shop A suspends the membership.
+        (await PatchMembershipAsync(client, ownerAShopToken, shopA, sharedUserId, "Staff", "Suspended", 0))
+            .EnsureSuccessStatusCode();
+
+        // Renewing that session must not come back silently scoped to shop B: a client that
+        // replays the request it was running would otherwise commit it against B.
+        var refreshed = await client.PostAsJsonAsync(
+            "/api/auth/token/refresh",
+            new { refreshToken, activeShopId = shopA });
+        Assert.Equal(HttpStatusCode.OK, refreshed.StatusCode);
+        var renewed = await refreshed.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.NotEqual(shopA, renewed.GetProperty("activeShopId").GetGuid());
+        Assert.Equal(shopB, renewed.GetProperty("activeShopId").GetGuid());
+
+        // ...and the old shop-A scope is gone from the session's shop list entirely.
+        Assert.DoesNotContain(shopA.ToString(), renewed.GetProperty("shops").ToString(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task RoleChange_RenewsInTheSameShopRatherThanMovingTheSession()
+    {
+        using var client = CreateClient();
+        var (_, _, ownerToken) = await EnrollAsync(client, "owner");
+        var (shopOne, ownerShopOneToken) = await CreateShopAsync(client, ownerToken);
+        var (shopTwo, _) = await CreateShopAsync(client, ownerToken);
+
+        var (memberUserId, _, memberToken) = await EnrollAsync(client, "member");
+        await SeedMembershipAsync(shopOne, memberUserId, ShopRole.Manager);
+        await SeedMembershipAsync(shopTwo, memberUserId, ShopRole.Manager);
+
+        // Take a session scoped to shop one, then work in shop two from somewhere else, so shop
+        // two is the most recently used shop while the shop-one session is still in hand.
+        var intoOne = await SwitchAsync(client, memberToken, shopOne);
+        intoOne.EnsureSuccessStatusCode();
+        var inShopOne = await intoOne.Content.ReadFromJsonAsync<JsonElement>();
+        var shopOneSession = inShopOne.GetProperty("accessToken").GetString()!;
+        var refreshToken = inShopOne.GetProperty("refreshToken").GetString()!;
+        (await SwitchAsync(client, memberToken, shopTwo)).EnsureSuccessStatusCode();
+
+        (await PatchMembershipAsync(client, ownerShopOneToken, shopOne, memberUserId, "Staff", "Active", 0))
+            .EnsureSuccessStatusCode();
+
+        // The old token carries the superseded Manager role, so it stops working at once.
+        Assert.Equal(HttpStatusCode.Unauthorized, (await GetAsync(client, shopOneSession, "/api/users")).StatusCode);
+
+        // Renewal stays in shop one with the new role — it does not wander to shop two.
+        var refreshed = await client.PostAsJsonAsync(
+            "/api/auth/token/refresh",
+            new { refreshToken, activeShopId = shopOne });
+        Assert.Equal(HttpStatusCode.OK, refreshed.StatusCode);
+        var renewed = await refreshed.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(shopOne, renewed.GetProperty("activeShopId").GetGuid());
+        Assert.Equal(HttpStatusCode.OK, (await GetAsync(client, renewed.GetProperty("accessToken").GetString()!, "/api/users")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Invitation_Resend_SupersedesEarlierOffer()
+    {
+        using var client = CreateClient();
+        var (_, _, ownerToken) = await EnrollAsync(client, "owner");
+        var (shopId, ownerShopToken) = await CreateShopAsync(client, ownerToken);
+
+        var (invitedUserId, invitedEmail, invitedToken) = await EnrollAsync(client, "invited");
+
+        (await InviteAsync(client, ownerShopToken, shopId, invitedEmail, "Staff")).EnsureSuccessStatusCode();
+        var (firstId, firstToken) = await IdentityTestMailbox.ReadInvitationAsync(_factory, invitedEmail);
+
+        (await InviteAsync(client, ownerShopToken, shopId, invitedEmail, "Manager")).EnsureSuccessStatusCode();
+        var (secondId, secondToken) = await IdentityTestMailbox.ReadInvitationAsync(_factory, invitedEmail);
+        Assert.NotEqual(firstId, secondId);
+
+        // The superseded link is dead, so a resend never leaves two redeemable offers.
+        var stale = await AcceptAsync(client, invitedToken, firstId, firstToken);
+        Assert.Equal(HttpStatusCode.BadRequest, stale.StatusCode);
+        Assert.Contains("Users.InvitationNotAcceptable", await stale.Content.ReadAsStringAsync());
+
+        var accepted = await AcceptAsync(client, invitedToken, secondId, secondToken);
+        Assert.Equal(HttpStatusCode.OK, accepted.StatusCode);
+        Assert.Equal("Manager", (await accepted.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("role").GetString());
+        Assert.Equal(1, await CountMembershipsAsync(shopId, invitedUserId));
     }
 }

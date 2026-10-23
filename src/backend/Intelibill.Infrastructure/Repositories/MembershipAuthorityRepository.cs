@@ -83,21 +83,6 @@ internal sealed class MembershipAuthorityRepository(ApplicationDbContext db, IUn
         }
     }
 
-    public async Task RevokeInvitationsFromInviterAsync(Guid shopId, Guid inviterUserId, DateTimeOffset now, CancellationToken ct)
-    {
-        var pending = await db.Set<ShopInvitation>()
-            .Where(x => x.ShopId == shopId
-                && x.InvitedByUserId == inviterUserId
-                && x.AcceptedAt == null
-                && x.RevokedAt == null)
-            .ToListAsync(ct);
-
-        foreach (var invitation in pending)
-        {
-            invitation.Revoke(now);
-        }
-    }
-
     public Task<int> CountRecentInvitationsAsync(Guid shopId, DateTimeOffset since, CancellationToken ct) =>
         db.Set<ShopInvitation>().CountAsync(x => x.ShopId == shopId && x.CreatedAt > since, ct);
 

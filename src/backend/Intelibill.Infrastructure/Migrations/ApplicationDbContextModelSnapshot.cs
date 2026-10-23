@@ -746,6 +746,10 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("expires_at");
 
+                    b.Property<Guid?>("InvitationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("invitation_id");
+
                     b.Property<DateTimeOffset>("NextAttemptAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("next_attempt_at");
@@ -756,6 +760,9 @@ namespace Intelibill.Infrastructure.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_identity_mail");
+
+                    b.HasIndex("InvitationId")
+                        .HasDatabaseName("ix_identity_mail_invitation_id");
 
                     b.HasIndex("CompletedAt", "NextAttemptAt")
                         .HasDatabaseName("ix_identity_mail_completed_at_next_attempt_at");

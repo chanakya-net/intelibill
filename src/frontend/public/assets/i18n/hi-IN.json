@@ -360,7 +360,7 @@
     "acceptInvitationTitle": "दुकान आमंत्रण",
     "acceptInvitation": "आमंत्रण स्वीकार करें",
     "acceptInvitationDescription": "स्वीकार करने पर यह दुकान आपके खाते में जुड़ जाती है। इससे दुकान को आपके साइन-इन विवरण पर नियंत्रण नहीं मिलता।",
-    "invitationSignInFirst": "जिस खाते में आमंत्रित ईमेल पता है, उसमें साइन इन करें, फिर यह लिंक दोबारा खोलें।",
+    "invitationSignInFirst": "जिस खाते में आमंत्रित ईमेल पता है, उसमें साइन इन करें। हम आपको सीधे यहीं वापस ले आएँगे।",
     "invitationAccepted": "आमंत्रण स्वीकार किया गया",
     "invitationAcceptedDetail": "आप {{role}} के रूप में जुड़ गए। काम शुरू करने के लिए दुकान बदलें।",
     "invitationContinue": "आगे बढ़ें",
@@ -914,7 +914,8 @@
       "membershipVersionConflict": "आपके संपादन के दौरान यह सदस्यता बदल गई। पुनः लोड करके प्रयास करें।",
       "membershipOperationRequired": "दुकान प्रशासन सदस्यता बदलता है, खाता नहीं। इसके बजाय भूमिका और स्थिति अद्यतन करें।",
       "membershipNotFound": "यह व्यक्ति इस दुकान का सदस्य नहीं है।",
-      "membershipStatusNotSupported": "स्थिति सक्रिय, निलंबित या हटाया गया होनी चाहिए।"
+      "membershipStatusNotSupported": "स्थिति सक्रिय, निलंबित या हटाया गया होनी चाहिए।",
+      "cannotModifyOwnMembership": "आप इस स्क्रीन से अपनी सदस्यता नहीं बदल सकते।"
     },
     "suppliers": {
       "unableToLoadSuppliers": "अभी आपूर्तिकर्ता लोड नहीं हो सके। कृपया फिर प्रयास करें।",
