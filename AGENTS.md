@@ -97,7 +97,7 @@ DB Options: `src/backend/Intelibill.Infrastructure/Options/DatabaseOptions.cs:7`
 
 **Key endpoints**:
 - Auth: `POST register/email`, `register/phone`, `login/email`, `login/external/{init,callback}`, `password-reset/{request,confirm}`, `token/{refresh,revoke}`
-- Shops: `GET me`, `{shopId}`, `POST`, `POST switch`, `PUT {shopId}`
+- Shops: `GET me`, `{shopId}`, `POST`, `POST switch` (any active member), `PUT {shopId}`, `PATCH {shopId}/members/{userId}`, `GET/POST {shopId}/invitations`, `DELETE {shopId}/invitations/{invitationId}`
 - Items: `GET stream` (SSE), `GET`, `GET details`, `POST`, `PATCH {itemId}`
 - Inventory: `POST inbound`, `inbound/batch`, `GET batches`, `batches/available`, `PUT/POST/void batches/{batchId}`
 - Sales: `POST`, `GET`, `GET {saleId}`, `GET profit-loss`
@@ -105,18 +105,20 @@ DB Options: `src/backend/Intelibill.Infrastructure/Options/DatabaseOptions.cs:7`
 - Suppliers: CRUD + `ledger`, `payments`
 - Expenses: `GET`, `POST`, `{id}`, `{id}/correct`, `categories`
 - Bank Accounts: CRUD
-- Users: `GET` (shop), `POST` (add), `PUT {userId}`, `me/change-password`
+- Users: `GET` (shop), `me/change-password`; `POST` (add) and `PUT {userId}` are refused — onboarding goes through shop invitations and shop administration through the membership endpoint
+- Invitations: `POST invitations/{invitationId}/accept` (the invited person's own session)
 
 **Infrastructure**:
 - Migration: `20260425075353_InitialCreate` (single consolidated)
 - RLS: session interceptor sets `app.current_user_id` + `app.active_shop_id`
+- Shop authority: `ShopMembership.Status`/`AuthorityVersion`; role and status changes, invitation issue and acceptance all run under one authority-lock order (users → shop → membership/invitation rows), and the token's shop scope is re-checked against the live membership on every request
 - Tests: Testcontainers (real PostgreSQL via Docker)
 
 ## Domain Model
 
-**Entities**: `User`, `UserExternalLogin`, `Shop`, `ShopMembership`, `Item`, `Inventory`, `InventoryBatch`, `StockTransaction`, `Sale`, `SaleItem`, `Customer`, `CustomerLedgerEntry`, `Supplier`, `SupplierLedgerEntry`, `Expense`, `ExpenseCategory`, `BankAccount`, `RefreshToken`, `PasswordResetToken`
+**Entities**: `User`, `UserExternalLogin`, `Shop`, `ShopMembership`, `ShopInvitation`, `Item`, `Inventory`, `InventoryBatch`, `StockTransaction`, `Sale`, `SaleItem`, `Customer`, `CustomerLedgerEntry`, `Supplier`, `SupplierLedgerEntry`, `Expense`, `ExpenseCategory`, `BankAccount`, `RefreshToken`, `PasswordResetToken`
 
-**Enums**: `ShopRole`, `PaymentMethod`, `BankAccountType`, `StockTransactionType`, `SupplierLedgerEntryType`, `CustomerLedgerEntryType`, `ExternalAuthProvider`, `SupplierStatus`
+**Enums**: `ShopRole`, `MembershipStatus`, `PaymentMethod`, `BankAccountType`, `StockTransactionType`, `SupplierLedgerEntryType`, `CustomerLedgerEntryType`, `ExternalAuthProvider`, `SupplierStatus`
 
 ## Structure
 
