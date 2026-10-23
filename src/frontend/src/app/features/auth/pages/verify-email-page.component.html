@@ -92,7 +92,9 @@
             </form>
           }
         }
-        <a routerLink="/register">{{ 'identity.requestFreshLink' | transloco }}</a>
+        <a [routerLink]="emailChange() ? '/account/security' : '/register'">{{
+          'identity.requestFreshLink' | transloco
+        }}</a>
         <a routerLink="/login">{{ 'register.backToLogin' | transloco }}</a>
       </div>
     </article>

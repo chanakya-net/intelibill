@@ -19,6 +19,14 @@
       <p class="overlay-kicker">{{ 'shops.workspaceSetup' | transloco }}</p>
       <h2>{{ 'shops.createFirstShop' | transloco }}</h2>
       <p>{{ 'shops.createFirstShopDescription' | transloco }}</p>
+      <button
+        pButton
+        type="button"
+        severity="secondary"
+        [disabled]="isSubmitting()"
+        [label]="'identity.manageIdentity' | transloco"
+        (click)="accountSecurityRequested.emit()"
+      ></button>
     </header>
 
     <p-stepper [(value)]="activeStep" class="overlay-stepper">

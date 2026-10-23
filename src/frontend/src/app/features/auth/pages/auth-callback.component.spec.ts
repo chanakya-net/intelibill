@@ -155,4 +155,27 @@ describe('AuthCallbackComponent', () => {
     setup({ code: 'link-code', state: 'link-state' });
     expect(router.navigateByUrl).toHaveBeenCalledWith('/account/security?identity=collision');
   });
+  it.each([
+    ['Auth.LastSignInMethod', 'last-method', 'identity.lastMethod'],
+    ['Auth.RecoverySupportRequired', 'support-required', 'identity.supportRequired'],
+    ['Auth.EmailUnavailable', 'delivery-unavailable', 'identity.deliveryUnavailable'],
+    ['Auth.AccountLinkRequired', 'collision', 'identity.collision'],
+    ['Auth.UnrecognizedSecret', 'failed', 'identity.reauthFailed'],
+  ])(
+    'retains safe operation guidance for %s after provider reauthentication',
+    (code, reason, message) => {
+      authService.isAuthenticated.mockReturnValue(true);
+      flow.hasOAuthIntent.mockReturnValue(true);
+      flow.completeOAuth.mockReturnValue(
+        throwError(() => ({ error: { title: code, detail: 'private-token-do-not-route' } })),
+      );
+      const component = setup({ code: 'oauth-code', state: 'oauth-state' });
+      expect(router.navigateByUrl).toHaveBeenCalledWith('/account/security?identity=' + reason);
+      expect(component.errorMessage()).toBe(message);
+      expect(authService.completeExternalLogin).not.toHaveBeenCalled();
+      expect(flow.clearOAuth).toHaveBeenCalled();
+      expect(JSON.stringify(router.navigateByUrl.mock.calls)).not.toContain('private-token');
+      expect(JSON.stringify(router.navigateByUrl.mock.calls)).not.toContain(code);
+    },
+  );
 });

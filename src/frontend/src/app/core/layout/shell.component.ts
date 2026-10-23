@@ -1,6 +1,8 @@
 import { Component, ElementRef, HostListener, ViewChild, computed, effect, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { filter, map } from 'rxjs';
 import { Store } from '@ngrx/store';
-import { Router, RouterOutlet } from '@angular/router';
+import { NavigationEnd, PRIMARY_OUTLET, Router, RouterOutlet } from '@angular/router';
 import { TranslocoPipe } from '@ngneat/transloco';
 
 import { AuthService } from '../auth/auth.service';
@@ -61,6 +63,19 @@ export class ShellComponent {
   private readonly offlineDeviceSettingsStorage = inject(OfflineSalesDeviceSettingsStorage);
   private readonly offlineDeviceEnablement = inject(OfflineSalesDeviceEnablementService);
   readonly menuService = inject(ShellMenuService);
+
+  private readonly routedUrl = toSignal(
+    this.router.events.pipe(
+      filter((event): event is NavigationEnd => event instanceof NavigationEnd),
+      map((event) => event.urlAfterRedirects),
+    ),
+    { initialValue: this.router.getCurrentNavigation()?.finalUrl?.toString() ?? this.router.url },
+  );
+  private readonly isAccountSecurityRoute = computed(() => {
+    const primary = this.router.parseUrl(this.routedUrl()).root.children[PRIMARY_OUTLET];
+    return primary?.segments.map((segment) => segment.path).join('/') === 'account/security';
+  });
+
 
   @ViewChild('shopMenuRoot') shopMenuRoot?: ElementRef<HTMLElement>;
 
@@ -136,7 +151,9 @@ export class ShellComponent {
 
   constructor() {
     effect(() => {
-      if (this.authService.needsShopSetup()) {
+      if (this.isAccountSecurityRoute()) {
+        this.showCreateShopOverlayAuto.set(false);
+      } else if (this.authService.needsShopSetup()) {
         this.showCreateShopOverlayAuto.set(true);
       }
     });
@@ -302,6 +319,12 @@ export class ShellComponent {
   onOpenManageShop(): void { this.showManageShopOverlay.set(true); }
   onProfileOverlayClose(): void { this.showUpdateProfileOverlay.set(false); this.showChangePasswordOverlay.set(false); }
   onManageShopOverlayClose(): void { this.showManageShopOverlay.set(false); }
+
+  onOpenAccountSecurity(): void {
+    if (this.isShopsSubmitting()) return;
+    this.showCreateShopOverlayManual.set(false);
+    void this.router.navigateByUrl('/account/security');
+  }
 
   onCreateShopOverlayClose(): void {
     this.showCreateShopOverlayAuto.set(false);

@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { provideRouter, Router } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 import { of, throwError } from 'rxjs';
 import { AuthService } from '../../../core/auth/auth.service';
@@ -15,11 +15,15 @@ describe('AccountSecurityPageComponent', () => {
     reauthenticate: vi.fn(),
   };
   const flow = { perform: vi.fn(), startProviderReauth: vi.fn() };
-  function setup() {
+  function setup(query: Record<string, string> = {}) {
     TestBed.configureTestingModule({
       imports: [AccountSecurityPageComponent, TranslocoTestingModule.forRoot({ langs: {} })],
       providers: [
         provideRouter([]),
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { queryParamMap: convertToParamMap(query) } },
+        },
         { provide: AuthService, useValue: auth },
         { provide: IdentityFlowService, useValue: flow },
       ],
@@ -89,5 +93,21 @@ describe('AccountSecurityPageComponent', () => {
     component.passwordForm.controls.password.setValue('current');
     component.confirmPassword();
     expect(auth.reauthenticate).not.toHaveBeenCalled();
+  });
+  it.each([
+    ['last-method', 'identity.lastMethod'],
+    ['support-required', 'identity.supportRequired'],
+    ['delivery-unavailable', 'identity.deliveryUnavailable'],
+    ['collision', 'identity.collision'],
+    ['failed', 'identity.reauthFailed'],
+  ])('renders safe provider-only operation outcome %s', (reason, message) => {
+    auth.getExternalLinks.mockReturnValue(of({ providers: [1], hasPassword: false }));
+    const { component, fixture } = setup({ identity: reason });
+    expect(component.methods()?.hasPassword).toBe(false);
+    expect(component.error()).toBe(message);
+    expect(fixture.nativeElement.textContent).toContain(message);
+  });
+  it('ignores non-allowlisted outcome text', () => {
+    expect(setup({ identity: 'private-token-do-not-display' }).component.error()).toBe('');
   });
 });

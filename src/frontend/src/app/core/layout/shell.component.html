@@ -194,6 +194,7 @@
   @if (showCreateShopOverlayAuto() || showCreateShopOverlayManual()) {
     <app-create-shop-overlay
       (closeRequested)="onCreateShopOverlayClose()"
+      (accountSecurityRequested)="onOpenAccountSecurity()"
     ></app-create-shop-overlay>
   }
 

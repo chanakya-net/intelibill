@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { of, firstValueFrom } from 'rxjs';
+import { of, firstValueFrom, throwError } from 'rxjs';
 import { AuthService } from './auth.service';
 import { ExternalAuthProvider } from './auth.models';
 import { IdentityFlowService, IDENTITY_REDIRECT } from './identity-flow.service';
@@ -110,5 +110,19 @@ describe('IdentityFlowService', () => {
     service.saveVerification(proof);
     vi.setSystemTime(Date.now() + 2 * 60000);
     expect(service.pendingVerification()).toBeNull();
+  });
+  it('provider-only last-method rejection survives the reauthentication and unlink operation chain', async () => {
+    const failure = { error: { title: 'Auth.LastSignInMethod' } };
+    auth.unlinkExternalProvider.mockReturnValue(throwError(() => failure));
+    await firstValueFrom(
+      service.startProviderReauth(ExternalAuthProvider.Google, {
+        kind: 'unlink',
+        provider: ExternalAuthProvider.Google,
+      }),
+    );
+    await expect(firstValueFrom(service.completeOAuth('code', 'state-1'))).rejects.toEqual(failure);
+    expect(auth.reauthenticateExternal).toHaveBeenCalledWith('code', 'state-1');
+    expect(auth.unlinkExternalProvider).toHaveBeenCalledWith(ExternalAuthProvider.Google, 'recent');
+    expect(service.hasOAuthIntent()).toBe(false);
   });
 });

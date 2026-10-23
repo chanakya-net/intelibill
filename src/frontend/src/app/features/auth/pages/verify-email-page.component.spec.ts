@@ -150,4 +150,29 @@ describe('VerifyEmailPageComponent', () => {
     expect(flow.pendingVerification()).toBeNull();
     expect(component.valid()).toBe(false);
   });
+  it('expired email-change fresh-link action requests a new change through Account security', () => {
+    auth.isAuthenticated.mockReturnValue(true);
+    auth.confirmEmailChange.mockReturnValue(
+      throwError(() => ({ error: { title: 'Auth.InvalidChallenge' } })),
+    );
+    const { component, fixture, flow } = setup('challengeId=id&token=bearer&purpose=email-change');
+    component.onSubmit();
+    fixture.detectChanges();
+    expect(component.error()).toBe('identity.invalidLink');
+    expect(flow.pendingVerification()).toBeNull();
+    const link = Array.from(fixture.nativeElement.querySelectorAll('a')).find((element: any) =>
+      element.textContent.includes('identity.requestFreshLink'),
+    ) as HTMLAnchorElement;
+    expect(link.getAttribute('href')).toBe('/account/security');
+  });
+  it.each(['enrollment', 'claim'])(
+    '%s fresh-link action stays in enrollment/recovery',
+    (purpose) => {
+      const { fixture } = setup('challengeId=id&token=bearer&purpose=' + purpose);
+      const link = Array.from(fixture.nativeElement.querySelectorAll('a')).find((element: any) =>
+        element.textContent.includes('identity.requestFreshLink'),
+      ) as HTMLAnchorElement;
+      expect(link.getAttribute('href')).toBe('/register');
+    },
+  );
 });

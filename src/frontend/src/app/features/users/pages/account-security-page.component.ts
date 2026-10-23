@@ -13,7 +13,7 @@ import {
   IdentityOperation,
   IdentityOutcome,
 } from '../../../core/auth/identity-flow.service';
-import { identityError } from '../../../core/auth/identity-errors';
+import { identityError, identityFailureMessage } from '../../../core/auth/identity-errors';
 import { InputValidators } from '../../../shared/forms/input-validation';
 @Component({
   selector: 'app-account-security-page',
@@ -49,10 +49,10 @@ export class AccountSecurityPageComponent implements OnInit {
   ngOnInit(): void {
     if (this.route.snapshot.queryParamMap.get('identity') === 'pending')
       this.notice.set('identity.emailPending');
-    if (this.route.snapshot.queryParamMap.get('identity') === 'failed')
-      this.error.set('identity.reauthFailed');
-    if (this.route.snapshot.queryParamMap.get('identity') === 'collision')
-      this.error.set('identity.collision');
+    const failureMessage = identityFailureMessage(
+      this.route.snapshot.queryParamMap.get('identity'),
+    );
+    if (failureMessage) this.error.set(failureMessage);
     this.loadMethods();
   }
   loadMethods(): void {

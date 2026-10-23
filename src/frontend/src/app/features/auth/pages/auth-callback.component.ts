@@ -1,4 +1,8 @@
-import { identityError } from '../../../core/auth/identity-errors';
+import {
+  identityError,
+  identityFailureReason,
+  identityFailureMessage,
+} from '../../../core/auth/identity-errors';
 import { Location } from '@angular/common';
 import { IdentityFlowService } from '../../../core/auth/identity-flow.service';
 import { Component, OnInit, inject, signal } from '@angular/core';
@@ -110,8 +114,8 @@ export class AuthCallbackComponent implements OnInit {
   private failIdentity(error?: Parameters<typeof identityError>[0]): void {
     this.flow.clearOAuth();
     this.isBusy.set(false);
-    const reason = error && identityError(error) === 'identity.collision' ? 'collision' : 'failed';
-    this.errorMessage.set(reason === 'collision' ? 'identity.collision' : 'identity.reauthFailed');
+    const reason = identityFailureReason(error);
+    this.errorMessage.set(identityFailureMessage(reason));
     void this.router.navigateByUrl(
       `${this.authService.isAuthenticated() ? '/account/security' : '/login'}?identity=${reason}`,
     );

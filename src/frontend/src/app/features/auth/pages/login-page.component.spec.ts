@@ -260,4 +260,35 @@ describe('LoginPageComponent', () => {
     component.onSubmit();
     expect(navigateByUrl).toHaveBeenCalledWith('/auth/verify-email');
   });
+  it.each([
+    ['Auth.LastSignInMethod', 'last-method', 'identity.lastMethod'],
+    ['Auth.RecoverySupportRequired', 'support-required', 'identity.supportRequired'],
+    ['Auth.EmailDeliveryUnavailable', 'delivery-unavailable', 'identity.deliveryUnavailable'],
+    ['Auth.AccountLinkRequired', 'collision', 'identity.collision'],
+    ['Auth.UnrecognizedSecret', 'failed', 'identity.reauthFailed'],
+  ])('legacy callback retains safe operation guidance for %s', (code, reason, message) => {
+    authService.isAuthenticated.mockReturnValue(false);
+    identityFlow.hasOAuthIntent.mockReturnValue(true);
+    identityFlow.completeOAuth.mockReturnValue(
+      throwError(() => ({ error: { title: code, detail: 'private-token-do-not-route' } })),
+    );
+    const { component, navigateByUrl } = setup({ code: 'oauth-code', state: 'oauth-state' });
+    expect(navigateByUrl).toHaveBeenCalledWith('/login?identity=' + reason);
+    expect(component.serverError()).toBe(message);
+    expect(authService.completeExternalLogin).not.toHaveBeenCalled();
+    expect(JSON.stringify(navigateByUrl.mock.calls)).not.toContain('private-token');
+    expect(JSON.stringify(navigateByUrl.mock.calls)).not.toContain(code);
+  });
+  it.each([
+    ['last-method', 'identity.lastMethod'],
+    ['support-required', 'identity.supportRequired'],
+    ['delivery-unavailable', 'identity.deliveryUnavailable'],
+    ['collision', 'identity.collision'],
+    ['failed', 'identity.reauthFailed'],
+  ])('renders allowlisted login destination reason %s', (reason, message) => {
+    expect(setup({ identity: reason }).component.serverError()).toBe(message);
+  });
+  it('ignores non-allowlisted login outcome text', () => {
+    expect(setup({ identity: 'private-token-do-not-display' }).component.serverError()).toBeNull();
+  });
 });

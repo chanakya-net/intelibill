@@ -1,4 +1,8 @@
-import { identityError } from '../../../core/auth/identity-errors';
+import {
+  identityError,
+  identityFailureReason,
+  identityFailureMessage,
+} from '../../../core/auth/identity-errors';
 import { Location } from '@angular/common';
 import { timeout } from 'rxjs';
 import { Component, InjectionToken, OnInit, inject, signal } from '@angular/core';
@@ -106,6 +110,10 @@ export class LoginPageComponent implements OnInit {
         .subscribe({
           next: (result) => {
             if (result === 'redirecting') return;
+            if (result === 'security-updated') {
+              this.serverError.set(null);
+              this.successMessage.set('identity.signInAgain');
+            }
             void this.router.navigateByUrl(
               result === 'security-updated'
                 ? '/login?identity=updated'
@@ -146,8 +154,8 @@ export class LoginPageComponent implements OnInit {
 
     const identityStatus = this.route.snapshot.queryParamMap.get('identity');
     if (identityStatus === 'updated') this.successMessage.set('identity.signInAgain');
-    if (identityStatus === 'failed') this.serverError.set('identity.reauthFailed');
-    if (identityStatus === 'collision') this.serverError.set('identity.collision');
+    const failureMessage = identityFailureMessage(identityStatus);
+    if (failureMessage) this.serverError.set(failureMessage);
     if (this.identityFlow.pendingVerification())
       this.successMessage.set('identity.originalAccountRequired');
     const passwordResetSuccess =
@@ -239,7 +247,9 @@ export class LoginPageComponent implements OnInit {
 
   private failIdentityCallback(error?: Parameters<typeof identityError>[0]): void {
     this.identityFlow.clearOAuth();
-    const reason = error && identityError(error) === 'identity.collision' ? 'collision' : 'failed';
+    const reason = identityFailureReason(error);
+    this.successMessage.set(null);
+    this.serverError.set(identityFailureMessage(reason));
     void this.router.navigateByUrl(
       `${this.authService.isAuthenticated() ? '/account/security' : '/login'}?identity=${reason}`,
     );
