@@ -340,4 +340,94 @@ public sealed class MembershipLifecycleIntegrationTests(PostgreSqlTestFixture fi
         Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
         Assert.Contains("Users.MembershipVersionConflict", await stale.Content.ReadAsStringAsync());
     }
+
+    [Fact]
+    public async Task SuspendA_LeavesBSessionUsable()
+    {
+        using var client = CreateClient();
+        var (_, _, ownerAToken) = await EnrollAsync(client, "owner-a");
+        var (shopA, ownerAShopToken) = await CreateShopAsync(client, ownerAToken);
+
+        // One person, two shops: staff in A, owner of their own B. They are trading in B.
+        var (sharedUserId, _, sharedToken) = await EnrollAsync(client, "shared");
+        var (shopB, sharedShopBToken) = await CreateShopAsync(client, sharedToken);
+        await SeedMembershipAsync(shopA, sharedUserId, ShopRole.Staff);
+
+        var switchedToA = await SwitchAsync(client, sharedShopBToken, shopA);
+        Assert.Equal(HttpStatusCode.OK, switchedToA.StatusCode);
+        var shopASession = (await switchedToA.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("accessToken").GetString()!;
+
+        var suspended = await PatchMembershipAsync(client, ownerAShopToken, shopA, sharedUserId, "Staff", "Suspended", 0);
+        Assert.Equal(HttpStatusCode.OK, suspended.StatusCode);
+        Assert.Equal("Suspended", (await suspended.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("status").GetString());
+
+        // The shop-A session is over immediately, without waiting for the token to expire.
+        Assert.Equal(HttpStatusCode.Unauthorized, (await GetAsync(client, shopASession, "/api/users")).StatusCode);
+
+        // The same account's shop-B session is untouched, and B no longer offers A.
+        var shopBShops = await GetAsync(client, sharedShopBToken, "/api/shops/me");
+        Assert.Equal(HttpStatusCode.OK, shopBShops.StatusCode);
+        var body = await shopBShops.Content.ReadAsStringAsync();
+        Assert.Contains(shopB.ToString(), body, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(shopA.ToString(), body, StringComparison.OrdinalIgnoreCase);
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await SwitchAsync(client, sharedShopBToken, shopA)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Manager_CanSwitchOnlyToActiveAssignedShop()
+    {
+        using var client = CreateClient();
+        var (_, _, ownerToken) = await EnrollAsync(client, "owner");
+        var (shopOne, ownerShopOneToken) = await CreateShopAsync(client, ownerToken);
+        var (shopTwo, _) = await CreateShopAsync(client, ownerToken);
+
+        var (_, _, otherOwnerToken) = await EnrollAsync(client, "other-owner");
+        var (unassignedShop, _) = await CreateShopAsync(client, otherOwnerToken);
+
+        var (managerUserId, _, managerToken) = await EnrollAsync(client, "manager");
+        await SeedMembershipAsync(shopOne, managerUserId, ShopRole.Manager);
+        await SeedMembershipAsync(shopTwo, managerUserId, ShopRole.Manager);
+
+        // A regional manager assigned to both stores may choose between them: assignment, not
+        // ownership, controls selection.
+        var intoOne = await SwitchAsync(client, managerToken, shopOne);
+        Assert.Equal(HttpStatusCode.OK, intoOne.StatusCode);
+        var inOne = await intoOne.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(shopOne, inOne.GetProperty("activeShopId").GetGuid());
+
+        var intoTwo = await SwitchAsync(client, inOne.GetProperty("accessToken").GetString()!, shopTwo);
+        Assert.Equal(HttpStatusCode.OK, intoTwo.StatusCode);
+        var inTwo = await intoTwo.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(shopTwo, inTwo.GetProperty("activeShopId").GetGuid());
+
+        // A shop they are not assigned to stays out of reach.
+        Assert.Equal(
+            HttpStatusCode.Forbidden,
+            (await SwitchAsync(client, inTwo.GetProperty("accessToken").GetString()!, unassignedShop)).StatusCode);
+
+        // Suspension in one store removes only that store from the choices.
+        (await PatchMembershipAsync(client, ownerShopOneToken, shopOne, managerUserId, "Manager", "Suspended", 0))
+            .EnsureSuccessStatusCode();
+
+        var afterSuspension = inTwo.GetProperty("accessToken").GetString()!;
+        Assert.Equal(HttpStatusCode.Forbidden, (await SwitchAsync(client, afterSuspension, shopOne)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await SwitchAsync(client, afterSuspension, shopTwo)).StatusCode);
+    }
+
+    private static async Task<HttpResponseMessage> SwitchAsync(HttpClient client, string accessToken, Guid shopId)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/shops/switch");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        request.Content = JsonContent.Create(new { shopId });
+        return await client.SendAsync(request);
+    }
+
+    private static async Task<HttpResponseMessage> GetAsync(HttpClient client, string accessToken, string path)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, path);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        return await client.SendAsync(request);
+    }
 }

@@ -6,6 +6,7 @@ using Intelibill.Application.Common.Interfaces;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Mvc.Testing;
 
@@ -297,8 +298,13 @@ public sealed class UsersControllerTests(PostgreSqlTestFixture fixture) : IAsync
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
+    /// <summary>
+    /// The owner edit used to rewrite the target's global account. It is now refused outright, so
+    /// an old client cannot keep any part of that control channel; role and status move through
+    /// PATCH /api/shops/{shopId}/members/{userId} instead.
+    /// </summary>
     [Fact]
-    public async Task EditShopUser_AsOwner_Returns200WithUpdatedData()
+    public async Task EditShopUser_AsOwner_RefusesGlobalIdentityPayload()
     {
         using var client = CreateClient();
         var (token, _) = await RegisterAsync(client);
@@ -314,18 +320,23 @@ public sealed class UsersControllerTests(PostgreSqlTestFixture fixture) : IAsync
             lastName = "Name",
             phoneNumber = UniquePhone(),
             role = "Staff",
-            isLoginEnabled = true
+            isLoginEnabled = false
         });
         var response = await client.SendAsync(editRequest);
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal("Updated", body.GetProperty("firstName").GetString());
-        Assert.Equal("Staff", body.GetProperty("role").GetString());
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Contains("Users.MembershipOperationRequired", await response.Content.ReadAsStringAsync());
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var target = await db.Users.AsNoTracking().SingleAsync(u => u.Id == targetUserId);
+        Assert.Equal(targetEmail, target.Email);
+        Assert.Equal("Staff", target.FirstName);
+        Assert.True(target.IsLoginEnabled);
     }
 
     [Fact]
-    public async Task EditShopUser_TargetNotInShop_Returns404()
+    public async Task EditShopUser_TargetNotInShop_IsRefusedWithoutRevealingTheAccount()
     {
         using var client = CreateClient();
         var (token, _) = await RegisterAsync(client);
@@ -344,8 +355,10 @@ public sealed class UsersControllerTests(PostgreSqlTestFixture fixture) : IAsync
         });
         var response = await client.SendAsync(request);
 
-        // User not found in the shop → 404
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        // The payload is refused before the target is looked up at all, so the response says
+        // nothing about whether that account exists.
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Contains("Users.MembershipOperationRequired", await response.Content.ReadAsStringAsync());
     }
 
     // ── PUT /api/users/me ────────────────────────────────────────────────────────

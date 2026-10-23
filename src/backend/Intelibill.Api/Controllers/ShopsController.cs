@@ -76,8 +76,11 @@ public sealed class ShopsController : AuthenticatedControllerBase
         return result.ToActionResult(Ok);
     }
 
+    /// <summary>
+    /// Selects one of the caller's assigned shops. Membership, not ownership, controls selection:
+    /// the handler checks the caller holds a live membership in the requested shop.
+    /// </summary>
     [HttpPost("switch")]
-    [Authorize(Policy = "OwnerOnly")]
     public async Task<IActionResult> SwitchActiveShop([FromBody] SwitchActiveShopRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuth();

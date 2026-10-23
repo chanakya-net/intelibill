@@ -104,9 +104,16 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
             {
                 var subject = context.Principal?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
                 var version = context.Principal?.FindFirst("security_version")?.Value;
+                // The shop scope travels in the token but is re-checked against the live
+                // membership, so a suspended membership or a superseded role stops authorizing
+                // this request without waiting for the token to expire.
+                var shopClaim = context.Principal?.FindFirst("active_shop_id")?.Value;
+                var activeShopId = Guid.TryParse(shopClaim, out var parsedShopId) ? parsedShopId : (Guid?)null;
+                var activeShopRole = context.Principal?.FindFirst("active_shop_role")?.Value;
                 if (!Guid.TryParse(subject, out var id) || !long.TryParse(version, out var securityVersion) ||
+                    (shopClaim is { Length: > 0 } && activeShopId is null) ||
                     !await context.HttpContext.RequestServices.GetRequiredService<Intelibill.Infrastructure.Services.Auth.LiveSessionValidator>()
-                        .IsValidAsync(id, securityVersion, context.HttpContext.RequestAborted))
+                        .IsValidAsync(id, securityVersion, activeShopId, activeShopRole, context.HttpContext.RequestAborted))
                     context.Fail("The session is no longer valid. Sign in again.");
             },
             OnMessageReceived = context =>

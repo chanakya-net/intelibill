@@ -101,7 +101,7 @@ public sealed class ShopIsolationIntegrationTests(PostgreSqlTestFixture fixture)
     }
 
     [Fact]
-    public async Task SwitchActiveShop_WhenTargetRoleIsNotOwner_ReturnsOwnerOnlyError()
+    public async Task SwitchActiveShop_WhenTargetMembershipIsSuspended_IsRefused()
     {
         var user = User.CreateWithEmail("user@test.com", "hash", "First", "Last");
         user.VerifyEmail("user@test.com");
@@ -110,8 +110,11 @@ public sealed class ShopIsolationIntegrationTests(PostgreSqlTestFixture fixture)
         firstShop.AddMembership(firstMembership);
         user.AddShopMembership(firstMembership);
 
+        // A Manager assignment is selectable; a suspended one is not. The previous version of
+        // this test asserted the owner-only rule, which blocked multi-store managers.
         var secondShop = CreateTestShop("Second", "560002");
         var secondMembership = ShopMembership.Create(secondShop.Id, user.Id, ShopRole.Manager, false);
+        secondMembership.ChangeAuthority(ShopRole.Manager, MembershipStatus.Suspended);
         secondShop.AddMembership(secondMembership);
         user.AddShopMembership(secondMembership);
 
@@ -124,7 +127,7 @@ public sealed class ShopIsolationIntegrationTests(PostgreSqlTestFixture fixture)
         var result = await handler.HandleAsync(new SwitchActiveShopCommand(user.Id, secondShop.Id, user.SecurityVersion), CancellationToken.None);
 
         Assert.True(result.IsError);
-        Assert.Contains(result.Errors, e => e.Code == Errors.Shop.UserIsNotOwnerForSwitch.Code);
+        Assert.Contains(result.Errors, e => e.Code == Errors.Shop.MembershipNotFound.Code);
     }
 
     [Fact]

@@ -40,10 +40,21 @@ internal sealed class UserRepository(ApplicationDbContext context) : RepositoryB
                 u => u.ExternalLogins.Any(el => el.Provider == provider && el.ProviderKey == providerKey),
                 cancellationToken);
 
+    /// <summary>
+    /// Loads the account with its external logins and its <em>live</em> shop memberships.
+    /// </summary>
+    /// <remarks>
+    /// Suspended and removed memberships are filtered out here on purpose. Every caller uses this
+    /// collection to answer "may this person act in that shop", including handlers that take a
+    /// shop id from the request body rather than the token, so a single filtered load is what
+    /// makes suspension effective everywhere instead of relying on each handler to remember.
+    /// Membership administration, which must see suspended and removed rows, reads them through
+    /// <see cref="Intelibill.Domain.Interfaces.Repositories.IMembershipAuthorityRepository"/>.
+    /// </remarks>
     public async Task<User?> GetByIdWithDetailsAsync(Guid userId, CancellationToken cancellationToken = default) =>
         await DbSet
             .Include(u => u.ExternalLogins)
-            .Include(u => u.ShopMemberships)
+            .Include(u => u.ShopMemberships.Where(sm => sm.Status == MembershipStatus.Active))
             .ThenInclude(sm => sm.Shop)
             .AsSplitQuery()
             .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
