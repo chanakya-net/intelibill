@@ -25,9 +25,14 @@ FROM pg_class c
 JOIN pg_namespace n ON n.oid = c.relnamespace
 WHERE n.nspname = 'public'
   AND c.relkind = 'r'
-  AND EXISTS (
-    SELECT 1 FROM pg_attribute a
-    WHERE a.attrelid = c.oid AND a.attname = 'shop_id' AND a.attnum > 0 AND NOT a.attisdropped)
+  AND (EXISTS (
+        SELECT 1 FROM pg_attribute a
+        WHERE a.attrelid = c.oid AND a.attname = 'shop_id' AND a.attnum > 0 AND NOT a.attisdropped)
+       -- The two line tables derive their shop from a parent and carry no
+       -- shop_id of their own, so a column test cannot see them. They are the
+       -- only tables whose protection is entirely indirect, which makes them
+       -- the ones most worth naming.
+       OR c.relname IN ('purchase_order_lines', 'purchase_order_receipt_lines'))
   AND c.relname NOT IN ('shop_memberships', 'shop_invitations')
   AND NOT (c.relrowsecurity AND c.relforcerowsecurity)
 ORDER BY c.relname;
@@ -73,21 +78,26 @@ ORDER BY c.relname;
 \echo '=== 4. Policied tables whose predicate column does not lead an index ===='
 \echo '--- The predicate runs on every row the statement touches. Expect zero'
 \echo '--- rows.'
-SELECT c.relname AS table_name
-FROM pg_class c
-JOIN pg_namespace n ON n.oid = c.relnamespace
-WHERE n.nspname = 'public'
-  AND c.relkind = 'r'
-  AND c.relrowsecurity
-  AND EXISTS (
-    SELECT 1 FROM pg_attribute a
-    WHERE a.attrelid = c.oid AND a.attname = 'shop_id' AND a.attnum > 0 AND NOT a.attisdropped)
-  AND NOT EXISTS (
-    SELECT 1
-    FROM pg_index i
-    JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum = i.indkey[0]
-    WHERE i.indrelid = c.oid AND a.attname = 'shop_id')
-ORDER BY c.relname;
+WITH policied AS (
+  SELECT c.oid,
+         c.relname,
+         CASE c.relname
+           WHEN 'purchase_order_lines'         THEN 'purchase_order_id'
+           WHEN 'purchase_order_receipt_lines' THEN 'purchase_order_receipt_id'
+           ELSE 'shop_id'
+         END AS predicate_column
+  FROM pg_class c
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+  WHERE n.nspname = 'public' AND c.relkind = 'r' AND c.relrowsecurity
+)
+SELECT p.relname AS table_name, p.predicate_column
+FROM policied p
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM pg_index i
+  JOIN pg_attribute a ON a.attrelid = p.oid AND a.attnum = i.indkey[0]
+  WHERE i.indrelid = p.oid AND a.attname = p.predicate_column)
+ORDER BY p.relname;
 
 \echo ''
 \echo '=== 5. The runtime identity ============================================='

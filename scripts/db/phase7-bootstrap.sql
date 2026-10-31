@@ -179,9 +179,14 @@ FROM pg_class c
 JOIN pg_namespace n ON n.oid = c.relnamespace
 WHERE n.nspname = 'public'
   AND c.relkind = 'r'
-  AND EXISTS (
-    SELECT 1 FROM pg_attribute a
-    WHERE a.attrelid = c.oid AND a.attname = 'shop_id' AND a.attnum > 0 AND NOT a.attisdropped)
+  AND (EXISTS (
+        SELECT 1 FROM pg_attribute a
+        WHERE a.attrelid = c.oid AND a.attname = 'shop_id' AND a.attnum > 0 AND NOT a.attisdropped)
+       -- The two line tables derive their shop from a parent and carry no
+       -- shop_id of their own, so a column test cannot see them. They are the
+       -- only tables whose protection is entirely indirect, which makes them
+       -- the ones most worth naming.
+       OR c.relname IN ('purchase_order_lines', 'purchase_order_receipt_lines'))
   AND c.relname NOT IN ('shop_memberships', 'shop_invitations')
   AND NOT (c.relrowsecurity AND c.relforcerowsecurity)
 ORDER BY c.relname;

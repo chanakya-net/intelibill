@@ -100,6 +100,7 @@ public sealed class ShopIsolationIntegrationTests(PostgreSqlTestFixture fixture)
             userRepository,
             shopRepository,
             bankAccountRepository,
+            new NoOpTenantWriteScope(),
             unitOfWork);
 
         var result = await handler.HandleAsync(
@@ -146,6 +147,7 @@ public sealed class ShopIsolationIntegrationTests(PostgreSqlTestFixture fixture)
             userRepository,
             shopRepository,
             bankAccountRepository,
+            new NoOpTenantWriteScope(),
             unitOfWork);
 
         var result = await handler.HandleAsync(
@@ -273,6 +275,16 @@ public sealed class ShopIsolationIntegrationTests(PostgreSqlTestFixture fixture)
 
         public void Update(BankAccount entity) { }
         public void Remove(BankAccount entity) { }
+    }
+
+    /// <summary>
+    /// These tests substitute in-memory repositories, so there is no database
+    /// session to narrow; the handler's contract with the scope is covered
+    /// against a real database in <see cref="TenantWriteScopeTests"/>.
+    /// </summary>
+    private sealed class NoOpTenantWriteScope : ITenantWriteScope
+    {
+        public Task EnterAsync(Guid shopId, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
     private sealed class InMemoryUnitOfWork : IUnitOfWork

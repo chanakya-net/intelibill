@@ -22,6 +22,10 @@ public sealed partial class RuntimeRoleGuard(
     IHostEnvironment environment,
     ILogger<RuntimeRoleGuard> logger) : IHostedService
 {
+    private const int ConnectAttempts = 4;
+
+    private static readonly TimeSpan ConnectBackoff = TimeSpan.FromSeconds(2);
+
     /// <summary>
     /// On unless configuration says otherwise, except in Development, where the
     /// local database is normally the developer's own superuser.
@@ -37,8 +41,26 @@ public sealed partial class RuntimeRoleGuard(
             return;
         }
 
-        await using var connection = await dataSource.OpenConnectionAsync(cancellationToken);
-        await VerifyAsync(connection, cancellationToken);
+        // A privileged role must stop the revision. A database that is briefly
+        // unreachable must not: DNS, a failover or a pool warming during a rolling
+        // deploy would otherwise crash-loop a revision that used to start and wait.
+        // So connection failures are retried and only the role answer is fatal.
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                await using var connection = await dataSource.OpenConnectionAsync(cancellationToken);
+                await VerifyAsync(connection, cancellationToken);
+                break;
+            }
+            catch (Exception exception) when (exception is not InvalidOperationException
+                                              && attempt < ConnectAttempts
+                                              && !cancellationToken.IsCancellationRequested)
+            {
+                LogConnectRetry(logger, attempt, ConnectAttempts, exception.Message);
+                await Task.Delay(ConnectBackoff * attempt, cancellationToken);
+            }
+        }
 
         LogIdentityVerified(logger);
     }
@@ -50,6 +72,9 @@ public sealed partial class RuntimeRoleGuard(
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Runtime identity verified: it cannot bypass row-level security.")]
     private static partial void LogIdentityVerified(ILogger logger);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Could not reach the database to verify the runtime identity (attempt {Attempt} of {Attempts}): {Reason}. Retrying.")]
+    private static partial void LogConnectRetry(ILogger logger, int attempt, int attempts, string reason);
 
     /// <summary>
     /// Reads the connection's own role out of <c>pg_roles</c> and throws unless

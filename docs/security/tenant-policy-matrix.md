@@ -93,14 +93,20 @@ CREATE POLICY <t>_shop_isolation ON <t>
 
 ## Sanctioned cross-shop access
 
-Three operations legitimately touch a tenant table for a shop that is not the
+Four operations legitimately touch a tenant table for a shop that is not the
 request's active one, and they are the only ones permitted to: creating a shop
 (which writes the new shop's system supplier before the rescope), reading shop
-details, and writing shop bank details. They acquire a transaction-local scope
-through `ITenantWriteScope`, whose shop id is always server-derived — a shop the
-handler just created, or one whose live membership it re-read. It is never taken
-from a header, a claim or a request body, and there is no request-controlled
-bypass flag.
+details, updating a shop (whose response carries its bank details), and writing
+shop bank details. They acquire a transaction-local scope through
+`ITenantWriteScope`.
+
+The shop id is either one the handler has just created, or one the caller named
+in the route. In that second case what makes it safe is not the origin of the
+value but the gate in front of it: the handler re-reads a live membership of
+that shop for the authenticated account — Owner where the operation requires
+Owner — before entering the scope. A new call site that skipped that re-read
+would admit a shop the caller has no claim to. There is no request-controlled
+bypass flag, so a caller cannot ask for elevation directly.
 
 ## Verifying a deployed environment
 

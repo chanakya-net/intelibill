@@ -76,11 +76,11 @@ internal static class RestrictedRuntimeRole
             revoke create on schema public from {Name};
             grant usage on schema public to {Name};
             grant select, insert, update, delete on all tables in schema public to {Name};
-            grant usage, select, update on all sequences in schema public to {Name};
+            grant usage, select on all sequences in schema public to {Name};
             alter default privileges in schema public
                 grant select, insert, update, delete on tables to {Name};
             alter default privileges in schema public
-                grant usage, select, update on sequences to {Name};
+                grant usage, select on sequences to {Name};
             """);
     }
 

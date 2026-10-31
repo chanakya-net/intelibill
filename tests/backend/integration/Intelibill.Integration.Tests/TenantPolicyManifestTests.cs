@@ -145,7 +145,7 @@ public sealed class TenantPolicyManifestTests(PostgreSqlTestFixture fixture) : I
         await connection.OpenAsync();
 
         var offenders = new List<string>();
-        foreach (var entry in TenantPolicyManifest.ExemptTables)
+        foreach (var entry in TenantPolicyManifest.ExemptTables.Concat(TenantPolicyManifest.UnmappedInfrastructureTables))
         {
             var (enabled, _) = await ReadRlsFlagsAsync(connection, entry.Table);
             var policies = await ReadPoliciesAsync(connection, entry.Table);

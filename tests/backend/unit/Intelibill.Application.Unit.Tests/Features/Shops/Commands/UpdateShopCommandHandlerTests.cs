@@ -13,6 +13,7 @@ public class UpdateShopCommandHandlerTests
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
     private readonly IBankAccountRepository _bankAccountRepository = Substitute.For<IBankAccountRepository>();
+    private readonly ITenantWriteScope _tenantWriteScope = Substitute.For<ITenantWriteScope>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
 
     [Fact]
@@ -45,6 +46,7 @@ public class UpdateShopCommandHandlerTests
             _userRepository,
             _shopRepository,
             _bankAccountRepository,
+            _tenantWriteScope,
             _unitOfWork);
 
         var result = await handler.HandleAsync(command, CancellationToken.None);
@@ -86,6 +88,7 @@ public class UpdateShopCommandHandlerTests
             _userRepository,
             _shopRepository,
             _bankAccountRepository,
+            _tenantWriteScope,
             _unitOfWork);
 
         var result = await handler.HandleAsync(command, CancellationToken.None);
@@ -117,6 +120,7 @@ public class UpdateShopCommandHandlerTests
             _userRepository,
             _shopRepository,
             _bankAccountRepository,
+            _tenantWriteScope,
             _unitOfWork);
 
         var result = await handler.HandleAsync(command, CancellationToken.None);
@@ -153,6 +157,7 @@ public class UpdateShopCommandHandlerTests
             _userRepository,
             _shopRepository,
             _bankAccountRepository,
+            _tenantWriteScope,
             _unitOfWork);
 
         var result = await handler.HandleAsync(command, CancellationToken.None);
@@ -190,6 +195,7 @@ public class UpdateShopCommandHandlerTests
             _userRepository,
             _shopRepository,
             _bankAccountRepository,
+            _tenantWriteScope,
             _unitOfWork);
 
         var result = await handler.HandleAsync(command, CancellationToken.None);

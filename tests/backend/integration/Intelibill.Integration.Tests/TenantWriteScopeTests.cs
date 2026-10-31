@@ -226,6 +226,57 @@ public sealed class TenantWriteScopeTests(PostgreSqlTestFixture fixture) : IAsyn
         Assert.Equal(HttpStatusCode.OK, (await client.SendAsync(ownScope)).StatusCode);
     }
 
+    /// <summary>
+    /// Editing a shop returns its bank details in the same response, and that read
+    /// is tenant data for a route-supplied shop. Without a scope it comes back
+    /// empty for any shop that is not the caller's active one — no error, HTTP 200,
+    /// and every bank field silently null, which the client then caches.
+    /// </summary>
+    [Fact]
+    public async Task OwnerUpdatesNonActiveShop_KeepsBankDetailsInResponse()
+    {
+        using var client = CreateClient();
+        var (_, _, token) = await EnrollAsync(client, "update");
+        var (first, firstToken) = await CreateShopAsync(client, token, "Update First");
+        var (_, secondToken) = await CreateShopAsync(client, firstToken, "Update Second");
+
+        using var bankDetails = new HttpRequestMessage(HttpMethod.Put, $"/api/shops/{first}/bank-details");
+        bankDetails.Headers.Authorization = new AuthenticationHeaderValue("Bearer", secondToken);
+        bankDetails.Content = JsonContent.Create(new
+        {
+            bankName = "Canara Bank",
+            accountNumber = "77665544332211",
+            accountType = "Savings",
+            ifscCode = "CNRB0001234",
+            accountHolderName = "Update First",
+        });
+        (await client.SendAsync(bankDetails)).EnsureSuccessStatusCode();
+
+        // Scoped to the second shop, renaming the first.
+        using var rename = new HttpRequestMessage(HttpMethod.Put, $"/api/shops/{first}");
+        rename.Headers.Authorization = new AuthenticationHeaderValue("Bearer", secondToken);
+        rename.Content = JsonContent.Create(new
+        {
+            name = "Update First Renamed",
+            address = "9 Residency Road",
+            city = "Bengaluru",
+            state = "Karnataka",
+            pincode = "560025",
+        });
+        var response = await client.SendAsync(rename);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Update First Renamed", body.GetProperty("name").GetString());
+        Assert.Equal("Canara Bank", body.GetProperty("bankName").GetString());
+        Assert.Equal("77665544332211", body.GetProperty("bankAccountNumber").GetString());
+
+        // And the row was never touched.
+        Assert.Equal(
+            1L,
+            await CountAsync("select count(*) from bank_accounts where shop_id = @shop", first));
+    }
+
     [Fact]
     public async Task NonOwner_CannotElevateIntoAnotherShop()
     {
