@@ -43,6 +43,10 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<User>
             .HasMaxLength(10)
             .HasDefaultValue("en-IN");
 
+        builder.Property(u => u.IsPhoneVerified)
+            .IsRequired()
+            .HasDefaultValue(false);
+
         builder.Property(u => u.IsLoginEnabled)
             .IsRequired()
             .HasDefaultValue(true);

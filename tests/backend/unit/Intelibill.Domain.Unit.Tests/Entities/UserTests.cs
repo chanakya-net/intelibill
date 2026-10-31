@@ -57,3 +57,85 @@ public class UserTests
         Assert.Equal("new-hash", user.PasswordHash);
     }
 }
+
+public class UserVerifiedPhoneTests
+{
+    private static readonly DateTimeOffset Now = new(2026, 11, 1, 9, 0, 0, TimeSpan.Zero);
+
+    private static User WithVerifiedPhone()
+    {
+        var user = User.CreateWithPhone("+919876543210", "Phone", "Owner");
+        user.VerifyPhone("+919876543210", Now);
+        return user;
+    }
+
+    [Fact]
+    public void CreateWithPhone_DoesNotMarkTheNumberVerified()
+    {
+        var user = User.CreateWithPhone("+919876543210", "Phone", "Owner");
+
+        Assert.False(user.IsPhoneVerified);
+        Assert.Null(user.PhoneVerifiedAt);
+    }
+
+    [Fact]
+    public void VerifyPhone_BindsTheFactorAndInvalidatesExistingSessions()
+    {
+        var user = User.CreateWithPhone("+919876543210", "Phone", "Owner");
+        var before = user.SecurityVersion;
+
+        user.VerifyPhone("+919876543210", Now);
+
+        Assert.True(user.IsPhoneVerified);
+        Assert.Equal(Now, user.PhoneVerifiedAt);
+        Assert.Equal(before + 1, user.SecurityVersion);
+    }
+
+    /// <summary>
+    /// Claiming an account with a mailbox drops its phone number. Leaving the verified flag behind
+    /// would have the account claim a proved factor for a number it no longer holds.
+    /// </summary>
+    [Fact]
+    public void ClaimEmail_ClearsVerifiedPhone()
+    {
+        var user = WithVerifiedPhone();
+
+        user.ClaimEmail("owner@test.com", "hash", "Real", "Owner");
+
+        Assert.Null(user.PhoneNumber);
+        Assert.False(user.IsPhoneVerified);
+        Assert.Null(user.PhoneVerifiedAt);
+    }
+
+    [Fact]
+    public void UpdateProfile_CannotMoveAVerifiedPhone()
+    {
+        var user = WithVerifiedPhone();
+
+        user.UpdateProfile("owner@test.com", "+919000000000", "Real", "Owner", "en-IN");
+
+        Assert.Equal("+919876543210", user.PhoneNumber);
+        Assert.True(user.IsPhoneVerified);
+    }
+
+    [Fact]
+    public void UpdateProfile_StillSetsAnUnverifiedContactNumber()
+    {
+        var user = User.CreateWithEmail("owner@test.com", "hash", "Real", "Owner");
+
+        user.UpdateProfile("owner@test.com", "+919000000000", "Real", "Owner", "en-IN");
+
+        Assert.Equal("+919000000000", user.PhoneNumber);
+        Assert.False(user.IsPhoneVerified);
+    }
+
+    [Fact]
+    public void UpdateShopUserProfile_CannotMoveAVerifiedPhone()
+    {
+        var user = WithVerifiedPhone();
+
+        user.UpdateShopUserProfile("staff@test.com", "Staff", "Member", "+919000000000");
+
+        Assert.Equal("+919876543210", user.PhoneNumber);
+    }
+}

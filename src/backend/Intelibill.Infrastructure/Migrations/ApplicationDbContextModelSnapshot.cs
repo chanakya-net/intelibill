@@ -851,6 +851,67 @@ namespace Intelibill.Infrastructure.Migrations
                     b.ToTable("identity_mail", (string)null);
                 });
 
+            modelBuilder.Entity("Intelibill.Domain.Entities.IdentitySms", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("attempts");
+
+                    b.Property<Guid?>("ChallengeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("challenge_id");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Destination")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("destination");
+
+                    b.Property<string>("EncryptedContent")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("encrypted_content");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<DateTimeOffset>("NextAttemptAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("next_attempt_at");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_identity_sms");
+
+                    b.HasIndex("ChallengeId")
+                        .HasDatabaseName("ix_identity_sms_challenge_id");
+
+                    b.HasIndex("CompletedAt", "NextAttemptAt")
+                        .HasDatabaseName("ix_identity_sms_completed_at_next_attempt_at");
+
+                    b.HasIndex("Destination", "CreatedAt")
+                        .HasDatabaseName("ix_identity_sms_destination_created_at");
+
+                    b.ToTable("identity_sms", (string)null);
+                });
+
             modelBuilder.Entity("Intelibill.Domain.Entities.Inventory", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1538,6 +1599,81 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasDatabaseName("ix_password_reset_tokens_user_id");
 
                     b.ToTable("password_reset_tokens", (string)null);
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.PhoneChallenge", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("attempts");
+
+                    b.Property<string>("CodeHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("code_hash");
+
+                    b.Property<DateTimeOffset?>("ConsumedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("consumed_at");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Destination")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("destination");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<string>("KeyId")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("key_id");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("purpose");
+
+                    b.Property<DateTimeOffset>("ResendAllowedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("resend_allowed_at");
+
+                    b.Property<long>("SecurityVersion")
+                        .HasColumnType("bigint")
+                        .HasColumnName("security_version");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_phone_challenges");
+
+                    b.HasIndex("Destination", "CreatedAt")
+                        .HasDatabaseName("ix_phone_challenges_destination_created_at");
+
+                    b.HasIndex("UserId", "Purpose")
+                        .HasDatabaseName("ix_phone_challenges_user_id_purpose");
+
+                    b.ToTable("phone_challenges", (string)null);
                 });
 
             modelBuilder.Entity("Intelibill.Domain.Entities.PurchaseOrder", b =>
@@ -3354,6 +3490,12 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasDefaultValue(true)
                         .HasColumnName("is_login_enabled");
 
+                    b.Property<bool>("IsPhoneVerified")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_phone_verified");
+
                     b.Property<string>("Language")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -3377,6 +3519,10 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
                         .HasColumnName("phone_number");
+
+                    b.Property<DateTimeOffset?>("PhoneVerifiedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("phone_verified_at");
 
                     b.Property<bool>("RequiresOperatorRecovery")
                         .HasColumnType("boolean")
