@@ -36,6 +36,7 @@ public class ApplicationDbContext(
     public DbSet<SaleReturnItem> SaleReturnItems => Set<SaleReturnItem>();
     public DbSet<InvoiceSequence> InvoiceSequences => Set<InvoiceSequence>();
     public DbSet<InvoiceLease> InvoiceLeases => Set<InvoiceLease>();
+    public DbSet<AuthSession> AuthSessions => Set<AuthSession>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
     public DbSet<ItemBarcodeSequence> ItemBarcodeSequences => Set<ItemBarcodeSequence>();

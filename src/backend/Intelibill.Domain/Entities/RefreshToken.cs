@@ -6,6 +6,12 @@ public sealed class RefreshToken : BaseEntity
 {
     public long SecurityVersion { get; private set; }
     public Guid UserId { get; private set; }
+
+    /// <summary>
+    /// The device session this refresh family belongs to. Null only on rows written before
+    /// sessions existed; those are refused on rotation rather than adopted by a session.
+    /// </summary>
+    public Guid? AuthSessionId { get; private set; }
     public string Token { get; private set; } = string.Empty;
     public DateTimeOffset ExpiresAt { get; private set; }
     public bool IsRevoked { get; private set; }
@@ -29,6 +35,8 @@ public sealed class RefreshToken : BaseEntity
     }
 
     public void BindSecurityVersion(long version) => SecurityVersion = version;
+
+    public void BindSession(Guid authSessionId) => AuthSessionId = authSessionId;
 
     public void Revoke()
     {
