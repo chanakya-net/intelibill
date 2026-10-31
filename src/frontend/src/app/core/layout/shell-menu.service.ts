@@ -212,13 +212,12 @@ export class ShellMenuService {
     hasShops: boolean;
     onOpenAddShop: () => void;
     onOpenManageShop: () => void;
-    onOpenUpdateProfile: () => void;
     onOpenChangePassword: () => void;
   }): MenuItem[] {
     const currentLanguage = this.localizationService.currentLanguage();
     const items: MenuItem[] = [
       {
-        label: this.localizationService.translate('identity.manageIdentity'),
+        label: this.localizationService.translate('identity.profileAndSecurity'),
         icon: 'pi pi-shield',
         command: () => {
           actions.closeMenus();
@@ -232,11 +231,6 @@ export class ShellMenuService {
           actions.closeMenus();
           actions.navigate('/users');
         },
-      },
-      {
-        label: this.localizationService.translate('shell.updateProfile'),
-        icon: 'pi pi-user-edit',
-        command: () => actions.onOpenUpdateProfile(),
       },
       {
         label: this.localizationService.translate('shell.changePassword'),

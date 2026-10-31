@@ -67,7 +67,6 @@ describe('ShellMenuService', () => {
         hasShops: true,
         onOpenAddShop: vi.fn(),
         onOpenManageShop: vi.fn(),
-        onOpenUpdateProfile: vi.fn(),
         onOpenChangePassword: vi.fn(),
       })
       .map((item) => item.label);
@@ -170,9 +169,8 @@ describe('ShellMenuService', () => {
     {
       role: 'Owner',
       labels: [
-        'i18n:identity.manageIdentity',
+        'i18n:identity.profileAndSecurity',
         'i18n:shell.manageUsers',
-        'i18n:shell.updateProfile',
         'i18n:shell.changePassword',
         'i18n:shell.addShop',
         'i18n:shell.manageShop',
@@ -185,9 +183,8 @@ describe('ShellMenuService', () => {
     {
       role: 'Manager',
       labels: [
-        'i18n:identity.manageIdentity',
+        'i18n:identity.profileAndSecurity',
         'i18n:shell.manageUsers',
-        'i18n:shell.updateProfile',
         'i18n:shell.changePassword',
         'i18n:shell.manageShop',
         'i18n:shell.manageDiscounts',
@@ -198,9 +195,8 @@ describe('ShellMenuService', () => {
     {
       role: 'Staff',
       labels: [
-        'i18n:identity.manageIdentity',
+        'i18n:identity.profileAndSecurity',
         'i18n:shell.manageUsers',
-        'i18n:shell.updateProfile',
         'i18n:shell.changePassword',
         'i18n:shell.language',
         'i18n:shell.logout',

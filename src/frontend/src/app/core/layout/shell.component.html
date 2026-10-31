@@ -205,13 +205,6 @@
     ></app-manage-shop-overlay>
   }
 
-  @if (showUpdateProfileOverlay() && session()?.user) {
-    <app-update-profile-overlay
-      [user]="session()!.user"
-      (closeRequested)="onProfileOverlayClose()"
-    ></app-update-profile-overlay>
-  }
-
   @if (showChangePasswordOverlay()) {
     <app-change-password-overlay
       (closeRequested)="onProfileOverlayClose()"

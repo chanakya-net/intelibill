@@ -1,7 +1,9 @@
 import { DatePipe } from '@angular/common';
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, effect, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
+import { Store } from '@ngrx/store';
 import { TranslocoPipe } from '@ngneat/transloco';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
@@ -16,14 +18,26 @@ import {
   IdentityOutcome,
 } from '../../../core/auth/identity-flow.service';
 import { identityError, identityFailureMessage } from '../../../core/auth/identity-errors';
+import { LocalizationService } from '../../../core/i18n/localization.service';
+import { RootState } from '../../../core/state/app.state';
+import { UsersActions } from '../state/users.actions';
+import {
+  selectUsersErrorMessage,
+  selectUsersLastMutationSucceeded,
+  selectUsersLastMutationType,
+  selectUsersSubmitting,
+} from '../state/users.selectors';
 import { InputValidators } from '../../../shared/forms/input-validation';
+/**
+ * The whole account on one page: the personal details the person edits themselves, the verified
+ * email and sign-in methods behind a fresh password check, and the devices holding a session.
+ */
 @Component({
   selector: 'app-account-security-page',
   standalone: true,
   imports: [
     DatePipe,
     ReactiveFormsModule,
-    RouterLink,
     TranslocoPipe,
     ButtonModule,
     InputTextModule,
@@ -38,6 +52,9 @@ export class AccountSecurityPageComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly sessions = inject(SessionService);
+  private readonly formBuilder = inject(FormBuilder);
+  private readonly store = inject(Store<RootState>);
+  private readonly localizationService = inject(LocalizationService);
   readonly methods = signal<SignInMethods | null>(null);
   readonly devices = signal<readonly DeviceSession[]>([]);
   readonly devicesBusy = signal(false);
@@ -46,12 +63,44 @@ export class AccountSecurityPageComponent implements OnInit {
   readonly error = signal('');
   readonly notice = signal('');
   readonly operation = signal<IdentityOperation | null>(null);
-  readonly emailForm = inject(FormBuilder).nonNullable.group({
-    email: ['', InputValidators.email()],
+  readonly profileSubmitting = this.store.selectSignal(selectUsersSubmitting);
+  readonly profileError = this.store.selectSignal(selectUsersErrorMessage);
+  readonly profileNotice = signal('');
+  private readonly lastMutationType = this.store.selectSignal(selectUsersLastMutationType);
+  private readonly lastMutationSucceeded = this.store.selectSignal(
+    selectUsersLastMutationSucceeded,
+  );
+  private readonly profileSavePending = signal(false);
+  readonly profileForm = this.formBuilder.nonNullable.group({
+    firstName: ['', InputValidators.requiredText(100)],
+    lastName: ['', InputValidators.requiredText(100)],
+    email: ['', InputValidators.email({ required: false })],
+    phoneNumber: ['', InputValidators.phoneNumber({ required: false, maxLength: 32 })],
   });
-  readonly passwordForm = inject(FormBuilder).nonNullable.group({
+  readonly passwordForm = this.formBuilder.nonNullable.group({
     password: ['', InputValidators.requiredText()],
   });
+  private readonly typedEmail = toSignal(this.profileForm.controls.email.valueChanges, {
+    initialValue: this.profileForm.controls.email.value,
+  });
+  /**
+   * A different address in the email field turns the save into an email change, which costs a
+   * password check and a verification mail. Anything else saves straight away.
+   */
+  readonly emailChangeRequested = computed(() => {
+    const typed = this.typedEmail().trim();
+    const current = this.auth.session()?.user?.email ?? '';
+    return typed.length > 0 && typed.toLowerCase() !== current.toLowerCase();
+  });
+  constructor() {
+    effect(() => {
+      const saved = this.lastMutationType() === 'update-profile' && this.lastMutationSucceeded();
+      if (!this.profileSavePending() || !saved || this.profileSubmitting()) return;
+      this.profileSavePending.set(false);
+      this.store.dispatch(UsersActions.clearMutationStatus());
+      this.profileNotice.set('profile.profileSaved');
+    });
+  }
   ngOnInit(): void {
     if (this.route.snapshot.queryParamMap.get('identity') === 'pending')
       this.notice.set('identity.emailPending');
@@ -59,8 +108,54 @@ export class AccountSecurityPageComponent implements OnInit {
       this.route.snapshot.queryParamMap.get('identity'),
     );
     if (failureMessage) this.error.set(failureMessage);
+    this.store.dispatch(UsersActions.clearError());
+    this.store.dispatch(UsersActions.clearMutationStatus());
+    this.fillProfileForm();
     this.loadMethods();
     this.loadDevices();
+  }
+  /** The page is the only editor of these details, so it starts from whatever the session holds. */
+  private fillProfileForm(): void {
+    const user = this.auth.session()?.user;
+    if (!user) return;
+    this.profileForm.patchValue({
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email ?? '',
+      phoneNumber: user.phoneNumber ?? '',
+    });
+  }
+  /**
+   * Names and phone number save straight away. A new email never rides along with them: it is kept
+   * out of the saved payload and sent through the verified change below, so a typo here can never
+   * cost someone their sign-in address.
+   */
+  saveProfile(): void {
+    if (this.profileSubmitting()) return;
+    if (this.profileForm.invalid) {
+      this.profileForm.markAllAsTouched();
+      return;
+    }
+    const user = this.auth.session()?.user;
+    if (!user) return;
+    const payload = {
+      firstName: this.profileForm.controls.firstName.value.trim(),
+      lastName: this.profileForm.controls.lastName.value.trim(),
+      email: user.email ?? '',
+      phoneNumber: this.toNullable(this.profileForm.controls.phoneNumber.value),
+      language: user.language ?? this.localizationService.currentLanguage(),
+    };
+    this.profileNotice.set('');
+    this.store.dispatch(UsersActions.clearError());
+    this.store.dispatch(UsersActions.clearMutationStatus());
+    this.profileSavePending.set(true);
+    this.store.dispatch(UsersActions.updateProfileRequested({ payload }));
+    if (this.emailChangeRequested())
+      this.choose({ kind: 'email', email: this.profileForm.controls.email.value.trim() });
+  }
+  private toNullable(value: string): string | null {
+    const normalized = value.trim();
+    return normalized.length > 0 ? normalized : null;
   }
   loadDevices(): void {
     this.devicesBusy.set(true);
@@ -127,13 +222,6 @@ export class AccountSecurityPageComponent implements OnInit {
         error: (error) => this.error.set(identityError(error)),
       });
   }
-  chooseEmailChange(): void {
-    if (this.emailForm.invalid) {
-      this.emailForm.markAllAsTouched();
-      return;
-    }
-    this.choose({ kind: 'email', email: this.emailForm.controls.email.value.trim() });
-  }
   cancel(): void {
     if (!this.busy()) {
       this.operation.set(null);
@@ -170,7 +258,9 @@ export class AccountSecurityPageComponent implements OnInit {
     if (result === 'email-pending') {
       this.notice.set('identity.emailPending');
       this.operation.set(null);
-      this.emailForm.reset();
+      // The verified address only moves once the link in the mail is opened, so the field goes back
+      // to the address that still signs this account in.
+      this.profileForm.controls.email.setValue(this.auth.session()?.user?.email ?? '');
     }
   }
   private fail(error: Parameters<typeof identityError>[0]): void {
