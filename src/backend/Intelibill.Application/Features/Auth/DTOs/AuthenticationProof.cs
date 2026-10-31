@@ -24,6 +24,10 @@ public sealed record AuthenticationProof(
     public static AuthenticationProof FromEmailOwnership(Guid userId, long verifiedSecurityVersion, Guid challengeId, DateTimeOffset verifiedAt) =>
         new(userId, CredentialKind.EmailOwnership, verifiedSecurityVersion, verifiedAt, challengeId);
 
+    /// <summary>A single-use phone proof, bound to the challenge that authorised it.</summary>
+    public static AuthenticationProof FromPhoneOwnership(Guid userId, long verifiedSecurityVersion, Guid challengeId, DateTimeOffset verifiedAt) =>
+        new(userId, CredentialKind.PhoneOwnership, verifiedSecurityVersion, verifiedAt, challengeId);
+
     /// <summary>
     /// A just-created account, which has no prior credential to check. Valid only in the same
     /// transaction that inserts the account.
@@ -37,4 +41,5 @@ public enum CredentialKind
     Password = 1,
     EmailOwnership = 2,
     Registration = 3,
+    PhoneOwnership = 4,
 }

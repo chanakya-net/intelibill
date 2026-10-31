@@ -160,6 +160,22 @@ public static class DependencyInjection
         services.AddScoped<IIdentityMailOutbox>(sp => sp.GetRequiredService<IdentityMailOutbox>());
         services.AddHostedService<IdentityMailWorker>();
         services.AddSingleton<IPhoneAuthPolicy, PhoneAuthPolicy>();
+        services.AddSingleton<IPhoneCodeHasher, PhoneCodeHasher>();
+        services.AddScoped<IPhoneOwnershipService, Intelibill.Application.Features.Auth.Services.PhoneOwnershipService>();
+        services.AddScoped<IdentitySmsOutbox>();
+        services.AddScoped<IIdentitySmsOutbox>(sp => sp.GetRequiredService<IdentitySmsOutbox>());
+        services.AddHostedService<IdentitySmsWorker>();
+        services.AddHttpClient(TwilioSmsSender.HttpClientName);
+        services.AddScoped<ISmsSender>(sp =>
+        {
+            var phoneOptions = sp.GetRequiredService<IOptions<PhoneAuthOptions>>().Value;
+            if (phoneOptions.LocalCapture)
+                return new LocalCaptureSmsSender(sp.GetRequiredService<ILogger<LocalCaptureSmsSender>>());
+
+            return phoneOptions.Enabled && !string.IsNullOrWhiteSpace(phoneOptions.AccountSid)
+                ? new TwilioSmsSender(sp.GetRequiredService<IHttpClientFactory>(), sp.GetRequiredService<IOptions<PhoneAuthOptions>>())
+                : new UnconfiguredSmsSender();
+        });
         services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();
         services.AddSingleton<ISmtpClientFactory, MailKitSmtpClientFactory>();
         services.AddSingleton<IEmailService>(sp =>

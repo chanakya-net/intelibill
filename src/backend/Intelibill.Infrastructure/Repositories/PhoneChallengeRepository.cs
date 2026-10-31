@@ -67,6 +67,11 @@ internal sealed class PhoneChallengeRepository(ApplicationDbContext db, IUnitOfW
                 holder.RequiresOperatorRecovery);
     }
 
+    public async Task DetachUnverifiedPhoneAsync(Guid userId, CancellationToken ct) =>
+        await db.Users
+            .Where(x => x.Id == userId && !x.IsPhoneVerified)
+            .ExecuteUpdateAsync(s => s.SetProperty(x => x.PhoneNumber, (string?)null), ct);
+
     public async Task<bool> LockVerifiedPhoneAsync(Guid userId, long version, string destination, CancellationToken ct)
     {
         // Held until the transition commits, so a password change or a concurrent phone change

@@ -36,6 +36,13 @@ public interface IPhoneChallengeRepository
     /// <summary>Locks and reads whoever holds this number, or null when nobody does.</summary>
     Task<PhoneOccupant?> LockOccupantAsync(string destination, CancellationToken ct);
 
+    /// <summary>
+    /// Clears an unverified contact number from an account, as its own statement, so the release
+    /// and the new account's insert cannot reach the unique index in the wrong order. Refuses to
+    /// touch a number the account proved.
+    /// </summary>
+    Task DetachUnverifiedPhoneAsync(Guid userId, CancellationToken ct);
+
     /// <summary>Locks the account and confirms it still holds this number as a proved factor at this version.</summary>
     Task<bool> LockVerifiedPhoneAsync(Guid userId, long version, string destination, CancellationToken ct);
 

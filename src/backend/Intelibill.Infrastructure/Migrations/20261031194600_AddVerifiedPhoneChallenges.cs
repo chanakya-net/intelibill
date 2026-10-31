@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
+#pragma warning disable CA1861 // Generated migration index arrays are used once per migration.
 
 namespace Intelibill.Infrastructure.Migrations
 {
