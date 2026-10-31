@@ -2,7 +2,7 @@
 # of the same commit must produce the same image, and a rollback to a recorded
 # digest is only a rollback if the base cannot move underneath it. Refresh these
 # deliberately, in a reviewed commit.
-FROM mcr.microsoft.com/dotnet/sdk:10.0@sha256:e1ffd2a92ae84c1291bc1b6887501f8af98e6331e7af6d4c8d37168c5e87a64c AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0@sha256:de4fe90a98845d75910b9769662465c84de1a934665c431279d1382b2bddc02b AS build
 WORKDIR /app
 
 # Copy the root-level property files for NuGet package management
@@ -27,7 +27,7 @@ RUN dotnet run --no-launch-profile --no-restore -c Release -- codegen write \
     && dotnet publish "Intelibill.Api.csproj" --no-restore -c Release -o /app/publish /p:UseAppHost=false
 
 # Use the ASP.NET 10.0 runtime for the final image
-FROM mcr.microsoft.com/dotnet/aspnet:10.0@sha256:a4556ed033fa96f984bb7a8d348851cb2d36b1281dd2420070045f664fbb5f94 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0@sha256:de0ee358cdd672f7017a003bed21e9ac9ed48a27c922a59b18175b6e82fa7fee AS runtime
 WORKDIR /app
 
 # Installed before the user switch, which needs root. libgssapi-krb5-2 is a
