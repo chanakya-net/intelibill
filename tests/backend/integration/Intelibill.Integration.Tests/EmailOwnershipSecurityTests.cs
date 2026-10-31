@@ -175,9 +175,10 @@ public sealed class EmailOwnershipSecurityTests(PostgreSqlTestFixture fixture) :
     public async Task PhoneOnlyAccount_CanEditProfileWithoutEmail()
     {
         using var client = Client();
-        var registration = await client.PostAsJsonAsync("/api/auth/register/phone", new { phoneNumber = "+9199" + Random.Shared.Next(10000000, 99999999), firstName = "Phone", lastName = "Owner" });
-        Assert.Equal(HttpStatusCode.Created, registration.StatusCode);
-        Authenticate(client, await registration.Content.ReadFromJsonAsync<JsonElement>());
+        // Seeded rather than registered: the public phone route is closed, and this test is about
+        // how an account created by it before then behaves, not about creating one now.
+        var session = await IdentityTestPhone.SeedLegacyPhoneSessionAsync(_factory, "+9199" + Random.Shared.Next(10000000, 99999999));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", session.AccessToken);
         var profile = await client.PutAsJsonAsync("/api/users/me", new { email = (string?)null, phoneNumber = (string?)null, firstName = "Updated", lastName = "User", language = "en-IN" });
         Assert.Equal(HttpStatusCode.OK, profile.StatusCode);
     }

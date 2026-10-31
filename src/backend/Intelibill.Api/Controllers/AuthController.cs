@@ -45,6 +45,11 @@ public sealed class AuthController(IMessageBus bus, IOptions<AppOptions> appOpti
             new RegisterWithPhoneCommand(request.PhoneNumber, request.FirstName, request.LastName),
             cancellationToken);
 
+        // The route is closed, and a closed route answers with its own stable code rather than a
+        // 500 from the default Failure mapping.
+        if (result.IsError && result.FirstError.Type == ErrorOr.ErrorType.Failure)
+            return result.FirstError.ToUnavailableResult();
+
         return result.ToActionResult(auth => CreatedAtAction(nameof(RegisterWithPhone), auth));
     }
 

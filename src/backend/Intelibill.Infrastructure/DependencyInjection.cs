@@ -80,6 +80,11 @@ public static class DependencyInjection
             .ValidateOnStart();
         services.AddSingleton<IValidateOptions<EmailOptions>, EmailOptionsValidator>();
 
+        services.AddOptions<PhoneAuthOptions>()
+            .Bind(configuration.GetSection(PhoneAuthOptions.SectionName))
+            .ValidateOnStart();
+        services.AddSingleton<IValidateOptions<PhoneAuthOptions>, PhoneAuthOptionsValidator>();
+
         services.AddOptions<ProductLookupOptions>()
             .Bind(configuration.GetSection(ProductLookupOptions.SectionName));
 
@@ -153,6 +158,7 @@ public static class DependencyInjection
         services.AddScoped<IdentityMailOutbox>();
         services.AddScoped<IIdentityMailOutbox>(sp => sp.GetRequiredService<IdentityMailOutbox>());
         services.AddHostedService<IdentityMailWorker>();
+        services.AddSingleton<IPhoneAuthPolicy, PhoneAuthPolicy>();
         services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();
         services.AddSingleton<ISmtpClientFactory, MailKitSmtpClientFactory>();
         services.AddSingleton<IEmailService>(sp =>
