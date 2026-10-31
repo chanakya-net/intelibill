@@ -1,7 +1,10 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Intelibill.Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Intelibill.Integration.Tests;
 
@@ -64,40 +67,32 @@ public sealed class AuthControllerTests(PostgreSqlTestFixture fixture) : IAsyncL
         Assert.DoesNotContain("accessToken", await response.Content.ReadAsStringAsync());
     }
 
+    /// <summary>
+    /// The route that used to hand out a session on an unproved number is closed. It still answers,
+    /// with a stable code, so a client that has not been updated gets a documented refusal rather
+    /// than a 404 or a 500 — and no account is created.
+    /// </summary>
     [Fact]
-    public async Task RegisterWithPhone_ValidRequest_Returns201WithTokens()
+    public async Task RegisterWithPhone_IsClosed_Returns503AndCreatesNothing()
     {
         using var client = CreateClient();
+        var phone = UniquePhone();
 
         var response = await client.PostAsJsonAsync("/api/auth/register/phone", new
         {
-            phoneNumber = UniquePhone(),
+            phoneNumber = phone,
             firstName = "Phone",
             lastName = "User"
         });
 
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.False(string.IsNullOrWhiteSpace(body.GetProperty("accessToken").GetString()));
-        Assert.False(string.IsNullOrWhiteSpace(body.GetProperty("refreshToken").GetString()));
-    }
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Contains("Auth.PhoneEnrollmentUnavailable", body);
+        Assert.DoesNotContain("accessToken", body);
 
-    [Fact]
-    public async Task RegisterWithPhone_DuplicatePhone_Returns409()
-    {
-        using var client = CreateClient();
-        var phone = UniquePhone();
-        await client.PostAsJsonAsync("/api/auth/register/phone", new
-        {
-            phoneNumber = phone, firstName = "First", lastName = "User"
-        });
-
-        var response = await client.PostAsJsonAsync("/api/auth/register/phone", new
-        {
-            phoneNumber = phone, firstName = "Second", lastName = "User"
-        });
-
-        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.False(await db.Users.AnyAsync(x => x.PhoneNumber == phone));
     }
 
     [Fact]

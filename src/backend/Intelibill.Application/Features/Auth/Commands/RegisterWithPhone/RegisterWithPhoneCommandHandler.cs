@@ -1,42 +1,22 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
-using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Auth.DTOs;
-using Intelibill.Domain.Entities;
-using Intelibill.Domain.Interfaces.Repositories;
 
 namespace Intelibill.Application.Features.Auth.Commands.RegisterWithPhone;
 
-public sealed class RegisterWithPhoneCommandHandler(
-    IUserRepository userRepository,
-    IAuthSessionRepository sessionRepository,
-    IAuthSessionService sessions,
-    TimeProvider clock)
+/// <summary>
+/// Closed. This route used to check that a number was unused and then immediately issue a session,
+/// without ever proving that the registrant could receive a message at it. That produced an
+/// account nobody could sign back into once the session was gone, and let anyone reserve someone
+/// else's number. The route stays mapped so clients get a stable
+/// <c>Auth.PhoneEnrollmentUnavailable</c> rather than a 404, and verified enrollment runs on the
+/// phone challenge endpoints instead. Accounts created by it earlier keep their data and their
+/// sessions.
+/// </summary>
+public sealed class RegisterWithPhoneCommandHandler
 {
-    public async Task<ErrorOr<AuthResult>> HandleAsync(
+    public static Task<ErrorOr<AuthResult>> HandleAsync(
         RegisterWithPhoneCommand command,
-        CancellationToken cancellationToken)
-    {
-        // The account, its first session and that session's refresh family are inserted together:
-        // a half-registered account that cannot sign in is worse than a rejected registration.
-        await using var transaction = await sessionRepository.BeginAsync(cancellationToken);
-
-        if (await userRepository.ExistsByPhoneAsync(command.PhoneNumber, cancellationToken))
-            return Errors.Auth.PhoneAlreadyInUse;
-
-        var user = User.CreateWithPhone(command.PhoneNumber, command.FirstName, command.LastName);
-        await userRepository.AddAsync(user, cancellationToken);
-
-        // A brand-new account has no prior credential to check, and this transaction is the one
-        // inserting it.
-        var result = await sessions.IssueForProvedAccountAsync(
-            user,
-            AuthenticationProof.FromRegistration(user.Id, clock.GetUtcNow()),
-            preferredShopId: null,
-            cancellationToken);
-
-        return await sessionRepository.CommitAsync(cancellationToken)
-            ? result
-            : Errors.Auth.PhoneAlreadyInUse;
-    }
+        CancellationToken cancellationToken) =>
+        Task.FromResult<ErrorOr<AuthResult>>(Errors.Phone.EnrollmentUnavailable);
 }

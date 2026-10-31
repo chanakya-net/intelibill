@@ -14,7 +14,7 @@ using Testcontainers.PostgreSql;
 
 namespace Intelibill.Integration.Tests;
 
-public sealed class ApiWebApplicationFactory(PostgreSqlTestFixture? fixture = null, Action<IServiceCollection>? configureTestServices = null, bool enableIdentityMail = true) : WebApplicationFactory<Program>, IAsyncLifetime
+public sealed class ApiWebApplicationFactory(PostgreSqlTestFixture? fixture = null, Action<IServiceCollection>? configureTestServices = null, bool enableIdentityMail = true, bool enablePhoneAuth = true) : WebApplicationFactory<Program>, IAsyncLifetime
 {
     public new HttpClient CreateClient(WebApplicationFactoryClientOptions options)
     {
@@ -80,6 +80,9 @@ public sealed class ApiWebApplicationFactory(PostgreSqlTestFixture? fixture = nu
                 ["Email:FromEmail"] = "tests@intelibill.test",
                 ["Email:FromName"] = "Integration tests",
                 ["Identity:OutboxKey"] = IdentityTestMailbox.Key,
+                ["Identity:PhoneCodeKey"] = IdentityTestPhone.CodeKey,
+                ["PhoneAuth:Enabled"] = enablePhoneAuth.ToString(),
+                ["PhoneAuth:LocalCapture"] = "true",
                 ["ConnectionStrings:DefaultConnection"] = DbContainer.GetConnectionString(),
                 ["Database:Host"] = DbContainer.Hostname,
                 ["Database:Port"] = DbContainer.GetMappedPublicPort(5432).ToString(System.Globalization.CultureInfo.InvariantCulture),
@@ -117,7 +120,7 @@ public sealed class ApiWebApplicationFactory(PostgreSqlTestFixture? fixture = nu
                 .ConfigurePrimaryHttpMessageHandler(static () => new NoOpOtlpHandler());
 
             // Tests inspect encrypted durable mail; never connect to real SMTP.
-            foreach (var descriptor in services.Where(x => x.ImplementationType?.Name == "IdentityMailWorker").ToArray())
+            foreach (var descriptor in services.Where(x => x.ImplementationType?.Name is "IdentityMailWorker" or "IdentitySmsWorker").ToArray())
                 services.Remove(descriptor);
             services.RemoveAll<Intelibill.Application.Common.Interfaces.IEmailService>();
             services.AddSingleton<Intelibill.Application.Common.Interfaces.IEmailService, TestEmailService>();

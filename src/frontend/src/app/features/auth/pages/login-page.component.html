@@ -63,7 +63,12 @@
             <p class="field-error">{{ 'auth.validation.passwordRequired' | transloco }}</p>
           }
           <div class="text-right mt-1">
-            <a routerLink="/forgot-password" class="text-sm text-orange-700 hover:text-orange-900">
+            @if (phoneAuthEnabled()) {
+            <a routerLink="/auth/phone" class="text-sm text-orange-700 hover:text-orange-900">
+              {{ 'identity.phoneSignIn' | transloco }}
+            </a>
+          }
+          <a routerLink="/forgot-password" class="text-sm text-orange-700 hover:text-orange-900">
               {{ 'auth.forgotPassword.link' | transloco }}?
             </a>
           </div>

@@ -43,6 +43,9 @@ export class LoginPageComponent implements OnInit {
 
   private readonly identityFlow = inject(IdentityFlowService);
 
+  /** Hidden until the server says phone sign-in exists here, so nobody is led into a refusal. */
+  readonly phoneAuthEnabled = signal(false);
+
   readonly serverError = signal<string | null>(null);
   readonly successMessage = signal<string | null>(null);
   readonly isHttpLoading = this.store.selectSignal((state) => state.httpUi.pendingRequests > 0);
@@ -79,6 +82,11 @@ export class LoginPageComponent implements OnInit {
       this.form.controls.identifier.setValue(rememberedIdentifier);
       this.form.controls.rememberMe.setValue(true);
     }
+
+    this.authService.getPhoneAuthAvailability().subscribe({
+      next: (availability) => this.phoneAuthEnabled.set(availability.enabled),
+      error: () => this.phoneAuthEnabled.set(false),
+    });
 
     const identityStatus = this.route.snapshot.queryParamMap.get('identity');
     if (identityStatus === 'updated') this.successMessage.set('identity.signInAgain');

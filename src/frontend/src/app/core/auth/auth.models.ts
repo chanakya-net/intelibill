@@ -16,6 +16,31 @@ export interface ConfirmEmailEnrollmentRequest {
   readonly firstName: string;
   readonly lastName: string;
 }
+export type PhonePurpose = 'enrollment' | 'login' | 'change';
+
+/**
+ * What the server tells a caller after queueing a code. It carries a masked destination and the
+ * deadlines, never the code, and its shape is the same whether or not a code was actually sent —
+ * an ineligible request comes back with an empty challengeId.
+ */
+export interface PhoneChallengeReceipt {
+  readonly challengeId: string;
+  readonly maskedDestination: string;
+  readonly resendAllowedAt: string;
+  readonly expiresAt: string;
+}
+
+export interface PhoneAuthAvailability {
+  readonly enabled: boolean;
+}
+
+export interface ConfirmPhoneEnrollmentRequest {
+  readonly challengeId: string;
+  readonly code: string;
+  readonly firstName: string;
+  readonly lastName: string;
+}
+
 export interface ReauthenticationProof {
   readonly proof: string;
   readonly expiresAt: string;

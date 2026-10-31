@@ -25,6 +25,16 @@ public sealed class User : BaseEntity
     public bool RequiresOperatorRecovery { get; private set; }
     public long SecurityVersion { get; private set; }
     public bool IsEmailVerified { get; private set; }
+
+    /// <summary>
+    /// True only after the holder proved a code sent to <see cref="PhoneNumber"/>. False is also
+    /// the backfill value for every account that predates verification: unknown is not verified.
+    /// While this is false the number is contact information, never a credential.
+    /// </summary>
+    public bool IsPhoneVerified { get; private set; }
+
+    public DateTimeOffset? PhoneVerifiedAt { get; private set; }
+
     public bool IsLoginEnabled { get; private set; } = true;
 
     private readonly List<ShopMembership> _shopMemberships = [];
@@ -69,13 +79,38 @@ public sealed class User : BaseEntity
         IsEmailVerified = true;
         SecurityVersion++;
     }
+    /// <summary>
+    /// Binds a proved number as a sign-in factor. Gaining a factor is a security transition, so
+    /// every existing session is invalidated: whoever was signed in before did not hold this proof.
+    /// </summary>
+    public void VerifyPhone(string phoneNumber, DateTimeOffset verifiedAt)
+    {
+        PhoneNumber = phoneNumber.Trim();
+        IsPhoneVerified = true;
+        PhoneVerifiedAt = verifiedAt;
+        SecurityVersion++;
+    }
+
+    /// <summary>
+    /// Drops the number and the proof together. Clearing one without the other would leave the
+    /// account claiming a verified factor for a number it no longer holds.
+    /// </summary>
+    public void ClearVerifiedPhone()
+    {
+        var hadVerifiedPhone = IsPhoneVerified;
+        PhoneNumber = null;
+        IsPhoneVerified = false;
+        PhoneVerifiedAt = null;
+        if (hadVerifiedPhone) SecurityVersion++;
+    }
+
     public void ClaimEmail(string email, string passwordHash, string firstName, string lastName)
     {
         VerifyEmail(email);
         PasswordHash = passwordHash;
         FirstName = firstName.Trim();
         LastName = lastName.Trim();
-        PhoneNumber = null;
+        ClearVerifiedPhone();
     }
     public void InvalidateSessions() => SecurityVersion++;
 
@@ -100,7 +135,10 @@ public sealed class User : BaseEntity
 
     public void UpdateProfile(string email, string? phoneNumber, string firstName, string lastName, string? language)
     {
-        PhoneNumber = string.IsNullOrWhiteSpace(phoneNumber) ? null : phoneNumber.Trim();
+        // A verified number is a credential, and editing a profile is not proof of holding it.
+        // Changing one goes through the phone-change flow, which proves the new number first.
+        if (!IsPhoneVerified)
+            PhoneNumber = string.IsNullOrWhiteSpace(phoneNumber) ? null : phoneNumber.Trim();
         FirstName = firstName.Trim();
         LastName = lastName.Trim();
         SetLanguage(language);
@@ -124,6 +162,8 @@ public sealed class User : BaseEntity
     {
         FirstName = firstName.Trim();
         LastName = lastName.Trim();
-        PhoneNumber = phoneNumber.Trim();
+        // Shop administration never reaches a verified sign-in factor on a global account.
+        if (!IsPhoneVerified)
+            PhoneNumber = phoneNumber.Trim();
     }
 }

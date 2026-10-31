@@ -13,6 +13,23 @@ public static class ErrorOrExtensions
             errors => errors.ToProblemResult());
     }
 
+    /// <summary>
+    /// The 503 a switched-off or closed identity route answers with. Built directly rather than
+    /// through <see cref="ControllerBase.Problem(string, string, int?, string, string, System.Collections.Generic.IDictionary{string, object})"/>
+    /// so the shape is one decision in one place, and so a controller can be unit-tested without
+    /// the whole MVC service graph behind it.
+    /// </summary>
+    public static IActionResult ToUnavailableResult(this Error error) =>
+        new ObjectResult(new ProblemDetails
+        {
+            Status = StatusCodes.Status503ServiceUnavailable,
+            Title = error.Code,
+            Detail = error.Description,
+        })
+        {
+            StatusCode = StatusCodes.Status503ServiceUnavailable,
+        };
+
     public static IActionResult ToProblemResult(this List<Error> errors)
     {
         if (errors.Count == 0)

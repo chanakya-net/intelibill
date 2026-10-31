@@ -2132,6 +2132,26 @@
     "endDevice": "Sign out this device",
     "endAllDevices": "Sign out everywhere",
     "endAllConfirm": "This signs out every device, including this one. Continue?",
-    "noDevices": "No devices are signed in."
+    "noDevices": "No devices are signed in.",
+    "phoneTitle": "Sign in with your phone number",
+    "phoneSignIn": "Use phone number",
+    "phoneCreateAccount": "Create account with phone",
+    "phoneNumberLabel": "Mobile number",
+    "phoneNumberPlaceholder": "+91 98765 43210",
+    "phoneNumberHint": "Enter the number with its country code, or a 10-digit Indian mobile number.",
+    "phoneSendCode": "Send code",
+    "phoneCodeSentTo": "We sent a code to",
+    "phoneCodeLabel": "Verification code",
+    "phoneCodeExpiresIn": "This code expires in",
+    "phoneConfirmCode": "Confirm code",
+    "phoneResend": "Send a new code",
+    "phoneResendIn": "You can ask for a new code in",
+    "phoneRecoverByEmail": "Recover with your email instead",
+    "phoneUnavailableHere": "Phone sign-in is not available. Use your email address to sign in or recover your account.",
+    "phoneUseEmailInstead": "Go to email sign-in",
+    "phoneDeliveryUnavailable": "Verification codes cannot be sent right now. Try again later or use your email address.",
+    "phoneTaken": "This number is unavailable. Ask for a new code, or sign in to your existing account.",
+    "phoneInvalid": "Enter a mobile number in international format, for example +919876543210.",
+    "phoneChangeRequiresProof": "A verified number can only be changed by proving the new number."
   }
 }

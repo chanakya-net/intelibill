@@ -35,6 +35,13 @@ public sealed class UpdateMyProfileCommandHandler(
             return Error.Conflict("Auth.EmailChangeRequired", "Use verified email change to replace a sign-in address.");
 
         var phoneChanged = !string.Equals(user.PhoneNumber, normalizedPhone, StringComparison.Ordinal);
+
+        // A proved number is a sign-in factor. Saying so here, rather than quietly keeping the old
+        // value, is the difference between a user who knows to use the phone change flow and one
+        // who believes their number moved.
+        if (phoneChanged && user.IsPhoneVerified)
+            return Errors.Phone.ChangeRequiresProof;
+
         if (phoneChanged && normalizedPhone is not null && await userRepository.ExistsByPhoneAsync(normalizedPhone, cancellationToken))
             return Errors.Auth.PhoneAlreadyInUse;
 

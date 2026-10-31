@@ -25,6 +25,9 @@ const ROUTE_STATE_PROFILES = {
 
 export const ROUTE_MANIFEST: readonly RouteManifestEntry[] = [
   publicRoute('auth/verify-email', 'form'),
+  // Phone sign-in and enrollment. Reachable without a session, and it renders its own unavailable
+  // state when the deployment has phone authentication switched off.
+  publicRoute('auth/phone', 'form'),
   // Opened from an invitation email; the invited person may or may not be signed in yet.
   publicRoute('invitations/accept', 'form'),
   publicRoute('login', 'form'),

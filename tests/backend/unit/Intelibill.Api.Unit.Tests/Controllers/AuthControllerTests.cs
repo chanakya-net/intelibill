@@ -41,34 +41,24 @@ public class AuthControllerTests
         Assert.Empty(_bus.ReceivedCalls());
     }
 
+    /// <summary>
+    /// The closed route answers with its own stable code and a 503, not the 500 the default
+    /// Failure mapping would produce.
+    /// </summary>
     [Fact]
-    public async Task RegisterWithPhone_WhenSuccessful_ReturnsCreatedAtAction()
+    public async Task RegisterWithPhone_IsClosed_Returns503WithStableCode()
     {
-        var request = new RegisterWithPhoneRequest("+15551234567", "First", "Last");
-        var authResult = CreateAuthResult();
-        ArrangeBusResponse<AuthResult>(authResult);
-
-        var result = await _controller.RegisterWithPhone(request, CancellationToken.None);
-
-        var created = Assert.IsType<CreatedAtActionResult>(result);
-        Assert.Equal(nameof(AuthController.RegisterWithPhone), created.ActionName);
-        Assert.Equal(authResult, created.Value);
-    }
-
-    [Fact]
-    public async Task RegisterWithPhone_WhenConflictError_ReturnsConflict()
-    {
-        ArrangeBusResponse<AuthResult>(Errors.Auth.PhoneAlreadyInUse);
+        ArrangeBusResponse<AuthResult>(Errors.Phone.EnrollmentUnavailable);
 
         var result = await _controller.RegisterWithPhone(
-            new RegisterWithPhoneRequest("+15551234567", "First", "Last"),
+            new RegisterWithPhoneRequest("+919876543210", "First", "Last"),
             CancellationToken.None);
 
         var objectResult = Assert.IsType<ObjectResult>(result);
-        Assert.Equal(StatusCodes.Status409Conflict, objectResult.StatusCode);
+        Assert.Equal(StatusCodes.Status503ServiceUnavailable, objectResult.StatusCode);
 
         var details = Assert.IsType<ProblemDetails>(objectResult.Value);
-        Assert.Equal(Errors.Auth.PhoneAlreadyInUse.Code, details.Title);
+        Assert.Equal("Auth.PhoneEnrollmentUnavailable", details.Title);
     }
 
     [Fact]
