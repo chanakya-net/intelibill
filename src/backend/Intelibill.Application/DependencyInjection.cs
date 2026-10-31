@@ -1,4 +1,5 @@
 using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Features.Auth.Services;
 using Intelibill.Application.Features.CreditNotes.Services;
 using Intelibill.Application.Features.Discounts.Services;
 using Intelibill.Application.Features.Exports.Sales;
@@ -21,6 +22,10 @@ public static class DependencyInjection
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
         services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly, includeInternalTypes: true);
+        // Registered here rather than in Infrastructure: the session protocol is Application's,
+        // and only this assembly can see the internal implementation.
+        services.AddScoped<IAuthSessionService, AuthSessionService>();
+
         services.AddScoped<IItemCatalogStreamingService, ItemCatalogStreamingService>();
         services.AddScoped<IOfflineSalesSnapshotStreamingService, OfflineSalesSnapshotStreamingService>();
 

@@ -20,13 +20,16 @@ internal sealed class TokenService(IOptions<JwtOptions> options, IJwtSigner sign
     private const string ActiveShopClaim = "active_shop_id";
     private const string ActiveShopRoleClaim = "active_shop_role";
     private const string LanguageClaim = "language";
+    private const string SessionClaim = "sid";
+    private const string ScopeVersionClaim = "scope_version";
 
     public async Task<(string AccessToken, DateTimeOffset ExpiresAt)> GenerateAccessTokenAsync(
         User user,
-        Guid? activeShopId = null,
-        string? activeShopRole = null,
+        AuthSession session,
+        string? activeShopRole,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(session);
         if (!user.IsLoginEnabled || (user.Email is not null && !user.IsEmailVerified))
             throw new UnauthorizedAccessException("This account requires verified sign-in ownership.");
         if (db is not null && db.Entry(user).State != EntityState.Added)
@@ -67,6 +70,11 @@ internal sealed class TokenService(IOptions<JwtOptions> options, IJwtSigner sign
             [JwtRegisteredClaimNames.Exp] = expiresAt.ToUnixTimeSeconds(),
             [LanguageClaim] = user.Language,
             ["security_version"] = user.SecurityVersion,
+            // sid is what makes this token revocable on its own. scope_version records which scope
+            // change minted it; it is carried for diagnostics and is not an authority check, so a
+            // client holding two tokens for the shop it is in keeps both working.
+            [SessionClaim] = session.Id.ToString(),
+            [ScopeVersionClaim] = session.ScopeVersion,
         };
 
         if (user.Email is not null)
@@ -74,14 +82,14 @@ internal sealed class TokenService(IOptions<JwtOptions> options, IJwtSigner sign
             payload[JwtRegisteredClaimNames.Email] = user.Email;
         }
 
-        if (activeShopId is not null)
+        if (session.ActiveShopId is not null)
         {
-            payload[ActiveShopClaim] = activeShopId.Value.ToString();
-        }
+            payload[ActiveShopClaim] = session.ActiveShopId.Value.ToString();
 
-        if (!string.IsNullOrWhiteSpace(activeShopRole))
-        {
-            payload[ActiveShopRoleClaim] = activeShopRole;
+            if (!string.IsNullOrWhiteSpace(activeShopRole))
+            {
+                payload[ActiveShopRoleClaim] = activeShopRole;
+            }
         }
 
         var signingInput = string.Concat(

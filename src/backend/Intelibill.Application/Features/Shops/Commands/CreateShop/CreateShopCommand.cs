@@ -2,6 +2,7 @@ namespace Intelibill.Application.Features.Shops.Commands.CreateShop;
 
 public sealed record CreateShopCommand(
 	Guid UserId,
+	Guid SessionId,
 	string Name,
 	string Address,
 	string City,
@@ -9,4 +10,4 @@ public sealed record CreateShopCommand(
 	string Pincode,
 	string? ContactPerson,
 	string? MobileNumber,
-	string? GstNumber, long SecurityVersion = -1);
+	string? GstNumber);

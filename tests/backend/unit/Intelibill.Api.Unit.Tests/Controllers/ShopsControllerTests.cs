@@ -74,17 +74,18 @@ public class ShopsControllerTests
             "Chandra",
             "9876543210",
             "27AAPFU0939F1ZV");
-        var authResult = CreateAuthResult();
-        ArrangeBusResponse<AuthResult>(authResult);
+        var scope = CreateScopeResult();
+        ArrangeBusResponse<AccessScopeResult>(scope);
 
         var result = await _controller.CreateShop(request, CancellationToken.None);
 
         var ok = Assert.IsType<OkObjectResult>(result);
-        Assert.Equal(authResult, ok.Value);
+        Assert.Equal(scope, ok.Value);
 
-        await _bus.Received(1).InvokeAsync<ErrorOr<AuthResult>>(
+        await _bus.Received(1).InvokeAsync<ErrorOr<AccessScopeResult>>(
             Arg.Is<CreateShopCommand>(c =>
                 c.UserId == userId
+                && c.SessionId == SessionId
                 && c.Name == request.Name
                 && c.Address == request.Address
                 && c.City == request.City
@@ -100,7 +101,7 @@ public class ShopsControllerTests
     public async Task CreateShop_WhenValidationError_ReturnsBadRequest()
     {
         SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, Guid.NewGuid().ToString()));
-        ArrangeBusResponse<AuthResult>(Errors.Shop.NameRequired);
+        ArrangeBusResponse<AccessScopeResult>(Errors.Shop.NameRequired);
 
         var result = await _controller.CreateShop(
             new CreateShopRequest("  ", "Address", "City", "State", "560001", null, null, null),
@@ -126,7 +127,7 @@ public class ShopsControllerTests
     public async Task CreateShop_WhenUserNotFound_ReturnsNotFound()
     {
         SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, Guid.NewGuid().ToString()));
-        ArrangeBusResponse<AuthResult>(Errors.Shop.UserNotFound);
+        ArrangeBusResponse<AccessScopeResult>(Errors.Shop.UserNotFound);
 
         var result = await _controller.CreateShop(
             new CreateShopRequest("Main Shop", "Address", "City", "State", "560001", null, null, null),
@@ -152,16 +153,18 @@ public class ShopsControllerTests
         var userId = Guid.NewGuid();
         var shopId = Guid.NewGuid();
         SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()));
-        var authResult = CreateAuthResult(activeShopId: shopId);
-        ArrangeBusResponse<AuthResult>(authResult);
+        var scope = CreateScopeResult(activeShopId: shopId);
+        ArrangeBusResponse<AccessScopeResult>(scope);
 
         var result = await _controller.SwitchActiveShop(new SwitchActiveShopRequest(shopId), CancellationToken.None);
 
         var ok = Assert.IsType<OkObjectResult>(result);
-        Assert.Equal(authResult, ok.Value);
+        Assert.Equal(scope, ok.Value);
 
-        await _bus.Received(1).InvokeAsync<ErrorOr<AuthResult>>(
-            Arg.Is<SwitchActiveShopCommand>(c => c.UserId == userId && c.ShopId == shopId),
+        // The device making the request is named explicitly, so the switch cannot be applied to
+        // some other session on the same account.
+        await _bus.Received(1).InvokeAsync<ErrorOr<AccessScopeResult>>(
+            Arg.Is<SwitchActiveShopCommand>(c => c.UserId == userId && c.SessionId == SessionId && c.ShopId == shopId),
             Arg.Any<CancellationToken>());
     }
 
@@ -169,7 +172,7 @@ public class ShopsControllerTests
     public async Task SwitchActiveShop_WhenMembershipMissing_ReturnsForbidden()
     {
         SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, Guid.NewGuid().ToString()));
-        ArrangeBusResponse<AuthResult>(Errors.Shop.MembershipNotFound);
+        ArrangeBusResponse<AccessScopeResult>(Errors.Shop.MembershipNotFound);
 
         var result = await _controller.SwitchActiveShop(new SwitchActiveShopRequest(Guid.NewGuid()), CancellationToken.None);
 
@@ -183,15 +186,15 @@ public class ShopsControllerTests
         var userId = Guid.NewGuid();
         var shopId = Guid.NewGuid();
         SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()));
-        var authResult = CreateAuthResult(activeShopId: shopId);
-        ArrangeBusResponse<AuthResult>(authResult);
+        var preference = new ShopPreferenceResult(shopId, []);
+        ArrangeBusResponse<ShopPreferenceResult>(preference);
 
         var result = await _controller.SetDefaultShop(new SetDefaultShopRequest(shopId), CancellationToken.None);
 
         var ok = Assert.IsType<OkObjectResult>(result);
-        Assert.Equal(authResult, ok.Value);
+        Assert.Equal(preference, ok.Value);
 
-        await _bus.Received(1).InvokeAsync<ErrorOr<AuthResult>>(
+        await _bus.Received(1).InvokeAsync<ErrorOr<ShopPreferenceResult>>(
             Arg.Is<SetDefaultShopCommand>(c => c.UserId == userId && c.ShopId == shopId),
             Arg.Any<CancellationToken>());
     }
@@ -210,7 +213,7 @@ public class ShopsControllerTests
     public async Task SetDefaultShop_WhenMembershipMissing_ReturnsForbidden()
     {
         SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, Guid.NewGuid().ToString()));
-        ArrangeBusResponse<AuthResult>(Errors.Shop.MembershipNotFound);
+        ArrangeBusResponse<ShopPreferenceResult>(Errors.Shop.MembershipNotFound);
 
         var result = await _controller.SetDefaultShop(new SetDefaultShopRequest(Guid.NewGuid()), CancellationToken.None);
 
@@ -222,7 +225,7 @@ public class ShopsControllerTests
     public async Task SetDefaultShop_WhenUserNotFound_ReturnsNotFound()
     {
         SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, Guid.NewGuid().ToString()));
-        ArrangeBusResponse<AuthResult>(Errors.Shop.UserNotFound);
+        ArrangeBusResponse<ShopPreferenceResult>(Errors.Shop.UserNotFound);
 
         var result = await _controller.SetDefaultShop(new SetDefaultShopRequest(Guid.NewGuid()), CancellationToken.None);
 
@@ -394,8 +397,14 @@ public class ShopsControllerTests
             .Returns(Task.FromResult(response));
     }
 
+    private static readonly Guid SessionId = Guid.NewGuid();
+
     private void SetUserClaims(params Claim[] claims)
     {
+        // A real request always names its session; live token validation refuses one that does not.
+        if (claims.Length > 0 && !claims.Any(c => c.Type == "sid"))
+            claims = [.. claims, new Claim("sid", SessionId.ToString())];
+
         var identity = claims.Length == 0 ? new ClaimsIdentity() : new ClaimsIdentity(claims, "test");
         _controller.ControllerContext = new ControllerContext
         {
@@ -406,18 +415,15 @@ public class ShopsControllerTests
         };
     }
 
-    private static AuthResult CreateAuthResult(Guid? activeShopId = null)
+    private static AccessScopeResult CreateScopeResult(Guid? activeShopId = null)
     {
-        var userId = Guid.NewGuid();
         var shopId = activeShopId ?? Guid.NewGuid();
 
-        return new AuthResult(
+        return new AccessScopeResult(
             "access-token",
-            "refresh-token",
             DateTimeOffset.UtcNow.AddMinutes(15),
-            DateTimeOffset.UtcNow.AddDays(7),
-            new UserDto(userId, "user@test.com", null, "First", "Last"),
             shopId,
+            1,
             [new UserShopDto(shopId, "Main", "Owner", true, DateTimeOffset.UtcNow)]);
     }
 }

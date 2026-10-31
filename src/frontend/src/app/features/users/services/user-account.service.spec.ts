@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { vi } from 'vitest';
 
-import { AuthResult } from '../../../core/auth/auth.models';
+import { AuthUser } from '../../../core/auth/auth.models';
 import { AuthService } from '../../../core/auth/auth.service';
 import { MEMBERSHIP_ENDPOINTS, USER_ENDPOINTS } from '../../../core/auth/auth.constants';
 import { ChangeMyPasswordRequest, UpdateMyProfileRequest, UserAccountService } from './user-account.service';
@@ -12,17 +12,16 @@ describe('UserAccountService', () => {
   let service: UserAccountService;
   let httpMock: HttpTestingController;
 
-  const mockAuthResult: AuthResult = {
-    accessToken: 'tok',
-    refreshToken: 'ref',
-    accessTokenExpiresAt: new Date().toISOString(),
-    refreshTokenExpiresAt: new Date().toISOString(),
-    user: { id: 'u1', email: 'u@t.com', phoneNumber: null, firstName: 'A', lastName: 'B' },
-    activeShopId: 'sh1',
-    shops: [],
+  const savedProfile: AuthUser = {
+    id: 'u1',
+    email: 'u@t.com',
+    phoneNumber: null,
+    firstName: 'A',
+    lastName: 'B',
   };
 
   const authService = {
+    applyUser: vi.fn(),
     applyAuthResult: vi.fn(),
   };
 
@@ -37,12 +36,13 @@ describe('UserAccountService', () => {
     });
     service = TestBed.inject(UserAccountService);
     httpMock = TestBed.inject(HttpTestingController);
+    authService.applyUser.mockReset();
     authService.applyAuthResult.mockReset();
   });
 
   afterEach(() => httpMock.verify());
 
-  it('updateMyProfile sends PUT and calls applyAuthResult', () => {
+  it('updateMyProfile sends PUT and adopts the saved profile without a new token', () => {
     const payload: UpdateMyProfileRequest = { email: 'u@t.com', phoneNumber: null, firstName: 'A', lastName: 'B' };
     let completed = false;
 
@@ -51,9 +51,11 @@ describe('UserAccountService', () => {
     const req = httpMock.expectOne(USER_ENDPOINTS.me);
     expect(req.request.method).toBe('PUT');
     expect(req.request.body).toEqual(payload);
-    req.flush(mockAuthResult);
+    req.flush(savedProfile);
 
-    expect(authService.applyAuthResult).toHaveBeenCalledWith(mockAuthResult);
+    // Saving a name is not a credential event, so there is no auth result to adopt.
+    expect(authService.applyUser).toHaveBeenCalledWith(savedProfile);
+    expect(authService.applyAuthResult).not.toHaveBeenCalled();
     expect(completed).toBe(true);
   });
 

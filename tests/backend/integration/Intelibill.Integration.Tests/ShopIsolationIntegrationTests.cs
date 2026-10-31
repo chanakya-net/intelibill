@@ -4,9 +4,6 @@ using FluentValidation;
 using FluentValidation.Results;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
-using Intelibill.Application.Features.Shops.Commands.CreateShop;
-using Intelibill.Application.Features.Shops.Commands.SetDefaultShop;
-using Intelibill.Application.Features.Shops.Commands.SwitchActiveShop;
 using Intelibill.Application.Features.Shops.Commands.UpdateShop;
 using Intelibill.Application.Features.Shops.Queries.GetMyShops;
 using Intelibill.Domain.Entities;
@@ -42,243 +39,11 @@ public sealed class ShopIsolationIntegrationTests(PostgreSqlTestFixture fixture)
     private static Shop CreateTestShop(string name, string pincode = "560001") =>
         Shop.Create(name, "Address", "City", "State", pincode, null, null, null);
 
-    [Fact]
-    public async Task SwitchActiveShop_WhenUserDoesNotOwnShop_ReturnsMembershipForbiddenError()
-    {
-        var user = User.CreateWithEmail("user@test.com", "hash", "First", "Last");
-        user.VerifyEmail("user@test.com");
-        var ownShop = CreateTestShop("Own");
-        var ownMembership = ShopMembership.Create(ownShop.Id, user.Id, ShopRole.Owner, true);
-        ownShop.AddMembership(ownMembership);
-        user.AddShopMembership(ownMembership);
-
-        var tokenService = BuildTokenService();
-        var userRepository = new InMemoryUserRepository(user);
-        var refreshTokenRepository = new InMemoryRefreshTokenRepository();
-        var unitOfWork = new InMemoryUnitOfWork();
-
-        var handler = new SwitchActiveShopCommandHandler(userRepository, refreshTokenRepository, tokenService, unitOfWork);
-        var result = await handler.HandleAsync(new SwitchActiveShopCommand(user.Id, Guid.NewGuid(), user.SecurityVersion), CancellationToken.None);
-
-        Assert.True(result.IsError);
-        Assert.Contains(result.Errors, e => e.Code == Errors.Shop.MembershipNotFound.Code);
-    }
-
-    [Fact]
-    public async Task SwitchActiveShop_ForOwnedShop_RotatesTokenWithActiveShopClaim()
-    {
-        var user = User.CreateWithEmail("user@test.com", "hash", "First", "Last");
-        user.VerifyEmail("user@test.com");
-        var firstShop = CreateTestShop("First");
-        var firstMembership = ShopMembership.Create(firstShop.Id, user.Id, ShopRole.Owner, true);
-        firstShop.AddMembership(firstMembership);
-        user.AddShopMembership(firstMembership);
-
-        var secondShop = CreateTestShop("Second", "560002");
-        var secondMembership = ShopMembership.Create(secondShop.Id, user.Id, ShopRole.Owner, false);
-        secondShop.AddMembership(secondMembership);
-        user.AddShopMembership(secondMembership);
-
-        var tokenService = BuildTokenService();
-        var userRepository = new InMemoryUserRepository(user);
-        var refreshTokenRepository = new InMemoryRefreshTokenRepository();
-        var unitOfWork = new InMemoryUnitOfWork();
-
-        var handler = new SwitchActiveShopCommandHandler(userRepository, refreshTokenRepository, tokenService, unitOfWork);
-        var result = await handler.HandleAsync(new SwitchActiveShopCommand(user.Id, secondShop.Id, user.SecurityVersion), CancellationToken.None);
-
-        Assert.False(result.IsError);
-        Assert.Equal(secondShop.Id, result.Value.ActiveShopId);
-
-        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(result.Value.AccessToken);
-        var activeShopClaim = jwt.Claims.FirstOrDefault(c => c.Type == "active_shop_id")?.Value;
-        var activeRoleClaim = jwt.Claims.FirstOrDefault(c => c.Type == "active_shop_role")?.Value;
-        Assert.Equal(secondShop.Id.ToString(), activeShopClaim);
-        Assert.Equal("Owner", activeRoleClaim);
-
-        Assert.Single(refreshTokenRepository.AddedTokens);
-        Assert.True(unitOfWork.SaveChangesCalled);
-    }
-
-    [Fact]
-    public async Task SwitchActiveShop_WhenTargetMembershipIsSuspended_IsRefused()
-    {
-        var user = User.CreateWithEmail("user@test.com", "hash", "First", "Last");
-        user.VerifyEmail("user@test.com");
-        var firstShop = CreateTestShop("First");
-        var firstMembership = ShopMembership.Create(firstShop.Id, user.Id, ShopRole.Owner, true);
-        firstShop.AddMembership(firstMembership);
-        user.AddShopMembership(firstMembership);
-
-        // A Manager assignment is selectable; a suspended one is not. The previous version of
-        // this test asserted the owner-only rule, which blocked multi-store managers.
-        var secondShop = CreateTestShop("Second", "560002");
-        var secondMembership = ShopMembership.Create(secondShop.Id, user.Id, ShopRole.Manager, false);
-        secondMembership.ChangeAuthority(ShopRole.Manager, MembershipStatus.Suspended);
-        secondShop.AddMembership(secondMembership);
-        user.AddShopMembership(secondMembership);
-
-        var tokenService = BuildTokenService();
-        var userRepository = new InMemoryUserRepository(user);
-        var refreshTokenRepository = new InMemoryRefreshTokenRepository();
-        var unitOfWork = new InMemoryUnitOfWork();
-
-        var handler = new SwitchActiveShopCommandHandler(userRepository, refreshTokenRepository, tokenService, unitOfWork);
-        var result = await handler.HandleAsync(new SwitchActiveShopCommand(user.Id, secondShop.Id, user.SecurityVersion), CancellationToken.None);
-
-        Assert.True(result.IsError);
-        Assert.Contains(result.Errors, e => e.Code == Errors.Shop.MembershipNotFound.Code);
-    }
-
-    [Fact]
-    public async Task CreateShop_WhenUserMissing_ReturnsUserNotFoundError()
-    {
-        var tokenService = BuildTokenService();
-        var userRepository = new InMemoryUserRepository(null);
-        var shopRepository = new InMemoryShopRepository();
-        var supplierRepository = new InMemorySupplierRepository();
-        var refreshTokenRepository = new InMemoryRefreshTokenRepository();
-        var unitOfWork = new InMemoryUnitOfWork();
-
-        var handler = new CreateShopCommandHandler(
-            userRepository,
-            shopRepository,
-            supplierRepository,
-            refreshTokenRepository,
-            tokenService,
-            unitOfWork);
-
-        var result = await handler.HandleAsync(
-            new CreateShopCommand(Guid.NewGuid(), "Main", "Address", "City", "State", "560001", null, null, null),
-            CancellationToken.None);
-
-        Assert.True(result.IsError);
-        Assert.Contains(result.Errors, e => e.Code == Errors.Shop.UserNotFound.Code);
-        Assert.Empty(shopRepository.AddedShops);
-    }
-
-    [Fact]
-    public async Task CreateShop_WhenValid_CreatesDefaultShopAndReturnsAuthResult()
-    {
-        var user = User.CreateWithEmail("user@test.com", "hash", "First", "Last");
-        user.VerifyEmail("user@test.com");
-        var tokenService = BuildTokenService();
-        var userRepository = new InMemoryUserRepository(user);
-        var shopRepository = new InMemoryShopRepository();
-        var supplierRepository = new InMemorySupplierRepository();
-        var refreshTokenRepository = new InMemoryRefreshTokenRepository();
-        var unitOfWork = new InMemoryUnitOfWork();
-
-        var handler = new CreateShopCommandHandler(
-            userRepository,
-            shopRepository,
-            supplierRepository,
-            refreshTokenRepository,
-            tokenService,
-            unitOfWork);
-
-        var result = await handler.HandleAsync(
-            new CreateShopCommand(
-                user.Id,
-                "  Main Shop  ",
-                "  42 MG Road  ",
-                "  Bengaluru  ",
-                "  Karnataka  ",
-                "  560001  ",
-                "  Chandra  ",
-                "  9876543210  ",
-                "  27AAPFU0939F1ZV  ",
-                user.SecurityVersion),
-            CancellationToken.None);
-
-        Assert.False(result.IsError);
-        Assert.Equal("Main Shop", shopRepository.AddedShops.Single().Name);
-        Assert.Equal("42 MG Road", shopRepository.AddedShops.Single().Address);
-        Assert.Equal("Bengaluru", shopRepository.AddedShops.Single().City);
-        Assert.Equal("Karnataka", shopRepository.AddedShops.Single().State);
-        Assert.Equal("560001", shopRepository.AddedShops.Single().Pincode);
-        Assert.Equal("Chandra", shopRepository.AddedShops.Single().ContactPerson);
-        Assert.Equal("9876543210", shopRepository.AddedShops.Single().MobileNumber);
-        Assert.Equal("27AAPFU0939F1ZV", shopRepository.AddedShops.Single().GstNumber);
-        Assert.Equal(user.Id, result.Value.User.Id);
-        Assert.NotNull(result.Value.ActiveShopId);
-        Assert.NotNull(result.Value.Shops);
-        var onlyShop = Assert.Single(result.Value.Shops!);
-        Assert.True(onlyShop.IsDefault);
-        Assert.Single(refreshTokenRepository.AddedTokens);
-        Assert.True(unitOfWork.SaveChangesCalled);
-    }
-
-    [Fact]
-    public async Task SetDefaultShop_WhenUserMissing_ReturnsUserNotFoundError()
-    {
-        var tokenService = BuildTokenService();
-        var userRepository = new InMemoryUserRepository(null);
-        var refreshTokenRepository = new InMemoryRefreshTokenRepository();
-        var unitOfWork = new InMemoryUnitOfWork();
-
-        var handler = new SetDefaultShopCommandHandler(userRepository, refreshTokenRepository, tokenService, unitOfWork);
-        var result = await handler.HandleAsync(new SetDefaultShopCommand(Guid.NewGuid(), Guid.NewGuid()), CancellationToken.None);
-
-        Assert.True(result.IsError);
-        Assert.Contains(result.Errors, e => e.Code == Errors.Shop.UserNotFound.Code);
-    }
-
-    [Fact]
-    public async Task SetDefaultShop_WhenMembershipMissing_ReturnsForbiddenError()
-    {
-        var user = User.CreateWithEmail("user@test.com", "hash", "First", "Last");
-        user.VerifyEmail("user@test.com");
-        var existingShop = CreateTestShop("Existing");
-        var existingMembership = ShopMembership.Create(existingShop.Id, user.Id, ShopRole.Owner, true);
-        existingMembership.MarkUsed();
-        existingShop.AddMembership(existingMembership);
-        user.AddShopMembership(existingMembership);
-
-        var tokenService = BuildTokenService();
-        var userRepository = new InMemoryUserRepository(user);
-        var refreshTokenRepository = new InMemoryRefreshTokenRepository();
-        var unitOfWork = new InMemoryUnitOfWork();
-
-        var handler = new SetDefaultShopCommandHandler(userRepository, refreshTokenRepository, tokenService, unitOfWork);
-        var result = await handler.HandleAsync(new SetDefaultShopCommand(user.Id, Guid.NewGuid(), user.SecurityVersion), CancellationToken.None);
-
-        Assert.True(result.IsError);
-        Assert.Contains(result.Errors, e => e.Code == Errors.Shop.MembershipNotFound.Code);
-    }
-
-    [Fact]
-    public async Task SetDefaultShop_WhenValid_UpdatesDefaultAndReturnsAuthResult()
-    {
-        var user = User.CreateWithEmail("user@test.com", "hash", "First", "Last");
-        user.VerifyEmail("user@test.com");
-
-        var firstShop = CreateTestShop("First");
-        var firstMembership = ShopMembership.Create(firstShop.Id, user.Id, ShopRole.Owner, true);
-        firstMembership.MarkUsed();
-        firstShop.AddMembership(firstMembership);
-        user.AddShopMembership(firstMembership);
-
-        var secondShop = CreateTestShop("Second", "560002");
-        var secondMembership = ShopMembership.Create(secondShop.Id, user.Id, ShopRole.Manager, false);
-        secondShop.AddMembership(secondMembership);
-        user.AddShopMembership(secondMembership);
-
-        var tokenService = BuildTokenService();
-        var userRepository = new InMemoryUserRepository(user);
-        var refreshTokenRepository = new InMemoryRefreshTokenRepository();
-        var unitOfWork = new InMemoryUnitOfWork();
-
-        var handler = new SetDefaultShopCommandHandler(userRepository, refreshTokenRepository, tokenService, unitOfWork);
-        var result = await handler.HandleAsync(new SetDefaultShopCommand(user.Id, secondShop.Id, user.SecurityVersion), CancellationToken.None);
-
-        Assert.False(result.IsError);
-        Assert.Equal(secondShop.Id, result.Value.ActiveShopId);
-        Assert.False(firstMembership.IsDefault);
-        Assert.True(secondMembership.IsDefault);
-        Assert.Single(refreshTokenRepository.AddedTokens);
-        Assert.True(unitOfWork.SaveChangesCalled);
-    }
+    // The shop-switch, create-shop and default-shop handler cases that used to live here were
+    // removed rather than rewritten: the rules they asserted now belong to the session service,
+    // where they are tested directly against it, and the end-to-end behaviour — including that a
+    // switch moves only the requesting device — is covered against real PostgreSQL in
+    // SessionLifecycleIntegrationTests.
 
     [Fact]
     public async Task GetMyShops_WhenUserMissing_ReturnsUserNotFoundError()
@@ -401,28 +166,6 @@ public sealed class ShopIsolationIntegrationTests(PostgreSqlTestFixture fixture)
         Assert.Contains(result.Errors, e => e.Code == Errors.Shop.UserIsNotOwner.Code);
     }
 
-    private static TokenService BuildTokenService()
-    {
-        var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["Database:Host"] = "localhost",
-                ["Database:Port"] = "5432",
-                ["Database:Database"] = "integration",
-                ["Database:Username"] = "integration",
-                ["Database:Password"] = "integration",
-                ["Jwt:Secret"] = "integration-secret-key-must-be-at-least-32-chars!",
-                ["Jwt:Issuer"] = "inventory.ai.integration",
-                ["Jwt:Audience"] = "inventory.ai.integration",
-                ["Jwt:AccessTokenExpiryMinutes"] = "15",
-                ["Jwt:RefreshTokenExpiryDays"] = "7"
-            })
-            .Build();
-
-        var options = Microsoft.Extensions.Options.Options.Create(configuration.GetSection("Jwt").Get<JwtOptions>()!);
-        return new TokenService(options, new HmacJwtSigner(options), TimeProvider.System);
-    }
-
     private sealed class InMemoryUserRepository(User? user) : IUserRepository
     {
         public Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken = default) => Task.FromResult<User?>(null);
@@ -496,26 +239,6 @@ public sealed class ShopIsolationIntegrationTests(PostgreSqlTestFixture fixture)
 
         public void Update(Shop entity) { }
         public void Remove(Shop entity) { }
-    }
-
-    private sealed class InMemoryRefreshTokenRepository : IRefreshTokenRepository
-    {
-        public List<RefreshToken> AddedTokens { get; } = [];
-
-        public Task<RefreshToken?> GetActiveByTokenAsync(string token, CancellationToken cancellationToken = default) => Task.FromResult<RefreshToken?>(null);
-        public Task RevokeAllForUserAsync(Guid userId, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task<RefreshToken?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult<RefreshToken?>(null);
-        public Task<IReadOnlyList<RefreshToken>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<RefreshToken>>([]);
-        public Task<IReadOnlyList<RefreshToken>> FindAsync(System.Linq.Expressions.Expression<Func<RefreshToken, bool>> predicate, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<RefreshToken>>([]);
-
-        public Task AddAsync(RefreshToken entity, CancellationToken cancellationToken = default)
-        {
-            AddedTokens.Add(entity);
-            return Task.CompletedTask;
-        }
-
-        public void Update(RefreshToken entity) { }
-        public void Remove(RefreshToken entity) { }
     }
 
     private sealed class InMemorySupplierRepository : ISupplierRepository

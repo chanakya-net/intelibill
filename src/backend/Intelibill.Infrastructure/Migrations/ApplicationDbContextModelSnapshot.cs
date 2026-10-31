@@ -23,6 +23,84 @@ namespace Intelibill.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Intelibill.Domain.Entities.AuthSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("ActiveShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("active_shop_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedFromIp")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("created_from_ip");
+
+                    b.Property<string>("DeviceLabel")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("device_label");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<DateTimeOffset>("LastSeenAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_seen_at");
+
+                    b.Property<string>("RecoveryEpoch")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("recovery_epoch");
+
+                    b.Property<string>("RevocationReason")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("revocation_reason");
+
+                    b.Property<DateTimeOffset?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revoked_at");
+
+                    b.Property<long>("ScopeVersion")
+                        .HasColumnType("bigint")
+                        .HasColumnName("scope_version");
+
+                    b.Property<long>("SecurityVersion")
+                        .HasColumnType("bigint")
+                        .HasColumnName("security_version");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UserAgent")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("user_agent");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_auth_sessions");
+
+                    b.HasIndex("UserId", "RevokedAt")
+                        .HasDatabaseName("ix_auth_sessions_user_id_revoked_at");
+
+                    b.ToTable("auth_sessions", (string)null);
+                });
+
             modelBuilder.Entity("Intelibill.Domain.Entities.BankAccount", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1965,6 +2043,10 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<Guid?>("AuthSessionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("auth_session_id");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -2001,6 +2083,9 @@ namespace Intelibill.Infrastructure.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_refresh_tokens");
+
+                    b.HasIndex("AuthSessionId")
+                        .HasDatabaseName("ix_refresh_tokens_auth_session_id");
 
                     b.HasIndex("Token")
                         .IsUnique()
@@ -3305,6 +3390,18 @@ namespace Intelibill.Infrastructure.Migrations
                     b.ToTable("users", (string)null);
                 });
 
+            modelBuilder.Entity("Intelibill.Domain.Entities.AuthSession", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_auth_sessions_users_user_id");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Intelibill.Domain.Entities.BankAccount", b =>
                 {
                     b.HasOne("Intelibill.Domain.Entities.Shop", null)
@@ -3758,6 +3855,12 @@ namespace Intelibill.Infrastructure.Migrations
 
             modelBuilder.Entity("Intelibill.Domain.Entities.RefreshToken", b =>
                 {
+                    b.HasOne("Intelibill.Domain.Entities.AuthSession", null)
+                        .WithMany()
+                        .HasForeignKey("AuthSessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("fk_refresh_tokens_auth_sessions_auth_session_id");
+
                     b.HasOne("Intelibill.Domain.Entities.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")

@@ -39,4 +39,27 @@ public class RefreshTokenTests
         Assert.NotNull(token.RevokedAt);
         Assert.False(token.IsActive);
     }
+
+    /// <summary>
+    /// A refresh credential belongs to the device whose session earned it, so revoking that one
+    /// device also ends its refresh family without touching the account's other devices.
+    /// </summary>
+    [Fact]
+    public void BindSession_TiesTheTokenToOneDeviceSession()
+    {
+        var token = RefreshToken.Create(Guid.NewGuid(), "token", DateTimeOffset.UtcNow.AddHours(1));
+        var sessionId = Guid.NewGuid();
+
+        token.BindSession(sessionId);
+
+        Assert.Equal(sessionId, token.AuthSessionId);
+    }
+
+    [Fact]
+    public void Create_LeavesTheSessionUnboundUntilItIsKnown()
+    {
+        var token = RefreshToken.Create(Guid.NewGuid(), "token", DateTimeOffset.UtcNow.AddHours(1));
+
+        Assert.Null(token.AuthSessionId);
+    }
 }

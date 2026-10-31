@@ -441,11 +441,15 @@ public sealed class ShopsControllerTests(PostgreSqlTestFixture fixture) : IAsync
         setDefault.Content = JsonContent.Create(new { shopId = shopId2 });
         var setResponse = await client.SendAsync(setDefault);
         Assert.Equal(HttpStatusCode.OK, setResponse.StatusCode);
-        var newToken = (await setResponse.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("accessToken").GetString()!;
+
+        // Saving the default issues no token: it is a stored preference, so the device that saved it
+        // keeps the one it already had.
+        var saved = await setResponse.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("accessToken", saved, StringComparison.OrdinalIgnoreCase);
 
         // Verify shop2 is now default in /me
         using var meRequest = new HttpRequestMessage(HttpMethod.Get, "/api/shops/me");
-        meRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", newToken);
+        meRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken2);
         var meResponse = await client.SendAsync(meRequest);
         Assert.Equal(HttpStatusCode.OK, meResponse.StatusCode);
         var shops = await meResponse.Content.ReadFromJsonAsync<JsonElement>();

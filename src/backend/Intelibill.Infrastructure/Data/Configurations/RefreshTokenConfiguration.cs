@@ -26,5 +26,14 @@ internal sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refre
             .WithMany()
             .HasForeignKey(rt => rt.UserId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // Nullable for the rows that predate sessions; a null session is refused on rotation
+        // rather than adopted, so no device is ever invented from a legacy credential.
+        builder.HasOne<AuthSession>()
+            .WithMany()
+            .HasForeignKey(rt => rt.AuthSessionId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasIndex(rt => rt.AuthSessionId);
     }
 }

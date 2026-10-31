@@ -88,7 +88,7 @@ public sealed class UsersController : AuthenticatedControllerBase
         var auth = CheckAuth();
         if (auth is not null) return auth;
 
-        var result = await Bus.InvokeAsync<ErrorOr.ErrorOr<AuthResult>>(
+        var result = await Bus.InvokeAsync<ErrorOr.ErrorOr<UserDto>>(
             new UpdateMyProfileCommand(UserId!.Value, request.Email, request.PhoneNumber, request.FirstName, request.LastName, request.Language, SecurityVersion),
             cancellationToken);
 

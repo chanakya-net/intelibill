@@ -715,7 +715,7 @@ public sealed class DiscountPricingIntegrationTests(PostgreSqlTestFixture fixtur
     public async Task PreviewSale_DoesNotApplyDiscountRuleFromOtherShop()
     {
         using var client = CreateClient();
-        var token = await RegisterAsync(client);
+        var (email, token) = await RegisterWithEmailAsync(client);
 
         var shopAToken = await CreateShopAsync(client, token);
         await CreateDiscountRuleAsync(client, shopAToken, new
@@ -732,7 +732,9 @@ public sealed class DiscountPricingIntegrationTests(PostgreSqlTestFixture fixtur
             belowCostConfirmationReason = (string?)null,
         });
 
-        var shopBToken = await CreateShopAsync(client, token);
+        // Shop B belongs to a second device: one session is scoped to one shop, so the shop-A token
+        // cannot also open shop B.
+        var shopBToken = await CreateShopAsync(client, await SignInAsync(client, email));
         var barcode = UniqueBarcode();
         var inbound = await AddInventoryAsync(
             client,
@@ -782,6 +784,34 @@ public sealed class DiscountPricingIntegrationTests(PostgreSqlTestFixture fixtur
 
     private static string UniqueEmail() => $"discount-pricing-{Guid.NewGuid():N}@test.com";
     private static string UniqueBarcode() => $"DISC-PRICE-{Guid.NewGuid():N}";
+
+    /// <summary>
+    /// Enrolls and returns the address as well as the token, so a test that needs a second device
+    /// can sign in again. A session is scoped to one shop at a time, so two shops means two
+    /// sessions.
+    /// </summary>
+    private static async Task<(string Email, string Token)> RegisterWithEmailAsync(HttpClient client)
+    {
+        var email = UniqueEmail();
+        var response = await client.EnrollAsync(new
+        {
+            email,
+            password = "Pass123!Aa",
+            firstName = "Test",
+            lastName = "User",
+            phoneNumber = $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}"
+        });
+        response.EnsureSuccessStatusCode();
+        var created = await response.Content.ReadFromJsonAsync<JsonElement>();
+        return (email, created.GetProperty("accessToken").GetString()!);
+    }
+
+    private static async Task<string> SignInAsync(HttpClient client, string email)
+    {
+        var response = await client.PostAsJsonAsync("/api/auth/login", new { identifier = email, password = "Pass123!Aa" });
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("accessToken").GetString()!;
+    }
 
     private static async Task<string> RegisterAsync(HttpClient client)
     {

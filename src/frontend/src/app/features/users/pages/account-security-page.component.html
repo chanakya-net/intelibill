@@ -84,5 +84,64 @@
       [label]="'identity.tryAgain' | transloco"
     ></button>
   }
+  <section class="devices">
+    <h2>{{ 'identity.devices' | transloco }}</h2>
+    <p>{{ 'identity.devicesDescription' | transloco }}</p>
+    @if (devices().length) {
+      <ul>
+        @for (device of devices(); track device.sessionId) {
+          <li>
+            <span class="device-name">{{
+              device.deviceLabel || device.userAgent || ('identity.deviceUnknown' | transloco)
+            }}</span>
+            @if (device.isCurrent) {
+              <span class="device-current">{{ 'identity.thisDevice' | transloco }}</span>
+            }
+            <span class="device-seen"
+              >{{ 'identity.lastSeen' | transloco }}: {{ device.lastSeenAt | date: 'short' }}</span
+            >
+            <button
+              pButton
+              type="button"
+              severity="secondary"
+              [disabled]="devicesBusy()"
+              (click)="endDevice(device)"
+              [label]="'identity.endDevice' | transloco"
+            ></button>
+          </li>
+        }
+      </ul>
+      @if (confirmingEndAll()) {
+        <p role="alert">{{ 'identity.endAllConfirm' | transloco }}</p>
+        <button
+          pButton
+          type="button"
+          severity="danger"
+          [disabled]="devicesBusy()"
+          (click)="endAllDevices()"
+          [label]="'identity.endAllDevices' | transloco"
+        ></button>
+        <button
+          pButton
+          type="button"
+          severity="secondary"
+          [disabled]="devicesBusy()"
+          (click)="cancelEndAllDevices()"
+          [label]="'common.cancel' | transloco"
+        ></button>
+      } @else {
+        <button
+          pButton
+          type="button"
+          severity="danger"
+          [disabled]="devicesBusy()"
+          (click)="askEndAllDevices()"
+          [label]="'identity.endAllDevices' | transloco"
+        ></button>
+      }
+    } @else if (!devicesBusy()) {
+      <p>{{ 'identity.noDevices' | transloco }}</p>
+    }
+  </section>
   <a routerLink="/">{{ 'shell.dashboard' | transloco }}</a>
 </section>

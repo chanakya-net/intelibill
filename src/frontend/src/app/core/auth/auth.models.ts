@@ -65,6 +65,42 @@ export interface AuthResult {
   readonly user: AuthUser;
   readonly activeShopId: string | null;
   readonly shops: readonly UserShop[];
+  /** This device's session, so it can recognise itself in its own session list. */
+  readonly sessionId?: string | null;
+}
+
+/**
+ * What a shop switch or a shop creation returns: a replacement access token for this device and no
+ * new refresh secret. Choosing a shop is not a credential event, so it must not mint one.
+ */
+export interface AccessScopeResult {
+  readonly accessToken: string;
+  readonly accessTokenExpiresAt: string;
+  readonly activeShopId: string | null;
+  readonly scopeVersion: number;
+  readonly shops: readonly UserShop[];
+}
+
+/**
+ * What saving the default shop returns: the stored preference, with no token at all. This device
+ * keeps the shop its operator is already working in.
+ */
+export interface ShopPreferenceResult {
+  readonly activeShopId: string | null;
+  readonly shops: readonly UserShop[];
+}
+
+/** One of the signed-in devices on this account, as shown to its owner. */
+export interface DeviceSession {
+  readonly sessionId: string;
+  readonly deviceLabel: string | null;
+  readonly userAgent: string | null;
+  readonly ipAddress: string | null;
+  readonly activeShopId: string | null;
+  readonly createdAt: string;
+  readonly lastSeenAt: string;
+  readonly expiresAt: string;
+  readonly isCurrent: boolean;
 }
 
 export interface AuthSession {
@@ -76,6 +112,7 @@ export interface AuthSession {
   readonly user: AuthUser;
   readonly activeShopId: string | null;
   readonly shops: readonly UserShop[];
+  readonly sessionId?: string | null;
 }
 
 export interface ApiErrorPayload {

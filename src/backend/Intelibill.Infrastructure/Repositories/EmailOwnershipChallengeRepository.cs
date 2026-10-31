@@ -49,7 +49,16 @@ internal sealed class EmailOwnershipChallengeRepository(ApplicationDbContext db,
     }
     public async Task InvalidateCredentialsAsync(Guid userId, CancellationToken ct)
     {
-        await db.RefreshTokens.Where(x => x.UserId == userId && !x.IsRevoked).ExecuteUpdateAsync(s => s.SetProperty(x => x.IsRevoked, true).SetProperty(x => x.RevokedAt, DateTimeOffset.UtcNow), ct);
+        var now = DateTimeOffset.UtcNow;
+        // The account row first, before any session row. Every other security transition takes
+        // users -> auth_sessions -> refresh_tokens, and a renewal running concurrently holds the
+        // account row while it touches the session; acquiring these the other way round here would
+        // make the two deadlock. Callers that already hold this lock simply re-acquire it.
+        _ = await db.Database.SqlQuery<Guid>($"SELECT id AS \"Value\" FROM users WHERE id = {userId} FOR UPDATE").ToListAsync(ct);
+        // Sessions as well as refresh families: a claimed account's previously signed-in devices
+        // must not survive the claim.
+        await db.AuthSessions.Where(x => x.UserId == userId && x.RevokedAt == null).ExecuteUpdateAsync(s => s.SetProperty(x => x.RevokedAt, now).SetProperty(x => x.RevocationReason, "credentials-invalidated"), ct);
+        await db.RefreshTokens.Where(x => x.UserId == userId && !x.IsRevoked).ExecuteUpdateAsync(s => s.SetProperty(x => x.IsRevoked, true).SetProperty(x => x.RevokedAt, now), ct);
         await db.PasswordResetTokens.Where(x => x.UserId == userId).ExecuteDeleteAsync(ct);
     }
     public void Add(EmailOwnershipChallenge challenge) => db.Add(challenge);

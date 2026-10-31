@@ -1,19 +1,21 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
-using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Auth.DTOs;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 
 namespace Intelibill.Application.Features.Users.Commands.UpdateMyProfile;
 
+/// <summary>
+/// Saves the caller's own name, phone number and language. It returns the saved profile and nothing
+/// else: editing a profile is not a credential event, and the session the request arrived on
+/// carries on unchanged.
+/// </summary>
 public sealed class UpdateMyProfileCommandHandler(
     IUserRepository userRepository,
-    IRefreshTokenRepository refreshTokenRepository,
-    ITokenService tokenService,
     IUnitOfWork unitOfWork)
 {
-    public async Task<ErrorOr<AuthResult>> HandleAsync(
+    public async Task<ErrorOr<UserDto>> HandleAsync(
         UpdateMyProfileCommand command,
         CancellationToken cancellationToken)
     {
@@ -21,7 +23,7 @@ public sealed class UpdateMyProfileCommandHandler(
         if (user is null)
             return Errors.Auth.UserNotFound;
         if (user.SecurityVersion != command.SecurityVersion || !user.IsLoginEnabled)
-            return Error.Unauthorized("Auth.SessionInvalidated", "Sign in again to continue.");
+            return Errors.Auth.SessionInvalidated;
 
         var normalizedEmail = string.IsNullOrWhiteSpace(command.Email) ? null : command.Email.Trim().ToLowerInvariant();
         var normalizedPhone = string.IsNullOrWhiteSpace(command.PhoneNumber)
@@ -38,22 +40,8 @@ public sealed class UpdateMyProfileCommandHandler(
 
         user.UpdateProfile(normalizedEmail ?? string.Empty, normalizedPhone, command.FirstName, command.LastName, command.Language);
         userRepository.Update(user);
-
-        var (activeShopId, activeShopRole, shops) = AuthShopSelection.Resolve(user);
-        var (accessToken, accessTokenExpiry) = await tokenService.GenerateAccessTokenAsync(user, activeShopId, activeShopRole, cancellationToken);
-        var refreshToken = tokenService.CreateRefreshToken(user.Id);
-        refreshToken.BindSecurityVersion(user.SecurityVersion);
-
-        await refreshTokenRepository.AddAsync(refreshToken, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return new AuthResult(
-            accessToken,
-            refreshToken.Token,
-            accessTokenExpiry,
-            refreshToken.ExpiresAt,
-            new UserDto(user.Id, user.Email, user.PhoneNumber, user.FirstName, user.LastName, user.Language),
-            activeShopId,
-            shops);
+        return new UserDto(user.Id, user.Email, user.PhoneNumber, user.FirstName, user.LastName, user.Language);
     }
 }
