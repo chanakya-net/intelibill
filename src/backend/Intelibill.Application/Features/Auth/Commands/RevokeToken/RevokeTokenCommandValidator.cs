@@ -6,6 +6,6 @@ internal sealed class RevokeTokenCommandValidator : AbstractValidator<RevokeToke
 {
     public RevokeTokenCommandValidator()
     {
-        RuleFor(x => x.RefreshToken).NotEmpty();
+        RuleFor(x => x.RefreshToken).NotEmpty().MaximumLength(256);
     }
 }

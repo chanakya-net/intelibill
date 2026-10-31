@@ -1,5 +1,6 @@
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Interfaces.Repositories;
+using Intelibill.Domain.ValueObjects;
 using Intelibill.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -8,20 +9,16 @@ namespace Intelibill.Infrastructure.Repositories;
 internal sealed class RefreshTokenRepository(ApplicationDbContext context)
     : RepositoryBase<RefreshToken>(context), IRefreshTokenRepository
 {
-    public async Task<RefreshToken?> GetActiveByTokenAsync(string token, CancellationToken cancellationToken = default) =>
-        await DbSet
-            .Include(rt => rt.User)
-            .ThenInclude(u => u.ShopMemberships)
-            .ThenInclude(sm => sm.Shop)
-            .FirstOrDefaultAsync(rt => rt.Token == token && !rt.IsRevoked && rt.ExpiresAt > DateTimeOffset.UtcNow, cancellationToken);
+    public Task<RefreshTokenOwner?> FindOwnerByHashAsync(string tokenHash, CancellationToken ct) =>
+        DbSet
+            .AsNoTracking()
+            .Where(x => x.TokenHash == tokenHash)
+            .Select(x => new RefreshTokenOwner(x.Id, x.UserId, x.AuthSessionId))
+            .FirstOrDefaultAsync(ct);
 
-    public async Task RevokeAllForUserAsync(Guid userId, CancellationToken cancellationToken = default)
-    {
-        var tokens = await DbSet
-            .Where(rt => rt.UserId == userId && !rt.IsRevoked)
-            .ToListAsync(cancellationToken);
-
-        foreach (var t in tokens)
-            t.Revoke();
-    }
+    public Task<RefreshToken?> LockAsync(Guid tokenId, CancellationToken ct) =>
+        Context.LockTrackedAsync(
+            DbSet.FromSql($"SELECT * FROM refresh_tokens WHERE id = {tokenId} FOR UPDATE"),
+            tokenId,
+            ct);
 }

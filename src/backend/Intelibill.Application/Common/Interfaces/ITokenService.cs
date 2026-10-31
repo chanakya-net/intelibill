@@ -18,5 +18,9 @@ public interface ITokenService
         string? activeShopRole,
         CancellationToken cancellationToken = default);
 
-    RefreshToken CreateRefreshToken(Guid userId);
+    /// <summary>
+    /// Mints a refresh secret on the configured lifetime. The caller stores only its hash, bound to
+    /// the session it renews.
+    /// </summary>
+    RefreshSecret CreateRefreshSecret();
 }

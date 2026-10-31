@@ -38,10 +38,19 @@ public interface IAuthSessionService
         CancellationToken ct);
 
     /// <summary>
-    /// Rotates a refresh credential inside the session that holds it. The session id does not
-    /// change, so a device keeps its identity across renewals.
+    /// Exchanges a refresh credential for its one successor inside the session that holds it. The
+    /// session id does not change, so a device keeps its identity across renewals. A credential that
+    /// was already exchanged ends its session instead: a second use is indistinguishable from the
+    /// replay of a stolen copy.
     /// </summary>
     Task<ErrorOr<AuthResult>> RotateAsync(string refreshToken, Guid? preferredShopId, CancellationToken ct);
+
+    /// <summary>
+    /// Ordinary sign-out: ends the device session the credential belongs to, with every credential
+    /// it issued. Takes the same locks in the same order as <see cref="RotateAsync"/>, so a renewal
+    /// running alongside cannot leave a successor behind.
+    /// </summary>
+    Task<ErrorOr<Success>> SignOutAsync(string refreshToken, CancellationToken ct);
 
     /// <summary>
     /// Moves one device into a shop it holds a live membership in and reissues only its access

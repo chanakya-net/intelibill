@@ -23,6 +23,12 @@ public interface IAuthSessionRepository
 
     Task<AuthSession?> FindAsync(Guid userId, Guid sessionId, CancellationToken ct);
 
+    /// <summary>
+    /// Locks the session row and returns it with the values read under that lock. Take the account
+    /// lock first: the order is users -> auth_sessions -> refresh_tokens.
+    /// </summary>
+    Task<AuthSession?> LockAsync(Guid userId, Guid sessionId, CancellationToken ct);
+
     Task<IReadOnlyList<AuthSession>> ListAsync(Guid userId, CancellationToken ct);
 
     /// <summary>
@@ -31,6 +37,7 @@ public interface IAuthSessionRepository
     /// </summary>
     Task<int> RevokeAllAsync(Guid userId, Guid? exceptSessionId, string reason, DateTimeOffset now, CancellationToken ct);
 
+    /// <summary>Ends one session and every refresh credential it issued, recording why.</summary>
     Task RevokeAsync(AuthSession session, string reason, DateTimeOffset now, CancellationToken ct);
 
     Task<bool> CommitAsync(CancellationToken ct);

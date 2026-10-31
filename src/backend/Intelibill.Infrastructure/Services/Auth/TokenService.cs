@@ -1,9 +1,9 @@
 using System.IdentityModel.Tokens.Jwt;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Common.Security;
 using Intelibill.Domain.Entities;
 using Intelibill.Infrastructure.Options;
 using Intelibill.Infrastructure.Data;
@@ -104,13 +104,12 @@ internal sealed class TokenService(IOptions<JwtOptions> options, IJwtSigner sign
         return (string.Concat(signingInput, ".", Base64UrlEncoder.Encode(signature)), expiresAt);
     }
 
-    public RefreshToken CreateRefreshToken(Guid userId)
+    public RefreshSecret CreateRefreshSecret()
     {
-        var bytes = new byte[64];
-        RandomNumberGenerator.Fill(bytes);
-        var token = Convert.ToBase64String(bytes);
-        var expiresAt = timeProvider.GetUtcNow().AddDays(_jwt.RefreshTokenExpiryDays);
-
-        return RefreshToken.Create(userId, token, expiresAt);
+        var token = RefreshTokenSecrets.NewToken();
+        return new RefreshSecret(
+            token,
+            RefreshTokenSecrets.Hash(token),
+            timeProvider.GetUtcNow().AddDays(_jwt.RefreshTokenExpiryDays));
     }
 }

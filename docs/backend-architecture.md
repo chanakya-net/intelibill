@@ -58,6 +58,42 @@ For authenticated requests, `active_shop_id` is extracted from JWT and set as a 
 - `PostgresSessionContextInterceptor` sets `app.current_user_id` and `app.active_shop_id` per request
 - Auth responses include `activeShopId` and accessible shop list
 
+## Refresh Credentials
+
+A refresh credential renews one device session (`AuthSession`) and is single-use.
+
+- **Storage.** The client receives 64 random bytes as Base64Url. `refresh_tokens.token_hash` keeps the
+  hex SHA-256 of that string (`RefreshTokenSecrets`); the secret itself is never stored or logged.
+  Request, command and `AuthResult` records leave bearer credentials out of their `ToString()`.
+- **Rotation** (`AuthSessionService.RotateAsync`). Look the credential up by hash, then lock
+  `users` → `auth_sessions` → `refresh_tokens` (the order every security transition takes) and decide
+  only on values read under those locks. The presented credential is marked `consumed_at` and exactly
+  one successor is linked to it (`parent_token_id`, unique). The access token is signed before commit,
+  so a signing or database failure leaves no successor.
+- **Reuse.** The session is the rotation family. A consumed credential presented again — to renew or to
+  sign out — ends its session and every credential it issued (`refresh-reuse`), commits that, then
+  returns the generic `Auth.InvalidRefreshToken`. The warning log names session, credential and user
+  ids only. Unknown, revoked and expired (`now >= ExpiresAt`) credentials are refused and end nothing.
+- **Browser.** `RefreshCoordinator` serializes renewals per user across tabs (Web Locks API, bounded
+  localStorage lease fallback); keyed by user because a restored tab may not know its session id. A tab
+  that waited adopts the successor another tab stored for the same user and session. A refusal is final
+  and is never followed by adopting stored state. The refresh request times out after 12 s (treated as
+  a lost connection), and a result that arrives after the tab signed out or switched account is
+  dropped rather than applied.
+
+**Support answer — "I was signed out after a refresh."** Policy is strict: there is no grace window and
+no replayable copy of a successor is kept. If a renewal reached the server but its response was lost
+(network drop, closed laptop lid), the browser still holds the spent credential and the next attempt
+ends that device's session; the person signs in again. The same happens if a copy of the credential is
+used elsewhere — which is the point. Other devices on the account are unaffected.
+
+**Schema rollout.** `20261101090000_HashRefreshTokensAndChainRotations` is the expand step: `token`
+stays (nullable, emptied) and `is_revoked` stays in step with `revoked_at` while the previous revision
+serves. Every pre-existing credential and live session is revoked, so everyone signs in once. The
+contract migration (separate change) re-runs the hash-and-revoke step for rows the previous revision
+wrote during the deploy window, ends the sessions that hold no hashed credential, drops `token` and its
+index, and makes `token_hash` required.
+
 ## Test Structure
 
 | Suite | Path | Count |

@@ -2047,6 +2047,10 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("auth_session_id");
 
+                    b.Property<DateTimeOffset?>("ConsumedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("consumed_at");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -2059,6 +2063,15 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_revoked");
 
+                    b.Property<Guid?>("ParentTokenId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("parent_token_id");
+
+                    b.Property<string>("RevocationReason")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("revocation_reason");
+
                     b.Property<DateTimeOffset?>("RevokedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("revoked_at");
@@ -2067,11 +2080,10 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("security_version");
 
-                    b.Property<string>("Token")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("token");
+                    b.Property<string>("TokenHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("token_hash");
 
                     b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -2087,9 +2099,14 @@ namespace Intelibill.Infrastructure.Migrations
                     b.HasIndex("AuthSessionId")
                         .HasDatabaseName("ix_refresh_tokens_auth_session_id");
 
-                    b.HasIndex("Token")
+                    b.HasIndex("ParentTokenId")
                         .IsUnique()
-                        .HasDatabaseName("ix_refresh_tokens_token");
+                        .HasDatabaseName("ix_refresh_tokens_parent_token_id")
+                        .HasFilter("parent_token_id IS NOT NULL");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique()
+                        .HasDatabaseName("ix_refresh_tokens_token_hash");
 
                     b.HasIndex("UserId")
                         .HasDatabaseName("ix_refresh_tokens_user_id");

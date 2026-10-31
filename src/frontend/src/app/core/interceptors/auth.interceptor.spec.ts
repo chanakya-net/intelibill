@@ -10,7 +10,7 @@ import { AuthService } from '../auth/auth.service';
 import { authInterceptor } from './auth.interceptor';
 
 describe('authInterceptor', () => {
-  const sessionSignal = signal<{ activeShopId: string | null } | null>(null);
+  const sessionSignal = signal<{ activeShopId: string | null; user?: { id: string } } | null>(null);
   const mockAuthService = {
     getAccessToken: vi.fn<() => string | null>(),
     hasRefreshToken: vi.fn<() => boolean>(),
@@ -160,5 +160,31 @@ describe('authInterceptor', () => {
     // One attempt only: the sale must not be committed against shop B.
     expect(attempts).toBe(1);
     expect(failed?.status).toBe(401);
+  });
+
+  it('does not replay a request as another account when the tab switched user during the renewal', () => {
+    mockAuthService.getAccessToken.mockReturnValue('expired-token');
+    mockAuthService.hasRefreshToken.mockReturnValue(true);
+    sessionSignal.set({ activeShopId: 'shop-a', user: { id: 'user-1' } });
+    // While the renewal waited, this browser signed user-1 out and user-2 in, in the same shop.
+    mockAuthService.refreshAccessToken.mockImplementation(() => {
+      sessionSignal.set({ activeShopId: 'shop-a', user: { id: 'user-2' } });
+      return of({ accessToken: 'user-2-token', activeShopId: 'shop-a', user: { id: 'user-2' } });
+    });
+
+    let attempts = 0;
+    const next = (): Observable<HttpEvent<unknown>> => {
+      attempts++;
+      return throwError(() => new HttpErrorResponse({ status: 401 }));
+    };
+
+    let failed: HttpErrorResponse | undefined;
+    runInterceptor(new HttpRequest('POST', '/api/sales', { total: 500 }), next).subscribe({
+      error: (error: HttpErrorResponse) => (failed = error),
+    });
+
+    expect(attempts).toBe(1);
+    expect(failed?.status).toBe(401);
+    expect(mockAuthService.clearSession).not.toHaveBeenCalled();
   });
 });

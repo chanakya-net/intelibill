@@ -1,7 +1,7 @@
 # Node 24 matches the engines range in package.json (>=24 <26). The build ran on
 # Node 22 before, outside the range the project declares. Pinned by digest so a
 # rebuild of a given commit cannot pick up a different base.
-FROM node:24-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d AS build
+FROM node:24-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c AS build
 WORKDIR /app
 
 # Install Bun
@@ -29,7 +29,7 @@ RUN bun run build
 # returns nothing, so every SignalR connection fails. Verified both ways against
 # the built bundle -- Node answers 101, Bun answers nothing. Bun stays in the
 # build stage, where it installs and builds correctly.
-FROM node:24-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d AS runtime
+FROM node:24-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c AS runtime
 WORKDIR /app
 
 # The bundled server needs the Node executable only. Remove npm from the final

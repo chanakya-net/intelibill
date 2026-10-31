@@ -9,6 +9,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, vi } from 'vitest';
 import { AuthResult, AuthSession } from './auth.models';
 import { AuthService } from './auth.service';
 import { AuthStorage } from './auth.storage';
+import { REFRESH_LEASE_STORAGE, REFRESH_LOCK_MANAGER, RefreshLockManager } from './refresh-coordinator.service';
 import { LocalizationService } from '../i18n/localization.service';
 import { NetworkStatusService } from '../services/network-status.service';
 import { OfflineSalesDeviceSettingsStorage } from '../storage/offline-sales-device-settings.storage';
@@ -73,6 +74,54 @@ export class FakeBroadcastChannel {
     for (const listener of this.listeners) {
       listener(event);
     }
+  }
+}
+
+/**
+ * An exclusive, FIFO Web Locks stand-in. A free lock is granted synchronously so single-tab flows
+ * stay synchronous under test; a held one queues its waiters and grants the next once the holder's
+ * promise settles, the way the browser does.
+ */
+export class FakeLockManager implements RefreshLockManager {
+  readonly requested: string[] = [];
+
+  private readonly held = new Set<string>();
+  private readonly waiting = new Map<string, (() => void)[]>();
+
+  request(name: string, _options: { readonly mode: 'exclusive' }, callback: () => Promise<void>): Promise<void> {
+    this.requested.push(name);
+
+    return new Promise<void>((resolve, reject) => {
+      const grant = (): void => {
+        this.held.add(name);
+        let done: Promise<void>;
+        try {
+          done = Promise.resolve(callback());
+        } catch (error) {
+          done = Promise.reject(error);
+        }
+        done.then(resolve, reject).finally(() => this.releaseLock(name));
+      };
+
+      if (this.held.has(name)) {
+        this.waiting.set(name, [...(this.waiting.get(name) ?? []), grant]);
+        return;
+      }
+
+      grant();
+    });
+  }
+
+  isHeld(name: string): boolean {
+    return this.held.has(name);
+  }
+
+  private releaseLock(name: string): void {
+    this.held.delete(name);
+    const queue = this.waiting.get(name) ?? [];
+    const next = queue.shift();
+    this.waiting.set(name, queue);
+    next?.();
   }
 }
 
@@ -171,6 +220,8 @@ export function createAuthServiceTestHarness(): {
         { provide: NetworkStatusService, useValue: networkStatus },
         { provide: OfflineSalesDeviceSettingsStorage, useValue: offlineSalesDeviceSettingsStorage },
         { provide: OfflineSalesSnapshotIndexedDbService, useValue: offlineSalesSnapshotDb },
+        { provide: REFRESH_LOCK_MANAGER, useValue: new FakeLockManager() },
+        { provide: REFRESH_LEASE_STORAGE, useValue: null },
       ],
     });
 
