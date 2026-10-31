@@ -7,7 +7,9 @@ public sealed record AuthResult(
     DateTimeOffset RefreshTokenExpiresAt,
     UserDto User,
     Guid? ActiveShopId = null,
-    IReadOnlyList<UserShopDto>? Shops = null);
+    IReadOnlyList<UserShopDto>? Shops = null,
+    /// <summary>The device session this result belongs to, so a client can recognise itself in its own session list.</summary>
+    Guid? SessionId = null);
 
 public sealed record UserDto(
     Guid Id,

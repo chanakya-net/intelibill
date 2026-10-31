@@ -1,6 +1,5 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
-using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Auth.DTOs;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
@@ -9,17 +8,13 @@ namespace Intelibill.Application.Features.Shops.Commands.SetDefaultShop;
 
 public sealed class SetDefaultShopCommandHandler(
     IUserRepository userRepository,
-    IRefreshTokenRepository refreshTokenRepository,
-    ITokenService tokenService,
     IUnitOfWork unitOfWork)
 {
-    public async Task<ErrorOr<AuthResult>> HandleAsync(SetDefaultShopCommand command, CancellationToken cancellationToken)
+    public async Task<ErrorOr<ShopPreferenceResult>> HandleAsync(SetDefaultShopCommand command, CancellationToken cancellationToken)
     {
         var user = await userRepository.GetByIdWithDetailsAsync(command.UserId, cancellationToken);
         if (user is null)
             return Errors.Shop.UserNotFound;
-        if (user.SecurityVersion != command.SecurityVersion || !user.IsLoginEnabled)
-            return Error.Unauthorized("Auth.SessionInvalidated", "Sign in again to continue.");
 
         var targetMembership = user.ShopMemberships.FirstOrDefault(sm => sm.ShopId == command.ShopId);
         if (targetMembership is null)
@@ -27,31 +22,28 @@ public sealed class SetDefaultShopCommandHandler(
 
         if (!targetMembership.IsDefault)
         {
-            foreach (var membership in user.ShopMemberships.Where(sm => sm.IsDefault))
-                membership.SetDefault(false);
+            // Two writes, because the partial unique index must never see two defaults — inside one
+            // transaction, so a failure between them cannot leave the account with no default at
+            // all.
+            await unitOfWork.BeginTransactionAsync(cancellationToken);
+            try
+            {
+                foreach (var membership in user.ShopMemberships.Where(sm => sm.IsDefault))
+                    membership.SetDefault(false);
 
-            // Persist clearing existing defaults first so the partial unique index never sees two defaults.
-            await unitOfWork.SaveChangesAsync(cancellationToken);
-            targetMembership.SetDefault(true);
+                await unitOfWork.SaveChangesAsync(cancellationToken);
+
+                targetMembership.SetDefault(true);
+                await unitOfWork.SaveChangesAsync(cancellationToken);
+                await unitOfWork.CommitTransactionAsync(cancellationToken);
+            }
+            catch
+            {
+                await unitOfWork.RollbackTransactionAsync(cancellationToken);
+                throw;
+            }
         }
 
-        targetMembership.MarkUsed();
-
-        var (activeShopId, activeShopRole, shops) = AuthShopSelection.Resolve(user, targetMembership.ShopId);
-        var (accessToken, accessTokenExpiry) = await tokenService.GenerateAccessTokenAsync(user, activeShopId, activeShopRole, cancellationToken);
-        var refreshToken = tokenService.CreateRefreshToken(user.Id);
-        refreshToken.BindSecurityVersion(user.SecurityVersion);
-
-        await refreshTokenRepository.AddAsync(refreshToken, cancellationToken);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
-
-        return new AuthResult(
-            accessToken,
-            refreshToken.Token,
-            accessTokenExpiry,
-            refreshToken.ExpiresAt,
-            new UserDto(user.Id, user.Email, user.PhoneNumber, user.FirstName, user.LastName, user.Language),
-            activeShopId,
-            shops);
+        return new ShopPreferenceResult(command.ActiveShopId, AuthShopSelection.Describe(user));
     }
 }

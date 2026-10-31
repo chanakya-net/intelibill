@@ -2,17 +2,15 @@ using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Auth.DTOs;
-using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 
 namespace Intelibill.Application.Features.Auth.Commands.Login;
 
 public sealed class LoginCommandHandler(
     IUserRepository userRepository,
-    IRefreshTokenRepository refreshTokenRepository,
     IPasswordHasher passwordHasher,
-    ITokenService tokenService,
-    IUnitOfWork unitOfWork)
+    IAuthSessionService sessions,
+    TimeProvider clock)
 {
     public async Task<ErrorOr<AuthResult>> HandleAsync(
         LoginCommand command,
@@ -33,21 +31,13 @@ public sealed class LoginCommandHandler(
         if (user.Email is not null && !user.IsEmailVerified)
             return Error.Conflict("Auth.EmailVerificationRequired", "Use mailbox recovery to verify your email before signing in.");
 
-        var (activeShopId, activeShopRole, shops) = AuthShopSelection.Resolve(user);
-        var (accessToken, accessTokenExpiry) = await tokenService.GenerateAccessTokenAsync(user, activeShopId, activeShopRole, cancellationToken);
-        var refreshToken = tokenService.CreateRefreshToken(user.Id);
-        refreshToken.BindSecurityVersion(user.SecurityVersion);
-
-        await refreshTokenRepository.AddAsync(refreshToken, cancellationToken);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
-
-        return new AuthResult(
-            accessToken,
-            refreshToken.Token,
-            accessTokenExpiry,
-            refreshToken.ExpiresAt,
-            new UserDto(user.Id, user.Email, user.PhoneNumber, user.FirstName, user.LastName, user.Language),
-            activeShopId,
-            shops);
+        // The proof names the account version the password was actually checked against. Password
+        // verification is deliberately slow, so a reset or a disablement can commit while it runs;
+        // session creation re-reads the account under its lock and refuses a proof that has been
+        // overtaken, rather than stamping it with whatever the version is by then.
+        return await sessions.StartAsync(
+            AuthenticationProof.FromPassword(user.Id, user.SecurityVersion, clock.GetUtcNow()),
+            preferredShopId: null,
+            cancellationToken);
     }
 }

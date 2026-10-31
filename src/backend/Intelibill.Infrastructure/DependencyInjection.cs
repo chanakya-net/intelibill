@@ -72,6 +72,9 @@ public static class DependencyInjection
             .ValidateOnStart();
         services.AddSingleton<IValidateOptions<JwtOptions>, JwtOptionsValidator>();
 
+        services.AddOptions<AuthSessionOptions>()
+            .Bind(configuration.GetSection(AuthSessionOptions.SectionName));
+
         services.AddOptions<EmailOptions>()
             .Bind(configuration.GetSection(EmailOptions.SectionName))
             .ValidateOnStart();
@@ -107,6 +110,7 @@ public static class DependencyInjection
         services.AddScoped<IInvoiceLeaseRepository, InvoiceLeaseRepository>();
         services.AddScoped<IServiceRepository, ServiceRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+        services.AddScoped<IAuthSessionRepository, AuthSessionRepository>();
         services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepository>();
         services.AddScoped<IExpenseRepository, ExpenseRepository>();
         services.AddScoped<IExpenseCategoryRepository, ExpenseCategoryRepository>();
@@ -143,6 +147,7 @@ public static class DependencyInjection
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<LiveSessionValidator>();
+        services.AddScoped<IRecoveryEpochProvider, ConfiguredRecoveryEpochProvider>();
         services.AddScoped<IEmailOwnershipRepository, EmailOwnershipChallengeRepository>();
         services.AddScoped<IEmailOwnershipService, Intelibill.Application.Features.Auth.Services.EmailOwnershipService>();
         services.AddScoped<IdentityMailOutbox>();

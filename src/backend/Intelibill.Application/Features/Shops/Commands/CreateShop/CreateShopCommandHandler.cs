@@ -13,17 +13,14 @@ public sealed class CreateShopCommandHandler(
     IUserRepository userRepository,
     IShopRepository shopRepository,
     ISupplierRepository supplierRepository,
-    IRefreshTokenRepository refreshTokenRepository,
-    ITokenService tokenService,
+    IAuthSessionService sessions,
     IUnitOfWork unitOfWork)
 {
-    public async Task<ErrorOr<AuthResult>> HandleAsync(CreateShopCommand command, CancellationToken cancellationToken)
+    public async Task<ErrorOr<AccessScopeResult>> HandleAsync(CreateShopCommand command, CancellationToken cancellationToken)
     {
         var user = await userRepository.GetByIdWithDetailsAsync(command.UserId, cancellationToken);
         if (user is null)
             return Errors.Shop.UserNotFound;
-        if (user.SecurityVersion != command.SecurityVersion || !user.IsLoginEnabled)
-            return Error.Unauthorized("Auth.SessionInvalidated", "Sign in again to continue.");
 
         var isFirstShop = user.ShopMemberships.Count == 0;
         var shop = Shop.Create(
@@ -36,29 +33,16 @@ public sealed class CreateShopCommandHandler(
             command.MobileNumber,
             command.GstNumber);
         var membership = ShopMembership.Create(shop.Id, user.Id, ShopRole.Owner, isFirstShop);
-        membership.MarkUsed();
 
         shop.AddMembership(membership);
         user.AddShopMembership(membership);
 
         await shopRepository.AddAsync(shop, cancellationToken);
         await supplierRepository.AddAsync(Supplier.CreateUnknownSystemSupplier(shop.Id), cancellationToken);
-
-        var (activeShopId, activeShopRole, shops) = AuthShopSelection.Resolve(user, shop.Id);
-        var (accessToken, accessTokenExpiry) = await tokenService.GenerateAccessTokenAsync(user, activeShopId, activeShopRole, cancellationToken);
-        var refreshToken = tokenService.CreateRefreshToken(user.Id);
-        refreshToken.BindSecurityVersion(user.SecurityVersion);
-
-        await refreshTokenRepository.AddAsync(refreshToken, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return new AuthResult(
-            accessToken,
-            refreshToken.Token,
-            accessTokenExpiry,
-            refreshToken.ExpiresAt,
-            new UserDto(user.Id, user.Email, user.PhoneNumber, user.FirstName, user.LastName, user.Language),
-            activeShopId,
-            shops);
+        // The shop and its membership are committed before the scope moves, so a rescope that
+        // cannot complete leaves a usable shop the caller can switch into rather than losing it.
+        return await sessions.RescopeAsync(command.UserId, command.SessionId, shop.Id, cancellationToken);
     }
 }

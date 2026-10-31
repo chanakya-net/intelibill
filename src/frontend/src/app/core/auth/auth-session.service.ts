@@ -6,8 +6,11 @@ import { catchError, map, Observable, of, switchMap, tap } from 'rxjs';
 
 import { AUTH_ENDPOINTS } from './auth.constants';
 import {
+  AccessScopeResult,
   AuthResult,
   AuthSession,
+  AuthUser,
+  ShopPreferenceResult,
   BootstrapSessionStatus,
   LoginRequest,
   RegisterWithEmailRequest,
@@ -238,6 +241,48 @@ export class AuthSessionService {
     this.setSession(this.toSession(result, this.sessionSignal()?.rememberMe ?? true));
   }
 
+  /**
+   * Adopts a scope change for this device. Switching or creating a shop is not a credential event,
+   * so the refresh token this sign-in earned is kept exactly as it is.
+   */
+  applyAccessScope(result: AccessScopeResult): void {
+    const current = this.sessionSignal();
+    if (!current) {
+      return;
+    }
+
+    this.setSession({
+      ...current,
+      accessToken: result.accessToken,
+      accessTokenExpiresAt: result.accessTokenExpiresAt,
+      activeShopId: result.activeShopId,
+      shops: result.shops ?? [],
+    });
+  }
+
+  /** Adopts a saved shop preference. The shop this device is working in does not move. */
+  applyShopPreference(result: ShopPreferenceResult): void {
+    const current = this.sessionSignal();
+    if (!current) {
+      return;
+    }
+
+    this.setSession({ ...current, shops: result.shops ?? [] });
+  }
+
+  /** Adopts a saved profile. Saving a name issues no token, so none is replaced. */
+  applyUser(user: AuthUser): void {
+    const current = this.sessionSignal();
+    if (!current) {
+      return;
+    }
+
+    this.setSession({
+      ...current,
+      user: { ...user, language: user.language || DEFAULT_LANGUAGE },
+    });
+  }
+
   private setSession(session: AuthSession): void {
     this.sessionSignal.set(session);
     const preferredLanguage = session.user.language || DEFAULT_LANGUAGE;
@@ -261,6 +306,7 @@ export class AuthSessionService {
       rememberMe,
       activeShopId: result.activeShopId,
       shops: result.shops ?? [],
+      sessionId: result.sessionId ?? null,
     };
   }
 

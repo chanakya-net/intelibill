@@ -9,8 +9,8 @@ using Intelibill.Domain.Interfaces.Repositories;
 namespace Intelibill.Application.Features.Auth.Services;
 
 public sealed class EmailOwnershipService(IEmailOwnershipRepository repository, IUserRepository users,
-    IRefreshTokenRepository refreshTokens, IIdentityMailOutbox mail, IPasswordHasher hasher,
-    ITokenService tokens, TimeProvider clock) : IEmailOwnershipService
+    IIdentityMailOutbox mail, IPasswordHasher hasher,
+    IAuthSessionService sessions, TimeProvider clock) : IEmailOwnershipService
 {
     private static readonly Error Invalid = Error.Validation("Auth.InvalidChallenge", "The proof is invalid, expired, superseded, or already used.");
     private static readonly Error Conflict = Error.Conflict("Auth.EmailUnavailable", "This email is unavailable. Request a new verification or sign in to your existing account.");
@@ -59,14 +59,12 @@ public sealed class EmailOwnershipService(IEmailOwnershipRepository repository, 
             await users.AddAsync(user, ct);
         }
         challenge.Consume(clock.GetUtcNow());
-        var (shopId, role, shops) = AuthShopSelection.Resolve(user);
-        var (access, expiry) = await tokens.GenerateAccessTokenAsync(user, shopId, role, ct);
-        var refresh = tokens.CreateRefreshToken(user.Id);
-        refresh.BindSecurityVersion(user.SecurityVersion);
-        await refreshTokens.AddAsync(refresh, ct);
+        // Inside this transaction, which already holds the identity advisory lock and has just
+        // consumed the single-use mailbox proof, so the session is created under the same authority
+        // that authorised it.
+        var result = await sessions.IssueWithinTransactionAsync(user, preferredShopId: null, ct);
         if (!await repository.CommitAsync(ct)) return Conflict;
-        return new AuthResult(access, refresh.Token, expiry, refresh.ExpiresAt,
-            new UserDto(user.Id, user.Email, user.PhoneNumber, user.FirstName, user.LastName, user.Language), shopId, shops);
+        return result;
     }
     public async Task<ErrorOr<ReauthenticationResult>> ReauthenticateAsync(Guid actor, long version, string? password, CancellationToken ct)
     {

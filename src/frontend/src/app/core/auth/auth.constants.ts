@@ -41,6 +41,12 @@ export const MEMBERSHIP_ENDPOINTS = {
   acceptInvitation: (invitationId: string) => `${API_BASE_URL}/invitations/${invitationId}/accept`,
 } as const;
 
+export const SESSION_ENDPOINTS = {
+  list: `${API_BASE_URL}/users/me/sessions`,
+  revoke: (sessionId: string) => `${API_BASE_URL}/users/me/sessions/${sessionId}`,
+  revokeAll: `${API_BASE_URL}/users/me/sessions/revoke-all`,
+} as const;
+
 export const USER_ENDPOINTS = {
   list: `${API_BASE_URL}/users`,
   add: `${API_BASE_URL}/users`,

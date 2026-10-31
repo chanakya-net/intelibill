@@ -4,7 +4,7 @@ import { HttpClient } from '@angular/common/http';
 import { map, Observable, tap } from 'rxjs';
 
 import { SHOP_ENDPOINTS } from '../../../core/auth/auth.constants';
-import { AuthResult, UserShop } from '../../../core/auth/auth.models';
+import { AccessScopeResult, ShopPreferenceResult, UserShop } from '../../../core/auth/auth.models';
 import { AuthService } from '../../../core/auth/auth.service';
 
 export interface CreateShopRequest {
@@ -79,8 +79,10 @@ export class ShopService {
 
   createShop(payload: CreateShopRequest): Observable<void> {
 
-    return this.http.post<AuthResult>(SHOP_ENDPOINTS.create, payload).pipe(
-      tap((result) => this.authService.applyAuthResult(result)),
+    // A created shop moves this device into it and reissues only its access token: creating a shop
+    // is not a sign-in, so it hands out no new refresh credential.
+    return this.http.post<AccessScopeResult>(SHOP_ENDPOINTS.create, payload).pipe(
+      tap((result) => this.authService.applyAccessScope(result)),
       map(() => void 0)
     );
   }
@@ -88,8 +90,9 @@ export class ShopService {
   setDefaultShop(shopId: string): Observable<void> {
     const payload: SetDefaultShopRequest = { shopId };
 
-    return this.http.post<AuthResult>(SHOP_ENDPOINTS.setDefault, payload).pipe(
-      tap((result) => this.authService.applyAuthResult(result)),
+    // Saving the default is a stored preference: this device keeps working in the shop it is in.
+    return this.http.post<ShopPreferenceResult>(SHOP_ENDPOINTS.setDefault, payload).pipe(
+      tap((result) => this.authService.applyShopPreference(result)),
       map(() => void 0)
     );
   }

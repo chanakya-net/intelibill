@@ -1,5 +1,4 @@
 using Intelibill.Application.Common.Errors;
-using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Users.Commands.UpdateMyProfile;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Interfaces;
@@ -11,18 +10,12 @@ namespace Intelibill.Application.Unit.Tests.Features.Users.Commands.UpdateMyProf
 public class UpdateMyProfileCommandHandlerTests
 {
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
-    private readonly IRefreshTokenRepository _refreshTokenRepository = Substitute.For<IRefreshTokenRepository>();
-    private readonly ITokenService _tokenService = Substitute.For<ITokenService>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
     private readonly UpdateMyProfileCommandHandler _handler;
 
     public UpdateMyProfileCommandHandlerTests()
     {
-        _handler = new UpdateMyProfileCommandHandler(
-            _userRepository,
-            _refreshTokenRepository,
-            _tokenService,
-            _unitOfWork);
+        _handler = new UpdateMyProfileCommandHandler(_userRepository, _unitOfWork);
     }
 
     [Fact]
@@ -68,7 +61,7 @@ public class UpdateMyProfileCommandHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_ValidRequest_UpdatesProfileAndReturnsAuthResult()
+    public async Task HandleAsync_ValidRequest_UpdatesProfileAndReturnsTheSavedProfile()
     {
         var user = User.CreateWithEmail("current@test.com", "hash", "First", "Last");
         var command = new UpdateMyProfileCommand(user.Id, "current@test.com", "+15551234567", "Updated", "User", SecurityVersion: user.SecurityVersion);
@@ -77,21 +70,17 @@ public class UpdateMyProfileCommandHandlerTests
         _userRepository.ExistsByEmailAsync("current@test.com", Arg.Any<CancellationToken>()).Returns(false);
         _userRepository.ExistsByPhoneAsync(command.PhoneNumber!, Arg.Any<CancellationToken>()).Returns(false);
 
-        var refreshToken = RefreshToken.Create(user.Id, "refresh-token", DateTimeOffset.UtcNow.AddDays(7));
-        _tokenService.GenerateAccessTokenAsync(user, Arg.Any<Guid?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns(("access-token", DateTimeOffset.UtcNow.AddMinutes(15)));
-        _tokenService.CreateRefreshToken(user.Id).Returns(refreshToken);
-
         var result = await _handler.HandleAsync(command, CancellationToken.None);
 
+        // The saved profile and nothing else: editing a name is not a credential event, so it
+        // produces no token and no session.
         Assert.False(result.IsError);
-        Assert.Equal("access-token", result.Value.AccessToken);
-        Assert.Equal("current@test.com", result.Value.User.Email);
-        Assert.Equal("+15551234567", result.Value.User.PhoneNumber);
-        Assert.Equal("Updated", result.Value.User.FirstName);
-        Assert.Equal("User", result.Value.User.LastName);
+        Assert.Equal("current@test.com", result.Value.Email);
+        Assert.Equal("+15551234567", result.Value.PhoneNumber);
+        Assert.Equal("Updated", result.Value.FirstName);
+        Assert.Equal("User", result.Value.LastName);
 
         _userRepository.Received(1).Update(user);
-        await _refreshTokenRepository.Received(1).AddAsync(refreshToken, Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 }

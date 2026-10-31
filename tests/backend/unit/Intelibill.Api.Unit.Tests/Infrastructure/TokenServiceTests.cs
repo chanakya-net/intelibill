@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Text;
 using Intelibill.Domain.Entities;
+using Intelibill.Domain.ValueObjects;
 using Intelibill.Infrastructure.Options;
 using Intelibill.Infrastructure.Services.Auth;
 using Microsoft.Extensions.Options;
@@ -38,12 +39,15 @@ public class TokenServiceTests
         return user;
     }
 
+    private static AuthSession CreateSession(User user, Guid? activeShopId = null) =>
+        AuthSession.Start(user.Id, user.SecurityVersion, "1", activeShopId, DeviceMetadata.Unknown, Now, Now.AddDays(7));
+
     [Fact]
     public async Task GenerateAccessTokenAsync_ProducesATokenTheStandardHandlerAccepts()
     {
         // The token is assembled by hand rather than by JwtSecurityTokenHandler,
         // so the thing worth proving is that the handler still validates it.
-        var (token, _) = await CreateService().GenerateAccessTokenAsync(CreateUser());
+        var (token, _) = await CreateService().GenerateAccessTokenAsync(UserAndSession(out var session), session, null);
 
         var parameters = new TokenValidationParameters
         {
@@ -65,7 +69,7 @@ public class TokenServiceTests
     [Fact]
     public async Task GenerateAccessTokenAsync_RejectsATokenSignedWithAnotherSecret()
     {
-        var (token, _) = await CreateService().GenerateAccessTokenAsync(CreateUser());
+        var (token, _) = await CreateService().GenerateAccessTokenAsync(UserAndSession(out var session), session, null);
 
         var parameters = new TokenValidationParameters
         {
@@ -84,9 +88,11 @@ public class TokenServiceTests
     public async Task GenerateAccessTokenAsync_CarriesTheShopClaimsWhenSupplied()
     {
         var shopId = Guid.NewGuid();
+        var user = CreateUser();
+        var session = CreateSession(user, shopId);
 
         var (token, expiresAt) = await CreateService()
-            .GenerateAccessTokenAsync(CreateUser(), shopId, "Owner");
+            .GenerateAccessTokenAsync(user, session, "Owner");
 
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
 
@@ -96,20 +102,9 @@ public class TokenServiceTests
     }
 
     [Fact]
-    public async Task GenerateAccessTokenAsync_OmitsShopClaimsWhenThereIsNoActiveShop()
-    {
-        var (token, _) = await CreateService().GenerateAccessTokenAsync(CreateUser());
-
-        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
-
-        Assert.DoesNotContain(jwt.Claims, c => c.Type == "active_shop_id");
-        Assert.DoesNotContain(jwt.Claims, c => c.Type == "active_shop_role");
-    }
-
-    [Fact]
     public async Task GenerateAccessTokenAsync_OmitsKidWhenTheSignerHasNoKeyToIdentify()
     {
-        var (token, _) = await CreateService().GenerateAccessTokenAsync(CreateUser());
+        var (token, _) = await CreateService().GenerateAccessTokenAsync(UserAndSession(out var session), session, null);
 
         Assert.Null(new JwtSecurityTokenHandler().ReadJwtToken(token).Header.Kid);
     }
@@ -120,7 +115,7 @@ public class TokenServiceTests
         // Validation resolves the public key by kid, so a token that omits it is
         // unverifiable the moment a second key version exists.
         var (token, _) = await CreateService(new StubSigner("RS256", "key-version-2"))
-            .GenerateAccessTokenAsync(CreateUser());
+            .GenerateAccessTokenAsync(UserAndSession(out var session), session, null);
 
         var header = new JwtSecurityTokenHandler().ReadJwtToken(token).Header;
 
@@ -133,7 +128,7 @@ public class TokenServiceTests
     {
         var signer = new StubSigner("RS256", "key-version-2");
 
-        var (token, _) = await CreateService(signer).GenerateAccessTokenAsync(CreateUser());
+        var (token, _) = await CreateService(signer).GenerateAccessTokenAsync(UserAndSession(out var session), session, null);
 
         var parts = token.Split('.');
         Assert.Equal(3, parts.Length);
@@ -146,6 +141,53 @@ public class TokenServiceTests
         var refreshToken = CreateService().CreateRefreshToken(Guid.NewGuid());
 
         Assert.Equal(Now.AddDays(7), refreshToken.ExpiresAt);
+    }
+
+    private static User UserAndSession(out AuthSession session)
+    {
+        var user = CreateUser();
+        session = CreateSession(user);
+        return user;
+    }
+
+
+    /// <summary>
+    /// The session id is what makes a token revocable on its own, and the scope version is what
+    /// stops a token naming a shop the session has since left.
+    /// </summary>
+    [Fact]
+    public async Task GenerateAccessTokenAsync_NamesTheSessionAndItsScopeVersion()
+    {
+        var shopId = Guid.NewGuid();
+        var user = CreateUser();
+        var session = CreateSession(user, shopId);
+        session.ChangeScope(Guid.NewGuid(), Now);
+
+        var (token, _) = await CreateService().GenerateAccessTokenAsync(user, session, "Owner");
+
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
+
+        Assert.Equal(session.Id.ToString(), jwt.Claims.Single(c => c.Type == "sid").Value);
+        Assert.Equal("1", jwt.Claims.Single(c => c.Type == "scope_version").Value);
+        Assert.Equal(session.ActiveShopId!.Value.ToString(), jwt.Claims.Single(c => c.Type == "active_shop_id").Value);
+    }
+
+    /// <summary>
+    /// The shop claim is taken from the session row rather than from a caller-supplied argument, so
+    /// a token can never name a shop the session is not scoped to.
+    /// </summary>
+    [Fact]
+    public async Task GenerateAccessTokenAsync_OmitsShopClaimsWhenTheSessionHasNoShop()
+    {
+        var user = CreateUser();
+        var session = CreateSession(user);
+
+        var (token, _) = await CreateService().GenerateAccessTokenAsync(user, session, "Owner");
+
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
+
+        Assert.DoesNotContain(jwt.Claims, c => c.Type == "active_shop_id");
+        Assert.DoesNotContain(jwt.Claims, c => c.Type == "active_shop_role");
     }
 
     private sealed class StubSigner(string algorithm, string? keyId) : IJwtSigner

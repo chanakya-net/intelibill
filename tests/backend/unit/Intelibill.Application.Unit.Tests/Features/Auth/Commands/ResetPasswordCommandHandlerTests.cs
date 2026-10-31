@@ -11,7 +11,7 @@ public class ResetPasswordCommandHandlerTests
 {
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IPasswordResetTokenRepository _passwordResetTokenRepository = Substitute.For<IPasswordResetTokenRepository>();
-    private readonly IRefreshTokenRepository _refreshTokenRepository = Substitute.For<IRefreshTokenRepository>();
+    private readonly IAuthSessionRepository _sessions = Substitute.For<IAuthSessionRepository>();
     private readonly IPasswordHasher _passwordHasher = Substitute.For<IPasswordHasher>();
     private readonly IEmailOwnershipRepository _ownership = Substitute.For<IEmailOwnershipRepository>();
     private readonly ResetPasswordCommandHandler _handler;
@@ -21,7 +21,13 @@ public class ResetPasswordCommandHandlerTests
         _ownership.BeginAsync(Arg.Any<CancellationToken>()).Returns(Substitute.For<IAsyncDisposable>());
         _ownership.CommitAsync(Arg.Any<CancellationToken>()).Returns(true);
         _ownership.LockCurrentCredentialAsync(Arg.Any<Guid>(), Arg.Any<long>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(true);
-        _handler = new ResetPasswordCommandHandler(_userRepository, _passwordResetTokenRepository, _refreshTokenRepository, _passwordHasher, _ownership);
+        _handler = new ResetPasswordCommandHandler(
+            _userRepository,
+            _passwordResetTokenRepository,
+            _sessions,
+            _passwordHasher,
+            _ownership,
+            TimeProvider.System);
     }
 
     [Fact]
@@ -122,7 +128,14 @@ public class ResetPasswordCommandHandlerTests
         Assert.Equal("newHashedPassword", user.PasswordHash);
         Assert.True(token.IsUsed);
 
-        await _refreshTokenRepository.Received(1).RevokeAllForUserAsync(user.Id, Arg.Any<CancellationToken>());
+        // Every device, with its refresh family, inside the transaction that writes the new
+        // password: whoever is recovering the account cannot know which devices are signed in.
+        await _sessions.Received(1).RevokeAllAsync(
+            user.Id,
+            null,
+            "password-reset",
+            Arg.Any<DateTimeOffset>(),
+            Arg.Any<CancellationToken>());
         await _ownership.Received(1).CommitAsync(Arg.Any<CancellationToken>());
     }
 }

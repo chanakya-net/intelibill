@@ -39,6 +39,7 @@ builder.Services.AddControllers(options => { options.Filters.AddService<RateLimi
 builder.Services.AddOpenApi();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentSessionContext, HttpCurrentSessionContext>();
+builder.Services.AddScoped<IDeviceMetadataProvider, HttpDeviceMetadataProvider>();
 builder.Services.AddScoped<RateLimitFilter>();
 builder.Services.AddSingleton<IRateLimitPolicyResolver, RateLimitPolicyResolver>();
 
@@ -102,18 +103,15 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
         {
             OnTokenValidated = async context =>
             {
-                var subject = context.Principal?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-                var version = context.Principal?.FindFirst("security_version")?.Value;
-                // The shop scope travels in the token but is re-checked against the live
-                // membership, so a suspended membership or a superseded role stops authorizing
-                // this request without waiting for the token to expire.
-                var shopClaim = context.Principal?.FindFirst("active_shop_id")?.Value;
-                var activeShopId = Guid.TryParse(shopClaim, out var parsedShopId) ? parsedShopId : (Guid?)null;
-                var activeShopRole = context.Principal?.FindFirst("active_shop_role")?.Value;
-                if (!Guid.TryParse(subject, out var id) || !long.TryParse(version, out var securityVersion) ||
-                    (shopClaim is { Length: > 0 } && activeShopId is null) ||
-                    !await context.HttpContext.RequestServices.GetRequiredService<Intelibill.Infrastructure.Services.Auth.LiveSessionValidator>()
-                        .IsValidAsync(id, securityVersion, activeShopId, activeShopRole, context.HttpContext.RequestAborted))
+                // A token that names no session is refused here rather than adopted: the account's
+                // security version alone cannot tell one device from another, so there would be
+                // nothing to revoke. The session, the account and the shop scope the token claims
+                // are all re-read live, so a revoked device, a changed password or a suspended
+                // membership stops authorizing this request without waiting for expiry.
+                var claims = SessionClaims.TryRead(context.Principal);
+                if (claims is null ||
+                    !await context.HttpContext.RequestServices.GetRequiredService<LiveSessionValidator>()
+                        .IsValidAsync(claims, context.HttpContext.RequestAborted))
                     context.Fail("The session is no longer valid. Sign in again.");
             },
             OnMessageReceived = context =>

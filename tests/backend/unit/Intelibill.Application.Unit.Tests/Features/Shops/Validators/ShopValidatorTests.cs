@@ -10,7 +10,7 @@ public class CreateShopCommandValidatorTests
     private readonly CreateShopCommandValidator _v = new();
 
     private static CreateShopCommand Valid() =>
-        new(Guid.NewGuid(), "Test Shop", "42 MG Road", "Bengaluru", "Karnataka", "560001", null, null, null);
+        new(Guid.NewGuid(), Guid.NewGuid(), "Test Shop", "42 MG Road", "Bengaluru", "Karnataka", "560001", null, null, null);
 
     [Fact] public void Validate_WhenNameEmpty_ReturnsError() =>
         _v.TestValidate(Valid() with { Name = "" }).ShouldHaveValidationErrorFor(x => x.Name);

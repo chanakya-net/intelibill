@@ -49,7 +49,11 @@ internal sealed class EmailOwnershipChallengeRepository(ApplicationDbContext db,
     }
     public async Task InvalidateCredentialsAsync(Guid userId, CancellationToken ct)
     {
-        await db.RefreshTokens.Where(x => x.UserId == userId && !x.IsRevoked).ExecuteUpdateAsync(s => s.SetProperty(x => x.IsRevoked, true).SetProperty(x => x.RevokedAt, DateTimeOffset.UtcNow), ct);
+        var now = DateTimeOffset.UtcNow;
+        // Sessions as well as refresh families: a claimed account's previously signed-in devices
+        // must not survive the claim.
+        await db.AuthSessions.Where(x => x.UserId == userId && x.RevokedAt == null).ExecuteUpdateAsync(s => s.SetProperty(x => x.RevokedAt, now).SetProperty(x => x.RevocationReason, "credentials-invalidated"), ct);
+        await db.RefreshTokens.Where(x => x.UserId == userId && !x.IsRevoked).ExecuteUpdateAsync(s => s.SetProperty(x => x.IsRevoked, true).SetProperty(x => x.RevokedAt, now), ct);
         await db.PasswordResetTokens.Where(x => x.UserId == userId).ExecuteDeleteAsync(ct);
     }
     public void Add(EmailOwnershipChallenge challenge) => db.Add(challenge);

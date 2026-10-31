@@ -377,6 +377,170 @@ public sealed class SessionLifecycleIntegrationTests(PostgreSqlTestFixture fixtu
         Assert.Equal(before, await ActiveRefreshCountAsync(userId));
     }
 
+    // ── A security change ends every device ─────────────────────────────────────
+
+    /// <summary>
+    /// Changing a password shares one code path with recovery: it ends every device, the one that
+    /// asked included. The cost is a single sign-in the person is already at the keyboard for.
+    /// </summary>
+    [Fact]
+    public async Task ChangePassword_EndsEveryDeviceIncludingTheCaller()
+    {
+        using var deviceA = Client();
+        using var deviceB = Client();
+        var email = Email();
+        var authA = await EnrollAsync(deviceA, email);
+        var accessA = authA.GetProperty("accessToken").GetString()!;
+        var userId = authA.GetProperty("user").GetProperty("id").GetGuid();
+        var authB = await LoginAsync(deviceB, email);
+        var accessB = authB.GetProperty("accessToken").GetString()!;
+        var refreshB = authB.GetProperty("refreshToken").GetString()!;
+
+        var changed = await SendAsync(deviceA, HttpMethod.Post, "/api/users/me/change-password", accessA, new
+        {
+            currentPassword = Password,
+            newPassword = "ChangedPassword!1",
+        });
+        Assert.Equal(HttpStatusCode.OK, changed.StatusCode);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await SendAsync(deviceA, HttpMethod.Get, "/api/shops/me", accessA)).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await SendAsync(deviceB, HttpMethod.Get, "/api/shops/me", accessB)).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.Unauthorized,
+            (await deviceB.PostAsJsonAsync("/api/auth/token/refresh", new { refreshToken = refreshB })).StatusCode);
+        Assert.Equal(0, await LiveSessionCountAsync(userId));
+
+        Assert.Equal(
+            HttpStatusCode.OK,
+            (await deviceA.PostAsJsonAsync("/api/auth/login", new { identifier = email, password = "ChangedPassword!1" })).StatusCode);
+    }
+
+    /// <summary>
+    /// The new password and the end of every device commit together, so a refresh arriving after
+    /// recovery cannot leave a live session behind.
+    /// </summary>
+    [Fact]
+    public async Task ResetPassword_RacingRefresh_LeavesNoLiveSession()
+    {
+        using var client = Client();
+        var email = Email();
+        var auth = await EnrollAsync(client, email);
+        var userId = auth.GetProperty("user").GetProperty("id").GetGuid();
+        var staleRefresh = auth.GetProperty("refreshToken").GetString()!;
+
+        Assert.Equal(
+            HttpStatusCode.OK,
+            (await client.PostAsJsonAsync("/api/auth/password-reset/request", new { email })).StatusCode);
+        var link = _factory.Services.GetRequiredService<ResetLinkCapture>().ResetLink;
+        Assert.NotNull(link);
+        var token = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(new Uri(link).Query)["token"].ToString();
+
+        var reset = client.PostAsJsonAsync(
+            "/api/auth/password-reset/confirm",
+            new { email, token, newPassword = "RecoveredPassword!1" });
+        var refresh = client.PostAsJsonAsync("/api/auth/token/refresh", new { refreshToken = staleRefresh });
+        await Task.WhenAll(reset, refresh);
+
+        Assert.Equal(HttpStatusCode.OK, (await reset).StatusCode);
+        Assert.Equal(0, await LiveSessionCountAsync(userId));
+        Assert.Equal(0, await ActiveRefreshCountAsync(userId));
+    }
+
+    /// <summary>
+    /// Re-enabling a suspended account restores the ability to sign in, not the devices that were
+    /// signed in when it was suspended.
+    /// </summary>
+    [Fact]
+    public async Task Reenable_DoesNotReviveRevokedSession()
+    {
+        using var client = Client();
+        var email = Email();
+        var auth = await EnrollAsync(client, email);
+        var userId = auth.GetProperty("user").GetProperty("id").GetGuid();
+        var accessToken = auth.GetProperty("accessToken").GetString()!;
+        var refreshToken = auth.GetProperty("refreshToken").GetString()!;
+
+        await WithUserAsync(userId, user => user.SetLoginEnabled(false));
+        Assert.Equal(HttpStatusCode.Unauthorized, (await SendAsync(client, HttpMethod.Get, "/api/shops/me", accessToken)).StatusCode);
+
+        await WithUserAsync(userId, user => user.SetLoginEnabled(true));
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await SendAsync(client, HttpMethod.Get, "/api/shops/me", accessToken)).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.Unauthorized,
+            (await client.PostAsJsonAsync("/api/auth/token/refresh", new { refreshToken })).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.OK,
+            (await client.PostAsJsonAsync("/api/auth/login", new { identifier = email, password = Password })).StatusCode);
+    }
+
+    [Fact]
+    public async Task DisabledAccount_PasswordAndRefreshDenied()
+    {
+        using var client = Client();
+        var email = Email();
+        var auth = await EnrollAsync(client, email);
+        var userId = auth.GetProperty("user").GetProperty("id").GetGuid();
+        var refreshToken = auth.GetProperty("refreshToken").GetString()!;
+
+        await WithUserAsync(userId, user => user.SetLoginEnabled(false));
+
+        Assert.Equal(
+            HttpStatusCode.Unauthorized,
+            (await client.PostAsJsonAsync("/api/auth/login", new { identifier = email, password = Password })).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.Unauthorized,
+            (await client.PostAsJsonAsync("/api/auth/token/refresh", new { refreshToken })).StatusCode);
+    }
+
+    /// <summary>
+    /// A database restored from before a recovery-epoch change hands back the sessions it held. They
+    /// name the old epoch, so neither the access token nor the refresh credential is honoured and
+    /// everyone authenticates again.
+    /// </summary>
+    [Fact]
+    public async Task RestoredSession_FromAnotherRecoveryEpoch_IsRefused()
+    {
+        using var client = Client();
+        var email = Email();
+        var auth = await EnrollAsync(client, email);
+        var userId = auth.GetProperty("user").GetProperty("id").GetGuid();
+        var accessToken = auth.GetProperty("accessToken").GetString()!;
+        var refreshToken = auth.GetProperty("refreshToken").GetString()!;
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            await db.AuthSessions
+                .Where(x => x.UserId == userId)
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.RecoveryEpoch, "0"));
+        }
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await SendAsync(client, HttpMethod.Get, "/api/shops/me", accessToken)).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.Unauthorized,
+            (await client.PostAsJsonAsync("/api/auth/token/refresh", new { refreshToken })).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.OK,
+            (await client.PostAsJsonAsync("/api/auth/login", new { identifier = email, password = Password })).StatusCode);
+    }
+
+    private async Task<int> LiveSessionCountAsync(Guid userId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        return await db.AuthSessions.CountAsync(x => x.UserId == userId && x.RevokedAt == null);
+    }
+
+    private async Task WithUserAsync(Guid userId, Action<Intelibill.Domain.Entities.User> change)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var user = await db.Users.SingleAsync(x => x.Id == userId);
+        change(user);
+        await db.SaveChangesAsync();
+    }
+
     internal sealed class ResetLinkCapture : IEmailService
     {
         public string? ResetLink { get; private set; }

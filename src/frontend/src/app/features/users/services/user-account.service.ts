@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 
 import { map, Observable, tap } from 'rxjs';
 
-import { AuthResult } from '../../../core/auth/auth.models';
+import { AuthUser } from '../../../core/auth/auth.models';
 import { AuthService } from '../../../core/auth/auth.service';
 import { MEMBERSHIP_ENDPOINTS, USER_ENDPOINTS } from '../../../core/auth/auth.constants';
 
@@ -80,8 +80,10 @@ export class UserAccountService {
   private readonly authService = inject(AuthService);
 
   updateMyProfile(payload: UpdateMyProfileRequest): Observable<void> {
-    return this.http.put<AuthResult>(USER_ENDPOINTS.me, payload).pipe(
-      tap((result) => this.authService.applyAuthResult(result)),
+    // The saved profile comes back on its own. Editing a name issues no token, so there is nothing
+    // for the client to adopt beyond the profile itself.
+    return this.http.put<AuthUser>(USER_ENDPOINTS.me, payload).pipe(
+      tap((user) => this.authService.applyUser(user)),
       map(() => void 0)
     );
   }

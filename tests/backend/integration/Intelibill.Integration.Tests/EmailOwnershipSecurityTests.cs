@@ -253,7 +253,11 @@ public sealed class EmailOwnershipSecurityTests(PostgreSqlTestFixture fixture) :
         var stale = await db.Users.SingleAsync();
         using (var concurrent = _factory.Services.CreateScope())
             await concurrent.ServiceProvider.GetRequiredService<ApplicationDbContext>().Database.ExecuteSqlRawAsync("UPDATE users SET security_version = security_version + 1");
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => scope.ServiceProvider.GetRequiredService<ITokenService>().GenerateAccessTokenAsync(stale));
+        var session = Intelibill.Domain.Entities.AuthSession.Start(
+            stale.Id, stale.SecurityVersion, "1", null, Intelibill.Domain.ValueObjects.DeviceMetadata.Unknown,
+            DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddDays(7));
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(
+            () => scope.ServiceProvider.GetRequiredService<ITokenService>().GenerateAccessTokenAsync(stale, session, null));
     }
     [Fact]
     public async Task ReauthenticationProof_BelongsToActor()

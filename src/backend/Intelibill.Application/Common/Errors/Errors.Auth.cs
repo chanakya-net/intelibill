@@ -30,6 +30,12 @@ public static partial class Errors
         public static Error InvalidRefreshToken =>
             Error.Unauthorized("Auth.InvalidRefreshToken", "The refresh token is invalid or has expired.");
 
+        public static Error SessionInvalidated =>
+            Error.Unauthorized("Auth.SessionInvalidated", "Sign in again to continue.");
+
+        public static Error SessionNotFound =>
+            Error.NotFound("Auth.SessionNotFound", "That device session was not found.");
+
         public static Error InvalidPasswordResetToken =>
             Error.Unauthorized("Auth.InvalidPasswordResetToken", "The password reset link is invalid or has expired.");
     }

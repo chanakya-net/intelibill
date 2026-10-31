@@ -46,15 +46,17 @@ public class UsersControllerTests
         SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()));
 
         var request = new UpdateMyProfileRequest("updated@test.com", "+15551234567", "Updated", "User");
-        var authResult = CreateAuthResult(userId);
-        ArrangeBusResponse<AuthResult>(authResult);
+        var profile = CreateProfile(userId);
+        ArrangeBusResponse<UserDto>(profile);
 
         var result = await _controller.UpdateMyProfile(request, CancellationToken.None);
 
+        // The saved profile comes back on its own: saving a name is not a credential event, so the
+        // response carries no token for the client to adopt.
         var ok = Assert.IsType<OkObjectResult>(result);
-        Assert.Equal(authResult, ok.Value);
+        Assert.Equal(profile, ok.Value);
 
-        await _bus.Received(1).InvokeAsync<ErrorOr<AuthResult>>(
+        await _bus.Received(1).InvokeAsync<ErrorOr<UserDto>>(
             Arg.Is<UpdateMyProfileCommand>(c =>
                 c.UserId == userId
                 && c.Email == request.Email
@@ -71,15 +73,15 @@ public class UsersControllerTests
         SetUserClaims(new Claim(ClaimTypes.NameIdentifier, userId.ToString()));
 
         var request = new UpdateMyProfileRequest("updated@test.com", "+15551234567", "Updated", "User");
-        var authResult = CreateAuthResult(userId);
-        ArrangeBusResponse<AuthResult>(authResult);
+        var profile = CreateProfile(userId);
+        ArrangeBusResponse<UserDto>(profile);
 
         var result = await _controller.UpdateMyProfile(request, CancellationToken.None);
 
         var ok = Assert.IsType<OkObjectResult>(result);
-        Assert.Equal(authResult, ok.Value);
+        Assert.Equal(profile, ok.Value);
 
-        await _bus.Received(1).InvokeAsync<ErrorOr<AuthResult>>(
+        await _bus.Received(1).InvokeAsync<ErrorOr<UserDto>>(
             Arg.Is<UpdateMyProfileCommand>(c => c.UserId == userId),
             Arg.Any<CancellationToken>());
     }
@@ -89,7 +91,7 @@ public class UsersControllerTests
     {
         var userId = Guid.NewGuid();
         SetUserClaims(new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()));
-        ArrangeBusResponse<AuthResult>(Errors.Auth.EmailAlreadyInUse);
+        ArrangeBusResponse<UserDto>(Errors.Auth.EmailAlreadyInUse);
 
         var result = await _controller.UpdateMyProfile(
             new UpdateMyProfileRequest("duplicate@test.com", null, "First", "Last"),
@@ -281,15 +283,8 @@ public class UsersControllerTests
         };
     }
 
-    private static AuthResult CreateAuthResult(Guid userId)
-    {
-        return new AuthResult(
-            "access-token",
-            "refresh-token",
-            DateTimeOffset.UtcNow.AddMinutes(15),
-            DateTimeOffset.UtcNow.AddDays(7),
-            new UserDto(userId, "updated@test.com", "+15551234567", "Updated", "User"));
-    }
+    private static UserDto CreateProfile(Guid userId) =>
+        new(userId, "updated@test.com", "+15551234567", "Updated", "User");
 
     private static string? GetMessage(object? value)
     {

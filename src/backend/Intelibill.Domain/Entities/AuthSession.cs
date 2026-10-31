@@ -62,9 +62,10 @@ public sealed class AuthSession : BaseEntity
     public bool IsActive(DateTimeOffset now) => RevokedAt is null && now < ExpiresAt;
 
     /// <summary>
-    /// Moves this device into another shop. The bump invalidates the access token the client is
-    /// holding, which is the point — that token still names the previous scope. Re-selecting the
-    /// shop the device is already in changes nothing.
+    /// Records which shop this device is working in, so its owner can recognise it in a session
+    /// list. The scope is description, not authority: what a token may do in a shop is decided by
+    /// the live membership behind it, which is why re-selecting the same shop changes nothing and
+    /// why moving does not reach back and invalidate tokens the client already holds.
     /// </summary>
     public void ChangeScope(Guid? activeShopId, DateTimeOffset now)
     {

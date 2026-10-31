@@ -377,7 +377,7 @@ public sealed class UsersControllerTests(PostgreSqlTestFixture fixture) : IAsync
     }
 
     [Fact]
-    public async Task UpdateMyProfile_WithValidData_Returns200WithNewToken()
+    public async Task UpdateMyProfile_WithValidData_Returns200WithTheSavedProfile()
     {
         using var client = CreateClient();
         var (token, email) = await RegisterAsync(client);
@@ -394,10 +394,14 @@ public sealed class UsersControllerTests(PostgreSqlTestFixture fixture) : IAsync
         });
         var response = await client.SendAsync(request);
 
+        // The saved profile comes back on its own: editing a name is not a credential event, so the
+        // response carries no token and the session it arrived on carries on unchanged.
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.False(string.IsNullOrWhiteSpace(body.GetProperty("accessToken").GetString()));
-        Assert.Equal("Updated", body.GetProperty("user").GetProperty("firstName").GetString());
+        var payload = await response.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("accessToken", payload, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("refreshToken", payload, StringComparison.OrdinalIgnoreCase);
+        var body = JsonDocument.Parse(payload).RootElement;
+        Assert.Equal("Updated", body.GetProperty("firstName").GetString());
     }
 
     [Fact]

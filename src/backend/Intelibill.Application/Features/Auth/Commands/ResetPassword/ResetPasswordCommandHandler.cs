@@ -10,9 +10,10 @@ namespace Intelibill.Application.Features.Auth.Commands.ResetPassword;
 public sealed class ResetPasswordCommandHandler(
     IUserRepository userRepository,
     IPasswordResetTokenRepository passwordResetTokenRepository,
-    IRefreshTokenRepository refreshTokenRepository,
+    IAuthSessionRepository sessions,
     IPasswordHasher passwordHasher,
-    IEmailOwnershipRepository ownership)
+    IEmailOwnershipRepository ownership,
+    TimeProvider clock)
 {
     public async Task<ErrorOr<bool>> HandleAsync(
         ResetPasswordCommand command,
@@ -40,8 +41,10 @@ public sealed class ResetPasswordCommandHandler(
         resetToken.MarkAsUsed();
         passwordResetTokenRepository.Update(resetToken);
 
-        // Revoke all active refresh tokens so existing sessions cannot be reused.
-        await refreshTokenRepository.RevokeAllForUserAsync(user.Id, cancellationToken);
+        // Every device is ended, with its refresh family, inside the same transaction that writes
+        // the new password. Whoever is recovering the account does not know which devices are
+        // signed in, so none is spared.
+        await sessions.RevokeAllAsync(user.Id, exceptSessionId: null, "password-reset", clock.GetUtcNow(), cancellationToken);
 
         if (!await ownership.CommitAsync(cancellationToken)) return Errors.Auth.InvalidPasswordResetToken;
 

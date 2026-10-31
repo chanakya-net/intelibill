@@ -424,6 +424,18 @@ public sealed class MembershipLifecycleIntegrationTests(PostgreSqlTestFixture fi
         Assert.Equal(HttpStatusCode.OK, (await SwitchAsync(client, afterSuspension, shopTwo)).StatusCode);
     }
 
+    /// <summary>
+    /// A fresh sign-in, which is a device of its own: it carries its own session id and its own
+    /// refresh credential. Ordinary operations no longer mint refresh credentials, so a test that
+    /// needs one takes it from here.
+    /// </summary>
+    private static async Task<JsonElement> SignInAsync(HttpClient client, string email)
+    {
+        var response = await client.PostAsJsonAsync("/api/auth/login", new { identifier = email, password = SharedPassword });
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<JsonElement>();
+    }
+
     private static async Task<HttpResponseMessage> SwitchAsync(HttpClient client, string accessToken, Guid shopId)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/shops/switch");
@@ -446,14 +458,17 @@ public sealed class MembershipLifecycleIntegrationTests(PostgreSqlTestFixture fi
         var (_, _, ownerAToken) = await EnrollAsync(client, "owner-a");
         var (shopA, ownerAShopToken) = await CreateShopAsync(client, ownerAToken);
 
-        var (sharedUserId, _, sharedToken) = await EnrollAsync(client, "shared");
-        var (shopB, sharedShopBToken) = await CreateShopAsync(client, sharedToken);
+        var (sharedUserId, sharedEmail, sharedToken) = await EnrollAsync(client, "shared");
+        var (shopB, _) = await CreateShopAsync(client, sharedToken);
         await SeedMembershipAsync(shopA, sharedUserId, ShopRole.Staff);
 
-        var switched = await SwitchAsync(client, sharedShopBToken, shopA);
+        // One device, signed in once: the refresh credential belongs to that sign-in, and switching
+        // shops moves the device's scope without issuing another one.
+        var device = await SignInAsync(client, sharedEmail);
+        var refreshToken = device.GetProperty("refreshToken").GetString()!;
+        var switched = await SwitchAsync(client, device.GetProperty("accessToken").GetString()!, shopA);
         Assert.Equal(HttpStatusCode.OK, switched.StatusCode);
         var inShopA = await switched.Content.ReadFromJsonAsync<JsonElement>();
-        var refreshToken = inShopA.GetProperty("refreshToken").GetString()!;
         Assert.Equal(shopA, inShopA.GetProperty("activeShopId").GetGuid());
 
         // While the session is scoped to shop A, shop A suspends the membership.
@@ -482,18 +497,21 @@ public sealed class MembershipLifecycleIntegrationTests(PostgreSqlTestFixture fi
         var (shopOne, ownerShopOneToken) = await CreateShopAsync(client, ownerToken);
         var (shopTwo, _) = await CreateShopAsync(client, ownerToken);
 
-        var (memberUserId, _, memberToken) = await EnrollAsync(client, "member");
+        var (memberUserId, memberEmail, _) = await EnrollAsync(client, "member");
         await SeedMembershipAsync(shopOne, memberUserId, ShopRole.Manager);
         await SeedMembershipAsync(shopTwo, memberUserId, ShopRole.Manager);
 
-        // Take a session scoped to shop one, then work in shop two from somewhere else, so shop
-        // two is the most recently used shop while the shop-one session is still in hand.
-        var intoOne = await SwitchAsync(client, memberToken, shopOne);
+        // Two devices for the same person. The first works in shop one; the second works in shop
+        // two, which makes shop two the most recently used membership on the account. A device's
+        // scope is its own, so that must not pull the first device out of shop one.
+        var deviceOne = await SignInAsync(client, memberEmail);
+        var refreshToken = deviceOne.GetProperty("refreshToken").GetString()!;
+        var intoOne = await SwitchAsync(client, deviceOne.GetProperty("accessToken").GetString()!, shopOne);
         intoOne.EnsureSuccessStatusCode();
-        var inShopOne = await intoOne.Content.ReadFromJsonAsync<JsonElement>();
-        var shopOneSession = inShopOne.GetProperty("accessToken").GetString()!;
-        var refreshToken = inShopOne.GetProperty("refreshToken").GetString()!;
-        (await SwitchAsync(client, memberToken, shopTwo)).EnsureSuccessStatusCode();
+        var shopOneSession = (await intoOne.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("accessToken").GetString()!;
+
+        var deviceTwo = await SignInAsync(client, memberEmail);
+        (await SwitchAsync(client, deviceTwo.GetProperty("accessToken").GetString()!, shopTwo)).EnsureSuccessStatusCode();
 
         (await PatchMembershipAsync(client, ownerShopOneToken, shopOne, memberUserId, "Staff", "Active", 0))
             .EnsureSuccessStatusCode();

@@ -60,9 +60,13 @@ public sealed class ShopsController : AuthenticatedControllerBase
         var auth = CheckAuth();
         if (auth is not null) return auth;
 
-        var result = await Bus.InvokeAsync<ErrorOr.ErrorOr<AuthResult>>(
+        var session = CheckSession();
+        if (session is not null) return session;
+
+        var result = await Bus.InvokeAsync<ErrorOr.ErrorOr<AccessScopeResult>>(
             new CreateShopCommand(
                 UserId!.Value,
+                SessionId!.Value,
                 request.Name,
                 request.Address,
                 request.City,
@@ -70,7 +74,7 @@ public sealed class ShopsController : AuthenticatedControllerBase
                 request.Pincode,
                 request.ContactPerson,
                 request.MobileNumber,
-                request.GstNumber, SecurityVersion),
+                request.GstNumber),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -86,8 +90,11 @@ public sealed class ShopsController : AuthenticatedControllerBase
         var auth = CheckAuth();
         if (auth is not null) return auth;
 
-        var result = await Bus.InvokeAsync<ErrorOr.ErrorOr<AuthResult>>(
-            new SwitchActiveShopCommand(UserId!.Value, request.ShopId, SecurityVersion),
+        var session = CheckSession();
+        if (session is not null) return session;
+
+        var result = await Bus.InvokeAsync<ErrorOr.ErrorOr<AccessScopeResult>>(
+            new SwitchActiveShopCommand(UserId!.Value, SessionId!.Value, request.ShopId),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -99,8 +106,8 @@ public sealed class ShopsController : AuthenticatedControllerBase
         var auth = CheckAuth();
         if (auth is not null) return auth;
 
-        var result = await Bus.InvokeAsync<ErrorOr.ErrorOr<AuthResult>>(
-            new SetDefaultShopCommand(UserId!.Value, request.ShopId, SecurityVersion),
+        var result = await Bus.InvokeAsync<ErrorOr.ErrorOr<ShopPreferenceResult>>(
+            new SetDefaultShopCommand(UserId!.Value, request.ShopId, ActiveShopId),
             cancellationToken);
 
         return result.ToActionResult(Ok);
