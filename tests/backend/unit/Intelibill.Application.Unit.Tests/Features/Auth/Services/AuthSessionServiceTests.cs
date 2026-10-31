@@ -1,12 +1,15 @@
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Common.Security;
 using Intelibill.Application.Features.Auth.DTOs;
 using Intelibill.Application.Features.Auth.Services;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Domain.ValueObjects;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 
 namespace Intelibill.Application.Unit.Tests.Features.Auth.Services;
 
@@ -32,12 +35,23 @@ public class AuthSessionServiceTests
         _sessions.BeginAsync(Arg.Any<CancellationToken>()).Returns(Substitute.For<IAsyncDisposable>());
         _sessions.CommitAsync(Arg.Any<CancellationToken>()).Returns(true);
         _devices.Current.Returns(DeviceMetadata.Unknown);
-        _tokens.CreateRefreshToken(Arg.Any<Guid>())
-            .Returns(call => RefreshToken.Create(call.Arg<Guid>(), $"refresh-{Guid.NewGuid():N}", Now.AddDays(7)));
+        _tokens.CreateRefreshSecret().Returns(_ =>
+        {
+            var token = $"refresh-{Guid.NewGuid():N}";
+            return new RefreshSecret(token, RefreshTokenSecrets.Hash(token), Now.AddDays(7));
+        });
         _tokens.GenerateAccessTokenAsync(Arg.Any<User>(), Arg.Any<AuthSession>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
             .Returns(("access-token", Now.AddMinutes(15)));
 
-        return new AuthSessionService(_sessions, _users, _refreshTokens, _tokens, new FixedEpoch(Epoch), _devices, new FixedClock(Now));
+        return new AuthSessionService(
+            _sessions,
+            _users,
+            _refreshTokens,
+            _tokens,
+            new FixedEpoch(Epoch),
+            _devices,
+            new FixedClock(Now),
+            NullLogger<AuthSessionService>.Instance);
     }
 
     private static User VerifiedOwner(out Shop shop, ShopRole role = ShopRole.Owner, MembershipStatus status = MembershipStatus.Active)
@@ -78,6 +92,7 @@ public class AuthSessionServiceTests
             started,
             started.AddDays(7));
         _sessions.FindAsync(user.Id, session.Id, Arg.Any<CancellationToken>()).Returns(session);
+        _sessions.LockAsync(user.Id, session.Id, Arg.Any<CancellationToken>()).Returns(session);
         return session;
     }
 
@@ -101,7 +116,11 @@ public class AuthSessionServiceTests
             Arg.Is<AuthSession>(s => s.UserId == user.Id && s.RecoveryEpoch == Epoch && s.ActiveShopId == shop.Id),
             Arg.Any<CancellationToken>());
         await _refreshTokens.Received(1).AddAsync(
-            Arg.Is<RefreshToken>(t => t.AuthSessionId != null && t.SecurityVersion == user.SecurityVersion),
+            Arg.Is<RefreshToken>(t =>
+                t.AuthSessionId == result.Value.SessionId &&
+                t.ParentTokenId == null &&
+                t.SecurityVersion == user.SecurityVersion &&
+                t.TokenHash == RefreshTokenSecrets.Hash(result.Value.RefreshToken)),
             Arg.Any<CancellationToken>());
     }
 
@@ -178,6 +197,32 @@ public class AuthSessionServiceTests
 
     // ── Rotating inside a session ────────────────────────────────────────────────
 
+    /// <summary>
+    /// The presented credential is used up and exactly one successor joins the chain behind it, in
+    /// the same session. What the client receives is the secret; what is stored is only its hash.
+    /// </summary>
+    [Fact]
+    public async Task RotateAsync_ConsumesThePresentedCredentialAndAddsOneChild()
+    {
+        var user = VerifiedOwner(out var shop);
+        AccountIs(user);
+        var session = LiveSession(user, shop.Id);
+        var held = GivenRefreshCredential(user, session.Id);
+
+        var result = await Service().RotateAsync("held", null, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(Now, held.ConsumedAt);
+        await _refreshTokens.Received(1).AddAsync(
+            Arg.Is<RefreshToken>(t =>
+                t.ParentTokenId == held.Id &&
+                t.AuthSessionId == session.Id &&
+                t.TokenHash == RefreshTokenSecrets.Hash(result.Value.RefreshToken) &&
+                t.TokenHash != result.Value.RefreshToken),
+            Arg.Any<CancellationToken>());
+        await _sessions.Received(1).CommitAsync(Arg.Any<CancellationToken>());
+    }
+
     [Fact]
     public async Task RotateAsync_KeepsTheSessionIdSoTheDeviceStaysTheSameDevice()
     {
@@ -216,21 +261,139 @@ public class AuthSessionServiceTests
     }
 
     /// <summary>
-    /// A refresh row written before sessions existed names none. It is refused rather than adopted
-    /// by a session invented for it, which is what makes the cutover a fresh sign-in.
+    /// The lock order every security transition shares: account, then session, then credential.
+    /// Taking them any other way round is how a renewal and a sign-out deadlock.
     /// </summary>
     [Fact]
-    public async Task RotateAsync_WhenTheCredentialNamesNoSession_RefusesIt()
+    public async Task RotateAsync_TakesTheLocksInOrder()
     {
-        var user = VerifiedOwner(out _);
-        var legacy = RefreshToken.Create(user.Id, "held", Now.AddDays(7));
-        legacy.BindSecurityVersion(user.SecurityVersion);
-        _refreshTokens.GetActiveByTokenAsync("held", Arg.Any<CancellationToken>()).Returns(legacy);
+        var user = VerifiedOwner(out var shop);
+        AccountIs(user);
+        var session = LiveSession(user, shop.Id);
+        var held = GivenRefreshCredential(user, session.Id);
+
+        await Service().RotateAsync("held", null, CancellationToken.None);
+
+        Received.InOrder(() =>
+        {
+            _ = _sessions.LockUserAuthorityAsync(user.Id, Arg.Any<CancellationToken>());
+            _ = _sessions.LockAsync(user.Id, session.Id, Arg.Any<CancellationToken>());
+            _ = _refreshTokens.LockAsync(held.Id, Arg.Any<CancellationToken>());
+        });
+    }
+
+    /// <summary>
+    /// A credential that was already exchanged has come back. The server cannot tell a lost
+    /// response from a stolen copy, so the session ends — and that revocation is committed even
+    /// though the request itself is refused.
+    /// </summary>
+    [Fact]
+    public async Task RotateAsync_ConsumedCredential_EndsItsSessionAndCommitsThat()
+    {
+        var user = VerifiedOwner(out var shop);
+        AccountIs(user);
+        var session = LiveSession(user, shop.Id);
+        var held = GivenRefreshCredential(user, session.Id);
+        held.Rotate(RefreshTokenSecrets.Hash("successor"), Now.AddDays(7), Now.AddMinutes(-1));
 
         var result = await Service().RotateAsync("held", null, CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal(Errors.Auth.InvalidRefreshToken.Code, result.FirstError.Code);
+        await _sessions.Received(1).RevokeAsync(session, "refresh-reuse", Now, Arg.Any<CancellationToken>());
+        await _sessions.Received(1).CommitAsync(Arg.Any<CancellationToken>());
+        await _refreshTokens.DidNotReceive().AddAsync(Arg.Any<RefreshToken>(), Arg.Any<CancellationToken>());
+        await _tokens.DidNotReceive().GenerateAccessTokenAsync(
+            Arg.Any<User>(), Arg.Any<AuthSession>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>
+    /// A value that was never issued says nothing about any session, so it ends nothing — otherwise
+    /// guessing would be a way to sign other people out.
+    /// </summary>
+    [Fact]
+    public async Task RotateAsync_UnknownCredential_RevokesNothing()
+    {
+        _refreshTokens.FindOwnerByHashAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns((RefreshTokenOwner?)null);
+
+        var result = await Service().RotateAsync("never-issued", null, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Auth.InvalidRefreshToken.Code, result.FirstError.Code);
+        await _sessions.DidNotReceive().LockUserAuthorityAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+        await _sessions.DidNotReceive().RevokeAsync(Arg.Any<AuthSession>(), Arg.Any<string>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>());
+        await _sessions.DidNotReceive().CommitAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RotateAsync_AtExactExpiry_IsRefused()
+    {
+        var user = VerifiedOwner(out var shop);
+        AccountIs(user);
+        var session = LiveSession(user, shop.Id);
+        var held = GivenRefreshCredential(user, session.Id, expiresAt: Now);
+
+        var result = await Service().RotateAsync("held", null, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Auth.InvalidRefreshToken.Code, result.FirstError.Code);
+        Assert.Null(held.ConsumedAt);
+        await _refreshTokens.DidNotReceive().AddAsync(Arg.Any<RefreshToken>(), Arg.Any<CancellationToken>());
+        await _sessions.DidNotReceive().CommitAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RotateAsync_RevokedCredential_IsRefusedWithoutEndingAnything()
+    {
+        var user = VerifiedOwner(out var shop);
+        AccountIs(user);
+        var session = LiveSession(user, shop.Id);
+        var held = GivenRefreshCredential(user, session.Id);
+        held.Revoke("signed-out", Now.AddMinutes(-1));
+
+        var result = await Service().RotateAsync("held", null, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        await _sessions.DidNotReceive().RevokeAsync(Arg.Any<AuthSession>(), Arg.Any<string>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>());
+        await _sessions.DidNotReceive().CommitAsync(Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>
+    /// The access token is signed inside the transaction. If signing fails nothing commits, so the
+    /// presented credential is still the live one and no successor exists to be orphaned.
+    /// </summary>
+    [Fact]
+    public async Task RotateAsync_WhenSigningFails_DoesNotCommit()
+    {
+        var user = VerifiedOwner(out var shop);
+        AccountIs(user);
+        var session = LiveSession(user, shop.Id);
+        GivenRefreshCredential(user, session.Id);
+        var service = Service();
+        _tokens.GenerateAccessTokenAsync(Arg.Any<User>(), Arg.Any<AuthSession>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new InvalidOperationException("Signing key unavailable."));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.RotateAsync("held", null, CancellationToken.None));
+
+        await _sessions.DidNotReceive().CommitAsync(Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>
+    /// A refresh row written before sessions existed names none. It is refused rather than adopted
+    /// by a session invented for it, which is what makes the cutover a fresh sign-in.
+    /// </summary>
+    [Fact]
+    public async Task RotateAsync_WhenTheCredentialNamesNoSession_RefusesItWithoutLocking()
+    {
+        _refreshTokens.FindOwnerByHashAsync(RefreshTokenSecrets.Hash("held"), Arg.Any<CancellationToken>())
+            .Returns(new RefreshTokenOwner(Guid.NewGuid(), Guid.NewGuid(), AuthSessionId: null));
+
+        var result = await Service().RotateAsync("held", null, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Auth.InvalidRefreshToken.Code, result.FirstError.Code);
+        await _sessions.DidNotReceive().LockUserAuthorityAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -278,6 +441,62 @@ public class AuthSessionServiceTests
 
         Assert.True(result.IsError);
         Assert.Equal(Errors.Auth.InvalidRefreshToken.Code, result.FirstError.Code);
+    }
+
+    // ── Signing out ──────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task SignOutAsync_EndsTheSessionTheCredentialBelongsTo()
+    {
+        var user = VerifiedOwner(out var shop);
+        AccountIs(user);
+        var session = LiveSession(user, shop.Id);
+        var held = GivenRefreshCredential(user, session.Id);
+
+        var result = await Service().SignOutAsync("held", CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Received.InOrder(() =>
+        {
+            _ = _sessions.LockUserAuthorityAsync(user.Id, Arg.Any<CancellationToken>());
+            _ = _sessions.LockAsync(user.Id, session.Id, Arg.Any<CancellationToken>());
+            _ = _refreshTokens.LockAsync(held.Id, Arg.Any<CancellationToken>());
+            _ = _sessions.RevokeAsync(session, "signed-out", Now, Arg.Any<CancellationToken>());
+            _ = _sessions.CommitAsync(Arg.Any<CancellationToken>());
+        });
+    }
+
+    /// <summary>
+    /// Signing out with a credential that was already exchanged is the same signal as renewing with
+    /// one, and gets the same answer: the session ends as a replay, and the caller is refused.
+    /// </summary>
+    [Fact]
+    public async Task SignOutAsync_WithAConsumedCredential_EndsTheSessionAsAReplay()
+    {
+        var user = VerifiedOwner(out var shop);
+        AccountIs(user);
+        var session = LiveSession(user, shop.Id);
+        var held = GivenRefreshCredential(user, session.Id);
+        held.Rotate(RefreshTokenSecrets.Hash("successor"), Now.AddDays(7), Now.AddMinutes(-1));
+
+        var result = await Service().SignOutAsync("held", CancellationToken.None);
+
+        Assert.True(result.IsError);
+        await _sessions.Received(1).RevokeAsync(session, "refresh-reuse", Now, Arg.Any<CancellationToken>());
+        await _sessions.Received(1).CommitAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task SignOutAsync_UnknownCredential_RevokesNothing()
+    {
+        _refreshTokens.FindOwnerByHashAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns((RefreshTokenOwner?)null);
+
+        var result = await Service().SignOutAsync("never-issued", CancellationToken.None);
+
+        Assert.True(result.IsError);
+        await _sessions.DidNotReceive().RevokeAsync(Arg.Any<AuthSession>(), Arg.Any<string>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>());
+        await _sessions.DidNotReceive().CommitAsync(Arg.Any<CancellationToken>());
     }
 
     // ── Rescoping one device ─────────────────────────────────────────────────────
@@ -382,10 +601,11 @@ public class AuthSessionServiceTests
     [Fact]
     public async Task RevokeAsync_WhenTheSessionBelongsToAnotherAccount_ReportsItMissing()
     {
-        var userId = Guid.NewGuid();
-        _sessions.FindAsync(userId, Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((AuthSession?)null);
+        var user = VerifiedOwner(out _);
+        AccountIs(user);
+        _sessions.LockAsync(user.Id, Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((AuthSession?)null);
 
-        var result = await Service().RevokeAsync(userId, Guid.NewGuid(), CancellationToken.None);
+        var result = await Service().RevokeAsync(user.Id, Guid.NewGuid(), CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal(Errors.Auth.SessionNotFound.Code, result.FirstError.Code);
@@ -393,15 +613,21 @@ public class AuthSessionServiceTests
     }
 
     [Fact]
-    public async Task RevokeAsync_EndsTheNamedDevice()
+    public async Task RevokeAsync_EndsTheNamedDeviceUnderTheAccountLock()
     {
         var user = VerifiedOwner(out var shop);
+        AccountIs(user);
         var session = LiveSession(user, shop.Id);
 
         var result = await Service().RevokeAsync(user.Id, session.Id, CancellationToken.None);
 
         Assert.False(result.IsError);
-        await _sessions.Received(1).RevokeAsync(session, "user-revoked", Now, Arg.Any<CancellationToken>());
+        Received.InOrder(() =>
+        {
+            _ = _sessions.LockUserAuthorityAsync(user.Id, Arg.Any<CancellationToken>());
+            _ = _sessions.LockAsync(user.Id, session.Id, Arg.Any<CancellationToken>());
+            _ = _sessions.RevokeAsync(session, "user-revoked", Now, Arg.Any<CancellationToken>());
+        });
     }
 
     [Fact]
@@ -416,13 +642,13 @@ public class AuthSessionServiceTests
         await _sessions.Received(1).RevokeAllAsync(user.Id, null, "user-revoked-all", Now, Arg.Any<CancellationToken>());
     }
 
-    private void GivenRefreshCredential(User user, Guid sessionId)
+    private RefreshToken GivenRefreshCredential(User user, Guid sessionId, DateTimeOffset? expiresAt = null)
     {
-        var held = RefreshToken.Create(user.Id, "held", Now.AddDays(7));
-        held.BindSecurityVersion(user.SecurityVersion);
-        held.BindSession(sessionId);
-        typeof(RefreshToken).GetProperty(nameof(RefreshToken.User))!.SetValue(held, user);
-        _refreshTokens.GetActiveByTokenAsync("held", Arg.Any<CancellationToken>()).Returns(held);
+        var held = RefreshToken.Issue(user.Id, sessionId, user.SecurityVersion, RefreshTokenSecrets.Hash("held"), expiresAt ?? Now.AddDays(7));
+        _refreshTokens.FindOwnerByHashAsync(RefreshTokenSecrets.Hash("held"), Arg.Any<CancellationToken>())
+            .Returns(new RefreshTokenOwner(held.Id, user.Id, sessionId));
+        _refreshTokens.LockAsync(held.Id, Arg.Any<CancellationToken>()).Returns(held);
+        return held;
     }
 
     /// <summary>

@@ -36,6 +36,12 @@ internal sealed class AuthSessionRepository(ApplicationDbContext db, IUnitOfWork
     public Task<AuthSession?> FindAsync(Guid userId, Guid sessionId, CancellationToken ct) =>
         db.AuthSessions.FirstOrDefaultAsync(x => x.Id == sessionId && x.UserId == userId, ct);
 
+    public Task<AuthSession?> LockAsync(Guid userId, Guid sessionId, CancellationToken ct) =>
+        db.LockTrackedAsync(
+            db.AuthSessions.FromSql($"SELECT * FROM auth_sessions WHERE id = {sessionId} AND user_id = {userId} FOR UPDATE"),
+            sessionId,
+            ct);
+
     public async Task<IReadOnlyList<AuthSession>> ListAsync(Guid userId, CancellationToken ct) =>
         await db.AuthSessions
             .AsNoTracking()
@@ -59,7 +65,9 @@ internal sealed class AuthSessionRepository(ApplicationDbContext db, IUnitOfWork
                 s => s.SetProperty(x => x.RevokedAt, now).SetProperty(x => x.RevocationReason, reason),
                 ct);
 
-        _ = await RevokeRefreshFamiliesAsync(userId, exceptSessionId, now, ct);
+        _ = await db.RefreshTokens
+            .Where(x => x.UserId == userId && (exceptSessionId == null || x.AuthSessionId != exceptSessionId.Value))
+            .RevokeAsync(reason, now, ct);
 
         return revoked;
     }
@@ -70,11 +78,11 @@ internal sealed class AuthSessionRepository(ApplicationDbContext db, IUnitOfWork
 
         session.Revoke(reason, now);
 
-        await db.RefreshTokens
-            .Where(x => x.AuthSessionId == session.Id && !x.IsRevoked)
-            .ExecuteUpdateAsync(
-                s => s.SetProperty(x => x.IsRevoked, true).SetProperty(x => x.RevokedAt, now),
-                ct);
+        // The session is the rotation family: every credential it ever issued ends with it,
+        // including one minted by a renewal that committed a moment ago.
+        _ = await db.RefreshTokens
+            .Where(x => x.AuthSessionId == session.Id)
+            .RevokeAsync(reason, now, ct);
     }
 
     public async Task<bool> CommitAsync(CancellationToken ct)
@@ -96,13 +104,4 @@ internal sealed class AuthSessionRepository(ApplicationDbContext db, IUnitOfWork
             return false;
         }
     }
-
-    private Task<int> RevokeRefreshFamiliesAsync(Guid userId, Guid? exceptSessionId, DateTimeOffset now, CancellationToken ct) =>
-        db.RefreshTokens
-            .Where(x => x.UserId == userId
-                && !x.IsRevoked
-                && (exceptSessionId == null || x.AuthSessionId != exceptSessionId.Value))
-            .ExecuteUpdateAsync(
-                s => s.SetProperty(x => x.IsRevoked, true).SetProperty(x => x.RevokedAt, now),
-                ct);
 }

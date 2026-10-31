@@ -114,7 +114,11 @@ public sealed class EmailOwnershipSecurityTests(PostgreSqlTestFixture fixture) :
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
             var user = User.CreateWithEmail(email, scope.ServiceProvider.GetRequiredService<IPasswordHasher>().Hash("AttackerPassword!1"), "Attacker", "Name");
             userId = user.Id; db.Users.Add(user);
-            db.RefreshTokens.Add(RefreshToken.Create(user.Id, "attacker-refresh", DateTimeOffset.UtcNow.AddDays(1)));
+            // A live device the squatter is signed in on, with a refresh credential that would
+            // renew right now: the claim has to end it, not merely find it already unusable.
+            var device = AuthSession.Start(user.Id, user.SecurityVersion, "1", null, Intelibill.Domain.ValueObjects.DeviceMetadata.Unknown, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddDays(1));
+            db.AuthSessions.Add(device);
+            db.RefreshTokens.Add(RefreshToken.Issue(user.Id, device.Id, user.SecurityVersion, Intelibill.Application.Common.Security.RefreshTokenSecrets.Hash("attacker-refresh"), DateTimeOffset.UtcNow.AddDays(1)));
             await db.SaveChangesAsync();
         }
         await client.PostAsJsonAsync("/api/auth/enrollment/email/claim/request", new { email });

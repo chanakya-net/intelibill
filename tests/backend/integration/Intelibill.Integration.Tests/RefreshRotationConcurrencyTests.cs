@@ -206,6 +206,8 @@ public sealed class RefreshRotationConcurrencyTests(PostgreSqlTestFixture fixtur
 
         public Task<AuthSession?> FindAsync(Guid userId, Guid sessionId, CancellationToken ct) => inner.FindAsync(userId, sessionId, ct);
 
+        public Task<AuthSession?> LockAsync(Guid userId, Guid sessionId, CancellationToken ct) => inner.LockAsync(userId, sessionId, ct);
+
         public Task<IReadOnlyList<AuthSession>> ListAsync(Guid userId, CancellationToken ct) => inner.ListAsync(userId, ct);
 
         public Task<int> RevokeAllAsync(Guid userId, Guid? exceptSessionId, string reason, DateTimeOffset now, CancellationToken ct) =>

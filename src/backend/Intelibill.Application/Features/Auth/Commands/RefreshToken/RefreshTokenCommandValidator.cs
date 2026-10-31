@@ -6,6 +6,6 @@ internal sealed class RefreshTokenCommandValidator : AbstractValidator<RefreshTo
 {
     public RefreshTokenCommandValidator()
     {
-        RuleFor(x => x.RefreshToken).NotEmpty();
+        RuleFor(x => x.RefreshToken).NotEmpty().MaximumLength(256);
     }
 }

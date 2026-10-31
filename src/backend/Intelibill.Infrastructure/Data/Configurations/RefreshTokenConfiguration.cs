@@ -12,15 +12,26 @@ internal sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refre
 
         builder.HasKey(rt => rt.Id);
 
-        builder.Property(rt => rt.Token)
-            .IsRequired()
-            .HasMaxLength(128);
+        // Hex SHA-256. Optional only while rows written before hashing remain; the contract
+        // migration that drops the legacy raw-token column makes this required.
+        builder.Property(rt => rt.TokenHash)
+            .HasMaxLength(64)
+            .IsRequired(false);
 
-        builder.HasIndex(rt => rt.Token)
+        builder.HasIndex(rt => rt.TokenHash)
             .IsUnique();
+
+        // A credential renews exactly once, so it can be the parent of at most one successor. The
+        // rotation already serialises on row locks; this is the backstop if that ever regresses.
+        builder.HasIndex(rt => rt.ParentTokenId)
+            .IsUnique()
+            .HasFilter("parent_token_id IS NOT NULL");
 
         builder.Property(rt => rt.ExpiresAt)
             .IsRequired();
+
+        builder.Property(rt => rt.RevocationReason)
+            .HasMaxLength(64);
 
         builder.HasOne(rt => rt.User)
             .WithMany()

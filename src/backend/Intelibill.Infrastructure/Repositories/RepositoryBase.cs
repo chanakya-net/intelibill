@@ -9,6 +9,8 @@ namespace Intelibill.Infrastructure.Repositories;
 public abstract class RepositoryBase<TEntity>(ApplicationDbContext context) : IRepository<TEntity>
     where TEntity : BaseEntity
 {
+    protected ApplicationDbContext Context { get; } = context;
+
     protected DbSet<TEntity> DbSet { get; } = context.Set<TEntity>();
 
     public async Task<TEntity?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>

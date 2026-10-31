@@ -136,11 +136,35 @@ public class TokenServiceTests
     }
 
     [Fact]
-    public void CreateRefreshToken_ExpiresOnTheConfiguredSchedule()
+    public void CreateRefreshSecret_ExpiresOnTheConfiguredSchedule()
     {
-        var refreshToken = CreateService().CreateRefreshToken(Guid.NewGuid());
+        var secret = CreateService().CreateRefreshSecret();
 
-        Assert.Equal(Now.AddDays(7), refreshToken.ExpiresAt);
+        Assert.Equal(Now.AddDays(7), secret.ExpiresAt);
+    }
+
+    /// <summary>
+    /// 64 random bytes travel as Base64Url, and what is handed back for storage is the hash of
+    /// exactly that string — so the stored value is never the secret and always finds it again.
+    /// </summary>
+    [Fact]
+    public void CreateRefreshSecret_ReturnsABase64UrlSecretAndOnlyItsHashForStorage()
+    {
+        var secret = CreateService().CreateRefreshSecret();
+
+        Assert.Equal(86, secret.Token.Length);
+        Assert.Matches("^[A-Za-z0-9_-]+$", secret.Token);
+        Assert.Equal(Intelibill.Application.Common.Security.RefreshTokenSecrets.Hash(secret.Token), secret.TokenHash);
+        Assert.Matches("^[0-9A-F]{64}$", secret.TokenHash);
+        Assert.DoesNotContain(secret.Token, secret.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CreateRefreshSecret_NeverRepeatsASecret()
+    {
+        var service = CreateService();
+
+        Assert.NotEqual(service.CreateRefreshSecret().Token, service.CreateRefreshSecret().Token);
     }
 
     private static User UserAndSession(out AuthSession session)
