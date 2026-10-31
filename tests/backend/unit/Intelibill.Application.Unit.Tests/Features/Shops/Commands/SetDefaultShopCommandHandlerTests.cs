@@ -1,8 +1,10 @@
+using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Shops.Commands.SetDefaultShop;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
+using Intelibill.Domain.ValueObjects;
 using NSubstitute;
 
 namespace Intelibill.Application.Unit.Tests.Features.Shops.Commands.SetDefaultShop;
@@ -10,11 +12,24 @@ namespace Intelibill.Application.Unit.Tests.Features.Shops.Commands.SetDefaultSh
 public class SetDefaultShopCommandHandlerTests
 {
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
+    private readonly IAuthSessionRepository _sessions = Substitute.For<IAuthSessionRepository>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
+
+    private SetDefaultShopCommandHandler Handler(User user, long? lockedVersion = null)
+    {
+        _userRepository.GetByIdWithDetailsAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        _sessions.BeginAsync(Arg.Any<CancellationToken>()).Returns(Substitute.For<IAsyncDisposable>());
+        _sessions.CommitAsync(Arg.Any<CancellationToken>()).Returns(true);
+        _sessions.LockUserAuthorityAsync(user.Id, Arg.Any<CancellationToken>()).Returns(
+            new UserAuthority(user.Id, lockedVersion ?? user.SecurityVersion, true, user.Email is not null, user.IsEmailVerified));
+        return new SetDefaultShopCommandHandler(_userRepository, _sessions, _unitOfWork);
+    }
 
     private static (User User, Shop First, Shop Second) TwoShops()
     {
-        var user = User.CreateWithEmail("owner@test.com", "hash", "Owner", "One");
+        // Verified, because an account that signs in with an unproved email cannot hold a session
+        // at all and would be refused before the preference is even considered.
+        var user = VerifiedUsers.CreateWithEmail("owner@test.com", "hash", "Owner", "One");
 
         var firstShop = Shop.Create("First", "Address", "City", "State", "560001", null, null, null);
         var firstMembership = ShopMembership.Create(firstShop.Id, user.Id, ShopRole.Owner, true);
@@ -33,10 +48,9 @@ public class SetDefaultShopCommandHandlerTests
     public async Task HandleAsync_MultipleShops_SetsRequestedShopAsDefault()
     {
         var (user, firstShop, secondShop) = TwoShops();
-        _userRepository.GetByIdWithDetailsAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
 
-        var result = await new SetDefaultShopCommandHandler(_userRepository, _unitOfWork).HandleAsync(
-            new SetDefaultShopCommand(user.Id, secondShop.Id, firstShop.Id),
+        var result = await Handler(user).HandleAsync(
+            new SetDefaultShopCommand(user.Id, secondShop.Id, firstShop.Id, user.SecurityVersion),
             CancellationToken.None);
 
         Assert.False(result.IsError);
@@ -52,10 +66,9 @@ public class SetDefaultShopCommandHandlerTests
     public async Task HandleAsync_LeavesTheRequestingDeviceInTheShopItWasAlreadyIn()
     {
         var (user, firstShop, secondShop) = TwoShops();
-        _userRepository.GetByIdWithDetailsAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
 
-        var result = await new SetDefaultShopCommandHandler(_userRepository, _unitOfWork).HandleAsync(
-            new SetDefaultShopCommand(user.Id, secondShop.Id, firstShop.Id),
+        var result = await Handler(user).HandleAsync(
+            new SetDefaultShopCommand(user.Id, secondShop.Id, firstShop.Id, user.SecurityVersion),
             CancellationToken.None);
 
         Assert.False(result.IsError);
@@ -68,17 +81,36 @@ public class SetDefaultShopCommandHandlerTests
     /// default.
     /// </summary>
     [Fact]
-    public async Task HandleAsync_CommitsBothWritesAsOneTransaction()
+    public async Task HandleAsync_LocksTheAccountAndCommitsBothWritesAsOneTransaction()
     {
         var (user, firstShop, secondShop) = TwoShops();
-        _userRepository.GetByIdWithDetailsAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
 
-        _ = await new SetDefaultShopCommandHandler(_userRepository, _unitOfWork).HandleAsync(
-            new SetDefaultShopCommand(user.Id, secondShop.Id, firstShop.Id),
+        _ = await Handler(user).HandleAsync(
+            new SetDefaultShopCommand(user.Id, secondShop.Id, firstShop.Id, user.SecurityVersion),
             CancellationToken.None);
 
-        await _unitOfWork.Received(1).BeginTransactionAsync(Arg.Any<CancellationToken>());
-        await _unitOfWork.Received(2).SaveChangesAsync(Arg.Any<CancellationToken>());
-        await _unitOfWork.Received(1).CommitTransactionAsync(Arg.Any<CancellationToken>());
+        await _sessions.Received(1).BeginAsync(Arg.Any<CancellationToken>());
+        await _sessions.Received(1).LockUserAuthorityAsync(user.Id, Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _sessions.Received(1).CommitAsync(Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>
+    /// A preference write must not outrun a security change. If the account moved to a new version
+    /// while the request was in flight, the write is refused rather than landing on behalf of a
+    /// session that has already been invalidated.
+    /// </summary>
+    [Fact]
+    public async Task HandleAsync_WhenTheAccountMovedSinceTheTokenWasMinted_RefusesTheWrite()
+    {
+        var (user, firstShop, secondShop) = TwoShops();
+
+        var result = await Handler(user, lockedVersion: user.SecurityVersion + 1).HandleAsync(
+            new SetDefaultShopCommand(user.Id, secondShop.Id, firstShop.Id, user.SecurityVersion),
+            CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Auth.SessionInvalidated.Code, result.FirstError.Code);
+        Assert.True(user.ShopMemberships.Single(sm => sm.ShopId == firstShop.Id).IsDefault);
     }
 }

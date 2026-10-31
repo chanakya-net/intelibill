@@ -30,6 +30,13 @@ internal sealed class AuthSessionService(
     {
         ArgumentNullException.ThrowIfNull(proof);
 
+        // Read before the lock is taken. The account row is held only for the decision and the
+        // writes that follow it, so a password change waiting on that row is not held up by an
+        // unrelated read — and anything the decision rests on is re-read under the lock below.
+        var user = await users.GetByIdWithDetailsAsync(proof.UserId, ct);
+        if (user is null)
+            return Errors.Auth.InvalidCredentials;
+
         await using var transaction = await sessions.BeginAsync(ct);
 
         var authority = await sessions.LockUserAuthorityAsync(proof.UserId, ct);
@@ -41,10 +48,6 @@ internal sealed class AuthSessionService(
         // against and is refused if the account has moved on since.
         if (proof.Credential != CredentialKind.Registration &&
             authority.SecurityVersion != proof.VerifiedSecurityVersion)
-            return Errors.Auth.InvalidCredentials;
-
-        var user = await users.GetByIdWithDetailsAsync(proof.UserId, ct);
-        if (user is null)
             return Errors.Auth.InvalidCredentials;
 
         var result = await IssueAsync(user, authority.SecurityVersion, preferredShopId, ct);
@@ -99,6 +102,18 @@ internal sealed class AuthSessionService(
 
     public async Task<ErrorOr<AccessScopeResult>> RescopeAsync(Guid userId, Guid sessionId, Guid shopId, CancellationToken ct)
     {
+        // Read before the lock, for the same reason as StartAsync: the account row is held only
+        // for the decision and the writes that follow it.
+        var user = await users.GetByIdWithDetailsAsync(userId, ct);
+        if (user is null)
+            return Errors.Auth.SessionInvalidated;
+
+        // Any active member may select a shop they are assigned to; a regional manager works across
+        // several stores. Role still governs what they may do once inside it.
+        var membership = user.ShopMemberships.FirstOrDefault(sm => sm.ShopId == shopId && sm.IsActive);
+        if (membership is null)
+            return Errors.Shop.MembershipNotFound;
+
         await using var transaction = await sessions.BeginAsync(ct);
 
         var authority = await sessions.LockUserAuthorityAsync(userId, ct);
@@ -112,16 +127,6 @@ internal sealed class AuthSessionService(
             session.SecurityVersion != authority.SecurityVersion ||
             !string.Equals(session.RecoveryEpoch, await recoveryEpochs.GetCurrentAsync(ct), StringComparison.Ordinal))
             return Errors.Auth.SessionInvalidated;
-
-        var user = await users.GetByIdWithDetailsAsync(userId, ct);
-        if (user is null)
-            return Errors.Auth.SessionInvalidated;
-
-        // Any active member may select a shop they are assigned to; a regional manager works across
-        // several stores. Role still governs what they may do once inside it.
-        var membership = user.ShopMemberships.FirstOrDefault(sm => sm.ShopId == shopId && sm.IsActive);
-        if (membership is null)
-            return Errors.Shop.MembershipNotFound;
 
         membership.MarkUsed();
 

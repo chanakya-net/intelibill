@@ -107,7 +107,7 @@ public sealed class ShopsController : AuthenticatedControllerBase
         if (auth is not null) return auth;
 
         var result = await Bus.InvokeAsync<ErrorOr.ErrorOr<ShopPreferenceResult>>(
-            new SetDefaultShopCommand(UserId!.Value, request.ShopId, ActiveShopId),
+            new SetDefaultShopCommand(UserId!.Value, request.ShopId, ActiveShopId, SecurityVersion),
             cancellationToken);
 
         return result.ToActionResult(Ok);
