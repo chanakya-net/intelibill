@@ -14,6 +14,7 @@ public sealed class CreateShopCommandHandler(
     IShopRepository shopRepository,
     ISupplierRepository supplierRepository,
     IAuthSessionService sessions,
+    ITenantWriteScope tenantWriteScope,
     IUnitOfWork unitOfWork)
 {
     public async Task<ErrorOr<AccessScopeResult>> HandleAsync(CreateShopCommand command, CancellationToken cancellationToken)
@@ -37,9 +38,26 @@ public sealed class CreateShopCommandHandler(
         shop.AddMembership(membership);
         user.AddShopMembership(membership);
 
-        await shopRepository.AddAsync(shop, cancellationToken);
-        await supplierRepository.AddAsync(Supplier.CreateUnknownSystemSupplier(shop.Id), cancellationToken);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
+        // The system supplier is a tenant row for a shop that is not the caller's
+        // active one — the rescope that makes it active happens after the commit
+        // below. One transaction holds the shop, its membership and that supplier,
+        // and the scope it runs under reverts with it.
+        await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            await tenantWriteScope.EnterAsync(shop.Id, cancellationToken);
+
+            await shopRepository.AddAsync(shop, cancellationToken);
+            await supplierRepository.AddAsync(Supplier.CreateUnknownSystemSupplier(shop.Id), cancellationToken);
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            await unitOfWork.CommitTransactionAsync(cancellationToken);
+        }
+        catch
+        {
+            await unitOfWork.RollbackTransactionAsync(cancellationToken);
+            throw;
+        }
 
         // The shop and its membership are committed before the scope moves, so a rescope that
         // cannot complete leaves a usable shop the caller can switch into rather than losing it.

@@ -1,5 +1,6 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Shops.DTOs;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
@@ -14,6 +15,7 @@ public sealed class UpdateShopBankDetailsCommandHandler(
     IUserRepository userRepository,
     IShopRepository shopRepository,
     IBankAccountRepository bankAccountRepository,
+    ITenantWriteScope tenantWriteScope,
     IUnitOfWork unitOfWork)
 {
     private static readonly Regex IfscRegex = new(
@@ -58,32 +60,51 @@ public sealed class UpdateShopBankDetailsCommandHandler(
         }
 
         var accountHolderName = ToOptional(command.AccountHolderName);
-        var bankAccounts = await bankAccountRepository.FindAsync(x => x.ShopId == command.ShopId, cancellationToken);
-        var primaryAccount = bankAccounts.Count > 0 ? bankAccounts[0] : null;
 
-        if (primaryAccount is null)
+        // bank_accounts is tenant data, and the shop being administered need not be
+        // the caller's active one — the Owner membership re-read above is what
+        // authorizes it, so the scope is narrowed to that shop for this transaction
+        // only.
+        await unitOfWork.BeginTransactionAsync(cancellationToken);
+        BankAccount primaryAccount;
+        try
         {
-            primaryAccount = BankAccount.Create(
-                shop.Id,
-                bankName,
-                accountNumber,
-                accountType,
-                ifscCode,
-                accountHolderName);
-            await bankAccountRepository.AddAsync(primaryAccount, cancellationToken);
-        }
-        else
-        {
-            primaryAccount.Update(
-                bankName,
-                accountNumber,
-                accountType,
-                ifscCode,
-                accountHolderName);
-            bankAccountRepository.Update(primaryAccount);
-        }
+            await tenantWriteScope.EnterAsync(command.ShopId, cancellationToken);
 
-        await unitOfWork.SaveChangesAsync(cancellationToken);
+            var bankAccounts = await bankAccountRepository.FindAsync(x => x.ShopId == command.ShopId, cancellationToken);
+            var existingAccount = bankAccounts.Count > 0 ? bankAccounts[0] : null;
+
+            if (existingAccount is null)
+            {
+                primaryAccount = BankAccount.Create(
+                    shop.Id,
+                    bankName,
+                    accountNumber,
+                    accountType,
+                    ifscCode,
+                    accountHolderName);
+                await bankAccountRepository.AddAsync(primaryAccount, cancellationToken);
+            }
+            else
+            {
+                existingAccount.Update(
+                    bankName,
+                    accountNumber,
+                    accountType,
+                    ifscCode,
+                    accountHolderName);
+                bankAccountRepository.Update(existingAccount);
+                primaryAccount = existingAccount;
+            }
+
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+            await unitOfWork.CommitTransactionAsync(cancellationToken);
+        }
+        catch
+        {
+            await unitOfWork.RollbackTransactionAsync(cancellationToken);
+            throw;
+        }
 
         return new ShopDetailsDto(
             shop.Id,

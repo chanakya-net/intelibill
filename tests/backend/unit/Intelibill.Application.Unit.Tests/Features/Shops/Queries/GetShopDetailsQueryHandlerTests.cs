@@ -2,6 +2,8 @@ using ErrorOr;
 using Intelibill.Application.Features.Shops.Queries.GetShopDetails;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
+using Intelibill.Application.Common.Interfaces;
+using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using NSubstitute;
 
@@ -12,11 +14,18 @@ public class GetShopDetailsQueryHandlerTests
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
     private readonly IBankAccountRepository _bankAccountRepository = Substitute.For<IBankAccountRepository>();
+    private readonly ITenantWriteScope _tenantWriteScope = Substitute.For<ITenantWriteScope>();
+    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
     private readonly GetShopDetailsQueryHandler _handler;
 
     public GetShopDetailsQueryHandlerTests()
     {
-        _handler = new GetShopDetailsQueryHandler(_userRepository, _shopRepository, _bankAccountRepository);
+        _handler = new GetShopDetailsQueryHandler(
+            _userRepository,
+            _shopRepository,
+            _bankAccountRepository,
+            _tenantWriteScope,
+            _unitOfWork);
     }
 
     [Fact]

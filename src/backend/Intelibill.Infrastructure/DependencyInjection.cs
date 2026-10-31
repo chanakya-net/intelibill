@@ -67,6 +67,7 @@ public static class DependencyInjection
         services.AddScoped<IInterceptor, RequestDatabaseCommandInterceptor>();
 
         services.AddScoped<IUnitOfWork, UnitOfWork>();
+        services.AddScoped<ITenantWriteScope, TenantWriteScope>();
 
         // ── Auth options ─────────────────────────────────────────────────────
         services.AddOptions<JwtOptions>()

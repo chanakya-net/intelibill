@@ -13,6 +13,7 @@ public class CreateShopCommandHandlerTests
     private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
     private readonly ISupplierRepository _supplierRepository = Substitute.For<ISupplierRepository>();
     private readonly IAuthSessionService _sessions = Substitute.For<IAuthSessionService>();
+    private readonly ITenantWriteScope _tenantWriteScope = Substitute.For<ITenantWriteScope>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
 
     private CreateShopCommandHandler Handler() => new(
@@ -20,6 +21,7 @@ public class CreateShopCommandHandlerTests
         _shopRepository,
         _supplierRepository,
         _sessions,
+        _tenantWriteScope,
         _unitOfWork);
 
     [Fact]
