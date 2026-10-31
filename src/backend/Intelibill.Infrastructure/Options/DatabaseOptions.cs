@@ -40,6 +40,15 @@ public sealed class DatabaseOptions
     public bool UseEntraAuth { get; init; }
 
     /// <summary>
+    /// Refuse to start when the connection's role is a superuser or holds
+    /// BYPASSRLS, either of which switches tenant isolation off for every
+    /// request with nothing in the logs to say so. Unset means on everywhere
+    /// but Development, where the local database is normally the developer's
+    /// own superuser.
+    /// </summary>
+    public bool? RequireRestrictedRuntimeRole { get; init; }
+
+    /// <summary>
     /// Client ID of the user-assigned managed identity to request tokens for.
     /// Only needed when <see cref="UseEntraAuth"/> is set and the environment does
     /// not already carry <c>AZURE_CLIENT_ID</c>; a host with more than one assigned

@@ -87,6 +87,18 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "id-migrator-dev" IN SCHEMA public
 ALTER DEFAULT PRIVILEGES FOR ROLE "id-migrator-dev" IN SCHEMA public
   GRANT USAGE, SELECT ON SEQUENCES TO "id-app-dev";
 
+-- Default privileges only cover what the migrator creates *next*. Tables that
+-- already exist — everything up to the migration that ran before this script —
+-- need the grant stated outright, or the runtime identity is refused on exactly
+-- the tables nobody thought to re-check.
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES    IN SCHEMA public TO "id-app-dev";
+GRANT USAGE, SELECT                 ON ALL SEQUENCES  IN SCHEMA public TO "id-app-dev";
+
+-- The runtime identity must not be able to turn the tenant boundary off. It
+-- owns no table, so ALTER TABLE ... DISABLE ROW LEVEL SECURITY is refused for
+-- it; this states the intent so a future ownership change is a visible break.
+REVOKE CREATE ON SCHEMA public FROM "id-app-dev";
+
 -- --- prod database ---------------------------------------------------------
 \c intelibill_prod
 
@@ -99,6 +111,18 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "id-migrator-prod" IN SCHEMA public
   GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO "id-app-prod";
 ALTER DEFAULT PRIVILEGES FOR ROLE "id-migrator-prod" IN SCHEMA public
   GRANT USAGE, SELECT ON SEQUENCES TO "id-app-prod";
+
+-- Default privileges only cover what the migrator creates *next*. Tables that
+-- already exist — everything up to the migration that ran before this script —
+-- need the grant stated outright, or the runtime identity is refused on exactly
+-- the tables nobody thought to re-check.
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES    IN SCHEMA public TO "id-app-prod";
+GRANT USAGE, SELECT                 ON ALL SEQUENCES  IN SCHEMA public TO "id-app-prod";
+
+-- The runtime identity must not be able to turn the tenant boundary off. It
+-- owns no table, so ALTER TABLE ... DISABLE ROW LEVEL SECURITY is refused for
+-- it; this states the intent so a future ownership change is a visible break.
+REVOKE CREATE ON SCHEMA public FROM "id-app-prod";
 
 -- ---------------------------------------------------------------------------
 -- 7.5 Verify isolation — the part that must not be skipped
@@ -147,6 +171,59 @@ SELECT
   has_schema_privilege('id-app-prod','public','CREATE')      AS app_create_f,
   has_schema_privilege('id-migrator-prod','public','CREATE') AS mig_create_t;
 
+\echo ''
+\echo '== every tenant table must ENABLE and FORCE row level security =='
+\echo '== expect zero rows: a row here is a table with no boundary =='
+SELECT c.relname, c.relrowsecurity, c.relforcerowsecurity
+FROM pg_class c
+JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = 'public'
+  AND c.relkind = 'r'
+  AND EXISTS (
+    SELECT 1 FROM pg_attribute a
+    WHERE a.attrelid = c.oid AND a.attname = 'shop_id' AND a.attnum > 0 AND NOT a.attisdropped)
+  AND c.relname NOT IN ('shop_memberships', 'shop_invitations')
+  AND NOT (c.relrowsecurity AND c.relforcerowsecurity)
+ORDER BY c.relname;
+
+\echo ''
+\echo '== every tenant policy must state USING *and* WITH CHECK, and parse an =='
+\echo '== absent shop context safely. Expect zero rows. =='
+SELECT c.relname, p.polname,
+       pg_get_expr(p.polqual, p.polrelid)      AS using_expr,
+       pg_get_expr(p.polwithcheck, p.polrelid) AS check_expr
+FROM pg_policy p
+JOIN pg_class c ON c.oid = p.polrelid
+JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = 'public'
+  AND (p.polqual IS NULL
+       OR p.polwithcheck IS NULL
+       OR pg_get_expr(p.polqual, p.polrelid)      NOT ILIKE '%nullif%'
+       OR pg_get_expr(p.polwithcheck, p.polrelid) NOT ILIKE '%nullif%')
+ORDER BY c.relname;
+
+\echo ''
+\echo '== the identity tables must stay OUTSIDE row level security: a policy =='
+\echo '== on any of them breaks login, shop switching and invitations. =='
+\echo '== Expect zero rows. =='
+SELECT c.relname
+FROM pg_class c
+JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = 'public'
+  AND c.relname IN ('users', 'shops', 'shop_memberships', 'shop_invitations', 'auth_sessions',
+                    'refresh_tokens', 'password_reset_tokens', 'phone_challenges',
+                    'email_ownership_challenges', 'identity_mail', 'identity_sms')
+  AND (c.relrowsecurity OR EXISTS (SELECT 1 FROM pg_policy p WHERE p.polrelid = c.oid))
+ORDER BY c.relname;
+
+\echo ''
+\echo '== the runtime identity must be subject to the policies it is bound by =='
+\echo '== expect zero rows; RuntimeRoleGuard refuses to start on a row here =='
+SELECT rolname, rolsuper, rolbypassrls
+FROM pg_roles
+WHERE rolname IN ('id-app-dev', 'id-app-prod')
+  AND (rolsuper OR rolbypassrls);
+
 -- ---------------------------------------------------------------------------
 -- STILL TO DO, deliberately not scripted here:
 --
@@ -154,9 +231,18 @@ SELECT
 -- must be created by the migrator before the runtime starts. Its schema comes
 -- from the caching provider, so it belongs in a reviewed EF migration rather
 -- than invented in this file — see Phase 8.
+-- ---------------------------------------------------------------------------
+
+-- ---------------------------------------------------------------------------
+-- NO LONGER OUTSTANDING: the runtime privilege checks that used to be listed
+-- above as still to do are now executed rather than described.
 --
--- Runtime privilege checks that need a real connection as the app identity:
--- confirm it cannot CREATE, ALTER, DROP, or disable RLS, and that RLS still
--- applies under connection pooling (active_shop_id must be set per request,
--- not per connection).
+-- RestrictedRoleRlsTests proves the application identity is no superuser, holds
+-- no BYPASSRLS, owns no tenant table and cannot disable row-level security.
+-- PooledConnectionTenantContextTests proves the shop context is set per request
+-- and is never carried from one request to the next by a reused connection.
+-- RuntimeRoleGuard repeats the role half of that check at startup in every
+-- environment, and refuses to serve traffic when it fails.
+--
+-- See docs/security/tenant-policy-matrix.md.
 -- ---------------------------------------------------------------------------

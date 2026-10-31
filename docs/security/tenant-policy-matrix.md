@@ -101,3 +101,35 @@ through `ITenantWriteScope`, whose shop id is always server-derived — a shop t
 handler just created, or one whose live membership it re-read. It is never taken
 from a header, a claim or a request body, and there is no request-controlled
 bypass flag.
+
+## Verifying a deployed environment
+
+`scripts/db/verify-tenant-policies.sql` produces the evidence for one database.
+Run it after the migration job and before traffic is shifted, and keep the
+output with the release artifact. Every query is written so that empty output is
+the pass: a row is a finding.
+
+```bash
+psql "host=<server> user=<migrator> dbname=<database> sslmode=require" \
+  -v app_role=id-app-prod \
+  -f scripts/db/verify-tenant-policies.sql
+```
+
+It covers tenant tables missing `ENABLE`/`FORCE`, policies that omit a clause or
+mis-parse an absent shop context, identity tables that have been brought under
+row-level security by mistake, predicate columns that do not lead an index, the
+runtime role's own attributes, its grants, and tables it cannot read or write.
+Pooling is not answerable from the catalog — the shop context is a session
+variable on a connection the pool hands round — so that half is proved by
+`PooledConnectionTenantContextTests` and recorded alongside.
+
+At startup `RuntimeRoleGuard` repeats the role check in the running process and
+refuses to serve traffic if the connection's role is a superuser or holds
+`BYPASSRLS`. It is on everywhere except Development and can be forced either way
+with `Database:RequireRestrictedRuntimeRole`. A production error is never to be
+resolved by granting `BYPASSRLS`.
+
+`UpgradedSchemaRlsTests` covers what a fresh-schema suite cannot: it migrates to
+the revision before this work, seeds a row the old way, upgrades in place, and
+requires that the row is then invisible without the right shop context — and
+that the upgraded catalog matches the manifest, not just the fresh one.

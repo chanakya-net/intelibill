@@ -69,6 +69,10 @@ public static class DependencyInjection
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<ITenantWriteScope, TenantWriteScope>();
 
+        // Before the revision serves a request: a connection secret pointing at a
+        // privileged role would disarm every tenant policy silently.
+        services.AddHostedService<RuntimeRoleGuard>();
+
         // ── Auth options ─────────────────────────────────────────────────────
         services.AddOptions<JwtOptions>()
             .Bind(configuration.GetSection(JwtOptions.SectionName))
