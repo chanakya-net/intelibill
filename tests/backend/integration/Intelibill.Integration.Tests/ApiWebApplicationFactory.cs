@@ -15,7 +15,7 @@ using Testcontainers.PostgreSql;
 
 namespace Intelibill.Integration.Tests;
 
-public sealed class ApiWebApplicationFactory(PostgreSqlTestFixture? fixture = null, Action<IServiceCollection>? configureTestServices = null, bool enableIdentityMail = true, bool enablePhoneAuth = true, int? maxPoolSize = null) : WebApplicationFactory<Program>, IAsyncLifetime
+public sealed class ApiWebApplicationFactory(PostgreSqlTestFixture? fixture = null, Action<IServiceCollection>? configureTestServices = null, bool enableIdentityMail = true, bool enablePhoneAuth = true, int? maxPoolSize = null, bool runtimeIdentityOutsideRequests = false) : WebApplicationFactory<Program>, IAsyncLifetime
 {
     public new HttpClient CreateClient(WebApplicationFactoryClientOptions options)
     {
@@ -138,11 +138,14 @@ public sealed class ApiWebApplicationFactory(PostgreSqlTestFixture? fixture = nu
                 // a deployed environment. A DbContext resolved outside a request — a
                 // test's own inspection scope — stays on the owner identity, because
                 // proving that a foreign shop's row was *not* read or changed needs a
-                // view the policies do not filter.
+                // view the policies do not filter. A test that is about the runtime
+                // identity itself, rather than about inspecting rows, asks for it
+                // everywhere with runtimeIdentityOutsideRequests: without that, it
+                // would run against the owner's pool and prove nothing.
                 var httpContextAccessor = sp.GetService<IHttpContextAccessor>();
-                var connectionString = httpContextAccessor?.HttpContext is null
-                    ? MigratorConnectionString
-                    : RuntimeConnectionString;
+                var connectionString = runtimeIdentityOutsideRequests || httpContextAccessor?.HttpContext is not null
+                    ? RuntimeConnectionString
+                    : MigratorConnectionString;
 
                 options.UseNpgsql(connectionString)
                     .AddInterceptors(sp.GetServices<IInterceptor>())

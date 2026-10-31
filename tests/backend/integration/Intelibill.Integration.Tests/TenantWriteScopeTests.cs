@@ -25,7 +25,7 @@ public sealed class TenantWriteScopeTests(PostgreSqlTestFixture fixture) : IAsyn
 {
     private const string SharedPassword = "Pass123!Aa";
 
-    private readonly ApiWebApplicationFactory _factory = new(fixture, maxPoolSize: 1);
+    private readonly ApiWebApplicationFactory _factory = new(fixture, maxPoolSize: 1, runtimeIdentityOutsideRequests: true);
 
     public Task InitializeAsync() => _factory.InitializeAsync();
 

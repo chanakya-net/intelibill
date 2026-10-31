@@ -131,9 +131,4 @@ public sealed class RestrictedRoleRlsTests(PostgreSqlTestFixture fixture) : IAsy
         }
     }
 
-    private sealed class MutableSessionContext : ICurrentSessionContext
-    {
-        public Guid? UserId { get; set; }
-        public Guid? ActiveShopId { get; set; }
-    }
 }
