@@ -84,7 +84,7 @@ public static class OpenTelemetryServiceCollectionExtensions
                 }))
             .WithTracing(builder => builder
                 .AddAspNetCoreInstrumentation()
-                .AddHttpClientInstrumentation()
+                .AddHttpClientInstrumentation(options => options.FilterHttpRequestMessage = request => !ContainsIdentitySecret(request.RequestUri))
                 .AddEntityFrameworkCoreInstrumentation(o => o.SetDbStatementForText = false)
                 .AddSource("Wolverine")
                 .SetSampler(new ParentBasedSampler(
@@ -113,4 +113,13 @@ public static class OpenTelemetryServiceCollectionExtensions
 
         return services;
     }
+    internal static bool ContainsIdentitySecret(Uri? uri)
+    {
+        var query = uri?.Query ?? string.Empty;
+        return query.Contains("access_token=", StringComparison.OrdinalIgnoreCase) ||
+            query.Contains("input_token=", StringComparison.OrdinalIgnoreCase) ||
+            query.Contains("client_secret=", StringComparison.OrdinalIgnoreCase) ||
+            query.Contains("code=", StringComparison.OrdinalIgnoreCase);
+    }
+
 }

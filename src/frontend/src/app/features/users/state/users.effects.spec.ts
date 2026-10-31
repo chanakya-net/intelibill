@@ -18,8 +18,10 @@ describe('UsersEffects', () => {
     updateMyProfile: vi.fn<UserAccountService['updateMyProfile']>(),
     changeMyPassword: vi.fn<UserAccountService['changeMyPassword']>(),
     getShopUsers: vi.fn<UserAccountService['getShopUsers']>(),
-    addShopUser: vi.fn<UserAccountService['addShopUser']>(),
-    editShopUser: vi.fn<UserAccountService['editShopUser']>(),
+    getInvitations: vi.fn<UserAccountService['getInvitations']>(),
+    inviteMember: vi.fn<UserAccountService['inviteMember']>(),
+    revokeInvitation: vi.fn<UserAccountService['revokeInvitation']>(),
+    updateMembership: vi.fn<UserAccountService['updateMembership']>(),
   };
 
   beforeEach(() => {
@@ -27,8 +29,10 @@ describe('UsersEffects', () => {
     userAccountService.updateMyProfile.mockReset();
     userAccountService.changeMyPassword.mockReset();
     userAccountService.getShopUsers.mockReset();
-    userAccountService.addShopUser.mockReset();
-    userAccountService.editShopUser.mockReset();
+    userAccountService.getInvitations.mockReset();
+    userAccountService.inviteMember.mockReset();
+    userAccountService.revokeInvitation.mockReset();
+    userAccountService.updateMembership.mockReset();
 
     TestBed.configureTestingModule({
       providers: [
@@ -62,7 +66,7 @@ describe('UsersEffects', () => {
           email: 'jane@example.com',
           phoneNumber: null,
         },
-      })
+      }),
     );
 
     await expect(output).resolves.toEqual(UsersActions.updateProfileSucceeded());
@@ -70,7 +74,7 @@ describe('UsersEffects', () => {
 
   it('maps email conflict into updateProfileFailed message', async () => {
     userAccountService.updateMyProfile.mockReturnValue(
-      throwError(() => ({ error: { title: 'Auth.EmailAlreadyInUse' } }))
+      throwError(() => ({ error: { title: 'Auth.EmailAlreadyInUse' } })),
     );
 
     const output = firstValueFrom(effects.updateProfile$.pipe(take(1)));
@@ -83,19 +87,19 @@ describe('UsersEffects', () => {
           email: 'jane@example.com',
           phoneNumber: null,
         },
-      })
+      }),
     );
 
     await expect(output).resolves.toEqual(
       UsersActions.updateProfileFailed({
         errorMessage: 'errors.auth.emailAlreadyInUseByAnother',
-      })
+      }),
     );
   });
 
   it('maps API detail into updateProfileFailed message', async () => {
     userAccountService.updateMyProfile.mockReturnValue(
-      throwError(() => ({ error: { title: 'Unknown', detail: 'Profile update failed.' } }))
+      throwError(() => ({ error: { title: 'Unknown', detail: 'Profile update failed.' } })),
     );
 
     const output = firstValueFrom(effects.updateProfile$.pipe(take(1)));
@@ -108,13 +112,13 @@ describe('UsersEffects', () => {
           email: 'jane@example.com',
           phoneNumber: null,
         },
-      })
+      }),
     );
 
     await expect(output).resolves.toEqual(
       UsersActions.updateProfileFailed({
         errorMessage: 'errors.users.unableToUpdateProfile',
-      })
+      }),
     );
   });
 
@@ -129,7 +133,7 @@ describe('UsersEffects', () => {
           currentPassword: 'OldPass123!',
           newPassword: 'NewPass123!',
         },
-      })
+      }),
     );
 
     await expect(output).resolves.toEqual(UsersActions.changePasswordSucceeded());
@@ -137,7 +141,7 @@ describe('UsersEffects', () => {
 
   it('maps invalid current password into changePasswordFailed message', async () => {
     userAccountService.changeMyPassword.mockReturnValue(
-      throwError(() => ({ error: { title: 'Auth.InvalidCurrentPassword' } }))
+      throwError(() => ({ error: { title: 'Auth.InvalidCurrentPassword' } })),
     );
 
     const output = firstValueFrom(effects.changePassword$.pipe(take(1)));
@@ -148,19 +152,19 @@ describe('UsersEffects', () => {
           currentPassword: 'OldPass123!',
           newPassword: 'NewPass123!',
         },
-      })
+      }),
     );
 
     await expect(output).resolves.toEqual(
       UsersActions.changePasswordFailed({
         errorMessage: 'errors.auth.invalidCurrentPassword',
-      })
+      }),
     );
   });
 
   it('maps fallback message when password API error has no detail', async () => {
     userAccountService.changeMyPassword.mockReturnValue(
-      throwError(() => ({ error: { title: 'Unknown' } }))
+      throwError(() => ({ error: { title: 'Unknown' } })),
     );
 
     const output = firstValueFrom(effects.changePassword$.pipe(take(1)));
@@ -171,13 +175,13 @@ describe('UsersEffects', () => {
           currentPassword: 'OldPass123!',
           newPassword: 'NewPass123!',
         },
-      })
+      }),
     );
 
     await expect(output).resolves.toEqual(
       UsersActions.changePasswordFailed({
         errorMessage: 'errors.users.unableToChangePassword',
-      })
+      }),
     );
   });
 
@@ -191,10 +195,11 @@ describe('UsersEffects', () => {
           email: 'owner@test.com',
           phoneNumber: '+15551234567',
           role: 'Owner',
-          isLoginEnabled: true,
+          status: 'Active',
+          membershipVersion: 0,
           shopIds: ['shop-1'],
         },
-      ])
+      ]),
     );
 
     const output = firstValueFrom(effects.loadShopUsers$.pipe(take(1)));
@@ -211,97 +216,117 @@ describe('UsersEffects', () => {
             email: 'owner@test.com',
             phoneNumber: '+15551234567',
             role: 'Owner',
-            isLoginEnabled: true,
+            status: 'Active',
+            membershipVersion: 0,
             shopIds: ['shop-1'],
           },
         ],
-      })
+      }),
     );
   });
 
-  it('maps owner-only failure on add user effect', async () => {
-    userAccountService.addShopUser.mockReturnValue(
-      throwError(() => ({ error: { title: 'Shop.UserIsNotOwner' } }))
+  it('maps owner-only failure when an invitation is refused', async () => {
+    userAccountService.inviteMember.mockReturnValue(
+      throwError(() => ({ error: { title: 'Shop.UserIsNotOwner' } })),
     );
 
-    const output = firstValueFrom(effects.addShopUser$.pipe(take(1)));
+    const output = firstValueFrom(effects.inviteMember$.pipe(take(1)));
 
     actions$.next(
-      UsersActions.addShopUserRequested({
-        payload: {
-          shopIds: ['shop-1'],
-          email: 'sales@shop.com',
-          firstName: 'Sales',
-          lastName: 'Rep',
-          phoneNumber: '+15557654321',
-          password: 'Pass1234!',
-          confirmPassword: 'Pass1234!',
-          role: 'Staff',
-        },
-      })
+      UsersActions.inviteMemberRequested({
+        shopId: 'shop-1',
+        payload: { email: 'sales@shop.com', role: 'Staff' },
+      }),
     );
 
     await expect(output).resolves.toEqual(
-      UsersActions.addShopUserFailed({
-        errorMessage: 'errors.users.onlyOwnerCanAddUsers',
-      })
+      UsersActions.inviteMemberFailed({ errorMessage: 'errors.users.onlyOwnerCanAddUsers' }),
     );
   });
 
-  it('maps email conflict on add user effect', async () => {
-    userAccountService.addShopUser.mockReturnValue(
-      throwError(() => ({ error: { title: 'Auth.EmailAlreadyInUse' } }))
+  it('explains an address that already has live access', async () => {
+    userAccountService.inviteMember.mockReturnValue(
+      throwError(() => ({ error: { code: 'Users.InvitationAlreadyMember' } })),
     );
 
-    const output = firstValueFrom(effects.addShopUser$.pipe(take(1)));
+    const output = firstValueFrom(effects.inviteMember$.pipe(take(1)));
 
     actions$.next(
-      UsersActions.addShopUserRequested({
-        payload: {
-          shopIds: ['shop-1'],
-          email: 'sales@shop.com',
-          firstName: 'Sales',
-          lastName: 'Rep',
-          phoneNumber: '+15557654321',
-          password: 'Pass1234!',
-          confirmPassword: 'Pass1234!',
-          role: 'Staff',
-        },
-      })
+      UsersActions.inviteMemberRequested({
+        shopId: 'shop-1',
+        payload: { email: 'sales@shop.com', role: 'Manager' },
+      }),
     );
 
     await expect(output).resolves.toEqual(
-      UsersActions.addShopUserFailed({
-        errorMessage: 'errors.auth.emailAlreadyInUseByAnother',
-      })
+      UsersActions.inviteMemberFailed({ errorMessage: 'errors.users.invitationAlreadyMember' }),
     );
   });
 
-  it('maps email conflict on edit user effect', async () => {
-    userAccountService.editShopUser.mockReturnValue(
-      throwError(() => ({ error: { title: 'Auth.EmailAlreadyInUse' } }))
+  it('surfaces a membership version conflict as its own message', async () => {
+    userAccountService.updateMembership.mockReturnValue(
+      throwError(() => ({ error: { code: 'Users.MembershipVersionConflict' } })),
     );
 
-    const output = firstValueFrom(effects.editShopUser$.pipe(take(1)));
+    const output = firstValueFrom(effects.updateMembership$.pipe(take(1)));
 
     actions$.next(
-      UsersActions.editShopUserRequested({
+      UsersActions.updateMembershipRequested({
+        shopId: 'shop-1',
         userId: 'u1',
-        payload: {
-          email: 'sales.updated@shop.com',
-          firstName: 'Sales',
-          lastName: 'Rep',
-          phoneNumber: '+15557654321',
-          role: 'Manager',
-          isLoginEnabled: true,
-        },
-      })
+        payload: { role: 'Manager', status: 'Active', expectedVersion: 1 },
+      }),
     );
 
     await expect(output).resolves.toEqual(
-      UsersActions.editShopUserFailed({
-        errorMessage: 'errors.auth.emailAlreadyInUseByAnother',
-      })
+      UsersActions.updateMembershipFailed({
+        errorMessage: 'errors.users.membershipVersionConflict',
+      }),
+    );
+  });
+
+  it('dispatches updateMembershipSucceeded with the new authority', async () => {
+    const membership = {
+      userId: 'u1',
+      shopId: 'shop-1',
+      displayName: 'Sales Rep',
+      role: 'Manager',
+      status: 'Active',
+      version: 2,
+    };
+    userAccountService.updateMembership.mockReturnValue(of(membership));
+
+    const output = firstValueFrom(effects.updateMembership$.pipe(take(1)));
+
+    actions$.next(
+      UsersActions.updateMembershipRequested({
+        shopId: 'shop-1',
+        userId: 'u1',
+        payload: { role: 'Manager', status: 'Active', expectedVersion: 1 },
+      }),
+    );
+
+    await expect(output).resolves.toEqual(UsersActions.updateMembershipSucceeded({ membership }));
+  });
+
+  it('re-reads invitations after a membership change, because a change can void one', async () => {
+    const output = firstValueFrom(effects.reloadInvitationsAfterMembershipChange$.pipe(take(1)));
+
+    actions$.next(
+      UsersActions.updateMembershipSucceeded({
+        membership: {
+          userId: 'u1',
+          shopId: 'shop-1',
+          displayName: 'Sales Rep',
+          role: 'Staff',
+          status: 'Suspended',
+          version: 3,
+        },
+      }),
+    );
+
+    await expect(output).resolves.toEqual(
+      UsersActions.loadInvitationsRequested({ shopId: 'shop-1' }),
     );
   });
 

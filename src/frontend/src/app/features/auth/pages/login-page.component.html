@@ -15,6 +15,11 @@
         <h2>{{ 'auth.loginNow' | transloco }}</h2>
       </header>
 
+      @if (serverError() === 'identity.verificationRequired') {
+        <p>
+          <a routerLink="/register">{{ 'identity.claimLegacy' | transloco }}</a>
+        </p>
+      }
       <form
         [formGroup]="form"
         (ngSubmit)="onSubmit()"
@@ -31,7 +36,9 @@
             autocomplete="username"
             class="w-full"
             [placeholder]="'auth.loginIdentifierPlaceholder' | transloco"
-            [class.ng-invalid]="form.controls.identifier.invalid && form.controls.identifier.touched"
+            [class.ng-invalid]="
+              form.controls.identifier.invalid && form.controls.identifier.touched
+            "
             [pt]="emailInputPt"
           />
           @if (form.controls.identifier.invalid && form.controls.identifier.touched) {
@@ -63,7 +70,9 @@
         </div>
 
         @if (successMessage()) {
-          <p class="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+          <p
+            class="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700"
+          >
             {{ successMessage() | transloco }}
           </p>
         }
@@ -81,29 +90,6 @@
           [disabled]="isHttpLoading()"
           class="auth-submit w-full"
         ></button>
-
-        <p class="social-title">{{ 'auth.orLoginWith' | transloco }}</p>
-
-        <div class="social-actions">
-          <button
-            type="button"
-            class="social-button"
-            (click)="onFacebookLogin()"
-            [disabled]="isHttpLoading()"
-          >
-            <span class="social-icon social-icon-fb">f</span>
-            <span>{{ 'auth.facebook' | transloco }}</span>
-          </button>
-          <button
-            type="button"
-            class="social-button"
-            (click)="onGoogleLogin()"
-            [disabled]="isHttpLoading()"
-          >
-            <span class="social-icon social-icon-google">G</span>
-            <span>{{ 'auth.google' | transloco }}</span>
-          </button>
-        </div>
 
         <p class="signup-hint">
           {{ 'auth.notMember' | transloco }}

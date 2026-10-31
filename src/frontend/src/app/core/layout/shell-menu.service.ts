@@ -4,7 +4,11 @@ import { MenuItem } from 'primeng/api';
 
 import { ShopPermissionsService } from './shop-permissions.service';
 import { LocalizationService } from '../i18n/localization.service';
-import { SupportedLanguage, NATIVE_LANGUAGE_NAMES, SUPPORTED_LANGUAGES } from '../i18n/language.constants';
+import {
+  SupportedLanguage,
+  NATIVE_LANGUAGE_NAMES,
+  SUPPORTED_LANGUAGES,
+} from '../i18n/language.constants';
 
 @Injectable({ providedIn: 'root' })
 export class ShellMenuService {
@@ -214,6 +218,14 @@ export class ShellMenuService {
     const currentLanguage = this.localizationService.currentLanguage();
     const items: MenuItem[] = [
       {
+        label: this.localizationService.translate('identity.manageIdentity'),
+        icon: 'pi pi-shield',
+        command: () => {
+          actions.closeMenus();
+          actions.navigate('/account/security');
+        },
+      },
+      {
         label: this.localizationService.translate('shell.manageUsers'),
         icon: 'pi pi-users',
         command: () => {
@@ -221,8 +233,16 @@ export class ShellMenuService {
           actions.navigate('/users');
         },
       },
-      { label: this.localizationService.translate('shell.updateProfile'), icon: 'pi pi-user-edit', command: () => actions.onOpenUpdateProfile() },
-      { label: this.localizationService.translate('shell.changePassword'), icon: 'pi pi-key', command: () => actions.onOpenChangePassword() },
+      {
+        label: this.localizationService.translate('shell.updateProfile'),
+        icon: 'pi pi-user-edit',
+        command: () => actions.onOpenUpdateProfile(),
+      },
+      {
+        label: this.localizationService.translate('shell.changePassword'),
+        icon: 'pi pi-key',
+        command: () => actions.onOpenChangePassword(),
+      },
     ];
 
     if (this.permissions.isOwnerOfActiveShop()) {

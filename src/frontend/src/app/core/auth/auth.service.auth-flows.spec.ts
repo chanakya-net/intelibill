@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { AUTH_ENDPOINTS } from './auth.constants';
-import { AuthSession, ExternalAuthProvider } from './auth.models';
+import { AuthSession } from './auth.models';
 import { createAuthServiceTestHarness, buildAuthResult } from './auth.service.test-utils';
 
 describe('AuthService (auth flows)', () => {
@@ -31,32 +31,47 @@ describe('AuthService (auth flows)', () => {
     http.verify();
   });
 
-  it('registers with email and sends phone number in the payload', () => {
+  it('requests email enrollment without creating or storing a session', () => {
     const { service, http } = t.setup();
-    const result = buildAuthResult();
-    let emitted: AuthSession | undefined;
+    service.registerWithEmail(' user@example.com ').subscribe();
+    const request = http.expectOne(AUTH_ENDPOINTS.requestEmailEnrollment);
+    expect(request.request.body).toEqual({ email: 'user@example.com' });
+    request.flush({ message: 'generic' }, { status: 202, statusText: 'Accepted' });
+    expect(service.session()).toBeNull();
+    expect(t.storage.saveSession).not.toHaveBeenCalled();
+    expect(t.storage.saveLastIdentifier).not.toHaveBeenCalled();
+    http.verify();
+  });
 
-    service
-      .registerWithEmail('First', 'Last', 'user@example.com', '+15551234567', 'pw', true)
-      .subscribe((session) => {
-        emitted = session;
-      });
+  it('confirms owner-chosen credentials before establishing a session', () => {
+    const { service, http } = t.setup();
+    const payload = {
+      challengeId: 'id',
+      token: 'proof',
+      password: 'Chosen123!',
+      firstName: 'Ada',
+      lastName: 'L',
+    };
+    service.confirmEmailEnrollment(payload).subscribe();
+    const request = http.expectOne(AUTH_ENDPOINTS.confirmEmailEnrollment);
+    expect(request.request.body).toEqual(payload);
+    expect(t.storage.saveSession).not.toHaveBeenCalled();
+    request.flush(buildAuthResult());
+    expect(service.isAuthenticated()).toBe(true);
+    http.verify();
+  });
 
-    const request = http.expectOne(AUTH_ENDPOINTS.registerWithEmail);
-    expect(request.request.method).toBe('POST');
-    expect(request.request.body).toEqual({
-      firstName: 'First',
-      lastName: 'Last',
-      email: 'user@example.com',
-      phoneNumber: '+15551234567',
-      password: 'pw',
-    });
-    request.flush(result);
-
-    expect(emitted?.accessToken).toBe(result.accessToken);
-    expect(t.storage.saveSession).toHaveBeenCalledTimes(1);
-    expect(t.storage.saveLastIdentifier).toHaveBeenCalledWith('user@example.com');
-
+  it('email-change acceptance preserves current address but confirmation clears session', () => {
+    const { service, http } = t.setup();
+    service.applyAuthResult(buildAuthResult());
+    service.requestEmailChange('new@example.com', 'recent').subscribe();
+    const request = http.expectOne(AUTH_ENDPOINTS.requestEmailChange);
+    expect(request.request.body).toEqual({ email: 'new@example.com', reauthProof: 'recent' });
+    request.flush({ message: 'pending' }, { status: 202, statusText: 'Accepted' });
+    expect(service.session()?.user.email).toBe('user@example.com');
+    service.confirmEmailChange('id', 'proof').subscribe();
+    http.expectOne(AUTH_ENDPOINTS.confirmEmailChange).flush({ message: 'updated' });
+    expect(service.session()).toBeNull();
     http.verify();
   });
 
@@ -93,49 +108,6 @@ describe('AuthService (auth flows)', () => {
 
     expect(t.storage.clearSession).toHaveBeenCalledTimes(1);
     expect(service.session()).toBeNull();
-
-    http.verify();
-  });
-
-  it('initializeExternalLogin returns authorization url', () => {
-    const { service, http } = t.setup();
-    let resultUrl = '';
-
-    service.initializeExternalLogin(ExternalAuthProvider.Google).subscribe((url) => {
-      resultUrl = url;
-    });
-
-    const request = http.expectOne(AUTH_ENDPOINTS.loginExternalInit);
-    expect(request.request.method).toBe('POST');
-    expect(request.request.body).toEqual({ provider: ExternalAuthProvider.Google });
-    request.flush({ authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth?client_id=test' });
-
-    expect(resultUrl).toContain('accounts.google.com');
-    http.verify();
-  });
-
-  it('completeExternalLogin stores session from callback response', () => {
-    const { service, http } = t.setup();
-    let emitted: AuthSession | undefined;
-
-    service.completeExternalLogin('code-123', 'state-123').subscribe((session) => {
-      emitted = session;
-    });
-
-    const request = http.expectOne(AUTH_ENDPOINTS.loginExternalCallback);
-    expect(request.request.method).toBe('POST');
-    expect(request.request.body).toEqual({
-      code: 'code-123',
-      state: 'state-123',
-      firstName: undefined,
-      lastName: undefined,
-    });
-
-    request.flush(buildAuthResult({ accessToken: 'external-access-token' }));
-
-    expect(emitted?.accessToken).toBe('external-access-token');
-    expect(service.getAccessToken()).toBe('external-access-token');
-    expect(t.storage.saveSession).toHaveBeenCalledTimes(1);
 
     http.verify();
   });

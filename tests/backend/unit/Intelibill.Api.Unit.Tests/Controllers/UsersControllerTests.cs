@@ -169,8 +169,8 @@ public class UsersControllerTests
             new Claim("active_shop_id", shopId.ToString()));
 
         IReadOnlyList<ShopUserDto> users = [
-            new(Guid.NewGuid(), "Owner", "User", "owner@test.com", "+15551231234", "Owner", true, []),
-            new(Guid.NewGuid(), "Sales", "User", null, "+15557654321", "Staff", true, [])
+            new(Guid.NewGuid(), "Owner", "User", "owner@test.com", "+15551231234", "Owner", "Active", 0, []),
+            new(Guid.NewGuid(), "Sales", "User", null, "+15557654321", "Staff", "Active", 0, [])
         ];
         ArrangeBusResponse<IReadOnlyList<ShopUserDto>>(users.ToList());
 
@@ -194,7 +194,7 @@ public class UsersControllerTests
             new Claim("active_shop_id", shopId.ToString()));
 
         var request = new AddShopUserRequest([shopId], "sales@test.com", "Sales", "User", "+15551231234", "Pass1234!", "Pass1234!", "Staff");
-        var createdUser = new ShopUserDto(Guid.NewGuid(), "Sales", "User", "sales@test.com", "+15551231234", "Staff", true, []);
+        var createdUser = new ShopUserDto(Guid.NewGuid(), "Sales", "User", "sales@test.com", "+15551231234", "Staff", "Active", 0, []);
         ArrangeBusResponse<ShopUserDto>(createdUser);
 
         var result = await _controller.AddShopUser(request, CancellationToken.None);
@@ -241,7 +241,7 @@ public class UsersControllerTests
             new Claim("active_shop_id", activeShopId.ToString()));
 
         var request = new EditShopUserRequest("updated.sales@test.com", "Sales", "User", "+15551230000", "Manager", true);
-        var updatedUser = new ShopUserDto(targetUserId, "Sales", "User", "updated.sales@test.com", "+15551230000", "Manager", true, []);
+        var updatedUser = new ShopUserDto(targetUserId, "Sales", "User", "updated.sales@test.com", "+15551230000", "Manager", "Active", 1, []);
         ArrangeBusResponse<ShopUserDto>(updatedUser);
 
         var result = await _controller.EditShopUser(targetUserId, request, CancellationToken.None);

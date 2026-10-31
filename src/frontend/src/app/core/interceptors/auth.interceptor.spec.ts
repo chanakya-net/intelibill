@@ -1,4 +1,5 @@
 import { HttpErrorResponse, HttpEvent, HttpRequest, HttpResponse } from '@angular/common/http';
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
@@ -9,12 +10,14 @@ import { AuthService } from '../auth/auth.service';
 import { authInterceptor } from './auth.interceptor';
 
 describe('authInterceptor', () => {
+  const sessionSignal = signal<{ activeShopId: string | null } | null>(null);
   const mockAuthService = {
     getAccessToken: vi.fn<() => string | null>(),
     hasRefreshToken: vi.fn<() => boolean>(),
     refreshAccessToken: vi.fn(),
     clearSession: vi.fn(),
     applyAuthResult: vi.fn(),
+    session: sessionSignal,
   };
 
   const mockRouter = { navigateByUrl: vi.fn().mockResolvedValue(true) };
@@ -25,6 +28,7 @@ describe('authInterceptor', () => {
     mockAuthService.refreshAccessToken.mockReset();
     mockAuthService.clearSession.mockReset();
     mockRouter.navigateByUrl.mockReset();
+    sessionSignal.set(null);
 
     TestBed.configureTestingModule({
       providers: [
@@ -100,5 +104,61 @@ describe('authInterceptor', () => {
     expect(mockAuthService.refreshAccessToken).not.toHaveBeenCalled();
     expect(mockAuthService.clearSession).not.toHaveBeenCalled();
     expect(mockRouter.navigateByUrl).not.toHaveBeenCalled();
+  });
+
+  it('replays a request after refresh when the session stays in the same shop', () => {
+    mockAuthService.getAccessToken.mockReturnValue('expired-token');
+    mockAuthService.hasRefreshToken.mockReturnValue(true);
+    sessionSignal.set({ activeShopId: 'shop-a' });
+    mockAuthService.refreshAccessToken.mockImplementation(() => {
+      sessionSignal.set({ activeShopId: 'shop-a' });
+      return of({ accessToken: 'renewed-token', activeShopId: 'shop-a' });
+    });
+
+    const attempts: (string | null)[] = [];
+    const next = (request: HttpRequest<unknown>): Observable<HttpEvent<unknown>> => {
+      attempts.push(request.headers.get('Authorization'));
+      return attempts.length === 1
+        ? throwError(() => new HttpErrorResponse({ status: 401 }))
+        : of(new HttpResponse({ status: 200 }));
+    };
+
+    let status: number | undefined;
+    runInterceptor(new HttpRequest('POST', '/api/sales', {}), next).subscribe({
+      next: (event) => {
+        if (event instanceof HttpResponse) {
+          status = event.status;
+        }
+      },
+    });
+
+    expect(status).toBe(200);
+    expect(attempts).toEqual(['Bearer expired-token', 'Bearer renewed-token']);
+  });
+
+  it('does not replay a request when refresh moved the session to another shop', () => {
+    mockAuthService.getAccessToken.mockReturnValue('suspended-shop-token');
+    mockAuthService.hasRefreshToken.mockReturnValue(true);
+    sessionSignal.set({ activeShopId: 'shop-a' });
+    // Shop A suspended this membership mid-request, so renewal comes back scoped to shop B.
+    mockAuthService.refreshAccessToken.mockImplementation(() => {
+      sessionSignal.set({ activeShopId: 'shop-b' });
+      return of({ accessToken: 'shop-b-token', activeShopId: 'shop-b' });
+    });
+
+    let attempts = 0;
+    const next = (): Observable<HttpEvent<unknown>> => {
+      attempts++;
+      return throwError(() => new HttpErrorResponse({ status: 401 }));
+    };
+
+    let failed: HttpErrorResponse | undefined;
+    runInterceptor(new HttpRequest('POST', '/api/sales', { total: 500 }), next).subscribe({
+      error: (error: HttpErrorResponse) => (failed = error),
+    });
+
+    // One attempt only: the sale must not be committed against shop B.
+    expect(attempts).toBe(1);
+    expect(failed?.status).toBe(401);
   });
 });

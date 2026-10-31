@@ -1,6 +1,6 @@
 import { usersReducer, UsersState } from './users.reducer';
 import { UsersActions } from './users.actions';
-import { ShopUser } from '../services/user-account.service';
+import { ShopInvitation, ShopUser } from '../services/user-account.service';
 
 const ownerUser: ShopUser = {
   userId: 'u1',
@@ -9,7 +9,8 @@ const ownerUser: ShopUser = {
   email: 'owner@test.com',
   phoneNumber: '+15551234567',
   role: 'Owner',
-  isLoginEnabled: true,
+  status: 'Active',
+  membershipVersion: 0,
   shopIds: ['shop-1'],
 };
 
@@ -20,7 +21,8 @@ const staffUser: ShopUser = {
   email: null,
   phoneNumber: '+15557654321',
   role: 'Staff',
-  isLoginEnabled: true,
+  status: 'Active',
+  membershipVersion: 1,
   shopIds: ['shop-1'],
 };
 
@@ -81,6 +83,7 @@ describe('usersReducer', () => {
       errorMessage: 'Old error',
       lastMutationType: 'update-profile',
       lastMutationSucceeded: false,
+      invitations: [],
     };
 
     const next = usersReducer(state, UsersActions.updateProfileSucceeded());
@@ -100,6 +103,7 @@ describe('usersReducer', () => {
       errorMessage: '',
       lastMutationType: 'update-profile',
       lastMutationSucceeded: false,
+      invitations: [],
     };
 
     const next = usersReducer(
@@ -144,6 +148,7 @@ describe('usersReducer', () => {
       errorMessage: 'Old error',
       lastMutationType: 'change-password',
       lastMutationSucceeded: false,
+      invitations: [],
     };
 
     const next = usersReducer(state, UsersActions.changePasswordSucceeded());
@@ -163,6 +168,7 @@ describe('usersReducer', () => {
       errorMessage: '',
       lastMutationType: 'change-password',
       lastMutationSucceeded: false,
+      invitations: [],
     };
 
     const next = usersReducer(
@@ -178,57 +184,100 @@ describe('usersReducer', () => {
     expect(next.lastMutationSucceeded).toBe(false);
   });
 
-  it('appends user when add shop user succeeds', () => {
-    const state: UsersState = {
-      ...initialState,
-      submitting: true,
-      lastMutationType: 'add-shop-user',
-      lastMutationSucceeded: false,
+  it('records a sent invitation and supersedes an earlier one for the same address', () => {
+    const first: ShopInvitation = {
+      invitationId: 'i1',
+      shopId: 'shop-1',
+      email: 'invited@test.com',
+      role: 'Staff',
+      status: 'Pending',
+      expiresAt: '2026-11-01T00:00:00Z',
+      createdAt: '2026-10-25T00:00:00Z',
+    };
+    const resent: ShopInvitation = {
+      ...first,
+      invitationId: 'i2',
+      role: 'Manager',
+      createdAt: '2026-10-26T00:00:00Z',
     };
 
     const next = usersReducer(
-      state,
-      UsersActions.addShopUserSucceeded({
-        user: staffUser,
-      })
+      { ...initialState, submitting: true, invitations: [first] },
+      UsersActions.inviteMemberSucceeded({ invitation: resent })
     );
 
     expect(next.submitting).toBe(false);
-    expect(next.lastMutationType).toBe('add-shop-user');
+    expect(next.lastMutationType).toBe('invite-member');
     expect(next.lastMutationSucceeded).toBe(true);
-    expect(next.ids).toEqual(['u2']);
-    expect(next.entities['u2']).toEqual(staffUser);
+    expect(next.invitations).toEqual([resent]);
   });
 
-  it('replaces matching user when edit shop user succeeds', () => {
-    const state: UsersState = {
-      ...initialState,
-      ids: ['u2'],
-      entities: {
-        u2: staffUser,
-      },
-      submitting: true,
-      lastMutationType: 'edit-shop-user',
-      lastMutationSucceeded: false,
+  it('marks an invitation revoked when it is withdrawn', () => {
+    const invitation: ShopInvitation = {
+      invitationId: 'i1',
+      shopId: 'shop-1',
+      email: 'invited@test.com',
+      role: 'Manager',
+      status: 'Pending',
+      expiresAt: '2026-11-01T00:00:00Z',
+      createdAt: '2026-10-25T00:00:00Z',
     };
 
     const next = usersReducer(
-      state,
-      UsersActions.editShopUserSucceeded({
-        user: {
-          ...staffUser,
-          lastName: 'User',
+      { ...initialState, invitations: [invitation], submitting: true },
+      UsersActions.revokeInvitationSucceeded({ invitationId: 'i1' })
+    );
+
+    expect(next.invitations[0]?.status).toBe('Revoked');
+    expect(next.lastMutationType).toBe('revoke-invitation');
+    expect(next.lastMutationSucceeded).toBe(true);
+  });
+
+  it('applies the new authority and version when a membership changes', () => {
+    const next = usersReducer(
+      {
+        ...initialState,
+        ids: ['u2'],
+        entities: { u2: staffUser },
+        submitting: true,
+      },
+      UsersActions.updateMembershipSucceeded({
+        membership: {
+          userId: 'u2',
+          shopId: 'shop-1',
+          displayName: 'Sales Rep',
           role: 'Manager',
-          isLoginEnabled: false,
+          status: 'Suspended',
+          version: 2,
         },
       })
     );
 
     expect(next.submitting).toBe(false);
-    expect(next.lastMutationType).toBe('edit-shop-user');
+    expect(next.lastMutationType).toBe('update-membership');
     expect(next.lastMutationSucceeded).toBe(true);
     expect(next.entities['u2']?.role).toBe('Manager');
-    expect(next.entities['u2']?.isLoginEnabled).toBe(false);
+    expect(next.entities['u2']?.status).toBe('Suspended');
+    // The version comes back so the next change is checked against it, not against a stale one.
+    expect(next.entities['u2']?.membershipVersion).toBe(2);
+  });
+
+  it('drops a removed membership from the directory', () => {
+    const next = usersReducer(
+      { ...initialState, ids: ['u2'], entities: { u2: staffUser } },
+      UsersActions.updateMembershipSucceeded({
+        membership: {
+          userId: 'u2',
+          shopId: 'shop-1',
+          displayName: 'Sales Rep',
+          role: 'Staff',
+          status: 'Removed',
+          version: 2,
+        },
+      })
+    );
+
+    expect(next.ids).toEqual([]);
   });
 
   it('clears only error message on clearError', () => {
@@ -240,6 +289,7 @@ describe('usersReducer', () => {
       errorMessage: 'Any error',
       lastMutationType: 'update-profile',
       lastMutationSucceeded: false,
+      invitations: [],
     };
 
     const next = usersReducer(state, UsersActions.clearError());
@@ -258,6 +308,7 @@ describe('usersReducer', () => {
       errorMessage: '',
       lastMutationType: 'change-password',
       lastMutationSucceeded: true,
+      invitations: [],
     };
 
     const next = usersReducer(state, UsersActions.clearMutationStatus());

@@ -1,8 +1,9 @@
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Hosting;
 
 namespace Intelibill.Infrastructure.Options;
 
-internal sealed class EmailOptionsValidator : IValidateOptions<EmailOptions>
+internal sealed class EmailOptionsValidator(IHostEnvironment? environment = null) : IValidateOptions<EmailOptions>
 {
     public ValidateOptionsResult Validate(string? name, EmailOptions options)
     {
@@ -10,11 +11,18 @@ internal sealed class EmailOptionsValidator : IValidateOptions<EmailOptions>
             return ValidateOptionsResult.Success;
 
         List<string> errors = [];
+        if (options.LocalCapture && environment is not null && !environment.IsDevelopment() && !environment.IsEnvironment("Testing"))
+            errors.Add("Email:LocalCapture is allowed only in Development or Testing environments.");
 
         EnsureRequired(options.Host, "Email:Host", errors);
         EnsurePortRange(options.Port, errors);
-        EnsureRequired(options.Username, "Email:Username", errors);
-        EnsureRequired(options.Password, "Email:Password", errors);
+        if (!options.LocalCapture)
+        {
+            EnsureRequired(options.Username, "Email:Username", errors);
+            EnsureRequired(options.Password, "Email:Password", errors);
+        }
+        else if (options.Host is not ("localhost" or "127.0.0.1" or "::1" or "mailpit"))
+            errors.Add("Email:LocalCapture is restricted to localhost or the mailpit development container.");
         EnsureRequired(options.FromEmail, "Email:FromEmail", errors);
         EnsureRequired(options.FromName, "Email:FromName", errors);
 

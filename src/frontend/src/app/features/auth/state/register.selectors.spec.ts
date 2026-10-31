@@ -2,7 +2,16 @@ import { RegisterState } from '../../../core/state/app.state';
 import { selectRegisterErrorMessage, selectRegisterSubmitting } from './register.selectors';
 
 function buildState(overrides: Partial<RegisterState> = {}): { authRegistration: RegisterState } {
-  return { authRegistration: { submitting: false, errorMessage: '', ...overrides } };
+  return {
+    authRegistration: {
+      submitting: false,
+      errorMessage: '',
+      accepted: false,
+      email: '',
+      claim: false,
+      ...overrides,
+    },
+  };
 }
 
 describe('register selectors', () => {

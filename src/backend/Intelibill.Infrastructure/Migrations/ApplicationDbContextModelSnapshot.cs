@@ -110,6 +110,10 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasDefaultValue(false)
                         .HasColumnName("is_voided");
 
+                    b.Property<Guid?>("LinkedCustomerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("linked_customer_id");
+
                     b.Property<decimal>("OriginalAmount")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)")
@@ -120,10 +124,6 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)")
                         .HasColumnName("reason");
-
-                    b.Property<Guid?>("LinkedCustomerId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("linked_customer_id");
 
                     b.Property<Guid>("SaleReturnId")
                         .HasColumnType("uuid")
@@ -485,6 +485,67 @@ namespace Intelibill.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Intelibill.Domain.Entities.EmailOwnershipChallenge", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("ConsumedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("consumed_at");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Destination")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("destination");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("purpose");
+
+                    b.Property<long>("SecurityVersion")
+                        .HasColumnType("bigint")
+                        .HasColumnName("security_version");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("token_hash");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_email_ownership_challenges");
+
+                    b.HasIndex("Destination", "CreatedAt")
+                        .HasDatabaseName("ix_email_ownership_challenges_destination_created_at");
+
+                    b.HasIndex("UserId", "Purpose")
+                        .HasDatabaseName("ix_email_ownership_challenges_user_id_purpose");
+
+                    b.ToTable("email_ownership_challenges", (string)null);
+                });
+
             modelBuilder.Entity("Intelibill.Domain.Entities.Expense", b =>
                 {
                     b.Property<Guid>("Id")
@@ -645,6 +706,71 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasDatabaseName("ix_hsn_cache_product_name");
 
                     b.ToTable("hsn_cache", (string)null);
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.IdentityMail", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("attempts");
+
+                    b.Property<Guid?>("ChallengeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("challenge_id");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Destination")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("destination");
+
+                    b.Property<string>("EncryptedContent")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("encrypted_content");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<Guid?>("InvitationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("invitation_id");
+
+                    b.Property<DateTimeOffset>("NextAttemptAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("next_attempt_at");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_identity_mail");
+
+                    b.HasIndex("InvitationId")
+                        .HasDatabaseName("ix_identity_mail_invitation_id");
+
+                    b.HasIndex("CompletedAt", "NextAttemptAt")
+                        .HasDatabaseName("ix_identity_mail_completed_at_next_attempt_at");
+
+                    b.HasIndex("Destination", "CreatedAt")
+                        .HasDatabaseName("ix_identity_mail_destination_created_at");
+
+                    b.ToTable("identity_mail", (string)null);
                 });
 
             modelBuilder.Entity("Intelibill.Domain.Entities.Inventory", b =>
@@ -1295,6 +1421,12 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<string>("Destination")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("destination");
+
                     b.Property<DateTimeOffset>("ExpiresAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("expires_at");
@@ -1302,6 +1434,10 @@ namespace Intelibill.Infrastructure.Migrations
                     b.Property<bool>("IsUsed")
                         .HasColumnType("boolean")
                         .HasColumnName("is_used");
+
+                    b.Property<long>("SecurityVersion")
+                        .HasColumnType("bigint")
+                        .HasColumnName("security_version");
 
                     b.Property<string>("TokenHash")
                         .IsRequired()
@@ -1844,6 +1980,10 @@ namespace Intelibill.Infrastructure.Migrations
                     b.Property<DateTimeOffset?>("RevokedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("revoked_at");
+
+                    b.Property<long>("SecurityVersion")
+                        .HasColumnType("bigint")
+                        .HasColumnName("security_version");
 
                     b.Property<string>("Token")
                         .IsRequired()
@@ -2688,12 +2828,91 @@ namespace Intelibill.Infrastructure.Migrations
                     b.ToTable("shops", (string)null);
                 });
 
+            modelBuilder.Entity("Intelibill.Domain.Entities.ShopInvitation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("AcceptedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("accepted_at");
+
+                    b.Property<Guid?>("AcceptedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("accepted_by_user_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("email");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<Guid>("InvitedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("invited_by_user_id");
+
+                    b.Property<long>("InviterAuthorityVersion")
+                        .HasColumnType("bigint")
+                        .HasColumnName("inviter_authority_version");
+
+                    b.Property<DateTimeOffset?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revoked_at");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("role");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("token_hash");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_shop_invitations");
+
+                    b.HasIndex("ShopId", "CreatedAt")
+                        .HasDatabaseName("ix_shop_invitations_shop_id_created_at");
+
+                    b.HasIndex("ShopId", "Email")
+                        .IsUnique()
+                        .HasDatabaseName("ix_shop_invitations_shop_id_email")
+                        .HasFilter("accepted_at IS NULL AND revoked_at IS NULL");
+
+                    b.ToTable("shop_invitations", (string)null);
+                });
+
             modelBuilder.Entity("Intelibill.Domain.Entities.ShopMembership", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<long>("AuthorityVersion")
+                        .HasColumnType("bigint")
+                        .HasColumnName("authority_version");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -2717,6 +2936,14 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("shop_id");
 
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasDefaultValue("Active")
+                        .HasColumnName("status");
+
                     b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -2728,8 +2955,8 @@ namespace Intelibill.Infrastructure.Migrations
                     b.HasKey("Id")
                         .HasName("pk_shop_memberships");
 
-                    b.HasIndex("ShopId")
-                        .HasDatabaseName("ix_shop_memberships_shop_id");
+                    b.HasIndex("ShopId", "Status")
+                        .HasDatabaseName("ix_shop_memberships_shop_id_status");
 
                     b.HasIndex("UserId", "IsDefault")
                         .IsUnique()
@@ -3049,6 +3276,15 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("phone_number");
 
+                    b.Property<bool>("RequiresOperatorRecovery")
+                        .HasColumnType("boolean")
+                        .HasColumnName("requires_operator_recovery");
+
+                    b.Property<long>("SecurityVersion")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("security_version");
+
                     b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -3067,53 +3303,6 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasFilter("phone_number IS NOT NULL");
 
                     b.ToTable("users", (string)null);
-                });
-
-            modelBuilder.Entity("Intelibill.Domain.Entities.UserExternalLogin", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<int>("Provider")
-                        .HasColumnType("integer")
-                        .HasColumnName("provider");
-
-                    b.Property<string>("ProviderEmail")
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
-                        .HasColumnName("provider_email");
-
-                    b.Property<string>("ProviderKey")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
-                        .HasColumnName("provider_key");
-
-                    b.Property<DateTimeOffset?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
-                    b.HasKey("Id")
-                        .HasName("pk_user_external_logins");
-
-                    b.HasIndex("UserId")
-                        .HasDatabaseName("ix_user_external_logins_user_id");
-
-                    b.HasIndex("Provider", "ProviderKey")
-                        .IsUnique()
-                        .HasDatabaseName("ix_user_external_logins_provider_provider_key");
-
-                    b.ToTable("user_external_logins", (string)null);
                 });
 
             modelBuilder.Entity("Intelibill.Domain.Entities.BankAccount", b =>
@@ -3782,18 +3971,6 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasConstraintName("fk_supplier_ledger_entries_suppliers_supplier_id");
                 });
 
-            modelBuilder.Entity("Intelibill.Domain.Entities.UserExternalLogin", b =>
-                {
-                    b.HasOne("Intelibill.Domain.Entities.User", "User")
-                        .WithMany("ExternalLogins")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_user_external_logins_users_user_id");
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("Intelibill.Domain.Entities.CreditNote", b =>
                 {
                     b.Navigation("Redemptions");
@@ -3842,8 +4019,6 @@ namespace Intelibill.Infrastructure.Migrations
 
             modelBuilder.Entity("Intelibill.Domain.Entities.User", b =>
                 {
-                    b.Navigation("ExternalLogins");
-
                     b.Navigation("ShopMemberships");
                 });
 #pragma warning restore 612, 618

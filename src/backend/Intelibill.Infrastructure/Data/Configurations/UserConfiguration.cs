@@ -11,6 +11,7 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<User>
         builder.ToTable("users");
 
         builder.HasKey(u => u.Id);
+        builder.Property(u => u.SecurityVersion).IsConcurrencyToken();
 
         builder.Property(u => u.Email)
             .HasMaxLength(256);
@@ -45,11 +46,6 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.IsLoginEnabled)
             .IsRequired()
             .HasDefaultValue(true);
-
-        builder.HasMany(u => u.ExternalLogins)
-            .WithOne(el => el.User)
-            .HasForeignKey(el => el.UserId)
-            .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasMany(u => u.ShopMemberships)
             .WithOne(sm => sm.User)

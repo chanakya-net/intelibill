@@ -43,7 +43,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
 
     private static async Task<string> RegisterAsync(HttpClient client)
     {
-        var response = await client.PostAsJsonAsync("/api/auth/register/email", new
+        var response = await client.EnrollAsync(new
         {
             email = UniqueEmail(),
             password = "Pass123!Aa",
@@ -363,7 +363,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
             role = "Staff",
         });
 
-        var response = await client.SendAsync(request);
+        var response = await client.SeedVerifiedStaffAsync(request);
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         return (body.GetProperty("userId").GetGuid(), email, password);
@@ -474,8 +474,13 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         Assert.DoesNotContain(lines, l => l.GetProperty("type").GetString() == "error");
     }
 
+    /// <summary>
+    /// Access ends at the session layer now: the token carries a shop scope that is re-checked
+    /// against the live membership on every request, so a removed member is rejected before the
+    /// handler runs rather than refused by it.
+    /// </summary>
     [Fact]
-    public async Task StreamOfflineSnapshot_WhenMembershipRemoved_Returns403()
+    public async Task StreamOfflineSnapshot_WhenMembershipRemoved_SessionIsRejected()
     {
         using var client = CreateClient();
         var token = await RegisterAsync(client);
@@ -499,7 +504,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", memberToken);
         var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
 
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
     [Fact]
@@ -729,8 +734,12 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         Assert.Equal(4m, batch!.Quantity);
     }
 
+    /// <summary>
+    /// As with the snapshot stream, a removed membership invalidates the shop-scoped session, so
+    /// the request never reaches the sync handler.
+    /// </summary>
     [Fact]
-    public async Task OfflineSync_WhenMembershipMissing_ReturnsForbidden()
+    public async Task OfflineSync_WhenMembershipMissing_SessionIsRejected()
     {
         using var client = CreateClient();
         var token = await RegisterAsync(client);
@@ -801,7 +810,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         });
 
         var response = await client.SendAsync(syncRequest);
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
     [Fact]
@@ -2784,7 +2793,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
             confirmPassword = staffPassword,
             role = "Staff",
         });
-        var addUserResponse = await client.SendAsync(addUserRequest);
+        var addUserResponse = await client.SeedVerifiedStaffAsync(addUserRequest);
         addUserResponse.EnsureSuccessStatusCode();
 
         var staffToken = await LoginAsync(client, staffEmail, staffPassword);
@@ -4047,7 +4056,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
             confirmPassword = staffPassword,
             role = "Staff",
         });
-        var addUserResponse = await client.SendAsync(addUserRequest);
+        var addUserResponse = await client.SeedVerifiedStaffAsync(addUserRequest);
         addUserResponse.EnsureSuccessStatusCode();
 
         var staffToken = await LoginAsync(client, staffEmail, staffPassword);
@@ -4090,7 +4099,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
             confirmPassword = staffPassword,
             role = "Staff",
         });
-        var addUserResponse = await client.SendAsync(addUserRequest);
+        var addUserResponse = await client.SeedVerifiedStaffAsync(addUserRequest);
         addUserResponse.EnsureSuccessStatusCode();
 
         var staffToken = await LoginAsync(client, staffEmail, staffPassword);

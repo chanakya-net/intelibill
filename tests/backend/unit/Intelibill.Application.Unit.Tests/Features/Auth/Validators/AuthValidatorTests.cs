@@ -1,5 +1,4 @@
 using FluentValidation.TestHelper;
-using Intelibill.Application.Features.Auth.Commands.ExternalLogin;
 using Intelibill.Application.Features.Auth.Commands.Login;
 using Intelibill.Application.Features.Auth.Commands.LoginWithEmail;
 using Intelibill.Application.Features.Auth.Commands.RefreshToken;
@@ -146,18 +145,4 @@ public class ResetPasswordCommandValidatorTests
 
     [Fact] public void Validate_WhenValid_NoErrors() =>
         _v.TestValidate(new ResetPasswordCommand("a@b.com", "tok", "NewPass1234!")).ShouldNotHaveAnyValidationErrors();
-}
-
-public class ExternalLoginCommandValidatorTests
-{
-    private readonly ExternalLoginCommandValidator _v = new();
-
-    [Fact] public void Validate_WhenTokenEmpty_ReturnsError() =>
-        _v.TestValidate(new ExternalLoginCommand(ExternalAuthProvider.Google, "")).ShouldHaveValidationErrorFor(x => x.Token);
-
-    [Fact] public void Validate_WhenProviderOutOfRange_ReturnsError() =>
-        _v.TestValidate(new ExternalLoginCommand((ExternalAuthProvider)999, "token")).ShouldHaveValidationErrorFor(x => x.Provider);
-
-    [Fact] public void Validate_WhenValid_NoErrors() =>
-        _v.TestValidate(new ExternalLoginCommand(ExternalAuthProvider.Google, "tok")).ShouldNotHaveAnyValidationErrors();
 }

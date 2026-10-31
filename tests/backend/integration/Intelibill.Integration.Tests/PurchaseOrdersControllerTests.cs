@@ -39,7 +39,7 @@ public sealed class PurchaseOrdersControllerTests(PostgreSqlTestFixture fixture)
 
     private static async Task<string> RegisterAsync(HttpClient client)
     {
-        var response = await client.PostAsJsonAsync("/api/auth/register/email", new
+        var response = await client.EnrollAsync(new
         {
             email = UniqueEmail(),
             password = "Pass123!Aa",
@@ -111,7 +111,7 @@ public sealed class PurchaseOrdersControllerTests(PostgreSqlTestFixture fixture)
             confirmPassword = userPassword,
             role,
         });
-        var response = await client.SendAsync(request);
+        var response = await client.SeedVerifiedStaffAsync(request);
         response.EnsureSuccessStatusCode();
 
         return (userEmail, userPassword);

@@ -27,7 +27,7 @@ describe('app routes', () => {
   };
   const router = {
     createUrlTree: vi.fn<Router['createUrlTree']>().mockReturnValue({ redirected: true } as never),
-    parseUrl: vi.fn<Router['parseUrl']>((url: string) => ({ toString: () => url } as never)),
+    parseUrl: vi.fn<Router['parseUrl']>((url: string) => ({ toString: () => url }) as never),
   };
 
   beforeEach(() => {
@@ -59,7 +59,9 @@ describe('app routes', () => {
   });
 
   it('keeps credit note print outside the shell layout', () => {
-    const printRouteIndex = routes.findIndex((route) => route.path === 'sales/credit-notes/:code/print');
+    const printRouteIndex = routes.findIndex(
+      (route) => route.path === 'sales/credit-notes/:code/print',
+    );
     const shellRouteIndex = routes.findIndex((route) => route.path === '');
     const printRoute = routes[printRouteIndex];
 
@@ -158,7 +160,10 @@ describe('app routes', () => {
 
   it('covers every routed destination in the ui audit manifest', async () => {
     const appDestinations = await flattenRouteDestinations(routes);
-    const coverage = diffRouteCoverage(appDestinations, ROUTE_MANIFEST.map((entry) => entry.path));
+    const coverage = diffRouteCoverage(
+      appDestinations,
+      ROUTE_MANIFEST.map((entry) => entry.path),
+    );
 
     expect(coverage.missingFromManifest).toEqual([]);
     expect(coverage.missingFromRoutes).toEqual([]);
@@ -178,8 +183,31 @@ describe('app routes', () => {
         : route,
     );
     const destinations = await flattenRouteDestinations(routesWithoutBankAccounts);
-    const coverage = diffRouteCoverage(destinations, ROUTE_MANIFEST.map((entry) => entry.path));
+    const coverage = diffRouteCoverage(
+      destinations,
+      ROUTE_MANIFEST.map((entry) => entry.path),
+    );
 
     expect(coverage.missingFromRoutes).toEqual(['bank-accounts']);
+  });
+  it('keeps Account security behind authentication without offline onboarding bypass', async () => {
+    const shellRoute = routes.find((route) => route.path === '');
+    const securityRoute = shellRoutes
+      .find((route) => route.path === '')
+      ?.children?.find((route) => route.path === 'account/security');
+    expect(securityRoute).toBeDefined();
+    expect(shellRoute?.canActivate).toContain(authGuard);
+    authService.isAuthenticated.mockReturnValue(false);
+    authService.bootstrapSessionWithStatus.mockReturnValue(of('UNAUTHENTICATED'));
+    const result = await TestBed.runInInjectionContext(() =>
+      firstValueFrom(
+        authGuard(
+          { data: shellRoute?.data ?? {} } as ActivatedRouteSnapshot,
+          { url: '/account/security' } as RouterStateSnapshot,
+        ) as any,
+      ),
+    );
+    expect(result).toEqual({ redirected: true });
+    expect(authService.canUseOfflineSalesAuthGrace).not.toHaveBeenCalled();
   });
 });

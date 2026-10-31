@@ -54,6 +54,7 @@ export class CreateShopOverlayComponent implements OnInit {
   readonly isBankDetailsPending = signal(false);
 
   @Output() readonly closeRequested = new EventEmitter<void>();
+  @Output() readonly accountSecurityRequested = new EventEmitter<void>();
 
   readonly shopForm = this.formBuilder.nonNullable.group({
     name: ['', InputValidators.requiredText(120)],

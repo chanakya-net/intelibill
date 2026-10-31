@@ -307,3 +307,75 @@ run "wires_existing_foundations_into_prod_workloads" {
     error_message = "All three prod workload RBAC assignments must use the discovered deploy principal and custom role."
   }
 }
+
+run "mail_delivery_disabled_by_default" {
+  command = plan
+  variables {
+    subscription_id               = "00000000-0000-0000-0000-000000000011"
+    new_relic_api_key_secret_name = null
+  }
+  assert {
+    condition = {
+      for setting in module.environment_infrastructure.resolved_contract.api.env : setting.name => setting.value
+      if startswith(setting.name, "Email__")
+      } == {
+      Email__Enabled      = "false"
+      Email__LocalCapture = "false"
+    } && length(module.environment_infrastructure.resolved_contract.api.secret_references) == 0
+    error_message = "Root defaults must disable delivery and capture without mail secret references."
+  }
+}
+
+run "mail_delivery_references_reach_api" {
+  command = plan
+  variables {
+    subscription_id               = "00000000-0000-0000-0000-000000000011"
+    new_relic_api_key_secret_name = null
+    mail_delivery = {
+      enabled                = true
+      host                   = "smtp.resend.com"
+      port                   = 2587
+      username               = "resend"
+      from_email             = "security@example.com"
+      from_name              = "Intelibill prod"
+      password_secret_name   = "resend-smtp-key"
+      outbox_key_secret_name = "identity-mail-aes-key"
+    }
+  }
+  assert {
+    condition = {
+      for setting in module.environment_infrastructure.resolved_contract.api.env : setting.name => coalesce(setting.value, setting.secret_name)
+      if startswith(setting.name, "Email__") || setting.name == "Identity__OutboxKey"
+      } == {
+      Email__Enabled      = "true"
+      Email__LocalCapture = "false"
+      Email__Host         = "smtp.resend.com"
+      Email__Port         = "2587"
+      Email__UseStartTls  = "true"
+      Email__Username     = "resend"
+      Email__FromEmail    = "security@example.com"
+      Email__FromName     = "Intelibill prod"
+      Email__Password     = "email-password"
+      Identity__OutboxKey = "identity-outbox-key"
+    }
+    error_message = "Mail configuration must pass through the environment root to the real API resource."
+  }
+  assert {
+    condition = {
+      for secret in module.environment_infrastructure.resolved_contract.api.secret_references : secret.name => {
+        identity = secret.identity
+        uri      = secret.key_vault_secret_id
+      }
+      } == {
+      email-password = {
+        identity = "/subscriptions/00000000-0000-0000-0000-000000000011/resourceGroups/intelibill-shared/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-intelibill-app-prod"
+        uri      = "https://kv-intelibill-prod.vault.azure.net/secrets/resend-smtp-key"
+      }
+      identity-outbox-key = {
+        identity = "/subscriptions/00000000-0000-0000-0000-000000000011/resourceGroups/intelibill-shared/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-intelibill-app-prod"
+        uri      = "https://kv-intelibill-prod.vault.azure.net/secrets/identity-mail-aes-key"
+      }
+    }
+    error_message = "Mail references must use this environment's vault and managed identity."
+  }
+}

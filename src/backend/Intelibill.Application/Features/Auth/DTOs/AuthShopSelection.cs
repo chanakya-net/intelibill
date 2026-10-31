@@ -6,7 +6,9 @@ internal static class AuthShopSelection
 {
     public static (Guid? ActiveShopId, string? ActiveShopRole, IReadOnlyList<UserShopDto> Shops) Resolve(User user, Guid? preferredShopId = null)
     {
-        var memberships = user.ShopMemberships.ToList();
+        // Only live memberships may be selected or offered. A suspended shop disappears from the
+        // session without touching the account's other shops.
+        var memberships = user.ShopMemberships.Where(sm => sm.IsActive).ToList();
 
         if (memberships.Count == 0)
             return (null, null, []);

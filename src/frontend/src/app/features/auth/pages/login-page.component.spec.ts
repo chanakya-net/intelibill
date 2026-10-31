@@ -7,24 +7,25 @@ import { TranslocoTestingModule } from '@ngneat/transloco';
 import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 
-import { AuthSession, ExternalAuthProvider } from '../../../core/auth/auth.models';
+import { AuthSession } from '../../../core/auth/auth.models';
+import { IdentityFlowService } from '../../../core/auth/identity-flow.service';
 import { AuthService } from '../../../core/auth/auth.service';
-import { EXTERNAL_LOGIN_REDIRECT, LoginPageComponent } from './login-page.component';
+import { LoginPageComponent } from './login-page.component';
 
 describe('LoginPageComponent', () => {
   const authService = {
     isAuthenticated: vi.fn<AuthService['isAuthenticated']>(),
     getLastRememberedIdentifier: vi.fn<AuthService['getLastRememberedIdentifier']>(),
     login: vi.fn<AuthService['login']>(),
-    initializeExternalLogin: vi.fn<AuthService['initializeExternalLogin']>(),
-    completeExternalLogin: vi.fn<AuthService['completeExternalLogin']>(),
   };
 
+  const identityFlow = {
+    afterSignIn: vi.fn(),
+    pendingVerification: vi.fn(),
+  };
   const store = {
     selectSignal: vi.fn(() => signal(false)),
   };
-  const externalLoginRedirect = vi.fn<(authorizationUrl: string) => void>();
-
   function setup(
     queryParams: Record<string, string> = {},
     navigationState: Record<string, unknown> | null = null,
@@ -37,8 +38,8 @@ describe('LoginPageComponent', () => {
       ],
       providers: [
         { provide: AuthService, useValue: authService },
+        { provide: IdentityFlowService, useValue: identityFlow },
         { provide: Store, useValue: store },
-        { provide: EXTERNAL_LOGIN_REDIRECT, useValue: externalLoginRedirect },
         {
           provide: ActivatedRoute,
           useValue: {
@@ -70,11 +71,10 @@ describe('LoginPageComponent', () => {
     authService.isAuthenticated.mockReturnValue(false);
     authService.getLastRememberedIdentifier.mockReturnValue('');
     authService.login.mockReturnValue(of({} as AuthSession));
-    authService.initializeExternalLogin.mockReturnValue(of('https://provider.example.com/oauth'));
-    authService.completeExternalLogin.mockReturnValue(of({} as AuthSession));
     store.selectSignal.mockImplementation(() => signal(false));
-    externalLoginRedirect.mockClear();
     sessionStorage.clear();
+    identityFlow.afterSignIn.mockReturnValue('/');
+    identityFlow.pendingVerification.mockReturnValue(null);
   });
 
   afterEach(() => {
@@ -170,53 +170,6 @@ describe('LoginPageComponent', () => {
     expect(component.serverError()).toBe('errors.auth.invalidCredentials');
   });
 
-  it('starts google login and redirects browser to provider', () => {
-    const { component } = setup();
-
-    component.onGoogleLogin();
-
-    expect(authService.initializeExternalLogin).toHaveBeenCalledWith(ExternalAuthProvider.Google);
-    expect(externalLoginRedirect).toHaveBeenCalledWith('https://provider.example.com/oauth');
-    expect(component.serverError()).toBeNull();
-  });
-
-  it('sets server error when external login init fails', () => {
-    authService.initializeExternalLogin.mockReturnValue(
-      throwError(() => ({ error: { title: 'Auth.UnsupportedProvider' } })),
-    );
-    const { component } = setup();
-
-    component.onFacebookLogin();
-
-    expect(authService.initializeExternalLogin).toHaveBeenCalledWith(ExternalAuthProvider.Facebook);
-    expect(component.serverError()).toBe('errors.auth.unsupportedProvider');
-  });
-
-  it('reads external auth error from query string', () => {
-    const { component } = setup({ externalAuthError: 'errors.auth.signInTimeout' });
-
-    expect(component.serverError()).toBe('errors.auth.signInTimeout');
-  });
-
-  it('reads external auth error from session storage fallback', () => {
-    sessionStorage.setItem('inventory.auth.external.error', 'errors.auth.externalProviderError');
-    const { component } = setup();
-
-    expect(component.serverError()).toBe('errors.auth.externalProviderError');
-    expect(sessionStorage.getItem('inventory.auth.external.error')).toBeNull();
-  });
-
-  it('shows fallback error when external sign-in was pending but no callback error was provided', () => {
-    sessionStorage.setItem(
-      'inventory.auth.external.pending',
-      ExternalAuthProvider.Google.toString(),
-    );
-    const { component } = setup();
-
-    expect(component.serverError()).toBe('errors.auth.externalSignInIncomplete');
-    expect(sessionStorage.getItem('inventory.auth.external.pending')).toBeNull();
-  });
-
   it('shows the password reset success message from the query string', () => {
     const { component } = setup({ passwordReset: 'success' });
 
@@ -229,5 +182,22 @@ describe('LoginPageComponent', () => {
 
     expect(component.successMessage()).toBe('auth.resetPassword.successMessage');
     expect(component.serverError()).toBeNull();
+  });
+  it('password login resumes pending email confirmation without putting bearer proof in navigation', () => {
+    identityFlow.afterSignIn.mockReturnValue('/auth/verify-email');
+    const { component, navigateByUrl } = setup();
+    component.form.patchValue({ identifier: 'old@example.com', password: 'Password123!' });
+    component.onSubmit();
+    expect(navigateByUrl).toHaveBeenCalledWith('/auth/verify-email');
+  });
+  it.each([
+    ['support-required', 'identity.supportRequired'],
+    ['delivery-unavailable', 'identity.deliveryUnavailable'],
+    ['failed', 'identity.reauthFailed'],
+  ])('renders allowlisted login destination reason %s', (reason, message) => {
+    expect(setup({ identity: reason }).component.serverError()).toBe(message);
+  });
+  it('ignores non-allowlisted login outcome text', () => {
+    expect(setup({ identity: 'private-token-do-not-display' }).component.serverError()).toBeNull();
   });
 });

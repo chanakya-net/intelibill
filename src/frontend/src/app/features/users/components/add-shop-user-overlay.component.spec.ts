@@ -7,21 +7,13 @@ import { vi } from 'vitest';
 import { AuthService } from '../../../core/auth/auth.service';
 import { AddShopUserOverlayComponent } from './add-shop-user-overlay.component';
 import { UsersActions } from '../state/users.actions';
-import {
-  selectUsersErrorMessage,
-  selectUsersLastMutationSucceeded,
-  selectUsersLastMutationType,
-  selectUsersSubmitting,
-} from '../state/users.selectors';
+import { selectUsersErrorMessage, selectUsersSubmitting } from '../state/users.selectors';
 
 describe('AddShopUserOverlayComponent', () => {
   const dispatch = vi.fn();
   const isSubmittingSignal = signal(false);
   const errorSignal = signal('');
-  const lastMutationTypeSignal = signal<
-    'update-profile' | 'change-password' | 'add-shop-user' | null
-  >(null);
-  const lastMutationSucceededSignal = signal(false);
+
   const authService = {
     session: signal({
       accessToken: '',
@@ -55,22 +47,11 @@ describe('AddShopUserOverlayComponent', () => {
         return errorSignal;
       }
 
-      if (selector === selectUsersLastMutationType) {
-        return lastMutationTypeSignal;
-      }
-
-      if (selector === selectUsersLastMutationSucceeded) {
-        return lastMutationSucceededSignal;
-      }
-
       return signal(undefined);
     }),
   };
 
-  function setup(): {
-    component: AddShopUserOverlayComponent;
-    fixture: ReturnType<typeof TestBed.createComponent<AddShopUserOverlayComponent>>;
-  } {
+  function setup(): AddShopUserOverlayComponent {
     TestBed.configureTestingModule({
       imports: [
         AddShopUserOverlayComponent,
@@ -84,7 +65,7 @@ describe('AddShopUserOverlayComponent', () => {
 
     const fixture = TestBed.createComponent(AddShopUserOverlayComponent);
     fixture.detectChanges();
-    return { component: fixture.componentInstance, fixture };
+    return fixture.componentInstance;
   }
 
   beforeEach(() => {
@@ -92,72 +73,54 @@ describe('AddShopUserOverlayComponent', () => {
     store.selectSignal.mockClear();
     isSubmittingSignal.set(false);
     errorSignal.set('');
-    lastMutationTypeSignal.set(null);
-    lastMutationSucceededSignal.set(false);
   });
 
   afterEach(() => {
     TestBed.resetTestingModule();
   });
 
-  it('does not submit when password and confirm password mismatch', () => {
-    const { component } = setup();
+  it('collects only an address and a role, never credentials', () => {
+    const component = setup();
 
-    component.form.controls.firstName.setValue('Sales');
-    component.form.controls.lastName.setValue('User');
-    component.form.controls.email.setValue('sales@test.com');
-    component.form.controls.phoneNumber.setValue('+15551234567');
-    component.form.controls.shopIds.setValue(['s1']);
-    component.form.controls.password.setValue('Pass1234!');
-    component.form.controls.confirmPassword.setValue('Mismatch123!');
-    component.form.controls.role.setValue('Staff');
-
-    component.onSubmit();
-
-    expect(component.form.hasError('passwordMismatch')).toBe(true);
-    expect(dispatch).not.toHaveBeenCalledWith(
-      expect.objectContaining({ type: UsersActions.addShopUserRequested.type }),
-    );
+    expect(Object.keys(component.form.controls).sort()).toEqual(['email', 'role']);
   });
 
-  it('rejects whitespace-only user names', () => {
-    const { component } = setup();
-    component.form.controls.firstName.setValue('   ');
-    component.form.controls.lastName.setValue('   ');
+  it('invites the address for the shop the owner is working in', () => {
+    const component = setup();
 
-    expect(component.form.controls.firstName.hasError('required')).toBe(true);
-    expect(component.form.controls.lastName.hasError('required')).toBe(true);
-  });
-
-  it('dispatches add user action with confirm password in payload', () => {
-    const { component } = setup();
-
-    component.form.controls.firstName.setValue('Sales');
-    component.form.controls.lastName.setValue('User');
-    component.form.controls.email.setValue('sales@test.com');
-    component.form.controls.phoneNumber.setValue('+15551234567');
-    component.form.controls.shopIds.setValue(['s1', 's2']);
-    component.form.controls.password.setValue('Pass1234!');
-    component.form.controls.confirmPassword.setValue('Pass1234!');
+    component.form.controls.email.setValue('Invited@Test.com');
     component.form.controls.role.setValue('Staff');
-
     component.onSubmit();
 
     expect(dispatch).toHaveBeenCalledWith(UsersActions.clearError());
-    expect(dispatch).toHaveBeenCalledWith(UsersActions.clearMutationStatus());
     expect(dispatch).toHaveBeenCalledWith(
-      UsersActions.addShopUserRequested({
-        payload: {
-          shopIds: ['s1', 's2'],
-          email: 'sales@test.com',
-          firstName: 'Sales',
-          lastName: 'User',
-          phoneNumber: '+15551234567',
-          password: 'Pass1234!',
-          confirmPassword: 'Pass1234!',
-          role: 'Staff',
-        },
+      UsersActions.inviteMemberRequested({
+        shopId: 's1',
+        payload: { email: 'invited@test.com', role: 'Staff' },
       }),
     );
+  });
+
+  it('does not invite an invalid address', () => {
+    const component = setup();
+
+    component.form.controls.email.setValue('not-an-email');
+    component.onSubmit();
+
+    expect(component.form.controls.email.invalid).toBe(true);
+    expect(dispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: UsersActions.inviteMemberRequested.type }),
+    );
+  });
+
+  it('does not invite while an invitation is already in flight', () => {
+    const component = setup();
+    component.form.controls.email.setValue('invited@test.com');
+    isSubmittingSignal.set(true);
+    dispatch.mockReset();
+
+    component.onSubmit();
+
+    expect(dispatch).not.toHaveBeenCalled();
   });
 });

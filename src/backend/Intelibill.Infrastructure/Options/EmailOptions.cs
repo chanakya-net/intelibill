@@ -4,6 +4,8 @@ public sealed class EmailOptions
 {
     public const string SectionName = "Email";
 
+    public bool LocalCapture { get; init; }
+
     public bool Enabled { get; init; }
 
     public string Host { get; init; } = string.Empty;

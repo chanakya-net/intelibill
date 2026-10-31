@@ -20,7 +20,11 @@ describe('ForgotPasswordPageComponent', () => {
 
   function setup() {
     TestBed.configureTestingModule({
-      imports: [ForgotPasswordPageComponent, RouterTestingModule.withRoutes([]), TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
+      imports: [
+        ForgotPasswordPageComponent,
+        RouterTestingModule.withRoutes([]),
+        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+      ],
       providers: [
         { provide: AuthService, useValue: authService },
         { provide: Store, useValue: store },
@@ -92,5 +96,15 @@ describe('ForgotPasswordPageComponent', () => {
 
     expect(component.successMessage()).toBeNull();
     expect(component.errorMessage()).toBe('auth.forgotPassword.rateLimitMessage');
+  });
+  it('explains disabled email delivery without showing acceptance', () => {
+    const { component } = setup();
+    authService.requestPasswordReset.mockReturnValue(
+      throwError(() => ({ status: 503, error: { title: 'Auth.EmailDeliveryUnavailable' } })),
+    );
+    component.form.controls.email.setValue('user@example.com');
+    component.onSubmit();
+    expect(component.successMessage()).toBeNull();
+    expect(component.errorMessage()).toBe('identity.deliveryUnavailable');
   });
 });

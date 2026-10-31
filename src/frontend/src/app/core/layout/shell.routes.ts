@@ -55,6 +55,10 @@ export const shellRoutes: Routes = [
 		],
 		children: [
 			{
+				path: 'account/security',
+				loadComponent: () => import('../../features/users/pages/account-security-page.component').then((m) => m.AccountSecurityPageComponent),
+			},
+			{
 				path: 'dashboard',
 				canActivate: [dashboardGuard],
 				loadComponent: () =>

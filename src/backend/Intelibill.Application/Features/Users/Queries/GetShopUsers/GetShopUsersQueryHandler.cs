@@ -15,20 +15,23 @@ public sealed class GetShopUsersQueryHandler(IUserRepository userRepository, ISh
             return Errors.Auth.UserNotFound;
 
         var membership = caller.ShopMemberships.FirstOrDefault(sm => sm.ShopId == query.ShopId);
-        if (membership is null)
+        if (membership is null || !membership.IsActive)
             return Errors.Shop.MembershipNotFound;
 
         var shop = await shopRepository.GetByIdWithMembersAsync(query.ShopId, cancellationToken);
         if (shop is null)
             return Errors.Shop.ShopNotFound;
 
+        // Only shops this caller owns may appear in a member's shop list. A member's memberships
+        // in shops the caller has no authority over — including shops that member owns — are not
+        // this caller's to see.
         var actorOwnedShopIds = caller.ShopMemberships
-            .Where(sm => sm.Role == ShopRole.Owner)
+            .Where(sm => sm.Role == ShopRole.Owner && sm.IsActive)
             .Select(sm => sm.ShopId)
             .ToList();
 
         var shopMembers = shop.Memberships
-            .Where(sm => sm.User is not null)
+            .Where(sm => sm.User is not null && sm.Status != MembershipStatus.Removed)
             .ToList();
 
         var memberUserIds = shopMembers.Select(sm => sm.UserId).ToList();
@@ -38,6 +41,7 @@ public sealed class GetShopUsersQueryHandler(IUserRepository userRepository, ISh
             : [];
 
         var membershipsByUser = allMemberships
+            .Where(sm => sm.Status != MembershipStatus.Removed)
             .GroupBy(sm => sm.UserId)
             .ToDictionary(g => g.Key, g => g.Select(sm => sm.ShopId).ToList() as IReadOnlyList<Guid>);
 
@@ -51,8 +55,9 @@ public sealed class GetShopUsersQueryHandler(IUserRepository userRepository, ISh
                 sm.User.LastName,
                 sm.User.Email,
                 sm.User.PhoneNumber,
-                sm.Role == ShopRole.Staff ? "Staff" : sm.Role.ToString(),
-                sm.User.IsLoginEnabled,
+                MembershipAuthority.ToRoleLabel(sm.Role),
+                sm.Status.ToString(),
+                sm.AuthorityVersion,
                 membershipsByUser.TryGetValue(sm.UserId, out var shopIds) ? shopIds : [],
                 sm.User.Language))
             .ToList();

@@ -6,22 +6,33 @@ export const registerFeatureKey = 'authRegistration';
 
 export interface RegisterState {
   readonly submitting: boolean;
+  readonly email: string;
+  readonly accepted: boolean;
+  readonly claim: boolean;
   readonly errorMessage: string;
 }
 
 const initialState: RegisterState = {
   submitting: false,
+  email: '',
+  accepted: false,
+  claim: false,
   errorMessage: '',
 };
 
 export const registerReducer = createReducer(
   initialState,
-  on(RegisterActions.requested, (state) => ({
+  on(RegisterActions.reset, () => initialState),
+  on(RegisterActions.requested, (state, { email, claim }) => ({
     ...state,
     submitting: true,
+    email,
+    claim: claim ?? false,
     errorMessage: '',
   })),
-  on(RegisterActions.succeeded, () => ({
+  on(RegisterActions.succeeded, (state) => ({
+    ...state,
+    accepted: true,
     submitting: false,
     errorMessage: '',
   })),
@@ -33,5 +44,5 @@ export const registerReducer = createReducer(
   on(RegisterActions.clearError, (state) => ({
     ...state,
     errorMessage: '',
-  }))
+  })),
 );

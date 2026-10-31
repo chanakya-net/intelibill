@@ -5,7 +5,7 @@ import { map, Observable, tap } from 'rxjs';
 
 import { AuthResult } from '../../../core/auth/auth.models';
 import { AuthService } from '../../../core/auth/auth.service';
-import { USER_ENDPOINTS } from '../../../core/auth/auth.constants';
+import { MEMBERSHIP_ENDPOINTS, USER_ENDPOINTS } from '../../../core/auth/auth.constants';
 
 export interface UpdateMyProfileRequest {
   readonly email: string;
@@ -20,6 +20,13 @@ export interface ChangeMyPasswordRequest {
   readonly newPassword: string;
 }
 
+export type MembershipRole = 'Manager' | 'Staff';
+export type MembershipStatus = 'Active' | 'Suspended' | 'Removed';
+
+/**
+ * One member of the active shop. `status` and `membershipVersion` are shop-scoped; there is no
+ * global login flag here, because shop administration no longer reaches the account.
+ */
 export interface ShopUser {
   readonly userId: string;
   readonly firstName: string;
@@ -27,29 +34,44 @@ export interface ShopUser {
   readonly email: string | null;
   readonly phoneNumber: string | null;
   readonly role: string;
-  readonly isLoginEnabled: boolean;
+  readonly status: string;
+  readonly membershipVersion: number;
   readonly shopIds: readonly string[];
 }
 
-export interface AddShopUserRequest {
-  readonly shopIds: readonly string[];
-  readonly email: string;
-  readonly firstName: string;
-  readonly lastName: string;
-  readonly phoneNumber: string;
-  readonly password: string;
-  readonly confirmPassword: string;
-  readonly role: 'Manager' | 'Staff';
+/** The result of a membership change or an accepted invitation. */
+export interface Membership {
+  readonly userId: string;
+  readonly shopId: string;
+  readonly displayName: string;
+  readonly role: string;
+  readonly status: string;
+  readonly version: number;
 }
 
-export interface EditShopUserRequest {
+/**
+ * `expectedVersion` is the version the screen was showing. The server refuses the change if the
+ * membership moved on in the meantime, so two administrators cannot silently overwrite each other.
+ */
+export interface UpdateMembershipRequest {
+  readonly role: MembershipRole;
+  readonly status: MembershipStatus;
+  readonly expectedVersion: number;
+}
+
+export interface InviteMemberRequest {
   readonly email: string;
-  readonly firstName: string;
-  readonly lastName: string;
-  readonly phoneNumber: string;
-  readonly role: 'Manager' | 'Staff';
-  readonly isLoginEnabled: boolean;
-  readonly shopIds?: readonly string[];
+  readonly role: MembershipRole;
+}
+
+export interface ShopInvitation {
+  readonly invitationId: string;
+  readonly shopId: string;
+  readonly email: string;
+  readonly role: string;
+  readonly status: string;
+  readonly expiresAt: string;
+  readonly createdAt: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -74,11 +96,35 @@ export class UserAccountService {
     return this.http.get<readonly ShopUser[]>(USER_ENDPOINTS.list);
   }
 
-  addShopUser(payload: AddShopUserRequest): Observable<ShopUser> {
-    return this.http.post<ShopUser>(USER_ENDPOINTS.add, payload);
+  updateMembership(
+    shopId: string,
+    userId: string,
+    payload: UpdateMembershipRequest
+  ): Observable<Membership> {
+    return this.http.patch<Membership>(MEMBERSHIP_ENDPOINTS.update(shopId, userId), payload);
   }
 
-  editShopUser(userId: string, payload: EditShopUserRequest): Observable<ShopUser> {
-    return this.http.put<ShopUser>(USER_ENDPOINTS.update(userId), payload);
+  inviteMember(shopId: string, payload: InviteMemberRequest): Observable<ShopInvitation> {
+    return this.http.post<ShopInvitation>(MEMBERSHIP_ENDPOINTS.invitations(shopId), payload);
+  }
+
+  getInvitations(shopId: string): Observable<readonly ShopInvitation[]> {
+    return this.http.get<readonly ShopInvitation[]>(MEMBERSHIP_ENDPOINTS.invitations(shopId));
+  }
+
+  revokeInvitation(shopId: string, invitationId: string): Observable<void> {
+    return this.http
+      .delete(MEMBERSHIP_ENDPOINTS.invitation(shopId, invitationId))
+      .pipe(map(() => void 0));
+  }
+
+  /**
+   * Redeemed by the invited person from their own session. The token travels only in the invitation
+   * email, so it is sent in the body rather than the URL.
+   */
+  acceptInvitation(invitationId: string, token: string): Observable<Membership> {
+    return this.http.post<Membership>(MEMBERSHIP_ENDPOINTS.acceptInvitation(invitationId), {
+      token,
+    });
   }
 }

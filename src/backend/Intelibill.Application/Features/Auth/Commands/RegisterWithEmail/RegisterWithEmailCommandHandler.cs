@@ -15,52 +15,9 @@ public sealed class RegisterWithEmailCommandHandler(
     ITokenService tokenService,
     IUnitOfWork unitOfWork)
 {
-    public async Task<ErrorOr<AuthResult>> HandleAsync(
-        RegisterWithEmailCommand command,
-        CancellationToken cancellationToken)
+    public Task<ErrorOr<AuthResult>> HandleAsync(RegisterWithEmailCommand command, CancellationToken cancellationToken)
     {
-        if (await userRepository.ExistsByEmailAsync(command.Email, cancellationToken))
-            return Errors.Auth.EmailAlreadyInUse;
-
-        var normalizedPhoneNumber = command.PhoneNumber.Trim();
-        if (await userRepository.ExistsByPhoneAsync(normalizedPhoneNumber, cancellationToken))
-            return Errors.Auth.PhoneAlreadyInUse;
-
-        var passwordHash = passwordHasher.Hash(command.Password);
-        var user = User.CreateWithEmail(
-            command.Email,
-            passwordHash,
-            command.FirstName,
-            command.LastName,
-            normalizedPhoneNumber);
-        var (activeShopId, activeShopRole, shops) = AuthShopSelection.Resolve(user);
-
-        await userRepository.AddAsync(user, cancellationToken);
-
-        var (accessToken, accessTokenExpiry) = await tokenService.GenerateAccessTokenAsync(user, activeShopId, activeShopRole, cancellationToken);
-        var refreshToken = tokenService.CreateRefreshToken(user.Id);
-
-        await refreshTokenRepository.AddAsync(refreshToken, cancellationToken);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
-
-        return BuildResult(user, accessToken, accessTokenExpiry, refreshToken, activeShopId, shops);
-    }
-
-    private static AuthResult BuildResult(
-        User user,
-        string accessToken,
-        DateTimeOffset accessTokenExpiry,
-        Domain.Entities.RefreshToken refreshToken,
-        Guid? activeShopId,
-        IReadOnlyList<UserShopDto> shops)
-    {
-        return new AuthResult(
-            accessToken,
-            refreshToken.Token,
-            accessTokenExpiry,
-            refreshToken.ExpiresAt,
-            new UserDto(user.Id, user.Email, user.PhoneNumber, user.FirstName, user.LastName, user.Language),
-            activeShopId,
-            shops);
+        _ = (userRepository, refreshTokenRepository, passwordHasher, tokenService, unitOfWork, command, cancellationToken);
+        return Task.FromResult<ErrorOr<AuthResult>>(Error.Conflict("Auth.EmailVerificationRequired", "Request mailbox verification before choosing your password."));
     }
 }

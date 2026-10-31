@@ -9,4 +9,4 @@ public sealed record CreateShopCommand(
 	string Pincode,
 	string? ContactPerson,
 	string? MobileNumber,
-	string? GstNumber);
+	string? GstNumber, long SecurityVersion = -1);

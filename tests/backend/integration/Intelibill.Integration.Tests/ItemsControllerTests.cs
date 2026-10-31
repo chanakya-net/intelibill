@@ -39,17 +39,18 @@ public sealed class ItemsControllerTests(PostgreSqlTestFixture fixture) : IAsync
         AllowAutoRedirect = false,
     });
 
-    private static HttpClient CreateClient(WebApplicationFactory<Program> factory) => factory.CreateClient(new WebApplicationFactoryClientOptions
+    private static HttpClient CreateClient(WebApplicationFactory<Program> factory)
     {
-        BaseAddress = new Uri("https://localhost"),
-        AllowAutoRedirect = false,
-    });
+        var client = factory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost"), AllowAutoRedirect = false });
+        IdentityTestMailbox.Factories.Add(client, factory);
+        return client;
+    }
 
     private static string UniqueEmail() => $"items-{Guid.NewGuid():N}@test.com";
 
     private static async Task<string> RegisterAsync(HttpClient client)
     {
-        var response = await client.PostAsJsonAsync("/api/auth/register/email", new
+        var response = await client.EnrollAsync(new
         {
             email = UniqueEmail(),
             password = "Pass123!Aa",
@@ -129,7 +130,7 @@ public sealed class ItemsControllerTests(PostgreSqlTestFixture fixture) : IAsync
             role,
         });
 
-        var response = await client.SendAsync(request);
+        var response = await client.SeedVerifiedStaffAsync(request);
         if (!response.IsSuccessStatusCode)
         {
             var errorBody = await response.Content.ReadAsStringAsync();

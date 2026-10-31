@@ -9,3 +9,20 @@ secret_officer_object_ids = ["00000000-0000-0000-0000-000000000000"]
 // Set only to its 1-127 character Key Vault secret name (letters, numbers,
 // hyphens) after the New Relic API key has been entered out of band.
 new_relic_api_key_secret_name = null
+
+// Disabled by default. Enter secret VALUES directly in Key Vault; these are
+// single secret-name segments only. Both deployed environments run Production.
+mail_delivery = { enabled = false }
+
+// Enable after storing the two independent secrets and verifying the sender:
+// mail_delivery = {
+//   enabled                = true
+//   host                   = "smtp.resend.com"
+//   port                   = 587
+//   use_start_tls          = true
+//   username               = "resend"
+//   from_email             = "security@example.com"
+//   from_name              = "Intelibill"
+//   password_secret_name   = "resend-smtp-key"
+//   outbox_key_secret_name = "identity-mail-aes-key"
+// }

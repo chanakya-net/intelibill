@@ -5,7 +5,6 @@ import { TranslocoPipe } from '@ngneat/transloco';
 
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
-import { PasswordModule } from 'primeng/password';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 
 import { AuthService } from '../../../core/auth/auth.service';
@@ -14,13 +13,17 @@ import { UsersActions } from '../state/users.actions';
 import { selectUsersErrorMessage, selectUsersSubmitting } from '../state/users.selectors';
 import { InputValidators } from '../../../shared/forms/input-validation';
 
+/**
+ * Invites someone to the active shop. The owner chooses an address and a role and nothing else:
+ * the invited person creates or signs in to their own account, chooses their own password, and
+ * accepts from there. There is deliberately no password or recovery field on this form.
+ */
 @Component({
   selector: 'app-add-shop-user-overlay',
   standalone: true,
   imports: [
     ReactiveFormsModule,
     InputTextModule,
-    PasswordModule,
     ButtonModule,
     ProgressSpinnerModule,
     TranslocoPipe,
@@ -35,25 +38,20 @@ export class AddShopUserOverlayComponent implements OnInit {
 
   readonly isSubmitting = this.store.selectSignal(selectUsersSubmitting);
   readonly serverError = this.store.selectSignal(selectUsersErrorMessage);
-  readonly availableShops = computed(() => this.authService.session()?.shops ?? []);
+
+  /** Invitations are issued for the shop the owner is currently working in. */
+  readonly activeShopId = computed(() => this.authService.session()?.activeShopId ?? null);
+  readonly activeShopName = computed(() => {
+    const session = this.authService.session();
+    return session?.shops.find((shop) => shop.shopId === session.activeShopId)?.shopName ?? '';
+  });
 
   @Output() readonly closeRequested = new EventEmitter<void>();
 
-  readonly form = this.formBuilder.nonNullable.group(
-    {
-      shopIds: [[] as string[], [Validators.required, Validators.minLength(1)]],
-      email: ['', InputValidators.email()],
-      firstName: ['', InputValidators.requiredText(100)],
-      lastName: ['', InputValidators.requiredText(100)],
-      phoneNumber: ['', InputValidators.phoneNumber()],
-      password: ['', InputValidators.password()],
-      confirmPassword: ['', InputValidators.password()],
-      role: ['Manager' as 'Manager' | 'Staff', [Validators.required]],
-    },
-    { validators: InputValidators.fieldsMatch('password', 'confirmPassword', 'passwordMismatch') },
-  );
-
-  constructor() {}
+  readonly form = this.formBuilder.nonNullable.group({
+    email: ['', InputValidators.email()],
+    role: ['Manager' as 'Manager' | 'Staff', [Validators.required]],
+  });
 
   ngOnInit(): void {
     this.store.dispatch(UsersActions.clearError());
@@ -78,38 +76,22 @@ export class AddShopUserOverlayComponent implements OnInit {
       return;
     }
 
+    const shopId = this.activeShopId();
+    if (!shopId) {
+      return;
+    }
+
     this.store.dispatch(UsersActions.clearError());
     this.store.dispatch(UsersActions.clearMutationStatus());
+
     this.store.dispatch(
-      UsersActions.addShopUserRequested({
+      UsersActions.inviteMemberRequested({
+        shopId,
         payload: {
-          shopIds: this.form.controls.shopIds.value,
-          email: this.form.controls.email.value.trim(),
-          firstName: this.form.controls.firstName.value.trim(),
-          lastName: this.form.controls.lastName.value.trim(),
-          phoneNumber: this.form.controls.phoneNumber.value.trim(),
-          password: this.form.controls.password.value,
-          confirmPassword: this.form.controls.confirmPassword.value,
+          email: this.form.controls.email.value.trim().toLowerCase(),
           role: this.form.controls.role.value,
         },
       }),
     );
-  }
-
-  isShopSelected(shopId: string): boolean {
-    return this.form.controls.shopIds.value.includes(shopId);
-  }
-
-  onToggleShop(shopId: string, isChecked: boolean): void {
-    const selected = this.form.controls.shopIds.value;
-
-    if (isChecked && !selected.includes(shopId)) {
-      this.form.controls.shopIds.setValue([...selected, shopId]);
-      return;
-    }
-
-    if (!isChecked && selected.includes(shopId)) {
-      this.form.controls.shopIds.setValue(selected.filter((id) => id !== shopId));
-    }
   }
 }

@@ -86,7 +86,10 @@ export class AuthTokenService {
       return of(null);
     }
 
-    const payload: RefreshTokenRequest = { refreshToken: session.refreshToken };
+    const payload: RefreshTokenRequest = {
+      refreshToken: session.refreshToken,
+      activeShopId: session.activeShopId ?? null,
+    };
 
     this.refreshInFlight$ = this.http.post<AuthResult>(AUTH_ENDPOINTS.refreshToken, payload).pipe(
       map((result) => state.toSession(result, session.rememberMe)),

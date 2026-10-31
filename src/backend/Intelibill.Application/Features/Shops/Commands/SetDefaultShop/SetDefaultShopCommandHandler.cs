@@ -18,6 +18,8 @@ public sealed class SetDefaultShopCommandHandler(
         var user = await userRepository.GetByIdWithDetailsAsync(command.UserId, cancellationToken);
         if (user is null)
             return Errors.Shop.UserNotFound;
+        if (user.SecurityVersion != command.SecurityVersion || !user.IsLoginEnabled)
+            return Error.Unauthorized("Auth.SessionInvalidated", "Sign in again to continue.");
 
         var targetMembership = user.ShopMemberships.FirstOrDefault(sm => sm.ShopId == command.ShopId);
         if (targetMembership is null)
@@ -38,6 +40,7 @@ public sealed class SetDefaultShopCommandHandler(
         var (activeShopId, activeShopRole, shops) = AuthShopSelection.Resolve(user, targetMembership.ShopId);
         var (accessToken, accessTokenExpiry) = await tokenService.GenerateAccessTokenAsync(user, activeShopId, activeShopRole, cancellationToken);
         var refreshToken = tokenService.CreateRefreshToken(user.Id);
+        refreshToken.BindSecurityVersion(user.SecurityVersion);
 
         await refreshTokenRepository.AddAsync(refreshToken, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);

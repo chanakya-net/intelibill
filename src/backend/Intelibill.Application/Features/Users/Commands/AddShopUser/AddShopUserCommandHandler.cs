@@ -1,19 +1,21 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
-using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Users.DTOs;
-using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
-using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 
 namespace Intelibill.Application.Features.Users.Commands.AddShopUser;
 
-public sealed class AddShopUserCommandHandler(
-    IUserRepository userRepository,
-    IShopRepository shopRepository,
-    IPasswordHasher passwordHasher,
-    IUnitOfWork unitOfWork)
+/// <summary>
+/// Legacy owner-creates-staff flow. It minted a global account with an owner-selected password,
+/// which made those credentials a permanent cross-tenant control channel, and it refused existing
+/// SaaS identities outright.
+/// </summary>
+/// <remarks>
+/// Onboarding now runs through <c>POST /api/shops/{shopId}/invitations</c>: the invited person
+/// accepts from their own verified account, so the shop gets a membership and never the identity.
+/// </remarks>
+public sealed class AddShopUserCommandHandler(IUserRepository userRepository)
 {
     public async Task<ErrorOr<ShopUserDto>> HandleAsync(AddShopUserCommand command, CancellationToken cancellationToken)
     {
@@ -21,82 +23,22 @@ public sealed class AddShopUserCommandHandler(
         if (actor is null)
             return Errors.Auth.UserNotFound;
 
-        var actorMembershipsByShop = actor.ShopMemberships
-            .ToDictionary(sm => sm.ShopId, sm => sm);
+        var actorMembershipsByShop = actor.ShopMemberships.ToDictionary(sm => sm.ShopId, sm => sm);
 
         foreach (var shopId in command.ShopIds)
         {
-            if (!actorMembershipsByShop.TryGetValue(shopId, out var actorMembership))
+            if (!actorMembershipsByShop.TryGetValue(shopId, out var actorMembership) || !actorMembership.IsActive)
                 return Errors.Shop.MembershipNotFound;
 
             if (actorMembership.Role != ShopRole.Owner)
                 return Errors.Shop.UserIsNotOwner;
         }
 
-        if (!TryParseShopRole(command.Role, out var role))
+        if (!MembershipAuthority.TryParseAssignableRole(command.Role, out _))
             return Errors.Users.RoleNotSupported;
 
-        var normalizedEmail = command.Email.Trim().ToLowerInvariant();
-        if (await userRepository.ExistsByEmailAsync(normalizedEmail, cancellationToken))
-            return Errors.Auth.EmailAlreadyInUse;
-
-        var normalizedPhone = command.PhoneNumber.Trim();
-        if (await userRepository.ExistsByPhoneAsync(normalizedPhone, cancellationToken))
-            return Errors.Auth.PhoneAlreadyInUse;
-
-        var passwordHash = passwordHasher.Hash(command.Password);
-        var newUser = User.CreateWithEmail(normalizedEmail, passwordHash, command.FirstName, command.LastName);
-        newUser.UpdateShopUserProfile(normalizedEmail, command.FirstName, command.LastName, normalizedPhone);
-
-        foreach (var shopId in command.ShopIds)
-        {
-            var actorMembership = actorMembershipsByShop[shopId];
-            var shop = actorMembership.Shop ?? await shopRepository.GetByIdAsync(shopId, cancellationToken);
-            if (shop is null)
-                return Errors.Shop.ShopNotFound;
-
-            var membership = ShopMembership.Create(shop.Id, newUser.Id, role, false);
-            shop.AddMembership(membership);
-            newUser.AddShopMembership(membership);
-        }
-
-        await userRepository.AddAsync(newUser, cancellationToken);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
-
-        return new ShopUserDto(
-            newUser.Id,
-            newUser.FirstName,
-            newUser.LastName,
-            newUser.Email,
-            newUser.PhoneNumber,
-            ToRoleLabel(role),
-            newUser.IsLoginEnabled,
-            command.ShopIds.ToList(),
-            newUser.Language);
-    }
-
-    private static bool TryParseShopRole(string roleValue, out ShopRole role)
-    {
-        var normalizedRole = roleValue.Trim().Replace("_", string.Empty).Replace(" ", string.Empty).ToLowerInvariant();
-
-        if (normalizedRole == "manager")
-        {
-            role = ShopRole.Manager;
-            return true;
-        }
-
-        if (normalizedRole is "salesperson" or "staff")
-        {
-            role = ShopRole.Staff;
-            return true;
-        }
-
-        role = default;
-        return false;
-    }
-
-    private static string ToRoleLabel(ShopRole role)
-    {
-        return role == ShopRole.Staff ? "Staff" : role.ToString();
+        return Error.Conflict(
+            "Auth.InvitationRequired",
+            "Invite this person instead: they accept from their own verified account, and the shop receives a membership rather than control of their sign-in details.");
     }
 }

@@ -1,4 +1,5 @@
-import { Component, InjectionToken, OnInit, inject, signal } from '@angular/core';
+import { identityFailureMessage } from '../../../core/auth/identity-errors';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Store } from '@ngrx/store';
@@ -9,25 +10,13 @@ import { InputTextModule } from 'primeng/inputtext';
 import { PasswordModule } from 'primeng/password';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 
-import { ApiErrorPayload, ExternalAuthProvider } from '../../../core/auth/auth.models';
+import { ApiErrorPayload } from '../../../core/auth/auth.models';
+import { IdentityFlowService } from '../../../core/auth/identity-flow.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { LocalizationService } from '../../../core/i18n/localization.service';
 import { InputValidators } from '../../../shared/forms/input-validation';
 import { NATIVE_LANGUAGE_NAMES, SupportedLanguage } from '../../../core/i18n/language.constants';
 import { RootState } from '../../../core/state/app.state';
-
-export type ExternalLoginRedirect = (authorizationUrl: string) => void;
-
-export const EXTERNAL_LOGIN_REDIRECT = new InjectionToken<ExternalLoginRedirect>(
-  'EXTERNAL_LOGIN_REDIRECT',
-  {
-    factory:
-      () =>
-      (authorizationUrl: string): void => {
-        window.location.assign(authorizationUrl);
-      },
-  },
-);
 
 @Component({
   selector: 'app-login-page',
@@ -45,16 +34,14 @@ export const EXTERNAL_LOGIN_REDIRECT = new InjectionToken<ExternalLoginRedirect>
   styleUrl: './login-page.component.scss',
 })
 export class LoginPageComponent implements OnInit {
-  private static readonly ExternalErrorStorageKey = 'inventory.auth.external.error';
-  private static readonly ExternalPendingStorageKey = 'inventory.auth.external.pending';
-
   private readonly authService = inject(AuthService);
   private readonly formBuilder = inject(FormBuilder);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly store = inject(Store<RootState>);
   private readonly localizationService = inject(LocalizationService);
-  private readonly externalLoginRedirect = inject(EXTERNAL_LOGIN_REDIRECT);
+
+  private readonly identityFlow = inject(IdentityFlowService);
 
   readonly serverError = signal<string | null>(null);
   readonly successMessage = signal<string | null>(null);
@@ -83,7 +70,7 @@ export class LoginPageComponent implements OnInit {
 
   ngOnInit(): void {
     if (this.authService.isAuthenticated()) {
-      void this.router.navigateByUrl('/');
+      void this.router.navigateByUrl(this.identityFlow.afterSignIn());
       return;
     }
 
@@ -93,60 +80,17 @@ export class LoginPageComponent implements OnInit {
       this.form.controls.rememberMe.setValue(true);
     }
 
-    const code = this.route.snapshot.queryParamMap.get('code');
-    const state = this.route.snapshot.queryParamMap.get('state');
-    if (code && state) {
-      this.authService.completeExternalLogin(code, state).subscribe({
-        next: () => {
-          this.clearExternalPendingMarker();
-          void this.router.navigateByUrl('/');
-        },
-        error: (error: { error?: ApiErrorPayload }) => {
-          this.clearExternalPendingMarker();
-          this.serverError.set(getExternalCallbackErrorMessage(error.error));
-        },
-      });
-      return;
-    }
-
+    const identityStatus = this.route.snapshot.queryParamMap.get('identity');
+    if (identityStatus === 'updated') this.successMessage.set('identity.signInAgain');
+    const failureMessage = identityFailureMessage(identityStatus);
+    if (failureMessage) this.serverError.set(failureMessage);
+    if (this.identityFlow.pendingVerification())
+      this.successMessage.set('identity.originalAccountRequired');
     const passwordResetSuccess =
       this.route.snapshot.queryParamMap.get('passwordReset') === 'success' ||
       !!this.router.getCurrentNavigation()?.extras.state?.['passwordResetSuccess'];
     if (passwordResetSuccess) {
       this.successMessage.set('auth.resetPassword.successMessage');
-    }
-
-    let externalAuthError = this.route.snapshot.queryParamMap.get('externalAuthError');
-
-    if (!externalAuthError) {
-      try {
-        externalAuthError = sessionStorage.getItem(LoginPageComponent.ExternalErrorStorageKey);
-      } catch {
-        externalAuthError = null;
-      }
-    }
-
-    if (externalAuthError) {
-      this.serverError.set(externalAuthError);
-
-      try {
-        sessionStorage.removeItem(LoginPageComponent.ExternalErrorStorageKey);
-      } catch {
-        // Ignore storage failures.
-      }
-      return;
-    }
-
-    try {
-      const pendingExternalAuth = sessionStorage.getItem(
-        LoginPageComponent.ExternalPendingStorageKey,
-      );
-      if (pendingExternalAuth) {
-        this.serverError.set('errors.auth.externalSignInIncomplete');
-        sessionStorage.removeItem(LoginPageComponent.ExternalPendingStorageKey);
-      }
-    } catch {
-      // Ignore storage failures.
     }
   }
 
@@ -163,7 +107,7 @@ export class LoginPageComponent implements OnInit {
 
     this.authService.login(identifier.trim(), password, rememberMe).subscribe({
       next: () => {
-        void this.router.navigateByUrl('/');
+        void this.router.navigateByUrl(this.identityFlow.afterSignIn());
       },
       error: (error: { error?: ApiErrorPayload }) => {
         this.serverError.set(getAuthErrorMessage(error.error));
@@ -175,59 +119,24 @@ export class LoginPageComponent implements OnInit {
     await this.localizationService.setLanguage(language as SupportedLanguage);
   }
 
-  onGoogleLogin(): void {
-    this.startExternalLogin(ExternalAuthProvider.Google);
-  }
-
-  onFacebookLogin(): void {
-    this.startExternalLogin(ExternalAuthProvider.Facebook);
-  }
-
   getServerErrorMessage(): string {
     const error = this.serverError();
     if (!error) {
       return '';
     }
 
-    if (error.startsWith('errors.')) {
+    if (error.startsWith('errors.') || error.startsWith('identity.')) {
       return this.localizationService.translate(error);
     }
 
     return error;
   }
-
-  private startExternalLogin(provider: ExternalAuthProvider): void {
-    this.serverError.set(null);
-    this.successMessage.set(null);
-
-    try {
-      sessionStorage.setItem(LoginPageComponent.ExternalPendingStorageKey, provider.toString());
-    } catch {
-      // Ignore storage failures.
-    }
-
-    this.authService.initializeExternalLogin(provider).subscribe({
-      next: (authorizationUrl) => {
-        this.externalLoginRedirect(authorizationUrl);
-      },
-      error: (error: { error?: ApiErrorPayload }) => {
-        this.clearExternalPendingMarker();
-        this.serverError.set(getAuthErrorMessage(error.error));
-      },
-    });
-  }
-
-  private clearExternalPendingMarker(): void {
-    try {
-      sessionStorage.removeItem(LoginPageComponent.ExternalPendingStorageKey);
-    } catch {
-      // Ignore storage failures.
-    }
-  }
 }
 
 function getAuthErrorMessage(error: ApiErrorPayload | undefined): string {
-  const title = error?.title ?? '';
+  const title = error?.code ?? error?.title ?? '';
+  if (title === 'Auth.EmailVerificationRequired') return 'identity.verificationRequired';
+  if (title === 'Auth.RecoverySupportRequired') return 'identity.supportRequired';
 
   if (title === 'Auth.InvalidCredentials') {
     return 'errors.auth.invalidCredentials';
@@ -237,27 +146,5 @@ function getAuthErrorMessage(error: ApiErrorPayload | undefined): string {
     return 'errors.auth.userLoginDisabled';
   }
 
-  if (title === 'Auth.UnsupportedProvider') {
-    return 'errors.auth.unsupportedProvider';
-  }
-
-  if (title === 'Auth.ExternalProviderError') {
-    return 'errors.auth.externalProviderError';
-  }
-
   return 'errors.auth.unableToSignIn';
-}
-
-function getExternalCallbackErrorMessage(error: ApiErrorPayload | undefined): string {
-  const title = error?.title ?? '';
-
-  if (title === 'Auth.ExternalStateInvalid') {
-    return 'errors.auth.externalStateInvalid';
-  }
-
-  if (title === 'Auth.ExternalProviderError') {
-    return 'errors.auth.externalProviderError';
-  }
-
-  return 'errors.auth.unableToCompleteExternalSignIn';
 }

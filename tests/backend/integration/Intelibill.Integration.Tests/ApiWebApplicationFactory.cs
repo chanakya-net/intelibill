@@ -14,8 +14,14 @@ using Testcontainers.PostgreSql;
 
 namespace Intelibill.Integration.Tests;
 
-public sealed class ApiWebApplicationFactory(PostgreSqlTestFixture? fixture = null, Action<IServiceCollection>? configureTestServices = null) : WebApplicationFactory<Program>, IAsyncLifetime
+public sealed class ApiWebApplicationFactory(PostgreSqlTestFixture? fixture = null, Action<IServiceCollection>? configureTestServices = null, bool enableIdentityMail = true) : WebApplicationFactory<Program>, IAsyncLifetime
 {
+    public new HttpClient CreateClient(WebApplicationFactoryClientOptions options)
+    {
+        var client = base.CreateClient(options);
+        IdentityTestMailbox.Factories.Add(client, this);
+        return client;
+    }
     private readonly Action<IServiceCollection>? _configureTestServices = configureTestServices;
 
     private PostgreSqlContainer? _localContainer;
@@ -56,6 +62,7 @@ public sealed class ApiWebApplicationFactory(PostgreSqlTestFixture? fixture = nu
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        builder.UseEnvironment("Development");
         builder.ConfigureLogging(logging =>
         {
             logging.AddFilter("Wolverine.Http.HttpGraph", LogLevel.Error);
@@ -66,6 +73,13 @@ public sealed class ApiWebApplicationFactory(PostgreSqlTestFixture? fixture = nu
             configBuilder.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["App:BaseUrl"] = "https://inventory.test",
+                ["Email:Enabled"] = enableIdentityMail.ToString(),
+                ["Email:Host"] = "localhost",
+                ["Email:Port"] = "1025",
+                ["Email:LocalCapture"] = "true",
+                ["Email:FromEmail"] = "tests@intelibill.test",
+                ["Email:FromName"] = "Integration tests",
+                ["Identity:OutboxKey"] = IdentityTestMailbox.Key,
                 ["ConnectionStrings:DefaultConnection"] = DbContainer.GetConnectionString(),
                 ["Database:Host"] = DbContainer.Hostname,
                 ["Database:Port"] = DbContainer.GetMappedPublicPort(5432).ToString(System.Globalization.CultureInfo.InvariantCulture),
@@ -77,8 +91,6 @@ public sealed class ApiWebApplicationFactory(PostgreSqlTestFixture? fixture = nu
                 ["Jwt:Audience"] = "inventory.ai.integration",
                 ["Jwt:AccessTokenExpiryMinutes"] = "15",
                 ["Jwt:RefreshTokenExpiryDays"] = "7",
-                ["ExternalAuth:Google:Enabled"] = "false",
-                ["ExternalAuth:Facebook:Enabled"] = "false"
             });
         });
 
@@ -104,6 +116,11 @@ public sealed class ApiWebApplicationFactory(PostgreSqlTestFixture? fixture = nu
             services.AddHttpClient("OtlpMetricExporter")
                 .ConfigurePrimaryHttpMessageHandler(static () => new NoOpOtlpHandler());
 
+            // Tests inspect encrypted durable mail; never connect to real SMTP.
+            foreach (var descriptor in services.Where(x => x.ImplementationType?.Name == "IdentityMailWorker").ToArray())
+                services.Remove(descriptor);
+            services.RemoveAll<Intelibill.Application.Common.Interfaces.IEmailService>();
+            services.AddSingleton<Intelibill.Application.Common.Interfaces.IEmailService, TestEmailService>();
             _configureTestServices?.Invoke(services);
         });
     }
@@ -127,4 +144,10 @@ internal sealed class NoOpDistributedCache : IDistributedCache
     public Task RemoveAsync(string key, CancellationToken token = default) => Task.CompletedTask;
     public void Set(string key, byte[] value, DistributedCacheEntryOptions options) { }
     public Task SetAsync(string key, byte[] value, DistributedCacheEntryOptions options, CancellationToken token = default) => Task.CompletedTask;
+}
+
+internal sealed class TestEmailService : Intelibill.Application.Common.Interfaces.IEmailService
+{
+    public Task SendPasswordResetAsync(string toEmail, string resetLink, DateTimeOffset expiresAt, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    public Task SendIdentityAsync(string toEmail, string subject, string body, CancellationToken cancellationToken = default) => Task.CompletedTask;
 }

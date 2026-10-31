@@ -1,3 +1,5 @@
+import { RegisterState } from '../../features/auth/state/register.reducer';
+export type { RegisterState } from '../../features/auth/state/register.reducer';
 export interface AppShellState {
   readonly sidebarCollapsed: boolean;
   readonly sidebarPinned: boolean;
@@ -6,11 +8,6 @@ export interface AppShellState {
 
 export interface HttpUiState {
   readonly pendingRequests: number;
-}
-
-export interface RegisterState {
-  readonly submitting: boolean;
-  readonly errorMessage: string;
 }
 
 export interface RootState {

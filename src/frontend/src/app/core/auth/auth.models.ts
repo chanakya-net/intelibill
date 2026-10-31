@@ -5,10 +5,23 @@ export interface LoginRequest {
 
 export interface RegisterWithEmailRequest {
   readonly email: string;
+}
+export interface AcceptedMessage {
+  readonly message: string;
+}
+export interface ConfirmEmailEnrollmentRequest {
+  readonly challengeId: string;
+  readonly token: string;
   readonly password: string;
   readonly firstName: string;
   readonly lastName: string;
-  readonly phoneNumber: string;
+}
+export interface ReauthenticationProof {
+  readonly proof: string;
+  readonly expiresAt: string;
+}
+export interface SignInMethods {
+  readonly hasPassword: boolean;
 }
 
 export interface RequestPasswordResetRequest {
@@ -23,26 +36,8 @@ export interface ResetPasswordRequest {
 
 export interface RefreshTokenRequest {
   readonly refreshToken: string;
-}
-
-export enum ExternalAuthProvider {
-  Google = 1,
-  Facebook = 3,
-}
-
-export interface ExternalLoginInitRequest {
-  readonly provider: ExternalAuthProvider;
-}
-
-export interface ExternalLoginInitResponse {
-  readonly authorizationUrl: string;
-}
-
-export interface ExternalLoginCallbackRequest {
-  readonly code: string;
-  readonly state: string;
-  readonly firstName?: string;
-  readonly lastName?: string;
+  /** The shop the expiring token was scoped to, so renewal stays in that shop when it still can. */
+  readonly activeShopId?: string | null;
 }
 
 export interface AuthUser {
@@ -84,9 +79,14 @@ export interface AuthSession {
 }
 
 export interface ApiErrorPayload {
+  readonly code?: string;
   readonly title?: string;
   readonly detail?: string;
   readonly errors?: Record<string, string[]>;
 }
 
-export type BootstrapSessionStatus = 'READY' | 'UNAUTHENTICATED' | 'API_UNREACHABLE' | 'REFRESH_FAILED';
+export type BootstrapSessionStatus =
+  | 'READY'
+  | 'UNAUTHENTICATED'
+  | 'API_UNREACHABLE'
+  | 'REFRESH_FAILED';

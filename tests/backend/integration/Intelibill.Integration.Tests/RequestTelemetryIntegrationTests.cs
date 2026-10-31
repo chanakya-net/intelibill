@@ -57,7 +57,7 @@ public sealed class RequestTelemetryIntegrationTests(PostgreSqlTestFixture fixtu
         Assert.Equal(HttpStatusCode.OK, pingResponse.StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, unauthorizedResponse.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, notFoundResponse.StatusCode);
-        Assert.Equal(HttpStatusCode.Created, registrationResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Accepted, registrationResponse.StatusCode);
 
         AssertRequestTelemetry(
             capture,
@@ -77,7 +77,7 @@ public sealed class RequestTelemetryIntegrationTests(PostgreSqlTestFixture fixtu
 
         var registration = capture.SingleFor(
             route: "api/auth/register/email",
-            statusCode: StatusCodes.Status201Created);
+            statusCode: StatusCodes.Status202Accepted);
         Assert.True(registration.DatabaseDurationSeconds >= 0);
         Assert.True(registration.CommandCount > 0);
     }

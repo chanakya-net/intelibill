@@ -12,7 +12,6 @@ using Intelibill.Infrastructure.Options;
 using Intelibill.Infrastructure.Observability;
 using Intelibill.Infrastructure.Repositories;
 using Intelibill.Infrastructure.Services.Auth;
-using Intelibill.Infrastructure.Services.Auth.ExternalAuth;
 using Intelibill.Infrastructure.Services.Exports;
 using Intelibill.Infrastructure.Services.Barcodes;
 using Intelibill.Application.Features.Exports.Sales;
@@ -73,11 +72,6 @@ public static class DependencyInjection
             .ValidateOnStart();
         services.AddSingleton<IValidateOptions<JwtOptions>, JwtOptionsValidator>();
 
-        services.AddOptions<ExternalAuthOptions>()
-            .Bind(configuration.GetSection(ExternalAuthOptions.SectionName))
-            .ValidateOnStart();
-        services.AddSingleton<Microsoft.Extensions.Options.IValidateOptions<ExternalAuthOptions>, ExternalAuthOptionsValidator>();
-
         services.AddOptions<EmailOptions>()
             .Bind(configuration.GetSection(EmailOptions.SectionName))
             .ValidateOnStart();
@@ -92,6 +86,7 @@ public static class DependencyInjection
         // ── Repositories ─────────────────────────────────────────────────────
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IShopRepository, ShopRepository>();
+        services.AddScoped<IMembershipAuthorityRepository, MembershipAuthorityRepository>();
         services.AddScoped<ISupplierRepository, SupplierRepository>();
         services.AddScoped<ICustomerRepository, CustomerRepository>();
         services.AddScoped<ICustomerLedgerEntryRepository, CustomerLedgerEntryRepository>();
@@ -147,6 +142,12 @@ public static class DependencyInjection
 
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<ITokenService, TokenService>();
+        services.AddScoped<LiveSessionValidator>();
+        services.AddScoped<IEmailOwnershipRepository, EmailOwnershipChallengeRepository>();
+        services.AddScoped<IEmailOwnershipService, Intelibill.Application.Features.Auth.Services.EmailOwnershipService>();
+        services.AddScoped<IdentityMailOutbox>();
+        services.AddScoped<IIdentityMailOutbox>(sp => sp.GetRequiredService<IdentityMailOutbox>());
+        services.AddHostedService<IdentityMailWorker>();
         services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();
         services.AddSingleton<ISmtpClientFactory, MailKitSmtpClientFactory>();
         services.AddSingleton<IEmailService>(sp =>
@@ -168,8 +169,7 @@ public static class DependencyInjection
         services.AddScoped<IProfitLossExcelExportRenderer, Services.Exports.ProfitLossExcelExportRenderer>();
         services.AddScoped<IBarcodeLabelPdfRenderer, BarcodeLabelPdfRenderer>();
 
-        // ── External auth providers ───────────────────────────────────────────
-        // Named HttpClients for providers that call external HTTP APIs.
+        // ── Shared caches ─────────────────────────────────────────────────────
         services.AddMemoryCache();
 
         services.AddOptions<DistributedCacheOptions>()
@@ -192,23 +192,6 @@ public static class DependencyInjection
                 cache.CreateIfNotExists = options.CreateIfNotExists;
                 cache.ExpiredItemsDeletionInterval = options.ExpiredItemsDeletionInterval;
             });
-
-        services.AddHttpClient(nameof(GoogleAuthProvider));
-        services.AddHttpClient(nameof(FacebookAuthProvider));
-        services.AddHttpClient(nameof(TwitterAuthProvider));
-
-        // All providers are registered as IExternalAuthProvider so the handler can
-        // resolve IEnumerable<IExternalAuthProvider> and pick the right one.
-        services.AddScoped<IExternalAuthProvider, GoogleAuthProvider>();
-        services.AddScoped<IExternalAuthProvider, MicrosoftAuthProvider>();
-        services.AddScoped<IExternalAuthProvider, FacebookAuthProvider>();
-        services.AddScoped<IExternalAuthProvider, TwitterAuthProvider>();
-        services.AddScoped<IExternalAuthProvider, AppleAuthProvider>();
-
-        services.AddScoped<IExternalOAuthCodeProvider, GoogleAuthProvider>();
-        services.AddScoped<IExternalOAuthCodeProvider, FacebookAuthProvider>();
-        services.AddScoped<IExternalOAuthStateStore, DistributedExternalOAuthStateStore>();
-        services.AddScoped<IExternalOAuthFlowService, ExternalOAuthFlowService>();
 
         services.AddHttpClient(ExternalProductLookupService.HttpClientName, (sp, client) =>
         {

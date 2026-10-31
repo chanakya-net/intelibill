@@ -30,7 +30,7 @@ public class SetDefaultShopCommandHandlerTests
         secondShop.AddMembership(secondMembership);
         user.AddShopMembership(secondMembership);
 
-        var command = new SetDefaultShopCommand(user.Id, secondShop.Id);
+        var command = new SetDefaultShopCommand(user.Id, secondShop.Id, SecurityVersion: user.SecurityVersion);
 
         _userRepository.GetByIdWithDetailsAsync(user.Id, Arg.Any<CancellationToken>())
             .Returns(user);

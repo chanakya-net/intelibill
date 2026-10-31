@@ -1,12 +1,8 @@
 import { createActionGroup, emptyProps, props } from '@ngrx/store';
 
 export interface RegisterRequestedPayload {
-  readonly firstName: string;
-  readonly lastName: string;
   readonly email: string;
-  readonly phoneNumber: string;
-  readonly password: string;
-  readonly rememberMe: boolean;
+  readonly claim?: boolean;
 }
 
 export const RegisterActions = createActionGroup({
@@ -16,5 +12,6 @@ export const RegisterActions = createActionGroup({
     Succeeded: emptyProps(),
     Failed: props<{ errorMessage: string }>(),
     'Clear Error': emptyProps(),
+    Reset: emptyProps(),
   },
 });

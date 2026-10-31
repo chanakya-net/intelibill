@@ -4,11 +4,17 @@ export const API_BASE_URL = environment.apiBaseUrl;
 export const HUB_BASE_URL = environment.hubBaseUrl;
 
 export const AUTH_ENDPOINTS = {
+  requestEmailEnrollment: `${API_BASE_URL}/auth/enrollment/email/request`,
+  confirmEmailEnrollment: `${API_BASE_URL}/auth/enrollment/email/confirm`,
+  requestEmailClaim: `${API_BASE_URL}/auth/enrollment/email/claim/request`,
+  confirmEmailClaim: `${API_BASE_URL}/auth/enrollment/email/claim/confirm`,
+  reauthenticate: `${API_BASE_URL}/auth/reauthenticate`,
+  requestEmailChange: `${API_BASE_URL}/auth/email-change/request`,
+  confirmEmailChange: `${API_BASE_URL}/auth/email-change/confirm`,
+  signInMethods: `${API_BASE_URL}/auth/sign-in-methods`,
   registerWithEmail: `${API_BASE_URL}/auth/register/email`,
   login: `${API_BASE_URL}/auth/login`,
   loginWithEmail: `${API_BASE_URL}/auth/login`,
-  loginExternalInit: `${API_BASE_URL}/auth/login/external/init`,
-  loginExternalCallback: `${API_BASE_URL}/auth/login/external/callback`,
   refreshToken: `${API_BASE_URL}/auth/token/refresh`,
   revokeToken: `${API_BASE_URL}/auth/token/revoke`,
   requestPasswordReset: `${API_BASE_URL}/auth/password-reset/request`,
@@ -23,6 +29,16 @@ export const SHOP_ENDPOINTS = {
   update: (shopId: string) => `${API_BASE_URL}/shops/${shopId}`,
   bankDetails: (shopId: string) => `${API_BASE_URL}/shops/${shopId}/bank-details`,
   addBankAccount: (_: string) => `${API_BASE_URL}/bank-accounts`,
+} as const;
+
+export const MEMBERSHIP_ENDPOINTS = {
+  // Shop-scoped membership administration. Role and status only: the account behind a membership
+  // belongs to its holder.
+  update: (shopId: string, userId: string) => `${API_BASE_URL}/shops/${shopId}/members/${userId}`,
+  invitations: (shopId: string) => `${API_BASE_URL}/shops/${shopId}/invitations`,
+  invitation: (shopId: string, invitationId: string) =>
+    `${API_BASE_URL}/shops/${shopId}/invitations/${invitationId}`,
+  acceptInvitation: (invitationId: string) => `${API_BASE_URL}/invitations/${invitationId}/accept`,
 } as const;
 
 export const USER_ENDPOINTS = {
@@ -50,7 +66,8 @@ export const ITEM_ENDPOINTS = {
 export const INVENTORY_ENDPOINTS = {
   inbound: `${API_BASE_URL}/inventory/inbound`,
   inboundBatch: `${API_BASE_URL}/inventory/inbound/batch`,
-  availableBatches: (searchTerm: string) => `${API_BASE_URL}/inventory/batches/available?searchTerm=${encodeURIComponent(searchTerm)}`,
+  availableBatches: (searchTerm: string) =>
+    `${API_BASE_URL}/inventory/batches/available?searchTerm=${encodeURIComponent(searchTerm)}`,
 } as const;
 
 export const ITEM_BARCODE_ENDPOINTS = {
@@ -73,9 +90,11 @@ export const SALE_ENDPOINTS = {
   reserveInvoiceLease: `${API_BASE_URL}/sales/invoice-leases/reserve`,
   offlineSnapshotStream: `${API_BASE_URL}/sales/offline-snapshot/stream`,
   offlineSync: `${API_BASE_URL}/sales/offline-sync`,
-  sellables: (searchTerm: string) => `${API_BASE_URL}/sales/sellables?searchTerm=${encodeURIComponent(searchTerm)}`,
+  sellables: (searchTerm: string) =>
+    `${API_BASE_URL}/sales/sellables?searchTerm=${encodeURIComponent(searchTerm)}`,
   creditNoteByCode: (code: string) => CREDIT_NOTE_ENDPOINTS.detail(code),
-  creditNotePrintByCode: (code: string) => `${API_BASE_URL}/credit-notes/${encodeURIComponent(code)}/print`,
+  creditNotePrintByCode: (code: string) =>
+    `${API_BASE_URL}/credit-notes/${encodeURIComponent(code)}/print`,
 } as const;
 
 export const BANK_ACCOUNT_ENDPOINTS = {

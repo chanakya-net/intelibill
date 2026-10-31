@@ -1,4 +1,5 @@
 using Intelibill.Domain.Entities;
+using Intelibill.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -17,6 +18,17 @@ internal sealed class ShopMembershipConfiguration : IEntityTypeConfiguration<Sho
             .HasMaxLength(32)
             .IsRequired();
 
+        // Defaulted in the database as well, so rows written by a replica that predates this
+        // column land Active rather than empty during a rolling deploy.
+        builder.Property(sm => sm.Status)
+            .HasConversion<string>()
+            .HasMaxLength(32)
+            .HasDefaultValue(MembershipStatus.Active)
+            .IsRequired();
+
+        builder.Property(sm => sm.AuthorityVersion)
+            .IsRequired();
+
         builder.Property(sm => sm.IsDefault)
             .IsRequired();
 
@@ -28,5 +40,7 @@ internal sealed class ShopMembershipConfiguration : IEntityTypeConfiguration<Sho
             .IsUnique();
 
         builder.HasIndex(sm => new { sm.UserId, sm.LastUsedAt });
+
+        builder.HasIndex(sm => new { sm.ShopId, sm.Status });
     }
 }

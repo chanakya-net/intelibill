@@ -9,12 +9,12 @@ import {
   AuthResult,
   AuthSession,
   BootstrapSessionStatus,
-  ExternalAuthProvider,
-  ExternalLoginCallbackRequest,
-  ExternalLoginInitRequest,
-  ExternalLoginInitResponse,
   LoginRequest,
   RegisterWithEmailRequest,
+  AcceptedMessage,
+  ConfirmEmailEnrollmentRequest,
+  ReauthenticationProof,
+  SignInMethods,
 } from './auth.models';
 import { AuthStorage } from './auth.storage';
 import { AuthSessionState, AuthTokenService } from './auth-token.service';
@@ -46,11 +46,16 @@ export class AuthSessionService {
   readonly session = computed(() => this.sessionSignal());
   readonly isAuthenticated = computed(() => {
     const session = this.sessionSignal();
-    return !!session && !this.tokenService.isExpired(session.accessTokenExpiresAt, CLOCK_SKEW_BUFFER_MS);
+    return (
+      !!session && !this.tokenService.isExpired(session.accessTokenExpiresAt, CLOCK_SKEW_BUFFER_MS)
+    );
   });
   readonly needsShopSetup = computed(() => {
     const session = this.sessionSignal();
-    if (!session || this.tokenService.isExpired(session.accessTokenExpiresAt, CLOCK_SKEW_BUFFER_MS)) {
+    if (
+      !session ||
+      this.tokenService.isExpired(session.accessTokenExpiresAt, CLOCK_SKEW_BUFFER_MS)
+    ) {
       return false;
     }
 
@@ -61,9 +66,12 @@ export class AuthSessionService {
   constructor() {
     this.sessionSignal.set(this.storage.loadSession());
     this.sessionChannel = new BroadcastChannel('intelibill.auth.session');
-    this.sessionChannel.addEventListener('message', (event: MessageEvent<SessionBroadcastMessage>) => {
-      this.handleSessionBroadcast(event.data);
-    });
+    this.sessionChannel.addEventListener(
+      'message',
+      (event: MessageEvent<SessionBroadcastMessage>) => {
+        this.handleSessionBroadcast(event.data);
+      },
+    );
     this.tokenService.scheduleProactiveRefresh(this.tokenState(), this.sessionSignal());
   }
 
@@ -80,45 +88,52 @@ export class AuthSessionService {
         } else {
           this.storage.clearLastIdentifier();
         }
-      })
+      }),
     );
   }
 
-  registerWithEmail(
-    firstName: string,
-    lastName: string,
-    email: string,
-    phoneNumber: string,
-    password: string,
-    rememberMe: boolean
+  registerWithEmail(email: string, claim = false): Observable<AcceptedMessage> {
+    const payload: RegisterWithEmailRequest = { email: email.trim() };
+    return this.http.post<AcceptedMessage>(
+      claim ? AUTH_ENDPOINTS.requestEmailClaim : AUTH_ENDPOINTS.requestEmailEnrollment,
+      payload,
+    );
+  }
+
+  confirmEmailEnrollment(
+    payload: ConfirmEmailEnrollmentRequest,
+    claim = false,
   ): Observable<AuthSession> {
-    const payload: RegisterWithEmailRequest = { firstName, lastName, email, phoneNumber, password };
-
-    return this.http.post<AuthResult>(AUTH_ENDPOINTS.registerWithEmail, payload).pipe(
-      map((result) => this.toSession(result, rememberMe)),
-      tap((session) => {
-        this.setSession(session);
-        if (rememberMe) this.storage.saveLastIdentifier(email);
-        else this.storage.clearLastIdentifier();
-      })
-    );
+    return this.http
+      .post<AuthResult>(
+        claim ? AUTH_ENDPOINTS.confirmEmailClaim : AUTH_ENDPOINTS.confirmEmailEnrollment,
+        payload,
+      )
+      .pipe(
+        map((result) => this.toSession(result, false)),
+        tap((session) => this.setSession(session)),
+      );
   }
 
-  initializeExternalLogin(provider: ExternalAuthProvider): Observable<string> {
-    const payload: ExternalLoginInitRequest = { provider };
-
-    return this.http.post<ExternalLoginInitResponse>(AUTH_ENDPOINTS.loginExternalInit, payload).pipe(
-      map((result) => result.authorizationUrl)
-    );
+  getSignInMethods(): Observable<SignInMethods> {
+    return this.http.get<SignInMethods>(AUTH_ENDPOINTS.signInMethods);
   }
 
-  completeExternalLogin(code: string, state: string, firstName?: string, lastName?: string): Observable<AuthSession> {
-    const payload: ExternalLoginCallbackRequest = { code, state, firstName, lastName };
+  reauthenticate(password: string): Observable<ReauthenticationProof> {
+    return this.http.post<ReauthenticationProof>(AUTH_ENDPOINTS.reauthenticate, { password });
+  }
 
-    return this.http.post<AuthResult>(AUTH_ENDPOINTS.loginExternalCallback, payload).pipe(
-      map((result) => this.toSession(result, true)),
-      tap((session) => this.setSession(session))
-    );
+  requestEmailChange(email: string, reauthProof: string): Observable<AcceptedMessage> {
+    return this.http.post<AcceptedMessage>(AUTH_ENDPOINTS.requestEmailChange, {
+      email: email.trim(),
+      reauthProof,
+    });
+  }
+
+  confirmEmailChange(challengeId: string, token: string): Observable<AcceptedMessage> {
+    return this.http
+      .post<AcceptedMessage>(AUTH_ENDPOINTS.confirmEmailChange, { challengeId, token })
+      .pipe(tap(() => this.clearSession()));
   }
 
   bootstrapSession(): Observable<boolean> {
@@ -129,7 +144,9 @@ export class AuthSessionService {
     return this.tokenService.bootstrapSessionWithStatus(this.tokenState());
   }
 
-  refreshAccessToken(options?: { readonly preserveSessionOnError?: boolean }): Observable<AuthSession | null> {
+  refreshAccessToken(options?: {
+    readonly preserveSessionOnError?: boolean;
+  }): Observable<AuthSession | null> {
     return this.tokenService.refreshAccessToken(this.tokenState(), options);
   }
 
@@ -142,14 +159,14 @@ export class AuthSessionService {
 
     return this.tokenService.revokeToken(refreshToken).pipe(
       catchError(() => of(void 0)),
-      tap(() => this.clearSession())
+      tap(() => this.clearSession()),
     );
   }
 
   signOutAndRedirect(): Observable<void> {
     return this.signOut().pipe(
       switchMap(() => this.router.navigateByUrl('/login')),
-      map(() => void 0)
+      map(() => void 0),
     );
   }
 
@@ -180,7 +197,9 @@ export class AuthSessionService {
       return false;
     }
 
-    const activeRole = session.shops.find((shop) => shop.shopId === session.activeShopId)?.role?.trim();
+    const activeRole = session.shops
+      .find((shop) => shop.shopId === session.activeShopId)
+      ?.role?.trim();
     if (!activeRole) {
       return false;
     }
@@ -272,5 +291,4 @@ export class AuthSessionService {
       toSession: (result, rememberMe) => this.toSession(result, rememberMe),
     };
   }
-
 }

@@ -1,0 +1,145 @@
+<section class="login-shell min-h-screen p-0">
+  <div class="auth-stage w-full min-h-screen">
+    <article
+      class="auth-card mx-auto w-full max-w-[26rem] rounded-[1.7rem] shadow-2xl shadow-orange-950/20"
+    >
+      <header class="auth-header">
+        @if (!emailChange()) {
+          <p class="auth-kicker">{{ 'register.newHere' | transloco }}</p>
+        }
+        <h2>
+          {{
+            (emailChange() ? 'identity.confirmEmailChange' : 'identity.finishSignup') | transloco
+          }}
+        </h2>
+        @if (valid()) {
+          <p>
+            {{
+              (emailChange() ? 'identity.originalAccountRequired' : 'identity.chooseCredentials')
+                | transloco
+            }}
+          </p>
+        }
+      </header>
+      <div class="space-y-4 p-6">
+        @if (error()) {
+          <p role="alert" class="field-error">{{ error() | transloco }}</p>
+        }
+        @if (valid()) {
+          @if (emailChange()) {
+            @if (auth.isAuthenticated()) {
+              <button
+                pButton
+                type="button"
+                (click)="onSubmit()"
+                [disabled]="busy()"
+                [loading]="busy()"
+                [label]="'identity.confirmEmailChange' | transloco"
+                class="auth-submit w-full"
+              ></button>
+              <button
+                pButton
+                type="button"
+                severity="secondary"
+                (click)="switchAccount()"
+                [disabled]="busy()"
+                [label]="'identity.switchAccount' | transloco"
+                class="w-full"
+              ></button>
+            } @else {
+              <button
+                pButton
+                type="button"
+                (click)="signIn()"
+                [label]="'auth.loginCta' | transloco"
+                class="auth-submit w-full"
+              ></button>
+            }
+          } @else {
+            <form [formGroup]="form" (ngSubmit)="onSubmit()" class="space-y-4">
+              <div class="field-wrap space-y-1.5">
+                <label for="first-name">{{ 'common.firstName' | transloco }}</label>
+                <input
+                  id="first-name"
+                  pInputText
+                  formControlName="firstName"
+                  autocomplete="given-name"
+                  class="w-full"
+                />
+              </div>
+              <div class="field-wrap space-y-1.5">
+                <label for="last-name">{{ 'common.lastName' | transloco }}</label>
+                <input
+                  id="last-name"
+                  pInputText
+                  formControlName="lastName"
+                  autocomplete="family-name"
+                  class="w-full"
+                />
+              </div>
+              <div class="field-wrap space-y-1.5">
+                <label for="chosen-password">{{ 'auth.password' | transloco }}</label>
+                <p-password
+                  inputId="chosen-password"
+                  formControlName="password"
+                  autocomplete="new-password"
+                  [feedback]="false"
+                  [toggleMask]="true"
+                  styleClass="w-full"
+                  inputStyleClass="w-full"
+                ></p-password>
+              </div>
+              <div class="field-wrap space-y-1.5">
+                <label for="confirm-password">{{ 'register.confirmPassword' | transloco }}</label>
+                <p-password
+                  inputId="confirm-password"
+                  formControlName="confirmPassword"
+                  autocomplete="new-password"
+                  [feedback]="false"
+                  [toggleMask]="true"
+                  styleClass="w-full"
+                  inputStyleClass="w-full"
+                ></p-password>
+              </div>
+              @if (form.touched && form.invalid) {
+                <p role="alert" class="field-error">
+                  {{ 'identity.credentialsInvalid' | transloco }}
+                </p>
+              }
+              <button
+                pButton
+                type="submit"
+                [disabled]="busy()"
+                [loading]="busy()"
+                [label]="'identity.finishSignup' | transloco"
+                class="auth-submit w-full"
+              ></button>
+            </form>
+          }
+        }
+        <p class="verify-email-links">
+          <a
+            class="auth-link"
+            [routerLink]="emailChange() ? '/account/security' : '/register'"
+            >{{ 'identity.requestFreshLink' | transloco }}</a
+          >
+          <a class="auth-link" routerLink="/login">{{ 'register.backToLogin' | transloco }}</a>
+        </p>
+        <div class="lang-pick">
+          <i class="pi pi-globe" aria-hidden="true"></i>
+          <select
+            id="language"
+            [attr.aria-label]="'common.language' | transloco"
+            (change)="onLanguageChanged($any($event.target).value)"
+          >
+            @for (language of supportedLanguages; track language) {
+              <option [value]="language" [selected]="language === currentLanguage()">
+                {{ nativeLanguageNames[language] }}
+              </option>
+            }
+          </select>
+        </div>
+      </div>
+    </article>
+  </div>
+</section>

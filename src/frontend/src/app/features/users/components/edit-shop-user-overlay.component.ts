@@ -9,29 +9,35 @@ import {
   computed,
   inject,
 } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Store } from '@ngrx/store';
 import { TranslocoPipe } from '@ngneat/transloco';
 
-import { CheckboxModule } from 'primeng/checkbox';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 
 import { AuthService } from '../../../core/auth/auth.service';
 import { RootState } from '../../../core/state/app.state';
-import { ShopUser } from '../services/user-account.service';
+import { MembershipRole, MembershipStatus, ShopUser } from '../services/user-account.service';
 import { UsersActions } from '../state/users.actions';
 import { selectUsersErrorMessage, selectUsersSubmitting } from '../state/users.selectors';
-import { InputValidators } from '../../../shared/forms/input-validation';
 
+/**
+ * Edits one membership in the active shop: role and status, nothing else.
+ *
+ * The earlier version of this form submitted the member's global email, phone, names and
+ * login-enabled flag, which let the owner of one shop take over an account that owned another.
+ * Those controls are gone — the account holder changes their own sign-in details — and the
+ * membership version read with the row travels back with the change so a stale screen cannot
+ * overwrite a newer decision.
+ */
 @Component({
   selector: 'app-edit-shop-user-overlay',
   standalone: true,
   imports: [
     ReactiveFormsModule,
     InputTextModule,
-    CheckboxModule,
     ButtonModule,
     ProgressSpinnerModule,
     TranslocoPipe,
@@ -46,24 +52,21 @@ export class EditShopUserOverlayComponent implements OnInit, OnChanges {
 
   readonly isSubmitting = this.store.selectSignal(selectUsersSubmitting);
   readonly serverError = this.store.selectSignal(selectUsersErrorMessage);
-  readonly availableShops = computed(() => this.authService.session()?.shops ?? []);
+
+  readonly activeShopId = computed(() => this.authService.session()?.activeShopId ?? null);
+  readonly activeShopName = computed(() => {
+    const session = this.authService.session();
+    return session?.shops.find((shop) => shop.shopId === session.activeShopId)?.shopName ?? '';
+  });
+  readonly memberName = computed(() => `${this.user?.firstName ?? ''} ${this.user?.lastName ?? ''}`.trim());
 
   @Input({ required: true }) user!: ShopUser;
   @Output() readonly closeRequested = new EventEmitter<void>();
 
-  private selectedShopIds: string[] = [];
-  shopSelectionInvalid = false;
-
   readonly form = this.formBuilder.nonNullable.group({
-    email: ['', InputValidators.email()],
-    firstName: ['', InputValidators.requiredText(100)],
-    lastName: ['', InputValidators.requiredText(100)],
-    phoneNumber: ['', InputValidators.phoneNumber()],
-    role: ['Manager' as 'Manager' | 'Staff', InputValidators.requiredText()],
-    isLoginEnabled: [true],
+    role: ['Manager' as MembershipRole, [Validators.required]],
+    status: ['Active' as MembershipStatus, [Validators.required]],
   });
-
-  constructor() {}
 
   ngOnInit(): void {
     this.patchFormFromUser();
@@ -97,8 +100,8 @@ export class EditShopUserOverlayComponent implements OnInit, OnChanges {
       return;
     }
 
-    if (this.visibleSelectedShopIds().length === 0) {
-      this.shopSelectionInvalid = true;
+    const shopId = this.activeShopId();
+    if (!shopId) {
       return;
     }
 
@@ -106,46 +109,16 @@ export class EditShopUserOverlayComponent implements OnInit, OnChanges {
     this.store.dispatch(UsersActions.clearMutationStatus());
 
     this.store.dispatch(
-      UsersActions.editShopUserRequested({
+      UsersActions.updateMembershipRequested({
+        shopId,
         userId: this.user.userId,
         payload: {
-          email: this.form.controls.email.value.trim(),
-          firstName: this.form.controls.firstName.value.trim(),
-          lastName: this.form.controls.lastName.value.trim(),
-          phoneNumber: this.form.controls.phoneNumber.value.trim(),
           role: this.form.controls.role.value,
-          isLoginEnabled: this.form.controls.isLoginEnabled.value,
-          shopIds: [...this.selectedShopIds],
+          status: this.form.controls.status.value,
+          expectedVersion: this.user.membershipVersion ?? 0,
         },
       }),
     );
-  }
-
-  isShopSelected(shopId: string): boolean {
-    return this.selectedShopIds.includes(shopId);
-  }
-
-  onToggleShop(shopId: string, isChecked: boolean): void {
-    if (isChecked && !this.selectedShopIds.includes(shopId)) {
-      this.selectedShopIds = [...this.selectedShopIds, shopId];
-      this.shopSelectionInvalid = false;
-      return;
-    }
-
-    if (!isChecked && this.selectedShopIds.includes(shopId)) {
-      this.selectedShopIds = this.selectedShopIds.filter((id) => id !== shopId);
-    }
-
-    this.shopSelectionInvalid = this.visibleSelectedShopIds().length === 0;
-  }
-
-  /**
-   * Memberships in shops outside the actor's session are kept in the payload but cannot be
-   * toggled here, so the min-one-shop guard only counts the checkboxes the actor can see.
-   */
-  private visibleSelectedShopIds(): string[] {
-    const visibleShopIds = new Set(this.availableShops().map((shop) => shop.shopId));
-    return this.selectedShopIds.filter((shopId) => visibleShopIds.has(shopId));
   }
 
   private patchFormFromUser(): void {
@@ -153,16 +126,20 @@ export class EditShopUserOverlayComponent implements OnInit, OnChanges {
       return;
     }
 
-    this.selectedShopIds = [...(this.user.shopIds ?? [])];
-    this.shopSelectionInvalid = false;
-
     this.form.patchValue({
-      email: this.user.email ?? '',
-      firstName: this.user.firstName,
-      lastName: this.user.lastName,
-      phoneNumber: this.user.phoneNumber ?? '',
       role: this.user.role.trim().toLowerCase() === 'manager' ? 'Manager' : 'Staff',
-      isLoginEnabled: this.user.isLoginEnabled,
+      status: normalizeStatus(this.user.status),
     });
+  }
+}
+
+function normalizeStatus(status: string | undefined): MembershipStatus {
+  switch ((status ?? '').trim().toLowerCase()) {
+    case 'suspended':
+      return 'Suspended';
+    case 'removed':
+      return 'Removed';
+    default:
+      return 'Active';
   }
 }

@@ -54,7 +54,7 @@ public class ApiPipelineIntegrationTests(PostgreSqlTestFixture fixture)
 
         var email = $"integration-{Guid.NewGuid():N}@test.com";
 
-        var registerResponse = await client.PostAsJsonAsync("/api/auth/register/email", new
+        var registerResponse = await client.EnrollAsync(new
         {
             email,
             password = "Pass123!Aa",
@@ -63,7 +63,7 @@ public class ApiPipelineIntegrationTests(PostgreSqlTestFixture fixture)
             phoneNumber = $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}"
         });
 
-        Assert.Equal(HttpStatusCode.Created, registerResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, registerResponse.StatusCode);
         var registerPayload = await registerResponse.Content.ReadFromJsonAsync<JsonElement>();
         var accessToken = registerPayload.GetProperty("accessToken").GetString();
         Assert.False(string.IsNullOrWhiteSpace(accessToken));

@@ -9,7 +9,7 @@ export type RouteState =
   | 'error'
   | 'submitting'
   | 'validation-error';
-export type RouteStateProfile = 'standard' | 'form' | 'print' | 'callback' | 'minimal';
+export type RouteStateProfile = 'standard' | 'form' | 'print' | 'minimal';
 export type AuditRole = 'owner' | 'manager' | 'staff';
 export type AuditViewport = 'mobile' | 'desktop';
 export type RouteParameterFactory = () => Readonly<Record<string, string>>;

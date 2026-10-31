@@ -14,6 +14,9 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
   const router = inject(Router);
 
   const accessToken = authService.getAccessToken();
+  // The shop this request is about to be authorized for. If a refresh moves the session to a
+  // different shop, replaying the request there would act on the wrong shop's data.
+  const shopAtRequest = authService.session()?.activeShopId ?? null;
   const authorizedRequest = accessToken
     ? request.clone({ setHeaders: { Authorization: `Bearer ${accessToken}` } })
     : request;
@@ -48,6 +51,12 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
             return throwError(() => error);
           }
 
+          if ((session.activeShopId ?? null) !== shopAtRequest) {
+            // The membership this request was authorized under is gone; the renewed session is
+            // scoped elsewhere. Surface the failure instead of committing it against another shop.
+            return throwError(() => error);
+          }
+
           const retryRequest = request.clone({
             setHeaders: { Authorization: `Bearer ${session.accessToken}` },
             context: request.context.set(REFRESH_ATTEMPTED, true),
@@ -72,8 +81,6 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
 
 function isRefreshExcludedEndpointRequest(url: string): boolean {
   return url.startsWith(AUTH_ENDPOINTS.loginWithEmail)
-    || url.startsWith(AUTH_ENDPOINTS.loginExternalInit)
-    || url.startsWith(AUTH_ENDPOINTS.loginExternalCallback)
     || url.startsWith(AUTH_ENDPOINTS.confirmPasswordReset)
     || url.startsWith(AUTH_ENDPOINTS.refreshToken)
     || url.startsWith(AUTH_ENDPOINTS.revokeToken);

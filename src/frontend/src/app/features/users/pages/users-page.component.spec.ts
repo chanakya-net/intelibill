@@ -25,13 +25,16 @@ describe('UsersPageComponent', () => {
       email: 'owner@test.com',
       phoneNumber: '+15551234567',
       role: 'Owner',
-      isLoginEnabled: true,
+      status: 'Active',
+      membershipVersion: 0,
       shopIds: ['shop-1'],
     },
   ]);
   const loadingSignal = signal(false);
   const errorSignal = signal('');
-  const lastMutationTypeSignal = signal<'update-profile' | 'change-password' | 'add-shop-user' | 'edit-shop-user' | null>(null);
+  const lastMutationTypeSignal = signal<
+    'update-profile' | 'change-password' | 'invite-member' | 'update-membership' | null
+  >(null);
   const lastMutationSucceededSignal = signal(false);
 
   const store = {
@@ -93,7 +96,8 @@ describe('UsersPageComponent', () => {
         email: 'owner@test.com',
         phoneNumber: '+15551234567',
         role: 'Owner',
-        isLoginEnabled: true,
+        status: 'Active',
+        membershipVersion: 0,
         shopIds: ['shop-1'],
       },
     ]);
@@ -143,14 +147,14 @@ describe('UsersPageComponent', () => {
     expect(component.getRoleLabel('Staff')).toBe('users.staff');
   });
 
-  it('closes add overlay on successful add mutation', () => {
+  it('closes the invite overlay once an invitation is sent', () => {
     const fixture = TestBed.createComponent(UsersPageComponent);
     const component = fixture.componentInstance;
 
     component.onOpenAddUser();
     expect(component.showAddUserOverlay()).toBe(true);
 
-    lastMutationTypeSignal.set('add-shop-user');
+    lastMutationTypeSignal.set('invite-member');
     lastMutationSucceededSignal.set(true);
     fixture.detectChanges();
 
@@ -158,7 +162,7 @@ describe('UsersPageComponent', () => {
     expect(store.dispatch).toHaveBeenCalledWith(UsersActions.clearMutationStatus());
   });
 
-  it('closes edit overlay on successful edit mutation', () => {
+  it('closes the membership overlay once the change is applied', () => {
     const fixture = TestBed.createComponent(UsersPageComponent);
     const component = fixture.componentInstance;
     const targetUser = { ...shopUsersSignal()[0], role: 'Manager' };
@@ -166,7 +170,7 @@ describe('UsersPageComponent', () => {
     component.onOpenEditUser(targetUser);
     expect(component.showEditUserOverlay()).toBe(true);
 
-    lastMutationTypeSignal.set('edit-shop-user');
+    lastMutationTypeSignal.set('update-membership');
     lastMutationSucceededSignal.set(true);
     fixture.detectChanges();
 
@@ -222,7 +226,8 @@ describe('UsersPageComponent', () => {
         email: 'zara@test.com',
         phoneNumber: '+15557654321',
         role: 'Manager',
-        isLoginEnabled: true,
+        status: 'Active',
+        membershipVersion: 0,
         shopIds: Object.freeze(['shop-2']),
       }),
       Object.freeze({
@@ -232,7 +237,8 @@ describe('UsersPageComponent', () => {
         email: 'ayaan@test.com',
         phoneNumber: '+15551234567',
         role: 'Owner',
-        isLoginEnabled: true,
+        status: 'Active',
+        membershipVersion: 0,
         shopIds: Object.freeze(['shop-1']),
       }),
     ]);
@@ -261,7 +267,8 @@ describe('UsersPageComponent', () => {
         email: 'newshop@test.com',
         phoneNumber: '+15559876543',
         role: 'Manager',
-        isLoginEnabled: true,
+        status: 'Active',
+        membershipVersion: 0,
         shopIds: ['shop-2'],
       },
     ]);
@@ -279,7 +286,8 @@ describe('UsersPageComponent', () => {
         email: 'alice@test.com',
         phoneNumber: '+15551111111',
         role: 'Owner',
-        isLoginEnabled: true,
+        status: 'Active',
+        membershipVersion: 0,
         shopIds: ['shop-1'],
       },
       {
@@ -289,7 +297,8 @@ describe('UsersPageComponent', () => {
         email: 'bob@test.com',
         phoneNumber: '+15552222222',
         role: 'Manager',
-        isLoginEnabled: true,
+        status: 'Active',
+        membershipVersion: 0,
         shopIds: ['shop-1'],
       },
     ]);
@@ -313,7 +322,8 @@ describe('UsersPageComponent', () => {
         email: 'alice@test.com',
         phoneNumber: '+15551111111',
         role: 'Owner',
-        isLoginEnabled: true,
+        status: 'Active',
+        membershipVersion: 0,
         shopIds: ['shop-1'],
       },
       {
@@ -323,7 +333,8 @@ describe('UsersPageComponent', () => {
         email: 'bob@test.com',
         phoneNumber: '+15552222222',
         role: 'SalesPerson',
-        isLoginEnabled: false,
+        status: 'Suspended',
+        membershipVersion: 1,
         shopIds: ['shop-1'],
       },
     ]);
@@ -346,7 +357,8 @@ describe('UsersPageComponent', () => {
         email: 'alice@test.com',
         phoneNumber: '+15551111111',
         role: 'Owner',
-        isLoginEnabled: true,
+        status: 'Active',
+        membershipVersion: 0,
         shopIds: ['shop-1'],
       },
       {
@@ -356,7 +368,8 @@ describe('UsersPageComponent', () => {
         email: 'bob@test.com',
         phoneNumber: '+15552222222',
         role: 'Manager',
-        isLoginEnabled: true,
+        status: 'Active',
+        membershipVersion: 0,
         shopIds: ['shop-1'],
       },
       {
@@ -366,7 +379,8 @@ describe('UsersPageComponent', () => {
         email: 'cara@test.com',
         phoneNumber: '+15553333333',
         role: 'Staff',
-        isLoginEnabled: false,
+        status: 'Suspended',
+        membershipVersion: 1,
         shopIds: ['shop-1'],
       },
     ]);
@@ -377,7 +391,7 @@ describe('UsersPageComponent', () => {
     expect(component.totalUsers()).toBe(3);
     expect(component.managerCount()).toBe(1);
     expect(component.staffCount()).toBe(1);
-    expect(component.loginEnabledCount()).toBe(2);
+    expect(component.activeMemberCount()).toBe(2);
     expect(component.summaryCards().map((card) => card.value)).toEqual([3, 1, 1, 2]);
   });
 });

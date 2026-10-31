@@ -15,7 +15,7 @@
           >{{ 'users.summary.managers' | transloco }}: {{ managerCount() }}</span
         >
         <span class="meta-chip"
-          >{{ 'users.summary.loginEnabled' | transloco }}: {{ loginEnabledCount() }}</span
+          >{{ 'users.summary.activeMembers' | transloco }}: {{ activeMemberCount() }}</span
         >
       </div>
     </div>
@@ -33,7 +33,7 @@
         <button
           pButton
           type="button"
-          [label]="'users.addUser' | transloco"
+          [label]="'users.inviteMember' | transloco"
           icon="pi pi-user-plus"
           (click)="onOpenAddUser()"
         ></button>
@@ -133,15 +133,8 @@
               </div>
 
               <div class="user-card__actions">
-                <span
-                  class="login-pill"
-                  [ngClass]="user.isLoginEnabled ? 'login-pill--enabled' : 'login-pill--disabled'"
-                >
-                  {{
-                    user.isLoginEnabled
-                      ? ('users.enabled' | transloco)
-                      : ('users.disabled' | transloco)
-                  }}
+                <span class="login-pill" [ngClass]="statusPillClass(user.status)">
+                  {{ statusLabel(user.status) | transloco }}
                 </span>
                 @if (canEditUsers() && canEditRole(user.role)) {
                   <button
@@ -213,12 +206,12 @@
                   </div>
                 </div>
               </th>
-              <th pSortableColumn="isLoginEnabled">
+              <th pSortableColumn="status">
                 <div class="th-content">
-                  {{ 'users.login' | transloco }}
+                  {{ 'users.membershipStatus' | transloco }}
                   <div class="th-controls">
-                    <p-sortIcon field="isLoginEnabled" />
-                    <p-columnFilter type="boolean" field="isLoginEnabled" display="menu" />
+                    <p-sortIcon field="status" />
+                    <p-columnFilter type="text" field="status" display="menu" />
                   </div>
                 </div>
               </th>
@@ -238,15 +231,8 @@
                 </span>
               </td>
               <td>
-                <span
-                  class="login-pill"
-                  [ngClass]="user.isLoginEnabled ? 'login-pill--enabled' : 'login-pill--disabled'"
-                >
-                  {{
-                    user.isLoginEnabled
-                      ? ('users.enabled' | transloco)
-                      : ('users.disabled' | transloco)
-                  }}
+                <span class="login-pill" [ngClass]="statusPillClass(user.status)">
+                  {{ statusLabel(user.status) | transloco }}
                 </span>
               </td>
               @if (canEditUsers()) {
@@ -277,6 +263,55 @@
           </ng-template>
         </p-table>
       </div>
+    </section>
+  }
+
+  @if (canAddUsers() && pendingInvitations().length > 0) {
+    <section class="directory-panel invitations-panel">
+      <header class="directory-panel__header">
+        <div>
+          <p class="directory-panel__eyebrow">{{ 'users.teamAccess' | transloco }}</p>
+          <h2>{{ 'users.pendingInvitations' | transloco }}</h2>
+          <p class="directory-panel__subtitle">
+            {{ 'users.pendingInvitationsDescription' | transloco }}
+          </p>
+        </div>
+      </header>
+
+      <ul class="invitation-list">
+        @for (invitation of pendingInvitations(); track invitation.invitationId) {
+          <li class="invitation-row">
+            <div class="invitation-row__info">
+              <span class="invitation-row__email">{{ invitation.email }}</span>
+              <span class="user-role-pill" [ngClass]="rolePillClass(invitation.role)">
+                {{ getRoleLabel(invitation.role) | transloco }}
+              </span>
+              <span class="invitation-row__expiry">
+                {{ 'users.invitationExpires' | transloco: { date: invitation.expiresAt } }}
+              </span>
+            </div>
+
+            <div class="invitation-row__actions">
+              <button
+                pButton
+                type="button"
+                [label]="'users.resendInvitation' | transloco"
+                size="small"
+                severity="secondary"
+                (click)="onResendInvitation(invitation)"
+              ></button>
+              <button
+                pButton
+                type="button"
+                [label]="'users.revokeInvitation' | transloco"
+                size="small"
+                severity="danger"
+                (click)="onRevokeInvitation(invitation)"
+              ></button>
+            </div>
+          </li>
+        }
+      </ul>
     </section>
   }
 

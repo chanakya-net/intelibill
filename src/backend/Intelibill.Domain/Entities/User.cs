@@ -22,11 +22,10 @@ public sealed class User : BaseEntity
     public string FirstName { get; private set; } = string.Empty;
     public string LastName { get; private set; } = string.Empty;
     public string Language { get; private set; } = DefaultLanguage;
+    public bool RequiresOperatorRecovery { get; private set; }
+    public long SecurityVersion { get; private set; }
     public bool IsEmailVerified { get; private set; }
     public bool IsLoginEnabled { get; private set; } = true;
-
-    private readonly List<UserExternalLogin> _externalLogins = [];
-    public IReadOnlyList<UserExternalLogin> ExternalLogins => _externalLogins.AsReadOnly();
 
     private readonly List<ShopMembership> _shopMemberships = [];
     public IReadOnlyList<ShopMembership> ShopMemberships => _shopMemberships.AsReadOnly();
@@ -42,7 +41,7 @@ public sealed class User : BaseEntity
     {
         var user = new User
         {
-            Email = email.ToLowerInvariant(),
+            Email = email.Trim().ToLowerInvariant(),
             PasswordHash = passwordHash,
             FirstName = firstName,
             LastName = lastName,
@@ -64,23 +63,25 @@ public sealed class User : BaseEntity
         return user;
     }
 
-    public static User CreateFromExternalProvider(string? email, string firstName, string lastName)
+    public void VerifyEmail(string email)
     {
-        var user = new User
-        {
-            Email = email?.ToLowerInvariant(),
-            FirstName = firstName,
-            LastName = lastName,
-            IsEmailVerified = email is not null,
-        };
-        user.AddDomainEvent(new UserRegisteredEvent(user.Id, user.Email));
-        return user;
+        Email = email.Trim().ToLowerInvariant();
+        IsEmailVerified = true;
+        SecurityVersion++;
     }
-
-    public void AddExternalLogin(UserExternalLogin login) => _externalLogins.Add(login);
+    public void ClaimEmail(string email, string passwordHash, string firstName, string lastName)
+    {
+        VerifyEmail(email);
+        PasswordHash = passwordHash;
+        FirstName = firstName.Trim();
+        LastName = lastName.Trim();
+        PhoneNumber = null;
+    }
+    public void InvalidateSessions() => SecurityVersion++;
 
     public void AddShopMembership(ShopMembership membership)
     {
+        RequiresOperatorRecovery = true;
         membership.AttachUser(this);
         _shopMemberships.Add(membership);
     }
@@ -88,16 +89,17 @@ public sealed class User : BaseEntity
     public void UpdatePassword(string passwordHash)
     {
         PasswordHash = passwordHash;
+        SecurityVersion++;
     }
 
     public void SetLoginEnabled(bool isLoginEnabled)
     {
+        if (IsLoginEnabled != isLoginEnabled) SecurityVersion++;
         IsLoginEnabled = isLoginEnabled;
     }
 
     public void UpdateProfile(string email, string? phoneNumber, string firstName, string lastName, string? language)
     {
-        Email = email.Trim().ToLowerInvariant();
         PhoneNumber = string.IsNullOrWhiteSpace(phoneNumber) ? null : phoneNumber.Trim();
         FirstName = firstName.Trim();
         LastName = lastName.Trim();
@@ -120,7 +122,6 @@ public sealed class User : BaseEntity
 
     public void UpdateShopUserProfile(string email, string firstName, string lastName, string phoneNumber)
     {
-        Email = email.Trim().ToLowerInvariant();
         FirstName = firstName.Trim();
         LastName = lastName.Trim();
         PhoneNumber = phoneNumber.Trim();

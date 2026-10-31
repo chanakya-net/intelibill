@@ -38,7 +38,7 @@ public class LoginCommandHandlerTests
     public async Task HandleAsync_InvalidPassword_ReturnsInvalidCredentialsError()
     {
         var command = new LoginCommand("test@test.com", "WrongPass!");
-        var user = User.CreateWithEmail(command.Identifier, "hashed", "First", "Last");
+        var user = VerifiedUsers.CreateWithEmail(command.Identifier, "hashed", "First", "Last");
         _userRepository.GetByEmailAsync("test@test.com", Arg.Any<CancellationToken>()).Returns(user);
         _passwordHasher.Verify(command.Password, user.PasswordHash!).Returns(false);
 
@@ -52,7 +52,7 @@ public class LoginCommandHandlerTests
     public async Task HandleAsync_ValidEmailCredentials_ReturnsAuthResult()
     {
         var command = new LoginCommand("test@test.com", "Pass123!");
-        var user = User.CreateWithEmail("test@test.com", "hashed", "First", "Last");
+        var user = VerifiedUsers.CreateWithEmail("test@test.com", "hashed", "First", "Last");
 
         _userRepository.GetByEmailAsync("test@test.com", Arg.Any<CancellationToken>()).Returns(user);
         _passwordHasher.Verify(command.Password, user.PasswordHash!).Returns(true);
@@ -76,7 +76,7 @@ public class LoginCommandHandlerTests
     public async Task HandleAsync_WhenLoginDisabled_ReturnsUserLoginDisabledError()
     {
         var command = new LoginCommand("test@test.com", "Pass123!");
-        var user = User.CreateWithEmail("test@test.com", "hashed", "First", "Last");
+        var user = VerifiedUsers.CreateWithEmail("test@test.com", "hashed", "First", "Last");
         user.SetLoginEnabled(false);
 
         _userRepository.GetByEmailAsync("test@test.com", Arg.Any<CancellationToken>()).Returns(user);
@@ -92,7 +92,7 @@ public class LoginCommandHandlerTests
     public async Task HandleAsync_TrimsAndLowercasesEmailBeforeLookup()
     {
         var command = new LoginCommand("  TEST.USER@TEST.COM  ", "Pass123!");
-        var user = User.CreateWithEmail("test.user@test.com", "hashed", "First", "Last");
+        var user = VerifiedUsers.CreateWithEmail("test.user@test.com", "hashed", "First", "Last");
         _userRepository.GetByEmailAsync("test.user@test.com", Arg.Any<CancellationToken>()).Returns(user);
         _passwordHasher.Verify(command.Password, user.PasswordHash!).Returns(true);
         _tokenService.GenerateAccessTokenAsync(user, Arg.Any<Guid?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns(("accessToken", DateTimeOffset.UtcNow.AddMinutes(15)));

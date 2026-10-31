@@ -37,3 +37,20 @@ variable "new_relic_api_key_secret_name" {
   type        = string
   default     = null
 }
+
+variable "mail_delivery" {
+  description = "Optional authenticated STARTTLS mail transport. Supply only Key Vault secret names; values are entered out of band."
+  type = object({
+    enabled                = optional(bool, false)
+    host                   = optional(string, "")
+    port                   = optional(number, 587)
+    use_start_tls          = optional(bool, true)
+    username               = optional(string, "")
+    from_email             = optional(string, "")
+    from_name              = optional(string, "Intelibill")
+    password_secret_name   = optional(string)
+    outbox_key_secret_name = optional(string)
+  })
+  default  = {}
+  nullable = false
+}

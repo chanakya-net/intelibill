@@ -1,0 +1,88 @@
+<section class="security-page">
+  <h1>{{ 'identity.manageIdentity' | transloco }}</h1>
+  <p>{{ 'identity.securityDescription' | transloco }}</p>
+  <p>
+    {{ 'identity.currentEmail' | transloco }}:
+    {{ auth.session()?.user?.email || ('identity.noEmail' | transloco) }}
+  </p>
+  @if (error()) {
+    <p role="alert" class="error">{{ error() | transloco }}</p>
+  }
+  @if (notice()) {
+    <p role="status">{{ notice() | transloco }}</p>
+  }
+  @if (methods(); as methods) {
+    <section>
+      <h2>{{ 'identity.emailChange' | transloco }}</h2>
+      <form [formGroup]="emailForm" (ngSubmit)="chooseEmailChange()">
+        <label for="new-email">{{ 'identity.newEmail' | transloco }}</label>
+        <input
+          id="new-email"
+          pInputText
+          type="email"
+          formControlName="email"
+          autocomplete="email"
+          maxlength="256"
+        />
+        @if (emailForm.invalid && emailForm.touched) {
+          <p role="alert">{{ 'auth.validation.emailInvalid' | transloco }}</p>
+        }
+        <button
+          pButton
+          type="submit"
+          [disabled]="busy()"
+          [label]="'identity.emailChange' | transloco"
+        ></button>
+      </form>
+    </section>
+    <section>
+      <h2>{{ 'identity.signInMethods' | transloco }}</h2>
+      <p>
+        {{
+          (methods.hasPassword ? 'identity.passwordAvailable' : 'identity.noPassword') | transloco
+        }}
+      </p>
+    </section>
+    @if (operation()) {
+      <section class="reauth">
+        <h2>{{ 'identity.reauthenticate' | transloco }}</h2>
+        <p>{{ 'identity.reauthDescription' | transloco }}</p>
+        @if (methods.hasPassword) {
+          <form [formGroup]="passwordForm" (ngSubmit)="confirmPassword()">
+            <label for="reauth-password">{{ 'auth.password' | transloco }}</label
+            ><p-password
+              inputId="reauth-password"
+              formControlName="password"
+              autocomplete="current-password"
+              [feedback]="false"
+              [toggleMask]="true"
+            ></p-password>
+            <button
+              pButton
+              type="submit"
+              [disabled]="busy()"
+              [loading]="busy()"
+              [label]="'identity.continue' | transloco"
+            ></button>
+          </form>
+        }
+        <button
+          pButton
+          type="button"
+          severity="secondary"
+          (click)="cancel()"
+          [disabled]="busy()"
+          [label]="'common.cancel' | transloco"
+        ></button>
+      </section>
+    }
+  } @else if (!busy()) {
+    <button
+      pButton
+      type="button"
+      (click)="loadMethods()"
+      [label]="'identity.tryAgain' | transloco"
+    ></button>
+  }
+  <a routerLink="/">{{ 'shell.dashboard' | transloco }}</a>
+</section>

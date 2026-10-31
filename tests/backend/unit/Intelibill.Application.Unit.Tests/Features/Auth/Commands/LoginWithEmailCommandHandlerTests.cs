@@ -38,7 +38,7 @@ public class LoginWithEmailCommandHandlerTests
     public async Task HandleAsync_InvalidPassword_ReturnsInvalidCredentialsError()
     {
         var command = new LoginWithEmailCommand("test@test.com", "WrongPass!");
-        var user = User.CreateWithEmail(command.Email, "hashed", "First", "Last");
+        var user = VerifiedUsers.CreateWithEmail(command.Email, "hashed", "First", "Last");
         _userRepository.GetByEmailAsync(command.Email, Arg.Any<CancellationToken>()).Returns(user);
         _passwordHasher.Verify(command.Password, user.PasswordHash!).Returns(false);
 
@@ -52,7 +52,7 @@ public class LoginWithEmailCommandHandlerTests
     public async Task HandleAsync_ValidCredentials_ReturnsAuthResult()
     {
         var command = new LoginWithEmailCommand("test@test.com", "Pass123!");
-        var user = User.CreateWithEmail(command.Email, "hashed", "First", "Last");
+        var user = VerifiedUsers.CreateWithEmail(command.Email, "hashed", "First", "Last");
 
         _userRepository.GetByEmailAsync(command.Email, Arg.Any<CancellationToken>()).Returns(user);
         _passwordHasher.Verify(command.Password, user.PasswordHash!).Returns(true);
@@ -76,7 +76,7 @@ public class LoginWithEmailCommandHandlerTests
     public async Task HandleAsync_WhenLoginDisabled_ReturnsUserLoginDisabledError()
     {
         var command = new LoginWithEmailCommand("test@test.com", "Pass123!");
-        var user = User.CreateWithEmail(command.Email, "hashed", "First", "Last");
+        var user = VerifiedUsers.CreateWithEmail(command.Email, "hashed", "First", "Last");
         user.SetLoginEnabled(false);
 
         _userRepository.GetByEmailAsync(command.Email, Arg.Any<CancellationToken>()).Returns(user);

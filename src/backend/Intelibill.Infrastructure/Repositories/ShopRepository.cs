@@ -1,10 +1,17 @@
 using Intelibill.Domain.Entities;
+using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Infrastructure.Repositories;
 
+/// <remarks>
+/// The membership lookups here answer "may this person act in that shop", so they return live
+/// memberships only. Suspended and removed rows are visible to membership administration through
+/// <see cref="IMembershipAuthorityRepository"/> and, for the member list, through
+/// <see cref="GetByIdWithMembersAsync"/>.
+/// </remarks>
 internal sealed class ShopRepository(ApplicationDbContext context)
     : RepositoryBase<Shop>(context), IShopRepository
 {
@@ -14,7 +21,7 @@ internal sealed class ShopRepository(ApplicationDbContext context)
         Guid userId,
         CancellationToken cancellationToken = default) =>
         await _context.ShopMemberships
-            .Where(sm => sm.UserId == userId)
+            .Where(sm => sm.UserId == userId && sm.Status == MembershipStatus.Active)
             .Include(sm => sm.Shop)
             .OrderByDescending(sm => sm.LastUsedAt)
             .ThenByDescending(sm => sm.IsDefault)
@@ -26,26 +33,28 @@ internal sealed class ShopRepository(ApplicationDbContext context)
         CancellationToken cancellationToken = default) =>
         await _context.ShopMemberships
             .Include(sm => sm.Shop)
-            .FirstOrDefaultAsync(sm => sm.UserId == userId && sm.ShopId == shopId, cancellationToken);
+            .FirstOrDefaultAsync(sm => sm.UserId == userId && sm.ShopId == shopId && sm.Status == MembershipStatus.Active, cancellationToken);
 
     public async Task<ShopMembership?> GetDefaultMembershipAsync(
         Guid userId,
         CancellationToken cancellationToken = default) =>
         await _context.ShopMemberships
             .Include(sm => sm.Shop)
-            .FirstOrDefaultAsync(sm => sm.UserId == userId && sm.IsDefault, cancellationToken);
+            .FirstOrDefaultAsync(sm => sm.UserId == userId && sm.IsDefault && sm.Status == MembershipStatus.Active, cancellationToken);
 
     public async Task<ShopMembership?> GetMostRecentlyUsedMembershipAsync(
         Guid userId,
         CancellationToken cancellationToken = default) =>
         await _context.ShopMemberships
             .Include(sm => sm.Shop)
-            .Where(sm => sm.UserId == userId)
+            .Where(sm => sm.UserId == userId && sm.Status == MembershipStatus.Active)
             .OrderByDescending(sm => sm.LastUsedAt)
             .FirstOrDefaultAsync(cancellationToken);
 
     public async Task<bool> UserHasMembershipAsync(Guid userId, Guid shopId, CancellationToken cancellationToken = default) =>
-        await _context.ShopMemberships.AnyAsync(sm => sm.UserId == userId && sm.ShopId == shopId, cancellationToken);
+        await _context.ShopMemberships.AnyAsync(
+            sm => sm.UserId == userId && sm.ShopId == shopId && sm.Status == MembershipStatus.Active,
+            cancellationToken);
 
     public async Task ClearDefaultForUserAsync(Guid userId, CancellationToken cancellationToken = default)
     {

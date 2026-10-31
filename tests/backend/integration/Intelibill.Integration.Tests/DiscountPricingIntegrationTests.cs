@@ -785,7 +785,7 @@ public sealed class DiscountPricingIntegrationTests(PostgreSqlTestFixture fixtur
 
     private static async Task<string> RegisterAsync(HttpClient client)
     {
-        var response = await client.PostAsJsonAsync("/api/auth/register/email", new
+        var response = await client.EnrollAsync(new
         {
             email = UniqueEmail(),
             password = "Pass123!Aa",

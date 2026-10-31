@@ -2,8 +2,8 @@ namespace Intelibill.Application.Features.Users.Commands.UpdateMyProfile;
 
 public sealed record UpdateMyProfileCommand(
     Guid UserId,
-    string Email,
+    string? Email,
     string? PhoneNumber,
     string FirstName,
     string LastName,
-    string Language = "en-IN");
+    string Language = "en-IN", long SecurityVersion = -1);

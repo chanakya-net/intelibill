@@ -9,9 +9,9 @@ internal sealed class UpdateMyProfileCommandValidator : AbstractValidator<Update
     public UpdateMyProfileCommandValidator()
     {
         RuleFor(x => x.Email)
-            .NotEmpty()
             .EmailAddress()
-            .MaximumLength(256);
+            .MaximumLength(256)
+            .When(x => !string.IsNullOrWhiteSpace(x.Email));
 
         RuleFor(x => x.PhoneNumber)
             .MaximumLength(32)

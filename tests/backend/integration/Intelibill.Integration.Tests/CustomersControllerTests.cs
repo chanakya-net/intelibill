@@ -36,7 +36,7 @@ public sealed class CustomersControllerTests(PostgreSqlTestFixture fixture) : IA
 
     private static async Task<string> RegisterAsync(HttpClient client)
     {
-        var response = await client.PostAsJsonAsync("/api/auth/register/email", new
+        var response = await client.EnrollAsync(new
         {
             email = UniqueEmail(),
             password = "Pass123!Aa",
@@ -247,7 +247,7 @@ public sealed class CustomersControllerTests(PostgreSqlTestFixture fixture) : IA
             confirmPassword = staffPassword,
             role = "Staff",
         });
-        var addUserResponse = await client.SendAsync(addUserRequest);
+        var addUserResponse = await client.SeedVerifiedStaffAsync(addUserRequest);
         addUserResponse.EnsureSuccessStatusCode();
 
         var staffToken = await LoginAsync(client, staffEmail, staffPassword);
@@ -410,7 +410,7 @@ public sealed class CustomersControllerTests(PostgreSqlTestFixture fixture) : IA
             confirmPassword = staffPassword,
             role = "Staff",
         });
-        var addUserResponse = await client.SendAsync(addUserRequest);
+        var addUserResponse = await client.SeedVerifiedStaffAsync(addUserRequest);
         addUserResponse.EnsureSuccessStatusCode();
 
         var staffToken = await LoginAsync(client, staffEmail, staffPassword);

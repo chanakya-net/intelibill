@@ -19,6 +19,7 @@ public class ApplicationDbContext(
     public DbSet<Shop> Shops => Set<Shop>();
     public DbSet<BankAccount> BankAccounts => Set<BankAccount>();
     public DbSet<ShopMembership> ShopMemberships => Set<ShopMembership>();
+    public DbSet<ShopInvitation> ShopInvitations => Set<ShopInvitation>();
     public DbSet<Supplier> Suppliers => Set<Supplier>();
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<CustomerLedgerEntry> CustomerLedgerEntries => Set<CustomerLedgerEntry>();
@@ -35,7 +36,6 @@ public class ApplicationDbContext(
     public DbSet<SaleReturnItem> SaleReturnItems => Set<SaleReturnItem>();
     public DbSet<InvoiceSequence> InvoiceSequences => Set<InvoiceSequence>();
     public DbSet<InvoiceLease> InvoiceLeases => Set<InvoiceLease>();
-    public DbSet<UserExternalLogin> UserExternalLogins => Set<UserExternalLogin>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
     public DbSet<ItemBarcodeSequence> ItemBarcodeSequences => Set<ItemBarcodeSequence>();

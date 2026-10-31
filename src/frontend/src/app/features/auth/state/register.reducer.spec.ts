@@ -10,24 +10,33 @@ describe('registerReducer', () => {
   });
 
   it('sets submitting on requested', () => {
-    const next = registerReducer(initial, RegisterActions.requested({
-      firstName: 'A', lastName: 'B', email: 'a@b.com', phoneNumber: '+15551234567', password: 'Pass1!', rememberMe: false,
-    }));
+    const next = registerReducer(
+      initial,
+      RegisterActions.requested({
+        email: 'a@b.com',
+      }),
+    );
     expect(next.submitting).toBe(true);
     expect(next.errorMessage).toBe('');
   });
 
   it('clears submitting on succeeded', () => {
-    const submitting = registerReducer(initial, RegisterActions.requested({
-      firstName: 'A', lastName: 'B', email: 'a@b.com', phoneNumber: '+15551234567', password: 'Pass1!', rememberMe: false,
-    }));
+    const submitting = registerReducer(
+      initial,
+      RegisterActions.requested({
+        email: 'a@b.com',
+      }),
+    );
     const next = registerReducer(submitting, RegisterActions.succeeded());
     expect(next.submitting).toBe(false);
     expect(next.errorMessage).toBe('');
   });
 
   it('sets errorMessage on failed', () => {
-    const next = registerReducer(initial, RegisterActions.failed({ errorMessage: 'errors.auth.emailAlreadyInUse' }));
+    const next = registerReducer(
+      initial,
+      RegisterActions.failed({ errorMessage: 'errors.auth.emailAlreadyInUse' }),
+    );
     expect(next.submitting).toBe(false);
     expect(next.errorMessage).toBe('errors.auth.emailAlreadyInUse');
   });

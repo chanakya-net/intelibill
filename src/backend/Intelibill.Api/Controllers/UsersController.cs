@@ -89,7 +89,7 @@ public sealed class UsersController : AuthenticatedControllerBase
         if (auth is not null) return auth;
 
         var result = await Bus.InvokeAsync<ErrorOr.ErrorOr<AuthResult>>(
-            new UpdateMyProfileCommand(UserId!.Value, request.Email, request.PhoneNumber, request.FirstName, request.LastName, request.Language),
+            new UpdateMyProfileCommand(UserId!.Value, request.Email, request.PhoneNumber, request.FirstName, request.LastName, request.Language, SecurityVersion),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -111,5 +111,5 @@ public sealed class UsersController : AuthenticatedControllerBase
 
 public sealed record AddShopUserRequest(IReadOnlyList<Guid> ShopIds, string Email, string FirstName, string LastName, string PhoneNumber, string Password, string ConfirmPassword, string Role);
 public sealed record EditShopUserRequest(string Email, string FirstName, string LastName, string PhoneNumber, string Role, bool IsLoginEnabled, IReadOnlyList<Guid>? ShopIds = null);
-public sealed record UpdateMyProfileRequest(string Email, string? PhoneNumber, string FirstName, string LastName, string Language = "en-IN");
+public sealed record UpdateMyProfileRequest(string? Email, string? PhoneNumber, string FirstName, string LastName, string Language = "en-IN");
 public sealed record ChangeMyPasswordRequest(string CurrentPassword, string NewPassword);

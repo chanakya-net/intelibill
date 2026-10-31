@@ -40,7 +40,7 @@ public class ChangeMyPasswordCommandHandlerTests
     [Fact]
     public async Task HandleAsync_PasswordNotSet_ReturnsValidationError()
     {
-        var user = User.CreateFromExternalProvider("external@test.com", "First", "Last");
+        var user = User.CreateWithPhone("+919876543210", "First", "Last");
         var command = new ChangeMyPasswordCommand(user.Id, "OldPass123!", "NewPass123!");
 
         _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);

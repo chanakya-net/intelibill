@@ -4,6 +4,19 @@ import { authGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
 	{
+		path: 'auth/verify-email',
+		loadComponent: () => import('./features/auth/pages/verify-email-page.component').then((m) => m.VerifyEmailPageComponent),
+	},
+	{
+		// Redeemed from the invited person's own session; the single-use token arrives in the
+		// fragment so it never reaches a server log or a referrer header.
+		path: 'invitations/accept',
+		loadComponent: () =>
+			import('./features/users/pages/accept-invitation-page.component').then(
+				(m) => m.AcceptInvitationPageComponent
+			),
+	},
+	{
 		path: 'login',
 		loadComponent: () =>
 			import('./features/auth/pages/login-page.component').then(
@@ -27,13 +40,6 @@ export const routes: Routes = [
 		loadComponent: () =>
 			import('./features/auth/pages/reset-password-page.component').then(
 				(m) => m.ResetPasswordPageComponent
-			),
-	},
-	{
-		path: 'auth/callback',
-		loadComponent: () =>
-			import('./features/auth/pages/auth-callback.component').then(
-				(m) => m.AuthCallbackComponent
 			),
 	},
 	{

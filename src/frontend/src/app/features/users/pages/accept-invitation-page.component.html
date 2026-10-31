@@ -1,0 +1,42 @@
+<section class="accept-invitation">
+  <header>
+    <p class="eyebrow">{{ 'users.teamAccess' | transloco }}</p>
+    <h1>{{ 'users.acceptInvitationTitle' | transloco }}</h1>
+  </header>
+
+  @if (accepted()) {
+    <div class="accept-invitation__result">
+      <h2>{{ 'users.invitationAccepted' | transloco }}</h2>
+      <p>
+        {{ 'users.invitationAcceptedDetail' | transloco: { role: accepted()!.role } }}
+      </p>
+      <button
+        pButton
+        type="button"
+        [label]="'users.invitationContinue' | transloco"
+        (click)="onContinue()"
+      ></button>
+    </div>
+  } @else {
+    @if (!auth.session()) {
+      <p class="accept-invitation__notice">{{ 'users.invitationSignInFirst' | transloco }}</p>
+      <a routerLink="/login">{{ 'auth.loginCta' | transloco }}</a>
+    } @else {
+      <p class="accept-invitation__notice">{{ 'users.acceptInvitationDescription' | transloco }}</p>
+
+      @if (ready()) {
+        <button
+          pButton
+          type="button"
+          [label]="'users.acceptInvitation' | transloco"
+          [disabled]="busy()"
+          (click)="onAccept()"
+        ></button>
+      }
+    }
+
+    @if (error()) {
+      <p class="error-message">{{ error() | transloco }}</p>
+    }
+  }
+</section>

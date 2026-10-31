@@ -24,19 +24,16 @@ interface SourceFinding {
 }
 
 const NON_TRANSLATION_DOTTED_LITERALS = new Set([
-  'inventory.auth.external.error',
-  'inventory.auth.external.pending',
   'inventory.auth.last-email',
   'inventory.auth.last-identifier',
   'inventory.auth.session.local',
   'inventory.auth.session.temporary',
   'inventory.preferences.language',
+  'inventory.invitations.pending',
 ]);
 
 const INVARIANT_TRANSLATION_VALUES = new Set([
   'Intelibill',
-  'Facebook',
-  'Google',
   'HSN',
   'HSN/SAC',
   'SAC',
@@ -297,7 +294,7 @@ function isInvariantTranslationValue(value: string): boolean {
 
   const remainingText = value
     .replace(PLACEHOLDER_PATTERN, '')
-    .replace(/\b(?:Intelibill|Facebook|Google|HSN|SAC|GSTIN|GST|IFSC|SKU|UOM|MRP|UPI|A4|PDF|Excel|Tally)\b/gi, '')
+    .replace(/\b(?:Intelibill|HSN|SAC|GSTIN|GST|IFSC|SKU|UOM|MRP|UPI|A4|PDF|Excel|Tally)\b/gi, '')
     .replace(/[^\p{L}]+/gu, '');
 
   return remainingText.length === 0;

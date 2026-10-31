@@ -54,10 +54,10 @@ export class UsersEffects {
       switchMap(() =>
         this.userAccountService.getShopUsers().pipe(
           map((users) => UsersActions.loadShopUsersSucceeded({ users })),
-          catchError((error: { error?: ApiErrorPayload }) =>
+          catchError(() =>
             of(
               UsersActions.loadShopUsersFailed({
-                errorMessage: getLoadShopUsersErrorMessage(error.error),
+                errorMessage: 'errors.users.unableToLoadShopUsers',
               })
             )
           )
@@ -66,16 +66,16 @@ export class UsersEffects {
     )
   );
 
-  readonly addShopUser$ = createEffect(() =>
+  readonly loadInvitations$ = createEffect(() =>
     this.actions$.pipe(
-      ofType(UsersActions.addShopUserRequested),
-      switchMap(({ payload }) =>
-        this.userAccountService.addShopUser(payload).pipe(
-          map((user) => UsersActions.addShopUserSucceeded({ user })),
-          catchError((error: { error?: ApiErrorPayload }) =>
+      ofType(UsersActions.loadInvitationsRequested),
+      switchMap(({ shopId }) =>
+        this.userAccountService.getInvitations(shopId).pipe(
+          map((invitations) => UsersActions.loadInvitationsSucceeded({ invitations })),
+          catchError(() =>
             of(
-              UsersActions.addShopUserFailed({
-                errorMessage: getAddShopUserErrorMessage(error.error),
+              UsersActions.loadInvitationsFailed({
+                errorMessage: 'errors.users.unableToLoadInvitations',
               })
             )
           )
@@ -84,16 +84,52 @@ export class UsersEffects {
     )
   );
 
-  readonly editShopUser$ = createEffect(() =>
+  readonly inviteMember$ = createEffect(() =>
     this.actions$.pipe(
-      ofType(UsersActions.editShopUserRequested),
-      switchMap(({ userId, payload }) =>
-        this.userAccountService.editShopUser(userId, payload).pipe(
-          map((user) => UsersActions.editShopUserSucceeded({ user })),
+      ofType(UsersActions.inviteMemberRequested),
+      switchMap(({ shopId, payload }) =>
+        this.userAccountService.inviteMember(shopId, payload).pipe(
+          map((invitation) => UsersActions.inviteMemberSucceeded({ invitation })),
           catchError((error: { error?: ApiErrorPayload }) =>
             of(
-              UsersActions.editShopUserFailed({
-                errorMessage: getEditShopUserErrorMessage(error.error),
+              UsersActions.inviteMemberFailed({
+                errorMessage: getInviteMemberErrorMessage(error.error),
+              })
+            )
+          )
+        )
+      )
+    )
+  );
+
+  readonly revokeInvitation$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(UsersActions.revokeInvitationRequested),
+      switchMap(({ shopId, invitationId }) =>
+        this.userAccountService.revokeInvitation(shopId, invitationId).pipe(
+          map(() => UsersActions.revokeInvitationSucceeded({ invitationId })),
+          catchError((error: { error?: ApiErrorPayload }) =>
+            of(
+              UsersActions.revokeInvitationFailed({
+                errorMessage: getInviteMemberErrorMessage(error.error),
+              })
+            )
+          )
+        )
+      )
+    )
+  );
+
+  readonly updateMembership$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(UsersActions.updateMembershipRequested),
+      switchMap(({ shopId, userId, payload }) =>
+        this.userAccountService.updateMembership(shopId, userId, payload).pipe(
+          map((membership) => UsersActions.updateMembershipSucceeded({ membership })),
+          catchError((error: { error?: ApiErrorPayload }) =>
+            of(
+              UsersActions.updateMembershipFailed({
+                errorMessage: getUpdateMembershipErrorMessage(error.error),
               })
             )
           )
@@ -108,10 +144,20 @@ export class UsersEffects {
       map(() => UsersActions.loadShopUsersRequested())
     )
   );
+
+  /** A membership change can void an outstanding invitation, so the list is re-read. */
+  readonly reloadInvitationsAfterMembershipChange$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(UsersActions.updateMembershipSucceeded),
+      map(({ membership }) => UsersActions.loadInvitationsRequested({ shopId: membership.shopId }))
+    )
+  );
 }
 
 function getProfileUpdateErrorMessage(error: ApiErrorPayload | undefined): string {
-  const title = error?.title ?? '';
+  const title = error?.code ?? error?.title ?? '';
+  if (title === 'Auth.EmailChangeRequired') return 'identity.emailChangeRequired';
+  if (title === 'Auth.InvitationRequired') return 'identity.invitationRequired';
 
   if (title === 'Auth.EmailAlreadyInUse') {
     return 'errors.auth.emailAlreadyInUseByAnother';
@@ -121,15 +167,13 @@ function getProfileUpdateErrorMessage(error: ApiErrorPayload | undefined): strin
     return 'errors.auth.phoneAlreadyInUseByAnother';
   }
 
-  if (title === 'Auth.EmailAlreadyInUse') {
-    return 'errors.auth.emailAlreadyInUseByAnother';
-  }
-
   return 'errors.users.unableToUpdateProfile';
 }
 
 function getChangePasswordErrorMessage(error: ApiErrorPayload | undefined): string {
-  const title = error?.title ?? '';
+  const title = error?.code ?? error?.title ?? '';
+  if (title === 'Auth.EmailChangeRequired') return 'identity.emailChangeRequired';
+  if (title === 'Auth.InvitationRequired') return 'identity.invitationRequired';
 
   if (title === 'Auth.InvalidCurrentPassword') {
     return 'errors.auth.invalidCurrentPassword';
@@ -142,54 +186,50 @@ function getChangePasswordErrorMessage(error: ApiErrorPayload | undefined): stri
   return 'errors.users.unableToChangePassword';
 }
 
-function getLoadShopUsersErrorMessage(error: ApiErrorPayload | undefined): string {
-  return 'errors.users.unableToLoadShopUsers';
+function getInviteMemberErrorMessage(error: ApiErrorPayload | undefined): string {
+  const title = error?.code ?? error?.title ?? '';
+
+  switch (title) {
+    case 'Shop.UserIsNotOwner':
+      return 'errors.users.onlyOwnerCanAddUsers';
+    case 'Users.RoleNotSupported':
+      return 'errors.users.roleNotSupported';
+    case 'Users.InvitationAlreadyMember':
+      return 'errors.users.invitationAlreadyMember';
+    case 'Users.InvitationBudgetExhausted':
+      return 'errors.users.invitationBudgetExhausted';
+    case 'Users.InvitationDeliveryUnavailable':
+      return 'errors.users.invitationDeliveryUnavailable';
+    case 'Users.InvitationNotAcceptable':
+      return 'errors.users.invitationNotAcceptable';
+    case 'Users.InvitationNotFound':
+      return 'errors.users.invitationNotFound';
+    default:
+      return 'errors.users.unableToInviteMember';
+  }
 }
 
-function getAddShopUserErrorMessage(error: ApiErrorPayload | undefined): string {
-  const title = error?.title ?? '';
+function getUpdateMembershipErrorMessage(error: ApiErrorPayload | undefined): string {
+  const title = error?.code ?? error?.title ?? '';
 
-  if (title === 'Shop.UserIsNotOwner') {
-    return 'errors.users.onlyOwnerCanAddUsers';
+  switch (title) {
+    case 'Users.MembershipVersionConflict':
+      return 'errors.users.membershipVersionConflict';
+    case 'Users.MembershipOperationRequired':
+      return 'errors.users.membershipOperationRequired';
+    case 'Users.CannotModifyOwner':
+      return 'errors.users.ownerCannotBeModified';
+    case 'Users.CannotModifyOwnMembership':
+      return 'errors.users.cannotModifyOwnMembership';
+    case 'Users.MembershipNotFound':
+      return 'errors.users.membershipNotFound';
+    case 'Users.MembershipStatusNotSupported':
+      return 'errors.users.membershipStatusNotSupported';
+    case 'Users.RoleNotSupported':
+      return 'errors.users.roleNotSupported';
+    case 'Shop.UserIsNotOwner':
+      return 'errors.users.onlyOwnerCanEditUsers';
+    default:
+      return 'errors.users.unableToUpdateUser';
   }
-
-  if (title === 'Auth.PhoneAlreadyInUse') {
-    return 'errors.auth.phoneAlreadyInUseByAnother';
-  }
-
-  if (title === 'Auth.EmailAlreadyInUse') {
-    return 'errors.auth.emailAlreadyInUseByAnother';
-  }
-
-  if (title === 'Users.RoleNotSupported') {
-    return 'errors.users.roleNotSupported';
-  }
-
-  return 'errors.users.unableToAddShopUser';
-}
-
-function getEditShopUserErrorMessage(error: ApiErrorPayload | undefined): string {
-  const title = error?.title ?? '';
-
-  if (title === 'Shop.UserIsNotOwner') {
-    return 'errors.users.onlyOwnerCanEditUsers';
-  }
-
-  if (title === 'Users.CannotModifyOwner') {
-    return 'errors.users.ownerCannotBeModified';
-  }
-
-  if (title === 'Auth.PhoneAlreadyInUse') {
-    return 'errors.auth.phoneAlreadyInUseByAnother';
-  }
-
-  if (title === 'Auth.EmailAlreadyInUse') {
-    return 'errors.auth.emailAlreadyInUseByAnother';
-  }
-
-  if (title === 'Users.RoleNotSupported') {
-    return 'errors.users.roleNotSupported';
-  }
-
-  return 'errors.users.unableToUpdateUser';
 }

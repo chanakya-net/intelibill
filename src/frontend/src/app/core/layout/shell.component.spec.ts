@@ -1,20 +1,29 @@
-import { signal } from '@angular/core';
+import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { RouterTestingModule } from '@angular/router/testing';
+import { NavigationEnd, Router } from '@angular/router';
+import { RouterTestingHarness, RouterTestingModule } from '@angular/router/testing';
 import { Store } from '@ngrx/store';
 import { TranslocoTestingModule } from '@ngneat/transloco';
-import { of } from 'rxjs';
+import { of, filter, firstValueFrom } from 'rxjs';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { AuthSession, UserShop } from '../auth/auth.models';
 import { AuthService } from '../auth/auth.service';
 import { ShopDetails } from '../../features/shops/services/shop.service';
 import { ShopsActions } from '../../features/shops/state/shops.actions';
-import { selectShopDetailsEntities, selectShops, selectShopsSubmitting } from '../../features/shops/state/shops.selectors';
+import {
+  selectShopDetailsEntities,
+  selectShops,
+  selectShopsSubmitting,
+} from '../../features/shops/state/shops.selectors';
 import { UsersActions } from '../../features/users/state/users.actions';
 import { LocalizationService } from '../i18n/localization.service';
 import { DEFAULT_LANGUAGE, SupportedLanguage } from '../i18n/language.constants';
 import { ShellComponent } from './shell.component';
 import { selectSidebarCollapsed, selectSidebarPinned } from '../state/app-shell.selectors';
+
+@Component({ standalone: true, template: '<p>Account content</p>' })
+class AccountRouteStub {}
 
 beforeAll(() => {
   Object.defineProperty(window, 'matchMedia', {
@@ -33,7 +42,7 @@ beforeAll(() => {
 });
 
 describe('ShellComponent', () => {
-  const sessionSignal = signal({
+  const sessionSignal = signal<AuthSession>({
     accessToken: 'access-token',
     refreshToken: 'refresh-token',
     accessTokenExpiresAt: new Date(Date.now() + 60_000).toISOString(),
@@ -48,7 +57,9 @@ describe('ShellComponent', () => {
       language: 'en-IN',
     },
     activeShopId: 'shop-1',
-    shops: [{ shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null }],
+    shops: [
+      { shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null },
+    ],
   });
 
   const authService = {
@@ -57,7 +68,7 @@ describe('ShellComponent', () => {
     signOutAndRedirect: vi.fn<AuthService['signOutAndRedirect']>(),
   };
 
-  const shopsSignal = signal([
+  const shopsSignal = signal<readonly UserShop[]>([
     { shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null },
   ]);
 
@@ -121,16 +132,23 @@ describe('ShellComponent', () => {
     }),
   };
 
-  function createFixture() {
+  function configureTestBed() {
     TestBed.configureTestingModule({
-      imports: [ShellComponent, RouterTestingModule.withRoutes([]), TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
+      imports: [
+        ShellComponent,
+        RouterTestingModule.withRoutes([]),
+        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+      ],
       providers: [
         { provide: AuthService, useValue: authService },
         { provide: Store, useValue: store },
         { provide: LocalizationService, useValue: localizationService },
       ],
     });
+  }
 
+  function createFixture() {
+    configureTestBed();
     const fixture = TestBed.createComponent(ShellComponent);
     fixture.detectChanges();
     return fixture;
@@ -179,10 +197,14 @@ describe('ShellComponent', () => {
     const component = setup();
 
     component.onOpenAddShop();
-    expect(component.showCreateShopOverlayAuto() || component.showCreateShopOverlayManual()).toBe(true);
+    expect(component.showCreateShopOverlayAuto() || component.showCreateShopOverlayManual()).toBe(
+      true,
+    );
 
     component.onCreateShopOverlayClose();
-    expect(component.showCreateShopOverlayAuto() || component.showCreateShopOverlayManual()).toBe(false);
+    expect(component.showCreateShopOverlayAuto() || component.showCreateShopOverlayManual()).toBe(
+      false,
+    );
   });
 
   it('closes create-shop overlay and signs out when shop setup is required', () => {
@@ -191,7 +213,9 @@ describe('ShellComponent', () => {
 
     component.onCreateShopOverlayClose();
 
-    expect(component.showCreateShopOverlayAuto() || component.showCreateShopOverlayManual()).toBe(false);
+    expect(component.showCreateShopOverlayAuto() || component.showCreateShopOverlayManual()).toBe(
+      false,
+    );
     expect(authService.signOutAndRedirect).toHaveBeenCalledTimes(1);
     expect(component.isSigningOut()).toBe(false);
   });
@@ -201,11 +225,15 @@ describe('ShellComponent', () => {
     authService.needsShopSetup.set(false);
 
     component.onOpenAddShop();
-    expect(component.showCreateShopOverlayAuto() || component.showCreateShopOverlayManual()).toBe(true);
+    expect(component.showCreateShopOverlayAuto() || component.showCreateShopOverlayManual()).toBe(
+      true,
+    );
 
     authService.needsShopSetup.set(false);
     component.onCreateShopOverlayClose();
-    expect(component.showCreateShopOverlayAuto() || component.showCreateShopOverlayManual()).toBe(false);
+    expect(component.showCreateShopOverlayAuto() || component.showCreateShopOverlayManual()).toBe(
+      false,
+    );
     expect(authService.signOutAndRedirect).not.toHaveBeenCalled();
   });
 
@@ -313,4 +341,103 @@ describe('ShellComponent', () => {
       expect(component.isShopMenuOpen()).toBe(false);
     },
   );
+  it('lets a no-shop provider use Account security and restores mandatory onboarding on return', async () => {
+    sessionSignal.set({
+      ...sessionSignal(),
+      activeShopId: null,
+      shops: [],
+      user: { ...sessionSignal().user, email: null },
+    });
+    shopsSignal.set([]);
+    authService.needsShopSetup.set(true);
+    const fixture = createFixture();
+    const router = TestBed.inject(Router);
+    router.resetConfig([
+      { path: 'account/security', component: AccountRouteStub },
+      { path: 'dashboard', component: AccountRouteStub },
+    ]);
+    expect(fixture.nativeElement.querySelector('app-create-shop-overlay')).not.toBeNull();
+    await router.navigateByUrl('/account/security?identity=pending');
+    fixture.detectChanges();
+    expect(fixture.componentInstance.showCreateShopOverlayAuto()).toBe(false);
+    expect(fixture.nativeElement.querySelector('app-create-shop-overlay')).toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('Account content');
+    expect(authService.signOutAndRedirect).not.toHaveBeenCalled();
+    await router.navigateByUrl('/dashboard');
+    fixture.detectChanges();
+    expect(fixture.componentInstance.showCreateShopOverlayAuto()).toBe(true);
+    expect(fixture.nativeElement.querySelector('app-create-shop-overlay')).not.toBeNull();
+  });
+  it('exposes Account security inside mandatory onboarding without creating membership or signing out', async () => {
+    sessionSignal.set({
+      ...sessionSignal(),
+      activeShopId: null,
+      shops: [],
+      user: { ...sessionSignal().user, email: null },
+    });
+    shopsSignal.set([]);
+    authService.needsShopSetup.set(true);
+    const fixture = createFixture();
+    const router = TestBed.inject(Router);
+    router.resetConfig([{ path: 'account/security', component: AccountRouteStub }]);
+    const button = Array.from(
+      fixture.nativeElement.querySelectorAll('app-create-shop-overlay button'),
+    ).find((element: any) =>
+      element.textContent.includes('identity.manageIdentity'),
+    ) as HTMLButtonElement;
+    expect(button).toBeTruthy();
+    const navigated = firstValueFrom(
+      router.events.pipe(
+        filter(
+          (event) =>
+            event instanceof NavigationEnd && event.urlAfterRedirects === '/account/security',
+        ),
+      ),
+    );
+    button.click();
+    await navigated;
+    fixture.detectChanges();
+    expect(router.url).toBe('/account/security');
+    expect(fixture.nativeElement.querySelector('app-create-shop-overlay')).toBeNull();
+    expect(authService.signOutAndRedirect).not.toHaveBeenCalled();
+    expect(store.dispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: ShopsActions.createShopRequested.type }),
+    );
+  });
+  it('allows initial Account security navigation before a provider acquires any shop membership', async () => {
+    sessionSignal.set({
+      ...sessionSignal(),
+      activeShopId: null,
+      shops: [],
+      user: { ...sessionSignal().user, email: null },
+    });
+    shopsSignal.set([]);
+    authService.needsShopSetup.set(true);
+    configureTestBed();
+    const router = TestBed.inject(Router);
+    router.resetConfig([
+      {
+        path: '',
+        component: ShellComponent,
+        children: [{ path: 'account/security', component: AccountRouteStub }],
+      },
+    ]);
+    const harness = await RouterTestingHarness.create();
+    const shell = await harness.navigateByUrl('/account/security', ShellComponent);
+    expect(shell.showCreateShopOverlayAuto()).toBe(false);
+    expect(harness.routeNativeElement?.querySelector('app-create-shop-overlay')).toBeNull();
+    expect(harness.routeNativeElement?.textContent).toContain('Account content');
+    expect(authService.signOutAndRedirect).not.toHaveBeenCalled();
+  });
+  it('preserves the existing first-shop setup wizard after membership is created', () => {
+    authService.needsShopSetup.set(true);
+    const fixture = createFixture();
+    expect(fixture.componentInstance.showCreateShopOverlayAuto()).toBe(true);
+    authService.needsShopSetup.set(false);
+    fixture.detectChanges();
+    expect(fixture.componentInstance.showCreateShopOverlayAuto()).toBe(true);
+    expect(fixture.nativeElement.querySelector('app-create-shop-overlay')).not.toBeNull();
+    fixture.componentInstance.onCreateShopOverlayClose();
+    expect(authService.signOutAndRedirect).not.toHaveBeenCalled();
+  });
 });

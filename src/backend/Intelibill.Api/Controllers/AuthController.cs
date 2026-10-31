@@ -2,7 +2,6 @@ using Intelibill.Api.Extensions;
 using Intelibill.Api.Middleware.RateLimiting;
 using Intelibill.Api.Options;
 using Intelibill.Application.Common.Interfaces;
-using Intelibill.Application.Features.Auth.Commands.ExternalLogin;
 using Intelibill.Application.Features.Auth.Commands.Login;
 using Intelibill.Application.Features.Auth.Commands.LoginWithEmail;
 using Intelibill.Application.Features.Auth.Commands.RefreshToken;
@@ -12,7 +11,6 @@ using Intelibill.Application.Features.Auth.Commands.RequestPasswordReset;
 using Intelibill.Application.Features.Auth.Commands.ResetPassword;
 using Intelibill.Application.Features.Auth.Commands.RevokeToken;
 using Intelibill.Application.Features.Auth.DTOs;
-using Intelibill.Domain.Enums;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Wolverine;
@@ -31,16 +29,11 @@ public sealed class AuthController(IMessageBus bus, IOptions<AppOptions> appOpti
         [FromBody] RegisterWithEmailRequest request,
         CancellationToken cancellationToken)
     {
-        var result = await bus.InvokeAsync<ErrorOr.ErrorOr<AuthResult>>(
-            new RegisterWithEmailCommand(
-                request.Email,
-                request.Password,
-                request.FirstName,
-                request.LastName,
-                request.PhoneNumber),
-            cancellationToken);
-
-        return result.ToActionResult(auth => CreatedAtAction(nameof(RegisterWithEmail), auth));
+        var service = HttpContext.RequestServices.GetRequiredService<IEmailOwnershipService>();
+        var result = await service.RequestAsync(request.Email, cancellationToken);
+        if (result.IsError && result.FirstError.Type == ErrorOr.ErrorType.Failure)
+            return Problem(statusCode: 503, title: result.FirstError.Code, detail: result.FirstError.Description);
+        return result.ToActionResult(_ => Accepted(new { message = "If this address is eligible, a verification email will arrive shortly." }));
     }
 
     [HttpPost("register/phone")]
@@ -83,68 +76,6 @@ public sealed class AuthController(IMessageBus bus, IOptions<AppOptions> appOpti
         return result.ToActionResult(auth => Ok(auth));
     }
 
-    [HttpPost("login/external")]
-    public async Task<IActionResult> ExternalLogin(
-        [FromBody] ExternalLoginRequest request,
-        CancellationToken cancellationToken)
-    {
-        var result = await bus.InvokeAsync<ErrorOr.ErrorOr<AuthResult>>(
-            new ExternalLoginCommand(request.Provider, request.Token, request.FirstName, request.LastName),
-            cancellationToken);
-
-        return result.ToActionResult(auth => Ok(auth));
-    }
-
-    [HttpPost("login/external/init")]
-    public async Task<IActionResult> InitializeExternalLogin(
-        [FromBody] ExternalLoginInitRequest request,
-        [FromServices] IExternalOAuthFlowService externalOAuthFlowService,
-        CancellationToken cancellationToken)
-    {
-        var result = await externalOAuthFlowService.CreateAuthorizationUrlAsync(request.Provider, cancellationToken);
-        return result.ToActionResult(payload => Ok(payload));
-    }
-
-    [HttpPost("login/external/callback")]
-    public async Task<IActionResult> CompleteExternalLogin(
-        [FromBody] ExternalLoginCallbackRequest request,
-        [FromServices] IExternalOAuthFlowService externalOAuthFlowService,
-        CancellationToken cancellationToken)
-    {
-        var exchangeResult = await externalOAuthFlowService.ExchangeCodeAsync(request.Code, request.State, cancellationToken);
-        if (exchangeResult.IsError)
-            return exchangeResult.Errors.ToProblemResult();
-
-        var result = await bus.InvokeAsync<ErrorOr.ErrorOr<AuthResult>>(
-            new ExternalLoginCommand(
-                exchangeResult.Value.Provider,
-                exchangeResult.Value.ProviderToken,
-                request.FirstName,
-                request.LastName),
-            cancellationToken);
-
-        return result.ToActionResult(auth => Ok(auth));
-    }
-
-    [HttpGet("~/auth/google/callback")]
-    public IActionResult GoogleCallbackRelay()
-    {
-        return RedirectToFrontendCallback();
-    }
-
-    [HttpGet("~/auth/facebook/callback")]
-    public IActionResult FacebookCallbackRelay()
-    {
-        return RedirectToFrontendCallback();
-    }
-
-    private RedirectResult RedirectToFrontendCallback()
-    {
-        var frontendBaseUrl = appOptions.Value.BaseUrl.TrimEnd('/');
-        var url = $"{frontendBaseUrl}/auth/callback{Request.QueryString.Value}";
-        return Redirect(url);
-    }
-
     // ── Password reset ────────────────────────────────────────────────────────
 
     [HttpPost("password-reset/request")]
@@ -153,12 +84,13 @@ public sealed class AuthController(IMessageBus bus, IOptions<AppOptions> appOpti
         [FromBody] RequestPasswordResetRequest request,
         CancellationToken cancellationToken)
     {
-        await bus.InvokeAsync<ErrorOr.ErrorOr<bool>>(
+        var result = await bus.InvokeAsync<ErrorOr.ErrorOr<bool>>(
             new RequestPasswordResetCommand(request.Email, appOptions.Value.BaseUrl),
             cancellationToken);
 
-        // Always return 200 to avoid revealing whether the email exists.
-        return Ok(new { message = "If an account with that email exists, a reset link has been sent." });
+        if (result.IsError && result.FirstError.Code == "Auth.EmailDeliveryUnavailable")
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new ProblemDetails { Status = 503, Title = result.FirstError.Code, Detail = result.FirstError.Description });
+        return result.ToActionResult(_ => Ok(new { message = "If an account with that email exists, a reset link has been sent." }));
     }
 
     [HttpPost("password-reset/confirm")]
@@ -182,7 +114,7 @@ public sealed class AuthController(IMessageBus bus, IOptions<AppOptions> appOpti
         CancellationToken cancellationToken)
     {
         var result = await bus.InvokeAsync<ErrorOr.ErrorOr<AuthResult>>(
-            new RefreshTokenCommand(request.RefreshToken),
+            new RefreshTokenCommand(request.RefreshToken, request.ActiveShopId),
             cancellationToken);
 
         return result.ToActionResult(auth => Ok(auth));
@@ -205,17 +137,14 @@ public sealed class AuthController(IMessageBus bus, IOptions<AppOptions> appOpti
 
 public sealed record RegisterWithEmailRequest(
     string Email,
-    string Password,
-    string FirstName,
-    string LastName,
-    string PhoneNumber);
+    string? Password = null,
+    string? FirstName = null,
+    string? LastName = null,
+    string? PhoneNumber = null);
 public sealed record RegisterWithPhoneRequest(string PhoneNumber, string FirstName, string LastName);
 public sealed record LoginWithEmailRequest(string Email, string Password);
 public sealed record LoginRequest(string Identifier, string Password);
-public sealed record ExternalLoginRequest(ExternalAuthProvider Provider, string Token, string? FirstName, string? LastName);
-public sealed record ExternalLoginInitRequest(ExternalAuthProvider Provider);
-public sealed record ExternalLoginCallbackRequest(string Code, string State, string? FirstName, string? LastName);
 public sealed record RequestPasswordResetRequest(string Email);
 public sealed record ResetPasswordRequest(string Email, string Token, string NewPassword);
-public sealed record RefreshTokenRequest(string RefreshToken);
+public sealed record RefreshTokenRequest(string RefreshToken, Guid? ActiveShopId = null);
 public sealed record RevokeTokenRequest(string RefreshToken);

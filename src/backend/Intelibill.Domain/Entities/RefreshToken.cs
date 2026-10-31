@@ -4,6 +4,7 @@ namespace Intelibill.Domain.Entities;
 
 public sealed class RefreshToken : BaseEntity
 {
+    public long SecurityVersion { get; private set; }
     public Guid UserId { get; private set; }
     public string Token { get; private set; } = string.Empty;
     public DateTimeOffset ExpiresAt { get; private set; }
@@ -26,6 +27,8 @@ public sealed class RefreshToken : BaseEntity
             ExpiresAt = expiresAt,
         };
     }
+
+    public void BindSecurityVersion(long version) => SecurityVersion = version;
 
     public void Revoke()
     {

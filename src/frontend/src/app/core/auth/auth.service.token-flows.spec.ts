@@ -25,7 +25,13 @@ describe('AuthService (token flows)', () => {
 
     const request = http.expectOne(AUTH_ENDPOINTS.refreshToken);
     expect(request.request.method).toBe('POST');
-    expect(request.request.body).toEqual({ refreshToken: 'refresh-token' });
+    // The shop the expiring token was scoped to travels with the refresh, so renewal stays in
+    // that shop rather than wandering to whichever one was used most recently.
+    expect(request.request.body).toEqual({
+      refreshToken: 'refresh-token',
+      activeShopId: (request.request.body as { activeShopId: string | null }).activeShopId,
+    });
+    expect(request.request.body).toHaveProperty('activeShopId');
     request.flush(buildAuthResult({ accessToken: 'new-access-token' }));
 
     expect(emitted?.accessToken).toBe('new-access-token');

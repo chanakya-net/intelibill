@@ -2,7 +2,6 @@ using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Auth.Commands.ResetPassword;
 using Intelibill.Domain.Entities;
-using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using NSubstitute;
 
@@ -14,12 +13,15 @@ public class ResetPasswordCommandHandlerTests
     private readonly IPasswordResetTokenRepository _passwordResetTokenRepository = Substitute.For<IPasswordResetTokenRepository>();
     private readonly IRefreshTokenRepository _refreshTokenRepository = Substitute.For<IRefreshTokenRepository>();
     private readonly IPasswordHasher _passwordHasher = Substitute.For<IPasswordHasher>();
-    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
+    private readonly IEmailOwnershipRepository _ownership = Substitute.For<IEmailOwnershipRepository>();
     private readonly ResetPasswordCommandHandler _handler;
 
     public ResetPasswordCommandHandlerTests()
     {
-        _handler = new ResetPasswordCommandHandler(_userRepository, _passwordResetTokenRepository, _refreshTokenRepository, _passwordHasher, _unitOfWork);
+        _ownership.BeginAsync(Arg.Any<CancellationToken>()).Returns(Substitute.For<IAsyncDisposable>());
+        _ownership.CommitAsync(Arg.Any<CancellationToken>()).Returns(true);
+        _ownership.LockCurrentCredentialAsync(Arg.Any<Guid>(), Arg.Any<long>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(true);
+        _handler = new ResetPasswordCommandHandler(_userRepository, _passwordResetTokenRepository, _refreshTokenRepository, _passwordHasher, _ownership);
     }
 
     [Fact]
@@ -38,7 +40,7 @@ public class ResetPasswordCommandHandlerTests
     public async Task HandleAsync_NoValidResetToken_ReturnsError()
     {
         var command = new ResetPasswordCommand("test@test.com", "token123", "NewPass123!");
-        var user = User.CreateWithEmail(command.Email, "hash", "first", "last");
+        var user = VerifiedUsers.CreateWithEmail(command.Email, "hash", "first", "last");
 
         _userRepository.GetByEmailAsync(command.Email, Arg.Any<CancellationToken>()).Returns(user);
         _passwordResetTokenRepository.GetValidByUserIdAsync(user.Id, Arg.Any<CancellationToken>())
@@ -54,7 +56,7 @@ public class ResetPasswordCommandHandlerTests
     public async Task HandleAsync_ExpiredToken_ReturnsGenericError()
     {
         var command = new ResetPasswordCommand("test@test.com", "token123", "NewPass123!");
-        var user = User.CreateWithEmail(command.Email, "hash", "first", "last");
+        var user = VerifiedUsers.CreateWithEmail(command.Email, "hash", "first", "last");
 
         _userRepository.GetByEmailAsync(command.Email, Arg.Any<CancellationToken>()).Returns(user);
         _passwordResetTokenRepository.GetValidByUserIdAsync(user.Id, Arg.Any<CancellationToken>())
@@ -70,7 +72,7 @@ public class ResetPasswordCommandHandlerTests
     public async Task HandleAsync_UsedToken_ReturnsGenericError()
     {
         var command = new ResetPasswordCommand("test@test.com", "token123", "NewPass123!");
-        var user = User.CreateWithEmail(command.Email, "hash", "first", "last");
+        var user = VerifiedUsers.CreateWithEmail(command.Email, "hash", "first", "last");
 
         _userRepository.GetByEmailAsync(command.Email, Arg.Any<CancellationToken>()).Returns(user);
         _passwordResetTokenRepository.GetValidByUserIdAsync(user.Id, Arg.Any<CancellationToken>())
@@ -86,10 +88,10 @@ public class ResetPasswordCommandHandlerTests
     public async Task HandleAsync_WrongTokenHash_ReturnsGenericError()
     {
         var command = new ResetPasswordCommand("test@test.com", "wrongtoken", "NewPass123!");
-        var user = User.CreateWithEmail(command.Email, "hash", "first", "last");
+        var user = VerifiedUsers.CreateWithEmail(command.Email, "hash", "first", "last");
         var correctRawToken = "correcttoken";
         var hash = Convert.ToBase64String(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(correctRawToken)));
-        var token = PasswordResetToken.Create(user.Id, hash);
+        var token = PasswordResetToken.Create(user.Id, hash, securityVersion: user.SecurityVersion, destination: user.Email!);
 
         _userRepository.GetByEmailAsync(command.Email, Arg.Any<CancellationToken>()).Returns(user);
         _passwordResetTokenRepository.GetValidByUserIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(token);
@@ -107,8 +109,8 @@ public class ResetPasswordCommandHandlerTests
         var rawToken = "token123";
         var hash = Convert.ToBase64String(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(rawToken)));
         var command = new ResetPasswordCommand("test@test.com", rawToken, "NewPass123!");
-        var user = User.CreateWithEmail(command.Email, "oldHash", "first", "last");
-        var token = PasswordResetToken.Create(user.Id, hash);
+        var user = VerifiedUsers.CreateWithEmail(command.Email, "oldHash", "first", "last");
+        var token = PasswordResetToken.Create(user.Id, hash, securityVersion: user.SecurityVersion, destination: user.Email!);
 
         _userRepository.GetByEmailAsync(command.Email, Arg.Any<CancellationToken>()).Returns(user);
         _passwordResetTokenRepository.GetValidByUserIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(token);
@@ -121,6 +123,6 @@ public class ResetPasswordCommandHandlerTests
         Assert.True(token.IsUsed);
 
         await _refreshTokenRepository.Received(1).RevokeAllForUserAsync(user.Id, Arg.Any<CancellationToken>());
-        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _ownership.Received(1).CommitAsync(Arg.Any<CancellationToken>());
     }
 }
