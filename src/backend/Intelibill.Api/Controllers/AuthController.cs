@@ -146,5 +146,14 @@ public sealed record LoginWithEmailRequest(string Email, string Password);
 public sealed record LoginRequest(string Identifier, string Password);
 public sealed record RequestPasswordResetRequest(string Email);
 public sealed record ResetPasswordRequest(string Email, string Token, string NewPassword);
-public sealed record RefreshTokenRequest(string RefreshToken, Guid? ActiveShopId = null);
-public sealed record RevokeTokenRequest(string RefreshToken);
+// The refresh secret is left out of the string form: MVC logs action arguments that way at Trace,
+// and a raised log level must not be enough to write live credentials to the log store.
+public sealed record RefreshTokenRequest(string RefreshToken, Guid? ActiveShopId = null)
+{
+    public override string ToString() => $"{nameof(RefreshTokenRequest)} {{ ActiveShopId = {ActiveShopId} }}";
+}
+
+public sealed record RevokeTokenRequest(string RefreshToken)
+{
+    public override string ToString() => nameof(RevokeTokenRequest);
+}
