@@ -114,9 +114,14 @@ Deployable on its own: it removes the unrecoverable signup without waiting for t
 - Test: `tests/backend/integration/Intelibill.Integration.Tests/PhoneLifecycleIntegrationTests.cs`
 
 **Interfaces:**
-- Produces: `PhoneAuthOptions` with `const string SectionName = "PhoneAuth"` and `bool Enabled { get; init; }` (default `false`); `Errors.Phone.EnrollmentUnavailable` → `Error.Failure("Auth.PhoneEnrollmentUnavailable", ...)`, surfaced as HTTP 503. The handler takes `IPhoneAuthPolicy` (`bool Enabled { get; }`) so Application does not reference Infrastructure options.
+- Produces: `PhoneAuthOptions` with `const string SectionName = "PhoneAuth"` and `bool Enabled { get; init; }` (default `false`); `Errors.Phone.EnrollmentUnavailable` → `Error.Failure("Auth.PhoneEnrollmentUnavailable", ...)`, surfaced as HTTP 503 by `Error.ToUnavailableResult()`; `IPhoneAuthPolicy`, which carries the switch and the code policy so Application never references an Infrastructure options type.
 
-- [ ] **Step 1: Write the failing tests**
+The legacy handler is closed outright rather than flag-gated. Gating it would read as "this works
+once the flag is on", and it never should: once phone authentication is enabled, enrollment goes
+through the challenge endpoints, which prove the number first. `IPhoneAuthPolicy.Enabled` gates
+those endpoints only.
+
+- [x] **Step 1: Write the failing tests**
 
 ```csharp
 [Fact] public async Task HandleAsync_PhoneAuthenticationDisabled_DoesNotCreateUserOrTokens()
@@ -133,21 +138,21 @@ Deployable on its own: it removes the unrecoverable signup without waiting for t
 // each return 503 with title "Auth.PhoneEnrollmentUnavailable", and the users table is unchanged.
 ```
 
-- [ ] **Step 2: Run them and watch them fail**
+- [x] **Step 2: Run them and watch them fail**
 
 Run: `dotnet test tests/backend/unit/Intelibill.Application.Unit.Tests --filter RegisterWithPhone`
 Expected: FAIL — `IPhoneAuthPolicy` does not exist.
 
-- [ ] **Step 3: Implement the gate**
+- [x] **Step 3: Implement the gate**
 
 `PhoneAuthOptions.Enabled` defaults to `false`. `PhoneAuthPolicy(IOptions<PhoneAuthOptions>) : IPhoneAuthPolicy` in Infrastructure. The handler returns `Errors.Phone.EnrollmentUnavailable` before it touches the repository or opens a transaction. `ErrorType.Failure` already maps to 503 in `EmailOwnershipController`; do the same in `AuthController` for this one code so the response is a stable problem document rather than a 500.
 
-- [ ] **Step 4: Confirm green**
+- [x] **Step 4: Confirm green**
 
 Run: `dotnet test tests/backend/unit/Intelibill.Application.Unit.Tests --filter RegisterWithPhone`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/backend/Intelibill.Infrastructure/Options/PhoneAuthOptions.cs src/backend/Intelibill.Application src/backend/Intelibill.Api tests/backend
@@ -177,7 +182,7 @@ git commit -m "feat(auth): close public phone enrollment behind a default-off fl
 
 Policy values: six digits, five-minute lifetime, five attempts, 60-second resend spacing.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```csharp
 [Fact] public void RegisterFailedAttempt_FifthWrongAttempt_ClosesChallenge()
@@ -185,24 +190,24 @@ Policy values: six digits, five-minute lifetime, five attempts, 60-second resend
 [Fact] public void Consume_IsIdempotentlyRefusedTwice()  // IsOpen false once ConsumedAt is set
 ```
 
-- [ ] **Step 2: Run them and watch them fail**
+- [x] **Step 2: Run them and watch them fail**
 
 Run: `dotnet test tests/backend/unit/Intelibill.Domain.Unit.Tests --filter PhoneChallenge`
 Expected: FAIL — type does not exist.
 
-- [ ] **Step 3: Implement the entity**
+- [x] **Step 3: Implement the entity**
 
 Store the code as a keyed HMAC-SHA256, hex, with the key id beside it — a bare SHA-256 over a 10^6 code space is recoverable from a database dump in milliseconds, which is the whole reason this column is not a plain hash. The key is `Identity:PhoneCodeKey`, base64, 32 bytes, read from the configured secret store exactly as `Identity:OutboxKey` already is.
 
-- [ ] **Step 4: Implement the repository and mappings**
+- [x] **Step 4: Implement the repository and mappings**
 
 `BeginAsync` takes the same `pg_advisory_xact_lock(7463218941)` the email flow uses, so phone and email identity transitions serialize against each other rather than racing on one account. `FindForUpdateAsync` reads the challenge `FOR UPDATE`, which is what makes two simultaneous confirmations of one code produce exactly one session. Tables `phone_challenges` (destination 16, purpose 32, code_hash 64, key_id 32) and `identity_sms`, indexed `(destination, created_at)`, `(user_id, purpose)` and `(completed_at, next_attempt_at)`.
 
-- [ ] **Step 5: Add the user columns**
+- [x] **Step 5: Add the user columns**
 
 `is_phone_verified` NOT NULL DEFAULT false — the backfill value is *unknown*, which is false, never true. `phone_verified_at` nullable. `VerifyPhone` sets both and increments `SecurityVersion`, because gaining a sign-in factor is a security transition.
 
-- [ ] **Step 6: Generate the migration**
+- [x] **Step 6: Generate the migration**
 
 ```bash
 dotnet ef migrations add AddVerifiedPhoneChallenges \
@@ -210,7 +215,7 @@ dotnet ef migrations add AddVerifiedPhoneChallenges \
   --startup-project src/backend/Intelibill.Api
 ```
 
-- [ ] **Step 7: Confirm green and commit**
+- [x] **Step 7: Confirm green and commit**
 
 Run: `dotnet test tests/backend/unit/Intelibill.Domain.Unit.Tests --filter PhoneChallenge`
 Expected: PASS
@@ -241,9 +246,14 @@ git commit -am "feat(auth): add phone challenges with keyed code hashes and boun
   - `AuthenticationProof.FromPhoneOwnership(Guid userId, long verifiedSecurityVersion, Guid challengeId, DateTimeOffset verifiedAt)` with `CredentialKind.PhoneOwnership = 4`
   - `PhoneNumberFormat.TryNormalize(string input, string? defaultCountryCode, out string e164)`
 
-Routes, rate limits matching the email endpoints: `POST api/auth/phone/challenges` (5 per 15 min), `POST api/auth/phone/confirm` (10 per 15 min), `GET api/auth/phone/availability` (anonymous, returns `{ enabled }`).
+Routes, rate limits matching the email endpoints: one pair per purpose rather than a purpose
+field, so a request cannot be pointed at a different flow than the one it was rate-limited as —
+`POST api/auth/phone/{enrollment,login,change}/request` (5 per 15 min),
+`POST api/auth/phone/{enrollment,login,change}/confirm` (10 per 15 min), and
+`GET api/auth/phone/availability` (anonymous, returns `{ enabled }`). The change pair requires
+`[Authorize]`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```csharp
 [Theory]
@@ -283,22 +293,22 @@ public void TryNormalize_RejectsAmbiguousInput_WithoutRewriting(string input);
 // Auth.RecoverySupportRequired and no session is issued.
 ```
 
-- [ ] **Step 2: Run them and watch them fail**
+- [x] **Step 2: Run them and watch them fail**
 
 Run: `dotnet test tests/backend/unit/Intelibill.Domain.Unit.Tests --filter PhoneNumberFormat`
 Expected: FAIL — type does not exist.
 
-- [ ] **Step 3: Implement `PhoneNumberFormat.TryNormalize`**
+- [x] **Step 3: Implement `PhoneNumberFormat.TryNormalize`**
 
 Strip spaces, hyphens and parentheses. Input that already starts `+` is accepted when the remainder is 8–15 digits. Input with no `+` is accepted only when `defaultCountryCode` is `"+91"` and the input is exactly 10 digits whose first digit is 6–9; everything else is rejected. A leading `0` is never stripped and never prefixed — that is the ambiguity the spec forbids guessing at. No `libphonenumber` dependency: this rule is small, total and testable, and it fails closed.
 
-- [ ] **Step 4: Implement `PhoneOwnershipService`**
+- [x] **Step 4: Implement `PhoneOwnershipService`**
 
 Mirror `EmailOwnershipService` structure, including its generic-response discipline: `RequestAsync` returns a receipt with `ChallengeId = Guid.Empty` for an ineligible destination rather than disclosing whether an account exists, and the send budget is checked inside the lock. `ConfirmAsync` opens the lock, reads the challenge `FOR UPDATE`, compares the HMAC with `CryptographicOperations.FixedTimeEquals`, increments attempts on a miss, consumes on a hit, then calls `IssueForProvedAccountAsync` with `FromPhoneOwnership` (enrollment of a brand-new account uses `FromRegistration`, as the email flow does) — all in the one transaction, which is what makes the parallel-confirm test pass.
 
-- [ ] **Step 5: Implement the controller**
+- [x] **Step 5: Implement the controller**
 
-- [ ] **Step 6: Confirm green and commit**
+- [x] **Step 6: Confirm green and commit**
 
 Run: `dotnet test tests/backend/integration/Intelibill.Integration.Tests --filter PhoneLifecycleIntegrationTests`
 Expected: PASS
@@ -324,7 +334,7 @@ git commit -am "feat(auth): verified phone enrollment and new-device login over 
 
 `ISmsSender` deliberately takes a rendered body rather than the pasted plan's `SendCodeAsync(destination, code, templateId)`: the outbox already encrypts a rendered body for email, the DLT template id is per-deployment configuration rather than per-call data, and keeping the code out of the transport signature means no transport can log it.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```csharp
 [Fact] public async Task Receipt_MasksDestinationAndOmitsCode()
@@ -339,22 +349,22 @@ git commit -am "feat(auth): verified phone enrollment and new-device login over 
 [Fact] public void Validate_LocalCaptureOutsideDevelopmentOrTesting_Fails()
 ```
 
-- [ ] **Step 2: Run them and watch them fail**
+- [x] **Step 2: Run them and watch them fail**
 
 Run: `dotnet test tests/backend/unit/Intelibill.Api.Unit.Tests --filter PhoneAuthOptions`
 Expected: FAIL
 
-- [ ] **Step 3: Implement the outbox and worker**
+- [x] **Step 3: Implement the outbox and worker**
 
 AES-GCM with `Identity:OutboxKey`, the destination as associated data — the same construction `IdentityMailOutbox` uses, so one key rotation covers both. The worker mirrors `IdentityMailWorker`: a five-second tick, a bounded lease taken and committed *before* any network call, no transaction held across I/O, a superseded or expired row completed without sending, and a single `LoggerMessage` on failure that names no payload.
 
-- [ ] **Step 4: Implement the transports and options**
+- [x] **Step 4: Implement the transports and options**
 
 `PhoneAuthOptions`: `Enabled`, `LocalCapture`, `Provider`, `AccountSid`, `AuthToken`, `FromNumber`, `MessagingServiceSid`, `DltEntityId`, `DltTemplateId`, `CodeLength = 6`, `CodeLifetimeMinutes = 5`, `MaxAttempts = 5`, `ResendSpacingSeconds = 60`, `DestinationSendsPerHour = 5`, `DefaultCountryCode = "+91"`. The validator returns success when `Enabled` is false, refuses `LocalCapture` outside Development and Testing, and requires the provider credentials otherwise — the same shape as `EmailOptionsValidator`.
 
 `TwilioSmsSender` posts form-encoded `To`/`From`/`Body` (plus the DLT parameters when configured) to `https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json` with basic auth over a named `HttpClient`, 30-second timeout, and maps a non-2xx status to an exception the worker's retry already handles. No new NuGet package.
 
-- [ ] **Step 5: Confirm green and commit**
+- [x] **Step 5: Confirm green and commit**
 
 ```bash
 git commit -am "feat(auth): deliver phone codes through an encrypted outbox and a pluggable SMS transport"
@@ -372,7 +382,7 @@ git commit -am "feat(auth): deliver phone codes through an encrypted outbox and 
 - Consumes: Task 3's service; `IPhoneChallengeRepository.HasBusinessHistoryAsync` (`User.RequiresOperatorRecovery`, already set by `AddShopMembership`).
 - Produces: `Task<ErrorOr<Guid>> RequestPhoneChangeAsync(Guid actor, long version, string phone, string reauthProof, CancellationToken ct)`, `Task<ErrorOr<bool>> ConfirmPhoneChangeAsync(Guid actor, long version, Guid challengeId, string code, CancellationToken ct)`; `User.ClearVerifiedPhone()`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```csharp
 [Fact] public void ClaimEmail_ClearsVerifiedPhone()
@@ -394,16 +404,16 @@ git commit -am "feat(auth): deliver phone codes through an encrypted outbox and 
 // users.phone_number unchanged and returns Auth.PhoneChangeRequiresProof.
 ```
 
-- [ ] **Step 2: Run them and watch them fail**
+- [x] **Step 2: Run them and watch them fail**
 
 Run: `dotnet test tests/backend/unit/Intelibill.Domain.Unit.Tests --filter ClaimEmail`
 Expected: FAIL
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `ClaimEmail` calls `ClearVerifiedPhone`. `UpdateMyProfile` leaves `PhoneNumber` alone when `IsPhoneVerified` and the submitted value differs, returning `Auth.PhoneChangeRequiresProof`; the unverified contact-phone case keeps working as it does today. Enrollment and login refuse any number currently held by an account with `RequiresOperatorRecovery` that has not itself proved the number — shop ownership by someone else is never authority to replace global recovery fields, so the answer is an audited support route, not an automatic claim. Phone change requires the existing reauthentication proof plus a fresh challenge on the new number, then `InvalidateCredentialsAsync` and a notice to both numbers.
 
-- [ ] **Step 4: Confirm green and commit**
+- [x] **Step 4: Confirm green and commit**
 
 ```bash
 git commit -am "feat(auth): protect legacy accounts from recycled numbers and require proof to change a verified phone"
@@ -421,7 +431,7 @@ git commit -am "feat(auth): protect legacy accounts from recycled numbers and re
 - Consumes: Task 3's three routes.
 - Produces: `AuthService.requestPhoneChallenge(phone, purpose)`, `confirmPhoneChallenge(challengeId, code, purpose)`, `phoneAuthAvailability()`; models `PhoneChallengeReceipt`, `PhonePurpose`.
 
-- [ ] **Step 1: Write the failing spec**
+- [x] **Step 1: Write the failing spec**
 
 ```ts
 it('otpFailureDoesNotErasePendingWork', ...)   // a wrong code leaves the entered phone and the challenge id in place
@@ -430,18 +440,18 @@ it('showsUnavailableStateWhenPhoneAuthDisabled', ...)
 it('masksTheDestinationItWasGiven', ...)
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 Run: `bun run test --run phone-verification-page.component.spec.ts` from `src/frontend`
 Expected: FAIL — component does not exist.
 
-- [ ] **Step 3: Implement the page and the login-page entry point**
+- [x] **Step 3: Implement the page and the login-page entry point**
 
 Standalone component, PrimeNG, NgRx-free local state. Show the masked destination the server returned, a resend countdown computed from `resendAllowedAt`, the code expiry, and the alternate verified recovery method when one exists. The login page shows the phone option only when `phoneAuthAvailability()` says enabled, and the page renders a plain unavailable state otherwise.
 
-- [ ] **Step 4: Add translations to all nine locale files**
+- [x] **Step 4: Add translations to all nine locale files**
 
-- [ ] **Step 5: Confirm green and commit**
+- [x] **Step 5: Confirm green and commit**
 
 ```bash
 cd src/frontend && bun run test --run phone-verification-page.component.spec.ts
@@ -454,7 +464,7 @@ git commit -am "feat(frontend): add the phone verification page"
 
 **Files:** `docs/auth-phone-setup.md`; no production code.
 
-- [ ] **Step 1: Run the backend suites**
+- [x] **Step 1: Run the backend suites**
 
 ```bash
 dotnet build src/backend/Intelibill.slnx
@@ -462,13 +472,13 @@ dotnet test src/backend/Intelibill.slnx
 ```
 Expected: no new failures against the 667-test snapshot; every test named in Tasks 1–5 passing by name.
 
-- [ ] **Step 2: Run the frontend suite**
+- [x] **Step 2: Run the frontend suite**
 
 ```bash
 cd src/frontend && bun run test
 ```
 
-- [ ] **Step 3: Write `docs/auth-phone-setup.md`**
+- [x] **Step 3: Write `docs/auth-phone-setup.md`**
 
 The three delivery tiers from the decision section above, as a table of configuration keys, mirroring `docs/auth-email-setup.md`. Include the DLT note and the masked-logging rule.
 
@@ -476,7 +486,7 @@ The three delivery tiers from the decision section above, as a table of configur
 
 `PhoneAuth:Enabled` stays `false` on every deployed environment until: one controlled real-delivery rehearsal on a Twilio trial (signup → sign out → new device → sign in → lost-session recovery) has been completed and recorded; the provider, template and consent configuration has been reviewed; and plan 08's destination, IP and attempt budgets are in place. Partial OTP enrollment alone is not sufficient evidence for release. No vendor call is part of this plan.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -am "docs(auth): document phone verification setup and the enablement gate"

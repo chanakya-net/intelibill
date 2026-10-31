@@ -94,6 +94,46 @@ contract migration (separate change) re-runs the hash-and-revoke step for rows t
 wrote during the deploy window, ends the sessions that hold no hashed credential, drops `token` and its
 index, and makes `token_hash` required.
 
+## Verified Phone Credentials
+
+Phone sign-in is off unless a deployment sets `PhoneAuth:Enabled`. The legacy
+`POST /api/auth/register/phone` is closed outright: it granted a session on a number nobody had
+proved, so a registrant could not sign in again once the session was gone, and anyone could reserve
+someone else's number. It still answers, with `503 Auth.PhoneEnrollmentUnavailable`, so an
+un-updated client gets a documented refusal rather than a 404. Accounts it created keep their data
+and their sessions.
+
+**Challenges.** `phone_challenges` holds one purpose-bound proof — `enrollment`, `login` or
+`phone-change` — carrying a keyed HMAC-SHA256 of a six-digit code under `Identity:PhoneCodeKey`,
+never a bare digest: a million possibilities is recoverable from a database dump in milliseconds.
+The key id is derived from the key, so rotating the secret stops old rows matching instead of
+comparing them against the wrong key. Default policy: five-minute lifetime, five attempts,
+sixty-second resend spacing, five codes per number per hour.
+
+**Locking.** `PhoneChallengeRepository.BeginAsync` takes the same `pg_advisory_xact_lock` the email
+ownership flow takes, so a phone and an email transition on one account serialize rather than race,
+and `FindForUpdateAsync` reads the challenge `FOR UPDATE`. A wrong guess costs a committed attempt;
+a right one is consumed in the transaction that issues the session, which is what makes two
+confirmations of one delivered code produce exactly one session. A resend supersedes its
+predecessor, so which code is live is never ambiguous.
+
+**Identity rules.** `users.is_phone_verified` backfills `false` — unknown is not verified — and
+while it is false the number is contact information, never a credential. Verifying a number
+increments `security_version`; clearing the number clears the proof with it, so no account claims a
+verified factor for a number it no longer holds. A profile edit and shop administration cannot move
+a verified number at all. A number held by an account with business history that never proved it is
+refused with `Auth.RecoverySupportRequired`: carriers recycle numbers, so proving one today says
+nothing about having owned that account. A number held as unproved contact information on an
+account with no business history is released to whoever proves it rather than merged into it.
+
+**Delivery.** Codes go into `identity_sms` encrypted with AES-GCM under the shared
+`Identity:OutboxKey`, with the destination as associated data, and `IdentitySmsWorker` delivers them
+on a bounded retry lease with no transaction held across the network call. `ISmsSender` takes a
+rendered body, not a code and a template id, so no transport is in a position to log a code; local
+capture, restricted to Development and Testing by `PhoneAuthOptionsValidator`, is the one place a
+code is logged. See [auth-phone-setup.md](auth-phone-setup.md) for the transports, the TRAI DLT
+routes and the enablement gate.
+
 ## Test Structure
 
 | Suite | Path | Count |
