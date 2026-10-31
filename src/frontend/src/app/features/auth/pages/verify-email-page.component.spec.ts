@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { Location } from '@angular/common';
 import { ActivatedRoute, Router, provideRouter } from '@angular/router';
+import { Store } from '@ngrx/store';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 import { of, throwError } from 'rxjs';
 import { AuthService } from '../../../core/auth/auth.service';
@@ -19,6 +20,7 @@ describe('VerifyEmailPageComponent', () => {
       imports: [VerifyEmailPageComponent, TranslocoTestingModule.forRoot({ langs: {} })],
       providers: [
         provideRouter([]),
+        { provide: Store, useValue: { dispatch: vi.fn(), select: vi.fn(), selectSignal: vi.fn() } },
         { provide: AuthService, useValue: auth },
         { provide: ActivatedRoute, useValue: { snapshot: { fragment } } },
       ],

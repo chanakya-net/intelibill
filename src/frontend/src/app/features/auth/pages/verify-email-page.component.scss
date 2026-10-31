@@ -1,0 +1,8 @@
+@use '../../../core/styles/auth-shared' as *;
+
+.verify-email-links {
+  display: grid;
+  gap: 0.35rem;
+  text-align: center;
+  font-size: 0.95rem;
+}

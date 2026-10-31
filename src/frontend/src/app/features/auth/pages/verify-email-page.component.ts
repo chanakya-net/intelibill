@@ -10,6 +10,8 @@ import { finalize } from 'rxjs';
 import { AuthService } from '../../../core/auth/auth.service';
 import { EmailVerification, IdentityFlowService } from '../../../core/auth/identity-flow.service';
 import { identityError } from '../../../core/auth/identity-errors';
+import { LocalizationService } from '../../../core/i18n/localization.service';
+import { NATIVE_LANGUAGE_NAMES, SupportedLanguage } from '../../../core/i18n/language.constants';
 import { InputValidators } from '../../../shared/forms/input-validation';
 @Component({
   selector: 'app-verify-email-page',
@@ -23,7 +25,7 @@ import { InputValidators } from '../../../shared/forms/input-validation';
     PasswordModule,
   ],
   templateUrl: './verify-email-page.component.html',
-  styleUrl: './register-page.component.scss',
+  styleUrl: './verify-email-page.component.scss',
 })
 export class VerifyEmailPageComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
@@ -31,6 +33,10 @@ export class VerifyEmailPageComponent implements OnInit {
   private readonly router = inject(Router);
   readonly auth = inject(AuthService);
   private readonly flow = inject(IdentityFlowService);
+  private readonly localizationService = inject(LocalizationService);
+  readonly supportedLanguages = this.localizationService.supportedLanguages;
+  readonly currentLanguage = this.localizationService.currentLanguage;
+  readonly nativeLanguageNames = NATIVE_LANGUAGE_NAMES;
   private proof: EmailVerification | null = null;
   readonly error = signal('');
   readonly busy = signal(false);
@@ -144,5 +150,8 @@ export class VerifyEmailPageComponent implements OnInit {
   switchAccount(): void {
     this.auth.clearSession();
     this.signIn();
+  }
+  async onLanguageChanged(language: string): Promise<void> {
+    await this.localizationService.setLanguage(language as SupportedLanguage);
   }
 }
