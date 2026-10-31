@@ -65,6 +65,7 @@ Dependency registration: each layer's `DependencyInjection.cs`
 - RLS-enforced row isolation per `active_shop_id`
 - JWT carries `active_shop_id` claim; switching returns new scoped token
 - Auth methods: verified email enrollment, phone registration, password reset, token refresh/revoke. No external identity provider: credentials are the only way in.
+- Device sessions: every access token names an `AuthSession` (`sid`); only a credential check creates one, and a session can be revoked on its own. A token with no `sid` is refused.
 - Shop memberships: roles = `Owner`, `Manager`, `Staff`
 - Rate limiting: `RateLimitAttribute`/`RateLimitFilter` on sensitive endpoints
 - Logging: Serilog + `SensitiveDataDestructuringPolicy`
@@ -97,7 +98,8 @@ DB Options: `src/backend/Intelibill.Infrastructure/Options/DatabaseOptions.cs:7`
 
 **Key endpoints**:
 - Auth: `POST register/email`, `register/phone`, `login/email`, `password-reset/{request,confirm}`, `token/{refresh,revoke}`, `enrollment/email/{request,confirm}`, `enrollment/email/claim/{request,confirm}`, `reauthenticate`, `email-change/{request,confirm}`, `GET sign-in-methods`
-- Shops: `GET me`, `{shopId}`, `POST`, `POST switch` (any active member), `PUT {shopId}`, `PATCH {shopId}/members/{userId}`, `GET/POST {shopId}/invitations`, `DELETE {shopId}/invitations/{invitationId}`
+- Sessions: `GET users/me/sessions`, `DELETE users/me/sessions/{id}`, `POST users/me/sessions/revoke-all` (ends every device, the caller's included)
+- Shops: `GET me`, `{shopId}`, `POST` and `POST switch` (any active member; both return an access scope, never a refresh token), `PUT {shopId}`, `PATCH {shopId}/members/{userId}`, `GET/POST {shopId}/invitations`, `DELETE {shopId}/invitations/{invitationId}`
 - Items: `GET stream` (SSE), `GET`, `GET details`, `POST`, `PATCH {itemId}`
 - Inventory: `POST inbound`, `inbound/batch`, `GET batches`, `batches/available`, `PUT/POST/void batches/{batchId}`
 - Sales: `POST`, `GET`, `GET {saleId}`, `GET profit-loss`
@@ -105,7 +107,7 @@ DB Options: `src/backend/Intelibill.Infrastructure/Options/DatabaseOptions.cs:7`
 - Suppliers: CRUD + `ledger`, `payments`
 - Expenses: `GET`, `POST`, `{id}`, `{id}/correct`, `categories`
 - Bank Accounts: CRUD
-- Users: `GET` (shop), `me/change-password`; `POST` (add) and `PUT {userId}` are refused — onboarding goes through shop invitations and shop administration through the membership endpoint
+- Users: `GET` (shop), `PUT me` (returns the saved profile, no token), `me/change-password` (ends every device, including the caller's); `POST` (add) and `PUT {userId}` are refused — onboarding goes through shop invitations and shop administration through the membership endpoint
 - Invitations: `POST invitations/{invitationId}/accept` (the invited person's own session)
 
 **Infrastructure**:
@@ -116,9 +118,9 @@ DB Options: `src/backend/Intelibill.Infrastructure/Options/DatabaseOptions.cs:7`
 
 ## Domain Model
 
-**Entities**: `User`, `Shop`, `ShopMembership`, `ShopInvitation`, `Item`, `Inventory`, `InventoryBatch`, `StockTransaction`, `Sale`, `SaleItem`, `Customer`, `CustomerLedgerEntry`, `Supplier`, `SupplierLedgerEntry`, `Expense`, `ExpenseCategory`, `BankAccount`, `RefreshToken`, `PasswordResetToken`
+**Entities**: `User`, `AuthSession`, `Shop`, `ShopMembership`, `ShopInvitation`, `Item`, `Inventory`, `InventoryBatch`, `StockTransaction`, `Sale`, `SaleItem`, `Customer`, `CustomerLedgerEntry`, `Supplier`, `SupplierLedgerEntry`, `Expense`, `ExpenseCategory`, `BankAccount`, `RefreshToken`, `PasswordResetToken`
 
-**Enums**: `ShopRole`, `MembershipStatus`, `PaymentMethod`, `BankAccountType`, `StockTransactionType`, `SupplierLedgerEntryType`, `CustomerLedgerEntryType`, `SupplierStatus`
+**Enums**: `ShopRole`, `MembershipStatus`, `CredentialKind`, `PaymentMethod`, `BankAccountType`, `StockTransactionType`, `SupplierLedgerEntryType`, `CustomerLedgerEntryType`, `SupplierStatus`
 
 ## Structure
 
