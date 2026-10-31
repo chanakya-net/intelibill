@@ -2121,6 +2121,15 @@
     "continue": "Continue",
     "emailPending": "If this address is eligible, a confirmation email will arrive. Your current email stays unchanged. Open the link and confirm while signed in to this account.",
     "reauthFailed": "Verification could not be completed. Choose the action again and verify with a current sign-in method.",
-    "signInAgain": "Account security updated. Please sign in again."
+    "signInAgain": "Account security updated. Please sign in again.",
+    "devices": "Signed-in devices",
+    "devicesDescription": "Every device signed in to this account. Sign out one you do not recognise, or sign out of all of them and sign in again.",
+    "thisDevice": "This device",
+    "deviceUnknown": "Unrecognised device",
+    "lastSeen": "Last used",
+    "endDevice": "Sign out this device",
+    "endAllDevices": "Sign out everywhere",
+    "endAllConfirm": "This signs out every device, including this one. Continue?",
+    "noDevices": "No devices are signed in."
   }
 }
