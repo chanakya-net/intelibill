@@ -240,12 +240,6 @@ describe('ShellComponent', () => {
   it('opens and closes profile overlays from profile actions', () => {
     const component = setup();
 
-    component.onOpenUpdateProfile();
-    expect(component.showUpdateProfileOverlay()).toBe(true);
-
-    component.onProfileOverlayClose();
-    expect(component.showUpdateProfileOverlay()).toBe(false);
-
     component.onOpenChangePassword();
     expect(component.showChangePasswordOverlay()).toBe(true);
 

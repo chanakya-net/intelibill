@@ -15,7 +15,6 @@ import {
   selectShops,
   selectShopsSubmitting,
 } from '../../features/shops/state/shops.selectors';
-import { UpdateProfileOverlayComponent } from '../../features/users/components/update-profile-overlay.component';
 import { ChangePasswordOverlayComponent } from '../../features/users/components/change-password-overlay.component';
 import { LocalizationService } from '../i18n/localization.service';
 import { DEFAULT_LANGUAGE, SupportedLanguage } from '../i18n/language.constants';
@@ -43,7 +42,6 @@ import { offlineEnablementErrorKeyForReason } from '../../features/shops/compone
     RouterOutlet,
     CreateShopOverlayComponent,
     ManageShopOverlayComponent,
-    UpdateProfileOverlayComponent,
     ChangePasswordOverlayComponent,
     MobileNavComponent,
     SidebarNavComponent,
@@ -87,7 +85,6 @@ export class ShellComponent {
   readonly showCreateShopOverlayManual = signal(false);
   readonly showCreateShopOverlayAuto = signal(false);
   readonly showManageShopOverlay = signal(false);
-  readonly showUpdateProfileOverlay = signal(false);
   readonly showChangePasswordOverlay = signal(false);
   readonly currentLanguage = this.localizationService.currentLanguage;
 
@@ -121,7 +118,6 @@ export class ShellComponent {
       hasShops: this.shops().length > 0,
       onOpenAddShop: () => this.onOpenAddShop(),
       onOpenManageShop: () => this.onOpenManageShop(),
-      onOpenUpdateProfile: () => this.onOpenUpdateProfile(),
       onOpenChangePassword: () => this.onOpenChangePassword(),
     }),
   );
@@ -313,11 +309,10 @@ export class ShellComponent {
     this.store.dispatch(AppShellActions.setSidebarCollapsed({ collapsed: true }));
   }
 
-  onOpenUpdateProfile(): void { this.showUpdateProfileOverlay.set(true); }
   onOpenChangePassword(): void { this.showChangePasswordOverlay.set(true); }
   onOpenAddShop(): void { this.showCreateShopOverlayManual.set(true); }
   onOpenManageShop(): void { this.showManageShopOverlay.set(true); }
-  onProfileOverlayClose(): void { this.showUpdateProfileOverlay.set(false); this.showChangePasswordOverlay.set(false); }
+  onProfileOverlayClose(): void { this.showChangePasswordOverlay.set(false); }
   onManageShopOverlayClose(): void { this.showManageShopOverlay.set(false); }
 
   onOpenAccountSecurity(): void {
