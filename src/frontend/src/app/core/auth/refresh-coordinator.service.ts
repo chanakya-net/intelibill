@@ -11,12 +11,6 @@ export interface RefreshLockManager {
   ): Promise<void>;
 }
 
-/** One device session: refreshes are serialized per user and session, never across them. */
-export interface RefreshLockScope {
-  readonly userId: string;
-  readonly sessionId: string | null;
-}
-
 export const REFRESH_LOCK_MANAGER = new InjectionToken<RefreshLockManager | null>(
   'REFRESH_LOCK_MANAGER',
   {
@@ -41,7 +35,10 @@ export const REFRESH_LEASE_STORAGE = new InjectionToken<Storage | null>('REFRESH
 const LOCK_PREFIX = 'intelibill.auth.refresh';
 const LEASE_PREFIX = 'intelibill.auth.refresh-lease';
 
-/** Longer than a refresh round trip, so a live holder is not overtaken; short enough that a closed tab's lease does not strand the others. */
+/**
+ * Longer than the refresh request timeout, so a live holder is not overtaken; short enough that a
+ * closed tab's lease does not strand the others.
+ */
 export const REFRESH_LEASE_TTL_MS = 15_000;
 /** How long a tab waits for the fallback lease before refreshing anyway. */
 export const REFRESH_LEASE_WAIT_LIMIT_MS = 10_000;
@@ -53,10 +50,13 @@ interface Lease {
 }
 
 /**
- * Lets one browser tab at a time renew a given session. Refresh credentials are single-use: the
- * server treats a credential presented after it was already exchanged as a replay and ends the
+ * Lets one browser tab at a time renew a given user's session. Refresh credentials are single-use:
+ * the server treats a credential presented after it was already exchanged as a replay and ends the
  * session, so two tabs renewing together would sign the user out of both. The tab that waited
  * re-reads the session once it holds the lock and adopts what the first tab stored.
+ *
+ * Keyed by user, not by device session: a tab restored from storage may not know its session id,
+ * and two tabs that disagree on the key would not exclude each other at all.
  *
  * Uses the Web Locks API. Where that is missing, a localStorage lease stands in: it is best-effort
  * and bounded, and the server's answer remains the final word either way.
@@ -68,11 +68,11 @@ export class RefreshCoordinator {
   private readonly owner = createOwnerId();
 
   /**
-   * Subscribes to `work` only while holding the lock for `scope`, and holds it until `work`
-   * completes, errors or is unsubscribed.
+   * Subscribes to `work` only while holding the refresh lock for `userId`, and holds it until
+   * `work` completes, errors or is unsubscribed.
    */
-  runExclusive<T>(scope: RefreshLockScope, work: () => Observable<T>): Observable<T> {
-    const name = `${scope.userId}:${scope.sessionId ?? 'unknown'}`;
+  runExclusive<T>(userId: string, work: () => Observable<T>): Observable<T> {
+    const name = userId;
 
     return new Observable<T>((subscriber) => {
       let release: () => void = () => undefined;

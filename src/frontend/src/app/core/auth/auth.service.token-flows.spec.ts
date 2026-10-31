@@ -4,11 +4,12 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { firstValueFrom } from 'rxjs';
+import { HttpErrorResponse } from '@angular/common/http';
 
 import { AUTH_ENDPOINTS } from './auth.constants';
 import { AuthResult, AuthSession, RefreshTokenRequest } from './auth.models';
 import { AuthStorage } from './auth.storage';
-import { AuthSessionState, AuthTokenService } from './auth-token.service';
+import { AuthSessionState, AuthTokenService, REFRESH_REQUEST_TIMEOUT_MS } from './auth-token.service';
 import {
   createAuthServiceTestHarness,
   buildAuthResult,
@@ -151,6 +152,30 @@ describe('AuthService (token flows)', () => {
     await expect(online).resolves.toBe('REFRESH_FAILED');
     expect(service.session()).toBeNull();
     http.verify();
+  });
+
+  it('treats a renewal that never answers as a lost connection, so the lock is not held forever', async () => {
+    vi.useFakeTimers();
+    const now = Date.now();
+    t.storage.loadSession.mockReturnValue(
+      buildSession({
+        sessionId: 'session-1',
+        accessTokenExpiresAt: new Date(now - 10_000).toISOString(),
+        refreshTokenExpiresAt: new Date(now + 600_000).toISOString(),
+      })
+    );
+    t.networkStatus.canReachApi.mockReturnValue(false);
+    const { service, http } = t.setup();
+    let failure: unknown;
+
+    service.refreshAccessToken({ preserveSessionOnError: true }).subscribe({ error: (error: unknown) => (failure = error) });
+    const hung = http.expectOne(AUTH_ENDPOINTS.refreshToken);
+    await vi.advanceTimersByTimeAsync(REFRESH_REQUEST_TIMEOUT_MS);
+
+    expect(hung.cancelled).toBe(true);
+    expect(failure).toBeInstanceOf(HttpErrorResponse);
+    expect((failure as HttpErrorResponse).status).toBe(0);
+    expect(service.session()).not.toBeNull();
   });
 
   it('adopts a rotated session broadcast from another tab', () => {
@@ -471,5 +496,60 @@ describe('AuthTokenService across tabs', () => {
 
     await expect(renewed).resolves.toMatchObject({ refreshToken: 'refresh-2', user: { id: 'user-1' } });
     http.verify();
+  });
+  it('serializes a tab restored from storage without a session id against one that knows it', async () => {
+    const known = expiringSession();
+    const restored = expiringSession({ sessionId: null });
+    stored = known;
+    const { tabA, tabB, http } = setupTabs();
+    const stateA = tabState(known);
+    const stateB = tabState(restored);
+
+    const renewedA = firstValueFrom(tabA.refreshAccessToken(stateA));
+    const renewedB = firstValueFrom(tabB.refreshAccessToken(stateB));
+
+    http.expectOne(AUTH_ENDPOINTS.refreshToken).flush(renewal('refresh-2'));
+
+    await expect(renewedA).resolves.toMatchObject({ refreshToken: 'refresh-2' });
+    await expect(renewedB).resolves.toMatchObject({ refreshToken: 'refresh-2' });
+    http.expectNone(AUTH_ENDPOINTS.refreshToken);
+    http.verify();
+  });
+
+  it('does not bring a session back when the renewal answers after sign-out', async () => {
+    const session = expiringSession();
+    stored = session;
+    const { tabA, http } = setupTabs();
+    const stateA = tabState(session);
+
+    const renewed = firstValueFrom(tabA.refreshAccessToken(stateA));
+    const rotation = http.expectOne(AUTH_ENDPOINTS.refreshToken);
+    stateA.clearSession();
+    rotation.flush(renewal('refresh-2'));
+
+    await expect(renewed).resolves.toBeNull();
+    expect(stateA.current).toBeNull();
+    expect(stored).toBeNull();
+  });
+
+  it("never clears or overwrites another account's session with a late answer for the previous one", async () => {
+    const previous = expiringSession();
+    const next = buildSession({
+      user: { ...previous.user, id: 'user-2', email: 'next@example.com' },
+      sessionId: 'session-9',
+      refreshToken: 'their-refresh',
+    });
+    stored = previous;
+    const { tabA, http } = setupTabs();
+    const stateA = tabState(previous);
+
+    const refused = firstValueFrom(tabA.refreshAccessToken(stateA));
+    const rotation = http.expectOne(AUTH_ENDPOINTS.refreshToken);
+    stateA.setSession(next);
+    rotation.flush({}, { status: 401, statusText: 'Unauthorized' });
+
+    await expect(refused).resolves.toBe(next);
+    expect(stateA.current).toBe(next);
+    expect(stored).toBe(next);
   });
 });

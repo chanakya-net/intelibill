@@ -17,6 +17,9 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
   // The shop this request is about to be authorized for. If a refresh moves the session to a
   // different shop, replaying the request there would act on the wrong shop's data.
   const shopAtRequest = authService.session()?.activeShopId ?? null;
+  // Who the request was made as. A renewal can finish after this tab moved to another account;
+  // replaying the request then would act as someone who never made it.
+  const userAtRequest = authService.session()?.user?.id ?? null;
   const authorizedRequest = accessToken
     ? request.clone({ setHeaders: { Authorization: `Bearer ${accessToken}` } })
     : request;
@@ -38,6 +41,10 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
         return throwError(() => error);
       }
 
+      // Set when the tab is now signed in as someone else: the failure is reported, but the session
+      // this tab holds belongs to that other account and is not this request's to clear.
+      let tabMovedToAnotherAccount = false;
+
       return authService.refreshAccessToken().pipe(
         switchMap((session) => {
           if (!session) {
@@ -48,6 +55,11 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
               );
             }
 
+            return throwError(() => error);
+          }
+
+          if ((session.user?.id ?? null) !== userAtRequest) {
+            tabMovedToAnotherAccount = true;
             return throwError(() => error);
           }
 
@@ -65,6 +77,10 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
           return next(retryRequest);
         }),
         catchError((refreshError) => {
+          if (tabMovedToAnotherAccount) {
+            return throwError(() => refreshError);
+          }
+
           if (shouldRedirectOnAuthFailure) {
             authService.clearSession();
             return of(router.navigateByUrl('/login')).pipe(

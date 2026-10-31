@@ -73,7 +73,7 @@ internal sealed partial class AuthSessionService(
 
         var (authority, session, credential, now) = presented;
         if (credential.IsConsumed)
-            return await EndForReuseAsync(presented, ct);
+            return await EndForReuseAsync(presented);
 
         if (!credential.IsUsableAt(now) ||
             authority is null ||
@@ -126,7 +126,7 @@ internal sealed partial class AuthSessionService(
         // Signing out with a credential that was already exchanged is the same signal as renewing
         // with one, and gets the same answer.
         if (presented.Credential.IsConsumed)
-            return await EndForReuseAsync(presented, ct);
+            return await EndForReuseAsync(presented);
 
         if (!presented.Credential.IsUsableAt(presented.Now))
             return Errors.Auth.InvalidRefreshToken;
@@ -311,10 +311,15 @@ internal sealed partial class AuthSessionService(
     /// session and everything it issued end. The revocation is committed before the refusal is
     /// returned — rolling it back with the request would undo the one thing this path is for.
     /// </summary>
-    private async Task<Error> EndForReuseAsync(PresentedCredential presented, CancellationToken ct)
+    /// <remarks>
+    /// Deliberately not cancellable. Once the replay is detected, the client closing its tab must
+    /// not abort the revocation: the caller may be the victim presenting the credential an attacker
+    /// already exchanged, and cancelling here would leave the attacker's successor live.
+    /// </remarks>
+    private async Task<Error> EndForReuseAsync(PresentedCredential presented)
     {
-        await sessions.RevokeAsync(presented.Session, RefreshReuse, presented.Now, ct);
-        var committed = await sessions.CommitAsync(ct);
+        await sessions.RevokeAsync(presented.Session, RefreshReuse, presented.Now, CancellationToken.None);
+        var committed = await sessions.CommitAsync(CancellationToken.None);
 
         LogRefreshReuse(presented.Session.UserId, presented.Session.Id, presented.Credential.Id, committed);
 

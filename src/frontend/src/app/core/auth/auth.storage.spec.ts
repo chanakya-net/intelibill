@@ -70,4 +70,22 @@ describe('AuthStorage remembered identifier', () => {
     expect(localStorage.getItem(LAST_IDENTIFIER_KEY)).toBeNull();
     expect(localStorage.getItem(LAST_EMAIL_KEY)).toBeNull();
   });
+
+  it('keeps the device session id across a reload', () => {
+    const session = {
+      accessToken: 'access',
+      refreshToken: 'refresh',
+      accessTokenExpiresAt: new Date(Date.now() + 60_000).toISOString(),
+      refreshTokenExpiresAt: new Date(Date.now() + 120_000).toISOString(),
+      rememberMe: true,
+      user: { id: 'user-1', email: 'user@example.com', phoneNumber: null, firstName: 'Test', lastName: 'User' },
+      activeShopId: null,
+      shops: [],
+      sessionId: 'session-1',
+    };
+
+    storage.saveSession(session);
+
+    expect(storage.loadSession()?.sessionId).toBe('session-1');
+  });
 });

@@ -308,6 +308,27 @@ public class AuthSessionServiceTests
     }
 
     /// <summary>
+    /// The replay may be the victim presenting the credential an attacker already exchanged. If the
+    /// victim closes the tab mid-request, the revocation must still commit, or the attacker's
+    /// successor stays live.
+    /// </summary>
+    [Fact]
+    public async Task RotateAsync_ConsumedCredential_RevocationIgnoresTheRequestAbort()
+    {
+        var user = VerifiedOwner(out var shop);
+        AccountIs(user);
+        var session = LiveSession(user, shop.Id);
+        var held = GivenRefreshCredential(user, session.Id);
+        held.Rotate(RefreshTokenSecrets.Hash("successor"), Now.AddDays(7), Now.AddMinutes(-1));
+        using var requestAborted = new CancellationTokenSource();
+
+        await Service().RotateAsync("held", null, requestAborted.Token);
+
+        await _sessions.Received(1).RevokeAsync(session, "refresh-reuse", Now, Arg.Is<CancellationToken>(t => !t.CanBeCanceled));
+        await _sessions.Received(1).CommitAsync(Arg.Is<CancellationToken>(t => !t.CanBeCanceled));
+    }
+
+    /// <summary>
     /// A value that was never issued says nothing about any session, so it ends nothing — otherwise
     /// guessing would be a way to sign other people out.
     /// </summary>

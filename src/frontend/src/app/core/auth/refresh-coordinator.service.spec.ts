@@ -44,8 +44,8 @@ class MemoryStorage implements Storage {
   }
 }
 
-const SESSION = { userId: 'user-1', sessionId: 'session-1' } as const;
-const LEASE_KEY = 'intelibill.auth.refresh-lease:user-1:session-1';
+const USER = 'user-1';
+const LEASE_KEY = 'intelibill.auth.refresh-lease:user-1';
 
 /** Two tabs: separate coordinators, one browser lock manager and one localStorage. */
 function openTabs(locks: RefreshLockManager | null, storage: Storage | null): [RefreshCoordinator, RefreshCoordinator] {
@@ -79,8 +79,8 @@ describe('RefreshCoordinator', () => {
       const first = new Subject<string>();
       const startedB = vi.fn(() => new Subject<string>());
 
-      tabA.runExclusive(SESSION, () => first).subscribe();
-      tabB.runExclusive(SESSION, startedB).subscribe();
+      tabA.runExclusive(USER, () => first).subscribe();
+      tabB.runExclusive(USER, startedB).subscribe();
       await settle();
       expect(startedB).not.toHaveBeenCalled();
 
@@ -90,12 +90,12 @@ describe('RefreshCoordinator', () => {
       expect(startedB).toHaveBeenCalledTimes(1);
     });
 
-    it('doesNotSerializeDifferentSessions: another device session renews independently', async () => {
+    it('doesNotSerializeDifferentUsers: another account renews independently', async () => {
       const [tabA, tabB] = openTabs(new FakeLockManager(), null);
       const startedB = vi.fn(() => new Subject<string>());
 
-      tabA.runExclusive(SESSION, () => new Subject<string>()).subscribe();
-      tabB.runExclusive({ userId: 'user-1', sessionId: 'session-2' }, startedB).subscribe();
+      tabA.runExclusive(USER, () => new Subject<string>()).subscribe();
+      tabB.runExclusive('user-2', startedB).subscribe();
       await settle();
 
       expect(startedB).toHaveBeenCalledTimes(1);
@@ -106,8 +106,8 @@ describe('RefreshCoordinator', () => {
       const failure = vi.fn();
       const startedB = vi.fn(() => new Subject<string>());
 
-      tabA.runExclusive(SESSION, () => throwError(() => new Error('401'))).subscribe({ error: failure });
-      tabB.runExclusive(SESSION, startedB).subscribe();
+      tabA.runExclusive(USER, () => throwError(() => new Error('401'))).subscribe({ error: failure });
+      tabB.runExclusive(USER, startedB).subscribe();
       await settle();
 
       expect(failure).toHaveBeenCalledTimes(1);
@@ -119,8 +119,8 @@ describe('RefreshCoordinator', () => {
       const [tabA, tabB] = openTabs(locks, null);
       const startedB = vi.fn(() => new Subject<string>());
 
-      const held = tabA.runExclusive(SESSION, () => new Subject<string>()).subscribe();
-      tabB.runExclusive(SESSION, startedB).subscribe();
+      const held = tabA.runExclusive(USER, () => new Subject<string>()).subscribe();
+      tabB.runExclusive(USER, startedB).subscribe();
       held.unsubscribe();
       await settle();
 
@@ -134,12 +134,12 @@ describe('RefreshCoordinator', () => {
       const values: string[] = [];
       let completed = false;
 
-      tab.runExclusive(SESSION, () => source).subscribe({
+      tab.runExclusive(USER, () => source).subscribe({
         next: (value) => values.push(value),
         complete: () => (completed = true),
       });
       const name = locks.requested[0];
-      expect(name).toBe('intelibill.auth.refresh:user-1:session-1');
+      expect(name).toBe('intelibill.auth.refresh:user-1');
       expect(locks.isHeld(name)).toBe(true);
 
       source.next('renewed');
@@ -160,10 +160,10 @@ describe('RefreshCoordinator', () => {
       const first = new Subject<string>();
       const startedB = vi.fn(() => new Subject<string>());
 
-      tabA.runExclusive(SESSION, () => first).subscribe();
+      tabA.runExclusive(USER, () => first).subscribe();
       expect(storage.getItem(LEASE_KEY)).not.toBeNull();
 
-      tabB.runExclusive(SESSION, startedB).subscribe();
+      tabB.runExclusive(USER, startedB).subscribe();
       await vi.advanceTimersByTimeAsync(REFRESH_LEASE_POLL_MS * 3);
       expect(startedB).not.toHaveBeenCalled();
 
@@ -179,7 +179,7 @@ describe('RefreshCoordinator', () => {
       const [tab] = openTabs(null, storage);
       const started = vi.fn(() => new Subject<string>());
 
-      tab.runExclusive(SESSION, started).subscribe();
+      tab.runExclusive(USER, started).subscribe();
       await vi.advanceTimersByTimeAsync(REFRESH_LEASE_WAIT_LIMIT_MS - REFRESH_LEASE_POLL_MS);
       expect(started).not.toHaveBeenCalled();
 
@@ -193,7 +193,7 @@ describe('RefreshCoordinator', () => {
       const [tab] = openTabs(null, storage);
       const started = vi.fn(() => new Subject<string>());
 
-      tab.runExclusive(SESSION, started).subscribe();
+      tab.runExclusive(USER, started).subscribe();
 
       expect(started).toHaveBeenCalledTimes(1);
     });
@@ -203,7 +203,7 @@ describe('RefreshCoordinator', () => {
       const [tab] = openTabs(null, storage);
       const work = new Subject<string>();
 
-      tab.runExclusive(SESSION, () => work).subscribe();
+      tab.runExclusive(USER, () => work).subscribe();
       expect(storage.getItem(LEASE_KEY)).not.toBeNull();
 
       work.complete();
@@ -215,7 +215,7 @@ describe('RefreshCoordinator', () => {
       const [tab] = openTabs(null, null);
       const started = vi.fn(() => new Subject<string>());
 
-      tab.runExclusive(SESSION, started).subscribe();
+      tab.runExclusive(USER, started).subscribe();
 
       expect(started).toHaveBeenCalledTimes(1);
     });

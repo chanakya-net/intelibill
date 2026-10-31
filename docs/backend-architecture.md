@@ -74,9 +74,12 @@ A refresh credential renews one device session (`AuthSession`) and is single-use
   sign out — ends its session and every credential it issued (`refresh-reuse`), commits that, then
   returns the generic `Auth.InvalidRefreshToken`. The warning log names session, credential and user
   ids only. Unknown, revoked and expired (`now >= ExpiresAt`) credentials are refused and end nothing.
-- **Browser.** `RefreshCoordinator` serializes renewals of one session across tabs (Web Locks API,
-  bounded localStorage lease fallback). A tab that waited adopts the successor another tab stored for
-  the same user and session; a refusal is final and is never followed by adopting stored state.
+- **Browser.** `RefreshCoordinator` serializes renewals per user across tabs (Web Locks API, bounded
+  localStorage lease fallback); keyed by user because a restored tab may not know its session id. A tab
+  that waited adopts the successor another tab stored for the same user and session. A refusal is final
+  and is never followed by adopting stored state. The refresh request times out after 12 s (treated as
+  a lost connection), and a result that arrives after the tab signed out or switched account is
+  dropped rather than applied.
 
 **Support answer — "I was signed out after a refresh."** Policy is strict: there is no grace window and
 no replayable copy of a successor is kept. If a renewal reached the server but its response was lost
@@ -87,8 +90,9 @@ used elsewhere — which is the point. Other devices on the account are unaffect
 **Schema rollout.** `20261101090000_HashRefreshTokensAndChainRotations` is the expand step: `token`
 stays (nullable, emptied) and `is_revoked` stays in step with `revoked_at` while the previous revision
 serves. Every pre-existing credential and live session is revoked, so everyone signs in once. The
-contract migration (separate change) removes rows with no hash, drops `token` and its index, and makes
-`token_hash` required.
+contract migration (separate change) re-runs the hash-and-revoke step for rows the previous revision
+wrote during the deploy window, ends the sessions that hold no hashed credential, drops `token` and its
+index, and makes `token_hash` required.
 
 ## Test Structure
 

@@ -81,6 +81,9 @@ export class AuthStorage {
         user: parsed.user,
         activeShopId: parsed.activeShopId ?? null,
         shops: parsed.shops ?? [],
+        // Which device session this is. Dropping it would leave a reloaded tab unable to recognise
+        // a renewal another tab made for the same session.
+        sessionId: parsed.sessionId ?? null,
       };
     } catch {
       storage.removeItem(key);

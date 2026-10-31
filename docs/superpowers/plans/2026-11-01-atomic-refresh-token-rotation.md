@@ -188,8 +188,10 @@ RefreshCoordinator.runExclusive<T>(scope: { userId: string; sessionId: string | 
    revision keeps serving (it still finds `token`/`is_revoked`), but its credentials are revoked.
 2. New revision writes hash-only rows. Rows the old revision wrote between the job and the swap
    carry a raw `token` and no hash; the new revision cannot find them, so those people sign in again.
-3. **Follow-up contract migration** (separate PR, after archival sign-off): delete or revoke rows with
-   `token_hash IS NULL`, drop `token` and its index, make `token_hash` NOT NULL, drop `is_revoked`.
+3. **Follow-up contract migration** (separate PR, after archival sign-off): hash/revoke and empty rows
+   with `token_hash IS NULL` (written by the old revision during the deploy window), end the sessions
+   that hold no hashed credential, drop `token` and its index, make `token_hash` NOT NULL, drop
+   `is_revoked`.
 4. Rollback: redeploy the previous digest only with refresh disabled; never restore raw storage.
 
 ## Review focus
@@ -213,3 +215,17 @@ Implemented as planned, with three adjustments found while executing:
   translation-coverage spec reads dotted literals under it as translation keys.
 
 Task 1's red run: both parallel refreshes answered `200`.
+
+Fixed after an independent review of the branch:
+
+- `AuthStorage` dropped `sessionId` on reload, so a restored tab and a tab that had just renewed took
+  different lock names and could both present one credential — the reuse path would then end the
+  session. Storage now keeps it, the lock is keyed per user, and a missing session id matches the same
+  user's session.
+- A renewal answering after the tab signed out or switched account could have resurrected the old
+  session or cleared the new one. Results are now applied only to the session that was presented, and
+  the interceptor no longer replays (or clears on behalf of) a request made as another account.
+- Reuse revocation now commits with `CancellationToken.None`: a victim closing the tab must not roll
+  back the revocation of an attacker's successor.
+- The refresh request times out after 12 s (below the 15 s fallback lease) instead of holding the lock.
+
