@@ -10,7 +10,8 @@ namespace Intelibill.Application.Features.Auth.Commands.RegisterWithPhone;
 public sealed class RegisterWithPhoneCommandHandler(
     IUserRepository userRepository,
     IAuthSessionRepository sessionRepository,
-    IAuthSessionService sessions)
+    IAuthSessionService sessions,
+    TimeProvider clock)
 {
     public async Task<ErrorOr<AuthResult>> HandleAsync(
         RegisterWithPhoneCommand command,
@@ -26,7 +27,13 @@ public sealed class RegisterWithPhoneCommandHandler(
         var user = User.CreateWithPhone(command.PhoneNumber, command.FirstName, command.LastName);
         await userRepository.AddAsync(user, cancellationToken);
 
-        var result = await sessions.IssueWithinTransactionAsync(user, preferredShopId: null, cancellationToken);
+        // A brand-new account has no prior credential to check, and this transaction is the one
+        // inserting it.
+        var result = await sessions.IssueForProvedAccountAsync(
+            user,
+            AuthenticationProof.FromRegistration(user.Id, clock.GetUtcNow()),
+            preferredShopId: null,
+            cancellationToken);
 
         return await sessionRepository.CommitAsync(cancellationToken)
             ? result

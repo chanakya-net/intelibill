@@ -33,7 +33,14 @@ public sealed class LiveSessionValidator(
                     && s.RevokedAt == null
                     && s.ExpiresAt > now
                     && s.SecurityVersion == claims.SecurityVersion
-                    && s.RecoveryEpoch == epoch,
+                    && s.RecoveryEpoch == epoch
+                    // The shop the token names must be the shop the device is in. Without this a
+                    // tab left open before a switch would go on recording sales against the
+                    // previous shop for the rest of the token's life, which in a billing system is
+                    // the wrong shop's books. The scope version is deliberately not compared, so a
+                    // client holding more than one token for the shop it is actually in keeps all
+                    // of them working.
+                    && s.ActiveShopId == claims.ActiveShopId,
                 ct);
 
         if (!sessionIsLive)

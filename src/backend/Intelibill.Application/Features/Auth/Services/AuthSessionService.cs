@@ -92,6 +92,11 @@ internal sealed class AuthSessionService(
         session.ChangeScope(activeShopId, now);
 
         var replacement = await BindRefreshAsync(user.Id, session, authority.SecurityVersion, ct);
+
+        // The session's window follows the credential that renews it, so a device in daily use is
+        // not signed out on the anniversary of its first sign-in. Revocation still ends it at once,
+        // and ExtendTo refuses to revive a revoked session.
+        session.ExtendTo(replacement.ExpiresAt);
         var (accessToken, accessTokenExpiry) = await tokens.GenerateAccessTokenAsync(user, session, activeShopRole, ct);
 
         if (!await sessions.CommitAsync(ct))
@@ -191,9 +196,20 @@ internal sealed class AuthSessionService(
         return await sessions.CommitAsync(ct) ? Result.Success : Errors.Auth.SessionNotFound;
     }
 
-    public Task<AuthResult> IssueWithinTransactionAsync(User user, Guid? preferredShopId, CancellationToken ct)
+    public Task<AuthResult> IssueForProvedAccountAsync(
+        User user,
+        AuthenticationProof proof,
+        Guid? preferredShopId,
+        CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(user);
+        ArgumentNullException.ThrowIfNull(proof);
+
+        // The proof must be about this account. There is no lock to catch a mismatch here, so a
+        // caller that pairs the wrong proof with the wrong user is a bug, not a refusal.
+        if (proof.UserId != user.Id)
+            throw new ArgumentException("The proof names a different account.", nameof(proof));
+
         return IssueAsync(user, user.SecurityVersion, preferredShopId, ct);
     }
 

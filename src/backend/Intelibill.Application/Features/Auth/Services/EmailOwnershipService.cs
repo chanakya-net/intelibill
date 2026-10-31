@@ -62,7 +62,13 @@ public sealed class EmailOwnershipService(IEmailOwnershipRepository repository, 
         // Inside this transaction, which already holds the identity advisory lock and has just
         // consumed the single-use mailbox proof, so the session is created under the same authority
         // that authorised it.
-        var result = await sessions.IssueWithinTransactionAsync(user, preferredShopId: null, ct);
+        // Enrollment creates the account in this transaction; a claim takes over an existing one on
+        // the strength of the single-use mailbox proof just consumed, and names the challenge and
+        // the account version that authorised it.
+        var proof = purpose == "claim"
+            ? AuthenticationProof.FromEmailOwnership(user.Id, challenge.SecurityVersion, challenge.Id, clock.GetUtcNow())
+            : AuthenticationProof.FromRegistration(user.Id, clock.GetUtcNow());
+        var result = await sessions.IssueForProvedAccountAsync(user, proof, preferredShopId: null, ct);
         if (!await repository.CommitAsync(ct)) return Conflict;
         return result;
     }

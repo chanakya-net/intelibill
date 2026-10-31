@@ -85,6 +85,19 @@ public sealed class AuthSession : BaseEntity
     }
 
     /// <summary>
+    /// Moves the session's window out to match a renewed refresh credential, so a device that keeps
+    /// being used keeps working. Expiry only ever moves forward, and never on a session that has
+    /// already been revoked — a revoked device must not be extended back into life.
+    /// </summary>
+    public void ExtendTo(DateTimeOffset expiresAt)
+    {
+        if (RevokedAt is not null || expiresAt <= ExpiresAt)
+            return;
+
+        ExpiresAt = expiresAt;
+    }
+
+    /// <summary>
     /// Ends the session. The first reason recorded is kept: a session revoked by its owner and then
     /// caught by a password change was already gone, and the owner's reason is the true one.
     /// </summary>

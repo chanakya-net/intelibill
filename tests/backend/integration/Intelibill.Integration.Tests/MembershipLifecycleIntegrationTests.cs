@@ -357,11 +357,18 @@ public sealed class MembershipLifecycleIntegrationTests(PostgreSqlTestFixture fi
         var (shopA, ownerAShopToken) = await CreateShopAsync(client, ownerAToken);
 
         // One person, two shops: staff in A, owner of their own B. They are trading in B.
-        var (sharedUserId, _, sharedToken) = await EnrollAsync(client, "shared");
-        var (shopB, sharedShopBToken) = await CreateShopAsync(client, sharedToken);
+        var (sharedUserId, sharedEmail, sharedToken) = await EnrollAsync(client, "shared");
+        var (shopB, _) = await CreateShopAsync(client, sharedToken);
         await SeedMembershipAsync(shopA, sharedUserId, ShopRole.Staff);
 
-        var switchedToA = await SwitchAsync(client, sharedShopBToken, shopA);
+        // Two devices for the same person, because a device is in one shop at a time: the counter
+        // in shop B, and a second device working in shop A. Suspending the shop-A membership must
+        // end only the device that is in A.
+        var sharedShopBToken = (await SignInAsync(client, sharedEmail)).GetProperty("accessToken").GetString()!;
+        var switchedToA = await SwitchAsync(
+            client,
+            (await SignInAsync(client, sharedEmail)).GetProperty("accessToken").GetString()!,
+            shopA);
         Assert.Equal(HttpStatusCode.OK, switchedToA.StatusCode);
         var shopASession = (await switchedToA.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("accessToken").GetString()!;
@@ -387,9 +394,11 @@ public sealed class MembershipLifecycleIntegrationTests(PostgreSqlTestFixture fi
     public async Task Manager_CanSwitchOnlyToActiveAssignedShop()
     {
         using var client = CreateClient();
-        var (_, _, ownerToken) = await EnrollAsync(client, "owner");
+        var (_, ownerEmail, ownerToken) = await EnrollAsync(client, "owner");
         var (shopOne, ownerShopOneToken) = await CreateShopAsync(client, ownerToken);
-        var (shopTwo, _) = await CreateShopAsync(client, ownerToken);
+        // A second device for the owner: one session is scoped to one shop, so creating shop two
+        // from the shop-one session would take that session with it.
+        var (shopTwo, _) = await CreateShopAsync(client, (await SignInAsync(client, ownerEmail)).GetProperty("accessToken").GetString()!);
 
         var (_, _, otherOwnerToken) = await EnrollAsync(client, "other-owner");
         var (unassignedShop, _) = await CreateShopAsync(client, otherOwnerToken);
@@ -493,9 +502,11 @@ public sealed class MembershipLifecycleIntegrationTests(PostgreSqlTestFixture fi
     public async Task RoleChange_RenewsInTheSameShopRatherThanMovingTheSession()
     {
         using var client = CreateClient();
-        var (_, _, ownerToken) = await EnrollAsync(client, "owner");
+        var (_, ownerEmail, ownerToken) = await EnrollAsync(client, "owner");
         var (shopOne, ownerShopOneToken) = await CreateShopAsync(client, ownerToken);
-        var (shopTwo, _) = await CreateShopAsync(client, ownerToken);
+        // A second device for the owner: one session is scoped to one shop, so creating shop two
+        // from the shop-one session would take that session with it.
+        var (shopTwo, _) = await CreateShopAsync(client, (await SignInAsync(client, ownerEmail)).GetProperty("accessToken").GetString()!);
 
         var (memberUserId, memberEmail, _) = await EnrollAsync(client, "member");
         await SeedMembershipAsync(shopOne, memberUserId, ShopRole.Manager);

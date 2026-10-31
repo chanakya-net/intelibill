@@ -61,16 +61,22 @@ public class AuthSessionServiceTests
         _users.GetByIdWithDetailsAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
     }
 
-    private AuthSession LiveSession(User user, Guid? activeShopId, string epoch = Epoch, long? securityVersion = null)
+    private AuthSession LiveSession(
+        User user,
+        Guid? activeShopId,
+        string epoch = Epoch,
+        long? securityVersion = null,
+        DateTimeOffset? startedAt = null)
     {
+        var started = startedAt ?? Now;
         var session = AuthSession.Start(
             user.Id,
             securityVersion ?? user.SecurityVersion,
             epoch,
             activeShopId,
             DeviceMetadata.Unknown,
-            Now,
-            Now.AddDays(7));
+            started,
+            started.AddDays(7));
         _sessions.FindAsync(user.Id, session.Id, Arg.Any<CancellationToken>()).Returns(session);
         return session;
     }
@@ -185,6 +191,28 @@ public class AuthSessionServiceTests
         Assert.False(result.IsError);
         Assert.Equal(session.Id, result.Value.SessionId);
         Assert.Equal(shop.Id, result.Value.ActiveShopId);
+    }
+
+    /// <summary>
+    /// Renewal moves the session's window out with the credential it mints, so a device that keeps
+    /// being used is not hard-signed-out a week after its first sign-in.
+    /// </summary>
+    [Fact]
+    public async Task RotateAsync_MovesTheSessionWindowOutWithTheRenewedCredential()
+    {
+        var user = VerifiedOwner(out var shop);
+        AccountIs(user);
+        // Started five days ago, so the credential this renewal mints reaches further out than the
+        // window the session was given at sign-in.
+        var session = LiveSession(user, shop.Id, startedAt: Now.AddDays(-5));
+        var originalExpiry = session.ExpiresAt;
+        GivenRefreshCredential(user, session.Id);
+
+        var result = await Service().RotateAsync("held", null, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(result.Value.RefreshTokenExpiresAt, session.ExpiresAt);
+        Assert.True(session.ExpiresAt > originalExpiry);
     }
 
     /// <summary>

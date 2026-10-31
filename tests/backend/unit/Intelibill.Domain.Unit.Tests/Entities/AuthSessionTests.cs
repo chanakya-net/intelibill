@@ -123,4 +123,42 @@ public class AuthSessionTests
         session.Relabel("   ");
         Assert.Null(session.DeviceLabel);
     }
+
+    /// <summary>
+    /// A renewal mints a refresh credential with a fresh window, so the session has to move with
+    /// it. Without this the device is hard-signed-out a week after its first sign-in however
+    /// actively it has been used, and the refresh credential it still holds would outlive it.
+    /// </summary>
+    [Fact]
+    public void ExtendTo_MovesExpiryForwardWithTheRenewedCredential()
+    {
+        var session = Start();
+
+        session.ExtendTo(Now.AddDays(14));
+
+        Assert.Equal(Now.AddDays(14), session.ExpiresAt);
+        Assert.True(session.IsActive(Now.AddDays(10)));
+    }
+
+    [Fact]
+    public void ExtendTo_NeverBringsExpiryForward()
+    {
+        var session = Start();
+
+        session.ExtendTo(Now.AddDays(1));
+
+        Assert.Equal(Now.AddDays(7), session.ExpiresAt);
+    }
+
+    [Fact]
+    public void ExtendTo_DoesNothingOnceTheSessionIsRevoked()
+    {
+        var session = Start();
+        session.Revoke("user-revoked", Now);
+
+        session.ExtendTo(Now.AddDays(14));
+
+        Assert.Equal(Now.AddDays(7), session.ExpiresAt);
+        Assert.False(session.IsActive(Now.AddDays(10)));
+    }
 }

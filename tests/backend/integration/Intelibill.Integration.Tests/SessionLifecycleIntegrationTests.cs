@@ -32,6 +32,15 @@ public sealed class SessionLifecycleIntegrationTests(PostgreSqlTestFixture fixtu
         services.RemoveAll<IEmailService>();
         services.AddSingleton<ResetLinkCapture>();
         services.AddSingleton<IEmailService>(sp => sp.GetRequiredService<ResetLinkCapture>());
+
+        // Lets one test stop a sign-in in the gap between verifying the password and creating the
+        // session — the gap a concurrent reset has to lose.
+        var hasher = services.Single(x => x.ServiceType == typeof(IPasswordHasher));
+        services.Remove(hasher);
+        services.AddSingleton<VerifyBarrier>();
+        services.AddScoped<IPasswordHasher>(sp => new BarrierPasswordHasher(
+            (IPasswordHasher)ActivatorUtilities.CreateInstance(sp, hasher.ImplementationType!),
+            sp.GetRequiredService<VerifyBarrier>()));
     });
 
     public Task InitializeAsync() => _factory.InitializeAsync();
@@ -525,6 +534,13 @@ public sealed class SessionLifecycleIntegrationTests(PostgreSqlTestFixture fixtu
             (await client.PostAsJsonAsync("/api/auth/login", new { identifier = email, password = Password })).StatusCode);
     }
 
+    private async Task<int> SessionRowCountAsync(Guid userId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        return await db.AuthSessions.CountAsync(x => x.UserId == userId);
+    }
+
     private async Task<int> LiveSessionCountAsync(Guid userId)
     {
         using var scope = _factory.Services.CreateScope();
@@ -539,6 +555,190 @@ public sealed class SessionLifecycleIntegrationTests(PostgreSqlTestFixture fixtu
         var user = await db.Users.SingleAsync(x => x.Id == userId);
         change(user);
         await db.SaveChangesAsync();
+    }
+
+    // ── Credential verification does not survive a security change ──────────────
+
+    /// <summary>
+    /// Password verification is deliberately slow, so a reset can commit while it runs. The proof
+    /// names the version it was checked against, and session creation re-reads that version under
+    /// the account lock — so a password that was correct a moment ago cannot be relabelled as
+    /// current authority once recovery has moved the account on.
+    /// </summary>
+    [Fact]
+    public async Task PasswordLoginRacesReset_OldProofCannotStartSession()
+    {
+        using var client = Client();
+        var email = Email();
+        var auth = await EnrollAsync(client, email);
+        var userId = auth.GetProperty("user").GetProperty("id").GetGuid();
+
+        Assert.Equal(
+            HttpStatusCode.OK,
+            (await client.PostAsJsonAsync("/api/auth/password-reset/request", new { email })).StatusCode);
+        var link = _factory.Services.GetRequiredService<ResetLinkCapture>().ResetLink;
+        Assert.NotNull(link);
+        var token = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(new Uri(link).Query)["token"].ToString();
+
+        var barrier = _factory.Services.GetRequiredService<VerifyBarrier>();
+        barrier.Arm();
+        var signIn = client.PostAsJsonAsync("/api/auth/login", new { identifier = email, password = Password });
+        await barrier.Reached.Task.WaitAsync(TimeSpan.FromSeconds(20));
+
+        // The sign-in has verified the old password and has not yet created its session: the only
+        // session on the account is the one enrollment left.
+        var before = await SessionRowCountAsync(userId);
+        Assert.Equal(1, before);
+
+        Assert.Equal(
+            HttpStatusCode.OK,
+            (await client.PostAsJsonAsync("/api/auth/password-reset/confirm", new { email, token, newPassword = "RecoveredPassword!1" })).StatusCode);
+        barrier.Release.TrySetResult();
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await signIn).StatusCode);
+        // No session was written for the overtaken proof, and recovery left none behind.
+        Assert.Equal(before, await SessionRowCountAsync(userId));
+        Assert.Equal(0, await LiveSessionCountAsync(userId));
+        Assert.Equal(0, await ActiveRefreshCountAsync(userId));
+    }
+
+    /// <summary>
+    /// Two redemptions of one reset link: exactly one may commit, and the password it set is the
+    /// one that works. Otherwise whichever request finished last would silently own the account.
+    /// </summary>
+    [Fact]
+    public async Task ResetToken_ConcurrentUse_OnlyOnePasswordWins()
+    {
+        using var client = Client();
+        var email = Email();
+        await EnrollAsync(client, email);
+
+        Assert.Equal(
+            HttpStatusCode.OK,
+            (await client.PostAsJsonAsync("/api/auth/password-reset/request", new { email })).StatusCode);
+        var link = _factory.Services.GetRequiredService<ResetLinkCapture>().ResetLink;
+        Assert.NotNull(link);
+        var token = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(new Uri(link).Query)["token"].ToString();
+
+        var first = client.PostAsJsonAsync("/api/auth/password-reset/confirm", new { email, token, newPassword = "FirstWins!1" });
+        var second = client.PostAsJsonAsync("/api/auth/password-reset/confirm", new { email, token, newPassword = "SecondWins!1" });
+        await Task.WhenAll(first, second);
+
+        var winner = (await first).IsSuccessStatusCode ? "FirstWins!1" : "SecondWins!1";
+        var loser = winner == "FirstWins!1" ? "SecondWins!1" : "FirstWins!1";
+        Assert.Single(new[] { await first, await second }, x => x.StatusCode == HttpStatusCode.OK);
+
+        Assert.Equal(
+            HttpStatusCode.OK,
+            (await client.PostAsJsonAsync("/api/auth/login", new { identifier = email, password = winner })).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.Unauthorized,
+            (await client.PostAsJsonAsync("/api/auth/login", new { identifier = email, password = loser })).StatusCode);
+    }
+
+    // ── Ordinary sign-out ends the device ───────────────────────────────────────
+
+    /// <summary>
+    /// Signing out ends the device, not just the credential that renews it. Otherwise the owner's
+    /// device list would fill with devices nobody is signed in on, and the token already in hand
+    /// would keep working — which is exactly what someone leaving a shared terminal is avoiding.
+    /// </summary>
+    [Fact]
+    public async Task SignOut_EndsTheDeviceSessionNotJustItsCredential()
+    {
+        using var deviceA = Client();
+        using var deviceB = Client();
+        var email = Email();
+        var authA = await EnrollAsync(deviceA, email);
+        var accessA = authA.GetProperty("accessToken").GetString()!;
+        var authB = await LoginAsync(deviceB, email);
+        var accessB = authB.GetProperty("accessToken").GetString()!;
+
+        var signedOut = await deviceB.PostAsJsonAsync(
+            "/api/auth/token/revoke",
+            new { refreshToken = authB.GetProperty("refreshToken").GetString() });
+        Assert.Equal(HttpStatusCode.NoContent, signedOut.StatusCode);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await SendAsync(deviceB, HttpMethod.Get, "/api/shops/me", accessB)).StatusCode);
+
+        // Device A's own list no longer offers a device nobody is signed in on.
+        var listed = await SendAsync(deviceA, HttpMethod.Get, "/api/users/me/sessions", accessA);
+        Assert.Equal(HttpStatusCode.OK, listed.StatusCode);
+        var sessions = (await listed.Content.ReadFromJsonAsync<JsonElement>()).EnumerateArray().ToList();
+        Assert.Single(sessions);
+        Assert.True(sessions[0].GetProperty("isCurrent").GetBoolean());
+    }
+
+    // ── The default shop decides which shop opens next ──────────────────────────
+
+    /// <summary>
+    /// Saving a default has to change something: shop selection ranks most-recently-used above the
+    /// default flag, so unless saving marks the chosen shop the preference would be a star next to
+    /// a setting that never decides anything.
+    /// </summary>
+    [Fact]
+    public async Task SetDefaultShop_DecidesWhichShopOpensOnTheNextSignIn()
+    {
+        using var client = Client();
+        var email = Email();
+        var auth = await EnrollAsync(client, email);
+        var (firstShop, afterFirst) = await CreateShopAsync(client, auth.GetProperty("accessToken").GetString()!);
+        var (secondShop, afterSecond) = await CreateShopAsync(client, await SignInAsync(client, email));
+        Assert.NotEqual(firstShop, secondShop);
+
+        // The device that created shop two is working there; the owner nominates shop one instead.
+        var saved = await SendAsync(client, HttpMethod.Post, "/api/shops/default", afterSecond, new { shopId = firstShop });
+        Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
+        var preference = await saved.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(secondShop, preference.GetProperty("activeShopId").GetGuid());
+        Assert.Equal(firstShop, preference.GetProperty("shops").EnumerateArray().Single(x => x.GetProperty("isDefault").GetBoolean()).GetProperty("shopId").GetGuid());
+
+        var next = await LoginAsync(client, email);
+        Assert.Equal(firstShop, next.GetProperty("activeShopId").GetGuid());
+
+        // The device that saved it is still working in shop two.
+        Assert.Equal(HttpStatusCode.OK, (await SendAsync(client, HttpMethod.Get, "/api/shops/me", afterSecond)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await SendAsync(client, HttpMethod.Get, "/api/shops/me", afterFirst)).StatusCode);
+    }
+
+    private static async Task<string> SignInAsync(HttpClient client, string email) =>
+        (await LoginAsync(client, email)).GetProperty("accessToken").GetString()!;
+
+    /// <summary>
+    /// Pauses the next password verification once armed, so a test can commit a competing security
+    /// change in the gap between a correct password and the session it would otherwise earn.
+    /// </summary>
+    internal sealed class VerifyBarrier
+    {
+        private bool _armed;
+
+        public TaskCompletionSource Reached { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public void Arm() => _armed = true;
+
+        public async Task PauseIfArmedAsync()
+        {
+            if (!_armed)
+                return;
+
+            _armed = false;
+            Reached.TrySetResult();
+            await Release.Task.WaitAsync(TimeSpan.FromSeconds(30));
+        }
+    }
+
+    private sealed class BarrierPasswordHasher(IPasswordHasher inner, VerifyBarrier barrier) : IPasswordHasher
+    {
+        public string Hash(string password) => inner.Hash(password);
+
+        public bool Verify(string password, string hash)
+        {
+            var verified = inner.Verify(password, hash);
+            if (verified)
+                barrier.PauseIfArmedAsync().GetAwaiter().GetResult();
+            return verified;
+        }
     }
 
     internal sealed class ResetLinkCapture : IEmailService

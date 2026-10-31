@@ -41,6 +41,11 @@ public sealed class SetDefaultShopCommandHandler(
             targetMembership.SetDefault(true);
         }
 
+        // Shop selection ranks most-recently-used above the default flag, so without this the
+        // saved default would never decide anything: the next sign-in would reopen whichever shop
+        // the operator happened to be in last. This moves the preference, not this device's scope.
+        targetMembership.MarkUsed();
+
         return await sessions.CommitAsync(cancellationToken)
             ? new ShopPreferenceResult(command.ActiveShopId, AuthShopSelection.Describe(user))
             : Errors.Auth.SessionInvalidated;

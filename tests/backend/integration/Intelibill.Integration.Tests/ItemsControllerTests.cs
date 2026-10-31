@@ -48,6 +48,34 @@ public sealed class ItemsControllerTests(PostgreSqlTestFixture fixture) : IAsync
 
     private static string UniqueEmail() => $"items-{Guid.NewGuid():N}@test.com";
 
+    /// <summary>
+    /// Enrolls and returns the address as well as the token, so a test that needs a second device
+    /// can sign in again. A device is scoped to one shop at a time, so two shops means two
+    /// sessions.
+    /// </summary>
+    private static async Task<(string Email, string Token)> RegisterWithEmailAsync(HttpClient client)
+    {
+        var email = UniqueEmail();
+        var response = await client.EnrollAsync(new
+        {
+            email,
+            password = "Pass123!Aa",
+            firstName = "Test",
+            lastName = "User",
+            phoneNumber = $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}"
+        });
+        response.EnsureSuccessStatusCode();
+        var created = await response.Content.ReadFromJsonAsync<JsonElement>();
+        return (email, created.GetProperty("accessToken").GetString()!);
+    }
+
+    private static async Task<string> SignInAsync(HttpClient client, string email)
+    {
+        var response = await client.PostAsJsonAsync("/api/auth/login", new { identifier = email, password = "Pass123!Aa" });
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("accessToken").GetString()!;
+    }
+
     private static async Task<string> RegisterAsync(HttpClient client)
     {
         var response = await client.EnrollAsync(new
@@ -331,9 +359,11 @@ public sealed class ItemsControllerTests(PostgreSqlTestFixture fixture) : IAsync
     public async Task GenerateItemBarcode_IsShopScopedAcrossShops()
     {
         using var client = CreateClient();
-        var token = await RegisterAsync(client);
+        var (email, token) = await RegisterWithEmailAsync(client);
         var (_, ownerTokenShopA) = await CreateShopAsyncWithId(client, token);
-        var (_, ownerTokenShopB) = await CreateShopAsyncWithId(client, token);
+        // Shop B belongs to a second device: one session is scoped to one shop, so a token for A
+        // and a token for B cannot come from the same sign-in.
+        var (_, ownerTokenShopB) = await CreateShopAsyncWithId(client, await SignInAsync(client, email));
 
         using var requestShopA = new HttpRequestMessage(HttpMethod.Post, "/api/items/barcodes/generate");
         requestShopA.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerTokenShopA);
@@ -462,9 +492,11 @@ public sealed class ItemsControllerTests(PostgreSqlTestFixture fixture) : IAsync
     public async Task PrintBarcodeLabels_WhenItemFromAnotherShop_ReturnsBadRequest()
     {
         using var client = CreateClient();
-        var token = await RegisterAsync(client);
+        var (email, token) = await RegisterWithEmailAsync(client);
         var (_, ownerTokenShopA) = await CreateShopAsyncWithId(client, token);
-        var (_, ownerTokenShopB) = await CreateShopAsyncWithId(client, token);
+        // Shop B belongs to a second device: one session is scoped to one shop, so a token for A
+        // and a token for B cannot come from the same sign-in.
+        var (_, ownerTokenShopB) = await CreateShopAsyncWithId(client, await SignInAsync(client, email));
         var itemIdFromShopA = await AddItemAsync(
             client,
             ownerTokenShopA,

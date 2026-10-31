@@ -23,10 +23,19 @@ public interface IAuthSessionService
 
     /// <summary>
     /// Creates the session inside a transaction the caller already owns and will commit, for the
-    /// flows that have just proved authority under their own lock — mailbox enrollment, and
-    /// registration, where the account row is being inserted by this same transaction.
+    /// flows that have just proved authority under their own lock — mailbox enrollment and claim,
+    /// and registration, where the account row is being inserted by this same transaction.
     /// </summary>
-    Task<AuthResult> IssueWithinTransactionAsync(User user, Guid? preferredShopId, CancellationToken ct);
+    /// <param name="proof">
+    /// What proved the account, named at the call site rather than assumed. This method does not
+    /// take the account lock or re-read the account's version — the caller must already hold that
+    /// lock, which is why <see cref="StartAsync"/> exists for everything else.
+    /// </param>
+    Task<AuthResult> IssueForProvedAccountAsync(
+        User user,
+        AuthenticationProof proof,
+        Guid? preferredShopId,
+        CancellationToken ct);
 
     /// <summary>
     /// Rotates a refresh credential inside the session that holds it. The session id does not
