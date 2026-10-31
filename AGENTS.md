@@ -66,6 +66,7 @@ Dependency registration: each layer's `DependencyInjection.cs`
 - JWT carries `active_shop_id` claim; switching returns new scoped token
 - Auth methods: verified email enrollment, phone registration, password reset, token refresh/revoke. No external identity provider: credentials are the only way in.
 - Device sessions: every access token names an `AuthSession` (`sid`); only a credential check creates one, and a session can be revoked on its own. A token with no `sid` is refused.
+- Refresh credentials: stored as SHA-256 only, single-use, chained per session (`parent_token_id`). Rotation and sign-out lock users → auth_sessions → refresh_tokens; a reused (consumed) credential ends its session. Web tabs serialize renewals via `RefreshCoordinator`. See `docs/backend-architecture.md` § Refresh Credentials.
 - Shop memberships: roles = `Owner`, `Manager`, `Staff`
 - Rate limiting: `RateLimitAttribute`/`RateLimitFilter` on sensitive endpoints
 - Logging: Serilog + `SensitiveDataDestructuringPolicy`

@@ -86,13 +86,13 @@ The suite decorates `IAuthSessionRepository` with a `RotationBarrier` that can p
 parties, or (b) on entry to `CommitAsync` — holding every lock. `WaitForLockWaiterAsync` polls
 `pg_stat_activity` (`wait_event_type = 'Lock'`) to prove a competing request is queued.
 
-- [ ] Write `ParallelRefresh_AtMostOneSuccessAndNoLiveBranchAfterReuse`: arm (a) for 2 parties,
+- [x] Write `ParallelRefresh_AtMostOneSuccessAndNoLiveBranchAfterReuse`: arm (a) for 2 parties,
   fire two refreshes of one credential, release together. Assert exactly one `200`, at most one
   row whose `ParentTokenId` is the presented credential, zero usable credentials in the session,
   the session revoked, and the `200` response's refresh token refused afterwards.
-- [ ] Run `dotnet test tests/backend/integration/Intelibill.Integration.Tests --filter RefreshRotationConcurrencyTests`.
+- [x] Run `dotnet test tests/backend/integration/Intelibill.Integration.Tests --filter RefreshRotationConcurrencyTests`.
   **Expected:** FAIL — both requests return `200` (record the output in the PR).
-- [ ] Commit the red test.
+- [x] Commit the red test.
 
 ### Task 2: Hash-only storage and the chain (Domain + Infrastructure + migration)
 
@@ -114,46 +114,46 @@ ITokenService.CreateRefreshSecret() : RefreshSecret             // replaces Crea
 static RefreshTokenSecrets.Hash(string token) : string
 ```
 
-- [ ] Domain unit tests (`RefreshTokenTests`): `Issue_StoresOnlyTheHash`, `Rotate_ConsumesThePredecessorAndLinksOneChild`,
+- [x] Domain unit tests (`RefreshTokenTests`): `Issue_StoresOnlyTheHash`, `Rotate_ConsumesThePredecessorAndLinksOneChild`,
   `Rotate_WhenAlreadyConsumed_Throws`, `IsUsableAt_ExactExpiry_IsFalse`, `Revoke_KeepsTheFirstReason`. Red, then green.
-- [ ] `TokenServiceTests.CreateRefreshSecret_ReturnsBase64UrlTokenAndItsHash` (86 chars, hash = `RefreshTokenSecrets.Hash(token)`).
-- [ ] Configuration: drop the `Token` mapping; `TokenHash` max 64, unique, optional until contract;
+- [x] `TokenServiceTests.CreateRefreshSecret_ReturnsBase64UrlTokenAndItsHash` (86 chars, hash = `RefreshTokenSecrets.Hash(token)`).
+- [x] Configuration: drop the `Token` mapping; `TokenHash` max 64, unique, optional until contract;
   `ParentTokenId` unique filtered `parent_token_id IS NOT NULL`; `RevocationReason` max 64.
-- [ ] `dotnet ef migrations add HashRefreshTokensAndChainRotations`; hand-edit `Up` to keep `token`
+- [x] `dotnet ef migrations add HashRefreshTokensAndChainRotations`; hand-edit `Up` to keep `token`
   (alter to nullable) instead of dropping it, then scrub/revoke existing rows and live sessions;
   `Down` deletes hash-only rows before restoring `token NOT NULL`.
-- [ ] Every set-based refresh revocation (`AuthSessionRepository`, `EmailOwnershipChallengeRepository`)
+- [x] Every set-based refresh revocation (`AuthSessionRepository`, `EmailOwnershipChallengeRepository`)
   also writes `revocation_reason`.
 
 ### Task 3: Atomic rotation, reuse revocation, sign-out under the same locks
 
 **Interfaces produced:** `IAuthSessionService.SignOutAsync(string refreshToken, CancellationToken) : Task<ErrorOr<Success>>`.
 
-- [ ] `AuthSessionServiceTests` (rewrite rotation tests onto the new repository API):
+- [x] `AuthSessionServiceTests` (rewrite rotation tests onto the new repository API):
   `RotateAsync_ConsumesThePresentedCredentialAndAddsOneChild`, `RotateAsync_ConsumedCredential_RevokesItsSessionAndCommits`,
   `RotateAsync_UnknownCredential_RevokesNothing`, `RotateAsync_AtExactExpiry_IsRefused`,
   `RotateAsync_WhenSigningFails_DoesNotCommit`, `RotateAsync_TakesLocksInOrder` (Received.InOrder:
   user → session → credential), `SignOutAsync_EndsTheSession`, `SignOutAsync_ConsumedCredential_TreatedAsReuse`,
   `RevokeAsync_TakesTheAccountLockFirst`.
-- [ ] Implement. Order inside `RotateAsync`: hash → `FindOwnerByHashAsync` → begin → lock user →
+- [x] Implement. Order inside `RotateAsync`: hash → `FindOwnerByHashAsync` → begin → lock user →
   lock session → lock credential → reuse check (commit revocation) → usable/authority/session/epoch
   checks → load user → `Rotate` → scope/extend → sign → commit. Signing failure throws before commit,
   so the transaction rolls back and no successor survives.
-- [ ] `RevokeTokenCommandHandler` delegates to `SignOutAsync`; `AuthSessionService.RevokeAsync`
+- [x] `RevokeTokenCommandHandler` delegates to `SignOutAsync`; `AuthSessionService.RevokeAsync`
   takes the account lock then the session lock.
-- [ ] Integration (same suite as Task 1): `RefreshDatabase_ContainsHashOnly` (no column of any
+- [x] Integration (same suite as Task 1): `RefreshDatabase_ContainsHashOnly` (no column of any
   `refresh_tokens` row equals a raw request or response token), `ConsumedPredecessor_RevokesItsFamilyOnly`
   (second device untouched), `UnknownToken_DoesNotRevokeSessions`, `RefreshAtExpiry_IsRejected`
   (frozen `TimeProvider` at exact expiry → 401; one second earlier → 200).
-- [ ] Run Task 1's filter. **Expected:** all green.
+- [x] Run Task 1's filter. **Expected:** all green.
 
 ### Task 4: Logout and reset racing refresh
 
-- [ ] `LogoutRacingRefresh_NoSurvivingSuccessor` as a `[Theory]` over `RefreshFirst` / `LogoutFirst`;
+- [x] `LogoutRacingRefresh_NoSurvivingSuccessor` as a `[Theory]` over `RefreshFirst` / `LogoutFirst`;
   `ResetRacingRefresh_NoSurvivingSuccessor` likewise. Loser is held at barrier (a) or the winner at (b)
   with the competitor proven queued via `pg_stat_activity`. After both finish: zero usable credentials
   for the user, every session revoked, old access token → 401.
-- [ ] Run the suite. **Expected:** green.
+- [x] Run the suite. **Expected:** green.
 
 ### Task 5: Browser coordination
 
@@ -165,21 +165,21 @@ export const REFRESH_LEASE_STORAGE: InjectionToken<Storage | null>;            /
 RefreshCoordinator.runExclusive<T>(scope: { userId: string; sessionId: string | null }, work: () => Observable<T>): Observable<T>
 ```
 
-- [ ] `refresh-coordinator.service.spec.ts`: `serializesWorkForOneSession`, `doesNotSerializeDifferentSessions`,
+- [x] `refresh-coordinator.service.spec.ts`: `serializesWorkForOneSession`, `doesNotSerializeDifferentSessions`,
   `releasesTheLockWhenWorkFails`, `fallbackLease_SerializesWithoutWebLocks`, `fallbackLease_GivesUpAfterTheBound`.
-- [ ] `auth.service.token-flows.spec.ts`: `twoTabsRotateOnce`, `waiterUsesStoredSuccessor`,
+- [x] `auth.service.token-flows.spec.ts`: `twoTabsRotateOnce`, `waiterUsesStoredSuccessor`,
   `waiterIgnoresAnotherUsersStoredSession`, `rejectedRefreshIsAuthoritative`, `lostRefreshResponseRequiresReauthentication`;
   replace the old "adopts a fresher stored session after a 401" test, which contradicts the strict policy.
-- [ ] `AuthTokenService.refreshAccessToken` runs inside `runExclusive`; after acquiring, it adopts a
+- [x] `AuthTokenService.refreshAccessToken` runs inside `runExclusive`; after acquiring, it adopts a
   stored/in-memory session for the same user id and session id whose refresh token differs and does
   not expire earlier; otherwise it calls the API. A rejection is never followed by adoption.
-- [ ] From `src/frontend`: `bun run test --run src/app/core/auth/refresh-coordinator.service.spec.ts`,
+- [x] From `src/frontend`: `bun run test --run src/app/core/auth/refresh-coordinator.service.spec.ts`,
   `bun run test --run src/app/core/auth/auth.service.token-flows.spec.ts`, then `bun run test`.
 
 ### Task 6: Whole-suite verification and docs
 
-- [ ] `dotnet build src/backend/Intelibill.slnx`; the three unit suites; the full integration suite; `bun run test`; `bun run build`.
-- [ ] `docs/backend-architecture.md`: refresh rotation, reuse policy and the support answer for
+- [x] `dotnet build src/backend/Intelibill.slnx`; the three unit suites; the full integration suite; `bun run test`; `bun run build`.
+- [x] `docs/backend-architecture.md`: refresh rotation, reuse policy and the support answer for
   "I was signed out after refreshing in two places / after a network drop".
 
 ## Rollout
@@ -199,3 +199,17 @@ RefreshCoordinator.runExclusive<T>(scope: { userId: string; sessionId: string | 
 3. A stolen, already-rotated credential replayed → that device's session ends; other devices keep working (Task 3).
 4. Logout or reset overlapping a refresh in either order → no surviving credential (Task 4).
 5. Refresh exactly at expiry → refused, using a frozen clock rather than sleeps (Task 3).
+
+## Outcome (2026-11-01)
+
+Implemented as planned, with three adjustments found while executing:
+
+- `dotnet ef` stamped the migration `20261031183735`, which sorts before the hand-named
+  `20261031210000_AddAuthSessions`; it was renamed `20261101090000_…` so it applies after it.
+- `RefreshDatabase_ContainsHashOnly` found the raw secret in MVC's Trace-level action-argument log,
+  which renders records through `ToString()`. `RefreshTokenRequest`, `RevokeTokenRequest`, both
+  commands and `AuthResult` now omit bearer credentials from their string form.
+- The fallback lease key uses the `intelibill.` prefix: `inventory.` is an i18n namespace, and the
+  translation-coverage spec reads dotted literals under it as translation keys.
+
+Task 1's red run: both parallel refreshes answered `200`.
