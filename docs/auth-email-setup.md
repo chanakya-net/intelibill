@@ -26,6 +26,8 @@ Configure the API with these settings; the SMTP password is the Resend API key:
 
 Use `:` instead of `__` when setting keys through .NET user secrets. Do not put credentials in tracked settings files. Keep click tracking disabled for security mail.
 
+MailKit verifies certificate revocation by default and macOS cannot complete that OCSP/CRL lookup, so the TLS handshake with a real provider fails there with `SslHandshakeException: An incomplete certificate revocation check occurred`. `MailKitSmtpClientFactory` therefore skips the check in Development and Testing only. Production and every other environment keep it, which is what `MailKitSmtpClientFactoryTests` pins. A local run that must exercise the production setting can relay through Mailpit instead of relaxing it.
+
 Provider references, checked 22 October 2026: [SMTP settings](https://resend.com/docs/send-with-smtp), [test sender restrictions](https://resend.com/docs/knowledge-base/403-error-resend-dev-domain), [domain verification](https://resend.com/docs/dashboard/domains/introduction). The free tier has provider quotas; use local capture for repeated automated tests.
 
 ### Mailpit: local capture
