@@ -1,0 +1,13 @@
+{
+  "productionConfig": true,
+  "firstRequest": "Shop-A",
+  "firstResponse": {
+    "tenant": "Shop-A"
+  },
+  "secondRequest": "Shop-B",
+  "secondResponse": {
+    "tenant": "Shop-A"
+  },
+  "delayedNetworkFallbackMs": 8005,
+  "crossTenantCacheReuse": true
+}
