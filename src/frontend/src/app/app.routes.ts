@@ -8,6 +8,13 @@ export const routes: Routes = [
 		loadComponent: () => import('./features/auth/pages/verify-email-page.component').then((m) => m.VerifyEmailPageComponent),
 	},
 	{
+		path: 'auth/phone',
+		loadComponent: () =>
+			import('./features/auth/pages/phone-verification-page.component').then(
+				(m) => m.PhoneVerificationPageComponent,
+			),
+	},
+	{
 		// Redeemed from the invited person's own session; the single-use token arrives in the
 		// fragment so it never reaches a server log or a referrer header.
 		path: 'invitations/accept',

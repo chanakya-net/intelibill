@@ -11,6 +11,16 @@ export function identityError(error: { error?: ApiErrorPayload }): string {
     case 'Auth.EmailDeliveryUnavailable':
     case 'Auth.EmailUnavailable':
       return 'identity.deliveryUnavailable';
+    case 'Auth.PhoneEnrollmentUnavailable':
+      return 'identity.phoneUnavailableHere';
+    case 'Auth.PhoneDeliveryUnavailable':
+      return 'identity.phoneDeliveryUnavailable';
+    case 'Auth.PhoneUnavailable':
+      return 'identity.phoneTaken';
+    case 'Auth.InvalidPhoneNumber':
+      return 'identity.phoneInvalid';
+    case 'Auth.PhoneChangeRequiresProof':
+      return 'identity.phoneChangeRequiresProof';
     case 'Auth.InvalidCredentials':
       return 'errors.auth.invalidCredentials';
     case 'Auth.EmailVerificationRequired':

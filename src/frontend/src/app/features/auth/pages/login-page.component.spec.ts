@@ -17,6 +17,7 @@ describe('LoginPageComponent', () => {
     isAuthenticated: vi.fn<AuthService['isAuthenticated']>(),
     getLastRememberedIdentifier: vi.fn<AuthService['getLastRememberedIdentifier']>(),
     login: vi.fn<AuthService['login']>(),
+    getPhoneAuthAvailability: vi.fn<AuthService['getPhoneAuthAvailability']>(),
   };
 
   const identityFlow = {
@@ -71,6 +72,7 @@ describe('LoginPageComponent', () => {
     authService.isAuthenticated.mockReturnValue(false);
     authService.getLastRememberedIdentifier.mockReturnValue('');
     authService.login.mockReturnValue(of({} as AuthSession));
+    authService.getPhoneAuthAvailability.mockReturnValue(of({ enabled: false }));
     store.selectSignal.mockImplementation(() => signal(false));
     sessionStorage.clear();
     identityFlow.afterSignIn.mockReturnValue('/');

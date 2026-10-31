@@ -1,0 +1,94 @@
+<section class="phone-auth">
+  <article class="phone-auth__card">
+    <h2>{{ 'identity.phoneTitle' | transloco }}</h2>
+
+    @if (available() === false) {
+      <p class="phone-auth__hint">{{ 'identity.phoneUnavailableHere' | transloco }}</p>
+      <a routerLink="/login">{{ 'identity.phoneUseEmailInstead' | transloco }}</a>
+    } @else if (available() === true) {
+      <div class="phone-auth__modes">
+        <p-button
+          [text]="mode() !== 'login'"
+          [label]="'identity.phoneSignIn' | transloco"
+          (onClick)="setMode('login')"
+        ></p-button>
+        <p-button
+          [text]="mode() !== 'enrollment'"
+          [label]="'identity.phoneCreateAccount' | transloco"
+          (onClick)="setMode('enrollment')"
+        ></p-button>
+      </div>
+
+      @if (!receipt()) {
+        <form [formGroup]="phoneForm" (ngSubmit)="requestCode()" class="phone-auth__field">
+          <label for="phoneNumber">{{ 'identity.phoneNumberLabel' | transloco }}</label>
+          <input
+            pInputText
+            id="phoneNumber"
+            type="tel"
+            autocomplete="tel"
+            formControlName="phoneNumber"
+            [placeholder]="'identity.phoneNumberPlaceholder' | transloco"
+          />
+          <p class="phone-auth__hint">{{ 'identity.phoneNumberHint' | transloco }}</p>
+          <p-button
+            type="submit"
+            [disabled]="busy()"
+            [label]="'identity.phoneSendCode' | transloco"
+          ></p-button>
+        </form>
+      } @else {
+        <form [formGroup]="codeForm" (ngSubmit)="confirmCode()" class="phone-auth__field">
+          <p class="phone-auth__hint">
+            {{ 'identity.phoneCodeSentTo' | transloco }} {{ receipt()!.maskedDestination }}
+          </p>
+
+          <label for="code">{{ 'identity.phoneCodeLabel' | transloco }}</label>
+          <input
+            pInputText
+            id="code"
+            type="text"
+            inputmode="numeric"
+            autocomplete="one-time-code"
+            formControlName="code"
+          />
+
+          @if (mode() === 'enrollment') {
+            <label for="firstName">{{ 'common.firstName' | transloco }}</label>
+            <input pInputText id="firstName" type="text" formControlName="firstName" />
+            <label for="lastName">{{ 'common.lastName' | transloco }}</label>
+            <input pInputText id="lastName" type="text" formControlName="lastName" />
+          }
+
+          <p class="phone-auth__hint">
+            {{ 'identity.phoneCodeExpiresIn' | transloco }} {{ expirySeconds() }}s
+          </p>
+
+          <p-button
+            type="submit"
+            [disabled]="busy()"
+            [label]="'identity.phoneConfirmCode' | transloco"
+          ></p-button>
+
+          <p-button
+            type="button"
+            [text]="true"
+            [disabled]="!canResend()"
+            [label]="
+              canResend()
+                ? ('identity.phoneResend' | transloco)
+                : ('identity.phoneResendIn' | transloco) + ' ' + resendSeconds() + 's'
+            "
+            (onClick)="requestCode()"
+          ></p-button>
+
+          <a routerLink="/forgot-password">{{ 'identity.phoneRecoverByEmail' | transloco }}</a>
+        </form>
+      }
+
+      @if (error()) {
+        <p class="phone-auth__error" role="alert">{{ error() | transloco }}</p>
+      }
+    }
+  </article>
+</section>

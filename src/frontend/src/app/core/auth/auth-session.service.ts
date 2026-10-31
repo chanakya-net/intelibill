@@ -16,6 +16,9 @@ import {
   RegisterWithEmailRequest,
   AcceptedMessage,
   ConfirmEmailEnrollmentRequest,
+  ConfirmPhoneEnrollmentRequest,
+  PhoneAuthAvailability,
+  PhoneChallengeReceipt,
   ReauthenticationProof,
   SignInMethods,
 } from './auth.models';
@@ -120,6 +123,48 @@ export class AuthSessionService {
 
   getSignInMethods(): Observable<SignInMethods> {
     return this.http.get<SignInMethods>(AUTH_ENDPOINTS.signInMethods);
+  }
+
+  /** Whether this deployment offers phone sign-in, so the option can be hidden rather than fail. */
+  getPhoneAuthAvailability(): Observable<PhoneAuthAvailability> {
+    return this.http.get<PhoneAuthAvailability>(AUTH_ENDPOINTS.phoneAvailability);
+  }
+
+  requestPhoneChallenge(
+    phoneNumber: string,
+    purpose: 'enrollment' | 'login',
+  ): Observable<PhoneChallengeReceipt> {
+    return this.http.post<PhoneChallengeReceipt>(
+      purpose === 'login' ? AUTH_ENDPOINTS.requestPhoneLogin : AUTH_ENDPOINTS.requestPhoneEnrollment,
+      { phoneNumber: phoneNumber.trim() },
+    );
+  }
+
+  confirmPhoneEnrollment(payload: ConfirmPhoneEnrollmentRequest): Observable<AuthSession> {
+    return this.http.post<AuthResult>(AUTH_ENDPOINTS.confirmPhoneEnrollment, payload).pipe(
+      map((result) => this.toSession(result, false)),
+      tap((session) => this.setSession(session)),
+    );
+  }
+
+  confirmPhoneLogin(challengeId: string, code: string, rememberMe = true): Observable<AuthSession> {
+    return this.http
+      .post<AuthResult>(AUTH_ENDPOINTS.confirmPhoneLogin, { challengeId, code })
+      .pipe(
+        map((result) => this.toSession(result, rememberMe)),
+        tap((session) => this.setSession(session)),
+      );
+  }
+
+  requestPhoneChange(phoneNumber: string, reauthProof: string | null): Observable<PhoneChallengeReceipt> {
+    return this.http.post<PhoneChallengeReceipt>(AUTH_ENDPOINTS.requestPhoneChange, {
+      phoneNumber: phoneNumber.trim(),
+      reauthProof,
+    });
+  }
+
+  confirmPhoneChange(challengeId: string, code: string): Observable<AcceptedMessage> {
+    return this.http.post<AcceptedMessage>(AUTH_ENDPOINTS.confirmPhoneChange, { challengeId, code });
   }
 
   reauthenticate(password: string): Observable<ReauthenticationProof> {
