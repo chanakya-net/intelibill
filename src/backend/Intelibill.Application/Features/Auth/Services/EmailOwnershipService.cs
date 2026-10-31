@@ -5,13 +5,12 @@ using FluentValidation;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Auth.DTOs;
 using Intelibill.Domain.Entities;
-using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
 namespace Intelibill.Application.Features.Auth.Services;
 
 public sealed class EmailOwnershipService(IEmailOwnershipRepository repository, IUserRepository users,
     IRefreshTokenRepository refreshTokens, IIdentityMailOutbox mail, IPasswordHasher hasher,
-    ITokenService tokens, IEnumerable<IExternalAuthProvider> providers, TimeProvider clock) : IEmailOwnershipService
+    ITokenService tokens, TimeProvider clock) : IEmailOwnershipService
 {
     private static readonly Error Invalid = Error.Validation("Auth.InvalidChallenge", "The proof is invalid, expired, superseded, or already used.");
     private static readonly Error Conflict = Error.Conflict("Auth.EmailUnavailable", "This email is unavailable. Request a new verification or sign in to your existing account.");
@@ -69,22 +68,12 @@ public sealed class EmailOwnershipService(IEmailOwnershipRepository repository, 
         return new AuthResult(access, refresh.Token, expiry, refresh.ExpiresAt,
             new UserDto(user.Id, user.Email, user.PhoneNumber, user.FirstName, user.LastName, user.Language), shopId, shops);
     }
-    public async Task<ErrorOr<ReauthenticationResult>> ReauthenticateAsync(Guid actor, long version, string? password, ExternalAuthProvider? provider, string? token, CancellationToken ct)
+    public async Task<ErrorOr<ReauthenticationResult>> ReauthenticateAsync(Guid actor, long version, string? password, CancellationToken ct)
     {
-        string? key = null;
-        if (provider is not null && !string.IsNullOrEmpty(token))
-        {
-            var adapter = providers.FirstOrDefault(x => x.Provider == provider);
-            if (adapter is null) return Reauth;
-            var info = await adapter.ValidateTokenAsync(token, ct);
-            if (info.IsError) return Reauth;
-            key = info.Value.ProviderKey;
-        }
         await using var transaction = await repository.BeginAsync(ct);
         var user = await ActorAsync(actor, version, ct);
         if (user is null) return Reauth;
-        var valid = key is not null ? user.ExternalLogins.Any(x => x.Provider == provider && x.ProviderKey == key)
-            : user.IsEmailVerified && user.PasswordHash is not null && password is not null && hasher.Verify(password, user.PasswordHash);
+        var valid = user.IsEmailVerified && user.PasswordHash is not null && password is not null && hasher.Verify(password, user.PasswordHash);
         if (!valid) return Reauth;
         var secret = NewToken();
         var proof = EmailOwnershipChallenge.Create("reauthentication", string.Empty, Hash(secret), clock.GetUtcNow().AddMinutes(5), actor, version);
@@ -125,35 +114,6 @@ public sealed class EmailOwnershipService(IEmailOwnershipRepository repository, 
         await repository.InvalidateCredentialsAsync(user.Id, ct);
         if (previousEmail is not null) mail.QueueSecurityNotice(previousEmail);
         mail.QueueSecurityNotice(challenge.Destination);
-        return await repository.CommitAsync(ct) ? true : Conflict;
-    }
-    public async Task<ErrorOr<bool>> LinkAsync(Guid actor, long version, ExternalAuthProvider provider, string token, string proof, CancellationToken ct)
-    {
-        var adapter = providers.FirstOrDefault(x => x.Provider == provider);
-        if (adapter is null || string.IsNullOrWhiteSpace(token)) return Reauth;
-        var info = await adapter.ValidateTokenAsync(token, ct);
-        if (info.IsError) return info.Errors;
-        await using var transaction = await repository.BeginAsync(ct);
-        var user = await ActorAsync(actor, version, ct);
-        if (user is null || !await ConsumeProofAsync(actor, version, proof, ct)) return Reauth;
-        if (await users.GetByExternalLoginAsync(provider, info.Value.ProviderKey, ct) is not null)
-            return Error.Conflict("Auth.AccountLinkRequired", "This provider identity is already linked.");
-        var link = UserExternalLogin.Create(actor, provider, info.Value.ProviderKey, info.Value.Email);
-        if (link.IsError) return link.Errors;
-        user.AddExternalLogin(link.Value); repository.AddExternalLogin(link.Value); user.InvalidateSessions();
-        await repository.InvalidateCredentialsAsync(actor, ct);
-        return await repository.CommitAsync(ct) ? true : Conflict;
-    }
-    public async Task<ErrorOr<bool>> UnlinkAsync(Guid actor, long version, ExternalAuthProvider provider, string proof, CancellationToken ct)
-    {
-        await using var transaction = await repository.BeginAsync(ct);
-        var user = await ActorAsync(actor, version, ct);
-        if (user is null || !await ConsumeProofAsync(actor, version, proof, ct)) return Reauth;
-        var links = user.ExternalLogins.Where(x => x.Provider == provider).ToList();
-        if (links.Count == user.ExternalLogins.Count && !(user.IsEmailVerified && user.PasswordHash is not null))
-            return Error.Conflict("Auth.LastSignInMethod", "Add another verified sign-in method before removing this provider.");
-        foreach (var link in links) user.RemoveExternalLogin(link);
-        user.InvalidateSessions(); await repository.InvalidateCredentialsAsync(actor, ct);
         return await repository.CommitAsync(ct) ? true : Conflict;
     }
     private async Task<User?> ActorAsync(Guid id, long version, CancellationToken ct)

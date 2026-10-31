@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { AUTH_ENDPOINTS } from './auth.constants';
-import { AuthSession, ExternalAuthProvider } from './auth.models';
+import { AuthSession } from './auth.models';
 import { createAuthServiceTestHarness, buildAuthResult } from './auth.service.test-utils';
 
 describe('AuthService (auth flows)', () => {
@@ -75,21 +75,6 @@ describe('AuthService (auth flows)', () => {
     http.verify();
   });
 
-  it.each(['link', 'unlink'] as const)('%s success clears the current session', (mode) => {
-    const { service, http } = t.setup();
-    service.applyAuthResult(buildAuthResult());
-    if (mode === 'link') service.completeExternalLink('code', 'state', 'recent').subscribe();
-    else service.unlinkExternalProvider(ExternalAuthProvider.Google, 'recent').subscribe();
-    const request = http.expectOne(
-      mode === 'link' ? AUTH_ENDPOINTS.externalLinksCallback : AUTH_ENDPOINTS.externalLinks + '/1',
-    );
-    expect(request.request.body.reauthProof).toBe('recent');
-    expect(request.request.method).toBe(mode === 'link' ? 'POST' : 'DELETE');
-    request.flush(null, { status: 204, statusText: 'No Content' });
-    expect(service.session()).toBeNull();
-    http.verify();
-  });
-
   it('clears last identifier when rememberMe is false', () => {
     const { service, http } = t.setup();
 
@@ -123,51 +108,6 @@ describe('AuthService (auth flows)', () => {
 
     expect(t.storage.clearSession).toHaveBeenCalledTimes(1);
     expect(service.session()).toBeNull();
-
-    http.verify();
-  });
-
-  it('initializeExternalLogin returns authorization url', () => {
-    const { service, http } = t.setup();
-    let resultUrl = '';
-
-    service.initializeExternalLogin(ExternalAuthProvider.Google).subscribe((url) => {
-      resultUrl = url;
-    });
-
-    const request = http.expectOne(AUTH_ENDPOINTS.loginExternalInit);
-    expect(request.request.method).toBe('POST');
-    expect(request.request.body).toEqual({ provider: ExternalAuthProvider.Google });
-    request.flush({
-      authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth?client_id=test',
-    });
-
-    expect(resultUrl).toContain('accounts.google.com');
-    http.verify();
-  });
-
-  it('completeExternalLogin stores session from callback response', () => {
-    const { service, http } = t.setup();
-    let emitted: AuthSession | undefined;
-
-    service.completeExternalLogin('code-123', 'state-123').subscribe((session) => {
-      emitted = session;
-    });
-
-    const request = http.expectOne(AUTH_ENDPOINTS.loginExternalCallback);
-    expect(request.request.method).toBe('POST');
-    expect(request.request.body).toEqual({
-      code: 'code-123',
-      state: 'state-123',
-      firstName: undefined,
-      lastName: undefined,
-    });
-
-    request.flush(buildAuthResult({ accessToken: 'external-access-token' }));
-
-    expect(emitted?.accessToken).toBe('external-access-token');
-    expect(service.getAccessToken()).toBe('external-access-token');
-    expect(t.storage.saveSession).toHaveBeenCalledTimes(1);
 
     http.verify();
   });

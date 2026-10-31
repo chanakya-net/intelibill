@@ -311,62 +311,26 @@ public sealed class AuthControllerTests(PostgreSqlTestFixture fixture) : IAsyncL
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
-    [Fact]
-    public async Task InitializeExternalLogin_WhenProviderDisabled_Returns400()
+    [Theory]
+    [InlineData("/api/auth/login/external")]
+    [InlineData("/api/auth/login/external/init")]
+    [InlineData("/api/auth/login/external/callback")]
+    public async Task ExternalLoginEndpoints_AreGone(string path)
     {
         using var client = CreateClient();
 
-        var response = await client.PostAsJsonAsync("/api/auth/login/external/init", new
-        {
-            provider = 1 // Google
-        });
+        var response = await client.PostAsJsonAsync(path, new { provider = 1, token = "token", code = "code", state = "state" });
 
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
-    [Fact]
-    public async Task CompleteExternalLogin_WhenStateIsInvalid_Returns401()
+    [Theory]
+    [InlineData("/auth/google/callback?code=123")]
+    [InlineData("/auth/facebook/callback?code=456")]
+    public async Task ProviderCallbackRelays_AreGone(string path)
     {
         using var client = CreateClient();
 
-        var response = await client.PostAsJsonAsync("/api/auth/login/external/callback", new
-        {
-            code = "code-123",
-            state = "invalid-state"
-        });
-
-        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task GoogleCallbackRelay_RedirectsToFrontend()
-    {
-        using var client = CreateClient();
-        var response = await client.GetAsync("/auth/google/callback?code=123");
-        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
-        Assert.Contains("/auth/callback?code=123", response.Headers.Location?.ToString() ?? "");
-    }
-
-    [Fact]
-    public async Task FacebookCallbackRelay_RedirectsToFrontend()
-    {
-        using var client = CreateClient();
-        var response = await client.GetAsync("/auth/facebook/callback?code=456");
-        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
-        Assert.Contains("/auth/callback?code=456", response.Headers.Location?.ToString() ?? "");
-    }
-
-    [Fact]
-    public async Task ExternalLogin_WithInvalidProviderToken_ReturnsError()
-    {
-        using var client = CreateClient();
-
-        var response = await client.PostAsJsonAsync("/api/auth/login/external", new
-        {
-            provider = 1, // Google
-            token = "invalid-token"
-        });
-
-        Assert.False(response.IsSuccessStatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync(path)).StatusCode);
     }
 }

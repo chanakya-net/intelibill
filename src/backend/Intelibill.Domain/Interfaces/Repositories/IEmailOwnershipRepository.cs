@@ -12,6 +12,5 @@ public interface IEmailOwnershipRepository
     Task InvalidateCredentialsAsync(Guid userId, CancellationToken ct);
     void Add(EmailOwnershipChallenge challenge);
     void AddMail(IdentityMail mail);
-    void AddExternalLogin(UserExternalLogin login);
     Task<bool> CommitAsync(CancellationToken ct);
 }

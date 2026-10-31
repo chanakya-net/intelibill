@@ -20,7 +20,7 @@
 ```
 src/frontend/src/app/
 ├── app.config.ts          # Global providers: router, HTTP interceptors, NgRx, PrimeNG, Transloco, SW
-├── app.routes.ts          # Public auth + OAuth callback routes + guarded shell
+├── app.routes.ts          # Public auth routes + guarded shell
 ├── core/
 │   ├── auth/              # Auth service, storage, endpoint constants, session models
 │   ├── guards/            # authGuard (protects shell routes)
@@ -31,7 +31,7 @@ src/frontend/src/app/
 │   ├── state/             # Root NgRx reducers/actions (appShell, httpUi)
 │   └── storage/           # IndexedDB services: product catalog, sales cart, inventory draft
 ├── features/
-│   ├── auth/              # Login, register (multi-step routes), OAuth callback
+│   ├── auth/              # Login, register (multi-step routes), email verification
 │   ├── bank-accounts/     # Bank accounts CRUD
 │   ├── customers/         # Customer list + account/ledger sub-page
 │   ├── expenses/          # Expense recording + list
@@ -48,7 +48,7 @@ src/frontend/src/app/
 
 ## Routing and Auth Flow
 
-1. Public routes: `/login`, `/register/*`, `/auth/callback` (OAuth)
+1. Public routes: `/login`, `/register/*`, `/auth/verify-email`, `/invitations/accept`
 2. Shell and all app routes protected by `authGuard`
 3. On bootstrap, `APP_INITIALIZER` restores auth session from storage
 4. `authInterceptor` attaches bearer token; on 401 attempts one silent refresh (loop prevention included)

@@ -18,7 +18,7 @@ public sealed class RefreshTokenCommandHandler(
     {
         var existing = await refreshTokenRepository.GetActiveByTokenAsync(command.RefreshToken, cancellationToken);
         if (existing is null || !existing.User.IsLoginEnabled || existing.SecurityVersion != existing.User.SecurityVersion ||
-            (existing.User.Email is not null && !existing.User.IsEmailVerified && existing.User.ExternalLogins.Count == 0))
+            (existing.User.Email is not null && !existing.User.IsEmailVerified))
             return Errors.Auth.InvalidRefreshToken;
 
         // Rotate: revoke old token and issue a new pair.

@@ -91,8 +91,6 @@ public sealed class ApiWebApplicationFactory(PostgreSqlTestFixture? fixture = nu
                 ["Jwt:Audience"] = "inventory.ai.integration",
                 ["Jwt:AccessTokenExpiryMinutes"] = "15",
                 ["Jwt:RefreshTokenExpiryDays"] = "7",
-                ["ExternalAuth:Google:Enabled"] = "false",
-                ["ExternalAuth:Facebook:Enabled"] = "false"
             });
         });
 

@@ -27,9 +27,6 @@ public sealed class User : BaseEntity
     public bool IsEmailVerified { get; private set; }
     public bool IsLoginEnabled { get; private set; } = true;
 
-    private readonly List<UserExternalLogin> _externalLogins = [];
-    public IReadOnlyList<UserExternalLogin> ExternalLogins => _externalLogins.AsReadOnly();
-
     private readonly List<ShopMembership> _shopMemberships = [];
     public IReadOnlyList<ShopMembership> ShopMemberships => _shopMemberships.AsReadOnly();
 
@@ -66,19 +63,6 @@ public sealed class User : BaseEntity
         return user;
     }
 
-    public static User CreateFromExternalProvider(string? email, string firstName, string lastName, bool emailVerified = false)
-    {
-        var user = new User
-        {
-            Email = emailVerified ? email?.Trim().ToLowerInvariant() : null,
-            FirstName = firstName,
-            LastName = lastName,
-            IsEmailVerified = emailVerified && email is not null,
-        };
-        user.AddDomainEvent(new UserRegisteredEvent(user.Id, user.Email));
-        return user;
-    }
-
     public void VerifyEmail(string email)
     {
         Email = email.Trim().ToLowerInvariant();
@@ -92,12 +76,8 @@ public sealed class User : BaseEntity
         FirstName = firstName.Trim();
         LastName = lastName.Trim();
         PhoneNumber = null;
-        _externalLogins.Clear();
     }
-    public void RemoveExternalLogin(UserExternalLogin login) => _externalLogins.Remove(login);
     public void InvalidateSessions() => SecurityVersion++;
-
-    public void AddExternalLogin(UserExternalLogin login) => _externalLogins.Add(login);
 
     public void AddShopMembership(ShopMembership membership)
     {

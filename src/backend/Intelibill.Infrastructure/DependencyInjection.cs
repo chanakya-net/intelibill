@@ -12,7 +12,6 @@ using Intelibill.Infrastructure.Options;
 using Intelibill.Infrastructure.Observability;
 using Intelibill.Infrastructure.Repositories;
 using Intelibill.Infrastructure.Services.Auth;
-using Intelibill.Infrastructure.Services.Auth.ExternalAuth;
 using Intelibill.Infrastructure.Services.Exports;
 using Intelibill.Infrastructure.Services.Barcodes;
 using Intelibill.Application.Features.Exports.Sales;
@@ -72,11 +71,6 @@ public static class DependencyInjection
             .ValidateDataAnnotations()
             .ValidateOnStart();
         services.AddSingleton<IValidateOptions<JwtOptions>, JwtOptionsValidator>();
-
-        services.AddOptions<ExternalAuthOptions>()
-            .Bind(configuration.GetSection(ExternalAuthOptions.SectionName))
-            .ValidateOnStart();
-        services.AddSingleton<Microsoft.Extensions.Options.IValidateOptions<ExternalAuthOptions>, ExternalAuthOptionsValidator>();
 
         services.AddOptions<EmailOptions>()
             .Bind(configuration.GetSection(EmailOptions.SectionName))
@@ -175,8 +169,7 @@ public static class DependencyInjection
         services.AddScoped<IProfitLossExcelExportRenderer, Services.Exports.ProfitLossExcelExportRenderer>();
         services.AddScoped<IBarcodeLabelPdfRenderer, BarcodeLabelPdfRenderer>();
 
-        // ── External auth providers ───────────────────────────────────────────
-        // Named HttpClients for providers that call external HTTP APIs.
+        // ── Shared caches ─────────────────────────────────────────────────────
         services.AddMemoryCache();
 
         services.AddOptions<DistributedCacheOptions>()
@@ -199,23 +192,6 @@ public static class DependencyInjection
                 cache.CreateIfNotExists = options.CreateIfNotExists;
                 cache.ExpiredItemsDeletionInterval = options.ExpiredItemsDeletionInterval;
             });
-
-        services.AddHttpClient(nameof(GoogleAuthProvider)).RemoveAllLoggers();
-        services.AddHttpClient(nameof(FacebookAuthProvider)).RemoveAllLoggers();
-        services.AddHttpClient(nameof(TwitterAuthProvider));
-
-        // All providers are registered as IExternalAuthProvider so the handler can
-        // resolve IEnumerable<IExternalAuthProvider> and pick the right one.
-        services.AddScoped<IExternalAuthProvider, GoogleAuthProvider>();
-        services.AddScoped<IExternalAuthProvider, MicrosoftAuthProvider>();
-        services.AddScoped<IExternalAuthProvider, FacebookAuthProvider>();
-        services.AddScoped<IExternalAuthProvider, TwitterAuthProvider>();
-        services.AddScoped<IExternalAuthProvider, AppleAuthProvider>();
-
-        services.AddScoped<IExternalOAuthCodeProvider, GoogleAuthProvider>();
-        services.AddScoped<IExternalOAuthCodeProvider, FacebookAuthProvider>();
-        services.AddScoped<IExternalOAuthStateStore, DistributedExternalOAuthStateStore>();
-        services.AddScoped<IExternalOAuthFlowService, ExternalOAuthFlowService>();
 
         services.AddHttpClient(ExternalProductLookupService.HttpClientName, (sp, client) =>
         {

@@ -47,11 +47,6 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<User>
             .IsRequired()
             .HasDefaultValue(true);
 
-        builder.HasMany(u => u.ExternalLogins)
-            .WithOne(el => el.User)
-            .HasForeignKey(el => el.UserId)
-            .OnDelete(DeleteBehavior.Cascade);
-
         builder.HasMany(u => u.ShopMemberships)
             .WithOne(sm => sm.User)
             .HasForeignKey(sm => sm.UserId)

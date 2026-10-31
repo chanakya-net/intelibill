@@ -9,16 +9,12 @@ import {
   AuthResult,
   AuthSession,
   BootstrapSessionStatus,
-  ExternalAuthProvider,
-  ExternalLoginCallbackRequest,
-  ExternalLoginInitRequest,
-  ExternalLoginInitResponse,
   LoginRequest,
   RegisterWithEmailRequest,
   AcceptedMessage,
   ConfirmEmailEnrollmentRequest,
   ReauthenticationProof,
-  ExternalLinks,
+  SignInMethods,
 } from './auth.models';
 import { AuthStorage } from './auth.storage';
 import { AuthSessionState, AuthTokenService } from './auth-token.service';
@@ -119,19 +115,12 @@ export class AuthSessionService {
       );
   }
 
-  getExternalLinks(): Observable<ExternalLinks> {
-    return this.http.get<ExternalLinks>(AUTH_ENDPOINTS.externalLinks);
+  getSignInMethods(): Observable<SignInMethods> {
+    return this.http.get<SignInMethods>(AUTH_ENDPOINTS.signInMethods);
   }
 
   reauthenticate(password: string): Observable<ReauthenticationProof> {
     return this.http.post<ReauthenticationProof>(AUTH_ENDPOINTS.reauthenticate, { password });
-  }
-
-  reauthenticateExternal(code: string, state: string): Observable<ReauthenticationProof> {
-    return this.http.post<ReauthenticationProof>(AUTH_ENDPOINTS.reauthenticateCallback, {
-      code,
-      state,
-    });
   }
 
   requestEmailChange(email: string, reauthProof: string): Observable<AcceptedMessage> {
@@ -145,40 +134,6 @@ export class AuthSessionService {
     return this.http
       .post<AcceptedMessage>(AUTH_ENDPOINTS.confirmEmailChange, { challengeId, token })
       .pipe(tap(() => this.clearSession()));
-  }
-
-  completeExternalLink(code: string, state: string, reauthProof: string): Observable<void> {
-    return this.http
-      .post<void>(AUTH_ENDPOINTS.externalLinksCallback, { code, state, reauthProof })
-      .pipe(tap(() => this.clearSession()));
-  }
-
-  unlinkExternalProvider(provider: ExternalAuthProvider, reauthProof: string): Observable<void> {
-    return this.http
-      .delete<void>(`${AUTH_ENDPOINTS.externalLinks}/${provider}`, { body: { reauthProof } })
-      .pipe(tap(() => this.clearSession()));
-  }
-
-  initializeExternalLogin(provider: ExternalAuthProvider): Observable<string> {
-    const payload: ExternalLoginInitRequest = { provider };
-
-    return this.http
-      .post<ExternalLoginInitResponse>(AUTH_ENDPOINTS.loginExternalInit, payload)
-      .pipe(map((result) => result.authorizationUrl));
-  }
-
-  completeExternalLogin(
-    code: string,
-    state: string,
-    firstName?: string,
-    lastName?: string,
-  ): Observable<AuthSession> {
-    const payload: ExternalLoginCallbackRequest = { code, state, firstName, lastName };
-
-    return this.http.post<AuthResult>(AUTH_ENDPOINTS.loginExternalCallback, payload).pipe(
-      map((result) => this.toSession(result, true)),
-      tap((session) => this.setSession(session)),
-    );
   }
 
   bootstrapSession(): Observable<boolean> {

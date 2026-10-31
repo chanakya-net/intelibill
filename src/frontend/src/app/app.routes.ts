@@ -43,13 +43,6 @@ export const routes: Routes = [
 			),
 	},
 	{
-		path: 'auth/callback',
-		loadComponent: () =>
-			import('./features/auth/pages/auth-callback.component').then(
-				(m) => m.AuthCallbackComponent
-			),
-	},
-	{
 		path: 'sales/:saleId/print',
 		canActivate: [authGuard],
 		loadComponent: () =>

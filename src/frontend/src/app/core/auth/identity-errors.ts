@@ -11,10 +11,6 @@ export function identityError(error: { error?: ApiErrorPayload }): string {
     case 'Auth.EmailDeliveryUnavailable':
     case 'Auth.EmailUnavailable':
       return 'identity.deliveryUnavailable';
-    case 'Auth.AccountLinkRequired':
-      return 'identity.collision';
-    case 'Auth.LastSignInMethod':
-      return 'identity.lastMethod';
     case 'Auth.InvalidCredentials':
       return 'errors.auth.invalidCredentials';
     case 'Auth.EmailVerificationRequired':
@@ -28,40 +24,14 @@ export function identityError(error: { error?: ApiErrorPayload }): string {
   }
 }
 
-// Only these public outcome reasons may cross a callback redirect. Never route API
-// descriptions, provider responses or bearer proof values.
-export type IdentityFailureReason =
-  | 'last-method'
-  | 'support-required'
-  | 'delivery-unavailable'
-  | 'collision'
-  | 'failed';
-
-export function identityFailureReason(error?: { error?: ApiErrorPayload }): IdentityFailureReason {
-  switch (identityError(error ?? {})) {
-    case 'identity.lastMethod':
-      return 'last-method';
-    case 'identity.supportRequired':
-      return 'support-required';
-    case 'identity.deliveryUnavailable':
-      return 'delivery-unavailable';
-    case 'identity.collision':
-      return 'collision';
-    default:
-      return 'failed';
-  }
-}
-
+// Only these public outcome reasons may reach the sign-in or account pages as a query
+// string. Never route API descriptions or bearer proof values.
 export function identityFailureMessage(reason: string | null): string | null {
   switch (reason) {
-    case 'last-method':
-      return 'identity.lastMethod';
     case 'support-required':
       return 'identity.supportRequired';
     case 'delivery-unavailable':
       return 'identity.deliveryUnavailable';
-    case 'collision':
-      return 'identity.collision';
     case 'failed':
       return 'identity.reauthFailed';
     default:

@@ -27,7 +27,7 @@ internal sealed class TokenService(IOptions<JwtOptions> options, IJwtSigner sign
         string? activeShopRole = null,
         CancellationToken cancellationToken = default)
     {
-        if (!user.IsLoginEnabled || (user.Email is not null && !user.IsEmailVerified && user.ExternalLogins.Count == 0))
+        if (!user.IsLoginEnabled || (user.Email is not null && !user.IsEmailVerified))
             throw new UnauthorizedAccessException("This account requires verified sign-in ownership.");
         if (db is not null && db.Entry(user).State != EntityState.Added)
         {

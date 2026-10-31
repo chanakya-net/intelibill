@@ -12,7 +12,6 @@ internal sealed class UserRepository(ApplicationDbContext context) : RepositoryB
     {
         var normalized = email.ToLowerInvariant();
         return await DbSet
-            .Include(u => u.ExternalLogins)
             .Include(u => u.ShopMemberships)
             .ThenInclude(sm => sm.Shop)
             .AsSplitQuery()
@@ -21,27 +20,13 @@ internal sealed class UserRepository(ApplicationDbContext context) : RepositoryB
 
     public async Task<User?> GetByPhoneAsync(string phoneNumber, CancellationToken cancellationToken = default) =>
         await DbSet
-            .Include(u => u.ExternalLogins)
             .Include(u => u.ShopMemberships)
             .ThenInclude(sm => sm.Shop)
             .AsSplitQuery()
             .FirstOrDefaultAsync(u => u.PhoneNumber == phoneNumber, cancellationToken);
 
-    public async Task<User?> GetByExternalLoginAsync(
-        ExternalAuthProvider provider,
-        string providerKey,
-        CancellationToken cancellationToken = default) =>
-        await DbSet
-            .Include(u => u.ExternalLogins)
-            .Include(u => u.ShopMemberships)
-            .ThenInclude(sm => sm.Shop)
-            .AsSplitQuery()
-            .FirstOrDefaultAsync(
-                u => u.ExternalLogins.Any(el => el.Provider == provider && el.ProviderKey == providerKey),
-                cancellationToken);
-
     /// <summary>
-    /// Loads the account with its external logins and its <em>live</em> shop memberships.
+    /// Loads the account with its <em>live</em> shop memberships.
     /// </summary>
     /// <remarks>
     /// Suspended and removed memberships are filtered out here on purpose. Every caller uses this
@@ -53,7 +38,6 @@ internal sealed class UserRepository(ApplicationDbContext context) : RepositoryB
     /// </remarks>
     public async Task<User?> GetByIdWithDetailsAsync(Guid userId, CancellationToken cancellationToken = default) =>
         await DbSet
-            .Include(u => u.ExternalLogins)
             .Include(u => u.ShopMemberships.Where(sm => sm.Status == MembershipStatus.Active))
             .ThenInclude(sm => sm.Shop)
             .AsSplitQuery()

@@ -16,7 +16,7 @@ public sealed class LiveSessionValidator(ApplicationDbContext db)
             u => u.Id == userId
                 && u.SecurityVersion == version
                 && u.IsLoginEnabled
-                && (u.Email == null || u.IsEmailVerified || u.ExternalLogins.Any()),
+                && (u.Email == null || u.IsEmailVerified),
             ct);
 
         if (!accountIsLive)

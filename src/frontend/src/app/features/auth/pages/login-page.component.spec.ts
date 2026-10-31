@@ -7,32 +7,25 @@ import { TranslocoTestingModule } from '@ngneat/transloco';
 import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 
-import { AuthSession, ExternalAuthProvider } from '../../../core/auth/auth.models';
+import { AuthSession } from '../../../core/auth/auth.models';
 import { IdentityFlowService } from '../../../core/auth/identity-flow.service';
 import { AuthService } from '../../../core/auth/auth.service';
-import { EXTERNAL_LOGIN_REDIRECT, LoginPageComponent } from './login-page.component';
+import { LoginPageComponent } from './login-page.component';
 
 describe('LoginPageComponent', () => {
   const authService = {
     isAuthenticated: vi.fn<AuthService['isAuthenticated']>(),
     getLastRememberedIdentifier: vi.fn<AuthService['getLastRememberedIdentifier']>(),
     login: vi.fn<AuthService['login']>(),
-    initializeExternalLogin: vi.fn<AuthService['initializeExternalLogin']>(),
-    completeExternalLogin: vi.fn<AuthService['completeExternalLogin']>(),
   };
 
   const identityFlow = {
-    hasOAuthIntent: vi.fn(),
-    completeOAuth: vi.fn(),
     afterSignIn: vi.fn(),
     pendingVerification: vi.fn(),
-    clearOAuth: vi.fn(),
   };
   const store = {
     selectSignal: vi.fn(() => signal(false)),
   };
-  const externalLoginRedirect = vi.fn<(authorizationUrl: string) => void>();
-
   function setup(
     queryParams: Record<string, string> = {},
     navigationState: Record<string, unknown> | null = null,
@@ -47,7 +40,6 @@ describe('LoginPageComponent', () => {
         { provide: AuthService, useValue: authService },
         { provide: IdentityFlowService, useValue: identityFlow },
         { provide: Store, useValue: store },
-        { provide: EXTERNAL_LOGIN_REDIRECT, useValue: externalLoginRedirect },
         {
           provide: ActivatedRoute,
           useValue: {
@@ -79,16 +71,10 @@ describe('LoginPageComponent', () => {
     authService.isAuthenticated.mockReturnValue(false);
     authService.getLastRememberedIdentifier.mockReturnValue('');
     authService.login.mockReturnValue(of({} as AuthSession));
-    authService.initializeExternalLogin.mockReturnValue(of('https://provider.example.com/oauth'));
-    authService.completeExternalLogin.mockReturnValue(of({} as AuthSession));
     store.selectSignal.mockImplementation(() => signal(false));
-    externalLoginRedirect.mockClear();
     sessionStorage.clear();
-    identityFlow.hasOAuthIntent.mockReturnValue(false);
     identityFlow.afterSignIn.mockReturnValue('/');
     identityFlow.pendingVerification.mockReturnValue(null);
-    identityFlow.completeOAuth.mockReset();
-    authService.completeExternalLogin.mockClear();
   });
 
   afterEach(() => {
@@ -184,53 +170,6 @@ describe('LoginPageComponent', () => {
     expect(component.serverError()).toBe('errors.auth.invalidCredentials');
   });
 
-  it('starts google login and redirects browser to provider', () => {
-    const { component } = setup();
-
-    component.onGoogleLogin();
-
-    expect(authService.initializeExternalLogin).toHaveBeenCalledWith(ExternalAuthProvider.Google);
-    expect(externalLoginRedirect).toHaveBeenCalledWith('https://provider.example.com/oauth');
-    expect(component.serverError()).toBeNull();
-  });
-
-  it('sets server error when external login init fails', () => {
-    authService.initializeExternalLogin.mockReturnValue(
-      throwError(() => ({ error: { title: 'Auth.UnsupportedProvider' } })),
-    );
-    const { component } = setup();
-
-    component.onFacebookLogin();
-
-    expect(authService.initializeExternalLogin).toHaveBeenCalledWith(ExternalAuthProvider.Facebook);
-    expect(component.serverError()).toBe('errors.auth.unsupportedProvider');
-  });
-
-  it('reads external auth error from query string', () => {
-    const { component } = setup({ externalAuthError: 'errors.auth.signInTimeout' });
-
-    expect(component.serverError()).toBe('errors.auth.signInTimeout');
-  });
-
-  it('reads external auth error from session storage fallback', () => {
-    sessionStorage.setItem('inventory.auth.external.error', 'errors.auth.externalProviderError');
-    const { component } = setup();
-
-    expect(component.serverError()).toBe('errors.auth.externalProviderError');
-    expect(sessionStorage.getItem('inventory.auth.external.error')).toBeNull();
-  });
-
-  it('shows fallback error when external sign-in was pending but no callback error was provided', () => {
-    sessionStorage.setItem(
-      'inventory.auth.external.pending',
-      ExternalAuthProvider.Google.toString(),
-    );
-    const { component } = setup();
-
-    expect(component.serverError()).toBe('errors.auth.externalSignInIncomplete');
-    expect(sessionStorage.getItem('inventory.auth.external.pending')).toBeNull();
-  });
-
   it('shows the password reset success message from the query string', () => {
     const { component } = setup({ passwordReset: 'success' });
 
@@ -244,15 +183,6 @@ describe('LoginPageComponent', () => {
     expect(component.successMessage()).toBe('auth.resetPassword.successMessage');
     expect(component.serverError()).toBeNull();
   });
-  it('legacy login callback handles linking before the authenticated redirect', () => {
-    authService.isAuthenticated.mockReturnValue(true);
-    identityFlow.hasOAuthIntent.mockReturnValue(true);
-    identityFlow.completeOAuth.mockReturnValue(of('security-updated'));
-    const { navigateByUrl } = setup({ code: 'code', state: 'state' });
-    expect(identityFlow.completeOAuth).toHaveBeenCalledWith('code', 'state');
-    expect(authService.completeExternalLogin).not.toHaveBeenCalled();
-    expect(navigateByUrl).toHaveBeenCalledWith('/login?identity=updated');
-  });
   it('password login resumes pending email confirmation without putting bearer proof in navigation', () => {
     identityFlow.afterSignIn.mockReturnValue('/auth/verify-email');
     const { component, navigateByUrl } = setup();
@@ -261,29 +191,8 @@ describe('LoginPageComponent', () => {
     expect(navigateByUrl).toHaveBeenCalledWith('/auth/verify-email');
   });
   it.each([
-    ['Auth.LastSignInMethod', 'last-method', 'identity.lastMethod'],
-    ['Auth.RecoverySupportRequired', 'support-required', 'identity.supportRequired'],
-    ['Auth.EmailDeliveryUnavailable', 'delivery-unavailable', 'identity.deliveryUnavailable'],
-    ['Auth.AccountLinkRequired', 'collision', 'identity.collision'],
-    ['Auth.UnrecognizedSecret', 'failed', 'identity.reauthFailed'],
-  ])('legacy callback retains safe operation guidance for %s', (code, reason, message) => {
-    authService.isAuthenticated.mockReturnValue(false);
-    identityFlow.hasOAuthIntent.mockReturnValue(true);
-    identityFlow.completeOAuth.mockReturnValue(
-      throwError(() => ({ error: { title: code, detail: 'private-token-do-not-route' } })),
-    );
-    const { component, navigateByUrl } = setup({ code: 'oauth-code', state: 'oauth-state' });
-    expect(navigateByUrl).toHaveBeenCalledWith('/login?identity=' + reason);
-    expect(component.serverError()).toBe(message);
-    expect(authService.completeExternalLogin).not.toHaveBeenCalled();
-    expect(JSON.stringify(navigateByUrl.mock.calls)).not.toContain('private-token');
-    expect(JSON.stringify(navigateByUrl.mock.calls)).not.toContain(code);
-  });
-  it.each([
-    ['last-method', 'identity.lastMethod'],
     ['support-required', 'identity.supportRequired'],
     ['delivery-unavailable', 'identity.deliveryUnavailable'],
-    ['collision', 'identity.collision'],
     ['failed', 'identity.reauthFailed'],
   ])('renders allowlisted login destination reason %s', (reason, message) => {
     expect(setup({ identity: reason }).component.serverError()).toBe(message);

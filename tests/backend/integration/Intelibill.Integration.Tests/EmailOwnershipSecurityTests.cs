@@ -4,9 +4,7 @@ using Intelibill.Domain.Interfaces.Repositories;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
-using ErrorOr;
 using Intelibill.Application.Common.Interfaces;
-using Intelibill.Application.Common.Models;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Infrastructure.Data;
@@ -28,8 +26,6 @@ public sealed class EmailOwnershipSecurityTests(PostgreSqlTestFixture fixture) :
         services.AddSingleton<ReadBarrier>();
         services.AddScoped<IUserRepository>(sp => new BarrierUsers(
             (IUserRepository)ActivatorUtilities.CreateInstance(sp, original.ImplementationType!), sp.GetRequiredService<ReadBarrier>()));
-        services.RemoveAll<IExternalAuthProvider>();
-        services.AddSingleton<IExternalAuthProvider, FixtureProvider>();
         services.RemoveAll<IEmailService>();
         services.AddSingleton<FixtureEmailDelivery>();
         services.AddSingleton<IEmailService>(sp => sp.GetRequiredService<FixtureEmailDelivery>());
@@ -118,7 +114,6 @@ public sealed class EmailOwnershipSecurityTests(PostgreSqlTestFixture fixture) :
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
             var user = User.CreateWithEmail(email, scope.ServiceProvider.GetRequiredService<IPasswordHasher>().Hash("AttackerPassword!1"), "Attacker", "Name");
             userId = user.Id; db.Users.Add(user);
-            user.AddExternalLogin(UserExternalLogin.Create(user.Id, ExternalAuthProvider.Google, "attacker-subject", email).Value);
             db.RefreshTokens.Add(RefreshToken.Create(user.Id, "attacker-refresh", DateTimeOffset.UtcNow.AddDays(1)));
             await db.SaveChangesAsync();
         }
@@ -128,7 +123,6 @@ public sealed class EmailOwnershipSecurityTests(PostgreSqlTestFixture fixture) :
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/api/auth/token/refresh", new { refreshToken = "attacker-refresh" })).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/api/auth/login", new { identifier = email, password = "AttackerPassword!1" })).StatusCode);
         using var verify = _factory.Services.CreateScope(); var database = verify.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        Assert.False(await database.UserExternalLogins.AnyAsync(x => x.UserId == userId));
         Assert.True((await database.Users.SingleAsync(x => x.Id == userId)).IsEmailVerified);
     }
     [Fact]
@@ -145,30 +139,10 @@ public sealed class EmailOwnershipSecurityTests(PostgreSqlTestFixture fixture) :
         var results = await Task.WhenAll(Enumerable.Range(0, 2).Select(_ => client.PostAsJsonAsync("/api/auth/email-change/confirm", new { challengeId = challenge.Id, token = challenge.Token })));
         Assert.Single(results, x => x.StatusCode == HttpStatusCode.OK);
         Assert.Single(results, x => x.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Unauthorized);
-        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/auth/external-links")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/auth/sign-in-methods")).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/api/auth/token/refresh", new { refreshToken = auth.GetProperty("refreshToken").GetString() })).StatusCode);
         using var verify = _factory.Services.CreateScope(); var db = verify.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         Assert.Equal(2, await db.Set<IdentityMail>().CountAsync(x => x.ChallengeId == null));
-    }
-    [Fact]
-    public async Task OAuth_EmailCollision_DoesNotLinkOrMint()
-    {
-        using var client = Client(); var email = Email(); await EnrollAsync(client, email);
-        var response = await client.PostAsJsonAsync("/api/auth/login/external", new { provider = 1, token = email });
-        Assert.True(response.StatusCode == HttpStatusCode.Conflict, await response.Content.ReadAsStringAsync());
-        Assert.Contains("Auth.AccountLinkRequired", await response.Content.ReadAsStringAsync());
-        using var scope = _factory.Services.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        Assert.False(await db.UserExternalLogins.AnyAsync());
-        Assert.Equal(1, await db.RefreshTokens.CountAsync());
-    }
-    [Fact]
-    public async Task ProviderUnverifiedEmail_CannotVerifyRecovery()
-    {
-        using var client = Client(); var email = Email();
-        var response = await client.PostAsJsonAsync("/api/auth/login/external", new { provider = 1, token = email });
-        Assert.True(response.StatusCode == HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
-        using var scope = _factory.Services.CreateScope(); var user = await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().Users.SingleAsync();
-        Assert.Null(user.Email); Assert.False(user.IsEmailVerified);
     }
     [Fact]
     public async Task LegacyBusinessAccount_DeletedMembershipStillRequiresSupport()
@@ -194,37 +168,14 @@ public sealed class EmailOwnershipSecurityTests(PostgreSqlTestFixture fixture) :
         Assert.False((await database.Users.SingleAsync(x => x.Id == id)).IsEmailVerified);
     }
     [Fact]
-    public async Task LinkUnlink_RequireActorBoundProof_AndInvalidateSessions()
+    public async Task PhoneOnlyAccount_CanEditProfileWithoutEmail()
     {
-        using var client = Client(); var email = Email(); var providerEmail = Email();
-        var auth = await EnrollAsync(client, email); Authenticate(client, auth);
-        var proof = await ReauthAsync(client);
-        Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync("/api/auth/external-links", new { provider = 1, token = providerEmail, reauthProof = proof })).StatusCode);
-        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/auth/external-links")).StatusCode);
-        var login = await client.PostAsJsonAsync("/api/auth/login", new { identifier = email, password = "OwnersPassword!1" });
-        var refreshed = await login.Content.ReadFromJsonAsync<JsonElement>(); Authenticate(client, refreshed);
-        Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/api/auth/email-change/request", new { email = Email(), reauthProof = proof })).StatusCode);
-        var links = await client.GetFromJsonAsync<JsonElement>("/api/auth/external-links");
-        Assert.True(links.GetProperty("hasPassword").GetBoolean()); Assert.Single(links.GetProperty("providers").EnumerateArray());
-        var unlinkProof = await ReauthAsync(client);
-        using var request = new HttpRequestMessage(HttpMethod.Delete, "/api/auth/external-links/1") { Content = JsonContent.Create(new { reauthProof = unlinkProof }) };
-        Assert.Equal(HttpStatusCode.NoContent, (await client.SendAsync(request)).StatusCode);
-        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/auth/external-links")).StatusCode);
-    }
-    [Fact]
-    public async Task ProviderOnlyAccount_CannotUnlinkFinalMethod_AndCanEditProfileWithoutEmail()
-    {
-        using var client = Client(); var email = Email();
-        var login = await client.PostAsJsonAsync("/api/auth/login/external", new { provider = 1, token = email });
-        var auth = await login.Content.ReadFromJsonAsync<JsonElement>(); Authenticate(client, auth);
+        using var client = Client();
+        var registration = await client.PostAsJsonAsync("/api/auth/register/phone", new { phoneNumber = "+9199" + Random.Shared.Next(10000000, 99999999), firstName = "Phone", lastName = "Owner" });
+        Assert.Equal(HttpStatusCode.Created, registration.StatusCode);
+        Authenticate(client, await registration.Content.ReadFromJsonAsync<JsonElement>());
         var profile = await client.PutAsJsonAsync("/api/users/me", new { email = (string?)null, phoneNumber = (string?)null, firstName = "Updated", lastName = "User", language = "en-IN" });
         Assert.Equal(HttpStatusCode.OK, profile.StatusCode);
-        var reauth = await client.PostAsJsonAsync("/api/auth/reauthenticate", new { provider = 1, token = email });
-        var proof = (await reauth.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("proof").GetString();
-        using var request = new HttpRequestMessage(HttpMethod.Delete, "/api/auth/external-links/1") { Content = JsonContent.Create(new { reauthProof = proof }) };
-        var response = await client.SendAsync(request);
-        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-        Assert.Contains("Auth.LastSignInMethod", await response.Content.ReadAsStringAsync());
     }
     [Fact]
     public async Task ExpiredProof_CannotCreateUser()
@@ -339,43 +290,6 @@ public sealed class EmailOwnershipSecurityTests(PostgreSqlTestFixture fixture) :
             await concurrent.ServiceProvider.GetRequiredService<ApplicationDbContext>().Database.ExecuteSqlRawAsync("UPDATE users SET security_version = security_version + 1");
         barrier.Release.TrySetResult();
         Assert.Equal(HttpStatusCode.Unauthorized, (await pending).StatusCode);
-    }
-
-    [Fact]
-    public async Task LegacyProviderEmailChange_CannotActivateHistoricalPassword()
-    {
-        using var client = Client(); var email = Email(); var destination = Email(); Guid userId;
-        using (var scope = _factory.Services.CreateScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            var user = User.CreateWithEmail(email, scope.ServiceProvider.GetRequiredService<IPasswordHasher>().Hash("AttackerPassword!1"), "Legacy", "Owner");
-            userId = user.Id;
-            user.AddExternalLogin(UserExternalLogin.Create(user.Id, ExternalAuthProvider.Google, "subject-" + email, email).Value);
-            db.Users.Add(user); await db.SaveChangesAsync();
-            await db.Database.ExecuteSqlRawAsync("UPDATE users SET requires_operator_recovery = true");
-        }
-        var login = await client.PostAsJsonAsync("/api/auth/login/external", new { provider = 1, token = email });
-        Assert.Equal(HttpStatusCode.OK, login.StatusCode); Authenticate(client, await login.Content.ReadFromJsonAsync<JsonElement>());
-        var reauth = await client.PostAsJsonAsync("/api/auth/reauthenticate", new { provider = 1, token = email });
-        var proof = (await reauth.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("proof").GetString();
-        var request = await client.PostAsJsonAsync("/api/auth/email-change/request", new { email = destination, reauthProof = proof });
-        Assert.Equal(HttpStatusCode.Conflict, request.StatusCode);
-        Assert.Contains("Auth.RecoverySupportRequired", await request.Content.ReadAsStringAsync());
-        // A challenge issued before this policy was introduced must fail too.
-        var rawToken = "older-challenge"; Guid challengeId;
-        using (var scope = _factory.Services.CreateScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            var challenge = EmailOwnershipChallenge.Create("email-change", destination,
-                Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(rawToken))), DateTimeOffset.UtcNow.AddMinutes(10), userId, 0);
-            challengeId = challenge.Id; db.Add(challenge); await db.SaveChangesAsync();
-        }
-        var confirm = await client.PostAsJsonAsync("/api/auth/email-change/confirm", new { challengeId, token = rawToken });
-        Assert.Equal(HttpStatusCode.Conflict, confirm.StatusCode);
-        Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsJsonAsync("/api/auth/login", new { identifier = email, password = "AttackerPassword!1" })).StatusCode);
-        using var verify = _factory.Services.CreateScope(); var database = verify.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        Assert.False((await database.Users.SingleAsync()).IsEmailVerified);
-        Assert.Null((await database.Set<EmailOwnershipChallenge>().SingleAsync(x => x.Id == challengeId)).ConsumedAt);
     }
 
     [Fact]
@@ -514,7 +428,6 @@ public sealed class EmailOwnershipSecurityTests(PostgreSqlTestFixture fixture) :
         public async Task<User?> GetByEmailAsync(string email, CancellationToken ct = default)
         { var user = await inner.GetByEmailAsync(email, ct); if (barrier.AfterEmail) { barrier.AfterEmail = false; await barrier.PauseAsync(); } return user; }
         public Task<User?> GetByPhoneAsync(string phone, CancellationToken ct = default) => inner.GetByPhoneAsync(phone, ct);
-        public Task<User?> GetByExternalLoginAsync(ExternalAuthProvider provider, string key, CancellationToken ct = default) => inner.GetByExternalLoginAsync(provider, key, ct);
         public Task<bool> ExistsByEmailAsync(string email, CancellationToken ct = default) => inner.ExistsByEmailAsync(email, ct);
         public Task<bool> ExistsByPhoneAsync(string phone, CancellationToken ct = default) => inner.ExistsByPhoneAsync(phone, ct);
         public Task<bool> ExistsByPhoneAsync(string phone, Guid id, CancellationToken ct = default) => inner.ExistsByPhoneAsync(phone, id, ct);
@@ -536,12 +449,5 @@ public sealed class EmailOwnershipSecurityTests(PostgreSqlTestFixture fixture) :
             if (Fail) throw new IOException("Simulated SMTP outage");
             Delivered++; return Task.CompletedTask;
         }
-    }
-
-    public sealed class FixtureProvider : IExternalAuthProvider
-    {
-        public ExternalAuthProvider Provider => ExternalAuthProvider.Google;
-        public Task<ErrorOr<ExternalUserInfo>> ValidateTokenAsync(string token, CancellationToken cancellationToken = default) =>
-            Task.FromResult<ErrorOr<ExternalUserInfo>>(new ExternalUserInfo("subject-" + token, token, "Provider", "User", ExternalEmailTrust.Unverified));
     }
 }

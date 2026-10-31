@@ -127,26 +127,6 @@ export function mockResetPasswordRateLimited(page: Page): Promise<void> {
   return mockEndpoint(page, AUTH_ENDPOINTS.confirmPasswordReset, { status: 429, body: {} });
 }
 
-export function mockExternalCallbackSuccess(page: Page): Promise<void> {
-  return mockEndpoint(page, AUTH_ENDPOINTS.loginExternalCallback, {
-    status: 200,
-    body: MOCK_AUTH_RESULT,
-  });
-}
-
-export function mockExternalCallbackDelayed(page: Page, delayMs = 1500): Promise<void> {
-  return mockEndpoint(page, AUTH_ENDPOINTS.loginExternalCallback, {
-    status: 200,
-    body: MOCK_AUTH_RESULT,
-    delayMs,
-  });
-}
-
-export function mockExternalCallbackError(page: Page): Promise<void> {
-  const error: ApiErrorPayload = { title: 'Auth.ExternalStateInvalid' };
-  return mockEndpoint(page, AUTH_ENDPOINTS.loginExternalCallback, { status: 401, body: error });
-}
-
 export function mockAuthenticatedShellRequests(page: Page): Promise<void> {
   return mockEndpoint(page, SHOP_ENDPOINTS.me, { status: 200, body: [] });
 }

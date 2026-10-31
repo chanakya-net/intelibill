@@ -92,22 +92,6 @@ export async function assertAuthLayout(page: Page, viewport: Viewport): Promise<
   expect(metrics.stageColumns).toContain(' ');
 }
 
-export async function assertCallbackLayout(page: Page, viewport: Viewport): Promise<void> {
-  const metrics = await page.evaluate(() => {
-    const card = document.querySelector<HTMLElement>('.auth-card')?.getBoundingClientRect();
-    return {
-      documentWidth: document.documentElement.scrollWidth,
-      card: card && { left: card.left, right: card.right, top: card.top, bottom: card.bottom },
-    };
-  });
-
-  expect(metrics.documentWidth).toBeLessThanOrEqual(viewport.width + 1);
-  expect(metrics.card).not.toBeNull();
-  expect(metrics.card!.left).toBeGreaterThanOrEqual(0);
-  expect(metrics.card!.right).toBeLessThanOrEqual(viewport.width + 1);
-  expect(metrics.card!.top).toBeGreaterThanOrEqual(0);
-  expect(metrics.card!.bottom).toBeLessThanOrEqual(viewport.height + 1);
-}
 
 export async function assertAuthenticatedDestination(page: Page): Promise<void> {
   await page.waitForURL('/sales');

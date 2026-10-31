@@ -39,7 +39,7 @@ For authenticated requests, `active_shop_id` is extracted from JWT and set as a 
 
 ## Key Functional Areas
 
-- **Auth**: email + phone registration, external OAuth (Google/Facebook), password reset, token refresh/revoke
+- **Auth**: verified email enrollment, phone registration, password reset, token refresh/revoke. There is no external identity provider: an account is created only by proving ownership of its own email address or phone number.
 - **Shops**: create/update shop, list memberships, switch active shop, set default shop; `GET /api/shops/me`
 - **Items**: catalog CRUD + SSE streaming endpoint (`GET /api/items/stream`)
 - **Inventory**: inbound stock (single + batch), batch management, void/reassign

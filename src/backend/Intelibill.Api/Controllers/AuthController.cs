@@ -2,7 +2,6 @@ using Intelibill.Api.Extensions;
 using Intelibill.Api.Middleware.RateLimiting;
 using Intelibill.Api.Options;
 using Intelibill.Application.Common.Interfaces;
-using Intelibill.Application.Features.Auth.Commands.ExternalLogin;
 using Intelibill.Application.Features.Auth.Commands.Login;
 using Intelibill.Application.Features.Auth.Commands.LoginWithEmail;
 using Intelibill.Application.Features.Auth.Commands.RefreshToken;
@@ -12,7 +11,6 @@ using Intelibill.Application.Features.Auth.Commands.RequestPasswordReset;
 using Intelibill.Application.Features.Auth.Commands.ResetPassword;
 using Intelibill.Application.Features.Auth.Commands.RevokeToken;
 using Intelibill.Application.Features.Auth.DTOs;
-using Intelibill.Domain.Enums;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Wolverine;
@@ -76,68 +74,6 @@ public sealed class AuthController(IMessageBus bus, IOptions<AppOptions> appOpti
             cancellationToken);
 
         return result.ToActionResult(auth => Ok(auth));
-    }
-
-    [HttpPost("login/external")]
-    public async Task<IActionResult> ExternalLogin(
-        [FromBody] ExternalLoginRequest request,
-        CancellationToken cancellationToken)
-    {
-        var result = await bus.InvokeAsync<ErrorOr.ErrorOr<AuthResult>>(
-            new ExternalLoginCommand(request.Provider, request.Token, request.FirstName, request.LastName),
-            cancellationToken);
-
-        return result.ToActionResult(auth => Ok(auth));
-    }
-
-    [HttpPost("login/external/init")]
-    public async Task<IActionResult> InitializeExternalLogin(
-        [FromBody] ExternalLoginInitRequest request,
-        [FromServices] IExternalOAuthFlowService externalOAuthFlowService,
-        CancellationToken cancellationToken)
-    {
-        var result = await externalOAuthFlowService.CreateAuthorizationUrlAsync(request.Provider, cancellationToken);
-        return result.ToActionResult(payload => Ok(payload));
-    }
-
-    [HttpPost("login/external/callback")]
-    public async Task<IActionResult> CompleteExternalLogin(
-        [FromBody] ExternalLoginCallbackRequest request,
-        [FromServices] IExternalOAuthFlowService externalOAuthFlowService,
-        CancellationToken cancellationToken)
-    {
-        var exchangeResult = await externalOAuthFlowService.ExchangeCodeAsync(request.Code, request.State, cancellationToken);
-        if (exchangeResult.IsError)
-            return exchangeResult.Errors.ToProblemResult();
-
-        var result = await bus.InvokeAsync<ErrorOr.ErrorOr<AuthResult>>(
-            new ExternalLoginCommand(
-                exchangeResult.Value.Provider,
-                exchangeResult.Value.ProviderToken,
-                request.FirstName,
-                request.LastName),
-            cancellationToken);
-
-        return result.ToActionResult(auth => Ok(auth));
-    }
-
-    [HttpGet("~/auth/google/callback")]
-    public IActionResult GoogleCallbackRelay()
-    {
-        return RedirectToFrontendCallback();
-    }
-
-    [HttpGet("~/auth/facebook/callback")]
-    public IActionResult FacebookCallbackRelay()
-    {
-        return RedirectToFrontendCallback();
-    }
-
-    private RedirectResult RedirectToFrontendCallback()
-    {
-        var frontendBaseUrl = appOptions.Value.BaseUrl.TrimEnd('/');
-        var url = $"{frontendBaseUrl}/auth/callback{Request.QueryString.Value}";
-        return Redirect(url);
     }
 
     // ── Password reset ────────────────────────────────────────────────────────
@@ -208,9 +144,6 @@ public sealed record RegisterWithEmailRequest(
 public sealed record RegisterWithPhoneRequest(string PhoneNumber, string FirstName, string LastName);
 public sealed record LoginWithEmailRequest(string Email, string Password);
 public sealed record LoginRequest(string Identifier, string Password);
-public sealed record ExternalLoginRequest(ExternalAuthProvider Provider, string Token, string? FirstName, string? LastName);
-public sealed record ExternalLoginInitRequest(ExternalAuthProvider Provider);
-public sealed record ExternalLoginCallbackRequest(string Code, string State, string? FirstName, string? LastName);
 public sealed record RequestPasswordResetRequest(string Email);
 public sealed record ResetPasswordRequest(string Email, string Token, string NewPassword);
 public sealed record RefreshTokenRequest(string RefreshToken, Guid? ActiveShopId = null);

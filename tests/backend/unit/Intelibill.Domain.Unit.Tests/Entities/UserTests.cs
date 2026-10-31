@@ -32,29 +32,6 @@ public class UserTests
     }
 
     [Fact]
-    public void CreateFromExternalProvider_WithEmail_SetsEmailVerified()
-    {
-        var user = User.CreateFromExternalProvider("EXTERNAL@test.com", "First", "Last", emailVerified: true);
-
-        Assert.Equal("external@test.com", user.Email);
-        Assert.True(user.IsEmailVerified);
-    }
-
-    [Fact]
-    public void AddExternalLogin_AddsToCollection()
-    {
-        var user = User.CreateWithEmail("user@test.com", "hash", "First", "Last");
-        var externalLoginResult = UserExternalLogin.Create(user.Id, ExternalAuthProvider.Google, "provider-key", "ext@test.com");
-        Assert.False(externalLoginResult.IsError);
-        var externalLogin = externalLoginResult.Value;
-
-        user.AddExternalLogin(externalLogin);
-
-        var added = Assert.Single(user.ExternalLogins);
-        Assert.Equal("provider-key", added.ProviderKey);
-    }
-
-    [Fact]
     public void AddShopMembership_AttachesMembershipToUser()
     {
         var user = User.CreateWithEmail("user@test.com", "hash", "First", "Last");

@@ -64,7 +64,7 @@ Dependency registration: each layer's `DependencyInjection.cs`
 
 - RLS-enforced row isolation per `active_shop_id`
 - JWT carries `active_shop_id` claim; switching returns new scoped token
-- Auth methods: email + phone registration, OAuth (Google/Facebook), password reset, token refresh/revoke
+- Auth methods: verified email enrollment, phone registration, password reset, token refresh/revoke. No external identity provider: credentials are the only way in.
 - Shop memberships: roles = `Owner`, `Manager`, `Staff`
 - Rate limiting: `RateLimitAttribute`/`RateLimitFilter` on sensitive endpoints
 - Logging: Serilog + `SensitiveDataDestructuringPolicy`
@@ -96,7 +96,7 @@ DB Options: `src/backend/Intelibill.Infrastructure/Options/DatabaseOptions.cs:7`
 **Features**: Full inventory system (items, batches, sales, expenses, customers, suppliers, bank accounts)
 
 **Key endpoints**:
-- Auth: `POST register/email`, `register/phone`, `login/email`, `login/external/{init,callback}`, `password-reset/{request,confirm}`, `token/{refresh,revoke}`
+- Auth: `POST register/email`, `register/phone`, `login/email`, `password-reset/{request,confirm}`, `token/{refresh,revoke}`, `enrollment/email/{request,confirm}`, `enrollment/email/claim/{request,confirm}`, `reauthenticate`, `email-change/{request,confirm}`, `GET sign-in-methods`
 - Shops: `GET me`, `{shopId}`, `POST`, `POST switch` (any active member), `PUT {shopId}`, `PATCH {shopId}/members/{userId}`, `GET/POST {shopId}/invitations`, `DELETE {shopId}/invitations/{invitationId}`
 - Items: `GET stream` (SSE), `GET`, `GET details`, `POST`, `PATCH {itemId}`
 - Inventory: `POST inbound`, `inbound/batch`, `GET batches`, `batches/available`, `PUT/POST/void batches/{batchId}`
@@ -116,9 +116,9 @@ DB Options: `src/backend/Intelibill.Infrastructure/Options/DatabaseOptions.cs:7`
 
 ## Domain Model
 
-**Entities**: `User`, `UserExternalLogin`, `Shop`, `ShopMembership`, `ShopInvitation`, `Item`, `Inventory`, `InventoryBatch`, `StockTransaction`, `Sale`, `SaleItem`, `Customer`, `CustomerLedgerEntry`, `Supplier`, `SupplierLedgerEntry`, `Expense`, `ExpenseCategory`, `BankAccount`, `RefreshToken`, `PasswordResetToken`
+**Entities**: `User`, `Shop`, `ShopMembership`, `ShopInvitation`, `Item`, `Inventory`, `InventoryBatch`, `StockTransaction`, `Sale`, `SaleItem`, `Customer`, `CustomerLedgerEntry`, `Supplier`, `SupplierLedgerEntry`, `Expense`, `ExpenseCategory`, `BankAccount`, `RefreshToken`, `PasswordResetToken`
 
-**Enums**: `ShopRole`, `MembershipStatus`, `PaymentMethod`, `BankAccountType`, `StockTransactionType`, `SupplierLedgerEntryType`, `CustomerLedgerEntryType`, `ExternalAuthProvider`, `SupplierStatus`
+**Enums**: `ShopRole`, `MembershipStatus`, `PaymentMethod`, `BankAccountType`, `StockTransactionType`, `SupplierLedgerEntryType`, `CustomerLedgerEntryType`, `SupplierStatus`
 
 ## Structure
 

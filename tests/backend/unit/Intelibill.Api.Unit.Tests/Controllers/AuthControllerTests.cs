@@ -3,14 +3,11 @@ using Intelibill.Api.Controllers;
 using Intelibill.Api.Options;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
-using Intelibill.Application.Common.Models;
-using Intelibill.Application.Features.Auth.Commands.ExternalLogin;
 using Intelibill.Application.Features.Auth.Commands.Login;
 using Intelibill.Application.Features.Auth.Commands.LoginWithEmail;
 using Intelibill.Application.Features.Auth.Commands.RegisterWithEmail;
 using Intelibill.Application.Features.Auth.Commands.RequestPasswordReset;
 using Intelibill.Application.Features.Auth.DTOs;
-using Intelibill.Domain.Enums;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Mvc;
@@ -103,133 +100,6 @@ public class AuthControllerTests
         await _bus.Received(1).InvokeAsync<ErrorOr<AuthResult>>(
             Arg.Is<LoginCommand>(c => c.Identifier == request.Identifier && c.Password == request.Password),
             Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
-    public async Task ExternalLogin_WhenValidationError_ReturnsBadRequest()
-    {
-        ArrangeBusResponse<AuthResult>(Errors.Auth.UnsupportedProvider);
-
-        var result = await _controller.ExternalLogin(
-            new ExternalLoginRequest(ExternalAuthProvider.Facebook, "token", null, null),
-            CancellationToken.None);
-
-        var objectResult = Assert.IsType<ObjectResult>(result);
-        Assert.Equal(StatusCodes.Status400BadRequest, objectResult.StatusCode);
-
-        var details = Assert.IsType<ProblemDetails>(objectResult.Value);
-        Assert.Equal(Errors.Auth.UnsupportedProvider.Code, details.Title);
-    }
-
-    [Fact]
-    public async Task ExternalLogin_WhenSuccessful_ReturnsOkAndDispatchesCommand()
-    {
-        var authResult = CreateAuthResult();
-        ArrangeBusResponse<AuthResult>(authResult);
-        var request = new ExternalLoginRequest(ExternalAuthProvider.Google, "token", "First", "Last");
-
-        var result = await _controller.ExternalLogin(request, CancellationToken.None);
-
-        var ok = Assert.IsType<OkObjectResult>(result);
-        Assert.Equal(authResult, ok.Value);
-
-        await _bus.Received(1).InvokeAsync<ErrorOr<AuthResult>>(
-            Arg.Is<ExternalLoginCommand>(c =>
-                c.Provider == request.Provider &&
-                c.Token == request.Token &&
-                c.FirstName == request.FirstName &&
-                c.LastName == request.LastName),
-            Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
-    public async Task InitializeExternalLogin_WhenSuccessful_ReturnsAuthorizationUrl()
-    {
-        var flowService = Substitute.For<IExternalOAuthFlowService>();
-        var expectedUrl = "https://accounts.google.com/o/oauth2/v2/auth?client_id=test";
-        flowService.CreateAuthorizationUrlAsync(ExternalAuthProvider.Google, Arg.Any<CancellationToken>())
-            .Returns(new ExternalOAuthInitResult(expectedUrl));
-
-        var result = await _controller.InitializeExternalLogin(
-            new ExternalLoginInitRequest(ExternalAuthProvider.Google),
-            flowService,
-            CancellationToken.None);
-
-        var ok = Assert.IsType<OkObjectResult>(result);
-        var payload = Assert.IsType<ExternalOAuthInitResult>(ok.Value);
-        Assert.Equal(expectedUrl, payload.AuthorizationUrl);
-    }
-
-    [Fact]
-    public async Task CompleteExternalLogin_WhenStateInvalid_ReturnsUnauthorized()
-    {
-        var flowService = Substitute.For<IExternalOAuthFlowService>();
-        flowService.ExchangeCodeAsync("code", "state", Arg.Any<CancellationToken>())
-            .Returns(Errors.Auth.ExternalStateInvalid);
-
-        var result = await _controller.CompleteExternalLogin(
-            new ExternalLoginCallbackRequest("code", "state", null, null),
-            flowService,
-            CancellationToken.None);
-
-        var objectResult = Assert.IsType<ObjectResult>(result);
-        Assert.Equal(StatusCodes.Status401Unauthorized, objectResult.StatusCode);
-    }
-
-    [Fact]
-    public async Task CompleteExternalLogin_WhenSuccessful_DispatchesExternalLoginCommand()
-    {
-        var flowService = Substitute.For<IExternalOAuthFlowService>();
-        flowService.ExchangeCodeAsync("code", "state", Arg.Any<CancellationToken>())
-            .Returns(new ExternalOAuthTokenResult(ExternalAuthProvider.Google, "google-id-token"));
-
-        var authResult = CreateAuthResult();
-        ArrangeBusResponse<AuthResult>(authResult);
-
-        var request = new ExternalLoginCallbackRequest("code", "state", "First", "Last");
-
-        var result = await _controller.CompleteExternalLogin(request, flowService, CancellationToken.None);
-
-        var ok = Assert.IsType<OkObjectResult>(result);
-        Assert.Equal(authResult, ok.Value);
-
-        await _bus.Received(1).InvokeAsync<ErrorOr<AuthResult>>(
-            Arg.Is<ExternalLoginCommand>(command =>
-                command.Provider == ExternalAuthProvider.Google &&
-                command.Token == "google-id-token" &&
-                command.FirstName == request.FirstName &&
-                command.LastName == request.LastName),
-            Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
-    public void GoogleCallbackRelay_RedirectsToFrontendCallbackWithQueryString()
-    {
-        _controller.ControllerContext = new ControllerContext
-        {
-            HttpContext = new DefaultHttpContext()
-        };
-        _controller.ControllerContext.HttpContext.Request.QueryString = new QueryString("?state=test-state&code=test-code");
-
-        var result = _controller.GoogleCallbackRelay();
-
-        var redirect = Assert.IsType<RedirectResult>(result);
-        Assert.Equal($"{BaseUrl}/auth/callback?state=test-state&code=test-code", redirect.Url);
-    }
-
-    [Fact]
-    public void FacebookCallbackRelay_RedirectsToFrontendCallbackWithQueryString()
-    {
-        _controller.ControllerContext = new ControllerContext
-        {
-            HttpContext = new DefaultHttpContext()
-        };
-        _controller.ControllerContext.HttpContext.Request.QueryString = new QueryString("?state=test-state&code=test-code");
-
-        var result = _controller.FacebookCallbackRelay();
-
-        var redirect = Assert.IsType<RedirectResult>(result);
-        Assert.Equal($"{BaseUrl}/auth/callback?state=test-state&code=test-code", redirect.Url);
     }
 
     [Fact]

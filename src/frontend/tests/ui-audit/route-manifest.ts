@@ -20,7 +20,6 @@ const ROUTE_STATE_PROFILES = {
   standard: ['default', 'loading', 'empty', 'error'],
   form: ['default', 'submitting', 'validation-error', 'error'],
   print: ['default', 'loading', 'error'],
-  callback: ['default', 'loading', 'error'],
   minimal: ['default'],
 } as const satisfies Record<RouteStateProfile, readonly RouteState[]>;
 
@@ -32,7 +31,6 @@ export const ROUTE_MANIFEST: readonly RouteManifestEntry[] = [
   publicRoute('forgot-password', 'form'),
   publicRoute('register', 'form'),
   publicRoute('reset-password', 'form'),
-  publicRoute('auth/callback', 'callback'),
   printRoute('sales/:saleId/print', 'sale-invoice', () => ({ saleId: 'sale-001' })),
   printRoute('sales/credit-notes/:code/print', 'credit-note', () => ({ code: 'credit-note-001' })),
   printRoute('inventory/purchase-orders/:purchaseOrderId/print', 'purchase-order', () => ({

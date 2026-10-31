@@ -7,7 +7,7 @@ import { InputTextModule } from 'primeng/inputtext';
 import { PasswordModule } from 'primeng/password';
 import { finalize, switchMap } from 'rxjs';
 import { AuthService } from '../../../core/auth/auth.service';
-import { ExternalAuthProvider, ExternalLinks } from '../../../core/auth/auth.models';
+import { SignInMethods } from '../../../core/auth/auth.models';
 import {
   IdentityFlowService,
   IdentityOperation,
@@ -34,12 +34,11 @@ export class AccountSecurityPageComponent implements OnInit {
   private readonly flow = inject(IdentityFlowService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
-  readonly methods = signal<ExternalLinks | null>(null);
+  readonly methods = signal<SignInMethods | null>(null);
   readonly busy = signal(false);
   readonly error = signal('');
   readonly notice = signal('');
   readonly operation = signal<IdentityOperation | null>(null);
-  readonly providers = [ExternalAuthProvider.Google, ExternalAuthProvider.Facebook];
   readonly emailForm = inject(FormBuilder).nonNullable.group({
     email: ['', InputValidators.email()],
   });
@@ -58,18 +57,12 @@ export class AccountSecurityPageComponent implements OnInit {
   loadMethods(): void {
     this.busy.set(true);
     this.auth
-      .getExternalLinks()
+      .getSignInMethods()
       .pipe(finalize(() => this.busy.set(false)))
       .subscribe({
         next: (methods) => this.methods.set(methods),
         error: (error) => this.error.set(identityError(error)),
       });
-  }
-  providerKey(provider: ExternalAuthProvider): string {
-    return provider === ExternalAuthProvider.Google ? 'auth.google' : 'auth.facebook';
-  }
-  isLinked(provider: ExternalAuthProvider): boolean {
-    return this.methods()?.providers.includes(provider) ?? false;
   }
   chooseEmailChange(): void {
     if (this.emailForm.invalid) {
@@ -77,12 +70,6 @@ export class AccountSecurityPageComponent implements OnInit {
       return;
     }
     this.choose({ kind: 'email', email: this.emailForm.controls.email.value.trim() });
-  }
-  chooseLink(provider: ExternalAuthProvider): void {
-    this.choose({ kind: 'link', provider });
-  }
-  chooseUnlink(provider: ExternalAuthProvider): void {
-    this.choose({ kind: 'unlink', provider });
   }
   cancel(): void {
     if (!this.busy()) {
@@ -109,16 +96,6 @@ export class AccountSecurityPageComponent implements OnInit {
       )
       .subscribe({ next: (result) => this.finish(result), error: (error) => this.fail(error) });
   }
-  confirmProvider(provider: ExternalAuthProvider): void {
-    const operation = this.operation();
-    if (!operation || this.busy() || !this.isLinked(provider)) return;
-    this.busy.set(true);
-    this.error.set('');
-    this.flow
-      .startProviderReauth(provider, operation)
-      .pipe(finalize(() => this.busy.set(false)))
-      .subscribe({ next: (result) => this.finish(result), error: (error) => this.fail(error) });
-  }
   private choose(operation: IdentityOperation): void {
     if (this.busy()) return;
     this.error.set('');
@@ -127,10 +104,6 @@ export class AccountSecurityPageComponent implements OnInit {
     this.operation.set(operation);
   }
   private finish(result: IdentityOutcome): void {
-    if (result === 'security-updated') {
-      void this.router.navigateByUrl('/login?identity=updated');
-      return;
-    }
     if (result === 'email-pending') {
       this.notice.set('identity.emailPending');
       this.operation.set(null);

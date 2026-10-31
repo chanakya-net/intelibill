@@ -42,32 +42,6 @@
           (methods.hasPassword ? 'identity.passwordAvailable' : 'identity.noPassword') | transloco
         }}
       </p>
-      @for (provider of providers; track provider) {
-        <div class="provider-row">
-          <span>{{ providerKey(provider) | transloco }}</span
-          ><span>{{
-            (isLinked(provider) ? 'identity.linked' : 'identity.notLinked') | transloco
-          }}</span>
-          @if (isLinked(provider)) {
-            <button
-              pButton
-              type="button"
-              severity="secondary"
-              (click)="chooseUnlink(provider)"
-              [disabled]="busy()"
-              [label]="'identity.unlink' | transloco"
-            ></button>
-          } @else {
-            <button
-              pButton
-              type="button"
-              (click)="chooseLink(provider)"
-              [disabled]="busy()"
-              [label]="'identity.link' | transloco"
-            ></button>
-          }
-        </div>
-      }
     </section>
     @if (operation()) {
       <section class="reauth">
@@ -91,17 +65,6 @@
               [label]="'identity.continue' | transloco"
             ></button>
           </form>
-        }
-        @for (provider of methods.providers; track provider) {
-          <button
-            pButton
-            type="button"
-            (click)="confirmProvider(provider)"
-            [disabled]="busy()"
-            [label]="
-              ('identity.verifyWith' | transloco) + ' ' + (providerKey(provider) | transloco)
-            "
-          ></button>
         }
         <button
           pButton

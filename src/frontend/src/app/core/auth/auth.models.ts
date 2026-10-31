@@ -20,8 +20,7 @@ export interface ReauthenticationProof {
   readonly proof: string;
   readonly expiresAt: string;
 }
-export interface ExternalLinks {
-  readonly providers: readonly ExternalAuthProvider[];
+export interface SignInMethods {
   readonly hasPassword: boolean;
 }
 
@@ -39,26 +38,6 @@ export interface RefreshTokenRequest {
   readonly refreshToken: string;
   /** The shop the expiring token was scoped to, so renewal stays in that shop when it still can. */
   readonly activeShopId?: string | null;
-}
-
-export enum ExternalAuthProvider {
-  Google = 1,
-  Facebook = 3,
-}
-
-export interface ExternalLoginInitRequest {
-  readonly provider: ExternalAuthProvider;
-}
-
-export interface ExternalLoginInitResponse {
-  readonly authorizationUrl: string;
-}
-
-export interface ExternalLoginCallbackRequest {
-  readonly code: string;
-  readonly state: string;
-  readonly firstName?: string;
-  readonly lastName?: string;
 }
 
 export interface AuthUser {

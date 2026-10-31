@@ -19,7 +19,7 @@ The platform choices are suitable, but the application and the original deployme
 5. The API has no health-check endpoint, while the keep-warm job calls `/health`. Add `/health/live` and `/health/ready`, plus Container Apps probes.
 6. Production CORS allows only localhost origins. Configure exact production origins and trusted forwarded headers.
 7. `ProductHub` is unauthenticated and broadcasts cross-shop data to every client. `ShopUpdatesHub` is authorised, but JWT bearer authentication does not read SignalR's `access_token` query value. Fix both before exposing either hub.
-8. Multiple API replicas are unsafe today: OAuth state is held in process memory, SignalR has no cross-replica service/backplane, and rate limiting is non-atomic. Cap the API at one replica until those are corrected.
+8. Multiple API replicas are unsafe today: SignalR has no cross-replica service/backplane and rate limiting is non-atomic. Cap the API at one replica until those are corrected.
 9. `PostgresCache` is configured to create its table at runtime, but the proposed runtime database role is DML-only. Create the cache table in a migration/bootstrap step and set `CreateIfNotExists=false` in production.
 10. A plaintext SMTP credential is present in the development settings file. Rotate it, remove it from the repository, and scrub it from history before treating the repository or environment as secure.
 
@@ -171,7 +171,6 @@ Use at least 14 days of production point-in-time retention where the workload wa
 | Startup | Remove unconditional `ApplyMigrationsAsync`; migration job owns schema |
 | Database | Optional password locally; periodic Entra tokens in all Npgsql consumers; explicit pool size and SSL |
 | Cache | Create `cache_entries` during migration/bootstrap; `CreateIfNotExists=false` in production |
-| OAuth | Replace `InMemoryExternalOAuthStateStore` with distributed PostgreSQL/cache storage |
 | Web/API routing | Relative `/api` and `/hubs`, web reverse proxy using per-environment `API_ORIGIN` |
 | CORS/proxy | Exact production origins; trusted forwarded headers before HTTPS redirect/rate limiting |
 | Health | `/health/live` and `/health/ready`; web live endpoint; startup/readiness/liveness probes |
@@ -180,7 +179,7 @@ Use at least 14 days of production point-in-time retention where the workload wa
 | Rate limiting | Atomic shared limiter, not distributed-cache read/modify/write; use trusted forwarded client IP |
 | Containers | Pin base images/digests, match frontend Node engine, run the web server on Node rather than Bun, and run as non-root |
 | Mobile | Pass `--dart-define=API_BASE_URL=https://api.<domain>/api` in release builds |
-| External services | Supply production SMTP, OAuth, product-lookup, HSN, and OTLP values; configure timeouts/retries and egress |
+| External services | Supply production SMTP, product-lookup, HSN, and OTLP values; configure timeouts/retries and egress |
 | Secrets | Rotate the committed SMTP credential and all possibly exposed test keys; remove/scrub history |
 
 The product has no required durable local filesystem state. PostgreSQL and the distributed cache are the stateful services. Wolverine is currently an in-process dispatcher; it is not a durable broker/outbox and should not be treated as one.
@@ -320,7 +319,6 @@ Provider charges have no setup fee, but implementation has material labour. A de
 | Entra token expires | Connection recycle test remains successful beyond token refresh |
 | Cache table creation denied | Table exists before runtime; runtime role has DML only |
 | Browser uses localhost API | Production browser smoke test exercises API and both hubs |
-| Replica-local OAuth state | Callback succeeds after forced replica restart/redistribution |
 | SignalR split broadcasts | Multi-replica test proves delivery through service/backplane, or API max stays 1 |
 | Rate-limit race/proxy spoof | Concurrent multi-replica and forwarded-header tests pass |
 | Secrets in source/state | exposed values rotated; history and OpenTofu state scans are clean |

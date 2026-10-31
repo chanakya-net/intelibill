@@ -3305,53 +3305,6 @@ namespace Intelibill.Infrastructure.Migrations
                     b.ToTable("users", (string)null);
                 });
 
-            modelBuilder.Entity("Intelibill.Domain.Entities.UserExternalLogin", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<int>("Provider")
-                        .HasColumnType("integer")
-                        .HasColumnName("provider");
-
-                    b.Property<string>("ProviderEmail")
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
-                        .HasColumnName("provider_email");
-
-                    b.Property<string>("ProviderKey")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
-                        .HasColumnName("provider_key");
-
-                    b.Property<DateTimeOffset?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
-                    b.HasKey("Id")
-                        .HasName("pk_user_external_logins");
-
-                    b.HasIndex("UserId")
-                        .HasDatabaseName("ix_user_external_logins_user_id");
-
-                    b.HasIndex("Provider", "ProviderKey")
-                        .IsUnique()
-                        .HasDatabaseName("ix_user_external_logins_provider_provider_key");
-
-                    b.ToTable("user_external_logins", (string)null);
-                });
-
             modelBuilder.Entity("Intelibill.Domain.Entities.BankAccount", b =>
                 {
                     b.HasOne("Intelibill.Domain.Entities.Shop", null)
@@ -4018,18 +3971,6 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasConstraintName("fk_supplier_ledger_entries_suppliers_supplier_id");
                 });
 
-            modelBuilder.Entity("Intelibill.Domain.Entities.UserExternalLogin", b =>
-                {
-                    b.HasOne("Intelibill.Domain.Entities.User", "User")
-                        .WithMany("ExternalLogins")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_user_external_logins_users_user_id");
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("Intelibill.Domain.Entities.CreditNote", b =>
                 {
                     b.Navigation("Redemptions");
@@ -4078,8 +4019,6 @@ namespace Intelibill.Infrastructure.Migrations
 
             modelBuilder.Entity("Intelibill.Domain.Entities.User", b =>
                 {
-                    b.Navigation("ExternalLogins");
-
                     b.Navigation("ShopMemberships");
                 });
 #pragma warning restore 612, 618

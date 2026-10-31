@@ -91,29 +91,6 @@
           class="auth-submit w-full"
         ></button>
 
-        <p class="social-title">{{ 'auth.orLoginWith' | transloco }}</p>
-
-        <div class="social-actions">
-          <button
-            type="button"
-            class="social-button"
-            (click)="onFacebookLogin()"
-            [disabled]="isHttpLoading()"
-          >
-            <span class="social-icon social-icon-fb">f</span>
-            <span>{{ 'auth.facebook' | transloco }}</span>
-          </button>
-          <button
-            type="button"
-            class="social-button"
-            (click)="onGoogleLogin()"
-            [disabled]="isHttpLoading()"
-          >
-            <span class="social-icon social-icon-google">G</span>
-            <span>{{ 'auth.google' | transloco }}</span>
-          </button>
-        </div>
-
         <p class="signup-hint">
           {{ 'auth.notMember' | transloco }}
           <a routerLink="/register">{{ 'auth.signupNow' | transloco }}</a>

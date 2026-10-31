@@ -1280,7 +1280,7 @@ Before provisioning apps, also complete these source-level gates:
 - add exact environment CORS origins and trusted forwarded headers;
 - replace the compiled production `http://localhost:5277/api` and empty hub origin with relative routes proxied by the web server to `API_ORIGIN`;
 - require auth on `ProductHub`, group broadcasts by active shop, and configure bearer query tokens only on hub routes;
-- replace in-memory OAuth state; make rate limiting atomic; use Azure SignalR/backplane before API scale-out;
+- make rate limiting atomic; use Azure SignalR/backplane before API scale-out;
 - create the distributed cache table with the migration identity and disable runtime table creation;
 - standardise API port `8080`, pin both Docker runtimes, match the frontend Node engine, run the web server on Node rather than Bun, and run both containers as non-root;
 - rotate/remove/scrub the committed SMTP credential before deployment.
@@ -1298,7 +1298,6 @@ Applied on `infra-setup`. Every gate above is done except **8.4 telemetry**, whi
 | Forwarded headers and exact CORS origins, both configuration-driven | `EdgeExtensions`, `ProxyOptions`, `CorsOptions` |
 | Relative `/api` and `/hubs`, proxied by the web server to `API_ORIGIN` | `environment.prod.ts`, `server.ts` |
 | `ProductHub` authenticated and grouped by shop; hub-path-only query bearer token | `ProductHub`, `SignalRProductHubNotifier`, `Program.cs` |
-| OAuth state in the distributed cache | `DistributedExternalOAuthStateStore` |
 | Port `8080`, digest-pinned bases, non-root, Node 24 | both `Dockerfile`s, `docker-compose.yml` |
 | Mobile release `API_BASE_URL` required | `tool/build-release.sh`, `AppConfig` |
 
@@ -1416,7 +1415,7 @@ dotnet test src/backend/Intelibill.slnx
 docker compose up -d && docker compose logs backend
 ```
 
-Also build/test the Bun frontend and Flutter app, then smoke-test the built containers rather than only the local dev processes. Keep the API alive beyond an Entra-token refresh, force an OAuth callback onto another replica/restart, verify anonymous and cross-shop hub access fail, and test browser/API/hub routing through the real production origin. Local `docker compose` must still work.
+Also build/test the Bun frontend and Flutter app, then smoke-test the built containers rather than only the local dev processes. Keep the API alive beyond an Entra-token refresh, verify anonymous and cross-shop hub access fail, and test browser/API/hub routing through the real production origin. Local `docker compose` must still work.
 
 ---
 
@@ -1484,7 +1483,7 @@ az keyvault secret set --vault-name intelibill-prod-kv \
   --name newrelic-licence-key --value "<licence key>"
 ```
 
-Enter only what is switched on: SMTP, enabled OAuth providers, product lookup, HSN service, and OTLP/New Relic credentials. Nothing is enabled yet, so nothing is outstanding here beyond the telemetry key.
+Enter only what is switched on: SMTP, product lookup, HSN service, and OTLP/New Relic credentials. Nothing is enabled yet, so nothing is outstanding here beyond the telemetry key.
 
 Do not use a secret `data` source: the provider reads `value`, and OpenTofu retains data-source attributes in state. Construct a versionless URI without reading the secret:
 
@@ -1769,7 +1768,7 @@ az postgres flexible-server firewall-rule list \
 >
 > Custom domains need the DNS zone from Phase 6, which is deferred. Until then the applications are reached on their Container Apps `*.azurecontainerapps.io` FQDNs, which are fully functional and TLS-terminated with a managed certificate.
 >
-> **What to remember when you return here:** the mobile app's `API_BASE_URL` and the web app's `API_ORIGIN` will be pointing at the `azurecontainerapps.io` hostnames. Moving to a custom domain means updating both, plus CORS origins and any OAuth redirect URIs registered with Google and Facebook — the redirect URIs are the ones that break silently in production.
+> **What to remember when you return here:** the mobile app's `API_BASE_URL` and the web app's `API_ORIGIN` will be pointing at the `azurecontainerapps.io` hostnames. Moving to a custom domain means updating both, plus CORS origins and the password-reset/verification link origin (`App:BaseUrl`) — the link origin is the one that breaks silently in production.
 
 **Goal.** Bind real hostnames with managed certificates.
 
@@ -1866,7 +1865,6 @@ Work through all of these before calling it done.
 | 17 | Cache is ready | runtime cache operation | Works with `CreateIfNotExists=false` |
 | 18 | Browser routing | production web origin | the app, `/api`, and `/hubs` work; no localhost |
 | 19 | Hub tenant isolation | anonymous/cross-shop clients | denied; only own-shop messages |
-| 20 | OAuth is distributed | restart/re-route callback | callback succeeds exactly once |
 | 21 | Scale-out behavior | two API replicas | delivery/limits correct, or max remains 1 |
 | 22 | Secret/state scan | repository history + Tofu state | no SMTP/JWT/API secret values |
 | 23 | Restore drill | restore to isolated target | documented RPO/RTO met |
@@ -1906,7 +1904,7 @@ Work through all of these before calling it done.
 ## Outstanding
 
 1. ~~Choose whether production starts on the recommended private PostgreSQL network or an explicitly time-bounded public-firewall exception.~~ **Resolved: public with a narrow allowlist** (Phase 5.2). Revisit if the exposure or a compliance requirement changes; the move costs roughly $110/month and breaks hosted-runner migrations.
-2. **⏸ Domain and registrar access — deferred 2026-07-26, revisit around 2026-08-25.** Phases 6 and 12 are parked; nothing else depends on them. Applications run on Container Apps `*.azurecontainerapps.io` hostnames until then. When resumed, remember the mobile `API_BASE_URL`, web `API_ORIGIN`, CORS origins, and OAuth redirect URIs all move with the hostname.
+2. **⏸ Domain and registrar access — deferred 2026-07-26, revisit around 2026-08-25.** Phases 6 and 12 are parked; nothing else depends on them. Applications run on Container Apps `*.azurecontainerapps.io` hostnames until then. When resumed, remember the mobile `API_BASE_URL`, web `API_ORIGIN`, CORS origins, and the identity link origin (`App:BaseUrl`) all move with the hostname.
 3. Confirm launch is one API replica, or fund the SignalR/distributed-state/rate-limit changes plus Azure SignalR/backplane.
 4. Confirm the actual business timezone and warm-hours availability target.
 5. ~~Add the existing Flutter `API_BASE_URL` `--dart-define` to release builds.~~ **Done (Phase 8).** `tool/build-release.sh` requires it and rejects a non-https value; `AppConfig` repeats both checks at startup so an APK built another way fails visibly instead of appearing offline.

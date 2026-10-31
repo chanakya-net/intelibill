@@ -1,42 +1,22 @@
 import { TestBed } from '@angular/core/testing';
-import { of, firstValueFrom, throwError } from 'rxjs';
+import { of, firstValueFrom } from 'rxjs';
 import { AuthService } from './auth.service';
-import { ExternalAuthProvider } from './auth.models';
-import { IdentityFlowService, IDENTITY_REDIRECT } from './identity-flow.service';
+import { IdentityFlowService } from './identity-flow.service';
 
 describe('IdentityFlowService', () => {
-  const redirect = vi.fn();
   let actor = 'actor-1';
   const auth = {
     session: () => ({ user: { id: actor } }),
     isAuthenticated: () => !!actor,
-    initializeExternalLogin: vi.fn(),
-    reauthenticateExternal: vi.fn(),
-    completeExternalLink: vi.fn(),
-    unlinkExternalProvider: vi.fn(),
     requestEmailChange: vi.fn(),
   };
   let service: IdentityFlowService;
   beforeEach(() => {
     actor = 'actor-1';
     sessionStorage.clear();
-    redirect.mockClear();
-    auth.initializeExternalLogin
-      .mockReset()
-      .mockReturnValue(of('https://accounts.example/authorize?state=state-1'));
-    auth.reauthenticateExternal
-      .mockReset()
-      .mockReturnValue(
-        of({ proof: 'recent', expiresAt: new Date(Date.now() + 300000).toISOString() }),
-      );
-    auth.completeExternalLink.mockReset().mockReturnValue(of(void 0));
-    auth.unlinkExternalProvider.mockReset().mockReturnValue(of(void 0));
     auth.requestEmailChange.mockReset().mockReturnValue(of({ message: 'pending' }));
     TestBed.configureTestingModule({
-      providers: [
-        { provide: AuthService, useValue: auth },
-        { provide: IDENTITY_REDIRECT, useValue: redirect },
-      ],
+      providers: [{ provide: AuthService, useValue: auth }],
     });
     service = TestBed.inject(IdentityFlowService);
   });
@@ -45,50 +25,29 @@ describe('IdentityFlowService', () => {
     TestBed.resetTestingModule();
     vi.useRealTimers();
   });
-  it('provider-only reauth completes original-account proof before requesting pending email', async () => {
-    await firstValueFrom(
-      service.startProviderReauth(ExternalAuthProvider.Google, {
-        kind: 'email',
-        email: 'new@example.com',
-      }),
-    );
-    expect(redirect).toHaveBeenCalled();
-    expect(await firstValueFrom(service.completeOAuth('code', 'state-1'))).toBe('email-pending');
-    expect(auth.reauthenticateExternal).toHaveBeenCalledWith('code', 'state-1');
-    expect(auth.requestEmailChange).toHaveBeenCalledWith('new@example.com', 'recent');
-    expect(service.hasOAuthIntent()).toBe(false);
-  });
-  it('explicit linking uses dedicated callback and consumes context', async () => {
-    await firstValueFrom(
+  it('carries a fresh proof into the pending email change', async () => {
+    const outcome = await firstValueFrom(
       service.perform(
-        { kind: 'link', provider: ExternalAuthProvider.Facebook },
+        { kind: 'email', email: 'new@example.com' },
         { proof: 'recent', expiresAt: new Date(Date.now() + 300000).toISOString() },
       ),
     );
-    expect(await firstValueFrom(service.completeOAuth('code', 'state-1'))).toBe('security-updated');
-    expect(auth.completeExternalLink).toHaveBeenCalledWith('code', 'state-1', 'recent');
-    expect(service.hasOAuthIntent()).toBe(false);
+    expect(outcome).toBe('email-pending');
+    expect(auth.requestEmailChange).toHaveBeenCalledWith('new@example.com', 'recent');
   });
-  it.each(['actor', 'state', 'expired'] as const)(
-    'rejects %s mismatch without invoking a mutation',
+  it.each(['signed-out', 'expired'] as const)(
+    'rejects a %s proof without requesting the change',
     async (reason) => {
-      await firstValueFrom(
-        service.startProviderReauth(ExternalAuthProvider.Google, {
-          kind: 'unlink',
-          provider: ExternalAuthProvider.Google,
-        }),
-      );
-      if (reason === 'actor') actor = 'actor-2';
-      if (reason === 'expired') {
-        vi.useFakeTimers();
-        vi.setSystemTime(Date.now() + 360000);
-      }
+      if (reason === 'signed-out') actor = '';
+      const expiresAt = new Date(
+        reason === 'expired' ? Date.now() - 1000 : Date.now() + 300000,
+      ).toISOString();
       await expect(
-        firstValueFrom(service.completeOAuth('code', reason === 'state' ? 'other' : 'state-1')),
+        firstValueFrom(
+          service.perform({ kind: 'email', email: 'new@example.com' }, { proof: 'recent', expiresAt }),
+        ),
       ).rejects.toBeTruthy();
-      expect(auth.reauthenticateExternal).not.toHaveBeenCalled();
-      expect(auth.unlinkExternalProvider).not.toHaveBeenCalled();
-      expect(service.hasOAuthIntent()).toBe(false);
+      expect(auth.requestEmailChange).not.toHaveBeenCalled();
     },
   );
   it('keeps email change proof out of redirect URLs and expires resume state', () => {
@@ -110,19 +69,5 @@ describe('IdentityFlowService', () => {
     service.saveVerification(proof);
     vi.setSystemTime(Date.now() + 2 * 60000);
     expect(service.pendingVerification()).toBeNull();
-  });
-  it('provider-only last-method rejection survives the reauthentication and unlink operation chain', async () => {
-    const failure = { error: { title: 'Auth.LastSignInMethod' } };
-    auth.unlinkExternalProvider.mockReturnValue(throwError(() => failure));
-    await firstValueFrom(
-      service.startProviderReauth(ExternalAuthProvider.Google, {
-        kind: 'unlink',
-        provider: ExternalAuthProvider.Google,
-      }),
-    );
-    await expect(firstValueFrom(service.completeOAuth('code', 'state-1'))).rejects.toEqual(failure);
-    expect(auth.reauthenticateExternal).toHaveBeenCalledWith('code', 'state-1');
-    expect(auth.unlinkExternalProvider).toHaveBeenCalledWith(ExternalAuthProvider.Google, 'recent');
-    expect(service.hasOAuthIntent()).toBe(false);
   });
 });

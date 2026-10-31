@@ -54,7 +54,6 @@ internal sealed class EmailOwnershipChallengeRepository(ApplicationDbContext db,
     }
     public void Add(EmailOwnershipChallenge challenge) => db.Add(challenge);
     public void AddMail(IdentityMail mail) => db.Add(mail);
-    public void AddExternalLogin(UserExternalLogin login) => db.UserExternalLogins.Add(login);
     public async Task<bool> CommitAsync(CancellationToken ct)
     {
         try { await unitOfWork.SaveChangesAsync(ct); await unitOfWork.CommitTransactionAsync(ct); return true; }

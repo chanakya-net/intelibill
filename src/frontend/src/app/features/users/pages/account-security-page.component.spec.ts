@@ -4,17 +4,16 @@ import { TranslocoTestingModule } from '@ngneat/transloco';
 import { of, throwError } from 'rxjs';
 import { AuthService } from '../../../core/auth/auth.service';
 import { IdentityFlowService } from '../../../core/auth/identity-flow.service';
-import { ExternalAuthProvider } from '../../../core/auth/auth.models';
 import { AccountSecurityPageComponent } from './account-security-page.component';
 
 describe('AccountSecurityPageComponent', () => {
   const auth = {
     session: () => ({ user: { id: 'actor', email: 'old@example.com' } }),
     isAuthenticated: () => true,
-    getExternalLinks: vi.fn(),
+    getSignInMethods: vi.fn(),
     reauthenticate: vi.fn(),
   };
-  const flow = { perform: vi.fn(), startProviderReauth: vi.fn() };
+  const flow = { perform: vi.fn() };
   function setup(query: Record<string, string> = {}) {
     TestBed.configureTestingModule({
       imports: [AccountSecurityPageComponent, TranslocoTestingModule.forRoot({ langs: {} })],
@@ -35,19 +34,18 @@ describe('AccountSecurityPageComponent', () => {
     return { component: fixture.componentInstance, fixture, navigate };
   }
   beforeEach(() => {
-    auth.getExternalLinks.mockReset().mockReturnValue(of({ providers: [1], hasPassword: true }));
+    auth.getSignInMethods.mockReset().mockReturnValue(of({ hasPassword: true }));
     auth.reauthenticate
       .mockReset()
       .mockReturnValue(
         of({ proof: 'recent', expiresAt: new Date(Date.now() + 300000).toISOString() }),
       );
     flow.perform.mockReset().mockReturnValue(of('email-pending'));
-    flow.startProviderReauth.mockReset().mockReturnValue(of('redirecting'));
   });
   afterEach(() => TestBed.resetTestingModule());
-  it('shows authoritative linked methods and current email', () => {
+  it('shows the authoritative sign-in method and current email', () => {
     const { component, fixture } = setup();
-    expect(component.methods()?.providers).toEqual([1]);
+    expect(component.methods()?.hasPassword).toBe(true);
     expect(fixture.nativeElement.textContent).toContain('old@example.com');
   });
   it('pending email uses recent proof and never updates current email', () => {
@@ -65,28 +63,22 @@ describe('AccountSecurityPageComponent', () => {
     expect(auth.session().user.email).toBe('old@example.com');
     expect(component.passwordForm.controls.password.value).toBe('');
   });
-  it('provider-only accounts reauthenticate with an already linked provider', () => {
-    auth.getExternalLinks.mockReturnValue(of({ providers: [1], hasPassword: false }));
-    const { component } = setup();
-    component.chooseUnlink(ExternalAuthProvider.Google);
-    component.confirmProvider(ExternalAuthProvider.Google);
-    expect(flow.startProviderReauth).toHaveBeenCalledWith(1, { kind: 'unlink', provider: 1 });
+  it('an account without a password cannot start a reauthenticated change', () => {
+    auth.getSignInMethods.mockReturnValue(of({ hasPassword: false }));
+    const { component, fixture } = setup();
+    expect(component.methods()?.hasPassword).toBe(false);
+    expect(fixture.nativeElement.textContent).toContain('identity.noPassword');
   });
-  it('unlink success redirects for new login', () => {
-    flow.perform.mockReturnValue(of('security-updated'));
-    const { component, navigate } = setup();
-    component.chooseUnlink(1);
+  it('a rejected proof leaves the account intact and explains recovery', () => {
+    flow.perform.mockReturnValue(
+      throwError(() => ({ error: { title: 'Auth.RecoverySupportRequired' } })),
+    );
+    const { component } = setup();
+    component.emailForm.controls.email.setValue('new@example.com');
+    component.chooseEmailChange();
     component.passwordForm.controls.password.setValue('current');
     component.confirmPassword();
-    expect(navigate).toHaveBeenCalledWith('/login?identity=updated');
-  });
-  it('last sign-in method failure leaves account intact and explains recovery', () => {
-    flow.perform.mockReturnValue(throwError(() => ({ error: { title: 'Auth.LastSignInMethod' } })));
-    const { component } = setup();
-    component.chooseUnlink(1);
-    component.passwordForm.controls.password.setValue('current');
-    component.confirmPassword();
-    expect(component.error()).toBe('identity.lastMethod');
+    expect(component.error()).toBe('identity.supportRequired');
   });
   it('cannot confirm reauth before choosing an explicit security operation', () => {
     const { component } = setup();
@@ -95,15 +87,11 @@ describe('AccountSecurityPageComponent', () => {
     expect(auth.reauthenticate).not.toHaveBeenCalled();
   });
   it.each([
-    ['last-method', 'identity.lastMethod'],
     ['support-required', 'identity.supportRequired'],
     ['delivery-unavailable', 'identity.deliveryUnavailable'],
-    ['collision', 'identity.collision'],
     ['failed', 'identity.reauthFailed'],
-  ])('renders safe provider-only operation outcome %s', (reason, message) => {
-    auth.getExternalLinks.mockReturnValue(of({ providers: [1], hasPassword: false }));
+  ])('renders safe operation outcome %s', (reason, message) => {
     const { component, fixture } = setup({ identity: reason });
-    expect(component.methods()?.hasPassword).toBe(false);
     expect(component.error()).toBe(message);
     expect(fixture.nativeElement.textContent).toContain(message);
   });

@@ -1,4 +1,4 @@
-# Email ownership and OAuth: manual setup
+# Email ownership: manual setup
 
 This feature needs a working mail transport before users can complete email signup. New email signup requests do not create a user, password, shop, or session. The mailbox owner chooses their password after opening the verification email.
 
@@ -113,15 +113,15 @@ Supply the mail settings, link origin, and shared outbox key before enabling the
 
 ## 4. Handle the session and legacy-account cutover
 
-The migration revokes existing refresh tokens, invalidates old access tokens, and resets historical email-verification flags that were not supported by ownership evidence. Every pre-cutover account is conservatively marked for operator review because absence of deleted business history cannot be established from the current records. **Existing email/password users need an ownership-recovery plan before applying this migration.** Existing linked-provider sign-in continues by provider subject; it does not establish email recovery ownership.
+The migration revokes existing refresh tokens, invalidates old access tokens, and resets historical email-verification flags that were not supported by ownership evidence. Every pre-cutover account is conservatively marked for operator review because absence of deleted business history cannot be established from the current records. **Existing email/password users need an ownership-recovery plan before applying this migration.** The same migration drops `user_external_logins`: external identity providers are gone, so an account whose only credential was a provider link can no longer sign in and must be recovered through the operator procedure below.
 
-Ownership/security changes invalidate prior access and refresh credentials. Connecting or disconnecting an external provider also requires signing in again.
+Ownership/security changes invalidate prior access and refresh credentials.
 
-Do not bulk set `IsEmailVerified=true` because an address or provider link exists. An email match is insufficient evidence of account ownership.
+Do not bulk set `IsEmailVerified=true` because an address exists. An email match is insufficient evidence of account ownership.
 
 Explicit self-service claims are limited to eligible unverified accounts created after the cutover without business history. Pre-cutover accounts and accounts that have held shop/business access require operator-assisted ownership review. Keep their shop and financial records intact. A support-required response must not be bypassed by changing database flags.
 
-This also affects new provider accounts whose email is not authoritative recovery evidence, including Facebook and Google third-party addresses without hosted-domain evidence. Establish verified email through Account security **before creating or joining a shop**. Account security is available without a shop. Once an unverified account has business history, adding or changing its recovery email requires operator review. Provider-subject sign-in continues; the current recovery marker does not distinguish safe new-provider history from potentially unsafe legacy credential history.
+Establish verified email through Account security **before creating or joining a shop**. Account security is available without a shop. Once an unverified account has business history, adding or changing its recovery email requires operator review.
 
 Before public rollout, inventory these accounts using counts and opaque user IDs. With an authorized read-only reporting connection to the intended database, run the following **after migration**, in a read-only transaction. The actual schema uses `users.requires_operator_recovery` and `users.is_email_verified`:
 
@@ -140,9 +140,9 @@ ORDER BY id;
 COMMIT;
 ```
 
-These queries expose no email, password hashes, provider subjects, tokens, or mail payloads. Keep even opaque IDs in restricted operational records. The recovery marker includes every pre-cutover user and subsequent accounts with membership access; it cannot distinguish deleted historical business access. Do not infer self-service eligibility from the absence of current memberships.
+These queries expose no email, password hashes, tokens, or mail payloads. Keep even opaque IDs in restricted operational records. The recovery marker includes every pre-cutover user and subsequent accounts with membership access; it cannot distinguish deleted historical business access. Do not infer self-service eligibility from the absence of current memberships.
 
-Resolve ownership with the merchant and a reviewed recovery procedure that removes untrusted credentials/provider links and invalidates sessions atomically. **No privileged operator recovery console or turnkey recovery command is implemented by this change.** Arrange and review that procedure before migrating existing email/password users; otherwise keep their rollout blocked. Mailbox access alone must not silently transfer an existing business account, and flipping recovery/verification flags is not a recovery procedure.
+Resolve ownership with the merchant and a reviewed recovery procedure that removes untrusted credentials and invalidates sessions atomically. **No privileged operator recovery console or turnkey recovery command is implemented by this change.** Arrange and review that procedure before migrating existing email/password users; otherwise keep their rollout blocked. Mailbox access alone must not silently transfer an existing business account, and flipping recovery/verification flags is not a recovery procedure.
 
 Employee invitation/acceptance, complete per-device session management, general authentication budgets, and the broader recovery-delivery work remain separate readiness projects. Do not treat this feature as completing those projects.
 
@@ -156,9 +156,9 @@ Use a dedicated test mailbox and disposable development data:
 2. Observe the email in the actual inbox or Mailpit. Choose a fresh password on the confirmation page, finish registration, and sign in.
 3. Try the same link again and an expired link; both must fail. After the resend cooldown, request another link and confirm the earlier link is no longer usable.
 4. Try an existing address and confirm the request response does not reveal account existence. Check destination limits also apply when email case or whitespace changes.
-5. Try Google/Facebook login with an email matching another Intelibill account. Confirm it requires explicit linking and does not create a link or session automatically.
-6. Authenticate to the existing account, reauthenticate, and explicitly connect a provider. Sign in again through the provider. Confirm removing the final usable login method is rejected. With a new unverified provider account and no shop, open Account security from shop setup, verify email, then return to shop setup. Confirm mandatory onboarding resumes when leaving Account security; authentication must still be required.
-7. Request an email change. Confirmation requires a session for the same existing account as well as the mailbox token; on a different device, sign in with the original email/provider first. Confirm anonymous and different-account attempts fail without consuming the proof. The old address remains active until confirmation, notifications reach the appropriate addresses, and old access/refresh credentials fail afterward.
+5. Confirm the removed provider endpoints are gone: `POST /api/auth/login/external`, `login/external/init`, `login/external/callback` and the `GET /auth/{google,facebook}/callback` relays all answer 404, and the sign-in page offers no provider button.
+6. With a verified account and no shop, open Account security from shop setup, verify email, then return to shop setup. Confirm mandatory onboarding resumes when leaving Account security; authentication must still be required.
+7. Request an email change. Confirmation requires a session for the same existing account as well as the mailbox token; on a different device, sign in with the original email first. Confirm anonymous and different-account attempts fail without consuming the proof. The old address remains active until confirmation, notifications reach the appropriate addresses, and old access/refresh credentials fail afterward.
 8. Exercise a newly eligible unverified account claim and the pre-cutover/business-account support-required outcome. Confirm business data remains intact. Existing email/password users must use the separately reviewed operator recovery procedure.
 9. With queued mail present, restart the API using the same outbox key. Confirm delivery can continue. Simulate a provider outage and verify retries do not create additional usable proofs.
 
@@ -168,6 +168,6 @@ Record timestamps, safe message IDs, and pass/fail outcomes. Actual inbox receip
 
 Run normal backend build/tests and frontend tests/build without hiding dependency-audit failures. Feature tests executed with diagnostic overrides do not establish a clean release gate. Fix any outstanding vulnerable dependencies before public release.
 
-Rollback must stop new enrollment/linking and preserve challenge, audit, encrypted mail, and key material needed for inspection or recovery. Do not restore an older API that automatically links accounts by matching email. Keep schema compatibility and token cutover behavior in the rollback decision.
+Rollback must stop new enrollment and preserve challenge, audit, encrypted mail, and key material needed for inspection or recovery. Do not restore an older API that automatically links accounts by matching email. Keep schema compatibility and token cutover behavior in the rollback decision.
 
-No live Resend account/domain setup, Azure secret resolution, infrastructure apply, production migration/cutover, provider OAuth configuration, or actual inbox delivery is established by automated tests. Complete and record these external checks manually; a passing mocked transport test does not validate delivery or a safe production rollout.
+No live Resend account/domain setup, Azure secret resolution, infrastructure apply, production migration/cutover, or actual inbox delivery is established by automated tests. Complete and record these external checks manually; a passing mocked transport test does not validate delivery or a safe production rollout.
