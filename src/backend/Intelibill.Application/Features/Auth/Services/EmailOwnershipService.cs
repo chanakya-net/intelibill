@@ -10,7 +10,7 @@ namespace Intelibill.Application.Features.Auth.Services;
 
 public sealed class EmailOwnershipService(IEmailOwnershipRepository repository, IUserRepository users,
     IIdentityMailOutbox mail, IPasswordHasher hasher,
-    IAuthSessionService sessions, TimeProvider clock) : IEmailOwnershipService
+    IAuthSessionService sessions, ReauthenticationProofs reauthentication, TimeProvider clock) : IEmailOwnershipService
 {
     private static readonly Error Invalid = Error.Validation("Auth.InvalidChallenge", "The proof is invalid, expired, superseded, or already used.");
     private static readonly Error Conflict = Error.Conflict("Auth.EmailUnavailable", "This email is unavailable. Request a new verification or sign in to your existing account.");
@@ -80,7 +80,7 @@ public sealed class EmailOwnershipService(IEmailOwnershipRepository repository, 
         var valid = user.IsEmailVerified && user.PasswordHash is not null && password is not null && hasher.Verify(password, user.PasswordHash);
         if (!valid) return Reauth;
         var secret = NewToken();
-        var proof = EmailOwnershipChallenge.Create("reauthentication", string.Empty, Hash(secret), clock.GetUtcNow().AddMinutes(5), actor, version);
+        var proof = EmailOwnershipChallenge.Create(ReauthenticationProofs.Purpose, string.Empty, Hash(secret), clock.GetUtcNow().AddMinutes(5), actor, version);
         repository.Add(proof);
         if (!await repository.CommitAsync(ct)) return Reauth;
         return new ReauthenticationResult($"{proof.Id:N}.{secret}", proof.ExpiresAt);
@@ -92,7 +92,7 @@ public sealed class EmailOwnershipService(IEmailOwnershipRepository repository, 
         email = email.Trim().ToLowerInvariant();
         await using var transaction = await repository.BeginAsync(ct);
         var user = await ActorAsync(actor, version, ct);
-        if (user is null || !await ConsumeProofAsync(actor, version, proof, ct)) return Reauth;
+        if (user is null || !await reauthentication.ConsumeAsync(actor, version, proof, ct)) return Reauth;
         if (!user.IsEmailVerified && await repository.HasBusinessHistoryAsync(user.Id, ct))
             return RecoverySupportRequired;
         if (await users.ExistsByEmailAsync(email, ct) || !await repository.HasSendBudgetAsync(email, clock.GetUtcNow(), ct))
@@ -124,14 +124,6 @@ public sealed class EmailOwnershipService(IEmailOwnershipRepository repository, 
     {
         var user = await users.GetByIdWithDetailsAsync(id, ct);
         return user is { IsLoginEnabled: true } && user.SecurityVersion == version ? user : null;
-    }
-    private async Task<bool> ConsumeProofAsync(Guid actor, long version, string proof, CancellationToken ct)
-    {
-        var parts = (proof ?? string.Empty).Split('.', 2);
-        if (parts.Length != 2 || !Guid.TryParseExact(parts[0], "N", out var id)) return false;
-        var challenge = await ValidChallengeAsync(id, parts[1], "reauthentication", ct);
-        if (challenge is null || challenge.UserId != actor || challenge.SecurityVersion != version) return false;
-        challenge.Consume(clock.GetUtcNow()); return true;
     }
     private async Task<EmailOwnershipChallenge?> ValidChallengeAsync(Guid id, string token, string purpose, CancellationToken ct)
     {

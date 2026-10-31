@@ -23,6 +23,19 @@ public interface IPhoneOwnershipService
     Task<ErrorOr<AuthResult>> ConfirmEnrollmentAsync(Guid challengeId, string code, string firstName, string lastName, CancellationToken ct);
 
     Task<ErrorOr<AuthResult>> ConfirmLoginAsync(Guid challengeId, string code, CancellationToken ct);
+
+    /// <summary>
+    /// Starts moving the caller's sign-in number to a new one. Needs the live session it arrives
+    /// on, and a reauthentication proof as well where the account has a password to check. The new
+    /// number is not touched until it has been proved.
+    /// </summary>
+    Task<ErrorOr<PhoneChallengeReceipt>> RequestPhoneChangeAsync(Guid actor, long version, string phone, string? reauthProof, CancellationToken ct);
+
+    /// <summary>
+    /// Completes the move. Every device is signed out, because the factor that reaches the account
+    /// has changed, and both the old and the new number are told.
+    /// </summary>
+    Task<ErrorOr<bool>> ConfirmPhoneChangeAsync(Guid actor, long version, Guid challengeId, string code, CancellationToken ct);
 }
 
 /// <summary>

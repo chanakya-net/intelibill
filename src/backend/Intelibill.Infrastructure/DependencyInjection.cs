@@ -155,6 +155,7 @@ public static class DependencyInjection
         services.AddScoped<IRecoveryEpochProvider, ConfiguredRecoveryEpochProvider>();
         services.AddScoped<IEmailOwnershipRepository, EmailOwnershipChallengeRepository>();
         services.AddScoped<IPhoneChallengeRepository, PhoneChallengeRepository>();
+        services.AddScoped<Intelibill.Application.Features.Auth.Services.ReauthenticationProofs>();
         services.AddScoped<IEmailOwnershipService, Intelibill.Application.Features.Auth.Services.EmailOwnershipService>();
         services.AddScoped<IdentityMailOutbox>();
         services.AddScoped<IIdentityMailOutbox>(sp => sp.GetRequiredService<IdentityMailOutbox>());

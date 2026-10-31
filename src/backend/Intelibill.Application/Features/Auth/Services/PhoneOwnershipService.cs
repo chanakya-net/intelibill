@@ -22,6 +22,7 @@ public sealed class PhoneOwnershipService(
     IAuthSessionService sessions,
     IPhoneAuthPolicy policy,
     IPhoneCodeHasher codes,
+    ReauthenticationProofs reauthentication,
     TimeProvider clock) : IPhoneOwnershipService
 {
     public Task<ErrorOr<PhoneChallengeReceipt>> RequestEnrollmentAsync(string phone, CancellationToken ct) =>
@@ -88,15 +89,10 @@ public sealed class PhoneOwnershipService(
         if (spent.IsError) return spent.Errors;
         var challenge = spent.Value;
 
-        var occupant = await repository.LockOccupantAsync(challenge.Destination, ct);
-        if (occupant is { RequiresOwnershipReview: true }) return Errors.Phone.RecoverySupportRequired;
-        if (occupant is { IsProvedCredential: true }) return Errors.Phone.PhoneUnavailable;
-
-        // The number was sitting on another account as contact information nobody proved. The
-        // person holding it now has proved it, so it is released from there rather than merged
-        // into it: an unproved contact number is not an identity to take over.
-        if (occupant is not null)
-            await repository.DetachUnverifiedPhoneAsync(occupant.UserId, ct);
+        // Enrollment has no actor, so every occupant is somebody else. An unproved contact number
+        // is released to whoever proved it rather than merged into the account that listed it.
+        var blocked = await BlockingOccupantAsync(challenge.Destination, Guid.Empty, ct);
+        if (blocked is not null) return blocked.Value;
 
         var user = User.CreateWithPhone(challenge.Destination, firstName.Trim(), lastName.Trim());
         user.VerifyPhone(challenge.Destination, clock.GetUtcNow());
@@ -140,6 +136,113 @@ public sealed class PhoneOwnershipService(
             ct);
 
         return await repository.CommitAsync(ct) ? result : Errors.Phone.InvalidChallenge;
+    }
+
+    public async Task<ErrorOr<PhoneChallengeReceipt>> RequestPhoneChangeAsync(
+        Guid actor,
+        long version,
+        string phone,
+        string? reauthProof,
+        CancellationToken ct)
+    {
+        if (!policy.Enabled) return Errors.Phone.AuthenticationDisabled;
+        if (!sms.Enabled || !codes.Available) return Errors.Phone.DeliveryUnavailable;
+        if (!PhoneNumberFormat.TryNormalize(phone, policy.DefaultCountryCode, out var destination))
+            return Errors.Phone.InvalidPhoneNumber;
+
+        await using var transaction = await repository.BeginAsync(ct);
+
+        var user = await ActorAsync(actor, version, ct);
+        if (user is null) return Errors.Phone.ReauthenticationRequired;
+
+        // Where there is a password, a recent check of it is required on top of the session. An
+        // account that signs in by phone alone has no password to check, so the live session it
+        // asked from is the authority, and proving the new number is the rest of it.
+        if (user.PasswordHash is not null && !await reauthentication.ConsumeAsync(actor, version, reauthProof, ct))
+            return Errors.Phone.ReauthenticationRequired;
+
+        // An established account that never proved a number does not get to bind one through a
+        // self-service route. Whoever is holding the session may not be the person whose business
+        // this is, and binding a number here would hand them the recovery factor as well.
+        if (!user.IsPhoneVerified && await repository.HasBusinessHistoryAsync(actor, ct))
+            return Errors.Phone.RecoverySupportRequired;
+
+        var blocked = await BlockingOccupantAsync(destination, actor, ct);
+        if (blocked is not null) return blocked.Value;
+
+        if (!await repository.HasSendBudgetAsync(destination, clock.GetUtcNow(), policy.DestinationSendsPerHour, policy.ResendSpacing, ct))
+        {
+            // Committed so the reauthentication proof stays spent: a throttled retry must not be a
+            // way to hold a proof open.
+            await repository.CommitAsync(ct);
+            return Unissued(destination);
+        }
+
+        var challenge = await IssueAsync(destination, PhoneChallengePurposes.PhoneChange, actor, version, ct);
+        return await repository.CommitAsync(ct)
+            ? new PhoneChallengeReceipt(challenge.Id, PhoneNumberFormat.Mask(destination), challenge.ResendAllowedAt, challenge.ExpiresAt)
+            : Errors.Phone.PhoneUnavailable;
+    }
+
+    public async Task<ErrorOr<bool>> ConfirmPhoneChangeAsync(
+        Guid actor,
+        long version,
+        Guid challengeId,
+        string code,
+        CancellationToken ct)
+    {
+        if (!policy.Enabled) return Errors.Phone.AuthenticationDisabled;
+
+        await using var transaction = await repository.BeginAsync(ct);
+
+        var spent = await SpendAsync(challengeId, code, PhoneChallengePurposes.PhoneChange, ct);
+        if (spent.IsError) return spent.Errors;
+        var challenge = spent.Value;
+
+        if (challenge.UserId != actor)
+            return Error.Forbidden("Auth.WrongChallengeActor", "Sign in to the account that requested this phone change.");
+        if (challenge.SecurityVersion != version) return Errors.Phone.InvalidChallenge;
+
+        var user = await ActorAsync(actor, version, ct);
+        if (user is null) return Errors.Phone.InvalidChallenge;
+        if (!user.IsPhoneVerified && await repository.HasBusinessHistoryAsync(actor, ct))
+            return Errors.Phone.RecoverySupportRequired;
+
+        var blocked = await BlockingOccupantAsync(challenge.Destination, actor, ct);
+        if (blocked is not null) return blocked.Value;
+
+        var previous = user.IsPhoneVerified ? user.PhoneNumber : null;
+        user.VerifyPhone(challenge.Destination, clock.GetUtcNow());
+        await repository.InvalidateCredentialsAsync(actor, ct);
+
+        // Both numbers hear about it: the one that lost the factor is the only place somebody who
+        // did not do this would notice.
+        if (previous is not null) sms.QueueSecurityNotice(previous, bound: false);
+        sms.QueueSecurityNotice(challenge.Destination, bound: true);
+
+        return await repository.CommitAsync(ct) ? true : Errors.Phone.PhoneUnavailable;
+    }
+
+    /// <summary>
+    /// Why a number cannot be taken, or null when it can. An unproved contact number on an account
+    /// with no business history is released to whoever proves it; anything else is somebody's
+    /// identity and is refused.
+    /// </summary>
+    private async Task<Error?> BlockingOccupantAsync(string destination, Guid actor, CancellationToken ct)
+    {
+        var occupant = await repository.LockOccupantAsync(destination, ct);
+        if (occupant is null || occupant.UserId == actor) return null;
+        if (occupant.RequiresOwnershipReview) return Errors.Phone.RecoverySupportRequired;
+        if (occupant.IsProvedCredential) return Errors.Phone.PhoneUnavailable;
+
+        await repository.DetachUnverifiedPhoneAsync(occupant.UserId, ct);
+        return null;
+    }
+
+    private async Task<User?> ActorAsync(Guid actor, long version, CancellationToken ct)
+    {
+        var user = await users.GetByIdWithDetailsAsync(actor, ct);
+        return user is { IsLoginEnabled: true } && user.SecurityVersion == version ? user : null;
     }
 
     /// <summary>

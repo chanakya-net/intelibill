@@ -1,7 +1,9 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Net.Http.Headers;
 using Intelibill.Domain.Entities;
+using Intelibill.Domain.Enums;
 using Intelibill.Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -222,6 +224,132 @@ public sealed class PhoneLifecycleIntegrationTests(PostgreSqlTestFixture fixture
         Assert.Null(lister.PhoneNumber);
         Assert.True(lister.IsEmailVerified);
         Assert.Equal(email, lister.Email);
+    }
+
+    /// <summary>
+    /// A carrier gave this number to somebody else. Proving it today says nothing about having
+    /// owned the account that accumulated the shop behind it, so the answer is an audited support
+    /// process, never an automatic claim.
+    /// </summary>
+    [Fact]
+    public async Task RecycledPhone_CannotClaimLegacyShop()
+    {
+        var phone = Phone();
+        Guid legacyUserId;
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var seed = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var legacy = User.CreateWithPhone(phone, "Legacy", "Owner");
+            legacyUserId = legacy.Id;
+            var shop = Shop.Create("Established business", "Address", "City", "State", "560001", null, null, null);
+            seed.Users.Add(legacy);
+            seed.Shops.Add(shop);
+            seed.ShopMemberships.Add(ShopMembership.Create(shop.Id, legacy.Id, ShopRole.Owner, true));
+            await seed.SaveChangesAsync();
+        }
+
+        using var client = Client();
+
+        foreach (var route in new[] { "/api/auth/phone/enrollment/request", "/api/auth/phone/login/request" })
+        {
+            var response = await client.PostAsJsonAsync(route, new { phoneNumber = phone });
+            Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+            Assert.Contains("Auth.RecoverySupportRequired", await response.Content.ReadAsStringAsync());
+        }
+
+        using var verify = _factory.Services.CreateScope();
+        var db = verify.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.Equal(0, await db.Set<PhoneChallenge>().CountAsync());
+        Assert.Equal(0, await db.Set<IdentitySms>().CountAsync());
+        Assert.Equal(0, await db.AuthSessions.CountAsync());
+
+        var preserved = await db.Users.SingleAsync(x => x.Id == legacyUserId);
+        Assert.Equal(phone, preserved.PhoneNumber);
+        Assert.False(preserved.IsPhoneVerified);
+        Assert.Equal(1, await db.Shops.CountAsync());
+    }
+
+    /// <summary>
+    /// Moving the sign-in number needs the live session it is asked from and proof of the new
+    /// number. Nothing moves until the code for the new number is right.
+    /// </summary>
+    [Fact]
+    public async Task ChangePhone_RequiresCurrentSessionAndNewNumberProof()
+    {
+        var original = Phone();
+        var replacement = Phone();
+        using var client = Client();
+
+        var anonymous = await client.PostAsJsonAsync("/api/auth/phone/change/request", new { phoneNumber = replacement });
+        Assert.Equal(HttpStatusCode.Unauthorized, anonymous.StatusCode);
+
+        var enrolled = await _factory.EnrollPhoneAsync(client, original);
+        var session = await enrolled.Content.ReadFromJsonAsync<JsonElement>();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", session.GetProperty("accessToken").GetString());
+        var userId = session.GetProperty("user").GetProperty("id").GetGuid();
+
+        await AgeMessagesAsync();
+        var requested = await client.PostAsJsonAsync("/api/auth/phone/change/request", new { phoneNumber = replacement });
+        Assert.Equal(HttpStatusCode.Accepted, requested.StatusCode);
+        var (challengeId, code) = await IdentityTestPhone.ReadCodeAsync(_factory, replacement, PhoneChallengePurposes.PhoneChange);
+
+        var wrong = await client.PostAsJsonAsync("/api/auth/phone/change/confirm", new { challengeId, code = WrongCode(code) });
+        Assert.Equal(HttpStatusCode.BadRequest, wrong.StatusCode);
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var unchanged = await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().Users.SingleAsync(x => x.Id == userId);
+            Assert.Equal(original, unchanged.PhoneNumber);
+        }
+
+        var confirmed = await client.PostAsJsonAsync("/api/auth/phone/change/confirm", new { challengeId, code });
+        Assert.Equal(HttpStatusCode.OK, confirmed.StatusCode);
+
+        using var verify = _factory.Services.CreateScope();
+        var db = verify.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var moved = await db.Users.SingleAsync(x => x.Id == userId);
+        Assert.Equal(replacement, moved.PhoneNumber);
+        Assert.True(moved.IsPhoneVerified);
+
+        // The factor that reaches this account changed, so every device it was signed in on ends.
+        Assert.Equal(0, await db.AuthSessions.CountAsync(x => x.UserId == userId && x.RevokedAt == null));
+
+        // Both numbers are told, so somebody who did not do this hears about it on the number they
+        // still hold.
+        Assert.Equal(1, await db.Set<IdentitySms>().CountAsync(x => x.ChallengeId == null && x.Destination == original));
+        Assert.Equal(1, await db.Set<IdentitySms>().CountAsync(x => x.ChallengeId == null && x.Destination == replacement));
+    }
+
+    /// <summary>
+    /// A profile edit is not proof of holding a number. It says so rather than quietly keeping the
+    /// old value, so nobody is left believing their sign-in number moved.
+    /// </summary>
+    [Fact]
+    public async Task UpdateMyProfile_CannotChangeVerifiedPhone()
+    {
+        var phone = Phone();
+        using var client = Client();
+
+        var enrolled = await _factory.EnrollPhoneAsync(client, phone);
+        var session = await enrolled.Content.ReadFromJsonAsync<JsonElement>();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", session.GetProperty("accessToken").GetString());
+        var userId = session.GetProperty("user").GetProperty("id").GetGuid();
+
+        var response = await client.PutAsJsonAsync("/api/users/me", new
+        {
+            email = (string?)null,
+            phoneNumber = Phone(),
+            firstName = "Phone",
+            lastName = "Owner",
+            language = "en-IN",
+        });
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Contains("Auth.PhoneChangeRequiresProof", await response.Content.ReadAsStringAsync());
+
+        using var verify = _factory.Services.CreateScope();
+        var db = verify.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.Equal(phone, (await db.Users.SingleAsync(x => x.Id == userId)).PhoneNumber);
     }
 
     /// <summary>
