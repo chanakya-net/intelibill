@@ -6,6 +6,7 @@ import { catchError, finalize, map, Observable, of, shareReplay, switchMap, tap,
 import { AUTH_ENDPOINTS } from './auth.constants';
 import { AuthResult, AuthSession, BootstrapSessionStatus, RefreshTokenRequest } from './auth.models';
 import { AuthStorage } from './auth.storage';
+import { RefreshCoordinator } from './refresh-coordinator.service';
 import { NetworkStatusService } from '../services/network-status.service';
 
 const CLOCK_SKEW_BUFFER_MS = 30_000;
@@ -23,6 +24,7 @@ export class AuthTokenService {
   private readonly http = inject(HttpClient);
   private readonly storage = inject(AuthStorage);
   private readonly networkStatus = inject(NetworkStatusService);
+  private readonly coordinator = inject(RefreshCoordinator);
 
   private refreshInFlight$: Observable<AuthSession | null> | null = null;
   private bootstrapInFlight$: Observable<BootstrapSessionStatus> | null = null;
@@ -72,6 +74,12 @@ export class AuthTokenService {
     return refresh$;
   }
 
+  /**
+   * Renews the session's access token. Refresh credentials are single-use and the server ends a
+   * session whose spent credential is presented again, so renewals of one session are serialized
+   * across tabs, and a tab that waited adopts the successor another tab stored instead of
+   * presenting the credential it replaced.
+   */
   refreshAccessToken(
     state: AuthSessionState,
     options?: { readonly preserveSessionOnError?: boolean }
@@ -86,39 +94,81 @@ export class AuthTokenService {
       return of(null);
     }
 
+    this.refreshInFlight$ = this.coordinator
+      .runExclusive(
+        { userId: session.user.id, sessionId: session.sessionId ?? null },
+        () => this.rotate(state, session, options)
+      )
+      .pipe(
+        finalize(() => {
+          this.refreshInFlight$ = null;
+        }),
+        shareReplay(1)
+      );
+
+    return this.refreshInFlight$;
+  }
+
+  /** Runs while this tab holds the refresh lock for the session it was asked to renew. */
+  private rotate(
+    state: AuthSessionState,
+    presented: AuthSession,
+    options?: { readonly preserveSessionOnError?: boolean }
+  ): Observable<AuthSession | null> {
+    const current = state.getSession();
+    if (!current) {
+      // Signed out (here or in another tab) while waiting: there is nothing left to renew.
+      return of(null);
+    }
+
+    const successor = this.findSuccessor(presented, [current, this.storage.loadSession()]);
+    if (successor) {
+      if (successor !== current) {
+        state.setSession(successor);
+      }
+      return of(successor);
+    }
+
     const payload: RefreshTokenRequest = {
-      refreshToken: session.refreshToken,
-      activeShopId: session.activeShopId ?? null,
+      refreshToken: presented.refreshToken,
+      activeShopId: presented.activeShopId ?? null,
     };
 
-    this.refreshInFlight$ = this.http.post<AuthResult>(AUTH_ENDPOINTS.refreshToken, payload).pipe(
-      map((result) => state.toSession(result, session.rememberMe)),
+    return this.http.post<AuthResult>(AUTH_ENDPOINTS.refreshToken, payload).pipe(
+      map((result) => state.toSession(result, presented.rememberMe)),
       tap((refreshedSession) => state.setSession(refreshedSession)),
-      catchError((error) => {
-        // Another tab may have already rotated the token and saved a fresh session
-        // to localStorage. Re-read storage before clearing to avoid spurious logout
-        // on multi-tab refresh races.
-        const fresherSession = this.storage.loadSession();
-        if (
-          fresherSession
-          && fresherSession.accessToken !== session.accessToken
-          && !this.isExpired(fresherSession.accessTokenExpiresAt, CLOCK_SKEW_BUFFER_MS)
-        ) {
-          state.setSession(fresherSession);
-          return of(fresherSession);
-        }
+      catchError((error: unknown) => {
+        // The server's refusal is final. Nothing stored is adopted after it: a refused credential
+        // for this device means the session has ended, and any successor stored for it ended
+        // with it. Only the caller decides whether a network failure keeps the session offline.
         if (!options?.preserveSessionOnError) {
           state.clearSession();
         }
         return throwError(() => error);
-      }),
-      finalize(() => {
-        this.refreshInFlight$ = null;
-      }),
-      shareReplay(1)
+      })
     );
+  }
 
-    return this.refreshInFlight$;
+  /**
+   * A renewal another tab already completed for the same device: same user, same session, a
+   * different refresh credential that expires no earlier. A different user's session is never a
+   * successor, however recent.
+   */
+  private findSuccessor(
+    presented: AuthSession,
+    candidates: readonly (AuthSession | null)[]
+  ): AuthSession | null {
+    return (
+      candidates.find(
+        (candidate): candidate is AuthSession =>
+          !!candidate
+          && candidate.user.id === presented.user.id
+          && (candidate.sessionId ?? null) === (presented.sessionId ?? null)
+          && candidate.refreshToken !== presented.refreshToken
+          && !this.isExpired(candidate.refreshTokenExpiresAt)
+          && Date.parse(candidate.refreshTokenExpiresAt) >= Date.parse(presented.refreshTokenExpiresAt)
+      ) ?? null
+    );
   }
 
   revokeToken(refreshToken: string): Observable<void> {
