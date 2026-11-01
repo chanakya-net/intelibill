@@ -241,6 +241,7 @@ public static class DependencyInjection
             .ValidateDataAnnotations()
             .ValidateOnStart();
         services.AddSingleton<IAtomicRateLimitStore, PostgresRateLimitStore>();
+        services.AddHostedService<RateLimitBucketCleanupWorker>();
 
         services.AddHttpClient(ExternalProductLookupService.HttpClientName, (sp, client) =>
         {
