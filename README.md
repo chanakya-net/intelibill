@@ -128,6 +128,12 @@ delivered: registration and password-reset messages appear at
 `http://localhost:8025` and never leave the machine. See
 [docs/auth-email-setup.md](docs/auth-email-setup.md).
 
+The stack also sets `RateLimiting__RelaxEndpointPolicies`, so the auth endpoints
+use the global default (100 per minute) instead of their own hardened figures —
+sign-up is otherwise 5 requests per 15 minutes shared by every browser behind the
+web proxy, which stops you testing the flow. The API refuses to start with that
+setting in any environment but Development or Testing.
+
 | Service  | URL |
 |---|---|
 | Backend  | `http://localhost:5277` |

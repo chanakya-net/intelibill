@@ -64,6 +64,7 @@ builder.Services.AddOptions<RateLimitingOptions>()
     .Bind(configuration.GetSection(RateLimitingOptions.SectionName))
     .ValidateDataAnnotations()
     .ValidateOnStart();
+builder.Services.AddSingleton<IValidateOptions<RateLimitingOptions>, RateLimitingOptionsValidator>();
 
 // ── JWT Authentication ────────────────────────────────────────────────────────
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

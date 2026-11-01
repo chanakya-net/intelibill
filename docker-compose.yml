@@ -97,6 +97,14 @@ services:
       - Jwt__Issuer=Intelibill
       - Jwt__Audience=Intelibill
       - App__BaseUrl=http://localhost:4000
+      # Sign-up is limited to 5 requests per 15 minutes with a 15-minute backoff,
+      # and the bucket is keyed on the caller's address, not the address being
+      # enrolled — so behind this stack's web proxy every browser shares one
+      # allowance and testing the flow twice exhausts it. Relaxed here to the
+      # global default (100 per minute), which still catches a runaway loop. The
+      # API refuses to start with this set in any environment but Development or
+      # Testing.
+      - RateLimiting__RelaxEndpointPolicies=true
       # Identity mail. Without these the enrolment endpoint answers 503
       # Auth.EmailUnavailable: the outbox reports itself unavailable unless
       # delivery is enabled AND it holds a 32-byte key to encrypt stored bodies
