@@ -69,7 +69,8 @@ Dependency registration: each layer's `DependencyInjection.cs`
 - Refresh credentials: stored as SHA-256 only, single-use, chained per session (`parent_token_id`). Rotation and sign-out lock users → auth_sessions → refresh_tokens; a reused (consumed) credential ends its session. Web tabs serialize renewals via `RefreshCoordinator`. See `docs/backend-architecture.md` § Refresh Credentials.
 - Shop memberships: roles = `Owner`, `Manager`, `Staff`
 - Rate limiting: `RateLimitAttribute`/`RateLimitFilter` on sensitive endpoints
-- Logging: Serilog + `SensitiveDataDestructuringPolicy`
+- Logging: Serilog; every sink sits behind `LogEventRedactor` (`SerilogExtensions.Redacted`): exception objects become type/frame descriptions, credential names are masked at any depth (PII too with `EnablePiiMasking`). Never log an exception message, token, link or DTO by hand
+- Errors: exceptions answer `{type,title,status,code,traceId,errors?}` via `SafeErrorFactory` (`Internal.Unexpected` for anything unplanned) and log through `SafeDiagnosticWriter`. See `docs/backend-architecture.md` § Safe Errors and Diagnostics
 
 ## Environment
 

@@ -133,11 +133,13 @@ All EF mappings are in separate `IEntityTypeConfiguration<T>` classes, not in `O
 
 ### 11. Global Exception Handling Middleware
 
-Unhandled exceptions are caught at the pipeline level and serialised as RFC 7807 Problem Details. This is the last-resort safety net — expected errors use ErrorOr.
+Unhandled exceptions are caught at the pipeline level and answered as RFC 7807 Problem Details with a stable `code` and `traceId` — never the exception's text. This is the last-resort safety net — expected errors use ErrorOr. See `docs/backend-architecture.md` § Safe Errors and Diagnostics.
 
 **Where it appears:**
-- Implementation: `src/backend/Intelibill.Api/Middleware/ExceptionHandlingMiddleware.cs:6-44`
-- Registration (first middleware): `src/backend/Intelibill.Api/Program.cs:21`
+- Implementation: `src/backend/Intelibill.Api/Middleware/ExceptionHandlingMiddleware.cs`
+- Public mapping: `src/backend/Intelibill.Api/PublicErrors/SafeErrorFactory.cs`
+- Diagnostics: `src/backend/Intelibill.Api/Logging/SafeDiagnosticWriter.cs`
+- Registration: `src/backend/Intelibill.Api/Program.cs` (`UseMiddleware<ExceptionHandlingMiddleware>`)
 
 ---
 

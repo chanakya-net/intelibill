@@ -185,6 +185,55 @@ binds every handler to that connection's generation so a frame from a replaced s
 after a shop switch, and stops reconnecting on a refused handshake (401/403) while keeping its
 backoff for a network outage.
 
+## Safe Errors and Diagnostics
+
+**Public contract.** An exception that reaches `ExceptionHandlingMiddleware` is answered as
+`application/problem+json` `{ type, title, status, code, traceId, errors? }` by `SafeErrorFactory`
+(`Api/PublicErrors`). The exception's message, type, stack, inner exceptions and `Data` never
+appear. `FluentValidation.ValidationException` → 400 `Validation.Failed` with field `errors`
+(authored messages only; one that repeats the attempted value is replaced); `BadHttpRequestException`
+→ its status, `Request.Invalid`; `ArgumentException` → 400 `Request.Invalid` with no text, because
+a 400 does not make arbitrary text safe; `UnauthorizedAccessException` → 401 `Auth.Unauthorized`;
+anything else → 500 `Internal.Unexpected`. ErrorOr results are authored text and keep their
+`ToProblemResult` shape. The web falls back to its own translated key whenever `detail` is absent.
+
+**Trace id.** `SafeTraceId.Resolve` returns the request activity's W3C trace id (the runtime accepts
+only 32 hex characters from `traceparent`), else `HttpContext.TraceIdentifier` if it matches
+`^[A-Za-z0-9:._-]{1,64}$`, else a fresh random id. The same value is in the response and in the
+diagnostic, so an incident is found from the trace id alone.
+
+**Started responses and streams.** If the response has already started, the middleware writes the
+diagnostic and aborts the connection rather than appending a problem document. The offline snapshot
+(`GET api/sales/offline-snapshot/stream`) ends a stream that fails after its first record with an
+`error` record `{ snapshotId, code: "OfflineSnapshot.StreamFailed", message, traceId }` (fixed text)
+and never a `complete`; a failure before the first record reaches the middleware as an ordinary 500.
+The web treats the `error` record as terminal. A caller's cancellation is not an incident: 499, no
+body, no error event.
+
+**Diagnostics.** `SafeDiagnosticWriter` logs one event per failure from allowlisted facts: error
+code, status, method, route template, trace id, whether the response had started, the exception
+type chain, `Type.Method` frames without file paths, and two reviewed adapters — `SqlState` from a
+`DbException` and `ProviderStatus` from an `HttpRequestException`. It never hands the exception
+object to the logger.
+
+**Redaction backstop.** Every Serilog sink — console, OTLP, and any `ILogEventSink` registered in
+the container — sits behind `LogEventRedactor` (`SerilogExtensions.Redacted`). Per event it drops
+the exception object for the same type/frame description, masks credential-named properties
+(authorization, cookie, tokens, `*password`, secret, api key, `code`, otp, `*link`, connection and
+query strings…) at any depth in structures, sequences and dictionaries — and email/phone/card/
+Aadhaar/PAN names and free-text email addresses when `Observability:Logging:EnablePiiMasking` is
+on — scrubs `name=value` secrets, `Bearer`/`Basic` credentials and stringified exceptions from
+string values and message text, and bounds depth (8), width (100) and string length (4096). It is
+a backstop for structured and well-formed values; it cannot find a secret in prose, so sources
+must not log one. A sink added outside `Redacted()` would receive raw events.
+
+**Already outside the application's logs.** Request logging records the path, not the query.
+`Microsoft.AspNetCore` events below Warning (which carry query strings) are filtered. OpenTelemetry
+ASP.NET Core and HttpClient instrumentation redact query values by default, and HttpClient spans
+whose query names an identity secret are dropped. Hub `access_token` is read on `/hubs` only.
+Ingress/platform access logs are outside this boundary and must be configured not to keep query
+strings.
+
 ## Test Structure
 
 | Suite | Path | Count |
