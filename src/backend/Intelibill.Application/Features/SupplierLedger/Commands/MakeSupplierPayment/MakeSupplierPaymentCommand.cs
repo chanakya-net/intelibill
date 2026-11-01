@@ -6,4 +6,5 @@ public sealed record MakeSupplierPaymentCommand(
     Guid SupplierId,
     decimal Amount,
     DateOnly PaymentDate,
-    string? Notes);
+    string? Notes,
+    string? OperationKey = null);

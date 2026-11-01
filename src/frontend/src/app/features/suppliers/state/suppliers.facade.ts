@@ -59,6 +59,11 @@ export class SuppliersFacade {
     this.store.dispatch(SuppliersActions.makePaymentRequested({ supplierId, payload }));
   }
 
+  /** Resends the unconfirmed payment for this supplier, unchanged and under its own key. */
+  retryPayment(supplierId: string): void {
+    this.store.dispatch(SuppliersActions.retryPaymentRequested({ supplierId }));
+  }
+
   loadLedger(supplierId: string): void {
     this.store.dispatch(SuppliersActions.loadSupplierLedgerRequested({ supplierId }));
   }

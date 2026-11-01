@@ -55,6 +55,7 @@ public class ApplicationDbContext(
     public DbSet<PurchaseOrderReceiptSequence> PurchaseOrderReceiptSequences => Set<PurchaseOrderReceiptSequence>();
     public DbSet<CreditNote> CreditNotes => Set<CreditNote>();
     public DbSet<CreditNoteRedemption> CreditNoteRedemptions => Set<CreditNoteRedemption>();
+    public DbSet<OperationReceipt> OperationReceipts => Set<OperationReceipt>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

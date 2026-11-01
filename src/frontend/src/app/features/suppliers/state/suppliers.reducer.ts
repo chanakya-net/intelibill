@@ -110,7 +110,7 @@ export const suppliersReducer = createReducer(
     lastMutationSucceeded: false,
   })),
 
-  on(SuppliersActions.makePaymentRequested, (state) => ({
+  on(SuppliersActions.makePaymentRequested, SuppliersActions.retryPaymentRequested, (state) => ({
     ...state,
     submitting: true,
     errorMessage: '',

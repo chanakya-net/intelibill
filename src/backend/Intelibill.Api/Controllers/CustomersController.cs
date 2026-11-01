@@ -101,7 +101,8 @@ public sealed class CustomersController : AuthenticatedControllerBase
                 customerId,
                 request.Amount,
                 request.PaymentDate,
-                request.Notes),
+                request.Notes,
+                request.OperationKey),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -122,7 +123,12 @@ public sealed record EditCustomerRequest(
     bool IsActive,
     decimal CreditLimit);
 
+/// <param name="OperationKey">
+/// Durable identity of this payment. A retry with the same key replays the committed result;
+/// optional only until every client sends one.
+/// </param>
 public sealed record RecordCustomerPaymentRequest(
     decimal Amount,
     DateOnly PaymentDate,
-    string? Notes);
+    string? Notes,
+    string? OperationKey = null);

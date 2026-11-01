@@ -21,6 +21,7 @@ export const SuppliersActions = createActionGroup({
     'Edit Supplier Failed': props<{ errorMessage: string }>(),
 
     'Make Payment Requested': props<{ supplierId: string; payload: MakePaymentRequest }>(),
+    'Retry Payment Requested': props<{ supplierId: string }>(),
     'Make Payment Succeeded': props<{ entry: SupplierLedgerEntry }>(),
     'Make Payment Failed': props<{ errorMessage: string }>(),
 

@@ -6,4 +6,5 @@ public sealed record RecordCustomerPaymentCommand(
     Guid CustomerId,
     decimal Amount,
     DateOnly PaymentDate,
-    string? Notes);
+    string? Notes,
+    string? OperationKey = null);

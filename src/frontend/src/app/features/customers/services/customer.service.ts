@@ -69,6 +69,10 @@ export interface RecordCustomerPaymentRequest {
   notes: string | null;
 }
 
+export interface KeyedRecordCustomerPaymentRequest extends RecordCustomerPaymentRequest {
+  operationKey: string;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -92,7 +96,7 @@ export class CustomerService {
     return this.http.get<CustomerAccount>(`${this.apiUrl}/${customerId}/account`);
   }
 
-  recordCustomerPayment(customerId: string, request: RecordCustomerPaymentRequest): Observable<CustomerLedgerEntry> {
+  recordCustomerPayment(customerId: string, request: KeyedRecordCustomerPaymentRequest): Observable<CustomerLedgerEntry> {
     return this.http.post<CustomerLedgerEntry>(`${this.apiUrl}/${customerId}/payments`, request);
   }
 }

@@ -3,9 +3,17 @@ import { TestBed } from '@angular/core/testing';
 import { TranslocoService, TranslocoTestingModule } from '@ngneat/transloco';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { AuthService } from '../../../core/auth/auth.service';
+import { FinancialOperationIntentService } from '../../../core/services/financial-operation-intent.service';
 import { SupplierLedgerEntry } from '../services/supplier-ledger.service';
 import { SuppliersFacade } from '../state/suppliers.facade';
 import { SupplierDetailComponent } from './supplier-detail.component';
+
+const paymentIntents = {
+  revision: signal(0),
+  pending: vi.fn((): unknown => null),
+  check: vi.fn(),
+};
 
 describe('SupplierDetailComponent', () => {
   const ledgerEntries: SupplierLedgerEntry[] = [
@@ -107,7 +115,11 @@ describe('SupplierDetailComponent', () => {
           },
         }),
       ],
-      providers: [{ provide: SuppliersFacade, useValue: mockFacade }],
+      providers: [
+        { provide: SuppliersFacade, useValue: mockFacade },
+        { provide: AuthService, useValue: { session: () => ({ user: { id: 'user-1' }, activeShopId: 'shop-1' }) } },
+        { provide: FinancialOperationIntentService, useValue: paymentIntents },
+      ],
     });
   });
 

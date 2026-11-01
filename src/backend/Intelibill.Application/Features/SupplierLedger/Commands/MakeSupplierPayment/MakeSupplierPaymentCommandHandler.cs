@@ -1,20 +1,24 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Operations;
 using Intelibill.Application.Features.SupplierLedger.DTOs;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
+using Microsoft.Extensions.Logging;
 
 namespace Intelibill.Application.Features.SupplierLedger.Commands.MakeSupplierPayment;
 
-public sealed class MakeSupplierPaymentCommandHandler(
+public sealed partial class MakeSupplierPaymentCommandHandler(
     IUserRepository userRepository,
     ISupplierRepository supplierRepository,
     ISupplierLedgerEntryRepository ledgerRepository,
     IExpenseCategoryRepository expenseCategoryRepository,
     IExpenseRepository expenseRepository,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    IFinancialOperationExecutor operationExecutor,
+    ILogger<MakeSupplierPaymentCommandHandler> logger)
 {
     public async Task<ErrorOr<SupplierLedgerEntryDto>> HandleAsync(
         MakeSupplierPaymentCommand command,
@@ -35,6 +39,32 @@ public sealed class MakeSupplierPaymentCommandHandler(
         if (supplier is null || supplier.ShopId != command.ActiveShopId)
             return Errors.Supplier.SupplierNotFound;
 
+        var operationKey = FinancialOperationHasher.NormalizeKey(command.OperationKey);
+        if (operationKey is null)
+        {
+            LogUnkeyedPayment(command.ActiveShopId);
+            return await PostAsync(command, cancellationToken);
+        }
+
+        var requestHash = FinancialOperationHasher.Compute(new SupplierPaymentPayload(
+            command.SupplierId,
+            FinancialOperationHasher.NormalizeAmount(command.Amount),
+            command.PaymentDate,
+            string.IsNullOrWhiteSpace(command.Notes) ? null : command.Notes.Trim()));
+
+        return await operationExecutor.ExecuteAsync(
+            new FinancialOperationScope(command.ActiveShopId, FinancialOperationType.SupplierPayment, operationKey),
+            command.ActorUserId,
+            command.SupplierId,
+            requestHash,
+            ct => PostAsync(command, ct),
+            cancellationToken);
+    }
+
+    private async Task<ErrorOr<SupplierLedgerEntryDto>> PostAsync(
+        MakeSupplierPaymentCommand command,
+        CancellationToken cancellationToken)
+    {
         var entryOrError = SupplierLedgerEntry.Create(
             command.ActiveShopId,
             command.SupplierId,
@@ -74,4 +104,11 @@ public sealed class MakeSupplierPaymentCommandHandler(
         var e = entry;
         return new SupplierLedgerEntryDto(e.Id, e.SupplierId, e.EntryType, e.Amount, e.EntryDate, e.Notes);
     }
+
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "Legacy unkeyed financial command: supplier payment made without an operation key in shop {ShopId}.")]
+    private partial void LogUnkeyedPayment(Guid shopId);
+
+    private sealed record SupplierPaymentPayload(Guid SupplierId, decimal Amount, DateOnly PaymentDate, string? Notes);
 }

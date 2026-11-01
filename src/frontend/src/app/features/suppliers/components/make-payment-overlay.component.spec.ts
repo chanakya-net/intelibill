@@ -3,6 +3,8 @@ import { TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { AuthService } from '../../../core/auth/auth.service';
+import { FinancialOperationIntentService } from '../../../core/services/financial-operation-intent.service';
 import { MakePaymentOverlayComponent } from './make-payment-overlay.component';
 import { SuppliersFacade } from '../state/suppliers.facade';
 import { Supplier } from '../services/supplier.service';
@@ -20,6 +22,12 @@ const mockSupplier: Supplier = {
   isActive: true,
   isPreferred: false,
   balanceDue: 1500,
+};
+
+const paymentIntents = {
+  revision: signal(0),
+  pending: vi.fn((): unknown => null),
+  check: vi.fn(),
 };
 
 describe('MakePaymentOverlayComponent', () => {
@@ -40,7 +48,11 @@ describe('MakePaymentOverlayComponent', () => {
         MakePaymentOverlayComponent,
         TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
       ],
-      providers: [{ provide: SuppliersFacade, useValue: suppliersFacade }],
+      providers: [
+        { provide: SuppliersFacade, useValue: suppliersFacade },
+        { provide: AuthService, useValue: { session: () => ({ user: { id: 'user-1' }, activeShopId: 'shop-1' }) } },
+        { provide: FinancialOperationIntentService, useValue: paymentIntents },
+      ],
     });
 
     const fixture = TestBed.createComponent(MakePaymentOverlayComponent);
@@ -53,6 +65,7 @@ describe('MakePaymentOverlayComponent', () => {
     suppliersFacade.clearError.mockReset();
     suppliersFacade.clearMutationStatus.mockReset();
     suppliersFacade.makePayment.mockReset();
+    paymentIntents.pending.mockReturnValue(null);
     isSubmittingSignal.set(false);
     errorSignal.set('');
   });
@@ -97,5 +110,26 @@ describe('MakePaymentOverlayComponent', () => {
     component.onClose();
 
     expect(emitted).toBe(true);
+  });
+
+  it('shows the unconfirmed payment instead of the form and retries it unchanged', () => {
+    paymentIntents.pending.mockReturnValue({
+      operationKey: 'supplier-payment-1',
+      payload: { amount: 500, paymentDate: '2026-11-01', notes: null },
+      createdAt: '2026-11-01T10:00:00.000Z',
+      status: 'unknown',
+    });
+    const retryPayment = vi.fn();
+    Object.assign(suppliersFacade, { retryPayment });
+
+    const { component, fixture } = setup();
+    const element = fixture.nativeElement as HTMLElement;
+
+    expect(element.querySelector('app-pending-financial-operation')).not.toBeNull();
+    expect(element.querySelector('app-supplier-payment-form')).toBeNull();
+
+    component.onRetryPendingPayment();
+    expect(retryPayment).toHaveBeenCalledWith('s1');
+    expect(suppliersFacade.makePayment).not.toHaveBeenCalled();
   });
 });
