@@ -34,6 +34,7 @@ type OfflineSnapshotStreamRecord =
         readonly snapshotId: string;
         readonly code: string;
         readonly message: string;
+        readonly traceId?: string;
       };
     };
 
@@ -119,8 +120,16 @@ export class OfflineSalesSnapshotSyncService {
               await this.snapshotDb.markComplete(snapshotId, shopId, record.complete.completedAt);
               break;
             case 'error':
-              await this.snapshotDb.markFailed(snapshotId, shopId, record.error.code, record.error.message);
-              break;
+              // Terminal, like complete: the server stopped mid-stream, so nothing after this
+              // line may make the attempt usable. The trace id is what support looks it up by.
+              await this.snapshotDb.markFailed(
+                snapshotId,
+                shopId,
+                record.error.code,
+                record.error.message,
+                record.error.traceId
+              );
+              return;
             default:
               break;
           }

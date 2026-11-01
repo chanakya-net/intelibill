@@ -16,6 +16,7 @@ export interface OfflineSalesSnapshotAttemptRecord {
   readonly status: OfflineSalesSnapshotAttemptStatus;
   readonly errorCode?: string;
   readonly errorMessage?: string;
+  readonly errorTraceId?: string;
 }
 
 export interface OfflineSellableBatchSnapshot {
