@@ -2,6 +2,7 @@ using Intelibill.Api.Logging;
 using Intelibill.Infrastructure.Options;
 using Microsoft.Extensions.Options;
 using Serilog;
+using Serilog.Configuration;
 using Serilog.Core;
 using Serilog.Events;
 using Serilog.Formatting.Compact;
@@ -40,21 +41,23 @@ public static class SerilogExtensions
                 .Enrich.WithEnvironmentName()
                 .Enrich.WithProperty("Application", "InteliBill");
 
+            // Attribute-driven masking for DTOs that opt in; the name-based redaction below
+            // applies to every event whether or not a type was annotated.
             if (logging.EnablePiiMasking)
-            {
-                config
-                    .Destructure.With<SensitiveDataDestructuringPolicy>()
-                    .Enrich.With<PiiScrubbingEnricher>();
-            }
+                config.Destructure.With<SensitiveDataDestructuringPolicy>();
 
+            var redactor = new LogEventRedactor(maskPersonalData: logging.EnablePiiMasking);
+
+            // Every sink sits behind the redactor. Nothing is written beside it: a sink added
+            // here outside Redacted() would receive raw exceptions and unmasked credentials.
             config.WriteTo.Async(
-                a =>
+                a => a.Redacted(redactor, redacted =>
                 {
                     // Console — compact JSON for local dev / container stdout
-                    a.Console(new CompactJsonFormatter());
+                    redacted.Console(new CompactJsonFormatter());
 
                     // New Relic via OTLP HTTP/protobuf
-                    a.OpenTelemetry(otlp =>
+                    redacted.OpenTelemetry(otlp =>
                     {
                         otlp.Endpoint = newRelic.OtlpEndpoint;
                         otlp.Protocol = OtlpProtocol.HttpProtobuf;
@@ -69,12 +72,34 @@ public static class SerilogExtensions
                             ["deployment.environment"] = newRelic.Environment,
                         };
                     });
-                },
+                }),
                 bufferSize: logging.AsyncBufferSize);
+
+            // Sinks registered in the container (none in production) get the same treatment,
+            // synchronously, so what they record is exactly what an exporter would have sent.
+            var registeredSinks = services.GetServices<ILogEventSink>().ToArray();
+            if (registeredSinks.Length > 0)
+            {
+                config.WriteTo.Redacted(redactor, redacted =>
+                {
+                    foreach (var sink in registeredSinks)
+                        redacted.Sink(sink);
+                });
+            }
         });
 
         return builder;
     }
+
+    /// <summary>
+    /// Writes to the sinks <paramref name="configure"/> adds only after <paramref name="redactor"/>
+    /// has rewritten each event.
+    /// </summary>
+    public static LoggerConfiguration Redacted(
+        this LoggerSinkConfiguration writeTo,
+        LogEventRedactor redactor,
+        Action<LoggerSinkConfiguration> configure) =>
+        writeTo.Sink(LoggerSinkConfiguration.Wrap(sink => new RedactingSink(sink, redactor), configure));
 
     /// <summary>
     /// Pre-configured <see cref="RequestLoggingOptions"/> action for

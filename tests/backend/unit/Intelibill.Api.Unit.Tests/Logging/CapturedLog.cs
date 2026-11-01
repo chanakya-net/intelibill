@@ -1,4 +1,6 @@
 using System.Collections.Concurrent;
+using Intelibill.Api.Extensions;
+using Intelibill.Api.Logging;
 using Microsoft.Extensions.Logging;
 using Serilog;
 using Serilog.Core;
@@ -10,8 +12,8 @@ using Serilog.Formatting.Compact;
 namespace Intelibill.Api.Unit.Tests.Logging;
 
 /// <summary>
-/// A Serilog pipeline that ends in memory, so a test can read what a sink would actually
-/// have received and how the console formatter would have rendered it.
+/// The production redaction in front of an in-memory sink, so a test can read what a sink
+/// would actually have received and how the console formatter would have rendered it.
 /// </summary>
 internal sealed class CapturedLog : IDisposable
 {
@@ -19,14 +21,16 @@ internal sealed class CapturedLog : IDisposable
     private readonly Logger _logger;
     private readonly SerilogLoggerFactory _factory;
 
-    public CapturedLog()
+    public CapturedLog(bool maskPersonalData = true)
     {
         _logger = new LoggerConfiguration()
             .MinimumLevel.Verbose()
-            .WriteTo.Sink(_sink)
+            .WriteTo.Redacted(new LogEventRedactor(maskPersonalData), redacted => redacted.Sink(_sink))
             .CreateLogger();
         _factory = new SerilogLoggerFactory(_logger);
     }
+
+    public Serilog.ILogger Logger => _logger;
 
     public IReadOnlyList<LogEvent> Events => [.. _sink.Events];
 

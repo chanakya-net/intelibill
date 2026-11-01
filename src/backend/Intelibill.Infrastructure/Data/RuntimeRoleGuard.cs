@@ -1,3 +1,4 @@
+using System.Data.Common;
 using Intelibill.Infrastructure.Options;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -57,7 +58,9 @@ public sealed partial class RuntimeRoleGuard(
                                               && attempt < ConnectAttempts
                                               && !cancellationToken.IsCancellationRequested)
             {
-                LogConnectRetry(logger, attempt, ConnectAttempts, exception.Message);
+                // The kind of failure and its SQLSTATE, not the provider's message: that names hosts
+                // and users, and nothing guarantees it stops there.
+                LogConnectRetry(logger, attempt, ConnectAttempts, exception.GetType().Name, (exception as DbException)?.SqlState);
                 await Task.Delay(ConnectBackoff * attempt, cancellationToken);
             }
         }
@@ -73,8 +76,8 @@ public sealed partial class RuntimeRoleGuard(
     [LoggerMessage(Level = LogLevel.Information, Message = "Runtime identity verified: it cannot bypass row-level security.")]
     private static partial void LogIdentityVerified(ILogger logger);
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Could not reach the database to verify the runtime identity (attempt {Attempt} of {Attempts}): {Reason}. Retrying.")]
-    private static partial void LogConnectRetry(ILogger logger, int attempt, int attempts, string reason);
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Could not reach the database to verify the runtime identity (attempt {Attempt} of {Attempts}): {FailureType}, SQLSTATE {SqlState}. Retrying.")]
+    private static partial void LogConnectRetry(ILogger logger, int attempt, int attempts, string failureType, string? sqlState);
 
     /// <summary>
     /// Reads the connection's own role out of <c>pg_roles</c> and throws unless
