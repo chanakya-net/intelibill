@@ -87,6 +87,9 @@ public static partial class Errors
         public static Error IdempotencyConflict =>
             Error.Conflict("Sale.IdempotencyConflict", "Idempotency key has already been used with different request content.");
 
+        public static Error IdempotencyKeyNotFound =>
+            Error.NotFound("Sale.IdempotencyKeyNotFound", "No committed sale was found for this checkout.");
+
         public static Error OfflineSalesRequired =>
             Error.Validation("Sale.OfflineSalesRequired", "At least one offline sale is required.");
 

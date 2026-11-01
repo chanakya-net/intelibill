@@ -2,9 +2,12 @@ import { TestBed } from '@angular/core/testing';
 import { Actions } from '@ngrx/effects';
 import { Action } from '@ngrx/store';
 import { Observable, Subject, firstValueFrom, of, throwError } from 'rxjs';
-import { take } from 'rxjs/operators';
+import { take, toArray } from 'rxjs/operators';
 import { vi } from 'vitest';
 
+import { HttpErrorResponse } from '@angular/common/http';
+
+import { CheckoutIntentService } from '../services/checkout-intent.service';
 import { SaleService } from '../services/sale.service';
 import type {
   ProfitLossReportQueryParams,
@@ -71,8 +74,33 @@ describe('SalesEffects', () => {
     warnings: [],
   });
 
+  const checkoutIntents = {
+    claimForSend: vi.fn(),
+    send: vi.fn(),
+    confirm: vi.fn(),
+    reject: vi.fn(),
+    markUncertain: vi.fn(),
+  };
+
+  const intentPayload = {
+    idempotencyKey: 'intent-key',
+    customerId: null,
+    customerName: null,
+    customerPhone: null,
+    paymentMethod: 1,
+    paidAmount: 500,
+    dueAmount: 0,
+    items: [],
+    saleDiscount: null,
+  };
+
   beforeEach(() => {
     actions$ = new Subject<Action>();
+    for (const mock of Object.values(checkoutIntents)) mock.mockReset();
+    checkoutIntents.claimForSend.mockResolvedValue({ intentId: 'intent-1', request: intentPayload });
+    checkoutIntents.confirm.mockResolvedValue(null);
+    checkoutIntents.reject.mockResolvedValue(null);
+    checkoutIntents.markUncertain.mockResolvedValue(null);
     saleService.getSales.mockReset();
     saleService.getSaleById.mockReset();
     saleService.recordSale.mockReset();
@@ -85,6 +113,7 @@ describe('SalesEffects', () => {
       providers: [
         SalesEffects,
         { provide: SaleService, useValue: saleService },
+        { provide: CheckoutIntentService, useValue: checkoutIntents },
         {
           provide: Actions,
           useFactory: (): Observable<Action> => new Actions(actions$),
@@ -421,5 +450,82 @@ describe('SalesEffects', () => {
       SalesActions.loadProfitLossReportSucceeded({ result })
     );
     expect(saleService.getProfitLossReport).toHaveBeenCalledWith(undefined);
+  });
+
+  describe('checkout intents', () => {
+    it('sends the stored intent and confirms it on success', async () => {
+      const sale = makeSaleDto('sale-intent');
+      checkoutIntents.send.mockReturnValue(of(sale));
+
+      const output = firstValueFrom(effects.recordSale$.pipe(take(1)));
+      actions$.next(SalesActions.recordSaleRequested({ payload: intentPayload, intentId: 'intent-1' }));
+
+      await expect(output).resolves.toEqual(SalesActions.recordSaleSucceeded({ sale, intentId: 'intent-1' }));
+      expect(checkoutIntents.claimForSend).toHaveBeenCalledWith('intent-1');
+      expect(checkoutIntents.confirm).toHaveBeenCalledWith('intent-1', sale);
+      expect(saleService.recordSale).not.toHaveBeenCalled();
+    });
+
+    it.each([0, 408, 429, 500, 503])('marks the intent uncertain on HTTP %s', async (status) => {
+      checkoutIntents.send.mockReturnValue(throwError(() => new HttpErrorResponse({ status })));
+
+      const output = firstValueFrom(effects.recordSale$.pipe(take(1)));
+      actions$.next(SalesActions.recordSaleRequested({ payload: intentPayload, intentId: 'intent-1' }));
+
+      await expect(output).resolves.toEqual(
+        SalesActions.recordSaleUncertain({ intentId: 'intent-1', errorMessage: 'sales.newSale.pendingCheckout.uncertain' }),
+      );
+      expect(checkoutIntents.markUncertain).toHaveBeenCalledWith('intent-1');
+      expect(checkoutIntents.reject).not.toHaveBeenCalled();
+    });
+
+    it('rejects the intent only on a definitive refusal', async () => {
+      checkoutIntents.send.mockReturnValue(
+        throwError(() => new HttpErrorResponse({ status: 400, error: { title: 'Sale.Invalid', detail: 'Bad sale' } })),
+      );
+
+      const output = firstValueFrom(effects.recordSale$.pipe(take(1)));
+      actions$.next(SalesActions.recordSaleRequested({ payload: intentPayload, intentId: 'intent-1' }));
+
+      await expect(output).resolves.toEqual(
+        SalesActions.recordSaleFailed({ intentId: 'intent-1', errorMessage: 'Bad sale' }),
+      );
+      expect(checkoutIntents.reject).toHaveBeenCalledWith('intent-1', 'Sale.Invalid');
+      expect(checkoutIntents.markUncertain).not.toHaveBeenCalled();
+    });
+
+    it('does not send when another tab holds the intent', async () => {
+      checkoutIntents.claimForSend.mockResolvedValue(null);
+
+      const output = firstValueFrom(effects.recordSale$.pipe(take(1)));
+      actions$.next(SalesActions.recordSaleRequested({ payload: intentPayload, intentId: 'intent-1' }));
+
+      await expect(output).resolves.toEqual(
+        SalesActions.recordSaleUncertain({
+          intentId: 'intent-1',
+          errorMessage: 'sales.newSale.pendingCheckout.inProgressElsewhere',
+        }),
+      );
+      expect(checkoutIntents.send).not.toHaveBeenCalled();
+    });
+
+    it('never cancels an in-flight checkout when another is requested', async () => {
+      const first = new Subject<ReturnType<typeof makeSaleDto>>();
+      const second = makeSaleDto('sale-2');
+      checkoutIntents.claimForSend.mockImplementation(async (intentId: string) => ({ intentId, request: intentPayload }));
+      checkoutIntents.send.mockReturnValueOnce(first.asObservable()).mockReturnValueOnce(of(second));
+
+      const output = firstValueFrom(effects.recordSale$.pipe(take(2), toArray()));
+      actions$.next(SalesActions.recordSaleRequested({ payload: intentPayload, intentId: 'intent-1' }));
+      await Promise.resolve();
+      await Promise.resolve();
+      actions$.next(SalesActions.recordSaleRequested({ payload: intentPayload, intentId: 'intent-2' }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      first.next(makeSaleDto('sale-1'));
+      first.complete();
+
+      const emitted = await output;
+      expect(emitted.map((action) => (action as { intentId?: string }).intentId).sort()).toEqual(['intent-1', 'intent-2']);
+    });
   });
 });

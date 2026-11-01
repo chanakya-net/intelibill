@@ -39,6 +39,8 @@ export interface SalesState extends EntityState<SaleListItemDto> {
   readonly profitLossPageNumber: number;
   readonly profitLossPageSize: number;
   readonly lastRecordedSale: SaleDto | null;
+  /** Checkout intent that produced `lastRecordedSale`, so cleanup only touches its own cart. */
+  readonly lastRecordedIntentId: string | null;
   readonly totalCount: number;
   readonly pageNumber: number;
   readonly pageSize: number;
@@ -64,6 +66,7 @@ const initialState: SalesState = salesAdapter.getInitialState({
   profitLossPageNumber: 1,
   profitLossPageSize: 0,
   lastRecordedSale: null,
+  lastRecordedIntentId: null,
   totalCount: 0,
   pageNumber: 1,
   pageSize: 20,
@@ -211,13 +214,21 @@ export const salesReducer = createReducer(
     lastMutationType: 'record-sale' as SaleMutationType,
     lastMutationSucceeded: false,
   })),
-  on(SalesActions.recordSaleSucceeded, (state, { sale }) => ({
+  on(SalesActions.recordSaleSucceeded, (state, { sale, intentId }) => ({
     ...state,
     submitting: false,
     errorMessage: '',
     lastMutationType: 'record-sale' as SaleMutationType,
     lastMutationSucceeded: true,
     lastRecordedSale: sale,
+    lastRecordedIntentId: intentId ?? null,
+  })),
+  on(SalesActions.recordSaleUncertain, (state, { errorMessage }) => ({
+    ...state,
+    submitting: false,
+    errorMessage,
+    lastMutationType: 'record-sale' as SaleMutationType,
+    lastMutationSucceeded: false,
   })),
   on(SalesActions.recordSaleFailed, (state, { errorMessage }) => ({
     ...state,
@@ -251,6 +262,7 @@ export const salesReducer = createReducer(
   on(SalesActions.clearLastRecordedSale, (state) => ({
     ...state,
     lastRecordedSale: null,
+    lastRecordedIntentId: null,
   }))
 );
 

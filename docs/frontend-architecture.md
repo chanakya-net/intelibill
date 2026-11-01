@@ -81,6 +81,7 @@ src/frontend/src/app/
 | `ProductCatalogIndexedDbService` | `product-catalog` | Offline item catalog synced from backend stream |
 | `SalesCartIndexedDbService` | `sales-cart` | Persists in-progress POS cart across page reloads |
 | `InventoryDraftIndexedDbService` | `inventory-draft` | Persists in-progress inbound stock entry |
+| `CheckoutIntentIndexedDbService` | `checkout-intents` | Frozen online checkouts (`prepared → sending → uncertain → confirmed/rejected`), stored before the sale POST; `CheckoutIntentService` replays the stored request on retry and never deletes an unresolved intent |
 
 ## Key Patterns
 

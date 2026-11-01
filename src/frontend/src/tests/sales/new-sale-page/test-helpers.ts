@@ -12,6 +12,11 @@ import { ShopUpdatePayload, ShopUpdatesSignalRService } from '../../../app/core/
 import { OfflineSalesDeviceSettingsStorage } from '../../../app/core/storage/offline-sales-device-settings.storage';
 import { OfflineSalesSnapshotIndexedDbService } from '../../../app/core/storage/offline-sales-snapshot-indexeddb.service';
 import { SalesCartIndexedDbService } from '../../../app/core/storage/sales-cart-indexeddb.service';
+import {
+  CheckoutIntent,
+  CheckoutIntentIndexedDbService,
+  CheckoutIntentUpdate,
+} from '../../../app/core/storage/checkout-intent-indexeddb.service';
 import { CustomersFacade } from '../../../app/features/customers/state/customers.facade';
 import { InventoryService } from '../../../app/features/inventory/services/inventory.service';
 import { OfflineSaleFinalizationService } from '../../../app/features/sales/services/offline-sale-finalization.service';
@@ -38,6 +43,7 @@ export interface NewSalePageTestDeps {
     lastMutationSucceeded: ReturnType<typeof signal<boolean>>;
     lastMutationType: ReturnType<typeof signal<'record-sale' | 'record-return' | 'void-return' | null>>;
     lastRecordedSale: ReturnType<typeof signal<unknown>>;
+    lastRecordedIntentId?: ReturnType<typeof signal<string | null>>;
     clearError: ReturnType<typeof vi.fn>;
     clearMutationStatus: ReturnType<typeof vi.fn>;
     clearLastRecordedSale: ReturnType<typeof vi.fn>;
@@ -103,6 +109,7 @@ export function setupNewSalePageTestBed(overrides: Partial<NewSalePageTestDeps> 
     lastMutationSucceeded: signal(false),
     lastMutationType: signal<'record-sale' | 'record-return' | 'void-return' | null>(null),
     lastRecordedSale: signal(null),
+    lastRecordedIntentId: signal<string | null>(null),
     clearError: vi.fn(),
     clearMutationStatus: vi.fn(),
     clearLastRecordedSale: vi.fn(),
@@ -123,6 +130,21 @@ export function setupNewSalePageTestBed(overrides: Partial<NewSalePageTestDeps> 
       shops: [{ shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null }],
     }),
     canUseOfflineSalesAuthGrace: vi.fn(async () => true),
+  };
+
+  const checkoutIntentRecords = new Map<string, CheckoutIntent>();
+  const checkoutIntentStorage = {
+    add: vi.fn(async (intent: CheckoutIntent) => void checkoutIntentRecords.set(intent.intentId, intent)),
+    get: vi.fn(async (intentId: string) => checkoutIntentRecords.get(intentId) ?? null),
+    listByScope: vi.fn(async (userId: string, shopId: string) =>
+      [...checkoutIntentRecords.values()].filter((intent) => intent.userId === userId && intent.shopId === shopId),
+    ),
+    update: vi.fn(async (intentId: string, update: CheckoutIntentUpdate) => {
+      const current = checkoutIntentRecords.get(intentId);
+      const next = current ? update(current) : null;
+      if (next) checkoutIntentRecords.set(intentId, next);
+      return next;
+    }),
   };
 
   const cartStorage = overrides.cartStorage ?? {
@@ -255,6 +277,7 @@ export function setupNewSalePageTestBed(overrides: Partial<NewSalePageTestDeps> 
       { provide: ProductCatalogSyncService, useValue: productCatalogSync },
       { provide: InventoryService, useValue: inventoryService },
       { provide: SalesCartIndexedDbService, useValue: cartStorage },
+      { provide: CheckoutIntentIndexedDbService, useValue: checkoutIntentStorage },
       { provide: Router, useValue: router },
       { provide: SalesFacade, useValue: salesFacade },
       { provide: SaleService, useValue: saleService },

@@ -45,6 +45,7 @@ export class SalesFacade {
     pageSize: number;
   }> = this.store.selectSignal(SalesSelectors.selectProfitLossPagination);
   readonly lastRecordedSale: Signal<SaleDto | null> = this.store.selectSignal(SalesSelectors.selectLastRecordedSale);
+  readonly lastRecordedIntentId: Signal<string | null> = this.store.selectSignal(SalesSelectors.selectLastRecordedIntentId);
   readonly salesPagination: Signal<{
     totalCount: number;
     pageNumber: number;
@@ -76,8 +77,13 @@ export class SalesFacade {
     this.store.dispatch(SalesActions.voidSaleReturnRequested({ saleId, saleReturnId, payload }));
   }
 
-  recordSale(payload: RecordSaleRequest): void {
-    this.store.dispatch(SalesActions.recordSaleRequested({ payload }));
+  recordSale(payload: RecordSaleRequest, intentId?: string): void {
+    this.store.dispatch(SalesActions.recordSaleRequested({ payload, intentId }));
+  }
+
+  /** A reconciled checkout turned out to be committed: present it exactly as a fresh success. */
+  checkoutRecovered(sale: SaleDto, intentId: string): void {
+    this.store.dispatch(SalesActions.recordSaleSucceeded({ sale, intentId }));
   }
 
   clearError(): void {

@@ -41,9 +41,11 @@ export const SalesActions = createActionGroup({
     'Preview Sale Return Succeeded': props<{ preview: SaleReturnPreviewDto }>(),
     'Preview Sale Return Failed': props<{ errorMessage: string }>(),
 
-    'Record Sale Requested': props<{ payload: RecordSaleRequest }>(),
-    'Record Sale Succeeded': props<{ sale: SaleDto }>(),
-    'Record Sale Failed': props<{ errorMessage: string }>(),
+    'Record Sale Requested': props<{ payload: RecordSaleRequest; intentId?: string }>(),
+    'Record Sale Succeeded': props<{ sale: SaleDto; intentId?: string }>(),
+    'Record Sale Failed': props<{ errorMessage: string; intentId?: string }>(),
+    /** The send ended without a definitive answer; the stored intent must be reconciled, not rebuilt. */
+    'Record Sale Uncertain': props<{ intentId: string; errorMessage: string }>(),
 
     'Record Sale Return Requested': props<{ saleId: string; payload: RecordSaleReturnRequest }>(),
     'Record Sale Return Succeeded': props<{ sale: SaleDto }>(),

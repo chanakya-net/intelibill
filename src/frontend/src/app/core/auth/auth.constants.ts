@@ -102,6 +102,8 @@ export const SALE_ENDPOINTS = {
   record: `${API_BASE_URL}/sales`,
   preview: `${API_BASE_URL}/sales/preview`,
   detail: (saleId: string) => `${API_BASE_URL}/sales/${saleId}`,
+  byIdempotencyKey: (idempotencyKey: string) =>
+    `${API_BASE_URL}/sales/by-idempotency-key/${encodeURIComponent(idempotencyKey)}`,
   profitLoss: `${API_BASE_URL}/sales/profit-loss`,
   reserveInvoiceLease: `${API_BASE_URL}/sales/invoice-leases/reserve`,
   offlineSnapshotStream: `${API_BASE_URL}/sales/offline-snapshot/stream`,

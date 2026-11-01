@@ -3,7 +3,7 @@ import { Injectable, signal } from '@angular/core';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { TestBed } from '@angular/core/testing';
 import { ReactiveFormsModule } from '@angular/forms';
-import { EMPTY } from 'rxjs';
+import { EMPTY, of } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
 
 import { AuthService } from '../../../core/auth/auth.service';
@@ -17,6 +17,7 @@ import { SaleCartStateService } from '../services/sale-cart-state.service';
 import { SalePreviewService } from '../services/sale-preview.service';
 import { SaleService } from '../services/sale.service';
 import { SalesFacade } from '../state/sales.facade';
+import { CheckoutIntentService } from '../services/checkout-intent.service';
 import { NewSalePageCartSubmitService } from './new-sale-page.cart-submit.service';
 
 @Injectable()
@@ -77,7 +78,8 @@ class TestCartSubmitService extends NewSalePageCartSubmitService {
   override resetTransientState(): void {}
   override async searchOfflineCatalog(): Promise<void> {}
   override async refreshOfflinePreview(): Promise<void> {}
-  override async onOfflineSubmit(): Promise<void> {}
+  override async onOfflineSubmit(): Promise<void> { this.offlineSubmitCalls++; }
+  offlineSubmitCalls = 0;
   override printA4(): void {}
   override printThermal(): void {}
   override printOfflineA4(): void {}
@@ -110,6 +112,35 @@ function buildService() {
     },
   ]);
   const recordSale = vi.fn();
+  const checkoutRecovered = vi.fn();
+  const storedIntents = new Map<string, any>();
+  const checkoutIntents = {
+    prepare: vi.fn(async (scope: { userId: string; shopId: string }, request: any) => {
+      const intent = {
+        intentId: `intent-${storedIntents.size + 1}`,
+        userId: scope.userId,
+        shopId: scope.shopId,
+        idempotencyKey: request.idempotencyKey,
+        request,
+        status: 'prepared',
+        createdAt: new Date(storedIntents.size).toISOString(),
+      };
+      storedIntents.set(intent.intentId, intent);
+      return intent;
+    }),
+    loadUnresolved: vi.fn(async (scope: { userId: string; shopId: string }) =>
+      [...storedIntents.values()].filter(
+        (intent) =>
+          intent.userId === scope.userId &&
+          intent.shopId === scope.shopId &&
+          ['prepared', 'sending', 'uncertain'].includes(intent.status),
+      ),
+    ),
+    get: vi.fn(async (intentId: string) => storedIntents.get(intentId) ?? null),
+    recover: vi.fn(),
+    changes$: EMPTY,
+  };
+  const session = signal<any>({ activeShopId: 'shop-1', user: { id: 'user-1' } });
 
   TestBed.configureTestingModule({
     imports: [ReactiveFormsModule],
@@ -117,7 +148,8 @@ function buildService() {
       TestCartSubmitService,
       { provide: ActivatedRoute, useValue: route },
       { provide: Router, useValue: router },
-      { provide: AuthService, useValue: { session: signal({ activeShopId: 'shop-1' }) } },
+      { provide: AuthService, useValue: { session } },
+      { provide: CheckoutIntentService, useValue: checkoutIntents },
       { provide: NetworkStatusService, useValue: { canReachApi: vi.fn(() => true) } },
       { provide: ProductCatalogSyncService, useValue: { filterByName: vi.fn(() => []), filterByBarcode: vi.fn(() => []) } },
       { provide: ShopUpdatesSignalRService, useValue: { updates$: EMPTY, startConnection: vi.fn(), stopConnection: vi.fn() } },
@@ -131,7 +163,9 @@ function buildService() {
           lastMutationSucceeded: signal(false),
           lastMutationType: signal(null),
           lastRecordedSale: signal(null),
+          lastRecordedIntentId: signal(null),
           recordSale,
+          checkoutRecovered,
         },
       },
       {
@@ -196,7 +230,7 @@ function buildService() {
   });
 
   const service = TestBed.inject(TestCartSubmitService);
-  return { service, recordSale };
+  return { service, recordSale, checkoutIntents, storedIntents, session, cart, checkoutRecovered };
 }
 
 describe('NewSalePageCartSubmitService', () => {
@@ -260,5 +294,159 @@ describe('NewSalePageCartSubmitService', () => {
 
     expect(service.paymentSplitError()).toBe('sales.newSale.invalidPaymentSplit');
     expect(recordSale).not.toHaveBeenCalled();
+  });
+
+  describe('durable checkout intent', () => {
+    function readyToSubmit(service: TestCartSubmitService): void {
+      service.paymentForm.controls.paidAmount.setValue(300);
+      service.paymentForm.controls.dueAmount.setValue(0);
+    }
+
+    it('persists the intent before sending and sends the stored request', async () => {
+      const { service, recordSale, checkoutIntents } = buildService();
+      readyToSubmit(service);
+      recordSale.mockImplementation(() => {
+        expect(checkoutIntents.prepare).toHaveBeenCalledTimes(1);
+      });
+
+      await service.onSubmit();
+
+      expect(checkoutIntents.prepare).toHaveBeenCalledWith(
+        { userId: 'user-1', shopId: 'shop-1' },
+        expect.objectContaining({ idempotencyKey: 'test-key' }),
+      );
+      const intent = await checkoutIntents.prepare.mock.results[0].value;
+      expect(recordSale).toHaveBeenCalledWith(intent.request, intent.intentId);
+      expect(service.activeCheckoutIntentId()).toBe(intent.intentId);
+    });
+
+    it('sends nothing and keeps the cart editable when the intent cannot be stored', async () => {
+      const { service, recordSale, checkoutIntents } = buildService();
+      readyToSubmit(service);
+      checkoutIntents.prepare.mockRejectedValueOnce(new Error('QuotaExceededError'));
+
+      await service.onSubmit();
+
+      expect(recordSale).not.toHaveBeenCalled();
+      expect(service.activeCheckoutIntentId()).toBeNull();
+      expect(service.paymentSplitError()).toBe('sales.newSale.pendingCheckout.persistFailed');
+    });
+
+    it('blocks a replacement checkout while the cart checkout is unresolved', async () => {
+      const { service, recordSale, checkoutIntents } = buildService();
+      readyToSubmit(service);
+      await service.onSubmit();
+      service.paymentForm.controls.paidAmount.setValue(200);
+
+      await service.onSubmit();
+
+      expect(checkoutIntents.prepare).toHaveBeenCalledTimes(1);
+      expect(recordSale).toHaveBeenCalledTimes(1);
+      expect(service.paymentSplitError()).toBe('sales.newSale.pendingCheckout.blocksSubmit');
+    });
+
+    it('does not turn an unresolved online checkout into an offline invoice', async () => {
+      const { service, recordSale } = buildService();
+      readyToSubmit(service);
+      await service.onSubmit();
+      vi.spyOn(service, 'isOfflineMode').mockReturnValue(true);
+      vi.spyOn(service, 'isOfflineEligible').mockReturnValue(true);
+
+      await service.onSubmit();
+
+      expect(service.offlineSubmitCalls).toBe(0);
+      expect(recordSale).toHaveBeenCalledTimes(1);
+      expect(service.paymentSplitError()).toBe('sales.newSale.pendingCheckout.blocksSubmit');
+    });
+
+    it('retries with the original stored request, not the edited cart', async () => {
+      const { service, recordSale } = buildService();
+      readyToSubmit(service);
+      await service.onSubmit();
+      await service.refreshPendingCheckouts();
+      const [originalRequest, intentId] = recordSale.mock.calls[0];
+      service.paymentForm.controls.paidAmount.setValue(10);
+
+      service.onRetryCheckout(intentId);
+
+      expect(recordSale).toHaveBeenCalledTimes(2);
+      expect(recordSale.mock.calls[1]).toEqual([originalRequest, intentId]);
+    });
+
+    it('rebinds a restored cart to its unresolved checkout after a reload', async () => {
+      const { service, storedIntents } = buildService();
+      storedIntents.set('intent-from-before-reload', {
+        intentId: 'intent-from-before-reload',
+        userId: 'user-1',
+        shopId: 'shop-1',
+        status: 'uncertain',
+        createdAt: '2026-11-01T00:00:00.000Z',
+        request: { items: [{ clientLineKey: 'line-1' }], paidAmount: 300, dueAmount: 0 },
+      });
+
+      await service.refreshPendingCheckouts();
+
+      expect(service.activeCheckoutIntentId()).toBe('intent-from-before-reload');
+      expect(service.pendingCheckouts()).toHaveLength(1);
+    });
+
+    it('does not bind or show checkouts from another shop', async () => {
+      const { service, storedIntents } = buildService();
+      storedIntents.set('other-shop', {
+        intentId: 'other-shop',
+        userId: 'user-1',
+        shopId: 'shop-2',
+        status: 'uncertain',
+        createdAt: '2026-11-01T00:00:00.000Z',
+        request: { items: [{ clientLineKey: 'line-1' }], paidAmount: 300, dueAmount: 0 },
+      });
+
+      await service.refreshPendingCheckouts();
+
+      expect(service.activeCheckoutIntentId()).toBeNull();
+      expect(service.pendingCheckouts()).toHaveLength(0);
+    });
+
+    it('frees the cart for editing once its checkout is definitively rejected', async () => {
+      const { service, storedIntents } = buildService();
+      readyToSubmit(service);
+      await service.onSubmit();
+      const intentId = service.activeCheckoutIntentId()!;
+      storedIntents.get(intentId).status = 'rejected';
+
+      await service.refreshPendingCheckouts();
+
+      expect(service.activeCheckoutIntentId()).toBeNull();
+    });
+
+    it('reconciles a checkout confirmed elsewhere instead of letting the cart submit again', async () => {
+      const { service, storedIntents, checkoutIntents, checkoutRecovered } = buildService();
+      readyToSubmit(service);
+      await service.onSubmit();
+      const intentId = service.activeCheckoutIntentId()!;
+      storedIntents.get(intentId).status = 'confirmed';
+      const sale = { saleId: 'sale-1', invoiceNumber: 'INV-1' };
+      checkoutIntents.recover.mockReturnValue(of({ kind: 'replayed', intent: storedIntents.get(intentId), sale }));
+
+      await service.refreshPendingCheckouts();
+
+      expect(checkoutRecovered).toHaveBeenCalledWith(sale, intentId);
+      expect(service.activeCheckoutIntentId()).toBe(intentId);
+    });
+
+    it('starting a new draft detaches the cart but keeps the checkout recoverable', async () => {
+      const { service, checkoutIntents, cart } = buildService();
+      readyToSubmit(service);
+      await service.onSubmit();
+      await service.refreshPendingCheckouts();
+      vi.spyOn(service, 'resetTransientState').mockImplementation(() => cart.set([]));
+
+      service.onStartNewDraft();
+      await service.refreshPendingCheckouts();
+
+      expect(service.activeCheckoutIntentId()).toBeNull();
+      expect(service.pendingCheckouts()).toHaveLength(1);
+      expect(checkoutIntents.prepare).toHaveBeenCalledTimes(1);
+    });
   });
 });

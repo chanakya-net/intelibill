@@ -43,7 +43,7 @@ For authenticated requests, `active_shop_id` is extracted from JWT and set as a 
 - **Shops**: create/update shop, list memberships, switch active shop, set default shop; `GET /api/shops/me`
 - **Items**: catalog CRUD + SSE streaming endpoint (`GET /api/items/stream`)
 - **Inventory**: inbound stock (single + batch), batch management, void/reassign
-- **Sales**: record sale, list/detail, profit-loss report, cost tracking per batch at sale time
+- **Sales**: record sale, list/detail, profit-loss report, cost tracking per batch at sale time. `POST /api/sales` replays an identical request under the caller's `(shop, actor, idempotencyKey)` and answers 409 `Sale.IdempotencyConflict` for changed content; `GET /api/sales/by-idempotency-key/{key}` is the read-only reconciliation for a checkout whose response was lost (404 `Sale.IdempotencyKeyNotFound` only means nothing committed is visible yet — re-sending the identical request is what converges)
 - **Customers**: CRUD + credit ledger + payment recording
 - **Suppliers**: CRUD + purchase ledger + payment recording, status tracking
 - **Expenses**: record + correct + categorise

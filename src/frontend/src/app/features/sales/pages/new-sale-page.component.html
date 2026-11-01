@@ -31,6 +31,60 @@
     <p class="error">{{ vm.serverError() | transloco }}</p>
   }
 
+  @if (vm.pendingCheckouts().length > 0) {
+    <section class="pending-checkouts" role="status" aria-labelledby="pending-checkouts-title">
+      <h2 id="pending-checkouts-title" class="pending-checkouts__title">
+        <i class="pi pi-exclamation-triangle" aria-hidden="true"></i>
+        {{ 'sales.newSale.pendingCheckout.title' | transloco }}
+      </h2>
+      <p class="pending-checkouts__hint">{{ 'sales.newSale.pendingCheckout.hint' | transloco }}</p>
+      <ul class="pending-checkouts__list">
+        @for (intent of vm.pendingCheckouts(); track intent.intentId) {
+          <li class="pending-checkouts__item" [attr.data-intent-id]="intent.intentId">
+            <div class="pending-checkouts__summary">
+              <strong>{{ vm.getPendingCheckoutAmount(intent) | currency: 'INR' : 'symbol' : '1.2-2' }}</strong>
+              <span>
+                {{ 'sales.newSale.pendingCheckout.lines' | transloco: { count: intent.request.items.length } }}
+                · {{ intent.createdAt | date: 'short' }}
+              </span>
+              <span class="pending-checkouts__status">
+                {{ 'sales.newSale.pendingCheckout.status.' + intent.status | transloco }}
+              </span>
+              @if (intent.intentId === vm.activeCheckoutIntentId()) {
+                <span class="pending-checkouts__current">{{ 'sales.newSale.pendingCheckout.currentCart' | transloco }}</span>
+              }
+            </div>
+            <div class="pending-checkouts__actions">
+              <p-button
+                size="small"
+                severity="secondary"
+                [label]="'sales.newSale.pendingCheckout.check' | transloco"
+                [loading]="vm.isReconcilingCheckout()"
+                [disabled]="vm.isReconcilingCheckout()"
+                (onClick)="vm.onReconcileCheckout(intent.intentId)"
+              />
+              <p-button
+                size="small"
+                [label]="'sales.newSale.pendingCheckout.retry' | transloco"
+                [disabled]="vm.isSubmitting() || vm.isOfflineMode()"
+                (onClick)="vm.onRetryCheckout(intent.intentId)"
+              />
+              @if (intent.intentId === vm.activeCheckoutIntentId()) {
+                <p-button
+                  size="small"
+                  severity="secondary"
+                  [text]="true"
+                  [label]="'sales.newSale.pendingCheckout.startNew' | transloco"
+                  (onClick)="vm.onStartNewDraft()"
+                />
+              }
+            </div>
+          </li>
+        }
+      </ul>
+    </section>
+  }
+
   <div class="new-sale-workspace">
     <main class="new-sale-main">
       <section class="new-sale-panel new-sale-product-lookup" aria-labelledby="new-sale-product-lookup-title">

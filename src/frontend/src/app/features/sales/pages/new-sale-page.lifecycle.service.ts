@@ -100,6 +100,11 @@ export abstract class NewSalePageLifecycleService extends NewSalePageStateServic
         this.salePreview.triggerServerUpdateRefresh();
       });
 
+    // Intent changes from this tab's effects or other tabs keep the pending list current.
+    this.checkoutIntents.changes$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => void this.refreshPendingCheckouts());
+
     // Connect to shop updates on initialization
     void this.shopUpdatesService.startConnection();
 
@@ -119,6 +124,16 @@ export abstract class NewSalePageLifecycleService extends NewSalePageStateServic
         if (this.lastMutationSucceeded()) {
           const type = this.lastMutationType();
           if (type === 'record-sale') {
+            const recordedIntentId = this.lastRecordedIntentId();
+            const activeIntentId = untracked(() => this.activeCheckoutIntentId());
+            void untracked(() => this.refreshPendingCheckouts());
+            if (recordedIntentId && recordedIntentId !== activeIntentId) {
+              // A late answer for a checkout this cart no longer owns (detached, or from another
+              // user/shop scope): it is stored against its own intent, and must not clear this cart.
+              this.salesFacade.clearMutationStatus();
+              return;
+            }
+            this.activeCheckoutIntentId.set(null);
             this.showConfirmation.set(true);
             queueMicrotask(() => this.resetTransientState());
             return;
@@ -153,9 +168,22 @@ export abstract class NewSalePageLifecycleService extends NewSalePageStateServic
 
       effect(() => {
         this.activeShopId();
-        void this.cartState.loadPersistedCart(this.cartRetentionMs, (row) => {
-          this.applyProductDefaultsForLine(row.clientLineKey, row.itemName, row.barcode);
-        });
+        void this.cartState
+          .loadPersistedCart(this.cartRetentionMs, (row) => {
+            this.applyProductDefaultsForLine(row.clientLineKey, row.itemName, row.barcode);
+          })
+          .then(() => untracked(() => this.refreshPendingCheckouts()));
+      });
+
+      // A checkout belongs to the user and shop it was frozen under; switching scope detaches it
+      // from this page without touching the stored intent.
+      effect(() => {
+        const scope = this.checkoutScope();
+        const active = untracked(() => this.activeCheckoutIntent());
+        if (active && (active.userId !== scope.userId || active.shopId !== scope.shopId)) {
+          this.activeCheckoutIntentId.set(null);
+        }
+        void untracked(() => this.refreshPendingCheckouts());
       });
 
       effect(() => {

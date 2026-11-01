@@ -154,6 +154,7 @@ class TestNewSalePageSearchCustomerService extends NewSalePageSearchCustomerServ
   }
   override detectAndHighlightChangedRows(): void {}
   override resetTransientState(): void {}
+  override async refreshPendingCheckouts(): Promise<void> {}
   override async searchOfflineCatalog(): Promise<void> {}
   override async refreshOfflinePreview(): Promise<void> {}
   override async onOfflineSubmit(): Promise<void> {}

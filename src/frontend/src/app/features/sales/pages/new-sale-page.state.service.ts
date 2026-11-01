@@ -25,6 +25,8 @@ import type {
 } from '../services/sale.models';
 import { SaleCartStateService, CartItem } from '../services/sale-cart-state.service';
 import { SaleService } from '../services/sale.service';
+import { CheckoutIntentService, CheckoutScope } from '../services/checkout-intent.service';
+import type { CheckoutIntent } from '../../../core/storage/checkout-intent-indexeddb.service';
 import { OfflineSaleStateService } from '../services/offline-sale-state.service';
 import { SalePreviewService } from '../services/sale-preview.service';
 import { SalesFacade } from '../state/sales.facade';
@@ -57,6 +59,7 @@ export abstract class NewSalePageStateService {
   protected readonly networkStatus = inject(NetworkStatusService);
   protected readonly offlineSaleState = inject(OfflineSaleStateService);
   protected readonly saleService = inject(SaleService);
+  protected readonly checkoutIntents = inject(CheckoutIntentService);
 
   readonly paymentMethods = PAYMENT_METHOD_VALUES;
   readonly cart = this.cartState.cart;
@@ -184,6 +187,20 @@ export abstract class NewSalePageStateService {
   readonly lastRecordedSale = this.salesFacade.lastRecordedSale;
   readonly customers = computed(() => this.readFacadeValue(this.customersFacade.allCustomers));
   readonly activeShopId = computed(() => this.authService.session()?.activeShopId ?? '');
+  readonly lastRecordedIntentId = this.salesFacade.lastRecordedIntentId;
+  readonly checkoutScope = computed<CheckoutScope>(() => ({
+    userId: this.authService.session()?.user?.id ?? '',
+    shopId: this.activeShopId(),
+  }));
+  /** Intent frozen from the current cart; while unresolved, the cart cannot become another sale. */
+  readonly activeCheckoutIntentId = signal<string | null>(null);
+  /** Unresolved checkouts in the current user/shop scope, oldest first. */
+  readonly pendingCheckouts = signal<readonly CheckoutIntent[]>([]);
+  readonly activeCheckoutIntent = computed(() => {
+    const intentId = this.activeCheckoutIntentId();
+    return intentId ? this.pendingCheckouts().find((intent) => intent.intentId === intentId) ?? null : null;
+  });
+  readonly isReconcilingCheckout = signal(false);
   readonly cartBootstrapped = this.cartState.cartBootstrapped;
 
   // Offline mode signals
@@ -527,6 +544,7 @@ export abstract class NewSalePageStateService {
     newPreview: SalePreviewDto,
   ): void;
   abstract resetTransientState(): void;
+  abstract refreshPendingCheckouts(): Promise<void>;
   abstract searchOfflineCatalog(term: string): Promise<void>;
   abstract refreshOfflinePreview(cart: readonly CartItem[]): Promise<void>;
   abstract onOfflineSubmit(): Promise<void>;

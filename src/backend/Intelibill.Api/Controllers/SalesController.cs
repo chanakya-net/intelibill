@@ -10,6 +10,7 @@ using Intelibill.Application.Features.Sales.Commands.RecordSale;
 using Intelibill.Application.Features.Sales.DTOs;
 using Intelibill.Application.Features.Sales.Queries.GetSales;
 using Intelibill.Application.Features.Sales.Queries.SearchSellables;
+using Intelibill.Application.Features.Sales.Queries.GetSaleByIdempotencyKey;
 using Intelibill.Application.Features.Sales.Queries.GetSaleByReturnNumber;
 using Intelibill.Application.Features.Sales.Queries.GetSaleDetail;
 using Intelibill.Application.Features.Sales.Queries.GetProfitLossReport;
@@ -234,6 +235,23 @@ public sealed partial class SalesController : AuthenticatedControllerBase
             new GetSaleDetailQuery(UserId!.Value, ActiveShopId!.Value, saleId),
             cancellationToken);
         return result.ToActionResult(Ok);
+    }
+
+    [HttpGet("by-idempotency-key/{idempotencyKey}")]
+    [Authorize(Policy = "OwnerManagerOrStaff")]
+    public async Task<IActionResult> GetSaleByIdempotencyKey(string idempotencyKey, CancellationToken cancellationToken)
+    {
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
+        var saleIdResult = await Bus.InvokeAsync<ErrorOr<Guid>>(
+            new GetSaleByIdempotencyKeyQuery(UserId!.Value, ActiveShopId!.Value, idempotencyKey),
+            cancellationToken);
+        if (saleIdResult.IsError)
+            return saleIdResult.ToActionResult(_ => NoContent());
+        var saleResult = await Bus.InvokeAsync<ErrorOr<SaleDto>>(
+            new GetSaleDetailQuery(UserId!.Value, ActiveShopId!.Value, saleIdResult.Value),
+            cancellationToken);
+        return saleResult.ToActionResult(Ok);
     }
 
     [HttpGet("returns/{returnNumber}")]

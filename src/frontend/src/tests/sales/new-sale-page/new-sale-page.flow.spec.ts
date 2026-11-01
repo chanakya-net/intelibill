@@ -84,6 +84,7 @@ describe('new-sale-page: full flow', () => {
     expect(vm.canUseCredit()).toBe(true);
 
     vm.onPaymentSubmitRequested();
+    await vi.advanceTimersByTimeAsync(0);
 
     expect(deps.salesFacade.recordSale).toHaveBeenCalledTimes(1);
     expect(deps.salesFacade.recordSale).toHaveBeenCalledWith(
@@ -104,7 +105,8 @@ describe('new-sale-page: full flow', () => {
             itemName: 'Milkshake',
           }),
         ]),
-      })
+      }),
+      expect.any(String),
     );
   });
 });

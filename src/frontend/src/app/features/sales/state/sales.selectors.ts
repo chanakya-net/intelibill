@@ -38,6 +38,7 @@ export const selectProfitLossPagination = createSelector(
   })
 );
 export const selectLastRecordedSale = salesFeature.selectLastRecordedSale;
+export const selectLastRecordedIntentId = salesFeature.selectLastRecordedIntentId;
 export const selectSalesPagination = createSelector(
   salesFeature.selectSalesState,
   (salesState) => ({
