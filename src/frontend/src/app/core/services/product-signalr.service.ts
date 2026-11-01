@@ -1,10 +1,8 @@
 import { Injectable, inject } from '@angular/core';
-import * as signalR from '@microsoft/signalr';
 
-import { AuthService } from '../auth/auth.service';
 import { ProductCatalogSyncService } from './product-catalog-sync.service';
 import { ProductCatalogEntry } from '../storage/product-catalog-indexeddb.service';
-import { HUB_BASE_URL } from '../auth/auth.constants';
+import { RealtimeHubConnection } from './realtime-hub-connection';
 
 interface ProductAddedPayload {
   readonly itemId: string;
@@ -14,55 +12,19 @@ interface ProductAddedPayload {
 }
 
 @Injectable({ providedIn: 'root' })
-export class ProductSignalRService {
-  private readonly authService = inject(AuthService);
+export class ProductSignalRService extends RealtimeHubConnection<ProductAddedPayload> {
   private readonly catalogSync = inject(ProductCatalogSyncService);
 
-  private connection: signalR.HubConnection | null = null;
+  protected readonly hubPath = '/hubs/products';
+  protected readonly eventName = 'ProductAdded';
+  protected readonly logPrefix = '[ProductSignalRService]';
 
-  async startConnection(): Promise<void> {
-    if (this.connection) {
-      return;
-    }
-
-    this.connection = new signalR.HubConnectionBuilder()
-      .withUrl(`${HUB_BASE_URL}/hubs/products`, {
-        accessTokenFactory: () => this.authService.getAccessToken() ?? '',
-      })
-      .withAutomaticReconnect()
-      .build();
-
-    this.connection.on('ProductAdded', (payload: ProductAddedPayload) => {
-      const activeShopId = this.authService.session()?.activeShopId;
-      if (!activeShopId || payload.shopId !== activeShopId) {
-        return;
-      }
-
-      const entry: ProductCatalogEntry = {
-        itemId: payload.itemId,
-        name: payload.name,
-        barcode: payload.barcode,
-      };
-      this.catalogSync.upsertEntry(entry);
-    });
-
-    try {
-      await this.connection.start();
-    } catch (err) {
-      console.error('[ProductSignalRService] Connection failed:', err);
-    }
-  }
-
-  async stopConnection(): Promise<void> {
-    if (!this.connection) {
-      return;
-    }
-    try {
-      await this.connection.stop();
-    } catch (err) {
-      console.error('[ProductSignalRService] Stop failed:', err);
-    } finally {
-      this.connection = null;
-    }
+  protected override handle(payload: ProductAddedPayload): void {
+    const entry: ProductCatalogEntry = {
+      itemId: payload.itemId,
+      name: payload.name,
+      barcode: payload.barcode,
+    };
+    this.catalogSync.upsertEntry(entry);
   }
 }

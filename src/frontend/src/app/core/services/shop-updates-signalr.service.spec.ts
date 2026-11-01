@@ -1,70 +1,61 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { firstValueFrom, timeout } from 'rxjs';
 
 import { AuthService } from '../auth/auth.service';
+import { HubConnectionFactory } from './hub-connection.factory';
 import { ShopUpdatePayload, ShopUpdatesSignalRService } from './shop-updates-signalr.service';
+import {
+  FakeHubConnection,
+  FakeHubConnectionFactory,
+} from '../../../tests/realtime/fake-hub-connection.factory';
 
-const { mockHandlers, mockConnection, capturedUrls } = vi.hoisted(() => {
-  const handlers = new Map<string, (payload: unknown) => void>();
-  const urls: string[] = [];
-  const connection = {
-    on: (event: string, handler: (payload: unknown) => void) => handlers.set(event, handler),
-    start: vi.fn().mockResolvedValue(undefined),
-    stop: vi.fn().mockResolvedValue(undefined),
-  };
+// This suite was skipped for a pipeline-only race while it replaced the `@microsoft/signalr`
+// module: that only works when this file is evaluated before anything else imports the library.
+// Substituting HubConnectionFactory has no such ordering requirement.
+describe('ShopUpdatesSignalRService', () => {
+  const activeShopId = 'shop-xyz';
 
-  return { mockHandlers: handlers, mockConnection: connection, capturedUrls: urls };
-});
-
-vi.mock('@microsoft/signalr', () => ({
-  HubConnectionBuilder: class {
-    withUrl(url: string) {
-      capturedUrls.push(url);
-      return this;
-    }
-
-    withAutomaticReconnect() {
-      return this;
-    }
-
-    build() {
-      return mockConnection;
-    }
-  },
-}));
-
-// TODO(ci-flake): Re-enable this suite by switching back to `describe` once
-// pipeline-only timing/race behavior around SignalR handler registration is stabilized.
-describe.skip('ShopUpdatesSignalRService', () => {
-  const activeSession = signal({ activeShopId: 'shop-xyz', accessToken: 'test-token' });
-  const authService = {
-    session: activeSession,
-    getAccessToken: () => activeSession()?.accessToken ?? '',
-  };
-
+  let session: ReturnType<typeof signal<{ activeShopId: string | null; accessToken: string } | null>>;
+  let factory: FakeHubConnectionFactory;
   let service: ShopUpdatesSignalRService;
 
-  function emitEvent(event: string, payload: unknown): void {
-    mockHandlers.get(event)?.(payload);
-  }
-
-  beforeEach(async () => {
-    mockHandlers.clear();
-    capturedUrls.length = 0;
-    mockConnection.start.mockReset().mockResolvedValue(undefined);
-    mockConnection.stop.mockReset().mockResolvedValue(undefined);
-    activeSession.set({ activeShopId: 'shop-xyz', accessToken: 'test-token' });
+  function configure(sessionValue: { activeShopId: string | null; accessToken: string } | null): void {
+    session = signal(sessionValue);
+    factory = new FakeHubConnectionFactory();
 
     TestBed.configureTestingModule({
       providers: [
         ShopUpdatesSignalRService,
-        { provide: AuthService, useValue: authService },
+        { provide: HubConnectionFactory, useValue: factory },
+        {
+          provide: AuthService,
+          useValue: {
+            session,
+            getAccessToken: () => session()?.accessToken ?? null,
+          },
+        },
       ],
     });
+  }
 
+  function update(shopId: string): ShopUpdatePayload {
+    return {
+      eventType: 'PricingChanged',
+      shopId,
+      changedIds: ['batch-1'],
+      occurredOn: new Date().toISOString(),
+    };
+  }
+
+  function emitOn(connection: FakeHubConnection, shopId: string): void {
+    connection.emit('ShopUpdated', update(shopId));
+  }
+
+  beforeEach(async () => {
+    configure({ activeShopId, accessToken: 'test-token' });
     service = TestBed.inject(ShopUpdatesSignalRService);
-    (TestBed as unknown as { flushEffects?: () => void }).flushEffects?.();
     await service.startConnection();
   });
 
@@ -74,73 +65,122 @@ describe.skip('ShopUpdatesSignalRService', () => {
   });
 
   it('connects to the shop updates hub for the active session', () => {
-    expect(capturedUrls.length).toBeGreaterThanOrEqual(1);
-    expect(capturedUrls[0]).toMatch(/\/hubs\/shop-updates$/);
-    expect(mockConnection.start).toHaveBeenCalled();
+    expect(factory.urls).toHaveLength(1);
+    expect(factory.urls[0]).toMatch(/\/hubs\/shop-updates$/);
+    expect(factory.latest.startCalls).toBe(1);
   });
 
-  it('emits shop updates for the active shop only', async () => {
-    await vi.waitFor(() => {
-      expect(mockHandlers.has('ShopUpdated')).toBe(true);
-    });
+  it('emits shop updates for the active shop', async () => {
+    const received = firstValueFrom(service.updates$);
 
-    const received = new Promise<ShopUpdatePayload>((resolve) => {
-      const subscription = service.updates$.subscribe((payload) => {
-        subscription.unsubscribe();
-        resolve(payload);
-      });
-    });
-
-    emitEvent('ShopUpdated', {
-      eventType: 'PricingChanged',
-      shopId: 'shop-xyz',
-      changedIds: ['batch-1'],
-      occurredOn: new Date().toISOString(),
-    });
+    emitOn(factory.latest, activeShopId);
 
     await expect(received).resolves.toMatchObject({
       eventType: 'PricingChanged',
-      shopId: 'shop-xyz',
+      shopId: activeShopId,
       changedIds: ['batch-1'],
     });
   });
 
-  it('filters out updates for other shops', async () => {
-    await vi.waitFor(() => {
-      expect(mockHandlers.has('ShopUpdated')).toBe(true);
-    });
+  it('filters out updates for other shops', () => {
+    let emissions = 0;
+    const subscription = service.updates$.subscribe(() => (emissions += 1));
 
-    let emissionCount = 0;
-    const subscription = service.updates$.subscribe(() => {
-      emissionCount += 1;
-    });
-
-    emitEvent('ShopUpdated', {
-      eventType: 'PricingChanged',
-      shopId: 'different-shop',
-      changedIds: ['batch-1'],
-      occurredOn: new Date().toISOString(),
-    });
-
+    emitOn(factory.latest, 'different-shop');
     subscription.unsubscribe();
 
-    expect(emissionCount).toBe(0);
+    expect(emissions).toBe(0);
   });
 
   it('restarts the connection when the active shop changes', async () => {
-    const startsBeforeChange = mockConnection.start.mock.calls.length;
-    const urlsBeforeChange = capturedUrls.length;
+    const previous = factory.latest;
 
-    activeSession.set({ activeShopId: 'shop-abc', accessToken: 'test-token-2' });
+    session.set({ activeShopId: 'shop-abc', accessToken: 'test-token-2' });
     await service.startConnection();
-    await vi.waitFor(() => {
-      expect(mockConnection.stop).toHaveBeenCalled();
-      expect(mockConnection.start.mock.calls.length).toBeGreaterThan(startsBeforeChange);
-      expect(capturedUrls.length).toBeGreaterThan(urlsBeforeChange);
-    });
 
-    expect(mockConnection.stop).toHaveBeenCalled();
-    expect(mockConnection.start.mock.calls.length).toBeGreaterThan(startsBeforeChange);
-    expect(capturedUrls.length).toBeGreaterThan(urlsBeforeChange);
+    expect(factory.created).toHaveLength(2);
+    expect(previous.stopCalls).toBe(1);
+    expect(factory.urls).toHaveLength(2);
+  });
+
+  it('ShopSwitch_DelayedOldCallback_IsIgnored', async () => {
+    // The frame already in flight when the shop changed. Publishing it would redraw the new shop's
+    // pricing from the previous shop's connection.
+    const previous = factory.latest;
+
+    session.set({ activeShopId: 'shop-abc', accessToken: 'test-token-2' });
+    await service.startConnection();
+
+    let emissions = 0;
+    const subscription = service.updates$.subscribe(() => (emissions += 1));
+
+    emitOn(previous, activeShopId);
+    emitOn(previous, 'shop-abc');
+    expect(emissions).toBe(0);
+
+    // The replacement is live.
+    emitOn(factory.latest, 'shop-abc');
+    expect(emissions).toBe(1);
+
+    subscription.unsubscribe();
+  });
+
+  it('stops emitting once the connection has been stopped', async () => {
+    const connection = factory.latest;
+    let emissions = 0;
+    const subscription = service.updates$.subscribe(() => (emissions += 1));
+
+    await service.stopConnection();
+    emitOn(connection, activeShopId);
+
+    expect(emissions).toBe(0);
+    subscription.unsubscribe();
+  });
+
+  it('does not emit once the session has lost its active shop', () => {
+    const connection = factory.latest;
+    let emissions = 0;
+    const subscription = service.updates$.subscribe(() => (emissions += 1));
+
+    session.set(null);
+    emitOn(connection, activeShopId);
+
+    expect(emissions).toBe(0);
+    subscription.unsubscribe();
+  });
+
+  it('SessionRevoked_StopsAutomaticReconnect', () => {
+    const policy = factory.retryPolicies[0];
+
+    expect(
+      policy.nextRetryDelayInMilliseconds({
+        previousRetryCount: 1,
+        elapsedMilliseconds: 10,
+        retryReason: { statusCode: 401 },
+      }),
+    ).toBeNull();
+  });
+
+  it('keeps retrying a network interruption', () => {
+    const policy = factory.retryPolicies[0];
+
+    expect(
+      policy.nextRetryDelayInMilliseconds({
+        previousRetryCount: 2,
+        elapsedMilliseconds: 12_000,
+        retryReason: new Error('Failed to fetch'),
+      }),
+    ).toBeGreaterThan(0);
+  });
+
+  it('does not open a connection without an active session', async () => {
+    TestBed.resetTestingModule();
+    configure(null);
+    const svc = TestBed.inject(ShopUpdatesSignalRService);
+
+    await svc.startConnection();
+
+    expect(factory.created).toHaveLength(0);
+    await expect(firstValueFrom(svc.updates$.pipe(timeout(20)))).rejects.toThrow();
   });
 });
