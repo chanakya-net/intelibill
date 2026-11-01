@@ -2,6 +2,7 @@ using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Common.Operations;
 using Intelibill.Application.Features.Exports.ProfitLoss;
 using Intelibill.Application.Features.Exports.Sales.Services;
+using Intelibill.Application.Features.Inventory.Services;
 using Intelibill.Application.Features.Items.Barcodes;
 using Intelibill.Application.Features.Items.Queries.GetItems;
 using Intelibill.Application.Features.PurchaseOrders.Services;
@@ -19,6 +20,7 @@ using Intelibill.Application.Features.Exports.Sales;
 using Intelibill.Infrastructure.Services.ProductLookup;
 using Intelibill.Infrastructure.Services.PurchaseOrders;
 using Intelibill.Infrastructure.Services.Operations;
+using Intelibill.Infrastructure.Services.StockIntake;
 using Intelibill.Infrastructure.Services.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -139,6 +141,7 @@ public static class DependencyInjection
         services.AddScoped<ICreditNoteRepository, CreditNoteRepository>();
         services.AddScoped<IOperationReceiptRepository, OperationReceiptRepository>();
         services.AddScoped<IFinancialOperationExecutor, FinancialOperationExecutor>();
+        services.AddScoped<IInboundRowExecutor, InboundRowExecutor>();
 
         // ── Auth services ─────────────────────────────────────────────────────
         // Singleton: the Key Vault signer caches the resolved key version and the

@@ -68,9 +68,20 @@ public sealed class VoidBatchCommandHandler(
         await stockTransactionRepository.AddAsync(stockTransactionResult.Value, cancellationToken);
 
         decimal? ledgerReversalAmount = null;
-        if (supplierId.HasValue)
+        var reversalAmount = -decimal.Round(originalQuantity * costPrice, 2, MidpointRounding.AwayFromZero);
+
+        // A free receipt never created a payable, so there is nothing to reverse. A tiny priced
+        // receipt can also round to a zero reversal; that one still owes, so it is refused as before.
+        if (supplierId.HasValue && reversalAmount == 0)
         {
-            ledgerReversalAmount = -decimal.Round(originalQuantity * costPrice, 2, MidpointRounding.AwayFromZero);
+            var payables = await supplierLedgerEntryRepository.GetByBatchAsync(command.ActiveShopId, batch.Id, cancellationToken);
+            if (payables.Any(e => e.EntryType == SupplierLedgerEntryType.GoodsReceived && e.Amount != 0))
+                return Errors.Inventory.SupplierLedgerEntryInvalid;
+        }
+
+        if (supplierId.HasValue && reversalAmount != 0)
+        {
+            ledgerReversalAmount = reversalAmount;
             var ledgerResult = SupplierLedgerEntry.Create(
                 command.ActiveShopId,
                 supplierId.Value,

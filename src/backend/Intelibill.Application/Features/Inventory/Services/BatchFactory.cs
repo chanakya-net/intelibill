@@ -74,6 +74,10 @@ internal sealed class BatchFactory(
 
         var ledgerAmount = decimal.Round(row.TotalPurchaseCost, 2, MidpointRounding.AwayFromZero);
 
+        // A free receipt (sample, bonus stock) owes the supplier nothing: no zero-value payable.
+        if (ledgerAmount == 0)
+            return new BatchCreationResult(batch, stockTransaction, null);
+
         var ledgerResult = SupplierLedgerEntry.Create(
             shopId,
             supplier.Id,
