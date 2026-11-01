@@ -415,7 +415,9 @@ original payable owed. Supplier returns are a separate flow.
 
 **Legacy correction.** `PUT inventory/batches/{batchId}` still voids the batch and recreates it (price
 and metadata edits depend on it until purchase-cost corrections land); its quantity delta is now
-signed (`Out -d` for a decrease) and any movement or ledger failure aborts before saving.
+signed (`Out -d` for a decrease), any movement or ledger failure aborts before saving, and an
+`expectedVersion` older than the batch answers 409 `Inventory.BatchVersionConflict`. Adjustment
+quantities are stored to three places, like stock.
 
 ## Test Structure
 

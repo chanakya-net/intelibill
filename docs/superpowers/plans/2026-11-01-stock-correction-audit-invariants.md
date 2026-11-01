@@ -17,6 +17,9 @@ same commit as the batch and aggregate change, and attributable to an actor and 
 | Unconsumed void | One `Reversal(-originalQuantity)` movement (= remaining), aggregate reduced by the same amount, payable reversed; single save, no retry loop that could reload and drop the void. |
 | Legacy `PUT batches/{id}` | Kept (price/metadata edits depend on it until plan 15). Fixed: signed delta (`Out -d` for a decrease), every movement/ledger `ErrorOr` failure aborts before save. |
 | Zero-cost adjustments | `cost_impact` relaxed to `>= 0` so free stock and sub-paisa deltas can be counted. |
+| Quantity precision | Adjustment quantity and snapshots move to `numeric(18,3)` like stock, so 3-place batches (kg) can be counted. |
+| Stale legacy edit | `PUT batches/{id}` takes optional `expectedVersion` (the web always sends it); a stale form answers 409 instead of undoing a sale. |
+| Supplier ledger | `ck_supplier_ledger_entries_batch_by_type` admits `REVERSAL`; before, voiding any priced receipt failed with 500. |
 
 ## Tasks
 
