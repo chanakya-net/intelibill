@@ -104,7 +104,7 @@ DB Options: `src/backend/Intelibill.Infrastructure/Options/DatabaseOptions.cs:7`
 - Sessions: `GET users/me/sessions`, `DELETE users/me/sessions/{id}`, `POST users/me/sessions/revoke-all` (ends every device, the caller's included)
 - Shops: `GET me`, `{shopId}`, `POST` and `POST switch` (any active member; both return an access scope, never a refresh token), `PUT {shopId}`, `PATCH {shopId}/members/{userId}`, `GET/POST {shopId}/invitations`, `DELETE {shopId}/invitations/{invitationId}`
 - Items: `GET stream` (SSE), `GET`, `GET details`, `POST`, `PATCH {itemId}`
-- Inventory: `POST inbound`, `inbound/batch` (optional `operationKey`; per-row commit, resend replays), `GET batches` (each with its row `version`), `batches/available`, `PUT/POST/void batches/{batchId}`, `POST batches/{batchId}/count` (owner/manager; `expectedVersion` + reason, optional `operationKey`; stale version → 409 `Inventory.BatchVersionConflict`). Void refuses a consumed receipt (409 `Inventory.BatchConsumed`)
+- Inventory: `POST inbound`, `inbound/batch` (optional `operationKey`; per-row commit, resend replays), `GET batches` (each with its row `version`), `batches/available`, `PUT/POST/void batches/{batchId}`, `POST batches/{batchId}/count` (owner/manager; `expectedVersion` + reason, optional `operationKey`; stale version → 409 `Inventory.BatchVersionConflict`), `PUT batches/{batchId}/prices` (owner/manager; in place, required `expectedVersion`, appends a price revision), `POST receipts/{receiptValueId}/cost-corrections` (owner; posts only the delta, optional `operationKey`). Void refuses a consumed receipt (409 `Inventory.BatchConsumed`). Legacy `PUT batches/{batchId}` never replaces the batch: quantity/cost/supplier changes answer 400 `Inventory.Batch{Quantity,Cost,Supplier}EditMoved`
 - Sales: `POST`, `GET`, `GET {saleId}`, `GET profit-loss`
 - Customers: CRUD + `account`, `payments` (optional `operationKey`)
 - Suppliers: CRUD + `ledger`, `payments` (optional `operationKey`)
@@ -120,15 +120,16 @@ DB Options: `src/backend/Intelibill.Infrastructure/Options/DatabaseOptions.cs:7`
 - Financial operations: keyed payments run through `IFinancialOperationExecutor`, which reserves an `operation_receipts` row (unique per shop + type + key) and commits it with the posting; retries replay the stored response, changed payloads answer 409 `Operation.PayloadMismatch`. Bulk stock intake commits a manifest receipt plus one receipt per row through it (`IInboundRowExecutor`, fresh scope per row). See `docs/backend-architecture.md` § Financial Operation Receipts and § Bulk Stock Intake
 - Migration: `20260425075353_InitialCreate` (single consolidated)
 - Stock corrections: `inventory_batches`/`inventory` use `xmin` as row version; every quantity change writes one signed movement in the same save, every count a `stock_counts` row. See `docs/backend-architecture.md` § Stock Corrections and Voids
+- Purchase receipts: every receipt writes a `purchase_receipt_values` row (original + effective total, `xmin` version); cost corrections post a signed `COST_ADJUSTED` ledger entry plus a `purchase_receipt_cost_adjustments` row, never touching batch cost or sale COGS; legacy receipts without clear evidence are `LEGACY_UNRESOLVED` and refuse correction. See `docs/backend-architecture.md` § Purchase Receipts, Price Revisions and Cost Corrections
 - RLS: session interceptor sets `app.current_user_id` + `app.active_shop_id`
 - Shop authority: `ShopMembership.Status`/`AuthorityVersion`; role and status changes, invitation issue and acceptance all run under one authority-lock order (users → shop → membership/invitation rows), and the token's shop scope is re-checked against the live membership on every request
 - Tests: Testcontainers (real PostgreSQL via Docker)
 
 ## Domain Model
 
-**Entities**: `User`, `AuthSession`, `RealtimeConnectionLease`, `PhoneChallenge`, `IdentitySms`, `Shop`, `ShopMembership`, `ShopInvitation`, `Item`, `Inventory`, `InventoryBatch`, `StockTransaction`, `Sale`, `SaleItem`, `Customer`, `CustomerLedgerEntry`, `Supplier`, `SupplierLedgerEntry`, `Expense`, `ExpenseCategory`, `BankAccount`, `RefreshToken`, `PasswordResetToken`, `OperationReceipt`, `StockCount`
+**Entities**: `User`, `AuthSession`, `RealtimeConnectionLease`, `PhoneChallenge`, `IdentitySms`, `Shop`, `ShopMembership`, `ShopInvitation`, `Item`, `Inventory`, `InventoryBatch`, `StockTransaction`, `Sale`, `SaleItem`, `Customer`, `CustomerLedgerEntry`, `Supplier`, `SupplierLedgerEntry`, `Expense`, `ExpenseCategory`, `BankAccount`, `RefreshToken`, `PasswordResetToken`, `OperationReceipt`, `StockCount`, `PurchaseReceiptValue`, `PurchaseReceiptCostAdjustment`, `BatchPriceRevision`
 
-**Enums**: `ShopRole`, `MembershipStatus`, `CredentialKind`, `PaymentMethod`, `BankAccountType`, `StockTransactionType`, `SupplierLedgerEntryType`, `CustomerLedgerEntryType`, `SupplierStatus`, `FinancialOperationType`, `OperationReceiptStatus`
+**Enums**: `ShopRole`, `MembershipStatus`, `CredentialKind`, `PaymentMethod`, `BankAccountType`, `StockTransactionType`, `SupplierLedgerEntryType`, `CustomerLedgerEntryType`, `SupplierStatus`, `FinancialOperationType`, `OperationReceiptStatus`, `PurchaseReceiptSource`, `PurchaseReceiptValueStatus`
 
 ## Structure
 
