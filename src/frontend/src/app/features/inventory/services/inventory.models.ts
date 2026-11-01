@@ -189,6 +189,8 @@ export interface UpdateInventoryBatchRequest {
   readonly supplierId: string | null;
   readonly notes: string | null;
   readonly entryDate: string | null;
+  /** The batch version the editor was shown; a newer batch answers 409. */
+  readonly expectedVersion: number;
 }
 
 export type InventoryAdjustmentDirection = 'Increase' | 'Decrease';

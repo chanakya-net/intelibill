@@ -55,7 +55,7 @@ internal sealed class InventoryAdjustmentConfiguration : IEntityTypeConfiguratio
             .IsRequired();
 
         builder.Property(a => a.Quantity)
-            .HasPrecision(18, 2)
+            .HasPrecision(18, 3)
             .IsRequired();
 
         builder.Property(a => a.UnitCost)
@@ -67,19 +67,19 @@ internal sealed class InventoryAdjustmentConfiguration : IEntityTypeConfiguratio
             .IsRequired();
 
         builder.Property(a => a.BatchQuantityBefore)
-            .HasPrecision(18, 2)
+            .HasPrecision(18, 3)
             .IsRequired();
 
         builder.Property(a => a.BatchQuantityAfter)
-            .HasPrecision(18, 2)
+            .HasPrecision(18, 3)
             .IsRequired();
 
         builder.Property(a => a.InventoryQuantityBefore)
-            .HasPrecision(18, 2)
+            .HasPrecision(18, 3)
             .IsRequired();
 
         builder.Property(a => a.InventoryQuantityAfter)
-            .HasPrecision(18, 2)
+            .HasPrecision(18, 3)
             .IsRequired();
 
         builder.Property(a => a.PerformedAt)

@@ -208,7 +208,7 @@ export class InventoryBatchesListPageComponent {
   readonly countForm = this.formBuilder.nonNullable.group({
     countedQuantity: [
       0,
-      [...InputValidators.nonNegativeNumber(), InputValidators.maxFractionDigits(2)],
+      [...InputValidators.nonNegativeNumber(), InputValidators.maxFractionDigits(3)],
     ],
     reason: ['', InputValidators.requiredText(500)],
   });
@@ -220,7 +220,7 @@ export class InventoryBatchesListPageComponent {
     return {
       systemQuantity: batch.quantity,
       countedQuantity: counted,
-      difference: Number((counted - batch.quantity).toFixed(2)),
+      difference: Number((counted - batch.quantity).toFixed(3)),
     };
   });
   // One key per distinct submission: an unchanged resend after a lost response replays the saved
@@ -378,6 +378,7 @@ export class InventoryBatchesListPageComponent {
       supplierId: this.resolveSupplierId(value.supplierName),
       notes: this.nullable(value.notes) ?? 'Batch Correction',
       entryDate: this.nullable(value.entryDate),
+      expectedVersion: batch.version,
     };
     this.inventoryService
       .updateInventoryBatch(batch.id, payload)
@@ -388,7 +389,13 @@ export class InventoryBatchesListPageComponent {
           this.isEditDialogOpen.set(false);
           this.loadBatches();
         },
-        error: (err) => {
+        error: (err: HttpErrorResponse) => {
+          if (this.errorCode(err) === BATCH_VERSION_CONFLICT) {
+            this.isEditDialogOpen.set(false);
+            this.showError('inventory.editVersionConflict');
+            this.loadBatches();
+            return;
+          }
           const detail = err.error?.detail || this.translate('inventory.updateBatchError');
           this.messageService.add({
             severity: 'error',

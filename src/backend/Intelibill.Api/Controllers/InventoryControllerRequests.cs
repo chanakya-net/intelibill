@@ -71,7 +71,8 @@ public sealed record UpdateInventoryBatchRequest(
     DateOnly? ManufacturingDate,
     Guid? SupplierId,
     string? Notes,
-    DateOnly? EntryDate);
+    DateOnly? EntryDate,
+    uint? ExpectedVersion = null);
 
 public sealed record ReassignBatchSupplierRequest(Guid NewSupplierId);
 

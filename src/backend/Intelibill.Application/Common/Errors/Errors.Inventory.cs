@@ -94,7 +94,13 @@ public static partial class Errors
             Error.Validation("Inventory.StockCountReasonRequired", "A reason is required for a stock count.");
 
         public static Error StockCountQuantityInvalid =>
-            Error.Validation("Inventory.StockCountQuantityInvalid", "Counted quantity must be zero or more, with at most two decimal places.");
+            Error.Validation("Inventory.StockCountQuantityInvalid", "Counted quantity must be zero or more, with at most three decimal places.");
+
+        public static Error StockCountReasonTooLong =>
+            Error.Validation("Inventory.StockCountReasonTooLong", "Reason cannot exceed 500 characters.");
+
+        public static Error ConcurrentChange =>
+            Error.Conflict("Inventory.ConcurrentChange", "This stock changed while the request was being saved. Nothing was saved; refresh and try again.");
 
         public static Error RowRetryable =>
             Error.Failure("Inventory.RowRetryable", "This row was not saved because of a temporary problem. Send the same batch again to retry it.");

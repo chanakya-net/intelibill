@@ -322,7 +322,7 @@ public class VoidBatchCommandHandlerTests
         var result = await CreateHandler().HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id), CancellationToken.None);
 
         Assert.True(result.IsError);
-        Assert.Equal(Errors.Inventory.BatchVersionConflict.Code, result.FirstError.Code);
+        Assert.Equal(Errors.Inventory.ConcurrentChange.Code, result.FirstError.Code);
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
         await _messageBus.DidNotReceive().PublishAsync(Arg.Any<InventoryBatchVoidedDomainEvent>());
     }

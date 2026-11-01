@@ -317,6 +317,20 @@ describe('InventoryBatchesListPageComponent', () => {
     httpMock.expectOne(`${API_BASE_URL}/inventory/batches`);
   });
 
+  it('sends the shown version with a batch edit and refreshes on a version conflict', () => {
+    fixture.detectChanges();
+    httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
+    component.onEditBatch(mockBatches[0]);
+
+    component.onSaveEdit();
+    const req = httpMock.expectOne(`${API_BASE_URL}/inventory/batches/b1`);
+    expect(req.request.body.expectedVersion).toBe(1);
+    req.flush({ title: 'Inventory.BatchVersionConflict' }, { status: 409, statusText: 'Conflict' });
+
+    httpMock.expectOne(`${API_BASE_URL}/inventory/batches`);
+    expect(component.isEditDialogOpen()).toBe(false);
+  });
+
   it('explains why a consumed receipt cannot be voided', () => {
     fixture.detectChanges();
     httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);

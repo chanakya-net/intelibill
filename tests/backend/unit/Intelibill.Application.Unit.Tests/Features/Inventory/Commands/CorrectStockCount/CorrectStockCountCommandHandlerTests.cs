@@ -170,7 +170,7 @@ public sealed class CorrectStockCountCommandHandlerTests
 
     [Theory]
     [InlineData(-1)]
-    [InlineData(1.234)]
+    [InlineData(1.2345)]
     public async Task HandleAsync_WithInvalidQuantity_IsRefused(double counted)
     {
         UseRole(ShopRole.Owner);

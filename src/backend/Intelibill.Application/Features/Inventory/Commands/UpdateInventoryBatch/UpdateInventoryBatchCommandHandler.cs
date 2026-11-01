@@ -49,6 +49,11 @@ public sealed class UpdateInventoryBatchCommandHandler(
         if (originalBatch.IsVoided)
             return Error.Validation("Inventory.BatchVoided", "Cannot correct an already voided batch.");
 
+        // The quantity entered was read off the version the editor was shown; applied to newer stock
+        // it would silently undo whatever moved it since.
+        if (command.ExpectedVersion is { } expectedVersion && expectedVersion != originalBatch.Version)
+            return Errors.Inventory.BatchVersionConflict;
+
         // 1. Determine new batch number
         var targetBatchNumber = command.NewBatchNumber?.Trim();
         if (string.IsNullOrWhiteSpace(targetBatchNumber))
@@ -211,7 +216,7 @@ public sealed class UpdateInventoryBatchCommandHandler(
         }
         catch (DbUpdateConcurrencyException)
         {
-            return Errors.Inventory.BatchVersionConflict;
+            return Errors.Inventory.ConcurrentChange;
         }
 
         if (pricingInputsChanged)

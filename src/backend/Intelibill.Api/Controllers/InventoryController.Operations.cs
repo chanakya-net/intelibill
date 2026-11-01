@@ -114,7 +114,8 @@ public sealed partial class InventoryController
                 request.ManufacturingDate,
                 request.SupplierId,
                 request.Notes,
-                request.EntryDate),
+                request.EntryDate,
+                request.ExpectedVersion),
             cancellationToken);
 
         if (result.IsError)

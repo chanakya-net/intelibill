@@ -1012,13 +1012,13 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnName("adjustment_number");
 
                     b.Property<decimal>("BatchQuantityAfter")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)")
                         .HasColumnName("batch_quantity_after");
 
                     b.Property<decimal>("BatchQuantityBefore")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)")
                         .HasColumnName("batch_quantity_before");
 
                     b.Property<decimal>("CostImpact")
@@ -1045,13 +1045,13 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnName("inventory_batch_id");
 
                     b.Property<decimal>("InventoryQuantityAfter")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)")
                         .HasColumnName("inventory_quantity_after");
 
                     b.Property<decimal>("InventoryQuantityBefore")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)")
                         .HasColumnName("inventory_quantity_before");
 
                     b.Property<bool>("IsVoided")
@@ -1078,8 +1078,8 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnName("performed_by");
 
                     b.Property<decimal>("Quantity")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)")
                         .HasColumnName("quantity");
 
                     b.Property<string>("Reason")

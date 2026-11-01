@@ -20,6 +20,67 @@ namespace Intelibill.Infrastructure.Migrations
                 name: "ck_inventory_adjustments_cost_impact_positive",
                 table: "inventory_adjustments");
 
+            // Adjustment quantities follow stock, which is held to three places.
+            migrationBuilder.AlterColumn<decimal>(
+                name: "quantity",
+                table: "inventory_adjustments",
+                type: "numeric(18,3)",
+                precision: 18,
+                scale: 3,
+                nullable: false,
+                oldClrType: typeof(decimal),
+                oldType: "numeric(18,2)",
+                oldPrecision: 18,
+                oldScale: 2);
+
+            migrationBuilder.AlterColumn<decimal>(
+                name: "inventory_quantity_before",
+                table: "inventory_adjustments",
+                type: "numeric(18,3)",
+                precision: 18,
+                scale: 3,
+                nullable: false,
+                oldClrType: typeof(decimal),
+                oldType: "numeric(18,2)",
+                oldPrecision: 18,
+                oldScale: 2);
+
+            migrationBuilder.AlterColumn<decimal>(
+                name: "inventory_quantity_after",
+                table: "inventory_adjustments",
+                type: "numeric(18,3)",
+                precision: 18,
+                scale: 3,
+                nullable: false,
+                oldClrType: typeof(decimal),
+                oldType: "numeric(18,2)",
+                oldPrecision: 18,
+                oldScale: 2);
+
+            migrationBuilder.AlterColumn<decimal>(
+                name: "batch_quantity_before",
+                table: "inventory_adjustments",
+                type: "numeric(18,3)",
+                precision: 18,
+                scale: 3,
+                nullable: false,
+                oldClrType: typeof(decimal),
+                oldType: "numeric(18,2)",
+                oldPrecision: 18,
+                oldScale: 2);
+
+            migrationBuilder.AlterColumn<decimal>(
+                name: "batch_quantity_after",
+                table: "inventory_adjustments",
+                type: "numeric(18,3)",
+                precision: 18,
+                scale: 3,
+                nullable: false,
+                oldClrType: typeof(decimal),
+                oldType: "numeric(18,2)",
+                oldPrecision: 18,
+                oldScale: 2);
+
             // inventory_batches.xmin becomes the batch row version. It is a PostgreSQL system column,
             // so no DDL is required.
 
@@ -146,6 +207,66 @@ namespace Intelibill.Infrastructure.Migrations
                 name: "ck_supplier_ledger_entries_batch_by_type",
                 table: "supplier_ledger_entries",
                 sql: "((entry_type = 'GOODS_RECEIVED' AND batch_id IS NOT NULL) OR (entry_type IN ('PAYMENT_MADE', 'RECORD_ADJUSTED') AND batch_id IS NULL))");
+
+            migrationBuilder.AlterColumn<decimal>(
+                name: "quantity",
+                table: "inventory_adjustments",
+                type: "numeric(18,2)",
+                precision: 18,
+                scale: 2,
+                nullable: false,
+                oldClrType: typeof(decimal),
+                oldType: "numeric(18,3)",
+                oldPrecision: 18,
+                oldScale: 3);
+
+            migrationBuilder.AlterColumn<decimal>(
+                name: "inventory_quantity_before",
+                table: "inventory_adjustments",
+                type: "numeric(18,2)",
+                precision: 18,
+                scale: 2,
+                nullable: false,
+                oldClrType: typeof(decimal),
+                oldType: "numeric(18,3)",
+                oldPrecision: 18,
+                oldScale: 3);
+
+            migrationBuilder.AlterColumn<decimal>(
+                name: "inventory_quantity_after",
+                table: "inventory_adjustments",
+                type: "numeric(18,2)",
+                precision: 18,
+                scale: 2,
+                nullable: false,
+                oldClrType: typeof(decimal),
+                oldType: "numeric(18,3)",
+                oldPrecision: 18,
+                oldScale: 3);
+
+            migrationBuilder.AlterColumn<decimal>(
+                name: "batch_quantity_before",
+                table: "inventory_adjustments",
+                type: "numeric(18,2)",
+                precision: 18,
+                scale: 2,
+                nullable: false,
+                oldClrType: typeof(decimal),
+                oldType: "numeric(18,3)",
+                oldPrecision: 18,
+                oldScale: 3);
+
+            migrationBuilder.AlterColumn<decimal>(
+                name: "batch_quantity_after",
+                table: "inventory_adjustments",
+                type: "numeric(18,2)",
+                precision: 18,
+                scale: 2,
+                nullable: false,
+                oldClrType: typeof(decimal),
+                oldType: "numeric(18,3)",
+                oldPrecision: 18,
+                oldScale: 3);
 
             migrationBuilder.AddCheckConstraint(
                 name: "ck_inventory_adjustments_cost_impact_positive",

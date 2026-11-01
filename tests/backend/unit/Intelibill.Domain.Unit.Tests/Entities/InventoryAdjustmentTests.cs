@@ -73,9 +73,9 @@ public class InventoryAdjustmentTests
     }
 
     [Fact]
-    public void Create_WithMoreThanTwoQuantityDecimals_ReturnsValidationError()
+    public void Create_WithMoreThanThreeQuantityDecimals_ReturnsValidationError()
     {
-        var result = CreateAdjustment(quantity: 1.125m, batchQuantityAfter: 8.875m, inventoryQuantityAfter: 23.875m);
+        var result = CreateAdjustment(quantity: 1.1255m, batchQuantityAfter: 8.8745m, inventoryQuantityAfter: 23.8745m);
 
         Assert.True(result.IsError);
         Assert.Equal("InventoryAdjustment.QuantityScaleInvalid", result.FirstError.Code);

@@ -131,7 +131,7 @@ public sealed class VoidBatchCommandHandler(
         }
         catch (DbUpdateConcurrencyException)
         {
-            return Errors.Inventory.BatchVersionConflict;
+            return Errors.Inventory.ConcurrentChange;
         }
 
         await messageBus.PublishAsync(

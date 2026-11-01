@@ -614,6 +614,7 @@
     "countConfirmed": "Count confirmed. No difference.",
     "countVersionConflict": "This batch changed while you were counting. The list is refreshed; count it again.",
     "countError": "Failed to save the stock count",
+    "editVersionConflict": "This batch changed after you opened it. The list is refreshed; open it again to make your correction.",
     "batchConsumed": "This receipt has already been sold from or adjusted, so it cannot be voided. Use Count stock to remove what is left.",
     "loadAdjustmentsError": "Failed to load adjustment history",
     "adjustmentDirectionLabel": "Direction",

@@ -383,6 +383,62 @@ public sealed class StockCorrectionInvariantTests(PostgreSqlTestFixture fixture)
         await AssertReconciledAsync(shop.ShopId, receipt.ItemId, expectedQuantity: 8m);
     }
 
+    [Fact]
+    public async Task ThreeDecimalBatch_CanBeCountedToZero()
+    {
+        using var client = CreateClient();
+        var shop = await CreateShopAsync(client);
+        var receipt = await ReceiveAsync(client, shop.OwnerToken, 2.375m, 80m);
+
+        var response = await CountAsync(client, shop.OwnerToken, receipt.BatchId, await VersionOfAsync(client, shop.OwnerToken, receipt.BatchId), 1.25m, "Weighed on the scale");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(-1.125m, (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("delta").GetDecimal());
+
+        var removal = await CountAsync(client, shop.OwnerToken, receipt.BatchId, await VersionOfAsync(client, shop.OwnerToken, receipt.BatchId), 0m, "Spoiled");
+        Assert.Equal(HttpStatusCode.OK, removal.StatusCode);
+
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var adjustments = await db.InventoryAdjustments.Where(a => a.InventoryBatchId == receipt.BatchId).OrderBy(a => a.PerformedAt).ToListAsync();
+        Assert.Equal(1.125m, adjustments[0].Quantity);
+        Assert.Equal(1.25m, adjustments[1].Quantity);
+        Assert.Equal(2.375m, adjustments[0].BatchQuantityBefore);
+        await AssertReconciledAsync(shop.ShopId, receipt.ItemId, expectedQuantity: 0m);
+    }
+
+    [Fact]
+    public async Task LegacyBatchCorrection_FromStaleForm_IsRefusedAndSaleKept()
+    {
+        using var client = CreateClient();
+        var shop = await CreateShopAsync(client);
+        var receipt = await ReceiveAsync(client, shop.OwnerToken, 10m, 80m);
+        var shownVersion = await VersionOfAsync(client, shop.OwnerToken, receipt.BatchId);
+        await SellAsync(client, shop.OwnerToken, receipt, 3m);
+
+        using var editRequest = Authorized(HttpMethod.Put, $"/api/inventory/batches/{receipt.BatchId}", shop.OwnerToken);
+        editRequest.Content = JsonContent.Create(new
+        {
+            newBatchNumber = $"{receipt.BatchNumber}-C",
+            quantity = 10m,
+            costPrice = 80m,
+            mrp = 150m,
+            salesPrice = 140m,
+            taxRatePercent = 0m,
+            taxIncluded = false,
+            expiryDate = (DateOnly?)null,
+            manufacturingDate = (DateOnly?)null,
+            supplierId = receipt.SupplierId,
+            notes = "Edited from a form opened before the sale",
+            entryDate = (DateOnly?)null,
+            expectedVersion = shownVersion,
+        });
+        var editResponse = await client.SendAsync(editRequest);
+
+        Assert.Equal(HttpStatusCode.Conflict, editResponse.StatusCode);
+        Assert.Equal("Inventory.BatchVersionConflict", (await editResponse.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("title").GetString());
+        await AssertReconciledAsync(shop.ShopId, receipt.ItemId, expectedQuantity: 7m);
+    }
+
     private async Task AssertReconciledAsync(Guid shopId, Guid itemId, decimal expectedQuantity)
     {
         await using var scope = _factory.Services.CreateAsyncScope();
