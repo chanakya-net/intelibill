@@ -1,38 +1,39 @@
 using Intelibill.Api.Hubs;
 using Intelibill.Api.Services;
-using Microsoft.AspNetCore.SignalR;
+using Intelibill.Api.Services.Realtime;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 
 namespace Intelibill.Api.Unit.Tests.Services;
 
+/// <summary>
+/// The notifier's whole job is now the payload and the event name. Who may receive it is the
+/// dispatcher's decision, which <see cref="AuthorizedRealtimeDispatcherTests"/> covers.
+/// </summary>
 public class SignalRShopUpdatesNotifierTests
 {
-    private readonly IHubContext<ShopUpdatesHub> _hubContext = Substitute.For<IHubContext<ShopUpdatesHub>>();
-    private readonly IHubClients _hubClients = Substitute.For<IHubClients>();
-    private readonly IClientProxy _groupClients = Substitute.For<IClientProxy>();
+    private readonly IAuthorizedRealtimeDispatcher<ShopUpdatesHub> _dispatcher =
+        Substitute.For<IAuthorizedRealtimeDispatcher<ShopUpdatesHub>>();
+
     private readonly SignalRShopUpdatesNotifier _notifier;
 
-    public SignalRShopUpdatesNotifierTests()
-    {
-        _hubContext.Clients.Returns(_hubClients);
-        _hubClients.Group(Arg.Any<string>()).Returns(_groupClients);
-        _notifier = new SignalRShopUpdatesNotifier(_hubContext);
-    }
+    public SignalRShopUpdatesNotifierTests() => _notifier = new SignalRShopUpdatesNotifier(_dispatcher);
 
     [Fact]
-    public async Task NotifyShopUpdateAsync_SendsShopUpdatedEvent_WithCorrectGroup()
+    public async Task NotifyShopUpdateAsync_DispatchesShopUpdatedForTheShop()
     {
         var shopId = Guid.NewGuid();
-        var changedIds = new[] { Guid.NewGuid() };
-        var occurredOn = DateTimeOffset.UtcNow;
 
-        await _notifier.NotifyShopUpdateAsync("DiscountRuleChanged", shopId, changedIds, occurredOn);
+        await _notifier.NotifyShopUpdateAsync(
+            "DiscountRuleChanged",
+            shopId,
+            [Guid.NewGuid()],
+            DateTimeOffset.UtcNow);
 
-        _hubClients.Received(1).Group($"shop:{shopId}");
-        await _groupClients.Received(1).SendCoreAsync(
+        await _dispatcher.Received(1).SendShopAsync(
+            shopId,
             "ShopUpdated",
-            Arg.Any<object?[]>(),
+            Arg.Any<object>(),
             Arg.Any<CancellationToken>());
     }
 
@@ -42,55 +43,55 @@ public class SignalRShopUpdatesNotifierTests
         var shopId = Guid.NewGuid();
         var changedIds = new[] { Guid.NewGuid(), Guid.NewGuid() };
         var occurredOn = DateTimeOffset.UtcNow;
-        object?[]? capturedArgs = null;
-
-        await _groupClients.SendCoreAsync(
+        object? captured = null;
+        await _dispatcher.SendShopAsync(
+            Arg.Any<Guid>(),
             Arg.Any<string>(),
-            Arg.Do<object?[]>(a => capturedArgs = a),
+            Arg.Do<object>(p => captured = p),
             Arg.Any<CancellationToken>());
 
         await _notifier.NotifyShopUpdateAsync("DiscountRuleChanged", shopId, changedIds, occurredOn);
 
-        Assert.NotNull(capturedArgs);
-        Assert.Single(capturedArgs);
-
-        var payload = capturedArgs[0]!;
-        var type = payload.GetType();
-        Assert.Equal("DiscountRuleChanged", type.GetProperty("eventType")!.GetValue(payload));
-        Assert.Equal(shopId, type.GetProperty("shopId")!.GetValue(payload));
-        var changedIdsValue = (IReadOnlyCollection<Guid>)type.GetProperty("changedIds")!.GetValue(payload)!;
+        Assert.NotNull(captured);
+        var type = captured.GetType();
+        Assert.Equal("DiscountRuleChanged", type.GetProperty("eventType")!.GetValue(captured));
+        Assert.Equal(shopId, type.GetProperty("shopId")!.GetValue(captured));
+        var changedIdsValue = (IReadOnlyCollection<Guid>)type.GetProperty("changedIds")!.GetValue(captured)!;
         Assert.Equal(changedIds, changedIdsValue);
-        Assert.Equal(occurredOn, type.GetProperty("occurredOn")!.GetValue(payload));
+        Assert.Equal(occurredOn, type.GetProperty("occurredOn")!.GetValue(captured));
     }
 
     [Fact]
     public async Task NotifyShopUpdateAsync_ForwardsCancellationToken()
     {
         using var cts = new CancellationTokenSource();
-        var shopId = Guid.NewGuid();
-        var changedIds = new[] { Guid.NewGuid() };
-        var occurredOn = DateTimeOffset.UtcNow;
 
-        await _notifier.NotifyShopUpdateAsync("DiscountRuleChanged", shopId, changedIds, occurredOn, cts.Token);
+        await _notifier.NotifyShopUpdateAsync(
+            "DiscountRuleChanged",
+            Guid.NewGuid(),
+            [Guid.NewGuid()],
+            DateTimeOffset.UtcNow,
+            cts.Token);
 
-        await _groupClients.Received(1).SendCoreAsync(
+        await _dispatcher.Received(1).SendShopAsync(
+            Arg.Any<Guid>(),
             Arg.Any<string>(),
-            Arg.Any<object?[]>(),
+            Arg.Any<object>(),
             cts.Token);
     }
 
     [Fact]
-    public async Task NotifyShopUpdateAsync_WhenSendAsyncThrows_ExceptionPropagates()
+    public async Task NotifyShopUpdateAsync_WhenDispatchThrows_ExceptionPropagates()
     {
-        _groupClients
-            .SendCoreAsync(Arg.Any<string>(), Arg.Any<object?[]>(), Arg.Any<CancellationToken>())
+        _dispatcher
+            .SendShopAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<object>(), Arg.Any<CancellationToken>())
             .ThrowsAsync(new InvalidOperationException("Hub unavailable"));
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _notifier.NotifyShopUpdateAsync(
                 "DiscountRuleChanged",
                 Guid.NewGuid(),
-                new[] { Guid.NewGuid() },
+                [Guid.NewGuid()],
                 DateTimeOffset.UtcNow));
     }
 
@@ -99,16 +100,15 @@ public class SignalRShopUpdatesNotifierTests
     {
         using var cts = new CancellationTokenSource();
         await cts.CancelAsync();
-
-        _groupClients
-            .SendCoreAsync(Arg.Any<string>(), Arg.Any<object?[]>(), Arg.Any<CancellationToken>())
+        _dispatcher
+            .SendShopAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<object>(), Arg.Any<CancellationToken>())
             .ThrowsAsync(new OperationCanceledException());
 
         await Assert.ThrowsAsync<OperationCanceledException>(() =>
             _notifier.NotifyShopUpdateAsync(
                 "DiscountRuleChanged",
                 Guid.NewGuid(),
-                new[] { Guid.NewGuid() },
+                [Guid.NewGuid()],
                 DateTimeOffset.UtcNow,
                 cts.Token));
     }

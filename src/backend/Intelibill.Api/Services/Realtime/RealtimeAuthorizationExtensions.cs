@@ -14,8 +14,11 @@ internal static class RealtimeAuthorizationExtensions
         services.AddSingleton<RealtimeInstanceIdentity>();
         services.AddSingleton<RealtimeConnectionTracker>();
 
-        // Scoped: admission reads live authority through the request's DbContext.
+        // Scoped: admission and dispatch both read live authority through the request's DbContext.
         services.AddScoped<RealtimeConnectionGate>();
+        services.AddScoped(
+            typeof(IAuthorizedRealtimeDispatcher<>),
+            typeof(AuthorizedRealtimeDispatcher<>));
 
         services.AddScoped<IProductHubNotifier, SignalRProductHubNotifier>();
         services.AddScoped<IShopUpdatesNotifier, SignalRShopUpdatesNotifier>();

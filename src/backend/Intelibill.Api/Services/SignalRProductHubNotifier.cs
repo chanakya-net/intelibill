@@ -1,10 +1,11 @@
-using Intelibill.Application.Common.Interfaces;
 using Intelibill.Api.Hubs;
-using Microsoft.AspNetCore.SignalR;
+using Intelibill.Api.Services.Realtime;
+using Intelibill.Application.Common.Interfaces;
 
 namespace Intelibill.Api.Services;
 
-internal sealed class SignalRProductHubNotifier(IHubContext<ProductHub> hubContext) : IProductHubNotifier
+internal sealed class SignalRProductHubNotifier(IAuthorizedRealtimeDispatcher<ProductHub> dispatcher)
+    : IProductHubNotifier
 {
     public Task NotifyProductCreatedAsync(
         Guid itemId,
@@ -13,11 +14,10 @@ internal sealed class SignalRProductHubNotifier(IHubContext<ProductHub> hubConte
         Guid shopId,
         CancellationToken cancellationToken = default)
     {
-        return hubContext.Clients.Group(GroupName(shopId)).SendAsync(
+        return dispatcher.SendShopAsync(
+            shopId,
             "ProductAdded",
             new { itemId, barcode, name, shopId },
             cancellationToken);
     }
-
-    private static string GroupName(Guid shopId) => $"shop:{shopId}";
 }

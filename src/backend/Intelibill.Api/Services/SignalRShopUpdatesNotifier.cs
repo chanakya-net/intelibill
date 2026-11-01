@@ -1,10 +1,11 @@
 using Intelibill.Api.Hubs;
+using Intelibill.Api.Services.Realtime;
 using Intelibill.Application.Common.Interfaces;
-using Microsoft.AspNetCore.SignalR;
 
 namespace Intelibill.Api.Services;
 
-internal sealed class SignalRShopUpdatesNotifier(IHubContext<ShopUpdatesHub> hubContext) : IShopUpdatesNotifier
+internal sealed class SignalRShopUpdatesNotifier(IAuthorizedRealtimeDispatcher<ShopUpdatesHub> dispatcher)
+    : IShopUpdatesNotifier
 {
     public Task NotifyShopUpdateAsync(
         string eventType,
@@ -13,11 +14,10 @@ internal sealed class SignalRShopUpdatesNotifier(IHubContext<ShopUpdatesHub> hub
         DateTimeOffset occurredOn,
         CancellationToken cancellationToken = default)
     {
-        return hubContext.Clients.Group(GroupName(shopId)).SendAsync(
+        return dispatcher.SendShopAsync(
+            shopId,
             "ShopUpdated",
             new { eventType, shopId, changedIds, occurredOn },
             cancellationToken);
     }
-
-    private static string GroupName(Guid shopId) => $"shop:{shopId}";
 }
