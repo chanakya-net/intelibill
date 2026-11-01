@@ -49,7 +49,7 @@ For authenticated requests, `active_shop_id` is extracted from JWT and set as a 
 - **Expenses**: record + correct + categorise
 - **Bank Accounts**: CRUD per shop
 - **Users**: shop user management (add/edit/roles), profile self-service, password change
-- **Security**: JWT bearer, `active_shop_id` claim, RLS, 403 mapping, rate limiting middleware (`RateLimitAttribute` / `RateLimitFilter`)
+- **Security**: JWT bearer, `active_shop_id` claim, RLS, 403 mapping, atomic rate limiting (`RateLimitAttribute` / `RateLimitFilter` over `IAtomicRateLimitStore`; see § Rate Limiting)
 
 ## Multi-Shop Tenancy
 
@@ -184,6 +184,69 @@ delivery decision comes out yes.
 binds every handler to that connection's generation so a frame from a replaced socket cannot publish
 after a shop switch, and stops reconnecting on a refused handshake (401/403) while keeping its
 backoff for a network outage.
+
+## Rate Limiting
+
+**Store.** `RateLimitFilter` asks `IAtomicRateLimitStore` (Application) to check and consume every
+budget a request is counted against; `PostgresRateLimitStore` (Infrastructure) keeps them in
+`rate_limit_buckets` (`policy_id`, `bucket_key`, fixed `window_start`/`window_seconds`, `count`,
+`blocked_until`, `expires_at`), shared by every replica. One acquisition is one Read Committed
+transaction: each budget's row is upserted — which creates or locks it — in ordinal
+`(policy_id, bucket_key)` order, so two requests sharing buckets cannot deadlock; then either every
+row is incremented or none is. A window starts at the first request after the last one ended and is
+never extended by later requests; an exhausted budget with a backoff is refused until
+`now + backoff` from its first refusal. `lock_timeout` and the command timeout come from
+`RateLimitStore:CommandTimeoutSeconds` (2). `RateLimitBucketCleanupWorker` deletes rows whose
+window and backoff have both ended, in batches, with `FOR UPDATE SKIP LOCKED`. The table is
+logged (a failover must not hand out fresh allowances), is not an EF entity, and stays outside RLS:
+it holds no shop data and is written before a request has a shop context.
+
+**Budgets.** `RateBudgetFactory` builds them from what a caller cannot vary at will:
+
+| Budget | Policy id | Key material | Default |
+|---|---|---|---|
+| Request | `req:{METHOD} {route template}` | signed-in user (or `anonymous`) + client address | attribute, else 100/min, 3 min backoff |
+| Account (`Subject = Account`) | `subj:account` | normalized email/phone from the request model, else the signed-in user | 20 / 15 min |
+| Destination (`Subject = Destination`) | `subj:destination`, `subj:destination:day` | normalized email/phone from the request model | 3 / 15 min and 10 / day |
+
+The route template, not the raw path, so record ids do not fragment a budget. The client address is
+what forwarded-header processing settled on: IPv4-mapped IPv6 counts as IPv4, other IPv6 per /64.
+Emails are trimmed and lower-cased, phones normalized to E.164 with `PhoneAuth:DefaultCountryCode`,
+exactly as the identity services store them. Request models opt in by implementing
+`IRateLimitSubject` explicitly. Account and destination budgets count every attempt, known account
+or not, and never reach headers: `X-RateLimit-*` describe the request budget only, and a refusal
+answers the existing 429 body with `Retry-After` capped at a day. Sign-in, reset confirmation and
+reauthentication are Account endpoints; every endpoint that sends mail or SMS is a Destination
+endpoint, so one mailbox shares one allowance across registration, reset, claim and change.
+Per-challenge attempts stay with the challenge (`PhoneAuth:MaxAttempts`).
+
+**Ordering.** The filter is registered at order -3000, ahead of `ModelStateInvalidFilter`
+(-2000): a body that fails validation still spends the caller's budget. A request whose body names
+no subject simply has no subject budget.
+
+**Keys.** Bucket keys are HMAC-SHA256 under `RateLimiting:BucketKey` (base64, 32 bytes, from the
+secret store, shared by every replica). To rotate, move the old value to
+`RateLimiting:PreviousBucketKey` and set a new `BucketKey`: every budget is counted under both
+until `PreviousBucketKey` is removed, which is safe once a day (the longest window) has passed.
+Without a key the material is hashed with unkeyed SHA-256 and a warning is logged outside
+Development/Testing: limits still hold across replicas, but a leaked table can be checked against
+guessed addresses. A per-process random key is deliberately not the fallback — each replica would
+count the same caller in a different bucket.
+
+**Store unavailable.** Endpoints with `FailClosed = true` — every credential check and message send
+— answer 503 `RateLimit.Unavailable` with `Retry-After: 5` and never reach the handler. Others fall
+back to `LocalFallbackRateLimiter`: fixed windows in this process (10 000 at most; when full, an
+unseen bucket is refused), applied to the request budget only, with no `X-RateLimit-*` headers so
+they are never mistaken for the shared limit. Both paths count
+`intelibill.rate_limit.store_unavailable{mode}`; every decision counts
+`intelibill.rate_limit.decisions{outcome}`. Tags are a closed set — no route, address or subject.
+
+**Rollout.** `RateLimiting:SubjectMode = Shadow` enforces request budgets and only counts account and
+destination budgets (`outcome=shadow_denied`); switch to `Enforce` (the default) once the numbers
+look right. `RelaxEndpointPolicies` (Development/Testing only) widens account and destination
+budgets to the global default too. Shared NAT (offices, carrier-grade NAT) shares the request
+budget; the account and destination budgets are what bound a distributed attacker, and they expire
+on their own, so no target is ever locked out for longer than its window.
 
 ## Safe Errors and Diagnostics
 
