@@ -160,6 +160,10 @@ public static class TenantPolicyManifest
             "identity_sms",
             TenantSecurityClassification.GlobalIdentityData,
             "Delivery outbox drained by a background worker: no request, no token, no shop context."),
+        Exempt(
+            "realtime_connection_leases",
+            TenantSecurityClassification.GlobalIdentityData,
+            "Carries shop_id and is exempt anyway, deliberately: neither reader has a shop context to be scoped by. Outbound dispatch runs on the Wolverine local queue and the revocation sweep runs on a background worker, so in both there is no HttpContext, app.active_shop_id is empty, and a shop-scoped predicate would hide the candidate rows from the dispatcher and the closable rows from the sweep — realtime would stop delivering anything at all. The row holds no credential and no merchant data: a connection id, the process holding it, and the session and version numbers a live authority check needs. Guarded instead by re-checking that live authority before every outbound payload, which is the control the group broadcast it replaced never had."),
 
         // ── Global reference data: exempt ────────────────────────────────────
         Exempt(

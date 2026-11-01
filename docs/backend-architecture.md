@@ -134,14 +134,65 @@ capture, restricted to Development and Testing by `PhoneAuthOptionsValidator`, i
 code is logged. See [auth-phone-setup.md](auth-phone-setup.md) for the transports, the TRAI DLT
 routes and the enablement gate.
 
+## Realtime Notifications
+
+Two hubs carry change notices for one shop: `/hubs/products` (`ProductAdded`) and
+`/hubs/shop-updates` (`ShopUpdated`). Both carry what changed, never the changed record, so a
+client treats them as cache invalidations and refetches.
+
+**Admission.** `RealtimeConnectionGate` is the single entry both hubs delegate to. A connection is
+admitted only when `SessionClaims.TryRead` succeeds, the token names an active shop, its `exp` is in
+the future, and `ILiveSessionAuthority` — the same `LiveSessionValidator` every HTTP request is
+checked against — confirms the session, the account and the membership are live. Both hub endpoints
+set `CloseOnAuthenticationExpiration`, because the handshake is the only moment SignalR looks at
+authentication and a transport otherwise outlives the token that opened it. There is no
+client-callable method: a connection's scope is whatever the server admitted it under.
+
+**No groups.** A SignalR group is an address, not a permission — once joined, every later event
+reaches the socket for as long as it lives. `IAuthorizedRealtimeDispatcher<THub>` resolves recipients
+per payload from the lease registry and re-checks live authority for each, deduplicated per distinct
+session so a device with several tabs costs one lookup. A registry or authority failure sends
+nothing and never falls back to a group send.
+
+**Leases.** `realtime_connection_leases` records each admitted transport: connection id, owning
+process, hub, and the identifiers a live check needs. No credential is stored. The table is
+identity-class and carries no row-level security policy: both readers — dispatch on the Wolverine
+local queue, and the sweep on a background worker — run with no HttpContext and therefore an empty
+`app.active_shop_id`, so a shop-scoped predicate would hide the candidate rows from the dispatcher
+and the closable rows from the sweep.
+
+**Delivery is still single-replica.** `AddSignalR()` is configured with no backplane, so
+`Clients.Clients(ids)` reaches only sockets the dispatching process holds — the same limit the group
+broadcast had. What the shared registry buys today is that *refusal* is correct everywhere: a
+replica re-reads live authority before sending, so a revocation committed anywhere stops delivery
+here. Delivery across replicas needs a backplane and is not claimed.
+
+**Revocation.** `RealtimeRevocationWorker` sweeps every five seconds: it deletes expired leases and
+closes the sockets this process holds whose authority no longer validates. It is a sweep rather than
+a revocation signal, so there is no notification to lose and no call site — password change, session
+revoke, revoke-all, role change, status change, shop switch, recovery-epoch bump — to keep in step.
+It is not what makes delivery safe; the dispatcher is. So a store it cannot reach leaves the socket
+open until the next sweep rather than disconnecting everyone, and nothing reaches that socket
+meanwhile. Aborting needs the `HubCallerContext`, which only the owning process holds, so
+`RealtimeConnectionTracker` is process-local by necessity and is never consulted to decide delivery.
+
+A payload authorized a moment before a revocation commits may already be in flight and cannot be
+recalled. The guarantee is the other side of that line: once the revocation is visible, no new
+delivery decision comes out yes.
+
+**Clients.** `RealtimeHubConnection` keys each connection to the token and shop it was opened with,
+binds every handler to that connection's generation so a frame from a replaced socket cannot publish
+after a shop switch, and stops reconnecting on a refused handshake (401/403) while keeping its
+backoff for a network outage.
+
 ## Test Structure
 
 | Suite | Path | Count |
 |---|---|---|
-| Domain unit | `tests/backend/unit/Intelibill.Domain.Unit.Tests/` | 83 |
-| Application unit | `tests/backend/unit/Intelibill.Application.Unit.Tests/` | 330 |
-| API unit | `tests/backend/unit/Intelibill.Api.Unit.Tests/` | 139 |
-| Integration | `tests/backend/integration/Intelibill.Integration.Tests/` | 115 |
-| **Total** | | **667** |
+| Domain unit | `tests/backend/unit/Intelibill.Domain.Unit.Tests/` | 247 |
+| Application unit | `tests/backend/unit/Intelibill.Application.Unit.Tests/` | 961 |
+| API unit | `tests/backend/unit/Intelibill.Api.Unit.Tests/` | 459 |
+| Integration | `tests/backend/integration/Intelibill.Integration.Tests/` | 483 |
+| **Total** | | **2150** |
 
-Integration tests use `WebApplicationFactory<Program>` backed by **Testcontainers** (`Testcontainers.PostgreSql`) — Docker required. Non-integration suite: 552+ passing.
+Integration tests use `WebApplicationFactory<Program>` backed by **Testcontainers** (`Testcontainers.PostgreSql`) — Docker required. Non-integration suite: 1667 passing.

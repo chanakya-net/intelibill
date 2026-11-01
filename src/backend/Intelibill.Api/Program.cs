@@ -5,10 +5,12 @@ using Intelibill.Api.Middleware;
 using Intelibill.Api.Middleware.RateLimiting;
 using Intelibill.Api.Options;
 using Intelibill.Api.Services;
+using Intelibill.Api.Services.Realtime;
 using Intelibill.Api.Startup;
 using Intelibill.Application;
 using Intelibill.Application.Common.Behaviours;
 using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Common.Security;
 using Intelibill.Infrastructure;
 using Intelibill.Infrastructure.Extensions;
 using Scalar.AspNetCore;
@@ -49,8 +51,7 @@ builder.Services.AddApplication();
 builder.Services.AddInfrastructure(configuration);
 builder.Services.AddApplicationModelWarmup();
 builder.Services.AddSignalR();
-builder.Services.AddScoped<IProductHubNotifier, SignalRProductHubNotifier>();
-builder.Services.AddScoped<IShopUpdatesNotifier, SignalRShopUpdatesNotifier>();
+builder.Services.AddRealtimeAuthorization();
 builder.Services.AddWolverineHttp();
 builder.Services.AddProductionWolverineCodeGeneration();
 
@@ -111,7 +112,7 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
                 // membership stops authorizing this request without waiting for expiry.
                 var claims = SessionClaims.TryRead(context.Principal);
                 if (claims is null ||
-                    !await context.HttpContext.RequestServices.GetRequiredService<LiveSessionValidator>()
+                    !await context.HttpContext.RequestServices.GetRequiredService<ILiveSessionAuthority>()
                         .IsValidAsync(claims, context.HttpContext.RequestAborted))
                     context.Fail("The session is no longer valid. Sign in again.");
             },
@@ -207,8 +208,11 @@ app.UseMiddleware<JwtContextEnrichmentMiddleware>();
 app.UseSerilogRequestLogging(SerilogExtensions.RequestLoggingOptions);
 app.MapControllers();
 app.MapWolverineEndpoints();
-app.MapHub<ProductHub>("/hubs/products");
-app.MapHub<ShopUpdatesHub>("/hubs/shop-updates");
+// CloseOnAuthenticationExpiration: without it a transport outlives the token that opened it,
+// because the handshake is the only time SignalR looks at authentication. The client reconnects
+// with whatever token it holds then, and that reconnect is admitted through the gate again.
+app.MapHub<ProductHub>("/hubs/products", options => options.CloseOnAuthenticationExpiration = true);
+app.MapHub<ShopUpdatesHub>("/hubs/shop-updates", options => options.CloseOnAuthenticationExpiration = true);
 app.MapHealthEndpoints();
 
 return await app.RunJasperFxCommands(args);

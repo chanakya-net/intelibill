@@ -160,6 +160,8 @@ public static class DependencyInjection
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<LiveSessionValidator>();
+        services.AddScoped<ILiveSessionAuthority>(sp => sp.GetRequiredService<LiveSessionValidator>());
+        services.AddScoped<IRealtimeConnectionRegistry, Services.Realtime.PostgresRealtimeConnectionRegistry>();
         services.AddScoped<IRecoveryEpochProvider, ConfiguredRecoveryEpochProvider>();
         services.AddScoped<IEmailOwnershipRepository, EmailOwnershipChallengeRepository>();
         services.AddScoped<IPhoneChallengeRepository, PhoneChallengeRepository>();
