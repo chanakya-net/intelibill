@@ -56,15 +56,36 @@ internal static class IdentityTestMailbox
         return (invitation.Id, ReadToken(mail, email));
     }
 
+    /// <summary>
+    /// The link in the most recent queued password-reset mail for one address, or null when none was
+    /// queued. Reset links, like every other identity link, exist only in the encrypted outbox row.
+    /// </summary>
+    internal static async Task<string?> ReadPasswordResetLinkAsync(WebApplicationFactory<Program> factory, string email)
+    {
+        email = email.Trim().ToLowerInvariant();
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var mail = await db.Set<IdentityMail>().Where(x => x.PasswordResetTokenId != null && x.Destination == email)
+            .OrderByDescending(x => x.CreatedAt).FirstOrDefaultAsync();
+        if (mail is null) return null;
+        var body = ReadBody(mail, email);
+        return body.Split('\n').Single(line => line.Contains("/reset-password?", StringComparison.Ordinal)).Trim();
+    }
+
     private static string ReadToken(IdentityMail mail, string destination)
+    {
+        var body = ReadBody(mail, destination);
+        var token = body.Split("&token=", 2)[1].Split('&', 2)[0];
+        return Uri.UnescapeDataString(token);
+    }
+
+    internal static string ReadBody(IdentityMail mail, string destination)
     {
         var data = Convert.FromBase64String(mail.EncryptedContent); var plain = new byte[data.Length - 28];
         using var aes = new AesGcm(Convert.FromBase64String(Key), 16);
         aes.Decrypt(data.AsSpan(0, 12), data.AsSpan(28), data.AsSpan(12, 16), plain, Encoding.UTF8.GetBytes(destination));
         using var json = JsonDocument.Parse(plain);
-        var body = json.RootElement.GetProperty("Body").GetString()!;
-        var token = body.Split("&token=", 2)[1].Split('&', 2)[0];
-        return Uri.UnescapeDataString(token);
+        return json.RootElement.GetProperty("Body").GetString()!;
     }
     internal static async Task<HttpResponseMessage> EnrollAsync<T>(this WebApplicationFactory<Program> factory, HttpClient client, T request)
     {

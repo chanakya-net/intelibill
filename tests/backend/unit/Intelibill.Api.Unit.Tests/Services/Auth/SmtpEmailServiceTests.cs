@@ -3,7 +3,6 @@ using System.Text.RegularExpressions;
 using Intelibill.Infrastructure.Options;
 using Intelibill.Infrastructure.Services.Auth;
 using MailKit.Security;
-using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using MimeKit;
 using MimeKit.Text;
@@ -12,29 +11,25 @@ namespace Intelibill.Api.Unit.Tests.Services.Auth;
 
 public class SmtpEmailServiceTests
 {
+    private static EmailOptions Options(bool useStartTls = true) => new()
+    {
+        Enabled = true,
+        Host = "smtp.office365.com",
+        Port = useStartTls ? 587 : 465,
+        UseStartTls = useStartTls,
+        Username = "noreply@example.com",
+        Password = "secret",
+        FromEmail = "noreply@example.com",
+        FromName = "Intelibill"
+    };
+
     [Fact]
-    public async Task SendPasswordResetAsync_ComposesExpectedMessageAndUsesStartTls()
+    public async Task SendIdentityAsync_ComposesExpectedMessageAndUsesStartTls()
     {
         var smtpClient = new RecordingSmtpClient();
-        var service = new SmtpEmailService(
-            Microsoft.Extensions.Options.Options.Create(new EmailOptions
-            {
-                Enabled = true,
-                Host = "smtp.office365.com",
-                Port = 587,
-                UseStartTls = true,
-                Username = "noreply@example.com",
-                Password = "secret",
-                FromEmail = "noreply@example.com",
-                FromName = "Intelibill"
-            }),
-            new RecordingSmtpClientFactory(smtpClient),
-            NullLogger<SmtpEmailService>.Instance);
+        var service = new SmtpEmailService(Microsoft.Extensions.Options.Options.Create(Options()), new RecordingSmtpClientFactory(smtpClient));
 
-        var resetLink = "https://inventory.test/reset-password?token=abc&email=user%40test.com";
-        var expiresAt = new DateTimeOffset(2026, 5, 11, 10, 30, 0, TimeSpan.Zero);
-
-        await service.SendPasswordResetAsync("user@test.com", resetLink, expiresAt, CancellationToken.None);
+        await service.SendIdentityAsync("user@test.com", "Reset your Intelibill password", "body text", CancellationToken.None);
 
         Assert.Equal("smtp.office365.com", smtpClient.Host);
         Assert.Equal(587, smtpClient.Port);
@@ -47,18 +42,43 @@ public class SmtpEmailServiceTests
         Assert.Equal("Reset your Intelibill password", message.Subject);
         var from = Assert.IsType<MailboxAddress>(Assert.Single(message.From));
         var to = Assert.IsType<MailboxAddress>(Assert.Single(message.To));
-
         Assert.Equal("Intelibill", from.Name);
         Assert.Equal("noreply@example.com", from.Address);
         Assert.Equal("user@test.com", to.Address);
+        Assert.Equal("body text", Assert.IsType<TextPart>(message.Body).Text);
+    }
 
-        var body = Assert.IsType<TextPart>(message.Body);
+    [Fact]
+    public async Task SendIdentityAsync_WithoutStartTls_RequiresImplicitTls()
+    {
+        var smtpClient = new RecordingSmtpClient();
+        var service = new SmtpEmailService(Microsoft.Extensions.Options.Options.Create(Options(useStartTls: false)), new RecordingSmtpClientFactory(smtpClient));
+
+        await service.SendIdentityAsync("user@test.com", "subject", "body", CancellationToken.None);
+
+        Assert.Equal(SecureSocketOptions.SslOnConnect, smtpClient.SocketOptions);
+    }
+
+    [Fact]
+    public void SocketOptions_NeverAllowOpportunisticPlaintext()
+    {
+        Assert.NotEqual(SecureSocketOptions.Auto, SmtpEmailService.SocketOptionsFor(Options(useStartTls: true)));
+        Assert.NotEqual(SecureSocketOptions.Auto, SmtpEmailService.SocketOptionsFor(Options(useStartTls: false)));
+    }
+
+    [Fact]
+    public void PasswordResetBody_ContainsLinkOnceAndIstExpiry()
+    {
+        var resetLink = "https://inventory.test/reset-password?token=abc&email=user%40test.com";
+        var expiresAt = new DateTimeOffset(2026, 5, 11, 10, 30, 0, TimeSpan.Zero);
+
+        var body = IdentityMailOutbox.BuildPasswordResetBody(resetLink, expiresAt);
+
         var expectedExpiry = expiresAt.ToOffset(TimeSpan.FromHours(5.5)).ToString("hh:mm tt", CultureInfo.InvariantCulture);
-
-        Assert.Contains("Here is your password reset link:", body.Text);
-        Assert.Single(Regex.Matches(body.Text, Regex.Escape(resetLink)));
-        Assert.Contains($"This link expires at {expectedExpiry} IST and can be used only once.", body.Text);
-        Assert.Contains("If you did not request this, you can ignore this email.", body.Text);
+        Assert.Contains("Here is your password reset link:", body);
+        Assert.Single(Regex.Matches(body, Regex.Escape(resetLink)));
+        Assert.Contains($"This link expires at {expectedExpiry} IST and can be used only once.", body);
+        Assert.Contains("If you did not request this, you can ignore this email.", body);
     }
 
     private sealed class RecordingSmtpClient : ISmtpClient

@@ -212,9 +212,6 @@ internal sealed class RecordingEmailService : IEmailService
         }
     }
 
-    public Task SendPasswordResetAsync(string toEmail, string resetLink, DateTimeOffset expiresAt, CancellationToken cancellationToken = default)
-        => Task.CompletedTask;
-
     public Task SendIdentityAsync(string toEmail, string subject, string body, CancellationToken cancellationToken = default)
     {
         lock (_gate)

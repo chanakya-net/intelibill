@@ -29,10 +29,6 @@ public sealed class SessionLifecycleIntegrationTests(PostgreSqlTestFixture fixtu
 
     private readonly ApiWebApplicationFactory _factory = new(fixture, services =>
     {
-        services.RemoveAll<IEmailService>();
-        services.AddSingleton<ResetLinkCapture>();
-        services.AddSingleton<IEmailService>(sp => sp.GetRequiredService<ResetLinkCapture>());
-
         // Lets one test stop a sign-in in the gap between verifying the password and creating the
         // session — the gap a concurrent reset has to lose.
         var hasher = services.Single(x => x.ServiceType == typeof(IPasswordHasher));
@@ -361,7 +357,7 @@ public sealed class SessionLifecycleIntegrationTests(PostgreSqlTestFixture fixtu
         Assert.Equal(
             HttpStatusCode.OK,
             (await client.PostAsJsonAsync("/api/auth/password-reset/request", new { email })).StatusCode);
-        var link = _factory.Services.GetRequiredService<ResetLinkCapture>().ResetLink;
+        var link = await IdentityTestMailbox.ReadPasswordResetLinkAsync(_factory, email);
         Assert.NotNull(link);
         var token = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(new Uri(link).Query)["token"].ToString();
         Assert.Equal(
@@ -440,7 +436,7 @@ public sealed class SessionLifecycleIntegrationTests(PostgreSqlTestFixture fixtu
         Assert.Equal(
             HttpStatusCode.OK,
             (await client.PostAsJsonAsync("/api/auth/password-reset/request", new { email })).StatusCode);
-        var link = _factory.Services.GetRequiredService<ResetLinkCapture>().ResetLink;
+        var link = await IdentityTestMailbox.ReadPasswordResetLinkAsync(_factory, email);
         Assert.NotNull(link);
         var token = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(new Uri(link).Query)["token"].ToString();
 
@@ -576,7 +572,7 @@ public sealed class SessionLifecycleIntegrationTests(PostgreSqlTestFixture fixtu
         Assert.Equal(
             HttpStatusCode.OK,
             (await client.PostAsJsonAsync("/api/auth/password-reset/request", new { email })).StatusCode);
-        var link = _factory.Services.GetRequiredService<ResetLinkCapture>().ResetLink;
+        var link = await IdentityTestMailbox.ReadPasswordResetLinkAsync(_factory, email);
         Assert.NotNull(link);
         var token = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(new Uri(link).Query)["token"].ToString();
 
@@ -616,7 +612,7 @@ public sealed class SessionLifecycleIntegrationTests(PostgreSqlTestFixture fixtu
         Assert.Equal(
             HttpStatusCode.OK,
             (await client.PostAsJsonAsync("/api/auth/password-reset/request", new { email })).StatusCode);
-        var link = _factory.Services.GetRequiredService<ResetLinkCapture>().ResetLink;
+        var link = await IdentityTestMailbox.ReadPasswordResetLinkAsync(_factory, email);
         Assert.NotNull(link);
         var token = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(new Uri(link).Query)["token"].ToString();
 
@@ -739,19 +735,5 @@ public sealed class SessionLifecycleIntegrationTests(PostgreSqlTestFixture fixtu
                 barrier.PauseIfArmedAsync().GetAwaiter().GetResult();
             return verified;
         }
-    }
-
-    internal sealed class ResetLinkCapture : IEmailService
-    {
-        public string? ResetLink { get; private set; }
-
-        public Task SendPasswordResetAsync(string toEmail, string resetLink, DateTimeOffset expiresAt, CancellationToken cancellationToken = default)
-        {
-            ResetLink = resetLink;
-            return Task.CompletedTask;
-        }
-
-        public Task SendIdentityAsync(string toEmail, string subject, string body, CancellationToken cancellationToken = default) =>
-            Task.CompletedTask;
     }
 }

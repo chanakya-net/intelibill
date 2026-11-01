@@ -3,23 +3,27 @@ using System.Text;
 using ErrorOr;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Domain.Entities;
-using Microsoft.Extensions.Logging;
 using Intelibill.Domain.Interfaces.Repositories;
 
 namespace Intelibill.Application.Features.Auth.Commands.RequestPasswordReset;
 
-public sealed partial class RequestPasswordResetCommandHandler(
+/// <summary>
+/// Issues a reset proof and queues its link in one transaction. Delivery happens in the identity
+/// mail worker, so a provider outage after commit delays the message instead of losing the only
+/// copy of the link, and a rollback leaves neither a proof nor a message behind.
+/// </summary>
+public sealed class RequestPasswordResetCommandHandler(
     IUserRepository userRepository,
     IPasswordResetTokenRepository passwordResetTokenRepository,
-    IEmailService emailService,
-    IEmailOwnershipRepository ownership,
-    ILogger<RequestPasswordResetCommandHandler> logger)
+    IIdentityMailOutbox mail,
+    IEmailOwnershipRepository ownership)
 {
     public async Task<ErrorOr<bool>> HandleAsync(
         RequestPasswordResetCommand command,
         CancellationToken cancellationToken)
     {
-        if (!emailService.IsAvailable)
+        // Checked before any lookup, so the 503 says nothing about whether the account exists.
+        if (!mail.Enabled)
             return Error.Failure("Auth.EmailDeliveryUnavailable", "Email delivery is temporarily unavailable.");
         var user = await userRepository.GetByEmailAsync(command.Email, cancellationToken);
 
@@ -27,39 +31,27 @@ public sealed partial class RequestPasswordResetCommandHandler(
         if (user is null || !user.IsEmailVerified || !user.IsLoginEnabled || user.PasswordHash is null)
             return true;
 
-        PasswordResetToken resetToken;
-        string rawToken;
         await using (var transaction = await ownership.BeginAsync(cancellationToken))
         {
             // The initial lookup is only a snapshot: recheck under the same locks as
             // email changes before minting authority for its destination/version.
             if (!await ownership.LockCurrentCredentialAsync(user.Id, user.SecurityVersion, user.Email!, cancellationToken)) return true;
-            // Invalidate any existing tokens before issuing a new one.
+            // Invalidate any existing tokens before issuing a new one; their queued mail is
+            // dropped by the worker once it sees them used.
             await passwordResetTokenRepository.InvalidateAllForUserAsync(user.Id, cancellationToken);
 
-            (rawToken, var tokenHash) = GenerateToken();
+            var (rawToken, tokenHash) = GenerateToken();
 
-            resetToken = PasswordResetToken.Create(user.Id, tokenHash, expiryMinutes: 15, securityVersion: user.SecurityVersion, destination: user.Email!);
+            var resetToken = PasswordResetToken.Create(user.Id, tokenHash, expiryMinutes: 15, securityVersion: user.SecurityVersion, destination: user.Email!);
             await passwordResetTokenRepository.AddAsync(resetToken, cancellationToken);
-            if (!await ownership.CommitAsync(cancellationToken)) return true;
+            mail.QueuePasswordReset(resetToken.Id, resetToken.Destination, rawToken, resetToken.ExpiresAt);
+            await ownership.CommitAsync(cancellationToken);
         }
 
-        var resetLink = $"{command.AppBaseUrl.TrimEnd('/')}/reset-password" +
-                        $"?token={Uri.EscapeDataString(rawToken)}" +
-                        $"&email={Uri.EscapeDataString(resetToken.Destination)}";
-
-        try { await emailService.SendPasswordResetAsync(resetToken.Destination, resetLink, resetToken.ExpiresAt, cancellationToken); }
-        catch (Exception) when (!cancellationToken.IsCancellationRequested)
-        {
-            // Do not expose account-specific delivery failures, addresses, or bearer URLs.
-            LogDeliveryFailed(logger);
-        }
-
+        // Generic whatever happened above, including a lost race: the response never reveals
+        // whether an account exists or whether a message was queued.
         return true;
     }
-
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Password reset delivery failed; request remains generic.")]
-    private static partial void LogDeliveryFailed(ILogger logger);
 
     private static (string RawToken, string TokenHash) GenerateToken()
     {

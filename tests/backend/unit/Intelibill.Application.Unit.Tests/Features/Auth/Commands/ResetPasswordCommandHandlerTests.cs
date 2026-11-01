@@ -14,6 +14,7 @@ public class ResetPasswordCommandHandlerTests
     private readonly IAuthSessionRepository _sessions = Substitute.For<IAuthSessionRepository>();
     private readonly IPasswordHasher _passwordHasher = Substitute.For<IPasswordHasher>();
     private readonly IEmailOwnershipRepository _ownership = Substitute.For<IEmailOwnershipRepository>();
+    private readonly IIdentityMailOutbox _mail = Substitute.For<IIdentityMailOutbox>();
     private readonly ResetPasswordCommandHandler _handler;
 
     public ResetPasswordCommandHandlerTests()
@@ -21,12 +22,14 @@ public class ResetPasswordCommandHandlerTests
         _ownership.BeginAsync(Arg.Any<CancellationToken>()).Returns(Substitute.For<IAsyncDisposable>());
         _ownership.CommitAsync(Arg.Any<CancellationToken>()).Returns(true);
         _ownership.LockCurrentCredentialAsync(Arg.Any<Guid>(), Arg.Any<long>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(true);
+        _mail.Enabled.Returns(true);
         _handler = new ResetPasswordCommandHandler(
             _userRepository,
             _passwordResetTokenRepository,
             _sessions,
             _passwordHasher,
             _ownership,
+            _mail,
             TimeProvider.System);
     }
 
@@ -137,5 +140,25 @@ public class ResetPasswordCommandHandlerTests
             Arg.Any<DateTimeOffset>(),
             Arg.Any<CancellationToken>());
         await _ownership.Received(1).CommitAsync(Arg.Any<CancellationToken>());
+        Received.InOrder(() =>
+        {
+            _mail.QueuePasswordChangedNotice(user.Email!);
+            _ownership.CommitAsync(Arg.Any<CancellationToken>());
+        });
+    }
+
+    [Fact]
+    public async Task HandleAsync_WrongToken_QueuesNoNotice()
+    {
+        var command = new ResetPasswordCommand("test@test.com", "wrongtoken", "NewPass123!");
+        var user = VerifiedUsers.CreateWithEmail(command.Email, "hash", "first", "last");
+        var hash = Convert.ToBase64String(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes("correcttoken")));
+        _userRepository.GetByEmailAsync(command.Email, Arg.Any<CancellationToken>()).Returns(user);
+        _passwordResetTokenRepository.GetValidByUserIdAsync(user.Id, Arg.Any<CancellationToken>())
+            .Returns(PasswordResetToken.Create(user.Id, hash, securityVersion: user.SecurityVersion, destination: user.Email!));
+
+        _ = await _handler.HandleAsync(command, CancellationToken.None);
+
+        _mail.DidNotReceiveWithAnyArgs().QueuePasswordChangedNotice(default!);
     }
 }

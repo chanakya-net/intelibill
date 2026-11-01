@@ -239,6 +239,5 @@ internal static class RateLimitTestPeers
 
 internal sealed class TestEmailService : Intelibill.Application.Common.Interfaces.IEmailService
 {
-    public Task SendPasswordResetAsync(string toEmail, string resetLink, DateTimeOffset expiresAt, CancellationToken cancellationToken = default) => Task.CompletedTask;
     public Task SendIdentityAsync(string toEmail, string subject, string body, CancellationToken cancellationToken = default) => Task.CompletedTask;
 }

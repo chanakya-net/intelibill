@@ -832,6 +832,10 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("next_attempt_at");
 
+                    b.Property<Guid?>("PasswordResetTokenId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("password_reset_token_id");
+
                     b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -841,6 +845,9 @@ namespace Intelibill.Infrastructure.Migrations
 
                     b.HasIndex("InvitationId")
                         .HasDatabaseName("ix_identity_mail_invitation_id");
+
+                    b.HasIndex("PasswordResetTokenId")
+                        .HasDatabaseName("ix_identity_mail_password_reset_token_id");
 
                     b.HasIndex("CompletedAt", "NextAttemptAt")
                         .HasDatabaseName("ix_identity_mail_completed_at_next_attempt_at");

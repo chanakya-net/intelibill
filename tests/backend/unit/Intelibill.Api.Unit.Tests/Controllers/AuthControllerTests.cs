@@ -1,6 +1,5 @@
 using ErrorOr;
 using Intelibill.Api.Controllers;
-using Intelibill.Api.Options;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Auth.Commands.Login;
@@ -18,16 +17,13 @@ namespace Intelibill.Api.Unit.Tests.Controllers;
 
 public class AuthControllerTests
 {
-    private const string BaseUrl = "https://inventory.test";
-
     private readonly IMessageBus _bus = Substitute.For<IMessageBus>();
     private readonly AuthController _controller;
     private readonly IEmailOwnershipService _ownership = Substitute.For<IEmailOwnershipService>();
 
     public AuthControllerTests()
     {
-        var options = Microsoft.Extensions.Options.Options.Create(new AppOptions { BaseUrl = BaseUrl });
-        _controller = new AuthController(_bus, options);
+        _controller = new AuthController(_bus);
         _controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { RequestServices = new ServiceCollection().AddSingleton(_ownership).BuildServiceProvider() } };
     }
 
@@ -107,7 +103,7 @@ public class AuthControllerTests
     }
 
     [Fact]
-    public async Task RequestPasswordReset_UsesConfiguredBaseUrlInCommand()
+    public async Task RequestPasswordReset_SendsOnlyTheEmailInCommand()
     {
         var request = new RequestPasswordResetRequest("user@test.com");
         ArrangeBusResponse<bool>(true);
@@ -115,7 +111,7 @@ public class AuthControllerTests
         _ = await _controller.RequestPasswordReset(request, CancellationToken.None);
 
         await _bus.Received(1).InvokeAsync<ErrorOr<bool>>(
-            Arg.Is<RequestPasswordResetCommand>(c => c.Email == request.Email && c.AppBaseUrl == BaseUrl),
+            Arg.Is<RequestPasswordResetCommand>(c => c.Email == request.Email),
             Arg.Any<CancellationToken>());
     }
 

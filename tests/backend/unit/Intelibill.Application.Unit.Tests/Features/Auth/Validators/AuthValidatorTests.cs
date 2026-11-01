@@ -118,16 +118,13 @@ public class RequestPasswordResetCommandValidatorTests
     private readonly RequestPasswordResetCommandValidator _v = new();
 
     [Fact] public void Validate_WhenEmailEmpty_ReturnsError() =>
-        _v.TestValidate(new RequestPasswordResetCommand("", "https://app.com")).ShouldHaveValidationErrorFor(x => x.Email);
+        _v.TestValidate(new RequestPasswordResetCommand("")).ShouldHaveValidationErrorFor(x => x.Email);
 
     [Fact] public void Validate_WhenEmailInvalid_ReturnsError() =>
-        _v.TestValidate(new RequestPasswordResetCommand("notanemail", "https://app.com")).ShouldHaveValidationErrorFor(x => x.Email);
-
-    [Fact] public void Validate_WhenAppBaseUrlEmpty_ReturnsError() =>
-        _v.TestValidate(new RequestPasswordResetCommand("a@b.com", "")).ShouldHaveValidationErrorFor(x => x.AppBaseUrl);
+        _v.TestValidate(new RequestPasswordResetCommand("notanemail")).ShouldHaveValidationErrorFor(x => x.Email);
 
     [Fact] public void Validate_WhenValid_NoErrors() =>
-        _v.TestValidate(new RequestPasswordResetCommand("a@b.com", "https://app.com")).ShouldNotHaveAnyValidationErrors();
+        _v.TestValidate(new RequestPasswordResetCommand("a@b.com")).ShouldNotHaveAnyValidationErrors();
 }
 
 public class ResetPasswordCommandValidatorTests

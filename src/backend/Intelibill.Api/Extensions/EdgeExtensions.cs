@@ -110,7 +110,8 @@ internal static class EdgeExtensions
         });
 
         services.AddHealthChecks()
-            .AddCheck<PostgresHealthCheck>("postgres", tags: [ReadinessTag]);
+            .AddCheck<PostgresHealthCheck>("postgres", tags: [ReadinessTag])
+            .AddCheck<IdentityMailReadinessCheck>("identity-mail", tags: [ReadinessTag]);
 
         return services;
     }

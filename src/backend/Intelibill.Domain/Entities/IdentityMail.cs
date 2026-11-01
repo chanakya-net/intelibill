@@ -11,6 +11,13 @@ public sealed class IdentityMail : BaseEntity
     /// against the challenge table, find nothing, and discard the message.
     /// </summary>
     public Guid? InvitationId { get; private set; }
+
+    /// <summary>
+    /// Set for password-reset mail. The reset token row holds only a hash, so this message is the
+    /// one place the link exists; the worker resolves it against the reset table and drops the
+    /// message once that token is used, superseded or expired.
+    /// </summary>
+    public Guid? PasswordResetTokenId { get; private set; }
     public string Destination { get; private set; } = string.Empty;
     public string EncryptedContent { get; private set; } = string.Empty;
     public DateTimeOffset ExpiresAt { get; private set; }
@@ -22,6 +29,8 @@ public sealed class IdentityMail : BaseEntity
     { ChallengeId = challengeId, Destination = destination, EncryptedContent = encryptedContent, ExpiresAt = expiresAt, NextAttemptAt = DateTimeOffset.UtcNow };
     public static IdentityMail CreateForInvitation(Guid invitationId, string destination, string encryptedContent, DateTimeOffset expiresAt) => new()
     { InvitationId = invitationId, Destination = destination, EncryptedContent = encryptedContent, ExpiresAt = expiresAt, NextAttemptAt = DateTimeOffset.UtcNow };
+    public static IdentityMail CreateForPasswordReset(Guid passwordResetTokenId, string destination, string encryptedContent, DateTimeOffset expiresAt) => new()
+    { PasswordResetTokenId = passwordResetTokenId, Destination = destination, EncryptedContent = encryptedContent, ExpiresAt = expiresAt, NextAttemptAt = DateTimeOffset.UtcNow };
     public void Complete(DateTimeOffset now) { CompletedAt = now; EncryptedContent = string.Empty; }
     public void Failed(DateTimeOffset now) { Attempts++; NextAttemptAt = now.AddSeconds(Math.Min(900, 30 * Math.Pow(2, Attempts))); }
 }

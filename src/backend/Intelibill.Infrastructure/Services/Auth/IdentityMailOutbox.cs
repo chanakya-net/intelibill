@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -28,6 +29,38 @@ internal sealed class IdentityMailOutbox(IEmailOwnershipRepository repository, I
         var subject = $"You are invited to {shopName} on Intelibill";
         var body = $"{subject}\n\n{link}\n\nYou have been invited as {role}. Sign in to the Intelibill account that uses this email address, then open the single-use link above; it expires at {expiresAt:O}.\nAccepting adds this shop to your account. It does not give the shop control of your sign-in details.\nIf you did not expect this, ignore this email.";
         QueueInvitation(invitationId, destination, subject, body, expiresAt);
+    }
+
+    public void QueuePasswordReset(Guid passwordResetTokenId, string destination, string token, DateTimeOffset expiresAt)
+    {
+        var baseUrl = configuration["App:BaseUrl"]?.TrimEnd('/') ?? throw new InvalidOperationException("App:BaseUrl is required.");
+        var link = $"{baseUrl}/reset-password?token={Uri.EscapeDataString(token)}&email={Uri.EscapeDataString(destination)}";
+        repository.AddMail(IdentityMail.CreateForPasswordReset(passwordResetTokenId, destination,
+            Encrypt(destination, "Reset your Intelibill password", BuildPasswordResetBody(link, expiresAt)), expiresAt));
+    }
+
+    public void QueuePasswordChangedNotice(string destination) => Queue(null, destination, "Your Intelibill password was changed",
+        "The password for your Intelibill account was just changed, and every device signed in to it has been signed out.\n\n" +
+        "If you made this change, no action is needed. If this was not you, reset your password from the sign-in page and contact support immediately.",
+        DateTimeOffset.UtcNow.AddDays(1));
+
+    internal static string BuildPasswordResetBody(string resetLink, DateTimeOffset expiresAt)
+    {
+        var expiryTime = ConvertToIst(expiresAt).ToString("hh:mm tt", CultureInfo.InvariantCulture);
+        return $"Here is your password reset link:\n\n{resetLink}\n\n" +
+               $"This link expires at {expiryTime} IST and can be used only once.\n\n" +
+               "If you did not request this, you can ignore this email.";
+    }
+
+    private static DateTimeOffset ConvertToIst(DateTimeOffset utcTime)
+    {
+        foreach (var timeZoneId in new[] { "India Standard Time", "Asia/Kolkata" })
+        {
+            try { return TimeZoneInfo.ConvertTime(utcTime, TimeZoneInfo.FindSystemTimeZoneById(timeZoneId)); }
+            catch (TimeZoneNotFoundException) { }
+            catch (InvalidTimeZoneException) { }
+        }
+        return utcTime.ToOffset(TimeSpan.FromHours(5.5));
     }
 
     public void QueueSecurityNotice(string destination) => Queue(null, destination, "Your Intelibill email changed",

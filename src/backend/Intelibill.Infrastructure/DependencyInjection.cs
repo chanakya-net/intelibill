@@ -192,13 +192,10 @@ public static class DependencyInjection
         services.AddSingleton<ISmtpClientFactory, MailKitSmtpClientFactory>();
         services.AddSingleton<IEmailService>(sp =>
         {
-            var emailOptions = sp.GetRequiredService<IOptions<EmailOptions>>().Value;
-            return emailOptions.Enabled
-                ? new SmtpEmailService(
-                    sp.GetRequiredService<IOptions<EmailOptions>>(),
-                    sp.GetRequiredService<ISmtpClientFactory>(),
-                    sp.GetRequiredService<ILogger<SmtpEmailService>>())
-                : new NoOpEmailService(sp.GetRequiredService<ILogger<NoOpEmailService>>());
+            var emailOptions = sp.GetRequiredService<IOptions<EmailOptions>>();
+            return emailOptions.Value.Enabled
+                ? new SmtpEmailService(emailOptions, sp.GetRequiredService<ISmtpClientFactory>())
+                : new NoOpEmailService();
         });
 
         // ── Export services ────────────────────────────────────────────────────
