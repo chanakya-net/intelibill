@@ -155,9 +155,10 @@ public sealed class InventoryAdjustment : BaseEntity
             return Error.Validation("InventoryAdjustment.QuantityMustBePositive", "Adjustment quantity must be greater than zero.");
         }
 
-        if (HasMoreThanTwoDecimalPlaces(quantity))
+        // Stock is held to three places (kg, litres); costs stay at two.
+        if (HasMoreThanThreeDecimalPlaces(quantity))
         {
-            return Error.Validation("InventoryAdjustment.QuantityScaleInvalid", "Adjustment quantity cannot have more than two decimal places.");
+            return Error.Validation("InventoryAdjustment.QuantityScaleInvalid", "Adjustment quantity cannot have more than three decimal places.");
         }
 
         if (unitCost < 0)
@@ -165,9 +166,10 @@ public sealed class InventoryAdjustment : BaseEntity
             return Error.Validation("InventoryAdjustment.UnitCostNegative", "Unit cost cannot be negative.");
         }
 
-        if (costImpact <= 0)
+        // Free stock, or a delta too small to cost a paisa, still has to be countable.
+        if (costImpact < 0)
         {
-            return Error.Validation("InventoryAdjustment.CostImpactMustBePositive", "Cost impact must be greater than zero.");
+            return Error.Validation("InventoryAdjustment.CostImpactNegative", "Cost impact cannot be negative.");
         }
 
         if (batchQuantityBefore < 0 || batchQuantityAfter < 0 || inventoryQuantityBefore < 0 || inventoryQuantityAfter < 0)
@@ -218,8 +220,8 @@ public sealed class InventoryAdjustment : BaseEntity
         };
     }
 
-    private static bool HasMoreThanTwoDecimalPlaces(decimal value) =>
-        decimal.Truncate(value * 100m) != value * 100m;
+    private static bool HasMoreThanThreeDecimalPlaces(decimal value) =>
+        decimal.Truncate(value * 1000m) != value * 1000m;
 
     private static string? NormalizeOptional(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();

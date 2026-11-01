@@ -14,7 +14,7 @@ import { TableModule } from 'primeng/table';
 import type { InventoryBatchDto } from '../../services/inventory.models';
 
 export interface BatchTableAction {
-  action: 'edit' | 'adjust' | 'void' | 'printLabels';
+  action: 'edit' | 'adjust' | 'count' | 'void' | 'printLabels';
   batchId: string;
 }
 
@@ -55,7 +55,7 @@ export class BatchesTableComponent {
   private _selectedBatchIds: readonly string[] = [];
   private selectedBatchIdSet = new Set<string>();
 
-  onRowAction(action: 'edit' | 'adjust' | 'void' | 'printLabels', batchId: string): void {
+  onRowAction(action: BatchTableAction['action'], batchId: string): void {
     this.batchAction.emit({ action, batchId });
   }
 
@@ -63,6 +63,7 @@ export class BatchesTableComponent {
     return [
       this.rowActionItem('printLabels', 'inventory.printLabels', 'pi pi-print', batch),
       this.rowActionItem('adjust', 'inventory.adjustBatch', 'pi pi-sliders-h', batch),
+      this.rowActionItem('count', 'inventory.countStock', 'pi pi-calculator', batch),
       this.rowActionItem('edit', 'common.edit', 'pi pi-pencil', batch),
       this.rowActionItem('void', 'common.void', 'pi pi-trash', batch),
     ];

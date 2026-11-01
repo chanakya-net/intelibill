@@ -84,6 +84,24 @@ public static partial class Errors
         public static Error BatchOperationKeyInvalid =>
             Error.Validation("Inventory.BatchOperationKeyInvalid", "Operation key must be 1 to 60 characters.");
 
+        public static Error BatchVersionConflict =>
+            Error.Conflict("Inventory.BatchVersionConflict", "This batch changed after it was loaded. Refresh it, count again and submit the new count.");
+
+        public static Error BatchConsumed =>
+            Error.Conflict("Inventory.BatchConsumed", "This receipt has already been sold from or adjusted, so it cannot be voided. Count the remaining stock to remove it, or record a supplier return.");
+
+        public static Error StockCountReasonRequired =>
+            Error.Validation("Inventory.StockCountReasonRequired", "A reason is required for a stock count.");
+
+        public static Error StockCountQuantityInvalid =>
+            Error.Validation("Inventory.StockCountQuantityInvalid", "Counted quantity must be zero or more, with at most three decimal places.");
+
+        public static Error StockCountReasonTooLong =>
+            Error.Validation("Inventory.StockCountReasonTooLong", "Reason cannot exceed 500 characters.");
+
+        public static Error ConcurrentChange =>
+            Error.Conflict("Inventory.ConcurrentChange", "This stock changed while the request was being saved. Nothing was saved; refresh and try again.");
+
         public static Error RowRetryable =>
             Error.Failure("Inventory.RowRetryable", "This row was not saved because of a temporary problem. Send the same batch again to retry it.");
     }

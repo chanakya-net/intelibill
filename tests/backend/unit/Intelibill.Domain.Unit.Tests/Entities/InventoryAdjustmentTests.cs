@@ -73,9 +73,9 @@ public class InventoryAdjustmentTests
     }
 
     [Fact]
-    public void Create_WithMoreThanTwoQuantityDecimals_ReturnsValidationError()
+    public void Create_WithMoreThanThreeQuantityDecimals_ReturnsValidationError()
     {
-        var result = CreateAdjustment(quantity: 1.125m, batchQuantityAfter: 8.875m, inventoryQuantityAfter: 23.875m);
+        var result = CreateAdjustment(quantity: 1.1255m, batchQuantityAfter: 8.8745m, inventoryQuantityAfter: 23.8745m);
 
         Assert.True(result.IsError);
         Assert.Equal("InventoryAdjustment.QuantityScaleInvalid", result.FirstError.Code);
@@ -113,7 +113,7 @@ public class InventoryAdjustmentTests
     }
 
     [Fact]
-    public void Create_WithZeroCostImpact_ReturnsValidationError()
+    public void Create_WithZeroCostImpact_Succeeds_SoFreeStockCanBeCounted()
     {
         var result = InventoryAdjustment.Create(
             Guid.NewGuid(),
@@ -134,8 +134,34 @@ public class InventoryAdjustmentTests
             notes: null,
             createdBy: Guid.NewGuid());
 
+        Assert.False(result.IsError);
+        Assert.Equal(0m, result.Value.CostImpact);
+    }
+
+    [Fact]
+    public void Create_WithNegativeCostImpact_ReturnsValidationError()
+    {
+        var result = InventoryAdjustment.Create(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "ADJ-20260505-0001",
+            InventoryAdjustmentDirection.Decrease,
+            InventoryAdjustmentReason.Damaged,
+            quantity: 2m,
+            unitCost: 0m,
+            costImpact: -1m,
+            batchQuantityBefore: 10m,
+            batchQuantityAfter: 8m,
+            inventoryQuantityBefore: 25m,
+            inventoryQuantityAfter: 23m,
+            new DateTimeOffset(2026, 5, 5, 10, 0, 0, TimeSpan.Zero),
+            Guid.NewGuid(),
+            notes: null,
+            createdBy: Guid.NewGuid());
+
         Assert.True(result.IsError);
-        Assert.Equal("InventoryAdjustment.CostImpactMustBePositive", result.FirstError.Code);
+        Assert.Equal("InventoryAdjustment.CostImpactNegative", result.FirstError.Code);
     }
 
     [Fact]

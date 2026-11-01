@@ -384,6 +384,41 @@ or scanning rows is refused, so nothing can be posted beside or instead of the f
 leave the draft before the submission is discarded; any definitive answer discards it. A shop switch
 mid-save stops sending and leaves the submission stored under the original shop.
 
+## Stock Corrections and Voids
+
+**Invariant.** Per item, `sum(stock_transactions.quantity) = inventory.quantity = sum(active batch
+quantities)`. Every quantity change writes exactly one signed movement in the same save as the batch
+and aggregate change; metadata changes write none. `StockCorrectionInvariantTests` checks this after
+counts, sales, legacy corrections and voids.
+
+**Row versions.** `inventory_batches.xmin` and `inventory.xmin` are mapped as `Version` row-version
+tokens, so every update of either row is checked against the version it was read at. A stale writer
+raises `DbUpdateConcurrencyException`, which handlers turn into 409 `Inventory.BatchVersionConflict`
+and which otherwise reaches the caller as 409 `Concurrency.Conflict` (never 500). `GET
+inventory/batches` returns each batch's `version`.
+
+**Counts.** `POST inventory/batches/{batchId}/count` (owner/manager) takes `expectedVersion`,
+`countedQuantity` (≥ 0, two places), a required `reason` and an optional `operationKey`
+(`FinancialOperationType.StockCount`). The delta is computed from the observed quantity, never sent.
+A nonzero delta posts one `InventoryAdjustment` (`StockCountCorrection`, notes = reason) and one
+movement (`In +d` / `Out -d`, reference = adjustment number); every count writes a `stock_counts`
+row linking both, or neither for an equal count. The batch row is always written, so a confirmation
+racing a sale is refused rather than recorded against moved stock. A refused count is never reapplied:
+the web closes the dialog, refreshes and asks for a recount. Counts never touch the supplier payable.
+
+**Voids.** `POST inventory/batches/{batchId}/void` (owner) reverses an unconsumed receipt: one
+`Reversal(-quantity)`, the same off the aggregate and a `REVERSAL` payable entry, in one save. A
+receipt that was sold from, returned to or adjusted (live adjustment, or any OUT/RET/REJ/DMG/STOL
+movement other than a voided adjustment's or a legacy correction's own) answers 409
+`Inventory.BatchConsumed`; remaining stock is removed by counting it to zero, which leaves the
+original payable owed. Supplier returns are a separate flow.
+
+**Legacy correction.** `PUT inventory/batches/{batchId}` still voids the batch and recreates it (price
+and metadata edits depend on it until purchase-cost corrections land); its quantity delta is now
+signed (`Out -d` for a decrease), any movement or ledger failure aborts before saving, and an
+`expectedVersion` older than the batch answers 409 `Inventory.BatchVersionConflict`. Adjustment
+quantities are stored to three places, like stock.
+
 ## Test Structure
 
 | Suite | Path | Count |

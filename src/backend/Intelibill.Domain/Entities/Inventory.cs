@@ -14,6 +14,9 @@ public sealed class Inventory : BaseEntity
     public Guid CreatedBy { get; private set; }
     public Guid? UpdatedBy { get; private set; }
 
+    /// <summary>Row version, assigned by the store on every write; see <see cref="InventoryBatch.Version"/>.</summary>
+    public uint Version { get; private set; }
+
     public Item Item { get; private set; } = null!;
 
     private Inventory() { }

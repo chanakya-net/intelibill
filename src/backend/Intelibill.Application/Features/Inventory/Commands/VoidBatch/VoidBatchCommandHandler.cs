@@ -1,5 +1,6 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Features.Inventory.Commands.UpdateInventoryBatch;
 using Intelibill.Application.Features.Inventory.DTOs;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Events;
@@ -11,10 +12,21 @@ using Wolverine;
 
 namespace Intelibill.Application.Features.Inventory.Commands.VoidBatch;
 
+/// <summary>
+/// Voids a receipt that nothing has consumed: one <c>Reversal(-quantity)</c> movement, the same
+/// quantity off the aggregate and the payable reversed, all in one save.
+/// </summary>
+/// <remarks>
+/// A receipt that was sold from, returned to or adjusted is refused with
+/// <c>Inventory.BatchConsumed</c>: reversing its whole payable would erase a purchase that partly
+/// happened, and its movements no longer describe a single receipt. Remaining stock is removed with a
+/// stock count, which leaves the payable alone; returning goods to the supplier is a separate flow.
+/// </remarks>
 public sealed class VoidBatchCommandHandler(
     IUserRepository userRepository,
     IInventoryBatchRepository inventoryBatchRepository,
     IStockTransactionRepository stockTransactionRepository,
+    IInventoryAdjustmentRepository inventoryAdjustmentRepository,
     ISupplierLedgerEntryRepository supplierLedgerEntryRepository,
     IInventoryRepository inventoryRepository,
     IUnitOfWork unitOfWork,
@@ -39,6 +51,13 @@ public sealed class VoidBatchCommandHandler(
 
         if (batch.IsVoided)
             return Errors.Inventory.BatchAlreadyVoided;
+
+        if (await IsConsumedAsync(batch, cancellationToken))
+            return Errors.Inventory.BatchConsumed;
+
+        var inventory = await inventoryRepository.GetByItemAsync(command.ActiveShopId, batch.ItemId, cancellationToken);
+        if (inventory is null)
+            return Errors.Inventory.InventoryAggregateNotFound;
 
         var remainingQuantity = batch.Quantity;
         var originalQuantity = batch.OriginalQuantity;
@@ -98,15 +117,22 @@ public sealed class VoidBatchCommandHandler(
             await supplierLedgerEntryRepository.AddAsync(ledgerResult.Value, cancellationToken);
         }
 
-        var subtractResult = await SubtractInventoryWithRetryAsync(
-            command.ActiveShopId,
-            itemId,
-            remainingQuantity,
-            command.ActorUserId,
-            cancellationToken);
-
+        var subtractResult = inventory.SubtractQuantity(remainingQuantity, command.ActorUserId);
         if (subtractResult.IsError)
             return subtractResult.Errors;
+
+        inventoryRepository.Update(inventory);
+
+        // A concurrent sale or count of this batch or item fails the row-version check here, and
+        // nothing of the void is kept.
+        try
+        {
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Errors.Inventory.ConcurrentChange;
+        }
 
         await messageBus.PublishAsync(
             new InventoryBatchVoidedDomainEvent(
@@ -121,45 +147,23 @@ public sealed class VoidBatchCommandHandler(
             ledgerReversalAmount);
     }
 
-    private async Task<ErrorOr<Success>> SubtractInventoryWithRetryAsync(
-        Guid shopId,
-        Guid itemId,
-        decimal quantityToSubtract,
-        Guid actorUserId,
-        CancellationToken ct,
-        int maxRetries = 3)
+    private async Task<bool> IsConsumedAsync(InventoryBatch batch, CancellationToken cancellationToken)
     {
-        for (var attempt = 0; attempt < maxRetries; attempt++)
-        {
-            try
-            {
-                var inventory = await inventoryRepository.GetByItemAsync(shopId, itemId, ct);
-                if (inventory is null)
-                    return Errors.Inventory.InventoryAggregateNotFound;
+        if (batch.Quantity != batch.OriginalQuantity)
+            return true;
 
-                var subtractResult = inventory.SubtractQuantity(quantityToSubtract, actorUserId);
-                if (subtractResult.IsError)
-                    return subtractResult.Errors;
+        var adjustments = await inventoryAdjustmentRepository.GetByBatchAsync(batch.ShopId, batch.Id, cancellationToken);
+        if (adjustments.Any(a => !a.IsVoided))
+            return true;
 
-                inventoryRepository.Update(inventory);
-
-                await unitOfWork.SaveChangesAsync(ct);
-                return Result.Success;
-            }
-            catch (DbUpdateConcurrencyException ex)
-            {
-                if (attempt == maxRetries - 1)
-                    return Error.Conflict(
-                        "Inventory.UpdateConflict",
-                        "Inventory aggregate could not be updated after 3 retries due to concurrent modifications.");
-
-                foreach (var entry in ex.Entries)
-                    await entry.ReloadAsync(ct);
-            }
-        }
-
-        return Error.Conflict(
-            "Inventory.UpdateConflict",
-            "Inventory aggregate could not be updated after max retries.");
+        // Equal quantities can still hide a sale that was returned. Movements of voided adjustments
+        // net to zero, and a legacy correction's opening movement belongs to the receipt itself.
+        var adjustmentNumbers = adjustments.Select(a => a.AdjustmentNumber).ToHashSet(StringComparer.Ordinal);
+        var movements = await stockTransactionRepository.GetByBatchAsync(batch.ShopId, batch.Id, cancellationToken);
+        return movements.Any(m =>
+            m.TransactionType is StockTransactionType.Out or StockTransactionType.Ret or StockTransactionType.Rej
+                or StockTransactionType.Dmg or StockTransactionType.Stol
+            && !(m.ReferenceNumber is { } reference
+                && (adjustmentNumbers.Contains(reference) || reference == UpdateInventoryBatchCommandHandler.CorrectionReference)));
     }
 }

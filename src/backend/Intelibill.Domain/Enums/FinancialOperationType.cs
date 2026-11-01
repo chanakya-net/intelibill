@@ -14,4 +14,7 @@ public enum FinancialOperationType
 
     /// <summary>One committed row of a keyed bulk stock intake.</summary>
     BulkIntakeRow = 4,
+
+    /// <summary>One physical stock count of a batch.</summary>
+    StockCount = 5,
 }

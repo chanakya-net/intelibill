@@ -17,4 +17,5 @@ public sealed record UpdateInventoryBatchCommand(
     DateOnly? ManufacturingDate,
     Guid? SupplierId,
     string? Notes,
-    DateOnly? EntryDate);
+    DateOnly? EntryDate,
+    uint? ExpectedVersion = null);

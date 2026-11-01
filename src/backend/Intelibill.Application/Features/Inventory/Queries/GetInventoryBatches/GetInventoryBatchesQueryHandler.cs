@@ -49,6 +49,7 @@ public sealed class GetInventoryBatchesQueryHandler(
             null, // SupplierName can be fetched if needed
             b.IsVoided,
             b.CreatedAt,
-            b.UpdatedAt)).ToList();
+            b.UpdatedAt,
+            b.Version)).ToList();
     }
 }

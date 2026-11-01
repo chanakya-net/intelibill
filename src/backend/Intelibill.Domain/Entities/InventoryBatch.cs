@@ -23,6 +23,12 @@ public sealed class InventoryBatch : BaseEntity
     public Guid CreatedBy { get; private set; }
     public Guid? UpdatedBy { get; private set; }
 
+    /// <summary>
+    /// Row version, assigned by the store on every write. A writer holding an older value is refused,
+    /// so a count or correction taken against stale stock can never overwrite a newer one.
+    /// </summary>
+    public uint Version { get; private set; }
+
     public Item Item { get; private set; } = null!;
     public ICollection<StockTransaction> StockTransactions { get; private set; } = [];
 

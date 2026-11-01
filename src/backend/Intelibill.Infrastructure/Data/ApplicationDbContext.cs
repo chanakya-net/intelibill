@@ -56,6 +56,7 @@ public class ApplicationDbContext(
     public DbSet<CreditNote> CreditNotes => Set<CreditNote>();
     public DbSet<CreditNoteRedemption> CreditNoteRedemptions => Set<CreditNoteRedemption>();
     public DbSet<OperationReceipt> OperationReceipts => Set<OperationReceipt>();
+    public DbSet<StockCount> StockCounts => Set<StockCount>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -63,12 +64,19 @@ public class ApplicationDbContext(
 
         if (Database.IsNpgsql())
         {
+            // PostgreSQL's xmin changes on every write of the row, so every update of either row is
+            // checked against the version it was read at, and a stale write is refused.
             modelBuilder.Entity<Inventory>()
-                .Property<uint>("xmin")
+                .Property(i => i.Version)
                 .IsRowVersion()
                 .HasColumnName("xmin")
                 .HasColumnType("xid");
 
+            modelBuilder.Entity<InventoryBatch>()
+                .Property(b => b.Version)
+                .IsRowVersion()
+                .HasColumnName("xmin")
+                .HasColumnType("xid");
         }
 
         base.OnModelCreating(modelBuilder);

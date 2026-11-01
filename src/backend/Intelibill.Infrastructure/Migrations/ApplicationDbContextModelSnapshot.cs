@@ -969,7 +969,7 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("updated_by");
 
-                    b.Property<uint>("xmin")
+                    b.Property<uint>("Version")
                         .IsConcurrencyToken()
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("xid")
@@ -1012,13 +1012,13 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnName("adjustment_number");
 
                     b.Property<decimal>("BatchQuantityAfter")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)")
                         .HasColumnName("batch_quantity_after");
 
                     b.Property<decimal>("BatchQuantityBefore")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)")
                         .HasColumnName("batch_quantity_before");
 
                     b.Property<decimal>("CostImpact")
@@ -1045,13 +1045,13 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnName("inventory_batch_id");
 
                     b.Property<decimal>("InventoryQuantityAfter")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)")
                         .HasColumnName("inventory_quantity_after");
 
                     b.Property<decimal>("InventoryQuantityBefore")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)")
                         .HasColumnName("inventory_quantity_before");
 
                     b.Property<bool>("IsVoided")
@@ -1078,8 +1078,8 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnName("performed_by");
 
                     b.Property<decimal>("Quantity")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)")
                         .HasColumnName("quantity");
 
                     b.Property<string>("Reason")
@@ -1149,7 +1149,7 @@ namespace Intelibill.Infrastructure.Migrations
 
                     b.ToTable("inventory_adjustments", null, t =>
                         {
-                            t.HasCheckConstraint("ck_inventory_adjustments_cost_impact_positive", "cost_impact > 0");
+                            t.HasCheckConstraint("ck_inventory_adjustments_cost_impact_non_negative", "cost_impact >= 0");
 
                             t.HasCheckConstraint("ck_inventory_adjustments_direction_reason", "((direction = 'Decrease' AND reason IN ('Damaged', 'Expired', 'Stolen', 'MissingLost', 'StockCountCorrection', 'OtherLoss')) OR (direction = 'Increase' AND reason IN ('FoundStock', 'StockCountCorrection', 'ReturnRestockCorrection', 'OtherGain')))");
 
@@ -1263,6 +1263,12 @@ namespace Intelibill.Infrastructure.Migrations
                     b.Property<Guid?>("UpdatedBy")
                         .HasColumnType("uuid")
                         .HasColumnName("updated_by");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
 
                     b.HasKey("Id")
                         .HasName("pk_inventory_batches");
@@ -3376,6 +3382,104 @@ namespace Intelibill.Infrastructure.Migrations
                     b.ToTable("shop_memberships", (string)null);
                 });
 
+            modelBuilder.Entity("Intelibill.Domain.Entities.StockCount", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("CountedQuantity")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)")
+                        .HasColumnName("counted_quantity");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<decimal>("Delta")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)")
+                        .HasColumnName("delta");
+
+                    b.Property<long>("ExpectedBatchVersion")
+                        .HasColumnType("bigint")
+                        .HasColumnName("expected_batch_version");
+
+                    b.Property<Guid?>("InventoryAdjustmentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("inventory_adjustment_id");
+
+                    b.Property<Guid>("InventoryBatchId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("inventory_batch_id");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("item_id");
+
+                    b.Property<decimal>("ObservedQuantity")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)")
+                        .HasColumnName("observed_quantity");
+
+                    b.Property<DateTimeOffset>("PerformedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("performed_at");
+
+                    b.Property<Guid>("PerformedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("performed_by");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("reason");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<Guid?>("StockTransactionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("stock_transaction_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_stock_counts");
+
+                    b.HasIndex("InventoryAdjustmentId")
+                        .HasDatabaseName("ix_stock_counts_inventory_adjustment_id");
+
+                    b.HasIndex("StockTransactionId")
+                        .HasDatabaseName("ix_stock_counts_stock_transaction_id");
+
+                    b.HasIndex("InventoryBatchId", "ItemId", "ShopId")
+                        .HasDatabaseName("ix_stock_counts_inventory_batch_id_item_id_shop_id");
+
+                    b.HasIndex("ShopId", "InventoryBatchId", "PerformedAt")
+                        .HasDatabaseName("ix_stock_counts_shop_id_inventory_batch_id_performed_at");
+
+                    b.HasIndex("ShopId", "ItemId", "PerformedAt")
+                        .HasDatabaseName("ix_stock_counts_shop_id_item_id_performed_at");
+
+                    b.ToTable("stock_counts", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_stock_counts_delta", "delta = counted_quantity - observed_quantity");
+
+                            t.HasCheckConstraint("ck_stock_counts_movement_links", "(delta = 0 AND inventory_adjustment_id IS NULL AND stock_transaction_id IS NULL) OR (delta <> 0 AND inventory_adjustment_id IS NOT NULL AND stock_transaction_id IS NOT NULL)");
+
+                            t.HasCheckConstraint("ck_stock_counts_quantities_non_negative", "observed_quantity >= 0 AND counted_quantity >= 0");
+
+                            t.HasCheckConstraint("ck_stock_counts_reason_required", "length(btrim(reason)) > 0");
+                        });
+                });
+
             modelBuilder.Entity("Intelibill.Domain.Entities.StockTransaction", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3619,7 +3723,7 @@ namespace Intelibill.Infrastructure.Migrations
                         {
                             t.HasCheckConstraint("ck_supplier_ledger_entries_amount_non_zero", "amount <> 0");
 
-                            t.HasCheckConstraint("ck_supplier_ledger_entries_batch_by_type", "((entry_type = 'GOODS_RECEIVED' AND batch_id IS NOT NULL) OR (entry_type IN ('PAYMENT_MADE', 'RECORD_ADJUSTED') AND batch_id IS NULL))");
+                            t.HasCheckConstraint("ck_supplier_ledger_entries_batch_by_type", "((entry_type = 'GOODS_RECEIVED' AND batch_id IS NOT NULL) OR (entry_type IN ('PAYMENT_MADE', 'RECORD_ADJUSTED') AND batch_id IS NULL) OR (entry_type = 'REVERSAL'))");
                         });
                 });
 
@@ -4337,6 +4441,36 @@ namespace Intelibill.Infrastructure.Migrations
                     b.Navigation("Shop");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.StockCount", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.InventoryAdjustment", null)
+                        .WithMany()
+                        .HasForeignKey("InventoryAdjustmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_stock_counts_inventory_adjustments_inventory_adjustment_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.Shop", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_stock_counts_shops_shop_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.StockTransaction", null)
+                        .WithMany()
+                        .HasForeignKey("StockTransactionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_stock_counts_stock_transactions_stock_transaction_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.InventoryBatch", null)
+                        .WithMany()
+                        .HasForeignKey("InventoryBatchId", "ItemId", "ShopId")
+                        .HasPrincipalKey("Id", "ItemId", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_stock_counts_inventory_batches_inventory_batch_id_item_id_s");
                 });
 
             modelBuilder.Entity("Intelibill.Domain.Entities.StockTransaction", b =>

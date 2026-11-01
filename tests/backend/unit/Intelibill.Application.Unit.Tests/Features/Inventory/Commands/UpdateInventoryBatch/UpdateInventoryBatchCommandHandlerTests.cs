@@ -236,4 +236,56 @@ public class UpdateInventoryBatchCommandHandlerTests
         await _messageBus.DidNotReceive().PublishAsync(
             Arg.Any<InventoryBatchPricingChangedDomainEvent>());
     }
+
+    [Fact]
+    public async Task Handle_WhenQuantityDecreases_WritesSignedOutMovement()
+    {
+        var (user, shop, batch, inventory) = ArrangeOwnerBatch(10m);
+
+        var result = await _handler.Handle(ValidCommand(user.Id, shop.Id, batch.Id) with { Quantity = 8m }, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(8m, inventory.Quantity);
+        await _stockTransactionRepository.Received(1).AddAsync(
+            Arg.Is<StockTransaction>(t => t.TransactionType == StockTransactionType.Out && t.Quantity == -2m),
+            Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_WhenAggregateCannotAbsorbDecrease_SavesNothing()
+    {
+        var (user, shop, batch, _) = ArrangeOwnerBatch(10m, inventoryQuantity: 1m);
+
+        var result = await _handler.Handle(ValidCommand(user.Id, shop.Id, batch.Id) with { Quantity = 8m }, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        await _stockTransactionRepository.DidNotReceive().AddAsync(Arg.Any<StockTransaction>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    private (User User, Shop Shop, InventoryBatch Batch, DomainInventory Inventory) ArrangeOwnerBatch(
+        decimal batchQuantity,
+        decimal? inventoryQuantity = null)
+    {
+        var user = User.CreateWithEmail("owner@test.com", "pass", "Test", "Owner");
+        var shop = Shop.Create("S", "A", "C", "S", "560001", null, null, null);
+        var itemId = Guid.NewGuid();
+        var supplier = Supplier.CreateUnknownSystemSupplier(shop.Id);
+        var batch = InventoryBatch.Create(shop.Id, itemId, "BATCH-001", batchQuantity, 100m, 200m, 180m, 18m, false, null, null, supplier.Id, user.Id).Value;
+        var inventory = DomainInventory.Create(shop.Id, itemId, inventoryQuantity ?? batchQuantity, 2m, 50m, user.Id).Value;
+
+        _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
+        _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>())
+            .Returns(ShopMembership.Create(shop.Id, user.Id, ShopRole.Owner, false));
+        _supplierRepository.GetSystemByShopIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(supplier);
+        _batchRepository.GetByIdAsync(batch.Id, Arg.Any<CancellationToken>()).Returns(batch);
+        _batchRepository.GetByBatchNumberAsync(shop.Id, itemId, "BATCH-CORR", Arg.Any<CancellationToken>())
+            .Returns((InventoryBatch?)null);
+        _inventoryRepository.GetByItemAsync(shop.Id, itemId, Arg.Any<CancellationToken>()).Returns(inventory);
+        _ledgerRepository.GetByBatchAsync(shop.Id, batch.Id, Arg.Any<CancellationToken>()).Returns([]);
+
+        return (user, shop, batch, inventory);
+    }
 }

@@ -2,7 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 import { describe, expect, it } from 'vitest';
 
-import { BatchesTableComponent } from './batches-table.component';
+import { BatchesTableComponent, type BatchTableAction } from './batches-table.component';
 import type { InventoryBatchDto } from '../../services/inventory.models';
 
 describe('BatchesTableComponent', () => {
@@ -31,6 +31,7 @@ describe('BatchesTableComponent', () => {
       isVoided: false,
       createdAt: new Date().toISOString(),
       updatedAt: null,
+      version: 1,
     },
   ];
 
@@ -48,8 +49,7 @@ describe('BatchesTableComponent', () => {
   });
 
   it('should emit batch action payload', () => {
-    const events: Array<{ action: 'edit' | 'adjust' | 'void' | 'printLabels'; batchId: string }> =
-      [];
+    const events: BatchTableAction[] = [];
     component.batchAction.subscribe((value) => events.push(value));
 
     component.onRowAction('edit', 'b1');
@@ -64,7 +64,13 @@ describe('BatchesTableComponent', () => {
   it('keeps every row action available through one menu', () => {
     const menuItems = component.rowActionItems(mockBatches[0]);
 
-    expect(menuItems.map((item) => item.id)).toEqual(['printLabels', 'adjust', 'edit', 'void']);
+    expect(menuItems.map((item) => item.id)).toEqual([
+      'printLabels',
+      'adjust',
+      'count',
+      'edit',
+      'void',
+    ]);
     expect(menuItems.every((item) => item.disabled === false)).toBe(true);
   });
 

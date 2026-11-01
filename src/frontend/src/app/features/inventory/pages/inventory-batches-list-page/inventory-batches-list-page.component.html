@@ -353,3 +353,87 @@
     </div>
   </form>
 </p-dialog>
+
+<p-dialog
+  [header]="'inventory.countStock' | transloco"
+  [(visible)]="isCountDialogOpen"
+  [modal]="true"
+  [style]="{ width: '92vw', maxWidth: '520px' }"
+  [draggable]="false"
+  [resizable]="false"
+>
+  <form [formGroup]="countForm" class="flex flex-col gap-4 mt-2" (ngSubmit)="onSaveCount()">
+    <div class="flex flex-col gap-1 p-2 bg-blue-50 rounded border border-blue-100">
+      <span class="text-xs text-blue-600 font-semibold uppercase tracking-wider">
+        {{ 'inventory.batchNumber' | transloco }}
+      </span>
+      <span class="font-mono font-bold">{{ selectedBatch()?.batchNumber }}</span>
+      <span class="text-sm text-slate-600">{{ selectedBatch()?.itemName }}</span>
+    </div>
+
+    <p class="text-sm text-slate-600 m-0">{{ 'inventory.countHint' | transloco }}</p>
+
+    <div class="flex flex-col gap-1">
+      <label class="text-sm font-semibold" for="countedQuantity">{{
+        'inventory.countedQuantity' | transloco
+      }}</label>
+      <p-inputNumber
+        inputId="countedQuantity"
+        formControlName="countedQuantity"
+        [min]="0"
+        mode="decimal"
+        [maxFractionDigits]="3"
+        [fluid]="true"
+      ></p-inputNumber>
+    </div>
+
+    @if (countPreview(); as preview) {
+      <div class="adjustment-preview">
+        <div>
+          <span>{{ 'inventory.countSystemQuantity' | transloco }}</span>
+          <strong>{{ preview.systemQuantity | number: '1.0-3' }}</strong>
+        </div>
+        <div>
+          <span>{{ 'inventory.countDifference' | transloco }}</span>
+          <strong
+            [class.text-red-600]="preview.difference < 0"
+            [class.text-green-700]="preview.difference > 0"
+          >
+            {{ preview.difference > 0 ? '+' : '' }}{{ preview.difference | number: '1.0-3' }}
+          </strong>
+        </div>
+      </div>
+    }
+
+    <div class="flex flex-col gap-1">
+      <label class="text-sm font-semibold" for="countReason">{{
+        'inventory.countReason' | transloco
+      }}</label>
+      <textarea
+        id="countReason"
+        pTextarea
+        formControlName="reason"
+        rows="3"
+        [placeholder]="'inventory.countReasonPlaceholder' | transloco"
+      ></textarea>
+    </div>
+
+    <div class="flex justify-end gap-2 mt-2">
+      <button
+        pButton
+        type="button"
+        [label]="'common.cancel' | transloco"
+        class="p-button-text"
+        [disabled]="isCountSaving()"
+        (click)="isCountDialogOpen.set(false)"
+      ></button>
+      <button
+        pButton
+        type="submit"
+        [label]="'inventory.submitCount' | transloco"
+        [loading]="isCountSaving()"
+        [disabled]="countForm.invalid || isCountSaving()"
+      ></button>
+    </div>
+  </form>
+</p-dialog>

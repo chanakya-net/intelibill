@@ -23,6 +23,15 @@ public class VoidBatchCommandHandlerTests
     private readonly IInventoryRepository _inventoryRepository = Substitute.For<IInventoryRepository>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
     private readonly IMessageBus _messageBus = Substitute.For<IMessageBus>();
+    private readonly IInventoryAdjustmentRepository _inventoryAdjustmentRepository = Substitute.For<IInventoryAdjustmentRepository>();
+
+    public VoidBatchCommandHandlerTests()
+    {
+        _stockTransactionRepository.GetByBatchAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(Array.Empty<StockTransaction>());
+        _inventoryAdjustmentRepository.GetByBatchAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(Array.Empty<InventoryAdjustment>());
+    }
 
     [Fact]
     public async Task HandleAsync_WhenBatchNotFound_ReturnsError()
@@ -106,6 +115,8 @@ public class VoidBatchCommandHandlerTests
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
         _inventoryBatchRepository.GetByIdAsync(batch.Id, Arg.Any<CancellationToken>()).Returns(batch);
         _supplierLedgerEntryRepository.GetByBatchAsync(shop.Id, batch.Id, Arg.Any<CancellationToken>()).Returns(new[] { payable });
+        _inventoryRepository.GetByItemAsync(shop.Id, itemId, Arg.Any<CancellationToken>())
+            .Returns(DomainInventory.Create(shop.Id, itemId, 3m, 0m, 0m, actor.Id).Value);
 
         var result = await CreateHandler().HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id), CancellationToken.None);
 
@@ -181,7 +192,57 @@ public class VoidBatchCommandHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_HappyPath_WithPartialSalesAndSupplier_UpdatesAllRecords()
+    public async Task HandleAsync_WhenPartlySold_RefusesWithoutTouchingStockOrPayable()
+    {
+        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
+
+        var itemId = Guid.NewGuid();
+        var batch = InventoryBatch.Create(shop.Id, itemId, "B-1", 10m, 80m, 120m, 110m, 5m, false, null, null, Guid.NewGuid(), actor.Id).Value;
+        batch.SubtractQuantity(4m, actor.Id);
+        var inventory = DomainInventory.Create(shop.Id, itemId, 6m, 2m, 50m, actor.Id).Value;
+
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _inventoryBatchRepository.GetByIdAsync(batch.Id, Arg.Any<CancellationToken>()).Returns(batch);
+        _inventoryRepository.GetByItemAsync(shop.Id, itemId, Arg.Any<CancellationToken>()).Returns(inventory);
+
+        var result = await CreateHandler().HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id), CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Inventory.BatchConsumed.Code, result.FirstError.Code);
+        Assert.False(batch.IsVoided);
+        Assert.Equal(6m, inventory.Quantity);
+        await _stockTransactionRepository.DidNotReceive().AddAsync(Arg.Any<StockTransaction>(), Arg.Any<CancellationToken>());
+        await _supplierLedgerEntryRepository.DidNotReceive().AddAsync(Arg.Any<SupplierLedgerEntry>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenSoldAndReturned_RefusesEvenThoughQuantityIsWhole()
+    {
+        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
+
+        var itemId = Guid.NewGuid();
+        var batch = InventoryBatch.Create(shop.Id, itemId, "B-1", 10m, 80m, 120m, 110m, 5m, false, null, null, null, actor.Id).Value;
+        var sale = StockTransaction.Create(shop.Id, itemId, batch.Id, StockTransactionType.Out, -2m, "INV-1", null, DateTimeOffset.UtcNow, actor.Id, actor.Id).Value;
+        var returned = StockTransaction.Create(shop.Id, itemId, batch.Id, StockTransactionType.Ret, 2m, "RET-1", null, DateTimeOffset.UtcNow, actor.Id, actor.Id).Value;
+
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _inventoryBatchRepository.GetByIdAsync(batch.Id, Arg.Any<CancellationToken>()).Returns(batch);
+        _stockTransactionRepository.GetByBatchAsync(shop.Id, batch.Id, Arg.Any<CancellationToken>()).Returns([sale, returned]);
+
+        var result = await CreateHandler().HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id), CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Inventory.BatchConsumed.Code, result.FirstError.Code);
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenUnconsumedWithSupplier_ReversesWholeReceiptInOneSave()
     {
         var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
@@ -190,29 +251,23 @@ public class VoidBatchCommandHandlerTests
         var supplierId = Guid.NewGuid();
         var itemId = Guid.NewGuid();
         var batch = InventoryBatch.Create(shop.Id, itemId, "B-1", 10m, 80m, 120m, 110m, 5m, false, null, null, supplierId, actor.Id).Value;
-        
-        // Simulate some sales: original 10, remaining 6
-        typeof(InventoryBatch).GetProperty(nameof(InventoryBatch.Quantity))!.SetValue(batch, 6m);
-
+        var receipt = StockTransaction.Create(shop.Id, itemId, batch.Id, StockTransactionType.In, 10m, "GRN-1", null, DateTimeOffset.UtcNow, actor.Id, actor.Id).Value;
         var inventory = DomainInventory.Create(shop.Id, itemId, 30m, 2m, 50m, actor.Id).Value;
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
         _inventoryBatchRepository.GetByIdAsync(batch.Id, Arg.Any<CancellationToken>()).Returns(batch);
         _inventoryRepository.GetByItemAsync(shop.Id, itemId, Arg.Any<CancellationToken>()).Returns(inventory);
+        _stockTransactionRepository.GetByBatchAsync(shop.Id, batch.Id, Arg.Any<CancellationToken>()).Returns([receipt]);
 
-        var handler = CreateHandler();
-        var result = await handler.HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id), CancellationToken.None);
+        var result = await CreateHandler().HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id), CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Equal(10m, result.Value.OriginalQuantity);
-        Assert.Equal(6m, result.Value.RemainingQuantity);
+        Assert.Equal(10m, result.Value.RemainingQuantity);
         Assert.Equal(-800m, result.Value.LedgerReversalAmount);
-
         Assert.True(batch.IsVoided);
-        Assert.Equal(0m, batch.Quantity);
-        Assert.Equal(24m, inventory.Quantity); // 30 - 6 = 24
+        Assert.Equal(20m, inventory.Quantity);
 
-        _inventoryBatchRepository.Received(1).Update(batch);
         await _stockTransactionRepository.Received(1).AddAsync(Arg.Is<StockTransaction>(t => t.TransactionType == StockTransactionType.Reversal && t.Quantity == -10m), Arg.Any<CancellationToken>());
         await _supplierLedgerEntryRepository.Received(1).AddAsync(Arg.Is<SupplierLedgerEntry>(e => e.EntryType == SupplierLedgerEntryType.Reversal && e.Amount == -800m), Arg.Any<CancellationToken>());
         _inventoryRepository.Received(1).Update(inventory);
@@ -248,40 +303,7 @@ public class VoidBatchCommandHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_WhenConcurrencyConflictOnVoid_RetriesAndSucceeds()
-    {
-        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
-        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
-        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
-
-        var itemId = Guid.NewGuid();
-        var batch = InventoryBatch.Create(shop.Id, itemId, "B-1", 10m, 80m, 120m, 110m, 5m, false, null, null, null, actor.Id).Value;
-
-        // First attempt sees qty=30, second attempt (simulated reload after concurrent inbound) sees qty=35
-        var inventory1 = DomainInventory.Create(shop.Id, itemId, 30m, 2m, 50m, actor.Id).Value;
-        var inventory2 = DomainInventory.Create(shop.Id, itemId, 35m, 2m, 50m, actor.Id).Value;
-
-        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
-        _inventoryBatchRepository.GetByIdAsync(batch.Id, Arg.Any<CancellationToken>()).Returns(batch);
-        _inventoryRepository.GetByItemAsync(shop.Id, itemId, Arg.Any<CancellationToken>())
-            .Returns(inventory1, inventory2);
-
-        _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>())
-            .Returns(
-                _ => Task.FromException<int>(new DbUpdateConcurrencyException("conflict", new List<IUpdateEntry>())),
-                _ => Task.FromResult(1));
-
-        var handler = CreateHandler();
-        var result = await handler.HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id), CancellationToken.None);
-
-        Assert.False(result.IsError);
-        // inventory2 (35) - batch.Quantity (10) = 25
-        Assert.Equal(25m, inventory2.Quantity);
-        await _unitOfWork.Received(2).SaveChangesAsync(Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
-    public async Task HandleAsync_WhenVoidConcurrencyExhaustsAllRetries_ReturnsUpdateConflictError()
+    public async Task HandleAsync_WhenSaveLosesRowVersionRace_ReturnsConflictWithoutRetrying()
     {
         var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
@@ -294,17 +316,15 @@ public class VoidBatchCommandHandlerTests
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
         _inventoryBatchRepository.GetByIdAsync(batch.Id, Arg.Any<CancellationToken>()).Returns(batch);
         _inventoryRepository.GetByItemAsync(shop.Id, itemId, Arg.Any<CancellationToken>()).Returns(inventory);
-
         _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>())
             .ThrowsAsync(new DbUpdateConcurrencyException("conflict", new List<IUpdateEntry>()));
 
-        var handler = CreateHandler();
-        var result = await handler.HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id), CancellationToken.None);
+        var result = await CreateHandler().HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id), CancellationToken.None);
 
         Assert.True(result.IsError);
-        Assert.Equal("Inventory.UpdateConflict", result.FirstError.Code);
-
-        await _unitOfWork.Received(3).SaveChangesAsync(Arg.Any<CancellationToken>());
+        Assert.Equal(Errors.Inventory.ConcurrentChange.Code, result.FirstError.Code);
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _messageBus.DidNotReceive().PublishAsync(Arg.Any<InventoryBatchVoidedDomainEvent>());
     }
 
     private VoidBatchCommandHandler CreateHandler() =>
@@ -312,6 +332,7 @@ public class VoidBatchCommandHandlerTests
             _userRepository,
             _inventoryBatchRepository,
             _stockTransactionRepository,
+            _inventoryAdjustmentRepository,
             _supplierLedgerEntryRepository,
             _inventoryRepository,
             _unitOfWork,

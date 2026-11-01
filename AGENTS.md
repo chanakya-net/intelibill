@@ -8,7 +8,7 @@
 - Test full: `dotnet test src/backend/Intelibill.slnx`
 - Test unit: `dotnet test tests/backend/unit/Intelibill.Domain.Unit.Tests`, `Application.Unit.Tests`, `Api.Unit.Tests`
 - Test integration: `dotnet test tests/backend/integration/Intelibill.Integration.Tests` (requires Docker)
-- Snapshot: 247 + 998 + 542 + 533 = 2320 tests (1787 non-integration), all passing as of 1 November 2026
+- Snapshot: 248 + 1013 + 542 + 548 = 2351 tests (1803 non-integration), all passing as of 1 November 2026
 
 **Migrations** (EF Core) — API startup does **not** apply them; run `database update` yourself after pulling schema changes (deployed environments use the migration job):
 ```bash
@@ -104,7 +104,7 @@ DB Options: `src/backend/Intelibill.Infrastructure/Options/DatabaseOptions.cs:7`
 - Sessions: `GET users/me/sessions`, `DELETE users/me/sessions/{id}`, `POST users/me/sessions/revoke-all` (ends every device, the caller's included)
 - Shops: `GET me`, `{shopId}`, `POST` and `POST switch` (any active member; both return an access scope, never a refresh token), `PUT {shopId}`, `PATCH {shopId}/members/{userId}`, `GET/POST {shopId}/invitations`, `DELETE {shopId}/invitations/{invitationId}`
 - Items: `GET stream` (SSE), `GET`, `GET details`, `POST`, `PATCH {itemId}`
-- Inventory: `POST inbound`, `inbound/batch` (optional `operationKey`; per-row commit, resend replays), `GET batches`, `batches/available`, `PUT/POST/void batches/{batchId}`
+- Inventory: `POST inbound`, `inbound/batch` (optional `operationKey`; per-row commit, resend replays), `GET batches` (each with its row `version`), `batches/available`, `PUT/POST/void batches/{batchId}`, `POST batches/{batchId}/count` (owner/manager; `expectedVersion` + reason, optional `operationKey`; stale version → 409 `Inventory.BatchVersionConflict`). Void refuses a consumed receipt (409 `Inventory.BatchConsumed`)
 - Sales: `POST`, `GET`, `GET {saleId}`, `GET profit-loss`
 - Customers: CRUD + `account`, `payments` (optional `operationKey`)
 - Suppliers: CRUD + `ledger`, `payments` (optional `operationKey`)
@@ -119,13 +119,14 @@ DB Options: `src/backend/Intelibill.Infrastructure/Options/DatabaseOptions.cs:7`
 - Realtime: hub connections are admitted by `RealtimeConnectionGate` against live authority, recorded in `realtime_connection_leases`, addressed per payload by `IAuthorizedRealtimeDispatcher<THub>` (no SignalR groups) and closed by `RealtimeRevocationWorker`'s five-second sweep. See `docs/backend-architecture.md` § Realtime Notifications
 - Financial operations: keyed payments run through `IFinancialOperationExecutor`, which reserves an `operation_receipts` row (unique per shop + type + key) and commits it with the posting; retries replay the stored response, changed payloads answer 409 `Operation.PayloadMismatch`. Bulk stock intake commits a manifest receipt plus one receipt per row through it (`IInboundRowExecutor`, fresh scope per row). See `docs/backend-architecture.md` § Financial Operation Receipts and § Bulk Stock Intake
 - Migration: `20260425075353_InitialCreate` (single consolidated)
+- Stock corrections: `inventory_batches`/`inventory` use `xmin` as row version; every quantity change writes one signed movement in the same save, every count a `stock_counts` row. See `docs/backend-architecture.md` § Stock Corrections and Voids
 - RLS: session interceptor sets `app.current_user_id` + `app.active_shop_id`
 - Shop authority: `ShopMembership.Status`/`AuthorityVersion`; role and status changes, invitation issue and acceptance all run under one authority-lock order (users → shop → membership/invitation rows), and the token's shop scope is re-checked against the live membership on every request
 - Tests: Testcontainers (real PostgreSQL via Docker)
 
 ## Domain Model
 
-**Entities**: `User`, `AuthSession`, `RealtimeConnectionLease`, `PhoneChallenge`, `IdentitySms`, `Shop`, `ShopMembership`, `ShopInvitation`, `Item`, `Inventory`, `InventoryBatch`, `StockTransaction`, `Sale`, `SaleItem`, `Customer`, `CustomerLedgerEntry`, `Supplier`, `SupplierLedgerEntry`, `Expense`, `ExpenseCategory`, `BankAccount`, `RefreshToken`, `PasswordResetToken`, `OperationReceipt`
+**Entities**: `User`, `AuthSession`, `RealtimeConnectionLease`, `PhoneChallenge`, `IdentitySms`, `Shop`, `ShopMembership`, `ShopInvitation`, `Item`, `Inventory`, `InventoryBatch`, `StockTransaction`, `Sale`, `SaleItem`, `Customer`, `CustomerLedgerEntry`, `Supplier`, `SupplierLedgerEntry`, `Expense`, `ExpenseCategory`, `BankAccount`, `RefreshToken`, `PasswordResetToken`, `OperationReceipt`, `StockCount`
 
 **Enums**: `ShopRole`, `MembershipStatus`, `CredentialKind`, `PaymentMethod`, `BankAccountType`, `StockTransactionType`, `SupplierLedgerEntryType`, `CustomerLedgerEntryType`, `SupplierStatus`, `FinancialOperationType`, `OperationReceiptStatus`
 

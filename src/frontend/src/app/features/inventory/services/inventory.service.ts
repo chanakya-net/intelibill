@@ -14,6 +14,8 @@ import type {
   AddInventoryBatchResponse,
   AddInventoryBatchRowRequest,
   AdjustInventoryBatchRequest,
+  CountInventoryBatchRequest,
+  CountInventoryBatchResponse,
   AdjustInventoryBatchResponse,
   AvailableBatchDto,
   HsnLookupResult,
@@ -98,6 +100,16 @@ export class InventoryService {
 
   voidInventoryBatch(batchId: string): Observable<void> {
     return this.http.post<void>(`${API_BASE_URL}/inventory/batches/${batchId}/void`, {});
+  }
+
+  countInventoryBatch(
+    batchId: string,
+    payload: CountInventoryBatchRequest,
+  ): Observable<CountInventoryBatchResponse> {
+    return this.http.post<CountInventoryBatchResponse>(
+      `${API_BASE_URL}/inventory/batches/${batchId}/count`,
+      payload,
+    );
   }
 
   adjustInventoryBatch(

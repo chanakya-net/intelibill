@@ -71,7 +71,8 @@ public sealed record UpdateInventoryBatchRequest(
     DateOnly? ManufacturingDate,
     Guid? SupplierId,
     string? Notes,
-    DateOnly? EntryDate);
+    DateOnly? EntryDate,
+    uint? ExpectedVersion = null);
 
 public sealed record ReassignBatchSupplierRequest(Guid NewSupplierId);
 
@@ -83,6 +84,12 @@ public sealed record CreateAdjustmentRequest(
     string? Notes);
 
 public sealed record VoidAdjustmentRequest(string Reason);
+
+/// <summary>
+/// A physical count of one batch. <c>ExpectedVersion</c> is the batch <c>version</c> the counter
+/// was shown; <c>OperationKey</c> makes a resend replay the committed count.
+/// </summary>
+public sealed record CountStockRequest(uint ExpectedVersion, decimal CountedQuantity, string Reason, string? OperationKey);
 
 public sealed record AddInventoryBatchSucceededRow(string ClientRowId, AddInventoryResultDto Result);
 
