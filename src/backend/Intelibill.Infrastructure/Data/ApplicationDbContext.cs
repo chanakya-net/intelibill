@@ -57,6 +57,9 @@ public class ApplicationDbContext(
     public DbSet<CreditNoteRedemption> CreditNoteRedemptions => Set<CreditNoteRedemption>();
     public DbSet<OperationReceipt> OperationReceipts => Set<OperationReceipt>();
     public DbSet<StockCount> StockCounts => Set<StockCount>();
+    public DbSet<PurchaseReceiptValue> PurchaseReceiptValues => Set<PurchaseReceiptValue>();
+    public DbSet<PurchaseReceiptCostAdjustment> PurchaseReceiptCostAdjustments => Set<PurchaseReceiptCostAdjustment>();
+    public DbSet<BatchPriceRevision> BatchPriceRevisions => Set<BatchPriceRevision>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -74,6 +77,12 @@ public class ApplicationDbContext(
 
             modelBuilder.Entity<InventoryBatch>()
                 .Property(b => b.Version)
+                .IsRowVersion()
+                .HasColumnName("xmin")
+                .HasColumnType("xid");
+
+            modelBuilder.Entity<PurchaseReceiptValue>()
+                .Property(r => r.Version)
                 .IsRowVersion()
                 .HasColumnName("xmin")
                 .HasColumnType("xid");

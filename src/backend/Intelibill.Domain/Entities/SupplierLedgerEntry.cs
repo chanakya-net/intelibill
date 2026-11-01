@@ -63,14 +63,14 @@ public sealed class SupplierLedgerEntry : BaseEntity
             return Error.Validation("SupplierLedgerEntry.AmountZero", "Amount cannot be zero.");
         }
 
-        if (entryType == SupplierLedgerEntryType.GoodsReceived && batchId is null)
+        if (entryType is (SupplierLedgerEntryType.GoodsReceived or SupplierLedgerEntryType.CostAdjusted) && batchId is null)
         {
-            return Error.Validation("SupplierLedgerEntry.BatchRequired", "Batch is required for goods received entries.");
+            return Error.Validation("SupplierLedgerEntry.BatchRequired", "Batch is required for goods received and cost adjustment entries.");
         }
 
-        if (entryType != SupplierLedgerEntryType.GoodsReceived && entryType != SupplierLedgerEntryType.Reversal && batchId is not null)
+        if (entryType is (SupplierLedgerEntryType.PaymentMade or SupplierLedgerEntryType.RecordAdjusted) && batchId is not null)
         {
-            return Error.Validation("SupplierLedgerEntry.BatchNotAllowed", "Batch can only be set for goods received or reversal entries.");
+            return Error.Validation("SupplierLedgerEntry.BatchNotAllowed", "Batch can only be set for receipt-linked entries.");
         }
 
         return Result.Success;

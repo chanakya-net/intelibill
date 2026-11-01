@@ -28,6 +28,7 @@ public sealed class VoidBatchCommandHandler(
     IStockTransactionRepository stockTransactionRepository,
     IInventoryAdjustmentRepository inventoryAdjustmentRepository,
     ISupplierLedgerEntryRepository supplierLedgerEntryRepository,
+    IPurchaseReceiptValueRepository purchaseReceiptValueRepository,
     IInventoryRepository inventoryRepository,
     IUnitOfWork unitOfWork,
     IMessageBus messageBus)
@@ -87,11 +88,19 @@ public sealed class VoidBatchCommandHandler(
         await stockTransactionRepository.AddAsync(stockTransactionResult.Value, cancellationToken);
 
         decimal? ledgerReversalAmount = null;
-        var reversalAmount = -decimal.Round(originalQuantity * costPrice, 2, MidpointRounding.AwayFromZero);
 
-        // A free receipt never created a payable, so there is nothing to reverse. A tiny priced
-        // receipt can also round to a zero reversal; that one still owes, so it is refused as before.
-        if (supplierId.HasValue && reversalAmount == 0)
+        // What is owed for this receipt is its effective total (original plus cost corrections), so
+        // the reversal nets the payable to zero. Receipts older than receipt values fall back to the
+        // unit cost they were posted with.
+        var receiptValue = await purchaseReceiptValueRepository.GetByBatchAsync(command.ActiveShopId, batch.Id, cancellationToken);
+        var reversalAmount = receiptValue is { IsResolved: true, EffectiveTotalCost: { } effectiveTotal }
+            ? -effectiveTotal
+            : -decimal.Round(originalQuantity * costPrice, 2, MidpointRounding.AwayFromZero);
+
+        // A free receipt never created a payable, so there is nothing to reverse. A tiny legacy
+        // priced receipt can also round to a zero reversal; that one still owes, so it is refused as
+        // before. A receipt value's zero total is exact (corrected down to nothing), so it is not.
+        if (supplierId.HasValue && reversalAmount == 0 && receiptValue is not { IsResolved: true })
         {
             var payables = await supplierLedgerEntryRepository.GetByBatchAsync(command.ActiveShopId, batch.Id, cancellationToken);
             if (payables.Any(e => e.EntryType == SupplierLedgerEntryType.GoodsReceived && e.Amount != 0))

@@ -4,11 +4,14 @@ using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Inventory.Commands.CorrectStockCount;
 using Intelibill.Application.Features.Inventory.Commands.CreateAdjustment;
 using Intelibill.Application.Features.Inventory.Commands.ReassignBatchSupplier;
+using Intelibill.Application.Features.Inventory.Commands.UpdateBatchPrices;
 using Intelibill.Application.Features.Inventory.Commands.UpdateInventoryBatch;
 using Intelibill.Application.Features.Inventory.Commands.VoidAdjustment;
 using Intelibill.Application.Features.Inventory.Commands.VoidBatch;
 using Intelibill.Application.Features.Inventory.DTOs;
 using Intelibill.Application.Features.Inventory.Queries.GetAvailableBatches;
+using Intelibill.Application.Features.PurchaseReceipts.Commands.CorrectReceiptCost;
+using Intelibill.Application.Features.PurchaseReceipts.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Wolverine;
@@ -91,6 +94,57 @@ public sealed partial class InventoryController
         return result.ToActionResult(Ok);
     }
 
+    [HttpPut("batches/{batchId:guid}/prices")]
+    [Authorize(Policy = "OwnerOrManager")]
+    public async Task<IActionResult> UpdateBatchPrices(Guid batchId, [FromBody] UpdateBatchPricesRequest request, CancellationToken cancellationToken)
+    {
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
+
+        var result = await Bus.InvokeAsync<ErrorOr<BatchPriceUpdateResultDto>>(
+            new UpdateBatchPricesCommand(
+                batchId,
+                UserId!.Value,
+                ActiveShopId!.Value,
+                request.ExpectedVersion,
+                request.Mrp,
+                request.SalesPrice,
+                request.TaxRatePercent,
+                request.TaxIncluded,
+                request.BatchNumber,
+                request.ExpiryDate,
+                request.ManufacturingDate,
+                request.Reason),
+            cancellationToken);
+
+        return result.ToActionResult(Ok);
+    }
+
+    [HttpPost("receipts/{receiptValueId:guid}/cost-corrections")]
+    [Authorize(Policy = "OwnerOnly")]
+    public async Task<IActionResult> CorrectReceiptCost(Guid receiptValueId, [FromBody] CorrectReceiptCostRequest request, CancellationToken cancellationToken)
+    {
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
+
+        var result = await Bus.InvokeAsync<ErrorOr<ReceiptCostCorrectionResultDto>>(
+            new CorrectReceiptCostCommand(
+                receiptValueId,
+                UserId!.Value,
+                ActiveShopId!.Value,
+                request.ExpectedVersion,
+                request.RevisedTotalCost,
+                request.Reason,
+                request.OperationKey),
+            cancellationToken);
+
+        return result.ToActionResult(Ok);
+    }
+
+    /// <summary>
+    /// Legacy whole-batch edit: applies prices and lot details in place and refuses quantity, cost
+    /// and supplier changes with a code naming the action that makes them.
+    /// </summary>
     [HttpPut("batches/{batchId:guid}")]
     [Authorize(Policy = "OwnerOrManager")]
     public async Task<IActionResult> UpdateInventoryBatch(Guid batchId, [FromBody] UpdateInventoryBatchRequest request, CancellationToken cancellationToken)

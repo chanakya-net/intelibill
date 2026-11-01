@@ -102,6 +102,18 @@ public static partial class Errors
         public static Error ConcurrentChange =>
             Error.Conflict("Inventory.ConcurrentChange", "This stock changed while the request was being saved. Nothing was saved; refresh and try again.");
 
+        public static Error BatchQuantityEditMoved =>
+            Error.Validation("Inventory.BatchQuantityEditMoved", "Batch quantity is no longer changed by editing the batch. Record a stock count instead.");
+
+        public static Error BatchCostEditMoved =>
+            Error.Validation("Inventory.BatchCostEditMoved", "Purchase cost is no longer changed by editing the batch. Correct the receipt cost instead.");
+
+        public static Error BatchSupplierEditMoved =>
+            Error.Validation("Inventory.BatchSupplierEditMoved", "The supplier is no longer changed by editing the batch. Reassign the batch supplier instead.");
+
+        public static Error PriceVersionRequired =>
+            Error.Validation("Inventory.PriceVersionRequired", "The batch version the prices were edited against is required.");
+
         public static Error RowRetryable =>
             Error.Failure("Inventory.RowRetryable", "This row was not saved because of a temporary problem. Send the same batch again to retry it.");
     }

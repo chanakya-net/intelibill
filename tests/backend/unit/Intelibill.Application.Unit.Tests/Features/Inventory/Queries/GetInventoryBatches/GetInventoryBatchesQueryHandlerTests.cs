@@ -12,11 +12,12 @@ public class GetInventoryBatchesQueryHandlerTests
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
     private readonly IInventoryBatchRepository _batchRepository = Substitute.For<IInventoryBatchRepository>();
+    private readonly IPurchaseReceiptValueRepository _receiptRepository = Substitute.For<IPurchaseReceiptValueRepository>();
     private readonly GetInventoryBatchesQueryHandler _handler;
 
     public GetInventoryBatchesQueryHandlerTests()
     {
-        _handler = new GetInventoryBatchesQueryHandler(_userRepository, _shopRepository, _batchRepository);
+        _handler = new GetInventoryBatchesQueryHandler(_userRepository, _shopRepository, _batchRepository, _receiptRepository);
     }
 
     [Fact]

@@ -405,7 +405,7 @@ public sealed class InventoryControllerTests(PostgreSqlTestFixture fixture) : IA
     }
 
     [Fact]
-    public async Task EditInventoryBatch_WhenQuantityOrCostCorrected_AppendsReversalAndCorrectedLedgerEntries()
+    public async Task EditInventoryBatch_WhenQuantityOrCostCorrected_IsRefusedAndBatchAndPayableKept()
     {
         using var client = CreateClient();
         var token = await RegisterAsync(client);
@@ -460,37 +460,22 @@ public sealed class InventoryControllerTests(PostgreSqlTestFixture fixture) : IA
         });
 
         var editResponse = await client.SendAsync(editRequest);
-        Assert.Equal(HttpStatusCode.OK, editResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, editResponse.StatusCode);
+        var editBody = await editResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Inventory.BatchQuantityEditMoved", editBody.GetProperty("title").GetString());
 
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-        var oldBatch = await db.InventoryBatches.FindAsync(batchId);
-        Assert.True(oldBatch!.IsVoided);
+        var batch = await db.InventoryBatches.FindAsync(batchId);
+        Assert.False(batch!.IsVoided);
+        Assert.Equal(10m, batch.Quantity);
+        Assert.Null(await db.InventoryBatches.FirstOrDefaultAsync(b => b.BatchNumber == "B-EDIT-CORRECTED"));
 
-        var newBatch = await db.InventoryBatches.FirstOrDefaultAsync(b => b.BatchNumber == "B-EDIT-CORRECTED");
-        Assert.NotNull(newBatch);
-        Assert.Equal(12m, newBatch.Quantity);
-
-        var entries = (await db.SupplierLedgerEntries
-            .Where(e => e.SupplierId == supplierId)
-            .ToListAsync())
-            .OrderBy(e => e.CreatedAt)
-            .ToList();
-
-        Assert.Equal(3, entries.Count);
-
-        Assert.Equal(SupplierLedgerEntryType.GoodsReceived, entries[0].EntryType);
-        Assert.Equal(800m, entries[0].Amount);
-        Assert.Equal(batchId, entries[0].BatchId);
-
-        Assert.Equal(SupplierLedgerEntryType.RecordAdjusted, entries[1].EntryType);
-        Assert.Equal(-800m, entries[1].Amount);
-        Assert.Null(entries[1].BatchId);
-
-        Assert.Equal(SupplierLedgerEntryType.GoodsReceived, entries[2].EntryType);
-        Assert.Equal(1020m, entries[2].Amount);
-        Assert.Equal(newBatch.Id, entries[2].BatchId);
+        var entry = Assert.Single(await db.SupplierLedgerEntries.Where(e => e.SupplierId == supplierId).ToListAsync());
+        Assert.Equal(SupplierLedgerEntryType.GoodsReceived, entry.EntryType);
+        Assert.Equal(800m, entry.Amount);
+        Assert.Equal(batchId, entry.BatchId);
     }
 
     [Fact]

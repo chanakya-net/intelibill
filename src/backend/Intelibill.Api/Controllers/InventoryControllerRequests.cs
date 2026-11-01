@@ -91,6 +91,27 @@ public sealed record VoidAdjustmentRequest(string Reason);
 /// </summary>
 public sealed record CountStockRequest(uint ExpectedVersion, decimal CountedQuantity, string Reason, string? OperationKey);
 
+/// <summary>
+/// New retail prices and lot details for a batch, edited against batch <c>version</c>
+/// <c>ExpectedVersion</c>. A null <c>BatchNumber</c> keeps the current number.
+/// </summary>
+public sealed record UpdateBatchPricesRequest(
+    uint ExpectedVersion,
+    decimal Mrp,
+    decimal SalesPrice,
+    decimal TaxRatePercent,
+    bool TaxIncluded,
+    string? BatchNumber,
+    DateOnly? ExpiryDate,
+    DateOnly? ManufacturingDate,
+    string? Reason);
+
+/// <summary>
+/// The corrected total cost of a purchase receipt, entered against receipt version
+/// <c>ExpectedVersion</c>; <c>OperationKey</c> makes a resend replay the committed correction.
+/// </summary>
+public sealed record CorrectReceiptCostRequest(uint ExpectedVersion, decimal RevisedTotalCost, string Reason, string? OperationKey);
+
 public sealed record AddInventoryBatchSucceededRow(string ClientRowId, AddInventoryResultDto Result);
 
 public sealed record AddInventoryBatchFailedRow(

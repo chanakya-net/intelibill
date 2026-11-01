@@ -120,6 +120,48 @@ public sealed class InventoryBatch : BaseEntity
         return Result.Success;
     }
 
+    /// <summary>
+    /// Changes the retail terms and lot details of this batch in place. Quantity, cost, supplier
+    /// and identity are untouched: the lot, its stock and its receipt payable stay what they were.
+    /// </summary>
+    public ErrorOr<Success> ReviseRetailTerms(
+        string batchNumber,
+        decimal mrp,
+        decimal salesPrice,
+        decimal taxRatePercent,
+        bool taxIncluded,
+        DateOnly? expiryDate,
+        DateOnly? manufacturingDate,
+        Guid updatedBy)
+    {
+        if (IsVoided)
+        {
+            return Error.Validation("InventoryBatch.Voided", "A voided batch cannot be revised.");
+        }
+
+        if (mrp < 0 || salesPrice < 0)
+        {
+            return Error.Validation("InventoryBatch.PriceNegative", "Prices cannot be negative.");
+        }
+
+        var validation = ValidateBatch(batchNumber, Quantity, salesPrice, mrp, taxRatePercent);
+        if (validation.IsError)
+        {
+            return validation.Errors;
+        }
+
+        BatchNumber = batchNumber.Trim();
+        Mrp = mrp;
+        SalesPrice = salesPrice;
+        TaxRatePercent = taxRatePercent;
+        TaxIncluded = taxIncluded;
+        ExpiryDate = expiryDate;
+        ManufacturingDate = manufacturingDate;
+        UpdatedBy = updatedBy;
+
+        return Result.Success;
+    }
+
     public ErrorOr<Success> AddQuantity(decimal quantityToAdd, Guid updatedBy)
     {
         if (quantityToAdd <= 0)

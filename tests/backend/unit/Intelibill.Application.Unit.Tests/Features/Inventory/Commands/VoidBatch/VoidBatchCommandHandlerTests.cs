@@ -20,6 +20,7 @@ public class VoidBatchCommandHandlerTests
     private readonly IInventoryBatchRepository _inventoryBatchRepository = Substitute.For<IInventoryBatchRepository>();
     private readonly IStockTransactionRepository _stockTransactionRepository = Substitute.For<IStockTransactionRepository>();
     private readonly ISupplierLedgerEntryRepository _supplierLedgerEntryRepository = Substitute.For<ISupplierLedgerEntryRepository>();
+    private readonly IPurchaseReceiptValueRepository _purchaseReceiptValueRepository = Substitute.For<IPurchaseReceiptValueRepository>();
     private readonly IInventoryRepository _inventoryRepository = Substitute.For<IInventoryRepository>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
     private readonly IMessageBus _messageBus = Substitute.For<IMessageBus>();
@@ -334,6 +335,7 @@ public class VoidBatchCommandHandlerTests
             _stockTransactionRepository,
             _inventoryAdjustmentRepository,
             _supplierLedgerEntryRepository,
+            _purchaseReceiptValueRepository,
             _inventoryRepository,
             _unitOfWork,
             _messageBus);

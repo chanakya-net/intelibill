@@ -14,6 +14,7 @@ public class ReassignBatchSupplierCommandHandlerTests
     private readonly IInventoryBatchRepository _inventoryBatchRepository = Substitute.For<IInventoryBatchRepository>();
     private readonly ISupplierLedgerEntryRepository _supplierLedgerEntryRepository = Substitute.For<ISupplierLedgerEntryRepository>();
     private readonly ISupplierRepository _supplierRepository = Substitute.For<ISupplierRepository>();
+    private readonly IPurchaseReceiptValueRepository _purchaseReceiptValueRepository = Substitute.For<IPurchaseReceiptValueRepository>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
 
     [Fact]
@@ -41,6 +42,7 @@ public class ReassignBatchSupplierCommandHandlerTests
             _inventoryBatchRepository,
             _supplierLedgerEntryRepository,
             _supplierRepository,
+            _purchaseReceiptValueRepository,
             _unitOfWork);
 
         var result = await handler.HandleAsync(new ReassignBatchSupplierCommand(owner.Id, shop.Id, batch.Id, realSupplier.Id), CancellationToken.None);
@@ -76,6 +78,7 @@ public class ReassignBatchSupplierCommandHandlerTests
             _inventoryBatchRepository,
             _supplierLedgerEntryRepository,
             _supplierRepository,
+            _purchaseReceiptValueRepository,
             _unitOfWork);
 
         var result = await handler.HandleAsync(new ReassignBatchSupplierCommand(owner.Id, shop.Id, batch.Id, realSupplier.Id), CancellationToken.None);
@@ -106,6 +109,7 @@ public class ReassignBatchSupplierCommandHandlerTests
             _inventoryBatchRepository,
             _supplierLedgerEntryRepository,
             _supplierRepository,
+            _purchaseReceiptValueRepository,
             _unitOfWork);
 
         var result = await handler.HandleAsync(new ReassignBatchSupplierCommand(owner.Id, shop.Id, batch.Id, Guid.NewGuid()), CancellationToken.None);
@@ -139,6 +143,7 @@ public class ReassignBatchSupplierCommandHandlerTests
             _inventoryBatchRepository,
             _supplierLedgerEntryRepository,
             _supplierRepository,
+            _purchaseReceiptValueRepository,
             _unitOfWork);
 
         var result = await handler.HandleAsync(new ReassignBatchSupplierCommand(owner.Id, shop.Id, batch.Id, newSupplier.Id), CancellationToken.None);
@@ -161,6 +166,7 @@ public class ReassignBatchSupplierCommandHandlerTests
             _inventoryBatchRepository,
             _supplierLedgerEntryRepository,
             _supplierRepository,
+            _purchaseReceiptValueRepository,
             _unitOfWork);
 
         var result = await handler.HandleAsync(new ReassignBatchSupplierCommand(manager.Id, shop.Id, Guid.NewGuid(), Guid.NewGuid()), CancellationToken.None);

@@ -1,3 +1,5 @@
+using Intelibill.Domain.Enums;
+
 namespace Intelibill.Application.Features.Inventory.DTOs;
 
 public sealed record InventoryBatchDto(
@@ -22,4 +24,9 @@ public sealed record InventoryBatchDto(
     bool IsVoided,
     DateTimeOffset CreatedAt,
     DateTimeOffset? UpdatedAt,
-    uint Version);
+    uint Version,
+    Guid? ReceiptValueId = null,
+    PurchaseReceiptValueStatus? ReceiptStatus = null,
+    decimal? ReceiptOriginalTotalCost = null,
+    decimal? ReceiptTotalCost = null,
+    uint? ReceiptVersion = null);
