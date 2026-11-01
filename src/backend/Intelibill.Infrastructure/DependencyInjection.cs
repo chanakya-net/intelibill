@@ -17,6 +17,7 @@ using Intelibill.Infrastructure.Services.Barcodes;
 using Intelibill.Application.Features.Exports.Sales;
 using Intelibill.Infrastructure.Services.ProductLookup;
 using Intelibill.Infrastructure.Services.PurchaseOrders;
+using Intelibill.Infrastructure.Services.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
@@ -231,6 +232,15 @@ public static class DependencyInjection
                 cache.CreateIfNotExists = options.CreateIfNotExists;
                 cache.ExpiredItemsDeletionInterval = options.ExpiredItemsDeletionInterval;
             });
+
+        // ── Rate limiting ─────────────────────────────────────────────────────
+        // Singleton over the shared data source: every replica, and every request on this one,
+        // reads and writes the same rows, so there is no per-request state to hold.
+        services.AddOptions<RateLimitStoreOptions>()
+            .Bind(configuration.GetSection(RateLimitStoreOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+        services.AddSingleton<IAtomicRateLimitStore, PostgresRateLimitStore>();
 
         services.AddHttpClient(ExternalProductLookupService.HttpClientName, (sp, client) =>
         {
