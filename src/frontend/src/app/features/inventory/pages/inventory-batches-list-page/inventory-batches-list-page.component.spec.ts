@@ -38,6 +38,7 @@ describe('InventoryBatchesListPageComponent', () => {
       isVoided: false,
       createdAt: new Date().toISOString(),
       updatedAt: null,
+      version: 1,
     },
   ];
 
@@ -314,6 +315,90 @@ describe('InventoryBatchesListPageComponent', () => {
     voidReq.flush({});
 
     httpMock.expectOne(`${API_BASE_URL}/inventory/batches`);
+  });
+
+  it('explains why a consumed receipt cannot be voided', () => {
+    fixture.detectChanges();
+    httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
+    const add = vi.spyOn(fixture.debugElement.injector.get(MessageService), 'add');
+
+    component.onVoidBatch('b1');
+    httpMock
+      .expectOne(`${API_BASE_URL}/inventory/batches/b1/void`)
+      .flush({ title: 'Inventory.BatchConsumed' }, { status: 409, statusText: 'Conflict' });
+
+    expect(add).toHaveBeenCalledWith(
+      expect.objectContaining({ summary: expect.stringContaining('inventory.batchConsumed') }),
+    );
+  });
+
+  it('counts a batch against the version it was shown and requires a reason', () => {
+    fixture.detectChanges();
+    httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
+
+    component.onBatchTableAction({ action: 'count', batchId: 'b1' });
+    expect(component.isCountDialogOpen()).toBe(true);
+    expect(component.countForm.controls.countedQuantity.value).toBe(10);
+    expect(component.countForm.valid).toBe(false);
+
+    component.countForm.setValue({ countedQuantity: 8, reason: '  Shelf count  ' });
+    expect(component.countPreview()?.difference).toBe(-2);
+    component.onSaveCount();
+
+    const req = httpMock.expectOne(`${API_BASE_URL}/inventory/batches/b1/count`);
+    expect(req.request.body).toEqual(
+      expect.objectContaining({ expectedVersion: 1, countedQuantity: 8, reason: 'Shelf count' }),
+    );
+    expect(req.request.body.operationKey).toMatch(/^count-/);
+    req.flush({ adjustmentNumber: 'ADJ-1', delta: -2 });
+
+    httpMock.expectOne(`${API_BASE_URL}/inventory/batches`);
+    expect(component.isCountDialogOpen()).toBe(false);
+  });
+
+  it('resends an unchanged count with the same operation key, and a changed one with a new key', () => {
+    fixture.detectChanges();
+    httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
+    component.onCountBatch(mockBatches[0]);
+    component.countForm.setValue({ countedQuantity: 8, reason: 'Shelf count' });
+
+    component.onSaveCount();
+    const first = httpMock.expectOne(`${API_BASE_URL}/inventory/batches/b1/count`);
+    const firstKey = first.request.body.operationKey;
+    first.error(new ProgressEvent('error'));
+
+    component.onSaveCount();
+    const resend = httpMock.expectOne(`${API_BASE_URL}/inventory/batches/b1/count`);
+    expect(resend.request.body.operationKey).toBe(firstKey);
+    resend.error(new ProgressEvent('error'));
+
+    component.countForm.controls.countedQuantity.setValue(7);
+    component.onSaveCount();
+    const changed = httpMock.expectOne(`${API_BASE_URL}/inventory/batches/b1/count`);
+    expect(changed.request.body.operationKey).not.toBe(firstKey);
+    changed.error(new ProgressEvent('error'));
+  });
+
+  it('on a version conflict refreshes the list and never resends the stale count', () => {
+    fixture.detectChanges();
+    httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
+    const add = vi.spyOn(fixture.debugElement.injector.get(MessageService), 'add');
+    component.onCountBatch(mockBatches[0]);
+    component.countForm.setValue({ countedQuantity: 8, reason: 'Shelf count' });
+
+    component.onSaveCount();
+    httpMock
+      .expectOne(`${API_BASE_URL}/inventory/batches/b1/count`)
+      .flush({ title: 'Inventory.BatchVersionConflict' }, { status: 409, statusText: 'Conflict' });
+
+    httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
+    httpMock.expectNone(`${API_BASE_URL}/inventory/batches/b1/count`);
+    expect(component.isCountDialogOpen()).toBe(false);
+    expect(add).toHaveBeenCalledWith(
+      expect.objectContaining({
+        summary: expect.stringContaining('inventory.countVersionConflict'),
+      }),
+    );
   });
 
   it('should prepare selected batches for barcode label printing with batch quantities', () => {

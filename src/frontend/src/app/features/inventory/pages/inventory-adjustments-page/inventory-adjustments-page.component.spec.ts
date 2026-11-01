@@ -87,6 +87,7 @@ describe('InventoryAdjustmentsPageComponent', () => {
       isVoided: false,
       createdAt: '2026-05-01T00:00:00.000Z',
       updatedAt: null,
+      version: 1,
     },
     {
       id: 'batch-empty',
@@ -109,6 +110,7 @@ describe('InventoryAdjustmentsPageComponent', () => {
       isVoided: false,
       createdAt: '2026-05-01T00:00:00.000Z',
       updatedAt: null,
+      version: 1,
     },
     {
       id: 'batch-voided',
@@ -131,6 +133,7 @@ describe('InventoryAdjustmentsPageComponent', () => {
       isVoided: true,
       createdAt: '2026-05-01T00:00:00.000Z',
       updatedAt: null,
+      version: 1,
     },
   ];
 

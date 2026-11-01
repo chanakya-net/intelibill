@@ -150,6 +150,30 @@ export interface InventoryBatchDto {
   readonly isVoided: boolean;
   readonly createdAt: string;
   readonly updatedAt: string | null;
+  /** Row version; a stock count is accepted only against the version it was taken at. */
+  readonly version: number;
+}
+
+export interface CountInventoryBatchRequest {
+  readonly expectedVersion: number;
+  readonly countedQuantity: number;
+  readonly reason: string;
+  readonly operationKey: string;
+}
+
+export interface CountInventoryBatchResponse {
+  readonly stockCountId: string;
+  readonly batchId: string;
+  readonly observedQuantity: number;
+  readonly countedQuantity: number;
+  readonly delta: number;
+  readonly adjustmentId: string | null;
+  readonly adjustmentNumber: string | null;
+  readonly stockTransactionId: string | null;
+  readonly batchQuantityAfter: number;
+  readonly inventoryQuantityAfter: number;
+  readonly batchVersion: number;
+  readonly performedAt: string;
 }
 
 export interface UpdateInventoryBatchRequest {

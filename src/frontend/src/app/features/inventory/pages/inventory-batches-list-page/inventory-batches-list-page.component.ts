@@ -15,11 +15,13 @@ import { TextareaModule } from 'primeng/textarea';
 import { ToastModule } from 'primeng/toast';
 import { AutoCompleteModule, AutoCompleteCompleteEvent } from 'primeng/autocomplete';
 import { SelectModule } from 'primeng/select';
+import { HttpErrorResponse } from '@angular/common/http';
 import { finalize } from 'rxjs';
 import {
   AdjustInventoryBatchRequest,
   BatchFilters,
   BarcodeLabelPrintRequest,
+  CountInventoryBatchRequest,
   InventoryAdjustmentDirection,
   InventoryAdjustmentReason,
   InventoryBatchDto,
@@ -50,6 +52,8 @@ import {
 } from '../../../../shared/utils/date-time.util';
 import { downloadBlob, openPdfBlobInNewTab } from '../../../../shared/utils/blob-download.util';
 import { InputValidators } from '../../../../shared/forms/input-validation';
+const BATCH_VERSION_CONFLICT = 'Inventory.BatchVersionConflict';
+const BATCH_CONSUMED = 'Inventory.BatchConsumed';
 interface SelectOption<T extends string | boolean> {
   label: string;
   value: T;
@@ -99,6 +103,8 @@ export class InventoryBatchesListPageComponent {
   readonly selectedBatchIds = signal<readonly string[]>([]);
   readonly isEditDialogOpen = signal(false);
   readonly isAdjustmentDialogOpen = signal(false);
+  readonly isCountDialogOpen = signal(false);
+  readonly isCountSaving = signal(false);
   readonly barcodeLabelPrintDialogVisible = signal(false);
   readonly barcodeLabelPrintCandidates = signal<readonly BarcodeLabelPrintCandidate[]>([]);
   readonly isSaving = signal(false);
@@ -199,6 +205,28 @@ export class InventoryBatchesListPageComponent {
       costImpact: Number((signed * batch.costPrice).toFixed(2)),
     };
   });
+  readonly countForm = this.formBuilder.nonNullable.group({
+    countedQuantity: [
+      0,
+      [...InputValidators.nonNegativeNumber(), InputValidators.maxFractionDigits(2)],
+    ],
+    reason: ['', InputValidators.requiredText(500)],
+  });
+  private readonly countedQuantityValue = signal(0);
+  readonly countPreview = computed(() => {
+    const batch = this.selectedBatch();
+    if (!batch) return null;
+    const counted = Number(this.countedQuantityValue()) || 0;
+    return {
+      systemQuantity: batch.quantity,
+      countedQuantity: counted,
+      difference: Number((counted - batch.quantity).toFixed(2)),
+    };
+  });
+  // One key per distinct submission: an unchanged resend after a lost response replays the saved
+  // count instead of posting it twice, while an edited count is a new submission.
+  private countSubmission: { readonly signature: string; readonly operationKey: string } | null =
+    null;
   readonly editForm = this.formBuilder.nonNullable.group(
     {
       newBatchNumber: ['', InputValidators.optionalText(80)],
@@ -241,6 +269,9 @@ export class InventoryBatchesListPageComponent {
     this.adjustmentForm.controls.reason.valueChanges.subscribe(() =>
       this.updateAdjustmentNotesValidators(),
     );
+    this.countForm.controls.countedQuantity.valueChanges.subscribe((value) =>
+      this.countedQuantityValue.set(value),
+    );
     this.suppliersFacade.load();
     this.loadBatches();
   }
@@ -254,6 +285,7 @@ export class InventoryBatchesListPageComponent {
       return this.openBarcodeLabelPrintDialog([this.mapBatchToPrintCandidate(batch)]);
     if (event.action === 'edit') return this.onEditBatch(batch);
     if (event.action === 'adjust') return this.onAdjustBatch(batch);
+    if (event.action === 'count') return this.onCountBatch(batch);
     if (event.action === 'void') return this.onVoidBatch(batch.id);
     this.onEditBatch(batch);
   }
@@ -412,13 +444,71 @@ export class InventoryBatchesListPageComponent {
         },
       });
   }
+  onCountBatch(batch: InventoryBatchDto): void {
+    if (batch.isVoided) return;
+    this.selectedBatch.set(batch);
+    this.countSubmission = null;
+    this.countForm.reset({ countedQuantity: batch.quantity, reason: '' });
+    this.countedQuantityValue.set(batch.quantity);
+    this.isCountDialogOpen.set(true);
+  }
+  onSaveCount(): void {
+    const batch = this.selectedBatch();
+    if (!batch || this.countForm.invalid || this.isCountSaving()) return;
+    const value = this.countForm.getRawValue();
+    const payload: CountInventoryBatchRequest = {
+      expectedVersion: batch.version,
+      countedQuantity: value.countedQuantity,
+      reason: value.reason.trim(),
+      operationKey: this.countOperationKey(batch, value.countedQuantity, value.reason.trim()),
+    };
+    this.isCountSaving.set(true);
+    this.inventoryService
+      .countInventoryBatch(batch.id, payload)
+      .pipe(finalize(() => this.isCountSaving.set(false)))
+      .subscribe({
+        next: (result) => {
+          this.countSubmission = null;
+          if (result.adjustmentNumber) {
+            this.messageService.add({
+              severity: 'success',
+              summary: this.translocoService.translate('inventory.countSaved', {
+                number: result.adjustmentNumber,
+              }),
+              life: 4000,
+            });
+          } else {
+            this.showSuccess('inventory.countConfirmed');
+          }
+          this.isCountDialogOpen.set(false);
+          this.loadBatches();
+        },
+        error: (err: HttpErrorResponse) => {
+          if (this.errorCode(err) === BATCH_VERSION_CONFLICT) {
+            // The count was taken against stock that has since moved. It is never resent against the
+            // refreshed quantity: the counter has to look at the shelf again.
+            this.countSubmission = null;
+            this.isCountDialogOpen.set(false);
+            this.showError('inventory.countVersionConflict');
+            this.loadBatches();
+            return;
+          }
+          this.showError('inventory.countError');
+        },
+      });
+  }
   onVoidBatch(batchId: string): void {
     this.inventoryService.voidInventoryBatch(batchId).subscribe({
       next: () => {
         this.showSuccess('inventory.batchVoided');
         this.loadBatches();
       },
-      error: () => this.showError('inventory.voidBatchError'),
+      error: (err: HttpErrorResponse) =>
+        this.showError(
+          this.errorCode(err) === BATCH_CONSUMED
+            ? 'inventory.batchConsumed'
+            : 'inventory.voidBatchError',
+        ),
     });
   }
   onFilterSupplier(event: AutoCompleteCompleteEvent): void {
@@ -443,6 +533,20 @@ export class InventoryBatchesListPageComponent {
   }
   private resolveSupplierId(value: string): string | null {
     return this.findSupplierByName(value.trim())?.supplierId ?? null;
+  }
+  private countOperationKey(
+    batch: InventoryBatchDto,
+    countedQuantity: number,
+    reason: string,
+  ): string {
+    const signature = JSON.stringify([batch.id, batch.version, countedQuantity, reason]);
+    if (this.countSubmission?.signature !== signature)
+      this.countSubmission = { signature, operationKey: `count-${crypto.randomUUID()}` };
+    return this.countSubmission.operationKey;
+  }
+  private errorCode(err: HttpErrorResponse): string | null {
+    const title: unknown = err.error?.title;
+    return typeof title === 'string' ? title : null;
   }
   private nullable(value: string): string | null {
     return value.trim().length > 0 ? value.trim() : null;
