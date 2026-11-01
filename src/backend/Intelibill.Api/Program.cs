@@ -37,7 +37,7 @@ builder.AddInteliBillSerilog();
 builder.Services.AddInteliBillOpenTelemetry(configuration);
 
 // ── Core services ─────────────────────────────────────────────────────────────
-builder.Services.AddControllers(options => { options.Filters.AddService<RateLimitFilter>(); })
+builder.Services.AddControllers(options => { options.Filters.AddService<RateLimitFilter>(RateLimitFilter.FilterOrder); })
     .AddJsonOptions(opts =>
         opts.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
 builder.Services.AddOpenApi();
@@ -46,6 +46,10 @@ builder.Services.AddScoped<ICurrentSessionContext, HttpCurrentSessionContext>();
 builder.Services.AddScoped<IDeviceMetadataProvider, HttpDeviceMetadataProvider>();
 builder.Services.AddScoped<RateLimitFilter>();
 builder.Services.AddSingleton<IRateLimitPolicyResolver, RateLimitPolicyResolver>();
+builder.Services.AddSingleton<RateLimitKeyHasher>();
+builder.Services.AddSingleton<RateBudgetFactory>();
+builder.Services.AddSingleton<LocalFallbackRateLimiter>();
+builder.Services.AddSingleton<RateLimitMetrics>();
 builder.Services.AddSingleton<ISafeErrorFactory, SafeErrorFactory>();
 builder.Services.AddSingleton<ISafeDiagnosticWriter, SafeDiagnosticWriter>();
 

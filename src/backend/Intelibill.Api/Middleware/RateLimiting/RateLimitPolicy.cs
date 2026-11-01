@@ -4,5 +4,9 @@ public readonly record struct RateLimitPolicy(int Limit, int PeriodInMinutes, in
 {
     public bool IsDisabled { get; init; }
 
+    public RateLimitSubject Subject { get; init; }
+
+    public bool FailClosed { get; init; }
+
     public static RateLimitPolicy Disabled { get; } = new(0, 0, 0) { IsDisabled = true };
 }

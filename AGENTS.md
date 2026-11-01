@@ -8,7 +8,7 @@
 - Test full: `dotnet test src/backend/Intelibill.slnx`
 - Test unit: `dotnet test tests/backend/unit/Intelibill.Domain.Unit.Tests`, `Application.Unit.Tests`, `Api.Unit.Tests`
 - Test integration: `dotnet test tests/backend/integration/Intelibill.Integration.Tests` (requires Docker)
-- Snapshot: 247 + 961 + 489 + 485 = 2182 tests (1697 non-integration), all passing as of 1 November 2026
+- Snapshot: 247 + 961 + 523 + 502 = 2233 tests (1731 non-integration), all passing as of 1 November 2026
 
 **Migrations** (EF Core) — API startup does **not** apply them; run `database update` yourself after pulling schema changes (deployed environments use the migration job):
 ```bash
@@ -68,7 +68,7 @@ Dependency registration: each layer's `DependencyInjection.cs`
 - Device sessions: every access token names an `AuthSession` (`sid`); only a credential check creates one, and a session can be revoked on its own. A token with no `sid` is refused.
 - Refresh credentials: stored as SHA-256 only, single-use, chained per session (`parent_token_id`). Rotation and sign-out lock users → auth_sessions → refresh_tokens; a reused (consumed) credential ends its session. Web tabs serialize renewals via `RefreshCoordinator`. See `docs/backend-architecture.md` § Refresh Credentials.
 - Shop memberships: roles = `Owner`, `Manager`, `Staff`
-- Rate limiting: `RateLimitAttribute`/`RateLimitFilter` on sensitive endpoints
+- Rate limiting: `RateLimitAttribute`/`RateLimitFilter` over `IAtomicRateLimitStore` (`rate_limit_buckets`, one atomic transaction across replicas); auth endpoints add account/destination budgets via `IRateLimitSubject` and answer 503 when the store is down. See `docs/backend-architecture.md` § Rate Limiting
 - Logging: Serilog; every sink sits behind `LogEventRedactor` (`SerilogExtensions.Redacted`): exception objects become type/frame descriptions, credential names are masked at any depth (PII too with `EnablePiiMasking`). Never log an exception message, token, link or DTO by hand
 - Errors: exceptions answer `{type,title,status,code,traceId,errors?}` via `SafeErrorFactory` (`Internal.Unexpected` for anything unplanned) and log through `SafeDiagnosticWriter`; `SafeSpanProcessor` strips exception text from exported spans. See `docs/backend-architecture.md` § Safe Errors and Diagnostics
 

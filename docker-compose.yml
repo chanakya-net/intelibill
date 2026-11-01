@@ -105,6 +105,11 @@ services:
       # API refuses to start with this set in any environment but Development or
       # Testing.
       - RateLimiting__RelaxEndpointPolicies=true
+      # Rate-limit buckets are HMACs under this key, so the store never holds an
+      # address, account or destination. Local placeholder, base64 of 32 ASCII
+      # bytes; deployed environments take it from a secret store and every
+      # replica must share it.
+      - RateLimiting__BucketKey=bG9jYWwtcmF0ZS1saW1pdC1idWNrZXQta2V5LTMyYnk=
       # Identity mail. Without these the enrolment endpoint answers 503
       # Auth.EmailUnavailable: the outbox reports itself unavailable unless
       # delivery is enabled AND it holds a 32-byte key to encrypt stored bodies
