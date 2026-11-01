@@ -1,9 +1,13 @@
+using ErrorOr;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Operations;
+using Intelibill.Application.Features.Customers.DTOs;
 using Intelibill.Application.Features.Customers.Commands.RecordCustomerPayment;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 
 namespace Intelibill.Application.Unit.Tests.Features.Customers.Commands.RecordCustomerPayment;
@@ -14,9 +18,21 @@ public class RecordCustomerPaymentCommandHandlerTests
     private readonly ICustomerRepository _customerRepository = Substitute.For<ICustomerRepository>();
     private readonly ICustomerLedgerEntryRepository _customerLedgerEntryRepository = Substitute.For<ICustomerLedgerEntryRepository>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
+    private readonly IFinancialOperationExecutor _executor = Substitute.For<IFinancialOperationExecutor>();
 
     private RecordCustomerPaymentCommandHandler CreateHandler() =>
-        new(_userRepository, _customerRepository, _customerLedgerEntryRepository, _unitOfWork);
+        new(_userRepository, _customerRepository, _customerLedgerEntryRepository, _unitOfWork, _executor,
+            NullLogger<RecordCustomerPaymentCommandHandler>.Instance);
+
+    private void ExecutorRunsAction() =>
+        _executor.ExecuteAsync(
+                Arg.Any<FinancialOperationScope>(),
+                Arg.Any<Guid>(),
+                Arg.Any<Guid>(),
+                Arg.Any<string>(),
+                Arg.Any<Func<CancellationToken, Task<ErrorOr<CustomerLedgerEntryDto>>>>(),
+                Arg.Any<CancellationToken>())
+            .Returns(call => call.Arg<Func<CancellationToken, Task<ErrorOr<CustomerLedgerEntryDto>>>>()(CancellationToken.None));
 
     private static (User owner, User manager, User staff, Shop shop, Customer customer) BuildFixture()
     {
@@ -137,5 +153,66 @@ public class RecordCustomerPaymentCommandHandlerTests
 
         Assert.True(result.IsError);
         Assert.Equal(Errors.Customer.CustomerNotFound.Code, result.FirstError.Code);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithOperationKey_RunsPostingThroughExecutorInShopScope()
+    {
+        var fixture = BuildFixture();
+        var command = new RecordCustomerPaymentCommand(
+            fixture.manager.Id, fixture.shop.Id, fixture.customer.Id,
+            500m, new DateOnly(2026, 11, 1), "cash", "  pay-1  ");
+
+        _userRepository.GetByIdWithDetailsAsync(fixture.manager.Id, Arg.Any<CancellationToken>()).Returns(fixture.manager);
+        _customerRepository.GetByShopAndIdAsync(fixture.shop.Id, fixture.customer.Id, Arg.Any<CancellationToken>())
+            .Returns(fixture.customer);
+        ExecutorRunsAction();
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        await _executor.Received(1).ExecuteAsync(
+            new FinancialOperationScope(fixture.shop.Id, FinancialOperationType.CustomerPayment, "pay-1"),
+            fixture.manager.Id,
+            fixture.customer.Id,
+            Arg.Is<string>(hash => hash.Length == 64),
+            Arg.Any<Func<CancellationToken, Task<ErrorOr<CustomerLedgerEntryDto>>>>(),
+            Arg.Any<CancellationToken>());
+        await _customerLedgerEntryRepository.Received(1).AddAsync(Arg.Any<CustomerLedgerEntry>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_StaffWithOperationKey_NeverReachesReceipt()
+    {
+        var fixture = BuildFixture();
+        var command = new RecordCustomerPaymentCommand(
+            fixture.staff.Id, fixture.shop.Id, fixture.customer.Id,
+            500m, new DateOnly(2026, 11, 1), null, "pay-1");
+
+        _userRepository.GetByIdWithDetailsAsync(fixture.staff.Id, Arg.Any<CancellationToken>()).Returns(fixture.staff);
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.Equal(Errors.Customer.UserIsNotOwnerOrManager.Code, result.FirstError.Code);
+        Assert.Empty(_executor.ReceivedCalls());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithoutOperationKey_PostsWithoutReceipt()
+    {
+        var fixture = BuildFixture();
+        var command = new RecordCustomerPaymentCommand(
+            fixture.manager.Id, fixture.shop.Id, fixture.customer.Id,
+            500m, new DateOnly(2026, 11, 1), null);
+
+        _userRepository.GetByIdWithDetailsAsync(fixture.manager.Id, Arg.Any<CancellationToken>()).Returns(fixture.manager);
+        _customerRepository.GetByShopAndIdAsync(fixture.shop.Id, fixture.customer.Id, Arg.Any<CancellationToken>())
+            .Returns(fixture.customer);
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Empty(_executor.ReceivedCalls());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 }

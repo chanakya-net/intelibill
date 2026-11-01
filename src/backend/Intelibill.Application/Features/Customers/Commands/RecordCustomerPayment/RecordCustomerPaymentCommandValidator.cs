@@ -1,5 +1,6 @@
 using FluentValidation;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Domain.Entities;
 
 namespace Intelibill.Application.Features.Customers.Commands.RecordCustomerPayment;
 
@@ -21,5 +22,10 @@ public sealed class RecordCustomerPaymentCommandValidator : AbstractValidator<Re
             .MaximumLength(255)
             .WithErrorCode("Customer.PaymentNotesTooLong")
             .WithMessage("Payment notes must not exceed 255 characters.");
+
+        RuleFor(x => x.OperationKey)
+            .Must(key => key is null || key.Trim().Length is >= 1 and <= OperationReceipt.MaxKeyLength)
+            .WithErrorCode(Errors.Operation.InvalidKey.Code)
+            .WithMessage(Errors.Operation.InvalidKey.Description);
     }
 }

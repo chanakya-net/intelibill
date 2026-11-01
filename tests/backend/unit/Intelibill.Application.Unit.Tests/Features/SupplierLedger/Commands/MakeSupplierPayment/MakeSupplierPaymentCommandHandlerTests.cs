@@ -1,9 +1,13 @@
+using ErrorOr;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Operations;
+using Intelibill.Application.Features.SupplierLedger.DTOs;
 using Intelibill.Application.Features.SupplierLedger.Commands.MakeSupplierPayment;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 
 namespace Intelibill.Application.Unit.Tests.Features.SupplierLedger.Commands.MakeSupplierPayment;
@@ -16,9 +20,11 @@ public class MakeSupplierPaymentCommandHandlerTests
     private readonly IExpenseCategoryRepository _expenseCategoryRepository = Substitute.For<IExpenseCategoryRepository>();
     private readonly IExpenseRepository _expenseRepository = Substitute.For<IExpenseRepository>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
+    private readonly IFinancialOperationExecutor _executor = Substitute.For<IFinancialOperationExecutor>();
 
     private MakeSupplierPaymentCommandHandler CreateHandler() =>
-        new(_userRepository, _supplierRepository, _ledgerRepository, _expenseCategoryRepository, _expenseRepository, _unitOfWork);
+        new(_userRepository, _supplierRepository, _ledgerRepository, _expenseCategoryRepository, _expenseRepository, _unitOfWork,
+            _executor, NullLogger<MakeSupplierPaymentCommandHandler>.Instance);
 
     private static (User owner, Shop shop, Supplier supplier) BuildOwnerShopSupplier()
     {
@@ -161,5 +167,50 @@ public class MakeSupplierPaymentCommandHandlerTests
 
         Assert.True(result.IsError);
         Assert.Equal(Errors.Supplier.SupplierNotFound.Code, result.FirstError.Code);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithOperationKey_RunsLedgerAndExpenseThroughExecutor()
+    {
+        var (owner, shop, supplier) = BuildOwnerShopSupplier();
+        _userRepository.GetByIdWithDetailsAsync(owner.Id, Arg.Any<CancellationToken>()).Returns(owner);
+        _supplierRepository.GetByIdAsync(supplier.Id, Arg.Any<CancellationToken>()).Returns(supplier);
+        _executor.ExecuteAsync(
+                Arg.Any<FinancialOperationScope>(),
+                Arg.Any<Guid>(),
+                Arg.Any<Guid>(),
+                Arg.Any<string>(),
+                Arg.Any<Func<CancellationToken, Task<ErrorOr<SupplierLedgerEntryDto>>>>(),
+                Arg.Any<CancellationToken>())
+            .Returns(call => call.Arg<Func<CancellationToken, Task<ErrorOr<SupplierLedgerEntryDto>>>>()(CancellationToken.None));
+
+        var command = BuildCommand(owner.Id, shop.Id, supplier.Id) with { OperationKey = "supplier-pay-1" };
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        await _executor.Received(1).ExecuteAsync(
+            new FinancialOperationScope(shop.Id, FinancialOperationType.SupplierPayment, "supplier-pay-1"),
+            owner.Id,
+            supplier.Id,
+            Arg.Any<string>(),
+            Arg.Any<Func<CancellationToken, Task<ErrorOr<SupplierLedgerEntryDto>>>>(),
+            Arg.Any<CancellationToken>());
+        await _ledgerRepository.Received(1).AddAsync(Arg.Any<SupplierLedgerEntry>(), Arg.Any<CancellationToken>());
+        await _expenseRepository.Received(1).AddAsync(Arg.Any<Expense>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_SupplierInOtherShopWithOperationKey_NeverReachesReceipt()
+    {
+        var (owner, shop, _) = BuildOwnerShopSupplier();
+        var foreign = Supplier.Create(Guid.NewGuid(), "Other", null, null, "1 Road", "Pune", "Maharashtra", "411001", true, false);
+        _userRepository.GetByIdWithDetailsAsync(owner.Id, Arg.Any<CancellationToken>()).Returns(owner);
+        _supplierRepository.GetByIdAsync(foreign.Id, Arg.Any<CancellationToken>()).Returns(foreign);
+
+        var command = BuildCommand(owner.Id, shop.Id, foreign.Id) with { OperationKey = "supplier-pay-1" };
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.Equal(Errors.Supplier.SupplierNotFound.Code, result.FirstError.Code);
+        Assert.Empty(_executor.ReceivedCalls());
     }
 }

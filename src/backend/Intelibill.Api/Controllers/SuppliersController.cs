@@ -131,7 +131,8 @@ public sealed class SuppliersController : AuthenticatedControllerBase
                 supplierId,
                 request.Amount,
                 request.PaymentDate,
-                request.Notes),
+                request.Notes,
+                request.OperationKey),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -160,7 +161,12 @@ public sealed record EditSupplierRequest(
     bool IsActive,
     bool IsPreferred);
 
+/// <param name="OperationKey">
+/// Durable identity of this payment. A retry with the same key replays the committed result;
+/// optional only until every client sends one.
+/// </param>
 public sealed record MakePaymentRequest(
     decimal Amount,
     DateOnly PaymentDate,
-    string? Notes);
+    string? Notes,
+    string? OperationKey = null);

@@ -96,6 +96,7 @@ public static class TenantPolicyManifest
         Tenant("invoice_sequences"),
         Tenant("item_barcode_sequences"),
         Tenant("items"),
+        Tenant("operation_receipts"),
         Tenant("purchase_order_receipt_sequences"),
         Tenant("purchase_order_receipts"),
         Tenant("purchase_order_sequences"),
