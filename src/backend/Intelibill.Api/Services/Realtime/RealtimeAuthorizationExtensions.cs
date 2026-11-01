@@ -23,6 +23,8 @@ internal static class RealtimeAuthorizationExtensions
         services.AddScoped<IProductHubNotifier, SignalRProductHubNotifier>();
         services.AddScoped<IShopUpdatesNotifier, SignalRShopUpdatesNotifier>();
 
+        services.AddHostedService<RealtimeRevocationWorker>();
+
         return services;
     }
 }
