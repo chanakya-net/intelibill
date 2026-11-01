@@ -175,6 +175,30 @@
           </p-inputgroup>
         </label>
 
+        <label class="purchase-tax-field">
+          <span>{{ 'inventory.purchaseTaxMode' | transloco }}</span>
+          <p-select
+            formControlName="purchaseTaxIncluded"
+            [options]="state.taxModeOptions()"
+            optionLabel="labelKey"
+            optionValue="value"
+            [placeholder]="'inventory.purchaseTaxModePlaceholder' | transloco"
+            [fluid]="true"
+            appendTo="body"
+            data-testid="purchase-tax-mode"
+          >
+            <ng-template pTemplate="selectedItem" let-option>
+              {{ option?.labelKey | transloco }}
+            </ng-template>
+            <ng-template pTemplate="item" let-option>
+              {{ option.labelKey | transloco }}
+            </ng-template>
+          </p-select>
+          @if (form.controls.purchaseTaxIncluded.value === null) {
+            <small class="pricing-guard">{{ 'inventory.purchaseTaxModeRequired' | transloco }}</small>
+          }
+        </label>
+
         @if (pricingGuardVisible()) {
           <p class="pricing-guard">{{ 'inventory.pricingGuard' | transloco }}</p>
         }

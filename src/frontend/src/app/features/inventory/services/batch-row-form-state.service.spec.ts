@@ -8,6 +8,7 @@ import { ProductCatalogSyncService } from '../../../core/services/product-catalo
 import { InventoryService } from './inventory.service';
 import { SuppliersFacade } from '../../suppliers/state/suppliers.facade';
 import { BatchRowFormStateService } from './batch-row-form-state.service';
+import { InventoryInboundDraftRow } from '../../../core/storage/inventory-draft-indexeddb.service';
 
 describe('BatchRowFormStateService', () => {
   const inventoryService = {
@@ -225,5 +226,77 @@ describe('BatchRowFormStateService', () => {
     expect(state.form.controls.itemDescription.valid).toBe(true);
     expect(state.form.hasError('salesPriceExceedsMrp')).toBe(true);
     expect(state.form.controls.taxRatePercent.hasError('max')).toBe(true);
+  });
+
+  describe('purchaseAndSalesTaxModesRemainIndependent', () => {
+    function draftRow(overrides: Partial<InventoryInboundDraftRow> = {}): InventoryInboundDraftRow {
+      return {
+        clientRowId: 'row-1',
+        itemName: 'Milk',
+        barcode: 'B001',
+        itemDescription: null,
+        uom: 'PCS',
+        batchNumber: 'BN-1',
+        quantity: 2,
+        totalPurchaseCost: 80,
+        mrp: 50,
+        salesPrice: 48,
+        taxRatePercent: 5,
+        taxIncluded: true,
+        purchaseTaxIncluded: true,
+        hsnCode: null,
+        expiryDate: null,
+        manufacturingDate: null,
+        supplierId: null,
+        referenceNumber: null,
+        notes: null,
+        performedAt: null,
+        ...overrides,
+      };
+    }
+
+    it.each([
+      { purchaseTaxIncluded: true, taxIncluded: true },
+      { purchaseTaxIncluded: true, taxIncluded: false },
+      { purchaseTaxIncluded: false, taxIncluded: true },
+      { purchaseTaxIncluded: false, taxIncluded: false },
+    ])(
+      'keeps purchase $purchaseTaxIncluded and sales $taxIncluded through load and build',
+      ({ purchaseTaxIncluded, taxIncluded }) => {
+        const state = setup();
+
+        state.loadDraftRow(draftRow({ purchaseTaxIncluded, taxIncluded }));
+        const row = state.buildDraftRow();
+
+        expect(row?.purchaseTaxIncluded).toBe(purchaseTaxIncluded);
+        expect(row?.taxIncluded).toBe(taxIncluded);
+      },
+    );
+
+    it('requires the purchase mode to be confirmed for a draft stored without it', () => {
+      const state = setup();
+      const { purchaseTaxIncluded: _omitted, ...oldDraft } = draftRow({ taxIncluded: false });
+
+      state.loadDraftRow(oldDraft);
+
+      expect(state.form.controls.purchaseTaxIncluded.value).toBeNull();
+      expect(state.form.invalid).toBe(true);
+      expect(state.buildDraftRow()).toBeNull();
+
+      state.form.controls.purchaseTaxIncluded.setValue(true);
+
+      expect(state.form.valid).toBe(true);
+      expect(state.buildDraftRow()?.purchaseTaxIncluded).toBe(true);
+      expect(state.buildDraftRow()?.taxIncluded).toBe(false);
+    });
+
+    it('defaults new rows to a purchase cost that includes tax', () => {
+      const state = setup();
+      state.form.controls.purchaseTaxIncluded.setValue(false);
+
+      state.resetForm();
+
+      expect(state.form.controls.purchaseTaxIncluded.value).toBe(true);
+    });
   });
 });

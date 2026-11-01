@@ -584,6 +584,40 @@ describe('InventoryBatchPageComponent', () => {
     expect(component.saveSummary()?.failedCount).toBe(1);
   });
 
+  it('sends each row with its own purchase tax mode, independent of the sales mode', async () => {
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+    const rows = [
+      { ...createDraftRow('row-1', 'Milk', 'BC-1', { taxIncluded: true }), purchaseTaxIncluded: false },
+      { ...createDraftRow('row-2', 'Bread', 'BC-2', { taxIncluded: false }), purchaseTaxIncluded: true },
+    ];
+    inventoryService.addInventoryBatch.mockImplementation((payload: { items: Array<{ clientRowId: string }> }) =>
+      of(allSucceeded(payload.items)),
+    );
+
+    component.pendingRows.set(rows);
+    component.onSaveAll();
+    await fixture.whenStable();
+
+    const items = inventoryService.addInventoryBatch.mock.calls[0][0].items;
+    expect(items.map((item: { taxIncluded: boolean; purchaseTaxIncluded: boolean }) =>
+      [item.taxIncluded, item.purchaseTaxIncluded])).toEqual([[true, false], [false, true]]);
+  });
+
+  it('refuses to save draft rows stored without a purchase tax mode', async () => {
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+    const { purchaseTaxIncluded: _omitted, ...oldRow } = createDraftRow('row-1', 'Milk', 'BC-1');
+
+    component.pendingRows.set([oldRow]);
+    component.onSaveAll();
+    await fixture.whenStable();
+
+    expect(inventoryService.addInventoryBatch).not.toHaveBeenCalled();
+    expect(draftStorage.saveSubmission).not.toHaveBeenCalled();
+    expect(component.pendingRows()).toHaveLength(1);
+  });
+
   it('sends each chunk under its own operation key with a frozen performedAt', async () => {
     const fixture = await setup();
     const component = fixture.componentInstance;

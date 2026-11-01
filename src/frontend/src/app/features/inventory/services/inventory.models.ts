@@ -152,6 +152,57 @@ export interface InventoryBatchDto {
   readonly updatedAt: string | null;
   /** Row version; a stock count is accepted only against the version it was taken at. */
   readonly version: number;
+  /** The receipt value recorded for this lot; null when no receipt value exists. */
+  readonly receiptValueId: string | null;
+  /** `LegacyUnresolved` receipts carry no amounts on record and cannot be cost-corrected. */
+  readonly receiptStatus: PurchaseReceiptStatus | null;
+  /** Total the supplier payable was first posted with; never changes. */
+  readonly receiptOriginalTotalCost: number | null;
+  /** Effective total: the original plus every cost correction. */
+  readonly receiptTotalCost: number | null;
+  /** Receipt row version; a cost correction is accepted only against the version it was made at. */
+  readonly receiptVersion: number | null;
+}
+
+export type PurchaseReceiptStatus = 'Resolved' | 'LegacyUnresolved';
+
+/** Retail price and lot details only: stock is changed by a count, purchase cost by a receipt correction. */
+export interface UpdateBatchPricesRequest {
+  /** The batch version the editor was shown; a newer batch answers 409. */
+  readonly expectedVersion: number;
+  readonly mrp: number;
+  readonly salesPrice: number;
+  readonly taxRatePercent: number;
+  readonly taxIncluded: boolean;
+  readonly batchNumber: string | null;
+  readonly expiryDate: string | null;
+  readonly manufacturingDate: string | null;
+  readonly reason: string | null;
+}
+
+export interface UpdateBatchPricesResponse {
+  readonly batchId: string;
+  readonly version: number;
+  readonly priceRevisionId: string | null;
+}
+
+export interface CorrectReceiptCostRequest {
+  readonly expectedVersion: number;
+  readonly revisedTotalCost: number;
+  readonly reason: string;
+  readonly operationKey: string;
+}
+
+export interface CorrectReceiptCostResponse {
+  readonly adjustmentId: string;
+  readonly receiptValueId: string;
+  readonly batchId: string;
+  readonly priorTotalCost: number;
+  readonly revisedTotalCost: number;
+  readonly delta: number;
+  readonly supplierLedgerEntryId: string;
+  readonly receiptVersion: number;
+  readonly performedAt: string;
 }
 
 export interface CountInventoryBatchRequest {
@@ -174,23 +225,6 @@ export interface CountInventoryBatchResponse {
   readonly inventoryQuantityAfter: number;
   readonly batchVersion: number;
   readonly performedAt: string;
-}
-
-export interface UpdateInventoryBatchRequest {
-  readonly newBatchNumber: string | null;
-  readonly quantity: number;
-  readonly costPrice: number;
-  readonly mrp: number;
-  readonly salesPrice: number;
-  readonly taxRatePercent: number;
-  readonly taxIncluded: boolean;
-  readonly expiryDate: string | null;
-  readonly manufacturingDate: string | null;
-  readonly supplierId: string | null;
-  readonly notes: string | null;
-  readonly entryDate: string | null;
-  /** The batch version the editor was shown; a newer batch answers 409. */
-  readonly expectedVersion: number;
 }
 
 export type InventoryAdjustmentDirection = 'Increase' | 'Decrease';

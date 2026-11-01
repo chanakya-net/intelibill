@@ -88,6 +88,11 @@ describe('InventoryAdjustmentsPageComponent', () => {
       createdAt: '2026-05-01T00:00:00.000Z',
       updatedAt: null,
       version: 1,
+      receiptValueId: null,
+      receiptStatus: null,
+      receiptOriginalTotalCost: null,
+      receiptTotalCost: null,
+      receiptVersion: null,
     },
     {
       id: 'batch-empty',
@@ -111,6 +116,11 @@ describe('InventoryAdjustmentsPageComponent', () => {
       createdAt: '2026-05-01T00:00:00.000Z',
       updatedAt: null,
       version: 1,
+      receiptValueId: null,
+      receiptStatus: null,
+      receiptOriginalTotalCost: null,
+      receiptTotalCost: null,
+      receiptVersion: null,
     },
     {
       id: 'batch-voided',
@@ -134,6 +144,11 @@ describe('InventoryAdjustmentsPageComponent', () => {
       createdAt: '2026-05-01T00:00:00.000Z',
       updatedAt: null,
       version: 1,
+      receiptValueId: null,
+      receiptStatus: null,
+      receiptOriginalTotalCost: null,
+      receiptTotalCost: null,
+      receiptVersion: null,
     },
   ];
 

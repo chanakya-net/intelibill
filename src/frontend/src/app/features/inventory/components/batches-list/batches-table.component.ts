@@ -14,7 +14,7 @@ import { TableModule } from 'primeng/table';
 import type { InventoryBatchDto } from '../../services/inventory.models';
 
 export interface BatchTableAction {
-  action: 'edit' | 'adjust' | 'count' | 'void' | 'printLabels';
+  action: 'edit' | 'adjust' | 'count' | 'correctCost' | 'void' | 'printLabels';
   batchId: string;
 }
 
@@ -41,6 +41,8 @@ export class BatchesTableComponent {
   private readonly translocoService = inject(TranslocoService);
   @Input({ required: true }) batches: InventoryBatchDto[] = [];
   @Input() loading = false;
+  /** Receipt cost corrections move the supplier payable, so only an owner is offered them. */
+  @Input() canCorrectReceiptCost = false;
   @Input() set selectedBatchIds(value: readonly string[] | null | undefined) {
     this._selectedBatchIds = value ?? [];
     this.selectedBatchIdSet = new Set(this._selectedBatchIds);
@@ -64,7 +66,10 @@ export class BatchesTableComponent {
       this.rowActionItem('printLabels', 'inventory.printLabels', 'pi pi-print', batch),
       this.rowActionItem('adjust', 'inventory.adjustBatch', 'pi pi-sliders-h', batch),
       this.rowActionItem('count', 'inventory.countStock', 'pi pi-calculator', batch),
-      this.rowActionItem('edit', 'common.edit', 'pi pi-pencil', batch),
+      this.rowActionItem('edit', 'inventory.editPricesAndDetails', 'pi pi-pencil', batch),
+      ...(this.canCorrectReceiptCost && !batch.isVoided
+        ? [this.rowActionItem('correctCost', 'inventory.correctReceiptCost', 'pi pi-receipt', batch)]
+        : []),
       this.rowActionItem('void', 'common.void', 'pi pi-trash', batch),
     ];
   }

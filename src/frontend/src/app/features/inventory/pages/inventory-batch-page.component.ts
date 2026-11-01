@@ -116,6 +116,11 @@ export class InventoryBatchPageComponent {
   onSaveAll(): void {
     // An interrupted submission can be resent even when no draft rows remain on screen.
     if (this.isSaving() || (this.pendingRows().length === 0 && !this.hasInterruptedSubmission())) return;
+    if (!this.hasInterruptedSubmission() && this.pendingRows().some((row) => typeof row.purchaseTaxIncluded !== 'boolean')) {
+      // Drafts kept from before purchase tax mode existed: the user confirms it per row (edit the row).
+      this.showWarn('inventory.purchaseTaxModeMissingRows');
+      return;
+    }
 
     this.isSaving.set(true);
     void this.saveRowsInChunks();
@@ -328,7 +333,9 @@ export class InventoryBatchPageComponent {
       salesPrice: row.salesPrice,
       taxRatePercent: row.taxRatePercent,
       taxIncluded: row.taxIncluded,
-      purchaseTaxIncluded: row.taxIncluded,
+      // Rows are always sent with their own purchase mode. Only a submission frozen by an earlier
+      // release can lack it; that release sent the sales mode, so its resend repeats it unchanged.
+      purchaseTaxIncluded: row.purchaseTaxIncluded ?? row.taxIncluded,
       expiryDate: row.expiryDate,
       manufacturingDate: row.manufacturingDate,
       supplierId: row.supplierId,
