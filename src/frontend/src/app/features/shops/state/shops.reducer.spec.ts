@@ -63,6 +63,31 @@ describe('shopsReducer', () => {
     expect(next.lastMutationType).toBe('update');
   });
 
+  it('marks a switch in flight on switchActiveShopRequested', () => {
+    const next = shopsReducer(initial, ShopsActions.switchActiveShopRequested({ shopId: 'sh2' }));
+    expect(next.submitting).toBe(true);
+    expect(next.lastMutationType).toBe('switch');
+    expect(next.lastMutationSucceeded).toBe(false);
+  });
+
+  it('clears the in-flight switch on switchActiveShopSucceeded', () => {
+    const requested = shopsReducer(initial, ShopsActions.switchActiveShopRequested({ shopId: 'sh2' }));
+    const next = shopsReducer(requested, ShopsActions.switchActiveShopSucceeded({ shopId: 'sh2' }));
+    expect(next.submitting).toBe(false);
+    expect(next.lastMutationSucceeded).toBe(true);
+  });
+
+  it('keeps the shop picker usable after a failed switch', () => {
+    const requested = shopsReducer(initial, ShopsActions.switchActiveShopRequested({ shopId: 'sh2' }));
+    const next = shopsReducer(
+      requested,
+      ShopsActions.switchActiveShopFailed({ errorMessage: 'errors.shops.unableToSwitchStore' })
+    );
+    expect(next.submitting).toBe(false);
+    expect(next.errorMessage).toBe('errors.shops.unableToSwitchStore');
+    expect(next.lastMutationSucceeded).toBe(false);
+  });
+
   it('sets default mutation type on setDefaultShopRequested', () => {
     const next = shopsReducer(initial, ShopsActions.setDefaultShopRequested({ shopId: 'sh1' }));
     expect(next.lastMutationType).toBe('set-default');

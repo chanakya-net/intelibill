@@ -122,6 +122,28 @@ export const shopsReducer = createReducer(
     lastMutationSucceeded: false,
   })),
 
+  on(ShopsActions.switchActiveShopRequested, (state) => ({
+    ...state,
+    submitting: true,
+    errorMessage: '',
+    lastMutationType: 'switch' as const,
+    lastMutationSucceeded: false,
+  })),
+  on(ShopsActions.switchActiveShopSucceeded, (state) => ({
+    ...state,
+    submitting: false,
+    errorMessage: '',
+    lastMutationType: 'switch' as const,
+    lastMutationSucceeded: true,
+  })),
+  on(ShopsActions.switchActiveShopFailed, (state, { errorMessage }) => ({
+    ...state,
+    submitting: false,
+    errorMessage,
+    lastMutationType: 'switch' as const,
+    lastMutationSucceeded: false,
+  })),
+
   on(ShopsActions.setDefaultShopRequested, (state) => ({
     ...state,
     submitting: true,

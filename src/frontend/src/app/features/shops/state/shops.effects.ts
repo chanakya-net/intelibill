@@ -1,8 +1,10 @@
 import { inject, Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
-import { EMPTY, catchError, map, of, switchMap } from 'rxjs';
+import { EMPTY, catchError, map, of, switchMap, tap } from 'rxjs';
 
 import { ApiErrorPayload } from '../../../core/auth/auth.models';
+import { AuthService } from '../../../core/auth/auth.service';
+import { AppReloadService } from '../../../core/services/app-reload.service';
 import { ShopService } from '../services/shop.service';
 import { ShopsActions } from './shops.actions';
 
@@ -10,6 +12,8 @@ import { ShopsActions } from './shops.actions';
 export class ShopsEffects {
   private readonly actions$ = inject(Actions);
   private readonly shopService = inject(ShopService);
+  private readonly authService = inject(AuthService);
+  private readonly appReload = inject(AppReloadService);
 
   readonly loadShops$ = createEffect(() =>
     this.actions$.pipe(
@@ -51,7 +55,13 @@ export class ShopsEffects {
     this.actions$.pipe(
       ofType(ShopsActions.loadShopsSucceeded),
       switchMap(({ shops }) => {
-        const activeShop = shops.find((shop) => shop.isDefault) ?? shops[0];
+        // The shop this device is working in, which after a switch is not the default one. The
+        // default is only the fallback for a session that has not been scoped yet.
+        const activeShopId = this.authService.session()?.activeShopId ?? null;
+        const activeShop =
+          shops.find((shop) => shop.shopId === activeShopId) ??
+          shops.find((shop) => shop.isDefault) ??
+          shops[0];
         if (!activeShop) {
           return EMPTY;
         }
@@ -95,6 +105,38 @@ export class ShopsEffects {
         )
       )
     )
+  );
+
+  readonly switchActiveShop$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(ShopsActions.switchActiveShopRequested),
+      switchMap(({ shopId }) =>
+        this.shopService.switchActiveShop(shopId).pipe(
+          map(() => ShopsActions.switchActiveShopSucceeded({ shopId })),
+          catchError((error: { error?: ApiErrorPayload }) =>
+            of(
+              ShopsActions.switchActiveShopFailed({
+                errorMessage: getShopSwitchErrorMessage(error.error),
+              })
+            )
+          )
+        )
+      )
+    )
+  );
+
+  /**
+   * A switch moves every shop-scoped page on this device, and those pages load their rows when
+   * they are created rather than when the scope changes. Restarting is what guarantees no view is
+   * left showing the shop that was just left.
+   */
+  readonly restartAfterShopSwitch$ = createEffect(
+    () =>
+      this.actions$.pipe(
+        ofType(ShopsActions.switchActiveShopSucceeded),
+        tap(() => this.appReload.restartAtAppRoot())
+      ),
+    { dispatch: false }
   );
 
   readonly setDefaultShop$ = createEffect(() =>
@@ -158,6 +200,22 @@ function getShopDetailsErrorMessage(error: ApiErrorPayload | undefined): string 
   }
 
   return 'errors.shops.unableToLoadDetails';
+}
+
+function getShopSwitchErrorMessage(error: ApiErrorPayload | undefined): string {
+  const title = error?.title ?? '';
+
+  // The membership was withdrawn between loading the picker and using it.
+  if (title === 'Shop.MembershipNotFound') {
+    return 'errors.shops.membershipNotFound';
+  }
+
+  // This device's session is gone: signed out elsewhere, or revoked.
+  if (title === 'Auth.SessionInvalidated' || title === 'Unauthorized' || title === 'Auth.Unauthorized') {
+    return 'errors.auth.sessionVerificationFailed';
+  }
+
+  return 'errors.shops.unableToSwitchStore';
 }
 
 function getBankDetailsErrorMessage(error: ApiErrorPayload | undefined): string {

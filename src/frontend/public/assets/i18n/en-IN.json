@@ -932,6 +932,7 @@
     "shops": {
       "unableToLoadShops": "Unable to load your shops right now. Please try again.",
       "unableToSetDefaultStore": "Unable to set default store right now. Please try again.",
+      "unableToSwitchStore": "Unable to switch store right now. Please try again.",
       "membershipNotFound": "You do not have access to this shop.",
       "shopNotFound": "The selected shop no longer exists.",
       "unableToLoadDetails": "Unable to load shop details right now. Please try again.",

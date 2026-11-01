@@ -31,6 +31,9 @@ export const AUTH_ENDPOINTS = {
 export const SHOP_ENDPOINTS = {
   me: `${API_BASE_URL}/shops/me`,
   create: `${API_BASE_URL}/shops`,
+  // Moves this device into another of the caller's shops. Distinct from `setDefault`, which only
+  // stores a preference and moves no device.
+  switch: `${API_BASE_URL}/shops/switch`,
   setDefault: `${API_BASE_URL}/shops/default`,
   details: (shopId: string) => `${API_BASE_URL}/shops/${shopId}`,
   update: (shopId: string) => `${API_BASE_URL}/shops/${shopId}`,
