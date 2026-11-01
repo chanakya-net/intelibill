@@ -123,10 +123,16 @@ database before the API will serve anything — the `dotnet ef database update`
 command under [Backend](#backend) above, pointed at `localhost:5432`. Re-run `up`
 afterwards so a table added by that migration picks up its grant.
 
+Identity email is captured locally by the `mailpit` service rather than
+delivered: registration and password-reset messages appear at
+`http://localhost:8025` and never leave the machine. See
+[docs/auth-email-setup.md](docs/auth-email-setup.md).
+
 | Service  | URL |
 |---|---|
-| Backend  | `http://localhost:8080` |
+| Backend  | `http://localhost:5277` |
 | Frontend | `http://localhost:4000` |
+| Mail capture | `http://localhost:8025` |
 | PostgreSQL | `localhost:5432` |
 
 ```bash

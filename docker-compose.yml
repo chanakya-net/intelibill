@@ -42,6 +42,21 @@ services:
       postgres:
         condition: service_healthy
 
+  # Local email capture. Registration, password reset and every other identity
+  # message goes here instead of to a real inbox, and nothing leaves the machine:
+  # the SMTP and web ports are bound to 127.0.0.1 only, because this accepts mail
+  # from anyone with no authentication. Read the messages at http://localhost:8025.
+  mailpit:
+    profiles: [full]
+    image: axllent/mailpit:v1.33
+    container_name: intelibill_mailpit
+    ports:
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
+    environment:
+      # Keep the capture bounded; this is a scratch inbox, not a record.
+      MP_MAX_MESSAGES: "500"
+
   backend:
     profiles: [full]
     build:
@@ -59,7 +74,13 @@ services:
     ports:
       - "5277:8080"
     environment:
-      - ASPNETCORE_ENVIRONMENT=Production
+      # Development, because local mail capture is only permitted there and in
+      # Testing — Email:LocalCapture is refused outright in any other
+      # environment, and relaying through Mailpit is the documented local setup
+      # (docs/auth-email-setup.md). No Development settings file reaches the
+      # image; .dockerignore keeps appsettings.Development.json out of the build
+      # context, so everything below is the whole configuration.
+      - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_HTTP_PORTS=8080
       - Database__Host=postgres
       - Database__Port=5432
@@ -68,15 +89,34 @@ services:
       # bypass every tenant policy, and the API refuses to start that way.
       - Database__Username=intelibill_app
       - Database__Password=intelibill_app_password
+      # Stated rather than inherited: the guard is off by default in Development,
+      # and a local stack that quietly stopped checking its own runtime identity
+      # would be the one place a missing shop scope goes unnoticed.
+      - Database__RequireRestrictedRuntimeRole=true
       - Jwt__Secret=YourSuperSecretKeyHereChangeInProduction
       - Jwt__Issuer=Intelibill
       - Jwt__Audience=Intelibill
       - App__BaseUrl=http://localhost:4000
+      # Identity mail. Without these the enrolment endpoint answers 503
+      # Auth.EmailUnavailable: the outbox reports itself unavailable unless
+      # delivery is enabled AND it holds a 32-byte key to encrypt stored bodies
+      # with. `mailpit` is the one container hostname LocalCapture accepts.
+      - Email__Enabled=true
+      - Email__LocalCapture=true
+      - Email__Host=mailpit
+      - Email__Port=1025
+      - Email__FromEmail=no-reply@intelibill.local
+      - Email__FromName=Intelibill (local)
+      # Local placeholder, base64 of 32 ASCII bytes. Deployed environments take
+      # this from a secret store; it is no more secret than Jwt__Secret above.
+      - Identity__OutboxKey=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
     depends_on:
       postgres:
         condition: service_healthy
       db-runtime-role:
         condition: service_completed_successfully
+      mailpit:
+        condition: service_started
     healthcheck:
       # The API's own liveness endpoint: -f turns a non-2xx answer into a failure,
       # so a process that is listening but broken is reported as unhealthy rather
