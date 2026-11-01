@@ -16,6 +16,32 @@ services:
       timeout: 5s
       retries: 5
 
+  # The restricted identity the API connects as, created before the API starts.
+  #
+  # `intelibill` above is the superuser that owns the schema; it holds BYPASSRLS,
+  # so an API connecting as that role ignores every tenant policy with nothing in
+  # the log to say so. RuntimeRoleGuard refuses to start on such an identity, so
+  # this one-shot is what the backend waits for. It is idempotent and re-runs on
+  # every `up`, which is also how a table added by a later migration picks up its
+  # grant.
+  db-runtime-role:
+    profiles: [full]
+    image: postgres:17-alpine
+    container_name: intelibill_db_runtime_role
+    environment:
+      PGPASSWORD: intelibill_dev_password
+    entrypoint:
+      - psql
+      - --host=postgres
+      - --username=intelibill
+      - --dbname=intelibill_dev
+      - --file=/scripts/local-runtime-role.sql
+    volumes:
+      - ./scripts/db:/scripts:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   backend:
     profiles: [full]
     build:
@@ -38,8 +64,10 @@ services:
       - Database__Host=postgres
       - Database__Port=5432
       - Database__Database=intelibill_dev
-      - Database__Username=intelibill
-      - Database__Password=intelibill_dev_password
+      # The restricted role, not the schema owner. Connecting as the owner would
+      # bypass every tenant policy, and the API refuses to start that way.
+      - Database__Username=intelibill_app
+      - Database__Password=intelibill_app_password
       - Jwt__Secret=YourSuperSecretKeyHereChangeInProduction
       - Jwt__Issuer=Intelibill
       - Jwt__Audience=Intelibill
@@ -47,6 +75,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      db-runtime-role:
+        condition: service_completed_successfully
     healthcheck:
       # The API's own liveness endpoint: -f turns a non-2xx answer into a failure,
       # so a process that is listening but broken is reported as unhealthy rather

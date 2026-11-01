@@ -111,6 +111,18 @@ docker compose up -d
 docker compose --profile full up -d
 ```
 
+The full stack runs the API as `intelibill_app`, a login role that holds table
+DML and nothing else — not as the schema owner `intelibill`, which holds
+`BYPASSRLS` and would therefore ignore every tenant policy. The `db-runtime-role`
+service creates that role before the API starts
+([scripts/db/local-runtime-role.sql](scripts/db/local-runtime-role.sql)), and the
+API refuses to start if it is ever pointed back at a privileged identity.
+
+The stack does not migrate: apply the schema yourself against the compose
+database before the API will serve anything — the `dotnet ef database update`
+command under [Backend](#backend) above, pointed at `localhost:5432`. Re-run `up`
+afterwards so a table added by that migration picks up its grant.
+
 | Service  | URL |
 |---|---|
 | Backend  | `http://localhost:8080` |
