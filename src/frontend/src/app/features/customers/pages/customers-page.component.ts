@@ -19,6 +19,13 @@ import { SkeletonModule } from 'primeng/skeleton';
 import { TagModule } from 'primeng/tag';
 import { TableModule } from 'primeng/table';
 
+import { AuthService } from '../../../core/auth/auth.service';
+import {
+  FinancialOperationIntent,
+  FinancialOperationIntentService,
+  classifyFinancialOperationFailure,
+} from '../../../core/services/financial-operation-intent.service';
+import { PendingFinancialOperationComponent } from '../../../shared/components/pending-financial-operation/pending-financial-operation.component';
 import { AddCustomerOverlayComponent } from '../components/add-customer-overlay.component';
 import { CustomersFilterBarComponent } from '../components/customers-filter-bar.component';
 import { CustomersTableComponent } from '../components/customers-table.component';
@@ -29,6 +36,7 @@ import {
   CustomerAccountSale,
   CustomerLedgerEntry,
   CustomerService,
+  RecordCustomerPaymentRequest,
 } from '../services/customer.service';
 import { CustomersFacade } from '../state/customers.facade';
 import {
@@ -92,6 +100,7 @@ interface CustomerDirectoryMetric {
     CustomersFilterBarComponent,
     CustomersTableComponent,
     EditCustomerOverlayComponent,
+    PendingFinancialOperationComponent,
     DateOnlyPipe,
     TranslocoPipe,
   ],
@@ -101,6 +110,22 @@ interface CustomerDirectoryMetric {
 export class CustomersPageComponent {
   private readonly customersFacade = inject(CustomersFacade);
   private readonly customerService = inject(CustomerService);
+  private readonly intents = inject(FinancialOperationIntentService);
+  private readonly authService = inject(AuthService);
+  private readonly paymentScope = computed(() => ({
+    userId: this.authService.session()?.user?.id ?? '',
+    shopId: this.authService.session()?.activeShopId ?? '',
+  }));
+  readonly pendingNotice = signal<string | null>(null);
+  readonly isCheckingPayment = signal(false);
+  /** An earlier payment from this customer with no confirmed outcome; it blocks a new one. */
+  readonly pendingPayment = computed(() => {
+    this.intents.revision();
+    const customer = this.selectedAccountCustomer();
+    return customer
+      ? this.intents.pending<RecordCustomerPaymentRequest>(this.paymentScope(), 'customer-payment', customer.customerId)
+      : null;
+  });
   private readonly router = inject(Router);
   private readonly fb = inject(FormBuilder);
 
@@ -376,14 +401,66 @@ export class CustomersPageComponent {
     }
 
     this.accountError.set('');
-    this.submittingPayment.set(true);
+    if (this.pendingPayment()) {
+      this.accountError.set('financialOperations.pendingBlocksNew');
+      return;
+    }
 
-    this.customerService
-      .recordCustomerPayment(customer.customerId, {
+    let intent: FinancialOperationIntent<RecordCustomerPaymentRequest>;
+    try {
+      intent = this.intents.prepare(this.paymentScope(), 'customer-payment', customer.customerId, {
         amount: Number(this.paymentForm.controls.amount.value),
         paymentDate: this.paymentForm.controls.paymentDate.value,
         notes: this.paymentForm.controls.notes.value.trim() || null,
-      })
+      });
+    } catch {
+      this.accountError.set('financialOperations.persistFailed');
+      return;
+    }
+
+    this.sendPayment(customer, intent);
+  }
+
+  onRetryPendingPayment(): void {
+    const customer = this.selectedAccountCustomer();
+    const intent = this.pendingPayment();
+    if (!customer || !intent) {
+      return;
+    }
+    this.accountError.set('');
+    this.pendingNotice.set(null);
+    this.sendPayment(customer, intent);
+  }
+
+  onCheckPendingPayment(): void {
+    const customer = this.selectedAccountCustomer();
+    const intent = this.pendingPayment();
+    if (!customer || !intent) {
+      return;
+    }
+    this.isCheckingPayment.set(true);
+    this.intents.check(this.paymentScope(), intent).subscribe({
+      next: (committed) => {
+        this.isCheckingPayment.set(false);
+        this.pendingNotice.set(committed ? 'financialOperations.confirmed' : 'financialOperations.notYetRecorded');
+        if (committed) {
+          this.loadCustomerAccount(customer.customerId);
+          this.customersFacade.loadCustomers();
+        }
+      },
+      error: () => {
+        this.isCheckingPayment.set(false);
+        this.pendingNotice.set('financialOperations.checkFailed');
+      },
+    });
+  }
+
+  private sendPayment(customer: Customer, intent: FinancialOperationIntent<RecordCustomerPaymentRequest>): void {
+    this.submittingPayment.set(true);
+    this.intents
+      .send(this.paymentScope(), intent, (payload, operationKey) =>
+        this.customerService.recordCustomerPayment(customer.customerId, { ...payload, operationKey }),
+      )
       .subscribe({
         next: () => {
           this.paymentForm.patchValue({ amount: 0, notes: '' });
@@ -392,7 +469,11 @@ export class CustomersPageComponent {
           this.customersFacade.loadCustomers();
         },
         error: (error) => {
-          this.accountError.set(error.error?.detail || 'customers.account.paymentFailed');
+          this.accountError.set(
+            classifyFinancialOperationFailure(error) === 'uncertain'
+              ? 'financialOperations.outcomeUnknown'
+              : error.error?.detail || 'customers.account.paymentFailed',
+          );
           this.submittingPayment.set(false);
         },
       });

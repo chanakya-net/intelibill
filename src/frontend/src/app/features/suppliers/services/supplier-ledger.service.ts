@@ -18,6 +18,10 @@ export interface MakePaymentRequest {
   readonly notes: string | null;
 }
 
+export interface KeyedMakePaymentRequest extends MakePaymentRequest {
+  readonly operationKey: string;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -28,7 +32,7 @@ export class SupplierLedgerService {
     return this.http.get<readonly SupplierLedgerEntry[]>(`${SUPPLIER_ENDPOINTS.update(supplierId)}/ledger`);
   }
 
-  makePayment(supplierId: string, payload: MakePaymentRequest): Observable<SupplierLedgerEntry> {
+  makePayment(supplierId: string, payload: KeyedMakePaymentRequest): Observable<SupplierLedgerEntry> {
     return this.http.post<SupplierLedgerEntry>(SUPPLIER_ENDPOINTS.payments(supplierId), payload);
   }
 }

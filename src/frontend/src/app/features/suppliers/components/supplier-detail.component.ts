@@ -5,6 +5,9 @@ import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import { ButtonModule } from 'primeng/button';
 import { DialogModule } from 'primeng/dialog';
 
+import { AuthService } from '../../../core/auth/auth.service';
+import { FinancialOperationIntentService } from '../../../core/services/financial-operation-intent.service';
+import { PendingFinancialOperationComponent } from '../../../shared/components/pending-financial-operation/pending-financial-operation.component';
 import { MakePaymentRequest, SupplierLedgerEntry } from '../services/supplier-ledger.service';
 import { Supplier } from '../services/supplier.service';
 import { SuppliersFacade } from '../state/suppliers.facade';
@@ -19,6 +22,7 @@ import { SupplierPaymentFormComponent } from './supplier-detail/supplier-payment
     CommonModule,
     DialogModule,
     ButtonModule,
+    PendingFinancialOperationComponent,
     SupplierInfoCardComponent,
     SupplierLedgerTableComponent,
     SupplierPaymentFormComponent,
@@ -31,6 +35,8 @@ export class SupplierDetailComponent {
   readonly facade = inject(SuppliersFacade);
   private readonly transloco = inject(TranslocoService);
   private readonly currentLang = toSignal(this.transloco.langChanges$, { initialValue: '' });
+  private readonly intents = inject(FinancialOperationIntentService);
+  private readonly authService = inject(AuthService);
 
   @Input() canMakePayment = false;
 
@@ -54,6 +60,20 @@ export class SupplierDetailComponent {
 
   protected readonly isSubmittingPayment = this.facade.isSubmitting;
   protected readonly paymentErrorMessage = this.facade.errorMessage;
+  protected readonly pendingNotice = signal<string | null>(null);
+  protected readonly isCheckingPayment = signal(false);
+  private readonly scope = computed(() => ({
+    userId: this.authService.session()?.user?.id ?? '',
+    shopId: this.authService.session()?.activeShopId ?? '',
+  }));
+  /** An earlier payment to this supplier with no confirmed outcome; it blocks a new one. */
+  protected readonly pendingPayment = computed(() => {
+    this.intents.revision();
+    const supplierId = this.currentSupplierId();
+    return supplierId
+      ? this.intents.pending<MakePaymentRequest>(this.scope(), 'supplier-payment', supplierId)
+      : null;
+  });
 
   constructor() {
     effect(() => {
@@ -77,6 +97,39 @@ export class SupplierDetailComponent {
     this.facade.clearError();
     this.facade.clearMutationStatus();
     this.facade.makePayment(supplierId, payload);
+  }
+
+  onCheckPendingPayment(): void {
+    const intent = this.pendingPayment();
+    const supplierId = this.currentSupplierId();
+    if (!intent || !supplierId) {
+      return;
+    }
+    this.isCheckingPayment.set(true);
+    this.intents.check(this.scope(), intent).subscribe({
+      next: (committed) => {
+        this.isCheckingPayment.set(false);
+        this.pendingNotice.set(committed ? 'financialOperations.confirmed' : 'financialOperations.notYetRecorded');
+        if (committed) {
+          this.facade.loadLedger(supplierId);
+        }
+      },
+      error: () => {
+        this.isCheckingPayment.set(false);
+        this.pendingNotice.set('financialOperations.checkFailed');
+      },
+    });
+  }
+
+  onRetryPendingPayment(): void {
+    const supplierId = this.currentSupplierId();
+    if (!supplierId) {
+      return;
+    }
+    this.pendingNotice.set(null);
+    this.facade.clearError();
+    this.facade.clearMutationStatus();
+    this.facade.retryPayment(supplierId);
   }
 
   protected readonly isLoading = this.facade.ledgerIsLoading;

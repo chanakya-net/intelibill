@@ -65,6 +65,11 @@ export const USER_ENDPOINTS = {
   changePassword: `${API_BASE_URL}/users/me/change-password`,
 } as const;
 
+export const FINANCIAL_OPERATION_ENDPOINTS = {
+  lookup: (operationType: string, operationKey: string) =>
+    `${API_BASE_URL}/financial-operations/${operationType}/${encodeURIComponent(operationKey)}`,
+} as const;
+
 export const SUPPLIER_ENDPOINTS = {
   list: `${API_BASE_URL}/suppliers`,
   add: `${API_BASE_URL}/suppliers`,

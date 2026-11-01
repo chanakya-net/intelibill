@@ -5,9 +5,17 @@ import { Router } from '@angular/router';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { AuthService } from '../../../core/auth/auth.service';
+import { FinancialOperationIntentService } from '../../../core/services/financial-operation-intent.service';
 import { Customer, CustomerService } from '../services/customer.service';
 import { CustomersFacade } from '../state/customers.facade';
 import { CustomersPageComponent } from './customers-page.component';
+
+const paymentIntents = {
+  revision: signal(0),
+  pending: vi.fn((): unknown => null),
+  check: vi.fn(),
+};
 
 describe('CustomersPageComponent', () => {
   const customersSignal = signal<Customer[]>([
@@ -154,6 +162,8 @@ describe('CustomersPageComponent', () => {
         { provide: CustomersFacade, useValue: facade },
         { provide: CustomerService, useValue: customerService },
         { provide: Router, useValue: router },
+        { provide: AuthService, useValue: { session: () => ({ user: { id: 'user-1' }, activeShopId: 'shop-1' }) } },
+        { provide: FinancialOperationIntentService, useValue: paymentIntents },
       ],
     }).compileComponents();
 

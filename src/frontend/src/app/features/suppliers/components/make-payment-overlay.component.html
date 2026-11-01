@@ -24,13 +24,24 @@
         <i class="pi pi-times" aria-hidden="true"></i>
       </button>
     </header>
-    <app-supplier-payment-form
-      class="overlay-form"
-      [submitting]="isSubmitting()"
-      [serverError]="serverError()"
-      [maxDate]="today"
-      (paymentSubmitted)="onPaymentSubmitted($event)"
-      (cancelled)="onClose()"
-    />
+    @if (pendingPayment(); as pending) {
+      <app-pending-financial-operation
+        class="overlay-form"
+        [intent]="pending"
+        [busy]="isSubmitting() || isCheckingPayment()"
+        [notice]="pendingNotice() ?? (serverError() || null)"
+        (checkStatus)="onCheckPendingPayment()"
+        (retry)="onRetryPendingPayment()"
+      />
+    } @else {
+      <app-supplier-payment-form
+        class="overlay-form"
+        [submitting]="isSubmitting()"
+        [serverError]="serverError()"
+        [maxDate]="today"
+        (paymentSubmitted)="onPaymentSubmitted($event)"
+        (cancelled)="onClose()"
+      />
+    }
   </div>
 </section>

@@ -1,10 +1,17 @@
 import { inject, Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
-import { catchError, map, of, switchMap } from 'rxjs';
+import { Observable, catchError, map, mergeMap, of, switchMap } from 'rxjs';
 
+import { AuthService } from '../../../core/auth/auth.service';
 import { ApiErrorPayload } from '../../../core/auth/auth.models';
+import {
+  FinancialOperationIntent,
+  FinancialOperationIntentService,
+  FinancialOperationScope,
+  classifyFinancialOperationFailure,
+} from '../../../core/services/financial-operation-intent.service';
 import { ShopsActions } from '../../shops/state/shops.actions';
-import { SupplierLedgerService } from '../services/supplier-ledger.service';
+import { MakePaymentRequest, SupplierLedgerService } from '../services/supplier-ledger.service';
 import { SupplierService } from '../services/supplier.service';
 import { SuppliersActions } from './suppliers.actions';
 
@@ -13,6 +20,8 @@ export class SuppliersEffects {
   private readonly actions$ = inject(Actions);
   private readonly supplierService = inject(SupplierService);
   private readonly ledgerService = inject(SupplierLedgerService);
+  private readonly intents = inject(FinancialOperationIntentService);
+  private readonly authService = inject(AuthService);
 
   readonly loadSuppliers$ = createEffect(() =>
     this.actions$.pipe(
@@ -82,21 +91,39 @@ export class SuppliersEffects {
     )
   );
 
+  /**
+   * A new payment is frozen as an intent before it is sent. mergeMap, not switchMap: a later
+   * payment must never cancel one already in flight.
+   */
   readonly makePayment$ = createEffect(() =>
     this.actions$.pipe(
       ofType(SuppliersActions.makePaymentRequested),
-      switchMap(({ supplierId, payload }) =>
-        this.ledgerService.makePayment(supplierId, payload).pipe(
-          map((entry) => SuppliersActions.makePaymentSucceeded({ entry })),
-          catchError((error: { error?: ApiErrorPayload }) =>
-            of(
-              SuppliersActions.makePaymentFailed({
-                errorMessage: getPaymentErrorMessage(error.error),
-              })
-            )
-          )
-        )
-      )
+      mergeMap(({ supplierId, payload }) => {
+        const scope = this.scope();
+        if (this.intents.pending(scope, 'supplier-payment', supplierId)) {
+          return of(SuppliersActions.makePaymentFailed({ errorMessage: 'financialOperations.pendingBlocksNew' }));
+        }
+        let intent: FinancialOperationIntent<MakePaymentRequest>;
+        try {
+          intent = this.intents.prepare(scope, 'supplier-payment', supplierId, payload);
+        } catch {
+          return of(SuppliersActions.makePaymentFailed({ errorMessage: 'financialOperations.persistFailed' }));
+        }
+        return this.sendPayment(scope, supplierId, intent);
+      })
+    )
+  );
+
+  readonly retryPayment$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(SuppliersActions.retryPaymentRequested),
+      mergeMap(({ supplierId }) => {
+        const scope = this.scope();
+        const intent = this.intents.pending<MakePaymentRequest>(scope, 'supplier-payment', supplierId);
+        return intent
+          ? this.sendPayment(scope, supplierId, intent)
+          : of(SuppliersActions.makePaymentFailed({ errorMessage: '' }));
+      })
     )
   );
 
@@ -106,6 +133,35 @@ export class SuppliersEffects {
       map(() => SuppliersActions.loadSuppliersRequested())
     )
   );
+
+  private scope(): FinancialOperationScope {
+    const session = this.authService.session();
+    return { userId: session?.user?.id ?? '', shopId: session?.activeShopId ?? '' };
+  }
+
+  private sendPayment(
+    scope: FinancialOperationScope,
+    supplierId: string,
+    intent: FinancialOperationIntent<MakePaymentRequest>
+  ): Observable<ReturnType<typeof SuppliersActions.makePaymentSucceeded | typeof SuppliersActions.makePaymentFailed>> {
+    return this.intents
+      .send(scope, intent, (payload, operationKey) =>
+        this.ledgerService.makePayment(supplierId, { ...payload, operationKey })
+      )
+      .pipe(
+        map((entry) => SuppliersActions.makePaymentSucceeded({ entry })),
+        catchError((error: { error?: ApiErrorPayload }) =>
+          of(
+            SuppliersActions.makePaymentFailed({
+              errorMessage:
+                classifyFinancialOperationFailure(error) === 'uncertain'
+                  ? 'financialOperations.outcomeUnknown'
+                  : getPaymentErrorMessage(error.error),
+            })
+          )
+        )
+      );
+  }
 }
 
 function getLoadSuppliersErrorMessage(_: ApiErrorPayload | undefined): string {

@@ -89,6 +89,7 @@ describe('CustomerService', () => {
       amount: 200,
       paymentDate: '2026-04-24',
       notes: 'Paid by cash',
+      operationKey: 'customer-payment-1',
     };
     const ledgerEntry = {
       entryId: 'e1',

@@ -51,10 +51,20 @@
             @if (paymentErrorMessage()) {
               <div class="error">{{ paymentErrorMessage() | transloco }}</div>
             }
-            <app-supplier-payment-form
-              [submitting]="isSubmittingPayment()"
-              (paymentSubmitted)="onPaymentSubmitted($event)"
-            />
+            @if (pendingPayment(); as pending) {
+              <app-pending-financial-operation
+                [intent]="pending"
+                [busy]="isSubmittingPayment() || isCheckingPayment()"
+                [notice]="pendingNotice()"
+                (checkStatus)="onCheckPendingPayment()"
+                (retry)="onRetryPendingPayment()"
+              />
+            } @else {
+              <app-supplier-payment-form
+                [submitting]="isSubmittingPayment()"
+                (paymentSubmitted)="onPaymentSubmitted($event)"
+              />
+            }
           </div>
         }
       </div>

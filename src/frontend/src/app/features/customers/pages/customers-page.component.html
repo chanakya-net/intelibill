@@ -142,7 +142,9 @@
     @if (accountError()) {
       <p class="error">
         {{
-          accountError().startsWith('customers.') ? (accountError() | transloco) : accountError()
+          accountError().startsWith('customers.') || accountError().startsWith('financialOperations.')
+            ? (accountError() | transloco)
+            : accountError()
         }}
       </p>
     }
@@ -219,37 +221,47 @@
           [attr.aria-label]="'customers.recordPayment' | transloco"
         >
           <h3>{{ 'customers.account.recordPayment' | transloco }}</h3>
-          <form [formGroup]="paymentForm" class="statement-payment-form">
-            <label>
-              <span>{{ 'customers.account.amount' | transloco }}</span>
-              <p-inputgroup [pt]="currencyGroupPt">
-                <p-inputgroup-addon [pt]="currencyAddonPt">{{
-                  'common.currencySymbol' | transloco
-                }}</p-inputgroup-addon>
-                <p-inputNumber
-                  formControlName="amount"
-                  mode="decimal"
-                  [min]="0.01"
-                  [pt]="currencyInputPt"
-                />
-              </p-inputgroup>
-            </label>
-            <label>
-              <span>{{ 'customers.account.paymentDate' | transloco }}</span>
-              <input pInputText type="date" formControlName="paymentDate" />
-            </label>
-            <label>
-              <span>{{ 'customers.account.notes' | transloco }}</span>
-              <input pInputText type="text" formControlName="notes" />
-            </label>
-            <p-button
-              [label]="'customers.account.submitPayment' | transloco"
-              icon="pi pi-check"
-              [disabled]="paymentForm.invalid || submittingPayment()"
-              [loading]="submittingPayment()"
-              (click)="onRecordPayment()"
+          @if (pendingPayment(); as pending) {
+            <app-pending-financial-operation
+              [intent]="pending"
+              [busy]="submittingPayment() || isCheckingPayment()"
+              [notice]="pendingNotice()"
+              (checkStatus)="onCheckPendingPayment()"
+              (retry)="onRetryPendingPayment()"
             />
-          </form>
+          } @else {
+            <form [formGroup]="paymentForm" class="statement-payment-form">
+              <label>
+                <span>{{ 'customers.account.amount' | transloco }}</span>
+                <p-inputgroup [pt]="currencyGroupPt">
+                  <p-inputgroup-addon [pt]="currencyAddonPt">{{
+                    'common.currencySymbol' | transloco
+                  }}</p-inputgroup-addon>
+                  <p-inputNumber
+                    formControlName="amount"
+                    mode="decimal"
+                    [min]="0.01"
+                    [pt]="currencyInputPt"
+                  />
+                </p-inputgroup>
+              </label>
+              <label>
+                <span>{{ 'customers.account.paymentDate' | transloco }}</span>
+                <input pInputText type="date" formControlName="paymentDate" />
+              </label>
+              <label>
+                <span>{{ 'customers.account.notes' | transloco }}</span>
+                <input pInputText type="text" formControlName="notes" />
+              </label>
+              <p-button
+                [label]="'customers.account.submitPayment' | transloco"
+                icon="pi pi-check"
+                [disabled]="paymentForm.invalid || submittingPayment()"
+                [loading]="submittingPayment()"
+                (click)="onRecordPayment()"
+              />
+            </form>
+          }
         </section>
 
         <section

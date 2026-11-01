@@ -2173,5 +2173,19 @@
     "phoneTaken": "This number is unavailable. Ask for a new code, or sign in to your existing account.",
     "phoneInvalid": "Enter a mobile number in international format, for example +919876543210.",
     "phoneChangeRequiresProof": "A verified number can only be changed by proving the new number."
+  },
+  "financialOperations": {
+    "pending": {
+      "title": "Payment not confirmed",
+      "hint": "This payment was sent but its result was not received. Retrying sends the same payment and cannot record it twice.",
+      "check": "Check status",
+      "retry": "Retry same payment"
+    },
+    "confirmed": "Payment confirmed. The ledger has been refreshed.",
+    "notYetRecorded": "Not recorded yet. Retry the same payment to finish it.",
+    "checkFailed": "Could not check the payment status. Try again.",
+    "outcomeUnknown": "The connection dropped before the server answered. The payment may already be recorded — check its status or retry the same payment.",
+    "pendingBlocksNew": "Finish the unconfirmed payment before recording a new one.",
+    "persistFailed": "This device could not save the payment before sending, so nothing was sent. Try again."
   }
 }

@@ -1,0 +1,30 @@
+<section class="pending-operation" role="status" aria-labelledby="pending-operation-title">
+  <h3 id="pending-operation-title" class="pending-operation__title">
+    <i class="pi pi-exclamation-triangle" aria-hidden="true"></i>
+    {{ 'financialOperations.pending.title' | transloco }}
+  </h3>
+  <p class="pending-operation__summary">
+    <strong>{{ intent().payload.amount | currency: 'INR' : 'symbol' : '1.2-2' }}</strong>
+    · {{ intent().createdAt | date: 'short' }}
+  </p>
+  <p class="pending-operation__hint">{{ 'financialOperations.pending.hint' | transloco }}</p>
+  @if (notice()) {
+    <p class="pending-operation__notice">{{ notice()! | transloco }}</p>
+  }
+  <div class="pending-operation__actions">
+    <p-button
+      size="small"
+      severity="secondary"
+      [label]="'financialOperations.pending.check' | transloco"
+      [disabled]="busy()"
+      (onClick)="checkStatus.emit()"
+    />
+    <p-button
+      size="small"
+      [label]="'financialOperations.pending.retry' | transloco"
+      [loading]="busy()"
+      [disabled]="busy()"
+      (onClick)="retry.emit()"
+    />
+  </div>
+</section>
