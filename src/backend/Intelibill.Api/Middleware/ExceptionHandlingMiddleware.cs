@@ -1,11 +1,20 @@
-using System.Net;
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using Intelibill.Api.PublicErrors;
+using Intelibill.Api.Logging;
 
 namespace Intelibill.Api.Middleware;
 
-public partial class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<ExceptionHandlingMiddleware> logger)
+public sealed class ExceptionHandlingMiddleware(
+    RequestDelegate next,
+    ISafeErrorFactory errorFactory,
+    ISafeDiagnosticWriter diagnostics)
 {
-    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+    };
 
     public async Task InvokeAsync(HttpContext context)
     {
@@ -13,54 +22,52 @@ public partial class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<E
         {
             await next(context);
         }
-        catch (Exception ex)
+        catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
         {
-            LogUnhandledException(logger, ex.Message, ex);
-            await HandleExceptionAsync(context, ex);
+            // The caller went away. Nothing failed here and nobody is left to read a body, so
+            // this is neither an incident nor a response.
+            if (!context.Response.HasStarted)
+                context.Response.StatusCode = StatusCodes.Status499ClientClosedRequest;
+        }
+        catch (Exception exception)
+        {
+            var traceId = SafeTraceId.Resolve(context);
+            var error = errorFactory.Create(exception, traceId);
+            var started = context.Response.HasStarted;
+            var diagnostic = SafeDiagnosticContext.For(context, traceId, error.Code, error.Status, started);
+
+            if (error.Status >= StatusCodes.Status500InternalServerError)
+                diagnostics.Unexpected(exception, diagnostic);
+            else
+                diagnostics.Rejected(exception, diagnostic);
+
+            if (started)
+            {
+                // Status and headers are already on the wire and the body may stop mid-record. A
+                // problem document appended now would read as more data, so the connection is cut
+                // instead: the client sees a failed transfer, never a complete one.
+                context.Abort();
+                return;
+            }
+
+            await WriteProblemAsync(context, error);
         }
     }
 
-    [LoggerMessage(Level = LogLevel.Error, Message = "Unhandled exception: {Message}")]
-    private static partial void LogUnhandledException(ILogger logger, string message, Exception ex);
-
-    private static Task HandleExceptionAsync(HttpContext context, Exception exception)
+    private static Task WriteProblemAsync(HttpContext context, PublicError error)
     {
-        // Wolverine's FluentValidation middleware throws for invalid messages; normalize
-        // those exceptions to the API's validation problem response shape.
-        if (exception is FluentValidation.ValidationException ve)
+        var problem = new
         {
-            var errors = ve.Errors.Select(e => new { code = e.PropertyName, description = e.ErrorMessage }).ToArray();
-
-            var validationResponse = new
-            {
-                title = "One or more validation errors occurred.",
-                status = 400,
-                errors
-            };
-
-            context.Response.ContentType = "application/problem+json";
-            context.Response.StatusCode = 400;
-            return context.Response.WriteAsync(JsonSerializer.Serialize(validationResponse, JsonOptions));
-        }
-
-        var (statusCode, title) = exception switch
-        {
-            ArgumentException => (HttpStatusCode.BadRequest, "Bad Request"),
-            UnauthorizedAccessException => (HttpStatusCode.Unauthorized, "Unauthorized"),
-            _ => (HttpStatusCode.InternalServerError, "Internal Server Error")
-        };
-
-        var response = new
-        {
-            type = $"https://httpstatuses.com/{(int)statusCode}",
-            title,
-            status = (int)statusCode,
-            detail = exception.Message
+            type = error.Type,
+            title = error.Title,
+            status = error.Status,
+            code = error.Code,
+            traceId = error.TraceId,
+            errors = error.Errors,
         };
 
         context.Response.ContentType = "application/problem+json";
-        context.Response.StatusCode = (int)statusCode;
-
-        return context.Response.WriteAsync(JsonSerializer.Serialize(response, JsonOptions));
+        context.Response.StatusCode = error.Status;
+        return context.Response.WriteAsync(JsonSerializer.Serialize(problem, JsonOptions));
     }
 }
