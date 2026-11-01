@@ -86,6 +86,8 @@ export interface AddInventoryBatchRowRequest {
 
 export interface AddInventoryBatchRequest {
   readonly items: readonly AddInventoryBatchRowRequest[];
+  /** Durable identity of this chunk; resending the same rows under it never posts them twice. */
+  readonly operationKey?: string;
 }
 
 export interface AddInventoryBatchRowError {
@@ -114,6 +116,8 @@ export interface AddInventoryBatchFailedRow {
   readonly itemName: string;
   readonly barcode: string;
   readonly errors: readonly AddInventoryBatchRowError[];
+  /** Nothing was saved for the row because of a temporary problem; resending retries it. */
+  readonly retryable?: boolean;
 }
 
 export interface AddInventoryBatchResponse {

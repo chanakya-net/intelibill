@@ -1,4 +1,5 @@
 import { signal } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { TranslocoTestingModule } from '@ngneat/transloco';
@@ -43,10 +44,18 @@ describe('InventoryBatchPageComponent', () => {
     printBarcodeLabels: vi.fn(),
   };
 
+  let storedSubmission: any = null;
   const draftStorage = {
     loadRows: vi.fn(async () => []),
     saveRows: vi.fn(async () => undefined),
     clearRows: vi.fn(async () => undefined),
+    loadSubmission: vi.fn(async () => storedSubmission),
+    saveSubmission: vi.fn(async (submission: unknown) => {
+      storedSubmission = submission;
+    }),
+    clearSubmission: vi.fn(async () => {
+      storedSubmission = null;
+    }),
   };
 
   const productCatalogSync: any = {
@@ -129,6 +138,13 @@ describe('InventoryBatchPageComponent', () => {
     draftStorage.loadRows.mockClear();
     draftStorage.saveRows.mockClear();
     draftStorage.clearRows.mockClear();
+    storedSubmission = null;
+    draftStorage.loadSubmission.mockClear();
+    draftStorage.saveSubmission.mockClear();
+    draftStorage.saveSubmission.mockImplementation(async (submission: unknown) => {
+      storedSubmission = submission;
+    });
+    draftStorage.clearSubmission.mockClear();
     suppliersFacade.load.mockClear();
     productCatalogSync.filterByName.mockClear();
     productCatalogSync.filterByBarcode.mockClear();
@@ -568,6 +584,193 @@ describe('InventoryBatchPageComponent', () => {
     expect(component.saveSummary()?.failedCount).toBe(1);
   });
 
+  it('sends each chunk under its own operation key with a frozen performedAt', async () => {
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+    const rows = Array.from({ length: 105 }, (_, index) =>
+      ({ ...createDraftRow(`row-${index + 1}`, `Item ${index + 1}`, `BC-${index + 1}`), performedAt: null }),
+    );
+    inventoryService.addInventoryBatch.mockImplementation((payload: { items: Array<{ clientRowId: string }> }) =>
+      of(allSucceeded(payload.items)),
+    );
+
+    component.pendingRows.set(rows);
+    component.onSaveAll();
+    await fixture.whenStable();
+
+    const [first, second] = inventoryService.addInventoryBatch.mock.calls.map((call) => call[0]);
+    expect(first.operationKey).toMatch(/^intake-.+-0$/);
+    expect(second.operationKey).toMatch(/^intake-.+-1$/);
+    expect(first.operationKey.length).toBeLessThanOrEqual(60);
+    expect(first.items[0].performedAt).toBeTruthy();
+    expect(second.items[0].performedAt).toBe(first.items[0].performedAt);
+    expect(draftStorage.saveSubmission).toHaveBeenCalledTimes(1);
+    expect(draftStorage.clearSubmission).toHaveBeenCalled();
+    expect(component.hasInterruptedSubmission()).toBe(false);
+  });
+
+  it('resends the frozen submission unchanged after a lost response', async () => {
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+    const rows = [createDraftRow('row-1', 'Milk', 'BC-1'), createDraftRow('row-2', 'Bread', 'BC-2')];
+    inventoryService.addInventoryBatch
+      .mockReturnValueOnce(throwError(() => new HttpErrorResponse({ status: 0 })))
+      .mockImplementationOnce((payload: { items: Array<{ clientRowId: string }> }) => of(allSucceeded(payload.items)));
+
+    component.pendingRows.set(rows);
+    component.onSaveAll();
+    await fixture.whenStable();
+
+    expect(component.hasInterruptedSubmission()).toBe(true);
+    expect(component.pendingRows()).toHaveLength(2);
+    expect(draftStorage.clearSubmission).not.toHaveBeenCalled();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.inventory-interrupted-save')).not.toBeNull();
+
+    // While interrupted the frozen rows cannot be changed, removed or added to.
+    draftStorage.saveRows.mockClear();
+    draftStorage.clearRows.mockClear();
+    component.onRemoveRow('row-1');
+    component.onClearAll();
+    await fixture.whenStable();
+    expect(component.pendingRows()).toHaveLength(2);
+    expect(draftStorage.saveRows).not.toHaveBeenCalled();
+    expect(draftStorage.clearRows).not.toHaveBeenCalled();
+
+    component.onSaveAll();
+    await fixture.whenStable();
+
+    const [lost, resent] = inventoryService.addInventoryBatch.mock.calls.map((call) => call[0]);
+    expect(resent).toEqual(lost);
+    expect(draftStorage.saveSubmission).toHaveBeenCalledTimes(1);
+    expect(component.hasInterruptedSubmission()).toBe(false);
+    expect(component.pendingRows()).toHaveLength(0);
+  });
+
+  it('keeps the frozen submission when a row comes back retryable', async () => {
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+    const rows = [createDraftRow('row-1', 'Milk', 'BC-1'), createDraftRow('row-2', 'Bread', 'BC-2')];
+    inventoryService.addInventoryBatch
+      .mockReturnValueOnce(
+        of({
+          requestedCount: 2,
+          successCount: 1,
+          failedCount: 1,
+          succeeded: [{ clientRowId: 'row-2', result: createResult('row-2') }],
+          failed: [
+            {
+              clientRowId: 'row-1',
+              itemName: 'Milk',
+              barcode: 'BC-1',
+              errors: [{ code: 'Inventory.RowRetryable', description: 'Temporary problem' }],
+              retryable: true,
+            },
+          ],
+        }),
+      )
+      .mockImplementationOnce((payload: { items: Array<{ clientRowId: string }> }) => of(allSucceeded(payload.items)));
+
+    component.pendingRows.set(rows);
+    component.onSaveAll();
+    await fixture.whenStable();
+
+    expect(component.hasInterruptedSubmission()).toBe(true);
+    expect(draftStorage.clearSubmission).not.toHaveBeenCalled();
+    expect(component.pendingRows().map((row) => row.clientRowId)).toEqual(['row-1']);
+
+    component.onSaveAll();
+    await fixture.whenStable();
+
+    const [first, retry] = inventoryService.addInventoryBatch.mock.calls.map((call) => call[0]);
+    expect(retry).toEqual(first);
+    expect(component.hasInterruptedSubmission()).toBe(false);
+    expect(component.pendingRows()).toHaveLength(0);
+  });
+
+  it('resends an interrupted submission even when no draft rows remain', async () => {
+    storedSubmission = {
+      shopId: 'shop-1',
+      chunks: [{ operationKey: 'intake-stored-0', rows: [createDraftRow('row-1', 'Milk', 'BC-1')] }],
+      createdAt: '2026-11-01T00:00:00Z',
+    };
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+    inventoryService.addInventoryBatch.mockImplementation((payload: { items: Array<{ clientRowId: string }> }) =>
+      of(allSucceeded(payload.items)),
+    );
+
+    expect(component.hasInterruptedSubmission()).toBe(true);
+    component.onSaveAll();
+    await fixture.whenStable();
+
+    expect(inventoryService.addInventoryBatch).toHaveBeenCalledTimes(1);
+    expect(inventoryService.addInventoryBatch.mock.calls[0][0].operationKey).toBe('intake-stored-0');
+    expect(storedSubmission).toBeNull();
+  });
+
+  it('stops sending chunks when the active shop changes mid-save', async () => {
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+    const originalSession = authService.session();
+    const rows = Array.from({ length: 105 }, (_, index) => createDraftRow(`row-${index + 1}`, `Item ${index + 1}`, `BC-${index + 1}`));
+    inventoryService.addInventoryBatch.mockImplementation((payload: { items: Array<{ clientRowId: string }> }) => {
+      authService.session.set({ ...originalSession, activeShopId: 'shop-2' });
+      return of(allSucceeded(payload.items));
+    });
+
+    try {
+      component.pendingRows.set(rows);
+      component.onSaveAll();
+      await fixture.whenStable();
+
+      expect(inventoryService.addInventoryBatch).toHaveBeenCalledTimes(1);
+      expect(draftStorage.clearSubmission).not.toHaveBeenCalled();
+      expect(storedSubmission?.shopId).toBe('shop-1');
+    } finally {
+      authService.session.set(originalSession);
+    }
+  });
+
+  it('discards the frozen submission after a definitive refusal', async () => {
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+    const rows = [createDraftRow('row-1', 'Milk', 'BC-1')];
+    inventoryService.addInventoryBatch
+      .mockReturnValueOnce(
+        throwError(() => new HttpErrorResponse({ status: 409, error: { title: 'Operation.PayloadMismatch' } })),
+      )
+      .mockImplementationOnce((payload: { items: Array<{ clientRowId: string }> }) => of(allSucceeded(payload.items)));
+
+    component.pendingRows.set(rows);
+    component.onSaveAll();
+    await fixture.whenStable();
+
+    expect(draftStorage.clearSubmission).toHaveBeenCalled();
+    expect(component.hasInterruptedSubmission()).toBe(false);
+    expect(component.pendingRows()).toHaveLength(1);
+
+    component.onSaveAll();
+    await fixture.whenStable();
+
+    const [refused, fresh] = inventoryService.addInventoryBatch.mock.calls.map((call) => call[0]);
+    expect(fresh.operationKey).not.toBe(refused.operationKey);
+  });
+
+  it('sends nothing when the submission cannot be stored first', async () => {
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+    draftStorage.saveSubmission.mockRejectedValueOnce(new Error('quota'));
+
+    component.pendingRows.set([createDraftRow('row-1', 'Milk', 'BC-1')]);
+    component.onSaveAll();
+    await fixture.whenStable();
+
+    expect(inventoryService.addInventoryBatch).not.toHaveBeenCalled();
+    expect(component.pendingRows()).toHaveLength(1);
+    expect(component.isSaving()).toBe(false);
+  });
+
   it('prepares successful inbound rows for barcode label printing with saved batch quantities', async () => {
     const fixture = await setup();
     const component = fixture.componentInstance;
@@ -630,6 +833,16 @@ describe('InventoryBatchPageComponent', () => {
       referenceNumber: null,
       notes: null,
       performedAt: new Date().toISOString(),
+    };
+  }
+
+  function allSucceeded(items: ReadonlyArray<{ clientRowId: string }>) {
+    return {
+      requestedCount: items.length,
+      successCount: items.length,
+      failedCount: 0,
+      succeeded: items.map((item) => ({ clientRowId: item.clientRowId, result: createResult(item.clientRowId) })),
+      failed: [],
     };
   }
 

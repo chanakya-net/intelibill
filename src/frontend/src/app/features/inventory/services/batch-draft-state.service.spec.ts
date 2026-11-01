@@ -12,6 +12,9 @@ describe('BatchDraftStateService', () => {
     loadRows: vi.fn<InventoryDraftIndexedDbService['loadRows']>().mockResolvedValue([]),
     saveRows: vi.fn<InventoryDraftIndexedDbService['saveRows']>().mockResolvedValue(undefined),
     clearRows: vi.fn<InventoryDraftIndexedDbService['clearRows']>().mockResolvedValue(undefined),
+    loadSubmission: vi.fn<InventoryDraftIndexedDbService['loadSubmission']>().mockResolvedValue(null),
+    saveSubmission: vi.fn<InventoryDraftIndexedDbService['saveSubmission']>().mockResolvedValue(undefined),
+    clearSubmission: vi.fn<InventoryDraftIndexedDbService['clearSubmission']>().mockResolvedValue(undefined),
   };
 
   function setup() {
@@ -29,6 +32,31 @@ describe('BatchDraftStateService', () => {
     draftStorage.saveRows.mockResolvedValue(undefined);
     draftStorage.clearRows.mockReset();
     draftStorage.clearRows.mockResolvedValue(undefined);
+    draftStorage.loadSubmission.mockReset();
+    draftStorage.loadSubmission.mockResolvedValue(null);
+    draftStorage.saveSubmission.mockReset();
+    draftStorage.saveSubmission.mockResolvedValue(undefined);
+    draftStorage.clearSubmission.mockReset();
+    draftStorage.clearSubmission.mockResolvedValue(undefined);
+  });
+
+  it('flags an interrupted submission when one is stored for the shop', async () => {
+    draftStorage.loadSubmission.mockResolvedValueOnce({ shopId: 'shop-1', chunks: [], createdAt: '2026-11-01T00:00:00Z' });
+
+    const service = setup();
+    await service.loadDraftRows('shop-1');
+
+    expect(service.hasInterruptedSubmission()).toBe(true);
+  });
+
+  it('reuses a stored submission instead of freezing the current rows again', async () => {
+    const stored = { shopId: 'shop-1', chunks: [{ operationKey: 'intake-x-0', rows: [] }], createdAt: '2026-11-01T00:00:00Z' };
+    draftStorage.loadSubmission.mockResolvedValueOnce(stored);
+
+    const submission = await setup().prepareSubmission('shop-1', []);
+
+    expect(submission).toBe(stored);
+    expect(draftStorage.saveSubmission).not.toHaveBeenCalled();
   });
 
   it('loads draft rows into state', async () => {

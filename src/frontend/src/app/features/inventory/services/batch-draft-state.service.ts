@@ -1,7 +1,13 @@
 import { Injectable, inject, signal } from '@angular/core';
 
-import { InventoryDraftIndexedDbService } from '../../../core/storage/inventory-draft-indexeddb.service';
-import { InventoryInboundDraftRow } from '../../../core/storage/inventory-draft-indexeddb.service';
+import {
+  InventoryDraftIndexedDbService,
+  InventoryInboundDraftRow,
+  InventoryInboundSubmission,
+} from '../../../core/storage/inventory-draft-indexeddb.service';
+
+/** The server's per-request row limit. */
+export const INBOUND_BATCH_CHUNK_SIZE = 100;
 
 @Injectable({ providedIn: 'root' })
 export class BatchDraftStateService {
@@ -10,12 +16,16 @@ export class BatchDraftStateService {
   readonly pendingRows = signal<readonly InventoryInboundDraftRow[]>([]);
   readonly loadingDraft = signal(false);
 
+  /** True while a save whose outcome is unknown waits to be resent unchanged. */
+  readonly hasInterruptedSubmission = signal(false);
+
   async loadDraftRows(shopId: string): Promise<readonly InventoryInboundDraftRow[]> {
     this.loadingDraft.set(true);
 
     try {
       const rows = await this.draftStorage.loadRows(shopId);
       this.pendingRows.set(rows);
+      this.hasInterruptedSubmission.set((await this.draftStorage.loadSubmission(shopId)) !== null);
       return rows;
     } finally {
       this.loadingDraft.set(false);
@@ -88,5 +98,46 @@ export class BatchDraftStateService {
     const nextRows = currentRows.map((row) => (row.clientRowId === currentRow.clientRowId ? nextRow : row));
     await this.savePendingRows(shopId, nextRows);
     return nextRow;
+  }
+
+  /**
+   * The submission to send: the interrupted one when it exists, otherwise the given rows frozen
+   * into chunks — `performedAt` stamped once — and stored before anything is sent. Rejects when
+   * the freeze cannot be stored, in which case nothing may be sent.
+   */
+  async prepareSubmission(
+    shopId: string,
+    rows: readonly InventoryInboundDraftRow[],
+  ): Promise<InventoryInboundSubmission> {
+    const interrupted = await this.draftStorage.loadSubmission(shopId);
+    if (interrupted) {
+      // Possibly stored by another tab; it is what will be sent, so the page must treat it as such.
+      this.hasInterruptedSubmission.set(true);
+      return interrupted;
+    }
+
+    const submissionId = crypto.randomUUID();
+    const performedAt = new Date().toISOString();
+    const frozenRows = rows.map((row) => ({ ...row, performedAt: row.performedAt ?? performedAt }));
+    const chunks = [];
+    for (let index = 0; index < frozenRows.length; index += INBOUND_BATCH_CHUNK_SIZE) {
+      chunks.push({
+        operationKey: `intake-${submissionId}-${index / INBOUND_BATCH_CHUNK_SIZE}`,
+        rows: frozenRows.slice(index, index + INBOUND_BATCH_CHUNK_SIZE),
+      });
+    }
+
+    const submission: InventoryInboundSubmission = { shopId, chunks, createdAt: performedAt };
+    await this.draftStorage.saveSubmission(submission);
+    return submission;
+  }
+
+  markSubmissionInterrupted(): void {
+    this.hasInterruptedSubmission.set(true);
+  }
+
+  async clearSubmission(shopId: string): Promise<void> {
+    this.hasInterruptedSubmission.set(false);
+    await this.draftStorage.clearSubmission(shopId);
   }
 }
