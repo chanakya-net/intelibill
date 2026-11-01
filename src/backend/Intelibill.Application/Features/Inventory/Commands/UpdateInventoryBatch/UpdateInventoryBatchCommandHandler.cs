@@ -1,7 +1,6 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
-using Intelibill.Application.Features.Inventory.Commands.UpdateInventoryBatch;
-using Intelibill.Domain.Entities;
+using Intelibill.Application.Features.Inventory.Services;
 using Intelibill.Domain.Events;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
@@ -11,18 +10,30 @@ using Wolverine;
 
 namespace Intelibill.Application.Features.Inventory.Commands.UpdateInventoryBatch;
 
+/// <summary>
+/// Legacy whole-batch edit, kept for clients that still send it. It no longer voids and replaces
+/// the batch: it applies retail prices and lot details in place, like <c>PUT batches/{id}/prices</c>.
+/// </summary>
+/// <remarks>
+/// The old replacement rewrote the receipt payable from the remaining quantity and orphaned every
+/// sale made from the batch, so the parts of the request that would change stock or money are
+/// refused with a code naming the action that does it now: a quantity change with
+/// <c>Inventory.BatchQuantityEditMoved</c> (stock count), a cost change with
+/// <c>Inventory.BatchCostEditMoved</c> (receipt cost correction) and a supplier change with
+/// <c>Inventory.BatchSupplierEditMoved</c> (supplier reassignment).
+/// </remarks>
 public sealed class UpdateInventoryBatchCommandHandler(
     IUserRepository userRepository,
     IShopRepository shopRepository,
-    ISupplierRepository supplierRepository,
     IInventoryBatchRepository inventoryBatchRepository,
-    IInventoryRepository inventoryRepository,
-    IStockTransactionRepository stockTransactionRepository,
-    ISupplierLedgerEntryRepository supplierLedgerEntryRepository,
+    IBatchRetailTermsReviser retailTermsReviser,
     IUnitOfWork unitOfWork,
     IMessageBus messageBus)
 {
-    /// <summary>Reference on the movement that carries a correction's quantity delta.</summary>
+    /// <summary>
+    /// Reference on the movement that carried a legacy correction's quantity delta. No longer
+    /// written; kept because historical movements still carry it.
+    /// </summary>
     public const string CorrectionReference = "Batch Correction";
 
     public async Task<ErrorOr<Success>> Handle(UpdateInventoryBatchCommand command, CancellationToken cancellationToken)
@@ -42,173 +53,42 @@ public sealed class UpdateInventoryBatchCommandHandler(
         if (membership.Role != ShopRole.Owner && membership.Role != ShopRole.Manager)
             return Error.Forbidden("Shop.PermissionDenied", "Only owners or managers can update batches.");
 
-        var originalBatch = await inventoryBatchRepository.GetByIdAsync(command.BatchId, cancellationToken);
-        if (originalBatch is null || originalBatch.ShopId != command.ShopId)
+        var batch = await inventoryBatchRepository.GetByIdAsync(command.BatchId, cancellationToken);
+        if (batch is null || batch.ShopId != command.ShopId)
             return Errors.Inventory.BatchNotFound;
 
-        if (originalBatch.IsVoided)
+        if (batch.IsVoided)
             return Error.Validation("Inventory.BatchVoided", "Cannot correct an already voided batch.");
 
-        // The quantity entered was read off the version the editor was shown; applied to newer stock
-        // it would silently undo whatever moved it since.
-        if (command.ExpectedVersion is { } expectedVersion && expectedVersion != originalBatch.Version)
+        if (command.ExpectedVersion is { } expectedVersion && expectedVersion != batch.Version)
             return Errors.Inventory.BatchVersionConflict;
 
-        // 1. Determine new batch number
-        var targetBatchNumber = command.NewBatchNumber?.Trim();
-        if (string.IsNullOrWhiteSpace(targetBatchNumber))
-        {
-            // Generate a correction batch number
-            targetBatchNumber = $"{originalBatch.BatchNumber}-CORR-{DateTime.UtcNow:HHmm}";
-        }
+        if (command.Quantity != batch.Quantity)
+            return Errors.Inventory.BatchQuantityEditMoved;
 
-        // Verify uniqueness of the new batch number (if different from old or if we want strictly new rows)
-        var existingBatch = await inventoryBatchRepository.GetByBatchNumberAsync(command.ShopId, originalBatch.ItemId, targetBatchNumber, cancellationToken);
-        if (existingBatch != null && !existingBatch.IsVoided)
-        {
-            return Errors.Inventory.BatchNumberAlreadyExists;
-        }
+        if (command.CostPrice != batch.CostPrice)
+            return Errors.Inventory.BatchCostEditMoved;
 
-        var oldQuantity = originalBatch.Quantity;
-        var oldCostPrice = originalBatch.CostPrice;
-        var oldSalesPrice = originalBatch.SalesPrice;
-        var oldTaxRatePercent = originalBatch.TaxRatePercent;
-        var oldTaxIncluded = originalBatch.TaxIncluded;
-        var oldSupplierId = originalBatch.SupplierId;
-        var pricingInputsChanged =
-            command.CostPrice != oldCostPrice ||
-            command.SalesPrice != oldSalesPrice ||
-            command.TaxRatePercent != oldTaxRatePercent ||
-            command.TaxIncluded != oldTaxIncluded;
-        var effectiveSupplierIdOrError = await ResolveEffectiveSupplierIdAsync(command.SupplierId, command.ShopId, cancellationToken);
-        if (effectiveSupplierIdOrError.IsError)
-            return effectiveSupplierIdOrError.Errors;
+        // A null supplier used to mean "no supplier"; it now means "leave it as it is".
+        if (command.SupplierId is { } supplierId && supplierId != batch.SupplierId)
+            return Errors.Inventory.BatchSupplierEditMoved;
 
-        var effectiveSupplierId = effectiveSupplierIdOrError.Value;
-
-        // 2. Void the original batch
-        originalBatch.Void(command.UserId);
-        inventoryBatchRepository.Update(originalBatch);
-
-        // 3. Create the new corrected batch row
-        var newBatchResult = InventoryBatch.Create(
-            command.ShopId,
-            originalBatch.ItemId,
-            targetBatchNumber,
-            command.Quantity,
-            command.CostPrice,
-            command.Mrp,
-            command.SalesPrice,
-            command.TaxRatePercent,
-            command.TaxIncluded,
-            command.ExpiryDate,
-            command.ManufacturingDate,
-            effectiveSupplierId,
+        var batchNumber = string.IsNullOrWhiteSpace(command.NewBatchNumber) ? batch.BatchNumber : command.NewBatchNumber;
+        var revision = await retailTermsReviser.ReviseAsync(
+            batch,
+            new BatchRetailTerms(
+                batchNumber,
+                command.Mrp,
+                command.SalesPrice,
+                command.TaxRatePercent,
+                command.TaxIncluded,
+                command.ExpiryDate,
+                command.ManufacturingDate),
+            command.Notes,
             command.UserId,
-            originalBatch.PurchaseTaxIncluded);
-
-        if (newBatchResult.IsError)
-            return newBatchResult.Errors;
-
-        var newBatch = newBatchResult.Value;
-        await inventoryBatchRepository.AddAsync(newBatch, cancellationToken);
-
-        // 4. Adjust Inventory (total stock)
-        var quantityDifference = command.Quantity - oldQuantity;
-        if (quantityDifference != 0)
-        {
-            var inventory = await inventoryRepository.GetByItemAsync(command.ShopId, originalBatch.ItemId, cancellationToken);
-            if (inventory is null)
-                return Errors.Inventory.InventoryAggregateNotFound;
-
-            if (quantityDifference > 0)
-            {
-                var addResult = inventory.AddQuantity(quantityDifference, command.UserId);
-                if (addResult.IsError)
-                    return addResult.Errors;
-            }
-            else
-            {
-                var subtractResult = inventory.SubtractQuantity(Math.Abs(quantityDifference), command.UserId);
-                if (subtractResult.IsError)
-                    return subtractResult.Errors;
-            }
-
-            inventoryRepository.Update(inventory);
-
-            // The movement carries the signed delta: IN +d for an increase, OUT -d for a decrease.
-            var transaction = StockTransaction.Create(
-                command.ShopId,
-                originalBatch.ItemId,
-                newBatch.Id,
-                quantityDifference > 0 ? StockTransactionType.In : StockTransactionType.Out,
-                quantityDifference,
-                CorrectionReference,
-                $"Corrected from batch {originalBatch.BatchNumber}. Qty adjusted from {oldQuantity} to {command.Quantity}",
-                DateTimeOffset.UtcNow,
-                command.UserId,
-                command.UserId);
-
-            if (transaction.IsError)
-                return transaction.Errors;
-
-            await stockTransactionRepository.AddAsync(transaction.Value, cancellationToken);
-        }
-
-        // 5. Adjust Supplier Ledger
-        var costChanged = command.CostPrice != oldCostPrice;
-        var supplierChanged = effectiveSupplierId != oldSupplierId;
-
-        if ((quantityDifference != 0 || costChanged || supplierChanged) && (oldSupplierId.HasValue || effectiveSupplierId.HasValue))
-        {
-            // Reverse old entry if it exists using RecordAdjusted with negative amount
-            if (oldSupplierId.HasValue)
-            {
-                var existingEntries = await supplierLedgerEntryRepository.GetByBatchAsync(command.ShopId, originalBatch.Id, cancellationToken);
-                var goodsReceivedEntry = existingEntries.FirstOrDefault(e => e.EntryType == SupplierLedgerEntryType.GoodsReceived);
-                
-                if (goodsReceivedEntry != null)
-                {
-                    var reversal = SupplierLedgerEntry.Create(
-                        command.ShopId,
-                        oldSupplierId.Value,
-                        null, // BatchId null for RecordAdjusted reversal as per integration test
-                        SupplierLedgerEntryType.RecordAdjusted,
-                        -goodsReceivedEntry.Amount,
-                        DateOnly.FromDateTime(DateTime.UtcNow),
-                        $"Correction reversal for batch: {originalBatch.BatchNumber}",
-                        command.UserId);
-
-                    if (reversal.IsError)
-                        return Errors.Inventory.SupplierLedgerEntryInvalid;
-
-                    await supplierLedgerEntryRepository.AddAsync(reversal.Value, cancellationToken);
-                }
-            }
-
-            // Create new entry for new supplier/amount
-            if (effectiveSupplierId.HasValue)
-            {
-                var newAmount = command.Quantity * command.CostPrice;
-                if (newAmount > 0)
-                {
-                    var newEntry = SupplierLedgerEntry.Create(
-                        command.ShopId,
-                        effectiveSupplierId.Value,
-                        newBatch.Id,
-                        SupplierLedgerEntryType.GoodsReceived,
-                        newAmount,
-                        command.EntryDate ?? DateOnly.FromDateTime(DateTime.UtcNow),
-                        command.Notes ?? $"Correction for batch: {targetBatchNumber}",
-                        command.UserId);
-
-                    if (newEntry.IsError)
-                        return Errors.Inventory.SupplierLedgerEntryInvalid;
-
-                    await supplierLedgerEntryRepository.AddAsync(newEntry.Value, cancellationToken);
-                }
-            }
-        }
+            cancellationToken);
+        if (revision.IsError)
+            return revision.Errors;
 
         try
         {
@@ -219,31 +99,12 @@ public sealed class UpdateInventoryBatchCommandHandler(
             return Errors.Inventory.ConcurrentChange;
         }
 
-        if (pricingInputsChanged)
+        if (revision.Value.PricingChanged)
         {
             await messageBus.PublishAsync(
-                new InventoryBatchPricingChangedDomainEvent(
-                    command.ShopId,
-                    originalBatch.ItemId,
-                    newBatch.Id));
+                new InventoryBatchPricingChangedDomainEvent(command.ShopId, batch.ItemId, batch.Id));
         }
 
         return Result.Success;
-    }
-
-    private async Task<ErrorOr<Guid?>> ResolveEffectiveSupplierIdAsync(Guid? requestedSupplierId, Guid shopId, CancellationToken cancellationToken)
-    {
-        if (requestedSupplierId.HasValue)
-        {
-            return requestedSupplierId;
-        }
-
-        var systemSupplier = await supplierRepository.GetSystemByShopIdAsync(shopId, cancellationToken);
-        if (systemSupplier is null)
-        {
-            return Errors.Supplier.SystemSupplierNotFound;
-        }
-
-        return systemSupplier.Id;
     }
 }

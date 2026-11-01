@@ -8,7 +8,11 @@ import { DialogModule } from 'primeng/dialog';
 import { AuthService } from '../../../core/auth/auth.service';
 import { FinancialOperationIntentService } from '../../../core/services/financial-operation-intent.service';
 import { PendingFinancialOperationComponent } from '../../../shared/components/pending-financial-operation/pending-financial-operation.component';
-import { MakePaymentRequest, SupplierLedgerEntry } from '../services/supplier-ledger.service';
+import {
+  MakePaymentRequest,
+  SupplierLedgerEntry,
+  supplierLedgerEntryKind,
+} from '../services/supplier-ledger.service';
 import { Supplier } from '../services/supplier.service';
 import { SuppliersFacade } from '../state/suppliers.facade';
 import { SupplierInfoCardComponent } from './supplier-detail/supplier-info-card.component';
@@ -77,7 +81,10 @@ export class SupplierDetailComponent {
 
   constructor() {
     effect(() => {
-      if (!this.facade.lastMutationSucceeded() || this.facade.lastMutationType() !== 'make-payment') {
+      if (
+        !this.facade.lastMutationSucceeded() ||
+        this.facade.lastMutationType() !== 'make-payment'
+      ) {
         return;
       }
       const supplierId = this.currentSupplierId();
@@ -109,7 +116,9 @@ export class SupplierDetailComponent {
     this.intents.check(this.scope(), intent).subscribe({
       next: (committed) => {
         this.isCheckingPayment.set(false);
-        this.pendingNotice.set(committed ? 'financialOperations.confirmed' : 'financialOperations.notYetRecorded');
+        this.pendingNotice.set(
+          committed ? 'financialOperations.confirmed' : 'financialOperations.notYetRecorded',
+        );
         if (committed) {
           this.facade.loadLedger(supplierId);
         }
@@ -138,7 +147,7 @@ export class SupplierDetailComponent {
     this.currentLang(); // re-run on language change
     const currentBalanceDue = this.currentSupplier()?.balanceDue ?? 0;
     let rows = this.facade.ledgerEntries().map((entry: SupplierLedgerEntry) => {
-      const isPayment = entry.entryType === 2 || entry.entryType === 'PAYMENT_MADE';
+      const isPayment = supplierLedgerEntryKind(entry.entryType) === 'PaymentMade';
       return {
         ...entry,
         entryTypeLabel: this.getEntryTypeLabel(entry.entryType),
@@ -155,7 +164,7 @@ export class SupplierDetailComponent {
       rows = rows.filter((r) => r.isPayment);
     }
 
-    const sorted = [...rows].sort((a, b) => (b.entryDate ?? '') > (a.entryDate ?? '') ? 1 : -1);
+    const sorted = [...rows].sort((a, b) => ((b.entryDate ?? '') > (a.entryDate ?? '') ? 1 : -1));
 
     let runningBalance = currentBalanceDue;
     return sorted.map((row) => {
@@ -166,31 +175,31 @@ export class SupplierDetailComponent {
   });
 
   getEntryTypeLabel(entryType: SupplierLedgerEntry['entryType']): string {
-    switch (entryType) {
-      case 1:
-      case 'GOODS_RECEIVED':
+    switch (supplierLedgerEntryKind(entryType)) {
+      case 'GoodsReceived':
         return this.transloco.translate('suppliers.entryTypes.goodsReceived');
-      case 2:
-      case 'PAYMENT_MADE':
+      case 'PaymentMade':
         return this.transloco.translate('suppliers.entryTypes.paymentMade');
-      case 3:
-      case 'RECORD_ADJUSTED':
+      case 'RecordAdjusted':
         return this.transloco.translate('suppliers.entryTypes.recordAdjusted');
+      case 'Reversal':
+        return this.transloco.translate('suppliers.entryTypes.reversal');
+      case 'CostAdjusted':
+        return this.transloco.translate('suppliers.entryTypes.costAdjusted');
       default:
         return String(entryType);
     }
   }
 
   getEntryTypeClass(entryType: SupplierLedgerEntry['entryType']): string {
-    switch (entryType) {
-      case 1:
-      case 'GOODS_RECEIVED':
+    switch (supplierLedgerEntryKind(entryType)) {
+      case 'GoodsReceived':
         return 'goods-received';
-      case 2:
-      case 'PAYMENT_MADE':
+      case 'PaymentMade':
         return 'payment-made';
-      case 3:
-      case 'RECORD_ADJUSTED':
+      case 'RecordAdjusted':
+      case 'Reversal':
+      case 'CostAdjusted':
         return 'record-adjusted';
       default:
         return '';

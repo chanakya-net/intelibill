@@ -10,7 +10,8 @@ namespace Intelibill.Application.Features.Inventory.Services;
 internal sealed class BatchFactory(
     IInventoryBatchRepository inventoryBatchRepository,
     IStockTransactionRepository stockTransactionRepository,
-    ISupplierLedgerEntryRepository supplierLedgerEntryRepository) : IBatchFactory
+    ISupplierLedgerEntryRepository supplierLedgerEntryRepository,
+    IPurchaseReceiptValueRepository purchaseReceiptValueRepository) : IBatchFactory
 {
     public async Task<ErrorOr<BatchCreationResult>> CreateBatchAsync(
         Guid shopId,
@@ -74,9 +75,28 @@ internal sealed class BatchFactory(
 
         var ledgerAmount = decimal.Round(row.TotalPurchaseCost, 2, MidpointRounding.AwayFromZero);
 
+        // The total is kept as entered (to the paisa), so later corrections and voids work from what
+        // the payable was posted with rather than from the rounded unit cost.
+        var receiptValueResult = PurchaseReceiptValue.Create(
+            shopId,
+            batch.Id,
+            itemId,
+            supplier.Id,
+            row.Quantity,
+            ledgerAmount,
+            row.ReferenceNumber,
+            performedAt,
+            actorUserId);
+
+        if (receiptValueResult.IsError)
+            return receiptValueResult.Errors;
+
+        var receiptValue = receiptValueResult.Value;
+        await purchaseReceiptValueRepository.AddAsync(receiptValue, cancellationToken);
+
         // A free receipt (sample, bonus stock) owes the supplier nothing: no zero-value payable.
         if (ledgerAmount == 0)
-            return new BatchCreationResult(batch, stockTransaction, null);
+            return new BatchCreationResult(batch, stockTransaction, null, receiptValue);
 
         var ledgerResult = SupplierLedgerEntry.Create(
             shopId,
@@ -94,7 +114,7 @@ internal sealed class BatchFactory(
         var ledgerEntry = ledgerResult.Value;
         await supplierLedgerEntryRepository.AddAsync(ledgerEntry, cancellationToken);
 
-        return new BatchCreationResult(batch, stockTransaction, ledgerEntry);
+        return new BatchCreationResult(batch, stockTransaction, ledgerEntry, receiptValue);
     }
 
     public Task<ErrorOr<BatchCreationResult>> CreateBatchAsync(

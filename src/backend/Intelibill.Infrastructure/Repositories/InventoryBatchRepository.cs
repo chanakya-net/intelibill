@@ -64,9 +64,12 @@ internal sealed class InventoryBatchRepository(ApplicationDbContext context)
     public async Task<InventoryBatch?> GetByBatchNumberAsync(Guid shopId, Guid itemId, string batchNumber, CancellationToken cancellationToken = default)
     {
         var normalizedBatchNumber = batchNumber.Trim();
-        return await DbSet.FirstOrDefaultAsync(
-            b => b.ShopId == shopId && b.ItemId == itemId && b.BatchNumber == normalizedBatchNumber,
-            cancellationToken);
+        // A voided batch may share its number with the active one; callers checking uniqueness
+        // must see the active batch when there is one.
+        return await DbSet
+            .Where(b => b.ShopId == shopId && b.ItemId == itemId && b.BatchNumber == normalizedBatchNumber)
+            .OrderBy(b => b.IsVoided)
+            .FirstOrDefaultAsync(cancellationToken);
     }
 
     public async Task<IReadOnlyList<InventoryBatch>> GetByShopAsync(Guid shopId, CancellationToken cancellationToken = default) =>

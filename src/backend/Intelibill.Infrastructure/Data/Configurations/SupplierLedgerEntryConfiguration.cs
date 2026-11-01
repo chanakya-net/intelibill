@@ -14,7 +14,7 @@ internal sealed class SupplierLedgerEntryConfiguration : IEntityTypeConfiguratio
             tableBuilder.HasCheckConstraint("ck_supplier_ledger_entries_amount_non_zero", "amount <> 0");
             tableBuilder.HasCheckConstraint(
                 "ck_supplier_ledger_entries_batch_by_type",
-                "((entry_type = 'GOODS_RECEIVED' AND batch_id IS NOT NULL) OR (entry_type IN ('PAYMENT_MADE', 'RECORD_ADJUSTED') AND batch_id IS NULL) OR (entry_type = 'REVERSAL'))");
+                "((entry_type IN ('GOODS_RECEIVED', 'COST_ADJUSTED') AND batch_id IS NOT NULL) OR (entry_type IN ('PAYMENT_MADE', 'RECORD_ADJUSTED') AND batch_id IS NULL) OR (entry_type = 'REVERSAL'))");
         });
 
         builder.HasKey(e => e.Id);
@@ -72,6 +72,7 @@ internal sealed class SupplierLedgerEntryConfiguration : IEntityTypeConfiguratio
             SupplierLedgerEntryType.PaymentMade => "PAYMENT_MADE",
             SupplierLedgerEntryType.RecordAdjusted => "RECORD_ADJUSTED",
             SupplierLedgerEntryType.Reversal => "REVERSAL",
+            SupplierLedgerEntryType.CostAdjusted => "COST_ADJUSTED",
             _ => throw new ArgumentOutOfRangeException(nameof(entryType), entryType, null)
         };
     }
@@ -84,6 +85,7 @@ internal sealed class SupplierLedgerEntryConfiguration : IEntityTypeConfiguratio
             "PAYMENT_MADE" => SupplierLedgerEntryType.PaymentMade,
             "RECORD_ADJUSTED" => SupplierLedgerEntryType.RecordAdjusted,
             "REVERSAL" => SupplierLedgerEntryType.Reversal,
+            "COST_ADJUSTED" => SupplierLedgerEntryType.CostAdjusted,
             _ => throw new ArgumentOutOfRangeException(nameof(value), value, null)
         };
     }

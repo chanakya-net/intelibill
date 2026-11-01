@@ -389,7 +389,8 @@ mid-save stops sending and leaves the submission stored under the original shop.
 **Invariant.** Per item, `sum(stock_transactions.quantity) = inventory.quantity = sum(active batch
 quantities)`. Every quantity change writes exactly one signed movement in the same save as the batch
 and aggregate change; metadata changes write none. `StockCorrectionInvariantTests` checks this after
-counts, sales, legacy corrections and voids.
+counts, sales, refused legacy corrections and voids; `PurchaseCostLineageTests` checks price edits,
+cost corrections, returns after a price edit and voids after a correction.
 
 **Row versions.** `inventory_batches.xmin` and `inventory.xmin` are mapped as `Version` row-version
 tokens, so every update of either row is checked against the version it was read at. A stale writer
@@ -413,20 +414,70 @@ movement other than a voided adjustment's or a legacy correction's own) answers 
 `Inventory.BatchConsumed`; remaining stock is removed by counting it to zero, which leaves the
 original payable owed. Supplier returns are a separate flow.
 
-**Legacy correction.** `PUT inventory/batches/{batchId}` still voids the batch and recreates it (price
-and metadata edits depend on it until purchase-cost corrections land); its quantity delta is now
-signed (`Out -d` for a decrease), any movement or ledger failure aborts before saving, and an
-`expectedVersion` older than the batch answers 409 `Inventory.BatchVersionConflict`. Adjustment
-quantities are stored to three places, like stock.
+**Legacy correction.** `PUT inventory/batches/{batchId}` no longer voids and recreates the batch. It
+applies prices and lot details in place exactly like `PUT .../prices` (below) and refuses what would
+move stock or money with a code naming the action that does it now: a quantity change answers 400
+`Inventory.BatchQuantityEditMoved` (count), a cost change `Inventory.BatchCostEditMoved` (receipt cost
+correction) and a supplier change `Inventory.BatchSupplierEditMoved` (reassign). An `expectedVersion`
+older than the batch answers 409 `Inventory.BatchVersionConflict`. Adjustment quantities are stored to
+three places, like stock.
+
+## Purchase Receipts, Price Revisions and Cost Corrections
+
+**Lot vs receipt.** `InventoryBatch.Id` is the physical lot for its whole life; no flow replaces a
+batch, so sales, returns and counts always find their lot. Each receipt also writes one
+`purchase_receipt_values` row (single, bulk and PO intake, all in the same save as the batch):
+received quantity, supplier, source (`DIRECT_INBOUND` / `PURCHASE_ORDER` with the receipt-line link /
+`LEGACY_BACKFILL`), `original_total_cost` (the rounded total the payable was posted with, so the
+per-unit rounding remainder is not lost) and `effective_total_cost` (original plus corrections). Its
+`xmin` is the receipt version. `GET inventory/batches` returns `receiptValueId`, `receiptStatus`,
+`receiptOriginalTotalCost`, `receiptTotalCost` and `receiptVersion`.
+
+**Price edits.** `PUT inventory/batches/{batchId}/prices` (owner/manager) takes a required
+`expectedVersion` (missing → 400 `Inventory.PriceVersionRequired`), MRP, sale price, tax rate and mode, optional batch number/expiry/manufacturing
+date and reason. It updates the batch in place (stock, cost, supplier and payable untouched), always
+writes the batch row so a stale form answers 409 `Inventory.BatchVersionConflict` even when no
+quantity moved, appends a `batch_price_revisions` row (old/new MRP, price, tax) when a price term
+changed and publishes `InventoryBatchPricingChangedDomainEvent`. Sale snapshots never change.
+
+**Cost corrections.** `POST inventory/receipts/{receiptValueId}/cost-corrections` (owner) takes
+`expectedVersion` (receipt version; missing → 400 `PurchaseReceipt.VersionRequired`), `revisedTotalCost` (0–99,999,999.99, two places), a required
+`reason` and an optional `operationKey` (`FinancialOperationType.ReceiptCostCorrection`). It posts
+`delta = revised − effective` as one `COST_ADJUSTED` supplier ledger entry (batch-linked, signed) and
+one `purchase_receipt_cost_adjustments` row (prior, revised, delta, reason, actor, ledger link) with
+the new effective total, in one save. Buy 10 at ₹100, sell 4, revise to ₹1100: payable +₹100, six
+left. The batch's unit cost and every sale's COGS stay as they are; how the delta is valued
+(inventory vs period variance) is an accounting decision not made here. Stale version or a lost save
+race answers 409 `PurchaseReceipt.VersionConflict`; an unchanged total 400 `PurchaseReceipt.CostUnchanged`.
+A correction writes the batch row and a void writes the receipt row, so a correction racing a void
+of the same batch fails one of the two saves: a voided receipt can never keep a correction's delta.
+
+**Voids and reassignment.** A void reverses the receipt's effective total to the receipt's supplier
+(falling back to `original quantity × unit cost` and the batch supplier only for batches without a
+resolved receipt value), so a corrected, unconsumed receipt nets to zero. Reassigning a batch from the
+placeholder supplier moves the goods-received entry, every cost-adjustment entry and the receipt value
+together; a voided batch cannot be reassigned, and a lost race answers 409 `Inventory.ConcurrentChange`.
+
+**Legacy evidence.** The migration backfills receipt values for active batches that have none;
+`scripts/db/backfill-purchase-receipt-values.sql` is the same idempotent statement, to re-run as the
+migrator role once every API instance runs the new version (an old instance can create batches
+between the migration job and the rollout). A receipt is
+`RESOLVED` only with an opening `IN` movement of the full received quantity that is not a legacy
+`Batch Correction`, at most one goods-received payable, and agreement with its PO line when present.
+Everything else is `LEGACY_UNRESOLVED` with null amounts — never estimated from remaining stock — and
+a correction answers 400 `PurchaseReceipt.EvidenceMissing`. Sales from batches the old PUT already
+replaced still point at the voided batch and cannot be restocked; choosing a destination lot for
+those returns is a pending policy decision. Rollback: disable correction writes; never drop the
+append-only rows or restore destructive replacement.
 
 ## Test Structure
 
 | Suite | Path | Count |
 |---|---|---|
-| Domain unit | `tests/backend/unit/Intelibill.Domain.Unit.Tests/` | 247 |
-| Application unit | `tests/backend/unit/Intelibill.Application.Unit.Tests/` | 961 |
-| API unit | `tests/backend/unit/Intelibill.Api.Unit.Tests/` | 489 |
-| Integration | `tests/backend/integration/Intelibill.Integration.Tests/` | 485 |
+| Domain unit | `tests/backend/unit/Intelibill.Domain.Unit.Tests/` | 263 |
+| Application unit | `tests/backend/unit/Intelibill.Application.Unit.Tests/` | 1035 |
+| API unit | `tests/backend/unit/Intelibill.Api.Unit.Tests/` | 542 |
+| Integration | `tests/backend/integration/Intelibill.Integration.Tests/` | 562 |
 | **Total** | | **2182** |
 
 Integration tests use `WebApplicationFactory<Program>` backed by **Testcontainers** (`Testcontainers.PostgreSql`) — Docker required. Non-integration suite: 1697 passing.

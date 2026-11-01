@@ -85,6 +85,8 @@ describe('SupplierDetailComponent', () => {
                   goodsReceived: 'Goods Received',
                   paymentMade: 'Payment Made',
                   recordAdjusted: 'Record Adjusted',
+                  reversal: 'Receipt Voided',
+                  costAdjusted: 'Receipt Cost Corrected',
                 },
               },
             },
@@ -117,7 +119,10 @@ describe('SupplierDetailComponent', () => {
       ],
       providers: [
         { provide: SuppliersFacade, useValue: mockFacade },
-        { provide: AuthService, useValue: { session: () => ({ user: { id: 'user-1' }, activeShopId: 'shop-1' }) } },
+        {
+          provide: AuthService,
+          useValue: { session: () => ({ user: { id: 'user-1' }, activeShopId: 'shop-1' }) },
+        },
         { provide: FinancialOperationIntentService, useValue: paymentIntents },
       ],
     });
@@ -145,5 +150,59 @@ describe('SupplierDetailComponent', () => {
 
     expect((component as any).tableEntries()[0].entryTypeLabel).toBe('माल प्राप्त');
     expect(mockFacade.loadLedger).toHaveBeenCalledTimes(1);
+  });
+
+  it('reads the enum names the API sends, signing payments and labelling cost corrections', () => {
+    const entries: SupplierLedgerEntry[] = [
+      {
+        id: 'g',
+        supplierId: 'supplier-1',
+        entryType: 'GoodsReceived',
+        amount: 1000,
+        entryDate: '2026-04-06',
+        notes: null,
+      },
+      {
+        id: 'c',
+        supplierId: 'supplier-1',
+        entryType: 'CostAdjusted',
+        amount: 100,
+        entryDate: '2026-04-07',
+        notes: null,
+      },
+      {
+        id: 'p',
+        supplierId: 'supplier-1',
+        entryType: 'PaymentMade',
+        amount: 300,
+        entryDate: '2026-04-08',
+        notes: null,
+      },
+    ];
+    TestBed.inject(TranslocoService).setActiveLang('en-IN');
+    const fixture = TestBed.createComponent(SupplierDetailComponent);
+    const component = fixture.componentInstance;
+    component.supplierId = 'supplier-1';
+    fixture.detectChanges();
+    ledgerEntriesSignal.set(entries);
+
+    const rows = (component as any).tableEntries() as {
+      id: string;
+      entryTypeLabel: string;
+      isPayment: boolean;
+      displayAmount: number;
+    }[];
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    expect(byId.get('p')).toMatchObject({
+      entryTypeLabel: 'Payment Made',
+      isPayment: true,
+      displayAmount: -300,
+    });
+    expect(byId.get('c')).toMatchObject({
+      entryTypeLabel: 'Receipt Cost Corrected',
+      isPayment: false,
+      displayAmount: 100,
+    });
+    expect(byId.get('g')?.entryTypeLabel).toBe('Goods Received');
   });
 });

@@ -9,7 +9,10 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { AudioService } from '../../../core/services/audio.service';
 import { classifyFinancialOperationFailure } from '../../../core/services/financial-operation-intent.service';
 import { BarcodeDetection } from '../../../core/services/barcode-detector.service';
-import { InventoryInboundDraftRow } from '../../../core/storage/inventory-draft-indexeddb.service';
+import {
+  InventoryInboundDraftRow,
+  isPurchaseTaxModeConfirmed,
+} from '../../../core/storage/inventory-draft-indexeddb.service';
 import { BarcodeLabelPrintDialogComponent, type BarcodeLabelPrintCandidate } from '../components/barcode-label-print-dialog.component';
 import {
   AddInventoryBatchFailedRow,
@@ -116,6 +119,13 @@ export class InventoryBatchPageComponent {
   onSaveAll(): void {
     // An interrupted submission can be resent even when no draft rows remain on screen.
     if (this.isSaving() || (this.pendingRows().length === 0 && !this.hasInterruptedSubmission())) return;
+    // An interrupted submission resends its frozen rows unchanged, so it is never held back here.
+    if (!this.hasInterruptedSubmission() && this.pendingRows().some((row) => !isPurchaseTaxModeConfirmed(row))) {
+      // Drafts kept by earlier releases carry no purchase mode or one copied from the sales mode:
+      // the user confirms it per row (edit the row) before anything is sent.
+      this.showWarn('inventory.purchaseTaxModeMissingRows');
+      return;
+    }
 
     this.isSaving.set(true);
     void this.saveRowsInChunks();
@@ -328,7 +338,10 @@ export class InventoryBatchPageComponent {
       salesPrice: row.salesPrice,
       taxRatePercent: row.taxRatePercent,
       taxIncluded: row.taxIncluded,
-      purchaseTaxIncluded: row.taxIncluded,
+      // Rows are always sent with their own purchase mode. Only a submission frozen by an earlier
+      // release can lack it; that release sent the sales mode, so its resend repeats it unchanged.
+      // `purchaseTaxModeConfirmed` is draft bookkeeping and is deliberately not sent.
+      purchaseTaxIncluded: row.purchaseTaxIncluded ?? row.taxIncluded,
       expiryDate: row.expiryDate,
       manufacturingDate: row.manufacturingDate,
       supplierId: row.supplierId,

@@ -156,6 +156,101 @@ namespace Intelibill.Infrastructure.Migrations
                     b.ToTable("bank_accounts", (string)null);
                 });
 
+            modelBuilder.Entity("Intelibill.Domain.Entities.BatchPriceRevision", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("InventoryBatchId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("inventory_batch_id");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("item_id");
+
+                    b.Property<decimal>("NewMrp")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("new_mrp");
+
+                    b.Property<decimal>("NewSalesPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("new_sales_price");
+
+                    b.Property<bool>("NewTaxIncluded")
+                        .HasColumnType("boolean")
+                        .HasColumnName("new_tax_included");
+
+                    b.Property<decimal>("NewTaxRatePercent")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("new_tax_rate_percent");
+
+                    b.Property<DateTimeOffset>("PerformedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("performed_at");
+
+                    b.Property<Guid>("PerformedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("performed_by");
+
+                    b.Property<decimal>("PreviousMrp")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("previous_mrp");
+
+                    b.Property<decimal>("PreviousSalesPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("previous_sales_price");
+
+                    b.Property<bool>("PreviousTaxIncluded")
+                        .HasColumnType("boolean")
+                        .HasColumnName("previous_tax_included");
+
+                    b.Property<decimal>("PreviousTaxRatePercent")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("previous_tax_rate_percent");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("reason");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_batch_price_revisions");
+
+                    b.HasIndex("InventoryBatchId", "ItemId", "ShopId")
+                        .HasDatabaseName("ix_batch_price_revisions_inventory_batch_id_item_id_shop_id");
+
+                    b.HasIndex("ShopId", "InventoryBatchId", "PerformedAt")
+                        .HasDatabaseName("ix_batch_price_revisions_shop_id_inventory_batch_id_performed_");
+
+                    b.ToTable("batch_price_revisions", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_batch_price_revisions_sales_lte_mrp", "new_sales_price <= new_mrp");
+
+                            t.HasCheckConstraint("ck_batch_price_revisions_tax_rate_range", "new_tax_rate_percent >= 0 AND new_tax_rate_percent <= 100");
+                        });
+                });
+
             modelBuilder.Entity("Intelibill.Domain.Entities.CreditNote", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2147,6 +2242,200 @@ namespace Intelibill.Infrastructure.Migrations
                     b.ToTable("purchase_order_sequences", (string)null);
                 });
 
+            modelBuilder.Entity("Intelibill.Domain.Entities.PurchaseReceiptCostAdjustment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<decimal>("Delta")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("delta");
+
+                    b.Property<Guid>("InventoryBatchId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("inventory_batch_id");
+
+                    b.Property<DateTimeOffset>("PerformedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("performed_at");
+
+                    b.Property<Guid>("PerformedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("performed_by");
+
+                    b.Property<decimal>("PriorTotalCost")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("prior_total_cost");
+
+                    b.Property<Guid>("PurchaseReceiptValueId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("purchase_receipt_value_id");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("reason");
+
+                    b.Property<decimal>("RevisedTotalCost")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("revised_total_cost");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<Guid>("SupplierLedgerEntryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("supplier_ledger_entry_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_purchase_receipt_cost_adjustments");
+
+                    b.HasIndex("InventoryBatchId")
+                        .HasDatabaseName("ix_purchase_receipt_cost_adjustments_inventory_batch_id");
+
+                    b.HasIndex("PurchaseReceiptValueId")
+                        .HasDatabaseName("ix_purchase_receipt_cost_adjustments_purchase_receipt_value_id");
+
+                    b.HasIndex("SupplierLedgerEntryId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_purchase_receipt_cost_adjustments_supplier_ledger_entry_id");
+
+                    b.HasIndex("ShopId", "PurchaseReceiptValueId", "PerformedAt")
+                        .HasDatabaseName("ix_purchase_receipt_cost_adjustments_shop_id_purchase_receipt_");
+
+                    b.ToTable("purchase_receipt_cost_adjustments", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_purchase_receipt_cost_adjustments_delta", "delta = revised_total_cost - prior_total_cost AND delta <> 0");
+
+                            t.HasCheckConstraint("ck_purchase_receipt_cost_adjustments_reason_required", "length(btrim(reason)) > 0");
+
+                            t.HasCheckConstraint("ck_purchase_receipt_cost_adjustments_totals_non_negative", "prior_total_cost >= 0 AND revised_total_cost >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.PurchaseReceiptValue", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by");
+
+                    b.Property<decimal?>("EffectiveTotalCost")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("effective_total_cost");
+
+                    b.Property<Guid>("InventoryBatchId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("inventory_batch_id");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("item_id");
+
+                    b.Property<decimal?>("OriginalTotalCost")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("original_total_cost");
+
+                    b.Property<Guid?>("PurchaseOrderReceiptLineId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("purchase_order_receipt_line_id");
+
+                    b.Property<DateTimeOffset>("ReceivedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("received_at");
+
+                    b.Property<decimal>("ReceivedQuantity")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)")
+                        .HasColumnName("received_quantity");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("source");
+
+                    b.Property<string>("SourceReference")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("source_reference");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
+
+                    b.Property<Guid?>("SupplierId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("supplier_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_purchase_receipt_values");
+
+                    b.HasIndex("PurchaseOrderReceiptLineId")
+                        .HasDatabaseName("ix_purchase_receipt_values_purchase_order_receipt_line_id");
+
+                    b.HasIndex("SupplierId")
+                        .HasDatabaseName("ix_purchase_receipt_values_supplier_id");
+
+                    b.HasIndex("ShopId", "InventoryBatchId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_purchase_receipt_values_shop_id_inventory_batch_id");
+
+                    b.HasIndex("ShopId", "SupplierId")
+                        .HasDatabaseName("ix_purchase_receipt_values_shop_id_supplier_id");
+
+                    b.HasIndex("InventoryBatchId", "ItemId", "ShopId")
+                        .HasDatabaseName("ix_purchase_receipt_values_inventory_batch_id_item_id_shop_id");
+
+                    b.ToTable("purchase_receipt_values", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_purchase_receipt_values_amounts_by_status", "(status = 'RESOLVED' AND original_total_cost IS NOT NULL AND original_total_cost >= 0 AND effective_total_cost IS NOT NULL AND effective_total_cost >= 0) OR (status = 'LEGACY_UNRESOLVED' AND original_total_cost IS NULL AND effective_total_cost IS NULL)");
+
+                            t.HasCheckConstraint("ck_purchase_receipt_values_quantity_positive", "received_quantity > 0");
+                        });
+                });
+
             modelBuilder.Entity("Intelibill.Domain.Entities.RealtimeConnectionLease", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3723,7 +4012,7 @@ namespace Intelibill.Infrastructure.Migrations
                         {
                             t.HasCheckConstraint("ck_supplier_ledger_entries_amount_non_zero", "amount <> 0");
 
-                            t.HasCheckConstraint("ck_supplier_ledger_entries_batch_by_type", "((entry_type = 'GOODS_RECEIVED' AND batch_id IS NOT NULL) OR (entry_type IN ('PAYMENT_MADE', 'RECORD_ADJUSTED') AND batch_id IS NULL) OR (entry_type = 'REVERSAL'))");
+                            t.HasCheckConstraint("ck_supplier_ledger_entries_batch_by_type", "((entry_type IN ('GOODS_RECEIVED', 'COST_ADJUSTED') AND batch_id IS NOT NULL) OR (entry_type IN ('PAYMENT_MADE', 'RECORD_ADJUSTED') AND batch_id IS NULL) OR (entry_type = 'REVERSAL'))");
                         });
                 });
 
@@ -3842,6 +4131,24 @@ namespace Intelibill.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_bank_accounts_shops_shop_id");
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.BatchPriceRevision", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.Shop", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_batch_price_revisions_shops_shop_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.InventoryBatch", null)
+                        .WithMany()
+                        .HasForeignKey("InventoryBatchId", "ItemId", "ShopId")
+                        .HasPrincipalKey("Id", "ItemId", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_batch_price_revisions_inventory_batches_inventory_batch_id_");
                 });
 
             modelBuilder.Entity("Intelibill.Domain.Entities.CreditNote", b =>
@@ -4255,6 +4562,67 @@ namespace Intelibill.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_purchase_order_sequences_shops_shop_id");
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.PurchaseReceiptCostAdjustment", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.InventoryBatch", null)
+                        .WithMany()
+                        .HasForeignKey("InventoryBatchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_purchase_receipt_cost_adjustments_inventory_batches_invento");
+
+                    b.HasOne("Intelibill.Domain.Entities.PurchaseReceiptValue", null)
+                        .WithMany()
+                        .HasForeignKey("PurchaseReceiptValueId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_purchase_receipt_cost_adjustments_purchase_receipt_values_p");
+
+                    b.HasOne("Intelibill.Domain.Entities.Shop", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_purchase_receipt_cost_adjustments_shops_shop_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.SupplierLedgerEntry", null)
+                        .WithMany()
+                        .HasForeignKey("SupplierLedgerEntryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_purchase_receipt_cost_adjustments_supplier_ledger_entries_s");
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.PurchaseReceiptValue", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.PurchaseOrderReceiptLine", null)
+                        .WithMany()
+                        .HasForeignKey("PurchaseOrderReceiptLineId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_purchase_receipt_values_purchase_order_receipt_lines_purcha");
+
+                    b.HasOne("Intelibill.Domain.Entities.Shop", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_purchase_receipt_values_shops_shop_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.Supplier", null)
+                        .WithMany()
+                        .HasForeignKey("SupplierId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_purchase_receipt_values_suppliers_supplier_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.InventoryBatch", null)
+                        .WithMany()
+                        .HasForeignKey("InventoryBatchId", "ItemId", "ShopId")
+                        .HasPrincipalKey("Id", "ItemId", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_purchase_receipt_values_inventory_batches_inventory_batch_i");
                 });
 
             modelBuilder.Entity("Intelibill.Domain.Entities.ReconciliationIssue", b =>

@@ -28,7 +28,10 @@ import type {
   GenerateItemBarcodeResponse,
   Item,
   ProductDetailsDto,
-  UpdateInventoryBatchRequest,
+  CorrectReceiptCostRequest,
+  CorrectReceiptCostResponse,
+  UpdateBatchPricesRequest,
+  UpdateBatchPricesResponse,
   UpdateItemRequest,
   VoidInventoryAdjustmentRequest,
   VoidInventoryAdjustmentResponse,
@@ -94,8 +97,26 @@ export class InventoryService {
     return this.http.get<readonly InventoryBatchDto[]>(`${API_BASE_URL}/inventory/batches`);
   }
 
-  updateInventoryBatch(batchId: string, payload: UpdateInventoryBatchRequest): Observable<void> {
-    return this.http.put<void>(`${API_BASE_URL}/inventory/batches/${batchId}`, payload);
+  /** Changes retail prices and lot details in place; stock and the supplier payable are untouched. */
+  updateBatchPrices(
+    batchId: string,
+    payload: UpdateBatchPricesRequest,
+  ): Observable<UpdateBatchPricesResponse> {
+    return this.http.put<UpdateBatchPricesResponse>(
+      `${API_BASE_URL}/inventory/batches/${batchId}/prices`,
+      payload,
+    );
+  }
+
+  /** Posts only the difference between the receipt's current and revised total to the supplier. */
+  correctReceiptCost(
+    receiptValueId: string,
+    payload: CorrectReceiptCostRequest,
+  ): Observable<CorrectReceiptCostResponse> {
+    return this.http.post<CorrectReceiptCostResponse>(
+      `${API_BASE_URL}/inventory/receipts/${receiptValueId}/cost-corrections`,
+      payload,
+    );
   }
 
   voidInventoryBatch(batchId: string): Observable<void> {

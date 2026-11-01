@@ -3,6 +3,7 @@ using Intelibill.Application.Common.Errors;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
+using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Application.Features.Inventory.Commands.ReassignBatchSupplier;
 
@@ -11,6 +12,7 @@ public sealed class ReassignBatchSupplierCommandHandler(
     IInventoryBatchRepository inventoryBatchRepository,
     ISupplierLedgerEntryRepository supplierLedgerEntryRepository,
     ISupplierRepository supplierRepository,
+    IPurchaseReceiptValueRepository purchaseReceiptValueRepository,
     IUnitOfWork unitOfWork)
 {
     public async Task<ErrorOr<Success>> HandleAsync(ReassignBatchSupplierCommand command, CancellationToken cancellationToken)
@@ -30,8 +32,17 @@ public sealed class ReassignBatchSupplierCommandHandler(
         if (batch is null || batch.ShopId != command.ActiveShopId)
             return Errors.Inventory.BatchNotFound;
 
-        var goodsReceivedEntry = (await supplierLedgerEntryRepository.GetByBatchAsync(command.ActiveShopId, batch.Id, cancellationToken))
-            .FirstOrDefault(e => e.EntryType == SupplierLedgerEntryType.GoodsReceived);
+        // A voided receipt's payable was reversed against its supplier; moving part of it would
+        // leave the new supplier owing for goods that were never kept.
+        if (batch.IsVoided)
+            return Errors.Inventory.BatchAlreadyVoided;
+
+        // Read before the ledger entries: a cost correction writes the receipt and the batch, so one
+        // committing after these reads fails the save below instead of being left behind.
+        var receiptValue = await purchaseReceiptValueRepository.GetByBatchAsync(command.ActiveShopId, batch.Id, cancellationToken);
+
+        var batchEntries = await supplierLedgerEntryRepository.GetByBatchAsync(command.ActiveShopId, batch.Id, cancellationToken);
+        var goodsReceivedEntry = batchEntries.FirstOrDefault(e => e.EntryType == SupplierLedgerEntryType.GoodsReceived);
 
         // A free receipt has no payable; its batch alone records who supplied it.
         var currentSupplierId = goodsReceivedEntry?.SupplierId ?? (batch.CostPrice == 0 ? batch.SupplierId : null);
@@ -58,10 +69,32 @@ public sealed class ReassignBatchSupplierCommandHandler(
             supplierLedgerEntryRepository.Update(goodsReceivedEntry);
         }
 
+        // Cost corrections belong to the same receipt: they follow it, or the placeholder supplier
+        // would keep owing (or being owed) the difference.
+        foreach (var costAdjustment in batchEntries.Where(e => e.EntryType == SupplierLedgerEntryType.CostAdjusted))
+        {
+            costAdjustment.ReassignSupplier(newSupplier.Id);
+            supplierLedgerEntryRepository.Update(costAdjustment);
+        }
+
+        if (receiptValue is not null)
+        {
+            receiptValue.ReassignSupplier(newSupplier.Id);
+            purchaseReceiptValueRepository.Update(receiptValue);
+        }
+
         batch.AssignSupplier(newSupplier.Id, command.ActorUserId);
         inventoryBatchRepository.Update(batch);
 
-        await unitOfWork.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Errors.Inventory.ConcurrentChange;
+        }
+
         return Result.Success;
     }
 }

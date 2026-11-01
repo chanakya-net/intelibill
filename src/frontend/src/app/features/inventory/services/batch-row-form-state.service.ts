@@ -1,5 +1,5 @@
 import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core';
-import { FormBuilder } from '@angular/forms';
+import { FormBuilder, Validators } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AutoCompleteCompleteEvent } from 'primeng/autocomplete';
 import { firstValueFrom } from 'rxjs';
@@ -7,7 +7,10 @@ import { firstValueFrom } from 'rxjs';
 import { HsnLookupResult, ProductDetailsDto } from '../services/inventory.models';
 import { InventoryService } from '../services/inventory.service';
 import { InventoryBatchDefaultsService } from './inventory-batch-defaults.service';
-import { InventoryInboundDraftRow } from '../../../core/storage/inventory-draft-indexeddb.service';
+import {
+  InventoryInboundDraftRow,
+  isPurchaseTaxModeConfirmed,
+} from '../../../core/storage/inventory-draft-indexeddb.service';
 import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
 import { Supplier } from '../../suppliers/services/supplier.service';
 import { SuppliersFacade } from '../../suppliers/state/suppliers.facade';
@@ -64,6 +67,9 @@ export class BatchRowFormStateService {
       salesPrice: [0, InputValidators.nonNegativeNumber()],
       taxRatePercent: [0, InputValidators.percentage()],
       taxIncluded: [true],
+      // How the purchase cost was quoted, chosen on its own: a supplier invoice can carry tax while
+      // the shelf price does not. Null means unconfirmed and keeps the row from being added.
+      purchaseTaxIncluded: [true as boolean | null, Validators.required],
       expiryDate: [''],
       manufacturingDate: [''],
       supplierName: [''],
@@ -377,6 +383,11 @@ export class BatchRowFormStateService {
       return null;
     }
 
+    const purchaseTaxIncluded = this.form.controls.purchaseTaxIncluded.value;
+    if (purchaseTaxIncluded === null) {
+      return null;
+    }
+
     const supplierId = this.resolveSupplierId(this.form.controls.supplierName.value);
     return {
       clientRowId: this.createRowId(),
@@ -391,7 +402,8 @@ export class BatchRowFormStateService {
       salesPrice: Number(this.form.controls.salesPrice.value),
       taxRatePercent: Number(this.form.controls.taxRatePercent.value),
       taxIncluded: this.form.controls.taxIncluded.value,
-      purchaseTaxIncluded: this.form.controls.taxIncluded.value,
+      purchaseTaxIncluded,
+      purchaseTaxModeConfirmed: true,
       hsnCode: this.selectedHsnCode(),
       expiryDate: this.nullable(this.form.controls.expiryDate.value),
       manufacturingDate: this.nullable(this.form.controls.manufacturingDate.value),
@@ -415,6 +427,9 @@ export class BatchRowFormStateService {
       salesPrice: row.salesPrice,
       taxRatePercent: row.taxRatePercent,
       taxIncluded: row.taxIncluded,
+      // Drafts stored by earlier releases either lack the purchase mode or carry one silently copied
+      // from the sales mode; both stay unconfirmed until the user chooses it here.
+      purchaseTaxIncluded: isPurchaseTaxModeConfirmed(row) ? (row.purchaseTaxIncluded ?? null) : null,
       expiryDate: row.expiryDate ?? '',
       manufacturingDate: row.manufacturingDate ?? '',
       supplierName:
@@ -445,6 +460,7 @@ export class BatchRowFormStateService {
       salesPrice: 0,
       taxRatePercent: 0,
       taxIncluded: true,
+      purchaseTaxIncluded: true,
       expiryDate: '',
       manufacturingDate: '',
       supplierName: '',
@@ -478,6 +494,7 @@ export class BatchRowFormStateService {
     supplierName: string;
     hsnCode: string;
     taxIncluded: boolean;
+    purchaseTaxIncluded: boolean;
     taxRatePercent: number;
   }> {
     const patch: Partial<{
@@ -490,6 +507,7 @@ export class BatchRowFormStateService {
       supplierName: string;
       hsnCode: string;
       taxIncluded: boolean;
+      purchaseTaxIncluded: boolean;
       taxRatePercent: number;
     }> = {};
 
@@ -526,6 +544,11 @@ export class BatchRowFormStateService {
 
     if (!this.form.controls.taxIncluded.dirty && details.taxIncluded !== null) {
       patch.taxIncluded = details.taxIncluded;
+    }
+
+    // The latest receipt's cost is filled above; its purchase mode goes with it so the two agree.
+    if (!this.form.controls.purchaseTaxIncluded.dirty && details.purchaseTaxIncluded != null) {
+      patch.purchaseTaxIncluded = details.purchaseTaxIncluded;
     }
 
     if (!this.form.controls.taxRatePercent.dirty && details.taxRatePercent !== null) {

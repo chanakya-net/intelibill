@@ -17,4 +17,7 @@ public enum FinancialOperationType
 
     /// <summary>One physical stock count of a batch.</summary>
     StockCount = 5,
+
+    /// <summary>One correction of a purchase receipt's total cost.</summary>
+    ReceiptCostCorrection = 6,
 }

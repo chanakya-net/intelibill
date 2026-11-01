@@ -141,7 +141,7 @@ public sealed class ReceivePurchaseOrderCommandHandler(
                     return inboundResult.Errors;
                 }
 
-                receipt.AddLine(
+                var receiptLine = receipt.AddLine(
                     poLine.Id,
                     poLine.ItemId,
                     inboundResult.Value.Batch.Id,
@@ -153,6 +153,8 @@ public sealed class ReceivePurchaseOrderCommandHandler(
                     lineInput.TaxRatePercent,
                     lineInput.TaxIncluded,
                     lineInput.PurchaseTaxIncluded);
+
+                inboundResult.Value.ReceiptValue?.LinkPurchaseOrderReceiptLine(receiptLine.Id);
 
                 po.ApplyReceipt(poLine.Id, lineInput.Quantity);
             }

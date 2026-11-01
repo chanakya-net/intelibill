@@ -1,7 +1,7 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, LOCALE_ID, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, ValidatorFn, Validators } from '@angular/forms';
-import { DecimalPipe } from '@angular/common';
+import { DecimalPipe, formatNumber } from '@angular/common';
 import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import { MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
@@ -13,7 +13,6 @@ import { InputNumberModule } from 'primeng/inputnumber';
 import { InputTextModule } from 'primeng/inputtext';
 import { TextareaModule } from 'primeng/textarea';
 import { ToastModule } from 'primeng/toast';
-import { AutoCompleteModule, AutoCompleteCompleteEvent } from 'primeng/autocomplete';
 import { SelectModule } from 'primeng/select';
 import { HttpErrorResponse } from '@angular/common/http';
 import { finalize } from 'rxjs';
@@ -21,11 +20,12 @@ import {
   AdjustInventoryBatchRequest,
   BatchFilters,
   BarcodeLabelPrintRequest,
+  CorrectReceiptCostRequest,
   CountInventoryBatchRequest,
   InventoryAdjustmentDirection,
   InventoryAdjustmentReason,
   InventoryBatchDto,
-  UpdateInventoryBatchRequest,
+  UpdateBatchPricesRequest,
 } from '../../services/inventory.models';
 import { InventoryService } from '../../services/inventory.service';
 import { BatchesFilterBarComponent } from '../../components/batches-list/batches-filter-bar.component';
@@ -37,8 +37,7 @@ import {
   BarcodeLabelPrintDialogComponent,
   type BarcodeLabelPrintCandidate,
 } from '../../components/barcode-label-print-dialog.component';
-import { SuppliersFacade } from '../../../suppliers/state/suppliers.facade';
-import { Supplier } from '../../../suppliers/services/supplier.service';
+import { ShopPermissionsService } from '../../../../core/layout/shop-permissions.service';
 import {
   CURRENCY_ADDON_PT,
   CURRENCY_INPUT_GROUP_PT,
@@ -54,6 +53,12 @@ import { downloadBlob, openPdfBlobInNewTab } from '../../../../shared/utils/blob
 import { InputValidators } from '../../../../shared/forms/input-validation';
 const BATCH_VERSION_CONFLICT = 'Inventory.BatchVersionConflict';
 const BATCH_CONSUMED = 'Inventory.BatchConsumed';
+const RECEIPT_VERSION_CONFLICT = 'PurchaseReceipt.VersionConflict';
+const RECEIPT_EVIDENCE_MISSING = 'PurchaseReceipt.EvidenceMissing';
+const RECEIPT_COST_UNCHANGED = 'PurchaseReceipt.CostUnchanged';
+const RECEIPT_BATCH_VOIDED = 'PurchaseReceipt.BatchVoided';
+/** Matches the server's money column (numeric(10,2)). */
+const MAX_RECEIPT_TOTAL_COST = 99_999_999.99;
 interface SelectOption<T extends string | boolean> {
   label: string;
   value: T;
@@ -74,7 +79,6 @@ interface SelectOption<T extends string | boolean> {
     InputTextModule,
     TextareaModule,
     ToastModule,
-    AutoCompleteModule,
     SelectModule,
     BatchesFilterBarComponent,
     BatchesTableComponent,
@@ -86,13 +90,15 @@ interface SelectOption<T extends string | boolean> {
 })
 export class InventoryBatchesListPageComponent {
   private readonly inventoryService = inject(InventoryService);
-  private readonly suppliersFacade = inject(SuppliersFacade);
   private readonly translocoService = inject(TranslocoService);
   private readonly activeLanguage = toSignal(this.translocoService.langChanges$, {
     initialValue: this.translocoService.getActiveLang(),
   });
   private readonly messageService = inject(MessageService);
   private readonly formBuilder = inject(FormBuilder);
+  private readonly locale = inject(LOCALE_ID);
+  /** Cost corrections move the supplier payable; the server accepts them from an owner only. */
+  readonly canCorrectReceiptCost = inject(ShopPermissionsService).isOwnerOfActiveShop;
   readonly currencyGroupPt = CURRENCY_INPUT_GROUP_PT;
   readonly currencyAddonPt = CURRENCY_ADDON_PT;
   readonly currencyInputPt = CURRENCY_INPUT_NUMBER_PT;
@@ -109,9 +115,9 @@ export class InventoryBatchesListPageComponent {
   readonly barcodeLabelPrintCandidates = signal<readonly BarcodeLabelPrintCandidate[]>([]);
   readonly isSaving = signal(false);
   readonly isAdjustmentSaving = signal(false);
+  readonly isCostCorrectionDialogOpen = signal(false);
+  readonly isCostCorrectionSaving = signal(false);
   readonly selectedBatch = signal<InventoryBatchDto | null>(null);
-  readonly supplierSuggestions = signal<string[]>([]);
-  readonly suppliers = this.suppliersFacade.suppliers;
   readonly batchFilters = signal<BatchFilters>({
     search: '',
     status: 'all',
@@ -227,25 +233,67 @@ export class InventoryBatchesListPageComponent {
   // count instead of posting it twice, while an edited count is a new submission.
   private countSubmission: { readonly signature: string; readonly operationKey: string } | null =
     null;
+  // Retail prices and lot details only. Quantity is changed by a stock count and purchase cost by
+  // a receipt cost correction, so a price edit never replaces the lot or reposts its payable.
   readonly editForm = this.formBuilder.nonNullable.group(
     {
-      newBatchNumber: ['', InputValidators.optionalText(80)],
-      quantity: [0, InputValidators.nonNegativeNumber()],
-      costPrice: [0, InputValidators.nonNegativeNumber()],
+      batchNumber: ['', InputValidators.requiredText(80)],
       mrp: [0, InputValidators.nonNegativeNumber()],
       salesPrice: [0, InputValidators.nonNegativeNumber()],
       taxRatePercent: [0, InputValidators.percentage()],
       taxIncluded: [false],
       expiryDate: [null as Date | null],
       manufacturingDate: [null as Date | null],
-      supplierName: [''],
-      notes: [''],
-      entryDate: [''],
+      reason: ['', InputValidators.optionalText(500)],
     },
     {
       validators: InputValidators.fieldLessThanOrEqual('salesPrice', 'mrp', 'salesPriceExceedsMrp'),
     },
   );
+  readonly costCorrectionForm = this.formBuilder.nonNullable.group({
+    revisedTotalCost: [
+      0,
+      [
+        ...InputValidators.nonNegativeNumber(),
+        Validators.max(MAX_RECEIPT_TOTAL_COST),
+        InputValidators.maxFractionDigits(2),
+      ],
+    ],
+    reason: ['', InputValidators.requiredText(500)],
+  });
+  // The input clears to null; an empty field has no delta to show (it is not a total of zero).
+  private readonly revisedTotalCostValue = signal<number | null>(0);
+  /** A receipt without amounts on record (legacy) cannot be corrected: there is nothing to diff. */
+  readonly costCorrectionBlocked = computed(() => {
+    const batch = this.selectedBatch();
+    return (
+      !batch ||
+      batch.receiptValueId === null ||
+      batch.receiptStatus !== 'Resolved' ||
+      batch.receiptTotalCost === null ||
+      batch.receiptVersion === null
+    );
+  });
+  readonly costCorrectionPreview = computed(() => {
+    const batch = this.selectedBatch();
+    if (!batch || this.costCorrectionBlocked()) return null;
+    const currentTotal = batch.receiptTotalCost ?? 0;
+    const revised = this.revisedTotalCostValue();
+    const hasRevised = revised !== null && `${revised}`.trim() !== '' && Number.isFinite(Number(revised));
+    const delta = hasRevised ? Number((Number(revised) - currentTotal).toFixed(2)) : null;
+    return {
+      originalTotal: batch.receiptOriginalTotalCost,
+      currentTotal,
+      delta,
+      deltaText: delta === null ? null : this.formatSignedAmount(delta),
+    };
+  });
+  // Same rule as counts: an unchanged resend after a lost response replays the saved correction,
+  // a changed amount or reason is a new submission with a new key.
+  private costCorrectionSubmission: {
+    readonly signature: string;
+    readonly operationKey: string;
+  } | null = null;
   readonly adjustmentForm = this.formBuilder.nonNullable.group({
     direction: ['Decrease' as InventoryAdjustmentDirection, [Validators.required]],
     reason: ['Damaged' as InventoryAdjustmentReason, [Validators.required]],
@@ -272,7 +320,9 @@ export class InventoryBatchesListPageComponent {
     this.countForm.controls.countedQuantity.valueChanges.subscribe((value) =>
       this.countedQuantityValue.set(value),
     );
-    this.suppliersFacade.load();
+    this.costCorrectionForm.controls.revisedTotalCost.valueChanges.subscribe((value) =>
+      this.revisedTotalCostValue.set(value),
+    );
     this.loadBatches();
   }
   onFiltersChange(filters: BatchFilters): void {
@@ -286,6 +336,7 @@ export class InventoryBatchesListPageComponent {
     if (event.action === 'edit') return this.onEditBatch(batch);
     if (event.action === 'adjust') return this.onAdjustBatch(batch);
     if (event.action === 'count') return this.onCountBatch(batch);
+    if (event.action === 'correctCost') return this.onCorrectReceiptCost(batch);
     if (event.action === 'void') return this.onVoidBatch(batch.id);
     this.onEditBatch(batch);
   }
@@ -344,48 +395,40 @@ export class InventoryBatchesListPageComponent {
   }
   onEditBatch(batch: InventoryBatchDto): void {
     this.selectedBatch.set(batch);
-    this.editForm.patchValue({
-      newBatchNumber: '',
-      quantity: batch.quantity,
-      costPrice: batch.costPrice,
+    this.editForm.reset({
+      batchNumber: batch.batchNumber,
       mrp: batch.mrp,
       salesPrice: batch.salesPrice,
       taxRatePercent: batch.taxRatePercent,
       taxIncluded: batch.taxIncluded,
       expiryDate: this.parseDateOnly(batch.expiryDate),
       manufacturingDate: this.parseDateOnly(batch.manufacturingDate),
-      supplierName: batch.supplierId ? this.getSupplierDisplayName(batch.supplierId) : '',
-      notes: '',
-      entryDate: formatLocalIsoDate(new Date()),
+      reason: '',
     });
     this.isEditDialogOpen.set(true);
   }
   onSaveEdit(): void {
     const batch = this.selectedBatch();
-    if (!batch || this.editForm.invalid) return;
+    if (!batch || this.editForm.invalid || this.isSaving()) return;
     this.isSaving.set(true);
     const value = this.editForm.getRawValue();
-    const payload: UpdateInventoryBatchRequest = {
-      newBatchNumber: this.nullable(value.newBatchNumber),
-      quantity: value.quantity,
-      costPrice: value.costPrice,
+    const payload: UpdateBatchPricesRequest = {
+      expectedVersion: batch.version,
       mrp: value.mrp,
       salesPrice: value.salesPrice,
       taxRatePercent: value.taxRatePercent,
       taxIncluded: value.taxIncluded,
+      batchNumber: this.nullable(value.batchNumber),
       expiryDate: this.dateOnlyOrNull(value.expiryDate),
       manufacturingDate: this.dateOnlyOrNull(value.manufacturingDate),
-      supplierId: this.resolveSupplierId(value.supplierName),
-      notes: this.nullable(value.notes) ?? 'Batch Correction',
-      entryDate: this.nullable(value.entryDate),
-      expectedVersion: batch.version,
+      reason: this.nullable(value.reason),
     };
     this.inventoryService
-      .updateInventoryBatch(batch.id, payload)
+      .updateBatchPrices(batch.id, payload)
       .pipe(finalize(() => this.isSaving.set(false)))
       .subscribe({
         next: () => {
-          this.showSuccess('inventory.batchCorrected');
+          this.showSuccess('inventory.batchPricesUpdated');
           this.isEditDialogOpen.set(false);
           this.loadBatches();
         },
@@ -401,6 +444,98 @@ export class InventoryBatchesListPageComponent {
             severity: 'error',
             summary: this.translocoService.translate('common.error'),
             detail,
+          });
+        },
+      });
+  }
+  onCorrectReceiptCost(batch: InventoryBatchDto): void {
+    if (batch.isVoided || !this.canCorrectReceiptCost()) return;
+    this.selectedBatch.set(batch);
+    this.costCorrectionSubmission = null;
+    const currentTotal = batch.receiptTotalCost ?? 0;
+    this.costCorrectionForm.reset({ revisedTotalCost: currentTotal, reason: '' });
+    this.revisedTotalCostValue.set(currentTotal);
+    this.isCostCorrectionDialogOpen.set(true);
+  }
+  onSaveCostCorrection(): void {
+    const batch = this.selectedBatch();
+    const preview = this.costCorrectionPreview();
+    if (
+      !batch ||
+      !preview ||
+      preview.delta === null ||
+      preview.delta === 0 ||
+      batch.receiptValueId === null ||
+      batch.receiptVersion === null ||
+      this.costCorrectionForm.invalid ||
+      this.isCostCorrectionSaving()
+    )
+      return;
+    const value = this.costCorrectionForm.getRawValue();
+    const reason = value.reason.trim();
+    const payload: CorrectReceiptCostRequest = {
+      expectedVersion: batch.receiptVersion,
+      revisedTotalCost: value.revisedTotalCost,
+      reason,
+      operationKey: this.costCorrectionOperationKey(
+        batch.receiptValueId,
+        batch.receiptVersion,
+        value.revisedTotalCost,
+        reason,
+      ),
+    };
+    this.isCostCorrectionSaving.set(true);
+    this.inventoryService
+      .correctReceiptCost(batch.receiptValueId, payload)
+      .pipe(finalize(() => this.isCostCorrectionSaving.set(false)))
+      .subscribe({
+        next: (result) => {
+          this.costCorrectionSubmission = null;
+          this.messageService.add({
+            severity: 'success',
+            summary: this.translocoService.translate('inventory.receiptCostCorrected', {
+              delta: this.formatSignedAmount(result.delta),
+            }),
+            life: 4000,
+          });
+          this.isCostCorrectionDialogOpen.set(false);
+          this.loadBatches();
+        },
+        error: (err: HttpErrorResponse) => {
+          const code = this.errorCode(err);
+          if (code === RECEIPT_VERSION_CONFLICT) {
+            // The receipt changed after this dialog opened; the correction is never resent against
+            // the refreshed total, the owner has to look at it again.
+            this.costCorrectionSubmission = null;
+            this.isCostCorrectionDialogOpen.set(false);
+            this.showError('inventory.receiptCostVersionConflict');
+            this.loadBatches();
+            return;
+          }
+          if (code === RECEIPT_EVIDENCE_MISSING) {
+            this.showError('inventory.receiptCostEvidenceMissing');
+            return;
+          }
+          if (code === RECEIPT_COST_UNCHANGED) {
+            this.showError('inventory.receiptCostUnchanged');
+            return;
+          }
+          if (code === RECEIPT_BATCH_VOIDED) {
+            // Nothing left to correct: the lot was voided elsewhere after this dialog opened.
+            this.costCorrectionSubmission = null;
+            this.isCostCorrectionDialogOpen.set(false);
+            this.loadBatches();
+          }
+          // Anything else (invalid total, forbidden, payload mismatch, ...) shows the server's own
+          // explanation when it gave one.
+          const detail: unknown = err.error?.detail;
+          this.messageService.add({
+            severity: 'error',
+            summary: this.translocoService.translate('common.error'),
+            detail:
+              typeof detail === 'string' && detail.trim().length > 0
+                ? detail
+                : this.translate('inventory.receiptCostError'),
           });
         },
       });
@@ -518,29 +653,6 @@ export class InventoryBatchesListPageComponent {
         ),
     });
   }
-  onFilterSupplier(event: AutoCompleteCompleteEvent): void {
-    const normalized = event.query.trim().toLowerCase();
-    this.supplierSuggestions.set(
-      this.suppliers()
-        .filter((supplier) => supplier.name.toLowerCase().includes(normalized))
-        .slice(0, 15)
-        .map((supplier) => supplier.name),
-    );
-  }
-  getSupplierDisplayName(supplierId: string | null): string {
-    if (!supplierId) return '-';
-    return (
-      this.suppliers().find((supplier) => supplier.supplierId === supplierId)?.name ?? supplierId
-    );
-  }
-  private findSupplierByName(name: string): Supplier | undefined {
-    return this.suppliers().find(
-      (supplier) => supplier.name.toLowerCase() === name.trim().toLowerCase(),
-    );
-  }
-  private resolveSupplierId(value: string): string | null {
-    return this.findSupplierByName(value.trim())?.supplierId ?? null;
-  }
   private countOperationKey(
     batch: InventoryBatchDto,
     countedQuantity: number,
@@ -550,6 +662,25 @@ export class InventoryBatchesListPageComponent {
     if (this.countSubmission?.signature !== signature)
       this.countSubmission = { signature, operationKey: `count-${crypto.randomUUID()}` };
     return this.countSubmission.operationKey;
+  }
+  private costCorrectionOperationKey(
+    receiptValueId: string,
+    receiptVersion: number,
+    revisedTotalCost: number,
+    reason: string,
+  ): string {
+    const signature = JSON.stringify([receiptValueId, receiptVersion, revisedTotalCost, reason]);
+    if (this.costCorrectionSubmission?.signature !== signature)
+      this.costCorrectionSubmission = {
+        signature,
+        operationKey: `receipt-cost-${crypto.randomUUID()}`,
+      };
+    return this.costCorrectionSubmission.operationKey;
+  }
+  private formatSignedAmount(value: number): string {
+    const sign = value > 0 ? '+' : value < 0 ? '-' : '';
+    const amount = formatNumber(Math.abs(value), this.locale, '1.2-2');
+    return `${sign}${this.translate('common.currencySymbol')}${amount}`;
   }
   private errorCode(err: HttpErrorResponse): string | null {
     const title: unknown = err.error?.title;

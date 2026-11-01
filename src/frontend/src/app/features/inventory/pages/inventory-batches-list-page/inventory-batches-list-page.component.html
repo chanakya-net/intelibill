@@ -33,6 +33,7 @@
       <app-batches-table
         [batches]="filteredBatches()"
         [selectedBatchIds]="selectedBatchIds()"
+        [canCorrectReceiptCost]="canCorrectReceiptCost()"
         (batchClicked)="onBatchTableSelect($event)"
         (batchAction)="onBatchTableAction($event)"
         (selectionChange)="onBatchSelectionChange($event)"
@@ -50,51 +51,31 @@
 />
 
 <p-dialog
-  [header]="'inventory.correctBatch' | transloco"
+  [header]="'inventory.editPricesAndDetails' | transloco"
   [(visible)]="isEditDialogOpen"
   [modal]="true"
   [style]="{ width: '90vw', maxWidth: '600px' }"
   [draggable]="false"
   [resizable]="false"
 >
-  <form [formGroup]="editForm" class="flex flex-col gap-4 mt-2">
+  <form [formGroup]="editForm" class="flex flex-col gap-4 mt-2" (ngSubmit)="onSaveEdit()">
     <div class="flex flex-col gap-1 p-2 bg-blue-50 rounded border border-blue-100">
       <span class="text-xs text-blue-600 font-semibold uppercase tracking-wider">
-        {{ 'inventory.originalBatch' | transloco }}
+        {{ 'inventory.batchNumber' | transloco }}
       </span>
       <span class="font-mono font-bold">{{ selectedBatch()?.batchNumber }}</span>
+      <span class="text-sm text-slate-600">{{ selectedBatch()?.itemName }}</span>
     </div>
+
+    <p class="text-sm text-slate-600 m-0" data-testid="edit-prices-hint">
+      {{ 'inventory.editPricesHint' | transloco }}
+    </p>
 
     <div class="flex flex-col gap-1">
-      <label class="text-sm font-semibold">{{ 'inventory.newBatchNumber' | transloco }}</label>
-      <input
-        pInputText
-        formControlName="newBatchNumber"
-        [placeholder]="'inventory.leaveEmptyToAutoGenerate' | transloco"
-      />
-    </div>
-
-    <div class="grid grid-cols-2 gap-4">
-      <div class="flex flex-col gap-1">
-        <label class="text-sm font-semibold">{{ 'inventory.quantity' | transloco }}</label>
-        <p-inputNumber formControlName="quantity" [min]="0" [fluid]="true"></p-inputNumber>
-      </div>
-      <div class="flex flex-col gap-1">
-        <label class="text-sm font-semibold">{{ 'inventory.costPrice' | transloco }}</label>
-        <p-inputgroup [pt]="currencyGroupPt">
-          <p-inputgroup-addon [pt]="currencyAddonPt">
-            {{ 'common.currencySymbol' | transloco }}
-          </p-inputgroup-addon>
-          <p-inputNumber
-            formControlName="costPrice"
-            [min]="0"
-            mode="decimal"
-            [maxFractionDigits]="2"
-            [fluid]="true"
-            [pt]="currencyInputPt"
-          ></p-inputNumber>
-        </p-inputgroup>
-      </div>
+      <label class="text-sm font-semibold" for="editBatchNumber">{{
+        'inventory.batchNumber' | transloco
+      }}</label>
+      <input id="editBatchNumber" pInputText formControlName="batchNumber" />
     </div>
 
     <div class="grid grid-cols-2 gap-4">
@@ -147,26 +128,15 @@
       </div>
     </div>
 
-    <div class="grid grid-cols-2 gap-4">
-      <div class="flex flex-col gap-1">
-        <label class="text-sm font-semibold">{{ 'inventory.taxRatePercent' | transloco }}</label>
-        <p-inputNumber
-          formControlName="taxRatePercent"
-          [min]="0"
-          [max]="100"
-          [fluid]="true"
-          suffix="%"
-        ></p-inputNumber>
-      </div>
-      <div class="flex flex-col gap-1">
-        <label class="text-sm font-semibold">{{ 'inventory.supplier' | transloco }}</label>
-        <p-autocomplete
-          formControlName="supplierName"
-          [suggestions]="supplierSuggestions()"
-          (completeMethod)="onFilterSupplier($event)"
-          [fluid]="true"
-        ></p-autocomplete>
-      </div>
+    <div class="flex flex-col gap-1">
+      <label class="text-sm font-semibold">{{ 'inventory.taxRatePercent' | transloco }}</label>
+      <p-inputNumber
+        formControlName="taxRatePercent"
+        [min]="0"
+        [max]="100"
+        [fluid]="true"
+        suffix="%"
+      ></p-inputNumber>
     </div>
 
     <div class="grid grid-cols-2 gap-4">
@@ -195,27 +165,32 @@
     </div>
 
     <div class="flex flex-col gap-1">
-      <label class="text-sm font-semibold">{{ 'inventory.correctionNotes' | transloco }}</label>
+      <label class="text-sm font-semibold" for="editReason">{{
+        'inventory.priceEditReason' | transloco
+      }}</label>
       <input
+        id="editReason"
         pInputText
-        formControlName="notes"
-        [placeholder]="'inventory.correctionNotesPlaceholder' | transloco"
+        formControlName="reason"
+        [placeholder]="'inventory.priceEditReasonPlaceholder' | transloco"
       />
     </div>
 
     <div class="flex justify-end gap-2 mt-4">
       <button
         pButton
+        type="button"
         [label]="'common.cancel' | transloco"
         class="p-button-text"
+        [disabled]="isSaving()"
         (click)="isEditDialogOpen.set(false)"
       ></button>
       <button
         pButton
+        type="submit"
         [label]="'common.save' | transloco"
         [loading]="isSaving()"
-        (click)="onSaveEdit()"
-        [disabled]="editForm.invalid"
+        [disabled]="editForm.invalid || isSaving()"
       ></button>
     </div>
   </form>
@@ -434,6 +409,132 @@
         [loading]="isCountSaving()"
         [disabled]="countForm.invalid || isCountSaving()"
       ></button>
+    </div>
+  </form>
+</p-dialog>
+
+<p-dialog
+  [header]="'inventory.correctReceiptCost' | transloco"
+  [(visible)]="isCostCorrectionDialogOpen"
+  [modal]="true"
+  [style]="{ width: '92vw', maxWidth: '520px' }"
+  [draggable]="false"
+  [resizable]="false"
+>
+  <form
+    [formGroup]="costCorrectionForm"
+    class="flex flex-col gap-4 mt-2"
+    (ngSubmit)="onSaveCostCorrection()"
+  >
+    <div class="flex flex-col gap-1 p-2 bg-blue-50 rounded border border-blue-100">
+      <span class="text-xs text-blue-600 font-semibold uppercase tracking-wider">
+        {{ 'inventory.batchNumber' | transloco }}
+      </span>
+      <span class="font-mono font-bold">{{ selectedBatch()?.batchNumber }}</span>
+      <span class="text-sm text-slate-600">{{ selectedBatch()?.itemName }}</span>
+    </div>
+
+    @if (costCorrectionBlocked()) {
+      <p class="text-sm text-slate-600 m-0" role="alert" data-testid="receipt-cost-unresolved">
+        {{ 'inventory.receiptCostUnresolved' | transloco }}
+      </p>
+    } @else {
+      <p class="text-sm text-slate-600 m-0">{{ 'inventory.receiptCostHint' | transloco }}</p>
+
+      @if (costCorrectionPreview(); as preview) {
+        <div class="adjustment-preview">
+          <div>
+            <span>{{ 'inventory.receiptOriginalTotal' | transloco }}</span>
+            <strong>
+              {{ 'common.currencySymbol' | transloco }}
+              {{ preview.originalTotal | number: '1.2-2' }}
+            </strong>
+          </div>
+          <div>
+            <span>{{ 'inventory.receiptCurrentTotal' | transloco }}</span>
+            <strong>
+              {{ 'common.currencySymbol' | transloco }}
+              {{ preview.currentTotal | number: '1.2-2' }}
+            </strong>
+          </div>
+        </div>
+      }
+
+      <div class="flex flex-col gap-1">
+        <label class="text-sm font-semibold" for="revisedTotalCost">{{
+          'inventory.receiptRevisedTotal' | transloco
+        }}</label>
+        <p-inputgroup [pt]="currencyGroupPt">
+          <p-inputgroup-addon [pt]="currencyAddonPt">
+            {{ 'common.currencySymbol' | transloco }}
+          </p-inputgroup-addon>
+          <p-inputNumber
+            inputId="revisedTotalCost"
+            formControlName="revisedTotalCost"
+            [min]="0"
+            [max]="99999999.99"
+            mode="decimal"
+            [minFractionDigits]="2"
+            [maxFractionDigits]="2"
+            [fluid]="true"
+            [pt]="currencyInputPt"
+          ></p-inputNumber>
+        </p-inputgroup>
+      </div>
+
+      @if (costCorrectionPreview(); as preview) {
+        @if (preview.delta !== null) {
+          <p
+            class="text-sm font-semibold m-0"
+            data-testid="receipt-cost-delta"
+            [class.text-red-600]="preview.delta > 0"
+            [class.text-green-700]="preview.delta < 0"
+          >
+            {{
+              (preview.delta === 0 ? 'inventory.receiptCostNoChange' : 'inventory.receiptCostDelta')
+                | transloco: { delta: preview.deltaText }
+            }}
+          </p>
+        }
+      }
+
+      <div class="flex flex-col gap-1">
+        <label class="text-sm font-semibold" for="receiptCostReason">{{
+          'inventory.receiptCostReason' | transloco
+        }}</label>
+        <textarea
+          id="receiptCostReason"
+          pTextarea
+          formControlName="reason"
+          rows="3"
+          maxlength="500"
+          [placeholder]="'inventory.receiptCostReasonPlaceholder' | transloco"
+        ></textarea>
+      </div>
+    }
+
+    <div class="flex justify-end gap-2 mt-2">
+      <button
+        pButton
+        type="button"
+        [label]="'common.cancel' | transloco"
+        class="p-button-text"
+        [disabled]="isCostCorrectionSaving()"
+        (click)="isCostCorrectionDialogOpen.set(false)"
+      ></button>
+      @if (!costCorrectionBlocked()) {
+        <button
+          pButton
+          type="submit"
+          [label]="'inventory.submitReceiptCostCorrection' | transloco"
+          [loading]="isCostCorrectionSaving()"
+          [disabled]="
+            costCorrectionForm.invalid ||
+            isCostCorrectionSaving() ||
+            costCorrectionPreview()?.delta === 0
+          "
+        ></button>
+      }
     </div>
   </form>
 </p-dialog>

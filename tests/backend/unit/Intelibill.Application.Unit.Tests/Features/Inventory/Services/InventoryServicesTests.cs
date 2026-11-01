@@ -86,7 +86,7 @@ public class InventoryServicesTests
         var batchRepo = Substitute.For<IInventoryBatchRepository>();
         var txRepo = Substitute.For<IStockTransactionRepository>();
         var ledgerRepo = Substitute.For<ISupplierLedgerEntryRepository>();
-        var factory = new BatchFactory(batchRepo, txRepo, ledgerRepo);
+        var factory = new BatchFactory(batchRepo, txRepo, ledgerRepo, Substitute.For<IPurchaseReceiptValueRepository>());
 
         var shopId = Guid.NewGuid();
         var itemId = Guid.NewGuid();
@@ -112,7 +112,7 @@ public class InventoryServicesTests
         var batchRepo = Substitute.For<IInventoryBatchRepository>();
         var txRepo = Substitute.For<IStockTransactionRepository>();
         var ledgerRepo = Substitute.For<ISupplierLedgerEntryRepository>();
-        var factory = new BatchFactory(batchRepo, txRepo, ledgerRepo);
+        var factory = new BatchFactory(batchRepo, txRepo, ledgerRepo, Substitute.For<IPurchaseReceiptValueRepository>());
 
         var shopId = Guid.NewGuid();
         var itemId = Guid.NewGuid();
@@ -134,7 +134,7 @@ public class InventoryServicesTests
         var batchRepo = Substitute.For<IInventoryBatchRepository>();
         var txRepo = Substitute.For<IStockTransactionRepository>();
         var ledgerRepo = Substitute.For<ISupplierLedgerEntryRepository>();
-        var factory = new BatchFactory(batchRepo, txRepo, ledgerRepo);
+        var factory = new BatchFactory(batchRepo, txRepo, ledgerRepo, Substitute.For<IPurchaseReceiptValueRepository>());
 
         var shopId = Guid.NewGuid();
         var itemId = Guid.NewGuid();
@@ -161,7 +161,7 @@ public class InventoryServicesTests
         var batchRepo = Substitute.For<IInventoryBatchRepository>();
         var txRepo = Substitute.For<IStockTransactionRepository>();
         var ledgerRepo = Substitute.For<ISupplierLedgerEntryRepository>();
-        var factory = new BatchFactory(batchRepo, txRepo, ledgerRepo);
+        var factory = new BatchFactory(batchRepo, txRepo, ledgerRepo, Substitute.For<IPurchaseReceiptValueRepository>());
 
         var shopId = Guid.NewGuid();
         var itemId = Guid.NewGuid();
@@ -183,7 +183,7 @@ public class InventoryServicesTests
         var batchRepo = Substitute.For<IInventoryBatchRepository>();
         var txRepo = Substitute.For<IStockTransactionRepository>();
         var ledgerRepo = Substitute.For<ISupplierLedgerEntryRepository>();
-        var factory = new BatchFactory(batchRepo, txRepo, ledgerRepo);
+        var factory = new BatchFactory(batchRepo, txRepo, ledgerRepo, Substitute.For<IPurchaseReceiptValueRepository>());
 
         var shopId = Guid.NewGuid();
         var itemId = Guid.NewGuid();
@@ -206,7 +206,7 @@ public class InventoryServicesTests
         var batchRepo = Substitute.For<IInventoryBatchRepository>();
         var txRepo = Substitute.For<IStockTransactionRepository>();
         var ledgerRepo = Substitute.For<ISupplierLedgerEntryRepository>();
-        var factory = new BatchFactory(batchRepo, txRepo, ledgerRepo);
+        var factory = new BatchFactory(batchRepo, txRepo, ledgerRepo, Substitute.For<IPurchaseReceiptValueRepository>());
 
         var shopId = Guid.NewGuid();
         var itemId = Guid.NewGuid();

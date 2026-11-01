@@ -14,6 +14,12 @@ export interface InventoryInboundDraftRow {
   readonly taxRatePercent: number;
   readonly taxIncluded: boolean;
   readonly purchaseTaxIncluded?: boolean;
+  /**
+   * Set only on rows built after purchase tax mode became its own choice. Earlier releases stored
+   * `purchaseTaxIncluded` silently copied from the sales mode, so a row without this marker has an
+   * unconfirmed purchase mode whatever its value. Storage-only: never sent to the server.
+   */
+  readonly purchaseTaxModeConfirmed?: boolean;
   readonly hsnCode: string | null;
   readonly expiryDate: string | null;
   readonly manufacturingDate: string | null;
@@ -21,6 +27,11 @@ export interface InventoryInboundDraftRow {
   readonly referenceNumber: string | null;
   readonly notes: string | null;
   readonly performedAt: string | null;
+}
+
+/** True when the user chose this row's purchase tax mode (see `purchaseTaxModeConfirmed`). */
+export function isPurchaseTaxModeConfirmed(row: InventoryInboundDraftRow): boolean {
+  return row.purchaseTaxModeConfirmed === true && typeof row.purchaseTaxIncluded === 'boolean';
 }
 
 /** One server request of a frozen submission: its rows exactly as first sent, and its key. */

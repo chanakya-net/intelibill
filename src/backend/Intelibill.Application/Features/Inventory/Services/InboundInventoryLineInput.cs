@@ -29,4 +29,5 @@ public sealed record InboundInventoryLineResult(
     InventoryBatch Batch,
     StockTransaction StockTransaction,
     SupplierLedgerEntry? LedgerEntry,
-    Domain.Entities.Inventory Inventory);
+    Domain.Entities.Inventory Inventory,
+    PurchaseReceiptValue? ReceiptValue = null);

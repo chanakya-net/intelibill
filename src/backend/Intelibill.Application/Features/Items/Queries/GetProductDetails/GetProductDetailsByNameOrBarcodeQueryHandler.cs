@@ -128,6 +128,7 @@ public sealed class GetProductDetailsByNameOrBarcodeQueryHandler(
             supplierName,
             taxIncluded,
             taxRatePercent,
-            item.HsnCode);
+            item.HsnCode,
+            latestBatch.PurchaseTaxIncluded);
     }
 }

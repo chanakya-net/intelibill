@@ -1,3 +1,4 @@
+import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
@@ -10,11 +11,13 @@ import { InventoryService } from '../../services/inventory.service';
 import type { InventoryBatchDto } from '../../services/inventory.models';
 import { SuppliersFacade } from '../../../suppliers/state/suppliers.facade';
 import { API_BASE_URL } from '../../../../core/auth/auth.constants';
+import { ShopPermissionsService } from '../../../../core/layout/shop-permissions.service';
 
 describe('InventoryBatchesListPageComponent', () => {
   let component: InventoryBatchesListPageComponent;
   let fixture: ComponentFixture<InventoryBatchesListPageComponent>;
   let httpMock: HttpTestingController;
+  const isOwner = signal(true);
 
   const mockBatches: InventoryBatchDto[] = [
     {
@@ -39,6 +42,11 @@ describe('InventoryBatchesListPageComponent', () => {
       createdAt: new Date().toISOString(),
       updatedAt: null,
       version: 1,
+      receiptValueId: 'r1',
+      receiptStatus: 'Resolved',
+      receiptOriginalTotalCost: 1000,
+      receiptTotalCost: 1000,
+      receiptVersion: 7,
     },
   ];
 
@@ -58,9 +66,14 @@ describe('InventoryBatchesListPageComponent', () => {
           preloadLangs: true,
         }),
       ],
-      providers: [MessageService, { provide: SuppliersFacade, useValue: suppliersFacadeMock }],
+      providers: [
+        MessageService,
+        { provide: SuppliersFacade, useValue: suppliersFacadeMock },
+        { provide: ShopPermissionsService, useValue: { isOwnerOfActiveShop: isOwner } },
+      ],
     }).compileComponents();
 
+    isOwner.set(true);
     fixture = TestBed.createComponent(InventoryBatchesListPageComponent);
     component = fixture.componentInstance;
     httpMock = TestBed.inject(HttpTestingController);
@@ -115,8 +128,16 @@ describe('InventoryBatchesListPageComponent', () => {
 
     expect(component.isEditDialogOpen()).toBe(true);
     expect(component.selectedBatch()?.id).toBe('b1');
-    expect(component.editForm.value.quantity).toBe(10);
-    expect(component.editForm.value.newBatchNumber).toBe('');
+    expect(component.editForm.getRawValue()).toMatchObject({
+      batchNumber: 'BATCH-001',
+      mrp: 150,
+      salesPrice: 140,
+      taxRatePercent: 5,
+      taxIncluded: false,
+      reason: '',
+    });
+    expect('quantity' in component.editForm.controls).toBe(false);
+    expect('costPrice' in component.editForm.controls).toBe(false);
   });
 
   it('should open adjustment dialog with default decrease form values', () => {
@@ -237,28 +258,44 @@ describe('InventoryBatchesListPageComponent', () => {
     });
   });
 
-  it('should send correction request and reload batches on save', () => {
+  it('edits prices in place through the prices endpoint without quantity, cost or supplier', () => {
     fixture.detectChanges();
     httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
 
-    component.onEditBatch(mockBatches[0]);
-    component.editForm.patchValue({
-      quantity: 15,
-      newBatchNumber: 'CORRECTED-001',
-    });
+    component.onBatchTableAction({ action: 'edit', batchId: 'b1' });
+    component.editForm.patchValue({ mrp: 160, salesPrice: 150, reason: '  New MRP  ' });
 
     component.onSaveEdit();
 
-    const editReq = httpMock.expectOne(`${API_BASE_URL}/inventory/batches/b1`);
+    const editReq = httpMock.expectOne(`${API_BASE_URL}/inventory/batches/b1/prices`);
     expect(editReq.request.method).toBe('PUT');
-    expect(editReq.request.body.newBatchNumber).toBe('CORRECTED-001');
-    expect(editReq.request.body.quantity).toBe(15);
-    editReq.flush({});
+    expect(editReq.request.body).toEqual({
+      expectedVersion: 1,
+      mrp: 160,
+      salesPrice: 150,
+      taxRatePercent: 5,
+      taxIncluded: false,
+      batchNumber: 'BATCH-001',
+      expiryDate: null,
+      manufacturingDate: null,
+      reason: 'New MRP',
+    });
+    editReq.flush({ batchId: 'b1', version: 2, priceRevisionId: 'rev-1' });
 
-    // Should reload
     const reloadReq = httpMock.expectOne(`${API_BASE_URL}/inventory/batches`);
     expect(reloadReq.request.method).toBe('GET');
     expect(component.isEditDialogOpen()).toBe(false);
+  });
+
+  it('keeps sales price at or below MRP when editing prices', () => {
+    httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
+    component.onEditBatch(mockBatches[0]);
+
+    component.editForm.patchValue({ salesPrice: 151 });
+
+    expect(component.editForm.hasError('salesPriceExceedsMrp')).toBe(true);
+    component.onSaveEdit();
+    httpMock.expectNone(`${API_BASE_URL}/inventory/batches/b1/prices`);
   });
 
   it('should send adjustment request and reload batches on success', () => {
@@ -323,7 +360,7 @@ describe('InventoryBatchesListPageComponent', () => {
     component.onEditBatch(mockBatches[0]);
 
     component.onSaveEdit();
-    const req = httpMock.expectOne(`${API_BASE_URL}/inventory/batches/b1`);
+    const req = httpMock.expectOne(`${API_BASE_URL}/inventory/batches/b1/prices`);
     expect(req.request.body.expectedVersion).toBe(1);
     req.flush({ title: 'Inventory.BatchVersionConflict' }, { status: 409, statusText: 'Conflict' });
 
@@ -413,6 +450,246 @@ describe('InventoryBatchesListPageComponent', () => {
         summary: expect.stringContaining('inventory.countVersionConflict'),
       }),
     );
+  });
+
+  describe('receipt cost correction', () => {
+    const correctionUrl = `${API_BASE_URL}/inventory/receipts/r1/cost-corrections`;
+
+    it('posts the revised total against the receipt version with a keyed operation', () => {
+      fixture.detectChanges();
+      httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
+      const add = vi.spyOn(fixture.debugElement.injector.get(MessageService), 'add');
+
+      component.onBatchTableAction({ action: 'correctCost', batchId: 'b1' });
+      expect(component.isCostCorrectionDialogOpen()).toBe(true);
+      expect(component.costCorrectionBlocked()).toBe(false);
+      expect(component.costCorrectionForm.valid).toBe(false);
+
+      component.costCorrectionForm.setValue({ revisedTotalCost: 1100, reason: '  Invoice revised ' });
+      expect(component.costCorrectionPreview()).toMatchObject({
+        originalTotal: 1000,
+        currentTotal: 1000,
+        delta: 100,
+      });
+      expect(component.costCorrectionPreview()?.deltaText).toMatch(/^\+.*100\.00$/);
+
+      component.onSaveCostCorrection();
+
+      const req = httpMock.expectOne(correctionUrl);
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual(
+        expect.objectContaining({ expectedVersion: 7, revisedTotalCost: 1100, reason: 'Invoice revised' }),
+      );
+      expect(Object.keys(req.request.body).sort()).toEqual(
+        ['expectedVersion', 'operationKey', 'reason', 'revisedTotalCost'],
+      );
+      expect(req.request.body.operationKey).toMatch(/^receipt-cost-/);
+      req.flush({ delta: 100, receiptVersion: 8 });
+
+      httpMock.expectOne(`${API_BASE_URL}/inventory/batches`);
+      expect(component.isCostCorrectionDialogOpen()).toBe(false);
+      expect(add).toHaveBeenCalledWith(
+        expect.objectContaining({ summary: expect.stringContaining('inventory.receiptCostCorrected') }),
+      );
+    });
+
+    it('resends an unchanged correction with the same key and a changed one with a new key', () => {
+      fixture.detectChanges();
+      httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
+      component.onCorrectReceiptCost(mockBatches[0]);
+      component.costCorrectionForm.setValue({ revisedTotalCost: 1100, reason: 'Invoice revised' });
+
+      component.onSaveCostCorrection();
+      const first = httpMock.expectOne(correctionUrl);
+      const firstKey = first.request.body.operationKey;
+      first.error(new ProgressEvent('error'));
+
+      component.onSaveCostCorrection();
+      const resend = httpMock.expectOne(correctionUrl);
+      expect(resend.request.body.operationKey).toBe(firstKey);
+      resend.error(new ProgressEvent('error'));
+
+      component.costCorrectionForm.controls.revisedTotalCost.setValue(1050);
+      component.onSaveCostCorrection();
+      const changed = httpMock.expectOne(correctionUrl);
+      expect(changed.request.body.operationKey).not.toBe(firstKey);
+      changed.error(new ProgressEvent('error'));
+    });
+
+    it('on a receipt version conflict closes, refreshes and never resends', () => {
+      fixture.detectChanges();
+      httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
+      const add = vi.spyOn(fixture.debugElement.injector.get(MessageService), 'add');
+      component.onCorrectReceiptCost(mockBatches[0]);
+      component.costCorrectionForm.setValue({ revisedTotalCost: 900, reason: 'Credit note' });
+
+      component.onSaveCostCorrection();
+      httpMock
+        .expectOne(correctionUrl)
+        .flush({ title: 'PurchaseReceipt.VersionConflict' }, { status: 409, statusText: 'Conflict' });
+
+      httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
+      httpMock.expectNone(correctionUrl);
+      expect(component.isCostCorrectionDialogOpen()).toBe(false);
+      expect(add).toHaveBeenCalledWith(
+        expect.objectContaining({
+          summary: expect.stringContaining('inventory.receiptCostVersionConflict'),
+        }),
+      );
+    });
+
+    it('does not submit an unchanged total', () => {
+      fixture.detectChanges();
+      httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
+      component.onCorrectReceiptCost(mockBatches[0]);
+      component.costCorrectionForm.setValue({ revisedTotalCost: 1000, reason: 'No change' });
+
+      component.onSaveCostCorrection();
+
+      httpMock.expectNone(correctionUrl);
+    });
+
+    it.each([
+      { receiptStatus: 'LegacyUnresolved' as const, receiptValueId: 'r1' },
+      { receiptStatus: null, receiptValueId: null },
+    ])('shows guidance and blocks submit for an unresolved receipt ($receiptStatus)', (receipt) => {
+      const unresolved: InventoryBatchDto = {
+        ...mockBatches[0],
+        ...receipt,
+        receiptOriginalTotalCost: null,
+        receiptTotalCost: null,
+      };
+      fixture.detectChanges();
+      httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush([unresolved]);
+
+      component.onCorrectReceiptCost(unresolved);
+      fixture.detectChanges();
+
+      expect(component.isCostCorrectionDialogOpen()).toBe(true);
+      expect(component.costCorrectionBlocked()).toBe(true);
+      expect(component.costCorrectionPreview()).toBeNull();
+      expect(document.body.querySelector('[data-testid="receipt-cost-unresolved"]')).not.toBeNull();
+
+      component.costCorrectionForm.setValue({ revisedTotalCost: 500, reason: 'Guess' });
+      component.onSaveCostCorrection();
+      httpMock.expectNone(() => true);
+    });
+
+    it('refuses a revised total above the money column limit', () => {
+      fixture.detectChanges();
+      httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
+      component.onCorrectReceiptCost(mockBatches[0]);
+
+      component.costCorrectionForm.setValue({ revisedTotalCost: 100_000_000, reason: 'Typo' });
+      expect(component.costCorrectionForm.controls.revisedTotalCost.hasError('max')).toBe(true);
+      component.onSaveCostCorrection();
+      httpMock.expectNone(correctionUrl);
+
+      component.costCorrectionForm.controls.revisedTotalCost.setValue(99_999_999.99);
+      expect(component.costCorrectionForm.controls.revisedTotalCost.hasError('max')).toBe(false);
+    });
+
+    it('hides the delta while the revised total is empty', () => {
+      fixture.detectChanges();
+      httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
+      component.onCorrectReceiptCost(mockBatches[0]);
+
+      component.costCorrectionForm.setValue({
+        revisedTotalCost: null as unknown as number,
+        reason: 'Pending',
+      });
+      fixture.detectChanges();
+
+      expect(component.costCorrectionPreview()?.delta).toBeNull();
+      expect(component.costCorrectionPreview()?.deltaText).toBeNull();
+      expect(component.costCorrectionPreview()?.currentTotal).toBe(1000);
+      expect(document.body.querySelector('[data-testid="receipt-cost-delta"]')).toBeNull();
+      component.onSaveCostCorrection();
+      httpMock.expectNone(correctionUrl);
+
+      component.costCorrectionForm.controls.revisedTotalCost.setValue(900);
+      fixture.detectChanges();
+      expect(component.costCorrectionPreview()?.delta).toBe(-100);
+      expect(document.body.querySelector('[data-testid="receipt-cost-delta"]')).not.toBeNull();
+    });
+
+    it.each([
+      { title: 'PurchaseReceipt.TotalCostInvalid', status: 400 },
+      { title: 'Operation.PayloadMismatch', status: 409 },
+      { title: 'Auth.Forbidden', status: 403 },
+    ])('shows the server detail for an unmapped refusal ($title)', ({ title, status }) => {
+      fixture.detectChanges();
+      httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
+      const add = vi.spyOn(fixture.debugElement.injector.get(MessageService), 'add');
+      component.onCorrectReceiptCost(mockBatches[0]);
+      component.costCorrectionForm.setValue({ revisedTotalCost: 1100, reason: 'Invoice revised' });
+
+      component.onSaveCostCorrection();
+      httpMock
+        .expectOne(correctionUrl)
+        .flush({ title, detail: 'Server explanation' }, { status, statusText: 'Refused' });
+
+      expect(add).toHaveBeenCalledWith(
+        expect.objectContaining({ severity: 'error', detail: 'Server explanation' }),
+      );
+      expect(component.isCostCorrectionDialogOpen()).toBe(true);
+      httpMock.expectNone(`${API_BASE_URL}/inventory/batches`);
+    });
+
+    it('falls back to the generic message when an unmapped refusal has no detail', () => {
+      fixture.detectChanges();
+      httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
+      const add = vi.spyOn(fixture.debugElement.injector.get(MessageService), 'add');
+      component.onCorrectReceiptCost(mockBatches[0]);
+      component.costCorrectionForm.setValue({ revisedTotalCost: 1100, reason: 'Invoice revised' });
+
+      component.onSaveCostCorrection();
+      httpMock.expectOne(correctionUrl).flush({ title: 'Unknown' }, { status: 400, statusText: 'Bad Request' });
+
+      expect(add).toHaveBeenCalledWith(
+        expect.objectContaining({ detail: expect.stringContaining('inventory.receiptCostError') }),
+      );
+    });
+
+    it('on a voided batch shows the detail, closes and reloads', () => {
+      fixture.detectChanges();
+      httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
+      const add = vi.spyOn(fixture.debugElement.injector.get(MessageService), 'add');
+      component.onCorrectReceiptCost(mockBatches[0]);
+      component.costCorrectionForm.setValue({ revisedTotalCost: 1100, reason: 'Invoice revised' });
+
+      component.onSaveCostCorrection();
+      httpMock
+        .expectOne(correctionUrl)
+        .flush(
+          { title: 'PurchaseReceipt.BatchVoided', detail: 'The batch was voided.' },
+          { status: 409, statusText: 'Conflict' },
+        );
+
+      httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
+      expect(component.isCostCorrectionDialogOpen()).toBe(false);
+      expect(add).toHaveBeenCalledWith(expect.objectContaining({ detail: 'The batch was voided.' }));
+    });
+
+    it('is not offered to a manager', () => {
+      isOwner.set(false);
+      fixture.detectChanges();
+      httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
+
+      expect(component.canCorrectReceiptCost()).toBe(false);
+      component.onBatchTableAction({ action: 'correctCost', batchId: 'b1' });
+
+      expect(component.isCostCorrectionDialogOpen()).toBe(false);
+    });
+
+    it('is not offered on a voided batch', () => {
+      fixture.detectChanges();
+      httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
+
+      component.onCorrectReceiptCost({ ...mockBatches[0], isVoided: true });
+
+      expect(component.isCostCorrectionDialogOpen()).toBe(false);
+    });
   });
 
   it('should prepare selected batches for barcode label printing with batch quantities', () => {

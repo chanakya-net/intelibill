@@ -17,6 +17,7 @@ public sealed class AddInventoryCommandHandler(
     IInventoryBatchRepository inventoryBatchRepository,
     IStockTransactionRepository stockTransactionRepository,
     ISupplierLedgerEntryRepository supplierLedgerEntryRepository,
+    IPurchaseReceiptValueRepository purchaseReceiptValueRepository,
     IInventoryRepository inventoryRepository,
     IUnitOfWork unitOfWork)
 {
@@ -137,8 +138,27 @@ public sealed class AddInventoryCommandHandler(
         var stockTransaction = stockTransactionResult.Value;
         await stockTransactionRepository.AddAsync(stockTransaction, cancellationToken);
 
-        // A free receipt (sample, bonus stock) owes the supplier nothing: no zero-value payable.
         var ledgerAmount = ComputeLedgerAmount(command.TotalPurchaseCost);
+
+        // The receipt's total as posted, kept so a later correction or void works from it rather
+        // than from the rounded unit cost.
+        var receiptValueResult = PurchaseReceiptValue.Create(
+            command.ActiveShopId,
+            batch.Id,
+            item.Id,
+            effectiveSupplier.Id,
+            command.Quantity,
+            ledgerAmount,
+            command.ReferenceNumber,
+            performedAt,
+            command.ActorUserId);
+
+        if (receiptValueResult.IsError)
+            return receiptValueResult.Errors;
+
+        await purchaseReceiptValueRepository.AddAsync(receiptValueResult.Value, cancellationToken);
+
+        // A free receipt (sample, bonus stock) owes the supplier nothing: no zero-value payable.
         if (ledgerAmount != 0)
         {
             var ledgerResult = SupplierLedgerEntry.Create(

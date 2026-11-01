@@ -6,10 +6,12 @@ using Intelibill.Domain.Enums;
 namespace Intelibill.Application.Features.Inventory.Services;
 
 /// <param name="LedgerEntry">The goods-received payable; null exactly when the receipt value rounds to zero.</param>
+/// <param name="ReceiptValue">The receipt's authoritative total, recorded for every receipt.</param>
 public sealed record BatchCreationResult(
     InventoryBatch Batch,
     StockTransaction StockTransaction,
-    SupplierLedgerEntry? LedgerEntry);
+    SupplierLedgerEntry? LedgerEntry,
+    PurchaseReceiptValue? ReceiptValue = null);
 
 public interface IBatchFactory
 {

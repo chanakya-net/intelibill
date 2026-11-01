@@ -32,6 +32,11 @@ describe('BatchesTableComponent', () => {
       createdAt: new Date().toISOString(),
       updatedAt: null,
       version: 1,
+      receiptValueId: 'r1',
+      receiptStatus: 'Resolved',
+      receiptOriginalTotalCost: 720,
+      receiptTotalCost: 720,
+      receiptVersion: 3,
     },
   ];
 
@@ -72,6 +77,32 @@ describe('BatchesTableComponent', () => {
       'void',
     ]);
     expect(menuItems.every((item) => item.disabled === false)).toBe(true);
+  });
+
+  it('offers receipt cost correction to an owner on an active batch only', () => {
+    component.canCorrectReceiptCost = true;
+
+    expect(component.rowActionItems(mockBatches[0]).map((item) => item.id)).toEqual([
+      'printLabels',
+      'adjust',
+      'count',
+      'edit',
+      'correctCost',
+      'void',
+    ]);
+    expect(
+      component
+        .rowActionItems({ ...mockBatches[0], isVoided: true })
+        .some((item) => item.id === 'correctCost'),
+    ).toBe(false);
+  });
+
+  it('hides receipt cost correction from a manager', () => {
+    component.canCorrectReceiptCost = false;
+
+    expect(
+      component.rowActionItems(mockBatches[0]).some((item) => item.id === 'correctCost'),
+    ).toBe(false);
   });
 
   it('should emit selection updates for selectable rows', () => {

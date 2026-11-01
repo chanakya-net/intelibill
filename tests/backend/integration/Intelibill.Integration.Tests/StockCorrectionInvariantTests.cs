@@ -348,7 +348,7 @@ public sealed class StockCorrectionInvariantTests(PostgreSqlTestFixture fixture)
     }
 
     [Fact]
-    public async Task LegacyBatchCorrection_TenToEight_WritesOutMinusTwo()
+    public async Task LegacyBatchCorrection_QuantityChange_IsRefusedAndNothingMoves()
     {
         using var client = CreateClient();
         var shop = await CreateShopAsync(client);
@@ -372,15 +372,16 @@ public sealed class StockCorrectionInvariantTests(PostgreSqlTestFixture fixture)
         });
         var editResponse = await client.SendAsync(editRequest);
 
-        Assert.Equal(HttpStatusCode.OK, editResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, editResponse.StatusCode);
+        Assert.Equal("Inventory.BatchQuantityEditMoved", (await editResponse.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("title").GetString());
         await using var scope = _factory.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        var corrected = await db.InventoryBatches.SingleAsync(b => b.ShopId == shop.ShopId && b.BatchNumber == $"{receipt.BatchNumber}-C");
-        var movement = await db.StockTransactions.SingleAsync(t => t.InventoryBatchId == corrected.Id);
-        Assert.Equal(StockTransactionType.Out, movement.TransactionType);
-        Assert.Equal(-2m, movement.Quantity);
-        Assert.Equal(shop.OwnerId, movement.PerformedBy);
-        await AssertReconciledAsync(shop.ShopId, receipt.ItemId, expectedQuantity: 8m);
+        var batch = await db.InventoryBatches.SingleAsync(b => b.Id == receipt.BatchId);
+        Assert.False(batch.IsVoided);
+        Assert.Equal(receipt.BatchNumber, batch.BatchNumber);
+        Assert.Equal(1, await db.InventoryBatches.CountAsync(b => b.ShopId == shop.ShopId));
+        await AssertPayableAsync(receipt.BatchId, 800m);
+        await AssertReconciledAsync(shop.ShopId, receipt.ItemId, expectedQuantity: 10m);
     }
 
     [Fact]

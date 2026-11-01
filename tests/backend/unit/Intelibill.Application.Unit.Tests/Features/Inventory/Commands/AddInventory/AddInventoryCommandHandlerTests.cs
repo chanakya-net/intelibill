@@ -20,6 +20,7 @@ public class AddInventoryCommandHandlerTests
     private readonly IInventoryBatchRepository _inventoryBatchRepository = Substitute.For<IInventoryBatchRepository>();
     private readonly IStockTransactionRepository _stockTransactionRepository = Substitute.For<IStockTransactionRepository>();
     private readonly ISupplierLedgerEntryRepository _supplierLedgerEntryRepository = Substitute.For<ISupplierLedgerEntryRepository>();
+    private readonly IPurchaseReceiptValueRepository _purchaseReceiptValueRepository = Substitute.For<IPurchaseReceiptValueRepository>();
     private readonly IInventoryRepository _inventoryRepository = Substitute.For<IInventoryRepository>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
 
@@ -460,10 +461,13 @@ public class AddInventoryCommandHandlerTests
 
         Assert.False(result.IsError);
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _purchaseReceiptValueRepository.Received(1).AddAsync(
+            Arg.Is<PurchaseReceiptValue>(r => r.InventoryBatchId == result.Value.InventoryBatchId && r.OriginalTotalCost == r.EffectiveTotalCost),
+            Arg.Any<CancellationToken>());
     }
 
     private AddInventoryCommandHandler CreateHandler() =>
-        new(_userRepository, _supplierRepository, _itemRepository, _inventoryBatchRepository, _stockTransactionRepository, _supplierLedgerEntryRepository, _inventoryRepository, _unitOfWork);
+        new(_userRepository, _supplierRepository, _itemRepository, _inventoryBatchRepository, _stockTransactionRepository, _supplierLedgerEntryRepository, _purchaseReceiptValueRepository, _inventoryRepository, _unitOfWork);
 
     private void SetupSystemSupplierLookup()
     {

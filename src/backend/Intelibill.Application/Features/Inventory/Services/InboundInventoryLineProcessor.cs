@@ -66,8 +66,8 @@ internal sealed class InboundInventoryLineProcessor(
             itemRepository.Update(item);
         }
 
-        var (batch, stockTransaction, ledgerEntry) = batchOrError.Value;
-        return new InboundInventoryLineResult(item, batch, stockTransaction, ledgerEntry, inventoryOrError.Value);
+        var (batch, stockTransaction, ledgerEntry, receiptValue) = batchOrError.Value;
+        return new InboundInventoryLineResult(item, batch, stockTransaction, ledgerEntry, inventoryOrError.Value, receiptValue);
     }
 
     private async Task<ErrorOr<Item>> ResolveItemAsync(

@@ -12,8 +12,12 @@ import { AudioService } from '../../../core/services/audio.service';
 import { BarcodeDetectorService } from '../../../core/services/barcode-detector.service';
 import { CameraStreamService } from '../../../core/services/camera-stream.service';
 import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
-import { InventoryDraftIndexedDbService } from '../../../core/storage/inventory-draft-indexeddb.service';
+import {
+  InventoryDraftIndexedDbService,
+  type InventoryInboundDraftRow,
+} from '../../../core/storage/inventory-draft-indexeddb.service';
 import { SuppliersFacade } from '../../suppliers/state/suppliers.facade';
+import { BatchRowFormStateService } from '../services/batch-row-form-state.service';
 import { InventoryService } from '../services/inventory.service';
 import { InventoryBatchPageComponent } from './inventory-batch-page.component';
 
@@ -584,6 +588,141 @@ describe('InventoryBatchPageComponent', () => {
     expect(component.saveSummary()?.failedCount).toBe(1);
   });
 
+  it.each([
+    { purchaseTaxIncluded: true, taxIncluded: true },
+    { purchaseTaxIncluded: true, taxIncluded: false },
+    { purchaseTaxIncluded: false, taxIncluded: true },
+    { purchaseTaxIncluded: false, taxIncluded: false },
+  ])(
+    'sends purchase $purchaseTaxIncluded and sales $taxIncluded as chosen, without draft bookkeeping',
+    async ({ purchaseTaxIncluded, taxIncluded }) => {
+      const fixture = await setup();
+      const component = fixture.componentInstance;
+      inventoryService.addInventoryBatch.mockImplementation((payload: { items: Array<{ clientRowId: string }> }) =>
+        of(allSucceeded(payload.items)),
+      );
+
+      component.pendingRows.set([createDraftRow('row-1', 'Milk', 'BC-1', { purchaseTaxIncluded, taxIncluded })]);
+      component.onSaveAll();
+      await fixture.whenStable();
+
+      const [item] = inventoryService.addInventoryBatch.mock.calls[0][0].items;
+      expect(item.purchaseTaxIncluded).toBe(purchaseTaxIncluded);
+      expect(item.taxIncluded).toBe(taxIncluded);
+      expect(item).not.toHaveProperty('purchaseTaxModeConfirmed');
+    },
+  );
+
+  it('refuses to save draft rows stored without a purchase tax mode', async () => {
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+    const { purchaseTaxIncluded: _omitted, purchaseTaxModeConfirmed: _marker, ...oldRow } = createDraftRow(
+      'row-1',
+      'Milk',
+      'BC-1',
+    );
+
+    component.pendingRows.set([oldRow]);
+    component.onSaveAll();
+    await fixture.whenStable();
+
+    expect(inventoryService.addInventoryBatch).not.toHaveBeenCalled();
+    expect(draftStorage.saveSubmission).not.toHaveBeenCalled();
+    expect(component.pendingRows()).toHaveLength(1);
+  });
+
+  it('refuses to save legacy draft rows whose purchase mode was copied from the sales mode', async () => {
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+    const messageService = fixture.debugElement.injector.get(MessageService);
+    const addSpy = vi.spyOn(messageService, 'add');
+    // Written by the release that copied the sales mode: a boolean is present, but never chosen.
+    const { purchaseTaxModeConfirmed: _marker, ...legacyRow } = createDraftRow('row-1', 'Milk', 'BC-1', {
+      taxIncluded: false,
+      purchaseTaxIncluded: false,
+    });
+    const confirmedRow = createDraftRow('row-2', 'Bread', 'BC-2');
+
+    component.pendingRows.set([legacyRow, confirmedRow]);
+    fixture.detectChanges();
+    component.onSaveAll();
+    await fixture.whenStable();
+
+    expect(inventoryService.addInventoryBatch).not.toHaveBeenCalled();
+    expect(draftStorage.saveSubmission).not.toHaveBeenCalled();
+    expect(component.pendingRows()).toHaveLength(2);
+    expect(addSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ severity: 'warn', summary: expect.stringContaining('inventory.purchaseTaxModeMissingRows') }),
+    );
+    // Only the legacy row is marked as needing confirmation (mobile card + desktop table).
+    expect(fixture.nativeElement.querySelectorAll('[data-testid="purchase-tax-unconfirmed"]').length).toBe(2);
+  });
+
+  it('asks again for the purchase mode when a legacy row is edited and marks it confirmed once chosen', async () => {
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+    const { purchaseTaxModeConfirmed: _marker, ...legacyRow } = createDraftRow('row-1', 'Milk', 'BC-1', {
+      taxIncluded: true,
+      purchaseTaxIncluded: true,
+    });
+    const rowFormState = TestBed.inject(BatchRowFormStateService);
+
+    component.pendingRows.set([legacyRow]);
+    component.onEditRow('row-1');
+    await fixture.whenStable();
+
+    expect(rowFormState.form.controls.purchaseTaxIncluded.value).toBeNull();
+    expect(rowFormState.buildDraftRow()).toBeNull();
+
+    rowFormState.form.controls.purchaseTaxIncluded.setValue(false);
+    const rebuilt = rowFormState.buildDraftRow();
+
+    expect(rebuilt?.purchaseTaxIncluded).toBe(false);
+    expect(rebuilt?.purchaseTaxModeConfirmed).toBe(true);
+  });
+
+  it('resends an interrupted submission of legacy rows unchanged, never held by the confirmation guard', async () => {
+    const { purchaseTaxModeConfirmed: _a, ...copiedRow } = createDraftRow('row-1', 'Milk', 'BC-1', {
+      taxIncluded: false,
+      purchaseTaxIncluded: false,
+    });
+    const { purchaseTaxModeConfirmed: _b, purchaseTaxIncluded: _c, ...missingRow } = createDraftRow(
+      'row-2',
+      'Bread',
+      'BC-2',
+      { taxIncluded: true },
+    );
+    storedSubmission = {
+      shopId: 'shop-1',
+      chunks: [{ operationKey: 'intake-legacy-0', rows: [copiedRow, missingRow] }],
+      createdAt: '2026-11-01T00:00:00Z',
+    };
+    draftStorage.loadRows.mockResolvedValueOnce([copiedRow, missingRow] as never);
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+    inventoryService.addInventoryBatch.mockImplementation((payload: { items: Array<{ clientRowId: string }> }) =>
+      of(allSucceeded(payload.items)),
+    );
+
+    expect(component.hasInterruptedSubmission()).toBe(true);
+    component.onSaveAll();
+    await fixture.whenStable();
+
+    expect(inventoryService.addInventoryBatch).toHaveBeenCalledTimes(1);
+    const payload = inventoryService.addInventoryBatch.mock.calls[0][0];
+    expect(payload.operationKey).toBe('intake-legacy-0');
+    expect(
+      payload.items.map((item: { taxIncluded: boolean; purchaseTaxIncluded: boolean }) => [
+        item.taxIncluded,
+        item.purchaseTaxIncluded,
+      ]),
+    ).toEqual([
+      [false, false],
+      [true, true],
+    ]);
+    expect(storedSubmission).toBeNull();
+  });
+
   it('sends each chunk under its own operation key with a frozen performedAt', async () => {
     const fixture = await setup();
     const component = fixture.componentInstance;
@@ -810,8 +949,13 @@ describe('InventoryBatchPageComponent', () => {
     clientRowId: string,
     itemName: string,
     barcode: string,
-    overrides: Partial<{ hsnCode: string | null; supplierId: string | null; taxIncluded: boolean }> = {},
-  ) {
+    overrides: Partial<{
+      hsnCode: string | null;
+      supplierId: string | null;
+      taxIncluded: boolean;
+      purchaseTaxIncluded: boolean;
+    }> = {},
+  ): InventoryInboundDraftRow {
     return {
       clientRowId,
       itemName,
@@ -825,7 +969,8 @@ describe('InventoryBatchPageComponent', () => {
       salesPrice: 11,
       taxRatePercent: 5,
       taxIncluded: overrides.taxIncluded ?? true,
-      purchaseTaxIncluded: overrides.taxIncluded ?? true,
+      purchaseTaxIncluded: overrides.purchaseTaxIncluded ?? overrides.taxIncluded ?? true,
+      purchaseTaxModeConfirmed: true,
       hsnCode: overrides.hsnCode ?? null,
       expiryDate: null,
       manufacturingDate: null,

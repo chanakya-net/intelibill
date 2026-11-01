@@ -48,6 +48,12 @@
               <span>{{ 'inventory.quantity' | transloco }}: {{ row.quantity }}</span>
               <span>{{ 'inventory.salesPrice' | transloco }}: {{ row.salesPrice }}</span>
             </div>
+            @if (needsPurchaseTaxConfirmation(row)) {
+              <small class="row-error-text purchase-tax-unconfirmed" data-testid="purchase-tax-unconfirmed">
+                <i class="pi pi-exclamation-triangle" aria-hidden="true"></i>
+                {{ 'inventory.purchaseTaxModeRowUnconfirmed' | transloco }}
+              </small>
+            }
             @if (failedRowErrorTextById().get(row.clientRowId); as errText) {
               <small class="row-error-text">{{ errText }}</small>
             }
@@ -108,6 +114,12 @@
         >
           <td>
             <div>{{ row.itemName }}</div>
+            @if (needsPurchaseTaxConfirmation(row)) {
+              <small class="row-error-text purchase-tax-unconfirmed" data-testid="purchase-tax-unconfirmed">
+                <i class="pi pi-exclamation-triangle" aria-hidden="true"></i>
+                {{ 'inventory.purchaseTaxModeRowUnconfirmed' | transloco }}
+              </small>
+            }
             @if (failedRowErrorTextById().get(row.clientRowId); as rowErrorText) {
               <small class="row-error-text">{{ rowErrorText }}</small>
             }

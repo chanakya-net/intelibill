@@ -2,6 +2,7 @@ using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Inventory.DTOs;
 using Intelibill.Application.Features.Inventory.Queries.GetInventoryBatches;
+using Intelibill.Domain.Entities;
 using Intelibill.Domain.Interfaces.Repositories;
 
 namespace Intelibill.Application.Features.Inventory.Queries.GetInventoryBatches;
@@ -9,7 +10,8 @@ namespace Intelibill.Application.Features.Inventory.Queries.GetInventoryBatches;
 public sealed class GetInventoryBatchesQueryHandler(
     IUserRepository userRepository,
     IShopRepository shopRepository,
-    IInventoryBatchRepository inventoryBatchRepository)
+    IInventoryBatchRepository inventoryBatchRepository,
+    IPurchaseReceiptValueRepository purchaseReceiptValueRepository)
 {
     public async Task<ErrorOr<IReadOnlyList<InventoryBatchDto>>> Handle(GetInventoryBatchesQuery query, CancellationToken cancellationToken)
     {
@@ -27,8 +29,14 @@ public sealed class GetInventoryBatchesQueryHandler(
             return Errors.Shop.MembershipNotFound;
 
         var batches = await inventoryBatchRepository.GetByShopAsync(query.ShopId, cancellationToken);
+        var receipts = (await purchaseReceiptValueRepository.GetByShopAsync(query.ShopId, cancellationToken))
+            .ToDictionary(r => r.InventoryBatchId);
 
-        return batches.Select(b => new InventoryBatchDto(
+        return batches.Select(b => ToDto(b, receipts.GetValueOrDefault(b.Id))).ToList();
+    }
+
+    private static InventoryBatchDto ToDto(InventoryBatch b, PurchaseReceiptValue? receipt) =>
+        new(
             b.Id,
             b.ShopId,
             b.ItemId,
@@ -50,6 +58,10 @@ public sealed class GetInventoryBatchesQueryHandler(
             b.IsVoided,
             b.CreatedAt,
             b.UpdatedAt,
-            b.Version)).ToList();
-    }
+            b.Version,
+            receipt?.Id,
+            receipt?.Status,
+            receipt?.OriginalTotalCost,
+            receipt?.EffectiveTotalCost,
+            receipt?.Version);
 }

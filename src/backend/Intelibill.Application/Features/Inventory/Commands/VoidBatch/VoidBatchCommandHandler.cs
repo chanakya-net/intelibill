@@ -28,6 +28,7 @@ public sealed class VoidBatchCommandHandler(
     IStockTransactionRepository stockTransactionRepository,
     IInventoryAdjustmentRepository inventoryAdjustmentRepository,
     ISupplierLedgerEntryRepository supplierLedgerEntryRepository,
+    IPurchaseReceiptValueRepository purchaseReceiptValueRepository,
     IInventoryRepository inventoryRepository,
     IUnitOfWork unitOfWork,
     IMessageBus messageBus)
@@ -59,10 +60,15 @@ public sealed class VoidBatchCommandHandler(
         if (inventory is null)
             return Errors.Inventory.InventoryAggregateNotFound;
 
+        // What is owed for this receipt is its effective total (original plus cost corrections), so
+        // the reversal nets the payable to zero, posted to the supplier the receipt is owed to.
+        // Receipts older than receipt values fall back to the unit cost they were posted with.
+        var receiptValue = await purchaseReceiptValueRepository.GetByBatchAsync(command.ActiveShopId, batch.Id, cancellationToken);
+
         var remainingQuantity = batch.Quantity;
         var originalQuantity = batch.OriginalQuantity;
         var costPrice = batch.CostPrice;
-        var supplierId = batch.SupplierId;
+        var supplierId = receiptValue?.SupplierId ?? batch.SupplierId;
         var itemId = batch.ItemId;
 
         batch.Void(command.ActorUserId);
@@ -87,11 +93,14 @@ public sealed class VoidBatchCommandHandler(
         await stockTransactionRepository.AddAsync(stockTransactionResult.Value, cancellationToken);
 
         decimal? ledgerReversalAmount = null;
-        var reversalAmount = -decimal.Round(originalQuantity * costPrice, 2, MidpointRounding.AwayFromZero);
+        var reversalAmount = receiptValue is { IsResolved: true, EffectiveTotalCost: { } effectiveTotal }
+            ? -effectiveTotal
+            : -decimal.Round(originalQuantity * costPrice, 2, MidpointRounding.AwayFromZero);
 
-        // A free receipt never created a payable, so there is nothing to reverse. A tiny priced
-        // receipt can also round to a zero reversal; that one still owes, so it is refused as before.
-        if (supplierId.HasValue && reversalAmount == 0)
+        // A free receipt never created a payable, so there is nothing to reverse. A tiny legacy
+        // priced receipt can also round to a zero reversal; that one still owes, so it is refused as
+        // before. A receipt value's zero total is exact (corrected down to nothing), so it is not.
+        if (supplierId.HasValue && reversalAmount == 0 && receiptValue is not { IsResolved: true })
         {
             var payables = await supplierLedgerEntryRepository.GetByBatchAsync(command.ActiveShopId, batch.Id, cancellationToken);
             if (payables.Any(e => e.EntryType == SupplierLedgerEntryType.GoodsReceived && e.Amount != 0))
@@ -116,6 +125,11 @@ public sealed class VoidBatchCommandHandler(
 
             await supplierLedgerEntryRepository.AddAsync(ledgerResult.Value, cancellationToken);
         }
+
+        // Written against the version it was read at, like the batch: a cost correction committing in
+        // between fails this save, so the void never reverses a stale total.
+        if (receiptValue is not null)
+            purchaseReceiptValueRepository.Update(receiptValue);
 
         var subtractResult = inventory.SubtractQuantity(remainingQuantity, command.ActorUserId);
         if (subtractResult.IsError)

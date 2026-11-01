@@ -82,6 +82,7 @@ public static class TenantPolicyManifest
     [
         // ── Tenant business data: isolated on its own shop_id ────────────────
         Tenant("bank_accounts"),
+        Tenant("batch_price_revisions"),
         Tenant("credit_note_redemptions"),
         Tenant("credit_notes"),
         Tenant("customer_ledger_entries"),
@@ -99,6 +100,8 @@ public static class TenantPolicyManifest
         Tenant("operation_receipts"),
         Tenant("purchase_order_receipt_sequences"),
         Tenant("purchase_order_receipts"),
+        Tenant("purchase_receipt_cost_adjustments"),
+        Tenant("purchase_receipt_values"),
         Tenant("purchase_order_sequences"),
         Tenant("purchase_orders"),
         Tenant("reconciliation_issues"),
