@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
 import { InventoryService } from './inventory.service';
+import type { ProductDetailsDto } from './inventory.models';
 import { SuppliersFacade } from '../../suppliers/state/suppliers.facade';
 import { BatchRowFormStateService } from './batch-row-form-state.service';
 import { InventoryInboundDraftRow } from '../../../core/storage/inventory-draft-indexeddb.service';
@@ -229,6 +230,23 @@ describe('BatchRowFormStateService', () => {
   });
 
   describe('purchaseAndSalesTaxModesRemainIndependent', () => {
+    function productDetails(): ProductDetailsDto {
+      return {
+        name: 'Milk',
+        description: 'Fresh milk pack',
+        uom: 'ltr',
+        costPrice: 42,
+        mrp: 50,
+        salesPrice: 48,
+        supplierId: null,
+        supplierName: null,
+        hsnCode: null,
+        taxIncluded: true,
+        taxRatePercent: 18,
+        purchaseTaxIncluded: true,
+      };
+    }
+
     function draftRow(overrides: Partial<InventoryInboundDraftRow> = {}): InventoryInboundDraftRow {
       return {
         clientRowId: 'row-1',
@@ -244,6 +262,7 @@ describe('BatchRowFormStateService', () => {
         taxRatePercent: 5,
         taxIncluded: true,
         purchaseTaxIncluded: true,
+        purchaseTaxModeConfirmed: true,
         hsnCode: null,
         expiryDate: null,
         manufacturingDate: null,
@@ -288,6 +307,61 @@ describe('BatchRowFormStateService', () => {
       expect(state.form.valid).toBe(true);
       expect(state.buildDraftRow()?.purchaseTaxIncluded).toBe(true);
       expect(state.buildDraftRow()?.taxIncluded).toBe(false);
+    });
+
+    it('requires the purchase mode to be confirmed for a legacy draft whose mode was copied from sales', () => {
+      const state = setup();
+      // The earlier release stored the sales mode as the purchase mode, without the confirmation marker.
+      const { purchaseTaxModeConfirmed: _marker, ...legacyDraft } = draftRow({
+        taxIncluded: false,
+        purchaseTaxIncluded: false,
+      });
+
+      state.loadDraftRow(legacyDraft);
+
+      expect(state.form.controls.purchaseTaxIncluded.value).toBeNull();
+      expect(state.buildDraftRow()).toBeNull();
+
+      state.form.controls.purchaseTaxIncluded.setValue(true);
+      const rebuilt = state.buildDraftRow();
+
+      expect(rebuilt?.purchaseTaxIncluded).toBe(true);
+      expect(rebuilt?.taxIncluded).toBe(false);
+      expect(rebuilt?.purchaseTaxModeConfirmed).toBe(true);
+    });
+
+    it('fills the purchase mode from the latest batch together with its cost', async () => {
+      inventoryService.getProductDetailsByNameOrBarcode.mockReturnValueOnce(
+        of({ ...productDetails(), costPrice: 40, taxIncluded: true, purchaseTaxIncluded: false }),
+      );
+      const state = setup();
+      state.form.controls.barcode.setValue('B001');
+
+      await state.fetchProductDetails();
+
+      expect(state.form.controls.totalPurchaseCost.value).toBe(40);
+      expect(state.form.controls.purchaseTaxIncluded.value).toBe(false);
+      expect(state.form.controls.taxIncluded.value).toBe(true);
+    });
+
+    it('keeps the purchase mode when there is no previous batch or the user already chose it', async () => {
+      inventoryService.getProductDetailsByNameOrBarcode.mockReturnValueOnce(
+        of({ ...productDetails(), purchaseTaxIncluded: null }),
+      );
+      const state = setup();
+      state.form.controls.barcode.setValue('B001');
+      state.form.controls.purchaseTaxIncluded.setValue(false);
+
+      await state.fetchProductDetails();
+      expect(state.form.controls.purchaseTaxIncluded.value).toBe(false);
+
+      inventoryService.getProductDetailsByNameOrBarcode.mockReturnValueOnce(
+        of({ ...productDetails(), purchaseTaxIncluded: true }),
+      );
+      state.form.controls.purchaseTaxIncluded.markAsDirty();
+
+      await state.fetchProductDetails();
+      expect(state.form.controls.purchaseTaxIncluded.value).toBe(false);
     });
 
     it('defaults new rows to a purchase cost that includes tax', () => {

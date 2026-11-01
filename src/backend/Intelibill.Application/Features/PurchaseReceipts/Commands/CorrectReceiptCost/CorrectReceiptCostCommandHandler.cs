@@ -139,8 +139,11 @@ public sealed class CorrectReceiptCostCommandHandler(
             return adjustment.Errors;
 
         // Written against the version the correction was entered at: a second correction of the
-        // same version fails here instead of posting its delta on top of the first.
+        // same version fails here instead of posting its delta on top of the first. The batch row is
+        // written too, so a void of the batch racing this correction fails one of the two saves.
         purchaseReceiptValueRepository.Update(receipt);
+        batch.MarkUpdatedBy(command.ActorUserId);
+        inventoryBatchRepository.Update(batch);
         await supplierLedgerEntryRepository.AddAsync(ledgerEntry.Value, cancellationToken);
         await costAdjustmentRepository.AddAsync(adjustment.Value, cancellationToken);
 
@@ -165,8 +168,15 @@ public sealed class CorrectReceiptCostCommandHandler(
             performedAt);
     }
 
-    private static string Truncate(string value, int maxLength) =>
-        value.Length <= maxLength ? value : value[..maxLength];
+    private static string Truncate(string value, int maxLength)
+    {
+        if (value.Length <= maxLength)
+            return value;
+
+        // Never split a surrogate pair: half an emoji cannot be stored as text.
+        var length = char.IsHighSurrogate(value[maxLength - 1]) ? maxLength - 1 : maxLength;
+        return value[..length];
+    }
 
     private sealed record ReceiptCostCorrectionPayload(Guid ReceiptValueId, uint ExpectedVersion, decimal RevisedTotalCost, string Reason);
 }

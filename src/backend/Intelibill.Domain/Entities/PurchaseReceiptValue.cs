@@ -120,6 +120,11 @@ public sealed class PurchaseReceiptValue : BaseEntity
             return null;
 
         var trimmed = value.Trim();
-        return trimmed.Length <= MaxSourceReferenceLength ? trimmed : trimmed[..MaxSourceReferenceLength];
+        if (trimmed.Length <= MaxSourceReferenceLength)
+            return trimmed;
+
+        // Never split a surrogate pair: half a character cannot be stored as text.
+        var length = char.IsHighSurrogate(trimmed[MaxSourceReferenceLength - 1]) ? MaxSourceReferenceLength - 1 : MaxSourceReferenceLength;
+        return trimmed[..length];
     }
 }

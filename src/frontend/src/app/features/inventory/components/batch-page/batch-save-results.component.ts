@@ -6,7 +6,10 @@ import { TableModule } from 'primeng/table';
 
 import { BatchDraftStateService } from '../../services/batch-draft-state.service';
 import type { AddInventoryBatchResponse, AddInventoryBatchSucceededRow } from '../../services/inventory.models';
-import { InventoryInboundDraftRow } from '../../../../core/storage/inventory-draft-indexeddb.service';
+import {
+  InventoryInboundDraftRow,
+  isPurchaseTaxModeConfirmed,
+} from '../../../../core/storage/inventory-draft-indexeddb.service';
 
 @Component({
   selector: 'app-batch-save-results',
@@ -46,6 +49,11 @@ export class BatchSaveResultsComponent {
     ] as const);
 
     return new Map<string, string>(entries);
+  }
+
+  /** Draft rows whose purchase tax mode the user still has to choose (kept by an earlier release). */
+  needsPurchaseTaxConfirmation(row: InventoryInboundDraftRow): boolean {
+    return !isPurchaseTaxModeConfirmed(row);
   }
 
   pendingRowInitials(name: string): string {

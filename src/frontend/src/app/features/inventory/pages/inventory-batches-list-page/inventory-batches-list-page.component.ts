@@ -56,6 +56,9 @@ const BATCH_CONSUMED = 'Inventory.BatchConsumed';
 const RECEIPT_VERSION_CONFLICT = 'PurchaseReceipt.VersionConflict';
 const RECEIPT_EVIDENCE_MISSING = 'PurchaseReceipt.EvidenceMissing';
 const RECEIPT_COST_UNCHANGED = 'PurchaseReceipt.CostUnchanged';
+const RECEIPT_BATCH_VOIDED = 'PurchaseReceipt.BatchVoided';
+/** Matches the server's money column (numeric(10,2)). */
+const MAX_RECEIPT_TOTAL_COST = 99_999_999.99;
 interface SelectOption<T extends string | boolean> {
   label: string;
   value: T;
@@ -250,11 +253,16 @@ export class InventoryBatchesListPageComponent {
   readonly costCorrectionForm = this.formBuilder.nonNullable.group({
     revisedTotalCost: [
       0,
-      [...InputValidators.nonNegativeNumber(), InputValidators.maxFractionDigits(2)],
+      [
+        ...InputValidators.nonNegativeNumber(),
+        Validators.max(MAX_RECEIPT_TOTAL_COST),
+        InputValidators.maxFractionDigits(2),
+      ],
     ],
     reason: ['', InputValidators.requiredText(500)],
   });
-  private readonly revisedTotalCostValue = signal(0);
+  // The input clears to null; an empty field has no delta to show (it is not a total of zero).
+  private readonly revisedTotalCostValue = signal<number | null>(0);
   /** A receipt without amounts on record (legacy) cannot be corrected: there is nothing to diff. */
   readonly costCorrectionBlocked = computed(() => {
     const batch = this.selectedBatch();
@@ -270,12 +278,14 @@ export class InventoryBatchesListPageComponent {
     const batch = this.selectedBatch();
     if (!batch || this.costCorrectionBlocked()) return null;
     const currentTotal = batch.receiptTotalCost ?? 0;
-    const delta = Number(((Number(this.revisedTotalCostValue()) || 0) - currentTotal).toFixed(2));
+    const revised = this.revisedTotalCostValue();
+    const hasRevised = revised !== null && `${revised}`.trim() !== '' && Number.isFinite(Number(revised));
+    const delta = hasRevised ? Number((Number(revised) - currentTotal).toFixed(2)) : null;
     return {
       originalTotal: batch.receiptOriginalTotalCost,
       currentTotal,
       delta,
-      deltaText: this.formatSignedAmount(delta),
+      deltaText: delta === null ? null : this.formatSignedAmount(delta),
     };
   });
   // Same rule as counts: an unchanged resend after a lost response replays the saved correction,
@@ -453,6 +463,7 @@ export class InventoryBatchesListPageComponent {
     if (
       !batch ||
       !preview ||
+      preview.delta === null ||
       preview.delta === 0 ||
       batch.receiptValueId === null ||
       batch.receiptVersion === null ||
@@ -509,7 +520,23 @@ export class InventoryBatchesListPageComponent {
             this.showError('inventory.receiptCostUnchanged');
             return;
           }
-          this.showError('inventory.receiptCostError');
+          if (code === RECEIPT_BATCH_VOIDED) {
+            // Nothing left to correct: the lot was voided elsewhere after this dialog opened.
+            this.costCorrectionSubmission = null;
+            this.isCostCorrectionDialogOpen.set(false);
+            this.loadBatches();
+          }
+          // Anything else (invalid total, forbidden, payload mismatch, ...) shows the server's own
+          // explanation when it gave one.
+          const detail: unknown = err.error?.detail;
+          this.messageService.add({
+            severity: 'error',
+            summary: this.translocoService.translate('common.error'),
+            detail:
+              typeof detail === 'string' && detail.trim().length > 0
+                ? detail
+                : this.translate('inventory.receiptCostError'),
+          });
         },
       });
   }

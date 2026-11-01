@@ -3,6 +3,7 @@ using Intelibill.Application.Common.Errors;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
+using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Application.Features.Inventory.Commands.ReassignBatchSupplier;
 
@@ -30,6 +31,15 @@ public sealed class ReassignBatchSupplierCommandHandler(
         var batch = await inventoryBatchRepository.GetByIdAsync(command.BatchId, cancellationToken);
         if (batch is null || batch.ShopId != command.ActiveShopId)
             return Errors.Inventory.BatchNotFound;
+
+        // A voided receipt's payable was reversed against its supplier; moving part of it would
+        // leave the new supplier owing for goods that were never kept.
+        if (batch.IsVoided)
+            return Errors.Inventory.BatchAlreadyVoided;
+
+        // Read before the ledger entries: a cost correction writes the receipt and the batch, so one
+        // committing after these reads fails the save below instead of being left behind.
+        var receiptValue = await purchaseReceiptValueRepository.GetByBatchAsync(command.ActiveShopId, batch.Id, cancellationToken);
 
         var batchEntries = await supplierLedgerEntryRepository.GetByBatchAsync(command.ActiveShopId, batch.Id, cancellationToken);
         var goodsReceivedEntry = batchEntries.FirstOrDefault(e => e.EntryType == SupplierLedgerEntryType.GoodsReceived);
@@ -67,7 +77,6 @@ public sealed class ReassignBatchSupplierCommandHandler(
             supplierLedgerEntryRepository.Update(costAdjustment);
         }
 
-        var receiptValue = await purchaseReceiptValueRepository.GetByBatchAsync(command.ActiveShopId, batch.Id, cancellationToken);
         if (receiptValue is not null)
         {
             receiptValue.ReassignSupplier(newSupplier.Id);
@@ -77,7 +86,15 @@ public sealed class ReassignBatchSupplierCommandHandler(
         batch.AssignSupplier(newSupplier.Id, command.ActorUserId);
         inventoryBatchRepository.Update(batch);
 
-        await unitOfWork.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Errors.Inventory.ConcurrentChange;
+        }
+
         return Result.Success;
     }
 }

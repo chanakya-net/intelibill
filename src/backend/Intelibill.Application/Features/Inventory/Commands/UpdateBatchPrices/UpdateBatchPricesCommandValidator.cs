@@ -13,7 +13,7 @@ internal sealed class UpdateBatchPricesCommandValidator : AbstractValidator<Upda
         RuleFor(x => x.BatchNumber).MaximumLength(80);
         RuleFor(x => x.Mrp).GreaterThanOrEqualTo(0).PrecisionScale(18, 2, true);
         RuleFor(x => x.SalesPrice).GreaterThanOrEqualTo(0).PrecisionScale(18, 2, true).LessThanOrEqualTo(x => x.Mrp);
-        RuleFor(x => x.TaxRatePercent).InclusiveBetween(0, 100);
+        RuleFor(x => x.TaxRatePercent).InclusiveBetween(0, 100).PrecisionScale(5, 2, true);
         RuleFor(x => x.Reason).MaximumLength(BatchPriceRevision.MaxReasonLength);
     }
 }

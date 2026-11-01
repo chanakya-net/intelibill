@@ -472,6 +472,7 @@
             inputId="revisedTotalCost"
             formControlName="revisedTotalCost"
             [min]="0"
+            [max]="99999999.99"
             mode="decimal"
             [minFractionDigits]="2"
             [maxFractionDigits]="2"
@@ -482,17 +483,19 @@
       </div>
 
       @if (costCorrectionPreview(); as preview) {
-        <p
-          class="text-sm font-semibold m-0"
-          data-testid="receipt-cost-delta"
-          [class.text-red-600]="preview.delta > 0"
-          [class.text-green-700]="preview.delta < 0"
-        >
-          {{
-            (preview.delta === 0 ? 'inventory.receiptCostNoChange' : 'inventory.receiptCostDelta')
-              | transloco: { delta: preview.deltaText }
-          }}
-        </p>
+        @if (preview.delta !== null) {
+          <p
+            class="text-sm font-semibold m-0"
+            data-testid="receipt-cost-delta"
+            [class.text-red-600]="preview.delta > 0"
+            [class.text-green-700]="preview.delta < 0"
+          >
+            {{
+              (preview.delta === 0 ? 'inventory.receiptCostNoChange' : 'inventory.receiptCostDelta')
+                | transloco: { delta: preview.deltaText }
+            }}
+          </p>
+        }
       }
 
       <div class="flex flex-col gap-1">

@@ -4,7 +4,7 @@
 price edit never replaces the lot, a cost correction posts only its delta, and historical sale
 snapshots and returns stay intact.
 
-**Source:** `pending-tasks/15-purchase-cost-corrections-and-batch-lineage.md`.
+**Source:** `pending-tasks/15-purchase-cost-corrections-and-batch-lineage-done.md`.
 
 ## What is wrong today
 

@@ -575,6 +575,102 @@ describe('InventoryBatchesListPageComponent', () => {
       httpMock.expectNone(() => true);
     });
 
+    it('refuses a revised total above the money column limit', () => {
+      fixture.detectChanges();
+      httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
+      component.onCorrectReceiptCost(mockBatches[0]);
+
+      component.costCorrectionForm.setValue({ revisedTotalCost: 100_000_000, reason: 'Typo' });
+      expect(component.costCorrectionForm.controls.revisedTotalCost.hasError('max')).toBe(true);
+      component.onSaveCostCorrection();
+      httpMock.expectNone(correctionUrl);
+
+      component.costCorrectionForm.controls.revisedTotalCost.setValue(99_999_999.99);
+      expect(component.costCorrectionForm.controls.revisedTotalCost.hasError('max')).toBe(false);
+    });
+
+    it('hides the delta while the revised total is empty', () => {
+      fixture.detectChanges();
+      httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
+      component.onCorrectReceiptCost(mockBatches[0]);
+
+      component.costCorrectionForm.setValue({
+        revisedTotalCost: null as unknown as number,
+        reason: 'Pending',
+      });
+      fixture.detectChanges();
+
+      expect(component.costCorrectionPreview()?.delta).toBeNull();
+      expect(component.costCorrectionPreview()?.deltaText).toBeNull();
+      expect(component.costCorrectionPreview()?.currentTotal).toBe(1000);
+      expect(document.body.querySelector('[data-testid="receipt-cost-delta"]')).toBeNull();
+      component.onSaveCostCorrection();
+      httpMock.expectNone(correctionUrl);
+
+      component.costCorrectionForm.controls.revisedTotalCost.setValue(900);
+      fixture.detectChanges();
+      expect(component.costCorrectionPreview()?.delta).toBe(-100);
+      expect(document.body.querySelector('[data-testid="receipt-cost-delta"]')).not.toBeNull();
+    });
+
+    it.each([
+      { title: 'PurchaseReceipt.TotalCostInvalid', status: 400 },
+      { title: 'Operation.PayloadMismatch', status: 409 },
+      { title: 'Auth.Forbidden', status: 403 },
+    ])('shows the server detail for an unmapped refusal ($title)', ({ title, status }) => {
+      fixture.detectChanges();
+      httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
+      const add = vi.spyOn(fixture.debugElement.injector.get(MessageService), 'add');
+      component.onCorrectReceiptCost(mockBatches[0]);
+      component.costCorrectionForm.setValue({ revisedTotalCost: 1100, reason: 'Invoice revised' });
+
+      component.onSaveCostCorrection();
+      httpMock
+        .expectOne(correctionUrl)
+        .flush({ title, detail: 'Server explanation' }, { status, statusText: 'Refused' });
+
+      expect(add).toHaveBeenCalledWith(
+        expect.objectContaining({ severity: 'error', detail: 'Server explanation' }),
+      );
+      expect(component.isCostCorrectionDialogOpen()).toBe(true);
+      httpMock.expectNone(`${API_BASE_URL}/inventory/batches`);
+    });
+
+    it('falls back to the generic message when an unmapped refusal has no detail', () => {
+      fixture.detectChanges();
+      httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
+      const add = vi.spyOn(fixture.debugElement.injector.get(MessageService), 'add');
+      component.onCorrectReceiptCost(mockBatches[0]);
+      component.costCorrectionForm.setValue({ revisedTotalCost: 1100, reason: 'Invoice revised' });
+
+      component.onSaveCostCorrection();
+      httpMock.expectOne(correctionUrl).flush({ title: 'Unknown' }, { status: 400, statusText: 'Bad Request' });
+
+      expect(add).toHaveBeenCalledWith(
+        expect.objectContaining({ detail: expect.stringContaining('inventory.receiptCostError') }),
+      );
+    });
+
+    it('on a voided batch shows the detail, closes and reloads', () => {
+      fixture.detectChanges();
+      httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
+      const add = vi.spyOn(fixture.debugElement.injector.get(MessageService), 'add');
+      component.onCorrectReceiptCost(mockBatches[0]);
+      component.costCorrectionForm.setValue({ revisedTotalCost: 1100, reason: 'Invoice revised' });
+
+      component.onSaveCostCorrection();
+      httpMock
+        .expectOne(correctionUrl)
+        .flush(
+          { title: 'PurchaseReceipt.BatchVoided', detail: 'The batch was voided.' },
+          { status: 409, statusText: 'Conflict' },
+        );
+
+      httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
+      expect(component.isCostCorrectionDialogOpen()).toBe(false);
+      expect(add).toHaveBeenCalledWith(expect.objectContaining({ detail: 'The batch was voided.' }));
+    });
+
     it('is not offered to a manager', () => {
       isOwner.set(false);
       fixture.detectChanges();

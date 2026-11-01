@@ -675,6 +675,12 @@ public sealed class PurchaseOrdersControllerTests(PostgreSqlTestFixture fixture)
 
         var inventory = await db.Inventory.SingleAsync(i => i.ItemId == batch.ItemId && i.ShopId == batch.ShopId);
         Assert.Equal(receiptLine.Quantity, inventory.Quantity);
+
+        var receiptValue = await db.PurchaseReceiptValues.SingleAsync(r => r.InventoryBatchId == batch.Id);
+        Assert.Equal(PurchaseReceiptSource.PurchaseOrder, receiptValue.Source);
+        Assert.Equal(receiptLine.Id, receiptValue.PurchaseOrderReceiptLineId);
+        Assert.Equal(receiptLine.TotalPurchaseCost, receiptValue.OriginalTotalCost);
+        Assert.Equal(supplierId, receiptValue.SupplierId);
     }
 
     [Fact]

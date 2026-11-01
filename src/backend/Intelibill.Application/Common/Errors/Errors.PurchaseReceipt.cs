@@ -15,6 +15,9 @@ public static partial class Errors
         public static Error VersionConflict =>
             Error.Conflict("PurchaseReceipt.VersionConflict", "This receipt changed after it was loaded. Refresh it and enter the correction again.");
 
+        public static Error VersionRequired =>
+            Error.Validation("PurchaseReceipt.VersionRequired", "The receipt version the correction was entered against is required.");
+
         public static Error CostUnchanged =>
             Error.Validation("PurchaseReceipt.CostUnchanged", "The revised total equals the current receipt total.");
 

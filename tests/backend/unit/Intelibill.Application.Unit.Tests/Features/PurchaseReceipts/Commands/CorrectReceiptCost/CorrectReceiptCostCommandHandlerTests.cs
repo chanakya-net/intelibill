@@ -58,6 +58,7 @@ public sealed class CorrectReceiptCostCommandHandlerTests
             Arg.Is<PurchaseReceiptCostAdjustment>(a => a.Delta == 100m && a.SupplierLedgerEntryId == result.Value.SupplierLedgerEntryId),
             Arg.Any<CancellationToken>());
         _receiptRepository.Received(1).Update(_receipt);
+        _batchRepository.Received(1).Update(_batch);
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 

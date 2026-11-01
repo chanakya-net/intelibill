@@ -415,7 +415,9 @@
     "entryTypes": {
       "goodsReceived": "Goods Received",
       "paymentMade": "Payment Made",
-      "recordAdjusted": "Record Adjusted"
+      "recordAdjusted": "Record Adjusted",
+      "reversal": "Receipt Voided",
+      "costAdjusted": "Receipt Cost Corrected"
     },
     "searchLedger": "Search ledger",
     "makePayment": "Make Payment",
@@ -765,7 +767,8 @@
     "purchaseTaxMode": "Purchase cost tax",
     "purchaseTaxModePlaceholder": "Choose purchase tax mode",
     "purchaseTaxModeRequired": "Confirm whether the purchase cost includes tax.",
-    "purchaseTaxModeMissingRows": "Some draft rows were kept from before purchase cost tax was recorded. Edit each of them and choose it before saving.",
+    "purchaseTaxModeMissingRows": "Some draft rows (marked below) were kept from an earlier version and their purchase cost tax was never confirmed. Edit each marked row, choose whether its purchase cost includes tax, then save.",
+    "purchaseTaxModeRowUnconfirmed": "Purchase cost tax not confirmed. Edit this row to choose it.",
     "editPricesAndDetails": "Edit prices & details",
     "editPricesHint": "This changes only selling prices and lot details. Change quantity with Count stock and purchase cost with Correct receipt cost.",
     "priceEditReason": "Reason (optional)",

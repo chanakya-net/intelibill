@@ -249,6 +249,8 @@ namespace Intelibill.Infrastructure.Migrations
             // that payable agreeing with the purchase order line when there is one. Its total comes from
             // the PO line, else the posted payable, else zero for a free receipt. Anything else is
             // LEGACY_UNRESOLVED with no amount: a total is never inferred from remaining stock.
+            // Idempotent: scripts/db/backfill-purchase-receipt-values.sql holds the same statement, to
+            // re-run after the new API version is live for batches an old instance created meanwhile.
             migrationBuilder.Sql("""
                 INSERT INTO purchase_receipt_values (
                     id, shop_id, inventory_batch_id, item_id, supplier_id, received_quantity,
@@ -295,7 +297,9 @@ namespace Intelibill.Infrastructure.Migrations
                             AND receipt_total.total >= 0
                             AND COALESCE(gr.amount, 0) = receipt_total.total, false) AS resolved,
                         receipt_total.total) ev
-                WHERE b.is_voided = false AND b.original_quantity > 0;
+                WHERE b.is_voided = false
+                  AND b.original_quantity > 0
+                  AND NOT EXISTS (SELECT 1 FROM purchase_receipt_values r WHERE r.inventory_batch_id = b.id);
                 """);
         }
 

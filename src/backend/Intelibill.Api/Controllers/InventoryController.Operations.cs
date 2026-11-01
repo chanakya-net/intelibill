@@ -101,12 +101,16 @@ public sealed partial class InventoryController
         var auth = CheckAuthAndShop();
         if (auth is not null) return auth;
 
+        // A missing version would bind to 0 and read as a conflict; it is a malformed request.
+        if (request.ExpectedVersion is not { } expectedVersion)
+            return new List<Error> { Errors.Inventory.PriceVersionRequired }.ToProblemResult();
+
         var result = await Bus.InvokeAsync<ErrorOr<BatchPriceUpdateResultDto>>(
             new UpdateBatchPricesCommand(
                 batchId,
                 UserId!.Value,
                 ActiveShopId!.Value,
-                request.ExpectedVersion,
+                expectedVersion,
                 request.Mrp,
                 request.SalesPrice,
                 request.TaxRatePercent,
@@ -127,12 +131,15 @@ public sealed partial class InventoryController
         var auth = CheckAuthAndShop();
         if (auth is not null) return auth;
 
+        if (request.ExpectedVersion is not { } expectedVersion)
+            return new List<Error> { Errors.PurchaseReceipt.VersionRequired }.ToProblemResult();
+
         var result = await Bus.InvokeAsync<ErrorOr<ReceiptCostCorrectionResultDto>>(
             new CorrectReceiptCostCommand(
                 receiptValueId,
                 UserId!.Value,
                 ActiveShopId!.Value,
-                request.ExpectedVersion,
+                expectedVersion,
                 request.RevisedTotalCost,
                 request.Reason,
                 request.OperationKey),

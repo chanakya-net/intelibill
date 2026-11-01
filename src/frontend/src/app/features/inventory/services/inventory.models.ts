@@ -336,6 +336,8 @@ export interface ProductDetailsDto {
   readonly hsnCode: string | null;
   readonly taxIncluded: boolean | null;
   readonly taxRatePercent: number | null;
+  /** Whether `costPrice` (the latest batch's unit cost) includes tax; null when there is no previous batch. */
+  readonly purchaseTaxIncluded: boolean | null;
 }
 
 export interface HsnTaxScenario {
