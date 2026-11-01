@@ -92,12 +92,13 @@ public sealed partial class SalesController : AuthenticatedControllerBase
         {
             // client cancelled
         }
-        catch (Exception exception) when (count > 0 || Response.HasStarted)
+        catch (Exception exception) when ((count > 0 || Response.HasStarted) && !cancellationToken.IsCancellationRequested)
         {
             // Records are already on the wire, so the status can no longer say this failed. The
             // framed error record says it instead, and no complete record follows, so the client
             // keeps its previous snapshot. A failure before the first record is not caught here:
-            // the exception middleware answers it as an ordinary failed request.
+            // the exception middleware answers it as an ordinary failed request. Nor is a caller
+            // who disconnected: nobody would read the record.
             var traceId = SafeTraceId.Resolve(HttpContext);
             _diagnostics.Unexpected(
                 exception,

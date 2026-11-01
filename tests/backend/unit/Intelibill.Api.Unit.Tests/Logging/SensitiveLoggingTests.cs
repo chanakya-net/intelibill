@@ -2,6 +2,7 @@ using System.Text;
 using Intelibill.Api.Extensions;
 using Intelibill.Api.Logging;
 using Microsoft.Extensions.Logging;
+using Npgsql;
 using Serilog;
 using Serilog.Events;
 using Serilog.Sinks.OpenTelemetry;
@@ -158,6 +159,108 @@ public sealed class SensitiveLoggingTests
         Assert.Contains(LogEventRedactor.Truncated, rendered, StringComparison.Ordinal);
         Assert.True(((SequenceValue)events[1].Properties["Values"]).Elements.Count <= LogEventRedactor.MaxElements + 1);
         Assert.True(rendered.Length < 60_000, $"rendered {rendered.Length} characters");
+    }
+
+    [Fact]
+    public void DatabaseExceptionText_DoesNotReachSink()
+    {
+        using var log = new CapturedLog();
+        var database = new Npgsql.PostgresException(
+            $"invalid input syntax for type uuid: \"{MessageSentinel}\"", "ERROR", "ERROR", "22P02");
+        var wrapped = new InvalidOperationException($"query failed near {DataSentinel}", database);
+
+        // EF Core's QueryIterationFailed puts the exception into the message as an argument.
+        log.Logger.Error("An exception occurred while iterating for context type '{ContextType}'.{NewLine}{Error}", "ApplicationDbContext", Environment.NewLine, database);
+        log.Logger.Error("Wrapped {Error}", wrapped);
+#pragma warning disable CA1848, CA2254 // Exception text in place of a template is the case under test.
+        log.CreateLogger<SensitiveLoggingTests>().LogError(database.ToString());
+#pragma warning restore CA1848, CA2254
+
+        var rendered = log.RenderedCompact() + log.RenderedMessages();
+        AssertNone(rendered, MessageSentinel, DataSentinel);
+        Assert.Contains("Npgsql.PostgresException", rendered, StringComparison.Ordinal);
+        Assert.Contains("ApplicationDbContext", rendered, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ExceptionTypeNames_AreKeptVerbatim()
+    {
+        using var log = new CapturedLog();
+
+        log.Logger.Error(Thrown(), "Failed");
+        log.Logger.Warning("Retry after {FailureType}", nameof(NpgsqlException));
+
+        var events = log.Events;
+        var types = (SequenceValue)events[0].Properties["ExceptionTypes"];
+        Assert.Equal(typeof(InvalidOperationException).FullName, ((ScalarValue)types.Elements[0]).Value);
+        Assert.Equal(nameof(NpgsqlException), ((ScalarValue)events[1].Properties["FailureType"]).Value);
+    }
+
+    [Fact]
+    public void HeaderLists_MaskCredentialValuesByKey()
+    {
+        using var log = new CapturedLog();
+        var headers = new List<KeyValuePair<string, string>>
+        {
+            new("Authorization", $"Bearer {BearerSentinel}"),
+            new("Password", PasswordSentinel),
+            new("X-Trace", "trace-visible"),
+        };
+
+        log.Logger.Information("Destructured {@Headers}", headers);
+        log.Logger.Information("Plain {Headers}", headers);
+
+        var rendered = log.RenderedCompact() + log.RenderedMessages();
+        AssertNone(rendered, BearerSentinel, PasswordSentinel);
+        Assert.Contains("trace-visible", rendered, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AppShapedSecretsInText_AreScrubbed()
+    {
+        using var log = new CapturedLog();
+
+        log.Logger.Information("Body {Body}", $"{{\"refreshToken\":\"{RefreshSentinel}\",\"shopId\":\"shop-visible\"}}");
+        log.Logger.Information("Query {Query}", $"accessToken={AccessTokenSentinel}&verificationCode={CodeSentinel}&page=2");
+        log.Logger.Information("Form {Form}", $"newPassword={PasswordSentinel}; X-Api-Key: {ConnectionSentinel}");
+        log.Logger.Information("Quoted {Connection}", $"Host=db;Password='a;{CookieSentinel}';Pooling=true");
+
+        var rendered = log.RenderedCompact() + log.RenderedMessages();
+        AssertNone(rendered, RefreshSentinel, AccessTokenSentinel, CodeSentinel, PasswordSentinel, ConnectionSentinel, CookieSentinel);
+        Assert.Contains("shop-visible", rendered, StringComparison.Ordinal);
+        Assert.Contains("page=2", rendered, StringComparison.Ordinal);
+        Assert.Contains("Pooling=true", rendered, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void OrdinaryText_IsNotMistakenForCredentials()
+    {
+        using var log = new CapturedLog();
+
+        log.Logger.Information("Sold {Item}", "Basic Rice 5kg");
+        log.Logger.Warning("Database said {Reply}", "Error code: 23505, status code: 503");
+        log.Logger.Warning("Scheme {Scheme}", "Bearer authentication failed");
+
+        var rendered = log.RenderedCompact();
+        Assert.Contains("Basic Rice 5kg", rendered, StringComparison.Ordinal);
+        Assert.Contains("Error code: 23505, status code: 503", rendered, StringComparison.Ordinal);
+        Assert.Contains("Bearer authentication failed", rendered, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DictionaryKeysMaskedToTheSameValue_StillWriteTheEvent()
+    {
+        using var log = new CapturedLog(maskPersonalData: true);
+
+        log.Logger.Information("Balances {Balances}", new Dictionary<string, decimal>
+        {
+            ["first.customer@example.test"] = 10m,
+            ["second.customer@example.test"] = 20m,
+        });
+
+        var logEvent = Assert.Single(log.Events);
+        Assert.DoesNotContain("customer@example.test", log.RenderedCompact(), StringComparison.Ordinal);
+        Assert.IsType<DictionaryValue>(logEvent.Properties["Balances"]);
     }
 
     [Fact]

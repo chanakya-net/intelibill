@@ -207,8 +207,10 @@ diagnostic and aborts the connection rather than appending a problem document. T
 (`GET api/sales/offline-snapshot/stream`) ends a stream that fails after its first record with an
 `error` record `{ snapshotId, code: "OfflineSnapshot.StreamFailed", message, traceId }` (fixed text)
 and never a `complete`; a failure before the first record reaches the middleware as an ordinary 500.
-The web treats the `error` record as terminal. A caller's cancellation is not an incident: 499, no
-body, no error event.
+The web treats the `error` record as terminal. A caller who disconnects is not an incident
+(`CallerDisconnect`: the request was aborted and what surfaced is a cancellation or Kestrel's
+`IOException`): the middleware answers 499 with no body and no diagnostic, request logging records
+it at Information, and the snapshot writes no error record for nobody to read.
 
 **Diagnostics.** `SafeDiagnosticWriter` logs one event per failure from allowlisted facts: error
 code, status, method, route template, trace id, whether the response had started, the exception
@@ -227,6 +229,13 @@ string values and message text, and bounds depth (8), width (100) and string len
 a backstop for structured and well-formed values; it cannot find a secret in prose, so sources
 must not log one. A sink added outside `Redacted()` would receive raw events.
 
+**Traces.** `SafeSpanProcessor` runs before the OTLP trace exporter and clears a failed span's
+status description and its `exception.message`/`exception.stacktrace` tags: EF Core instrumentation
+writes the provider's message (which can quote a customer's input) into the status, and Wolverine
+does the same for a failed handler. The error status and exception type stay. Span events cannot
+be edited; ASP.NET Core and HttpClient instrumentation add exception events only with
+`RecordException`, which is off.
+
 **Already outside the application's logs.** Request logging records the path, not the query.
 `Microsoft.AspNetCore` events below Warning (which carry query strings) are filtered. OpenTelemetry
 ASP.NET Core and HttpClient instrumentation redact query values by default, and HttpClient spans
@@ -240,8 +249,8 @@ strings.
 |---|---|---|
 | Domain unit | `tests/backend/unit/Intelibill.Domain.Unit.Tests/` | 247 |
 | Application unit | `tests/backend/unit/Intelibill.Application.Unit.Tests/` | 961 |
-| API unit | `tests/backend/unit/Intelibill.Api.Unit.Tests/` | 459 |
-| Integration | `tests/backend/integration/Intelibill.Integration.Tests/` | 483 |
-| **Total** | | **2150** |
+| API unit | `tests/backend/unit/Intelibill.Api.Unit.Tests/` | 489 |
+| Integration | `tests/backend/integration/Intelibill.Integration.Tests/` | 485 |
+| **Total** | | **2182** |
 
-Integration tests use `WebApplicationFactory<Program>` backed by **Testcontainers** (`Testcontainers.PostgreSql`) — Docker required. Non-integration suite: 1667 passing.
+Integration tests use `WebApplicationFactory<Program>` backed by **Testcontainers** (`Testcontainers.PostgreSql`) — Docker required. Non-integration suite: 1697 passing.

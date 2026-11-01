@@ -85,6 +85,15 @@ public sealed partial class LogEventRedactor(bool maskPersonalData)
             case StructureValue { TypeTag: { } tag } when tag.EndsWith("Exception", StringComparison.Ordinal):
                 return new ScalarValue($"{tag} {DetailsRedacted}");
 
+            // A header list is a sequence of pairs; the secret is in Value, the name in Key.
+            case StructureValue { TypeTag: { } pairTag } pair
+                when pairTag.StartsWith("KeyValuePair", StringComparison.Ordinal)
+                    && pair.Properties.FirstOrDefault(p => p.Name == "Key")?.Value is ScalarValue { Value: string key }
+                    && IsSensitive(key):
+                return new StructureValue(
+                    [.. pair.Properties.Select(p => p.Name == "Value" ? new LogEventProperty(p.Name, new ScalarValue(Masked)) : p)],
+                    pairTag);
+
             case StructureValue structure:
                 return new StructureValue(
                     [.. structure.Properties
@@ -99,13 +108,16 @@ public sealed partial class LogEventRedactor(bool maskPersonalData)
                 return new SequenceValue(elements);
 
             case DictionaryValue dictionary:
+                // Masking can turn distinct keys into the same one (two emails); a dictionary
+                // cannot hold both, and throwing here would lose the whole event.
                 return new DictionaryValue(dictionary.Elements
                     .Take(MaxElements)
                     .Select(pair => new KeyValuePair<ScalarValue, LogEventPropertyValue>(
                         RedactScalar(pair.Key),
                         pair.Key.Value is string key && IsSensitive(key)
                             ? new ScalarValue(Masked)
-                            : Redact(pair.Value, depth + 1))));
+                            : Redact(pair.Value, depth + 1)))
+                    .DistinctBy(pair => pair.Key));
 
             default:
                 return value;
@@ -134,6 +146,10 @@ public sealed partial class LogEventRedactor(bool maskPersonalData)
         if (ExceptionText().Match(text) is { Success: true } exceptionText)
             return new ScalarValue($"{exceptionText.Groups["type"].Value} {DetailsRedacted}");
 
+        // A KeyValuePair captured without destructuring renders as "[Key, Value]".
+        if (PairText().Match(text) is { Success: true } pairText && IsSensitive(pairText.Groups["key"].Value))
+            return new ScalarValue($"[{pairText.Groups["key"].Value}, {Masked}]");
+
         var scrubbed = Scrub(text);
         return original.Value is string && ReferenceEquals(scrubbed, text) ? original : new ScalarValue(scrubbed);
     }
@@ -143,7 +159,11 @@ public sealed partial class LogEventRedactor(bool maskPersonalData)
         var result = text.Length > MaxStringLength ? string.Concat(text.AsSpan(0, MaxStringLength), Truncated) : text;
 
         if (result.AsSpan().IndexOfAny('=', ':') >= 0)
+        {
             result = NamedSecret().Replace(result, match => $"{match.Groups["name"].Value}{match.Groups["sep"].Value}{match.Groups["quote"].Value}{Masked}");
+            result = QueryCode().Replace(result, match => string.Concat(match.ValueSpan[..5], Masked));
+        }
+
         if (result.Contains("Bearer", StringComparison.OrdinalIgnoreCase) || result.Contains("Basic", StringComparison.OrdinalIgnoreCase))
             result = AuthorizationScheme().Replace(result, match => $"{match.Groups["scheme"].Value} {Masked}");
         if (_maskPersonalData && result.Contains('@', StringComparison.Ordinal))
@@ -154,7 +174,11 @@ public sealed partial class LogEventRedactor(bool maskPersonalData)
 
     private MessageTemplate RedactTemplate(MessageTemplate template)
     {
-        // Text passed where a template belongs ($"..." into a logger) is the template itself.
+        // Text passed where a template belongs ($"..." or ex.ToString() into a logger) is the
+        // template itself.
+        if (ExceptionText().Match(template.Text) is { Success: true } exceptionText)
+            return new MessageTemplateParser().Parse($"{exceptionText.Groups["type"].Value} {DetailsRedacted}");
+
         var text = Scrub(template.Text);
         return ReferenceEquals(text, template.Text) ? template : new MessageTemplateParser().Parse(text);
     }
@@ -200,17 +224,30 @@ public sealed partial class LogEventRedactor(bool maskPersonalData)
         return new string(buffer[..length]);
     }
 
-    // name=value, name: value and "name":"value" for credential-shaped names, as they appear in
-    // query strings, fragments, connection strings, headers, JSON and record ToString() output.
+    // name=value, name: value, "name":"value" and name='value' for credential-shaped names, as
+    // they appear in query strings, fragments, connection strings, headers, JSON (this app's own
+    // camelCase included) and record ToString() output. A quoted value runs to its closing quote.
     [GeneratedRegex(
-        """(?<![A-Za-z0-9_])(?<name>(?:access_|refresh_|id_|raw_?|reset_?|session_?)?token|code|otp|password|passwd|pwd|secret|client_secret|api[_-]?key|signature|sig)(?<sep>"?\s*[=:]\s*)(?<quote>"?)(?!\*\*\*)[^&\s#;,'"}\]]+""",
+        """(?<![A-Za-z0-9_])(?<name>[A-Za-z0-9_-]*?(?:token|password|passwd|secret|api[_-]?key)|pwd|otp|signature|sig|(?:verification|confirmation|otp|reset|sms)[_-]?code)(?<sep>["']?\s*[=:]\s*)(?:(?<quote>["'])(?!\*\*\*)[^"']*|(?!\*\*\*)[^&\s#;,'"{}\]]+)""",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex NamedSecret();
 
-    [GeneratedRegex(@"^(?<type>[A-Za-z_][\w.+`]*Exception)(?::|\r?\n|$)", RegexOptions.CultureInvariant)]
+    // A bare "code" is a secret only as a query or fragment parameter; "status code: 503" is not.
+    [GeneratedRegex(@"(?<=[?&#;])code=(?!\*\*\*)[^&\s#'""]+", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex QueryCode();
+
+    // An exception's ToString(): its type, an HRESULT for external exceptions such as
+    // DbException ("Npgsql.PostgresException (0x80004005): ..."), then the message.
+    [GeneratedRegex(@"^(?<type>[A-Za-z_][\w.+`]*Exception)(?: \((?:0x[0-9A-Fa-f]+|-?\d+)\))?(?::|\r?\n)", RegexOptions.CultureInvariant)]
     private static partial Regex ExceptionText();
 
-    [GeneratedRegex(@"\b(?<scheme>Bearer|Basic)\s+(?!\*\*\*)[A-Za-z0-9\-._~+/]+=*", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"^\[(?<key>[^,\[\]]{1,128}), .*\]$", RegexOptions.Singleline | RegexOptions.CultureInvariant)]
+    private static partial Regex PairText();
+
+    // Credential-length tokens only, so "Bearer authentication" or "Basic Rice 5kg" survive.
+    [GeneratedRegex(
+        @"\b(?<scheme>Bearer)\s+(?!\*\*\*)[A-Za-z0-9\-._~+/]{16,}=*|\b(?<scheme>Basic)\s+(?!\*\*\*)[A-Za-z0-9+/]{12,}={0,2}",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex AuthorizationScheme();
 
     [GeneratedRegex(@"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", RegexOptions.CultureInvariant)]

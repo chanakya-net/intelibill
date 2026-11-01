@@ -103,6 +103,35 @@ public sealed class SalesControllerTests : IDisposable
         Assert.Empty(_log.Events);
     }
 
+    [Fact]
+    public async Task SnapshotDisconnect_IsNotRecordedAsAnIncident()
+    {
+        var (_, shopId) = ArrangeSnapshotCaller();
+        using var disconnected = new CancellationTokenSource();
+        _offlineSnapshotStreamingService
+            .StreamAsync(shopId, Arg.Any<Guid>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>())
+            .Returns(call => StreamThenDisconnect(shopId, call.ArgAt<Guid>(1), disconnected));
+
+        // The caller is gone: nothing is written for them and the middleware's cancellation path
+        // decides what is logged.
+        await Assert.ThrowsAsync<IOException>(() => _controller.StreamOfflineSnapshot(disconnected.Token));
+
+        Assert.Empty(_log.Events);
+        Assert.Single(ReadBody().Split('\n', StringSplitOptions.RemoveEmptyEntries));
+    }
+
+    private static async IAsyncEnumerable<IOfflineSalesSnapshotStreamRecord> StreamThenDisconnect(
+        Guid shopId,
+        Guid snapshotId,
+        CancellationTokenSource disconnected)
+    {
+        yield return new OfflineSalesSnapshotMetadataRecord(
+            new OfflineSalesSnapshotMetadata(snapshotId, shopId, 1, DateTimeOffset.UtcNow));
+
+        await disconnected.CancelAsync();
+        throw new IOException("The client reset the request stream.");
+    }
+
     private (Guid UserId, Guid ShopId) ArrangeSnapshotCaller()
     {
         var userId = Guid.NewGuid();

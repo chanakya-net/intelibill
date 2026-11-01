@@ -22,7 +22,7 @@ public sealed class ExceptionHandlingMiddleware(
         {
             await next(context);
         }
-        catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+        catch (Exception exception) when (CallerDisconnect.Explains(context, exception))
         {
             // The caller went away. Nothing failed here and nobody is left to read a body, so
             // this is neither an incident nor a response.

@@ -1,4 +1,5 @@
 using Intelibill.Api.Logging;
+using Intelibill.Api.Middleware;
 using Intelibill.Infrastructure.Options;
 using Microsoft.Extensions.Options;
 using Serilog;
@@ -109,6 +110,9 @@ public static class SerilogExtensions
     {
         options.GetLevel = static (ctx, _, ex) =>
         {
+            // A caller who went away is not a failed request, whatever escaped the endpoint.
+            if (ex is not null && CallerDisconnect.Explains(ctx, ex))
+                return LogEventLevel.Information;
             if (ex is not null || ctx.Response.StatusCode >= 500)
                 return LogEventLevel.Error;
             if (ctx.Response.StatusCode >= 400)

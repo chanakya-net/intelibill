@@ -139,6 +139,21 @@ public class ExceptionHandlingMiddlewareTests
     }
 
     [Fact]
+    public async Task CallerDisconnect_SurfacingAsIOException_DoesNotLogError()
+    {
+        using var aborted = new CancellationTokenSource();
+        await aborted.CancelAsync();
+
+        // Kestrel reports a reset connection on the next write as an IOException, not a cancellation.
+        var result = await InvokeAsync(
+            _ => throw new IOException("The client reset the request stream."),
+            context => context.Features.Set<IHttpRequestLifetimeFeature>(new RecordingLifetime(aborted.Token)));
+
+        Assert.DoesNotContain(result.Log.Events, e => e.Level >= LogEventLevel.Warning);
+        Assert.Equal(StatusCodes.Status499ClientClosedRequest, result.Context.Response.StatusCode);
+    }
+
+    [Fact]
     public async Task StartedNonFramedResponse_AbortsWithoutSecondJson()
     {
         var lifetime = new RecordingLifetime(CancellationToken.None);
