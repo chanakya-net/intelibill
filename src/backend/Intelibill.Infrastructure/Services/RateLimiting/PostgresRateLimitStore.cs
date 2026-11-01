@@ -19,6 +19,14 @@ namespace Intelibill.Infrastructure.Services.RateLimiting;
 /// stale copy in another, which is what lost increments under the distributed-cache limiter.
 /// </para>
 /// <para>
+/// A request that is going to be refused is refused from a plain read first, without a lock or a
+/// write: a counter only rises within its window and a backoff only ends at its stated time, so a
+/// bucket that reads as refusing is still refusing when the lock would have been granted. Under a
+/// flood, the requests over the limit — nearly all of them — never queue on the bucket's lock or
+/// hold a pooled connection while they wait. Only a request that could be admitted, or that must
+/// start a backoff, takes the locking path.
+/// </para>
+/// <para>
 /// Windows are fixed: a bucket's window starts at the first request after the previous one
 /// ended and runs for its full length however many requests arrive in it. Nothing a caller does
 /// moves the end of a window, and the backoff an exhausted bucket starts runs from the first
@@ -29,6 +37,20 @@ public sealed class PostgresRateLimitStore(NpgsqlDataSource dataSource, IOptions
     : IAtomicRateLimitStore
 {
     private const int CleanupTimeoutSeconds = 30;
+
+    private const string ReadSql = """
+        SELECT policy_id, bucket_key, window_start, window_seconds, count, blocked_until
+        FROM rate_limit_buckets
+        WHERE (policy_id, bucket_key) IN (SELECT p, k FROM unnest(@policies, @keys) AS t(p, k))
+        """;
+
+    // lock_timeout: a bucket held by a stalled transaction is an unavailable store, not a reason
+    // to queue every request for that bucket behind it. synchronous_commit off: a crash can lose
+    // the last fraction of a second of counts, which costs a few extra admissions once; waiting
+    // for the WAL flush on every limited request costs latency on all of them.
+    private const string SessionSql = """
+        SELECT set_config('lock_timeout', @timeout, true), set_config('synchronous_commit', 'off', true)
+        """;
 
     // Locks the row whether it is inserted or already there. A window that has ended starts again
     // at @now with nothing counted, and a backoff that has ended is cleared, exactly once: the
@@ -102,6 +124,9 @@ public sealed class PostgresRateLimitStore(NpgsqlDataSource dataSource, IOptions
         try
         {
             await using var connection = await dataSource.OpenConnectionAsync(deadline.Token);
+            if (await RefuseWithoutLockingAsync(connection, ordered, primary, now, deadline.Token) is { } refusal)
+                return refusal;
+
             await using var transaction = await connection.BeginTransactionAsync(IsolationLevel.ReadCommitted, deadline.Token);
 
             var buckets = await LockAsync(connection, transaction, ordered, now, deadline.Token);
@@ -140,16 +165,75 @@ public sealed class PostgresRateLimitStore(NpgsqlDataSource dataSource, IOptions
         return await command.ExecuteNonQueryAsync(ct);
     }
 
+    /// <summary>
+    /// The refusal the locking path would reach, when a plain read already settles it; null when
+    /// the request might be admitted, or when an exhausted bucket still has to start its backoff.
+    /// </summary>
+    private async Task<RateDecision?> RefuseWithoutLockingAsync(
+        NpgsqlConnection connection, RateBudget[] ordered, int primary, DateTimeOffset now, CancellationToken ct)
+    {
+        await using var command = new NpgsqlCommand(ReadSql, connection) { CommandTimeout = _options.CommandTimeoutSeconds };
+        command.Parameters.Add(new NpgsqlParameter<string[]>("policies", NpgsqlDbType.Array | NpgsqlDbType.Varchar)
+        {
+            TypedValue = [.. ordered.Select(static b => b.PolicyId)],
+        });
+        command.Parameters.Add(new NpgsqlParameter<string[]>("keys", NpgsqlDbType.Array | NpgsqlDbType.Varchar)
+        {
+            TypedValue = [.. ordered.Select(static b => b.Key)],
+        });
+
+        var rows = new Dictionary<(string, string), Bucket>();
+        await using (var reader = await command.ExecuteReaderAsync(ct))
+        {
+            while (await reader.ReadAsync(ct))
+            {
+                rows[(reader.GetString(0), reader.GetString(1))] = new Bucket(
+                    WindowStart: reader.GetFieldValue<DateTimeOffset>(2),
+                    WindowSeconds: reader.GetInt32(3),
+                    Count: reader.GetInt32(4),
+                    BlockedUntil: reader.IsDBNull(5) ? null : reader.GetFieldValue<DateTimeOffset>(5));
+            }
+        }
+
+        DateTimeOffset? retryAt = null;
+        foreach (var budget in ordered)
+        {
+            if (!rows.TryGetValue((budget.PolicyId, budget.Key), out var bucket))
+                continue;
+
+            DateTimeOffset? refusedUntil = null;
+            if (bucket.BlockedUntil is { } blockedUntil && blockedUntil > now)
+                refusedUntil = blockedUntil;
+            else if (bucket.WindowEnd > now && bucket.Count >= budget.Limit)
+            {
+                // Starting the backoff is a write, and it belongs to the locking path.
+                if (budget.BackoffSeconds > 0)
+                    return null;
+                refusedUntil = bucket.WindowEnd;
+            }
+
+            if (refusedUntil is not null && (retryAt is null || refusedUntil > retryAt))
+                retryAt = refusedUntil;
+        }
+
+        if (retryAt is null)
+            return null;
+
+        var primaryBudget = ordered[primary];
+        var resetAt = rows.TryGetValue((primaryBudget.PolicyId, primaryBudget.Key), out var primaryBucket) && primaryBucket.WindowEnd > now
+            ? primaryBucket.WindowEnd
+            : now.AddSeconds(primaryBudget.WindowSeconds);
+        return new RateDecision(Allowed: false, Limit: primaryBudget.Limit, Remaining: 0, ResetAt: resetAt, RetryAt: retryAt);
+    }
+
     private async Task<Bucket[]> LockAsync(
         NpgsqlConnection connection, NpgsqlTransaction transaction, RateBudget[] ordered, DateTimeOffset now, CancellationToken ct)
     {
         await using var batch = new NpgsqlBatch(connection, transaction) { Timeout = _options.CommandTimeoutSeconds };
 
-        // A bucket held by a stalled transaction is an unavailable store, not a reason to queue
-        // every request for that bucket behind it.
-        var lockTimeout = new NpgsqlBatchCommand("SELECT set_config('lock_timeout', @timeout, true)");
-        lockTimeout.Parameters.Add(new NpgsqlParameter<string>("timeout", NpgsqlDbType.Text) { TypedValue = $"{_options.CommandTimeoutSeconds}s" });
-        batch.BatchCommands.Add(lockTimeout);
+        var session = new NpgsqlBatchCommand(SessionSql);
+        session.Parameters.Add(new NpgsqlParameter<string>("timeout", NpgsqlDbType.Text) { TypedValue = $"{_options.CommandTimeoutSeconds}s" });
+        batch.BatchCommands.Add(session);
 
         foreach (var budget in ordered)
         {

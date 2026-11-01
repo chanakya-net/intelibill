@@ -316,6 +316,35 @@ public sealed class RateLimitPolicyResolverTests
         Assert.False(policy.FailClosed);
     }
 
+    [Fact]
+    public void Resolve_WhenChangingPassword_CountsTheSignedInAccountAndFailsClosed()
+    {
+        var policy = CreateResolver().Resolve(CreateContext(new ControllerActionDescriptor
+        {
+            ControllerTypeInfo = typeof(Intelibill.Api.Controllers.UsersController).GetTypeInfo(),
+            MethodInfo = typeof(Intelibill.Api.Controllers.UsersController).GetMethod(nameof(Intelibill.Api.Controllers.UsersController.ChangeMyPassword))!
+        }));
+
+        Assert.Equal((5, 15, 15), (policy.Limit, policy.PeriodInMinutes, policy.BackoffMinutes));
+        Assert.Equal(RateLimitSubject.Account, policy.Subject);
+        Assert.True(policy.FailClosed);
+    }
+
+    [Fact]
+    public void Resolve_WhenInvitingByEmail_CountsTheDestinationAndFailsClosed()
+    {
+        var policy = CreateResolver().Resolve(CreateContext(new ControllerActionDescriptor
+        {
+            ControllerTypeInfo = typeof(Intelibill.Api.Controllers.ShopsController).GetTypeInfo(),
+            MethodInfo = typeof(Intelibill.Api.Controllers.ShopsController).GetMethod(nameof(Intelibill.Api.Controllers.ShopsController.InviteShopMember))!
+        }));
+        IRateLimitSubject request = new Intelibill.Api.Controllers.InviteShopMemberRequest("Invitee@Example.com", "Staff");
+
+        Assert.Equal(RateLimitSubject.Destination, policy.Subject);
+        Assert.True(policy.FailClosed);
+        Assert.Equal("Invitee@Example.com", request.Subject);
+    }
+
     private static RateLimitPolicyResolver CreateResolver()
     {
         var options = Microsoft.Extensions.Options.Options.Create(new RateLimitingOptions

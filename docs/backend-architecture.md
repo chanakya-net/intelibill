@@ -193,7 +193,11 @@ budget a request is counted against; `PostgresRateLimitStore` (Infrastructure) k
 `blocked_until`, `expires_at`), shared by every replica. One acquisition is one Read Committed
 transaction: each budget's row is upserted — which creates or locks it — in ordinal
 `(policy_id, bucket_key)` order, so two requests sharing buckets cannot deadlock; then either every
-row is incremented or none is. A window starts at the first request after the last one ended and is
+row is incremented or none is. A request that will be refused is refused from a plain read first —
+a count only rises within its window and a backoff only ends at its stated time — so under a
+flood the requests over the limit take no row lock, write nothing and never queue behind each
+other; only an admissible request, or one that must start a backoff, takes the locking path, with
+`synchronous_commit` off for that transaction. A window starts at the first request after the last one ended and is
 never extended by later requests; an exhausted budget with a backoff is refused until
 `now + backoff` from its first refusal. `lock_timeout` and the command timeout come from
 `RateLimitStore:CommandTimeoutSeconds` (2). `RateLimitBucketCleanupWorker` deletes rows whose
@@ -215,9 +219,10 @@ Emails are trimmed and lower-cased, phones normalized to E.164 with `PhoneAuth:D
 exactly as the identity services store them. Request models opt in by implementing
 `IRateLimitSubject` explicitly. Account and destination budgets count every attempt, known account
 or not, and never reach headers: `X-RateLimit-*` describe the request budget only, and a refusal
-answers the existing 429 body with `Retry-After` capped at a day. Sign-in, reset confirmation and
-reauthentication are Account endpoints; every endpoint that sends mail or SMS is a Destination
-endpoint, so one mailbox shares one allowance across registration, reset, claim and change.
+answers the existing 429 body with `Retry-After` capped at a day. Sign-in, reset confirmation,
+reauthentication and password change are Account endpoints; every endpoint that sends mail or SMS —
+including shop invitations — is a Destination endpoint, so one mailbox shares one allowance across
+registration, reset, claim, change and invitation.
 Per-challenge attempts stay with the challenge (`PhoneAuth:MaxAttempts`).
 
 **Ordering.** The filter is registered at order -3000, ahead of `ModelStateInvalidFilter`
@@ -228,9 +233,10 @@ no subject simply has no subject budget.
 secret store, shared by every replica). To rotate, move the old value to
 `RateLimiting:PreviousBucketKey` and set a new `BucketKey`: every budget is counted under both
 until `PreviousBucketKey` is removed, which is safe once a day (the longest window) has passed.
-Without a key the material is hashed with unkeyed SHA-256 and a warning is logged outside
+Without a key the material is hashed with unkeyed SHA-256 and an error is logged outside
 Development/Testing: limits still hold across replicas, but a leaked table can be checked against
-guessed addresses. A per-process random key is deliberately not the fallback — each replica would
+guessed addresses. The first key is a rotation too: set `BucketKey` with
+`PreviousBucketKey=unkeyed` so existing counts carry over. A per-process random key is deliberately not the fallback — each replica would
 count the same caller in a different bucket.
 
 **Store unavailable.** Endpoints with `FailClosed = true` — every credential check and message send

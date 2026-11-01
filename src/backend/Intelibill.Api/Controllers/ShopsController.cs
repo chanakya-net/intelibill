@@ -1,4 +1,5 @@
 using Intelibill.Api.Extensions;
+using Intelibill.Api.Middleware.RateLimiting;
 using Intelibill.Application.Features.Auth.DTOs;
 using Intelibill.Application.Features.Shops.Commands.CreateShop;
 using Intelibill.Application.Features.Shops.Commands.SetDefaultShop;
@@ -169,7 +170,10 @@ public sealed class ShopsController : AuthenticatedControllerBase
     /// Invites one email address to this shop. The invitation grants nothing until the person who
     /// owns that verified address accepts it from their own account.
     /// </summary>
+    // Sends mail to an address the caller chooses, so it shares the destination budget with every
+    // other message an address can be sent.
     [HttpPost("{shopId:guid}/invitations")]
+    [RateLimit(Limit = 20, PeriodInMinutes = 60, BackoffMinutes = 15, Subject = RateLimitSubject.Destination, FailClosed = true)]
     public async Task<IActionResult> InviteShopMember(
         Guid shopId,
         [FromBody] InviteShopMemberRequest request,
@@ -244,7 +248,10 @@ public sealed record CreateShopRequest(
     string? GstNumber);
 public sealed record SwitchActiveShopRequest(Guid ShopId);
 public sealed record UpdateShopMembershipRequest(string Role, string Status, long ExpectedVersion);
-public sealed record InviteShopMemberRequest(string Email, string Role);
+public sealed record InviteShopMemberRequest(string Email, string Role) : IRateLimitSubject
+{
+    string? IRateLimitSubject.Subject => Email;
+}
 public sealed record SetDefaultShopRequest(Guid ShopId);
 public sealed record UpdateShopRequest(
     string Name,

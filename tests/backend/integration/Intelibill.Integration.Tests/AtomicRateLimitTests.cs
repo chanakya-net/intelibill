@@ -155,6 +155,38 @@ public sealed class AtomicRateLimitTests(PostgreSqlTestFixture fixture) : IAsync
         Assert.Equal(1, await PersistedCountAsync("test:cleanup-cooling", "k"));
     }
 
+    /// <summary>
+    /// A bucket that is already refusing is refused from a plain read: no row lock, no write. A
+    /// flood against one bucket then cannot queue on its lock and tie up pooled connections.
+    /// </summary>
+    [Theory]
+    [InlineData(0, 600)]
+    [InlineData(900, 901)]
+    public async Task RefusedBucket_IsDecidedWithoutWaitingOnItsLock(int backoffSeconds, int retryAfterSeconds)
+    {
+        var store = CreateStore();
+        var budget = new RateBudget($"test:hot-{backoffSeconds}", "k", Limit: 1, WindowSeconds: 600, BackoffSeconds: backoffSeconds);
+        await store.AcquireAsync([budget], T0, CancellationToken.None);
+        await store.AcquireAsync([budget], T0.AddSeconds(1), CancellationToken.None);
+
+        await using var holder = new NpgsqlConnection(_factory.MigratorConnectionString);
+        await holder.OpenAsync();
+        await using var transaction = await holder.BeginTransactionAsync();
+        await using (var lockRow = new NpgsqlCommand("SELECT 1 FROM rate_limit_buckets WHERE policy_id = @policy FOR UPDATE", holder, transaction))
+        {
+            lockRow.Parameters.AddWithValue("policy", budget.PolicyId);
+            await lockRow.ExecuteScalarAsync();
+        }
+
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        var refused = await store.AcquireAsync([budget], T0.AddSeconds(2), CancellationToken.None);
+        clock.Stop();
+
+        Assert.False(refused.Allowed);
+        Assert.Equal(T0.AddSeconds(retryAfterSeconds), refused.RetryAt);
+        Assert.True(clock.Elapsed < TimeSpan.FromSeconds(1), $"Took {clock.Elapsed}.");
+    }
+
     private PostgresRateLimitStore CreateStore()
     {
         // A replica's pool is bounded; two default pools of 100 would exceed the container's own

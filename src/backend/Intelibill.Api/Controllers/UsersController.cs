@@ -1,5 +1,6 @@
 using ErrorOr;
 using Intelibill.Api.Extensions;
+using Intelibill.Api.Middleware.RateLimiting;
 using Intelibill.Application.Features.Auth.DTOs;
 using Intelibill.Application.Features.Users.Commands.AddShopUser;
 using Intelibill.Application.Features.Users.Commands.ChangeMyPassword;
@@ -95,7 +96,10 @@ public sealed class UsersController : AuthenticatedControllerBase
         return result.ToActionResult(Ok);
     }
 
+    // Checks the current password, so it is a guessing route for anyone holding a session: the
+    // same budget as reauthentication, counted against the signed-in account.
     [HttpPost("me/change-password")]
+    [RateLimit(Limit = 5, PeriodInMinutes = 15, BackoffMinutes = 15, Subject = RateLimitSubject.Account, FailClosed = true)]
     public async Task<IActionResult> ChangeMyPassword([FromBody] ChangeMyPasswordRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuth();

@@ -27,8 +27,10 @@ internal sealed class RateLimitingOptionsValidator(IHostEnvironment? environment
         if (!string.IsNullOrWhiteSpace(options.BucketKey) && !RateLimitKeyHasher.TryParseKey(options.BucketKey, out _))
             errors.Add("RateLimiting:BucketKey must be a base64-encoded 32-byte key.");
 
-        if (!string.IsNullOrWhiteSpace(options.PreviousBucketKey) && !RateLimitKeyHasher.TryParseKey(options.PreviousBucketKey, out _))
-            errors.Add("RateLimiting:PreviousBucketKey must be a base64-encoded 32-byte key.");
+        if (!string.IsNullOrWhiteSpace(options.PreviousBucketKey)
+            && !RateLimitKeyHasher.IsUnkeyedSentinel(options.PreviousBucketKey)
+            && !RateLimitKeyHasher.TryParseKey(options.PreviousBucketKey, out _))
+            errors.Add($"RateLimiting:PreviousBucketKey must be a base64-encoded 32-byte key, or '{RateLimitKeyHasher.UnkeyedSentinel}' while moving from unkeyed hashing.");
 
         ValidateSubject(options.Account, "Account", errors);
         ValidateSubject(options.Destination, "Destination", errors);

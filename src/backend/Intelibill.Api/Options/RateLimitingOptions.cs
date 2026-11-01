@@ -60,7 +60,8 @@ public sealed class RateLimitingOptions
     /// <summary>
     /// The key <see cref="BucketKey"/> replaced. While set, every budget is also counted under it,
     /// so a rotation never hands out a fresh allowance. Remove it once the longest window (a day)
-    /// has passed since the rotation.
+    /// has passed since the rotation. <c>unkeyed</c> names the unkeyed hashing used before a
+    /// first key was configured.
     /// </summary>
     public string? PreviousBucketKey { get; init; }
 }

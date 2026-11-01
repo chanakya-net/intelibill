@@ -222,9 +222,9 @@ public sealed class RateLimitIntegrationTests(PostgreSqlTestFixture fixture) : I
         await SeedVerifiedUserAsync(scopeFactory, "known@shop.test");
         var peer = 0;
 
-        async Task<List<string>> ObserveAsync(string email)
+        async Task<List<(string Visible, int? RetryAfter)>> ObserveAsync(string email)
         {
-            var outcomes = new List<string>();
+            var outcomes = new List<(string Visible, int? RetryAfter)>();
             for (var i = 0; i < 4; i++)
             {
                 var response = await PostAsync(client, "api/auth/password-reset/request", new { email }, peer: $"192.0.2.{++peer}");
@@ -237,9 +237,16 @@ public sealed class RateLimitIntegrationTests(PostgreSqlTestFixture fixture) : I
         var known = await ObserveAsync("known@shop.test");
         var unknown = await ObserveAsync("nobody@shop.test");
 
-        Assert.Equal(known, unknown);
-        Assert.StartsWith("200|", known[0], StringComparison.Ordinal);
-        Assert.StartsWith("429|", known[3], StringComparison.Ordinal);
+        Assert.Equal(known.Select(o => o.Visible), unknown.Select(o => o.Visible));
+        Assert.StartsWith("200|", known[0].Visible, StringComparison.Ordinal);
+        Assert.StartsWith("429|", known[3].Visible, StringComparison.Ordinal);
+        // Retry-After counts down from each destination's own first request, so the two can
+        // differ by the second that elapsed between them; what must not differ is its presence.
+        Assert.All(known.Zip(unknown), pair =>
+        {
+            Assert.Equal(pair.First.RetryAfter is null, pair.Second.RetryAfter is null);
+            Assert.InRange(Math.Abs((pair.First.RetryAfter ?? 0) - (pair.Second.RetryAfter ?? 0)), 0, 2);
+        });
     }
 
     [Fact]
@@ -403,9 +410,9 @@ public sealed class RateLimitIntegrationTests(PostgreSqlTestFixture fixture) : I
 
     /// <summary>
     /// Everything a caller can observe except the per-request trace id: status, the limit headers,
-    /// and the body's title, detail and message.
+    /// and the body's title, detail and message, with Retry-After apart because it is a countdown.
     /// </summary>
-    private static async Task<string> PublicOutcomeAsync(HttpResponseMessage response)
+    private static async Task<(string Visible, int? RetryAfter)> PublicOutcomeAsync(HttpResponseMessage response)
     {
         static string Header(HttpResponseMessage r, string name) =>
             r.Headers.TryGetValues(name, out var values) ? string.Join(",", values) : "-";
@@ -414,15 +421,16 @@ public sealed class RateLimitIntegrationTests(PostgreSqlTestFixture fixture) : I
         static string Field(JsonElement root, string name) =>
             root.TryGetProperty(name, out var value) ? value.ToString() : "-";
 
-        return string.Join(
+        var visible = string.Join(
             "|",
             ((int)response.StatusCode).ToString(System.Globalization.CultureInfo.InvariantCulture),
             Header(response, "X-RateLimit-Limit"),
             Header(response, "X-RateLimit-Remaining"),
-            Header(response, "Retry-After"),
             Field(body.RootElement, "title"),
             Field(body.RootElement, "detail"),
             Field(body.RootElement, "message"));
+        var retryAfter = response.Headers.RetryAfter?.Delta is { } delta ? (int?)delta.TotalSeconds : null;
+        return (visible, retryAfter);
     }
 
     private static async Task<Guid> SeedVerifiedUserAsync(WebApplicationFactory<Program> factory, string email)

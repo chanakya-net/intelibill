@@ -84,6 +84,16 @@ public sealed class RateLimitingOptionsValidatorTests
     }
 
     [Fact]
+    public void Validate_WhenRotatingAwayFromUnkeyedHashing_Succeeds()
+    {
+        var validator = new RateLimitingOptionsValidator(new StubEnvironment("Production"));
+
+        var result = validator.Validate(name: null, new RateLimitingOptions { BucketKey = Key, PreviousBucketKey = "unkeyed" });
+
+        Assert.True(result.Succeeded);
+    }
+
+    [Fact]
     public void Validate_WhenSubjectLimitsAreNotPositive_Fails()
     {
         var validator = new RateLimitingOptionsValidator(new StubEnvironment("Development"));
