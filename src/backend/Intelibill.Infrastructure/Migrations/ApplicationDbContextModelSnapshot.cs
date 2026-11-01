@@ -2061,6 +2061,91 @@ namespace Intelibill.Infrastructure.Migrations
                     b.ToTable("purchase_order_sequences", (string)null);
                 });
 
+            modelBuilder.Entity("Intelibill.Domain.Entities.RealtimeConnectionLease", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("ConnectedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("connected_at");
+
+                    b.Property<string>("ConnectionId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("connection_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<string>("HubName")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("hub_name");
+
+                    b.Property<string>("InstanceId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("instance_id");
+
+                    b.Property<long>("ScopeVersion")
+                        .HasColumnType("bigint")
+                        .HasColumnName("scope_version");
+
+                    b.Property<long>("SecurityVersion")
+                        .HasColumnType("bigint")
+                        .HasColumnName("security_version");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("session_id");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<string>("ShopRole")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("shop_role");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_realtime_connection_leases");
+
+                    b.HasIndex("ConnectionId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_realtime_connection_leases_connection_id");
+
+                    b.HasIndex("ExpiresAt")
+                        .HasDatabaseName("ix_realtime_connection_leases_expires_at");
+
+                    b.HasIndex("InstanceId")
+                        .HasDatabaseName("ix_realtime_connection_leases_instance_id");
+
+                    b.HasIndex("HubName", "ShopId")
+                        .HasDatabaseName("ix_realtime_connection_leases_hub_name_shop_id");
+
+                    b.ToTable("realtime_connection_leases", (string)null);
+                });
+
             modelBuilder.Entity("Intelibill.Domain.Entities.ReconciliationIssue", b =>
                 {
                     b.Property<Guid>("Id")
