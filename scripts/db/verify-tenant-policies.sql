@@ -70,7 +70,8 @@ JOIN pg_namespace n ON n.oid = c.relnamespace
 WHERE n.nspname = 'public'
   AND c.relname IN ('users', 'shops', 'shop_memberships', 'shop_invitations', 'auth_sessions',
                     'refresh_tokens', 'password_reset_tokens', 'phone_challenges',
-                    'email_ownership_challenges', 'identity_mail', 'identity_sms')
+                    'email_ownership_challenges', 'identity_mail', 'identity_sms',
+                    'rate_limit_buckets')
   AND (c.relrowsecurity OR EXISTS (SELECT 1 FROM pg_policy p WHERE p.polrelid = c.oid))
 ORDER BY c.relname;
 

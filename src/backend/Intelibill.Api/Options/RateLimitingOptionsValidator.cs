@@ -22,17 +22,10 @@ internal sealed class RateLimitingOptionsValidator(IHostEnvironment? environment
                 "It replaces every endpoint's own rate limit with the global default, which would widen the " +
                 "limits protecting the authentication endpoints.");
 
-        // Without a shared key each replica would hash the same caller into a different bucket,
-        // multiplying every allowance by the replica count.
-        if (string.IsNullOrWhiteSpace(options.BucketKey))
-        {
-            if (!local)
-                errors.Add("RateLimiting:BucketKey is required outside Development and Testing: every replica must hash buckets with the same key.");
-        }
-        else if (!RateLimitKeyHasher.TryParseKey(options.BucketKey, out _))
-        {
+        // A missing key is allowed (RateLimitKeyHasher falls back to unkeyed hashing and warns);
+        // a malformed one is a configuration mistake that would otherwise pass silently.
+        if (!string.IsNullOrWhiteSpace(options.BucketKey) && !RateLimitKeyHasher.TryParseKey(options.BucketKey, out _))
             errors.Add("RateLimiting:BucketKey must be a base64-encoded 32-byte key.");
-        }
 
         if (!string.IsNullOrWhiteSpace(options.PreviousBucketKey) && !RateLimitKeyHasher.TryParseKey(options.PreviousBucketKey, out _))
             errors.Add("RateLimiting:PreviousBucketKey must be a base64-encoded 32-byte key.");

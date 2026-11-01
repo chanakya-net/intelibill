@@ -51,9 +51,9 @@ public sealed class RateLimitingOptions
     public SubjectBudgetMode SubjectMode { get; init; } = SubjectBudgetMode.Enforce;
 
     /// <summary>
-    /// Base64 of 32 random bytes. Bucket keys are HMACs under it, so the store holds no address,
-    /// account or destination. Every replica must share it. Required outside Development and
-    /// Testing, where a per-process key is generated instead.
+    /// Base64 of 32 random bytes. Bucket keys are HMACs under it, so the store holds nothing a
+    /// leaked table could be checked against. Every replica must share it. When absent, buckets
+    /// are hashed without a key (see <see cref="Middleware.RateLimiting.RateLimitKeyHasher"/>).
     /// </summary>
     public string? BucketKey { get; init; }
 

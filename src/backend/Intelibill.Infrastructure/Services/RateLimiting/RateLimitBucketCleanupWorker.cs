@@ -24,7 +24,8 @@ internal sealed partial class RateLimitBucketCleanupWorker(
         {
             try { await DeleteExpiredAsync(stoppingToken); }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
-            catch (Exception exception) { LogCleanupFailure(logger, exception); }
+            // Type only: a provider message can quote the connection or the statement.
+            catch (Exception exception) { LogCleanupFailure(logger, exception.GetType().Name); }
         }
     }
 
@@ -39,6 +40,6 @@ internal sealed partial class RateLimitBucketCleanupWorker(
         while (deleted == batchSize);
     }
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Rate limit bucket cleanup failed; it will run again at the next interval.")]
-    private static partial void LogCleanupFailure(ILogger logger, Exception exception);
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Rate limit bucket cleanup failed ({Cause}); it will run again at the next interval.")]
+    private static partial void LogCleanupFailure(ILogger logger, string cause);
 }

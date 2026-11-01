@@ -50,23 +50,16 @@ public sealed class RateLimitingOptionsValidatorTests
         Assert.True(result.Succeeded);
     }
 
+    /// <summary>
+    /// A missing key is not a reason to refuse to start: buckets are then hashed without one,
+    /// which every replica still agrees on, and the hasher warns. Refusing would take a deployed
+    /// revision down until a new secret is provisioned.
+    /// </summary>
     [Theory]
     [InlineData("Production")]
-    [InlineData("Staging")]
-    public void Validate_WhenBucketKeyMissingOutsideDevelopment_Fails(string environmentName)
-    {
-        var validator = new RateLimitingOptionsValidator(new StubEnvironment(environmentName));
-
-        var result = validator.Validate(name: null, new RateLimitingOptions());
-
-        Assert.True(result.Failed);
-        Assert.Contains(result.Failures!, failure => failure.Contains("RateLimiting:BucketKey", StringComparison.Ordinal));
-    }
-
-    [Theory]
     [InlineData("Development")]
     [InlineData("Testing")]
-    public void Validate_WhenBucketKeyMissingLocally_Succeeds(string environmentName)
+    public void Validate_WhenBucketKeyMissing_Succeeds(string environmentName)
     {
         var validator = new RateLimitingOptionsValidator(new StubEnvironment(environmentName));
 

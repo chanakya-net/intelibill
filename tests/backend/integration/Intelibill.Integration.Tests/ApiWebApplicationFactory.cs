@@ -1,5 +1,7 @@
 using System.Net;
+using Intelibill.Application.Common.Interfaces;
 using Intelibill.Infrastructure.Data;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -114,6 +116,7 @@ public sealed class ApiWebApplicationFactory(PostgreSqlTestFixture? fixture = nu
                 ["Jwt:Audience"] = "inventory.ai.integration",
                 ["Jwt:AccessTokenExpiryMinutes"] = "15",
                 ["Jwt:RefreshTokenExpiryDays"] = "7",
+                ["RateLimiting:BucketKey"] = RateLimitTestPeers.BucketKey,
             });
 
             if (maxPoolSize is not null)
@@ -156,6 +159,13 @@ public sealed class ApiWebApplicationFactory(PostgreSqlTestFixture? fixture = nu
             services.RemoveAll<IDistributedCache>();
             services.AddSingleton<IDistributedCache, NoOpDistributedCache>();
 
+            // What the no-op cache gave every test before the limiter had a store of its own: no
+            // limit at all, so a suite that signs in hundreds of times is not measuring the
+            // limiter. Tests about rate limiting put PostgresRateLimitStore back.
+            services.RemoveAll<IAtomicRateLimitStore>();
+            services.AddSingleton<IAtomicRateLimitStore, UnlimitedRateLimitStore>();
+            services.AddSingleton<IStartupFilter, RateLimitTestPeers.StartupFilter>();
+
             services.AddHttpClient("OtlpTraceExporter")
                 .ConfigurePrimaryHttpMessageHandler(static () => new NoOpOtlpHandler());
             services.AddHttpClient("OtlpMetricExporter")
@@ -189,6 +199,42 @@ internal sealed class NoOpDistributedCache : IDistributedCache
     public Task RemoveAsync(string key, CancellationToken token = default) => Task.CompletedTask;
     public void Set(string key, byte[] value, DistributedCacheEntryOptions options) { }
     public Task SetAsync(string key, byte[] value, DistributedCacheEntryOptions options, CancellationToken token = default) => Task.CompletedTask;
+}
+
+internal sealed class UnlimitedRateLimitStore : IAtomicRateLimitStore
+{
+    public Task<RateDecision> AcquireAsync(IReadOnlyList<RateBudget> budgets, DateTimeOffset now, CancellationToken ct) =>
+        Task.FromResult(new RateDecision(true, budgets[0].Limit, budgets[0].Limit, now.AddSeconds(budgets[0].WindowSeconds), null));
+
+    public Task<int> DeleteExpiredAsync(DateTimeOffset now, int batchSize, CancellationToken ct) => Task.FromResult(0);
+}
+
+/// <summary>
+/// The test server has no socket, so every request arrives from no address at all. A test that
+/// needs callers on different addresses names one in <see cref="Header"/>; it becomes the
+/// connection's remote address before forwarded-header processing runs, exactly where a real
+/// peer address would be.
+/// </summary>
+internal static class RateLimitTestPeers
+{
+    public const string Header = "X-Test-Peer";
+
+    // Public fixture key only; not a deployment secret.
+    public const string BucketKey = "cmF0ZS1saW1pdC10ZXN0LWJ1Y2tldC1rZXktMzJieXQ=";
+
+    internal sealed class StartupFilter : IStartupFilter
+    {
+        public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next) => app =>
+        {
+            app.Use(async (context, nextMiddleware) =>
+            {
+                if (context.Request.Headers.TryGetValue(Header, out var peer) && IPAddress.TryParse(peer, out var address))
+                    context.Connection.RemoteIpAddress = address;
+                await nextMiddleware();
+            });
+            next(app);
+        };
+    }
 }
 
 internal sealed class TestEmailService : Intelibill.Application.Common.Interfaces.IEmailService

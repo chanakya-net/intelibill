@@ -58,7 +58,7 @@ public sealed partial class RateLimitFilter(
         catch (RateLimitStoreUnavailableException exception)
         {
             metrics.StoreUnavailable(policy.FailClosed);
-            LogStoreUnavailable(logger, exception, policy.FailClosed);
+            LogStoreUnavailable(logger, exception.InnerException?.GetType().Name ?? nameof(RateLimitStoreUnavailableException), policy.FailClosed);
 
             // A credential check or a message send is not worth making without the shared limit:
             // a per-replica count would let the attempts it exists to stop through.
@@ -130,6 +130,8 @@ public sealed partial class RateLimitFilter(
         return new ObjectResult(problemDetails) { StatusCode = StatusCodes.Status429TooManyRequests };
     }
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Rate limit store unavailable; FailClosed={FailClosed}.")]
-    private static partial void LogStoreUnavailable(ILogger logger, Exception exception, bool failClosed);
+    // The exception object is not handed to the logger: a provider message can quote the
+    // connection or the statement. Its type is enough to tell an outage from a timeout.
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Rate limit store unavailable ({Cause}); FailClosed={FailClosed}.")]
+    private static partial void LogStoreUnavailable(ILogger logger, string cause, bool failClosed);
 }
