@@ -84,6 +84,12 @@ public sealed record CreateAdjustmentRequest(
 
 public sealed record VoidAdjustmentRequest(string Reason);
 
+/// <summary>
+/// A physical count of one batch. <c>ExpectedVersion</c> is the batch <c>version</c> the counter
+/// was shown; <c>OperationKey</c> makes a resend replay the committed count.
+/// </summary>
+public sealed record CountStockRequest(uint ExpectedVersion, decimal CountedQuantity, string Reason, string? OperationKey);
+
 public sealed record AddInventoryBatchSucceededRow(string ClientRowId, AddInventoryResultDto Result);
 
 public sealed record AddInventoryBatchFailedRow(

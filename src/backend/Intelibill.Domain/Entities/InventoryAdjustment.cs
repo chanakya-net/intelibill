@@ -165,9 +165,10 @@ public sealed class InventoryAdjustment : BaseEntity
             return Error.Validation("InventoryAdjustment.UnitCostNegative", "Unit cost cannot be negative.");
         }
 
-        if (costImpact <= 0)
+        // Free stock, or a delta too small to cost a paisa, still has to be countable.
+        if (costImpact < 0)
         {
-            return Error.Validation("InventoryAdjustment.CostImpactMustBePositive", "Cost impact must be greater than zero.");
+            return Error.Validation("InventoryAdjustment.CostImpactNegative", "Cost impact cannot be negative.");
         }
 
         if (batchQuantityBefore < 0 || batchQuantityAfter < 0 || inventoryQuantityBefore < 0 || inventoryQuantityAfter < 0)

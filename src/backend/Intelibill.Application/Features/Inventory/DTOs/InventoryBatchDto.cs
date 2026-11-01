@@ -21,4 +21,5 @@ public sealed record InventoryBatchDto(
     string? SupplierName,
     bool IsVoided,
     DateTimeOffset CreatedAt,
-    DateTimeOffset? UpdatedAt);
+    DateTimeOffset? UpdatedAt,
+    uint Version);

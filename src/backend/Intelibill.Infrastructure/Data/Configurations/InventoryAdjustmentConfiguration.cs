@@ -12,7 +12,7 @@ internal sealed class InventoryAdjustmentConfiguration : IEntityTypeConfiguratio
         builder.ToTable("inventory_adjustments", tableBuilder =>
         {
             tableBuilder.HasCheckConstraint("ck_inventory_adjustments_quantity_positive", "quantity > 0");
-            tableBuilder.HasCheckConstraint("ck_inventory_adjustments_cost_impact_positive", "cost_impact > 0");
+            tableBuilder.HasCheckConstraint("ck_inventory_adjustments_cost_impact_non_negative", "cost_impact >= 0");
             tableBuilder.HasCheckConstraint("ck_inventory_adjustments_unit_cost_non_negative", "unit_cost >= 0");
             tableBuilder.HasCheckConstraint("ck_inventory_adjustments_quantity_snapshots_non_negative", "batch_quantity_before >= 0 AND batch_quantity_after >= 0 AND inventory_quantity_before >= 0 AND inventory_quantity_after >= 0");
             tableBuilder.HasCheckConstraint(

@@ -1,6 +1,7 @@
 using ErrorOr;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Features.Inventory.Commands.CorrectStockCount;
 using Intelibill.Application.Features.Inventory.Commands.CreateAdjustment;
 using Intelibill.Application.Features.Inventory.Commands.ReassignBatchSupplier;
 using Intelibill.Application.Features.Inventory.Commands.UpdateInventoryBatch;
@@ -64,6 +65,27 @@ public sealed partial class InventoryController
                 request.Quantity,
                 request.PerformedAt,
                 request.Notes),
+            cancellationToken);
+
+        return result.ToActionResult(Ok);
+    }
+
+    [HttpPost("batches/{batchId:guid}/count")]
+    [Authorize(Policy = "OwnerOrManager")]
+    public async Task<IActionResult> CountStock(Guid batchId, [FromBody] CountStockRequest request, CancellationToken cancellationToken)
+    {
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
+
+        var result = await Bus.InvokeAsync<ErrorOr<StockCountResultDto>>(
+            new CorrectStockCountCommand(
+                batchId,
+                UserId!.Value,
+                ActiveShopId!.Value,
+                request.ExpectedVersion,
+                request.CountedQuantity,
+                request.Reason,
+                request.OperationKey),
             cancellationToken);
 
         return result.ToActionResult(Ok);

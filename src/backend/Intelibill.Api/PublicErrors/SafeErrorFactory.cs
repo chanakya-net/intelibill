@@ -1,5 +1,6 @@
 using FluentValidation;
 using FluentValidation.Results;
+using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Api.PublicErrors;
 
@@ -31,6 +32,7 @@ public sealed class SafeErrorFactory : ISafeErrorFactory
     public const string ValidationCode = "Validation.Failed";
     public const string InvalidRequestCode = "Request.Invalid";
     public const string UnauthorizedCode = "Auth.Unauthorized";
+    public const string ConcurrencyConflictCode = "Concurrency.Conflict";
 
     // Shorter attempted values are too likely to appear in an ordinary message by coincidence.
     private const int MinimumEchoLength = 4;
@@ -61,6 +63,13 @@ public sealed class SafeErrorFactory : ISafeErrorFactory
                 StatusCodes.Status400BadRequest,
                 InvalidRequestCode,
                 "The request is invalid.",
+                traceId),
+            // A row-version check failed: another request changed the same record first. Nothing of
+            // this request was saved, so the caller can reload and try again.
+            DbUpdateConcurrencyException => new PublicError(
+                StatusCodes.Status409Conflict,
+                ConcurrencyConflictCode,
+                "The record was changed by another request. Reload it and try again.",
                 traceId),
             UnauthorizedAccessException => new PublicError(
                 StatusCodes.Status401Unauthorized,

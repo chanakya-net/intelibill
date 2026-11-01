@@ -6,6 +6,7 @@ using Intelibill.Domain.Events;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
+using Microsoft.EntityFrameworkCore;
 using Wolverine;
 
 namespace Intelibill.Application.Features.Inventory.Commands.UpdateInventoryBatch;
@@ -21,6 +22,9 @@ public sealed class UpdateInventoryBatchCommandHandler(
     IUnitOfWork unitOfWork,
     IMessageBus messageBus)
 {
+    /// <summary>Reference on the movement that carries a correction's quantity delta.</summary>
+    public const string CorrectionReference = "Batch Correction";
+
     public async Task<ErrorOr<Success>> Handle(UpdateInventoryBatchCommand command, CancellationToken cancellationToken)
     {
         var user = await userRepository.GetByIdAsync(command.UserId, cancellationToken);
@@ -127,23 +131,23 @@ public sealed class UpdateInventoryBatchCommandHandler(
 
             inventoryRepository.Update(inventory);
 
-            // Record adjustment transaction
+            // The movement carries the signed delta: IN +d for an increase, OUT -d for a decrease.
             var transaction = StockTransaction.Create(
                 command.ShopId,
                 originalBatch.ItemId,
                 newBatch.Id,
                 quantityDifference > 0 ? StockTransactionType.In : StockTransactionType.Out,
-                Math.Abs(quantityDifference),
-                "Batch Correction",
+                quantityDifference,
+                CorrectionReference,
                 $"Corrected from batch {originalBatch.BatchNumber}. Qty adjusted from {oldQuantity} to {command.Quantity}",
                 DateTimeOffset.UtcNow,
                 command.UserId,
                 command.UserId);
-            
-            if (!transaction.IsError)
-            {
-                await stockTransactionRepository.AddAsync(transaction.Value, cancellationToken);
-            }
+
+            if (transaction.IsError)
+                return transaction.Errors;
+
+            await stockTransactionRepository.AddAsync(transaction.Value, cancellationToken);
         }
 
         // 5. Adjust Supplier Ledger
@@ -170,10 +174,10 @@ public sealed class UpdateInventoryBatchCommandHandler(
                         $"Correction reversal for batch: {originalBatch.BatchNumber}",
                         command.UserId);
 
-                    if (!reversal.IsError)
-                    {
-                        await supplierLedgerEntryRepository.AddAsync(reversal.Value, cancellationToken);
-                    }
+                    if (reversal.IsError)
+                        return Errors.Inventory.SupplierLedgerEntryInvalid;
+
+                    await supplierLedgerEntryRepository.AddAsync(reversal.Value, cancellationToken);
                 }
             }
 
@@ -193,15 +197,22 @@ public sealed class UpdateInventoryBatchCommandHandler(
                         command.Notes ?? $"Correction for batch: {targetBatchNumber}",
                         command.UserId);
 
-                    if (!newEntry.IsError)
-                    {
-                        await supplierLedgerEntryRepository.AddAsync(newEntry.Value, cancellationToken);
-                    }
+                    if (newEntry.IsError)
+                        return Errors.Inventory.SupplierLedgerEntryInvalid;
+
+                    await supplierLedgerEntryRepository.AddAsync(newEntry.Value, cancellationToken);
                 }
             }
         }
 
-        await unitOfWork.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Errors.Inventory.BatchVersionConflict;
+        }
 
         if (pricingInputsChanged)
         {

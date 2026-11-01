@@ -108,6 +108,7 @@ public static class TenantPolicyManifest
         Tenant("sales"),
         Tenant("service_code_sequences"),
         Tenant("services"),
+        Tenant("stock_counts"),
         Tenant("stock_transactions"),
         Tenant("supplier_ledger_entries"),
         Tenant("suppliers"),

@@ -14,7 +14,7 @@ internal sealed class SupplierLedgerEntryConfiguration : IEntityTypeConfiguratio
             tableBuilder.HasCheckConstraint("ck_supplier_ledger_entries_amount_non_zero", "amount <> 0");
             tableBuilder.HasCheckConstraint(
                 "ck_supplier_ledger_entries_batch_by_type",
-                "((entry_type = 'GOODS_RECEIVED' AND batch_id IS NOT NULL) OR (entry_type IN ('PAYMENT_MADE', 'RECORD_ADJUSTED') AND batch_id IS NULL))");
+                "((entry_type = 'GOODS_RECEIVED' AND batch_id IS NOT NULL) OR (entry_type IN ('PAYMENT_MADE', 'RECORD_ADJUSTED') AND batch_id IS NULL) OR (entry_type = 'REVERSAL'))");
         });
 
         builder.HasKey(e => e.Id);
