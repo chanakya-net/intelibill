@@ -69,10 +69,15 @@ public sealed record OfflineSalesSnapshotComplete(
     int ActiveLeaseCount,
     int ServiceCount = 0);
 
+/// <summary>
+/// A stream that stopped after records were sent. <paramref name="Message"/> is fixed text, never
+/// the failure's own; <paramref name="TraceId"/> finds the server's diagnostic for it.
+/// </summary>
 public sealed record OfflineSalesSnapshotError(
     Guid SnapshotId,
     string Code,
-    string Message);
+    string Message,
+    string TraceId);
 
 public sealed record OfflineSalesSnapshotMetadataRecord(OfflineSalesSnapshotMetadata Metadata) : IOfflineSalesSnapshotStreamRecord
 {

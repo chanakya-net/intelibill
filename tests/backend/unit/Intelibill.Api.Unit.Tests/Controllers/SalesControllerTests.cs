@@ -1,9 +1,14 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using ErrorOr;
+using System.Text;
+using System.Text.Json;
 using Intelibill.Api.Controllers;
+using Intelibill.Api.Logging;
+using Intelibill.Api.Unit.Tests.Logging;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Features.OfflineSalesSnapshot.DTOs;
 using Intelibill.Application.Features.Sales.Commands.RecordSale;
 using Intelibill.Application.Features.Sales.Commands.RecordSaleReturn;
 using Intelibill.Application.Features.Sales.Commands.ReserveInvoiceLease;
@@ -21,20 +26,118 @@ using Intelibill.Domain.ValueObjects;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using NSubstitute;
+using Serilog.Events;
 using Wolverine;
 
 namespace Intelibill.Api.Unit.Tests.Controllers;
 
-public class SalesControllerTests
+public sealed class SalesControllerTests : IDisposable
 {
+    private const string StreamSentinel = "Host=db;Password=snapshot-sentinel-3e1f";
+
     private readonly IMessageBus _bus = Substitute.For<IMessageBus>();
     private readonly IOfflineSalesSnapshotStreamingService _offlineSnapshotStreamingService =
         Substitute.For<IOfflineSalesSnapshotStreamingService>();
+    private readonly CapturedLog _log = new();
     private readonly SalesController _controller;
 
     public SalesControllerTests()
     {
-        _controller = new SalesController(_bus, _offlineSnapshotStreamingService);
+        _controller = new SalesController(
+            _bus,
+            _offlineSnapshotStreamingService,
+            new SafeDiagnosticWriter(_log.CreateLogger<SafeDiagnosticWriter>()));
+    }
+
+    public void Dispose() => _log.Dispose();
+
+    [Fact]
+    public async Task SnapshotFailure_AfterFirstRecord_EmitsSafeErrorWithoutComplete()
+    {
+        var (_, shopId) = ArrangeSnapshotCaller();
+        _offlineSnapshotStreamingService
+            .StreamAsync(shopId, Arg.Any<Guid>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>())
+            .Returns(call => StreamThenFail(shopId, call.ArgAt<Guid>(1), recordsBeforeFailure: 1));
+
+        await _controller.StreamOfflineSnapshot(CancellationToken.None);
+
+        var body = ReadBody();
+        var lines = body.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        Assert.Equal(2, lines.Length);
+        Assert.Equal("metadata", JsonDocument.Parse(lines[0]).RootElement.GetProperty("type").GetString());
+
+        var record = JsonDocument.Parse(lines[1]).RootElement;
+        Assert.Equal("error", record.GetProperty("type").GetString());
+        var error = record.GetProperty("error");
+        Assert.Equal("OfflineSnapshot.StreamFailed", error.GetProperty("code").GetString());
+        Assert.False(string.IsNullOrWhiteSpace(error.GetProperty("message").GetString()));
+        var traceId = error.GetProperty("traceId").GetString();
+        Assert.False(string.IsNullOrWhiteSpace(traceId));
+
+        Assert.DoesNotContain(
+            lines,
+            line => JsonDocument.Parse(line).RootElement.GetProperty("type").GetString() == "complete");
+        Assert.DoesNotContain("snapshot-sentinel", body, StringComparison.Ordinal);
+        Assert.DoesNotContain(nameof(InvalidOperationException), body, StringComparison.Ordinal);
+
+        var diagnostic = Assert.Single(_log.Events, e => e.Level == LogEventLevel.Error);
+        Assert.Equal(traceId, (diagnostic.Properties["TraceId"] as ScalarValue)?.Value);
+        Assert.Equal("OfflineSnapshot.StreamFailed", (diagnostic.Properties["ErrorCode"] as ScalarValue)?.Value);
+        Assert.DoesNotContain("snapshot-sentinel", _log.RenderedCompact(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task SnapshotFailure_BeforeFirstRecord_LeavesResponseToSafeErrorHandler()
+    {
+        var (_, shopId) = ArrangeSnapshotCaller();
+        _offlineSnapshotStreamingService
+            .StreamAsync(shopId, Arg.Any<Guid>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>())
+            .Returns(call => StreamThenFail(shopId, call.ArgAt<Guid>(1), recordsBeforeFailure: 0));
+
+        // Nothing has been written, so the request can still be answered as an ordinary failure
+        // by the exception middleware: a status the client checks, not a 200 with an error line.
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _controller.StreamOfflineSnapshot(CancellationToken.None));
+
+        Assert.Equal(string.Empty, ReadBody());
+        Assert.Empty(_log.Events);
+    }
+
+    private (Guid UserId, Guid ShopId) ArrangeSnapshotCaller()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("active_shop_id", shopId.ToString()));
+        _controller.HttpContext.Response.Body = new MemoryStream();
+        _offlineSnapshotStreamingService
+            .ValidateAccessAsync(userId, shopId, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<Success>>(Result.Success));
+        return (userId, shopId);
+    }
+
+    private string ReadBody()
+    {
+        var body = _controller.HttpContext.Response.Body;
+        body.Seek(0, SeekOrigin.Begin);
+        using var reader = new StreamReader(body, Encoding.UTF8, leaveOpen: true);
+        return reader.ReadToEnd();
+    }
+
+    private static async IAsyncEnumerable<IOfflineSalesSnapshotStreamRecord> StreamThenFail(
+        Guid shopId,
+        Guid snapshotId,
+        int recordsBeforeFailure)
+    {
+        if (recordsBeforeFailure > 0)
+        {
+            yield return new OfflineSalesSnapshotMetadataRecord(
+                new OfflineSalesSnapshotMetadata(snapshotId, shopId, 1, DateTimeOffset.UtcNow));
+        }
+
+        await Task.Yield();
+        throw new InvalidOperationException($"connection failed: {StreamSentinel}");
     }
 
     private void SetUserClaims(params Claim[] claims)
