@@ -135,7 +135,7 @@ public class AuthorizedRealtimeDispatcherTests
     }
 
     [Fact]
-    public async Task SendShopAsync_WhenAuthorityIsUnreachable_SendsNothing()
+    public async Task SendShopAsync_WhenAuthorityIsUnreachable_SendsToNoOneItCouldNotConfirm()
     {
         var lease = LeaseFor("connection-1");
         MakeLive(lease);
@@ -145,6 +145,27 @@ public class AuthorizedRealtimeDispatcherTests
         await CreateDispatcher().SendShopAsync(_shopId, "ProductAdded", new { ok = true });
 
         AssertNothingSent();
+        _hubClients.DidNotReceiveWithAnyArgs().Group(default!);
+    }
+
+    [Fact]
+    public async Task SendShopAsync_WhenAuthorityFailsPartWay_StillSendsToTheConfirmedRecipients()
+    {
+        // Each confirmed id passed a complete live check, so delivering to it exposes nothing.
+        // Dropping the event for the whole shop would punish every proven recipient for one failed
+        // lookup, which costs more staleness than it prevents.
+        var confirmed = LeaseFor("connection-confirmed");
+        var unchecked_ = LeaseFor("connection-unchecked");
+        MakeLive(confirmed);
+        MakeLive(unchecked_);
+        Candidates(confirmed, unchecked_);
+        _authority.FailAfter = 1;
+        _authority.Failure = new InvalidOperationException("authority store unavailable");
+
+        await CreateDispatcher().SendShopAsync(_shopId, "ProductAdded", new { ok = true });
+
+        _hubClients.Received(1).Clients(Arg.Is<IReadOnlyList<string>>(ids =>
+            ids.Count == 1 && ids[0] == "connection-confirmed"));
         _hubClients.DidNotReceiveWithAnyArgs().Group(default!);
     }
 
@@ -167,11 +188,10 @@ public class AuthorizedRealtimeDispatcherTests
         MakeLive(first);
         MakeLive(otherSession);
         Candidates(first, second, otherSession);
-        var counting = new CountingAuthority(_authority);
 
-        await CreateDispatcher(counting).SendShopAsync(_shopId, "ProductAdded", new { ok = true });
+        await CreateDispatcher().SendShopAsync(_shopId, "ProductAdded", new { ok = true });
 
-        Assert.Equal(2, counting.Calls);
+        Assert.Equal(2, _authority.Calls);
         _hubClients.Received(1).Clients(Arg.Is<IReadOnlyList<string>>(ids => ids.Count == 3));
     }
 
@@ -194,10 +214,10 @@ public class AuthorizedRealtimeDispatcherTests
         _targeted.DidNotReceiveWithAnyArgs().SendCoreAsync(default!, default!, default);
     }
 
-    private AuthorizedRealtimeDispatcher<ProductHub> CreateDispatcher(ILiveSessionAuthority? authority = null) =>
+    private AuthorizedRealtimeDispatcher<ProductHub> CreateDispatcher() =>
         new(_hubContext,
             _registry,
-            authority ?? _authority,
+            _authority,
             _clock,
             NullLogger<AuthorizedRealtimeDispatcher<ProductHub>>.Instance);
 
@@ -223,17 +243,4 @@ public class AuthorizedRealtimeDispatcherTests
         _registry
             .ListShopConnectionsAsync(Arg.Any<string>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(_ => Task.FromResult<IReadOnlyList<RealtimeConnection>>(connections));
-
-    private sealed class CountingAuthority(ILiveSessionAuthority inner) : ILiveSessionAuthority
-    {
-        public int Calls { get; private set; }
-
-        public Task<bool> IsValidAsync(
-            Intelibill.Application.Common.Security.SessionClaims claims,
-            CancellationToken cancellationToken = default)
-        {
-            Calls++;
-            return inner.IsValidAsync(claims, cancellationToken);
-        }
-    }
 }

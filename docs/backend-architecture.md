@@ -156,9 +156,16 @@ nothing and never falls back to a group send.
 
 **Leases.** `realtime_connection_leases` records each admitted transport: connection id, owning
 process, hub, and the identifiers a live check needs. No credential is stored. The table is
-identity-class and carries no row-level security policy, for the reason `auth_sessions` does not —
-the sweep reads it with no request and no shop context. The registry is shared storage rather than
-process memory because the replica that commits a mutation is rarely the one holding the socket.
+identity-class and carries no row-level security policy: both readers — dispatch on the Wolverine
+local queue, and the sweep on a background worker — run with no HttpContext and therefore an empty
+`app.active_shop_id`, so a shop-scoped predicate would hide the candidate rows from the dispatcher
+and the closable rows from the sweep.
+
+**Delivery is still single-replica.** `AddSignalR()` is configured with no backplane, so
+`Clients.Clients(ids)` reaches only sockets the dispatching process holds — the same limit the group
+broadcast had. What the shared registry buys today is that *refusal* is correct everywhere: a
+replica re-reads live authority before sending, so a revocation committed anywhere stops delivery
+here. Delivery across replicas needs a backplane and is not claimed.
 
 **Revocation.** `RealtimeRevocationWorker` sweeps every five seconds: it deletes expired leases and
 closes the sockets this process holds whose authority no longer validates. It is a sweep rather than
@@ -184,8 +191,8 @@ backoff for a network outage.
 |---|---|---|
 | Domain unit | `tests/backend/unit/Intelibill.Domain.Unit.Tests/` | 247 |
 | Application unit | `tests/backend/unit/Intelibill.Application.Unit.Tests/` | 961 |
-| API unit | `tests/backend/unit/Intelibill.Api.Unit.Tests/` | 456 |
-| Integration | `tests/backend/integration/Intelibill.Integration.Tests/` | 482 |
-| **Total** | | **2146** |
+| API unit | `tests/backend/unit/Intelibill.Api.Unit.Tests/` | 459 |
+| Integration | `tests/backend/integration/Intelibill.Integration.Tests/` | 483 |
+| **Total** | | **2150** |
 
-Integration tests use `WebApplicationFactory<Program>` backed by **Testcontainers** (`Testcontainers.PostgreSql`) — Docker required. Non-integration suite: 1664 passing.
+Integration tests use `WebApplicationFactory<Program>` backed by **Testcontainers** (`Testcontainers.PostgreSql`) — Docker required. Non-integration suite: 1667 passing.

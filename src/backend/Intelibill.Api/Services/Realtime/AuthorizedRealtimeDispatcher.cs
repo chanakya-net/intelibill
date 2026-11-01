@@ -98,11 +98,13 @@ internal sealed partial class AuthorizedRealtimeDispatcher<THub>(
                 }
                 catch (Exception ex)
                 {
-                    // The whole dispatch stops rather than delivering to the prefix that happened to
-                    // be checked before the store went away: a partially authorized send is a state
-                    // nobody can reason about afterwards.
-                    LogAuthorityUnavailable(logger, eventName, HubName, ex);
-                    return;
+                    // Stop checking, but still deliver to the recipients already confirmed. Each of
+                    // them passed a complete live check, so sending costs nothing in exposure, and
+                    // dropping the event for the whole shop would punish every proven recipient for
+                    // one failed lookup. Failing closed means never sending to an id that was not
+                    // validated - not refusing to send to the ones that were.
+                    LogAuthorityUnavailable(logger, eventName, HubName, authorized.Count, ex);
+                    break;
                 }
 
                 decisions[claims] = allowed;
@@ -129,10 +131,11 @@ internal sealed partial class AuthorizedRealtimeDispatcher<THub>(
 
     [LoggerMessage(
         Level = LogLevel.Error,
-        Message = "Dropped {EventName} on {HubName}: the live authority store could not be reached, so no recipient could be confirmed.")]
+        Message = "Cut {EventName} on {HubName} short: the live authority store stopped answering after {ConfirmedRecipients} recipient(s) were confirmed. Only those were sent to.")]
     private static partial void LogAuthorityUnavailable(
         ILogger logger,
         string eventName,
         string hubName,
+        int confirmedRecipients,
         Exception exception);
 }

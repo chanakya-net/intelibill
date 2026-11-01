@@ -190,7 +190,7 @@ describe('ProductSignalRService', () => {
         elapsedMilliseconds: 10,
         retryReason: new Error('Server timeout elapsed without receiving a message.'),
       }),
-    ).toBe(0);
+    ).toBe(2_000);
 
     expect(
       policy.nextRetryDelayInMilliseconds({

@@ -4,8 +4,12 @@ import { AuthService } from '../auth/auth.service';
 import { HUB_BASE_URL } from '../auth/auth.constants';
 import { HubConnectionFactory, HubConnectionLike } from './hub-connection.factory';
 
-/** Backoff for an ordinary network interruption, in milliseconds. */
-const RECONNECT_DELAYS_MS = [0, 2_000, 10_000, 30_000];
+// Backoff for an ordinary network interruption, in milliseconds. It deliberately starts above
+// zero: the server can refuse a connection *after* the handshake, which the client sees as a
+// successful connect followed by an immediate close, so the attempt counter resets and an
+// immediate-retry first step turns a refusal the negotiate endpoint happens to allow into a hot
+// loop. Two seconds costs nothing on a genuine transient and removes the storm.
+const RECONNECT_DELAYS_MS = [2_000, 10_000, 30_000];
 
 /**
  * Whether the last failure was the server refusing us rather than the network dropping us. A

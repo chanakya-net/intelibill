@@ -7,8 +7,8 @@ using Microsoft.EntityFrameworkCore;
 namespace Intelibill.Infrastructure.Services.Realtime;
 
 /// <summary>
-/// The lease registry on PostgreSQL. Shared storage rather than process memory, because the replica
-/// that commits a mutation is rarely the one holding the sockets that should hear about it.
+/// The lease registry on PostgreSQL. Shared storage rather than process memory, because a revocation
+/// committed on one replica has to stop delivery on every other.
 /// </summary>
 internal sealed class PostgresRealtimeConnectionRegistry(ApplicationDbContext db, TimeProvider clock)
     : IRealtimeConnectionRegistry

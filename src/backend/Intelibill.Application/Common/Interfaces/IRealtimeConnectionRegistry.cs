@@ -4,9 +4,14 @@ namespace Intelibill.Application.Common.Interfaces;
 
 /// <summary>
 /// Where live notification transports are recorded so that any replica can decide who a payload may
-/// reach. A process-local map cannot answer that: the connection being authorized is usually held by
-/// a different process than the one handling the mutation.
+/// reach, and so that the process holding a socket can find it again and close it.
 /// </summary>
+/// <remarks>
+/// Shared storage rather than a process-local map because a revocation committed on one replica must
+/// stop delivery on another. Note that without a SignalR backplane the <em>send</em> still only
+/// reaches sockets the dispatching process holds; what this table makes correct cluster-wide is the
+/// refusal, not the reach.
+/// </remarks>
 public interface IRealtimeConnectionRegistry
 {
     /// <summary>

@@ -86,11 +86,37 @@ public class RealtimeRevocationWorkerTests
     }
 
     [Fact]
-    public async Task Sweep_DeletesExpiredLeases()
+    public async Task Sweep_DeletesAbandonedLeasesOnlyAfterAGracePeriod()
     {
+        // The purge is not instance-scoped, so without the grace a replica would delete the lease a
+        // peer still needs in order to find and close its own just-expired socket.
         await CreateWorker().SweepAsync(CancellationToken.None);
 
-        await _registry.Received(1).RemoveExpiredAsync(Now, Arg.Any<CancellationToken>());
+        await _registry.Received(1).RemoveExpiredAsync(
+            Now - (RealtimeRevocationWorker.SweepInterval * 2),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Sweep_ClosesExpiredSocketsBeforePurgingTheirLeases()
+    {
+        // Ordering, stated as a test because getting it backwards is silent: purging first removes
+        // exactly the rows the loop needs, and the backstop then exists only on paper.
+        var connection = Lease("connection-1") with { ExpiresAt = Now };
+        MakeLive(connection);
+        Held(connection);
+        var order = new List<string>();
+        _registry
+            .When(r => r.ListInstanceConnectionsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()))
+            .Do(_ => order.Add("list"));
+        _registry
+            .When(r => r.RemoveExpiredAsync(Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>()))
+            .Do(_ => order.Add("purge"));
+
+        var closed = await CreateWorker().SweepAsync(CancellationToken.None);
+
+        Assert.Equal(1, closed);
+        Assert.Equal(["list", "purge"], order);
     }
 
     [Fact]
@@ -123,12 +149,30 @@ public class RealtimeRevocationWorkerTests
     }
 
     [Fact]
-    public async Task Sweep_WhenCleanupFails_Propagates()
+    public async Task Sweep_WhenCleanupFails_StillClosesRevokedSockets()
     {
-        // The background loop catches and retries on the next tick; swallowing it here would hide a
-        // registry that has stopped working entirely.
+        // Removing abandoned leases is bookkeeping. Letting one broken DELETE abort the pass would
+        // keep every revoked socket on this replica open for as long as the failure lasts.
+        var connection = Lease("connection-1");
+        _authority.LiveSessions.Add(connection.SessionId);
+        Held(connection);
         _registry
             .RemoveExpiredAsync(Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new InvalidOperationException("registry unavailable"));
+
+        var closed = await CreateWorker().SweepAsync(CancellationToken.None);
+
+        Assert.Equal(1, closed);
+        await _registry.Received(1).RemoveAsync("connection-1", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Sweep_WhenListingFails_Propagates()
+    {
+        // The background loop catches and retries on the next tick; swallowing it here would hide a
+        // registry that has stopped answering entirely.
+        _registry
+            .ListInstanceConnectionsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
             .ThrowsAsync(new InvalidOperationException("registry unavailable"));
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>

@@ -21,11 +21,17 @@ internal sealed class FakeSessionAuthority : ILiveSessionAuthority
     /// <summary>Set to make the authority store unreachable rather than negative.</summary>
     public Exception? Failure { get; set; }
 
+    /// <summary>How many questions are answered before <see cref="Failure"/> starts being thrown.</summary>
+    public int FailAfter { get; set; }
+
+    public int Calls { get; private set; }
+
     public Task<bool> IsValidAsync(SessionClaims claims, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(claims);
+        Calls++;
 
-        if (Failure is not null)
+        if (Failure is not null && Calls > FailAfter)
             return Task.FromException<bool>(Failure);
 
         if (!LiveSessions.Contains(claims.SessionId))

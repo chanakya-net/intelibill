@@ -38,6 +38,23 @@ public sealed class RealtimeAuthorizationIntegrationTests(PostgreSqlTestFixture 
     private readonly ApiWebApplicationFactory _factory = new(fixture);
 
     /// <summary>
+    /// The same API with the revocation sweep removed, so a connection is only ever closed or
+    /// refused by the dispatcher. Without this, a test asserting "nothing arrived" cannot tell
+    /// per-payload authorization from a sweep that happened to tick inside the window.
+    /// </summary>
+    private readonly ApiWebApplicationFactory _withoutSweep = new(
+        fixture,
+        services =>
+        {
+            foreach (var descriptor in services
+                .Where(x => x.ImplementationType?.Name == nameof(RealtimeRevocationWorker))
+                .ToArray())
+            {
+                services.Remove(descriptor);
+            }
+        });
+
+    /// <summary>
     /// A second API process on the same database. Deliberately never initialized: initialization
     /// drops and re-migrates the database, which would take the first instance's data with it. It
     /// shares the fixture's container, so it shares the schema the first instance created.
@@ -54,6 +71,7 @@ public sealed class RealtimeAuthorizationIntegrationTests(PostgreSqlTestFixture 
 
     public void Dispose()
     {
+        _withoutSweep.Dispose();
         _replicaB.Dispose();
         _factory.Dispose();
         GC.SuppressFinalize(this);
@@ -67,11 +85,11 @@ public sealed class RealtimeAuthorizationIntegrationTests(PostgreSqlTestFixture 
         var actor = await SecondDeviceAsync(client, watcher);
 
         await using var hub = await ConnectAsync(_factory, watcher.AccessToken);
-        var received = Watch(hub);
+        using var received = Watch(hub);
 
         await CreateItemAsync(client, actor.AccessToken);
 
-        var payload = await received.WaitAsync(Settle);
+        var payload = await received.Received.WaitAsync(Settle);
         Assert.Equal(watcher.ShopId, payload.GetProperty("shopId").GetGuid());
     }
 
@@ -86,15 +104,15 @@ public sealed class RealtimeAuthorizationIntegrationTests(PostgreSqlTestFixture 
         var closed = ClosedSignal(hub);
 
         // Baseline first, so a later silence means "refused" and not "never worked".
-        var first = Watch(hub);
+        using var first = Watch(hub);
         await CreateItemAsync(client, actor.AccessToken);
-        await first.WaitAsync(Settle);
+        await first.Received.WaitAsync(Settle);
 
         await RevokeSessionAsync(client, actor, watcher.SessionId);
 
-        var afterRevocation = Watch(hub);
+        using var afterRevocation = Watch(hub);
         await CreateItemAsync(client, actor.AccessToken);
-        await Assert.ThrowsAsync<TimeoutException>(() => afterRevocation.WaitAsync(Settle));
+        await Assert.ThrowsAsync<TimeoutException>(() => afterRevocation.Received.WaitAsync(Settle));
 
         // The sweep is the backstop, so the socket closes on its own within its bound.
         await closed.WaitAsync(RealtimeRevocationWorker.SweepInterval * 3);
@@ -109,15 +127,15 @@ public sealed class RealtimeAuthorizationIntegrationTests(PostgreSqlTestFixture 
 
         await using var hub = await ConnectAsync(_factory, member.AccessToken);
 
-        var first = Watch(hub);
+        using var first = Watch(hub);
         await CreateItemAsync(client, owner.AccessToken);
-        await first.WaitAsync(Settle);
+        await first.Received.WaitAsync(Settle);
 
         await RemoveMembershipAsync(owner.ShopId, member.UserId);
 
-        var afterRemoval = Watch(hub);
+        using var afterRemoval = Watch(hub);
         await CreateItemAsync(client, owner.AccessToken);
-        await Assert.ThrowsAsync<TimeoutException>(() => afterRemoval.WaitAsync(Settle));
+        await Assert.ThrowsAsync<TimeoutException>(() => afterRemoval.Received.WaitAsync(Settle));
     }
 
     [Fact]
@@ -130,10 +148,37 @@ public sealed class RealtimeAuthorizationIntegrationTests(PostgreSqlTestFixture 
         await RemoveMembershipAsync(owner.ShopId, member.UserId);
 
         // The token is untouched and still verifies; what is gone is the membership it names.
-        await Assert.ThrowsAnyAsync<Exception>(async () =>
+        var refusal = await Assert.ThrowsAnyAsync<Exception>(async () =>
         {
             await using var refused = await ConnectAsync(_factory, member.AccessToken);
         });
+
+        // Asserted on the status so the test cannot pass for an unrelated reason — a mistyped path
+        // or a fixture fault would otherwise satisfy it just as well.
+        Assert.Contains(
+            "401",
+            refusal.ToString(),
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task DisabledAccount_StopsNewPayloads()
+    {
+        using var client = Client(_factory);
+        var owner = await SignInAsync(client);
+        var member = await JoinAsShopStaffAsync(client, owner.ShopId);
+
+        await using var hub = await ConnectAsync(_factory, member.AccessToken);
+
+        using var first = Watch(hub);
+        await CreateItemAsync(client, owner.AccessToken);
+        await first.Received.WaitAsync(Settle);
+
+        await DisableAccountAsync(member.UserId);
+
+        using var afterDisable = Watch(hub);
+        await CreateItemAsync(client, owner.AccessToken);
+        await Assert.ThrowsAsync<TimeoutException>(() => afterDisable.Received.WaitAsync(Settle));
     }
 
     [Fact]
@@ -144,45 +189,45 @@ public sealed class RealtimeAuthorizationIntegrationTests(PostgreSqlTestFixture 
         var watcher = await SignInAsync(clientA);
         var actor = await SecondDeviceAsync(clientA, watcher);
 
-        // The watcher's socket is held by replica B; the revocation and the mutation both happen on
-        // replica A. Nothing is sent between the two processes — B's dispatcher re-reads authority.
+        // The watcher's socket is held by replica B and the revocation is committed through replica
+        // A. The mutation is issued through B because, with no SignalR backplane configured, a
+        // payload only reaches sockets the dispatching process holds — so routing it through A
+        // would assert nothing. What crosses replicas here is the authority decision: B refuses a
+        // payload it is perfectly able to deliver, because A revoked the session.
         await using var hub = await ConnectAsync(_replicaB, watcher.AccessToken);
 
-        var first = Watch(hub);
+        using var first = Watch(hub);
         await CreateItemAsync(clientB, actor.AccessToken);
-        await first.WaitAsync(Settle);
+        await first.Received.WaitAsync(Settle);
 
         await RevokeSessionAsync(clientA, actor, watcher.SessionId);
 
-        var afterRevocation = Watch(hub);
+        using var afterRevocation = Watch(hub);
         await CreateItemAsync(clientB, actor.AccessToken);
-        await Assert.ThrowsAsync<TimeoutException>(() => afterRevocation.WaitAsync(Settle));
+        await Assert.ThrowsAsync<TimeoutException>(() => afterRevocation.Received.WaitAsync(Settle));
     }
 
     [Fact]
     public async Task MissedRevocationWakeup_StillBlocksOutboundPayload()
     {
         // There is no wakeup to miss: authorization happens on the way out, so a replica that has
-        // not swept yet still refuses. This asserts that directly, by revoking and dispatching well
-        // inside one sweep interval.
-        using var client = Client(_factory);
+        // not swept yet still refuses. Run against a host with no sweep at all, because a clock
+        // assertion cannot prove this — the timer's phase is unknown, so a sweep could tick inside
+        // the window and produce the same silence with per-payload authorization removed entirely.
+        using var client = Client(_withoutSweep);
         var watcher = await SignInAsync(client);
         var actor = await SecondDeviceAsync(client, watcher);
 
-        await using var hub = await ConnectAsync(_factory, watcher.AccessToken);
-        var first = Watch(hub);
+        await using var hub = await ConnectAsync(_withoutSweep, watcher.AccessToken);
+        using var first = Watch(hub);
         await CreateItemAsync(client, actor.AccessToken);
-        await first.WaitAsync(Settle);
+        await first.Received.WaitAsync(Settle);
 
-        var started = DateTimeOffset.UtcNow;
         await RevokeSessionAsync(client, actor, watcher.SessionId);
-        var afterRevocation = Watch(hub);
-        await CreateItemAsync(client, actor.AccessToken);
-        await Assert.ThrowsAsync<TimeoutException>(() => afterRevocation.WaitAsync(Settle));
 
-        Assert.True(
-            DateTimeOffset.UtcNow - started < RealtimeRevocationWorker.SweepInterval,
-            "the refusal must not depend on a sweep having run");
+        using var afterRevocation = Watch(hub);
+        await CreateItemAsync(client, actor.AccessToken);
+        await Assert.ThrowsAsync<TimeoutException>(() => afterRevocation.Received.WaitAsync(Settle));
     }
 
     [Fact]
@@ -215,19 +260,26 @@ public sealed class RealtimeAuthorizationIntegrationTests(PostgreSqlTestFixture 
         return connection;
     }
 
-    /// <summary>The next ProductAdded payload, armed before the mutation that should produce it.</summary>
-    private static Task<JsonElement> Watch(HubConnection hub)
+/// <summary>
+    /// The next ProductAdded payload, armed before the mutation that should produce it. Disposable,
+    /// because a negative case never completes the wait and an undisposed handler would still be
+    /// attached when the next one is armed on the same hub.
+    /// </summary>
+    private sealed class Watcher : IDisposable
     {
-        var next = new TaskCompletionSource<JsonElement>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var subscription = hub.On<JsonElement>("ProductAdded", payload => next.TrySetResult(payload));
-        return next.Task.ContinueWith(
-            task =>
-            {
-                subscription.Dispose();
-                return task.GetAwaiter().GetResult();
-            },
-            TaskScheduler.Default);
+        private readonly IDisposable _subscription;
+        private readonly TaskCompletionSource<JsonElement> _next =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Watcher(HubConnection hub) =>
+            _subscription = hub.On<JsonElement>("ProductAdded", payload => _next.TrySetResult(payload));
+
+        public Task<JsonElement> Received => _next.Task;
+
+        public void Dispose() => _subscription.Dispose();
     }
+
+    private static Watcher Watch(HubConnection hub) => new(hub);
 
     private static Task ClosedSignal(HubConnection hub)
     {
@@ -335,6 +387,15 @@ public sealed class RealtimeAuthorizationIntegrationTests(PostgreSqlTestFixture 
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var membership = await db.ShopMemberships.SingleAsync(m => m.ShopId == shopId && m.UserId == userId);
         membership.ChangeAuthority(membership.Role, MembershipStatus.Removed);
+        await db.SaveChangesAsync();
+    }
+
+    private async Task DisableAccountAsync(Guid userId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var user = await db.Users.SingleAsync(u => u.Id == userId);
+        user.SetLoginEnabled(false);
         await db.SaveChangesAsync();
     }
 

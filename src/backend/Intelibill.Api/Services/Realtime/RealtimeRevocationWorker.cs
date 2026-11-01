@@ -59,9 +59,10 @@ internal sealed partial class RealtimeRevocationWorker(
 
         var now = clock.GetUtcNow();
 
-        // Safe to rerun, and it touches no session or business record.
-        await registry.RemoveExpiredAsync(now, cancellationToken);
-
+        // Listed before anything is deleted. A lease past its token expiry is precisely the one
+        // whose socket should be closed, so purging first would hide it from the loop below and
+        // leave this backstop existing only on paper.
+        //
         // Only this process's leases: another replica's socket cannot be closed from here, and
         // deleting its lease would take away the row it needs in order to find and close it.
         var held = await registry.ListInstanceConnectionsAsync(instance.Value, cancellationToken);
@@ -97,6 +98,26 @@ internal sealed partial class RealtimeRevocationWorker(
         if (closed > 0)
             LogClosed(logger, closed);
 
+        // Last, and guarded on its own. This removes what processes that are gone left behind, which
+        // is bookkeeping — coupling it to the revocation above would let one broken DELETE keep every
+        // revoked socket on this replica open indefinitely.
+        //
+        // The grace period is what keeps it from reaching across replicas: a lease still inside it
+        // belongs to an instance that has not had its own sweep yet, and that instance is the only
+        // one that can close the socket behind it.
+        try
+        {
+            await registry.RemoveExpiredAsync(now - (SweepInterval * 2), cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            LogCleanupFailed(logger, ex);
+        }
+
         return closed;
     }
 
@@ -109,6 +130,11 @@ internal sealed partial class RealtimeRevocationWorker(
         Level = LogLevel.Warning,
         Message = "Could not re-check connection {ConnectionId}; it stays open until the next sweep. No payload reaches it meanwhile, because dispatch authorizes every recipient.")]
     private static partial void LogAuthorityUnavailable(ILogger logger, string connectionId, Exception exception);
+
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "Could not remove abandoned realtime leases; revocation was unaffected and the next sweep retries.")]
+    private static partial void LogCleanupFailed(ILogger logger, Exception exception);
 
     [LoggerMessage(
         Level = LogLevel.Error,

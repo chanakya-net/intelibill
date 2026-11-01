@@ -87,25 +87,26 @@ public sealed partial class RealtimeConnectionGate(
             claims.ScopeVersion,
             expiresAt.Value);
 
+        // Tracked before the lease exists, not after. A sweep landing between the two would find the
+        // lease, fail the authority check, delete the row and have nothing to abort - leaving a
+        // socket open that neither dispatch nor any later sweep can see again.
+        tracker.Track(connection, context);
+
         try
         {
-            await registry.RegisterAsync(connection, context.ConnectionAborted);
-        }
-        catch (OperationCanceledException)
-        {
-            context.Abort();
-            return;
+            // Not the connection's own token: a registration cancelled mid-insert can still commit,
+            // and the lease would then outlive a connect that nothing is going to release.
+            await registry.RegisterAsync(connection, CancellationToken.None);
         }
         catch (Exception ex)
         {
             // An unregistered transport is one no dispatcher can authorize and no sweep can find.
             // Leaving it open would be an invisible subscription, so it is refused instead.
+            tracker.Forget(context.ConnectionId);
             LogRegistrationFailed(logger, hubName, ex);
             context.Abort();
             return;
         }
-
-        tracker.Track(connection, context);
     }
 
     public async Task ReleaseAsync(HubCallerContext context)
