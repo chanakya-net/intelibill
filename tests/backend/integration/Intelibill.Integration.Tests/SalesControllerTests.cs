@@ -1451,6 +1451,208 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         Assert.Equal(45m, inventory!.Quantity);
     }
 
+    private static object BuildCheckoutPayload(
+        string idempotencyKey,
+        string barcode,
+        Guid batchId,
+        Guid? customerId,
+        decimal quantity,
+        decimal paidAmount,
+        decimal dueAmount) => new
+        {
+            idempotencyKey,
+            customerId,
+            customerName = "Checkout Customer",
+            customerPhone = "+919876543210",
+            paymentMethod = (int)(dueAmount > 0 ? PaymentMethod.Credit : PaymentMethod.Cash),
+            paidAmount,
+            dueAmount,
+            items = new[]
+            {
+                new
+                {
+                    barcode,
+                    batchNumber = "B-001",
+                    itemName = "Test Item",
+                    quantity,
+                    costPrice = 80m,
+                    salesPrice = 100m,
+                    mrp = 120m,
+                    taxRatePercent = 18m,
+                    isPriceIncludingTax = false,
+                    inventoryBatchId = batchId,
+                },
+            },
+        };
+
+    private static async Task<HttpResponseMessage> PostSaleAsync(HttpClient client, string token, object payload)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/sales");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(payload);
+        return await client.SendAsync(request);
+    }
+
+    private static async Task<HttpResponseMessage> GetSaleByIdempotencyKeyAsync(HttpClient client, string token, string idempotencyKey)
+    {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/api/sales/by-idempotency-key/{Uri.EscapeDataString(idempotencyKey)}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return await client.SendAsync(request);
+    }
+
+    [Fact]
+    public async Task RecordSale_LostResponseThenLookupAndRetry_ReturnsOriginalWithSingleMutation()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+        var barcode = UniqueBarcode();
+        var inboundBody = await AddInventoryAsync(client, ownerToken, barcode, "B-001", 50m);
+        var batchId = inboundBody.GetProperty("inventoryBatchId").GetGuid();
+        var customerId = await AddCustomerAsync(
+            client, ownerToken, "Due Customer", $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}", true);
+        var idempotencyKey = $"checkout-{Guid.NewGuid():N}";
+        var payload = BuildCheckoutPayload(idempotencyKey, barcode, batchId, customerId, 2m, 36m, 200m);
+
+        // The first response is committed server-side but treated as lost by the browser.
+        var firstResponse = await PostSaleAsync(client, ownerToken, payload);
+        Assert.Equal(HttpStatusCode.Created, firstResponse.StatusCode);
+        var firstBody = await firstResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var saleId = firstBody.GetProperty("saleId").GetGuid();
+        var invoiceNumber = firstBody.GetProperty("invoiceNumber").GetString();
+
+        var lookupResponse = await GetSaleByIdempotencyKeyAsync(client, ownerToken, idempotencyKey);
+        Assert.Equal(HttpStatusCode.OK, lookupResponse.StatusCode);
+        var lookupBody = await lookupResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(saleId, lookupBody.GetProperty("saleId").GetGuid());
+        Assert.Equal(invoiceNumber, lookupBody.GetProperty("invoiceNumber").GetString());
+
+        var retryResponse = await PostSaleAsync(client, ownerToken, payload);
+        Assert.Equal(HttpStatusCode.Created, retryResponse.StatusCode);
+        var retryBody = await retryResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(saleId, retryBody.GetProperty("saleId").GetGuid());
+        Assert.Equal(invoiceNumber, retryBody.GetProperty("invoiceNumber").GetString());
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.Equal(1, await db.Sales.CountAsync(s => s.IdempotencyKey == idempotencyKey));
+        Assert.Equal(1, await db.StockTransactions.CountAsync(
+            t => t.InventoryBatchId == batchId && t.TransactionType == StockTransactionType.Out));
+        Assert.Equal(48m, (await db.InventoryBatches.SingleAsync(b => b.Id == batchId)).Quantity);
+        Assert.Equal(1, await db.CustomerLedgerEntries.CountAsync(e => e.SaleId == saleId));
+    }
+
+    [Fact]
+    public async Task RecordSale_SameIntentFromConcurrentTabs_PostsOneSale()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+        var barcode = UniqueBarcode();
+        var inboundBody = await AddInventoryAsync(client, ownerToken, barcode, "B-001", 50m);
+        var batchId = inboundBody.GetProperty("inventoryBatchId").GetGuid();
+        var idempotencyKey = $"checkout-{Guid.NewGuid():N}";
+        var payload = BuildCheckoutPayload(idempotencyKey, barcode, batchId, null, 3m, 354m, 0m);
+
+        using var secondTab = CreateClient();
+        var responses = await Task.WhenAll(
+            PostSaleAsync(client, ownerToken, payload),
+            PostSaleAsync(secondTab, ownerToken, payload));
+
+        var saleIds = new List<Guid>();
+        foreach (var response in responses)
+        {
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+            var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+            saleIds.Add(body.GetProperty("saleId").GetGuid());
+        }
+
+        Assert.Single(saleIds.Distinct());
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.Equal(1, await db.Sales.CountAsync(s => s.IdempotencyKey == idempotencyKey));
+        Assert.Equal(1, await db.StockTransactions.CountAsync(
+            t => t.InventoryBatchId == batchId && t.TransactionType == StockTransactionType.Out));
+        Assert.Equal(47m, (await db.InventoryBatches.SingleAsync(b => b.Id == batchId)).Quantity);
+    }
+
+    [Fact]
+    public async Task RecordSale_ChangedPayloadUnderSameIntent_ConflictsWithoutSecondMutation()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+        var barcode = UniqueBarcode();
+        var inboundBody = await AddInventoryAsync(client, ownerToken, barcode, "B-001", 50m);
+        var batchId = inboundBody.GetProperty("inventoryBatchId").GetGuid();
+        var idempotencyKey = $"checkout-{Guid.NewGuid():N}";
+
+        var original = await PostSaleAsync(
+            client, ownerToken, BuildCheckoutPayload(idempotencyKey, barcode, batchId, null, 1m, 118m, 0m));
+        Assert.Equal(HttpStatusCode.Created, original.StatusCode);
+        var originalSaleId = (await original.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("saleId").GetGuid();
+
+        var edited = await PostSaleAsync(
+            client, ownerToken, BuildCheckoutPayload(idempotencyKey, barcode, batchId, null, 4m, 472m, 0m));
+        Assert.Equal(HttpStatusCode.Conflict, edited.StatusCode);
+
+        var lookupResponse = await GetSaleByIdempotencyKeyAsync(client, ownerToken, idempotencyKey);
+        Assert.Equal(HttpStatusCode.OK, lookupResponse.StatusCode);
+        Assert.Equal(
+            originalSaleId,
+            (await lookupResponse.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("saleId").GetGuid());
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.Equal(1, await db.Sales.CountAsync(s => s.IdempotencyKey == idempotencyKey));
+        Assert.Equal(49m, (await db.InventoryBatches.SingleAsync(b => b.Id == batchId)).Quantity);
+    }
+
+    [Fact]
+    public async Task GetSaleByIdempotencyKey_UnknownKey_ReturnsNotFound()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+
+        var response = await GetSaleByIdempotencyKeyAsync(client, ownerToken, $"checkout-{Guid.NewGuid():N}");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(Errors.Sale.IdempotencyKeyNotFound.Code, body.GetProperty("title").GetString());
+    }
+
+    [Fact]
+    public async Task GetSaleByIdempotencyKey_OtherActorOrShop_ReturnsNotFound()
+    {
+        using var client = CreateClient();
+        var token = await RegisterAsync(client);
+        var ownerToken = await CreateShopAsync(client, token);
+        var shopId = await GetShopIdFromTokenAsync(client, ownerToken);
+        var barcode = UniqueBarcode();
+        var inboundBody = await AddInventoryAsync(client, ownerToken, barcode, "B-001", 50m);
+        var batchId = inboundBody.GetProperty("inventoryBatchId").GetGuid();
+        var idempotencyKey = $"checkout-{Guid.NewGuid():N}";
+
+        var created = await PostSaleAsync(
+            client, ownerToken, BuildCheckoutPayload(idempotencyKey, barcode, batchId, null, 1m, 118m, 0m));
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var ownerLookup = await GetSaleByIdempotencyKeyAsync(client, ownerToken, idempotencyKey);
+        Assert.Equal(HttpStatusCode.OK, ownerLookup.StatusCode);
+
+        var (_, staffEmail, staffPassword) = await AddShopUserAsync(client, ownerToken, shopId);
+        var staffToken = await LoginAsync(client, staffEmail, staffPassword);
+        var staffLookup = await GetSaleByIdempotencyKeyAsync(client, staffToken, idempotencyKey);
+        Assert.Equal(HttpStatusCode.NotFound, staffLookup.StatusCode);
+
+        var otherOwnerToken = await CreateShopAsync(client, await RegisterAsync(client));
+        var otherShopLookup = await GetSaleByIdempotencyKeyAsync(client, otherOwnerToken, idempotencyKey);
+        Assert.Equal(HttpStatusCode.NotFound, otherShopLookup.StatusCode);
+    }
+
     [Fact]
     public async Task RecordSale_ReplayPreservesWarnings()
     {
