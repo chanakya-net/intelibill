@@ -54,25 +54,25 @@
 
 **Files:** Create `Domain/Entities/OperationReceipt.cs`, `Domain/Enums/FinancialOperationType.cs`, `Domain/Interfaces/Repositories/IOperationReceiptRepository.cs`, `Application/Common/Operations/{IFinancialOperationExecutor,FinancialOperationScope,FinancialOperationHasher}.cs`, `Application/Common/Errors/Errors.Operation.cs`, `Infrastructure/Data/Configurations/OperationReceiptConfiguration.cs`, `Infrastructure/Repositories/OperationReceiptRepository.cs`, `Infrastructure/Services/Operations/FinancialOperationExecutor.cs`, migration `AddOperationReceipts` (+ RLS SQL); modify `ApplicationDbContext`, `DependencyInjection.cs`, `TenantPolicyManifest`.
 
-- [ ] Executor algorithm: refuse if a transaction is already open (no nesting) → begin → `INSERT … ON CONFLICT (shop_id, operation_type, operation_key) DO NOTHING` → 0 rows: rollback, clear tracker, read receipt, compare hash (`PayloadMismatch`) or deserialize `ResponseBody` to `T` → 1 row: run action; error ⇒ rollback + clear, return errors; exception ⇒ rollback, rethrow; success ⇒ `UPDATE` receipt (status, body, completed_at) and commit.
-- [ ] Migration adds table, unique index, `shop_id` index, RLS policy; manifest `Tenant("operation_receipts")`.
-- [ ] Unit: `FinancialOperationHasher` is stable and changes with amount.
+- [x] Executor algorithm: refuse if a transaction is already open (no nesting) → begin → `INSERT … ON CONFLICT (shop_id, operation_type, operation_key) DO NOTHING` → 0 rows: rollback, clear tracker, read receipt, compare hash (`PayloadMismatch`) or deserialize `ResponseBody` to `T` → 1 row: run action; error ⇒ rollback + clear, return errors; exception ⇒ rollback, rethrow; success ⇒ `UPDATE` receipt (status, body, completed_at) and commit.
+- [x] Migration adds table, unique index, `shop_id` index, RLS policy; manifest `Tenant("operation_receipts")`.
+- [x] Unit: `FinancialOperationHasher` is stable and changes with amount.
 
 ### Task 2: Payments, lookup and database proofs
 
 **Files:** modify both payment commands/validators/handlers and `CustomersController`/`SuppliersController` requests; create `Application/Features/FinancialOperations/Queries/GetFinancialOperation/*`, `Api/Controllers/FinancialOperationsController.cs`, `tests/.../FinancialOperationTests.cs`; extend handler unit tests.
 
-- [ ] Handlers authorize and load the target first, then (keyed) route the posting through the executor; unkeyed keeps today's path.
-- [ ] `GET api/financial-operations/{type}/{key}` (`OwnerOrManager`): membership + role check, then `{operationType, operationKey, targetId, actorUserId, completedAt, response}` or 404.
-- [ ] Integration tests: Review Focus 1–4, plus lookup found/unknown.
+- [x] Handlers authorize and load the target first, then (keyed) route the posting through the executor; unkeyed keeps today's path.
+- [x] `GET api/financial-operations/{type}/{key}` (`OwnerOrManager`): membership + role check, then `{operationType, operationKey, targetId, actorUserId, completedAt, response}` or 404.
+- [x] Integration tests: Review Focus 1–4, plus lookup found/unknown.
 
 ### Task 3: Web financial intents
 
 **Files:** create `core/services/financial-operation-intent.service.ts` (+ spec), `shared/components/pending-financial-operation/*`; modify `customer.service.ts`, `supplier-ledger.service.ts`, `auth.constants.ts`, suppliers actions/effects/facade/detail/payment form, customers page, i18n (nine locales).
 
-- [ ] `prepare(scope, type, targetId, payload)` writes a frozen intent to `localStorage` before returning (throws ⇒ nothing sent); `pending(scope, type, targetId)`; `send(scope, intent, sender)` refuses a foreign scope, marks `unknown` on 0/408/429/5xx/non-HTTP, clears on success, discards on other 4xx; `check(scope, intent)` resolves via the lookup.
-- [ ] Payment forms: an unresolved intent for the target shows amount/time with **Check status** and **Retry same payment** and blocks a new payment for that target.
-- [ ] Specs: Review Focus 5 + storage-failure-sends-nothing + rejection-discards.
+- [x] `prepare(scope, type, targetId, payload)` writes a frozen intent to `localStorage` before returning (throws ⇒ nothing sent); `pending(scope, type, targetId)`; `send(scope, intent, sender)` refuses a foreign scope, marks `unknown` on 0/408/429/5xx/non-HTTP, clears on success, discards on other 4xx; `check(scope, intent)` resolves via the lookup.
+- [x] Payment forms: an unresolved intent for the target shows amount/time with **Check status** and **Retry same payment** and blocks a new payment for that target.
+- [x] Specs: Review Focus 5 + storage-failure-sends-nothing + rejection-discards.
 
 ## Verification
 
@@ -81,3 +81,10 @@
 ## Rollout / rollback
 
 Table and RLS first (this migration), server accepts optional keys, web sends keys; requiring the key is a later change once legacy-unkeyed warnings stop. Rollback never deletes receipts and never strips keys from the web client.
+
+## Deferred
+
+- Returns, voids, single/bulk inbound, adjustments and purchase-order receipts adopt the executor in their owning plans (13, 16, 31, 32); plan 13 keeps per-row receipts, never one batch-wide transaction.
+- Requiring `operationKey` (rejecting unkeyed payments) once `Legacy unkeyed financial command` warnings stop.
+- Which privileged roles may reconcile another operator's action beyond owner/manager, and the receipt retention policy (plan 40).
+- Restricted-role fixtures from plan 48 for `operation_receipts` beyond the manifest-driven RLS suites.

@@ -44,8 +44,8 @@ For authenticated requests, `active_shop_id` is extracted from JWT and set as a 
 - **Items**: catalog CRUD + SSE streaming endpoint (`GET /api/items/stream`)
 - **Inventory**: inbound stock (single + batch), batch management, void/reassign
 - **Sales**: record sale, list/detail, profit-loss report, cost tracking per batch at sale time. `POST /api/sales` replays an identical request under the caller's `(shop, actor, idempotencyKey)` and answers 409 `Sale.IdempotencyConflict` for changed content; `GET /api/sales/by-idempotency-key/{key}` is the read-only reconciliation for a checkout whose response was lost (404 `Sale.IdempotencyKeyNotFound` only means nothing committed is visible yet — re-sending the identical request is what converges)
-- **Customers**: CRUD + credit ledger + payment recording
-- **Suppliers**: CRUD + purchase ledger + payment recording, status tracking
+- **Customers**: CRUD + credit ledger + payment recording (keyed by `operationKey`; see § Financial Operation Receipts)
+- **Suppliers**: CRUD + purchase ledger + payment recording (keyed by `operationKey`), status tracking
 - **Expenses**: record + correct + categorise
 - **Bank Accounts**: CRUD per shop
 - **Users**: shop user management (add/edit/roles), profile self-service, password change
@@ -311,6 +311,44 @@ ASP.NET Core and HttpClient instrumentation redact query values by default, and 
 whose query names an identity secret are dropped. Hub `access_token` is read on `/hubs` only.
 Ingress/platform access logs are outside this boundary and must be configured not to keep query
 strings.
+
+## Financial Operation Receipts
+
+A non-repeatable financial command carries an `operationKey` and runs through
+`IFinancialOperationExecutor` (`Infrastructure/Services/Operations/FinancialOperationExecutor.cs`).
+Adopted so far: customer payments (`customer-payment`) and supplier payments
+(`supplier-payment`). Sales keep their own `(shop, actor, idempotencyKey)` deduplication.
+
+**Scope.** `operation_receipts` is unique on `(shop_id, operation_type, operation_key)` and not
+on the actor, so another owner or manager of the shop reconciles the same operation instead of
+posting it again. It is a tenant table with the standard `_shop_isolation` policy.
+
+**One transaction.** The executor refuses to join an open transaction, begins one, and reserves
+the receipt with `INSERT … ON CONFLICT DO NOTHING`. A concurrent uncommitted twin makes PostgreSQL
+block that insert until the twin ends; no unique violation is raised, so no aborted transaction is
+ever continued. When the insert reserves the row, the handler's mutation runs in the same unit of
+work (it saves but never commits), the serialized response is written onto the receipt, and both
+commit together. An action error or exception rolls back the reservation with the mutation.
+
+**Replay.** When the insert affects no row, the attempt rolls back, rereads the committed receipt
+and either returns its stored response verbatim — the original entry id and the balance as it was
+then — or answers 409 `Operation.PayloadMismatch` when the canonical payload hash
+(`FinancialOperationHasher`: target + business fields, amounts without trailing zeros) differs.
+
+**Authorization first.** Handlers check membership, role and the target's shop before calling the
+executor; `GET /api/financial-operations/{type}/{key}` (`OwnerOrManager`) checks active
+membership and role before reading. A 404 `Operation.NotFound` means nothing committed is visible
+yet, never that a timed-out request failed — resending the identical request is what converges.
+
+**Compatibility.** `operationKey` is optional until every client sends one; an unkeyed payment
+still posts and logs `Legacy unkeyed financial command`. Receipts are retained financial records
+and are never deleted.
+
+**Web.** `FinancialOperationIntentService` (`core/services`) writes the frozen payload and a fresh
+key to `localStorage` before sending (a failed write sends nothing), replays only that payload, keeps
+the intent `unknown` on 0/408/429/5xx/transport loss, discards it on any other 4xx, and clears it on
+success or a found lookup. It never sends an intent from another user or shop. An unresolved intent
+replaces the payment form with Check status / Retry same payment.
 
 ## Test Structure
 
