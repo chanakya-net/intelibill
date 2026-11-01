@@ -1194,6 +1194,25 @@
         "cash": "Cash",
         "credit": "Credit",
         "upi": "UPI"
+      },
+      "pendingCheckout": {
+        "title": "Checkout awaiting confirmation",
+        "hint": "These sales were sent but their result is unknown. Check status or retry the same checkout; do not bill the customer again.",
+        "lines": "{{count}} line(s)",
+        "currentCart": "Current cart",
+        "check": "Check status",
+        "retry": "Retry same checkout",
+        "startNew": "Start new sale",
+        "blocksSubmit": "This cart is already a checkout awaiting confirmation. Check its status or retry it instead of submitting again.",
+        "persistFailed": "The checkout could not be saved on this device, so it was not sent. Please try again.",
+        "stillPending": "No confirmed sale yet. Retry the same checkout to finish it.",
+        "uncertain": "The sale may have been recorded. Check its status or retry the same checkout before billing again.",
+        "inProgressElsewhere": "This checkout is being sent from another tab. Check its status shortly.",
+        "status": {
+          "prepared": "Saved",
+          "sending": "Sending",
+          "uncertain": "Unconfirmed"
+        }
       }
     },
     "detail": {

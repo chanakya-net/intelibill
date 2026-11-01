@@ -1,7 +1,8 @@
 import { inject, Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
-import { catchError, map, of, switchMap } from 'rxjs';
+import { catchError, firstValueFrom, from, map, mergeMap, of, switchMap } from 'rxjs';
 
+import { CheckoutIntentService, classifyCheckoutSendFailure } from '../services/checkout-intent.service';
 import { SaleService } from '../services/sale.service';
 import { SalesActions } from './sales.actions';
 
@@ -9,6 +10,7 @@ import { SalesActions } from './sales.actions';
 export class SalesEffects {
   private readonly actions$ = inject(Actions);
   private readonly saleService = inject(SaleService);
+  private readonly checkoutIntents = inject(CheckoutIntentService);
 
   loadSales$ = createEffect(() =>
     this.actions$.pipe(
@@ -136,21 +138,48 @@ export class SalesEffects {
     )
   );
 
+  // mergeMap, not switchMap: a later checkout must never cancel an in-flight sale POST, whose
+  // outcome would then be unknown.
   recordSale$ = createEffect(() =>
     this.actions$.pipe(
       ofType(SalesActions.recordSaleRequested),
-      switchMap(({ payload }) =>
-        this.saleService.recordSale(payload).pipe(
-          map((sale) => SalesActions.recordSaleSucceeded({ sale })),
-          catchError((error) =>
-            of(
-              SalesActions.recordSaleFailed({
-                errorMessage: error.error?.detail || 'errors.sales.recordFailed',
-              })
-            )
-          )
-        )
-      )
+      mergeMap(({ payload, intentId }) => {
+        if (!intentId) {
+          return this.saleService.recordSale(payload).pipe(
+            map((sale) => SalesActions.recordSaleSucceeded({ sale })),
+            catchError((error) =>
+              of(SalesActions.recordSaleFailed({ errorMessage: error.error?.detail || 'errors.sales.recordFailed' })),
+            ),
+          );
+        }
+        return from(this.sendIntent(intentId));
+      })
     )
   );
+
+  private async sendIntent(intentId: string) {
+    const intent = await this.checkoutIntents.claimForSend(intentId).catch(() => null);
+    if (!intent) {
+      // Another tab owns the send, or the intent already resolved: reconcile instead of sending.
+      return SalesActions.recordSaleUncertain({ intentId, errorMessage: 'sales.newSale.pendingCheckout.inProgressElsewhere' });
+    }
+
+    try {
+      const sale = await firstValueFrom(this.checkoutIntents.send(intent));
+      await this.checkoutIntents.confirm(intentId, sale).catch(() => null);
+      return SalesActions.recordSaleSucceeded({ sale, intentId });
+    } catch (error) {
+      if (classifyCheckoutSendFailure(error) === 'rejected') {
+        const code = (error as { error?: { title?: string } }).error?.title ?? 'unknown';
+        await this.checkoutIntents.reject(intentId, code).catch(() => null);
+        return SalesActions.recordSaleFailed({
+          intentId,
+          errorMessage: (error as { error?: { detail?: string } }).error?.detail || 'errors.sales.recordFailed',
+        });
+      }
+      await this.checkoutIntents.markUncertain(intentId).catch(() => null);
+      return SalesActions.recordSaleUncertain({ intentId, errorMessage: 'sales.newSale.pendingCheckout.uncertain' });
+    }
+  }
 }
+

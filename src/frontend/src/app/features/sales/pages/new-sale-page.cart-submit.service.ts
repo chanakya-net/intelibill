@@ -5,8 +5,11 @@ import type {
   RecordSaleRequest,
 } from '../services/sale.models';
 import { CartItem } from '../services/sale-cart-state.service';
+import type { CheckoutIntent } from '../../../core/storage/checkout-intent-indexeddb.service';
 
 export abstract class NewSalePageCartSubmitService extends NewSalePageCartSelectionService {
+  private isPreparingCheckout = false;
+
   onAddToCart(): void {
     const sellable = this.selectedSellable();
     if (!sellable) return;
@@ -125,7 +128,15 @@ export abstract class NewSalePageCartSubmitService extends NewSalePageCartSelect
   async onSubmit(): Promise<void> {
     if (this.isSubmitting()) return;
     if (this.isOfflineSubmitting()) return;
+    if (this.isPreparingCheckout) return;
     if (this.cart().length === 0 && this.serviceCart().length === 0) return;
+
+    // This cart already left as a checkout whose outcome is unknown. It must be reconciled or
+    // retried as that same checkout — never resent under a new key, nor billed offline.
+    if (this.activeCheckoutIntentId()) {
+      this.paymentSplitError.set('sales.newSale.pendingCheckout.blocksSubmit');
+      return;
+    }
     if (this.customerForm.invalid || this.paymentForm.invalid) {
       this.customerForm.markAllAsTouched();
       this.paymentForm.markAllAsTouched();
@@ -249,7 +260,124 @@ export abstract class NewSalePageCartSubmitService extends NewSalePageCartSelect
       creditNoteCustomerMismatchConfirmed: this.creditNoteCustomerMismatchConfirmed() || undefined,
     };
 
-    this.salesFacade.recordSale(request);
+    this.isPreparingCheckout = true;
+    try {
+      const intent = await this.checkoutIntents.prepare(this.checkoutScope(), request);
+      this.activeCheckoutIntentId.set(intent.intentId);
+      this.pendingCheckouts.update((intents) => [...intents, intent]);
+      this.salesFacade.recordSale(intent.request, intent.intentId);
+    } catch {
+      // Not durably stored, so not sent: the cart stays editable and nothing reached the server.
+      this.paymentSplitError.set('sales.newSale.pendingCheckout.persistFailed');
+    } finally {
+      this.isPreparingCheckout = false;
+    }
+  }
+
+  async refreshPendingCheckouts(): Promise<void> {
+    const scope = this.checkoutScope();
+    let unresolved: readonly CheckoutIntent[];
+    try {
+      unresolved = await this.checkoutIntents.loadUnresolved(scope);
+    } catch {
+      return;
+    }
+    const current = this.checkoutScope();
+    if (current.userId !== scope.userId || current.shopId !== scope.shopId) {
+      return;
+    }
+
+    this.pendingCheckouts.set(unresolved);
+    const activeId = this.activeCheckoutIntentId();
+    if (activeId && !unresolved.some((intent) => intent.intentId === activeId)) {
+      await this.settleDetachedActiveCheckout(activeId);
+    }
+    if (!this.activeCheckoutIntentId()) {
+      const restored = this.findIntentForCurrentCart(unresolved);
+      if (restored) {
+        this.activeCheckoutIntentId.set(restored.intentId);
+      }
+    }
+  }
+
+  onRetryCheckout(intentId: string): void {
+    const intent = this.pendingCheckouts().find((candidate) => candidate.intentId === intentId);
+    if (!intent || this.isSubmitting()) return;
+    this.paymentSplitError.set('');
+    this.salesFacade.recordSale(intent.request, intent.intentId);
+  }
+
+  onReconcileCheckout(intentId: string): void {
+    if (this.isReconcilingCheckout()) return;
+    this.isReconcilingCheckout.set(true);
+    this.paymentSplitError.set('');
+    this.checkoutIntents.recover(this.checkoutScope(), intentId).subscribe({
+      next: (recovery) => {
+        this.isReconcilingCheckout.set(false);
+        if (recovery.kind === 'replayed') {
+          // The success effect refreshes the list and clears the cart once the sale is shown.
+          this.salesFacade.checkoutRecovered(recovery.sale, intentId);
+          return;
+        }
+        if (recovery.kind === 'pending') {
+          this.paymentSplitError.set('sales.newSale.pendingCheckout.stillPending');
+        }
+        void this.refreshPendingCheckouts();
+      },
+      error: () => {
+        this.isReconcilingCheckout.set(false);
+        this.paymentSplitError.set('sales.newSale.pendingCheckout.stillPending');
+      },
+    });
+  }
+
+  /** Detaches the cart from its unresolved checkout and starts a fresh draft; the checkout stays recoverable. */
+  onStartNewDraft(): void {
+    this.activeCheckoutIntentId.set(null);
+    this.resetTransientState();
+  }
+
+  getPendingCheckoutAmount(intent: CheckoutIntent): number {
+    const request = intent.request;
+    return this.roundAmount(request.paidAmount + request.dueAmount + (request.creditNoteAppliedAmount ?? 0));
+  }
+
+  /**
+   * The cart's checkout left the unresolved set without this tab seeing its answer. A rejection
+   * frees the cart for editing; a confirmation (e.g. sent from another tab) is fetched and shown
+   * like any success, so the cart is cleared rather than submitted again.
+   */
+  private async settleDetachedActiveCheckout(activeId: string): Promise<void> {
+    if (this.lastRecordedIntentId() === activeId || this.isReconcilingCheckout()) {
+      return;
+    }
+    const intent = await this.checkoutIntents.get(activeId).catch(() => null);
+    if (this.activeCheckoutIntentId() !== activeId) {
+      return;
+    }
+    const scope = this.checkoutScope();
+    if (!intent || intent.status === 'rejected' || intent.userId !== scope.userId || intent.shopId !== scope.shopId) {
+      this.activeCheckoutIntentId.set(null);
+    } else if (intent.status === 'confirmed') {
+      this.onReconcileCheckout(activeId);
+    }
+  }
+
+  /** After a reload the cart is restored on its own; rebind it to the checkout its lines were frozen into. */
+  private findIntentForCurrentCart(unresolved: readonly CheckoutIntent[]): CheckoutIntent | null {
+    const cartKeys = [...this.cart(), ...this.serviceCart()].map((line) => line.clientLineKey).sort();
+    if (cartKeys.length === 0) {
+      return null;
+    }
+    const signature = cartKeys.join('|');
+    for (let index = unresolved.length - 1; index >= 0; index--) {
+      const intent = unresolved[index];
+      const intentKeys = intent.request.items.map((item) => item.clientLineKey ?? '').sort();
+      if (intentKeys.join('|') === signature) {
+        return intent;
+      }
+    }
+    return null;
   }
 
 }

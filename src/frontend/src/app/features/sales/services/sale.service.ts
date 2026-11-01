@@ -67,6 +67,10 @@ export class SaleService {
     return this.http.get<SaleDto>(SALE_ENDPOINTS.detail(saleId));
   }
 
+  getSaleByIdempotencyKey(idempotencyKey: string): Observable<SaleDto> {
+    return this.http.get<SaleDto>(SALE_ENDPOINTS.byIdempotencyKey(idempotencyKey));
+  }
+
   previewSaleReturn(saleId: string, request: PreviewSaleReturnRequest): Observable<SaleReturnPreviewDto> {
     return this.http.post<SaleReturnPreviewDto>(`${SALE_ENDPOINTS.detail(saleId)}/returns/preview`, request);
   }
