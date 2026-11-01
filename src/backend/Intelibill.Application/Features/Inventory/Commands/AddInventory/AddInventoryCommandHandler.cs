@@ -137,20 +137,25 @@ public sealed class AddInventoryCommandHandler(
         var stockTransaction = stockTransactionResult.Value;
         await stockTransactionRepository.AddAsync(stockTransaction, cancellationToken);
 
-        var ledgerResult = SupplierLedgerEntry.Create(
-            command.ActiveShopId,
-            effectiveSupplier.Id,
-            batch.Id,
-            SupplierLedgerEntryType.GoodsReceived,
-            ComputeLedgerAmount(command.TotalPurchaseCost),
-            DateOnly.FromDateTime(performedAt.UtcDateTime),
-            isSystemSupplier ? "Receipt with no supplier assigned" : null,
-            command.ActorUserId);
+        // A free receipt (sample, bonus stock) owes the supplier nothing: no zero-value payable.
+        var ledgerAmount = ComputeLedgerAmount(command.TotalPurchaseCost);
+        if (ledgerAmount != 0)
+        {
+            var ledgerResult = SupplierLedgerEntry.Create(
+                command.ActiveShopId,
+                effectiveSupplier.Id,
+                batch.Id,
+                SupplierLedgerEntryType.GoodsReceived,
+                ledgerAmount,
+                DateOnly.FromDateTime(performedAt.UtcDateTime),
+                isSystemSupplier ? "Receipt with no supplier assigned" : null,
+                command.ActorUserId);
 
-        if (ledgerResult.IsError)
-            return Errors.Inventory.SupplierLedgerEntryInvalid;
+            if (ledgerResult.IsError)
+                return Errors.Inventory.SupplierLedgerEntryInvalid;
 
-        await supplierLedgerEntryRepository.AddAsync(ledgerResult.Value, cancellationToken);
+            await supplierLedgerEntryRepository.AddAsync(ledgerResult.Value, cancellationToken);
+        }
 
         var inventoryResult = await UpsertInventoryWithRetryAsync(
             command.ActiveShopId,

@@ -1,11 +1,13 @@
 import { Component, ViewChild, ViewEncapsulation, computed, effect, inject, signal } from '@angular/core';
 import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import { MessageService } from 'primeng/api';
+import { ButtonModule } from 'primeng/button';
 import { ToastModule } from 'primeng/toast';
 import { firstValueFrom } from 'rxjs';
 
 import { AuthService } from '../../../core/auth/auth.service';
 import { AudioService } from '../../../core/services/audio.service';
+import { classifyFinancialOperationFailure } from '../../../core/services/financial-operation-intent.service';
 import { BarcodeDetection } from '../../../core/services/barcode-detector.service';
 import { InventoryInboundDraftRow } from '../../../core/storage/inventory-draft-indexeddb.service';
 import { BarcodeLabelPrintDialogComponent, type BarcodeLabelPrintCandidate } from '../components/barcode-label-print-dialog.component';
@@ -29,6 +31,7 @@ import { BatchSaveResultsComponent } from '../components/batch-page/batch-save-r
   selector: 'app-inventory-batch-page',
   standalone: true,
   imports: [
+    ButtonModule,
     ToastModule,
     TranslocoPipe,
     BarcodeScannerDialogComponent,
@@ -65,6 +68,7 @@ export class InventoryBatchPageComponent {
   readonly activeShopId = computed(() => this.authService.session()?.activeShopId ?? '');
   readonly loadingDraft = this.draftState.loadingDraft;
   readonly pendingRows = this.draftState.pendingRows;
+  readonly hasInterruptedSubmission = this.draftState.hasInterruptedSubmission;
 
   private highlightTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -83,15 +87,18 @@ export class InventoryBatchPageComponent {
   }
 
   onRowSubmitted(row: InventoryInboundDraftRow): void {
+    if (this.refuseWhileInterrupted()) return;
     void this.persistDraftRow(row);
   }
 
   onRemoveRow(clientRowId: string): void {
+    if (this.refuseWhileInterrupted()) return;
     this.saveSummary.set(null);
     void this.draftState.removeRow(this.activeShopId(), clientRowId);
   }
 
   onEditRow(clientRowId: string): void {
+    if (this.refuseWhileInterrupted()) return;
     const row = this.pendingRows().find((candidate) => candidate.clientRowId === clientRowId);
     if (!row) return;
 
@@ -101,12 +108,14 @@ export class InventoryBatchPageComponent {
   }
 
   onClearAll(): void {
+    if (this.refuseWhileInterrupted()) return;
     this.saveSummary.set(null);
     void this.draftState.clearRows(this.activeShopId());
   }
 
   onSaveAll(): void {
-    if (this.isSaving() || this.pendingRows().length === 0) return;
+    // An interrupted submission can be resent even when no draft rows remain on screen.
+    if (this.isSaving() || (this.pendingRows().length === 0 && !this.hasInterruptedSubmission())) return;
 
     this.isSaving.set(true);
     void this.saveRowsInChunks();
@@ -152,6 +161,7 @@ export class InventoryBatchPageComponent {
   async handleScannedBarcode(detection: BarcodeDetection): Promise<void> {
     const barcode = detection.value.trim();
     if (!barcode) return;
+    if (this.refuseWhileInterrupted()) return;
 
     this.scannerSessionCount.update((count) => count + 1);
     const mergedRow = await this.draftState.incrementRowQuantity(this.activeShopId(), barcode);
@@ -197,37 +207,74 @@ export class InventoryBatchPageComponent {
   }
 
   private async saveRowsInChunks(): Promise<void> {
-    const rows = [...this.pendingRows()];
+    const shopId = this.activeShopId();
     const succeeded: AddInventoryBatchSucceededRow[] = [];
     const failed: AddInventoryBatchFailedRow[] = [];
+    let requestedCount = 0;
 
     try {
-      for (let index = 0; index < rows.length; index += 100) {
-        const chunk = rows.slice(index, index + 100);
+      // Frozen and stored before the first request: if the answer is lost, the next save resends
+      // these exact rows under the same keys and the server replays what it already committed.
+      const submission = await this.draftState.prepareSubmission(shopId, this.pendingRows());
+      requestedCount = submission.chunks.reduce((count, chunk) => count + chunk.rows.length, 0);
+
+      for (const chunk of submission.chunks) {
+        // Each request carries the token current when it leaves; never send shop A's rows as shop B.
+        if (this.activeShopId() !== shopId) throw new ShopChangedDuringSave();
+
         const response = await firstValueFrom(
-          this.inventoryService.addInventoryBatch({ items: this.mapRowsToRequest(chunk) }),
+          this.inventoryService.addInventoryBatch({
+            items: this.mapRowsToRequest(chunk.rows),
+            operationKey: chunk.operationKey,
+          }),
         );
         succeeded.push(...response.succeeded);
         failed.push(...response.failed);
       }
 
-      const summary = this.buildSaveSummary(rows.length, succeeded, failed);
+      if (this.activeShopId() !== shopId) throw new ShopChangedDuringSave();
+
+      // Saved rows leave the draft before the submission is discarded: if this write fails, the
+      // submission is still there and a resend only replays what is already committed.
+      await this.keepRowsNotSaved(shopId, succeeded);
+      const summary = this.buildSaveSummary(requestedCount, succeeded, failed);
       this.saveSummary.set(summary);
-      if (summary.failedCount === 0) {
-        this.showSuccess('inventory.savedSuccess', summary.successCount, summary.requestedCount);
-        await this.draftState.clearRows(this.activeShopId());
+
+      if (failed.some((row) => row.retryable)) {
+        // Nothing was saved for those rows; resending the same keys retries only them.
+        this.draftState.markSubmissionInterrupted();
+        this.showWarn('inventory.saveInterrupted');
         return;
       }
 
-      await this.keepRows(rows, new Set(summary.failed.map((row) => row.clientRowId)));
+      await this.draftState.clearSubmission(shopId);
+      if (summary.failedCount === 0) {
+        this.showSuccess('inventory.savedSuccess', summary.successCount, summary.requestedCount);
+        return;
+      }
+
       this.showWarn('inventory.savedPartial');
     } catch (error) {
-      const succeededIds = new Set(succeeded.map((row) => row.clientRowId));
-      const failedIds = new Set(failed.map((row) => row.clientRowId));
-      await this.keepRows(rows, new Set(rows.filter((row) => !succeededIds.has(row.clientRowId) || failedIds.has(row.clientRowId)).map((row) => row.clientRowId)));
+      if (error instanceof ShopChangedDuringSave) {
+        // The submission stays stored under the original shop and resumes when it is active again.
+        return;
+      }
 
+      await this.keepRowsNotSaved(shopId, succeeded).catch(() => undefined);
       if (succeeded.length > 0 || failed.length > 0) {
-        this.saveSummary.set(this.buildSaveSummary(rows.length, succeeded, failed));
+        this.saveSummary.set(this.buildSaveSummary(requestedCount, succeeded, failed));
+      }
+
+      if (requestedCount > 0 && classifyFinancialOperationFailure(error) === 'uncertain') {
+        // The answer may have been lost after rows committed: keep the frozen submission.
+        this.draftState.markSubmissionInterrupted();
+        this.showWarn('inventory.saveInterrupted');
+        return;
+      }
+
+      if (requestedCount > 0) {
+        // A definitive refusal: the corrected rows will be a new submission with new keys.
+        await this.draftState.clearSubmission(shopId);
       }
 
       const apiErrors = this.extractApiErrors(error);
@@ -242,8 +289,20 @@ export class InventoryBatchPageComponent {
     }
   }
 
-  private async keepRows(rows: readonly InventoryInboundDraftRow[], keepIds: ReadonlySet<string>): Promise<void> {
-    await this.draftState.savePendingRows(this.activeShopId(), rows.filter((row) => keepIds.has(row.clientRowId)));
+  /**
+   * While a submission is interrupted its rows are frozen: an edit, removal, scan or new row would
+   * either be overwritten by the resend or be posted a second time beside it.
+   */
+  private refuseWhileInterrupted(): boolean {
+    if (!this.hasInterruptedSubmission()) return false;
+    this.showWarn('inventory.saveInterruptedLocked');
+    return true;
+  }
+
+  /** Keeps every pending row the server has not confirmed. */
+  private async keepRowsNotSaved(shopId: string, succeeded: readonly AddInventoryBatchSucceededRow[]): Promise<void> {
+    const savedIds = new Set(succeeded.map((row) => row.clientRowId));
+    await this.draftState.savePendingRows(shopId, this.pendingRows().filter((row) => !savedIds.has(row.clientRowId)));
   }
 
   private buildSaveSummary(
@@ -275,7 +334,7 @@ export class InventoryBatchPageComponent {
       supplierId: row.supplierId,
       referenceNumber: row.referenceNumber,
       notes: row.notes,
-      performedAt: new Date().toISOString(),
+      performedAt: row.performedAt,
     }));
   }
 
@@ -355,3 +414,5 @@ export class InventoryBatchPageComponent {
     }, 1600);
   }
 }
+
+class ShopChangedDuringSave extends Error {}

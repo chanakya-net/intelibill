@@ -1,12 +1,13 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Operations;
 using Intelibill.Application.Features.Inventory.Commands.AddInventoryBatch;
 using Intelibill.Application.Features.Inventory.DTOs;
 using Intelibill.Application.Features.Inventory.Services;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
-using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 
 namespace Intelibill.Application.Unit.Tests.Features.Inventory.Commands.AddInventoryBatch;
@@ -14,50 +15,37 @@ namespace Intelibill.Application.Unit.Tests.Features.Inventory.Commands.AddInven
 public class AddInventoryBatchCommandHandlerTests
 {
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
-    private readonly IItemResolver _itemResolver = Substitute.For<IItemResolver>();
-    private readonly IItemRepository _itemRepository = Substitute.For<IItemRepository>();
-    private readonly ISupplierResolver _supplierResolver = Substitute.For<ISupplierResolver>();
-    private readonly IBatchFactory _batchFactory = Substitute.For<IBatchFactory>();
-    private readonly IInventoryUpdater _inventoryUpdater = Substitute.For<IInventoryUpdater>();
-    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
-
-    private static readonly Supplier SystemSupplier = Supplier.CreateUnknownSystemSupplier(Guid.NewGuid());
+    private readonly IInboundRowExecutor _rowExecutor = Substitute.For<IInboundRowExecutor>();
+    private readonly RecordingOperationExecutor _operationExecutor = new();
+    private readonly User _owner = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
+    private readonly Shop _shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
 
     public AddInventoryBatchCommandHandlerTests()
     {
-        _supplierResolver.ResolveAsync(Arg.Any<Guid>(), Arg.Any<Guid?>(), Arg.Any<CancellationToken>())
-            .Returns(SystemSupplier);
+        _owner.AddShopMembership(ShopMembership.Create(_shop.Id, _owner.Id, ShopRole.Owner, true));
+        _userRepository.GetByIdWithDetailsAsync(_owner.Id, Arg.Any<CancellationToken>()).Returns(_owner);
+
+        _rowExecutor.ExecuteAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<InboundRowOperation?>(), Arg.Any<InboundInventoryLineInput>(), Arg.Any<CancellationToken>())
+            .Returns(callInfo => Task.FromResult<ErrorOr<AddInventoryResultDto>>(Received(callInfo.Arg<InboundInventoryLineInput>())));
     }
 
     [Fact]
     public async Task HandleAsync_WhenMoreThanHundredRows_ReturnsValidationError()
     {
-        var command = new AddInventoryBatchCommand(
-            Guid.NewGuid(),
-            Guid.NewGuid(),
-            Enumerable.Range(1, 101)
-                .Select(index => CreateRow($"row-{index}", $"Item-{index}", $"BC-{index}"))
-                .ToArray());
+        var rows = Enumerable.Range(1, 101).Select(index => CreateRow($"row-{index}", $"Item-{index}", $"BC-{index}")).ToArray();
 
-        var handler = CreateHandler();
-        var result = await handler.HandleAsync(command, CancellationToken.None);
+        var result = await CreateHandler().HandleAsync(new AddInventoryBatchCommand(_owner.Id, _shop.Id, rows), CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal("Inventory.BatchLimitExceeded", result.FirstError.Code);
         Assert.Equal("Only 100 items are allowed in a batch.", result.FirstError.Description);
-        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        await AssertNoRowRanAsync();
     }
 
     [Fact]
     public async Task HandleAsync_WhenEmptyBatch_ReturnsValidationError()
     {
-        var command = new AddInventoryBatchCommand(
-            Guid.NewGuid(),
-            Guid.NewGuid(),
-            []);
-
-        var handler = CreateHandler();
-        var result = await handler.HandleAsync(command, CancellationToken.None);
+        var result = await CreateHandler().HandleAsync(new AddInventoryBatchCommand(_owner.Id, _shop.Id, []), CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal("Inventory.BatchEmpty", result.FirstError.Code);
@@ -66,288 +54,219 @@ public class AddInventoryBatchCommandHandlerTests
     [Fact]
     public async Task HandleAsync_WhenStaffRole_ReturnsForbidden()
     {
-        var actor = User.CreateWithEmail("staff@test.com", "hash", "Staff", "User");
-        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
-        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Staff, true));
+        var staff = User.CreateWithEmail("staff@test.com", "hash", "Staff", "User");
+        staff.AddShopMembership(ShopMembership.Create(_shop.Id, staff.Id, ShopRole.Staff, true));
+        _userRepository.GetByIdWithDetailsAsync(staff.Id, Arg.Any<CancellationToken>()).Returns(staff);
 
-        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
-
-        var handler = CreateHandler();
-        var result = await handler.HandleAsync(
-            new AddInventoryBatchCommand(actor.Id, shop.Id, [CreateRow("row-1", "Rice", "111")]),
+        var result = await CreateHandler().HandleAsync(
+            new AddInventoryBatchCommand(staff.Id, _shop.Id, [CreateRow("row-1", "Rice", "111")], "intake-1"),
             CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal(Errors.Inventory.UserIsNotOwnerOrManager.Code, result.FirstError.Code);
-        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        Assert.Empty(_operationExecutor.Scopes);
+        await AssertNoRowRanAsync();
     }
 
     [Fact]
-    public async Task HandleAsync_WhenOneRowFails_PersistsSucceededRows()
+    public async Task HandleAsync_WhenClientRowIdRepeats_RejectsBeforeAuthorizingOrRunningRows()
     {
-        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
-        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
-        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
+        var result = await CreateHandler().HandleAsync(
+            new AddInventoryBatchCommand(_owner.Id, _shop.Id, [CreateRow("row-1", "Rice", "111"), CreateRow("row-1", "Sugar", "222")], "intake-1"),
+            CancellationToken.None);
 
-        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Inventory.DuplicateClientRowId.Code, result.FirstError.Code);
+        await _userRepository.DidNotReceive().GetByIdWithDetailsAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+        Assert.Empty(_operationExecutor.Scopes);
+        await AssertNoRowRanAsync();
+    }
 
-        var existingItem = Item.Create(shop.Id, "Rice", "Desc", "kg", "111", true, actor.Id);
-        _itemResolver.ResolveAsync(shop.Id, "Rice", "111", "Description", "kg", actor.Id, Arg.Any<ItemResolutionContext>(), Arg.Any<CancellationToken>())
-            .Returns(existingItem);
-        _itemResolver.ResolveAsync(shop.Id, "Different Name", "111", "Description", "kg", actor.Id, Arg.Any<ItemResolutionContext>(), Arg.Any<CancellationToken>())
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("12345678901234567890123456789012345678901234567890123456789012345")]
+    public async Task HandleAsync_WhenClientRowIdBlankOrTooLong_RejectsBatch(string clientRowId)
+    {
+        var result = await CreateHandler().HandleAsync(
+            new AddInventoryBatchCommand(_owner.Id, _shop.Id, [CreateRow(clientRowId, "Rice", "111")]),
+            CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Inventory.ClientRowIdInvalid.Code, result.FirstError.Code);
+        await AssertNoRowRanAsync();
+    }
+
+    [Theory]
+    [InlineData("  ")]
+    [InlineData("1234567890123456789012345678901234567890123456789012345678901")]
+    public async Task HandleAsync_WhenOperationKeyBlankOrTooLong_RejectsBatch(string operationKey)
+    {
+        var result = await CreateHandler().HandleAsync(
+            new AddInventoryBatchCommand(_owner.Id, _shop.Id, [CreateRow("row-1", "Rice", "111")], operationKey),
+            CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Inventory.BatchOperationKeyInvalid.Code, result.FirstError.Code);
+        await AssertNoRowRanAsync();
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenOneRowFails_ReportsItAndKeepsTheOthers()
+    {
+        _rowExecutor.ExecuteAsync(_shop.Id, _owner.Id, Arg.Any<InboundRowOperation?>(), Arg.Is<InboundInventoryLineInput>(r => r.Barcode == "222"), Arg.Any<CancellationToken>())
             .Returns(Errors.Inventory.ItemNameBarcodeMismatch);
 
-        _batchFactory.CreateBatchAsync(shop.Id, existingItem.Id, Arg.Any<InboundInventoryLineInput>(), SystemSupplier, actor.Id, Arg.Any<CancellationToken>())
-            .Returns(callInfo =>
-            {
-                var row = callInfo.Arg<InboundInventoryLineInput>();
-                var batch = InventoryBatch.Create(shop.Id, existingItem.Id, row.BatchNumber, row.Quantity, ComputeUnitCost(row), row.Mrp, row.SalesPrice, row.TaxRatePercent, row.TaxIncluded, null, null, SystemSupplier.Id, actor.Id).Value;
-                var tx = StockTransaction.Create(shop.Id, existingItem.Id, batch.Id, StockTransactionType.In, row.Quantity, null, null, DateTimeOffset.UtcNow, actor.Id, actor.Id).Value;
-                var ledger = SupplierLedgerEntry.Create(shop.Id, SystemSupplier.Id, batch.Id, SupplierLedgerEntryType.GoodsReceived, row.TotalPurchaseCost, DateOnly.FromDateTime(DateTimeOffset.UtcNow.DateTime), null, actor.Id).Value;
-                return new BatchCreationResult(batch, tx, ledger);
-            });
-
-        var inventory = Domain.Entities.Inventory.Create(shop.Id, existingItem.Id, 10m, 0, 0, actor.Id).Value;
-        _inventoryUpdater.GetOrUpdateAsync(shop.Id, existingItem.Id, Arg.Any<decimal>(), actor.Id, Arg.Any<InventoryUpdateContext>(), Arg.Any<CancellationToken>())
-            .Returns(inventory);
-
-        var command = new AddInventoryBatchCommand(
-            actor.Id,
-            shop.Id,
+        var result = await CreateHandler().HandleAsync(
+            new AddInventoryBatchCommand(_owner.Id, _shop.Id,
             [
                 CreateRow("row-1", "Rice", "111"),
-                CreateRow("row-2", "Different Name", "111")
-            ]);
-
-        var handler = CreateHandler();
-        var result = await handler.HandleAsync(command, CancellationToken.None);
-
-        Assert.False(result.IsError);
-        Assert.Equal(2, result.Value.RequestedCount);
-        Assert.Equal(1, result.Value.SuccessCount);
-        Assert.Equal(1, result.Value.FailedCount);
-        Assert.Single(result.Value.Succeeded);
-        Assert.Equal("row-2", result.Value.Failed[0].ClientRowId);
-        Assert.Equal(Errors.Inventory.ItemNameBarcodeMismatch.Code, result.Value.Failed[0].Errors[0].Code);
-
-        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
-    public async Task HandleAsync_WhenAllRowsSucceed_CommitsEverything()
-    {
-        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
-        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
-        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
-
-        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
-
-        _itemResolver.ResolveAsync(shop.Id, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<string>(), actor.Id, Arg.Any<ItemResolutionContext>(), Arg.Any<CancellationToken>())
-            .Returns(callInfo =>
-            {
-                var name = callInfo.ArgAt<string>(1);
-                var barcode = callInfo.ArgAt<string>(2);
-                var desc = callInfo.ArgAt<string?>(3);
-                var uom = callInfo.ArgAt<string>(4);
-                return Item.Create(shop.Id, name, desc, uom, barcode, true, actor.Id);
-            });
-
-        _batchFactory.CreateBatchAsync(shop.Id, Arg.Any<Guid>(), Arg.Any<InboundInventoryLineInput>(), SystemSupplier, actor.Id, Arg.Any<CancellationToken>())
-            .Returns(callInfo =>
-            {
-                var itemId = callInfo.ArgAt<Guid>(1);
-                var row = callInfo.Arg<InboundInventoryLineInput>();
-                var batch = InventoryBatch.Create(shop.Id, itemId, row.BatchNumber, row.Quantity, ComputeUnitCost(row), row.Mrp, row.SalesPrice, row.TaxRatePercent, row.TaxIncluded, null, null, SystemSupplier.Id, actor.Id).Value;
-                var tx = StockTransaction.Create(shop.Id, itemId, batch.Id, StockTransactionType.In, row.Quantity, null, null, DateTimeOffset.UtcNow, actor.Id, actor.Id).Value;
-                var ledger = SupplierLedgerEntry.Create(shop.Id, SystemSupplier.Id, batch.Id, SupplierLedgerEntryType.GoodsReceived, row.TotalPurchaseCost, DateOnly.FromDateTime(DateTimeOffset.UtcNow.DateTime), null, actor.Id).Value;
-                return new BatchCreationResult(batch, tx, ledger);
-            });
-
-        var inventory = Domain.Entities.Inventory.Create(shop.Id, Guid.NewGuid(), 10m, 0, 0, actor.Id).Value;
-        _inventoryUpdater.GetOrUpdateAsync(shop.Id, Arg.Any<Guid>(), Arg.Any<decimal>(), actor.Id, Arg.Any<InventoryUpdateContext>(), Arg.Any<CancellationToken>())
-            .Returns(inventory);
-
-        var command = new AddInventoryBatchCommand(
-            actor.Id,
-            shop.Id,
-            [
-                CreateRow("row-1", "Rice", "111"),
-                CreateRow("row-2", "Sugar", "222")
-            ]);
-
-        var handler = CreateHandler();
-        var result = await handler.HandleAsync(command, CancellationToken.None);
+                CreateRow("row-2", "Different Name", "222"),
+                CreateRow("row-3", "Sugar", "333"),
+            ]),
+            CancellationToken.None);
 
         Assert.False(result.IsError);
+        Assert.Equal(3, result.Value.RequestedCount);
         Assert.Equal(2, result.Value.SuccessCount);
-        Assert.Equal(0, result.Value.FailedCount);
-        Assert.Equal(2, result.Value.Succeeded.Count);
-
-        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        Assert.Equal(["row-1", "row-3"], result.Value.Succeeded.Select(r => r.ClientRowId));
+        var failed = Assert.Single(result.Value.Failed);
+        Assert.Equal("row-2", failed.ClientRowId);
+        Assert.Equal(Errors.Inventory.ItemNameBarcodeMismatch.Code, failed.Errors[0].Code);
+        Assert.False(failed.Retryable);
     }
 
     [Fact]
-    public async Task Handle_WithHsnCode_UpdatesTaxDefaultsOnItem()
+    public async Task HandleAsync_WhenRowFailsTransiently_MarksItRetryable()
     {
-        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
-        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
-        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
+        _rowExecutor.ExecuteAsync(_shop.Id, _owner.Id, Arg.Any<InboundRowOperation?>(), Arg.Is<InboundInventoryLineInput>(r => r.Barcode == "111"), Arg.Any<CancellationToken>())
+            .Returns(Errors.Inventory.RowRetryable);
 
-        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
-
-        var existingItem = Item.Create(shop.Id, "Rice", "Desc", "kg", "111", true, actor.Id);
-        existingItem.UpdateHsnCode("OLD");
-        existingItem.UpdateTaxDefaults("OLD", 12m, true);
-
-        _itemResolver.ResolveAsync(shop.Id, "Rice", "111", "Description", "kg", actor.Id, Arg.Any<ItemResolutionContext>(), Arg.Any<CancellationToken>())
-            .Returns(existingItem);
-
-        _itemRepository.GetByBarcodeAsync(shop.Id, "111", Arg.Any<CancellationToken>()).Returns(existingItem);
-
-        _batchFactory.CreateBatchAsync(shop.Id, existingItem.Id, Arg.Any<InboundInventoryLineInput>(), SystemSupplier, actor.Id, Arg.Any<CancellationToken>())
-            .Returns(callInfo =>
-            {
-                var row = callInfo.Arg<InboundInventoryLineInput>();
-                var batch = InventoryBatch.Create(shop.Id, existingItem.Id, row.BatchNumber, row.Quantity, ComputeUnitCost(row), row.Mrp, row.SalesPrice, row.TaxRatePercent, row.TaxIncluded, null, null, SystemSupplier.Id, actor.Id).Value;
-                var tx = StockTransaction.Create(shop.Id, existingItem.Id, batch.Id, StockTransactionType.In, row.Quantity, null, null, DateTimeOffset.UtcNow, actor.Id, actor.Id).Value;
-                var ledger = SupplierLedgerEntry.Create(shop.Id, SystemSupplier.Id, batch.Id, SupplierLedgerEntryType.GoodsReceived, row.TotalPurchaseCost, DateOnly.FromDateTime(DateTimeOffset.UtcNow.DateTime), null, actor.Id).Value;
-                return new BatchCreationResult(batch, tx, ledger);
-            });
-
-        var inventory = Domain.Entities.Inventory.Create(shop.Id, existingItem.Id, 10m, 0, 0, actor.Id).Value;
-        _inventoryUpdater.GetOrUpdateAsync(shop.Id, existingItem.Id, Arg.Any<decimal>(), actor.Id, Arg.Any<InventoryUpdateContext>(), Arg.Any<CancellationToken>())
-            .Returns(inventory);
-
-        var handler = CreateHandler();
-        var result = await handler.HandleAsync(
-            new AddInventoryBatchCommand(actor.Id, shop.Id, [CreateRow("row-1", "Rice", "111", hsnCode: "NEW")]),
+        var result = await CreateHandler().HandleAsync(
+            new AddInventoryBatchCommand(_owner.Id, _shop.Id, [CreateRow("row-1", "Rice", "111"), CreateRow("row-2", "Sugar", "222")], "intake-1"),
             CancellationToken.None);
 
-        Assert.False(result.IsError);
-        Assert.Equal("NEW", existingItem.HsnCode);
-        Assert.Equal(5m, existingItem.DefaultTaxRatePercent);
-        Assert.False(existingItem.DefaultTaxIncluded);
-        _itemRepository.Received(1).Update(existingItem);
+        var failed = Assert.Single(result.Value.Failed);
+        Assert.True(failed.Retryable);
+        Assert.Equal("row-2", Assert.Single(result.Value.Succeeded).ClientRowId);
     }
 
     [Fact]
-    public async Task Handle_WithNullHsnCode_PreservesHsnButStillUpdatesTaxDefaults()
+    public async Task HandleAsync_WhenRowIsInvalid_NeverRunsIt()
     {
-        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
-        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
-        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
+        var invalid = CreateRow("row-1", "Rice", "111") with { Quantity = 0m };
 
-        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
-
-        var existingItem = Item.Create(shop.Id, "Rice", "Desc", "kg", "111", true, actor.Id);
-        existingItem.UpdateHsnCode("OLD");
-        existingItem.UpdateTaxDefaults("OLD", 12m, true);
-
-        _itemResolver.ResolveAsync(shop.Id, "Rice", "111", "Description", "kg", actor.Id, Arg.Any<ItemResolutionContext>(), Arg.Any<CancellationToken>())
-            .Returns(existingItem);
-
-        _itemRepository.GetByBarcodeAsync(shop.Id, "111", Arg.Any<CancellationToken>()).Returns(existingItem);
-
-        _batchFactory.CreateBatchAsync(shop.Id, existingItem.Id, Arg.Any<InboundInventoryLineInput>(), SystemSupplier, actor.Id, Arg.Any<CancellationToken>())
-            .Returns(callInfo =>
-            {
-                var row = callInfo.Arg<InboundInventoryLineInput>();
-                var batch = InventoryBatch.Create(shop.Id, existingItem.Id, row.BatchNumber, row.Quantity, ComputeUnitCost(row), row.Mrp, row.SalesPrice, row.TaxRatePercent, row.TaxIncluded, null, null, SystemSupplier.Id, actor.Id).Value;
-                var tx = StockTransaction.Create(shop.Id, existingItem.Id, batch.Id, StockTransactionType.In, row.Quantity, null, null, DateTimeOffset.UtcNow, actor.Id, actor.Id).Value;
-                var ledger = SupplierLedgerEntry.Create(shop.Id, SystemSupplier.Id, batch.Id, SupplierLedgerEntryType.GoodsReceived, row.TotalPurchaseCost, DateOnly.FromDateTime(DateTimeOffset.UtcNow.DateTime), null, actor.Id).Value;
-                return new BatchCreationResult(batch, tx, ledger);
-            });
-
-        var inventory = Domain.Entities.Inventory.Create(shop.Id, existingItem.Id, 10m, 0, 0, actor.Id).Value;
-        _inventoryUpdater.GetOrUpdateAsync(shop.Id, existingItem.Id, Arg.Any<decimal>(), actor.Id, Arg.Any<InventoryUpdateContext>(), Arg.Any<CancellationToken>())
-            .Returns(inventory);
-
-        var handler = CreateHandler();
-        var result = await handler.HandleAsync(
-            new AddInventoryBatchCommand(actor.Id, shop.Id, [CreateRow("row-1", "Rice", "111", hsnCode: null)]),
+        var result = await CreateHandler().HandleAsync(
+            new AddInventoryBatchCommand(_owner.Id, _shop.Id, [invalid, CreateRow("row-2", "Sugar", "222")]),
             CancellationToken.None);
 
-        Assert.False(result.IsError);
-        Assert.Equal("OLD", existingItem.HsnCode);
-        Assert.Equal(5m, existingItem.DefaultTaxRatePercent);
-        Assert.False(existingItem.DefaultTaxIncluded);
-        _itemRepository.Received(1).Update(existingItem);
+        Assert.Equal("row-1", Assert.Single(result.Value.Failed).ClientRowId);
+        await _rowExecutor.DidNotReceive().ExecuteAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<InboundRowOperation?>(),
+            Arg.Is<InboundInventoryLineInput>(r => r.Barcode == "111"), Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task Handle_WhenResolvedRowFails_DoesNotUpdateTaxDefaultsForFailedRow()
+    public async Task HandleAsync_WhenUnkeyed_RunsRowsWithoutReceipts()
     {
-        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
-        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
-        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
-
-        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
-
-        var failedItem = Item.Create(shop.Id, "Rice", "Desc", "kg", "111", true, actor.Id);
-        failedItem.UpdateTaxDefaults("OLD", 12m, true);
-        var succeededItem = Item.Create(shop.Id, "Sugar", "Desc", "kg", "222", true, actor.Id);
-        succeededItem.UpdateTaxDefaults("PREV", 5m, false);
-
-        _itemResolver.ResolveAsync(shop.Id, "Rice", "111", "Description", "kg", actor.Id, Arg.Any<ItemResolutionContext>(), Arg.Any<CancellationToken>())
-            .Returns(failedItem);
-        _itemResolver.ResolveAsync(shop.Id, "Sugar", "222", "Description", "kg", actor.Id, Arg.Any<ItemResolutionContext>(), Arg.Any<CancellationToken>())
-            .Returns(succeededItem);
-
-        _itemRepository.GetByBarcodeAsync(shop.Id, "111", Arg.Any<CancellationToken>()).Returns(failedItem);
-        _itemRepository.GetByBarcodeAsync(shop.Id, "222", Arg.Any<CancellationToken>()).Returns(succeededItem);
-
-        _batchFactory.CreateBatchAsync(shop.Id, failedItem.Id, Arg.Any<InboundInventoryLineInput>(), SystemSupplier, actor.Id, Arg.Any<CancellationToken>())
-            .Returns(Error.Validation("Inventory.BatchRejected", "Batch rejected."));
-        _batchFactory.CreateBatchAsync(shop.Id, succeededItem.Id, Arg.Any<InboundInventoryLineInput>(), SystemSupplier, actor.Id, Arg.Any<CancellationToken>())
-            .Returns(callInfo =>
-            {
-                var row = callInfo.Arg<InboundInventoryLineInput>();
-                var batch = InventoryBatch.Create(shop.Id, succeededItem.Id, row.BatchNumber, row.Quantity, ComputeUnitCost(row), row.Mrp, row.SalesPrice, row.TaxRatePercent, row.TaxIncluded, null, null, SystemSupplier.Id, actor.Id).Value;
-                var tx = StockTransaction.Create(shop.Id, succeededItem.Id, batch.Id, StockTransactionType.In, row.Quantity, null, null, DateTimeOffset.UtcNow, actor.Id, actor.Id).Value;
-                var ledger = SupplierLedgerEntry.Create(shop.Id, SystemSupplier.Id, batch.Id, SupplierLedgerEntryType.GoodsReceived, row.TotalPurchaseCost, DateOnly.FromDateTime(DateTimeOffset.UtcNow.DateTime), null, actor.Id).Value;
-                return new BatchCreationResult(batch, tx, ledger);
-            });
-
-        var inventory = Domain.Entities.Inventory.Create(shop.Id, succeededItem.Id, 10m, 0, 0, actor.Id).Value;
-        _inventoryUpdater.GetOrUpdateAsync(shop.Id, succeededItem.Id, Arg.Any<decimal>(), actor.Id, Arg.Any<InventoryUpdateContext>(), Arg.Any<CancellationToken>())
-            .Returns(inventory);
-
-        var handler = CreateHandler();
-        var result = await handler.HandleAsync(
-            new AddInventoryBatchCommand(
-                actor.Id,
-                shop.Id,
-                [
-                    CreateRow("row-1", "Rice", "111", hsnCode: "FAILED"),
-                    CreateRow("row-2", "Sugar", "222", hsnCode: "OK")
-                ]),
+        var result = await CreateHandler().HandleAsync(
+            new AddInventoryBatchCommand(_owner.Id, _shop.Id, [CreateRow("row-1", "Rice", "111")]),
             CancellationToken.None);
 
-        Assert.False(result.IsError);
         Assert.Equal(1, result.Value.SuccessCount);
-        Assert.Equal(1, result.Value.FailedCount);
-        Assert.Equal("OLD", failedItem.HsnCode);
-        Assert.Equal(12m, failedItem.DefaultTaxRatePercent);
-        Assert.True(failedItem.DefaultTaxIncluded);
-        Assert.Equal("OK", succeededItem.HsnCode);
-        Assert.Equal(5m, succeededItem.DefaultTaxRatePercent);
-        Assert.False(succeededItem.DefaultTaxIncluded);
-        _itemRepository.DidNotReceive().Update(failedItem);
-        _itemRepository.Received(1).Update(succeededItem);
-        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        Assert.Empty(_operationExecutor.Scopes);
+        await _rowExecutor.Received(1).ExecuteAsync(_shop.Id, _owner.Id, null, Arg.Any<InboundInventoryLineInput>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenKeyed_CommitsManifestThenKeysEveryRow()
+    {
+        var operations = new List<InboundRowOperation?>();
+        _rowExecutor.ExecuteAsync(_shop.Id, _owner.Id, Arg.Do<InboundRowOperation?>(operations.Add), Arg.Any<InboundInventoryLineInput>(), Arg.Any<CancellationToken>())
+            .Returns(callInfo => Task.FromResult<ErrorOr<AddInventoryResultDto>>(Received(callInfo.Arg<InboundInventoryLineInput>())));
+
+        var result = await CreateHandler().HandleAsync(
+            new AddInventoryBatchCommand(_owner.Id, _shop.Id, [CreateRow("row-1", "Rice", "111"), CreateRow("row-2", "Sugar", "222")], " intake-1 "),
+            CancellationToken.None);
+
+        Assert.Equal(2, result.Value.SuccessCount);
+        var manifest = Assert.Single(_operationExecutor.Scopes);
+        Assert.Equal(new FinancialOperationScope(_shop.Id, FinancialOperationType.BulkIntakeManifest, "intake-1"), manifest);
+        Assert.Equal(
+            [AddInventoryBatchCommandHandler.RowKey("intake-1", "row-1"), AddInventoryBatchCommandHandler.RowKey("intake-1", "row-2")],
+            operations.Select(o => o!.Key));
+        Assert.NotEqual(operations[0]!.RequestHash, operations[1]!.RequestHash);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenRowHashIsComputed_IgnoresFormattingButNotBusinessContent()
+    {
+        var hashes = new List<string>();
+        _rowExecutor.ExecuteAsync(_shop.Id, _owner.Id, Arg.Do<InboundRowOperation?>(o => hashes.Add(o!.RequestHash)), Arg.Any<InboundInventoryLineInput>(), Arg.Any<CancellationToken>())
+            .Returns(callInfo => Task.FromResult<ErrorOr<AddInventoryResultDto>>(Received(callInfo.Arg<InboundInventoryLineInput>())));
+        var handler = CreateHandler();
+        var row = CreateRow("row-1", "Rice", "111");
+
+        await handler.HandleAsync(new AddInventoryBatchCommand(_owner.Id, _shop.Id, [row], "a"), CancellationToken.None);
+        await handler.HandleAsync(new AddInventoryBatchCommand(_owner.Id, _shop.Id, [row with { ItemName = " Rice ", Quantity = 10.000m }], "b"), CancellationToken.None);
+        await handler.HandleAsync(new AddInventoryBatchCommand(_owner.Id, _shop.Id, [row with { Quantity = 11m }], "c"), CancellationToken.None);
+
+        Assert.Equal(hashes[0], hashes[1]);
+        Assert.NotEqual(hashes[0], hashes[2]);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenManifestConflicts_RunsNoRow()
+    {
+        _operationExecutor.Result = Errors.Operation.PayloadMismatch;
+
+        var result = await CreateHandler().HandleAsync(
+            new AddInventoryBatchCommand(_owner.Id, _shop.Id, [CreateRow("row-1", "Rice", "111")], "intake-1"),
+            CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Operation.PayloadMismatch.Code, result.FirstError.Code);
+        await AssertNoRowRanAsync();
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenCancelledMidBatch_ThrowsInsteadOfSummarising()
+    {
+        using var cancellation = new CancellationTokenSource();
+        _rowExecutor.ExecuteAsync(_shop.Id, _owner.Id, Arg.Any<InboundRowOperation?>(), Arg.Is<InboundInventoryLineInput>(r => r.Barcode == "111"), Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                cancellation.Cancel();
+                return Task.FromResult<ErrorOr<AddInventoryResultDto>>(Received(callInfo.Arg<InboundInventoryLineInput>()));
+            });
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => CreateHandler().HandleAsync(
+            new AddInventoryBatchCommand(_owner.Id, _shop.Id, [CreateRow("row-1", "Rice", "111"), CreateRow("row-2", "Sugar", "222")], "intake-1"),
+            cancellation.Token));
+
+        await _rowExecutor.DidNotReceive().ExecuteAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<InboundRowOperation?>(),
+            Arg.Is<InboundInventoryLineInput>(r => r.Barcode == "222"), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public void RowKey_IsUnambiguousAcrossOperationAndRowBoundaries()
+    {
+        Assert.NotEqual(
+            AddInventoryBatchCommandHandler.RowKey("a:b", "c"),
+            AddInventoryBatchCommandHandler.RowKey("a", "b:c"));
+        Assert.Equal(128, AddInventoryBatchCommandHandler.RowKey(new string('k', 60), new string('r', 64)).Length);
     }
 
     private AddInventoryBatchCommandHandler CreateHandler() =>
-        new(
-            _userRepository,
-            _itemResolver,
-            _itemRepository,
-            _supplierResolver,
-            _batchFactory,
-            _inventoryUpdater,
-            _unitOfWork);
+        new(_userRepository, _rowExecutor, _operationExecutor, NullLogger<AddInventoryBatchCommandHandler>.Instance);
 
-    private static AddInventoryBatchRowCommand CreateRow(string clientRowId, string itemName, string barcode, string? hsnCode = null) =>
+    private async Task AssertNoRowRanAsync() =>
+        await _rowExecutor.DidNotReceive().ExecuteAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<InboundRowOperation?>(),
+            Arg.Any<InboundInventoryLineInput>(), Arg.Any<CancellationToken>());
+
+    private static AddInventoryResultDto Received(InboundInventoryLineInput row) =>
+        new(Guid.NewGuid(), row.ItemName, row.Barcode, Guid.NewGuid(), row.BatchNumber, row.Quantity, row.Quantity, null, Guid.NewGuid(), DateTimeOffset.UtcNow);
+
+    private static AddInventoryBatchRowCommand CreateRow(string clientRowId, string itemName, string barcode) =>
         new(
             clientRowId,
             itemName,
@@ -368,11 +287,25 @@ public class AddInventoryBatchCommandHandlerTests
             ReferenceNumber: "PO-1",
             Notes: "Initial",
             PerformedAt: null,
-            HsnCode: hsnCode);
+            HsnCode: null);
 
-    private static decimal ComputeUnitCost(AddInventoryBatchRowCommand row) =>
-        decimal.Round(row.TotalPurchaseCost / row.Quantity, 2, MidpointRounding.AwayFromZero);
+    /// <summary>Runs the action like the real executor's first commit, or answers a configured error.</summary>
+    private sealed class RecordingOperationExecutor : IFinancialOperationExecutor
+    {
+        public List<FinancialOperationScope> Scopes { get; } = [];
 
-    private static decimal ComputeUnitCost(InboundInventoryLineInput row) =>
-        decimal.Round(row.TotalPurchaseCost / row.Quantity, 2, MidpointRounding.AwayFromZero);
+        public Error? Result { get; set; }
+
+        public Task<ErrorOr<T>> ExecuteAsync<T>(
+            FinancialOperationScope scope,
+            Guid actorUserId,
+            Guid targetId,
+            string requestHash,
+            Func<CancellationToken, Task<ErrorOr<T>>> action,
+            CancellationToken cancellationToken)
+        {
+            Scopes.Add(scope);
+            return Result is { } error ? Task.FromResult<ErrorOr<T>>(error) : action(cancellationToken);
+        }
+    }
 }

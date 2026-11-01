@@ -149,6 +149,33 @@ public class AddInventoryCommandHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_WhenReceiptIsFree_ReceivesStockWithoutPayable()
+    {
+        SetupSystemSupplierLookup();
+        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
+
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _itemRepository.GetByBarcodeAsync(shop.Id, "111", Arg.Any<CancellationToken>()).Returns((Item?)null);
+        _itemRepository.GetByNameAsync(shop.Id, "Rice", Arg.Any<CancellationToken>()).Returns((Item?)null);
+        _inventoryRepository.GetByItemAsync(shop.Id, Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((DomainInventory?)null);
+        _inventoryBatchRepository.GetByBatchNumberAsync(shop.Id, Arg.Any<Guid>(), "B-1", Arg.Any<CancellationToken>())
+            .Returns((InventoryBatch?)null);
+
+        var result = await CreateHandler().HandleAsync(
+            CreateCommand(actor.Id, shop.Id, quantity: 5m, totalPurchaseCost: 0m, salesPrice: 3m, mrp: 5m),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(5m, result.Value.BatchQuantity);
+        await _inventoryBatchRepository.Received(1).AddAsync(
+            Arg.Is<InventoryBatch>(b => b.Quantity == 5m && b.CostPrice == 0m),
+            Arg.Any<CancellationToken>());
+        await _supplierLedgerEntryRepository.DidNotReceive().AddAsync(Arg.Any<SupplierLedgerEntry>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task HandleAsync_WhenExistingItem_UpdatesTaxDefaults()
     {
         SetupSystemSupplierLookup();

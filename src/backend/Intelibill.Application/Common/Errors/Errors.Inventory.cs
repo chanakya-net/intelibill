@@ -74,5 +74,17 @@ public static partial class Errors
 
         public static Error AdjustmentVoidReasonRequired =>
             Error.Validation("Inventory.AdjustmentVoidReasonRequired", "Void reason is required.");
+
+        public static Error ClientRowIdInvalid =>
+            Error.Validation("Inventory.ClientRowIdInvalid", "Every row needs a client row id of 1 to 64 characters.");
+
+        public static Error DuplicateClientRowId =>
+            Error.Validation("Inventory.DuplicateClientRowId", "Client row ids must be unique within a batch.");
+
+        public static Error BatchOperationKeyInvalid =>
+            Error.Validation("Inventory.BatchOperationKeyInvalid", "Operation key must be 1 to 60 characters.");
+
+        public static Error RowRetryable =>
+            Error.Failure("Inventory.RowRetryable", "This row was not saved because of a temporary problem. Send the same batch again to retry it.");
     }
 }

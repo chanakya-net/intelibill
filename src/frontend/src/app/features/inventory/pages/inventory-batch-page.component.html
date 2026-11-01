@@ -11,6 +11,25 @@
 
   <app-batch-row-form (rowSubmitted)="onRowSubmitted($event)" (scannerRequested)="openScanner()" />
 
+  @if (hasInterruptedSubmission()) {
+    <section class="inventory-interrupted-save" role="status" aria-labelledby="inventory-interrupted-save-title">
+      <h2 id="inventory-interrupted-save-title" class="inventory-interrupted-save__title">
+        <i class="pi pi-exclamation-triangle" aria-hidden="true"></i>
+        {{ 'inventory.saveInterruptedTitle' | transloco }}
+      </h2>
+      <p class="inventory-interrupted-save__hint">{{ 'inventory.saveInterruptedHint' | transloco }}</p>
+      <div>
+        <p-button
+          size="small"
+          [label]="'inventory.saveInterruptedResend' | transloco"
+          [loading]="isSaving()"
+          [disabled]="isSaving()"
+          (onClick)="onSaveAll()"
+        />
+      </div>
+    </section>
+  }
+
   <app-batch-save-results
     [saveSummary]="saveSummary()"
     [isSaving]="isSaving()"

@@ -2,10 +2,15 @@ using Intelibill.Application.Features.Inventory.DTOs;
 
 namespace Intelibill.Application.Features.Inventory.Commands.AddInventoryBatch;
 
+/// <param name="OperationKey">
+/// Optional durable identity of this submission. Resending the same rows under the same key
+/// replays committed rows and retries the rest; changed rows under the same key are refused.
+/// </param>
 public sealed record AddInventoryBatchCommand(
     Guid ActorUserId,
     Guid ActiveShopId,
-    IReadOnlyList<AddInventoryBatchRowCommand> Items);
+    IReadOnlyList<AddInventoryBatchRowCommand> Items,
+    string? OperationKey = null);
 
 public sealed record AddInventoryBatchRowCommand(
     string ClientRowId,
@@ -38,10 +43,15 @@ public sealed record AddInventoryBatchResultDto(
 
 public sealed record AddInventoryBatchSucceededRowDto(string ClientRowId, AddInventoryResultDto Result);
 
+/// <param name="Retryable">
+/// True when the row failed for a temporary reason and nothing was saved: send the same batch
+/// again. False when the row itself was rejected.
+/// </param>
 public sealed record AddInventoryBatchFailedRowDto(
     string ClientRowId,
     string ItemName,
     string Barcode,
-    IReadOnlyList<AddInventoryBatchRowErrorDto> Errors);
+    IReadOnlyList<AddInventoryBatchRowErrorDto> Errors,
+    bool Retryable = false);
 
 public sealed record AddInventoryBatchRowErrorDto(string Code, string Description);

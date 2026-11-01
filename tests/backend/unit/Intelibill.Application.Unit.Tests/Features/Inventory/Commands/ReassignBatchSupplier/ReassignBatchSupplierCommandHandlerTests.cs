@@ -53,6 +53,68 @@ public class ReassignBatchSupplierCommandHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_WhenFreeReceiptHasNoPayable_ReassignsBatchOnly()
+    {
+        var owner = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+        owner.AddShopMembership(ShopMembership.Create(shop.Id, owner.Id, ShopRole.Owner, true));
+
+        var systemSupplier = Supplier.CreateUnknownSystemSupplier(shop.Id);
+        var realSupplier = Supplier.Create(shop.Id, "Real Supplier", null, null, null, null, null, null, true, false, false);
+
+        var item = Item.Create(shop.Id, "Rice", null, "kg", "111", true, owner.Id);
+        var batch = InventoryBatch.Create(shop.Id, item.Id, "FREE-1", 5m, 0m, 15m, 14m, 5m, false, null, null, systemSupplier.Id, owner.Id).Value;
+
+        _userRepository.GetByIdWithDetailsAsync(owner.Id, Arg.Any<CancellationToken>()).Returns(owner);
+        _inventoryBatchRepository.GetByIdAsync(batch.Id, Arg.Any<CancellationToken>()).Returns(batch);
+        _supplierLedgerEntryRepository.GetByBatchAsync(shop.Id, batch.Id, Arg.Any<CancellationToken>()).Returns(Array.Empty<SupplierLedgerEntry>());
+        _supplierRepository.GetByIdAsync(systemSupplier.Id, Arg.Any<CancellationToken>()).Returns(systemSupplier);
+        _supplierRepository.GetByIdAsync(realSupplier.Id, Arg.Any<CancellationToken>()).Returns(realSupplier);
+
+        var handler = new ReassignBatchSupplierCommandHandler(
+            _userRepository,
+            _inventoryBatchRepository,
+            _supplierLedgerEntryRepository,
+            _supplierRepository,
+            _unitOfWork);
+
+        var result = await handler.HandleAsync(new ReassignBatchSupplierCommand(owner.Id, shop.Id, batch.Id, realSupplier.Id), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(realSupplier.Id, batch.SupplierId);
+        _supplierLedgerEntryRepository.DidNotReceive().Update(Arg.Any<SupplierLedgerEntry>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenPricedBatchHasNoPayable_ReturnsLedgerEntryInvalid()
+    {
+        var owner = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+        owner.AddShopMembership(ShopMembership.Create(shop.Id, owner.Id, ShopRole.Owner, true));
+
+        var systemSupplier = Supplier.CreateUnknownSystemSupplier(shop.Id);
+        var item = Item.Create(shop.Id, "Rice", null, "kg", "111", true, owner.Id);
+        var batch = InventoryBatch.Create(shop.Id, item.Id, "B-1", 5m, 10m, 15m, 14m, 5m, false, null, null, systemSupplier.Id, owner.Id).Value;
+
+        _userRepository.GetByIdWithDetailsAsync(owner.Id, Arg.Any<CancellationToken>()).Returns(owner);
+        _inventoryBatchRepository.GetByIdAsync(batch.Id, Arg.Any<CancellationToken>()).Returns(batch);
+        _supplierLedgerEntryRepository.GetByBatchAsync(shop.Id, batch.Id, Arg.Any<CancellationToken>()).Returns(Array.Empty<SupplierLedgerEntry>());
+
+        var handler = new ReassignBatchSupplierCommandHandler(
+            _userRepository,
+            _inventoryBatchRepository,
+            _supplierLedgerEntryRepository,
+            _supplierRepository,
+            _unitOfWork);
+
+        var result = await handler.HandleAsync(new ReassignBatchSupplierCommand(owner.Id, shop.Id, batch.Id, Guid.NewGuid()), CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Inventory.SupplierLedgerEntryInvalid.Code, result.FirstError.Code);
+    }
+
+    [Fact]
     public async Task HandleAsync_WhenCurrentSupplierReal_ReturnsCannotReassignFromRealSupplier()
     {
         var owner = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");

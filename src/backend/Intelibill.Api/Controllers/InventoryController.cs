@@ -150,7 +150,8 @@ public sealed partial class InventoryController : AuthenticatedControllerBase
                         row.Notes,
                         row.PerformedAt,
                         row.HsnCode))
-                    .ToArray()),
+                    .ToArray(),
+                request.OperationKey),
             cancellationToken);
 
         if (result.IsError)
@@ -169,7 +170,8 @@ public sealed partial class InventoryController : AuthenticatedControllerBase
                         row.ClientRowId,
                         row.ItemName,
                         row.Barcode,
-                        row.Errors.Select(error => new AddInventoryBatchRowError(error.Code, error.Description)).ToArray()))
+                        row.Errors.Select(error => new AddInventoryBatchRowError(error.Code, error.Description)).ToArray(),
+                        row.Retryable))
                 .ToArray());
 
         if (result.Value.FailedCount > 0)

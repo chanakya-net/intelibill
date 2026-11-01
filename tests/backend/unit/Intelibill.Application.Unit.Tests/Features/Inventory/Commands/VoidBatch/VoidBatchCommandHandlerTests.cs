@@ -66,6 +66,55 @@ public class VoidBatchCommandHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_WhenFreeReceipt_VoidsWithoutZeroReversal()
+    {
+        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
+
+        var itemId = Guid.NewGuid();
+        var supplier = Supplier.CreateUnknownSystemSupplier(shop.Id);
+        var batch = InventoryBatch.Create(shop.Id, itemId, "FREE-1", 5m, 0m, 120m, 110m, 5m, false, null, null, supplier.Id, actor.Id).Value;
+        var inventory = DomainInventory.Create(shop.Id, itemId, 5m, 0m, 0m, actor.Id).Value;
+
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _inventoryBatchRepository.GetByIdAsync(batch.Id, Arg.Any<CancellationToken>()).Returns(batch);
+        _inventoryRepository.GetByItemAsync(shop.Id, itemId, Arg.Any<CancellationToken>()).Returns(inventory);
+        _supplierLedgerEntryRepository.GetByBatchAsync(shop.Id, batch.Id, Arg.Any<CancellationToken>()).Returns(Array.Empty<SupplierLedgerEntry>());
+
+        var result = await CreateHandler().HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Null(result.Value.LedgerReversalAmount);
+        Assert.True(batch.IsVoided);
+        await _supplierLedgerEntryRepository.DidNotReceive().AddAsync(Arg.Any<SupplierLedgerEntry>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenPayableRoundsToZeroReversal_RefusesInsteadOfLeavingItOwed()
+    {
+        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
+
+        var itemId = Guid.NewGuid();
+        var supplier = Supplier.CreateUnknownSystemSupplier(shop.Id);
+        // ₹0.01 for three units: a unit cost of ₹0.00, but a ₹0.01 payable.
+        var batch = InventoryBatch.Create(shop.Id, itemId, "B-1", 3m, 0m, 120m, 110m, 5m, false, null, null, supplier.Id, actor.Id).Value;
+        var payable = SupplierLedgerEntry.Create(shop.Id, supplier.Id, batch.Id, SupplierLedgerEntryType.GoodsReceived, 0.01m, DateOnly.FromDateTime(DateTime.UtcNow), null, actor.Id).Value;
+
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _inventoryBatchRepository.GetByIdAsync(batch.Id, Arg.Any<CancellationToken>()).Returns(batch);
+        _supplierLedgerEntryRepository.GetByBatchAsync(shop.Id, batch.Id, Arg.Any<CancellationToken>()).Returns(new[] { payable });
+
+        var result = await CreateHandler().HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id), CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Inventory.SupplierLedgerEntryInvalid.Code, result.FirstError.Code);
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task HandleAsync_WhenNoSalesYet_SubtractsOriginalQuantity()
     {
         var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");

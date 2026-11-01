@@ -125,7 +125,34 @@ public class InventoryServicesTests
         var result = await factory.CreateBatchAsync(shopId, itemId, row, systemSupplier, actorId, CancellationToken.None);
 
         Assert.False(result.IsError);
-        Assert.Equal("Receipt with no supplier assigned", result.Value.LedgerEntry.Notes);
+        Assert.Equal("Receipt with no supplier assigned", result.Value.LedgerEntry!.Notes);
+    }
+
+    [Fact]
+    public async Task BatchFactory_WhenReceiptValueIsZero_CreatesStockWithoutPayable()
+    {
+        var batchRepo = Substitute.For<IInventoryBatchRepository>();
+        var txRepo = Substitute.For<IStockTransactionRepository>();
+        var ledgerRepo = Substitute.For<ISupplierLedgerEntryRepository>();
+        var factory = new BatchFactory(batchRepo, txRepo, ledgerRepo);
+
+        var shopId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var systemSupplier = Supplier.CreateUnknownSystemSupplier(shopId);
+
+        batchRepo.GetByBatchNumberAsync(shopId, itemId, "FREE-1", Arg.Any<CancellationToken>()).Returns((InventoryBatch?)null);
+
+        var row = CreateBatchRow("FREE-1", supplierId: null, quantity: 5m, totalPurchaseCost: 0m);
+        var result = await factory.CreateBatchAsync(shopId, itemId, row, systemSupplier, Guid.NewGuid(), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Null(result.Value.LedgerEntry);
+        Assert.Equal(5m, result.Value.Batch.Quantity);
+        Assert.Equal(0m, result.Value.Batch.CostPrice);
+        Assert.Equal(5m, result.Value.StockTransaction.Quantity);
+        await batchRepo.Received(1).AddAsync(result.Value.Batch, Arg.Any<CancellationToken>());
+        await txRepo.Received(1).AddAsync(result.Value.StockTransaction, Arg.Any<CancellationToken>());
+        await ledgerRepo.DidNotReceive().AddAsync(Arg.Any<SupplierLedgerEntry>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -147,7 +174,7 @@ public class InventoryServicesTests
         var result = await factory.CreateBatchAsync(shopId, itemId, row, supplier, actorId, CancellationToken.None);
 
         Assert.False(result.IsError);
-        Assert.Null(result.Value.LedgerEntry.Notes);
+        Assert.Null(result.Value.LedgerEntry!.Notes);
     }
 
     [Fact]
@@ -170,7 +197,7 @@ public class InventoryServicesTests
 
         Assert.False(result.IsError);
         Assert.Equal(1.50m, result.Value.Batch.CostPrice);
-        Assert.Equal(30m, result.Value.LedgerEntry.Amount);
+        Assert.Equal(30m, result.Value.LedgerEntry!.Amount);
     }
 
     [Fact]
@@ -196,7 +223,7 @@ public class InventoryServicesTests
         Assert.False(result.IsError);
         Assert.Equal(expectedUtc, result.Value.StockTransaction.PerformedAt);
         Assert.Equal(TimeSpan.Zero, result.Value.StockTransaction.PerformedAt.Offset);
-        Assert.Equal(DateOnly.FromDateTime(expectedUtc.UtcDateTime), result.Value.LedgerEntry.EntryDate);
+        Assert.Equal(DateOnly.FromDateTime(expectedUtc.UtcDateTime), result.Value.LedgerEntry!.EntryDate);
     }
 
     [Fact]

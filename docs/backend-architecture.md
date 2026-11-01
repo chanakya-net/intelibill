@@ -350,6 +350,40 @@ the intent `unknown` on 0/408/429/5xx/transport loss, discards it on any other 4
 success or a found lookup. It never sends an intent from another user or shop. An unresolved intent
 replaces the payment form with Check status / Retry same payment.
 
+## Bulk Stock Intake
+
+`POST /api/inventory/inbound/batch` keeps partial success (200, or 207 with `failed[]`), but each row
+is its own unit of work: `IInboundRowExecutor` (`Infrastructure/Services/StockIntake`) opens a fresh
+DI scope per row — its own `DbContext`, tracker and item/inventory caches — and commits the row's
+item, batch, IN movement, inventory and payable together. A rejected row leaves no write; rows commit
+in order, so a later duplicate of an item + batch answers `Inventory.BatchNumberAlreadyExists`.
+
+**Keys.** With `operationKey` (1–60 chars) the handler first commits a `BulkIntakeManifest` receipt
+whose hash covers every `clientRowId` (required, ≤ 64, unique) and row hash in order, then runs each
+row under a `BulkIntakeRow` receipt keyed `{len}:{operationKey}:{clientRowId}`. Resending the same
+request replays committed rows verbatim and runs the rest; any changed, added or removed row answers
+409 `Operation.PayloadMismatch` before a row runs. Rejected rows are not recorded and are evaluated
+again on a resend. Bulk receipts have no lookup slug: resending is the recovery path.
+
+**Failures.** For a keyed row, an unplanned failure while the row is staged and saved (connection
+loss, lost unique-index race) happens inside the executor's open transaction, so it is rolled back
+and reported as `retryable: true` / `Inventory.RowRetryable`; the remaining rows still run. A failure
+that may follow a commit (completing or committing the receipt, replaying it) and any failure of an
+unkeyed row propagate as a 500 instead, because "nothing was saved" cannot be promised. Cancellation
+is never swallowed, so a cut request returns no summary that looks complete.
+
+**Free receipts.** A receipt whose rounded value is zero (sample, bonus stock) creates stock without a
+supplier payable, in bulk and single inbound; voiding it posts no reversal, and reassigning its
+supplier moves the batch alone.
+
+**Web.** The batch page freezes the rows (with one `performedAt`) into ≤ 100-row chunks, each with its
+own key, in IndexedDB (`inventory-inbound-submission`) before the first request; a failed write sends
+nothing. An uncertain failure (0/408/429/5xx/transport) or a `retryable` row keeps the submission and
+shows a banner with **Finish save**, which resends it unchanged; until then adding, editing, removing
+or scanning rows is refused, so nothing can be posted beside or instead of the frozen rows. Saved rows
+leave the draft before the submission is discarded; any definitive answer discards it. A shop switch
+mid-save stops sending and leaves the submission stored under the original shop.
+
 ## Test Structure
 
 | Suite | Path | Count |

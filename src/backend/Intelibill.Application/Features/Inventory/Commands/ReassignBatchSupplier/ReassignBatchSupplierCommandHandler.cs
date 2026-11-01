@@ -33,10 +33,12 @@ public sealed class ReassignBatchSupplierCommandHandler(
         var goodsReceivedEntry = (await supplierLedgerEntryRepository.GetByBatchAsync(command.ActiveShopId, batch.Id, cancellationToken))
             .FirstOrDefault(e => e.EntryType == SupplierLedgerEntryType.GoodsReceived);
 
-        if (goodsReceivedEntry is null)
+        // A free receipt has no payable; its batch alone records who supplied it.
+        var currentSupplierId = goodsReceivedEntry?.SupplierId ?? (batch.CostPrice == 0 ? batch.SupplierId : null);
+        if (currentSupplierId is null)
             return Errors.Inventory.SupplierLedgerEntryInvalid;
 
-        var currentSupplier = await supplierRepository.GetByIdAsync(goodsReceivedEntry.SupplierId, cancellationToken);
+        var currentSupplier = await supplierRepository.GetByIdAsync(currentSupplierId.Value, cancellationToken);
         if (currentSupplier is null || currentSupplier.ShopId != command.ActiveShopId)
             return Errors.Supplier.SupplierNotFound;
 
@@ -50,10 +52,13 @@ public sealed class ReassignBatchSupplierCommandHandler(
         if (newSupplier.IsSystem)
             return Errors.Supplier.CannotModifySystemSupplier;
 
-        goodsReceivedEntry.ReassignSupplier(newSupplier.Id);
-        batch.AssignSupplier(newSupplier.Id, command.ActorUserId);
+        if (goodsReceivedEntry is not null)
+        {
+            goodsReceivedEntry.ReassignSupplier(newSupplier.Id);
+            supplierLedgerEntryRepository.Update(goodsReceivedEntry);
+        }
 
-        supplierLedgerEntryRepository.Update(goodsReceivedEntry);
+        batch.AssignSupplier(newSupplier.Id, command.ActorUserId);
         inventoryBatchRepository.Update(batch);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
