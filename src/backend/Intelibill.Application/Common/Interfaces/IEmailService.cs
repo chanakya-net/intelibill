@@ -1,8 +1,11 @@
 namespace Intelibill.Application.Common.Interfaces;
 
+/// <summary>
+/// Transport for identity mail. Callers never send directly: messages are composed and encrypted
+/// by <see cref="IIdentityMailOutbox"/> inside the transaction that creates their proof, and the
+/// delivery worker is the only caller of this seam.
+/// </summary>
 public interface IEmailService
 {
-    bool IsAvailable => true;
-    Task SendIdentityAsync(string toEmail, string subject, string body, CancellationToken cancellationToken = default) => throw new InvalidOperationException("Identity email delivery is unavailable.");
-    Task SendPasswordResetAsync(string toEmail, string resetLink, DateTimeOffset expiresAt, CancellationToken cancellationToken = default);
+    Task SendIdentityAsync(string toEmail, string subject, string body, CancellationToken cancellationToken = default);
 }

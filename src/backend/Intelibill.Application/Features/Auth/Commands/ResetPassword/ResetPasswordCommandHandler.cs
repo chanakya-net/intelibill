@@ -13,6 +13,7 @@ public sealed class ResetPasswordCommandHandler(
     IAuthSessionRepository sessions,
     IPasswordHasher passwordHasher,
     IEmailOwnershipRepository ownership,
+    IIdentityMailOutbox mail,
     TimeProvider clock)
 {
     public async Task<ErrorOr<bool>> HandleAsync(
@@ -45,6 +46,9 @@ public sealed class ResetPasswordCommandHandler(
         // the new password. Whoever is recovering the account does not know which devices are
         // signed in, so none is spared.
         await sessions.RevokeAllAsync(user.Id, exceptSessionId: null, "password-reset", clock.GetUtcNow(), cancellationToken);
+
+        // The address the reset was proven against, committed with the change itself.
+        if (mail.Enabled) mail.QueuePasswordChangedNotice(resetToken.Destination);
 
         if (!await ownership.CommitAsync(cancellationToken)) return Errors.Auth.InvalidPasswordResetToken;
 

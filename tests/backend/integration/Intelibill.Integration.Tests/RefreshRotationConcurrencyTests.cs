@@ -48,10 +48,6 @@ public sealed class RefreshRotationConcurrencyTests(PostgreSqlTestFixture fixtur
         services.AddSingleton<ILoggerFactory>(sp => LoggerFactory.Create(logging => logging
             .SetMinimumLevel(LogLevel.Trace)
             .AddProvider(sp.GetRequiredService<LogCapture>())));
-
-        services.RemoveAll<IEmailService>();
-        services.AddSingleton<SessionLifecycleIntegrationTests.ResetLinkCapture>();
-        services.AddSingleton<IEmailService>(sp => sp.GetRequiredService<SessionLifecycleIntegrationTests.ResetLinkCapture>());
     });
 
     public Task InitializeAsync() => _factory.InitializeAsync();
@@ -120,7 +116,7 @@ public sealed class RefreshRotationConcurrencyTests(PostgreSqlTestFixture fixtur
         Assert.Equal(
             HttpStatusCode.OK,
             (await client.PostAsJsonAsync("/api/auth/password-reset/request", new { email })).StatusCode);
-        var link = _factory.Services.GetRequiredService<SessionLifecycleIntegrationTests.ResetLinkCapture>().ResetLink;
+        var link = await IdentityTestMailbox.ReadPasswordResetLinkAsync(_factory, email);
         Assert.NotNull(link);
         return Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(new Uri(link).Query)["token"].ToString();
     }

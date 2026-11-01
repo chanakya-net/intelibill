@@ -19,6 +19,7 @@ public sealed class ChangeMyPasswordCommandHandler(
     IUserRepository userRepository,
     IAuthSessionRepository sessions,
     IPasswordHasher passwordHasher,
+    IIdentityMailOutbox mail,
     TimeProvider clock)
 {
     public async Task<ErrorOr<bool>> HandleAsync(ChangeMyPasswordCommand command, CancellationToken cancellationToken)
@@ -55,6 +56,10 @@ public sealed class ChangeMyPasswordCommandHandler(
             "password-changed",
             clock.GetUtcNow(),
             cancellationToken);
+
+        // Only a verified address hears about it: an unverified one was never proven to be theirs.
+        if (mail.Enabled && user.IsEmailVerified && !string.IsNullOrWhiteSpace(user.Email))
+            mail.QueuePasswordChangedNotice(user.Email);
 
         return await sessions.CommitAsync(cancellationToken)
             ? true

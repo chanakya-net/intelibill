@@ -43,6 +43,12 @@ internal sealed partial class IdentityMailWorker(IServiceScopeFactory scopes, IL
                 var invitation = await db.Set<ShopInvitation>().FirstOrDefaultAsync(x => x.Id == invitationId, ct);
                 superseded = invitation is null || !invitation.IsPending(now);
             }
+            if (mail.PasswordResetTokenId is { } resetTokenId)
+            {
+                // A newer request marks older tokens used, so this also drops superseded links.
+                var resetToken = await db.Set<PasswordResetToken>().FirstOrDefaultAsync(x => x.Id == resetTokenId, ct);
+                superseded = resetToken is null || !resetToken.IsValid;
+            }
 
             if (mail.ExpiresAt <= now || superseded)
             { mail.Complete(now); await repository.CommitAsync(ct); return; }

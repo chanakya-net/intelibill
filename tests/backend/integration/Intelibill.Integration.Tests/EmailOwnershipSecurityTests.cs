@@ -314,10 +314,12 @@ public sealed class EmailOwnershipSecurityTests(PostgreSqlTestFixture fixture) :
         Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync("/api/auth/email-change/confirm", new { challengeId = challenge.Id, token = challenge.Token })).StatusCode);
         barrier.Release.TrySetResult();
         Assert.Equal(HttpStatusCode.OK, (await pending).StatusCode);
-        var delivery = _factory.Services.GetRequiredService<FixtureEmailDelivery>();
-        if (delivery.ResetLink is not null)
+        // The proof minted under the old address is either never issued or dropped by the email
+        // change; if a link was queued, it must not redeem against the new address.
+        var resetLink = await IdentityTestMailbox.ReadPasswordResetLinkAsync(_factory, email);
+        if (resetLink is not null)
         {
-            var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(new Uri(delivery.ResetLink).Query);
+            var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(new Uri(resetLink).Query);
             var reset = await client.PostAsJsonAsync("/api/auth/password-reset/confirm", new { email = destination, token = query["token"].ToString(), newPassword = "StolenPassword!1" });
             Assert.Equal(HttpStatusCode.Unauthorized, reset.StatusCode);
         }
@@ -412,7 +414,7 @@ public sealed class EmailOwnershipSecurityTests(PostgreSqlTestFixture fixture) :
     {
         using var client = Client(); var email = Email(); var auth = await EnrollAsync(client, email);
         Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync("/api/auth/password-reset/request", new { email })).StatusCode);
-        var link = _factory.Services.GetRequiredService<FixtureEmailDelivery>().ResetLink!;
+        var link = (await IdentityTestMailbox.ReadPasswordResetLinkAsync(_factory, email))!;
         var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(new Uri(link).Query);
         var request = new { email, token = query["token"].ToString(), newPassword = "UpdatedPassword!1" };
         var responses = await Task.WhenAll(Enumerable.Range(0, 2).Select(_ => client.PostAsJsonAsync("/api/auth/password-reset/confirm", request)));
@@ -451,8 +453,6 @@ public sealed class EmailOwnershipSecurityTests(PostgreSqlTestFixture fixture) :
     {
         public bool Fail { get; set; }
         public int Delivered { get; private set; }
-        public string? ResetLink { get; private set; }
-        public Task SendPasswordResetAsync(string toEmail, string resetLink, DateTimeOffset expiresAt, CancellationToken cancellationToken = default) { if (Fail) throw new IOException("Simulated SMTP outage"); ResetLink = resetLink; return Task.CompletedTask; }
         public Task SendIdentityAsync(string toEmail, string subject, string body, CancellationToken cancellationToken = default)
         {
             if (Fail) throw new IOException("Simulated SMTP outage");

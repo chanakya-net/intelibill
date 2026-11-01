@@ -1,6 +1,5 @@
 using Intelibill.Api.Extensions;
 using Intelibill.Api.Middleware.RateLimiting;
-using Intelibill.Api.Options;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Auth.Commands.Login;
 using Intelibill.Application.Features.Auth.Commands.LoginWithEmail;
@@ -12,14 +11,13 @@ using Intelibill.Application.Features.Auth.Commands.ResetPassword;
 using Intelibill.Application.Features.Auth.Commands.RevokeToken;
 using Intelibill.Application.Features.Auth.DTOs;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
 using Wolverine;
 
 namespace Intelibill.Api.Controllers;
 
 [ApiController]
 [Route("api/auth")]
-public sealed class AuthController(IMessageBus bus, IOptions<AppOptions> appOptions) : ControllerBase
+public sealed class AuthController(IMessageBus bus) : ControllerBase
 {
     // ── Registration ─────────────────────────────────────────────────────────
 
@@ -90,7 +88,7 @@ public sealed class AuthController(IMessageBus bus, IOptions<AppOptions> appOpti
         CancellationToken cancellationToken)
     {
         var result = await bus.InvokeAsync<ErrorOr.ErrorOr<bool>>(
-            new RequestPasswordResetCommand(request.Email, appOptions.Value.BaseUrl),
+            new RequestPasswordResetCommand(request.Email),
             cancellationToken);
 
         if (result.IsError && result.FirstError.Code == "Auth.EmailDeliveryUnavailable")

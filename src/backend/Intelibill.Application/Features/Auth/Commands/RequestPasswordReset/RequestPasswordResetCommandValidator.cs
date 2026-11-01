@@ -9,8 +9,5 @@ internal sealed class RequestPasswordResetCommandValidator : AbstractValidator<R
         RuleFor(x => x.Email)
             .NotEmpty()
             .EmailAddress();
-
-        RuleFor(x => x.AppBaseUrl)
-            .NotEmpty();
     }
 }

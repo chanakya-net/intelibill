@@ -13,16 +13,19 @@ public class ChangeMyPasswordCommandHandlerTests
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IAuthSessionRepository _sessions = Substitute.For<IAuthSessionRepository>();
     private readonly IPasswordHasher _passwordHasher = Substitute.For<IPasswordHasher>();
+    private readonly IIdentityMailOutbox _mail = Substitute.For<IIdentityMailOutbox>();
     private readonly ChangeMyPasswordCommandHandler _handler;
 
     public ChangeMyPasswordCommandHandlerTests()
     {
         _sessions.BeginAsync(Arg.Any<CancellationToken>()).Returns(Substitute.For<IAsyncDisposable>());
         _sessions.CommitAsync(Arg.Any<CancellationToken>()).Returns(true);
+        _mail.Enabled.Returns(true);
         _handler = new ChangeMyPasswordCommandHandler(
             _userRepository,
             _sessions,
             _passwordHasher,
+            _mail,
             TimeProvider.System);
     }
 
@@ -98,6 +101,41 @@ public class ChangeMyPasswordCommandHandlerTests
         await _sessions.Received(1).RevokeAllAsync(
             user.Id, null, "password-changed", Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>());
         await _sessions.Received(1).CommitAsync(Arg.Any<CancellationToken>());
+        Received.InOrder(() =>
+        {
+            _mail.QueuePasswordChangedNotice("owner@test.com");
+            _sessions.CommitAsync(Arg.Any<CancellationToken>());
+        });
+    }
+
+    [Fact]
+    public async Task HandleAsync_MailUnavailable_StillChangesPasswordWithoutNotice()
+    {
+        _mail.Enabled.Returns(false);
+        var user = VerifiedUsers.CreateWithEmail("owner@test.com", "hash", "Owner", "One");
+        AccountIs(user);
+        var command = new ChangeMyPasswordCommand(user.Id, "OldPass123!", "NewPass123!");
+        _passwordHasher.Verify(command.CurrentPassword, user.PasswordHash!).Returns(true);
+        _passwordHasher.Hash(command.NewPassword).Returns("new-hash");
+
+        var result = await _handler.HandleAsync(command, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        _mail.DidNotReceiveWithAnyArgs().QueuePasswordChangedNotice(default!);
+    }
+
+    [Fact]
+    public async Task HandleAsync_UnverifiedEmail_QueuesNoNotice()
+    {
+        var user = User.CreateWithEmail("unverified@test.com", "hash", "Owner", "One");
+        AccountIs(user);
+        var command = new ChangeMyPasswordCommand(user.Id, "OldPass123!", "NewPass123!");
+        _passwordHasher.Verify(command.CurrentPassword, user.PasswordHash!).Returns(true);
+        _passwordHasher.Hash(command.NewPassword).Returns("new-hash");
+
+        _ = await _handler.HandleAsync(command, CancellationToken.None);
+
+        _mail.DidNotReceiveWithAnyArgs().QueuePasswordChangedNotice(default!);
     }
 
     /// <summary>
