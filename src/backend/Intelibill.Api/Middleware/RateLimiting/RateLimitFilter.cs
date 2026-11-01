@@ -1,133 +1,121 @@
 using System.Globalization;
-using System.Text.Json;
+using ErrorOr;
+using Intelibill.Api.Extensions;
+using Intelibill.Api.Options;
+using Intelibill.Application.Common.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
-using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Options;
 
 namespace Intelibill.Api.Middleware.RateLimiting;
 
-public class RateLimitFilter : IAsyncActionFilter
+/// <summary>
+/// Admits or refuses each limited request against the shared budgets in
+/// <see cref="IAtomicRateLimitStore"/>: the caller's own budget for the endpoint and, where the
+/// endpoint declares one, the account or destination the request acts on, checked and consumed
+/// together.
+/// <para>
+/// Runs at <see cref="FilterOrder"/>, ahead of <c>ModelStateInvalidFilter</c>: a body that fails
+/// validation still spends the caller's budget, so leaving the body out is not a way past it.
+/// </para>
+/// </summary>
+public sealed partial class RateLimitFilter(
+    IAtomicRateLimitStore store,
+    IRateLimitPolicyResolver policyResolver,
+    RateBudgetFactory budgetFactory,
+    LocalFallbackRateLimiter fallback,
+    RateLimitMetrics metrics,
+    IOptions<RateLimitingOptions> options,
+    TimeProvider timeProvider,
+    ILogger<RateLimitFilter> logger) : IAsyncActionFilter
 {
-    private readonly IDistributedCache _cache;
-    private readonly IRateLimitPolicyResolver _policyResolver;
-    private readonly TimeProvider _timeProvider;
+    /// <summary>Before <c>ModelStateInvalidFilter</c> (-2000).</summary>
+    public const int FilterOrder = -3000;
 
-    public RateLimitFilter(IDistributedCache cache, IRateLimitPolicyResolver policyResolver)
-        : this(cache, policyResolver, TimeProvider.System)
-    {
-    }
+    private const int MaxRetryAfterSeconds = 86_400;
 
-    internal RateLimitFilter(IDistributedCache cache, IRateLimitPolicyResolver policyResolver, TimeProvider timeProvider)
-    {
-        _cache = cache;
-        _policyResolver = policyResolver;
-        _timeProvider = timeProvider;
-    }
+    private static readonly Error StoreUnavailable =
+        Error.Failure("RateLimit.Unavailable", "This service is temporarily unavailable. Try again shortly.");
 
     public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {
-        var policy = _policyResolver.Resolve(context);
+        var policy = policyResolver.Resolve(context);
         if (policy.IsDisabled)
         {
             await next();
             return;
         }
 
-        var now = _timeProvider.GetUtcNow();
-        var bucketKey = BuildBucketKey(context.HttpContext);
-        var cacheKey = $"RL_{bucketKey}";
-        var blockKey = $"RL_BLOCK_{bucketKey}";
+        var budgets = budgetFactory.Create(context, policy);
+        var now = timeProvider.GetUtcNow();
+        var shared = true;
+        RateDecision decision;
 
-        var blockedState = await ReadStateAsync(blockKey);
-        if (blockedState is not null)
+        try
         {
-            AddHeaders(context.HttpContext, policy, remaining: 0, resetAtUnixSeconds: blockedState.ResetAtUnixSeconds, retryAfterSeconds: RetryAfterSeconds(now, blockedState.ResetAtUnixSeconds));
-            context.Result = CreateTooManyRequestsResult();
-            return;
+            decision = await AcquireAsync(budgets, now, context.HttpContext.RequestAborted);
         }
-
-        var state = await ReadStateAsync(cacheKey);
-        var resetAtUnixSeconds = state?.ResetAtUnixSeconds ?? now.AddMinutes(policy.PeriodInMinutes).ToUnixTimeSeconds();
-        var currentCount = state?.Count ?? 0;
-
-        if (currentCount >= policy.Limit)
+        catch (RateLimitStoreUnavailableException exception)
         {
-            var retryAtUnixSeconds = resetAtUnixSeconds;
-            if (policy.BackoffMinutes > 0)
+            metrics.StoreUnavailable(policy.FailClosed);
+            LogStoreUnavailable(logger, exception, policy.FailClosed);
+
+            // A credential check or a message send is not worth making without the shared limit:
+            // a per-replica count would let the attempts it exists to stop through.
+            if (policy.FailClosed)
             {
-                retryAtUnixSeconds = now.AddMinutes(policy.BackoffMinutes).ToUnixTimeSeconds();
-                var blockState = new RateLimitState(policy.Limit, retryAtUnixSeconds);
-                await WriteStateAsync(blockKey, blockState, TimeSpan.FromMinutes(policy.BackoffMinutes));
+                context.HttpContext.Response.Headers.RetryAfter = "5";
+                context.Result = StoreUnavailable.ToUnavailableResult();
+                return;
             }
 
-            AddHeaders(context.HttpContext, policy, remaining: 0, resetAtUnixSeconds: retryAtUnixSeconds, retryAfterSeconds: RetryAfterSeconds(now, retryAtUnixSeconds));
+            decision = fallback.Acquire(budgets.Request[0], now);
+            shared = false;
+        }
+
+        if (!decision.Allowed)
+        {
+            metrics.Denied();
+            var retryAt = decision.RetryAt ?? decision.ResetAt;
+            if (shared)
+                AddLimitHeaders(context.HttpContext, decision.Limit, remaining: 0, retryAt);
+            context.HttpContext.Response.Headers.RetryAfter = RetryAfterSeconds(now, retryAt).ToString(CultureInfo.InvariantCulture);
             context.Result = CreateTooManyRequestsResult();
             return;
         }
 
-        currentCount++;
-        var updatedState = new RateLimitState(currentCount, resetAtUnixSeconds);
-        await WriteStateAsync(cacheKey, updatedState, TimeSpan.FromMinutes(policy.PeriodInMinutes));
-
-        AddHeaders(context.HttpContext, policy, remaining: Math.Max(policy.Limit - currentCount, 0), resetAtUnixSeconds: resetAtUnixSeconds);
+        metrics.Allowed();
+        // The local fallback's numbers describe one replica; showing them as X-RateLimit-* would
+        // present them as the shared limit.
+        if (shared)
+            AddLimitHeaders(context.HttpContext, decision.Limit, decision.Remaining, decision.ResetAt);
 
         await next();
     }
 
-    private async Task<RateLimitState?> ReadStateAsync(string key)
+    private async Task<RateDecision> AcquireAsync(RateBudgetSet budgets, DateTimeOffset now, CancellationToken ct)
     {
-        var cachedValue = await _cache.GetAsync(key);
-        if (cachedValue is null)
-        {
-            return null;
-        }
+        if (budgets.Subject.Count == 0 || options.Value.SubjectMode == SubjectBudgetMode.Enforce)
+            return await store.AcquireAsync(budgets.All, now, ct);
 
-        if (cachedValue.Length == sizeof(int))
-        {
-            return new RateLimitState(BitConverter.ToInt32(cachedValue, 0), _timeProvider.GetUtcNow().ToUnixTimeSeconds());
-        }
+        // Shadow: the caller's own budget decides; the subject budgets are counted separately and
+        // a refusal there is only recorded.
+        var decision = await store.AcquireAsync(budgets.Request, now, ct);
+        if (decision.Allowed && !(await store.AcquireAsync(budgets.Subject, now, ct)).Allowed)
+            metrics.ShadowDenied();
 
-        return JsonSerializer.Deserialize<RateLimitState>(cachedValue);
+        return decision;
     }
 
-    private Task WriteStateAsync(string key, RateLimitState state, TimeSpan lifetime)
-        => _cache.SetAsync(
-            key,
-            JsonSerializer.SerializeToUtf8Bytes(state),
-            new DistributedCacheEntryOptions
-            {
-                AbsoluteExpirationRelativeToNow = lifetime
-            });
-
-    private static string BuildBucketKey(HttpContext httpContext)
+    private static void AddLimitHeaders(HttpContext httpContext, int limit, int remaining, DateTimeOffset resetAt)
     {
-        var user = httpContext.User.Identity?.IsAuthenticated == true
-            ? httpContext.User.FindFirst("sub")?.Value ?? "anonymous"
-            : "anonymous";
-        var ipAddress = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-        var method = httpContext.Request.Method.ToUpperInvariant();
-        var path = httpContext.Request.Path.Value?.TrimEnd('/').ToLowerInvariant();
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            path = "/";
-        }
-
-        return $"{user}_{ipAddress}_{method}_{path}";
-    }
-
-    private static void AddHeaders(HttpContext httpContext, RateLimitPolicy policy, int remaining, long resetAtUnixSeconds, int? retryAfterSeconds = null)
-    {
-        httpContext.Response.Headers["X-RateLimit-Limit"] = policy.Limit.ToString(CultureInfo.InvariantCulture);
+        httpContext.Response.Headers["X-RateLimit-Limit"] = limit.ToString(CultureInfo.InvariantCulture);
         httpContext.Response.Headers["X-RateLimit-Remaining"] = remaining.ToString(CultureInfo.InvariantCulture);
-        httpContext.Response.Headers["X-RateLimit-Reset"] = resetAtUnixSeconds.ToString(CultureInfo.InvariantCulture);
-        if (retryAfterSeconds is not null)
-        {
-            httpContext.Response.Headers["Retry-After"] = retryAfterSeconds.Value.ToString(CultureInfo.InvariantCulture);
-        }
+        httpContext.Response.Headers["X-RateLimit-Reset"] = resetAt.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture);
     }
 
-    private static int RetryAfterSeconds(DateTimeOffset now, long resetAtUnixSeconds)
-        => Math.Max(1, (int)Math.Ceiling(DateTimeOffset.FromUnixTimeSeconds(resetAtUnixSeconds).Subtract(now).TotalSeconds));
+    private static int RetryAfterSeconds(DateTimeOffset now, DateTimeOffset retryAt)
+        => (int)Math.Clamp(Math.Ceiling((retryAt - now).TotalSeconds), 1, MaxRetryAfterSeconds);
 
     private static ObjectResult CreateTooManyRequestsResult()
     {
@@ -135,12 +123,13 @@ public class RateLimitFilter : IAsyncActionFilter
         {
             Status = StatusCodes.Status429TooManyRequests,
             Title = "RateLimitExceeded",
-            Detail = $"Too many requests. Try again later.",
+            Detail = "Too many requests. Try again later.",
             Extensions = { ["errors"] = new[] { new { Code = "RateLimitExceeded", Description = "Rate limit reached or backoff in effect." } } }
         };
 
         return new ObjectResult(problemDetails) { StatusCode = StatusCodes.Status429TooManyRequests };
     }
 
-    private sealed record RateLimitState(int Count, long ResetAtUnixSeconds);
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Rate limit store unavailable; FailClosed={FailClosed}.")]
+    private static partial void LogStoreUnavailable(ILogger logger, Exception exception, bool failClosed);
 }

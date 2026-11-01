@@ -26,34 +26,34 @@ public sealed class PhoneOwnershipController(IPhoneOwnershipService phones, IPho
     public IActionResult Availability() => Ok(new { enabled = policy.Enabled });
 
     [HttpPost("enrollment/request")]
-    [RateLimit(Limit = 5, PeriodInMinutes = 15, BackoffMinutes = 15)]
+    [RateLimit(Limit = 5, PeriodInMinutes = 15, BackoffMinutes = 15, Subject = RateLimitSubject.Destination, FailClosed = true)]
     public async Task<IActionResult> RequestEnrollment(PhoneChallengeRequest request, CancellationToken ct) =>
         Receipt(await phones.RequestEnrollmentAsync(request.PhoneNumber, ct));
 
     [HttpPost("enrollment/confirm")]
-    [RateLimit(Limit = 10, PeriodInMinutes = 15, BackoffMinutes = 15)]
+    [RateLimit(Limit = 10, PeriodInMinutes = 15, BackoffMinutes = 15, FailClosed = true)]
     public async Task<IActionResult> ConfirmEnrollment(PhoneEnrollmentConfirmation request, CancellationToken ct) =>
         Session(await phones.ConfirmEnrollmentAsync(request.ChallengeId, request.Code, request.FirstName, request.LastName, ct));
 
     [HttpPost("login/request")]
-    [RateLimit(Limit = 5, PeriodInMinutes = 15, BackoffMinutes = 15)]
+    [RateLimit(Limit = 5, PeriodInMinutes = 15, BackoffMinutes = 15, Subject = RateLimitSubject.Destination, FailClosed = true)]
     public async Task<IActionResult> RequestLogin(PhoneChallengeRequest request, CancellationToken ct) =>
         Receipt(await phones.RequestLoginAsync(request.PhoneNumber, ct));
 
     [HttpPost("login/confirm")]
-    [RateLimit(Limit = 10, PeriodInMinutes = 15, BackoffMinutes = 15)]
+    [RateLimit(Limit = 10, PeriodInMinutes = 15, BackoffMinutes = 15, FailClosed = true)]
     public async Task<IActionResult> ConfirmLogin(PhoneConfirmationRequest request, CancellationToken ct) =>
         Session(await phones.ConfirmLoginAsync(request.ChallengeId, request.Code, ct));
 
     [Authorize]
     [HttpPost("change/request")]
-    [RateLimit(Limit = 5, PeriodInMinutes = 15, BackoffMinutes = 15)]
+    [RateLimit(Limit = 5, PeriodInMinutes = 15, BackoffMinutes = 15, Subject = RateLimitSubject.Destination, FailClosed = true)]
     public async Task<IActionResult> RequestChange(PhoneChangeRequest request, CancellationToken ct) =>
         Receipt(await phones.RequestPhoneChangeAsync(Actor, Version, request.PhoneNumber, request.ReauthProof, ct));
 
     [Authorize]
     [HttpPost("change/confirm")]
-    [RateLimit(Limit = 10, PeriodInMinutes = 15, BackoffMinutes = 15)]
+    [RateLimit(Limit = 10, PeriodInMinutes = 15, BackoffMinutes = 15, FailClosed = true)]
     public async Task<IActionResult> ConfirmChange(PhoneConfirmationRequest request, CancellationToken ct)
     {
         var result = await phones.ConfirmPhoneChangeAsync(Actor, Version, request.ChallengeId, request.Code, ct);
@@ -81,10 +81,16 @@ public sealed class PhoneOwnershipController(IPhoneOwnershipService phones, IPho
             : result.ToActionResult(value => Ok(value));
 }
 
-public sealed record PhoneChallengeRequest(string PhoneNumber);
+public sealed record PhoneChallengeRequest(string PhoneNumber) : IRateLimitSubject
+{
+    string? IRateLimitSubject.Subject => PhoneNumber;
+}
 
 public sealed record PhoneConfirmationRequest(Guid ChallengeId, string Code);
 
 public sealed record PhoneEnrollmentConfirmation(Guid ChallengeId, string Code, string FirstName, string LastName);
 
-public sealed record PhoneChangeRequest(string PhoneNumber, string? ReauthProof = null);
+public sealed record PhoneChangeRequest(string PhoneNumber, string? ReauthProof = null) : IRateLimitSubject
+{
+    string? IRateLimitSubject.Subject => PhoneNumber;
+}

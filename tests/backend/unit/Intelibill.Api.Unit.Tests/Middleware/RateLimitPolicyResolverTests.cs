@@ -263,6 +263,59 @@ public sealed class RateLimitPolicyResolverTests
         Assert.Equal(15, policy.BackoffMinutes);
     }
 
+    [Fact]
+    public void Resolve_WhenEndpointDeclaresSubject_CarriesSubjectAndFailClosed()
+    {
+        var resolver = CreateResolver();
+        var actionDescriptor = new ControllerActionDescriptor
+        {
+            ControllerTypeInfo = typeof(Intelibill.Api.Controllers.AuthController).GetTypeInfo(),
+            MethodInfo = typeof(Intelibill.Api.Controllers.AuthController).GetMethod(nameof(Intelibill.Api.Controllers.AuthController.RequestPasswordReset))!
+        };
+
+        var policy = resolver.Resolve(CreateContext(actionDescriptor));
+
+        Assert.Equal(RateLimitSubject.Destination, policy.Subject);
+        Assert.True(policy.FailClosed);
+    }
+
+    /// <summary>
+    /// Relaxation widens numbers only: which subject an endpoint is limited by, and that it
+    /// refuses rather than guesses when the store is down, stay what the endpoint declared.
+    /// </summary>
+    [Fact]
+    public void Resolve_WhenEndpointPoliciesAreRelaxed_KeepsSubjectAndFailClosed()
+    {
+        var options = Microsoft.Extensions.Options.Options.Create(new RateLimitingOptions
+        {
+            Limit = 100,
+            PeriodInMinutes = 1,
+            BackoffMinutes = 3,
+            RelaxEndpointPolicies = true
+        });
+        var resolver = new RateLimitPolicyResolver(options);
+        var actionDescriptor = new ControllerActionDescriptor
+        {
+            ControllerTypeInfo = typeof(Intelibill.Api.Controllers.AuthController).GetTypeInfo(),
+            MethodInfo = typeof(Intelibill.Api.Controllers.AuthController).GetMethod(nameof(Intelibill.Api.Controllers.AuthController.LoginWithEmail))!
+        };
+
+        var policy = resolver.Resolve(CreateContext(actionDescriptor));
+
+        Assert.Equal(100, policy.Limit);
+        Assert.Equal(RateLimitSubject.Account, policy.Subject);
+        Assert.True(policy.FailClosed);
+    }
+
+    [Fact]
+    public void Resolve_WhenNoOverride_FailsOpenWithoutSubject()
+    {
+        var policy = CreateResolver().Resolve(CreateContext(new ActionDescriptor()));
+
+        Assert.Equal(RateLimitSubject.None, policy.Subject);
+        Assert.False(policy.FailClosed);
+    }
+
     private static RateLimitPolicyResolver CreateResolver()
     {
         var options = Microsoft.Extensions.Options.Options.Create(new RateLimitingOptions

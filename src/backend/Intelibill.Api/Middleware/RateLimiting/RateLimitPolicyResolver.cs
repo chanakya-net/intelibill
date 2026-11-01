@@ -17,6 +17,16 @@ public sealed class RateLimitPolicyResolver(IOptions<RateLimitingOptions> option
         var defaults = options.Value;
         var policy = new RateLimitPolicy(defaults.Limit, defaults.PeriodInMinutes, defaults.BackoffMinutes);
 
+        var overrideAttribute = ResolveOverride(context);
+        if (overrideAttribute is null)
+        {
+            return policy;
+        }
+
+        // Which subject an endpoint is counted against, and whether it refuses when the store is
+        // down, are what the endpoint is; they survive relaxation, which only widens numbers.
+        policy = policy with { Subject = overrideAttribute.Subject, FailClosed = overrideAttribute.FailClosed };
+
         // Local development asks for the default rather than each endpoint's hardened figure. The
         // opt-out above is still honoured: this widens a policy, it never invents one the code
         // declined to apply.
@@ -25,16 +35,12 @@ public sealed class RateLimitPolicyResolver(IOptions<RateLimitingOptions> option
             return policy;
         }
 
-        var overrideAttribute = ResolveOverride(context);
-        if (overrideAttribute is null)
+        return policy with
         {
-            return policy;
-        }
-
-        return new RateLimitPolicy(
-            Limit: overrideAttribute.Limit > 0 ? overrideAttribute.Limit : policy.Limit,
-            PeriodInMinutes: overrideAttribute.PeriodInMinutes > 0 ? overrideAttribute.PeriodInMinutes : policy.PeriodInMinutes,
-            BackoffMinutes: overrideAttribute.BackoffMinutes >= 0 ? overrideAttribute.BackoffMinutes : policy.BackoffMinutes);
+            Limit = overrideAttribute.Limit > 0 ? overrideAttribute.Limit : policy.Limit,
+            PeriodInMinutes = overrideAttribute.PeriodInMinutes > 0 ? overrideAttribute.PeriodInMinutes : policy.PeriodInMinutes,
+            BackoffMinutes = overrideAttribute.BackoffMinutes >= 0 ? overrideAttribute.BackoffMinutes : policy.BackoffMinutes,
+        };
     }
 
     private static bool HasDisableMetadata(ActionExecutingContext context)

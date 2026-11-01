@@ -24,7 +24,7 @@ public sealed class AuthController(IMessageBus bus, IOptions<AppOptions> appOpti
     // ── Registration ─────────────────────────────────────────────────────────
 
     [HttpPost("register/email")]
-    [RateLimit(Limit = 10, PeriodInMinutes = 1, BackoffMinutes = 3)]
+    [RateLimit(Limit = 10, PeriodInMinutes = 1, BackoffMinutes = 3, Subject = RateLimitSubject.Destination, FailClosed = true)]
     public async Task<IActionResult> RegisterWithEmail(
         [FromBody] RegisterWithEmailRequest request,
         CancellationToken cancellationToken)
@@ -56,7 +56,7 @@ public sealed class AuthController(IMessageBus bus, IOptions<AppOptions> appOpti
     // ── Login ────────────────────────────────────────────────────────────
 
     [HttpPost("login/email")]
-    [RateLimit(Limit = 10, PeriodInMinutes = 1, BackoffMinutes = 3)]
+    [RateLimit(Limit = 10, PeriodInMinutes = 1, BackoffMinutes = 3, Subject = RateLimitSubject.Account, FailClosed = true)]
     public async Task<IActionResult> LoginWithEmail(
         [FromBody] LoginWithEmailRequest request,
         CancellationToken cancellationToken)
@@ -69,7 +69,7 @@ public sealed class AuthController(IMessageBus bus, IOptions<AppOptions> appOpti
     }
 
     [HttpPost("login")]
-    [RateLimit(Limit = 10, PeriodInMinutes = 1, BackoffMinutes = 3)]
+    [RateLimit(Limit = 10, PeriodInMinutes = 1, BackoffMinutes = 3, Subject = RateLimitSubject.Account, FailClosed = true)]
     public async Task<IActionResult> Login(
         [FromBody] LoginRequest request,
         CancellationToken cancellationToken)
@@ -84,7 +84,7 @@ public sealed class AuthController(IMessageBus bus, IOptions<AppOptions> appOpti
     // ── Password reset ────────────────────────────────────────────────────────
 
     [HttpPost("password-reset/request")]
-    [RateLimit(Limit = 5, PeriodInMinutes = 15, BackoffMinutes = 15)]
+    [RateLimit(Limit = 5, PeriodInMinutes = 15, BackoffMinutes = 15, Subject = RateLimitSubject.Destination, FailClosed = true)]
     public async Task<IActionResult> RequestPasswordReset(
         [FromBody] RequestPasswordResetRequest request,
         CancellationToken cancellationToken)
@@ -99,7 +99,7 @@ public sealed class AuthController(IMessageBus bus, IOptions<AppOptions> appOpti
     }
 
     [HttpPost("password-reset/confirm")]
-    [RateLimit(Limit = 5, PeriodInMinutes = 15, BackoffMinutes = 15)]
+    [RateLimit(Limit = 5, PeriodInMinutes = 15, BackoffMinutes = 15, Subject = RateLimitSubject.Account, FailClosed = true)]
     public async Task<IActionResult> ResetPassword(
         [FromBody] ResetPasswordRequest request,
         CancellationToken cancellationToken)
@@ -145,12 +145,32 @@ public sealed record RegisterWithEmailRequest(
     string? Password = null,
     string? FirstName = null,
     string? LastName = null,
-    string? PhoneNumber = null);
+    string? PhoneNumber = null) : IRateLimitSubject
+{
+    string? IRateLimitSubject.Subject => Email;
+}
+
 public sealed record RegisterWithPhoneRequest(string PhoneNumber, string FirstName, string LastName);
-public sealed record LoginWithEmailRequest(string Email, string Password);
-public sealed record LoginRequest(string Identifier, string Password);
-public sealed record RequestPasswordResetRequest(string Email);
-public sealed record ResetPasswordRequest(string Email, string Token, string NewPassword);
+public sealed record LoginWithEmailRequest(string Email, string Password) : IRateLimitSubject
+{
+    string? IRateLimitSubject.Subject => Email;
+}
+
+public sealed record LoginRequest(string Identifier, string Password) : IRateLimitSubject
+{
+    string? IRateLimitSubject.Subject => Identifier;
+}
+
+public sealed record RequestPasswordResetRequest(string Email) : IRateLimitSubject
+{
+    string? IRateLimitSubject.Subject => Email;
+}
+
+public sealed record ResetPasswordRequest(string Email, string Token, string NewPassword) : IRateLimitSubject
+{
+    string? IRateLimitSubject.Subject => Email;
+}
+
 // The refresh secret is left out of the string form: MVC logs action arguments that way at Trace,
 // and a raised log level must not be enough to write live credentials to the log store.
 public sealed record RefreshTokenRequest(string RefreshToken, Guid? ActiveShopId = null)

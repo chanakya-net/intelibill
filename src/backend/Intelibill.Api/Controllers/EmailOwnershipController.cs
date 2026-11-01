@@ -22,31 +22,31 @@ public sealed class EmailOwnershipController(IEmailOwnershipService ownership) :
         return result.ToActionResult(_ => Accepted(new { message = "If this address is eligible, a verification email will arrive shortly." }));
     }
     [HttpPost("enrollment/email/request")]
-    [RateLimit(Limit = 5, PeriodInMinutes = 15, BackoffMinutes = 15)]
+    [RateLimit(Limit = 5, PeriodInMinutes = 15, BackoffMinutes = 15, Subject = RateLimitSubject.Destination, FailClosed = true)]
     public async Task<IActionResult> RequestEmail(EmailOwnershipRequest request, CancellationToken ct) => AcceptedRequest(await ownership.RequestAsync(request.Email, ct));
     [HttpPost("enrollment/email/confirm")]
-    [RateLimit(Limit = 10, PeriodInMinutes = 15, BackoffMinutes = 15)]
+    [RateLimit(Limit = 10, PeriodInMinutes = 15, BackoffMinutes = 15, FailClosed = true)]
     public async Task<IActionResult> ConfirmEnrollment(EmailEnrollmentConfirmation request, CancellationToken ct) =>
         (await ownership.ConfirmEnrollmentAsync(request.ChallengeId, request.Token, request.Password, request.FirstName, request.LastName, ct)).ToActionResult(Ok);
     [HttpPost("enrollment/email/claim/request")]
-    [RateLimit(Limit = 5, PeriodInMinutes = 15, BackoffMinutes = 15)]
+    [RateLimit(Limit = 5, PeriodInMinutes = 15, BackoffMinutes = 15, Subject = RateLimitSubject.Destination, FailClosed = true)]
     public async Task<IActionResult> RequestClaim(EmailOwnershipRequest request, CancellationToken ct) => AcceptedRequest(await ownership.RequestClaimAsync(request.Email, ct));
     [HttpPost("enrollment/email/claim/confirm")]
-    [RateLimit(Limit = 10, PeriodInMinutes = 15, BackoffMinutes = 15)]
+    [RateLimit(Limit = 10, PeriodInMinutes = 15, BackoffMinutes = 15, FailClosed = true)]
     public async Task<IActionResult> ConfirmClaim(EmailEnrollmentConfirmation request, CancellationToken ct) =>
         (await ownership.ConfirmClaimAsync(request.ChallengeId, request.Token, request.Password, request.FirstName, request.LastName, ct)).ToActionResult(Ok);
     [Authorize]
     [HttpPost("reauthenticate")]
-    [RateLimit(Limit = 5, PeriodInMinutes = 15, BackoffMinutes = 15)]
+    [RateLimit(Limit = 5, PeriodInMinutes = 15, BackoffMinutes = 15, Subject = RateLimitSubject.Account, FailClosed = true)]
     public async Task<IActionResult> Reauthenticate(ReauthenticationRequest request, CancellationToken ct) =>
         (await ownership.ReauthenticateAsync(Actor, Version, request.Password, ct)).ToActionResult(Ok);
     [Authorize]
     [HttpPost("email-change/request")]
-    [RateLimit(Limit = 5, PeriodInMinutes = 15, BackoffMinutes = 15)]
+    [RateLimit(Limit = 5, PeriodInMinutes = 15, BackoffMinutes = 15, Subject = RateLimitSubject.Destination, FailClosed = true)]
     public async Task<IActionResult> RequestChange(EmailChangeRequest request, CancellationToken ct) => AcceptedRequest(await ownership.RequestEmailChangeAsync(Actor, Version, request.Email, request.ReauthProof, ct));
     [Authorize]
     [HttpPost("email-change/confirm")]
-    [RateLimit(Limit = 10, PeriodInMinutes = 15, BackoffMinutes = 15)]
+    [RateLimit(Limit = 10, PeriodInMinutes = 15, BackoffMinutes = 15, FailClosed = true)]
     public async Task<IActionResult> ConfirmChange(EmailOwnershipConfirmation request, CancellationToken ct) =>
         (await ownership.ConfirmEmailChangeAsync(Actor, Version, request.ChallengeId, request.Token, ct)).ToActionResult(_ => Ok(new { message = "Email updated. Please sign in again." }));
     [Authorize]
@@ -57,8 +57,14 @@ public sealed class EmailOwnershipController(IEmailOwnershipService ownership) :
         return user is null ? Unauthorized() : Ok(new { hasPassword = user.IsEmailVerified && user.PasswordHash is not null });
     }
 }
-public sealed record EmailOwnershipRequest(string Email);
+public sealed record EmailOwnershipRequest(string Email) : IRateLimitSubject
+{
+    string? IRateLimitSubject.Subject => Email;
+}
 public sealed record EmailEnrollmentConfirmation(Guid ChallengeId, string Token, string Password, string FirstName, string LastName);
 public sealed record EmailOwnershipConfirmation(Guid ChallengeId, string Token);
 public sealed record ReauthenticationRequest(string? Password);
-public sealed record EmailChangeRequest(string Email, string ReauthProof);
+public sealed record EmailChangeRequest(string Email, string ReauthProof) : IRateLimitSubject
+{
+    string? IRateLimitSubject.Subject => Email;
+}
