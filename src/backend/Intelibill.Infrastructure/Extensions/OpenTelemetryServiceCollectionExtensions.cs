@@ -89,6 +89,8 @@ public static class OpenTelemetryServiceCollectionExtensions
                 .AddSource("Wolverine")
                 .SetSampler(new ParentBasedSampler(
                     new TraceIdRatioBasedSampler(tracingOpts.SamplingRatio)))
+                // Before the exporter: processors run in the order they are added.
+                .AddProcessor(new SafeSpanProcessor())
                 .AddOtlpExporter(o =>
                 {
                     o.Protocol = OtlpExportProtocol.HttpProtobuf;

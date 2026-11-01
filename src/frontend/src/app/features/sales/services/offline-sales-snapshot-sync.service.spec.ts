@@ -92,6 +92,53 @@ describe('OfflineSalesSnapshotSyncService', () => {
     expect(await snapshotDb.getUsableSnapshotId(shopId)).toBe('attempt-2');
   });
 
+  it('treats an error record as terminal and keeps its code and trace id', async () => {
+    await snapshotDb.beginAttempt({
+      snapshotId: 'previous',
+      shopId,
+      schemaVersion: 1,
+      startedAt: new Date(0).toISOString(),
+    });
+    await snapshotDb.markComplete('previous', shopId, new Date(0).toISOString());
+    const markFailed = vi.spyOn(snapshotDb, 'markFailed');
+
+    const ndjson =
+      [
+        JSON.stringify({
+          type: 'metadata',
+          metadata: { snapshotId: 'attempt-err', shopId, schemaVersion: 1, startedAt: new Date().toISOString() },
+        }),
+        JSON.stringify({
+          type: 'error',
+          error: {
+            snapshotId: 'attempt-err',
+            code: 'OfflineSnapshot.StreamFailed',
+            message: 'The offline snapshot could not be completed. Try again later.',
+            traceId: '0af7651916cd43dd8448eb211c80319c',
+          },
+        }),
+        // Nothing after an error may make the attempt usable.
+        JSON.stringify({
+          type: 'complete',
+          complete: { snapshotId: 'attempt-err', completedAt: new Date().toISOString() },
+        }),
+      ].join('\n') + '\n';
+
+    stubFetch(ndjson);
+
+    await service.syncForShop(shopId);
+
+    expect(await snapshotDb.getUsableSnapshotId(shopId)).toBe('previous');
+    expect(markFailed).toHaveBeenCalledTimes(1);
+    expect(markFailed).toHaveBeenCalledWith(
+      'attempt-err',
+      shopId,
+      'OfflineSnapshot.StreamFailed',
+      'The offline snapshot could not be completed. Try again later.',
+      '0af7651916cd43dd8448eb211c80319c',
+    );
+  });
+
   it('persists service records from the snapshot stream', async () => {
     expect(await snapshotDb.getUsableSnapshotId(shopId)).toBeNull();
 

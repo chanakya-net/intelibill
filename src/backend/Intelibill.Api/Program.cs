@@ -1,5 +1,7 @@
 using System.Text;
+using Intelibill.Api.PublicErrors;
 using Intelibill.Api.Extensions;
+using Intelibill.Api.Logging;
 using Intelibill.Api.Hubs;
 using Intelibill.Api.Middleware;
 using Intelibill.Api.Middleware.RateLimiting;
@@ -44,6 +46,8 @@ builder.Services.AddScoped<ICurrentSessionContext, HttpCurrentSessionContext>();
 builder.Services.AddScoped<IDeviceMetadataProvider, HttpDeviceMetadataProvider>();
 builder.Services.AddScoped<RateLimitFilter>();
 builder.Services.AddSingleton<IRateLimitPolicyResolver, RateLimitPolicyResolver>();
+builder.Services.AddSingleton<ISafeErrorFactory, SafeErrorFactory>();
+builder.Services.AddSingleton<ISafeDiagnosticWriter, SafeDiagnosticWriter>();
 
 builder.Services.AddEdge(configuration, builder.Environment);
 

@@ -145,7 +145,13 @@ export class OfflineSalesSnapshotIndexedDbService {
     });
   }
 
-  async markFailed(snapshotId: string, shopId: string, errorCode: string, errorMessage: string): Promise<void> {
+  async markFailed(
+    snapshotId: string,
+    shopId: string,
+    errorCode: string,
+    errorMessage: string,
+    errorTraceId?: string
+  ): Promise<void> {
     if (!snapshotId || !shopId || typeof indexedDB === 'undefined') {
       return;
     }
@@ -168,6 +174,7 @@ export class OfflineSalesSnapshotIndexedDbService {
           status: 'failed',
           errorCode,
           errorMessage,
+          ...(errorTraceId ? { errorTraceId } : {}),
         };
 
         const putAttempt = attempts.put(updatedAttempt);

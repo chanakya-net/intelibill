@@ -1,6 +1,8 @@
 using System.Text.Json;
 using ErrorOr;
 using Intelibill.Api.Extensions;
+using Intelibill.Api.Logging;
+using Intelibill.Api.PublicErrors;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.OfflineSalesSnapshot.DTOs;
@@ -28,10 +30,17 @@ public sealed partial class SalesController : AuthenticatedControllerBase
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
     };
+    private const string SnapshotStreamFailedCode = "OfflineSnapshot.StreamFailed";
+    private const string SnapshotStreamFailedMessage = "The offline snapshot could not be completed. Try again later.";
     private readonly IOfflineSalesSnapshotStreamingService _offlineSnapshotStreamingService;
-    public SalesController(IMessageBus bus, IOfflineSalesSnapshotStreamingService offlineSnapshotStreamingService) : base(bus)
+    private readonly ISafeDiagnosticWriter _diagnostics;
+    public SalesController(
+        IMessageBus bus,
+        IOfflineSalesSnapshotStreamingService offlineSnapshotStreamingService,
+        ISafeDiagnosticWriter diagnostics) : base(bus)
     {
         _offlineSnapshotStreamingService = offlineSnapshotStreamingService;
+        _diagnostics = diagnostics;
     }
     [HttpGet("offline-snapshot/stream")]
     public async Task StreamOfflineSnapshot(CancellationToken cancellationToken)
@@ -83,11 +92,25 @@ public sealed partial class SalesController : AuthenticatedControllerBase
         {
             // client cancelled
         }
-        catch (Exception ex)
+        catch (Exception exception) when ((count > 0 || Response.HasStarted) && !cancellationToken.IsCancellationRequested)
         {
-            // best-effort: emit error record (do not emit complete)
+            // Records are already on the wire, so the status can no longer say this failed. The
+            // framed error record says it instead, and no complete record follows, so the client
+            // keeps its previous snapshot. A failure before the first record is not caught here:
+            // the exception middleware answers it as an ordinary failed request. Nor is a caller
+            // who disconnected: nobody would read the record.
+            var traceId = SafeTraceId.Resolve(HttpContext);
+            _diagnostics.Unexpected(
+                exception,
+                SafeDiagnosticContext.For(
+                    HttpContext,
+                    traceId,
+                    SnapshotStreamFailedCode,
+                    StatusCodes.Status500InternalServerError,
+                    responseStarted: true));
+
             var error = new OfflineSalesSnapshotErrorRecord(
-                new OfflineSalesSnapshotError(snapshotId, "OfflineSnapshot.StreamFailed", ex.Message));
+                new OfflineSalesSnapshotError(snapshotId, SnapshotStreamFailedCode, SnapshotStreamFailedMessage, traceId));
             var line = JsonSerializer.Serialize(error, NdjsonOptions) + "\n";
             await Response.WriteAsync(line, cancellationToken);
             await Response.Body.FlushAsync(cancellationToken);
