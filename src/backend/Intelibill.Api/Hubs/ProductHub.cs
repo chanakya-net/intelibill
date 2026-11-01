@@ -1,29 +1,22 @@
+using Intelibill.Api.Services.Realtime;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 
 namespace Intelibill.Api.Hubs;
 
+/// <summary>
+/// Catalog change notifications for one shop.
+/// </summary>
+/// <remarks>
+/// Admission and release are the gate's, not this class's: both hubs owe the same authority check,
+/// and two copies of it would eventually disagree. There is deliberately no client-callable method —
+/// a connection's scope is whatever the server admitted it under and nothing a client sends can
+/// widen it.
+/// </remarks>
 [Authorize]
-public sealed class ProductHub : Hub
+public sealed class ProductHub(RealtimeConnectionGate gate) : Hub
 {
-    private const string ActiveShopClaim = "active_shop_id";
+    public override Task OnConnectedAsync() => gate.AdmitAsync(Context, nameof(ProductHub));
 
-    internal static string ActiveShopGroupName(Guid shopId) => $"shop:{shopId}";
-
-    public override async Task OnConnectedAsync()
-    {
-        // Read the claim from Context.User rather than ICurrentSessionContext:
-        // IHttpContextAccessor is not guaranteed to flow into hub callbacks, and
-        // a null there would abort every connection.
-        var claim = Context.User?.FindFirst(ActiveShopClaim)?.Value;
-        if (!Guid.TryParse(claim, out var shopId))
-        {
-            Context.Abort();
-            return;
-        }
-
-        await Groups.AddToGroupAsync(Context.ConnectionId, ActiveShopGroupName(shopId));
-
-        await base.OnConnectedAsync();
-    }
+    public override Task OnDisconnectedAsync(Exception? exception) => gate.ReleaseAsync(Context);
 }

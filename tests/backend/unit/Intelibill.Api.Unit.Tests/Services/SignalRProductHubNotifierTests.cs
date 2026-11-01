@@ -28,7 +28,7 @@ public class SignalRProductHubNotifierTests
 
         await _notifier.NotifyProductCreatedAsync(itemId, "BAR001", "Rice", shopId);
 
-        _hubClients.Received(1).Group(ProductHub.ActiveShopGroupName(shopId));
+        _hubClients.Received(1).Group($"shop:{shopId}");
         await _groupClients.Received(1).SendCoreAsync(
             "ProductAdded",
             Arg.Any<object?[]>(),

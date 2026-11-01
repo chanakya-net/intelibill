@@ -29,7 +29,7 @@ public class SignalRShopUpdatesNotifierTests
 
         await _notifier.NotifyShopUpdateAsync("DiscountRuleChanged", shopId, changedIds, occurredOn);
 
-        _hubClients.Received(1).Group(ShopUpdatesHub.ActiveShopGroupName(shopId));
+        _hubClients.Received(1).Group($"shop:{shopId}");
         await _groupClients.Received(1).SendCoreAsync(
             "ShopUpdated",
             Arg.Any<object?[]>(),

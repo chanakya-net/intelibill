@@ -13,9 +13,11 @@ internal sealed class SignalRShopUpdatesNotifier(IHubContext<ShopUpdatesHub> hub
         DateTimeOffset occurredOn,
         CancellationToken cancellationToken = default)
     {
-        return hubContext.Clients.Group(ShopUpdatesHub.ActiveShopGroupName(shopId)).SendAsync(
+        return hubContext.Clients.Group(GroupName(shopId)).SendAsync(
             "ShopUpdated",
             new { eventType, shopId, changedIds, occurredOn },
             cancellationToken);
     }
+
+    private static string GroupName(Guid shopId) => $"shop:{shopId}";
 }

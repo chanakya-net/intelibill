@@ -13,9 +13,11 @@ internal sealed class SignalRProductHubNotifier(IHubContext<ProductHub> hubConte
         Guid shopId,
         CancellationToken cancellationToken = default)
     {
-        return hubContext.Clients.Group(ProductHub.ActiveShopGroupName(shopId)).SendAsync(
+        return hubContext.Clients.Group(GroupName(shopId)).SendAsync(
             "ProductAdded",
             new { itemId, barcode, name, shopId },
             cancellationToken);
     }
+
+    private static string GroupName(Guid shopId) => $"shop:{shopId}";
 }

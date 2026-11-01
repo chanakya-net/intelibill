@@ -39,6 +39,7 @@ public class ApplicationDbContext(
     public DbSet<AuthSession> AuthSessions => Set<AuthSession>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
+    public DbSet<RealtimeConnectionLease> RealtimeConnectionLeases => Set<RealtimeConnectionLease>();
     public DbSet<ItemBarcodeSequence> ItemBarcodeSequences => Set<ItemBarcodeSequence>();
     public DbSet<Service> Services => Set<Service>();
     public DbSet<ServiceCodeSequence> ServiceCodeSequences => Set<ServiceCodeSequence>();
