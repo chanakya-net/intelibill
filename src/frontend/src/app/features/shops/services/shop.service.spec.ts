@@ -3,12 +3,14 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 
 import { SHOP_ENDPOINTS } from '../../../core/auth/auth.constants';
+import { AccessScopeResult } from '../../../core/auth/auth.models';
 import { AuthService } from '../../../core/auth/auth.service';
 import { ShopDetails, ShopService } from './shop.service';
 
 describe('ShopService', () => {
   const authService = {
     applyAuthResult: vi.fn<AuthService['applyAuthResult']>(),
+    applyAccessScope: vi.fn<AuthService['applyAccessScope']>(),
   };
 
   function setup(): { service: ShopService; http: HttpTestingController } {
@@ -28,6 +30,7 @@ describe('ShopService', () => {
 
   beforeEach(() => {
     authService.applyAuthResult.mockReset();
+    authService.applyAccessScope.mockReset();
   });
 
   afterEach(() => {
@@ -99,6 +102,32 @@ describe('ShopService', () => {
       mobileNumber: '9876543210',
       gstNumber: '27AAPFU0939F1ZV',
     });
+
+    http.verify();
+  });
+
+  it('switches the active shop and adopts the reissued access scope', () => {
+    const { service, http } = setup();
+
+    const scope: AccessScopeResult = {
+      accessToken: 'token-for-shop-2',
+      accessTokenExpiresAt: new Date(Date.now() + 60_000).toISOString(),
+      activeShopId: 'shop-2',
+      scopeVersion: 4,
+      shops: [
+        { shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null },
+        { shopId: 'shop-2', shopName: 'Second', role: 'Manager', isDefault: false, lastUsedAt: null },
+      ],
+    };
+
+    service.switchActiveShop('shop-2').subscribe();
+
+    const request = http.expectOne(SHOP_ENDPOINTS.switch);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ shopId: 'shop-2' });
+    request.flush(scope);
+
+    expect(authService.applyAccessScope).toHaveBeenCalledWith(scope);
 
     http.verify();
   });

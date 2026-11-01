@@ -64,6 +64,10 @@ interface SetDefaultShopRequest {
   readonly shopId: string;
 }
 
+interface SwitchActiveShopRequest {
+  readonly shopId: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ShopService {
   private readonly http = inject(HttpClient);
@@ -82,6 +86,20 @@ export class ShopService {
     // A created shop moves this device into it and reissues only its access token: creating a shop
     // is not a sign-in, so it hands out no new refresh credential.
     return this.http.post<AccessScopeResult>(SHOP_ENDPOINTS.create, payload).pipe(
+      tap((result) => this.authService.applyAccessScope(result)),
+      map(() => void 0)
+    );
+  }
+
+  /**
+   * Moves this device into another of the caller's shops. The server rescopes this device's
+   * session and reissues only its access token: choosing a shop is not a credential event, so the
+   * refresh credential this sign-in earned is left exactly as it is. No other device moves.
+   */
+  switchActiveShop(shopId: string): Observable<void> {
+    const payload: SwitchActiveShopRequest = { shopId };
+
+    return this.http.post<AccessScopeResult>(SHOP_ENDPOINTS.switch, payload).pipe(
       tap((result) => this.authService.applyAccessScope(result)),
       map(() => void 0)
     );

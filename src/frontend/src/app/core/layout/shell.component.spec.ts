@@ -330,6 +330,9 @@ describe('ShellComponent', () => {
 
       component.onSelectShop('shop-2');
       expect(store.dispatch).toHaveBeenCalledWith(
+        ShopsActions.switchActiveShopRequested({ shopId: 'shop-2' }),
+      );
+      expect(store.dispatch).not.toHaveBeenCalledWith(
         ShopsActions.setDefaultShopRequested({ shopId: 'shop-2' }),
       );
       expect(component.isShopMenuOpen()).toBe(false);

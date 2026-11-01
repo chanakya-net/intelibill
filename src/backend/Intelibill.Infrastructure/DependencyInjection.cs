@@ -50,20 +50,28 @@ public static class DependencyInjection
         services.AddDbContext<ApplicationDbContext>((sp, options) =>
         {
             var dataSource = sp.GetRequiredService<NpgsqlDataSource>();
-            var sessionInterceptor = sp.GetRequiredService<PostgresSessionContextInterceptor>();
-            var telemetryInterceptors = sp.GetServices<IInterceptor>();
             options.UseNpgsql(dataSource, npgsql =>
                 npgsql.MigrationsAssembly(typeof(DependencyInjection).Assembly.FullName))
-                .AddInterceptors(sessionInterceptor)
-                .AddInterceptors(telemetryInterceptors)
+                .AddInterceptors(sp.GetServices<IInterceptor>())
                 .UseSnakeCaseNamingConvention();
         });
 
-        services.AddScoped<PostgresSessionContextInterceptor>();
+        // Registered under IInterceptor, not under its own type: a host that rebuilds
+        // the DbContext registration (the integration harness does) picks up every
+        // interceptor through IInterceptor, and a session interceptor it silently
+        // dropped would leave app.active_shop_id unset and every policy inert.
+        // The two interceptors hook different events — connection versus command —
+        // so the order they are applied in does not matter.
+        services.AddScoped<IInterceptor, PostgresSessionContextInterceptor>();
         services.AddSingleton<RequestDatabaseTelemetryAccessor>();
         services.AddScoped<IInterceptor, RequestDatabaseCommandInterceptor>();
 
         services.AddScoped<IUnitOfWork, UnitOfWork>();
+        services.AddScoped<ITenantWriteScope, TenantWriteScope>();
+
+        // Before the revision serves a request: a connection secret pointing at a
+        // privileged role would disarm every tenant policy silently.
+        services.AddHostedService<RuntimeRoleGuard>();
 
         // ── Auth options ─────────────────────────────────────────────────────
         services.AddOptions<JwtOptions>()

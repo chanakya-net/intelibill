@@ -1,6 +1,7 @@
 using System.Net;
 using Intelibill.Infrastructure.Data;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -14,7 +15,7 @@ using Testcontainers.PostgreSql;
 
 namespace Intelibill.Integration.Tests;
 
-public sealed class ApiWebApplicationFactory(PostgreSqlTestFixture? fixture = null, Action<IServiceCollection>? configureTestServices = null, bool enableIdentityMail = true, bool enablePhoneAuth = true) : WebApplicationFactory<Program>, IAsyncLifetime
+public sealed class ApiWebApplicationFactory(PostgreSqlTestFixture? fixture = null, Action<IServiceCollection>? configureTestServices = null, bool enableIdentityMail = true, bool enablePhoneAuth = true, int? maxPoolSize = null, bool runtimeIdentityOutsideRequests = false) : WebApplicationFactory<Program>, IAsyncLifetime
 {
     public new HttpClient CreateClient(WebApplicationFactoryClientOptions options)
     {
@@ -26,6 +27,19 @@ public sealed class ApiWebApplicationFactory(PostgreSqlTestFixture? fixture = nu
 
     private PostgreSqlContainer? _localContainer;
     private PostgreSqlContainer DbContainer => fixture?.DbContainer ?? _localContainer ?? throw new InvalidOperationException("Container not initialized");
+
+    /// <summary>
+    /// Owner identity: applies migrations and backs the DbContext a test resolves
+    /// outside a request, so assertions about rows the policies hide are possible.
+    /// </summary>
+    public string MigratorConnectionString => DbContainer.GetConnectionString();
+
+    /// <summary>
+    /// What every API request authenticates as: DML only, no ownership, no
+    /// BYPASSRLS — the same shape as the deployed runtime identity.
+    /// </summary>
+    public string RuntimeConnectionString =>
+        RestrictedRuntimeRole.ConnectionStringFor(MigratorConnectionString, maxPoolSize);
 
     public async Task InitializeAsync()
     {
@@ -40,16 +54,22 @@ public sealed class ApiWebApplicationFactory(PostgreSqlTestFixture? fixture = nu
             await _localContainer.StartAsync();
         }
 
+        await RestrictedRuntimeRole.EnsureAsync(MigratorConnectionString);
+
         // Tests in this project share the same PostgreSQL container through a collection fixture.
         // Resetting the database per factory initialization prevents data leakage between tests.
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-            .UseNpgsql(DbContainer.GetConnectionString())
+            .UseNpgsql(MigratorConnectionString)
             .UseSnakeCaseNamingConvention()
             .Options;
 
         await using var context = new ApplicationDbContext(options);
         await context.Database.EnsureDeletedAsync();
         await context.Database.MigrateAsync();
+
+        // Privileges are database objects: the drop above took the previous set
+        // with it, so the runtime role is re-granted after every migration.
+        await RestrictedRuntimeRole.GrantAsync(MigratorConnectionString);
     }
 
     async Task IAsyncLifetime.DisposeAsync()
@@ -83,18 +103,26 @@ public sealed class ApiWebApplicationFactory(PostgreSqlTestFixture? fixture = nu
                 ["Identity:PhoneCodeKey"] = IdentityTestPhone.CodeKey,
                 ["PhoneAuth:Enabled"] = enablePhoneAuth.ToString(),
                 ["PhoneAuth:LocalCapture"] = "true",
-                ["ConnectionStrings:DefaultConnection"] = DbContainer.GetConnectionString(),
+                ["ConnectionStrings:DefaultConnection"] = RuntimeConnectionString,
                 ["Database:Host"] = DbContainer.Hostname,
                 ["Database:Port"] = DbContainer.GetMappedPublicPort(5432).ToString(System.Globalization.CultureInfo.InvariantCulture),
                 ["Database:Database"] = "integration",
-                ["Database:Username"] = "integration",
-                ["Database:Password"] = "integration",
+                ["Database:Username"] = RestrictedRuntimeRole.Name,
+                ["Database:Password"] = RestrictedRuntimeRole.Password,
                 ["Jwt:Secret"] = "integration-secret-key-must-be-at-least-32-chars!",
                 ["Jwt:Issuer"] = "inventory.ai.integration",
                 ["Jwt:Audience"] = "inventory.ai.integration",
                 ["Jwt:AccessTokenExpiryMinutes"] = "15",
                 ["Jwt:RefreshTokenExpiryDays"] = "7",
             });
+
+            if (maxPoolSize is not null)
+            {
+                configBuilder.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["Database:MaxPoolSize"] = maxPoolSize.Value.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                });
+            }
         });
 
         builder.ConfigureServices(services =>
@@ -105,7 +133,21 @@ public sealed class ApiWebApplicationFactory(PostgreSqlTestFixture? fixture = nu
 
             services.AddDbContext<ApplicationDbContext>((sp, options) =>
             {
-                options.UseNpgsql(DbContainer.GetConnectionString())
+                // Requests authenticate as the restricted runtime role, so row-level
+                // security is enforced over the whole API surface exactly as it is in
+                // a deployed environment. A DbContext resolved outside a request — a
+                // test's own inspection scope — stays on the owner identity, because
+                // proving that a foreign shop's row was *not* read or changed needs a
+                // view the policies do not filter. A test that is about the runtime
+                // identity itself, rather than about inspecting rows, asks for it
+                // everywhere with runtimeIdentityOutsideRequests: without that, it
+                // would run against the owner's pool and prove nothing.
+                var httpContextAccessor = sp.GetService<IHttpContextAccessor>();
+                var connectionString = runtimeIdentityOutsideRequests || httpContextAccessor?.HttpContext is not null
+                    ? RuntimeConnectionString
+                    : MigratorConnectionString;
+
+                options.UseNpgsql(connectionString)
                     .AddInterceptors(sp.GetServices<IInterceptor>())
                     .UseSnakeCaseNamingConvention()
                     .ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));

@@ -3,7 +3,7 @@ import { createActionGroup, emptyProps, props } from '@ngrx/store';
 import { UserShop } from '../../../core/auth/auth.models';
 import { CreateShopRequest, ShopDetails, UpdateBankDetailsRequest } from '../services/shop.service';
 
-export type ShopMutationType = 'create' | 'update' | 'update-bank-details' | 'set-default';
+export type ShopMutationType = 'create' | 'update' | 'update-bank-details' | 'set-default' | 'switch';
 
 export const ShopsActions = createActionGroup({
   source: 'Shops',
@@ -25,6 +25,12 @@ export const ShopsActions = createActionGroup({
     'Update Shop Requested': props<{ shopId: string; payload: CreateShopRequest }>(),
     'Update Shop Succeeded': props<{ details: ShopDetails }>(),
     'Update Shop Failed': props<{ errorMessage: string }>(),
+
+    // Moves this device into another shop. 'Set Default Shop' below stores a preference and moves
+    // no device, which is why the two are separate events.
+    'Switch Active Shop Requested': props<{ shopId: string }>(),
+    'Switch Active Shop Succeeded': props<{ shopId: string }>(),
+    'Switch Active Shop Failed': props<{ errorMessage: string }>(),
 
     'Set Default Shop Requested': props<{ shopId: string }>(),
     'Set Default Shop Succeeded': emptyProps(),

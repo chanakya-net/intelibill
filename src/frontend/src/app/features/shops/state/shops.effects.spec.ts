@@ -1,3 +1,4 @@
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Action } from '@ngrx/store';
 import { Actions } from '@ngrx/effects';
@@ -5,7 +6,9 @@ import { Observable, Subject, firstValueFrom, of, throwError } from 'rxjs';
 import { take } from 'rxjs/operators';
 import { vi } from 'vitest';
 
-import { UserShop } from '../../../core/auth/auth.models';
+import { AuthSession, UserShop } from '../../../core/auth/auth.models';
+import { AuthService } from '../../../core/auth/auth.service';
+import { AppReloadService } from '../../../core/services/app-reload.service';
 import { ShopService } from '../services/shop.service';
 import { ShopsActions } from './shops.actions';
 import { ShopsEffects } from './shops.effects';
@@ -20,8 +23,13 @@ describe('ShopsEffects', () => {
     createShop: vi.fn<ShopService['createShop']>(),
     updateShop: vi.fn<ShopService['updateShop']>(),
     setDefaultShop: vi.fn<ShopService['setDefaultShop']>(),
+    switchActiveShop: vi.fn<ShopService['switchActiveShop']>(),
     updateBankDetails: vi.fn<ShopService['updateBankDetails']>(),
   };
+
+  const sessionSignal = signal<AuthSession | null>(null);
+  const authService = { session: sessionSignal };
+  const appReload = { restartAtAppRoot: vi.fn<AppReloadService['restartAtAppRoot']>() };
 
   const shopA: UserShop = { shopId: 'sh1', shopName: 'Shop A', isDefault: true, role: 'Owner', lastUsedAt: null };
   const details = {
@@ -33,11 +41,15 @@ describe('ShopsEffects', () => {
   beforeEach(() => {
     actions$ = new Subject<Action>();
     Object.values(shopService).forEach((fn) => fn.mockReset());
+    appReload.restartAtAppRoot.mockReset();
+    sessionSignal.set(null);
 
     TestBed.configureTestingModule({
       providers: [
         ShopsEffects,
         { provide: ShopService, useValue: shopService },
+        { provide: AuthService, useValue: authService },
+        { provide: AppReloadService, useValue: appReload },
         {
           provide: Actions,
           useFactory: (): Observable<Action> => new Actions(actions$),
@@ -119,6 +131,88 @@ describe('ShopsEffects', () => {
     actions$.next(ShopsActions.setDefaultShopRequested({ shopId: 'sh1' }));
 
     await expect(output).resolves.toEqual(ShopsActions.setDefaultShopSucceeded());
+  });
+
+  it('dispatches switchActiveShopSucceeded on switch success', async () => {
+    (shopService.switchActiveShop as ReturnType<typeof vi.fn>).mockReturnValue(of(undefined));
+
+    const output = firstValueFrom(effects.switchActiveShop$.pipe(take(1)));
+    actions$.next(ShopsActions.switchActiveShopRequested({ shopId: 'sh2' }));
+
+    await expect(output).resolves.toEqual(ShopsActions.switchActiveShopSucceeded({ shopId: 'sh2' }));
+    expect(shopService.switchActiveShop).toHaveBeenCalledWith('sh2');
+  });
+
+  it('dispatches switchActiveShopFailed when the membership is gone', async () => {
+    shopService.switchActiveShop.mockReturnValue(
+      throwError(() => ({ error: { title: 'Shop.MembershipNotFound' } }))
+    );
+
+    const output = firstValueFrom(effects.switchActiveShop$.pipe(take(1)));
+    actions$.next(ShopsActions.switchActiveShopRequested({ shopId: 'sh2' }));
+
+    await expect(output).resolves.toEqual(
+      ShopsActions.switchActiveShopFailed({ errorMessage: 'errors.shops.membershipNotFound' })
+    );
+  });
+
+  it('dispatches switchActiveShopFailed when the device session is gone', async () => {
+    shopService.switchActiveShop.mockReturnValue(
+      throwError(() => ({ error: { title: 'Auth.SessionInvalidated' } }))
+    );
+
+    const output = firstValueFrom(effects.switchActiveShop$.pipe(take(1)));
+    actions$.next(ShopsActions.switchActiveShopRequested({ shopId: 'sh2' }));
+
+    await expect(output).resolves.toEqual(
+      ShopsActions.switchActiveShopFailed({ errorMessage: 'errors.auth.sessionVerificationFailed' })
+    );
+  });
+
+  it('dispatches switchActiveShopFailed with a generic message otherwise', async () => {
+    shopService.switchActiveShop.mockReturnValue(throwError(() => ({})));
+
+    const output = firstValueFrom(effects.switchActiveShop$.pipe(take(1)));
+    actions$.next(ShopsActions.switchActiveShopRequested({ shopId: 'sh2' }));
+
+    await expect(output).resolves.toEqual(
+      ShopsActions.switchActiveShopFailed({ errorMessage: 'errors.shops.unableToSwitchStore' })
+    );
+  });
+
+  it('restarts the application once the switch has succeeded', () => {
+    const subscription = effects.restartAfterShopSwitch$.subscribe();
+    actions$.next(ShopsActions.switchActiveShopSucceeded({ shopId: 'sh2' }));
+
+    expect(appReload.restartAtAppRoot).toHaveBeenCalledTimes(1);
+    subscription.unsubscribe();
+  });
+
+  it('does not restart the application when the switch has failed', () => {
+    const subscription = effects.restartAfterShopSwitch$.subscribe();
+    actions$.next(ShopsActions.switchActiveShopFailed({ errorMessage: 'errors.shops.unableToSwitchStore' }));
+
+    expect(appReload.restartAtAppRoot).not.toHaveBeenCalled();
+    subscription.unsubscribe();
+  });
+
+  it('auto-loads details for the shop this device is in, not the default one', async () => {
+    const shopB: UserShop = { shopId: 'sh2', shopName: 'Shop B', isDefault: false, role: 'Manager', lastUsedAt: null };
+    sessionSignal.set({
+      accessToken: 'a',
+      refreshToken: 'r',
+      accessTokenExpiresAt: new Date(Date.now() + 60_000).toISOString(),
+      refreshTokenExpiresAt: new Date(Date.now() + 120_000).toISOString(),
+      rememberMe: true,
+      user: { id: 'u1', email: 'u@example.test', phoneNumber: null, firstName: 'U', lastName: 'One' },
+      activeShopId: 'sh2',
+      shops: [shopA, shopB],
+    });
+
+    const output = firstValueFrom(effects.loadActiveShopDetailsAfterShopsLoad$.pipe(take(1)));
+    actions$.next(ShopsActions.loadShopsSucceeded({ shops: [shopA, shopB] }));
+
+    await expect(output).resolves.toEqual(ShopsActions.loadShopDetailsRequested({ shopId: 'sh2' }));
   });
 
   it('refreshes shops after successful mutations', async () => {

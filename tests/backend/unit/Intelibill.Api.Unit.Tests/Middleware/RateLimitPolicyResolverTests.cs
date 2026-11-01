@@ -182,6 +182,87 @@ public sealed class RateLimitPolicyResolverTests
         Assert.Equal(15, policy.BackoffMinutes);
     }
 
+    /// <summary>
+    /// Local relaxation drops the per-endpoint hardening back to the configured
+    /// default. It does not switch limiting off: a runaway loop in development is
+    /// still caught, it just takes a hundred requests rather than five.
+    /// </summary>
+    [Fact]
+    public void Resolve_WhenEndpointPoliciesAreRelaxed_UsesTheConfiguredDefault()
+    {
+        var options = Microsoft.Extensions.Options.Options.Create(new RateLimitingOptions
+        {
+            Limit = 100,
+            PeriodInMinutes = 1,
+            BackoffMinutes = 3,
+            RelaxEndpointPolicies = true
+        });
+
+        var resolver = new RateLimitPolicyResolver(options);
+        var actionDescriptor = new ControllerActionDescriptor
+        {
+            ControllerTypeInfo = typeof(Intelibill.Api.Controllers.EmailOwnershipController).GetTypeInfo(),
+            MethodInfo = typeof(Intelibill.Api.Controllers.EmailOwnershipController)
+                .GetMethod(nameof(Intelibill.Api.Controllers.EmailOwnershipController.RequestEmail))!
+        };
+
+        var policy = resolver.Resolve(CreateContext(actionDescriptor));
+
+        Assert.False(policy.IsDisabled);
+        Assert.Equal(100, policy.Limit);
+        Assert.Equal(1, policy.PeriodInMinutes);
+        Assert.Equal(3, policy.BackoffMinutes);
+    }
+
+    /// <summary>
+    /// Relaxation widens a policy; it never creates one where the code asked for
+    /// none, and never removes the one explicit opt-out.
+    /// </summary>
+    [Fact]
+    public void Resolve_WhenEndpointPoliciesAreRelaxed_StillHonoursDisableRateLimit()
+    {
+        var options = Microsoft.Extensions.Options.Options.Create(new RateLimitingOptions
+        {
+            Limit = 100,
+            PeriodInMinutes = 1,
+            BackoffMinutes = 3,
+            RelaxEndpointPolicies = true
+        });
+
+        var resolver = new RateLimitPolicyResolver(options);
+        var actionDescriptor = new ControllerActionDescriptor
+        {
+            ControllerTypeInfo = typeof(TestController).GetTypeInfo(),
+            MethodInfo = typeof(TestController).GetMethod(nameof(TestController.DisabledAction))!
+        };
+
+        var policy = resolver.Resolve(CreateContext(actionDescriptor));
+
+        Assert.True(policy.IsDisabled);
+    }
+
+    /// <summary>
+    /// The default must be the hardened one: an environment that says nothing about
+    /// relaxation gets the attribute's own limit.
+    /// </summary>
+    [Fact]
+    public void Resolve_WhenRelaxationIsNotConfigured_KeepsTheEndpointPolicy()
+    {
+        var resolver = CreateResolver();
+        var actionDescriptor = new ControllerActionDescriptor
+        {
+            ControllerTypeInfo = typeof(Intelibill.Api.Controllers.EmailOwnershipController).GetTypeInfo(),
+            MethodInfo = typeof(Intelibill.Api.Controllers.EmailOwnershipController)
+                .GetMethod(nameof(Intelibill.Api.Controllers.EmailOwnershipController.RequestEmail))!
+        };
+
+        var policy = resolver.Resolve(CreateContext(actionDescriptor));
+
+        Assert.Equal(5, policy.Limit);
+        Assert.Equal(15, policy.PeriodInMinutes);
+        Assert.Equal(15, policy.BackoffMinutes);
+    }
+
     private static RateLimitPolicyResolver CreateResolver()
     {
         var options = Microsoft.Extensions.Options.Options.Create(new RateLimitingOptions

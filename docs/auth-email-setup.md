@@ -34,7 +34,11 @@ Provider references, checked 22 October 2026: [SMTP settings](https://resend.com
 
 [Mailpit](https://mailpit.axllent.org/about/) captures email and displays it in a browser. It does not deliver messages to Gmail or other external inboxes.
 
-For a local Docker installation:
+The full Docker stack already includes it — `docker compose --profile full up -d`
+starts Mailpit alongside the API, which is configured to relay to it. Nothing
+below is needed in that case; read the captured mail at `http://localhost:8025`.
+
+For an API running on the host instead, start Mailpit on its own:
 
 ```sh
 docker run --rm --name intelibill-mailpit \
@@ -57,6 +61,8 @@ Open `http://localhost:8025` to inspect messages and follow verification links. 
 | `Email__FromName` | `Intelibill development` |
 
 The local capture host is restricted. If the API runs in a container, use the explicitly supported `mailpit` service hostname rather than `localhost`. Production SMTP requires TLS and authentication.
+
+`Email__Enabled` alone is not enough: `IIdentityMailOutbox` reports itself unavailable unless it also holds `Identity__OutboxKey`, a base64-encoded 32-byte key it encrypts stored message bodies with. Without it every enrolment request answers `503 Auth.EmailUnavailable` — "Verification email is unavailable or this address cannot be used" in the browser — and nothing in the log says which of the two settings is missing. The compose stack sets both.
 
 ## 2. Configure Azure delivery and encrypted mail storage
 

@@ -16,6 +16,15 @@ public sealed class RateLimitPolicyResolver(IOptions<RateLimitingOptions> option
 
         var defaults = options.Value;
         var policy = new RateLimitPolicy(defaults.Limit, defaults.PeriodInMinutes, defaults.BackoffMinutes);
+
+        // Local development asks for the default rather than each endpoint's hardened figure. The
+        // opt-out above is still honoured: this widens a policy, it never invents one the code
+        // declined to apply.
+        if (defaults.RelaxEndpointPolicies)
+        {
+            return policy;
+        }
+
         var overrideAttribute = ResolveOverride(context);
         if (overrideAttribute is null)
         {

@@ -111,10 +111,34 @@ docker compose up -d
 docker compose --profile full up -d
 ```
 
+The full stack runs the API as `intelibill_app`, a login role that holds table
+DML and nothing else — not as the schema owner `intelibill`, which holds
+`BYPASSRLS` and would therefore ignore every tenant policy. The `db-runtime-role`
+service creates that role before the API starts
+([scripts/db/local-runtime-role.sql](scripts/db/local-runtime-role.sql)), and the
+API refuses to start if it is ever pointed back at a privileged identity.
+
+The stack does not migrate: apply the schema yourself against the compose
+database before the API will serve anything — the `dotnet ef database update`
+command under [Backend](#backend) above, pointed at `localhost:5432`. Re-run `up`
+afterwards so a table added by that migration picks up its grant.
+
+Identity email is captured locally by the `mailpit` service rather than
+delivered: registration and password-reset messages appear at
+`http://localhost:8025` and never leave the machine. See
+[docs/auth-email-setup.md](docs/auth-email-setup.md).
+
+The stack also sets `RateLimiting__RelaxEndpointPolicies`, so the auth endpoints
+use the global default (100 per minute) instead of their own hardened figures —
+sign-up is otherwise 5 requests per 15 minutes shared by every browser behind the
+web proxy, which stops you testing the flow. The API refuses to start with that
+setting in any environment but Development or Testing.
+
 | Service  | URL |
 |---|---|
-| Backend  | `http://localhost:8080` |
+| Backend  | `http://localhost:5277` |
 | Frontend | `http://localhost:4000` |
+| Mail capture | `http://localhost:8025` |
 | PostgreSQL | `localhost:5432` |
 
 ```bash

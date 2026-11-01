@@ -279,7 +279,10 @@ export class ShellComponent {
 
     this.store.dispatch(ShopsActions.clearError());
     this.store.dispatch(ShopsActions.clearMutationStatus());
-    this.store.dispatch(ShopsActions.setDefaultShopRequested({ shopId }));
+    // Moving this device into the chosen shop. Saving it as the default is a separate choice, made
+    // from the profile menu: a stand-in working one shift elsewhere should not change where the
+    // owner's own device starts.
+    this.store.dispatch(ShopsActions.switchActiveShopRequested({ shopId }));
     this.isShopMenuOpen.set(false);
   }
 

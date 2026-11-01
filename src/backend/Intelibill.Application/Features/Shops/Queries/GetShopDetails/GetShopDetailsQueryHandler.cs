@@ -1,15 +1,20 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Shops.DTOs;
+using Intelibill.Domain.Entities;
+using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using System.Linq;
 
 namespace Intelibill.Application.Features.Shops.Queries.GetShopDetails;
 
 public sealed class GetShopDetailsQueryHandler(
-    IUserRepository userRepository, 
+    IUserRepository userRepository,
     IShopRepository shopRepository,
-    IBankAccountRepository bankAccountRepository)
+    IBankAccountRepository bankAccountRepository,
+    ITenantWriteScope tenantWriteScope,
+    IUnitOfWork unitOfWork)
 {
     public async Task<ErrorOr<ShopDetailsDto>> HandleAsync(GetShopDetailsQuery query, CancellationToken cancellationToken)
     {
@@ -25,8 +30,23 @@ public sealed class GetShopDetailsQueryHandler(
         if (shop is null)
             return Errors.Shop.ShopNotFound;
 
-        var bankAccounts = await bankAccountRepository.FindAsync(x => x.ShopId == query.ShopId, cancellationToken);
-        var primaryAccount = bankAccounts.Count > 0 ? bankAccounts[0] : null;
+        // bank_accounts is tenant data and the requested shop need not be the
+        // caller's active one, so the read runs under a transaction-local scope
+        // narrowed to the shop whose membership was just re-read above. Nothing is
+        // written, so the transaction is rolled back.
+        BankAccount? primaryAccount;
+        await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            await tenantWriteScope.EnterAsync(query.ShopId, cancellationToken);
+
+            var bankAccounts = await bankAccountRepository.FindAsync(x => x.ShopId == query.ShopId, cancellationToken);
+            primaryAccount = bankAccounts.Count > 0 ? bankAccounts[0] : null;
+        }
+        finally
+        {
+            await unitOfWork.RollbackTransactionAsync(cancellationToken);
+        }
 
         return new ShopDetailsDto(
             shop.Id,
