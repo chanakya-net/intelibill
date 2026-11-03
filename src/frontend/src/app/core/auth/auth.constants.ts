@@ -120,6 +120,13 @@ export const SALE_ENDPOINTS = {
     `${API_BASE_URL}/credit-notes/${encodeURIComponent(code)}/print`,
 } as const;
 
+export const OFFLINE_RECONCILIATION_ENDPOINTS = {
+  list: `${API_BASE_URL}/offline-reconciliation`,
+  detail: (caseId: string) => `${API_BASE_URL}/offline-reconciliation/${encodeURIComponent(caseId)}`,
+  resolve: (caseId: string) => `${API_BASE_URL}/offline-reconciliation/${encodeURIComponent(caseId)}/resolve`,
+  recoverySubmissions: `${API_BASE_URL}/offline-reconciliation/recovery-submissions`,
+} as const;
+
 export const BANK_ACCOUNT_ENDPOINTS = {
   list: `${API_BASE_URL}/bank-accounts`,
   add: `${API_BASE_URL}/bank-accounts`,

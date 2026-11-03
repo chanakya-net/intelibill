@@ -107,6 +107,8 @@ export interface OfflineQueuedSalePayload {
   readonly customerId: string | null;
   readonly customerName: string | null;
   readonly customerPhone: string | null;
+  /** Signed-in user who issued the invoice. Absent on payloads queued before issuers were recorded (legacy). */
+  readonly issuedByUserId?: string | null;
 }
 
 export interface OfflineArithmeticMismatch {

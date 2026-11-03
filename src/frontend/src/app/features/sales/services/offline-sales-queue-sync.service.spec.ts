@@ -336,6 +336,47 @@ describe('OfflineSalesQueueSyncService', () => {
     };
   }
 
+  it('skips another user\'s pending invoices and lists them as awaiting their issuer', async () => {
+    const service = setup();
+    const own = makeRecord('own');
+    const legacy = makeRecord('legacy');
+    const other = withIssuer(makeRecord('other'), 'user-2');
+    const mine = withIssuer(makeRecord('mine'), 'user-1');
+    queueDb.getPendingSales.mockResolvedValue([own, legacy, other, mine]);
+    queueDb.getRetryableSales.mockResolvedValue([other, mine]);
+    queueDb.getQueuedSale.mockResolvedValue(other);
+    queueDb.getAllByShopDevice.mockResolvedValue([other, own]);
+    queueDb.getStatusCounts.mockResolvedValue({ Pending: 2, Syncing: 0, Synced: 0, SyncedWithWarnings: 0, NeedsReview: 0, Failed: 0 });
+    saleService.syncOfflineSales.mockImplementation((request) =>
+      of({ results: request.sales.map((sale) => ({ clientSaleId: sale.clientSaleId, status: 'Synced', saleId: sale.clientSaleId, invoiceNumber: sale.invoiceNumber, errors: [], warnings: [] })) }),
+    );
+
+    await service.syncActiveShop();
+    expect(saleService.syncOfflineSales.mock.calls[0][0].sales.map((sale) => sale.clientSaleId)).toEqual(['own', 'legacy', 'mine']);
+    expect(queueDb.markSyncInProgress).not.toHaveBeenCalledWith('shop-1', 'device-1', 'other');
+
+    saleService.syncOfflineSales.mockClear();
+    await service.retryActiveShop();
+    expect(saleService.syncOfflineSales.mock.calls[0][0].sales.map((sale) => sale.clientSaleId)).toEqual(['mine']);
+
+    saleService.syncOfflineSales.mockClear();
+    const single = await service.retryQueuedSale('shop-1', 'device-1', 'other');
+    expect(single.attemptedCount).toBe(0);
+    expect(saleService.syncOfflineSales).not.toHaveBeenCalled();
+
+    expect(service.awaitingIssuerSales()).toEqual([
+      { clientSaleId: 'other', invoiceNumber: 'INV-other', soldAt: '2026-05-22T10:00:00.000Z', issuedByUserId: 'user-2' },
+    ]);
+    expect(queueDb.getAllByShopDevice).toHaveBeenCalledWith('shop-1', 'device-1');
+
+    service.startAutoSyncWatchers();
+    flushEffects();
+    await flushMicrotasks();
+    activeSession.set(null);
+    flushEffects();
+    expect(service.awaitingIssuerSales()).toEqual([]);
+  });
+
   it('lists held invoices with their review case and mismatches, oldest first', async () => {
     const service = setup();
     queueDb.getStatusCounts.mockResolvedValue({ Pending: 1, Syncing: 0, Synced: 0, SyncedWithWarnings: 0, NeedsReview: 2, Failed: 0 });
@@ -370,6 +411,10 @@ describe('OfflineSalesQueueSyncService', () => {
 
     expect(service.reviewSales()).toEqual([]);
   });
+
+  function withIssuer(record: OfflineQueuedSaleRecord, issuedByUserId: string): OfflineQueuedSaleRecord {
+    return { ...record, payload: { ...record.payload, issuedByUserId } };
+  }
 
   function makeRecord(
     clientSaleId: string,

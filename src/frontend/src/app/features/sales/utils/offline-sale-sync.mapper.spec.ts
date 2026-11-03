@@ -6,6 +6,7 @@ import {
   addOfflineSyncResultToTotals,
   buildSyncRequestFromQueuedSale,
   isOfflineSaleSyncRetryable,
+  isSubmittableBy,
   mapOfflineSyncResult,
   mapToVisibleQueueCounts,
   normalizeOfflineQueueSyncStatus,
@@ -114,6 +115,31 @@ describe('offline-sale-sync.mapper', () => {
     expect('calculationVersion' in request).toBe(false);
     expect(request.subtotalBeforeDiscount).toBe(200);
     expect(request.totalBeforeDiscount).toBe(200);
+  });
+
+  it('includes issuedByUserId only when present', () => {
+    const legacy = buildSyncRequestFromQueuedSale(record);
+    expect('issuedByUserId' in legacy).toBe(false);
+
+    const stamped = buildSyncRequestFromQueuedSale({
+      ...record,
+      payload: { ...record.payload, issuedByUserId: 'user-1' },
+    });
+    expect(stamped.issuedByUserId).toBe('user-1');
+    const { issuedByUserId: _ignored, ...rest } = stamped;
+    expect(rest).toEqual(legacy);
+
+    const nulled = buildSyncRequestFromQueuedSale({ ...record, payload: { ...record.payload, issuedByUserId: null } });
+    expect('issuedByUserId' in nulled).toBe(false);
+  });
+
+  it('isSubmittableBy accepts unstamped records and the issuer only', () => {
+    const stamped = { ...record, payload: { ...record.payload, issuedByUserId: 'user-1' } };
+    expect(isSubmittableBy(record, 'user-2')).toBe(true);
+    expect(isSubmittableBy(record, null)).toBe(true);
+    expect(isSubmittableBy(stamped, 'user-1')).toBe(true);
+    expect(isSubmittableBy(stamped, 'user-2')).toBe(false);
+    expect(isSubmittableBy(stamped, null)).toBe(false);
   });
 
   it('sends the calculation version and pre-tax subtotal of a version 1 payload', () => {

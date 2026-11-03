@@ -49,6 +49,7 @@ export function buildSyncRequestFromQueuedSale(record: OfflineQueuedSaleRecord):
     configuredSaleRulePercentage: payload.pricing.configuredSaleRulePercentage ?? null,
     configuredSaleRuleThresholdAmount: payload.pricing.configuredSaleRuleThresholdAmount ?? null,
     ...(payload.pricing.calculationVersion === undefined ? {} : { calculationVersion: payload.pricing.calculationVersion }),
+    ...(payload.issuedByUserId ? { issuedByUserId: payload.issuedByUserId } : {}),
     items: payload.pricing.lines.map((line) => ({
       barcode: line.barcode,
       batchNumber: line.batchNumber,
@@ -135,6 +136,12 @@ export function mapToVisibleQueueCounts(
     ...visible,
     totalVisible: visible.pending + visible.syncing + visible.failed + visible.warning + visible.needsReview,
   };
+}
+
+/** An invoice is sent only by the user who issued it; unstamped (legacy) invoices go with whoever is signed in. */
+export function isSubmittableBy(record: OfflineQueuedSaleRecord, userId: string | null): boolean {
+  const issuer = record.payload.issuedByUserId;
+  return !issuer || issuer === userId;
 }
 
 export function isOfflineSaleSyncRetryable(status: OfflineSaleQueueStatus): boolean {

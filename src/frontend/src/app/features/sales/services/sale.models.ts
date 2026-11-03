@@ -593,6 +593,8 @@ export interface OfflineSaleSyncRequest {
   readonly configuredSaleRuleThresholdAmount: number | null;
   /** Omitted for payloads frozen before calculation versions existed, which the server replays as legacy. */
   readonly calculationVersion?: number;
+  /** Omitted for legacy payloads; the server then attributes the sale to the submitter. */
+  readonly issuedByUserId?: string;
   readonly items: readonly OfflineSalesSyncLineRequest[];
 }
 

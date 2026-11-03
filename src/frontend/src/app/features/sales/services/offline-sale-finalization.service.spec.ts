@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { describe, expect, it, vi } from 'vitest';
 
+import { AuthService } from '../../../core/auth/auth.service';
 import { InvoiceLeaseIndexedDbService } from '../../../core/storage/invoice-lease-indexeddb.service';
 import { OfflineSalesSnapshotIndexedDbService } from '../../../core/storage/offline-sales-snapshot-indexeddb.service';
 import { OfflineFinalizeRequest, OfflineSaleFinalizationService } from './offline-sale-finalization.service';
@@ -8,7 +9,7 @@ import { OfflineSalesQueueIndexedDbService } from './offline-sales-queue-indexed
 import { OfflineSalesShadowStockIndexedDbService } from './offline-sales-shadow-stock-indexeddb.service';
 
 describe('OfflineSaleFinalizationService', () => {
-  function setup() {
+  function setup(userId: string | null = 'user-1') {
     const snapshotDb = {
       getUsableSnapshotInfo: vi.fn().mockResolvedValue({ snapshotId: 'snap-1', completedAt: new Date().toISOString() }),
       getUsableBatches: vi.fn().mockResolvedValue([makeBatchSnapshot()]),
@@ -31,6 +32,7 @@ describe('OfflineSaleFinalizationService', () => {
     TestBed.configureTestingModule({
       providers: [
         OfflineSaleFinalizationService,
+        { provide: AuthService, useValue: { session: () => (userId ? { user: { id: userId } } : null) } },
         { provide: OfflineSalesSnapshotIndexedDbService, useValue: snapshotDb },
         { provide: InvoiceLeaseIndexedDbService, useValue: leaseDb },
         { provide: OfflineSalesQueueIndexedDbService, useValue: queueDb },
@@ -58,6 +60,23 @@ describe('OfflineSaleFinalizationService', () => {
     expect(queueDb.savePendingSale).toHaveBeenCalledTimes(1);
     expect(leaseDb.rollbackConsumedInvoiceNumber).not.toHaveBeenCalled();
     expect(shadowDb.reduceQuantity).toHaveBeenCalledWith('shop-1', 'device-1', 'batch-1', 1);
+  });
+
+  it('stamps the signed-in user as issuer', async () => {
+    const { service, queueDb } = setup('user-7');
+
+    const result = await service.finalizeAndQueue(makeRequest());
+
+    expect(result.ok && result.payload.issuedByUserId).toBe('user-7');
+    expect(queueDb.savePendingSale.mock.calls[0][0].payload.issuedByUserId).toBe('user-7');
+  });
+
+  it('leaves the issuer absent when no user id is known', async () => {
+    const { service } = setup(null);
+
+    const result = await service.finalizeAndQueue(makeRequest());
+
+    expect(result.ok && 'issuedByUserId' in result.payload).toBe(false);
   });
 
   it('freezes pricing and catalog values from cached batch snapshots', async () => {

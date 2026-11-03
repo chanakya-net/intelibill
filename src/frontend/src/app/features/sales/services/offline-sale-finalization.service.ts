@@ -1,5 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 
+import { AuthService } from '../../../core/auth/auth.service';
 import { InvoiceLeaseExhaustedError, InvoiceLeaseExpiredError, InvoiceLeaseIndexedDbService, InvoiceLeaseNotFoundError } from '../../../core/storage/invoice-lease-indexeddb.service';
 import { OfflineSalesSnapshotIndexedDbService, type OfflineSellableBatchSnapshot, type OfflineSellableServiceSnapshot } from '../../../core/storage/offline-sales-snapshot-indexeddb.service';
 import { calculateOfflineFrozenSale } from './offline-sale-pricing-calculator';
@@ -21,6 +22,7 @@ export type OfflineFinalizeResult =
 
 @Injectable({ providedIn: 'root' })
 export class OfflineSaleFinalizationService {
+  private readonly auth = inject(AuthService);
   private readonly snapshotDb = inject(OfflineSalesSnapshotIndexedDbService);
   private readonly leaseDb = inject(InvoiceLeaseIndexedDbService);
   private readonly queueDb = inject(OfflineSalesQueueIndexedDbService);
@@ -111,6 +113,7 @@ export class OfflineSaleFinalizationService {
       return { ok: false, reason: 'INVOICE_UNAVAILABLE' };
     }
 
+    const issuedByUserId = this.auth.session()?.user.id || null;
     const payload: OfflineQueuedSalePayload = {
       clientSaleId,
       idempotencyKey,
@@ -123,6 +126,7 @@ export class OfflineSaleFinalizationService {
       customerId: request.pricingInput.customerId,
       customerName: request.pricingInput.customerName,
       customerPhone: request.pricingInput.customerPhone,
+      ...(issuedByUserId ? { issuedByUserId } : {}),
     };
 
     try {
