@@ -563,6 +563,51 @@ snapshot and exports as needing review until the script runs. A `NEEDS_REVIEW` r
 resolved in the app, so its periods stay refused for Tally until one is posted. Rollback: keep snapshots readable and
 refuse Tally return export; never restore the unbalanced voucher builder.
 
+## Offline Invoice Arithmetic
+
+**Contract per invoice.** Every offline sale is frozen in the browser under a calculation contract and
+synced with it. `calculationVersion` absent → `legacy`; `1` → `v1`; anything else answers NeedsReview
+with `Sale.OfflineCalculationVersionUnsupported`. The version is part of the request hash only when
+present, so an unversioned retry keeps the hash it was first synced with.
+
+**Validation.** `OfflineInvoiceArithmeticValidator` recomputes each line (gross → pre-tax → item
+discount → allocated sale discount → taxable → tax → total) and the header (`subtotalBeforeDiscount`
+= Σ pre-tax, `totalDiscountAmount`, `totalTaxAmount`, `totalAmount`) from the invoice's own frozen
+inputs — price, quantity, tax rate, inclusive flag, override type/value and the rule percentages it
+carries — and compares every amount exactly. It never reads today's catalog or rule activity; those
+stay variance warnings (`offline_sync.pricing_variance`, `offline_sync.discount_variance`). It runs
+after the structural and lease checks and before `ISaleLineValidator`, entity construction, stock
+consumption and ledger posting. Inputs are checked first: defined enum values, tax rate and
+percentages in [0, 100], non-negative prices and overrides, a rule id with its percentage, a met
+threshold; v1 also rejects inputs beyond its scales.
+
+- **v1** (`OfflineInvoiceArithmeticV1`, `offline-money.math.ts`): paise, thousandths and basis points
+  as integers; every division rounds half away from zero; inclusive pre-tax = gross × 10000 / (10000 +
+  rate bp). The sale discount goes to goods lines with positive taxable value by floor share capped at
+  that value, leftover paise to the largest remainders, ties by line order. `totalBeforeDiscount` is
+  the domain definition, Σ(line total + discounts). `tests/contracts/offline-invoice-arithmetic-v1.json`
+  pins C# and TypeScript to the same results.
+- **legacy** (`OfflineInvoiceArithmeticLegacy`): an exact replay of the unversioned browser calculator,
+  which ran on IEEE doubles and rounded with `Number(x.toFixed(2))` (half away from zero on the exact
+  binary value, reproduced with `BigInteger`), with the final goods line taking the residual sale
+  discount. `totalBeforeDiscount` may be Σ pre-tax (what that browser sent) or the domain definition.
+
+Inclusive prices keep their existing economics in both contracts (₹100 at 18% inclusive totals
+₹100.01 under v1); changing them is a later contract version.
+
+**Quarantine.** A mismatch records one `ReconciliationIssue` (`ArithmeticConflict`, code
+`Sale.OfflineArithmeticMismatch`, an amounts-only summary within 1000 characters) and answers
+NeedsReview with `reviewCaseId` (the issue id) and up to 100 `mismatches` `{path, supplied, expected,
+code}`; codes are `amount_mismatch`, `discount_exceeds_basis`, `scale_exceeded`, `unsupported_value`,
+`rule_evidence_missing`, `rule_threshold_not_met` and `unsupported_version`. Nothing is posted and the
+payload is never rewritten. The device keeps the original frozen invoice (NeedsReview records are not
+resent or recalculated) and lists it on the sales page with the reason, differences and case id.
+Every NeedsReview result now carries its case id.
+
+**Posted sales.** `scripts/db/audit-offline-sale-arithmetic.sql` is a read-only report of posted
+offline sales whose header disagrees with their lines or whose lines break taxable + tax = total;
+it runs shop by shop under the tenant policies and changes nothing.
+
 ## Test Structure
 
 | Suite | Path | Count |

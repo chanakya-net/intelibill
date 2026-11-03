@@ -27,7 +27,7 @@
 4. **v1 sale-discount allocation:** floor of `total × weight / eligible` per goods line with positive taxable value, capped at that line's taxable value; remaining paise go one each to the largest remainders, ties by client line order.
 5. **v1 `totalBeforeDiscount` uses the domain definition** `Σ(lineTotal + itemDiscount + saleDiscount)` (what `Sale.Create` and online sales store); v1 adds `totals.subtotalBeforeDiscount = Σ preTax`. Legacy payloads may carry either `Σ preTax` (what the legacy browser sent) or the domain definition.
 6. **Header identities (both contracts):** `subtotalBeforeDiscount = Σ preTax`, `totalDiscountAmount = Σ(item + sale discount)`, `totalTaxAmount = Σ tax`, `totalAmount = Σ lineTotal`; the existing `paid + due = total` check stays. A sale threshold rule must have its threshold met by the eligible subtotal.
-7. **Input checks:** enum values must be defined; tax rate and percentages in `[0, 100]`; prices, flat overrides and thresholds non-negative; v1 additionally rejects inputs beyond its scales (`scale_exceeded`); a batch rule id without its percentage is `rule_evidence_missing` in v1 (legacy falls back to the override bound).
+7. **Input checks:** enum values must be defined; tax rate and percentages in `[0, 100]`; prices, flat overrides and thresholds non-negative and bounded (quantity ≤ 10,000,000, money inputs ≤ ₹100,000,000,000 so every intermediate stays exact); v1 additionally rejects inputs beyond its scales (`scale_exceeded`); a rule id without its percentage (or a threshold rule without its threshold) is `rule_evidence_missing` in both contracts — every browser build sent both.
 8. **Quarantine path:** one `ReconciliationIssue` of new type `ArithmeticConflict = 7` (enum stored as int, no migration) with the error code and a ≤1000-char evidence summary; `NeedsReview` result carries `reviewCaseId` and up to 100 structured mismatches `{path, supplied, expected, code}`. Every review result now returns its case id. The device keeps the original frozen payload (NeedsReview records are never deleted or retried); the immutable server-side envelope and resolution console remain backlog 19.
 9. **Validation runs after structural line checks and lease/invoice checks, before `ISaleLineValidator`, entity construction, stock consumption and ledger posting.** Catalog variance (price, rule) stays a separate warning path.
 10. **Posted sales:** a read-only SQL audit lists posted offline sales whose header and lines disagree; it never edits stock or ledgers.
@@ -85,7 +85,7 @@ Mismatch codes: `amount_mismatch`, `discount_exceeds_basis`, `scale_exceeded`, `
 
 **Files:** Create `src/frontend/src/app/features/sales/services/offline-money.math.ts` + `.spec.ts`; modify `offline-sale-pricing-calculator.ts` (+ spec), `offline-sale-core.types.ts`.
 
-**Interfaces — Produces:** `OFFLINE_CALCULATION_VERSION = 1`; `toScaled(value: number, scale: number): bigint` (decimal-string parse, half away from zero); `fromScaled(value: bigint, scale: number): number`; `roundDiv(numerator: bigint, denominator: bigint): bigint`; `allocateLargestRemainder(total: bigint, weights: readonly bigint[], caps: readonly bigint[]): bigint[]`. `OfflineFrozenSalePricing.calculationVersion?: number`; `OfflineFrozenSaleTotals.subtotalBeforeDiscount?: number`.
+**Interfaces — Produces:** `OFFLINE_CALCULATION_VERSION = 1`; `toScaled(value: number, scale: number): bigint` (decimal-string parse, half away from zero); `fromScaled(value: bigint, scale: number): number`; `roundDiv(numerator: bigint, denominator: bigint): bigint`; `allocateLargestRemainder(total: bigint, weights: readonly bigint[]): bigint[]` (each weight is also its cap). `OfflineFrozenSalePricing.calculationVersion?: number`; `OfflineFrozenSaleTotals.subtotalBeforeDiscount?: number`.
 
 - [ ] Specs: math helpers (half-away midpoints, negative, exponent strings, allocation ties); calculator consumes every fixture case and matches exactly; repeated edits of the same cart give identical numbers; output carries `calculationVersion: 1`. Red → implement → green. Commit.
 
@@ -99,7 +99,7 @@ Mismatch codes: `amount_mismatch`, `discount_exceeds_basis`, `scale_exceeded`, `
 
 ### Task 6: Posted-sale audit and documentation
 
-**Files:** Create `scripts/db/audit-offline-sale-arithmetic.sql` (read-only report); modify `docs/backend-architecture.md` (§ Offline Invoice Arithmetic), `CLAUDE.md` (one infrastructure line).
+**Files:** Create `scripts/db/audit-offline-sale-arithmetic.sql` (read-only report); modify `docs/backend-architecture.md` (§ Offline Invoice Arithmetic), `CLAUDE.md` (one infrastructure line). Test: `SalesControllerTests.OfflineSaleArithmeticAudit_ReportsPostedSalesWhoseHeaderDisagreesWithLines` runs the script as the tenant-bound runtime role.
 
 - [ ] Script reports posted `source = Offline` sales where header ≠ Σ lines or a line's taxable + tax ≠ total; no writes. Commit.
 

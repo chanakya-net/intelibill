@@ -11,6 +11,7 @@ using Intelibill.Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Npgsql;
 
 namespace Intelibill.Integration.Tests;
 
@@ -4582,6 +4583,59 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         Assert.False(await db.Sales.AnyAsync(s => s.ClientSaleId == clientSaleId));
         Assert.Equal(10m, (await db.InventoryBatches.SingleAsync(b => b.Id == batchId)).Quantity);
+    }
+
+    [Fact]
+    public async Task OfflineSaleArithmeticAudit_ReportsPostedSalesWhoseHeaderDisagreesWithLines()
+    {
+        using var client = CreateClient();
+        var ownerToken = await CreateShopAsync(client, await RegisterAsync(client));
+        var barcode = UniqueBarcode();
+        var batchId = (await AddInventoryAsync(client, ownerToken, barcode, "B-001", 10m)).GetProperty("inventoryBatchId").GetGuid();
+        var lease = await ReserveInvoiceLeaseAsync(client, ownerToken, "device-1");
+        var prefix = lease.GetProperty("prefix").GetString()!;
+        var start = lease.GetProperty("rangeStart").GetInt32();
+        var padding = lease.GetProperty("numberPadding").GetInt32();
+        var consistentInvoice = FormatInvoiceNumber(prefix, start, padding);
+        var corruptedInvoice = FormatInvoiceNumber(prefix, start + 1, padding);
+        var consistent = await PostOfflineSaleAsync(client, ownerToken, OfflineSalePayload($"offline-{Guid.NewGuid():N}", consistentInvoice, barcode, batchId, calculationVersion: 1));
+        var corrupted = await PostOfflineSaleAsync(client, ownerToken, OfflineSalePayload($"offline-{Guid.NewGuid():N}", corruptedInvoice, barcode, batchId, calculationVersion: 1));
+        var corruptedSaleId = corrupted.GetProperty("saleId").GetGuid();
+        Assert.Equal("created", consistent.GetProperty("status").GetString());
+
+        // Simulates a sale posted before sync validated arithmetic: the header claims ₹1 against ₹118 of lines.
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE sales SET total_amount = 1, paid_amount = 1 WHERE id = {corruptedSaleId}");
+        }
+
+        var notices = new List<string>();
+        var script = await File.ReadAllTextAsync(Path.Combine(RepositoryRoot(), "scripts", "db", "audit-offline-sale-arithmetic.sql"));
+        await using (var connection = new NpgsqlConnection(_factory.RuntimeConnectionString))
+        {
+            connection.Notice += (_, args) => notices.Add(args.Notice.MessageText);
+            await connection.OpenAsync();
+            await using var command = new NpgsqlCommand(script, connection);
+            await command.ExecuteNonQueryAsync();
+        }
+
+        var finding = Assert.Single(notices, n => n.Contains(corruptedSaleId.ToString(), StringComparison.Ordinal));
+        Assert.Contains(corruptedInvoice, finding, StringComparison.Ordinal);
+        Assert.Contains("totalAmount 1.00, lines 118.00", finding, StringComparison.Ordinal);
+        Assert.DoesNotContain(notices, n => n.Contains(consistentInvoice + " ", StringComparison.Ordinal));
+        using var verifyScope = _factory.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.Equal(1m, (await verifyDb.Sales.SingleAsync(s => s.Id == corruptedSaleId)).TotalAmount);
+    }
+
+    private static string RepositoryRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "global.json")))
+            directory = directory.Parent;
+
+        return directory?.FullName ?? throw new InvalidOperationException("Repository root not found.");
     }
 
     private static async Task<string> FirstLeasedInvoiceNumberAsync(HttpClient client, string token, string deviceId)
