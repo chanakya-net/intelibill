@@ -2,6 +2,8 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
@@ -23,6 +25,9 @@ public sealed class OfflineReconciliationControllerTests(PostgreSqlTestFixture f
 {
     private const string Device = "device-1";
     private const string Route = "/api/offline-reconciliation";
+
+    // The web client's JSON.stringify output for the invoices array: camelCase, enums as numbers.
+    private static readonly JsonSerializerOptions WebJsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly ApiWebApplicationFactory _factory = new(fixture);
 
@@ -393,6 +398,210 @@ public sealed class OfflineReconciliationControllerTests(PostgreSqlTestFixture f
         Assert.Equal(9m, (await db.InventoryBatches.SingleAsync(b => b.Id == stock.BatchId)).Quantity);
     }
 
+    // A removed cashier's unsynced invoice comes back through the owner: reviewed, posted once as the cashier's, access never restored.
+    [Fact]
+    public async Task RevokedCashierBundle_OwnerRecoveryPreservesIssuerAndPostsOnce()
+    {
+        using var client = CreateClient();
+        var owner = await CreateOwnerAsync(client);
+        var stock = await AddInventoryAsync(client, owner.Token, 10m);
+        var lease = await ReserveInvoiceLeaseAsync(client, owner.Token);
+        var staff = await AddStaffAsync(client, owner);
+
+        // The cashier's earlier sync from the device is the device history that verifies them later.
+        var synced = await SyncAsync(client, staff.Token, Payload(NewClientSaleId(), InvoiceAt(lease, 0), stock, 1m, DateTimeOffset.UtcNow, staff.UserId));
+        Assert.Equal("created", synced.GetProperty("status").GetString());
+        await RemoveMembershipAsync(client, owner, staff.UserId);
+
+        var clientSaleId = NewClientSaleId();
+        var invoice = InvoiceAt(lease, 1);
+        var invoicesJson = InvoicesJson(Payload(clientSaleId, invoice, stock, 2m, DateTimeOffset.UtcNow.AddMinutes(-30), staff.UserId));
+        var operationId = $"recovery-{Guid.NewGuid():N}";
+
+        using var submitted = await SubmitBundleAsync(client, owner.Token, owner.ShopId, invoicesJson, operationId);
+        var body = await ReadRecoveryAsync(submitted);
+        Assert.Equal(operationId, body.GetProperty("operationId").GetString());
+        var row = Assert.Single(body.GetProperty("results").EnumerateArray());
+        Assert.Equal("ReviewOpened", row.GetProperty("status").GetString());
+        Assert.Equal(clientSaleId, row.GetProperty("clientSaleId").GetString());
+        Assert.Equal(invoice, row.GetProperty("invoiceNumber").GetString());
+        Assert.Equal(Errors.OfflineReconciliation.RecoveryReviewRequired.Code, row.GetProperty("errors")[0].GetProperty("code").GetString());
+        var caseId = row.GetProperty("caseId").GetGuid();
+
+        using (var replayed = await SubmitBundleAsync(client, owner.Token, owner.ShopId, invoicesJson, operationId))
+            Assert.Equal(caseId, (await ReadRecoveryAsync(replayed)).GetProperty("results")[0].GetProperty("caseId").GetGuid());
+
+        var detail = await GetCaseAsync(client, owner.Token, caseId);
+        Assert.Equal("RecoveryReview", detail.GetProperty("issueType").GetString());
+        Assert.Equal("Open", detail.GetProperty("status").GetString());
+        Assert.Equal([Errors.OfflineReconciliation.RecoveryReviewRequired.Code], Strings(detail.GetProperty("reasonCodes")));
+        var submission = detail.GetProperty("submission");
+        Assert.Equal("Recovery", submission.GetProperty("source").GetString());
+        Assert.Equal(staff.UserId, submission.GetProperty("originalIssuer").GetProperty("userId").GetGuid());
+        Assert.Equal("Sam Staff", submission.GetProperty("originalIssuer").GetProperty("displayName").GetString());
+        Assert.Equal(owner.UserId, submission.GetProperty("submittedBy").GetProperty("userId").GetGuid());
+        Assert.Equal(operationId, submission.GetProperty("recoveryOperationId").GetString());
+        Assert.Equal(lease.GetProperty("leaseId").GetGuid(), submission.GetProperty("originalLeaseId").GetGuid());
+        Assert.Equal(["RetryHistoricalLease", "LinkExistingSale", "Escalate"], Strings(detail.GetProperty("availableActions")));
+
+        var retried = await ResolveAsync(client, owner.Token, caseId, detail.GetProperty("version").GetUInt32(), "RetryHistoricalLease", "Recovered from the retired till");
+        Assert.Equal(HttpStatusCode.OK, retried.StatusCode);
+        var saleId = (await retried.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("saleId").GetGuid();
+
+        using var resubmitted = await SubmitBundleAsync(client, owner.Token, owner.ShopId, invoicesJson);
+        var again = Assert.Single((await ReadRecoveryAsync(resubmitted)).GetProperty("results").EnumerateArray());
+        Assert.Equal("AlreadyPosted", again.GetProperty("status").GetString());
+        Assert.Equal(saleId, again.GetProperty("saleId").GetGuid());
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var sale = await db.Sales.SingleAsync(s => s.ShopId == owner.ShopId && s.ClientSaleId == clientSaleId);
+            Assert.Equal(saleId, sale.Id);
+            Assert.Equal(invoice, sale.InvoiceNumber);
+            Assert.Equal(staff.UserId, sale.ActorUserId);
+            var movement = await db.StockTransactions.SingleAsync(t => t.ShopId == owner.ShopId && t.ReferenceNumber == invoice);
+            Assert.Equal(-2m, movement.Quantity);
+            Assert.Equal(owner.UserId, movement.CreatedBy);
+            Assert.Equal(staff.UserId, movement.PerformedBy);
+            Assert.Equal(7m, (await db.InventoryBatches.SingleAsync(b => b.Id == stock.BatchId)).Quantity);
+            var envelope = await db.OfflineSubmissions.SingleAsync(s => s.ClientSaleId == clientSaleId);
+            Assert.Equal(OfflineSubmissionSource.Recovery, envelope.Source);
+            Assert.Equal(saleId, envelope.SaleId);
+            Assert.Equal(MembershipStatus.Removed, (await db.ShopMemberships.AsNoTracking().SingleAsync(m => m.ShopId == owner.ShopId && m.UserId == staff.UserId)).Status);
+        }
+
+        // Recovery never restores the cashier's access.
+        using var staffRead = await SendAsync(client, HttpMethod.Get, $"{Route}?status=open", staff.Token);
+        Assert.Equal(HttpStatusCode.Unauthorized, staffRead.StatusCode);
+    }
+
+    [Fact]
+    public async Task RecoveryBundle_ForgedIssuerOrForeignLease_Rejected()
+    {
+        using var client = CreateClient();
+        var owner = await CreateOwnerAsync(client);
+        var stock = await AddInventoryAsync(client, owner.Token, 10m);
+        var lease = await ReserveInvoiceLeaseAsync(client, owner.Token);
+        var otherDeviceLease = await ReserveInvoiceLeaseAsync(client, owner.Token, "device-2");
+        var staff = await AddStaffAsync(client, owner);
+        var foreign = await CreateOwnerAsync(client);
+
+        var forgedId = NewClientSaleId();
+        var foreignLeaseId = NewClientSaleId();
+        var invoicesJson = InvoicesJson(
+            Payload(forgedId, InvoiceAt(lease, 0), stock, 1m, DateTimeOffset.UtcNow, foreign.UserId),
+            Payload(foreignLeaseId, InvoiceAt(otherDeviceLease, 0), stock, 1m, DateTimeOffset.UtcNow, owner.UserId));
+
+        using var submitted = await SubmitBundleAsync(client, owner.Token, owner.ShopId, invoicesJson);
+        var results = (await ReadRecoveryAsync(submitted)).GetProperty("results");
+        Assert.Equal(2, results.GetArrayLength());
+        Assert.Equal("Rejected", results[0].GetProperty("status").GetString());
+        Assert.Equal(Errors.Recovery.IssuerMismatch.Code, results[0].GetProperty("errors")[0].GetProperty("code").GetString());
+        Assert.Equal(JsonValueKind.Null, results[0].GetProperty("caseId").ValueKind);
+        Assert.Equal("Rejected", results[1].GetProperty("status").GetString());
+        Assert.Equal(Errors.Recovery.LeaseNotOwned.Code, results[1].GetProperty("errors")[0].GetProperty("code").GetString());
+
+        // The invoices text no longer matches the checksum computed over what was exported.
+        var checksum = Checksum(invoicesJson);
+        var edited = invoicesJson.Replace("\"quantity\":1", "\"quantity\":3", StringComparison.Ordinal);
+        Assert.NotEqual(invoicesJson, edited);
+        using var tampered = await SubmitBundleAsync(client, owner.Token, owner.ShopId, edited, checksum: checksum);
+        await AssertProblemAsync(tampered, HttpStatusCode.BadRequest, Errors.Recovery.BundleChecksumMismatch.Code);
+
+        using var otherShop = await SubmitBundleAsync(client, owner.Token, foreign.ShopId, invoicesJson);
+        await AssertProblemAsync(otherShop, HttpStatusCode.BadRequest, Errors.Recovery.BundleShopMismatch.Code);
+
+        using var missingChecksum = await PostRecoveryAsync(
+            client,
+            owner.Token,
+            $$$"""{"operationId":"recovery-{{{Guid.NewGuid():N}}}","bundle":{"format":"intelibill.offline-recovery","version":1,"shopId":"{{{owner.ShopId}}}","deviceId":"{{{Device}}}","exportedAt":"{{{DateTimeOffset.UtcNow:O}}}","invoices":{{{invoicesJson}}}}}""");
+        await AssertProblemAsync(missingChecksum, HttpStatusCode.BadRequest, Errors.Recovery.BundleInvalid.Code);
+
+        using var staffCaller = await SubmitBundleAsync(client, staff.Token, owner.ShopId, invoicesJson);
+        Assert.Equal(HttpStatusCode.Forbidden, staffCaller.StatusCode);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.False(await db.OfflineSubmissions.AnyAsync(s => s.ShopId == owner.ShopId));
+        Assert.False(await db.ReconciliationIssues.AnyAsync(i => i.ShopId == owner.ShopId));
+        Assert.False(await db.Sales.AnyAsync(s => s.ShopId == owner.ShopId));
+    }
+
+    // A recovery review and the cashier's own late sync of the same invoice end in one sale.
+    [Fact]
+    public async Task RecoveryAndLateSync_OneEconomicEffect()
+    {
+        using var client = CreateClient();
+        var owner = await CreateOwnerAsync(client);
+        var stock = await AddInventoryAsync(client, owner.Token, 10m);
+        var lease = await ReserveInvoiceLeaseAsync(client, owner.Token);
+        var staff = await AddStaffAsync(client, owner);
+        await SyncAsync(client, staff.Token, Payload(NewClientSaleId(), InvoiceAt(lease, 0), stock, 1m, DateTimeOffset.UtcNow, staff.UserId));
+
+        var clientSaleId = NewClientSaleId();
+        var invoice = InvoiceAt(lease, 1);
+        var payload = Payload(clientSaleId, invoice, stock, 1m, DateTimeOffset.UtcNow, staff.UserId);
+        using var submitted = await SubmitBundleAsync(client, owner.Token, owner.ShopId, InvoicesJson(payload));
+        var row = Assert.Single((await ReadRecoveryAsync(submitted)).GetProperty("results").EnumerateArray());
+        Assert.Equal("ReviewOpened", row.GetProperty("status").GetString());
+        var caseId = row.GetProperty("caseId").GetGuid();
+
+        var late = await SyncAsync(client, staff.Token, payload);
+        Assert.Equal("created", late.GetProperty("status").GetString());
+        var saleId = late.GetProperty("saleId").GetGuid();
+
+        var detail = await GetCaseAsync(client, owner.Token, caseId);
+        var retried = await ResolveAsync(client, owner.Token, caseId, detail.GetProperty("version").GetUInt32(), "RetryHistoricalLease", "The cashier synced it after all");
+        Assert.Equal(HttpStatusCode.OK, retried.StatusCode);
+        var resolved = await retried.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Resolved", resolved.GetProperty("status").GetString());
+        Assert.Equal(saleId, resolved.GetProperty("saleId").GetGuid());
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.Equal(1, await db.Sales.CountAsync(s => s.ShopId == owner.ShopId && s.ClientSaleId == clientSaleId));
+        Assert.Equal(1, await db.StockTransactions.CountAsync(t => t.ShopId == owner.ShopId && t.ReferenceNumber == invoice));
+        Assert.Equal(8m, (await db.InventoryBatches.SingleAsync(b => b.Id == stock.BatchId)).Quantity);
+        var envelope = await db.OfflineSubmissions.SingleAsync(s => s.ClientSaleId == clientSaleId);
+        Assert.Equal(saleId, envelope.SaleId);
+    }
+
+    [Fact]
+    public async Task UnknownLegacyProvenance_EscalatesWithoutPosting()
+    {
+        using var client = CreateClient();
+        var owner = await CreateOwnerAsync(client);
+        var stock = await AddInventoryAsync(client, owner.Token, 10m);
+        var lease = await ReserveInvoiceLeaseAsync(client, owner.Token);
+
+        var clientSaleId = NewClientSaleId();
+        using var submitted = await SubmitBundleAsync(client, owner.Token, owner.ShopId, InvoicesJson(Payload(clientSaleId, InvoiceAt(lease, 0), stock, 1m, DateTimeOffset.UtcNow)));
+        var row = Assert.Single((await ReadRecoveryAsync(submitted)).GetProperty("results").EnumerateArray());
+        Assert.Equal("Escalated", row.GetProperty("status").GetString());
+        Assert.Equal(Errors.OfflineReconciliation.ProvenanceUnknown.Code, row.GetProperty("errors")[0].GetProperty("code").GetString());
+        var caseId = row.GetProperty("caseId").GetGuid();
+
+        var detail = await GetCaseAsync(client, owner.Token, caseId);
+        Assert.Equal("ProvenanceReview", detail.GetProperty("issueType").GetString());
+        Assert.Equal("Escalated", detail.GetProperty("status").GetString());
+        Assert.Empty(detail.GetProperty("availableActions").EnumerateArray());
+        Assert.Equal(JsonValueKind.Null, detail.GetProperty("submission").GetProperty("originalIssuer").ValueKind);
+        var escalation = Assert.Single(detail.GetProperty("events").EnumerateArray());
+        Assert.Equal("Escalate", escalation.GetProperty("action").GetString());
+        Assert.Equal(owner.UserId, escalation.GetProperty("actor").GetProperty("userId").GetGuid());
+        Assert.Equal(Errors.OfflineReconciliation.ProvenanceUnknown.Description, escalation.GetProperty("reason").GetString());
+
+        var forced = await ResolveAsync(client, owner.Token, caseId, detail.GetProperty("version").GetUInt32(), "RetryHistoricalLease", "Post it anyway");
+        await AssertProblemAsync(forced, HttpStatusCode.BadRequest, Errors.Reconciliation.ActionNotAllowed.Code);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.False(await db.Sales.AnyAsync(s => s.ShopId == owner.ShopId));
+        Assert.Equal(10m, (await db.InventoryBatches.SingleAsync(b => b.Id == stock.BatchId)).Quantity);
+        Assert.Null((await db.OfflineSubmissions.SingleAsync(s => s.ClientSaleId == clientSaleId)).SaleId);
+    }
+
     [Fact]
     public async Task List_RejectsUnknownStatusFilter()
     {
@@ -518,9 +727,9 @@ public sealed class OfflineReconciliationControllerTests(PostgreSqlTestFixture f
         return new StockContext(barcode, body.GetProperty("itemId").GetGuid(), body.GetProperty("inventoryBatchId").GetGuid());
     }
 
-    private static async Task<JsonElement> ReserveInvoiceLeaseAsync(HttpClient client, string token)
+    private static async Task<JsonElement> ReserveInvoiceLeaseAsync(HttpClient client, string token, string deviceId = Device)
     {
-        using var response = await SendAsync(client, HttpMethod.Post, "/api/sales/invoice-leases/reserve", token, new { deviceId = Device, blockSize = 25 });
+        using var response = await SendAsync(client, HttpMethod.Post, "/api/sales/invoice-leases/reserve", token, new { deviceId, blockSize = 25 });
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<JsonElement>();
     }
@@ -671,6 +880,65 @@ public sealed class OfflineReconciliationControllerTests(PostgreSqlTestFixture f
     {
         using var response = await SendAsync(client, HttpMethod.Post, $"/api/inventory/adjustments/{adjustmentId}/void", token, new { reason });
         response.EnsureSuccessStatusCode();
+    }
+
+    private async Task RemoveMembershipAsync(HttpClient client, OwnerContext owner, Guid userId)
+    {
+        long version;
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            version = (await db.ShopMemberships.AsNoTracking().SingleAsync(m => m.ShopId == owner.ShopId && m.UserId == userId)).AuthorityVersion;
+        }
+
+        using var response = await SendAsync(client, HttpMethod.Patch, $"/api/shops/{owner.ShopId}/members/{userId}", owner.Token, new
+        {
+            role = "Staff",
+            status = "Removed",
+            expectedVersion = version,
+        });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    /// <summary>The bundle's invoices exactly as the web client builds them: each element is one sync request.</summary>
+    private static string InvoicesJson(params object[] invoices) =>
+        JsonSerializer.Serialize(invoices, WebJsonOptions);
+
+    private static string Checksum(string invoicesJson) =>
+        Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(invoicesJson)));
+
+    /// <summary>
+    /// Splices the invoices text into the request unchanged, so the server reads the very bytes the
+    /// checksum was computed over.
+    /// </summary>
+    private static Task<HttpResponseMessage> SubmitBundleAsync(
+        HttpClient client,
+        string token,
+        Guid shopId,
+        string invoicesJson,
+        string? operationId = null,
+        string? checksum = null) =>
+        PostRecoveryAsync(
+            client,
+            token,
+            $$$"""
+            {"operationId":"{{{operationId ?? $"recovery-{Guid.NewGuid():N}"}}}","bundle":{"format":"intelibill.offline-recovery","version":1,"shopId":"{{{shopId}}}","deviceId":"{{{Device}}}","exportedAt":"{{{DateTimeOffset.UtcNow:O}}}","checksum":"{{{checksum ?? Checksum(invoicesJson)}}}","invoices":{{{invoicesJson}}}}}
+            """);
+
+    private static async Task<HttpResponseMessage> PostRecoveryAsync(HttpClient client, string token, string body)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"{Route}/recovery-submissions");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Content = new StringContent(body, Encoding.UTF8, "application/json");
+        return await client.SendAsync(request);
+    }
+
+    private static async Task<JsonElement> ReadRecoveryAsync(HttpResponseMessage response)
+    {
+        var content = await response.Content.ReadAsStringAsync();
+        Assert.True(response.StatusCode == HttpStatusCode.OK, $"Expected 200 but got {response.StatusCode}: {content}");
+        using var document = JsonDocument.Parse(content);
+        return document.RootElement.Clone();
     }
 
     private sealed record OwnerContext(string Token, Guid ShopId, Guid UserId);

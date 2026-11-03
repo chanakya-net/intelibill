@@ -59,15 +59,8 @@ public sealed class SyncOfflineSalesCommandHandler(
         IReadOnlyDictionary<Guid, DiscountRule> activeDiscountRulesById,
         CancellationToken cancellationToken)
     {
-        var normalizedId = string.IsNullOrWhiteSpace(sale.ClientSaleId) ? string.Empty : sale.ClientSaleId.Trim();
-        if (string.IsNullOrWhiteSpace(normalizedId)) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.ClientSaleIdRequired);
-        if (normalizedId.Length > 120) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.ClientSaleIdTooLong);
-
-        var invNum = (sale.InvoiceNumber ?? string.Empty).Trim();
-        if (string.IsNullOrWhiteSpace(invNum)) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.InvoiceNumberRequired);
-        if (invNum.Length > 40) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.InvoiceNumberTooLong);
-
-        if (OfflineSaleSyncHelpers.ContainsNulCharacter(sale)) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.OfflineTextInvalid);
+        if (OfflineSaleSyncHelpers.CheckIdentity(sale, out var normalizedId, out var invNum) is { } identityError)
+            return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, identityError);
 
         var hash = OfflineSaleSyncIdempotencyHasher.ComputeHash(command.ShopId, deviceId, sale);
         var lease = await invoiceLeaseRepository.FindReservedRangeAsync(command.ShopId, deviceId, invNum, cancellationToken);
@@ -189,12 +182,9 @@ public sealed class SyncOfflineSalesCommandHandler(
         if (asserted == command.ActorUserId)
             return (asserted, asserted);
 
-        var memberships = await shopRepository.GetMembershipsForUsersInShopsAsync([asserted], [command.ShopId], cancellationToken);
-        if (memberships.Count == 0)
-            return (asserted, null);
-
-        var hasDeviceHistory = await offlineSubmissionRepository.HasDeviceHistoryAsync(command.ShopId, deviceId, asserted, cancellationToken);
-        return (asserted, hasDeviceHistory ? asserted : null);
+        var standing = await OfflineIssuerVerification.AssessAsync(
+            shopRepository, offlineSubmissionRepository, command.ShopId, deviceId, asserted, cancellationToken);
+        return (asserted, standing == OfflineIssuerStanding.Verified ? asserted : null);
     }
 
     /// <summary>Files (or reuses) the case for a held invoice, with its invoice number and envelope, and saves it.</summary>

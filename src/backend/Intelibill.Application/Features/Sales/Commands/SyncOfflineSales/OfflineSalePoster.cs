@@ -17,9 +17,6 @@ internal sealed class OfflineSalePoster(
     IStockTransactionRepository stockTransactionRepository,
     IOfflineSaleVarianceAnalyzer varianceAnalyzer) : IOfflineSalePoster
 {
-    private const int MaxReviewMessageLength = 1000;
-    private const int MaxReportedMismatches = 100;
-
     public ErrorOr<Success> CheckStructure(OfflineSaleSyncCommand sale)
     {
         if (sale.Items is null || sale.Items.Count == 0) return Errors.Sale.ItemsRequired;
@@ -81,16 +78,8 @@ internal sealed class OfflineSalePoster(
         }
 
         // Frozen amounts must reconcile with their own inputs before anything is posted; catalog variance is reported separately below.
-        var arithmetic = OfflineInvoiceArithmeticValidator.Validate(sale);
-        if (!arithmetic.IsConsistent)
-        {
-            var arithmeticError = arithmetic.IsUnsupportedVersion ? Errors.Sale.OfflineCalculationVersionUnsupported : Errors.Sale.OfflineArithmeticMismatch;
-            return new OfflineSalePostingOutcome.Held(
-                ReconciliationIssueType.ArithmeticConflict,
-                arithmeticError,
-                arithmetic.Describe(MaxReviewMessageLength),
-                [.. arithmetic.Mismatches.Take(MaxReportedMismatches)]);
-        }
+        if (OfflineSaleSyncHelpers.CheckArithmetic(sale) is { } arithmeticHold)
+            return arithmeticHold;
 
         var warnCountBefore = warnings.Count;
         var validation = await saleLineValidator.ValidateLinesAsync(shopId, lineCmds, warnings, cancellationToken, true);

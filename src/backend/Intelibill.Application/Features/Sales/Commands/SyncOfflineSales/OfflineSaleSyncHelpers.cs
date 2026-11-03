@@ -12,9 +12,53 @@ internal static class OfflineSaleSyncHelpers
     private const string StatusDuplicate = "duplicate";
     private const string StatusFailed = "failed";
     private const string StatusNeedsReview = "NeedsReview";
+    private const int MaxClientSaleIdLength = 120;
+    private const int MaxInvoiceNumberLength = 40;
+    private const int MaxReviewMessageLength = 1000;
+    private const int MaxReportedMismatches = 100;
 
     internal static string? NormalizeOptional(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    /// <summary>
+    /// The identity checks an offline invoice must pass before anything about it is stored: a client
+    /// sale id and an invoice number that fit their columns, and no U+0000 in any text field.
+    /// </summary>
+    /// <param name="sale">The invoice as received.</param>
+    /// <param name="clientSaleId">The trimmed client sale id (empty when blank), set even on failure.</param>
+    /// <param name="invoiceNumber">The trimmed invoice number (empty when blank), set even on failure.</param>
+    /// <returns>The first failed check, or null.</returns>
+    internal static Error? CheckIdentity(OfflineSaleSyncCommand sale, out string clientSaleId, out string invoiceNumber)
+    {
+        clientSaleId = string.IsNullOrWhiteSpace(sale.ClientSaleId) ? string.Empty : sale.ClientSaleId.Trim();
+        invoiceNumber = (sale.InvoiceNumber ?? string.Empty).Trim();
+
+        if (clientSaleId.Length == 0) return Errors.Sale.ClientSaleIdRequired;
+        if (clientSaleId.Length > MaxClientSaleIdLength) return Errors.Sale.ClientSaleIdTooLong;
+        if (invoiceNumber.Length == 0) return Errors.Sale.InvoiceNumberRequired;
+        if (invoiceNumber.Length > MaxInvoiceNumberLength) return Errors.Sale.InvoiceNumberTooLong;
+        if (ContainsNulCharacter(sale)) return Errors.Sale.OfflineTextInvalid;
+
+        return null;
+    }
+
+    /// <summary>
+    /// Recomputes the invoice's frozen amounts from its own inputs. Null when they reconcile; otherwise
+    /// the arithmetic hold: a bounded, amount-only case message and at most 100 mismatches.
+    /// </summary>
+    internal static OfflineSalePostingOutcome.Held? CheckArithmetic(OfflineSaleSyncCommand sale)
+    {
+        var arithmetic = OfflineInvoiceArithmeticValidator.Validate(sale);
+        if (arithmetic.IsConsistent)
+            return null;
+
+        var error = arithmetic.IsUnsupportedVersion ? Errors.Sale.OfflineCalculationVersionUnsupported : Errors.Sale.OfflineArithmeticMismatch;
+        return new OfflineSalePostingOutcome.Held(
+            ReconciliationIssueType.ArithmeticConflict,
+            error,
+            arithmetic.Describe(MaxReviewMessageLength),
+            [.. arithmetic.Mismatches.Take(MaxReportedMismatches)]);
+    }
 
     internal static OfflineSaleSyncResultDto BuildDuplicateResult(string clientSaleId, Sale sale) =>
         new(clientSaleId, StatusDuplicate, sale.Id, sale.InvoiceNumber, [])
