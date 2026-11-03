@@ -470,6 +470,42 @@ replaced still point at the voided batch and cannot be restocked; choosing a des
 those returns is a pending policy decision. Rollback: disable correction writes; never drop the
 append-only rows or restore destructive replacement.
 
+## Sale Return Serialization
+
+**Invariant.** Per sale line, the active (unvoided) returned quantity never exceeds the sold quantity,
+and each return is voided at most once — whether the line is goods, a service or wastage, so whether
+or not any stock row is written. A credit note is never both voided and redeemed.
+
+**Lock.** Recording a return and voiding one run through `ISaleReturnMutationCoordinator`: one
+transaction that first takes the sale's customer row (when the sale has one) and then the sale row,
+each with `SELECT … FOR NO KEY UPDATE` scoped by `shop_id` (`ISaleRepository.LockForReturnMutationAsync`),
+then validates and writes, and commits only on success. The customer lock is there because a due
+reduction is capped by the customer's balance across all their sales, so returns on two sales of one
+customer must queue too. Validation runs under the lock, so a competing return that committed first is counted and
+the loser answers 400 `SaleReturn.QuantityExceedsRemaining` (or `SaleReturn.AlreadyVoided`); the
+preview stays advisory. `NO KEY UPDATE` keeps inserts that only reference the sale (their FK key-share
+check) from queueing behind it. The void reads only the return's immutable sale id before the lock
+(`ISaleReturnRepository.GetSaleIdAsync`) and everything it decides on after.
+
+**Order.** customer → sale → that sale's credit notes (`GetBySaleReturnIdForUpdateWithRedemptionsAsync`) →
+inventory batch and aggregate rows (locked by their `UPDATE` at save, `xmin`-checked). Redemption at
+checkout locks credit notes and then batches and never waits on the parent sale; `VoidCreditNote`
+locks only its note. Nothing locks a return or credit note and then waits on its sale.
+
+**Stale joins.** A `FOR UPDATE` that waited returns the locked row as the holder left it but evaluates
+anything joined in the same statement against the snapshot it started with, so redemptions the holder
+committed are invisible to it. The credit-note lock therefore runs as its own statement before the
+load, and `CreditNote.HasBeenRedeemed` also treats `AvailableBalance < OriginalAmount` as redeemed.
+
+**Failures.** Every lock wait in the transaction is bounded at 5 s (`SET LOCAL lock_timeout`); a
+timeout on any of them answers 409 `SaleReturn.SaleBusy`. A batch changed underneath by a sale or count
+(`xmin`), a deadlock (40P01) or a serialization failure (40001) answers 409 `SaleReturn.ConcurrentChange`. Both roll back everything and are safe to retry after a refresh; the
+client never reposts on its own. `SaleReturnConcurrencyTests` races each pair on real PostgreSQL with
+a save barrier rather than sleeps. Customer payments do not take the customer lock yet (plan 25), so a
+payment racing a due-reducing return can still leave the balance below zero. Returns carry no
+operation key yet, so a resend after a lost response is a new return and is bounded only by
+entitlement.
+
 ## Test Structure
 
 | Suite | Path | Count |

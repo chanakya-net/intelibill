@@ -42,6 +42,7 @@ public static class DependencyInjection
         services.AddScoped<ISaleReturnNumberGenerator, SaleReturnNumberGenerator>();
         services.AddScoped<ISaleReturnCalculator, SaleReturnCalculator>();
         services.AddScoped<ISaleReturnValidator, SaleReturnValidator>();
+        services.AddScoped<ISaleReturnMutationCoordinator, SaleReturnMutationCoordinator>();
         services.AddScoped<ISalePricingCalculator, SalePricingCalculator>();
 
         services.AddScoped<ICreditNoteCodeGenerator, CreditNoteCodeGenerator>();

@@ -96,6 +96,32 @@ internal sealed class CreditNoteRepository(ApplicationDbContext context)
             .Include(c => c.Redemptions)
             .FirstOrDefaultAsync(c => c.ShopId == shopId && c.SaleReturnId == saleReturnId, cancellationToken);
 
+    public async Task<CreditNote?> GetBySaleReturnIdForUpdateWithRedemptionsAsync(Guid shopId, Guid saleReturnId, CancellationToken cancellationToken = default)
+    {
+        var wasTracked = _context.ChangeTracker.Entries<CreditNote>()
+            .Any(e => e.Entity.ShopId == shopId && e.Entity.SaleReturnId == saleReturnId);
+
+        if (_context.Database.IsNpgsql())
+        {
+            // Locked on its own, then read by a separate statement: a locking read that waited sees
+            // the locked row as the holder left it, but anything it joined would be read as of the
+            // moment it began — before the holder's redemptions were committed.
+            _ = await _context.Database
+                .SqlQuery<Guid>($"SELECT id AS \"Value\" FROM credit_notes WHERE shop_id = {shopId} AND sale_return_id = {saleReturnId} ORDER BY id FOR UPDATE")
+                .ToListAsync(cancellationToken);
+        }
+
+        var creditNote = await GetBySaleReturnIdWithRedemptionsAsync(shopId, saleReturnId, cancellationToken);
+        if (creditNote is not null && wasTracked)
+        {
+            // EF hands back the instance it already tracked, with what it held before the lock.
+            await _context.Entry(creditNote).ReloadAsync(cancellationToken);
+            await _context.Entry(creditNote).Collection(c => c.Redemptions).LoadAsync(cancellationToken);
+        }
+
+        return creditNote;
+    }
+
     public async Task AddRedemptionAsync(CreditNoteRedemption redemption, CancellationToken cancellationToken = default) =>
         await _context.CreditNoteRedemptions.AddAsync(redemption, cancellationToken);
 

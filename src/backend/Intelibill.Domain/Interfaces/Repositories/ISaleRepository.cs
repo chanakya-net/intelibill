@@ -6,6 +6,14 @@ namespace Intelibill.Domain.Interfaces.Repositories;
 public interface ISaleRepository : IRepository<Sale>
 {
     Task<Sale?> GetByIdAsync(Guid saleId, Guid shopId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Takes the row locks that serialize every return, return void and credit-note decision on the
+    /// sale: the sale's customer, when it has one, and then the sale. Must run inside a transaction
+    /// and before the sale, its returns, its credit notes or the customer's balance are read, so that
+    /// everything read afterwards is current. Also bounds every later lock wait in the transaction.
+    /// </summary>
+    Task<RowLockOutcome> LockForReturnMutationAsync(Guid shopId, Guid saleId, CancellationToken cancellationToken = default);
     Task<Sale?> GetByIdempotencyKeyAsync(Guid shopId, Guid actorUserId, string idempotencyKey, CancellationToken cancellationToken = default);
     Task<Sale?> GetByClientSaleIdAsync(Guid shopId, string deviceId, string clientSaleId, CancellationToken cancellationToken = default);
     Task<Sale?> GetByInvoiceNumberAsync(Guid shopId, string invoiceNumber, CancellationToken cancellationToken = default);

@@ -314,4 +314,32 @@ public class CreditNoteTests
         cn3.Redeem(shopId, Guid.NewGuid(), 500m);
         Assert.Equal(CreditNoteStatus.FullyRedeemed, cn3.Status);
     }
+    [Fact]
+    public void HasBeenRedeemed_IsFalseUntilARedemption()
+    {
+        var shopId = Guid.NewGuid();
+        var creditNote = CreditNote.Issue(shopId, Guid.NewGuid(), 100m, "r", "CN-001", null).Value;
+        Assert.False(creditNote.HasBeenRedeemed);
+
+        creditNote.Redeem(shopId, Guid.NewGuid(), 10m);
+
+        Assert.True(creditNote.HasBeenRedeemed);
+    }
+
+    /// <summary>
+    /// A locking read that waited behind a redemption sees the note's row as the redemption left it
+    /// but may not see the redemption rows it joined. The spent balance alone must refuse the void.
+    /// </summary>
+    [Fact]
+    public void Void_WhenBalanceSpentButRedemptionsNotLoaded_IsRefused()
+    {
+        var creditNote = CreditNote.Issue(Guid.NewGuid(), Guid.NewGuid(), 100m, "r", "CN-001", null).Value;
+        typeof(CreditNote).GetProperty(nameof(CreditNote.AvailableBalance))!.SetValue(creditNote, 40m);
+
+        var result = creditNote.Void("Issued in error");
+
+        Assert.True(result.IsError);
+        Assert.Equal("CreditNote.CannotVoidAfterRedemption", result.FirstError.Code);
+        Assert.False(creditNote.IsVoided);
+    }
 }

@@ -8,7 +8,7 @@
 - Test full: `dotnet test src/backend/Intelibill.slnx`
 - Test unit: `dotnet test tests/backend/unit/Intelibill.Domain.Unit.Tests`, `Application.Unit.Tests`, `Api.Unit.Tests`
 - Test integration: `dotnet test tests/backend/integration/Intelibill.Integration.Tests` (requires Docker)
-- Snapshot: 263 + 1035 + 542 + 562 = 2402 tests (1840 non-integration), all passing as of 1 November 2026
+- Snapshot: 265 + 1057 + 542 + 575 = 2439 tests (1864 non-integration), all passing as of 3 November 2026
 
 **Migrations** (EF Core) — API startup does **not** apply them; run `database update` yourself after pulling schema changes (deployed environments use the migration job):
 ```bash
@@ -119,6 +119,7 @@ DB Options: `src/backend/Intelibill.Infrastructure/Options/DatabaseOptions.cs:7`
 - Realtime: hub connections are admitted by `RealtimeConnectionGate` against live authority, recorded in `realtime_connection_leases`, addressed per payload by `IAuthorizedRealtimeDispatcher<THub>` (no SignalR groups) and closed by `RealtimeRevocationWorker`'s five-second sweep. See `docs/backend-architecture.md` § Realtime Notifications
 - Financial operations: keyed payments run through `IFinancialOperationExecutor`, which reserves an `operation_receipts` row (unique per shop + type + key) and commits it with the posting; retries replay the stored response, changed payloads answer 409 `Operation.PayloadMismatch`. Bulk stock intake commits a manifest receipt plus one receipt per row through it (`IInboundRowExecutor`, fresh scope per row). See `docs/backend-architecture.md` § Financial Operation Receipts and § Bulk Stock Intake
 - Migration: `20260425075353_InitialCreate` (single consolidated)
+- Sale returns: record and void run in `ISaleReturnMutationCoordinator` under the customer + sale row locks (`FOR NO KEY UPDATE`, 5 s budget → 409 `SaleReturn.SaleBusy`); lock order customer → sale → credit notes → batches; `CreditNote.HasBeenRedeemed` checks balance too. See `docs/backend-architecture.md` § Sale Return Serialization
 - Stock corrections: `inventory_batches`/`inventory` use `xmin` as row version; every quantity change writes one signed movement in the same save, every count a `stock_counts` row. See `docs/backend-architecture.md` § Stock Corrections and Voids
 - Purchase receipts: every receipt writes a `purchase_receipt_values` row (original + effective total, `xmin` version); cost corrections post a signed `COST_ADJUSTED` ledger entry plus a `purchase_receipt_cost_adjustments` row, never touching batch cost or sale COGS; legacy receipts without clear evidence are `LEGACY_UNRESOLVED` and refuse correction. See `docs/backend-architecture.md` § Purchase Receipts, Price Revisions and Cost Corrections
 - RLS: session interceptor sets `app.current_user_id` + `app.active_shop_id`

@@ -32,7 +32,29 @@ public sealed class VoidCreditNoteCommandHandlerTests
         Assert.True(creditNote.IsVoided);
         Assert.Equal("Issued in error", creditNote.VoidReason);
         _creditNoteRepository.Received(1).Update(creditNote);
-        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        Received.InOrder(() =>
+        {
+            _unitOfWork.BeginTransactionAsync(Arg.Any<CancellationToken>());
+            _creditNoteRepository.GetByCodeForUpdateWithRedemptionsAsync(fixture.Shop.Id, Arg.Any<string>(), Arg.Any<CancellationToken>());
+            _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>());
+            _unitOfWork.CommitTransactionAsync(Arg.Any<CancellationToken>());
+        });
+        await _unitOfWork.DidNotReceive().RollbackTransactionAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenRefused_RollsBackTheLockingTransaction()
+    {
+        var fixture = Arrange(ShopRole.Owner, redeemed: true);
+        var creditNote = fixture.CreditNote ?? throw new InvalidOperationException("Expected a credit note.");
+
+        var result = await CreateHandler().HandleAsync(
+            new VoidCreditNoteCommand(fixture.User.Id, fixture.Shop.Id, creditNote.Code, "Issued in error"),
+            CancellationToken.None);
+
+        Assert.True(result.IsError);
+        await _unitOfWork.DidNotReceive().CommitTransactionAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).RollbackTransactionAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -137,7 +159,7 @@ public sealed class VoidCreditNoteCommandHandlerTests
                 creditNote.Void("Earlier void");
             }
 
-            _creditNoteRepository.GetByCodeWithRedemptionsAsync(
+            _creditNoteRepository.GetByCodeForUpdateWithRedemptionsAsync(
                 shop.Id,
                 CreditNoteCodeNormalizer.Normalize(creditNote.Code),
                 Arg.Any<CancellationToken>())
@@ -145,7 +167,7 @@ public sealed class VoidCreditNoteCommandHandlerTests
         }
         else
         {
-            _creditNoteRepository.GetByCodeWithRedemptionsAsync(shop.Id, "CN-404", Arg.Any<CancellationToken>())
+            _creditNoteRepository.GetByCodeForUpdateWithRedemptionsAsync(shop.Id, "CN-404", Arg.Any<CancellationToken>())
                 .Returns((CreditNote?)null);
         }
 

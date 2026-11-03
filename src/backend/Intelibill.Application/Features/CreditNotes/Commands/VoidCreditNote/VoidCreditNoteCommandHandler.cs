@@ -43,20 +43,35 @@ public sealed class VoidCreditNoteCommandHandler(
             return Errors.CreditNote.UserIsNotOwnerOrManager;
 
         var code = CreditNoteCodeNormalizer.Normalize(command.Code);
-        var creditNote = await creditNoteRepository.GetByCodeWithRedemptionsAsync(
-            command.ActiveShopId,
-            code,
-            cancellationToken);
-        if (creditNote is null)
-            return Errors.CreditNote.CreditNoteNotFound(command.Code);
 
-        var voidResult = creditNote.Void(command.Reason);
-        if (voidResult.IsError)
-            return voidResult.Errors;
+        // Held until commit, as redemption holds it, so a void and a redemption of the same note
+        // cannot both succeed.
+        await unitOfWork.BeginTransactionAsync(cancellationToken);
+        var committed = false;
+        try
+        {
+            var creditNote = await creditNoteRepository.GetByCodeForUpdateWithRedemptionsAsync(
+                command.ActiveShopId,
+                code,
+                cancellationToken);
+            if (creditNote is null)
+                return Errors.CreditNote.CreditNoteNotFound(command.Code);
 
-        creditNoteRepository.Update(creditNote);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
+            var voidResult = creditNote.Void(command.Reason);
+            if (voidResult.IsError)
+                return voidResult.Errors;
 
-        return Result.Success;
+            creditNoteRepository.Update(creditNote);
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+            await unitOfWork.CommitTransactionAsync(cancellationToken);
+            committed = true;
+
+            return Result.Success;
+        }
+        finally
+        {
+            if (!committed)
+                await unitOfWork.RollbackTransactionAsync(CancellationToken.None);
+        }
     }
 }
