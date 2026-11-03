@@ -365,7 +365,7 @@ describe('OfflineSalesQueueSyncService', () => {
     expect(saleService.syncOfflineSales).not.toHaveBeenCalled();
 
     expect(service.awaitingIssuerSales()).toEqual([
-      { clientSaleId: 'other', invoiceNumber: 'INV-other', soldAt: '2026-05-22T10:00:00.000Z', issuedByUserId: 'user-2' },
+      { clientSaleId: 'other', invoiceNumber: 'INV-other', soldAt: '2026-05-22T10:00:00.000Z', issuedByUserId: 'user-2', status: 'Pending' },
     ]);
     expect(queueDb.getAllByShopDevice).toHaveBeenCalledWith('shop-1', 'device-1');
 
@@ -375,6 +375,25 @@ describe('OfflineSalesQueueSyncService', () => {
     activeSession.set(null);
     flushEffects();
     expect(service.awaitingIssuerSales()).toEqual([]);
+  });
+
+  it('lists another user\'s failed invoices as awaiting their issuer too', async () => {
+    const service = setup();
+    queueDb.getStatusCounts.mockResolvedValue({ Pending: 0, Syncing: 0, Synced: 0, SyncedWithWarnings: 0, NeedsReview: 0, Failed: 3 });
+    queueDb.getAllByShopDevice.mockResolvedValue([
+      withIssuer(makeRecord('other-failed', { status: 'Failed', soldAt: '2026-05-23T10:00:00.000Z' }), 'user-2'),
+      withIssuer(makeRecord('other-pending', { status: 'Pending', soldAt: '2026-05-21T10:00:00.000Z' }), 'user-3'),
+      withIssuer(makeRecord('own-failed', { status: 'Failed' }), 'user-1'),
+      withIssuer(makeRecord('other-held', { status: 'NeedsReview' }), 'user-2'),
+    ]);
+
+    await service.refreshActiveStatusCounts();
+
+    expect(queueDb.getAllByShopDevice).toHaveBeenCalledWith('shop-1', 'device-1');
+    expect(service.awaitingIssuerSales()).toEqual([
+      { clientSaleId: 'other-pending', invoiceNumber: 'INV-other-pending', soldAt: '2026-05-21T10:00:00.000Z', issuedByUserId: 'user-3', status: 'Pending' },
+      { clientSaleId: 'other-failed', invoiceNumber: 'INV-other-failed', soldAt: '2026-05-23T10:00:00.000Z', issuedByUserId: 'user-2', status: 'Failed' },
+    ]);
   });
 
   it('lists held invoices with their review case and mismatches, oldest first', async () => {

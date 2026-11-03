@@ -1,0 +1,900 @@
+<section class="reconciliation-page">
+  <header class="reconciliation-hero">
+    <p class="eyebrow">{{ 'sales.offlineReconciliation.eyebrow' | transloco }}</p>
+    <h1>{{ 'sales.offlineReconciliation.title' | transloco }}</h1>
+    <p class="subtitle">{{ 'sales.offlineReconciliation.subtitle' | transloco }}</p>
+  </header>
+
+  @if (isOffline()) {
+    <p class="stale-notice" role="status">
+      <i class="pi pi-wifi" aria-hidden="true"></i>
+      <span>{{ 'sales.offlineReconciliation.staleNotice' | transloco }}</span>
+    </p>
+  }
+
+  <!-- 1. Invoices kept on this browser -->
+  <section class="console-panel device-queue" aria-labelledby="device-queue-title">
+    <div class="panel-header">
+      <div>
+        <h2 id="device-queue-title" class="panel-title">{{ 'sales.offlineReconciliation.queue.title' | transloco }}</h2>
+        <p class="panel-hint">{{ 'sales.offlineReconciliation.queue.hint' | transloco }}</p>
+      </div>
+      <div class="queue-counts">
+        <span class="queue-chip pending"
+          >{{ 'sales.history.offlineQueue.pending' | transloco }} {{ visibleCounts().pending }}</span
+        >
+        <span class="queue-chip failed"
+          >{{ 'sales.history.offlineQueue.failed' | transloco }} {{ visibleCounts().failed }}</span
+        >
+        <span class="queue-chip review"
+          >{{ 'sales.history.offlineQueue.needsReview' | transloco }} {{ visibleCounts().needsReview }}</span
+        >
+      </div>
+    </div>
+
+    @if (localState() === 'error') {
+      <p class="panel-error" role="alert">{{ 'sales.offlineReconciliation.queue.loadError' | transloco }}</p>
+    } @else if (localState() === 'ready' && !hasLocalRows()) {
+      <p class="queue-empty">
+        <i class="pi pi-check-circle" aria-hidden="true"></i>
+        <span>{{ 'sales.offlineReconciliation.queue.empty' | transloco }}</span>
+      </p>
+    }
+
+    @if (unsentRows().length > 0) {
+      <div class="queue-group unsent">
+        <h3 class="queue-group-title">
+          {{ 'sales.offlineReconciliation.queue.unsentTitle' | transloco }}
+          <span class="queue-count">{{ unsentRows().length }}</span>
+        </h3>
+        <p class="queue-group-hint">{{ 'sales.offlineReconciliation.queue.unsentHint' | transloco }}</p>
+        <ul class="queue-list">
+          @for (row of unsentRows(); track row.clientSaleId) {
+            <li class="queue-row">
+              <div class="queue-row-main">
+                <strong class="queue-invoice">{{ row.invoiceNumber }}</strong>
+                <span class="queue-meta">{{ row.soldAt | date: 'dd MMM yyyy, h:mm a' }}</span>
+                <p-tag
+                  [severity]="row.status === 'Failed' ? 'danger' : row.status === 'Syncing' ? 'info' : 'warn'"
+                  [value]="
+                    (row.status === 'Failed'
+                      ? 'sales.offlineReconciliation.queue.status.failed'
+                      : row.status === 'Syncing'
+                        ? 'sales.offlineReconciliation.queue.status.syncing'
+                        : 'sales.offlineReconciliation.queue.status.pending'
+                    ) | transloco
+                  "
+                />
+              </div>
+              <div class="queue-row-actions">
+                <a
+                  class="print-link"
+                  [href]="offlinePrintHref(row.clientSaleId)"
+                  target="_blank"
+                  rel="noopener"
+                  [attr.aria-label]="'sales.offlineReconciliation.printInvoice' | transloco: { invoice: row.invoiceNumber }"
+                >
+                  <i class="pi pi-print" aria-hidden="true"></i>
+                  {{ 'sales.offlineReconciliation.print' | transloco }}
+                </a>
+                @if (row.status !== 'Syncing') {
+                  <button
+                    pButton
+                    type="button"
+                    class="row-action-btn"
+                    icon="pi pi-refresh"
+                    severity="secondary"
+                    [outlined]="true"
+                    [label]="'sales.offlineReconciliation.queue.retry' | transloco"
+                    [attr.aria-label]="'sales.offlineReconciliation.queue.retryInvoice' | transloco: { invoice: row.invoiceNumber }"
+                    [loading]="isRetrying(row.clientSaleId)"
+                    [disabled]="isOffline() || isRetrying(row.clientSaleId)"
+                    (click)="retry(row.clientSaleId)"
+                  ></button>
+                }
+              </div>
+            </li>
+          }
+        </ul>
+      </div>
+    }
+
+    @if (reviewRows().length > 0) {
+      <div class="queue-group review">
+        <h3 class="queue-group-title">
+          {{ 'sales.offlineReconciliation.queue.reviewTitle' | transloco }}
+          <span class="queue-count">{{ reviewRows().length }}</span>
+        </h3>
+        <p class="queue-group-hint">{{ 'sales.offlineReconciliation.queue.reviewHint' | transloco }}</p>
+        <ul class="queue-list">
+          @for (row of reviewRows(); track row.clientSaleId) {
+            <li class="queue-row">
+              <div class="queue-row-main">
+                <strong class="queue-invoice">{{ row.invoiceNumber }}</strong>
+                <span class="queue-meta">{{ reviewReasonKey(row.errorCode) | transloco }}</span>
+                @if (!row.reviewCaseId) {
+                  <span class="queue-meta">{{ 'sales.offlineReconciliation.queue.noCase' | transloco }}</span>
+                }
+              </div>
+              <div class="queue-row-actions">
+                <a
+                  class="print-link"
+                  [href]="offlinePrintHref(row.clientSaleId)"
+                  target="_blank"
+                  rel="noopener"
+                  [attr.aria-label]="'sales.offlineReconciliation.printInvoice' | transloco: { invoice: row.invoiceNumber }"
+                >
+                  <i class="pi pi-print" aria-hidden="true"></i>
+                  {{ 'sales.offlineReconciliation.print' | transloco }}
+                </a>
+                @if (row.reviewCaseId; as caseId) {
+                  <button
+                    pButton
+                    type="button"
+                    class="row-action-btn"
+                    icon="pi pi-arrow-right"
+                    iconPos="right"
+                    severity="secondary"
+                    [outlined]="true"
+                    [label]="'sales.offlineReconciliation.openCase' | transloco"
+                    (click)="openCase(caseId)"
+                  ></button>
+                }
+              </div>
+            </li>
+          }
+        </ul>
+      </div>
+    }
+
+    @if (awaitingRows().length > 0) {
+      <div class="queue-group awaiting">
+        <h3 class="queue-group-title">
+          {{ 'sales.offlineReconciliation.queue.awaitingTitle' | transloco }}
+          <span class="queue-count">{{ awaitingRows().length }}</span>
+        </h3>
+        <p class="queue-group-hint">{{ 'sales.offlineReconciliation.queue.awaitingHint' | transloco }}</p>
+        <ul class="queue-list">
+          @for (row of awaitingRows(); track row.clientSaleId) {
+            <li class="queue-row">
+              <div class="queue-row-main">
+                <strong class="queue-invoice">{{ row.invoiceNumber }}</strong>
+                <span class="queue-meta">{{
+                  'sales.offlineReconciliation.queue.issuedBy' | transloco: { id: row.issuedByUserId }
+                }}</span>
+                <p-tag
+                  [severity]="row.status === 'Failed' ? 'danger' : 'warn'"
+                  [value]="
+                    (row.status === 'Failed'
+                      ? 'sales.offlineReconciliation.queue.status.failed'
+                      : 'sales.offlineReconciliation.queue.status.pending'
+                    ) | transloco
+                  "
+                />
+              </div>
+              <div class="queue-row-actions">
+                <a
+                  class="print-link"
+                  [href]="offlinePrintHref(row.clientSaleId)"
+                  target="_blank"
+                  rel="noopener"
+                  [attr.aria-label]="'sales.offlineReconciliation.printInvoice' | transloco: { invoice: row.invoiceNumber }"
+                >
+                  <i class="pi pi-print" aria-hidden="true"></i>
+                  {{ 'sales.offlineReconciliation.print' | transloco }}
+                </a>
+              </div>
+            </li>
+          }
+        </ul>
+      </div>
+    }
+  </section>
+
+  <div class="console-grid" [class.has-detail]="selectedCaseId() !== null">
+    <!-- 2. Review cases on the server -->
+    <section class="console-panel cases-panel" aria-labelledby="cases-title">
+      <div class="panel-header">
+        <div>
+          <h2 id="cases-title" class="panel-title">{{ 'sales.offlineReconciliation.cases.title' | transloco }}</h2>
+          @if (casePage(); as pageData) {
+            <p class="unresolved-count">
+              {{ 'sales.offlineReconciliation.cases.unresolved' | transloco: { count: pageData.unresolvedCount } }}
+            </p>
+          }
+        </div>
+        <button
+          pButton
+          type="button"
+          class="refresh-cases-btn"
+          icon="pi pi-refresh"
+          severity="secondary"
+          [outlined]="true"
+          [label]="'sales.offlineReconciliation.refresh' | transloco"
+          [disabled]="isOffline() || casesState() === 'loading'"
+          (click)="refreshCases()"
+        ></button>
+      </div>
+
+      <p-selectbutton
+        class="case-status-filter"
+        [ngModel]="statusFilter()"
+        (ngModelChange)="onStatusFilterChange($event)"
+        [options]="statusFilterOptions()"
+        optionLabel="label"
+        optionValue="value"
+        [allowEmpty]="false"
+        [disabled]="isOffline()"
+        [attr.aria-label]="'sales.offlineReconciliation.cases.filterLabel' | transloco"
+      ></p-selectbutton>
+
+      @if (casesState() === 'error') {
+        <p class="panel-error cases-error" role="alert">
+          {{ 'sales.offlineReconciliation.cases.loadError' | transloco }}
+        </p>
+      } @else if (casesState() === 'idle') {
+        <p class="panel-hint">{{ 'sales.offlineReconciliation.cases.notLoaded' | transloco }}</p>
+      }
+
+      <div class="cases-table-wrap" tabindex="0">
+        @if (casesState() === 'loading') {
+          <p-table [value]="skeletonRows" class="p-datatable-sm cases-table">
+            <ng-template pTemplate="header">
+              <tr>
+                <th>{{ 'sales.offlineReconciliation.cases.columns.invoice' | transloco }}</th>
+                <th>{{ 'sales.offlineReconciliation.cases.columns.reason' | transloco }}</th>
+                <th>{{ 'sales.offlineReconciliation.cases.columns.status' | transloco }}</th>
+                <th>{{ 'sales.offlineReconciliation.cases.columns.created' | transloco }}</th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body">
+              <tr>
+                <td><p-skeleton width="8rem" /></td>
+                <td><p-skeleton width="12rem" /></td>
+                <td><p-skeleton width="5rem" height="1.4rem" /></td>
+                <td><p-skeleton width="8rem" /></td>
+              </tr>
+            </ng-template>
+          </p-table>
+        } @else if (casesState() === 'ready') {
+          <p-table [value]="cases()" class="p-datatable-sm cases-table" [rowHover]="true">
+            <ng-template pTemplate="header">
+              <tr>
+                <th>{{ 'sales.offlineReconciliation.cases.columns.invoice' | transloco }}</th>
+                <th>{{ 'sales.offlineReconciliation.cases.columns.reason' | transloco }}</th>
+                <th>{{ 'sales.offlineReconciliation.cases.columns.status' | transloco }}</th>
+                <th>{{ 'sales.offlineReconciliation.cases.columns.created' | transloco }}</th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-item>
+              <tr class="case-row" [class.selected]="item.caseId === selectedCaseId()">
+                <td class="case-invoice">
+                  <button
+                    type="button"
+                    class="case-open-btn"
+                    [attr.aria-label]="
+                      'sales.offlineReconciliation.cases.viewCase'
+                        | transloco
+                          : {
+                              invoice:
+                                item.invoiceNumber ?? ('sales.offlineReconciliation.cases.noInvoiceNumber' | transloco),
+                            }
+                    "
+                    [attr.aria-current]="item.caseId === selectedCaseId() ? 'true' : null"
+                    (click)="openCase(item.caseId)"
+                  >
+                    {{ item.invoiceNumber ?? ('sales.offlineReconciliation.cases.noInvoiceNumber' | transloco) }}
+                  </button>
+                </td>
+                <td>
+                  <div>{{ reasonKey(item.reasonCodes) | transloco }}</div>
+                  <div class="case-sub">{{ issueTypeLabelKey(item.issueType) | transloco }}</div>
+                </td>
+                <td>
+                  <p-tag [severity]="caseStatusSeverity(item.status)" [value]="caseStatusLabelKey(item.status) | transloco" />
+                </td>
+                <td class="case-sub">{{ item.createdAt | date: 'dd MMM yyyy, h:mm a' }}</td>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="emptymessage">
+              <tr>
+                <td colspan="4" class="case-empty">
+                  <i class="pi pi-inbox" aria-hidden="true"></i>
+                  {{ 'sales.offlineReconciliation.cases.empty' | transloco }}
+                </td>
+              </tr>
+            </ng-template>
+          </p-table>
+        }
+      </div>
+
+      @if (totalCases() > pageSize) {
+        <p-paginator
+          class="cases-paginator"
+          [first]="(page() - 1) * pageSize"
+          [rows]="pageSize"
+          [totalRecords]="totalCases()"
+          (onPageChange)="onPageChange($event)"
+        />
+      }
+    </section>
+
+    <!-- 3. Case detail and 4. resolve form -->
+    @if (selectedCaseId()) {
+      <section class="console-panel case-detail" aria-labelledby="case-detail-title">
+        <div class="panel-header">
+          <h2 id="case-detail-title" class="panel-title" tabindex="-1" #detailHeading>
+            {{ 'sales.offlineReconciliation.detail.title' | transloco }}
+          </h2>
+          <button
+            pButton
+            type="button"
+            class="close-detail-btn"
+            icon="pi pi-times"
+            severity="secondary"
+            [text]="true"
+            [label]="'sales.offlineReconciliation.detail.close' | transloco"
+            (click)="closeCase()"
+          ></button>
+        </div>
+
+        @if (detailState() === 'loading' && !selectedCase()) {
+          <div class="detail-loading">
+            <p-skeleton width="60%" />
+            <p-skeleton width="80%" />
+            <p-skeleton width="40%" />
+          </div>
+        } @else if (detailState() === 'error') {
+          <p class="panel-error" role="alert">{{ 'sales.offlineReconciliation.detail.loadError' | transloco }}</p>
+        } @else if (!selectedCase()) {
+          <p class="panel-hint">{{ 'sales.offlineReconciliation.cases.notLoaded' | transloco }}</p>
+        }
+
+        @if (selectedCase(); as detail) {
+          <div class="detail-summary">
+            <strong class="detail-invoice">{{
+              detail.invoiceNumber ?? ('sales.offlineReconciliation.cases.noInvoiceNumber' | transloco)
+            }}</strong>
+            <p-tag
+              class="case-status"
+              [severity]="caseStatusSeverity(detail.status)"
+              [value]="caseStatusLabelKey(detail.status) | transloco"
+            />
+          </div>
+
+          <dl class="detail-grid">
+            <div class="detail-field">
+              <dt>{{ 'sales.offlineReconciliation.detail.reason' | transloco }}</dt>
+              <dd>{{ reasonKey(detail.reasonCodes) | transloco }}</dd>
+            </div>
+            <div class="detail-field">
+              <dt>{{ 'sales.offlineReconciliation.detail.issueType' | transloco }}</dt>
+              <dd>{{ issueTypeLabelKey(detail.issueType) | transloco }}</dd>
+            </div>
+            <div class="detail-field wide">
+              <dt>{{ 'sales.offlineReconciliation.detail.message' | transloco }}</dt>
+              <dd>{{ detail.message }}</dd>
+            </div>
+            <div class="detail-field">
+              <dt>{{ 'sales.offlineReconciliation.detail.openedAt' | transloco }}</dt>
+              <dd>{{ detail.createdAt | date: 'dd MMM yyyy, h:mm a' }}</dd>
+            </div>
+            <div class="detail-field">
+              <dt>{{ 'sales.offlineReconciliation.detail.device' | transloco }}</dt>
+              <dd class="mono">{{ detail.deviceId }}</dd>
+            </div>
+            <div class="detail-field wide">
+              <dt>{{ 'sales.offlineReconciliation.detail.clientSaleId' | transloco }}</dt>
+              <dd class="mono">{{ detail.clientSaleId }}</dd>
+            </div>
+            @if (detail.resolution) {
+              <div class="detail-field">
+                <dt>{{ 'sales.offlineReconciliation.detail.resolution' | transloco }}</dt>
+                <dd>{{ actionLabelKey(detail.resolution) | transloco }}</dd>
+              </div>
+            }
+            @if (detail.resolutionReason) {
+              <div class="detail-field wide">
+                <dt>{{ 'sales.offlineReconciliation.detail.resolutionReason' | transloco }}</dt>
+                <dd>{{ detail.resolutionReason }}</dd>
+              </div>
+            }
+          </dl>
+
+          @if (detail.saleId) {
+            <p class="linked-sale">
+              <span>{{ 'sales.offlineReconciliation.detail.linkedSale' | transloco }}</span>
+              <a class="print-link" [href]="salePrintHref(detail.saleId)" target="_blank" rel="noopener">
+                <i class="pi pi-print" aria-hidden="true"></i>
+                {{ 'sales.offlineReconciliation.detail.printSale' | transloco }}
+              </a>
+            </p>
+          }
+
+          @if (!detail.hasOriginalEnvelope) {
+            <div class="envelope-missing" role="note">
+              <strong>{{ 'sales.offlineReconciliation.detail.noEnvelope' | transloco }}</strong>
+              <span>{{ 'sales.offlineReconciliation.detail.noEnvelopeHint' | transloco }}</span>
+            </div>
+          }
+
+          @if (detail.printedQuantity !== null || detail.unresolvedQuantity !== null) {
+            <div class="detail-block">
+              <h3 class="detail-block-title">{{ 'sales.offlineReconciliation.detail.quantitiesTitle' | transloco }}</h3>
+              <dl class="quantity-grid">
+                <div class="quantity-cell">
+                  <dt>{{ 'sales.offlineReconciliation.detail.quantities.printed' | transloco }}</dt>
+                  <dd>{{ detail.printedQuantity ?? 0 | number: '1.0-3' }}</dd>
+                </div>
+                <div class="quantity-cell">
+                  <dt>{{ 'sales.offlineReconciliation.detail.quantities.available' | transloco }}</dt>
+                  <dd>{{ detail.availableQuantity ?? 0 | number: '1.0-3' }}</dd>
+                </div>
+                <div class="quantity-cell">
+                  <dt>{{ 'sales.offlineReconciliation.detail.quantities.consumed' | transloco }}</dt>
+                  <dd>{{ detail.consumedQuantity ?? 0 | number: '1.0-3' }}</dd>
+                </div>
+                <div class="quantity-cell unresolved">
+                  <dt>{{ 'sales.offlineReconciliation.detail.quantities.unresolved' | transloco }}</dt>
+                  <dd>{{ detail.unresolvedQuantity ?? 0 | number: '1.0-3' }}</dd>
+                </div>
+              </dl>
+            </div>
+          }
+
+          <div class="detail-block">
+            <h3 class="detail-block-title">{{ 'sales.offlineReconciliation.detail.peopleTitle' | transloco }}</h3>
+            <dl class="people-list">
+              @if (detail.submission; as sent) {
+                <div class="detail-field">
+                  <dt>{{ 'sales.offlineReconciliation.detail.people.originalIssuer' | transloco }}</dt>
+                  <dd>
+                    <ng-container *ngTemplateOutlet="personTpl; context: { $implicit: sent.originalIssuer }" />
+                  </dd>
+                </div>
+                @if (!sent.originalIssuer && sent.assertedIssuer) {
+                  <div class="detail-field">
+                    <dt>{{ 'sales.offlineReconciliation.detail.people.assertedIssuer' | transloco }}</dt>
+                    <dd>
+                      <ng-container *ngTemplateOutlet="personTpl; context: { $implicit: sent.assertedIssuer }" />
+                    </dd>
+                  </div>
+                }
+                <div class="detail-field">
+                  <dt>{{ 'sales.offlineReconciliation.detail.people.submittedBy' | transloco }}</dt>
+                  <dd>
+                    <ng-container *ngTemplateOutlet="personTpl; context: { $implicit: sent.submittedBy }" />
+                    <span class="detail-sub">{{ submissionSourceLabelKey(sent.source) | transloco }}</span>
+                    <span class="detail-sub">{{
+                      'sales.offlineReconciliation.detail.receivedAt' | transloco: { date: (sent.receivedAt | date: 'dd MMM yyyy, h:mm a') }
+                    }}</span>
+                  </dd>
+                </div>
+                @if (sent.recoveryOperationId) {
+                  <div class="detail-field">
+                    <dt>{{ 'sales.offlineReconciliation.detail.people.recoveryOperation' | transloco }}</dt>
+                    <dd class="mono">{{ sent.recoveryOperationId }}</dd>
+                  </div>
+                }
+              } @else {
+                <div class="detail-field">
+                  <dt>{{ 'sales.offlineReconciliation.detail.people.originalIssuer' | transloco }}</dt>
+                  <dd>{{ 'sales.offlineReconciliation.notRecorded' | transloco }}</dd>
+                </div>
+              }
+              <div class="detail-field">
+                <dt>{{ 'sales.offlineReconciliation.detail.people.openedBy' | transloco }}</dt>
+                <dd><ng-container *ngTemplateOutlet="personTpl; context: { $implicit: detail.createdBy }" /></dd>
+              </div>
+              @if (detail.resolvedBy) {
+                <div class="detail-field">
+                  <dt>{{ 'sales.offlineReconciliation.detail.people.resolvedBy' | transloco }}</dt>
+                  <dd>
+                    <ng-container *ngTemplateOutlet="personTpl; context: { $implicit: detail.resolvedBy }" />
+                    @if (detail.resolvedAt) {
+                      <span class="detail-sub">{{ detail.resolvedAt | date: 'dd MMM yyyy, h:mm a' }}</span>
+                    }
+                  </dd>
+                </div>
+              }
+            </dl>
+          </div>
+
+          @if (detail.submission; as sent) {
+            <div class="detail-block invoice-snapshot">
+              <h3 class="detail-block-title">{{ 'sales.offlineReconciliation.detail.invoiceTitle' | transloco }}</h3>
+              <p class="panel-hint">{{ 'sales.offlineReconciliation.detail.invoiceHint' | transloco }}</p>
+              <dl class="detail-grid">
+                <div class="detail-field">
+                  <dt>{{ 'sales.offlineReconciliation.detail.soldAt' | transloco }}</dt>
+                  <dd>{{ sent.invoice.soldAt | date: 'dd MMM yyyy, h:mm a' }}</dd>
+                </div>
+                <div class="detail-field">
+                  <dt>{{ 'sales.offlineReconciliation.detail.customer' | transloco }}</dt>
+                  <dd>
+                    {{ sent.invoice.customerName ?? ('sales.offlineReconciliation.detail.walkIn' | transloco) }}
+                    @if (sent.invoice.customerPhone) {
+                      <span class="detail-sub">{{ sent.invoice.customerPhone }}</span>
+                    }
+                  </dd>
+                </div>
+                <div class="detail-field">
+                  <dt>{{ 'sales.offlineReconciliation.detail.paymentMethod' | transloco }}</dt>
+                  <dd>{{ paymentMethodLabelKey(sent.invoice.paymentMethod) | transloco }}</dd>
+                </div>
+              </dl>
+              <div class="snapshot-table-wrap" tabindex="0">
+                <table class="snapshot-lines">
+                  <thead>
+                    <tr>
+                      <th scope="col">{{ 'sales.offlineReconciliation.detail.line.item' | transloco }}</th>
+                      <th scope="col" class="num">{{ 'sales.offlineReconciliation.detail.line.quantity' | transloco }}</th>
+                      <th scope="col" class="num">{{ 'sales.offlineReconciliation.detail.line.price' | transloco }}</th>
+                      <th scope="col" class="num">{{ 'sales.offlineReconciliation.detail.line.tax' | transloco }}</th>
+                      <th scope="col" class="num">{{ 'sales.offlineReconciliation.detail.line.total' | transloco }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (line of sent.invoice.lines; track $index) {
+                      <tr>
+                        <td>
+                          <div>{{ line.itemName }}</div>
+                          @if (line.batchNumber) {
+                            <div class="detail-sub">
+                              {{ 'sales.offlineReconciliation.detail.line.batch' | transloco: { batch: line.batchNumber } }}
+                            </div>
+                          }
+                        </td>
+                        <td class="num">{{ line.quantity | number: '1.0-3' }}</td>
+                        <td class="num">₹{{ line.salesPrice | number: '1.2-2' }}</td>
+                        <td class="num">₹{{ line.taxAmount | number: '1.2-2' }}</td>
+                        <td class="num">₹{{ line.totalAmount | number: '1.2-2' }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+              <dl class="snapshot-totals">
+                <div>
+                  <dt>{{ 'sales.offlineReconciliation.detail.totals.subtotal' | transloco }}</dt>
+                  <dd>₹{{ sent.invoice.subtotalBeforeDiscount | number: '1.2-2' }}</dd>
+                </div>
+                <div>
+                  <dt>{{ 'sales.offlineReconciliation.detail.totals.discount' | transloco }}</dt>
+                  <dd>₹{{ sent.invoice.totalDiscountAmount | number: '1.2-2' }}</dd>
+                </div>
+                <div>
+                  <dt>{{ 'sales.offlineReconciliation.detail.totals.tax' | transloco }}</dt>
+                  <dd>₹{{ sent.invoice.totalTaxAmount | number: '1.2-2' }}</dd>
+                </div>
+                <div class="grand">
+                  <dt>{{ 'sales.offlineReconciliation.detail.totals.total' | transloco }}</dt>
+                  <dd>₹{{ sent.invoice.totalAmount | number: '1.2-2' }}</dd>
+                </div>
+                <div>
+                  <dt>{{ 'sales.offlineReconciliation.detail.totals.paid' | transloco }}</dt>
+                  <dd>₹{{ sent.invoice.paidAmount | number: '1.2-2' }}</dd>
+                </div>
+                <div>
+                  <dt>{{ 'sales.offlineReconciliation.detail.totals.due' | transloco }}</dt>
+                  <dd>₹{{ sent.invoice.dueAmount | number: '1.2-2' }}</dd>
+                </div>
+              </dl>
+            </div>
+          }
+
+          <div class="detail-block">
+            <h3 class="detail-block-title">{{ 'sales.offlineReconciliation.detail.eventsTitle' | transloco }}</h3>
+            @if (detail.events.length === 0) {
+              <p class="panel-hint">{{ 'sales.offlineReconciliation.detail.noEvents' | transloco }}</p>
+            } @else {
+              <ol class="event-list">
+                @for (event of detail.events; track $index) {
+                  <li class="event-item">
+                    <div class="event-head">
+                      <strong>{{ actionLabelKey(event.action) | transloco }}</strong>
+                      <span class="detail-sub"
+                        >{{ caseStatusLabelKey(event.fromStatus) | transloco }} →
+                        {{ caseStatusLabelKey(event.toStatus) | transloco }}</span
+                      >
+                    </div>
+                    <div class="detail-sub">
+                      <ng-container *ngTemplateOutlet="personTpl; context: { $implicit: event.actor }" />
+                      · {{ event.occurredAt | date: 'dd MMM yyyy, h:mm a' }}
+                    </div>
+                    <p class="event-reason">{{ event.reason }}</p>
+                    @if (event.linkedOperationId) {
+                      <div class="detail-sub mono">
+                        {{ 'sales.offlineReconciliation.detail.linkedOperation' | transloco: { id: event.linkedOperationId } }}
+                      </div>
+                    }
+                  </li>
+                }
+              </ol>
+            }
+          </div>
+
+          @if (detail.status !== 'Resolved') {
+            <form class="resolve-form" (ngSubmit)="submitResolve()" novalidate>
+              <h3 class="detail-block-title">{{ 'sales.offlineReconciliation.resolve.title' | transloco }}</h3>
+              @if (detail.availableActions.length === 0) {
+                <p class="panel-hint">{{ 'sales.offlineReconciliation.resolve.noActions' | transloco }}</p>
+              } @else {
+                <p class="panel-hint">{{ 'sales.offlineReconciliation.resolve.hint' | transloco }}</p>
+
+                <div class="form-field">
+                  <label class="field-label" for="resolve-action">{{
+                    'sales.offlineReconciliation.resolve.action' | transloco
+                  }}</label>
+                  <p-select
+                    inputId="resolve-action"
+                    name="resolveAction"
+                    styleClass="resolve-action-select"
+                    [options]="actionOptions()"
+                    optionLabel="label"
+                    optionValue="value"
+                    [ngModel]="resolveAction()"
+                    (ngModelChange)="resolveAction.set($event)"
+                    [placeholder]="'sales.offlineReconciliation.resolve.actionPlaceholder' | transloco"
+                    [disabled]="!canResolve()"
+                    appendTo="body"
+                  ></p-select>
+                  @if (resolveAttempted() && actionErrorKey(); as errorKey) {
+                    <p class="field-error" role="alert">{{ errorKey | transloco }}</p>
+                  }
+                </div>
+
+                @if (needsLinkedOperation()) {
+                  <div class="form-field">
+                    <label class="field-label" for="resolve-linked">{{
+                      (resolveAction() === 'LinkExistingSale'
+                        ? 'sales.offlineReconciliation.resolve.linkedSale'
+                        : 'sales.offlineReconciliation.resolve.linkedAdjustment'
+                      ) | transloco
+                    }}</label>
+                    <input
+                      pInputText
+                      id="resolve-linked"
+                      name="resolveLinked"
+                      class="linked-operation-input"
+                      autocomplete="off"
+                      spellcheck="false"
+                      [ngModel]="resolveLinkedOperationId()"
+                      (ngModelChange)="resolveLinkedOperationId.set($event)"
+                      [disabled]="!canResolve()"
+                      [attr.aria-invalid]="resolveAttempted() && linkedErrorKey() ? 'true' : null"
+                      aria-describedby="resolve-linked-hint"
+                    />
+                    <p id="resolve-linked-hint" class="field-hint">
+                      {{ 'sales.offlineReconciliation.resolve.linkedHint' | transloco }}
+                    </p>
+                    @if (resolveAttempted() && linkedErrorKey(); as errorKey) {
+                      <p class="field-error" role="alert">{{ errorKey | transloco }}</p>
+                    }
+                  </div>
+                }
+
+                <div class="form-field">
+                  <label class="field-label" for="resolve-reason">{{
+                    'sales.offlineReconciliation.resolve.reason' | transloco
+                  }}</label>
+                  <textarea
+                    pTextarea
+                    id="resolve-reason"
+                    name="resolveReason"
+                    class="resolve-reason"
+                    rows="3"
+                    [ngModel]="resolveReason()"
+                    (ngModelChange)="resolveReason.set($event)"
+                    [placeholder]="'sales.offlineReconciliation.resolve.reasonPlaceholder' | transloco"
+                    [disabled]="!canResolve()"
+                    [attr.aria-invalid]="resolveAttempted() && reasonErrorKey() ? 'true' : null"
+                    aria-describedby="resolve-reason-count"
+                  ></textarea>
+                  <p
+                    id="resolve-reason-count"
+                    class="reason-count"
+                    [class.over]="trimmedReasonLength() > reasonMaxLength"
+                  >
+                    {{ 'sales.offlineReconciliation.resolve.reasonCount' | transloco: { count: trimmedReasonLength() } }}
+                  </p>
+                  @if (resolveAttempted() && reasonErrorKey(); as errorKey) {
+                    <p class="field-error" role="alert">{{ errorKey | transloco }}</p>
+                  }
+                </div>
+
+                <div class="form-actions">
+                  <button
+                    pButton
+                    type="submit"
+                    class="resolve-submit-btn"
+                    icon="pi pi-check"
+                    [label]="'sales.offlineReconciliation.resolve.submit' | transloco"
+                    [loading]="resolving()"
+                    [disabled]="!canResolve()"
+                  ></button>
+                </div>
+              }
+
+              @if (resolveMessage(); as message) {
+                <p
+                  class="resolve-message"
+                  [class.success]="message.kind === 'success'"
+                  [class.error]="message.kind === 'error'"
+                  [attr.role]="message.kind === 'error' ? 'alert' : 'status'"
+                >
+                  {{ message.key | transloco }}
+                </p>
+              }
+            </form>
+          } @else if (resolveMessage(); as message) {
+            <p
+              class="resolve-message"
+              [class.success]="message.kind === 'success'"
+              [class.error]="message.kind === 'error'"
+              [attr.role]="message.kind === 'error' ? 'alert' : 'status'"
+            >
+              {{ message.key | transloco }}
+            </p>
+          }
+        }
+      </section>
+    }
+  </div>
+
+  <!-- 5. Support bundle -->
+  <section class="console-panel bundle-panel" aria-labelledby="bundle-title">
+    <div class="panel-header">
+      <div>
+        <h2 id="bundle-title" class="panel-title">{{ 'sales.offlineReconciliation.bundle.title' | transloco }}</h2>
+        <p class="panel-hint">{{ 'sales.offlineReconciliation.bundle.hint' | transloco }}</p>
+      </div>
+      <button
+        pButton
+        type="button"
+        class="export-bundle-btn"
+        icon="pi pi-download"
+        [label]="'sales.offlineReconciliation.bundle.export' | transloco"
+        [loading]="exporting()"
+        [disabled]="exporting() || handoff().unsyncedCount === 0"
+        (click)="exportBundle()"
+      ></button>
+    </div>
+
+    @if (lastExport(); as exported) {
+      <p class="last-export">
+        {{
+          'sales.offlineReconciliation.bundle.lastExport'
+            | transloco
+              : {
+                  date: (exported.exportedAt | date: 'dd MMM yyyy, h:mm a'),
+                  count: exported.clientSaleIds.length,
+                  checksum: exported.checksum.slice(0, 12),
+                }
+        }}
+      </p>
+    }
+    @if (handoff().unsyncedCount === 0) {
+      <p class="panel-hint">{{ 'sales.offlineReconciliation.bundle.exportEmpty' | transloco }}</p>
+    }
+    @if (exportErrorKey(); as errorKey) {
+      <p class="panel-error" role="alert">{{ errorKey | transloco }}</p>
+    }
+
+    @if (canRecover()) {
+      <div class="import-box">
+        <h3 class="detail-block-title">{{ 'sales.offlineReconciliation.bundle.importTitle' | transloco }}</h3>
+        <p class="panel-hint">{{ 'sales.offlineReconciliation.bundle.importHint' | transloco }}</p>
+        <div class="import-row">
+          <label class="file-picker">
+            <span class="field-label">{{ 'sales.offlineReconciliation.bundle.chooseFile' | transloco }}</span>
+            <input
+              type="file"
+              class="file-input"
+              accept="application/json,.json"
+              [disabled]="importing()"
+              (change)="onImportFileSelected($event)"
+            />
+          </label>
+          <button
+            pButton
+            type="button"
+            class="submit-import-btn"
+            icon="pi pi-upload"
+            [label]="'sales.offlineReconciliation.bundle.submit' | transloco"
+            [loading]="importing()"
+            [disabled]="isOffline() || importing() || !importFile()"
+            (click)="submitImport()"
+          ></button>
+        </div>
+        @if (importFile(); as file) {
+          <p class="panel-hint">{{ 'sales.offlineReconciliation.bundle.selectedFile' | transloco: { name: file.name } }}</p>
+        }
+        @if (importErrorKey(); as errorKey) {
+          <p class="panel-error import-error" role="alert">{{ errorKey | transloco }}</p>
+        }
+
+        @if (importResults(); as result) {
+          <div class="import-results" role="status">
+            <h4 class="queue-group-title">{{ 'sales.offlineReconciliation.bundle.resultsTitle' | transloco }}</h4>
+            <ul class="queue-list">
+              @for (row of result.results; track row.clientSaleId) {
+                <li class="queue-row import-result">
+                  <div class="queue-row-main">
+                    <strong class="queue-invoice">{{ row.invoiceNumber }}</strong>
+                    <p-tag
+                      [severity]="recoveryStatusSeverity(row.status)"
+                      [value]="recoveryStatusLabelKey(row.status) | transloco"
+                    />
+                    @for (problem of row.errors; track $index) {
+                      <span class="queue-meta">{{ reconciliationErrorKey(problem.code) | transloco }}</span>
+                    }
+                  </div>
+                  <div class="queue-row-actions">
+                    @if (row.saleId) {
+                      <a class="print-link" [href]="salePrintHref(row.saleId)" target="_blank" rel="noopener">
+                        <i class="pi pi-print" aria-hidden="true"></i>
+                        {{ 'sales.offlineReconciliation.print' | transloco }}
+                      </a>
+                    }
+                    @if (row.caseId; as caseId) {
+                      <button
+                        pButton
+                        type="button"
+                        class="row-action-btn"
+                        icon="pi pi-arrow-right"
+                        iconPos="right"
+                        severity="secondary"
+                        [outlined]="true"
+                        [label]="'sales.offlineReconciliation.openCase' | transloco"
+                        (click)="openCase(caseId)"
+                      ></button>
+                    }
+                  </div>
+                </li>
+              }
+            </ul>
+          </div>
+        }
+      </div>
+    }
+  </section>
+
+  <!-- 6. Device hand-off -->
+  <section class="console-panel handoff-panel" aria-labelledby="handoff-title">
+    <h2 id="handoff-title" class="panel-title">{{ 'sales.offlineReconciliation.handoff.title' | transloco }}</h2>
+    @if (handoff(); as check) {
+      @if (check.safeToRetire) {
+        <p class="handoff-notice safe" role="status">
+          <i class="pi pi-check-circle" aria-hidden="true"></i>
+          <span>{{
+            (check.unsyncedCount === 0
+              ? 'sales.offlineReconciliation.handoff.safe'
+              : 'sales.offlineReconciliation.handoff.safeCovered'
+            ) | transloco: { count: check.unsyncedCount }
+          }}</span>
+        </p>
+      } @else {
+        <div class="handoff-notice unsafe" role="alert">
+          <i class="pi pi-exclamation-triangle" aria-hidden="true"></i>
+          <div>
+            <p>{{ 'sales.offlineReconciliation.handoff.notSafe' | transloco: { count: check.unsyncedCount } }}</p>
+            @if (lastExport() && check.uncoveredCount < check.unsyncedCount) {
+              <p>{{ 'sales.offlineReconciliation.handoff.uncovered' | transloco: { count: check.uncoveredCount } }}</p>
+            }
+          </div>
+        </div>
+      }
+    }
+  </section>
+</section>
+
+<ng-template #personTpl let-person>
+  @if (personName(person); as name) {
+    <span class="person-name">{{ name }}</span>
+  } @else if (person) {
+    <span class="person-name unknown">{{ 'sales.offlineReconciliation.unknownUser' | transloco }}</span>
+  } @else {
+    <span class="person-name unknown">{{ 'sales.offlineReconciliation.notRecorded' | transloco }}</span>
+  }
+</ng-template>

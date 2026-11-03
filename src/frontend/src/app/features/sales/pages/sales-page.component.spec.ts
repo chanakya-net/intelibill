@@ -4,6 +4,7 @@ import { By } from '@angular/platform-browser';
 import { TranslocoService, TranslocoTestingModule } from '@ngneat/transloco';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HttpResponse } from '@angular/common/http';
+import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 
 import type { SaleHistoryStatus, SaleListItemDto } from '../services/sale.models';
@@ -121,6 +122,7 @@ describe('SalesPageComponent', () => {
                     creditNoteApplied: 'Credit note applied',
                   },
                   offlineQueue: {
+                    openConsole: 'Open reconciliation console',
                     review: {
                       title: 'Invoices held for review',
                       mismatch: 'supplied {{supplied}}, expected {{expected}}',
@@ -136,6 +138,7 @@ describe('SalesPageComponent', () => {
         }),
       ],
       providers: [
+        provideRouter([]),
         { provide: SalesFacade, useValue: salesFacade },
         { provide: OfflineSalesQueueSyncService, useValue: offlineSalesQueueSync },
         { provide: SalesExportService, useValue: salesExportService },
@@ -386,6 +389,16 @@ describe('SalesPageComponent', () => {
     expect(item.textContent).toContain('+2 more differences');
     expect(item.textContent).toContain('Review case case-1');
     expect(item.querySelector('button')).toBeNull();
+  });
+
+  it('links the offline queue panel to the reconciliation console', () => {
+    const fixture = TestBed.createComponent(SalesPageComponent);
+    offlineCountsSignal.set({ pending: 1, syncing: 0, failed: 0, warning: 0, needsReview: 0, totalVisible: 1 });
+    fixture.detectChanges();
+
+    const link: HTMLAnchorElement | null = fixture.nativeElement.querySelector('.offline-queue-status a.offline-console-link');
+    expect(link?.getAttribute('href')).toBe('/sales/offline-reconciliation');
+    expect(link?.textContent).toContain('Open reconciliation console');
   });
 
   it('shows pagination label with range', () => {

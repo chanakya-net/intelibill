@@ -186,6 +186,9 @@ describe('offline-sale-sync.mapper', () => {
     expect(offlineReviewReasonKey('Sale.OfflineArithmeticMismatch')).toBe('sales.history.offlineQueue.review.reasons.arithmeticMismatch');
     expect(offlineReviewReasonKey('Sale.OfflineCalculationVersionUnsupported')).toBe('sales.history.offlineQueue.review.reasons.calculationVersionUnsupported');
     expect(offlineReviewReasonKey('Sale.InvoiceLeaseNotFound')).toBe('sales.history.offlineQueue.review.reasons.invoiceLeaseNotFound');
+    expect(offlineReviewReasonKey('OfflineReconciliation.HistoricalLeaseReviewRequired')).toBe('sales.history.offlineQueue.review.reasons.historicalLeaseReviewRequired');
+    expect(offlineReviewReasonKey('OfflineReconciliation.IssuerNotSubmitter')).toBe('sales.history.offlineQueue.review.reasons.issuerNotSubmitter');
+    expect(offlineReviewReasonKey('offline_sync.stock_shortage')).toBe('sales.history.offlineQueue.review.reasons.stockShortage');
     expect(offlineReviewReasonKey('Something.Else')).toBe('sales.history.offlineQueue.review.reasons.unknown');
     expect(offlineReviewReasonKey(null)).toBe('sales.history.offlineQueue.review.reasons.unknown');
   });

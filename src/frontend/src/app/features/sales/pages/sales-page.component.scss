@@ -591,6 +591,29 @@
   }
 }
 
+.offline-queue-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.875rem;
+}
+
+.offline-console-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 2.25rem;
+  color: #c2410c;
+  font-size: 0.875rem;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.offline-console-link:hover,
+.offline-console-link:focus-visible {
+  text-decoration: underline;
+}
+
 .offline-queue-eyebrow {
   margin: 0 0 0.125rem;
   color: #64748b;

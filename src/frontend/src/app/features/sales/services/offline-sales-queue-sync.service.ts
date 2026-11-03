@@ -30,12 +30,16 @@ export interface OfflineReviewSale {
   readonly mismatches: readonly OfflineArithmeticMismatch[];
 }
 
-/** A pending invoice issued by someone else; it waits for that user to sign in on this device. */
+/**
+ * An unsent (Pending or Failed) invoice issued by someone else; it waits for that user to sign in on this device,
+ * or for an owner or manager to recover it from a support bundle.
+ */
 export interface OfflineAwaitingIssuerSale {
   readonly clientSaleId: string;
   readonly invoiceNumber: string;
   readonly soldAt: string;
   readonly issuedByUserId: string;
+  readonly status: 'Pending' | 'Failed';
 }
 
 const EMPTY_COUNTS: OfflineSalesVisibleQueueCounts = {
@@ -64,7 +68,7 @@ export class OfflineSalesQueueSyncService {
   readonly visibleCounts = signal<OfflineSalesVisibleQueueCounts>(EMPTY_COUNTS);
   /** Invoices the server held for review. They are never resent or recalculated here; the frozen payload stays as issued. */
   readonly reviewSales = signal<readonly OfflineReviewSale[]>([]);
-  /** Pending invoices issued by another user: never submitted from this session. */
+  /** Unsent (Pending or Failed) invoices issued by another user: never submitted from this session. */
   readonly awaitingIssuerSales = signal<readonly OfflineAwaitingIssuerSale[]>([]);
 
   startAutoSyncWatchers(): void {
@@ -86,7 +90,6 @@ export class OfflineSalesQueueSyncService {
       if (!shopId) {
         this.visibleCounts.set(EMPTY_COUNTS);
         this.reviewSales.set([]);
-      this.awaitingIssuerSales.set([]);
         this.awaitingIssuerSales.set([]);
         return;
       }
@@ -232,10 +235,10 @@ export class OfflineSalesQueueSyncService {
     const visible = mapToVisibleQueueCounts(counts);
     this.visibleCounts.set(visible);
     const needsReview = visible.needsReview > 0;
-    const hasPending = counts.Pending > 0;
-    const records = needsReview || hasPending ? await this.queueDb.getAllByShopDevice(shopId, settings.deviceId) : [];
+    const hasUnsent = counts.Pending > 0 || counts.Failed > 0;
+    const records = needsReview || hasUnsent ? await this.queueDb.getAllByShopDevice(shopId, settings.deviceId) : [];
     this.reviewSales.set(needsReview ? this.toReviewSales(records) : []);
-    this.awaitingIssuerSales.set(hasPending ? this.toAwaitingIssuerSales(records, session?.user.id ?? null) : []);
+    this.awaitingIssuerSales.set(hasUnsent ? this.toAwaitingIssuerSales(records, session?.user.id ?? null) : []);
     return visible;
   }
 
@@ -324,13 +327,14 @@ export class OfflineSalesQueueSyncService {
     userId: string | null,
   ): readonly OfflineAwaitingIssuerSale[] {
     return records
-      .filter((record) => record.status === 'Pending' && !isSubmittableBy(record, userId))
+      .filter((record) => (record.status === 'Pending' || record.status === 'Failed') && !isSubmittableBy(record, userId))
       .sort((a, b) => a.soldAt.localeCompare(b.soldAt))
       .map((record) => ({
         clientSaleId: record.clientSaleId,
         invoiceNumber: record.invoiceNumber,
         soldAt: record.soldAt,
         issuedByUserId: record.payload.issuedByUserId as string,
+        status: record.status as 'Pending' | 'Failed',
       }));
   }
 

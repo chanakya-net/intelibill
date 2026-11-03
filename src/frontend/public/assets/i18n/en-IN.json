@@ -127,7 +127,8 @@
     "unpinSidebar": "Unpin sidebar",
     "collapseSidebar": "Collapse sidebar",
     "expandSidebar": "Expand sidebar",
-    "mainNavigation": "Main navigation"
+    "mainNavigation": "Main navigation",
+    "offlineReconciliation": "Offline reconciliation"
   },
   "dashboard": {
     "header": {
@@ -1094,9 +1095,25 @@
             "invoiceLeaseNotFound": "Invoice number was not reserved for this device",
             "invoiceNumberAlreadyUsed": "Invoice number is already used by another sale",
             "idempotencyConflict": "A different bill was already synced under this ID",
-            "unknown": "Held for review"
+            "unknown": "Held for review",
+            "historicalLeaseReviewRequired": "Reached the server after its invoice range expired",
+            "issuedAfterLeaseExpiry": "Billed after its invoice range expired",
+            "issueTimeBeforeLease": "Billed before its invoice range was reserved",
+            "issueTimeInFuture": "Billing time is later than when the server received it",
+            "issueFiscalYearMismatch": "Billing date falls outside the fiscal year of its invoice range",
+            "issuerNotSubmitter": "Billed by a different user than the one who sent it",
+            "recoveryReviewRequired": "Recovered from a support bundle and needs approval",
+            "provenanceUnknown": "Does not record who billed it",
+            "issuerUnverified": "The recorded biller has no history on this device",
+            "customerInactive": "Customer was inactive when the invoice synced",
+            "customerChanged": "Customer details changed after billing",
+            "pricingVariance": "Billed price differs from the current price",
+            "discountVariance": "Billed discount differs from the current rules",
+            "validationVariance": "An invoice detail failed a server check",
+            "stockShortage": "More stock was billed than was available"
           }
-        }
+        },
+        "openConsole": "Open reconciliation console"
       }
     },
     "newSale": {
@@ -1687,6 +1704,218 @@
       },
       "error": {
         "unexpected": "Unable to export sales report."
+      }
+    },
+    "offlineReconciliation": {
+      "eyebrow": "Offline sales",
+      "title": "Reconciliation console",
+      "subtitle": "Find, print and settle invoices billed offline that have not posted cleanly.",
+      "staleNotice": "The server cannot be reached. Case details are from its last answer and may be out of date; refreshing, resolving and importing are paused until it is back.",
+      "unknownUser": "Unknown user",
+      "notRecorded": "Not recorded",
+      "print": "Print",
+      "printInvoice": "Print invoice {{invoice}}",
+      "openCase": "Open case",
+      "refresh": "Refresh",
+      "queue": {
+        "title": "Invoices on this browser",
+        "hint": "These invoices are kept only in this browser until the server receives them.",
+        "empty": "Every invoice billed on this browser has reached the server.",
+        "loadError": "Invoices saved in this browser could not be read.",
+        "unsentTitle": "Waiting to sync",
+        "unsentHint": "Retry sends the invoice exactly as it was billed.",
+        "retry": "Retry",
+        "retryInvoice": "Retry invoice {{invoice}}",
+        "reviewTitle": "Held for review",
+        "reviewHint": "The server kept these invoices for an owner or manager. Open the case to see why.",
+        "noCase": "No review case was recorded for this invoice.",
+        "awaitingTitle": "Waiting for another cashier",
+        "awaitingHint": "Billed by another user. They must sign in on this browser to send these, or an owner or manager can recover them with a support bundle.",
+        "issuedBy": "Issued by user {{id}}",
+        "status": {
+          "pending": "Pending",
+          "syncing": "Syncing",
+          "failed": "Failed"
+        }
+      },
+      "cases": {
+        "title": "Review cases",
+        "unresolved": "{{count}} unresolved",
+        "filterLabel": "Case status",
+        "filterAll": "All",
+        "columns": {
+          "invoice": "Invoice",
+          "reason": "Reason",
+          "status": "Status",
+          "created": "Opened"
+        },
+        "viewCase": "View case for invoice {{invoice}}",
+        "noInvoiceNumber": "No invoice number",
+        "empty": "No cases match this filter.",
+        "loadError": "Review cases could not be loaded.",
+        "notLoaded": "Cases load when the server can be reached."
+      },
+      "status": {
+        "open": "Open",
+        "escalated": "Escalated",
+        "resolved": "Resolved"
+      },
+      "issueTypes": {
+        "stockVariance": "Stock difference",
+        "invoiceConflict": "Invoice conflict",
+        "validationConflict": "Failed check",
+        "pricingVariance": "Price difference",
+        "discountVariance": "Discount difference",
+        "customerVariance": "Customer difference",
+        "arithmeticConflict": "Amounts do not add up",
+        "issueTimingReview": "Billing time review",
+        "provenanceReview": "Biller review",
+        "recoveryReview": "Recovered invoice review",
+        "unknown": "Other"
+      },
+      "detail": {
+        "title": "Case details",
+        "close": "Close",
+        "loadError": "This case could not be loaded.",
+        "reason": "Reason",
+        "issueType": "Type",
+        "message": "Server note",
+        "openedAt": "Opened",
+        "device": "Device",
+        "clientSaleId": "Offline sale ID",
+        "resolution": "Resolution",
+        "resolutionReason": "Resolution note",
+        "linkedSale": "Posted sale",
+        "printSale": "Print posted invoice",
+        "noEnvelope": "Original envelope not recorded",
+        "noEnvelopeHint": "This case was filed before original invoices were kept, so only its summary is available.",
+        "quantitiesTitle": "Stock",
+        "quantities": {
+          "printed": "Printed",
+          "available": "Available",
+          "consumed": "Consumed",
+          "unresolved": "Unresolved"
+        },
+        "peopleTitle": "People",
+        "people": {
+          "originalIssuer": "Original issuer",
+          "assertedIssuer": "Issuer named by the device",
+          "submittedBy": "Submitted by",
+          "recoveryOperation": "Recovery operation",
+          "openedBy": "Case opened by",
+          "resolvedBy": "Resolved by"
+        },
+        "source": {
+          "sync": "Synced from the device",
+          "recovery": "Recovered from a support bundle"
+        },
+        "receivedAt": "First received {{date}}",
+        "invoiceTitle": "Invoice as billed",
+        "invoiceHint": "A read-only copy of the invoice exactly as the device froze it.",
+        "soldAt": "Billed at",
+        "customer": "Customer",
+        "walkIn": "Walk-in customer",
+        "paymentMethod": "Payment",
+        "line": {
+          "item": "Item",
+          "quantity": "Qty",
+          "price": "Price",
+          "tax": "Tax",
+          "total": "Total",
+          "batch": "Batch {{batch}}"
+        },
+        "totals": {
+          "subtotal": "Subtotal",
+          "discount": "Discount",
+          "tax": "Tax",
+          "total": "Total",
+          "paid": "Paid",
+          "due": "Due"
+        },
+        "eventsTitle": "Audit trail",
+        "noEvents": "No action has been taken on this case yet.",
+        "linkedOperation": "Linked operation {{id}}"
+      },
+      "actions": {
+        "retryHistoricalLease": "Post under the original invoice number",
+        "linkExistingSale": "Link to an existing sale",
+        "acknowledgeVariance": "Acknowledge the difference",
+        "linkStockCorrection": "Link a stock correction",
+        "escalate": "Escalate"
+      },
+      "resolve": {
+        "title": "Resolve case",
+        "hint": "The server decides the outcome; this case changes only after it answers.",
+        "noActions": "There is nothing you can do on this case. An owner or manager may have more options.",
+        "action": "Action",
+        "actionPlaceholder": "Choose an action",
+        "reason": "Reason",
+        "reasonPlaceholder": "What did you check, and why is this the right outcome?",
+        "reasonCount": "{{count}}/500",
+        "linkedSale": "Sale ID",
+        "linkedAdjustment": "Stock adjustment ID",
+        "linkedHint": "Copy the ID of the sale or stock adjustment this case should point to.",
+        "submit": "Apply action",
+        "success": "The server updated this case.",
+        "validation": {
+          "actionRequired": "Choose an action.",
+          "reasonRequired": "Enter a reason.",
+          "reasonTooLong": "Keep the reason within 500 characters.",
+          "linkedRequired": "Enter the ID this action links to.",
+          "linkedInvalid": "Enter a valid ID."
+        }
+      },
+      "bundle": {
+        "title": "Support bundle",
+        "hint": "A support bundle is a file of every invoice this browser has not yet delivered. It holds no passwords or sign-in details.",
+        "export": "Export support bundle",
+        "exportEmpty": "Nothing to export: every invoice has reached the server.",
+        "exportError": "The support bundle could not be created.",
+        "lastExport": "Last export {{date}}: {{count}} invoices, checksum {{checksum}}",
+        "importTitle": "Import a support bundle",
+        "importHint": "Import a bundle from a retired or signed-out browser. Every invoice opens a review case; nothing posts until it is approved.",
+        "chooseFile": "Bundle file",
+        "selectedFile": "Selected: {{name}}",
+        "submit": "Submit bundle",
+        "readError": "The file could not be read.",
+        "resultsTitle": "Import results",
+        "resultStatus": {
+          "reviewOpened": "Review opened",
+          "escalated": "Escalated",
+          "alreadyPosted": "Already posted",
+          "rejected": "Rejected"
+        }
+      },
+      "handoff": {
+        "title": "Retiring this browser",
+        "safe": "Safe to clear or retire: every invoice on this browser has reached the server.",
+        "safeCovered": "Safe to clear or retire: your last support export carries all {{count}} unsynced invoices. Keep that file until they are recovered.",
+        "notSafe": "{{count}} invoices have not reached the server. Export a support bundle before clearing or retiring this browser.",
+        "uncovered": "{{count}} of them are not in your last support export."
+      },
+      "errors": {
+        "generic": "Something went wrong. Try again.",
+        "network": "The server could not be reached. Try again; the same request will be sent.",
+        "caseChanged": "This case changed while you were looking at it. It has been reloaded; check it and try again.",
+        "caseNotFound": "This case no longer exists or belongs to another shop.",
+        "actionNotAllowed": "This action is not available for this case.",
+        "actionForbidden": "You are not allowed to take this action on this case.",
+        "linkedAdjustmentInvalid": "That stock adjustment does not cover the missing quantity for this item and batch.",
+        "operationAlreadyLinked": "That operation is already linked to another case.",
+        "saleIdentityMismatch": "That sale does not match this invoice's device, offline sale ID and contents.",
+        "provenanceUnverified": "Nobody can be confirmed as the issuer of this invoice, so it cannot be posted.",
+        "envelopeMissing": "This case has no stored invoice to act on.",
+        "replayRejected": "The stored invoice could not be posted. Nothing was changed.",
+        "payloadMismatch": "A different request was already sent under this ID. Reload the case and try again.",
+        "bundleInvalid": "This file is not a support bundle that can be read.",
+        "bundleFormatUnsupported": "This support bundle's format or version is not supported.",
+        "bundleChecksumMismatch": "The bundle's invoices do not match its checksum. The file may have been edited or damaged.",
+        "bundleShopMismatch": "This bundle belongs to another shop.",
+        "bundleEmpty": "This bundle contains no invoices.",
+        "bundleTooLarge": "This bundle is too large. A bundle can hold at most 100 invoices and 2 MB.",
+        "leaseNotOwned": "The invoice number was not reserved for the bundle's device.",
+        "issuerMismatch": "The recorded issuer has never been a member of this shop.",
+        "notAuthorized": "Only an active owner or manager can import a support bundle."
       }
     }
   },

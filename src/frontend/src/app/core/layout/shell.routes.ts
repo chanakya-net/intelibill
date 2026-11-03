@@ -91,6 +91,13 @@ export const shellRoutes: Routes = [
 					),
 			},
 			{
+				path: 'sales/offline-reconciliation',
+				loadComponent: () =>
+					import(
+						'../../features/sales/pages/offline-reconciliation-page/offline-reconciliation-page.component'
+					).then((m) => m.OfflineReconciliationPageComponent),
+			},
+			{
 				path: 'sales',
 				loadComponent: () =>
 					import('../../features/sales/pages/sales-page.component').then(

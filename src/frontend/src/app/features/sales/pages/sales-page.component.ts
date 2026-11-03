@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { TranslocoPipe } from '@ngneat/transloco';
 
 import { ButtonModule } from 'primeng/button';
@@ -31,6 +32,7 @@ import { formatLocalIsoDate } from '../../../shared/utils/date-time.util';
   imports: [
     CommonModule,
     FormsModule,
+    RouterLink,
     ButtonModule,
     TagModule,
     IconFieldModule,

@@ -59,4 +59,7 @@ export class ShopPermissionsService {
   readonly canViewInventory = computed(() => this.hasActiveShop());
 
   readonly canManagePurchaseOrders = computed(() => this.isOwnerOrManagerOfActiveShop());
+
+  /** Import a support recovery bundle from another browser; the server's `RecoverOfflineInvoices` check. */
+  readonly canRecoverOfflineInvoices = computed(() => this.isOwnerOrManagerOfActiveShop());
 }

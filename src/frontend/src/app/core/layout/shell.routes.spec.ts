@@ -28,6 +28,18 @@ describe('shell routes', () => {
     expect(creditNotesRoute?.loadComponent).toBeDefined();
   });
 
+  it('registers the offline reconciliation console before the sales history route', () => {
+    const shellRoute = shellRoutes.find((route) => route.path === '');
+    const childRoutes = shellRoute?.children ?? [];
+
+    const consoleIndex = childRoutes.findIndex((route) => route.path === 'sales/offline-reconciliation');
+    const salesIndex = childRoutes.findIndex((route) => route.path === 'sales');
+
+    expect(consoleIndex).toBeGreaterThanOrEqual(0);
+    expect(childRoutes[consoleIndex]?.loadComponent).toBeDefined();
+    expect(consoleIndex).toBeLessThan(salesIndex);
+  });
+
   it('registers purchase order detail route before list route', () => {
     const shellRoute = shellRoutes.find((route) => route.path === '');
     const childRoutes = shellRoute?.children ?? [];
