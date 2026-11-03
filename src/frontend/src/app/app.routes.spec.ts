@@ -4,6 +4,7 @@ import { firstValueFrom, of } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { authGuard } from './core/guards/auth.guard';
+import { offlineInvoicePrintGuard } from './core/guards/offline-invoice-print.guard';
 import { dashboardGuard } from './core/guards/dashboard.guard';
 import { servicesGuard } from './core/guards/services.guard';
 import { discountsGuard } from './core/guards/discounts.guard';
@@ -52,7 +53,8 @@ describe('app routes', () => {
     const printRoute = routes[printRouteIndex];
 
     expect(printRoute).toBeDefined();
-    expect(printRoute?.canActivate).toContain(authGuard);
+    // Offline invoices print through their own guard; it hands every other print to the ordinary auth guard.
+    expect(printRoute?.canActivate).toEqual([offlineInvoicePrintGuard]);
     expect(printRouteIndex).toBeGreaterThanOrEqual(0);
     expect(shellRouteIndex).toBeGreaterThanOrEqual(0);
     expect(printRouteIndex).toBeLessThan(shellRouteIndex);

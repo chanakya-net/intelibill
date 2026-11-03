@@ -22,4 +22,6 @@ export interface SyncStatus {
 export class OfflineStatusBannerComponent {
   @Input() isOffline = false;
   @Input() syncStatus: SyncStatus | null = null;
+  /** The device's lease predates offline documents: shown online too, while it can still be fixed. */
+  @Input() leaseNeedsRenewal = false;
 }

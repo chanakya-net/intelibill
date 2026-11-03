@@ -12,8 +12,19 @@
     </button>
   </div>
 
+  <section *ngIf="deliveryStatusKey() as deliveryKey" class="print-state print-state--delivery" role="status">
+    {{ deliveryKey | transloco }}
+  </section>
+
   <section *ngIf="isLoading()" class="print-state" aria-live="polite">
     {{ 'common.loading' | transloco }}
+  </section>
+
+  <section *ngIf="!isLoading() && !errorMessage() && isLegacyOfflineInvoice()" class="print-state print-state--notice" role="note">
+    {{ 'sales.invoice.offlineLegacyNote' | transloco }}
+    <a class="print-state__reconciliation" href="/sales/offline-reconciliation">
+      {{ 'sales.invoice.openReconciliation' | transloco }}
+    </a>
   </section>
 
   <section *ngIf="errorMessage()" class="print-state print-state--error" role="alert">

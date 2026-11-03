@@ -24,6 +24,10 @@ describe('sale invoice document helpers', () => {
 
   it('notes a missing document only on a synced sale without one', () => {
     expect(missingDocumentNoteKey(sale({}), false)).toBe('sales.invoice.noDocumentNote');
-    expect(missingDocumentNoteKey(sale({}), true)).toBeNull();
+  });
+
+  it('legacy_document_never_invents_gstin: a queued sale without a frozen document says so', () => {
+    expect(missingDocumentNoteKey(sale({}), true)).toBe('sales.invoice.offlineLegacyNote');
+    expect(missingDocumentNoteKey(sale({ document: {} as SaleDto['document'] }), true)).toBeNull();
   });
 });

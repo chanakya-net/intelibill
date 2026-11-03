@@ -209,6 +209,7 @@ export abstract class NewSalePageStateService {
   readonly offlinePendingCount = this.offlineSaleState.offlinePendingCount;
   readonly offlineNeedsReviewCount = this.offlineSaleState.offlineNeedsReviewCount;
   readonly offlineInvoiceRemaining = this.offlineSaleState.offlineInvoiceRemaining;
+  readonly offlineLeaseNeedsRenewal = this.offlineSaleState.offlineLeaseNeedsRenewal;
   readonly offlineCatalog = this.offlineSaleState.offlineCatalog;
   readonly offlineCustomers = this.offlineSaleState.offlineCustomers;
   readonly isOfflineSubmitting = signal(false);
@@ -218,6 +219,8 @@ export abstract class NewSalePageStateService {
     clientSaleId: string;
   } | null>(null);
   readonly showOfflineConfirmation = signal(false);
+  /** The offline invoice's print view when the browser blocked its window; the confirmation offers it as a link. */
+  readonly blockedOfflinePrintUrl = signal<string | null>(null);
 
   readonly subtotalAmount = computed(() => {
     const preview = this.checkoutPreview();

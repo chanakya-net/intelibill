@@ -108,6 +108,7 @@ public sealed class ReserveInvoiceLeaseCommandHandler(
             lease.NextNumber,
             lease.RemainingCount,
             lease.ReservedAt,
-            lease.ExpiresAt);
+            lease.ExpiresAt,
+            lease.SellerProfile);
     }
 }

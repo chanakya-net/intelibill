@@ -38,7 +38,7 @@ public sealed class OfflineSalesSnapshotStreamingService(
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         yield return new OfflineSalesSnapshotMetadataRecord(
-            new OfflineSalesSnapshotMetadata(snapshotId, activeShopId, SchemaVersion: 2, StartedAt: startedAt));
+            new OfflineSalesSnapshotMetadata(snapshotId, activeShopId, SchemaVersion: 3, StartedAt: startedAt));
 
         var batchCount = 0;
         await foreach (var batch in inventoryBatchRepository.StreamActiveSellableWithItemByShopAsync(activeShopId, cancellationToken))
@@ -67,7 +67,7 @@ public sealed class OfflineSalesSnapshotStreamingService(
         await foreach (var customer in customerRepository.StreamActiveByShopAsync(activeShopId, cancellationToken))
         {
             yield return new OfflineSalesSnapshotCustomerRecord(
-                new OfflineCustomerLiteDto(customer.Id, customer.Name, customer.PhoneNumber));
+                new OfflineCustomerLiteDto(customer.Id, customer.Name, customer.PhoneNumber, customer.Gstin, customer.StateCode, customer.Address));
             customerCount++;
         }
 
@@ -104,7 +104,8 @@ public sealed class OfflineSalesSnapshotStreamingService(
                     NextNumber: lease.NextNumber,
                     NumberPadding: lease.NumberPadding,
                     ReservedAt: lease.ReservedAt,
-                    ExpiresAt: lease.ExpiresAt));
+                    ExpiresAt: lease.ExpiresAt,
+                    SellerProfile: lease.SellerProfile));
             activeLeaseCount++;
         }
 

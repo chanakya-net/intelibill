@@ -1,8 +1,9 @@
 import { Injectable, inject } from '@angular/core';
 
 import { AuthService } from '../../../core/auth/auth.service';
-import { InvoiceLeaseExhaustedError, InvoiceLeaseExpiredError, InvoiceLeaseIndexedDbService, InvoiceLeaseNotFoundError } from '../../../core/storage/invoice-lease-indexeddb.service';
+import { InvoiceLeaseExhaustedError, InvoiceLeaseExpiredError, InvoiceLeaseIndexedDbService, InvoiceLeaseNotFoundError, type InvoiceLeaseSnapshot } from '../../../core/storage/invoice-lease-indexeddb.service';
 import { OfflineSalesSnapshotIndexedDbService, type OfflineSellableBatchSnapshot, type OfflineSellableServiceSnapshot } from '../../../core/storage/offline-sales-snapshot-indexeddb.service';
+import { buildOfflineInvoiceDocument, fiscalYearStartOf } from './offline-invoice-document.builder';
 import { calculateOfflineFrozenSale } from './offline-sale-pricing-calculator';
 import { OfflineFrozenSalePricing, OfflineSalePricingInput, OfflineSalePricingLineInput, OfflineQueuedSalePayload } from './offline-sale-core.types';
 import { OfflineSalesQueueIndexedDbService } from './offline-sales-queue-indexeddb.service';
@@ -16,9 +17,23 @@ export interface OfflineFinalizeRequest {
   readonly maxSnapshotAgeMs: number;
 }
 
+export type OfflineFinalizeFailureReason =
+  | 'SNAPSHOT_STALE'
+  | 'MISSING_CATALOG_ITEM'
+  | 'INSUFFICIENT_SHADOW_STOCK'
+  | 'MISSING_DUE_CUSTOMER'
+  | 'INVOICE_UNAVAILABLE'
+  | 'INVALID_AMOUNT'
+  /** The lease predates offline documents: the device must be enabled again online before it issues. */
+  | 'SELLER_PROFILE_UNAVAILABLE'
+  /** The sale cannot be issued as a GST document (the server's Invoice.* code says why). */
+  | 'DOCUMENT_UNAVAILABLE'
+  /** The selected customer is not in the offline snapshot, so the device cannot print their particulars. */
+  | 'CUSTOMER_UNAVAILABLE';
+
 export type OfflineFinalizeResult =
   | { readonly ok: true; readonly payload: OfflineQueuedSalePayload; readonly remainingInvoiceCount: number }
-  | { readonly ok: false; readonly reason: 'SNAPSHOT_STALE' | 'MISSING_CATALOG_ITEM' | 'INSUFFICIENT_SHADOW_STOCK' | 'MISSING_DUE_CUSTOMER' | 'INVOICE_UNAVAILABLE' | 'INVALID_AMOUNT' };
+  | { readonly ok: false; readonly reason: OfflineFinalizeFailureReason; readonly errorCode?: string };
 
 @Injectable({ providedIn: 'root' })
 export class OfflineSaleFinalizationService {
@@ -85,22 +100,27 @@ export class OfflineSaleFinalizationService {
       throw error;
     }
 
-    if (priced.totals.dueAmount > 0) {
-      const customers = await this.snapshotDb.getUsableCustomers(request.shopId);
-      const customerExists = !!request.pricingInput.customerId && customers.some((c) => c.customerId === request.pricingInput.customerId);
-      if (!customerExists) return { ok: false, reason: 'MISSING_DUE_CUSTOMER' };
-    }
+    const customerId = request.pricingInput.customerId;
+    const customer = customerId
+      ? ((await this.snapshotDb.getUsableCustomers(request.shopId)).find((c) => c.customerId === customerId) ?? null)
+      : null;
+    if (priced.totals.dueAmount > 0 && !customer) return { ok: false, reason: 'MISSING_DUE_CUSTOMER' };
+    // The server issues to the customer's own record on sync; a device that cannot see it would print a different
+    // buyer (perhaps a walk-in without the buyer's GSTIN) on the copy it hands over.
+    if (customerId && !customer) return { ok: false, reason: 'CUSTOMER_UNAVAILABLE' };
 
     const clientSaleId = crypto.randomUUID();
     const idempotencyKey = `offline-sale-${clientSaleId}`;
 
     let invoiceNumber: string;
     let consumedLeaseNextNumber: number;
+    let consumedLease: InvoiceLeaseSnapshot;
     let remainingInvoiceCount = 0;
     try {
       const consumed = await this.leaseDb.consumeNextInvoiceNumber(request.shopId, request.deviceId, request.fiscalYear);
       invoiceNumber = consumed.invoiceNumber;
       consumedLeaseNextNumber = consumed.lease.nextNumber;
+      consumedLease = consumed.lease;
       remainingInvoiceCount = consumed.remainingCount;
     } catch (error) {
       if (
@@ -111,6 +131,30 @@ export class OfflineSaleFinalizationService {
         return { ok: false, reason: 'INVOICE_UNAVAILABLE' };
       }
       return { ok: false, reason: 'INVOICE_UNAVAILABLE' };
+    }
+
+    // The document is frozen once, here, under the identity the lease froze: the server issues its own copy from the
+    // same profile on sync, and no later shop or customer edit reaches a reprint. A sale that cannot be issued gives
+    // its number back before anything is handed over.
+    const sellerProfile = consumedLease.sellerProfile;
+    const fiscalYearStart = fiscalYearStartOf(consumedLease.fiscalYear ?? request.fiscalYear);
+    if (!sellerProfile || fiscalYearStart === null) {
+      await this.releaseInvoiceNumber(request, consumedLeaseNextNumber);
+      return { ok: false, reason: 'SELLER_PROFILE_UNAVAILABLE' };
+    }
+
+    const built = buildOfflineInvoiceDocument({
+      sellerProfile,
+      fiscalYearStart,
+      soldAt: request.pricingInput.soldAt,
+      customer,
+      customerName: request.pricingInput.customerName,
+      customerPhone: request.pricingInput.customerPhone,
+      pricing: priced,
+    });
+    if (!built.ok) {
+      await this.releaseInvoiceNumber(request, consumedLeaseNextNumber);
+      return { ok: false, reason: 'DOCUMENT_UNAVAILABLE', errorCode: built.errorCode };
     }
 
     const issuedByUserId = this.auth.session()?.user.id || null;
@@ -127,6 +171,7 @@ export class OfflineSaleFinalizationService {
       customerName: request.pricingInput.customerName,
       customerPhone: request.pricingInput.customerPhone,
       ...(issuedByUserId ? { issuedByUserId } : {}),
+      document: { ...built.draft, number: invoiceNumber },
     };
 
     try {
@@ -140,12 +185,7 @@ export class OfflineSaleFinalizationService {
         payload,
       });
     } catch (error) {
-      await this.leaseDb.rollbackConsumedInvoiceNumber(
-        request.shopId,
-        request.deviceId,
-        request.fiscalYear,
-        consumedLeaseNextNumber
-      );
+      await this.releaseInvoiceNumber(request, consumedLeaseNextNumber);
       throw error;
     }
 
@@ -155,6 +195,15 @@ export class OfflineSaleFinalizationService {
     }
 
     return { ok: true, payload, remainingInvoiceCount };
+  }
+
+  private async releaseInvoiceNumber(request: OfflineFinalizeRequest, consumedLeaseNextNumber: number): Promise<void> {
+    await this.leaseDb.rollbackConsumedInvoiceNumber(
+      request.shopId,
+      request.deviceId,
+      request.fiscalYear,
+      consumedLeaseNextNumber
+    );
   }
 
   private buildServicePricingLine(

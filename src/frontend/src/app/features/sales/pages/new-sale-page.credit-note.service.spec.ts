@@ -4,7 +4,7 @@ import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { TestBed } from '@angular/core/testing';
 import { ReactiveFormsModule } from '@angular/forms';
 import { EMPTY, of, throwError } from 'rxjs';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { AuthService } from '../../../core/auth/auth.service';
 import { NetworkStatusService } from '../../../core/services/network-status.service';
@@ -76,8 +76,6 @@ class TestCreditNoteService extends NewSalePageCreditNoteService {
   override async onOfflineSubmit(): Promise<void> {}
   override printA4(): void {}
   override printThermal(): void {}
-  override printOfflineA4(): void {}
-  override printOfflineThermal(): void {}
 }
 
 const verifiedNote: CreditNoteVerifyResponseDto = {
@@ -174,6 +172,31 @@ function buildService(saleServiceOverrides: Partial<{ verifyCreditNote: ReturnTy
 }
 
 describe('NewSalePageCreditNoteService', () => {
+  describe('offline confirmation printing', () => {
+    afterEach(() => vi.restoreAllMocks());
+
+    it('opens the queued invoice\'s print view and leaves no link when the window opens', () => {
+      const { service } = buildService();
+      service.offlineConfirmation.set({ invoiceNumber: 'A/2627/000001', grandTotal: 100, clientSaleId: 'client-1' });
+      const open = vi.spyOn(window, 'open').mockReturnValue({} as Window);
+
+      service.printOfflineThermal();
+
+      expect(open).toHaveBeenCalledWith('/sales/client-1/print?template=thermal&offline=1', '_blank');
+      expect(service.blockedOfflinePrintUrl()).toBeNull();
+    });
+
+    it('keeps the print view as a link when the browser blocks the window', () => {
+      const { service } = buildService();
+      service.offlineConfirmation.set({ invoiceNumber: 'A/2627/000001', grandTotal: 100, clientSaleId: 'client-1' });
+      vi.spyOn(window, 'open').mockReturnValue(null);
+
+      service.printOfflineA4();
+
+      expect(service.blockedOfflinePrintUrl()).toBe('/sales/client-1/print?template=a4&offline=1');
+    });
+  });
+
   it('updates creditNoteCode signal and clears prior result on code change', () => {
     const { service } = buildService();
     service.verifiedCreditNote.set(verifiedNote);

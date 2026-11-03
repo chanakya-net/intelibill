@@ -1,3 +1,5 @@
+import type { InvoiceSellerProfile } from '../services/sale.models';
+
 export interface OfflineSalesSnapshotMetadata {
   readonly snapshotId: string;
   readonly shopId: string;
@@ -41,6 +43,10 @@ export interface OfflineCustomerLiteSnapshot {
   readonly customerId: string;
   readonly name: string;
   readonly phoneNumber: string;
+  /** Buyer particulars an issued document carries; absent from snapshots taken before schema version 3. */
+  readonly gstin?: string | null;
+  readonly stateCode?: string | null;
+  readonly address?: string | null;
 }
 
 export interface OfflineDiscountRuleSnapshot {
@@ -68,6 +74,7 @@ export interface OfflineActiveLeaseSnapshot {
   readonly numberPadding: number;
   readonly reservedAt: string;
   readonly expiresAt: string;
+  readonly sellerProfile?: InvoiceSellerProfile | null;
 }
 
 export interface OfflineUsableSnapshotInfo {

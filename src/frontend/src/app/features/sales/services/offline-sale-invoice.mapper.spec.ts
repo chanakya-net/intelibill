@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { mapOfflineQueuedSaleToSaleDto } from './offline-sale-invoice.mapper';
+import type { InvoiceDocument } from './sale.models';
 
 describe('mapOfflineQueuedSaleToSaleDto', () => {
   it('maps offline queued payload into sale invoice dto', () => {
@@ -69,7 +70,7 @@ describe('mapOfflineQueuedSaleToSaleDto', () => {
       totalTaxAmount: 43.06,
       creditNoteAppliedAmount: 0,
       creditNoteRedemptions: [],
-      // A queued offline sale has no server-issued GST document yet.
+      // Queued before devices froze documents: nothing to print it from but the priced bill.
       document: null,
       isLegacyDocument: true,
       returns: [],
@@ -104,5 +105,29 @@ describe('mapOfflineQueuedSaleToSaleDto', () => {
         },
       ],
     });
+  });
+
+  it('prints a queued sale from the document frozen when it was issued', () => {
+    const document = { version: 2, number: 'A/2627/000001' } as unknown as InvoiceDocument;
+    const dto = mapOfflineQueuedSaleToSaleDto({
+      clientSaleId: 'client-sale-2',
+      idempotencyKey: 'offline-sale-client-sale-2',
+      shopId: 'shop-1',
+      deviceId: 'device-1',
+      invoiceNumber: 'A/2627/000001',
+      soldAt: '2026-11-03T10:00:00Z',
+      paymentMethod: 1,
+      customerId: null,
+      customerName: null,
+      customerPhone: null,
+      pricing: {
+        lines: [],
+        totals: { totalBeforeDiscount: 0, totalDiscount: 0, totalTax: 0, grandTotal: 0, paidAmount: 0, dueAmount: 0 },
+      },
+      document,
+    });
+
+    expect(dto.document).toBe(document);
+    expect(dto.isLegacyDocument).toBe(false);
   });
 });

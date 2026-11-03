@@ -1314,7 +1314,11 @@
         "blockDueRequiresCustomer": "Select a customer from the list to record a credit/due sale offline.",
         "blockInvoiceUnavailable": "Invoice lease is exhausted or expired. Cannot complete offline sale.",
         "blockInvalidAmount": "One or more amounts are not valid numbers. Check quantities, prices and discounts.",
-        "servicesNotSupported": "Offline sales for services are not supported."
+        "servicesNotSupported": "Offline sales for services are not supported.",
+        "blockSellerProfileUnavailable": "This device's invoice numbers were reserved before offline GST documents. Go online and turn offline billing on again to continue.",
+        "blockDocumentUnavailable": "This sale cannot be issued as a GST document offline. Complete it when you are back online.",
+        "blockCustomerUnavailable": "This customer is not available offline yet. Choose a customer from the offline list or bill as a walk-in.",
+        "leaseNeedsRenewal": "Offline billing must be turned on again for this device before it can bill offline. Ask an owner or manager to do it while the device is online."
       },
       "productLookup": "Quick product lookup",
       "productLookupDescription": "Tap a product to quickly add it, or open the batch picker when multiple batches exist.",
@@ -1444,7 +1448,8 @@
         "offlineDeviceNotFound": "Offline device was not found.",
         "offlineInvoiceNotFound": "Offline invoice was not found.",
         "offlineLoadFailed": "Unable to load offline invoice.",
-        "saleNotFound": "Sale was not found."
+        "saleNotFound": "Sale was not found.",
+        "offlineAccessDenied": "This offline invoice can be printed only by the person who issued it, in the same shop and on the same device, while offline access is still valid. Sign in again to continue."
       },
       "gstin": "GSTIN",
       "phone": "Phone",
@@ -1477,6 +1482,17 @@
         "compositionTaxablePerson": "Composition taxable person, not eligible to collect tax on supplies.",
         "eInvoiceExemption": "I/We hereby declare that though our aggregate turnover in any preceding financial year from 2017-18 onwards is more than the aggregate turnover notified under sub-rule (4) of rule 48, we are not required to prepare an invoice in terms of the provisions of the said sub-rule.",
         "notRegisteredUnderGst": "The seller is not registered under GST; no GST has been charged."
+      },
+      "offlineLegacyNote": "Issued offline before this device recorded the seller's tax details. This copy shows the priced bill only and is not a copy of a GST document.",
+      "openReconciliation": "Open offline reconciliation",
+      "printBlocked": "The browser blocked the print window.",
+      "openPrintView": "Open the invoice to print",
+      "delivery": {
+        "pending": "Queued on this device. Not yet sent to the server.",
+        "syncing": "Sending to the server.",
+        "failed": "Sending failed. The invoice stays queued on this device and will be sent again.",
+        "needsReview": "The server is holding this invoice for review.",
+        "synced": "Sent to the server."
       }
     },
     "profitLoss": {

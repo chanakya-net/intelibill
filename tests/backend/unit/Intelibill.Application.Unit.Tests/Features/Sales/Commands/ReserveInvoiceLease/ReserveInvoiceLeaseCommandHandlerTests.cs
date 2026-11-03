@@ -135,6 +135,22 @@ public class ReserveInvoiceLeaseCommandHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_WhenValid_ReturnsTheFrozenSellerProfile()
+    {
+        var (actor, shop) = Arrange(ShopRole.Owner);
+        InvoiceLease? added = null;
+        await _invoiceLeaseRepository.AddAsync(Arg.Do<InvoiceLease>(lease => added = lease), Arg.Any<CancellationToken>());
+
+        var result = await CreateHandler().HandleAsync(new ReserveInvoiceLeaseCommand(actor.Id, shop.Id, "device-1", null, null), CancellationToken.None);
+
+        // The device prints offline invoices under the identity the server will issue them under.
+        Assert.False(result.IsError);
+        Assert.NotNull(result.Value.SellerProfile);
+        Assert.Equal(added!.SellerProfile, result.Value.SellerProfile);
+        Assert.Equal(Gstin, result.Value.SellerProfile!.Seller.Gstin);
+    }
+
+    [Fact]
     public async Task HandleAsync_WhenSeriesBelongsToAnotherShop_RollsBack()
     {
         var (actor, shop) = Arrange();

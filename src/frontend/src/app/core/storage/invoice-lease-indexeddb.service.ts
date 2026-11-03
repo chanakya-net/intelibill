@@ -1,5 +1,7 @@
 import { Injectable } from '@angular/core';
 
+import type { InvoiceSellerProfile } from '../../features/sales/services/sale.models';
+
 export const INVOICE_LEASE_RENEWAL_THRESHOLD = 25;
 
 export interface InvoiceLeaseSnapshot {
@@ -15,6 +17,11 @@ export interface InvoiceLeaseSnapshot {
   readonly remainingCount: number;
   readonly reservedAt: string;
   readonly expiresAt: string;
+  /**
+   * The seller identity the server froze on this lease; offline documents are issued under it. Absent from leases
+   * stored before documents were issued offline, which cannot issue until the device is enabled again.
+   */
+  readonly sellerProfile?: InvoiceSellerProfile | null;
 }
 
 export interface InvoiceLeaseConsumptionResult {

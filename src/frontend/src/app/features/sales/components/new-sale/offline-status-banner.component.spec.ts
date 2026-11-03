@@ -43,4 +43,19 @@ describe('OfflineStatusBannerComponent', () => {
     const banner = fixture.nativeElement.querySelector('.offline-status-banner');
     expect(banner).toBeNull();
   });
+
+  it('asks for offline billing to be turned on again, even while online', () => {
+    TestBed.configureTestingModule({
+      imports: [OfflineStatusBannerComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
+    });
+
+    const fixture = TestBed.createComponent(OfflineStatusBannerComponent);
+    fixture.componentInstance.isOffline = false;
+    fixture.componentInstance.syncStatus = syncStatus;
+    fixture.componentInstance.leaseNeedsRenewal = true;
+    fixture.detectChanges();
+
+    const notice = fixture.nativeElement.querySelector('.offline-status-renewal') as HTMLElement | null;
+    expect(notice?.textContent).toContain('sales.newSale.offline.leaseNeedsRenewal');
+  });
 });
