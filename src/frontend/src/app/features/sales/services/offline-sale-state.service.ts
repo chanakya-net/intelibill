@@ -372,6 +372,7 @@ export class OfflineSaleStateService {
         INSUFFICIENT_SHADOW_STOCK: 'sales.newSale.offline.blockInsufficientStock',
         MISSING_DUE_CUSTOMER: 'sales.newSale.offline.blockDueRequiresCustomer',
         INVOICE_UNAVAILABLE: 'sales.newSale.offline.blockInvoiceUnavailable',
+        INVALID_AMOUNT: 'sales.newSale.offline.blockInvalidAmount',
       };
 
       return {

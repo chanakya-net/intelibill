@@ -77,6 +77,25 @@ describe('OfflineSalesQueueIndexedDbService', () => {
     expect(synced?.idempotencyKey).toBe('idem-sale-1');
   });
 
+  it('keeps the review case and arithmetic differences of a held sale', async () => {
+    await service.savePendingSale(makeInput('shop-1', 'device-1', 'sale-1', '2026-05-22T10:01:00.000Z'));
+    const mismatch = { path: 'totalAmount', supplied: 1, expected: 118, code: 'amount_mismatch' };
+
+    const held = await service.applySyncResult('shop-1', 'device-1', 'sale-1', {
+      status: 'NeedsReview',
+      errorCode: 'Sale.OfflineArithmeticMismatch',
+      reviewCaseId: 'case-1',
+      mismatches: [mismatch],
+    });
+    const synced = await service.applySyncResult('shop-1', 'device-1', 'sale-1', { status: 'Synced', serverSaleId: 'server-1' });
+
+    expect(held?.reviewCaseId).toBe('case-1');
+    expect(held?.mismatches).toEqual([mismatch]);
+    expect((await service.getAllByShopDevice('shop-1', 'device-1'))[0].status).toBe('Synced');
+    expect(synced?.reviewCaseId).toBeNull();
+    expect(synced?.mismatches).toEqual([]);
+  });
+
   it('cleans synced records older than 3 days and keeps unresolved statuses', async () => {
     await service.savePendingSale(makeInput('shop-1', 'device-1', 'old-synced', '2026-05-18T10:00:00.000Z'));
     await service.applySyncResult('shop-1', 'device-1', 'old-synced', { status: 'Synced' });

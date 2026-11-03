@@ -591,6 +591,8 @@ export interface OfflineSaleSyncRequest {
   readonly configuredSaleRuleType: string | null;
   readonly configuredSaleRulePercentage: number | null;
   readonly configuredSaleRuleThresholdAmount: number | null;
+  /** Omitted for payloads frozen before calculation versions existed, which the server replays as legacy. */
+  readonly calculationVersion?: number;
   readonly items: readonly OfflineSalesSyncLineRequest[];
 }
 
@@ -682,6 +684,15 @@ export interface OfflineSaleSyncResultDto {
   readonly invoiceNumber: string | null;
   readonly errors: readonly OfflineSaleSyncErrorDto[];
   readonly warnings: readonly string[];
+  readonly reviewCaseId?: string | null;
+  readonly mismatches?: readonly OfflineArithmeticMismatchDto[];
+}
+
+export interface OfflineArithmeticMismatchDto {
+  readonly path: string;
+  readonly supplied: number | null;
+  readonly expected: number | null;
+  readonly code: string;
 }
 
 export interface OfflineSalesSyncResponseDto {

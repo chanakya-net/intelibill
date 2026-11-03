@@ -36,7 +36,8 @@ export function buildSyncRequestFromQueuedSale(record: OfflineQueuedSaleRecord):
     paymentMethod: payload.paymentMethod,
     paidAmount: totals.paidAmount,
     dueAmount: totals.dueAmount,
-    subtotalBeforeDiscount: totals.totalBeforeDiscount,
+    // Unversioned payloads have no separate subtotal and must map exactly as they did when first synced.
+    subtotalBeforeDiscount: totals.subtotalBeforeDiscount ?? totals.totalBeforeDiscount,
     totalBeforeDiscount: totals.totalBeforeDiscount,
     totalDiscountAmount: totals.totalDiscount,
     totalTaxAmount: totals.totalTax,
@@ -47,6 +48,7 @@ export function buildSyncRequestFromQueuedSale(record: OfflineQueuedSaleRecord):
     configuredSaleRuleType: payload.pricing.configuredSaleRuleType ?? null,
     configuredSaleRulePercentage: payload.pricing.configuredSaleRulePercentage ?? null,
     configuredSaleRuleThresholdAmount: payload.pricing.configuredSaleRuleThresholdAmount ?? null,
+    ...(payload.pricing.calculationVersion === undefined ? {} : { calculationVersion: payload.pricing.calculationVersion }),
     items: payload.pricing.lines.map((line) => ({
       barcode: line.barcode,
       batchNumber: line.batchNumber,
@@ -90,7 +92,21 @@ export function mapOfflineSyncResult(result: OfflineSaleSyncResultDto | undefine
     errorCode: result.errors[0]?.code ?? null,
     errorMessage: result.errors[0]?.message ?? null,
     serverSaleId: result.saleId ?? null,
+    reviewCaseId: result.reviewCaseId ?? null,
+    mismatches: result.mismatches ?? [],
   };
+}
+
+const OFFLINE_REVIEW_REASON_KEYS: Readonly<Record<string, string>> = {
+  'Sale.OfflineArithmeticMismatch': 'sales.history.offlineQueue.review.reasons.arithmeticMismatch',
+  'Sale.OfflineCalculationVersionUnsupported': 'sales.history.offlineQueue.review.reasons.calculationVersionUnsupported',
+  'Sale.InvoiceLeaseNotFound': 'sales.history.offlineQueue.review.reasons.invoiceLeaseNotFound',
+  'Sale.InvoiceNumberAlreadyUsed': 'sales.history.offlineQueue.review.reasons.invoiceNumberAlreadyUsed',
+  'Sale.IdempotencyConflict': 'sales.history.offlineQueue.review.reasons.idempotencyConflict',
+};
+
+export function offlineReviewReasonKey(errorCode: string | null): string {
+  return (errorCode && OFFLINE_REVIEW_REASON_KEYS[errorCode]) || 'sales.history.offlineQueue.review.reasons.unknown';
 }
 
 export function normalizeOfflineQueueSyncStatus(status: string): OfflineQueueSyncResult['status'] {

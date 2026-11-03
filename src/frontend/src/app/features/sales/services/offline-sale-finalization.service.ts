@@ -3,7 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { InvoiceLeaseExhaustedError, InvoiceLeaseExpiredError, InvoiceLeaseIndexedDbService, InvoiceLeaseNotFoundError } from '../../../core/storage/invoice-lease-indexeddb.service';
 import { OfflineSalesSnapshotIndexedDbService, type OfflineSellableBatchSnapshot, type OfflineSellableServiceSnapshot } from '../../../core/storage/offline-sales-snapshot-indexeddb.service';
 import { calculateOfflineFrozenSale } from './offline-sale-pricing-calculator';
-import { OfflineSalePricingInput, OfflineSalePricingLineInput, OfflineQueuedSalePayload } from './offline-sale-core.types';
+import { OfflineFrozenSalePricing, OfflineSalePricingInput, OfflineSalePricingLineInput, OfflineQueuedSalePayload } from './offline-sale-core.types';
 import { OfflineSalesQueueIndexedDbService } from './offline-sales-queue-indexeddb.service';
 import { OfflineSalesShadowStockIndexedDbService } from './offline-sales-shadow-stock-indexeddb.service';
 
@@ -17,7 +17,7 @@ export interface OfflineFinalizeRequest {
 
 export type OfflineFinalizeResult =
   | { readonly ok: true; readonly payload: OfflineQueuedSalePayload; readonly remainingInvoiceCount: number }
-  | { readonly ok: false; readonly reason: 'SNAPSHOT_STALE' | 'MISSING_CATALOG_ITEM' | 'INSUFFICIENT_SHADOW_STOCK' | 'MISSING_DUE_CUSTOMER' | 'INVOICE_UNAVAILABLE' };
+  | { readonly ok: false; readonly reason: 'SNAPSHOT_STALE' | 'MISSING_CATALOG_ITEM' | 'INSUFFICIENT_SHADOW_STOCK' | 'MISSING_DUE_CUSTOMER' | 'INVOICE_UNAVAILABLE' | 'INVALID_AMOUNT' };
 
 @Injectable({ providedIn: 'root' })
 export class OfflineSaleFinalizationService {
@@ -74,7 +74,14 @@ export class OfflineSaleFinalizationService {
       rules: await this.snapshotDb.getUsableDiscountRules(request.shopId),
     };
 
-    const priced = calculateOfflineFrozenSale(pricingInputFromSnapshot);
+    let priced: OfflineFrozenSalePricing;
+    try {
+      priced = calculateOfflineFrozenSale(pricingInputFromSnapshot);
+    } catch (error) {
+      // A non-finite quantity, price or discount has no place in the integer contract; nothing is consumed yet.
+      if (error instanceof RangeError) return { ok: false, reason: 'INVALID_AMOUNT' };
+      throw error;
+    }
 
     if (priced.totals.dueAmount > 0) {
       const customers = await this.snapshotDb.getUsableCustomers(request.shopId);

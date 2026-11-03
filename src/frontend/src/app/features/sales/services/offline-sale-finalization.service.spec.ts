@@ -91,6 +91,8 @@ describe('OfflineSaleFinalizationService', () => {
 
     expect(result.ok).toBe(true);
     const saved = queueDb.savePendingSale.mock.calls[0][0];
+    expect(saved.payload.pricing.calculationVersion).toBe(1);
+    expect(result.ok && result.payload).toBe(saved.payload);
     expect(saved.payload.pricing.lines[0]).toMatchObject({
       clientLineId: 'client-line-1',
       inventoryBatchId: 'batch-1',
@@ -178,6 +180,23 @@ describe('OfflineSaleFinalizationService', () => {
 
     const result = await service.finalizeAndQueue(request);
     expect(result).toEqual({ ok: false, reason: 'MISSING_DUE_CUSTOMER' });
+  });
+
+  it('blocks a non-finite amount before consuming an invoice number', async () => {
+    const { service, leaseDb, queueDb } = setup();
+    const baseRequest = makeRequest();
+    const request: OfflineFinalizeRequest = {
+      ...baseRequest,
+      pricingInput: {
+        ...baseRequest.pricingInput,
+        lines: [{ ...baseRequest.pricingInput.lines[0], itemDiscount: { type: 2, value: Number.NaN } }],
+      },
+    };
+
+    const result = await service.finalizeAndQueue(request);
+    expect(result).toEqual({ ok: false, reason: 'INVALID_AMOUNT' });
+    expect(leaseDb.consumeNextInvoiceNumber).not.toHaveBeenCalled();
+    expect(queueDb.savePendingSale).not.toHaveBeenCalled();
   });
 
   it('blocks when invoice is unavailable', async () => {

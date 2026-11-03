@@ -22,6 +22,7 @@ import { SalesFacade } from '../state/sales.facade';
 import { SaleDetailOverlayComponent } from '../components/sale-detail-overlay.component';
 import { SalesExportToolbarComponent } from '../components/sales-export-toolbar.component';
 import { OfflineSalesQueueSyncService } from '../services/offline-sales-queue-sync.service';
+import { offlineReviewReasonKey } from '../utils/offline-sale-sync.mapper';
 import { formatLocalIsoDate } from '../../../shared/utils/date-time.util';
 
 @Component({
@@ -57,6 +58,9 @@ export class SalesPageComponent {
   readonly salesHistorySummary = this.salesFacade.salesHistorySummary;
   readonly offlineQueueCounts = this.offlineSalesQueueSync.visibleCounts;
   readonly hasOfflineQueueStatus = computed(() => this.offlineQueueCounts().totalVisible > 0);
+  readonly offlineReviewSales = this.offlineSalesQueueSync.reviewSales;
+  readonly maxShownMismatches = 5;
+  readonly reviewReasonKey = offlineReviewReasonKey;
   readonly isRetryingOfflineQueue = signal(false);
   readonly tableSales = computed(() => [...this.sales()]);
   readonly isLoading = this.salesFacade.loadingSales;
@@ -229,6 +233,10 @@ export class SalesPageComponent {
     this.showDetailOverlay.set(false);
     this.viewingSaleId.set(null);
     this.salesFacade.clearSaleDetail();
+  }
+
+  mismatchValue(value: number | null): string {
+    return value === null ? '—' : String(value);
   }
 
   onRetryOfflineQueue(): void {

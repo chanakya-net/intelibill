@@ -10,6 +10,10 @@ public sealed record OfflineSaleSyncResultDto(
     IReadOnlyList<OfflineSaleSyncErrorDto> Errors)
 {
     public IReadOnlyList<string> Warnings { get; init; } = [];
+
+    public Guid? ReviewCaseId { get; init; }
+
+    public IReadOnlyList<OfflineArithmeticMismatch> Mismatches { get; init; } = [];
 }
 
 public sealed record OfflineSaleSyncErrorDto(string Code, string Message);

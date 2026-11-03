@@ -22,8 +22,16 @@ internal static class OfflineSaleSyncHelpers
             Warnings = sale.Warnings,
         };
 
-    internal static OfflineSaleSyncResultDto BuildNeedsReviewResult(string clientSaleId, Error error) =>
-        new(clientSaleId, StatusNeedsReview, null, null, [new OfflineSaleSyncErrorDto(error.Code, error.Description)]);
+    internal static OfflineSaleSyncResultDto BuildNeedsReviewResult(
+        string clientSaleId,
+        Error error,
+        Guid reviewCaseId,
+        IReadOnlyList<OfflineArithmeticMismatch>? mismatches = null) =>
+        new(clientSaleId, StatusNeedsReview, null, null, [new OfflineSaleSyncErrorDto(error.Code, error.Description)])
+        {
+            ReviewCaseId = reviewCaseId,
+            Mismatches = mismatches ?? [],
+        };
 
     internal static OfflineSaleSyncResultDto BuildErrorResult(string clientSaleId, Error error) =>
         new(clientSaleId, StatusFailed, null, null, [new OfflineSaleSyncErrorDto(error.Code, error.Description)]);

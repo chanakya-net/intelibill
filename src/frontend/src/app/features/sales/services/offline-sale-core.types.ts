@@ -72,6 +72,8 @@ export interface OfflineFrozenSaleLine {
 }
 
 export interface OfflineFrozenSaleTotals {
+  /** Sum of pre-tax line amounts. Absent on unversioned (legacy) payloads, which sent totalBeforeDiscount instead. */
+  readonly subtotalBeforeDiscount?: number;
   readonly totalBeforeDiscount: number;
   readonly totalDiscount: number;
   readonly totalTax: number;
@@ -81,6 +83,8 @@ export interface OfflineFrozenSaleTotals {
 }
 
 export interface OfflineFrozenSalePricing {
+  /** Arithmetic contract the amounts were frozen under; absent on payloads queued before versioning (legacy). */
+  readonly calculationVersion?: number;
   readonly lines: readonly OfflineFrozenSaleLine[];
   readonly totals: OfflineFrozenSaleTotals;
   readonly saleDiscountOverrideType?: number;
@@ -105,6 +109,13 @@ export interface OfflineQueuedSalePayload {
   readonly customerPhone: string | null;
 }
 
+export interface OfflineArithmeticMismatch {
+  readonly path: string;
+  readonly supplied: number | null;
+  readonly expected: number | null;
+  readonly code: string;
+}
+
 export interface OfflineSaleSyncAttemptMeta {
   readonly attemptedAt: string;
   readonly ok: boolean;
@@ -126,6 +137,9 @@ export interface OfflineQueuedSaleRecord {
   readonly errorCode: string | null;
   readonly errorMessage: string | null;
   readonly serverSaleId: string | null;
+  /** Server reconciliation case for a NeedsReview result; absent on records synced before cases were returned. */
+  readonly reviewCaseId?: string | null;
+  readonly mismatches?: readonly OfflineArithmeticMismatch[];
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly syncAttemptCount: number;
@@ -139,4 +153,6 @@ export interface OfflineQueueSyncResult {
   readonly errorCode?: string | null;
   readonly errorMessage?: string | null;
   readonly serverSaleId?: string | null;
+  readonly reviewCaseId?: string | null;
+  readonly mismatches?: readonly OfflineArithmeticMismatch[];
 }

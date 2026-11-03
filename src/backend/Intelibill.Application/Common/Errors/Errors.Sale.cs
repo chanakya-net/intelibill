@@ -152,6 +152,12 @@ public static partial class Errors
         public static Error OfflineLineAmountsInvalid =>
             Error.Validation("Sale.LineAmountsInvalid", "Line amounts cannot be negative.");
 
+        public static Error OfflineArithmeticMismatch =>
+            Error.Validation("Sale.OfflineArithmeticMismatch", "Offline invoice amounts do not reconcile with its own prices, quantities, discounts and taxes; it was held for review.");
+
+        public static Error OfflineCalculationVersionUnsupported =>
+            Error.Validation("Sale.OfflineCalculationVersionUnsupported", "Offline invoice uses a calculation version this server does not support; it was held for review.");
+
         public static Error CreditCustomerNotFound =>
             Error.NotFound("Sale.CreditCustomerNotFound", "Registered customer was not found for this credit or due sale.");
 
