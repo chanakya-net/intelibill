@@ -93,7 +93,8 @@ public sealed partial class SalesController : AuthenticatedControllerBase
                         i.ConfiguredBatchRulePercentage,
                         i.ItemDiscountOverrideType,
                         i.ItemDiscountOverrideValue,
-                        i.HsnCode)).ToList()))
+                        i.HsnCode)).ToList(),
+                    s.CalculationVersion))
                     .ToList()),
             cancellationToken);
 
