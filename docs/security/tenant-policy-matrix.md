@@ -26,7 +26,7 @@ CREATE POLICY <t>_shop_isolation ON <t>
     WITH CHECK (shop_id = NULLIF(current_setting('app.active_shop_id', true), '')::uuid);
 ```
 
-## Tenant business data — own `shop_id` (29)
+## Tenant business data — own `shop_id` (30)
 
 | Table | Policy | Predicate column | Required index |
 |---|---|---|---|
@@ -52,6 +52,7 @@ CREATE POLICY <t>_shop_isolation ON <t>
 | `reconciliation_issues` | `reconciliation_issues_shop_isolation` | `shop_id` | `shop_id` leading |
 | `sale_items` | `sale_items_shop_isolation` | `shop_id` | `shop_id` leading |
 | `sale_return_items` | `sale_return_items_shop_isolation` | `shop_id` | `shop_id` leading |
+| `sale_return_settlements` | `sale_return_settlements_shop_isolation` | `shop_id` | `shop_id` leading |
 | `sale_returns` | `sale_returns_shop_isolation` | `shop_id` | `shop_id` leading |
 | `sales` | `sales_shop_isolation` | `shop_id` | `shop_id` leading |
 | `service_code_sequences` | `service_code_sequences_shop_isolation` | `shop_id` | `shop_id` leading |

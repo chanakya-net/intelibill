@@ -209,6 +209,84 @@ public class SaleReturnCalculatorTests
             && warning.Severity == SaleReturnWarningSeverity.Warning);
     }
 
+    [Fact]
+    public void RepeatedFractionalReturns_AllocateFinalPaiseResidual()
+    {
+        // Sold 3 for ₹100.00 (₹84.75 taxable + ₹15.25 tax); returned one at a time.
+        var saleItemId = Guid.NewGuid();
+        var returnedQuantity = 0m;
+        decimal allocatedTotal = 0m, allocatedTaxable = 0m, allocatedTax = 0m;
+        var shares = new List<SaleReturnLineCalculation>();
+
+        for (var i = 0; i < 3; i++)
+        {
+            var result = _calculator.Calculate(new SaleReturnCalculationRequest(
+                [new SaleReturnLineCalculationRequest(
+                    saleItemId,
+                    Quantity: 1m,
+                    OriginalCostPrice: 20m,
+                    OriginalSalesPrice: 33.33m,
+                    OriginalTaxRatePercent: 18m,
+                    OriginalIsPriceIncludingTax: true,
+                    OriginalSaleItemQuantity: 3m,
+                    OriginalPaidTaxableAmount: 84.75m,
+                    OriginalPaidTaxAmount: 15.25m,
+                    OriginalPaidTotalAmount: 100m,
+                    SaleReturnCondition.Restockable,
+                    PreviouslyReturnedQuantity: returnedQuantity,
+                    PreviouslyAllocatedTotalAmount: allocatedTotal,
+                    PreviouslyAllocatedTaxableAmount: allocatedTaxable,
+                    PreviouslyAllocatedTaxAmount: allocatedTax)],
+                OutstandingDueAmount: 0m,
+                CustomerBalanceBefore: null));
+
+            var line = Assert.Single(result.Lines);
+            shares.Add(line);
+            returnedQuantity += line.Quantity;
+            allocatedTotal += line.MaxRefundAmount;
+            allocatedTaxable += line.TaxableAmount;
+            allocatedTax += line.TaxAmount;
+        }
+
+        Assert.Equal([33.33m, 33.34m, 33.33m], shares.Select(s => s.MaxRefundAmount));
+        Assert.Equal([5.08m, 5.09m, 5.08m], shares.Select(s => s.TaxAmount));
+        Assert.Equal([28.25m, 28.25m, 28.25m], shares.Select(s => s.TaxableAmount));
+        Assert.Equal(shares.Select(s => s.MaxRefundAmount), shares.Select(s => s.ApprovedRefundAmount));
+        Assert.Equal(100m, allocatedTotal);
+        Assert.Equal(84.75m, allocatedTaxable);
+        Assert.Equal(15.25m, allocatedTax);
+    }
+
+    [Fact]
+    public void FinalReturn_AfterLegacyOverAllocation_ClampsAtZero()
+    {
+        // Earlier returns (rounded independently) already took slightly more than the cumulative share.
+        var result = _calculator.Calculate(new SaleReturnCalculationRequest(
+            [new SaleReturnLineCalculationRequest(
+                Guid.NewGuid(),
+                Quantity: 1m,
+                OriginalCostPrice: 20m,
+                OriginalSalesPrice: 10m,
+                OriginalTaxRatePercent: 0m,
+                OriginalIsPriceIncludingTax: false,
+                OriginalSaleItemQuantity: 3m,
+                OriginalPaidTaxableAmount: 30m,
+                OriginalPaidTaxAmount: 0m,
+                OriginalPaidTotalAmount: 30m,
+                SaleReturnCondition.Restockable,
+                PreviouslyReturnedQuantity: 2m,
+                PreviouslyAllocatedTotalAmount: 30.01m,
+                PreviouslyAllocatedTaxableAmount: 30.01m,
+                PreviouslyAllocatedTaxAmount: 0m)],
+            OutstandingDueAmount: 0m,
+            CustomerBalanceBefore: null));
+
+        var line = Assert.Single(result.Lines);
+        Assert.Equal(0m, line.MaxRefundAmount);
+        Assert.Equal(0m, line.TaxableAmount);
+        Assert.Equal(0m, line.TaxAmount);
+    }
+
     private static SaleReturnLineCalculationRequest Line(
         decimal quantity = 1m,
         decimal salesPrice = 100m,

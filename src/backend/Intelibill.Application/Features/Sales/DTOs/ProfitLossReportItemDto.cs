@@ -13,7 +13,9 @@ public sealed record ProfitLossReportItemDto(
     decimal ProfitAfterTax,
     decimal? MarginPercent,
     string RowType,
-    Guid? InventoryAdjustmentId);
+    Guid? InventoryAdjustmentId,
+    bool IsReversal = false,
+    bool NeedsAccountingReview = false);
 
 public static class ProfitLossReportRowTypes
 {

@@ -21,6 +21,7 @@ public sealed class RecordSaleReturnCommandHandler(
     IStockTransactionRepository stockTransactionRepository,
     ISaleReturnRepository saleReturnRepository,
     ICustomerLedgerEntryRepository customerLedgerEntryRepository,
+    IReturnAccountingPolicy returnAccountingPolicy,
     ISaleReturnMutationCoordinator mutationCoordinator,
     IUnitOfWork unitOfWork)
 {
@@ -65,6 +66,17 @@ public sealed class RecordSaleReturnCommandHandler(
         var warningValidation = ValidateWarnings(validated.Calculation.Warnings);
         if (warningValidation.IsError)
             return warningValidation.Errors;
+
+        // Classified before anything moves: a refund the policy cannot classify is refused whole.
+        var classification = returnAccountingPolicy.Classify(validated.Calculation.Lines
+            .Select(line => new ReturnAccountingLineRequest(
+                line.SaleItemId,
+                line.MaxRefundAmount,
+                line.TaxAmount,
+                line.ApprovedRefundAmount))
+            .ToList());
+        if (classification.IsError)
+            return classification.Errors;
 
         var processedAt = DateTimeOffset.UtcNow;
         var returnNumber = saleReturnNumberGenerator.Generate(processedAt);
@@ -193,6 +205,17 @@ public sealed class RecordSaleReturnCommandHandler(
             creditNote = creditNoteResult.Value;
         }
 
+        var snapshot = ReturnAccountingSnapshot.Create(
+            returnAccountingPolicy.Version,
+            classification.Value,
+            BuildSettlements(validated.Sale, validated.Calculation, command.PayoutDestination, returnCredit, creditNote));
+        if (snapshot.IsError)
+            return snapshot.Errors;
+
+        var posting = saleReturn.Value.PostAccounting(snapshot.Value);
+        if (posting.IsError)
+            return posting.Errors;
+
         await saleReturnRepository.AddAsync(saleReturn.Value, cancellationToken);
         if (returnCredit is not null)
             await customerLedgerEntryRepository.AddAsync(returnCredit, cancellationToken);
@@ -202,6 +225,37 @@ public sealed class RecordSaleReturnCommandHandler(
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result.Success;
+    }
+
+    /// <summary>
+    /// The settlement legs exactly as the return moved money: the due reduction through the
+    /// customer's ledger entry, the payout as the credit note issued or as a refund outside the books.
+    /// </summary>
+    private static List<ReturnSettlementInput> BuildSettlements(
+        Sale sale,
+        SaleReturnCalculationResult calculation,
+        ReturnPayoutDestination? payoutDestination,
+        CustomerLedgerEntry? returnCredit,
+        CreditNote? creditNote)
+    {
+        var settlements = new List<ReturnSettlementInput>(2);
+        if (calculation.DueReductionAmount > 0m)
+        {
+            settlements.Add(new ReturnSettlementInput(
+                ReturnSettlementKind.ReceivableReduction,
+                calculation.DueReductionAmount,
+                sale.CustomerId,
+                CustomerLedgerEntryId: returnCredit?.Id));
+        }
+
+        if (calculation.PayoutAmount > 0m)
+        {
+            settlements.Add(payoutDestination == ReturnPayoutDestination.CreditNote && creditNote is not null
+                ? new ReturnSettlementInput(ReturnSettlementKind.StoreCreditIssued, calculation.PayoutAmount, sale.CustomerId, creditNote.Id)
+                : new ReturnSettlementInput(ReturnSettlementKind.ExternalRefund, calculation.PayoutAmount, sale.CustomerId));
+        }
+
+        return settlements;
     }
 
     private static string ResolveCreditNoteReason(RecordSaleReturnCommand command, string returnNumber)

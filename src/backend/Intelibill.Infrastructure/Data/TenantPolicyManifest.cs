@@ -107,6 +107,7 @@ public static class TenantPolicyManifest
         Tenant("reconciliation_issues"),
         Tenant("sale_items"),
         Tenant("sale_return_items"),
+        Tenant("sale_return_settlements"),
         Tenant("sale_returns"),
         Tenant("sales"),
         Tenant("service_code_sequences"),

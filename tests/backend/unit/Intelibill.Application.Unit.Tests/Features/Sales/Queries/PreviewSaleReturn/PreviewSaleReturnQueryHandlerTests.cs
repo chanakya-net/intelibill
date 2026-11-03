@@ -18,6 +18,7 @@ public class PreviewSaleReturnQueryHandlerTests
     private readonly IInventoryBatchRepository _inventoryBatchRepository = Substitute.For<IInventoryBatchRepository>();
     private readonly ICustomerLedgerEntryRepository _customerLedgerEntryRepository = Substitute.For<ICustomerLedgerEntryRepository>();
     private readonly ISaleReturnCalculator _calculator = new SaleReturnCalculator();
+    private IReturnAccountingPolicy _accountingPolicy = new ProportionalLineTaxReturnAccountingPolicy();
 
     private PreviewSaleReturnQueryHandler CreateHandler() =>
         new(new SaleReturnValidator(
@@ -27,7 +28,8 @@ public class PreviewSaleReturnQueryHandlerTests
             _saleReturnRepository,
             _inventoryBatchRepository,
             _customerLedgerEntryRepository,
-            _calculator));
+            _calculator),
+            _accountingPolicy);
 
     [Theory]
     [InlineData(ShopRole.Owner)]
@@ -96,6 +98,24 @@ public class PreviewSaleReturnQueryHandlerTests
         Assert.Equal(187m, line.Financial!.MaxRefundAmount);
         Assert.Equal(200m, line.Financial!.ApprovedRefundAmount);
         Assert.Contains(result.Value.Warnings, warning => warning.Code == "sale_return.note_required.refund_override");
+    }
+
+    [Fact]
+    public async Task Handle_SaleReturnPreview_WhenPolicyCannotClassify_WarnsBeforePosting()
+    {
+        var fixture = ArrangeSale(ShopRole.Owner);
+        var refusing = Substitute.For<IReturnAccountingPolicy>();
+        refusing.Classify(Arg.Any<IReadOnlyList<ReturnAccountingLineRequest>>())
+            .Returns(Intelibill.Application.Common.Errors.Errors.Sale.ReturnAccountingPolicyUnsupported(fixture.SaleItem.Id));
+        _accountingPolicy = refusing;
+
+        var result = await CreateHandler().Handle(
+            Query(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, quantity: 2m),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        var warning = Assert.Single(result.Value.Warnings, w => w.Code == "sale_return.accounting_unsupported");
+        Assert.Equal("Warning", warning.Severity);
     }
 
     [Fact]

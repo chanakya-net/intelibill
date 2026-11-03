@@ -11,9 +11,24 @@ public sealed class SalesExcelExportRenderer : ISalesExcelExportRenderer
     {
         using var workbook = new XLWorkbook();
 
-        return string.Equals(dataset.Metadata.ExportLevel, SalesExportLevel.LineItems, StringComparison.OrdinalIgnoreCase)
-            ? SalesExcelLineItemRenderer.RenderLineItemsAsync(workbook, dataset)
-            : SalesExcelSummaryRenderer.RenderSummaryAsync(workbook, dataset);
+        if (string.Equals(dataset.Metadata.ExportLevel, SalesExportLevel.LineItems, StringComparison.OrdinalIgnoreCase))
+        {
+            SalesExcelLineItemRenderer.RenderLineItems(workbook, dataset);
+        }
+        else
+        {
+            SalesExcelSummaryRenderer.RenderSummary(workbook, dataset);
+        }
+
+        SalesExcelReturnAdjustmentsRenderer.Render(workbook, dataset);
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+
+        return Task.FromResult(new SalesExportResult(
+            stream.ToArray(),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "sales-export.xlsx"));
     }
 
     internal static int RenderMetadata(IXLWorksheet worksheet, SalesExportMetadataDto metadata, int startRow)
@@ -46,6 +61,11 @@ public sealed class SalesExcelExportRenderer : ISalesExcelExportRenderer
 
         worksheet.Cell(startRow, 1).Value = "Level:";
         worksheet.Cell(startRow, 2).Value = metadata.ExportLevel;
+        worksheet.Cell(startRow, 1).Style.Font.Bold = true;
+        startRow++;
+
+        worksheet.Cell(startRow, 1).Value = "Accounting Export:";
+        worksheet.Cell(startRow, 2).Value = $"v{metadata.AccountingExportVersion}";
         worksheet.Cell(startRow, 1).Style.Font.Bold = true;
 
         return startRow;

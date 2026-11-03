@@ -7,7 +7,7 @@ namespace Intelibill.Infrastructure.Services.Exports;
 
 internal static class SalesExcelLineItemRenderer
 {
-    internal static Task<SalesExportResult> RenderLineItemsAsync(XLWorkbook workbook, SalesExportDatasetDto dataset)
+    internal static void RenderLineItems(XLWorkbook workbook, SalesExportDatasetDto dataset)
     {
         var worksheet = workbook.Worksheets.Add("Sales Line Items");
 
@@ -31,15 +31,6 @@ internal static class SalesExcelLineItemRenderer
         RenderLineItemTotalsRow(worksheet, dataset.LineItemRows, columnPlan, firstDataRow, totalsRow);
 
         ApplyLineItemPolishing(worksheet, columnPlan.TotalColumnsEnd, headerRow);
-
-        using var stream = new MemoryStream();
-        workbook.SaveAs(stream);
-        var content = stream.ToArray();
-
-        return Task.FromResult(new SalesExportResult(
-            content,
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            "sales-export.xlsx"));
     }
 
     internal static LineItemColumnPlan RenderLineItemHeaders(IXLWorksheet worksheet, int startRow)

@@ -2,6 +2,7 @@ using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Auth.Services;
 using Intelibill.Application.Features.CreditNotes.Services;
 using Intelibill.Application.Features.Discounts.Services;
+using Intelibill.Application.Features.Exports.Accounting;
 using Intelibill.Application.Features.Exports.Sales;
 using Intelibill.Application.Features.Exports.Sales.Services;
 using Intelibill.Application.Features.Sales.Queries.GetProfitLossReport;
@@ -42,6 +43,9 @@ public static class DependencyInjection
         services.AddScoped<ISaleReturnNumberGenerator, SaleReturnNumberGenerator>();
         services.AddScoped<ISaleReturnCalculator, SaleReturnCalculator>();
         services.AddScoped<ISaleReturnValidator, SaleReturnValidator>();
+        services.AddSingleton<IReturnAccountingPolicy, ProportionalLineTaxReturnAccountingPolicy>();
+        services.AddSingleton<IAccountingVoucherValidator, AccountingVoucherValidator>();
+        services.AddScoped<ReturnAdjustmentReader>();
         services.AddScoped<ISaleReturnMutationCoordinator, SaleReturnMutationCoordinator>();
         services.AddScoped<ISalePricingCalculator, SalePricingCalculator>();
 

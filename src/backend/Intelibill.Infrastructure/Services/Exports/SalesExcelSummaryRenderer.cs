@@ -3,12 +3,13 @@ using System.Globalization;
 
 using Intelibill.Application.Features.Exports.Sales;
 using Intelibill.Application.Features.Exports.Sales.DTOs;
+using Intelibill.Domain.Enums;
 
 namespace Intelibill.Infrastructure.Services.Exports;
 
 internal static class SalesExcelSummaryRenderer
 {
-    internal static Task<SalesExportResult> RenderSummaryAsync(XLWorkbook workbook, SalesExportDatasetDto dataset)
+    internal static void RenderSummary(XLWorkbook workbook, SalesExportDatasetDto dataset)
     {
         var worksheet = workbook.Worksheets.Add("Sales Summary");
 
@@ -34,19 +35,57 @@ internal static class SalesExcelSummaryRenderer
             dataRow++;
         }
 
+        if (RenderEarlierSalesReturnsRow(worksheet, dataset, columnPlan, dataRow))
+        {
+            dataRow++;
+        }
+
         var totalsRow = dataRow + 1;
-        RenderTotalsRow(worksheet, dataset.SummaryRows, dataset.TaxBreakup, columnPlan, firstDataRow, totalsRow);
+        RenderTotalsRow(worksheet, dataRow - firstDataRow, dataset.TaxBreakup, columnPlan, firstDataRow, totalsRow);
 
         ApplyPolishing(worksheet, columnPlan.TotalColumnsEnd, headerRow);
+    }
 
-        using var stream = new MemoryStream();
-        workbook.SaveAs(stream);
-        var content = stream.ToArray();
+    internal const string EarlierSalesReturnsLabel = "Returns on earlier sales";
 
-        return Task.FromResult(new SalesExportResult(
-            content,
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            "sales-export.xlsx"));
+    /// <summary>
+    /// Returns and voids posted in the period against sales made before it have no invoice row here.
+    /// One row carries them so the sheet's return totals equal the Return Adjustments sheet.
+    /// </summary>
+    internal static bool RenderEarlierSalesReturnsRow(
+        IXLWorksheet worksheet,
+        SalesExportDatasetDto dataset,
+        SummaryColumnPlan columnPlan,
+        int rowNum)
+    {
+        var invoicesInPeriod = dataset.SummaryRows.Select(r => r.InvoiceNumber).ToHashSet(StringComparer.Ordinal);
+        var earlier = dataset.ReturnAdjustments
+            .Where(a => !invoicesInPeriod.Contains(a.InvoiceNumber))
+            .ToList();
+        if (earlier.Count == 0)
+        {
+            return false;
+        }
+
+        var returnAmount = earlier.Sum(a => a.FinancialAdjustment);
+        var returnTaxable = earlier.Sum(a => a.TaxableAdjustment ?? 0m);
+        var storeCredit = earlier.Sum(a => a.SettledBy(ReturnSettlementKind.StoreCreditIssued));
+
+        worksheet.Cell(rowNum, columnPlan.InvoiceNumberColumn).Value = EarlierSalesReturnsLabel;
+        worksheet.Cell(rowNum, columnPlan.ReturnNumbersColumn).Value = string.Join(", ", earlier.Select(a => a.Label));
+        SetAmount(worksheet, rowNum, columnPlan.ReturnAmountColumn, returnAmount);
+        SetAmount(worksheet, rowNum, columnPlan.IssuedCreditNoteAmountColumn, storeCredit);
+        SetAmount(worksheet, rowNum, columnPlan.NetTaxableColumn, -returnTaxable);
+        SetAmount(worksheet, rowNum, columnPlan.NetSalesColumn, -returnAmount);
+        worksheet.Range(rowNum, 1, rowNum, columnPlan.TotalColumnsEnd).Style.Fill.BackgroundColor = XLColor.FromHtml("#FFF8E1");
+        worksheet.Range(rowNum, 1, rowNum, columnPlan.TotalColumnsEnd).Style.Font.Italic = true;
+        return true;
+    }
+
+    private static void SetAmount(IXLWorksheet worksheet, int row, int column, decimal value)
+    {
+        worksheet.Cell(row, column).Value = value;
+        worksheet.Cell(row, column).Style.NumberFormat.Format = "#,##0.00";
     }
 
     internal static SummaryColumnPlan RenderHeaders(IXLWorksheet worksheet, IReadOnlyList<decimal> gstRates, int startRow)
@@ -215,14 +254,14 @@ internal static class SalesExcelSummaryRenderer
 
     internal static void RenderTotalsRow(
         IXLWorksheet worksheet,
-        IReadOnlyList<SalesExportSummaryRowDto> summaryRows,
+        int dataRowCount,
         IReadOnlyList<SalesExportTaxBreakupDto> taxBreakup,
         SummaryColumnPlan columnPlan,
         int firstDataRow,
         int totalsRow)
     {
         var lastDataRow = Math.Max(firstDataRow, totalsRow - 1);
-        var hasData = summaryRows.Count > 0;
+        var hasData = dataRowCount > 0;
         var breakupByRate = taxBreakup.ToDictionary(t => t.TaxRatePercent);
 
         worksheet.Cell(totalsRow, 1).Value = "TOTALS";

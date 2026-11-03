@@ -1,6 +1,7 @@
 using ErrorOr;
 using Intelibill.Domain.Common;
 using Intelibill.Domain.Enums;
+using Intelibill.Domain.ValueObjects;
 
 namespace Intelibill.Domain.Entities;
 
@@ -22,7 +23,20 @@ public sealed class SaleReturnItem : BaseEntity
     public decimal TaxAmount { get; private set; }
     public string? Notes { get; private set; }
 
+    // The financial adjustment of this line as posted, apart from its original returned value
+    // (MaxRefundAmount/TaxableAmount/TaxAmount). Null until the return posts its snapshot.
+    public decimal? AdjustmentTaxableAmount { get; private set; }
+    public decimal? AdjustmentTaxAmount { get; private set; }
+    public decimal? AdjustmentNonTaxAmount { get; private set; }
+
     private SaleReturnItem() { }
+
+    internal void PostAccounting(ReturnLineAccounting line)
+    {
+        AdjustmentTaxableAmount = line.TaxableAmount;
+        AdjustmentTaxAmount = line.TaxAmount;
+        AdjustmentNonTaxAmount = line.NonTaxAmount;
+    }
 
     internal static ErrorOr<SaleReturnItem> Create(
         Guid shopId,

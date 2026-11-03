@@ -506,14 +506,71 @@ payment racing a due-reducing return can still leave the balance below zero. Ret
 operation key yet, so a resend after a lost response is a new return and is bounded only by
 entitlement.
 
+## Return Accounting Exports
+
+**Snapshot.** Recording a return posts its accounting in the same save
+(`SaleReturn.PostAccounting(ReturnAccountingSnapshot)`): per line `adjustment_taxable_amount`,
+`adjustment_tax_amount` and `adjustment_non_tax_amount` (summing to the approved refund), their totals
+on the return, `accounting_status` (`BALANCED` / `NEEDS_REVIEW` with `accounting_review_reason`), the
+policy version, and one `sale_return_settlements` row per leg, in order: `RECEIVABLE_REDUCTION` (the
+due reduction, with the customer's `RETURN_CREDIT` ledger entry; none for a walk-in sale),
+`STORE_CREDIT_ISSUED` (the credit note issued) or `EXTERNAL_REFUND` (a refund paid outside the books;
+the tender is not recorded, so it is never guessed). The legs always sum to the approved refund. The
+original returned value (Σ `max_refund_amount`) is kept beside the financial adjustment.
+
+**Policy.** `IReturnAccountingPolicy` (`proportional-line-tax/1`): within = min(approved, paid share);
+tax = round(within × share tax / share gross, 2, away from zero); taxable = within − tax; anything
+approved above the paid share is a non-tax adjustment. A line with an approved refund but no paid
+share, or a share whose tax is outside its gross, answers 400 `SaleReturn.AccountingPolicyUnsupported`
+(the preview warns `sale_return.accounting_unsupported`). Repeated returns allocate each component of
+the invoice share cumulatively — `round(original × cumulative qty / sold qty) − already allocated` —
+so the final return takes the last paisa and no component is exhausted twice.
+
+**Posting periods.** `ReturnAdjustmentReader` loads every return processed or voided in the period
+(`ISaleReturnRepository.GetPostedInRangeAsync`, with sales outside the period loaded by id) and
+`ReturnAdjustmentProjector` turns it into dated entries: the return on its UTC processing date, a void
+as a negated `VoidReversal` on its UTC void date. A June return voided in July shows its credit in
+June and only the reversal in July. Sales XLSX, PDF, Tally and the P&L all read these entries, so
+their return totals agree; export metadata carries `AccountingExportVersion` 2.
+
+**Vouchers.** Tally builds `AccountingVoucher`s first and writes XML only from them. A return is a
+`Credit Note` voucher numbered with the return number and referencing the invoice: Sales, Output GST
+per rate and Sales Return Adjustments debited, each leg credited to the customer (or Walk-in
+Customer), Credit Note Liability or Customer Refunds Clearing. A void is a `Journal` voucher
+`{return number}-VOID`, sides swapped, referencing the credit note. A zero refund posts no voucher
+(the stock fact stays in XLSX/PDF). `IAccountingVoucherValidator` checks every voucher (≥ 2 lines,
+named ledgers, positive two-place amounts, debits = credits); a return needing review or an invalid
+voucher refuses the whole Tally export with 409 `Export.ReturnNeedsAccountingReview`,
+`Export.VoucherUnbalanced` or `Export.VoucherInvalid`, every diagnostic listed. XLSX adds a Return
+Adjustments sheet (settlement split, status, reason) and PDF a return adjustments table; both still
+render returns needing review, flagged. P&L return rows use the snapshot's tax split, and
+`isReversal` / `needsAccountingReview` mark voids and unreviewed returns. A Credit Note voucher's
+reference date is the invoice date; a reversal's is the return date. The P&L reduces revenue by the
+whole refund, while Tally books a non-tax excess to Sales Return Adjustments: net profit agrees,
+revenue lines differ by that excess.
+
+**Legacy evidence.** The migration backfills every return without a snapshot;
+`scripts/db/backfill-sale-return-accounting.sql` is the same idempotent statement (a second run
+changes nothing), to re-run as the migrator role once every API instance runs the new version. It
+loops over shops with `app.active_shop_id` set, because FORCE row-level security binds the migrator
+as table owner; the integration tests run it as the restricted runtime role to prove that. Lines
+are split by the same policy (recorded as `backfill:proportional-line-tax/1`). A return is `BALANCED`
+only when every line is classifiable, its lines add up to its total and its payout is evidenced — a
+refund destination, or exactly one credit note of the payout amount issued for it; the receivable leg
+links its ledger entry when exactly one matches. Anything else is `NEEDS_REVIEW` with its reason and
+no legs: a settlement is never inferred. A return an old instance records after the migration has no
+snapshot and exports as needing review until the script runs. A `NEEDS_REVIEW` return cannot yet be
+resolved in the app, so its periods stay refused for Tally until one is posted. Rollback: keep snapshots readable and
+refuse Tally return export; never restore the unbalanced voucher builder.
+
 ## Test Structure
 
 | Suite | Path | Count |
 |---|---|---|
-| Domain unit | `tests/backend/unit/Intelibill.Domain.Unit.Tests/` | 263 |
-| Application unit | `tests/backend/unit/Intelibill.Application.Unit.Tests/` | 1035 |
-| API unit | `tests/backend/unit/Intelibill.Api.Unit.Tests/` | 542 |
-| Integration | `tests/backend/integration/Intelibill.Integration.Tests/` | 562 |
-| **Total** | | **2182** |
+| Domain unit | `tests/backend/unit/Intelibill.Domain.Unit.Tests/` | 279 |
+| Application unit | `tests/backend/unit/Intelibill.Application.Unit.Tests/` | 1093 |
+| API unit | `tests/backend/unit/Intelibill.Api.Unit.Tests/` | 541 |
+| Integration | `tests/backend/integration/Intelibill.Integration.Tests/` | 584 |
+| **Total** | | **2497** |
 
-Integration tests use `WebApplicationFactory<Program>` backed by **Testcontainers** (`Testcontainers.PostgreSql`) — Docker required. Non-integration suite: 1697 passing.
+Integration tests use `WebApplicationFactory<Program>` backed by **Testcontainers** (`Testcontainers.PostgreSql`) — Docker required. Non-integration suite: 1913 passing.

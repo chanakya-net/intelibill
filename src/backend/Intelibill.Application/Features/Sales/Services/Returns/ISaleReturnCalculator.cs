@@ -22,7 +22,11 @@ public sealed record SaleReturnLineCalculationRequest(
     decimal OriginalPaidTotalAmount,
     SaleReturnCondition? Condition,
     decimal? ApprovedRefundAmount = null,
-    string? Notes = null);
+    string? Notes = null,
+    decimal PreviouslyReturnedQuantity = 0m,
+    decimal PreviouslyAllocatedTotalAmount = 0m,
+    decimal PreviouslyAllocatedTaxableAmount = 0m,
+    decimal PreviouslyAllocatedTaxAmount = 0m);
 
 public sealed record SaleReturnCalculationResult(
     IReadOnlyList<SaleReturnLineCalculation> Lines,

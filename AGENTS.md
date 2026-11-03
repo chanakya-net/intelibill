@@ -8,7 +8,7 @@
 - Test full: `dotnet test src/backend/Intelibill.slnx`
 - Test unit: `dotnet test tests/backend/unit/Intelibill.Domain.Unit.Tests`, `Application.Unit.Tests`, `Api.Unit.Tests`
 - Test integration: `dotnet test tests/backend/integration/Intelibill.Integration.Tests` (requires Docker)
-- Snapshot: 265 + 1057 + 542 + 575 = 2439 tests (1864 non-integration), all passing as of 3 November 2026
+- Snapshot: 279 + 1093 + 541 + 584 = 2497 tests (1913 non-integration), all passing as of 3 November 2026
 
 **Migrations** (EF Core) — API startup does **not** apply them; run `database update` yourself after pulling schema changes (deployed environments use the migration job):
 ```bash
@@ -122,15 +122,16 @@ DB Options: `src/backend/Intelibill.Infrastructure/Options/DatabaseOptions.cs:7`
 - Sale returns: record and void run in `ISaleReturnMutationCoordinator` under the customer + sale row locks (`FOR NO KEY UPDATE`, 5 s budget → 409 `SaleReturn.SaleBusy`); lock order customer → sale → credit notes → batches; `CreditNote.HasBeenRedeemed` checks balance too. See `docs/backend-architecture.md` § Sale Return Serialization
 - Stock corrections: `inventory_batches`/`inventory` use `xmin` as row version; every quantity change writes one signed movement in the same save, every count a `stock_counts` row. See `docs/backend-architecture.md` § Stock Corrections and Voids
 - Purchase receipts: every receipt writes a `purchase_receipt_values` row (original + effective total, `xmin` version); cost corrections post a signed `COST_ADJUSTED` ledger entry plus a `purchase_receipt_cost_adjustments` row, never touching batch cost or sale COGS; legacy receipts without clear evidence are `LEGACY_UNRESOLVED` and refuse correction. See `docs/backend-architecture.md` § Purchase Receipts, Price Revisions and Cost Corrections
+- Return accounting: every return posts a snapshot in its own save (per-line taxable/tax/non-tax split by `IReturnAccountingPolicy` `proportional-line-tax/1`, `sale_return_settlements` legs: receivable reduction, store credit issued, external refund); exports and the P&L read `ReturnAdjustmentReader` (return on its processing date, void as a reversal on its void date); Tally refuses (409) returns needing review and any unbalanced voucher. Legacy returns: `scripts/db/backfill-sale-return-accounting.sql`. See `docs/backend-architecture.md` § Return Accounting Exports
 - RLS: session interceptor sets `app.current_user_id` + `app.active_shop_id`
 - Shop authority: `ShopMembership.Status`/`AuthorityVersion`; role and status changes, invitation issue and acceptance all run under one authority-lock order (users → shop → membership/invitation rows), and the token's shop scope is re-checked against the live membership on every request
 - Tests: Testcontainers (real PostgreSQL via Docker)
 
 ## Domain Model
 
-**Entities**: `User`, `AuthSession`, `RealtimeConnectionLease`, `PhoneChallenge`, `IdentitySms`, `Shop`, `ShopMembership`, `ShopInvitation`, `Item`, `Inventory`, `InventoryBatch`, `StockTransaction`, `Sale`, `SaleItem`, `Customer`, `CustomerLedgerEntry`, `Supplier`, `SupplierLedgerEntry`, `Expense`, `ExpenseCategory`, `BankAccount`, `RefreshToken`, `PasswordResetToken`, `OperationReceipt`, `StockCount`, `PurchaseReceiptValue`, `PurchaseReceiptCostAdjustment`, `BatchPriceRevision`
+**Entities**: `User`, `AuthSession`, `RealtimeConnectionLease`, `PhoneChallenge`, `IdentitySms`, `Shop`, `ShopMembership`, `ShopInvitation`, `Item`, `Inventory`, `InventoryBatch`, `StockTransaction`, `Sale`, `SaleItem`, `Customer`, `CustomerLedgerEntry`, `Supplier`, `SupplierLedgerEntry`, `Expense`, `ExpenseCategory`, `BankAccount`, `RefreshToken`, `PasswordResetToken`, `OperationReceipt`, `StockCount`, `PurchaseReceiptValue`, `PurchaseReceiptCostAdjustment`, `BatchPriceRevision`, `SaleReturnSettlement`
 
-**Enums**: `ShopRole`, `MembershipStatus`, `CredentialKind`, `PaymentMethod`, `BankAccountType`, `StockTransactionType`, `SupplierLedgerEntryType`, `CustomerLedgerEntryType`, `SupplierStatus`, `FinancialOperationType`, `OperationReceiptStatus`, `PurchaseReceiptSource`, `PurchaseReceiptValueStatus`
+**Enums**: `ShopRole`, `MembershipStatus`, `CredentialKind`, `PaymentMethod`, `BankAccountType`, `StockTransactionType`, `SupplierLedgerEntryType`, `CustomerLedgerEntryType`, `SupplierStatus`, `FinancialOperationType`, `OperationReceiptStatus`, `PurchaseReceiptSource`, `PurchaseReceiptValueStatus`, `ReturnAccountingStatus`, `ReturnSettlementKind`
 
 ## Structure
 

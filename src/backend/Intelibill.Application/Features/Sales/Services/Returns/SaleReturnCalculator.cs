@@ -74,23 +74,31 @@ internal sealed class SaleReturnCalculator : ISaleReturnCalculator
         SaleReturnLineCalculationRequest line,
         List<SaleReturnCalculationWarning> warnings)
     {
-        var ratio = line.OriginalSaleItemQuantity <= 0m
+        // The share of the invoice line this return takes back is allocated cumulatively: what all
+        // active returns of the line hold after this one, less what earlier ones already hold. The
+        // return that brings the line to its sold quantity therefore takes the exact remainder of
+        // each invoice component, and no paisa of it is taken twice.
+        var cumulativeRatio = line.OriginalSaleItemQuantity <= 0m
             ? 0m
-            : line.Quantity / line.OriginalSaleItemQuantity;
-        ratio = Math.Clamp(ratio, 0m, 1m);
+            : (line.PreviouslyReturnedQuantity + line.Quantity) / line.OriginalSaleItemQuantity;
+        cumulativeRatio = Math.Clamp(cumulativeRatio, 0m, 1m);
 
-        var taxableAmount = RoundMoney(line.OriginalPaidTaxableAmount * ratio);
-        var taxAmount = RoundMoney(line.OriginalPaidTaxAmount * ratio);
+        var taxableAmount = Allocate(line.OriginalPaidTaxableAmount, cumulativeRatio, line.PreviouslyAllocatedTaxableAmount);
+        var taxAmount = Allocate(line.OriginalPaidTaxAmount, cumulativeRatio, line.PreviouslyAllocatedTaxAmount);
 
-        var discountedMaxRefundAmount = RoundMoney(line.OriginalPaidTotalAmount * ratio);
+        var discountedMaxRefundAmount = Allocate(line.OriginalPaidTotalAmount, cumulativeRatio, line.PreviouslyAllocatedTotalAmount);
         var grossOriginalValue = RoundMoney(line.Quantity * line.OriginalSalesPrice);
         var taxAmountBeforeDiscount = CalculateTaxAmount(
             grossOriginalValue,
             line.OriginalTaxRatePercent,
             line.OriginalIsPriceIncludingTax);
-        var maxRefundOverrideAmount = line.OriginalIsPriceIncludingTax
-            ? grossOriginalValue
-            : RoundMoney(grossOriginalValue + taxAmountBeforeDiscount);
+        // Never below the paid share itself: a residual paisa can lift one unit's share above its
+        // own rounded price, and refunding exactly what was paid must not read as a partial refund.
+        var maxRefundOverrideAmount = Math.Max(
+            discountedMaxRefundAmount,
+            line.OriginalIsPriceIncludingTax
+                ? grossOriginalValue
+                : RoundMoney(grossOriginalValue + taxAmountBeforeDiscount));
 
         var requestedRefund = line.ApprovedRefundAmount ?? discountedMaxRefundAmount;
         var approvedRefundAmount = RoundMoney(Math.Clamp(requestedRefund, 0m, maxRefundOverrideAmount));
@@ -114,6 +122,12 @@ internal sealed class SaleReturnCalculator : ISaleReturnCalculator
             taxableAmount,
             taxAmount,
             notes);
+    }
+
+    private static decimal Allocate(decimal original, decimal cumulativeRatio, decimal alreadyAllocated)
+    {
+        var remaining = Math.Max(0m, original - alreadyAllocated);
+        return RoundMoney(Math.Clamp(RoundMoney(original * cumulativeRatio) - alreadyAllocated, 0m, remaining));
     }
 
     private static decimal CalculateTaxAmount(decimal grossOriginalValue, decimal taxRatePercent, bool priceIncludingTax)

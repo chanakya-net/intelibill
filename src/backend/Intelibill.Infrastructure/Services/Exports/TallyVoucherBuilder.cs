@@ -1,86 +1,114 @@
 using System.Globalization;
-using System.Linq;
 using System.Xml.Linq;
-using Intelibill.Application.Features.Exports.Sales;
+using Intelibill.Application.Features.Exports.Accounting;
 using Intelibill.Application.Features.Exports.Sales.DTOs;
+using Intelibill.Domain.Enums;
 
 namespace Intelibill.Infrastructure.Services.Exports;
 
+/// <summary>
+/// Builds the vouchers of a Tally export as balanced <see cref="AccountingVoucher"/>s first and
+/// writes XML only from those, so what is validated is exactly what is written.
+/// </summary>
 internal static class TallyVoucherBuilder
 {
-    internal static XElement BuildSalesVoucher(
+    internal const string SalesLedger = "Sales";
+    internal const string WalkInCustomerLedger = "Walk-in Customer";
+    internal const string CustomerReceivableLedger = "Customer Receivable";
+    internal const string CreditNoteLiabilityLedger = "Credit Note Liability";
+
+    /// <summary>Refunds paid outside the books; the tender is not recorded, so it is not guessed.</summary>
+    internal const string CustomerRefundsClearingLedger = "Customer Refunds Clearing";
+
+    /// <summary>Refund above the paid share: a commercial adjustment that reverses no tax.</summary>
+    internal const string SalesReturnAdjustmentsLedger = "Sales Return Adjustments";
+
+    internal const string ReturnVoucherType = "Credit Note";
+    internal const string ReversalVoucherType = "Journal";
+
+    internal static AccountingVoucher BuildSalesVoucher(
         SalesExportSummaryRowDto summary,
         List<SalesExportLineItemRowDto> lineItems,
         IReadOnlyList<SalesExportTaxBreakupDto> taxBreakup,
         bool hasSingleInvoiceInDataset)
     {
-        var voucher = new XElement("VOUCHER", new XAttribute("ACTION", "Create"));
-        voucher.Add(new XElement("VOUCHERNUMBER", summary.InvoiceNumber));
-        voucher.Add(new XElement("VOUCHERTYPE", "Sales"));
-        voucher.Add(new XElement("DATE", summary.SaleDate.UtcDateTime.ToString("yyyyMMdd", CultureInfo.InvariantCulture)));
+        var lines = new List<AccountingVoucherLine>();
+        AddLine(lines, SalesLedger, Math.Abs(summary.TaxableAmount), isDebit: false);
+        AddLine(lines, CustomerLedgerName(summary.CustomerName), summary.DueAmount, isDebit: true);
+        AddLine(lines, GetPaymentLedgerName(summary.PaymentMethod), summary.PaidAmount, isDebit: true);
+        AddLine(lines, CreditNoteLiabilityLedger, summary.CreditNoteAppliedAmount, isDebit: true);
 
-        var referenceNumber = new XElement("REFERENCE");
-        referenceNumber.Add(new XElement("REFERENCENUMBER", summary.InvoiceNumber));
-        referenceNumber.Add(new XElement("REFERENCEDATE", summary.SaleDate.UtcDateTime.ToString("yyyyMMdd", CultureInfo.InvariantCulture)));
-        voucher.Add(referenceNumber);
+        foreach (var taxGroup in BuildTaxEntries(summary, lineItems, taxBreakup, hasSingleInvoiceInDataset).OrderBy(t => t.Rate))
+            AddLine(lines, FormatGstLedgerName(taxGroup.Rate), taxGroup.Amount, isDebit: false);
+
+        var date = DateOnly.FromDateTime(summary.SaleDate.UtcDateTime);
+        return new AccountingVoucher(summary.InvoiceNumber, "Sales", date, summary.InvoiceNumber, date, null, lines);
+    }
+
+    /// <summary>
+    /// A return's credit note: revenue, output tax and any commercial remainder debited, each
+    /// settlement leg credited to where the money went. A void's reversal is the same voucher with
+    /// every side swapped, dated the day of the void and referencing the credit note it reverses.
+    /// </summary>
+    internal static AccountingVoucher BuildReturnVoucher(ReturnAdjustmentEntry entry)
+    {
+        var adjustmentSide = !entry.IsReversal;
+        var lines = new List<AccountingVoucherLine>();
+        AddLine(lines, SalesLedger, Math.Abs(entry.TaxableAdjustment ?? 0m), adjustmentSide);
+        foreach (var component in entry.TaxComponents.OrderBy(c => c.TaxRatePercent))
+            AddLine(lines, FormatGstLedgerName(component.TaxRatePercent), Math.Abs(component.TaxAmount), adjustmentSide);
+        AddLine(lines, SalesReturnAdjustmentsLedger, Math.Abs(entry.NonTaxAdjustment ?? 0m), adjustmentSide);
+
+        foreach (var settlement in entry.Settlements)
+            AddLine(lines, SettlementLedgerName(settlement.Kind, entry.CustomerName), Math.Abs(settlement.Amount), !adjustmentSide);
+
+        var date = DateOnly.FromDateTime(entry.PostedAt.UtcDateTime);
+        return entry.IsReversal
+            ? new AccountingVoucher(
+                ReversalVoucherNumber(entry.ReturnNumber),
+                ReversalVoucherType,
+                date,
+                entry.ReturnNumber,
+                DateOnly.FromDateTime(entry.ReturnProcessedAt.UtcDateTime),
+                $"Reversal of credit note {entry.ReturnNumber} for invoice {entry.InvoiceNumber}: return voided ({entry.VoidReason}).",
+                lines)
+            : new AccountingVoucher(
+                entry.ReturnNumber,
+                ReturnVoucherType,
+                date,
+                entry.InvoiceNumber,
+                DateOnly.FromDateTime(entry.InvoiceDate.UtcDateTime),
+                ReturnNarration(entry),
+                lines);
+    }
+
+    internal static string ReversalVoucherNumber(string returnNumber) => $"{returnNumber}-VOID";
+
+    internal static XElement ToXml(AccountingVoucher voucher)
+    {
+        var element = new XElement("VOUCHER", new XAttribute("ACTION", "Create"));
+        element.Add(new XElement("VOUCHERNUMBER", voucher.Number));
+        element.Add(new XElement("VOUCHERTYPE", voucher.Type));
+        element.Add(new XElement("DATE", FormatDate(voucher.Date)));
+
+        element.Add(new XElement("REFERENCE",
+            new XElement("REFERENCENUMBER", voucher.Reference),
+            new XElement("REFERENCEDATE", FormatDate(voucher.ReferenceDate))));
+
+        if (!string.IsNullOrWhiteSpace(voucher.Narration))
+            element.Add(new XElement("NARRATION", voucher.Narration));
 
         var lineNumber = 1;
-        var taxableAmount = summary.TaxableAmount;
-        var salesLine = new XElement("VOUCHERLINE", new XAttribute("LINENUMBER", lineNumber.ToString(CultureInfo.InvariantCulture)));
-        salesLine.Add(new XElement("LEDGER", "Sales"));
-        salesLine.Add(new XElement("AMOUNT", Math.Abs(taxableAmount).ToString("F2", CultureInfo.InvariantCulture)));
-        salesLine.Add(new XElement("ISDEBIT", "No"));
-        voucher.Add(salesLine);
-        lineNumber++;
-
-        var customerName = !string.IsNullOrWhiteSpace(summary.CustomerName) ? summary.CustomerName : "Walk-in Customer";
-        if (summary.DueAmount > 0)
+        foreach (var line in voucher.Lines)
         {
-            var customerLine = new XElement("VOUCHERLINE", new XAttribute("LINENUMBER", lineNumber.ToString(CultureInfo.InvariantCulture)));
-            customerLine.Add(new XElement("LEDGER", customerName));
-            customerLine.Add(new XElement("AMOUNT", summary.DueAmount.ToString("F2", CultureInfo.InvariantCulture)));
-            customerLine.Add(new XElement("ISDEBIT", "Yes"));
-            voucher.Add(customerLine);
-            lineNumber++;
+            element.Add(new XElement("VOUCHERLINE",
+                new XAttribute("LINENUMBER", (lineNumber++).ToString(CultureInfo.InvariantCulture)),
+                new XElement("LEDGER", line.Ledger),
+                new XElement("AMOUNT", line.Amount.ToString("F2", CultureInfo.InvariantCulture)),
+                new XElement("ISDEBIT", line.IsDebit ? "Yes" : "No")));
         }
 
-        if (summary.PaidAmount > 0)
-        {
-            var paymentLedger = GetPaymentLedgerName(summary.PaymentMethod);
-            var paymentLine = new XElement("VOUCHERLINE", new XAttribute("LINENUMBER", lineNumber.ToString(CultureInfo.InvariantCulture)));
-            paymentLine.Add(new XElement("LEDGER", paymentLedger));
-            paymentLine.Add(new XElement("AMOUNT", summary.PaidAmount.ToString("F2", CultureInfo.InvariantCulture)));
-            paymentLine.Add(new XElement("ISDEBIT", "Yes"));
-            voucher.Add(paymentLine);
-            lineNumber++;
-        }
-
-        if (summary.CreditNoteAppliedAmount > 0)
-        {
-            var creditNoteLine = new XElement("VOUCHERLINE", new XAttribute("LINENUMBER", lineNumber.ToString(CultureInfo.InvariantCulture)));
-            creditNoteLine.Add(new XElement("LEDGER", GetCreditNoteLedgerName()));
-            creditNoteLine.Add(new XElement("AMOUNT", summary.CreditNoteAppliedAmount.ToString("F2", CultureInfo.InvariantCulture)));
-            creditNoteLine.Add(new XElement("ISDEBIT", "Yes"));
-            voucher.Add(creditNoteLine);
-            lineNumber++;
-        }
-
-        var taxEntries = BuildTaxEntries(summary, lineItems, taxBreakup, hasSingleInvoiceInDataset);
-        foreach (var taxGroup in taxEntries.OrderBy(t => t.Rate))
-        {
-            if (taxGroup.Amount > 0)
-            {
-                var gstLedgerName = FormatGstLedgerName(taxGroup.Rate);
-                var gstLine = new XElement("VOUCHERLINE", new XAttribute("LINENUMBER", lineNumber.ToString(CultureInfo.InvariantCulture)));
-                gstLine.Add(new XElement("LEDGER", gstLedgerName));
-                gstLine.Add(new XElement("AMOUNT", Math.Abs(taxGroup.Amount).ToString("F2", CultureInfo.InvariantCulture)));
-                gstLine.Add(new XElement("ISDEBIT", "No"));
-                voucher.Add(gstLine);
-                lineNumber++;
-            }
-        }
-
-        return voucher;
+        return element;
     }
 
     internal static IEnumerable<(decimal Rate, decimal Amount)> BuildTaxEntries(
@@ -123,6 +151,8 @@ internal static class TallyVoucherBuilder
             return [(rates[0].TaxRatePercent, taxAmount)];
         }
 
+        // An invoice's rate split cannot be told from dataset totals; the voucher then fails the
+        // balance check instead of guessing it.
         return [];
     }
 
@@ -133,7 +163,7 @@ internal static class TallyVoucherBuilder
             "CASH" => "Cash",
             "UPI" => "UPI",
             "CARD" => "Card",
-            _ => "Customer Receivable"
+            _ => CustomerReceivableLedger
         };
     }
 
@@ -143,73 +173,37 @@ internal static class TallyVoucherBuilder
         return $"Output GST {rate}%";
     }
 
-    internal static string GetCreditNoteLedgerName() => "Credit Note Liability";
+    internal static string GetCreditNoteLedgerName() => CreditNoteLiabilityLedger;
 
-    internal static XElement BuildCreditNoteVoucher(SalesExportReturnRowDto returnRow)
-    {
-        var voucherNumber = BuildCreditNoteVoucherNumber(returnRow.CreditNoteCode, returnRow.ReturnNumber);
-        var voucher = new XElement("VOUCHER", new XAttribute("ACTION", "Create"));
-        voucher.Add(new XElement("VOUCHERNUMBER", voucherNumber));
-        voucher.Add(new XElement("VOUCHERTYPE", "Credit Note"));
-        voucher.Add(new XElement("DATE", returnRow.ProcessedAt.UtcDateTime.ToString("yyyyMMdd", CultureInfo.InvariantCulture)));
+    internal static string CustomerLedgerName(string? customerName) =>
+        !string.IsNullOrWhiteSpace(customerName) ? customerName : WalkInCustomerLedger;
 
-        var referenceNumber = new XElement("REFERENCE");
-        referenceNumber.Add(new XElement("REFERENCENUMBER", returnRow.InvoiceNumber));
-        referenceNumber.Add(new XElement("REFERENCEDATE", returnRow.ProcessedAt.UtcDateTime.ToString("yyyyMMdd", CultureInfo.InvariantCulture)));
-        voucher.Add(referenceNumber);
-
-        var lineNumber = 1;
-        var customerName = !string.IsNullOrWhiteSpace(returnRow.CustomerName) ? returnRow.CustomerName : "Walk-in Customer";
-        var settlementLedger = string.IsNullOrWhiteSpace(returnRow.CreditNoteCode)
-            ? customerName
-            : GetCreditNoteLedgerName();
-        var customerLine = new XElement("VOUCHERLINE", new XAttribute("LINENUMBER", lineNumber.ToString(CultureInfo.InvariantCulture)));
-        customerLine.Add(new XElement("LEDGER", settlementLedger));
-        customerLine.Add(new XElement("AMOUNT", returnRow.TotalRefundAmount.ToString("F2", CultureInfo.InvariantCulture)));
-        customerLine.Add(new XElement("ISDEBIT", "No"));
-        voucher.Add(customerLine);
-        lineNumber++;
-
-        var salesLine = new XElement("VOUCHERLINE", new XAttribute("LINENUMBER", lineNumber.ToString(CultureInfo.InvariantCulture)));
-        salesLine.Add(new XElement("LEDGER", "Sales"));
-        salesLine.Add(new XElement("AMOUNT", Math.Abs(returnRow.TotalTaxableAmount).ToString("F2", CultureInfo.InvariantCulture)));
-        salesLine.Add(new XElement("ISDEBIT", "Yes"));
-        voucher.Add(salesLine);
-        lineNumber++;
-
-        foreach (var taxEntry in returnRow.TaxBreakup.OrderBy(t => t.TaxRatePercent))
+    private static string SettlementLedgerName(ReturnSettlementKind kind, string? customerName) =>
+        kind switch
         {
-            if (taxEntry.TaxAmount > 0)
-            {
-                var gstLedgerName = FormatGstLedgerName(taxEntry.TaxRatePercent);
-                var gstLine = new XElement("VOUCHERLINE", new XAttribute("LINENUMBER", lineNumber.ToString(CultureInfo.InvariantCulture)));
-                gstLine.Add(new XElement("LEDGER", gstLedgerName));
-                gstLine.Add(new XElement("AMOUNT", Math.Abs(taxEntry.TaxAmount).ToString("F2", CultureInfo.InvariantCulture)));
-                gstLine.Add(new XElement("ISDEBIT", "Yes"));
-                voucher.Add(gstLine);
-                lineNumber++;
-            }
-        }
+            ReturnSettlementKind.ReceivableReduction => CustomerLedgerName(customerName),
+            ReturnSettlementKind.StoreCreditIssued => CreditNoteLiabilityLedger,
+            ReturnSettlementKind.ExternalRefund => CustomerRefundsClearingLedger,
+            _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown return settlement kind."),
+        };
 
-        return voucher;
-    }
-
-    private static string BuildCreditNoteVoucherNumber(string? creditNoteCode, string fallbackReturnNumber)
+    private static string ReturnNarration(ReturnAdjustmentEntry entry)
     {
-        if (string.IsNullOrWhiteSpace(creditNoteCode))
-        {
-            return fallbackReturnNumber;
-        }
-
-        var issuedCreditNotes = creditNoteCode
-            .Split(',', StringSplitOptions.RemoveEmptyEntries)
-            .Select(code => code.Trim())
-            .Where(code => !string.IsNullOrWhiteSpace(code))
+        var storeCreditCodes = entry.Settlements
+            .Where(s => s.Kind == ReturnSettlementKind.StoreCreditIssued && !string.IsNullOrWhiteSpace(s.CreditNoteCode))
+            .Select(s => s.CreditNoteCode!)
             .Distinct()
             .ToList();
-
-        return issuedCreditNotes.Count > 0
-            ? string.Join(", ", issuedCreditNotes)
-            : fallbackReturnNumber;
+        var storeCredit = storeCreditCodes.Count == 0 ? string.Empty : $" Store credit {string.Join(", ", storeCreditCodes)}.";
+        return $"Return {entry.ReturnNumber} against invoice {entry.InvoiceNumber} ({entry.PolicyVersion}).{storeCredit}";
     }
+
+    private static void AddLine(List<AccountingVoucherLine> lines, string ledger, decimal amount, bool isDebit)
+    {
+        if (amount != 0m)
+            lines.Add(new AccountingVoucherLine(ledger, amount, isDebit));
+    }
+
+    private static string FormatDate(DateOnly date) =>
+        date.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
 }

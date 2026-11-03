@@ -277,6 +277,40 @@ public class ExportSalesQueryHandlerTests
     }
 
     [Fact]
+    public async Task Handle_WhenTallyRendererRefuses_ReturnsEveryDiagnostic_AndNoFile()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var ownerMembership = MakeMembership(shop.Id, user.Id, ShopRole.Owner);
+        var dataset = new SalesExportDatasetDto(
+            new SalesExportMetadataDto("Test Shop", null, null, "Export User", DateTimeOffset.UtcNow, new DateOnly(2026, 6, 1), new DateOnly(2026, 6, 30), SalesExportLevel.LineItems),
+            Array.Empty<SalesExportSummaryRowDto>(),
+            Array.Empty<SalesExportLineItemRowDto>(),
+            Array.Empty<SalesExportTaxBreakupDto>(),
+            []);
+        List<ErrorOr.Error> refusal =
+        [
+            Errors.Export.ReturnNeedsAccountingReview("RET-001", "INV-001", "No snapshot."),
+            Errors.Export.VoucherUnbalanced("INV-002", 100m, 99.99m),
+        ];
+
+        _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
+        _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(ownerMembership);
+        _datasetBuilder.BuildAsync(shop, user, Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), SalesExportLevel.LineItems, Arg.Any<CancellationToken>())
+            .Returns(dataset);
+        _tallyRenderer.RenderAsync(dataset, Arg.Any<CancellationToken>()).Returns(refusal);
+
+        var result = await CreateHandler().Handle(
+            new ExportSalesQuery(user.Id, shop.Id, SalesExportFormat.TallyXml, SalesExportLevel.Summary, new DateOnly(2026, 6, 1), new DateOnly(2026, 6, 30)),
+            CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(["Export.ReturnNeedsAccountingReview", "Export.VoucherUnbalanced"], result.Errors.Select(e => e.Code).ToArray());
+        _fileNameBuilder.DidNotReceive().BuildFileName(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateOnly>(), Arg.Any<DateOnly>());
+    }
+
+    [Fact]
     public async Task Handle_WhenFormatIsPdf_Summary_UsesPdfRenderer()
     {
         var user = MakeUser();

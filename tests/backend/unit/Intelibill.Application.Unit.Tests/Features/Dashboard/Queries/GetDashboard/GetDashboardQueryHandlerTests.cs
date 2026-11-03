@@ -1,6 +1,7 @@
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Dashboard.DTOs;
 using Intelibill.Application.Features.Dashboard.Queries.GetDashboard;
+using Intelibill.Application.Features.Exports.Accounting;
 using Intelibill.Application.Features.Sales.Queries.GetProfitLossReport;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
@@ -33,7 +34,7 @@ public sealed class GetDashboardQueryHandlerTests
     {
         _profitLossReportBuilder = new ProfitLossReportBuilder(
             _saleRepository,
-            _saleReturnRepository,
+            new ReturnAdjustmentReader(_saleReturnRepository, _saleRepository, Substitute.For<ICreditNoteRepository>()),
             _inventoryAdjustmentRepository);
         _handler = new GetDashboardQueryHandler(
             _saleRepository,
@@ -206,7 +207,7 @@ public sealed class GetDashboardQueryHandlerTests
         _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
         _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(membership);
         _saleRepository.GetByShopAndDateRangeAsync(shop.Id, from, to, Arg.Any<CancellationToken>()).Returns([sale]);
-        _saleReturnRepository.GetByShopAndDateRangeAsync(shop.Id, from, to, Arg.Any<CancellationToken>()).Returns([saleReturn]);
+        _saleReturnRepository.GetPostedInRangeAsync(shop.Id, from, to, Arg.Any<CancellationToken>()).Returns([saleReturn]);
         _inventoryAdjustmentRepository.GetByShopAndDateRangeAsync(shop.Id, from, to, Arg.Any<CancellationToken>()).Returns([adjustment]);
 
         var expectedSummary = await _profitLossReportBuilder.BuildAsync(shop.Id, from, to, null, null, CancellationToken.None);
@@ -909,7 +910,7 @@ public sealed class GetDashboardQueryHandlerTests
             .Returns(Task.FromResult<IReadOnlyList<Sale>>(Array.Empty<Sale>()));
         _saleRepository.GetByIdsAsync(Arg.Any<Guid>(), Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IReadOnlyList<Sale>>(Array.Empty<Sale>()));
-        _saleReturnRepository.GetByShopAndDateRangeAsync(Arg.Any<Guid>(), Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+        _saleReturnRepository.GetPostedInRangeAsync(Arg.Any<Guid>(), Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IReadOnlyList<SaleReturn>>(Array.Empty<SaleReturn>()));
         _inventoryAdjustmentRepository.GetByShopAndDateRangeAsync(Arg.Any<Guid>(), Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IReadOnlyList<InventoryAdjustment>>(Array.Empty<InventoryAdjustment>()));

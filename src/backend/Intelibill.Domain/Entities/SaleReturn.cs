@@ -8,6 +8,7 @@ namespace Intelibill.Domain.Entities;
 public sealed class SaleReturn : BaseEntity
 {
     private readonly List<SaleReturnItem> _items = [];
+    private readonly List<SaleReturnSettlement> _settlements = [];
 
     public Guid ShopId { get; private set; }
     public Guid SaleId { get; private set; }
@@ -28,7 +29,20 @@ public sealed class SaleReturn : BaseEntity
     public Guid? VoidedBy { get; private set; }
     public string? VoidReason { get; private set; }
 
+    // The posted accounting snapshot. Null until posted; legacy rows carry what the backfill could
+    // evidence, with NeedsReview where it could not.
+    public ReturnAccountingStatus? AccountingStatus { get; private set; }
+    public string? AccountingPolicyVersion { get; private set; }
+    public string? AccountingReviewReason { get; private set; }
+    public decimal? AdjustmentTaxableAmount { get; private set; }
+    public decimal? AdjustmentTaxAmount { get; private set; }
+    public decimal? AdjustmentNonTaxAmount { get; private set; }
+
     public IReadOnlyList<SaleReturnItem> Items => _items.AsReadOnly();
+    public IReadOnlyList<SaleReturnSettlement> Settlements => _settlements.AsReadOnly();
+
+    /// <summary>The paid invoice value of what came back, whatever was refunded for it.</summary>
+    public decimal OriginalReturnedGross => _items.Sum(i => i.MaxRefundAmount);
 
     private SaleReturn() { }
 
@@ -142,6 +156,88 @@ public sealed class SaleReturn : BaseEntity
         VoidedAt = voidedAt;
         VoidedBy = voidedBy;
         VoidReason = reason.Trim();
+
+        return Result.Success;
+    }
+
+    /// <summary>
+    /// Posts the financial side of this return once: every line's split must add up to its approved
+    /// refund, the receivable leg must equal the due reduction and the payout legs the payout, each
+    /// through the destination the return recorded.
+    /// </summary>
+    public ErrorOr<Success> PostAccounting(ReturnAccountingSnapshot snapshot)
+    {
+        if (AccountingStatus.HasValue)
+            return Errors.Sale.ReturnAccountingAlreadyPosted;
+
+        if (IsVoided)
+            return Errors.Sale.ReturnAccountingVoided;
+
+        var itemsBySaleItemId = _items.ToDictionary(i => i.SaleItemId);
+        if (snapshot.Lines.Count != itemsBySaleItemId.Count
+            || snapshot.Lines.Any(line =>
+                !itemsBySaleItemId.TryGetValue(line.SaleItemId, out var item)
+                || line.Total != item.ApprovedRefundAmount))
+        {
+            return Errors.Sale.ReturnAccountingLineMismatch;
+        }
+
+        var settlementValidation = ValidateSettlements(snapshot.Settlements);
+        if (settlementValidation.IsError)
+            return settlementValidation.Errors;
+
+        foreach (var line in snapshot.Lines)
+            itemsBySaleItemId[line.SaleItemId].PostAccounting(line);
+
+        var sequence = 1;
+        foreach (var settlement in snapshot.Settlements)
+        {
+            _settlements.Add(SaleReturnSettlement.Create(
+                ShopId,
+                Id,
+                sequence++,
+                settlement.Kind,
+                settlement.Amount,
+                settlement.CustomerId,
+                settlement.CreditNoteId,
+                settlement.CustomerLedgerEntryId));
+        }
+
+        AccountingStatus = ReturnAccountingStatus.Balanced;
+        AccountingPolicyVersion = snapshot.PolicyVersion;
+        AccountingReviewReason = null;
+        AdjustmentTaxableAmount = snapshot.TaxableAmount;
+        AdjustmentTaxAmount = snapshot.TaxAmount;
+        AdjustmentNonTaxAmount = snapshot.NonTaxAmount;
+
+        return Result.Success;
+    }
+
+    private ErrorOr<Success> ValidateSettlements(IReadOnlyList<ReturnSettlementInput> settlements)
+    {
+        var receivable = settlements
+            .Where(s => s.Kind == ReturnSettlementKind.ReceivableReduction)
+            .Sum(s => s.Amount);
+        var payout = settlements
+            .Where(s => s.Kind != ReturnSettlementKind.ReceivableReduction)
+            .Sum(s => s.Amount);
+
+        if (receivable != DueReductionAmount || payout != PayoutAmount)
+            return Errors.Sale.ReturnAccountingSettlementMismatch;
+
+        foreach (var settlement in settlements)
+        {
+            var destinationMatches = settlement.Kind switch
+            {
+                ReturnSettlementKind.ReceivableReduction => true,
+                ReturnSettlementKind.StoreCreditIssued => PayoutDestination == ReturnPayoutDestination.CreditNote,
+                ReturnSettlementKind.ExternalRefund => PayoutDestination == ReturnPayoutDestination.Refund,
+                _ => false,
+            };
+
+            if (!destinationMatches)
+                return Errors.Sale.ReturnAccountingSettlementInvalid;
+        }
 
         return Result.Success;
     }

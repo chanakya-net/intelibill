@@ -1,22 +1,75 @@
-using System.Linq;
 using System.Xml.Linq;
+using ErrorOr;
+using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Features.Exports.Accounting;
 using Intelibill.Application.Features.Exports.Sales;
 using Intelibill.Application.Features.Exports.Sales.DTOs;
+using Intelibill.Domain.Enums;
 
 namespace Intelibill.Infrastructure.Services.Exports;
 
-public sealed class SalesTallyXmlExportRenderer : ISalesTallyXmlExportRenderer
+public sealed class SalesTallyXmlExportRenderer(IAccountingVoucherValidator voucherValidator) : ISalesTallyXmlExportRenderer
 {
-    public Task<SalesExportResult> RenderAsync(SalesExportDatasetDto dataset, CancellationToken cancellationToken)
+    public Task<ErrorOr<SalesExportResult>> RenderAsync(SalesExportDatasetDto dataset, CancellationToken cancellationToken)
     {
-        var root = BuildTallyEnvelope(dataset);
-        var xmlString = root.ToString(SaveOptions.None);
-        var content = System.Text.Encoding.UTF8.GetBytes(xmlString);
+        var vouchers = BuildVouchers(dataset, out var errors);
+        foreach (var voucher in vouchers)
+        {
+            var validation = voucherValidator.Validate(voucher);
+            if (validation.IsError)
+                errors.AddRange(validation.Errors);
+        }
 
-        return Task.FromResult(new SalesExportResult(content, "application/xml", "sales-export.xml"));
+        if (errors.Count > 0)
+            return Task.FromResult<ErrorOr<SalesExportResult>>(errors);
+
+        var root = BuildTallyEnvelope(dataset, vouchers);
+        var content = System.Text.Encoding.UTF8.GetBytes(root.ToString(SaveOptions.None));
+
+        return Task.FromResult<ErrorOr<SalesExportResult>>(new SalesExportResult(content, "application/xml", "sales-export.xml"));
     }
 
-    private static XElement BuildTallyEnvelope(SalesExportDatasetDto dataset)
+    private static List<AccountingVoucher> BuildVouchers(SalesExportDatasetDto dataset, out List<Error> errors)
+    {
+        errors = [];
+        var vouchers = new List<AccountingVoucher>();
+        var linesByInvoice = dataset.LineItemRows
+            .GroupBy(r => r.InvoiceNumber)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        foreach (var summary in dataset.SummaryRows)
+        {
+            var voucher = TallyVoucherBuilder.BuildSalesVoucher(
+                summary,
+                linesByInvoice.GetValueOrDefault(summary.InvoiceNumber, []),
+                dataset.TaxBreakup,
+                dataset.SummaryRows.Count == 1);
+
+            // A zero-value invoice moves nothing in the books.
+            if (voucher.Lines.Count > 0)
+                vouchers.Add(voucher);
+        }
+
+        foreach (var adjustment in dataset.ReturnAdjustments)
+        {
+            if (adjustment.Status == ReturnAccountingStatus.NeedsReview)
+            {
+                errors.Add(Errors.Export.ReturnNeedsAccountingReview(
+                    adjustment.Label,
+                    adjustment.InvoiceNumber,
+                    adjustment.ReviewReason ?? ReturnAdjustmentProjector.MissingSnapshotReason));
+                continue;
+            }
+
+            // A zero refund keeps its stock fact in the other formats; it has nothing to post.
+            if (adjustment.HasVoucher)
+                vouchers.Add(TallyVoucherBuilder.BuildReturnVoucher(adjustment));
+        }
+
+        return vouchers;
+    }
+
+    private static XElement BuildTallyEnvelope(SalesExportDatasetDto dataset, IReadOnlyList<AccountingVoucher> vouchers)
     {
         var envelope = new XElement("ENVELOPE");
 
@@ -27,37 +80,20 @@ public sealed class SalesTallyXmlExportRenderer : ISalesTallyXmlExportRenderer
 
         var requestData = new XElement("REQUESTDATA");
 
-        foreach (var ledger in TallyLedgerBuilder.ExtractUniqueLedgers(dataset))
+        foreach (var ledger in TallyLedgerBuilder.ExtractUniqueLedgers(dataset, vouchers))
         {
             requestData.Add(TallyLedgerBuilder.BuildTallyMessage(TallyLedgerBuilder.BuildLedgerMaster(ledger)));
         }
 
-        if (dataset.SummaryRows.Count > 0)
+        foreach (var voucher in vouchers)
         {
-            var linesByInvoice = dataset.LineItemRows
-                .GroupBy(r => r.InvoiceNumber)
-                .ToDictionary(g => g.Key, g => g.ToList());
-
-            foreach (var summary in dataset.SummaryRows)
-            {
-                var voucherLines = linesByInvoice.GetValueOrDefault(summary.InvoiceNumber, new List<SalesExportLineItemRowDto>());
-                requestData.Add(TallyLedgerBuilder.BuildTallyMessage(TallyVoucherBuilder.BuildSalesVoucher(
-                    summary,
-                    voucherLines,
-                    dataset.TaxBreakup,
-                    dataset.SummaryRows.Count == 1)));
-            }
+            requestData.Add(TallyLedgerBuilder.BuildTallyMessage(TallyVoucherBuilder.ToXml(voucher)));
         }
 
-        if (dataset.ReturnRows.Count > 0)
-        {
-            foreach (var returnRow in dataset.ReturnRows.Where(r => !r.IsVoided))
-            {
-                requestData.Add(TallyLedgerBuilder.BuildTallyMessage(TallyVoucherBuilder.BuildCreditNoteVoucher(returnRow)));
-            }
-        }
-
-        var importData = new XElement("IMPORTDATA", new XElement("REQUESTDESC", "Intelibill Sales Export"), requestData);
+        var importData = new XElement(
+            "IMPORTDATA",
+            new XElement("REQUESTDESC", $"Intelibill Sales Export (accounting v{dataset.Metadata.AccountingExportVersion})"),
+            requestData);
         envelope.Add(new XElement("BODY", importData));
 
         return envelope;

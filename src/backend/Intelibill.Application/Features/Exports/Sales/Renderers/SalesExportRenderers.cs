@@ -1,3 +1,4 @@
+using ErrorOr;
 using Intelibill.Application.Features.Exports.Sales.DTOs;
 
 namespace Intelibill.Application.Features.Exports.Sales.Renderers;
@@ -20,8 +21,8 @@ public sealed class SalesPdfExportRenderer : ISalesPdfExportRenderer
 
 public sealed class SalesTallyXmlExportRenderer : ISalesTallyXmlExportRenderer
 {
-    public Task<SalesExportResult> RenderAsync(SalesExportDatasetDto dataset, CancellationToken cancellationToken)
+    public Task<ErrorOr<SalesExportResult>> RenderAsync(SalesExportDatasetDto dataset, CancellationToken cancellationToken)
     {
-        return Task.FromResult(new SalesExportResult(Array.Empty<byte>(), "application/xml", "sales-export.xml"));
+        return Task.FromResult<ErrorOr<SalesExportResult>>(new SalesExportResult(Array.Empty<byte>(), "application/xml", "sales-export.xml"));
     }
 }

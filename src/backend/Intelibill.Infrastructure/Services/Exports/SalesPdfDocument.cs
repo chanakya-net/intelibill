@@ -1,6 +1,8 @@
 using System.Globalization;
+using Intelibill.Application.Features.Exports.Accounting;
 using Intelibill.Application.Features.Exports.Sales;
 using Intelibill.Application.Features.Exports.Sales.DTOs;
+using Intelibill.Domain.Enums;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -76,9 +78,9 @@ internal sealed class SalesPdfDocument : IDocument
 
             column.Item().Element(ComposeTable);
 
-            if (_dataset.ReturnRows.Count > 0)
+            if (_dataset.ReturnAdjustments.Count > 0)
             {
-                column.Item().Element(ComposeReturnCreditNoteDetails);
+                column.Item().Element(ComposeReturnAdjustments);
             }
         });
     }
@@ -92,12 +94,14 @@ internal sealed class SalesPdfDocument : IDocument
         var totalDiscounts = summaryRows.Sum(r => r.DiscountAmount);
         var taxableAmount = summaryRows.Sum(r => r.TaxableAmount);
         var taxAmount = summaryRows.Sum(r => r.TaxAmount);
-        var returnAmount = summaryRows.Sum(r => r.ReturnAmount);
-        var netSales = summaryRows.Sum(r => r.NetSalesAmount);
+        var returnTotals = SummarizeReturns(_dataset);
+        var returnAmount = returnTotals.Adjustment;
+        var netSales = returnTotals.NetSales;
         var paidAmount = summaryRows.Sum(r => r.PaidAmount);
         var dueAmount = summaryRows.Sum(r => r.DueAmount);
         var creditNoteAppliedAmount = summaryRows.Sum(r => r.CreditNoteAppliedAmount);
-        var creditNoteIssuedAmount = summaryRows.Sum(r => r.IssuedCreditNoteAmount);
+        var creditNoteIssuedAmount = returnTotals.StoreCreditIssued;
+        var reviewCount = returnTotals.NeedingReview;
 
         container.Column(column =>
         {
@@ -134,7 +138,7 @@ internal sealed class SalesPdfDocument : IDocument
 
                 LabelCell("Tax amount");
                 ValueCell(taxAmount.ToString("N2", culture));
-                LabelCell("Return amount");
+                LabelCell("Return adjustments");
                 ValueCell(returnAmount.ToString("N2", culture));
 
                 LabelCell("Net sales");
@@ -150,8 +154,8 @@ internal sealed class SalesPdfDocument : IDocument
 
                 LabelCell("Due amount");
                 ValueCell(dueAmount.ToString("N2", culture));
-                LabelCell(string.Empty);
-                ValueCell(string.Empty);
+                LabelCell("Returns needing review");
+                ValueCell(reviewCount.ToString("N0", culture));
             });
         });
     }
@@ -177,44 +181,72 @@ internal sealed class SalesPdfDocument : IDocument
         });
     }
 
-    private void ComposeReturnCreditNoteDetails(IContainer container)
+    /// <summary>
+    /// Return figures cover every adjustment posted in the period, including returns and voids of
+    /// sales made before it, so they agree with the Tally and spreadsheet exports.
+    /// </summary>
+    internal static SalesPdfReturnTotals SummarizeReturns(SalesExportDatasetDto dataset)
+    {
+        var adjustments = dataset.ReturnAdjustments;
+        var adjustment = adjustments.Sum(a => a.FinancialAdjustment);
+        return new SalesPdfReturnTotals(
+            adjustment,
+            adjustments.Sum(a => a.SettledBy(ReturnSettlementKind.StoreCreditIssued)),
+            dataset.SummaryRows.Sum(r => r.TotalAmount) - adjustment,
+            adjustments.Count(a => a.Status == ReturnAccountingStatus.NeedsReview));
+    }
+
+    private void ComposeReturnAdjustments(IContainer container)
     {
         container.Column(column =>
         {
-            column.Item().Text("Return Credit Notes").SemiBold();
+            column.Item().Text("Return Adjustments").SemiBold();
             column.Item().Table(table =>
             {
                 table.ColumnsDefinition(cols =>
                 {
-                    cols.ConstantColumn(62);
-                    cols.ConstantColumn(62);
-                    cols.RelativeColumn();
-                    cols.ConstantColumn(68);
-                    cols.ConstantColumn(62);
-                    cols.ConstantColumn(62);
+                    cols.ConstantColumn(50); // Date
+                    cols.RelativeColumn();   // Return
+                    cols.ConstantColumn(62); // Invoice
+                    cols.ConstantColumn(52); // Original value
+                    cols.ConstantColumn(52); // Adjustment
+                    cols.ConstantColumn(48); // Tax
+                    cols.ConstantColumn(52); // Receivable
+                    cols.ConstantColumn(52); // Store credit
+                    cols.ConstantColumn(52); // Refund
+                    cols.ConstantColumn(50); // Status
                 });
 
-                ComposeTableHeader(table, ["Return #", "Invoice", "Credit Note", "Amount", "Remaining", "Voided"]);
+                ComposeTableHeader(
+                    table,
+                    ["Date", "Return", "Invoice", "Original", "Adjustment", "Tax", "Receivable", "Store credit", "Refund", "Status"]);
 
                 var rowIndex = 0;
-                foreach (var row in _dataset.ReturnRows)
+                foreach (var entry in _dataset.ReturnAdjustments)
                 {
                     rowIndex++;
                     var background = rowIndex % 2 == 0 ? Colors.Grey.Lighten5 : Colors.White;
 
-                    table.Cell().Element(c => TableCell(c, background)).Text(row.ReturnNumber);
-                    table.Cell().Element(c => TableCell(c, background)).Text(row.InvoiceNumber);
-                    table.Cell().Element(c => TableCell(c, background)).Text(row.CreditNoteCode ?? string.Empty);
-                    table.Cell().Element(c => TableCell(c, background).AlignRight())
-                        .Text(row.CreditNoteAmount.ToString("N2", CultureInfo.InvariantCulture));
-                    table.Cell().Element(c => TableCell(c, background).AlignRight())
-                        .Text(row.CreditNoteRemainingBalance.ToString("N2", CultureInfo.InvariantCulture));
-                    table.Cell().Element(c => TableCell(c, background))
-                        .Text(row.IsVoided ? "Yes" : "No");
+                    table.Cell().Element(c => TableCell(c, background)).Text(entry.PostedAt.UtcDateTime.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+                    table.Cell().Element(c => TableCell(c, background)).Text(entry.Label);
+                    table.Cell().Element(c => TableCell(c, background)).Text(entry.InvoiceNumber);
+                    AmountCell(table, background, entry.OriginalReturnedGross);
+                    AmountCell(table, background, entry.FinancialAdjustment);
+                    AmountCell(table, background, entry.TaxAdjustment ?? 0m);
+                    AmountCell(table, background, entry.SettledBy(ReturnSettlementKind.ReceivableReduction));
+                    AmountCell(table, background, entry.SettledBy(ReturnSettlementKind.StoreCreditIssued));
+                    AmountCell(table, background, entry.SettledBy(ReturnSettlementKind.ExternalRefund));
+                    table.Cell().Element(c => TableCell(c, background)).Text(StatusLabel(entry));
                 }
             });
         });
     }
+
+    private static void AmountCell(TableDescriptor table, string background, decimal amount) =>
+        table.Cell().Element(c => TableCell(c, background).AlignRight()).Text(amount.ToString("N2", CultureInfo.InvariantCulture));
+
+    internal static string StatusLabel(ReturnAdjustmentEntry entry) =>
+        entry.Status == ReturnAccountingStatus.NeedsReview ? "Needs review" : "Balanced";
 
     private void ComposeSummaryTable(TableDescriptor table)
     {
@@ -341,3 +373,5 @@ internal sealed class SalesPdfDocument : IDocument
         });
     }
 }
+
+internal sealed record SalesPdfReturnTotals(decimal Adjustment, decimal StoreCreditIssued, decimal NetSales, int NeedingReview);
