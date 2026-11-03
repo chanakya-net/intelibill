@@ -122,6 +122,26 @@ follow the server's `availableActions`. Backend rules: `docs/backend-architectur
   are none). Invoices of other shops billed on the same browser are not counted; the user must switch
   to each shop and check there.
 
+## GST Documents and Tax Profile
+
+- **Prints from the snapshot.** The A4 and thermal invoices (`sale-invoice-a4`, `sale-invoice-thermal`,
+  helpers in `sale-invoice-document.util.ts`) render an issued sale only from `sale.document`: seller and
+  buyer blocks, place of supply, the title for its document type, HSN/SAC, UOM, taxable value, the
+  CGST/SGST/UTGST/IGST rows and declarations. Live shop details are used only for a sale without a
+  document, which carries the "posted without a GST document" note (the API reports every such sale as
+  legacy, including an offline sale posted under review). A redeemed credit note counts toward part
+  payment; the settlement row lists the credit notes redeemed on this sale (`creditNoteRedemptions`).
+- **Tax profile.** `shop-tax-profile-form` (manage shop, owner only) saves through `PUT
+  shops/{id}/tax-profile` on its own; the create-shop overlay sends the same fields as `taxProfile`. The
+  manage-shop details step hides the GSTIN and sends the shop's current one back, since the server
+  refuses a different GSTIN once a profile is declared. Both forms keep unsaved edits when the other's
+  save refreshes the shop details.
+- **Customer GSTIN.** Add/edit customer validate the GSTIN check digit and state prefix and that it
+  matches the chosen state. Edit sends `''` to clear a GSTIN or state: the server keeps a field that is
+  absent or null.
+- **Errors.** `Invoice.*` refusals map through `sales/utils/invoice-error-keys.ts`; shop tax codes through
+  `shops.effects.ts`.
+
 ## Key Patterns
 
 - **Standalone components** — no NgModules; all imports declared per component

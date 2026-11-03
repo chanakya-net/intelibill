@@ -716,9 +716,10 @@ otherwise the bundle opens a review (`RecoveryReviewRequired`).
 The cashier's access is never restored.
 
 **Invoice leases.** `ReserveInvoiceLeaseCommandHandler` sets
-`expiresAt = min(reservedAt + 7 days, next 1 April 00:00 UTC)` (the fiscal year as `FiscalYear.ForDate`
-reads it, in UTC), so a lease never spans a fiscal-year boundary and an invoice billed on 1 April or
-later under an old range is held for review rather than posted silently.
+`expiresAt = min(reservedAt + 7 days, next 1 April 00:00 IST)` (the fiscal year as `FiscalYear.ForDate`
+reads it, on the India business calendar), so a lease never spans a fiscal-year boundary and an invoice
+billed on 1 April or later under an old range is held for review rather than posted silently. Ranges
+come from the shop's fiscal series (see § Issued Invoice Documents and Fiscal Numbering).
 
 **Rollout and rollback.** Migration `AddOfflineSubmissionReconciliationAudit` only adds tables and
 columns; existing cases take `status` from `is_resolved` and have no envelope ("original envelope not
@@ -730,14 +731,103 @@ envelopes, cases, events and leases stay and invoice ranges are never recycled.
 **Out of scope.** A device-revocation registry, closed accounting periods (backlog 27), offline
 attestation of the issue time, and reprint polish (backlog 21).
 
+## Issued Invoice Documents and Fiscal Numbering
+
+Every sale is issued as a document whose particulars are frozen at issue. Plan:
+`docs/superpowers/plans/2026-11-03-gst-invoice-contract-and-numbering.md`; the supported matrix for
+accountant sign-off: `docs/gst-invoice-capability-matrix.md`.
+
+**Tax profile.** A shop declares its GST registration (`PUT api/shops/{shopId}/tax-profile`, owner, or
+`taxProfile` on `POST api/shops`): `TaxRegime` (`Regular`, `Composition`, `Unregistered`), GST
+`StateCode`, `LegalName`, `InvoiceSeriesCode` (default `A`) and, for Regular, an `EInvoiceStatus`
+attestation (`BelowThreshold`, `Exempt`, `Required`) with who/when. `Shop.DeclareTaxProfile` checks
+the GSTIN (shape, state, check character via `Gstin`) against the regime and state; the regime is
+never inferred from the GSTIN. Existing shops migrate as `NotDeclared` and can neither sell nor reserve
+offline ranges until they declare. Once declared, the GSTIN belongs to the profile: `PUT api/shops/{id}`
+keeps it when omitted and refuses a different one (`Shop.GstinManagedByTaxProfile`). Customers carry an
+optional checksum-valid `Gstin` and `StateCode` (defaulting to the GSTIN's state); a GSTIN makes their
+invoices B2B. On customer edit an absent `gstin`/`stateCode` keeps the recorded value and an empty
+string clears it, so clients that predate the fields cannot erase them.
+
+**Capability matrix.** `InvoiceDocumentBuilder.CaptureSellerProfile` refuses an undeclared profile
+(`Invoice.TaxProfileRequired`), an invalid seller GSTIN (`Invoice.SellerGstinInvalid`) and an
+e-invoice-required registration (`Invoice.EInvoiceUnsupported`: IRN/QR is not integrated). `Build`
+then picks the document: Regular → `TaxInvoice` (all lines rated), `BillOfSupply` (all 0%) or
+`InvoiceCumBillOfSupply` (mixed, Rule 46A, unregistered buyers only: a registered buyer's mixed
+basket is refused with `Invoice.MixedSupplyToRegisteredBuyer`); Composition → `BillOfSupply` with the composition
+declaration, refusing any tax (`Invoice.CompositionCannotCollectTax`) and any interstate supply;
+Unregistered → `Receipt`, refusing any tax. Regular also needs a registered buyer's name and address,
+an unregistered buyer's name, address and state at ₹50,000 taxable (Rule 46(e)), 4-digit HSN on B2B
+lines below the e-invoice threshold and 6-digit HSN on every line of an `Exempt` registration (which
+also carries the Rule 46 exemption declaration). Every line must satisfy `total = taxable + tax` and
+the lines must sum to the sale (`Invoice.AmountsDoNotReconcile`); amounts are never recomputed.
+
+**Place of supply and components (`component-split/1`).** `RecordSale` takes an optional
+`placeOfSupplyStateCode`, used as given. Absent, goods sold at the counter are supplied in the seller's
+state (IGST Act s.10(1)(c)) and services in the recipient's recorded state — the GSTIN's for a
+registered buyer — else the seller's (s.12(2)); a sale of both whose places differ must state one
+(`Invoice.PlaceOfSupplyRequired`).
+Intrastate tax splits into CGST + SGST, or CGST + UTGST in a union territory without a legislature
+(04, 26, 31, 35, 38), each at half the rate, CGST taking the odd paisa; interstate tax is IGST at the
+full rate. Codes outside the domestic table (96, 97) are refused. Rounding adjustment is explicit (0).
+
+**Snapshot.** `IssuedInvoiceSnapshot` (version 2) is stored once as `jsonb` in `sales.invoice_document`
+(camel case, enum names; `Sale.AttachInvoiceDocument` refuses a second write) with document type,
+issue time, business date, fiscal year, series, number, seller and buyer blocks, place of supply,
+reverse charge (always false), lines with HSN/SAC, UOM (`NOS`/`NA` until per-item UOM), taxable value
+and components, totals, declarations and signature mode. `GET api/sales/{id}` returns it as
+`document`; `isLegacyDocument` marks sales issued before it (no snapshot, never backfilled from live
+master data). Print, reprint and Tally read the snapshot, not the shop or customer.
+
+**Numbering.** `IInvoiceNumberAllocator` is the one numbering authority. Numbers are
+`{series}/{yyyy}/{counter:D6}` (`A/2627/000001`), at most 16 characters (Rule 46); the counter's
+capacity is what still fits (`Invoice.SeriesExhausted`). `invoice_sequences` holds one row per shop,
+fiscal year and series, unique also on `(seller_registration_key, fiscal_year_start, series_code)`
+where the key is the GSTIN (or `shop:{id}` without one), so branches under one GSTIN cannot share a
+series (`Invoice.SeriesRegisteredToAnotherShop`) and a shop whose registration changed mid-year must
+pick a new series (`Invoice.SeriesRegistrationChanged`). The allocator inserts the row
+`ON CONFLICT DO NOTHING` and locks it `FOR UPDATE` inside the caller's transaction: `RecordSale` now
+always runs in one transaction and takes its number after pricing and customer checks, so concurrent
+postings serialize per series and a refused or failed posting rolls the counter back — no gaps.
+Offline ranges come from the same row (`ReserveRangeAsync`), so online and offline numbers never
+overlap; a range's unused tail stays unused. Idempotent replays return the original number. Legacy
+counters keep their `INV-yyyy-yy-` prefix under series `''` and key `legacy:{shop}` until their leases
+expire.
+
+**Business date.** `BusinessCalendar` reads instants in IST (fixed UTC+05:30). `FiscalYear.ForDate`
+uses it, so a sale at 00:30 IST on 1 April belongs to the new year; lease expiry caps at 1 April
+00:00 IST; the offline fiscal-year timing check and Tally voucher and reference dates use the same
+calendar. Export date ranges, customer ledger dates and the Excel/PDF exports still read UTC dates
+(backlog 27).
+
+**Offline.** A lease freezes the seller profile it was reserved under (`invoice_leases.seller_profile`);
+sync and reconciliation replays issue the document under it (the current profile for legacy leases).
+A device has already handed the invoice over, so if the matrix refuses it the sale still posts, without
+a document, and an informational `DocumentReview` case (type 11, acknowledged in the console) records
+why. Device-side printing still uses its local layout (backlog 21).
+
+**Exports.** Tally sales vouchers post the snapshot's components (`Output CGST 9%`, `Output SGST 9%`,
+`Output UTGST 9%`, `Output IGST 18%`, all under Tax Payable; component rates keep every digit, so
+half of 0.25% is `0.125%`); legacy sales keep `Output GST {rate}%`. A return of a documented sale
+reverses into the same component ledgers: `ReturnAdjustmentEntry.DocumentTaxComponents` splits the
+returned tax per rate with the document's place of supply and `component-split/1`. Credit-note
+documents themselves are unchanged (backlog 17).
+
+**Rollout and rollback.** Migration `AddIssuedInvoiceSnapshotsAndFiscalSeries` adds columns, backfills
+legacy counter keys shop by shop (FORCE RLS) and replaces the per-shop-year index. Owners must declare a
+profile before their next sale or lease. Rolling back the API leaves snapshots as readable data; the
+migration's `Down` fails once a shop has opened a fiscal series beside its legacy counter, so roll
+forward. Out of scope: IRN e-invoicing and B2C dynamic QR, exports/SEZ, reverse charge, cess, per-item
+UOM, device-side GST printing, credit-note documents.
+
 ## Test Structure
 
 | Suite | Path | Count |
 |---|---|---|
-| Domain unit | `tests/backend/unit/Intelibill.Domain.Unit.Tests/` | 296 |
-| Application unit | `tests/backend/unit/Intelibill.Application.Unit.Tests/` | 1424 |
-| API unit | `tests/backend/unit/Intelibill.Api.Unit.Tests/` | 557 |
-| Integration | `tests/backend/integration/Intelibill.Integration.Tests/` | 605 |
-| **Total** | | **2882** |
+| Domain unit | `tests/backend/unit/Intelibill.Domain.Unit.Tests/` | 329 |
+| Application unit | `tests/backend/unit/Intelibill.Application.Unit.Tests/` | 1506 |
+| API unit | `tests/backend/unit/Intelibill.Api.Unit.Tests/` | 562 |
+| Integration | `tests/backend/integration/Intelibill.Integration.Tests/` | 619 |
+| **Total** | | **3016** |
 
-Integration tests use `WebApplicationFactory<Program>` backed by **Testcontainers** (`Testcontainers.PostgreSql`) — Docker required. Non-integration suite: 2277 passing.
+Integration tests use `WebApplicationFactory<Program>` backed by **Testcontainers** (`Testcontainers.PostgreSql`) — Docker required. Non-integration suite: 2397 passing.
