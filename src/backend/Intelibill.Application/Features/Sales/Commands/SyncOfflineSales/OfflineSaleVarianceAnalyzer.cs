@@ -7,7 +7,7 @@ namespace Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
 internal sealed class OfflineSaleVarianceAnalyzer(IReconciliationIssueRepository reconciliationIssueRepository)
     : IOfflineSaleVarianceAnalyzer
 {
-    public async Task AddReviewIssueAsync(
+    public async Task<Guid> AddReviewIssueAsync(
         Guid shopId,
         Guid? saleId,
         string clientSaleId,
@@ -28,6 +28,7 @@ internal sealed class OfflineSaleVarianceAnalyzer(IReconciliationIssueRepository
             message,
             actorUserId);
         await reconciliationIssueRepository.AddAsync(issue, cancellationToken);
+        return issue.Id;
     }
 
     public async Task PersistReviewIssuesAsync(

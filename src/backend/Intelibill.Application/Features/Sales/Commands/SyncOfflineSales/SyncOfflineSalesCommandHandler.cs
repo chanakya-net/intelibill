@@ -26,6 +26,8 @@ public sealed class SyncOfflineSalesCommandHandler(
 {
     private const string StatusCreated = "created";
     private const string StatusSyncedWithWarnings = "SyncedWithWarnings";
+    private const int MaxReviewMessageLength = 1000;
+    private const int MaxReportedMismatches = 100;
 
     public async Task<ErrorOr<OfflineSalesSyncResponseDto>> HandleAsync(
         SyncOfflineSalesCommand command,
@@ -72,9 +74,9 @@ public sealed class SyncOfflineSalesCommandHandler(
         {
             if (!string.Equals(existing.RequestHash, hash, StringComparison.Ordinal))
             {
-                await varianceAnalyzer.AddReviewIssueAsync(command.ShopId, existing.Id, normalizedId, deviceId, ReconciliationIssueType.ValidationConflict, Errors.Sale.IdempotencyConflict.Code, Errors.Sale.IdempotencyConflict.Description, command.ActorUserId, cancellationToken);
+                var conflictCaseId = await varianceAnalyzer.AddReviewIssueAsync(command.ShopId, existing.Id, normalizedId, deviceId, ReconciliationIssueType.ValidationConflict, Errors.Sale.IdempotencyConflict.Code, Errors.Sale.IdempotencyConflict.Description, command.ActorUserId, cancellationToken);
                 await unitOfWork.SaveChangesAsync(cancellationToken);
-                return OfflineSaleSyncHelpers.BuildNeedsReviewResult(normalizedId, Errors.Sale.IdempotencyConflict);
+                return OfflineSaleSyncHelpers.BuildNeedsReviewResult(normalizedId, Errors.Sale.IdempotencyConflict, conflictCaseId);
             }
             return OfflineSaleSyncHelpers.BuildDuplicateResult(normalizedId, existing);
         }
@@ -105,16 +107,16 @@ public sealed class SyncOfflineSalesCommandHandler(
 
         if (!TryMatchLease(activeLeases, invNum, out _))
         {
-            await varianceAnalyzer.AddReviewIssueAsync(command.ShopId, null, normalizedId, deviceId, ReconciliationIssueType.InvoiceConflict, Errors.Sale.InvoiceLeaseNotFound.Code, Errors.Sale.InvoiceLeaseNotFound.Description, command.ActorUserId, cancellationToken);
+            var leaseCaseId = await varianceAnalyzer.AddReviewIssueAsync(command.ShopId, null, normalizedId, deviceId, ReconciliationIssueType.InvoiceConflict, Errors.Sale.InvoiceLeaseNotFound.Code, Errors.Sale.InvoiceLeaseNotFound.Description, command.ActorUserId, cancellationToken);
             await unitOfWork.SaveChangesAsync(cancellationToken);
-            return OfflineSaleSyncHelpers.BuildNeedsReviewResult(normalizedId, Errors.Sale.InvoiceLeaseNotFound);
+            return OfflineSaleSyncHelpers.BuildNeedsReviewResult(normalizedId, Errors.Sale.InvoiceLeaseNotFound, leaseCaseId);
         }
 
         if (await saleRepository.GetByInvoiceNumberAsync(command.ShopId, invNum, cancellationToken) is not null)
         {
-            await varianceAnalyzer.AddReviewIssueAsync(command.ShopId, null, normalizedId, deviceId, ReconciliationIssueType.InvoiceConflict, Errors.Sale.InvoiceNumberAlreadyUsed.Code, Errors.Sale.InvoiceNumberAlreadyUsed.Description, command.ActorUserId, cancellationToken);
+            var invoiceCaseId = await varianceAnalyzer.AddReviewIssueAsync(command.ShopId, null, normalizedId, deviceId, ReconciliationIssueType.InvoiceConflict, Errors.Sale.InvoiceNumberAlreadyUsed.Code, Errors.Sale.InvoiceNumberAlreadyUsed.Description, command.ActorUserId, cancellationToken);
             await unitOfWork.SaveChangesAsync(cancellationToken);
-            return OfflineSaleSyncHelpers.BuildNeedsReviewResult(normalizedId, Errors.Sale.InvoiceNumberAlreadyUsed);
+            return OfflineSaleSyncHelpers.BuildNeedsReviewResult(normalizedId, Errors.Sale.InvoiceNumberAlreadyUsed, invoiceCaseId);
         }
 
         var lineCmds = new List<RecordSaleItemCommand>(sale.Items.Count);
@@ -134,6 +136,16 @@ public sealed class SyncOfflineSalesCommandHandler(
             lineByKey.Add(key, line);
             var lineType = line.IsServiceLine ? SaleLineType.Service : SaleLineType.Goods;
             lineCmds.Add(new RecordSaleItemCommand(line.Barcode, line.BatchNumber, line.ItemName, line.Quantity, line.CostPrice, line.SalesPrice, line.Mrp, line.TaxRatePercent, line.IsPriceIncludingTax, line.InventoryBatchId, null, key, line.HsnCode, lineType, line.ServiceId));
+        }
+
+        // Frozen amounts must reconcile with their own inputs before anything is posted; catalog variance is reported separately below.
+        var arithmetic = OfflineInvoiceArithmeticValidator.Validate(sale);
+        if (!arithmetic.IsConsistent)
+        {
+            var arithmeticError = arithmetic.IsUnsupportedVersion ? Errors.Sale.OfflineCalculationVersionUnsupported : Errors.Sale.OfflineArithmeticMismatch;
+            var arithmeticCaseId = await varianceAnalyzer.AddReviewIssueAsync(command.ShopId, null, normalizedId, deviceId, ReconciliationIssueType.ArithmeticConflict, arithmeticError.Code, arithmetic.Describe(MaxReviewMessageLength), command.ActorUserId, cancellationToken);
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+            return OfflineSaleSyncHelpers.BuildNeedsReviewResult(normalizedId, arithmeticError, arithmeticCaseId, [.. arithmetic.Mismatches.Take(MaxReportedMismatches)]);
         }
 
         var warnCountBefore = warnings.Count;
@@ -237,17 +249,17 @@ public sealed class SyncOfflineSalesCommandHandler(
                 var saveErr = OfflineSaleSyncHelpers.GetSaveFailureError(ex);
                 if (saveErr.Code == Errors.Sale.InvoiceNumberAlreadyUsed.Code)
                 {
-                    await varianceAnalyzer.AddReviewIssueAsync(command.ShopId, null, normalizedId, deviceId, ReconciliationIssueType.InvoiceConflict, saveErr.Code, saveErr.Description, command.ActorUserId, cancellationToken);
+                    var saveConflictCaseId = await varianceAnalyzer.AddReviewIssueAsync(command.ShopId, null, normalizedId, deviceId, ReconciliationIssueType.InvoiceConflict, saveErr.Code, saveErr.Description, command.ActorUserId, cancellationToken);
                     await unitOfWork.SaveChangesAsync(cancellationToken);
-                    return OfflineSaleSyncHelpers.BuildNeedsReviewResult(normalizedId, saveErr);
+                    return OfflineSaleSyncHelpers.BuildNeedsReviewResult(normalizedId, saveErr, saveConflictCaseId);
                 }
                 return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, saveErr);
             }
             if (!string.Equals(concurrent.RequestHash, hash, StringComparison.Ordinal))
             {
-                await varianceAnalyzer.AddReviewIssueAsync(command.ShopId, concurrent.Id, normalizedId, deviceId, ReconciliationIssueType.ValidationConflict, Errors.Sale.IdempotencyConflict.Code, Errors.Sale.IdempotencyConflict.Description, command.ActorUserId, cancellationToken);
+                var raceCaseId = await varianceAnalyzer.AddReviewIssueAsync(command.ShopId, concurrent.Id, normalizedId, deviceId, ReconciliationIssueType.ValidationConflict, Errors.Sale.IdempotencyConflict.Code, Errors.Sale.IdempotencyConflict.Description, command.ActorUserId, cancellationToken);
                 await unitOfWork.SaveChangesAsync(cancellationToken);
-                return OfflineSaleSyncHelpers.BuildNeedsReviewResult(normalizedId, Errors.Sale.IdempotencyConflict);
+                return OfflineSaleSyncHelpers.BuildNeedsReviewResult(normalizedId, Errors.Sale.IdempotencyConflict, raceCaseId);
             }
             return OfflineSaleSyncHelpers.BuildDuplicateResult(normalizedId, concurrent);
         }

@@ -4493,4 +4493,191 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         var voidResponse = await client.SendAsync(voidRequest);
         Assert.Equal(HttpStatusCode.Conflict, voidResponse.StatusCode);
     }
+
+    [Fact]
+    public async Task OfflineSync_WhenHeaderDisagreesWithLines_HoldsForReviewWithoutPosting()
+    {
+        using var client = CreateClient();
+        var ownerToken = await CreateShopAsync(client, await RegisterAsync(client));
+        var barcode = UniqueBarcode();
+        var inbound = await AddInventoryAsync(client, ownerToken, barcode, "B-001", 10m);
+        var itemId = inbound.GetProperty("itemId").GetGuid();
+        var batchId = inbound.GetProperty("inventoryBatchId").GetGuid();
+        var invoiceNumber = await FirstLeasedInvoiceNumberAsync(client, ownerToken, "device-1");
+        var clientSaleId = $"offline-{Guid.NewGuid():N}";
+
+        var result = await PostOfflineSaleAsync(
+            client,
+            ownerToken,
+            OfflineSalePayload(clientSaleId, invoiceNumber, barcode, batchId, calculationVersion: null, totalAmount: 1m, totalTaxAmount: 0m, subtotalBeforeDiscount: 1m));
+
+        Assert.Equal("NeedsReview", result.GetProperty("status").GetString());
+        Assert.Equal(JsonValueKind.Null, result.GetProperty("saleId").ValueKind);
+        Assert.Equal(Errors.Sale.OfflineArithmeticMismatch.Code, result.GetProperty("errors")[0].GetProperty("code").GetString());
+        var total = result.GetProperty("mismatches").EnumerateArray().Single(m => m.GetProperty("path").GetString() == "totalAmount");
+        Assert.Equal(1m, total.GetProperty("supplied").GetDecimal());
+        Assert.Equal(118m, total.GetProperty("expected").GetDecimal());
+        Assert.Equal("amount_mismatch", total.GetProperty("code").GetString());
+        var caseId = result.GetProperty("reviewCaseId").GetGuid();
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.False(await db.Sales.AnyAsync(s => s.ClientSaleId == clientSaleId));
+        Assert.Equal(10m, (await db.InventoryBatches.SingleAsync(b => b.Id == batchId)).Quantity);
+        Assert.Equal(10m, (await db.Inventory.SingleAsync(i => i.ItemId == itemId)).Quantity);
+        Assert.False(await db.StockTransactions.AnyAsync(t => t.InventoryBatchId == batchId && t.TransactionType == StockTransactionType.Out));
+        var shopId = Guid.Parse(new JwtSecurityTokenHandler().ReadJwtToken(ownerToken).Claims.Single(c => c.Type == "active_shop_id").Value);
+        Assert.False(await db.CustomerLedgerEntries.AnyAsync(e => e.ShopId == shopId));
+        var issue = await db.ReconciliationIssues.SingleAsync(i => i.ClientSaleId == clientSaleId);
+        Assert.Equal(caseId, issue.Id);
+        Assert.Equal(ReconciliationIssueType.ArithmeticConflict, issue.IssueType);
+        Assert.Null(issue.SaleId);
+        Assert.Contains("totalAmount supplied 1.00 expected 118.00", issue.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task OfflineSync_Version1_PreservesFrozenAmountsAfterCatalogPriceChange()
+    {
+        using var client = CreateClient();
+        var ownerToken = await CreateShopAsync(client, await RegisterAsync(client));
+        var barcode = UniqueBarcode();
+        var batchId = (await AddInventoryAsync(client, ownerToken, barcode, "B-001", 10m)).GetProperty("inventoryBatchId").GetGuid();
+        var invoiceNumber = await FirstLeasedInvoiceNumberAsync(client, ownerToken, "device-1");
+        await RepriceBatchAsync(client, ownerToken, batchId, salesPrice: 200m, mrp: 250m);
+        var clientSaleId = $"offline-{Guid.NewGuid():N}";
+
+        var result = await PostOfflineSaleAsync(client, ownerToken, OfflineSalePayload(clientSaleId, invoiceNumber, barcode, batchId, calculationVersion: 1));
+
+        Assert.Equal("SyncedWithWarnings", result.GetProperty("status").GetString());
+        Assert.Empty(result.GetProperty("mismatches").EnumerateArray());
+        Assert.Contains(result.GetProperty("warnings").EnumerateArray(), w => w.GetString()!.Contains("current 200", StringComparison.Ordinal));
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var sale = await db.Sales.Include(s => s.Items).SingleAsync(s => s.ClientSaleId == clientSaleId);
+        Assert.Equal(118m, sale.TotalAmount);
+        Assert.Equal(18m, sale.TotalTaxAmount);
+        Assert.Equal(100m, sale.Items[0].SalesPrice);
+        Assert.Equal(118m, sale.Items[0].TotalAmount);
+        Assert.Contains(await db.ReconciliationIssues.Where(i => i.ClientSaleId == clientSaleId).ToListAsync(), i => i.IssueType == ReconciliationIssueType.PricingVariance);
+    }
+
+    [Fact]
+    public async Task OfflineSync_WhenCalculationVersionUnknown_HoldsForReviewWithoutPosting()
+    {
+        using var client = CreateClient();
+        var ownerToken = await CreateShopAsync(client, await RegisterAsync(client));
+        var barcode = UniqueBarcode();
+        var batchId = (await AddInventoryAsync(client, ownerToken, barcode, "B-001", 10m)).GetProperty("inventoryBatchId").GetGuid();
+        var invoiceNumber = await FirstLeasedInvoiceNumberAsync(client, ownerToken, "device-1");
+        var clientSaleId = $"offline-{Guid.NewGuid():N}";
+
+        var result = await PostOfflineSaleAsync(client, ownerToken, OfflineSalePayload(clientSaleId, invoiceNumber, barcode, batchId, calculationVersion: 9));
+
+        Assert.Equal("NeedsReview", result.GetProperty("status").GetString());
+        Assert.Equal(Errors.Sale.OfflineCalculationVersionUnsupported.Code, result.GetProperty("errors")[0].GetProperty("code").GetString());
+        Assert.Equal("calculationVersion", result.GetProperty("mismatches")[0].GetProperty("path").GetString());
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.False(await db.Sales.AnyAsync(s => s.ClientSaleId == clientSaleId));
+        Assert.Equal(10m, (await db.InventoryBatches.SingleAsync(b => b.Id == batchId)).Quantity);
+    }
+
+    private static async Task<string> FirstLeasedInvoiceNumberAsync(HttpClient client, string token, string deviceId)
+    {
+        var lease = await ReserveInvoiceLeaseAsync(client, token, deviceId);
+        return FormatInvoiceNumber(
+            lease.GetProperty("prefix").GetString()!,
+            lease.GetProperty("rangeStart").GetInt32(),
+            lease.GetProperty("numberPadding").GetInt32());
+    }
+
+    private static async Task RepriceBatchAsync(HttpClient client, string token, Guid batchId, decimal salesPrice, decimal mrp)
+    {
+        using var listRequest = new HttpRequestMessage(HttpMethod.Get, "/api/inventory/batches");
+        listRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var listResponse = await client.SendAsync(listRequest);
+        listResponse.EnsureSuccessStatusCode();
+        var batch = (await listResponse.Content.ReadFromJsonAsync<JsonElement>()).EnumerateArray()
+            .Single(b => b.GetProperty("id").GetGuid() == batchId);
+
+        using var request = new HttpRequestMessage(HttpMethod.Put, $"/api/inventory/batches/{batchId}/prices");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(new
+        {
+            expectedVersion = batch.GetProperty("version").GetUInt32(),
+            mrp,
+            salesPrice,
+            taxRatePercent = 18m,
+            taxIncluded = false,
+            batchNumber = (string?)null,
+            expiryDate = (DateOnly?)null,
+            manufacturingDate = (DateOnly?)null,
+            reason = "Price change after offline issuance",
+        });
+        var response = await client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+    }
+
+    private static async Task<JsonElement> PostOfflineSaleAsync(HttpClient client, string token, object sale)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/sales/offline-sync");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(new { deviceId = "device-1", sales = new[] { sale } });
+        var response = await client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        return (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("results")[0];
+    }
+
+    private static object OfflineSalePayload(
+        string clientSaleId,
+        string invoiceNumber,
+        string barcode,
+        Guid batchId,
+        int? calculationVersion,
+        decimal totalAmount = 118m,
+        decimal totalTaxAmount = 18m,
+        decimal subtotalBeforeDiscount = 100m) =>
+        new
+        {
+            clientSaleId,
+            invoiceNumber,
+            soldAt = DateTimeOffset.UtcNow.AddMinutes(-5),
+            paymentMethod = (int)PaymentMethod.Cash,
+            paidAmount = totalAmount,
+            dueAmount = 0m,
+            subtotalBeforeDiscount,
+            totalBeforeDiscount = totalAmount,
+            totalDiscountAmount = 0m,
+            totalTaxAmount,
+            totalAmount,
+            saleDiscountOverrideType = (int)InstantDiscountType.None,
+            saleDiscountOverrideValue = 0m,
+            calculationVersion,
+            items = new[]
+            {
+                new
+                {
+                    barcode,
+                    batchNumber = "B-001",
+                    itemName = "Test Item",
+                    quantity = 1m,
+                    costPrice = 80m,
+                    salesPrice = 100m,
+                    mrp = 120m,
+                    taxRatePercent = 18m,
+                    isPriceIncludingTax = false,
+                    inventoryBatchId = batchId,
+                    preTaxAmountBeforeDiscount = 100m,
+                    itemDiscountAmount = 0m,
+                    saleDiscountAmount = 0m,
+                    taxableAmount = 100m,
+                    taxAmount = 18m,
+                    totalAmount = 118m,
+                    itemDiscountOverrideType = (int)InstantDiscountType.None,
+                    itemDiscountOverrideValue = 0m,
+                },
+            },
+        };
 }

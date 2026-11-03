@@ -8,4 +8,5 @@ public enum ReconciliationIssueType
     PricingVariance = 4,
     DiscountVariance = 5,
     CustomerVariance = 6,
+    ArithmeticConflict = 7,
 }

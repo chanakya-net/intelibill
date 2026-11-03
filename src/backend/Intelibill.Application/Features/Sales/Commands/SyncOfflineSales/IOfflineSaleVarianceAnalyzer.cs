@@ -5,7 +5,7 @@ namespace Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
 
 public interface IOfflineSaleVarianceAnalyzer
 {
-    Task AddReviewIssueAsync(
+    Task<Guid> AddReviewIssueAsync(
         Guid shopId,
         Guid? saleId,
         string clientSaleId,
