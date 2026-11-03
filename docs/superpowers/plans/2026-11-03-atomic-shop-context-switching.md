@@ -114,9 +114,20 @@
 
 ## Migration, rollout and rollback
 
-Cart drafts move to a v2 owner-keyed store; v1 shop-only drafts cannot be attributed to a user and are left unread (they expire under the 5-minute cart retention anyway). Checkout intents and offline invoices are untouched. No API or DB migration. Rolling back to v1 code opens the v2 database at version 1, fails, and starts with an empty cart: it cannot restore cross-scope persistence.
+Cart drafts move to a v2 owner-keyed store; v1 shop-only drafts cannot be attributed to a user and are left unread (they expire under the 5-minute cart retention anyway). The v2 open reports a tab still holding v1 open (`onblocked`) as a visible save failure instead of waiting, and keeps one connection per tab that closes on a later upgrade. Checkout intents and offline invoices are untouched. No API or DB migration. Rolling back to v1 code cannot open the v2 database, so cart persistence stays off (carts live in memory only) until the change is rolled forward again: it cannot restore cross-scope persistence.
+
+## Review addenda (applied on this branch)
+
+- Offline-sync batches are owner-bound too; the loop stops once the tab moves and leaves unsent invoices retryable.
+- The interceptor's refresh branch no longer clears a valid session when a renewal lands in another shop, and does not renew for a scope already left.
+- A sign-out that nobody navigates from shows `shell.signedOut` and goes to `/login`.
+- Shop creation waits for `prepareToLeave()` like a switch; restarts wait (bounded) for detach saves.
+- The stale-answer guard covers API requests only and exempts just the session-installing endpoints.
+- The catalog stream checks the epoch after every await.
 
 ## Deferred
 
 - Playwright two-tab release spec — needs the plan-48 release harness.
 - Inventory intake and purchase-order drafts are still keyed by shop only (shared by members of one shop on one device); re-keying them by user is a separate change.
+- Cross-tab `SESSION_UPDATED` messages are adopted without a `scope_version` comparison: one sender's broadcasts arrive in order and the server re-checks every token.
+- Role demotion inside the same shop does not restart the tab; the server authorizes each request and the shop list refresh updates permissions.

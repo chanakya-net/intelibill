@@ -12,6 +12,9 @@ import { OfflineSalesQueueIndexedDbService } from './offline-sales-queue-indexed
 import { OfflineSalesQueueSyncService } from './offline-sales-queue-sync.service';
 import { SaleService } from './sale.service';
 import { isOfflineSaleSyncRetryable } from '../utils/offline-sale-sync.mapper';
+import { ShopContextService } from '../../../core/context/shop-context.service';
+import { StaleScopeError } from '../../../core/context/scoped-request';
+import { AppReloadService } from '../../../core/services/app-reload.service';
 
 describe('OfflineSalesQueueSyncService', () => {
   const activeSession = signal<AuthSession | null>(makeSession('shop-1'));
@@ -46,8 +49,10 @@ describe('OfflineSalesQueueSyncService', () => {
         { provide: OfflineSalesDeviceSettingsStorage, useValue: settingsStorage },
         { provide: OfflineSalesQueueIndexedDbService, useValue: queueDb },
         { provide: SaleService, useValue: saleService },
+        { provide: AppReloadService, useValue: { restartAtAppRoot: vi.fn() } },
       ],
     });
+    TestBed.inject(ShopContextService).initialize({ userId: 'user-1', shopId: 'shop-1' });
 
     return TestBed.inject(OfflineSalesQueueSyncService);
   }
@@ -114,6 +119,48 @@ describe('OfflineSalesQueueSyncService', () => {
     expect(saleService.syncOfflineSales).toHaveBeenCalledTimes(3);
     expect(saleService.syncOfflineSales.mock.calls.map(([request]) => request.sales.length)).toEqual([50, 50, 20]);
     expect(queueDb.deleteOldSyncedRecords).toHaveBeenCalled();
+  });
+
+  it('sends every batch as the run\'s owner and stops once the tab moves to another user', async () => {
+    const service = setup();
+    const records = Array.from({ length: 120 }, (_, index) => makeRecord(`sale-${index + 1}`));
+    queueDb.getPendingSales.mockResolvedValue(records);
+    saleService.syncOfflineSales.mockImplementation((request) => {
+      // The cashier signs out and another signs in while the first batch is answered.
+      const context = TestBed.inject(ShopContextService);
+      context.transition(null, 'sign-out', () => undefined);
+      context.transition({ userId: 'user-2', shopId: 'shop-1' }, 'sign-in', () => undefined);
+      return of({
+        results: request.sales.map((sale) => ({
+          clientSaleId: sale.clientSaleId,
+          status: 'created',
+          saleId: `server-${sale.clientSaleId}`,
+          invoiceNumber: sale.invoiceNumber,
+          errors: [],
+          warnings: [],
+        })),
+      });
+    });
+
+    await service.syncActiveShop();
+
+    expect(saleService.syncOfflineSales).toHaveBeenCalledTimes(1);
+    expect(saleService.syncOfflineSales.mock.calls[0][1]).toEqual({ userId: 'user-1', shopId: 'shop-1' });
+    expect(queueDb.markSyncInProgress).toHaveBeenCalledTimes(50);
+  });
+
+  it('applies no verdict to a batch whose answer arrived after the tab moved', async () => {
+    const service = setup();
+    queueDb.getPendingSales.mockResolvedValue([makeRecord('sale-1'), makeRecord('sale-2')]);
+    saleService.syncOfflineSales.mockReturnValue(throwError(() => new StaleScopeError()));
+
+    const result = await service.syncActiveShop();
+
+    expect(result.syncedCount).toBe(0);
+    expect(queueDb.applySyncResult).toHaveBeenCalledWith('shop-1', 'device-1', 'sale-1', expect.objectContaining({
+      status: 'Failed',
+      errorCode: 'offline_sync.scope_changed',
+    }));
   });
 
   it('locks concurrent sync runs per shop and device', async () => {

@@ -39,7 +39,9 @@ describe('AuthService scope transitions', () => {
     const harness = t.setup();
     const context = TestBed.inject(ShopContextService);
     const changes: ScopeChange[] = [];
-    context.onDetach((change) => changes.push(change));
+    context.onDetach((change) => {
+      changes.push(change);
+    });
     return { ...harness, context, changes };
   }
 

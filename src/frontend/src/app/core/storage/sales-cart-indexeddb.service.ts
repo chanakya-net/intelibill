@@ -104,6 +104,7 @@ export class SalesCartIndexedDbService {
   // it was and no longer read.
   private readonly databaseVersion = 2;
   private readonly storeName = 'sales-cart-by-owner';
+  private connection: Promise<IDBDatabase> | null = null;
 
   async loadCart(owner: ScopeOwner, maxAgeMs: number): Promise<readonly SalesCartDraftItem[]> {
     const record = await this.readFreshRecord(owner, maxAgeMs);
@@ -220,8 +221,12 @@ export class SalesCartIndexedDbService {
     return record;
   }
 
-  private async openDatabase(): Promise<IDBDatabase> {
-    return await new Promise((resolve, reject) => {
+  /**
+   * One connection per tab, closed when a newer tab upgrades the schema. A tab still on an older
+   * version blocks the upgrade; that is reported as a failure instead of waiting on it forever.
+   */
+  private openDatabase(): Promise<IDBDatabase> {
+    this.connection ??= new Promise<IDBDatabase>((resolve, reject) => {
       const request = indexedDB.open(this.databaseName, this.databaseVersion);
 
       request.onupgradeneeded = () => {
@@ -231,9 +236,22 @@ export class SalesCartIndexedDbService {
         }
       };
 
-      request.onsuccess = () => resolve(request.result);
+      request.onsuccess = () => {
+        const database = request.result;
+        database.onversionchange = () => {
+          database.close();
+          this.connection = null;
+        };
+        resolve(database);
+      };
       request.onerror = () => reject(request.error);
+      request.onblocked = () => reject(new Error('The cart is open in an older tab; reload it to continue.'));
+    }).catch((error: unknown) => {
+      this.connection = null;
+      throw error;
     });
+
+    return this.connection;
   }
 }
 

@@ -458,4 +458,26 @@ describe('ShellComponent', () => {
     expect(fixture.nativeElement.querySelector('.shell-scope-transition')).not.toBeNull();
     expect(TestBed.inject(AppReloadService).restartAtAppRoot).toHaveBeenCalledTimes(1);
   });
+
+  it('takes the person to sign in when the session ends without anyone navigating', () => {
+    const endingSession = signal<AuthSession | null>(sessionSignal());
+    const original = authService.session;
+    Object.assign(authService, { session: endingSession });
+    try {
+      const fixture = createFixture();
+      const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+      const context = TestBed.inject(ShopContextService);
+      context.initialize({ userId: 'user-1', shopId: 'shop-1' });
+
+      // A proactive renewal was refused: the session is cleared and nobody navigates.
+      context.transition(null, 'sign-out', () => endingSession.set(null));
+      fixture.detectChanges();
+
+      expect(navigate).toHaveBeenCalledWith('/login');
+      expect(fixture.nativeElement.querySelector('.shell-scope-transition')?.textContent).toContain('signedOut');
+      expect(TestBed.inject(AppReloadService).restartAtAppRoot).not.toHaveBeenCalled();
+    } finally {
+      Object.assign(authService, { session: original });
+    }
+  });
 });

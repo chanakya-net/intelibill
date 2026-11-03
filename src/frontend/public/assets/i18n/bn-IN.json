@@ -129,7 +129,8 @@
     "expandSidebar": "সাইডবার প্রসারিত করুন",
     "mainNavigation": "প্রধান নেভিগেশন",
     "offlineReconciliation": "অফলাইন মিলকরণ",
-    "scopeTransition": "নির্বাচিত স্টোরে যাওয়া হচ্ছে…"
+    "scopeTransition": "নির্বাচিত স্টোরে যাওয়া হচ্ছে…",
+    "signedOut": "আপনি সাইন আউট হয়েছেন। আপনাকে সাইন ইন পেজে নিয়ে যাওয়া হচ্ছে…"
   },
   "dashboard": {
     "header": {

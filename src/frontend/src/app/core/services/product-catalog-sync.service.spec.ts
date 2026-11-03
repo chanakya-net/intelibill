@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ProductCatalogSyncService } from './product-catalog-sync.service';
 import { ProductCatalogIndexedDbService } from '../storage/product-catalog-indexeddb.service';
 import { AuthService } from '../auth/auth.service';
+import { ShopContextService } from '../context/shop-context.service';
+import { AppReloadService } from './app-reload.service';
 
 describe('ProductCatalogSyncService - upsertEntry', () => {
   const mockShopId = 'shop-abc';
@@ -103,3 +105,37 @@ describe('ProductCatalogSyncService - upsertEntry', () => {
     expect(saveCatalogSpy).not.toHaveBeenCalled();
   });
 });
+
+describe('ProductCatalogSyncService - scope changes', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    TestBed.resetTestingModule();
+  });
+
+  it('drops a catalog stream that answers after the tab left the shop', async () => {
+    const saveCatalog = vi.fn().mockResolvedValue(undefined);
+    let answer!: (response: Response) => void;
+    vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>((resolve) => (answer = resolve))));
+    TestBed.configureTestingModule({
+      providers: [
+        ProductCatalogSyncService,
+        { provide: AppReloadService, useValue: { restartAtAppRoot: vi.fn() } },
+        { provide: AuthService, useValue: { session: signal({ activeShopId: 'shop-a' }), getAccessToken: () => 'tok' } },
+        { provide: ProductCatalogIndexedDbService, useValue: { getCatalog: vi.fn().mockResolvedValue([]), saveCatalog } },
+      ],
+    });
+    const context = TestBed.inject(ShopContextService);
+    context.initialize({ userId: 'user-1', shopId: 'shop-a' });
+    const service = TestBed.inject(ProductCatalogSyncService);
+    TestBed.tick();
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalled());
+
+    context.transition({ userId: 'user-1', shopId: 'shop-b' }, 'cross-tab', () => undefined);
+    answer(new Response('{"itemId":"i1","name":"Rice","barcode":"B1"}\n'));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(service.catalogEntries()).toEqual([]);
+    expect(saveCatalog).not.toHaveBeenCalled();
+  });
+});
+

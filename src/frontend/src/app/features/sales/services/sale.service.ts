@@ -49,8 +49,13 @@ export class SaleService {
     return this.http.post<InvoiceLeaseDto>(SALE_ENDPOINTS.reserveInvoiceLease, request);
   }
 
-  syncOfflineSales(request: OfflineSalesSyncRequest): Observable<OfflineSalesSyncResponseDto> {
-    return this.http.post<OfflineSalesSyncResponseDto>(SALE_ENDPOINTS.offlineSync, request);
+  /** With an `owner`, the batch is only ever sent as that user and shop (see `REQUEST_SCOPE`). */
+  syncOfflineSales(request: OfflineSalesSyncRequest, owner?: ScopeOwner): Observable<OfflineSalesSyncResponseDto> {
+    return this.http.post<OfflineSalesSyncResponseDto>(
+      SALE_ENDPOINTS.offlineSync,
+      request,
+      owner ? { context: scopedRequestContext(owner) } : undefined,
+    );
   }
 
   previewSale(request: PreviewSaleRequest): Observable<SalePreviewDto> {

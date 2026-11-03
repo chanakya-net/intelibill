@@ -48,7 +48,10 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
 
       const shouldRedirectOnAuthFailure = !isAuthRedirectSuppressedEndpoint(request.url);
 
+      // A 401 for a token this tab has already replaced (it left that scope while the request was
+      // out) says nothing about the session it holds now: neither renew nor clear it.
       const shouldTryRefresh = error.status === 401
+        && shopContext.epoch() === epochAtRequest
         && !request.context.get(REFRESH_ATTEMPTED)
         && !isRefreshExcludedEndpointRequest(request.url)
         && authService.hasRefreshToken();
@@ -57,9 +60,11 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
         return throwError(() => error);
       }
 
-      // Set when the tab is now signed in as someone else: the failure is reported, but the session
-      // this tab holds belongs to that other account and is not this request's to clear.
+      // Set when the renewed session is no longer the one this request was made in: another account,
+      // or the same account in another shop. The failure is reported, but that session is valid and
+      // is not this request's to clear — clearing it would sign every tab out.
       let tabMovedToAnotherAccount = false;
+      let requestScopeLeft = false;
 
       return authService.refreshAccessToken().pipe(
         switchMap((session) => {
@@ -80,8 +85,9 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
           }
 
           if ((session.activeShopId ?? null) !== shopAtRequest) {
-            // The membership this request was authorized under is gone; the renewed session is
-            // scoped elsewhere. Surface the failure instead of committing it against another shop.
+            // The renewed session is scoped elsewhere (the membership is gone, or another tab moved
+            // the device). Surface the failure instead of committing it against another shop.
+            requestScopeLeft = true;
             return throwError(() => error);
           }
 
@@ -93,7 +99,7 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
           return next(retryRequest);
         }),
         catchError((refreshError) => {
-          if (tabMovedToAnotherAccount) {
+          if (tabMovedToAnotherAccount || requestScopeLeft) {
             return throwError(() => refreshError);
           }
 
@@ -110,9 +116,9 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
     })
   );
 
-  return installsScope(request.url)
-    ? answer
-    : answer.pipe(ignoreAnswersFromLeftScope(() => shopContext.epoch() !== epochAtRequest, owner !== null));
+  return isScopedApiRequest(request.url)
+    ? answer.pipe(ignoreAnswersFromLeftScope(() => shopContext.epoch() !== epochAtRequest, owner !== null))
+    : answer;
 };
 
 /**
@@ -134,11 +140,22 @@ function ignoreAnswersFromLeftScope(
     );
 }
 
-/** Requests whose answer is itself a session or scope to install, judged where it is installed. */
-function installsScope(url: string): boolean {
-  return url.startsWith(`${API_BASE_URL}/auth/`)
-    || url === SHOP_ENDPOINTS.switch
-    || url === SHOP_ENDPOINTS.create;
+/** Answers that are themselves a session to install (or end); judged where they are installed. */
+const SESSION_INSTALLING_ENDPOINTS: readonly string[] = [
+  AUTH_ENDPOINTS.login,
+  AUTH_ENDPOINTS.confirmEmailEnrollment,
+  AUTH_ENDPOINTS.confirmEmailClaim,
+  AUTH_ENDPOINTS.confirmPhoneEnrollment,
+  AUTH_ENDPOINTS.confirmPhoneLogin,
+  AUTH_ENDPOINTS.refreshToken,
+  AUTH_ENDPOINTS.revokeToken,
+  SHOP_ENDPOINTS.switch,
+  SHOP_ENDPOINTS.create,
+];
+
+/** API data belongs to the scope that asked for it; static assets and session answers do not. */
+function isScopedApiRequest(url: string): boolean {
+  return url.startsWith(`${API_BASE_URL}/`) && !SESSION_INSTALLING_ENDPOINTS.includes(url);
 }
 
 function isRefreshExcludedEndpointRequest(url: string): boolean {

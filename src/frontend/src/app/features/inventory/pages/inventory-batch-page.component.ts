@@ -227,7 +227,6 @@ export class InventoryBatchPageComponent {
       userId: this.authService.session()?.user?.id ?? '',
       shopId: this.activeShopId(),
     };
-    const rows = this.pendingRows();
     const succeeded: AddInventoryBatchSucceededRow[] = [];
     const failed: AddInventoryBatchFailedRow[] = [];
     let requestedCount = 0;
@@ -237,7 +236,7 @@ export class InventoryBatchPageComponent {
     try {
       // Frozen and stored before the first request: if the answer is lost, the next save resends
       // these exact rows under the same keys and the server replays what it already committed.
-      const submission = await this.draftState.prepareSubmission(owner.shopId, rows);
+      const submission = await this.draftState.prepareSubmission(owner.shopId, this.pendingRows());
       requestedCount = submission.chunks.reduce((count, chunk) => count + chunk.rows.length, 0);
 
       for (const chunk of submission.chunks) {
@@ -257,7 +256,7 @@ export class InventoryBatchPageComponent {
 
       // Saved rows leave the draft before the submission is discarded: if this write fails, the
       // submission is still there and a resend only replays what is already committed.
-      await this.keepRowsNotSaved(owner.shopId, rows, succeeded);
+      await this.keepRowsNotSaved(owner.shopId, succeeded);
       const summary = this.buildSaveSummary(requestedCount, succeeded, failed);
       this.saveSummary.set(summary);
 
@@ -282,7 +281,7 @@ export class InventoryBatchPageComponent {
         return;
       }
 
-      await this.keepRowsNotSaved(owner.shopId, rows, succeeded).catch(() => undefined);
+      await this.keepRowsNotSaved(owner.shopId, succeeded).catch(() => undefined);
       if (succeeded.length > 0 || failed.length > 0) {
         this.saveSummary.set(this.buildSaveSummary(requestedCount, succeeded, failed));
       }
@@ -329,14 +328,13 @@ export class InventoryBatchPageComponent {
     return true;
   }
 
-  /** Keeps every row of this save that the server has not confirmed, in the draft it came from. */
-  private async keepRowsNotSaved(
-    shopId: string,
-    rows: readonly InventoryInboundDraftRow[],
-    succeeded: readonly AddInventoryBatchSucceededRow[],
-  ): Promise<void> {
+  /**
+   * Keeps every pending row the server has not confirmed, including rows added while the save ran.
+   * Called only while the save's owner is still current, so the rows in memory are that owner's.
+   */
+  private async keepRowsNotSaved(shopId: string, succeeded: readonly AddInventoryBatchSucceededRow[]): Promise<void> {
     const savedIds = new Set(succeeded.map((row) => row.clientRowId));
-    await this.draftState.savePendingRows(shopId, rows.filter((row) => !savedIds.has(row.clientRowId)));
+    await this.draftState.savePendingRows(shopId, this.pendingRows().filter((row) => !savedIds.has(row.clientRowId)));
   }
 
   private buildSaveSummary(

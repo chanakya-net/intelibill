@@ -10,6 +10,9 @@ export type LeaveReadiness =
   | { readonly ok: true }
   | { readonly ok: false; readonly reason: 'mutation-in-flight' | 'draft-save-failed' };
 
+/** How long a restart waits for detach hooks to finish saving under the owner being left. */
+export const RESTART_SAVE_WAIT_MS = 1_500;
+
 export interface ScopedMutation {
   /** Call once the outcome is known or stored as uncertain under its owner. */
   release(): void;
@@ -34,7 +37,7 @@ export class ShopContextService {
   private readonly scopeSignal = signal<ShopScope | null>(null);
   private readonly transitioningSignal = signal(false);
   private readonly changesSubject = new Subject<ScopeChange>();
-  private readonly detachHooks = new Set<(change: ScopeChange) => void>();
+  private readonly detachHooks = new Set<(change: ScopeChange) => void | Promise<unknown>>();
   private readonly leaveChecks = new Set<() => Promise<boolean>>();
   private readonly mutations = new Set<symbol>();
   private currentEpoch = 0;
@@ -81,9 +84,13 @@ export class ShopContextService {
     const restart = change.previous !== null && change.next !== null;
 
     this.transitioningSignal.set(change.previous !== null);
+    const saves: Promise<unknown>[] = [];
     for (const hook of [...this.detachHooks]) {
       try {
-        hook(change);
+        const saving = hook(change);
+        if (saving) {
+          saves.push(saving);
+        }
       } catch {
         // A failing hook must not leave the old scope installed beside the new credentials.
       }
@@ -94,14 +101,17 @@ export class ShopContextService {
     this.changesSubject.next(change);
 
     if (restart) {
-      this.appReload.restartAtAppRoot();
+      this.restartAfter(saves);
     }
 
     return change;
   }
 
-  /** Runs synchronously on every change of owner, before the new session is readable. */
-  onDetach(hook: (change: ScopeChange) => void): () => void {
+  /**
+   * Runs synchronously on every change of owner, before the new session is readable. A hook may
+   * return the save it started; a restart waits for those saves, up to `RESTART_SAVE_WAIT_MS`.
+   */
+  onDetach(hook: (change: ScopeChange) => void | Promise<unknown>): () => void {
     this.detachHooks.add(hook);
     return () => this.detachHooks.delete(hook);
   }
@@ -132,6 +142,18 @@ export class ShopContextService {
 
   hasMutationsInFlight(): boolean {
     return this.mutations.size > 0;
+  }
+
+  /** Restarts once the old owner's drafts are written, so unloading the page cannot cut them off. */
+  private restartAfter(saves: readonly Promise<unknown>[]): void {
+    if (saves.length === 0) {
+      this.appReload.restartAtAppRoot();
+      return;
+    }
+
+    const saved = Promise.allSettled(saves);
+    const waitLimit = new Promise<void>((resolve) => setTimeout(resolve, RESTART_SAVE_WAIT_MS));
+    void Promise.race([saved, waitLimit]).then(() => this.appReload.restartAtAppRoot());
   }
 
   private async checkLeave(): Promise<LeaveReadiness> {

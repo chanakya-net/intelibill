@@ -203,6 +203,20 @@ describe('SalesCartIndexedDbService', () => {
     expect(db.size()).toBe(0);
   });
 
+  it('reports an upgrade blocked by an older tab instead of waiting on it', async () => {
+    db.blockUpgrades = true;
+
+    await expect(service.loadCart(ownerA, 60_000)).rejects.toThrow(/older tab/);
+  });
+
+  it('reuses one connection for every read and write', async () => {
+    await service.saveCart(ownerA, [makeRow('batch-a')]);
+    await service.loadCart(ownerA, 60_000);
+    await service.clearCart(ownerA);
+
+    expect(db.openCount).toBe(1);
+  });
+
   function recordFor(owner: { userId: string; shopId: string }) {
     return {
       ownerKey: `${owner.userId}|${owner.shopId}`,
@@ -253,6 +267,8 @@ describe('SalesCartIndexedDbService', () => {
 /** A single-store IndexedDB stand-in: requests settle on a microtask, the way the browser's do. */
 class FakeCartDatabase {
   openedVersion: number | null = null;
+  openCount = 0;
+  blockUpgrades = false;
   readonly createdStores: string[] = [];
   private readonly rows = new Map<string, Record<string, unknown>>();
 
@@ -290,14 +306,20 @@ class FakeCartDatabase {
 
     vi.stubGlobal('indexedDB', {
       open: vi.fn((_name: string, version: number) => {
+        this.openCount += 1;
         const request = {
           result: database as unknown as IDBDatabase,
           error: null,
           onupgradeneeded: null as null | (() => void),
           onsuccess: null as null | (() => void),
           onerror: null as null | (() => void),
+          onblocked: null as null | (() => void),
         };
         queueMicrotask(() => {
+          if (this.blockUpgrades) {
+            request.onblocked?.();
+            return;
+          }
           if (this.openedVersion === null) {
             request.onupgradeneeded?.();
           }

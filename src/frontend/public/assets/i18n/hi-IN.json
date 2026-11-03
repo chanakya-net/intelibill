@@ -129,7 +129,8 @@
     "expandSidebar": "साइडबार का विस्तार करें",
     "mainNavigation": "मुख्य नेविगेशन",
     "offlineReconciliation": "ऑफलाइन मिलान",
-    "scopeTransition": "चुने गए स्टोर पर जा रहे हैं…"
+    "scopeTransition": "चुने गए स्टोर पर जा रहे हैं…",
+    "signedOut": "आप साइन आउट हो गए हैं। आपको साइन इन पर ले जा रहे हैं…"
   },
   "dashboard": {
     "header": {

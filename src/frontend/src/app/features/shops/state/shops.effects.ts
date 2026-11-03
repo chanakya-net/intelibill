@@ -71,18 +71,25 @@ export class ShopsEffects {
     )
   );
 
+  /** Creating a shop moves this device into it, so it waits for the same readiness as a switch. */
   readonly createShop$ = createEffect(() =>
     this.actions$.pipe(
       ofType(ShopsActions.createShopRequested),
       switchMap(({ payload }) =>
-        this.shopService.createShop(payload).pipe(
-          map(() => ShopsActions.createShopSucceeded()),
-          catchError((error: { error?: ApiErrorPayload }) =>
-            of(
-              ShopsActions.createShopFailed({
-                errorMessage: getShopMutationErrorMessage(error.error),
-              })
-            )
+        from(this.shopContext.prepareToLeave()).pipe(
+          switchMap((readiness) =>
+            readiness.ok
+              ? this.shopService.createShop(payload).pipe(
+                  map(() => ShopsActions.createShopSucceeded()),
+                  catchError((error: { error?: ApiErrorPayload }) =>
+                    of(
+                      ShopsActions.createShopFailed({
+                        errorMessage: getShopMutationErrorMessage(error.error),
+                      })
+                    )
+                  )
+                )
+              : of(ShopsActions.createShopFailed({ errorMessage: getLeaveRefusalMessage(readiness) }))
           )
         )
       )

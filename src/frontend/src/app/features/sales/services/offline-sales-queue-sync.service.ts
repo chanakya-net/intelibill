@@ -2,6 +2,9 @@ import { Injectable, Injector, effect, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
 import { AuthService } from '../../../core/auth/auth.service';
+import { isScopeChangeError } from '../../../core/context/scoped-request';
+import { ShopContextService } from '../../../core/context/shop-context.service';
+import type { ScopeOwner } from '../../../core/context/shop-scope';
 import { NetworkStatusService } from '../../../core/services/network-status.service';
 import { OfflineSalesDeviceSettingsStorage } from '../../../core/storage/offline-sales-device-settings.storage';
 import { OfflineArithmeticMismatch, OfflineQueuedSaleRecord, OfflineQueueSyncResult } from './offline-sale-core.types';
@@ -58,6 +61,7 @@ export class OfflineSalesQueueSyncService {
   private readonly settingsStorage = inject(OfflineSalesDeviceSettingsStorage);
   private readonly queueDb = inject(OfflineSalesQueueIndexedDbService);
   private readonly saleService = inject(SaleService);
+  private readonly shopContext = inject(ShopContextService);
   private readonly injector = inject(Injector);
 
   private readonly locks = new Map<string, Promise<OfflineSalesSyncRunResult>>();
@@ -323,7 +327,12 @@ export class OfflineSalesQueueSyncService {
       failedCount: 0,
     };
 
+    // Every batch is sent as the user and shop this run started under. Once the tab moves, the
+    // remaining invoices wait for their own issuer's next sync instead of leaving with another token.
+    const owner: ScopeOwner = { userId: userId ?? '', shopId };
+
     for (let start = 0; start < records.length; start += OFFLINE_SALES_SYNC_BATCH_SIZE) {
+      if (!this.shopContext.isCurrent(owner)) break;
       const batch = records.slice(start, start + OFFLINE_SALES_SYNC_BATCH_SIZE);
       const marked: OfflineQueuedSaleRecord[] = [];
 
@@ -339,7 +348,7 @@ export class OfflineSalesQueueSyncService {
         const response = await firstValueFrom(this.saleService.syncOfflineSales({
           deviceId,
           sales: marked.map((record) => buildSyncRequestFromQueuedSale(record)),
-        }));
+        }, owner));
         const byClientSaleId = new Map(response.results.map((result) => [result.clientSaleId, result]));
 
         for (const record of marked) {
@@ -348,6 +357,20 @@ export class OfflineSalesQueueSyncService {
           addOfflineSyncResultToTotals(totals, applied.status);
         }
       } catch (error) {
+        if (isScopeChangeError(error)) {
+          // Not sent, or answered after the tab moved: no verdict is applied. The invoices go back to
+          // the retryable state and are resent, idempotently, by their issuer's next sync.
+          for (const record of marked) {
+            await this.queueDb.applySyncResult(shopId, deviceId, record.clientSaleId, {
+              status: 'Failed',
+              errorCode: 'offline_sync.scope_changed',
+              errorMessage: error.message,
+            });
+            totals.failedCount += 1;
+          }
+          break;
+        }
+
         const message = error instanceof Error ? error.message : 'Offline sale sync failed.';
         for (const record of marked) {
           await this.queueDb.applySyncResult(

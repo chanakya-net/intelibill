@@ -4,7 +4,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 
 import { AppReloadService } from '../services/app-reload.service';
 import { ShopContextActions, scopeResetMetaReducer } from './shop-context.actions';
-import { ShopContextService } from './shop-context.service';
+import { RESTART_SAVE_WAIT_MS, ShopContextService } from './shop-context.service';
 import { ScopeChange } from './shop-scope';
 
 const A = { userId: 'user-1', shopId: 'shop-a' };
@@ -50,7 +50,9 @@ describe('ShopContextService', () => {
   it('detaches and resets the old scope before the new session is installed, then restarts', () => {
     const service = create();
     const order: string[] = [];
-    service.onDetach((change) => order.push(`detach:${change.previous?.shopId}->${change.next?.shopId}`));
+    service.onDetach((change) => {
+      order.push(`detach:${change.previous?.shopId}->${change.next?.shopId}`);
+    });
     store.dispatch.mockImplementation(() => order.push('reset'));
     appReload.restartAtAppRoot.mockImplementation(() => order.push('restart'));
 
@@ -63,6 +65,35 @@ describe('ShopContextService', () => {
     expect(service.epoch()).toBe(1);
     expect(service.transitioning()).toBe(true);
     expect(store.dispatch).toHaveBeenCalledWith(ShopContextActions.scopeChanged({ epoch: 1, reason: 'scope' }));
+  });
+
+  it('restarts only once the old owner\'s drafts are saved', async () => {
+    const service = create();
+    let finishSave!: () => void;
+    service.onDetach(() => new Promise<void>((resolve) => (finishSave = resolve)));
+
+    service.transition(B, 'cross-tab', () => undefined);
+    await Promise.resolve();
+    expect(appReload.restartAtAppRoot).not.toHaveBeenCalled();
+
+    finishSave();
+    await vi.waitFor(() => expect(appReload.restartAtAppRoot).toHaveBeenCalledTimes(1));
+  });
+
+  it('restarts after the wait limit when a save never finishes', async () => {
+    vi.useFakeTimers();
+    try {
+      const service = create();
+      service.onDetach(() => new Promise<void>(() => undefined));
+
+      service.transition(B, 'cross-tab', () => undefined);
+      await vi.advanceTimersByTimeAsync(RESTART_SAVE_WAIT_MS - 1);
+      expect(appReload.restartAtAppRoot).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(appReload.restartAtAppRoot).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('signs out without restarting and signs in again without hiding content', () => {

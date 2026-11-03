@@ -173,23 +173,30 @@ with a tab-local `epoch`.
   `ShopContextService.transition`. A change of owner, in order: bumps the epoch, hides routed content in the
   shell (`transitioning`), runs `onDetach` hooks while the old session is still installed, dispatches
   `ShopContextActions.scopeChanged` (`scopeResetMetaReducer` resets every slice but `appShell`, `httpUi` and
-  `authRegistration`), installs the session, and — between two signed-in owners — restarts the app at `/`
-  (`AppReloadService`), so routes and guards re-run for the new role. Sign-out leaves navigation to its
-  callers (`/login`). Renewals and preference saves that keep the owner change nothing else.
-- **Switching.** `ShopsEffects.switchActiveShop$` first awaits `prepareToLeave()`: it refuses while an
-  owner-bound write holds a `beginMutation()` lease (`errors.shops.switchBlockedByPendingOperation`) or a draft
-  cannot be saved under its owner (`errors.shops.switchDraftSaveFailed`). `applyAccessScope` refuses an answer
-  whose `scopeVersion` is older than the installed token's `scope_version` claim, or that was requested from
-  another device session.
-- **Late answers.** `authInterceptor` records the epoch a request left under. An answer arriving after the
-  epoch moved completes without a value; requests carrying `REQUEST_SCOPE` (`scopedRequestContext(owner)`)
-  get `StaleScopeError` instead, and are refused unsent (`ScopeMismatchError`) when their owner is not the
-  tab's. `/auth/*`, `shops/switch` and `POST shops` are exempt: their answers are judged where installed.
+  `authRegistration`), and installs the session. Between two signed-in owners the app then restarts at `/`
+  (`AppReloadService`, after the detach saves settle or `RESTART_SAVE_WAIT_MS`), so routes and guards re-run
+  for the new role. A sign-out does not restart: the shell shows `shell.signedOut` and navigates to `/login`
+  itself when no caller did. Renewals and preference saves that keep the owner change nothing else.
+- **Switching.** `ShopsEffects.switchActiveShop$` and `createShop$` first await `prepareToLeave()`: it refuses
+  while an owner-bound write holds a `beginMutation()` lease (`errors.shops.switchBlockedByPendingOperation`)
+  or a non-empty draft cannot be saved under its owner (`errors.shops.switchDraftSaveFailed`).
+  `applyAccessScope` refuses an answer whose `scopeVersion` is older than the installed token's
+  `scope_version` claim, or that was requested from another device session.
+- **Late answers.** `authInterceptor` records the epoch a request left under. For API requests other than the
+  session-installing ones (login and confirm endpoints, token refresh/revoke, `shops/switch`, `POST shops`), an
+  answer arriving after the epoch moved completes without a value; requests carrying `REQUEST_SCOPE`
+  (`scopedRequestContext(owner)`) get `StaleScopeError` instead, and are refused unsent
+  (`ScopeMismatchError`) whenever their owner is not the tab's. A 401 for a scope already left is neither
+  renewed nor turned into a sign-out, and a renewal that comes back in another shop or account reports the
+  request's failure without clearing that (valid) session. The catalog stream (`fetch`, outside the
+  interceptor) checks the epoch after every await and cancels itself.
 - **Owners of work.** `SaleCartStateService` keeps the owner its rows were loaded for, saves under it, and
-  detaches on every transition (load dropped, rows saved then cleared; a failed save shows
-  `sales.newSale.draftSaveFailed`). Checkout intents and bulk-intake chunks are sent with their owner and a
-  mutation lease; an answer lost to a move leaves the intent `uncertain` (`recordSaleDetached`) or the intake
-  submission stored, and never rewrites another owner's draft.
+  detaches on every transition (load dropped, rows saved then cleared). A failed save, or a draft that could
+  not be read (never overwritten), shows `sales.newSale.draftSaveFailed`. Checkout intents, bulk-intake
+  chunks and offline-sync batches are sent with their owner; checkout and intake also hold a mutation lease.
+  An answer lost to a move leaves the intent `uncertain` (`recordSaleDetached`), the intake submission stored,
+  or the offline invoices `Failed` (`offline_sync.scope_changed`, retried by their issuer) — never another
+  owner's draft rewritten or a verdict applied under another token.
 
 ## Key Patterns
 

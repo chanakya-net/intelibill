@@ -1,4 +1,4 @@
-import { Component, ElementRef, HostListener, ViewChild, computed, effect, inject, signal } from '@angular/core';
+import { Component, ElementRef, HostListener, ViewChild, computed, effect, inject, signal, untracked } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { filter, map } from 'rxjs';
 import { Store } from '@ngrx/store';
@@ -154,6 +154,14 @@ export class ShellComponent {
         this.showCreateShopOverlayAuto.set(false);
       } else if (this.authService.needsShopSetup()) {
         this.showCreateShopOverlayAuto.set(true);
+      }
+    });
+
+    // A session can end without anyone navigating (a renewal refused, another device ending it).
+    // The shell has hidden its content by then; take the person to sign in rather than leave it blank.
+    effect(() => {
+      if (this.session() === null) {
+        untracked(() => void this.router.navigateByUrl('/login'));
       }
     });
 

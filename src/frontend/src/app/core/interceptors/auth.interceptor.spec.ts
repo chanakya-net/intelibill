@@ -5,7 +5,7 @@ import { Router } from '@angular/router';
 import { Observable, Subject, of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 
-import { AUTH_ENDPOINTS, SHOP_ENDPOINTS } from '../auth/auth.constants';
+import { API_BASE_URL, AUTH_ENDPOINTS, SHOP_ENDPOINTS } from '../auth/auth.constants';
 import { AuthService } from '../auth/auth.service';
 import { ScopeMismatchError, StaleScopeError, scopedRequestContext } from '../context/scoped-request';
 import { ShopContextService } from '../context/shop-context.service';
@@ -164,6 +164,9 @@ describe('authInterceptor', () => {
     // One attempt only: the sale must not be committed against shop B.
     expect(attempts).toBe(1);
     expect(failed?.status).toBe(401);
+    // The renewed session is valid in shop B; ending it would sign every tab out.
+    expect(mockAuthService.clearSession).not.toHaveBeenCalled();
+    expect(mockRouter.navigateByUrl).not.toHaveBeenCalled();
   });
 
   it('does not replay a request as another account when the tab switched user during the renewal', () => {
@@ -193,6 +196,8 @@ describe('authInterceptor', () => {
   });
 
   describe('scope changes', () => {
+    const CUSTOMERS_URL = `${API_BASE_URL}/customers`;
+    const SALES_URL = `${API_BASE_URL}/sales`;
     const shopA = { userId: 'user-1', shopId: 'shop-a' };
     const shopB = { userId: 'user-1', shopId: 'shop-b' };
 
@@ -223,7 +228,7 @@ describe('authInterceptor', () => {
       let completed = false;
       let failed: unknown;
 
-      runInterceptor(new HttpRequest('GET', '/api/customers'), pending.next).subscribe({
+      runInterceptor(new HttpRequest('GET', CUSTOMERS_URL), pending.next).subscribe({
         next: (event) => values.push(event),
         error: (error: unknown) => (failed = error),
         complete: () => (completed = true),
@@ -242,7 +247,7 @@ describe('authInterceptor', () => {
       const pending = pendingAnswer();
       let failed: unknown;
 
-      runInterceptor(new HttpRequest('GET', '/api/customers'), pending.next).subscribe({
+      runInterceptor(new HttpRequest('GET', CUSTOMERS_URL), pending.next).subscribe({
         error: (error: unknown) => (failed = error),
       });
       context.transition(shopB, 'cross-tab', () => undefined);
@@ -257,7 +262,7 @@ describe('authInterceptor', () => {
       let failed: unknown;
 
       runInterceptor(
-        new HttpRequest('POST', '/api/sales', {}, { context: scopedRequestContext(shopA) }),
+        new HttpRequest('POST', SALES_URL, {}, { context: scopedRequestContext(shopA) }),
         pending.next,
       ).subscribe({ error: (error: unknown) => (failed = error) });
       context.transition(shopB, 'cross-tab', () => undefined);
@@ -273,7 +278,7 @@ describe('authInterceptor', () => {
       let failed: unknown;
 
       runInterceptor(
-        new HttpRequest('POST', '/api/sales', {}, { context: scopedRequestContext(shopA, new HttpContext()) }),
+        new HttpRequest('POST', SALES_URL, {}, { context: scopedRequestContext(shopA, new HttpContext()) }),
         pending.next,
       ).subscribe({ error: (error: unknown) => (failed = error) });
 
@@ -295,13 +300,44 @@ describe('authInterceptor', () => {
       expect(values).toHaveLength(1);
     });
 
+    it('neither renews nor clears the session for a 401 answered to a scope the tab already left', () => {
+      const context = enterShopA();
+      mockAuthService.hasRefreshToken.mockReturnValue(true);
+      const pending = pendingAnswer();
+      let failed: unknown;
+
+      runInterceptor(new HttpRequest('GET', CUSTOMERS_URL), pending.next).subscribe({
+        error: (error: unknown) => (failed = error),
+      });
+      context.transition(shopB, 'scope', () => undefined);
+      pending.answer.error(new HttpErrorResponse({ status: 401 }));
+
+      expect(mockAuthService.refreshAccessToken).not.toHaveBeenCalled();
+      expect(mockAuthService.clearSession).not.toHaveBeenCalled();
+      expect(failed).toBeUndefined();
+    });
+
+    it('leaves static assets alone, whatever the scope did meanwhile', () => {
+      const context = enterShopA();
+      const pending = pendingAnswer();
+      const values: HttpEvent<unknown>[] = [];
+
+      runInterceptor(new HttpRequest('GET', 'assets/i18n/hi-IN.json'), pending.next).subscribe({
+        next: (event) => values.push(event),
+      });
+      context.transition(shopB, 'cross-tab', () => undefined);
+      pending.answer.next(new HttpResponse({ status: 200, body: {} }));
+
+      expect(values).toHaveLength(1);
+    });
+
     it('answers normally while the scope stays the same', () => {
       enterShopA();
       const pending = pendingAnswer();
       const values: HttpEvent<unknown>[] = [];
 
       runInterceptor(
-        new HttpRequest('POST', '/api/sales', {}, { context: scopedRequestContext(shopA) }),
+        new HttpRequest('POST', SALES_URL, {}, { context: scopedRequestContext(shopA) }),
         pending.next,
       ).subscribe({ next: (event) => values.push(event) });
       pending.answer.next(new HttpResponse({ status: 201, body: { saleId: 'sale-1' } }));

@@ -883,6 +883,23 @@ describe('InventoryBatchPageComponent', () => {
     }
   });
 
+  it('keeps a row added while the save was running', async () => {
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+    const rows = [createDraftRow('row-1', 'Milk', 'BC-1')];
+    const added = createDraftRow('row-added', 'Bread', 'BC-2');
+    inventoryService.addInventoryBatch.mockImplementation((payload: { items: Array<{ clientRowId: string }> }) => {
+      component.pendingRows.set([...component.pendingRows(), added]);
+      return of(allSucceeded(payload.items));
+    });
+
+    component.pendingRows.set(rows);
+    component.onSaveAll();
+    await fixture.whenStable();
+
+    expect(component.pendingRows().map((row) => row.clientRowId)).toEqual(['row-added']);
+  });
+
   it('bulk_chunk_finishes_in_original_scope: a failure after the move never rewrites either draft', async () => {
     const fixture = await setup();
     const component = fixture.componentInstance;

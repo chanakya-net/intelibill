@@ -34,6 +34,8 @@ export class SaleCartStateService {
   private readonly cartStorage = inject(SalesCartIndexedDbService);
   private readonly shopContext = inject(ShopContextService);
   private cartLoadToken = 0;
+  /** The owner's stored draft could not be read; writing now would replace rows nobody has seen. */
+  private draftUnreadable = false;
   private readonly ownerSignal = signal<ScopeOwner | null>(null);
 
   readonly cart = signal<CartItem[]>([]);
@@ -45,8 +47,11 @@ export class SaleCartStateService {
   readonly draftSaveFailed = signal(false);
 
   constructor() {
-    this.shopContext.onDetach(() => void this.detach());
-    this.shopContext.onLeave(() => this.persistCart());
+    this.shopContext.onDetach(() => this.detach());
+    // An empty cart has nothing to lose, so it never holds a switch back.
+    this.shopContext.onLeave(async () =>
+      (await this.persistCart()) || (this.cart().length === 0 && this.serviceCart().length === 0),
+    );
   }
 
   async loadPersistedCart(
@@ -61,6 +66,7 @@ export class SaleCartStateService {
 
     const token = ++this.cartLoadToken;
     this.cartBootstrapped.set(false);
+    this.draftUnreadable = false;
 
     if (!owner.userId || !owner.shopId) {
       this.ownerSignal.set(null);
@@ -91,7 +97,11 @@ export class SaleCartStateService {
         this.serviceCart.set([...serviceRows]);
       }
     } catch {
-      // Nothing could be read: the cart starts from what is in memory.
+      // The cart can still be used, but nothing is written over the draft that could not be read.
+      if (token === this.cartLoadToken) {
+        this.draftUnreadable = true;
+        this.draftSaveFailed.set(true);
+      }
     } finally {
       if (token === this.cartLoadToken) {
         this.cartBootstrapped.set(true);
@@ -106,6 +116,11 @@ export class SaleCartStateService {
       return true;
     }
 
+    if (this.draftUnreadable) {
+      this.draftSaveFailed.set(true);
+      return false;
+    }
+
     return this.writeDraft(owner, this.cart(), this.serviceCart());
   }
 
@@ -116,18 +131,19 @@ export class SaleCartStateService {
    */
   detach(): Promise<boolean> {
     const owner = this.ownerSignal();
-    const bootstrapped = this.cartBootstrapped();
+    const writable = this.cartBootstrapped() && !this.draftUnreadable;
     const cart = this.cart();
     const serviceCart = this.serviceCart();
 
     this.cartLoadToken++;
+    this.draftUnreadable = false;
     this.ownerSignal.set(null);
     this.cart.set([]);
     this.serviceCart.set([]);
     this.cartBootstrapped.set(false);
     this.draftSaveFailed.set(false);
 
-    if (!owner || !bootstrapped) {
+    if (!owner || !writable) {
       return Promise.resolve(true);
     }
 

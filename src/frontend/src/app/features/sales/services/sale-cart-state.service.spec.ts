@@ -261,6 +261,30 @@ describe('SaleCartStateService', () => {
       expect(service.draftSaveFailed()).toBe(false);
     });
 
+    it('never writes over a stored draft it could not read', async () => {
+      const service = setup();
+      enter(ownerA);
+      cartStorage.loadCart.mockRejectedValue(new Error('The cart is open in an older tab; reload it to continue.'));
+
+      await service.loadPersistedCart(ownerA, 300_000);
+      service.addBatchToCart(makeBatch(), 1);
+
+      await expect(service.persistCart()).resolves.toBe(false);
+      expect(service.draftSaveFailed()).toBe(true);
+      expect(service.cartBootstrapped()).toBe(true);
+      expect(cartStorage.saveCart).not.toHaveBeenCalled();
+      expect(cartStorage.clearCart).not.toHaveBeenCalled();
+    });
+
+    it('lets an empty cart switch even when storage is failing', async () => {
+      const service = setup();
+      const context = enter(ownerA);
+      await service.loadPersistedCart(ownerA, 300_000);
+      cartStorage.clearCart.mockRejectedValue(new Error('storage unavailable'));
+
+      await expect(context.prepareToLeave()).resolves.toEqual({ ok: true });
+    });
+
     it('keeps the tab in its shop when the cart cannot be saved before a switch', async () => {
       const service = setup();
       const context = enter(ownerA);

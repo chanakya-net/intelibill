@@ -129,7 +129,8 @@
     "expandSidebar": "Expand sidebar",
     "mainNavigation": "Main navigation",
     "offlineReconciliation": "Offline reconciliation",
-    "scopeTransition": "Switching to the selected store…"
+    "scopeTransition": "Switching to the selected store…",
+    "signedOut": "You have been signed out. Taking you to sign in…"
   },
   "dashboard": {
     "header": {

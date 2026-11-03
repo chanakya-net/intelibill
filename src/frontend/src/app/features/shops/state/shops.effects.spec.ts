@@ -271,6 +271,22 @@ describe('ShopsEffects', () => {
     expect(shopService.switchActiveShop).not.toHaveBeenCalled();
   });
 
+  it('refuses to create a shop, which moves the device, while an owner-bound write is in flight', async () => {
+    shopContext.prepareToLeave.mockResolvedValue({ ok: false, reason: 'mutation-in-flight' });
+
+    const output = firstValueFrom(effects.createShop$.pipe(take(1)));
+    actions$.next(
+      ShopsActions.createShopRequested({
+        payload: { name: 'New', address: 'A', city: 'C', state: 'S', pincode: '560001' },
+      })
+    );
+
+    await expect(output).resolves.toEqual(
+      ShopsActions.createShopFailed({ errorMessage: 'errors.shops.switchBlockedByPendingOperation' })
+    );
+    expect(shopService.createShop).not.toHaveBeenCalled();
+  });
+
   it('ignores a second switch request while the first is still being prepared', async () => {
     let ready!: (readiness: LeaveReadiness) => void;
     shopContext.prepareToLeave.mockReturnValue(new Promise((resolve) => (ready = resolve)));

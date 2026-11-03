@@ -129,7 +129,8 @@
     "expandSidebar": "સાઇડબાર વિસ્તૃત કરો",
     "mainNavigation": "મુખ્ય નેવિગેશન",
     "offlineReconciliation": "ઑફલાઇન મેળવણી",
-    "scopeTransition": "પસંદ કરેલા સ્ટોર પર જઈ રહ્યા છીએ…"
+    "scopeTransition": "પસંદ કરેલા સ્ટોર પર જઈ રહ્યા છીએ…",
+    "signedOut": "તમે સાઇન આઉટ થઈ ગયા છો. તમને સાઇન ઇન પર લઈ જઈ રહ્યા છીએ…"
   },
   "dashboard": {
     "header": {
