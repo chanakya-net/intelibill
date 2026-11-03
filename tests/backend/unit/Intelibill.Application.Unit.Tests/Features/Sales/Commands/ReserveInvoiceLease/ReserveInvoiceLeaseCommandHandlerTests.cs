@@ -199,7 +199,7 @@ public class ReserveInvoiceLeaseCommandHandlerTests
             Arg.Any<Guid?>(),
             Arg.Any<CancellationToken>()).Returns(lease);
 
-        var handler = new ReserveInvoiceLeaseCommandHandler(_userRepository, _invoiceLeaseRepository, TimeProvider.System);
+        var handler = new ReserveInvoiceLeaseCommandHandler(_userRepository, _invoiceLeaseRepository, new FixedClock(new DateTimeOffset(2026, 6, 10, 10, 0, 0, TimeSpan.Zero)));
         await handler.HandleAsync(new ReserveInvoiceLeaseCommand(actor.Id, shop.Id, "device-1", null), CancellationToken.None);
 
         Assert.NotNull(capturedReservedAt);

@@ -181,7 +181,9 @@ export class OfflineSalesQueueSyncService {
    * invoice held before the server kept original invoices, or one held with no review case, so the server can
    * file it for review. Only the signed-in issuer's (or an unstamped) invoice is sent. Automatic and bulk syncs
    * never resend held invoices, and a request that cannot reach the server puts the record back exactly as it was
-   * held, so it never becomes an automatic retry.
+   * held, so it never becomes an automatic retry. A server `failed` answer (or a missing result) leaves the
+   * record `Failed`, which automatic sync then retries like any failed record; only a failed request restores
+   * `NeedsReview`.
    */
   async resubmitForReview(shopId: string, deviceId: string, clientSaleId: string): Promise<OfflineSalesSyncRunResult> {
     if (!this.networkStatus.canReachApi()) {

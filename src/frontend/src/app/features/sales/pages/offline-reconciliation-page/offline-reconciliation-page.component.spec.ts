@@ -402,6 +402,27 @@ describe('OfflineReconciliationPageComponent', () => {
     expect(el().querySelector('.resubmit-error')?.textContent).toContain('Invoice INV-legacy-case could not be sent.');
   });
 
+  it('drops the resend button once the server holds an envelope after a successful resend', async () => {
+    unsentSales.set([record('legacy-case', 'NeedsReview')]);
+    reviewSales.set([reviewRow('legacy-case', 'case-legacy')]);
+    let hasEnvelope = false;
+    reconciliation.getCase.mockImplementation((caseId) =>
+      of(caseDetail({ caseId, hasOriginalEnvelope: hasEnvelope, submission: null })),
+    );
+    await render();
+
+    const button = () => el().querySelector('button.resubmit-btn');
+    expect(button()).not.toBeNull();
+
+    hasEnvelope = true;
+    button()!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await settle();
+
+    expect(queueSync.resubmitForReview).toHaveBeenCalledWith('shop-1', 'device-1', 'legacy-case');
+    expect(button()).toBeNull();
+    expect(el().querySelector('.resubmit-hint')).toBeNull();
+  });
+
   it('reloads on 409 version conflict without showing success', async () => {
     reconciliation.getCase
       .mockReturnValueOnce(of(caseDetail({ version: 7, availableActions: ['Escalate'] })))

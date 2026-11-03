@@ -704,12 +704,15 @@ must be leased to it. `checksum` is the lowercase hex SHA-256 of the exact UTF-8
 array (client `JSON.stringify`, server `JsonElement.GetRawText()`); enum names or numbers are accepted.
 Invoices are read exactly as the sync endpoint maps them: every line becomes a `Goods` line with no
 `ServiceId`, whatever the file says. Bundles hold no tokens or session data. Structure and arithmetic
-are checked before any case is filed. Then, in order: an identical sale already posted links the
-envelope and nothing else happens; an envelope that still has an unresolved case (from an earlier sync
-or bundle, any type) reuses it (`FindUnresolvedByEnvelopeAsync`; result `ReviewOpened` or `Escalated`
-with that case id, never a second case); `OfflineIssueTimingPolicy` runs against the envelope's first
-`ReceivedAt` exactly as sync does, and any code other than `HistoricalLeaseReviewRequired` opens an
-`IssueTimingReview` case with that code; otherwise the bundle opens a review (`RecoveryReviewRequired`).
+are checked first (a bad row is rejected and nothing is stored). Then, in order: an envelope that is
+not yet linked to a sale and still has an unresolved case (from an earlier sync or bundle, any type)
+reuses it (`FindUnresolvedByEnvelopeAsync`; result `ReviewOpened` or `Escalated` with that case id, never
+a second case); an identical sale already posted links the envelope and nothing else happens (a different
+one opens a `ValidationConflict` case); an envelope with no attributable user is escalated at intake
+(`ProvenanceUnknown` or `IssuerUnverified`); an inconsistent invoice opens an arithmetic case;
+`OfflineIssueTimingPolicy` runs against the envelope's first `ReceivedAt` exactly as sync does, and any
+code other than `HistoricalLeaseReviewRequired` opens an `IssueTimingReview` case with that code;
+otherwise the bundle opens a review (`RecoveryReviewRequired`).
 The cashier's access is never restored.
 
 **Invoice leases.** `ReserveInvoiceLeaseCommandHandler` sets

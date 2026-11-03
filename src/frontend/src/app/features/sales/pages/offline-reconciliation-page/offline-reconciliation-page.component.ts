@@ -359,6 +359,7 @@ export class OfflineReconciliationPageComponent {
     const clientSaleId = row.clientSaleId;
     if (!shopId || !deviceId || !this.canReachApi() || this.isResubmitting(clientSaleId)) return;
 
+    const caseIdBefore = this.reviewRows().find((candidate) => candidate.clientSaleId === clientSaleId)?.reviewCaseId ?? null;
     this.resubmitFailedInvoice.set(null);
     this.resubmittingIds.update((ids) => new Set([...ids, clientSaleId]));
     try {
@@ -369,6 +370,13 @@ export class OfflineReconciliationPageComponent {
     } finally {
       this.resubmittingIds.update((ids) => new Set([...ids].filter((id) => id !== clientSaleId)));
       await this.reloadLocalRecords();
+      // The server may hold an envelope now: forget what was learned so the next refresh asks again.
+      const caseIdAfter = this.reviewRows().find((candidate) => candidate.clientSaleId === clientSaleId)?.reviewCaseId ?? null;
+      for (const caseId of new Set([caseIdBefore, caseIdAfter])) {
+        if (!caseId) continue;
+        this.envelopeLookups.delete(caseId);
+        this.lookUpEnvelope(caseId);
+      }
       this.loadCases();
     }
   }

@@ -431,7 +431,7 @@ public sealed class OfflineReconciliationControllerTests(PostgreSqlTestFixture f
 
         var clientSaleId = NewClientSaleId();
         var invoice = InvoiceAt(lease, 1);
-        // Issued inside the lease window (reserved at the start of this test), before the cashier was removed.
+        // Sold inside the lease window (reserved at the start of this test), by the cashier whose membership is already removed.
         var invoicesJson = InvoicesJson(Payload(clientSaleId, invoice, stock, 2m, DateTimeOffset.UtcNow, staff.UserId));
         var operationId = $"recovery-{Guid.NewGuid():N}";
 
