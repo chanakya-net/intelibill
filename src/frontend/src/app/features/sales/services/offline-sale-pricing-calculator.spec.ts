@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import contract from '../../../../../../../tests/contracts/offline-invoice-arithmetic-v1.json';
+import corpus from '../../../../../../../tests/contracts/offline-invoice-arithmetic-v1-corpus.json';
 import type { OfflineSalePricingInput, OfflineSalePricingRuleInput } from './offline-sale-core.types';
 import { calculateOfflineFrozenSale } from './offline-sale-pricing-calculator';
 
@@ -69,8 +70,9 @@ function toPricingInput(input: ContractCase['input']): OfflineSalePricingInput {
 
 describe('offline invoice arithmetic contract v1', () => {
   const cases = contract.cases as readonly ContractCase[];
+  const corpusCases = corpus.cases as readonly ContractCase[];
 
-  it.each(cases.map((testCase) => [testCase.name, testCase] as const))('%s matches the shared fixture exactly', (_name, testCase) => {
+  it.each([...cases, ...corpusCases].map((testCase) => [testCase.name, testCase] as const))('%s matches the shared fixture exactly', (_name, testCase) => {
     const result = calculateOfflineFrozenSale(toPricingInput(testCase.input));
 
     expect(result.calculationVersion).toBe(contract.calculationVersion);

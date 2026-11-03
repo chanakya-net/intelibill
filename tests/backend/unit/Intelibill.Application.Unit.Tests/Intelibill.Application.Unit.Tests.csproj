@@ -33,7 +33,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="../../../contracts/offline-invoice-arithmetic-v1.json" Link="Contracts/offline-invoice-arithmetic-v1.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../../contracts/*.json" Link="Contracts/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

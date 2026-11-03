@@ -1,7 +1,7 @@
 {
   "contract": "offline-invoice-arithmetic",
   "calculationVersion": 1,
-  "rounding": "Money in paise, quantity in thousandths, percentages in basis points; every division rounds half away from zero.",
+  "rounding": "Money in paise, quantity in thousandths, percentages in basis points; every division rounds half away from zero. A tax-inclusive line with a positive rate totals its shelf price (price x quantity) less the tax-inclusive equivalent of its discounts, and its tax is that total less its taxable value, as online sales do; an exclusive line totals taxable value plus rounded tax.",
   "allocation": "Sale discount: floor share per goods line with positive taxable value, capped at that value; leftover paise to the largest remainders, ties by line order.",
   "cases": [
     {
@@ -729,7 +729,7 @@
       }
     },
     {
-      "name": "inclusive_non_terminating_split",
+      "name": "inclusive_shelf_price_is_the_total",
       "input": {
         "lines": [
           {
@@ -759,16 +759,16 @@
             "itemDiscountAmount": 0,
             "saleDiscountAmount": 0,
             "taxableAmount": 84.75,
-            "taxAmount": 15.26,
-            "lineTotal": 100.01
+            "taxAmount": 15.25,
+            "lineTotal": 100
           }
         ],
         "totals": {
           "subtotalBeforeDiscount": 84.75,
-          "totalBeforeDiscount": 100.01,
+          "totalBeforeDiscount": 100,
           "totalDiscount": 0,
-          "totalTax": 15.26,
-          "grandTotal": 100.01,
+          "totalTax": 15.25,
+          "grandTotal": 100,
           "paidAmount": 100.01,
           "dueAmount": 0
         }
@@ -923,6 +923,184 @@
           "grandTotal": 55.38,
           "paidAmount": 0,
           "dueAmount": 55.38
+        }
+      }
+    },
+    {
+      "name": "inclusive_fractional_lines_with_sale_discount",
+      "input": {
+        "lines": [
+          {
+            "lineType": "goods",
+            "itemDiscount": {
+              "type": 0,
+              "value": 0
+            },
+            "batchRulePercentage": null,
+            "quantity": 1.333,
+            "salesPrice": 47.99,
+            "taxRatePercent": 12,
+            "taxIncluded": true
+          },
+          {
+            "lineType": "goods",
+            "itemDiscount": {
+              "type": 0,
+              "value": 0
+            },
+            "batchRulePercentage": null,
+            "quantity": 2.5,
+            "salesPrice": 19.95,
+            "taxRatePercent": 5,
+            "taxIncluded": true
+          }
+        ],
+        "saleDiscount": {
+          "type": 1,
+          "value": 7.5
+        },
+        "saleRule": null,
+        "paidAmount": 100
+      },
+      "expected": {
+        "lines": [
+          {
+            "preTaxAmount": 57.12,
+            "itemDiscountAmount": 0,
+            "saleDiscountAmount": 4.29,
+            "taxableAmount": 52.83,
+            "taxAmount": 6.34,
+            "lineTotal": 59.17
+          },
+          {
+            "preTaxAmount": 47.5,
+            "itemDiscountAmount": 0,
+            "saleDiscountAmount": 3.56,
+            "taxableAmount": 43.94,
+            "taxAmount": 2.2,
+            "lineTotal": 46.14
+          }
+        ],
+        "totals": {
+          "subtotalBeforeDiscount": 104.62,
+          "totalBeforeDiscount": 113.16,
+          "totalDiscount": 7.85,
+          "totalTax": 8.54,
+          "grandTotal": 105.31,
+          "paidAmount": 100,
+          "dueAmount": 5.31
+        }
+      }
+    },
+    {
+      "name": "inclusive_item_discount_grosses_up",
+      "input": {
+        "lines": [
+          {
+            "lineType": "goods",
+            "itemDiscount": {
+              "type": 1,
+              "value": 10
+            },
+            "batchRulePercentage": null,
+            "quantity": 2,
+            "salesPrice": 59,
+            "taxRatePercent": 18,
+            "taxIncluded": true
+          }
+        ],
+        "saleDiscount": {
+          "type": 0,
+          "value": 0
+        },
+        "saleRule": null,
+        "paidAmount": 106.2
+      },
+      "expected": {
+        "lines": [
+          {
+            "preTaxAmount": 100,
+            "itemDiscountAmount": 10,
+            "saleDiscountAmount": 0,
+            "taxableAmount": 90,
+            "taxAmount": 16.2,
+            "lineTotal": 106.2
+          }
+        ],
+        "totals": {
+          "subtotalBeforeDiscount": 100,
+          "totalBeforeDiscount": 116.2,
+          "totalDiscount": 10,
+          "totalTax": 16.2,
+          "grandTotal": 106.2,
+          "paidAmount": 106.2,
+          "dueAmount": 0
+        }
+      }
+    },
+    {
+      "name": "inclusive_fully_discounted_line",
+      "input": {
+        "lines": [
+          {
+            "lineType": "goods",
+            "itemDiscount": {
+              "type": 1,
+              "value": 100
+            },
+            "batchRulePercentage": null,
+            "quantity": 1,
+            "salesPrice": 100,
+            "taxRatePercent": 18,
+            "taxIncluded": true
+          },
+          {
+            "lineType": "goods",
+            "itemDiscount": {
+              "type": 0,
+              "value": 0
+            },
+            "batchRulePercentage": null,
+            "quantity": 1,
+            "salesPrice": 10,
+            "taxRatePercent": 0,
+            "taxIncluded": false
+          }
+        ],
+        "saleDiscount": {
+          "type": 0,
+          "value": 0
+        },
+        "saleRule": null,
+        "paidAmount": 10
+      },
+      "expected": {
+        "lines": [
+          {
+            "preTaxAmount": 84.75,
+            "itemDiscountAmount": 84.75,
+            "saleDiscountAmount": 0,
+            "taxableAmount": 0,
+            "taxAmount": 0,
+            "lineTotal": 0
+          },
+          {
+            "preTaxAmount": 10,
+            "itemDiscountAmount": 0,
+            "saleDiscountAmount": 0,
+            "taxableAmount": 10,
+            "taxAmount": 0,
+            "lineTotal": 10
+          }
+        ],
+        "totals": {
+          "subtotalBeforeDiscount": 94.75,
+          "totalBeforeDiscount": 94.75,
+          "totalDiscount": 84.75,
+          "totalTax": 0,
+          "grandTotal": 10,
+          "paidAmount": 10,
+          "dueAmount": 0
         }
       }
     }

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.ValueObjects;
@@ -7,8 +8,11 @@ namespace Intelibill.Application.Unit.Tests.Features.Sales.Commands.SyncOfflineS
 
 public class OfflineInvoiceArithmeticValidatorTests
 {
-    private static readonly Lazy<JsonDocument> Fixture = new(() =>
-        JsonDocument.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Contracts", "offline-invoice-arithmetic-v1.json"))));
+    // The hand-written contract cases plus a random corpus, both with expected amounts from an independent exact-rational reference.
+    private static readonly Lazy<IReadOnlyList<JsonElement>> Version1Cases = new(() =>
+        [.. ContractCases("offline-invoice-arithmetic-v1.json"), .. ContractCases("offline-invoice-arithmetic-v1-corpus.json")]);
+
+    private static readonly JsonSerializerOptions CorpusOptions = new(JsonSerializerDefaults.Web) { Converters = { new JsonStringEnumConverter() } };
 
     private static readonly decimal[] OnePaiseOverThreeLines = [0.01m, 0m, 0m];
     private static readonly decimal[] SixPaiseOverTenLines = [0.01m, 0.01m, 0.01m, 0.01m, 0.01m, 0.01m, 0m, 0m, 0m, 0m];
@@ -16,7 +20,7 @@ public class OfflineInvoiceArithmeticValidatorTests
     public static TheoryData<string> FixtureCaseNames()
     {
         var names = new TheoryData<string>();
-        foreach (var testCase in Fixture.Value.RootElement.GetProperty("cases").EnumerateArray())
+        foreach (var testCase in Version1Cases.Value)
             names.Add(testCase.GetProperty("name").GetString()!);
         return names;
     }
@@ -129,6 +133,35 @@ public class OfflineInvoiceArithmeticValidatorTests
         Assert.Empty(OfflineInvoiceArithmeticValidator.Validate(version1Allocation).Mismatches);
         Assert.NotEmpty(OfflineInvoiceArithmeticValidator.Validate(legacyAllocation with { CalculationVersion = 1 }).Mismatches);
         Assert.NotEmpty(OfflineInvoiceArithmeticValidator.Validate(version1Allocation with { CalculationVersion = null }).Mismatches);
+    }
+
+    [Fact]
+    public void Legacy_corpus_from_the_unversioned_browser_calculator_replays_exactly()
+    {
+        // Payloads priced by the browser calculator as it was before calculation versions (commit 41015861565d).
+        using var corpus = JsonDocument.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Contracts", "offline-invoice-arithmetic-legacy-corpus.json")));
+        var sales = corpus.RootElement.GetProperty("sales").Deserialize<List<OfflineSaleSyncCommand>>(CorpusOptions)!;
+
+        Assert.Equal(40, sales.Count);
+        Assert.All(sales, sale => Assert.Empty(OfflineInvoiceArithmeticValidator.Validate(sale).Mismatches));
+        Assert.All(sales, sale =>
+        {
+            var items = sale.Items.ToList();
+            items[^1] = items[^1] with { TaxAmount = items[^1].TaxAmount + 0.01m, TotalAmount = items[^1].TotalAmount + 0.01m };
+            var tampered = sale with { Items = items, TotalTaxAmount = sale.TotalTaxAmount + 0.01m, TotalAmount = sale.TotalAmount + 0.01m };
+            Assert.NotEmpty(OfflineInvoiceArithmeticValidator.Validate(tampered).Mismatches);
+        });
+    }
+
+    [Fact]
+    public void Version1_inclusive_line_totals_its_shelf_price()
+    {
+        // ₹100 inclusive at 18%: 84.75 taxable + 15.25 tax. Rounding the 15.255 tax up would bill ₹100.01, above the shelf price.
+        var shelfPrice = Sale([Line(1m, 100m, 18m, true, preTax: 84.75m, taxable: 84.75m, tax: 15.25m, total: 100m)], calculationVersion: 1);
+        var aboveShelfPrice = Sale([Line(1m, 100m, 18m, true, preTax: 84.75m, taxable: 84.75m, tax: 15.26m, total: 100.01m)], calculationVersion: 1);
+
+        Assert.Empty(OfflineInvoiceArithmeticValidator.Validate(shelfPrice).Mismatches);
+        Assert.Contains(OfflineInvoiceArithmeticValidator.Validate(aboveShelfPrice).Mismatches, m => m.Path == "items[0].totalAmount" && m.Expected == 100m);
     }
 
     [Fact]
@@ -278,6 +311,12 @@ public class OfflineInvoiceArithmeticValidatorTests
         Assert.Contains("items[0].preTaxAmountBeforeDiscount supplied 10.00 expected 11.00", summary, StringComparison.Ordinal);
     }
 
+    private static IEnumerable<JsonElement> ContractCases(string fileName)
+    {
+        using var document = JsonDocument.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Contracts", fileName)));
+        return [.. document.RootElement.GetProperty("cases").EnumerateArray().Select(c => c.Clone())];
+    }
+
     private static OfflineSaleSyncLineCommand Allocated(OfflineSaleSyncLineCommand line, decimal saleDiscount)
     {
         var taxable = line.PreTaxAmountBeforeDiscount - line.ItemDiscountAmount - saleDiscount;
@@ -360,8 +399,7 @@ public class OfflineInvoiceArithmeticValidatorTests
 
     private static OfflineSaleSyncCommand FromFixture(string caseName, int? calculationVersion)
     {
-        var testCase = Fixture.Value.RootElement.GetProperty("cases").EnumerateArray()
-            .Single(c => c.GetProperty("name").GetString() == caseName);
+        var testCase = Version1Cases.Value.Single(c => c.GetProperty("name").GetString() == caseName);
         var input = testCase.GetProperty("input");
         var expected = testCase.GetProperty("expected");
         var expectedLines = expected.GetProperty("lines").EnumerateArray().ToList();

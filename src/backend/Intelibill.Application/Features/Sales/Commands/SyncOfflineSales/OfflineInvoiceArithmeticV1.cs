@@ -22,7 +22,9 @@ internal sealed record OfflineExpectedAmounts(
     decimal TotalAmount);
 
 // Version 1: money in paise, quantity in thousandths, percentages in basis points, every division rounded
-// half away from zero, sale discount allocated by capped largest remainder. Mirrors offline-money.math.ts.
+// half away from zero, sale discount allocated by capped largest remainder. A tax-inclusive line totals its
+// shelf price less the tax-inclusive equivalent of its discounts (as SalePricingMath does online), so an
+// inclusive price is never exceeded. Mirrors offline-sale-pricing-calculator.ts.
 internal static class OfflineInvoiceArithmeticV1
 {
     private const int MoneyScale = 2;
@@ -35,6 +37,7 @@ internal static class OfflineInvoiceArithmeticV1
     internal static OfflineExpectedAmounts Calculate(OfflineSaleSyncCommand sale)
     {
         var count = sale.Items.Count;
+        var gross = new BigInteger[count];
         var preTax = new BigInteger[count];
         var itemDiscount = new BigInteger[count];
         var beforeSale = new BigInteger[count];
@@ -45,8 +48,11 @@ internal static class OfflineInvoiceArithmeticV1
         {
             var line = sale.Items[i];
             rates[i] = Scaled(line.TaxRatePercent, PercentScale);
-            var gross = RoundDiv(Scaled(line.SalesPrice, MoneyScale) * Scaled(line.Quantity, QuantityScale), QuantityUnit);
-            preTax[i] = line.IsPriceIncludingTax ? RoundDiv(gross * PercentUnit, PercentUnit + rates[i]) : gross;
+            var exactGross = Scaled(line.SalesPrice, MoneyScale) * Scaled(line.Quantity, QuantityScale);
+            gross[i] = RoundDiv(exactGross, QuantityUnit);
+            preTax[i] = IsTaxInclusive(line, rates[i])
+                ? RoundDiv(exactGross * PercentUnit, QuantityUnit * (PercentUnit + rates[i]))
+                : gross[i];
             itemDiscount[i] = line.IsServiceLine ? BigInteger.Zero : ItemDiscount(line, preTax[i]);
             beforeSale[i] = preTax[i] - itemDiscount[i];
             if (!line.IsServiceLine)
@@ -64,8 +70,19 @@ internal static class OfflineInvoiceArithmeticV1
         for (var i = 0; i < count; i++)
         {
             var taxable = beforeSale[i] - allocation[i];
-            var tax = RoundDiv(taxable * rates[i], PercentUnit);
-            var total = taxable + tax;
+            BigInteger tax, total;
+            if (IsTaxInclusive(sale.Items[i], rates[i]))
+            {
+                var grossDiscount = RoundDiv((itemDiscount[i] + allocation[i]) * (PercentUnit + rates[i]), PercentUnit);
+                total = BigInteger.Max(BigInteger.Zero, gross[i] - grossDiscount);
+                tax = BigInteger.Max(BigInteger.Zero, total - taxable);
+            }
+            else
+            {
+                tax = RoundDiv(taxable * rates[i], PercentUnit);
+                total = taxable + tax;
+            }
+
             subtotal += preTax[i];
             discounts += itemDiscount[i] + allocation[i];
             taxes += tax;
@@ -77,6 +94,9 @@ internal static class OfflineInvoiceArithmeticV1
     }
 
     internal static bool FitsScale(decimal value, int scale) => decimal.Round(value, scale) == value;
+
+    private static bool IsTaxInclusive(OfflineSaleSyncLineCommand line, BigInteger rateBasisPoints) =>
+        line.IsPriceIncludingTax && rateBasisPoints > 0;
 
     internal static BigInteger RoundDiv(BigInteger numerator, BigInteger denominator)
     {

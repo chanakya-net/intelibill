@@ -1,6 +1,6 @@
 // Offline invoice calculation contract version 1: money in paise (scale 2), quantity in thousandths (scale 3),
 // percentages in basis points (scale 2); every division rounds half away from zero. The server replays the
-// same integer arithmetic (OfflineInvoiceArithmeticV1.cs), pinned by tests/contracts/offline-invoice-arithmetic-v1.json.
+// same integer arithmetic (OfflineInvoiceArithmeticV1.cs), pinned by tests/contracts/offline-invoice-arithmetic-v1*.json.
 export const OFFLINE_CALCULATION_VERSION = 1;
 
 export const MONEY_SCALE = 2;

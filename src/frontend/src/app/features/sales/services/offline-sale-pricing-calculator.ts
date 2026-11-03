@@ -96,7 +96,8 @@ function calculateEffectiveSaleDiscount(type: number, value: number, eligibleSub
 }
 
 // Prices a cart under calculation version 1. Inputs are normalised to the contract scales and frozen as normalised,
-// so the queued invoice carries exactly the numbers the server replays.
+// so the queued invoice carries exactly the numbers the server replays. A tax-inclusive line never totals more than
+// its shelf price.
 export function calculateOfflineFrozenSale(input: OfflineSalePricingInput): OfflineFrozenSalePricing {
   const eligibleRules = input.rules.filter((rule) => isRuleActive(rule, input.soldAt));
   const drafts = input.lines.map((line, index) => {
@@ -104,8 +105,10 @@ export function calculateOfflineFrozenSale(input: OfflineSalePricingInput): Offl
     const quantity = toScaled(Math.max(0, line.quantity), QUANTITY_SCALE);
     const salesPrice = toScaled(line.salesPrice, MONEY_SCALE);
     const taxRate = toScaled(line.taxRatePercent, PERCENT_SCALE);
-    const gross = roundDiv(salesPrice * quantity, 1_000n);
-    const preTax = line.taxIncluded ? roundDiv(gross * 10_000n, 10_000n + taxRate) : gross;
+    const taxInclusive = line.taxIncluded && taxRate > 0n;
+    const exactGross = salesPrice * quantity;
+    const gross = roundDiv(exactGross, 1_000n);
+    const preTax = taxInclusive ? roundDiv(exactGross * 10_000n, 1_000n * (10_000n + taxRate)) : gross;
 
     const rule = isService ? null : pickBatchRule(eligibleRules, line);
     const rulePercentage = rule ? normalizeScale(rule.percentage, PERCENT_SCALE) : null;
@@ -120,6 +123,8 @@ export function calculateOfflineFrozenSale(input: OfflineSalePricingInput): Offl
       quantity,
       salesPrice,
       taxRate,
+      taxInclusive,
+      gross,
       preTax,
       itemDiscount,
       taxableBeforeSaleDiscount: preTax - itemDiscount,
@@ -151,8 +156,17 @@ export function calculateOfflineFrozenSale(input: OfflineSalePricingInput): Offl
   const lines = drafts.map((draft): OfflineFrozenSaleLine => {
     const saleDiscount = allocation[draft.index];
     const taxable = draft.taxableBeforeSaleDiscount - saleDiscount;
-    const tax = roundDiv(taxable * draft.taxRate, 10_000n);
-    const lineTotal = taxable + tax;
+    let tax: bigint;
+    let lineTotal: bigint;
+    if (draft.taxInclusive) {
+      // The shelf price less the tax-inclusive equivalent of the discounts, as online sales total it.
+      const grossDiscount = roundDiv((draft.itemDiscount + saleDiscount) * (10_000n + draft.taxRate), 10_000n);
+      lineTotal = draft.gross > grossDiscount ? draft.gross - grossDiscount : 0n;
+      tax = lineTotal > taxable ? lineTotal - taxable : 0n;
+    } else {
+      tax = roundDiv(taxable * draft.taxRate, 10_000n);
+      lineTotal = taxable + tax;
+    }
     subtotal += draft.preTax;
     discounts += draft.itemDiscount + saleDiscount;
     taxes += tax;

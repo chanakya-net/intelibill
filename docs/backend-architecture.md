@@ -582,18 +582,21 @@ percentages in [0, 100], non-negative prices and overrides, a rule id with its p
 threshold; v1 also rejects inputs beyond its scales.
 
 - **v1** (`OfflineInvoiceArithmeticV1`, `offline-money.math.ts`): paise, thousandths and basis points
-  as integers; every division rounds half away from zero; inclusive pre-tax = gross × 10000 / (10000 +
-  rate bp). The sale discount goes to goods lines with positive taxable value by floor share capped at
-  that value, leftover paise to the largest remainders, ties by line order. `totalBeforeDiscount` is
-  the domain definition, Σ(line total + discounts). `tests/contracts/offline-invoice-arithmetic-v1.json`
-  pins C# and TypeScript to the same results.
+  as integers; every division rounds half away from zero. A tax-inclusive line uses the online identity
+  (`SalePricingMath`): pre-tax = price × quantity × 10000 / (10000 + rate bp), total = round(price ×
+  quantity) − round(discounts × (10000 + rate bp) / 10000), tax = total − taxable, so an inclusive
+  (MRP) price is never exceeded; an exclusive line totals taxable + round(taxable × rate). The sale
+  discount goes to goods lines with positive taxable value by floor share capped at that value,
+  leftover paise to the largest remainders, ties by line order. `totalBeforeDiscount` is the domain
+  definition, Σ(line total + discounts). `tests/contracts/offline-invoice-arithmetic-v1.json`
+  (hand-written cases) and `…-v1-corpus.json` (random carts) carry expected amounts from an
+  independent exact-rational reference and pin C# and TypeScript to the same results.
 - **legacy** (`OfflineInvoiceArithmeticLegacy`): an exact replay of the unversioned browser calculator,
   which ran on IEEE doubles and rounded with `Number(x.toFixed(2))` (half away from zero on the exact
   binary value, reproduced with `BigInteger`), with the final goods line taking the residual sale
   discount. `totalBeforeDiscount` may be Σ pre-tax (what that browser sent) or the domain definition.
-
-Inclusive prices keep their existing economics in both contracts (₹100 at 18% inclusive totals
-₹100.01 under v1); changing them is a later contract version.
+  `tests/contracts/offline-invoice-arithmetic-legacy-corpus.json` holds payloads priced by that
+  calculator (commit `41015861565d`) and must keep replaying.
 
 **Quarantine.** A mismatch records one `ReconciliationIssue` (`ArithmeticConflict`, code
 `Sale.OfflineArithmeticMismatch`, an amounts-only summary within 1000 characters) and answers
