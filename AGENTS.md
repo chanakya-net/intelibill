@@ -8,7 +8,7 @@
 - Test full: `dotnet test src/backend/Intelibill.slnx`
 - Test unit: `dotnet test tests/backend/unit/Intelibill.Domain.Unit.Tests`, `Application.Unit.Tests`, `Api.Unit.Tests`
 - Test integration: `dotnet test tests/backend/integration/Intelibill.Integration.Tests` (requires Docker)
-- Snapshot: 279 + 1317 + 541 + 588 = 2725 tests (2137 non-integration), all passing as of 3 November 2026
+- Snapshot: 296 + 1424 + 557 + 605 = 2882 tests (2277 non-integration), all passing as of 3 November 2026
 
 **Migrations** (EF Core) — API startup does **not** apply them; run `database update` yourself after pulling schema changes (deployed environments use the migration job):
 ```bash
@@ -106,6 +106,7 @@ DB Options: `src/backend/Intelibill.Infrastructure/Options/DatabaseOptions.cs:7`
 - Items: `GET stream` (SSE), `GET`, `GET details`, `POST`, `PATCH {itemId}`
 - Inventory: `POST inbound`, `inbound/batch` (optional `operationKey`; per-row commit, resend replays), `GET batches` (each with its row `version`), `batches/available`, `PUT/POST/void batches/{batchId}`, `POST batches/{batchId}/count` (owner/manager; `expectedVersion` + reason, optional `operationKey`; stale version → 409 `Inventory.BatchVersionConflict`), `PUT batches/{batchId}/prices` (owner/manager; in place, required `expectedVersion`, appends a price revision), `POST receipts/{receiptValueId}/cost-corrections` (owner; posts only the delta, optional `operationKey`). Void refuses a consumed receipt (409 `Inventory.BatchConsumed`). Legacy `PUT batches/{batchId}` never replaces the batch: quantity/cost/supplier changes answer 400 `Inventory.Batch{Quantity,Cost,Supplier}EditMoved`
 - Sales: `POST`, `GET`, `GET {saleId}`, `GET profit-loss`
+- Offline reconciliation (`api/offline-reconciliation`): `GET` (status filter, paging), `GET {caseId}`, `POST {caseId}/resolve` (owner/manager; `expectedVersion` + reason, optional `operationKey`; stale → 409 `Reconciliation.CaseVersionConflict`), `POST recovery-submissions` (owner/manager; checksummed bundle ≤100 invoices, ≤2 MiB; optional `operationKey`)
 - Customers: CRUD + `account`, `payments` (optional `operationKey`)
 - Suppliers: CRUD + `ledger`, `payments` (optional `operationKey`)
 - Financial operations: `GET financial-operations/{customer-payment|supplier-payment}/{key}` (owner/manager; committed outcome or 404)
@@ -124,15 +125,16 @@ DB Options: `src/backend/Intelibill.Infrastructure/Options/DatabaseOptions.cs:7`
 - Purchase receipts: every receipt writes a `purchase_receipt_values` row (original + effective total, `xmin` version); cost corrections post a signed `COST_ADJUSTED` ledger entry plus a `purchase_receipt_cost_adjustments` row, never touching batch cost or sale COGS; legacy receipts without clear evidence are `LEGACY_UNRESOLVED` and refuse correction. See `docs/backend-architecture.md` § Purchase Receipts, Price Revisions and Cost Corrections
 - Return accounting: every return posts a snapshot in its own save (per-line taxable/tax/non-tax split by `IReturnAccountingPolicy` `proportional-line-tax/1`, `sale_return_settlements` legs: receivable reduction, store credit issued, external refund); exports and the P&L read `ReturnAdjustmentReader` (return on its processing date, void as a reversal on its void date); Tally refuses (409) returns needing review and any unbalanced voucher. Legacy returns: `scripts/db/backfill-sale-return-accounting.sql`. See `docs/backend-architecture.md` § Return Accounting Exports
 - Offline invoice arithmetic: `OfflineInvoiceArithmeticValidator` recomputes every frozen offline invoice under its `calculationVersion` (absent = legacy float replay, 1 = integer paise/half-away/largest-remainder, pinned by `tests/contracts/offline-invoice-arithmetic-v1.json`) before anything posts; a mismatch answers NeedsReview with `reviewCaseId` + field `mismatches` (`ArithmeticConflict` reconciliation issue). Posted-sale audit: `scripts/db/audit-offline-sale-arithmetic.sql`. See `docs/backend-architecture.md` § Offline Invoice Arithmetic
+- Offline reconciliation: sync stores an `OfflineSubmission` envelope first, judges the historical lease on first receipt (5-minute skew) and files one case per held envelope; cases resolve through `ReconciliationActionPolicy` actions (executor types 7/8, row lock + `xmin`); owners/managers import checksummed recovery bundles that always open a review. Web console at `/sales/offline-reconciliation`. See `docs/backend-architecture.md` § Offline Reconciliation
 - RLS: session interceptor sets `app.current_user_id` + `app.active_shop_id`
 - Shop authority: `ShopMembership.Status`/`AuthorityVersion`; role and status changes, invitation issue and acceptance all run under one authority-lock order (users → shop → membership/invitation rows), and the token's shop scope is re-checked against the live membership on every request
 - Tests: Testcontainers (real PostgreSQL via Docker)
 
 ## Domain Model
 
-**Entities**: `User`, `AuthSession`, `RealtimeConnectionLease`, `PhoneChallenge`, `IdentitySms`, `Shop`, `ShopMembership`, `ShopInvitation`, `Item`, `Inventory`, `InventoryBatch`, `StockTransaction`, `Sale`, `SaleItem`, `Customer`, `CustomerLedgerEntry`, `Supplier`, `SupplierLedgerEntry`, `Expense`, `ExpenseCategory`, `BankAccount`, `RefreshToken`, `PasswordResetToken`, `OperationReceipt`, `StockCount`, `PurchaseReceiptValue`, `PurchaseReceiptCostAdjustment`, `BatchPriceRevision`, `SaleReturnSettlement`
+**Entities**: `User`, `AuthSession`, `RealtimeConnectionLease`, `PhoneChallenge`, `IdentitySms`, `Shop`, `ShopMembership`, `ShopInvitation`, `Item`, `Inventory`, `InventoryBatch`, `StockTransaction`, `Sale`, `SaleItem`, `Customer`, `CustomerLedgerEntry`, `Supplier`, `SupplierLedgerEntry`, `Expense`, `ExpenseCategory`, `BankAccount`, `RefreshToken`, `PasswordResetToken`, `OperationReceipt`, `StockCount`, `PurchaseReceiptValue`, `PurchaseReceiptCostAdjustment`, `BatchPriceRevision`, `SaleReturnSettlement`, `OfflineSubmission`, `ReconciliationIssue`, `ReconciliationCaseEvent`
 
-**Enums**: `ShopRole`, `MembershipStatus`, `CredentialKind`, `PaymentMethod`, `BankAccountType`, `StockTransactionType`, `SupplierLedgerEntryType`, `CustomerLedgerEntryType`, `SupplierStatus`, `FinancialOperationType`, `OperationReceiptStatus`, `PurchaseReceiptSource`, `PurchaseReceiptValueStatus`, `ReturnAccountingStatus`, `ReturnSettlementKind`
+**Enums**: `ShopRole`, `MembershipStatus`, `CredentialKind`, `PaymentMethod`, `BankAccountType`, `StockTransactionType`, `SupplierLedgerEntryType`, `CustomerLedgerEntryType`, `SupplierStatus`, `FinancialOperationType`, `OperationReceiptStatus`, `PurchaseReceiptSource`, `PurchaseReceiptValueStatus`, `ReturnAccountingStatus`, `ReturnSettlementKind`, `ReconciliationCaseStatus`, `ReconciliationAction`, `OfflineSubmissionSource`
 
 ## Structure
 

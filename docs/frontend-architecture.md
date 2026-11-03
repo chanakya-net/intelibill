@@ -83,6 +83,24 @@ src/frontend/src/app/
 | `InventoryDraftIndexedDbService` | `inventory-draft` | Persists in-progress inbound stock entry |
 | `CheckoutIntentIndexedDbService` | `checkout-intents` | Frozen online checkouts (`prepared → sending → uncertain → confirmed/rejected`), stored before the sale POST; `CheckoutIntentService` replays the stored request on retry and never deletes an unresolved intent |
 
+## Offline Reconciliation Console
+
+`/sales/offline-reconciliation` (`features/sales/pages/offline-reconciliation-page`, data via
+`OfflineReconciliationService`; linked from the menu and sales history). Every role sees it; actions
+follow the server's `availableActions`. Backend rules: `docs/backend-architecture.md` § Offline Reconciliation.
+
+- **Device queue** is live from `OfflineSalesQueueSyncService.unsentSales`: Pending/Failed invoices are
+  transport retries, NeedsReview opens its case, and another user's invoices are listed as awaiting
+  their issuer.
+- **Issuer stamping.** New queued invoices carry `issuedByUserId`; queue sync submits only the
+  signed-in user's invoices (and legacy unstamped ones).
+- **Cases** show a status filter, paging, the frozen invoice, reason, differences, people ("unknown
+  user" for non-members) and the audit trail, plus a resolve form. State is shown only from the last
+  server response; offline display never claims a resolution.
+- **Support bundle.** Anyone can export the device's unsent invoices (checksum over the `invoices`
+  text); owners/managers import one. Imports always open a review.
+- **Hand-off notice** tells the user when invoices belong to another cashier or need support.
+
 ## Key Patterns
 
 - **Standalone components** — no NgModules; all imports declared per component

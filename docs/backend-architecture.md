@@ -615,14 +615,91 @@ another.
 offline sales whose header disagrees with their lines or whose lines break taxable + tax = total;
 it runs shop by shop under the tenant policies and changes nothing.
 
+## Offline Reconciliation
+
+Offline sales that cannot post cleanly become reviewable **cases** instead of silent drops, and the
+original submission is always kept. Routes live under `api/offline-reconciliation`
+(`OfflineReconciliationController`).
+
+**Envelopes.** Sync records an `OfflineSubmission` (`offline_submissions`) before it attempts to
+post, after only the id, invoice-number and NUL-character checks (a NUL in any text field answers
+per-sale `Sale.OfflineTextInvalid`). The row holds the device, `clientSaleId`, invoice number, the
+payload hash (`OfflineSaleSyncIdempotencyHasher`), the serialized command (`jsonb`), the claimed sold
+time, `ReceivedAt`, the `Source` (`Sync`, `Recovery`), the submitting and asserted/original issuer and
+a one-time `SaleId` link. It is unique on `(shop_id, device_id, client_sale_id, payload_hash)` and
+inserted with `ON CONFLICT DO NOTHING`: an identical resend returns the first row, so `ReceivedAt` is
+the trusted receipt time; a changed payload is a second row. Envelopes are never updated or deleted.
+Both new tables are tenant tables with RLS.
+
+**Timing rule.** `OfflineIssueTimingPolicy` judges the historical lease (found regardless of expiry)
+against the first `ReceivedAt`, with a symmetric 5-minute clock-skew allowance. In order: claimed time
+before the lease -> `IssueTimeBeforeLease`; more than 5 minutes after receipt -> `IssueTimeInFuture`;
+fiscal year differs from the lease -> `IssueFiscalYearMismatch`; at/after expiry ->
+`IssuedAfterLeaseExpiry`; first receipt at/after expiry -> `HistoricalLeaseReviewRequired`; otherwise
+accepted. A plausible clock value never passes alone: only a first receipt before expiry is a trust
+signal. Posting is `IOfflineSalePoster` (stages, never saves); a held result files one case per
+envelope (`FindOpenIssueIdAsync(..., offlineSubmissionId)`).
+
+**Issuer and device history.** New queued payloads carry `issuedByUserId` (hashed only when present).
+Absent = legacy (attributed to the submitter, issuer "not recorded"); equal to the submitter =
+verified; different = held (`IssuerNotSubmitter`). `invoice_leases.reserved_by_user_id/session_id`
+record who reserved a range. For a recovery row an asserted issuer is verified for a device when they
+hold or held a membership (any status) and reserved a lease on it or synced from it. Never a member:
+row rejected (`Recovery.IssuerMismatch`). Member without device history, or no issuer: envelope kept,
+case escalated (`IssuerUnverified` / `ProvenanceUnknown`), nothing posted. People are named only
+through shop membership; a non-member renders with an empty `displayName`.
+
+**Actions** (`ReconciliationActionPolicy.AvailableActions`; owner/manager, staff get only `Escalate` on
+Open cases they created; resolved cases get none; `Escalate` only from Open):
+
+| Case | Actions |
+|---|---|
+| Pricing / discount / customer variance | `AcknowledgeVariance`, `Escalate` |
+| Stock variance with item, batch and printed > consumed | `LinkStockCorrection`, `Escalate` |
+| Envelope + `HistoricalLeaseReviewRequired` / `RecoveryReviewRequired` / `IssuerNotSubmitter` | `RetryHistoricalLease` (needs an attributable user), `LinkExistingSale`, `Escalate` |
+| Envelope + `Sale.IdempotencyConflict` / `Sale.InvoiceNumberAlreadyUsed` | `LinkExistingSale`, `Escalate` |
+| Anything else (arithmetic, lease not found, other timing codes, legacy held cases, `ProvenanceUnknown`, `IssuerUnverified`) | `Escalate` |
+
+`LinkStockCorrection` needs an unvoided same-shop/item/batch `FoundStock` or `OtherGain` increase worth
+at least the unresolved quantity, not linked elsewhere (partial unique index); it writes one `Out`
+movement and leaves the sale untouched. `LinkExistingSale` needs a sale with the envelope's device,
+client id and hash. `RetryHistoricalLease` links an identical existing sale, refuses a reused invoice
+number, or posts through `IOfflineSalePoster` and commits sale, envelope link and resolution together;
+a held outcome answers 409 `Reconciliation.ReplayRejected` and changes nothing. Every transition appends
+a `reconciliation_case_events` row. There is no edit-price, renumber or delete action.
+
+**Concurrency and idempotency.** Resolve and recovery run through `IFinancialOperationExecutor`
+(types 7 `ReconciliationResolution`, 8 `OfflineRecoverySubmission`): a replay returns the stored
+response, a changed payload under the same key answers 409 `Operation.PayloadMismatch`. Resolve locks
+the case `FOR NO KEY UPDATE`; a stale `expectedVersion` (`xmin`) or a concurrent commit answers 409
+`Reconciliation.CaseVersionConflict`. Another shop's case is invisible under RLS (404). The list
+clamps page to at least 1 and pageSize to 1-100.
+
+**Recovery bundles.** `POST recovery-submissions` (active owner/manager) takes
+`{format: "intelibill.offline-recovery", version: 1, shopId, checksum, invoices[]}`: 1-100 invoices,
+request at most 2 MiB (Kestrel answers 413). `checksum` is the lowercase hex SHA-256 of the exact UTF-8
+text of the `invoices` array (client `JSON.stringify`, server `JsonElement.GetRawText()`); enum names
+or numbers are accepted. Bundles hold no tokens or session data. Structure and arithmetic are checked
+before any case is filed; every bundle then opens a review (`RecoveryReviewRequired`) unless an
+identical sale already exists (checked first; the envelope is linked and nothing else happens). The
+cashier's access is never restored.
+
+**Rollout and rollback.** Migration `AddOfflineSubmissionReconciliationAudit` only adds tables and
+columns; existing cases take `status` from `is_resolved`, have no envelope ("original envelope not
+recorded") and legacy held cases allow `Escalate` only. Rollback removes the routes and menu entry;
+envelopes, cases, events and leases stay and invoice ranges are never recycled.
+
+**Out of scope.** A device-revocation registry, closed accounting periods (backlog 27), offline
+attestation of the issue time, and reprint polish (backlog 21).
+
 ## Test Structure
 
 | Suite | Path | Count |
 |---|---|---|
-| Domain unit | `tests/backend/unit/Intelibill.Domain.Unit.Tests/` | 279 |
-| Application unit | `tests/backend/unit/Intelibill.Application.Unit.Tests/` | 1317 |
-| API unit | `tests/backend/unit/Intelibill.Api.Unit.Tests/` | 541 |
-| Integration | `tests/backend/integration/Intelibill.Integration.Tests/` | 588 |
-| **Total** | | **2725** |
+| Domain unit | `tests/backend/unit/Intelibill.Domain.Unit.Tests/` | 296 |
+| Application unit | `tests/backend/unit/Intelibill.Application.Unit.Tests/` | 1424 |
+| API unit | `tests/backend/unit/Intelibill.Api.Unit.Tests/` | 557 |
+| Integration | `tests/backend/integration/Intelibill.Integration.Tests/` | 605 |
+| **Total** | | **2882** |
 
-Integration tests use `WebApplicationFactory<Program>` backed by **Testcontainers** (`Testcontainers.PostgreSql`) — Docker required. Non-integration suite: 2137 passing.
+Integration tests use `WebApplicationFactory<Program>` backed by **Testcontainers** (`Testcontainers.PostgreSql`) — Docker required. Non-integration suite: 2277 passing.

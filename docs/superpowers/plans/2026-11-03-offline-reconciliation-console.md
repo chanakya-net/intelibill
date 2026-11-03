@@ -235,10 +235,16 @@ Error codes (all in `Errors.OfflineReconciliation`, file `Errors.OfflineReconcil
 **Files:**
 - Modify: `docs/backend-architecture.md` (new § Offline Reconciliation: envelopes, timing rule, issuer/device history, actions table, recovery bundle format, rollback), `docs/frontend-architecture.md` (console + bundle), `CLAUDE.md` (endpoints, entities, enums, infrastructure bullet, test snapshot), this plan (check boxes, note deviations)
 
-- [ ] **Step 1:** Write the docs; list explicitly what is out of scope (device revocation registry, closed periods/backlog 27, offline attestation, reprint polish/backlog 21).
-- [ ] **Step 2:** Run `dotnet build src/backend/Intelibill.slnx`, `dotnet test src/backend/Intelibill.slnx` (integration in background with `timeout 1800`), `cd src/frontend && bun run test && bun run build`; record counts in `CLAUDE.md`.
-- [ ] **Step 3: Commit** `docs(offline-reconciliation): document the reconciliation console and refresh test counts`.
+- [x] **Step 1:** Write the docs; list explicitly what is out of scope (device revocation registry, closed periods/backlog 27, offline attestation, reprint polish/backlog 21).
+- [x] **Step 2:** Run `dotnet build src/backend/Intelibill.slnx`, `dotnet test src/backend/Intelibill.slnx` (integration in background with `timeout 1800`), `cd src/frontend && bun run test && bun run build`; record counts in `CLAUDE.md`.
+- [x] **Step 3: Commit** `docs(offline-reconciliation): document the reconciliation console and refresh test counts`.
 
 ## Rollout, backfill and rollback
 
 Migration adds tables/columns only; existing `reconciliation_issues` rows get `status` from `is_resolved`, no envelope (`HasOriginalEnvelope = false`, shown as "original envelope not recorded"), and stay resolvable by the actions their type allows (held legacy cases: escalate only). Legacy leases have no reserver. Local queues upgrade in place: old records have no issuer and keep syncing as before. Rollback = remove the controller routes/menu; envelopes, cases, events and leases are kept and invoice ranges are never recycled.
+
+## Deviations
+
+- No `tests/ui-audit/release/` folder exists; the browser check is the mocked UI-audit spec and the five forced conditions run in `OfflineReconciliationControllerTests` against PostgreSQL.
+- Out of scope, documented: device-revocation registry, closed accounting periods (backlog 27), offline attestation of issue time, reprint polish (backlog 21).
+- Final counts: Domain 296, Application 1424, API unit 557, integration 605 (2882 total, 2277 non-integration); frontend 1985 specs and 17 bun tests pass.
