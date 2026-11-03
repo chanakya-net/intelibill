@@ -17,6 +17,7 @@ import { SaleCartStateService } from '../services/sale-cart-state.service';
 import { SalePreviewService } from '../services/sale-preview.service';
 import { SaleService } from '../services/sale.service';
 import { SalesFacade } from '../state/sales.facade';
+import { CheckoutIntentService } from '../services/checkout-intent.service';
 import { NewSalePageCreditNoteService } from './new-sale-page.credit-note.service';
 import { CreditNoteVerifyResponseDto } from '../services/sale.models';
 
@@ -86,8 +87,25 @@ const verifiedNote: CreditNoteVerifyResponseDto = {
   status: 'Active',
 };
 
+const session = signal<{ activeShopId: string | null; user?: { id: string } }>({ activeShopId: 'shop-1' });
+
 function buildService(saleServiceOverrides: Partial<{ verifyCreditNote: ReturnType<typeof vi.fn> }> = {}) {
   TestBed.resetTestingModule();
+  session.set({ activeShopId: 'shop-1', user: { id: 'user-1' } });
+
+  const cartState = {
+    cart: signal([]),
+    serviceCart: signal([]),
+    cartBootstrapped: signal(false),
+    draftSaveFailed: signal(false),
+    onClearCart: vi.fn(),
+    loadPersistedCart: vi.fn(async () => undefined),
+    persistCart: vi.fn(async () => true),
+    detach: vi.fn(async () => true),
+    getServiceLineSubtotal: vi.fn(() => 0),
+    getServiceLineTaxAmount: vi.fn(() => 0),
+    getServiceLineTotal: vi.fn(() => 0),
+  };
 
   const saleService = {
     verifyCreditNote: vi.fn(() => of(verifiedNote)),
@@ -104,7 +122,8 @@ function buildService(saleServiceOverrides: Partial<{ verifyCreditNote: ReturnTy
       TestCreditNoteService,
       { provide: ActivatedRoute, useValue: route },
       { provide: Router, useValue: { navigate: vi.fn().mockResolvedValue(true) } },
-      { provide: AuthService, useValue: { session: signal({ activeShopId: 'shop-1' }) } },
+      { provide: AuthService, useValue: { session } },
+      { provide: CheckoutIntentService, useValue: { changes$: EMPTY, loadUnresolved: vi.fn(async () => []) } },
       { provide: NetworkStatusService, useValue: { canReachApi: vi.fn(() => true) } },
       { provide: ProductCatalogSyncService, useValue: { filterByName: vi.fn(() => []), filterByBarcode: vi.fn(() => []) } },
       { provide: ShopUpdatesSignalRService, useValue: { updates$: EMPTY, startConnection: vi.fn(), stopConnection: vi.fn() } },
@@ -118,20 +137,12 @@ function buildService(saleServiceOverrides: Partial<{ verifyCreditNote: ReturnTy
           lastMutationSucceeded: signal(false),
           lastMutationType: signal(null),
           lastRecordedSale: signal(null),
+          lastRecordedIntentId: signal(null),
+          clearError: vi.fn(),
+          clearMutationStatus: vi.fn(),
         },
       },
-      {
-        provide: SaleCartStateService,
-        useValue: {
-          cart: signal([]),
-          serviceCart: signal([]),
-          cartBootstrapped: signal(false),
-          onClearCart: vi.fn(),
-          getServiceLineSubtotal: vi.fn(() => 0),
-          getServiceLineTaxAmount: vi.fn(() => 0),
-          getServiceLineTotal: vi.fn(() => 0),
-        },
-      },
+      { provide: SaleCartStateService, useValue: cartState },
       {
         provide: SalePreviewService,
         useValue: {
@@ -168,7 +179,7 @@ function buildService(saleServiceOverrides: Partial<{ verifyCreditNote: ReturnTy
     ],
   });
 
-  return { service: TestBed.inject(TestCreditNoteService), saleService };
+  return { service: TestBed.inject(TestCreditNoteService), saleService, cartState };
 }
 
 describe('NewSalePageCreditNoteService', () => {
@@ -195,6 +206,34 @@ describe('NewSalePageCreditNoteService', () => {
 
       expect(service.blockedOfflinePrintUrl()).toBe('/sales/client-1/print?template=a4&offline=1');
     });
+  });
+
+  it('resets the page and loads the next owner\'s cart when the user or shop changes', () => {
+    const { service, cartState } = buildService();
+    service.onInit();
+    TestBed.tick();
+    expect(cartState.loadPersistedCart).toHaveBeenLastCalledWith(
+      { userId: 'user-1', shopId: 'shop-1' },
+      expect.any(Number),
+      expect.any(Function),
+    );
+    expect(cartState.detach).not.toHaveBeenCalled();
+    service.onCustomerSectionSelected({ customerId: 'cust-1', name: 'Acme Stores', phoneNumber: '9999999999' });
+    service.creditNoteCode.set('CN-ABC-123');
+    service.verifiedCreditNote.set(verifiedNote);
+
+    session.set({ activeShopId: 'shop-2', user: { id: 'user-1' } });
+    TestBed.tick();
+
+    expect(cartState.detach).toHaveBeenCalledTimes(1);
+    expect(service.selectedCustomerId()).toBeNull();
+    expect(service.creditNoteCode()).toBe('');
+    expect(service.verifiedCreditNote()).toBeNull();
+    expect(cartState.loadPersistedCart).toHaveBeenLastCalledWith(
+      { userId: 'user-1', shopId: 'shop-2' },
+      expect.any(Number),
+      expect.any(Function),
+    );
   });
 
   it('updates creditNoteCode signal and clears prior result on code change', () => {

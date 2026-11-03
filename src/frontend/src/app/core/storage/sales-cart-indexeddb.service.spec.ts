@@ -103,10 +103,15 @@ describe('migrateLegacyCartItem', () => {
 });
 
 describe('SalesCartIndexedDbService', () => {
+  const ownerA = { userId: 'user-1', shopId: 'shop-a' };
+  const ownerB = { userId: 'user-1', shopId: 'shop-b' };
   let service: SalesCartIndexedDbService;
+  let db: FakeCartDatabase;
 
   beforeEach(() => {
     service = new SalesCartIndexedDbService();
+    db = new FakeCartDatabase();
+    db.install();
   });
 
   afterEach(() => {
@@ -115,31 +120,12 @@ describe('SalesCartIndexedDbService', () => {
   });
 
   it('returns persisted cart rows when every row has inventoryBatchId', async () => {
-    const cartRow: SalesCartDraftItem = {
-      clientLineKey: 'clk-1',
-      barcode: 'barcode-1',
-      itemName: 'Oreo',
-      batchNumber: 'B-01',
-      inventoryBatchId: 'batch-1',
-      quantity: 1,
-      availableQuantity: 10,
-      salesPrice: 50,
-      mrp: 60,
-      taxRatePercent: 18,
-      taxIncluded: true,
-      costPrice: 40,
-      itemDiscountType: 0,
-      itemDiscountValue: 0,
-      hsnCode: '0902',
-    };
+    const cartRow = makeRow('batch-1');
+    db.seed({ ...recordFor(ownerA), items: [cartRow] });
 
-    stubIndexedDb({
-      shopId: 'shop-1',
-      items: [cartRow],
-      updatedAt: new Date().toISOString(),
-    });
-
-    await expect(service.loadCart('shop-1', 60_000)).resolves.toEqual([cartRow]);
+    await expect(service.loadCart(ownerA, 60_000)).resolves.toEqual([cartRow]);
+    expect(db.openedVersion).toBe(2);
+    expect(db.createdStores).toEqual(['sales-cart-by-owner']);
   });
 
   it('migrates legacy rows missing clientLineKey/discount fields by generating values', async () => {
@@ -156,14 +142,9 @@ describe('SalesCartIndexedDbService', () => {
       taxIncluded: true,
       costPrice: 40,
     };
+    db.seed({ ...recordFor(ownerA), items: [legacyRow] });
 
-    stubIndexedDb({
-      shopId: 'shop-1',
-      items: [legacyRow],
-      updatedAt: new Date().toISOString(),
-    });
-
-    const result = await service.loadCart('shop-1', 60_000);
+    const result = await service.loadCart(ownerA, 60_000);
     expect(result).toHaveLength(1);
     expect(result[0].inventoryBatchId).toBe('batch-1');
     expect(result[0].clientLineKey).toMatch(
@@ -174,10 +155,86 @@ describe('SalesCartIndexedDbService', () => {
   });
 
   it('drops legacy cart rows without inventoryBatchId and clears storage', async () => {
-    const legacyCartRow = {
+    const { inventoryBatchId: _dropped, ...rowWithoutBatch } = makeRow('batch-1');
+    db.seed({ ...recordFor(ownerA), items: [rowWithoutBatch] });
+
+    await expect(service.loadCart(ownerA, 60_000)).resolves.toEqual([]);
+    expect(db.has('user-1|shop-a')).toBe(false);
+  });
+
+  it('a_b_nonempty_drafts_restore_independently: each shop keeps its own goods and services', async () => {
+    const service1 = { ...makeService('svc-a') };
+    await service.saveCart(ownerA, [makeRow('batch-a')], [service1]);
+    await service.saveCart(ownerB, [makeRow('batch-b')], []);
+
+    await expect(service.loadCart(ownerA, 60_000)).resolves.toEqual([makeRow('batch-a')]);
+    await expect(service.loadServiceCart(ownerA, 60_000)).resolves.toEqual([service1]);
+    await expect(service.loadCart(ownerB, 60_000)).resolves.toEqual([makeRow('batch-b')]);
+    await expect(service.loadServiceCart(ownerB, 60_000)).resolves.toEqual([]);
+  });
+
+  it('logout_clears_memory_not_ownership: another user in the same shop cannot read the draft', async () => {
+    await service.saveCart(ownerA, [makeRow('batch-a')]);
+
+    await expect(service.loadCart({ userId: 'user-2', shopId: 'shop-a' }, 60_000)).resolves.toEqual([]);
+    await expect(service.loadCart(ownerA, 60_000)).resolves.toEqual([makeRow('batch-a')]);
+  });
+
+  it('ignores a record whose owner does not match the key it was read under', async () => {
+    db.seed({ ...recordFor(ownerA), userId: 'user-2', items: [makeRow('batch-a')] });
+
+    await expect(service.loadCart(ownerA, 60_000)).resolves.toEqual([]);
+  });
+
+  it('clears only the given owner', async () => {
+    await service.saveCart(ownerA, [makeRow('batch-a')]);
+    await service.saveCart(ownerB, [makeRow('batch-b')]);
+
+    await service.clearCart(ownerA);
+
+    expect(db.has('user-1|shop-a')).toBe(false);
+    expect(db.has('user-1|shop-b')).toBe(true);
+  });
+
+  it('never reads or writes without a complete owner', async () => {
+    await service.saveCart({ userId: '', shopId: 'shop-a' }, [makeRow('batch-a')]);
+
+    await expect(service.loadCart({ userId: 'user-1', shopId: '' }, 60_000)).resolves.toEqual([]);
+    expect(db.size()).toBe(0);
+  });
+
+  it('reports an upgrade blocked by an older tab instead of waiting on it', async () => {
+    db.blockUpgrades = true;
+
+    await expect(service.loadCart(ownerA, 60_000)).rejects.toThrow(/older tab/);
+  });
+
+  it('reuses one connection for every read and write', async () => {
+    await service.saveCart(ownerA, [makeRow('batch-a')]);
+    await service.loadCart(ownerA, 60_000);
+    await service.clearCart(ownerA);
+
+    expect(db.openCount).toBe(1);
+  });
+
+  function recordFor(owner: { userId: string; shopId: string }) {
+    return {
+      ownerKey: `${owner.userId}|${owner.shopId}`,
+      userId: owner.userId,
+      shopId: owner.shopId,
+      items: [] as unknown[],
+      serviceItems: [] as unknown[],
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
+  function makeRow(inventoryBatchId: string): SalesCartDraftItem {
+    return {
+      clientLineKey: `clk-${inventoryBatchId}`,
       barcode: 'barcode-1',
       itemName: 'Oreo',
       batchNumber: 'B-01',
+      inventoryBatchId,
       quantity: 1,
       availableQuantity: 10,
       salesPrice: 50,
@@ -185,66 +242,106 @@ describe('SalesCartIndexedDbService', () => {
       taxRatePercent: 18,
       taxIncluded: true,
       costPrice: 40,
+      itemDiscountType: 0,
+      itemDiscountValue: 0,
+      hsnCode: '0902',
     };
+  }
 
-    const deleteSpy = vi.fn();
-    stubIndexedDb({
-      shopId: 'shop-1',
-      items: [legacyCartRow],
-      updatedAt: new Date().toISOString(),
-    }, deleteSpy);
-
-    await expect(service.loadCart('shop-1', 60_000)).resolves.toEqual([]);
-    expect(deleteSpy).toHaveBeenCalledTimes(1);
-  });
-
-  function stubIndexedDb(record: unknown, deleteSpy = vi.fn()): void {
-    const getRequest = {
-      result: record,
-      error: null,
-      onsuccess: null as null | (() => void),
-      onerror: null as null | (() => void),
+  function makeService(serviceId: string) {
+    return {
+      kind: 'service' as const,
+      clientLineKey: `clk-${serviceId}`,
+      serviceId,
+      serviceName: 'Repair',
+      serviceCode: 'R1',
+      quantity: 1,
+      unitPrice: 100,
+      taxRatePercent: 18,
+      taxIncluded: false,
+      hsnCode: null,
     };
+  }
+});
 
-    const deleteRequest = {
-      result: undefined,
-      error: null,
-      onsuccess: null as null | (() => void),
-      onerror: null as null | (() => void),
-    };
+/** A single-store IndexedDB stand-in: requests settle on a microtask, the way the browser's do. */
+class FakeCartDatabase {
+  openedVersion: number | null = null;
+  openCount = 0;
+  blockUpgrades = false;
+  readonly createdStores: string[] = [];
+  private readonly rows = new Map<string, Record<string, unknown>>();
 
+  seed(record: Record<string, unknown> & { ownerKey: string }): void {
+    this.rows.set(record.ownerKey, structuredClone(record));
+  }
+
+  has(key: string): boolean {
+    return this.rows.has(key);
+  }
+
+  size(): number {
+    return this.rows.size;
+  }
+
+  install(): void {
+    const stores = new Set<string>();
     const database = {
-      objectStoreNames: {
-        contains: vi.fn(() => true),
+      objectStoreNames: { contains: (name: string) => stores.has(name) },
+      createObjectStore: (name: string) => {
+        stores.add(name);
+        this.createdStores.push(name);
       },
-      transaction: vi.fn((_storeName: string, _mode: IDBTransactionMode) => ({
+      transaction: () => ({
         objectStore: () => ({
-          get: () => {
-            queueMicrotask(() => getRequest.onsuccess?.());
-            return getRequest;
-          },
-          delete: () => {
-            deleteSpy();
-            queueMicrotask(() => deleteRequest.onsuccess?.());
-            return deleteRequest;
-          },
+          get: (key: string) => this.settle(() => this.rows.get(key)),
+          put: (value: Record<string, unknown> & { ownerKey: string }) =>
+            this.settle(() => {
+              this.rows.set(value.ownerKey, structuredClone(value));
+            }),
+          delete: (key: string) => this.settle(() => this.rows.delete(key)),
         }),
-      })),
-    };
-
-    const openRequest = {
-      result: database as unknown as IDBDatabase,
-      error: null,
-      onupgradeneeded: null as null | (() => void),
-      onsuccess: null as null | (() => void),
-      onerror: null as null | (() => void),
+      }),
     };
 
     vi.stubGlobal('indexedDB', {
-      open: vi.fn(() => {
-        queueMicrotask(() => openRequest.onsuccess?.());
-        return openRequest;
+      open: vi.fn((_name: string, version: number) => {
+        this.openCount += 1;
+        const request = {
+          result: database as unknown as IDBDatabase,
+          error: null,
+          onupgradeneeded: null as null | (() => void),
+          onsuccess: null as null | (() => void),
+          onerror: null as null | (() => void),
+          onblocked: null as null | (() => void),
+        };
+        queueMicrotask(() => {
+          if (this.blockUpgrades) {
+            request.onblocked?.();
+            return;
+          }
+          if (this.openedVersion === null) {
+            request.onupgradeneeded?.();
+          }
+          this.openedVersion = version;
+          request.onsuccess?.();
+        });
+        return request;
       }),
     });
   }
-});
+
+  private settle(work: () => unknown) {
+    const request = {
+      result: undefined as unknown,
+      error: null,
+      onsuccess: null as null | (() => void),
+      onerror: null as null | (() => void),
+    };
+    queueMicrotask(() => {
+      request.result = work();
+      request.onsuccess?.();
+    });
+    return request;
+  }
+}

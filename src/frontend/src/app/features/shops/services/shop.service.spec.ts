@@ -6,11 +6,14 @@ import { SHOP_ENDPOINTS } from '../../../core/auth/auth.constants';
 import { AccessScopeResult } from '../../../core/auth/auth.models';
 import { AuthService } from '../../../core/auth/auth.service';
 import { ShopDetails, ShopService } from './shop.service';
+import { ScopeMismatchError } from '../../../core/context/scoped-request';
 
 describe('ShopService', () => {
+  const identity = { userId: 'user-1', sessionId: 'session-1' };
   const authService = {
     applyAuthResult: vi.fn<AuthService['applyAuthResult']>(),
     applyAccessScope: vi.fn<AuthService['applyAccessScope']>(),
+    sessionIdentity: vi.fn<AuthService['sessionIdentity']>(),
   };
 
   function setup(): { service: ShopService; http: HttpTestingController } {
@@ -30,7 +33,8 @@ describe('ShopService', () => {
 
   beforeEach(() => {
     authService.applyAuthResult.mockReset();
-    authService.applyAccessScope.mockReset();
+    authService.applyAccessScope.mockReset().mockReturnValue(true);
+    authService.sessionIdentity.mockReset().mockReturnValue(identity);
   });
 
   afterEach(() => {
@@ -127,8 +131,27 @@ describe('ShopService', () => {
     expect(request.request.body).toEqual({ shopId: 'shop-2' });
     request.flush(scope);
 
-    expect(authService.applyAccessScope).toHaveBeenCalledWith(scope);
+    // Only the device session the switch was requested from may adopt its answer.
+    expect(authService.applyAccessScope).toHaveBeenCalledWith(scope, identity);
 
+    http.verify();
+  });
+
+  it('reports a switch as failed when its answer can no longer be installed', () => {
+    const { service, http } = setup();
+    authService.applyAccessScope.mockReturnValue(false);
+    let failed: unknown;
+
+    service.switchActiveShop('shop-2').subscribe({ error: (error: unknown) => (failed = error) });
+    http.expectOne(SHOP_ENDPOINTS.switch).flush({
+      accessToken: 'late-token',
+      accessTokenExpiresAt: new Date(Date.now() + 60_000).toISOString(),
+      activeShopId: 'shop-2',
+      scopeVersion: 3,
+      shops: [],
+    });
+
+    expect(failed).toBeInstanceOf(ScopeMismatchError);
     http.verify();
   });
 

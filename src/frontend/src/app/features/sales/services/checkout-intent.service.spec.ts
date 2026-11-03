@@ -126,7 +126,8 @@ describe('CheckoutIntentService', () => {
     expect(intent.request.items[0].quantity).toBe(1);
 
     await firstValueFrom(service.send(intent));
-    expect(saleService.recordSale).toHaveBeenCalledWith(intent.request);
+    // Sent only as the user and shop the intent was frozen under.
+    expect(saleService.recordSale).toHaveBeenCalledWith(intent.request, { userId: intent.userId, shopId: intent.shopId });
     expect(saleService.recordSale.mock.calls[0][0].items[0].quantity).toBe(1);
   });
 

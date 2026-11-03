@@ -9,6 +9,8 @@ import {
   INVENTORY_ENDPOINTS,
   ITEM_ENDPOINTS,
 } from '../../../core/auth/auth.constants';
+import { scopedRequestContext } from '../../../core/context/scoped-request';
+import type { ScopeOwner } from '../../../core/context/shop-scope';
 import type {
   AddInventoryBatchRequest,
   AddInventoryBatchResponse,
@@ -89,8 +91,13 @@ export class InventoryService {
     return this.http.post<HsnLookupResult>(`${API_BASE_URL}/hsn/lookup`, { productName });
   }
 
-  addInventoryBatch(payload: AddInventoryBatchRequest): Observable<AddInventoryBatchResponse> {
-    return this.http.post<AddInventoryBatchResponse>(INVENTORY_ENDPOINTS.inboundBatch, payload);
+  /** With an `owner`, the chunk is only ever sent as that user and shop (see `REQUEST_SCOPE`). */
+  addInventoryBatch(payload: AddInventoryBatchRequest, owner?: ScopeOwner): Observable<AddInventoryBatchResponse> {
+    return this.http.post<AddInventoryBatchResponse>(
+      INVENTORY_ENDPOINTS.inboundBatch,
+      payload,
+      owner ? { context: scopedRequestContext(owner) } : undefined,
+    );
   }
 
   getInventoryBatches(): Observable<readonly InventoryBatchDto[]> {

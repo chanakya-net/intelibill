@@ -12,6 +12,7 @@ import { AuthStorage } from './auth.storage';
 import { REFRESH_LEASE_STORAGE, REFRESH_LOCK_MANAGER, RefreshLockManager } from './refresh-coordinator.service';
 import { LocalizationService } from '../i18n/localization.service';
 import { NetworkStatusService } from '../services/network-status.service';
+import { AppReloadService } from '../services/app-reload.service';
 import { OfflineSalesDeviceSettingsStorage } from '../storage/offline-sales-device-settings.storage';
 import { OfflineSalesSnapshotIndexedDbService } from '../storage/offline-sales-snapshot-indexeddb.service';
 
@@ -180,6 +181,7 @@ export function createAuthServiceTestHarness(): {
   };
   offlineSalesDeviceSettingsStorage: { loadSettings: ReturnType<typeof vi.fn<OfflineSalesDeviceSettingsStorage['loadSettings']>> };
   offlineSalesSnapshotDb: { getUsableSnapshotInfo: ReturnType<typeof vi.fn<OfflineSalesSnapshotIndexedDbService['getUsableSnapshotInfo']>> };
+  appReload: { restartAtAppRoot: ReturnType<typeof vi.fn<AppReloadService['restartAtAppRoot']>> };
 } {
   const originalBroadcastChannel = globalThis.BroadcastChannel;
   const storage = {
@@ -208,6 +210,9 @@ export function createAuthServiceTestHarness(): {
   const offlineSalesSnapshotDb = {
     getUsableSnapshotInfo: vi.fn<OfflineSalesSnapshotIndexedDbService['getUsableSnapshotInfo']>(),
   };
+  const appReload = {
+    restartAtAppRoot: vi.fn<AppReloadService['restartAtAppRoot']>(),
+  };
 
   function setup(): { service: AuthService; http: HttpTestingController } {
     TestBed.configureTestingModule({
@@ -222,6 +227,7 @@ export function createAuthServiceTestHarness(): {
         { provide: OfflineSalesSnapshotIndexedDbService, useValue: offlineSalesSnapshotDb },
         { provide: REFRESH_LOCK_MANAGER, useValue: new FakeLockManager() },
         { provide: REFRESH_LEASE_STORAGE, useValue: null },
+        { provide: AppReloadService, useValue: appReload },
       ],
     });
 
@@ -249,6 +255,7 @@ export function createAuthServiceTestHarness(): {
     networkStatus.checkConnectivity.mockClear();
     offlineSalesDeviceSettingsStorage.loadSettings.mockReset();
     offlineSalesSnapshotDb.getUsableSnapshotInfo.mockReset();
+    appReload.restartAtAppRoot.mockReset();
   });
 
   afterEach(() => {
@@ -273,5 +280,6 @@ export function createAuthServiceTestHarness(): {
     networkStatus,
     offlineSalesDeviceSettingsStorage,
     offlineSalesSnapshotDb,
+    appReload,
   };
 }

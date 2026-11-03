@@ -202,6 +202,7 @@ export abstract class NewSalePageStateService {
   });
   readonly isReconcilingCheckout = signal(false);
   readonly cartBootstrapped = this.cartState.cartBootstrapped;
+  readonly draftSaveFailed = this.cartState.draftSaveFailed;
 
   // Offline mode signals
   readonly deviceSettings = this.offlineSaleState.offlineDeviceSettings;

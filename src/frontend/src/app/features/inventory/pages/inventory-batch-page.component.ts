@@ -6,6 +6,9 @@ import { ToastModule } from 'primeng/toast';
 import { firstValueFrom } from 'rxjs';
 
 import { AuthService } from '../../../core/auth/auth.service';
+import { StaleScopeError, isScopeChangeError } from '../../../core/context/scoped-request';
+import { ShopContextService } from '../../../core/context/shop-context.service';
+import type { ScopeOwner } from '../../../core/context/shop-scope';
 import { AudioService } from '../../../core/services/audio.service';
 import { classifyFinancialOperationFailure } from '../../../core/services/financial-operation-intent.service';
 import { BarcodeDetection } from '../../../core/services/barcode-detector.service';
@@ -51,6 +54,7 @@ export class InventoryBatchPageComponent {
   @ViewChild(BatchRowFormComponent) batchRowForm!: BatchRowFormComponent;
 
   private readonly authService = inject(AuthService);
+  private readonly shopContext = inject(ShopContextService);
   private readonly audioService = inject(AudioService);
   private readonly draftState = inject(BatchDraftStateService);
   private readonly inventoryService = inject(InventoryService);
@@ -217,36 +221,42 @@ export class InventoryBatchPageComponent {
   }
 
   private async saveRowsInChunks(): Promise<void> {
-    const shopId = this.activeShopId();
+    // Captured once: every chunk is sent as, and every draft write lands under, the user and shop
+    // that started the save, whatever this tab is working in when the answers arrive.
+    const owner: ScopeOwner = {
+      userId: this.authService.session()?.user?.id ?? '',
+      shopId: this.activeShopId(),
+    };
     const succeeded: AddInventoryBatchSucceededRow[] = [];
     const failed: AddInventoryBatchFailedRow[] = [];
     let requestedCount = 0;
+    // A switch waits for this save; a move it cannot stop (another tab) leaves the submission stored.
+    const mutation = this.shopContext.beginMutation();
 
     try {
       // Frozen and stored before the first request: if the answer is lost, the next save resends
       // these exact rows under the same keys and the server replays what it already committed.
-      const submission = await this.draftState.prepareSubmission(shopId, this.pendingRows());
+      const submission = await this.draftState.prepareSubmission(owner.shopId, this.pendingRows());
       requestedCount = submission.chunks.reduce((count, chunk) => count + chunk.rows.length, 0);
 
       for (const chunk of submission.chunks) {
-        // Each request carries the token current when it leaves; never send shop A's rows as shop B.
-        if (this.activeShopId() !== shopId) throw new ShopChangedDuringSave();
+        this.assertStillIn(owner);
 
         const response = await firstValueFrom(
-          this.inventoryService.addInventoryBatch({
-            items: this.mapRowsToRequest(chunk.rows),
-            operationKey: chunk.operationKey,
-          }),
+          this.inventoryService.addInventoryBatch(
+            { items: this.mapRowsToRequest(chunk.rows), operationKey: chunk.operationKey },
+            owner,
+          ),
         );
         succeeded.push(...response.succeeded);
         failed.push(...response.failed);
       }
 
-      if (this.activeShopId() !== shopId) throw new ShopChangedDuringSave();
+      this.assertStillIn(owner);
 
       // Saved rows leave the draft before the submission is discarded: if this write fails, the
       // submission is still there and a resend only replays what is already committed.
-      await this.keepRowsNotSaved(shopId, succeeded);
+      await this.keepRowsNotSaved(owner.shopId, succeeded);
       const summary = this.buildSaveSummary(requestedCount, succeeded, failed);
       this.saveSummary.set(summary);
 
@@ -257,7 +267,7 @@ export class InventoryBatchPageComponent {
         return;
       }
 
-      await this.draftState.clearSubmission(shopId);
+      await this.draftState.clearSubmission(owner.shopId);
       if (summary.failedCount === 0) {
         this.showSuccess('inventory.savedSuccess', summary.successCount, summary.requestedCount);
         return;
@@ -265,12 +275,13 @@ export class InventoryBatchPageComponent {
 
       this.showWarn('inventory.savedPartial');
     } catch (error) {
-      if (error instanceof ShopChangedDuringSave) {
-        // The submission stays stored under the original shop and resumes when it is active again.
+      if (isScopeChangeError(error) || !this.shopContext.isCurrent(owner)) {
+        // The submission stays stored under the original shop, with its rows untouched, and
+        // resumes as an interrupted save when that shop is active again.
         return;
       }
 
-      await this.keepRowsNotSaved(shopId, succeeded).catch(() => undefined);
+      await this.keepRowsNotSaved(owner.shopId, succeeded).catch(() => undefined);
       if (succeeded.length > 0 || failed.length > 0) {
         this.saveSummary.set(this.buildSaveSummary(requestedCount, succeeded, failed));
       }
@@ -284,7 +295,7 @@ export class InventoryBatchPageComponent {
 
       if (requestedCount > 0) {
         // A definitive refusal: the corrected rows will be a new submission with new keys.
-        await this.draftState.clearSubmission(shopId);
+        await this.draftState.clearSubmission(owner.shopId);
       }
 
       const apiErrors = this.extractApiErrors(error);
@@ -295,7 +306,15 @@ export class InventoryBatchPageComponent {
         detail ? this.showErrorWithDetail('inventory.saveFailed', detail) : this.showError('inventory.saveFailed');
       }
     } finally {
+      mutation.release();
       this.isSaving.set(false);
+    }
+  }
+
+  /** Each request carries the token current when it leaves; never send one owner's rows as another. */
+  private assertStillIn(owner: ScopeOwner): void {
+    if (!this.shopContext.isCurrent(owner)) {
+      throw new StaleScopeError();
     }
   }
 
@@ -309,7 +328,10 @@ export class InventoryBatchPageComponent {
     return true;
   }
 
-  /** Keeps every pending row the server has not confirmed. */
+  /**
+   * Keeps every pending row the server has not confirmed, including rows added while the save ran.
+   * Called only while the save's owner is still current, so the rows in memory are that owner's.
+   */
   private async keepRowsNotSaved(shopId: string, succeeded: readonly AddInventoryBatchSucceededRow[]): Promise<void> {
     const savedIds = new Set(succeeded.map((row) => row.clientRowId));
     await this.draftState.savePendingRows(shopId, this.pendingRows().filter((row) => !savedIds.has(row.clientRowId)));
@@ -427,5 +449,3 @@ export class InventoryBatchPageComponent {
     }, 1600);
   }
 }
-
-class ShopChangedDuringSave extends Error {}

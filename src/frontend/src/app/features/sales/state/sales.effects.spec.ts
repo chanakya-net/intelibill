@@ -8,6 +8,9 @@ import { vi } from 'vitest';
 import { HttpErrorResponse } from '@angular/common/http';
 
 import { CheckoutIntentService } from '../services/checkout-intent.service';
+import { StaleScopeError } from '../../../core/context/scoped-request';
+import { ShopContextService } from '../../../core/context/shop-context.service';
+import { AppReloadService } from '../../../core/services/app-reload.service';
 import { SaleService } from '../services/sale.service';
 import type {
   ProfitLossReportQueryParams,
@@ -85,6 +88,8 @@ describe('SalesEffects', () => {
     markUncertain: vi.fn(),
   };
 
+  const intentOwner = { userId: 'user-1', shopId: 'shop-1' };
+  let shopContext: ShopContextService;
   const intentPayload = {
     idempotencyKey: 'intent-key',
     customerId: null,
@@ -100,7 +105,7 @@ describe('SalesEffects', () => {
   beforeEach(() => {
     actions$ = new Subject<Action>();
     for (const mock of Object.values(checkoutIntents)) mock.mockReset();
-    checkoutIntents.claimForSend.mockResolvedValue({ intentId: 'intent-1', request: intentPayload });
+    checkoutIntents.claimForSend.mockResolvedValue({ ...intentOwner, intentId: 'intent-1', request: intentPayload });
     checkoutIntents.confirm.mockResolvedValue(null);
     checkoutIntents.reject.mockResolvedValue(null);
     checkoutIntents.markUncertain.mockResolvedValue(null);
@@ -117,6 +122,7 @@ describe('SalesEffects', () => {
         SalesEffects,
         { provide: SaleService, useValue: saleService },
         { provide: CheckoutIntentService, useValue: checkoutIntents },
+        { provide: AppReloadService, useValue: { restartAtAppRoot: vi.fn() } },
         {
           provide: Actions,
           useFactory: (): Observable<Action> => new Actions(actions$),
@@ -125,6 +131,8 @@ describe('SalesEffects', () => {
     });
 
     effects = TestBed.inject(SalesEffects);
+    shopContext = TestBed.inject(ShopContextService);
+    shopContext.initialize(intentOwner);
   });
 
   afterEach(() => {
@@ -526,6 +534,39 @@ describe('SalesEffects', () => {
       expect(checkoutIntents.reject).toHaveBeenCalledWith('intent-1', 'Invoice.CompositionCannotCollectTax');
     });
 
+    it('uncertain_checkout_survives_switch: an answer lost to a scope change stays on its intent', async () => {
+      const answer = new Subject<ReturnType<typeof makeSaleDto>>();
+      checkoutIntents.send.mockReturnValue(answer.asObservable());
+
+      const output = firstValueFrom(effects.recordSale$.pipe(take(1)));
+      actions$.next(SalesActions.recordSaleRequested({ payload: intentPayload, intentId: 'intent-1' }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(shopContext.hasMutationsInFlight()).toBe(true);
+
+      shopContext.transition({ userId: 'user-1', shopId: 'shop-2' }, 'cross-tab', () => undefined);
+      answer.error(new StaleScopeError());
+
+      await expect(output).resolves.toEqual(SalesActions.recordSaleDetached({ intentId: 'intent-1' }));
+      expect(checkoutIntents.markUncertain).toHaveBeenCalledWith('intent-1');
+      expect(checkoutIntents.confirm).not.toHaveBeenCalled();
+      expect(shopContext.hasMutationsInFlight()).toBe(false);
+    });
+
+    it('holds a switch until the checkout outcome is stored', async () => {
+      const answer = new Subject<ReturnType<typeof makeSaleDto>>();
+      checkoutIntents.send.mockReturnValue(answer.asObservable());
+
+      const output = firstValueFrom(effects.recordSale$.pipe(take(1)));
+      actions$.next(SalesActions.recordSaleRequested({ payload: intentPayload, intentId: 'intent-1' }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      await expect(shopContext.prepareToLeave()).resolves.toEqual({ ok: false, reason: 'mutation-in-flight' });
+      answer.next(makeSaleDto('sale-1'));
+      answer.complete();
+      await output;
+      await expect(shopContext.prepareToLeave()).resolves.toEqual({ ok: true });
+    });
+
     it('does not send when another tab holds the intent', async () => {
       checkoutIntents.claimForSend.mockResolvedValue(null);
 
@@ -544,7 +585,7 @@ describe('SalesEffects', () => {
     it('never cancels an in-flight checkout when another is requested', async () => {
       const first = new Subject<ReturnType<typeof makeSaleDto>>();
       const second = makeSaleDto('sale-2');
-      checkoutIntents.claimForSend.mockImplementation(async (intentId: string) => ({ intentId, request: intentPayload }));
+      checkoutIntents.claimForSend.mockImplementation(async (intentId: string) => ({ ...intentOwner, intentId, request: intentPayload }));
       checkoutIntents.send.mockReturnValueOnce(first.asObservable()).mockReturnValueOnce(of(second));
 
       const output = firstValueFrom(effects.recordSale$.pipe(take(2), toArray()));

@@ -28,6 +28,8 @@ import { LocalizationService } from '../i18n/localization.service';
 import { DEFAULT_LANGUAGE } from '../i18n/language.constants';
 import { OfflineSalesDeviceSettingsStorage } from '../storage/offline-sales-device-settings.storage';
 import { OfflineSalesSnapshotIndexedDbService } from '../storage/offline-sales-snapshot-indexeddb.service';
+import { ShopContextService } from '../context/shop-context.service';
+import { ScopeChangeReason, ownerOfSession } from '../context/shop-scope';
 
 const CLOCK_SKEW_BUFFER_MS = 30_000;
 const OFFLINE_AUTH_GRACE_WINDOW_MS = 48 * 60 * 60 * 1000;
@@ -35,6 +37,12 @@ const OFFLINE_AUTH_GRACE_WINDOW_MS = 48 * 60 * 60 * 1000;
 type SessionBroadcastMessage =
   | { readonly type: 'SESSION_UPDATED'; readonly session: AuthSession }
   | { readonly type: 'SESSION_CLEARED' };
+
+/** The device session a scope change was requested from; its answer applies to no other. */
+export interface SessionIdentity {
+  readonly userId: string;
+  readonly sessionId: string | null;
+}
 
 @Injectable({ providedIn: 'root' })
 export class AuthSessionService {
@@ -45,6 +53,7 @@ export class AuthSessionService {
   private readonly localizationService = inject(LocalizationService);
   private readonly offlineSalesDeviceSettingsStorage = inject(OfflineSalesDeviceSettingsStorage);
   private readonly offlineSalesSnapshotDb = inject(OfflineSalesSnapshotIndexedDbService);
+  private readonly shopContext = inject(ShopContextService);
 
   private readonly sessionSignal = signal<AuthSession | null>(null);
   private sessionChannel: BroadcastChannel | null = null;
@@ -70,7 +79,9 @@ export class AuthSessionService {
   });
 
   constructor() {
-    this.sessionSignal.set(this.storage.loadSession());
+    const restored = this.storage.loadSession();
+    this.sessionSignal.set(restored);
+    this.shopContext.initialize(ownerOfSession(restored));
     this.sessionChannel = new BroadcastChannel('intelibill.auth.session');
     this.sessionChannel.addEventListener(
       'message',
@@ -275,34 +286,62 @@ export class AuthSessionService {
   }
 
   clearSession(): void {
-    this.storage.clearSession();
-    this.sessionChannel?.postMessage({ type: 'SESSION_CLEARED' });
+    this.shopContext.transition(null, 'sign-out', () => {
+      this.storage.clearSession();
+      this.sessionChannel?.postMessage({ type: 'SESSION_CLEARED' });
 
-    this.tokenService.cancelProactiveRefresh();
-    this.sessionSignal.set(null);
+      this.tokenService.cancelProactiveRefresh();
+      this.sessionSignal.set(null);
+    });
   }
 
   applyAuthResult(result: AuthResult): void {
     this.setSession(this.toSession(result, this.sessionSignal()?.rememberMe ?? true));
   }
 
+  /** The device session this tab holds now, to pass back to `applyAccessScope`. */
+  sessionIdentity(): SessionIdentity | null {
+    const session = this.sessionSignal();
+    return session ? { userId: session.user.id, sessionId: session.sessionId ?? null } : null;
+  }
+
   /**
    * Adopts a scope change for this device. Switching or creating a shop is not a credential event,
    * so the refresh token this sign-in earned is kept exactly as it is.
+   *
+   * Refused (false) when the tab now holds another device session than `requestedFrom`, or when the
+   * server already issued this session a newer scope than the one answered: a late answer to an
+   * earlier switch must not move the tab back.
    */
-  applyAccessScope(result: AccessScopeResult): void {
+  applyAccessScope(result: AccessScopeResult, requestedFrom?: SessionIdentity | null): boolean {
     const current = this.sessionSignal();
     if (!current) {
-      return;
+      return false;
     }
 
-    this.setSession({
-      ...current,
-      accessToken: result.accessToken,
-      accessTokenExpiresAt: result.accessTokenExpiresAt,
-      activeShopId: result.activeShopId,
-      shops: result.shops ?? [],
-    });
+    if (
+      requestedFrom &&
+      (requestedFrom.userId !== current.user.id || requestedFrom.sessionId !== (current.sessionId ?? null))
+    ) {
+      return false;
+    }
+
+    const installedVersion = readScopeVersion(current.accessToken);
+    if (installedVersion !== null && Number(result.scopeVersion) < installedVersion) {
+      return false;
+    }
+
+    this.setSession(
+      {
+        ...current,
+        accessToken: result.accessToken,
+        accessTokenExpiresAt: result.accessTokenExpiresAt,
+        activeShopId: result.activeShopId,
+        shops: result.shops ?? [],
+      },
+      'scope',
+    );
+    return true;
   }
 
   /** Adopts a saved shop preference. The shop this device is working in does not move. */
@@ -312,7 +351,7 @@ export class AuthSessionService {
       return;
     }
 
-    this.setSession({ ...current, shops: result.shops ?? [] });
+    this.setSession({ ...current, shops: result.shops ?? [] }, 'scope');
   }
 
   /** Adopts a saved profile. Saving a name issues no token, so none is replaced. */
@@ -322,21 +361,27 @@ export class AuthSessionService {
       return;
     }
 
-    this.setSession({
-      ...current,
-      user: { ...user, language: user.language || DEFAULT_LANGUAGE },
-    });
+    this.setSession(
+      {
+        ...current,
+        user: { ...user, language: user.language || DEFAULT_LANGUAGE },
+      },
+      'scope',
+    );
   }
 
-  private setSession(session: AuthSession): void {
-    this.sessionSignal.set(session);
-    const preferredLanguage = session.user.language || DEFAULT_LANGUAGE;
+  /** Every session this tab installs passes through the shop-context transition. */
+  private setSession(session: AuthSession, reason: ScopeChangeReason = 'sign-in'): void {
+    this.shopContext.transition(ownerOfSession(session), reason, () => {
+      this.sessionSignal.set(session);
+      const preferredLanguage = session.user.language || DEFAULT_LANGUAGE;
 
-    void this.localizationService.setLanguage(preferredLanguage);
+      void this.localizationService.setLanguage(preferredLanguage);
 
-    this.storage.saveSession(session);
-    this.sessionChannel?.postMessage({ type: 'SESSION_UPDATED', session });
-    this.tokenService.scheduleProactiveRefresh(this.tokenState(), session);
+      this.storage.saveSession(session);
+      this.sessionChannel?.postMessage({ type: 'SESSION_UPDATED', session });
+      this.tokenService.scheduleProactiveRefresh(this.tokenState(), session);
+    });
   }
 
   private toSession(result: AuthResult, rememberMe: boolean): AuthSession {
@@ -357,17 +402,21 @@ export class AuthSessionService {
 
   private handleSessionBroadcast(message: SessionBroadcastMessage): void {
     if (message.type === 'SESSION_UPDATED') {
-      // Another tab successfully refreshed — adopt the new session so we
-      // don't attempt to refresh using the now-revoked token.
-      this.sessionSignal.set(message.session);
-      this.storage.saveSession(message.session);
-      this.tokenService.scheduleProactiveRefresh(this.tokenState(), message.session);
+      // Another tab refreshed, switched shop or signed in — adopt the new session so we don't
+      // refresh with a revoked token. A different user or shop moves this tab with it.
+      this.shopContext.transition(ownerOfSession(message.session), 'cross-tab', () => {
+        this.sessionSignal.set(message.session);
+        this.storage.saveSession(message.session);
+        this.tokenService.scheduleProactiveRefresh(this.tokenState(), message.session);
+      });
     } else if (message.type === 'SESSION_CLEARED') {
       // Another tab signed out — mirror the logout in this tab.
       const wasAuthenticated = this.sessionSignal() !== null;
-      this.sessionSignal.set(null);
-      this.storage.clearSession();
-      this.tokenService.cancelProactiveRefresh();
+      this.shopContext.transition(null, 'cross-tab', () => {
+        this.sessionSignal.set(null);
+        this.storage.clearSession();
+        this.tokenService.cancelProactiveRefresh();
+      });
       if (wasAuthenticated) {
         void this.router.navigateByUrl('/login');
       }
@@ -377,9 +426,29 @@ export class AuthSessionService {
   private tokenState(): AuthSessionState {
     return {
       getSession: () => this.sessionSignal(),
-      setSession: (session) => this.setSession(session),
+      setSession: (session) => this.setSession(session, 'refresh'),
       clearSession: () => this.clearSession(),
       toSession: (result, rememberMe) => this.toSession(result, rememberMe),
     };
+  }
+}
+
+/**
+ * The `scope_version` claim of an access token, or null when the token carries none. The server
+ * raises it on every scope change of a device session, so it orders two scope answers.
+ */
+export function readScopeVersion(accessToken: string): number | null {
+  const payload = accessToken.split('.')[1];
+  if (!payload) {
+    return null;
+  }
+
+  try {
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const claims = JSON.parse(atob(normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '='))) as Record<string, unknown>;
+    const version = Number(claims['scope_version']);
+    return Number.isFinite(version) ? version : null;
+  } catch {
+    return null;
   }
 }

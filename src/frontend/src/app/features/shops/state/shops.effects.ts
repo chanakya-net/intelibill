@@ -1,10 +1,10 @@
 import { inject, Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
-import { EMPTY, catchError, map, of, switchMap, tap } from 'rxjs';
+import { EMPTY, catchError, exhaustMap, from, map, of, switchMap } from 'rxjs';
 
 import { ApiErrorPayload } from '../../../core/auth/auth.models';
 import { AuthService } from '../../../core/auth/auth.service';
-import { AppReloadService } from '../../../core/services/app-reload.service';
+import { LeaveReadiness, ShopContextService } from '../../../core/context/shop-context.service';
 import { ShopService } from '../services/shop.service';
 import { ShopsActions } from './shops.actions';
 
@@ -13,7 +13,7 @@ export class ShopsEffects {
   private readonly actions$ = inject(Actions);
   private readonly shopService = inject(ShopService);
   private readonly authService = inject(AuthService);
-  private readonly appReload = inject(AppReloadService);
+  private readonly shopContext = inject(ShopContextService);
 
   readonly loadShops$ = createEffect(() =>
     this.actions$.pipe(
@@ -71,18 +71,25 @@ export class ShopsEffects {
     )
   );
 
+  /** Creating a shop moves this device into it, so it waits for the same readiness as a switch. */
   readonly createShop$ = createEffect(() =>
     this.actions$.pipe(
       ofType(ShopsActions.createShopRequested),
       switchMap(({ payload }) =>
-        this.shopService.createShop(payload).pipe(
-          map(() => ShopsActions.createShopSucceeded()),
-          catchError((error: { error?: ApiErrorPayload }) =>
-            of(
-              ShopsActions.createShopFailed({
-                errorMessage: getShopMutationErrorMessage(error.error),
-              })
-            )
+        from(this.shopContext.prepareToLeave()).pipe(
+          switchMap((readiness) =>
+            readiness.ok
+              ? this.shopService.createShop(payload).pipe(
+                  map(() => ShopsActions.createShopSucceeded()),
+                  catchError((error: { error?: ApiErrorPayload }) =>
+                    of(
+                      ShopsActions.createShopFailed({
+                        errorMessage: getShopMutationErrorMessage(error.error),
+                      })
+                    )
+                  )
+                )
+              : of(ShopsActions.createShopFailed({ errorMessage: getLeaveRefusalMessage(readiness) }))
           )
         )
       )
@@ -107,36 +114,34 @@ export class ShopsEffects {
     )
   );
 
+  /**
+   * A switch first saves this tab's drafts under the shop being left and waits for no owner-bound
+   * write to be in flight; only then is the server asked to move the device. Installing the answer
+   * resets every shop-scoped view and restarts the app at its root (`ShopContextService`), because
+   * pages load their rows when they are created rather than when the scope changes.
+   */
   readonly switchActiveShop$ = createEffect(() =>
     this.actions$.pipe(
       ofType(ShopsActions.switchActiveShopRequested),
-      switchMap(({ shopId }) =>
-        this.shopService.switchActiveShop(shopId).pipe(
-          map(() => ShopsActions.switchActiveShopSucceeded({ shopId })),
-          catchError((error: { error?: ApiErrorPayload }) =>
-            of(
-              ShopsActions.switchActiveShopFailed({
-                errorMessage: getShopSwitchErrorMessage(error.error),
-              })
-            )
+      exhaustMap(({ shopId }) =>
+        from(this.shopContext.prepareToLeave()).pipe(
+          switchMap((readiness) =>
+            readiness.ok
+              ? this.shopService.switchActiveShop(shopId).pipe(
+                  map(() => ShopsActions.switchActiveShopSucceeded({ shopId })),
+                  catchError((error: { error?: ApiErrorPayload }) =>
+                    of(
+                      ShopsActions.switchActiveShopFailed({
+                        errorMessage: getShopSwitchErrorMessage(error.error),
+                      })
+                    )
+                  )
+                )
+              : of(ShopsActions.switchActiveShopFailed({ errorMessage: getLeaveRefusalMessage(readiness) }))
           )
         )
       )
     )
-  );
-
-  /**
-   * A switch moves every shop-scoped page on this device, and those pages load their rows when
-   * they are created rather than when the scope changes. Restarting is what guarantees no view is
-   * left showing the shop that was just left.
-   */
-  readonly restartAfterShopSwitch$ = createEffect(
-    () =>
-      this.actions$.pipe(
-        ofType(ShopsActions.switchActiveShopSucceeded),
-        tap(() => this.appReload.restartAtAppRoot())
-      ),
-    { dispatch: false }
   );
 
   readonly setDefaultShop$ = createEffect(() =>
@@ -235,6 +240,12 @@ function getShopSwitchErrorMessage(error: ApiErrorPayload | undefined): string {
   }
 
   return 'errors.shops.unableToSwitchStore';
+}
+
+function getLeaveRefusalMessage(readiness: Exclude<LeaveReadiness, { ok: true }>): string {
+  return readiness.reason === 'mutation-in-flight'
+    ? 'errors.shops.switchBlockedByPendingOperation'
+    : 'errors.shops.switchDraftSaveFailed';
 }
 
 function getBankDetailsErrorMessage(error: ApiErrorPayload | undefined): string {

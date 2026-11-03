@@ -1,4 +1,4 @@
-import { Component, ElementRef, HostListener, ViewChild, computed, effect, inject, signal } from '@angular/core';
+import { Component, ElementRef, HostListener, ViewChild, computed, effect, inject, signal, untracked } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { filter, map } from 'rxjs';
 import { Store } from '@ngrx/store';
@@ -6,6 +6,7 @@ import { NavigationEnd, PRIMARY_OUTLET, Router, RouterOutlet } from '@angular/ro
 import { TranslocoPipe } from '@ngneat/transloco';
 
 import { AuthService } from '../auth/auth.service';
+import { ShopContextService } from '../context/shop-context.service';
 import { RootState } from '../state/app.state';
 import { CreateShopOverlayComponent } from '../../features/shops/components/create-shop-overlay.component';
 import { ManageShopOverlayComponent } from '../../features/shops/components/manage-shop-overlay.component';
@@ -61,6 +62,8 @@ export class ShellComponent {
   private readonly offlineDeviceSettingsStorage = inject(OfflineSalesDeviceSettingsStorage);
   private readonly offlineDeviceEnablement = inject(OfflineSalesDeviceEnablementService);
   readonly menuService = inject(ShellMenuService);
+  /** While the tab leaves a scope, nothing routed may show beneath the next scope's header. */
+  readonly isScopeTransitioning = inject(ShopContextService).transitioning;
 
   private readonly routedUrl = toSignal(
     this.router.events.pipe(
@@ -151,6 +154,14 @@ export class ShellComponent {
         this.showCreateShopOverlayAuto.set(false);
       } else if (this.authService.needsShopSetup()) {
         this.showCreateShopOverlayAuto.set(true);
+      }
+    });
+
+    // A session can end without anyone navigating (a renewal refused, another device ending it).
+    // The shell has hidden its content by then; take the person to sign in rather than leave it blank.
+    effect(() => {
+      if (this.session() === null) {
+        untracked(() => void this.router.navigateByUrl('/login'));
       }
     });
 

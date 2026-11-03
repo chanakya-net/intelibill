@@ -186,8 +186,14 @@
       </div>
     </header>
 
-    <main class="shell-main">
-      <router-outlet></router-outlet>
+    <main class="shell-main" [attr.aria-busy]="isScopeTransitioning()">
+      @if (isScopeTransitioning()) {
+        <p class="shell-scope-transition" role="status">
+          {{ (session() ? 'shell.scopeTransition' : 'shell.signedOut') | transloco }}
+        </p>
+      } @else {
+        <router-outlet></router-outlet>
+      }
     </main>
   </div>
 

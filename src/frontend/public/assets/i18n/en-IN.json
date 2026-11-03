@@ -128,7 +128,9 @@
     "collapseSidebar": "Collapse sidebar",
     "expandSidebar": "Expand sidebar",
     "mainNavigation": "Main navigation",
-    "offlineReconciliation": "Offline reconciliation"
+    "offlineReconciliation": "Offline reconciliation",
+    "scopeTransition": "Switching to the selected store…",
+    "signedOut": "You have been signed out. Taking you to sign in…"
   },
   "dashboard": {
     "header": {
@@ -1046,7 +1048,9 @@
       "eInvoiceAttestationRequired": "A regular GST shop must state whether e-invoicing applies to it.",
       "legalNameTooLong": "The legal name must be 200 characters or fewer.",
       "gstinManagedByTaxProfile": "The GSTIN is part of the shop's GST registration. Change it under GST Registration.",
-      "unableToUpdateTaxProfile": "Unable to save the GST registration right now. Please try again."
+      "unableToUpdateTaxProfile": "Unable to save the GST registration right now. Please try again.",
+      "switchBlockedByPendingOperation": "A sale or stock save is still waiting for the server. Switch store once it finishes.",
+      "switchDraftSaveFailed": "Your cart could not be saved on this device, so the store was not switched. Please try again."
     },
     "bankAccounts": {
       "unableToLoad": "Unable to load bank accounts right now. Please try again.",
@@ -1371,7 +1375,8 @@
           "sending": "Sending",
           "uncertain": "Unconfirmed"
         }
-      }
+      },
+      "draftSaveFailed": "This cart could not be saved on this device. Keep this page open until you complete the sale."
     },
     "detail": {
       "title": "Sale Details",

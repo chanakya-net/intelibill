@@ -1,5 +1,7 @@
 import { Injectable } from '@angular/core';
 
+import { ScopeOwner, ownerKey } from '../context/shop-scope';
+
 export interface SalesCartDraftItem {
   readonly clientLineKey: string;
   readonly barcode: string;
@@ -31,7 +33,13 @@ export interface SalesCartDraftServiceItem {
   readonly hsnCode: string | null;
 }
 
+/**
+ * One owner's cart. Drafts were once keyed by shop alone; such a record cannot say which user built
+ * it, so it is never read again and never handed to whoever signs in next.
+ */
 interface SalesCartRecord {
+  readonly ownerKey: string;
+  readonly userId: string;
   readonly shopId: string;
   readonly items: readonly unknown[];
   readonly serviceItems?: readonly unknown[];
@@ -92,35 +100,15 @@ export function migrateLegacyServiceCartItem(item: unknown): SalesCartDraftServi
 @Injectable({ providedIn: 'root' })
 export class SalesCartIndexedDbService {
   private readonly databaseName = 'intelibill-sales-cart';
-  private readonly databaseVersion = 1;
-  private readonly storeName = 'sales-cart';
+  // Version 2 adds the owner-keyed store; the shop-keyed `sales-cart` store of version 1 is left as
+  // it was and no longer read.
+  private readonly databaseVersion = 2;
+  private readonly storeName = 'sales-cart-by-owner';
+  private connection: Promise<IDBDatabase> | null = null;
 
-  async loadCart(shopId: string, maxAgeMs: number): Promise<readonly SalesCartDraftItem[]> {
-    if (!shopId || typeof indexedDB === 'undefined') {
-      return [];
-    }
-
-    const database = await this.openDatabase();
-    const record = await new Promise<SalesCartRecord | undefined>((resolve, reject) => {
-      const transaction = database.transaction(this.storeName, 'readonly');
-      const request = transaction.objectStore(this.storeName).get(shopId);
-
-      request.onsuccess = () => resolve(request.result as SalesCartRecord | undefined);
-      request.onerror = () => reject(request.error);
-    });
-
+  async loadCart(owner: ScopeOwner, maxAgeMs: number): Promise<readonly SalesCartDraftItem[]> {
+    const record = await this.readFreshRecord(owner, maxAgeMs);
     if (!record) {
-      return [];
-    }
-
-    const updatedAtMs = Date.parse(record.updatedAt);
-    const isExpired =
-      Number.isNaN(updatedAtMs) ||
-      maxAgeMs <= 0 ||
-      Date.now() - updatedAtMs > maxAgeMs;
-
-    if (isExpired) {
-      await this.clearCart(shopId);
       return [];
     }
 
@@ -131,38 +119,16 @@ export class SalesCartIndexedDbService {
 
     const migratedItems = rawItems.map(migrateLegacyCartItem);
     if (migratedItems.some((item) => item === null)) {
-      await this.clearCart(shopId);
+      await this.clearCart(owner);
       return [];
     }
 
     return migratedItems as SalesCartDraftItem[];
   }
 
-  async loadServiceCart(shopId: string, maxAgeMs: number): Promise<readonly SalesCartDraftServiceItem[]> {
-    if (!shopId || typeof indexedDB === 'undefined') {
-      return [];
-    }
-
-    const database = await this.openDatabase();
-    const record = await new Promise<SalesCartRecord | undefined>((resolve, reject) => {
-      const transaction = database.transaction(this.storeName, 'readonly');
-      const request = transaction.objectStore(this.storeName).get(shopId);
-
-      request.onsuccess = () => resolve(request.result as SalesCartRecord | undefined);
-      request.onerror = () => reject(request.error);
-    });
-
+  async loadServiceCart(owner: ScopeOwner, maxAgeMs: number): Promise<readonly SalesCartDraftServiceItem[]> {
+    const record = await this.readFreshRecord(owner, maxAgeMs, { clearExpired: false });
     if (!record) {
-      return [];
-    }
-
-    const updatedAtMs = Date.parse(record.updatedAt);
-    const isExpired =
-      Number.isNaN(updatedAtMs) ||
-      maxAgeMs <= 0 ||
-      Date.now() - updatedAtMs > maxAgeMs;
-
-    if (isExpired) {
       return [];
     }
 
@@ -176,11 +142,11 @@ export class SalesCartIndexedDbService {
   }
 
   async saveCart(
-    shopId: string,
+    owner: ScopeOwner,
     items: readonly SalesCartDraftItem[],
     serviceItems: readonly SalesCartDraftServiceItem[] = [],
   ): Promise<void> {
-    if (!shopId || typeof indexedDB === 'undefined') {
+    if (!isComplete(owner) || typeof indexedDB === 'undefined') {
       return;
     }
 
@@ -188,45 +154,107 @@ export class SalesCartIndexedDbService {
     await new Promise<void>((resolve, reject) => {
       const transaction = database.transaction(this.storeName, 'readwrite');
       const request = transaction.objectStore(this.storeName).put({
-        shopId,
+        ownerKey: ownerKey(owner),
+        userId: owner.userId,
+        shopId: owner.shopId,
         items,
         serviceItems,
         updatedAt: new Date().toISOString(),
-      } as SalesCartRecord);
+      } satisfies SalesCartRecord);
 
       request.onsuccess = () => resolve();
       request.onerror = () => reject(request.error);
     });
   }
 
-  async clearCart(shopId: string): Promise<void> {
-    if (!shopId || typeof indexedDB === 'undefined') {
+  async clearCart(owner: ScopeOwner): Promise<void> {
+    if (!isComplete(owner) || typeof indexedDB === 'undefined') {
       return;
     }
 
     const database = await this.openDatabase();
     await new Promise<void>((resolve, reject) => {
       const transaction = database.transaction(this.storeName, 'readwrite');
-      const request = transaction.objectStore(this.storeName).delete(shopId);
+      const request = transaction.objectStore(this.storeName).delete(ownerKey(owner));
 
       request.onsuccess = () => resolve();
       request.onerror = () => reject(request.error);
     });
   }
 
-  private async openDatabase(): Promise<IDBDatabase> {
-    return await new Promise((resolve, reject) => {
+  /** The owner's record, or null when there is none, it belongs to someone else, or it expired. */
+  private async readFreshRecord(
+    owner: ScopeOwner,
+    maxAgeMs: number,
+    options: { readonly clearExpired: boolean } = { clearExpired: true },
+  ): Promise<SalesCartRecord | null> {
+    if (!isComplete(owner) || typeof indexedDB === 'undefined') {
+      return null;
+    }
+
+    const database = await this.openDatabase();
+    const record = await new Promise<SalesCartRecord | undefined>((resolve, reject) => {
+      const transaction = database.transaction(this.storeName, 'readonly');
+      const request = transaction.objectStore(this.storeName).get(ownerKey(owner));
+
+      request.onsuccess = () => resolve(request.result as SalesCartRecord | undefined);
+      request.onerror = () => reject(request.error);
+    });
+
+    if (!record || record.userId !== owner.userId || record.shopId !== owner.shopId) {
+      return null;
+    }
+
+    const updatedAtMs = Date.parse(record.updatedAt);
+    const isExpired =
+      Number.isNaN(updatedAtMs) ||
+      maxAgeMs <= 0 ||
+      Date.now() - updatedAtMs > maxAgeMs;
+
+    if (isExpired) {
+      if (options.clearExpired) {
+        await this.clearCart(owner);
+      }
+      return null;
+    }
+
+    return record;
+  }
+
+  /**
+   * One connection per tab, closed when a newer tab upgrades the schema. A tab still on an older
+   * version blocks the upgrade; that is reported as a failure instead of waiting on it forever.
+   */
+  private openDatabase(): Promise<IDBDatabase> {
+    this.connection ??= new Promise<IDBDatabase>((resolve, reject) => {
       const request = indexedDB.open(this.databaseName, this.databaseVersion);
 
       request.onupgradeneeded = () => {
         const database = request.result;
         if (!database.objectStoreNames.contains(this.storeName)) {
-          database.createObjectStore(this.storeName, { keyPath: 'shopId' });
+          database.createObjectStore(this.storeName, { keyPath: 'ownerKey' });
         }
       };
 
-      request.onsuccess = () => resolve(request.result);
+      request.onsuccess = () => {
+        const database = request.result;
+        database.onversionchange = () => {
+          database.close();
+          this.connection = null;
+        };
+        resolve(database);
+      };
       request.onerror = () => reject(request.error);
+      request.onblocked = () => reject(new Error('The cart is open in an older tab; reload it to continue.'));
+    }).catch((error: unknown) => {
+      this.connection = null;
+      throw error;
     });
+
+    return this.connection;
   }
+}
+
+function isComplete(owner: ScopeOwner): boolean {
+  return !!owner.userId && !!owner.shopId;
 }

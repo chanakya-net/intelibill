@@ -2,6 +2,7 @@ import { Injectable, effect, inject, signal } from '@angular/core';
 
 import { AuthService } from '../auth/auth.service';
 import { ITEM_ENDPOINTS } from '../auth/auth.constants';
+import { ShopContextService } from '../context/shop-context.service';
 import {
   ProductCatalogEntry,
   ProductCatalogIndexedDbService,
@@ -13,6 +14,7 @@ const CHUNK_SIZE = 50;
 export class ProductCatalogSyncService {
   private readonly authService = inject(AuthService);
   private readonly catalogDb = inject(ProductCatalogIndexedDbService);
+  private readonly shopContext = inject(ShopContextService);
 
   readonly catalogEntries = signal<readonly ProductCatalogEntry[]>([]);
 
@@ -62,10 +64,19 @@ export class ProductCatalogSyncService {
     }
   }
 
+  /**
+   * Streams the catalog of the shop the tab is in when the sync starts. Every await is followed by a
+   * check that the tab is still in that scope: `fetch` is not seen by the HTTP interceptor, so a
+   * stream that outlives a switch or sign-out stops itself instead of filing rows under another shop.
+   */
   private async syncForShop(shopId: string): Promise<void> {
+    const epoch = this.shopContext.epoch();
+    const scopeMoved = (): boolean => this.shopContext.epoch() !== epoch;
+
     try {
       // Load stale cache first so autocomplete works instantly while stream loads
       const cached = await this.catalogDb.getCatalog(shopId);
+      if (scopeMoved()) return;
       if (cached.length > 0) {
         this.catalogEntries.set(cached);
       }
@@ -77,6 +88,10 @@ export class ProductCatalogSyncService {
         headers: { Authorization: `Bearer ${token}` },
       });
 
+      if (scopeMoved()) {
+        void response.body?.cancel();
+        return;
+      }
       if (!response.ok || !response.body) return;
 
       const reader = response.body.getReader();
@@ -86,6 +101,10 @@ export class ProductCatalogSyncService {
 
       while (true) {
         const { done, value } = await reader.read();
+        if (scopeMoved()) {
+          void reader.cancel();
+          return;
+        }
 
         if (done) {
           buffer += decoder.decode(); // flush remaining multi-byte sequences
