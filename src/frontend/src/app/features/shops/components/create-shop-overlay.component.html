@@ -213,21 +213,134 @@
                 </div>
               </div>
 
-              <div class="field-wrap space-y-1.5">
-                <label for="shop-gst">{{ 'shops.gstNumberOptional' | transloco }}</label>
-                <input
-                  id="shop-gst"
-                  type="text"
-                  pInputText
-                  formControlName="gstNumber"
-                  class="w-full"
-                  [placeholder]="'shops.placeholders.gst' | transloco"
-                  [class.ng-invalid]="shopForm.controls.gstNumber.invalid && shopForm.controls.gstNumber.touched"
-                />
-                @if (shopForm.controls.gstNumber.hasError('pattern') && shopForm.controls.gstNumber.touched) {
-                  <p class="field-error">{{ 'shops.validation.gstInvalid' | transloco }}</p>
+              <fieldset class="tax-profile-fields space-y-4">
+                <legend class="tax-profile-legend">{{ 'shops.taxProfile.title' | transloco }}</legend>
+                <p class="text-sm text-muted">{{ 'shops.taxProfile.description' | transloco }}</p>
+
+                <div class="field-wrap space-y-1.5">
+                  <label for="create-shop-legal-name">{{ 'shops.taxProfile.legalNameOptional' | transloco }}</label>
+                  <input
+                    id="create-shop-legal-name"
+                    type="text"
+                    pInputText
+                    formControlName="legalName"
+                    class="w-full"
+                    [placeholder]="'shops.taxProfile.legalNamePlaceholder' | transloco"
+                  />
+                  @if (shopForm.controls.legalName.hasError('maxlength') && shopForm.controls.legalName.touched) {
+                    <p class="field-error">{{ 'shops.taxProfile.validation.legalNameMaxLength' | transloco }}</p>
+                  }
+                </div>
+
+                <div class="field-grid">
+                  <div class="field-wrap space-y-1.5">
+                    <label for="create-shop-state-code">{{ 'shops.taxProfile.stateCode' | transloco }}</label>
+                    <p-select
+                      inputId="create-shop-state-code"
+                      formControlName="stateCode"
+                      [options]="stateOptions"
+                      optionLabel="name"
+                      optionValue="value"
+                      [filter]="true"
+                      filterBy="name"
+                      [placeholder]="'shops.taxProfile.statePlaceholder' | transloco"
+                      class="w-full"
+                      appendTo="body"
+                    />
+                    @if (shopForm.controls.stateCode.hasError('required') && shopForm.controls.stateCode.touched) {
+                      <p class="field-error">{{ 'shops.taxProfile.validation.stateRequired' | transloco }}</p>
+                    }
+                  </div>
+
+                  <div class="field-wrap space-y-1.5">
+                    <label for="create-shop-regime">{{ 'shops.taxProfile.taxRegime' | transloco }}</label>
+                    <p-select
+                      inputId="create-shop-regime"
+                      formControlName="taxRegime"
+                      [options]="regimeOptions()"
+                      optionLabel="label"
+                      optionValue="value"
+                      [placeholder]="'shops.taxProfile.regimePlaceholder' | transloco"
+                      class="w-full"
+                      appendTo="body"
+                    >
+                      <ng-template pTemplate="selectedItem" let-option>{{ option?.label }}</ng-template>
+                      <ng-template pTemplate="item" let-option>{{ option.label }}</ng-template>
+                    </p-select>
+                    @if (shopForm.controls.taxRegime.hasError('required') && shopForm.controls.taxRegime.touched) {
+                      <p class="field-error">{{ 'shops.taxProfile.validation.regimeRequired' | transloco }}</p>
+                    }
+                  </div>
+                </div>
+
+                <div class="field-wrap space-y-1.5">
+                  <label for="shop-gst">{{ 'shops.taxProfile.gstin' | transloco }}</label>
+                  <input
+                    id="shop-gst"
+                    type="text"
+                    pInputText
+                    formControlName="gstNumber"
+                    class="w-full"
+                    [placeholder]="'shops.placeholders.gst' | transloco"
+                    [class.ng-invalid]="shopForm.controls.gstNumber.invalid && shopForm.controls.gstNumber.touched"
+                  />
+                  @if (shopForm.controls.gstNumber.touched) {
+                    @if (shopForm.controls.gstNumber.hasError('pattern') || shopForm.controls.gstNumber.hasError('gstinChecksum')) {
+                      <p class="field-error">{{ 'shops.taxProfile.validation.gstinInvalid' | transloco }}</p>
+                    }
+                    @if (shopForm.hasError('gstinRequired')) {
+                      <p class="field-error">{{ 'shops.taxProfile.validation.gstinRequired' | transloco }}</p>
+                    }
+                    @if (shopForm.hasError('gstinStateMismatch')) {
+                      <p class="field-error">{{ 'shops.taxProfile.validation.gstinStateMismatch' | transloco }}</p>
+                    }
+                    @if (shopForm.hasError('gstinNotAllowed')) {
+                      <p class="field-error">{{ 'shops.taxProfile.validation.gstinNotAllowed' | transloco }}</p>
+                    }
+                  }
+                </div>
+
+                @if (isRegularRegime()) {
+                  <div id="create-shop-einvoice" class="field-wrap space-y-1.5">
+                    <label for="create-shop-einvoice-input">{{ 'shops.taxProfile.eInvoiceStatus' | transloco }}</label>
+                    <p-select
+                      inputId="create-shop-einvoice-input"
+                      formControlName="eInvoiceStatus"
+                      [options]="eInvoiceOptions()"
+                      optionLabel="label"
+                      optionValue="value"
+                      [placeholder]="'shops.taxProfile.eInvoicePlaceholder' | transloco"
+                      class="w-full"
+                      appendTo="body"
+                    >
+                      <ng-template pTemplate="selectedItem" let-option>{{ option?.label }}</ng-template>
+                      <ng-template pTemplate="item" let-option>{{ option.label }}</ng-template>
+                    </p-select>
+                    @if (shopForm.hasError('eInvoiceStatusRequired') && shopForm.controls.eInvoiceStatus.touched) {
+                      <p class="field-error">{{ 'shops.taxProfile.validation.eInvoiceRequired' | transloco }}</p>
+                    }
+                    @if (shopForm.controls.eInvoiceStatus.value === 'Required') {
+                      <p class="owner-hint">{{ 'shops.taxProfile.eInvoiceRequiredWarning' | transloco }}</p>
+                    }
+                  </div>
                 }
-              </div>
+
+                <div class="field-wrap space-y-1.5">
+                  <label for="create-shop-series">{{ 'shops.taxProfile.seriesCodeOptional' | transloco }}</label>
+                  <input
+                    id="create-shop-series"
+                    type="text"
+                    pInputText
+                    formControlName="invoiceSeriesCode"
+                    maxlength="4"
+                    class="w-full"
+                  />
+                  <p class="text-sm text-muted">{{ 'shops.taxProfile.seriesCodeHint' | transloco }}</p>
+                  @if (shopForm.controls.invoiceSeriesCode.invalid && shopForm.controls.invoiceSeriesCode.touched) {
+                    <p class="field-error">{{ 'shops.taxProfile.validation.seriesCodeInvalid' | transloco }}</p>
+                  }
+                </div>
+              </fieldset>
 
               @if (serverError()) {
                 <p class="server-error">{{ serverError() | transloco }}</p>

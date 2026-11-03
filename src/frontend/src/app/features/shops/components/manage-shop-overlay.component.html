@@ -24,35 +24,39 @@
       <p-step-panels>
         <p-step-panel [value]="1">
           <ng-template #content>
-            <form [formGroup]="form" (ngSubmit)="onSubmit()" class="overlay-form overlay-step-content space-y-4">
-              <div class="field-wrap space-y-1.5">
-                <label for="manage-shop-id">{{ 'shops.selectShop' | transloco }}</label>
-                <select id="manage-shop-id" formControlName="shopId" class="shop-select" [disabled]="isSubmitting() || isLoadingDetails()" (change)="onShopSelectionChange()">
-                  @for (shop of shops; track shop.shopId) {
-                    <option [value]="shop.shopId">
-                      {{ shop.shopName }} ({{ roleLabelKey(shop.role) | transloco }})
-                    </option>
-                  }
-                </select>
-              </div>
+            <div class="overlay-form overlay-step-content space-y-4">
+              <form id="manage-shop-details-form" [formGroup]="form" (ngSubmit)="onSubmit()" class="space-y-4">
+                <div class="field-wrap space-y-1.5">
+                  <label for="manage-shop-id">{{ 'shops.selectShop' | transloco }}</label>
+                  <select id="manage-shop-id" formControlName="shopId" class="shop-select" [disabled]="isSubmitting() || isLoadingDetails()" (change)="onShopSelectionChange()">
+                    @for (shop of shops; track shop.shopId) {
+                      <option [value]="shop.shopId">
+                        {{ shop.shopName }} ({{ roleLabelKey(shop.role) | transloco }})
+                      </option>
+                    }
+                  </select>
+                </div>
 
-              @if (!isSelectedShopOwner()) {
-                <p class="owner-hint">{{ 'shops.selectedShopRoleIs' | transloco }} {{ roleLabelKey(selectedShopRole()) | transloco }}. {{ 'shops.onlyOwnersCanSave' | transloco }}</p>
-              }
+                @if (!isSelectedShopOwner()) {
+                  <p class="owner-hint">{{ 'shops.selectedShopRoleIs' | transloco }} {{ roleLabelKey(selectedShopRole()) | transloco }}. {{ 'shops.onlyOwnersCanSave' | transloco }}</p>
+                }
 
-              <app-shop-basic-info-form [initialValues]="selectedShopDetails()" [disabled]="isSubmitting() || isLoadingDetails()" (formChange)="onBasicInfoFormChange($event)"></app-shop-basic-info-form>
+                <app-shop-basic-info-form [initialValues]="selectedShopDetails()" [disabled]="isSubmitting() || isLoadingDetails()" [showGstNumber]="false" (formChange)="onBasicInfoFormChange($event)"></app-shop-basic-info-form>
 
-              @if (serverError()) {
-                <p class="server-error">{{ serverError() | transloco }}</p>
-              }
+                @if (shopFormError()) {
+                  <p class="server-error">{{ shopFormError() | transloco }}</p>
+                }
+              </form>
+
+              <app-shop-tax-profile-form [details]="selectedShopDetails()" [canEdit]="isSelectedShopOwner()" [disabled]="isSubmitting() || isLoadingDetails()" [submitting]="isTaxProfilePending()" [errorMessage]="taxProfileError()" [saved]="taxProfileSaved()" (saveRequested)="onSaveTaxProfile($event)"></app-shop-tax-profile-form>
 
               <div class="overlay-actions flex pt-4 justify-end gap-2">
                 @if (!isSelectedShopOwner() && isSelectedShopOwnerOrManager()) {
                   <button pButton type="button" [label]="'shops.nextStep' | transloco" icon="pi pi-arrow-right" iconPos="right" severity="secondary" [text]="true" [disabled]="isSubmitting() || isLoadingDetails()" (click)="onContinueToOfflineBilling()"></button>
                 }
-                <button pButton type="submit" [label]="isSubmitting() ? ('shops.savingChanges' | transloco) : ('shops.nextStep' | transloco)" [loading]="isSubmitting()" [disabled]="form.invalid || isSubmitting() || isLoadingDetails() || !isSelectedShopOwner()" icon="pi pi-arrow-right" iconPos="right" class="save-button"></button>
+                <button pButton type="submit" form="manage-shop-details-form" [label]="isSubmitting() && !isTaxProfilePending() ? ('shops.savingChanges' | transloco) : ('shops.nextStep' | transloco)" [loading]="isSubmitting() && !isTaxProfilePending()" [disabled]="form.invalid || isSubmitting() || isLoadingDetails() || !isSelectedShopOwner()" icon="pi pi-arrow-right" iconPos="right" class="save-button"></button>
               </div>
-            </form>
+            </div>
           </ng-template>
         </p-step-panel>
 
@@ -64,8 +68,8 @@
                 <p class="owner-hint">{{ 'shops.selectedShopRoleIs' | transloco }} {{ roleLabelKey(selectedShopRole()) | transloco }}. {{ 'shops.onlyOwnersCanSave' | transloco }}</p>
               }
               <app-bank-account-form [form]="bankForm" idPrefix="manage"></app-bank-account-form>
-              @if (serverError()) {
-                <p class="server-error">{{ serverError() | transloco }}</p>
+              @if (shopFormError()) {
+                <p class="server-error">{{ shopFormError() | transloco }}</p>
               }
               <div class="overlay-actions flex pt-4 justify-between">
                 <div class="flex gap-2">

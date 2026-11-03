@@ -10,8 +10,25 @@ import {
 } from '@angular/core';
 import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 
-import type { SaleDto, SaleItemDto } from '../services/sale.models';
+import { DateOnlyPipe } from '../../../shared/pipes/date-only.pipe';
+import type {
+  InvoiceDeclaration,
+  InvoiceDocument,
+  SaleDto,
+  SaleItemDto,
+} from '../services/sale.models';
 import { ShopDetails } from '../../shops/services/shop.service';
+import {
+  type TaxSummaryRow,
+  declarationKey,
+  documentTitleKey,
+  groupTaxComponents,
+  hasDistinctTradeName,
+  missingDocumentNoteKey,
+  paymentStatusKey,
+  redeemedCreditNoteCodes,
+  paymentMethodLabelKey,
+} from './sale-invoice-document.util';
 
 const THERMAL_PAGE_WIDTH_MM = 80;
 // A receipt shorter than this fits on one content-sized page with no blank
@@ -25,7 +42,7 @@ const PX_TO_MM = 25.4 / 96;
 @Component({
   selector: 'app-sale-invoice-thermal',
   standalone: true,
-  imports: [CommonModule, TranslocoPipe],
+  imports: [CommonModule, TranslocoPipe, DateOnlyPipe],
   templateUrl: './sale-invoice-thermal.component.html',
   styleUrl: './sale-invoice-thermal.component.scss',
 })
@@ -36,6 +53,7 @@ export class SaleInvoiceThermalComponent implements AfterViewInit, OnDestroy {
   private pageSizeStyleElement: HTMLStyleElement | null = null;
 
   @Input() sale!: SaleDto;
+  /** The live shop: used only for a sale without an issued document. An issued document carries its own seller. */
   @Input() shop!: ShopDetails;
   @Input() pendingSync = false;
 
@@ -62,9 +80,7 @@ export class SaleInvoiceThermalComponent implements AfterViewInit, OnDestroy {
   }
 
   getCreditNoteSettlementCodes(): string[] {
-    return this.sale.returns
-      .map((saleReturn) => saleReturn.creditNote?.code ?? '')
-      .filter((code): code is string => code.trim().length > 0);
+    return redeemedCreditNoteCodes(this.sale);
   }
 
   getCreditNoteSettlementLabelKey(): string {
@@ -83,14 +99,8 @@ export class SaleInvoiceThermalComponent implements AfterViewInit, OnDestroy {
       .join(', ');
   }
 
-  getPaymentMethodLabel(method: number): string {
-    const map: Record<number, string> = {
-      1: 'sales.newSale.paymentMethods.cash',
-      2: 'sales.newSale.paymentMethods.upi',
-      3: 'sales.newSale.paymentMethods.card',
-      4: 'sales.newSale.paymentMethods.credit',
-    };
-    return this.transloco.translate(map[method] ?? 'shops.unknown');
+  getPaymentMethodLabel(method: number | string): string {
+    return this.transloco.translate(paymentMethodLabelKey(method));
   }
 
   getCustomerDisplay(): string {
@@ -109,16 +119,32 @@ export class SaleInvoiceThermalComponent implements AfterViewInit, OnDestroy {
     return item.itemDiscountAmount + item.saleDiscountAmount;
   }
 
+  getPaymentStatusKey(): string {
+    return paymentStatusKey(this.sale);
+  }
+
   getPaymentStatus(): string {
-    if (this.sale.dueAmount === 0) {
-      return this.transloco.translate('sales.invoice.paid');
-    }
+    return this.transloco.translate(this.getPaymentStatusKey());
+  }
 
-    if (this.sale.paidAmount > 0) {
-      return this.transloco.translate('sales.invoice.partiallyPaid');
-    }
+  missingDocumentNoteKey(): string | null {
+    return missingDocumentNoteKey(this.sale, this.pendingSync);
+  }
 
-    return this.transloco.translate('sales.invoice.unpaid');
+  documentTitleKey(document: InvoiceDocument): string {
+    return documentTitleKey(document);
+  }
+
+  hasDistinctTradeName(document: InvoiceDocument): boolean {
+    return hasDistinctTradeName(document);
+  }
+
+  declarationKey(declaration: InvoiceDeclaration): string {
+    return declarationKey(declaration);
+  }
+
+  taxSummary(document: InvoiceDocument): TaxSummaryRow[] {
+    return groupTaxComponents(document.totals.components);
   }
 
   hasGoods(): boolean {

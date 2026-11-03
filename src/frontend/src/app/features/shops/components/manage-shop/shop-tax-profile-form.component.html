@@ -1,0 +1,157 @@
+<section class="tax-profile-card space-y-4" [formGroup]="form">
+  <div>
+    <h3 class="text-lg font-semibold mb-1">{{ 'shops.taxProfile.title' | transloco }}</h3>
+    <p class="text-sm text-muted">{{ 'shops.taxProfile.description' | transloco }}</p>
+  </div>
+
+  @if (isNotDeclared()) {
+    <p class="tax-profile-warning owner-hint" role="status">
+      {{ 'shops.taxProfile.notDeclaredWarning' | transloco }}
+    </p>
+  }
+
+  @if (!canEdit) {
+    <p class="owner-hint">{{ 'shops.taxProfile.ownerOnly' | transloco }}</p>
+  }
+
+  <div class="field-wrap space-y-1.5">
+    <label for="tax-profile-legal-name">{{ 'shops.taxProfile.legalNameOptional' | transloco }}</label>
+    <input
+      id="tax-profile-legal-name"
+      type="text"
+      pInputText
+      formControlName="legalName"
+      class="w-full"
+      [placeholder]="'shops.taxProfile.legalNamePlaceholder' | transloco"
+    />
+    @if (form.controls.legalName.hasError('maxlength') && form.controls.legalName.touched) {
+      <p class="field-error">{{ 'shops.taxProfile.validation.legalNameMaxLength' | transloco }}</p>
+    }
+  </div>
+
+  <div class="field-grid">
+    <div class="field-wrap space-y-1.5">
+      <label for="tax-profile-state">{{ 'shops.taxProfile.stateCode' | transloco }}</label>
+      <p-select
+        inputId="tax-profile-state"
+        formControlName="stateCode"
+        [options]="stateOptions"
+        optionLabel="name"
+        optionValue="value"
+        [filter]="true"
+        filterBy="name"
+        [placeholder]="'shops.taxProfile.statePlaceholder' | transloco"
+        class="w-full"
+        appendTo="body"
+      />
+      @if (form.controls.stateCode.hasError('required') && form.controls.stateCode.touched) {
+        <p class="field-error">{{ 'shops.taxProfile.validation.stateRequired' | transloco }}</p>
+      }
+    </div>
+
+    <div class="field-wrap space-y-1.5">
+      <label for="tax-profile-regime">{{ 'shops.taxProfile.taxRegime' | transloco }}</label>
+      <p-select
+        inputId="tax-profile-regime"
+        formControlName="taxRegime"
+        [options]="regimeOptions()"
+        optionLabel="label"
+        optionValue="value"
+        [placeholder]="'shops.taxProfile.regimePlaceholder' | transloco"
+        class="w-full"
+        appendTo="body"
+      >
+        <ng-template pTemplate="selectedItem" let-option>{{ option?.label }}</ng-template>
+        <ng-template pTemplate="item" let-option>{{ option.label }}</ng-template>
+      </p-select>
+      @if (form.controls.taxRegime.hasError('required') && form.controls.taxRegime.touched) {
+        <p class="field-error">{{ 'shops.taxProfile.validation.regimeRequired' | transloco }}</p>
+      }
+    </div>
+  </div>
+
+  <div class="field-wrap space-y-1.5">
+    <label for="tax-profile-gstin">{{ 'shops.taxProfile.gstin' | transloco }}</label>
+    <input
+      id="tax-profile-gstin"
+      type="text"
+      pInputText
+      formControlName="gstNumber"
+      class="w-full"
+      [placeholder]="'shops.placeholders.gst' | transloco"
+    />
+    @if (form.controls.gstNumber.touched) {
+      @if (form.controls.gstNumber.hasError('pattern') || form.controls.gstNumber.hasError('gstinChecksum')) {
+        <p class="field-error">{{ 'shops.taxProfile.validation.gstinInvalid' | transloco }}</p>
+      }
+      @if (form.hasError('gstinRequired')) {
+        <p class="field-error">{{ 'shops.taxProfile.validation.gstinRequired' | transloco }}</p>
+      }
+      @if (form.hasError('gstinStateMismatch')) {
+        <p class="field-error">{{ 'shops.taxProfile.validation.gstinStateMismatch' | transloco }}</p>
+      }
+      @if (form.hasError('gstinNotAllowed')) {
+        <p class="field-error">{{ 'shops.taxProfile.validation.gstinNotAllowed' | transloco }}</p>
+      }
+    }
+  </div>
+
+  @if (isRegular()) {
+    <div id="tax-profile-einvoice" class="field-wrap space-y-1.5">
+      <label for="tax-profile-einvoice-input">{{ 'shops.taxProfile.eInvoiceStatus' | transloco }}</label>
+      <p-select
+        inputId="tax-profile-einvoice-input"
+        formControlName="eInvoiceStatus"
+        [options]="eInvoiceOptions()"
+        optionLabel="label"
+        optionValue="value"
+        [placeholder]="'shops.taxProfile.eInvoicePlaceholder' | transloco"
+        class="w-full"
+        appendTo="body"
+      >
+        <ng-template pTemplate="selectedItem" let-option>{{ option?.label }}</ng-template>
+        <ng-template pTemplate="item" let-option>{{ option.label }}</ng-template>
+      </p-select>
+      @if (form.hasError('eInvoiceStatusRequired') && form.controls.eInvoiceStatus.touched) {
+        <p class="field-error">{{ 'shops.taxProfile.validation.eInvoiceRequired' | transloco }}</p>
+      }
+      @if (eInvoiceRequired()) {
+        <p class="owner-hint">{{ 'shops.taxProfile.eInvoiceRequiredWarning' | transloco }}</p>
+      }
+    </div>
+  }
+
+  <div class="field-wrap space-y-1.5">
+    <label for="tax-profile-series">{{ 'shops.taxProfile.seriesCodeOptional' | transloco }}</label>
+    <input
+      id="tax-profile-series"
+      type="text"
+      pInputText
+      formControlName="invoiceSeriesCode"
+      maxlength="4"
+      class="w-full"
+    />
+    <p class="text-sm text-muted">{{ 'shops.taxProfile.seriesCodeHint' | transloco }}</p>
+    @if (form.controls.invoiceSeriesCode.invalid && form.controls.invoiceSeriesCode.touched) {
+      <p class="field-error">{{ 'shops.taxProfile.validation.seriesCodeInvalid' | transloco }}</p>
+    }
+  </div>
+
+  @if (errorMessage) {
+    <p class="server-error">{{ errorMessage | transloco }}</p>
+  } @else if (saved) {
+    <p class="tax-profile-saved text-sm" role="status">{{ 'shops.taxProfile.saved' | transloco }}</p>
+  }
+
+  <div class="overlay-actions flex justify-end">
+    <button
+      pButton
+      type="button"
+      class="tax-profile-save save-button"
+      [label]="submitting ? ('shops.taxProfile.saving' | transloco) : ('shops.taxProfile.save' | transloco)"
+      [loading]="submitting"
+      [disabled]="!canEdit || disabled || submitting"
+      (click)="onSave()"
+    ></button>
+  </div>
+</section>

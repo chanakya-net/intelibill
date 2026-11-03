@@ -38,6 +38,7 @@ export const SHOP_ENDPOINTS = {
   details: (shopId: string) => `${API_BASE_URL}/shops/${shopId}`,
   update: (shopId: string) => `${API_BASE_URL}/shops/${shopId}`,
   bankDetails: (shopId: string) => `${API_BASE_URL}/shops/${shopId}/bank-details`,
+  taxProfile: (shopId: string) => `${API_BASE_URL}/shops/${shopId}/tax-profile`,
   addBankAccount: (_: string) => `${API_BASE_URL}/bank-accounts`,
 } as const;
 

@@ -1,9 +1,21 @@
 import { createActionGroup, emptyProps, props } from '@ngrx/store';
 
 import { UserShop } from '../../../core/auth/auth.models';
-import { CreateShopRequest, ShopDetails, UpdateBankDetailsRequest } from '../services/shop.service';
+import {
+  CreateShopRequest,
+  ShopDetails,
+  UpdateBankDetailsRequest,
+  UpdateShopRequest,
+  UpdateShopTaxProfileRequest,
+} from '../services/shop.service';
 
-export type ShopMutationType = 'create' | 'update' | 'update-bank-details' | 'set-default' | 'switch';
+export type ShopMutationType =
+  | 'create'
+  | 'update'
+  | 'update-bank-details'
+  | 'update-tax-profile'
+  | 'set-default'
+  | 'switch';
 
 export const ShopsActions = createActionGroup({
   source: 'Shops',
@@ -22,7 +34,7 @@ export const ShopsActions = createActionGroup({
     'Create Shop Succeeded': emptyProps(),
     'Create Shop Failed': props<{ errorMessage: string }>(),
 
-    'Update Shop Requested': props<{ shopId: string; payload: CreateShopRequest }>(),
+    'Update Shop Requested': props<{ shopId: string; payload: UpdateShopRequest }>(),
     'Update Shop Succeeded': props<{ details: ShopDetails }>(),
     'Update Shop Failed': props<{ errorMessage: string }>(),
 
@@ -39,6 +51,10 @@ export const ShopsActions = createActionGroup({
     'Update Shop Bank Details Requested': props<{ shopId: string; payload: UpdateBankDetailsRequest }>(),
     'Update Shop Bank Details Succeeded': props<{ details: ShopDetails }>(),
     'Update Shop Bank Details Failed': props<{ errorMessage: string }>(),
+
+    'Update Shop Tax Profile Requested': props<{ shopId: string; payload: UpdateShopTaxProfileRequest }>(),
+    'Update Shop Tax Profile Succeeded': props<{ details: ShopDetails }>(),
+    'Update Shop Tax Profile Failed': props<{ errorMessage: string }>(),
 
     'Clear Error': emptyProps(),
     'Clear Mutation Status': emptyProps(),

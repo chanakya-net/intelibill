@@ -3,9 +3,10 @@ import { Component, Input, inject } from '@angular/core';
 import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import {
   getPaymentMethodLabel,
-  type SaleCreditNoteRedemptionSummaryDto,
+  type SaleCreditNoteRedemptionDto,
   type SaleDto,
 } from '../../services/sale.models';
+import { paymentStatusKey } from '../sale-invoice-document.util';
 
 @Component({
   selector: 'app-sale-summary-panel',
@@ -32,8 +33,8 @@ export class SaleSummaryPanelComponent {
     return (this.sale.creditNoteAppliedAmount ?? 0) > 0;
   }
 
-  creditNoteRedemptionSummaries(): readonly SaleCreditNoteRedemptionSummaryDto[] {
-    return this.sale.creditNoteRedemptionSummaries ?? [];
+  creditNoteRedemptions(): readonly SaleCreditNoteRedemptionDto[] {
+    return this.sale.creditNoteRedemptions ?? [];
   }
 
   paymentMethodLabel(): string {
@@ -46,13 +47,7 @@ export class SaleSummaryPanelComponent {
   }
 
   paymentStatusLabel(): string {
-    if (this.sale.dueAmount === 0) {
-      return this.transloco.translate('sales.invoice.paid');
-    }
-
-    return this.transloco.translate(
-      this.sale.paidAmount > 0 ? 'sales.invoice.partiallyPaid' : 'sales.invoice.unpaid',
-    );
+    return this.transloco.translate(paymentStatusKey(this.sale));
   }
 
   customerName(): string {

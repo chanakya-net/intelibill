@@ -1,3 +1,4 @@
+import { invoiceErrorKey } from '../../../sales/utils/invoice-error-keys';
 import { OfflineSalesDeviceSettings } from '../../../../core/storage/offline-sales-device-settings.storage';
 
 export type OfflineReadinessState = 'enabled' | 'needsSetup';
@@ -23,7 +24,11 @@ export function getOfflineInvoiceRemainingCount(settings: OfflineSalesDeviceSett
   return settings?.lastReservedLease?.remainingCount ?? null;
 }
 
-export function offlineEnablementErrorKeyForReason(reason?: string): string {
+export function offlineEnablementErrorKeyForReason(reason?: string, errorCode?: string): string {
+  // A lease the server refused for the shop's GST registration says what the owner must fix.
+  const invoiceKey = invoiceErrorKey(errorCode);
+  if (invoiceKey) return invoiceKey;
+
   const keys: Record<string, string> = {
     API_UNREACHABLE: 'offlineSalesDevice.errors.apiUnreachable',
     SNAPSHOT_INCOMPLETE: 'offlineSalesDevice.errors.snapshotIncomplete',

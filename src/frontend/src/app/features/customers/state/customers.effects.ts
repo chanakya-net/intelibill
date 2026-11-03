@@ -37,7 +37,7 @@ export class CustomersEffects {
           catchError((error) =>
             of(
               CustomersActions.addCustomerFailed({
-                errorMessage: error.error?.detail || 'errors.customers.addFailed',
+                errorMessage: customerMutationErrorMessage(error, 'errors.customers.addFailed'),
               })
             )
           )
@@ -55,7 +55,7 @@ export class CustomersEffects {
           catchError((error) =>
             of(
               CustomersActions.editCustomerFailed({
-                errorMessage: error.error?.detail || 'errors.customers.editFailed',
+                errorMessage: customerMutationErrorMessage(error, 'errors.customers.editFailed'),
               })
             )
           )
@@ -63,4 +63,16 @@ export class CustomersEffects {
       )
     )
   );
+}
+
+// GST details are refused for the rule they break; each refusal says what to correct.
+const CUSTOMER_ERROR_KEYS: Readonly<Record<string, string>> = {
+  'Customer.GstinInvalid': 'errors.customers.gstinInvalid',
+  'Customer.StateCodeInvalid': 'errors.customers.stateCodeInvalid',
+  'Customer.GstinStateMismatch': 'errors.customers.gstinStateMismatch',
+};
+
+function customerMutationErrorMessage(error: { error?: { title?: string; detail?: string } }, fallback: string): string {
+  const title = error.error?.title;
+  return (title && CUSTOMER_ERROR_KEYS[title]) || error.error?.detail || fallback;
 }

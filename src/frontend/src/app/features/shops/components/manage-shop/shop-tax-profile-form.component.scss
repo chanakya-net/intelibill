@@ -1,0 +1,87 @@
+@use '../../../../core/styles/button-mixins' as buttons;
+@use '../../../../core/styles/form-control-mixins' as controls;
+
+.tax-profile-card {
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 1rem;
+  padding: 1rem 1.1rem;
+  background: #ffffff;
+}
+
+.field-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.field-wrap {
+  label {
+    display: block;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #475569;
+    font-weight: 700;
+  }
+}
+
+.owner-hint {
+  margin: 0;
+  border: 1px solid rgba(254, 215, 170, 0.8);
+  background: #fff7ed;
+  border-radius: 0.8rem;
+  color: #9a3412;
+  font-size: 0.86rem;
+  padding: 0.6rem 0.75rem;
+}
+
+.tax-profile-warning {
+  font-weight: 600;
+}
+
+.field-error {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #be123c;
+}
+
+.server-error {
+  margin: 0;
+  border: 1px solid rgba(254, 202, 202, 0.8);
+  background: #fff1f2;
+  border-radius: 0.8rem;
+  color: #9f1239;
+  font-size: 0.9rem;
+  padding: 0.6rem 0.75rem;
+}
+
+.tax-profile-saved {
+  margin: 0;
+  color: #166534;
+}
+
+.overlay-actions {
+  gap: 0.5rem;
+}
+
+.save-button {
+  @include buttons.button-primary(true);
+}
+
+input.p-inputtext {
+  @include controls.text-input($transition: (box-shadow 160ms ease, border-color 160ms ease));
+
+  &::placeholder {
+    @include controls.text-input-placeholder;
+  }
+
+  &:enabled:focus {
+    @include controls.text-input-focus;
+  }
+}
+
+@media (max-width: 640px) {
+  .field-grid {
+    grid-template-columns: 1fr;
+  }
+}

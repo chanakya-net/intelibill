@@ -80,15 +80,17 @@
       />
     </div>
   </div>
-  <div class="field-wrap space-y-1.5">
-    <label for="shop-gst">{{ 'shops.gstNumberOptional' | transloco }}</label>
-    <input
-      id="shop-gst"
-      type="text"
-      pInputText
-      formControlName="gstNumber"
-      class="w-full"
-      [disabled]="disabled"
-    />
-  </div>
+  @if (showGstNumber) {
+    <div class="field-wrap space-y-1.5">
+      <label for="shop-gst">{{ 'shops.gstNumberOptional' | transloco }}</label>
+      <input
+        id="shop-gst"
+        type="text"
+        pInputText
+        formControlName="gstNumber"
+        class="w-full"
+        [disabled]="disabled"
+      />
+    </div>
+  }
 </ng-container>

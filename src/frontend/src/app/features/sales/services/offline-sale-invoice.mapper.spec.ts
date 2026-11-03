@@ -68,6 +68,10 @@ describe('mapOfflineQueuedSaleToSaleDto', () => {
       totalAmount: 282.3,
       totalTaxAmount: 43.06,
       creditNoteAppliedAmount: 0,
+      creditNoteRedemptions: [],
+      // A queued offline sale has no server-issued GST document yet.
+      document: null,
+      isLegacyDocument: true,
       returns: [],
       warnings: [],
       items: [

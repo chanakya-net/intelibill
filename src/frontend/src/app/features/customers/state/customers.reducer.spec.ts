@@ -50,7 +50,7 @@ describe('customersReducer', () => {
   });
 
   it('sets submitting and lastMutationType on addCustomerRequested', () => {
-    const next = customersReducer(initial, CustomersActions.addCustomerRequested({ payload: { name: 'A', phoneNumber: '+9198', address: null, isActive: true, creditLimit: 0 } }));
+    const next = customersReducer(initial, CustomersActions.addCustomerRequested({ payload: { name: 'A', phoneNumber: '+9198', address: null, isActive: true, creditLimit: 0, gstin: null, stateCode: null } }));
     expect(next.submitting).toBe(true);
     expect(next.lastMutationType).toBe('add-customer');
     expect(next.lastMutationSucceeded).toBe(false);

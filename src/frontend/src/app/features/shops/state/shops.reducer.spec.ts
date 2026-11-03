@@ -63,6 +63,42 @@ describe('shopsReducer', () => {
     expect(next.lastMutationType).toBe('update');
   });
 
+  it('tracks a tax profile save and stores the details it returns', () => {
+    const payload = {
+      legalName: null,
+      stateCode: '27',
+      taxRegime: 'Unregistered' as const,
+      gstNumber: null,
+      invoiceSeriesCode: null,
+      eInvoiceStatus: null,
+    };
+    const submitting = shopsReducer(initial, ShopsActions.updateShopTaxProfileRequested({ shopId: 'sh1', payload }));
+    expect(submitting.submitting).toBe(true);
+    expect(submitting.lastMutationType).toBe('update-tax-profile');
+
+    const declared: ShopDetails = {
+      ...detailA,
+      taxProfile: {
+        legalName: null,
+        stateCode: '27',
+        taxRegime: 'Unregistered',
+        invoiceSeriesCode: 'A',
+        eInvoiceStatus: 'NotAttested',
+        eInvoiceAttestedAt: null,
+      },
+    };
+    const saved = shopsReducer(submitting, ShopsActions.updateShopTaxProfileSucceeded({ details: declared }));
+    expect(saved.submitting).toBe(false);
+    expect(saved.lastMutationSucceeded).toBe(true);
+    expect(saved.detailsById['sh1']).toEqual(declared);
+
+    const failed = shopsReducer(submitting, ShopsActions.updateShopTaxProfileFailed({ errorMessage: 'errors.shops.gstinInvalid' }));
+    expect(failed.submitting).toBe(false);
+    expect(failed.errorMessage).toBe('errors.shops.gstinInvalid');
+    expect(failed.lastMutationType).toBe('update-tax-profile');
+    expect(failed.lastMutationSucceeded).toBe(false);
+  });
+
   it('marks a switch in flight on switchActiveShopRequested', () => {
     const next = shopsReducer(initial, ShopsActions.switchActiveShopRequested({ shopId: 'sh2' }));
     expect(next.submitting).toBe(true);

@@ -135,6 +135,9 @@ describe('salesReducer', () => {
       items: [],
       returns: [],
       warnings: [],
+      creditNoteRedemptions: [],
+      document: null,
+      isLegacyDocument: true,
     };
     const next = salesReducer(
       { ...initialState, submitting: true },
@@ -186,6 +189,9 @@ describe('salesReducer', () => {
       items: [],
       returns: [],
       warnings: [],
+      creditNoteRedemptions: [],
+      document: null,
+      isLegacyDocument: true,
     };
     const next = salesReducer(
       { ...initialState, selectedSale: sale },
@@ -255,6 +261,9 @@ describe('salesReducer', () => {
       items: [],
       returns: [],
       warnings: [],
+      creditNoteRedemptions: [],
+      document: null,
+      isLegacyDocument: true,
     };
     const next = salesReducer(
       { ...initialState, submitting: true, returnPreview: {} as any },
@@ -317,6 +326,9 @@ describe('salesReducer', () => {
       items: [],
       returns: [],
       warnings: [],
+      creditNoteRedemptions: [],
+      document: null,
+      isLegacyDocument: true,
     };
     const next = salesReducer(
       { ...initialState, submitting: true, returnPreviewErrorMessage: 'old error' },
@@ -349,6 +361,9 @@ describe('salesReducer', () => {
       items: [],
       returns: [],
       warnings: [],
+      creditNoteRedemptions: [],
+      document: null,
+      isLegacyDocument: true,
     };
     const next = salesReducer(
       { ...initialState, submitting: true, selectedSale: sale },

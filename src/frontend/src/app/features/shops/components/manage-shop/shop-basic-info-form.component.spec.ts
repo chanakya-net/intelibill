@@ -88,4 +88,14 @@ describe('ShopBasicInfoFormComponent', () => {
     expect(fixture.componentInstance.form.invalid).toBe(true);
     expect(fixture.componentInstance.form.controls.name.hasError('required')).toBe(true);
   });
+
+  it('can leave the GSTIN to the tax profile while keeping the saved value', () => {
+    const fixture = TestBed.createComponent(ShopBasicInfoFormComponent);
+    fixture.componentRef.setInput('initialValues', initialValues);
+    fixture.componentRef.setInput('showGstNumber', false);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('#shop-gst')).toBeNull();
+    expect(fixture.componentInstance.form.controls.gstNumber.value).toBe('27AAPFU0939F1ZV');
+  });
 });

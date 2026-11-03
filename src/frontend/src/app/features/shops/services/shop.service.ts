@@ -7,7 +7,7 @@ import { SHOP_ENDPOINTS } from '../../../core/auth/auth.constants';
 import { AccessScopeResult, ShopPreferenceResult, UserShop } from '../../../core/auth/auth.models';
 import { AuthService } from '../../../core/auth/auth.service';
 
-export interface CreateShopRequest {
+export interface UpdateShopRequest {
   readonly name: string;
   readonly address: string;
   readonly city: string;
@@ -18,7 +18,44 @@ export interface CreateShopRequest {
   readonly gstNumber?: string;
 }
 
-export type UpdateShopRequest = CreateShopRequest;
+// ─── GST tax profile ──────────────────────────────────────────────────────────
+// The registration a shop issues documents under. The regime is what the owner declares; the GSTIN only has to be
+// consistent with it. Existing shops start as NotDeclared and cannot bill until the owner declares one.
+
+export type ShopTaxRegime = 'NotDeclared' | 'Regular' | 'Composition' | 'Unregistered';
+export type DeclarableTaxRegime = Exclude<ShopTaxRegime, 'NotDeclared'>;
+export type EInvoiceStatus = 'NotAttested' | 'BelowThreshold' | 'Exempt' | 'Required';
+export type AttestedEInvoiceStatus = Exclude<EInvoiceStatus, 'NotAttested'>;
+
+export interface ShopTaxProfileDto {
+  readonly legalName: string | null;
+  readonly stateCode: string | null;
+  readonly taxRegime: ShopTaxRegime;
+  readonly invoiceSeriesCode: string;
+  readonly eInvoiceStatus: EInvoiceStatus;
+  readonly eInvoiceAttestedAt: string | null;
+}
+
+/** The tax profile sent with a new shop; its GSTIN is the request's top-level `gstNumber`. */
+export interface CreateShopTaxProfileRequest {
+  readonly legalName: string | null;
+  readonly stateCode: string;
+  readonly taxRegime: DeclarableTaxRegime;
+  /** Null keeps the default series, A. */
+  readonly invoiceSeriesCode: string | null;
+  /** Required for a Regular shop, null otherwise. */
+  readonly eInvoiceStatus: AttestedEInvoiceStatus | null;
+}
+
+/** PUT shops/{shopId}/tax-profile (owner only). */
+export interface UpdateShopTaxProfileRequest extends CreateShopTaxProfileRequest {
+  readonly gstNumber: string | null;
+}
+
+export interface CreateShopRequest extends UpdateShopRequest {
+  readonly taxProfile?: CreateShopTaxProfileRequest;
+}
+
 export type ShopRole = string;
 
 export interface ShopMemberDto {
@@ -48,6 +85,8 @@ export interface ShopDetails {
   readonly accountHolderName: string | null;
   readonly logoUrl?: string | null;
   readonly members?: readonly ShopMemberDto[] | null;
+  /** Absent only from responses that predate tax profiles. */
+  readonly taxProfile?: ShopTaxProfileDto;
 }
 
 export type ShopDetailsDto = ShopDetails;
@@ -115,8 +154,12 @@ export class ShopService {
     );
   }
 
-  updateShop(shopId: string, payload: CreateShopRequest): Observable<ShopDetails> {
+  updateShop(shopId: string, payload: UpdateShopRequest): Observable<ShopDetails> {
     return this.http.put<ShopDetails>(SHOP_ENDPOINTS.update(shopId), payload);
+  }
+
+  updateTaxProfile(shopId: string, payload: UpdateShopTaxProfileRequest): Observable<ShopDetails> {
+    return this.http.put<ShopDetails>(SHOP_ENDPOINTS.taxProfile(shopId), payload);
   }
 
   updateBankDetails(shopId: string, payload: UpdateBankDetailsRequest): Observable<ShopDetails> {

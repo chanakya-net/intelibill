@@ -189,6 +189,9 @@ describe('offline-sale-sync.mapper', () => {
     expect(offlineReviewReasonKey('OfflineReconciliation.HistoricalLeaseReviewRequired')).toBe('sales.history.offlineQueue.review.reasons.historicalLeaseReviewRequired');
     expect(offlineReviewReasonKey('OfflineReconciliation.IssuerNotSubmitter')).toBe('sales.history.offlineQueue.review.reasons.issuerNotSubmitter');
     expect(offlineReviewReasonKey('offline_sync.stock_shortage')).toBe('sales.history.offlineQueue.review.reasons.stockShortage');
+    // A sale already issued on a device posts without a GST document when the shop's registration did not allow one.
+    expect(offlineReviewReasonKey('Invoice.CompositionCannotCollectTax')).toBe('sales.history.offlineQueue.review.reasons.documentNotIssued');
+    expect(offlineReviewReasonKey('Invoice.TaxProfileRequired')).toBe('sales.history.offlineQueue.review.reasons.documentNotIssued');
     expect(offlineReviewReasonKey('Something.Else')).toBe('sales.history.offlineQueue.review.reasons.unknown');
     expect(offlineReviewReasonKey(null)).toBe('sales.history.offlineQueue.review.reasons.unknown');
   });

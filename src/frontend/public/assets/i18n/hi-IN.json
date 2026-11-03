@@ -534,7 +534,14 @@
     "directoryResults": "ग्राहक निर्देशिका परिणाम",
     "ledgerFilters": "बही फ़िल्टर",
     "recordPayment": "भुगतान रिकॉर्ड करें",
-    "transactionLedger": "लेन-देन बही"
+    "transactionLedger": "लेन-देन बही",
+    "gstinOptional": "GSTIN (वैकल्पिक)",
+    "stateOptional": "राज्य (वैकल्पिक)",
+    "statePlaceholder": "राज्य चुनें",
+    "validation": {
+      "gstinInvalid": "मान्य GSTIN दर्ज करें: इसके अक्षर और चेक अंक जाँचें।",
+      "gstinStateMismatch": "GSTIN के पहले दो अंक चुने गए राज्य से मेल खाने चाहिए।"
+    }
   },
   "inventory": {
     "directory": "इन्वेंटरी निर्देशिका",
@@ -903,6 +910,48 @@
       "empty": "कोई सदस्य लोड नहीं किया गया.",
       "member": "सदस्य",
       "title": "सदस्य"
+    },
+    "taxProfile": {
+      "title": "GST पंजीकरण",
+      "description": "यह दुकान GST के तहत कैसे पंजीकृत है। चालान इन्हीं विवरणों के साथ जारी होते हैं।",
+      "notDeclaredWarning": "GST पंजीकरण घोषित नहीं है। दुकान मालिक द्वारा इसे यहाँ घोषित करने तक बिक्री रुकी रहेगी।",
+      "ownerOnly": "केवल दुकान मालिक ही GST पंजीकरण बदल सकते हैं।",
+      "legalNameOptional": "कानूनी नाम (वैकल्पिक)",
+      "legalNamePlaceholder": "GST पंजीकरण पर दर्ज नाम, यदि अलग हो",
+      "stateCode": "GST राज्य",
+      "statePlaceholder": "राज्य या केंद्र शासित प्रदेश चुनें",
+      "taxRegime": "पंजीकरण का प्रकार",
+      "regimePlaceholder": "पंजीकरण का प्रकार चुनें",
+      "regimes": {
+        "regular": "नियमित GST पंजीकरण",
+        "composition": "कंपोज़िशन योजना",
+        "unregistered": "GST के तहत पंजीकृत नहीं"
+      },
+      "gstin": "GSTIN",
+      "eInvoiceStatus": "ई-इनवॉइसिंग",
+      "eInvoicePlaceholder": "क्या ई-इनवॉइसिंग लागू होती है?",
+      "eInvoiceStatuses": {
+        "belowThreshold": "टर्नओवर ई-इनवॉइसिंग सीमा से कम है",
+        "exempt": "ई-इनवॉइसिंग से छूट प्राप्त",
+        "required": "ई-इनवॉइसिंग लागू है (IRN आवश्यक)"
+      },
+      "eInvoiceRequiredWarning": "जिन दुकानों को ई-इनवॉइस जारी करने होते हैं उनके लिए बिलिंग उपलब्ध नहीं है: IRN बनाना अभी समर्थित नहीं है।",
+      "seriesCodeOptional": "चालान श्रृंखला कोड (वैकल्पिक)",
+      "seriesCodeHint": "1 से 4 अक्षर या अंक। अलग श्रृंखला की ज़रूरत न हो तो इसे A ही रहने दें।",
+      "save": "GST पंजीकरण सहेजें",
+      "saving": "GST पंजीकरण सहेजा जा रहा है...",
+      "saved": "GST पंजीकरण सहेजा गया।",
+      "validation": {
+        "stateRequired": "GST राज्य चुनें।",
+        "regimeRequired": "पंजीकरण का प्रकार चुनें।",
+        "eInvoiceRequired": "चुनें कि ई-इनवॉइसिंग लागू होती है या नहीं।",
+        "gstinRequired": "दुकान का GSTIN दर्ज करें।",
+        "gstinInvalid": "मान्य GSTIN दर्ज करें: इसके अक्षर और चेक अंक जाँचें।",
+        "gstinStateMismatch": "GSTIN के पहले दो अंक चुने गए राज्य कोड से मेल खाने चाहिए।",
+        "gstinNotAllowed": "GSTIN हटाएँ: GST के तहत अपंजीकृत दुकान का GSTIN नहीं हो सकता।",
+        "seriesCodeInvalid": "1 से 4 अक्षर या अंक का उपयोग करें।",
+        "legalNameMaxLength": "कानूनी नाम 200 अक्षरों या उससे कम का होना चाहिए।"
+      }
     }
   },
   "notFound": {
@@ -986,7 +1035,18 @@
       "unableToUpdateShop": "अभी दुकान अपडेट नहीं हो सकी। कृपया फिर प्रयास करें।",
       "unableToUpdateBankDetails": "अभी बैंक विवरण सहेजा नहीं जा सका। कृपया फिर प्रयास करें।",
       "ifscCodeInvalid": "मान्य भारतीय IFSC कोड दर्ज करें।",
-      "bankAccountTypeInvalid": "खाते का प्रकार बचत या चालू होना चाहिए।"
+      "bankAccountTypeInvalid": "खाते का प्रकार बचत या चालू होना चाहिए।",
+      "taxRegimeRequired": "दुकान का GST पंजीकरण चुनें: नियमित, कंपोज़िशन या अपंजीकृत।",
+      "stateCodeInvalid": "वह राज्य या केंद्र शासित प्रदेश चुनें जहाँ दुकान पंजीकृत है।",
+      "gstinRequiredForRegime": "GST में पंजीकृत दुकान के लिए उसका GSTIN आवश्यक है।",
+      "gstinInvalid": "GSTIN मान्य नहीं है: इसके अक्षर और चेक अंक जाँचें।",
+      "gstinStateMismatch": "GSTIN चुने गए राज्य से अलग राज्य का है।",
+      "gstinNotAllowedForUnregistered": "GST के तहत अपंजीकृत दुकान का GSTIN नहीं हो सकता।",
+      "invoiceSeriesCodeInvalid": "चालान श्रृंखला कोड 1 से 4 अक्षर या अंक का होना चाहिए।",
+      "eInvoiceAttestationRequired": "नियमित GST दुकान को बताना होगा कि उस पर ई-इनवॉइसिंग लागू होती है या नहीं।",
+      "legalNameTooLong": "कानूनी नाम 200 अक्षरों या उससे कम का होना चाहिए।",
+      "gstinManagedByTaxProfile": "GSTIN दुकान के GST पंजीकरण का हिस्सा है। इसे GST पंजीकरण में बदलें।",
+      "unableToUpdateTaxProfile": "अभी GST पंजीकरण सहेजने में असमर्थ। कृपया फिर से प्रयास करें।"
     },
     "bankAccounts": {
       "unableToLoad": "अभी बैंक खाते लोड नहीं हो सके. कृपया फिर कोशिश करें.",
@@ -997,7 +1057,10 @@
     "customers": {
       "loadFailed": "ग्राहकों को लोड करने में असमर्थ।",
       "addFailed": "ग्राहक जोड़ने में असमर्थ।",
-      "editFailed": "ग्राहक को अद्यतन करने में असमर्थ।"
+      "editFailed": "ग्राहक को अद्यतन करने में असमर्थ।",
+      "gstinInvalid": "ग्राहक का GSTIN मान्य नहीं है: इसके अक्षर और चेक अंक जाँचें।",
+      "stateCodeInvalid": "ग्राहक के लिए मान्य राज्य या केंद्र शासित प्रदेश चुनें।",
+      "gstinStateMismatch": "ग्राहक का GSTIN चुने गए राज्य से अलग राज्य का है।"
     },
     "sales": {
       "loadFailed": "बिक्री लोड करने में असमर्थ।",
@@ -1007,6 +1070,23 @@
       "returnRecordFailed": "बिक्री रिटर्न रिकॉर्ड करने में असमर्थ।",
       "returnVoidFailed": "विक्रय रिटर्न रद्द करने में असमर्थ।",
       "recordFailed": "बिक्री रिकॉर्ड करने में असमर्थ।"
+    },
+    "invoice": {
+      "taxProfileRequired": "इस दुकान ने अपना GST पंजीकरण घोषित नहीं किया है। बिलिंग से पहले दुकान मालिक से इसे दुकान सेटिंग्स में सेट करने को कहें।",
+      "eInvoiceUnsupported": "इस दुकान को ई-इनवॉइस (IRN) जारी करने होते हैं, जिन्हें यहाँ की बिलिंग अभी समर्थित नहीं करती।",
+      "compositionCannotCollectTax": "कंपोज़िशन योजना वाली दुकान GST नहीं ले सकती। बिलिंग से पहले आइटम से कर हटाएँ।",
+      "compositionInterstateUnsupported": "कंपोज़िशन योजना वाली दुकान दूसरे राज्य को आपूर्ति का बिल नहीं बना सकती।",
+      "unregisteredCannotCollectTax": "GST के तहत अपंजीकृत दुकान GST नहीं ले सकती। बिलिंग से पहले आइटम से कर हटाएँ।",
+      "placeOfSupplyInvalid": "आपूर्ति का स्थान मान्य GST राज्य नहीं है।",
+      "placeOfSupplyRequired": "यहाँ बेचा गया सामान और दूसरे राज्य के खरीदार के लिए सेवाएँ एक ही चालान में नहीं आ सकतीं। इन्हें अलग-अलग बिक्री में बिल करें।",
+      "mixedSupplyToRegisteredBuyer": "GST-पंजीकृत खरीदार के लिए कर योग्य और छूट वाली वस्तुएँ अलग-अलग दस्तावेज़ों पर होनी चाहिए। इन्हें दो बिक्री में बिल करें।",
+      "buyerDetailsRequired": "इस चालान के लिए खरीदार का नाम और पता चाहिए (अपंजीकृत खरीदार को बड़ी बिक्री के लिए राज्य भी)। ग्राहक का विवरण अपडेट करें और फिर से प्रयास करें।",
+      "hsnRequired": "इस चालान की हर वस्तु के लिए आवश्यक लंबाई का HSN या SAC कोड चाहिए।",
+      "amountsDoNotReconcile": "चालान की राशियाँ मेल नहीं खातीं। कार्ट रीफ़्रेश करें और फिर से प्रयास करें।",
+      "sellerGstinInvalid": "दुकान का GSTIN मान्य नहीं है। दुकान मालिक से इसे दुकान सेटिंग्स में ठीक करने को कहें।",
+      "seriesRegisteredToAnotherShop": "उसी GSTIN वाली दूसरी दुकान पहले से इस चालान श्रृंखला का उपयोग करती है। दुकान सेटिंग्स में अलग श्रृंखला कोड चुनें।",
+      "seriesRegistrationChanged": "यह चालान श्रृंखला शुरू होने के बाद दुकान का GSTIN बदल गया। दुकान सेटिंग्स में नया श्रृंखला कोड चुनें।",
+      "seriesExhausted": "इस वित्तीय वर्ष के लिए इस चालान श्रृंखला में कोई नंबर शेष नहीं है। दुकान सेटिंग्स में नया श्रृंखला कोड चुनें।"
     }
   },
   "sales": {
@@ -1110,7 +1190,8 @@
             "pricingVariance": "बिल की कीमत मौजूदा कीमत से अलग है",
             "discountVariance": "बिल की छूट मौजूदा नियमों से अलग है",
             "validationVariance": "इनवॉइस का एक विवरण सर्वर जाँच में विफल रहा",
-            "stockShortage": "उपलब्ध से ज़्यादा स्टॉक का बिल बना"
+            "stockShortage": "उपलब्ध से ज़्यादा स्टॉक का बिल बना",
+            "documentNotIssued": "GST दस्तावेज़ के बिना दर्ज: दुकान के GST पंजीकरण ने इस बिक्री के लिए दस्तावेज़ की अनुमति नहीं दी।"
           }
         },
         "openConsole": "मिलान कंसोल खोलें"
@@ -1369,7 +1450,34 @@
       "phone": "फ़ोन",
       "printControls": "चालान प्रिंट नियंत्रण",
       "sac": "SAC",
-      "unpaid": "अवैतनिक"
+      "unpaid": "अवैतनिक",
+      "taxableValue": "कर योग्य मूल्य",
+      "exemptValue": "छूट प्राप्त मूल्य",
+      "totalTax": "कुल कर",
+      "roundingAdjustment": "राउंडिंग समायोजन",
+      "invoiceTotal": "चालान कुल",
+      "taxSummary": "कर सारांश",
+      "rate": "दर",
+      "taxOnBase": "{{ amount }} पर",
+      "state": "राज्य",
+      "billTo": "बिल प्राप्तकर्ता",
+      "placeOfSupply": "आपूर्ति का स्थान",
+      "reverseChargeNo": "रिवर्स चार्ज: नहीं",
+      "reverseChargeYes": "रिवर्स चार्ज: हाँ",
+      "signatoryFor": "{{ legalName }} के लिए",
+      "authorisedSignatory": "अधिकृत हस्ताक्षरकर्ता",
+      "noDocumentNote": "यह बिक्री GST दस्तावेज़ के बिना दर्ज की गई थी; विक्रेता का विवरण दुकान के वर्तमान विवरण के अनुसार दिखाया गया है।",
+      "documentTypes": {
+        "taxInvoice": "कर चालान",
+        "invoiceCumBillOfSupply": "कर चालान सह आपूर्ति बिल",
+        "billOfSupply": "आपूर्ति बिल",
+        "receipt": "रसीद"
+      },
+      "declarations": {
+        "compositionTaxablePerson": "कंपोज़िशन करदाता व्यक्ति, आपूर्ति पर कर वसूलने के पात्र नहीं।",
+        "eInvoiceExemption": "मैं/हम घोषणा करते हैं कि यद्यपि वर्ष 2017-18 से किसी भी पिछले वित्तीय वर्ष में हमारा कुल टर्नओवर नियम 48 के उप-नियम (4) के तहत अधिसूचित कुल टर्नओवर से अधिक है, फिर भी उक्त उप-नियम के प्रावधानों के अनुसार हमें चालान तैयार करना आवश्यक नहीं है।",
+        "notRegisteredUnderGst": "विक्रेता GST के तहत पंजीकृत नहीं है; कोई GST नहीं लिया गया है।"
+      }
     },
     "profitLoss": {
       "eyebrow": "बिक्री रिपोर्ट",
@@ -1775,7 +1883,8 @@
         "issueTimingReview": "बिल के समय की समीक्षा",
         "provenanceReview": "बिल बनाने वाले की समीक्षा",
         "recoveryReview": "वापस लाए गए इनवॉइस की समीक्षा",
-        "unknown": "अन्य"
+        "unknown": "अन्य",
+        "documentReview": "GST दस्तावेज़ समीक्षा"
       },
       "detail": {
         "title": "केस का विवरण",

@@ -1,6 +1,6 @@
 import { FormControl, FormGroup } from '@angular/forms';
 
-import { InputValidators } from './input-validation';
+import { InputValidators, gstinStateCode, isValidGstin } from './input-validation';
 
 describe('InputValidators', () => {
   it('rejects required text containing only whitespace', () => {
@@ -77,6 +77,54 @@ describe('InputValidators', () => {
     const control = new FormControl(1.5, InputValidators.positiveInteger());
 
     expect(control.hasError('integer')).toBe(true);
+  });
+
+  it.each([
+    { value: '27AAPFU0939F1ZV', valid: true },
+    { value: '29AAGCB7383J1Z4', valid: true },
+    { value: '27aapfu0939f1zv', valid: true },
+    { value: '27AAPFU0939F1ZW', valid: false },
+    { value: '27AAPFU0939F1Z', valid: false },
+    { value: 'GSTIN123456789', valid: false },
+    { value: '', valid: false },
+    // Correct check digit, but 99 is not a GST state code.
+    { value: '99AAPFU0939F1ZK', valid: false },
+  ])('checks the GSTIN check digit of $value', ({ value, valid }) => {
+    expect(isValidGstin(value)).toBe(valid);
+  });
+
+  it('reads the state code from a GSTIN', () => {
+    expect(gstinStateCode(' 27aapfu0939f1zv ')).toBe('27');
+    expect(gstinStateCode('X')).toBeNull();
+    expect(gstinStateCode(null)).toBeNull();
+  });
+
+  it('reports a GSTIN with the right shape but a wrong check digit', () => {
+    const control = new FormControl('27AAPFU0939F1ZW', InputValidators.gstin());
+
+    expect(control.errors).toEqual({ gstinChecksum: true });
+  });
+
+  it('reports a malformed GSTIN as a pattern error and allows an empty one', () => {
+    expect(new FormControl('123', InputValidators.gstin()).hasError('pattern')).toBe(true);
+    expect(new FormControl('123', InputValidators.gstin()).hasError('gstinChecksum')).toBe(false);
+    expect(new FormControl('  ', InputValidators.gstin()).valid).toBe(true);
+    expect(new FormControl('27AAPFU0939F1ZV', InputValidators.gstin()).valid).toBe(true);
+  });
+
+  it('marks a form invalid when a GSTIN belongs to another state', () => {
+    const form = new FormGroup(
+      { gstin: new FormControl('27AAPFU0939F1ZV'), stateCode: new FormControl('29') },
+      InputValidators.gstinMatchesState('gstin', 'stateCode'),
+    );
+
+    expect(form.errors).toEqual({ gstinStateMismatch: true });
+
+    form.controls.stateCode.setValue('27');
+    expect(form.errors).toBeNull();
+
+    form.controls.stateCode.setValue('');
+    expect(form.errors).toBeNull();
   });
 
   it('marks a form invalid when matching fields differ', () => {

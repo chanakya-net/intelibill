@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, OnInit, Output, effect, inject, signal } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule, ReactiveFormsModule, FormBuilder } from '@angular/forms';
 import { Store } from '@ngrx/store';
 import { TranslocoPipe } from '@ngneat/transloco';
@@ -14,7 +14,7 @@ import { RootState } from '../../../core/state/app.state';
 import { OfflineSalesDeviceSettings, OfflineSalesDeviceSettingsStorage } from '../../../core/storage/offline-sales-device-settings.storage';
 import { BankAccountFormComponent } from '../../../shared/components/bank-account-form/bank-account-form.component';
 import { OfflineSalesDeviceEnablementService } from '../../sales/services/offline-sales-device-enablement.service';
-import { UpdateShopRequest } from '../services/shop.service';
+import { UpdateShopRequest, UpdateShopTaxProfileRequest } from '../services/shop.service';
 import { ShopsActions } from '../state/shops.actions';
 import {
   selectSelectedShopDetails,
@@ -24,11 +24,12 @@ import {
   selectShopsLoadingDetails,
   selectShopsSubmitting,
 } from '../state/shops.selectors';
-import { createManageBankForm, createManageShopForm, mapManageBankFormToUpdateBankDetailsRequest, mapManageShopFormToUpdateShopRequest, patchManageShopFormsFromDetails } from './manage-shop/manage-shop-form.helper';
+import { createManageBankForm, createManageShopForm, mapManageBankFormToUpdateBankDetailsRequest, mapManageShopFormToUpdateShopRequest, patchManageBankFormFromDetails, patchManageShopFormFromDetails } from './manage-shop/manage-shop-form.helper';
 import { formatOfflineSnapshotAgeLabel, getOfflineInvoiceRemainingCount, getOfflineReadinessState, offlineEnablementErrorKeyForReason } from './manage-shop/manage-shop-offline.helper';
 import { ShopBasicInfoFormComponent } from './manage-shop/shop-basic-info-form.component';
 import { ShopLogoUploadComponent } from './manage-shop/shop-logo-upload.component';
 import { ShopMembersTableComponent } from './manage-shop/shop-members-table.component';
+import { ShopTaxProfileFormComponent } from './manage-shop/shop-tax-profile-form.component';
 
 @Component({
   selector: 'app-manage-shop-overlay',
@@ -45,6 +46,7 @@ import { ShopMembersTableComponent } from './manage-shop/shop-members-table.comp
     ShopBasicInfoFormComponent,
     ShopLogoUploadComponent,
     ShopMembersTableComponent,
+    ShopTaxProfileFormComponent,
   ],
   templateUrl: './manage-shop-overlay.component.html',
   styleUrl: './manage-shop-overlay.component.scss',
@@ -67,6 +69,17 @@ export class ManageShopOverlayComponent implements OnInit {
   readonly activeStep = signal(1);
   readonly isUpdatePending = signal(false);
   readonly isBankDetailsPending = signal(false);
+  readonly isTaxProfilePending = signal(false);
+  /** The tax profile saves on its own, so its outcome is shown in its own section. */
+  readonly taxProfileError = computed(() =>
+    this.lastMutationType() === 'update-tax-profile' ? this.serverError() : '',
+  );
+  readonly taxProfileSaved = computed(
+    () => this.lastMutationType() === 'update-tax-profile' && this.lastMutationSucceeded(),
+  );
+  readonly shopFormError = computed(() =>
+    this.lastMutationType() === 'update-tax-profile' ? '' : this.serverError(),
+  );
   readonly isOfflineEnablePending = signal(false);
   readonly offlineDeviceSettings = signal<OfflineSalesDeviceSettings | null>(null);
   readonly offlineDeviceLabel = signal('');
@@ -84,6 +97,8 @@ export class ManageShopOverlayComponent implements OnInit {
   readonly form = createManageShopForm(this.formBuilder);
   readonly bankForm = createManageBankForm(this.formBuilder);
   readonly progressSpinnerPt = { root: { class: 'manage-shop-spinner-root' } };
+  /** Set once the owner edits the shop details and cleared when they are saved or another shop is chosen. */
+  private hasUnsavedBasicInfo = false;
 
   roleLabelKey(role: string): string {
     const normalized = role.toLowerCase();
@@ -95,12 +110,16 @@ export class ManageShopOverlayComponent implements OnInit {
   constructor() {
     effect(() => {
       const details = this.selectedShopDetails();
-      if (details && details.shopId === this.form.controls.shopId.value) patchManageShopFormsFromDetails(this.form, this.bankForm, details);
+      if (!details || details.shopId !== this.form.controls.shopId.value) return;
+      // Details also refresh when the tax profile saves on its own; edits not yet saved in a step stay.
+      if (!this.hasUnsavedBasicInfo) patchManageShopFormFromDetails(this.form, details);
+      if (this.bankForm.pristine) patchManageBankFormFromDetails(this.bankForm, details);
     });
     effect(() => {
       const ok = this.lastMutationType() === 'update' && this.lastMutationSucceeded();
       if (this.isUpdatePending() && ok && !this.isSubmitting()) {
         this.isUpdatePending.set(false);
+        this.hasUnsavedBasicInfo = false;
         this.store.dispatch(ShopsActions.clearMutationStatus());
         this.activeStep.set(2);
       }
@@ -111,6 +130,11 @@ export class ManageShopOverlayComponent implements OnInit {
         this.isBankDetailsPending.set(false);
         this.store.dispatch(ShopsActions.clearMutationStatus());
         this.activeStep.set(3);
+      }
+    });
+    effect(() => {
+      if (this.isTaxProfilePending() && this.lastMutationType() === 'update-tax-profile' && !this.isSubmitting()) {
+        this.isTaxProfilePending.set(false);
       }
     });
     effect(() => {
@@ -143,6 +167,7 @@ export class ManageShopOverlayComponent implements OnInit {
   }
 
   onBasicInfoFormChange(payload: Partial<UpdateShopRequest>): void {
+    this.hasUnsavedBasicInfo = true;
     this.form.patchValue({
       name: payload.name ?? '',
       address: payload.address ?? '',
@@ -161,6 +186,9 @@ export class ManageShopOverlayComponent implements OnInit {
     this.updateSelectedRole(shopId);
     this.activeStep.set(1);
     this.offlineEnablementErrorKey.set('');
+    this.hasUnsavedBasicInfo = false;
+    this.bankForm.markAsPristine();
+    this.store.dispatch(ShopsActions.clearMutationStatus());
     this.store.dispatch(ShopsActions.selectShop({ shopId }));
     this.store.dispatch(ShopsActions.loadShopDetailsRequested({ shopId }));
     void this.networkStatus.checkConnectivity();
@@ -187,7 +215,9 @@ export class ManageShopOverlayComponent implements OnInit {
     this.store.dispatch(ShopsActions.clearError());
     this.store.dispatch(ShopsActions.clearMutationStatus());
     this.isUpdatePending.set(true);
-    this.store.dispatch(ShopsActions.updateShopRequested({ shopId, payload: mapManageShopFormToUpdateShopRequest(this.form) }));
+    // The GSTIN is edited only in the tax profile here, so the shop's current one is sent back unchanged.
+    const payload = { ...mapManageShopFormToUpdateShopRequest(this.form), gstNumber: this.selectedShopDetails()?.gstNumber ?? undefined };
+    this.store.dispatch(ShopsActions.updateShopRequested({ shopId, payload }));
   }
 
   onSaveBankDetails(): void {
@@ -206,6 +236,20 @@ export class ManageShopOverlayComponent implements OnInit {
     this.store.dispatch(ShopsActions.clearMutationStatus());
     this.isBankDetailsPending.set(true);
     this.store.dispatch(ShopsActions.updateShopBankDetailsRequested({ shopId, payload: mapManageBankFormToUpdateBankDetailsRequest(this.bankForm) }));
+  }
+
+  onSaveTaxProfile(payload: UpdateShopTaxProfileRequest): void {
+    if (this.isSubmitting() || this.isLoadingDetails()) return;
+    if (!this.isSelectedShopOwner()) {
+      this.store.dispatch(ShopsActions.updateShopTaxProfileFailed({ errorMessage: 'errors.shops.onlyOwnersCanUpdate' }));
+      return;
+    }
+    const shopId = this.form.controls.shopId.value;
+    if (!shopId) return;
+    this.store.dispatch(ShopsActions.clearError());
+    this.store.dispatch(ShopsActions.clearMutationStatus());
+    this.isTaxProfilePending.set(true);
+    this.store.dispatch(ShopsActions.updateShopTaxProfileRequested({ shopId, payload }));
   }
 
   onSkipBankDetails(): void {
@@ -278,7 +322,7 @@ export class ManageShopOverlayComponent implements OnInit {
     try {
       const result = await this.offlineDeviceEnablement.enableForShop(shopId, this.offlineDeviceLabel().trim());
       if (!result.ok) {
-        this.offlineEnablementErrorKey.set(offlineEnablementErrorKeyForReason(result.reason));
+        this.offlineEnablementErrorKey.set(offlineEnablementErrorKeyForReason(result.reason, result.errorCode));
         return;
       }
       this.offlineDeviceSettings.set(result.settings);

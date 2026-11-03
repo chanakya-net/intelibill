@@ -19,7 +19,7 @@ describe('CreateShopOverlayComponent', () => {
   const isSubmittingSignal = signal(false);
   const errorSignal = signal('');
   const lastMutationTypeSignal = signal<
-    'create' | 'update' | 'update-bank-details' | 'set-default' | null
+    'create' | 'update' | 'update-bank-details' | 'update-tax-profile' | 'set-default' | null
   >(null);
   const lastMutationSucceededSignal = signal(false);
   const sessionSignal = signal<{ activeShopId: string } | null>(null);
@@ -115,6 +115,8 @@ describe('CreateShopOverlayComponent', () => {
     component.shopForm.controls.contactPerson.setValue('   ');
     component.shopForm.controls.mobileNumber.setValue('  ');
     component.shopForm.controls.gstNumber.setValue('');
+    component.shopForm.controls.stateCode.setValue('29');
+    component.shopForm.controls.taxRegime.setValue('Unregistered');
 
     component.onNextFromStep1();
 
@@ -131,9 +133,125 @@ describe('CreateShopOverlayComponent', () => {
           contactPerson: undefined,
           mobileNumber: undefined,
           gstNumber: undefined,
+          taxProfile: {
+            legalName: null,
+            stateCode: '29',
+            taxRegime: 'Unregistered',
+            invoiceSeriesCode: 'A',
+            eInvoiceStatus: null,
+          },
         },
       }),
     );
+  });
+
+  // --- Step 1: GST registration ---
+
+  function fillShopDetails(component: CreateShopOverlayComponent): void {
+    component.shopForm.controls.name.setValue('Main Shop');
+    component.shopForm.controls.address.setValue('42 MG Road');
+    component.shopForm.controls.city.setValue('Pune');
+    component.shopForm.controls.state.setValue('Maharashtra');
+    component.shopForm.controls.pincode.setValue('411001');
+  }
+
+  function createDispatched(): boolean {
+    return dispatch.mock.calls.some(([action]) => action.type === ShopsActions.createShopRequested.type);
+  }
+
+  it('does not create a shop until the GST state and registration type are chosen', () => {
+    const { component } = setup();
+    fillShopDetails(component);
+
+    component.onNextFromStep1();
+
+    expect(component.shopForm.controls.stateCode.hasError('required')).toBe(true);
+    expect(component.shopForm.controls.taxRegime.hasError('required')).toBe(true);
+    expect(createDispatched()).toBe(false);
+  });
+
+  it('sends a regular registration with its e-invoicing answer and the GSTIN at the top level', () => {
+    const { component } = setup();
+    fillShopDetails(component);
+    component.shopForm.patchValue({
+      legalName: '  Main Traders LLP  ',
+      stateCode: '27',
+      taxRegime: 'Regular',
+      gstNumber: ' 27aapfu0939f1zv ',
+      eInvoiceStatus: 'BelowThreshold',
+      invoiceSeriesCode: 'b',
+    });
+
+    component.onNextFromStep1();
+
+    expect(dispatch).toHaveBeenCalledWith(
+      ShopsActions.createShopRequested({
+        payload: {
+          name: 'Main Shop',
+          address: '42 MG Road',
+          city: 'Pune',
+          state: 'Maharashtra',
+          pincode: '411001',
+          contactPerson: undefined,
+          mobileNumber: undefined,
+          gstNumber: '27AAPFU0939F1ZV',
+          taxProfile: {
+            legalName: 'Main Traders LLP',
+            stateCode: '27',
+            taxRegime: 'Regular',
+            invoiceSeriesCode: 'B',
+            eInvoiceStatus: 'BelowThreshold',
+          },
+        },
+      }),
+    );
+  });
+
+  it('asks whether e-invoicing applies only for a regular registration', () => {
+    const { component, fixture } = setup();
+    fillShopDetails(component);
+    component.shopForm.patchValue({ stateCode: '27', taxRegime: 'Regular', gstNumber: '27AAPFU0939F1ZV' });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('#create-shop-einvoice')).not.toBeNull();
+    component.onNextFromStep1();
+    expect(component.shopForm.hasError('eInvoiceStatusRequired')).toBe(true);
+    expect(createDispatched()).toBe(false);
+
+    component.shopForm.patchValue({ taxRegime: 'Composition' });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('#create-shop-einvoice')).toBeNull();
+    component.onNextFromStep1();
+    expect(createDispatched()).toBe(true);
+  });
+
+  it('refuses a GSTIN with a wrong check digit or from another state', () => {
+    const { component } = setup();
+    fillShopDetails(component);
+    component.shopForm.patchValue({ stateCode: '27', taxRegime: 'Composition', gstNumber: '27AAPFU0939F1ZW' });
+
+    component.onNextFromStep1();
+    expect(component.shopForm.controls.gstNumber.hasError('gstinChecksum')).toBe(true);
+
+    component.shopForm.controls.gstNumber.setValue('29AAGCB7383J1Z4');
+    component.onNextFromStep1();
+    expect(component.shopForm.hasError('gstinStateMismatch')).toBe(true);
+
+    component.shopForm.controls.gstNumber.setValue('');
+    component.onNextFromStep1();
+    expect(component.shopForm.hasError('gstinRequired')).toBe(true);
+    expect(createDispatched()).toBe(false);
+  });
+
+  it('refuses a GSTIN for a shop not registered under GST', () => {
+    const { component } = setup();
+    fillShopDetails(component);
+    component.shopForm.patchValue({ stateCode: '27', taxRegime: 'Unregistered', gstNumber: '27AAPFU0939F1ZV' });
+
+    component.onNextFromStep1();
+
+    expect(component.shopForm.hasError('gstinNotAllowed')).toBe(true);
+    expect(createDispatched()).toBe(false);
   });
 
   it('does not submit when gstNumber is present but invalid', () => {
@@ -162,8 +280,11 @@ describe('CreateShopOverlayComponent', () => {
     component.shopForm.controls.city.setValue('Bengaluru');
     component.shopForm.controls.state.setValue('Karnataka');
     component.shopForm.controls.pincode.setValue('560001');
+    component.shopForm.controls.stateCode.setValue('29');
+    component.shopForm.controls.taxRegime.setValue('Unregistered');
 
     component.onNextFromStep1();
+    expect(component.isCreatePending()).toBe(true);
 
     lastMutationTypeSignal.set('create');
     lastMutationSucceededSignal.set(true);

@@ -37,6 +37,9 @@ describe('SaleInvoicePrintPageComponent', () => {
     items: [],
     returns: [],
     warnings: [],
+    creditNoteRedemptions: [],
+    document: null,
+    isLegacyDocument: true,
   };
 
   const shop = {

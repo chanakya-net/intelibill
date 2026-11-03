@@ -57,6 +57,9 @@ describe('SaleService', () => {
     items: [],
     returns: [],
     warnings: [],
+    creditNoteRedemptions: [],
+    document: null,
+    isLegacyDocument: true,
   });
 
   it('sends GET request to list endpoint with history query params and maps response', () => {
@@ -215,6 +218,9 @@ describe('SaleService', () => {
       ],
       returns: [],
       warnings: [],
+      creditNoteRedemptions: [],
+      document: null,
+      isLegacyDocument: true,
     };
 
     service.getSaleById('sale-2').subscribe((result) => {

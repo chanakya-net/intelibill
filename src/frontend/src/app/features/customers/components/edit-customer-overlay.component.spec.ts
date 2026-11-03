@@ -73,7 +73,39 @@ describe('EditCustomerOverlayComponent', () => {
       address: null,
       isActive: true,
       creditLimit: 2500,
+      gstin: '',
+      stateCode: '',
     });
+  });
+
+  it('patches and resubmits the customer GSTIN and state', () => {
+    const customer: Customer = {
+      customerId: 'c2',
+      name: 'Bharat Stores',
+      phoneNumber: '+919811111111',
+      address: '5 Market Lane',
+      isActive: true,
+      creditLimit: 0,
+      purchaseCount: 0,
+      lifetimeRevenue: 0,
+      currentMonthRevenue: 0,
+      gstin: '29AAGCB7383J1Z4',
+      stateCode: '29',
+    };
+
+    const { component, facade } = setup(customer);
+    expect(component.form.controls.gstin.value).toBe('29AAGCB7383J1Z4');
+    expect(component.form.controls.stateCode.value).toBe('29');
+
+    component.form.patchValue({ stateCode: '27' });
+    component.onSubmit();
+    expect(facade.editCustomer).not.toHaveBeenCalled();
+    expect(component.form.hasError('gstinStateMismatch')).toBe(true);
+
+    // An emptied GSTIN is sent as '' so the server clears it rather than keeping the recorded one.
+    component.form.patchValue({ gstin: '', stateCode: '27' });
+    component.onSubmit();
+    expect(facade.editCustomer).toHaveBeenCalledWith('c2', expect.objectContaining({ gstin: '', stateCode: '27' }));
   });
 
   it('rejects overly large creditLimit', () => {

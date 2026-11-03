@@ -85,8 +85,13 @@ export const PAYMENT_METHOD_VALUES: { value: number; label: PaymentMethod }[] = 
   { value: 4, label: 'Credit' },
 ];
 
-export function getPaymentMethodLabel(method: number): string {
-  return PAYMENT_METHOD_VALUES.find((entry) => entry.value === method)?.label ?? 'Unknown';
+/** The API sends the method by name ("Cash"); older cached sales and offline records carry its number. */
+export function getPaymentMethodLabel(method: number | string): string {
+  const entry =
+    typeof method === 'string'
+      ? PAYMENT_METHOD_VALUES.find((candidate) => candidate.label.toLowerCase() === method.toLowerCase())
+      : PAYMENT_METHOD_VALUES.find((candidate) => candidate.value === method);
+  return entry?.label ?? 'Unknown';
 }
 
 export function getPaymentMethodSeverity(
@@ -243,6 +248,8 @@ export interface RecordSaleRequest {
   readonly creditNoteAppliedAmount?: number;
   readonly creditNoteRedemptions?: readonly CreditNoteRedemptionRequest[];
   readonly creditNoteCustomerMismatchConfirmed?: boolean;
+  /** GST state code of the place of supply; omitted or null means the seller's state (a counter sale). */
+  readonly placeOfSupplyStateCode?: string | null;
 }
 
 export interface ReserveInvoiceLeaseRequest {
@@ -332,10 +339,92 @@ export interface SaleReturnCreditNoteSummaryDto {
   readonly reason: string;
 }
 
-export interface SaleCreditNoteRedemptionSummaryDto {
+/** A credit note redeemed against this sale (not one its returns issued). */
+export interface SaleCreditNoteRedemptionDto {
   readonly creditNoteId: string;
   readonly code: string;
+  readonly appliedAmount: number;
+}
+
+// ─── Issued GST document (snapshot version 2) ─────────────────────────────────
+// Frozen at posting; prints render only from it. Enums travel as their names.
+
+export type InvoiceDocumentType = 'TaxInvoice' | 'InvoiceCumBillOfSupply' | 'BillOfSupply' | 'Receipt';
+export type InvoiceSellerTaxRegime = 'Regular' | 'Composition' | 'Unregistered';
+export type TaxComponentKind = 'Cgst' | 'Sgst' | 'Utgst' | 'Igst' | 'Cess';
+export type InvoiceDeclaration = 'CompositionTaxablePerson' | 'EInvoiceExemption' | 'NotRegisteredUnderGst';
+
+export interface TaxComponent {
+  readonly kind: TaxComponentKind;
+  readonly ratePercent: number;
+  readonly taxableBase: number;
   readonly amount: number;
+}
+
+export interface InvoiceDocumentSeller {
+  readonly legalName: string;
+  readonly tradeName: string;
+  readonly address: string;
+  readonly stateCode: string;
+  readonly stateName: string;
+  readonly gstin: string | null;
+  readonly taxRegime: InvoiceSellerTaxRegime;
+}
+
+export interface InvoiceDocumentBuyer {
+  readonly name: string | null;
+  readonly phone: string | null;
+  readonly address: string | null;
+  readonly gstin: string | null;
+  readonly stateCode: string | null;
+  readonly stateName: string | null;
+}
+
+export interface InvoiceDocumentLine {
+  readonly lineNumber: number;
+  readonly description: string;
+  readonly hsnOrSac: string | null;
+  readonly uom: string;
+  readonly quantity: number;
+  readonly unitPrice: number;
+  readonly discountAmount: number;
+  readonly taxableValue: number;
+  readonly taxRatePercent: number;
+  readonly isExempt: boolean;
+  readonly taxComponents: readonly TaxComponent[];
+  readonly lineTotal: number;
+}
+
+export interface InvoiceDocumentTotals {
+  readonly taxableValue: number;
+  readonly exemptValue: number;
+  readonly components: readonly TaxComponent[];
+  readonly totalTax: number;
+  readonly roundingAdjustment: number;
+  readonly invoiceTotal: number;
+}
+
+export interface InvoiceDocument {
+  readonly version: 2;
+  readonly documentType: InvoiceDocumentType;
+  readonly issuedAt: string;
+  /** India business date, YYYY-MM-DD. */
+  readonly businessDate: string;
+  readonly fiscalYearStart: number;
+  readonly seriesCode: string;
+  readonly number: string;
+  readonly seller: InvoiceDocumentSeller;
+  readonly buyer: InvoiceDocumentBuyer;
+  readonly placeOfSupplyStateCode: string;
+  readonly placeOfSupplyStateName: string;
+  readonly isInterstate: boolean;
+  readonly reverseCharge: boolean;
+  readonly lines: readonly InvoiceDocumentLine[];
+  readonly totals: InvoiceDocumentTotals;
+  readonly declarations: readonly InvoiceDeclaration[];
+  readonly signatureMode: 'AuthorisedSignatory';
+  /** The component split rule, e.g. 'component-split/1'. */
+  readonly taxCalculation: string;
 }
 
 export interface SaleDto {
@@ -353,10 +442,13 @@ export interface SaleDto {
   readonly totalAmount: number;
   readonly totalTaxAmount: number;
   readonly creditNoteAppliedAmount: number;
-  readonly creditNoteRedemptionSummaries?: readonly SaleCreditNoteRedemptionSummaryDto[];
+  readonly creditNoteRedemptions: readonly SaleCreditNoteRedemptionDto[];
   readonly items: readonly SaleItemDto[];
   readonly returns: readonly SaleReturnDto[];
   readonly warnings: readonly string[];
+  /** The issued GST document; null for a legacy sale posted before documents existed. */
+  readonly document: InvoiceDocument | null;
+  readonly isLegacyDocument: boolean;
 }
 
 export type SaleHistoryStatus = 'paid' | 'partiallyPaid' | 'refunded' | 'unknown' | 'returned';

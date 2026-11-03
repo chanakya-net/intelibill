@@ -123,7 +123,10 @@ const OFFLINE_REVIEW_REASON_KEYS: Readonly<Record<string, string>> = {
 };
 
 export function offlineReviewReasonKey(errorCode: string | null): string {
-  return (errorCode && OFFLINE_REVIEW_REASON_KEYS[errorCode]) || 'sales.history.offlineQueue.review.reasons.unknown';
+  if (errorCode && OFFLINE_REVIEW_REASON_KEYS[errorCode]) return OFFLINE_REVIEW_REASON_KEYS[errorCode];
+  // Every GST document refusal on a device-issued sale files the same informational case: posted, no document.
+  if (errorCode?.startsWith('Invoice.')) return 'sales.history.offlineQueue.review.reasons.documentNotIssued';
+  return 'sales.history.offlineQueue.review.reasons.unknown';
 }
 
 export function normalizeOfflineQueueSyncStatus(status: string): OfflineQueueSyncResult['status'] {

@@ -46,6 +46,8 @@ const ISSUE_TYPE_LABEL_KEYS: Readonly<Record<string, string>> = {
   IssueTimingReview: 'sales.offlineReconciliation.issueTypes.issueTimingReview',
   ProvenanceReview: 'sales.offlineReconciliation.issueTypes.provenanceReview',
   RecoveryReview: 'sales.offlineReconciliation.issueTypes.recoveryReview',
+  // Informational: a device-issued sale posted without a GST document because the shop's profile did not allow one.
+  DocumentReview: 'sales.offlineReconciliation.issueTypes.documentReview',
 };
 
 const RECOVERY_STATUS_LABEL_KEYS: Readonly<Record<RecoveryInvoiceStatus, string>> = {

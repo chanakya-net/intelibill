@@ -42,7 +42,7 @@ describe('CustomerService', () => {
   });
 
   it('addCustomer performs POST to /customers', () => {
-    const payload: AddCustomerRequest = { name: 'Alice', phoneNumber: '+9198', address: null, isActive: true, creditLimit: 0 };
+    const payload: AddCustomerRequest = { name: 'Alice', phoneNumber: '+9198', address: null, isActive: true, creditLimit: 0, gstin: null, stateCode: null };
     const customer = { customerId: 'c1', ...payload, purchaseCount: 0, lifetimeRevenue: 0, currentMonthRevenue: 0 };
     service.addCustomer(payload).subscribe((res) => expect(res).toEqual(customer));
 
@@ -53,7 +53,7 @@ describe('CustomerService', () => {
   });
 
   it('editCustomer performs PUT to /customers/:id', () => {
-    const payload: EditCustomerRequest = { name: 'Alice Updated', phoneNumber: '+9198', address: 'Addr', isActive: true, creditLimit: 100 };
+    const payload: EditCustomerRequest = { name: 'Alice Updated', phoneNumber: '+9198', address: 'Addr', isActive: true, creditLimit: 100, gstin: null, stateCode: null };
     const customerId = 'c1';
     const updated = { customerId, ...payload, purchaseCount: 1, lifetimeRevenue: 1200, currentMonthRevenue: 100 };
     service.editCustomer(customerId, payload).subscribe((res) => expect(res).toEqual(updated));
@@ -62,6 +62,27 @@ describe('CustomerService', () => {
     expect(req.request.method).toBe('PUT');
     expect(req.request.body).toEqual(payload);
     req.flush(updated);
+  });
+
+  it('sends and receives the customer GSTIN and state', () => {
+    const payload: AddCustomerRequest = {
+      name: 'Bharat Stores',
+      phoneNumber: '+919811111111',
+      address: '5 Market Lane',
+      isActive: true,
+      creditLimit: 0,
+      gstin: '29AAGCB7383J1Z4',
+      stateCode: '29',
+    };
+    const customer = { customerId: 'c2', ...payload, purchaseCount: 0, lifetimeRevenue: 0, currentMonthRevenue: 0 };
+    service.addCustomer(payload).subscribe((res) => {
+      expect(res.gstin).toBe('29AAGCB7383J1Z4');
+      expect(res.stateCode).toBe('29');
+    });
+
+    const req = httpMock.expectOne(apiUrl);
+    expect(req.request.body).toEqual(payload);
+    req.flush(customer);
   });
 
   it('getCustomerAccount performs GET to /customers/:id/account', () => {

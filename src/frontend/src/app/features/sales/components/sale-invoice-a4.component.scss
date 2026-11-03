@@ -62,9 +62,22 @@
 
   &__shop-address,
   &__shop-phone,
-  &__shop-gst {
+  &__shop-gst,
+  &__shop-trade-name {
     margin: 2px 0;
     font-size: 10pt;
+  }
+
+  &__shop-trade-name {
+    font-weight: bold;
+  }
+
+  &__document-title {
+    margin: 0 0 8px 0;
+    font-size: 14pt;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
   }
 
   &__meta {
@@ -250,6 +263,56 @@
   &__return-amount,
   &__return-reason {
     color: #555;
+  }
+
+  &__tax-summary {
+    margin: 0 0 20px 0;
+    break-inside: avoid;
+  }
+
+  &__tax-summary-title {
+    margin: 0 0 6px 0;
+    font-size: 11pt;
+    font-weight: bold;
+  }
+
+  &__tax-summary-table {
+    margin: 0;
+  }
+
+  &__declarations {
+    margin: 10px 0;
+    font-size: 9pt;
+    break-inside: avoid;
+  }
+
+  &__declaration {
+    margin: 0 0 4px 0;
+  }
+
+  &__signatory {
+    margin: 30px 0 10px auto;
+    max-width: 50%;
+    text-align: right;
+    break-inside: avoid;
+  }
+
+  &__signatory-for {
+    margin: 0 0 36px 0;
+    font-weight: bold;
+  }
+
+  &__signatory-label {
+    margin: 0;
+    padding-top: 4px;
+    border-top: 1px solid #000;
+    font-size: 9pt;
+  }
+
+  &__legacy-note {
+    margin: 10px 0 0 0;
+    font-size: 8pt;
+    color: #666;
   }
 
   &__totals {

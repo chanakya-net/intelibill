@@ -25,6 +25,7 @@ describe('ShopsEffects', () => {
     setDefaultShop: vi.fn<ShopService['setDefaultShop']>(),
     switchActiveShop: vi.fn<ShopService['switchActiveShop']>(),
     updateBankDetails: vi.fn<ShopService['updateBankDetails']>(),
+    updateTaxProfile: vi.fn<ShopService['updateTaxProfile']>(),
   };
 
   const sessionSignal = signal<AuthSession | null>(null);
@@ -122,6 +123,72 @@ describe('ShopsEffects', () => {
     await expect(output).resolves.toEqual(
       ShopsActions.createShopFailed({ errorMessage: 'errors.shops.nameRequired' })
     );
+  });
+
+  it.each([
+    ['Shop.TaxRegimeRequired', 'errors.shops.taxRegimeRequired'],
+    ['Shop.StateCodeInvalid', 'errors.shops.stateCodeInvalid'],
+    ['Shop.GstinStateMismatch', 'errors.shops.gstinStateMismatch'],
+    ['Shop.EInvoiceAttestationRequired', 'errors.shops.eInvoiceAttestationRequired'],
+  ])('explains a refused tax profile on a new shop (%s)', async (code, key) => {
+    shopService.createShop.mockReturnValue(throwError(() => ({ error: { title: code } })));
+
+    const output = firstValueFrom(effects.createShop$.pipe(take(1)));
+    actions$.next(ShopsActions.createShopRequested({ payload: { name: 'New', address: 'A', city: 'C', state: 'S', pincode: '560001' } }));
+
+    await expect(output).resolves.toEqual(ShopsActions.createShopFailed({ errorMessage: key }));
+  });
+
+  it('saves the tax profile and hands back the declared details', async () => {
+    const declared = {
+      ...details,
+      gstNumber: '27AAPFU0939F1ZV',
+      taxProfile: {
+        legalName: 'Shop A LLP',
+        stateCode: '27',
+        taxRegime: 'Regular' as const,
+        invoiceSeriesCode: 'A',
+        eInvoiceStatus: 'BelowThreshold' as const,
+        eInvoiceAttestedAt: '2026-11-03T05:30:00Z',
+      },
+    };
+    const payload = {
+      legalName: 'Shop A LLP',
+      stateCode: '27',
+      taxRegime: 'Regular' as const,
+      gstNumber: '27AAPFU0939F1ZV',
+      invoiceSeriesCode: null,
+      eInvoiceStatus: 'BelowThreshold' as const,
+    };
+    shopService.updateTaxProfile.mockReturnValue(of(declared));
+
+    const output = firstValueFrom(effects.updateShopTaxProfile$.pipe(take(1)));
+    actions$.next(ShopsActions.updateShopTaxProfileRequested({ shopId: 'sh1', payload }));
+
+    await expect(output).resolves.toEqual(ShopsActions.updateShopTaxProfileSucceeded({ details: declared }));
+    expect(shopService.updateTaxProfile).toHaveBeenCalledWith('sh1', payload);
+  });
+
+  it.each([
+    ['Shop.GstinInvalid', 'errors.shops.gstinInvalid'],
+    ['Shop.GstinRequiredForRegime', 'errors.shops.gstinRequiredForRegime'],
+    ['Shop.GstinNotAllowedForUnregistered', 'errors.shops.gstinNotAllowedForUnregistered'],
+    ['Shop.InvoiceSeriesCodeInvalid', 'errors.shops.invoiceSeriesCodeInvalid'],
+    ['Shop.LegalNameTooLong', 'errors.shops.legalNameTooLong'],
+    ['Shop.UserIsNotOwner', 'errors.shops.onlyOwnersCanUpdate'],
+    ['Something.Unexpected', 'errors.shops.unableToUpdateTaxProfile'],
+  ])('explains a refused tax profile save (%s)', async (code, key) => {
+    shopService.updateTaxProfile.mockReturnValue(throwError(() => ({ error: { title: code } })));
+
+    const output = firstValueFrom(effects.updateShopTaxProfile$.pipe(take(1)));
+    actions$.next(
+      ShopsActions.updateShopTaxProfileRequested({
+        shopId: 'sh1',
+        payload: { legalName: null, stateCode: '27', taxRegime: 'Unregistered', gstNumber: null, invoiceSeriesCode: null, eInvoiceStatus: null },
+      }),
+    );
+
+    await expect(output).resolves.toEqual(ShopsActions.updateShopTaxProfileFailed({ errorMessage: key }));
   });
 
   it('dispatches setDefaultShopSucceeded on success', async () => {

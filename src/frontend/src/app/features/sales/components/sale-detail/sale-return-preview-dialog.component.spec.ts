@@ -117,6 +117,9 @@ const makeSale = (): SaleDto => ({
   items: [makeServiceItem()],
   returns: [],
   warnings: [],
+  creditNoteRedemptions: [],
+  document: null,
+  isLegacyDocument: true,
 });
 
 const makeCreditNoteSummary = (

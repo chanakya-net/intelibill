@@ -67,13 +67,13 @@ describe('CustomersFacade', () => {
   });
 
   it('addCustomer dispatches addCustomerRequested', () => {
-    const payload = { name: 'Bob', phoneNumber: '+9199', address: null, isActive: true, creditLimit: 0 };
+    const payload = { name: 'Bob', phoneNumber: '+9199', address: null, isActive: true, creditLimit: 0, gstin: null, stateCode: null };
     facade.addCustomer(payload);
     expect(dispatch).toHaveBeenCalledWith(CustomersActions.addCustomerRequested({ payload }));
   });
 
   it('editCustomer dispatches editCustomerRequested', () => {
-    const payload = { name: 'Bob Updated', phoneNumber: '+9199', address: null, isActive: true, creditLimit: 100 };
+    const payload = { name: 'Bob Updated', phoneNumber: '+9199', address: null, isActive: true, creditLimit: 100, gstin: null, stateCode: null };
     facade.editCustomer('c1', payload);
     expect(dispatch).toHaveBeenCalledWith(CustomersActions.editCustomerRequested({ customerId: 'c1', payload }));
   });
