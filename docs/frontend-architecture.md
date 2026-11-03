@@ -142,6 +142,27 @@ follow the server's `availableActions`. Backend rules: `docs/backend-architectur
 - **Errors.** `Invoice.*` refusals map through `sales/utils/invoice-error-keys.ts`; shop tax codes through
   `shops.effects.ts`.
 
+## Offline Invoice Printing
+
+- **Frozen at finalization.** `OfflineSaleFinalizationService` builds the queued sale's `document` (snapshot
+  version 2) with `buildOfflineInvoiceDocument`, a port of the server's `InvoiceDocumentBuilder.Build`, from
+  the seller profile the consumed lease froze (`InvoiceLeaseDto.sellerProfile`) and the snapshot customer's
+  GSTIN, state and address. Prints and reprints render only that document. Both builders run
+  `tests/contracts/offline-invoice-document-v2.json`, so the copy handed over matches the document the
+  server issues on sync. A sale that cannot be issued is refused with the server's `Invoice.*` code and
+  its number goes back to the lease; so is a lease with no profile (re-enable offline billing online; the
+  POS says so while online) and a customer missing from the snapshot.
+- **Legacy rows** (queued before documents) print the priced bill with a note that it is not a GST
+  document copy and a link to reconciliation; no seller identity is taken from the live shop.
+- **Access.** `sales/:saleId/print` uses `offlineInvoicePrintGuard`: a server sale needs normal sign-in;
+  `offline=1` may also open while the API is unreachable, under the offline grace, when
+  `OfflineInvoiceAccessService.read` grants that invoice: the active session's own shop and device, its
+  issuer (or, on a live session only, an owner or manager), re-checked after the IndexedDB read. A refusal
+  from a reachable server sends the user to sign in.
+- **Printing** opens the dialog once after render and font loading; "Print again" only reopens it. The
+  queue delivery state is shown beside the invoice on screen and never printed. A blocked print window
+  leaves a link in the offline confirmation.
+
 ## Key Patterns
 
 - **Standalone components** — no NgModules; all imports declared per component
