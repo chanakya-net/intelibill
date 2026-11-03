@@ -107,7 +107,7 @@ public sealed class CreditNote : BaseEntity
             return Error.Conflict("CreditNote.AlreadyVoided", "Credit note is already voided.");
         }
 
-        if (_redemptions.Count > 0)
+        if (HasBeenRedeemed)
         {
             return Error.Conflict("CreditNote.CannotVoidAfterRedemption", "Cannot void a credit note after it has been redeemed.");
         }
@@ -121,6 +121,15 @@ public sealed class CreditNote : BaseEntity
         VoidReason = reason.Trim();
         return Result.Success;
     }
+
+    /// <summary>
+    /// Any redemption lowers the balance, so the balance answers even when the loaded redemption
+    /// list is older than the row: a locking read that waited sees the row as the lock holder left
+    /// it, but rows it joined are read as of the moment the statement began. This holds only while
+    /// nothing gives balance back to a note; a flow that restores balance (say, cancelling the sale
+    /// that redeemed it) must keep a redemption record this check can still see.
+    /// </summary>
+    public bool HasBeenRedeemed => _redemptions.Count > 0 || AvailableBalance < OriginalAmount;
 
     public CreditNoteStatus Status
     {

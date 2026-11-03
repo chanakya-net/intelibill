@@ -15,6 +15,8 @@ public interface ICreditNoteRepository : IRepository<CreditNote>
     Task<IReadOnlyList<CreditNote>> GetByReturnIdsAsync(Guid shopId, IReadOnlyCollection<Guid> saleReturnIds, CancellationToken cancellationToken = default);
     Task<CreditNote?> GetByIdWithRedemptionsAsync(Guid shopId, Guid id, CancellationToken cancellationToken = default);
     Task<CreditNote?> GetBySaleReturnIdWithRedemptionsAsync(Guid shopId, Guid saleReturnId, CancellationToken cancellationToken = default);
+    // Locks the return's credit note until the transaction ends, then reads it with redemptions as of after the lock.
+    Task<CreditNote?> GetBySaleReturnIdForUpdateWithRedemptionsAsync(Guid shopId, Guid saleReturnId, CancellationToken cancellationToken = default);
     Task AddRedemptionAsync(CreditNoteRedemption redemption, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<CreditNoteRedemptionListRow>> GetRedemptionsBySaleIdAsync(
         Guid shopId,

@@ -13,6 +13,13 @@ internal sealed class SaleReturnRepository(ApplicationDbContext context)
     public async Task<SaleReturn?> GetByIdAsync(Guid shopId, Guid saleReturnId, CancellationToken cancellationToken = default) =>
         await DbSet.FirstOrDefaultAsync(r => r.ShopId == shopId && r.Id == saleReturnId, cancellationToken);
 
+    public async Task<Guid?> GetSaleIdAsync(Guid shopId, Guid saleReturnId, CancellationToken cancellationToken = default) =>
+        await DbSet
+            .AsNoTracking()
+            .Where(r => r.ShopId == shopId && r.Id == saleReturnId)
+            .Select(r => (Guid?)r.SaleId)
+            .FirstOrDefaultAsync(cancellationToken);
+
     public async Task<SaleReturn?> GetByIdWithItemsAsync(Guid shopId, Guid saleReturnId, CancellationToken cancellationToken = default) =>
         await DbSet
             .Include(r => r.Items)

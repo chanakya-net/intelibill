@@ -230,6 +230,12 @@ public static partial class Errors
         public static Error ReturnRefundOverrideReasonRequired =>
             Error.Validation("SaleReturn.RefundOverrideReasonRequired", "Refund override reason is required when approving a refund above the discounted paid amount.");
 
+        public static Error ReturnSaleBusy =>
+            Error.Conflict("SaleReturn.SaleBusy", "Another return or void on this sale is in progress. Refresh the sale and try again.");
+
+        public static Error ReturnConcurrentChange =>
+            Error.Conflict("SaleReturn.ConcurrentChange", "Stock for this sale changed while the return was being saved. Refresh the sale and try again.");
+
         public static Error ReturnCreditNoteHasRedemptions =>
             Error.Conflict("SaleReturn.CreditNoteHasRedemptions", "Cannot void return because its credit note has already been redeemed.");
 

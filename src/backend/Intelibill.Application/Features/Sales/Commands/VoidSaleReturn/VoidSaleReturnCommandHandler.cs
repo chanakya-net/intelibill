@@ -1,5 +1,6 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Features.Sales.Services.Returns;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
@@ -17,6 +18,7 @@ public sealed class VoidSaleReturnCommandHandler(
     IStockTransactionRepository stockTransactionRepository,
     ICustomerLedgerEntryRepository customerLedgerEntryRepository,
     ICreditNoteRepository creditNoteRepository,
+    ISaleReturnMutationCoordinator mutationCoordinator,
     IUnitOfWork unitOfWork)
 {
     public async Task<ErrorOr<Success>> HandleAsync(
@@ -41,6 +43,23 @@ public sealed class VoidSaleReturnCommandHandler(
         if (membership.Role is not (ShopRole.Owner or ShopRole.Manager))
             return Errors.Sale.ReturnForbidden;
 
+        // Only the sale id is read before the lock; it never changes. Everything the void decides
+        // on is read after it.
+        var saleId = await saleReturnRepository.GetSaleIdAsync(command.ShopId, command.SaleReturnId, cancellationToken);
+        if (saleId is null)
+            return Errors.Sale.ReturnNotFound(command.SaleReturnId);
+
+        return await mutationCoordinator.ExecuteAsync(
+            command.ShopId,
+            saleId.Value,
+            ct => VoidAsync(command, ct),
+            cancellationToken);
+    }
+
+    private async Task<ErrorOr<Success>> VoidAsync(
+        VoidSaleReturnCommand command,
+        CancellationToken cancellationToken)
+    {
         var saleReturn = await saleReturnRepository.GetByIdWithItemsAsync(
             command.ShopId,
             command.SaleReturnId,
@@ -51,10 +70,11 @@ public sealed class VoidSaleReturnCommandHandler(
         if (saleReturn.IsVoided)
             return Errors.Sale.ReturnAlreadyVoided;
 
-        var creditNote = await creditNoteRepository.GetBySaleReturnIdWithRedemptionsAsync(
+        // Locked so a redemption cannot land between this check and the void.
+        var creditNote = await creditNoteRepository.GetBySaleReturnIdForUpdateWithRedemptionsAsync(
             command.ShopId, command.SaleReturnId, cancellationToken);
 
-        if (creditNote is not null && creditNote.Redemptions.Count > 0)
+        if (creditNote is not null && creditNote.HasBeenRedeemed)
             return Errors.Sale.ReturnCreditNoteHasRedemptions;
 
         var sale = await saleRepository.GetByIdAsync(saleReturn.SaleId, command.ShopId, cancellationToken);

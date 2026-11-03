@@ -21,9 +21,21 @@ public sealed class RecordSaleReturnCommandHandler(
     IStockTransactionRepository stockTransactionRepository,
     ISaleReturnRepository saleReturnRepository,
     ICustomerLedgerEntryRepository customerLedgerEntryRepository,
+    ISaleReturnMutationCoordinator mutationCoordinator,
     IUnitOfWork unitOfWork)
 {
-    public async Task<ErrorOr<Success>> HandleAsync(
+    public Task<ErrorOr<Success>> HandleAsync(
+        RecordSaleReturnCommand command,
+        CancellationToken cancellationToken) =>
+        // Validation runs under the sale lock: what a competing return committed is counted, and
+        // nothing can be returned between the check and the write.
+        mutationCoordinator.ExecuteAsync(
+            command.ShopId,
+            command.SaleId,
+            ct => RecordAsync(command, ct),
+            cancellationToken);
+
+    private async Task<ErrorOr<Success>> RecordAsync(
         RecordSaleReturnCommand command,
         CancellationToken cancellationToken)
     {

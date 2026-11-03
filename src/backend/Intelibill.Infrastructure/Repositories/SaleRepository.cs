@@ -2,6 +2,7 @@ using Intelibill.Domain.Entities;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using DashboardLatestSaleReadModel = Intelibill.Domain.Interfaces.Repositories.DashboardLatestSaleReadModel;
 using SaleHistoryFilter = Intelibill.Domain.Interfaces.Repositories.SaleHistoryFilter;
 using SaleHistoryReadModel = Intelibill.Domain.Interfaces.Repositories.SaleHistoryReadModel;
@@ -11,6 +12,8 @@ namespace Intelibill.Infrastructure.Repositories;
 
 internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
 {
+    private const string ReturnMutationLockTimeout = "5s";
+
     private readonly ApplicationDbContext _context;
 
     public SaleRepository(ApplicationDbContext context) : base(context)
@@ -25,6 +28,61 @@ internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
         await DbSet
             .Include(s => s.Items)
             .FirstOrDefaultAsync(s => s.Id == saleId && s.ShopId == shopId, cancellationToken);
+
+    public async Task<RowLockOutcome> LockForReturnMutationAsync(Guid shopId, Guid saleId, CancellationToken cancellationToken = default)
+    {
+        if (!_context.Database.IsNpgsql())
+        {
+            return await DbSet.AnyAsync(s => s.Id == saleId && s.ShopId == shopId, cancellationToken)
+                ? RowLockOutcome.Acquired
+                : RowLockOutcome.NotFound;
+        }
+
+        if (_context.Database.CurrentTransaction is null)
+            throw new InvalidOperationException("The sale return lock must be taken inside a transaction.");
+
+        // The budget covers every lock the transaction takes from here on: the customer and sale
+        // below, the credit notes and the batch rows written at save. A lock not granted in time
+        // fails its statement with 55P03, which the caller answers as a retryable conflict.
+        await _context.Database.ExecuteSqlAsync(
+            $"SELECT set_config('lock_timeout', {ReturnMutationLockTimeout}, true)",
+            cancellationToken);
+
+        // The sale's customer never changes, so it is read before any lock. A due reduction is
+        // capped by the customer's balance across all of their sales, so returns on two sales of
+        // one customer must also queue: the customer row is locked first, then the sale.
+        var customerIds = await _context.Database
+            .SqlQuery<Guid?>($"SELECT customer_id AS \"Value\" FROM sales WHERE id = {saleId} AND shop_id = {shopId}")
+            .ToListAsync(cancellationToken);
+        if (customerIds.Count == 0)
+            return RowLockOutcome.NotFound;
+
+        List<Guid> locked;
+        try
+        {
+            if (customerIds[0] is { } customerId)
+            {
+                _ = await _context.Database
+                    .SqlQuery<Guid>($"SELECT id AS \"Value\" FROM customers WHERE id = {customerId} AND shop_id = {shopId} FOR NO KEY UPDATE")
+                    .ToListAsync(cancellationToken);
+            }
+
+            // NO KEY UPDATE, not UPDATE: every return, void and credit-note decision on the sale takes
+            // this same lock, so they exclude one another, while inserts that merely reference the
+            // sale or customer (their key-share check) are not made to queue behind it.
+            locked = await _context.Database
+                .SqlQuery<Guid>($"SELECT id AS \"Value\" FROM sales WHERE id = {saleId} AND shop_id = {shopId} FOR NO KEY UPDATE")
+                .ToListAsync(cancellationToken);
+        }
+        // Npgsql counts a lock timeout as transient, so the execution strategy hands it back wrapped.
+        catch (Exception ex) when ((ex as PostgresException ?? ex.InnerException as PostgresException)?.SqlState == PostgresErrorCodes.LockNotAvailable)
+        {
+            // The statement failed, so the transaction is now aborted; the caller rolls it back.
+            return RowLockOutcome.TimedOut;
+        }
+
+        return locked.Count == 0 ? RowLockOutcome.NotFound : RowLockOutcome.Acquired;
+    }
 
     public async Task<Sale?> GetByIdempotencyKeyAsync(Guid shopId, Guid actorUserId, string idempotencyKey, CancellationToken cancellationToken = default) =>
         await DbSet

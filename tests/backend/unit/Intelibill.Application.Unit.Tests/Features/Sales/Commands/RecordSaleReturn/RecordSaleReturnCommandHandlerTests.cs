@@ -31,6 +31,8 @@ public sealed class RecordSaleReturnCommandHandlerTests
     public RecordSaleReturnCommandHandlerTests()
     {
         _returnNumberGenerator.Generate(Arg.Any<DateTimeOffset>()).Returns("RET-TEST-DEFAULT");
+        _saleRepository.LockForReturnMutationAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(RowLockOutcome.Acquired);
     }
 
     private RecordSaleReturnCommandHandler CreateHandler()
@@ -52,7 +54,65 @@ public sealed class RecordSaleReturnCommandHandlerTests
             _stockTransactionRepository,
             _saleReturnRepository,
             _customerLedgerEntryRepository,
+            new SaleReturnMutationCoordinator(_saleRepository, _unitOfWork),
             _unitOfWork);
+    }
+
+    [Fact]
+    public async Task HandleAsync_TakesSaleLockBeforeReadingEntitlementAndCommitsAfterSave()
+    {
+        var fixture = ArrangeSale(ShopRole.Owner);
+
+        var result = await CreateHandler().HandleAsync(
+            Command(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, payoutDestination: ReturnPayoutDestination.Refund),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Received.InOrder(() =>
+        {
+            _unitOfWork.BeginTransactionAsync(Arg.Any<CancellationToken>());
+            _saleRepository.LockForReturnMutationAsync(fixture.Shop.Id, fixture.Sale.Id, Arg.Any<CancellationToken>());
+            _saleRepository.GetByIdAsync(fixture.Sale.Id, fixture.Shop.Id, Arg.Any<CancellationToken>());
+            _saleReturnRepository.GetBySaleAsync(fixture.Shop.Id, fixture.Sale.Id, Arg.Any<CancellationToken>());
+            _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>());
+            _unitOfWork.CommitTransactionAsync(Arg.Any<CancellationToken>());
+        });
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenSaleLockTimesOut_ReturnsBusyWithoutReadingOrWriting()
+    {
+        var fixture = ArrangeSale(ShopRole.Owner);
+        _saleRepository.LockForReturnMutationAsync(fixture.Shop.Id, fixture.Sale.Id, Arg.Any<CancellationToken>())
+            .Returns(RowLockOutcome.TimedOut);
+
+        var result = await CreateHandler().HandleAsync(
+            Command(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, payoutDestination: ReturnPayoutDestination.Refund),
+            CancellationToken.None);
+
+        Assert.Equal(Errors.Sale.ReturnSaleBusy.Code, result.FirstError.Code);
+        await _saleRepository.DidNotReceive().GetByIdAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+        await _saleReturnRepository.DidNotReceive().AddAsync(Arg.Any<SaleReturn>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).RollbackTransactionAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenCompetingReturnCommittedFirst_RefusesUnderTheLock()
+    {
+        var fixture = ArrangeSale(ShopRole.Owner);
+        var competing = MakeSaleReturn(fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, fixture.SaleItem.Quantity);
+        _saleReturnRepository.GetBySaleAsync(fixture.Shop.Id, fixture.Sale.Id, Arg.Any<CancellationToken>())
+            .Returns([competing]);
+
+        var result = await CreateHandler().HandleAsync(
+            Command(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, payoutDestination: ReturnPayoutDestination.Refund),
+            CancellationToken.None);
+
+        Assert.Equal("SaleReturn.QuantityExceedsRemaining", result.FirstError.Code);
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().CommitTransactionAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).RollbackTransactionAsync(Arg.Any<CancellationToken>());
     }
 
     [Theory]
