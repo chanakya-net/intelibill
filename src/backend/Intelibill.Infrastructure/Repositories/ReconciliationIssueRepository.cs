@@ -44,6 +44,39 @@ internal sealed class ReconciliationIssueRepository(ApplicationDbContext context
             .Select(issue => (Guid?)issue.Id)
             .FirstOrDefaultAsync(cancellationToken);
 
+    public async Task<ReconciliationIssue?> FindOpenLegacyIssueAsync(
+        Guid shopId,
+        string clientSaleId,
+        string deviceId,
+        ReconciliationIssueType issueType,
+        string code,
+        string message,
+        CancellationToken cancellationToken = default) =>
+        await DbSet
+            .Where(issue => issue.ShopId == shopId
+                && issue.ClientSaleId == clientSaleId
+                && issue.DeviceId == deviceId
+                && issue.IssueType == issueType
+                && issue.Code == code
+                && issue.Message == message
+                && issue.OfflineSubmissionId == null
+                && issue.Status != ReconciliationCaseStatus.Resolved)
+            .OrderBy(issue => issue.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+
+    public async Task<ReconciliationIssue?> FindUnresolvedByEnvelopeAsync(
+        Guid shopId,
+        Guid offlineSubmissionId,
+        CancellationToken cancellationToken = default) =>
+        await DbSet
+            .AsNoTracking()
+            .Where(issue => issue.ShopId == shopId
+                && issue.OfflineSubmissionId == offlineSubmissionId
+                && issue.Status != ReconciliationCaseStatus.Resolved)
+            .OrderBy(issue => issue.CreatedAt)
+            .ThenBy(issue => issue.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
     public async Task<RowLockOutcome> LockForResolutionAsync(Guid shopId, Guid caseId, CancellationToken cancellationToken)
     {
         if (!Context.Database.IsNpgsql())

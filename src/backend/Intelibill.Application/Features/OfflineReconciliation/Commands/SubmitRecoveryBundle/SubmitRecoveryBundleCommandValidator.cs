@@ -1,5 +1,6 @@
 using FluentValidation;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Normalization;
 using Intelibill.Application.Common.Operations;
 using Intelibill.Domain.Entities;
 
@@ -7,7 +8,7 @@ namespace Intelibill.Application.Features.OfflineReconciliation.Commands.SubmitR
 
 /// <summary>
 /// The shape checks that need no database: a usable operation key and a bundle with a device id
-/// that fits its column, a checksum and an invoices array to compare it with. Format, shop and
+/// that fits its column (and holds only text PostgreSQL can store), a checksum and an invoices array to compare it with. Format, shop and
 /// checksum agreement are the handler's, so each answers with its own code.
 /// </summary>
 internal sealed class SubmitRecoveryBundleCommandValidator : AbstractValidator<SubmitRecoveryBundleCommand>
@@ -28,7 +29,9 @@ internal sealed class SubmitRecoveryBundleCommandValidator : AbstractValidator<S
             .DependentRules(() =>
             {
                 RuleFor(x => x.Bundle.DeviceId)
-                    .Must(deviceId => !string.IsNullOrWhiteSpace(deviceId) && deviceId.Trim().Length <= MaxDeviceIdLength)
+                    .Must(deviceId => !string.IsNullOrWhiteSpace(deviceId)
+                        && deviceId.Trim().Length <= MaxDeviceIdLength
+                        && StorableText.IsStorable(deviceId))
                     .WithErrorCode(Errors.Recovery.BundleInvalid.Code)
                     .WithMessage(Errors.Recovery.BundleInvalid.Description);
 

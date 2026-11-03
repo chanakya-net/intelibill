@@ -205,7 +205,7 @@ public sealed class ResolveReconciliationCaseCommandHandler(
 
         var unresolved = issue.UnresolvedQuantity.Value;
         var adjustment = await adjustmentRepository.GetByIdAsync(adjustmentId, cancellationToken);
-        if (adjustment is null || !CoversShortage(adjustment, command.ShopId, itemId, batchId, unresolved))
+        if (adjustment is null || !ReconciliationLinkRules.CoversShortage(adjustment, command.ShopId, itemId, batchId, unresolved))
             return Errors.Reconciliation.LinkedAdjustmentInvalid;
 
         if (await issueRepository.IsOperationLinkedAsync(command.ShopId, adjustmentId, cancellationToken))
@@ -252,9 +252,9 @@ public sealed class ResolveReconciliationCaseCommandHandler(
     }
 
     /// <summary>
-    /// Links the case to a sale that already carries its invoice. For an idempotency conflict the
-    /// sale must be the case's own and match an earlier envelope; the conflicting envelope stays
-    /// unlinked as evidence. Otherwise the sale must carry the envelope's exact payload.
+    /// Links the case to a sale that already carries its invoice (<see cref="ReconciliationLinkRules.CheckSaleAsync"/>).
+    /// The envelope is linked too, except the conflicting envelope of an idempotency conflict, which
+    /// stays unlinked as evidence. A legacy case without an envelope is matched on its identity alone.
     /// </summary>
     private async Task<ErrorOr<Effect>> LinkExistingSaleAsync(
         ReconciliationIssue issue,
@@ -267,39 +267,15 @@ public sealed class ResolveReconciliationCaseCommandHandler(
         if (command.LinkedOperationId is not { } saleId)
             return Errors.Reconciliation.LinkedOperationRequired;
 
-        if (submission is null)
-            return Errors.Reconciliation.EnvelopeMissing;
-
         var sale = await saleRepository.GetByIdAsync(saleId, command.ShopId, cancellationToken);
-        if (sale is null
-            || !string.Equals(sale.DeviceId, submission.DeviceId, StringComparison.Ordinal)
-            || !string.Equals(sale.ClientSaleId, submission.ClientSaleId, StringComparison.Ordinal))
-        {
+        if (sale is null)
             return Errors.Reconciliation.SaleIdentityMismatch;
-        }
 
-        if (string.Equals(issue.Code, Errors.Sale.IdempotencyConflict.Code, StringComparison.Ordinal))
-        {
-            if (issue.SaleId != sale.Id)
-                return Errors.Reconciliation.SaleIdentityMismatch;
+        if (await ReconciliationLinkRules.CheckSaleAsync(issue, submission, sale, submissionRepository, cancellationToken) is { } refused)
+            return refused;
 
-            var original = await submissionRepository.FindEarliestByHashAsync(
-                command.ShopId,
-                submission.DeviceId,
-                submission.ClientSaleId,
-                sale.RequestHash,
-                cancellationToken);
-            if (original is null || original.Id == submission.Id)
-                return Errors.Reconciliation.SaleIdentityMismatch;
-        }
-        else
-        {
-            if (!string.Equals(sale.RequestHash, submission.PayloadHash, StringComparison.Ordinal))
-                return Errors.Reconciliation.SaleIdentityMismatch;
-
-            if (submission.LinkSale(sale.Id).IsError)
-                return Errors.Reconciliation.SaleIdentityMismatch;
-        }
+        if (submission is not null && !ReconciliationLinkRules.IsIdempotencyConflict(issue) && submission.LinkSale(sale.Id).IsError)
+            return Errors.Reconciliation.SaleIdentityMismatch;
 
         issue.LinkSale(sale.Id);
         return Close(issue, request, now, sale.Id, stockTransactionId: null);
@@ -411,16 +387,6 @@ public sealed class ResolveReconciliationCaseCommandHandler(
             return Errors.Reconciliation.ConcurrentChange;
         }
     }
-
-    private static bool CoversShortage(InventoryAdjustment adjustment, Guid shopId, Guid itemId, Guid batchId, decimal unresolved) =>
-        adjustment.ShopId == shopId
-        && adjustment.ItemId == itemId
-        && adjustment.InventoryBatchId == batchId
-        && adjustment.Direction == InventoryAdjustmentDirection.Increase
-        // A stock count alone is not procurement evidence.
-        && adjustment.Reason is InventoryAdjustmentReason.FoundStock or InventoryAdjustmentReason.OtherGain
-        && !adjustment.IsVoided
-        && adjustment.Quantity >= unresolved;
 
     private static bool IsVisibleTo(ReconciliationIssue issue, ShopRole role, Guid actorUserId) =>
         ReconciliationActor.VisibleCreator(role, actorUserId) is not { } creator || issue.CreatedBy == creator;

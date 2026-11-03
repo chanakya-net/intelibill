@@ -38,6 +38,24 @@ internal sealed class InventoryAdjustmentRepository : RepositoryBase<InventoryAd
             .OrderByDescending(a => a.PerformedAt)
             .ToListAsync(cancellationToken);
 
+    public async Task<IReadOnlyList<InventoryAdjustment>> GetUnlinkedIncreasesAsync(
+        Guid shopId,
+        Guid itemId,
+        Guid inventoryBatchId,
+        CancellationToken cancellationToken = default) =>
+        await DbSet
+            .AsNoTracking()
+            .Where(a => a.ShopId == shopId
+                && a.ItemId == itemId
+                && a.InventoryBatchId == inventoryBatchId
+                && a.Direction == InventoryAdjustmentDirection.Increase
+                && (a.Reason == InventoryAdjustmentReason.FoundStock || a.Reason == InventoryAdjustmentReason.OtherGain)
+                && !a.IsVoided
+                && !_context.ReconciliationIssues.Any(i => i.ShopId == shopId && i.LinkedOperationId == a.Id))
+            .OrderByDescending(a => a.PerformedAt)
+            .ThenByDescending(a => a.Id)
+            .ToListAsync(cancellationToken);
+
     public async Task<IReadOnlyList<InventoryAdjustment>> GetByShopAndDateRangeAsync(
         Guid shopId,
         DateOnly startDate,

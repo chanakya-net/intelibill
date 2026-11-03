@@ -582,6 +582,55 @@ public class SyncOfflineSalesCommandHandlerTests
     }
 
     [Fact]
+    public async Task HeldAgainForALegacyCase_AdoptsItInsteadOfFilingAnother()
+    {
+        // Held before envelopes existed (no lease matched then either): the resend's envelope now evidences that case.
+        var (shopId, actorId, deviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1");
+        var sale = CreateSale($"offline-{Guid.NewGuid():N}", items: [CreateLine()]);
+        var legacy = ReconciliationIssue.Create(
+            shopId, null, sale.ClientSaleId, deviceId, ReconciliationIssueType.InvoiceConflict,
+            Errors.Sale.InvoiceLeaseNotFound.Code, Errors.Sale.InvoiceLeaseNotFound.Description, actorId);
+        var issues = CaptureReconciliationIssues();
+        _userRepository.GetByIdWithDetailsAsync(actorId, Arg.Any<CancellationToken>()).Returns(CreateMemberUser(shopId));
+        StubLeases(shopId, deviceId);
+        _reconciliationIssueRepository
+            .FindOpenLegacyIssueAsync(
+                shopId, sale.ClientSaleId, deviceId, ReconciliationIssueType.InvoiceConflict,
+                Errors.Sale.InvoiceLeaseNotFound.Code, Errors.Sale.InvoiceLeaseNotFound.Description, Arg.Any<CancellationToken>())
+            .Returns(legacy);
+
+        var result = await CreateHandler().HandleAsync(new SyncOfflineSalesCommand(actorId, shopId, deviceId, [sale]), CancellationToken.None);
+
+        var syncResult = Assert.Single(result.Value.Results);
+        Assert.Equal("NeedsReview", syncResult.Status);
+        Assert.Equal(legacy.Id, syncResult.ReviewCaseId);
+        Assert.Empty(issues);
+        Assert.Equal(Assert.Single(_recordedSubmissions).Id, legacy.OfflineSubmissionId);
+        Assert.Equal(sale.InvoiceNumber, legacy.InvoiceNumber);
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HeldForAnEnvelopeWithItsOwnCase_NeverAdoptsALegacyCase()
+    {
+        // Per-envelope reuse comes first; a legacy case is adopted only when the envelope has none.
+        var (shopId, actorId, deviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1");
+        var sale = CreateSale($"offline-{Guid.NewGuid():N}", items: [CreateLine()]);
+        var ownCaseId = Guid.NewGuid();
+        _userRepository.GetByIdWithDetailsAsync(actorId, Arg.Any<CancellationToken>()).Returns(CreateMemberUser(shopId));
+        StubLeases(shopId, deviceId);
+        _reconciliationIssueRepository
+            .FindOpenIssueIdAsync(shopId, sale.ClientSaleId, deviceId, ReconciliationIssueType.InvoiceConflict, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<Guid?>(), Arg.Any<CancellationToken>())
+            .Returns(ownCaseId);
+
+        var result = await CreateHandler().HandleAsync(new SyncOfflineSalesCommand(actorId, shopId, deviceId, [sale]), CancellationToken.None);
+
+        Assert.Equal(ownCaseId, Assert.Single(result.Value.Results).ReviewCaseId);
+        await _reconciliationIssueRepository.DidNotReceive().FindOpenLegacyIssueAsync(
+            Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<ReconciliationIssueType>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task HandleAsync_WhenInvoiceLeaseExpired_ReturnsNeedsReviewForHistoricalLease()
     {
         var shopId = Guid.NewGuid();
@@ -1463,6 +1512,27 @@ public class SyncOfflineSalesCommandHandlerTests
         Assert.Equal("created", result.Value.Results[1].Status);
         Assert.DoesNotContain(_recordedSubmissions, s => s.ClientSaleId == bad.ClientSaleId);
         Assert.Contains(_recordedSubmissions, s => s.ClientSaleId == good.ClientSaleId);
+    }
+
+    [Fact]
+    public async Task UnpairedSurrogateInText_FailsOnlyThatSale()
+    {
+        var (shopId, actorId, deviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1");
+        var item = CreateItem(shopId);
+        var batch = CreateBatch(shopId, item.Id);
+        var inventory = CreateInventory(shopId, item.Id);
+        var loneHigh = CreateSale($"offline-{Guid.NewGuid():N}", invoiceNumber: "INV-2025-26-000001", items: [CreateLine(batch.Id) with { ItemName = "Rice \uD83D" }]);
+        var loneLow = CreateSale($"offline-{Guid.NewGuid():N}", invoiceNumber: "INV-2025-26-000002", items: [CreateLine(batch.Id)]) with { CustomerName = "\uDE00 Ravi" };
+        var paired = CreateSale($"offline-{Guid.NewGuid():N}", invoiceNumber: "INV-2025-26-000003", items: [CreateLine(batch.Id)]) with { CustomerName = "Ravi \U0001F600" };
+        ArrangeMemberWithLease(shopId, actorId, deviceId);
+        SetupSuccessfulLineValidation(_saleLineValidator, shopId, item, batch, inventory);
+
+        var result = await CreateHandler().HandleAsync(new SyncOfflineSalesCommand(actorId, shopId, deviceId, [loneHigh, loneLow, paired]), CancellationToken.None);
+
+        Assert.Equal(Errors.Sale.OfflineTextInvalid.Code, Assert.Single(result.Value.Results[0].Errors).Code);
+        Assert.Equal(Errors.Sale.OfflineTextInvalid.Code, Assert.Single(result.Value.Results[1].Errors).Code);
+        Assert.Equal("created", result.Value.Results[2].Status);
+        Assert.DoesNotContain(_recordedSubmissions, s => s.ClientSaleId == loneHigh.ClientSaleId || s.ClientSaleId == loneLow.ClientSaleId);
     }
 
     [Fact]

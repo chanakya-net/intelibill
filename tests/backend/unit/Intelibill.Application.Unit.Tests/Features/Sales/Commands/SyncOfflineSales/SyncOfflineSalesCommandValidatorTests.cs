@@ -71,6 +71,20 @@ public class SyncOfflineSalesCommandValidatorTests
     }
 
     [Fact]
+    public void Validate_WhenDeviceIdUnstorable_ReturnsTextInvalid()
+    {
+        // The device id is written to every envelope and lease lookup; one PostgreSQL cannot store fails the whole batch.
+        // (Not theory data: xUnit would replace the lone surrogates while serializing the cases.)
+        foreach (var deviceId in new[] { "device\u00001", "device-\uD800", "\uDC00device" })
+        {
+            var result = _validator.TestValidate(ValidCommand() with { DeviceId = deviceId });
+
+            result.ShouldHaveValidationErrorFor(x => x.DeviceId)
+                .WithErrorCode("Sale.OfflineTextInvalid");
+        }
+    }
+
+    [Fact]
     public void Validate_WhenBatchLimitExceeded_ReturnsError()
     {
         var sales = Enumerable.Range(0, 51).Select(_ => ValidSale()).ToList();

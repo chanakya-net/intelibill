@@ -81,6 +81,8 @@ public sealed class SubmitRecoveryBundleCommandHandlerTests
             .Do(call => _issues.Add(call.Arg<ReconciliationIssue>()));
         _issueRepository.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(call => _issues.FirstOrDefault(i => i.Id == call.Arg<Guid>()));
+        _issueRepository.FindUnresolvedByEnvelopeAsync(_shop.Id, Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(call => _issues.FirstOrDefault(i => i.OfflineSubmissionId == call.ArgAt<Guid>(1) && i.Status != ReconciliationCaseStatus.Resolved));
         _eventRepository.When(r => r.AddAsync(Arg.Any<ReconciliationCaseEvent>(), Arg.Any<CancellationToken>()))
             .Do(call => _events.Add(call.Arg<ReconciliationCaseEvent>()));
 
@@ -165,6 +167,19 @@ public sealed class SubmitRecoveryBundleCommandHandlerTests
         Assert.Equal(Errors.Recovery.BundleEmpty.Code, empty.FirstError.Code);
         Assert.Equal(Errors.Recovery.BundleInvalid.Code, unreadable.FirstError.Code);
         Assert.Equal(Errors.Recovery.BundleInvalid.Code, nullInvoice.FirstError.Code);
+        await AssertNothingWrittenAsync();
+    }
+
+    [Fact]
+    public async Task UnstorableDeviceId_RejectsBundle()
+    {
+        var command = Command([Invoice(issuedBy: _staff.Id)]);
+
+        var withNul = await Handle(command with { Bundle = command.Bundle with { DeviceId = "device\u00001" } });
+        var withLoneSurrogate = await Handle(command with { Bundle = command.Bundle with { DeviceId = "device-\uD800" } });
+
+        Assert.Equal(Errors.Recovery.BundleInvalid.Code, withNul.FirstError.Code);
+        Assert.Equal(Errors.Recovery.BundleInvalid.Code, withLoneSurrogate.FirstError.Code);
         await AssertNothingWrittenAsync();
     }
 
@@ -319,6 +334,114 @@ public sealed class SubmitRecoveryBundleCommandHandlerTests
             Arg.Any<Func<CancellationToken, Task<ErrorOr<RecoverySubmissionResultDto>>>>(),
             Arg.Any<CancellationToken>());
         await AssertNoSaleStagedAsync();
+    }
+
+    [Fact]
+    public async Task EnvelopeHeldBySync_ReusesItsOpenCase()
+    {
+        // The cashier's sync held this exact invoice for its issue time; the export carried it unchanged.
+        var invoice = Invoice(issuedBy: _staff.Id);
+        var synced = StoreSyncEnvelope(invoice, receivedAt: Now.AddDays(-6));
+        var held = HeldCase(synced, ReconciliationIssueType.IssueTimingReview, Errors.OfflineReconciliation.IssueTimeInFuture);
+
+        var result = await Handle(Command([invoice]));
+
+        var row = Assert.Single(result.Value.Results);
+        Assert.Equal(RecoveryInvoiceStatus.ReviewOpened, row.Status);
+        Assert.Equal(held.Id, row.CaseId);
+        Assert.Equal(Errors.OfflineReconciliation.IssueTimeInFuture.Code, Assert.Single(row.Errors).Code);
+        Assert.Same(held, Assert.Single(_issues));
+        Assert.Same(synced, Assert.Single(_envelopes));
+        Assert.Empty(_events);
+        await AssertNoSaleStagedAsync();
+    }
+
+    [Fact]
+    public async Task EnvelopeWithEscalatedCase_ReportsItEscalated()
+    {
+        var invoice = Invoice(issuedBy: _staff.Id);
+        var synced = StoreSyncEnvelope(invoice, receivedAt: Now.AddDays(-6));
+        var held = HeldCase(synced, ReconciliationIssueType.ArithmeticConflict, Errors.Sale.OfflineArithmeticMismatch);
+        held.Escalate(_owner.Id, Now.AddDays(-1));
+
+        var result = await Handle(Command([invoice]));
+
+        var row = Assert.Single(result.Value.Results);
+        Assert.Equal(RecoveryInvoiceStatus.Escalated, row.Status);
+        Assert.Equal(held.Id, row.CaseId);
+        Assert.Equal(Errors.Sale.OfflineArithmeticMismatch.Code, Assert.Single(row.Errors).Code);
+        Assert.Single(_issues);
+        Assert.Empty(_events);
+    }
+
+    [Theory]
+    [InlineData(-10.0, "OfflineReconciliation.IssueTimeBeforeLease")]
+    [InlineData(1.0 / 24, "OfflineReconciliation.IssueTimeInFuture")]
+    [InlineData(-1.0, "OfflineReconciliation.IssuedAfterLeaseExpiry")]
+    public async Task ImplausibleIssueTime_OpensTimingReview(double soldAtDaysFromNow, string code)
+    {
+        // The default lease: reserved nine days ago, expired two days ago.
+        var invoice = Invoice(issuedBy: _staff.Id) with { SoldAt = Now.AddDays(soldAtDaysFromNow) };
+
+        var result = await Handle(Command([invoice]));
+
+        var row = Assert.Single(result.Value.Results);
+        Assert.Equal(RecoveryInvoiceStatus.ReviewOpened, row.Status);
+        Assert.Equal(code, Assert.Single(row.Errors).Code);
+        var issue = Assert.Single(_issues);
+        Assert.Equal(row.CaseId, issue.Id);
+        Assert.Equal(ReconciliationIssueType.IssueTimingReview, issue.IssueType);
+        Assert.Equal(code, issue.Code);
+        Assert.Equal(ReconciliationCaseStatus.Open, issue.Status);
+        Assert.Equal(Assert.Single(_envelopes).Id, issue.OfflineSubmissionId);
+        await AssertNoSaleStagedAsync();
+    }
+
+    [Fact]
+    public async Task ClaimInAnotherFiscalYear_OpensTimingReview()
+    {
+        var lastYearLease = InvoiceLease.Create(_shop.Id, Guid.NewGuid(), DeviceId, 2025, "INV-2026-27-", 1, 50, 6, Now.AddDays(-9), Now.AddDays(-2));
+        _leaseRepository.FindReservedRangeAsync(_shop.Id, DeviceId, InvoiceNumber, Arg.Any<CancellationToken>()).Returns(lastYearLease);
+
+        var result = await Handle(Command([Invoice(issuedBy: _staff.Id)]));
+
+        var issue = Assert.Single(_issues);
+        Assert.Equal(ReconciliationIssueType.IssueTimingReview, issue.IssueType);
+        Assert.Equal(Errors.OfflineReconciliation.IssueFiscalYearMismatch.Code, issue.Code);
+        Assert.Equal(issue.Id, Assert.Single(result.Value.Results).CaseId);
+    }
+
+    [Fact]
+    public async Task IssueTime_JudgedAgainstTheEnvelopesFirstReceipt()
+    {
+        // First received (with no case filed) three days ago, before the lease expired: a claim half a day
+        // later than that receipt is in the future, although it is in the past by today's clock.
+        var invoice = Invoice(issuedBy: _staff.Id) with { SoldAt = Now.AddDays(-2.5) };
+        StoreSyncEnvelope(invoice, receivedAt: Now.AddDays(-3));
+
+        var result = await Handle(Command([invoice]));
+
+        Assert.Equal(Errors.OfflineReconciliation.IssueTimeInFuture.Code, Assert.Single(Assert.Single(result.Value.Results).Errors).Code);
+        Assert.Equal(Errors.OfflineReconciliation.IssueTimeInFuture.Code, Assert.Single(_issues).Code);
+    }
+
+    [Fact]
+    public async Task ServiceLineFields_ReadAsTheSyncEndpointMapsThem()
+    {
+        // The sync endpoint maps neither lineType nor serviceId, so recovery must not honour them either.
+        var json = JsonSerializer.Serialize(new[] { Invoice(issuedBy: _staff.Id) }, WebOptions)
+            .Replace("\"lineType\":\"Goods\"", "\"lineType\":\"Service\"", StringComparison.Ordinal)
+            .Replace("\"serviceId\":null", $"\"serviceId\":\"{Guid.NewGuid()}\"", StringComparison.Ordinal);
+        Assert.Contains("\"lineType\":\"Service\"", json, StringComparison.Ordinal);
+
+        var result = await Handle(CommandFromText(json));
+
+        Assert.False(result.IsError, result.IsError ? result.FirstError.Code : null);
+        var stored = OfflineSubmissionPayload.Deserialize(Assert.Single(_envelopes).PayloadJson)!;
+        var line = Assert.Single(stored.Items);
+        Assert.Equal("Goods", line.LineType);
+        Assert.Null(line.ServiceId);
+        _poster.Received().CheckStructure(Arg.Is<OfflineSaleSyncCommand>(s => s.Items.All(l => l.LineType == "Goods" && l.ServiceId == null)));
     }
 
     [Fact]
@@ -527,6 +650,44 @@ public sealed class SubmitRecoveryBundleCommandHandlerTests
             null,
             [new OfflineSaleSyncLineCommand("BC-1", "B-1", "Rice", 1m, 80m, 100m, 120m, 18m, false, _batchId, 100m, 0m, 0m, 100m, 18m, 118m, null, null, InstantDiscountType.None, 0m, null)],
             IssuedByUserId: issuedBy);
+    }
+
+    private OfflineSubmission StoreSyncEnvelope(OfflineSaleSyncCommand invoice, DateTimeOffset receivedAt)
+    {
+        var envelope = OfflineSubmission.Record(
+            _shop.Id,
+            DeviceId,
+            invoice.ClientSaleId,
+            invoice.InvoiceNumber,
+            OfflineSaleSyncIdempotencyHasher.ComputeHash(_shop.Id, DeviceId, invoice),
+            OfflineSubmissionPayload.Serialize(invoice),
+            invoice.SoldAt,
+            receivedAt,
+            OfflineSubmissionSource.Sync,
+            _staff.Id,
+            invoice.IssuedByUserId,
+            invoice.IssuedByUserId,
+            _lease.Id,
+            recoveryOperationId: null);
+        _envelopes.Add(envelope);
+        return envelope;
+    }
+
+    private ReconciliationIssue HeldCase(OfflineSubmission envelope, ReconciliationIssueType type, Error reason)
+    {
+        var issue = ReconciliationIssue.Create(
+            _shop.Id,
+            null,
+            envelope.ClientSaleId,
+            DeviceId,
+            type,
+            reason.Code,
+            reason.Description,
+            _staff.Id,
+            invoiceNumber: envelope.InvoiceNumber,
+            offlineSubmissionId: envelope.Id);
+        _issues.Add(issue);
+        return issue;
     }
 
     private Sale SaleFor(string requestHash) =>

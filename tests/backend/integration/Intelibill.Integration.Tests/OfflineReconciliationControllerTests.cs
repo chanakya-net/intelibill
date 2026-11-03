@@ -72,12 +72,28 @@ public sealed class OfflineReconciliationControllerTests(PostgreSqlTestFixture f
         var acknowledged = await ResolveAsync(client, owner.Token, caseId, version, "AcknowledgeVariance", "Looks fine");
         await AssertProblemAsync(acknowledged, HttpStatusCode.BadRequest, Errors.Reconciliation.ActionNotAllowed.Code);
 
+        Assert.Empty(detail.GetProperty("linkCandidates").EnumerateArray());
         var recount = await CreateAdjustmentAsync(client, owner.Token, stock.BatchId, InventoryAdjustmentReason.StockCountCorrection, 2m, "Recounted the shelf");
+        // A stock count is not procurement evidence, so the console never offers it.
+        Assert.Empty((await GetCaseAsync(client, owner.Token, caseId)).GetProperty("linkCandidates").EnumerateArray());
         var countLinked = await ResolveAsync(client, owner.Token, caseId, version, "LinkStockCorrection", "Recount shows two more", recount.Id);
         await AssertProblemAsync(countLinked, HttpStatusCode.BadRequest, Errors.Reconciliation.LinkedAdjustmentInvalid.Code);
         await VoidAdjustmentAsync(client, owner.Token, recount.Id, "A count is not procurement evidence");
 
         var found = await CreateAdjustmentAsync(client, owner.Token, stock.BatchId, InventoryAdjustmentReason.FoundStock, 2m, "Two found in the back room");
+
+        // The console offers exactly what the link accepts: the found stock, never a count.
+        var withEvidence = await GetCaseAsync(client, owner.Token, caseId);
+        var candidate = Assert.Single(withEvidence.GetProperty("linkCandidates").EnumerateArray());
+        Assert.Equal(found.Id, candidate.GetProperty("operationId").GetGuid());
+        Assert.Equal("Adjustment", candidate.GetProperty("kind").GetString());
+        Assert.Equal(found.Number, candidate.GetProperty("label").GetString());
+        Assert.Equal(2m, candidate.GetProperty("quantity").GetDecimal());
+        Assert.NotEqual(recount.Id, candidate.GetProperty("operationId").GetGuid());
+        // Candidates are detail-only: the list never computes them per row.
+        using (var list = await SendAsync(client, HttpMethod.Get, $"{Route}?status=open", owner.Token))
+            Assert.DoesNotContain("linkCandidates", await list.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+
         var linked = await ResolveAsync(client, owner.Token, caseId, version, "LinkStockCorrection", "Found stock covers the shortage", found.Id);
 
         Assert.Equal(HttpStatusCode.OK, linked.StatusCode);
@@ -415,7 +431,8 @@ public sealed class OfflineReconciliationControllerTests(PostgreSqlTestFixture f
 
         var clientSaleId = NewClientSaleId();
         var invoice = InvoiceAt(lease, 1);
-        var invoicesJson = InvoicesJson(Payload(clientSaleId, invoice, stock, 2m, DateTimeOffset.UtcNow.AddMinutes(-30), staff.UserId));
+        // Issued inside the lease window (reserved at the start of this test), before the cashier was removed.
+        var invoicesJson = InvoicesJson(Payload(clientSaleId, invoice, stock, 2m, DateTimeOffset.UtcNow, staff.UserId));
         var operationId = $"recovery-{Guid.NewGuid():N}";
 
         using var submitted = await SubmitBundleAsync(client, owner.Token, owner.ShopId, invoicesJson, operationId);
@@ -585,7 +602,9 @@ public sealed class OfflineReconciliationControllerTests(PostgreSqlTestFixture f
         var detail = await GetCaseAsync(client, owner.Token, caseId);
         Assert.Equal("ProvenanceReview", detail.GetProperty("issueType").GetString());
         Assert.Equal("Escalated", detail.GetProperty("status").GetString());
-        Assert.Empty(detail.GetProperty("availableActions").EnumerateArray());
+        // Nothing can post it; it closes only by linking a sale that carries this exact invoice (none yet).
+        Assert.Equal(["LinkExistingSale"], Strings(detail.GetProperty("availableActions")));
+        Assert.Empty(detail.GetProperty("linkCandidates").EnumerateArray());
         Assert.Equal(JsonValueKind.Null, detail.GetProperty("submission").GetProperty("originalIssuer").ValueKind);
         var escalation = Assert.Single(detail.GetProperty("events").EnumerateArray());
         Assert.Equal("Escalate", escalation.GetProperty("action").GetString());
@@ -600,6 +619,151 @@ public sealed class OfflineReconciliationControllerTests(PostgreSqlTestFixture f
         Assert.False(await db.Sales.AnyAsync(s => s.ShopId == owner.ShopId));
         Assert.Equal(10m, (await db.InventoryBatches.SingleAsync(b => b.Id == stock.BatchId)).Quantity);
         Assert.Null((await db.OfflineSubmissions.SingleAsync(s => s.ClientSaleId == clientSaleId)).SaleId);
+    }
+
+    // I1: a recovered invoice escalated for unknown provenance closes once its cashier's identical sync posts it.
+    [Fact]
+    public async Task EscalatedProvenanceCase_ClosesByLinkingTheLateIdenticalSync()
+    {
+        using var client = CreateClient();
+        var owner = await CreateOwnerAsync(client);
+        var stock = await AddInventoryAsync(client, owner.Token, 10m);
+        var lease = await ReserveInvoiceLeaseAsync(client, owner.Token);
+        var staff = await AddStaffAsync(client, owner);
+
+        var clientSaleId = NewClientSaleId();
+        var invoice = InvoiceAt(lease, 0);
+        var payload = Payload(clientSaleId, invoice, stock, 1m, DateTimeOffset.UtcNow);
+        using var submitted = await SubmitBundleAsync(client, owner.Token, owner.ShopId, InvoicesJson(payload));
+        var row = Assert.Single((await ReadRecoveryAsync(submitted)).GetProperty("results").EnumerateArray());
+        Assert.Equal("Escalated", row.GetProperty("status").GetString());
+        Assert.Equal(Errors.OfflineReconciliation.ProvenanceUnknown.Code, row.GetProperty("errors")[0].GetProperty("code").GetString());
+        var caseId = row.GetProperty("caseId").GetGuid();
+        Assert.Equal(1, (await ListAsync(client, owner.Token, "open")).GetProperty("unresolvedCount").GetInt32());
+
+        // The till was still in use: the cashier syncs the very same invoice, which posts.
+        var synced = await SyncAsync(client, staff.Token, payload);
+        Assert.Equal("created", synced.GetProperty("status").GetString());
+        var saleId = synced.GetProperty("saleId").GetGuid();
+
+        var detail = await GetCaseAsync(client, owner.Token, caseId);
+        Assert.Equal("Escalated", detail.GetProperty("status").GetString());
+        Assert.Equal(["LinkExistingSale"], Strings(detail.GetProperty("availableActions")));
+        var candidate = Assert.Single(detail.GetProperty("linkCandidates").EnumerateArray());
+        Assert.Equal(saleId, candidate.GetProperty("operationId").GetGuid());
+        Assert.Equal("Sale", candidate.GetProperty("kind").GetString());
+        Assert.Equal(invoice, candidate.GetProperty("label").GetString());
+        var version = detail.GetProperty("version").GetUInt32();
+
+        // Text PostgreSQL cannot store is refused by the validator up front, never a server error.
+        using (var unstorable = await ResolveAsync(client, owner.Token, caseId, version, "LinkExistingSale", "Synced\u0000 late", saleId))
+        {
+            var content = await unstorable.Content.ReadAsStringAsync();
+            Assert.True(unstorable.StatusCode == HttpStatusCode.BadRequest, $"Expected 400 but got {unstorable.StatusCode}: {content}");
+            var problem = JsonDocument.Parse(content).RootElement;
+            var fieldError = Assert.Single(problem.GetProperty("errors").EnumerateArray());
+            Assert.Equal("Reason", fieldError.GetProperty("code").GetString());
+            Assert.Equal(Errors.Reconciliation.ReasonInvalid.Description, fieldError.GetProperty("description").GetString());
+        }
+
+        var linked = await ResolveAsync(client, owner.Token, caseId, version, "LinkExistingSale", "The cashier synced it from the till", saleId);
+        Assert.Equal(HttpStatusCode.OK, linked.StatusCode);
+        var resolved = await linked.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Resolved", resolved.GetProperty("status").GetString());
+        Assert.Equal("LinkExistingSale", resolved.GetProperty("resolution").GetString());
+        Assert.Equal(saleId, resolved.GetProperty("saleId").GetGuid());
+        Assert.Equal(0, (await ListAsync(client, owner.Token, "open")).GetProperty("unresolvedCount").GetInt32());
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.Equal(1, await db.Sales.CountAsync(s => s.ShopId == owner.ShopId && s.ClientSaleId == clientSaleId));
+        Assert.Equal(saleId, (await db.OfflineSubmissions.SingleAsync(s => s.ClientSaleId == clientSaleId)).SaleId);
+        Assert.Equal(9m, (await db.InventoryBatches.SingleAsync(b => b.Id == stock.BatchId)).Quantity);
+    }
+
+    // I2 + I3: an invoice the sync path holds for its issue time keeps its one case when it also arrives in a
+    // bundle, and that case shows the evidence a reviewer weighs before posting it as printed.
+    [Fact]
+    public async Task HeldInvoiceInBundle_ReusesItsCase_AndPostsAsPrinted()
+    {
+        using var client = CreateClient();
+        var owner = await CreateOwnerAsync(client);
+        var stock = await AddInventoryAsync(client, owner.Token, 10m);
+        var lease = await ReserveInvoiceLeaseAsync(client, owner.Token);
+        var staff = await AddStaffAsync(client, owner);
+
+        var clientSaleId = NewClientSaleId();
+        var invoice = InvoiceAt(lease, 0);
+        // A till clock running an hour fast.
+        var soldAt = DateTimeOffset.UtcNow.AddHours(1);
+        var payload = Payload(clientSaleId, invoice, stock, 1m, soldAt, staff.UserId);
+
+        var held = await SyncAsync(client, staff.Token, payload);
+        Assert.Equal("NeedsReview", held.GetProperty("status").GetString());
+        Assert.Equal(Errors.OfflineReconciliation.IssueTimeInFuture.Code, held.GetProperty("errors")[0].GetProperty("code").GetString());
+        var caseId = held.GetProperty("reviewCaseId").GetGuid();
+
+        using var submitted = await SubmitBundleAsync(client, owner.Token, owner.ShopId, InvoicesJson(payload));
+        var row = Assert.Single((await ReadRecoveryAsync(submitted)).GetProperty("results").EnumerateArray());
+        Assert.Equal("ReviewOpened", row.GetProperty("status").GetString());
+        Assert.Equal(caseId, row.GetProperty("caseId").GetGuid());
+        Assert.Equal(Errors.OfflineReconciliation.IssueTimeInFuture.Code, row.GetProperty("errors")[0].GetProperty("code").GetString());
+
+        var detail = await GetCaseAsync(client, owner.Token, caseId);
+        Assert.Equal("Open", detail.GetProperty("status").GetString());
+        Assert.Equal([Errors.OfflineReconciliation.IssueTimeInFuture.Code], Strings(detail.GetProperty("reasonCodes")));
+        Assert.Equal(["RetryHistoricalLease", "LinkExistingSale", "Escalate"], Strings(detail.GetProperty("availableActions")));
+        var submission = detail.GetProperty("submission");
+        Assert.Equal("Sync", submission.GetProperty("source").GetString());
+        AssertSameInstant(soldAt, submission.GetProperty("claimedSoldAt").GetDateTimeOffset());
+        Assert.True(submission.GetProperty("receivedAt").GetDateTimeOffset() < soldAt);
+        AssertSameInstant(lease.GetProperty("reservedAt").GetDateTimeOffset(), submission.GetProperty("leaseReservedAt").GetDateTimeOffset());
+        AssertSameInstant(lease.GetProperty("expiresAt").GetDateTimeOffset(), submission.GetProperty("leaseExpiresAt").GetDateTimeOffset());
+
+        var retried = await ResolveAsync(client, owner.Token, caseId, detail.GetProperty("version").GetUInt32(), "RetryHistoricalLease", "Till clock was an hour fast");
+        Assert.Equal(HttpStatusCode.OK, retried.StatusCode);
+        var saleId = (await retried.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("saleId").GetGuid();
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.Equal(1, await db.ReconciliationIssues.CountAsync(i => i.ShopId == owner.ShopId && i.ClientSaleId == clientSaleId));
+        Assert.Equal(1, await db.OfflineSubmissions.CountAsync(s => s.ShopId == owner.ShopId && s.ClientSaleId == clientSaleId));
+        var sale = await db.Sales.SingleAsync(s => s.Id == saleId);
+        Assert.Equal(invoice, sale.InvoiceNumber);
+        Assert.Equal(staff.UserId, sale.ActorUserId);
+        // Posted with the time the bill carries, never rewritten.
+        AssertSameInstant(soldAt, sale.SoldAt);
+    }
+
+    // I2: whatever held the envelope first decides it; recovery never files a second, differently-reasoned case.
+    [Fact]
+    public async Task EnvelopeHeldForAnotherIssuer_BundleReusesThatCase()
+    {
+        using var client = CreateClient();
+        var owner = await CreateOwnerAsync(client);
+        var stock = await AddInventoryAsync(client, owner.Token, 10m);
+        var lease = await ReserveInvoiceLeaseAsync(client, owner.Token);
+        var staff = await AddStaffAsync(client, owner);
+
+        // The owner issued it on the till; the cashier's session sent it.
+        var clientSaleId = NewClientSaleId();
+        var payload = Payload(clientSaleId, InvoiceAt(lease, 0), stock, 1m, DateTimeOffset.UtcNow, owner.UserId);
+        var held = await SyncAsync(client, staff.Token, payload);
+        Assert.Equal(Errors.OfflineReconciliation.IssuerNotSubmitter.Code, held.GetProperty("errors")[0].GetProperty("code").GetString());
+        var caseId = held.GetProperty("reviewCaseId").GetGuid();
+
+        using var submitted = await SubmitBundleAsync(client, owner.Token, owner.ShopId, InvoicesJson(payload));
+        var row = Assert.Single((await ReadRecoveryAsync(submitted)).GetProperty("results").EnumerateArray());
+        Assert.Equal("ReviewOpened", row.GetProperty("status").GetString());
+        Assert.Equal(caseId, row.GetProperty("caseId").GetGuid());
+        Assert.Equal(Errors.OfflineReconciliation.IssuerNotSubmitter.Code, row.GetProperty("errors")[0].GetProperty("code").GetString());
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var issue = Assert.Single(await db.ReconciliationIssues.Where(i => i.ShopId == owner.ShopId).ToListAsync());
+        Assert.Equal(caseId, issue.Id);
+        Assert.Equal(ReconciliationCaseStatus.Open, issue.Status);
+        Assert.Equal(1, await db.OfflineSubmissions.CountAsync(s => s.ShopId == owner.ShopId));
     }
 
     [Fact]
@@ -632,6 +796,11 @@ public sealed class OfflineReconciliationControllerTests(PostgreSqlTestFixture f
             request.Content = JsonContent.Create(body);
         return await client.SendAsync(request);
     }
+
+    private static void AssertSameInstant(DateTimeOffset expected, DateTimeOffset actual) =>
+        Assert.True(
+            Math.Abs((expected - actual).TotalMilliseconds) < 1,
+            $"Expected {expected:O} but got {actual:O}");
 
     private static async Task AssertProblemAsync(HttpResponseMessage response, HttpStatusCode status, string code)
     {

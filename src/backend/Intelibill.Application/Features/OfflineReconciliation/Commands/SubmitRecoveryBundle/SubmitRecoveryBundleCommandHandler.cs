@@ -29,10 +29,25 @@ namespace Intelibill.Application.Features.OfflineReconciliation.Commands.SubmitR
 /// <para>
 /// Each invoice is checked in order: identity and structure, a lease on the bundle's device, and an
 /// issuer who holds or held a membership. A failure rejects the row and stores nothing. A passing row
-/// is stored as a <see cref="OfflineSubmissionSource.Recovery"/> envelope submitted by the operator,
-/// then: an identical sale already posted links the envelope (<c>AlreadyPosted</c>); a different one
-/// opens an idempotency conflict; an invoice nobody can be vouched for is escalated at intake; an
-/// inconsistent one opens an arithmetic case; anything else opens a <c>RecoveryReviewRequired</c> case.
+/// is stored as a <see cref="OfflineSubmissionSource.Recovery"/> envelope submitted by the operator
+/// (an identical payload already received — say by the cashier's own sync — returns that first
+/// envelope instead), then:
+/// </para>
+/// <list type="number">
+/// <item>an envelope that has not posted and already has an unresolved case keeps that case: no second
+/// case is filed, and the row reports it (<c>ReviewOpened</c> or <c>Escalated</c>);</item>
+/// <item>an identical sale already posted links the envelope (<c>AlreadyPosted</c>); a different one
+/// opens an idempotency conflict;</item>
+/// <item>an invoice nobody can be vouched for is escalated at intake;</item>
+/// <item>an inconsistent one opens an arithmetic case;</item>
+/// <item>an issue time the lease cannot account for (before the lease, in the future, in another fiscal
+/// year, after expiry — judged against the envelope's first receipt, as sync does) opens an
+/// <c>IssueTimingReview</c> case with that code;</item>
+/// <item>anything else, including a lease that simply expired before the server saw the invoice
+/// (inherent to a late recovery), opens a <c>RecoveryReviewRequired</c> case.</item>
+/// </list>
+/// <para>
+/// The invoices are read exactly as the sync endpoint maps them, so both paths stage one envelope alike.
 /// </para>
 /// </remarks>
 public sealed class SubmitRecoveryBundleCommandHandler(
@@ -55,8 +70,9 @@ public sealed class SubmitRecoveryBundleCommandHandler(
 
     private static readonly SubmitRecoveryBundleCommandValidator Validator = new();
 
-    // The sync endpoint's request codec (web defaults, enums by name or number), so an invoice the web
-    // client's sync mapper built reads exactly as that client's own sync request would.
+    // Web defaults with enums by name or number, as the sync endpoint's request binding reads them. The
+    // endpoint maps no line type or service id (ReadInvoices resets both), so an invoice the web client's
+    // sync mapper built stages exactly as that client's own sync request would.
     private static readonly JsonSerializerOptions InvoiceSerializerOptions = new(JsonSerializerDefaults.Web)
     {
         Converters = { new JsonStringEnumConverter() },
@@ -180,6 +196,13 @@ public sealed class SubmitRecoveryBundleCommandHandler(
 
         var held = new HeldInvoice(context, clientSaleId, invoiceNumber, submission.Id, now);
 
+        // The envelope is already under review (the cashier's sync held it, or an earlier bundle did): that case decides it.
+        if (submission.SaleId is null
+            && await issueRepository.FindUnresolvedByEnvelopeAsync(context.ShopId, submission.Id, cancellationToken) is { } open)
+        {
+            return ExistingCaseResult(held, open);
+        }
+
         var existing = await saleRepository.GetByClientSaleIdAsync(context.ShopId, context.DeviceId, clientSaleId, cancellationToken);
         if (existing is not null)
         {
@@ -207,6 +230,14 @@ public sealed class SubmitRecoveryBundleCommandHandler(
 
         if (OfflineSaleSyncHelpers.CheckArithmetic(sale) is { } arithmetic)
             return await OpenCaseAsync(held, null, arithmetic.IssueType, arithmetic.Error, arithmetic.Message, cancellationToken);
+
+        // The same rule sync applies, against the first receipt. An expired lease alone is what every late
+        // recovery looks like, so that verdict is the recovery review itself; any other anomaly is filed as is.
+        if (OfflineIssueTimingPolicy.Evaluate(lease, sale.SoldAt, submission.ReceivedAt) is { } timing
+            && timing.Code != Errors.OfflineReconciliation.HistoricalLeaseReviewRequired.Code)
+        {
+            return await OpenCaseAsync(held, null, ReconciliationIssueType.IssueTimingReview, timing, null, cancellationToken);
+        }
 
         return await OpenCaseAsync(
             held,
@@ -286,6 +317,15 @@ public sealed class SubmitRecoveryBundleCommandHandler(
             held.InvoiceNumber,
             held.SubmissionId);
 
+    private static RecoveryInvoiceResultDto ExistingCaseResult(HeldInvoice held, ReconciliationIssue open) =>
+        new(
+            held.ClientSaleId,
+            held.InvoiceNumber,
+            open.Status == ReconciliationCaseStatus.Escalated ? RecoveryInvoiceStatus.Escalated : RecoveryInvoiceStatus.ReviewOpened,
+            open.Id,
+            null,
+            [new OfflineSaleSyncErrorDto(open.Code, open.Message)]);
+
     private static RecoveryInvoiceResultDto HeldResult(HeldInvoice held, string status, Guid caseId, Error reason) =>
         new(held.ClientSaleId, held.InvoiceNumber, status, caseId, null, [new OfflineSaleSyncErrorDto(reason.Code, reason.Description)]);
 
@@ -312,7 +352,24 @@ public sealed class SubmitRecoveryBundleCommandHandler(
         if (invoices is null || invoices.Any(invoice => invoice is null || (invoice.Items?.Any(line => line is null) ?? false)))
             return null;
 
-        return [.. invoices.Select(invoice => invoice!)];
+        return [.. invoices.Select(invoice => AsSyncEndpointReadsIt(invoice!))];
+    }
+
+    /// <summary>
+    /// The sync endpoint maps neither <c>lineType</c> nor <c>serviceId</c> (each line binds as goods), and
+    /// the idempotency hash excludes both; recovery reads them the same way so one envelope never stages
+    /// differently by route.
+    /// </summary>
+    private static OfflineSaleSyncCommand AsSyncEndpointReadsIt(OfflineSaleSyncCommand invoice)
+    {
+        if (invoice.Items is null)
+            return invoice;
+
+        // The line record's own defaults, which is what the endpoint's mapping leaves in place.
+        return invoice with
+        {
+            Items = [.. invoice.Items.Select(line => line with { LineType = nameof(SaleLineType.Goods), ServiceId = null })],
+        };
     }
 
     private sealed record RecoveryContext(Guid ShopId, Guid OperatorUserId, string DeviceId, string OperationKey);

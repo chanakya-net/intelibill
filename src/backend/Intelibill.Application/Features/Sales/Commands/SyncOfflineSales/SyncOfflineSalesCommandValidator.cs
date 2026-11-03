@@ -1,5 +1,6 @@
 using FluentValidation;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Normalization;
 
 namespace Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
 
@@ -12,7 +13,11 @@ public sealed class SyncOfflineSalesCommandValidator : AbstractValidator<SyncOff
         RuleFor(x => x.DeviceId)
             .NotEmpty()
             .WithErrorCode(Errors.InvoiceLease.DeviceIdRequired.Code)
-            .WithMessage(Errors.InvoiceLease.DeviceIdRequired.Description);
+            .WithMessage(Errors.InvoiceLease.DeviceIdRequired.Description)
+            // Written to every envelope in the batch: text PostgreSQL cannot store would fail all of them with a 500.
+            .Must(StorableText.IsStorable)
+            .WithErrorCode(Errors.Sale.OfflineTextInvalid.Code)
+            .WithMessage(Errors.Sale.OfflineTextInvalid.Description);
 
         RuleFor(x => x.Sales)
             .NotNull()

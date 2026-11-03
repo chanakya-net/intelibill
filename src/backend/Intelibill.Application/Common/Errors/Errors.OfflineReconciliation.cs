@@ -62,6 +62,9 @@ public static partial class Errors
         public static Error ReasonRequired =>
             Error.Validation("Reconciliation.ReasonRequired", "A reason is required.");
 
+        public static Error ReasonInvalid =>
+            Error.Validation("Reconciliation.ReasonInvalid", "The reason contains a character that cannot be stored.");
+
         public static Error InvalidStatusFilter =>
             Error.Validation("Reconciliation.InvalidStatusFilter", "The status filter is not recognised.");
 

@@ -1,5 +1,6 @@
 using FluentValidation;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Normalization;
 using Intelibill.Application.Common.Operations;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
@@ -28,7 +29,10 @@ internal sealed class ResolveReconciliationCaseCommandValidator : AbstractValida
             .WithMessage(Errors.Reconciliation.ReasonRequired.Description)
             .Must(reason => reason is null || reason.Trim().Length <= MaxReasonLength)
             .WithErrorCode(Errors.Reconciliation.ReasonRequired.Code)
-            .WithMessage($"The reason must be {MaxReasonLength} characters or fewer.");
+            .WithMessage($"The reason must be {MaxReasonLength} characters or fewer.")
+            .Must(StorableText.IsStorable)
+            .WithErrorCode(Errors.Reconciliation.ReasonInvalid.Code)
+            .WithMessage(Errors.Reconciliation.ReasonInvalid.Description);
 
         RuleFor(x => x.LinkedOperationId)
             .Must(id => id is { } linked && linked != Guid.Empty)

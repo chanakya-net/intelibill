@@ -56,7 +56,25 @@ public sealed record ReconciliationCaseDto(
     bool HasOriginalEnvelope,
     OfflineSubmissionDto? Submission,
     IReadOnlyList<string> AvailableActions,
-    IReadOnlyList<ReconciliationCaseEventDto> Events);
+    IReadOnlyList<ReconciliationCaseEventDto> Events,
+    IReadOnlyList<ReconciliationLinkCandidateDto> LinkCandidates);
+
+/// <summary>
+/// Evidence the caller may link the case to, already checked the way the link action checks it:
+/// procurement adjustments for <c>LinkStockCorrection</c> (<see cref="Kind"/> <c>"Adjustment"</c>,
+/// labelled by adjustment number) and the posted sale for <c>LinkExistingSale</c> (<c>"Sale"</c>,
+/// labelled by invoice number). Listed only on a case's detail, and only for someone offered a link.
+/// </summary>
+public sealed record ReconciliationLinkCandidateDto(
+    Guid OperationId,
+    string Kind,
+    string Label,
+    decimal? Quantity,
+    DateTimeOffset OccurredAt)
+{
+    public const string AdjustmentKind = "Adjustment";
+    public const string SaleKind = "Sale";
+}
 
 /// <summary>
 /// A person named on a case. <see cref="DisplayName"/> is filled only for someone who holds or held a
@@ -69,7 +87,11 @@ public sealed record ReconciliationPersonDto(Guid UserId, string DisplayName)
     public const string UnknownDisplayName = "";
 }
 
-/// <summary>The envelope the case was filed for: who sent it, who issued it and the frozen invoice.</summary>
+/// <summary>
+/// The envelope the case was filed for: who sent it, who issued it and the frozen invoice, with the
+/// times a timing review weighs — the claimed issue time, the first receipt and the window of the
+/// lease that reserved the number (null when no lease was found).
+/// </summary>
 public sealed record OfflineSubmissionDto(
     Guid SubmissionId,
     string Source,
@@ -77,6 +99,8 @@ public sealed record OfflineSubmissionDto(
     DateTimeOffset ReceivedAt,
     string PayloadHash,
     Guid? OriginalLeaseId,
+    DateTimeOffset? LeaseReservedAt,
+    DateTimeOffset? LeaseExpiresAt,
     ReconciliationPersonDto SubmittedBy,
     ReconciliationPersonDto? AssertedIssuer,
     ReconciliationPersonDto? OriginalIssuer,

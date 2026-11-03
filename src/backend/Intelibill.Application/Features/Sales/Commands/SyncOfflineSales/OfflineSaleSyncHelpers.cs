@@ -2,6 +2,7 @@ using Intelibill.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Normalization;
 using Intelibill.Application.Features.Sales.Services;
 using Intelibill.Domain.Enums;
 
@@ -22,7 +23,8 @@ internal static class OfflineSaleSyncHelpers
 
     /// <summary>
     /// The identity checks an offline invoice must pass before anything about it is stored: a client
-    /// sale id and an invoice number that fit their columns, and no U+0000 in any text field.
+    /// sale id and an invoice number that fit their columns, and only storable text (no U+0000, no
+    /// unpaired surrogate) in every text field.
     /// </summary>
     /// <param name="sale">The invoice as received.</param>
     /// <param name="clientSaleId">The trimmed client sale id (empty when blank), set even on failure.</param>
@@ -37,7 +39,7 @@ internal static class OfflineSaleSyncHelpers
         if (clientSaleId.Length > MaxClientSaleIdLength) return Errors.Sale.ClientSaleIdTooLong;
         if (invoiceNumber.Length == 0) return Errors.Sale.InvoiceNumberRequired;
         if (invoiceNumber.Length > MaxInvoiceNumberLength) return Errors.Sale.InvoiceNumberTooLong;
-        if (ContainsNulCharacter(sale)) return Errors.Sale.OfflineTextInvalid;
+        if (ContainsUnstorableText(sale)) return Errors.Sale.OfflineTextInvalid;
 
         return null;
     }
@@ -77,16 +79,21 @@ internal static class OfflineSaleSyncHelpers
             Mismatches = mismatches ?? [],
         };
 
-    /// <summary>True when any text field holds U+0000, which PostgreSQL cannot store in the jsonb envelope.</summary>
-    internal static bool ContainsNulCharacter(OfflineSaleSyncCommand sale) =>
-        HasNul(sale.ClientSaleId)
-        || HasNul(sale.InvoiceNumber)
-        || HasNul(sale.CustomerName)
-        || HasNul(sale.CustomerPhone)
+    /// <summary>
+    /// True when any text field holds U+0000 or an unpaired surrogate, which PostgreSQL cannot store in
+    /// the jsonb envelope (or any text column), so the save would fail for the whole batch.
+    /// </summary>
+    internal static bool ContainsUnstorableText(OfflineSaleSyncCommand sale) =>
+        !StorableText.IsStorable(sale.ClientSaleId)
+        || !StorableText.IsStorable(sale.InvoiceNumber)
+        || !StorableText.IsStorable(sale.CustomerName)
+        || !StorableText.IsStorable(sale.CustomerPhone)
         || (sale.Items?.Any(line =>
-            HasNul(line.Barcode) || HasNul(line.BatchNumber) || HasNul(line.ItemName) || HasNul(line.HsnCode) || HasNul(line.LineType)) ?? false);
-
-    private static bool HasNul(string? value) => value is not null && value.Contains('\0', StringComparison.Ordinal);
+            !StorableText.IsStorable(line.Barcode)
+            || !StorableText.IsStorable(line.BatchNumber)
+            || !StorableText.IsStorable(line.ItemName)
+            || !StorableText.IsStorable(line.HsnCode)
+            || !StorableText.IsStorable(line.LineType)) ?? false);
 
     internal static OfflineSaleSyncResultDto BuildErrorResult(string clientSaleId, Error error) =>
         new(clientSaleId, StatusFailed, null, null, [new OfflineSaleSyncErrorDto(error.Code, error.Description)]);

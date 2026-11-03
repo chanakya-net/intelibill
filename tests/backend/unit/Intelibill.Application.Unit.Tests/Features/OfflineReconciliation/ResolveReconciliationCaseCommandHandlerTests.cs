@@ -459,6 +459,109 @@ public sealed class ResolveReconciliationCaseCommandHandlerTests
     }
 
     [Fact]
+    public async Task LinkExistingSale_EscalatedCaseWhoseEnvelopePostedLater_Links()
+    {
+        // A recovered legacy invoice escalated for provenance, then synced unchanged by its cashier.
+        var envelope = Envelope(OfflineSubmissionSource.Recovery, asserted: null, original: null);
+        var issue = Case(ReconciliationIssueType.ProvenanceReview, Errors.OfflineReconciliation.ProvenanceUnknown.Code, envelope.Id);
+        issue.Escalate(_owner.Id, Now);
+        var sale = SaleFor(envelope, envelope.PayloadHash);
+        envelope.LinkSale(sale.Id);
+        _saleRepository.GetByIdAsync(sale.Id, _shop.Id, Arg.Any<CancellationToken>()).Returns(sale);
+
+        var result = await Handle(Command(_owner.Id, issue, ReconciliationAction.LinkExistingSale, sale.Id));
+
+        Assert.False(result.IsError, result.IsError ? result.FirstError.Code : null);
+        Assert.Equal(ReconciliationCaseStatus.Resolved, issue.Status);
+        Assert.Equal(sale.Id, issue.SaleId);
+        Assert.Equal(sale.Id, envelope.SaleId);
+        Assert.Equal(ReconciliationCaseStatus.Escalated, Assert.Single(_events).FromStatus);
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task LinkExistingSale_LegacyCaseWithoutEnvelope_LinksByIdentity()
+    {
+        var issue = Case(ReconciliationIssueType.InvoiceConflict, Errors.Sale.InvoiceLeaseNotFound.Code);
+        var envelope = Envelope(OfflineSubmissionSource.Sync, asserted: null, original: null);
+        // Any payload: an envelope-less case has no hash to compare, only the identity.
+        var sale = SaleFor(envelope, "WHATEVER-THE-DEVICE-SENT");
+        _saleRepository.GetByIdAsync(sale.Id, _shop.Id, Arg.Any<CancellationToken>()).Returns(sale);
+
+        var result = await Handle(Command(_owner.Id, issue, ReconciliationAction.LinkExistingSale, sale.Id));
+
+        Assert.False(result.IsError, result.IsError ? result.FirstError.Code : null);
+        Assert.Equal(ReconciliationCaseStatus.Resolved, issue.Status);
+        Assert.Equal(sale.Id, issue.SaleId);
+        Assert.Equal(sale.Id, issue.LinkedOperationId);
+        Assert.Null(envelope.SaleId);
+    }
+
+    [Fact]
+    public async Task LinkExistingSale_LegacyCase_OtherIdentity_Refused()
+    {
+        var issue = Case(ReconciliationIssueType.InvoiceConflict, Errors.Sale.InvoiceLeaseNotFound.Code);
+        var other = Sale.Create(
+            _shop.Id, _staff.Id, "key", "HASH", "INV-2026-27-000099", null, null, null, PaymentMethod.Cash, Now, 0m, 0m, 0m, 0m, [],
+            source: SaleSource.Offline, clientSaleId: "client-2", deviceId: DeviceId, syncedAt: Now);
+        _saleRepository.GetByIdAsync(other.Id, _shop.Id, Arg.Any<CancellationToken>()).Returns(other);
+
+        var result = await Handle(Command(_owner.Id, issue, ReconciliationAction.LinkExistingSale, other.Id));
+
+        Assert.Equal(Errors.Reconciliation.SaleIdentityMismatch.Code, result.FirstError.Code);
+        Assert.Equal(ReconciliationCaseStatus.Open, issue.Status);
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData("OfflineReconciliation.IssueTimeInFuture")]
+    [InlineData("OfflineReconciliation.IssueTimeBeforeLease")]
+    [InlineData("OfflineReconciliation.IssueFiscalYearMismatch")]
+    [InlineData("OfflineReconciliation.IssuedAfterLeaseExpiry")]
+    public async Task RetryHistoricalLease_OnTimingHold_PostsTheClaimedIssueTime(string code)
+    {
+        var envelope = Envelope(OfflineSubmissionSource.Sync, asserted: _staff.Id, original: _staff.Id);
+        var issue = Case(ReconciliationIssueType.IssueTimingReview, code, envelope.Id);
+        StubLease();
+        var staged = SaleFor(envelope, envelope.PayloadHash);
+        OfflineSalePostingRequest? request = null;
+        _poster.StageAsync(Arg.Do<OfflineSalePostingRequest>(r => request = r), Arg.Any<CancellationToken>())
+            .Returns(new OfflineSalePostingOutcome.Staged(staged, []));
+
+        var result = await Handle(Command(_owner.Id, issue, ReconciliationAction.RetryHistoricalLease));
+
+        Assert.False(result.IsError, result.IsError ? result.FirstError.Code : null);
+        // Never rewritten: the bill carries the time the device printed.
+        Assert.Equal(envelope.ClaimedSoldAt, request!.Sale.SoldAt);
+        Assert.Equal(envelope.PayloadHash, request.PayloadHash);
+        Assert.Equal(ReconciliationCaseStatus.Resolved, issue.Status);
+        Assert.Equal("Reviewed with the cashier", issue.ResolutionReason);
+    }
+
+    [Fact]
+    public async Task Acknowledge_ValidationVariance_Resolves()
+    {
+        var issue = Case(ReconciliationIssueType.ValidationConflict, "offline_sync.validation_variance", saleId: Guid.NewGuid());
+
+        var result = await Handle(Command(_owner.Id, issue, ReconciliationAction.AcknowledgeVariance));
+
+        Assert.False(result.IsError, result.IsError ? result.FirstError.Code : null);
+        Assert.Equal(ReconciliationCaseStatus.Resolved, issue.Status);
+        Assert.Equal(ReconciliationAction.AcknowledgeVariance, issue.Resolution);
+    }
+
+    [Fact]
+    public async Task Acknowledge_IdempotencyConflict_Refused()
+    {
+        var issue = Case(ReconciliationIssueType.ValidationConflict, Errors.Sale.IdempotencyConflict.Code, saleId: Guid.NewGuid());
+
+        var result = await Handle(Command(_owner.Id, issue, ReconciliationAction.AcknowledgeVariance));
+
+        Assert.Equal(Errors.Reconciliation.ActionNotAllowed.Code, result.FirstError.Code);
+        Assert.Equal(ReconciliationCaseStatus.Open, issue.Status);
+    }
+
+    [Fact]
     public async Task Acknowledge_InformationalVariance_Resolves()
     {
         var issue = Case(ReconciliationIssueType.PricingVariance, "offline_sync.pricing_variance");
@@ -505,6 +608,31 @@ public sealed class ResolveReconciliationCaseCommandHandlerTests
 
         Assert.Contains(result.Errors, e => e.Code == code);
         await _userRepository.DidNotReceive().GetByIdWithDetailsAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ReasonWithUnstorableText_ReasonInvalid()
+    {
+        // PostgreSQL text cannot hold U+0000, and an unpaired surrogate is not UTF-8 at all.
+        foreach (var reason in new[] { "Checked\0 twice", "Checked \uD800 twice", "Checked \uDC00", "Checked \uD83D" })
+        {
+            var result = await Handle(new ResolveReconciliationCaseCommand(_owner.Id, _shop.Id, Guid.NewGuid(), "op-1", 0u, "Escalate", reason, null));
+
+            Assert.Equal(Errors.Reconciliation.ReasonInvalid.Code, Assert.Single(result.Errors).Code);
+            Assert.Equal(ErrorType.Validation, result.FirstError.Type);
+        }
+
+        await _userRepository.DidNotReceive().GetByIdWithDetailsAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ReasonWithPairedSurrogates_Accepted()
+    {
+        var issue = Case(ReconciliationIssueType.PricingVariance, "offline_sync.pricing_variance");
+
+        var result = await Handle(Command(_owner.Id, issue, ReconciliationAction.AcknowledgeVariance) with { Reason = "Checked \U0001F44D" });
+
+        Assert.False(result.IsError, result.IsError ? result.FirstError.Code : null);
     }
 
     [Fact]
@@ -709,7 +837,7 @@ public sealed class ResolveReconciliationCaseCommandHandlerTests
             _leaseRepository,
             _discountRuleRepository,
             _poster,
-            new ReconciliationCaseMapper(_eventRepository, _userRepository),
+            new ReconciliationCaseMapper(_eventRepository, _userRepository, _leaseRepository, _adjustmentRepository, _saleRepository, _submissionRepository),
             _unitOfWork,
             _executor,
             new FixedClock(Now));

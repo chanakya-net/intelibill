@@ -48,19 +48,36 @@ public sealed class ReconciliationActionPolicyTests
     }
 
     [Theory]
-    [InlineData("OfflineReconciliation.HistoricalLeaseReviewRequired")]
-    [InlineData("OfflineReconciliation.RecoveryReviewRequired")]
-    [InlineData("OfflineReconciliation.IssuerNotSubmitter")]
-    public void HeldEnvelope_WithAttributableUser_OffersRetryLinkAndEscalate(string code)
+    [InlineData(ReconciliationIssueType.IssueTimingReview, "OfflineReconciliation.HistoricalLeaseReviewRequired")]
+    [InlineData(ReconciliationIssueType.RecoveryReview, "OfflineReconciliation.RecoveryReviewRequired")]
+    [InlineData(ReconciliationIssueType.ProvenanceReview, "OfflineReconciliation.IssuerNotSubmitter")]
+    [InlineData(ReconciliationIssueType.IssueTimingReview, "OfflineReconciliation.IssueTimeBeforeLease")]
+    [InlineData(ReconciliationIssueType.IssueTimingReview, "OfflineReconciliation.IssueTimeInFuture")]
+    [InlineData(ReconciliationIssueType.IssueTimingReview, "OfflineReconciliation.IssueFiscalYearMismatch")]
+    [InlineData(ReconciliationIssueType.IssueTimingReview, "OfflineReconciliation.IssuedAfterLeaseExpiry")]
+    public void HeldEnvelope_WithAttributableUser_OffersRetryLinkAndEscalate(ReconciliationIssueType type, string code)
     {
         var envelope = Envelope(OfflineSubmissionSource.Sync, asserted: null, original: null);
-        var issue = Case(ReconciliationIssueType.IssueTimingReview, code, envelope.Id);
+        var issue = Case(type, code, envelope.Id);
 
         var actions = ReconciliationActionPolicy.AvailableActions(issue, envelope, ShopRole.Owner, Owner);
 
         Assert.Equal(
             [ReconciliationAction.RetryHistoricalLease, ReconciliationAction.LinkExistingSale, ReconciliationAction.Escalate],
             actions);
+    }
+
+    [Theory]
+    [InlineData("OfflineReconciliation.IssueTimeInFuture")]
+    [InlineData("OfflineReconciliation.IssueFiscalYearMismatch")]
+    public void TimingHold_WithoutAttributableUser_OffersLinkAndEscalate(string code)
+    {
+        var envelope = Envelope(OfflineSubmissionSource.Recovery, asserted: Cashier, original: null);
+        var issue = Case(ReconciliationIssueType.IssueTimingReview, code, envelope.Id);
+
+        var actions = ReconciliationActionPolicy.AvailableActions(issue, envelope, ShopRole.Manager, Owner);
+
+        Assert.Equal([ReconciliationAction.LinkExistingSale, ReconciliationAction.Escalate], actions);
     }
 
     [Fact]
@@ -89,28 +106,97 @@ public sealed class ReconciliationActionPolicyTests
     }
 
     [Theory]
-    [InlineData("Sale.IdempotencyConflict")]
-    [InlineData("OfflineReconciliation.HistoricalLeaseReviewRequired")]
-    public void LegacyHeldCaseWithoutEnvelope_OffersOnlyEscalate(string code)
+    [InlineData(ReconciliationIssueType.InvoiceConflict, "Sale.InvoiceLeaseNotFound")]
+    [InlineData(ReconciliationIssueType.InvoiceConflict, "Sale.IdempotencyConflict")]
+    [InlineData(ReconciliationIssueType.ValidationConflict, "Sale.OfflineTextInvalid")]
+    [InlineData(ReconciliationIssueType.ArithmeticConflict, "Sale.OfflineArithmeticMismatch")]
+    [InlineData(ReconciliationIssueType.IssueTimingReview, "OfflineReconciliation.HistoricalLeaseReviewRequired")]
+    [InlineData(ReconciliationIssueType.ProvenanceReview, "OfflineReconciliation.ProvenanceUnknown")]
+    [InlineData(ReconciliationIssueType.RecoveryReview, "OfflineReconciliation.RecoveryReviewRequired")]
+    public void LegacyHeldCaseWithoutEnvelope_OffersLinkExistingSaleAndEscalate(ReconciliationIssueType type, string code)
     {
-        var issue = Case(ReconciliationIssueType.InvoiceConflict, code);
+        // Held before envelopes existed: the identity alone (device + client sale id) can find its sale.
+        var issue = Case(type, code);
+
+        Assert.Equal(
+            [ReconciliationAction.LinkExistingSale, ReconciliationAction.Escalate],
+            ReconciliationActionPolicy.AvailableActions(issue, null, ShopRole.Owner, Owner));
+    }
+
+    [Fact]
+    public void LegacyCaseAboutAPostedSale_OffersOnlyEscalate()
+    {
+        // A legacy conflict names the sale it conflicts with; linking that sale would hide the conflict.
+        var issue = ReconciliationIssue.Create(
+            ShopId, Guid.NewGuid(), "client-1", "device-1", ReconciliationIssueType.ValidationConflict, "Sale.IdempotencyConflict", "conflict", Cashier);
 
         Assert.Equal([ReconciliationAction.Escalate], ReconciliationActionPolicy.AvailableActions(issue, null, ShopRole.Owner, Owner));
+    }
+
+    [Fact]
+    public void LegacyStockOrVarianceWithoutEnvelope_OffersNoSaleLink()
+    {
+        var variance = Case(ReconciliationIssueType.PricingVariance, "offline_sync.pricing_variance");
+
+        Assert.Equal(
+            [ReconciliationAction.AcknowledgeVariance, ReconciliationAction.Escalate],
+            ReconciliationActionPolicy.AvailableActions(variance, null, ShopRole.Owner, Owner));
+    }
+
+    [Fact]
+    public void ValidationVariance_OffersAcknowledgeAndEscalate()
+    {
+        // Keyed on the code: the type is shared with idempotency conflicts, which must never be acknowledged.
+        var issue = ReconciliationIssue.Create(
+            ShopId, Guid.NewGuid(), "client-1", "device-1", ReconciliationIssueType.ValidationConflict,
+            "offline_sync.validation_variance", "Item name mismatch for barcode BC-1", Cashier);
+
+        Assert.Equal(
+            [ReconciliationAction.AcknowledgeVariance, ReconciliationAction.Escalate],
+            ReconciliationActionPolicy.AvailableActions(issue, null, ShopRole.Manager, Owner));
     }
 
     [Theory]
     [InlineData(ReconciliationIssueType.ArithmeticConflict, "Sale.OfflineArithmeticMismatch")]
     [InlineData(ReconciliationIssueType.InvoiceConflict, "Sale.InvoiceLeaseNotFound")]
-    [InlineData(ReconciliationIssueType.IssueTimingReview, "OfflineReconciliation.IssueTimeBeforeLease")]
-    [InlineData(ReconciliationIssueType.IssueTimingReview, "OfflineReconciliation.IssuedAfterLeaseExpiry")]
     [InlineData(ReconciliationIssueType.ProvenanceReview, "OfflineReconciliation.ProvenanceUnknown")]
     [InlineData(ReconciliationIssueType.ProvenanceReview, "OfflineReconciliation.IssuerUnverified")]
-    public void EverythingElse_OffersOnlyEscalate(ReconciliationIssueType type, string code)
+    public void EnvelopeWithoutReplayableCode_OffersLinkExistingSaleAndEscalate(ReconciliationIssueType type, string code)
     {
         var envelope = Envelope(OfflineSubmissionSource.Sync, asserted: null, original: null);
         var issue = Case(type, code, envelope.Id);
 
-        Assert.Equal([ReconciliationAction.Escalate], ReconciliationActionPolicy.AvailableActions(issue, envelope, ShopRole.Owner, Owner));
+        Assert.Equal(
+            [ReconciliationAction.LinkExistingSale, ReconciliationAction.Escalate],
+            ReconciliationActionPolicy.AvailableActions(issue, envelope, ShopRole.Owner, Owner));
+    }
+
+    [Fact]
+    public void EscalatedEnvelopeCase_OffersLinkExistingSale_EvenAfterItsEnvelopePosted()
+    {
+        // A late identical sync posts the invoice against this very envelope; the escalated case can still close by link.
+        var envelope = Envelope(OfflineSubmissionSource.Recovery, asserted: null, original: null);
+        var issue = Case(ReconciliationIssueType.ProvenanceReview, Errors.OfflineReconciliation.ProvenanceUnknown.Code, envelope.Id);
+        issue.Escalate(Owner, Now);
+        envelope.LinkSale(Guid.NewGuid());
+
+        Assert.Equal([ReconciliationAction.LinkExistingSale], ReconciliationActionPolicy.AvailableActions(issue, envelope, ShopRole.Owner, Owner));
+    }
+
+    [Fact]
+    public void VarianceFiledWithItsPostedSale_OffersNoSaleLink()
+    {
+        // The variance belongs to the sale its envelope posted; there is nothing further to link.
+        var envelope = Envelope(OfflineSubmissionSource.Sync, asserted: null, original: null);
+        var saleId = Guid.NewGuid();
+        envelope.LinkSale(saleId);
+        var issue = ReconciliationIssue.Create(
+            ShopId, saleId, "client-1", "device-1", ReconciliationIssueType.PricingVariance, "offline_sync.pricing_variance", "price", Cashier,
+            invoiceNumber: "INV-2026-27-000001", offlineSubmissionId: envelope.Id);
+
+        Assert.Equal(
+            [ReconciliationAction.AcknowledgeVariance, ReconciliationAction.Escalate],
+            ReconciliationActionPolicy.AvailableActions(issue, envelope, ShopRole.Owner, Owner));
     }
 
     [Fact]
@@ -118,11 +204,12 @@ public sealed class ReconciliationActionPolicyTests
     {
         var variance = Case(ReconciliationIssueType.PricingVariance, "offline_sync.variance");
         variance.Escalate(Owner, Now);
-        var provenance = Case(ReconciliationIssueType.ProvenanceReview, Errors.OfflineReconciliation.ProvenanceUnknown.Code);
-        provenance.Escalate(Owner, Now);
+        var arithmetic = ReconciliationIssue.Create(
+            ShopId, Guid.NewGuid(), "client-1", "device-1", ReconciliationIssueType.ArithmeticConflict, "Sale.OfflineArithmeticMismatch", "math", Cashier);
+        arithmetic.Escalate(Owner, Now);
 
         Assert.Equal([ReconciliationAction.AcknowledgeVariance], ReconciliationActionPolicy.AvailableActions(variance, null, ShopRole.Owner, Owner));
-        Assert.Empty(ReconciliationActionPolicy.AvailableActions(provenance, null, ShopRole.Owner, Owner));
+        Assert.Empty(ReconciliationActionPolicy.AvailableActions(arithmetic, null, ShopRole.Owner, Owner));
     }
 
     [Fact]

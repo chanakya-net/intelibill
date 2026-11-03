@@ -33,6 +33,26 @@ public interface IReconciliationIssueRepository : IRepository<ReconciliationIssu
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// The oldest open legacy case for the same hold: same shop, client sale id, device, type, code and
+    /// message, filed before envelopes existed (no envelope). Tracked, so the caller can attach the
+    /// envelope that now evidences it instead of filing a duplicate.
+    /// </summary>
+    Task<ReconciliationIssue?> FindOpenLegacyIssueAsync(
+        Guid shopId,
+        string clientSaleId,
+        string deviceId,
+        ReconciliationIssueType issueType,
+        string code,
+        string message,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>The oldest unresolved (open or escalated) case filed for the envelope, whatever its reason; untracked.</summary>
+    Task<ReconciliationIssue?> FindUnresolvedByEnvelopeAsync(
+        Guid shopId,
+        Guid offlineSubmissionId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Locks the case row until the current transaction ends, so resolutions of one case queue
     /// behind each other and each reads the case as the previous one committed it.
     /// </summary>

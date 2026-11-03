@@ -7,6 +7,12 @@ public interface IInventoryAdjustmentRepository : IRepository<InventoryAdjustmen
 {
     Task<InventoryAdjustment?> GetByAdjustmentNumberAsync(Guid shopId, string adjustmentNumber, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<InventoryAdjustment>> GetByBatchAsync(Guid shopId, Guid inventoryBatchId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Found-stock and other-gain increases on the item's batch that are not voided and not linked to any
+    /// reconciliation case, newest first; untracked.
+    /// </summary>
+    Task<IReadOnlyList<InventoryAdjustment>> GetUnlinkedIncreasesAsync(Guid shopId, Guid itemId, Guid inventoryBatchId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<InventoryAdjustment>> GetByShopAndDateRangeAsync(Guid shopId, DateOnly startDate, DateOnly endDate, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<InventoryAdjustment>> GetProfitLossAdjustmentsAsync(Guid shopId, CancellationToken cancellationToken = default);
     Task<(IReadOnlyList<InventoryAdjustmentHistoryReadModel> Items, int TotalCount)> GetHistoryAsync(
