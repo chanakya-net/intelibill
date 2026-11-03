@@ -3093,6 +3093,36 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<string>("AccountingPolicyVersion")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("accounting_policy_version");
+
+                    b.Property<string>("AccountingReviewReason")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("accounting_review_reason");
+
+                    b.Property<string>("AccountingStatus")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("accounting_status");
+
+                    b.Property<decimal?>("AdjustmentNonTaxAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("adjustment_non_tax_amount");
+
+                    b.Property<decimal?>("AdjustmentTaxAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("adjustment_tax_amount");
+
+                    b.Property<decimal?>("AdjustmentTaxableAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("adjustment_taxable_amount");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -3205,8 +3235,15 @@ namespace Intelibill.Infrastructure.Migrations
                     b.HasIndex("ShopId", "SaleId")
                         .HasDatabaseName("ix_sale_returns_shop_id_sale_id");
 
+                    b.HasIndex("ShopId", "VoidedAt")
+                        .HasDatabaseName("ix_sale_returns_shop_id_voided_at");
+
                     b.ToTable("sale_returns", null, t =>
                         {
+                            t.HasCheckConstraint("ck_sale_returns_accounting_balanced", "accounting_status IS DISTINCT FROM 'BALANCED' OR (accounting_policy_version IS NOT NULL AND adjustment_taxable_amount IS NOT NULL AND adjustment_tax_amount IS NOT NULL AND adjustment_non_tax_amount IS NOT NULL AND adjustment_taxable_amount >= 0 AND adjustment_tax_amount >= 0 AND adjustment_non_tax_amount >= 0 AND adjustment_taxable_amount + adjustment_tax_amount + adjustment_non_tax_amount = total_refund_amount)");
+
+                            t.HasCheckConstraint("ck_sale_returns_accounting_review_reason", "accounting_status IS DISTINCT FROM 'NEEDS_REVIEW' OR accounting_review_reason IS NOT NULL");
+
                             t.HasCheckConstraint("ck_sale_returns_refund_amounts_non_negative", "total_refund_amount >= 0 AND due_reduction_amount >= 0 AND payout_amount >= 0 AND total_taxable_amount >= 0 AND total_tax_amount >= 0");
 
                             t.HasCheckConstraint("ck_sale_returns_refund_split", "due_reduction_amount + payout_amount = total_refund_amount");
@@ -3221,6 +3258,21 @@ namespace Intelibill.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<decimal?>("AdjustmentNonTaxAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("adjustment_non_tax_amount");
+
+                    b.Property<decimal?>("AdjustmentTaxAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("adjustment_tax_amount");
+
+                    b.Property<decimal?>("AdjustmentTaxableAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("adjustment_taxable_amount");
 
                     b.Property<decimal>("ApprovedRefundAmount")
                         .HasPrecision(18, 2)
@@ -3323,6 +3375,8 @@ namespace Intelibill.Infrastructure.Migrations
 
                     b.ToTable("sale_return_items", null, t =>
                         {
+                            t.HasCheckConstraint("ck_sale_return_items_adjustment_split", "(adjustment_taxable_amount IS NULL AND adjustment_tax_amount IS NULL AND adjustment_non_tax_amount IS NULL) OR (adjustment_taxable_amount >= 0 AND adjustment_tax_amount >= 0 AND adjustment_non_tax_amount >= 0 AND adjustment_taxable_amount + adjustment_tax_amount + adjustment_non_tax_amount = approved_refund_amount)");
+
                             t.HasCheckConstraint("ck_sale_return_items_amounts_non_negative", "original_cost_price >= 0 AND original_sales_price >= 0 AND max_refund_amount >= 0 AND approved_refund_amount >= 0 AND taxable_amount >= 0 AND tax_amount >= 0");
 
                             t.HasCheckConstraint("ck_sale_return_items_quantity_positive", "quantity > 0");
@@ -3330,6 +3384,83 @@ namespace Intelibill.Infrastructure.Migrations
                             t.HasCheckConstraint("ck_sale_return_items_refund_cap", "approved_refund_amount <= max_refund_amount OR notes IS NOT NULL");
 
                             t.HasCheckConstraint("ck_sale_return_items_tax_rate_range", "original_tax_rate_percent >= 0 AND original_tax_rate_percent <= 100");
+                        });
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.SaleReturnSettlement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("amount");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreditNoteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("credit_note_id");
+
+                    b.Property<Guid?>("CustomerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("customer_id");
+
+                    b.Property<Guid?>("CustomerLedgerEntryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("customer_ledger_entry_id");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("kind");
+
+                    b.Property<Guid>("SaleReturnId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sale_return_id");
+
+                    b.Property<int>("Sequence")
+                        .HasColumnType("integer")
+                        .HasColumnName("sequence");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_sale_return_settlements");
+
+                    b.HasIndex("CreditNoteId")
+                        .HasDatabaseName("ix_sale_return_settlements_credit_note_id");
+
+                    b.HasIndex("CustomerId")
+                        .HasDatabaseName("ix_sale_return_settlements_customer_id");
+
+                    b.HasIndex("CustomerLedgerEntryId")
+                        .HasDatabaseName("ix_sale_return_settlements_customer_ledger_entry_id");
+
+                    b.HasIndex("SaleReturnId", "Sequence")
+                        .IsUnique()
+                        .HasDatabaseName("ix_sale_return_settlements_sale_return_id_sequence");
+
+                    b.HasIndex("ShopId", "SaleReturnId")
+                        .HasDatabaseName("ix_sale_return_settlements_shop_id_sale_return_id");
+
+                    b.ToTable("sale_return_settlements", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_sale_return_settlements_amount_positive", "amount > 0");
+
+                            t.HasCheckConstraint("ck_sale_return_settlements_references_by_kind", "(kind = 'STORE_CREDIT_ISSUED' AND credit_note_id IS NOT NULL AND customer_ledger_entry_id IS NULL) OR (kind = 'RECEIVABLE_REDUCTION' AND credit_note_id IS NULL) OR (kind = 'EXTERNAL_REFUND' AND credit_note_id IS NULL AND customer_ledger_entry_id IS NULL)");
                         });
                 });
 
@@ -4770,6 +4901,41 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasConstraintName("fk_sale_return_items_shops_shop_id");
                 });
 
+            modelBuilder.Entity("Intelibill.Domain.Entities.SaleReturnSettlement", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.CreditNote", null)
+                        .WithMany()
+                        .HasForeignKey("CreditNoteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_sale_return_settlements_credit_notes_credit_note_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.Customer", null)
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_sale_return_settlements_customers_customer_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.CustomerLedgerEntry", null)
+                        .WithMany()
+                        .HasForeignKey("CustomerLedgerEntryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_sale_return_settlements_customer_ledger_entries_customer_le");
+
+                    b.HasOne("Intelibill.Domain.Entities.SaleReturn", null)
+                        .WithMany("Settlements")
+                        .HasForeignKey("SaleReturnId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_sale_return_settlements_sale_returns_sale_return_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.Shop", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_sale_return_settlements_shops_shop_id");
+                });
+
             modelBuilder.Entity("Intelibill.Domain.Entities.Service", b =>
                 {
                     b.HasOne("Intelibill.Domain.Entities.Shop", null)
@@ -4943,6 +5109,8 @@ namespace Intelibill.Infrastructure.Migrations
             modelBuilder.Entity("Intelibill.Domain.Entities.SaleReturn", b =>
                 {
                     b.Navigation("Items");
+
+                    b.Navigation("Settlements");
                 });
 
             modelBuilder.Entity("Intelibill.Domain.Entities.Shop", b =>
