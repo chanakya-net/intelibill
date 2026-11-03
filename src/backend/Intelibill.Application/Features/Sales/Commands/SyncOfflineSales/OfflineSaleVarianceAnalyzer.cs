@@ -7,6 +7,7 @@ namespace Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
 internal sealed class OfflineSaleVarianceAnalyzer(IReconciliationIssueRepository reconciliationIssueRepository)
     : IOfflineSaleVarianceAnalyzer
 {
+    // A resend of a held sale that fails the same way reuses its open case instead of filing another.
     public async Task<Guid> AddReviewIssueAsync(
         Guid shopId,
         Guid? saleId,
@@ -18,6 +19,19 @@ internal sealed class OfflineSaleVarianceAnalyzer(IReconciliationIssueRepository
         Guid actorUserId,
         CancellationToken cancellationToken)
     {
+        var openIssueId = await reconciliationIssueRepository.FindOpenIssueIdAsync(
+            shopId,
+            clientSaleId.Trim(),
+            deviceId.Trim(),
+            issueType,
+            code.Trim(),
+            message.Trim(),
+            cancellationToken);
+        if (openIssueId is { } existingId)
+        {
+            return existingId;
+        }
+
         var issue = ReconciliationIssue.Create(
             shopId,
             saleId,

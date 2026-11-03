@@ -1327,6 +1327,37 @@ public class SyncOfflineSalesCommandHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_WhenHeldSaleIsResent_ReusesItsOpenReviewCase()
+    {
+        var shopId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var deviceId = "device-1";
+        var openCaseId = Guid.NewGuid();
+        var clientSaleId = $"offline-{Guid.NewGuid():N}";
+        var sale = CreateSale(clientSaleId) with { CalculationVersion = 2 };
+        var issues = CaptureReconciliationIssues();
+        ArrangeMemberWithLease(shopId, actorId, deviceId);
+        _reconciliationIssueRepository
+            .FindOpenIssueIdAsync(
+                shopId,
+                clientSaleId,
+                deviceId,
+                ReconciliationIssueType.ArithmeticConflict,
+                Errors.Sale.OfflineCalculationVersionUnsupported.Code,
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>())
+            .Returns(openCaseId);
+
+        var result = await CreateHandler().HandleAsync(new SyncOfflineSalesCommand(actorId, shopId, deviceId, [sale]), CancellationToken.None);
+
+        var syncResult = Assert.Single(result.Value.Results);
+        Assert.Equal("NeedsReview", syncResult.Status);
+        Assert.Equal(openCaseId, syncResult.ReviewCaseId);
+        Assert.Empty(issues);
+        await AssertNothingPostedAsync();
+    }
+
+    [Fact]
     public async Task HandleAsync_WhenItemDiscountExceedsBasis_QuarantinesWithoutPosting()
     {
         var shopId = Guid.NewGuid();

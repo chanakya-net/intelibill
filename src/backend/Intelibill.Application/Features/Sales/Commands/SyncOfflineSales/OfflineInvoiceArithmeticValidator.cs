@@ -10,7 +10,9 @@ internal static class OfflineInvoiceArithmeticValidator
 {
     internal const int CurrentVersion = 1;
 
-    // Bounds that keep every intermediate product exact in both contracts; far beyond any retail invoice.
+    // Far beyond any retail invoice. With each line's gross (price x quantity) held to MaxMoneyInput too, every
+    // amount fits numeric(18,2) and stays where the legacy double replay still resolves single paise; v1 integer
+    // arithmetic is exact at any size.
     private const decimal MaxMoneyInput = 100_000_000_000m;
     private const decimal MaxQuantity = 10_000_000m;
 
@@ -116,6 +118,10 @@ internal static class OfflineInvoiceArithmeticValidator
             else
                 CheckRange(prefix + "quantity", line.Quantity, 0m, MaxQuantity, isVersion1 ? 3 : null, mismatches);
             CheckRange(prefix + "salesPrice", line.SalesPrice, 0m, MaxMoneyInput, isVersion1 ? 2 : null, mismatches);
+            if (line.Quantity is > 0m and <= MaxQuantity
+                && line.SalesPrice is >= 0m and <= MaxMoneyInput
+                && line.SalesPrice * line.Quantity > MaxMoneyInput)
+                mismatches.Add(new OfflineArithmeticMismatch($"items[{i}]", line.SalesPrice * line.Quantity, null, Codes.UnsupportedValue));
             CheckRange(prefix + "taxRatePercent", line.TaxRatePercent, 0m, 100m, isVersion1 ? 2 : null, mismatches);
             if (line.IsServiceLine) continue;
 

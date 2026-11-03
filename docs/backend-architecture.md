@@ -579,7 +579,9 @@ stay variance warnings (`offline_sync.pricing_variance`, `offline_sync.discount_
 after the structural and lease checks and before `ISaleLineValidator`, entity construction, stock
 consumption and ledger posting. Inputs are checked first: defined enum values, tax rate and
 percentages in [0, 100], non-negative prices and overrides, a rule id with its percentage, a met
-threshold; v1 also rejects inputs beyond its scales.
+threshold, and money inputs and each line's gross (price × quantity) at most ₹100,000,000,000, which
+keeps every amount inside `numeric(18,2)` and the legacy replay at single-paise resolution; v1 also
+rejects inputs beyond its scales.
 
 - **v1** (`OfflineInvoiceArithmeticV1`, `offline-money.math.ts`): paise, thousandths and basis points
   as integers; every division rounds half away from zero. A tax-inclusive line uses the online identity
@@ -605,7 +607,9 @@ code}`; codes are `amount_mismatch`, `discount_exceeds_basis`, `scale_exceeded`,
 `rule_evidence_missing`, `rule_threshold_not_met` and `unsupported_version`. Nothing is posted and the
 payload is never rewritten. The device keeps the original frozen invoice (NeedsReview records are not
 resent or recalculated) and lists it on the sales page with the reason, differences and case id.
-Every NeedsReview result now carries its case id.
+Every NeedsReview result now carries its case id, and a resend that is held for the same reason
+returns the open case (`IReconciliationIssueRepository.FindOpenIssueIdAsync`) instead of filing
+another.
 
 **Posted sales.** `scripts/db/audit-offline-sale-arithmetic.sql` is a read-only report of posted
 offline sales whose header disagrees with their lines or whose lines break taxable + tax = total;

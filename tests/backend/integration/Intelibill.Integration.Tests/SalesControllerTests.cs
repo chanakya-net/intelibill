@@ -4507,10 +4507,8 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         var invoiceNumber = await FirstLeasedInvoiceNumberAsync(client, ownerToken, "device-1");
         var clientSaleId = $"offline-{Guid.NewGuid():N}";
 
-        var result = await PostOfflineSaleAsync(
-            client,
-            ownerToken,
-            OfflineSalePayload(clientSaleId, invoiceNumber, barcode, batchId, calculationVersion: null, totalAmount: 1m, totalTaxAmount: 0m, subtotalBeforeDiscount: 1m));
+        var payload = OfflineSalePayload(clientSaleId, invoiceNumber, barcode, batchId, calculationVersion: null, totalAmount: 1m, totalTaxAmount: 0m, subtotalBeforeDiscount: 1m);
+        var result = await PostOfflineSaleAsync(client, ownerToken, payload);
 
         Assert.Equal("NeedsReview", result.GetProperty("status").GetString());
         Assert.Equal(JsonValueKind.Null, result.GetProperty("saleId").ValueKind);
@@ -4520,6 +4518,9 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         Assert.Equal(118m, total.GetProperty("expected").GetDecimal());
         Assert.Equal("amount_mismatch", total.GetProperty("code").GetString());
         var caseId = result.GetProperty("reviewCaseId").GetGuid();
+        var resent = await PostOfflineSaleAsync(client, ownerToken, payload);
+        Assert.Equal("NeedsReview", resent.GetProperty("status").GetString());
+        Assert.Equal(caseId, resent.GetProperty("reviewCaseId").GetGuid());
 
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();

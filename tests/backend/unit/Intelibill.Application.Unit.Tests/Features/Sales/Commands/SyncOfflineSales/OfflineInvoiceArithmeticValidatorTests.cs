@@ -255,6 +255,20 @@ public class OfflineInvoiceArithmeticValidatorTests
         Assert.Contains(verdict.Mismatches, m => m.Path == "items[0].quantity" && m.Code == "scale_exceeded");
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData(1)]
+    public void Line_gross_beyond_the_money_bound_is_unsupported(int? calculationVersion)
+    {
+        var sale = FromFixture("exclusive_single_line", calculationVersion);
+        var tampered = sale with { Items = [sale.Items[0] with { SalesPrice = 100_000_000m, Quantity = 1_001m }] };
+
+        var verdict = OfflineInvoiceArithmeticValidator.Validate(tampered);
+
+        var gross = Assert.Single(verdict.Mismatches);
+        Assert.Equal(new OfflineArithmeticMismatch("items[0]", 100_100_000_000m, null, "unsupported_value"), gross);
+    }
+
     [Fact]
     public void Undefined_enum_and_out_of_range_inputs_are_unsupported_values()
     {
