@@ -14,7 +14,9 @@ public interface IOfflineSaleVarianceAnalyzer
         string code,
         string message,
         Guid actorUserId,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        string? invoiceNumber = null,
+        Guid? offlineSubmissionId = null);
 
     Task PersistReviewIssuesAsync(
         Guid saleId,

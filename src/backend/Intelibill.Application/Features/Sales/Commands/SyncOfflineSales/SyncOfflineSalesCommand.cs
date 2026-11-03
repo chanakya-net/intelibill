@@ -31,7 +31,9 @@ public sealed record OfflineSaleSyncCommand(
     decimal? ConfiguredSaleRulePercentage,
     decimal? ConfiguredSaleRuleThresholdAmount,
     IReadOnlyList<OfflineSaleSyncLineCommand> Items,
-    int? CalculationVersion = null);
+    int? CalculationVersion = null,
+    // The user signed in when the invoice was issued; absent on payloads queued before this was recorded.
+    Guid? IssuedByUserId = null);
 
 public sealed record OfflineSaleSyncLineCommand(
     string Barcode,

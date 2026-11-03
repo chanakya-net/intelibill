@@ -113,6 +113,58 @@ public class ReserveInvoiceLeaseCommandHandlerTests
     }
 
     [Fact]
+    public async Task Reserve_RecordsReserverAndSession()
+    {
+        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Manager, true));
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        var sessionId = Guid.NewGuid();
+        var lease = InvoiceLease.Create(
+            shop.Id,
+            Guid.NewGuid(),
+            "device-1",
+            fiscalYearStart: 2025,
+            prefix: "INV-2025-26-",
+            rangeStart: 1,
+            rangeEnd: 200,
+            numberPadding: InvoiceLeaseDefaults.NumberPadding,
+            reservedAt: DateTimeOffset.UtcNow,
+            expiresAt: DateTimeOffset.UtcNow.AddDays(7),
+            reservedByUserId: actor.Id,
+            reservedBySessionId: sessionId);
+        _invoiceLeaseRepository.ReserveAsync(
+            Arg.Any<Guid>(),
+            Arg.Any<string>(),
+            Arg.Any<int>(),
+            Arg.Any<string>(),
+            Arg.Any<int>(),
+            Arg.Any<DateTimeOffset>(),
+            Arg.Any<DateTimeOffset>(),
+            Arg.Any<Guid?>(),
+            Arg.Any<Guid?>(),
+            Arg.Any<CancellationToken>()).Returns(lease);
+
+        var handler = new ReserveInvoiceLeaseCommandHandler(_userRepository, _invoiceLeaseRepository);
+        var result = await handler.HandleAsync(
+            new ReserveInvoiceLeaseCommand(actor.Id, shop.Id, "device-1", null, sessionId),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        await _invoiceLeaseRepository.Received(1).ReserveAsync(
+            shop.Id,
+            "device-1",
+            Arg.Any<int>(),
+            Arg.Any<string>(),
+            InvoiceLeaseDefaults.DefaultBlockSize,
+            Arg.Any<DateTimeOffset>(),
+            Arg.Any<DateTimeOffset>(),
+            actor.Id,
+            sessionId,
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task HandleAsync_WhenValid_UsesSevenDayExpiry()
     {
         var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");

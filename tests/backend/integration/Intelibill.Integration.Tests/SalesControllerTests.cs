@@ -313,6 +313,16 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         return result.GetProperty("saleId").GetGuid();
     }
 
+    // How offline envelopes store their frozen payload (web defaults).
+    private static readonly JsonSerializerOptions EnvelopeJsonOptions = new(JsonSerializerDefaults.Web);
+
+    private async Task BackdateSaleAsync(Guid saleId, DateTimeOffset soldAt)
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE sales SET sold_at = {soldAt.ToUniversalTime()} WHERE id = {saleId}");
+    }
+
     private async Task RecordSimpleReturnAsync(HttpClient client, string token, Guid saleId, decimal refundAmount)
     {
         await using var scope = _factory.Services.CreateAsyncScope();
@@ -550,7 +560,8 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         var startNumber = leaseBody.GetProperty("rangeStart").GetInt32();
         var invoiceNumber = FormatInvoiceNumber(prefix, startNumber, padding);
 
-        var soldAt = DateTimeOffset.UtcNow.AddMinutes(-5);
+        // Issued after the range was reserved: an earlier claim is held as IssueTimeBeforeLease.
+        var soldAt = DateTimeOffset.UtcNow;
         var clientSaleId = $"offline-{Guid.NewGuid():N}";
 
         using var syncRequest = new HttpRequestMessage(HttpMethod.Post, "/api/sales/offline-sync");
@@ -627,6 +638,28 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         Assert.Single(sale.Items);
         Assert.Equal(236m, sale.Items[0].TotalAmount);
 
+        // The envelope was stored first and linked once posted; the lease records who reserved it and from which sign-in.
+        var leaseId = leaseBody.GetProperty("leaseId").GetGuid();
+        var ownerJwt = new JwtSecurityTokenHandler().ReadJwtToken(ownerToken);
+        var ownerId = Guid.Parse(ownerJwt.Claims.Single(c => c.Type == JwtRegisteredClaimNames.Sub).Value);
+        var lease = await db.InvoiceLeases.SingleAsync(l => l.Id == leaseId);
+        Assert.Equal(ownerId, lease.ReservedByUserId);
+        Assert.Equal(Guid.Parse(ownerJwt.Claims.Single(c => c.Type == "sid").Value), lease.ReservedBySessionId);
+        var envelope = await db.OfflineSubmissions.SingleAsync(s => s.ClientSaleId == clientSaleId);
+        Assert.Equal(saleId, envelope.SaleId);
+        Assert.Equal(sale.RequestHash, envelope.PayloadHash);
+        Assert.Equal(leaseId, envelope.OriginalLeaseId);
+        Assert.Equal(ownerId, envelope.SubmittedByUserId);
+        Assert.Equal(ownerId, envelope.AttributableUserId);
+        Assert.Null(envelope.AssertedIssuerUserId);
+        var frozen = JsonSerializer.Deserialize<Intelibill.Application.Features.Sales.Commands.SyncOfflineSales.OfflineSaleSyncCommand>(
+            envelope.PayloadJson,
+            EnvelopeJsonOptions)!;
+        Assert.Equal(invoiceNumber, frozen.InvoiceNumber);
+        Assert.Equal(soldAt, frozen.SoldAt);
+        Assert.Equal(236m, frozen.TotalAmount);
+        Assert.Equal(batchId, Assert.Single(frozen.Items).InventoryBatchId);
+
         var batch = await db.InventoryBatches.FirstOrDefaultAsync(b => b.Id == batchId);
         Assert.NotNull(batch);
         Assert.Equal(8m, batch!.Quantity);
@@ -654,7 +687,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         var invoiceNumber = FormatInvoiceNumber(prefix, startNumber, padding);
 
         var clientSaleId = $"offline-{Guid.NewGuid():N}";
-        var soldAt = DateTimeOffset.UtcNow.AddMinutes(-10);
+        var soldAt = DateTimeOffset.UtcNow;
 
         var payload = new
         {
@@ -1954,21 +1987,23 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         var oldInvoice = FormatInvoiceNumber(prefix, startNumber, padding);
         var recentInvoice = FormatInvoiceNumber(prefix, startNumber + 1, padding);
 
-        await SyncOfflineSaleAsync(
+        // A claim earlier than the lease is held for review, so the old sale is synced now and backdated in place.
+        var oldSaleId = await SyncOfflineSaleAsync(
             client,
             ownerToken,
             deviceId: "device-filter",
             invoiceNumber: oldInvoice,
-            soldAt: DateTimeOffset.UtcNow.AddDays(-40),
+            soldAt: DateTimeOffset.UtcNow,
             barcode,
             batchId);
+        await BackdateSaleAsync(oldSaleId, DateTimeOffset.UtcNow.AddDays(-40));
 
         await SyncOfflineSaleAsync(
             client,
             ownerToken,
             deviceId: "device-filter",
             invoiceNumber: recentInvoice,
-            soldAt: DateTimeOffset.UtcNow.AddDays(-1),
+            soldAt: DateTimeOffset.UtcNow,
             barcode,
             batchId);
 
@@ -2009,7 +2044,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
             ownerToken,
             deviceId: "device-summary",
             invoiceNumber: invoiceA,
-            soldAt: DateTimeOffset.UtcNow.AddDays(-2),
+            soldAt: DateTimeOffset.UtcNow,
             barcode,
             batchId);
 
@@ -2018,7 +2053,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
             ownerToken,
             deviceId: "device-summary",
             invoiceNumber: invoiceB,
-            soldAt: DateTimeOffset.UtcNow.AddDays(-2),
+            soldAt: DateTimeOffset.UtcNow,
             barcode,
             batchId);
 
@@ -2499,7 +2534,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
                 ownerToken,
                 deviceId: "device-page",
                 invoiceNumber: invoice,
-                soldAt: DateTimeOffset.UtcNow.AddMinutes(-i),
+                soldAt: DateTimeOffset.UtcNow,
                 barcode,
                 batchId);
         }
@@ -4698,7 +4733,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         {
             clientSaleId,
             invoiceNumber,
-            soldAt = DateTimeOffset.UtcNow.AddMinutes(-5),
+            soldAt = DateTimeOffset.UtcNow,
             paymentMethod = (int)PaymentMethod.Cash,
             paidAmount = totalAmount,
             dueAmount = 0m,

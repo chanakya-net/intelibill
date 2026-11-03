@@ -17,7 +17,9 @@ internal sealed class OfflineSaleVarianceAnalyzer(IReconciliationIssueRepository
         string code,
         string message,
         Guid actorUserId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? invoiceNumber = null,
+        Guid? offlineSubmissionId = null)
     {
         var openIssueId = await reconciliationIssueRepository.FindOpenIssueIdAsync(
             shopId,
@@ -40,7 +42,9 @@ internal sealed class OfflineSaleVarianceAnalyzer(IReconciliationIssueRepository
             issueType,
             code,
             message,
-            actorUserId);
+            actorUserId,
+            invoiceNumber: invoiceNumber,
+            offlineSubmissionId: offlineSubmissionId);
         await reconciliationIssueRepository.AddAsync(issue, cancellationToken);
         return issue.Id;
     }

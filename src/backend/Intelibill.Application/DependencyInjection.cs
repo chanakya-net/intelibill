@@ -61,6 +61,7 @@ public static class DependencyInjection
         services.AddScoped<DiscountRuleValidationService>();
 
         services.AddScoped<IOfflineSaleVarianceAnalyzer, OfflineSaleVarianceAnalyzer>();
+        services.AddScoped<IOfflineSalePoster, OfflineSalePoster>();
 
         return services;
     }

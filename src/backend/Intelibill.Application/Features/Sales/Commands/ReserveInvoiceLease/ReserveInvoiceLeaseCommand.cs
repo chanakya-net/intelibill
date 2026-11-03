@@ -4,4 +4,6 @@ public sealed record ReserveInvoiceLeaseCommand(
     Guid ActorUserId,
     Guid ShopId,
     string DeviceId,
-    int? BlockSize);
+    int? BlockSize,
+    // The sign-in the range is reserved from; recorded as the lease's provenance.
+    Guid? SessionId = null);

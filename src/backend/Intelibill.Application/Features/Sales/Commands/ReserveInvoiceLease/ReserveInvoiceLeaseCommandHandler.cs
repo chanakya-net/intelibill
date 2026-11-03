@@ -44,8 +44,8 @@ public sealed class ReserveInvoiceLeaseCommandHandler(
             blockSize,
             reservedAt,
             expiresAt,
-            null,
-            null,
+            command.ActorUserId,
+            command.SessionId,
             cancellationToken);
 
         return new InvoiceLeaseDto(

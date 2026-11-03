@@ -72,7 +72,8 @@ internal static class OfflineSaleSyncIdempotencyHasher
                 (int)item.ItemDiscountOverrideType,
                 item.ItemDiscountOverrideValue,
                 Normalize(item.HsnCode))).ToList(),
-            sale.CalculationVersion);
+            sale.CalculationVersion,
+            sale.IssuedByUserId);
 
         var json = JsonSerializer.Serialize(payload, SerializerOptions);
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(json));
@@ -108,7 +109,9 @@ internal sealed record OfflineSaleSyncIdempotencyPayload(
     decimal? ConfiguredSaleRuleThresholdAmount,
     IReadOnlyList<OfflineSaleSyncLineIdempotencyPayload> Items,
     // Omitted when null so unversioned payloads keep the hash they were first synced with.
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? CalculationVersion);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? CalculationVersion,
+    // Omitted when null so payloads queued before the issuer was recorded keep their hash.
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] Guid? IssuedByUserId);
 
 internal sealed record OfflineSaleSyncLineIdempotencyPayload(
     string? Barcode,
