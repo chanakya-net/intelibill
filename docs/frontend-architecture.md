@@ -79,7 +79,7 @@ src/frontend/src/app/
 | Service | Store | Purpose |
 |---|---|---|
 | `ProductCatalogIndexedDbService` | `product-catalog` | Offline item catalog synced from backend stream |
-| `SalesCartIndexedDbService` | `sales-cart` | Persists in-progress POS cart across page reloads |
+| `SalesCartIndexedDbService` | `sales-cart-by-owner` (DB v2) | Persists the in-progress POS cart per user + shop (`ownerKey`); the shop-keyed v1 `sales-cart` store is no longer read |
 | `InventoryDraftIndexedDbService` | `inventory-draft` | Persists in-progress inbound stock entry |
 | `CheckoutIntentIndexedDbService` | `checkout-intents` | Frozen online checkouts (`prepared → sending → uncertain → confirmed/rejected`), stored before the sale POST; `CheckoutIntentService` replays the stored request on retry and never deletes an unresolved intent |
 
@@ -162,6 +162,34 @@ follow the server's `availableActions`. Backend rules: `docs/backend-architectur
 - **Printing** opens the dialog once after render and font loading; "Print again" only reopens it. The
   queue delivery state is shown beside the invoice on screen and never printed. A blocked print window
   leaves a link in the offline confirmation.
+
+## Shop Context Transitions
+
+A tab works as one owner, `ScopeOwner { userId, shopId }`, held by `ShopContextService` (`core/context`)
+with a tab-local `epoch`.
+
+- **One write path.** Every session `AuthSessionService` installs (sign-in, switch and shop creation via
+  `applyAccessScope`, renewal, `SESSION_UPDATED`/`SESSION_CLEARED` from another tab, sign-out) goes through
+  `ShopContextService.transition`. A change of owner, in order: bumps the epoch, hides routed content in the
+  shell (`transitioning`), runs `onDetach` hooks while the old session is still installed, dispatches
+  `ShopContextActions.scopeChanged` (`scopeResetMetaReducer` resets every slice but `appShell`, `httpUi` and
+  `authRegistration`), installs the session, and — between two signed-in owners — restarts the app at `/`
+  (`AppReloadService`), so routes and guards re-run for the new role. Sign-out leaves navigation to its
+  callers (`/login`). Renewals and preference saves that keep the owner change nothing else.
+- **Switching.** `ShopsEffects.switchActiveShop$` first awaits `prepareToLeave()`: it refuses while an
+  owner-bound write holds a `beginMutation()` lease (`errors.shops.switchBlockedByPendingOperation`) or a draft
+  cannot be saved under its owner (`errors.shops.switchDraftSaveFailed`). `applyAccessScope` refuses an answer
+  whose `scopeVersion` is older than the installed token's `scope_version` claim, or that was requested from
+  another device session.
+- **Late answers.** `authInterceptor` records the epoch a request left under. An answer arriving after the
+  epoch moved completes without a value; requests carrying `REQUEST_SCOPE` (`scopedRequestContext(owner)`)
+  get `StaleScopeError` instead, and are refused unsent (`ScopeMismatchError`) when their owner is not the
+  tab's. `/auth/*`, `shops/switch` and `POST shops` are exempt: their answers are judged where installed.
+- **Owners of work.** `SaleCartStateService` keeps the owner its rows were loaded for, saves under it, and
+  detaches on every transition (load dropped, rows saved then cleared; a failed save shows
+  `sales.newSale.draftSaveFailed`). Checkout intents and bulk-intake chunks are sent with their owner and a
+  mutation lease; an answer lost to a move leaves the intent `uncertain` (`recordSaleDetached`) or the intake
+  submission stored, and never rewrites another owner's draft.
 
 ## Key Patterns
 
