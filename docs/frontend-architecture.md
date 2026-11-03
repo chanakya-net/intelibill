@@ -89,17 +89,38 @@ src/frontend/src/app/
 `OfflineReconciliationService`; linked from the menu and sales history). Every role sees it; actions
 follow the server's `availableActions`. Backend rules: `docs/backend-architecture.md` § Offline Reconciliation.
 
-- **Device queue** is live from `OfflineSalesQueueSyncService.unsentSales`: Pending/Failed invoices are
-  transport retries, NeedsReview opens its case, and another user's invoices are listed as awaiting
-  their issuer.
+- **Device queue** is live from `OfflineSalesQueueSyncService.unsentSales` for the active shop and this
+  browser's device id: Pending/Failed invoices are transport retries, NeedsReview opens its case, and
+  another user's invoices are listed as awaiting their issuer.
+- **Send to server for review.** A NeedsReview row the signed-in user may submit (`isSubmittableBy`)
+  whose case kept no original invoice (`hasOriginalEnvelope` false, learnt from the case detail) or that
+  has no case at all offers a one-time resend: `resubmitForReview` sends that one record through the
+  normal sync request; if the request fails the record goes back to NeedsReview exactly as it was, so
+  automatic and bulk retries (`isOfflineSaleSyncRetryable`) still never resend held invoices.
 - **Issuer stamping.** New queued invoices carry `issuedByUserId`; queue sync submits only the
   signed-in user's invoices (and legacy unstamped ones).
 - **Cases** show a status filter, paging, the frozen invoice, reason, differences, people ("unknown
-  user" for non-members) and the audit trail, plus a resolve form. State is shown only from the last
-  server response; offline display never claims a resolution.
-- **Support bundle.** Anyone can export the device's unsent invoices (checksum over the `invoices`
-  text); owners/managers import one. Imports always open a review.
-- **Hand-off notice** tells the user when invoices belong to another cashier or need support.
+  user" for non-members), the invoice number reservation window, and the audit trail, plus a resolve
+  form. State is shown only from the last server response; offline display never claims a resolution.
+  When no action is offered the note is role-specific: owners/managers read that none is available,
+  staff that an owner or manager may have more options.
+- **Link actions** (`LinkStockCorrection`, `LinkExistingSale`) pick from the server's `linkCandidates`
+  in a select (adjustment number, quantity and date, or invoice number and date); there is no free-text
+  id, and only an offered candidate is ever sent. With none, the form says what to do (record a Found
+  stock or Other gain increase of at least the missing quantity on the batch, or wait for the sale to
+  post) and offers "Reload case".
+- **Support bundle.** Anyone can export this browser's undelivered invoices (Pending, Syncing, Failed,
+  NeedsReview, any issuer) for the active shop (`buildSupportBundle`): parts of at most 100 invoices and
+  1,900,000 UTF-8 bytes, each a complete bundle with its own checksum over its `invoices` text, named
+  `offline-recovery-<deviceId>-<yyyyMMddHHmm>.json` or `...-part<N>-of-<M>.json`. Every part is
+  downloaded, then the page asks the user to confirm the files were saved; only that confirmation
+  records the export (`lastSupportExport.v1:<shop>:<device>` in localStorage: every part's checksum and
+  the client sale ids). Discarding records nothing. Owners/managers import one file at a time; imports
+  always open a review.
+- **Hand-off notice** covers the active shop on this browser only, and says so: it is safe to clear or
+  retire when every unsynced invoice of this shop and device is in the last confirmed export (or there
+  are none). Invoices of other shops billed on the same browser are not counted; the user must switch
+  to each shop and check there.
 
 ## Key Patterns
 
