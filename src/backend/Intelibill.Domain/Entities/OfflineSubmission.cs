@@ -62,6 +62,10 @@ public sealed class OfflineSubmission : BaseEntity
         Guid? originalLeaseId,
         string? recoveryOperationId)
     {
+        // Npgsql writes timestamptz only for offset zero, and the client-supplied claim may carry any offset.
+        var claimedUtc = new DateTimeOffset(claimedSoldAt.UtcDateTime, TimeSpan.Zero);
+        var receivedUtc = new DateTimeOffset(receivedAt.UtcDateTime, TimeSpan.Zero);
+
         return new OfflineSubmission
         {
             ShopId = shopId,
@@ -70,15 +74,15 @@ public sealed class OfflineSubmission : BaseEntity
             InvoiceNumber = invoiceNumber.Trim(),
             PayloadHash = payloadHash,
             PayloadJson = payloadJson,
-            ClaimedSoldAt = claimedSoldAt,
-            ReceivedAt = receivedAt,
+            ClaimedSoldAt = claimedUtc,
+            ReceivedAt = receivedUtc,
             Source = source,
             SubmittedByUserId = submittedByUserId,
             AssertedIssuerUserId = assertedIssuerUserId,
             OriginalIssuerUserId = originalIssuerUserId,
             OriginalLeaseId = originalLeaseId,
             RecoveryOperationId = recoveryOperationId,
-            CreatedAt = receivedAt,
+            CreatedAt = receivedUtc,
         };
     }
 

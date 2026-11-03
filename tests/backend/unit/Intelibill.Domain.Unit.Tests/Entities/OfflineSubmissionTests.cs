@@ -47,6 +47,24 @@ public sealed class OfflineSubmissionTests
     }
 
     [Fact]
+    public void Record_NormalizesTimestampsToUtc()
+    {
+        var offset = TimeSpan.FromMinutes(330);
+        var sold = new DateTimeOffset(2026, 5, 3, 15, 30, 0, offset);
+        var received = new DateTimeOffset(2026, 5, 10, 15, 30, 0, offset);
+
+        var submission = OfflineSubmission.Record(
+            ShopId, "device-1", "client-1", "INV-0001", new string('a', 64), "{}", sold, received,
+            OfflineSubmissionSource.Sync, Submitter, null, null, null, null);
+
+        Assert.Equal(TimeSpan.Zero, submission.ClaimedSoldAt.Offset);
+        Assert.Equal(TimeSpan.Zero, submission.ReceivedAt.Offset);
+        Assert.Equal(sold.UtcDateTime, submission.ClaimedSoldAt.UtcDateTime);
+        Assert.Equal(received.UtcDateTime, submission.ReceivedAt.UtcDateTime);
+        Assert.Equal(TimeSpan.Zero, submission.CreatedAt.Offset);
+    }
+
+    [Fact]
     public void LinkSale_SameIdTwice_Succeeds()
     {
         var submission = Create();

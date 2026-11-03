@@ -68,6 +68,28 @@ public sealed class OfflineSubmissionRepositoryTests(PostgreSqlTestFixture fixtu
     }
 
     [Fact]
+    public async Task RecordAsync_ClaimedSoldAtWithNonZeroOffset_StoresSameInstant()
+    {
+        var shop = await CreateShopAsync();
+        var sold = new DateTimeOffset(2026, 5, 3, 15, 30, 0, TimeSpan.FromMinutes(330));
+        var received = new DateTimeOffset(2026, 5, 10, 0, 0, 0, TimeSpan.Zero);
+        var candidate = OfflineSubmission.Record(
+            shop.Id, "device-1", "client-1", "INV-0001", new string('d', 64), "{\"amount\":10}",
+            sold, received, OfflineSubmissionSource.Sync, Guid.NewGuid(), null, null, null, null);
+
+        using var scope = _factory.Services.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<IOfflineSubmissionRepository>();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        var stored = await repository.RecordAsync(candidate, CancellationToken.None);
+        db.ChangeTracker.Clear();
+        var reread = await db.OfflineSubmissions.AsNoTracking().SingleAsync(s => s.Id == stored.Id);
+
+        Assert.Equal(sold.UtcDateTime, reread.ClaimedSoldAt.UtcDateTime);
+        Assert.Equal(TimeSpan.Zero, reread.ClaimedSoldAt.Offset);
+    }
+
+    [Fact]
     public async Task RecordAsync_InsideOpenTransaction_JoinsIt()
     {
         var shop = await CreateShopAsync();
