@@ -620,9 +620,9 @@ it runs shop by shop under the tenant policies and changes nothing.
 | Suite | Path | Count |
 |---|---|---|
 | Domain unit | `tests/backend/unit/Intelibill.Domain.Unit.Tests/` | 279 |
-| Application unit | `tests/backend/unit/Intelibill.Application.Unit.Tests/` | 1093 |
+| Application unit | `tests/backend/unit/Intelibill.Application.Unit.Tests/` | 1317 |
 | API unit | `tests/backend/unit/Intelibill.Api.Unit.Tests/` | 541 |
-| Integration | `tests/backend/integration/Intelibill.Integration.Tests/` | 584 |
-| **Total** | | **2497** |
+| Integration | `tests/backend/integration/Intelibill.Integration.Tests/` | 588 |
+| **Total** | | **2725** |
 
-Integration tests use `WebApplicationFactory<Program>` backed by **Testcontainers** (`Testcontainers.PostgreSql`) — Docker required. Non-integration suite: 1913 passing.
+Integration tests use `WebApplicationFactory<Program>` backed by **Testcontainers** (`Testcontainers.PostgreSql`) — Docker required. Non-integration suite: 2137 passing.
