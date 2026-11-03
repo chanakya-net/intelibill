@@ -1,9 +1,10 @@
-import { CommonModule } from '@angular/common';
+import { CommonModule, formatDate, formatNumber } from '@angular/common';
 import {
   Component,
   DestroyRef,
   ElementRef,
   Injector,
+  LOCALE_ID,
   afterNextRender,
   computed,
   effect,
@@ -34,6 +35,7 @@ import type {
   ReconciliationAction,
   ReconciliationCase,
   ReconciliationCasePage,
+  ReconciliationLinkCandidate,
   ReconciliationPerson,
   ReconciliationStatusFilter,
   ResolveReconciliationCaseRequest,
@@ -69,16 +71,28 @@ import {
 const PAGE_SIZE = 20;
 const MAX_BUNDLE_BYTES = 2 * 1024 * 1024;
 const LAST_EXPORT_KEY_PREFIX = 'intelibill.offlineSales.lastSupportExport.v1';
-const GUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const UNSENT_STATUSES = new Set(['Pending', 'Syncing', 'Failed']);
+const DATE_FORMAT = 'dd MMM yyyy, h:mm a';
+/** Which candidates each link action may name. */
+const CANDIDATE_KIND: Readonly<Partial<Record<ReconciliationAction, ReconciliationLinkCandidate['kind']>>> = {
+  LinkStockCorrection: 'Adjustment',
+  LinkExistingSale: 'Sale',
+};
 
 type LoadState = 'idle' | 'loading' | 'ready' | 'error';
 
-/** The last support bundle this browser downloaded; the hand-off check counts its invoices as safe. */
-interface SupportExportRecord {
-  readonly exportedAt: string;
+interface SupportExportFile {
   readonly fileName: string;
   readonly checksum: string;
+}
+
+/**
+ * The last support export this browser's user confirmed saving, every file of it; the hand-off check counts its
+ * invoices as safe. A download that was only started is never recorded.
+ */
+interface SupportExportRecord {
+  readonly exportedAt: string;
+  readonly files: readonly SupportExportFile[];
   readonly clientSaleIds: readonly string[];
 }
 
@@ -128,6 +142,7 @@ export class OfflineReconciliationPageComponent {
   private readonly destroyRef = inject(DestroyRef);
   private readonly injector = inject(Injector);
   private readonly transloco = inject(TranslocoService);
+  private readonly locale = inject(LOCALE_ID);
   /** Option labels are read out by screen readers, so they are translated text and follow language changes. */
   private readonly activeLang = toSignal(this.transloco.langChanges$, { initialValue: this.transloco.getActiveLang() });
 
@@ -153,6 +168,8 @@ export class OfflineReconciliationPageComponent {
   readonly canReachApi = this.network.canReachApi;
   readonly isOffline = computed(() => !this.canReachApi());
   readonly canRecover = this.permissions.canRecoverOfflineInvoices;
+  /** Owners and managers see every action the server allows; staff may only escalate their own cases. */
+  readonly isReviewer = this.permissions.isOwnerOrManagerOfActiveShop;
   private readonly shopId = computed(() => this.auth.session()?.activeShopId ?? null);
   private readonly userId = computed(() => this.auth.session()?.user.id ?? null);
   private readonly deviceId = computed(() => {
@@ -168,6 +185,11 @@ export class OfflineReconciliationPageComponent {
   readonly localRecords = this.queueSync.unsentSales;
   readonly localState = signal<LoadState>('loading');
   readonly retryingIds = signal<ReadonlySet<string>>(new Set());
+  readonly resubmittingIds = signal<ReadonlySet<string>>(new Set());
+  readonly resubmitFailedInvoice = signal<string | null>(null);
+  /** Whether each held row's server case kept the original invoice (true), learnt from its detail; absent until known. */
+  readonly caseEnvelopes = signal<ReadonlyMap<string, boolean>>(new Map());
+  private readonly envelopeLookups = new Set<string>();
   readonly unsentRows = computed(() => {
     const userId = this.userId();
     return this.localRecords()
@@ -213,6 +235,15 @@ export class OfflineReconciliationPageComponent {
     const action = this.resolveAction();
     return action !== null && LINKED_OPERATION_ACTIONS.includes(action);
   });
+  /** The server's link candidates for the chosen action, as translated option labels. */
+  readonly linkOptions = computed(() => {
+    this.activeLang();
+    const kind = CANDIDATE_KIND[this.resolveAction() ?? 'Escalate'];
+    if (!kind) return [];
+    return (this.selectedCase()?.linkCandidates ?? [])
+      .filter((candidate) => candidate.kind === kind)
+      .map((candidate) => ({ value: candidate.operationId, label: this.candidateLabel(candidate) }));
+  });
   readonly trimmedReasonLength = computed(() => this.resolveReason().trim().length);
   readonly actionErrorKey = computed(() =>
     this.resolveAction() === null ? 'sales.offlineReconciliation.resolve.validation.actionRequired' : null,
@@ -224,9 +255,10 @@ export class OfflineReconciliationPageComponent {
   });
   readonly linkedErrorKey = computed(() => {
     if (!this.needsLinkedOperation()) return null;
-    const value = this.resolveLinkedOperationId().trim();
-    if (!value) return 'sales.offlineReconciliation.resolve.validation.linkedRequired';
-    return GUID_PATTERN.test(value) ? null : 'sales.offlineReconciliation.resolve.validation.linkedInvalid';
+    const value = this.resolveLinkedOperationId();
+    return this.linkOptions().some((option) => option.value === value)
+      ? null
+      : 'sales.offlineReconciliation.resolve.validation.linkedRequired';
   });
   readonly canResolve = computed(() => {
     const current = this.selectedCase();
@@ -241,6 +273,8 @@ export class OfflineReconciliationPageComponent {
 
   // Support bundle.
   readonly lastExport = signal<SupportExportRecord | null>(null);
+  /** Files just handed to the browser to save; they count for the hand-off only once the user confirms. */
+  readonly pendingExport = signal<SupportExportRecord | null>(null);
   readonly exporting = signal(false);
   readonly exportErrorKey = signal<string | null>(null);
   readonly importFile = signal<{ readonly name: string; readonly text: string } | null>(null);
@@ -261,6 +295,15 @@ export class OfflineReconciliationPageComponent {
           if (this.selectedCaseId()) this.loadSelectedCase();
         }
         previouslyReachable = reachable;
+      });
+    });
+
+    // Learns, once per case, whether each held row's case kept its original invoice (see canResubmit).
+    effect(() => {
+      const rows = this.reviewRows();
+      const reachable = this.canReachApi();
+      untracked(() => {
+        if (reachable) for (const row of rows) if (row.reviewCaseId) this.lookUpEnvelope(row.reviewCaseId);
       });
     });
 
@@ -294,6 +337,57 @@ export class OfflineReconciliationPageComponent {
       this.retryingIds.update((ids) => new Set([...ids].filter((id) => id !== clientSaleId)));
       await this.reloadLocalRecords();
     }
+  }
+
+  /**
+   * A held invoice may be sent once more, by its issuer (or anyone, when unstamped), when the server has no
+   * original copy of it: no case was recorded, or its case was filed before the server kept original invoices.
+   */
+  canResubmit(row: { readonly clientSaleId: string; readonly reviewCaseId: string | null }): boolean {
+    const record = this.localRecords().find((candidate) => candidate.clientSaleId === row.clientSaleId);
+    if (!record || record.status !== 'NeedsReview' || !isSubmittableBy(record, this.userId())) return false;
+    return row.reviewCaseId === null || this.caseEnvelopes().get(row.reviewCaseId) === false;
+  }
+
+  isResubmitting(clientSaleId: string): boolean {
+    return this.resubmittingIds().has(clientSaleId);
+  }
+
+  async resubmit(row: { readonly clientSaleId: string; readonly invoiceNumber: string }): Promise<void> {
+    const shopId = this.shopId();
+    const deviceId = this.deviceId();
+    const clientSaleId = row.clientSaleId;
+    if (!shopId || !deviceId || !this.canReachApi() || this.isResubmitting(clientSaleId)) return;
+
+    this.resubmitFailedInvoice.set(null);
+    this.resubmittingIds.update((ids) => new Set([...ids, clientSaleId]));
+    try {
+      const result = await this.queueSync.resubmitForReview(shopId, deviceId, clientSaleId);
+      if (result.failedCount > 0) this.resubmitFailedInvoice.set(row.invoiceNumber);
+    } catch {
+      this.resubmitFailedInvoice.set(row.invoiceNumber);
+    } finally {
+      this.resubmittingIds.update((ids) => new Set([...ids].filter((id) => id !== clientSaleId)));
+      await this.reloadLocalRecords();
+      this.loadCases();
+    }
+  }
+
+  private lookUpEnvelope(caseId: string): void {
+    if (this.envelopeLookups.has(caseId)) return;
+    this.envelopeLookups.add(caseId);
+    this.reconciliation
+      .getCase(caseId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (detail) => this.rememberEnvelope(detail),
+        // Unknown stays unknown (the row offers no resend); a later page load asks again.
+        error: () => this.envelopeLookups.delete(caseId),
+      });
+  }
+
+  private rememberEnvelope(detail: ReconciliationCase): void {
+    this.caseEnvelopes.update((known) => new Map(known).set(detail.caseId, detail.hasOriginalEnvelope));
   }
 
   async reloadLocalRecords(): Promise<void> {
@@ -406,9 +500,14 @@ export class OfflineReconciliationPageComponent {
         next: (detail) => {
           if (request !== this.detailRequest) return;
           this.selectedCase.set(detail);
+          this.rememberEnvelope(detail);
           this.detailState.set('ready');
           const action = this.resolveAction();
           if (action && !detail.availableActions.includes(action)) this.resolveAction.set(null);
+          // A reload may withdraw a candidate (linked elsewhere, voided): never submit one the server no longer offers.
+          if (!this.linkOptions().some((option) => option.value === this.resolveLinkedOperationId())) {
+            this.resolveLinkedOperationId.set('');
+          }
           if (focusWhenLoaded) this.focusDetail();
         },
         error: () => {
@@ -420,6 +519,30 @@ export class OfflineReconciliationPageComponent {
 
   private focusDetail(): void {
     afterNextRender(() => this.detailHeading()?.nativeElement.focus(), { injector: this.injector });
+  }
+
+  /** Reloads the open case, for example after recording the adjustment a link needs. */
+  reloadCase(): void {
+    this.loadSelectedCase();
+  }
+
+  formatWhen(value: string): string {
+    return formatDate(value, DATE_FORMAT, this.locale);
+  }
+
+  formatQuantity(value: number | null): string {
+    return formatNumber(value ?? 0, this.locale, '1.0-3');
+  }
+
+  private candidateLabel(candidate: ReconciliationLinkCandidate): string {
+    const date = this.formatWhen(candidate.occurredAt);
+    return candidate.kind === 'Adjustment'
+      ? this.transloco.translate('sales.offlineReconciliation.resolve.candidateAdjustment', {
+          number: candidate.label,
+          quantity: this.formatQuantity(candidate.quantity),
+          date,
+        })
+      : this.transloco.translate('sales.offlineReconciliation.resolve.candidateSale', { invoice: candidate.label, date });
   }
 
   // ---- Resolve --------------------------------------------------------------------------------------------------
@@ -440,7 +563,7 @@ export class OfflineReconciliationPageComponent {
     }
 
     const reason = this.resolveReason().trim();
-    const linkedOperationId = this.needsLinkedOperation() ? this.resolveLinkedOperationId().trim() : null;
+    const linkedOperationId = this.needsLinkedOperation() ? this.resolveLinkedOperationId() : null;
     const signature = JSON.stringify([current.caseId, current.version, action, reason, linkedOperationId]);
     if (this.resolveIntent?.signature !== signature) {
       this.resolveIntent = { signature, operationId: crypto.randomUUID() };
@@ -508,6 +631,11 @@ export class OfflineReconciliationPageComponent {
 
   // ---- Support bundle -------------------------------------------------------------------------------------------
 
+  /**
+   * Downloads every part of the support export (each at most 100 invoices and under the server's size limit, each
+   * with its own checksum). Starting a download does not prove the files were kept, so the export counts for the
+   * hand-off only after the user confirms saving every file (`confirmExportSaved`).
+   */
   async exportBundle(): Promise<void> {
     const shopId = this.shopId();
     const deviceId = this.deviceId();
@@ -515,31 +643,45 @@ export class OfflineReconciliationPageComponent {
 
     this.exporting.set(true);
     this.exportErrorKey.set(null);
+    this.pendingExport.set(null);
     try {
       const records = await this.queueDb.getAllByShopDevice(shopId, deviceId);
       const exportedAt = new Date().toISOString();
-      const bundle = await buildSupportBundle(records, { shopId, deviceId, exportedAt });
-      if (bundle.clientSaleIds.length === 0) {
+      const parts = await buildSupportBundle(records, { shopId, deviceId, exportedAt });
+      if (parts.length === 0) {
         this.exportErrorKey.set('sales.offlineReconciliation.bundle.exportEmpty');
         return;
       }
 
-      this.downloads.download(new Blob([bundle.text], { type: 'application/json' }), bundle.fileName);
-      const exported: SupportExportRecord = {
+      for (const part of parts) {
+        this.downloads.download(new Blob([part.text], { type: 'application/json' }), part.fileName);
+      }
+      this.pendingExport.set({
         exportedAt,
-        fileName: bundle.fileName,
-        checksum: bundle.checksum,
-        clientSaleIds: bundle.clientSaleIds,
-      };
-      this.writeLastExport(exported);
-      this.lastExport.set(exported);
-      // Brings the live queue level with what the bundle just captured, so the hand-off compares like with like.
-      await this.queueSync.refreshActiveStatusCounts().catch(() => undefined);
+        files: parts.map((part) => ({ fileName: part.fileName, checksum: part.checksum })),
+        clientSaleIds: parts.flatMap((part) => part.clientSaleIds),
+      });
     } catch {
       this.exportErrorKey.set('sales.offlineReconciliation.bundle.exportError');
     } finally {
       this.exporting.set(false);
     }
+  }
+
+  /** The user saw every file saved: from now on the hand-off counts these invoices as carried by the export. */
+  async confirmExportSaved(): Promise<void> {
+    const exported = this.pendingExport();
+    if (!exported) return;
+
+    this.writeLastExport(exported);
+    this.lastExport.set(exported);
+    this.pendingExport.set(null);
+    // Brings the live queue level with what the export captured, so the hand-off compares like with like.
+    await this.queueSync.refreshActiveStatusCounts().catch(() => undefined);
+  }
+
+  discardPendingExport(): void {
+    this.pendingExport.set(null);
   }
 
   async onImportFileSelected(event: Event): Promise<void> {
@@ -615,18 +757,32 @@ export class OfflineReconciliationPageComponent {
     const key = this.lastExportStorageKey();
     if (!key) return null;
     try {
-      const parsed = JSON.parse(localStorage.getItem(key) ?? 'null') as Partial<SupportExportRecord> | null;
+      const parsed = JSON.parse(localStorage.getItem(key) ?? 'null') as
+        | (Partial<SupportExportRecord> & { readonly fileName?: unknown; readonly checksum?: unknown })
+        | null;
       if (
         !parsed ||
         typeof parsed.exportedAt !== 'string' ||
-        typeof parsed.fileName !== 'string' ||
-        typeof parsed.checksum !== 'string' ||
         !Array.isArray(parsed.clientSaleIds) ||
         !parsed.clientSaleIds.every((id) => typeof id === 'string')
       ) {
         return null;
       }
-      return parsed as SupportExportRecord;
+
+      // Exports recorded before multi-file exports named their single file directly.
+      const files =
+        typeof parsed.fileName === 'string' && typeof parsed.checksum === 'string'
+          ? [{ fileName: parsed.fileName, checksum: parsed.checksum }]
+          : parsed.files;
+      if (
+        !Array.isArray(files) ||
+        files.length === 0 ||
+        !files.every((file) => typeof file?.fileName === 'string' && typeof file?.checksum === 'string')
+      ) {
+        return null;
+      }
+
+      return { exportedAt: parsed.exportedAt, files, clientSaleIds: parsed.clientSaleIds };
     } catch {
       return null;
     }

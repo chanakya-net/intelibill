@@ -117,6 +117,9 @@
                 } @else {
                   <span class="queue-meta">{{ 'sales.offlineReconciliation.queue.noCase' | transloco }}</span>
                 }
+                @if (canResubmit(row)) {
+                  <span class="queue-meta resubmit-hint">{{ 'sales.offlineReconciliation.queue.resubmitHint' | transloco }}</span>
+                }
               </div>
               <div class="queue-row-actions">
                 <a
@@ -129,6 +132,21 @@
                   <i class="pi pi-print" aria-hidden="true"></i>
                   {{ 'sales.offlineReconciliation.print' | transloco }}
                 </a>
+                @if (canResubmit(row)) {
+                  <button
+                    pButton
+                    type="button"
+                    class="row-action-btn resubmit-btn"
+                    icon="pi pi-send"
+                    severity="secondary"
+                    [outlined]="true"
+                    [label]="'sales.offlineReconciliation.queue.resubmit' | transloco"
+                    [attr.aria-label]="'sales.offlineReconciliation.queue.resubmitInvoice' | transloco: { invoice: row.invoiceNumber }"
+                    [loading]="isResubmitting(row.clientSaleId)"
+                    [disabled]="isOffline() || isResubmitting(row.clientSaleId)"
+                    (click)="resubmit(row)"
+                  ></button>
+                }
                 @if (row.reviewCaseId; as caseId) {
                   <button
                     pButton
@@ -146,6 +164,11 @@
             </li>
           }
         </ul>
+        @if (resubmitFailedInvoice(); as invoice) {
+          <p class="panel-error resubmit-error" role="alert">
+            {{ 'sales.offlineReconciliation.queue.resubmitFailed' | transloco: { invoice: invoice } }}
+          </p>
+        }
       </div>
     }
 
@@ -511,6 +534,23 @@
                   <dt>{{ 'sales.offlineReconciliation.detail.soldAt' | transloco }}</dt>
                   <dd>{{ sent.invoice.soldAt | date: 'dd MMM yyyy, h:mm a' }}</dd>
                 </div>
+                <div class="detail-field lease-window">
+                  <dt>{{ 'sales.offlineReconciliation.detail.leaseWindow' | transloco }}</dt>
+                  <dd>
+                    @if (sent.leaseReservedAt && sent.leaseExpiresAt) {
+                      {{
+                        'sales.offlineReconciliation.detail.leaseWindowValue'
+                          | transloco
+                            : {
+                                from: (sent.leaseReservedAt | date: 'dd MMM yyyy, h:mm a'),
+                                to: (sent.leaseExpiresAt | date: 'dd MMM yyyy, h:mm a'),
+                              }
+                      }}
+                    } @else {
+                      {{ 'sales.offlineReconciliation.detail.noLease' | transloco }}
+                    }
+                  </dd>
+                </div>
                 <div class="detail-field">
                   <dt>{{ 'sales.offlineReconciliation.detail.customer' | transloco }}</dt>
                   <dd>
@@ -620,7 +660,14 @@
             <form class="resolve-form" (ngSubmit)="submitResolve()" novalidate>
               <h3 class="detail-block-title">{{ 'sales.offlineReconciliation.resolve.title' | transloco }}</h3>
               @if (detail.availableActions.length === 0) {
-                <p class="panel-hint">{{ 'sales.offlineReconciliation.resolve.noActions' | transloco }}</p>
+                <p class="panel-hint no-actions">
+                  {{
+                    (isReviewer()
+                      ? 'sales.offlineReconciliation.resolve.noActionsReviewer'
+                      : 'sales.offlineReconciliation.resolve.noActions'
+                    ) | transloco
+                  }}
+                </p>
               } @else {
                 <p class="panel-hint">{{ 'sales.offlineReconciliation.resolve.hint' | transloco }}</p>
 
@@ -654,24 +701,47 @@
                         : 'sales.offlineReconciliation.resolve.linkedAdjustment'
                       ) | transloco
                     }}</label>
-                    <input
-                      pInputText
-                      id="resolve-linked"
-                      name="resolveLinked"
-                      class="linked-operation-input"
-                      autocomplete="off"
-                      spellcheck="false"
-                      [ngModel]="resolveLinkedOperationId()"
-                      (ngModelChange)="resolveLinkedOperationId.set($event)"
-                      [disabled]="!canResolve()"
-                      [attr.aria-invalid]="resolveAttempted() && linkedErrorKey() ? 'true' : null"
-                      aria-describedby="resolve-linked-hint"
-                    />
-                    <p id="resolve-linked-hint" class="field-hint">
-                      {{ 'sales.offlineReconciliation.resolve.linkedHint' | transloco }}
-                    </p>
-                    @if (resolveAttempted() && linkedErrorKey(); as errorKey) {
-                      <p class="field-error" role="alert">{{ errorKey | transloco }}</p>
+                    @if (linkOptions().length > 0) {
+                      <p-select
+                        inputId="resolve-linked"
+                        name="resolveLinked"
+                        styleClass="linked-operation-select"
+                        [options]="linkOptions()"
+                        optionLabel="label"
+                        optionValue="value"
+                        [ngModel]="resolveLinkedOperationId() || null"
+                        (ngModelChange)="resolveLinkedOperationId.set($event ?? '')"
+                        [placeholder]="'sales.offlineReconciliation.resolve.candidatePlaceholder' | transloco"
+                        [disabled]="!canResolve()"
+                        appendTo="body"
+                      ></p-select>
+                      @if (resolveAttempted() && linkedErrorKey(); as errorKey) {
+                        <p class="field-error" role="alert">{{ errorKey | transloco }}</p>
+                      }
+                    } @else {
+                      <div class="no-candidates" role="note">
+                        <p class="field-hint">
+                          @if (resolveAction() === 'LinkExistingSale') {
+                            {{ 'sales.offlineReconciliation.resolve.noSaleCandidates' | transloco }}
+                          } @else {
+                            {{
+                              'sales.offlineReconciliation.resolve.noAdjustmentCandidates'
+                                | transloco: { quantity: formatQuantity(detail.unresolvedQuantity) }
+                            }}
+                          }
+                        </p>
+                        <button
+                          pButton
+                          type="button"
+                          class="reload-case-btn"
+                          icon="pi pi-refresh"
+                          severity="secondary"
+                          [outlined]="true"
+                          [label]="'sales.offlineReconciliation.resolve.reloadCase' | transloco"
+                          [disabled]="isOffline() || detailState() === 'loading'"
+                          (click)="reloadCase()"
+                        ></button>
+                      </div>
                     }
                   </div>
                 }
@@ -763,17 +833,65 @@
       ></button>
     </div>
 
+    @if (pendingExport(); as pending) {
+      <div class="pending-export" role="status">
+        <h3 class="detail-block-title">{{ 'sales.offlineReconciliation.bundle.confirmTitle' | transloco }}</h3>
+        <p class="panel-hint">{{ 'sales.offlineReconciliation.bundle.confirmHint' | transloco }}</p>
+        <ul class="pending-export-files">
+          @for (file of pending.files; track file.fileName) {
+            <li class="mono">{{ file.fileName }}</li>
+          }
+        </ul>
+        <div class="pending-export-actions">
+          <button
+            pButton
+            type="button"
+            class="confirm-export-btn"
+            icon="pi pi-check"
+            [label]="
+              (pending.files.length === 1
+                ? 'sales.offlineReconciliation.bundle.confirmSavedOne'
+                : 'sales.offlineReconciliation.bundle.confirmSavedAll'
+              ) | transloco: { count: pending.files.length }
+            "
+            (click)="confirmExportSaved()"
+          ></button>
+          <button
+            pButton
+            type="button"
+            class="discard-export-btn"
+            severity="secondary"
+            [text]="true"
+            [label]="'sales.offlineReconciliation.bundle.discardExport' | transloco"
+            (click)="discardPendingExport()"
+          ></button>
+        </div>
+      </div>
+    }
+
     @if (lastExport(); as exported) {
       <p class="last-export">
-        {{
-          'sales.offlineReconciliation.bundle.lastExport'
-            | transloco
-              : {
-                  date: (exported.exportedAt | date: 'dd MMM yyyy, h:mm a'),
-                  count: exported.clientSaleIds.length,
-                  checksum: exported.checksum.slice(0, 12),
-                }
-        }}
+        @if (exported.files.length === 1) {
+          {{
+            'sales.offlineReconciliation.bundle.lastExport'
+              | transloco
+                : {
+                    date: (exported.exportedAt | date: 'dd MMM yyyy, h:mm a'),
+                    count: exported.clientSaleIds.length,
+                    checksum: exported.files[0].checksum.slice(0, 12),
+                  }
+          }}
+        } @else {
+          {{
+            'sales.offlineReconciliation.bundle.lastExportParts'
+              | transloco
+                : {
+                    date: (exported.exportedAt | date: 'dd MMM yyyy, h:mm a'),
+                    count: exported.clientSaleIds.length,
+                    parts: exported.files.length,
+                  }
+          }}
+        }
       </p>
     }
     @if (handoff().unsyncedCount === 0) {
@@ -865,6 +983,7 @@
   <!-- 6. Device hand-off -->
   <section class="console-panel handoff-panel" aria-labelledby="handoff-title">
     <h2 id="handoff-title" class="panel-title">{{ 'sales.offlineReconciliation.handoff.title' | transloco }}</h2>
+    <p class="panel-hint handoff-scope">{{ 'sales.offlineReconciliation.handoff.scope' | transloco }}</p>
     @if (handoff(); as check) {
       @if (check.safeToRetire) {
         <p class="handoff-notice safe" role="status">

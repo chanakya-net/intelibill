@@ -1,6 +1,6 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { of, Subject } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AuthService } from '../../../core/auth/auth.service';
@@ -11,6 +11,7 @@ import type { OfflineQueuedSaleRecord } from './offline-sale-core.types';
 import { OfflineSalesQueueIndexedDbService } from './offline-sales-queue-indexeddb.service';
 import { OfflineSalesQueueSyncService } from './offline-sales-queue-sync.service';
 import { SaleService } from './sale.service';
+import { isOfflineSaleSyncRetryable } from '../utils/offline-sale-sync.mapper';
 
 describe('OfflineSalesQueueSyncService', () => {
   const activeSession = signal<AuthSession | null>(makeSession('shop-1'));
@@ -247,6 +248,66 @@ describe('OfflineSalesQueueSyncService', () => {
     const retryOne = await service.retryQueuedSale('shop-1', 'device-1', 'review');
 
     expect(retryOne.skippedReason).toBe('NOT_RETRYABLE');
+  });
+
+  it('sends one held invoice to the server for review once, through the normal sync request', async () => {
+    const service = setup();
+    const held = makeRecord('held', { status: 'NeedsReview', errorCode: 'Sale.InvoiceLeaseNotFound', reviewCaseId: 'legacy-case' });
+    queueDb.getQueuedSale.mockResolvedValue(held);
+    saleService.syncOfflineSales.mockReturnValue(of({
+      results: [{ clientSaleId: 'held', status: 'NeedsReview', saleId: null, invoiceNumber: 'INV-held', errors: [{ code: 'OfflineReconciliation.HistoricalLeaseReviewRequired', message: 'held' }], warnings: [], reviewCaseId: 'new-case' }],
+    }));
+
+    const result = await service.resubmitForReview('shop-1', 'device-1', 'held');
+
+    expect(result.attemptedCount).toBe(1);
+    expect(saleService.syncOfflineSales).toHaveBeenCalledTimes(1);
+    expect(saleService.syncOfflineSales.mock.calls[0][0]).toEqual({ deviceId: 'device-1', sales: [expect.objectContaining({ clientSaleId: 'held', invoiceNumber: 'INV-held' })] });
+    expect(queueDb.applySyncResult).toHaveBeenCalledWith('shop-1', 'device-1', 'held', expect.objectContaining({
+      status: 'NeedsReview',
+      errorCode: 'OfflineReconciliation.HistoricalLeaseReviewRequired',
+      reviewCaseId: 'new-case',
+    }));
+  });
+
+  it('keeps a held invoice held, not Failed, when the review resend cannot reach the server', async () => {
+    const service = setup();
+    const mismatches = [{ path: 'totalAmount', supplied: 1, expected: 2, code: 'mismatch' }];
+    const held = makeRecord('held', { status: 'NeedsReview', errorCode: 'Sale.InvoiceLeaseNotFound', reviewCaseId: 'legacy-case', mismatches });
+    queueDb.getQueuedSale.mockResolvedValue(held);
+    queueDb.markSyncInProgress.mockImplementation(async () => ({ ...held, status: 'Syncing' }));
+    saleService.syncOfflineSales.mockReturnValue(throwError(() => new Error('offline')));
+
+    const result = await service.resubmitForReview('shop-1', 'device-1', 'held');
+
+    expect(result.failedCount).toBe(1);
+    expect(queueDb.applySyncResult).toHaveBeenCalledTimes(1);
+    expect(queueDb.applySyncResult).toHaveBeenCalledWith('shop-1', 'device-1', 'held', {
+      status: 'NeedsReview',
+      errorCode: 'Sale.InvoiceLeaseNotFound',
+      errorMessage: null,
+      reviewCaseId: 'legacy-case',
+      mismatches,
+    });
+  });
+
+  it('never resends an invoice for review that is not held, or that another user issued', async () => {
+    const service = setup();
+    const base = makeRecord('other');
+    queueDb.getQueuedSale.mockResolvedValueOnce(makeRecord('pending', { status: 'Pending' }));
+    queueDb.getQueuedSale.mockResolvedValueOnce(makeRecord('other', {
+      status: 'NeedsReview',
+      payload: { ...base.payload, issuedByUserId: 'user-2' },
+    }));
+
+    const notHeld = await service.resubmitForReview('shop-1', 'device-1', 'pending');
+    const otherIssuer = await service.resubmitForReview('shop-1', 'device-1', 'other');
+
+    expect(notHeld.skippedReason).toBe('NOT_RETRYABLE');
+    expect(otherIssuer.skippedReason).toBe('NOT_RETRYABLE');
+    expect(saleService.syncOfflineSales).not.toHaveBeenCalled();
+    // Automatic and bulk retries still leave held invoices alone.
+    expect(isOfflineSaleSyncRetryable('NeedsReview')).toBe(false);
   });
 
   it('refreshes visible counts for pending, syncing, failed, warning, and needs-review statuses', async () => {

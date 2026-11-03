@@ -176,6 +176,45 @@ export class OfflineSalesQueueSyncService {
     }
   }
 
+  /**
+   * Sends one held (NeedsReview) invoice through the normal sync request once more, at the user's request: an
+   * invoice held before the server kept original invoices, or one held with no review case, so the server can
+   * file it for review. Only the signed-in issuer's (or an unstamped) invoice is sent. Automatic and bulk syncs
+   * never resend held invoices, and a request that cannot reach the server puts the record back exactly as it was
+   * held, so it never becomes an automatic retry.
+   */
+  async resubmitForReview(shopId: string, deviceId: string, clientSaleId: string): Promise<OfflineSalesSyncRunResult> {
+    if (!this.networkStatus.canReachApi()) {
+      return { attemptedCount: 0, syncedCount: 0, warningCount: 0, needsReviewCount: 0, failedCount: 0, skippedReason: 'API_UNREACHABLE' };
+    }
+
+    const lockKey = this.buildLockKey(shopId, deviceId);
+    const existing = this.locks.get(lockKey);
+    if (existing) return await existing;
+
+    const run = this.queueDb.getQueuedSale(shopId, deviceId, clientSaleId)
+      .then((record) => {
+        if (!record || record.status !== 'NeedsReview' || !isSubmittableBy(record, this.currentUserId())) {
+          return { attemptedCount: 0, syncedCount: 0, warningCount: 0, needsReviewCount: 0, failedCount: 0, skippedReason: 'NOT_RETRYABLE' } satisfies OfflineSalesSyncRunResult;
+        }
+
+        return this.syncRecords(shopId, deviceId, [record], () => ({
+          status: 'NeedsReview',
+          errorCode: record.errorCode,
+          errorMessage: record.errorMessage,
+          reviewCaseId: record.reviewCaseId ?? null,
+          mismatches: record.mismatches ?? [],
+        }));
+      });
+    this.locks.set(lockKey, run);
+
+    try {
+      return await run;
+    } finally {
+      this.locks.delete(lockKey);
+    }
+  }
+
   async retryForShop(shopId: string, deviceId: string): Promise<OfflineSalesSyncRunResult> {
     if (!this.networkStatus.canReachApi()) {
       return { attemptedCount: 0, syncedCount: 0, warningCount: 0, needsReviewCount: 0, failedCount: 0, skippedReason: 'API_UNREACHABLE' };
@@ -261,10 +300,15 @@ export class OfflineSalesQueueSyncService {
     return this.auth.session()?.user.id ?? null;
   }
 
+  /**
+   * @param whenUnreachable What a record becomes when the request itself fails; by default `Failed`, which the
+   *   automatic sync retries.
+   */
   private async syncRecords(
     shopId: string,
     deviceId: string,
     allRecords: readonly OfflineQueuedSaleRecord[],
+    whenUnreachable?: (record: OfflineQueuedSaleRecord, message: string) => OfflineQueueSyncResult,
   ): Promise<OfflineSalesSyncRunResult> {
     // Another user's invoices stay Pending: only their issuer (or an owner's recovery bundle) may submit them.
     const userId = this.currentUserId();
@@ -304,11 +348,16 @@ export class OfflineSalesQueueSyncService {
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Offline sale sync failed.';
         for (const record of marked) {
-          await this.queueDb.applySyncResult(shopId, deviceId, record.clientSaleId, {
-            status: 'Failed',
-            errorCode: 'offline_sync.request_failed',
-            errorMessage: message,
-          });
+          await this.queueDb.applySyncResult(
+            shopId,
+            deviceId,
+            record.clientSaleId,
+            whenUnreachable?.(record, message) ?? {
+              status: 'Failed',
+              errorCode: 'offline_sync.request_failed',
+              errorMessage: message,
+            },
+          );
           totals.failedCount += 1;
         }
       }

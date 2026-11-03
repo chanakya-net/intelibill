@@ -73,10 +73,15 @@ export interface OfflineInvoiceSnapshot {
 export interface OfflineSubmission {
   readonly submissionId: string;
   readonly source: string;
+  /** The issue time the device recorded. */
   readonly claimedSoldAt: string;
+  /** When the server first received this exact invoice. */
   readonly receivedAt: string;
   readonly payloadHash: string;
   readonly originalLeaseId: string | null;
+  /** The window of the lease that reserved the number; null when no lease was found. */
+  readonly leaseReservedAt: string | null;
+  readonly leaseExpiresAt: string | null;
   readonly submittedBy: ReconciliationPerson;
   readonly assertedIssuer: ReconciliationPerson | null;
   readonly originalIssuer: ReconciliationPerson | null;
@@ -91,6 +96,19 @@ export interface ReconciliationCaseEvent {
   readonly actor: ReconciliationPerson;
   readonly reason: string;
   readonly linkedOperationId: string | null;
+  readonly occurredAt: string;
+}
+
+/**
+ * Evidence a link action may name, already checked by the server the way the action checks it: a found-stock or
+ * other-gain adjustment (`label` is its number) or the posted sale carrying this invoice (`label` is its invoice
+ * number).
+ */
+export interface ReconciliationLinkCandidate {
+  readonly operationId: string;
+  readonly kind: 'Adjustment' | 'Sale';
+  readonly label: string;
+  readonly quantity: number | null;
   readonly occurredAt: string;
 }
 
@@ -110,6 +128,8 @@ export interface ReconciliationCase extends ReconciliationCaseSummary {
   /** Authoritative: the console offers exactly these and nothing else. */
   readonly availableActions: readonly ReconciliationAction[];
   readonly events: readonly ReconciliationCaseEvent[];
+  /** Only for a viewer offered a link action; empty otherwise. */
+  readonly linkCandidates: readonly ReconciliationLinkCandidate[];
 }
 
 export interface ResolveReconciliationCaseRequest {
@@ -120,7 +140,7 @@ export interface ResolveReconciliationCaseRequest {
   readonly action: ReconciliationAction;
   /** Required, up to 500 characters. */
   readonly reason: string;
-  /** The adjustment (LinkStockCorrection) or sale (LinkExistingSale). */
+  /** The adjustment (LinkStockCorrection) or sale (LinkExistingSale): one of the case's `linkCandidates`. */
   readonly linkedOperationId?: string | null;
 }
 

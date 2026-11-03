@@ -28,6 +28,7 @@ import {
 } from '../../services/offline-sales-queue-sync.service';
 import { OfflineReconciliationPageComponent } from './offline-reconciliation-page.component';
 
+const LAST_EXPORT_KEY = 'intelibill.offlineSales.lastSupportExport.v1:shop-1:device-1';
 const enIN = JSON.parse(readFileSync(join(process.cwd(), 'public/assets/i18n/en-IN.json'), 'utf-8')) as Record<string, unknown>;
 
 describe('OfflineReconciliationPageComponent', () => {
@@ -50,6 +51,7 @@ describe('OfflineReconciliationPageComponent', () => {
     awaitingIssuerSales,
     unsentSales,
     retryQueuedSale: vi.fn<OfflineSalesQueueSyncService['retryQueuedSale']>(),
+    resubmitForReview: vi.fn<OfflineSalesQueueSyncService['resubmitForReview']>(),
     refreshActiveStatusCounts: vi.fn<OfflineSalesQueueSyncService['refreshActiveStatusCounts']>(),
   };
   const queueDb = {
@@ -83,6 +85,9 @@ describe('OfflineReconciliationPageComponent', () => {
     reconciliation.getCase.mockImplementation((caseId) => of(caseDetail({ caseId })));
     queueSync.retryQueuedSale.mockResolvedValue({
       attemptedCount: 1, syncedCount: 1, warningCount: 0, needsReviewCount: 0, failedCount: 0,
+    });
+    queueSync.resubmitForReview.mockResolvedValue({
+      attemptedCount: 1, syncedCount: 0, warningCount: 0, needsReviewCount: 1, failedCount: 0,
     });
     queueSync.refreshActiveStatusCounts.mockResolvedValue(visibleCounts());
     queueDb.getAllByShopDevice.mockResolvedValue([]);
@@ -228,14 +233,16 @@ describe('OfflineReconciliationPageComponent', () => {
     expect(reconciliation.resolveCase).not.toHaveBeenCalled();
     expect(el().querySelector('.resolve-form')?.textContent).toContain('Keep the reason within 500 characters.');
 
-    await fillResolveForm('LinkExistingSale', 'Matches the posted sale');
-    expect(el().querySelector('.linked-operation-input')).toBeTruthy();
+    // No candidate offered: nothing to type an id into, and the form says what to do instead.
+    await fillResolveForm('LinkExistingSale', 'Matches the posted sale', '00000000-0000-4000-8000-0000000000aa');
+    expect(el().querySelector('input#resolve-linked, .linked-operation-select')).toBeNull();
+    expect(el().querySelector('.no-candidates')?.textContent).toContain('No posted sale matches this invoice yet.');
+    expect(el().querySelector('.no-candidates .reload-case-btn')).toBeTruthy();
     await submitResolve();
     expect(reconciliation.resolveCase).not.toHaveBeenCalled();
-    expect(el().querySelector('.resolve-form')?.textContent).toContain('Enter the ID this action links to.');
 
     await fillResolveForm('Escalate', '  Needs the owner  ');
-    expect(el().querySelector('.linked-operation-input')).toBeNull();
+    expect(el().querySelector('.no-candidates')).toBeNull();
     await submitResolve();
     expect(reconciliation.resolveCase).toHaveBeenCalledWith('case-1', {
       operationId: '00000000-0000-4000-8000-000000000001',
@@ -246,6 +253,153 @@ describe('OfflineReconciliationPageComponent', () => {
     });
     expect(el().querySelector('.case-detail .case-status')?.textContent).toContain('Escalated');
     expect(el().querySelector('.resolve-message.success')?.textContent).toContain('The server updated this case.');
+  });
+
+  it('offers the server link candidates in a select and submits only the chosen one', async () => {
+    reconciliation.getCase.mockReturnValue(
+      of(
+        caseDetail({
+          issueType: 'StockVariance',
+          unresolvedQuantity: 2,
+          availableActions: ['LinkStockCorrection', 'LinkExistingSale', 'Escalate'],
+          linkCandidates: [
+            { operationId: 'adj-1', kind: 'Adjustment', label: 'ADJ-0007', quantity: 2, occurredAt: '2026-11-02T09:30:00.000Z' },
+            { operationId: 'sale-1', kind: 'Sale', label: 'INV-001', quantity: null, occurredAt: '2026-11-02T10:00:00.000Z' },
+          ],
+        }),
+      ),
+    );
+    reconciliation.resolveCase.mockReturnValue(of(caseDetail({ status: 'Resolved', version: 8, availableActions: [] })));
+    await render();
+    await openCase();
+
+    await fillResolveForm('LinkStockCorrection', 'Found two packets behind the shelf');
+    expect(el().querySelector('.linked-operation-select')).toBeTruthy();
+    expect(el().querySelector('.no-candidates')).toBeNull();
+    expect(component.linkOptions()).toEqual([{ value: 'adj-1', label: expect.stringMatching(/^Adjustment ADJ-0007: \+2, \d{2} Nov 2026/) }]);
+
+    await submitResolve();
+    expect(reconciliation.resolveCase).not.toHaveBeenCalled();
+    expect(el().querySelector('.resolve-form')?.textContent).toContain('Choose what this action links to.');
+
+    // A sale is not a stock correction: an id the server did not offer for this action is never sent.
+    await fillResolveForm('LinkStockCorrection', 'Found two packets behind the shelf', 'sale-1');
+    await submitResolve();
+    expect(reconciliation.resolveCase).not.toHaveBeenCalled();
+
+    await fillResolveForm('LinkExistingSale', 'Posted by the late sync');
+    expect(component.linkOptions()).toEqual([{ value: 'sale-1', label: expect.stringMatching(/^Invoice INV-001, posted \d{2} Nov 2026/) }]);
+
+    await fillResolveForm('LinkStockCorrection', 'Found two packets behind the shelf', 'adj-1');
+    await submitResolve();
+    expect(reconciliation.resolveCase).toHaveBeenCalledWith(
+      'case-1',
+      expect.objectContaining({ action: 'LinkStockCorrection', linkedOperationId: 'adj-1' }),
+    );
+  });
+
+  it('explains how to make a stock correction linkable and reloads the case to pick it up', async () => {
+    const stockCase = { issueType: 'StockVariance' as const, unresolvedQuantity: 2, availableActions: ['LinkStockCorrection' as const] };
+    reconciliation.getCase
+      .mockReturnValueOnce(of(caseDetail(stockCase)))
+      .mockReturnValue(
+        of(
+          caseDetail({
+            ...stockCase,
+            linkCandidates: [
+              { operationId: 'adj-9', kind: 'Adjustment', label: 'ADJ-0009', quantity: 3, occurredAt: '2026-11-02T11:00:00.000Z' },
+            ],
+          }),
+        ),
+      );
+    await render();
+    await openCase();
+    await fillResolveForm('LinkStockCorrection', 'Recount found them');
+
+    expect(el().querySelector('.no-candidates')?.textContent).toContain(
+      'No stock adjustment covers the missing 2. Record a "Found stock" or "Other gain" increase of at least that much on this batch, then reload the case.',
+    );
+    buttonByText(el().querySelector('.no-candidates')!, 'Reload case')!.click();
+    await settle();
+
+    expect(reconciliation.getCase).toHaveBeenCalledTimes(2);
+    expect(el().querySelector('.no-candidates')).toBeNull();
+    expect(component.linkOptions().map((option) => option.value)).toEqual(['adj-9']);
+  });
+
+  it('says why no action is offered according to the viewer role', async () => {
+    reconciliation.getCase.mockReturnValue(of(caseDetail({ availableActions: [] })));
+    await render();
+    await openCase();
+    expect(el().querySelector('.no-actions')?.textContent?.trim()).toBe('No action is available for this case.');
+
+    fixture.destroy();
+    session.set(makeSession('Staff'));
+    await render();
+    await openCase();
+    expect(el().querySelector('.no-actions')?.textContent?.trim()).toBe(
+      'There is nothing you can do on this case. An owner or manager may have more options.',
+    );
+  });
+
+  it('shows the invoice number reservation window of the original envelope', async () => {
+    await render();
+    await openCase();
+    const lease = el().querySelector('.lease-window')?.textContent ?? '';
+    expect(lease).toContain('Invoice number reservation');
+    expect(lease).toMatch(/30 Oct 2026, .+ to 06 Nov 2026, /);
+
+    reconciliation.getCase.mockReturnValue(
+      of(caseDetail({ caseId: 'case-2', submission: submission({ leaseReservedAt: null, leaseExpiresAt: null }) })),
+    );
+    await openCase('case-2');
+    expect(el().querySelector('.lease-window')?.textContent).toContain('No reservation recorded');
+  });
+
+  it('offers a one-time send for review only where the server keeps no original invoice', async () => {
+    unsentSales.set([
+      record('no-case', 'NeedsReview'),
+      record('legacy-case', 'NeedsReview'),
+      record('kept-case', 'NeedsReview'),
+      record('other-issuer', 'NeedsReview', 'user-2'),
+    ]);
+    reviewSales.set([
+      reviewRow('no-case', null),
+      reviewRow('legacy-case', 'case-legacy'),
+      reviewRow('kept-case', 'case-kept'),
+      reviewRow('other-issuer', null),
+    ]);
+    reconciliation.getCase.mockImplementation((caseId) =>
+      of(
+        caseId === 'case-legacy'
+          ? caseDetail({ caseId, hasOriginalEnvelope: false, submission: null })
+          : caseDetail({ caseId }),
+      ),
+    );
+    await render();
+
+    const reviewRowEls = () => Array.from(el().querySelectorAll('.queue-group.review .queue-row'));
+    const offered = reviewRowEls()
+      .filter((row) => row.querySelector('.resubmit-btn'))
+      .map((row) => row.querySelector('.queue-invoice')?.textContent?.trim());
+    expect(offered).toEqual(['INV-no-case', 'INV-legacy-case']);
+    expect(reviewRowEls()[0].querySelector('.resubmit-hint')?.textContent).toContain('The server has no copy of this invoice as billed.');
+    expect(reconciliation.getCase).toHaveBeenCalledWith('case-legacy');
+    expect(reconciliation.getCase).toHaveBeenCalledWith('case-kept');
+
+    reviewRowEls()[0].querySelector<HTMLButtonElement>('button.resubmit-btn')!.click();
+    await settle();
+    expect(queueSync.resubmitForReview).toHaveBeenCalledWith('shop-1', 'device-1', 'no-case');
+    expect(queueSync.retryQueuedSale).not.toHaveBeenCalled();
+    expect(el().querySelector('.resubmit-error')).toBeNull();
+
+    queueSync.resubmitForReview.mockResolvedValueOnce({
+      attemptedCount: 1, syncedCount: 0, warningCount: 0, needsReviewCount: 0, failedCount: 1,
+    });
+    reviewRowEls()[1].querySelector<HTMLButtonElement>('button.resubmit-btn')!.click();
+    await settle();
+    expect(queueSync.resubmitForReview).toHaveBeenLastCalledWith('shop-1', 'device-1', 'legacy-case');
+    expect(el().querySelector('.resubmit-error')?.textContent).toContain('Invoice INV-legacy-case could not be sent.');
   });
 
   it('reloads on 409 version conflict without showing success', async () => {
@@ -349,13 +503,14 @@ describe('OfflineReconciliationPageComponent', () => {
     expect(el().querySelector('.import-box input[type="file"]')).toBeTruthy();
   });
 
-  it('export downloads a bundle and marks hand-off safe', async () => {
+  it('export downloads a bundle and marks hand-off safe only once the user confirms saving it', async () => {
     queueDb.getAllByShopDevice.mockResolvedValue([record('own-1', 'Pending'), record('done', 'Synced')]);
     unsentSales.set([record('own-1', 'Pending')]);
     await render();
 
+    expect(el().querySelector('.handoff-scope')?.textContent).toContain('This check covers only the shop you are working in now.');
     expect(el().querySelector('.handoff-notice.unsafe')?.textContent).toContain(
-      '1 invoices have not reached the server. Export a support bundle before clearing or retiring this browser.',
+      '1 invoices for this shop on this browser have not reached the server. Export a support bundle before clearing or retiring this browser.',
     );
 
     await component.exportBundle();
@@ -366,11 +521,74 @@ describe('OfflineReconciliationPageComponent', () => {
     expect(fileName).toMatch(/^offline-recovery-device-1-\d{12}\.json$/);
     const text = await (blob as Blob).text();
     expect(JSON.parse(text).invoices.map((invoice: { clientSaleId: string }) => invoice.clientSaleId)).toEqual(['own-1']);
-    expect(el().querySelector('.handoff-notice.safe')?.textContent).toContain('your last support export carries all 1 unsynced invoices');
+
+    // A started download proves nothing: the hand-off stays unsafe and nothing is recorded until the user confirms.
+    expect(el().querySelector('.pending-export')?.textContent).toContain(fileName);
+    expect(el().querySelector('.handoff-notice.unsafe')).toBeTruthy();
+    expect(el().querySelector('.handoff-notice.safe')).toBeNull();
+    expect(el().querySelector('.last-export')).toBeNull();
+
+    buttonByText(el().querySelector('.pending-export')!, 'I saved the file')!.click();
+    await settle();
+
+    expect(el().querySelector('.pending-export')).toBeNull();
+    expect(el().querySelector('.handoff-notice.safe')?.textContent).toContain(
+      'your last confirmed support export carries all 1 unsynced invoices for this shop on this browser. Keep those files',
+    );
     expect(el().querySelector('.last-export')?.textContent).toContain('1 invoices');
 
     fixture.destroy();
     await render();
+    expect(el().querySelector('.handoff-notice.safe')).toBeTruthy();
+  });
+
+  it('exports more than 100 invoices as several files and records them only when all are confirmed', async () => {
+    const records = Array.from({ length: 101 }, (_, index) => record(`own-${String(index).padStart(3, '0')}`, 'Pending'));
+    queueDb.getAllByShopDevice.mockResolvedValue(records);
+    unsentSales.set(records);
+    await render();
+
+    await component.exportBundle();
+    await settle();
+
+    expect(downloads.download).toHaveBeenCalledTimes(2);
+    const fileNames = downloads.download.mock.calls.map(([, name]) => name);
+    expect(fileNames[0]).toMatch(/^offline-recovery-device-1-\d{12}-part1-of-2\.json$/);
+    expect(fileNames[1]).toMatch(/^offline-recovery-device-1-\d{12}-part2-of-2\.json$/);
+    const counts = await Promise.all(
+      downloads.download.mock.calls.map(async ([blob]) => JSON.parse(await (blob as Blob).text()).invoices.length as number),
+    );
+    expect(counts).toEqual([100, 1]);
+    expect(el().querySelectorAll('.pending-export-files li')).toHaveLength(2);
+
+    // Discarding records nothing.
+    buttonByText(el().querySelector('.pending-export')!, 'Discard this export')!.click();
+    await settle();
+    expect(el().querySelector('.pending-export')).toBeNull();
+    expect(el().querySelector('.handoff-notice.unsafe')).toBeTruthy();
+    expect(localStorage.getItem(LAST_EXPORT_KEY)).toBeNull();
+
+    await component.exportBundle();
+    await settle();
+    buttonByText(el().querySelector('.pending-export')!, 'I saved all 2 files')!.click();
+    await settle();
+
+    expect(el().querySelector('.handoff-notice.safe')?.textContent).toContain('carries all 101 unsynced invoices');
+    expect(el().querySelector('.last-export')?.textContent).toContain('101 invoices in 2 files');
+    const stored = JSON.parse(localStorage.getItem(LAST_EXPORT_KEY)!) as { files: unknown[]; clientSaleIds: string[] };
+    expect(stored.files).toHaveLength(2);
+    expect(stored.clientSaleIds).toHaveLength(101);
+  });
+
+  it('still reads a last export recorded before exports had several files', async () => {
+    localStorage.setItem(
+      LAST_EXPORT_KEY,
+      JSON.stringify({ exportedAt: '2026-11-01T10:00:00.000Z', fileName: 'old.json', checksum: 'abcdef0123456789', clientSaleIds: ['own-1'] }),
+    );
+    unsentSales.set([record('own-1', 'Pending')]);
+    await render();
+
+    expect(el().querySelector('.last-export')?.textContent).toContain('checksum abcdef012345');
     expect(el().querySelector('.handoff-notice.safe')).toBeTruthy();
   });
 
@@ -393,6 +611,8 @@ describe('OfflineReconciliationPageComponent', () => {
     expect(el().querySelector('.queue-group.review')?.textContent).toContain('Review case case-held');
 
     await component.exportBundle();
+    await settle();
+    await component.confirmExportSaved();
     await settle();
     expect(el().querySelector('.handoff-notice.safe')).toBeTruthy();
 
@@ -647,6 +867,8 @@ function submission(overrides: Partial<NonNullable<ReconciliationCase['submissio
     receivedAt: '2026-11-02T09:00:00.000Z',
     payloadHash: 'hash',
     originalLeaseId: 'lease-1',
+    leaseReservedAt: '2026-10-30T09:00:00.000Z',
+    leaseExpiresAt: '2026-11-06T09:00:00.000Z',
     submittedBy: { userId: 'user-1', displayName: 'Test User' },
     assertedIssuer: null,
     originalIssuer: { userId: 'user-2', displayName: 'Ravi Cashier' },
@@ -696,8 +918,21 @@ function caseDetail(overrides: Partial<ReconciliationCase> = {}): Reconciliation
     hasOriginalEnvelope: true,
     submission: submission(),
     availableActions: ['RetryHistoricalLease', 'LinkExistingSale', 'Escalate'],
+    linkCandidates: [],
     events: [],
     ...overrides,
+  };
+}
+
+function reviewRow(clientSaleId: string, reviewCaseId: string | null): OfflineReviewSale {
+  return {
+    clientSaleId,
+    invoiceNumber: `INV-${clientSaleId}`,
+    soldAt: '2026-11-01T10:00:00.000Z',
+    errorCode: 'OfflineReconciliation.HistoricalLeaseReviewRequired',
+    errorMessage: null,
+    reviewCaseId,
+    mismatches: [],
   };
 }
 
