@@ -184,6 +184,49 @@ public sealed class OfflineReconciliationControllerTests(PostgreSqlTestFixture f
         Assert.Equal(version, unchanged.GetProperty("version").GetUInt32());
     }
 
+    // A person id the client asserts is named only through a membership in the case's shop.
+    [Fact]
+    public async Task ForeignAssertedIssuer_IsNotNamed()
+    {
+        using var client = CreateClient();
+        var owner = await CreateOwnerAsync(client);
+        var stock = await AddInventoryAsync(client, owner.Token, 1m);
+        var lease = await ReserveInvoiceLeaseAsync(client, owner.Token);
+        var staff = await AddStaffAsync(client, owner);
+        var foreign = await CreateOwnerAsync(client);
+
+        var clientSaleId = NewClientSaleId();
+        await SyncAsync(client, staff.Token, Payload(clientSaleId, InvoiceAt(lease, 0), stock, 2m, DateTimeOffset.UtcNow, foreign.UserId));
+
+        string foreignEmail, foreignPhone;
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            foreignPhone = "+919876501234";
+            await db.Users.IgnoreQueryFilters().Where(u => u.Id == foreign.UserId)
+                .ExecuteUpdateAsync(u => u.SetProperty(x => x.PhoneNumber, foreignPhone));
+            foreignEmail = (await db.Users.IgnoreQueryFilters().AsNoTracking().SingleAsync(u => u.Id == foreign.UserId)).Email!;
+        }
+
+        var page = await ListAsync(client, staff.Token, "open");
+        var summary = page.GetProperty("items").EnumerateArray().First(i => i.GetProperty("clientSaleId").GetString() == clientSaleId);
+        var caseId = summary.GetProperty("caseId").GetGuid();
+
+        using var response = await SendAsync(client, HttpMethod.Get, $"{Route}/{caseId}", staff.Token);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var raw = await response.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("Olive Owner", raw);
+        Assert.DoesNotContain(foreignEmail, raw);
+        Assert.DoesNotContain(foreignPhone, raw);
+
+        var detail = JsonDocument.Parse(raw).RootElement;
+        var submission = detail.GetProperty("submission");
+        Assert.Equal(foreign.UserId, submission.GetProperty("assertedIssuer").GetProperty("userId").GetGuid());
+        Assert.Equal(string.Empty, submission.GetProperty("assertedIssuer").GetProperty("displayName").GetString());
+        Assert.Equal("Sam Staff", submission.GetProperty("submittedBy").GetProperty("displayName").GetString());
+        Assert.Equal("Sam Staff", detail.GetProperty("createdBy").GetProperty("displayName").GetString());
+    }
+
     [Fact]
     public async Task Staff_CanEscalateOwnCase_ButNotAcknowledge()
     {
@@ -508,7 +551,7 @@ public sealed class OfflineReconciliationControllerTests(PostgreSqlTestFixture f
         Assert.Equal(1, updated);
     }
 
-    private static object Payload(string clientSaleId, string invoiceNumber, StockContext stock, decimal quantity, DateTimeOffset soldAt)
+    private static object Payload(string clientSaleId, string invoiceNumber, StockContext stock, decimal quantity, DateTimeOffset soldAt, Guid? issuedByUserId = null)
     {
         var preTax = 100m * quantity;
         var tax = 18m * quantity;
@@ -518,6 +561,7 @@ public sealed class OfflineReconciliationControllerTests(PostgreSqlTestFixture f
             clientSaleId,
             invoiceNumber,
             soldAt,
+            issuedByUserId,
             paymentMethod = (int)PaymentMethod.Cash,
             paidAmount = total,
             dueAmount = 0m,

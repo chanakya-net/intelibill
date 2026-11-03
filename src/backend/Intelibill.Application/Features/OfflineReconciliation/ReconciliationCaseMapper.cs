@@ -19,7 +19,11 @@ public sealed class ReconciliationCaseMapper(
         IReadOnlyList<ReconciliationIssue> issues,
         CancellationToken cancellationToken)
     {
+        if (issues.Count == 0)
+            return [];
+
         var names = await userRepository.GetDisplayNamesAsync(
+            issues[0].ShopId,
             issues.Select(i => i.CreatedBy).ToHashSet(),
             cancellationToken);
 
@@ -70,7 +74,7 @@ public sealed class ReconciliationCaseMapper(
                 people.Add(original);
         }
 
-        var names = await userRepository.GetDisplayNamesAsync(people, cancellationToken);
+        var names = await userRepository.GetDisplayNamesAsync(issue.ShopId, people, cancellationToken);
 
         return new ReconciliationCaseDto(
             issue.Id,
@@ -176,5 +180,5 @@ public sealed class ReconciliationCaseMapper(
     }
 
     private static ReconciliationPersonDto Person(Guid userId, IReadOnlyDictionary<Guid, string> names) =>
-        new(userId, names.TryGetValue(userId, out var name) ? name : userId.ToString());
+        new(userId, names.TryGetValue(userId, out var name) ? name : ReconciliationPersonDto.UnknownDisplayName);
 }

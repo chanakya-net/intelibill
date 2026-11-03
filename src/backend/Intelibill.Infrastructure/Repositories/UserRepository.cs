@@ -62,6 +62,7 @@ internal sealed class UserRepository(ApplicationDbContext context) : RepositoryB
     }
 
     public async Task<IReadOnlyDictionary<Guid, string>> GetDisplayNamesAsync(
+        Guid shopId,
         IReadOnlyCollection<Guid> userIds,
         CancellationToken cancellationToken = default)
     {
@@ -69,9 +70,13 @@ internal sealed class UserRepository(ApplicationDbContext context) : RepositoryB
             return new Dictionary<Guid, string>();
 
         var ids = userIds.Distinct().ToList();
+        var members = Context.ShopMemberships
+            .AsNoTracking()
+            .Where(m => m.ShopId == shopId && ids.Contains(m.UserId))
+            .Select(m => m.UserId);
         var users = await DbSet
             .AsNoTracking()
-            .Where(u => ids.Contains(u.Id))
+            .Where(u => members.Contains(u.Id))
             .Select(u => new { u.Id, u.FirstName, u.LastName, u.Email, u.PhoneNumber })
             .ToListAsync(cancellationToken);
 

@@ -58,7 +58,16 @@ public sealed record ReconciliationCaseDto(
     IReadOnlyList<string> AvailableActions,
     IReadOnlyList<ReconciliationCaseEventDto> Events);
 
-public sealed record ReconciliationPersonDto(Guid UserId, string DisplayName);
+/// <summary>
+/// A person named on a case. <see cref="DisplayName"/> is filled only for someone who holds or held a
+/// membership in the case's shop; for any other id (for example an issuer the client merely asserted)
+/// it is <see cref="UnknownDisplayName"/>, the empty string, which the client renders as its own
+/// translated "unknown user" text. Nothing else about such an id is disclosed.
+/// </summary>
+public sealed record ReconciliationPersonDto(Guid UserId, string DisplayName)
+{
+    public const string UnknownDisplayName = "";
+}
 
 /// <summary>The envelope the case was filed for: who sent it, who issued it and the frozen invoice.</summary>
 public sealed record OfflineSubmissionDto(

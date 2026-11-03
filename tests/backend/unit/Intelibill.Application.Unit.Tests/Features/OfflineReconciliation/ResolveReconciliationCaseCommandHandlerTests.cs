@@ -53,7 +53,7 @@ public sealed class ResolveReconciliationCaseCommandHandlerTests
         _staff.AddShopMembership(ShopMembership.Create(_shop.Id, _staff.Id, ShopRole.Staff, true));
         _userRepository.GetByIdWithDetailsAsync(_owner.Id, Arg.Any<CancellationToken>()).Returns(_owner);
         _userRepository.GetByIdWithDetailsAsync(_staff.Id, Arg.Any<CancellationToken>()).Returns(_staff);
-        _userRepository.GetDisplayNamesAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+        _userRepository.GetDisplayNamesAsync(Arg.Any<Guid>(), Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(new Dictionary<Guid, string> { [_owner.Id] = "Olive Owner", [_staff.Id] = "Sam Staff" });
 
         // The batch printed 5 with 3 on hand; a found-stock adjustment has since added 2.

@@ -442,7 +442,7 @@ public sealed class EmailOwnershipSecurityTests(PostgreSqlTestFixture fixture) :
         public Task<bool> ExistsByEmailAsync(string email, CancellationToken ct = default) => inner.ExistsByEmailAsync(email, ct);
         public Task<bool> ExistsByPhoneAsync(string phone, CancellationToken ct = default) => inner.ExistsByPhoneAsync(phone, ct);
         public Task<bool> ExistsByPhoneAsync(string phone, Guid id, CancellationToken ct = default) => inner.ExistsByPhoneAsync(phone, id, ct);
-        public Task<IReadOnlyDictionary<Guid, string>> GetDisplayNamesAsync(IReadOnlyCollection<Guid> userIds, CancellationToken ct = default) => inner.GetDisplayNamesAsync(userIds, ct);
+        public Task<IReadOnlyDictionary<Guid, string>> GetDisplayNamesAsync(Guid shopId, IReadOnlyCollection<Guid> userIds, CancellationToken ct = default) => inner.GetDisplayNamesAsync(shopId, userIds, ct);
         public Task<User?> GetByIdAsync(Guid id, CancellationToken ct = default) => inner.GetByIdAsync(id, ct);
         public Task<IReadOnlyList<User>> GetAllAsync(CancellationToken ct = default) => inner.GetAllAsync(ct);
         public Task<IReadOnlyList<User>> FindAsync(Expression<Func<User, bool>> predicate, CancellationToken ct = default) => inner.FindAsync(predicate, ct);
