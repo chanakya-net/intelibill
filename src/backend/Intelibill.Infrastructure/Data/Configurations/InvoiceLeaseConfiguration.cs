@@ -47,6 +47,10 @@ internal sealed class InvoiceLeaseConfiguration : IEntityTypeConfiguration<Invoi
         builder.Property(lease => lease.ExpiresAt)
             .IsRequired();
 
+        // Nullable on purpose: leases reserved before provenance was recorded have no reserver.
+        builder.Property(lease => lease.ReservedByUserId);
+        builder.Property(lease => lease.ReservedBySessionId);
+
         builder.HasIndex(lease => new { lease.ShopId, lease.DeviceId, lease.FiscalYearStart });
         builder.HasIndex(lease => new { lease.ShopId, lease.ExpiresAt });
 

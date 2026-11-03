@@ -53,7 +53,9 @@ public sealed class InvoiceLeaseReservationTests(PostgreSqlTestFixture fixture) 
                     fiscalYear.InvoicePrefix,
                     200,
                     reservedAt,
-                    expiresAt);
+                    expiresAt,
+                    null,
+                    null);
             });
         }
 

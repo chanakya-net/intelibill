@@ -85,6 +85,8 @@ public class ReserveInvoiceLeaseCommandHandlerTests
             InvoiceLeaseDefaults.DefaultBlockSize,
             Arg.Any<DateTimeOffset>(),
             Arg.Any<DateTimeOffset>(),
+            Arg.Any<Guid?>(),
+            Arg.Any<Guid?>(),
             Arg.Any<CancellationToken>()).Returns(lease);
 
         var handler = new ReserveInvoiceLeaseCommandHandler(_userRepository, _invoiceLeaseRepository);
@@ -105,6 +107,8 @@ public class ReserveInvoiceLeaseCommandHandlerTests
             InvoiceLeaseDefaults.DefaultBlockSize,
             Arg.Any<DateTimeOffset>(),
             Arg.Any<DateTimeOffset>(),
+            Arg.Any<Guid?>(),
+            Arg.Any<Guid?>(),
             Arg.Any<CancellationToken>());
     }
 
@@ -139,6 +143,8 @@ public class ReserveInvoiceLeaseCommandHandlerTests
             InvoiceLeaseDefaults.DefaultBlockSize,
             Arg.Do<DateTimeOffset>(value => capturedReservedAt = value),
             Arg.Do<DateTimeOffset>(value => capturedExpiresAt = value),
+            Arg.Any<Guid?>(),
+            Arg.Any<Guid?>(),
             Arg.Any<CancellationToken>()).Returns(lease);
 
         var handler = new ReserveInvoiceLeaseCommandHandler(_userRepository, _invoiceLeaseRepository);

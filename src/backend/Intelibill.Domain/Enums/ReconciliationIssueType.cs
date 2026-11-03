@@ -9,4 +9,7 @@ public enum ReconciliationIssueType
     DiscountVariance = 5,
     CustomerVariance = 6,
     ArithmeticConflict = 7,
+    IssueTimingReview = 8,
+    ProvenanceReview = 9,
+    RecoveryReview = 10,
 }
