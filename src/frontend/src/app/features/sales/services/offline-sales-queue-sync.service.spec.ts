@@ -22,6 +22,7 @@ describe('OfflineSalesQueueSyncService', () => {
     markSyncInProgress: vi.fn<OfflineSalesQueueIndexedDbService['markSyncInProgress']>(),
     applySyncResult: vi.fn<OfflineSalesQueueIndexedDbService['applySyncResult']>(),
     getStatusCounts: vi.fn<OfflineSalesQueueIndexedDbService['getStatusCounts']>(),
+    getAllByShopDevice: vi.fn<OfflineSalesQueueIndexedDbService['getAllByShopDevice']>(),
     deleteOldSyncedRecords: vi.fn<OfflineSalesQueueIndexedDbService['deleteOldSyncedRecords']>(),
   };
   const saleService = {
@@ -84,6 +85,7 @@ describe('OfflineSalesQueueSyncService', () => {
       Failed: 0,
     });
     queueDb.deleteOldSyncedRecords.mockResolvedValue(0);
+    queueDb.getAllByShopDevice.mockResolvedValue([]);
     saleService.syncOfflineSales.mockReturnValue(of({ results: [] }));
     networkStatus.checkConnectivity.mockResolvedValue(undefined);
   });
@@ -334,6 +336,33 @@ describe('OfflineSalesQueueSyncService', () => {
     };
   }
 
+  it('lists held invoices with their review case and mismatches, oldest first', async () => {
+    const service = setup();
+    queueDb.getStatusCounts.mockResolvedValue({ Pending: 1, Syncing: 0, Synced: 0, SyncedWithWarnings: 0, NeedsReview: 2, Failed: 0 });
+    queueDb.getAllByShopDevice.mockResolvedValue([
+      makeRecord('later', { status: 'NeedsReview', soldAt: '2026-05-23T10:00:00.000Z', errorCode: 'Sale.InvoiceLeaseNotFound', reviewCaseId: 'case-2' }),
+      makeRecord('pending', { status: 'Pending' }),
+      makeRecord('earlier', {
+        status: 'NeedsReview',
+        soldAt: '2026-05-21T10:00:00.000Z',
+        errorCode: 'Sale.OfflineArithmeticMismatch',
+        reviewCaseId: 'case-1',
+        mismatches: [{ path: 'totalAmount', supplied: 1, expected: 118, code: 'amount_mismatch' }],
+      }),
+    ]);
+
+    await service.refreshActiveStatusCounts();
+
+    expect(queueDb.getAllByShopDevice).toHaveBeenCalledWith('shop-1', 'device-1');
+    expect(service.reviewSales().map((sale) => sale.clientSaleId)).toEqual(['earlier', 'later']);
+    expect(service.reviewSales()[0]).toMatchObject({
+      reviewCaseId: 'case-1',
+      errorCode: 'Sale.OfflineArithmeticMismatch',
+      mismatches: [{ path: 'totalAmount', supplied: 1, expected: 118, code: 'amount_mismatch' }],
+    });
+    expect(service.reviewSales()[1].mismatches).toEqual([]);
+  });
+
   function makeRecord(
     clientSaleId: string,
     overrides: Partial<OfflineQueuedSaleRecord> = {},
@@ -352,9 +381,11 @@ describe('OfflineSalesQueueSyncService', () => {
       soldAt,
       status: overrides.status ?? 'Pending',
       warnings: [],
-      errorCode: null,
+      errorCode: overrides.errorCode ?? null,
       errorMessage: null,
       serverSaleId: null,
+      reviewCaseId: overrides.reviewCaseId,
+      mismatches: overrides.mismatches,
       createdAt: soldAt,
       updatedAt: soldAt,
       syncAttemptCount: 0,

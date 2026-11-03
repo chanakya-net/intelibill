@@ -1081,7 +1081,22 @@
         "syncing": "Syncing",
         "failed": "Failed",
         "warnings": "Warnings",
-        "needsReview": "Needs review"
+        "needsReview": "Needs review",
+        "review": {
+          "title": "Invoices held for review",
+          "hint": "These invoices were not posted. Resending or recalculating will not change them; an owner or manager needs to review each original bill.",
+          "mismatch": "supplied {{supplied}}, expected {{expected}}",
+          "moreMismatches": "+{{count}} more differences",
+          "caseId": "Review case {{id}}",
+          "reasons": {
+            "arithmeticMismatch": "Amounts do not add up to the bill's own prices, discounts and taxes",
+            "calculationVersionUnsupported": "Billed by an app version the server cannot verify",
+            "invoiceLeaseNotFound": "Invoice number was not reserved for this device",
+            "invoiceNumberAlreadyUsed": "Invoice number is already used by another sale",
+            "idempotencyConflict": "A different bill was already synced under this ID",
+            "unknown": "Held for review"
+          }
+        }
       }
     },
     "newSale": {

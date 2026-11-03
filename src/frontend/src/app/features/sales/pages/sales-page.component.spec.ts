@@ -8,7 +8,7 @@ import { of } from 'rxjs';
 
 import type { SaleHistoryStatus, SaleListItemDto } from '../services/sale.models';
 import { SalesFacade } from '../state/sales.facade';
-import { OfflineSalesQueueSyncService } from '../services/offline-sales-queue-sync.service';
+import { OfflineSalesQueueSyncService, type OfflineReviewSale } from '../services/offline-sales-queue-sync.service';
 import { SaleDetailOverlayComponent } from '../components/sale-detail-overlay.component';
 import { SalesExportService } from '../services/sales-export.service';
 import { SalesPageComponent } from './sales-page.component';
@@ -53,8 +53,11 @@ describe('SalesPageComponent', () => {
     totalVisible: 0,
   });
 
+  const offlineReviewSalesSignal = signal<readonly OfflineReviewSale[]>([]);
+
   const offlineSalesQueueSync = {
     visibleCounts: offlineCountsSignal,
+    reviewSales: offlineReviewSalesSignal,
     cleanupSyncedRecords: vi.fn().mockResolvedValue(0),
     refreshActiveStatusCounts: vi.fn().mockResolvedValue(offlineCountsSignal()),
     retryActiveShop: vi.fn().mockResolvedValue({
@@ -95,6 +98,7 @@ describe('SalesPageComponent', () => {
     offlineSalesQueueSync.cleanupSyncedRecords.mockClear();
     offlineSalesQueueSync.refreshActiveStatusCounts.mockClear();
     offlineSalesQueueSync.retryActiveShop.mockClear();
+    offlineReviewSalesSignal.set([]);
 
     TestBed.configureTestingModule({
       imports: [
@@ -115,6 +119,15 @@ describe('SalesPageComponent', () => {
                   },
                   amount: {
                     creditNoteApplied: 'Credit note applied',
+                  },
+                  offlineQueue: {
+                    review: {
+                      title: 'Invoices held for review',
+                      mismatch: 'supplied {{supplied}}, expected {{expected}}',
+                      moreMismatches: '+{{count}} more differences',
+                      caseId: 'Review case {{id}}',
+                      reasons: { arithmeticMismatch: 'Amounts do not add up' },
+                    },
                   },
                 },
               },
@@ -343,6 +356,36 @@ describe('SalesPageComponent', () => {
     const amountCell = fixture.nativeElement.querySelector('.amount-cell');
     expect(amountCell.textContent).toContain('Credit note applied');
     expect(amountCell.textContent).toContain('₹25.00');
+  });
+
+  it('lists invoices held for review with reason, differences and case, without a retry action', () => {
+    const fixture = TestBed.createComponent(SalesPageComponent);
+    offlineCountsSignal.set({ pending: 0, syncing: 0, failed: 0, warning: 0, needsReview: 1, totalVisible: 1 });
+    offlineReviewSalesSignal.set([
+      {
+        clientSaleId: 'client-1',
+        invoiceNumber: 'INV-2025-26-000007',
+        soldAt: '2026-11-03T10:00:00.000Z',
+        errorCode: 'Sale.OfflineArithmeticMismatch',
+        errorMessage: 'held',
+        reviewCaseId: 'case-1',
+        mismatches: [
+          { path: 'totalAmount', supplied: 1, expected: 118, code: 'amount_mismatch' },
+          ...Array.from({ length: 6 }, (_, index) => ({ path: `items[${index}].taxAmount`, supplied: 0, expected: 18, code: 'amount_mismatch' })),
+        ],
+      },
+    ]);
+    fixture.detectChanges();
+
+    const item: HTMLElement = fixture.nativeElement.querySelector('.offline-review-item');
+    expect(item.textContent).toContain('INV-2025-26-000007');
+    expect(item.textContent).toContain('Amounts do not add up');
+    expect(item.textContent).toContain('totalAmount');
+    expect(item.textContent).toContain('supplied 1, expected 118');
+    expect(item.querySelectorAll('.offline-review-mismatches li')).toHaveLength(5);
+    expect(item.textContent).toContain('+2 more differences');
+    expect(item.textContent).toContain('Review case case-1');
+    expect(item.querySelector('button')).toBeNull();
   });
 
   it('shows pagination label with range', () => {

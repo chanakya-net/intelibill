@@ -9,6 +9,7 @@ import {
   mapOfflineSyncResult,
   mapToVisibleQueueCounts,
   normalizeOfflineQueueSyncStatus,
+  offlineReviewReasonKey,
 } from './offline-sale-sync.mapper';
 
 describe('offline-sale-sync.mapper', () => {
@@ -107,6 +108,62 @@ describe('offline-sale-sync.mapper', () => {
     });
   });
 
+  it('maps an unversioned payload exactly as it was first synced', () => {
+    const request = buildSyncRequestFromQueuedSale(record);
+
+    expect('calculationVersion' in request).toBe(false);
+    expect(request.subtotalBeforeDiscount).toBe(200);
+    expect(request.totalBeforeDiscount).toBe(200);
+  });
+
+  it('sends the calculation version and pre-tax subtotal of a version 1 payload', () => {
+    const versioned: OfflineQueuedSaleRecord = {
+      ...record,
+      payload: {
+        ...record.payload,
+        pricing: {
+          ...record.payload.pricing,
+          calculationVersion: 1,
+          totals: { ...record.payload.pricing.totals, subtotalBeforeDiscount: 178.57, totalBeforeDiscount: 221 },
+        },
+      },
+    };
+
+    const request = buildSyncRequestFromQueuedSale(versioned);
+
+    expect(request.calculationVersion).toBe(1);
+    expect(request.subtotalBeforeDiscount).toBe(178.57);
+    expect(request.totalBeforeDiscount).toBe(221);
+  });
+
+  it('keeps the review case and field mismatches of a held invoice', () => {
+    const held = mapOfflineSyncResult({
+      clientSaleId: 'sale-1',
+      status: 'NeedsReview',
+      saleId: null,
+      invoiceNumber: null,
+      warnings: [],
+      errors: [{ code: 'Sale.OfflineArithmeticMismatch', message: 'held' }],
+      reviewCaseId: 'case-1',
+      mismatches: [{ path: 'totalAmount', supplied: 1, expected: 118, code: 'amount_mismatch' }],
+    });
+
+    expect(held).toMatchObject({
+      status: 'NeedsReview',
+      errorCode: 'Sale.OfflineArithmeticMismatch',
+      reviewCaseId: 'case-1',
+      mismatches: [{ path: 'totalAmount', supplied: 1, expected: 118, code: 'amount_mismatch' }],
+    });
+  });
+
+  it('translates review reasons by error code with a fallback', () => {
+    expect(offlineReviewReasonKey('Sale.OfflineArithmeticMismatch')).toBe('sales.history.offlineQueue.review.reasons.arithmeticMismatch');
+    expect(offlineReviewReasonKey('Sale.OfflineCalculationVersionUnsupported')).toBe('sales.history.offlineQueue.review.reasons.calculationVersionUnsupported');
+    expect(offlineReviewReasonKey('Sale.InvoiceLeaseNotFound')).toBe('sales.history.offlineQueue.review.reasons.invoiceLeaseNotFound');
+    expect(offlineReviewReasonKey('Something.Else')).toBe('sales.history.offlineQueue.review.reasons.unknown');
+    expect(offlineReviewReasonKey(null)).toBe('sales.history.offlineQueue.review.reasons.unknown');
+  });
+
   it('maps backend result variants to queue result statuses', () => {
     const created = mapOfflineSyncResult({
       clientSaleId: 'sale-1',
@@ -123,6 +180,8 @@ describe('offline-sale-sync.mapper', () => {
       errorCode: null,
       errorMessage: null,
       serverSaleId: 'server-1',
+      reviewCaseId: null,
+      mismatches: [],
     });
 
     const normalized = normalizeOfflineQueueSyncStatus('Created');
@@ -143,6 +202,8 @@ describe('offline-sale-sync.mapper', () => {
       errorCode: 'CONFLICT',
       errorMessage: 'invoice exists',
       serverSaleId: null,
+      reviewCaseId: null,
+      mismatches: [],
     });
 
     const missing = mapOfflineSyncResult(undefined);

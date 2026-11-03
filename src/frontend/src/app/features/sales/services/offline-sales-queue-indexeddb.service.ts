@@ -119,6 +119,8 @@ export class OfflineSalesQueueIndexedDbService {
       errorCode: result.errorCode ?? null,
       errorMessage: result.errorMessage ?? null,
       serverSaleId: result.serverSaleId ?? current.serverSaleId,
+      reviewCaseId: result.reviewCaseId ?? null,
+      mismatches: result.mismatches ?? [],
       updatedAt: new Date().toISOString(),
       syncAttempts: [
         ...current.syncAttempts,

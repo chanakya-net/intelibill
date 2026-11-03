@@ -109,6 +109,13 @@ export interface OfflineQueuedSalePayload {
   readonly customerPhone: string | null;
 }
 
+export interface OfflineArithmeticMismatch {
+  readonly path: string;
+  readonly supplied: number | null;
+  readonly expected: number | null;
+  readonly code: string;
+}
+
 export interface OfflineSaleSyncAttemptMeta {
   readonly attemptedAt: string;
   readonly ok: boolean;
@@ -130,6 +137,9 @@ export interface OfflineQueuedSaleRecord {
   readonly errorCode: string | null;
   readonly errorMessage: string | null;
   readonly serverSaleId: string | null;
+  /** Server reconciliation case for a NeedsReview result; absent on records synced before cases were returned. */
+  readonly reviewCaseId?: string | null;
+  readonly mismatches?: readonly OfflineArithmeticMismatch[];
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly syncAttemptCount: number;
@@ -143,4 +153,6 @@ export interface OfflineQueueSyncResult {
   readonly errorCode?: string | null;
   readonly errorMessage?: string | null;
   readonly serverSaleId?: string | null;
+  readonly reviewCaseId?: string | null;
+  readonly mismatches?: readonly OfflineArithmeticMismatch[];
 }

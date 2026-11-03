@@ -68,6 +68,48 @@
           {{ offlineQueueCounts().needsReview }}</span
         >
       </div>
+      @if (offlineReviewSales().length > 0) {
+        <div class="offline-review">
+          <h3 class="offline-review-title">{{ 'sales.history.offlineQueue.review.title' | transloco }}</h3>
+          <p class="offline-review-hint">{{ 'sales.history.offlineQueue.review.hint' | transloco }}</p>
+          <ul class="offline-review-list">
+            @for (reviewSale of offlineReviewSales(); track reviewSale.clientSaleId) {
+              <li class="offline-review-item">
+                <div class="offline-review-item-header">
+                  <strong>{{ reviewSale.invoiceNumber }}</strong>
+                  <span>{{ reviewReasonKey(reviewSale.errorCode) | transloco }}</span>
+                </div>
+                @if (reviewSale.mismatches.length > 0) {
+                  <ul class="offline-review-mismatches">
+                    @for (mismatch of reviewSale.mismatches.slice(0, maxShownMismatches); track mismatch.path) {
+                      <li>
+                        <code>{{ mismatch.path }}</code>
+                        {{
+                          'sales.history.offlineQueue.review.mismatch'
+                            | transloco: { supplied: mismatchValue(mismatch.supplied), expected: mismatchValue(mismatch.expected) }
+                        }}
+                      </li>
+                    }
+                  </ul>
+                  @if (reviewSale.mismatches.length > maxShownMismatches) {
+                    <p class="offline-review-more">
+                      {{
+                        'sales.history.offlineQueue.review.moreMismatches'
+                          | transloco: { count: reviewSale.mismatches.length - maxShownMismatches }
+                      }}
+                    </p>
+                  }
+                }
+                @if (reviewSale.reviewCaseId) {
+                  <p class="offline-review-case">
+                    {{ 'sales.history.offlineQueue.review.caseId' | transloco: { id: reviewSale.reviewCaseId } }}
+                  </p>
+                }
+              </li>
+            }
+          </ul>
+        </div>
+      }
     </section>
   }
 

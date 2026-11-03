@@ -91,6 +91,8 @@ describe('OfflineSaleFinalizationService', () => {
 
     expect(result.ok).toBe(true);
     const saved = queueDb.savePendingSale.mock.calls[0][0];
+    expect(saved.payload.pricing.calculationVersion).toBe(1);
+    expect(result.ok && result.payload).toBe(saved.payload);
     expect(saved.payload.pricing.lines[0]).toMatchObject({
       clientLineId: 'client-line-1',
       inventoryBatchId: 'batch-1',

@@ -4,7 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../../core/auth/auth.service';
 import { NetworkStatusService } from '../../../core/services/network-status.service';
 import { OfflineSalesDeviceSettingsStorage } from '../../../core/storage/offline-sales-device-settings.storage';
-import { OfflineQueuedSaleRecord, OfflineQueueSyncResult } from './offline-sale-core.types';
+import { OfflineArithmeticMismatch, OfflineQueuedSaleRecord, OfflineQueueSyncResult } from './offline-sale-core.types';
 import { OfflineSalesQueueIndexedDbService } from './offline-sales-queue-indexeddb.service';
 import { SaleService } from './sale.service';
 import type { OfflineSaleSyncResultDto } from './sale.models';
@@ -18,6 +18,16 @@ import {
   OfflineSalesSyncRunResult,
   OfflineSalesVisibleQueueCounts,
 } from '../utils/offline-sale-sync.mapper';
+
+export interface OfflineReviewSale {
+  readonly clientSaleId: string;
+  readonly invoiceNumber: string;
+  readonly soldAt: string;
+  readonly errorCode: string | null;
+  readonly errorMessage: string | null;
+  readonly reviewCaseId: string | null;
+  readonly mismatches: readonly OfflineArithmeticMismatch[];
+}
 
 const EMPTY_COUNTS: OfflineSalesVisibleQueueCounts = {
   pending: 0,
@@ -43,6 +53,8 @@ export class OfflineSalesQueueSyncService {
   private previousShopId: string | null = null;
 
   readonly visibleCounts = signal<OfflineSalesVisibleQueueCounts>(EMPTY_COUNTS);
+  /** Invoices the server held for review. They are never resent or recalculated here; the frozen payload stays as issued. */
+  readonly reviewSales = signal<readonly OfflineReviewSale[]>([]);
 
   startAutoSyncWatchers(): void {
     if (this.autoWatchStarted) return;
@@ -189,18 +201,21 @@ export class OfflineSalesQueueSyncService {
     const shopId = session?.activeShopId ?? null;
     if (!shopId) {
       this.visibleCounts.set(EMPTY_COUNTS);
+      this.reviewSales.set([]);
       return EMPTY_COUNTS;
     }
 
     const settings = this.settingsStorage.loadSettings(shopId);
     if (!settings?.deviceId) {
       this.visibleCounts.set(EMPTY_COUNTS);
+      this.reviewSales.set([]);
       return EMPTY_COUNTS;
     }
 
     const counts = await this.queueDb.getStatusCounts(shopId, settings.deviceId);
     const visible = mapToVisibleQueueCounts(counts);
     this.visibleCounts.set(visible);
+    this.reviewSales.set(visible.needsReview > 0 ? await this.loadReviewSales(shopId, settings.deviceId) : []);
     return visible;
   }
 
@@ -275,6 +290,22 @@ export class OfflineSalesQueueSyncService {
     const mapped = mapOfflineSyncResult(result);
     await this.queueDb.applySyncResult(shopId, deviceId, record.clientSaleId, mapped);
     return mapped;
+  }
+
+  private async loadReviewSales(shopId: string, deviceId: string): Promise<readonly OfflineReviewSale[]> {
+    const records = await this.queueDb.getAllByShopDevice(shopId, deviceId);
+    return records
+      .filter((record) => record.status === 'NeedsReview')
+      .sort((a, b) => a.soldAt.localeCompare(b.soldAt))
+      .map((record) => ({
+        clientSaleId: record.clientSaleId,
+        invoiceNumber: record.invoiceNumber,
+        soldAt: record.soldAt,
+        errorCode: record.errorCode,
+        errorMessage: record.errorMessage,
+        reviewCaseId: record.reviewCaseId ?? null,
+        mismatches: record.mismatches ?? [],
+      }));
   }
 
   private buildLockKey(shopId: string, deviceId: string): string {
