@@ -1,3 +1,4 @@
+using Intelibill.Domain.Common;
 using Intelibill.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -25,7 +26,20 @@ internal sealed class InvoiceSequenceConfiguration : IEntityTypeConfiguration<In
             .HasMaxLength(32)
             .IsRequired();
 
-        builder.HasIndex(sequence => new { sequence.ShopId, sequence.FiscalYearStart })
+        builder.Property(sequence => sequence.SeriesCode)
+            .HasMaxLength(InvoiceNumberFormat.MaxSeriesCodeLength)
+            .IsRequired();
+
+        builder.Property(sequence => sequence.SellerRegistrationKey)
+            .HasMaxLength(64)
+            .IsRequired();
+
+        // One counter per shop, year and series; and a series belongs to one shop per registration,
+        // so branches sharing a GSTIN cannot issue the same number.
+        builder.HasIndex(sequence => new { sequence.ShopId, sequence.FiscalYearStart, sequence.SeriesCode })
+            .IsUnique();
+
+        builder.HasIndex(sequence => new { sequence.SellerRegistrationKey, sequence.FiscalYearStart, sequence.SeriesCode })
             .IsUnique();
 
         builder.HasOne<Shop>()

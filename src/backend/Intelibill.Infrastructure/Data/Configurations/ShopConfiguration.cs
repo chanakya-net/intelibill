@@ -1,3 +1,4 @@
+using Intelibill.Domain.Common;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -41,6 +42,25 @@ internal sealed class ShopConfiguration : IEntityTypeConfiguration<Shop>
 
         builder.Property(s => s.GstNumber)
             .HasMaxLength(20);
+
+        builder.Property(s => s.LegalName)
+            .HasMaxLength(Shop.MaxLegalNameLength);
+
+        builder.Property(s => s.StateCode)
+            .HasMaxLength(2);
+
+        builder.Property(s => s.TaxRegime)
+            .IsRequired();
+
+        builder.Property(s => s.InvoiceSeriesCode)
+            .IsRequired()
+            .HasMaxLength(InvoiceNumberFormat.MaxSeriesCodeLength)
+            .HasDefaultValue(InvoiceNumberFormat.DefaultSeriesCode);
+
+        builder.Property(s => s.EInvoiceStatus)
+            .IsRequired();
+
+        builder.Ignore(s => s.SellerRegistrationKey);
 
         builder.HasMany(s => s.Memberships)
             .WithOne(sm => sm.Shop)

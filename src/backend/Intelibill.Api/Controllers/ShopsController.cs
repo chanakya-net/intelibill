@@ -2,6 +2,7 @@ using Intelibill.Api.Extensions;
 using Intelibill.Api.Middleware.RateLimiting;
 using Intelibill.Application.Features.Auth.DTOs;
 using Intelibill.Application.Features.Shops.Commands.CreateShop;
+using Intelibill.Application.Features.Shops.Commands.DeclareShopTaxProfile;
 using Intelibill.Application.Features.Shops.Commands.SetDefaultShop;
 using Intelibill.Application.Features.Shops.Commands.SwitchActiveShop;
 using Intelibill.Application.Features.Shops.Commands.UpdateShop;
@@ -14,6 +15,7 @@ using Intelibill.Application.Features.Users.Commands.RevokeShopInvitation;
 using Intelibill.Application.Features.Users.Commands.UpdateShopMembership;
 using Intelibill.Application.Features.Users.Queries.GetShopInvitations;
 using Intelibill.Application.Features.Users.DTOs;
+using Intelibill.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Wolverine;
@@ -75,7 +77,26 @@ public sealed class ShopsController : AuthenticatedControllerBase
                 request.Pincode,
                 request.ContactPerson,
                 request.MobileNumber,
-                request.GstNumber),
+                request.GstNumber,
+                request.TaxProfile?.ToInput()),
+            cancellationToken);
+
+        return result.ToActionResult(Ok);
+    }
+
+    /// <summary>
+    /// Declares the GST registration the shop issues documents under. Sales and offline ranges are
+    /// refused until a profile is declared.
+    /// </summary>
+    [HttpPut("{shopId:guid}/tax-profile")]
+    [Authorize(Policy = "OwnerOnly")]
+    public async Task<IActionResult> DeclareTaxProfile(Guid shopId, [FromBody] DeclareShopTaxProfileRequest request, CancellationToken cancellationToken)
+    {
+        var auth = CheckAuth();
+        if (auth is not null) return auth;
+
+        var result = await Bus.InvokeAsync<ErrorOr.ErrorOr<ShopDetailsDto>>(
+            new DeclareShopTaxProfileCommand(UserId!.Value, shopId, request.ToInput(), request.GstNumber),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -245,7 +266,27 @@ public sealed record CreateShopRequest(
     string Pincode,
     string? ContactPerson,
     string? MobileNumber,
-    string? GstNumber);
+    string? GstNumber,
+    ShopTaxProfileRequest? TaxProfile = null);
+public sealed record ShopTaxProfileRequest(
+    string? LegalName,
+    string? StateCode,
+    TaxRegime TaxRegime,
+    string? InvoiceSeriesCode,
+    EInvoiceStatus? EInvoiceStatus)
+{
+    public ShopTaxProfileInput ToInput() => new(LegalName, StateCode, TaxRegime, InvoiceSeriesCode, EInvoiceStatus);
+}
+public sealed record DeclareShopTaxProfileRequest(
+    string? LegalName,
+    string? StateCode,
+    TaxRegime TaxRegime,
+    string? GstNumber,
+    string? InvoiceSeriesCode,
+    EInvoiceStatus? EInvoiceStatus)
+{
+    public ShopTaxProfileInput ToInput() => new(LegalName, StateCode, TaxRegime, InvoiceSeriesCode, EInvoiceStatus);
+}
 public sealed record SwitchActiveShopRequest(Guid ShopId);
 public sealed record UpdateShopMembershipRequest(string Role, string Status, long ExpectedVersion);
 public sealed record InviteShopMemberRequest(string Email, string Role) : IRateLimitSubject

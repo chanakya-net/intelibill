@@ -1,4 +1,6 @@
 using Intelibill.Domain.Entities;
+using Intelibill.Infrastructure.Data.Json;
+using Intelibill.Domain.ValueObjects;
 using Intelibill.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -110,6 +112,10 @@ internal sealed class SaleConfiguration : IEntityTypeConfiguration<Sale>
             .HasPrecision(18, 2)
             .IsRequired()
             .HasDefaultValue(0m);
+
+        builder.Property(s => s.InvoiceDocument)
+            .HasColumnType("jsonb")
+            .HasConversion(InvoiceDocumentJson.Converter<IssuedInvoiceSnapshot>(), InvoiceDocumentJson.Comparer<IssuedInvoiceSnapshot>());
 
         builder.HasIndex(s => new { s.ShopId, s.InvoiceNumber })
             .IsUnique();

@@ -1,3 +1,5 @@
+using Intelibill.Application.Features.Shops.Commands.DeclareShopTaxProfile;
+
 namespace Intelibill.Application.Features.Shops.Commands.CreateShop;
 
 public sealed record CreateShopCommand(
@@ -10,4 +12,5 @@ public sealed record CreateShopCommand(
 	string Pincode,
 	string? ContactPerson,
 	string? MobileNumber,
-	string? GstNumber);
+	string? GstNumber,
+	ShopTaxProfileInput? TaxProfile = null);

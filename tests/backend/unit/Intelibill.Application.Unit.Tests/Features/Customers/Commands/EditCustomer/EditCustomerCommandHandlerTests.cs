@@ -55,4 +55,53 @@ public class EditCustomerCommandHandlerTests
         _customerRepository.Received(1).Update(customer);
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
+
+    [Fact]
+    public async Task HandleAsync_WhenGstinOmitted_KeepsTheRecordedRegistration()
+    {
+        var shopId = Guid.NewGuid();
+        var customer = Customer.Create(shopId, "Buyer", "+911234567890", "4 Market St", gstin: "33AABCT1332L1ZL");
+        _customerRepository.GetByShopAndIdAsync(shopId, customer.Id, Arg.Any<CancellationToken>()).Returns(customer);
+
+        var result = await _handler.HandleAsync(
+            new EditCustomerCommand(shopId, customer.Id, "Buyer Renamed", "+911234567890", "4 Market St", true, 0m),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal("33AABCT1332L1ZL", customer.Gstin);
+        Assert.Equal("33", customer.StateCode);
+        Assert.Equal("33AABCT1332L1ZL", result.Value.Gstin);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenGstinEmpty_ClearsIt()
+    {
+        var shopId = Guid.NewGuid();
+        var customer = Customer.Create(shopId, "Buyer", "+911234567890", "4 Market St", gstin: "33AABCT1332L1ZL");
+        _customerRepository.GetByShopAndIdAsync(shopId, customer.Id, Arg.Any<CancellationToken>()).Returns(customer);
+
+        var result = await _handler.HandleAsync(
+            new EditCustomerCommand(shopId, customer.Id, "Buyer", "+911234567890", "4 Market St", true, 0m, Gstin: "", StateCode: "29"),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Null(customer.Gstin);
+        Assert.Equal("29", customer.StateCode);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenStateContradictsTheKeptGstin_IsRefused()
+    {
+        var shopId = Guid.NewGuid();
+        var customer = Customer.Create(shopId, "Buyer", "+911234567890", "4 Market St", gstin: "33AABCT1332L1ZL");
+        _customerRepository.GetByShopAndIdAsync(shopId, customer.Id, Arg.Any<CancellationToken>()).Returns(customer);
+
+        var result = await _handler.HandleAsync(
+            new EditCustomerCommand(shopId, customer.Id, "Buyer", "+911234567890", "4 Market St", true, 0m, StateCode: "29"),
+            CancellationToken.None);
+
+        Assert.Equal(Errors.Customer.GstinStateMismatch.Code, result.FirstError.Code);
+        Assert.Equal("33", customer.StateCode);
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
 }

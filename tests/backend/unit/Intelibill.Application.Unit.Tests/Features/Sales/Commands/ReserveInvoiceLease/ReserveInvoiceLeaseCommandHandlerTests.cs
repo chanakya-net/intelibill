@@ -1,7 +1,10 @@
+using ErrorOr;
+using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Sales.Commands.ReserveInvoiceLease;
 using Intelibill.Domain.Common;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
+using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using NSubstitute;
 using Errors = Intelibill.Application.Common.Errors.Errors;
@@ -10,241 +13,164 @@ namespace Intelibill.Application.Unit.Tests.Features.Sales.Commands.ReserveInvoi
 
 public class ReserveInvoiceLeaseCommandHandlerTests
 {
+    private const string Gstin = "29AAPFU0939F1ZR";
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
+    private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
     private readonly IInvoiceLeaseRepository _invoiceLeaseRepository = Substitute.For<IInvoiceLeaseRepository>();
+    private readonly IInvoiceNumberAllocator _allocator = Substitute.For<IInvoiceNumberAllocator>();
+    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
+    private readonly Guid _sequenceId = Guid.NewGuid();
+    private InvoiceSeriesKey? _reservedSeries;
+    private int? _reservedCount;
+
+    public ReserveInvoiceLeaseCommandHandlerTests()
+    {
+        _allocator.ReserveRangeAsync(Arg.Any<InvoiceSeriesKey>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                _reservedSeries = call.ArgAt<InvoiceSeriesKey>(0);
+                _reservedCount = call.ArgAt<int>(1);
+                var prefix = InvoiceNumberFormat.Prefix(_reservedSeries.SeriesCode, _reservedSeries.FiscalYear);
+                return Task.FromResult<ErrorOr<ReservedInvoiceRange>>(new ReservedInvoiceRange(_sequenceId, prefix, 201, 200 + _reservedCount.Value));
+            });
+    }
+
+    private ReserveInvoiceLeaseCommandHandler CreateHandler(TimeProvider? clock = null) =>
+        new(_userRepository, _shopRepository, _invoiceLeaseRepository, _allocator, _unitOfWork, clock ?? TimeProvider.System);
+
+    private (User Actor, Shop Shop) Arrange(ShopRole role = ShopRole.Owner, bool declared = true, EInvoiceStatus eInvoice = EInvoiceStatus.BelowThreshold)
+    {
+        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
+        var shop = Shop.Create("Main", "Address", "City", "Karnataka", "560001", null, null, Gstin);
+        if (declared)
+            Assert.False(shop.DeclareTaxProfile(null, "29", TaxRegime.Regular, Gstin, null, eInvoice, actor.Id, DateTimeOffset.UtcNow).IsError);
+        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, role, true));
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
+        return (actor, shop);
+    }
 
     [Fact]
     public async Task HandleAsync_WhenUserMissing_ReturnsNotFound()
     {
-        var handler = new ReserveInvoiceLeaseCommandHandler(_userRepository, _invoiceLeaseRepository, TimeProvider.System);
-        var command = new ReserveInvoiceLeaseCommand(Guid.NewGuid(), Guid.NewGuid(), "device-1", 200);
+        var result = await CreateHandler().HandleAsync(new ReserveInvoiceLeaseCommand(Guid.NewGuid(), Guid.NewGuid(), "device-1", 200), CancellationToken.None);
 
-        var result = await handler.HandleAsync(command, CancellationToken.None);
-
-        Assert.True(result.IsError);
         Assert.Equal(Errors.Auth.UserNotFound.Code, result.FirstError.Code);
     }
 
     [Fact]
     public async Task HandleAsync_WhenMembershipMissing_ReturnsForbidden()
     {
-        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
-        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        var (actor, _) = Arrange();
 
-        var handler = new ReserveInvoiceLeaseCommandHandler(_userRepository, _invoiceLeaseRepository, TimeProvider.System);
-        var command = new ReserveInvoiceLeaseCommand(actor.Id, Guid.NewGuid(), "device-1", 200);
+        var result = await CreateHandler().HandleAsync(new ReserveInvoiceLeaseCommand(actor.Id, Guid.NewGuid(), "device-1", 200), CancellationToken.None);
 
-        var result = await handler.HandleAsync(command, CancellationToken.None);
-
-        Assert.True(result.IsError);
         Assert.Equal(Errors.Shop.MembershipNotFound.Code, result.FirstError.Code);
     }
 
     [Fact]
     public async Task HandleAsync_WhenRoleNotOwnerOrManager_ReturnsForbidden()
     {
-        var actor = User.CreateWithEmail("staff@test.com", "hash", "Staff", "User");
-        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
-        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Staff, true));
-        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        var (actor, shop) = Arrange(ShopRole.Staff);
 
-        var handler = new ReserveInvoiceLeaseCommandHandler(_userRepository, _invoiceLeaseRepository, TimeProvider.System);
-        var command = new ReserveInvoiceLeaseCommand(actor.Id, shop.Id, "device-1", 200);
+        var result = await CreateHandler().HandleAsync(new ReserveInvoiceLeaseCommand(actor.Id, shop.Id, "device-1", 200), CancellationToken.None);
 
-        var result = await handler.HandleAsync(command, CancellationToken.None);
-
-        Assert.True(result.IsError);
         Assert.Equal(Errors.InvoiceLease.UserNotAuthorized.Code, result.FirstError.Code);
     }
 
     [Fact]
-    public async Task HandleAsync_WhenValid_ReservesLeaseWithDefaultBlockSize()
+    public async Task HandleAsync_WhenTaxProfileNotDeclared_ReservesNothing()
     {
-        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
-        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
-        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
-        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        var (actor, shop) = Arrange(declared: false);
 
-        var lease = InvoiceLease.Create(
-            shop.Id,
-            Guid.NewGuid(),
-            "device-1",
-            fiscalYearStart: 2025,
-            prefix: "INV-2025-26-",
-            rangeStart: 1,
-            rangeEnd: 200,
-            numberPadding: InvoiceLeaseDefaults.NumberPadding,
-            reservedAt: new DateTimeOffset(2026, 5, 10, 0, 0, 0, TimeSpan.Zero),
-            expiresAt: new DateTimeOffset(2026, 5, 17, 0, 0, 0, TimeSpan.Zero));
+        var result = await CreateHandler().HandleAsync(new ReserveInvoiceLeaseCommand(actor.Id, shop.Id, "device-1", null), CancellationToken.None);
 
-        _invoiceLeaseRepository.ReserveAsync(
-            shop.Id,
-            "device-1",
-            Arg.Any<int>(),
-            Arg.Any<string>(),
-            InvoiceLeaseDefaults.DefaultBlockSize,
-            Arg.Any<DateTimeOffset>(),
-            Arg.Any<DateTimeOffset>(),
-            Arg.Any<Guid?>(),
-            Arg.Any<Guid?>(),
-            Arg.Any<CancellationToken>()).Returns(lease);
-
-        var handler = new ReserveInvoiceLeaseCommandHandler(_userRepository, _invoiceLeaseRepository, TimeProvider.System);
-        var result = await handler.HandleAsync(new ReserveInvoiceLeaseCommand(actor.Id, shop.Id, "device-1", null), CancellationToken.None);
-
-        Assert.False(result.IsError);
-        Assert.Equal(lease.Id, result.Value.LeaseId);
-        Assert.Equal(lease.ShopId, result.Value.ShopId);
-        Assert.Equal(lease.DeviceId, result.Value.DeviceId);
-        Assert.Equal(lease.RangeStart, result.Value.RangeStart);
-        Assert.Equal(lease.RangeEnd, result.Value.RangeEnd);
-
-        await _invoiceLeaseRepository.Received(1).ReserveAsync(
-            shop.Id,
-            "device-1",
-            Arg.Any<int>(),
-            Arg.Any<string>(),
-            InvoiceLeaseDefaults.DefaultBlockSize,
-            Arg.Any<DateTimeOffset>(),
-            Arg.Any<DateTimeOffset>(),
-            Arg.Any<Guid?>(),
-            Arg.Any<Guid?>(),
-            Arg.Any<CancellationToken>());
+        Assert.Equal(Errors.Invoice.TaxProfileRequired.Code, result.FirstError.Code);
+        await _allocator.DidNotReceive().ReserveRangeAsync(Arg.Any<InvoiceSeriesKey>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().BeginTransactionAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task Reserve_RecordsReserverAndSession()
+    public async Task HandleAsync_WhenEInvoiceRequired_ReservesNothing()
     {
-        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
-        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
-        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Manager, true));
-        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        var (actor, shop) = Arrange(eInvoice: EInvoiceStatus.Required);
+
+        var result = await CreateHandler().HandleAsync(new ReserveInvoiceLeaseCommand(actor.Id, shop.Id, "device-1", null), CancellationToken.None);
+
+        Assert.Equal(Errors.Invoice.EInvoiceUnsupported.Code, result.FirstError.Code);
+        await _allocator.DidNotReceive().ReserveRangeAsync(Arg.Any<InvoiceSeriesKey>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenValid_ReservesFromTheSharedSeriesAndFreezesTheProfile()
+    {
+        var (actor, shop) = Arrange(ShopRole.Manager);
         var sessionId = Guid.NewGuid();
-        var lease = InvoiceLease.Create(
-            shop.Id,
-            Guid.NewGuid(),
-            "device-1",
-            fiscalYearStart: 2025,
-            prefix: "INV-2025-26-",
-            rangeStart: 1,
-            rangeEnd: 200,
-            numberPadding: InvoiceLeaseDefaults.NumberPadding,
-            reservedAt: DateTimeOffset.UtcNow,
-            expiresAt: DateTimeOffset.UtcNow.AddDays(7),
-            reservedByUserId: actor.Id,
-            reservedBySessionId: sessionId);
-        _invoiceLeaseRepository.ReserveAsync(
-            Arg.Any<Guid>(),
-            Arg.Any<string>(),
-            Arg.Any<int>(),
-            Arg.Any<string>(),
-            Arg.Any<int>(),
-            Arg.Any<DateTimeOffset>(),
-            Arg.Any<DateTimeOffset>(),
-            Arg.Any<Guid?>(),
-            Arg.Any<Guid?>(),
-            Arg.Any<CancellationToken>()).Returns(lease);
+        InvoiceLease? added = null;
+        await _invoiceLeaseRepository.AddAsync(Arg.Do<InvoiceLease>(lease => added = lease), Arg.Any<CancellationToken>());
+        var clock = new FixedClock(new DateTimeOffset(2026, 6, 10, 10, 0, 0, TimeSpan.Zero));
 
-        var handler = new ReserveInvoiceLeaseCommandHandler(_userRepository, _invoiceLeaseRepository, TimeProvider.System);
-        var result = await handler.HandleAsync(
-            new ReserveInvoiceLeaseCommand(actor.Id, shop.Id, "device-1", null, sessionId),
-            CancellationToken.None);
+        var result = await CreateHandler(clock).HandleAsync(new ReserveInvoiceLeaseCommand(actor.Id, shop.Id, "device-1", null, sessionId), CancellationToken.None);
 
         Assert.False(result.IsError);
-        await _invoiceLeaseRepository.Received(1).ReserveAsync(
-            shop.Id,
-            "device-1",
-            Arg.Any<int>(),
-            Arg.Any<string>(),
-            InvoiceLeaseDefaults.DefaultBlockSize,
-            Arg.Any<DateTimeOffset>(),
-            Arg.Any<DateTimeOffset>(),
-            actor.Id,
-            sessionId,
-            Arg.Any<CancellationToken>());
+        Assert.Equal(new InvoiceSeriesKey(shop.Id, Gstin, "A", new Domain.ValueObjects.FiscalYear(2026)), _reservedSeries);
+        Assert.Equal(InvoiceLeaseDefaults.DefaultBlockSize, _reservedCount);
+        Assert.NotNull(added);
+        Assert.Equal(_sequenceId, added!.InvoiceSequenceId);
+        Assert.Equal("A/2627/", added.Prefix);
+        Assert.Equal((201, 400), (added.RangeStart, added.RangeEnd));
+        Assert.Equal(actor.Id, added.ReservedByUserId);
+        Assert.Equal(sessionId, added.ReservedBySessionId);
+        Assert.Equal(Gstin, added.SellerProfile!.Seller.Gstin);
+        Assert.Equal("A", added.SellerProfile.SeriesCode);
+        Assert.Equal("A/2627/000201", added.FormatInvoiceNumber(added.RangeStart));
+        Assert.Equal(("2026-27", "A/2627/", 6, 201, 400), (result.Value.FiscalYear, result.Value.Prefix, result.Value.NumberPadding, result.Value.RangeStart, result.Value.RangeEnd));
+        Received.InOrder(() =>
+        {
+            _unitOfWork.BeginTransactionAsync(Arg.Any<CancellationToken>());
+            _allocator.ReserveRangeAsync(Arg.Any<InvoiceSeriesKey>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+            _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>());
+            _unitOfWork.CommitTransactionAsync(Arg.Any<CancellationToken>());
+        });
     }
 
     [Fact]
-    public async Task HandleAsync_WhenValid_UsesSevenDayExpiry()
+    public async Task HandleAsync_WhenSeriesBelongsToAnotherShop_RollsBack()
     {
-        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
-        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
-        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
-        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        var (actor, shop) = Arrange();
+        _allocator.ReserveRangeAsync(Arg.Any<InvoiceSeriesKey>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<ReservedInvoiceRange>>(Errors.Invoice.SeriesRegisteredToAnotherShop));
 
-        var lease = InvoiceLease.Create(
-            shop.Id,
-            Guid.NewGuid(),
-            "device-1",
-            fiscalYearStart: 2025,
-            prefix: "INV-2025-26-",
-            rangeStart: 1,
-            rangeEnd: 200,
-            numberPadding: InvoiceLeaseDefaults.NumberPadding,
-            reservedAt: DateTimeOffset.UtcNow,
-            expiresAt: DateTimeOffset.UtcNow.AddDays(7));
+        var result = await CreateHandler().HandleAsync(new ReserveInvoiceLeaseCommand(actor.Id, shop.Id, "device-1", null), CancellationToken.None);
 
-        DateTimeOffset? capturedReservedAt = null;
-        DateTimeOffset? capturedExpiresAt = null;
-
-        _invoiceLeaseRepository.ReserveAsync(
-            shop.Id,
-            "device-1",
-            Arg.Any<int>(),
-            Arg.Any<string>(),
-            InvoiceLeaseDefaults.DefaultBlockSize,
-            Arg.Do<DateTimeOffset>(value => capturedReservedAt = value),
-            Arg.Do<DateTimeOffset>(value => capturedExpiresAt = value),
-            Arg.Any<Guid?>(),
-            Arg.Any<Guid?>(),
-            Arg.Any<CancellationToken>()).Returns(lease);
-
-        var handler = new ReserveInvoiceLeaseCommandHandler(_userRepository, _invoiceLeaseRepository, new FixedClock(new DateTimeOffset(2026, 6, 10, 10, 0, 0, TimeSpan.Zero)));
-        await handler.HandleAsync(new ReserveInvoiceLeaseCommand(actor.Id, shop.Id, "device-1", null), CancellationToken.None);
-
-        Assert.NotNull(capturedReservedAt);
-        Assert.NotNull(capturedExpiresAt);
-        Assert.Equal(TimeSpan.FromDays(InvoiceLeaseDefaults.LeaseDurationDays), capturedExpiresAt - capturedReservedAt);
+        Assert.Equal(Errors.Invoice.SeriesRegisteredToAnotherShop.Code, result.FirstError.Code);
+        await _invoiceLeaseRepository.DidNotReceive().AddAsync(Arg.Any<InvoiceLease>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).RollbackTransactionAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().CommitTransactionAsync(Arg.Any<CancellationToken>());
     }
 
     [Theory]
-    // Reserved four days before the fiscal year ends: the lease stops at 1 April 00:00 UTC, so it never straddles two years.
-    [InlineData("2027-03-28T10:00:00+00:00", "2027-04-01T00:00:00+00:00", 2026)]
-    [InlineData("2027-03-31T23:59:00+00:00", "2027-04-01T00:00:00+00:00", 2026)]
+    // The fiscal year turns at 1 April 00:00 IST (31 March 18:30 UTC); a lease never straddles it.
+    [InlineData("2027-03-28T10:00:00+00:00", "2027-03-31T18:30:00+00:00", 2026)]
+    [InlineData("2027-03-31T18:29:00+00:00", "2027-03-31T18:30:00+00:00", 2026)]
     // Well inside the year the usual seven days apply.
     [InlineData("2027-03-10T10:00:00+00:00", "2027-03-17T10:00:00+00:00", 2026)]
-    [InlineData("2027-04-01T00:00:00+00:00", "2027-04-08T00:00:00+00:00", 2027)]
+    [InlineData("2027-03-31T18:30:00+00:00", "2027-04-07T18:30:00+00:00", 2027)]
     public async Task Reserve_ExpiryCappedAtFiscalYearEnd(string reservedAt, string expectedExpiry, int fiscalYearStart)
     {
-        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
-        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
-        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
-        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        var (actor, shop) = Arrange();
         var now = DateTimeOffset.Parse(reservedAt, System.Globalization.CultureInfo.InvariantCulture);
-        var lease = InvoiceLease.Create(shop.Id, Guid.NewGuid(), "device-1", fiscalYearStart, "INV-", 1, 200, 6, now, now.AddDays(1));
-        int? capturedFiscalYear = null;
-        DateTimeOffset? capturedReservedAt = null;
-        DateTimeOffset? capturedExpiresAt = null;
-        _invoiceLeaseRepository.ReserveAsync(
-            shop.Id,
-            "device-1",
-            Arg.Do<int>(value => capturedFiscalYear = value),
-            Arg.Any<string>(),
-            Arg.Any<int>(),
-            Arg.Do<DateTimeOffset>(value => capturedReservedAt = value),
-            Arg.Do<DateTimeOffset>(value => capturedExpiresAt = value),
-            Arg.Any<Guid?>(),
-            Arg.Any<Guid?>(),
-            Arg.Any<CancellationToken>()).Returns(lease);
+        InvoiceLease? added = null;
+        await _invoiceLeaseRepository.AddAsync(Arg.Do<InvoiceLease>(lease => added = lease), Arg.Any<CancellationToken>());
 
-        var handler = new ReserveInvoiceLeaseCommandHandler(_userRepository, _invoiceLeaseRepository, new FixedClock(now));
-        var result = await handler.HandleAsync(new ReserveInvoiceLeaseCommand(actor.Id, shop.Id, "device-1", null), CancellationToken.None);
+        var result = await CreateHandler(new FixedClock(now)).HandleAsync(new ReserveInvoiceLeaseCommand(actor.Id, shop.Id, "device-1", null), CancellationToken.None);
 
         Assert.False(result.IsError);
-        Assert.Equal(now, capturedReservedAt);
-        Assert.Equal(DateTimeOffset.Parse(expectedExpiry, System.Globalization.CultureInfo.InvariantCulture), capturedExpiresAt);
-        Assert.Equal(TimeSpan.Zero, capturedExpiresAt!.Value.Offset);
-        Assert.Equal(fiscalYearStart, capturedFiscalYear);
+        Assert.Equal(now, added!.ReservedAt);
+        Assert.Equal(DateTimeOffset.Parse(expectedExpiry, System.Globalization.CultureInfo.InvariantCulture), added.ExpiresAt);
+        Assert.Equal(TimeSpan.Zero, added.ExpiresAt.Offset);
+        Assert.Equal(fiscalYearStart, added.FiscalYearStart);
+        Assert.Equal(fiscalYearStart, _reservedSeries!.FiscalYear.StartYear);
     }
 
     private sealed class FixedClock(DateTimeOffset now) : TimeProvider

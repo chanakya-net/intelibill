@@ -6,6 +6,7 @@ using Intelibill.Application.Features.Sales.Services;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
+using Intelibill.Domain.ValueObjects;
 
 namespace Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
 
@@ -15,6 +16,7 @@ internal sealed class OfflineSalePoster(
     ISaleRepository saleRepository,
     ICustomerLedgerEntryRepository customerLedgerEntryRepository,
     IStockTransactionRepository stockTransactionRepository,
+    IShopRepository shopRepository,
     IOfflineSaleVarianceAnalyzer varianceAnalyzer) : IOfflineSalePoster
 {
     public ErrorOr<Success> CheckStructure(OfflineSaleSyncCommand sale)
@@ -148,6 +150,8 @@ internal sealed class OfflineSalePoster(
         var consumption = OfflineSaleSyncHelpers.BuildStockConsumptionPlan(shopId, recordedBy, clientSaleId, deviceId, vLines, warnings, pendingIssues);
         var saleEntity = Sale.Create(shopId, request.AttributedUserId, OfflineSaleSyncIdempotencyHasher.ComputeKey(deviceId, clientSaleId), request.PayloadHash, invoiceNumber, resolvedCust?.Id ?? sale.CustomerId, sale.CustomerName ?? resolvedCust?.Name, sale.CustomerPhone ?? resolvedCust?.PhoneNumber, sale.PaymentMethod, sale.SoldAt, sale.PaidAmount, sale.DueAmount, sale.TotalAmount, sale.TotalTaxAmount, saleItems, sale.SubtotalBeforeDiscount, sale.TotalBeforeDiscount, sale.TotalDiscountAmount, sale.ConfiguredSaleRuleId, sale.ConfiguredSaleRuleType, sale.ConfiguredSaleRulePercentage, sale.ConfiguredSaleRuleThresholdAmount, sale.SaleDiscountOverrideType, sale.SaleDiscountOverrideValue, SaleSource.Offline, clientSaleId, deviceId, request.Now, warnings);
 
+        await AttachDocumentAsync(request, saleEntity, resolvedCust, pendingIssues, cancellationToken);
+
         // Built before anything is staged so a refused entry leaves the unit of work untouched.
         CustomerLedgerEntry? dueEntry = null;
         if (saleEntity.DueAmount > 0 && saleEntity.CustomerId.HasValue)
@@ -181,6 +185,55 @@ internal sealed class OfflineSalePoster(
             await customerLedgerEntryRepository.AddAsync(dueEntry, cancellationToken);
 
         return new OfflineSalePostingOutcome.Staged(saleEntity, warnings);
+    }
+
+    /// <summary>
+    /// Issues the sale's document under the profile its lease froze (the shop's current one for
+    /// ranges reserved before profiles were frozen). The device has already handed the invoice over,
+    /// so a profile that cannot issue it does not stop the sale: it posts without a document and a
+    /// review case records why.
+    /// </summary>
+    private async Task AttachDocumentAsync(
+        OfflineSalePostingRequest request,
+        Sale saleEntity,
+        Customer? customer,
+        List<ReconciliationIssue> pendingIssues,
+        CancellationToken cancellationToken)
+    {
+        var lease = request.Lease;
+        ErrorOr<InvoiceSellerProfile> profile;
+        if (lease?.SellerProfile is { } frozen)
+        {
+            profile = frozen;
+        }
+        else
+        {
+            var shop = await shopRepository.GetByIdAsync(request.ShopId, cancellationToken);
+            profile = shop is null
+                ? Errors.Shop.ShopNotFound
+                : InvoiceDocumentBuilder.CaptureSellerProfile(shop).Then(current => current with { SeriesCode = string.Empty });
+        }
+
+        var fiscalYear = lease is null ? FiscalYear.ForDate(saleEntity.SoldAt) : new FiscalYear(lease.FiscalYearStart);
+        var document = profile.Then(p => InvoiceDocumentBuilder.Build(
+            new InvoiceIssueContext(p, customer, PlaceOfSupplyStateCode: null, saleEntity.SoldAt, fiscalYear),
+            saleEntity));
+
+        if (!document.IsError)
+        {
+            saleEntity.AttachInvoiceDocument(document.Value);
+            return;
+        }
+
+        pendingIssues.Add(ReconciliationIssue.Create(
+            request.ShopId,
+            null,
+            request.ClientSaleId,
+            request.DeviceId,
+            ReconciliationIssueType.DocumentReview,
+            document.FirstError.Code,
+            $"Posted without a GST document: {document.FirstError.Description}",
+            request.RecordedByUserId));
     }
 
     private static bool AmountsMatch(decimal paid, decimal due, decimal total) =>

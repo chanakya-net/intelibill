@@ -5,6 +5,7 @@ using Intelibill.Application.Features.Exports.Accounting;
 using Intelibill.Application.Features.Exports.Sales;
 using Intelibill.Application.Features.Exports.Sales.DTOs;
 using Intelibill.Domain.Enums;
+using Intelibill.Domain.ValueObjects;
 using Intelibill.Infrastructure.Services.Exports;
 
 namespace Intelibill.Api.Unit.Tests.Infrastructure.Exports;
@@ -94,6 +95,42 @@ public sealed class SalesTallyXmlExportRendererTests
             [("Output GST 18%", 36m, false)],
             Lines(vouchers["INV-002"]).Where(l => l.Ledger.StartsWith("Output GST", StringComparison.Ordinal)));
         AssertEveryVoucherBalances(root);
+    }
+
+    [Fact]
+    public async Task RenderAsync_IssuedDocument_PostsItsComponentLedgers()
+    {
+        var intrastate = Sale("A/2627/000001", "Alice", "Cash", paid: 118m, due: 0m, (18m, 100m, 18m));
+        var interstate = Sale("A/2627/000002", "Bob", "Cash", paid: 118m, due: 0m, (18m, 100m, 18m));
+        var root = Parse(await RenderAsync(Dataset(
+        [
+            (intrastate.Summary with { TaxComponents = [new(TaxComponentKind.Cgst, 9m, 100m, 9m), new(TaxComponentKind.Sgst, 9m, 100m, 9m)] }, intrastate.Lines),
+            (interstate.Summary with { TaxComponents = [new(TaxComponentKind.Igst, 18m, 100m, 18m)] }, interstate.Lines),
+        ])));
+
+        var vouchers = root.Descendants("VOUCHER").ToDictionary(v => v.Element("VOUCHERNUMBER")!.Value);
+        Assert.Equal(
+            [("Sales", 100m, false), ("Cash", 118m, true), ("Output CGST 9%", 9m, false), ("Output SGST 9%", 9m, false)],
+            Lines(vouchers["A/2627/000001"]));
+        Assert.Equal(
+            [("Sales", 100m, false), ("Cash", 118m, true), ("Output IGST 18%", 18m, false)],
+            Lines(vouchers["A/2627/000002"]));
+        var groups = root.Descendants("MASTER")
+            .ToDictionary(m => m.Element("NAME")!.Value, m => m.Element("GROUP")!.Value);
+        Assert.Equal("Tax Payable", groups["Output CGST 9%"]);
+        Assert.Equal("Tax Payable", groups["Output IGST 18%"]);
+        AssertEveryVoucherBalances(root);
+    }
+
+    [Fact]
+    public async Task RenderAsync_SaleJustAfterMidnightIst_IsDatedOnItsBusinessDay()
+    {
+        var sale = Sale("A/2728/000001", "Alice", "Cash", paid: 118m, due: 0m, (18m, 100m, 18m));
+        var early = sale.Summary with { SaleDate = new DateTimeOffset(2027, 3, 31, 19, 0, 0, TimeSpan.Zero) };
+
+        var voucher = SingleVoucher(Parse(await RenderAsync(Dataset([(early, sale.Lines)]))), "Sales");
+
+        Assert.Equal("20270401", voucher.Element("DATE")!.Value);
     }
 
     [Theory]
@@ -186,6 +223,49 @@ public sealed class SalesTallyXmlExportRendererTests
             [("Sales", 42.37m, true), ("Output GST 18%", 7.63m, true), ("Customer Refunds Clearing", 50m, false)],
             Lines(voucher));
         AssertEveryVoucherBalances(root);
+    }
+
+    [Fact]
+    public async Task RenderAsync_ReturnOfIssuedDocument_ReversesItsComponentLedgers()
+    {
+        var sale = Sale("A/2627/000001", "Alice", "Cash", paid: 118m, due: 0m, (18m, 100m, 18m));
+        var documented = sale.Summary with { TaxComponents = [new(TaxComponentKind.Cgst, 9m, 100m, 9m), new(TaxComponentKind.Sgst, 9m, 100m, 9m)] };
+        var entry = Return("RET-1", sale, financial: 59m, taxable: 50m, tax: 9m, nonTax: 0m, Settle(ReturnSettlementKind.ExternalRefund, 59m))
+            with { DocumentTaxComponents = [new(TaxComponentKind.Cgst, 9m, 50m, 4.5m), new(TaxComponentKind.Sgst, 9m, 50m, 4.5m)] };
+
+        var root = Parse(await RenderAsync(Dataset([(documented, sale.Lines)], [entry])));
+
+        Assert.Equal(
+            [("Sales", 50m, true), ("Output CGST 9%", 4.5m, true), ("Output SGST 9%", 4.5m, true), ("Customer Refunds Clearing", 59m, false)],
+            Lines(SingleVoucher(root, "Credit Note")));
+        Assert.DoesNotContain(root.Descendants("LEDGER"), l => l.Value.StartsWith("Output GST", StringComparison.Ordinal));
+        AssertEveryVoucherBalances(root);
+    }
+
+    [Fact]
+    public async Task RenderAsync_ReturnReferencesTheInvoicesBusinessDate()
+    {
+        var sale = Sale("A/2728/000001", "Alice", "Cash", paid: 118m, due: 0m, (18m, 100m, 18m));
+        var early = sale.Summary with { SaleDate = new DateTimeOffset(2027, 3, 31, 19, 0, 0, TimeSpan.Zero) };
+        var entry = Return("RET-1", (early, sale.Lines), financial: 118m, taxable: 100m, tax: 18m, nonTax: 0m, Settle(ReturnSettlementKind.ExternalRefund, 118m))
+            with { PostedAt = new DateTimeOffset(2027, 4, 2, 20, 0, 0, TimeSpan.Zero) };
+
+        var voucher = SingleVoucher(Parse(await RenderAsync(Dataset([(early, sale.Lines)], [entry]))), "Credit Note");
+
+        Assert.Equal("20270403", voucher.Element("DATE")!.Value);
+        Assert.Equal("20270401", voucher.Element("REFERENCE")!.Element("REFERENCEDATE")!.Value);
+    }
+
+    [Fact]
+    public async Task RenderAsync_FractionalComponentRate_KeepsItsDigits()
+    {
+        var sale = Sale("A/2627/000001", "Alice", "Cash", paid: 100.25m, due: 0m, (0.25m, 100m, 0.25m));
+        var documented = sale.Summary with { TaxComponents = [new(TaxComponentKind.Cgst, 0.125m, 100m, 0.13m), new(TaxComponentKind.Sgst, 0.125m, 100m, 0.12m)] };
+
+        var voucher = SingleVoucher(Parse(await RenderAsync(Dataset([(documented, sale.Lines)]))), "Sales");
+
+        Assert.Contains(("Output CGST 0.125%", 0.13m, false), Lines(voucher));
+        Assert.Contains(("Output SGST 0.125%", 0.12m, false), Lines(voucher));
     }
 
     [Fact]

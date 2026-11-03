@@ -413,6 +413,11 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasDefaultValue(0m)
                         .HasColumnName("credit_limit");
 
+                    b.Property<string>("Gstin")
+                        .HasMaxLength(15)
+                        .HasColumnType("character varying(15)")
+                        .HasColumnName("gstin");
+
                     b.Property<bool>("IsActive")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
@@ -434,6 +439,11 @@ namespace Intelibill.Infrastructure.Migrations
                     b.Property<Guid>("ShopId")
                         .HasColumnType("uuid")
                         .HasColumnName("shop_id");
+
+                    b.Property<string>("StateCode")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("state_code");
 
                     b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -1465,6 +1475,10 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("reserved_by_user_id");
 
+                    b.Property<string>("SellerProfile")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("seller_profile");
+
                     b.Property<Guid>("ShopId")
                         .HasColumnType("uuid")
                         .HasColumnName("shop_id");
@@ -1513,6 +1527,18 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("prefix");
 
+                    b.Property<string>("SellerRegistrationKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("seller_registration_key");
+
+                    b.Property<string>("SeriesCode")
+                        .IsRequired()
+                        .HasMaxLength(4)
+                        .HasColumnType("character varying(4)")
+                        .HasColumnName("series_code");
+
                     b.Property<Guid>("ShopId")
                         .HasColumnType("uuid")
                         .HasColumnName("shop_id");
@@ -1524,9 +1550,13 @@ namespace Intelibill.Infrastructure.Migrations
                     b.HasKey("Id")
                         .HasName("pk_invoice_sequences");
 
-                    b.HasIndex("ShopId", "FiscalYearStart")
+                    b.HasIndex("SellerRegistrationKey", "FiscalYearStart", "SeriesCode")
                         .IsUnique()
-                        .HasDatabaseName("ix_invoice_sequences_shop_id_fiscal_year_start");
+                        .HasDatabaseName("ix_invoice_sequences_seller_registration_key_fiscal_year_start");
+
+                    b.HasIndex("ShopId", "FiscalYearStart", "SeriesCode")
+                        .IsUnique()
+                        .HasDatabaseName("ix_invoice_sequences_shop_id_fiscal_year_start_series_code");
 
                     b.ToTable("invoice_sequences", (string)null);
                 });
@@ -3016,6 +3046,10 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("character varying(128)")
                         .HasColumnName("idempotency_key");
 
+                    b.Property<string>("InvoiceDocument")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("invoice_document");
+
                     b.Property<string>("InvoiceNumber")
                         .IsRequired()
                         .HasMaxLength(40)
@@ -3850,10 +3884,35 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<DateTimeOffset?>("EInvoiceAttestedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("e_invoice_attested_at");
+
+                    b.Property<Guid?>("EInvoiceAttestedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("e_invoice_attested_by_user_id");
+
+                    b.Property<int>("EInvoiceStatus")
+                        .HasColumnType("integer")
+                        .HasColumnName("e_invoice_status");
+
                     b.Property<string>("GstNumber")
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)")
                         .HasColumnName("gst_number");
+
+                    b.Property<string>("InvoiceSeriesCode")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(4)
+                        .HasColumnType("character varying(4)")
+                        .HasDefaultValue("A")
+                        .HasColumnName("invoice_series_code");
+
+                    b.Property<string>("LegalName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("legal_name");
 
                     b.Property<string>("MobileNumber")
                         .HasMaxLength(32)
@@ -3877,6 +3936,15 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)")
                         .HasColumnName("state");
+
+                    b.Property<string>("StateCode")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("state_code");
+
+                    b.Property<int>("TaxRegime")
+                        .HasColumnType("integer")
+                        .HasColumnName("tax_regime");
 
                     b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")

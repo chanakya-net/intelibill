@@ -1,4 +1,5 @@
 using Intelibill.Application.Features.Exports.Accounting;
+using Intelibill.Application.Features.Sales.Services;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.ValueObjects;
@@ -190,6 +191,45 @@ public class ReturnAdjustmentProjectorTests
             july.TaxComponents.Select(c => (c.TaxRatePercent, c.TaxableAmount, c.TaxAmount)).ToArray());
         Assert.Equal(23m, june.TaxAdjustment);
         Assert.Equal(sale.SoldAt, june.InvoiceDate);
+    }
+
+    [Theory]
+    [InlineData("33", new[] { TaxComponentKind.Igst }, new[] { 7.63 })]
+    [InlineData(null, new[] { TaxComponentKind.Cgst, TaxComponentKind.Sgst }, new[] { 3.82, 3.81 })]
+    public void Project_DocumentedSale_SplitsReturnedTaxTheWayItsDocumentDid(string? placeOfSupply, TaxComponentKind[] kinds, double[] amounts)
+    {
+        var sale = Sale(ShopId);
+        AttachDocument(sale, placeOfSupply);
+        var saleReturn = Return(sale, approved: 50m, taxable: 42.37m, tax: 7.63m);
+
+        var entry = Assert.Single(Project([saleReturn], sale, June1, June30));
+
+        Assert.Equal(kinds, entry.DocumentTaxComponents!.Select(c => c.Kind));
+        Assert.Equal(amounts.Select(a => (decimal)a), entry.DocumentTaxComponents!.Select(c => c.Amount));
+        Assert.All(entry.DocumentTaxComponents!, c => Assert.Equal(42.37m, c.TaxableBase));
+        Assert.Equal(7.63m, entry.DocumentTaxComponents!.Sum(c => c.Amount));
+    }
+
+    [Fact]
+    public void Project_LegacySale_HasNoDocumentComponents()
+    {
+        var sale = Sale(ShopId);
+
+        var entry = Assert.Single(Project([Return(sale, approved: 50m, taxable: 42.37m, tax: 7.63m)], sale, June1, June30));
+
+        Assert.Null(entry.DocumentTaxComponents);
+    }
+
+    private static void AttachDocument(Sale sale, string? placeOfSupply)
+    {
+        var shop = Shop.Create("Main", "1 Road", "Bengaluru", "Karnataka", "560001", null, null, null);
+        Assert.False(shop.DeclareTaxProfile(null, "29", TaxRegime.Regular, "29AAPFU0939F1ZR", null, EInvoiceStatus.BelowThreshold, Guid.NewGuid(), sale.SoldAt).IsError);
+        var profile = InvoiceDocumentBuilder.CaptureSellerProfile(shop).Value;
+        var document = InvoiceDocumentBuilder.Build(
+            new InvoiceIssueContext(profile, null, placeOfSupply, sale.SoldAt, FiscalYear.ForDate(sale.SoldAt)),
+            sale);
+        Assert.False(document.IsError, document.IsError ? document.FirstError.Code : null);
+        sale.AttachInvoiceDocument(document.Value);
     }
 
     private static IReadOnlyList<ReturnAdjustmentEntry> Project(IEnumerable<SaleReturn> returns, Sale sale, DateOnly from, DateOnly to) =>

@@ -42,7 +42,11 @@ public sealed class GetCustomersQueryHandler(
                 c.CreditLimit,
                 m?.PurchaseCount ?? 0,
                 m?.LifetimeRevenue ?? 0m,
-                m?.CurrentMonthRevenue ?? 0m);
+                m?.CurrentMonthRevenue ?? 0m)
+            {
+                Gstin = c.Gstin,
+                StateCode = c.StateCode,
+            };
         }).ToList();
     }
 }

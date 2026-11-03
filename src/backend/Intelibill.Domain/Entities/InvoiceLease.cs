@@ -1,4 +1,5 @@
 using Intelibill.Domain.Common;
+using Intelibill.Domain.ValueObjects;
 using System.Globalization;
 
 namespace Intelibill.Domain.Entities;
@@ -22,6 +23,12 @@ public sealed class InvoiceLease : BaseEntity
 
     public Guid? ReservedBySessionId { get; private set; }
 
+    /// <summary>
+    /// The seller identity in force when the range was reserved; the documents of the range's
+    /// sales are issued under it. Null for ranges reserved before documents were recorded.
+    /// </summary>
+    public InvoiceSellerProfile? SellerProfile { get; private set; }
+
     public InvoiceSequence InvoiceSequence { get; private set; } = null!;
 
     private InvoiceLease() { }
@@ -38,7 +45,8 @@ public sealed class InvoiceLease : BaseEntity
         DateTimeOffset reservedAt,
         DateTimeOffset expiresAt,
         Guid? reservedByUserId = null,
-        Guid? reservedBySessionId = null)
+        Guid? reservedBySessionId = null,
+        InvoiceSellerProfile? sellerProfile = null)
     {
         return new InvoiceLease
         {
@@ -55,6 +63,7 @@ public sealed class InvoiceLease : BaseEntity
             ExpiresAt = expiresAt,
             ReservedByUserId = reservedByUserId,
             ReservedBySessionId = reservedBySessionId,
+            SellerProfile = sellerProfile,
         };
     }
 

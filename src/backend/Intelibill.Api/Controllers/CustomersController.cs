@@ -47,7 +47,9 @@ public sealed class CustomersController : AuthenticatedControllerBase
                 request.PhoneNumber,
                 request.Address,
                 request.IsActive,
-                request.CreditLimit),
+                request.CreditLimit,
+                request.Gstin,
+                request.StateCode),
             cancellationToken);
 
         return result.ToActionResult(customer => CreatedAtAction(nameof(GetCustomers), customer));
@@ -67,7 +69,9 @@ public sealed class CustomersController : AuthenticatedControllerBase
                 request.PhoneNumber,
                 request.Address,
                 request.IsActive,
-                request.CreditLimit),
+                request.CreditLimit,
+                request.Gstin,
+                request.StateCode),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -114,14 +118,18 @@ public sealed record AddCustomerRequest(
     string PhoneNumber,
     string? Address,
     bool IsActive,
-    decimal CreditLimit = 0m);
+    decimal CreditLimit = 0m,
+    string? Gstin = null,
+    string? StateCode = null);
 
 public sealed record EditCustomerRequest(
     string Name,
     string PhoneNumber,
     string? Address,
     bool IsActive,
-    decimal CreditLimit);
+    decimal CreditLimit,
+    string? Gstin = null,
+    string? StateCode = null);
 
 /// <param name="OperationKey">
 /// Durable identity of this payment. A retry with the same key replays the committed result;

@@ -12,4 +12,7 @@ public enum ReconciliationIssueType
     IssueTimingReview = 8,
     ProvenanceReview = 9,
     RecoveryReview = 10,
+
+    /// <summary>An offline sale posted without a GST document: the profile it was issued under could not issue one.</summary>
+    DocumentReview = 11,
 }

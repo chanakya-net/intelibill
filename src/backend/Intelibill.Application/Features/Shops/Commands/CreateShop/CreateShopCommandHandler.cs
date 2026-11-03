@@ -2,6 +2,7 @@ using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Auth.DTOs;
+using Intelibill.Application.Features.Shops.Commands.DeclareShopTaxProfile;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
@@ -15,7 +16,8 @@ public sealed class CreateShopCommandHandler(
     ISupplierRepository supplierRepository,
     IAuthSessionService sessions,
     ITenantWriteScope tenantWriteScope,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    TimeProvider timeProvider)
 {
     public async Task<ErrorOr<AccessScopeResult>> HandleAsync(CreateShopCommand command, CancellationToken cancellationToken)
     {
@@ -33,6 +35,13 @@ public sealed class CreateShopCommandHandler(
             command.ContactPerson,
             command.MobileNumber,
             command.GstNumber);
+        if (command.TaxProfile is not null)
+        {
+            var declared = DeclareShopTaxProfileCommandHandler.Declare(shop, command.TaxProfile, command.GstNumber, user.Id, timeProvider.GetUtcNow());
+            if (declared.IsError)
+                return declared.Errors;
+        }
+
         var membership = ShopMembership.Create(shop.Id, user.Id, ShopRole.Owner, isFirstShop);
 
         shop.AddMembership(membership);

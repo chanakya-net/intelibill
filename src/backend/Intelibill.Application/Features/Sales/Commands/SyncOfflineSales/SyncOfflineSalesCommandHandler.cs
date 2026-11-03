@@ -131,7 +131,8 @@ public sealed class SyncOfflineSalesCommandHandler(
                 RecordedByUserId: command.ActorUserId,
                 submission.Id,
                 now,
-                activeDiscountRulesById),
+                activeDiscountRulesById,
+                lease),
             cancellationToken);
 
         if (outcome is OfflineSalePostingOutcome.Rejected rejected)

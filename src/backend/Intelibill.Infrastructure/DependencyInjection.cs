@@ -132,6 +132,7 @@ public static class DependencyInjection
         services.AddScoped<IOfflineSubmissionRepository, OfflineSubmissionRepository>();
         services.AddScoped<ISaleReturnRepository, SaleReturnRepository>();
         services.AddScoped<IInvoiceLeaseRepository, InvoiceLeaseRepository>();
+        services.AddScoped<IInvoiceNumberAllocator, Services.Invoicing.InvoiceNumberAllocator>();
         services.AddScoped<IServiceRepository, ServiceRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddScoped<IAuthSessionRepository, AuthSessionRepository>();

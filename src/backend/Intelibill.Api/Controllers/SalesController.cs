@@ -162,7 +162,8 @@ public sealed partial class SalesController : AuthenticatedControllerBase
                     : new InstantDiscount(request.SaleDiscount.Type, request.SaleDiscount.Value),
                 creditNoteAppliedAmount,
                 creditNoteRedemptions,
-                request.CreditNoteCustomerMismatchConfirmed),
+                request.CreditNoteCustomerMismatchConfirmed,
+                request.PlaceOfSupplyStateCode),
             cancellationToken);
         return result.ToActionResult(sale => CreatedAtAction(nameof(RecordSale), sale));
     }

@@ -111,6 +111,7 @@ public sealed class GetSaleDetailQueryHandler(
                 }).ToList(),
             [])
         {
+            Document = sale.InvoiceDocument,
             CreditNoteRedemptions = creditNoteRedemptions
                 .Select(redemption => new SaleCreditNoteRedemptionSummaryDto(
                     redemption.CreditNoteId,

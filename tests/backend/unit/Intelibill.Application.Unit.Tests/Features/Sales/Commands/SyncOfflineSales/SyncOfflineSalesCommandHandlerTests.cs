@@ -69,6 +69,7 @@ public class SyncOfflineSalesCommandHandlerTests
                 _saleRepository,
                 _customerLedgerEntryRepository,
                 _stockTransactionRepository,
+                _shopRepository,
                 _varianceAnalyzer),
             _unitOfWork,
             _clock);
@@ -1567,7 +1568,7 @@ public class SyncOfflineSalesCommandHandlerTests
             .Returns(Task.FromResult<ErrorOr<Customer?>>(customer));
         SetupSuccessfulLineValidation(_saleLineValidator, shopId, item, batch, inventory);
         var poster = new OfflineSalePoster(
-            _saleLineValidator, _customerResolver, _saleRepository, _customerLedgerEntryRepository, _stockTransactionRepository, _varianceAnalyzer);
+            _saleLineValidator, _customerResolver, _saleRepository, _customerLedgerEntryRepository, _stockTransactionRepository, _shopRepository, _varianceAnalyzer);
 
         var outcome = await poster.StageAsync(
             new OfflineSalePostingRequest(
@@ -1583,6 +1584,74 @@ public class SyncOfflineSalesCommandHandlerTests
         Assert.Equal(recorder, Assert.Single(ledger).CreatedBy);
         Assert.NotEmpty(issues);
         Assert.All(issues, i => Assert.Equal(recorder, i.CreatedBy));
+    }
+
+    [Fact]
+    public async Task StageAsync_IssuesTheDocumentUnderTheLeaseFrozenProfile()
+    {
+        var shopId = Guid.NewGuid();
+        var (sale, item, batch, inventory) = ArrangeStagedSale(shopId, "A/2526/000201");
+        var frozen = FrozenProfile(TaxRegime.Regular, "Main Shop Pvt Ltd");
+        var lease = InvoiceLease.Create(shopId, Guid.NewGuid(), "device-1", 2025, "A/2526/", 201, 400, 6, Now.AddDays(-1), Now.AddDays(6), sellerProfile: frozen);
+        // The shop has since been renamed; the document keeps the identity the range was reserved under.
+        var renamed = Shop.Create("Renamed", "Elsewhere", "Mysuru", "Karnataka", "570001", null, null, null);
+        _shopRepository.GetByIdAsync(shopId, Arg.Any<CancellationToken>()).Returns(renamed);
+        SetupSuccessfulLineValidation(_saleLineValidator, shopId, item, batch, inventory);
+        Sale? staged = null;
+        _saleRepository.When(r => r.AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>())).Do(call => staged = call.Arg<Sale>());
+        var issues = CaptureReconciliationIssues();
+
+        var outcome = await Poster().StageAsync(PostingRequest(shopId, sale, lease), CancellationToken.None);
+
+        Assert.IsType<OfflineSalePostingOutcome.Staged>(outcome);
+        var document = staged!.InvoiceDocument!;
+        Assert.Equal(InvoiceDocumentType.TaxInvoice, document.DocumentType);
+        Assert.Equal("A/2526/000201", document.Number);
+        Assert.Equal(2025, document.FiscalYearStart);
+        Assert.Equal("Main Shop Pvt Ltd", document.Seller.LegalName);
+        Assert.Equal([TaxComponentKind.Cgst, TaxComponentKind.Sgst], document.Totals.Components.Select(c => c.Kind));
+        Assert.DoesNotContain(issues, i => i.IssueType == ReconciliationIssueType.DocumentReview);
+    }
+
+    [Fact]
+    public async Task StageAsync_WhenTheFrozenProfileCannotIssue_PostsWithoutADocumentAndFilesAReview()
+    {
+        var shopId = Guid.NewGuid();
+        var (sale, item, batch, inventory) = ArrangeStagedSale(shopId, "A/2526/000201");
+        var lease = InvoiceLease.Create(shopId, Guid.NewGuid(), "device-1", 2025, "A/2526/", 201, 400, 6, Now.AddDays(-1), Now.AddDays(6), sellerProfile: FrozenProfile(TaxRegime.Composition, "Main"));
+        SetupSuccessfulLineValidation(_saleLineValidator, shopId, item, batch, inventory);
+        Sale? staged = null;
+        _saleRepository.When(r => r.AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>())).Do(call => staged = call.Arg<Sale>());
+        var issues = CaptureReconciliationIssues();
+
+        var outcome = await Poster().StageAsync(PostingRequest(shopId, sale, lease), CancellationToken.None);
+
+        Assert.IsType<OfflineSalePostingOutcome.Staged>(outcome);
+        Assert.Null(staged!.InvoiceDocument);
+        var review = Assert.Single(issues, i => i.IssueType == ReconciliationIssueType.DocumentReview);
+        Assert.Equal(Errors.Invoice.CompositionCannotCollectTax.Code, review.Code);
+    }
+
+    private OfflineSalePoster Poster() =>
+        new(_saleLineValidator, _customerResolver, _saleRepository, _customerLedgerEntryRepository, _stockTransactionRepository, _shopRepository, _varianceAnalyzer);
+
+    private static OfflineSalePostingRequest PostingRequest(Guid shopId, OfflineSaleSyncCommand sale, InvoiceLease lease) =>
+        new(shopId, "device-1", sale.ClientSaleId, sale, "hash", Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Now, new Dictionary<Guid, DiscountRule>(), lease);
+
+    private static (OfflineSaleSyncCommand Sale, Item Item, InventoryBatch Batch, Domain.Entities.Inventory Inventory) ArrangeStagedSale(Guid shopId, string invoiceNumber)
+    {
+        var item = CreateItem(shopId);
+        var batch = CreateBatch(shopId, item.Id, quantity: 5m);
+        var inventory = CreateInventory(shopId, item.Id, quantity: 5m);
+        var sale = CreateSale($"offline-{Guid.NewGuid():N}", invoiceNumber, items: [CreateLine(batch.Id)]);
+        return (sale, item, batch, inventory);
+    }
+
+    private static InvoiceSellerProfile FrozenProfile(TaxRegime regime, string legalName)
+    {
+        var shop = Shop.Create("Main", "42 MG Road", "Bengaluru", "Karnataka", "560001", null, null, "29AAPFU0939F1ZR");
+        Assert.False(shop.DeclareTaxProfile(legalName, "29", regime, "29AAPFU0939F1ZR", null, EInvoiceStatus.BelowThreshold, Guid.NewGuid(), Now).IsError);
+        return InvoiceDocumentBuilder.CaptureSellerProfile(shop).Value;
     }
 
     [Fact]

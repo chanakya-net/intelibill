@@ -830,6 +830,8 @@ public sealed class OfflineReconciliationControllerTests(PostgreSqlTestFixture f
             city = "Bengaluru",
             state = "Karnataka",
             pincode = "560001",
+            gstNumber = TestTaxProfile.NewGstin(),
+            taxProfile = TestTaxProfile.Regular,
         });
         shop.EnsureSuccessStatusCode();
         var shopToken = (await shop.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("accessToken").GetString()!;

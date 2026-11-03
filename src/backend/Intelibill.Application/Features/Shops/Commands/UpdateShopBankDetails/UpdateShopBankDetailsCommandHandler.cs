@@ -120,7 +120,10 @@ public sealed class UpdateShopBankDetailsCommandHandler(
             primaryAccount.AccountNumber,
             primaryAccount.AccountType?.ToString(),
             primaryAccount.IfscCode,
-            primaryAccount.AccountHolderName);
+            primaryAccount.AccountHolderName)
+        {
+            TaxProfile = ShopTaxProfileDto.From(shop),
+        };
     }
 
     private static string? ToOptional(string? value)

@@ -54,7 +54,7 @@ internal static class TallyLedgerBuilder
             return "Bank Accounts";
         if (ledgerName == TallyVoucherBuilder.CustomerReceivableLedger)
             return "Sundry Debtors";
-        if (ledgerName.StartsWith("Output GST", StringComparison.OrdinalIgnoreCase))
+        if (TallyVoucherBuilder.IsOutputTaxLedger(ledgerName))
             return "Tax Payable";
         if (ledgerName is TallyVoucherBuilder.CreditNoteLiabilityLedger or TallyVoucherBuilder.CustomerRefundsClearingLedger)
             return "Current Liabilities";

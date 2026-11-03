@@ -1,4 +1,5 @@
 using Intelibill.Domain.Enums;
+using Intelibill.Domain.ValueObjects;
 
 namespace Intelibill.Application.Features.Exports.Accounting;
 
@@ -15,6 +16,8 @@ public enum ReturnAdjustmentEntryKind
 /// One dated accounting posting of a sale return, read from its posted snapshot. Every export format
 /// and the P&amp;L read these and nothing else for return figures, so they cannot disagree.
 /// Amounts are signed: a void reversal carries the negatives of its return.
+/// <see cref="DocumentTaxComponents"/> is the returned tax split the way the sale's issued document
+/// split it (CGST and SGST/UTGST, or IGST); null for a sale issued before documents existed.
 /// </summary>
 public sealed record ReturnAdjustmentEntry(
     ReturnAdjustmentEntryKind Kind,
@@ -37,7 +40,8 @@ public sealed record ReturnAdjustmentEntry(
     IReadOnlyList<ReturnAdjustmentTaxComponent> TaxComponents,
     IReadOnlyList<ReturnAdjustmentSettlement> Settlements,
     IReadOnlyList<ReturnAdjustmentLine> Lines,
-    string? VoidReason)
+    string? VoidReason,
+    IReadOnlyList<InvoiceTaxComponent>? DocumentTaxComponents = null)
 {
     public bool IsReversal => Kind == ReturnAdjustmentEntryKind.VoidReversal;
 

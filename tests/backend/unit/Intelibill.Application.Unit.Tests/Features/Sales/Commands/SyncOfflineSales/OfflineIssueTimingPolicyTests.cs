@@ -40,7 +40,8 @@ public class OfflineIssueTimingPolicyTests
     [Fact]
     public void ClaimInAnotherFiscalYear_IsFiscalYearMismatch()
     {
-        // The lease straddles 1 April: the claim is inside the lease window but in fiscal year 2026-27.
+        // The lease straddles 1 April 00:00 IST (31 March 18:30 UTC): the claim is inside the lease
+        // window but in fiscal year 2026-27.
         var straddling = CreateLease(
             new DateTimeOffset(2026, 3, 28, 0, 0, 0, TimeSpan.Zero),
             new DateTimeOffset(2026, 4, 4, 0, 0, 0, TimeSpan.Zero),
@@ -48,22 +49,29 @@ public class OfflineIssueTimingPolicyTests
 
         AssertCode(
             Errors.OfflineReconciliation.IssueFiscalYearMismatch,
-            OfflineIssueTimingPolicy.Evaluate(straddling, new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero), new DateTimeOffset(2026, 4, 2, 0, 0, 0, TimeSpan.Zero)));
-        Assert.Null(OfflineIssueTimingPolicy.Evaluate(straddling, new DateTimeOffset(2026, 3, 31, 23, 59, 59, TimeSpan.Zero), new DateTimeOffset(2026, 4, 2, 0, 0, 0, TimeSpan.Zero)));
+            OfflineIssueTimingPolicy.Evaluate(straddling, new DateTimeOffset(2026, 3, 31, 18, 30, 0, TimeSpan.Zero), new DateTimeOffset(2026, 4, 2, 0, 0, 0, TimeSpan.Zero)));
+        Assert.Null(OfflineIssueTimingPolicy.Evaluate(straddling, new DateTimeOffset(2026, 3, 31, 18, 29, 59, TimeSpan.Zero), new DateTimeOffset(2026, 4, 2, 0, 0, 0, TimeSpan.Zero)));
     }
 
     [Fact]
-    public void FiscalYearUsesUtc_NotTheClaimedOffset()
+    public void FiscalYearFollowsTheIndiaBusinessDate_NotTheClaimedOffset()
     {
         var straddling = CreateLease(
             new DateTimeOffset(2026, 3, 28, 0, 0, 0, TimeSpan.Zero),
             new DateTimeOffset(2026, 4, 4, 0, 0, 0, TimeSpan.Zero),
             fiscalYearStart: 2025);
+        var received = new DateTimeOffset(2026, 4, 2, 0, 0, 0, TimeSpan.Zero);
 
-        // 1 April 03:00 in India is still 31 March in UTC.
-        var claimed = new DateTimeOffset(2026, 4, 1, 3, 0, 0, TimeSpan.FromHours(5.5));
+        // 1 April 03:00 in India is still 31 March in UTC, but the business date is 1 April.
+        AssertCode(
+            Errors.OfflineReconciliation.IssueFiscalYearMismatch,
+            OfflineIssueTimingPolicy.Evaluate(straddling, new DateTimeOffset(2026, 4, 1, 3, 0, 0, TimeSpan.FromHours(5.5)), received));
 
-        Assert.Null(OfflineIssueTimingPolicy.Evaluate(straddling, claimed, new DateTimeOffset(2026, 4, 2, 0, 0, 0, TimeSpan.Zero)));
+        // A device clock in another offset is read on the same calendar: 31 March 23:00 at -05:00 is 1 April in India.
+        AssertCode(
+            Errors.OfflineReconciliation.IssueFiscalYearMismatch,
+            OfflineIssueTimingPolicy.Evaluate(straddling, new DateTimeOffset(2026, 3, 31, 23, 0, 0, TimeSpan.FromHours(-5)), received));
+        Assert.Null(OfflineIssueTimingPolicy.Evaluate(straddling, new DateTimeOffset(2026, 3, 31, 23, 0, 0, TimeSpan.FromHours(5.5)), received));
     }
 
     [Fact]
