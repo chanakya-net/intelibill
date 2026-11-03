@@ -30,7 +30,8 @@ public sealed record OfflineSaleSyncCommand(
     DiscountRuleType? ConfiguredSaleRuleType,
     decimal? ConfiguredSaleRulePercentage,
     decimal? ConfiguredSaleRuleThresholdAmount,
-    IReadOnlyList<OfflineSaleSyncLineCommand> Items);
+    IReadOnlyList<OfflineSaleSyncLineCommand> Items,
+    int? CalculationVersion = null);
 
 public sealed record OfflineSaleSyncLineCommand(
     string Barcode,

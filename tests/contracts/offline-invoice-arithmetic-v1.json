@@ -1,0 +1,930 @@
+{
+  "contract": "offline-invoice-arithmetic",
+  "calculationVersion": 1,
+  "rounding": "Money in paise, quantity in thousandths, percentages in basis points; every division rounds half away from zero.",
+  "allocation": "Sale discount: floor share per goods line with positive taxable value, capped at that value; leftover paise to the largest remainders, ties by line order.",
+  "cases": [
+    {
+      "name": "exclusive_single_line",
+      "input": {
+        "lines": [
+          {
+            "lineType": "goods",
+            "quantity": 1,
+            "salesPrice": 100,
+            "taxRatePercent": 18,
+            "taxIncluded": false,
+            "itemDiscount": {
+              "type": 0,
+              "value": 0
+            },
+            "batchRulePercentage": null
+          }
+        ],
+        "saleDiscount": {
+          "type": 0,
+          "value": 0
+        },
+        "saleRule": null,
+        "paidAmount": 118
+      },
+      "expected": {
+        "lines": [
+          {
+            "preTaxAmount": 100,
+            "itemDiscountAmount": 0,
+            "saleDiscountAmount": 0,
+            "taxableAmount": 100,
+            "taxAmount": 18,
+            "lineTotal": 118
+          }
+        ],
+        "totals": {
+          "subtotalBeforeDiscount": 100,
+          "totalBeforeDiscount": 118,
+          "totalDiscount": 0,
+          "totalTax": 18,
+          "grandTotal": 118,
+          "paidAmount": 118,
+          "dueAmount": 0
+        }
+      }
+    },
+    {
+      "name": "inclusive_fractional_quantity",
+      "input": {
+        "lines": [
+          {
+            "lineType": "goods",
+            "quantity": 0.25,
+            "salesPrice": 118,
+            "taxRatePercent": 18,
+            "taxIncluded": true,
+            "itemDiscount": {
+              "type": 0,
+              "value": 0
+            },
+            "batchRulePercentage": null
+          }
+        ],
+        "saleDiscount": {
+          "type": 0,
+          "value": 0
+        },
+        "saleRule": null,
+        "paidAmount": 29.5
+      },
+      "expected": {
+        "lines": [
+          {
+            "preTaxAmount": 25,
+            "itemDiscountAmount": 0,
+            "saleDiscountAmount": 0,
+            "taxableAmount": 25,
+            "taxAmount": 4.5,
+            "lineTotal": 29.5
+          }
+        ],
+        "totals": {
+          "subtotalBeforeDiscount": 25,
+          "totalBeforeDiscount": 29.5,
+          "totalDiscount": 0,
+          "totalTax": 4.5,
+          "grandTotal": 29.5,
+          "paidAmount": 29.5,
+          "dueAmount": 0
+        }
+      }
+    },
+    {
+      "name": "exclusive_fractional_quantity",
+      "input": {
+        "lines": [
+          {
+            "lineType": "goods",
+            "quantity": 0.25,
+            "salesPrice": 100,
+            "taxRatePercent": 18,
+            "taxIncluded": false,
+            "itemDiscount": {
+              "type": 0,
+              "value": 0
+            },
+            "batchRulePercentage": null
+          }
+        ],
+        "saleDiscount": {
+          "type": 0,
+          "value": 0
+        },
+        "saleRule": null,
+        "paidAmount": 29.5
+      },
+      "expected": {
+        "lines": [
+          {
+            "preTaxAmount": 25,
+            "itemDiscountAmount": 0,
+            "saleDiscountAmount": 0,
+            "taxableAmount": 25,
+            "taxAmount": 4.5,
+            "lineTotal": 29.5
+          }
+        ],
+        "totals": {
+          "subtotalBeforeDiscount": 25,
+          "totalBeforeDiscount": 29.5,
+          "totalDiscount": 0,
+          "totalTax": 4.5,
+          "grandTotal": 29.5,
+          "paidAmount": 29.5,
+          "dueAmount": 0
+        }
+      }
+    },
+    {
+      "name": "zero_rate_goods",
+      "input": {
+        "lines": [
+          {
+            "lineType": "goods",
+            "quantity": 3,
+            "salesPrice": 33.33,
+            "taxRatePercent": 0,
+            "taxIncluded": true,
+            "itemDiscount": {
+              "type": 0,
+              "value": 0
+            },
+            "batchRulePercentage": null
+          }
+        ],
+        "saleDiscount": {
+          "type": 0,
+          "value": 0
+        },
+        "saleRule": null,
+        "paidAmount": 99.99
+      },
+      "expected": {
+        "lines": [
+          {
+            "preTaxAmount": 99.99,
+            "itemDiscountAmount": 0,
+            "saleDiscountAmount": 0,
+            "taxableAmount": 99.99,
+            "taxAmount": 0,
+            "lineTotal": 99.99
+          }
+        ],
+        "totals": {
+          "subtotalBeforeDiscount": 99.99,
+          "totalBeforeDiscount": 99.99,
+          "totalDiscount": 0,
+          "totalTax": 0,
+          "grandTotal": 99.99,
+          "paidAmount": 99.99,
+          "dueAmount": 0
+        }
+      }
+    },
+    {
+      "name": "service_line_takes_no_discount",
+      "input": {
+        "lines": [
+          {
+            "lineType": "service",
+            "quantity": 2,
+            "salesPrice": 59,
+            "taxRatePercent": 18,
+            "taxIncluded": true,
+            "itemDiscount": {
+              "type": 2,
+              "value": 10
+            },
+            "batchRulePercentage": null
+          },
+          {
+            "lineType": "goods",
+            "quantity": 1,
+            "salesPrice": 200,
+            "taxRatePercent": 5,
+            "taxIncluded": false,
+            "itemDiscount": {
+              "type": 0,
+              "value": 0
+            },
+            "batchRulePercentage": null
+          }
+        ],
+        "saleDiscount": {
+          "type": 2,
+          "value": 20
+        },
+        "saleRule": null,
+        "paidAmount": 0
+      },
+      "expected": {
+        "lines": [
+          {
+            "preTaxAmount": 100,
+            "itemDiscountAmount": 0,
+            "saleDiscountAmount": 0,
+            "taxableAmount": 100,
+            "taxAmount": 18,
+            "lineTotal": 118
+          },
+          {
+            "preTaxAmount": 200,
+            "itemDiscountAmount": 0,
+            "saleDiscountAmount": 20,
+            "taxableAmount": 180,
+            "taxAmount": 9,
+            "lineTotal": 189
+          }
+        ],
+        "totals": {
+          "subtotalBeforeDiscount": 300,
+          "totalBeforeDiscount": 327,
+          "totalDiscount": 20,
+          "totalTax": 27,
+          "grandTotal": 307,
+          "paidAmount": 0,
+          "dueAmount": 307
+        }
+      }
+    },
+    {
+      "name": "one_paise_over_three_equal_lines",
+      "input": {
+        "lines": [
+          {
+            "lineType": "goods",
+            "quantity": 1,
+            "salesPrice": 10,
+            "taxRatePercent": 0,
+            "taxIncluded": false,
+            "itemDiscount": {
+              "type": 0,
+              "value": 0
+            },
+            "batchRulePercentage": null
+          },
+          {
+            "lineType": "goods",
+            "quantity": 1,
+            "salesPrice": 10,
+            "taxRatePercent": 0,
+            "taxIncluded": false,
+            "itemDiscount": {
+              "type": 0,
+              "value": 0
+            },
+            "batchRulePercentage": null
+          },
+          {
+            "lineType": "goods",
+            "quantity": 1,
+            "salesPrice": 10,
+            "taxRatePercent": 0,
+            "taxIncluded": false,
+            "itemDiscount": {
+              "type": 0,
+              "value": 0
+            },
+            "batchRulePercentage": null
+          }
+        ],
+        "saleDiscount": {
+          "type": 2,
+          "value": 0.01
+        },
+        "saleRule": null,
+        "paidAmount": 29.99
+      },
+      "expected": {
+        "lines": [
+          {
+            "preTaxAmount": 10,
+            "itemDiscountAmount": 0,
+            "saleDiscountAmount": 0.01,
+            "taxableAmount": 9.99,
+            "taxAmount": 0,
+            "lineTotal": 9.99
+          },
+          {
+            "preTaxAmount": 10,
+            "itemDiscountAmount": 0,
+            "saleDiscountAmount": 0,
+            "taxableAmount": 10,
+            "taxAmount": 0,
+            "lineTotal": 10
+          },
+          {
+            "preTaxAmount": 10,
+            "itemDiscountAmount": 0,
+            "saleDiscountAmount": 0,
+            "taxableAmount": 10,
+            "taxAmount": 0,
+            "lineTotal": 10
+          }
+        ],
+        "totals": {
+          "subtotalBeforeDiscount": 30,
+          "totalBeforeDiscount": 30,
+          "totalDiscount": 0.01,
+          "totalTax": 0,
+          "grandTotal": 29.99,
+          "paidAmount": 29.99,
+          "dueAmount": 0
+        }
+      }
+    },
+    {
+      "name": "six_paise_over_ten_equal_lines",
+      "input": {
+        "lines": [
+          {
+            "lineType": "goods",
+            "quantity": 1,
+            "salesPrice": 10,
+            "taxRatePercent": 0,
+            "taxIncluded": false,
+            "itemDiscount": {
+              "type": 0,
+              "value": 0
+            },
+            "batchRulePercentage": null
+          },
+          {
+            "lineType": "goods",
+            "quantity": 1,
+            "salesPrice": 10,
+            "taxRatePercent": 0,
+            "taxIncluded": false,
+            "itemDiscount": {
+              "type": 0,
+              "value": 0
+            },
+            "batchRulePercentage": null
+          },
+          {
+            "lineType": "goods",
+            "quantity": 1,
+            "salesPrice": 10,
+            "taxRatePercent": 0,
+            "taxIncluded": false,
+            "itemDiscount": {
+              "type": 0,
+              "value": 0
+            },
+            "batchRulePercentage": null
+          },
+          {
+            "lineType": "goods",
+            "quantity": 1,
+            "salesPrice": 10,
+            "taxRatePercent": 0,
+            "taxIncluded": false,
+            "itemDiscount": {
+              "type": 0,
+              "value": 0
+            },
+            "batchRulePercentage": null
+          },
+          {
+            "lineType": "goods",
+            "quantity": 1,
+            "salesPrice": 10,
+            "taxRatePercent": 0,
+            "taxIncluded": false,
+            "itemDiscount": {
+              "type": 0,
+              "value": 0
+            },
+            "batchRulePercentage": null
+          },
+          {
+            "lineType": "goods",
+            "quantity": 1,
+            "salesPrice": 10,
+            "taxRatePercent": 0,
+            "taxIncluded": false,
+            "itemDiscount": {
+              "type": 0,
+              "value": 0
+            },
+            "batchRulePercentage": null
+          },
+          {
+            "lineType": "goods",
+            "quantity": 1,
+            "salesPrice": 10,
+            "taxRatePercent": 0,
+            "taxIncluded": false,
+            "itemDiscount": {
+              "type": 0,
+              "value": 0
+            },
+            "batchRulePercentage": null
+          },
+          {
+            "lineType": "goods",
+            "quantity": 1,
+            "salesPrice": 10,
+            "taxRatePercent": 0,
+            "taxIncluded": false,
+            "itemDiscount": {
+              "type": 0,
+              "value": 0
+            },
+            "batchRulePercentage": null
+          },
+          {
+            "lineType": "goods",
+            "quantity": 1,
+            "salesPrice": 10,
+            "taxRatePercent": 0,
+            "taxIncluded": false,
+            "itemDiscount": {
+              "type": 0,
+              "value": 0
+            },
+            "batchRulePercentage": null
+          },
+          {
+            "lineType": "goods",
+            "quantity": 1,
+            "salesPrice": 10,
+            "taxRatePercent": 0,
+            "taxIncluded": false,
+            "itemDiscount": {
+              "type": 0,
+              "value": 0
+            },
+            "batchRulePercentage": null
+          }
+        ],
+        "saleDiscount": {
+          "type": 2,
+          "value": 0.06
+        },
+        "saleRule": null,
+        "paidAmount": 99.94
+      },
+      "expected": {
+        "lines": [
+          {
+            "preTaxAmount": 10,
+            "itemDiscountAmount": 0,
+            "saleDiscountAmount": 0.01,
+            "taxableAmount": 9.99,
+            "taxAmount": 0,
+            "lineTotal": 9.99
+          },
+          {
+            "preTaxAmount": 10,
+            "itemDiscountAmount": 0,
+            "saleDiscountAmount": 0.01,
+            "taxableAmount": 9.99,
+            "taxAmount": 0,
+            "lineTotal": 9.99
+          },
+          {
+            "preTaxAmount": 10,
+            "itemDiscountAmount": 0,
+            "saleDiscountAmount": 0.01,
+            "taxableAmount": 9.99,
+            "taxAmount": 0,
+            "lineTotal": 9.99
+          },
+          {
+            "preTaxAmount": 10,
+            "itemDiscountAmount": 0,
+            "saleDiscountAmount": 0.01,
+            "taxableAmount": 9.99,
+            "taxAmount": 0,
+            "lineTotal": 9.99
+          },
+          {
+            "preTaxAmount": 10,
+            "itemDiscountAmount": 0,
+            "saleDiscountAmount": 0.01,
+            "taxableAmount": 9.99,
+            "taxAmount": 0,
+            "lineTotal": 9.99
+          },
+          {
+            "preTaxAmount": 10,
+            "itemDiscountAmount": 0,
+            "saleDiscountAmount": 0.01,
+            "taxableAmount": 9.99,
+            "taxAmount": 0,
+            "lineTotal": 9.99
+          },
+          {
+            "preTaxAmount": 10,
+            "itemDiscountAmount": 0,
+            "saleDiscountAmount": 0,
+            "taxableAmount": 10,
+            "taxAmount": 0,
+            "lineTotal": 10
+          },
+          {
+            "preTaxAmount": 10,
+            "itemDiscountAmount": 0,
+            "saleDiscountAmount": 0,
+            "taxableAmount": 10,
+            "taxAmount": 0,
+            "lineTotal": 10
+          },
+          {
+            "preTaxAmount": 10,
+            "itemDiscountAmount": 0,
+            "saleDiscountAmount": 0,
+            "taxableAmount": 10,
+            "taxAmount": 0,
+            "lineTotal": 10
+          },
+          {
+            "preTaxAmount": 10,
+            "itemDiscountAmount": 0,
+            "saleDiscountAmount": 0,
+            "taxableAmount": 10,
+            "taxAmount": 0,
+            "lineTotal": 10
+          }
+        ],
+        "totals": {
+          "subtotalBeforeDiscount": 100,
+          "totalBeforeDiscount": 100,
+          "totalDiscount": 0.06,
+          "totalTax": 0,
+          "grandTotal": 99.94,
+          "paidAmount": 99.94,
+          "dueAmount": 0
+        }
+      }
+    },
+    {
+      "name": "batch_rule_with_lower_override",
+      "input": {
+        "lines": [
+          {
+            "lineType": "goods",
+            "quantity": 2,
+            "salesPrice": 100,
+            "taxRatePercent": 18,
+            "taxIncluded": false,
+            "itemDiscount": {
+              "type": 1,
+              "value": 3
+            },
+            "batchRulePercentage": 5
+          }
+        ],
+        "saleDiscount": {
+          "type": 0,
+          "value": 0
+        },
+        "saleRule": null,
+        "paidAmount": 228.92
+      },
+      "expected": {
+        "lines": [
+          {
+            "preTaxAmount": 200,
+            "itemDiscountAmount": 6,
+            "saleDiscountAmount": 0,
+            "taxableAmount": 194,
+            "taxAmount": 34.92,
+            "lineTotal": 228.92
+          }
+        ],
+        "totals": {
+          "subtotalBeforeDiscount": 200,
+          "totalBeforeDiscount": 234.92,
+          "totalDiscount": 6,
+          "totalTax": 34.92,
+          "grandTotal": 228.92,
+          "paidAmount": 228.92,
+          "dueAmount": 0
+        }
+      }
+    },
+    {
+      "name": "sale_threshold_rule_partial_payment",
+      "input": {
+        "lines": [
+          {
+            "lineType": "goods",
+            "quantity": 4,
+            "salesPrice": 100,
+            "taxRatePercent": 18,
+            "taxIncluded": false,
+            "itemDiscount": {
+              "type": 0,
+              "value": 0
+            },
+            "batchRulePercentage": null
+          },
+          {
+            "lineType": "goods",
+            "quantity": 1,
+            "salesPrice": 200,
+            "taxRatePercent": 18,
+            "taxIncluded": false,
+            "itemDiscount": {
+              "type": 0,
+              "value": 0
+            },
+            "batchRulePercentage": null
+          }
+        ],
+        "saleDiscount": {
+          "type": 0,
+          "value": 0
+        },
+        "saleRule": {
+          "ruleType": "SaleThresholdPercentage",
+          "percentage": 10,
+          "thresholdAmount": 500
+        },
+        "paidAmount": 600
+      },
+      "expected": {
+        "lines": [
+          {
+            "preTaxAmount": 400,
+            "itemDiscountAmount": 0,
+            "saleDiscountAmount": 40,
+            "taxableAmount": 360,
+            "taxAmount": 64.8,
+            "lineTotal": 424.8
+          },
+          {
+            "preTaxAmount": 200,
+            "itemDiscountAmount": 0,
+            "saleDiscountAmount": 20,
+            "taxableAmount": 180,
+            "taxAmount": 32.4,
+            "lineTotal": 212.4
+          }
+        ],
+        "totals": {
+          "subtotalBeforeDiscount": 600,
+          "totalBeforeDiscount": 697.2,
+          "totalDiscount": 60,
+          "totalTax": 97.2,
+          "grandTotal": 637.2,
+          "paidAmount": 600,
+          "dueAmount": 37.2
+        }
+      }
+    },
+    {
+      "name": "tax_midpoint_rounds_half_away",
+      "input": {
+        "lines": [
+          {
+            "lineType": "goods",
+            "quantity": 1,
+            "salesPrice": 20.1,
+            "taxRatePercent": 5,
+            "taxIncluded": false,
+            "itemDiscount": {
+              "type": 0,
+              "value": 0
+            },
+            "batchRulePercentage": null
+          }
+        ],
+        "saleDiscount": {
+          "type": 0,
+          "value": 0
+        },
+        "saleRule": null,
+        "paidAmount": 21.11
+      },
+      "expected": {
+        "lines": [
+          {
+            "preTaxAmount": 20.1,
+            "itemDiscountAmount": 0,
+            "saleDiscountAmount": 0,
+            "taxableAmount": 20.1,
+            "taxAmount": 1.01,
+            "lineTotal": 21.11
+          }
+        ],
+        "totals": {
+          "subtotalBeforeDiscount": 20.1,
+          "totalBeforeDiscount": 21.11,
+          "totalDiscount": 0,
+          "totalTax": 1.01,
+          "grandTotal": 21.11,
+          "paidAmount": 21.11,
+          "dueAmount": 0
+        }
+      }
+    },
+    {
+      "name": "inclusive_non_terminating_split",
+      "input": {
+        "lines": [
+          {
+            "lineType": "goods",
+            "quantity": 1,
+            "salesPrice": 100,
+            "taxRatePercent": 18,
+            "taxIncluded": true,
+            "itemDiscount": {
+              "type": 0,
+              "value": 0
+            },
+            "batchRulePercentage": null
+          }
+        ],
+        "saleDiscount": {
+          "type": 0,
+          "value": 0
+        },
+        "saleRule": null,
+        "paidAmount": 100.01
+      },
+      "expected": {
+        "lines": [
+          {
+            "preTaxAmount": 84.75,
+            "itemDiscountAmount": 0,
+            "saleDiscountAmount": 0,
+            "taxableAmount": 84.75,
+            "taxAmount": 15.26,
+            "lineTotal": 100.01
+          }
+        ],
+        "totals": {
+          "subtotalBeforeDiscount": 84.75,
+          "totalBeforeDiscount": 100.01,
+          "totalDiscount": 0,
+          "totalTax": 15.26,
+          "grandTotal": 100.01,
+          "paidAmount": 100.01,
+          "dueAmount": 0
+        }
+      }
+    },
+    {
+      "name": "percent_sale_discount_mixed_rates_remainder",
+      "input": {
+        "lines": [
+          {
+            "lineType": "goods",
+            "quantity": 1,
+            "salesPrice": 33.33,
+            "taxRatePercent": 18,
+            "taxIncluded": false,
+            "itemDiscount": {
+              "type": 0,
+              "value": 0
+            },
+            "batchRulePercentage": null
+          },
+          {
+            "lineType": "goods",
+            "quantity": 1,
+            "salesPrice": 66.67,
+            "taxRatePercent": 5,
+            "taxIncluded": false,
+            "itemDiscount": {
+              "type": 0,
+              "value": 0
+            },
+            "batchRulePercentage": null
+          },
+          {
+            "lineType": "goods",
+            "quantity": 1,
+            "salesPrice": 10,
+            "taxRatePercent": 0,
+            "taxIncluded": false,
+            "itemDiscount": {
+              "type": 0,
+              "value": 0
+            },
+            "batchRulePercentage": null
+          }
+        ],
+        "saleDiscount": {
+          "type": 1,
+          "value": 10
+        },
+        "saleRule": null,
+        "paidAmount": 107.4
+      },
+      "expected": {
+        "lines": [
+          {
+            "preTaxAmount": 33.33,
+            "itemDiscountAmount": 0,
+            "saleDiscountAmount": 3.33,
+            "taxableAmount": 30,
+            "taxAmount": 5.4,
+            "lineTotal": 35.4
+          },
+          {
+            "preTaxAmount": 66.67,
+            "itemDiscountAmount": 0,
+            "saleDiscountAmount": 6.67,
+            "taxableAmount": 60,
+            "taxAmount": 3,
+            "lineTotal": 63
+          },
+          {
+            "preTaxAmount": 10,
+            "itemDiscountAmount": 0,
+            "saleDiscountAmount": 1,
+            "taxableAmount": 9,
+            "taxAmount": 0,
+            "lineTotal": 9
+          }
+        ],
+        "totals": {
+          "subtotalBeforeDiscount": 110,
+          "totalBeforeDiscount": 118.4,
+          "totalDiscount": 11,
+          "totalTax": 8.4,
+          "grandTotal": 107.4,
+          "paidAmount": 107.4,
+          "dueAmount": 0
+        }
+      }
+    },
+    {
+      "name": "fully_discounted_line_excluded_from_allocation",
+      "input": {
+        "lines": [
+          {
+            "lineType": "goods",
+            "quantity": 1,
+            "salesPrice": 50,
+            "taxRatePercent": 12,
+            "taxIncluded": false,
+            "itemDiscount": {
+              "type": 1,
+              "value": 100
+            },
+            "batchRulePercentage": null
+          },
+          {
+            "lineType": "goods",
+            "quantity": 1.5,
+            "salesPrice": 40,
+            "taxRatePercent": 12,
+            "taxIncluded": false,
+            "itemDiscount": {
+              "type": 2,
+              "value": 5
+            },
+            "batchRulePercentage": null
+          }
+        ],
+        "saleDiscount": {
+          "type": 2,
+          "value": 5.55
+        },
+        "saleRule": null,
+        "paidAmount": 0
+      },
+      "expected": {
+        "lines": [
+          {
+            "preTaxAmount": 50,
+            "itemDiscountAmount": 50,
+            "saleDiscountAmount": 0,
+            "taxableAmount": 0,
+            "taxAmount": 0,
+            "lineTotal": 0
+          },
+          {
+            "preTaxAmount": 60,
+            "itemDiscountAmount": 5,
+            "saleDiscountAmount": 5.55,
+            "taxableAmount": 49.45,
+            "taxAmount": 5.93,
+            "lineTotal": 55.38
+          }
+        ],
+        "totals": {
+          "subtotalBeforeDiscount": 110,
+          "totalBeforeDiscount": 115.93,
+          "totalDiscount": 60.55,
+          "totalTax": 5.93,
+          "grandTotal": 55.38,
+          "paidAmount": 0,
+          "dueAmount": 55.38
+        }
+      }
+    }
+  ]
+}

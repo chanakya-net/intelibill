@@ -32,4 +32,8 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="../../../contracts/offline-invoice-arithmetic-v1.json" Link="Contracts/offline-invoice-arithmetic-v1.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
