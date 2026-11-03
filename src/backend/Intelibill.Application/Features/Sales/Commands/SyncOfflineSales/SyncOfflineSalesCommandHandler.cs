@@ -1,33 +1,31 @@
-using System.Globalization;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
-using Intelibill.Application.Features.Sales.Commands.RecordSale;
-using Intelibill.Application.Features.Sales.Services;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
-using Intelibill.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
 
+/// <summary>
+/// Syncs a device's queued offline invoices. Each invoice is stored as an envelope before anything
+/// else can hold or post it, so every held case points at the exact payload the server received.
+/// </summary>
 public sealed class SyncOfflineSalesCommandHandler(
     IUserRepository userRepository,
+    IShopRepository shopRepository,
     IInvoiceLeaseRepository invoiceLeaseRepository,
-    ISaleLineValidator saleLineValidator,
-    ICustomerResolver customerResolver,
+    IOfflineSubmissionRepository offlineSubmissionRepository,
     ISaleRepository saleRepository,
-    ICustomerLedgerEntryRepository customerLedgerEntryRepository,
-    IStockTransactionRepository stockTransactionRepository,
     IDiscountRuleRepository discountRuleRepository,
     IOfflineSaleVarianceAnalyzer varianceAnalyzer,
-    IUnitOfWork unitOfWork)
+    IOfflineSalePoster salePoster,
+    IUnitOfWork unitOfWork,
+    TimeProvider timeProvider)
 {
     private const string StatusCreated = "created";
     private const string StatusSyncedWithWarnings = "SyncedWithWarnings";
-    private const int MaxReviewMessageLength = 1000;
-    private const int MaxReportedMismatches = 100;
 
     public async Task<ErrorOr<OfflineSalesSyncResponseDto>> HandleAsync(
         SyncOfflineSalesCommand command,
@@ -40,15 +38,14 @@ public sealed class SyncOfflineSalesCommandHandler(
         if (!isMember) return Errors.Shop.MembershipNotFound;
 
         var deviceId = command.DeviceId.Trim();
-        var now = DateTimeOffset.UtcNow;
-        var activeLeases = await invoiceLeaseRepository.GetActiveByDeviceAsync(command.ShopId, deviceId, now, cancellationToken);
+        var now = timeProvider.GetUtcNow();
         var activeDiscountRules = await discountRuleRepository.GetActiveByShopAsync(command.ShopId, now, cancellationToken);
         var activeDiscountRulesById = activeDiscountRules.ToDictionary(rule => rule.Id);
 
         var results = new List<OfflineSaleSyncResultDto>(command.Sales.Count);
         foreach (var sale in command.Sales)
         {
-            results.Add(await SyncSaleAsync(command, sale, deviceId, now, activeLeases, activeDiscountRulesById, cancellationToken));
+            results.Add(await SyncSaleAsync(command, sale, deviceId, now, activeDiscountRulesById, cancellationToken));
         }
 
         return new OfflineSalesSyncResponseDto(results);
@@ -59,185 +56,92 @@ public sealed class SyncOfflineSalesCommandHandler(
         OfflineSaleSyncCommand sale,
         string deviceId,
         DateTimeOffset now,
-        IReadOnlyList<InvoiceLease> activeLeases,
         IReadOnlyDictionary<Guid, DiscountRule> activeDiscountRulesById,
         CancellationToken cancellationToken)
     {
-        var normalizedId = string.IsNullOrWhiteSpace(sale.ClientSaleId) ? string.Empty : sale.ClientSaleId.Trim();
-        if (string.IsNullOrWhiteSpace(normalizedId)) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.ClientSaleIdRequired);
-        if (normalizedId.Length > 120) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.ClientSaleIdTooLong);
+        if (OfflineSaleSyncHelpers.CheckIdentity(sale, out var normalizedId, out var invNum) is { } identityError)
+            return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, identityError);
 
         var hash = OfflineSaleSyncIdempotencyHasher.ComputeHash(command.ShopId, deviceId, sale);
-        var existing = await saleRepository.GetByClientSaleIdAsync(command.ShopId, deviceId, normalizedId, cancellationToken);
+        var lease = await invoiceLeaseRepository.FindReservedRangeAsync(command.ShopId, deviceId, invNum, cancellationToken);
+        var (assertedIssuer, verifiedIssuer) = await ResolveIssuerAsync(command, deviceId, sale.IssuedByUserId, cancellationToken);
 
+        // Stored before any check can hold the invoice; an identical resend gets the first row back,
+        // so its ReceivedAt is the first receipt the timing rule trusts.
+        var submission = await offlineSubmissionRepository.RecordAsync(
+            OfflineSubmission.Record(
+                command.ShopId,
+                deviceId,
+                normalizedId,
+                invNum,
+                hash,
+                OfflineSubmissionPayload.Serialize(sale),
+                sale.SoldAt,
+                now,
+                OfflineSubmissionSource.Sync,
+                command.ActorUserId,
+                assertedIssuer,
+                verifiedIssuer,
+                lease?.Id,
+                recoveryOperationId: null),
+            cancellationToken);
+
+        var hold = new HeldCase(command.ShopId, normalizedId, deviceId, invNum, submission.Id, command.ActorUserId);
+
+        var existing = await saleRepository.GetByClientSaleIdAsync(command.ShopId, deviceId, normalizedId, cancellationToken);
         if (existing is not null)
         {
             if (!string.Equals(existing.RequestHash, hash, StringComparison.Ordinal))
+                return await HoldAsync(hold, existing.Id, ReconciliationIssueType.ValidationConflict, Errors.Sale.IdempotencyConflict, cancellationToken);
+
+            if (submission.SaleId is null)
             {
-                var conflictCaseId = await varianceAnalyzer.AddReviewIssueAsync(command.ShopId, existing.Id, normalizedId, deviceId, ReconciliationIssueType.ValidationConflict, Errors.Sale.IdempotencyConflict.Code, Errors.Sale.IdempotencyConflict.Description, command.ActorUserId, cancellationToken);
+                // A sale posted before envelopes existed (or whose envelope was lost to a race) adopts this one.
+                submission.LinkSale(existing.Id);
                 await unitOfWork.SaveChangesAsync(cancellationToken);
-                return OfflineSaleSyncHelpers.BuildNeedsReviewResult(normalizedId, Errors.Sale.IdempotencyConflict, conflictCaseId);
             }
+
             return OfflineSaleSyncHelpers.BuildDuplicateResult(normalizedId, existing);
         }
 
-        var invNum = (sale.InvoiceNumber ?? string.Empty).Trim();
-        if (string.IsNullOrWhiteSpace(invNum)) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.InvoiceNumberRequired);
-        if (invNum.Length > 40) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.InvoiceNumberTooLong);
-        if (sale.Items.Count == 0) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.ItemsRequired);
-        if (sale.PaidAmount < 0) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.PaidAmountInvalid);
-        if (sale.DueAmount < 0) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.DueAmountInvalid);
-        if (sale.TotalAmount < 0) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.TotalAmountInvalid);
-        if (sale.TotalTaxAmount < 0) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.TotalTaxAmountInvalid);
-        if (sale.SubtotalBeforeDiscount < 0) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.SubtotalBeforeDiscountInvalid);
-        if (sale.TotalBeforeDiscount < 0) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.TotalBeforeDiscountInvalid);
-        if (sale.TotalDiscountAmount < 0) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.TotalDiscountAmountInvalid);
+        var structure = salePoster.CheckStructure(sale);
+        if (structure.IsError) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, structure.FirstError);
 
-        if (sale.PaymentMethod == PaymentMethod.Credit && sale.DueAmount <= 0) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.CreditRequiresDueAmount);
-        if (sale.DueAmount > 0 && !sale.CustomerId.HasValue && string.IsNullOrWhiteSpace(sale.CustomerPhone)) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.CustomerIdentityRequiredForDue);
-        if (!AmountsMatch(sale.PaidAmount, sale.DueAmount, sale.TotalAmount)) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.PaidAndDueAmountMismatch);
+        // The web client never sends another user's invoices; one that arrives is reviewed, never posted as the submitter's.
+        if (sale.IssuedByUserId is { } issuedBy && issuedBy != command.ActorUserId)
+            return await HoldAsync(hold, null, ReconciliationIssueType.ProvenanceReview, Errors.OfflineReconciliation.IssuerNotSubmitter, cancellationToken);
 
-        var warnings = new List<string>();
-        var pendingIssues = new List<ReconciliationIssue>();
-        var customerRes = await customerResolver.ResolveAsync(command.ShopId, sale.CustomerId, sale.CustomerPhone, sale.DueAmount > 0, sale.PaymentMethod, cancellationToken);
-        if (customerRes.IsError) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, customerRes.FirstError);
+        if (lease is null)
+            return await HoldAsync(hold, null, ReconciliationIssueType.InvoiceConflict, Errors.Sale.InvoiceLeaseNotFound, cancellationToken);
 
-        var resolvedCust = customerRes.Value;
-        OfflineSaleSyncHelpers.AddCustomerVarianceWarnings(command.ShopId, command.ActorUserId, normalizedId, deviceId, sale, resolvedCust, warnings, pendingIssues);
-
-        if (!TryMatchLease(activeLeases, invNum, out _))
-        {
-            var leaseCaseId = await varianceAnalyzer.AddReviewIssueAsync(command.ShopId, null, normalizedId, deviceId, ReconciliationIssueType.InvoiceConflict, Errors.Sale.InvoiceLeaseNotFound.Code, Errors.Sale.InvoiceLeaseNotFound.Description, command.ActorUserId, cancellationToken);
-            await unitOfWork.SaveChangesAsync(cancellationToken);
-            return OfflineSaleSyncHelpers.BuildNeedsReviewResult(normalizedId, Errors.Sale.InvoiceLeaseNotFound, leaseCaseId);
-        }
+        if (OfflineIssueTimingPolicy.Evaluate(lease, sale.SoldAt, submission.ReceivedAt) is { } timingError)
+            return await HoldAsync(hold, null, ReconciliationIssueType.IssueTimingReview, timingError, cancellationToken);
 
         if (await saleRepository.GetByInvoiceNumberAsync(command.ShopId, invNum, cancellationToken) is not null)
-        {
-            var invoiceCaseId = await varianceAnalyzer.AddReviewIssueAsync(command.ShopId, null, normalizedId, deviceId, ReconciliationIssueType.InvoiceConflict, Errors.Sale.InvoiceNumberAlreadyUsed.Code, Errors.Sale.InvoiceNumberAlreadyUsed.Description, command.ActorUserId, cancellationToken);
-            await unitOfWork.SaveChangesAsync(cancellationToken);
-            return OfflineSaleSyncHelpers.BuildNeedsReviewResult(normalizedId, Errors.Sale.InvoiceNumberAlreadyUsed, invoiceCaseId);
-        }
+            return await HoldAsync(hold, null, ReconciliationIssueType.InvoiceConflict, Errors.Sale.InvoiceNumberAlreadyUsed, cancellationToken);
 
-        var lineCmds = new List<RecordSaleItemCommand>(sale.Items.Count);
-        var lineByKey = new Dictionary<string, OfflineSaleSyncLineCommand>(sale.Items.Count);
-        for (var i = 0; i < sale.Items.Count; i++)
-        {
-            var line = sale.Items[i];
-            if (string.IsNullOrWhiteSpace(line.Barcode)) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.BarcodeRequired);
-            if (string.IsNullOrWhiteSpace(line.ItemName)) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.ItemNameRequired);
-            if (!line.IsServiceLine && string.IsNullOrWhiteSpace(line.BatchNumber)) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.BatchNumberRequired);
-            if (!line.IsServiceLine && line.InventoryBatchId == Guid.Empty) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.InventoryBatchIdRequired);
-            if (line.IsServiceLine && !line.ServiceId.HasValue) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.ServiceIdRequired);
-            if (line.Quantity <= 0) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.OfflineLineQuantityMustBePositive);
-            if (OfflineSaleSyncHelpers.HasNegativeOfflineLineAmounts(line)) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.OfflineLineAmountsInvalid);
+        var outcome = await salePoster.StageAsync(
+            new OfflineSalePostingRequest(
+                command.ShopId,
+                deviceId,
+                normalizedId,
+                sale,
+                hash,
+                AttributedUserId: command.ActorUserId,
+                RecordedByUserId: command.ActorUserId,
+                submission.Id,
+                now,
+                activeDiscountRulesById),
+            cancellationToken);
 
-            var key = i.ToString(CultureInfo.InvariantCulture);
-            lineByKey.Add(key, line);
-            var lineType = line.IsServiceLine ? SaleLineType.Service : SaleLineType.Goods;
-            lineCmds.Add(new RecordSaleItemCommand(line.Barcode, line.BatchNumber, line.ItemName, line.Quantity, line.CostPrice, line.SalesPrice, line.Mrp, line.TaxRatePercent, line.IsPriceIncludingTax, line.InventoryBatchId, null, key, line.HsnCode, lineType, line.ServiceId));
-        }
+        if (outcome is OfflineSalePostingOutcome.Rejected rejected)
+            return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, rejected.Error);
+        if (outcome is OfflineSalePostingOutcome.Held held)
+            return await HoldAsync(hold, null, held.IssueType, held.Error, cancellationToken, held.Message, held.Mismatches);
 
-        // Frozen amounts must reconcile with their own inputs before anything is posted; catalog variance is reported separately below.
-        var arithmetic = OfflineInvoiceArithmeticValidator.Validate(sale);
-        if (!arithmetic.IsConsistent)
-        {
-            var arithmeticError = arithmetic.IsUnsupportedVersion ? Errors.Sale.OfflineCalculationVersionUnsupported : Errors.Sale.OfflineArithmeticMismatch;
-            var arithmeticCaseId = await varianceAnalyzer.AddReviewIssueAsync(command.ShopId, null, normalizedId, deviceId, ReconciliationIssueType.ArithmeticConflict, arithmeticError.Code, arithmetic.Describe(MaxReviewMessageLength), command.ActorUserId, cancellationToken);
-            await unitOfWork.SaveChangesAsync(cancellationToken);
-            return OfflineSaleSyncHelpers.BuildNeedsReviewResult(normalizedId, arithmeticError, arithmeticCaseId, [.. arithmetic.Mismatches.Take(MaxReportedMismatches)]);
-        }
-
-        var warnCountBefore = warnings.Count;
-        var validation = await saleLineValidator.ValidateLinesAsync(command.ShopId, lineCmds, warnings, cancellationToken, true);
-        if (validation.IsError) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, validation.FirstError);
-
-        var vLines = validation.Value.Lines;
-        OfflineSaleSyncHelpers.AddValidationVarianceIssues(command.ShopId, command.ActorUserId, normalizedId, deviceId, warnings.Skip(warnCountBefore), pendingIssues);
-        OfflineSaleSyncHelpers.AddPricingVarianceWarnings(command.ShopId, command.ActorUserId, normalizedId, deviceId, vLines, lineByKey, warnings, pendingIssues);
-        OfflineSaleSyncHelpers.AddDiscountVarianceWarnings(command.ShopId, command.ActorUserId, normalizedId, deviceId, sale, lineByKey.Values, activeDiscountRulesById, warnings, pendingIssues);
-
-        var saleItems = new List<SaleItem>(vLines.Count);
-        foreach (var v in vLines)
-        {
-            if (!lineByKey.TryGetValue(v.Command.ClientLineKey!, out var line)) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.General.Unexpected("Line mapping failed."));
-            if (v.LineType == SaleLineType.Service)
-            {
-                saleItems.Add(SaleItem.CreateService(
-                    command.ShopId,
-                    v.Service!.Id,
-                    lineName: line.ItemName,
-                    lineCode: line.Barcode,
-                    line.Quantity,
-                    costPrice: 0m,
-                    line.SalesPrice,
-                    mrp: 0m,
-                    line.TaxRatePercent,
-                    line.IsPriceIncludingTax,
-                    hasPriceMismatch: false,
-                    preTaxAmountBeforeDiscount: line.PreTaxAmountBeforeDiscount,
-                    itemDiscountAmount: 0m,
-                    saleDiscountAmount: line.SaleDiscountAmount,
-                    taxableAmount: line.TaxableAmount,
-                    taxAmount: line.TaxAmount,
-                    totalAmount: line.TotalAmount,
-                    hsnCode: line.HsnCode));
-            }
-            else
-            {
-                saleItems.Add(SaleItem.CreateGoods(
-                    command.ShopId,
-                    v.Item!.Id,
-                    v.Batch!.Id,
-                    lineName: line.ItemName,
-                    lineCode: line.Barcode,
-                    line.Quantity,
-                    line.CostPrice,
-                    line.SalesPrice,
-                    line.Mrp,
-                    line.TaxRatePercent,
-                    line.IsPriceIncludingTax,
-                    v.HasPriceMismatch,
-                    preTaxAmountBeforeDiscount: line.PreTaxAmountBeforeDiscount,
-                    itemDiscountAmount: line.ItemDiscountAmount,
-                    saleDiscountAmount: line.SaleDiscountAmount,
-                    taxableAmount: line.TaxableAmount,
-                    taxAmount: line.TaxAmount,
-                    totalAmount: line.TotalAmount,
-                    configuredBatchRuleId: line.ConfiguredBatchRuleId,
-                    configuredBatchRulePercentage: line.ConfiguredBatchRulePercentage,
-                    itemDiscountOverrideType: line.ItemDiscountOverrideType,
-                    itemDiscountOverrideValue: line.ItemDiscountOverrideValue,
-                    hsnCode: line.HsnCode));
-            }
-        }
-
-        var consumption = OfflineSaleSyncHelpers.BuildStockConsumptionPlan(command.ShopId, command.ActorUserId, normalizedId, deviceId, vLines, warnings, pendingIssues);
-        var saleEntity = Sale.Create(command.ShopId, command.ActorUserId, OfflineSaleSyncIdempotencyHasher.ComputeKey(deviceId, normalizedId), hash, invNum, resolvedCust?.Id ?? sale.CustomerId, sale.CustomerName ?? resolvedCust?.Name, sale.CustomerPhone ?? resolvedCust?.PhoneNumber, sale.PaymentMethod, sale.SoldAt, sale.PaidAmount, sale.DueAmount, sale.TotalAmount, sale.TotalTaxAmount, saleItems, sale.SubtotalBeforeDiscount, sale.TotalBeforeDiscount, sale.TotalDiscountAmount, sale.ConfiguredSaleRuleId, sale.ConfiguredSaleRuleType, sale.ConfiguredSaleRulePercentage, sale.ConfiguredSaleRuleThresholdAmount, sale.SaleDiscountOverrideType, sale.SaleDiscountOverrideValue, SaleSource.Offline, normalizedId, deviceId, now, warnings);
-
-        for (var i = 0; i < vLines.Count; i++)
-        {
-            var consumed = consumption[i].ConsumedQuantity;
-            if (consumed <= 0) continue;
-            if (vLines[i].LineType == SaleLineType.Service) continue;
-            var batchResult = vLines[i].Batch!.SubtractQuantity(consumed, command.ActorUserId);
-            if (batchResult.IsError) throw new InvalidOperationException(batchResult.FirstError.Description);
-            var inventoryResult = vLines[i].Inventory!.SubtractQuantity(consumed, command.ActorUserId);
-            if (inventoryResult.IsError) throw new InvalidOperationException(inventoryResult.FirstError.Description);
-            var tx = StockTransaction.Create(command.ShopId, vLines[i].Item!.Id, vLines[i].Batch!.Id, StockTransactionType.Out, -consumed, invNum, null, sale.SoldAt, command.ActorUserId, command.ActorUserId);
-            if (tx.IsError) throw new InvalidOperationException(tx.FirstError.Description);
-            await stockTransactionRepository.AddAsync(tx.Value, cancellationToken);
-        }
-
-        await saleRepository.AddAsync(saleEntity, cancellationToken);
-        await varianceAnalyzer.PersistReviewIssuesAsync(saleEntity.Id, pendingIssues, cancellationToken);
-
-        if (saleEntity.DueAmount > 0 && saleEntity.CustomerId.HasValue)
-        {
-            var ledger = CustomerLedgerEntry.Create(saleEntity.ShopId, saleEntity.CustomerId.Value, saleEntity.Id, CustomerLedgerEntryType.SaleDue, saleEntity.DueAmount, DateOnly.FromDateTime(saleEntity.SoldAt.UtcDateTime), $"Due recorded from sale {saleEntity.InvoiceNumber}", command.ActorUserId);
-            if (ledger.IsError) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, ledger.FirstError);
-            await customerLedgerEntryRepository.AddAsync(ledger.Value, cancellationToken);
-        }
+        var staged = (OfflineSalePostingOutcome.Staged)outcome;
+        var saleEntity = staged.Sale;
+        submission.LinkSale(saleEntity.Id);
 
         try { await unitOfWork.SaveChangesAsync(cancellationToken); }
         catch (DbUpdateException ex)
@@ -248,36 +152,72 @@ public sealed class SyncOfflineSalesCommandHandler(
             {
                 var saveErr = OfflineSaleSyncHelpers.GetSaveFailureError(ex);
                 if (saveErr.Code == Errors.Sale.InvoiceNumberAlreadyUsed.Code)
-                {
-                    var saveConflictCaseId = await varianceAnalyzer.AddReviewIssueAsync(command.ShopId, null, normalizedId, deviceId, ReconciliationIssueType.InvoiceConflict, saveErr.Code, saveErr.Description, command.ActorUserId, cancellationToken);
-                    await unitOfWork.SaveChangesAsync(cancellationToken);
-                    return OfflineSaleSyncHelpers.BuildNeedsReviewResult(normalizedId, saveErr, saveConflictCaseId);
-                }
+                    return await HoldAsync(hold, null, ReconciliationIssueType.InvoiceConflict, saveErr, cancellationToken);
                 return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, saveErr);
             }
             if (!string.Equals(concurrent.RequestHash, hash, StringComparison.Ordinal))
-            {
-                var raceCaseId = await varianceAnalyzer.AddReviewIssueAsync(command.ShopId, concurrent.Id, normalizedId, deviceId, ReconciliationIssueType.ValidationConflict, Errors.Sale.IdempotencyConflict.Code, Errors.Sale.IdempotencyConflict.Description, command.ActorUserId, cancellationToken);
-                await unitOfWork.SaveChangesAsync(cancellationToken);
-                return OfflineSaleSyncHelpers.BuildNeedsReviewResult(normalizedId, Errors.Sale.IdempotencyConflict, raceCaseId);
-            }
+                return await HoldAsync(hold, concurrent.Id, ReconciliationIssueType.ValidationConflict, Errors.Sale.IdempotencyConflict, cancellationToken);
+
+            // The concurrent winner received the same envelope row and links it with its own sale.
             return OfflineSaleSyncHelpers.BuildDuplicateResult(normalizedId, concurrent);
         }
 
+        var warnings = staged.Warnings;
         return new OfflineSaleSyncResultDto(normalizedId, warnings.Count > 0 ? StatusSyncedWithWarnings : StatusCreated, saleEntity.Id, saleEntity.InvoiceNumber, []) { Warnings = warnings };
     }
 
-    private static bool AmountsMatch(decimal paid, decimal due, decimal total) => decimal.Round(paid + due, 2, MidpointRounding.AwayFromZero) == decimal.Round(total, 2, MidpointRounding.AwayFromZero);
-
-    private static bool TryMatchLease(IReadOnlyList<InvoiceLease> leases, string num, out InvoiceLease? matched)
+    /// <summary>
+    /// Decision 4/5 issuer fields for the envelope: the assertion as sent, and the issuer only when
+    /// verified — the submitter themselves, or a current or former member with history on this device.
+    /// </summary>
+    private async Task<(Guid? Asserted, Guid? Verified)> ResolveIssuerAsync(
+        SyncOfflineSalesCommand command,
+        string deviceId,
+        Guid? issuedByUserId,
+        CancellationToken cancellationToken)
     {
-        foreach (var l in leases)
-        {
-            if (num.StartsWith(l.Prefix, StringComparison.Ordinal) && int.TryParse(num[l.Prefix.Length..], out var n) && n >= l.RangeStart && n <= l.RangeEnd)
-            {
-                matched = l; return true;
-            }
-        }
-        matched = null; return false;
+        if (issuedByUserId is not { } asserted)
+            return (null, null);
+
+        if (asserted == command.ActorUserId)
+            return (asserted, asserted);
+
+        var standing = await OfflineIssuerVerification.AssessAsync(
+            shopRepository, offlineSubmissionRepository, command.ShopId, deviceId, asserted, cancellationToken);
+        return (asserted, standing == OfflineIssuerStanding.Verified ? asserted : null);
     }
+
+    /// <summary>Files (or reuses) the case for a held invoice, with its invoice number and envelope, and saves it.</summary>
+    private async Task<OfflineSaleSyncResultDto> HoldAsync(
+        HeldCase hold,
+        Guid? saleId,
+        ReconciliationIssueType issueType,
+        Error error,
+        CancellationToken cancellationToken,
+        string? message = null,
+        IReadOnlyList<OfflineArithmeticMismatch>? mismatches = null)
+    {
+        var caseId = await varianceAnalyzer.AddReviewIssueAsync(
+            hold.ShopId,
+            saleId,
+            hold.ClientSaleId,
+            hold.DeviceId,
+            issueType,
+            error.Code,
+            message ?? error.Description,
+            hold.RecordedByUserId,
+            cancellationToken,
+            hold.InvoiceNumber,
+            hold.SubmissionId);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+        return OfflineSaleSyncHelpers.BuildNeedsReviewResult(hold.ClientSaleId, error, caseId, mismatches);
+    }
+
+    private sealed record HeldCase(
+        Guid ShopId,
+        string ClientSaleId,
+        string DeviceId,
+        string InvoiceNumber,
+        Guid SubmissionId,
+        Guid RecordedByUserId);
 }

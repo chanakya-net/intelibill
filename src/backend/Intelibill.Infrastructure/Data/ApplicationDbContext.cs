@@ -36,6 +36,8 @@ public class ApplicationDbContext(
     public DbSet<SaleReturnItem> SaleReturnItems => Set<SaleReturnItem>();
     public DbSet<SaleReturnSettlement> SaleReturnSettlements => Set<SaleReturnSettlement>();
     public DbSet<InvoiceSequence> InvoiceSequences => Set<InvoiceSequence>();
+    public DbSet<OfflineSubmission> OfflineSubmissions => Set<OfflineSubmission>();
+    public DbSet<ReconciliationCaseEvent> ReconciliationCaseEvents => Set<ReconciliationCaseEvent>();
     public DbSet<InvoiceLease> InvoiceLeases => Set<InvoiceLease>();
     public DbSet<AuthSession> AuthSessions => Set<AuthSession>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
@@ -84,6 +86,12 @@ public class ApplicationDbContext(
 
             modelBuilder.Entity<PurchaseReceiptValue>()
                 .Property(r => r.Version)
+                .IsRowVersion()
+                .HasColumnName("xmin")
+                .HasColumnType("xid");
+
+            modelBuilder.Entity<ReconciliationIssue>()
+                .Property(i => i.Version)
                 .IsRowVersion()
                 .HasColumnName("xmin")
                 .HasColumnType("xid");

@@ -49,6 +49,7 @@ export function buildSyncRequestFromQueuedSale(record: OfflineQueuedSaleRecord):
     configuredSaleRulePercentage: payload.pricing.configuredSaleRulePercentage ?? null,
     configuredSaleRuleThresholdAmount: payload.pricing.configuredSaleRuleThresholdAmount ?? null,
     ...(payload.pricing.calculationVersion === undefined ? {} : { calculationVersion: payload.pricing.calculationVersion }),
+    ...(payload.issuedByUserId ? { issuedByUserId: payload.issuedByUserId } : {}),
     items: payload.pricing.lines.map((line) => ({
       barcode: line.barcode,
       batchNumber: line.batchNumber,
@@ -103,6 +104,22 @@ const OFFLINE_REVIEW_REASON_KEYS: Readonly<Record<string, string>> = {
   'Sale.InvoiceLeaseNotFound': 'sales.history.offlineQueue.review.reasons.invoiceLeaseNotFound',
   'Sale.InvoiceNumberAlreadyUsed': 'sales.history.offlineQueue.review.reasons.invoiceNumberAlreadyUsed',
   'Sale.IdempotencyConflict': 'sales.history.offlineQueue.review.reasons.idempotencyConflict',
+  'OfflineReconciliation.HistoricalLeaseReviewRequired': 'sales.history.offlineQueue.review.reasons.historicalLeaseReviewRequired',
+  'OfflineReconciliation.IssuedAfterLeaseExpiry': 'sales.history.offlineQueue.review.reasons.issuedAfterLeaseExpiry',
+  'OfflineReconciliation.IssueTimeBeforeLease': 'sales.history.offlineQueue.review.reasons.issueTimeBeforeLease',
+  'OfflineReconciliation.IssueTimeInFuture': 'sales.history.offlineQueue.review.reasons.issueTimeInFuture',
+  'OfflineReconciliation.IssueFiscalYearMismatch': 'sales.history.offlineQueue.review.reasons.issueFiscalYearMismatch',
+  'OfflineReconciliation.IssuerNotSubmitter': 'sales.history.offlineQueue.review.reasons.issuerNotSubmitter',
+  'OfflineReconciliation.RecoveryReviewRequired': 'sales.history.offlineQueue.review.reasons.recoveryReviewRequired',
+  'OfflineReconciliation.ProvenanceUnknown': 'sales.history.offlineQueue.review.reasons.provenanceUnknown',
+  'OfflineReconciliation.IssuerUnverified': 'sales.history.offlineQueue.review.reasons.issuerUnverified',
+  // Variance cases filed beside a posted sale; they appear only in the reconciliation console.
+  'offline_sync.customer_inactive': 'sales.history.offlineQueue.review.reasons.customerInactive',
+  'offline_sync.customer_changed': 'sales.history.offlineQueue.review.reasons.customerChanged',
+  'offline_sync.pricing_variance': 'sales.history.offlineQueue.review.reasons.pricingVariance',
+  'offline_sync.discount_variance': 'sales.history.offlineQueue.review.reasons.discountVariance',
+  'offline_sync.validation_variance': 'sales.history.offlineQueue.review.reasons.validationVariance',
+  'offline_sync.stock_shortage': 'sales.history.offlineQueue.review.reasons.stockShortage',
 };
 
 export function offlineReviewReasonKey(errorCode: string | null): string {
@@ -135,6 +152,12 @@ export function mapToVisibleQueueCounts(
     ...visible,
     totalVisible: visible.pending + visible.syncing + visible.failed + visible.warning + visible.needsReview,
   };
+}
+
+/** An invoice is sent only by the user who issued it; unstamped (legacy) invoices go with whoever is signed in. */
+export function isSubmittableBy(record: OfflineQueuedSaleRecord, userId: string | null): boolean {
+  const issuer = record.payload.issuedByUserId;
+  return !issuer || issuer === userId;
 }
 
 export function isOfflineSaleSyncRetryable(status: OfflineSaleQueueStatus): boolean {

@@ -1,6 +1,6 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { of, Subject } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AuthService } from '../../../core/auth/auth.service';
@@ -11,6 +11,7 @@ import type { OfflineQueuedSaleRecord } from './offline-sale-core.types';
 import { OfflineSalesQueueIndexedDbService } from './offline-sales-queue-indexeddb.service';
 import { OfflineSalesQueueSyncService } from './offline-sales-queue-sync.service';
 import { SaleService } from './sale.service';
+import { isOfflineSaleSyncRetryable } from '../utils/offline-sale-sync.mapper';
 
 describe('OfflineSalesQueueSyncService', () => {
   const activeSession = signal<AuthSession | null>(makeSession('shop-1'));
@@ -249,6 +250,66 @@ describe('OfflineSalesQueueSyncService', () => {
     expect(retryOne.skippedReason).toBe('NOT_RETRYABLE');
   });
 
+  it('sends one held invoice to the server for review once, through the normal sync request', async () => {
+    const service = setup();
+    const held = makeRecord('held', { status: 'NeedsReview', errorCode: 'Sale.InvoiceLeaseNotFound', reviewCaseId: 'legacy-case' });
+    queueDb.getQueuedSale.mockResolvedValue(held);
+    saleService.syncOfflineSales.mockReturnValue(of({
+      results: [{ clientSaleId: 'held', status: 'NeedsReview', saleId: null, invoiceNumber: 'INV-held', errors: [{ code: 'OfflineReconciliation.HistoricalLeaseReviewRequired', message: 'held' }], warnings: [], reviewCaseId: 'new-case' }],
+    }));
+
+    const result = await service.resubmitForReview('shop-1', 'device-1', 'held');
+
+    expect(result.attemptedCount).toBe(1);
+    expect(saleService.syncOfflineSales).toHaveBeenCalledTimes(1);
+    expect(saleService.syncOfflineSales.mock.calls[0][0]).toEqual({ deviceId: 'device-1', sales: [expect.objectContaining({ clientSaleId: 'held', invoiceNumber: 'INV-held' })] });
+    expect(queueDb.applySyncResult).toHaveBeenCalledWith('shop-1', 'device-1', 'held', expect.objectContaining({
+      status: 'NeedsReview',
+      errorCode: 'OfflineReconciliation.HistoricalLeaseReviewRequired',
+      reviewCaseId: 'new-case',
+    }));
+  });
+
+  it('keeps a held invoice held, not Failed, when the review resend cannot reach the server', async () => {
+    const service = setup();
+    const mismatches = [{ path: 'totalAmount', supplied: 1, expected: 2, code: 'mismatch' }];
+    const held = makeRecord('held', { status: 'NeedsReview', errorCode: 'Sale.InvoiceLeaseNotFound', reviewCaseId: 'legacy-case', mismatches });
+    queueDb.getQueuedSale.mockResolvedValue(held);
+    queueDb.markSyncInProgress.mockImplementation(async () => ({ ...held, status: 'Syncing' }));
+    saleService.syncOfflineSales.mockReturnValue(throwError(() => new Error('offline')));
+
+    const result = await service.resubmitForReview('shop-1', 'device-1', 'held');
+
+    expect(result.failedCount).toBe(1);
+    expect(queueDb.applySyncResult).toHaveBeenCalledTimes(1);
+    expect(queueDb.applySyncResult).toHaveBeenCalledWith('shop-1', 'device-1', 'held', {
+      status: 'NeedsReview',
+      errorCode: 'Sale.InvoiceLeaseNotFound',
+      errorMessage: null,
+      reviewCaseId: 'legacy-case',
+      mismatches,
+    });
+  });
+
+  it('never resends an invoice for review that is not held, or that another user issued', async () => {
+    const service = setup();
+    const base = makeRecord('other');
+    queueDb.getQueuedSale.mockResolvedValueOnce(makeRecord('pending', { status: 'Pending' }));
+    queueDb.getQueuedSale.mockResolvedValueOnce(makeRecord('other', {
+      status: 'NeedsReview',
+      payload: { ...base.payload, issuedByUserId: 'user-2' },
+    }));
+
+    const notHeld = await service.resubmitForReview('shop-1', 'device-1', 'pending');
+    const otherIssuer = await service.resubmitForReview('shop-1', 'device-1', 'other');
+
+    expect(notHeld.skippedReason).toBe('NOT_RETRYABLE');
+    expect(otherIssuer.skippedReason).toBe('NOT_RETRYABLE');
+    expect(saleService.syncOfflineSales).not.toHaveBeenCalled();
+    // Automatic and bulk retries still leave held invoices alone.
+    expect(isOfflineSaleSyncRetryable('NeedsReview')).toBe(false);
+  });
+
   it('refreshes visible counts for pending, syncing, failed, warning, and needs-review statuses', async () => {
     const service = setup();
     queueDb.getStatusCounts.mockResolvedValue({
@@ -336,6 +397,90 @@ describe('OfflineSalesQueueSyncService', () => {
     };
   }
 
+  it('skips another user\'s pending invoices and lists them as awaiting their issuer', async () => {
+    const service = setup();
+    const own = makeRecord('own');
+    const legacy = makeRecord('legacy');
+    const other = withIssuer(makeRecord('other'), 'user-2');
+    const mine = withIssuer(makeRecord('mine'), 'user-1');
+    queueDb.getPendingSales.mockResolvedValue([own, legacy, other, mine]);
+    queueDb.getRetryableSales.mockResolvedValue([other, mine]);
+    queueDb.getQueuedSale.mockResolvedValue(other);
+    queueDb.getAllByShopDevice.mockResolvedValue([other, own]);
+    queueDb.getStatusCounts.mockResolvedValue({ Pending: 2, Syncing: 0, Synced: 0, SyncedWithWarnings: 0, NeedsReview: 0, Failed: 0 });
+    saleService.syncOfflineSales.mockImplementation((request) =>
+      of({ results: request.sales.map((sale) => ({ clientSaleId: sale.clientSaleId, status: 'Synced', saleId: sale.clientSaleId, invoiceNumber: sale.invoiceNumber, errors: [], warnings: [] })) }),
+    );
+
+    await service.syncActiveShop();
+    expect(saleService.syncOfflineSales.mock.calls[0][0].sales.map((sale) => sale.clientSaleId)).toEqual(['own', 'legacy', 'mine']);
+    expect(queueDb.markSyncInProgress).not.toHaveBeenCalledWith('shop-1', 'device-1', 'other');
+
+    saleService.syncOfflineSales.mockClear();
+    await service.retryActiveShop();
+    expect(saleService.syncOfflineSales.mock.calls[0][0].sales.map((sale) => sale.clientSaleId)).toEqual(['mine']);
+
+    saleService.syncOfflineSales.mockClear();
+    const single = await service.retryQueuedSale('shop-1', 'device-1', 'other');
+    expect(single.attemptedCount).toBe(0);
+    expect(saleService.syncOfflineSales).not.toHaveBeenCalled();
+
+    expect(service.awaitingIssuerSales()).toEqual([
+      { clientSaleId: 'other', invoiceNumber: 'INV-other', soldAt: '2026-05-22T10:00:00.000Z', issuedByUserId: 'user-2', status: 'Pending' },
+    ]);
+    expect(queueDb.getAllByShopDevice).toHaveBeenCalledWith('shop-1', 'device-1');
+
+    service.startAutoSyncWatchers();
+    flushEffects();
+    await flushMicrotasks();
+    activeSession.set(null);
+    flushEffects();
+    expect(service.awaitingIssuerSales()).toEqual([]);
+  });
+
+  it('lists another user\'s failed invoices as awaiting their issuer too', async () => {
+    const service = setup();
+    queueDb.getStatusCounts.mockResolvedValue({ Pending: 0, Syncing: 0, Synced: 0, SyncedWithWarnings: 0, NeedsReview: 0, Failed: 3 });
+    queueDb.getAllByShopDevice.mockResolvedValue([
+      withIssuer(makeRecord('other-failed', { status: 'Failed', soldAt: '2026-05-23T10:00:00.000Z' }), 'user-2'),
+      withIssuer(makeRecord('other-pending', { status: 'Pending', soldAt: '2026-05-21T10:00:00.000Z' }), 'user-3'),
+      withIssuer(makeRecord('own-failed', { status: 'Failed' }), 'user-1'),
+      withIssuer(makeRecord('other-held', { status: 'NeedsReview' }), 'user-2'),
+    ]);
+
+    await service.refreshActiveStatusCounts();
+
+    expect(queueDb.getAllByShopDevice).toHaveBeenCalledWith('shop-1', 'device-1');
+    expect(service.awaitingIssuerSales()).toEqual([
+      { clientSaleId: 'other-pending', invoiceNumber: 'INV-other-pending', soldAt: '2026-05-21T10:00:00.000Z', issuedByUserId: 'user-3', status: 'Pending' },
+      { clientSaleId: 'other-failed', invoiceNumber: 'INV-other-failed', soldAt: '2026-05-23T10:00:00.000Z', issuedByUserId: 'user-2', status: 'Failed' },
+    ]);
+  });
+
+  it('keeps every unsynced record in unsentSales and clears it without a shop', async () => {
+    const service = setup();
+    queueDb.getStatusCounts.mockResolvedValue({ Pending: 1, Syncing: 0, Synced: 1, SyncedWithWarnings: 0, NeedsReview: 1, Failed: 0 });
+    queueDb.getAllByShopDevice.mockResolvedValue([
+      makeRecord('held', { status: 'NeedsReview', soldAt: '2026-05-23T10:00:00.000Z' }),
+      makeRecord('done', { status: 'Synced' }),
+      makeRecord('wait', { status: 'Pending', soldAt: '2026-05-21T10:00:00.000Z' }),
+    ]);
+
+    await service.refreshActiveStatusCounts();
+    expect(service.unsentSales().map((record) => record.clientSaleId)).toEqual(['wait', 'held']);
+
+    queueDb.getStatusCounts.mockResolvedValue({ Pending: 0, Syncing: 0, Synced: 1, SyncedWithWarnings: 0, NeedsReview: 0, Failed: 0 });
+    await service.refreshActiveStatusCounts();
+    expect(service.unsentSales()).toEqual([]);
+
+    queueDb.getStatusCounts.mockResolvedValue({ Pending: 1, Syncing: 0, Synced: 0, SyncedWithWarnings: 0, NeedsReview: 0, Failed: 0 });
+    await service.refreshActiveStatusCounts();
+    expect(service.unsentSales()).toHaveLength(2);
+    activeSession.set(null);
+    await service.refreshActiveStatusCounts();
+    expect(service.unsentSales()).toEqual([]);
+  });
+
   it('lists held invoices with their review case and mismatches, oldest first', async () => {
     const service = setup();
     queueDb.getStatusCounts.mockResolvedValue({ Pending: 1, Syncing: 0, Synced: 0, SyncedWithWarnings: 0, NeedsReview: 2, Failed: 0 });
@@ -370,6 +515,10 @@ describe('OfflineSalesQueueSyncService', () => {
 
     expect(service.reviewSales()).toEqual([]);
   });
+
+  function withIssuer(record: OfflineQueuedSaleRecord, issuedByUserId: string): OfflineQueuedSaleRecord {
+    return { ...record, payload: { ...record.payload, issuedByUserId } };
+  }
 
   function makeRecord(
     clientSaleId: string,

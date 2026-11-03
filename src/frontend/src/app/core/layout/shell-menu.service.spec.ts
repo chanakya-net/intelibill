@@ -140,6 +140,7 @@ describe('ShellMenuService', () => {
     expect(hasLabel(ownerSalesItems, 'i18n:shell.newSale')).toBe(true);
     expect(hasLabel(ownerSalesItems, 'i18n:shell.salesHistory')).toBe(true);
     expect(hasLabel(ownerSalesItems, 'i18n:shell.creditNotes')).toBe(true);
+    expect(hasLabel(ownerSalesItems, 'i18n:shell.offlineReconciliation')).toBe(true);
     expect(hasLabel(ownerSalesItems, 'i18n:shell.profitLossReport')).toBe(true);
 
     // Manager
@@ -151,6 +152,7 @@ describe('ShellMenuService', () => {
     expect(hasLabel(managerSalesItems, 'i18n:shell.newSale')).toBe(true);
     expect(hasLabel(managerSalesItems, 'i18n:shell.salesHistory')).toBe(true);
     expect(hasLabel(managerSalesItems, 'i18n:shell.creditNotes')).toBe(true);
+    expect(hasLabel(managerSalesItems, 'i18n:shell.offlineReconciliation')).toBe(true);
     expect(hasLabel(managerSalesItems, 'i18n:shell.profitLossReport')).toBe(true);
 
     // Staff
@@ -162,7 +164,23 @@ describe('ShellMenuService', () => {
     expect(hasLabel(staffSalesItems, 'i18n:shell.newSale')).toBe(true);
     expect(hasLabel(staffSalesItems, 'i18n:shell.salesHistory')).toBe(true);
     expect(hasLabel(staffSalesItems, 'i18n:shell.creditNotes')).toBe(true);
+    expect(hasLabel(staffSalesItems, 'i18n:shell.offlineReconciliation')).toBe(true);
     expect(hasLabel(staffSalesItems, 'i18n:shell.profitLossReport')).toBe(false);
+  });
+
+  it('opens the offline reconciliation console from the sales menu', () => {
+    const service = createService();
+    roleSignal.set('Staff');
+
+    const salesItems = service
+      .mainMenuItems()
+      .find((item) => item.label === 'i18n:shell.manageSales')?.items as MenuItem[];
+    const consoleItem = salesItems.find((item) => item.label === 'i18n:shell.offlineReconciliation');
+    expect(consoleItem?.routerLink).toEqual(['/sales/offline-reconciliation']);
+
+    const navigateSpy = vi.spyOn(TestBed.inject(Router), 'navigate');
+    consoleItem?.command?.({} as any);
+    expect(navigateSpy).toHaveBeenCalledWith(['/sales/offline-reconciliation']);
   });
 
   it.each([

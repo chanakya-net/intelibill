@@ -12,6 +12,10 @@
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
       <_Parameter1>Intelibill.Application.Unit.Tests</_Parameter1>
     </AssemblyAttribute>
+    <!-- Integration tests recompute the offline idempotency hash from the stored envelope payload. -->
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>Intelibill.Integration.Tests</_Parameter1>
+    </AssemblyAttribute>
   </ItemGroup>
 
   <ItemGroup>

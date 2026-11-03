@@ -7,7 +7,9 @@ namespace Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
 internal sealed class OfflineSaleVarianceAnalyzer(IReconciliationIssueRepository reconciliationIssueRepository)
     : IOfflineSaleVarianceAnalyzer
 {
-    // A resend of a held sale that fails the same way reuses its open case instead of filing another.
+    // A resend of a held sale that fails the same way reuses its open case instead of filing another:
+    // first the case filed for this envelope; failing that, a legacy case for the same hold that was
+    // filed before envelopes existed, which adopts the envelope as its evidence.
     public async Task<Guid> AddReviewIssueAsync(
         Guid shopId,
         Guid? saleId,
@@ -17,7 +19,9 @@ internal sealed class OfflineSaleVarianceAnalyzer(IReconciliationIssueRepository
         string code,
         string message,
         Guid actorUserId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? invoiceNumber = null,
+        Guid? offlineSubmissionId = null)
     {
         var openIssueId = await reconciliationIssueRepository.FindOpenIssueIdAsync(
             shopId,
@@ -26,10 +30,28 @@ internal sealed class OfflineSaleVarianceAnalyzer(IReconciliationIssueRepository
             issueType,
             code.Trim(),
             message.Trim(),
+            offlineSubmissionId,
             cancellationToken);
         if (openIssueId is { } existingId)
         {
             return existingId;
+        }
+
+        if (offlineSubmissionId is { } envelopeId && invoiceNumber is not null)
+        {
+            var legacy = await reconciliationIssueRepository.FindOpenLegacyIssueAsync(
+                shopId,
+                clientSaleId.Trim(),
+                deviceId.Trim(),
+                issueType,
+                code.Trim(),
+                message.Trim(),
+                cancellationToken);
+            if (legacy is not null)
+            {
+                legacy.AttachEvidence(invoiceNumber, envelopeId);
+                return legacy.Id;
+            }
         }
 
         var issue = ReconciliationIssue.Create(
@@ -40,7 +62,9 @@ internal sealed class OfflineSaleVarianceAnalyzer(IReconciliationIssueRepository
             issueType,
             code,
             message,
-            actorUserId);
+            actorUserId,
+            invoiceNumber: invoiceNumber,
+            offlineSubmissionId: offlineSubmissionId);
         await reconciliationIssueRepository.AddAsync(issue, cancellationToken);
         return issue.Id;
     }

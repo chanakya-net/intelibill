@@ -28,7 +28,8 @@ public sealed partial class SalesController : AuthenticatedControllerBase
                 UserId!.Value,
                 ActiveShopId!.Value,
                 request.DeviceId,
-                request.BlockSize),
+                request.BlockSize,
+                SessionId),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -94,7 +95,8 @@ public sealed partial class SalesController : AuthenticatedControllerBase
                         i.ItemDiscountOverrideType,
                         i.ItemDiscountOverrideValue,
                         i.HsnCode)).ToList(),
-                    s.CalculationVersion))
+                    s.CalculationVersion,
+                    s.IssuedByUserId))
                     .ToList()),
             cancellationToken);
 

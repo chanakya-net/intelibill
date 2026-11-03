@@ -1,4 +1,5 @@
 using Intelibill.Domain.Entities;
+using Intelibill.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -49,7 +50,23 @@ internal sealed class ReconciliationIssueConfiguration : IEntityTypeConfiguratio
         builder.Property(i => i.CreatedBy)
             .IsRequired();
 
+        builder.Property(i => i.Status)
+            .HasDefaultValue(ReconciliationCaseStatus.Open)
+            .IsRequired();
+
+        builder.Property(i => i.InvoiceNumber)
+            .HasMaxLength(40);
+
+        builder.Property(i => i.ResolutionReason)
+            .HasMaxLength(500);
+
         builder.HasIndex(i => new { i.ShopId, i.IsResolved });
+        builder.HasIndex(i => new { i.ShopId, i.Status, i.CreatedAt });
+        builder.HasIndex(i => new { i.ShopId, i.LinkedOperationId })
+            .IsUnique()
+            .HasFilter("resolution = 4");
+        builder.HasIndex(i => i.OfflineSubmissionId);
+        builder.HasIndex(i => i.ResolutionStockTransactionId);
         builder.HasIndex(i => new { i.ShopId, i.ClientSaleId, i.DeviceId });
         builder.HasIndex(i => i.SaleId);
 
@@ -72,5 +89,15 @@ internal sealed class ReconciliationIssueConfiguration : IEntityTypeConfiguratio
             .WithMany()
             .HasForeignKey(i => i.InventoryBatchId)
             .OnDelete(DeleteBehavior.SetNull);
+
+        builder.HasOne<OfflineSubmission>()
+            .WithMany()
+            .HasForeignKey(i => i.OfflineSubmissionId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne<StockTransaction>()
+            .WithMany()
+            .HasForeignKey(i => i.ResolutionStockTransactionId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

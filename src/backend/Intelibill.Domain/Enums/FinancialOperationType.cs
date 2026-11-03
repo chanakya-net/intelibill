@@ -20,4 +20,10 @@ public enum FinancialOperationType
 
     /// <summary>One correction of a purchase receipt's total cost.</summary>
     ReceiptCostCorrection = 6,
+
+    /// <summary>One resolution of a reconciliation case.</summary>
+    ReconciliationResolution = 7,
+
+    /// <summary>One support recovery bundle row submitted by an owner or manager.</summary>
+    OfflineRecoverySubmission = 8,
 }

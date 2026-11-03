@@ -6,6 +6,7 @@ import {
   addOfflineSyncResultToTotals,
   buildSyncRequestFromQueuedSale,
   isOfflineSaleSyncRetryable,
+  isSubmittableBy,
   mapOfflineSyncResult,
   mapToVisibleQueueCounts,
   normalizeOfflineQueueSyncStatus,
@@ -116,6 +117,31 @@ describe('offline-sale-sync.mapper', () => {
     expect(request.totalBeforeDiscount).toBe(200);
   });
 
+  it('includes issuedByUserId only when present', () => {
+    const legacy = buildSyncRequestFromQueuedSale(record);
+    expect('issuedByUserId' in legacy).toBe(false);
+
+    const stamped = buildSyncRequestFromQueuedSale({
+      ...record,
+      payload: { ...record.payload, issuedByUserId: 'user-1' },
+    });
+    expect(stamped.issuedByUserId).toBe('user-1');
+    const { issuedByUserId: _ignored, ...rest } = stamped;
+    expect(rest).toEqual(legacy);
+
+    const nulled = buildSyncRequestFromQueuedSale({ ...record, payload: { ...record.payload, issuedByUserId: null } });
+    expect('issuedByUserId' in nulled).toBe(false);
+  });
+
+  it('isSubmittableBy accepts unstamped records and the issuer only', () => {
+    const stamped = { ...record, payload: { ...record.payload, issuedByUserId: 'user-1' } };
+    expect(isSubmittableBy(record, 'user-2')).toBe(true);
+    expect(isSubmittableBy(record, null)).toBe(true);
+    expect(isSubmittableBy(stamped, 'user-1')).toBe(true);
+    expect(isSubmittableBy(stamped, 'user-2')).toBe(false);
+    expect(isSubmittableBy(stamped, null)).toBe(false);
+  });
+
   it('sends the calculation version and pre-tax subtotal of a version 1 payload', () => {
     const versioned: OfflineQueuedSaleRecord = {
       ...record,
@@ -160,6 +186,9 @@ describe('offline-sale-sync.mapper', () => {
     expect(offlineReviewReasonKey('Sale.OfflineArithmeticMismatch')).toBe('sales.history.offlineQueue.review.reasons.arithmeticMismatch');
     expect(offlineReviewReasonKey('Sale.OfflineCalculationVersionUnsupported')).toBe('sales.history.offlineQueue.review.reasons.calculationVersionUnsupported');
     expect(offlineReviewReasonKey('Sale.InvoiceLeaseNotFound')).toBe('sales.history.offlineQueue.review.reasons.invoiceLeaseNotFound');
+    expect(offlineReviewReasonKey('OfflineReconciliation.HistoricalLeaseReviewRequired')).toBe('sales.history.offlineQueue.review.reasons.historicalLeaseReviewRequired');
+    expect(offlineReviewReasonKey('OfflineReconciliation.IssuerNotSubmitter')).toBe('sales.history.offlineQueue.review.reasons.issuerNotSubmitter');
+    expect(offlineReviewReasonKey('offline_sync.stock_shortage')).toBe('sales.history.offlineQueue.review.reasons.stockShortage');
     expect(offlineReviewReasonKey('Something.Else')).toBe('sales.history.offlineQueue.review.reasons.unknown');
     expect(offlineReviewReasonKey(null)).toBe('sales.history.offlineQueue.review.reasons.unknown');
   });

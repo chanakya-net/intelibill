@@ -1457,6 +1457,14 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("reserved_at");
 
+                    b.Property<Guid?>("ReservedBySessionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("reserved_by_session_id");
+
+                    b.Property<Guid?>("ReservedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("reserved_by_user_id");
+
                     b.Property<Guid>("ShopId")
                         .HasColumnType("uuid")
                         .HasColumnName("shop_id");
@@ -1655,6 +1663,107 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasDatabaseName("ix_item_barcode_sequences_shop_id");
 
                     b.ToTable("item_barcode_sequences", (string)null);
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.OfflineSubmission", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("AssertedIssuerUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("asserted_issuer_user_id");
+
+                    b.Property<DateTimeOffset>("ClaimedSoldAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("claimed_sold_at");
+
+                    b.Property<string>("ClientSaleId")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("client_sale_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("DeviceId")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("device_id");
+
+                    b.Property<string>("InvoiceNumber")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("invoice_number");
+
+                    b.Property<Guid?>("OriginalIssuerUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("original_issuer_user_id");
+
+                    b.Property<Guid?>("OriginalLeaseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("original_lease_id");
+
+                    b.Property<string>("PayloadHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("payload_hash");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("payload_json");
+
+                    b.Property<DateTimeOffset>("ReceivedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("received_at");
+
+                    b.Property<string>("RecoveryOperationId")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("recovery_operation_id");
+
+                    b.Property<Guid?>("SaleId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sale_id");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<int>("Source")
+                        .HasColumnType("integer")
+                        .HasColumnName("source");
+
+                    b.Property<Guid>("SubmittedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("submitted_by_user_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_offline_submissions");
+
+                    b.HasIndex("SaleId")
+                        .HasDatabaseName("ix_offline_submissions_sale_id");
+
+                    b.HasIndex("ShopId", "DeviceId", "SubmittedByUserId")
+                        .HasDatabaseName("ix_offline_submissions_shop_id_device_id_submitted_by_user_id");
+
+                    b.HasIndex("ShopId", "DeviceId", "ClientSaleId", "PayloadHash")
+                        .IsUnique()
+                        .HasDatabaseName("ix_offline_submissions_shop_id_device_id_client_sale_id_payloa");
+
+                    b.ToTable("offline_submissions", (string)null);
                 });
 
             modelBuilder.Entity("Intelibill.Domain.Entities.OperationReceipt", b =>
@@ -2521,6 +2630,76 @@ namespace Intelibill.Infrastructure.Migrations
                     b.ToTable("realtime_connection_leases", (string)null);
                 });
 
+            modelBuilder.Entity("Intelibill.Domain.Entities.ReconciliationCaseEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("Action")
+                        .HasColumnType("integer")
+                        .HasColumnName("action");
+
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_user_id");
+
+                    b.Property<Guid>("CaseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("case_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("FromStatus")
+                        .HasColumnType("integer")
+                        .HasColumnName("from_status");
+
+                    b.Property<Guid?>("LinkedOperationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("linked_operation_id");
+
+                    b.Property<DateTimeOffset>("OccurredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("occurred_at");
+
+                    b.Property<string>("OperationKey")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("operation_key");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("reason");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<int>("ToStatus")
+                        .HasColumnType("integer")
+                        .HasColumnName("to_status");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_reconciliation_case_events");
+
+                    b.HasIndex("CaseId")
+                        .HasDatabaseName("ix_reconciliation_case_events_case_id");
+
+                    b.HasIndex("ShopId", "CaseId", "OccurredAt")
+                        .HasDatabaseName("ix_reconciliation_case_events_shop_id_case_id_occurred_at");
+
+                    b.ToTable("reconciliation_case_events", (string)null);
+                });
+
             modelBuilder.Entity("Intelibill.Domain.Entities.ReconciliationIssue", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2568,6 +2747,11 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("inventory_batch_id");
 
+                    b.Property<string>("InvoiceNumber")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("invoice_number");
+
                     b.Property<bool>("IsResolved")
                         .HasColumnType("boolean")
                         .HasColumnName("is_resolved");
@@ -2580,16 +2764,37 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("item_id");
 
+                    b.Property<Guid?>("LinkedOperationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("linked_operation_id");
+
                     b.Property<string>("Message")
                         .IsRequired()
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)")
                         .HasColumnName("message");
 
+                    b.Property<Guid?>("OfflineSubmissionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("offline_submission_id");
+
                     b.Property<decimal?>("PrintedQuantity")
                         .HasPrecision(18, 3)
                         .HasColumnType("numeric(18,3)")
                         .HasColumnName("printed_quantity");
+
+                    b.Property<int?>("Resolution")
+                        .HasColumnType("integer")
+                        .HasColumnName("resolution");
+
+                    b.Property<string>("ResolutionReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("resolution_reason");
+
+                    b.Property<Guid?>("ResolutionStockTransactionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("resolution_stock_transaction_id");
 
                     b.Property<DateTimeOffset?>("ResolvedAt")
                         .HasColumnType("timestamp with time zone")
@@ -2607,9 +2812,21 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("shop_id");
 
+                    b.Property<int>("Status")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1)
+                        .HasColumnName("status");
+
                     b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
 
                     b.HasKey("Id")
                         .HasName("pk_reconciliation_issues");
@@ -2620,14 +2837,28 @@ namespace Intelibill.Infrastructure.Migrations
                     b.HasIndex("ItemId")
                         .HasDatabaseName("ix_reconciliation_issues_item_id");
 
+                    b.HasIndex("OfflineSubmissionId")
+                        .HasDatabaseName("ix_reconciliation_issues_offline_submission_id");
+
+                    b.HasIndex("ResolutionStockTransactionId")
+                        .HasDatabaseName("ix_reconciliation_issues_resolution_stock_transaction_id");
+
                     b.HasIndex("SaleId")
                         .HasDatabaseName("ix_reconciliation_issues_sale_id");
 
                     b.HasIndex("ShopId", "IsResolved")
                         .HasDatabaseName("ix_reconciliation_issues_shop_id_is_resolved");
 
+                    b.HasIndex("ShopId", "LinkedOperationId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_reconciliation_issues_shop_id_linked_operation_id")
+                        .HasFilter("resolution = 4");
+
                     b.HasIndex("ShopId", "ClientSaleId", "DeviceId")
                         .HasDatabaseName("ix_reconciliation_issues_shop_id_client_sale_id_device_id");
+
+                    b.HasIndex("ShopId", "Status", "CreatedAt")
+                        .HasDatabaseName("ix_reconciliation_issues_shop_id_status_created_at");
 
                     b.ToTable("reconciliation_issues", (string)null);
                 });
@@ -4577,6 +4808,22 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasConstraintName("fk_item_barcode_sequences_shops_shop_id");
                 });
 
+            modelBuilder.Entity("Intelibill.Domain.Entities.OfflineSubmission", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.Sale", null)
+                        .WithMany()
+                        .HasForeignKey("SaleId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_offline_submissions_sales_sale_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.Shop", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_offline_submissions_shops_shop_id");
+                });
+
             modelBuilder.Entity("Intelibill.Domain.Entities.PasswordResetToken", b =>
                 {
                     b.HasOne("Intelibill.Domain.Entities.User", "User")
@@ -4756,6 +5003,23 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasConstraintName("fk_purchase_receipt_values_inventory_batches_inventory_batch_i");
                 });
 
+            modelBuilder.Entity("Intelibill.Domain.Entities.ReconciliationCaseEvent", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.ReconciliationIssue", null)
+                        .WithMany()
+                        .HasForeignKey("CaseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_reconciliation_case_events_reconciliation_issues_case_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.Shop", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_reconciliation_case_events_shops_shop_id");
+                });
+
             modelBuilder.Entity("Intelibill.Domain.Entities.ReconciliationIssue", b =>
                 {
                     b.HasOne("Intelibill.Domain.Entities.InventoryBatch", null)
@@ -4769,6 +5033,18 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasForeignKey("ItemId")
                         .OnDelete(DeleteBehavior.SetNull)
                         .HasConstraintName("fk_reconciliation_issues_items_item_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.OfflineSubmission", null)
+                        .WithMany()
+                        .HasForeignKey("OfflineSubmissionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_reconciliation_issues_offline_submissions_offline_submissio");
+
+                    b.HasOne("Intelibill.Domain.Entities.StockTransaction", null)
+                        .WithMany()
+                        .HasForeignKey("ResolutionStockTransactionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_reconciliation_issues_stock_transactions_resolution_stock_t");
 
                     b.HasOne("Intelibill.Domain.Entities.Sale", null)
                         .WithMany()

@@ -18,5 +18,16 @@ public interface IInvoiceLeaseRepository : IRepository<InvoiceLease>
         int blockSize,
         DateTimeOffset reservedAt,
         DateTimeOffset expiresAt,
+        Guid? reservedByUserId,
+        Guid? reservedBySessionId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The lease whose prefix and numeric range contain the invoice number on the device, expiry ignored.
+    /// </summary>
+    Task<InvoiceLease?> FindReservedRangeAsync(
+        Guid shopId,
+        string deviceId,
+        string invoiceNumber,
         CancellationToken cancellationToken = default);
 }

@@ -36,15 +36,21 @@
           </p>
           <h2>{{ 'sales.history.offlineQueue.title' | transloco }}</h2>
         </div>
-        <p-button
-          icon="pi pi-refresh"
-          [label]="'sales.history.offlineQueue.retry' | transloco"
-          [outlined]="true"
-          severity="secondary"
-          [loading]="isRetryingOfflineQueue()"
-          [disabled]="offlineQueueCounts().pending + offlineQueueCounts().failed === 0"
-          (click)="onRetryOfflineQueue()"
-        />
+        <div class="offline-queue-actions">
+          <a class="offline-console-link" routerLink="/sales/offline-reconciliation">
+            <i class="pi pi-sync" aria-hidden="true"></i>
+            {{ 'sales.history.offlineQueue.openConsole' | transloco }}
+          </a>
+          <p-button
+            icon="pi pi-refresh"
+            [label]="'sales.history.offlineQueue.retry' | transloco"
+            [outlined]="true"
+            severity="secondary"
+            [loading]="isRetryingOfflineQueue()"
+            [disabled]="offlineQueueCounts().pending + offlineQueueCounts().failed === 0"
+            (click)="onRetryOfflineQueue()"
+          />
+        </div>
       </div>
       <div class="offline-queue-counts">
         <span class="offline-queue-chip pending"

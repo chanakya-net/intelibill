@@ -85,6 +85,21 @@ describe('ShopPermissionsService', () => {
     expect(service.canManageServices()).toBe(false);
     expect(service.canManageBankAccounts()).toBe(false);
     expect(service.canViewInventory()).toBe(false);
+    expect(service.canRecoverOfflineInvoices()).toBe(false);
+  });
+
+  it.each([
+    ['Owner', true],
+    ['Manager', true],
+    ['Staff', false],
+  ])('lets %s recover offline invoices: %s', (role, expected) => {
+    const service = createService();
+    sessionSignal.set({
+      activeShopId: 'shop-1',
+      shops: [{ shopId: 'shop-1', shopName: 'Main', role, isDefault: true, lastUsedAt: null }],
+    } as never);
+
+    expect(service.canRecoverOfflineInvoices()).toBe(expected);
   });
 
   it('falls back to the default shop when activeShopId is stale', () => {

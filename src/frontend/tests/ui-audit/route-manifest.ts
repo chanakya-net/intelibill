@@ -45,6 +45,7 @@ export const ROUTE_MANIFEST: readonly RouteManifestEntry[] = [
   shellRoute('sales/new'),
   shellRoute('sales/profit-loss', MANAGEMENT_ROLES),
   shellRoute('sales/credit-notes'),
+  shellRoute('sales/offline-reconciliation'),
   shellRoute('sales'),
   shellRoute('expenses'),
   shellRoute('bank-accounts'),

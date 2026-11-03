@@ -116,6 +116,37 @@ describe('OfflineSalesQueueIndexedDbService', () => {
 
   });
 
+  it('deleteOldSyncedRecords keeps unsynced records of any age', async () => {
+    const ancient = '2000-01-01T00:00:00.000Z';
+    await service.savePendingSale(makeInput('shop-1', 'device-1', 'pending', ancient));
+    await service.savePendingSale(makeInput('shop-1', 'device-1', 'syncing', ancient));
+    await service.markSyncInProgress('shop-1', 'device-1', 'syncing');
+    await service.savePendingSale(makeInput('shop-1', 'device-1', 'review', ancient));
+    await service.applySyncResult('shop-1', 'device-1', 'review', { status: 'NeedsReview', errorCode: 'X' });
+    await service.savePendingSale(makeInput('shop-1', 'device-1', 'failed', ancient));
+    await service.applySyncResult('shop-1', 'device-1', 'failed', { status: 'Failed', errorCode: 'X' });
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2030-01-01T00:00:00.000Z'));
+    try {
+      expect(await service.deleteOldSyncedRecords()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+
+    const all = await service.getAllByShopDevice('shop-1', 'device-1');
+    expect(all.map((record) => record.clientSaleId).sort()).toEqual(['failed', 'pending', 'review', 'syncing']);
+  });
+
+  it('records survive shop switch', async () => {
+    await service.savePendingSale(makeInput('shop-1', 'device-1', 'sale-1', '2026-05-22T10:01:00.000Z'));
+
+    await service.getPendingSales('shop-2', 'device-1');
+    await service.getStatusCounts('shop-2', 'device-1');
+    await service.deleteOldSyncedRecords();
+
+    expect((await service.getPendingSales('shop-1', 'device-1')).map((record) => record.clientSaleId)).toEqual(['sale-1']);
+  });
+
   it('no-ops cleanup and status reads when IndexedDB is unavailable', async () => {
     vi.unstubAllGlobals();
     service = new OfflineSalesQueueIndexedDbService();

@@ -17,6 +17,11 @@ public sealed class InvoiceLease : BaseEntity
     public DateTimeOffset ReservedAt { get; private set; }
     public DateTimeOffset ExpiresAt { get; private set; }
 
+    /// <summary>Who reserved the range and from which sign-in; null for leases reserved before this was recorded.</summary>
+    public Guid? ReservedByUserId { get; private set; }
+
+    public Guid? ReservedBySessionId { get; private set; }
+
     public InvoiceSequence InvoiceSequence { get; private set; } = null!;
 
     private InvoiceLease() { }
@@ -31,7 +36,9 @@ public sealed class InvoiceLease : BaseEntity
         int rangeEnd,
         int numberPadding,
         DateTimeOffset reservedAt,
-        DateTimeOffset expiresAt)
+        DateTimeOffset expiresAt,
+        Guid? reservedByUserId = null,
+        Guid? reservedBySessionId = null)
     {
         return new InvoiceLease
         {
@@ -46,6 +53,8 @@ public sealed class InvoiceLease : BaseEntity
             NumberPadding = numberPadding,
             ReservedAt = reservedAt,
             ExpiresAt = expiresAt,
+            ReservedByUserId = reservedByUserId,
+            ReservedBySessionId = reservedBySessionId,
         };
     }
 

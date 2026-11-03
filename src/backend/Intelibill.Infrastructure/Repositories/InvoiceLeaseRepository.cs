@@ -49,6 +49,8 @@ internal sealed class InvoiceLeaseRepository : RepositoryBase<InvoiceLease>, IIn
         int blockSize,
         DateTimeOffset reservedAt,
         DateTimeOffset expiresAt,
+        Guid? reservedByUserId,
+        Guid? reservedBySessionId,
         CancellationToken cancellationToken = default)
     {
         for (var attempt = 1; attempt <= MaxReservationAttempts; attempt++)
@@ -89,7 +91,9 @@ internal sealed class InvoiceLeaseRepository : RepositoryBase<InvoiceLease>, IIn
                     end,
                     InvoiceLeaseDefaults.NumberPadding,
                     reservedAt,
-                    expiresAt);
+                    expiresAt,
+                    reservedByUserId,
+                    reservedBySessionId);
 
                 await DbSet.AddAsync(lease, cancellationToken);
                 await _context.SaveChangesAsync(cancellationToken);
@@ -104,5 +108,23 @@ internal sealed class InvoiceLeaseRepository : RepositoryBase<InvoiceLease>, IIn
         }
 
         throw new InvalidOperationException("Invoice lease reservation failed after retries.");
+    }
+
+    public async Task<InvoiceLease?> FindReservedRangeAsync(
+        Guid shopId,
+        string deviceId,
+        string invoiceNumber,
+        CancellationToken cancellationToken = default)
+    {
+        var leases = await DbSet
+            .AsNoTracking()
+            .Where(l => l.ShopId == shopId && l.DeviceId == deviceId && invoiceNumber.StartsWith(l.Prefix))
+            .OrderBy(l => l.ReservedAt)
+            .ToListAsync(cancellationToken);
+
+        return leases.FirstOrDefault(l =>
+            int.TryParse(invoiceNumber[l.Prefix.Length..], out var number)
+            && number >= l.RangeStart
+            && number <= l.RangeEnd);
     }
 }

@@ -47,7 +47,8 @@ public sealed record OfflineSaleSyncRequest(
     decimal? ConfiguredSaleRulePercentage,
     decimal? ConfiguredSaleRuleThresholdAmount,
     IReadOnlyList<OfflineSaleSyncLineRequest> Items,
-    int? CalculationVersion = null);
+    int? CalculationVersion = null,
+    Guid? IssuedByUserId = null);
 
 public sealed record OfflineSaleSyncLineRequest(
     string Barcode,

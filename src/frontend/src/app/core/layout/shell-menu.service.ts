@@ -189,6 +189,12 @@ export class ShellMenuService {
         routerLink: ['/sales/credit-notes'],
         command: () => this.router.navigate(['/sales/credit-notes']),
       },
+      {
+        label: this.localizationService.translate('shell.offlineReconciliation'),
+        icon: 'pi pi-sync',
+        routerLink: ['/sales/offline-reconciliation'],
+        command: () => this.router.navigate(['/sales/offline-reconciliation']),
+      },
     ];
 
     if (this.permissions.isOwnerOrManagerOfActiveShop()) {
