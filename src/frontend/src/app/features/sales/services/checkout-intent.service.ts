@@ -146,9 +146,12 @@ export class CheckoutIntentService {
     return this.storage.get(intentId);
   }
 
-  /** Sends the stored request exactly as it was prepared. */
+  /**
+   * Sends the stored request exactly as it was prepared, and only as the user and shop it was
+   * frozen under: under any other scope it is refused before it leaves the device.
+   */
   send(intent: CheckoutIntent): Observable<SaleDto> {
-    return this.saleService.recordSale(intent.request);
+    return this.saleService.recordSale(intent.request, { userId: intent.userId, shopId: intent.shopId });
   }
 
   /**

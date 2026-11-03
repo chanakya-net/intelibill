@@ -46,6 +46,11 @@ export const SalesActions = createActionGroup({
     'Record Sale Failed': props<{ errorMessage: string; intentId?: string }>(),
     /** The send ended without a definitive answer; the stored intent must be reconciled, not rebuilt. */
     'Record Sale Uncertain': props<{ intentId: string; errorMessage: string }>(),
+    /**
+     * The send settled after this tab left the user or shop the intent belongs to. Its outcome is
+     * stored on the intent; nothing about it is reported to the scope the tab works in now.
+     */
+    'Record Sale Detached': props<{ intentId: string }>(),
 
     'Record Sale Return Requested': props<{ saleId: string; payload: RecordSaleReturnRequest }>(),
     'Record Sale Return Succeeded': props<{ sale: SaleDto }>(),

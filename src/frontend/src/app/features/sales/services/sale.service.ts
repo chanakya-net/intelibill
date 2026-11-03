@@ -3,6 +3,8 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
 import { CREDIT_NOTE_ENDPOINTS, SALE_ENDPOINTS } from '../../../core/auth/auth.constants';
+import { scopedRequestContext } from '../../../core/context/scoped-request';
+import type { ScopeOwner } from '../../../core/context/shop-scope';
 import type {
   CreditNotePrintDto,
   CreditNotesQueryParams,
@@ -34,8 +36,13 @@ export * from './sale.models';
 export class SaleService {
   private readonly http = inject(HttpClient);
 
-  recordSale(request: RecordSaleRequest): Observable<SaleDto> {
-    return this.http.post<SaleDto>(SALE_ENDPOINTS.record, request);
+  /** With an `owner`, the sale is only ever sent as that user and shop (see `REQUEST_SCOPE`). */
+  recordSale(request: RecordSaleRequest, owner?: ScopeOwner): Observable<SaleDto> {
+    return this.http.post<SaleDto>(
+      SALE_ENDPOINTS.record,
+      request,
+      owner ? { context: scopedRequestContext(owner) } : undefined,
+    );
   }
 
   reserveInvoiceLease(request: ReserveInvoiceLeaseRequest): Observable<InvoiceLeaseDto> {

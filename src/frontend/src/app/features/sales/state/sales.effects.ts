@@ -2,8 +2,10 @@ import { inject, Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { catchError, firstValueFrom, from, map, mergeMap, of, switchMap } from 'rxjs';
 
+import { ShopContextService } from '../../../core/context/shop-context.service';
 import { CheckoutIntentService, classifyCheckoutSendFailure } from '../services/checkout-intent.service';
 import { SaleService } from '../services/sale.service';
+import type { CheckoutIntent } from '../../../core/storage/checkout-intent-indexeddb.service';
 import { invoiceErrorKey } from '../utils/invoice-error-keys';
 import { SalesActions } from './sales.actions';
 
@@ -12,6 +14,7 @@ export class SalesEffects {
   private readonly actions$ = inject(Actions);
   private readonly saleService = inject(SaleService);
   private readonly checkoutIntents = inject(CheckoutIntentService);
+  private readonly shopContext = inject(ShopContextService);
 
   loadSales$ = createEffect(() =>
     this.actions$.pipe(
@@ -156,13 +159,31 @@ export class SalesEffects {
     )
   );
 
+  /**
+   * A switch waits while a checkout is in flight; the wait ends once its outcome is stored on the
+   * intent. An outcome that settles after the tab left the intent's scope stays on the intent and is
+   * reported nowhere else.
+   */
   private async sendIntent(intentId: string) {
-    const intent = await this.checkoutIntents.claimForSend(intentId).catch(() => null);
-    if (!intent) {
-      // Another tab owns the send, or the intent already resolved: reconcile instead of sending.
-      return SalesActions.recordSaleUncertain({ intentId, errorMessage: 'sales.newSale.pendingCheckout.inProgressElsewhere' });
-    }
+    const mutation = this.shopContext.beginMutation();
+    try {
+      const intent = await this.checkoutIntents.claimForSend(intentId).catch(() => null);
+      if (!intent) {
+        // Another tab owns the send, or the intent already resolved: reconcile instead of sending.
+        return SalesActions.recordSaleUncertain({ intentId, errorMessage: 'sales.newSale.pendingCheckout.inProgressElsewhere' });
+      }
 
+      const outcome = await this.settleIntent(intent);
+      return this.shopContext.isCurrent({ userId: intent.userId, shopId: intent.shopId })
+        ? outcome
+        : SalesActions.recordSaleDetached({ intentId });
+    } finally {
+      mutation.release();
+    }
+  }
+
+  private async settleIntent(intent: CheckoutIntent) {
+    const intentId = intent.intentId;
     try {
       const sale = await firstValueFrom(this.checkoutIntents.send(intent));
       await this.checkoutIntents.confirm(intentId, sale).catch(() => null);
@@ -173,6 +194,7 @@ export class SalesEffects {
         await this.checkoutIntents.reject(intentId, code).catch(() => null);
         return SalesActions.recordSaleFailed({ intentId, errorMessage: recordSaleErrorMessage(error) });
       }
+      // Includes an answer lost to a scope change: it may have committed in the intent's own shop.
       await this.checkoutIntents.markUncertain(intentId).catch(() => null);
       return SalesActions.recordSaleUncertain({ intentId, errorMessage: 'sales.newSale.pendingCheckout.uncertain' });
     }

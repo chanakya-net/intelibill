@@ -20,6 +20,8 @@ import { SuppliersFacade } from '../../suppliers/state/suppliers.facade';
 import { BatchRowFormStateService } from '../services/batch-row-form-state.service';
 import { InventoryService } from '../services/inventory.service';
 import { InventoryBatchPageComponent } from './inventory-batch-page.component';
+import { ShopContextService } from '../../../core/context/shop-context.service';
+import { AppReloadService } from '../../../core/services/app-reload.service';
 
 describe('InventoryBatchPageComponent', () => {
   const emptyLookupResult = {
@@ -122,8 +124,10 @@ describe('InventoryBatchPageComponent', () => {
         { provide: AudioService, useValue: audioService },
         { provide: BarcodeDetectorService, useValue: barcodeDetectorService },
         { provide: CameraStreamService, useValue: cameraStreamService },
+        { provide: AppReloadService, useValue: { restartAtAppRoot: vi.fn() } },
       ],
     });
+    TestBed.inject(ShopContextService).initialize({ userId: 'owner-1', shopId: 'shop-1' });
 
     const fixture = TestBed.createComponent(InventoryBatchPageComponent);
     fixture.detectChanges();
@@ -848,13 +852,20 @@ describe('InventoryBatchPageComponent', () => {
     expect(storedSubmission).toBeNull();
   });
 
+  /** Moves the tab to shop-2 the way the shop context does: detach first, then the new session. */
+  function moveToShopTwo(originalSession: ReturnType<typeof authService.session>): void {
+    TestBed.inject(ShopContextService).transition({ userId: 'owner-1', shopId: 'shop-2' }, 'cross-tab', () =>
+      authService.session.set({ ...originalSession, activeShopId: 'shop-2' }),
+    );
+  }
+
   it('stops sending chunks when the active shop changes mid-save', async () => {
     const fixture = await setup();
     const component = fixture.componentInstance;
     const originalSession = authService.session();
     const rows = Array.from({ length: 105 }, (_, index) => createDraftRow(`row-${index + 1}`, `Item ${index + 1}`, `BC-${index + 1}`));
     inventoryService.addInventoryBatch.mockImplementation((payload: { items: Array<{ clientRowId: string }> }) => {
-      authService.session.set({ ...originalSession, activeShopId: 'shop-2' });
+      moveToShopTwo(originalSession);
       return of(allSucceeded(payload.items));
     });
 
@@ -864,8 +875,37 @@ describe('InventoryBatchPageComponent', () => {
       await fixture.whenStable();
 
       expect(inventoryService.addInventoryBatch).toHaveBeenCalledTimes(1);
+      expect(inventoryService.addInventoryBatch.mock.calls[0][1]).toEqual({ userId: 'owner-1', shopId: 'shop-1' });
       expect(draftStorage.clearSubmission).not.toHaveBeenCalled();
       expect(storedSubmission?.shopId).toBe('shop-1');
+    } finally {
+      authService.session.set(originalSession);
+    }
+  });
+
+  it('bulk_chunk_finishes_in_original_scope: a failure after the move never rewrites either draft', async () => {
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+    const originalSession = authService.session();
+    const rows = Array.from({ length: 105 }, (_, index) => createDraftRow(`row-${index + 1}`, `Item ${index + 1}`, `BC-${index + 1}`));
+    inventoryService.addInventoryBatch.mockImplementation(() => {
+      moveToShopTwo(originalSession);
+      // The next shop's draft is now in memory, as the page loads it after the move.
+      component.pendingRows.set([createDraftRow('shop-2-row', 'Bread', 'BC-900')]);
+      return throwError(() => new HttpErrorResponse({ status: 0 }));
+    });
+
+    try {
+      component.pendingRows.set(rows);
+      draftStorage.saveRows.mockClear();
+      component.onSaveAll();
+      await fixture.whenStable();
+
+      expect(inventoryService.addInventoryBatch).toHaveBeenCalledTimes(1);
+      expect(draftStorage.saveRows).not.toHaveBeenCalled();
+      expect(draftStorage.clearSubmission).not.toHaveBeenCalled();
+      expect(storedSubmission?.shopId).toBe('shop-1');
+      expect(TestBed.inject(ShopContextService).hasMutationsInFlight()).toBe(false);
     } finally {
       authService.session.set(originalSession);
     }

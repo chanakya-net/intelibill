@@ -1,6 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 
-import { AuthService } from '../../../core/auth/auth.service';
+import { ShopContextService } from '../../../core/context/shop-context.service';
+import { ScopeOwner, sameOwner } from '../../../core/context/shop-scope';
 import { SalesCartDraftItem, SalesCartDraftServiceItem, SalesCartIndexedDbService } from '../../../core/storage/sales-cart-indexeddb.service';
 import type { AvailableBatchDto } from '../../inventory/services/inventory.models';
 import type { SellableServiceDto, ServiceCartLine } from './sale.models';
@@ -20,35 +21,58 @@ export interface CartDiscountAdjustment {
   readonly nextValue: number;
 }
 
+/**
+ * The cart being built on this device, and the user and shop it belongs to.
+ *
+ * The rows in memory always belong to `owner`, captured when they were loaded; they are saved under
+ * that owner whatever the session says by then. On any change of user or shop the cart detaches:
+ * a load still running for the old owner is dropped, the rows are saved under their owner and
+ * cleared from memory before the next scope can read or overwrite them.
+ */
 @Injectable({ providedIn: 'root' })
 export class SaleCartStateService {
   private readonly cartStorage = inject(SalesCartIndexedDbService);
-  private readonly authService = inject(AuthService);
+  private readonly shopContext = inject(ShopContextService);
   private cartLoadToken = 0;
+  private readonly ownerSignal = signal<ScopeOwner | null>(null);
 
   readonly cart = signal<CartItem[]>([]);
   readonly serviceCart = signal<ServiceCartLine[]>([]);
   readonly cartBootstrapped = signal(false);
+  /** Who the rows in memory belong to; null until a cart is loaded. */
+  readonly owner = this.ownerSignal.asReadonly();
+  /** The last save of this owner's cart failed; the rows are only in memory. */
+  readonly draftSaveFailed = signal(false);
+
+  constructor() {
+    this.shopContext.onDetach(() => void this.detach());
+    this.shopContext.onLeave(() => this.persistCart());
+  }
 
   async loadPersistedCart(
+    owner: ScopeOwner,
     cartRetentionMs: number,
     onApplyDefaults?: (item: CartItem) => void,
   ): Promise<void> {
-    const shopId = this.authService.session()?.activeShopId ?? '';
+    if (!sameOwner(this.ownerSignal(), owner)) {
+      // Rows of another owner never stay in memory beside this one's.
+      void this.detach();
+    }
+
     const token = ++this.cartLoadToken;
     this.cartBootstrapped.set(false);
 
-    if (!shopId) {
-      this.cart.set([]);
-      this.serviceCart.set([]);
+    if (!owner.userId || !owner.shopId) {
+      this.ownerSignal.set(null);
       this.cartBootstrapped.set(true);
       return;
     }
 
+    this.ownerSignal.set(owner);
     try {
       const [rows, serviceRows] = await Promise.all([
-        this.cartStorage.loadCart(shopId, cartRetentionMs),
-        this.cartStorage.loadServiceCart(shopId, cartRetentionMs),
+        this.cartStorage.loadCart(owner, cartRetentionMs),
+        this.cartStorage.loadServiceCart(owner, cartRetentionMs),
       ]);
       if (token !== this.cartLoadToken) {
         return;
@@ -67,10 +91,7 @@ export class SaleCartStateService {
         this.serviceCart.set([...serviceRows]);
       }
     } catch {
-      if (token === this.cartLoadToken) {
-        this.cart.set([]);
-        this.serviceCart.set([]);
-      }
+      // Nothing could be read: the cart starts from what is in memory.
     } finally {
       if (token === this.cartLoadToken) {
         this.cartBootstrapped.set(true);
@@ -78,39 +99,77 @@ export class SaleCartStateService {
     }
   }
 
-  async persistCart(): Promise<void> {
-    const shopId = this.authService.session()?.activeShopId ?? '';
-    if (!shopId || !this.cartBootstrapped()) {
-      return;
+  /** Saves the rows in memory under their owner. Resolves false when the save failed. */
+  async persistCart(): Promise<boolean> {
+    const owner = this.ownerSignal();
+    if (!owner || !this.cartBootstrapped()) {
+      return true;
     }
 
+    return this.writeDraft(owner, this.cart(), this.serviceCart());
+  }
+
+  /**
+   * Leaves the current owner: drops any load still running for it, clears the rows from memory and
+   * saves them under that owner. Synchronous up to the save, so nothing of the old owner remains in
+   * memory once it returns; resolves false when the save failed.
+   */
+  detach(): Promise<boolean> {
+    const owner = this.ownerSignal();
+    const bootstrapped = this.cartBootstrapped();
     const cart = this.cart();
     const serviceCart = this.serviceCart();
+
+    this.cartLoadToken++;
+    this.ownerSignal.set(null);
+    this.cart.set([]);
+    this.serviceCart.set([]);
+    this.cartBootstrapped.set(false);
+    this.draftSaveFailed.set(false);
+
+    if (!owner || !bootstrapped) {
+      return Promise.resolve(true);
+    }
+
+    return this.writeDraft(owner, cart, serviceCart);
+  }
+
+  private async writeDraft(
+    owner: ScopeOwner,
+    cart: readonly CartItem[],
+    serviceCart: readonly ServiceCartLine[],
+  ): Promise<boolean> {
+    let saved = true;
     try {
       if (cart.length === 0 && serviceCart.length === 0) {
-        await this.cartStorage.clearCart(shopId);
-        return;
+        await this.cartStorage.clearCart(owner);
+      } else {
+        await this.cartStorage.saveCart(
+          owner,
+          cart,
+          serviceCart.map((svc): SalesCartDraftServiceItem => ({
+            kind: 'service',
+            clientLineKey: svc.clientLineKey,
+            serviceId: svc.serviceId,
+            serviceName: svc.serviceName,
+            serviceCode: svc.serviceCode,
+            quantity: svc.quantity,
+            unitPrice: svc.unitPrice,
+            taxRatePercent: svc.taxRatePercent,
+            taxIncluded: svc.taxIncluded,
+            hsnCode: svc.hsnCode,
+          })),
+        );
       }
-
-      await this.cartStorage.saveCart(
-        shopId,
-        cart,
-        serviceCart.map((svc): SalesCartDraftServiceItem => ({
-          kind: 'service',
-          clientLineKey: svc.clientLineKey,
-          serviceId: svc.serviceId,
-          serviceName: svc.serviceName,
-          serviceCode: svc.serviceCode,
-          quantity: svc.quantity,
-          unitPrice: svc.unitPrice,
-          taxRatePercent: svc.taxRatePercent,
-          taxIncluded: svc.taxIncluded,
-          hsnCode: svc.hsnCode,
-        })),
-      );
     } catch {
-      // Ignore persistence errors; cart remains in memory.
+      saved = false;
     }
+
+    // Reported only to the owner that is still in memory; a detached owner's page is gone.
+    if (sameOwner(this.ownerSignal(), owner)) {
+      this.draftSaveFailed.set(!saved);
+    }
+    return saved;
   }
 
   addBatchToCart(batch: AvailableBatchDto, quantityToAdd: number): AddBatchResult {

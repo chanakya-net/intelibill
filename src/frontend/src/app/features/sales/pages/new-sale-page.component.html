@@ -27,6 +27,10 @@
     </div>
   }
 
+  @if (vm.draftSaveFailed()) {
+    <p class="error" role="alert">{{ 'sales.newSale.draftSaveFailed' | transloco }}</p>
+  }
+
   @if (vm.serverError()) {
     <p class="error">{{ vm.serverError() | transloco }}</p>
   }

@@ -2,6 +2,8 @@ import { effect, runInInjectionContext, untracked } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { NewSalePageStateService } from './new-sale-page.state.service';
+import { sameOwner } from '../../../core/context/shop-scope';
+import type { CheckoutScope } from '../services/checkout-intent.service';
 import { SalePreviewDto } from '../services/sale.models';
 
 export abstract class NewSalePageLifecycleService extends NewSalePageStateService {
@@ -166,28 +168,36 @@ export abstract class NewSalePageLifecycleService extends NewSalePageStateServic
         this.enforceNoCustomerCreditRestrictions();
       });
 
+      // The cart, the customer, discounts, credit notes and the checkout on this page belong to
+      // the user and shop they were started under. When that owner changes, the cart is saved
+      // under its owner and cleared (a no-op when the shop context already detached it), the rest
+      // of the page is reset, and the next owner's draft is loaded. A checkout keeps its stored
+      // intent; it is only detached from this page.
+      let loadedOwner: CheckoutScope | null = null;
       effect(() => {
-        this.activeShopId();
-        void this.cartState
-          .loadPersistedCart(this.cartRetentionMs, (row) => {
-            this.applyProductDefaultsForLine(row.clientLineKey, row.itemName, row.barcode);
-          })
-          .then(() => untracked(() => this.refreshPendingCheckouts()));
+        const owner = this.checkoutScope();
+        untracked(() => {
+          if (loadedOwner && !sameOwner(loadedOwner, owner)) {
+            void this.cartState.detach();
+            this.resetTransientState();
+          }
+          loadedOwner = owner;
+
+          const active = this.activeCheckoutIntent();
+          if (active && (active.userId !== owner.userId || active.shopId !== owner.shopId)) {
+            this.activeCheckoutIntentId.set(null);
+          }
+
+          void this.cartState
+            .loadPersistedCart(owner, this.cartRetentionMs, (row) => {
+              this.applyProductDefaultsForLine(row.clientLineKey, row.itemName, row.barcode);
+            })
+            .then(() => this.refreshPendingCheckouts());
+        });
       });
 
-      // A checkout belongs to the user and shop it was frozen under; switching scope detaches it
-      // from this page without touching the stored intent.
+      // Saved under the owner the rows were loaded for, never under whichever shop is active now.
       effect(() => {
-        const scope = this.checkoutScope();
-        const active = untracked(() => this.activeCheckoutIntent());
-        if (active && (active.userId !== scope.userId || active.shopId !== scope.shopId)) {
-          this.activeCheckoutIntentId.set(null);
-        }
-        void untracked(() => this.refreshPendingCheckouts());
-      });
-
-      effect(() => {
-        this.activeShopId();
         this.cart();
         this.serviceCart();
         if (!this.cartBootstrapped()) {
