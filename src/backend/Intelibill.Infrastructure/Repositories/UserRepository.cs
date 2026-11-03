@@ -60,4 +60,35 @@ internal sealed class UserRepository(ApplicationDbContext context) : RepositoryB
             u => u.PhoneNumber == phoneNumber && u.Id != excludedUserId,
             cancellationToken);
     }
+
+    public async Task<IReadOnlyDictionary<Guid, string>> GetDisplayNamesAsync(
+        IReadOnlyCollection<Guid> userIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (userIds.Count == 0)
+            return new Dictionary<Guid, string>();
+
+        var ids = userIds.Distinct().ToList();
+        var users = await DbSet
+            .AsNoTracking()
+            .Where(u => ids.Contains(u.Id))
+            .Select(u => new { u.Id, u.FirstName, u.LastName, u.Email, u.PhoneNumber })
+            .ToListAsync(cancellationToken);
+
+        return users.ToDictionary(
+            u => u.Id,
+            u => FormatDisplayName(u.FirstName, u.LastName, u.Email, u.PhoneNumber, u.Id));
+    }
+
+    private static string FormatDisplayName(string? firstName, string? lastName, string? email, string? phoneNumber, Guid userId)
+    {
+        var fullName = $"{firstName} {lastName}".Trim();
+        if (!string.IsNullOrWhiteSpace(fullName))
+            return fullName;
+
+        if (!string.IsNullOrWhiteSpace(email))
+            return email;
+
+        return string.IsNullOrWhiteSpace(phoneNumber) ? userId.ToString() : phoneNumber;
+    }
 }

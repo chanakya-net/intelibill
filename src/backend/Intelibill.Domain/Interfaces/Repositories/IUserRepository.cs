@@ -10,4 +10,11 @@ public interface IUserRepository : IRepository<User>
     Task<bool> ExistsByEmailAsync(string email, CancellationToken cancellationToken = default);
     Task<bool> ExistsByPhoneAsync(string phoneNumber, CancellationToken cancellationToken = default);
     Task<bool> ExistsByPhoneAsync(string phoneNumber, Guid excludedUserId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// A display name per known user: full name, else email, else phone number. Unknown ids are absent.
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, string>> GetDisplayNamesAsync(
+        IReadOnlyCollection<Guid> userIds,
+        CancellationToken cancellationToken = default);
 }

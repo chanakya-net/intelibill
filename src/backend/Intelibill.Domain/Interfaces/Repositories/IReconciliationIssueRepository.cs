@@ -32,6 +32,12 @@ public interface IReconciliationIssueRepository : IRepository<ReconciliationIssu
         Guid? offlineSubmissionId = null,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Locks the case row until the current transaction ends, so resolutions of one case queue
+    /// behind each other and each reads the case as the previous one committed it.
+    /// </summary>
+    Task<RowLockOutcome> LockForResolutionAsync(Guid shopId, Guid caseId, CancellationToken cancellationToken);
+
     Task<ReconciliationIssue?> GetTrackedAsync(Guid shopId, Guid caseId, CancellationToken cancellationToken);
 
     Task<ReconciliationIssue?> GetAsync(Guid shopId, Guid caseId, CancellationToken cancellationToken);

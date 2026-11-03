@@ -3,12 +3,15 @@ using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace Intelibill.Infrastructure.Repositories;
 
 internal sealed class ReconciliationIssueRepository(ApplicationDbContext context)
     : RepositoryBase<ReconciliationIssue>(context), IReconciliationIssueRepository
 {
+    private const string ResolutionLockTimeout = "5s";
+
     public async Task<IReadOnlyList<ReconciliationIssue>> GetUnresolvedByShopAsync(
         Guid shopId,
         CancellationToken cancellationToken = default) =>
@@ -40,6 +43,42 @@ internal sealed class ReconciliationIssueRepository(ApplicationDbContext context
             .OrderBy(issue => issue.CreatedAt)
             .Select(issue => (Guid?)issue.Id)
             .FirstOrDefaultAsync(cancellationToken);
+
+    public async Task<RowLockOutcome> LockForResolutionAsync(Guid shopId, Guid caseId, CancellationToken cancellationToken)
+    {
+        if (!Context.Database.IsNpgsql())
+        {
+            return await DbSet.AnyAsync(i => i.ShopId == shopId && i.Id == caseId, cancellationToken)
+                ? RowLockOutcome.Acquired
+                : RowLockOutcome.NotFound;
+        }
+
+        if (Context.Database.CurrentTransaction is null)
+            throw new InvalidOperationException("The reconciliation case lock must be taken inside a transaction.");
+
+        // The budget covers this lock and every row the resolution writes at save.
+        await Context.Database.ExecuteSqlAsync(
+            $"SELECT set_config('lock_timeout', {ResolutionLockTimeout}, true)",
+            cancellationToken);
+
+        List<Guid> locked;
+        try
+        {
+            // NO KEY UPDATE: resolutions of the case exclude one another, while audit events that merely
+            // reference the case (a key-share check) are not made to queue behind it.
+            locked = await Context.Database
+                .SqlQuery<Guid>($"SELECT id AS \"Value\" FROM reconciliation_issues WHERE id = {caseId} AND shop_id = {shopId} FOR NO KEY UPDATE")
+                .ToListAsync(cancellationToken);
+        }
+        // Npgsql counts a lock timeout as transient, so the execution strategy hands it back wrapped.
+        catch (Exception ex) when ((ex as PostgresException ?? ex.InnerException as PostgresException)?.SqlState == PostgresErrorCodes.LockNotAvailable)
+        {
+            // The statement failed, so the transaction is now aborted; the caller rolls it back.
+            return RowLockOutcome.TimedOut;
+        }
+
+        return locked.Count == 0 ? RowLockOutcome.NotFound : RowLockOutcome.Acquired;
+    }
 
     public async Task<ReconciliationIssue?> GetTrackedAsync(Guid shopId, Guid caseId, CancellationToken cancellationToken) =>
         await DbSet.FirstOrDefaultAsync(i => i.ShopId == shopId && i.Id == caseId, cancellationToken);

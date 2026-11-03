@@ -8,6 +8,7 @@ using Intelibill.Application.Features.Exports.Sales.Services;
 using Intelibill.Application.Features.Sales.Queries.GetProfitLossReport;
 using Intelibill.Application.Features.Inventory.Services;
 using Intelibill.Application.Features.Items.Services;
+using Intelibill.Application.Features.OfflineReconciliation;
 using Intelibill.Application.Features.OfflineSalesSnapshot.Services;
 using Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
 using Intelibill.Application.Features.Sales.Commands.RecordSale;
@@ -62,6 +63,7 @@ public static class DependencyInjection
 
         services.AddScoped<IOfflineSaleVarianceAnalyzer, OfflineSaleVarianceAnalyzer>();
         services.AddScoped<IOfflineSalePoster, OfflineSalePoster>();
+        services.AddScoped<ReconciliationCaseMapper>();
 
         return services;
     }
