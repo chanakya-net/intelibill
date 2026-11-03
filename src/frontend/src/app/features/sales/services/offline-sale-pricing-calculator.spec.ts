@@ -1,6 +1,110 @@
 import { describe, expect, it } from 'vitest';
 
+import contract from '../../../../../../../tests/contracts/offline-invoice-arithmetic-v1.json';
+import type { OfflineSalePricingInput, OfflineSalePricingRuleInput } from './offline-sale-core.types';
 import { calculateOfflineFrozenSale } from './offline-sale-pricing-calculator';
+
+interface ContractLine {
+  readonly lineType: 'goods' | 'service';
+  readonly quantity: number;
+  readonly salesPrice: number;
+  readonly taxRatePercent: number;
+  readonly taxIncluded: boolean;
+  readonly itemDiscount: { readonly type: number; readonly value: number };
+  readonly batchRulePercentage: number | null;
+}
+
+interface ContractCase {
+  readonly name: string;
+  readonly input: {
+    readonly lines: readonly ContractLine[];
+    readonly saleDiscount: { readonly type: number; readonly value: number };
+    readonly saleRule: { readonly ruleType: string; readonly percentage: number; readonly thresholdAmount: number | null } | null;
+    readonly paidAmount: number;
+  };
+  readonly expected: {
+    readonly lines: readonly Record<string, number>[];
+    readonly totals: Record<string, number>;
+  };
+}
+
+function toPricingInput(input: ContractCase['input']): OfflineSalePricingInput {
+  const rules: OfflineSalePricingRuleInput[] = input.lines.flatMap((line, index) =>
+    line.batchRulePercentage === null
+      ? []
+      : [{ ruleId: `rule-${index}`, ruleType: 'BatchPercentage', inventoryBatchId: `batch-${index}`, percentage: line.batchRulePercentage }],
+  );
+  if (input.saleRule) {
+    rules.push({ ruleId: 'sale-rule', ruleType: input.saleRule.ruleType, inventoryBatchId: null, percentage: input.saleRule.percentage, thresholdAmount: input.saleRule.thresholdAmount });
+  }
+
+  return {
+    soldAt: '2026-11-03T10:00:00.000Z',
+    paymentMethod: 1,
+    paidAmount: input.paidAmount,
+    customerId: null,
+    customerName: null,
+    customerPhone: null,
+    saleDiscount: { type: input.saleDiscount.type as 0 | 1 | 2, value: input.saleDiscount.value },
+    rules,
+    lines: input.lines.map((line, index) => ({
+      inventoryBatchId: `batch-${index}`,
+      itemId: `item-${index}`,
+      barcode: `BC-${index}`,
+      itemName: `Line ${index}`,
+      batchNumber: line.lineType === 'service' ? '' : `B-${index}`,
+      quantity: line.quantity,
+      salesPrice: line.salesPrice,
+      mrp: 0,
+      costPrice: 0,
+      taxRatePercent: line.taxRatePercent,
+      taxIncluded: line.taxIncluded,
+      itemDiscount: { type: line.itemDiscount.type as 0 | 1 | 2, value: line.itemDiscount.value },
+      hsnCode: null,
+      lineType: line.lineType,
+      serviceId: line.lineType === 'service' ? `service-${index}` : null,
+    })),
+  };
+}
+
+describe('offline invoice arithmetic contract v1', () => {
+  const cases = contract.cases as readonly ContractCase[];
+
+  it.each(cases.map((testCase) => [testCase.name, testCase] as const))('%s matches the shared fixture exactly', (_name, testCase) => {
+    const result = calculateOfflineFrozenSale(toPricingInput(testCase.input));
+
+    expect(result.calculationVersion).toBe(contract.calculationVersion);
+    expect(result.lines.map((line) => ({
+      preTaxAmount: line.preTaxAmount,
+      itemDiscountAmount: line.itemDiscountAmount,
+      saleDiscountAmount: line.saleDiscountAmount,
+      taxableAmount: line.taxableAmount,
+      taxAmount: line.taxAmount,
+      lineTotal: line.lineTotal,
+    }))).toEqual(testCase.expected.lines);
+    expect(result.totals).toEqual(testCase.expected.totals);
+  });
+
+  it('gives the same invoice however a quantity was reached', () => {
+    const base = cases.find((testCase) => testCase.name === 'exclusive_fractional_quantity')!;
+    const edited = { ...base.input, lines: [{ ...base.input.lines[0], quantity: 0.1 + 0.15 }] };
+
+    expect(calculateOfflineFrozenSale(toPricingInput(edited))).toEqual(calculateOfflineFrozenSale(toPricingInput(base.input)));
+  });
+
+  it('freezes inputs at the contract scales so the server can replay them', () => {
+    const base = cases.find((testCase) => testCase.name === 'exclusive_single_line')!;
+    const result = calculateOfflineFrozenSale(toPricingInput({
+      ...base.input,
+      saleDiscount: { type: 2, value: 1.005 },
+      lines: [{ ...base.input.lines[0], quantity: 1.0004, itemDiscount: { type: 1, value: 2.555 } }],
+    }));
+
+    expect(result.lines[0].quantity).toBe(1);
+    expect(result.lines[0].itemDiscountOverrideValue).toBe(2.56);
+    expect(result.saleDiscountOverrideValue).toBe(1.01);
+  });
+});
 
 describe('calculateOfflineFrozenSale', () => {
   it('freezes deterministic totals and line math', () => {
@@ -63,7 +167,9 @@ describe('calculateOfflineFrozenSale', () => {
       configuredSaleRulePercentage: null,
       configuredSaleRuleThresholdAmount: null,
     });
-    expect(result.totals.totalBeforeDiscount).toBe(250);
+    expect(result.calculationVersion).toBe(1);
+    expect(result.totals.subtotalBeforeDiscount).toBe(250);
+    expect(result.totals.totalBeforeDiscount).toBe(283.03);
     expect(result.totals.totalDiscount).toBe(34);
     expect(result.totals.totalTax).toBe(33.03);
     expect(result.totals.grandTotal).toBe(249.03);

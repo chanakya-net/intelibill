@@ -72,6 +72,8 @@ export interface OfflineFrozenSaleLine {
 }
 
 export interface OfflineFrozenSaleTotals {
+  /** Sum of pre-tax line amounts. Absent on unversioned (legacy) payloads, which sent totalBeforeDiscount instead. */
+  readonly subtotalBeforeDiscount?: number;
   readonly totalBeforeDiscount: number;
   readonly totalDiscount: number;
   readonly totalTax: number;
@@ -81,6 +83,8 @@ export interface OfflineFrozenSaleTotals {
 }
 
 export interface OfflineFrozenSalePricing {
+  /** Arithmetic contract the amounts were frozen under; absent on payloads queued before versioning (legacy). */
+  readonly calculationVersion?: number;
   readonly lines: readonly OfflineFrozenSaleLine[];
   readonly totals: OfflineFrozenSaleTotals;
   readonly saleDiscountOverrideType?: number;

@@ -5,22 +5,28 @@ import {
   type OfflineSalePricingLineInput,
   type OfflineSalePricingRuleInput,
 } from './offline-sale-core.types';
+import {
+  MONEY_SCALE,
+  OFFLINE_CALCULATION_VERSION,
+  PERCENT_SCALE,
+  QUANTITY_SCALE,
+  allocateLargestRemainder,
+  clampBigInt,
+  fromScaled,
+  minBigInt,
+  normalizeScale,
+  percentOf,
+  roundDiv,
+  toScaled,
+} from './offline-money.math';
 
-const MONEY_PRECISION = 2;
+const money = (cents: bigint): number => fromScaled(cents, MONEY_SCALE);
 
-function roundMoney(value: number): number {
-  return Number(value.toFixed(MONEY_PRECISION));
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), max);
-}
-
-function applyDiscount(base: number, type: number, value: number): number {
-  if (base <= 0 || value <= 0) return 0;
-  if (type === 1) return roundMoney(base * (value / 100));
-  if (type === 2) return roundMoney(value);
-  return 0;
+function applyDiscount(basis: bigint, type: number, value: number): bigint {
+  if (basis <= 0n || value <= 0) return 0n;
+  if (type === 1) return percentOf(basis, toScaled(value, PERCENT_SCALE));
+  if (type === 2) return toScaled(value, MONEY_SCALE);
+  return 0n;
 }
 
 function isRuleActive(rule: OfflineSalePricingRuleInput, soldAt: string): boolean {
@@ -48,21 +54,21 @@ function pickBatchRule(rules: readonly OfflineSalePricingRuleInput[], line: Offl
   return candidates.reduce((best, current) => (current.percentage > best.percentage ? current : best));
 }
 
-function pickSaleRule(rules: readonly OfflineSalePricingRuleInput[], eligibleSubtotal: number): OfflineSalePricingRuleInput | null {
+function pickSaleRule(rules: readonly OfflineSalePricingRuleInput[], eligibleSubtotal: bigint): OfflineSalePricingRuleInput | null {
   const candidates = rules.filter((rule) => {
     if (rule.inventoryBatchId) return false;
     if (rule.percentage <= 0) return false;
     if (rule.ruleType === 'SalePercentage') return true;
     return rule.ruleType === 'SaleThresholdPercentage'
       && typeof rule.thresholdAmount === 'number'
-      && eligibleSubtotal >= rule.thresholdAmount;
+      && eligibleSubtotal >= toScaled(rule.thresholdAmount, MONEY_SCALE);
   });
 
   if (candidates.length === 0) return null;
 
   return candidates.reduce((best, current) => {
-    const bestAmount = roundMoney(eligibleSubtotal * (best.percentage / 100));
-    const currentAmount = roundMoney(eligibleSubtotal * (current.percentage / 100));
+    const bestAmount = percentOf(eligibleSubtotal, toScaled(best.percentage, PERCENT_SCALE));
+    const currentAmount = percentOf(eligibleSubtotal, toScaled(current.percentage, PERCENT_SCALE));
     if (currentAmount !== bestAmount) return currentAmount > bestAmount ? current : best;
 
     const bestIsThreshold = best.ruleType === 'SaleThresholdPercentage';
@@ -73,149 +79,136 @@ function pickSaleRule(rules: readonly OfflineSalePricingRuleInput[], eligibleSub
   });
 }
 
-function calculateEffectiveItemDiscount(
-  discount: OfflineSalePricingLineInput['itemDiscount'],
-  preTaxAmount: number,
-  batchRule: OfflineSalePricingRuleInput | null,
-): number {
-  if (!batchRule) {
-    return applyDiscount(preTaxAmount, discount.type, discount.value);
-  }
+function calculateEffectiveItemDiscount(type: number, value: number, preTax: bigint, rulePercentage: number | null): bigint {
+  const overrideAmount = applyDiscount(preTax, type, value);
+  if (rulePercentage === null) return overrideAmount;
 
-  const configuredAmount = roundMoney(preTaxAmount * (batchRule.percentage / 100));
-  if (discount.type === 0) return configuredAmount;
-
-  const overrideAmount = applyDiscount(preTaxAmount, discount.type, discount.value);
-  return roundMoney(Math.min(configuredAmount, overrideAmount));
+  const configuredAmount = percentOf(preTax, toScaled(rulePercentage, PERCENT_SCALE));
+  return type === 0 ? configuredAmount : minBigInt(configuredAmount, overrideAmount);
 }
 
-function calculateEffectiveSaleDiscount(
-  discount: OfflineSalePricingInput['saleDiscount'],
-  eligibleSubtotal: number,
-  saleRule: OfflineSalePricingRuleInput | null,
-): number {
-  const configuredAmount = saleRule
-    ? roundMoney(eligibleSubtotal * (saleRule.percentage / 100))
-    : 0;
+function calculateEffectiveSaleDiscount(type: number, value: number, eligibleSubtotal: bigint, rulePercentage: number | null): bigint {
+  const configuredAmount = rulePercentage === null ? 0n : percentOf(eligibleSubtotal, toScaled(rulePercentage, PERCENT_SCALE));
+  if (type === 0) return configuredAmount;
 
-  if (discount.type === 0) return configuredAmount;
-
-  const overrideAmount = applyDiscount(eligibleSubtotal, discount.type, discount.value);
-  return saleRule ? roundMoney(Math.min(configuredAmount, overrideAmount)) : overrideAmount;
+  const overrideAmount = applyDiscount(eligibleSubtotal, type, value);
+  return rulePercentage === null ? overrideAmount : minBigInt(configuredAmount, overrideAmount);
 }
 
+// Prices a cart under calculation version 1. Inputs are normalised to the contract scales and frozen as normalised,
+// so the queued invoice carries exactly the numbers the server replays.
 export function calculateOfflineFrozenSale(input: OfflineSalePricingInput): OfflineFrozenSalePricing {
   const eligibleRules = input.rules.filter((rule) => isRuleActive(rule, input.soldAt));
-  const lines = input.lines.map((line, index) => {
+  const drafts = input.lines.map((line, index) => {
     const isService = line.lineType === 'service';
-    const quantity = Math.max(0, line.quantity);
-    const grossAmount = roundMoney(line.salesPrice * quantity);
-    const preTaxAmount = line.taxIncluded
-      ? roundMoney(grossAmount / (1 + line.taxRatePercent / 100))
-      : grossAmount;
+    const quantity = toScaled(Math.max(0, line.quantity), QUANTITY_SCALE);
+    const salesPrice = toScaled(line.salesPrice, MONEY_SCALE);
+    const taxRate = toScaled(line.taxRatePercent, PERCENT_SCALE);
+    const gross = roundDiv(salesPrice * quantity, 1_000n);
+    const preTax = line.taxIncluded ? roundDiv(gross * 10_000n, 10_000n + taxRate) : gross;
 
     const rule = isService ? null : pickBatchRule(eligibleRules, line);
-    const itemDiscountAmount = isService
-      ? 0
-      : clamp(calculateEffectiveItemDiscount(line.itemDiscount, preTaxAmount, rule), 0, preTaxAmount);
-
-    const taxableBeforeSaleDiscount = roundMoney(preTaxAmount - itemDiscountAmount);
-    const taxAmountBeforeSaleDiscount = roundMoney(taxableBeforeSaleDiscount * (line.taxRatePercent / 100));
-    const lineTotalBeforeSaleDiscount = roundMoney(taxableBeforeSaleDiscount + taxAmountBeforeSaleDiscount);
+    const rulePercentage = rule ? normalizeScale(rule.percentage, PERCENT_SCALE) : null;
+    const discountType = isService ? 0 : line.itemDiscount.type;
+    const discountValue = isService ? 0 : normalizeScale(line.itemDiscount.value, discountType === 2 ? MONEY_SCALE : PERCENT_SCALE);
+    const itemDiscount = isService ? 0n : clampBigInt(calculateEffectiveItemDiscount(discountType, discountValue, preTax, rulePercentage), preTax);
 
     return {
-      clientLineId: line.clientLineId ?? `${line.inventoryBatchId || line.serviceId}-${index + 1}`,
+      line,
+      index,
+      isService,
+      quantity,
+      salesPrice,
+      taxRate,
+      preTax,
+      itemDiscount,
+      taxableBeforeSaleDiscount: preTax - itemDiscount,
+      ruleId: rule?.ruleId ?? null,
+      rulePercentage,
+      discountType,
+      discountValue,
+    };
+  });
+
+  const eligibleSubtotal = drafts.reduce((sum, draft) => (draft.isService ? sum : sum + draft.taxableBeforeSaleDiscount), 0n);
+  const saleRule = pickSaleRule(eligibleRules, eligibleSubtotal);
+  const saleRulePercentage = saleRule ? normalizeScale(saleRule.percentage, PERCENT_SCALE) : null;
+  const saleDiscountType = input.saleDiscount.type;
+  const saleDiscountValue = normalizeScale(input.saleDiscount.value, saleDiscountType === 2 ? MONEY_SCALE : PERCENT_SCALE);
+  const saleDiscountTotal = clampBigInt(
+    calculateEffectiveSaleDiscount(saleDiscountType, saleDiscountValue, eligibleSubtotal, saleRulePercentage),
+    eligibleSubtotal,
+  );
+  const allocation = allocateLargestRemainder(
+    saleDiscountTotal,
+    drafts.map((draft) => (draft.isService || draft.taxableBeforeSaleDiscount <= 0n ? 0n : draft.taxableBeforeSaleDiscount)),
+  );
+
+  let subtotal = 0n;
+  let discounts = 0n;
+  let taxes = 0n;
+  let grandTotal = 0n;
+  const lines = drafts.map((draft): OfflineFrozenSaleLine => {
+    const saleDiscount = allocation[draft.index];
+    const taxable = draft.taxableBeforeSaleDiscount - saleDiscount;
+    const tax = roundDiv(taxable * draft.taxRate, 10_000n);
+    const lineTotal = taxable + tax;
+    subtotal += draft.preTax;
+    discounts += draft.itemDiscount + saleDiscount;
+    taxes += tax;
+    grandTotal += lineTotal;
+
+    const { line, isService } = draft;
+    return {
+      clientLineId: line.clientLineId ?? `${line.inventoryBatchId || line.serviceId}-${draft.index + 1}`,
       inventoryBatchId: line.inventoryBatchId,
       itemId: line.itemId,
       barcode: line.barcode,
       itemName: line.itemName,
       batchNumber: line.batchNumber,
-      quantity,
-      salesPrice: line.salesPrice,
+      quantity: fromScaled(draft.quantity, QUANTITY_SCALE),
+      salesPrice: fromScaled(draft.salesPrice, MONEY_SCALE),
       mrp: isService ? 0 : line.mrp,
       costPrice: isService ? 0 : line.costPrice,
-      taxRatePercent: line.taxRatePercent,
+      taxRatePercent: fromScaled(draft.taxRate, PERCENT_SCALE),
       taxIncluded: line.taxIncluded,
       hsnCode: line.hsnCode,
-      preTaxAmount,
-      itemDiscountAmount,
-      saleDiscountAmount: 0,
-      taxableAmount: taxableBeforeSaleDiscount,
-      taxAmount: taxAmountBeforeSaleDiscount,
-      lineTotal: lineTotalBeforeSaleDiscount,
-      configuredRuleId: rule?.ruleId ?? null,
-      configuredRulePercentage: rule?.percentage ?? null,
-      itemDiscountOverrideType: isService ? 0 : line.itemDiscount.type,
-      itemDiscountOverrideValue: isService ? 0 : line.itemDiscount.value,
-      lineType: isService ? ('service' as const) : ('goods' as const),
+      preTaxAmount: money(draft.preTax),
+      itemDiscountAmount: money(draft.itemDiscount),
+      saleDiscountAmount: money(saleDiscount),
+      taxableAmount: money(taxable),
+      taxAmount: money(tax),
+      lineTotal: money(lineTotal),
+      configuredRuleId: draft.ruleId,
+      configuredRulePercentage: draft.rulePercentage,
+      itemDiscountOverrideType: draft.discountType,
+      itemDiscountOverrideValue: draft.discountValue,
+      lineType: isService ? 'service' : 'goods',
       serviceId: line.serviceId ?? null,
     };
   });
 
-  const eligibleSubtotal = roundMoney(
-    lines.filter((line) => line.lineType !== 'service').reduce((sum, line) => sum + line.taxableAmount, 0),
-  );
-  const saleRule = pickSaleRule(eligibleRules, eligibleSubtotal);
-  const saleDiscountRaw = calculateEffectiveSaleDiscount(input.saleDiscount, eligibleSubtotal, saleRule);
-  const saleDiscountTotal = clamp(saleDiscountRaw, 0, eligibleSubtotal);
-
-  let allocated = 0;
-  const goodsCount = lines.filter((line) => line.lineType !== 'service').length;
-  let goodsAllocated = 0;
-  const pricedLines = lines.map((line) => {
-    if (line.lineType === 'service') {
-      return {
-        ...line,
-        saleDiscountAmount: 0,
-        lineType: 'service' as const,
-        serviceId: line.serviceId,
-      } as OfflineFrozenSaleLine;
-    }
-
-    const weight = eligibleSubtotal > 0 ? line.taxableAmount / eligibleSubtotal : 0;
-    goodsAllocated++;
-    const amount = goodsAllocated === goodsCount
-      ? roundMoney(saleDiscountTotal - allocated)
-      : roundMoney(saleDiscountTotal * weight);
-    allocated = roundMoney(allocated + amount);
-
-    const taxableAmount = roundMoney(line.taxableAmount - amount);
-    const taxAmount = roundMoney(taxableAmount * (line.taxRatePercent / 100));
-    const lineTotal = roundMoney(taxableAmount + taxAmount);
-
-    return {
-      ...line,
-      saleDiscountAmount: amount,
-      taxableAmount,
-      taxAmount,
-      lineTotal,
-    } as OfflineFrozenSaleLine;
-  });
-
-  const totalBeforeDiscount = roundMoney(pricedLines.reduce((sum, line) => sum + line.preTaxAmount, 0));
-  const totalItemDiscount = roundMoney(pricedLines.reduce((sum, line) => sum + line.itemDiscountAmount, 0));
-  const totalSaleDiscount = roundMoney(pricedLines.reduce((sum, line) => sum + line.saleDiscountAmount, 0));
-  const totalDiscount = roundMoney(totalItemDiscount + totalSaleDiscount);
-  const totalTax = roundMoney(pricedLines.reduce((sum, line) => sum + line.taxAmount, 0));
-  const grandTotal = roundMoney(pricedLines.reduce((sum, line) => sum + line.lineTotal, 0));
-  const paidAmount = roundMoney(Math.max(0, input.paidAmount));
-  const dueAmount = roundMoney(Math.max(grandTotal - paidAmount, 0));
+  const paid = toScaled(Math.max(0, input.paidAmount), MONEY_SCALE);
+  const due = grandTotal > paid ? grandTotal - paid : 0n;
 
   return {
-    lines: pricedLines,
+    calculationVersion: OFFLINE_CALCULATION_VERSION,
+    lines,
     totals: {
-      totalBeforeDiscount,
-      totalDiscount,
-      totalTax,
-      grandTotal,
-      paidAmount,
-      dueAmount,
+      subtotalBeforeDiscount: money(subtotal),
+      // Matches the domain definition (line totals plus discounts) that online sales store.
+      totalBeforeDiscount: money(grandTotal + discounts),
+      totalDiscount: money(discounts),
+      totalTax: money(taxes),
+      grandTotal: money(grandTotal),
+      paidAmount: money(paid),
+      dueAmount: money(due),
     },
-    saleDiscountOverrideType: input.saleDiscount.type,
-    saleDiscountOverrideValue: input.saleDiscount.value,
+    saleDiscountOverrideType: saleDiscountType,
+    saleDiscountOverrideValue: saleDiscountValue,
     configuredSaleRuleId: saleRule?.ruleId ?? null,
     configuredSaleRuleType: saleRule?.ruleType ?? null,
-    configuredSaleRulePercentage: saleRule?.percentage ?? null,
-    configuredSaleRuleThresholdAmount: saleRule?.thresholdAmount ?? null,
+    configuredSaleRulePercentage: saleRulePercentage,
+    configuredSaleRuleThresholdAmount: saleRule?.thresholdAmount == null ? null : normalizeScale(saleRule.thresholdAmount, MONEY_SCALE),
   };
 }
