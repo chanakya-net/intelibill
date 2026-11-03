@@ -1,42 +1,34 @@
-using System.Linq;
 using System.Xml.Linq;
-using Intelibill.Application.Features.Exports.Sales;
+using Intelibill.Application.Features.Exports.Accounting;
 using Intelibill.Application.Features.Exports.Sales.DTOs;
 
 namespace Intelibill.Infrastructure.Services.Exports;
 
 internal static class TallyLedgerBuilder
 {
-    internal static List<string> ExtractUniqueLedgers(SalesExportDatasetDto dataset)
+    /// <summary>The standard ledgers, every GST rate in the period and every ledger a voucher posts to.</summary>
+    internal static List<string> ExtractUniqueLedgers(SalesExportDatasetDto dataset, IEnumerable<AccountingVoucher> vouchers)
     {
-        var ledgers = new HashSet<string>
+        var ledgers = new HashSet<string>(StringComparer.Ordinal)
         {
-            "Sales",
+            TallyVoucherBuilder.SalesLedger,
             "Cash",
             "UPI",
             "Card",
-            "Customer Receivable",
-            TallyVoucherBuilder.GetCreditNoteLedgerName()
+            TallyVoucherBuilder.CustomerReceivableLedger,
+            TallyVoucherBuilder.CreditNoteLiabilityLedger,
         };
 
         foreach (var row in dataset.SummaryRows)
-        {
-            var customerName = !string.IsNullOrWhiteSpace(row.CustomerName) ? row.CustomerName : "Walk-in Customer";
-            ledgers.Add(customerName);
-        }
+            ledgers.Add(TallyVoucherBuilder.CustomerLedgerName(row.CustomerName));
 
-        foreach (var row in dataset.ReturnRows.Where(r => !r.IsVoided))
-        {
-            var customerName = !string.IsNullOrWhiteSpace(row.CustomerName) ? row.CustomerName : "Walk-in Customer";
-            ledgers.Add(customerName);
-        }
-
-        foreach (var taxRate in dataset.TaxBreakup.Select(t => t.TaxRatePercent).Distinct().OrderBy(r => r))
-        {
+        foreach (var taxRate in dataset.TaxBreakup.Select(t => t.TaxRatePercent).Distinct())
             ledgers.Add(TallyVoucherBuilder.FormatGstLedgerName(taxRate));
-        }
 
-        return ledgers.OrderBy(l => l).ToList();
+        foreach (var line in vouchers.SelectMany(v => v.Lines))
+            ledgers.Add(line.Ledger);
+
+        return ledgers.Order(StringComparer.Ordinal).ToList();
     }
 
     internal static XElement BuildLedgerMaster(string ledgerName)
@@ -54,17 +46,21 @@ internal static class TallyLedgerBuilder
 
     internal static string GetLedgerGroup(string ledgerName)
     {
-        if (ledgerName == "Sales")
+        if (ledgerName == TallyVoucherBuilder.SalesLedger)
             return "Sales Accounts";
         if (ledgerName == "Cash")
             return "Bank Accounts";
         if (ledgerName == "UPI" || ledgerName == "Card")
             return "Bank Accounts";
-        if (ledgerName == "Customer Receivable")
+        if (ledgerName == TallyVoucherBuilder.CustomerReceivableLedger)
             return "Sundry Debtors";
         if (ledgerName.StartsWith("Output GST", StringComparison.OrdinalIgnoreCase))
             return "Tax Payable";
-        if (ledgerName == "Walk-in Customer")
+        if (ledgerName is TallyVoucherBuilder.CreditNoteLiabilityLedger or TallyVoucherBuilder.CustomerRefundsClearingLedger)
+            return "Current Liabilities";
+        if (ledgerName == TallyVoucherBuilder.SalesReturnAdjustmentsLedger)
+            return "Indirect Expenses";
+        if (ledgerName == TallyVoucherBuilder.WalkInCustomerLedger)
             return "Sundry Debtors";
 
         return "Sundry Debtors";

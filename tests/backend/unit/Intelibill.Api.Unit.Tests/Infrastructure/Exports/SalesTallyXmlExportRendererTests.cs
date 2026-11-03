@@ -1,709 +1,367 @@
+using System.Globalization;
 using System.Xml.Linq;
+using ErrorOr;
+using Intelibill.Application.Features.Exports.Accounting;
+using Intelibill.Application.Features.Exports.Sales;
 using Intelibill.Application.Features.Exports.Sales.DTOs;
+using Intelibill.Domain.Enums;
 using Intelibill.Infrastructure.Services.Exports;
 
 namespace Intelibill.Api.Unit.Tests.Infrastructure.Exports;
 
 public sealed class SalesTallyXmlExportRendererTests
 {
+    private static readonly DateTimeOffset SoldAt = new(2026, 5, 1, 10, 0, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset ReturnedAt = new(2026, 5, 4, 12, 0, 0, TimeSpan.Zero);
+
+    private readonly SalesTallyXmlExportRenderer _renderer = new(new AccountingVoucherValidator());
+
+    // ── Envelope and ledgers ───────────────────────────────────────────────────
+
     [Fact]
-    public async Task RenderAsync_WithValidDataset_ReturnsValidXmlEnvelope()
+    public async Task RenderAsync_WithValidDataset_ReturnsVersionedEnvelope()
     {
-        var metadata = new SalesExportMetadataDto(
-            "Green Mart",
-            "12 Market Lane, Mumbai",
-            "27ABCDE1234F1Z5",
-            "Ravi Kumar",
-            DateTimeOffset.UtcNow,
-            new DateOnly(2026, 5, 1),
-            new DateOnly(2026, 5, 31),
-            "summary");
-
-        var summaryRows = new List<SalesExportSummaryRowDto>
-        {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Cash", 1000m, 100m, 900m, 0m, 900m, 162m, 1062m, null, 0m, 0m, 0m, 1062m, false, 2)
-        };
-
-        var lineItems = new List<SalesExportLineItemRowDto>
-        {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Apple", 10m, 50m, 0m, 0m, 18m, 500m, 90m, 590m, false, 0m, null, null)
-        };
-
-        var taxBreakup = new List<SalesExportTaxBreakupDto>
-        {
-            new(18m, 900m, 162m, 0m, 0m)
-        };
-
-        var dataset = new SalesExportDatasetDto(metadata, summaryRows, lineItems, taxBreakup, []);
-        var renderer = new SalesTallyXmlExportRenderer();
-
-        var result = await renderer.RenderAsync(dataset, CancellationToken.None);
+        var result = await RenderAsync(Dataset([Sale("INV-001", "Alice", "Cash", paid: 590m, due: 0m, (18m, 500m, 90m))]));
 
         Assert.Equal("application/xml", result.ContentType);
-        Assert.NotEmpty(result.Content);
-
-        var xmlString = System.Text.Encoding.UTF8.GetString(result.Content);
-        var doc = XDocument.Parse(xmlString);
-        var root = doc.Root;
-
-        Assert.NotNull(root);
+        var root = Parse(result);
         Assert.Equal("ENVELOPE", root.Name.LocalName);
-    }
-
-    [Fact]
-    public async Task RenderAsync_WithValidDataset_CreatesValidLedgerMasters()
-    {
-        var metadata = new SalesExportMetadataDto(
-            "Green Mart",
-            "12 Market Lane, Mumbai",
-            "27ABCDE1234F1Z5",
-            "Ravi Kumar",
-            DateTimeOffset.UtcNow,
-            new DateOnly(2026, 5, 1),
-            new DateOnly(2026, 5, 31),
-            "summary");
-
-        var summaryRows = new List<SalesExportSummaryRowDto>
-        {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Customer A", "Cash", 1000m, 100m, 900m, 0m, 900m, 162m, 1062m, null, 0m, 0m, 0m, 1062m, false, 2)
-        };
-
-        var lineItems = new List<SalesExportLineItemRowDto>
-        {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Customer A", "Product", 10m, 50m, 0m, 0m, 18m, 500m, 90m, 590m, false, 0m, null, null)
-        };
-
-        var taxBreakup = new List<SalesExportTaxBreakupDto>
-        {
-            new(18m, 900m, 162m, 0m, 0m)
-        };
-
-        var dataset = new SalesExportDatasetDto(metadata, summaryRows, lineItems, taxBreakup, []);
-        var renderer = new SalesTallyXmlExportRenderer();
-
-        var result = await renderer.RenderAsync(dataset, CancellationToken.None);
-        var xmlString = System.Text.Encoding.UTF8.GetString(result.Content);
-        var doc = XDocument.Parse(xmlString);
-        var root = doc.Root;
-
-        Assert.NotNull(root);
-        var ledgerMasters = root.Descendants("MASTER")
-            .Where(m => m.Attribute("NAME")?.Value == "LEDGER")
-            .ToList();
-
-        Assert.NotNull(ledgerMasters);
-        Assert.NotEmpty(ledgerMasters);
-
-        var ledgerNames = ledgerMasters
-            .Select(m => m.Element("NAME")?.Value)
-            .Where(name => !string.IsNullOrWhiteSpace(name))
-            .Select(name => name!)
-            .ToList();
-        Assert.Contains("Sales", ledgerNames);
-        Assert.Contains("Cash", ledgerNames);
-        Assert.Contains("Customer A", ledgerNames);
-        Assert.Contains("Output GST 18%", ledgerNames);
-    }
-
-    [Fact]
-    public async Task RenderAsync_WithValidDataset_CreatesValidSalesVoucher()
-    {
-        var metadata = new SalesExportMetadataDto(
-            "Green Mart",
-            "12 Market Lane, Mumbai",
-            "27ABCDE1234F1Z5",
-            "Ravi Kumar",
-            DateTimeOffset.UtcNow,
-            new DateOnly(2026, 5, 1),
-            new DateOnly(2026, 5, 31),
-            "summary");
-
-        var summaryRows = new List<SalesExportSummaryRowDto>
-        {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Cash", 1000m, 100m, 900m, 0m, 900m, 162m, 1062m, null, 0m, 0m, 0m, 1062m, false, 2)
-        };
-
-        var lineItems = new List<SalesExportLineItemRowDto>
-        {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Product", 10m, 50m, 0m, 0m, 18m, 500m, 90m, 590m, false, 0m, null, null)
-        };
-
-        var taxBreakup = new List<SalesExportTaxBreakupDto>
-        {
-            new(18m, 900m, 162m, 0m, 0m)
-        };
-
-        var dataset = new SalesExportDatasetDto(metadata, summaryRows, lineItems, taxBreakup, []);
-        var renderer = new SalesTallyXmlExportRenderer();
-
-        var result = await renderer.RenderAsync(dataset, CancellationToken.None);
-        var xmlString = System.Text.Encoding.UTF8.GetString(result.Content);
-        var doc = XDocument.Parse(xmlString);
-        var root = doc.Root;
-        Assert.NotNull(root);
-
-        var vouchers = root.Descendants("VOUCHER").ToList();
-        Assert.NotNull(vouchers);
-        Assert.Single(vouchers);
-
-        var voucher = vouchers[0];
-        var voucherNumber = voucher.Element("VOUCHERNUMBER")?.Value;
-        var voucherType = voucher.Element("VOUCHERTYPE")?.Value;
-
-        Assert.Equal("INV-001", voucherNumber);
-        Assert.Equal("Sales", voucherType);
-    }
-
-    [Fact]
-    public async Task RenderAsync_WithValidDataset_GroupsGstByTaxRate()
-    {
-        var metadata = new SalesExportMetadataDto(
-            "Green Mart",
-            "12 Market Lane, Mumbai",
-            "27ABCDE1234F1Z5",
-            "Ravi Kumar",
-            DateTimeOffset.UtcNow,
-            new DateOnly(2026, 5, 1),
-            new DateOnly(2026, 5, 31),
-            "summary");
-
-        var summaryRows = new List<SalesExportSummaryRowDto>
-        {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Customer A", "Cash", 900m, 100m, 800m, 0m, 800m, 144m, 944m, null, 0m, 0m, 0m, 944m, false, 2)
-        };
-
-        var lineItems = new List<SalesExportLineItemRowDto>
-        {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Customer A", "Product 1", 10m, 40m, 0m, 0m, 18m, 400m, 72m, 472m, false, 0m, null, null),
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Customer A", "Product 2", 5m, 80m, 0m, 0m, 5m, 400m, 20m, 420m, false, 0m, null, null)
-        };
-
-        var taxBreakup = new List<SalesExportTaxBreakupDto>
-        {
-            new(18m, 400m, 72m, 0m, 0m),
-            new(5m, 400m, 20m, 0m, 0m)
-        };
-
-        var dataset = new SalesExportDatasetDto(metadata, summaryRows, lineItems, taxBreakup, []);
-        var renderer = new SalesTallyXmlExportRenderer();
-
-        var result = await renderer.RenderAsync(dataset, CancellationToken.None);
-        var xmlString = System.Text.Encoding.UTF8.GetString(result.Content);
-        var doc = XDocument.Parse(xmlString);
-        var root = doc.Root;
-        Assert.NotNull(root);
-
-        var ledgerMasters = root.Descendants("MASTER")
-            .Where(m => m.Attribute("NAME")?.Value == "LEDGER")
-            .ToList();
-
-        var ledgerNames = ledgerMasters
-            .Select(m => m.Element("NAME")?.Value)
-            .Where(name => !string.IsNullOrWhiteSpace(name))
-            .Select(name => name!)
-            .ToList();
-        Assert.Contains("Output GST 18%", ledgerNames);
-        Assert.Contains("Output GST 5%", ledgerNames);
-
-        var vouchers = root!.Descendants("VOUCHER").ToList();
-        Assert.NotNull(vouchers);
-        Assert.Single(vouchers);
-
-        var voucherLines = vouchers[0].Elements("VOUCHERLINE").ToList();
-        var gstLines = voucherLines
-            .Where(line => line.Element("LEDGER")?.Value?.StartsWith("Output GST", StringComparison.Ordinal) ?? false)
-            .ToList();
-
-        Assert.True(gstLines.Count >= 2, "Expected at least 2 GST ledger lines for different rates");
+        Assert.Equal("Intelibill Sales Export (accounting v2)", root.Descendants("REQUESTDESC").Single().Value);
     }
 
     [Fact]
     public async Task RenderAsync_WithEmptyDataset_ReturnsValidEnvelopeWithNoVouchers()
     {
-        var metadata = new SalesExportMetadataDto(
-            "Green Mart",
-            "12 Market Lane, Mumbai",
-            "27ABCDE1234F1Z5",
-            "Ravi Kumar",
-            DateTimeOffset.UtcNow,
-            new DateOnly(2026, 5, 1),
-            new DateOnly(2026, 5, 31),
-            "summary");
+        var root = Parse(await RenderAsync(Dataset([])));
 
-        var dataset = new SalesExportDatasetDto(
-            metadata,
-            new List<SalesExportSummaryRowDto>(),
-            new List<SalesExportLineItemRowDto>(),
-            new List<SalesExportTaxBreakupDto>(),
-            []);
-
-        var renderer = new SalesTallyXmlExportRenderer();
-
-        var result = await renderer.RenderAsync(dataset, CancellationToken.None);
-
-        Assert.Equal("application/xml", result.ContentType);
-        Assert.NotEmpty(result.Content);
-
-        var xmlString = System.Text.Encoding.UTF8.GetString(result.Content);
-        var doc = XDocument.Parse(xmlString);
-        var root = doc.Root;
-
-        Assert.NotNull(root);
-        Assert.Equal("ENVELOPE", root.Name.LocalName);
-
-        var vouchers = root.Descendants("VOUCHER").ToList();
-        Assert.Empty(vouchers);
-
-        var header = root.Element("HEADER");
-        Assert.NotNull(header);
+        Assert.Empty(root.Descendants("VOUCHER"));
+        Assert.NotEmpty(root.Descendants("MASTER"));
     }
 
     [Fact]
-    public async Task RenderAsync_WithCustomerName_UsesCustomerNameInVoucher()
+    public async Task RenderAsync_CreatesLedgerMasterForEveryLedgerUsed()
     {
-        var metadata = new SalesExportMetadataDto(
-            "Green Mart",
-            "12 Market Lane, Mumbai",
-            "27ABCDE1234F1Z5",
-            "Ravi Kumar",
-            DateTimeOffset.UtcNow,
-            new DateOnly(2026, 5, 1),
-            new DateOnly(2026, 5, 31),
-            "summary");
+        var sale = Sale("INV-001", "Customer A", "Cash", paid: 1062m, due: 0m, (18m, 900m, 162m));
+        var root = Parse(await RenderAsync(Dataset(
+            [sale],
+            [
+                Return("RET-1", sale, financial: 130m, taxable: 100m, tax: 18m, nonTax: 12m,
+                    Settle(ReturnSettlementKind.ExternalRefund, 130m)),
+            ])));
 
-        var summaryRows = new List<SalesExportSummaryRowDto>
-        {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "John Doe", "Cash", 1000m, 0m, 900m, 0m, 900m, 162m, 1062m, null, 0m, 0m, 0m, 1062m, false, 2)
-        };
+        var groups = root.Descendants("MASTER")
+            .ToDictionary(m => m.Element("NAME")!.Value, m => m.Element("GROUP")!.Value);
+        var usedLedgers = root.Descendants("VOUCHERLINE").Select(l => l.Element("LEDGER")!.Value).Distinct();
 
-        var lineItems = new List<SalesExportLineItemRowDto>
-        {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "John Doe", "Product", 10m, 50m, 0m, 0m, 18m, 500m, 90m, 590m, false, 0m, null, null)
-        };
-
-        var taxBreakup = new List<SalesExportTaxBreakupDto>
-        {
-            new(18m, 900m, 162m, 0m, 0m)
-        };
-
-        var dataset = new SalesExportDatasetDto(metadata, summaryRows, lineItems, taxBreakup, []);
-        var renderer = new SalesTallyXmlExportRenderer();
-
-        var result = await renderer.RenderAsync(dataset, CancellationToken.None);
-        var xmlString = System.Text.Encoding.UTF8.GetString(result.Content);
-        var doc = XDocument.Parse(xmlString);
-        var root = doc.Root;
-        Assert.NotNull(root);
-
-        var ledgerMasters = root.Descendants("MASTER")
-            .Where(m => m.Attribute("NAME")?.Value == "LEDGER")
-            .ToList();
-
-        var ledgerNames = ledgerMasters
-            .Select(m => m.Element("NAME")?.Value)
-            .Where(name => !string.IsNullOrWhiteSpace(name))
-            .Select(name => name!)
-            .ToList();
-        Assert.Contains("John Doe", ledgerNames);
+        Assert.All(usedLedgers, ledger => Assert.True(groups.ContainsKey(ledger), $"No master for {ledger}"));
+        Assert.Equal("Sales Accounts", groups["Sales"]);
+        Assert.Equal("Bank Accounts", groups["Cash"]);
+        Assert.Equal("Sundry Debtors", groups["Customer A"]);
+        Assert.Equal("Tax Payable", groups["Output GST 18%"]);
+        Assert.Equal("Current Liabilities", groups["Credit Note Liability"]);
+        Assert.Equal("Current Liabilities", groups["Customer Refunds Clearing"]);
+        Assert.Equal("Indirect Expenses", groups["Sales Return Adjustments"]);
     }
 
-    [Fact]
-    public async Task RenderAsync_WithNullCustomerName_UsesWalkInCustomer()
-    {
-        var metadata = new SalesExportMetadataDto(
-            "Green Mart",
-            "12 Market Lane, Mumbai",
-            "27ABCDE1234F1Z5",
-            "Ravi Kumar",
-            DateTimeOffset.UtcNow,
-            new DateOnly(2026, 5, 1),
-            new DateOnly(2026, 5, 31),
-            "summary");
-
-        var summaryRows = new List<SalesExportSummaryRowDto>
-        {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), null, "Cash", 1000m, 0m, 900m, 0m, 900m, 162m, 1062m, null, 0m, 0m, 0m, 1062m, false, 2)
-        };
-
-        var lineItems = new List<SalesExportLineItemRowDto>
-        {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), null, "Product", 10m, 50m, 0m, 0m, 18m, 500m, 90m, 590m, false, 0m, null, null)
-        };
-
-        var taxBreakup = new List<SalesExportTaxBreakupDto>
-        {
-            new(18m, 900m, 162m, 0m, 0m)
-        };
-
-        var dataset = new SalesExportDatasetDto(metadata, summaryRows, lineItems, taxBreakup, []);
-        var renderer = new SalesTallyXmlExportRenderer();
-
-        var result = await renderer.RenderAsync(dataset, CancellationToken.None);
-        var xmlString = System.Text.Encoding.UTF8.GetString(result.Content);
-        var doc = XDocument.Parse(xmlString);
-        var root = doc.Root;
-        Assert.NotNull(root);
-
-        var ledgerMasters = root.Descendants("MASTER")
-            .Where(m => m.Attribute("NAME")?.Value == "LEDGER")
-            .ToList();
-
-        var ledgerNames = ledgerMasters
-            .Select(m => m.Element("NAME")?.Value)
-            .Where(name => !string.IsNullOrWhiteSpace(name))
-            .Select(name => name!)
-            .ToList();
-        Assert.Contains("Walk-in Customer", ledgerNames);
-    }
-
-    [Fact]
-    public async Task RenderAsync_WithPaymentMethods_CreatesCorrectPaymentLedgers()
-    {
-        var metadata = new SalesExportMetadataDto(
-            "Green Mart",
-            "12 Market Lane, Mumbai",
-            "27ABCDE1234F1Z5",
-            "Ravi Kumar",
-            DateTimeOffset.UtcNow,
-            new DateOnly(2026, 5, 1),
-            new DateOnly(2026, 5, 31),
-            "summary");
-
-        var summaryRows = new List<SalesExportSummaryRowDto>
-        {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Customer A", "UPI", 1000m, 0m, 900m, 0m, 900m, 162m, 1062m, null, 0m, 0m, 0m, 1062m, false, 2),
-            new("INV-002", new DateTimeOffset(2026, 5, 2, 11, 0, 0, TimeSpan.Zero), "Customer B", "Card", 800m, 0m, 900m, 0m, 900m, 162m, 1062m, null, 0m, 0m, 0m, 1062m, false, 2)
-        };
-
-        var lineItems = new List<SalesExportLineItemRowDto>
-        {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Customer A", "Product", 10m, 50m, 0m, 0m, 18m, 500m, 90m, 590m, false, 0m, null, null),
-            new("INV-002", new DateTimeOffset(2026, 5, 2, 11, 0, 0, TimeSpan.Zero), "Customer B", "Product", 10m, 50m, 0m, 0m, 18m, 500m, 90m, 590m, false, 0m, null, null)
-        };
-
-        var taxBreakup = new List<SalesExportTaxBreakupDto>
-        {
-            new(18m, 1800m, 324m, 0m, 0m)
-        };
-
-        var dataset = new SalesExportDatasetDto(metadata, summaryRows, lineItems, taxBreakup, []);
-        var renderer = new SalesTallyXmlExportRenderer();
-
-        var result = await renderer.RenderAsync(dataset, CancellationToken.None);
-        var xmlString = System.Text.Encoding.UTF8.GetString(result.Content);
-        var doc = XDocument.Parse(xmlString);
-        var root = doc.Root;
-        Assert.NotNull(root);
-
-        var ledgerMasters = root.Descendants("MASTER")
-            .Where(m => m.Attribute("NAME")?.Value == "LEDGER")
-            .ToList();
-
-        var ledgerNames = ledgerMasters
-            .Select(m => m.Element("NAME")?.Value)
-            .Where(name => !string.IsNullOrWhiteSpace(name))
-            .Select(name => name!)
-            .ToList();
-        Assert.Contains("UPI", ledgerNames);
-        Assert.Contains("Card", ledgerNames);
-    }
-
-    [Fact]
-    public async Task RenderAsync_WithMultipleSales_CreatesMultipleVouchers()
-    {
-        var metadata = new SalesExportMetadataDto(
-            "Green Mart",
-            "12 Market Lane, Mumbai",
-            "27ABCDE1234F1Z5",
-            "Ravi Kumar",
-            DateTimeOffset.UtcNow,
-            new DateOnly(2026, 5, 1),
-            new DateOnly(2026, 5, 31),
-            "summary");
-
-        var summaryRows = new List<SalesExportSummaryRowDto>
-        {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Cash", 1000m, 0m, 900m, 0m, 900m, 162m, 1062m, null, 0m, 0m, 0m, 1062m, false, 2),
-            new("INV-002", new DateTimeOffset(2026, 5, 2, 11, 0, 0, TimeSpan.Zero), "Bob", "UPI", 800m, 0m, 900m, 0m, 900m, 162m, 1062m, null, 0m, 0m, 0m, 1062m, false, 2)
-        };
-
-        var lineItems = new List<SalesExportLineItemRowDto>
-        {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Product", 10m, 50m, 0m, 0m, 18m, 500m, 90m, 590m, false, 0m, null, null),
-            new("INV-002", new DateTimeOffset(2026, 5, 2, 11, 0, 0, TimeSpan.Zero), "Bob", "Product", 10m, 50m, 0m, 0m, 18m, 500m, 90m, 590m, false, 0m, null, null)
-        };
-
-        var taxBreakup = new List<SalesExportTaxBreakupDto>
-        {
-            new(18m, 1800m, 324m, 0m, 0m)
-        };
-
-        var dataset = new SalesExportDatasetDto(metadata, summaryRows, lineItems, taxBreakup, []);
-        var renderer = new SalesTallyXmlExportRenderer();
-
-        var result = await renderer.RenderAsync(dataset, CancellationToken.None);
-        var xmlString = System.Text.Encoding.UTF8.GetString(result.Content);
-        var doc = XDocument.Parse(xmlString);
-        var root = doc.Root;
-
-        var vouchers = root!.Descendants("VOUCHER").ToList();
-        Assert.NotNull(vouchers);
-        Assert.Equal(2, vouchers.Count);
-
-        var voucherNumbers = vouchers.Select(v => v.Element("VOUCHERNUMBER")?.Value).ToList();
-        Assert.Contains("INV-001", voucherNumbers);
-        Assert.Contains("INV-002", voucherNumbers);
-    }
-
-    [Fact]
-    public async Task RenderAsync_WithReturns_CalculatesGrossTaxInSalesVoucherCorrectly()
-    {
-        var metadata = new SalesExportMetadataDto(
-            "Green Mart",
-            "12 Market Lane, Mumbai",
-            "27ABCDE1234F1Z5",
-            "Ravi Kumar",
-            DateTimeOffset.UtcNow,
-            new DateOnly(2026, 5, 1),
-            new DateOnly(2026, 5, 31),
-            "summary");
-
-        var summaryRows = new List<SalesExportSummaryRowDto>
-        {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Cash", 590m, 0m, 500m, 0m, 500m, 90m, 590m, "R-001", 295m, 250m, 45m, 295m, true, 1)
-        };
-
-        var lineItems = new List<SalesExportLineItemRowDto>
-        {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Product", 10m, 50m, 0m, 0m, 18m, 500m, 90m, 590m, false, 5m, "Returned", "R-001")
-        };
-
-        var taxBreakup = new List<SalesExportTaxBreakupDto>
-        {
-            new(18m, 500m, 90m, 250m, 45m)
-        };
-
-        var dataset = new SalesExportDatasetDto(metadata, summaryRows, lineItems, taxBreakup, []);
-        var renderer = new SalesTallyXmlExportRenderer();
-
-        var result = await renderer.RenderAsync(dataset, CancellationToken.None);
-        var xmlString = System.Text.Encoding.UTF8.GetString(result.Content);
-        var doc = XDocument.Parse(xmlString);
-        var root = doc.Root;
-        Assert.NotNull(root);
-
-        var vouchers = root.Descendants("VOUCHER").ToList();
-        Assert.NotNull(vouchers);
-        var salesVoucher = vouchers.Single(v => v.Element("VOUCHERTYPE")?.Value == "Sales");
-
-        var voucherLines = salesVoucher.Elements("VOUCHERLINE").ToList();
-        var gstLine = voucherLines.FirstOrDefault(line => 
-            (line.Element("LEDGER")?.Value ?? "").StartsWith("Output GST", StringComparison.Ordinal));
-
-        Assert.NotNull(gstLine);
-        var grossTax = taxBreakup[0].SaleTaxAmount;
-        var gstAmount = decimal.Parse(
-            gstLine.Element("AMOUNT")?.Value ?? "0",
-            System.Globalization.CultureInfo.InvariantCulture);
-        Assert.Equal(grossTax, gstAmount);
-    }
-
-    [Fact]
-    public async Task RenderAsync_WithMultipleSales_GroupsGstLinesPerInvoice()
-    {
-        var metadata = new SalesExportMetadataDto(
-            "Green Mart",
-            "12 Market Lane, Mumbai",
-            "27ABCDE1234F1Z5",
-            "Ravi Kumar",
-            DateTimeOffset.UtcNow,
-            new DateOnly(2026, 5, 1),
-            new DateOnly(2026, 5, 31),
-            "summary");
-
-        var summaryRows = new List<SalesExportSummaryRowDto>
-        {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Cash", 118m, 0m, 100m, 0m, 100m, 18m, 118m, null, 0m, 0m, 0m, 118m, false, 1),
-            new("INV-002", new DateTimeOffset(2026, 5, 2, 11, 0, 0, TimeSpan.Zero), "Bob", "Cash", 210m, 0m, 200m, 0m, 200m, 10m, 210m, null, 0m, 0m, 0m, 210m, false, 1)
-        };
-
-        var lineItems = new List<SalesExportLineItemRowDto>
-        {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Product A", 1m, 100m, 0m, 0m, 18m, 100m, 18m, 118m, false, 0m, null, null),
-            new("INV-002", new DateTimeOffset(2026, 5, 2, 11, 0, 0, TimeSpan.Zero), "Bob", "Product B", 2m, 100m, 0m, 0m, 5m, 200m, 10m, 210m, false, 0m, null, null)
-        };
-
-        var taxBreakup = new List<SalesExportTaxBreakupDto>
-        {
-            new(5m, 200m, 10m, 0m, 0m),
-            new(18m, 100m, 18m, 0m, 0m)
-        };
-
-        var dataset = new SalesExportDatasetDto(metadata, summaryRows, lineItems, taxBreakup, []);
-        var renderer = new SalesTallyXmlExportRenderer();
-
-        var result = await renderer.RenderAsync(dataset, CancellationToken.None);
-        var xmlString = System.Text.Encoding.UTF8.GetString(result.Content);
-        var doc = XDocument.Parse(xmlString);
-        var root = doc.Root;
-        Assert.NotNull(root);
-
-        var vouchers = root.Descendants("VOUCHER").ToList();
-        Assert.NotNull(vouchers);
-        Assert.Equal(2, vouchers.Count);
-
-        var voucherByNumber = vouchers.ToDictionary(v => v.Element("VOUCHERNUMBER")!.Value);
-
-        var firstGstLine = voucherByNumber["INV-001"]?.Elements("VOUCHERLINE")
-            .Single(line => line.Element("LEDGER")?.Value == "Output GST 18%");
-        var secondGstLine = voucherByNumber["INV-002"]?.Elements("VOUCHERLINE")
-            .Single(line => line.Element("LEDGER")?.Value == "Output GST 5%");
-
-        var firstGstAmount = decimal.Parse(
-            firstGstLine?.Element("AMOUNT")?.Value ?? "0",
-            System.Globalization.CultureInfo.InvariantCulture);
-        var secondGstAmount = decimal.Parse(
-            secondGstLine?.Element("AMOUNT")?.Value ?? "0",
-            System.Globalization.CultureInfo.InvariantCulture);
-
-        Assert.Equal(18m, firstGstAmount);
-        Assert.Equal(10m, secondGstAmount);
-    }
-
-    [Fact]
-    public async Task RenderAsync_WithDueAmount_CreatesDebtorLine()
-    {
-        var metadata = new SalesExportMetadataDto(
-            "Green Mart",
-            "12 Market Lane, Mumbai",
-            "27ABCDE1234F1Z5",
-            "Ravi Kumar",
-            DateTimeOffset.UtcNow,
-            new DateOnly(2026, 5, 1),
-            new DateOnly(2026, 5, 31),
-            "summary");
-
-        var summaryRows = new List<SalesExportSummaryRowDto>
-        {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Cash", 800m, 262m, 900m, 0m, 900m, 162m, 1062m, null, 0m, 0m, 0m, 1062m, false, 2)
-        };
-
-        var lineItems = new List<SalesExportLineItemRowDto>
-        {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Product", 10m, 50m, 0m, 0m, 18m, 500m, 90m, 590m, false, 0m, null, null)
-        };
-
-        var taxBreakup = new List<SalesExportTaxBreakupDto>
-        {
-            new(18m, 900m, 162m, 0m, 0m)
-        };
-
-        var dataset = new SalesExportDatasetDto(metadata, summaryRows, lineItems, taxBreakup, []);
-        var renderer = new SalesTallyXmlExportRenderer();
-
-        var result = await renderer.RenderAsync(dataset, CancellationToken.None);
-        var xmlString = System.Text.Encoding.UTF8.GetString(result.Content);
-        var doc = XDocument.Parse(xmlString);
-        var root = doc.Root;
-        Assert.NotNull(root);
-
-        var vouchers = root.Descendants("VOUCHER").ToList();
-        Assert.NotNull(vouchers);
-        var voucherLines = vouchers[0].Elements("VOUCHERLINE").ToList();
-        var debtorLine = voucherLines.FirstOrDefault(line => 
-            line.Element("LEDGER")?.Value == "Alice" && 
-            line.Element("ISDEBIT")?.Value == "Yes");
-
-        Assert.NotNull(debtorLine);
-        Assert.Equal("262.00", debtorLine.Element("AMOUNT")?.Value);
-    }
-
-    [Fact]
-    public async Task RenderAsync_WithSummaryLevelMultipleSales_CreatesGstLinesPerVoucher()
-    {
-        var metadata = new SalesExportMetadataDto(
-            "Green Mart",
-            "12 Market Lane, Mumbai",
-            "27ABCDE1234F1Z5",
-            "Ravi Kumar",
-            DateTimeOffset.UtcNow,
-            new DateOnly(2026, 5, 1),
-            new DateOnly(2026, 5, 31),
-            "summary");
-
-        var summaryRows = new List<SalesExportSummaryRowDto>
-        {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Cash", 118m, 0m, 100m, 0m, 100m, 18m, 118m, null, 0m, 0m, 0m, 118m, false, 1),
-            new("INV-002", new DateTimeOffset(2026, 5, 2, 11, 0, 0, TimeSpan.Zero), "Bob", "UPI", 236m, 0m, 200m, 0m, 200m, 36m, 236m, null, 0m, 0m, 0m, 236m, false, 1)
-        };
-
-        var taxBreakup = new List<SalesExportTaxBreakupDto>
-        {
-            new(18m, 300m, 54m, 0m, 0m)
-        };
-
-        var dataset = new SalesExportDatasetDto(metadata, summaryRows, [], taxBreakup, []);
-        var renderer = new SalesTallyXmlExportRenderer();
-
-        var result = await renderer.RenderAsync(dataset, CancellationToken.None);
-        var doc = XDocument.Parse(System.Text.Encoding.UTF8.GetString(result.Content));
-
-        var vouchers = doc.Root!.Descendants("VOUCHER")
-            .ToDictionary(v => v.Element("VOUCHERNUMBER")!.Value);
-
-        var firstGstLine = vouchers["INV-001"].Elements("VOUCHERLINE")
-            .Single(line => line.Element("LEDGER")?.Value == "Output GST 18%");
-        var secondGstLine = vouchers["INV-002"].Elements("VOUCHERLINE")
-            .Single(line => line.Element("LEDGER")?.Value == "Output GST 18%");
-
-        Assert.Equal("18.00", firstGstLine.Element("AMOUNT")?.Value);
-        Assert.Equal("36.00", secondGstLine.Element("AMOUNT")?.Value);
-        Assert.Equal("No", firstGstLine.Element("ISDEBIT")?.Value);
-        Assert.Equal("No", secondGstLine.Element("ISDEBIT")?.Value);
-    }
-
-    [Fact]
-    public async Task RenderAsync_WithSummaryLevelMultipleSalesAndMultipleRates_DoesNotAllocateDatasetTaxRates()
-    {
-        var metadata = new SalesExportMetadataDto(
-            "Green Mart",
-            "12 Market Lane, Mumbai",
-            "27ABCDE1234F1Z5",
-            "Ravi Kumar",
-            DateTimeOffset.UtcNow,
-            new DateOnly(2026, 5, 1),
-            new DateOnly(2026, 5, 31),
-            "summary");
-
-        var summaryRows = new List<SalesExportSummaryRowDto>
-        {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Cash", 118m, 0m, 100m, 0m, 100m, 18m, 118m, null, 0m, 0m, 0m, 118m, false, 1),
-            new("INV-002", new DateTimeOffset(2026, 5, 2, 11, 0, 0, TimeSpan.Zero), "Bob", "UPI", 105m, 0m, 100m, 0m, 100m, 5m, 105m, null, 0m, 0m, 0m, 105m, false, 1)
-        };
-
-        var taxBreakup = new List<SalesExportTaxBreakupDto>
-        {
-            new(5m, 100m, 5m, 0m, 0m),
-            new(18m, 100m, 18m, 0m, 0m)
-        };
-
-        var dataset = new SalesExportDatasetDto(metadata, summaryRows, [], taxBreakup, []);
-        var renderer = new SalesTallyXmlExportRenderer();
-
-        var result = await renderer.RenderAsync(dataset, CancellationToken.None);
-        var doc = XDocument.Parse(System.Text.Encoding.UTF8.GetString(result.Content));
-
-        var voucherGstLines = doc.Root!.Descendants("VOUCHER")
-            .SelectMany(v => v.Elements("VOUCHERLINE"))
-            .Where(line => line.Element("LEDGER")?.Value.StartsWith("Output GST", StringComparison.Ordinal) == true)
-            .ToList();
-
-        Assert.Empty(voucherGstLines);
-    }
+    // ── Sales vouchers ─────────────────────────────────────────────────────────
 
     [Fact]
     public async Task RenderAsync_WithNormalSale_UsesTaxableSalesCreditAndDebitPayment()
     {
+        var voucher = SingleVoucher(Parse(await RenderAsync(Dataset([Sale("INV-001", "Alice", "Cash", paid: 590m, due: 0m, (18m, 500m, 90m))]))), "Sales");
+
+        Assert.Equal("INV-001", voucher.Element("VOUCHERNUMBER")!.Value);
+        Assert.Equal("20260501", voucher.Element("DATE")!.Value);
+        Assert.Equal(
+            [("Sales", 500m, false), ("Cash", 590m, true), ("Output GST 18%", 90m, false)],
+            Lines(voucher));
+    }
+
+    [Fact]
+    public async Task RenderAsync_GroupsGstByTaxRatePerInvoice()
+    {
+        var root = Parse(await RenderAsync(Dataset(
+        [
+            Sale("INV-001", "Alice", "Cash", paid: 223m, due: 0m, (18m, 100m, 18m), (5m, 100m, 5m)),
+            Sale("INV-002", "Bob", "UPI", paid: 236m, due: 0m, (18m, 150m, 27m), (18m, 50m, 9m)),
+        ])));
+
+        var vouchers = root.Descendants("VOUCHER").ToDictionary(v => v.Element("VOUCHERNUMBER")!.Value);
+        Assert.Equal(
+            [("Output GST 5%", 5m, false), ("Output GST 18%", 18m, false)],
+            Lines(vouchers["INV-001"]).Where(l => l.Ledger.StartsWith("Output GST", StringComparison.Ordinal)));
+        Assert.Equal(
+            [("Output GST 18%", 36m, false)],
+            Lines(vouchers["INV-002"]).Where(l => l.Ledger.StartsWith("Output GST", StringComparison.Ordinal)));
+        AssertEveryVoucherBalances(root);
+    }
+
+    [Theory]
+    [InlineData("Alice", "Alice")]
+    [InlineData(null, "Walk-in Customer")]
+    public async Task RenderAsync_WithDueAmount_DebitsCustomerLedger(string? customerName, string expectedLedger)
+    {
+        var voucher = SingleVoucher(Parse(await RenderAsync(Dataset([Sale("INV-001", customerName, "Cash", paid: 90m, due: 500m, (18m, 500m, 90m))]))), "Sales");
+
+        Assert.Contains((expectedLedger, 500m, true), Lines(voucher));
+        Assert.Contains(("Cash", 90m, true), Lines(voucher));
+    }
+
+    [Theory]
+    [InlineData("Cash", "Cash")]
+    [InlineData("UPI", "UPI")]
+    [InlineData("Card", "Card")]
+    [InlineData("Credit", "Customer Receivable")]
+    public async Task RenderAsync_WithPaymentMethods_CreatesCorrectPaymentLedgers(string method, string expectedLedger)
+    {
+        var voucher = SingleVoucher(Parse(await RenderAsync(Dataset([Sale("INV-001", "Alice", method, paid: 118m, due: 0m, (18m, 100m, 18m))]))), "Sales");
+
+        Assert.Contains((expectedLedger, 118m, true), Lines(voucher));
+    }
+
+    [Fact]
+    public async Task RenderAsync_WithCreditNoteApplied_DebitsLiabilityNotTender()
+    {
+        var (summary, lines) = Sale("INV-001", "Alice", "Cash", paid: 250m, due: 0m, (18m, 254.24m, 45.76m));
+        var sale = (summary with { CreditNoteAppliedAmount = 50m }, lines);
+
+        var voucher = SingleVoucher(Parse(await RenderAsync(Dataset([sale]))), "Sales");
+
+        Assert.Contains(("Credit Note Liability", 50m, true), Lines(voucher));
+        Assert.Contains(("Cash", 250m, true), Lines(voucher));
+        Assert.DoesNotContain(Lines(voucher), l => l.Ledger is "UPI" or "Card");
+    }
+
+    [Fact]
+    public async Task RenderAsync_SaleThatDoesNotBalance_IsRefusedNotPlugged()
+    {
+        // Paid ₹1100 against ₹590 of value: the old exporter wrote this as-is.
+        var result = await _renderer.RenderAsync(Dataset([Sale("INV-009", "Alice", "Cash", paid: 1000m, due: 100m, (18m, 500m, 90m))]), CancellationToken.None);
+
+        Assert.True(result.IsError);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(ErrorType.Conflict, error.Type);
+        Assert.Equal("Export.VoucherUnbalanced", error.Code);
+        Assert.Contains("INV-009", error.Description, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RenderAsync_SummaryOnlyMultipleRatesAcrossInvoices_RefusedRatherThanGuessed()
+    {
+        var first = Sale("INV-001", "Alice", "Cash", paid: 118m, due: 0m, (18m, 100m, 18m));
+        var second = Sale("INV-002", "Bob", "UPI", paid: 105m, due: 0m, (5m, 100m, 5m));
+        var dataset = Dataset([first, second]) with { LineItemRows = [] };
+
+        var result = await _renderer.RenderAsync(dataset, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.All(result.Errors, e => Assert.Equal("Export.VoucherUnbalanced", e.Code));
+    }
+
+    [Fact]
+    public async Task RenderAsync_WithZeroValueSale_WritesNoVoucher()
+    {
+        var root = Parse(await RenderAsync(Dataset([Sale("INV-000", "Alice", "Cash", paid: 0m, due: 0m, (0m, 0m, 0m))])));
+
+        Assert.Empty(root.Descendants("VOUCHER"));
+    }
+
+    // ── Return vouchers ────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task RenderAsync_PartialRefund_PostsApprovedAdjustmentNotOriginalValue()
+    {
+        var sale = Sale("INV-001", null, "Cash", paid: 118m, due: 0m, (18m, 100m, 18m));
+        var root = Parse(await RenderAsync(Dataset(
+            [sale],
+            [Return("RET-1", sale, financial: 50m, taxable: 42.37m, tax: 7.63m, nonTax: 0m, Settle(ReturnSettlementKind.ExternalRefund, 50m))])));
+
+        var voucher = SingleVoucher(root, "Credit Note");
+        Assert.Equal("RET-1", voucher.Element("VOUCHERNUMBER")!.Value);
+        Assert.Equal("20260504", voucher.Element("DATE")!.Value);
+        Assert.Equal("INV-001", voucher.Descendants("REFERENCENUMBER").Single().Value);
+        Assert.Contains("proportional-line-tax/1", voucher.Element("NARRATION")!.Value, StringComparison.Ordinal);
+        Assert.Equal(
+            [("Sales", 42.37m, true), ("Output GST 18%", 7.63m, true), ("Customer Refunds Clearing", 50m, false)],
+            Lines(voucher));
+        AssertEveryVoucherBalances(root);
+    }
+
+    [Fact]
+    public async Task RenderAsync_MixedSettlement_CreditsEachLegSeparately()
+    {
+        var sale = Sale("INV-001", "Asha", "Cash", paid: 78m, due: 40m, (18m, 100m, 18m));
+        var root = Parse(await RenderAsync(Dataset(
+            [sale],
+            [
+                Return("RET-1", sale, financial: 100m, taxable: 84.75m, tax: 15.25m, nonTax: 0m,
+                    Settle(ReturnSettlementKind.ReceivableReduction, 40m),
+                    Settle(ReturnSettlementKind.StoreCreditIssued, 60m, "CN-0001")),
+            ])));
+
+        var voucher = SingleVoucher(root, "Credit Note");
+        var credits = Lines(voucher).Where(l => !l.IsDebit).ToList();
+        Assert.Equal([("Asha", 40m, false), ("Credit Note Liability", 60m, false)], credits);
+        Assert.Contains("CN-0001", voucher.Element("NARRATION")!.Value, StringComparison.Ordinal);
+        AssertEveryVoucherBalances(root);
+    }
+
+    [Fact]
+    public async Task RenderAsync_ZeroRefund_EmitsNoReturnVoucher()
+    {
+        var sale = Sale("INV-001", "Alice", "Cash", paid: 118m, due: 0m, (18m, 100m, 18m));
+
+        var root = Parse(await RenderAsync(Dataset([sale], [Return("RET-0", sale, financial: 0m, taxable: 0m, tax: 0m, nonTax: 0m)])));
+
+        Assert.DoesNotContain(root.Descendants("VOUCHER"), v => v.Element("VOUCHERTYPE")!.Value != "Sales");
+    }
+
+    [Fact]
+    public async Task RenderAsync_OverRefund_DebitsCommercialAdjustmentWithoutTax()
+    {
+        var sale = Sale("INV-001", "Alice", "Cash", paid: 118m, due: 0m, (18m, 100m, 18m));
+        var root = Parse(await RenderAsync(Dataset(
+            [sale],
+            [Return("RET-1", sale, financial: 130m, taxable: 100m, tax: 18m, nonTax: 12m, Settle(ReturnSettlementKind.ExternalRefund, 130m))])));
+
+        Assert.Contains(("Sales Return Adjustments", 12m, true), Lines(SingleVoucher(root, "Credit Note")));
+        AssertEveryVoucherBalances(root);
+    }
+
+    [Fact]
+    public async Task RenderAsync_ReturnAcrossRates_PostsGstPerRate()
+    {
+        var sale = Sale("INV-001", "Alice", "Cash", paid: 223m, due: 0m, (18m, 100m, 18m), (5m, 100m, 5m));
+        var entry = Return("RET-1", sale, financial: 223m, taxable: 200m, tax: 23m, nonTax: 0m, Settle(ReturnSettlementKind.ExternalRefund, 223m))
+            with { TaxComponents = [new(5m, 100m, 5m), new(18m, 100m, 18m)] };
+
+        var root = Parse(await RenderAsync(Dataset([sale], [entry])));
+
+        Assert.Equal(
+            [("Sales", 200m, true), ("Output GST 5%", 5m, true), ("Output GST 18%", 18m, true), ("Customer Refunds Clearing", 223m, false)],
+            Lines(SingleVoucher(root, "Credit Note")));
+    }
+
+    [Fact]
+    public async Task RenderAsync_VoidReversal_SwapsSidesAndReferencesOriginal()
+    {
+        var sale = Sale("INV-001", "Asha", "Cash", paid: 78m, due: 40m, (18m, 100m, 18m));
+        var original = Return("RET-1", sale, financial: 100m, taxable: 84.75m, tax: 15.25m, nonTax: 0m,
+            Settle(ReturnSettlementKind.ReceivableReduction, 40m),
+            Settle(ReturnSettlementKind.StoreCreditIssued, 60m, "CN-0001"));
+        var reversal = Negate(original) with
+        {
+            Kind = ReturnAdjustmentEntryKind.VoidReversal,
+            PostedAt = new DateTimeOffset(2026, 6, 2, 9, 0, 0, TimeSpan.Zero),
+            VoidReason = "Entered twice",
+        };
+
+        var root = Parse(await RenderAsync(Dataset([], [reversal])));
+
+        var voucher = SingleVoucher(root, "Journal");
+        Assert.Equal("RET-1-VOID", voucher.Element("VOUCHERNUMBER")!.Value);
+        Assert.Equal("20260602", voucher.Element("DATE")!.Value);
+        Assert.Equal("RET-1", voucher.Descendants("REFERENCENUMBER").Single().Value);
+        Assert.Equal("20260504", voucher.Descendants("REFERENCEDATE").Single().Value);
+        Assert.Contains("Entered twice", voucher.Element("NARRATION")!.Value, StringComparison.Ordinal);
+        Assert.Equal(
+            [("Sales", 84.75m, false), ("Output GST 18%", 15.25m, false), ("Asha", 40m, true), ("Credit Note Liability", 60m, true)],
+            Lines(voucher));
+        AssertEveryVoucherBalances(root);
+    }
+
+    [Fact]
+    public async Task RenderAsync_NeedsReview_RefusedWithDiagnostic()
+    {
+        var sale = Sale("INV-001", "Alice", "Cash", paid: 118m, due: 0m, (18m, 100m, 18m));
+        var legacy = Return("RET-7", sale, financial: 118m, taxable: 0m, tax: 0m, nonTax: 0m) with
+        {
+            Status = ReturnAccountingStatus.NeedsReview,
+            ReviewReason = "Payout settlement is not evidenced.",
+            TaxableAdjustment = null,
+            TaxAdjustment = null,
+            NonTaxAdjustment = null,
+            TaxComponents = [],
+        };
+
+        var result = await _renderer.RenderAsync(Dataset([sale], [legacy]), CancellationToken.None);
+
+        Assert.True(result.IsError);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(ErrorType.Conflict, error.Type);
+        Assert.Equal("Export.ReturnNeedsAccountingReview", error.Code);
+        Assert.Contains("RET-7", error.Description, StringComparison.Ordinal);
+        Assert.Contains("INV-001", error.Description, StringComparison.Ordinal);
+        Assert.Contains("Payout settlement is not evidenced.", error.Description, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RenderAsync_SalesAndReturns_EveryVoucherBalances()
+    {
+        var first = Sale("INV-001", "Asha", "Cash", paid: 78m, due: 40m, (18m, 100m, 18m));
+        var second = Sale("INV-002", null, "UPI", paid: 223m, due: 0m, (18m, 100m, 18m), (5m, 100m, 5m));
+        var root = Parse(await RenderAsync(Dataset(
+            [first, second],
+            [
+                Return("RET-1", first, financial: 100m, taxable: 84.75m, tax: 15.25m, nonTax: 0m,
+                    Settle(ReturnSettlementKind.ReceivableReduction, 40m),
+                    Settle(ReturnSettlementKind.StoreCreditIssued, 60m, "CN-0001")),
+                Return("RET-2", second, financial: 50m, taxable: 42.37m, tax: 7.63m, nonTax: 0m,
+                    Settle(ReturnSettlementKind.ExternalRefund, 50m)),
+                Return("RET-3", second, financial: 0m, taxable: 0m, tax: 0m, nonTax: 0m),
+            ])));
+
+        Assert.Equal(2, root.Descendants("VOUCHER").Count(v => v.Element("VOUCHERTYPE")!.Value == "Sales"));
+        Assert.Equal(2, root.Descendants("VOUCHER").Count(v => v.Element("VOUCHERTYPE")!.Value == "Credit Note"));
+        AssertEveryVoucherBalances(root);
+    }
+
+    // ── Helpers ────────────────────────────────────────────────────────────────
+
+    private async Task<SalesExportResult> RenderAsync(SalesExportDatasetDto dataset)
+    {
+        var result = await _renderer.RenderAsync(dataset, CancellationToken.None);
+        Assert.False(result.IsError, result.IsError ? result.FirstError.Description : null);
+        return result.Value;
+    }
+
+    /// <summary>Parses every voucher and sums its signed lines: debits must equal credits to the paisa.</summary>
+    private static void AssertEveryVoucherBalances(XElement root)
+    {
+        foreach (var voucher in root.Descendants("VOUCHER"))
+        {
+            var lines = Lines(voucher);
+            Assert.True(lines.Count >= 2);
+            Assert.All(lines, l => Assert.True(l.Amount > 0m));
+            Assert.Equal(
+                lines.Where(l => l.IsDebit).Sum(l => l.Amount),
+                lines.Where(l => !l.IsDebit).Sum(l => l.Amount));
+        }
+    }
+
+    private static List<(string Ledger, decimal Amount, bool IsDebit)> Lines(XElement voucher) =>
+        voucher.Elements("VOUCHERLINE")
+            .Select(line => (
+                line.Element("LEDGER")!.Value,
+                decimal.Parse(line.Element("AMOUNT")!.Value, CultureInfo.InvariantCulture),
+                line.Element("ISDEBIT")!.Value == "Yes"))
+            .ToList();
+
+    private static XElement SingleVoucher(XElement root, string type) =>
+        root.Descendants("VOUCHER").Single(v => v.Element("VOUCHERTYPE")!.Value == type);
+
+    private static XElement Parse(SalesExportResult result) =>
+        XDocument.Parse(System.Text.Encoding.UTF8.GetString(result.Content)).Root!;
+
+    private static SalesExportDatasetDto Dataset(
+        IReadOnlyList<(SalesExportSummaryRowDto Summary, List<SalesExportLineItemRowDto> Lines)> sales,
+        IReadOnlyList<ReturnAdjustmentEntry>? returns = null)
+    {
+        var lines = sales.SelectMany(s => s.Lines).ToList();
+        var taxBreakup = lines
+            .GroupBy(l => l.TaxRatePercent)
+            .Select(g => new SalesExportTaxBreakupDto(g.Key, g.Sum(l => l.TaxableAmount), g.Sum(l => l.TaxAmount), 0m, 0m))
+            .ToList();
         var metadata = new SalesExportMetadataDto(
             "Green Mart",
             "12 Market Lane, Mumbai",
@@ -712,666 +370,73 @@ public sealed class SalesTallyXmlExportRendererTests
             DateTimeOffset.UtcNow,
             new DateOnly(2026, 5, 1),
             new DateOnly(2026, 5, 31),
-            "summary");
+            SalesExportLevel.LineItems);
 
-        var summaryRows = new List<SalesExportSummaryRowDto>
-        {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Cash", 118m, 0m, 100m, 0m, 100m, 18m, 118m, null, 0m, 0m, 0m, 118m, false, 1)
-        };
-
-        var lineItems = new List<SalesExportLineItemRowDto>
-        {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Product", 1m, 100m, 0m, 0m, 18m, 100m, 18m, 118m, false, 0m, null, null)
-        };
-
-        var taxBreakup = new List<SalesExportTaxBreakupDto>
-        {
-            new(18m, 100m, 18m, 0m, 0m)
-        };
-
-        var dataset = new SalesExportDatasetDto(metadata, summaryRows, lineItems, taxBreakup, []);
-        var renderer = new SalesTallyXmlExportRenderer();
-
-        var result = await renderer.RenderAsync(dataset, CancellationToken.None);
-        var doc = XDocument.Parse(System.Text.Encoding.UTF8.GetString(result.Content));
-        var voucherLines = doc.Root!.Descendants("VOUCHER").Single().Elements("VOUCHERLINE").ToList();
-
-        var salesLine = voucherLines.Single(line => line.Element("LEDGER")?.Value == "Sales");
-        var paymentLine = voucherLines.Single(line => line.Element("LEDGER")?.Value == "Cash");
-
-        Assert.Equal("100.00", salesLine.Element("AMOUNT")?.Value);
-        Assert.Equal("No", salesLine.Element("ISDEBIT")?.Value);
-        Assert.Equal("118.00", paymentLine.Element("AMOUNT")?.Value);
-        Assert.Equal("Yes", paymentLine.Element("ISDEBIT")?.Value);
+        return new SalesExportDatasetDto(metadata, sales.Select(s => s.Summary).ToList(), lines, taxBreakup, returns ?? []);
     }
 
-    [Fact]
-    public async Task RenderAsync_WithReturns_CreatesCreditNoteVouchers()
+    private static (SalesExportSummaryRowDto Summary, List<SalesExportLineItemRowDto> Lines) Sale(
+        string invoiceNumber,
+        string? customerName,
+        string paymentMethod,
+        decimal paid,
+        decimal due,
+        params (decimal Rate, decimal Taxable, decimal Tax)[] lines)
     {
-        var metadata = new SalesExportMetadataDto(
-            "Green Mart",
-            "12 Market Lane, Mumbai",
-            "27ABCDE1234F1Z5",
-            "Ravi Kumar",
-            DateTimeOffset.UtcNow,
-            new DateOnly(2026, 5, 1),
-            new DateOnly(2026, 5, 31),
-            "summary");
-
-        var summaryRows = new List<SalesExportSummaryRowDto>
-        {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Cash", 118m, 0m, 100m, 0m, 100m, 18m, 118m, "R-001", 118m, 100m, 18m, 0m, true, 1)
-        };
-
-        var returnTaxBreakup = new List<SalesExportReturnTaxBreakupDto>
-        {
-            new(18m, 100m, 18m)
-        };
-
-        var returnRows = new List<SalesExportReturnRowDto>
-        {
-            new("R-001", new DateTimeOffset(2026, 5, 2, 10, 0, 0, TimeSpan.Zero), "INV-001", "Alice", 118m, 100m, 18m, returnTaxBreakup, false, "CN-001")
-        };
-
-        var taxBreakup = new List<SalesExportTaxBreakupDto>
-        {
-            new(18m, 100m, 18m, 100m, 18m)
-        };
-
-        var dataset = new SalesExportDatasetDto(metadata, summaryRows, [], taxBreakup, returnRows);
-        var renderer = new SalesTallyXmlExportRenderer();
-
-        var result = await renderer.RenderAsync(dataset, CancellationToken.None);
-        var doc = XDocument.Parse(System.Text.Encoding.UTF8.GetString(result.Content));
-        
-        var vouchers = doc.Root!.Descendants("VOUCHER").ToList();
-        var creditNote = vouchers.Single(v => v.Element("VOUCHERTYPE")?.Value == "Credit Note");
-
-        Assert.Equal("CN-001", creditNote.Element("VOUCHERNUMBER")?.Value);
-        
-        var voucherLines = creditNote.Elements("VOUCHERLINE").ToList();
-        
-        var customerLine = voucherLines.Single(l => l.Element("LEDGER")?.Value == "Credit Note Liability");
-        Assert.Equal("118.00", customerLine.Element("AMOUNT")?.Value);
-        Assert.Equal("No", customerLine.Element("ISDEBIT")?.Value);
-
-        var salesLine = voucherLines.Single(l => l.Element("LEDGER")?.Value == "Sales");
-        Assert.Equal("100.00", salesLine.Element("AMOUNT")?.Value);
-        Assert.Equal("Yes", salesLine.Element("ISDEBIT")?.Value);
-
-        var gstLine = voucherLines.Single(l => l.Element("LEDGER")?.Value == "Output GST 18%");
-        Assert.Equal("18.00", gstLine.Element("AMOUNT")?.Value);
-        Assert.Equal("Yes", gstLine.Element("ISDEBIT")?.Value);
-    }
-
-    [Fact]
-    public async Task RenderAsync_WithReturnRows_GeneratesCreditNoteVouchers()
-    {
-        var metadata = new SalesExportMetadataDto(
-            "Test Shop",
-            "123 Test St",
-            "27ABCDE1234F1Z5",
-            "Test User",
-            DateTimeOffset.UtcNow,
-            new DateOnly(2026, 5, 1),
-            new DateOnly(2026, 5, 31),
-            "summary");
-
-        var summaryRows = new List<SalesExportSummaryRowDto>
-        {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Customer A", "Cash", 1000m, 0m, 1000m, 0m, 1000m, 180m, 1180m, "RET-001", 200m, 100m, 18m, 980m, true, 1)
-        };
-
-        var returnRows = new List<SalesExportReturnRowDto>
-        {
-            new("RET-001", new DateTimeOffset(2026, 5, 5, 11, 0, 0, TimeSpan.Zero), "INV-001", "Customer A", 200m, 100m, 18m, new List<SalesExportReturnTaxBreakupDto> { new(18m, 100m, 18m) })
-        };
-
-        var taxBreakup = new List<SalesExportTaxBreakupDto>
-        {
-            new(18m, 1000m, 180m, 100m, 18m)
-        };
-
-        var dataset = new SalesExportDatasetDto(metadata, summaryRows, [], taxBreakup, returnRows);
-        var renderer = new SalesTallyXmlExportRenderer();
-
-        var result = await renderer.RenderAsync(dataset, CancellationToken.None);
-        var doc = XDocument.Parse(System.Text.Encoding.UTF8.GetString(result.Content));
-        var vouchers = doc.Root!.Descendants("VOUCHER").ToList();
-
-        var creditNoteVoucher = vouchers.SingleOrDefault(v => v.Element("VOUCHERTYPE")?.Value == "Credit Note");
-        Assert.NotNull(creditNoteVoucher);
-        Assert.Equal("RET-001", creditNoteVoucher.Element("VOUCHERNUMBER")?.Value);
-    }
-
-    [Fact]
-    public async Task RenderAsync_WithReturnRowsAndMultipleCreditNotes_UsesIssuedCreditNoteCodesInCreditNoteVoucher()
-    {
-        var metadata = new SalesExportMetadataDto(
-            "Test Shop",
-            "123 Test St",
-            "27ABCDE1234F1Z5",
-            "Test User",
-            DateTimeOffset.UtcNow,
-            new DateOnly(2026, 5, 1),
-            new DateOnly(2026, 5, 31),
-            "summary");
-
-        var returnRows = new List<SalesExportReturnRowDto>
-        {
-            new(
-                "RET-001",
-                new DateTimeOffset(2026, 5, 5, 11, 0, 0, TimeSpan.Zero),
-                "INV-001",
-                "Customer A",
-                200m,
-                100m,
-                18m,
-                new List<SalesExportReturnTaxBreakupDto> { new(18m, 100m, 18m) },
-                false,
-                "CN-001, CN-002")
-        };
-
-        var taxBreakup = new List<SalesExportTaxBreakupDto>
-        {
-            new(18m, 0m, 0m, 100m, 18m)
-        };
-
-        var dataset = new SalesExportDatasetDto(metadata, [], [], taxBreakup, returnRows);
-        var renderer = new SalesTallyXmlExportRenderer();
-
-        var result = await renderer.RenderAsync(dataset, CancellationToken.None);
-        var doc = XDocument.Parse(System.Text.Encoding.UTF8.GetString(result.Content));
-        var creditNoteVoucher = doc.Root!.Descendants("VOUCHER").Single(v => v.Element("VOUCHERTYPE")?.Value == "Credit Note");
-
-        Assert.Equal("CN-001, CN-002", creditNoteVoucher.Element("VOUCHERNUMBER")?.Value);
-    }
-
-    [Fact]
-    public async Task RenderAsync_CreditNoteVoucher_ContainsCustomerLedgerLine()
-    {
-        var metadata = new SalesExportMetadataDto(
-            "Test Shop",
-            "123 Test St",
-            "27ABCDE1234F1Z5",
-            "Test User",
-            DateTimeOffset.UtcNow,
-            new DateOnly(2026, 5, 1),
-            new DateOnly(2026, 5, 31),
-            "summary");
-
-        var returnRows = new List<SalesExportReturnRowDto>
-        {
-            new("RET-001", new DateTimeOffset(2026, 5, 5, 11, 0, 0, TimeSpan.Zero), "INV-001", "Customer A", 200m, 100m, 18m, new List<SalesExportReturnTaxBreakupDto> { new(18m, 100m, 18m) })
-        };
-
-        var taxBreakup = new List<SalesExportTaxBreakupDto>
-        {
-            new(18m, 0m, 0m, 100m, 18m)
-        };
-
-        var dataset = new SalesExportDatasetDto(metadata, [], [], taxBreakup, returnRows);
-        var renderer = new SalesTallyXmlExportRenderer();
-
-        var result = await renderer.RenderAsync(dataset, CancellationToken.None);
-        var doc = XDocument.Parse(System.Text.Encoding.UTF8.GetString(result.Content));
-        var creditNoteVoucher = doc.Root!.Descendants("VOUCHER").Single(v => v.Element("VOUCHERTYPE")?.Value == "Credit Note");
-        var voucherLines = creditNoteVoucher.Elements("VOUCHERLINE").ToList();
-
-        var customerLine = voucherLines.Single(line => line.Element("LEDGER")?.Value == "Customer A");
-        Assert.Equal("200.00", customerLine.Element("AMOUNT")?.Value);
-        Assert.Equal("No", customerLine.Element("ISDEBIT")?.Value);
-    }
-
-    [Fact]
-    public async Task RenderAsync_CreditNoteVoucher_ContainsSalesReversalLine()
-    {
-        var metadata = new SalesExportMetadataDto(
-            "Test Shop",
-            "123 Test St",
-            "27ABCDE1234F1Z5",
-            "Test User",
-            DateTimeOffset.UtcNow,
-            new DateOnly(2026, 5, 1),
-            new DateOnly(2026, 5, 31),
-            "summary");
-
-        var returnRows = new List<SalesExportReturnRowDto>
-        {
-            new("RET-001", new DateTimeOffset(2026, 5, 5, 11, 0, 0, TimeSpan.Zero), "INV-001", "Customer A", 200m, 100m, 18m, new List<SalesExportReturnTaxBreakupDto> { new(18m, 100m, 18m) })
-        };
-
-        var taxBreakup = new List<SalesExportTaxBreakupDto>
-        {
-            new(18m, 0m, 0m, 100m, 18m)
-        };
-
-        var dataset = new SalesExportDatasetDto(metadata, [], [], taxBreakup, returnRows);
-        var renderer = new SalesTallyXmlExportRenderer();
-
-        var result = await renderer.RenderAsync(dataset, CancellationToken.None);
-        var doc = XDocument.Parse(System.Text.Encoding.UTF8.GetString(result.Content));
-        var creditNoteVoucher = doc.Root!.Descendants("VOUCHER").Single(v => v.Element("VOUCHERTYPE")?.Value == "Credit Note");
-        var voucherLines = creditNoteVoucher.Elements("VOUCHERLINE").ToList();
-
-        var salesLine = voucherLines.Single(line => line.Element("LEDGER")?.Value == "Sales");
-        Assert.Equal("100.00", salesLine.Element("AMOUNT")?.Value);
-        Assert.Equal("Yes", salesLine.Element("ISDEBIT")?.Value);
-    }
-
-    [Fact]
-    public async Task RenderAsync_CreditNoteVoucher_ContainsGstReversalLines()
-    {
-        var metadata = new SalesExportMetadataDto(
-            "Test Shop",
-            "123 Test St",
-            "27ABCDE1234F1Z5",
-            "Test User",
-            DateTimeOffset.UtcNow,
-            new DateOnly(2026, 5, 1),
-            new DateOnly(2026, 5, 31),
-            "summary");
-
-        var returnRows = new List<SalesExportReturnRowDto>
-        {
-            new("RET-001", new DateTimeOffset(2026, 5, 5, 11, 0, 0, TimeSpan.Zero), "INV-001", "Customer A", 200m, 100m, 18m, new List<SalesExportReturnTaxBreakupDto> { new(18m, 100m, 18m) })
-        };
-
-        var taxBreakup = new List<SalesExportTaxBreakupDto>
-        {
-            new(18m, 0m, 0m, 100m, 18m)
-        };
-
-        var dataset = new SalesExportDatasetDto(metadata, [], [], taxBreakup, returnRows);
-        var renderer = new SalesTallyXmlExportRenderer();
-
-        var result = await renderer.RenderAsync(dataset, CancellationToken.None);
-        var doc = XDocument.Parse(System.Text.Encoding.UTF8.GetString(result.Content));
-        var creditNoteVoucher = doc.Root!.Descendants("VOUCHER").Single(v => v.Element("VOUCHERTYPE")?.Value == "Credit Note");
-        var voucherLines = creditNoteVoucher.Elements("VOUCHERLINE").ToList();
-
-        var gstLine = voucherLines.Single(line => line.Element("LEDGER")?.Value == "Output GST 18%");
-        Assert.Equal("18.00", gstLine.Element("AMOUNT")?.Value);
-        Assert.Equal("Yes", gstLine.Element("ISDEBIT")?.Value);
-    }
-
-    [Fact]
-    public async Task RenderAsync_WithMultipleReturns_GeneratesMultipleCreditNotes()
-    {
-        var metadata = new SalesExportMetadataDto(
-            "Test Shop",
-            "123 Test St",
-            "27ABCDE1234F1Z5",
-            "Test User",
-            DateTimeOffset.UtcNow,
-            new DateOnly(2026, 5, 1),
-            new DateOnly(2026, 5, 31),
-            "summary");
-
-        var returnRows = new List<SalesExportReturnRowDto>
-        {
-            new("RET-001", new DateTimeOffset(2026, 5, 5, 11, 0, 0, TimeSpan.Zero), "INV-001", "Customer A", 100m, 50m, 9m, new List<SalesExportReturnTaxBreakupDto> { new(18m, 50m, 9m) }),
-            new("RET-002", new DateTimeOffset(2026, 5, 6, 12, 0, 0, TimeSpan.Zero), "INV-002", "Customer B", 150m, 75m, 13.50m, new List<SalesExportReturnTaxBreakupDto> { new(18m, 75m, 13.50m) })
-        };
-
-        var taxBreakup = new List<SalesExportTaxBreakupDto>
-        {
-            new(18m, 0m, 0m, 125m, 22.5m)
-        };
-
-        var dataset = new SalesExportDatasetDto(metadata, [], [], taxBreakup, returnRows);
-        var renderer = new SalesTallyXmlExportRenderer();
-
-        var result = await renderer.RenderAsync(dataset, CancellationToken.None);
-        var doc = XDocument.Parse(System.Text.Encoding.UTF8.GetString(result.Content));
-        var creditNoteVouchers = doc.Root!.Descendants("VOUCHER").Where(v => v.Element("VOUCHERTYPE")?.Value == "Credit Note").ToList();
-
-        Assert.Equal(2, creditNoteVouchers.Count);
-        Assert.Contains(creditNoteVouchers, v => v.Element("VOUCHERNUMBER")?.Value == "RET-001");
-        Assert.Contains(creditNoteVouchers, v => v.Element("VOUCHERNUMBER")?.Value == "RET-002");
-    }
-
-    [Fact]
-    public async Task RenderAsync_WithReturnRows_GeneratesCustomerLedgerMaster()
-    {
-        var metadata = new SalesExportMetadataDto(
-            "Test Shop",
-            "123 Test St",
-            "27ABCDE1234F1Z5",
-            "Test User",
-            DateTimeOffset.UtcNow,
-            new DateOnly(2026, 5, 1),
-            new DateOnly(2026, 5, 31),
-            "summary");
-
-        var returnRows = new List<SalesExportReturnRowDto>
-        {
-            new("RET-001", new DateTimeOffset(2026, 5, 5, 11, 0, 0, TimeSpan.Zero), "INV-001", "Customer A", 200m, 100m, 18m, new List<SalesExportReturnTaxBreakupDto> { new(18m, 100m, 18m) })
-        };
-
-        var taxBreakup = new List<SalesExportTaxBreakupDto>
-        {
-            new(18m, 0m, 0m, 100m, 18m)
-        };
-
-        var dataset = new SalesExportDatasetDto(metadata, [], [], taxBreakup, returnRows);
-        var renderer = new SalesTallyXmlExportRenderer();
-
-        var result = await renderer.RenderAsync(dataset, CancellationToken.None);
-        var doc = XDocument.Parse(System.Text.Encoding.UTF8.GetString(result.Content));
-        var ledgerMasters = doc.Root!.Descendants("MASTER")
-            .Where(m => m.Attribute("NAME")?.Value == "LEDGER")
+        var taxable = lines.Sum(l => l.Taxable);
+        var tax = lines.Sum(l => l.Tax);
+        var summary = new SalesExportSummaryRowDto(
+            invoiceNumber, SoldAt, customerName, paymentMethod, paid, due, taxable + tax, 0m, taxable, tax, taxable + tax,
+            null, 0m, 0m, 0m, taxable + tax, false, lines.Length);
+        var lineRows = lines
+            .Select(l => new SalesExportLineItemRowDto(
+                invoiceNumber, SoldAt, customerName, "Product", 1m, l.Taxable, 0m, 0m, l.Rate, l.Taxable, l.Tax, l.Taxable + l.Tax, false, 0m, null, null))
             .ToList();
-        var ledgerNames = ledgerMasters
-            .Select(m => m.Element("NAME")?.Value)
-            .Where(name => !string.IsNullOrWhiteSpace(name))
-            .Select(name => name!)
-            .ToList();
-
-        Assert.Contains("Customer A", ledgerNames);
+        return (summary, lineRows);
     }
 
-    [Fact]
-    public async Task RenderAsync_WithVoidedReturnRows_DoesNotCreateCreditNoteVouchers()
-    {
-        var metadata = new SalesExportMetadataDto(
-            "Test Shop",
-            "123 Test St",
-            "27ABCDE1234F1Z5",
-            "Test User",
-            DateTimeOffset.UtcNow,
-            new DateOnly(2026, 5, 1),
-            new DateOnly(2026, 5, 31),
-            "summary");
+    private static ReturnAdjustmentEntry Return(
+        string returnNumber,
+        (SalesExportSummaryRowDto Summary, List<SalesExportLineItemRowDto> Lines) sale,
+        decimal financial,
+        decimal taxable,
+        decimal tax,
+        decimal nonTax,
+        params ReturnAdjustmentSettlement[] settlements) =>
+        new(
+            ReturnAdjustmentEntryKind.Return,
+            ReturnedAt,
+            Guid.NewGuid(),
+            returnNumber,
+            ReturnedAt,
+            Guid.NewGuid(),
+            sale.Summary.InvoiceNumber,
+            sale.Summary.CustomerName,
+            ReturnAccountingStatus.Balanced,
+            "proportional-line-tax/1",
+            null,
+            OriginalReturnedGross: 118m,
+            financial,
+            taxable,
+            tax,
+            nonTax,
+            taxable == 0m && tax == 0m ? [] : [new ReturnAdjustmentTaxComponent(18m, taxable, tax)],
+            settlements,
+            [],
+            null);
 
-        var summaryRows = new List<SalesExportSummaryRowDto>
+    private static ReturnAdjustmentSettlement Settle(ReturnSettlementKind kind, decimal amount, string? creditNoteCode = null) =>
+        new(kind, amount, null, creditNoteCode is null ? null : Guid.NewGuid(), creditNoteCode);
+
+    private static ReturnAdjustmentEntry Negate(ReturnAdjustmentEntry entry) =>
+        entry with
         {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Customer A", "Cash", 118m, 0m, 100m, 0m, 100m, 18m, 118m, null, 0m, 0m, 0m, 118m, false, 1)
+            OriginalReturnedGross = -entry.OriginalReturnedGross,
+            FinancialAdjustment = -entry.FinancialAdjustment,
+            TaxableAdjustment = -entry.TaxableAdjustment,
+            TaxAdjustment = -entry.TaxAdjustment,
+            NonTaxAdjustment = -entry.NonTaxAdjustment,
+            TaxComponents = entry.TaxComponents.Select(c => c with { TaxableAmount = -c.TaxableAmount, TaxAmount = -c.TaxAmount }).ToList(),
+            Settlements = entry.Settlements.Select(s => s with { Amount = -s.Amount }).ToList(),
         };
-
-        var taxBreakup = new List<SalesExportTaxBreakupDto>
-        {
-            new(18m, 100m, 18m, 100m, 18m)
-        };
-
-        var returnRows = new List<SalesExportReturnRowDto>
-        {
-            new("RET-001", new DateTimeOffset(2026, 5, 5, 11, 0, 0, TimeSpan.Zero), "INV-001", "Customer A", 118m, 100m, 18m, new List<SalesExportReturnTaxBreakupDto> { new(18m, 100m, 18m) }, true)
-        };
-
-        var dataset = new SalesExportDatasetDto(metadata, summaryRows, [], taxBreakup, returnRows);
-        var renderer = new SalesTallyXmlExportRenderer();
-
-        var result = await renderer.RenderAsync(dataset, CancellationToken.None);
-        var doc = XDocument.Parse(System.Text.Encoding.UTF8.GetString(result.Content));
-        var vouchers = doc.Root!.Descendants("VOUCHER").ToList();
-
-        Assert.Single(vouchers);
-        Assert.DoesNotContain(vouchers, v => v.Element("VOUCHERTYPE")?.Value == "Credit Note");
-    }
-
-    [Fact]
-    public async Task RenderAsync_CreditNoteReferencesToSaleInvoice()
-    {
-        var metadata = new SalesExportMetadataDto(
-            "Test Shop",
-            "123 Test St",
-            "27ABCDE1234F1Z5",
-            "Test User",
-            DateTimeOffset.UtcNow,
-            new DateOnly(2026, 5, 1),
-            new DateOnly(2026, 5, 31),
-            "summary");
-
-        var returnRows = new List<SalesExportReturnRowDto>
-        {
-            new("RET-001", new DateTimeOffset(2026, 5, 5, 11, 0, 0, TimeSpan.Zero), "INV-001", "Customer A", 200m, 100m, 18m, new List<SalesExportReturnTaxBreakupDto> { new(18m, 100m, 18m) })
-        };
-
-        var taxBreakup = new List<SalesExportTaxBreakupDto>
-        {
-            new(18m, 0m, 0m, 100m, 18m)
-        };
-
-        var dataset = new SalesExportDatasetDto(metadata, [], [], taxBreakup, returnRows);
-        var renderer = new SalesTallyXmlExportRenderer();
-
-        var result = await renderer.RenderAsync(dataset, CancellationToken.None);
-        var doc = XDocument.Parse(System.Text.Encoding.UTF8.GetString(result.Content));
-        var creditNoteVoucher = doc.Root!.Descendants("VOUCHER").Single(v => v.Element("VOUCHERTYPE")?.Value == "Credit Note");
-
-        var reference = creditNoteVoucher.Element("REFERENCE");
-        Assert.NotNull(reference);
-        Assert.Equal("INV-001", reference.Element("REFERENCENUMBER")?.Value);
-    }
-
-    [Fact]
-    public async Task RenderAsync_WithSalesAndReturns_GeneratesBothVoucherTypes()
-    {
-        var metadata = new SalesExportMetadataDto(
-            "Test Shop",
-            "123 Test St",
-            "27ABCDE1234F1Z5",
-            "Test User",
-            DateTimeOffset.UtcNow,
-            new DateOnly(2026, 5, 1),
-            new DateOnly(2026, 5, 31),
-            "summary");
-
-        var summaryRows = new List<SalesExportSummaryRowDto>
-        {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Customer A", "Cash", 1000m, 0m, 1000m, 0m, 1000m, 180m, 1180m, "RET-001", 200m, 100m, 18m, 980m, true, 1)
-        };
-
-        var returnRows = new List<SalesExportReturnRowDto>
-        {
-            new("RET-001", new DateTimeOffset(2026, 5, 5, 11, 0, 0, TimeSpan.Zero), "INV-001", "Customer A", 200m, 100m, 18m, new List<SalesExportReturnTaxBreakupDto> { new(18m, 100m, 18m) })
-        };
-
-        var taxBreakup = new List<SalesExportTaxBreakupDto>
-        {
-            new(18m, 1000m, 180m, 100m, 18m)
-        };
-
-        var dataset = new SalesExportDatasetDto(metadata, summaryRows, [], taxBreakup, returnRows);
-        var renderer = new SalesTallyXmlExportRenderer();
-
-        var result = await renderer.RenderAsync(dataset, CancellationToken.None);
-        var doc = XDocument.Parse(System.Text.Encoding.UTF8.GetString(result.Content));
-        var vouchers = doc.Root!.Descendants("VOUCHER").ToList();
-
-        var salesVouchers = vouchers.Where(v => v.Element("VOUCHERTYPE")?.Value == "Sales").ToList();
-        var creditNoteVouchers = vouchers.Where(v => v.Element("VOUCHERTYPE")?.Value == "Credit Note").ToList();
-
-        Assert.Single(salesVouchers);
-        Assert.Single(creditNoteVouchers);
-
-        // Reconciliation: verify numeric values
-        var salesVoucher = salesVouchers[0];
-        var creditNoteVoucher = creditNoteVouchers[0];
-
-        // Extract ledger amounts from vouchers
-        var salesVoucherLines = salesVoucher.Descendants("VOUCHERLINE").ToList();
-        var creditNoteLines = creditNoteVoucher.Descendants("VOUCHERLINE").ToList();
-
-        // Sales voucher should have: Sales line (1000), Customer line (1000), Payment line (1000), GST line (180)
-        var salesLines = salesVoucherLines.Where(l => l.Element("LEDGER")?.Value == "Sales").ToList();
-        var gstSalesLines = salesVoucherLines.Where(l => l.Element("LEDGER")?.Value?.StartsWith("Output GST", StringComparison.Ordinal) == true).ToList();
-
-        // Credit note should have: Customer line (200), Sales line (100), GST line (18)
-        var creditNoteSalesLines = creditNoteLines.Where(l => l.Element("LEDGER")?.Value == "Sales").ToList();
-        var gstCreditNoteLines = creditNoteLines.Where(l => l.Element("LEDGER")?.Value?.StartsWith("Output GST", StringComparison.Ordinal) == true).ToList();
-
-        Assert.Single(salesLines);
-        Assert.NotEmpty(gstSalesLines);
-        Assert.Single(creditNoteSalesLines);
-        Assert.NotEmpty(gstCreditNoteLines);
-
-        // Verify the sales line in credit note is debit (reversal)
-        var creditNoteSalesLine = creditNoteSalesLines[0];
-        Assert.Equal("Yes", creditNoteSalesLine.Element("ISDEBIT")?.Value);
-        Assert.Equal("100.00", creditNoteSalesLine.Element("AMOUNT")?.Value);
-    }
-
-    [Fact]
-    public async Task RenderAsync_WithCreditNoteApplied_AddsSeparateCreditNoteVoucherLine()
-    {
-        var metadata = new SalesExportMetadataDto(
-            "Green Mart",
-            "12 Market Lane, Mumbai",
-            "27ABCDE1234F1Z5",
-            "Ravi Kumar",
-            DateTimeOffset.UtcNow,
-            new DateOnly(2026, 5, 1),
-            new DateOnly(2026, 5, 31),
-            "summary");
-
-        const decimal paidAmount = 250m;
-        const decimal creditNoteAppliedAmount = 50m;
-        const decimal dueAmount = 0m;
-        const decimal taxableAmount = 250m;
-        const decimal taxAmount = 50m;
-        const decimal totalAmount = 300m;
-
-        var summaryRows = new List<SalesExportSummaryRowDto>
-        {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Cash", paidAmount, dueAmount, totalAmount, 0m, taxableAmount, taxAmount, totalAmount, null, 0m, 0m, 0m, totalAmount, false, 1, creditNoteAppliedAmount, null, 0m)
-        };
-
-        var lineItems = new List<SalesExportLineItemRowDto>
-        {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Product", 10m, 50m, 0m, 0m, 18m, taxableAmount, taxAmount, totalAmount, false, 0m, null, null)
-        };
-
-        var taxBreakup = new List<SalesExportTaxBreakupDto>
-        {
-            new(18m, taxableAmount, taxAmount, 0m, 0m)
-        };
-
-        var dataset = new SalesExportDatasetDto(metadata, summaryRows, lineItems, taxBreakup, []);
-        var renderer = new SalesTallyXmlExportRenderer();
-
-        var result = await renderer.RenderAsync(dataset, CancellationToken.None);
-        var root = XDocument.Parse(System.Text.Encoding.UTF8.GetString(result.Content)).Root;
-        Assert.NotNull(root);
-
-        var salesVoucher = root!.Descendants("VOUCHER").Single(v => v.Element("VOUCHERTYPE")?.Value == "Sales");
-
-        var debitLines = salesVoucher
-            .Elements("VOUCHERLINE")
-            .Where(line => string.Equals(line.Element("ISDEBIT")?.Value, "Yes", StringComparison.Ordinal))
-            .Select(line => new
-            {
-                Ledger = line.Element("LEDGER")?.Value ?? string.Empty,
-                Amount = decimal.Parse(line.Element("AMOUNT")?.Value ?? "0", System.Globalization.CultureInfo.InvariantCulture)
-            })
-            .ToList();
-
-        var creditLines = salesVoucher
-            .Elements("VOUCHERLINE")
-            .Where(line => string.Equals(line.Element("ISDEBIT")?.Value, "No", StringComparison.Ordinal))
-            .Select(line => new
-            {
-                Ledger = line.Element("LEDGER")?.Value ?? string.Empty,
-                Amount = decimal.Parse(line.Element("AMOUNT")?.Value ?? "0", System.Globalization.CultureInfo.InvariantCulture)
-            })
-            .ToList();
-
-        var paymentLine = Assert.Single(debitLines, line => line.Ledger == "Cash");
-        var creditNoteLine = Assert.Single(debitLines, line => line.Ledger == "Credit Note Liability");
-        var salesLine = Assert.Single(creditLines, line => line.Ledger == "Sales");
-        var gstLine = Assert.Single(creditLines, line => line.Ledger == "Output GST 18%");
-
-        Assert.Equal(paidAmount, paymentLine.Amount);
-        Assert.Equal(creditNoteAppliedAmount, creditNoteLine.Amount);
-        Assert.Equal(taxableAmount, salesLine.Amount);
-        Assert.Equal(taxAmount, gstLine.Amount);
-
-        Assert.Equal(paidAmount + dueAmount + creditNoteAppliedAmount, debitLines.Sum(line => line.Amount));
-        Assert.Equal(taxableAmount + taxAmount, creditLines.Sum(line => line.Amount));
-    }
-
-    [Fact]
-    public async Task RenderAsync_WithCreditNoteRedemption_DoesNotUseCashUpiOrCardForLiabilitySettlement()
-    {
-        var metadata = new SalesExportMetadataDto(
-            "Green Mart",
-            "12 Market Lane, Mumbai",
-            "27ABCDE1234F1Z5",
-            "Ravi Kumar",
-            DateTimeOffset.UtcNow,
-            new DateOnly(2026, 5, 1),
-            new DateOnly(2026, 5, 31),
-            "summary");
-
-        var summaryRows = new List<SalesExportSummaryRowDto>
-        {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Cash", 250m, 0m, 300m, 0m, 250m, 50m, 300m, null, 0m, 0m, 0m, 300m, false, 1, 50m, null, 0m)
-        };
-
-        var lineItems = new List<SalesExportLineItemRowDto>
-        {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Product", 10m, 25m, 0m, 0m, 20m, 250m, 50m, 300m, false, 0m, null, null)
-        };
-
-        var taxBreakup = new List<SalesExportTaxBreakupDto>
-        {
-            new(20m, 250m, 50m, 0m, 0m)
-        };
-
-        var dataset = new SalesExportDatasetDto(metadata, summaryRows, lineItems, taxBreakup, []);
-        var renderer = new SalesTallyXmlExportRenderer();
-
-        var result = await renderer.RenderAsync(dataset, CancellationToken.None);
-        var voucherLines = XDocument.Parse(System.Text.Encoding.UTF8.GetString(result.Content))
-            .Root!
-            .Descendants("VOUCHER")
-            .Single()
-            .Elements("VOUCHERLINE")
-            .ToList();
-
-        Assert.Contains(voucherLines, line => line.Element("LEDGER")?.Value == "Credit Note Liability");
-        var creditNoteLine = Assert.Single(voucherLines, line => line.Element("LEDGER")?.Value == "Credit Note Liability");
-        Assert.Equal("50.00", creditNoteLine.Element("AMOUNT")?.Value);
-        var cashLine = Assert.Single(voucherLines, line => line.Element("LEDGER")?.Value == "Cash");
-        Assert.Equal("250.00", cashLine.Element("AMOUNT")?.Value);
-    }
-
-    [Fact]
-    public async Task RenderAsync_WithCreditNoteIssue_CreatesLiabilityLedgerLine()
-    {
-        var metadata = new SalesExportMetadataDto(
-            "Test Shop",
-            "123 Test St",
-            "27ABCDE1234F1Z5",
-            "Test User",
-            DateTimeOffset.UtcNow,
-            new DateOnly(2026, 5, 1),
-            new DateOnly(2026, 5, 31),
-            "summary");
-
-        var returnRows = new List<SalesExportReturnRowDto>
-        {
-            new("RET-001", new DateTimeOffset(2026, 5, 5, 11, 0, 0, TimeSpan.Zero), "INV-001", "Customer A", 118m, 100m, 18m, new List<SalesExportReturnTaxBreakupDto> { new(18m, 100m, 18m) }, false, "CN-001")
-        };
-
-        var taxBreakup = new List<SalesExportTaxBreakupDto>
-        {
-            new(18m, 0m, 0m, 100m, 18m)
-        };
-
-        var dataset = new SalesExportDatasetDto(metadata, [], [], taxBreakup, returnRows);
-        var renderer = new SalesTallyXmlExportRenderer();
-
-        var result = await renderer.RenderAsync(dataset, CancellationToken.None);
-        var voucherLines = XDocument.Parse(System.Text.Encoding.UTF8.GetString(result.Content))
-            .Root!
-            .Descendants("VOUCHER")
-            .Single(v => v.Element("VOUCHERTYPE")?.Value == "Credit Note")
-            .Elements("VOUCHERLINE")
-            .ToList();
-
-        Assert.Contains(voucherLines, line => line.Element("LEDGER")?.Value == "Credit Note Liability");
-        Assert.DoesNotContain(voucherLines, line => line.Element("LEDGER")?.Value == "Customer A");
-    }
 }

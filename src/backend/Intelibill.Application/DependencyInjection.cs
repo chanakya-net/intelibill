@@ -45,6 +45,7 @@ public static class DependencyInjection
         services.AddScoped<ISaleReturnValidator, SaleReturnValidator>();
         services.AddSingleton<IReturnAccountingPolicy, ProportionalLineTaxReturnAccountingPolicy>();
         services.AddSingleton<IAccountingVoucherValidator, AccountingVoucherValidator>();
+        services.AddScoped<ReturnAdjustmentReader>();
         services.AddScoped<ISaleReturnMutationCoordinator, SaleReturnMutationCoordinator>();
         services.AddScoped<ISalePricingCalculator, SalePricingCalculator>();
 

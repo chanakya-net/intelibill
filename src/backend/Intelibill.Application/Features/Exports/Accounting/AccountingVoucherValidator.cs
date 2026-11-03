@@ -3,7 +3,7 @@ using Intelibill.Application.Common.Errors;
 
 namespace Intelibill.Application.Features.Exports.Accounting;
 
-internal sealed class AccountingVoucherValidator : IAccountingVoucherValidator
+public sealed class AccountingVoucherValidator : IAccountingVoucherValidator
 {
     public ErrorOr<Success> Validate(AccountingVoucher voucher)
     {

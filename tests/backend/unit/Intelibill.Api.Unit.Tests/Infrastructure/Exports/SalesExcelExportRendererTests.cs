@@ -1,5 +1,8 @@
 using ClosedXML.Excel;
+using Intelibill.Application.Features.Exports.Accounting;
+using Intelibill.Application.Features.Exports.Sales;
 using Intelibill.Application.Features.Exports.Sales.DTOs;
+using Intelibill.Domain.Enums;
 using Intelibill.Infrastructure.Services.Exports;
 
 namespace Intelibill.Api.Unit.Tests.Infrastructure.Exports;
@@ -235,6 +238,164 @@ public sealed class SalesExcelExportRendererTests
         Assert.True(sheet.Cell(totalsRow, taxAmountColumn).HasFormula);
         Assert.True(sheet.Cell(totalsRow, lineTotalColumn).HasFormula);
     }
+
+    [Fact]
+    public async Task RenderAsync_ReturnAdjustmentsSheet_ListsEachPostingWithSettlementSplitAndTotals()
+    {
+        var mixed = Adjustment("RET-1", "INV-001", 100m, 84.75m, 15.25m,
+            new ReturnAdjustmentSettlement(ReturnSettlementKind.ReceivableReduction, 40m, null, null, null),
+            new ReturnAdjustmentSettlement(ReturnSettlementKind.StoreCreditIssued, 60m, null, Guid.NewGuid(), "CN-0001"));
+        var zero = Adjustment("RET-2", "INV-001", 0m, 0m, 0m);
+        var reversal = Adjustment("RET-0", "INV-000", -50m, -42.37m, -7.63m,
+            new ReturnAdjustmentSettlement(ReturnSettlementKind.ExternalRefund, -50m, null, null, null)) with
+        {
+            Kind = ReturnAdjustmentEntryKind.VoidReversal,
+        };
+
+        var sheet = await RenderAdjustmentsAsync([mixed, zero, reversal]);
+
+        var headerRow = FindRow(sheet, "Posting Date");
+        var totalsRow = FindRow(sheet, "TOTALS");
+        Assert.Equal(headerRow + 5, totalsRow);
+        var original = FindColumn(sheet, headerRow, "Original Returned Value");
+        var financial = FindColumn(sheet, headerRow, "Financial Adjustment");
+        var receivable = FindColumn(sheet, headerRow, "Receivable Reduction");
+        var storeCredit = FindColumn(sheet, headerRow, "Store Credit Issued");
+        var refund = FindColumn(sheet, headerRow, "External Refund");
+        var gst = FindColumn(sheet, headerRow, "GST Adjustment");
+
+        Assert.Equal("Return", sheet.Cell(headerRow + 1, 2).GetString());
+        Assert.Equal(118m, sheet.Cell(headerRow + 1, original).GetValue<decimal>());
+        Assert.Equal(40m, sheet.Cell(headerRow + 1, receivable).GetValue<decimal>());
+        Assert.Equal(60m, sheet.Cell(headerRow + 1, storeCredit).GetValue<decimal>());
+        Assert.Equal("CN-0001", sheet.Cell(headerRow + 1, FindColumn(sheet, headerRow, "Credit Note")).GetString());
+        Assert.Equal(0m, sheet.Cell(headerRow + 2, financial).GetValue<decimal>());
+        Assert.Equal(118m, sheet.Cell(headerRow + 2, original).GetValue<decimal>());
+        Assert.Equal("Void reversal", sheet.Cell(headerRow + 3, 2).GetString());
+
+        Assert.Equal(50m, sheet.Cell(totalsRow, financial).GetValue<decimal>());
+        Assert.Equal(7.62m, sheet.Cell(totalsRow, gst).GetValue<decimal>());
+        Assert.Equal(-50m, sheet.Cell(totalsRow, refund).GetValue<decimal>());
+        Assert.Equal(
+            sheet.Cell(totalsRow, financial).GetValue<decimal>(),
+            sheet.Cell(totalsRow, receivable).GetValue<decimal>()
+                + sheet.Cell(totalsRow, storeCredit).GetValue<decimal>()
+                + sheet.Cell(totalsRow, refund).GetValue<decimal>());
+    }
+
+    [Fact]
+    public async Task RenderAsync_ReturnAdjustmentsSheet_FlagsReturnsNeedingReview()
+    {
+        var legacy = Adjustment("RET-9", "INV-001", 118m, 0m, 0m) with
+        {
+            Status = ReturnAccountingStatus.NeedsReview,
+            ReviewReason = "Payout settlement is not evidenced.",
+            PolicyVersion = null,
+            TaxableAdjustment = null,
+            TaxAdjustment = null,
+            NonTaxAdjustment = null,
+        };
+
+        var sheet = await RenderAdjustmentsAsync([legacy]);
+
+        var headerRow = FindRow(sheet, "Posting Date");
+        Assert.Equal("Needs review", sheet.Cell(headerRow + 1, FindColumn(sheet, headerRow, "Accounting Status")).GetString());
+        Assert.Equal("Payout settlement is not evidenced.", sheet.Cell(headerRow + 1, FindColumn(sheet, headerRow, "Review Reason")).GetString());
+        Assert.True(sheet.Cell(headerRow + 1, FindColumn(sheet, headerRow, "GST Adjustment")).IsEmpty());
+    }
+
+    [Fact]
+    public async Task RenderAsync_SummarySheet_ReconcilesReturnsOnEarlierSales()
+    {
+        var summaryRows = new List<SalesExportSummaryRowDto>
+        {
+            new("INV-002", new DateTimeOffset(2026, 5, 3, 10, 0, 0, TimeSpan.Zero), "Bob", "Cash", 118m, 0m, 118m, 0m, 100m, 18m, 118m, "RET-2", 118m, 100m, 18m, 0m, true, 1)
+        };
+        var inPeriod = Adjustment("RET-2", "INV-002", 118m, 100m, 18m,
+            new ReturnAdjustmentSettlement(ReturnSettlementKind.ExternalRefund, 118m, null, null, null));
+        var earlier = Adjustment("RET-1", "INV-001", 50m, 42.37m, 7.63m,
+            new ReturnAdjustmentSettlement(ReturnSettlementKind.StoreCreditIssued, 50m, null, Guid.NewGuid(), "CN-0001"));
+        var dataset = new SalesExportDatasetDto(
+            Metadata(SalesExportLevel.Summary),
+            summaryRows,
+            [],
+            [new SalesExportTaxBreakupDto(18m, 100m, 18m, 142.37m, 25.63m)],
+            [inPeriod, earlier]);
+
+        var result = await new SalesExcelExportRenderer().RenderAsync(dataset, CancellationToken.None);
+        using var stream = new MemoryStream(result.Content);
+        using var workbook = new XLWorkbook(stream);
+        var sheet = workbook.Worksheet("Sales Summary");
+
+        var headerRow = FindRow(sheet, "Invoice #");
+        var earlierRow = FindRow(sheet, "Returns on earlier sales");
+        var totalsRow = FindRow(sheet, "TOTALS");
+        var returnAmount = FindColumn(sheet, headerRow, "Return Amount");
+        var netSales = FindColumn(sheet, headerRow, "Net Sales Amount");
+
+        Assert.Equal(headerRow + 2, earlierRow);
+        Assert.Equal("RET-1", sheet.Cell(earlierRow, FindColumn(sheet, headerRow, "Return #")).GetString());
+        Assert.Equal(50m, sheet.Cell(earlierRow, returnAmount).GetValue<decimal>());
+        Assert.Equal(-50m, sheet.Cell(earlierRow, netSales).GetValue<decimal>());
+        Assert.Equal(168m, sheet.Cell(totalsRow, returnAmount).GetValue<decimal>());
+        Assert.Equal(-50m, sheet.Cell(totalsRow, netSales).GetValue<decimal>());
+
+        var adjustments = workbook.Worksheet("Return Adjustments");
+        var adjustmentTotals = FindRow(adjustments, "TOTALS");
+        var adjustmentHeader = FindRow(adjustments, "Posting Date");
+        Assert.Equal(
+            sheet.Cell(totalsRow, returnAmount).GetValue<decimal>(),
+            adjustments.Cell(adjustmentTotals, FindColumn(adjustments, adjustmentHeader, "Financial Adjustment")).GetValue<decimal>());
+    }
+
+    private static async Task<IXLWorksheet> RenderAdjustmentsAsync(IReadOnlyList<ReturnAdjustmentEntry> adjustments)
+    {
+        var dataset = new SalesExportDatasetDto(Metadata(SalesExportLevel.LineItems), [], [], [], adjustments);
+        var result = await new SalesExcelExportRenderer().RenderAsync(dataset, CancellationToken.None);
+        var workbook = new XLWorkbook(new MemoryStream(result.Content));
+        Assert.True(workbook.TryGetWorksheet("Sales Line Items", out _));
+        return workbook.Worksheet("Return Adjustments");
+    }
+
+    private static SalesExportMetadataDto Metadata(string level) =>
+        new(
+            "Green Mart",
+            "12 Market Lane, Mumbai",
+            "27ABCDE1234F1Z5",
+            "Ravi Kumar",
+            DateTimeOffset.UtcNow,
+            new DateOnly(2026, 5, 1),
+            new DateOnly(2026, 5, 31),
+            level);
+
+    private static ReturnAdjustmentEntry Adjustment(
+        string returnNumber,
+        string invoiceNumber,
+        decimal financial,
+        decimal taxable,
+        decimal tax,
+        params ReturnAdjustmentSettlement[] settlements) =>
+        new(
+            ReturnAdjustmentEntryKind.Return,
+            new DateTimeOffset(2026, 5, 4, 12, 0, 0, TimeSpan.Zero),
+            Guid.NewGuid(),
+            returnNumber,
+            new DateTimeOffset(2026, 5, 4, 12, 0, 0, TimeSpan.Zero),
+            Guid.NewGuid(),
+            invoiceNumber,
+            "Alice",
+            ReturnAccountingStatus.Balanced,
+            "proportional-line-tax/1",
+            null,
+            OriginalReturnedGross: financial < 0m ? -118m : 118m,
+            financial,
+            taxable,
+            tax,
+            0m,
+            tax == 0m ? [] : [new ReturnAdjustmentTaxComponent(18m, taxable, tax)],
+            settlements,
+            [],
+            null);
 
     private static int FindRow(IXLWorksheet sheet, string label)
     {

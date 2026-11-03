@@ -40,6 +40,9 @@ public sealed record ReturnAdjustmentEntry(
 {
     public bool IsReversal => Kind == ReturnAdjustmentEntryKind.VoidReversal;
 
+    /// <summary>The return number, marked when this is its void's reversal.</summary>
+    public string Label => IsReversal ? $"{ReturnNumber} (void)" : ReturnNumber;
+
     /// <summary>Balanced and moving money: only these become vouchers. A zero refund keeps its stock fact only.</summary>
     public bool HasVoucher => Status == ReturnAccountingStatus.Balanced && FinancialAdjustment != 0m;
 

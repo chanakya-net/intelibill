@@ -74,5 +74,5 @@ public class AccountingVoucherValidatorTests
     }
 
     private static AccountingVoucher Voucher(params AccountingVoucherLine[] lines) =>
-        new("RET-1", "Credit Note", new DateOnly(2026, 6, 12), "INV-1", null, lines);
+        new("RET-1", "Credit Note", new DateOnly(2026, 6, 12), "INV-1", new DateOnly(2026, 6, 10), null, lines);
 }

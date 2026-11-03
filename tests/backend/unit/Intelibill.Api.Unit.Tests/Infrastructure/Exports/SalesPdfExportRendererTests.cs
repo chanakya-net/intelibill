@@ -1,5 +1,7 @@
+using Intelibill.Application.Features.Exports.Accounting;
 using Intelibill.Application.Features.Exports.Sales;
 using Intelibill.Application.Features.Exports.Sales.DTOs;
+using Intelibill.Domain.Enums;
 using Intelibill.Infrastructure.Services.Exports;
 
 namespace Intelibill.Api.Unit.Tests.Infrastructure.Exports;
@@ -106,30 +108,16 @@ public sealed class SalesPdfExportRendererTests
     }
 
     [Fact]
-    public async Task RenderAsync_WithReturnCreditNotes_IncludesReturnCreditNoteSection()
+    public async Task RenderAsync_WithReturnAdjustments_IncludesReturnAdjustmentSection()
     {
-        var metadata = new SalesExportMetadataDto(
-            "Green Mart",
-            "12 Market Lane, Mumbai",
-            "27ABCDE1234F1Z5",
-            "Ravi Kumar",
-            new DateTimeOffset(2026, 5, 20, 10, 0, 0, TimeSpan.Zero),
-            new DateOnly(2026, 5, 1),
-            new DateOnly(2026, 5, 31),
-            SalesExportLevel.Summary);
-
+        var metadata = Metadata();
         var summaryRows = new List<SalesExportSummaryRowDto>
         {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Cash", 100m, 0m, 100m, 0m, 100m, 18m, 118m, "RET-001", 118m, 100m, 18m, 0m, true, 1, 50m, "CN-001", 50m)
-        };
-
-        var returnRows = new List<SalesExportReturnRowDto>
-        {
-            new("RET-001", new DateTimeOffset(2026, 5, 2, 11, 0, 0, TimeSpan.Zero), "INV-001", "Alice", 118m, 100m, 18m, [], false, "CN-001", 50m, 50m)
+            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Cash", 118m, 0m, 118m, 0m, 100m, 18m, 118m, "RET-001", 100m, 84.75m, 15.25m, 18m, true, 1, 0m, "CN-001", 60m)
         };
 
         var baselineDataset = new SalesExportDatasetDto(metadata, summaryRows, [], [], []);
-        var dataset = new SalesExportDatasetDto(metadata, summaryRows, [], [], returnRows);
+        var dataset = new SalesExportDatasetDto(metadata, summaryRows, [], [], [MixedReturn("INV-001")]);
         var renderer = new SalesPdfExportRenderer();
 
         var baselineResult = await renderer.RenderAsync(baselineDataset, CancellationToken.None);
@@ -139,6 +127,68 @@ public sealed class SalesPdfExportRendererTests
         Assert.NotEmpty(result.Content);
         Assert.True(ContainsStreamDifferences(result.Content, baselineResult.Content));
     }
+
+    [Fact]
+    public void SummarizeReturns_CountsEveryAdjustmentPostedInPeriod_IncludingEarlierSales()
+    {
+        var summaryRows = new List<SalesExportSummaryRowDto>
+        {
+            new("INV-002", new DateTimeOffset(2026, 5, 3, 10, 0, 0, TimeSpan.Zero), "Bob", "Cash", 236m, 0m, 236m, 0m, 200m, 36m, 236m, null, 0m, 0m, 0m, 236m, false, 1)
+        };
+        var earlierSaleReturn = MixedReturn("INV-001");
+        var needsReview = MixedReturn("INV-000") with
+        {
+            ReturnNumber = "RET-LEGACY",
+            Status = ReturnAccountingStatus.NeedsReview,
+            FinancialAdjustment = 10m,
+            Settlements = [],
+        };
+
+        var totals = SalesPdfDocument.SummarizeReturns(
+            new SalesExportDatasetDto(Metadata(), summaryRows, [], [], [earlierSaleReturn, needsReview]));
+
+        Assert.Equal(110m, totals.Adjustment);
+        Assert.Equal(60m, totals.StoreCreditIssued);
+        Assert.Equal(126m, totals.NetSales);
+        Assert.Equal(1, totals.NeedingReview);
+    }
+
+    private static SalesExportMetadataDto Metadata() =>
+        new(
+            "Green Mart",
+            "12 Market Lane, Mumbai",
+            "27ABCDE1234F1Z5",
+            "Ravi Kumar",
+            new DateTimeOffset(2026, 5, 20, 10, 0, 0, TimeSpan.Zero),
+            new DateOnly(2026, 5, 1),
+            new DateOnly(2026, 5, 31),
+            SalesExportLevel.Summary);
+
+    private static ReturnAdjustmentEntry MixedReturn(string invoiceNumber) =>
+        new(
+            ReturnAdjustmentEntryKind.Return,
+            new DateTimeOffset(2026, 5, 2, 11, 0, 0, TimeSpan.Zero),
+            Guid.NewGuid(),
+            "RET-001",
+            new DateTimeOffset(2026, 5, 2, 11, 0, 0, TimeSpan.Zero),
+            Guid.NewGuid(),
+            invoiceNumber,
+            "Alice",
+            ReturnAccountingStatus.Balanced,
+            "proportional-line-tax/1",
+            null,
+            OriginalReturnedGross: 118m,
+            FinancialAdjustment: 100m,
+            TaxableAdjustment: 84.75m,
+            TaxAdjustment: 15.25m,
+            NonTaxAdjustment: 0m,
+            [new ReturnAdjustmentTaxComponent(18m, 84.75m, 15.25m)],
+            [
+                new ReturnAdjustmentSettlement(ReturnSettlementKind.ReceivableReduction, 40m, null, null, null),
+                new ReturnAdjustmentSettlement(ReturnSettlementKind.StoreCreditIssued, 60m, null, Guid.NewGuid(), "CN-001"),
+            ],
+            [],
+            null);
 
     private static bool ContainsStreamDifferences(byte[] creditResult, byte[] baselineResult) =>
         !string.Equals(

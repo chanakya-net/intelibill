@@ -1,11 +1,15 @@
 namespace Intelibill.Application.Features.Exports.Accounting;
 
-/// <summary>A double-entry voucher, format-neutral, as it must balance before any renderer writes it.</summary>
+/// <summary>
+/// A double-entry voucher, format-neutral, as it must balance before any renderer writes it.
+/// <see cref="Reference"/> names the document it adjusts or reverses, dated <see cref="ReferenceDate"/>.
+/// </summary>
 public sealed record AccountingVoucher(
     string Number,
     string Type,
     DateOnly Date,
     string Reference,
+    DateOnly ReferenceDate,
     string? Narration,
     IReadOnlyList<AccountingVoucherLine> Lines)
 {

@@ -1,3 +1,4 @@
+using Intelibill.Application.Features.Exports.Accounting;
 using Intelibill.Application.Features.Exports.Sales;
 using Intelibill.Application.Features.Exports.Sales.Services;
 using Intelibill.Domain.Entities;
@@ -15,14 +16,25 @@ public class SalesExportDatasetBuilderTests
     private readonly ICreditNoteRepository _creditNoteRepository = Substitute.For<ICreditNoteRepository>();
     private readonly IItemRepository _itemRepository = Substitute.For<IItemRepository>();
 
+    private static readonly DateOnly MayFirst = new(2026, 5, 1);
+    private static readonly DateOnly MayLast = new(2026, 5, 31);
+
     public SalesExportDatasetBuilderTests()
     {
         _creditNoteRepository.GetByReturnIdsAsync(Arg.Any<Guid>(), Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(new List<CreditNote>());
+        _saleReturnRepository.GetPostedInRangeAsync(Arg.Any<Guid>(), Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+            .Returns(new List<SaleReturn>());
+        _saleRepository.GetByIdsAsync(Arg.Any<Guid>(), Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(new List<Sale>());
     }
 
     private SalesExportDatasetBuilder CreateBuilder() =>
-        new(_saleRepository, _saleReturnRepository, _creditNoteRepository, _itemRepository);
+        new(
+            _saleRepository,
+            _saleReturnRepository,
+            _itemRepository,
+            new ReturnAdjustmentReader(_saleReturnRepository, _saleRepository, _creditNoteRepository));
 
     private static Shop MakeShop() =>
         Shop.Create("Test Shop", "123 Main St", "City", "State", "560001", null, null, null);
@@ -102,367 +114,6 @@ public class SalesExportDatasetBuilderTests
         Assert.Equal(startDate, result.Metadata.StartDate);
         Assert.Equal(endDate, result.Metadata.EndDate);
         Assert.Equal(SalesExportLevel.Summary, result.Metadata.ExportLevel);
-    }
-
-    [Fact]
-    public async Task BuildAsync_ShouldIncludeCreditNoteAppliedAndIssuedCreditNotes()
-    {
-        // Arrange
-        var shop = MakeShop();
-        var user = MakeUser();
-        var startDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-1));
-        var endDate = DateOnly.FromDateTime(DateTime.UtcNow);
-
-        var item = MakeItem(shop.Id);
-        _itemRepository.GetByIdsAsync(shop.Id, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
-            .Returns(new List<Item> { item });
-
-        var saleItem = SaleItem.CreateGoods(
-            shop.Id,
-            item.Id,
-            Guid.NewGuid(),
-            lineName: item.Name,
-            lineCode: item.Barcode,
-            2,
-            100,
-            150,
-            200,
-            18,
-            true,
-            false,
-            taxableAmount: 254.24m,
-            taxAmount: 45.76m,
-            totalAmount: 300m);
-
-        var sale = Sale.Create(
-            shop.Id,
-            actorUserId: user.Id,
-            idempotencyKey: "idem-key",
-            requestHash: "hash",
-            invoiceNumber: "INV-001",
-            customerId: null,
-            customerName: "Customer",
-            customerPhone: null,
-            paymentMethod: PaymentMethod.Cash,
-            soldAt: DateTimeOffset.UtcNow,
-            paidAmount: 250,
-            dueAmount: 0,
-            totalAmount: 300,
-            totalTaxAmount: 45.76m,
-            items: new List<SaleItem> { saleItem },
-            creditNoteAppliedAmount: 50m);
-
-        var returnLine = new SaleReturnLineInput(
-            shop.Id,
-            saleItem.Id,
-            1,
-            SaleReturnCondition.Restockable,
-            100,
-            150,
-            18,
-            true,
-            150,
-            150,
-            127.12m,
-            22.88m,
-            null);
-
-        var saleReturn = SaleReturn.Record(
-            shop.Id,
-            sale.Id,
-            "RET-001",
-            DateTimeOffset.UtcNow,
-            user.Id,
-            null,
-            150,
-            0,
-            150,
-            ReturnPayoutDestination.CreditNote,
-            127.12m,
-            22.88m,
-            null,
-            null,
-            new List<SaleReturnLineInput> { returnLine }).Value;
-
-        var creditNote = CreditNote.Issue(
-            shop.Id,
-            saleReturn.Id,
-            150m,
-            "Return credit",
-            "CN-001",
-            null).Value;
-
-        _saleRepository.GetByShopAndDateRangeAsync(shop.Id, startDate, endDate, Arg.Any<CancellationToken>())
-            .Returns(new List<Sale> { sale });
-
-        _saleReturnRepository.GetBySaleAsync(shop.Id, sale.Id, Arg.Any<CancellationToken>())
-            .Returns(new List<SaleReturn> { saleReturn });
-
-        _creditNoteRepository.GetByReturnIdsAsync(shop.Id, Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
-            .Returns(new List<CreditNote> { creditNote });
-
-        var builder = CreateBuilder();
-
-        // Act
-        var result = await builder.BuildAsync(shop, user, startDate, endDate, SalesExportLevel.Summary, CancellationToken.None);
-
-        // Assert
-        Assert.Single(result.SummaryRows);
-        var row = result.SummaryRows[0];
-        Assert.Equal(50m, row.CreditNoteAppliedAmount);
-        Assert.Equal("CN-001", row.IssuedCreditNoteCodes);
-        Assert.Equal(150m, row.IssuedCreditNoteAmount);
-        Assert.Equal(250m, row.PaidAmount);
-        Assert.Equal(0m, row.DueAmount);
-
-        var returnRow = Assert.Single(result.ReturnRows);
-        Assert.Equal("CN-001", returnRow.CreditNoteCode);
-        Assert.Equal(150m, returnRow.CreditNoteAmount);
-        Assert.Equal(150m, returnRow.CreditNoteRemainingBalance);
-        Assert.Equal("Customer", row.CustomerName);
-    }
-
-    [Fact]
-    public async Task BuildAsync_WhenMultipleCreditNotesExistForOneReturn_AggregatesIssuedCreditNotes()
-    {
-        // Arrange
-        var shop = MakeShop();
-        var user = MakeUser();
-        var startDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-1));
-        var endDate = DateOnly.FromDateTime(DateTime.UtcNow);
-
-        var item = MakeItem(shop.Id);
-        _itemRepository.GetByIdsAsync(shop.Id, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
-            .Returns(new List<Item> { item });
-
-        var saleItem = SaleItem.CreateGoods(
-            shop.Id,
-            item.Id,
-            Guid.NewGuid(),
-            lineName: item.Name,
-            lineCode: item.Barcode,
-            1,
-            100,
-            150,
-            200,
-            18,
-            true,
-            false,
-            taxableAmount: 127.12m,
-            taxAmount: 22.88m,
-            totalAmount: 150m);
-
-        var sale = Sale.Create(
-            shop.Id,
-            actorUserId: user.Id,
-            idempotencyKey: "idem-key",
-            requestHash: "hash",
-            invoiceNumber: "INV-001",
-            customerId: null,
-            customerName: "Customer",
-            customerPhone: null,
-            paymentMethod: PaymentMethod.Cash,
-            soldAt: DateTimeOffset.UtcNow,
-            paidAmount: 100,
-            dueAmount: 0,
-            totalAmount: 150,
-            totalTaxAmount: 22.88m,
-            items: new List<SaleItem> { saleItem },
-            creditNoteAppliedAmount: 50m);
-
-        var returnLine = new SaleReturnLineInput(
-            shop.Id,
-            saleItem.Id,
-            1,
-            SaleReturnCondition.Restockable,
-            100,
-            150,
-            18,
-            true,
-            150,
-            150,
-            127.12m,
-            22.88m,
-            null);
-
-        var saleReturn = SaleReturn.Record(
-            shop.Id,
-            sale.Id,
-            "RET-001",
-            DateTimeOffset.UtcNow,
-            user.Id,
-            null,
-            150,
-            0,
-            150,
-            ReturnPayoutDestination.CreditNote,
-            127.12m,
-            22.88m,
-            null,
-            null,
-            new List<SaleReturnLineInput> { returnLine }).Value;
-
-        var creditNoteOne = CreditNote.Issue(
-            shop.Id,
-            saleReturn.Id,
-            100m,
-            "First credit",
-            "CN-001",
-            null).Value;
-
-        var creditNoteTwo = CreditNote.Issue(
-            shop.Id,
-            saleReturn.Id,
-            50m,
-            "Second credit",
-            "CN-002",
-            null).Value;
-
-        _saleRepository.GetByShopAndDateRangeAsync(shop.Id, startDate, endDate, Arg.Any<CancellationToken>())
-            .Returns(new List<Sale> { sale });
-
-        _saleReturnRepository.GetBySaleAsync(shop.Id, sale.Id, Arg.Any<CancellationToken>())
-            .Returns(new List<SaleReturn> { saleReturn });
-
-        _creditNoteRepository.GetByReturnIdsAsync(shop.Id, Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
-            .Returns(new List<CreditNote> { creditNoteTwo, creditNoteOne });
-
-        var builder = CreateBuilder();
-
-        // Act
-        var result = await builder.BuildAsync(shop, user, startDate, endDate, SalesExportLevel.Summary, CancellationToken.None);
-
-        // Assert
-        Assert.Single(result.SummaryRows);
-        var row = result.SummaryRows[0];
-        Assert.Equal(50m, row.CreditNoteAppliedAmount);
-        Assert.Equal("CN-001, CN-002", row.IssuedCreditNoteCodes);
-        Assert.Equal(150m, row.IssuedCreditNoteAmount);
-        Assert.Equal(100m, row.PaidAmount);
-        Assert.Equal(0m, row.DueAmount);
-
-        var returnRow = Assert.Single(result.ReturnRows);
-        Assert.Equal("CN-001, CN-002", returnRow.CreditNoteCode);
-        Assert.Equal(150m, returnRow.CreditNoteAmount);
-        Assert.Equal(150m, returnRow.CreditNoteRemainingBalance);
-    }
-
-    [Fact]
-    public async Task BuildAsync_WhenReturnIsVoided_DoesNotIncludeIssuedCreditNotesInSummary()
-    {
-        // Arrange
-        var shop = MakeShop();
-        var user = MakeUser();
-        var startDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-1));
-        var endDate = DateOnly.FromDateTime(DateTime.UtcNow);
-
-        var item = MakeItem(shop.Id);
-        _itemRepository.GetByIdsAsync(shop.Id, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
-            .Returns(new List<Item> { item });
-
-        var saleItem = SaleItem.CreateGoods(
-            shop.Id,
-            item.Id,
-            Guid.NewGuid(),
-            lineName: item.Name,
-            lineCode: item.Barcode,
-            1,
-            100,
-            150,
-            200,
-            18,
-            true,
-            false,
-            taxableAmount: 127.12m,
-            taxAmount: 22.88m,
-            totalAmount: 150m);
-
-        var sale = Sale.Create(
-            shop.Id,
-            actorUserId: user.Id,
-            idempotencyKey: "idem-key",
-            requestHash: "hash",
-            invoiceNumber: "INV-VOID-001",
-            customerId: null,
-            customerName: "Customer",
-            customerPhone: null,
-            paymentMethod: PaymentMethod.Cash,
-            soldAt: DateTimeOffset.UtcNow,
-            paidAmount: 150,
-            dueAmount: 0,
-            totalAmount: 150,
-            totalTaxAmount: 22.88m,
-            items: new List<SaleItem> { saleItem },
-            creditNoteAppliedAmount: 0m);
-
-        var returnLine = new SaleReturnLineInput(
-            shop.Id,
-            saleItem.Id,
-            1,
-            SaleReturnCondition.Restockable,
-            100,
-            150,
-            18,
-            true,
-            150,
-            150,
-            127.12m,
-            22.88m,
-            null);
-
-        var saleReturn = SaleReturn.Record(
-            shop.Id,
-            sale.Id,
-            "RET-VOID-001",
-            DateTimeOffset.UtcNow,
-            user.Id,
-            null,
-            150,
-            0,
-            150,
-            ReturnPayoutDestination.CreditNote,
-            127.12m,
-            22.88m,
-            null,
-            null,
-            new List<SaleReturnLineInput> { returnLine }).Value;
-        saleReturn.Void(DateTimeOffset.UtcNow, user.Id, "voided for test");
-
-        var creditNote = CreditNote.Issue(
-            shop.Id,
-            saleReturn.Id,
-            150m,
-            "Voided return credit",
-            "CN-VOID-001",
-            null).Value;
-
-        _saleRepository.GetByShopAndDateRangeAsync(shop.Id, startDate, endDate, Arg.Any<CancellationToken>())
-            .Returns(new List<Sale> { sale });
-
-        _saleReturnRepository.GetBySaleAsync(shop.Id, sale.Id, Arg.Any<CancellationToken>())
-            .Returns(new List<SaleReturn> { saleReturn });
-
-        _creditNoteRepository.GetByReturnIdsAsync(shop.Id, Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
-            .Returns(new List<CreditNote> { creditNote });
-
-        var builder = CreateBuilder();
-
-        // Act
-        var result = await builder.BuildAsync(shop, user, startDate, endDate, SalesExportLevel.Summary, CancellationToken.None);
-
-        // Assert
-        Assert.Single(result.SummaryRows);
-        var row = result.SummaryRows[0];
-        Assert.Equal("INV-VOID-001", row.InvoiceNumber);
-        Assert.True(string.IsNullOrWhiteSpace(row.ReturnNumbers));
-        Assert.Equal(0m, row.IssuedCreditNoteAmount);
-        Assert.Null(row.IssuedCreditNoteCodes);
-        Assert.False(row.HasReturns);
-
-        var returnRow = Assert.Single(result.ReturnRows);
-        Assert.True(returnRow.IsVoided);
-        Assert.Equal("CN-VOID-001", returnRow.CreditNoteCode);
-        Assert.Equal(150m, returnRow.CreditNoteAmount);
     }
 
     [Fact]
@@ -629,183 +280,141 @@ public class SalesExportDatasetBuilderTests
     }
 
     [Fact]
-    public async Task BuildAsync_ShouldIncludeReturnsInSummaryAndTaxBreakup()
+    public async Task BuildAsync_SummaryRowReturnColumns_ComeFromPostedAdjustments()
     {
-        // Arrange
         var shop = MakeShop();
-        var user = MakeUser();
-        var startDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-1));
-        var endDate = DateOnly.FromDateTime(DateTime.UtcNow);
+        var customerId = Guid.NewGuid();
+        var sale = AccountingSale(shop.Id, "INV-001", new DateTimeOffset(2026, 5, 2, 9, 0, 0, TimeSpan.Zero), customerId);
+        var creditNote = CreditNote.Issue(shop.Id, Guid.NewGuid(), 10m, "Store credit", "CN-0001", null, customerId).Value;
+        var saleReturn = PostedReturn(sale, "RET-1", new DateTimeOffset(2026, 5, 4, 9, 0, 0, TimeSpan.Zero),
+            approved: 50m, taxable: 42.37m, tax: 7.63m, dueReduction: 40m, creditNoteId: creditNote.Id);
+        Arrange(shop, [sale], [saleReturn]);
+        _creditNoteRepository.GetByReturnIdsAsync(shop.Id, Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.Contains(saleReturn.Id)), Arg.Any<CancellationToken>())
+            .Returns(new List<CreditNote> { creditNote });
 
-        var item = MakeItem(shop.Id);
-        _itemRepository.GetByIdsAsync(shop.Id, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
-            .Returns(new List<Item> { item });
+        var result = await CreateBuilder().BuildAsync(shop, MakeUser(), MayFirst, MayLast, SalesExportLevel.Summary, CancellationToken.None);
 
-        var saleItem = SaleItem.CreateGoods(
-            shop.Id,
-            item.Id,
-            Guid.NewGuid(),
-            lineName: item.Name,
-            lineCode: item.Barcode,
-            2,
-            100,
-            150,
-            200,
-            18,
-            true,
-            false,
-            taxableAmount: 254.24m,
-            taxAmount: 45.76m,
-            totalAmount: 300m);
-
-        var sale = Sale.Create(
-            shop.Id,
-            "INV-001",
-            null, "Customer", null,
-            PaymentMethod.Cash,
-            DateTimeOffset.UtcNow,
-            300,
-            0,
-            300,
-            45.76m,
-            new List<SaleItem> { saleItem });
-
-        var returnLine = new SaleReturnLineInput(
-            shop.Id,
-            saleItem.Id,
-            1,
-            SaleReturnCondition.Restockable,
-            100,
-            150,
-            18,
-            true,
-            150,
-            150,
-            127.12m,
-            22.88m,
-            null);
-
-        var saleReturn = SaleReturn.Record(
-            shop.Id,
-            sale.Id,
-            "RET-001",
-            DateTimeOffset.UtcNow,
-            user.Id,
-            null,
-            150,
-            0,
-            150,
-            ReturnPayoutDestination.Refund,
-            127.12m,
-            22.88m,
-            null,
-            null,
-            new List<SaleReturnLineInput> { returnLine }).Value;
-
-        _saleRepository.GetByShopAndDateRangeAsync(shop.Id, startDate, endDate, Arg.Any<CancellationToken>())
-            .Returns(new List<Sale> { sale });
-
-        _saleReturnRepository.GetBySaleAsync(shop.Id, sale.Id, Arg.Any<CancellationToken>())
-            .Returns(new List<SaleReturn> { saleReturn });
-
-        var builder = CreateBuilder();
-
-        // Act
-        var result = await builder.BuildAsync(shop, user, startDate, endDate, SalesExportLevel.Summary, CancellationToken.None);
-
-        // Assert
-        Assert.Single(result.SummaryRows);
-        var row = result.SummaryRows[0];
-        Assert.Equal(300, row.TotalAmount);
-        Assert.Equal(150, row.ReturnAmount);
-        Assert.Equal(150, row.NetSalesAmount);
+        var row = Assert.Single(result.SummaryRows);
+        Assert.Equal("RET-1", row.ReturnNumbers);
+        Assert.Equal(50m, row.ReturnAmount);
+        Assert.Equal(42.37m, row.ReturnTaxableAmount);
+        Assert.Equal(7.63m, row.ReturnTaxAmount);
+        Assert.Equal(68m, row.NetSalesAmount);
         Assert.True(row.HasReturns);
-        Assert.Equal("RET-001", row.ReturnNumbers);
+        Assert.Equal("CN-0001", row.IssuedCreditNoteCodes);
+        Assert.Equal(10m, row.IssuedCreditNoteAmount);
 
-        Assert.Single(result.TaxBreakup);
-        var tax = result.TaxBreakup[0];
-        Assert.Equal(18, tax.TaxRatePercent);
-        Assert.Equal(254.24m, tax.SaleTaxableAmount);
-        Assert.Equal(127.12m, tax.ReturnTaxableAmount);
-        Assert.Equal(127.12m, tax.NetTaxableAmount);
+        var adjustment = Assert.Single(result.ReturnAdjustments);
+        Assert.Equal(118m, adjustment.OriginalReturnedGross);
+        Assert.Equal(40m, adjustment.SettledBy(ReturnSettlementKind.ReceivableReduction));
+        Assert.Equal(10m, adjustment.SettledBy(ReturnSettlementKind.StoreCreditIssued));
+
+        var breakup = Assert.Single(result.TaxBreakup);
+        Assert.Equal((100m, 18m, 42.37m, 7.63m), (breakup.SaleTaxableAmount, breakup.SaleTaxAmount, breakup.ReturnTaxableAmount, breakup.ReturnTaxAmount));
     }
 
     [Fact]
-    public async Task BuildAsync_ShouldPopulateReturnRowsCorrectly()
+    public async Task BuildAsync_ReturnPostsInItsOwnPeriod_NotWithItsSale()
     {
-        // Arrange
         var shop = MakeShop();
-        var user = MakeUser();
-        var startDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-1));
-        var endDate = DateOnly.FromDateTime(DateTime.UtcNow);
+        var aprilSale = AccountingSale(shop.Id, "INV-APR", new DateTimeOffset(2026, 4, 28, 9, 0, 0, TimeSpan.Zero));
+        var maySale = AccountingSale(shop.Id, "INV-MAY", new DateTimeOffset(2026, 5, 10, 9, 0, 0, TimeSpan.Zero));
+        var mayReturnOfAprilSale = PostedReturn(aprilSale, "RET-APR", new DateTimeOffset(2026, 5, 3, 9, 0, 0, TimeSpan.Zero),
+            approved: 118m, taxable: 100m, tax: 18m);
+        Arrange(shop, [maySale], [mayReturnOfAprilSale]);
+        _saleRepository.GetByIdsAsync(shop.Id, Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.Contains(aprilSale.Id)), Arg.Any<CancellationToken>())
+            .Returns(new List<Sale> { aprilSale });
 
-        var sale = Sale.Create(
-            shop.Id, "INV-001", null, "Alice", null, PaymentMethod.Cash, DateTimeOffset.UtcNow, 300, 0, 300, 45.76m, new List<SaleItem>());
+        var result = await CreateBuilder().BuildAsync(shop, MakeUser(), MayFirst, MayLast, SalesExportLevel.Summary, CancellationToken.None);
 
-        var returnLine = new SaleReturnLineInput(
-            shop.Id, Guid.NewGuid(), 1, SaleReturnCondition.Restockable, 100, 150, 18, true, 150, 150, 127.12m, 22.88m, null);
+        var row = Assert.Single(result.SummaryRows);
+        Assert.Equal("INV-MAY", row.InvoiceNumber);
+        Assert.False(row.HasReturns);
+        Assert.Equal(0m, row.ReturnAmount);
 
-        var saleReturn = SaleReturn.Record(
-            shop.Id, sale.Id, "RET-001", DateTimeOffset.UtcNow, user.Id, null, 150, 0, 150, ReturnPayoutDestination.Refund, 127.12m, 22.88m, null, null, new List<SaleReturnLineInput> { returnLine }).Value;
-
-        _saleRepository.GetByShopAndDateRangeAsync(shop.Id, startDate, endDate, Arg.Any<CancellationToken>())
-            .Returns(new List<Sale> { sale });
-
-        _saleReturnRepository.GetBySaleAsync(shop.Id, sale.Id, Arg.Any<CancellationToken>())
-            .Returns(new List<SaleReturn> { saleReturn });
-
-        var builder = CreateBuilder();
-
-        // Act
-        var result = await builder.BuildAsync(shop, user, startDate, endDate, SalesExportLevel.Summary, CancellationToken.None);
-
-        // Assert
-        Assert.Single(result.ReturnRows);
-        var row = result.ReturnRows[0];
-        Assert.Equal("RET-001", row.ReturnNumber);
-        Assert.Equal("INV-001", row.InvoiceNumber);
-        Assert.Equal("Alice", row.CustomerName);
-        Assert.Equal(150, row.TotalRefundAmount);
-        Assert.Equal(127.12m, row.TotalTaxableAmount);
-        Assert.Equal(22.88m, row.TotalTaxAmount);
-        
-        Assert.Single(row.TaxBreakup);
-        var tax = row.TaxBreakup[0];
-        Assert.Equal(18, tax.TaxRatePercent);
-        Assert.Equal(127.12m, tax.TaxableAmount);
-        Assert.Equal(22.88m, tax.TaxAmount);
+        var adjustment = Assert.Single(result.ReturnAdjustments);
+        Assert.Equal("INV-APR", adjustment.InvoiceNumber);
+        Assert.Equal(118m, adjustment.FinancialAdjustment);
+        Assert.Equal(100m, Assert.Single(result.TaxBreakup).ReturnTaxableAmount);
     }
 
     [Fact]
-    public async Task BuildAsync_ShouldIncludeVoidedReturnRowsMarkedAsVoided()
+    public async Task BuildAsync_ReturnAndVoidInPeriod_ShowBothAndNetToZero()
     {
-        // Arrange
         var shop = MakeShop();
-        var user = MakeUser();
-        var startDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-1));
-        var endDate = DateOnly.FromDateTime(DateTime.UtcNow);
+        var sale = AccountingSale(shop.Id, "INV-001", new DateTimeOffset(2026, 5, 2, 9, 0, 0, TimeSpan.Zero));
+        var saleReturn = PostedReturn(sale, "RET-1", new DateTimeOffset(2026, 5, 4, 9, 0, 0, TimeSpan.Zero),
+            approved: 118m, taxable: 100m, tax: 18m);
+        saleReturn.Void(new DateTimeOffset(2026, 5, 6, 9, 0, 0, TimeSpan.Zero), Guid.NewGuid(), "Entered twice");
+        Arrange(shop, [sale], [saleReturn]);
 
-        var sale = Sale.Create(
-            shop.Id, "INV-001", null, null, null, PaymentMethod.Cash, DateTimeOffset.UtcNow, 100, 0, 100, 0, new List<SaleItem>());
+        var result = await CreateBuilder().BuildAsync(shop, MakeUser(), MayFirst, MayLast, SalesExportLevel.Summary, CancellationToken.None);
 
-        var saleReturn = SaleReturn.Record(
-            shop.Id, sale.Id, "RET-001", DateTimeOffset.UtcNow, user.Id, null, 100, 0, 100, ReturnPayoutDestination.Refund, 100, 0, null, null, new List<SaleReturnLineInput>()).Value;
-        saleReturn.Void(DateTimeOffset.UtcNow, user.Id, "Testing");
-
-        _saleRepository.GetByShopAndDateRangeAsync(shop.Id, startDate, endDate, Arg.Any<CancellationToken>())
-            .Returns(new List<Sale> { sale });
-
-        _saleReturnRepository.GetBySaleAsync(shop.Id, sale.Id, Arg.Any<CancellationToken>())
-            .Returns(new List<SaleReturn> { saleReturn });
-
-        var builder = CreateBuilder();
-
-        // Act
-        var result = await builder.BuildAsync(shop, user, startDate, endDate, SalesExportLevel.Summary, CancellationToken.None);
-
-        // Assert - voided return should be included but marked as voided
-        Assert.Single(result.ReturnRows);
-        Assert.True(result.ReturnRows[0].IsVoided);
-        Assert.Equal("RET-001", result.ReturnRows[0].ReturnNumber);
+        Assert.Equal(
+            [ReturnAdjustmentEntryKind.Return, ReturnAdjustmentEntryKind.VoidReversal],
+            result.ReturnAdjustments.Select(a => a.Kind));
+        var row = Assert.Single(result.SummaryRows);
+        Assert.Equal("RET-1, RET-1 (void)", row.ReturnNumbers);
+        Assert.Equal(0m, row.ReturnAmount);
+        Assert.Equal(118m, row.NetSalesAmount);
+        Assert.Equal(0m, Assert.Single(result.TaxBreakup).ReturnTaxAmount);
     }
+
+    [Fact]
+    public async Task BuildAsync_LineItems_ReturnedQuantityIsPhysicalAndCurrent()
+    {
+        var shop = MakeShop();
+        var sale = AccountingSale(shop.Id, "INV-001", new DateTimeOffset(2026, 5, 2, 9, 0, 0, TimeSpan.Zero));
+        var juneReturn = PostedReturn(sale, "RET-JUN", new DateTimeOffset(2026, 6, 4, 9, 0, 0, TimeSpan.Zero),
+            approved: 0m, taxable: 0m, tax: 0m);
+        Arrange(shop, [sale], []);
+        _saleReturnRepository.GetBySaleAsync(shop.Id, sale.Id, Arg.Any<CancellationToken>())
+            .Returns(new List<SaleReturn> { juneReturn });
+        _itemRepository.GetByIdsAsync(shop.Id, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(new List<Item>());
+
+        var result = await CreateBuilder().BuildAsync(shop, MakeUser(), MayFirst, MayLast, SalesExportLevel.LineItems, CancellationToken.None);
+
+        var line = Assert.Single(result.LineItemRows);
+        Assert.Equal(1m, line.ReturnedQuantity);
+        Assert.Equal("FullyReturned", line.ReturnStatus);
+        Assert.Equal("RET-JUN", line.ReturnNumbers);
+        Assert.Empty(result.ReturnAdjustments);
+    }
+
+    private void Arrange(Shop shop, IReadOnlyList<Sale> sales, IReadOnlyList<SaleReturn> postedInRange)
+    {
+        _saleRepository.GetByShopAndDateRangeAsync(shop.Id, MayFirst, MayLast, Arg.Any<CancellationToken>())
+            .Returns(sales.ToList());
+        _saleReturnRepository.GetPostedInRangeAsync(shop.Id, MayFirst, MayLast, Arg.Any<CancellationToken>())
+            .Returns(postedInRange.ToList());
+        foreach (var sale in sales)
+        {
+            _saleReturnRepository.GetBySaleAsync(shop.Id, sale.Id, Arg.Any<CancellationToken>())
+                .Returns(new List<SaleReturn>());
+        }
+    }
+
+    private static Sale AccountingSale(Guid shopId, string invoiceNumber, DateTimeOffset soldAt, Guid? customerId = null) =>
+        Intelibill.Application.Unit.Tests.Features.Exports.Accounting.ReturnAccountingFixtures.Sale(shopId, invoiceNumber, customerId, soldAt);
+
+    private static SaleReturn PostedReturn(
+        Sale sale,
+        string returnNumber,
+        DateTimeOffset processedAt,
+        decimal approved,
+        decimal taxable,
+        decimal tax,
+        decimal dueReduction = 0m,
+        Guid? creditNoteId = null) =>
+        Intelibill.Application.Unit.Tests.Features.Exports.Accounting.ReturnAccountingFixtures.Return(
+            sale,
+            approved,
+            taxable,
+            tax,
+            dueReduction: dueReduction,
+            destination: creditNoteId.HasValue ? ReturnPayoutDestination.CreditNote : ReturnPayoutDestination.Refund,
+            creditNoteId: creditNoteId,
+            processedAt: processedAt,
+            returnNumber: returnNumber);
 }
