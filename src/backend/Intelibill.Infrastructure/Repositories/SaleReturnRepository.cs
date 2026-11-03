@@ -48,6 +48,27 @@ internal sealed class SaleReturnRepository(ApplicationDbContext context)
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<SaleReturn>> GetPostedInRangeAsync(
+        Guid shopId,
+        DateOnly startDate,
+        DateOnly endDate,
+        CancellationToken cancellationToken = default)
+    {
+        var start = ToUtcStart(startDate);
+        var exclusiveEnd = ToUtcStart(endDate.AddDays(1));
+
+        return await DbSet
+            .AsNoTracking()
+            .AsSplitQuery()
+            .Include(r => r.Items)
+            .Include(r => r.Settlements)
+            .Where(r => r.ShopId == shopId
+                && ((r.ProcessedAt >= start && r.ProcessedAt < exclusiveEnd)
+                    || (r.VoidedAt >= start && r.VoidedAt < exclusiveEnd)))
+            .OrderBy(r => r.ProcessedAt)
+            .ToListAsync(cancellationToken);
+    }
+
     private static DateTime ToUtcStart(DateOnly utcDate) =>
         DateTime.SpecifyKind(utcDate.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
 

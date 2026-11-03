@@ -17,6 +17,9 @@ internal sealed class SaleReturnItemConfiguration : IEntityTypeConfiguration<Sal
             tableBuilder.HasCheckConstraint(
                 "ck_sale_return_items_refund_cap",
                 "approved_refund_amount <= max_refund_amount OR notes IS NOT NULL");
+            tableBuilder.HasCheckConstraint(
+                "ck_sale_return_items_adjustment_split",
+                "(adjustment_taxable_amount IS NULL AND adjustment_tax_amount IS NULL AND adjustment_non_tax_amount IS NULL) OR (adjustment_taxable_amount >= 0 AND adjustment_tax_amount >= 0 AND adjustment_non_tax_amount >= 0 AND adjustment_taxable_amount + adjustment_tax_amount + adjustment_non_tax_amount = approved_refund_amount)");
         });
 
         builder.HasKey(i => i.Id);
@@ -74,6 +77,15 @@ internal sealed class SaleReturnItemConfiguration : IEntityTypeConfiguration<Sal
 
         builder.Property(i => i.Notes)
             .HasMaxLength(1000);
+
+        builder.Property(i => i.AdjustmentTaxableAmount)
+            .HasPrecision(18, 2);
+
+        builder.Property(i => i.AdjustmentTaxAmount)
+            .HasPrecision(18, 2);
+
+        builder.Property(i => i.AdjustmentNonTaxAmount)
+            .HasPrecision(18, 2);
 
         builder.HasIndex(i => new { i.ShopId, i.SaleItemId });
         builder.HasIndex(i => new { i.ShopId, i.SaleId });

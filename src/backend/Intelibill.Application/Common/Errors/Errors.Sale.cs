@@ -227,6 +227,11 @@ public static partial class Errors
         public static Error ReturnDueReductionExceedsOutstandingDue =>
             Error.Validation("SaleReturn.DueReductionExceedsOutstandingDue", "Due reduction cannot exceed current outstanding due.");
 
+        public static Error ReturnAccountingPolicyUnsupported(Guid saleItemId) =>
+            Error.Validation(
+                "SaleReturn.AccountingPolicyUnsupported",
+                $"The refund for sale item '{saleItemId}' cannot be classified for tax under the shop's return accounting policy: the returned share has no paid value to apportion. Approve a zero refund or review the sale.");
+
         public static Error ReturnRefundOverrideReasonRequired =>
             Error.Validation("SaleReturn.RefundOverrideReasonRequired", "Refund override reason is required when approving a refund above the discounted paid amount.");
 

@@ -34,6 +34,7 @@ public class ApplicationDbContext(
     public DbSet<ReconciliationIssue> ReconciliationIssues => Set<ReconciliationIssue>();
     public DbSet<SaleReturn> SaleReturns => Set<SaleReturn>();
     public DbSet<SaleReturnItem> SaleReturnItems => Set<SaleReturnItem>();
+    public DbSet<SaleReturnSettlement> SaleReturnSettlements => Set<SaleReturnSettlement>();
     public DbSet<InvoiceSequence> InvoiceSequences => Set<InvoiceSequence>();
     public DbSet<InvoiceLease> InvoiceLeases => Set<InvoiceLease>();
     public DbSet<AuthSession> AuthSessions => Set<AuthSession>();

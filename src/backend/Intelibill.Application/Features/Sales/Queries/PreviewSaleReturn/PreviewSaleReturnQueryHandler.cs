@@ -6,7 +6,8 @@ using Intelibill.Domain.Enums;
 namespace Intelibill.Application.Features.Sales.Queries.PreviewSaleReturn;
 
 public sealed class PreviewSaleReturnQueryHandler(
-    ISaleReturnValidator saleReturnValidator)
+    ISaleReturnValidator saleReturnValidator,
+    IReturnAccountingPolicy returnAccountingPolicy)
 {
     public async Task<ErrorOr<SaleReturnPreviewDto>> Handle(
         PreviewSaleReturnQuery query,
@@ -68,7 +69,31 @@ public sealed class PreviewSaleReturnQueryHandler(
                 validated.Calculation.TotalTaxAmount,
                 validated.Calculation.CustomerBalanceBefore,
                 validated.Calculation.CustomerBalanceAfter) : null,
-            FilterWarnings(validated.Calculation.Warnings, hasFinancialAccess));
+            FilterWarnings(WithAccountingWarning(validated.Calculation), hasFinancialAccess));
+    }
+
+    /// <summary>Posting refuses a refund the accounting policy cannot classify; the preview says so first.</summary>
+    private IReadOnlyList<SaleReturnCalculationWarning> WithAccountingWarning(SaleReturnCalculationResult calculation)
+    {
+        var classification = returnAccountingPolicy.Classify(calculation.Lines
+            .Select(line => new ReturnAccountingLineRequest(
+                line.SaleItemId,
+                line.MaxRefundAmount,
+                line.TaxAmount,
+                line.ApprovedRefundAmount))
+            .ToList());
+
+        if (!classification.IsError)
+            return calculation.Warnings;
+
+        return
+        [
+            .. calculation.Warnings,
+            new SaleReturnCalculationWarning(
+                "sale_return.accounting_unsupported",
+                classification.FirstError.Description,
+                SaleReturnWarningSeverity.Warning),
+        ];
     }
 
     private static List<SaleReturnPreviewWarningDto> FilterWarnings(

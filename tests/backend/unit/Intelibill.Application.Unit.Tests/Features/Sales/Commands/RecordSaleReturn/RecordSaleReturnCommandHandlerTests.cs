@@ -27,6 +27,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
     private readonly ISaleReturnNumberGenerator _returnNumberGenerator = Substitute.For<ISaleReturnNumberGenerator>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
     private readonly ISaleReturnCalculator _calculator = new SaleReturnCalculator();
+    private IReturnAccountingPolicy _accountingPolicy = new ProportionalLineTaxReturnAccountingPolicy();
 
     public RecordSaleReturnCommandHandlerTests()
     {
@@ -54,6 +55,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
             _stockTransactionRepository,
             _saleReturnRepository,
             _customerLedgerEntryRepository,
+            _accountingPolicy,
             new SaleReturnMutationCoordinator(_saleRepository, _unitOfWork),
             _unitOfWork);
     }
@@ -875,6 +877,177 @@ public sealed class RecordSaleReturnCommandHandlerTests
         Assert.True(result.IsError);
         Assert.Equal("SaleReturn.QuantityExceedsRemaining", result.FirstError.Code);
         await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RecordReturn_PostsBalancedSnapshot_WithExternalRefundLeg()
+    {
+        var fixture = ArrangeSale(ShopRole.Owner);
+        var saved = CaptureSavedReturn();
+
+        var result = await CreateHandler().HandleAsync(
+            Command(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id,
+                payoutDestination: ReturnPayoutDestination.Refund, approvedRefundAmount: 100m, lineNotes: "Opened box"),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        var saleReturn = saved();
+        Assert.Equal(ReturnAccountingStatus.Balanced, saleReturn.AccountingStatus);
+        Assert.Equal("proportional-line-tax/1", saleReturn.AccountingPolicyVersion);
+        Assert.Equal(220m, saleReturn.OriginalReturnedGross);
+        Assert.Equal(90.91m, saleReturn.AdjustmentTaxableAmount);
+        Assert.Equal(9.09m, saleReturn.AdjustmentTaxAmount);
+        Assert.Equal(0m, saleReturn.AdjustmentNonTaxAmount);
+
+        var item = Assert.Single(saleReturn.Items);
+        Assert.Equal(200m, item.TaxableAmount);
+        Assert.Equal(20m, item.TaxAmount);
+        Assert.Equal(90.91m, item.AdjustmentTaxableAmount);
+        Assert.Equal(9.09m, item.AdjustmentTaxAmount);
+
+        var settlement = Assert.Single(saleReturn.Settlements);
+        Assert.Equal(ReturnSettlementKind.ExternalRefund, settlement.Kind);
+        Assert.Equal(100m, settlement.Amount);
+        Assert.Null(settlement.CreditNoteId);
+    }
+
+    [Fact]
+    public async Task RecordReturn_MixedDueAndCreditNote_PostsBothLegsWithReferences()
+    {
+        var fixture = ArrangeSale(ShopRole.Owner, dueAmount: 300m, hasCustomer: true);
+        _customerLedgerEntryRepository.GetCustomerBalanceAsync(fixture.Shop.Id, fixture.Sale.CustomerId!.Value, Arg.Any<CancellationToken>())
+            .Returns(100m);
+        _creditNoteCodeGenerator.GenerateAsync(fixture.Shop.Id, Arg.Any<CancellationToken>()).Returns("CN-20261103-MIX001");
+        CustomerLedgerEntry? ledgerEntry = null;
+        _customerLedgerEntryRepository.AddAsync(Arg.Any<CustomerLedgerEntry>(), Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask)
+            .AndDoes(x => ledgerEntry = x.ArgAt<CustomerLedgerEntry>(0));
+        CreditNote? creditNote = null;
+        _creditNoteRepository.AddAsync(Arg.Any<CreditNote>(), Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask)
+            .AndDoes(x => creditNote = x.ArgAt<CreditNote>(0));
+        var saved = CaptureSavedReturn();
+
+        var result = await CreateHandler().HandleAsync(
+            Command(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id,
+                payoutDestination: ReturnPayoutDestination.CreditNote),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        var saleReturn = saved();
+        Assert.Collection(
+            saleReturn.Settlements,
+            receivable =>
+            {
+                Assert.Equal(ReturnSettlementKind.ReceivableReduction, receivable.Kind);
+                Assert.Equal(100m, receivable.Amount);
+                Assert.Equal(fixture.Sale.CustomerId, receivable.CustomerId);
+                Assert.Equal(ledgerEntry!.Id, receivable.CustomerLedgerEntryId);
+            },
+            storeCredit =>
+            {
+                Assert.Equal(ReturnSettlementKind.StoreCreditIssued, storeCredit.Kind);
+                Assert.Equal(120m, storeCredit.Amount);
+                Assert.Equal(creditNote!.Id, storeCredit.CreditNoteId);
+            });
+        Assert.Equal(200m, saleReturn.AdjustmentTaxableAmount);
+        Assert.Equal(20m, saleReturn.AdjustmentTaxAmount);
+    }
+
+    [Fact]
+    public async Task RecordReturn_AllDue_PostsSingleReceivableLeg()
+    {
+        var fixture = ArrangeSale(ShopRole.Owner, dueAmount: 550m, hasCustomer: true);
+        var saved = CaptureSavedReturn();
+
+        var result = await CreateHandler().HandleAsync(
+            Command(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id,
+                payoutDestination: ReturnPayoutDestination.CreditNote),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        var settlement = Assert.Single(saved().Settlements);
+        Assert.Equal(ReturnSettlementKind.ReceivableReduction, settlement.Kind);
+        Assert.Equal(220m, settlement.Amount);
+        await _creditNoteRepository.DidNotReceive().AddAsync(Arg.Any<CreditNote>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RecordReturn_WalkInDueReduction_PostsReceivableWithoutCustomer()
+    {
+        var fixture = ArrangeSale(ShopRole.Owner, dueAmount: 50m);
+        var saved = CaptureSavedReturn();
+
+        var result = await CreateHandler().HandleAsync(
+            Command(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id,
+                payoutDestination: ReturnPayoutDestination.Refund),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Collection(
+            saved().Settlements,
+            receivable =>
+            {
+                Assert.Equal(ReturnSettlementKind.ReceivableReduction, receivable.Kind);
+                Assert.Equal(50m, receivable.Amount);
+                Assert.Null(receivable.CustomerId);
+                Assert.Null(receivable.CustomerLedgerEntryId);
+            },
+            refund =>
+            {
+                Assert.Equal(ReturnSettlementKind.ExternalRefund, refund.Kind);
+                Assert.Equal(170m, refund.Amount);
+            });
+    }
+
+    [Fact]
+    public async Task RecordReturn_ZeroRefund_PostsSnapshotWithoutSettlement()
+    {
+        var fixture = ArrangeSale(ShopRole.Owner);
+        var saved = CaptureSavedReturn();
+
+        var result = await CreateHandler().HandleAsync(
+            Command(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id,
+                payoutDestination: null, approvedRefundAmount: 0m, lineNotes: "Outside policy"),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        var saleReturn = saved();
+        Assert.Equal(ReturnAccountingStatus.Balanced, saleReturn.AccountingStatus);
+        Assert.Empty(saleReturn.Settlements);
+        Assert.Equal(0m, saleReturn.AdjustmentTaxableAmount);
+        Assert.Equal(220m, saleReturn.OriginalReturnedGross);
+        Assert.Equal(12m, fixture.Batch.Quantity);
+    }
+
+    [Fact]
+    public async Task RecordReturn_UnsupportedPolicy_RefusedWithoutSaving()
+    {
+        var fixture = ArrangeSale(ShopRole.Owner);
+        var refusing = Substitute.For<IReturnAccountingPolicy>();
+        refusing.Classify(Arg.Any<IReadOnlyList<ReturnAccountingLineRequest>>())
+            .Returns(Errors.Sale.ReturnAccountingPolicyUnsupported(fixture.SaleItem.Id));
+        _accountingPolicy = refusing;
+
+        var result = await CreateHandler().HandleAsync(
+            Command(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, payoutDestination: ReturnPayoutDestination.Refund),
+            CancellationToken.None);
+
+        Assert.Equal("SaleReturn.AccountingPolicyUnsupported", result.FirstError.Code);
+        Assert.Equal(10m, fixture.Batch.Quantity);
+        await _saleReturnRepository.DidNotReceive().AddAsync(Arg.Any<SaleReturn>(), Arg.Any<CancellationToken>());
+        await _stockTransactionRepository.DidNotReceive().AddAsync(Arg.Any<StockTransaction>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).RollbackTransactionAsync(Arg.Any<CancellationToken>());
+    }
+
+    private Func<SaleReturn> CaptureSavedReturn()
+    {
+        SaleReturn? saved = null;
+        _saleReturnRepository.AddAsync(Arg.Any<SaleReturn>(), Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask)
+            .AndDoes(x => saved = x.ArgAt<SaleReturn>(0));
+        return () => saved ?? throw new InvalidOperationException("No return was saved.");
     }
 
     private SaleReturnFixture ArrangeSale(

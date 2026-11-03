@@ -15,6 +15,27 @@ public static partial class Errors
         public static Error ReturnPayoutDestinationInvalid =>
             Error.Validation("SaleReturn.PayoutDestinationInvalid", "Return payout destination must be a recognised value.");
 
+        public static Error ReturnAccountingAlreadyPosted =>
+            Error.Validation("SaleReturn.AccountingAlreadyPosted", "The return's accounting snapshot is already posted and cannot change.");
+
+        public static Error ReturnAccountingVoided =>
+            Error.Validation("SaleReturn.AccountingVoided", "A voided return cannot be posted.");
+
+        public static Error ReturnAccountingPolicyRequired =>
+            Error.Validation("SaleReturn.AccountingPolicyRequired", "The accounting policy version is required.");
+
+        public static Error ReturnAccountingAmountInvalid =>
+            Error.Validation("SaleReturn.AccountingAmountInvalid", "Accounting amounts must be non-negative with at most two decimal places.");
+
+        public static Error ReturnAccountingLineMismatch =>
+            Error.Validation("SaleReturn.AccountingLineMismatch", "Each return line must be classified once and its adjustment must equal its approved refund.");
+
+        public static Error ReturnAccountingSettlementMismatch =>
+            Error.Validation("SaleReturn.AccountingSettlementMismatch", "Settlement legs must equal the approved refund, split as recorded between due reduction and payout.");
+
+        public static Error ReturnAccountingSettlementInvalid =>
+            Error.Validation("SaleReturn.AccountingSettlementInvalid", "Each settlement leg must be positive and reference what settled it.");
+
         public static Error ItemsRequired =>
             Error.Validation("Sale.ItemsRequired", "At least one sale item is required.");
 

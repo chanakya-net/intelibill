@@ -44,10 +44,16 @@ internal sealed class SaleReturnValidator(
             .Where(r => !r.IsVoided)
             .ToList();
 
-        var returnedQuantityBySaleItemId = activeReturns
+        var returnedBySaleItemId = activeReturns
             .SelectMany(r => r.Items)
             .GroupBy(i => i.SaleItemId)
-            .ToDictionary(g => g.Key, g => g.Sum(i => i.Quantity));
+            .ToDictionary(
+                g => g.Key,
+                g => new ReturnedShare(
+                    g.Sum(i => i.Quantity),
+                    g.Sum(i => i.MaxRefundAmount),
+                    g.Sum(i => i.TaxableAmount),
+                    g.Sum(i => i.TaxAmount)));
 
         var saleItemsById = sale.Items.ToDictionary(i => i.Id);
         var lineInputs = new List<ValidatedSaleReturnLine>();
@@ -67,7 +73,7 @@ internal sealed class SaleReturnValidator(
                 continue;
             }
 
-            var returnedQuantity = returnedQuantityBySaleItemId.GetValueOrDefault(item.SaleItemId);
+            var returnedQuantity = returnedBySaleItemId.GetValueOrDefault(item.SaleItemId)?.Quantity ?? 0m;
             var returnableQuantity = Math.Max(0m, saleItem.Quantity - returnedQuantity);
             if (item.Quantity > returnableQuantity)
             {
@@ -127,20 +133,28 @@ internal sealed class SaleReturnValidator(
 
         var outstandingDue = await GetOutstandingDueAsync(request.ShopId, sale, activeReturns, cancellationToken);
         var calculation = saleReturnCalculator.Calculate(new SaleReturnCalculationRequest(
-            lineInputs.Select(line => new SaleReturnLineCalculationRequest(
-                line.Request.SaleItemId,
-                line.Request.Quantity,
-                line.SaleItem.CostPrice,
-                line.SaleItem.SalesPrice,
-                line.SaleItem.TaxRatePercent,
-                line.SaleItem.IsPriceIncludingTax,
-                line.SaleItem.Quantity,
-                line.SaleItem.TaxableAmount,
-                line.SaleItem.TaxAmount,
-                line.SaleItem.TotalAmount,
-                line.Request.Condition,
-                line.Request.ApprovedRefundAmount,
-                line.Request.Notes)).ToList(),
+            lineInputs.Select(line =>
+            {
+                var returned = returnedBySaleItemId.GetValueOrDefault(line.Request.SaleItemId) ?? ReturnedShare.None;
+                return new SaleReturnLineCalculationRequest(
+                    line.Request.SaleItemId,
+                    line.Request.Quantity,
+                    line.SaleItem.CostPrice,
+                    line.SaleItem.SalesPrice,
+                    line.SaleItem.TaxRatePercent,
+                    line.SaleItem.IsPriceIncludingTax,
+                    line.SaleItem.Quantity,
+                    line.SaleItem.TaxableAmount,
+                    line.SaleItem.TaxAmount,
+                    line.SaleItem.TotalAmount,
+                    line.Request.Condition,
+                    line.Request.ApprovedRefundAmount,
+                    line.Request.Notes,
+                    PreviouslyReturnedQuantity: returned.Quantity,
+                    PreviouslyAllocatedTotalAmount: returned.TotalAmount,
+                    PreviouslyAllocatedTaxableAmount: returned.TaxableAmount,
+                    PreviouslyAllocatedTaxAmount: returned.TaxAmount);
+            }).ToList(),
             OutstandingDueAmount: outstandingDue,
             CustomerBalanceBefore: sale.CustomerId.HasValue ? outstandingDue : null,
             request.DueReductionOverrideAmount,
@@ -188,5 +202,11 @@ internal sealed class SaleReturnValidator(
         }
 
         return Math.Max(0m, sale.DueAmount - activeReturns.Sum(r => r.DueReductionAmount));
+    }
+
+    /// <summary>What the line's active returns already took back of the sold quantity and its invoice value.</summary>
+    private sealed record ReturnedShare(decimal Quantity, decimal TotalAmount, decimal TaxableAmount, decimal TaxAmount)
+    {
+        public static readonly ReturnedShare None = new(0m, 0m, 0m, 0m);
     }
 }
