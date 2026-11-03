@@ -1,5 +1,6 @@
 import { NewSalePagePaymentFlowService } from './new-sale-page.payment-flow.service';
 import { CartItem } from '../services/sale-cart-state.service';
+import { openPrintWindow } from '../utils/print-window';
 
 export abstract class NewSalePageOfflineFlowService extends NewSalePagePaymentFlowService {
   async searchOfflineCatalog(term: string): Promise<void> {
@@ -99,6 +100,7 @@ export abstract class NewSalePageOfflineFlowService extends NewSalePagePaymentFl
           grandTotal: result.confirmation.grandTotal,
           clientSaleId: result.confirmation.clientSaleId,
         });
+        this.blockedOfflinePrintUrl.set(null);
         this.showOfflineConfirmation.set(true);
         this.resetTransientState();
         await this.offlineSaleState.refreshSnapshot();
@@ -124,7 +126,7 @@ export abstract class NewSalePageOfflineFlowService extends NewSalePagePaymentFl
       return;
     }
 
-    window.open(`/sales/${confirmation.clientSaleId}/print?template=a4&offline=1`, '_blank');
+    this.blockedOfflinePrintUrl.set(openPrintWindow(`/sales/${confirmation.clientSaleId}/print?template=a4&offline=1`));
   }
 
   printOfflineThermal(): void {
@@ -133,6 +135,8 @@ export abstract class NewSalePageOfflineFlowService extends NewSalePagePaymentFl
       return;
     }
 
-    window.open(`/sales/${confirmation.clientSaleId}/print?template=thermal&offline=1`, '_blank');
+    this.blockedOfflinePrintUrl.set(
+      openPrintWindow(`/sales/${confirmation.clientSaleId}/print?template=thermal&offline=1`),
+    );
   }
 }

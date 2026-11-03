@@ -6,6 +6,7 @@ import { TranslocoTestingModule } from '@ngneat/transloco';
 
 import { SaleInvoiceThermalComponent } from './sale-invoice-thermal.component';
 import type { InvoiceDocument, InvoiceDocumentLine, SaleDto, SaleItemDto } from '../services/sale.models';
+import { buildOfflineInvoiceDocument } from '../services/offline-invoice-document.builder';
 import { ShopDetails } from '../../shops/services/shop.service';
 
 const enIN = JSON.parse(readFileSync(join(process.cwd(), 'public/assets/i18n/en-IN.json'), 'utf-8') as string) as Record<string, unknown>;
@@ -207,15 +208,14 @@ describe('SaleInvoiceThermalComponent', () => {
     expect(text).toContain('Invoice');
   });
 
-  it('shows pending sync marker when enabled', () => {
+  it('keeps the queue state off the printed invoice', () => {
     component.sale = makeSale();
     component.shop = makeShop();
     component.pendingSync = true;
     fixture.detectChanges();
 
-    const marker = fixture.nativeElement.querySelector('.thermal-invoice__pending-text');
-    expect(marker).not.toBeNull();
-    expect(marker?.textContent).toContain('Sale Queued for Sync');
+    expect(fixture.nativeElement.querySelector('.thermal-invoice__pending-text')).toBeNull();
+    expect(fixture.nativeElement.textContent).not.toContain('Sale Queued for Sync');
   });
 
   it('does not show pending sync marker when disabled', () => {
@@ -665,5 +665,74 @@ describe('SaleInvoiceThermalComponent', () => {
       expect(fixture.nativeElement.querySelector('.thermal-invoice__tax-row')).toBeNull();
       expect(fixture.nativeElement.querySelector('.thermal-invoice__legacy-note')).toBeNull();
     });
+  });
+
+  /** A document as the device freezes it offline: built by the same code the finalizer runs. */
+  function offlineDocument(): InvoiceDocument {
+    const built = buildOfflineInvoiceDocument({
+      sellerProfile: {
+        seller: {
+          legalName: 'Main Shop Pvt Ltd',
+          tradeName: 'Main Shop',
+          address: 'Shop No. 14, Ground Floor, Sri Venkateshwara Commercial Complex, 3rd Cross, 80 Feet Road, Koramangala 4th Block, Bengaluru, Karnataka 560034',
+          stateCode: '29',
+          stateName: 'Karnataka',
+          gstin: '29AAPFU0939F1ZR',
+          taxRegime: 'Regular',
+        },
+        eInvoiceStatus: 'BelowThreshold',
+        seriesCode: 'A',
+      },
+      fiscalYearStart: 2026,
+      soldAt: '2026-11-03T10:00:00Z',
+      customer: null,
+      customerName: 'Ravi',
+      customerPhone: '9876543210',
+      pricing: {
+        calculationVersion: 1,
+        lines: [
+          {
+            clientLineId: 'line-1', inventoryBatchId: 'batch-1', itemId: 'item-1', barcode: 'SKU-1', itemName: 'Steel Bottle',
+            batchNumber: 'B1', quantity: 2, salesPrice: 50.03, mrp: 60, costPrice: 30, taxRatePercent: 18, taxIncluded: false,
+            hsnCode: '7323', preTaxAmount: 100.06, itemDiscountAmount: 0.01, saleDiscountAmount: 0, taxableAmount: 100.05,
+            taxAmount: 18.01, lineTotal: 118.06, configuredRuleId: null, lineType: 'goods', serviceId: null,
+          },
+        ],
+        totals: { totalBeforeDiscount: 100.06, totalDiscount: 0.01, totalTax: 18.01, grandTotal: 118.06, paidAmount: 100, dueAmount: 18.06 },
+      },
+    });
+    if (!built.ok) throw new Error(built.errorCode);
+    return { ...built.draft, number: 'A/2627/000042' };
+  }
+
+  it('prints an offline document with its frozen seller, HSN and UOM, tax split and settlement', () => {
+    component.sale = makeSale({
+      document: offlineDocument(),
+      isLegacyDocument: false,
+      invoiceNumber: 'A/2627/000042',
+      paidAmount: 100,
+      dueAmount: 18.06,
+      totalAmount: 118.06,
+      creditNoteAppliedAmount: 10,
+      creditNoteRedemptions: [{ creditNoteId: 'cn-1', code: 'CN-OFFLINE-0001', appliedAmount: 10 }],
+    });
+    component.shop = makeShop({ name: 'Renamed Shop', gstNumber: '27AAPFU0939F1ZV', address: 'Somewhere else' });
+    component.pendingSync = true;
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement.textContent as string).replace(/\s+/g, ' ');
+    expect(text).toContain('Koramangala 4th Block, Bengaluru, Karnataka 560034');
+    expect(text).toContain('29AAPFU0939F1ZR');
+    expect(text).not.toContain('27AAPFU0939F1ZV');
+    expect(text).not.toContain('Renamed Shop');
+    expect(text).toContain('A/2627/000042');
+    expect(text).toContain('7323');
+    expect(text).toContain('NOS');
+    expect(text).toContain('CGST');
+    expect(text).toContain('SGST');
+    expect(text).toContain('9.01');
+    expect(text).toContain('18.06');
+    expect(text).toContain('CN-OFFLINE-0001');
+    expect(fixture.nativeElement.querySelector('.thermal-invoice__legacy-note')).toBeNull();
   });
 });

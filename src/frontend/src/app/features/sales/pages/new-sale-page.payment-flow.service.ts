@@ -207,6 +207,7 @@ export abstract class NewSalePagePaymentFlowService extends NewSalePageDiscountV
   onOfflineDone(): void {
     this.showOfflineConfirmation.set(false);
     this.offlineConfirmation.set(null);
+    this.blockedOfflinePrintUrl.set(null);
     this.router.navigate(['/sales']);
   }
 

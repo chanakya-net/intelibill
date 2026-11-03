@@ -12,6 +12,10 @@
     </button>
   </div>
 
+  <section *ngIf="deliveryStatusKey() as deliveryKey" class="print-state print-state--delivery" role="status">
+    {{ deliveryKey | transloco }}
+  </section>
+
   <section *ngIf="isLoading()" class="print-state" aria-live="polite">
     {{ 'common.loading' | transloco }}
   </section>

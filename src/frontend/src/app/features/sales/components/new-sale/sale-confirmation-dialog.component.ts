@@ -33,6 +33,8 @@ export class SaleConfirmationDialogComponent {
   @Input() doneButtonLabel = 'sales.invoice.done';
   @Input() printA4ButtonLabel = 'sales.invoice.printA4';
   @Input() printThermalButtonLabel = 'sales.invoice.printThermal';
+  /** A print view the browser refused to open in a new window; offered as a link instead. */
+  @Input() blockedPrintUrl: string | null = null;
 
   @Output() closed = new EventEmitter<void>();
   @Output() printA4Requested = new EventEmitter<void>();

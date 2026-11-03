@@ -1482,7 +1482,16 @@
         "notRegisteredUnderGst": "The seller is not registered under GST; no GST has been charged."
       },
       "offlineLegacyNote": "Issued offline before this device recorded the seller's tax details. This copy shows the priced bill only and is not a copy of a GST document.",
-      "openReconciliation": "Open offline reconciliation"
+      "openReconciliation": "Open offline reconciliation",
+      "printBlocked": "The browser blocked the print window.",
+      "openPrintView": "Open the invoice to print",
+      "delivery": {
+        "pending": "Queued on this device. Not yet sent to the server.",
+        "syncing": "Sending to the server.",
+        "failed": "Sending failed. The invoice stays queued on this device and will be sent again.",
+        "needsReview": "The server is holding this invoice for review.",
+        "synced": "Sent to the server."
+      }
     },
     "profitLoss": {
       "eyebrow": "Sales Report",

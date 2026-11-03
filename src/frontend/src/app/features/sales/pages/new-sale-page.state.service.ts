@@ -218,6 +218,8 @@ export abstract class NewSalePageStateService {
     clientSaleId: string;
   } | null>(null);
   readonly showOfflineConfirmation = signal(false);
+  /** The offline invoice's print view when the browser blocked its window; the confirmation offers it as a link. */
+  readonly blockedOfflinePrintUrl = signal<string | null>(null);
 
   readonly subtotalAmount = computed(() => {
     const preview = this.checkoutPreview();

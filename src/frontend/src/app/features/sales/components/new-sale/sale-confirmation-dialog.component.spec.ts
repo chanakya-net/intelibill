@@ -105,4 +105,25 @@ describe('SaleConfirmationDialogComponent', () => {
     expect(text).toContain('sales.newSale.offline.confirmation.description');
     expect(icon.className).toContain('pi-clock');
   });
+
+  it('leaves a usable print link when the browser blocked the print window', () => {
+    TestBed.configureTestingModule({
+      imports: [SaleConfirmationDialogComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
+    });
+
+    const fixture = TestBed.createComponent(SaleConfirmationDialogComponent);
+    fixture.componentInstance.visible = true;
+    fixture.componentInstance.saleResult = { ...sale, isOffline: true };
+    fixture.detectChanges();
+    expect(document.querySelector('a.sale-confirmation__blocked-print')).toBeNull();
+
+    fixture.componentInstance.blockedPrintUrl = '/sales/s-1/print?template=a4&offline=1';
+    fixture.changeDetectorRef.markForCheck();
+    fixture.detectChanges();
+
+    const link = document.querySelector('a.sale-confirmation__blocked-print') as HTMLAnchorElement | null;
+    expect(link?.getAttribute('href')).toBe('/sales/s-1/print?template=a4&offline=1');
+    expect(link?.getAttribute('target')).toBe('_blank');
+    expect(document.body.textContent).toContain('sales.invoice.printBlocked');
+  });
 });

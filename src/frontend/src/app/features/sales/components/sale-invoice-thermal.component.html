@@ -30,12 +30,6 @@
     </header>
   </ng-template>
 
-  <section *ngIf="pendingSync" class="thermal-invoice__section thermal-invoice__pending">
-    <p class="thermal-invoice__pending-text">
-      {{ 'sales.newSale.offline.confirmation.queued' | transloco }}
-    </p>
-  </section>
-
   <section *ngIf="sale.document as doc; else legacyMeta" class="thermal-invoice__section">
     <div class="thermal-invoice__meta">
       <span>{{ 'sales.invoice.invoiceNumber' | transloco }} {{ doc.number }}</span>

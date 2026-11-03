@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, Injector, afterNextRender, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import { forkJoin } from 'rxjs';
@@ -11,6 +11,7 @@ import type { SaleDto } from '../../services/sale.models';
 import { SaleInvoiceA4Component } from '../../components/sale-invoice-a4.component';
 import { SaleInvoiceThermalComponent } from '../../components/sale-invoice-thermal.component';
 import { OfflineInvoiceAccessService, type OfflineInvoiceAccessDenial } from '../../services/offline-invoice-access.service';
+import type { OfflineSaleQueueStatus } from '../../services/offline-sale-core.types';
 import { mapOfflineQueuedSaleToSaleDto } from '../../services/offline-sale-invoice.mapper';
 
 type InvoiceTemplate = 'a4' | 'thermal';
@@ -22,6 +23,16 @@ const OFFLINE_DENIAL_KEYS: Readonly<Record<OfflineInvoiceAccessDenial, string>> 
   GRACE_UNAVAILABLE: 'sales.invoice.errors.offlineAccessDenied',
   NOT_OWNER: 'sales.invoice.errors.offlineAccessDenied',
   SCOPE_CHANGED: 'sales.invoice.errors.offlineAccessDenied',
+};
+
+/** Where a queued invoice is in its journey to the server; shown beside the invoice, never printed on it. */
+const DELIVERY_STATUS_KEYS: Readonly<Record<OfflineSaleQueueStatus, string>> = {
+  Pending: 'sales.invoice.delivery.pending',
+  Syncing: 'sales.invoice.delivery.syncing',
+  Failed: 'sales.invoice.delivery.failed',
+  NeedsReview: 'sales.invoice.delivery.needsReview',
+  Synced: 'sales.invoice.delivery.synced',
+  SyncedWithWarnings: 'sales.invoice.delivery.synced',
 };
 
 @Component({
@@ -38,6 +49,7 @@ export class SaleInvoicePrintPageComponent {
   private readonly authService = inject(AuthService);
   private readonly offlineInvoiceAccess = inject(OfflineInvoiceAccessService);
   private readonly transloco = inject(TranslocoService);
+  private readonly injector = inject(Injector);
 
   readonly isLoading = signal(false);
   readonly errorMessage = signal('');
@@ -45,6 +57,7 @@ export class SaleInvoicePrintPageComponent {
   readonly shop = signal<ShopDetails | null>(null);
   readonly template = signal<InvoiceTemplate>(this.resolveTemplate());
   readonly pendingSync = signal(false);
+  readonly deliveryStatusKey = signal<string | null>(null);
   readonly isLegacyOfflineInvoice = computed(() => this.pendingSync() && !!this.sale() && !this.sale()?.document);
 
   constructor() {
@@ -91,7 +104,7 @@ export class SaleInvoicePrintPageComponent {
         this.sale.set(sale);
         this.shop.set(shop);
         this.isLoading.set(false);
-        setTimeout(() => window.print());
+        this.printOnceRendered();
       },
       error: (error) => {
         this.errorMessage.set(error.error?.detail || 'sales.invoice.errors.loadFailed');
@@ -115,12 +128,32 @@ export class SaleInvoicePrintPageComponent {
 
       this.sale.set(mapOfflineQueuedSaleToSaleDto(access.record.payload));
       this.shop.set(this.buildOfflineShopDetails(shopId));
+      this.deliveryStatusKey.set(DELIVERY_STATUS_KEYS[access.record.status] ?? null);
       this.isLoading.set(false);
-      setTimeout(() => window.print());
+      this.printOnceRendered();
     } catch {
       this.errorMessage.set('sales.invoice.errors.offlineLoadFailed');
       this.isLoading.set(false);
     }
+  }
+
+  /**
+   * Opens the browser's print dialog once, after the invoice has rendered and its fonts have loaded, so the first copy
+   * is laid out as every reprint is. Printing reads only what is on the page: it never issues, queues or renumbers.
+   */
+  private printOnceRendered(): void {
+    afterNextRender(
+      () => {
+        void this.printWhenFontsReady();
+      },
+      { injector: this.injector },
+    );
+  }
+
+  private async printWhenFontsReady(): Promise<void> {
+    const fonts = (document as { fonts?: { ready?: Promise<unknown> } }).fonts;
+    await fonts?.ready;
+    window.print();
   }
 
   private resolveTemplate(): InvoiceTemplate {

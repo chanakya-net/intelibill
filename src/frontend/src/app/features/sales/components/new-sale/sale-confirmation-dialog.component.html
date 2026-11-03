@@ -84,6 +84,14 @@
           (click)="onPrintThermal()"
         />
       </div>
+      @if (blockedPrintUrl) {
+        <p class="sale-confirmation__print-blocked text-slate-600 mb-4" role="status">
+          {{ 'sales.invoice.printBlocked' | transloco }}
+          <a class="sale-confirmation__blocked-print" [href]="blockedPrintUrl" target="_blank" rel="noopener">
+            {{ 'sales.invoice.openPrintView' | transloco }}
+          </a>
+        </p>
+      }
     }
 
     <p-button
