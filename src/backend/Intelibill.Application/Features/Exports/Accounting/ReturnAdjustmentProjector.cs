@@ -100,6 +100,7 @@ public static class ReturnAdjustmentProjector
             saleReturn.ProcessedAt,
             sale.Id,
             sale.InvoiceNumber,
+            sale.SoldAt,
             sale.CustomerName,
             status,
             saleReturn.AccountingPolicyVersion,

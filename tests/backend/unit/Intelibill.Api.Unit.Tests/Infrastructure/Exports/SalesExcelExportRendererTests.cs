@@ -348,6 +348,29 @@ public sealed class SalesExcelExportRendererTests
             adjustments.Cell(adjustmentTotals, FindColumn(adjustments, adjustmentHeader, "Financial Adjustment")).GetValue<decimal>());
     }
 
+    [Fact]
+    public async Task RenderAsync_SummarySheet_TotalsReturnsWhenThePeriodHasOnlyEarlierSales()
+    {
+        var earlier = Adjustment("RET-1", "INV-001", 50m, 42.37m, 7.63m,
+            new ReturnAdjustmentSettlement(ReturnSettlementKind.ExternalRefund, 50m, null, null, null));
+        var dataset = new SalesExportDatasetDto(
+            Metadata(SalesExportLevel.Summary),
+            [],
+            [],
+            [new SalesExportTaxBreakupDto(18m, 0m, 0m, 42.37m, 7.63m)],
+            [earlier]);
+
+        var result = await new SalesExcelExportRenderer().RenderAsync(dataset, CancellationToken.None);
+        using var stream = new MemoryStream(result.Content);
+        using var workbook = new XLWorkbook(stream);
+        var sheet = workbook.Worksheet("Sales Summary");
+
+        var headerRow = FindRow(sheet, "Invoice #");
+        var totalsRow = FindRow(sheet, "TOTALS");
+        Assert.Equal(50m, sheet.Cell(totalsRow, FindColumn(sheet, headerRow, "Return Amount")).GetValue<decimal>());
+        Assert.Equal(-50m, sheet.Cell(totalsRow, FindColumn(sheet, headerRow, "Net Sales Amount")).GetValue<decimal>());
+    }
+
     private static async Task<IXLWorksheet> RenderAdjustmentsAsync(IReadOnlyList<ReturnAdjustmentEntry> adjustments)
     {
         var dataset = new SalesExportDatasetDto(Metadata(SalesExportLevel.LineItems), [], [], [], adjustments);
@@ -383,6 +406,7 @@ public sealed class SalesExcelExportRendererTests
             new DateTimeOffset(2026, 5, 4, 12, 0, 0, TimeSpan.Zero),
             Guid.NewGuid(),
             invoiceNumber,
+            new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero),
             "Alice",
             ReturnAccountingStatus.Balanced,
             "proportional-line-tax/1",

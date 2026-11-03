@@ -11,6 +11,7 @@ using Intelibill.Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Npgsql;
 
 namespace Intelibill.Integration.Tests;
 
@@ -195,10 +196,15 @@ public sealed class ReturnAccountingExportTests(PostgreSqlTestFixture fixture) :
         await ExecuteAsync(db => db.Database.ExecuteSqlInterpolatedAsync(
             $"UPDATE sale_returns SET payout_destination = NULL WHERE id = {returnId}"));
 
-        Assert.True(await RunBackfillAsync() >= 1);
-        Assert.Equal(0, await RunBackfillAsync());
+        await RunBackfillAsync();
+        Assert.Equal(0, await PendingReturnCountAsync());
+        var first = await LoadReturnAsync(returnId);
+        await RunBackfillAsync();
 
         var stored = await LoadReturnAsync(returnId);
+        Assert.Equal(
+            (first.AccountingStatus, first.AccountingPolicyVersion, first.AccountingReviewReason),
+            (stored.AccountingStatus, stored.AccountingPolicyVersion, stored.AccountingReviewReason));
         Assert.Equal(ReturnAccountingStatus.NeedsReview, stored.AccountingStatus);
         Assert.Equal("backfill:proportional-line-tax/1", stored.AccountingPolicyVersion);
         Assert.Contains("no recorded destination", stored.AccountingReviewReason, StringComparison.Ordinal);
@@ -223,7 +229,8 @@ public sealed class ReturnAccountingExportTests(PostgreSqlTestFixture fixture) :
         var posted = await LoadReturnAsync(returnId);
 
         await ResetToLegacyAsync(returnId);
-        Assert.True(await RunBackfillAsync() >= 1);
+        await RunBackfillAsync();
+        await RunBackfillAsync();
 
         var backfilled = await LoadReturnAsync(returnId);
         Assert.Equal(ReturnAccountingStatus.Balanced, backfilled.AccountingStatus);
@@ -266,6 +273,7 @@ public sealed class ReturnAccountingExportTests(PostgreSqlTestFixture fixture) :
         var creditNote = Assert.Single(june, v => v.Type == "Credit Note");
         Assert.Equal(returnNumber, creditNote.Number);
         Assert.Equal("20260612", creditNote.Date);
+        Assert.Equal((sale.InvoiceNumber, "20260610"), (creditNote.Reference, creditNote.ReferenceDate));
         Assert.DoesNotContain(june, v => v.Type == "Journal");
 
         var july = await TallyVouchersAsync(shop, July1, July31);
@@ -528,11 +536,21 @@ public sealed class ReturnAccountingExportTests(PostgreSqlTestFixture fixture) :
             """));
     }
 
-    private async Task<int> RunBackfillAsync()
+    /// <summary>
+    /// Runs the script as a role the tenant policies bind, as FORCE row level security binds the
+    /// deployed migrator: a backfill that set no shop context would see no rows and change nothing.
+    /// </summary>
+    private async Task RunBackfillAsync()
     {
         var script = await File.ReadAllTextAsync(Path.Combine(RepositoryRoot(), "scripts", "db", "backfill-sale-return-accounting.sql"));
-        return await QueryAsync(db => db.Database.ExecuteSqlRawAsync(script));
+        await using var connection = new NpgsqlConnection(_factory.RuntimeConnectionString);
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand(script, connection);
+        await command.ExecuteNonQueryAsync();
     }
+
+    private Task<int> PendingReturnCountAsync() =>
+        QueryAsync(db => db.SaleReturns.CountAsync(r => r.AccountingStatus == null));
 
     private static string RepositoryRoot()
     {

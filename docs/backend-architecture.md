@@ -544,27 +544,33 @@ voucher refuses the whole Tally export with 409 `Export.ReturnNeedsAccountingRev
 `Export.VoucherUnbalanced` or `Export.VoucherInvalid`, every diagnostic listed. XLSX adds a Return
 Adjustments sheet (settlement split, status, reason) and PDF a return adjustments table; both still
 render returns needing review, flagged. P&L return rows use the snapshot's tax split, and
-`isReversal` / `needsAccountingReview` mark voids and unreviewed returns.
+`isReversal` / `needsAccountingReview` mark voids and unreviewed returns. A Credit Note voucher's
+reference date is the invoice date; a reversal's is the return date. The P&L reduces revenue by the
+whole refund, while Tally books a non-tax excess to Sales Return Adjustments: net profit agrees,
+revenue lines differ by that excess.
 
 **Legacy evidence.** The migration backfills every return without a snapshot;
 `scripts/db/backfill-sale-return-accounting.sql` is the same idempotent statement (a second run
-changes nothing), to re-run as the migrator role once every API instance runs the new version. Lines
+changes nothing), to re-run as the migrator role once every API instance runs the new version. It
+loops over shops with `app.active_shop_id` set, because FORCE row-level security binds the migrator
+as table owner; the integration tests run it as the restricted runtime role to prove that. Lines
 are split by the same policy (recorded as `backfill:proportional-line-tax/1`). A return is `BALANCED`
 only when every line is classifiable, its lines add up to its total and its payout is evidenced — a
 refund destination, or exactly one credit note of the payout amount issued for it; the receivable leg
 links its ledger entry when exactly one matches. Anything else is `NEEDS_REVIEW` with its reason and
 no legs: a settlement is never inferred. A return an old instance records after the migration has no
-snapshot and exports as needing review until the script runs. Rollback: keep snapshots readable and
+snapshot and exports as needing review until the script runs. A `NEEDS_REVIEW` return cannot yet be
+resolved in the app, so its periods stay refused for Tally until one is posted. Rollback: keep snapshots readable and
 refuse Tally return export; never restore the unbalanced voucher builder.
 
 ## Test Structure
 
 | Suite | Path | Count |
 |---|---|---|
-| Domain unit | `tests/backend/unit/Intelibill.Domain.Unit.Tests/` | 263 |
-| Application unit | `tests/backend/unit/Intelibill.Application.Unit.Tests/` | 1035 |
-| API unit | `tests/backend/unit/Intelibill.Api.Unit.Tests/` | 542 |
-| Integration | `tests/backend/integration/Intelibill.Integration.Tests/` | 562 |
-| **Total** | | **2182** |
+| Domain unit | `tests/backend/unit/Intelibill.Domain.Unit.Tests/` | 279 |
+| Application unit | `tests/backend/unit/Intelibill.Application.Unit.Tests/` | 1093 |
+| API unit | `tests/backend/unit/Intelibill.Api.Unit.Tests/` | 541 |
+| Integration | `tests/backend/integration/Intelibill.Integration.Tests/` | 584 |
+| **Total** | | **2497** |
 
-Integration tests use `WebApplicationFactory<Program>` backed by **Testcontainers** (`Testcontainers.PostgreSql`) — Docker required. Non-integration suite: 1697 passing.
+Integration tests use `WebApplicationFactory<Program>` backed by **Testcontainers** (`Testcontainers.PostgreSql`) — Docker required. Non-integration suite: 1913 passing.

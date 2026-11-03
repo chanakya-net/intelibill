@@ -180,6 +180,7 @@ public sealed class SalesTallyXmlExportRendererTests
         Assert.Equal("RET-1", voucher.Element("VOUCHERNUMBER")!.Value);
         Assert.Equal("20260504", voucher.Element("DATE")!.Value);
         Assert.Equal("INV-001", voucher.Descendants("REFERENCENUMBER").Single().Value);
+        Assert.Equal("20260501", voucher.Descendants("REFERENCEDATE").Single().Value);
         Assert.Contains("proportional-line-tax/1", voucher.Element("NARRATION")!.Value, StringComparison.Ordinal);
         Assert.Equal(
             [("Sales", 42.37m, true), ("Output GST 18%", 7.63m, true), ("Customer Refunds Clearing", 50m, false)],
@@ -411,6 +412,7 @@ public sealed class SalesTallyXmlExportRendererTests
             ReturnedAt,
             Guid.NewGuid(),
             sale.Summary.InvoiceNumber,
+            sale.Summary.SaleDate,
             sale.Summary.CustomerName,
             ReturnAccountingStatus.Balanced,
             "proportional-line-tax/1",

@@ -63,14 +63,13 @@ internal static class TallyVoucherBuilder
             AddLine(lines, SettlementLedgerName(settlement.Kind, entry.CustomerName), Math.Abs(settlement.Amount), !adjustmentSide);
 
         var date = DateOnly.FromDateTime(entry.PostedAt.UtcDateTime);
-        var returnDate = DateOnly.FromDateTime(entry.ReturnProcessedAt.UtcDateTime);
         return entry.IsReversal
             ? new AccountingVoucher(
                 ReversalVoucherNumber(entry.ReturnNumber),
                 ReversalVoucherType,
                 date,
                 entry.ReturnNumber,
-                returnDate,
+                DateOnly.FromDateTime(entry.ReturnProcessedAt.UtcDateTime),
                 $"Reversal of credit note {entry.ReturnNumber} for invoice {entry.InvoiceNumber}: return voided ({entry.VoidReason}).",
                 lines)
             : new AccountingVoucher(
@@ -78,7 +77,7 @@ internal static class TallyVoucherBuilder
                 ReturnVoucherType,
                 date,
                 entry.InvoiceNumber,
-                returnDate,
+                DateOnly.FromDateTime(entry.InvoiceDate.UtcDateTime),
                 ReturnNarration(entry),
                 lines);
     }

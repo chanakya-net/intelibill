@@ -1,6 +1,7 @@
 using Intelibill.Application.Features.Exports.Accounting;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
+using Intelibill.Domain.ValueObjects;
 using static Intelibill.Application.Unit.Tests.Features.Exports.Accounting.ReturnAccountingFixtures;
 
 namespace Intelibill.Application.Unit.Tests.Features.Exports.Accounting;
@@ -154,6 +155,41 @@ public class ReturnAdjustmentProjectorTests
         var entries = Project([later, earlier], sale, June1, June30);
 
         Assert.Equal(["RET-A", "RET-B"], entries.Select(e => e.ReturnNumber));
+    }
+
+    [Fact]
+    public void Project_MultiRateReturn_GroupsTaxByRateAndNegatesItOnVoid()
+    {
+        var fivePercent = SaleItem.CreateGoods(ShopId, Guid.NewGuid(), Guid.NewGuid(), "Tea", "TEA-1", 1m, 40m, 100m, 120m, 5m, false, false);
+        var eighteenPercent = SaleItem.CreateGoods(ShopId, Guid.NewGuid(), Guid.NewGuid(), "Soap", "SOAP-1", 1m, 60m, 100m, 120m, 18m, false, false);
+        var sale = Domain.Entities.Sale.Create(
+            ShopId, "INV-MULTI", null, null, null, PaymentMethod.Cash, new DateTimeOffset(2026, 6, 10, 9, 0, 0, TimeSpan.Zero),
+            223m, 0m, 223m, 23m, [fivePercent, eighteenPercent]);
+        var saleReturn = SaleReturn.Record(
+            ShopId, sale.Id, "RET-MULTI", new DateTimeOffset(2026, 6, 12, 9, 0, 0, TimeSpan.Zero), Guid.NewGuid(), null,
+            223m, 0m, 223m, ReturnPayoutDestination.Refund, 200m, 23m, null, null,
+            [
+                new SaleReturnLineInput(ShopId, fivePercent.Id, 1m, SaleReturnCondition.Restockable, 40m, 100m, 5m, false, 105m, 105m, 100m, 5m, null),
+                new SaleReturnLineInput(ShopId, eighteenPercent.Id, 1m, SaleReturnCondition.Restockable, 60m, 100m, 18m, false, 118m, 118m, 100m, 18m, null),
+            ]).Value;
+        var snapshot = ReturnAccountingSnapshot.Create(
+            "proportional-line-tax/1",
+            [new ReturnLineAccounting(fivePercent.Id, 100m, 5m, 0m), new ReturnLineAccounting(eighteenPercent.Id, 100m, 18m, 0m)],
+            [new ReturnSettlementInput(ReturnSettlementKind.ExternalRefund, 223m)]).Value;
+        Assert.False(saleReturn.PostAccounting(snapshot).IsError);
+        saleReturn.Void(new DateTimeOffset(2026, 7, 2, 9, 0, 0, TimeSpan.Zero), Guid.NewGuid(), "Entered twice");
+
+        var june = Assert.Single(Project([saleReturn], sale, June1, June30));
+        var july = Assert.Single(Project([saleReturn], sale, July1, July31));
+
+        Assert.Equal(
+            [(5m, 100m, 5m), (18m, 100m, 18m)],
+            june.TaxComponents.Select(c => (c.TaxRatePercent, c.TaxableAmount, c.TaxAmount)).ToArray());
+        Assert.Equal(
+            [(5m, -100m, -5m), (18m, -100m, -18m)],
+            july.TaxComponents.Select(c => (c.TaxRatePercent, c.TaxableAmount, c.TaxAmount)).ToArray());
+        Assert.Equal(23m, june.TaxAdjustment);
+        Assert.Equal(sale.SoldAt, june.InvoiceDate);
     }
 
     private static IReadOnlyList<ReturnAdjustmentEntry> Project(IEnumerable<SaleReturn> returns, Sale sale, DateOnly from, DateOnly to) =>

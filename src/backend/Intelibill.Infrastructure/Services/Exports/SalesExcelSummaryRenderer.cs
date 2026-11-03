@@ -41,7 +41,7 @@ internal static class SalesExcelSummaryRenderer
         }
 
         var totalsRow = dataRow + 1;
-        RenderTotalsRow(worksheet, dataset.SummaryRows, dataset.TaxBreakup, columnPlan, firstDataRow, totalsRow);
+        RenderTotalsRow(worksheet, dataRow - firstDataRow, dataset.TaxBreakup, columnPlan, firstDataRow, totalsRow);
 
         ApplyPolishing(worksheet, columnPlan.TotalColumnsEnd, headerRow);
     }
@@ -254,14 +254,14 @@ internal static class SalesExcelSummaryRenderer
 
     internal static void RenderTotalsRow(
         IXLWorksheet worksheet,
-        IReadOnlyList<SalesExportSummaryRowDto> summaryRows,
+        int dataRowCount,
         IReadOnlyList<SalesExportTaxBreakupDto> taxBreakup,
         SummaryColumnPlan columnPlan,
         int firstDataRow,
         int totalsRow)
     {
         var lastDataRow = Math.Max(firstDataRow, totalsRow - 1);
-        var hasData = summaryRows.Count > 0;
+        var hasData = dataRowCount > 0;
         var breakupByRate = taxBreakup.ToDictionary(t => t.TaxRatePercent);
 
         worksheet.Cell(totalsRow, 1).Value = "TOTALS";

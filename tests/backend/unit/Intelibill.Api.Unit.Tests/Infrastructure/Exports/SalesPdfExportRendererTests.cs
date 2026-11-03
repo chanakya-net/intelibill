@@ -173,6 +173,7 @@ public sealed class SalesPdfExportRendererTests
             new DateTimeOffset(2026, 5, 2, 11, 0, 0, TimeSpan.Zero),
             Guid.NewGuid(),
             invoiceNumber,
+            new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero),
             "Alice",
             ReturnAccountingStatus.Balanced,
             "proportional-line-tax/1",

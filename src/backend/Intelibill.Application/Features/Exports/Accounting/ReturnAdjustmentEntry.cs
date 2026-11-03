@@ -24,6 +24,7 @@ public sealed record ReturnAdjustmentEntry(
     DateTimeOffset ReturnProcessedAt,
     Guid SaleId,
     string InvoiceNumber,
+    DateTimeOffset InvoiceDate,
     string? CustomerName,
     ReturnAccountingStatus Status,
     string? PolicyVersion,
