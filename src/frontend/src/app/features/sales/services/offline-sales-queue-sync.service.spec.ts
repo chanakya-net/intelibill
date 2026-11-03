@@ -396,6 +396,30 @@ describe('OfflineSalesQueueSyncService', () => {
     ]);
   });
 
+  it('keeps every unsynced record in unsentSales and clears it without a shop', async () => {
+    const service = setup();
+    queueDb.getStatusCounts.mockResolvedValue({ Pending: 1, Syncing: 0, Synced: 1, SyncedWithWarnings: 0, NeedsReview: 1, Failed: 0 });
+    queueDb.getAllByShopDevice.mockResolvedValue([
+      makeRecord('held', { status: 'NeedsReview', soldAt: '2026-05-23T10:00:00.000Z' }),
+      makeRecord('done', { status: 'Synced' }),
+      makeRecord('wait', { status: 'Pending', soldAt: '2026-05-21T10:00:00.000Z' }),
+    ]);
+
+    await service.refreshActiveStatusCounts();
+    expect(service.unsentSales().map((record) => record.clientSaleId)).toEqual(['wait', 'held']);
+
+    queueDb.getStatusCounts.mockResolvedValue({ Pending: 0, Syncing: 0, Synced: 1, SyncedWithWarnings: 0, NeedsReview: 0, Failed: 0 });
+    await service.refreshActiveStatusCounts();
+    expect(service.unsentSales()).toEqual([]);
+
+    queueDb.getStatusCounts.mockResolvedValue({ Pending: 1, Syncing: 0, Synced: 0, SyncedWithWarnings: 0, NeedsReview: 0, Failed: 0 });
+    await service.refreshActiveStatusCounts();
+    expect(service.unsentSales()).toHaveLength(2);
+    activeSession.set(null);
+    await service.refreshActiveStatusCounts();
+    expect(service.unsentSales()).toEqual([]);
+  });
+
   it('lists held invoices with their review case and mismatches, oldest first', async () => {
     const service = setup();
     queueDb.getStatusCounts.mockResolvedValue({ Pending: 1, Syncing: 0, Synced: 0, SyncedWithWarnings: 0, NeedsReview: 2, Failed: 0 });

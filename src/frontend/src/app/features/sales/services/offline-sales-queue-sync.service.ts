@@ -70,6 +70,8 @@ export class OfflineSalesQueueSyncService {
   readonly reviewSales = signal<readonly OfflineReviewSale[]>([]);
   /** Unsent (Pending or Failed) invoices issued by another user: never submitted from this session. */
   readonly awaitingIssuerSales = signal<readonly OfflineAwaitingIssuerSale[]>([]);
+  /** Every record on this device that the server has not accepted yet (any issuer, any unsynced status), oldest first. */
+  readonly unsentSales = signal<readonly OfflineQueuedSaleRecord[]>([]);
 
   startAutoSyncWatchers(): void {
     if (this.autoWatchStarted) return;
@@ -91,6 +93,7 @@ export class OfflineSalesQueueSyncService {
         this.visibleCounts.set(EMPTY_COUNTS);
         this.reviewSales.set([]);
         this.awaitingIssuerSales.set([]);
+        this.unsentSales.set([]);
         return;
       }
 
@@ -220,6 +223,7 @@ export class OfflineSalesQueueSyncService {
       this.visibleCounts.set(EMPTY_COUNTS);
       this.reviewSales.set([]);
       this.awaitingIssuerSales.set([]);
+      this.unsentSales.set([]);
       return EMPTY_COUNTS;
     }
 
@@ -228,6 +232,7 @@ export class OfflineSalesQueueSyncService {
       this.visibleCounts.set(EMPTY_COUNTS);
       this.reviewSales.set([]);
       this.awaitingIssuerSales.set([]);
+      this.unsentSales.set([]);
       return EMPTY_COUNTS;
     }
 
@@ -236,7 +241,13 @@ export class OfflineSalesQueueSyncService {
     this.visibleCounts.set(visible);
     const needsReview = visible.needsReview > 0;
     const hasUnsent = counts.Pending > 0 || counts.Failed > 0;
-    const records = needsReview || hasUnsent ? await this.queueDb.getAllByShopDevice(shopId, settings.deviceId) : [];
+    const hasUnsynced = needsReview || hasUnsent || counts.Syncing > 0;
+    const records = hasUnsynced ? await this.queueDb.getAllByShopDevice(shopId, settings.deviceId) : [];
+    this.unsentSales.set(
+      records
+        .filter((record) => record.status !== 'Synced' && record.status !== 'SyncedWithWarnings')
+        .sort((a, b) => a.soldAt.localeCompare(b.soldAt)),
+    );
     this.reviewSales.set(needsReview ? this.toReviewSales(records) : []);
     this.awaitingIssuerSales.set(hasUnsent ? this.toAwaitingIssuerSales(records, session?.user.id ?? null) : []);
     return visible;

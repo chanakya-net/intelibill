@@ -112,7 +112,9 @@
               <div class="queue-row-main">
                 <strong class="queue-invoice">{{ row.invoiceNumber }}</strong>
                 <span class="queue-meta">{{ reviewReasonKey(row.errorCode) | transloco }}</span>
-                @if (!row.reviewCaseId) {
+                @if (row.reviewCaseId) {
+                  <span class="queue-meta">{{ 'sales.history.offlineQueue.review.caseId' | transloco: { id: row.reviewCaseId } }}</span>
+                } @else {
                   <span class="queue-meta">{{ 'sales.offlineReconciliation.queue.noCase' | transloco }}</span>
                 }
               </div>

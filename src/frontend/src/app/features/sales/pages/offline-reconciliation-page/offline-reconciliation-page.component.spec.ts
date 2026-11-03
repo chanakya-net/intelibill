@@ -4,7 +4,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { of, throwError } from 'rxjs';
+import { Subject, of, throwError } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AuthService } from '../../../../core/auth/auth.service';
@@ -35,6 +35,7 @@ describe('OfflineReconciliationPageComponent', () => {
   const canReachApi = signal(true);
   const reviewSales = signal<readonly OfflineReviewSale[]>([]);
   const awaitingIssuerSales = signal<readonly OfflineAwaitingIssuerSale[]>([]);
+  const unsentSales = signal<readonly OfflineQueuedSaleRecord[]>([]);
   const visibleCounts = signal({ pending: 0, syncing: 0, failed: 0, warning: 0, needsReview: 0, totalVisible: 0 });
 
   const reconciliation = {
@@ -47,6 +48,7 @@ describe('OfflineReconciliationPageComponent', () => {
     visibleCounts,
     reviewSales,
     awaitingIssuerSales,
+    unsentSales,
     retryQueuedSale: vi.fn<OfflineSalesQueueSyncService['retryQueuedSale']>(),
     refreshActiveStatusCounts: vi.fn<OfflineSalesQueueSyncService['refreshActiveStatusCounts']>(),
   };
@@ -75,6 +77,7 @@ describe('OfflineReconciliationPageComponent', () => {
     canReachApi.set(true);
     reviewSales.set([]);
     awaitingIssuerSales.set([]);
+    unsentSales.set([]);
 
     reconciliation.listCases.mockReturnValue(of(casePage([summary('case-1', 'INV-001'), summary('case-2', 'INV-002')], 45)));
     reconciliation.getCase.mockImplementation((caseId) => of(caseDetail({ caseId })));
@@ -348,6 +351,7 @@ describe('OfflineReconciliationPageComponent', () => {
 
   it('export downloads a bundle and marks hand-off safe', async () => {
     queueDb.getAllByShopDevice.mockResolvedValue([record('own-1', 'Pending'), record('done', 'Synced')]);
+    unsentSales.set([record('own-1', 'Pending')]);
     await render();
 
     expect(el().querySelector('.handoff-notice.unsafe')?.textContent).toContain(
@@ -368,6 +372,66 @@ describe('OfflineReconciliationPageComponent', () => {
     fixture.destroy();
     await render();
     expect(el().querySelector('.handoff-notice.safe')).toBeTruthy();
+  });
+
+  it('moves a record between groups when a background sync changes it, and flags new unsynced work after export', async () => {
+    const pending = record('own-1', 'Pending');
+    queueDb.getAllByShopDevice.mockResolvedValue([pending]);
+    unsentSales.set([pending]);
+    await render();
+    expect(el().querySelectorAll('.queue-group.unsent .queue-row')).toHaveLength(1);
+    expect(el().querySelector('.queue-group.review')).toBeNull();
+
+    // The app-wide sync run comes back with NeedsReview while the page is open.
+    unsentSales.set([{ ...pending, status: 'NeedsReview' }]);
+    reviewSales.set([
+      { clientSaleId: 'own-1', invoiceNumber: 'INV-own-1', soldAt: pending.soldAt, errorCode: null, errorMessage: null, reviewCaseId: 'case-held', mismatches: [] },
+    ]);
+    await settle();
+    expect(el().querySelector('.queue-group.unsent')).toBeNull();
+    expect(el().querySelectorAll('.queue-group.review .queue-row')).toHaveLength(1);
+    expect(el().querySelector('.queue-group.review')?.textContent).toContain('Review case case-held');
+
+    await component.exportBundle();
+    await settle();
+    expect(el().querySelector('.handoff-notice.safe')).toBeTruthy();
+
+    // Another tab bills a new invoice.
+    unsentSales.update((rows) => [...rows, record('new-1', 'Pending')]);
+    await settle();
+    expect(el().querySelector('.handoff-notice.safe')).toBeNull();
+    expect(el().querySelector('.handoff-notice.unsafe')).toBeTruthy();
+  });
+
+  describe.each([
+    ['success', () => of(caseDetail({ caseId: 'case-1', status: 'Escalated', version: 8, availableActions: [] }))],
+    ['409 conflict', () => throwError(() => new HttpErrorResponse({ status: 409, error: { title: 'Reconciliation.CaseVersionConflict' } }))],
+  ])('a %s resolve reply that arrives after another case was opened', (_name, reply) => {
+    it('leaves the open case, its form and banner alone', async () => {
+      const inFlight = new Subject<ReconciliationCase>();
+      reconciliation.getCase.mockImplementation((caseId) => of(caseDetail({ caseId, availableActions: ['Escalate'] })));
+      reconciliation.resolveCase.mockReturnValue(inFlight);
+      await render();
+      await openCase('case-1');
+      await fillResolveForm('Escalate', 'Checked the drawer');
+      await submitResolve();
+      expect(reconciliation.resolveCase).toHaveBeenCalledTimes(1);
+
+      await openCase('case-2');
+      component.resolveReason.set('Typed for case two');
+      await settle();
+      reconciliation.getCase.mockClear();
+
+      const outcome = reply();
+      outcome.subscribe({ next: (value) => inFlight.next(value), error: (error) => inFlight.error(error) });
+      await settle();
+
+      expect(component.selectedCaseId()).toBe('case-2');
+      expect(component.selectedCase()?.caseId).toBe('case-2');
+      expect(component.resolveReason()).toBe('Typed for case two');
+      expect(component.resolveMessage()).toBeNull();
+      expect(reconciliation.getCase).not.toHaveBeenCalled();
+    });
   });
 
   it('local NeedsReview row opens its server case', async () => {
@@ -396,7 +460,7 @@ describe('OfflineReconciliationPageComponent', () => {
   });
 
   it('awaiting-issuer rows are not retried', async () => {
-    queueDb.getAllByShopDevice.mockResolvedValue([
+    unsentSales.set([
       record('own-failed', 'Failed', 'user-1'),
       record('other-pending', 'Pending', 'user-2'),
     ]);

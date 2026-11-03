@@ -30,7 +30,6 @@ import { ShopPermissionsService } from '../../../../core/layout/shop-permissions
 import { NetworkStatusService } from '../../../../core/services/network-status.service';
 import { OfflineSalesDeviceSettingsStorage } from '../../../../core/storage/offline-sales-device-settings.storage';
 import { BlobDownloadService } from '../../../../shared/utils/blob-download.service';
-import type { OfflineQueuedSaleRecord } from '../../services/offline-sale-core.types';
 import type {
   ReconciliationAction,
   ReconciliationCase,
@@ -165,7 +164,8 @@ export class OfflineReconciliationPageComponent {
   readonly visibleCounts = this.queueSync.visibleCounts;
   readonly reviewRows = this.queueSync.reviewSales;
   readonly awaitingRows = this.queueSync.awaitingIssuerSales;
-  readonly localRecords = signal<readonly OfflineQueuedSaleRecord[]>([]);
+  /** Live from the sync service, so a background sync run moves a row between groups without a reload. */
+  readonly localRecords = this.queueSync.unsentSales;
   readonly localState = signal<LoadState>('loading');
   readonly retryingIds = signal<ReadonlySet<string>>(new Set());
   readonly unsentRows = computed(() => {
@@ -300,22 +300,15 @@ export class OfflineReconciliationPageComponent {
     const shopId = this.shopId();
     const deviceId = this.deviceId();
     if (!shopId || !deviceId) {
-      this.localRecords.set([]);
       this.localState.set('ready');
       return;
     }
 
     try {
-      this.localRecords.set(await this.queueDb.getAllByShopDevice(shopId, deviceId));
+      await this.queueSync.refreshActiveStatusCounts();
       this.localState.set('ready');
     } catch {
       this.localState.set('error');
-    }
-
-    try {
-      await this.queueSync.refreshActiveStatusCounts();
-    } catch {
-      // The grouped rows above keep the queue's last known state; nothing here depends on the fresh counts.
     }
   }
 
@@ -461,6 +454,7 @@ export class OfflineReconciliationPageComponent {
       linkedOperationId,
     };
 
+    const submittedCaseId = current.caseId;
     this.resolving.set(true);
     this.resolveMessage.set(null);
     this.reconciliation
@@ -468,33 +462,38 @@ export class OfflineReconciliationPageComponent {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (updated) => {
-          this.resolveIntent = null;
           this.resolving.set(false);
-          if (this.selectedCaseId() === updated.caseId) this.selectedCase.set(updated);
+          this.loadCases();
+          // The reply belongs to the case it was sent for; another case may be open by now.
+          if (this.selectedCaseId() !== submittedCaseId) return;
+          this.resolveIntent = null;
+          this.selectedCase.set(updated);
           this.resetResolveForm();
           this.resolveMessage.set({ kind: 'success', key: 'sales.offlineReconciliation.resolve.success' });
-          this.loadCases();
         },
         error: (error: unknown) => {
           this.resolving.set(false);
+          const stillOpen = this.selectedCaseId() === submittedCaseId;
           if (isUncertainFailure(error)) {
             // The server may have committed it: the same submission keeps its operation id so a retry replays.
+            if (!stillOpen) return;
             this.resolveMessage.set({ kind: 'error', key: this.uncertainFailureKey(error) });
             return;
           }
 
-          this.resolveIntent = null;
+          if (stillOpen) this.resolveIntent = null;
           const status = (error as { status?: number }).status;
           const code = serverErrorCode(error);
           if (status === 409) {
+            this.loadCases();
+            if (!stillOpen) return;
             const key = reconciliationErrorKey(code);
             this.resolveMessage.set({ kind: 'error', key: key === GENERIC_ERROR_KEY ? CASE_CHANGED_KEY : key });
             this.loadSelectedCase();
-            this.loadCases();
             return;
           }
 
-          this.resolveMessage.set({ kind: 'error', key: reconciliationErrorKey(code) });
+          if (stillOpen) this.resolveMessage.set({ kind: 'error', key: reconciliationErrorKey(code) });
         },
       });
   }
@@ -518,7 +517,6 @@ export class OfflineReconciliationPageComponent {
     this.exportErrorKey.set(null);
     try {
       const records = await this.queueDb.getAllByShopDevice(shopId, deviceId);
-      this.localRecords.set(records);
       const exportedAt = new Date().toISOString();
       const bundle = await buildSupportBundle(records, { shopId, deviceId, exportedAt });
       if (bundle.clientSaleIds.length === 0) {
@@ -535,6 +533,8 @@ export class OfflineReconciliationPageComponent {
       };
       this.writeLastExport(exported);
       this.lastExport.set(exported);
+      // Brings the live queue level with what the bundle just captured, so the hand-off compares like with like.
+      await this.queueSync.refreshActiveStatusCounts().catch(() => undefined);
     } catch {
       this.exportErrorKey.set('sales.offlineReconciliation.bundle.exportError');
     } finally {
