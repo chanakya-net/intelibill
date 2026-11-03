@@ -118,6 +118,8 @@ describe('SaleInvoicePrintPageComponent', () => {
 
   const authService = {
     session: vi.fn(),
+    isAuthenticated: vi.fn(),
+    canUseOfflineSalesAuthGrace: vi.fn(),
   };
 
   const deviceSettingsStorage = {
@@ -170,6 +172,8 @@ describe('SaleInvoicePrintPageComponent', () => {
     saleService.getSaleById.mockReset();
     shopService.getShopDetails.mockReset();
     authService.session.mockReset();
+    authService.isAuthenticated.mockReset().mockReturnValue(true);
+    authService.canUseOfflineSalesAuthGrace.mockReset().mockResolvedValue(false);
     deviceSettingsStorage.loadSettings.mockReset();
     deviceSettingsStorage.getOrCreateDeviceId.mockReset();
     offlineQueueDb.getQueuedSale.mockReset();
@@ -178,10 +182,21 @@ describe('SaleInvoicePrintPageComponent', () => {
     deviceSettingsStorage.loadSettings.mockReturnValue(null);
     offlineQueueDb.getQueuedSale.mockResolvedValue(null);
     authService.session.mockReturnValue({
+      user: { id: 'user-1' },
       activeShopId: 'shop-1',
       shops: [{ shopId: 'shop-1', shopName: 'Main Shop', role: 'Owner', isDefault: true, lastUsedAt: null }],
     });
   });
+
+  function queuedRecord(payload: Partial<OfflineQueuedSalePayload> = {}) {
+    return {
+      shopId: 'shop-1',
+      deviceId: 'device-1',
+      clientSaleId: 'offline-sale-1',
+      status: 'Pending',
+      payload: { ...offlineQueuedSalePayload, ...payload },
+    } as never;
+  }
 
   afterEach(() => {
     vi.runOnlyPendingTimers();
@@ -207,9 +222,7 @@ describe('SaleInvoicePrintPageComponent', () => {
 
   it('loads queued offline invoice payload when route is offline', async () => {
     deviceSettingsStorage.loadSettings.mockReturnValue({ deviceId: 'device-1' } as never);
-    offlineQueueDb.getQueuedSale.mockResolvedValue({
-      payload: offlineQueuedSalePayload,
-    } as never);
+    offlineQueueDb.getQueuedSale.mockResolvedValue(queuedRecord());
 
     const fixture = createComponent('a4', 'offline-sale-1', { offline: '1' });
 
@@ -219,8 +232,8 @@ describe('SaleInvoicePrintPageComponent', () => {
     expect(offlineQueueDb.getQueuedSale).toHaveBeenCalledWith('shop-1', 'device-1', 'offline-sale-1');
     expect(saleService.getSaleById).not.toHaveBeenCalled();
     expect(shopService.getShopDetails).not.toHaveBeenCalled();
-    await Promise.resolve();
-    expect(fixture.componentInstance.sale()?.invoiceNumber).toBe('INV-2026-001');
+    await vi.waitFor(() => expect(fixture.componentInstance.sale()?.invoiceNumber).toBe('INV-2026-001'));
+    fixture.detectChanges();
     expect(fixture.componentInstance.pendingSync()).toBe(true);
     expect(fixture.componentInstance.sale()?.totalAmount).toBe(47.5);
     expect(fixture.componentInstance.sale()?.paidAmount).toBe(47.5);
@@ -317,14 +330,15 @@ describe('SaleInvoicePrintPageComponent', () => {
 
   it('legacy_document_never_invents_gstin: a legacy queued sale borrows no other shop and offers reconciliation', async () => {
     authService.session.mockReturnValue({
+      user: { id: 'user-1' },
       activeShopId: 'shop-1',
       shops: [{ shopId: 'shop-2', shopName: 'Other Shop', role: 'Owner', isDefault: true, lastUsedAt: null }],
     });
     deviceSettingsStorage.loadSettings.mockReturnValue({ deviceId: 'device-1' } as never);
-    offlineQueueDb.getQueuedSale.mockResolvedValue({ payload: offlineQueuedSalePayload } as never);
+    offlineQueueDb.getQueuedSale.mockResolvedValue(queuedRecord());
 
     const fixture = createComponent('a4', 'offline-sale-1', { offline: '1' });
-    await Promise.resolve();
+    await vi.waitFor(() => expect(fixture.componentInstance.sale()).not.toBeNull());
     fixture.detectChanges();
 
     expect(fixture.componentInstance.sale()?.document).toBeNull();
@@ -335,5 +349,39 @@ describe('SaleInvoicePrintPageComponent', () => {
     expect(text).toContain('is not a copy of a GST document');
     const link = fixture.nativeElement.querySelector('a.print-state__reconciliation') as HTMLAnchorElement | null;
     expect(link?.getAttribute('href')).toBe('/sales/offline-reconciliation');
+  });
+
+  it('grace_allows_owned_local_print: an expired token inside offline grace prints the issuer\'s invoice', async () => {
+    authService.isAuthenticated.mockReturnValue(false);
+    authService.canUseOfflineSalesAuthGrace.mockResolvedValue(true);
+    deviceSettingsStorage.loadSettings.mockReturnValue({ deviceId: 'device-1' } as never);
+    offlineQueueDb.getQueuedSale.mockResolvedValue(queuedRecord({ issuedByUserId: 'user-1' }));
+
+    const fixture = createComponent('thermal', 'offline-sale-1', { offline: '1' });
+    await vi.waitFor(() => expect(fixture.componentInstance.sale()).not.toBeNull());
+
+    expect(fixture.componentInstance.errorMessage()).toBe('');
+    expect(fixture.componentInstance.sale()?.invoiceNumber).toBe('INV-2026-001');
+  });
+
+  it.each([
+    ['another user issued it', { issuedByUserId: 'user-2' }, true, 'sales.invoice.errors.offlineAccessDenied'],
+    ['offline grace has expired', { issuedByUserId: 'user-1' }, false, 'sales.invoice.errors.offlineAccessDenied'],
+  ])('wrong_scope_denied: renders no invoice data when %s', async (_name, payload, grace, errorKey) => {
+    authService.isAuthenticated.mockReturnValue(false);
+    authService.canUseOfflineSalesAuthGrace.mockResolvedValue(grace);
+    deviceSettingsStorage.loadSettings.mockReturnValue({ deviceId: 'device-1' } as never);
+    offlineQueueDb.getQueuedSale.mockResolvedValue(queuedRecord(payload));
+
+    const fixture = createComponent('a4', 'offline-sale-1', { offline: '1' });
+    await vi.waitFor(() => expect(fixture.componentInstance.errorMessage()).toBe(errorKey));
+    fixture.detectChanges();
+    vi.runOnlyPendingTimers();
+
+    expect(fixture.componentInstance.sale()).toBeNull();
+    expect(fixture.componentInstance.shop()).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-sale-invoice-a4')).toBeNull();
+    expect(fixture.nativeElement.textContent).not.toContain('INV-2026-001');
+    expect(window.print).not.toHaveBeenCalled();
   });
 });

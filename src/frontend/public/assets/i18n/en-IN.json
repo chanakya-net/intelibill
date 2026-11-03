@@ -1446,7 +1446,8 @@
         "offlineDeviceNotFound": "Offline device was not found.",
         "offlineInvoiceNotFound": "Offline invoice was not found.",
         "offlineLoadFailed": "Unable to load offline invoice.",
-        "saleNotFound": "Sale was not found."
+        "saleNotFound": "Sale was not found.",
+        "offlineAccessDenied": "This offline invoice can be printed only by the person who issued it, in the same shop and on the same device, while offline access is still valid. Sign in again to continue."
       },
       "gstin": "GSTIN",
       "phone": "Phone",

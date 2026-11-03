@@ -5,16 +5,24 @@ import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import { forkJoin } from 'rxjs';
 
 import { AuthService } from '../../../../core/auth/auth.service';
-import { OfflineSalesDeviceSettingsStorage } from '../../../../core/storage/offline-sales-device-settings.storage';
 import { ShopDetails, ShopService } from '../../../shops/services/shop.service';
 import { SaleService } from '../../services/sale.service';
 import type { SaleDto } from '../../services/sale.models';
 import { SaleInvoiceA4Component } from '../../components/sale-invoice-a4.component';
 import { SaleInvoiceThermalComponent } from '../../components/sale-invoice-thermal.component';
-import { OfflineSalesQueueIndexedDbService } from '../../services/offline-sales-queue-indexeddb.service';
+import { OfflineInvoiceAccessService, type OfflineInvoiceAccessDenial } from '../../services/offline-invoice-access.service';
 import { mapOfflineQueuedSaleToSaleDto } from '../../services/offline-sale-invoice.mapper';
 
 type InvoiceTemplate = 'a4' | 'thermal';
+
+const OFFLINE_DENIAL_KEYS: Readonly<Record<OfflineInvoiceAccessDenial, string>> = {
+  NO_SESSION: 'sales.invoice.errors.activeShopNotFound',
+  NO_DEVICE: 'sales.invoice.errors.offlineDeviceNotFound',
+  NOT_FOUND: 'sales.invoice.errors.offlineInvoiceNotFound',
+  GRACE_UNAVAILABLE: 'sales.invoice.errors.offlineAccessDenied',
+  NOT_OWNER: 'sales.invoice.errors.offlineAccessDenied',
+  SCOPE_CHANGED: 'sales.invoice.errors.offlineAccessDenied',
+};
 
 @Component({
   selector: 'app-sale-invoice-print-page',
@@ -28,8 +36,7 @@ export class SaleInvoicePrintPageComponent {
   private readonly saleService = inject(SaleService);
   private readonly shopService = inject(ShopService);
   private readonly authService = inject(AuthService);
-  private readonly deviceSettingsStorage = inject(OfflineSalesDeviceSettingsStorage);
-  private readonly offlineQueueDb = inject(OfflineSalesQueueIndexedDbService);
+  private readonly offlineInvoiceAccess = inject(OfflineInvoiceAccessService);
   private readonly transloco = inject(TranslocoService);
 
   readonly isLoading = signal(false);
@@ -93,27 +100,20 @@ export class SaleInvoicePrintPageComponent {
     });
   }
 
+  /** Nothing from the queue reaches page state until the access check has granted this very invoice. */
   private async loadOfflineInvoice(clientSaleId: string, shopId: string): Promise<void> {
-    const settings = this.deviceSettingsStorage.loadSettings(shopId);
-    const deviceId = settings?.deviceId ?? '';
-
-    if (!deviceId) {
-      this.errorMessage.set('sales.invoice.errors.offlineDeviceNotFound');
-      return;
-    }
-
     this.isLoading.set(true);
     this.errorMessage.set('');
 
     try {
-      const queuedSale = await this.offlineQueueDb.getQueuedSale(shopId, deviceId, clientSaleId);
-      if (!queuedSale) {
-        this.errorMessage.set('sales.invoice.errors.offlineInvoiceNotFound');
+      const access = await this.offlineInvoiceAccess.read(clientSaleId);
+      if (!access.granted) {
+        this.errorMessage.set(OFFLINE_DENIAL_KEYS[access.reason]);
         this.isLoading.set(false);
         return;
       }
 
-      this.sale.set(mapOfflineQueuedSaleToSaleDto(queuedSale.payload));
+      this.sale.set(mapOfflineQueuedSaleToSaleDto(access.record.payload));
       this.shop.set(this.buildOfflineShopDetails(shopId));
       this.isLoading.set(false);
       setTimeout(() => window.print());

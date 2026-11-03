@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 
 import { authGuard } from './core/guards/auth.guard';
+import { offlineInvoicePrintGuard } from './core/guards/offline-invoice-print.guard';
 
 export const routes: Routes = [
 	{
@@ -51,7 +52,7 @@ export const routes: Routes = [
 	},
 	{
 		path: 'sales/:saleId/print',
-		canActivate: [authGuard],
+		canActivate: [offlineInvoicePrintGuard],
 		loadComponent: () =>
 			import(
 				'./features/sales/pages/sale-invoice-print-page/sale-invoice-print-page.component'
