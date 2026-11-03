@@ -1,0 +1,282 @@
+{
+  "contract": "offline-invoice-document/2",
+  "description": "Cases the device's offline document builder and the server's InvoiceDocumentBuilder must answer identically: the document a queued offline sale prints must be the one the server issues for it on sync. Amounts are rupees; components are [kind, ratePercent, taxableBase, amount].",
+  "issuedAt": "2026-11-03T20:00:00Z",
+  "businessDate": "2026-11-04",
+  "fiscalYearStart": 2026,
+  "sellers": {
+    "regularKarnataka": {
+      "seller": { "legalName": "Main Shop Pvt Ltd", "tradeName": "Main Shop", "address": "42 MG Road, Bengaluru, Karnataka 560001", "stateCode": "29", "stateName": "Karnataka", "gstin": "29AAPFU0939F1ZR", "taxRegime": "Regular" },
+      "eInvoiceStatus": "BelowThreshold",
+      "seriesCode": "A"
+    },
+    "regularKarnatakaExempt": {
+      "seller": { "legalName": "Main Shop Pvt Ltd", "tradeName": "Main Shop", "address": "42 MG Road, Bengaluru, Karnataka 560001", "stateCode": "29", "stateName": "Karnataka", "gstin": "29AAPFU0939F1ZR", "taxRegime": "Regular" },
+      "eInvoiceStatus": "Exempt",
+      "seriesCode": "A"
+    },
+    "regularChandigarh": {
+      "seller": { "legalName": "Sector Shop LLP", "tradeName": "Sector Shop", "address": "SCO 12, Sector 17, Chandigarh 160017", "stateCode": "04", "stateName": "Chandigarh", "gstin": "04AAPFU0939F1Z3", "taxRegime": "Regular" },
+      "eInvoiceStatus": "BelowThreshold",
+      "seriesCode": "C"
+    },
+    "compositionKarnataka": {
+      "seller": { "legalName": "Main Shop Pvt Ltd", "tradeName": "Main Shop", "address": "42 MG Road, Bengaluru, Karnataka 560001", "stateCode": "29", "stateName": "Karnataka", "gstin": "29AAPFU0939F1ZR", "taxRegime": "Composition" },
+      "eInvoiceStatus": "NotAttested",
+      "seriesCode": ""
+    },
+    "unregisteredKarnataka": {
+      "seller": { "legalName": "Corner Store", "tradeName": "Corner Store", "address": "7 Temple St, Mysuru, Karnataka 570001", "stateCode": "29", "stateName": "Karnataka", "gstin": null, "taxRegime": "Unregistered" },
+      "eInvoiceStatus": "NotAttested",
+      "seriesCode": ""
+    }
+  },
+  "cases": [
+    {
+      "name": "regular intrastate goods give CGST the odd paisa",
+      "seller": "regularKarnataka",
+      "customer": null,
+      "saleCustomerName": "Ravi",
+      "saleCustomerPhone": "9876543210",
+      "lines": [
+        { "lineType": "goods", "description": "Steel Bottle", "hsn": "7323", "quantity": 1, "unitPrice": 100.05, "discountAmount": 0, "taxableAmount": 100.05, "taxRatePercent": 18, "taxAmount": 18.01, "lineTotal": 118.06 }
+      ],
+      "expected": {
+        "documentType": "TaxInvoice",
+        "isInterstate": false,
+        "placeOfSupplyStateCode": "29",
+        "placeOfSupplyStateName": "Karnataka",
+        "buyer": { "name": "Ravi", "phone": "9876543210", "address": null, "gstin": null, "stateCode": null, "stateName": null },
+        "declarations": [],
+        "lines": [{ "uom": "NOS", "isExempt": false, "components": [["Cgst", 9, 100.05, 9.01], ["Sgst", 9, 100.05, 9.00]] }],
+        "totals": { "taxableValue": 100.05, "exemptValue": 0, "totalTax": 18.01, "invoiceTotal": 118.06, "components": [["Cgst", 9, 100.05, 9.01], ["Sgst", 9, 100.05, 9.00]] }
+      }
+    },
+    {
+      "name": "union territory seller charges UTGST",
+      "seller": "regularChandigarh",
+      "customer": null,
+      "saleCustomerName": null,
+      "saleCustomerPhone": null,
+      "lines": [
+        { "lineType": "goods", "description": "Lamp", "hsn": "9405", "quantity": 2, "unitPrice": 50, "discountAmount": 0, "taxableAmount": 100, "taxRatePercent": 18, "taxAmount": 18, "lineTotal": 118 }
+      ],
+      "expected": {
+        "documentType": "TaxInvoice",
+        "isInterstate": false,
+        "placeOfSupplyStateCode": "04",
+        "placeOfSupplyStateName": "Chandigarh",
+        "buyer": { "name": null, "phone": null, "address": null, "gstin": null, "stateCode": null, "stateName": null },
+        "declarations": [],
+        "lines": [{ "uom": "NOS", "isExempt": false, "components": [["Cgst", 9, 100, 9], ["Utgst", 9, 100, 9]] }],
+        "totals": { "taxableValue": 100, "exemptValue": 0, "totalTax": 18, "invoiceTotal": 118, "components": [["Cgst", 9, 100, 9], ["Utgst", 9, 100, 9]] }
+      }
+    },
+    {
+      "name": "service to a registered buyer in another state is IGST at the buyer's state",
+      "seller": "regularKarnataka",
+      "customer": { "name": "Buyer Pvt Ltd", "phone": "9123456780", "address": "4 Market St, Chennai", "gstin": "33AABCT1332L1ZL", "stateCode": null },
+      "saleCustomerName": "Buyer Pvt Ltd",
+      "saleCustomerPhone": "9123456780",
+      "lines": [
+        { "lineType": "service", "description": "Repair", "hsn": "998719", "quantity": 1, "unitPrice": 100, "discountAmount": 0, "taxableAmount": 100, "taxRatePercent": 18, "taxAmount": 18, "lineTotal": 118 }
+      ],
+      "expected": {
+        "documentType": "TaxInvoice",
+        "isInterstate": true,
+        "placeOfSupplyStateCode": "33",
+        "placeOfSupplyStateName": "Tamil Nadu",
+        "buyer": { "name": "Buyer Pvt Ltd", "phone": "9123456780", "address": "4 Market St, Chennai", "gstin": "33AABCT1332L1ZL", "stateCode": "33", "stateName": "Tamil Nadu" },
+        "declarations": [],
+        "lines": [{ "uom": "NA", "isExempt": false, "components": [["Igst", 18, 100, 18]] }],
+        "totals": { "taxableValue": 100, "exemptValue": 0, "totalTax": 18, "invoiceTotal": 118, "components": [["Igst", 18, 100, 18]] }
+      }
+    },
+    {
+      "name": "discounts reach the document line and mixed rates group by kind then rate",
+      "seller": "regularKarnataka",
+      "customer": null,
+      "saleCustomerName": null,
+      "saleCustomerPhone": null,
+      "lines": [
+        { "lineType": "goods", "description": "Kettle", "hsn": "8516", "quantity": 1, "unitPrice": 220, "discountAmount": 20, "taxableAmount": 200, "taxRatePercent": 18, "taxAmount": 36, "lineTotal": 236 },
+        { "lineType": "goods", "description": "Rice 5 kg", "hsn": "1006", "quantity": 1, "unitPrice": 100, "discountAmount": 0, "taxableAmount": 100, "taxRatePercent": 5, "taxAmount": 5, "lineTotal": 105 }
+      ],
+      "expected": {
+        "documentType": "TaxInvoice",
+        "isInterstate": false,
+        "placeOfSupplyStateCode": "29",
+        "placeOfSupplyStateName": "Karnataka",
+        "buyer": { "name": null, "phone": null, "address": null, "gstin": null, "stateCode": null, "stateName": null },
+        "declarations": [],
+        "lines": [
+          { "uom": "NOS", "isExempt": false, "components": [["Cgst", 9, 200, 18], ["Sgst", 9, 200, 18]] },
+          { "uom": "NOS", "isExempt": false, "components": [["Cgst", 2.5, 100, 2.50], ["Sgst", 2.5, 100, 2.50]] }
+        ],
+        "totals": { "taxableValue": 300, "exemptValue": 0, "totalTax": 41, "invoiceTotal": 341, "components": [["Cgst", 2.5, 100, 2.50], ["Cgst", 9, 200, 18], ["Sgst", 2.5, 100, 2.50], ["Sgst", 9, 200, 18]] }
+      }
+    },
+    {
+      "name": "composition seller issues a bill of supply with its declaration",
+      "seller": "compositionKarnataka",
+      "customer": null,
+      "saleCustomerName": null,
+      "saleCustomerPhone": null,
+      "lines": [
+        { "lineType": "goods", "description": "Notebook", "hsn": "4820", "quantity": 4, "unitPrice": 20, "discountAmount": 0, "taxableAmount": 80, "taxRatePercent": 0, "taxAmount": 0, "lineTotal": 80 }
+      ],
+      "expected": {
+        "documentType": "BillOfSupply",
+        "isInterstate": false,
+        "placeOfSupplyStateCode": "29",
+        "placeOfSupplyStateName": "Karnataka",
+        "buyer": { "name": null, "phone": null, "address": null, "gstin": null, "stateCode": null, "stateName": null },
+        "declarations": ["CompositionTaxablePerson"],
+        "lines": [{ "uom": "NOS", "isExempt": false, "components": [] }],
+        "totals": { "taxableValue": 80, "exemptValue": 0, "totalTax": 0, "invoiceTotal": 80, "components": [] }
+      }
+    },
+    {
+      "name": "unregistered seller issues a receipt",
+      "seller": "unregisteredKarnataka",
+      "customer": null,
+      "saleCustomerName": null,
+      "saleCustomerPhone": null,
+      "lines": [
+        { "lineType": "goods", "description": "Tea", "hsn": null, "quantity": 1, "unitPrice": 80, "discountAmount": 0, "taxableAmount": 80, "taxRatePercent": 0, "taxAmount": 0, "lineTotal": 80 }
+      ],
+      "expected": {
+        "documentType": "Receipt",
+        "isInterstate": false,
+        "placeOfSupplyStateCode": "29",
+        "placeOfSupplyStateName": "Karnataka",
+        "buyer": { "name": null, "phone": null, "address": null, "gstin": null, "stateCode": null, "stateName": null },
+        "declarations": ["NotRegisteredUnderGst"],
+        "lines": [{ "uom": "NOS", "isExempt": false, "components": [] }],
+        "totals": { "taxableValue": 80, "exemptValue": 0, "totalTax": 0, "invoiceTotal": 80, "components": [] }
+      }
+    },
+    {
+      "name": "regular seller mixing taxable and exempt goods to a walk-in issues an invoice-cum-bill",
+      "seller": "regularKarnataka",
+      "customer": null,
+      "saleCustomerName": null,
+      "saleCustomerPhone": null,
+      "lines": [
+        { "lineType": "goods", "description": "Soap", "hsn": "3401", "quantity": 1, "unitPrice": 100, "discountAmount": 0, "taxableAmount": 100, "taxRatePercent": 18, "taxAmount": 18, "lineTotal": 118 },
+        { "lineType": "goods", "description": "Fresh Milk", "hsn": "0401", "quantity": 1, "unitPrice": 50, "discountAmount": 0, "taxableAmount": 50, "taxRatePercent": 0, "taxAmount": 0, "lineTotal": 50 }
+      ],
+      "expected": {
+        "documentType": "InvoiceCumBillOfSupply",
+        "isInterstate": false,
+        "placeOfSupplyStateCode": "29",
+        "placeOfSupplyStateName": "Karnataka",
+        "buyer": { "name": null, "phone": null, "address": null, "gstin": null, "stateCode": null, "stateName": null },
+        "declarations": [],
+        "lines": [
+          { "uom": "NOS", "isExempt": false, "components": [["Cgst", 9, 100, 9], ["Sgst", 9, 100, 9]] },
+          { "uom": "NOS", "isExempt": true, "components": [] }
+        ],
+        "totals": { "taxableValue": 100, "exemptValue": 50, "totalTax": 18, "invoiceTotal": 168, "components": [["Cgst", 9, 100, 9], ["Sgst", 9, 100, 9]] }
+      }
+    },
+    {
+      "name": "e-invoice exempt registration carries its declaration",
+      "seller": "regularKarnatakaExempt",
+      "customer": null,
+      "saleCustomerName": null,
+      "saleCustomerPhone": null,
+      "lines": [
+        { "lineType": "goods", "description": "Laptop", "hsn": "847130", "quantity": 1, "unitPrice": 100, "discountAmount": 0, "taxableAmount": 100, "taxRatePercent": 18, "taxAmount": 18, "lineTotal": 118 }
+      ],
+      "expected": {
+        "documentType": "TaxInvoice",
+        "isInterstate": false,
+        "placeOfSupplyStateCode": "29",
+        "placeOfSupplyStateName": "Karnataka",
+        "buyer": { "name": null, "phone": null, "address": null, "gstin": null, "stateCode": null, "stateName": null },
+        "declarations": ["EInvoiceExemption"],
+        "lines": [{ "uom": "NOS", "isExempt": false, "components": [["Cgst", 9, 100, 9], ["Sgst", 9, 100, 9]] }],
+        "totals": { "taxableValue": 100, "exemptValue": 0, "totalTax": 18, "invoiceTotal": 118, "components": [["Cgst", 9, 100, 9], ["Sgst", 9, 100, 9]] }
+      }
+    },
+    {
+      "name": "B2B invoice line needs at least four HSN digits",
+      "seller": "regularKarnataka",
+      "customer": { "name": "Buyer Pvt Ltd", "phone": "9876543210", "address": "4 Market St", "gstin": "29AABCS1234C1ZT", "stateCode": null },
+      "saleCustomerName": "Buyer Pvt Ltd",
+      "saleCustomerPhone": "9876543210",
+      "lines": [
+        { "lineType": "goods", "description": "Cable", "hsn": "85", "quantity": 1, "unitPrice": 100, "discountAmount": 0, "taxableAmount": 100, "taxRatePercent": 18, "taxAmount": 18, "lineTotal": 118 }
+      ],
+      "expectedError": "Invoice.HsnRequired"
+    },
+    {
+      "name": "registered buyer without an address cannot be invoiced",
+      "seller": "regularKarnataka",
+      "customer": { "name": "Buyer Pvt Ltd", "phone": "9876543210", "address": null, "gstin": "29AABCS1234C1ZT", "stateCode": null },
+      "saleCustomerName": "Buyer Pvt Ltd",
+      "saleCustomerPhone": "9876543210",
+      "lines": [
+        { "lineType": "goods", "description": "Cable", "hsn": "8544", "quantity": 1, "unitPrice": 100, "discountAmount": 0, "taxableAmount": 100, "taxRatePercent": 18, "taxAmount": 18, "lineTotal": 118 }
+      ],
+      "expectedError": "Invoice.BuyerDetailsRequired"
+    },
+    {
+      "name": "composition seller cannot collect tax",
+      "seller": "compositionKarnataka",
+      "customer": null,
+      "saleCustomerName": null,
+      "saleCustomerPhone": null,
+      "lines": [
+        { "lineType": "goods", "description": "Soap", "hsn": "3401", "quantity": 1, "unitPrice": 100, "discountAmount": 0, "taxableAmount": 100, "taxRatePercent": 18, "taxAmount": 18, "lineTotal": 118 }
+      ],
+      "expectedError": "Invoice.CompositionCannotCollectTax"
+    },
+    {
+      "name": "goods and services for a buyer in another state need a stated place of supply",
+      "seller": "regularKarnataka",
+      "customer": { "name": "Buyer Pvt Ltd", "phone": "9123456780", "address": "4 Market St, Chennai", "gstin": "33AABCT1332L1ZL", "stateCode": null },
+      "saleCustomerName": "Buyer Pvt Ltd",
+      "saleCustomerPhone": "9123456780",
+      "lines": [
+        { "lineType": "goods", "description": "Pump", "hsn": "8413", "quantity": 1, "unitPrice": 100, "discountAmount": 0, "taxableAmount": 100, "taxRatePercent": 18, "taxAmount": 18, "lineTotal": 118 },
+        { "lineType": "service", "description": "Installation", "hsn": "998719", "quantity": 1, "unitPrice": 50, "discountAmount": 0, "taxableAmount": 50, "taxRatePercent": 18, "taxAmount": 9, "lineTotal": 59 }
+      ],
+      "expectedError": "Invoice.PlaceOfSupplyRequired"
+    },
+    {
+      "name": "a large invoice to an unnamed walk-in needs the buyer's particulars",
+      "seller": "regularKarnataka",
+      "customer": null,
+      "saleCustomerName": null,
+      "saleCustomerPhone": null,
+      "lines": [
+        { "lineType": "goods", "description": "Refrigerator", "hsn": "8418", "quantity": 1, "unitPrice": 50000, "discountAmount": 0, "taxableAmount": 50000, "taxRatePercent": 18, "taxAmount": 9000, "lineTotal": 59000 }
+      ],
+      "expectedError": "Invoice.BuyerDetailsRequired"
+    },
+    {
+      "name": "a buyer GSTIN that fails its checksum is not invoiced",
+      "seller": "regularKarnataka",
+      "customer": { "name": "Buyer Pvt Ltd", "phone": "9876543210", "address": "4 Market St", "gstin": "29AABCS1234C1ZX", "stateCode": "29" },
+      "saleCustomerName": "Buyer Pvt Ltd",
+      "saleCustomerPhone": "9876543210",
+      "lines": [
+        { "lineType": "goods", "description": "Cable", "hsn": "8544", "quantity": 1, "unitPrice": 100, "discountAmount": 0, "taxableAmount": 100, "taxRatePercent": 18, "taxAmount": 18, "lineTotal": 118 }
+      ],
+      "expectedError": "Invoice.BuyerDetailsRequired"
+    },
+    {
+      "name": "line totals that do not reconcile are refused",
+      "seller": "regularKarnataka",
+      "customer": null,
+      "saleCustomerName": null,
+      "saleCustomerPhone": null,
+      "lines": [
+        { "lineType": "goods", "description": "Soap", "hsn": "3401", "quantity": 1, "unitPrice": 100, "discountAmount": 0, "taxableAmount": 100, "taxRatePercent": 18, "taxAmount": 18, "lineTotal": 119 }
+      ],
+      "expectedError": "Invoice.AmountsDoNotReconcile"
+    }
+  ]
+}

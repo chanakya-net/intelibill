@@ -552,13 +552,13 @@ describe('SaleInvoiceThermalComponent', () => {
       );
     });
 
-    it('does not add the note to a queued offline sale', () => {
+    it('says a queued offline sale without a frozen document is not a GST document copy', () => {
       component.sale = makeSale();
       component.shop = makeShop();
       component.pendingSync = true;
       fixture.detectChanges();
 
-      expect(fixture.nativeElement.querySelector('.thermal-invoice__legacy-note')).toBeNull();
+      expect(fixture.nativeElement.querySelector('.thermal-invoice__legacy-note')?.textContent).toContain('is not a copy of a GST document');
     });
   });
 

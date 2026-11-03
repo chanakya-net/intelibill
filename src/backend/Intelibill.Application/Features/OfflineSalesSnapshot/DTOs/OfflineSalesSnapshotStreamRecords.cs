@@ -1,4 +1,5 @@
 using Intelibill.Domain.Enums;
+using Intelibill.Domain.ValueObjects;
 
 namespace Intelibill.Application.Features.OfflineSalesSnapshot.DTOs;
 
@@ -30,10 +31,17 @@ public sealed record OfflineSellableBatchDto(
     bool PurchaseTaxIncluded,
     DateOnly? ExpiryDate);
 
+/// <summary>
+/// A customer the device can bill offline. GSTIN, state and address are the buyer particulars an
+/// issued document carries, so the device's copy matches the one the server issues on sync.
+/// </summary>
 public sealed record OfflineCustomerLiteDto(
     Guid CustomerId,
     string Name,
-    string PhoneNumber);
+    string PhoneNumber,
+    string? Gstin = null,
+    string? StateCode = null,
+    string? Address = null);
 
 public sealed record OfflineDiscountRuleDto(
     Guid RuleId,
@@ -58,7 +66,8 @@ public sealed record OfflineActiveLeaseDto(
     int NextNumber,
     int NumberPadding,
     DateTimeOffset ReservedAt,
-    DateTimeOffset ExpiresAt);
+    DateTimeOffset ExpiresAt,
+    InvoiceSellerProfile? SellerProfile = null);
 
 public sealed record OfflineSalesSnapshotComplete(
     Guid SnapshotId,

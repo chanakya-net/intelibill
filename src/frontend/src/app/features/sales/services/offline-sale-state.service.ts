@@ -19,6 +19,7 @@ import { OfflineSaleFinalizationService } from './offline-sale-finalization.serv
 import { OfflineSalesQueueSyncService } from './offline-sales-queue-sync.service';
 import { SalePreviewDto } from './sale.models';
 import { AvailableBatchDto } from '../../inventory/services/inventory.models';
+import { invoiceErrorKey } from '../utils/invoice-error-keys';
 
 const MAX_OFFLINE_AGE_MS = 48 * 60 * 60 * 1000;
 
@@ -373,11 +374,15 @@ export class OfflineSaleStateService {
         MISSING_DUE_CUSTOMER: 'sales.newSale.offline.blockDueRequiresCustomer',
         INVOICE_UNAVAILABLE: 'sales.newSale.offline.blockInvoiceUnavailable',
         INVALID_AMOUNT: 'sales.newSale.offline.blockInvalidAmount',
+        SELLER_PROFILE_UNAVAILABLE: 'sales.newSale.offline.blockSellerProfileUnavailable',
+        DOCUMENT_UNAVAILABLE: 'sales.newSale.offline.blockDocumentUnavailable',
       };
 
       return {
         ok: false,
-        errorKey: reasonKey[result.reason],
+        errorKey:
+          (result.reason === 'DOCUMENT_UNAVAILABLE' ? invoiceErrorKey(result.errorCode) : null) ??
+          reasonKey[result.reason],
       };
     }
 

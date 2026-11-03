@@ -1,6 +1,6 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { of, throwError } from 'rxjs';
+import { firstValueFrom, of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 
 import { AuthService } from '../../../core/auth/auth.service';
@@ -192,6 +192,30 @@ describe('OfflineSalesDeviceEnablementService', () => {
     expect(result.ok).toBe(true);
     expect(leaseDb.saveLease).toHaveBeenCalledTimes(1);
     expect(settingsStorage.updateSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the seller profile the server froze on the lease', async () => {
+    const sellerProfile = {
+      seller: {
+        legalName: 'Main Shop Pvt Ltd',
+        tradeName: 'Main Shop',
+        address: '42 MG Road, Bengaluru, Karnataka 560001',
+        stateCode: '29',
+        stateName: 'Karnataka',
+        gstin: '29AAPFU0939F1ZR',
+        taxRegime: 'Regular' as const,
+      },
+      eInvoiceStatus: 'BelowThreshold' as const,
+      seriesCode: 'A',
+    };
+    const reserved = await firstValueFrom(saleService.reserveInvoiceLease());
+    (saleService.reserveInvoiceLease as ReturnType<typeof vi.fn>).mockReturnValueOnce(of({ ...reserved, sellerProfile }));
+    const service = setup();
+
+    const result = await service.enableForShop('shop-1', 'Counter 1');
+
+    expect(result.ok).toBe(true);
+    expect(leaseDb.saveLease.mock.calls[0][0].sellerProfile).toEqual(sellerProfile);
   });
 
   it('triggers queue sync after successful enablement', async () => {

@@ -1113,13 +1113,13 @@ describe('SaleInvoiceA4Component', () => {
       expect(fixture.nativeElement.querySelector('.invoice__tax-summary')).toBeNull();
     });
 
-    it('does not add the legacy note to a queued offline sale', () => {
+    it('says a queued offline sale without a frozen document is not a GST document copy', () => {
       component.sale = makeSale({ document: null, isLegacyDocument: true });
-      component.shop = makeShop();
+      component.shop = makeShop({ gstNumber: null });
       component.pendingSync = true;
       fixture.detectChanges();
 
-      expect(fixture.nativeElement.querySelector('.invoice__legacy-note')).toBeNull();
+      expect(fixture.nativeElement.querySelector('.invoice__legacy-note')?.textContent).toContain('is not a copy of a GST document');
     });
 
   });

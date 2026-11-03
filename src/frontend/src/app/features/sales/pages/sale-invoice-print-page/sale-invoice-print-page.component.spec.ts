@@ -314,4 +314,26 @@ describe('SaleInvoicePrintPageComponent', () => {
     expect(offlineQueueDb.getQueuedSale).not.toHaveBeenCalled();
     expect(fixture.componentInstance.sale()?.saleId).toBe('sale-1');
   });
+
+  it('legacy_document_never_invents_gstin: a legacy queued sale borrows no other shop and offers reconciliation', async () => {
+    authService.session.mockReturnValue({
+      activeShopId: 'shop-1',
+      shops: [{ shopId: 'shop-2', shopName: 'Other Shop', role: 'Owner', isDefault: true, lastUsedAt: null }],
+    });
+    deviceSettingsStorage.loadSettings.mockReturnValue({ deviceId: 'device-1' } as never);
+    offlineQueueDb.getQueuedSale.mockResolvedValue({ payload: offlineQueuedSalePayload } as never);
+
+    const fixture = createComponent('a4', 'offline-sale-1', { offline: '1' });
+    await Promise.resolve();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.sale()?.document).toBeNull();
+    expect(fixture.componentInstance.shop()?.name).not.toBe('Other Shop');
+    expect(fixture.componentInstance.shop()?.gstNumber).toBeNull();
+    const text = fixture.nativeElement.textContent as string;
+    expect(text).not.toContain('Other Shop');
+    expect(text).toContain('is not a copy of a GST document');
+    const link = fixture.nativeElement.querySelector('a.print-state__reconciliation') as HTMLAnchorElement | null;
+    expect(link?.getAttribute('href')).toBe('/sales/offline-reconciliation');
+  });
 });

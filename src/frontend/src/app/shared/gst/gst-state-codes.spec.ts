@@ -1,4 +1,10 @@
-import { GST_STATES, GST_STATE_OPTIONS, gstStateName, isKnownGstStateCode } from './gst-state-codes';
+import {
+  GST_STATES,
+  GST_STATE_OPTIONS,
+  gstStateName,
+  isKnownGstStateCode,
+  isUnionTerritoryWithoutLegislature,
+} from './gst-state-codes';
 
 describe('GST state codes', () => {
   it('lists every GST state and union territory once, in code order', () => {
@@ -27,5 +33,17 @@ describe('GST state codes', () => {
   it('offers a select option per state showing its name and code', () => {
     expect(GST_STATE_OPTIONS).toHaveLength(GST_STATES.length);
     expect(GST_STATE_OPTIONS.find((option) => option.value === '29')).toEqual({ value: '29', name: 'Karnataka (29)' });
+  });
+
+  it('marks the union territories without a legislature, which charge UTGST', () => {
+    expect(GST_STATES.filter((state) => isUnionTerritoryWithoutLegislature(state.code)).map((state) => state.code)).toEqual([
+      '04',
+      '26',
+      '31',
+      '35',
+      '38',
+    ]);
+    expect(isUnionTerritoryWithoutLegislature('07')).toBe(false);
+    expect(isUnionTerritoryWithoutLegislature(null)).toBe(false);
   });
 });

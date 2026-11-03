@@ -67,3 +67,10 @@ export function gstStateName(code: string | null | undefined): string | null {
 export function isKnownGstStateCode(code: string | null | undefined): boolean {
   return !!code && NAMES_BY_CODE.has(code);
 }
+
+/** Union territories without a legislature charge UTGST in place of SGST (UTGST Act s.7). */
+const UNION_TERRITORIES_WITHOUT_LEGISLATURE: ReadonlySet<string> = new Set(['04', '26', '31', '35', '38']);
+
+export function isUnionTerritoryWithoutLegislature(code: string | null | undefined): boolean {
+  return !!code && UNION_TERRITORIES_WITHOUT_LEGISLATURE.has(code);
+}

@@ -5,11 +5,27 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { InvoiceLeaseIndexedDbService } from '../../../core/storage/invoice-lease-indexeddb.service';
 import { OfflineSalesSnapshotIndexedDbService } from '../../../core/storage/offline-sales-snapshot-indexeddb.service';
 import { OfflineFinalizeRequest, OfflineSaleFinalizationService } from './offline-sale-finalization.service';
+import { mapOfflineQueuedSaleToSaleDto } from './offline-sale-invoice.mapper';
+import type { InvoiceSellerProfile } from './sale.models';
 import { OfflineSalesQueueIndexedDbService } from './offline-sales-queue-indexeddb.service';
 import { OfflineSalesShadowStockIndexedDbService } from './offline-sales-shadow-stock-indexeddb.service';
 
 describe('OfflineSaleFinalizationService', () => {
-  function setup(userId: string | null = 'user-1') {
+  const sellerA: InvoiceSellerProfile = {
+    seller: {
+      legalName: 'Main Shop Pvt Ltd',
+      tradeName: 'Main Shop',
+      address: '42 MG Road, Bengaluru, Karnataka 560001',
+      stateCode: '29',
+      stateName: 'Karnataka',
+      gstin: '29AAPFU0939F1ZR',
+      taxRegime: 'Regular',
+    },
+    eInvoiceStatus: 'BelowThreshold',
+    seriesCode: 'A',
+  };
+
+  function setup(userId: string | null = 'user-1', sellerProfile: InvoiceSellerProfile | null = sellerA) {
     const snapshotDb = {
       getUsableSnapshotInfo: vi.fn().mockResolvedValue({ snapshotId: 'snap-1', completedAt: new Date().toISOString() }),
       getUsableBatches: vi.fn().mockResolvedValue([makeBatchSnapshot()]),
@@ -18,7 +34,9 @@ describe('OfflineSaleFinalizationService', () => {
       getUsableCustomers: vi.fn().mockResolvedValue([{ customerId: 'cust-1' }]),
     };
     const leaseDb = {
-      consumeNextInvoiceNumber: vi.fn().mockResolvedValue({ invoiceNumber: 'INV-1', lease: { nextNumber: 2 } }),
+      consumeNextInvoiceNumber: vi
+        .fn()
+        .mockResolvedValue({ invoiceNumber: 'A/2627/000001', lease: { nextNumber: 2, fiscalYear: '2026-27', sellerProfile } }),
       rollbackConsumedInvoiceNumber: vi.fn().mockResolvedValue({ nextNumber: 1 }),
     };
     const queueDb = {
@@ -129,6 +147,63 @@ describe('OfflineSaleFinalizationService', () => {
       preTaxAmount: 100,
       lineTotal: 100,
     });
+  });
+
+  it('finalization_copies_seller_identity_once', async () => {
+    const profile = structuredClone(sellerA);
+    const { service, queueDb, snapshotDb } = setup('user-1', profile);
+    snapshotDb.getUsableCustomers.mockResolvedValue([
+      { customerId: 'cust-1', name: 'Buyer Pvt Ltd', phoneNumber: '9876543210', gstin: null, stateCode: '29', address: '4 Market St' },
+    ]);
+
+    const result = await service.finalizeAndQueue(makeRequest());
+
+    expect(result.ok).toBe(true);
+    const saved = queueDb.savePendingSale.mock.calls[0][0].payload;
+    expect(saved.document).toMatchObject({
+      version: 2,
+      number: 'A/2627/000001',
+      seriesCode: 'A',
+      fiscalYearStart: 2026,
+      issuedAt: saved.soldAt,
+      seller: sellerA.seller,
+      buyer: { name: 'Buyer Pvt Ltd', address: '4 Market St', stateCode: '29' },
+      totals: { invoiceTotal: 100, totalTax: 0 },
+    });
+
+    // The shop changes its GSTIN and address after the sale: the issued copy does not follow.
+    const mutable = profile.seller as { gstin: string | null; address: string };
+    mutable.gstin = '27AAPFU0939F1ZV';
+    mutable.address = '1 New Road, Pune';
+
+    const reprinted = mapOfflineQueuedSaleToSaleDto(saved);
+    expect(reprinted.document?.seller).toEqual(sellerA.seller);
+    expect(reprinted.document?.number).toBe('A/2627/000001');
+    expect(reprinted.invoiceNumber).toBe('A/2627/000001');
+    expect(reprinted.totalAmount).toBe(100);
+  });
+
+  it('refuses_without_lease_seller_profile', async () => {
+    const { service, leaseDb, queueDb, shadowDb } = setup('user-1', null);
+
+    const result = await service.finalizeAndQueue(makeRequest());
+
+    expect(result).toEqual({ ok: false, reason: 'SELLER_PROFILE_UNAVAILABLE' });
+    expect(leaseDb.rollbackConsumedInvoiceNumber).toHaveBeenCalledWith('shop-1', 'device-1', '2026-27', 2);
+    expect(queueDb.savePendingSale).not.toHaveBeenCalled();
+    expect(shadowDb.reduceQuantity).not.toHaveBeenCalled();
+  });
+
+  it('refuses_document_errors_and_rolls_back', async () => {
+    const composition: InvoiceSellerProfile = { ...sellerA, seller: { ...sellerA.seller, taxRegime: 'Composition' } };
+    const { service, leaseDb, queueDb, snapshotDb } = setup('user-1', composition);
+    snapshotDb.getUsableBatches.mockResolvedValue([{ ...makeBatchSnapshot(), taxRatePercent: 18 }]);
+
+    const result = await service.finalizeAndQueue(makeRequest());
+
+    expect(result).toEqual({ ok: false, reason: 'DOCUMENT_UNAVAILABLE', errorCode: 'Invoice.CompositionCannotCollectTax' });
+    expect(leaseDb.rollbackConsumedInvoiceNumber).toHaveBeenCalledWith('shop-1', 'device-1', '2026-27', 2);
+    expect(queueDb.savePendingSale).not.toHaveBeenCalled();
   });
 
   it('blocks stale snapshots older than 48h', async () => {

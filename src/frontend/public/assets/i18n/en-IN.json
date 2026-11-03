@@ -1314,7 +1314,9 @@
         "blockDueRequiresCustomer": "Select a customer from the list to record a credit/due sale offline.",
         "blockInvoiceUnavailable": "Invoice lease is exhausted or expired. Cannot complete offline sale.",
         "blockInvalidAmount": "One or more amounts are not valid numbers. Check quantities, prices and discounts.",
-        "servicesNotSupported": "Offline sales for services are not supported."
+        "servicesNotSupported": "Offline sales for services are not supported.",
+        "blockSellerProfileUnavailable": "This device's invoice numbers were reserved before offline GST documents. Go online and turn offline billing on again to continue.",
+        "blockDocumentUnavailable": "This sale cannot be issued as a GST document offline. Complete it when you are back online."
       },
       "productLookup": "Quick product lookup",
       "productLookupDescription": "Tap a product to quickly add it, or open the batch picker when multiple batches exist.",
@@ -1477,7 +1479,9 @@
         "compositionTaxablePerson": "Composition taxable person, not eligible to collect tax on supplies.",
         "eInvoiceExemption": "I/We hereby declare that though our aggregate turnover in any preceding financial year from 2017-18 onwards is more than the aggregate turnover notified under sub-rule (4) of rule 48, we are not required to prepare an invoice in terms of the provisions of the said sub-rule.",
         "notRegisteredUnderGst": "The seller is not registered under GST; no GST has been charged."
-      }
+      },
+      "offlineLegacyNote": "Issued offline before this device recorded the seller's tax details. This copy shows the priced bill only and is not a copy of a GST document.",
+      "openReconciliation": "Open offline reconciliation"
     },
     "profitLoss": {
       "eyebrow": "Sales Report",

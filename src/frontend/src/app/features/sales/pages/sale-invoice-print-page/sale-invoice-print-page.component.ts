@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import { forkJoin } from 'rxjs';
@@ -38,6 +38,7 @@ export class SaleInvoicePrintPageComponent {
   readonly shop = signal<ShopDetails | null>(null);
   readonly template = signal<InvoiceTemplate>(this.resolveTemplate());
   readonly pendingSync = signal(false);
+  readonly isLegacyOfflineInvoice = computed(() => this.pendingSync() && !!this.sale() && !this.sale()?.document);
 
   constructor() {
     this.loadInvoice();
@@ -132,12 +133,12 @@ export class SaleInvoicePrintPageComponent {
     return this.route.snapshot.queryParamMap.get('offline') === '1';
   }
 
+  /**
+   * The shop shown on a legacy queued sale, which froze no document: its name only, and only from the shop the sale
+   * belongs to. Tax identity is never filled in from the shop as it is now.
+   */
   private buildOfflineShopDetails(shopId: string): ShopDetails {
-    const session = this.authService.session();
-    const activeShop =
-      session?.shops.find((shop) => shop.shopId === shopId) ??
-      session?.shops.find((shop) => shop.isDefault) ??
-      null;
+    const activeShop = this.authService.session()?.shops.find((shop) => shop.shopId === shopId) ?? null;
 
     return {
       shopId,

@@ -1,4 +1,4 @@
-import type { InstantDiscountRequest } from './sale.models';
+import type { InstantDiscountRequest, InvoiceDocument } from './sale.models';
 
 export type OfflineSaleQueueStatus = 'Pending' | 'Syncing' | 'Synced' | 'SyncedWithWarnings' | 'NeedsReview' | 'Failed';
 
@@ -109,6 +109,11 @@ export interface OfflineQueuedSalePayload {
   readonly customerPhone: string | null;
   /** Signed-in user who issued the invoice. Absent on payloads queued before issuers were recorded (legacy). */
   readonly issuedByUserId?: string | null;
+  /**
+   * The document the invoice was issued as, frozen once at finalization from the lease's seller profile; every print
+   * and reprint renders it. Absent on payloads queued before devices issued documents (legacy).
+   */
+  readonly document?: InvoiceDocument | null;
 }
 
 export interface OfflineArithmeticMismatch {

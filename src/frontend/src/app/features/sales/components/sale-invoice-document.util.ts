@@ -102,11 +102,12 @@ export function paymentStatusKey(sale: SaleDto): PaymentStatusKey {
 /**
  * The note a document-less print carries. The server reports every sale without a document as legacy, whether it
  * predates GST documents or was an offline sale posted without one, so the note states only what is true of both.
- * A queued offline sale has no server document yet and carries no note.
+ * A queued offline sale prints the document frozen when it was issued; one queued before devices froze documents has
+ * none, and its note says the copy is not a GST document rather than presenting the shop as it is now.
  */
 export function missingDocumentNoteKey(sale: SaleDto, pendingSync: boolean): string | null {
-  if (pendingSync || sale.document) return null;
-  return 'sales.invoice.noDocumentNote';
+  if (sale.document) return null;
+  return pendingSync ? 'sales.invoice.offlineLegacyNote' : 'sales.invoice.noDocumentNote';
 }
 
 function roundPaise(value: number): number {

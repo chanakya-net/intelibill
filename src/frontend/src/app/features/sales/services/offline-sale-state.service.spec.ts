@@ -223,4 +223,18 @@ describe('OfflineSaleStateService', () => {
     expect(result).toEqual({ ok: false, errorKey: 'sales.newSale.offline.blockAuthGraceInvalid' });
     expect(finalization.finalizeAndQueue).not.toHaveBeenCalled();
   });
+
+  it.each([
+    [{ ok: false, reason: 'SELLER_PROFILE_UNAVAILABLE' }, 'sales.newSale.offline.blockSellerProfileUnavailable'],
+    [{ ok: false, reason: 'DOCUMENT_UNAVAILABLE', errorCode: 'Invoice.HsnRequired' }, 'errors.invoice.hsnRequired'],
+    [{ ok: false, reason: 'DOCUMENT_UNAVAILABLE', errorCode: 'Invoice.Unknown' }, 'sales.newSale.offline.blockDocumentUnavailable'],
+  ])('explains a sale the device cannot issue (%o)', async (refusal, errorKey) => {
+    snapshotDb.getUsableCustomers.mockResolvedValue([{ customerId: 'customer-1', name: 'Alice', phoneNumber: '9999999999' }]);
+    finalization.finalizeAndQueue.mockResolvedValue(refusal as never);
+
+    const service = setup();
+    const result = await service.submitOfflineSale(buildSubmitPayload('customer-1'));
+
+    expect(result).toEqual({ ok: false, errorKey });
+  });
 });

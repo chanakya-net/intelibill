@@ -270,6 +270,8 @@ export interface InvoiceLeaseDto {
   readonly remainingCount: number;
   readonly reservedAt: string;
   readonly expiresAt: string;
+  /** The seller identity the lease froze; the device issues the range's documents under it. Absent from older servers. */
+  readonly sellerProfile?: InvoiceSellerProfile | null;
 }
 
 export interface SaleItemDto {
@@ -369,6 +371,15 @@ export interface InvoiceDocumentSeller {
   readonly stateName: string;
   readonly gstin: string | null;
   readonly taxRegime: InvoiceSellerTaxRegime;
+}
+
+export type InvoiceEInvoiceStatus = 'NotAttested' | 'BelowThreshold' | 'Exempt' | 'Required';
+
+/** The seller identity and capability a shop had when it reserved an invoice lease. */
+export interface InvoiceSellerProfile {
+  readonly seller: InvoiceDocumentSeller;
+  readonly eInvoiceStatus: InvoiceEInvoiceStatus;
+  readonly seriesCode: string;
 }
 
 export interface InvoiceDocumentBuyer {

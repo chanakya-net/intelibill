@@ -16,6 +16,13 @@
     {{ 'common.loading' | transloco }}
   </section>
 
+  <section *ngIf="!isLoading() && !errorMessage() && isLegacyOfflineInvoice()" class="print-state print-state--notice" role="note">
+    {{ 'sales.invoice.offlineLegacyNote' | transloco }}
+    <a class="print-state__reconciliation" href="/sales/offline-reconciliation">
+      {{ 'sales.invoice.openReconciliation' | transloco }}
+    </a>
+  </section>
+
   <section *ngIf="errorMessage()" class="print-state print-state--error" role="alert">
     {{ errorMessage().startsWith('sales.') ? (errorMessage() | transloco) : errorMessage() }}
   </section>

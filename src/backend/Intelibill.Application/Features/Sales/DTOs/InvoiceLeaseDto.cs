@@ -1,3 +1,5 @@
+using Intelibill.Domain.ValueObjects;
+
 namespace Intelibill.Application.Features.Sales.DTOs;
 
 public sealed record InvoiceLeaseDto(
@@ -12,4 +14,5 @@ public sealed record InvoiceLeaseDto(
     int NextNumber,
     int RemainingCount,
     DateTimeOffset ReservedAt,
-    DateTimeOffset ExpiresAt);
+    DateTimeOffset ExpiresAt,
+    InvoiceSellerProfile? SellerProfile = null);
