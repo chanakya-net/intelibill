@@ -11,7 +11,8 @@ namespace Intelibill.Application.Features.Sales.Commands.ReserveInvoiceLease;
 
 public sealed class ReserveInvoiceLeaseCommandHandler(
     IUserRepository userRepository,
-    IInvoiceLeaseRepository invoiceLeaseRepository)
+    IInvoiceLeaseRepository invoiceLeaseRepository,
+    TimeProvider timeProvider)
 {
     public async Task<ErrorOr<InvoiceLeaseDto>> HandleAsync(ReserveInvoiceLeaseCommand command, CancellationToken cancellationToken)
     {
@@ -32,9 +33,14 @@ public sealed class ReserveInvoiceLeaseCommandHandler(
         if (blockSize > InvoiceLeaseDefaults.MaxBlockSize)
             return Errors.InvoiceLease.BlockSizeTooLarge;
 
-        var reservedAt = DateTimeOffset.UtcNow;
-        var expiresAt = reservedAt.AddDays(InvoiceLeaseDefaults.LeaseDurationDays);
+        var reservedAt = timeProvider.GetUtcNow();
         var fiscalYear = FiscalYear.ForDate(reservedAt);
+
+        // A lease never straddles two fiscal years: its numbers carry this year's prefix, so it stops
+        // when the next year starts (1 April 00:00 UTC, the boundary FiscalYear.ForDate uses).
+        var nextFiscalYearStart = new DateTimeOffset(fiscalYear.EndYear, InvoiceLeaseDefaults.FiscalYearStartMonth, 1, 0, 0, 0, TimeSpan.Zero);
+        var fullTerm = reservedAt.AddDays(InvoiceLeaseDefaults.LeaseDurationDays);
+        var expiresAt = fullTerm < nextFiscalYearStart ? fullTerm : nextFiscalYearStart;
 
         var lease = await invoiceLeaseRepository.ReserveAsync(
             command.ShopId,
