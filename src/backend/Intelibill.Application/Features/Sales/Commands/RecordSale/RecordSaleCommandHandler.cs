@@ -1,5 +1,6 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Sales.DTOs;
 using Intelibill.Application.Features.Sales.Services;
 using Intelibill.Application.Features.Sales.Services.Pricing;
@@ -22,6 +23,8 @@ public sealed class RecordSaleCommandHandler
     private readonly SaleDtoBuilder saleDtoBuilder;
     private readonly ICustomerLedgerEntryRepository customerLedgerEntryRepository;
     private readonly IStockTransactionRepository stockTransactionRepository;
+    private readonly IShopRepository shopRepository;
+    private readonly IInvoiceNumberAllocator invoiceNumberAllocator;
     private readonly IUnitOfWork unitOfWork;
 
     public RecordSaleCommandHandler(
@@ -33,6 +36,8 @@ public sealed class RecordSaleCommandHandler
         SaleDtoBuilder saleDtoBuilder,
         ICustomerLedgerEntryRepository customerLedgerEntryRepository,
         IStockTransactionRepository stockTransactionRepository,
+        IShopRepository shopRepository,
+        IInvoiceNumberAllocator invoiceNumberAllocator,
         IUnitOfWork unitOfWork)
     {
         this.saleLineValidator = saleLineValidator;
@@ -43,6 +48,8 @@ public sealed class RecordSaleCommandHandler
         this.saleDtoBuilder = saleDtoBuilder;
         this.customerLedgerEntryRepository = customerLedgerEntryRepository;
         this.stockTransactionRepository = stockTransactionRepository;
+        this.shopRepository = shopRepository;
+        this.invoiceNumberAllocator = invoiceNumberAllocator;
         this.unitOfWork = unitOfWork;
     }
 
@@ -113,7 +120,19 @@ public sealed class RecordSaleCommandHandler
             return Errors.Sale.CreditNoteRedemptionsSplitMismatch;
         }
 
-        var invoiceNumber = $"INV-{DateTimeOffset.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8].ToUpperInvariant()}";
+        // Refused before a number is taken: an undeclared or unsupported profile issues nothing.
+        var shop = await shopRepository.GetByIdAsync(command.ShopId, cancellationToken);
+        if (shop is null)
+            return Errors.Shop.ShopNotFound;
+
+        var sellerProfileOrError = InvoiceDocumentBuilder.CaptureSellerProfile(shop);
+        if (sellerProfileOrError.IsError)
+            return sellerProfileOrError.Errors;
+
+        var sellerProfile = sellerProfileOrError.Value;
+        var fiscalYear = FiscalYear.ForDate(soldAt);
+        var series = new InvoiceSeriesKey(shop.Id, shop.SellerRegistrationKey, sellerProfile.SeriesCode, fiscalYear);
+
         var saleLineInputs = validatedLines.Select((line, index) =>
         {
             var calculation = pricing.Lines[index];
@@ -144,44 +163,56 @@ public sealed class RecordSaleCommandHandler
                 (line.Command.ItemDiscount ?? new InstantDiscount(InstantDiscountType.None, 0m)).Value,
                 line.Command.HsnCode);
         }).ToList();
-        var saleOrError = Sale.Record(
-            command.ShopId,
-            command.ActorUserId,
-            normalizedIdempotencyKey,
-            requestHash,
-            invoiceNumber,
-            saleLineInputs,
-            resolvedCustomer?.Id ?? command.CustomerId,
-            resolvedCustomer?.Name ?? command.CustomerName,
-            resolvedCustomer?.PhoneNumber ?? normalizedCustomerPhone,
-            command.PaymentMethod,
-            command.PaidAmount,
-            command.DueAmount,
-            soldAt,
-            pricing.ConfiguredSaleRule?.RuleId,
-            pricing.ConfiguredSaleRule?.RuleType,
-            pricing.ConfiguredSaleRule?.Percentage,
-            pricing.ConfiguredSaleRule?.ThresholdAmount,
-            effectiveSaleDiscount.Type,
-            effectiveSaleDiscount.Value,
-            warnings,
-            creditNoteAppliedAmount);
-        if (saleOrError.IsError)
-            return saleOrError.Errors;
 
-        var sale = saleOrError.Value;
-        var hasCreditNoteRedemption = creditNoteRedemptions.Count > 0;
-        var creditNoteTransactionStarted = false;
-        var creditNoteTransactionCommitted = false;
-        var creditNoteTransactionRolledBack = false;
+        var transactionStarted = false;
+        var transactionCommitted = false;
+        var transactionRolledBack = false;
 
         try
         {
-            if (hasCreditNoteRedemption)
-            {
-                await unitOfWork.BeginTransactionAsync(cancellationToken);
-                creditNoteTransactionStarted = true;
-            }
+            // The number is taken inside the posting transaction: the series row stays locked until
+            // the sale commits, and any refusal below rolls the counter back with everything else.
+            await unitOfWork.BeginTransactionAsync(cancellationToken);
+            transactionStarted = true;
+
+            var invoiceNumberOrError = await invoiceNumberAllocator.AllocateAsync(series, cancellationToken);
+            if (invoiceNumberOrError.IsError)
+                return invoiceNumberOrError.Errors;
+
+            var invoiceNumber = invoiceNumberOrError.Value;
+            var saleOrError = Sale.Record(
+                command.ShopId,
+                command.ActorUserId,
+                normalizedIdempotencyKey,
+                requestHash,
+                invoiceNumber,
+                saleLineInputs,
+                resolvedCustomer?.Id ?? command.CustomerId,
+                resolvedCustomer?.Name ?? command.CustomerName,
+                resolvedCustomer?.PhoneNumber ?? normalizedCustomerPhone,
+                command.PaymentMethod,
+                command.PaidAmount,
+                command.DueAmount,
+                soldAt,
+                pricing.ConfiguredSaleRule?.RuleId,
+                pricing.ConfiguredSaleRule?.RuleType,
+                pricing.ConfiguredSaleRule?.Percentage,
+                pricing.ConfiguredSaleRule?.ThresholdAmount,
+                effectiveSaleDiscount.Type,
+                effectiveSaleDiscount.Value,
+                warnings,
+                creditNoteAppliedAmount);
+            if (saleOrError.IsError)
+                return saleOrError.Errors;
+
+            var sale = saleOrError.Value;
+            var documentOrError = InvoiceDocumentBuilder.Build(
+                new InvoiceIssueContext(sellerProfile, resolvedCustomer, command.PlaceOfSupplyStateCode, soldAt, fiscalYear),
+                sale);
+            if (documentOrError.IsError)
+                return documentOrError.Errors;
+
+            sale.AttachInvoiceDocument(documentOrError.Value);
 
             var creditNoteRedemptionsOrError = await RedeemCreditNotesAsync(
                 command.ShopId,
@@ -241,12 +272,8 @@ public sealed class RecordSaleCommandHandler
             }
 
             await unitOfWork.SaveChangesAsync(cancellationToken);
-
-            if (hasCreditNoteRedemption)
-            {
-                await unitOfWork.CommitTransactionAsync(cancellationToken);
-                creditNoteTransactionCommitted = true;
-            }
+            await unitOfWork.CommitTransactionAsync(cancellationToken);
+            transactionCommitted = true;
 
             return saleDtoBuilder.BuildSaleDto(sale, itemNameById, sale.Warnings, creditNoteRedemptionsOrError.Value);
         }
@@ -256,10 +283,10 @@ public sealed class RecordSaleCommandHandler
         }
         catch (DbUpdateException)
         {
-            if (hasCreditNoteRedemption && creditNoteTransactionStarted && !creditNoteTransactionCommitted)
+            if (transactionStarted && !transactionCommitted)
             {
                 await unitOfWork.RollbackTransactionAsync(cancellationToken);
-                creditNoteTransactionRolledBack = true;
+                transactionRolledBack = true;
             }
 
             var replayResult = await TryGetReplayForIdempotentSaleAsync(
@@ -276,12 +303,9 @@ public sealed class RecordSaleCommandHandler
         }
         finally
         {
-            if (hasCreditNoteRedemption
-                && creditNoteTransactionStarted
-                && !creditNoteTransactionCommitted
-                && !creditNoteTransactionRolledBack)
+            if (transactionStarted && !transactionCommitted && !transactionRolledBack)
             {
-                await unitOfWork.RollbackTransactionAsync(cancellationToken);
+                await unitOfWork.RollbackTransactionAsync(CancellationToken.None);
             }
         }
     }

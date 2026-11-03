@@ -23,7 +23,7 @@ describe('ManageShopOverlayComponent', () => {
   const isSubmittingSignal = signal(false);
   const isLoadingDetailsSignal = signal(false);
   const errorSignal = signal('');
-  const lastMutationTypeSignal = signal<'create' | 'update' | 'update-bank-details' | 'set-default' | null>(null);
+  const lastMutationTypeSignal = signal<'create' | 'update' | 'update-bank-details' | 'update-tax-profile' | 'set-default' | null>(null);
   const lastMutationSucceededSignal = signal(false);
   const canReachApiSignal = signal(true);
   const selectedDetailsSignal = signal<ShopDetailsDto | null>(baseDetails());
@@ -216,16 +216,86 @@ describe('ManageShopOverlayComponent', () => {
     component.form.controls.mobileNumber.setValue('  ');
     component.form.controls.gstNumber.setValue('');
     component.onSubmit();
+    // The GSTIN belongs to the tax profile here, so the shop's current one goes back whatever the form holds.
     expectDispatched(
       ShopsActions.updateShopRequested({
         shopId: 'shop-1',
-        payload: { name: 'Updated Shop', address: '10 New Road', city: 'Bengaluru', state: 'Karnataka', pincode: '560001', contactPerson: undefined, mobileNumber: undefined, gstNumber: undefined },
+        payload: { name: 'Updated Shop', address: '10 New Road', city: 'Bengaluru', state: 'Karnataka', pincode: '560001', contactPerson: undefined, mobileNumber: undefined, gstNumber: '27AAPFU0939F1ZV' },
       })
     );
     lastMutationTypeSignal.set('update');
     lastMutationSucceededSignal.set(true);
     fixture.detectChanges();
     expect(component.activeStep()).toBe(2);
+  });
+
+  it('keeps unsaved shop details when the tax profile save refreshes them', () => {
+    const { component, fixture } = setup();
+    component.onBasicInfoFormChange({ name: 'Typed Name', address: '42 MG Road', city: 'Bengaluru', state: 'Karnataka', pincode: '560001' });
+
+    selectedDetailsSignal.set({ ...baseDetails(), taxProfile: { legalName: null, stateCode: '27', taxRegime: 'Regular', invoiceSeriesCode: 'A', eInvoiceStatus: 'BelowThreshold', eInvoiceAttestedAt: null } });
+    fixture.detectChanges();
+
+    expect(component.form.controls.name.value).toBe('Typed Name');
+  });
+
+  it('saves the tax profile on its own and stays on the shop step', () => {
+    const { component, fixture } = setup();
+    const payload = {
+      legalName: null,
+      stateCode: '27',
+      taxRegime: 'Regular' as const,
+      gstNumber: '27AAPFU0939F1ZV',
+      invoiceSeriesCode: 'A',
+      eInvoiceStatus: 'BelowThreshold' as const,
+    };
+
+    component.onSaveTaxProfile(payload);
+
+    expectDispatched(ShopsActions.updateShopTaxProfileRequested({ shopId: 'shop-1', payload }));
+    expect(component.isTaxProfilePending()).toBe(true);
+    lastMutationTypeSignal.set('update-tax-profile');
+    lastMutationSucceededSignal.set(true);
+    fixture.detectChanges();
+    expect(component.isTaxProfilePending()).toBe(false);
+    expect(component.taxProfileSaved()).toBe(true);
+    expect(component.activeStep()).toBe(1);
+  });
+
+  it('refuses a tax profile save from anyone but the owner', () => {
+    const { component } = setup();
+    component.form.controls.shopId.setValue('shop-2');
+    component.onShopSelectionChange();
+
+    component.onSaveTaxProfile({ legalName: null, stateCode: '27', taxRegime: 'Unregistered', gstNumber: null, invoiceSeriesCode: null, eInvoiceStatus: null });
+
+    expectDispatched(ShopsActions.updateShopTaxProfileFailed({ errorMessage: 'errors.shops.onlyOwnersCanUpdate' }));
+    expect(dispatch.mock.calls.map(([action]) => action.type)).not.toContain(ShopsActions.updateShopTaxProfileRequested.type);
+  });
+
+  it('shows a tax profile error in the tax section, not under the shop details', () => {
+    const { component } = setup();
+    lastMutationTypeSignal.set('update-tax-profile');
+    errorSignal.set('errors.shops.gstinInvalid');
+
+    expect(component.taxProfileError()).toBe('errors.shops.gstinInvalid');
+    expect(component.shopFormError()).toBe('');
+
+    lastMutationTypeSignal.set('update');
+    expect(component.taxProfileError()).toBe('');
+    expect(component.shopFormError()).toBe('errors.shops.gstinInvalid');
+  });
+
+  it('shows the tax profile section with the not-declared warning for the selected shop', () => {
+    selectedDetailsSignal.set({
+      ...baseDetails(),
+      taxProfile: { legalName: null, stateCode: null, taxRegime: 'NotDeclared', invoiceSeriesCode: 'A', eInvoiceStatus: 'NotAttested', eInvoiceAttestedAt: null },
+    });
+    const { fixture } = setup();
+
+    expect(fixture.nativeElement.querySelector('app-shop-tax-profile-form .tax-profile-warning')).not.toBeNull();
+    // The GSTIN is edited with the tax profile, where it is checked against the state.
+    expect(fixture.nativeElement.querySelector('app-shop-basic-info-form #shop-gst')).toBeNull();
   });
 
   it('saves bank details and advances to step 3', () => {

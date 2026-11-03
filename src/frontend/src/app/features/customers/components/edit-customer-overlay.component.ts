@@ -9,10 +9,12 @@ import { InputGroupAddonModule } from 'primeng/inputgroupaddon';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { InputTextModule } from 'primeng/inputtext';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
+import { SelectModule } from 'primeng/select';
 
 import { Customer } from '../services/customer.service';
 import { CustomersFacade } from '../state/customers.facade';
 import { InputValidators } from '../../../shared/forms/input-validation';
+import { GST_STATE_OPTIONS } from '../../../shared/gst/gst-state-codes';
 import {
   CURRENCY_ADDON_PT,
   CURRENCY_INPUT_GROUP_PT,
@@ -31,6 +33,7 @@ import {
     InputNumberModule,
     InputGroupModule,
     InputGroupAddonModule,
+    SelectModule,
     TranslocoPipe,
   ],
   templateUrl: './edit-customer-overlay.component.html',
@@ -51,20 +54,27 @@ export class EditCustomerOverlayComponent implements OnInit {
 
   @Output() readonly closeRequested = new EventEmitter<void>();
 
-  readonly form = this.formBuilder.nonNullable.group({
-    name: ['', InputValidators.requiredText(180)],
-    phoneNumber: ['', InputValidators.phoneNumber()],
-    address: ['', InputValidators.optionalText(320)],
-    isActive: [true],
-    creditLimit: [
-      0,
-      [
-        ...InputValidators.nonNegativeNumber(),
-        Validators.max(99999999.99),
-        InputValidators.maxFractionDigits(2),
+  readonly stateOptions = [...GST_STATE_OPTIONS];
+
+  readonly form = this.formBuilder.nonNullable.group(
+    {
+      name: ['', InputValidators.requiredText(180)],
+      phoneNumber: ['', InputValidators.phoneNumber()],
+      address: ['', InputValidators.optionalText(320)],
+      gstin: ['', InputValidators.gstin()],
+      stateCode: [''],
+      isActive: [true],
+      creditLimit: [
+        0,
+        [
+          ...InputValidators.nonNegativeNumber(),
+          Validators.max(99999999.99),
+          InputValidators.maxFractionDigits(2),
+        ],
       ],
-    ],
-  });
+    },
+    { validators: InputValidators.gstinMatchesState('gstin', 'stateCode') },
+  );
 
   ngOnInit(): void {
     this.customersFacade.clearError();
@@ -77,6 +87,8 @@ export class EditCustomerOverlayComponent implements OnInit {
       address: c.address ?? '',
       isActive: c.isActive,
       creditLimit: c.creditLimit,
+      gstin: c.gstin ?? '',
+      stateCode: c.stateCode ?? '',
     });
   }
 
@@ -104,11 +116,15 @@ export class EditCustomerOverlayComponent implements OnInit {
       address: this.nullableTrimmed(raw.address),
       isActive: raw.isActive,
       creditLimit: raw.creditLimit,
+      // The server keeps a field that is absent or null; an empty string is what clears it.
+      gstin: this.nullableTrimmed(raw.gstin)?.toUpperCase() ?? '',
+      // A cleared state select leaves null in the control.
+      stateCode: raw.stateCode || '',
     });
   }
 
-  private nullableTrimmed(value: string): string | null {
-    const normalized = value.trim();
+  private nullableTrimmed(value: string | null): string | null {
+    const normalized = (value ?? '').trim();
     return normalized.length > 0 ? normalized : null;
   }
 }

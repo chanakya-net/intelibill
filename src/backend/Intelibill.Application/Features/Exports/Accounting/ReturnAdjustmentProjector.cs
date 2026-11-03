@@ -1,5 +1,8 @@
+using Intelibill.Application.Features.Sales.Services;
+using Intelibill.Domain.Common;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
+using Intelibill.Domain.ValueObjects;
 
 namespace Intelibill.Application.Features.Exports.Accounting;
 
@@ -82,6 +85,10 @@ public static class ReturnAdjustmentProjector
                 .ToList()
             : [];
 
+        var documentTaxComponents = classified && sale.InvoiceDocument is { } document
+            ? DocumentComponents(document, taxComponents)
+            : null;
+
         var settlements = saleReturn.Settlements
             .OrderBy(s => s.Sequence)
             .Select(s => new ReturnAdjustmentSettlement(
@@ -113,7 +120,21 @@ public static class ReturnAdjustmentProjector
             taxComponents,
             settlements,
             lines,
-            kind == ReturnAdjustmentEntryKind.VoidReversal ? saleReturn.VoidReason : null);
+            kind == ReturnAdjustmentEntryKind.VoidReversal ? saleReturn.VoidReason : null,
+            documentTaxComponents);
+    }
+
+    /// <summary>The returned tax per rate, split with the document's own place of supply and rule.</summary>
+    private static List<InvoiceTaxComponent> DocumentComponents(
+        IssuedInvoiceSnapshot document,
+        IReadOnlyList<ReturnAdjustmentTaxComponent> taxComponents)
+    {
+        var unionTerritoryTax = GstStateCodes.Find(document.PlaceOfSupplyStateCode)?.IsUnionTerritoryWithoutLegislature == true;
+        return taxComponents
+            .Where(c => c.TaxRatePercent > 0m)
+            .SelectMany(c => InvoiceDocumentBuilder.SplitTax(c.TaxableAmount, c.TaxRatePercent, c.TaxAmount, document.IsInterstate, unionTerritoryTax))
+            .Where(c => c.Amount != 0m)
+            .ToList();
     }
 
     private static bool InRange(DateTimeOffset postedAt, DateOnly from, DateOnly to)

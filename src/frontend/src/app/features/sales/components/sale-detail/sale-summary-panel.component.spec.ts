@@ -26,9 +26,12 @@ const makeSale = (overrides: Partial<SaleDto> = {}): SaleDto => ({
   totalAmount: 220,
   totalTaxAmount: 20,
   creditNoteAppliedAmount: 0,
+  creditNoteRedemptions: [],
   items: [],
   returns: [],
   warnings: [],
+  document: null,
+  isLegacyDocument: true,
   ...overrides,
 });
 
@@ -63,9 +66,9 @@ describe('SaleSummaryPanelComponent', () => {
       paidAmount: 180,
       dueAmount: 15,
       creditNoteAppliedAmount: 25,
-      creditNoteRedemptionSummaries: [
-        { creditNoteId: 'cn-1', code: 'CN-001', amount: 15 },
-        { creditNoteId: 'cn-2', code: 'CN-002', amount: 10 },
+      creditNoteRedemptions: [
+        { creditNoteId: 'cn-1', code: 'CN-001', appliedAmount: 15 },
+        { creditNoteId: 'cn-2', code: 'CN-002', appliedAmount: 10 },
       ],
     });
     fixture.detectChanges();
@@ -88,8 +91,8 @@ describe('SaleSummaryPanelComponent', () => {
       paidAmount: 180,
       dueAmount: 15,
       creditNoteAppliedAmount: 25,
-      creditNoteRedemptionSummaries: [
-        { creditNoteId: 'cn-1', code: 'CN-LONG-SETTLEMENT-001', amount: 25 },
+      creditNoteRedemptions: [
+        { creditNoteId: 'cn-1', code: 'CN-LONG-SETTLEMENT-001', appliedAmount: 25 },
       ],
     });
     fixture.detectChanges();

@@ -34,7 +34,7 @@ public sealed class UpdateShopCommandHandler(
         if (shop is null)
             return Errors.Shop.ShopNotFound;
 
-        shop.UpdateDetails(
+        var updated = shop.UpdateDetails(
             command.Name,
             command.Address,
             command.City,
@@ -43,6 +43,8 @@ public sealed class UpdateShopCommandHandler(
             command.ContactPerson,
             command.MobileNumber,
             command.GstNumber);
+        if (updated.IsError)
+            return updated.Errors;
 
         shopRepository.Update(shop);
         await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -80,6 +82,9 @@ public sealed class UpdateShopCommandHandler(
             primaryAccount?.AccountNumber,
             primaryAccount?.AccountType?.ToString(),
             primaryAccount?.IfscCode,
-            primaryAccount?.AccountHolderName);
+            primaryAccount?.AccountHolderName)
+        {
+            TaxProfile = ShopTaxProfileDto.From(shop),
+        };
     }
 }

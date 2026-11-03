@@ -1,4 +1,6 @@
 using Intelibill.Domain.Entities;
+using Intelibill.Domain.ValueObjects;
+using Intelibill.Infrastructure.Data.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -28,6 +30,10 @@ internal sealed class InvoiceLeaseConfiguration : IEntityTypeConfiguration<Invoi
         builder.Property(lease => lease.Prefix)
             .HasMaxLength(32)
             .IsRequired();
+
+        builder.Property(lease => lease.SellerProfile)
+            .HasColumnType("jsonb")
+            .HasConversion(InvoiceDocumentJson.Converter<InvoiceSellerProfile>(), InvoiceDocumentJson.Comparer<InvoiceSellerProfile>());
 
         builder.Property(lease => lease.RangeStart)
             .IsRequired();

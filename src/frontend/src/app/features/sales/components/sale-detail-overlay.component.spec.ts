@@ -83,6 +83,9 @@ const makeSale = (overrides: Partial<SaleDto> = {}): SaleDto => ({
   ],
   returns: [],
   warnings: [],
+  creditNoteRedemptions: [],
+  document: null,
+  isLegacyDocument: true,
   ...overrides,
 });
 

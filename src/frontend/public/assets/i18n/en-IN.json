@@ -534,7 +534,14 @@
     "directoryResults": "Customer directory results",
     "ledgerFilters": "Ledger filters",
     "recordPayment": "Record payment",
-    "transactionLedger": "Transaction ledger"
+    "transactionLedger": "Transaction ledger",
+    "gstinOptional": "GSTIN (optional)",
+    "stateOptional": "State (optional)",
+    "statePlaceholder": "Select state",
+    "validation": {
+      "gstinInvalid": "Enter a valid GSTIN: check its characters and check digit.",
+      "gstinStateMismatch": "The GSTIN's first two digits must match the selected state."
+    }
   },
   "inventory": {
     "directory": "Inventory Directory",
@@ -903,6 +910,48 @@
       "empty": "No members loaded.",
       "member": "Member",
       "title": "Members"
+    },
+    "taxProfile": {
+      "title": "GST Registration",
+      "description": "How this shop is registered under GST. Invoices are issued with these details.",
+      "notDeclaredWarning": "GST registration is not declared. Sales are blocked until the shop owner declares it here.",
+      "ownerOnly": "Only the shop owner can change the GST registration.",
+      "legalNameOptional": "Legal name (optional)",
+      "legalNamePlaceholder": "Name on the GST registration, if different",
+      "stateCode": "GST state",
+      "statePlaceholder": "Select state or union territory",
+      "taxRegime": "Registration type",
+      "regimePlaceholder": "Select registration type",
+      "regimes": {
+        "regular": "Regular GST registration",
+        "composition": "Composition scheme",
+        "unregistered": "Not registered under GST"
+      },
+      "gstin": "GSTIN",
+      "eInvoiceStatus": "E-invoicing",
+      "eInvoicePlaceholder": "Does e-invoicing apply?",
+      "eInvoiceStatuses": {
+        "belowThreshold": "Turnover is below the e-invoicing limit",
+        "exempt": "Exempt from e-invoicing",
+        "required": "E-invoicing applies (IRN needed)"
+      },
+      "eInvoiceRequiredWarning": "Billing is not available for shops that must issue e-invoices: IRN generation is not supported yet.",
+      "seriesCodeOptional": "Invoice series code (optional)",
+      "seriesCodeHint": "1 to 4 letters or digits. Leave it as A unless you need a separate series.",
+      "save": "Save GST Registration",
+      "saving": "Saving GST registration...",
+      "saved": "GST registration saved.",
+      "validation": {
+        "stateRequired": "Choose the GST state.",
+        "regimeRequired": "Choose the registration type.",
+        "eInvoiceRequired": "Choose whether e-invoicing applies.",
+        "gstinRequired": "Enter the shop's GSTIN.",
+        "gstinInvalid": "Enter a valid GSTIN: check its characters and check digit.",
+        "gstinStateMismatch": "The GSTIN's first two digits must match the selected state code.",
+        "gstinNotAllowed": "Remove the GSTIN: a shop not registered under GST cannot have one.",
+        "seriesCodeInvalid": "Use 1 to 4 letters or digits.",
+        "legalNameMaxLength": "The legal name must be 200 characters or fewer."
+      }
     }
   },
   "notFound": {
@@ -986,7 +1035,18 @@
       "unableToUpdateShop": "Unable to update shop right now. Please try again.",
       "unableToUpdateBankDetails": "Unable to save bank details right now. Please try again.",
       "ifscCodeInvalid": "Enter a valid Indian IFSC code.",
-      "bankAccountTypeInvalid": "Account type must be Savings or Current."
+      "bankAccountTypeInvalid": "Account type must be Savings or Current.",
+      "taxRegimeRequired": "Choose the shop's GST registration: regular, composition or not registered.",
+      "stateCodeInvalid": "Choose the state or union territory the shop is registered in.",
+      "gstinRequiredForRegime": "A GST-registered shop needs its GSTIN.",
+      "gstinInvalid": "The GSTIN is not valid: check its characters and check digit.",
+      "gstinStateMismatch": "The GSTIN belongs to a different state than the one chosen.",
+      "gstinNotAllowedForUnregistered": "A shop that is not registered under GST cannot have a GSTIN.",
+      "invoiceSeriesCodeInvalid": "The invoice series code must be 1 to 4 letters or digits.",
+      "eInvoiceAttestationRequired": "A regular GST shop must state whether e-invoicing applies to it.",
+      "legalNameTooLong": "The legal name must be 200 characters or fewer.",
+      "gstinManagedByTaxProfile": "The GSTIN is part of the shop's GST registration. Change it under GST Registration.",
+      "unableToUpdateTaxProfile": "Unable to save the GST registration right now. Please try again."
     },
     "bankAccounts": {
       "unableToLoad": "Unable to load bank accounts right now. Please try again.",
@@ -997,7 +1057,10 @@
     "customers": {
       "loadFailed": "Unable to load customers.",
       "addFailed": "Unable to add customer.",
-      "editFailed": "Unable to update customer."
+      "editFailed": "Unable to update customer.",
+      "gstinInvalid": "The customer's GSTIN is not valid: check its characters and check digit.",
+      "stateCodeInvalid": "Choose a valid state or union territory for the customer.",
+      "gstinStateMismatch": "The customer's GSTIN belongs to a different state than the one chosen."
     },
     "sales": {
       "loadFailed": "Unable to load sales.",
@@ -1007,6 +1070,23 @@
       "returnRecordFailed": "Unable to record sale return.",
       "returnVoidFailed": "Unable to void sale return.",
       "recordFailed": "Unable to record sale."
+    },
+    "invoice": {
+      "taxProfileRequired": "This shop has not declared its GST registration. Ask the shop owner to set it in shop settings before billing.",
+      "eInvoiceUnsupported": "This shop must issue e-invoices (IRN), which billing here does not support yet.",
+      "compositionCannotCollectTax": "A composition scheme shop cannot charge GST. Remove the tax from the items before billing.",
+      "compositionInterstateUnsupported": "A composition scheme shop cannot bill a supply to another state.",
+      "unregisteredCannotCollectTax": "A shop not registered under GST cannot charge GST. Remove the tax from the items before billing.",
+      "placeOfSupplyInvalid": "The place of supply is not a valid GST state.",
+      "placeOfSupplyRequired": "Goods sold here and services for a buyer in another state cannot share one invoice. Bill them as separate sales.",
+      "mixedSupplyToRegisteredBuyer": "A GST-registered buyer needs taxable and exempt items on separate documents. Bill them as two sales.",
+      "buyerDetailsRequired": "This invoice needs the buyer's name and address (and state, for a large sale to an unregistered buyer). Update the customer and try again.",
+      "hsnRequired": "Every item on this invoice needs an HSN or SAC code of the required length.",
+      "amountsDoNotReconcile": "The invoice amounts do not add up. Refresh the cart and try again.",
+      "sellerGstinInvalid": "The shop's GSTIN is not valid. Ask the shop owner to correct it in shop settings.",
+      "seriesRegisteredToAnotherShop": "Another shop with the same GSTIN already uses this invoice series. Choose a different series code in shop settings.",
+      "seriesRegistrationChanged": "The shop's GSTIN changed after this invoice series started. Choose a new series code in shop settings.",
+      "seriesExhausted": "This invoice series has no numbers left for this financial year. Choose a new series code in shop settings."
     }
   },
   "sales": {
@@ -1110,7 +1190,8 @@
             "pricingVariance": "Billed price differs from the current price",
             "discountVariance": "Billed discount differs from the current rules",
             "validationVariance": "An invoice detail failed a server check",
-            "stockShortage": "More stock was billed than was available"
+            "stockShortage": "More stock was billed than was available",
+            "documentNotIssued": "Posted without a GST document: the shop's GST registration did not allow one for this sale."
           }
         },
         "openConsole": "Open reconciliation console"
@@ -1369,7 +1450,34 @@
       "phone": "Phone",
       "printControls": "Invoice print controls",
       "sac": "SAC",
-      "unpaid": "Unpaid"
+      "unpaid": "Unpaid",
+      "taxableValue": "Taxable Value",
+      "exemptValue": "Exempt Value",
+      "totalTax": "Total Tax",
+      "roundingAdjustment": "Rounding Adjustment",
+      "invoiceTotal": "Invoice Total",
+      "taxSummary": "Tax Summary",
+      "rate": "Rate",
+      "taxOnBase": "on {{ amount }}",
+      "state": "State",
+      "billTo": "Bill To",
+      "placeOfSupply": "Place of Supply",
+      "reverseChargeNo": "Reverse Charge: No",
+      "reverseChargeYes": "Reverse Charge: Yes",
+      "signatoryFor": "For {{ legalName }}",
+      "authorisedSignatory": "Authorised Signatory",
+      "noDocumentNote": "This sale was posted without a GST document; seller details are shown as the shop has them today.",
+      "documentTypes": {
+        "taxInvoice": "Tax Invoice",
+        "invoiceCumBillOfSupply": "Tax Invoice cum Bill of Supply",
+        "billOfSupply": "Bill of Supply",
+        "receipt": "Receipt"
+      },
+      "declarations": {
+        "compositionTaxablePerson": "Composition taxable person, not eligible to collect tax on supplies.",
+        "eInvoiceExemption": "I/We hereby declare that though our aggregate turnover in any preceding financial year from 2017-18 onwards is more than the aggregate turnover notified under sub-rule (4) of rule 48, we are not required to prepare an invoice in terms of the provisions of the said sub-rule.",
+        "notRegisteredUnderGst": "The seller is not registered under GST; no GST has been charged."
+      }
     },
     "profitLoss": {
       "eyebrow": "Sales Report",
@@ -1775,7 +1883,8 @@
         "issueTimingReview": "Billing time review",
         "provenanceReview": "Biller review",
         "recoveryReview": "Recovered invoice review",
-        "unknown": "Other"
+        "unknown": "Other",
+        "documentReview": "GST document review"
       },
       "detail": {
         "title": "Case details",

@@ -1,3 +1,5 @@
+using Intelibill.Domain.ValueObjects;
+
 namespace Intelibill.Application.Features.Exports.Sales.DTOs;
 
 public sealed record SalesExportSummaryRowDto(
@@ -21,4 +23,5 @@ public sealed record SalesExportSummaryRowDto(
     int ItemCount,
     decimal CreditNoteAppliedAmount = 0m,
     string? IssuedCreditNoteCodes = null,
-    decimal IssuedCreditNoteAmount = 0m);
+    decimal IssuedCreditNoteAmount = 0m,
+    IReadOnlyList<InvoiceTaxComponent>? TaxComponents = null);

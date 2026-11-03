@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Interfaces;
 using Intelibill.Domain.Common;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
@@ -149,9 +150,20 @@ public sealed class OfflineSubmissionRepositoryTests(PostgreSqlTestFixture fixtu
         var leases = scope.ServiceProvider.GetRequiredService<IInvoiceLeaseRepository>();
         var repository = scope.ServiceProvider.GetRequiredService<IOfflineSubmissionRepository>();
 
-        var lease = await leases.ReserveAsync(
-            shop.Id, "device-1", fiscalYear.StartYear, fiscalYear.InvoicePrefix, 50, reservedAt,
-            reservedAt.AddDays(InvoiceLeaseDefaults.LeaseDurationDays), leaseUser, Guid.NewGuid(), CancellationToken.None);
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        InvoiceLease lease;
+        await using (var transaction = await db.Database.BeginTransactionAsync())
+        {
+            var range = (await scope.ServiceProvider.GetRequiredService<IInvoiceNumberAllocator>().ReserveRangeAsync(
+                new InvoiceSeriesKey(shop.Id, shop.SellerRegistrationKey, "A", fiscalYear), 50, CancellationToken.None)).Value;
+            lease = InvoiceLease.Create(
+                shop.Id, range.SequenceId, "device-1", fiscalYear.StartYear, range.Prefix, range.Start, range.End,
+                InvoiceNumberFormat.CounterPadding, reservedAt, reservedAt.AddDays(InvoiceLeaseDefaults.LeaseDurationDays), leaseUser, Guid.NewGuid());
+            await leases.AddAsync(lease, CancellationToken.None);
+            await db.SaveChangesAsync();
+            await transaction.CommitAsync();
+        }
+
         await repository.RecordAsync(Candidate(shop.Id, syncUser, new string('d', 64), reservedAt), CancellationToken.None);
 
         Assert.True(await repository.HasDeviceHistoryAsync(shop.Id, "device-1", leaseUser, CancellationToken.None));

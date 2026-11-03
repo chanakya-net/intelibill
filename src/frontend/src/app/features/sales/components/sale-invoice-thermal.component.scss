@@ -43,6 +43,29 @@
   font-size: 10px;
 }
 
+.thermal-invoice__document-title {
+  margin: 4px 0 0;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.thermal-invoice__signatory {
+  text-align: center;
+}
+
+.thermal-invoice__signatory-for {
+  margin: 6px 0 18px;
+  font-weight: 700;
+}
+
+.thermal-invoice__legacy-note {
+  margin: 4px 0 0;
+  font-size: 8px;
+  color: #4b5563;
+  text-align: center;
+}
+
 .thermal-invoice__meta,
 .thermal-invoice__item-row,
 .thermal-invoice__summary-row,

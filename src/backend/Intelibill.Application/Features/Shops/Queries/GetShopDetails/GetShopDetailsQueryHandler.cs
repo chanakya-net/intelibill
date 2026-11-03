@@ -62,6 +62,9 @@ public sealed class GetShopDetailsQueryHandler(
             primaryAccount?.AccountNumber,
             primaryAccount?.AccountType?.ToString(),
             primaryAccount?.IfscCode,
-            primaryAccount?.AccountHolderName);
+            primaryAccount?.AccountHolderName)
+        {
+            TaxProfile = ShopTaxProfileDto.From(shop),
+        };
     }
 }

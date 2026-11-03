@@ -13,7 +13,12 @@ import type { InvoiceLeaseDto } from './sale.models';
 
 export type OfflineSalesEnablementResult =
   | { readonly ok: true; readonly settings: OfflineSalesDeviceSettings; readonly lease: InvoiceLeaseSnapshot }
-  | { readonly ok: false; readonly reason: 'UNAUTHENTICATED' | 'API_UNREACHABLE' | 'ACTIVE_SHOP_MISMATCH' | 'SNAPSHOT_INCOMPLETE' | 'LEASE_UNAVAILABLE' };
+  | {
+      readonly ok: false;
+      readonly reason: 'UNAUTHENTICATED' | 'API_UNREACHABLE' | 'ACTIVE_SHOP_MISMATCH' | 'SNAPSHOT_INCOMPLETE' | 'LEASE_UNAVAILABLE';
+      /** The server's error code when it refused the lease (for example an undeclared GST registration). */
+      readonly errorCode?: string;
+    };
 
 @Injectable({ providedIn: 'root' })
 export class OfflineSalesDeviceEnablementService {
@@ -56,8 +61,11 @@ export class OfflineSalesDeviceEnablementService {
     let leaseDto: InvoiceLeaseDto;
     try {
       leaseDto = await firstValueFrom(this.saleService.reserveInvoiceLease({ deviceId }));
-    } catch {
-      return { ok: false, reason: 'LEASE_UNAVAILABLE' };
+    } catch (error) {
+      const errorCode = (error as { error?: { title?: unknown } } | null)?.error?.title;
+      return typeof errorCode === 'string'
+        ? { ok: false, reason: 'LEASE_UNAVAILABLE', errorCode }
+        : { ok: false, reason: 'LEASE_UNAVAILABLE' };
     }
 
     const lease: InvoiceLeaseSnapshot = {

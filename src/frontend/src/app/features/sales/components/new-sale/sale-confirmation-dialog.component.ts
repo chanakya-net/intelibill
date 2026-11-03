@@ -9,10 +9,10 @@ export interface CreateSaleResponse {
   readonly invoiceNumber: string;
   readonly totalAmount: number;
   readonly creditNoteAppliedAmount?: number;
-  readonly creditNoteRedemptionSummaries?: readonly {
+  readonly creditNoteRedemptions?: readonly {
     readonly creditNoteId: string;
     readonly code: string;
-    readonly amount: number;
+    readonly appliedAmount: number;
   }[];
   readonly printTemplate?: 'a4' | 'thermal';
   readonly isOffline?: boolean;

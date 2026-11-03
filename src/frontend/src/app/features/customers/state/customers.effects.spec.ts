@@ -82,7 +82,7 @@ describe('CustomersEffects', () => {
 
   it('dispatches addCustomerSucceeded on add success', async () => {
     customerService.addCustomer.mockReturnValue(of(customer));
-    const payload = { name: 'Alice', phoneNumber: '+9198', address: null, isActive: true, creditLimit: 0 };
+    const payload = { name: 'Alice', phoneNumber: '+9198', address: null, isActive: true, creditLimit: 0, gstin: null, stateCode: null };
 
     const output = firstValueFrom(effects.addCustomer$.pipe(take(1)));
     actions$.next(CustomersActions.addCustomerRequested({ payload }));
@@ -98,7 +98,7 @@ describe('CustomersEffects', () => {
     );
 
     const output = firstValueFrom(effects.addCustomer$.pipe(take(1)));
-    actions$.next(CustomersActions.addCustomerRequested({ payload: { name: 'A', phoneNumber: '+9198', address: null, isActive: true, creditLimit: 0 } }));
+    actions$.next(CustomersActions.addCustomerRequested({ payload: { name: 'A', phoneNumber: '+9198', address: null, isActive: true, creditLimit: 0, gstin: null, stateCode: null } }));
 
     await expect(output).resolves.toEqual(
       CustomersActions.addCustomerFailed({ errorMessage: 'errors.customers.addFailed' })
@@ -107,7 +107,7 @@ describe('CustomersEffects', () => {
 
   it('dispatches editCustomerSucceeded on edit success', async () => {
     customerService.editCustomer.mockReturnValue(of(customer));
-    const payload = { name: 'Alice Updated', phoneNumber: '+9198', address: null, isActive: true, creditLimit: 100 };
+    const payload = { name: 'Alice Updated', phoneNumber: '+9198', address: null, isActive: true, creditLimit: 100, gstin: null, stateCode: null };
 
     const output = firstValueFrom(effects.editCustomer$.pipe(take(1)));
     actions$.next(CustomersActions.editCustomerRequested({ customerId: 'c1', payload }));
@@ -117,13 +117,31 @@ describe('CustomersEffects', () => {
     );
   });
 
+  it.each([
+    ['Customer.GstinInvalid', 'errors.customers.gstinInvalid'],
+    ['Customer.StateCodeInvalid', 'errors.customers.stateCodeInvalid'],
+    ['Customer.GstinStateMismatch', 'errors.customers.gstinStateMismatch'],
+  ])('explains a refused customer GST detail (%s)', async (code, key) => {
+    customerService.addCustomer.mockReturnValue(throwError(() => ({ error: { title: code, detail: 'Server text' } })));
+    customerService.editCustomer.mockReturnValue(throwError(() => ({ error: { title: code, detail: 'Server text' } })));
+    const payload = { name: 'A', phoneNumber: '+9198', address: null, isActive: true, creditLimit: 0, gstin: '29AAGCB7383J1Z4', stateCode: '27' };
+
+    const added = firstValueFrom(effects.addCustomer$.pipe(take(1)));
+    actions$.next(CustomersActions.addCustomerRequested({ payload }));
+    await expect(added).resolves.toEqual(CustomersActions.addCustomerFailed({ errorMessage: key }));
+
+    const edited = firstValueFrom(effects.editCustomer$.pipe(take(1)));
+    actions$.next(CustomersActions.editCustomerRequested({ customerId: 'c1', payload }));
+    await expect(edited).resolves.toEqual(CustomersActions.editCustomerFailed({ errorMessage: key }));
+  });
+
   it('dispatches editCustomerFailed on edit error', async () => {
     customerService.editCustomer.mockReturnValue(
       throwError(() => ({ error: { detail: 'Edit failed' } }))
     );
 
     const output = firstValueFrom(effects.editCustomer$.pipe(take(1)));
-    actions$.next(CustomersActions.editCustomerRequested({ customerId: 'c1', payload: { name: 'A', phoneNumber: '+9198', address: null, isActive: true, creditLimit: 0 } }));
+    actions$.next(CustomersActions.editCustomerRequested({ customerId: 'c1', payload: { name: 'A', phoneNumber: '+9198', address: null, isActive: true, creditLimit: 0, gstin: null, stateCode: null } }));
 
     await expect(output).resolves.toEqual(
       CustomersActions.editCustomerFailed({ errorMessage: 'Edit failed' })

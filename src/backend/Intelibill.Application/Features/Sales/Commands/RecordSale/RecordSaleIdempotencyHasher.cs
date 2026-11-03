@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.ValueObjects;
 
@@ -55,7 +56,8 @@ internal static class RecordSaleIdempotencyHasher
                     itemDiscount.Value,
                     item.ClientLineKey,
                     Normalize(item.HsnCode));
-            }).ToList());
+            }).ToList(),
+            Normalize(command.PlaceOfSupplyStateCode));
 
         var json = JsonSerializer.Serialize(payload, SerializerOptions);
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(json));
@@ -80,7 +82,9 @@ internal sealed record RecordSaleIdempotencyPayload(
     decimal CreditNoteAppliedAmount,
     IReadOnlyList<RecordSaleCreditNoteRedemptionIdempotencyPayload> CreditNoteRedemptions,
     bool CreditNoteCustomerMismatchConfirmed,
-    IReadOnlyList<RecordSaleItemIdempotencyPayload> Items);
+    IReadOnlyList<RecordSaleItemIdempotencyPayload> Items,
+    // Omitted when absent so requests that predate it keep their hash.
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? PlaceOfSupplyStateCode = null);
 
 
 internal sealed record RecordSaleItemIdempotencyPayload(

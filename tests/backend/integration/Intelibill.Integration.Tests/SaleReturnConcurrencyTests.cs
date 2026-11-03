@@ -531,6 +531,8 @@ public sealed class SaleReturnConcurrencyTests(PostgreSqlTestFixture fixture) : 
             city = "Bengaluru",
             state = "Karnataka",
             pincode = "560001",
+            gstNumber = TestTaxProfile.NewGstin(),
+            taxProfile = TestTaxProfile.Regular,
         });
         using var created = await client.SendAsync(request);
         created.EnsureSuccessStatusCode();

@@ -2,14 +2,33 @@ import { CommonModule } from '@angular/common';
 import { Component, Input, inject } from '@angular/core';
 import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 
+import { DateOnlyPipe } from '../../../shared/pipes/date-only.pipe';
 import { SALE_RETURN_CONDITIONS } from '../services/sale.models';
-import type { SaleDto, SaleItemDto } from '../services/sale.models';
+import type {
+  InvoiceDeclaration,
+  InvoiceDocument,
+  InvoiceDocumentLine,
+  SaleDto,
+  SaleItemDto,
+} from '../services/sale.models';
 import { ShopDetails } from '../../shops/services/shop.service';
+import {
+  type TaxSummaryRow,
+  declarationKey,
+  documentTitleKey,
+  groupTaxComponents,
+  hasDistinctTradeName,
+  lineTaxAmount,
+  missingDocumentNoteKey,
+  paymentStatusKey,
+  redeemedCreditNoteCodes,
+  paymentMethodLabelKey,
+} from './sale-invoice-document.util';
 
 @Component({
   selector: 'app-sale-invoice-a4',
   standalone: true,
-  imports: [CommonModule, TranslocoPipe],
+  imports: [CommonModule, TranslocoPipe, DateOnlyPipe],
   templateUrl: './sale-invoice-a4.component.html',
   styleUrl: './sale-invoice-a4.component.scss',
 })
@@ -17,13 +36,12 @@ export class SaleInvoiceA4Component {
   private readonly transloco = inject(TranslocoService);
 
   @Input() sale!: SaleDto;
+  /** The live shop: used only for a sale without an issued document. An issued document carries its own seller. */
   @Input() shop!: ShopDetails;
   @Input() pendingSync = false;
 
   getCreditNoteSettlementCodes(): string[] {
-    return this.sale.returns
-      .map((saleReturn) => saleReturn.creditNote?.code ?? '')
-      .filter((code): code is string => code.trim().length > 0);
+    return redeemedCreditNoteCodes(this.sale);
   }
 
   getCreditNoteSettlementLabelKey(): string {
@@ -36,14 +54,12 @@ export class SaleInvoiceA4Component {
     return 'sales.invoice.creditNoteSettlementWithCodes';
   }
 
-  getPaymentMethodLabel(method: number): string {
-    const map: Record<number, string> = {
-      1: 'sales.newSale.paymentMethods.cash',
-      2: 'sales.newSale.paymentMethods.upi',
-      3: 'sales.newSale.paymentMethods.card',
-      4: 'sales.newSale.paymentMethods.credit',
-    };
-    return this.transloco.translate(map[method] ?? 'shops.unknown');
+  getPaymentMethodLabel(method: number | string): string {
+    return this.transloco.translate(paymentMethodLabelKey(method));
+  }
+
+  getPaymentStatusKey(): string {
+    return paymentStatusKey(this.sale);
   }
 
   getReturnConditionLabel(condition: 1 | 2 | null): string {
@@ -70,6 +86,30 @@ export class SaleInvoiceA4Component {
     return [this.shop.address, this.shop.city, this.shop.state, this.shop.pincode]
       .filter(Boolean)
       .join(', ');
+  }
+
+  missingDocumentNoteKey(): string | null {
+    return missingDocumentNoteKey(this.sale, this.pendingSync);
+  }
+
+  documentTitleKey(document: InvoiceDocument): string {
+    return documentTitleKey(document);
+  }
+
+  hasDistinctTradeName(document: InvoiceDocument): boolean {
+    return hasDistinctTradeName(document);
+  }
+
+  declarationKey(declaration: InvoiceDeclaration): string {
+    return declarationKey(declaration);
+  }
+
+  lineTaxAmount(line: InvoiceDocumentLine): number {
+    return lineTaxAmount(line);
+  }
+
+  taxSummary(document: InvoiceDocument): TaxSummaryRow[] {
+    return groupTaxComponents(document.totals.components);
   }
 
   hasGoods(): boolean {

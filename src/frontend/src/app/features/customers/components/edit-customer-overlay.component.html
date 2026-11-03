@@ -40,6 +40,43 @@
       </label>
 
       <label>
+        <span>{{ 'customers.gstinOptional' | transloco }}</span>
+        <input
+          pInputText
+          type="text"
+          formControlName="gstin"
+          [placeholder]="'shops.placeholders.gst' | transloco"
+        />
+        @if (
+          form.controls.gstin.touched &&
+          (form.controls.gstin.hasError('pattern') || form.controls.gstin.hasError('gstinChecksum'))
+        ) {
+          <small class="field-error">{{ 'customers.validation.gstinInvalid' | transloco }}</small>
+        }
+      </label>
+
+      <div class="field">
+        <label for="edit-customer-state">
+          <span>{{ 'customers.stateOptional' | transloco }}</span>
+        </label>
+        <p-select
+          inputId="edit-customer-state"
+          formControlName="stateCode"
+          [options]="stateOptions"
+          optionLabel="name"
+          optionValue="value"
+          [filter]="true"
+          filterBy="name"
+          [showClear]="true"
+          [placeholder]="'customers.statePlaceholder' | transloco"
+          appendTo="body"
+        />
+        @if (form.hasError('gstinStateMismatch') && (form.controls.gstin.touched || form.controls.stateCode.touched)) {
+          <small class="field-error">{{ 'customers.validation.gstinStateMismatch' | transloco }}</small>
+        }
+      </div>
+
+      <label>
         <span>{{ 'customers.creditLimit' | transloco }}</span>
         <p-inputgroup [pt]="currencyGroupPt">
           <p-inputgroup-addon [pt]="currencyAddonPt">{{ 'common.currencySymbol' | transloco }}</p-inputgroup-addon>

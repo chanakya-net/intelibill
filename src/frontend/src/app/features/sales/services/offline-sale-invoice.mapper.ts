@@ -17,6 +17,10 @@ export function mapOfflineQueuedSaleToSaleDto(payload: OfflineQueuedSalePayload)
     totalAmount: payload.pricing.totals.grandTotal,
     totalTaxAmount: payload.pricing.totals.totalTax,
     creditNoteAppliedAmount: 0,
+    creditNoteRedemptions: [],
+    // The device prints before the server issues a GST document, so the invoice renders from the shop as before.
+    document: null,
+    isLegacyDocument: true,
     items: payload.pricing.lines.map((line) => ({
       saleItemId: line.clientLineId,
       lineType: 'Goods',

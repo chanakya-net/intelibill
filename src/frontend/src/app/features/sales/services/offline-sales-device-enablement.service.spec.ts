@@ -172,6 +172,18 @@ describe('OfflineSalesDeviceEnablementService', () => {
     expect(settingsStorage.updateSettings).not.toHaveBeenCalled();
   });
 
+  it('passes on why the server refused the lease', async () => {
+    const service = setup();
+    (saleService.reserveInvoiceLease as ReturnType<typeof vi.fn>).mockReturnValueOnce(
+      throwError(() => ({ status: 400, error: { title: 'Invoice.TaxProfileRequired', detail: 'Declare it.' } })),
+    );
+
+    const result = await service.enableForShop('shop-1', 'Counter 1');
+
+    expect(result).toEqual({ ok: false, reason: 'LEASE_UNAVAILABLE', errorCode: 'Invoice.TaxProfileRequired' });
+    expect(settingsStorage.updateSettings).not.toHaveBeenCalled();
+  });
+
   it('persists enabled settings only after snapshot and lease succeed', async () => {
     const service = setup();
 

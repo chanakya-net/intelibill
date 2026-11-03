@@ -1,3 +1,4 @@
+using Intelibill.Domain.Common;
 using Intelibill.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -29,6 +30,12 @@ internal sealed class CustomerConfiguration : IEntityTypeConfiguration<Customer>
         builder.Property(c => c.IsActive)
             .IsRequired()
             .HasDefaultValue(true);
+
+        builder.Property(c => c.Gstin)
+            .HasMaxLength(Gstin.Length);
+
+        builder.Property(c => c.StateCode)
+            .HasMaxLength(2);
 
         builder.Property(c => c.CreditLimit)
             .IsRequired()

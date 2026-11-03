@@ -149,7 +149,8 @@ public sealed class SalesExportDatasetBuilder : ISalesExportDatasetBuilder
             sale.Items.Count,
             sale.CreditNoteAppliedAmount,
             storeCreditCodes.Count == 0 ? null : string.Join(", ", storeCreditCodes),
-            storeCredit.Sum(s => s.Amount));
+            storeCredit.Sum(s => s.Amount),
+            sale.InvoiceDocument?.Totals.Components);
     }
 
     private static SalesExportLineItemRowDto BuildLineItemRow(

@@ -15,6 +15,10 @@ export interface Customer {
   lifetimeRevenue: number;
   currentMonthRevenue: number;
   outstandingDue?: number;
+  /** A registered buyer's GSTIN; its first two digits are the customer's GST state. */
+  gstin?: string | null;
+  /** GST state code; absent only from responses that predate customer GST details. */
+  stateCode?: string | null;
 }
 
 export interface AddCustomerRequest {
@@ -23,6 +27,8 @@ export interface AddCustomerRequest {
   address: string | null;
   isActive: boolean;
   creditLimit: number;
+  gstin: string | null;
+  stateCode: string | null;
 }
 
 export interface EditCustomerRequest {
@@ -31,6 +37,10 @@ export interface EditCustomerRequest {
   address: string | null;
   isActive: boolean;
   creditLimit: number;
+  /** An empty string clears the recorded GSTIN; null keeps it. */
+  gstin: string | null;
+  /** An empty string clears the recorded state; null keeps it. */
+  stateCode: string | null;
 }
 
 export interface CustomerAccountSale {

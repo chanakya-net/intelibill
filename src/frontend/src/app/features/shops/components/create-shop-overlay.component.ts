@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, OnInit, Output, effect, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { Store } from '@ngrx/store';
-import { TranslocoPipe } from '@ngneat/transloco';
+import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
@@ -21,6 +21,17 @@ import {
   selectShopsSubmitting,
 } from '../state/shops.selectors';
 import { InputValidators } from '../../../shared/forms/input-validation';
+import { GST_STATE_OPTIONS } from '../../../shared/gst/gst-state-codes';
+import { CreateShopRequest } from '../services/shop.service';
+import {
+  E_INVOICE_STATUS_OPTIONS,
+  TAX_REGIME_OPTIONS,
+  translatedOptions,
+  createTaxProfileControls,
+  taxRegistrationValidator,
+  toCreateShopTaxProfileRequest,
+  toOptionalGstin,
+} from './manage-shop/shop-tax-profile-form.helper';
 
 @Component({
   selector: 'app-create-shop-overlay',
@@ -56,16 +67,25 @@ export class CreateShopOverlayComponent implements OnInit {
   @Output() readonly closeRequested = new EventEmitter<void>();
   @Output() readonly accountSecurityRequested = new EventEmitter<void>();
 
-  readonly shopForm = this.formBuilder.nonNullable.group({
-    name: ['', InputValidators.requiredText(120)],
-    address: ['', InputValidators.requiredText(320)],
-    city: ['', InputValidators.requiredText(120)],
-    state: ['', InputValidators.requiredText(120)],
-    pincode: ['', InputValidators.requiredText(16)],
-    contactPerson: ['', InputValidators.optionalText(120)],
-    mobileNumber: ['', InputValidators.optionalText(32)],
-    gstNumber: ['', InputValidators.gstNumber()],
-  });
+  readonly stateOptions = [...GST_STATE_OPTIONS];
+  readonly regimeOptions = translatedOptions(inject(TranslocoService), TAX_REGIME_OPTIONS);
+  readonly eInvoiceOptions = translatedOptions(inject(TranslocoService), E_INVOICE_STATUS_OPTIONS);
+
+  // The GST registration is declared with the shop: a shop cannot bill until it has one.
+  readonly shopForm = this.formBuilder.nonNullable.group(
+    {
+      name: ['', InputValidators.requiredText(120)],
+      address: ['', InputValidators.requiredText(320)],
+      city: ['', InputValidators.requiredText(120)],
+      state: ['', InputValidators.requiredText(120)],
+      pincode: ['', InputValidators.requiredText(16)],
+      contactPerson: ['', InputValidators.optionalText(120)],
+      mobileNumber: ['', InputValidators.optionalText(32)],
+      gstNumber: ['', InputValidators.gstin()],
+      ...createTaxProfileControls(),
+    },
+    { validators: taxRegistrationValidator() },
+  );
 
   readonly bankForm = this.formBuilder.nonNullable.group({
     bankName: ['', InputValidators.optionalText(120)],
@@ -125,15 +145,17 @@ export class CreateShopOverlayComponent implements OnInit {
     this.store.dispatch(ShopsActions.clearMutationStatus());
     this.isCreatePending.set(true);
 
-    const payload = {
-      name: this.shopForm.controls.name.value.trim(),
-      address: this.shopForm.controls.address.value.trim(),
-      city: this.shopForm.controls.city.value.trim(),
-      state: this.shopForm.controls.state.value.trim(),
-      pincode: this.shopForm.controls.pincode.value.trim(),
-      contactPerson: this.toOptionalValue(this.shopForm.controls.contactPerson.value),
-      mobileNumber: this.toOptionalValue(this.shopForm.controls.mobileNumber.value),
-      gstNumber: this.toOptionalValue(this.shopForm.controls.gstNumber.value),
+    const values = this.shopForm.getRawValue();
+    const payload: CreateShopRequest = {
+      name: values.name.trim(),
+      address: values.address.trim(),
+      city: values.city.trim(),
+      state: values.state.trim(),
+      pincode: values.pincode.trim(),
+      contactPerson: this.toOptionalValue(values.contactPerson),
+      mobileNumber: this.toOptionalValue(values.mobileNumber),
+      gstNumber: toOptionalGstin(values.gstNumber) ?? undefined,
+      taxProfile: toCreateShopTaxProfileRequest(values),
     };
 
     this.store.dispatch(ShopsActions.createShopRequested({ payload }));
@@ -200,6 +222,10 @@ export class CreateShopOverlayComponent implements OnInit {
 
   onDone(): void {
     this.closeRequested.emit();
+  }
+
+  isRegularRegime(): boolean {
+    return this.shopForm.controls.taxRegime.value === 'Regular';
   }
 
   private toOptionalValue(value: string): string | undefined {

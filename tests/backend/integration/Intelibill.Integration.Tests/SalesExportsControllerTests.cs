@@ -81,7 +81,8 @@ public sealed class SalesExportsControllerTests(PostgreSqlTestFixture fixture) :
             pincode = "560001",
             contactPerson = (string?)null,
             mobileNumber = (string?)null,
-            gstNumber = (string?)null
+            gstNumber = TestTaxProfile.NewGstin(),
+            taxProfile = TestTaxProfile.Regular
         });
 
         var response = await client.SendAsync(request);

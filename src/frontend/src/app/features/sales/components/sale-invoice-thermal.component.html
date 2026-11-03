@@ -1,14 +1,34 @@
 <article class="thermal-invoice">
-  <header class="thermal-invoice__section thermal-invoice__header">
-    <p class="thermal-invoice__shop-name">{{ shop.name }}</p>
-    <p *ngIf="shopAddress" class="thermal-invoice__line">{{ shopAddress }}</p>
-    <p *ngIf="shop.mobileNumber" class="thermal-invoice__line thermal-invoice__shop-phone">
-      {{ 'sales.invoice.phone' | transloco }}: {{ shop.mobileNumber }}
+  <header
+    *ngIf="sale.document as doc; else legacyHeader"
+    class="thermal-invoice__section thermal-invoice__header"
+  >
+    <p class="thermal-invoice__shop-name">{{ doc.seller.legalName }}</p>
+    <p *ngIf="hasDistinctTradeName(doc)" class="thermal-invoice__line">{{ doc.seller.tradeName }}</p>
+    <p *ngIf="doc.seller.address" class="thermal-invoice__line">{{ doc.seller.address }}</p>
+    <p *ngIf="doc.seller.gstin" class="thermal-invoice__line thermal-invoice__shop-gst">
+      {{ 'sales.invoice.gstin' | transloco }}: {{ doc.seller.gstin }}
     </p>
-    <p *ngIf="shop.gstNumber" class="thermal-invoice__line thermal-invoice__shop-gst">
-      {{ 'sales.invoice.gstin' | transloco }}: {{ shop.gstNumber }}
+    <p class="thermal-invoice__line">
+      {{ 'sales.invoice.state' | transloco }}: {{ doc.seller.stateName }} ({{
+        doc.seller.stateCode
+      }})
     </p>
+    <p class="thermal-invoice__document-title">{{ documentTitleKey(doc) | transloco }}</p>
   </header>
+
+  <ng-template #legacyHeader>
+    <header class="thermal-invoice__section thermal-invoice__header">
+      <p class="thermal-invoice__shop-name">{{ shop.name }}</p>
+      <p *ngIf="shopAddress" class="thermal-invoice__line">{{ shopAddress }}</p>
+      <p *ngIf="shop.mobileNumber" class="thermal-invoice__line thermal-invoice__shop-phone">
+        {{ 'sales.invoice.phone' | transloco }}: {{ shop.mobileNumber }}
+      </p>
+      <p *ngIf="shop.gstNumber" class="thermal-invoice__line thermal-invoice__shop-gst">
+        {{ 'sales.invoice.gstin' | transloco }}: {{ shop.gstNumber }}
+      </p>
+    </header>
+  </ng-template>
 
   <section *ngIf="pendingSync" class="thermal-invoice__section thermal-invoice__pending">
     <p class="thermal-invoice__pending-text">
@@ -16,133 +36,226 @@
     </p>
   </section>
 
-  <section class="thermal-invoice__section">
+  <section *ngIf="sale.document as doc; else legacyMeta" class="thermal-invoice__section">
     <div class="thermal-invoice__meta">
-      <span>{{ 'sales.invoice.invoiceNumber' | transloco }} {{ sale.invoiceNumber }}</span>
-      <span>{{ sale.soldAt | date: 'dd/MM/yyyy HH:mm' }}</span>
+      <span>{{ 'sales.invoice.invoiceNumber' | transloco }} {{ doc.number }}</span>
+      <span>{{ doc.businessDate | dateOnly: 'dd/MM/yyyy' }} {{ doc.issuedAt | date: 'HH:mm' : '+0530' }}</span>
     </div>
+    <p class="thermal-invoice__line">
+      {{ 'sales.invoice.placeOfSupply' | transloco }}: {{ doc.placeOfSupplyStateName }} ({{
+        doc.placeOfSupplyStateCode
+      }})
+    </p>
+    <p class="thermal-invoice__line">
+      {{
+        (doc.reverseCharge ? 'sales.invoice.reverseChargeYes' : 'sales.invoice.reverseChargeNo')
+          | transloco
+      }}
+    </p>
     <div class="thermal-invoice__customer">
-      <p class="thermal-invoice__line">{{ getCustomerDisplay() }}</p>
-      <p *ngIf="getCustomerPhone()" class="thermal-invoice__line">{{ getCustomerPhone() }}</p>
+      <p class="thermal-invoice__line">{{ doc.buyer.name || ('sales.history.walkIn' | transloco) }}</p>
+      <p *ngIf="doc.buyer.phone" class="thermal-invoice__line">{{ doc.buyer.phone }}</p>
+      <p *ngIf="doc.buyer.address" class="thermal-invoice__line">{{ doc.buyer.address }}</p>
+      <p *ngIf="doc.buyer.gstin" class="thermal-invoice__line">
+        {{ 'sales.invoice.gstin' | transloco }}: {{ doc.buyer.gstin }}
+      </p>
+      <p *ngIf="doc.buyer.stateCode" class="thermal-invoice__line">
+        {{ 'sales.invoice.state' | transloco }}: {{ doc.buyer.stateName }} ({{
+          doc.buyer.stateCode
+        }})
+      </p>
     </div>
   </section>
 
-  <section class="thermal-invoice__section">
-    <ng-container *ngIf="isMixedBill(); else flatList">
-      <div
-        class="thermal-invoice__group-header font-bold text-xs uppercase tracking-wider text-slate-500 mb-2 border-b border-dashed border-slate-300 pb-0.5"
-      >
-        {{ 'sales.newSale.goodsSection' | transloco }}
+  <ng-template #legacyMeta>
+    <section class="thermal-invoice__section">
+      <div class="thermal-invoice__meta">
+        <span>{{ 'sales.invoice.invoiceNumber' | transloco }} {{ sale.invoiceNumber }}</span>
+        <span>{{ sale.soldAt | date: 'dd/MM/yyyy HH:mm' }}</span>
       </div>
-      <div *ngFor="let item of getGoodsItems()" class="thermal-invoice__item">
-        <div class="thermal-invoice__item-row">
-          <span class="thermal-invoice__item-name">{{ item.itemName }}</span>
-          <span class="thermal-invoice__value">{{
-            item.totalAmount | currency: 'INR' : 'symbol' : '1.2-2'
-          }}</span>
-        </div>
-        <div class="thermal-invoice__item-row thermal-invoice__item-row--detail">
-          <span
-            >{{ item.quantity }} ×
-            {{ item.salesPrice | currency: 'INR' : 'symbol' : '1.2-2' }}</span
-          >
-          <span
-            >{{ 'sales.invoice.tax' | transloco }} {{ item.taxRatePercent }}%:
-            {{ item.taxAmount | currency: 'INR' : 'symbol' : '1.2-2' }}</span
-          >
-        </div>
-        <p
-          *ngIf="shop.gstNumber && item.hsnCode"
-          class="thermal-invoice__line thermal-invoice__item-hsn"
-        >
-          {{ 'sales.invoice.hsn' | transloco }}: {{ item.hsnCode }}
-        </p>
-        <p *ngIf="getLineDiscountAmount(item) > 0" class="thermal-invoice__line">
-          {{ 'sales.invoice.discount' | transloco }}: -{{
-            getLineDiscountAmount(item) | currency: 'INR' : 'symbol' : '1.2-2'
-          }}
-        </p>
+      <div class="thermal-invoice__customer">
+        <p class="thermal-invoice__line">{{ getCustomerDisplay() }}</p>
+        <p *ngIf="getCustomerPhone()" class="thermal-invoice__line">{{ getCustomerPhone() }}</p>
       </div>
+    </section>
+  </ng-template>
 
-      <div
-        class="thermal-invoice__group-header font-bold text-xs uppercase tracking-wider text-slate-500 mt-4 mb-2 border-b border-dashed border-slate-300 pb-0.5"
-      >
-        {{ 'sales.newSale.servicesSection' | transloco }}
+  <section *ngIf="sale.document as doc; else legacyItems" class="thermal-invoice__section">
+    <div *ngFor="let line of doc.lines" class="thermal-invoice__item">
+      <div class="thermal-invoice__item-row">
+        <span class="thermal-invoice__item-name">{{ line.description }}</span>
+        <span class="thermal-invoice__value">{{
+          line.lineTotal | currency: 'INR' : 'symbol' : '1.2-2'
+        }}</span>
       </div>
-      <div *ngFor="let item of getServiceItems()" class="thermal-invoice__item">
-        <div class="thermal-invoice__item-row">
-          <span class="thermal-invoice__item-name">{{ item.itemName }}</span>
-          <span class="thermal-invoice__value">{{
-            item.totalAmount | currency: 'INR' : 'symbol' : '1.2-2'
-          }}</span>
-        </div>
-        <div class="thermal-invoice__item-row thermal-invoice__item-row--detail">
-          <span
-            >{{ item.quantity }} ×
-            {{ item.salesPrice | currency: 'INR' : 'symbol' : '1.2-2' }}</span
-          >
-          <span
-            >{{ 'sales.invoice.tax' | transloco }} {{ item.taxRatePercent }}%:
-            {{ item.taxAmount | currency: 'INR' : 'symbol' : '1.2-2' }}</span
-          >
-        </div>
-        <p
-          *ngIf="shop.gstNumber && item.hsnCode"
-          class="thermal-invoice__line thermal-invoice__item-hsn"
+      <div class="thermal-invoice__item-row thermal-invoice__item-row--detail">
+        <span
+          >{{ line.quantity }} {{ line.uom }} ×
+          {{ line.unitPrice | currency: 'INR' : 'symbol' : '1.2-2' }}</span
         >
-          {{ 'sales.invoice.sac' | transloco }}: {{ item.hsnCode }}
-        </p>
-        <p *ngIf="getLineDiscountAmount(item) > 0" class="thermal-invoice__line">
-          {{ 'sales.invoice.discount' | transloco }}: -{{
-            getLineDiscountAmount(item) | currency: 'INR' : 'symbol' : '1.2-2'
-          }}
-        </p>
+        <span>{{ 'sales.invoice.tax' | transloco }} {{ line.taxRatePercent }}%</span>
       </div>
-    </ng-container>
-
-    <ng-template #flatList>
-      <div *ngFor="let item of sale.items" class="thermal-invoice__item">
-        <div class="thermal-invoice__item-row">
-          <span class="thermal-invoice__item-name">{{ item.itemName }}</span>
-          <span class="thermal-invoice__value">{{
-            item.totalAmount | currency: 'INR' : 'symbol' : '1.2-2'
-          }}</span>
-        </div>
-        <div class="thermal-invoice__item-row thermal-invoice__item-row--detail">
-          <span
-            >{{ item.quantity }} ×
-            {{ item.salesPrice | currency: 'INR' : 'symbol' : '1.2-2' }}</span
-          >
-          <span
-            >{{ 'sales.invoice.tax' | transloco }} {{ item.taxRatePercent }}%:
-            {{ item.taxAmount | currency: 'INR' : 'symbol' : '1.2-2' }}</span
-          >
-        </div>
-        <p
-          *ngIf="shop.gstNumber && item.hsnCode"
-          class="thermal-invoice__line thermal-invoice__item-hsn"
-        >
-          {{
-            (item.lineType === 'Service' ? 'sales.invoice.sac' : 'sales.invoice.hsn') | transloco
-          }}: {{ item.hsnCode }}
-        </p>
-        <p *ngIf="getLineDiscountAmount(item) > 0" class="thermal-invoice__line">
-          {{ 'sales.invoice.discount' | transloco }}: -{{
-            getLineDiscountAmount(item) | currency: 'INR' : 'symbol' : '1.2-2'
-          }}
-        </p>
-      </div>
-    </ng-template>
+      <p class="thermal-invoice__line">
+        {{ 'sales.invoice.taxableValue' | transloco }}:
+        {{ line.taxableValue | currency: 'INR' : 'symbol' : '1.2-2' }}
+      </p>
+      <p *ngIf="line.hsnOrSac" class="thermal-invoice__line thermal-invoice__item-hsn">
+        {{ 'services.hsnSac' | transloco }}: {{ line.hsnOrSac }}
+      </p>
+      <p *ngIf="line.discountAmount > 0" class="thermal-invoice__line">
+        {{ 'sales.invoice.discount' | transloco }}: -{{
+          line.discountAmount | currency: 'INR' : 'symbol' : '1.2-2'
+        }}
+      </p>
+    </div>
   </section>
 
-  <section class="thermal-invoice__section thermal-invoice__totals">
+  <ng-template #legacyItems>
+    <section class="thermal-invoice__section">
+      <ng-container *ngIf="isMixedBill(); else flatList">
+        <div
+          class="thermal-invoice__group-header font-bold text-xs uppercase tracking-wider text-slate-500 mb-2 border-b border-dashed border-slate-300 pb-0.5"
+        >
+          {{ 'sales.newSale.goodsSection' | transloco }}
+        </div>
+        <div *ngFor="let item of getGoodsItems()" class="thermal-invoice__item">
+          <div class="thermal-invoice__item-row">
+            <span class="thermal-invoice__item-name">{{ item.itemName }}</span>
+            <span class="thermal-invoice__value">{{
+              item.totalAmount | currency: 'INR' : 'symbol' : '1.2-2'
+            }}</span>
+          </div>
+          <div class="thermal-invoice__item-row thermal-invoice__item-row--detail">
+            <span
+              >{{ item.quantity }} ×
+              {{ item.salesPrice | currency: 'INR' : 'symbol' : '1.2-2' }}</span
+            >
+            <span
+              >{{ 'sales.invoice.tax' | transloco }} {{ item.taxRatePercent }}%:
+              {{ item.taxAmount | currency: 'INR' : 'symbol' : '1.2-2' }}</span
+            >
+          </div>
+          <p
+            *ngIf="shop.gstNumber && item.hsnCode"
+            class="thermal-invoice__line thermal-invoice__item-hsn"
+          >
+            {{ 'sales.invoice.hsn' | transloco }}: {{ item.hsnCode }}
+          </p>
+          <p *ngIf="getLineDiscountAmount(item) > 0" class="thermal-invoice__line">
+            {{ 'sales.invoice.discount' | transloco }}: -{{
+              getLineDiscountAmount(item) | currency: 'INR' : 'symbol' : '1.2-2'
+            }}
+          </p>
+        </div>
+
+        <div
+          class="thermal-invoice__group-header font-bold text-xs uppercase tracking-wider text-slate-500 mt-4 mb-2 border-b border-dashed border-slate-300 pb-0.5"
+        >
+          {{ 'sales.newSale.servicesSection' | transloco }}
+        </div>
+        <div *ngFor="let item of getServiceItems()" class="thermal-invoice__item">
+          <div class="thermal-invoice__item-row">
+            <span class="thermal-invoice__item-name">{{ item.itemName }}</span>
+            <span class="thermal-invoice__value">{{
+              item.totalAmount | currency: 'INR' : 'symbol' : '1.2-2'
+            }}</span>
+          </div>
+          <div class="thermal-invoice__item-row thermal-invoice__item-row--detail">
+            <span
+              >{{ item.quantity }} ×
+              {{ item.salesPrice | currency: 'INR' : 'symbol' : '1.2-2' }}</span
+            >
+            <span
+              >{{ 'sales.invoice.tax' | transloco }} {{ item.taxRatePercent }}%:
+              {{ item.taxAmount | currency: 'INR' : 'symbol' : '1.2-2' }}</span
+            >
+          </div>
+          <p
+            *ngIf="shop.gstNumber && item.hsnCode"
+            class="thermal-invoice__line thermal-invoice__item-hsn"
+          >
+            {{ 'sales.invoice.sac' | transloco }}: {{ item.hsnCode }}
+          </p>
+          <p *ngIf="getLineDiscountAmount(item) > 0" class="thermal-invoice__line">
+            {{ 'sales.invoice.discount' | transloco }}: -{{
+              getLineDiscountAmount(item) | currency: 'INR' : 'symbol' : '1.2-2'
+            }}
+          </p>
+        </div>
+      </ng-container>
+
+      <ng-template #flatList>
+        <div *ngFor="let item of sale.items" class="thermal-invoice__item">
+          <div class="thermal-invoice__item-row">
+            <span class="thermal-invoice__item-name">{{ item.itemName }}</span>
+            <span class="thermal-invoice__value">{{
+              item.totalAmount | currency: 'INR' : 'symbol' : '1.2-2'
+            }}</span>
+          </div>
+          <div class="thermal-invoice__item-row thermal-invoice__item-row--detail">
+            <span
+              >{{ item.quantity }} ×
+              {{ item.salesPrice | currency: 'INR' : 'symbol' : '1.2-2' }}</span
+            >
+            <span
+              >{{ 'sales.invoice.tax' | transloco }} {{ item.taxRatePercent }}%:
+              {{ item.taxAmount | currency: 'INR' : 'symbol' : '1.2-2' }}</span
+            >
+          </div>
+          <p
+            *ngIf="shop.gstNumber && item.hsnCode"
+            class="thermal-invoice__line thermal-invoice__item-hsn"
+          >
+            {{
+              (item.lineType === 'Service' ? 'sales.invoice.sac' : 'sales.invoice.hsn') | transloco
+            }}: {{ item.hsnCode }}
+          </p>
+          <p *ngIf="getLineDiscountAmount(item) > 0" class="thermal-invoice__line">
+            {{ 'sales.invoice.discount' | transloco }}: -{{
+              getLineDiscountAmount(item) | currency: 'INR' : 'symbol' : '1.2-2'
+            }}
+          </p>
+        </div>
+      </ng-template>
+    </section>
+  </ng-template>
+
+  <section
+    *ngIf="sale.document as doc; else legacyTotals"
+    class="thermal-invoice__section thermal-invoice__totals"
+  >
     <div class="thermal-invoice__summary-row">
-      <span>{{ 'sales.invoice.totalBeforeDiscount' | transloco }}</span>
-      <span>{{ sale.totalBeforeDiscount | currency: 'INR' : 'symbol' : '1.2-2' }}</span>
+      <span>{{ 'sales.invoice.taxableValue' | transloco }}</span>
+      <span>{{ doc.totals.taxableValue | currency: 'INR' : 'symbol' : '1.2-2' }}</span>
+    </div>
+    <div *ngIf="doc.totals.exemptValue > 0" class="thermal-invoice__summary-row">
+      <span>{{ 'sales.invoice.exemptValue' | transloco }}</span>
+      <span>{{ doc.totals.exemptValue | currency: 'INR' : 'symbol' : '1.2-2' }}</span>
+    </div>
+    <div
+      *ngFor="let row of taxSummary(doc)"
+      class="thermal-invoice__summary-row thermal-invoice__tax-row"
+    >
+      <span
+        >{{ row.abbreviation }} {{ row.ratePercent }}%
+        {{
+          'sales.invoice.taxOnBase'
+            | transloco: { amount: (row.taxableBase | currency: 'INR' : 'symbol' : '1.2-2') }
+        }}</span
+      >
+      <span>{{ row.amount | currency: 'INR' : 'symbol' : '1.2-2' }}</span>
     </div>
     <div class="thermal-invoice__summary-row">
-      <span>{{ 'sales.invoice.discount' | transloco }}</span>
-      <span>-{{ sale.totalDiscountAmount | currency: 'INR' : 'symbol' : '1.2-2' }}</span>
+      <span>{{ 'sales.invoice.totalTax' | transloco }}</span>
+      <span>{{ doc.totals.totalTax | currency: 'INR' : 'symbol' : '1.2-2' }}</span>
+    </div>
+    <div class="thermal-invoice__summary-row">
+      <span>{{ 'sales.invoice.roundingAdjustment' | transloco }}</span>
+      <span>{{ doc.totals.roundingAdjustment | currency: 'INR' : 'symbol' : '1.2-2' }}</span>
+    </div>
+    <div class="thermal-invoice__summary-row thermal-invoice__summary-row--total">
+      <span>{{ 'sales.invoice.invoiceTotal' | transloco }}</span>
+      <span>{{ doc.totals.invoiceTotal | currency: 'INR' : 'symbol' : '1.2-2' }}</span>
     </div>
     <div *ngIf="sale.creditNoteAppliedAmount > 0" class="thermal-invoice__summary-row">
       <span>{{
@@ -151,15 +264,35 @@
       }}</span>
       <span>-{{ sale.creditNoteAppliedAmount | currency: 'INR' : 'symbol' : '1.2-2' }}</span>
     </div>
-    <div class="thermal-invoice__summary-row">
-      <span>{{ 'sales.invoice.tax' | transloco }}</span>
-      <span>{{ sale.totalTaxAmount | currency: 'INR' : 'symbol' : '1.2-2' }}</span>
-    </div>
-    <div class="thermal-invoice__summary-row thermal-invoice__summary-row--total">
-      <span>{{ 'sales.invoice.grandTotal' | transloco }}</span>
-      <span>{{ sale.totalAmount | currency: 'INR' : 'symbol' : '1.2-2' }}</span>
-    </div>
   </section>
+
+  <ng-template #legacyTotals>
+    <section class="thermal-invoice__section thermal-invoice__totals">
+      <div class="thermal-invoice__summary-row">
+        <span>{{ 'sales.invoice.totalBeforeDiscount' | transloco }}</span>
+        <span>{{ sale.totalBeforeDiscount | currency: 'INR' : 'symbol' : '1.2-2' }}</span>
+      </div>
+      <div class="thermal-invoice__summary-row">
+        <span>{{ 'sales.invoice.discount' | transloco }}</span>
+        <span>-{{ sale.totalDiscountAmount | currency: 'INR' : 'symbol' : '1.2-2' }}</span>
+      </div>
+      <div *ngIf="sale.creditNoteAppliedAmount > 0" class="thermal-invoice__summary-row">
+        <span>{{
+          getCreditNoteSettlementLabelKey()
+            | transloco: { codes: getCreditNoteSettlementCodes().join(', ') }
+        }}</span>
+        <span>-{{ sale.creditNoteAppliedAmount | currency: 'INR' : 'symbol' : '1.2-2' }}</span>
+      </div>
+      <div class="thermal-invoice__summary-row">
+        <span>{{ 'sales.invoice.tax' | transloco }}</span>
+        <span>{{ sale.totalTaxAmount | currency: 'INR' : 'symbol' : '1.2-2' }}</span>
+      </div>
+      <div class="thermal-invoice__summary-row thermal-invoice__summary-row--total">
+        <span>{{ 'sales.invoice.grandTotal' | transloco }}</span>
+        <span>{{ sale.totalAmount | currency: 'INR' : 'symbol' : '1.2-2' }}</span>
+      </div>
+    </section>
+  </ng-template>
 
   <section class="thermal-invoice__section">
     <div class="thermal-invoice__payment-row">
@@ -178,8 +311,8 @@
       <span>{{ 'sales.invoice.paymentStatus' | transloco }}</span>
       <span
         class="thermal-invoice__status"
-        [class.thermal-invoice__status--paid]="sale.dueAmount === 0"
-        [class.thermal-invoice__status--partial]="sale.dueAmount > 0 && sale.paidAmount > 0"
+        [class.thermal-invoice__status--paid]="getPaymentStatusKey() === 'sales.invoice.paid'"
+        [class.thermal-invoice__status--partial]="getPaymentStatusKey() === 'sales.invoice.partiallyPaid'"
       >
         {{ getPaymentStatus() }}
       </span>
@@ -208,4 +341,18 @@
       </p>
     </article>
   </section>
+
+  <section *ngIf="sale.document as doc" class="thermal-invoice__section thermal-invoice__signatory">
+    <p *ngFor="let declaration of doc.declarations" class="thermal-invoice__line">
+      {{ declarationKey(declaration) | transloco }}
+    </p>
+    <p class="thermal-invoice__signatory-for">
+      {{ 'sales.invoice.signatoryFor' | transloco: { legalName: doc.seller.legalName } }}
+    </p>
+    <p class="thermal-invoice__line">{{ 'sales.invoice.authorisedSignatory' | transloco }}</p>
+  </section>
+
+  <p *ngIf="missingDocumentNoteKey() as noteKey" class="thermal-invoice__legacy-note">
+    {{ noteKey | transloco }}
+  </p>
 </article>

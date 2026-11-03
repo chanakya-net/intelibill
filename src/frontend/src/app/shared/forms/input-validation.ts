@@ -1,9 +1,11 @@
 import { AbstractControl, ValidationErrors, ValidatorFn, Validators } from '@angular/forms';
+import { isKnownGstStateCode } from '../gst/gst-state-codes';
 
 const PHONE_NUMBER_PATTERN = /^\+?[0-9]{7,15}$/;
 const HSN_SAC_PATTERN = /^\s*\d{4,8}\s*$/;
 const INDIA_GST_PATTERN = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/i;
 const INDIA_IFSC_PATTERN = /^[A-Z]{4}0[A-Z0-9]{6}$/i;
+const GSTIN_CHECKSUM_ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
 export interface CommonInputOptions {
   readonly required?: boolean;
@@ -42,6 +44,43 @@ function normalizedPattern(pattern: RegExp): ValidatorFn {
       ? null
       : { pattern: { requiredPattern: pattern.toString(), actualValue: rawValue } };
   };
+}
+
+function normalizedGstin(value: unknown): string {
+  return typeof value === 'string' ? value.trim().toUpperCase() : '';
+}
+
+/**
+ * A GSTIN is valid when it has the 15-character shape and its last character is the check digit of the first
+ * fourteen: each character's alphabet index is weighted 1 or 2 alternately, every product contributes its base-36
+ * quotient plus remainder, and the check digit is the alphabet character that completes the sum to a multiple of 36.
+ */
+export function isValidGstin(value: string | null | undefined): boolean {
+  const gstin = normalizedGstin(value);
+  // The server refuses a GSTIN whose first two digits are not a GST state, so the form does too.
+  if (!INDIA_GST_PATTERN.test(gstin) || !isKnownGstStateCode(gstin.slice(0, 2))) return false;
+
+  let sum = 0;
+  for (let index = 0; index < 14; index++) {
+    const product = GSTIN_CHECKSUM_ALPHABET.indexOf(gstin[index]) * (index % 2 === 0 ? 1 : 2);
+    sum += Math.floor(product / 36) + (product % 36);
+  }
+
+  return gstin[14] === GSTIN_CHECKSUM_ALPHABET[(36 - (sum % 36)) % 36];
+}
+
+/** The GST state code a GSTIN is registered in (its first two digits), or null when it does not start with one. */
+export function gstinStateCode(value: string | null | undefined): string | null {
+  const prefix = normalizedGstin(value).slice(0, 2);
+  return /^[0-9]{2}$/.test(prefix) ? prefix : null;
+}
+
+function gstinChecksum(control: AbstractControl): ValidationErrors | null {
+  const gstin = normalizedGstin(control.value);
+  // Empty and malformed values are left to the required and pattern validators.
+  if (gstin.length === 0 || !INDIA_GST_PATTERN.test(gstin)) return null;
+
+  return isValidGstin(gstin) ? null : { gstinChecksum: true };
 }
 
 function fractionDigits(value: number): number {
@@ -113,6 +152,11 @@ export const InputValidators = {
     return [Validators.maxLength(maxLength), normalizedPattern(INDIA_GST_PATTERN)];
   },
 
+  /** A GSTIN: the shape {@link gstNumber} checks plus its check digit. Empty is allowed. */
+  gstin(maxLength = 20): ValidatorFn[] {
+    return [Validators.maxLength(maxLength), normalizedPattern(INDIA_GST_PATTERN), gstinChecksum];
+  },
+
   ifscCode(maxLength = 20): ValidatorFn[] {
     return [Validators.maxLength(maxLength), normalizedPattern(INDIA_IFSC_PATTERN)];
   },
@@ -143,6 +187,17 @@ export const InputValidators = {
       const firstValue = control.get(firstField)?.value;
       const secondValue = control.get(secondField)?.value;
       if (!firstValue || !secondValue || firstValue !== secondValue) return null;
+
+      return { [errorKey]: true };
+    };
+  },
+
+  /** When both are given, the GSTIN's first two digits must be the chosen GST state code. */
+  gstinMatchesState(gstinField: string, stateCodeField: string, errorKey = 'gstinStateMismatch'): ValidatorFn {
+    return (control: AbstractControl): ValidationErrors | null => {
+      const stateCode = control.get(stateCodeField)?.value;
+      const gstinState = gstinStateCode(control.get(gstinField)?.value);
+      if (!stateCode || !gstinState || gstinState === stateCode) return null;
 
       return { [errorKey]: true };
     };

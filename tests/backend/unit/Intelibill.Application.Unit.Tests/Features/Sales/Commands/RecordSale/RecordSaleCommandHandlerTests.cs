@@ -1,5 +1,6 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Sales.Commands.RecordSale;
 using Intelibill.Application.Features.Sales.DTOs;
 using Intelibill.Application.Features.Sales.Services;
@@ -28,10 +29,18 @@ public class RecordSaleCommandHandlerTests
     private readonly ICreditNoteRedemptionRepository _creditNoteRedemptionRepository = Substitute.For<ICreditNoteRedemptionRepository>();
     private readonly ICreditNoteRepository _creditNoteRepository = Substitute.For<ICreditNoteRepository>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
+    private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
+    private readonly IInvoiceNumberAllocator _invoiceNumberAllocator = Substitute.For<IInvoiceNumberAllocator>();
+    private Shop _shop = DeclaredShop(TaxRegime.Regular, "29AAPFU0939F1ZR");
+    private int _nextInvoiceNumber;
 
     public RecordSaleCommandHandlerTests()
     {
         _saleDtoBuilder = new SaleDtoBuilder(_itemRepository);
+        _shopRepository.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(_ => Task.FromResult<Shop?>(_shop));
+        _invoiceNumberAllocator.AllocateAsync(Arg.Any<InvoiceSeriesKey>(), Arg.Any<CancellationToken>())
+            .Returns(_ => Task.FromResult<ErrorOr<string>>($"A/2627/{++_nextInvoiceNumber:D6}"));
         _customerResolver.ResolveAsync(Arg.Any<Guid>(), Arg.Any<Guid?>(), Arg.Any<string?>(), Arg.Any<bool>(), Arg.Any<PaymentMethod>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<ErrorOr<Customer?>>((Customer?)null));
         _salePricingCalculator.CalculateAsync(Arg.Any<SalePricingCalculationRequest>(), Arg.Any<CancellationToken>())
@@ -66,7 +75,15 @@ public class RecordSaleCommandHandlerTests
     }
 
     private RecordSaleCommandHandler CreateHandler() =>
-        new(_saleLineValidator, _salePricingCalculator, _customerResolver, _saleRepository, _creditNoteRepository, _saleDtoBuilder, _customerLedgerEntryRepository, _stockTransactionRepository, _unitOfWork);
+        new(_saleLineValidator, _salePricingCalculator, _customerResolver, _saleRepository, _creditNoteRepository, _saleDtoBuilder, _customerLedgerEntryRepository, _stockTransactionRepository, _shopRepository, _invoiceNumberAllocator, _unitOfWork);
+
+    private static Shop DeclaredShop(TaxRegime regime, string? gstin)
+    {
+        var shop = Shop.Create("Main Shop", "42 MG Road", "Bengaluru", "Karnataka", "560001", null, null, gstin);
+        var declared = shop.DeclareTaxProfile(null, "29", regime, gstin, null, EInvoiceStatus.BelowThreshold, Guid.NewGuid(), DateTimeOffset.UtcNow);
+        Assert.False(declared.IsError);
+        return shop;
+    }
 
     private static Item MakeItem(Guid shopId, string barcode, string name = "Rice") =>
         Item.Create(shopId, name, "desc", "kg", barcode, true, Guid.NewGuid());
@@ -160,7 +177,10 @@ public class RecordSaleCommandHandlerTests
         var result = await handler.HandleAsync(command, CancellationToken.None);
 
         Assert.False(result.IsError);
-        Assert.StartsWith("INV-", result.Value.InvoiceNumber);
+        Assert.Equal("A/2627/000001", result.Value.InvoiceNumber);
+        Assert.NotNull(result.Value.Document);
+        Assert.Equal(InvoiceDocumentType.TaxInvoice, result.Value.Document!.DocumentType);
+        Assert.Equal(result.Value.InvoiceNumber, result.Value.Document.Number);
         Assert.Single(result.Value.Items);
         Assert.Equal("Rice", result.Value.Items[0].ItemName);
         Assert.Equal(95m, batch.Quantity);
@@ -168,6 +188,97 @@ public class RecordSaleCommandHandlerTests
         await _saleRepository.Received(1).AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>());
         await _stockTransactionRepository.Received(1).AddAsync(Arg.Any<StockTransaction>(), Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_AllocatesTheNumberInsideThePostingTransaction()
+    {
+        var (command, _, _) = ArrangeSingleLineSale();
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Received.InOrder(() =>
+        {
+            _unitOfWork.BeginTransactionAsync(Arg.Any<CancellationToken>());
+            _invoiceNumberAllocator.AllocateAsync(
+                Arg.Is<InvoiceSeriesKey>(key => key.SeriesCode == "A" && key.SellerRegistrationKey == "29AAPFU0939F1ZR"),
+                Arg.Any<CancellationToken>());
+            _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>());
+            _unitOfWork.CommitTransactionAsync(Arg.Any<CancellationToken>());
+        });
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenTaxProfileNotDeclared_RefusesBeforeTakingANumber()
+    {
+        _shop = Shop.Create("Main Shop", "42 MG Road", "Bengaluru", "Karnataka", "560001", null, null, null);
+        var (command, batch, _) = ArrangeSingleLineSale();
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.Equal(Errors.Invoice.TaxProfileRequired.Code, result.FirstError.Code);
+        await _unitOfWork.DidNotReceive().BeginTransactionAsync(Arg.Any<CancellationToken>());
+        await _invoiceNumberAllocator.DidNotReceive().AllocateAsync(Arg.Any<InvoiceSeriesKey>(), Arg.Any<CancellationToken>());
+        await _saleRepository.DidNotReceive().AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>());
+        Assert.Equal(100m, batch.Quantity);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenCompositionSellerChargesTax_RollsBackWithoutPosting()
+    {
+        _shop = DeclaredShop(TaxRegime.Composition, "29AAPFU0939F1ZR");
+        var (command, batch, _) = ArrangeSingleLineSale();
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.Equal(Errors.Invoice.CompositionCannotCollectTax.Code, result.FirstError.Code);
+        await _unitOfWork.Received(1).RollbackTransactionAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _saleRepository.DidNotReceive().AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>());
+        await _stockTransactionRepository.DidNotReceive().AddAsync(Arg.Any<StockTransaction>(), Arg.Any<CancellationToken>());
+        Assert.Equal(100m, batch.Quantity);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenSeriesBelongsToAnotherShop_ReturnsTheAllocatorError()
+    {
+        _invoiceNumberAllocator.AllocateAsync(Arg.Any<InvoiceSeriesKey>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<string>>(Errors.Invoice.SeriesRegisteredToAnotherShop));
+        var (command, _, _) = ArrangeSingleLineSale();
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.Equal(Errors.Invoice.SeriesRegisteredToAnotherShop.Code, result.FirstError.Code);
+        await _unitOfWork.Received(1).RollbackTransactionAsync(Arg.Any<CancellationToken>());
+        await _saleRepository.DidNotReceive().AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithInterstatePlaceOfSupply_IssuesIgst()
+    {
+        var (command, _, _) = ArrangeSingleLineSale();
+
+        var result = await CreateHandler().HandleAsync(command with { PlaceOfSupplyStateCode = "33" }, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        var document = result.Value.Document!;
+        Assert.True(document.IsInterstate);
+        Assert.Equal([TaxComponentKind.Igst], document.Totals.Components.Select(c => c.Kind));
+        Assert.Equal(document.Totals.TotalTax, document.Totals.Components.Sum(c => c.Amount));
+    }
+
+    private (RecordSaleCommand Command, InventoryBatch Batch, Domain.Entities.Inventory Inventory) ArrangeSingleLineSale()
+    {
+        var shopId = _shop.Id;
+        var item = MakeItem(shopId, "BC-001");
+        var batch = MakeBatch(shopId, item.Id, "B-01", 100m);
+        var inventory = MakeInventory(shopId, item.Id, 100m);
+        var command = MakeCommand(shopId, Guid.NewGuid());
+        var line = new ValidatedSaleLine(command.Items[0], item, batch, inventory, false);
+        _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>())
+            .Returns(new SaleLineValidationResult(new List<ValidatedSaleLine> { line }, new Dictionary<Guid, string> { { item.Id, item.Name } }));
+        return (command, batch, inventory);
     }
 
     [Fact]

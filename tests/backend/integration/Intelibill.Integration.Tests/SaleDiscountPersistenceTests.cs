@@ -227,6 +227,8 @@ public sealed class SaleDiscountPersistenceTests(PostgreSqlTestFixture fixture) 
             city = "Bengaluru",
             state = "Karnataka",
             pincode = "560001",
+            gstNumber = TestTaxProfile.NewGstin(),
+            taxProfile = TestTaxProfile.Regular,
         });
         var response = await client.SendAsync(request);
         response.EnsureSuccessStatusCode();

@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Xml.Linq;
 using Intelibill.Application.Features.Exports.Accounting;
 using Intelibill.Application.Features.Exports.Sales.DTOs;
+using Intelibill.Domain.Common;
 using Intelibill.Domain.Enums;
 
 namespace Intelibill.Infrastructure.Services.Exports;
@@ -38,10 +39,20 @@ internal static class TallyVoucherBuilder
         AddLine(lines, GetPaymentLedgerName(summary.PaymentMethod), summary.PaidAmount, isDebit: true);
         AddLine(lines, CreditNoteLiabilityLedger, summary.CreditNoteAppliedAmount, isDebit: true);
 
-        foreach (var taxGroup in BuildTaxEntries(summary, lineItems, taxBreakup, hasSingleInvoiceInDataset).OrderBy(t => t.Rate))
-            AddLine(lines, FormatGstLedgerName(taxGroup.Rate), taxGroup.Amount, isDebit: false);
+        if (summary.TaxComponents is { } components)
+        {
+            // An issued document carries its own component split; the voucher posts exactly that.
+            foreach (var component in components)
+                AddLine(lines, FormatComponentLedgerName(component.Kind, component.RatePercent), component.Amount, isDebit: false);
+        }
+        else
+        {
+            foreach (var taxGroup in BuildTaxEntries(summary, lineItems, taxBreakup, hasSingleInvoiceInDataset).OrderBy(t => t.Rate))
+                AddLine(lines, FormatGstLedgerName(taxGroup.Rate), taxGroup.Amount, isDebit: false);
+        }
 
-        var date = DateOnly.FromDateTime(summary.SaleDate.UtcDateTime);
+        // Dated on the business calendar, so a sale just after midnight IST lands in its own day and fiscal year.
+        var date = BusinessCalendar.DateOf(summary.SaleDate);
         return new AccountingVoucher(summary.InvoiceNumber, "Sales", date, summary.InvoiceNumber, date, null, lines);
     }
 
@@ -55,21 +66,31 @@ internal static class TallyVoucherBuilder
         var adjustmentSide = !entry.IsReversal;
         var lines = new List<AccountingVoucherLine>();
         AddLine(lines, SalesLedger, Math.Abs(entry.TaxableAdjustment ?? 0m), adjustmentSide);
-        foreach (var component in entry.TaxComponents.OrderBy(c => c.TaxRatePercent))
-            AddLine(lines, FormatGstLedgerName(component.TaxRatePercent), Math.Abs(component.TaxAmount), adjustmentSide);
+        if (entry.DocumentTaxComponents is { } documentComponents)
+        {
+            // Reverses tax into the same component ledgers the sale's document posted to.
+            foreach (var component in documentComponents)
+                AddLine(lines, FormatComponentLedgerName(component.Kind, component.RatePercent), Math.Abs(component.Amount), adjustmentSide);
+        }
+        else
+        {
+            foreach (var component in entry.TaxComponents.OrderBy(c => c.TaxRatePercent))
+                AddLine(lines, FormatGstLedgerName(component.TaxRatePercent), Math.Abs(component.TaxAmount), adjustmentSide);
+        }
         AddLine(lines, SalesReturnAdjustmentsLedger, Math.Abs(entry.NonTaxAdjustment ?? 0m), adjustmentSide);
 
         foreach (var settlement in entry.Settlements)
             AddLine(lines, SettlementLedgerName(settlement.Kind, entry.CustomerName), Math.Abs(settlement.Amount), !adjustmentSide);
 
-        var date = DateOnly.FromDateTime(entry.PostedAt.UtcDateTime);
+        // Business dates, like the sales voucher, so the reference date matches the invoice's own.
+        var date = BusinessCalendar.DateOf(entry.PostedAt);
         return entry.IsReversal
             ? new AccountingVoucher(
                 ReversalVoucherNumber(entry.ReturnNumber),
                 ReversalVoucherType,
                 date,
                 entry.ReturnNumber,
-                DateOnly.FromDateTime(entry.ReturnProcessedAt.UtcDateTime),
+                BusinessCalendar.DateOf(entry.ReturnProcessedAt),
                 $"Reversal of credit note {entry.ReturnNumber} for invoice {entry.InvoiceNumber}: return voided ({entry.VoidReason}).",
                 lines)
             : new AccountingVoucher(
@@ -77,7 +98,7 @@ internal static class TallyVoucherBuilder
                 ReturnVoucherType,
                 date,
                 entry.InvoiceNumber,
-                DateOnly.FromDateTime(entry.InvoiceDate.UtcDateTime),
+                BusinessCalendar.DateOf(entry.InvoiceDate),
                 ReturnNarration(entry),
                 lines);
     }
@@ -167,11 +188,20 @@ internal static class TallyVoucherBuilder
         };
     }
 
-    internal static string FormatGstLedgerName(decimal taxRate)
-    {
-        var rate = taxRate == (int)taxRate ? ((int)taxRate).ToString(CultureInfo.InvariantCulture) : taxRate.ToString("F2", CultureInfo.InvariantCulture);
-        return $"Output GST {rate}%";
-    }
+    internal static string FormatGstLedgerName(decimal taxRate) => $"Output GST {FormatRate(taxRate)}%";
+
+    private static readonly string[] OutputTaxLedgerPrefixes =
+        ["Output GST ", .. Enum.GetValues<TaxComponentKind>().Select(kind => $"Output {kind.ToString().ToUpperInvariant()} ")];
+
+    internal static bool IsOutputTaxLedger(string ledgerName) =>
+        OutputTaxLedgerPrefixes.Any(prefix => ledgerName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>Component rates keep every significant digit: half of 0.25% is 0.125%, not 0.13%.</summary>
+    internal static string FormatComponentLedgerName(TaxComponentKind kind, decimal ratePercent) =>
+        $"Output {kind.ToString().ToUpperInvariant()} {ratePercent.ToString("0.####", CultureInfo.InvariantCulture)}%";
+
+    private static string FormatRate(decimal taxRate) =>
+        taxRate == (int)taxRate ? ((int)taxRate).ToString(CultureInfo.InvariantCulture) : taxRate.ToString("F2", CultureInfo.InvariantCulture);
 
     internal static string GetCreditNoteLedgerName() => CreditNoteLiabilityLedger;
 

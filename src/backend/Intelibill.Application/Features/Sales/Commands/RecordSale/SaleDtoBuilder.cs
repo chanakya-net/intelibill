@@ -98,6 +98,7 @@ public sealed class SaleDtoBuilder(IItemRepository itemRepository)
             warnings)
         {
             CreditNoteRedemptions = creditNoteRedemptions,
+            Document = sale.InvoiceDocument,
         };
 
         string ResolveLineName(SaleItem saleItem)

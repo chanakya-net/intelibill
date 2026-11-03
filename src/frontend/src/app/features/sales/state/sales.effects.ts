@@ -4,6 +4,7 @@ import { catchError, firstValueFrom, from, map, mergeMap, of, switchMap } from '
 
 import { CheckoutIntentService, classifyCheckoutSendFailure } from '../services/checkout-intent.service';
 import { SaleService } from '../services/sale.service';
+import { invoiceErrorKey } from '../utils/invoice-error-keys';
 import { SalesActions } from './sales.actions';
 
 @Injectable()
@@ -147,9 +148,7 @@ export class SalesEffects {
         if (!intentId) {
           return this.saleService.recordSale(payload).pipe(
             map((sale) => SalesActions.recordSaleSucceeded({ sale })),
-            catchError((error) =>
-              of(SalesActions.recordSaleFailed({ errorMessage: error.error?.detail || 'errors.sales.recordFailed' })),
-            ),
+            catchError((error) => of(SalesActions.recordSaleFailed({ errorMessage: recordSaleErrorMessage(error) }))),
           );
         }
         return from(this.sendIntent(intentId));
@@ -172,10 +171,7 @@ export class SalesEffects {
       if (classifyCheckoutSendFailure(error) === 'rejected') {
         const code = (error as { error?: { title?: string } }).error?.title ?? 'unknown';
         await this.checkoutIntents.reject(intentId, code).catch(() => null);
-        return SalesActions.recordSaleFailed({
-          intentId,
-          errorMessage: (error as { error?: { detail?: string } }).error?.detail || 'errors.sales.recordFailed',
-        });
+        return SalesActions.recordSaleFailed({ intentId, errorMessage: recordSaleErrorMessage(error) });
       }
       await this.checkoutIntents.markUncertain(intentId).catch(() => null);
       return SalesActions.recordSaleUncertain({ intentId, errorMessage: 'sales.newSale.pendingCheckout.uncertain' });
@@ -183,3 +179,8 @@ export class SalesEffects {
   }
 }
 
+/** GST document refusals get a message that says what to fix; anything else keeps the server's own text. */
+function recordSaleErrorMessage(error: unknown): string {
+  const body = (error as { error?: { title?: string; detail?: string } } | null)?.error;
+  return invoiceErrorKey(body?.title) ?? (body?.detail || 'errors.sales.recordFailed');
+}

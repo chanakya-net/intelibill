@@ -10,4 +10,8 @@ public sealed record CustomerDto(
     decimal CreditLimit,
     int PurchaseCount = 0,
     decimal LifetimeRevenue = 0m,
-    decimal CurrentMonthRevenue = 0m);
+    decimal CurrentMonthRevenue = 0m)
+{
+    public string? Gstin { get; init; }
+    public string? StateCode { get; init; }
+}

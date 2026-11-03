@@ -1,4 +1,6 @@
 using FluentValidation;
+using Gstin = Intelibill.Domain.Common.Gstin;
+using GstStateCodes = Intelibill.Domain.Common.GstStateCodes;
 using Intelibill.Application.Common.Errors;
 
 namespace Intelibill.Application.Features.Customers.Commands.EditCustomer;
@@ -39,5 +41,24 @@ public sealed class EditCustomerCommandValidator : AbstractValidator<EditCustome
             .LessThanOrEqualTo(99999999.99m)
             .WithErrorCode(Errors.Customer.CreditLimitInvalid.Code)
             .WithMessage(Errors.Customer.CreditLimitInvalid.Description);
+
+        RuleFor(x => x.Gstin)
+            .Must(Gstin.IsValid)
+            .When(x => !string.IsNullOrWhiteSpace(x.Gstin))
+            .WithErrorCode(Errors.Customer.GstinInvalid.Code)
+            .WithMessage(Errors.Customer.GstinInvalid.Description);
+
+        RuleFor(x => x.StateCode)
+            .Must(GstStateCodes.IsKnown)
+            .When(x => !string.IsNullOrWhiteSpace(x.StateCode))
+            .WithErrorCode(Errors.Customer.StateCodeInvalid.Code)
+            .WithMessage(Errors.Customer.StateCodeInvalid.Description);
+
+        RuleFor(x => x)
+            .Must(x => string.Equals(Gstin.StateCodeOf(x.Gstin!), x.StateCode!.Trim(), StringComparison.Ordinal))
+            .When(x => Gstin.IsValid(x.Gstin) && !string.IsNullOrWhiteSpace(x.StateCode))
+            .WithName(nameof(EditCustomerCommand.StateCode))
+            .WithErrorCode(Errors.Customer.GstinStateMismatch.Code)
+            .WithMessage(Errors.Customer.GstinStateMismatch.Description);
     }
 }

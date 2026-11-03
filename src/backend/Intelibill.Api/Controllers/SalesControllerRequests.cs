@@ -15,7 +15,8 @@ public sealed partial record RecordSaleRequest(
     InstantDiscountRequest? SaleDiscount = null,
     decimal CreditNoteAppliedAmount = 0m,
     IReadOnlyList<CreditNoteRedemptionRequest>? CreditNoteRedemptions = null,
-    bool CreditNoteCustomerMismatchConfirmed = false);
+    bool CreditNoteCustomerMismatchConfirmed = false,
+    string? PlaceOfSupplyStateCode = null);
 
 public sealed record ReserveInvoiceLeaseRequest(
     string DeviceId,

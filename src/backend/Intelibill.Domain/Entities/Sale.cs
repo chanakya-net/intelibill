@@ -38,6 +38,9 @@ public sealed partial class Sale : BaseEntity
     public decimal SaleDiscountOverrideValue { get; private set; }
     public decimal CreditNoteAppliedAmount { get; private set; }
 
+    /// <summary>The document the sale was issued as; null for sales issued before documents were recorded.</summary>
+    public IssuedInvoiceSnapshot? InvoiceDocument { get; private set; }
+
     public IReadOnlyList<SaleItem> Items => _items.AsReadOnly();
 
     private Sale() { }
@@ -88,6 +91,18 @@ public sealed partial class Sale : BaseEntity
         var idempotencyKey = $"legacy-{Guid.NewGuid():N}";
         var requestHash = $"legacy-{Guid.NewGuid():N}";
         return Create(shopId, Guid.Empty, idempotencyKey, requestHash, invoiceNumber, customerId, customerName, customerPhone, paymentMethod, soldAt, paidAmount, dueAmount, totalAmount, totalTaxAmount, items, subtotalBeforeDiscount, totalBeforeDiscount, totalDiscountAmount, configuredSaleRuleId, configuredSaleRuleType, configuredSaleRulePercentage, configuredSaleRuleThresholdAmount, saleDiscountOverrideType, saleDiscountOverrideValue, source, clientSaleId, deviceId, syncedAt);
+    }
+
+    /// <summary>Records the issued document. It is set once, at issue, and never replaced.</summary>
+    public void AttachInvoiceDocument(IssuedInvoiceSnapshot document)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        if (InvoiceDocument is not null)
+            throw new InvalidOperationException("An issued document cannot be replaced.");
+        if (!string.Equals(document.Number, InvoiceNumber, StringComparison.Ordinal))
+            throw new InvalidOperationException("The document number must be the sale's invoice number.");
+
+        InvoiceDocument = document;
     }
 
     private Sale WithItems(IReadOnlyCollection<SaleItem> items)

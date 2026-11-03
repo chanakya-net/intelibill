@@ -21,6 +21,8 @@ namespace Intelibill.Integration.Tests;
 [Collection("Integration Tests")]
 public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : IAsyncLifetime, IDisposable
 {
+    private const string FiscalInvoiceNumber = "^A/[0-9]{4}/[0-9]{6}$";
+
     private readonly ApiWebApplicationFactory _factory = new(fixture);
 
     public async Task InitializeAsync() => await _factory.InitializeAsync();
@@ -72,6 +74,8 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
             city = "Bengaluru",
             state = "Karnataka",
             pincode = "560001",
+            gstNumber = TestTaxProfile.NewGstin(),
+            taxProfile = TestTaxProfile.Regular,
         });
 
         var response = await client.SendAsync(request);
@@ -372,7 +376,7 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
         Assert.Equal(25m, report.GetProperty("summary").GetProperty("averageMarginPercent").GetDecimal());
 
         var item = report.GetProperty("items").EnumerateArray().Single();
-        Assert.Equal("INV-", item.GetProperty("referenceNumber").GetString()![..4]);
+        Assert.Matches(FiscalInvoiceNumber, item.GetProperty("referenceNumber").GetString()!);
         Assert.Equal(25m, item.GetProperty("marginPercent").GetDecimal());
         Assert.Equal(20m, item.GetProperty("profitAfterTax").GetDecimal());
         Assert.Equal(80m, item.GetProperty("totalCost").GetDecimal());
@@ -499,7 +503,8 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
         var numericSearch = await GetReportAsync(client, ownerToken, "?type=sale&search=80");
 
         Assert.Equal(2, customerSearch.GetProperty("totalCount").GetInt32());
-        Assert.True(customerSearch.GetProperty("items").EnumerateArray().All(row => row.GetProperty("referenceNumber").GetString()!.Contains("INV-")));
+        // The return row's reference is "{invoice} / {return}", so each row names the sale's invoice.
+        Assert.All(customerSearch.GetProperty("items").EnumerateArray(), row => Assert.StartsWith(sale.InvoiceNumber, row.GetProperty("referenceNumber").GetString()!, StringComparison.Ordinal));
         Assert.Single(returnSearch.GetProperty("items").EnumerateArray());
         Assert.Equal("SaleReturn", returnSearch.GetProperty("items").EnumerateArray().Single().GetProperty("rowType").GetString());
         Assert.Single(adjustmentSearch.GetProperty("items").EnumerateArray());
@@ -606,7 +611,7 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
         var dataRows = sheet.RowsUsed().Where(row => row.RowNumber() > headerRow && !string.IsNullOrWhiteSpace(row.Cell(1).GetString())).ToList();
 
         Assert.Equal(21, dataRows.Count);
-        Assert.All(dataRows, row => Assert.StartsWith("INV-", row.Cell(1).GetString(), StringComparison.Ordinal));
+        Assert.All(dataRows, row => Assert.Matches(FiscalInvoiceNumber, row.Cell(1).GetString()));
     }
 
     [Fact]

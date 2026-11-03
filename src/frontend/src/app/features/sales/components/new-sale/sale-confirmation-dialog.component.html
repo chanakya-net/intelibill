@@ -48,20 +48,20 @@
               >₹{{ sale.creditNoteAppliedAmount | number: '1.2-2' }}</span
             >
           </div>
-          @if (sale.creditNoteRedemptionSummaries?.length) {
+          @if (sale.creditNoteRedemptions?.length) {
             <div class="mt-2 text-slate-500">
               <span class="block mb-1">{{
                 'sales.detail.settlement.creditNoteCodes' | transloco
               }}</span>
               <div class="flex flex-wrap gap-2">
                 @for (
-                  settlement of sale.creditNoteRedemptionSummaries;
+                  settlement of sale.creditNoteRedemptions;
                   track settlement.creditNoteId
                 ) {
                   <span
                     class="rounded-full bg-white px-2 py-1 text-xs text-slate-700 ring-1 ring-slate-200"
                   >
-                    {{ settlement.code }} · ₹{{ settlement.amount | number: '1.2-2' }}
+                    {{ settlement.code }} · ₹{{ settlement.appliedAmount | number: '1.2-2' }}
                   </span>
                 }
               </div>

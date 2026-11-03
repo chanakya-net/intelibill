@@ -333,7 +333,8 @@ public sealed class ResolveReconciliationCaseCommandHandler(
                 RecordedByUserId: command.ActorUserId,
                 submission.Id,
                 now,
-                activeRules.ToDictionary(rule => rule.Id)),
+                activeRules.ToDictionary(rule => rule.Id),
+                lease),
             cancellationToken);
 
         return outcome switch

@@ -6,4 +6,6 @@ public sealed record AddCustomerCommand(
     string PhoneNumber,
     string? Address,
     bool IsActive,
-    decimal CreditLimit);
+    decimal CreditLimit,
+    string? Gstin = null,
+    string? StateCode = null);

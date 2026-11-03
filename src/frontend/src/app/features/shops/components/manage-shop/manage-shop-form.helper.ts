@@ -1,3 +1,4 @@
+import { SimpleChange } from '@angular/core';
 import { FormBuilder, FormControl, FormGroup } from '@angular/forms';
 
 import {
@@ -56,6 +57,11 @@ export function patchManageShopFormsFromDetails(
   bankForm: ManageShopBankFormGroup,
   details: ShopDetailsDto,
 ): void {
+  patchManageShopFormFromDetails(form, details);
+  patchManageBankFormFromDetails(bankForm, details);
+}
+
+export function patchManageShopFormFromDetails(form: ManageShopFormGroup, details: ShopDetailsDto): void {
   form.patchValue({
     name: details.name,
     address: details.address,
@@ -66,7 +72,9 @@ export function patchManageShopFormsFromDetails(
     mobileNumber: details.mobileNumber ?? '',
     gstNumber: details.gstNumber ?? '',
   });
+}
 
+export function patchManageBankFormFromDetails(bankForm: ManageShopBankFormGroup, details: ShopDetailsDto): void {
   bankForm.patchValue({
     bankName: details.bankName ?? '',
     accountNumber: details.bankAccountNumber ?? '',
@@ -104,4 +112,11 @@ export function mapManageBankFormToUpdateBankDetailsRequest(
 export function toOptionalTrimmed(value: string): string | undefined {
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : undefined;
+}
+
+/** Whether a details input now holds a different shop than before, so its form must reset whatever was typed. */
+export function isAnotherShop(change: SimpleChange): boolean {
+  const previous = change.previousValue as ShopDetailsDto | null | undefined;
+  const current = change.currentValue as ShopDetailsDto | null | undefined;
+  return previous?.shopId !== current?.shopId;
 }

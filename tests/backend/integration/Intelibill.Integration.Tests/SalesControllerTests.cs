@@ -57,18 +57,30 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         return body.GetProperty("accessToken").GetString()!;
     }
 
-    private static async Task<string> CreateShopAsync(HttpClient client, string token)
+    private static async Task<string> CreateShopAsync(
+        HttpClient client, string token, bool declareTaxProfile = true, string? gstin = null, string seriesCode = "A")
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/shops");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        request.Content = JsonContent.Create(new
-        {
-            name = $"Shop {Guid.NewGuid():N}",
-            address = "42 MG Road",
-            city = "Bengaluru",
-            state = "Karnataka",
-            pincode = "560001",
-        });
+        request.Content = declareTaxProfile
+            ? JsonContent.Create(new
+            {
+                name = $"Shop {Guid.NewGuid():N}",
+                address = "42 MG Road",
+                city = "Bengaluru",
+                state = "Karnataka",
+                pincode = "560001",
+                gstNumber = gstin ?? TestTaxProfile.NewGstin(),
+                taxProfile = new { stateCode = "29", taxRegime = "Regular", eInvoiceStatus = "BelowThreshold", invoiceSeriesCode = seriesCode },
+            })
+            : JsonContent.Create(new
+            {
+                name = $"Shop {Guid.NewGuid():N}",
+                address = "42 MG Road",
+                city = "Bengaluru",
+                state = "Karnataka",
+                pincode = "560001",
+            });
         var response = await client.SendAsync(request);
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
@@ -961,8 +973,17 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         var saleId = saleBody.GetProperty("saleId").GetGuid();
         var invoiceNumber = saleBody.GetProperty("invoiceNumber").GetString()!;
 
-        Assert.StartsWith("INV-", invoiceNumber);
+        Assert.Matches("^A/[0-9]{4}/[0-9]{6}$", invoiceNumber);
+        Assert.True(invoiceNumber.Length <= 16);
         Assert.Equal(590m, saleBody.GetProperty("totalAmount").GetDecimal());
+        var document = saleBody.GetProperty("document");
+        Assert.Equal("TaxInvoice", document.GetProperty("documentType").GetString());
+        Assert.Equal(invoiceNumber, document.GetProperty("number").GetString());
+        Assert.False(saleBody.GetProperty("isLegacyDocument").GetBoolean());
+        Assert.Equal(
+            ["Cgst:45", "Sgst:45"],
+            document.GetProperty("totals").GetProperty("components").EnumerateArray()
+                .Select(c => $"{c.GetProperty("kind").GetString()}:{c.GetProperty("amount").GetDecimal():0.##}"));
 
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -1518,6 +1539,194 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
                 },
             },
         };
+
+    private static object SimpleSale(string barcode, Guid batchId, string? idempotencyKey = null, string? placeOfSupplyStateCode = null, Guid? customerId = null) => new
+    {
+        idempotencyKey = idempotencyKey ?? $"sale-{Guid.NewGuid():N}",
+        customerId,
+        customerName = "Walk-in Customer",
+        customerPhone = "+919876543210",
+        paymentMethod = (int)PaymentMethod.Cash,
+        paidAmount = 118m,
+        dueAmount = 0m,
+        placeOfSupplyStateCode,
+        items = new[]
+        {
+            new
+            {
+                barcode,
+                batchNumber = "B-001",
+                itemName = "Test Item",
+                quantity = 1m,
+                costPrice = 80m,
+                salesPrice = 100m,
+                mrp = 120m,
+                taxRatePercent = 18m,
+                isPriceIncludingTax = false,
+                inventoryBatchId = batchId,
+            },
+        },
+    };
+
+    [Fact]
+    public async Task RecordSale_NumbersConsecutivelyAndAReplayKeepsItsNumber()
+    {
+        using var client = CreateClient();
+        var ownerToken = await CreateShopAsync(client, await RegisterAsync(client));
+        var barcode = UniqueBarcode();
+        var batchId = (await AddInventoryAsync(client, ownerToken, barcode, "B-001", 10m)).GetProperty("inventoryBatchId").GetGuid();
+        var firstKey = $"sale-{Guid.NewGuid():N}";
+
+        using var first = await PostSaleAsync(client, ownerToken, SimpleSale(barcode, batchId, firstKey));
+        using var second = await PostSaleAsync(client, ownerToken, SimpleSale(barcode, batchId));
+        using var replay = await PostSaleAsync(client, ownerToken, SimpleSale(barcode, batchId, firstKey));
+
+        var firstNumber = (await first.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("invoiceNumber").GetString()!;
+        var secondNumber = (await second.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("invoiceNumber").GetString()!;
+        var replayNumber = (await replay.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("invoiceNumber").GetString()!;
+        Assert.EndsWith("/000001", firstNumber);
+        Assert.EndsWith("/000002", secondNumber);
+        Assert.Equal(firstNumber, replayNumber);
+    }
+
+    [Fact]
+    public async Task RecordSale_InterstatePlaceOfSupply_ChargesIgst()
+    {
+        using var client = CreateClient();
+        var ownerToken = await CreateShopAsync(client, await RegisterAsync(client));
+        var barcode = UniqueBarcode();
+        var batchId = (await AddInventoryAsync(client, ownerToken, barcode, "B-001", 10m)).GetProperty("inventoryBatchId").GetGuid();
+
+        using var response = await PostSaleAsync(client, ownerToken, SimpleSale(barcode, batchId, placeOfSupplyStateCode: "33"));
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var document = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("document");
+        Assert.True(document.GetProperty("isInterstate").GetBoolean());
+        Assert.Equal("33", document.GetProperty("placeOfSupplyStateCode").GetString());
+        var component = Assert.Single(document.GetProperty("totals").GetProperty("components").EnumerateArray().ToList());
+        Assert.Equal("Igst", component.GetProperty("kind").GetString());
+        Assert.Equal(18m, component.GetProperty("amount").GetDecimal());
+        Assert.Equal(118m, document.GetProperty("totals").GetProperty("invoiceTotal").GetDecimal());
+    }
+
+    [Fact]
+    public async Task RecordSale_WhenTaxProfileNotDeclared_IsRefusedWithoutPosting()
+    {
+        using var client = CreateClient();
+        var ownerToken = await CreateShopAsync(client, await RegisterAsync(client), declareTaxProfile: false);
+        var barcode = UniqueBarcode();
+        var batchId = (await AddInventoryAsync(client, ownerToken, barcode, "B-001", 10m)).GetProperty("inventoryBatchId").GetGuid();
+
+        using var response = await PostSaleAsync(client, ownerToken, SimpleSale(barcode, batchId));
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        var error = Assert.Single((await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("errors").EnumerateArray().ToList());
+        Assert.Equal("Invoice.TaxProfileRequired", error.GetProperty("code").GetString());
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.Equal(10m, (await db.InventoryBatches.SingleAsync(b => b.Id == batchId)).Quantity);
+        Assert.False(await db.Sales.AnyAsync(s => s.Items.Any(i => i.InventoryBatchId == batchId)));
+    }
+
+    [Fact]
+    public async Task RecordSale_DocumentSurvivesShopAndCustomerEdits()
+    {
+        using var client = CreateClient();
+        var ownerToken = await CreateShopAsync(client, await RegisterAsync(client));
+        var shopId = await GetShopIdFromTokenAsync(client, ownerToken);
+        var barcode = UniqueBarcode();
+        var batchId = (await AddInventoryAsync(client, ownerToken, barcode, "B-001", 10m)).GetProperty("inventoryBatchId").GetGuid();
+        var customerId = await AddCustomerAsync(client, ownerToken, "Original Buyer", $"+91{Random.Shared.NextInt64(1_000_000_000, 9_999_999_999)}", true);
+
+        using var posted = await PostSaleAsync(client, ownerToken, SimpleSale(barcode, batchId, customerId: customerId));
+        Assert.Equal(HttpStatusCode.Created, posted.StatusCode);
+        var saleId = (await posted.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("saleId").GetGuid();
+        var before = await GetDocumentTextAsync(client, ownerToken, saleId);
+
+        using (var rename = new HttpRequestMessage(HttpMethod.Put, $"/api/shops/{shopId}"))
+        {
+            rename.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+            rename.Content = JsonContent.Create(new { name = "Renamed Shop", address = "1 New Road", city = "Mysuru", state = "Karnataka", pincode = "570001", gstNumber = (string?)null });
+            (await client.SendAsync(rename)).EnsureSuccessStatusCode();
+        }
+
+        using (var redeclare = new HttpRequestMessage(HttpMethod.Put, $"/api/shops/{shopId}/tax-profile"))
+        {
+            redeclare.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+            redeclare.Content = JsonContent.Create(new { legalName = "New Legal Name", stateCode = "29", taxRegime = "Unregistered", gstNumber = (string?)null, invoiceSeriesCode = "B" });
+            (await client.SendAsync(redeclare)).EnsureSuccessStatusCode();
+        }
+
+        using (var editCustomer = new HttpRequestMessage(HttpMethod.Put, $"/api/customers/{customerId}"))
+        {
+            editCustomer.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+            editCustomer.Content = JsonContent.Create(new { name = "Renamed Buyer", phoneNumber = "+919999999999", address = "Elsewhere", isActive = true, creditLimit = 0m });
+            (await client.SendAsync(editCustomer)).EnsureSuccessStatusCode();
+        }
+
+        var after = await GetDocumentTextAsync(client, ownerToken, saleId);
+        Assert.Equal(before, after);
+        Assert.Contains("Original Buyer", after, StringComparison.Ordinal);
+        Assert.DoesNotContain("Renamed", after, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RecordSale_SecondShopUnderOneGstin_CannotNumberInTheSameSeries()
+    {
+        using var client = CreateClient();
+        var gstin = TestTaxProfile.NewGstin();
+        var firstToken = await CreateShopAsync(client, await RegisterAsync(client), gstin: gstin);
+        var secondToken = await CreateShopAsync(client, await RegisterAsync(client), gstin: gstin);
+        var thirdToken = await CreateShopAsync(client, await RegisterAsync(client), gstin: gstin, seriesCode: "B");
+
+        async Task<HttpResponseMessage> SellAsync(string token)
+        {
+            var barcode = UniqueBarcode();
+            var batchId = (await AddInventoryAsync(client, token, barcode, "B-001", 10m)).GetProperty("inventoryBatchId").GetGuid();
+            return await PostSaleAsync(client, token, SimpleSale(barcode, batchId));
+        }
+
+        using var first = await SellAsync(firstToken);
+        using var second = await SellAsync(secondToken);
+        using var third = await SellAsync(thirdToken);
+
+        Assert.Equal(HttpStatusCode.Created, first.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
+        var error = Assert.Single((await second.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("errors").EnumerateArray().ToList());
+        Assert.Equal("Invoice.SeriesRegisteredToAnotherShop", error.GetProperty("code").GetString());
+        Assert.Equal(HttpStatusCode.Created, third.StatusCode);
+        Assert.StartsWith("B/", (await third.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("invoiceNumber").GetString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task UpdateShop_DifferentGstinAfterDeclaration_IsRefused()
+    {
+        using var client = CreateClient();
+        var gstin = TestTaxProfile.NewGstin();
+        var ownerToken = await CreateShopAsync(client, await RegisterAsync(client), gstin: gstin);
+        var shopId = await GetShopIdFromTokenAsync(client, ownerToken);
+
+        using var request = new HttpRequestMessage(HttpMethod.Put, $"/api/shops/{shopId}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        request.Content = JsonContent.Create(new { name = "Renamed", address = "1 Road", city = "Mysuru", state = "Karnataka", pincode = "570001", gstNumber = TestTaxProfile.NewGstin() });
+        using var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var error = Assert.Single((await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("errors").EnumerateArray().ToList());
+        Assert.Equal("Shop.GstinManagedByTaxProfile", error.GetProperty("code").GetString());
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.Equal(gstin, (await db.Shops.SingleAsync(s => s.Id == shopId)).GstNumber);
+    }
+
+    private static async Task<string> GetDocumentTextAsync(HttpClient client, string token, Guid saleId)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/sales/{saleId}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        using var response = await client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("document").GetRawText();
+    }
 
     private static async Task<HttpResponseMessage> PostSaleAsync(HttpClient client, string token, object payload)
     {

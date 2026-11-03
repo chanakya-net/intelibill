@@ -1,4 +1,5 @@
 using Intelibill.Domain.Enums;
+using Intelibill.Domain.ValueObjects;
 
 namespace Intelibill.Application.Features.Sales.DTOs;
 
@@ -22,6 +23,11 @@ public sealed record SaleDto(
 {
     public IReadOnlyList<SaleReturnDto> Returns { get; init; } = [];
     public IReadOnlyList<SaleCreditNoteRedemptionSummaryDto> CreditNoteRedemptions { get; init; } = [];
+
+    /// <summary>The document the sale was issued as; null for sales issued before documents were recorded.</summary>
+    public IssuedInvoiceSnapshot? Document { get; init; }
+
+    public bool IsLegacyDocument => Document is null;
 }
 
 public sealed record SaleCreditNoteRedemptionSummaryDto(

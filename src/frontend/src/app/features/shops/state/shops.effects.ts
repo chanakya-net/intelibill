@@ -175,13 +175,32 @@ export class ShopsEffects {
     )
   );
 
+  readonly updateShopTaxProfile$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(ShopsActions.updateShopTaxProfileRequested),
+      switchMap(({ shopId, payload }) =>
+        this.shopService.updateTaxProfile(shopId, payload).pipe(
+          map((details) => ShopsActions.updateShopTaxProfileSucceeded({ details })),
+          catchError((error: { error?: ApiErrorPayload }) =>
+            of(
+              ShopsActions.updateShopTaxProfileFailed({
+                errorMessage: getShopMutationErrorMessage(error.error, 'errors.shops.unableToUpdateTaxProfile'),
+              })
+            )
+          )
+        )
+      )
+    )
+  );
+
   readonly refreshShopsAfterMutation$ = createEffect(() =>
     this.actions$.pipe(
       ofType(
         ShopsActions.createShopSucceeded,
         ShopsActions.setDefaultShopSucceeded,
         ShopsActions.updateShopSucceeded,
-        ShopsActions.updateShopBankDetailsSucceeded
+        ShopsActions.updateShopBankDetailsSucceeded,
+        ShopsActions.updateShopTaxProfileSucceeded
       ),
       map(() => ShopsActions.loadShopsRequested())
     )
@@ -240,8 +259,29 @@ function getBankDetailsErrorMessage(error: ApiErrorPayload | undefined): string 
   return 'errors.shops.unableToUpdateBankDetails';
 }
 
-function getShopMutationErrorMessage(error: ApiErrorPayload | undefined): string {
+// A tax profile is refused for the first rule it breaks; each refusal says what to correct.
+const TAX_PROFILE_ERROR_KEYS: Readonly<Record<string, string>> = {
+  'Shop.TaxRegimeRequired': 'errors.shops.taxRegimeRequired',
+  'Shop.StateCodeInvalid': 'errors.shops.stateCodeInvalid',
+  'Shop.GstinRequiredForRegime': 'errors.shops.gstinRequiredForRegime',
+  'Shop.GstinInvalid': 'errors.shops.gstinInvalid',
+  'Shop.GstinStateMismatch': 'errors.shops.gstinStateMismatch',
+  'Shop.GstinNotAllowedForUnregistered': 'errors.shops.gstinNotAllowedForUnregistered',
+  'Shop.InvoiceSeriesCodeInvalid': 'errors.shops.invoiceSeriesCodeInvalid',
+  'Shop.EInvoiceAttestationRequired': 'errors.shops.eInvoiceAttestationRequired',
+  'Shop.LegalNameTooLong': 'errors.shops.legalNameTooLong',
+  'Shop.GstinManagedByTaxProfile': 'errors.shops.gstinManagedByTaxProfile',
+};
+
+function getShopMutationErrorMessage(
+  error: ApiErrorPayload | undefined,
+  fallback = 'errors.shops.unableToUpdateShop',
+): string {
   const title = error?.title ?? '';
+
+  if (TAX_PROFILE_ERROR_KEYS[title]) {
+    return TAX_PROFILE_ERROR_KEYS[title];
+  }
 
   if (title === 'Unauthorized' || title === 'Auth.Unauthorized') {
     return 'errors.auth.sessionVerificationFailed';
@@ -271,5 +311,5 @@ function getShopMutationErrorMessage(error: ApiErrorPayload | undefined): string
     return 'errors.shops.pincodeRequired';
   }
 
-  return 'errors.shops.unableToUpdateShop';
+  return fallback;
 }

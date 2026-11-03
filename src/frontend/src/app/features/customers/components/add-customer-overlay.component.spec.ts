@@ -53,7 +53,60 @@ describe('AddCustomerOverlayComponent', () => {
       address: null,
       isActive: true,
       creditLimit: 0,
+      gstin: null,
+      stateCode: null,
     });
+  });
+
+  it('submits the GSTIN in capitals with its state', () => {
+    const { component, facade } = setup();
+    component.form.patchValue({
+      name: 'Bharat Stores',
+      phoneNumber: '+919811111111',
+      address: '5 Market Lane',
+      gstin: ' 29aagcb7383j1z4 ',
+      stateCode: '29',
+    });
+
+    component.onSubmit();
+
+    expect(facade.addCustomer).toHaveBeenCalledWith(
+      expect.objectContaining({ gstin: '29AAGCB7383J1Z4', stateCode: '29' }),
+    );
+  });
+
+  it('accepts a state without a GSTIN', () => {
+    const { component, facade } = setup();
+    component.form.patchValue({ name: 'Walk-in Regular', phoneNumber: '+919811111111', stateCode: '27' });
+
+    component.onSubmit();
+
+    expect(facade.addCustomer).toHaveBeenCalledWith(expect.objectContaining({ gstin: null, stateCode: '27' }));
+  });
+
+  it('rejects a GSTIN with a wrong check digit', () => {
+    const { component, facade } = setup();
+    component.form.patchValue({ name: 'Bharat Stores', phoneNumber: '+919811111111', gstin: '29AAGCB7383J1Z5' });
+
+    component.onSubmit();
+
+    expect(component.form.controls.gstin.hasError('gstinChecksum')).toBe(true);
+    expect(facade.addCustomer).not.toHaveBeenCalled();
+  });
+
+  it('rejects a GSTIN from a different state than the one chosen', () => {
+    const { component, facade } = setup();
+    component.form.patchValue({
+      name: 'Bharat Stores',
+      phoneNumber: '+919811111111',
+      gstin: '29AAGCB7383J1Z4',
+      stateCode: '27',
+    });
+
+    component.onSubmit();
+
+    expect(component.form.hasError('gstinStateMismatch')).toBe(true);
+    expect(facade.addCustomer).not.toHaveBeenCalled();
   });
 
   it('rejects negative creditLimit', () => {

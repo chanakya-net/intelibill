@@ -30,6 +30,7 @@ public interface IOfflineSalePoster
 /// <param name="OfflineSubmissionId">The envelope the invoice came from, attached to every case.</param>
 /// <param name="Now">The posting time, recorded as the sale's sync time.</param>
 /// <param name="ActiveDiscountRulesById">The shop's discount rules active now.</param>
+/// <param name="Lease">The lease whose range holds the invoice number; its frozen seller profile issues the document.</param>
 public sealed record OfflineSalePostingRequest(
     Guid ShopId,
     string DeviceId,
@@ -40,7 +41,8 @@ public sealed record OfflineSalePostingRequest(
     Guid RecordedByUserId,
     Guid? OfflineSubmissionId,
     DateTimeOffset Now,
-    IReadOnlyDictionary<Guid, DiscountRule> ActiveDiscountRulesById);
+    IReadOnlyDictionary<Guid, DiscountRule> ActiveDiscountRulesById,
+    InvoiceLease? Lease = null);
 
 public abstract record OfflineSalePostingOutcome
 {

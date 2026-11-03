@@ -10,6 +10,12 @@ public sealed class InvoiceSequence : BaseEntity
     public int NextNumber { get; private set; }
     public string Prefix { get; private set; } = string.Empty;
 
+    /// <summary>The series code; empty for the legacy per-shop counters of <c>INV-yyyy-yy-</c> ranges.</summary>
+    public string SeriesCode { get; private set; } = string.Empty;
+
+    /// <summary>The registration the series is unique for; <c>legacy:{shop}</c> for legacy counters.</summary>
+    public string SellerRegistrationKey { get; private set; } = string.Empty;
+
     private InvoiceSequence() { }
 
     public static InvoiceSequence Create(Guid shopId, FiscalYear fiscalYear)
@@ -20,6 +26,7 @@ public sealed class InvoiceSequence : BaseEntity
             FiscalYearStart = fiscalYear.StartYear,
             NextNumber = 1,
             Prefix = fiscalYear.InvoicePrefix,
+            SellerRegistrationKey = $"legacy:{shopId}",
         };
     }
 

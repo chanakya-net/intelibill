@@ -17,7 +17,7 @@ import { TranslocoPipe } from '@ngneat/transloco';
 import { InputTextModule } from 'primeng/inputtext';
 
 import { ShopDetailsDto, UpdateShopRequest } from '../../services/shop.service';
-import { toOptionalTrimmed } from './manage-shop-form.helper';
+import { isAnotherShop, toOptionalTrimmed } from './manage-shop-form.helper';
 import { InputValidators } from '../../../../shared/forms/input-validation';
 
 @Component({
@@ -32,6 +32,8 @@ export class ShopBasicInfoFormComponent implements OnInit, OnChanges {
 
   @Input() initialValues: ShopDetailsDto | null = null;
   @Input() disabled = false;
+  /** Off where the GSTIN is edited with the tax profile, which checks it against the registration state. */
+  @Input() showGstNumber = true;
   @Output() readonly formChange = new EventEmitter<Partial<UpdateShopRequest>>();
 
   readonly form = this.formBuilder.nonNullable.group({
@@ -57,7 +59,8 @@ export class ShopBasicInfoFormComponent implements OnInit, OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['initialValues']) this.patchFromInitialValues();
+    // Details refreshed by a save elsewhere (the tax profile) keep edits the owner has not saved yet.
+    if (changes['initialValues'] && (this.form.pristine || isAnotherShop(changes['initialValues']))) this.patchFromInitialValues();
     if (changes['disabled']) {
       if (this.disabled) this.form.disable({ emitEvent: false });
       else this.form.enable({ emitEvent: false });

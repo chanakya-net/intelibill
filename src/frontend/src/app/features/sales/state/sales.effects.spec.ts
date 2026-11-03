@@ -69,9 +69,12 @@ describe('SalesEffects', () => {
     totalAmount: 500,
     totalTaxAmount: 50,
     creditNoteAppliedAmount: 0,
+    creditNoteRedemptions: [],
     items: [],
     returns: [],
     warnings: [],
+    document: null,
+    isLegacyDocument: true,
   });
 
   const checkoutIntents = {
@@ -347,6 +350,19 @@ describe('SalesEffects', () => {
     );
   });
 
+  it('explains a GST document refusal instead of showing the server text', async () => {
+    saleService.recordSale.mockReturnValue(
+      throwError(() => ({ error: { title: 'Invoice.TaxProfileRequired', detail: 'Declare the tax profile.' } })),
+    );
+
+    const output = firstValueFrom(effects.recordSale$.pipe(take(1)));
+    actions$.next(SalesActions.recordSaleRequested({ payload: intentPayload }));
+
+    await expect(output).resolves.toEqual(
+      SalesActions.recordSaleFailed({ errorMessage: 'errors.invoice.taxProfileRequired' }),
+    );
+  });
+
   it('dispatches loadProfitLossReportSucceeded on success', async () => {
     const queryParams: ProfitLossReportQueryParams = {
       from: '2026-05-01',
@@ -492,6 +508,22 @@ describe('SalesEffects', () => {
       );
       expect(checkoutIntents.reject).toHaveBeenCalledWith('intent-1', 'Sale.Invalid');
       expect(checkoutIntents.markUncertain).not.toHaveBeenCalled();
+    });
+
+    it('explains a GST document refusal of a stored intent', async () => {
+      checkoutIntents.send.mockReturnValue(
+        throwError(
+          () => new HttpErrorResponse({ status: 400, error: { title: 'Invoice.CompositionCannotCollectTax', detail: 'x' } }),
+        ),
+      );
+
+      const output = firstValueFrom(effects.recordSale$.pipe(take(1)));
+      actions$.next(SalesActions.recordSaleRequested({ payload: intentPayload, intentId: 'intent-1' }));
+
+      await expect(output).resolves.toEqual(
+        SalesActions.recordSaleFailed({ intentId: 'intent-1', errorMessage: 'errors.invoice.compositionCannotCollectTax' }),
+      );
+      expect(checkoutIntents.reject).toHaveBeenCalledWith('intent-1', 'Invoice.CompositionCannotCollectTax');
     });
 
     it('does not send when another tab holds the intent', async () => {

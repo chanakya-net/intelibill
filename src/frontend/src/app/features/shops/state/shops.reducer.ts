@@ -192,6 +192,32 @@ export const shopsReducer = createReducer(
     lastMutationSucceeded: false,
   })),
 
+  on(ShopsActions.updateShopTaxProfileRequested, (state) => ({
+    ...state,
+    submitting: true,
+    errorMessage: '',
+    lastMutationType: 'update-tax-profile' as const,
+    lastMutationSucceeded: false,
+  })),
+  on(ShopsActions.updateShopTaxProfileSucceeded, (state, { details }) => ({
+    ...state,
+    submitting: false,
+    errorMessage: '',
+    lastMutationType: 'update-tax-profile' as const,
+    lastMutationSucceeded: true,
+    detailsById: {
+      ...state.detailsById,
+      [details.shopId]: details,
+    },
+  })),
+  on(ShopsActions.updateShopTaxProfileFailed, (state, { errorMessage }) => ({
+    ...state,
+    submitting: false,
+    errorMessage,
+    lastMutationType: 'update-tax-profile' as const,
+    lastMutationSucceeded: false,
+  })),
+
   on(ShopsActions.clearError, (state) => ({
     ...state,
     errorMessage: '',

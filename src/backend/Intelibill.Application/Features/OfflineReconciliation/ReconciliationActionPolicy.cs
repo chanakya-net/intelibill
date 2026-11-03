@@ -108,6 +108,7 @@ public static class ReconciliationActionPolicy
         issue.IssueType is ReconciliationIssueType.PricingVariance
             or ReconciliationIssueType.DiscountVariance
             or ReconciliationIssueType.CustomerVariance
+            or ReconciliationIssueType.DocumentReview
         // Keyed on the code: ValidationConflict is also the type of idempotency conflicts.
         || (issue.IssueType == ReconciliationIssueType.ValidationConflict
             && string.Equals(issue.Code, ValidationVarianceCode, StringComparison.Ordinal));

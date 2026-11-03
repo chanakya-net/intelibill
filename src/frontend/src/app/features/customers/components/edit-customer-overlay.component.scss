@@ -75,7 +75,8 @@ label span {
 }
 
 :host ::ng-deep .overlay-form .p-inputnumber,
-:host ::ng-deep .overlay-form .p-inputgroup {
+:host ::ng-deep .overlay-form .p-inputgroup,
+:host ::ng-deep .overlay-form .p-select {
   width: 100%;
 }
 
@@ -95,6 +96,16 @@ label span {
   justify-content: flex-end;
   gap: 0.5rem;
   margin-top: 0.4rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.field-error {
+  color: #dc2626;
+  font-size: 0.78rem;
 }
 
 .error-message {

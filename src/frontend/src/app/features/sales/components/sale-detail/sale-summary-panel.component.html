@@ -61,14 +61,14 @@
           sale.creditNoteAppliedAmount | currency: currency : 'symbol' : '1.2-2'
         }}</strong>
       </div>
-      @if (creditNoteRedemptionSummaries().length > 0) {
+      @if (creditNoteRedemptions().length > 0) {
         <div class="sale-summary-settlement-codes">
           <span>{{ 'sales.detail.settlement.creditNoteCodes' | transloco }}</span>
           <div class="sale-summary-code-list">
-            @for (settlement of creditNoteRedemptionSummaries(); track settlement.creditNoteId) {
+            @for (settlement of creditNoteRedemptions(); track settlement.creditNoteId) {
               <span
                 >{{ settlement.code }} ·
-                {{ settlement.amount | currency: currency : 'symbol' : '1.2-2' }}</span
+                {{ settlement.appliedAmount | currency: currency : 'symbol' : '1.2-2' }}</span
               >
             }
           </div>

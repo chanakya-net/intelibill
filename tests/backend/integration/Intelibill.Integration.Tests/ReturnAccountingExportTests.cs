@@ -64,7 +64,7 @@ public sealed class ReturnAccountingExportTests(PostgreSqlTestFixture fixture) :
         Assert.Equal(stored.ReturnNumber, voucher.Number);
         Assert.Equal(sale.InvoiceNumber, voucher.Reference);
         Assert.Equal(
-            [("Sales", 50m, true), ("Output GST 18%", 9m, true), ("Customer Refunds Clearing", 59m, false)],
+            [("Sales", 50m, true), ("Output CGST 9%", 4.5m, true), ("Output SGST 9%", 4.5m, true), ("Customer Refunds Clearing", 59m, false)],
             voucher.Lines.ToArray());
     }
 
@@ -154,7 +154,8 @@ public sealed class ReturnAccountingExportTests(PostgreSqlTestFixture fixture) :
 
         var creditNotes = (await TallyVouchersAsync(shop, Today, Today)).Where(v => v.Type == "Credit Note").ToList();
         Assert.Equal(3, creditNotes.Count);
-        Assert.Equal(5.41m, creditNotes.SelectMany(v => v.Lines).Where(l => l.Ledger == "Output GST 18%").Sum(l => l.Amount));
+        // The sale was issued with a document, so its returns reverse into the CGST and SGST halves.
+        Assert.Equal(5.41m, creditNotes.SelectMany(v => v.Lines).Where(l => l.Ledger is "Output CGST 9%" or "Output SGST 9%").Sum(l => l.Amount));
     }
 
     [Fact]
@@ -248,7 +249,8 @@ public sealed class ReturnAccountingExportTests(PostgreSqlTestFixture fixture) :
 
         var voucher = Assert.Single(await TallyVouchersAsync(shop, Today, Today), v => v.Type == "Credit Note");
         Assert.Contains(("Sales", 84.75m, true), voucher.Lines);
-        Assert.Contains(("Output GST 18%", 15.25m, true), voucher.Lines);
+        Assert.Contains(("Output CGST 9%", 7.63m, true), voucher.Lines);
+        Assert.Contains(("Output SGST 9%", 7.62m, true), voucher.Lines);
         Assert.Contains(("Due Customer", 68m, false), voucher.Lines);
         Assert.Contains(("Credit Note Liability", 32m, false), voucher.Lines);
     }
@@ -381,6 +383,8 @@ public sealed class ReturnAccountingExportTests(PostgreSqlTestFixture fixture) :
             city = "Bengaluru",
             state = "Karnataka",
             pincode = "560001",
+            gstNumber = TestTaxProfile.NewGstin(),
+            taxProfile = TestTaxProfile.Regular,
         });
         using var created = await client.SendAsync(request);
         created.EnsureSuccessStatusCode();
