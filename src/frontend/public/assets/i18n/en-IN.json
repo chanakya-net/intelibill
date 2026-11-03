@@ -1215,6 +1215,7 @@
         "blockInsufficientStock": "Insufficient offline stock for one or more items.",
         "blockDueRequiresCustomer": "Select a customer from the list to record a credit/due sale offline.",
         "blockInvoiceUnavailable": "Invoice lease is exhausted or expired. Cannot complete offline sale.",
+        "blockInvalidAmount": "One or more amounts are not valid numbers. Check quantities, prices and discounts.",
         "servicesNotSupported": "Offline sales for services are not supported."
       },
       "productLookup": "Quick product lookup",

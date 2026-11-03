@@ -361,6 +361,14 @@ describe('OfflineSalesQueueSyncService', () => {
       mismatches: [{ path: 'totalAmount', supplied: 1, expected: 118, code: 'amount_mismatch' }],
     });
     expect(service.reviewSales()[1].mismatches).toEqual([]);
+
+    service.startAutoSyncWatchers();
+    flushEffects();
+    await flushMicrotasks();
+    activeSession.set(null);
+    flushEffects();
+
+    expect(service.reviewSales()).toEqual([]);
   });
 
   function makeRecord(

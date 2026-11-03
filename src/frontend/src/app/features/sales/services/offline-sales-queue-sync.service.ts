@@ -74,6 +74,7 @@ export class OfflineSalesQueueSyncService {
 
       if (!shopId) {
         this.visibleCounts.set(EMPTY_COUNTS);
+        this.reviewSales.set([]);
         return;
       }
 

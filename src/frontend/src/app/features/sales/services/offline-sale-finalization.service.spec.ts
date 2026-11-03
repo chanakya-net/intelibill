@@ -182,6 +182,23 @@ describe('OfflineSaleFinalizationService', () => {
     expect(result).toEqual({ ok: false, reason: 'MISSING_DUE_CUSTOMER' });
   });
 
+  it('blocks a non-finite amount before consuming an invoice number', async () => {
+    const { service, leaseDb, queueDb } = setup();
+    const baseRequest = makeRequest();
+    const request: OfflineFinalizeRequest = {
+      ...baseRequest,
+      pricingInput: {
+        ...baseRequest.pricingInput,
+        lines: [{ ...baseRequest.pricingInput.lines[0], itemDiscount: { type: 2, value: Number.NaN } }],
+      },
+    };
+
+    const result = await service.finalizeAndQueue(request);
+    expect(result).toEqual({ ok: false, reason: 'INVALID_AMOUNT' });
+    expect(leaseDb.consumeNextInvoiceNumber).not.toHaveBeenCalled();
+    expect(queueDb.savePendingSale).not.toHaveBeenCalled();
+  });
+
   it('blocks when invoice is unavailable', async () => {
     const { service, leaseDb } = setup();
     leaseDb.consumeNextInvoiceNumber.mockRejectedValue(new Error('no lease'));
