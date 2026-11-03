@@ -20,6 +20,8 @@ import { UsersActions } from '../../features/users/state/users.actions';
 import { LocalizationService } from '../i18n/localization.service';
 import { DEFAULT_LANGUAGE, SupportedLanguage } from '../i18n/language.constants';
 import { ShellComponent } from './shell.component';
+import { ShopContextService } from '../context/shop-context.service';
+import { AppReloadService } from '../services/app-reload.service';
 import { selectSidebarCollapsed, selectSidebarPinned } from '../state/app-shell.selectors';
 
 @Component({ standalone: true, template: '<p>Account content</p>' })
@@ -143,6 +145,7 @@ describe('ShellComponent', () => {
         { provide: AuthService, useValue: authService },
         { provide: Store, useValue: store },
         { provide: LocalizationService, useValue: localizationService },
+        { provide: AppReloadService, useValue: { restartAtAppRoot: vi.fn() } },
       ],
     });
   }
@@ -436,5 +439,23 @@ describe('ShellComponent', () => {
     expect(fixture.nativeElement.querySelector('app-create-shop-overlay')).not.toBeNull();
     fixture.componentInstance.onCreateShopOverlayClose();
     expect(authService.signOutAndRedirect).not.toHaveBeenCalled();
+  });
+
+  it('weaker_role_closes_protected_route: hides routed content the moment the tab leaves its scope', async () => {
+    const fixture = createFixture();
+    const router = TestBed.inject(Router);
+    router.resetConfig([{ path: 'users', component: AccountRouteStub }]);
+    await router.navigateByUrl('/users');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Account content');
+
+    const context = TestBed.inject(ShopContextService);
+    context.initialize({ userId: 'user-1', shopId: 'shop-1' });
+    context.transition({ userId: 'user-1', shopId: 'shop-2' }, 'cross-tab', () => undefined);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).not.toContain('Account content');
+    expect(fixture.nativeElement.querySelector('.shell-scope-transition')).not.toBeNull();
+    expect(TestBed.inject(AppReloadService).restartAtAppRoot).toHaveBeenCalledTimes(1);
   });
 });

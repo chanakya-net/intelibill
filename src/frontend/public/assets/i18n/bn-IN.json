@@ -128,7 +128,8 @@
     "collapseSidebar": "সাইডবার সঙ্কুচিত করুন",
     "expandSidebar": "সাইডবার প্রসারিত করুন",
     "mainNavigation": "প্রধান নেভিগেশন",
-    "offlineReconciliation": "অফলাইন মিলকরণ"
+    "offlineReconciliation": "অফলাইন মিলকরণ",
+    "scopeTransition": "নির্বাচিত স্টোরে যাওয়া হচ্ছে…"
   },
   "dashboard": {
     "header": {
@@ -1046,7 +1047,9 @@
       "eInvoiceAttestationRequired": "নিয়মিত GST দোকানকে জানাতে হবে যে তার উপর ই-ইনভয়েসিং প্রযোজ্য কিনা।",
       "legalNameTooLong": "আইনি নাম 200 অক্ষর বা তার কম হতে হবে।",
       "gstinManagedByTaxProfile": "GSTIN দোকানের GST নিবন্ধনের অংশ। এটি GST নিবন্ধনে গিয়ে বদলান।",
-      "unableToUpdateTaxProfile": "এই মুহূর্তে GST নিবন্ধন সংরক্ষণ করা যাচ্ছে না। আবার চেষ্টা করুন।"
+      "unableToUpdateTaxProfile": "এই মুহূর্তে GST নিবন্ধন সংরক্ষণ করা যাচ্ছে না। আবার চেষ্টা করুন।",
+      "switchBlockedByPendingOperation": "একটি বিক্রি বা স্টক সেভ এখনও সার্ভারের উত্তরের অপেক্ষায় আছে। সেটি শেষ হলে স্টোর বদলান।",
+      "switchDraftSaveFailed": "আপনার কার্ট এই ডিভাইসে সেভ করা যায়নি, তাই স্টোর বদলানো হয়নি। আবার চেষ্টা করুন।"
     },
     "bankAccounts": {
       "unableToLoad": "এখন ব্যাঙ্ক অ্যাকাউন্ট লোড করা যাচ্ছে না. আবার চেষ্টা করুন.",
@@ -1371,7 +1374,8 @@
           "sending": "পাঠানো হচ্ছে",
           "uncertain": "অনিশ্চিত"
         }
-      }
+      },
+      "draftSaveFailed": "এই কার্ট এই ডিভাইসে সেভ করা যায়নি। বিক্রি শেষ না হওয়া পর্যন্ত এই পেজটি খোলা রাখুন।"
     },
     "detail": {
       "title": "বিক্রয় বিবরণ",

@@ -4,6 +4,7 @@ import { appShellFeatureKey, appShellReducer } from './app-shell.reducer';
 import { registerFeatureKey, registerReducer } from '../../features/auth/state/register.reducer';
 import { httpUiFeatureKey, httpUiReducer } from './http-ui.reducer';
 import { RootState } from './app.state';
+import { scopeResetMetaReducer } from '../context/shop-context.actions';
 
 export const rootReducers: ActionReducerMap<RootState> = {
   [appShellFeatureKey]: appShellReducer,
@@ -11,4 +12,4 @@ export const rootReducers: ActionReducerMap<RootState> = {
   [registerFeatureKey]: registerReducer,
 };
 
-export const metaReducers: MetaReducer<RootState>[] = [];
+export const metaReducers: MetaReducer<RootState>[] = [scopeResetMetaReducer];

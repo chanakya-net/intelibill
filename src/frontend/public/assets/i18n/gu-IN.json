@@ -128,7 +128,8 @@
     "collapseSidebar": "સાઇડબારને સંકુચિત કરો",
     "expandSidebar": "સાઇડબાર વિસ્તૃત કરો",
     "mainNavigation": "મુખ્ય નેવિગેશન",
-    "offlineReconciliation": "ઑફલાઇન મેળવણી"
+    "offlineReconciliation": "ઑફલાઇન મેળવણી",
+    "scopeTransition": "પસંદ કરેલા સ્ટોર પર જઈ રહ્યા છીએ…"
   },
   "dashboard": {
     "header": {
@@ -1046,7 +1047,9 @@
       "eInvoiceAttestationRequired": "નિયમિત GST દુકાને જણાવવું પડશે કે તેને ઇ-ઇન્વૉઇસિંગ લાગુ પડે છે કે નહીં.",
       "legalNameTooLong": "કાનૂની નામ 200 અક્ષરો અથવા તેથી ઓછું હોવું જોઈએ.",
       "gstinManagedByTaxProfile": "GSTIN દુકાનની GST નોંધણીનો ભાગ છે. તેને GST નોંધણીમાં બદલો.",
-      "unableToUpdateTaxProfile": "અત્યારે GST નોંધણી સાચવવામાં અસમર્થ. કૃપા કરી ફરી પ્રયાસ કરો."
+      "unableToUpdateTaxProfile": "અત્યારે GST નોંધણી સાચવવામાં અસમર્થ. કૃપા કરી ફરી પ્રયાસ કરો.",
+      "switchBlockedByPendingOperation": "એક વેચાણ અથવા સ્ટોક સેવ હજી સર્વરના જવાબની રાહ જુએ છે. તે પૂર્ણ થયા પછી સ્ટોર બદલો.",
+      "switchDraftSaveFailed": "તમારી કાર્ટ આ ઉપકરણ પર સેવ થઈ શકી નહીં, તેથી સ્ટોર બદલાયો નથી. કૃપા કરી ફરી પ્રયાસ કરો."
     },
     "bankAccounts": {
       "unableToLoad": "હમણાં બેંક ખાતા લોડ થઈ શકતા નથી. કૃપા કરીને ફરી પ્રયાસ કરો.",
@@ -1371,7 +1374,8 @@
           "sending": "મોકલાઈ રહ્યું છે",
           "uncertain": "અપુષ્ટ"
         }
-      }
+      },
+      "draftSaveFailed": "આ કાર્ટ આ ઉપકરણ પર સેવ થઈ શકી નહીં. વેચાણ પૂર્ણ ન થાય ત્યાં સુધી આ પેજ ખુલ્લું રાખો."
     },
     "detail": {
       "title": "વેચાણ વિગતો",

@@ -6,6 +6,7 @@ import { NavigationEnd, PRIMARY_OUTLET, Router, RouterOutlet } from '@angular/ro
 import { TranslocoPipe } from '@ngneat/transloco';
 
 import { AuthService } from '../auth/auth.service';
+import { ShopContextService } from '../context/shop-context.service';
 import { RootState } from '../state/app.state';
 import { CreateShopOverlayComponent } from '../../features/shops/components/create-shop-overlay.component';
 import { ManageShopOverlayComponent } from '../../features/shops/components/manage-shop-overlay.component';
@@ -61,6 +62,8 @@ export class ShellComponent {
   private readonly offlineDeviceSettingsStorage = inject(OfflineSalesDeviceSettingsStorage);
   private readonly offlineDeviceEnablement = inject(OfflineSalesDeviceEnablementService);
   readonly menuService = inject(ShellMenuService);
+  /** While the tab leaves a scope, nothing routed may show beneath the next scope's header. */
+  readonly isScopeTransitioning = inject(ShopContextService).transitioning;
 
   private readonly routedUrl = toSignal(
     this.router.events.pipe(

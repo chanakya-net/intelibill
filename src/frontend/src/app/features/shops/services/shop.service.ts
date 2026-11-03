@@ -1,11 +1,12 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 
-import { map, Observable, tap } from 'rxjs';
+import { map, Observable } from 'rxjs';
 
 import { SHOP_ENDPOINTS } from '../../../core/auth/auth.constants';
 import { AccessScopeResult, ShopPreferenceResult, UserShop } from '../../../core/auth/auth.models';
 import { AuthService } from '../../../core/auth/auth.service';
+import { ScopeMismatchError } from '../../../core/context/scoped-request';
 
 export interface UpdateShopRequest {
   readonly name: string;
@@ -121,13 +122,11 @@ export class ShopService {
   }
 
   createShop(payload: CreateShopRequest): Observable<void> {
-
     // A created shop moves this device into it and reissues only its access token: creating a shop
     // is not a sign-in, so it hands out no new refresh credential.
-    return this.http.post<AccessScopeResult>(SHOP_ENDPOINTS.create, payload).pipe(
-      tap((result) => this.authService.applyAccessScope(result)),
-      map(() => void 0)
-    );
+    return this.http
+      .post<AccessScopeResult>(SHOP_ENDPOINTS.create, payload)
+      .pipe(this.adoptScope());
   }
 
   /**
@@ -138,10 +137,9 @@ export class ShopService {
   switchActiveShop(shopId: string): Observable<void> {
     const payload: SwitchActiveShopRequest = { shopId };
 
-    return this.http.post<AccessScopeResult>(SHOP_ENDPOINTS.switch, payload).pipe(
-      tap((result) => this.authService.applyAccessScope(result)),
-      map(() => void 0)
-    );
+    return this.http
+      .post<AccessScopeResult>(SHOP_ENDPOINTS.switch, payload)
+      .pipe(this.adoptScope());
   }
 
   setDefaultShop(shopId: string): Observable<void> {
@@ -149,8 +147,7 @@ export class ShopService {
 
     // Saving the default is a stored preference: this device keeps working in the shop it is in.
     return this.http.post<ShopPreferenceResult>(SHOP_ENDPOINTS.setDefault, payload).pipe(
-      tap((result) => this.authService.applyShopPreference(result)),
-      map(() => void 0)
+      map((result) => this.authService.applyShopPreference(result))
     );
   }
 
@@ -164,5 +161,21 @@ export class ShopService {
 
   updateBankDetails(shopId: string, payload: UpdateBankDetailsRequest): Observable<ShopDetails> {
     return this.http.put<ShopDetails>(SHOP_ENDPOINTS.bankDetails(shopId), payload);
+  }
+
+  /**
+   * Installs a scope answer, but only into the device session that asked for it and only when no
+   * newer scope was installed meanwhile; otherwise the switch is reported as failed.
+   */
+  private adoptScope(): (source: Observable<AccessScopeResult>) => Observable<void> {
+    const requestedFrom = this.authService.sessionIdentity();
+    return (source) =>
+      source.pipe(
+        map((result) => {
+          if (!this.authService.applyAccessScope(result, requestedFrom)) {
+            throw new ScopeMismatchError();
+          }
+        })
+      );
   }
 }

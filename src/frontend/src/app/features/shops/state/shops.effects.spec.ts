@@ -8,7 +8,7 @@ import { vi } from 'vitest';
 
 import { AuthSession, UserShop } from '../../../core/auth/auth.models';
 import { AuthService } from '../../../core/auth/auth.service';
-import { AppReloadService } from '../../../core/services/app-reload.service';
+import { LeaveReadiness, ShopContextService } from '../../../core/context/shop-context.service';
 import { ShopService } from '../services/shop.service';
 import { ShopsActions } from './shops.actions';
 import { ShopsEffects } from './shops.effects';
@@ -30,7 +30,7 @@ describe('ShopsEffects', () => {
 
   const sessionSignal = signal<AuthSession | null>(null);
   const authService = { session: sessionSignal };
-  const appReload = { restartAtAppRoot: vi.fn<AppReloadService['restartAtAppRoot']>() };
+  const shopContext = { prepareToLeave: vi.fn<() => Promise<LeaveReadiness>>() };
 
   const shopA: UserShop = { shopId: 'sh1', shopName: 'Shop A', isDefault: true, role: 'Owner', lastUsedAt: null };
   const details = {
@@ -42,7 +42,7 @@ describe('ShopsEffects', () => {
   beforeEach(() => {
     actions$ = new Subject<Action>();
     Object.values(shopService).forEach((fn) => fn.mockReset());
-    appReload.restartAtAppRoot.mockReset();
+    shopContext.prepareToLeave.mockReset().mockResolvedValue({ ok: true });
     sessionSignal.set(null);
 
     TestBed.configureTestingModule({
@@ -50,7 +50,7 @@ describe('ShopsEffects', () => {
         ShopsEffects,
         { provide: ShopService, useValue: shopService },
         { provide: AuthService, useValue: authService },
-        { provide: AppReloadService, useValue: appReload },
+        { provide: ShopContextService, useValue: shopContext },
         {
           provide: Actions,
           useFactory: (): Observable<Action> => new Actions(actions$),
@@ -247,20 +247,42 @@ describe('ShopsEffects', () => {
     );
   });
 
-  it('restarts the application once the switch has succeeded', () => {
-    const subscription = effects.restartAfterShopSwitch$.subscribe();
-    actions$.next(ShopsActions.switchActiveShopSucceeded({ shopId: 'sh2' }));
+  it('switch_waits_for_leave_readiness: refuses to switch while an owner-bound write is in flight', async () => {
+    shopContext.prepareToLeave.mockResolvedValue({ ok: false, reason: 'mutation-in-flight' });
 
-    expect(appReload.restartAtAppRoot).toHaveBeenCalledTimes(1);
-    subscription.unsubscribe();
+    const output = firstValueFrom(effects.switchActiveShop$.pipe(take(1)));
+    actions$.next(ShopsActions.switchActiveShopRequested({ shopId: 'sh2' }));
+
+    await expect(output).resolves.toEqual(
+      ShopsActions.switchActiveShopFailed({ errorMessage: 'errors.shops.switchBlockedByPendingOperation' })
+    );
+    expect(shopService.switchActiveShop).not.toHaveBeenCalled();
   });
 
-  it('does not restart the application when the switch has failed', () => {
-    const subscription = effects.restartAfterShopSwitch$.subscribe();
-    actions$.next(ShopsActions.switchActiveShopFailed({ errorMessage: 'errors.shops.unableToSwitchStore' }));
+  it('refuses to switch when the cart could not be saved under the shop being left', async () => {
+    shopContext.prepareToLeave.mockResolvedValue({ ok: false, reason: 'draft-save-failed' });
 
-    expect(appReload.restartAtAppRoot).not.toHaveBeenCalled();
-    subscription.unsubscribe();
+    const output = firstValueFrom(effects.switchActiveShop$.pipe(take(1)));
+    actions$.next(ShopsActions.switchActiveShopRequested({ shopId: 'sh2' }));
+
+    await expect(output).resolves.toEqual(
+      ShopsActions.switchActiveShopFailed({ errorMessage: 'errors.shops.switchDraftSaveFailed' })
+    );
+    expect(shopService.switchActiveShop).not.toHaveBeenCalled();
+  });
+
+  it('ignores a second switch request while the first is still being prepared', async () => {
+    let ready!: (readiness: LeaveReadiness) => void;
+    shopContext.prepareToLeave.mockReturnValue(new Promise((resolve) => (ready = resolve)));
+    shopService.switchActiveShop.mockReturnValue(of(undefined));
+
+    const output = firstValueFrom(effects.switchActiveShop$.pipe(take(1)));
+    actions$.next(ShopsActions.switchActiveShopRequested({ shopId: 'sh2' }));
+    actions$.next(ShopsActions.switchActiveShopRequested({ shopId: 'sh3' }));
+    ready({ ok: true });
+
+    await expect(output).resolves.toEqual(ShopsActions.switchActiveShopSucceeded({ shopId: 'sh2' }));
+    expect(shopService.switchActiveShop).toHaveBeenCalledTimes(1);
   });
 
   it('auto-loads details for the shop this device is in, not the default one', async () => {

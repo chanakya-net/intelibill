@@ -128,7 +128,8 @@
     "collapseSidebar": "साइडबार संकुचित करा",
     "expandSidebar": "साइडबार विस्तृत करा",
     "mainNavigation": "मुख्य नेव्हिगेशन",
-    "offlineReconciliation": "ऑफलाइन जुळवणी"
+    "offlineReconciliation": "ऑफलाइन जुळवणी",
+    "scopeTransition": "निवडलेल्या स्टोअरवर जात आहे…"
   },
   "dashboard": {
     "header": {
@@ -1046,7 +1047,9 @@
       "eInvoiceAttestationRequired": "नियमित GST दुकानाने त्याला ई-इनव्हॉइसिंग लागू होते की नाही ते सांगणे आवश्यक आहे.",
       "legalNameTooLong": "कायदेशीर नाव 200 अक्षरे किंवा त्यापेक्षा कमी असावे.",
       "gstinManagedByTaxProfile": "GSTIN दुकानाच्या GST नोंदणीचा भाग आहे. तो GST नोंदणीमध्ये बदला.",
-      "unableToUpdateTaxProfile": "आत्ता GST नोंदणी जतन करणे अशक्य. कृपया पुन्हा प्रयत्न करा."
+      "unableToUpdateTaxProfile": "आत्ता GST नोंदणी जतन करणे अशक्य. कृपया पुन्हा प्रयत्न करा.",
+      "switchBlockedByPendingOperation": "एक विक्री किंवा स्टॉक सेव्ह अजूनही सर्व्हरच्या उत्तराची वाट पाहत आहे. ते पूर्ण झाल्यावर स्टोअर बदला.",
+      "switchDraftSaveFailed": "तुमची कार्ट या डिव्हाइसवर सेव्ह होऊ शकली नाही, म्हणून स्टोअर बदलले नाही. कृपया पुन्हा प्रयत्न करा."
     },
     "bankAccounts": {
       "unableToLoad": "आत्ता बँक खाती लोड करता येत नाहीत. पुन्हा प्रयत्न करा.",
@@ -1371,7 +1374,8 @@
           "sending": "पाठवत आहे",
           "uncertain": "अपुष्ट"
         }
-      }
+      },
+      "draftSaveFailed": "ही कार्ट या डिव्हाइसवर सेव्ह होऊ शकली नाही. विक्री पूर्ण होईपर्यंत हे पेज उघडे ठेवा."
     },
     "detail": {
       "title": "विक्री तपशील",

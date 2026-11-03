@@ -1,12 +1,15 @@
-import { HttpErrorResponse, HttpEvent, HttpRequest, HttpResponse } from '@angular/common/http';
+import { HttpContext, HttpErrorResponse, HttpEvent, HttpEventType, HttpRequest, HttpResponse } from '@angular/common/http';
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
-import { Observable, of, throwError } from 'rxjs';
+import { Observable, Subject, of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 
-import { AUTH_ENDPOINTS } from '../auth/auth.constants';
+import { AUTH_ENDPOINTS, SHOP_ENDPOINTS } from '../auth/auth.constants';
 import { AuthService } from '../auth/auth.service';
+import { ScopeMismatchError, StaleScopeError, scopedRequestContext } from '../context/scoped-request';
+import { ShopContextService } from '../context/shop-context.service';
+import { AppReloadService } from '../services/app-reload.service';
 import { authInterceptor } from './auth.interceptor';
 
 describe('authInterceptor', () => {
@@ -34,6 +37,7 @@ describe('authInterceptor', () => {
       providers: [
         { provide: AuthService, useValue: mockAuthService },
         { provide: Router, useValue: mockRouter },
+        { provide: AppReloadService, useValue: { restartAtAppRoot: vi.fn() } },
       ],
     });
   });
@@ -186,5 +190,124 @@ describe('authInterceptor', () => {
     expect(attempts).toBe(1);
     expect(failed?.status).toBe(401);
     expect(mockAuthService.clearSession).not.toHaveBeenCalled();
+  });
+
+  describe('scope changes', () => {
+    const shopA = { userId: 'user-1', shopId: 'shop-a' };
+    const shopB = { userId: 'user-1', shopId: 'shop-b' };
+
+    function enterShopA(): ShopContextService {
+      mockAuthService.getAccessToken.mockReturnValue('shop-a-token');
+      const context = TestBed.inject(ShopContextService);
+      context.initialize(shopA);
+      return context;
+    }
+
+    function pendingAnswer(): { next: () => Observable<HttpEvent<unknown>>; answer: Subject<HttpEvent<unknown>>; sent: () => number } {
+      const answer = new Subject<HttpEvent<unknown>>();
+      let sent = 0;
+      return {
+        answer,
+        sent: () => sent,
+        next: () => {
+          sent++;
+          return answer.asObservable();
+        },
+      };
+    }
+
+    it('old_response_is_ignored: an answer for the shop that was left never reaches the new scope', () => {
+      const context = enterShopA();
+      const pending = pendingAnswer();
+      const values: unknown[] = [];
+      let completed = false;
+      let failed: unknown;
+
+      runInterceptor(new HttpRequest('GET', '/api/customers'), pending.next).subscribe({
+        next: (event) => values.push(event),
+        error: (error: unknown) => (failed = error),
+        complete: () => (completed = true),
+      });
+      context.transition(shopB, 'cross-tab', () => undefined);
+      pending.answer.next(new HttpResponse({ status: 200, body: [{ customerId: 'customer-of-shop-a' }] }));
+      pending.answer.complete();
+
+      expect(values.filter((event) => (event as HttpEvent<unknown>).type === HttpEventType.Response)).toEqual([]);
+      expect(failed).toBeUndefined();
+      expect(completed).toBe(true);
+    });
+
+    it('drops a failure for the shop that was left instead of reporting it in the new scope', () => {
+      const context = enterShopA();
+      const pending = pendingAnswer();
+      let failed: unknown;
+
+      runInterceptor(new HttpRequest('GET', '/api/customers'), pending.next).subscribe({
+        error: (error: unknown) => (failed = error),
+      });
+      context.transition(shopB, 'cross-tab', () => undefined);
+      pending.answer.error(new HttpErrorResponse({ status: 500 }));
+
+      expect(failed).toBeUndefined();
+    });
+
+    it('reports a late answer to an owner-bound write as stale so its owner can keep the outcome', () => {
+      const context = enterShopA();
+      const pending = pendingAnswer();
+      let failed: unknown;
+
+      runInterceptor(
+        new HttpRequest('POST', '/api/sales', {}, { context: scopedRequestContext(shopA) }),
+        pending.next,
+      ).subscribe({ error: (error: unknown) => (failed = error) });
+      context.transition(shopB, 'cross-tab', () => undefined);
+      pending.answer.next(new HttpResponse({ status: 201, body: { saleId: 'sale-1' } }));
+
+      expect(failed).toBeInstanceOf(StaleScopeError);
+    });
+
+    it('owner_bound_request_is_refused_under_another_scope: never sends shop A work with shop B credentials', () => {
+      const context = enterShopA();
+      context.transition(shopB, 'scope', () => undefined);
+      const pending = pendingAnswer();
+      let failed: unknown;
+
+      runInterceptor(
+        new HttpRequest('POST', '/api/sales', {}, { context: scopedRequestContext(shopA, new HttpContext()) }),
+        pending.next,
+      ).subscribe({ error: (error: unknown) => (failed = error) });
+
+      expect(pending.sent()).toBe(0);
+      expect(failed).toBeInstanceOf(ScopeMismatchError);
+    });
+
+    it('lets an answer that installs a scope through, to be judged where it is installed', () => {
+      const context = enterShopA();
+      const pending = pendingAnswer();
+      const values: HttpEvent<unknown>[] = [];
+
+      runInterceptor(new HttpRequest('POST', SHOP_ENDPOINTS.switch, { shopId: 'shop-c' }), pending.next).subscribe({
+        next: (event) => values.push(event),
+      });
+      context.transition(shopB, 'cross-tab', () => undefined);
+      pending.answer.next(new HttpResponse({ status: 200, body: {} }));
+
+      expect(values).toHaveLength(1);
+    });
+
+    it('answers normally while the scope stays the same', () => {
+      enterShopA();
+      const pending = pendingAnswer();
+      const values: HttpEvent<unknown>[] = [];
+
+      runInterceptor(
+        new HttpRequest('POST', '/api/sales', {}, { context: scopedRequestContext(shopA) }),
+        pending.next,
+      ).subscribe({ next: (event) => values.push(event) });
+      pending.answer.next(new HttpResponse({ status: 201, body: { saleId: 'sale-1' } }));
+
+      expect(values).toHaveLength(1);
+      expect(pending.sent()).toBe(1);
+    });
   });
 });
