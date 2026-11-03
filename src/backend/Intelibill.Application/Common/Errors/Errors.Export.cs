@@ -1,3 +1,4 @@
+using System.Globalization;
 using ErrorOr;
 
 namespace Intelibill.Application.Common.Errors;
@@ -13,5 +14,22 @@ public static partial class Errors
             Error.Validation(
                 "Export.PdfRowLimitExceeded",
                 $"PDF export supports up to {maxRows} rows. Please narrow the date range or export to Excel instead.");
+
+        public static Error ReturnNeedsAccountingReview(string returnNumber, string invoiceNumber, string reason) =>
+            Error.Conflict(
+                "Export.ReturnNeedsAccountingReview",
+                $"Return {returnNumber} on invoice {invoiceNumber} needs accounting review before it can be exported to Tally: {reason} Export a period that excludes it, or review it with your accountant.");
+
+        public static Error VoucherUnbalanced(string voucherNumber, decimal debits, decimal credits) =>
+            Error.Conflict(
+                "Export.VoucherUnbalanced",
+                string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"Voucher {voucherNumber} does not balance: debits {debits:F2}, credits {credits:F2}. It was not exported."));
+
+        public static Error VoucherInvalid(string voucherNumber, string reason) =>
+            Error.Conflict(
+                "Export.VoucherInvalid",
+                $"Voucher {voucherNumber} cannot be exported: {reason}.");
     }
 }
