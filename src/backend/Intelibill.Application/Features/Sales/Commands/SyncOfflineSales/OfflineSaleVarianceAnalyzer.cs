@@ -28,6 +28,7 @@ internal sealed class OfflineSaleVarianceAnalyzer(IReconciliationIssueRepository
             issueType,
             code.Trim(),
             message.Trim(),
+            offlineSubmissionId,
             cancellationToken);
         if (openIssueId is { } existingId)
         {

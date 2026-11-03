@@ -18,10 +18,12 @@ public class OfflineIssueTimingPolicyTests
     }
 
     [Fact]
-    public void ClaimAtReservation_Accepted_AndOneTickEarlier_IsBeforeLease()
+    public void ClaimAtReservationMinusSkew_Accepted_AndOneTickEarlier_IsBeforeLease()
     {
         Assert.Null(OfflineIssueTimingPolicy.Evaluate(Lease, Day1, Day1.AddDays(1)));
-        AssertCode(Errors.OfflineReconciliation.IssueTimeBeforeLease, OfflineIssueTimingPolicy.Evaluate(Lease, Day1.AddTicks(-1), Day1.AddDays(1)));
+        Assert.Null(OfflineIssueTimingPolicy.Evaluate(Lease, Day1.AddTicks(-1), Day1.AddDays(1)));
+        Assert.Null(OfflineIssueTimingPolicy.Evaluate(Lease, Day1.AddMinutes(-5), Day1.AddDays(1)));
+        AssertCode(Errors.OfflineReconciliation.IssueTimeBeforeLease, OfflineIssueTimingPolicy.Evaluate(Lease, Day1.AddMinutes(-5).AddTicks(-1), Day1.AddDays(1)));
     }
 
     [Fact]
@@ -82,7 +84,7 @@ public class OfflineIssueTimingPolicyTests
     [Fact]
     public void RulesApplyInOrder_BeforeLeaseWinsOverEverythingElse()
     {
-        // Before the lease and also after receipt + 5 min is impossible; before the lease and received after expiry is not.
+        // Before the lease (beyond skew) and also after receipt + 5 min is impossible; before the lease and received after expiry is not.
         AssertCode(Errors.OfflineReconciliation.IssueTimeBeforeLease, OfflineIssueTimingPolicy.Evaluate(Lease, Day1.AddDays(-1), Day8.AddDays(2)));
 
         // In the future and after expiry: the future rule answers first.

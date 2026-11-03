@@ -25,6 +25,7 @@ internal sealed class ReconciliationIssueRepository(ApplicationDbContext context
         ReconciliationIssueType issueType,
         string code,
         string message,
+        Guid? offlineSubmissionId = null,
         CancellationToken cancellationToken = default) =>
         await DbSet
             .AsNoTracking()
@@ -34,6 +35,7 @@ internal sealed class ReconciliationIssueRepository(ApplicationDbContext context
                 && issue.IssueType == issueType
                 && issue.Code == code
                 && issue.Message == message
+                && (offlineSubmissionId == null || issue.OfflineSubmissionId == offlineSubmissionId)
                 && issue.Status != ReconciliationCaseStatus.Resolved)
             .OrderBy(issue => issue.CreatedAt)
             .Select(issue => (Guid?)issue.Id)

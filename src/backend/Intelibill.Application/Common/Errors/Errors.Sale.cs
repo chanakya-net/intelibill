@@ -158,6 +158,9 @@ public static partial class Errors
         public static Error OfflineCalculationVersionUnsupported =>
             Error.Validation("Sale.OfflineCalculationVersionUnsupported", "Offline invoice uses a calculation version this server does not support; it was held for review.");
 
+        public static Error OfflineTextInvalid =>
+            Error.Validation("Sale.OfflineTextInvalid", "The offline sale contains a character that cannot be stored.");
+
         public static Error CreditCustomerNotFound =>
             Error.NotFound("Sale.CreditCustomerNotFound", "Registered customer was not found for this credit or due sale.");
 

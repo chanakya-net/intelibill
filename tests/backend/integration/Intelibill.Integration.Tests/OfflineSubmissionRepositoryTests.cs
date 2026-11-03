@@ -68,6 +68,33 @@ public sealed class OfflineSubmissionRepositoryTests(PostgreSqlTestFixture fixtu
     }
 
     [Fact]
+    public async Task FindOpenIssueIdAsync_WithEnvelopeId_MatchesOnlyThatEnvelopesCase()
+    {
+        var shop = await CreateShopAsync();
+        var user = Guid.NewGuid();
+        var received = new DateTimeOffset(2026, 5, 10, 0, 0, 0, TimeSpan.Zero);
+
+        using var scope = _factory.Services.CreateScope();
+        var submissions = scope.ServiceProvider.GetRequiredService<IOfflineSubmissionRepository>();
+        var issues = scope.ServiceProvider.GetRequiredService<IReconciliationIssueRepository>();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var e1 = await submissions.RecordAsync(Candidate(shop.Id, user, new string('a', 64), received), CancellationToken.None);
+        var e2 = await submissions.RecordAsync(Candidate(shop.Id, user, new string('b', 64), received), CancellationToken.None);
+        var issue = ReconciliationIssue.Create(
+            shop.Id, null, "client-1", "device-1", ReconciliationIssueType.InvoiceConflict, "Sale.Code", "Held.", user,
+            invoiceNumber: "INV-0001", offlineSubmissionId: e1.Id);
+        db.ReconciliationIssues.Add(issue);
+        await db.SaveChangesAsync();
+
+        Task<Guid?> Find(Guid? envelope) => issues.FindOpenIssueIdAsync(
+            shop.Id, "client-1", "device-1", ReconciliationIssueType.InvoiceConflict, "Sale.Code", "Held.", envelope, CancellationToken.None);
+
+        Assert.Equal(issue.Id, await Find(e1.Id));
+        Assert.Null(await Find(e2.Id));
+        Assert.Equal(issue.Id, await Find(null));
+    }
+
+    [Fact]
     public async Task RecordAsync_ClaimedSoldAtWithNonZeroOffset_StoresSameInstant()
     {
         var shop = await CreateShopAsync();

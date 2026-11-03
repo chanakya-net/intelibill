@@ -33,6 +33,17 @@ internal static class OfflineSaleSyncHelpers
             Mismatches = mismatches ?? [],
         };
 
+    /// <summary>True when any text field holds U+0000, which PostgreSQL cannot store in the jsonb envelope.</summary>
+    internal static bool ContainsNulCharacter(OfflineSaleSyncCommand sale) =>
+        HasNul(sale.ClientSaleId)
+        || HasNul(sale.InvoiceNumber)
+        || HasNul(sale.CustomerName)
+        || HasNul(sale.CustomerPhone)
+        || (sale.Items?.Any(line =>
+            HasNul(line.Barcode) || HasNul(line.BatchNumber) || HasNul(line.ItemName) || HasNul(line.HsnCode) || HasNul(line.LineType)) ?? false);
+
+    private static bool HasNul(string? value) => value is not null && value.Contains('\0', StringComparison.Ordinal);
+
     internal static OfflineSaleSyncResultDto BuildErrorResult(string clientSaleId, Error error) =>
         new(clientSaleId, StatusFailed, null, null, [new OfflineSaleSyncErrorDto(error.Code, error.Description)]);
 

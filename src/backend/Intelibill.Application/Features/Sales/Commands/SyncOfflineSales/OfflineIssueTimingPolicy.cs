@@ -12,7 +12,7 @@ namespace Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
 /// </summary>
 internal static class OfflineIssueTimingPolicy
 {
-    /// <summary>How far a device clock may run ahead of the server's first receipt.</summary>
+    /// <summary>How far a device clock may run ahead of the server's first receipt, or behind the lease's reservation.</summary>
     public static readonly TimeSpan ClockSkewAllowance = TimeSpan.FromMinutes(5);
 
     /// <summary>
@@ -23,7 +23,7 @@ internal static class OfflineIssueTimingPolicy
     /// <param name="firstReceivedAt">When the server first stored this exact payload.</param>
     public static Error? Evaluate(InvoiceLease lease, DateTimeOffset claimedSoldAt, DateTimeOffset firstReceivedAt)
     {
-        if (claimedSoldAt < lease.ReservedAt)
+        if (claimedSoldAt < lease.ReservedAt - ClockSkewAllowance)
             return Errors.OfflineReconciliation.IssueTimeBeforeLease;
 
         if (claimedSoldAt > firstReceivedAt + ClockSkewAllowance)

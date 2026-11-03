@@ -1379,6 +1379,7 @@ public class SyncOfflineSalesCommandHandlerTests
                 ReconciliationIssueType.ArithmeticConflict,
                 Errors.Sale.OfflineCalculationVersionUnsupported.Code,
                 Arg.Any<string>(),
+                Arg.Any<Guid?>(),
                 Arg.Any<CancellationToken>())
             .Returns(openCaseId);
 
@@ -1389,6 +1390,129 @@ public class SyncOfflineSalesCommandHandlerTests
         Assert.Equal(openCaseId, syncResult.ReviewCaseId);
         Assert.Empty(issues);
         await AssertNothingPostedAsync();
+    }
+
+    [Fact]
+    public async Task ChangedResendHeldForSameReason_GetsItsOwnCase()
+    {
+        var (shopId, actorId, deviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1");
+        var clientSaleId = $"offline-{Guid.NewGuid():N}";
+        var first = CreateSale(clientSaleId) with { CalculationVersion = 2 };
+        var second = first with { CalculationVersion = 3 };
+        var issues = CaptureReconciliationIssues();
+        ArrangeMemberWithLease(shopId, actorId, deviceId);
+        StubRecordedEnvelope(candidate => candidate);
+        // A case matches only when asked about its own envelope.
+        _reconciliationIssueRepository
+            .FindOpenIssueIdAsync(
+                shopId, clientSaleId, deviceId, Arg.Any<ReconciliationIssueType>(), Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<Guid?>(), Arg.Any<CancellationToken>())
+            .Returns(call => Task.FromResult(
+                issues.FirstOrDefault(i => i.OfflineSubmissionId == call.ArgAt<Guid?>(6))?.Id));
+
+        var result = await CreateHandler().HandleAsync(new SyncOfflineSalesCommand(actorId, shopId, deviceId, [first, second]), CancellationToken.None);
+
+        Assert.Equal(2, result.Value.Results.Count);
+        var (r1, r2) = (result.Value.Results[0], result.Value.Results[1]);
+        Assert.NotEqual(r1.ReviewCaseId, r2.ReviewCaseId);
+        Assert.Equal(2, issues.Count);
+        Assert.Equal(_recordedSubmissions[1].Id, issues.Single(i => i.Id == r2.ReviewCaseId).OfflineSubmissionId);
+        Assert.NotEqual(_recordedSubmissions[0].Id, _recordedSubmissions[1].Id);
+    }
+
+    [Fact]
+    public async Task IdenticalResendHeld_ReusesCase()
+    {
+        var (shopId, actorId, deviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1");
+        var clientSaleId = $"offline-{Guid.NewGuid():N}";
+        var sale = CreateSale(clientSaleId) with { CalculationVersion = 2 };
+        var issues = CaptureReconciliationIssues();
+        ArrangeMemberWithLease(shopId, actorId, deviceId);
+        OfflineSubmission? stored = null;
+        // The repository answers the first stored row for an identical payload.
+        StubRecordedEnvelope(candidate => stored ??= candidate);
+        _reconciliationIssueRepository
+            .FindOpenIssueIdAsync(
+                shopId, clientSaleId, deviceId, Arg.Any<ReconciliationIssueType>(), Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<Guid?>(), Arg.Any<CancellationToken>())
+            .Returns(call => Task.FromResult(
+                issues.FirstOrDefault(i => i.OfflineSubmissionId == call.ArgAt<Guid?>(6))?.Id));
+
+        var result = await CreateHandler().HandleAsync(new SyncOfflineSalesCommand(actorId, shopId, deviceId, [sale, sale]), CancellationToken.None);
+
+        Assert.Equal(result.Value.Results[0].ReviewCaseId, result.Value.Results[1].ReviewCaseId);
+        Assert.Single(issues);
+    }
+
+    [Fact]
+    public async Task NulCharacterInText_FailsOnlyThatSale()
+    {
+        var (shopId, actorId, deviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1");
+        var item = CreateItem(shopId);
+        var batch = CreateBatch(shopId, item.Id);
+        var inventory = CreateInventory(shopId, item.Id);
+        var bad = CreateSale($"offline-{Guid.NewGuid():N}", invoiceNumber: "INV-2025-26-000001", items: [CreateLine(batch.Id) with { ItemName = "Ri\0ce" }]);
+        var good = CreateSale($"offline-{Guid.NewGuid():N}", invoiceNumber: "INV-2025-26-000002", items: [CreateLine(batch.Id)]);
+        ArrangeMemberWithLease(shopId, actorId, deviceId);
+        SetupSuccessfulLineValidation(_saleLineValidator, shopId, item, batch, inventory);
+
+        var result = await CreateHandler().HandleAsync(new SyncOfflineSalesCommand(actorId, shopId, deviceId, [bad, good]), CancellationToken.None);
+
+        Assert.Equal("failed", result.Value.Results[0].Status);
+        Assert.Equal(Errors.Sale.OfflineTextInvalid.Code, Assert.Single(result.Value.Results[0].Errors).Code);
+        Assert.Equal("created", result.Value.Results[1].Status);
+        Assert.DoesNotContain(_recordedSubmissions, s => s.ClientSaleId == bad.ClientSaleId);
+        Assert.Contains(_recordedSubmissions, s => s.ClientSaleId == good.ClientSaleId);
+    }
+
+    [Fact]
+    public async Task StageAsync_WhenAttributedAndRecordingUsersDiffer_SplitsAuthorship()
+    {
+        var (shopId, attributed, recorder, deviceId) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "device-1");
+        var item = CreateItem(shopId);
+        var batch = CreateBatch(shopId, item.Id, quantity: 1m);
+        var inventory = CreateInventory(shopId, item.Id, quantity: 1m);
+        var customer = Customer.Create(shopId, "Due Customer", "+919876543210", null);
+        var sale = CreateSale(
+            $"offline-{Guid.NewGuid():N}",
+            paymentMethod: PaymentMethod.Credit,
+            paidAmount: 0m,
+            dueAmount: 354m,
+            customerId: customer.Id,
+            items: [CreateLine(batch.Id, quantity: 3m)]);
+        var issues = CaptureReconciliationIssues();
+        var stock = new List<StockTransaction>();
+        _stockTransactionRepository
+            .When(r => r.AddAsync(Arg.Any<StockTransaction>(), Arg.Any<CancellationToken>()))
+            .Do(call => stock.Add(call.Arg<StockTransaction>()));
+        var ledger = new List<CustomerLedgerEntry>();
+        _customerLedgerEntryRepository
+            .When(r => r.AddAsync(Arg.Any<CustomerLedgerEntry>(), Arg.Any<CancellationToken>()))
+            .Do(call => ledger.Add(call.Arg<CustomerLedgerEntry>()));
+        Sale? staged = null;
+        _saleRepository
+            .When(r => r.AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>()))
+            .Do(call => staged = call.Arg<Sale>());
+        _customerResolver.ResolveAsync(shopId, customer.Id, sale.CustomerPhone, true, PaymentMethod.Credit, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<Customer?>>(customer));
+        SetupSuccessfulLineValidation(_saleLineValidator, shopId, item, batch, inventory);
+        var poster = new OfflineSalePoster(
+            _saleLineValidator, _customerResolver, _saleRepository, _customerLedgerEntryRepository, _stockTransactionRepository, _varianceAnalyzer);
+
+        var outcome = await poster.StageAsync(
+            new OfflineSalePostingRequest(
+                shopId, deviceId, sale.ClientSaleId, sale, "hash", attributed, recorder, Guid.NewGuid(), Now,
+                new Dictionary<Guid, DiscountRule>()),
+            CancellationToken.None);
+
+        Assert.IsType<OfflineSalePostingOutcome.Staged>(outcome);
+        Assert.Equal(attributed, staged!.ActorUserId);
+        var tx = Assert.Single(stock);
+        Assert.Equal(attributed, tx.PerformedBy);
+        Assert.Equal(recorder, tx.CreatedBy);
+        Assert.Equal(recorder, Assert.Single(ledger).CreatedBy);
+        Assert.NotEmpty(issues);
+        Assert.All(issues, i => Assert.Equal(recorder, i.CreatedBy));
     }
 
     [Fact]

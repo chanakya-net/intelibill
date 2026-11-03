@@ -18,6 +18,10 @@ public interface IReconciliationIssueRepository : IRepository<ReconciliationIssu
         Guid shopId,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// The oldest open case for the same hold. When <paramref name="offlineSubmissionId"/> is given, only a case
+    /// filed for that envelope matches, so a changed resend never inherits another payload's case.
+    /// </summary>
     Task<Guid?> FindOpenIssueIdAsync(
         Guid shopId,
         string clientSaleId,
@@ -25,6 +29,7 @@ public interface IReconciliationIssueRepository : IRepository<ReconciliationIssu
         ReconciliationIssueType issueType,
         string code,
         string message,
+        Guid? offlineSubmissionId = null,
         CancellationToken cancellationToken = default);
 
     Task<ReconciliationIssue?> GetTrackedAsync(Guid shopId, Guid caseId, CancellationToken cancellationToken);

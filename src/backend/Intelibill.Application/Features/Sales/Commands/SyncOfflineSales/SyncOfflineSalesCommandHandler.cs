@@ -67,6 +67,8 @@ public sealed class SyncOfflineSalesCommandHandler(
         if (string.IsNullOrWhiteSpace(invNum)) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.InvoiceNumberRequired);
         if (invNum.Length > 40) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.InvoiceNumberTooLong);
 
+        if (OfflineSaleSyncHelpers.ContainsNulCharacter(sale)) return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, Errors.Sale.OfflineTextInvalid);
+
         var hash = OfflineSaleSyncIdempotencyHasher.ComputeHash(command.ShopId, deviceId, sale);
         var lease = await invoiceLeaseRepository.FindReservedRangeAsync(command.ShopId, deviceId, invNum, cancellationToken);
         var (assertedIssuer, verifiedIssuer) = await ResolveIssuerAsync(command, deviceId, sale.IssuedByUserId, cancellationToken);
