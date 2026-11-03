@@ -87,3 +87,16 @@
 .offline-status-blocked .offline-status-detail {
   color: #9f1239;
 }
+
+.offline-status-renewal {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 0 0 12px;
+  border: 1px solid #f59e0b;
+  border-radius: 8px;
+  background: #fffbeb;
+  padding: 10px 12px;
+  color: #78350f;
+  font-size: 0.875rem;
+}

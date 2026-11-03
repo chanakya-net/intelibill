@@ -1,3 +1,9 @@
+@if (leaseNeedsRenewal) {
+  <p class="offline-status-renewal" role="status">
+    <i class="pi pi-exclamation-triangle" aria-hidden="true"></i>
+    {{ 'sales.newSale.offline.leaseNeedsRenewal' | transloco }}
+  </p>
+}
 @if (isOffline) {
   @if (syncStatus; as status) {
     <div

@@ -124,6 +124,8 @@ describe('SaleConfirmationDialogComponent', () => {
     const link = document.querySelector('a.sale-confirmation__blocked-print') as HTMLAnchorElement | null;
     expect(link?.getAttribute('href')).toBe('/sales/s-1/print?template=a4&offline=1');
     expect(link?.getAttribute('target')).toBe('_blank');
+    // A noopener tab does not inherit sessionStorage, where a session the cashier did not ask to remember lives.
+    expect(link?.getAttribute('rel')).toBe('opener');
     expect(document.body.textContent).toContain('sales.invoice.printBlocked');
   });
 });

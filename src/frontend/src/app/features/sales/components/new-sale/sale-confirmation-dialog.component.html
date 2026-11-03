@@ -87,7 +87,8 @@
       @if (blockedPrintUrl) {
         <p class="sale-confirmation__print-blocked text-slate-600 mb-4" role="status">
           {{ 'sales.invoice.printBlocked' | transloco }}
-          <a class="sale-confirmation__blocked-print" [href]="blockedPrintUrl" target="_blank" rel="noopener">
+          <!-- Same-origin print view: keeping the opener lets the tab inherit a session held in sessionStorage. -->
+          <a class="sale-confirmation__blocked-print" [href]="blockedPrintUrl" target="_blank" rel="opener">
             {{ 'sales.invoice.openPrintView' | transloco }}
           </a>
         </p>

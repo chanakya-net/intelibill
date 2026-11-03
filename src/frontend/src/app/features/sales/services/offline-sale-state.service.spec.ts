@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AuthSession } from '../../../core/auth/auth.models';
+import { InvoiceLeaseIndexedDbService } from '../../../core/storage/invoice-lease-indexeddb.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { OfflineSalesDeviceSettingsStorage } from '../../../core/storage/offline-sales-device-settings.storage';
 import { OfflineSalesSnapshotIndexedDbService } from '../../../core/storage/offline-sales-snapshot-indexeddb.service';
@@ -90,6 +91,8 @@ describe('OfflineSaleStateService', () => {
     };
   }
 
+  const leaseDb = { loadLease: vi.fn<InvoiceLeaseIndexedDbService['loadLease']>() };
+
   function setup() {
     TestBed.configureTestingModule({
       providers: [
@@ -99,6 +102,7 @@ describe('OfflineSaleStateService', () => {
         { provide: OfflineSalesSnapshotIndexedDbService, useValue: snapshotDb },
         { provide: OfflineSalesQueueSyncService, useValue: queueSync },
         { provide: OfflineSaleFinalizationService, useValue: finalization },
+        { provide: InvoiceLeaseIndexedDbService, useValue: leaseDb },
       ],
     });
 
@@ -130,6 +134,7 @@ describe('OfflineSaleStateService', () => {
       totalVisible: 1,
     });
     vi.clearAllMocks();
+    leaseDb.loadLease.mockResolvedValue({ sellerProfile: { seriesCode: 'A' } } as never);
   });
 
   it('builds an offline preview from cart state', async () => {
@@ -226,6 +231,7 @@ describe('OfflineSaleStateService', () => {
 
   it.each([
     [{ ok: false, reason: 'SELLER_PROFILE_UNAVAILABLE' }, 'sales.newSale.offline.blockSellerProfileUnavailable'],
+    [{ ok: false, reason: 'CUSTOMER_UNAVAILABLE' }, 'sales.newSale.offline.blockCustomerUnavailable'],
     [{ ok: false, reason: 'DOCUMENT_UNAVAILABLE', errorCode: 'Invoice.HsnRequired' }, 'errors.invoice.hsnRequired'],
     [{ ok: false, reason: 'DOCUMENT_UNAVAILABLE', errorCode: 'Invoice.Unknown' }, 'sales.newSale.offline.blockDocumentUnavailable'],
   ])('explains a sale the device cannot issue (%o)', async (refusal, errorKey) => {
@@ -236,5 +242,25 @@ describe('OfflineSaleStateService', () => {
     const result = await service.submitOfflineSale(buildSubmitPayload('customer-1'));
 
     expect(result).toEqual({ ok: false, errorKey });
+  });
+
+  it('flags a stored lease that froze no seller profile, so the device is re-enabled while still online', async () => {
+    leaseDb.loadLease.mockResolvedValue({ leaseId: 'lease-1', sellerProfile: undefined } as never);
+    const service = setup();
+
+    await service.refreshSnapshot();
+
+    expect(service.offlineLeaseNeedsRenewal()).toBe(true);
+  });
+
+  it('does not flag a lease that carries its seller profile, or a device without offline billing', async () => {
+    const service = setup();
+    await service.refreshSnapshot();
+    expect(service.offlineLeaseNeedsRenewal()).toBe(false);
+
+    settingsStorage.loadSettings.mockReturnValue({ ...makeBaseSettings(), enabled: false });
+    leaseDb.loadLease.mockResolvedValue({ leaseId: 'lease-1' } as never);
+    await service.refreshSnapshot();
+    expect(service.offlineLeaseNeedsRenewal()).toBe(false);
   });
 });

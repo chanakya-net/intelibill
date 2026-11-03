@@ -462,4 +462,20 @@ describe('SaleInvoicePrintPageComponent', () => {
     expect(delivery?.closest('.invoice-document')).toBeNull();
     expect(fixture.nativeElement.querySelector('.invoice-document')?.textContent).not.toContain('Sending failed');
   });
+
+  it('hides the controls, delivery state and notices from the printed copy', () => {
+    // jsdom applies no media queries, so the print rules are read from the stylesheet itself.
+    const scss = readFileSync(
+      join(process.cwd(), 'src/app/features/sales/pages/sale-invoice-print-page/sale-invoice-print-page.component.scss'),
+      'utf-8',
+    );
+    const printBlock = scss.slice(scss.indexOf('@media print'));
+    const hidden = /([^{}]+)\{\s*display:\s*none;\s*\}/.exec(printBlock);
+    const hiddenSelectors = (hidden?.[1] ?? '').split(',').map((selector) => selector.trim());
+
+    expect(hiddenSelectors).toEqual(
+      expect.arrayContaining(['.screen-controls', '.print-state--delivery', '.print-state--notice']),
+    );
+    expect(printBlock).not.toMatch(/\.print-state--delivery\s*\{[^}]*color/);
+  });
 });

@@ -1316,7 +1316,9 @@
         "blockInvalidAmount": "One or more amounts are not valid numbers. Check quantities, prices and discounts.",
         "servicesNotSupported": "Offline sales for services are not supported.",
         "blockSellerProfileUnavailable": "This device's invoice numbers were reserved before offline GST documents. Go online and turn offline billing on again to continue.",
-        "blockDocumentUnavailable": "This sale cannot be issued as a GST document offline. Complete it when you are back online."
+        "blockDocumentUnavailable": "This sale cannot be issued as a GST document offline. Complete it when you are back online.",
+        "blockCustomerUnavailable": "This customer is not available offline yet. Choose a customer from the offline list or bill as a walk-in.",
+        "leaseNeedsRenewal": "Offline billing must be turned on again for this device before it can bill offline. Ask an owner or manager to do it while the device is online."
       },
       "productLookup": "Quick product lookup",
       "productLookupDescription": "Tap a product to quickly add it, or open the batch picker when multiple batches exist.",

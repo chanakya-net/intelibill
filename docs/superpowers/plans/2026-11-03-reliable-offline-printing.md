@@ -88,4 +88,4 @@
 
 ## Rollout / rollback
 
-Readers accept v1 (no document) and v2 payloads; snapshot schema 2 and 3 records both parse. Devices holding a pre-plan20 lease must re-enable offline sales online before issuing (clear message). Rollback = deploy previous frontend; v2 rows keep extra fields that older readers ignore; queue ownership unchanged.
+Readers accept v1 (no document) and v2 payloads; snapshot schema 2 and 3 records both parse. Every lease stored before this release lacks a seller profile (the reserve response never carried one), so every enabled device must have offline billing turned on again, online, by an owner or manager: the POS shows that notice online as soon as it opens, and an offline sale on such a lease is refused with the same instruction. Selecting a customer the offline snapshot does not hold is refused (the server would issue to that customer's live record). Rollback = deploy previous frontend; v2 rows keep extra fields that older readers ignore; queue ownership unchanged.

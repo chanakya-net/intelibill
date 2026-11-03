@@ -20,6 +20,7 @@ import { OfflineSalesQueueSyncService } from './offline-sales-queue-sync.service
 import { SalePreviewDto } from './sale.models';
 import { AvailableBatchDto } from '../../inventory/services/inventory.models';
 import { invoiceErrorKey } from '../utils/invoice-error-keys';
+import { InvoiceLeaseIndexedDbService } from '../../../core/storage/invoice-lease-indexeddb.service';
 
 const MAX_OFFLINE_AGE_MS = 48 * 60 * 60 * 1000;
 
@@ -70,6 +71,7 @@ export class OfflineSaleStateService {
   private readonly snapshotDb = inject(OfflineSalesSnapshotIndexedDbService);
   private readonly queueSync = inject(OfflineSalesQueueSyncService);
   private readonly offlineFinalization = inject(OfflineSaleFinalizationService);
+  private readonly leaseDb = inject(InvoiceLeaseIndexedDbService);
 
   readonly offlineDeviceSettings = signal<OfflineSalesDeviceSettings | null>(null);
 
@@ -80,6 +82,11 @@ export class OfflineSaleStateService {
   readonly offlinePendingCount = signal<number>(0);
   readonly offlineNeedsReviewCount = signal<number>(0);
   readonly offlineInvoiceRemaining = signal<number>(0);
+  /**
+   * The device's stored lease froze no seller profile (it was reserved before devices issued documents), so offline
+   * sales will be refused until an owner or manager turns offline billing on again while online.
+   */
+  readonly offlineLeaseNeedsRenewal = signal(false);
 
   private readonly offlineCatalogCacheKey = signal<string | null>(null);
 
@@ -95,6 +102,7 @@ export class OfflineSaleStateService {
       this.offlinePendingCount.set(0);
       this.offlineNeedsReviewCount.set(0);
       this.offlineInvoiceRemaining.set(0);
+      this.offlineLeaseNeedsRenewal.set(false);
       return;
     }
 
@@ -108,9 +116,19 @@ export class OfflineSaleStateService {
     this.offlinePendingCount.set(0);
     this.offlineNeedsReviewCount.set(0);
     this.offlineInvoiceRemaining.set(settings?.lastReservedLease?.remainingCount ?? 0);
+    this.offlineLeaseNeedsRenewal.set(false);
 
     if (!settings?.enabled || !settings.deviceId) {
       return;
+    }
+
+    if (settings.lastReservedLease) {
+      try {
+        const lease = await this.leaseDb.loadLease(shopId, settings.deviceId, settings.lastReservedLease.fiscalYear);
+        this.offlineLeaseNeedsRenewal.set(!!lease && !lease.sellerProfile);
+      } catch {
+        // non-fatal: finalization refuses such a lease on its own
+      }
     }
 
     const snapshotInfo = await this.snapshotDb.getUsableSnapshotInfo(shopId);
@@ -376,6 +394,7 @@ export class OfflineSaleStateService {
         INVALID_AMOUNT: 'sales.newSale.offline.blockInvalidAmount',
         SELLER_PROFILE_UNAVAILABLE: 'sales.newSale.offline.blockSellerProfileUnavailable',
         DOCUMENT_UNAVAILABLE: 'sales.newSale.offline.blockDocumentUnavailable',
+        CUSTOMER_UNAVAILABLE: 'sales.newSale.offline.blockCustomerUnavailable',
       };
 
       return {

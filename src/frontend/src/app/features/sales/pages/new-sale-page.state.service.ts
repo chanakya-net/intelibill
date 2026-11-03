@@ -209,6 +209,7 @@ export abstract class NewSalePageStateService {
   readonly offlinePendingCount = this.offlineSaleState.offlinePendingCount;
   readonly offlineNeedsReviewCount = this.offlineSaleState.offlineNeedsReviewCount;
   readonly offlineInvoiceRemaining = this.offlineSaleState.offlineInvoiceRemaining;
+  readonly offlineLeaseNeedsRenewal = this.offlineSaleState.offlineLeaseNeedsRenewal;
   readonly offlineCatalog = this.offlineSaleState.offlineCatalog;
   readonly offlineCustomers = this.offlineSaleState.offlineCustomers;
   readonly isOfflineSubmitting = signal(false);

@@ -183,6 +183,21 @@ describe('OfflineSaleFinalizationService', () => {
     expect(reprinted.totalAmount).toBe(100);
   });
 
+  it('refuses a customer the offline snapshot does not hold, before consuming a number', async () => {
+    const { service, leaseDb, queueDb } = setup();
+    const request = makeRequest();
+
+    const result = await service.finalizeAndQueue({
+      ...request,
+      pricingInput: { ...request.pricingInput, customerId: 'cust-created-after-snapshot' },
+    });
+
+    // The server would issue to the customer's live record (perhaps with a GSTIN) while the paper showed a walk-in.
+    expect(result).toEqual({ ok: false, reason: 'CUSTOMER_UNAVAILABLE' });
+    expect(leaseDb.consumeNextInvoiceNumber).not.toHaveBeenCalled();
+    expect(queueDb.savePendingSale).not.toHaveBeenCalled();
+  });
+
   it('refuses_without_lease_seller_profile', async () => {
     const { service, leaseDb, queueDb, shadowDb } = setup('user-1', null);
 

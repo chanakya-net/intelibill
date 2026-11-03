@@ -27,7 +27,9 @@ export type OfflineFinalizeFailureReason =
   /** The lease predates offline documents: the device must be enabled again online before it issues. */
   | 'SELLER_PROFILE_UNAVAILABLE'
   /** The sale cannot be issued as a GST document (the server's Invoice.* code says why). */
-  | 'DOCUMENT_UNAVAILABLE';
+  | 'DOCUMENT_UNAVAILABLE'
+  /** The selected customer is not in the offline snapshot, so the device cannot print their particulars. */
+  | 'CUSTOMER_UNAVAILABLE';
 
 export type OfflineFinalizeResult =
   | { readonly ok: true; readonly payload: OfflineQueuedSalePayload; readonly remainingInvoiceCount: number }
@@ -103,6 +105,9 @@ export class OfflineSaleFinalizationService {
       ? ((await this.snapshotDb.getUsableCustomers(request.shopId)).find((c) => c.customerId === customerId) ?? null)
       : null;
     if (priced.totals.dueAmount > 0 && !customer) return { ok: false, reason: 'MISSING_DUE_CUSTOMER' };
+    // The server issues to the customer's own record on sync; a device that cannot see it would print a different
+    // buyer (perhaps a walk-in without the buyer's GSTIN) on the copy it hands over.
+    if (customerId && !customer) return { ok: false, reason: 'CUSTOMER_UNAVAILABLE' };
 
     const clientSaleId = crypto.randomUUID();
     const idempotencyKey = `offline-sale-${clientSaleId}`;

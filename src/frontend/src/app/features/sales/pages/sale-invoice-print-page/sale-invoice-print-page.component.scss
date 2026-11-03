@@ -154,13 +154,8 @@
   }
 
   .screen-controls,
-  .print-state--delivery {
-  margin-bottom: 16px;
-  padding: 12px 24px;
-  color: #374151;
-}
-
-.print-state--notice {
+  .print-state--delivery,
+  .print-state--notice {
     display: none;
   }
 
