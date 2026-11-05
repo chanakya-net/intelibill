@@ -28,6 +28,7 @@ import { LocalizationService } from './core/i18n/localization.service';
 import { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES } from './core/i18n/language.constants';
 import { TranslocoHttpLoader } from './core/i18n/transloco-http.loader';
 import { ProductSignalRService } from './core/services/product-signalr.service';
+import { APP_WORKER_REGISTRATION, APP_WORKER_SCRIPT } from './core/service-worker/service-worker-registration';
 import { OfflineSalesQueueSyncService } from './features/sales/services/offline-sales-queue-sync.service';
 
 const enterprisePreset = definePreset(Aura, {
@@ -82,9 +83,10 @@ export const appConfig: ApplicationConfig = {
       }),
       loader: TranslocoHttpLoader,
     }),
-    provideServiceWorker('ngsw-worker.js', {
+    provideServiceWorker(APP_WORKER_SCRIPT, {
       enabled: !isDevMode(),
       registrationStrategy: 'registerWhenStable:30000',
+      ...APP_WORKER_REGISTRATION,
     }),
     {
       provide: APP_INITIALIZER,

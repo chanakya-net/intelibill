@@ -1,6 +1,8 @@
 import express from 'express';
 import { createProxyMiddleware } from 'http-proxy-middleware';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
+
+import { cacheControlFor } from './server-cache-policy';
 
 /**
  * Serves the built single-page application and forwards its API calls.
@@ -46,9 +48,10 @@ if (apiProxy) {
 }
 
 /**
- * Hashed build output is immutable and cached for a year. index.html is not: it
- * names those hashed files, so a cached copy would keep pointing at the previous
- * deployment's assets.
+ * Hashed build output is immutable and cached for a year. The files whose name
+ * never changes are not: index.html names those hashed files, and the service
+ * worker files decide which version runs, so a cached copy would keep the
+ * previous deployment alive (see server-cache-policy.ts).
  */
 app.use(
   express.static(browserDistFolder, {
@@ -56,8 +59,9 @@ app.use(
     index: false,
     redirect: false,
     setHeaders: (res, path) => {
-      if (path === indexHtml) {
-        res.setHeader('Cache-Control', 'no-cache');
+      const cacheControl = cacheControlFor(relative(browserDistFolder, path));
+      if (cacheControl) {
+        res.setHeader('Cache-Control', cacheControl);
       }
     },
   }),
