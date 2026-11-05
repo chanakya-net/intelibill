@@ -33,6 +33,8 @@ The first implementation registered the wrapper at a new URL, `app-worker.js`. R
 - A page tells the wrapper from an earlier worker with a `MessageChannel` query (`PROTECTED_WORKER_QUERY`, protocol 1). The migration replaces an earlier worker with `registration.update()` instead of a second registration. It re-checks on `controllerchange` and leaves the worker alone when `SwRegistrationOptions.enabled` is false.
 - New release cases: a lone old tab covered by the browser's update check, an older page re-registering the URL, a mid-rollout flip undone by an open app tab, and the built app (not a blank page) driving the replacement.
 
+A second review round made the Bun script specs run in CI (`scripts/test-runner.mjs` skipped them whenever flags were forwarded). It also added a timeout to `registration.update()`, raised the hand-over budget to 35 s (Angular holds fetch events open for idle work for up to 30 s), and read `SwRegistrationOptions.enabled` as Angular does. The rollout-flip release case is now deterministic (a one-shot legacy script).
+
 ### Deviations from the pasted plan
 
 1. **Wrapper worker added.** The pasted plan protects only pages that run the new code. An old tab keeps its old version's `api-fresh` rule until it reloads. Only a new worker script, which claims every client, closes RF3.

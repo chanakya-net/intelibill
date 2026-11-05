@@ -235,8 +235,9 @@ may hold a protected answer now:
   - It purges the caches `isLegacyProtectedCacheName` names (Angular 21's `ngsw:<scope>:<v>:data:<group>:cache`
     and `ngsw:<scope>:db:<v>:data:<group>:{age,lru}` for `api-fresh`, `ping-no-cache` and
     `offline-sales-api-no-cache`), emptying each one before deleting it.
-  - It re-checks whenever another worker takes control (`controllerchange`), so an open page of this build undoes
-    a mid-rollout flip to an old instance.
+  - It re-checks whenever another worker takes control (`controllerchange`) and asks for the current script
+    again. An open page of this build undoes a mid-rollout flip to an old instance once that request reaches an
+    instance of this build.
   - It purges again on every change of owner (`onDetach`, which a restart waits for). That keeps earlier answers
     off disk, but a page cannot stop a running old worker from replaying an answer it holds open. Only replacing
     that worker does.
@@ -249,18 +250,22 @@ may hold a protected answer now:
   only that tab's own requests can be answered from its old caches.
 - **Serving.** `src/server.ts` revalidates `index.html`, `ngsw.json`, the worker scripts and
   `manifest.webmanifest` on every load (`server-cache-policy.ts`); hashed bundles keep `max-age=1y`.
-- **Rollback and kill switch.** Never deploy a build whose `ngsw-worker.js` is Angular's bare worker over `/api`
-  rules: the browser's update check would install it in every tab. A rollback must keep `build:worker`. Angular's
-  kill switch still works at the same URL: serve `safety-worker.js` as `ngsw-worker.js`.
+- **Rollback and kill switch.** Never deploy Angular's bare worker at `ngsw-worker.js` again, so never roll back
+  below this change. The browser's update check would install it in every tab, and any bare worker re-reads the
+  stored manifests of earlier versions (with their `/api` rules) for tabs still assigned to them. A rollback build
+  must keep `build:worker`. Angular's kill switch still works at the same URL: serve `safety-worker.js` as
+  `ngsw-worker.js`. It deletes every `ngsw:` cache, the app shell included, so offline billing cannot open while it
+  is served. Queued sales in IndexedDB survive. Each page load registers it again, and it unregisters itself again.
 - **Proof.** `bun run build && bun run audit:ui:release` (`tests/ui-audit/release/`) runs the built worker in
-  Chromium against a real legacy deployment (Angular's bare worker plus the old manifest). A control test
-  reproduces the old leak. The other tests cover:
+  Chromium against a legacy deployment: Angular's bare worker and the old configuration served over the current
+  build files. No old app code runs; old-code requests are raw `fetch` calls without the bypass header. A control
+  test reproduces the old leak. The other tests cover:
   - a slow cross-shop request;
   - a new user offline;
-  - the built app replacing the worker under an open old tab;
+  - the first load of this build replacing the worker under an open old tab;
   - a lone old tab covered by the browser's update check;
-  - an older page re-registering the URL;
-  - a mid-rollout flip undone by an open app tab;
+  - an older page re-registering the URL mid-rollout (no script fetch);
+  - a mid-rollout flip undone by the open app tab's own migration;
   - queued sales surviving the purge;
   - the shell opening offline while the API fails closed;
   - the production interceptor's headers.
