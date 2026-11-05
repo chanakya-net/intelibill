@@ -1,5 +1,5 @@
 import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
-import { TranslocoPipe } from '@ngneat/transloco';
+import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import { ButtonModule } from 'primeng/button';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TableModule } from 'primeng/table';
@@ -19,6 +19,7 @@ import {
 })
 export class BatchSaveResultsComponent {
   private readonly draftState = inject(BatchDraftStateService);
+  private readonly transloco = inject(TranslocoService);
 
   @Input() saveSummary: AddInventoryBatchResponse | null = null;
   @Input() isSaving = false;
@@ -45,10 +46,17 @@ export class BatchSaveResultsComponent {
 
     const entries = this.saveSummary.failed.map((row) => [
       row.clientRowId,
-      row.errors.map((error) => error.description).join(', '),
+      row.errors.map((error) => this.rowErrorText(error)).join(', '),
     ] as const);
 
     return new Map<string, string>(entries);
+  }
+
+  /** The server's own text is English; a precision refusal is shown in the person's language. */
+  private rowErrorText(error: { code: string; description: string }): string {
+    return error.code === 'Inventory.QuantityPrecisionExceeded'
+      ? this.transloco.translate('inventory.quantityPrecisionExceeded')
+      : error.description;
   }
 
   /** Draft rows whose purchase tax mode the user still has to choose (kept by an earlier release). */

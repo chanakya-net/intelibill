@@ -574,3 +574,11 @@
     width: 100%;
   }
 }
+
+.return-preview-field-error {
+  display: block;
+  margin-top: 0.35rem;
+  overflow-wrap: anywhere;
+  color: #9d2d24;
+  font-size: 0.82rem;
+}

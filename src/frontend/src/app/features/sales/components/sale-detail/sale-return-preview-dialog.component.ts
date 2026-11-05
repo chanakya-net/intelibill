@@ -31,6 +31,12 @@ import type {
   SaleReturnCondition,
 } from '../../services/sale.models';
 import { SalesFacade } from '../../state/sales.facade';
+import {
+  fitsQuantityScale,
+  normalizeQuantity,
+  quantityScaleOf,
+  quantityStep,
+} from '../../../../shared/quantity/quantity-input';
 
 interface ReturnLineDraft {
   readonly saleItemId: string;
@@ -235,7 +241,12 @@ export class SaleReturnPreviewDialogComponent {
   }
 
   updateReturnQuantity(item: SaleItemDto, quantity: number | string | null): void {
-    const normalizedQuantity = this.clampNumber(Number(quantity), 0, item.returnableQuantity);
+    const typed = Number(quantity);
+    // A quantity the unit cannot hold is kept as typed (and refused by validation), never rounded or clamped.
+    const normalizedQuantity =
+      quantity !== null && quantity !== '' && Number.isFinite(typed) && !fitsQuantityScale(typed, this.returnScale(item))
+        ? typed
+        : this.clampNumber(typed, 0, item.returnableQuantity);
     const maxRefund = this.getMaxRefundAmount(item, normalizedQuantity);
 
     this.updateDraft(item.saleItemId, (draft) => ({
@@ -454,6 +465,38 @@ export class SaleReturnPreviewDialogComponent {
     );
   }
 
+  /**
+   * Decimals a returned quantity may carry: the item's precision, or that of the sold quantity when a legacy line
+   * was sold with more (the server applies the same rule).
+   */
+  returnScale(item: SaleItemDto): number {
+    return Math.max(item.quantityScale, quantityScaleOf(item.quantity));
+  }
+
+  returnStep(item: SaleItemDto): number {
+    return quantityStep(this.returnScale(item));
+  }
+
+  isReturnQuantityTooPrecise(item: SaleItemDto): boolean {
+    const quantity = this.getDraft(item.saleItemId)?.quantity ?? 0;
+    return !fitsQuantityScale(quantity, this.returnScale(item));
+  }
+
+  tooPreciseMessage(item: SaleItemDto): string {
+    const scale = this.returnScale(item);
+    const unit = item.uom?.trim() || this.transloco.translate('sales.returns.preview.validation.unitFallback');
+    return scale === 0
+      ? this.transloco.translate('sales.returns.preview.validation.tooPreciseWhole', {
+          itemName: item.itemName,
+          unit,
+        })
+      : this.transloco.translate('sales.returns.preview.validation.tooPreciseDecimals', {
+          itemName: item.itemName,
+          unit,
+          decimals: scale,
+        });
+  }
+
   getReturnableLineCount(): number {
     return this.returnableItems().length;
   }
@@ -468,12 +511,21 @@ export class SaleReturnPreviewDialogComponent {
 
   decreaseReturnQuantity(item: SaleItemDto): void {
     const draft = this.getDraft(item.saleItemId);
-    this.updateReturnQuantity(item, (draft?.quantity ?? 0) - 1);
+    this.stepReturnQuantity(item, draft?.quantity ?? 0, -1);
   }
 
   increaseReturnQuantity(item: SaleItemDto): void {
     const draft = this.getDraft(item.saleItemId);
-    this.updateReturnQuantity(item, (draft?.quantity ?? 0) + 1);
+    this.stepReturnQuantity(item, draft?.quantity ?? 0, 1);
+  }
+
+  private stepReturnQuantity(item: SaleItemDto, current: number, direction: 1 | -1): void {
+    if (!fitsQuantityScale(current, this.returnScale(item))) {
+      return; // a too-precise typed value is corrected by the person, not rounded by a button
+    }
+
+    const scale = this.returnScale(item);
+    this.updateReturnQuantity(item, normalizeQuantity(current + direction, scale));
   }
 
   getSelectedStatusLabel(): string {
@@ -600,6 +652,10 @@ export class SaleReturnPreviewDialogComponent {
             itemName,
           }),
         );
+      }
+
+      if (!fitsQuantityScale(draft.quantity, this.returnScale(item))) {
+        errors.push(this.tooPreciseMessage(item));
       }
 
       if (draft.quantity > item.returnableQuantity) {

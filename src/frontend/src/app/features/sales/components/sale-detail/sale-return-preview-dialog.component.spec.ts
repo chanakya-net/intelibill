@@ -768,4 +768,77 @@ describe('SaleReturnPreviewDialogComponent', () => {
     expect(fixture.nativeElement.querySelector('.return-preview-success')).toBeNull();
     expect(component.recordedCreditNoteSummary()).toBeNull();
   });
+
+  describe('quantity precision', () => {
+    type Probe = { validateReturnDrafts(): string[] };
+
+    it('flags 0.5 on a whole-unit line as too precise and keeps the typed value', async () => {
+      const { fixture, component } = await createComponent();
+      component.sale = { ...makeSale(), items: [makeGoodsItem({ quantity: 2, returnableQuantity: 2 })] };
+      component.visible = true;
+      fixture.detectChanges();
+      const item = component.sale!.items[0];
+      component.toggleReturnLine(item, true);
+
+      component.updateReturnQuantity(item, '0.5');
+
+      expect(component.getDraft(item.saleItemId)?.quantity).toBe(0.5);
+      const errors = (component as unknown as Probe).validateReturnDrafts();
+      expect(errors.some((e) => e.includes('Soap') && e.includes('PCS') && e.includes('whole'))).toBe(true);
+      expect(component.returnStep(item)).toBe(1);
+    });
+
+    it('accepts 0.1 on a three-decimal line', async () => {
+      const { fixture, component } = await createComponent();
+      component.sale = {
+        ...makeSale(),
+        items: [makeGoodsItem({ uom: 'KG', quantityScale: 3, quantity: 2, returnableQuantity: 2 })],
+      };
+      component.visible = true;
+      fixture.detectChanges();
+      const item = component.sale!.items[0];
+      component.toggleReturnLine(item, true);
+
+      component.updateReturnQuantity(item, '0.1');
+
+      expect(component.getDraft(item.saleItemId)?.quantity).toBe(0.1);
+      const errors = (component as unknown as Probe).validateReturnDrafts();
+      expect(errors.some((e) => e.includes('decimal') || e.includes('whole'))).toBe(false);
+      expect(component.returnStep(item)).toBe(0.001);
+    });
+
+    it('rejects a fourth decimal on a three-decimal line', async () => {
+      const { fixture, component } = await createComponent();
+      component.sale = {
+        ...makeSale(),
+        items: [makeGoodsItem({ uom: 'KG', quantityScale: 3, quantity: 2, returnableQuantity: 2 })],
+      };
+      component.visible = true;
+      fixture.detectChanges();
+      const item = component.sale!.items[0];
+      component.toggleReturnLine(item, true);
+
+      component.updateReturnQuantity(item, '0.0001');
+
+      const errors = (component as unknown as Probe).validateReturnDrafts();
+      expect(errors.some((e) => e.includes('3 decimal'))).toBe(true);
+    });
+
+    it('steps by one unit of the line precision', async () => {
+      const { fixture, component } = await createComponent();
+      component.sale = {
+        ...makeSale(),
+        items: [makeGoodsItem({ uom: 'KG', quantityScale: 3, quantity: 2, returnableQuantity: 2 })],
+      };
+      component.visible = true;
+      fixture.detectChanges();
+      const item = component.sale!.items[0];
+      component.toggleReturnLine(item, true);
+      component.updateReturnQuantity(item, '0.1');
+
+      component.increaseReturnQuantity(item);
+
+      expect(component.getDraft(item.saleItemId)?.quantity).toBe(1.1);
+    });
+  });
 });

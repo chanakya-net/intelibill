@@ -85,6 +85,24 @@ describe('InventoryTableComponent', () => {
     expect(paginator).not.toBeNull();
   });
 
+  it('flags items whose unit needs review', () => {
+    component.items = [{ ...mockItems[0], unitReviewRequired: true }];
+    fixture.detectChanges();
+
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('[data-testid="unit-review-badge"]'),
+    ).not.toBeNull();
+  });
+
+  it('shows no review badge for a classified unit', () => {
+    component.items = [{ ...mockItems[0], unitReviewRequired: false }];
+    fixture.detectChanges();
+
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('[data-testid="unit-review-badge"]'),
+    ).toBeNull();
+  });
+
   it('emits selected items when selection changes', () => {
     const spy = vi.spyOn(component.selectedItemsChange, 'emit');
     component.onSelectionChange([mockItems[0]]);

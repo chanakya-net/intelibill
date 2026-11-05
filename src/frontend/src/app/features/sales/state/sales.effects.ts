@@ -7,7 +7,7 @@ import { CheckoutIntentService, classifyCheckoutSendFailure } from '../services/
 import { SaleService } from '../services/sale.service';
 import type { CheckoutIntent } from '../../../core/storage/checkout-intent-indexeddb.service';
 import { invoiceErrorKey } from '../utils/invoice-error-keys';
-import { saleQuantityErrorKey } from '../utils/sale-quantity-error';
+import { saleQuantityErrorKey, saleReturnQuantityErrorKey } from '../utils/sale-quantity-error';
 import { SalesActions } from './sales.actions';
 
 @Injectable()
@@ -89,6 +89,7 @@ export class SalesEffects {
             of(
               SalesActions.previewSaleReturnFailed({
                 errorMessage:
+                  saleReturnQuantityErrorKey(error) ||
                   error.error?.detail ||
                   error.error?.title ||
                   'errors.sales.returnPreviewFailed',
@@ -110,6 +111,7 @@ export class SalesEffects {
             of(
               SalesActions.recordSaleReturnFailed({
                 errorMessage:
+                  saleReturnQuantityErrorKey(error) ||
                   error.error?.detail ||
                   error.error?.title ||
                   'errors.sales.returnRecordFailed',

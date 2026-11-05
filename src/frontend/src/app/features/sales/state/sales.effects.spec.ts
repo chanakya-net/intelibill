@@ -307,6 +307,33 @@ describe('SalesEffects', () => {
     );
   });
 
+  it.each([
+    ['title', { title: 'SaleReturn.QuantityPrecisionExceeded', detail: 'English' }],
+    ['errors', { title: 'Validation.Failed', errors: [{ code: 'SaleReturn.QuantityPrecisionExceeded', description: 'English' }] }],
+  ])('maps a return precision refusal under %s on record and preview', async (_where, body) => {
+    const payload = {
+      payoutDestination: 2,
+      dueReductionOverrideAmount: null,
+      dueOverrideReason: null,
+      notes: null,
+      items: [{ saleItemId: 'line-1', quantity: 0.5, condition: 1 as const, approvedRefundAmount: 100, notes: 'x' }],
+    };
+    saleService.recordSaleReturn.mockReturnValue(throwError(() => ({ error: body })));
+    saleService.previewSaleReturn.mockReturnValue(throwError(() => ({ error: body })));
+
+    const recorded = firstValueFrom(effects.recordSaleReturn$.pipe(take(1)));
+    actions$.next(SalesActions.recordSaleReturnRequested({ saleId: 'sale-1', payload }));
+    await expect(recorded).resolves.toEqual(
+      SalesActions.recordSaleReturnFailed({ errorMessage: 'sales.returns.preview.validation.serverQuantityPrecision' })
+    );
+
+    const previewed = firstValueFrom(effects.previewSaleReturn$.pipe(take(1)));
+    actions$.next(SalesActions.previewSaleReturnRequested({ saleId: 'sale-1', payload }));
+    await expect(previewed).resolves.toEqual(
+      SalesActions.previewSaleReturnFailed({ errorMessage: 'sales.returns.preview.validation.serverQuantityPrecision' })
+    );
+  });
+
   it('dispatches voidSaleReturnSucceeded with refreshed sale detail on void success', async () => {
     const sale = makeSaleDto();
     const payload = { reason: 'Wrong return recorded' };

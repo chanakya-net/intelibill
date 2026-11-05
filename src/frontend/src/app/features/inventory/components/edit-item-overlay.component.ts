@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, OnInit, Output, inject, signal } from '@angular/core';
+import { Component, DestroyRef, EventEmitter, Input, OnInit, Output, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { Store } from '@ngrx/store';
 import { TranslocoPipe } from '@ngneat/transloco';
@@ -26,6 +26,11 @@ import { InventoryService } from '../services/inventory.service';
 import type { Item } from '../services/inventory.models';
 import type { BarcodeDetection } from '../../../core/services/barcode-detector.service';
 import { InputValidators } from '../../../shared/forms/input-validation';
+import {
+  ITEM_QUANTITY_SCALE_OPTIONS,
+  bindQuantityScaleToUnit,
+  quantityScaleToSend,
+} from './item-unit-scale';
 
 @Component({
   selector: 'app-edit-item-overlay',
@@ -50,6 +55,8 @@ export class EditItemOverlayComponent implements OnInit {
   private readonly formBuilder = inject(FormBuilder);
   private readonly store = inject(Store<RootState>);
   private readonly inventoryService = inject(InventoryService);
+  private readonly destroyRef = inject(DestroyRef);
+  readonly scaleOptions = ITEM_QUANTITY_SCALE_OPTIONS;
 
   @Input({ required: true }) item!: Item;
 
@@ -69,6 +76,7 @@ export class EditItemOverlayComponent implements OnInit {
     barcode: ['', InputValidators.requiredText(128)],
     description: ['', InputValidators.optionalText(1000)],
     uom: ['', InputValidators.requiredText(32)],
+    quantityScale: [0],
     hsnCode: ['', InputValidators.hsnSacCode()],
     defaultTaxRatePercent: [0, InputValidators.percentage()],
   });
@@ -81,6 +89,8 @@ export class EditItemOverlayComponent implements OnInit {
     this.form.controls.barcode.setValue(this.item.barcode);
     this.form.controls.description.setValue(this.item.description ?? '');
     this.form.controls.uom.setValue(this.item.uom);
+    this.form.controls.quantityScale.setValue(this.item.quantityScale);
+    bindQuantityScaleToUnit(this.form.controls.uom, this.form.controls.quantityScale, this.destroyRef);
     this.form.controls.hsnCode.setValue(this.item.hsnCode ?? '');
     this.form.controls.defaultTaxRatePercent.setValue(this.item.defaultTaxRatePercent);
   }
@@ -167,11 +177,21 @@ export class EditItemOverlayComponent implements OnInit {
           barcode: this.form.controls.barcode.value.trim(),
           description: this.nullableTrimmed(this.form.controls.description.value),
           uom: this.form.controls.uom.value.trim(),
+          ...this.scalePayload(),
           hsnCode: this.nullableTrimmed(this.form.controls.hsnCode.value),
           defaultTaxRatePercent: Number(this.form.controls.defaultTaxRatePercent.value),
         },
       }),
     );
+  }
+
+  /** Only a custom label sends its precision; omitted keeps the catalog's (or the current) one. */
+  private scalePayload(): { quantityScale?: number } {
+    const scale = quantityScaleToSend(
+      this.form.controls.uom.value,
+      this.form.controls.quantityScale.value,
+    );
+    return scale === null ? {} : { quantityScale: scale };
   }
 
   private nullableTrimmed(value: string): string | null {

@@ -7,6 +7,7 @@ import { firstValueFrom } from 'rxjs';
 
 import { AuthService } from '../../../core/auth/auth.service';
 import { StaleScopeError, isScopeChangeError } from '../../../core/context/scoped-request';
+import { hasProblemCode } from '../../../shared/utils/problem-code.util';
 import { ShopContextService } from '../../../core/context/shop-context.service';
 import type { ScopeOwner } from '../../../core/context/shop-scope';
 import { AudioService } from '../../../core/services/audio.service';
@@ -301,6 +302,8 @@ export class InventoryBatchPageComponent {
       const apiErrors = this.extractApiErrors(error);
       if (apiErrors.some((apiError) => this.getErrorCode(apiError) === 'Inventory.BatchLimitExceeded')) {
         this.showWarn('inventory.batchLimitReached');
+      } else if (hasProblemCode(error, 'Inventory.QuantityPrecisionExceeded')) {
+        this.showError('inventory.quantityPrecisionExceeded');
       } else {
         const detail = apiErrors.map((apiError) => this.getErrorDescription(apiError)).find(Boolean);
         detail ? this.showErrorWithDetail('inventory.saveFailed', detail) : this.showError('inventory.saveFailed');

@@ -78,6 +78,12 @@
     <section class="form-section">
       <p class="section-label">{{ 'inventory.productFormSections.classification' | transloco }}</p>
 
+      @if (item.unitReviewRequired) {
+        <div class="info-banner" role="note" data-testid="unit-review-note">
+          {{ 'inventory.unitReview.note' | transloco }}
+        </div>
+      }
+
       <div class="editor-grid">
         <div class="field">
           <label for="edit-product-uom">{{ 'inventory.uom' | transloco }}</label>
@@ -91,6 +97,25 @@
           @if (form.controls.uom.invalid && form.controls.uom.touched) {
             <small class="validation-message">{{ 'errors.items.uomRequired' | transloco }}</small>
           }
+        </div>
+
+        <div class="field">
+          <label for="edit-product-scale">{{ 'inventory.quantityScale.label' | transloco }}</label>
+          <select
+            id="edit-product-scale"
+            class="w-full p-inputtext"
+            formControlName="quantityScale"
+            [attr.aria-describedby]="'edit-product-scale-hint'"
+          >
+            @for (option of scaleOptions; track option.value) {
+              <option [ngValue]="option.value">{{ option.labelKey | transloco }}</option>
+            }
+          </select>
+          <small id="edit-product-scale-hint" class="field-hint">{{
+            (form.controls.quantityScale.disabled
+              ? 'inventory.quantityScale.catalogHint'
+              : 'inventory.quantityScale.customHint') | transloco
+          }}</small>
         </div>
 
         <div class="field">

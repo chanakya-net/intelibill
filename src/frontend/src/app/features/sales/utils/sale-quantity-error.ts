@@ -7,3 +7,10 @@ import { hasProblemCode } from '../../../shared/utils/problem-code.util';
 export function saleQuantityErrorKey(error: unknown): string | null {
   return hasProblemCode(error, 'Sale.QuantityPrecisionExceeded') ? 'sales.newSale.quantityPrecisionExceeded' : null;
 }
+
+/** The message for a return the server refused because a quantity needs more decimals than the line's unit allows. */
+export function saleReturnQuantityErrorKey(error: unknown): string | null {
+  return hasProblemCode(error, 'SaleReturn.QuantityPrecisionExceeded')
+    ? 'sales.returns.preview.validation.serverQuantityPrecision'
+    : null;
+}

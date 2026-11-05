@@ -815,7 +815,22 @@
     "receiptCostVersionConflict": "This receipt changed after you opened it. The list is refreshed; open it again to make your correction.",
     "receiptCostEvidenceMissing": "The original receipt amount for this batch is not on record, so its cost cannot be corrected.",
     "receiptCostUnchanged": "The revised total is the same as the current total; there is nothing to correct.",
-    "receiptCostError": "Failed to correct the receipt cost"
+    "receiptCostError": "Failed to correct the receipt cost",
+    "quantityScale": {
+      "label": "Quantity precision",
+      "whole": "Whole numbers",
+      "oneDecimal": "1 decimal place (0.1)",
+      "twoDecimals": "2 decimal places (0.01)",
+      "threeDecimals": "3 decimal places (0.001)",
+      "catalogHint": "Fixed by this unit.",
+      "customHint": "How finely this unit can be sold or counted."
+    },
+    "unitReview": {
+      "badge": "Review unit",
+      "badgeHint": "This item's unit was set before quantity precision existed. Open it to choose how its quantity may be divided.",
+      "note": "This item's unit was set before quantity precision existed. Choose the precision that fits its unit; it must cover the stock on hand."
+    },
+    "quantityPrecisionExceeded": "A quantity has more decimal places than its item's unit allows. Correct it and try again."
   },
   "hsn": {
     "suggestion": "HSN Suggestion",
@@ -1035,7 +1050,10 @@
       "itemNotFound": "The item no longer exists.",
       "barcodeAlreadyExists": "An item with this barcode already exists in this shop.",
       "preferredSupplierNotFound": "The preferred supplier was not found for this shop.",
-      "unableToUpdateItem": "Unable to update product right now. Please try again."
+      "unableToUpdateItem": "Unable to update product right now. Please try again.",
+      "unitChangeWithHistory": "This item already has stock or sales history, so its unit and precision cannot be changed.",
+      "quantityScaleInvalid": "Quantity precision must be between 0 and 3 decimal places.",
+      "quantityScaleMismatch": "This unit has a fixed precision. Leave the precision unchanged or use a custom unit name."
     },
     "shops": {
       "unableToLoadShops": "Unable to load your shops right now. Please try again.",
@@ -1707,7 +1725,11 @@
           "quantityRequired": "Enter quantity for {{ itemName }}.",
           "refundRequired": "Enter refund amount for {{ itemName }}.",
           "selectLine": "Select at least one return line.",
-          "selectedItem": "Selected item"
+          "selectedItem": "Selected item",
+          "tooPreciseWhole": "{{ itemName }}: quantity is in {{ unit }} and must be a whole number.",
+          "tooPreciseDecimals": "{{ itemName }}: quantity is in {{ unit }} and allows at most {{ decimals }} decimal places.",
+          "unitFallback": "this unit",
+          "serverQuantityPrecision": "A return quantity has more decimal places than its item's unit allows. Correct it and try again."
         }
       }
     },

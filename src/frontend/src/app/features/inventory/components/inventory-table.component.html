@@ -32,6 +32,9 @@
               <span class="text-slate-500 text-xs font-medium uppercase tracking-wider">{{
                 item.uom
               }}</span>
+              @if (item.unitReviewRequired) {
+                <span class="unit-review-badge" data-testid="unit-review-badge" [attr.title]="'inventory.unitReview.badgeHint' | transloco">{{ 'inventory.unitReview.badge' | transloco }}</span>
+              }
               <span class="text-slate-300">•</span>
               <code class="text-slate-400 text-xs font-mono truncate max-w-[80px]">{{
                 item.barcode
@@ -225,6 +228,9 @@
           <span class="text-slate-500 font-medium uppercase tracking-wider text-xs">{{
             item.uom
           }}</span>
+          @if (item.unitReviewRequired) {
+            <span class="unit-review-badge" data-testid="unit-review-badge" [attr.title]="'inventory.unitReview.badgeHint' | transloco">{{ 'inventory.unitReview.badge' | transloco }}</span>
+          }
         </td>
         <td>
           <span class="font-semibold text-slate-800">{{ item.currentStock }}</span>
