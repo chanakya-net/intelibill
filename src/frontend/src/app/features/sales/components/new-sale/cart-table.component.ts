@@ -7,7 +7,14 @@ import { FormsModule } from '@angular/forms';
 import { TagModule } from 'primeng/tag';
 import { InputTextModule } from 'primeng/inputtext';
 import { TranslocoPipe } from '@ngneat/transloco';
-import { CartItem, ServiceCartLine } from '../../../../features/sales/services/sale-cart-state.service';
+import { QuantityFieldComponent } from '../../../../shared/quantity/quantity-field.component';
+import { normalizeQuantity } from '../../../../shared/quantity/quantity-input';
+import { QUANTITY_SCALE_MAX } from '../../../../shared/quantity/quantity-units';
+import {
+  CartItem,
+  ServiceCartLine,
+  canDecreaseCartLine,
+} from '../../../../features/sales/services/sale-cart-state.service';
 import { SalePreviewDto, SalePreviewLineDto } from '../../../../features/sales/services/sale.models';
 
 export interface CartQuantityChangedEvent {
@@ -40,6 +47,7 @@ export interface InstantDiscountOption {
     ButtonModule,
     TagModule,
     InputTextModule,
+    QuantityFieldComponent,
     TranslocoPipe,
   ],
   templateUrl: './cart-table.component.html',
@@ -56,6 +64,7 @@ export class CartTableComponent {
   @Input() isLineDiscountEditorOpen = (_itemId: string): boolean => false;
   @Input() hasTax = (_item: CartItem) => false;
   @Input() canIncrease = (_item: CartItem) => false;
+  @Input() canDecrease = (item: CartItem): boolean => canDecreaseCartLine(item);
   @Input() getLineSubtotal = (_item: CartItem) => 0;
   @Input() getLineTaxAmount = (_item: CartItem) => 0;
   @Input() getLineTotal = (_item: CartItem) => 0;
@@ -79,12 +88,27 @@ export class CartTableComponent {
   @Output() cartItemDiscountValueChange = new EventEmitter<CartLineTextEvent>();
   @Output() lineDiscountEditorToggled = new EventEmitter<string>();
 
-  increase(itemId: string, currentQty: number): void {
-    this.quantityChanged.emit({ itemId, qty: currentQty + 1 });
+  /**
+   * A line keeps its row when its quantity or price changes, so the field being typed in, or the button tabbed to
+   * after it commits, keeps focus.
+   */
+  readonly trackLine = (_index: number, line: { readonly clientLineKey: string }): string => line.clientLineKey;
+
+  /** Plus is one unit more for every unit (one kilogram of a kg line). */
+  increase(item: CartItem): void {
+    this.quantityChanged.emit({ itemId: item.clientLineKey, qty: stepped(item.quantity + 1) });
   }
 
-  decrease(itemId: string, currentQty: number): void {
-    this.quantityChanged.emit({ itemId, qty: Math.max(1, currentQty - 1) });
+  /** Minus is one unit less, and only while at least one step of the unit would remain. */
+  decrease(item: CartItem): void {
+    if (this.canDecrease(item)) {
+      this.quantityChanged.emit({ itemId: item.clientLineKey, qty: stepped(item.quantity - 1) });
+    }
+  }
+
+  /** A quantity the line's field committed, exactly as entered. */
+  setQuantity(itemId: string, qty: number): void {
+    this.quantityChanged.emit({ itemId, qty });
   }
 
   remove(itemId: string): void {
@@ -120,4 +144,9 @@ export class CartTableComponent {
     const normalized = Number.isFinite(n) ? Number(n.toFixed(2)) : 0;
     this.serviceUnitPriceChanged.emit({ itemId, value: normalized });
   }
+}
+
+/** One unit more or less of a stored quantity, without binary float noise (1.1 - 1 is 0.1). */
+function stepped(value: number): number {
+  return normalizeQuantity(value, QUANTITY_SCALE_MAX);
 }

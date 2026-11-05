@@ -13,6 +13,12 @@ export interface SellableGoodsDto {
   readonly taxIncluded: boolean;
   readonly expiryDate: string | null;
   readonly hsnCode?: string | null;
+  /** The item's unit label. */
+  readonly uom?: string | null;
+  /** Decimal places a quantity of the item may carry; absent or null means whole units only. */
+  readonly quantityScale?: number | null;
+  /** Unit code its documents print, known for offline snapshot rows only; absent means NOS. */
+  readonly documentUnit?: string;
 }
 
 export interface SellableServiceDto {
@@ -300,6 +306,10 @@ export interface SaleItemDto {
   readonly returnableQuantity: number;
   readonly returnStatus: string;
   readonly hsnCode: string | null;
+  /** The item's unit label; null for a service line. */
+  readonly uom: string | null;
+  /** Decimal places a returned quantity of this line may carry (covers the sold quantity of a legacy line). */
+  readonly quantityScale: number;
 }
 
 export interface SaleReturnDto {

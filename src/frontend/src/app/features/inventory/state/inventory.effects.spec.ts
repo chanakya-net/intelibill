@@ -80,6 +80,9 @@ describe('InventoryEffects', () => {
         hsnCode: '0401',
         defaultTaxRatePercent: 5,
         defaultTaxIncluded: false,
+        unitCode: null,
+        quantityScale: 0,
+        unitReviewRequired: false,
       })
     );
 
@@ -116,6 +119,9 @@ describe('InventoryEffects', () => {
           hsnCode: '0401',
           defaultTaxRatePercent: 5,
           defaultTaxIncluded: false,
+          unitCode: null,
+          quantityScale: 0,
+          unitReviewRequired: false,
         },
       })
     );
@@ -168,6 +174,9 @@ describe('InventoryEffects', () => {
             hsnCode: null,
             defaultTaxRatePercent: 0,
             defaultTaxIncluded: false,
+            unitCode: null,
+            quantityScale: 0,
+            unitReviewRequired: false,
           },
         ],
         totalCount: 12,
@@ -215,6 +224,9 @@ describe('InventoryEffects', () => {
             hsnCode: null,
             defaultTaxRatePercent: 0,
             defaultTaxIncluded: false,
+            unitCode: null,
+            quantityScale: 0,
+            unitReviewRequired: false,
           },
         ],
         totalCount: 12,
@@ -261,6 +273,9 @@ describe('InventoryEffects', () => {
         hsnCode: null,
         defaultTaxRatePercent: 0,
         defaultTaxIncluded: false,
+        unitCode: null,
+        quantityScale: 0,
+        unitReviewRequired: false,
       })
     );
 
@@ -283,6 +298,9 @@ describe('InventoryEffects', () => {
           hsnCode: null,
           defaultTaxRatePercent: 0,
           defaultTaxIncluded: false,
+          unitCode: null,
+          quantityScale: 0,
+          unitReviewRequired: false,
         },
       })
     );

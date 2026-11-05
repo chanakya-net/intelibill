@@ -79,6 +79,8 @@ const makeSale = (overrides: Partial<SaleDto> = {}): SaleDto => ({
       returnedQuantity: 0,
       returnableQuantity: 2,
       returnStatus: 'Returnable',
+      uom: 'PCS',
+      quantityScale: 0,
     },
   ],
   returns: [],

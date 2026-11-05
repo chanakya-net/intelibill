@@ -90,7 +90,7 @@ export class NewSalePageComponent implements OnInit, OnDestroy {
     this.vm.openScanner();
   }
 
-  onBatchQuantityChanged(quantity: number | null): void {
+  onBatchQuantityChanged(quantity: number): void {
     this.vm.onBatchQuantityChanged(quantity);
   }
 

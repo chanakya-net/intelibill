@@ -1,3 +1,4 @@
+import { effect } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -154,6 +155,9 @@ describe('SaleCartStateService', () => {
       itemDiscountType: 0,
       itemDiscountValue: 0,
       hsnCode: null,
+      uom: 'PCS',
+      quantityScale: 0,
+      documentUnit: 'NOS',
     }];
 
     cartStorage.loadCart.mockResolvedValue(stored);
@@ -297,6 +301,197 @@ describe('SaleCartStateService', () => {
     });
   });
 
+  describe('quantities', () => {
+    /** Saves the cart whenever it changes, the way the new-sale page does. */
+    async function persistOnChange(service: SaleCartStateService): Promise<void> {
+      TestBed.runInInjectionContext(() =>
+        effect(() => {
+          service.cart();
+          service.serviceCart();
+          if (service.cartBootstrapped()) {
+            void service.persistCart();
+          }
+        }),
+      );
+      await service.loadPersistedCart(ownerA, 300_000);
+      TestBed.tick();
+      await Promise.resolve();
+      cartStorage.saveCart.mockClear();
+      cartStorage.clearCart.mockClear();
+    }
+
+    function countCartWrites(service: SaleCartStateService): () => number {
+      const update = vi.spyOn(service.cart, 'update');
+      const set = vi.spyOn(service.cart, 'set');
+      return () => update.mock.calls.length + set.mock.calls.length;
+    }
+
+    it('edit_quantity_sets_exact_fraction: a kg line takes 0.25 exactly in one draft write', async () => {
+      const service = setup();
+      await persistOnChange(service);
+      service.addBatchToCart(makeBatch({ uom: 'kg', quantityScale: 3, quantity: 5 }), 1);
+      TestBed.tick();
+      await Promise.resolve();
+      cartStorage.saveCart.mockClear();
+      const [line] = service.cart();
+
+      expect(service.setQuantity(line.clientLineKey, 0.25)).toBe('ok');
+      TestBed.tick();
+      await Promise.resolve();
+
+      expect(service.cart()[0].quantity).toBe(0.25);
+      expect(cartStorage.saveCart).toHaveBeenCalledTimes(1);
+      expect(cartStorage.saveCart.mock.calls[0][1][0]).toMatchObject({ quantity: 0.25, uom: 'kg', quantityScale: 3 });
+    });
+
+    it('large_change_is_one_operation: 1 to 40 is one state update', () => {
+      const service = setup();
+      service.addBatchToCart(makeBatch({ quantity: 50 }), 1);
+      const writes = countCartWrites(service);
+
+      expect(service.setQuantity(service.cart()[0].clientLineKey, 40)).toBe('ok');
+
+      expect(writes()).toBe(1);
+      expect(service.cart()[0].quantity).toBe(40);
+    });
+
+    it('invalid_numeric_input_is_rejected: half a piece leaves the line unchanged', () => {
+      const service = setup();
+      service.addBatchToCart(makeBatch({ uom: 'PCS', quantityScale: 0 }), 2);
+      const before = service.cart();
+      const writes = countCartWrites(service);
+
+      expect(service.setQuantity(before[0].clientLineKey, 0.5)).toBe('tooPrecise');
+
+      expect(service.cart()).toBe(before);
+      expect(writes()).toBe(0);
+    });
+
+    it('refuses more than the stock, a non-positive value, an unknown line and a no-op', () => {
+      const service = setup();
+      service.addBatchToCart(makeBatch({ quantity: 5, uom: 'kg', quantityScale: 3 }), 1);
+      const before = service.cart();
+      const key = before[0].clientLineKey;
+      const writes = countCartWrites(service);
+
+      expect(service.setQuantity(key, 5.001)).toBe('exceedsStock');
+      expect(service.setQuantity(key, 0)).toBe('notPositive');
+      expect(service.setQuantity(key, -1)).toBe('notPositive');
+      expect(service.setQuantity(key, Number.NaN)).toBe('notPositive');
+      expect(service.setQuantity(key, 0.0001)).toBe('tooPrecise');
+      expect(service.setQuantity(key, 1)).toBe('unchanged');
+      expect(service.setQuantity('missing', 1)).toBe('notFound');
+
+      expect(service.cart()).toBe(before);
+      expect(writes()).toBe(0);
+      expect(service.setQuantity(key, 5)).toBe('ok');
+    });
+
+    it('piece_increment_is_one: plus and minus move one unit for every unit', () => {
+      const service = setup();
+      service.addBatchToCart(makeBatch({ inventoryBatchId: 'pcs', uom: 'PCS', quantityScale: 0, quantity: 10 }), 1);
+      service.addBatchToCart(makeBatch({ inventoryBatchId: 'kg', uom: 'kg', quantityScale: 3, quantity: 10 }), 0.25);
+
+      service.onIncreaseCartItem(0);
+      service.onIncreaseCartItem(1);
+      expect(service.cart().map((line) => line.quantity)).toEqual([2, 1.25]);
+
+      service.onIncreaseCartItem(1);
+      service.onDecreaseCartItem(1);
+      service.onDecreaseCartItem(1);
+      expect(service.cart()[1].quantity).toBe(0.25);
+      service.onDecreaseCartItem(1);
+      expect(service.cart()[1].quantity).toBe(0.25);
+    });
+
+    it('minus stays available while one unit less still leaves at least one step', () => {
+      const service = setup();
+      service.cart.set([
+        makeCartItem({ clientLineKey: 'a', quantity: 1, quantityScale: 0 }),
+        makeCartItem({ clientLineKey: 'b', quantity: 2, quantityScale: 0 }),
+        makeCartItem({ clientLineKey: 'c', quantity: 1.001, quantityScale: 3 }),
+        makeCartItem({ clientLineKey: 'd', quantity: 1, quantityScale: 3 }),
+        makeCartItem({ clientLineKey: 'e', quantity: 1.1, quantityScale: 1 }),
+        makeCartItem({ clientLineKey: 'f', quantity: 0.5, quantityScale: 3 }),
+      ]);
+
+      expect([0, 1, 2, 3, 4, 5].map((index) => service.canDecreaseCartItem(index))).toEqual([
+        false, true, true, false, true, false,
+      ]);
+      expect(service.canDecreaseCartItem(9)).toBe(false);
+
+      service.onDecreaseCartItem(4);
+      expect(service.cart()[4].quantity).toBe(0.1);
+    });
+
+    it('plus is offered only when one more unit is in stock', () => {
+      const service = setup();
+
+      expect(service.canIncreaseCartItem(makeCartItem({ quantity: 0.5, availableQuantity: 1.2, quantityScale: 3 }))).toBe(false);
+      expect(service.canIncreaseCartItem(makeCartItem({ quantity: 0.5, availableQuantity: 1.5, quantityScale: 3 }))).toBe(true);
+      expect(service.canIncreaseCartItem(makeCartItem({ quantity: 4, availableQuantity: 5 }))).toBe(true);
+      expect(service.canIncreaseCartItem(makeCartItem({ quantity: 5, availableQuantity: 5 }))).toBe(false);
+    });
+
+    it('adds 0.1 then 0.2 of one batch as exactly 0.3', () => {
+      const service = setup();
+      const batch = makeBatch({ uom: 'kg', quantityScale: 1, quantity: 0.3 });
+
+      service.addBatchToCart(batch, 0.1);
+      const second = service.addBatchToCart(batch, 0.2);
+
+      expect(second.added).toBe(true);
+      expect(service.cart()).toHaveLength(1);
+      expect(service.cart()[0].quantity).toBe(0.3);
+    });
+
+    it('carries the unit, precision and document unit of the batch onto the line', () => {
+      const service = setup();
+
+      service.addBatchToCart(makeBatch({ inventoryBatchId: 'kg', uom: 'kg', quantityScale: 3, documentUnit: 'KGS' }), 1);
+      service.addBatchToCart(makeBatch({ inventoryBatchId: 'old' }), 1);
+
+      expect(service.cart()[0]).toMatchObject({ uom: 'kg', quantityScale: 3, documentUnit: 'KGS' });
+      expect(service.cart()[1]).toMatchObject({ uom: '', quantityScale: 0, documentUnit: 'NOS' });
+    });
+
+    it('refuses to add a quantity the unit cannot hold, without truncating it', () => {
+      const service = setup();
+
+      expect(service.addBatchToCart(makeBatch({ uom: 'PCS', quantityScale: 0 }), 0.5)).toEqual({
+        added: false,
+        addedLineKey: null,
+        refusal: 'tooPrecise',
+      });
+      expect(service.addBatchToCart(makeBatch(), 0)).toMatchObject({ added: false, refusal: 'notPositive' });
+      expect(service.addBatchToCart(makeBatch({ quantity: 5 }), 6)).toMatchObject({ added: false, refusal: 'exceedsStock' });
+      expect(service.cart()).toEqual([]);
+    });
+
+    it('keeps service quantities whole, refusing a fraction instead of truncating it', () => {
+      const service = setup();
+      const key = service.addServiceToCart({
+        kind: 'Service',
+        serviceId: 'svc-1',
+        code: 'S1',
+        name: 'Repair',
+        description: null,
+        price: 100,
+        hsnCode: null,
+        taxRatePercent: 18,
+        taxIncluded: false,
+      });
+
+      expect(service.setServiceQuantity(key, 2.5)).toBe('tooPrecise');
+      expect(service.setServiceQuantity(key, 0)).toBe('notPositive');
+      expect(service.serviceCart()[0].quantity).toBe(1);
+      expect(service.setServiceQuantity(key, 3)).toBe('ok');
+      expect(service.serviceCart()[0].quantity).toBe(3);
+      expect(service.setServiceQuantity(key, 3)).toBe('unchanged');
+      expect(service.setServiceQuantity('missing', 3)).toBe('notFound');
+    });
+  });
+
   it('calculates line totals for included and excluded tax prices', () => {
     const service = setup();
     const included = makeCartItem({
@@ -354,6 +549,9 @@ describe('SaleCartStateService', () => {
       itemDiscountType: 0,
       itemDiscountValue: 0,
       hsnCode: null,
+      uom: 'PCS',
+      quantityScale: 0,
+      documentUnit: 'NOS',
       ...overrides,
     };
   }

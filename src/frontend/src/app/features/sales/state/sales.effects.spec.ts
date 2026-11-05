@@ -371,6 +371,21 @@ describe('SalesEffects', () => {
     );
   });
 
+  it('explains a quantity the server refuses for its unit instead of showing the server text', async () => {
+    saleService.recordSale.mockReturnValue(
+      throwError(() => ({
+        error: { title: 'Sale.QuantityPrecisionExceeded', detail: "Quantity for 'X' is sold in PCS and allows no decimals." },
+      })),
+    );
+
+    const output = firstValueFrom(effects.recordSale$.pipe(take(1)));
+    actions$.next(SalesActions.recordSaleRequested({ payload: intentPayload }));
+
+    await expect(output).resolves.toEqual(
+      SalesActions.recordSaleFailed({ errorMessage: 'sales.newSale.quantityPrecisionExceeded' }),
+    );
+  });
+
   it('dispatches loadProfitLossReportSucceeded on success', async () => {
     const queryParams: ProfitLossReportQueryParams = {
       from: '2026-05-01',

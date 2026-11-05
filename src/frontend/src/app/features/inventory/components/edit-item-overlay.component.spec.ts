@@ -65,6 +65,9 @@ describe('EditItemOverlayComponent', () => {
     hsnCode: '10063090',
     defaultTaxRatePercent: 5,
     defaultTaxIncluded: false,
+    unitCode: null,
+    quantityScale: 0,
+    unitReviewRequired: false,
   };
 
   function setup(item: Item = mockItem): EditItemOverlayComponent {

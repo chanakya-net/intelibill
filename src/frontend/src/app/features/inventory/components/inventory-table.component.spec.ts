@@ -25,6 +25,9 @@ describe('InventoryTableComponent', () => {
       hsnCode: null,
       defaultTaxRatePercent: 0,
       defaultTaxIncluded: false,
+      unitCode: null,
+      quantityScale: 0,
+      unitReviewRequired: false,
     },
   ];
 

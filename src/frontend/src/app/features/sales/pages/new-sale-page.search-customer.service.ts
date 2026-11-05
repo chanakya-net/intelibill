@@ -5,6 +5,7 @@ import { BarcodeDetection } from '../../../core/services/barcode-detector.servic
 import { AvailableBatchDto } from '../../inventory/services/inventory.models';
 import { CreditNoteRedemptionRequest, SellableDto } from '../services/sale.models';
 import { CustomerDto } from '../components/new-sale/sale-customer-section.component';
+import { batchToGoodsSellable } from '../utils/sellable-goods.mapper';
 import type { Subscription } from 'rxjs';
 
 export abstract class NewSalePageSearchCustomerService extends NewSalePageLifecycleService {
@@ -55,20 +56,18 @@ export abstract class NewSalePageSearchCustomerService extends NewSalePageLifecy
     }
   }
 
-  onBatchQuantityChanged(quantity: number | null): void {
-    const normalized = Number(quantity ?? 1);
-    this.batchPickerForm.patchValue({ quantity: Number.isFinite(normalized) ? Math.max(1, normalized) : 1 });
-    this.batchPickerQuantity.set(this.batchPickerForm.controls.quantity.value);
+  /** The picker's quantity field committed a valid quantity; it is kept exactly as typed. */
+  onBatchQuantityChanged(quantity: number): void {
+    this.batchPickerForm.patchValue({ quantity });
+    this.batchPickerQuantity.set(quantity);
   }
 
   onBatchPickerBatchSelected(sellable: SellableDto): void {
-    const normalizedQuantity = Number.isFinite(Number(this.batchPickerQuantity())) ? Math.max(1, Math.trunc(Number(this.batchPickerQuantity()))) : 1;
     this.selectedSellable.set(sellable);
     this.batchPickerForm.patchValue({
       batchNumber: sellable.kind === 'Goods' ? sellable.batchNumber : sellable.code,
-      quantity: normalizedQuantity,
+      quantity: this.batchPickerQuantity(),
     });
-    this.batchPickerQuantity.set(this.batchPickerForm.controls.quantity.value);
     this.onAddToCart();
   }
 
@@ -87,20 +86,7 @@ export abstract class NewSalePageSearchCustomerService extends NewSalePageLifecy
       return;
     }
 
-    this.onBatchPickerBatchSelected({
-      kind: 'Goods',
-      inventoryBatchId: batch.inventoryBatchId,
-      barcode: batch.barcode,
-      itemName: batch.itemName,
-      batchNumber: batch.batchNumber,
-      quantity: batch.quantity,
-      salesPrice: batch.salesPrice,
-      mrp: batch.mrp,
-      taxRatePercent: batch.taxRatePercent,
-      taxIncluded: batch.taxIncluded,
-      expiryDate: batch.expiryDate,
-      hsnCode: batch.hsnCode,
-    });
+    this.onBatchPickerBatchSelected(batchToGoodsSellable(batch));
   }
 
   onBatchPickerClosed(): void {

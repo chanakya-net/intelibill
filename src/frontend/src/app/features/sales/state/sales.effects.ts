@@ -7,6 +7,7 @@ import { CheckoutIntentService, classifyCheckoutSendFailure } from '../services/
 import { SaleService } from '../services/sale.service';
 import type { CheckoutIntent } from '../../../core/storage/checkout-intent-indexeddb.service';
 import { invoiceErrorKey } from '../utils/invoice-error-keys';
+import { saleQuantityErrorKey } from '../utils/sale-quantity-error';
 import { SalesActions } from './sales.actions';
 
 @Injectable()
@@ -204,5 +205,5 @@ export class SalesEffects {
 /** GST document refusals get a message that says what to fix; anything else keeps the server's own text. */
 function recordSaleErrorMessage(error: unknown): string {
   const body = (error as { error?: { title?: string; detail?: string } } | null)?.error;
-  return invoiceErrorKey(body?.title) ?? (body?.detail || 'errors.sales.recordFailed');
+  return invoiceErrorKey(body?.title) ?? saleQuantityErrorKey(error) ?? (body?.detail || 'errors.sales.recordFailed');
 }

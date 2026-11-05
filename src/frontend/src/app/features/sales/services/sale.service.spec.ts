@@ -214,6 +214,8 @@ describe('SaleService', () => {
           returnedQuantity: 0,
           returnableQuantity: 5,
           returnStatus: 'NotReturned',
+          uom: 'PCS',
+          quantityScale: 0,
         },
       ],
       returns: [],

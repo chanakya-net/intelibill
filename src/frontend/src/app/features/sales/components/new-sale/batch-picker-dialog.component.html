@@ -35,7 +35,7 @@
               <div class="batch-option-price">
                 <p>₹{{ getDisplayPrice(sellable) | number: '1.2-2' }}</p>
                 @if (isGoods(sellable)) {
-                  <p>{{ 'sales.newSale.stock' | transloco }}: {{ sellable.quantity }}</p>
+                  <p>{{ 'sales.newSale.stock' | transloco }}: {{ sellable.quantity }} {{ sellable.uom ?? '' }}</p>
                 }
               </div>
             </div>
@@ -46,16 +46,17 @@
       @if (selectedBatch; as selected) {
         <div class="batch-picker-selection">
           <div class="flex flex-col gap-1">
-            <label class="text-xs text-slate-500">{{ 'sales.newSale.quantity' | transloco }}</label>
-            <p-inputNumber
-              [(ngModel)]="quantity"
-              (ngModelChange)="onQuantityChanged($event)"
-              [min]="1"
-              [max]="isGoods(selected) ? selected.quantity : undefined"
-              [showButtons]="true"
-              buttonLayout="horizontal"
-              incrementButtonIcon="pi pi-plus"
-              decrementButtonIcon="pi pi-minus"
+            <label class="text-xs text-slate-500" for="batch-picker-quantity">{{
+              'sales.newSale.quantity' | transloco
+            }}</label>
+            <app-quantity-field
+              inputId="batch-picker-quantity"
+              [value]="quantity"
+              [scale]="quantityScaleOf(selected)"
+              [max]="isGoods(selected) ? selected.quantity : null"
+              [unitLabel]="unitLabelOf(selected)"
+              [ariaLabel]="'sales.newSale.quantityOf' | transloco: { item: getDisplayName(selected) }"
+              (committed)="onQuantityChanged($event)"
             />
           </div>
           <p-button

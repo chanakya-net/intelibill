@@ -85,7 +85,7 @@ test.describe('new-sale-pos', () => {
       await openPos(page);
 
       await addBatchAt(page, 3, 3);
-      await expect(page.locator('.qty-value')).toHaveText('3');
+      await expect(page.locator('.qty-controls app-quantity-field input')).toHaveValue('3');
       await expect(page.locator('.cart-table')).toBeVisible();
 
       const customerName = page.locator('app-sale-customer-section input').first();
@@ -164,7 +164,7 @@ test.describe('new-sale-pos', () => {
       }
       await expect(page.locator('.cart-item-name')).toHaveCount(8);
       await page.locator('.qty-controls').first().getByRole('button').nth(1).click();
-      await expect(page.locator('.qty-value').first()).toHaveText('2');
+      await expect(page.locator('.qty-controls app-quantity-field input').first()).toHaveValue('2');
       await page.locator('app-sale-customer-section input[type="tel"]').fill('bad-phone');
       await page.locator('app-sale-customer-section input[type="tel"]').blur();
       await expect(page.locator('app-sale-customer-section .error-hint')).toBeVisible();

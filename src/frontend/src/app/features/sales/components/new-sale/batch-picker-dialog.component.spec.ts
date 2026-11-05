@@ -54,6 +54,65 @@ describe('BatchPickerDialogComponent', () => {
     expect(spy).toHaveBeenCalledWith(5);
   });
 
+  function renderWithSelection(selected: SellableGoodsDto) {
+    TestBed.configureTestingModule({
+      imports: [BatchPickerDialogComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
+    });
+
+    const fixture = TestBed.createComponent(BatchPickerDialogComponent);
+    const component = fixture.componentInstance;
+    const selectedSpy = vi.fn();
+    const quantitySpy = vi.fn();
+    component.batchSelected.subscribe(selectedSpy);
+    component.quantityChanged.subscribe(quantitySpy);
+    component.visible = true;
+    component.batches = [selected];
+    component.onSelectBatch(selected);
+    fixture.detectChanges();
+
+    const input = document.querySelector('app-quantity-field input') as HTMLInputElement;
+    const type = (text: string): void => {
+      input.value = text;
+      input.dispatchEvent(new Event('input'));
+    };
+    return { fixture, component, input, type, selectedSpy, quantitySpy };
+  }
+
+  it('takes an exact fraction of a weighed batch', () => {
+    const kg: SellableGoodsDto = { ...batch, uom: 'kg', quantityScale: 3, quantity: 2.5 };
+    const { component, input, type, selectedSpy, quantitySpy } = renderWithSelection(kg);
+
+    expect(input.getAttribute('inputmode')).toBe('decimal');
+    type('0.25');
+    input.dispatchEvent(new Event('blur'));
+    component.onAddToCart();
+
+    expect(quantitySpy).toHaveBeenCalledWith(0.25);
+    expect(selectedSpy).toHaveBeenCalledWith(kg);
+  });
+
+  it('adds nothing while the quantity typed is one the unit cannot hold', () => {
+    const pcs: SellableGoodsDto = { ...batch, uom: 'PCS', quantityScale: 0 };
+    const { fixture, component, input, type, selectedSpy, quantitySpy } = renderWithSelection(pcs);
+
+    type('0.5');
+    component.onAddToCart();
+    fixture.detectChanges();
+
+    expect(quantitySpy).not.toHaveBeenCalled();
+    expect(selectedSpy).not.toHaveBeenCalled();
+    expect(input.getAttribute('aria-invalid')).toBe('true');
+  });
+
+  it('adds nothing beyond the stock of the selected batch', () => {
+    const { component, type, selectedSpy } = renderWithSelection({ ...batch, quantity: 3 });
+
+    type('4');
+    component.onAddToCart();
+
+    expect(selectedSpy).not.toHaveBeenCalled();
+  });
+
   it('emits closed on hidden event', () => {
     TestBed.configureTestingModule({
       imports: [BatchPickerDialogComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],

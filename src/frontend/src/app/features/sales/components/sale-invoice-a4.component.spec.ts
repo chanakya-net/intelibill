@@ -46,6 +46,8 @@ describe('SaleInvoiceA4Component', () => {
     returnedQuantity: 0,
     returnableQuantity: 2,
     returnStatus: 'Returnable',
+    uom: 'PCS',
+    quantityScale: 0,
     ...overrides,
   });
 

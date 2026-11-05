@@ -37,6 +37,13 @@ export interface OfflineSellableBatchSnapshot {
   readonly taxIncluded: boolean;
   readonly purchaseTaxIncluded: boolean;
   readonly expiryDate?: string | null;
+  /**
+   * Decimal places a quantity of the item may carry. Absent from snapshots taken before units: such a batch sells
+   * whole units only until the snapshot is refreshed.
+   */
+  readonly quantityScale?: number;
+  /** Unit code its documents print (UQC); absent from snapshots taken before units, which print NOS. */
+  readonly documentUnit?: string;
 }
 
 export interface OfflineCustomerLiteSnapshot {

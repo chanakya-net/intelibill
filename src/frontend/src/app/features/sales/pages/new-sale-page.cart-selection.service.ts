@@ -1,57 +1,44 @@
 import { NewSalePageSearchCustomerService } from './new-sale-page.search-customer.service';
+import { QUANTITY_REFUSAL_KEYS } from './new-sale-page.state.service';
 import { AvailableBatchDto } from '../../inventory/services/inventory.models';
 import { PAYMENT_METHOD_VALUES, PaymentMethod } from '../services/sale.models';
+import type { QuantityChangeResult } from '../services/sale-cart-state.service';
 import {
   CartLineNumberEvent,
   CartLineTextEvent,
   CartQuantityChangedEvent,
 } from '../components/new-sale/cart-table.component';
+import { batchToGoodsSellable } from '../utils/sellable-goods.mapper';
+
+const QUANTITY_REFUSAL_MESSAGES: ReadonlySet<string> = new Set(Object.values(QUANTITY_REFUSAL_KEYS));
 
 export abstract class NewSalePageCartSelectionService extends NewSalePageSearchCustomerService {
   onSelectBatch(batch: AvailableBatchDto): void {
-    this.selectedSellable.set({
-      kind: 'Goods',
-      inventoryBatchId: batch.inventoryBatchId,
-      barcode: batch.barcode,
-      itemName: batch.itemName,
-      batchNumber: batch.batchNumber,
-      quantity: batch.quantity,
-      salesPrice: batch.salesPrice,
-      mrp: batch.mrp,
-      taxRatePercent: batch.taxRatePercent,
-      taxIncluded: batch.taxIncluded,
-      expiryDate: batch.expiryDate,
-      hsnCode: batch.hsnCode,
-    });
+    this.selectedSellable.set(batchToGoodsSellable(batch));
     this.batchPickerForm.patchValue({ batchNumber: batch.batchNumber, quantity: 1 });
   }
 
+  /** The cart table asks for an exact quantity (typed, or one unit more or less): one change, or a refusal. */
   onCartTableQuantityChanged(event: CartQuantityChangedEvent): void {
-    const index = this.cart().findIndex((item) => item.clientLineKey === event.itemId);
-    if (index < 0) {
+    if (!this.cart().some((item) => item.clientLineKey === event.itemId)) {
       this.onServiceItemQuantityChange(event.itemId, event.qty);
       return;
     }
 
-    const item = this.cart()[index];
-    const target = Math.max(1, Math.trunc(Number(event.qty ?? item.quantity)));
-    if (!Number.isFinite(target)) {
-      return;
-    }
+    this.reportQuantityChange(this.cartState.setQuantity(event.itemId, event.qty));
+  }
 
-    if (target > item.quantity) {
-      const canIncrease = target - item.quantity;
-      for (let i = 0; i < canIncrease; i += 1) {
-        this.onIncreaseCartItem(index);
+  /** Shows why a quantity was refused (the line is unchanged); a change that lands clears that message. */
+  protected reportQuantityChange(result: QuantityChangeResult): void {
+    if (result === 'ok' || result === 'unchanged') {
+      if (QUANTITY_REFUSAL_MESSAGES.has(this.batchSearchError())) {
+        this.batchSearchError.set('');
       }
       return;
     }
 
-    if (target < item.quantity) {
-      const canDecrease = item.quantity - target;
-      for (let i = 0; i < canDecrease; i += 1) {
-        this.onDecreaseCartItem(index);
-      }
+    if (result !== 'notFound') {
+      this.batchSearchError.set(this.quantityRefusalKey(result));
     }
   }
 

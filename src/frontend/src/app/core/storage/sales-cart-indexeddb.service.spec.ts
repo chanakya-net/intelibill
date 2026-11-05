@@ -100,6 +100,55 @@ describe('migrateLegacyCartItem', () => {
     expect(result).not.toBeNull();
     expect(result!.hsnCode).toBeNull();
   });
+
+  it('restores a line saved before units as whole units, keeping the line', () => {
+    const item = {
+      inventoryBatchId: 'batch-1',
+      clientLineKey: 'line-1',
+      barcode: 'BC-1',
+      itemName: 'Rice',
+      batchNumber: 'B-01',
+      quantity: 2,
+      availableQuantity: 5,
+      salesPrice: 50,
+      mrp: 60,
+      taxRatePercent: 0,
+      taxIncluded: false,
+      costPrice: 0,
+      itemDiscountType: 0,
+      itemDiscountValue: 0,
+      hsnCode: null,
+    };
+
+    expect(migrateLegacyCartItem(item)).toEqual({ ...item, uom: '', quantityScale: 0, documentUnit: 'NOS' });
+  });
+
+  it('keeps the unit, precision and document unit of a line saved with them', () => {
+    const item = {
+      inventoryBatchId: 'batch-1',
+      quantity: 0.25,
+      availableQuantity: 5,
+      uom: 'kg',
+      quantityScale: 3,
+      documentUnit: 'KGS',
+    };
+
+    expect(migrateLegacyCartItem(item)).toMatchObject({
+      quantity: 0.25,
+      uom: 'kg',
+      quantityScale: 3,
+      documentUnit: 'KGS',
+    });
+  });
+
+  it('treats an unreadable precision or document unit as whole units printed NOS', () => {
+    for (const quantityScale of [4, -1, 1.5, '3', null]) {
+      expect(
+        migrateLegacyCartItem({ inventoryBatchId: 'batch-1', quantityScale, documentUnit: '' }),
+        String(quantityScale),
+      ).toMatchObject({ quantityScale: 0, documentUnit: 'NOS' });
+    }
+  });
 });
 
 describe('SalesCartIndexedDbService', () => {
@@ -152,6 +201,23 @@ describe('SalesCartIndexedDbService', () => {
     );
     expect(result[0].itemDiscountType).toBe(0);
     expect(result[0].itemDiscountValue).toBe(0);
+  });
+
+  it('restores a draft saved before units, as whole units, without dropping it', async () => {
+    const { uom: _uom, quantityScale: _scale, documentUnit: _unit, ...rowBeforeUnits } = makeRow('batch-1');
+    db.seed({ ...recordFor(ownerA), items: [rowBeforeUnits] });
+
+    await expect(service.loadCart(ownerA, 60_000)).resolves.toEqual([
+      { ...rowBeforeUnits, uom: '', quantityScale: 0, documentUnit: 'NOS' },
+    ]);
+    expect(db.has('user-1|shop-a')).toBe(true);
+  });
+
+  it('saves and restores an exact fractional quantity with its unit', async () => {
+    const row = { ...makeRow('batch-kg'), quantity: 0.25, uom: 'kg', quantityScale: 3, documentUnit: 'KGS' };
+    await service.saveCart(ownerA, [row]);
+
+    await expect(service.loadCart(ownerA, 60_000)).resolves.toEqual([row]);
   });
 
   it('drops legacy cart rows without inventoryBatchId and clears storage', async () => {
@@ -245,6 +311,9 @@ describe('SalesCartIndexedDbService', () => {
       itemDiscountType: 0,
       itemDiscountValue: 0,
       hsnCode: '0902',
+      uom: 'PCS',
+      quantityScale: 0,
+      documentUnit: 'NOS',
     };
   }
 

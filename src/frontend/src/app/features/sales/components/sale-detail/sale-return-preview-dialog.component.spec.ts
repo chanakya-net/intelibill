@@ -66,6 +66,8 @@ const makeServiceItem = (overrides: Partial<SaleItemDto> = {}): SaleItemDto => (
   returnedQuantity: 0,
   returnableQuantity: 1,
   returnStatus: 'NotReturned',
+  uom: null,
+  quantityScale: 0,
   hsnCode: null,
   ...overrides,
 });
@@ -95,6 +97,8 @@ const makeGoodsItem = (overrides: Partial<SaleItemDto> = {}): SaleItemDto => ({
   returnedQuantity: 0,
   returnableQuantity: 2,
   returnStatus: 'NotReturned',
+  uom: 'PCS',
+  quantityScale: 0,
   hsnCode: null,
   ...overrides,
 });

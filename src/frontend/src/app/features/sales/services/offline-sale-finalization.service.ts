@@ -8,6 +8,8 @@ import { calculateOfflineFrozenSale } from './offline-sale-pricing-calculator';
 import { OfflineFrozenSalePricing, OfflineSalePricingInput, OfflineSalePricingLineInput, OfflineQueuedSalePayload } from './offline-sale-core.types';
 import { OfflineSalesQueueIndexedDbService } from './offline-sales-queue-indexeddb.service';
 import { OfflineSalesShadowStockIndexedDbService } from './offline-sales-shadow-stock-indexeddb.service';
+import { fitsQuantityScale, normalizeQuantity } from '../../../shared/quantity/quantity-input';
+import { QUANTITY_SCALE_MAX } from '../../../shared/quantity/quantity-units';
 
 export interface OfflineFinalizeRequest {
   readonly shopId: string;
@@ -29,7 +31,12 @@ export type OfflineFinalizeFailureReason =
   /** The sale cannot be issued as a GST document (the server's Invoice.* code says why). */
   | 'DOCUMENT_UNAVAILABLE'
   /** The selected customer is not in the offline snapshot, so the device cannot print their particulars. */
-  | 'CUSTOMER_UNAVAILABLE';
+  | 'CUSTOMER_UNAVAILABLE'
+  /**
+   * A quantity needs more decimals than the snapshot's unit allows: a batch from a snapshot taken before units sells
+   * whole units only until the snapshot is refreshed online.
+   */
+  | 'QUANTITY_PRECISION_EXCEEDED';
 
 export type OfflineFinalizeResult =
   | { readonly ok: true; readonly payload: OfflineQueuedSalePayload; readonly remainingInvoiceCount: number }
@@ -61,7 +68,17 @@ export class OfflineSaleFinalizationService {
     const requestedByBatch = new Map<string, number>();
     for (const line of request.pricingInput.lines) {
       if (line.lineType === 'service') continue;
-      requestedByBatch.set(line.inventoryBatchId, (requestedByBatch.get(line.inventoryBatchId) ?? 0) + line.quantity);
+      const batch = byBatchId.get(line.inventoryBatchId);
+      if (!batch) return { ok: false, reason: 'MISSING_CATALOG_ITEM' };
+      // A non-finite quantity is refused as an invalid amount when the sale is priced.
+      if (Number.isFinite(line.quantity) && !fitsQuantityScale(line.quantity, batch.quantityScale ?? 0)) {
+        return { ok: false, reason: 'QUANTITY_PRECISION_EXCEEDED' };
+      }
+      // Lines of one batch add up exactly: 0.1 + 0.2 is 0.3, not 0.30000000000000004.
+      requestedByBatch.set(
+        line.inventoryBatchId,
+        normalizeQuantity((requestedByBatch.get(line.inventoryBatchId) ?? 0) + line.quantity, QUANTITY_SCALE_MAX),
+      );
     }
 
     for (const [inventoryBatchId, requestedQuantity] of requestedByBatch) {
@@ -93,7 +110,7 @@ export class OfflineSaleFinalizationService {
 
     let priced: OfflineFrozenSalePricing;
     try {
-      priced = calculateOfflineFrozenSale(pricingInputFromSnapshot);
+      priced = withDocumentUnits(calculateOfflineFrozenSale(pricingInputFromSnapshot), byBatchId);
     } catch (error) {
       // A non-finite quantity, price or discount has no place in the integer contract; nothing is consumed yet.
       if (error instanceof RangeError) return { ok: false, reason: 'INVALID_AMOUNT' };
@@ -251,4 +268,22 @@ export class OfflineSaleFinalizationService {
       hsnCode: batch.hsnCode ?? null,
     };
   }
+}
+
+/**
+ * Freezes on each goods line the unit its document prints, from the snapshot like every other catalog value of the
+ * line; a batch from a snapshot taken before units prints NOS.
+ */
+function withDocumentUnits(
+  pricing: OfflineFrozenSalePricing,
+  byBatchId: ReadonlyMap<string, OfflineSellableBatchSnapshot>,
+): OfflineFrozenSalePricing {
+  return {
+    ...pricing,
+    lines: pricing.lines.map((line) =>
+      line.lineType === 'service'
+        ? line
+        : { ...line, documentUnit: byBatchId.get(line.inventoryBatchId)?.documentUnit ?? 'NOS' },
+    ),
+  };
 }

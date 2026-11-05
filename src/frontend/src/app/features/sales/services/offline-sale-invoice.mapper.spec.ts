@@ -102,9 +102,58 @@ describe('mapOfflineQueuedSaleToSaleDto', () => {
           returnableQuantity: 3,
           returnStatus: 'None',
           hsnCode: '1001',
+          uom: null,
+          quantityScale: 0,
         },
       ],
     });
+  });
+
+  it('carries the printed unit and the precision a queued line was sold in', () => {
+    const dto = mapOfflineQueuedSaleToSaleDto({
+      clientSaleId: 'client-sale-3',
+      idempotencyKey: 'offline-sale-client-sale-3',
+      shopId: 'shop-1',
+      deviceId: 'device-1',
+      invoiceNumber: 'A/2627/000003',
+      soldAt: '2026-11-05T10:00:00Z',
+      paymentMethod: 1,
+      customerId: null,
+      customerName: null,
+      customerPhone: null,
+      pricing: {
+        lines: [
+          {
+            clientLineId: 'line-kg',
+            inventoryBatchId: 'batch-kg',
+            itemId: 'item-kg',
+            barcode: 'RICE',
+            itemName: 'Rice',
+            batchNumber: 'B-1',
+            quantity: 0.25,
+            salesPrice: 400,
+            mrp: 400,
+            costPrice: 300,
+            taxRatePercent: 0,
+            taxIncluded: false,
+            hsnCode: null,
+            documentUnit: 'KGS',
+            preTaxAmount: 100,
+            itemDiscountAmount: 0,
+            saleDiscountAmount: 0,
+            taxableAmount: 100,
+            taxAmount: 0,
+            lineTotal: 100,
+            configuredRuleId: null,
+            lineType: 'goods',
+            serviceId: null,
+          },
+        ],
+        totals: { totalBeforeDiscount: 100, totalDiscount: 0, totalTax: 0, grandTotal: 100, paidAmount: 100, dueAmount: 0 },
+      },
+    });
+
+    expect(dto.items[0]).toMatchObject({ quantity: 0.25, uom: 'KGS', quantityScale: 2 });
   });
 
   it('prints a queued sale from the document frozen when it was issued', () => {

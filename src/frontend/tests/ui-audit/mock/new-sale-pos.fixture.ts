@@ -205,7 +205,7 @@ export async function addBatchAt(page: Page, index: number, quantity = 1): Promi
   await expect(dialog).toBeVisible();
   await dialog.locator('.batch-option').nth(index).click();
   if (quantity !== 1) {
-    const input = dialog.locator('.p-inputnumber-input');
+    const input = dialog.locator('app-quantity-field input');
     await input.fill(String(quantity));
     await input.press('Tab');
     await expect(input).toHaveValue(String(quantity));

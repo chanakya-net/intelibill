@@ -41,6 +41,9 @@ describe('new-sale-page: preview pipeline', () => {
         itemDiscountType: 0,
         itemDiscountValue: 0,
         hsnCode: null,
+        uom: 'PCS',
+        quantityScale: 0,
+        documentUnit: 'NOS',
       },
     ]);
 

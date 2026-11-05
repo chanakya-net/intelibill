@@ -5,46 +5,29 @@ import type {
   RecordSaleRequest,
 } from '../services/sale.models';
 import { CartItem } from '../services/sale-cart-state.service';
+import { goodsSellableToBatch } from '../utils/sellable-goods.mapper';
 import type { CheckoutIntent } from '../../../core/storage/checkout-intent-indexeddb.service';
 
 export abstract class NewSalePageCartSubmitService extends NewSalePageCartSelectionService {
   private isPreparingCheckout = false;
 
+  /**
+   * Adds the picked sellable with the picker's quantity exactly as entered. A quantity its unit cannot hold (or more
+   * than the batch's stock) adds nothing and says why; it is never truncated or rounded to fit.
+   */
   onAddToCart(): void {
     const sellable = this.selectedSellable();
     if (!sellable) return;
 
-    const qtyRaw = this.batchPickerForm.controls.quantity.value;
-    const qty = Math.max(1, Math.trunc(Number(qtyRaw)));
-    if (!Number.isFinite(qty)) {
-      this.batchPickerForm.controls.quantity.setErrors({ invalid: true });
-      return;
-    }
+    const qty = Number(this.batchPickerForm.controls.quantity.value);
 
     if (sellable.kind === 'Goods') {
-      if (qty > sellable.quantity) {
-        this.batchPickerForm.controls.quantity.setErrors({ exceedsStock: true });
-        return;
-      }
-
-      const batch = {
-        barcode: sellable.barcode,
-        itemName: sellable.itemName,
-        batchNumber: sellable.batchNumber,
-        inventoryBatchId: sellable.inventoryBatchId,
-        quantity: sellable.quantity,
-        salesPrice: sellable.salesPrice,
-        mrp: sellable.mrp,
-        taxRatePercent: sellable.taxRatePercent,
-        taxIncluded: sellable.taxIncluded,
-        expiryDate: sellable.expiryDate,
-        hsnCode: sellable.hsnCode,
-      };
-
+      const batch = goodsSellableToBatch(sellable);
       const result = this.cartState.addBatchToCart(batch, qty);
       if (!result.added) {
-        this.batchPickerForm.controls.quantity.setErrors({ exceedsStock: true });
-        this.batchSearchError.set('sales.newSale.exceedsStock');
+        const refusal = result.refusal ?? 'exceedsStock';
+        this.batchPickerForm.controls.quantity.setErrors({ [refusal]: true });
+        this.batchSearchError.set(this.quantityRefusalKey(refusal));
         return;
       }
 
@@ -52,6 +35,13 @@ export abstract class NewSalePageCartSubmitService extends NewSalePageCartSelect
         this.applyProductDefaultsForLine(result.addedLineKey, batch.itemName, batch.barcode);
       }
     } else {
+      // A service line is whole units: the quantity is checked before the line exists, so a refused one adds nothing.
+      if (!Number.isInteger(qty) || qty <= 0) {
+        const refusal = qty > 0 ? 'tooPrecise' : 'notPositive';
+        this.batchPickerForm.controls.quantity.setErrors({ [refusal]: true });
+        this.batchSearchError.set(this.quantityRefusalKey(refusal));
+        return;
+      }
       const lineKey = this.cartState.addServiceToCart(sellable);
       this.cartState.setServiceQuantity(lineKey, qty);
     }
@@ -85,8 +75,10 @@ export abstract class NewSalePageCartSubmitService extends NewSalePageCartSelect
   }
 
   onServiceItemQuantityChange(clientLineKey: string, value: number | null | undefined): void {
-    const normalized = Number(value ?? 1);
-    this.cartState.setServiceQuantity(clientLineKey, Number.isFinite(normalized) ? normalized : 1);
+    if (value === null || value === undefined) {
+      return;
+    }
+    this.reportQuantityChange(this.cartState.setServiceQuantity(clientLineKey, value));
   }
 
   onClearCart(): void {

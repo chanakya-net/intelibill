@@ -47,6 +47,9 @@ describe('new-sale-page: cart state', () => {
         itemDiscountType: 0,
         itemDiscountValue: 0,
         hsnCode: null,
+        uom: 'PCS',
+        quantityScale: 0,
+        documentUnit: 'NOS',
       },
     ]);
     vm.saleDiscountType.set(1);

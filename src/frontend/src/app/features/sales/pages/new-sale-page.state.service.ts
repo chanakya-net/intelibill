@@ -7,6 +7,9 @@ import {
   CURRENCY_INPUT_NUMBER_PT,
 } from '../../../shared/primeng-pt.config';
 import { InputValidators } from '../../../shared/forms/input-validation';
+import { quantityStep } from '../../../shared/quantity/quantity-input';
+import { QUANTITY_SCALE_MAX } from '../../../shared/quantity/quantity-units';
+import { batchToGoodsSellable } from '../utils/sellable-goods.mapper';
 
 import { AuthService } from '../../../core/auth/auth.service';
 import { NetworkStatusService } from '../../../core/services/network-status.service';
@@ -23,7 +26,7 @@ import type {
   SalePreviewLineDto,
   ServiceCartLine,
 } from '../services/sale.models';
-import { SaleCartStateService, CartItem } from '../services/sale-cart-state.service';
+import { SaleCartStateService, CartItem, QuantityRefusal } from '../services/sale-cart-state.service';
 import { SaleService } from '../services/sale.service';
 import { CheckoutIntentService, CheckoutScope } from '../services/checkout-intent.service';
 import type { CheckoutIntent } from '../../../core/storage/checkout-intent-indexeddb.service';
@@ -34,6 +37,13 @@ import { CustomerDto } from '../components/new-sale/sale-customer-section.compon
 import { PaymentMethodOption } from '../components/new-sale/sale-payment-section.component';
 import { CreateSaleResponse } from '../components/new-sale/sale-confirmation-dialog.component';
 import { SyncStatus } from '../components/new-sale/offline-status-banner.component';
+
+/** Why the cart refused a quantity, as the message the page shows. */
+export const QUANTITY_REFUSAL_KEYS: Readonly<Record<QuantityRefusal, string>> = {
+  exceedsStock: 'sales.newSale.exceedsStock',
+  tooPrecise: 'sales.newSale.quantityPrecisionExceeded',
+  notPositive: 'common.quantity.errors.notPositive',
+};
 
 const STALE_INTERVAL_4H = 4 * 60 * 60 * 1000;
 const MAX_OFFLINE_AGE_MS = 48 * 60 * 60 * 1000;
@@ -78,22 +88,7 @@ export abstract class NewSalePageStateService {
     if (sellables.length > 0) {
       return sellables;
     }
-    return this.availableBatches().map(
-      (b): SellableDto => ({
-        kind: 'Goods',
-        inventoryBatchId: b.inventoryBatchId,
-        barcode: b.barcode,
-        itemName: b.itemName,
-        batchNumber: b.batchNumber,
-        quantity: b.quantity,
-        salesPrice: b.salesPrice,
-        mrp: b.mrp,
-        taxRatePercent: b.taxRatePercent,
-        taxIncluded: b.taxIncluded,
-        expiryDate: b.expiryDate,
-        hsnCode: b.hsnCode,
-      }),
-    );
+    return this.availableBatches().map(batchToGoodsSellable);
   });
   readonly quickProductTiles = computed(() => {
     const seenKeys = new Set<string>();
@@ -378,7 +373,8 @@ export abstract class NewSalePageStateService {
 
   readonly batchPickerForm = this.fb.nonNullable.group({
     batchNumber: [''],
-    quantity: [1, [Validators.required, Validators.min(1)]],
+    // Whether the quantity fits the picked item's unit is checked when it is added (onAddToCart).
+    quantity: [1, [Validators.required, Validators.min(quantityStep(QUANTITY_SCALE_MAX))]],
   });
 
   readonly customerForm = this.fb.nonNullable.group({
@@ -393,6 +389,10 @@ export abstract class NewSalePageStateService {
   });
 
   protected initialized = false;
+
+  protected quantityRefusalKey(refusal: QuantityRefusal): string {
+    return QUANTITY_REFUSAL_KEYS[refusal];
+  }
 
   protected readFacadeValue<T>(value: T | (() => T)): T {
     return typeof value === 'function' ? (value as () => T)() : value;

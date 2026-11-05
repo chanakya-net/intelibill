@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 
+import { QUANTITY_SCALE_MAX } from '../../shared/quantity/quantity-units';
 import { ScopeOwner, ownerKey } from '../context/shop-scope';
 
 export interface SalesCartDraftItem {
@@ -18,6 +19,12 @@ export interface SalesCartDraftItem {
   readonly itemDiscountType: number;
   readonly itemDiscountValue: number;
   readonly hsnCode: string | null;
+  /** The item's unit label; '' on lines saved before units. */
+  readonly uom: string;
+  /** Decimal places the line's quantity may carry; lines saved before units are whole units (0). */
+  readonly quantityScale: number;
+  /** Unit code its offline document prints; NOS on lines saved before units. */
+  readonly documentUnit: string;
 }
 
 export interface SalesCartDraftServiceItem {
@@ -71,7 +78,17 @@ export function migrateLegacyCartItem(item: unknown): SalesCartDraftItem | null 
     itemDiscountType: typeof obj['itemDiscountType'] === 'number' ? obj['itemDiscountType'] : 0,
     itemDiscountValue: typeof obj['itemDiscountValue'] === 'number' ? obj['itemDiscountValue'] : 0,
     hsnCode: typeof obj['hsnCode'] === 'string' ? obj['hsnCode'] : null,
+    // A line saved before units keeps its place in the draft, as whole units printed NOS; refreshing the line from a
+    // search brings its unit back.
+    uom: typeof obj['uom'] === 'string' ? obj['uom'] : '',
+    quantityScale: isQuantityScale(obj['quantityScale']) ? obj['quantityScale'] : 0,
+    documentUnit:
+      typeof obj['documentUnit'] === 'string' && obj['documentUnit'].trim() ? obj['documentUnit'] : 'NOS',
   };
+}
+
+function isQuantityScale(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= QUANTITY_SCALE_MAX;
 }
 
 /** Migrates a persisted service cart item. */

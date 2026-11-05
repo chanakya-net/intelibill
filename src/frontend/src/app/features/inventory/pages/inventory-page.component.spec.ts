@@ -61,6 +61,9 @@ describe('InventoryPageComponent', () => {
       hsnCode: '0401',
       defaultTaxRatePercent: 5,
       defaultTaxIncluded: false,
+      unitCode: null,
+      quantityScale: 0,
+      unitReviewRequired: false,
     },
   ]);
   const submittingSignal = signal(false);
@@ -175,6 +178,9 @@ describe('InventoryPageComponent', () => {
         hsnCode: '0401',
         defaultTaxRatePercent: 5,
         defaultTaxIncluded: false,
+        unitCode: null,
+        quantityScale: 0,
+        unitReviewRequired: false,
       },
     ]);
     submittingSignal.set(false);

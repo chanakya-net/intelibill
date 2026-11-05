@@ -95,6 +95,8 @@ export abstract class NewSalePagePaymentFlowService extends NewSalePageDiscountV
     this.selectedSellable.set(null);
     this.searchInput.set('');
     this.batchPickerForm.reset({ batchNumber: '', quantity: 1 });
+    // The next pick starts from one unit, not a part quantity typed for another item.
+    this.batchPickerQuantity.set(1);
     this.availableBatches.set([]);
     this.availableSellables.set([]);
     this.batchSearchError.set('');
