@@ -63,12 +63,14 @@ public static partial class Errors
 
     public static class Quantity
     {
+        public const string PrecisionExceededCode = "Quantity.PrecisionExceeded";
+
         public static Error NotPositive(string unitLabel) =>
             Error.Validation("Quantity.NotPositive", $"Quantity in {unitLabel} must be greater than zero.");
 
         public static Error PrecisionExceeded(decimal value, string unitLabel, int scale) =>
             Error.Validation(
-                "Quantity.PrecisionExceeded",
+                PrecisionExceededCode,
                 scale == 0
                     ? $"Quantity {Format(value)} is not allowed: {unitLabel} is sold in whole units only."
                     : $"Quantity {Format(value)} is not allowed: {unitLabel} allows at most {scale} decimal places.");

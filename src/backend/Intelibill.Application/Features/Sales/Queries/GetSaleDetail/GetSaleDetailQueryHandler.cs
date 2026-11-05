@@ -113,11 +113,11 @@ public sealed class GetSaleDetailQueryHandler(
                 Uom = si.LineType == SaleLineType.Goods && si.ItemId.HasValue
                     ? itemById.GetValueOrDefault(si.ItemId.Value)?.Uom
                     : null,
-                QuantityScale = QuantityPolicy.ReturnScale(
-                    si.LineType == SaleLineType.Goods && si.ItemId.HasValue
-                        ? itemById.GetValueOrDefault(si.ItemId.Value)?.QuantityScale
-                        : null,
-                    si.Quantity),
+                QuantityScale = si.LineType == SaleLineType.Service
+                    ? QuantityUnits.MaxScale
+                    : QuantityPolicy.ReturnScale(
+                        si.ItemId.HasValue ? itemById.GetValueOrDefault(si.ItemId.Value)?.QuantityScale : null,
+                        si.Quantity),
                 }).ToList(),
             [])
         {

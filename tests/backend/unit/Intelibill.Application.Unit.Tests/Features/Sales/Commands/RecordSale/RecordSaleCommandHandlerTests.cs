@@ -191,6 +191,25 @@ public class RecordSaleCommandHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_ResponseCarriesTheItemUnitAndQuantityScale()
+    {
+        var shopId = Guid.NewGuid();
+        var item = MakeItem(shopId, "BC-001");
+        var batch = MakeBatch(shopId, item.Id, "B-01", 100m);
+        var inventory = MakeInventory(shopId, item.Id, 100m);
+        var command = MakeCommand(shopId, Guid.NewGuid(), quantity: 1m);
+        var line = new ValidatedSaleLine(command.Items[0], item, batch, inventory, false);
+        _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>())
+            .Returns(new SaleLineValidationResult(new List<ValidatedSaleLine> { line }, new Dictionary<Guid, string> { { item.Id, item.Name } }));
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal("kg", result.Value.Items[0].Uom);
+        Assert.Equal(3, result.Value.Items[0].QuantityScale);
+    }
+
+    [Fact]
     public async Task HandleAsync_AllocatesTheNumberInsideThePostingTransaction()
     {
         var (command, _, _) = ArrangeSingleLineSale();

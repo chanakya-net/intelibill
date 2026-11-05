@@ -188,7 +188,7 @@ internal sealed class SaleLineValidator(
             var quantityCheck = QuantityPolicy.Validate(cmdItem.Quantity, item.QuantityScale, item.Uom);
             if (quantityCheck.IsError)
             {
-                return quantityCheck.FirstError.Code == "Quantity.PrecisionExceeded"
+                return quantityCheck.FirstError.Code == Domain.Common.Errors.Quantity.PrecisionExceededCode
                     ? Errors.Sale.QuantityPrecisionExceeded(cmdItem.Barcode, item.Uom, item.QuantityScale)
                     : Errors.Sale.OfflineLineQuantityMustBePositive;
             }

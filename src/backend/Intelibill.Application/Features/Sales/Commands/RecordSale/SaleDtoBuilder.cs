@@ -28,9 +28,9 @@ public sealed class SaleDtoBuilder(IItemRepository itemRepository)
             .Distinct()
             .ToList();
         var items = await itemRepository.GetByIdsAsync(sale.ShopId, itemIds, cancellationToken);
-        var itemNameById = items.ToDictionary(i => i.Id, i => i.Name);
+        var itemById = items.ToDictionary(i => i.Id);
 
-        return BuildSaleDto(sale, itemNameById, warnings, creditNoteRedemptions);
+        return BuildSaleDto(sale, itemById, warnings, creditNoteRedemptions);
     }
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage(
@@ -39,10 +39,10 @@ public sealed class SaleDtoBuilder(IItemRepository itemRepository)
         Justification = "Kept instance method so handlers route via DI instance.")]
     internal SaleDto BuildSaleDto(
         Sale sale,
-        IReadOnlyDictionary<Guid, string> itemNameById,
+        IReadOnlyDictionary<Guid, Item> itemById,
         IReadOnlyList<string> warnings)
     {
-        return BuildSaleDto(sale, itemNameById, warnings, []);
+        return BuildSaleDto(sale, itemById, warnings, []);
     }
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage(
@@ -51,7 +51,7 @@ public sealed class SaleDtoBuilder(IItemRepository itemRepository)
         Justification = "Kept instance method so handlers route via DI instance.")]
     internal SaleDto BuildSaleDto(
         Sale sale,
-        IReadOnlyDictionary<Guid, string> itemNameById,
+        IReadOnlyDictionary<Guid, Item> itemById,
         IReadOnlyList<string> warnings,
         IReadOnlyList<SaleCreditNoteRedemptionSummaryDto> creditNoteRedemptions)
     {
@@ -95,13 +95,21 @@ public sealed class SaleDtoBuilder(IItemRepository itemRepository)
                 TotalAmount = si.TotalAmount,
                 HsnCode = si.HsnCode,
                 SavingsAmount = si.ItemDiscountAmount + si.SaleDiscountAmount,
-                QuantityScale = QuantityPolicy.ReturnScale(null, si.Quantity),
+                Uom = GoodsItemOf(si)?.Uom,
+                QuantityScale = si.LineType == SaleLineType.Service
+                    ? QuantityUnits.MaxScale
+                    : QuantityPolicy.ReturnScale(GoodsItemOf(si)?.QuantityScale, si.Quantity),
             }).ToList(),
             warnings)
         {
             CreditNoteRedemptions = creditNoteRedemptions,
             Document = sale.InvoiceDocument,
         };
+
+        Item? GoodsItemOf(SaleItem saleItem) =>
+            saleItem.LineType == SaleLineType.Goods && saleItem.ItemId.HasValue
+                ? itemById.GetValueOrDefault(saleItem.ItemId.Value)
+                : null;
 
         string ResolveLineName(SaleItem saleItem)
         {
@@ -112,7 +120,7 @@ public sealed class SaleDtoBuilder(IItemRepository itemRepository)
 
             if (saleItem.LineType == SaleLineType.Goods && saleItem.ItemId.HasValue)
             {
-                return itemNameById.GetValueOrDefault(saleItem.ItemId.Value, "Unknown Item");
+                return itemById.TryGetValue(saleItem.ItemId.Value, out var item) ? item.Name : "Unknown Item";
             }
 
             return "Unknown Service";

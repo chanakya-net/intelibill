@@ -83,6 +83,27 @@ public class InboundInventoryLineProcessorTests
             Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<decimal>(), Arg.Any<Guid>(), Arg.Any<InventoryUpdateContext>(), Arg.Any<CancellationToken>());
     }
 
+    [Fact]
+    public async Task ProcessAsync_WhenQuantityExceedsExistingItemScale_RefusesBeforeBuildingTheBatch()
+    {
+        var item = Item.Create(_shopId, "Soap", "Desc", "PCS", "222", true, _actorId);
+        _itemResolver.ResolveAsync(_shopId, "Soap", "222", "Description", "PCS", _actorId, Arg.Any<ItemResolutionContext>(), Arg.Any<CancellationToken>())
+            .Returns(item);
+
+        var result = await CreateProcessor().ProcessAsync(
+            _shopId,
+            Row("Soap", "222", hsnCode: null) with { Uom = "PCS", Quantity = 2.5m },
+            _actorId,
+            new ItemResolutionContext(),
+            new InventoryUpdateContext(),
+            CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("Inventory.QuantityPrecisionExceeded", result.FirstError.Code);
+        await _batchFactory.DidNotReceive().CreateBatchAsync(
+            Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<InboundInventoryLineInput>(), Arg.Any<Supplier>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+    }
+
     private InboundInventoryLineProcessor CreateProcessor() =>
         new(_itemResolver, _itemRepository, _supplierResolver, _batchFactory, _inventoryUpdater);
 

@@ -370,6 +370,7 @@ public class GetSaleDetailQueryHandlerTests
         Assert.Equal("Consultation", serviceLine.ItemName);
         Assert.Equal("SRV-001", serviceLine.LineCode);
         Assert.Equal(1m, serviceLine.ReturnableQuantity);
+        Assert.Equal(3, serviceLine.QuantityScale);
     }
 
     [Fact]

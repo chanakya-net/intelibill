@@ -421,6 +421,7 @@ public class PreviewSaleReturnQueryHandlerTests
 
     [Theory]
     [InlineData("kg", "0.25", "0.1", null)]
+    [InlineData("kg", "1", "0.125", null)]
     [InlineData("PCS", "5", "0.5", "SaleReturn.QuantityPrecisionExceeded")]
     [InlineData("PCS", "0.5", "0.5", null)]
     public async Task Handle_ReturnQuantity_FollowsItemScaleOrLegacySoldScale(string uom, string sold, string returned, string? expectedError)

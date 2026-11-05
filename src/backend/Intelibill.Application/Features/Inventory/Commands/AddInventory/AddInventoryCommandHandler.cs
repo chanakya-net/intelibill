@@ -77,9 +77,7 @@ public sealed class AddInventoryCommandHandler(
         var quantityCheck = QuantityPolicy.Validate(command.Quantity, item.QuantityScale, item.Uom);
         if (quantityCheck.IsError)
         {
-            return quantityCheck.FirstError.Code == "Quantity.PrecisionExceeded"
-                ? Errors.Inventory.QuantityPrecisionExceeded(item.Uom, item.QuantityScale)
-                : Errors.Inventory.QuantityMustBePositive;
+            return Errors.Inventory.FromQuantityCheck(quantityCheck.FirstError, item.Uom, item.QuantityScale);
         }
 
         if (isNewItem)

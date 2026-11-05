@@ -30,9 +30,7 @@ internal sealed class InboundInventoryLineProcessor(
         var quantityCheck = QuantityPolicy.Validate(input.Quantity, item.QuantityScale, item.Uom);
         if (quantityCheck.IsError)
         {
-            return quantityCheck.FirstError.Code == "Quantity.PrecisionExceeded"
-                ? Errors.Inventory.QuantityPrecisionExceeded(item.Uom, item.QuantityScale)
-                : Errors.Inventory.QuantityMustBePositive;
+            return Errors.Inventory.FromQuantityCheck(quantityCheck.FirstError, item.Uom, item.QuantityScale);
         }
 
         var supplierOrError = await supplierResolver.ResolveAsync(shopId, input.SupplierId, cancellationToken);

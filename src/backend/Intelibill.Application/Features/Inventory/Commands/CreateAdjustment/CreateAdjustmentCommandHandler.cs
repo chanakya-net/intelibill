@@ -53,8 +53,11 @@ public sealed class CreateAdjustmentCommandHandler(
             return Errors.Inventory.BatchAlreadyVoided;
 
         var items = await itemRepository.GetByIdsAsync(command.ActiveShopId, [batch.ItemId], cancellationToken);
-        var item = (items.Count > 0 ? items[0] : null);
-        if (item is not null && !QuantityPolicy.FitsScale(command.Quantity, item.QuantityScale))
+        var item = items.Count > 0 ? items[0] : null;
+        if (item is null)
+            return Errors.Inventory.ItemNotFound;
+
+        if (!QuantityPolicy.FitsScale(command.Quantity, item.QuantityScale))
             return Errors.Inventory.QuantityPrecisionExceeded(item.Uom, item.QuantityScale);
 
         var inventory = await inventoryRepository.GetByItemAsync(command.ActiveShopId, batch.ItemId, cancellationToken);

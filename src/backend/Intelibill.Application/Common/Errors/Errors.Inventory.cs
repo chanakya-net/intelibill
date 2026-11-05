@@ -29,6 +29,15 @@ public static partial class Errors
                 "Inventory.QuantityPrecisionExceeded",
                 $"Quantity is measured in {unit} and allows {DecimalPlaces(scale)}.");
 
+        public static Error ItemNotFound =>
+            Error.NotFound("Inventory.ItemNotFound", "Item for this inventory batch was not found.");
+
+        /// <summary>Maps a failed <c>QuantityPolicy.Validate</c> on an item's quantity to the inventory error the caller sees.</summary>
+        public static Error FromQuantityCheck(Error check, string unit, int scale) =>
+            check.Code == Domain.Common.Errors.Quantity.PrecisionExceededCode
+                ? QuantityPrecisionExceeded(unit, scale)
+                : QuantityMustBePositive;
+
         public static Error UserIsNotOwnerOrManager =>
             Error.Forbidden("Inventory.UserIsNotOwnerOrManager", "Only owner or manager can add inventory.");
 
