@@ -20,7 +20,18 @@
     "remove": "Remove",
     "status": "Status",
     "void": "Void",
-    "required": "This field is required"
+    "required": "This field is required",
+    "quantity": {
+      "defaultUnit": "units",
+      "errors": {
+        "empty": "Enter a quantity.",
+        "invalid": "Enter digits only, with at most one decimal point.",
+        "notPositive": "Quantity must be greater than zero.",
+        "tooPreciseWhole": "Too many decimals for {{unit}}: whole numbers only.",
+        "tooPrecise": "Too many decimals for {{unit}}: up to {{decimals}} allowed, for example {{step}}.",
+        "exceedsMax": "Only {{max}} {{unit}} in stock."
+      }
+    }
   },
   "languages": {
     "en-IN": "English",

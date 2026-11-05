@@ -1,0 +1,33 @@
+:host {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.quantity-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.quantity-field-input {
+  width: 5.5rem;
+  min-width: 0;
+  text-align: center;
+  font-weight: 600;
+}
+
+.quantity-field-unit {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.quantity-field-error {
+  margin: 0;
+  max-width: 14rem;
+  font-size: 0.75rem;
+  color: #dc2626;
+}
