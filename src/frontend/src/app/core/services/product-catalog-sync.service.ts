@@ -3,6 +3,7 @@ import { Injectable, effect, inject, signal } from '@angular/core';
 import { AuthService } from '../auth/auth.service';
 import { ITEM_ENDPOINTS } from '../auth/auth.constants';
 import { ShopContextService } from '../context/shop-context.service';
+import { withServiceWorkerBypassQuery } from '../service-worker/service-worker-bypass';
 import {
   ProductCatalogEntry,
   ProductCatalogIndexedDbService,
@@ -84,7 +85,10 @@ export class ProductCatalogSyncService {
       const token = this.authService.getAccessToken();
       if (!token) return;
 
-      const response = await fetch(ITEM_ENDPOINTS.stream, {
+      // Raw fetch skips the interceptor, so the stream opts out of the worker and the HTTP cache
+      // itself: a stored copy would be another identity's catalog.
+      const response = await fetch(withServiceWorkerBypassQuery(ITEM_ENDPOINTS.stream), {
+        cache: 'no-store',
         headers: { Authorization: `Bearer ${token}` },
       });
 

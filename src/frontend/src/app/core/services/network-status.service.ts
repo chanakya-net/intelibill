@@ -1,10 +1,10 @@
 import { Injectable, signal } from '@angular/core';
 import { CONNECTIVITY_ENDPOINTS } from '../auth/auth.constants';
+import { withServiceWorkerBypassQuery } from '../service-worker/service-worker-bypass';
 
 const PING_TIMEOUT_MS = 5_000;
 const PING_MAX_RETRIES = 2;
 const PING_RETRY_DELAYS_MS = [500, 1_000] as const;
-const SERVICE_WORKER_BYPASS_QUERY = 'ngsw-bypass=true';
 
 type PingResponse = {
   serverTime: string;
@@ -84,7 +84,7 @@ export class NetworkStatusService {
     const timeout = setTimeout(() => controller.abort(), PING_TIMEOUT_MS);
 
     try {
-      const response = await fetch(this.withServiceWorkerBypass(CONNECTIVITY_ENDPOINTS.ping), {
+      const response = await fetch(withServiceWorkerBypassQuery(CONNECTIVITY_ENDPOINTS.ping), {
         method: 'GET',
         cache: 'no-store',
         signal: controller.signal,
@@ -102,10 +102,5 @@ export class NetworkStatusService {
     } finally {
       clearTimeout(timeout);
     }
-  }
-
-  private withServiceWorkerBypass(url: string): string {
-    const separator = url.includes('?') ? '&' : '?';
-    return `${url}${separator}${SERVICE_WORKER_BYPASS_QUERY}`;
   }
 }

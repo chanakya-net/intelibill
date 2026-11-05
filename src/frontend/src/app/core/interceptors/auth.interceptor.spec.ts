@@ -49,7 +49,7 @@ describe('authInterceptor', () => {
   it('adds Authorization header when access token is present', () => {
     mockAuthService.getAccessToken.mockReturnValue('test-token');
 
-    const req = new HttpRequest('GET', '/api/data');
+    const req = new HttpRequest('GET', `${API_BASE_URL}/data`);
     let capturedReq: HttpRequest<unknown> | undefined;
 
     const next = (r: HttpRequest<unknown>): Observable<HttpEvent<unknown>> => {
@@ -65,7 +65,7 @@ describe('authInterceptor', () => {
   it('does not add Authorization header when no access token', () => {
     mockAuthService.getAccessToken.mockReturnValue(null);
 
-    const req = new HttpRequest('GET', '/api/data');
+    const req = new HttpRequest('GET', `${API_BASE_URL}/data`);
     let capturedReq: HttpRequest<unknown> | undefined;
 
     const next = (r: HttpRequest<unknown>): Observable<HttpEvent<unknown>> => {
@@ -76,6 +76,54 @@ describe('authInterceptor', () => {
     runInterceptor(req, next).subscribe();
 
     expect(capturedReq?.headers.has('Authorization')).toBe(false);
+  });
+
+  describe('credential scope', () => {
+    it.each(['assets/i18n/hi-IN.json', '/assets/i18n/en-IN.json', 'https://cdn.example.com/logo.png'])(
+      'does_not_send_token_to_non_api_resources: %s goes out exactly as asked',
+      (url) => {
+        mockAuthService.getAccessToken.mockReturnValue('test-token');
+        const req = new HttpRequest('GET', url);
+        let capturedReq: HttpRequest<unknown> | undefined;
+
+        runInterceptor(req, (r) => {
+          capturedReq = r;
+          return of(new HttpResponse({ status: 200 }));
+        }).subscribe();
+
+        expect(capturedReq).toBe(req);
+        expect(capturedReq?.headers.has('Authorization')).toBe(false);
+        expect(capturedReq?.headers.has('ngsw-bypass')).toBe(false);
+      },
+    );
+
+    it('non_api_401_does_not_refresh: a refusal from elsewhere says nothing about this session', () => {
+      mockAuthService.getAccessToken.mockReturnValue('test-token');
+      mockAuthService.hasRefreshToken.mockReturnValue(true);
+      let failed: HttpErrorResponse | undefined;
+
+      runInterceptor(new HttpRequest('GET', 'https://cdn.example.com/private.png'), () =>
+        throwError(() => new HttpErrorResponse({ status: 401 })),
+      ).subscribe({ error: (error: HttpErrorResponse) => (failed = error) });
+
+      expect(failed?.status).toBe(401);
+      expect(mockAuthService.refreshAccessToken).not.toHaveBeenCalled();
+      expect(mockAuthService.clearSession).not.toHaveBeenCalled();
+    });
+
+    it('cross_origin_api_gets_no_bypass_header: the development API is not on the page origin', () => {
+      mockAuthService.getAccessToken.mockReturnValue('test-token');
+      let capturedReq: HttpRequest<unknown> | undefined;
+
+      runInterceptor(new HttpRequest('GET', `${API_BASE_URL}/customers`), (r) => {
+        capturedReq = r;
+        return of(new HttpResponse({ status: 200 }));
+      }).subscribe();
+
+      expect(new URL(API_BASE_URL, document.baseURI).origin).not.toBe(location.origin);
+      expect(capturedReq?.headers.get('Authorization')).toBe('Bearer test-token');
+      expect(capturedReq?.headers.has('ngsw-bypass')).toBe(false);
+    });
   });
 
   it('does not trigger refresh or redirect for reset-password confirmation 401 responses', () => {
@@ -128,7 +176,7 @@ describe('authInterceptor', () => {
     };
 
     let status: number | undefined;
-    runInterceptor(new HttpRequest('POST', '/api/sales', {}), next).subscribe({
+    runInterceptor(new HttpRequest('POST', `${API_BASE_URL}/sales`, {}), next).subscribe({
       next: (event) => {
         if (event instanceof HttpResponse) {
           status = event.status;
@@ -157,7 +205,7 @@ describe('authInterceptor', () => {
     };
 
     let failed: HttpErrorResponse | undefined;
-    runInterceptor(new HttpRequest('POST', '/api/sales', { total: 500 }), next).subscribe({
+    runInterceptor(new HttpRequest('POST', `${API_BASE_URL}/sales`, { total: 500 }), next).subscribe({
       error: (error: HttpErrorResponse) => (failed = error),
     });
 
@@ -186,7 +234,7 @@ describe('authInterceptor', () => {
     };
 
     let failed: HttpErrorResponse | undefined;
-    runInterceptor(new HttpRequest('POST', '/api/sales', { total: 500 }), next).subscribe({
+    runInterceptor(new HttpRequest('POST', `${API_BASE_URL}/sales`, { total: 500 }), next).subscribe({
       error: (error: HttpErrorResponse) => (failed = error),
     });
 

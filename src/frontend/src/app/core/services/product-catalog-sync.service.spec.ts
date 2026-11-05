@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ProductCatalogSyncService } from './product-catalog-sync.service';
 import { ProductCatalogIndexedDbService } from '../storage/product-catalog-indexeddb.service';
 import { AuthService } from '../auth/auth.service';
+import { ITEM_ENDPOINTS } from '../auth/auth.constants';
 import { ShopContextService } from '../context/shop-context.service';
 import { AppReloadService } from './app-reload.service';
 
@@ -136,6 +137,27 @@ describe('ProductCatalogSyncService - scope changes', () => {
 
     expect(service.catalogEntries()).toEqual([]);
     expect(saveCatalog).not.toHaveBeenCalled();
+  });
+
+  it('streams the catalog around the service worker and the HTTP cache', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>(() => undefined)));
+    TestBed.configureTestingModule({
+      providers: [
+        ProductCatalogSyncService,
+        { provide: AppReloadService, useValue: { restartAtAppRoot: vi.fn() } },
+        { provide: AuthService, useValue: { session: signal({ activeShopId: 'shop-a' }), getAccessToken: () => 'tok' } },
+        { provide: ProductCatalogIndexedDbService, useValue: { getCatalog: vi.fn().mockResolvedValue([]), saveCatalog: vi.fn() } },
+      ],
+    });
+    TestBed.inject(ShopContextService).initialize({ userId: 'user-1', shopId: 'shop-a' });
+    TestBed.inject(ProductCatalogSyncService);
+    TestBed.tick();
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalled());
+
+    const [url, init] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit];
+    expect(url).toBe(`${ITEM_ENDPOINTS.stream}?ngsw-bypass=true`);
+    expect(init.cache).toBe('no-store');
+    expect(init.headers).toEqual({ Authorization: 'Bearer tok' });
   });
 });
 
