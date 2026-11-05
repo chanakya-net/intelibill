@@ -212,7 +212,7 @@ public sealed class RecordSaleCommandHandler
 
             var sale = saleOrError.Value;
             var documentOrError = InvoiceDocumentBuilder.Build(
-                new InvoiceIssueContext(sellerProfile, resolvedCustomer, command.PlaceOfSupplyStateCode, soldAt, fiscalYear),
+                new InvoiceIssueContext(sellerProfile, resolvedCustomer, command.PlaceOfSupplyStateCode, soldAt, fiscalYear, ValidatedSaleLines.DocumentUnitsOf(validatedLines)),
                 sale);
             if (documentOrError.IsError)
                 return documentOrError.Errors;

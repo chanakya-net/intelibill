@@ -10,6 +10,7 @@ interface ContractLine {
   readonly lineType: string;
   readonly description: string;
   readonly hsn: string | null;
+  readonly documentUnit?: string;
   readonly quantity: number;
   readonly unitPrice: number;
   readonly discountAmount: number;
@@ -82,6 +83,7 @@ function frozenLine(line: ContractLine, index: number): OfflineFrozenSaleLine {
     taxAmount: line.taxAmount,
     lineTotal: line.lineTotal,
     configuredRuleId: null,
+    ...(line.documentUnit ? { documentUnit: line.documentUnit } : {}),
     lineType: line.lineType === 'service' ? 'service' : 'goods',
     serviceId: line.lineType === 'service' ? `service-${index}` : null,
   };

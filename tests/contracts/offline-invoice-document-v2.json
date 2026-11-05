@@ -277,6 +277,34 @@
         { "lineType": "goods", "description": "Soap", "hsn": "3401", "quantity": 1, "unitPrice": 100, "discountAmount": 0, "taxableAmount": 100, "taxRatePercent": 18, "taxAmount": 18, "lineTotal": 119 }
       ],
       "expectedError": "Invoice.AmountsDoNotReconcile"
+    },
+    {
+      "name": "weighted goods print their unit",
+      "seller": "regularKarnataka",
+      "customer": null,
+      "saleCustomerName": "Ravi",
+      "saleCustomerPhone": "9876543210",
+      "lines": [
+        { "lineType": "goods", "description": "Basmati Rice", "hsn": "1006", "documentUnit": "KGS", "quantity": 0.25, "unitPrice": 400, "discountAmount": 0, "taxableAmount": 100, "taxRatePercent": 5, "taxAmount": 5, "lineTotal": 105 }
+      ],
+      "expected": {
+        "documentType": "TaxInvoice",
+        "isInterstate": false,
+        "placeOfSupplyStateCode": "29",
+        "placeOfSupplyStateName": "Karnataka",
+        "buyer": { "name": "Ravi", "phone": "9876543210", "address": null, "gstin": null, "stateCode": null, "stateName": null },
+        "declarations": [],
+        "lines": [
+          { "uom": "KGS", "isExempt": false, "components": [["Cgst", 2.5, 100, 2.5], ["Sgst", 2.5, 100, 2.5]] }
+        ],
+        "totals": {
+          "taxableValue": 100,
+          "exemptValue": 0,
+          "totalTax": 5,
+          "invoiceTotal": 105,
+          "components": [["Cgst", 2.5, 100, 2.5], ["Sgst", 2.5, 100, 2.5]]
+        }
+      }
     }
   ]
 }

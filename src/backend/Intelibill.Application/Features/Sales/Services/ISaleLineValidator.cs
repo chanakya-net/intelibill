@@ -34,6 +34,16 @@ public sealed record ValidatedSaleLine(
     }
 }
 
+public static class ValidatedSaleLines
+{
+    /// <summary>The printed unit of each goods item sold, by item id, for the issued document.</summary>
+    public static IReadOnlyDictionary<Guid, string> DocumentUnitsOf(IEnumerable<ValidatedSaleLine> lines) =>
+        lines
+            .Where(l => l.LineType == SaleLineType.Goods && l.Item is not null)
+            .GroupBy(l => l.Item!.Id)
+            .ToDictionary(g => g.Key, g => g.First().Item!.DocumentUnit);
+}
+
 public sealed record SaleLineValidationResult(
     IReadOnlyList<ValidatedSaleLine> Lines,
     IReadOnlyDictionary<Guid, string> ItemNameById);

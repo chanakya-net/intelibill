@@ -57,6 +57,8 @@ export interface OfflineFrozenSaleLine {
   readonly taxRatePercent: number;
   readonly taxIncluded: boolean;
   readonly hsnCode: string | null;
+  /** The unit printed on the issued document (UQC); absent on lines frozen before units, which print NOS. */
+  readonly documentUnit?: string;
   readonly preTaxAmount: number;
   readonly itemDiscountAmount: number;
   readonly saleDiscountAmount: number;

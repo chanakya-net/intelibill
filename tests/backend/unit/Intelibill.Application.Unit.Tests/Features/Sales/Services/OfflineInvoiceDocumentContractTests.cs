@@ -35,7 +35,14 @@ public class OfflineInvoiceDocumentContractTests
         var profile = Profile(root.GetProperty("sellers").GetProperty(testCase.GetProperty("seller").GetString()!));
         var shopId = Guid.NewGuid();
         var customer = Customer(shopId, testCase.GetProperty("customer"));
-        var lines = testCase.GetProperty("lines").EnumerateArray().Select(line => Line(shopId, line)).ToList();
+        var inputs = testCase.GetProperty("lines").EnumerateArray().ToList();
+        var lines = inputs.Select(line => Line(shopId, line)).ToList();
+        var documentUnits = new Dictionary<Guid, string>();
+        for (var i = 0; i < lines.Count; i++)
+        {
+            if (lines[i].ItemId is { } itemId && OptionalString(inputs[i], "documentUnit") is { } unit)
+                documentUnits[itemId] = unit;
+        }
 
         var sale = Sale.Record(
             shopId,
@@ -54,7 +61,7 @@ public class OfflineInvoiceDocumentContractTests
         Assert.False(sale.IsError, sale.IsError ? sale.FirstError.Code : null);
 
         var result = InvoiceDocumentBuilder.Build(
-            new InvoiceIssueContext(profile, customer, PlaceOfSupplyStateCode: null, issuedAt, new FiscalYear(root.GetProperty("fiscalYearStart").GetInt32())),
+            new InvoiceIssueContext(profile, customer, PlaceOfSupplyStateCode: null, issuedAt, new FiscalYear(root.GetProperty("fiscalYearStart").GetInt32()), documentUnits),
             sale.Value);
 
         if (testCase.TryGetProperty("expectedError", out var expectedError))
