@@ -21,6 +21,16 @@ public class QuantityPolicyTests
     }
 
     [Fact]
+    public void precision_message_prints_the_entered_value_in_invariant_culture()
+    {
+        var whole = QuantityPolicy.Validate(0.0001m, 0, "pcs");
+        Assert.Contains("0.0001", whole.FirstError.Description);
+
+        var fractional = QuantityPolicy.Validate(0.12345m, 3, "kg");
+        Assert.Contains("0.12345", fractional.FirstError.Description);
+    }
+
+    [Fact]
     public void pieces_reject_fraction()
     {
         var result = QuantityPolicy.Validate(0.5m, 0, "pcs");

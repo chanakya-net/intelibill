@@ -46,7 +46,8 @@ public sealed class AddItemCommandHandler(
             command.ActorUserId,
             command.HsnCode,
             command.DefaultTaxRatePercent,
-            defaultTaxIncluded: false);
+            defaultTaxIncluded: false,
+            quantityScale: command.QuantityScale);
 
         await itemRepository.AddAsync(item, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -65,6 +66,9 @@ public sealed class AddItemCommandHandler(
             StockStatus: item.IsActive ? "critical" : "inactive",
             item.HsnCode,
             item.DefaultTaxRatePercent,
-            item.DefaultTaxIncluded);
+            item.DefaultTaxIncluded,
+            item.UnitCode,
+            item.QuantityScale,
+            item.UnitReviewRequired);
     }
 }

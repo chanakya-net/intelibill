@@ -9,6 +9,14 @@ public class ItemUnitTests
         Item.Create(Guid.NewGuid(), "Thing", null, uom, "BAR", true, Guid.NewGuid(), quantityScale: scale);
 
     [Fact]
+    public void change_unit_rejects_out_of_range_scale_for_custom_unit()
+    {
+        var item = NewItem("Bundle", 0);
+        Assert.Throws<ArgumentOutOfRangeException>(() => item.ChangeUnit("Bundle", 4, ItemStockHistory.None));
+        Assert.Throws<ArgumentOutOfRangeException>(() => item.ChangeUnit("Bundle", -1, ItemStockHistory.None));
+    }
+
+    [Fact]
     public void kg_item_has_scale_three_and_kgs_document_unit()
     {
         var item = NewItem("kg");

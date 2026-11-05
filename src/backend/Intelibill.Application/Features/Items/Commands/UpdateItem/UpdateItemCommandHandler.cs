@@ -49,6 +49,14 @@ public sealed class UpdateItemCommandHandler(
                 return Errors.Item.BarcodeAlreadyExists;
         }
 
+        var history = item.WouldChangeUnit(normalizedUom, command.QuantityScale)
+            ? await itemRepository.GetStockHistoryAsync(command.ActiveShopId, item.Id, cancellationToken)
+            : ItemStockHistory.None;
+
+        var unitChange = item.ChangeUnit(normalizedUom, command.QuantityScale, history);
+        if (unitChange.IsError)
+            return unitChange.Errors;
+
         item.Update(
             normalizedName,
             command.Description,
@@ -58,10 +66,6 @@ public sealed class UpdateItemCommandHandler(
             command.HsnCode,
             command.DefaultTaxRatePercent,
             defaultTaxIncluded: false);
-
-        var unitChange = item.ChangeUnit(normalizedUom, null, ItemStockHistory.None);
-        if (unitChange.IsError)
-            return unitChange.Errors;
 
         itemRepository.Update(item);
         await unitOfWork.SaveChangesAsync(cancellationToken);

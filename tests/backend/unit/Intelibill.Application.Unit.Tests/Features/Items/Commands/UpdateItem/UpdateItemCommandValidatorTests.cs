@@ -184,6 +184,38 @@ public class UpdateItemCommandValidatorTests
         result.ShouldHaveValidationErrorFor(x => x.DefaultTaxRatePercent);
     }
 
+    [Fact]
+    public void Validate_WhenScaleOutOfRange_ReturnsQuantityScaleInvalid()
+    {
+        var result = _validator.TestValidate(CreateValidCommand() with { Uom = "Bundle", QuantityScale = 4 });
+
+        Assert.Contains(result.Errors, e => e.ErrorCode == "Item.QuantityScaleInvalid");
+    }
+
+    [Fact]
+    public void Validate_WhenScaleContradictsCatalogUnit_ReturnsQuantityScaleMismatch()
+    {
+        var result = _validator.TestValidate(CreateValidCommand() with { Uom = "kg", QuantityScale = 0 });
+
+        Assert.Contains(result.Errors, e => e.ErrorCode == "Item.QuantityScaleMismatch");
+    }
+
+    [Fact]
+    public void Validate_WhenCatalogUnitScaleMatches_IsValid()
+    {
+        var result = _validator.TestValidate(CreateValidCommand() with { Uom = "kg", QuantityScale = 3 });
+
+        result.ShouldNotHaveAnyValidationErrors();
+    }
+
+    [Fact]
+    public void Validate_WhenCustomUnitHasScale_IsValid()
+    {
+        var result = _validator.TestValidate(CreateValidCommand() with { Uom = "Bundle", QuantityScale = 2 });
+
+        result.ShouldNotHaveAnyValidationErrors();
+    }
+
     private static UpdateItemCommand CreateValidCommand() =>
         new(
             Guid.NewGuid(),

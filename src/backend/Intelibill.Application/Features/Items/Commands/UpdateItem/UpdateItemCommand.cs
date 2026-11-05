@@ -10,4 +10,5 @@ public sealed record UpdateItemCommand(
     string Uom,
     string? HsnCode,
     decimal DefaultTaxRatePercent,
-    bool? IsActive = null);
+    bool? IsActive = null,
+    int? QuantityScale = null);

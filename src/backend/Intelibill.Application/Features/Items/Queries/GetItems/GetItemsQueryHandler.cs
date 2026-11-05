@@ -58,5 +58,8 @@ public sealed class GetItemsQueryHandler(
             item.StockStatus,
             item.HsnCode,
             item.DefaultTaxRatePercent,
-            item.DefaultTaxIncluded);
+            item.DefaultTaxIncluded,
+            item.UnitCode,
+            item.QuantityScale,
+            item.UnitReviewRequired);
 }

@@ -14,7 +14,10 @@ public sealed record ItemDto(
     string StockStatus,
     string? HsnCode,
     decimal DefaultTaxRatePercent,
-    bool DefaultTaxIncluded);
+    bool DefaultTaxIncluded,
+    string? UnitCode,
+    int QuantityScale,
+    bool UnitReviewRequired);
 
 public sealed record ItemCatalogResultDto(
     IReadOnlyList<ItemDto> Items,

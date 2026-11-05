@@ -118,7 +118,10 @@ internal sealed class ItemRepository(ApplicationDbContext context)
                     .Sum() ?? 0m,
                 item.HsnCode,
                 item.DefaultTaxRatePercent,
-                item.DefaultTaxIncluded))
+                item.DefaultTaxIncluded,
+                item.UnitCode,
+                item.QuantityScale,
+                item.UnitReviewRequired))
             .ToListAsync(cancellationToken);
 
         var summary = new ItemCatalogSummaryReadModel(
@@ -162,7 +165,10 @@ internal sealed class ItemRepository(ApplicationDbContext context)
                     .Sum() ?? 0m,
                 item.HsnCode,
                 item.DefaultTaxRatePercent,
-                item.DefaultTaxIncluded))
+                item.DefaultTaxIncluded,
+                item.UnitCode,
+                item.QuantityScale,
+                item.UnitReviewRequired))
             .ToListAsync(cancellationToken);
 
         var catalog = pageRows
@@ -180,7 +186,10 @@ internal sealed class ItemRepository(ApplicationDbContext context)
                 DeriveStockStatus(item.IsActive, item.CurrentStock, item.ReorderLevel),
                 item.HsnCode,
                 item.DefaultTaxRatePercent,
-                item.DefaultTaxIncluded))
+                item.DefaultTaxIncluded,
+                item.UnitCode,
+                item.QuantityScale,
+                item.UnitReviewRequired))
             .ToList();
 
         return new ItemCatalogResultReadModel(catalog, totalCount, summary);
@@ -281,5 +290,8 @@ internal sealed class ItemRepository(ApplicationDbContext context)
         decimal CurrentStockValue,
         string? HsnCode,
         decimal DefaultTaxRatePercent,
-        bool DefaultTaxIncluded);
+        bool DefaultTaxIncluded,
+        string? UnitCode,
+        int QuantityScale,
+        bool UnitReviewRequired);
 }

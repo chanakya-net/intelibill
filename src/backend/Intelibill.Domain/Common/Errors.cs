@@ -70,8 +70,11 @@ public static partial class Errors
             Error.Validation(
                 "Quantity.PrecisionExceeded",
                 scale == 0
-                    ? $"Quantity {value:0.###} is not allowed: {unitLabel} is sold in whole units only."
-                    : $"Quantity {value:0.###########} is not allowed: {unitLabel} allows at most {scale} decimal places.");
+                    ? $"Quantity {Format(value)} is not allowed: {unitLabel} is sold in whole units only."
+                    : $"Quantity {Format(value)} is not allowed: {unitLabel} allows at most {scale} decimal places.");
+
+        private static string Format(decimal value) =>
+            (value / 1.000000000000000000000000000000000m).ToString(System.Globalization.CultureInfo.InvariantCulture);
     }
 
     public static class ItemUnit

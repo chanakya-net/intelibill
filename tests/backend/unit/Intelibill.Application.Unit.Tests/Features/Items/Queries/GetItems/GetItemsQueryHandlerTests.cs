@@ -57,6 +57,9 @@ public class GetItemsQueryHandlerTests
                     "reorder",
                     "0401",
                     5m,
+                    false,
+                    null,
+                    0,
                     false),
                 new ItemCatalogReadModel(
                     Guid.NewGuid(),
@@ -72,7 +75,10 @@ public class GetItemsQueryHandlerTests
                     "outOfStock",
                     null,
                     0m,
-                    false),
+                    false,
+                    "KG",
+                    3,
+                    true),
             ],
             TotalCount: 2,
             Summary: new ItemCatalogSummaryReadModel(

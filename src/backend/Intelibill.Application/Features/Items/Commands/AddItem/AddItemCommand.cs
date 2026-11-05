@@ -9,4 +9,5 @@ public sealed record AddItemCommand(
     string Uom,
     bool IsActive,
     string? HsnCode,
-    decimal DefaultTaxRatePercent);
+    decimal DefaultTaxRatePercent,
+    int? QuantityScale = null);

@@ -87,18 +87,33 @@ public sealed class Item : BaseEntity
 
     public void MarkUnitReviewRequired() => UnitReviewRequired = true;
 
-    public ErrorOr<Success> ChangeUnit(string uom, int? quantityScale, ItemStockHistory history)
+    /// <summary>True when applying this label and scale would change the unit identity or the precision (not just the spelling).</summary>
+    public bool WouldChangeUnit(string uom, int? quantityScale)
     {
-        var label = uom.Trim();
-        var catalog = QuantityUnits.Resolve(label);
-        var targetCode = catalog?.Code;
-        var targetScale = catalog?.Scale ?? quantityScale ?? QuantityScale;
+        var (targetCode, targetScale) = ResolveUnit(uom.Trim(), quantityScale);
+        return !IsSameIdentity(uom.Trim(), targetCode) || targetScale != QuantityScale;
+    }
 
-        var sameIdentity = targetCode is not null
+    private (string? Code, int Scale) ResolveUnit(string label, int? quantityScale)
+    {
+        var catalog = QuantityUnits.Resolve(label);
+        if (catalog is null && quantityScale is < 0 or > QuantityUnits.MaxScale)
+            throw new ArgumentOutOfRangeException(nameof(quantityScale), quantityScale, "Quantity scale must be between 0 and 3.");
+
+        return (catalog?.Code, catalog?.Scale ?? quantityScale ?? QuantityScale);
+    }
+
+    private bool IsSameIdentity(string label, string? targetCode) =>
+        targetCode is not null
             ? string.Equals(targetCode, UnitCode, StringComparison.Ordinal)
             : UnitCode is null && string.Equals(label, Uom, StringComparison.OrdinalIgnoreCase);
 
-        if (sameIdentity && targetScale == QuantityScale)
+    public ErrorOr<Success> ChangeUnit(string uom, int? quantityScale, ItemStockHistory history)
+    {
+        var label = uom.Trim();
+        var (targetCode, targetScale) = ResolveUnit(label, quantityScale);
+
+        if (IsSameIdentity(label, targetCode) && targetScale == QuantityScale)
         {
             Uom = label;
             return Result.Success;
