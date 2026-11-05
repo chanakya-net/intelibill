@@ -186,6 +186,16 @@
       </div>
     </header>
 
+    @if (cacheSafetyNoticeKey(); as noticeKey) {
+      <div class="shell-cache-notice" role="alert">
+        <i class="pi pi-exclamation-triangle" aria-hidden="true"></i>
+        <span class="shell-cache-notice-text">{{ noticeKey | transloco }}</span>
+        <button type="button" class="shell-cache-notice-action" (click)="onReloadForCacheSafety()">
+          {{ 'shell.cacheSafety.reload' | transloco }}
+        </button>
+      </div>
+    }
+
     <main class="shell-main" [attr.aria-busy]="isScopeTransitioning()">
       @if (isScopeTransitioning()) {
         <p class="shell-scope-transition" role="status">

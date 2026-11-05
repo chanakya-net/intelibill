@@ -29,6 +29,7 @@ import { ShellMenuService } from './shell-menu.service';
 import { AppShellActions } from '../state/app-shell.actions';
 import { selectSidebarCollapsed, selectSidebarPinned } from '../state/app-shell.selectors';
 import { NetworkStatusService } from '../services/network-status.service';
+import { ProtectedCacheSafetyService } from '../service-worker/protected-cache-safety.service';
 import {
   OfflineSalesDeviceSettings,
   OfflineSalesDeviceSettingsStorage,
@@ -64,6 +65,18 @@ export class ShellComponent {
   readonly menuService = inject(ShellMenuService);
   /** While the tab leaves a scope, nothing routed may show beneath the next scope's header. */
   readonly isScopeTransitioning = inject(ShopContextService).transitioning;
+  private readonly cacheSafety = inject(ProtectedCacheSafetyService);
+  /** Shown only when a reload is what finishes the cleanup; requests never wait on it. */
+  readonly cacheSafetyNoticeKey = computed(() => {
+    switch (this.cacheSafety.state()) {
+      case 'reloadRequired':
+        return 'shell.cacheSafety.reloadRequired';
+      case 'blocked':
+        return 'shell.cacheSafety.blocked';
+      default:
+        return null;
+    }
+  });
 
   private readonly routedUrl = toSignal(
     this.router.events.pipe(
@@ -299,6 +312,10 @@ export class ShellComponent {
 
   onCloseMenus(): void {
     this.isShopMenuOpen.set(false);
+  }
+
+  onReloadForCacheSafety(): void {
+    this.cacheSafety.reload();
   }
 
   onToggleSidebar(): void {

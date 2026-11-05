@@ -3,10 +3,11 @@ import { Injectable } from '@angular/core';
 /**
  * A deliberate restart of the application.
  *
- * One caller needs it: a shop switch. Pages fetch their shop-scoped rows when they are created,
- * not when the device's scope moves, so a switch that only replaces the access token would leave
- * the previous shop's rows on screen. The seam exists so that caller can be tested without
- * navigating the test runner's own page.
+ * A shop switch needs it: pages fetch their shop-scoped rows when they are created, not when the
+ * device's scope moves, so a switch that only replaces the access token would leave the previous
+ * shop's rows on screen. The cache-safety notice needs a plain reload to finish moving this tab onto
+ * the current service worker. The seam exists so both can be tested without navigating the test
+ * runner's own page.
  */
 @Injectable({ providedIn: 'root' })
 export class AppReloadService {
@@ -17,5 +18,10 @@ export class AppReloadService {
    */
   restartAtAppRoot(): void {
     window.location.assign('/');
+  }
+
+  /** Reloads the current route; nothing about the scope changed, so the route stays valid. */
+  reloadPage(): void {
+    window.location.reload();
   }
 }
