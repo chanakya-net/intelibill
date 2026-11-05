@@ -63,5 +63,7 @@ public sealed class GetInventoryBatchesQueryHandler(
             receipt?.Status,
             receipt?.OriginalTotalCost,
             receipt?.EffectiveTotalCost,
-            receipt?.Version);
+            receipt?.Version,
+            b.Item.Uom,
+            b.Item.QuantityScale);
 }
