@@ -58,8 +58,11 @@ const PROTECTED_URLS = [
   '/api/customers',
   '/api/sales',
   '/api/bank-accounts',
-  '/api/sales/offline-snapshot/stream',
+  // Offline correctness: a stale snapshot, lease or sync verdict would bill against the wrong state.
   '/api/ping',
+  '/api/sales/offline-snapshot/stream',
+  '/api/sales/invoice-leases/reserve',
+  '/api/sales/offline-sync',
   '/api/items/stream',
   '/api/reports/export.json',
   '/api/x/y?z=1',
