@@ -4,6 +4,7 @@ using Intelibill.Domain.Events;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
+using Intelibill.Domain.ValueObjects;
 using Wolverine;
 
 namespace Intelibill.Application.Features.Items.Commands.UpdateItem;
@@ -51,13 +52,16 @@ public sealed class UpdateItemCommandHandler(
         item.Update(
             normalizedName,
             command.Description,
-            normalizedUom,
             normalizedBarcode,
             targetIsActive,
             command.ActorUserId,
             command.HsnCode,
             command.DefaultTaxRatePercent,
             defaultTaxIncluded: false);
+
+        var unitChange = item.ChangeUnit(normalizedUom, null, ItemStockHistory.None);
+        if (unitChange.IsError)
+            return unitChange.Errors;
 
         itemRepository.Update(item);
         await unitOfWork.SaveChangesAsync(cancellationToken);
