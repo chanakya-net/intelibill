@@ -113,9 +113,30 @@ public sealed class Item : BaseEntity
         var label = uom.Trim();
         var (targetCode, targetScale) = ResolveUnit(label, quantityScale);
 
+        // An item no one has classified yet, saved with a label that names the same catalog unit as the
+        // label it already carries, is being classified, not changed: the catalog scale must still cover
+        // what is on hand.
+        if (UnitCode is null
+            && targetCode is not null
+            && string.Equals(QuantityUnits.Resolve(Uom)?.Code, targetCode, StringComparison.Ordinal)
+            && targetScale >= history.MaxOnHandScale)
+        {
+            Uom = label;
+            UnitCode = targetCode;
+            QuantityScale = targetScale;
+            UnitReviewRequired = false;
+            return Result.Success;
+        }
+
         if (IsSameIdentity(label, targetCode) && targetScale == QuantityScale)
         {
             Uom = label;
+
+            // Confirming a flagged item at the precision it already has settles the review when that
+            // precision covers what is on hand; otherwise the flag stays.
+            if (UnitReviewRequired && QuantityScale >= history.MaxOnHandScale)
+                UnitReviewRequired = false;
+
             return Result.Success;
         }
 

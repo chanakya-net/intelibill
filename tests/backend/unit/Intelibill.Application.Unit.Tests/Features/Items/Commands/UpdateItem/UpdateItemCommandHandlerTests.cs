@@ -264,6 +264,55 @@ public class UpdateItemCommandHandlerTests
             .GetStockHistoryAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>());
     }
 
+    [Fact]
+    public async Task HandleAsync_WhenFlaggedItemIsConfirmedAtItsCurrentUnit_LoadsHistoryAndClearsTheFlag()
+    {
+        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
+        var item = Item.Create(shop.Id, "Rice", null, "PCS", "111", true, actor.Id);
+        item.MarkUnitReviewRequired();
+
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _itemRepository.GetByIdAsync(item.Id, Arg.Any<CancellationToken>()).Returns(item);
+        _itemRepository.GetStockHistoryAsync(shop.Id, item.Id, Arg.Any<CancellationToken>())
+            .Returns(new ItemStockHistory(true, 0));
+
+        var handler = new UpdateItemCommandHandler(_userRepository, _itemRepository, _unitOfWork, _messageBus);
+        var result = await handler.HandleAsync(
+            CreateCommand(actor.Id, shop.Id, item.Id, barcode: "111", uom: "PCS"),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.False(item.UnitReviewRequired);
+        await _itemRepository.Received(1).GetStockHistoryAsync(shop.Id, item.Id, Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenFlaggedItemScaleMissesOnHandStock_KeepsTheFlagButSavesOtherEdits()
+    {
+        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
+        var item = Item.Create(shop.Id, "Rice", null, "PCS", "111", true, actor.Id);
+        item.MarkUnitReviewRequired();
+
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _itemRepository.GetByIdAsync(item.Id, Arg.Any<CancellationToken>()).Returns(item);
+        _itemRepository.GetStockHistoryAsync(shop.Id, item.Id, Arg.Any<CancellationToken>())
+            .Returns(new ItemStockHistory(true, 2));
+
+        var handler = new UpdateItemCommandHandler(_userRepository, _itemRepository, _unitOfWork, _messageBus);
+        var result = await handler.HandleAsync(
+            CreateCommand(actor.Id, shop.Id, item.Id, name: "Renamed", barcode: "111", uom: "PCS"),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.True(item.UnitReviewRequired);
+        Assert.Equal("Renamed", item.Name);
+    }
+
     private static UpdateItemCommand CreateCommand(
         Guid actorId,
         Guid shopId,
