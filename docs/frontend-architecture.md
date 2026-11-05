@@ -270,6 +270,30 @@ may hold a protected answer now:
   - the shell opening offline while the API fails closed;
   - the production interceptor's headers.
 
+## Quantity Input
+
+- **One module.** `shared/quantity/` holds the units catalog (`quantity-units.ts`, mirrors
+  `tests/contracts/quantity-units-v1.json`), the parse/format helpers (`quantity-input.ts`: locale-aware
+  `parseQuantityInput`, `quantityStep`, `fitsQuantityScale`, `normalizeQuantity`) and
+  `app-quantity-field`, used by the batch picker and the cart. A field shows the unit beside the input
+  and its error under it with `role="alert"`; `1,5` parses in locales that use a decimal comma, while
+  `NaN`, `Infinity`, `1e3`, empty, `0` and negatives are refused.
+- **`setQuantity` never rounds.** `SaleCartStateService.setQuantity(key, qty)` sets an exact quantity. A
+  value with more decimals than the line's `quantityScale` or above the batch stock is refused, the line
+  keeps its previous quantity and the cart reports why. The plus and minus buttons step by
+  `quantityStep(scale)` through the same method, with float sums normalized to 3 places.
+- **Drafts carry the unit.** Cart lines and their IndexedDB drafts (keyed by user and shop) store `uom`,
+  `quantityScale` and `documentUnit`. An offline snapshot row without `quantityScale` falls back to scale 0
+  and `NOS`, so an old snapshot sells whole units only.
+- **Errors.** Server answers go through the problem-code helper (`shared/utils/problem-code.util.ts`,
+  `features/sales/utils/sale-quantity-error.ts`): `Sale.`, `SaleReturn.` and
+  `Inventory.QuantityPrecisionExceeded` map to localized text that names the unit, as do
+  `Item.UnitChangeWithHistory` and `Item.QuantityScale*`.
+- **Item form.** Add and edit item overlays pick a unit and a precision. A catalog unit fixes the
+  precision; a custom name offers a 0 to 3 decimals select, and an item flagged for review shows a note
+  and a badge until the merchant classifies it.
+- **Returns.** The return form allows `max(item scale, scale of the sold quantity)` decimals per line.
+
 ## Key Patterns
 
 - **Standalone components** — no NgModules; all imports declared per component
