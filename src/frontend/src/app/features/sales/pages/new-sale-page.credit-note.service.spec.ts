@@ -11,6 +11,7 @@ import { NetworkStatusService } from '../../../core/services/network-status.serv
 import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
 import { ShopUpdatesSignalRService } from '../../../core/services/shop-updates-signalr.service';
 import { CustomersFacade } from '../../customers/state/customers.facade';
+import { TranslocoService } from '@ngneat/transloco';
 import { InventoryService } from '../../inventory/services/inventory.service';
 import { OfflineSaleStateService } from '../services/offline-sale-state.service';
 import { SaleCartStateService } from '../services/sale-cart-state.service';
@@ -129,6 +130,7 @@ function buildService(saleServiceOverrides: Partial<{ verifyCreditNote: ReturnTy
       { provide: ShopUpdatesSignalRService, useValue: { updates$: EMPTY, startConnection: vi.fn(), stopConnection: vi.fn() } },
       { provide: CustomersFacade, useValue: { allCustomers: signal([]), loadingCustomers: signal(false), loadCustomers: vi.fn() } },
       { provide: InventoryService, useValue: {} },
+      { provide: TranslocoService, useValue: { getActiveLang: () => 'en' } },
       {
         provide: SalesFacade,
         useValue: {

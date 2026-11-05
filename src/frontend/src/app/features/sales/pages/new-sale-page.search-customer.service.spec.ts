@@ -12,6 +12,7 @@ import { ProductCatalogSyncService } from '../../../core/services/product-catalo
 import { ShopUpdatesSignalRService } from '../../../core/services/shop-updates-signalr.service';
 import { Customer } from '../../customers/services/customer.service';
 import { CustomersFacade } from '../../customers/state/customers.facade';
+import { TranslocoService } from '@ngneat/transloco';
 import { InventoryService } from '../../inventory/services/inventory.service';
 import { OfflineSaleStateService } from '../services/offline-sale-state.service';
 import { SaleCartStateService } from '../services/sale-cart-state.service';
@@ -189,6 +190,7 @@ describe('NewSalePageSearchCustomerService', () => {
         { provide: ShopUpdatesSignalRService, useValue: { updates$: EMPTY, startConnection: vi.fn(), stopConnection: vi.fn() } },
         { provide: CustomersFacade, useValue: { allCustomers: customers, loadingCustomers } },
         { provide: InventoryService, useValue: {} },
+        { provide: TranslocoService, useValue: { getActiveLang: () => 'en' } },
         {
           provide: SalesFacade,
           useValue: {

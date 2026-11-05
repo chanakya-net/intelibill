@@ -2,6 +2,7 @@ import '@angular/compiler';
 import { Injectable, signal } from '@angular/core';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { TestBed } from '@angular/core/testing';
+import { TranslocoService } from '@ngneat/transloco';
 import { ReactiveFormsModule } from '@angular/forms';
 import { EMPTY, of } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
@@ -155,6 +156,7 @@ function buildService() {
       { provide: ShopUpdatesSignalRService, useValue: { updates$: EMPTY, startConnection: vi.fn(), stopConnection: vi.fn() } },
       { provide: CustomersFacade, useValue: { allCustomers: signal([]), loadingCustomers: signal(false), loadCustomers: vi.fn() } },
       { provide: InventoryService, useValue: {} },
+      { provide: TranslocoService, useValue: { getActiveLang: () => 'en' } },
       {
         provide: SalesFacade,
         useValue: {
