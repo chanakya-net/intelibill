@@ -33,6 +33,11 @@ import {
 } from '../../services/inventory.models';
 import { formatUtcIsoInstant } from '../../../../shared/utils/date-time.util';
 import { InputValidators } from '../../../../shared/forms/input-validation';
+import {
+  QuantityMessage,
+  entryScaleOf,
+  quantityPrecisionMessage,
+} from '../../../../shared/quantity/quantity-messages';
 
 interface SelectOption<T extends string> {
   readonly label: string;
@@ -116,7 +121,7 @@ export class AdjustmentRowFormComponent implements OnInit {
     reason: ['Damaged' as InventoryAdjustmentReason, [Validators.required]],
     quantity: [
       1,
-      [Validators.required, Validators.min(0.01), InputValidators.maxFractionDigits(2)],
+      [Validators.required, Validators.min(0.001), InputValidators.maxFractionDigits(3)],
     ],
     performedAt: [null as Date | null],
     notes: [''],
@@ -154,6 +159,18 @@ export class AdjustmentRowFormComponent implements OnInit {
       )
       .slice(0, 15);
     this.batchSuggestions.set(matches);
+  }
+
+  /** The refusal to show under the quantity: its unit and allowed decimals; null when the entry fits the item's unit. */
+  quantityPrecisionError(): QuantityMessage | null {
+    const batch = this.selectedBatch();
+    if (!batch) return null;
+    return quantityPrecisionMessage(
+      this.adjustmentForm.controls.quantity.value,
+      batch.uom || batch.itemName,
+      batch.quantityScale,
+      this.translocoService.getActiveLang(),
+    );
   }
 
   onSelectBatch(batch: InventoryBatchOption): void {
@@ -197,8 +214,8 @@ export class AdjustmentRowFormComponent implements OnInit {
   private updateQuantityValidators(): void {
     const validators: ValidatorFn[] = [
       Validators.required,
-      Validators.min(0.01),
-      InputValidators.maxFractionDigits(2),
+      Validators.min(0.001),
+      InputValidators.maxFractionDigits(entryScaleOf(this.selectedBatch()?.quantityScale)),
       this.decreaseBlockedValidator(),
     ];
     const batch = this.selectedBatch();

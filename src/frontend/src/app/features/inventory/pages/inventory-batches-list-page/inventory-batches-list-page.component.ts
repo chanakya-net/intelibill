@@ -51,8 +51,15 @@ import {
 } from '../../../../shared/utils/date-time.util';
 import { downloadBlob, openPdfBlobInNewTab } from '../../../../shared/utils/blob-download.util';
 import { InputValidators } from '../../../../shared/forms/input-validation';
+import { hasProblemCode } from '../../../../shared/utils/problem-code.util';
+import {
+  QuantityMessage,
+  entryScaleOf,
+  quantityPrecisionMessage,
+} from '../../../../shared/quantity/quantity-messages';
 const BATCH_VERSION_CONFLICT = 'Inventory.BatchVersionConflict';
 const BATCH_CONSUMED = 'Inventory.BatchConsumed';
+const QUANTITY_PRECISION_EXCEEDED = 'Inventory.QuantityPrecisionExceeded';
 const RECEIPT_VERSION_CONFLICT = 'PurchaseReceipt.VersionConflict';
 const RECEIPT_EVIDENCE_MISSING = 'PurchaseReceipt.EvidenceMissing';
 const RECEIPT_COST_UNCHANGED = 'PurchaseReceipt.CostUnchanged';
@@ -198,6 +205,25 @@ export class InventoryBatchesListPageComponent {
       ? this.increaseReasonOptions()
       : this.decreaseReasonOptions(),
   );
+  /** The refusal under the adjustment quantity: its unit and allowed decimals; null when it fits the item's unit. */
+  adjustmentQuantityError(): QuantityMessage | null {
+    return this.precisionError(this.adjustmentForm.controls.quantity.value);
+  }
+  /** The refusal under the counted quantity: its unit and allowed decimals; null when it fits the item's unit. */
+  countQuantityError(): QuantityMessage | null {
+    return this.precisionError(this.countForm.controls.countedQuantity.value);
+  }
+  private precisionError(value: number): QuantityMessage | null {
+    const batch = this.selectedBatch();
+    return batch
+      ? quantityPrecisionMessage(
+          value,
+          batch.uom || batch.itemName,
+          batch.quantityScale,
+          this.translocoService.getActiveLang(),
+        )
+      : null;
+  }
   readonly adjustmentPreview = computed(() => {
     const batch = this.selectedBatch();
     if (!batch) return null;
@@ -206,7 +232,7 @@ export class InventoryBatchesListPageComponent {
     const signed = value.direction === 'Increase' ? quantity : -quantity;
     return {
       batchQuantityBefore: batch.quantity,
-      batchQuantityAfter: Number((batch.quantity + signed).toFixed(2)),
+      batchQuantityAfter: Number((batch.quantity + signed).toFixed(3)),
       unitCost: batch.costPrice,
       costImpact: Number((signed * batch.costPrice).toFixed(2)),
     };
@@ -297,7 +323,7 @@ export class InventoryBatchesListPageComponent {
   readonly adjustmentForm = this.formBuilder.nonNullable.group({
     direction: ['Decrease' as InventoryAdjustmentDirection, [Validators.required]],
     reason: ['Damaged' as InventoryAdjustmentReason, [Validators.required]],
-    quantity: [1, [...InputValidators.positiveNumber(), InputValidators.maxFractionDigits(2)]],
+    quantity: [1, [...InputValidators.positiveNumber(), InputValidators.maxFractionDigits(3)]],
     performedAt: [null as Date | null],
     notes: [''],
   });
@@ -577,7 +603,9 @@ export class InventoryBatchesListPageComponent {
           this.loadBatches();
         },
         error: (err) => {
-          const detail = err.error?.detail || this.translate('inventory.adjustBatchError');
+          const detail = hasProblemCode(err, QUANTITY_PRECISION_EXCEEDED)
+            ? this.translate('inventory.quantityPrecisionExceeded')
+            : err.error?.detail || this.translate('inventory.adjustBatchError');
           this.messageService.add({
             severity: 'error',
             summary: this.translocoService.translate('common.error'),
@@ -590,6 +618,10 @@ export class InventoryBatchesListPageComponent {
     if (batch.isVoided) return;
     this.selectedBatch.set(batch);
     this.countSubmission = null;
+    this.countForm.controls.countedQuantity.setValidators([
+      ...InputValidators.nonNegativeNumber(),
+      InputValidators.maxFractionDigits(entryScaleOf(batch.quantityScale)),
+    ]);
     this.countForm.reset({ countedQuantity: batch.quantity, reason: '' });
     this.countedQuantityValue.set(batch.quantity);
     this.isCountDialogOpen.set(true);
@@ -635,7 +667,11 @@ export class InventoryBatchesListPageComponent {
             this.loadBatches();
             return;
           }
-          this.showError('inventory.countError');
+          this.showError(
+            hasProblemCode(err, QUANTITY_PRECISION_EXCEEDED)
+              ? 'inventory.quantityPrecisionExceeded'
+              : 'inventory.countError',
+          );
         },
       });
   }
@@ -703,7 +739,7 @@ export class InventoryBatchesListPageComponent {
   private updateAdjustmentQuantityValidators(): void {
     const validators: ValidatorFn[] = [
       ...InputValidators.positiveNumber(),
-      InputValidators.maxFractionDigits(2),
+      InputValidators.maxFractionDigits(entryScaleOf(this.selectedBatch()?.quantityScale)),
     ];
     const batch = this.selectedBatch();
     if (batch && this.adjustmentForm.controls.direction.value === 'Decrease')

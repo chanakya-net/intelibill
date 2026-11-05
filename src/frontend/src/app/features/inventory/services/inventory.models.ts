@@ -172,6 +172,10 @@ export interface InventoryBatchDto {
   readonly receiptTotalCost: number | null;
   /** Receipt row version; a cost correction is accepted only against the version it was made at. */
   readonly receiptVersion: number | null;
+  /** The item's unit label; absent from an API that predates units. */
+  readonly uom?: string | null;
+  /** Decimal places the item's unit allows (0 = whole units); absent from an API that predates units. */
+  readonly quantityScale?: number;
 }
 
 export type PurchaseReceiptStatus = 'Resolved' | 'LegacyUnresolved';
@@ -381,6 +385,8 @@ export interface InventoryBatchOption {
   readonly batchNumber: string;
   readonly barcode: string;
   readonly quantity: number;
+  readonly uom?: string | null;
+  readonly quantityScale?: number;
 }
 
 export interface AdjustmentRowDto {

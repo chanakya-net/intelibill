@@ -97,12 +97,17 @@
           <p-inputNumber
             inputId="adjustment-quantity"
             formControlName="quantity"
-            [min]="0.01"
+            [min]="0.001"
             mode="decimal"
-            [maxFractionDigits]="2"
+            [maxFractionDigits]="3"
             [fluid]="true"
             styleClass="editor-control"
           ></p-inputNumber>
+          @if (quantityPrecisionError(); as precision) {
+            <small class="validation-message" role="alert" data-testid="adjustment-quantity-precision">{{
+              precision.key | transloco: precision.params
+            }}</small>
+          }
         </div>
         <div class="field">
           <label for="adjustment-performed-at">{{ 'inventory.performedAt' | transloco }}</label>

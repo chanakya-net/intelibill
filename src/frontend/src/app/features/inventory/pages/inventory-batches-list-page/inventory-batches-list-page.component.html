@@ -249,11 +249,16 @@
         <label class="text-sm font-semibold">{{ 'inventory.quantity' | transloco }}</label>
         <p-inputNumber
           formControlName="quantity"
-          [min]="0.01"
+          [min]="0.001"
           mode="decimal"
-          [maxFractionDigits]="2"
+          [maxFractionDigits]="3"
           [fluid]="true"
         ></p-inputNumber>
+        @if (adjustmentQuantityError(); as precision) {
+          <small class="text-red-600" role="alert" data-testid="adjustment-quantity-precision">{{
+            precision.key | transloco: precision.params
+          }}</small>
+        }
       </div>
       <div class="flex flex-col gap-1">
         <label class="text-sm font-semibold">{{ 'inventory.performedAt' | transloco }}</label>
@@ -360,6 +365,11 @@
         [maxFractionDigits]="3"
         [fluid]="true"
       ></p-inputNumber>
+      @if (countQuantityError(); as precision) {
+        <small class="text-red-600" role="alert" data-testid="count-quantity-precision">{{
+          precision.key | transloco: precision.params
+        }}</small>
+      }
     </div>
 
     @if (countPreview(); as preview) {

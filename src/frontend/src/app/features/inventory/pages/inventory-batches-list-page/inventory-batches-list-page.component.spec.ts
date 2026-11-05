@@ -452,6 +452,91 @@ describe('InventoryBatchesListPageComponent', () => {
     );
   });
 
+  describe('quantity precision', () => {
+    const pieces: InventoryBatchDto = { ...mockBatches[0], uom: 'PCS', quantityScale: 0 };
+    const weighed: InventoryBatchDto = { ...mockBatches[0], id: 'b2', uom: 'kg', quantityScale: 3, quantity: 5 };
+
+    function load() {
+      fixture.detectChanges();
+      httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush([pieces, weighed]);
+    }
+
+    it('takes a third decimal in an adjustment and previews it unrounded', () => {
+      load();
+      component.onAdjustBatch(weighed);
+      component.adjustmentForm.patchValue({ direction: 'Decrease', quantity: 0.125 });
+
+      expect(component.adjustmentForm.controls.quantity.valid).toBe(true);
+      expect(component.adjustmentPreview()?.batchQuantityAfter).toBe(4.875);
+    });
+
+    it('refuses a fraction of a whole-unit item in an adjustment and in a count, naming the unit', () => {
+      load();
+      component.onAdjustBatch(pieces);
+      component.adjustmentForm.patchValue({ quantity: 0.5 });
+
+      expect(component.adjustmentForm.controls.quantity.errors).toHaveProperty('maxFractionDigits');
+      expect(component.adjustmentQuantityError()).toEqual({
+        key: 'common.quantity.errors.tooPreciseWhole',
+        params: { unit: 'PCS', decimals: 0, step: '1' },
+      });
+      expect(component.adjustmentForm.controls.quantity.value).toBe(0.5);
+
+      component.onCountBatch(pieces);
+      component.countForm.patchValue({ countedQuantity: 2.5, reason: 'Shelf count' });
+
+      expect(component.countForm.invalid).toBe(true);
+      expect(component.countQuantityError()).toEqual({
+        key: 'common.quantity.errors.tooPreciseWhole',
+        params: { unit: 'PCS', decimals: 0, step: '1' },
+      });
+    });
+
+    it('accepts a three-decimal count for a weighed item', () => {
+      load();
+      component.onCountBatch(weighed);
+      component.countForm.patchValue({ countedQuantity: 4.875, reason: 'Shelf count' });
+
+      expect(component.countForm.valid).toBe(true);
+      expect(component.countQuantityError()).toBeNull();
+    });
+
+    it('shows the localized precision refusal when the server refuses a count', () => {
+      load();
+      const add = vi.spyOn(fixture.debugElement.injector.get(MessageService), 'add');
+      component.onCountBatch(weighed);
+      component.countForm.setValue({ countedQuantity: 4, reason: 'Shelf count' });
+
+      component.onSaveCount();
+      httpMock
+        .expectOne(`${API_BASE_URL}/inventory/batches/b2/count`)
+        .flush({ title: 'Inventory.QuantityPrecisionExceeded' }, { status: 400, statusText: 'Bad Request' });
+
+      expect(add).toHaveBeenCalledWith(
+        expect.objectContaining({ summary: expect.stringContaining('inventory.quantityPrecisionExceeded') }),
+      );
+    });
+
+    it('shows the localized precision refusal, not the server detail, when an adjustment is refused', () => {
+      load();
+      const add = vi.spyOn(fixture.debugElement.injector.get(MessageService), 'add');
+      component.onAdjustBatch(weighed);
+      component.adjustmentForm.patchValue({ direction: 'Decrease', quantity: 1, notes: '' });
+
+      component.onSaveAdjustment();
+      httpMock
+        .expectOne(`${API_BASE_URL}/inventory/batches/b2/adjust`)
+        .flush(
+          { title: 'Inventory.QuantityPrecisionExceeded', detail: 'English server sentence' },
+          { status: 400, statusText: 'Bad Request' },
+        );
+
+      const shown = add.mock.calls.map(([message]) => JSON.stringify(message)).join();
+      expect(shown).toContain('inventory.quantityPrecisionExceeded');
+      expect(shown).not.toContain('English server sentence');
+    });
+  });
+
   describe('receipt cost correction', () => {
     const correctionUrl = `${API_BASE_URL}/inventory/receipts/r1/cost-corrections`;
 
