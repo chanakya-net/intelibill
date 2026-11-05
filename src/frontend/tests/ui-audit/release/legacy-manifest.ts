@@ -47,7 +47,7 @@ export const LEGACY_NGSW_CONFIG: Config = {
 };
 
 /** Files the CLI writes after generating the manifest, so a deployed manifest never lists them. */
-const WORKER_FILES = new Set(['/ngsw.json', '/ngsw-worker.js', '/safety-worker.js', '/worker-basic.min.js', '/app-worker.js']);
+const WORKER_FILES = new Set(['/ngsw.json', '/ngsw-worker.js', '/ngsw-angular-worker.js', '/safety-worker.js', '/worker-basic.min.js']);
 
 class BuildFilesystem implements Filesystem {
   constructor(private readonly root: string) {}

@@ -19,8 +19,13 @@ export interface RecordedRequest {
 export interface ReleaseServer {
   readonly origin: string;
   readonly requests: readonly RecordedRequest[];
-  /** Which `ngsw.json` the worker sees: the deployed build's, or one compiled from an older config. */
-  useManifest(manifest: object | null): void;
+  /**
+   * Serves what builds up to `fbff57b09` deployed: Angular's own worker at `/ngsw-worker.js` and a
+   * manifest compiled from their configuration.
+   */
+  useLegacyDeployment(manifest: object): void;
+  /** Serves the build as it is: the wrapper at `/ngsw-worker.js` and the built manifest. */
+  useCurrentDeployment(): void;
   /** Holds every `/api/review-tenant` answer this long, to push a worker into its timeout fallback. */
   setApiDelay(ms: number): void;
   close(): Promise<void>;
@@ -51,7 +56,7 @@ const CONTENT_TYPES: Readonly<Record<string, string>> = {
 export async function startReleaseServer(root: string): Promise<ReleaseServer> {
   const requests: RecordedRequest[] = [];
   const timers = new Set<NodeJS.Timeout>();
-  let manifestOverride: object | null = null;
+  let legacyManifest: object | null = null;
   let apiDelayMs = 0;
 
   const server = http.createServer(async (req, res) => {
@@ -67,8 +72,12 @@ export async function startReleaseServer(root: string): Promise<ReleaseServer> {
       return send(res, 200, HARNESS_PAGE, 'text/html; charset=utf-8', 'no-cache');
     }
 
-    if (url.pathname === '/ngsw.json' && manifestOverride) {
-      return send(res, 200, JSON.stringify(manifestOverride), CONTENT_TYPES['.json'], 'no-cache');
+    if (url.pathname === '/ngsw.json' && legacyManifest) {
+      return send(res, 200, JSON.stringify(legacyManifest), CONTENT_TYPES['.json'], 'no-cache');
+    }
+
+    if (url.pathname === '/ngsw-worker.js' && legacyManifest) {
+      return send(res, 200, await readFile(join(root, 'ngsw-angular-worker.js')), CONTENT_TYPES['.js'], 'no-cache');
     }
 
     if (url.pathname === TENANT_PROBE) {
@@ -110,8 +119,11 @@ export async function startReleaseServer(root: string): Promise<ReleaseServer> {
   return {
     origin: `http://127.0.0.1:${port}`,
     requests,
-    useManifest(manifest) {
-      manifestOverride = manifest;
+    useLegacyDeployment(manifest) {
+      legacyManifest = manifest;
+    },
+    useCurrentDeployment() {
+      legacyManifest = null;
     },
     setApiDelay(ms) {
       apiDelayMs = ms;

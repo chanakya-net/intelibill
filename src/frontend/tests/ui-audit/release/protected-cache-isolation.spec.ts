@@ -1,9 +1,13 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 
 import { isLegacyProtectedCacheName } from '../../../src/app/core/service-worker/protected-cache-names';
+import {
+  PROTECTED_WORKER_PROTOCOL,
+  PROTECTED_WORKER_QUERY,
+} from '../../../src/app/core/service-worker/service-worker-registration';
 import { buildLegacyManifest } from './legacy-manifest';
 import { startReleaseServer, TENANT_PROBE, type ReleaseServer } from './release-server';
 
@@ -19,8 +23,7 @@ import { startReleaseServer, TENANT_PROBE, type ReleaseServer } from './release-
 const BUILD_ROOT = resolve(__dirname, '../../../dist/INVENTORY/browser');
 const LEGACY_TIMEOUT_MS = 8_000;
 const SLOW_NETWORK_MS = 10_000;
-const LEGACY_WORKER = '/ngsw-worker.js';
-const APP_WORKER = '/app-worker.js';
+const HANDOVER_MS = 30_000;
 
 interface QueuedSale {
   readonly key: string;
@@ -53,8 +56,12 @@ const UNSYNCED_SALES: readonly QueuedSale[] = [
 let server: ReleaseServer;
 
 test.beforeAll(() => {
-  if (!existsSync(join(BUILD_ROOT, 'app-worker.js')) || !existsSync(join(BUILD_ROOT, 'ngsw.json'))) {
-    throw new Error(`No production build at ${BUILD_ROOT}. Run \`bun run build\` in src/frontend first.`);
+  const worker = join(BUILD_ROOT, 'ngsw-worker.js');
+  if (!existsSync(worker) || !existsSync(join(BUILD_ROOT, 'ngsw-angular-worker.js'))) {
+    throw new Error(`No finalized production build at ${BUILD_ROOT}. Run \`bun run build\` in src/frontend first.`);
+  }
+  if (!readFileSync(worker, 'utf8').startsWith('/* intelibill:protected-api-worker */')) {
+    throw new Error(`${worker} is not the wrapper: run \`bun run build\` (it includes build:worker).`);
   }
 });
 
@@ -70,18 +77,38 @@ async function openHarness(page: Page): Promise<void> {
   await page.goto(`${server.origin}/__harness`);
 }
 
-async function registerWorker(page: Page, script: typeof LEGACY_WORKER | typeof APP_WORKER): Promise<void> {
-  await page.evaluate(async (url) => {
-    // The app registers its worker with updateViaCache 'none'; earlier builds used the default.
-    await navigator.serviceWorker.register(url, url.endsWith('app-worker.js') ? { updateViaCache: 'none' } : undefined);
-  }, script);
-  await waitForController(page, script);
+/** Registers `/ngsw-worker.js` the way every build does; the server decides which worker that is. */
+async function registerWorker(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    await navigator.serviceWorker.register('/ngsw-worker.js');
+  });
+  await page.waitForFunction(() => navigator.serviceWorker.controller !== null, undefined, { timeout: HANDOVER_MS });
 }
 
-async function waitForController(page: Page, script: string): Promise<void> {
-  await page.waitForFunction((url) => navigator.serviceWorker.controller?.scriptURL.endsWith(url) ?? false, script, {
-    timeout: 30_000,
-  });
+/** Whether the worker controlling `page` is Intelibill's: only it answers the isolation query. */
+async function controlledByProtectedWorker(page: Page): Promise<boolean> {
+  return page.evaluate(
+    ({ query, protocol }) =>
+      new Promise<boolean>((resolveQuery) => {
+        const controller = navigator.serviceWorker.controller;
+        if (!controller) {
+          resolveQuery(false);
+          return;
+        }
+        const channel = new MessageChannel();
+        const timer = setTimeout(() => resolveQuery(false), 1_000);
+        channel.port1.onmessage = (event: MessageEvent<{ protectedApiIsolation?: number }>) => {
+          clearTimeout(timer);
+          resolveQuery(event.data?.protectedApiIsolation === protocol);
+        };
+        controller.postMessage({ action: query }, [channel.port2]);
+      }),
+    { query: PROTECTED_WORKER_QUERY, protocol: PROTECTED_WORKER_PROTOCOL },
+  );
+}
+
+async function waitForProtectedWorker(page: Page): Promise<void> {
+  await expect.poll(() => controlledByProtectedWorker(page), { timeout: HANDOVER_MS }).toBe(true);
 }
 
 /** Asks for the probe as `tenant` and renders whatever comes back; returns the rendered text. */
@@ -121,28 +148,36 @@ async function storedProbeAnswers(page: Page): Promise<string[]> {
   return (await cacheInventory(page)).flatMap((cache) => cache.urls).filter((url) => url.includes(TENANT_PROBE));
 }
 
-/** A tab on the deployed old build: old manifest, old worker script, an answer for Shop-A stored. */
-async function warmLegacyTab(page: Page): Promise<void> {
-  server.useManifest(await buildLegacyManifest(BUILD_ROOT));
+/** A tab on the deployed old build: old worker, old manifest, an answer for Shop-A stored. */
+async function warmLegacyTab(page: Page): Promise<object> {
+  const manifest = await buildLegacyManifest(BUILD_ROOT);
+  server.useLegacyDeployment(manifest);
   await openHarness(page);
-  await registerWorker(page, LEGACY_WORKER);
+  await registerWorker(page);
+  expect(await controlledByProtectedWorker(page)).toBe(false);
   expect(await fetchTenant(page, 'Shop-A')).toBe('Shop-A');
   await expect.poll(() => legacyProtectedEntries(page), { timeout: 15_000 }).toContainEqual(expect.stringContaining(TENANT_PROBE));
+  return manifest;
 }
 
-/** What the first load of this build does in any tab: register the app worker. */
-async function deployCurrentBuild(page: Page): Promise<void> {
-  server.useManifest(null);
-  await openHarness(page);
-  await page.evaluate(async () => {
-    await navigator.serviceWorker.register('/app-worker.js', { updateViaCache: 'none' });
-  });
+/** Deploys this build and opens the built app in a new tab, as the first visit after a release does. */
+async function openThisBuild(context: BrowserContext): Promise<Page> {
+  server.useCurrentDeployment();
+  const appTab = await context.newPage();
+  await appTab.goto(`${server.origin}/`);
+  await expect(appTab.locator('app-root')).toBeAttached();
+  return appTab;
 }
 
-async function timed<T>(work: () => Promise<T>): Promise<{ value: T; elapsedMs: number }> {
+async function expectSlowShopBAnswered(page: Page): Promise<void> {
+  server.setApiDelay(SLOW_NETWORK_MS);
   const started = Date.now();
-  const value = await work();
-  return { value, elapsedMs: Date.now() - started };
+
+  expect(await fetchTenant(page, 'Shop-B')).toBe('Shop-B');
+
+  await expect(page.locator('#out')).toHaveText('Shop-B');
+  expect(Date.now() - started).toBeGreaterThanOrEqual(SLOW_NETWORK_MS - 500);
+  server.setApiDelay(0);
 }
 
 test('protected_api_not_in_generated_data_groups: the built manifest has no rule over protected paths', () => {
@@ -163,7 +198,8 @@ test('protected_api_not_in_generated_data_groups: the built manifest has no rule
   const listed = manifest.assetGroups.flatMap((group) => group.urls);
   expect(listed.filter((url) => url.startsWith('/api/') || url.startsWith('/hubs/'))).toEqual([]);
   expect(manifest.assetGroups.flatMap((group) => group.patterns)).toEqual([]);
-  expect(listed).not.toContain('/app-worker.js');
+  expect(listed).not.toEqual(expect.arrayContaining(['/ngsw-worker.js']));
+  expect(listed).not.toEqual(expect.arrayContaining(['/ngsw-angular-worker.js']));
   expect(listed).toEqual(expect.arrayContaining(['/index.html', '/assets/i18n/en-IN.json']));
   expect(listed.some((url) => /^\/main-[A-Z0-9]+\.js$/.test(url))).toBe(true);
   const excluded = manifest.navigationUrls.filter((rule) => !rule.positive).map((rule) => new RegExp(rule.regex));
@@ -172,65 +208,107 @@ test('protected_api_not_in_generated_data_groups: the built manifest has no rule
 });
 
 test('legacy_worker_reproduces_cross_shop_reuse: the harness detects the defect it guards against', async ({ page }) => {
-  // Control. The old configuration, with the API already answering no-store: the worker ignores
+  // Control. The old deployment, with the API already answering no-store: the worker ignores
   // Cache-Control, so the header alone never fixed this.
   await warmLegacyTab(page);
   server.setApiDelay(SLOW_NETWORK_MS);
+  const started = Date.now();
 
-  const { value, elapsedMs } = await timed(() => fetchTenant(page, 'Shop-B'));
+  expect(await fetchTenant(page, 'Shop-B')).toBe('Shop-A');
 
-  expect(value).toBe('Shop-A');
-  expect(elapsedMs).toBeGreaterThanOrEqual(LEGACY_TIMEOUT_MS - 500);
-  expect(elapsedMs).toBeLessThan(SLOW_NETWORK_MS);
+  const elapsed = Date.now() - started;
+  expect(elapsed).toBeGreaterThanOrEqual(LEGACY_TIMEOUT_MS - 500);
+  expect(elapsed).toBeLessThan(SLOW_NETWORK_MS);
 });
 
 test('shop_b_timeout_never_returns_shop_a: a slow answer is waited for, never replaced', async ({ page }) => {
   await openHarness(page);
-  await registerWorker(page, APP_WORKER);
+  await registerWorker(page);
+  expect(await controlledByProtectedWorker(page)).toBe(true);
   expect(await fetchTenant(page, 'Shop-A')).toBe('Shop-A');
-  server.setApiDelay(SLOW_NETWORK_MS);
 
-  const { value, elapsedMs } = await timed(() => fetchTenant(page, 'Shop-B'));
+  await expectSlowShopBAnswered(page);
 
-  expect(value).toBe('Shop-B');
-  await expect(page.locator('#out')).toHaveText('Shop-B');
-  expect(elapsedMs).toBeGreaterThanOrEqual(SLOW_NETWORK_MS - 500);
   expect(await storedProbeAnswers(page)).toEqual([]);
 });
 
 test('new_user_offline_never_reads_old_user: offline, a protected request fails instead of answering', async ({ page, context }) => {
   await openHarness(page);
-  await registerWorker(page, APP_WORKER);
+  await registerWorker(page);
   expect(await fetchTenant(page, 'user-a')).toBe('user-a');
 
   await context.setOffline(true);
-  const answer = await fetchTenant(page, 'user-b');
 
-  expect(answer).toBe('network-error');
+  expect(await fetchTenant(page, 'user-b')).toBe('network-error');
   await expect(page.locator('#out')).not.toHaveText('user-a');
   expect(await storedProbeAnswers(page)).toEqual([]);
 });
 
-test('old_worker_open_tab_cannot_serve_protected_body: an open tab on the old build is covered once the new build loads anywhere', async ({
+test('old_worker_open_tab_cannot_serve_protected_body: the built app replaces the old worker under an open old tab', async ({
   page,
   context,
 }) => {
   await warmLegacyTab(page);
 
-  // The new build loads in a second tab while the first stays open on the old one.
-  const newTab = await context.newPage();
-  await deployCurrentBuild(newTab);
-  await waitForController(page, APP_WORKER);
+  // The first page of this build loads in another tab; the old tab stays open on old code.
+  await openThisBuild(context);
+  await waitForProtectedWorker(page);
   await expect.poll(() => legacyProtectedEntries(page), { timeout: 15_000 }).toEqual([]);
 
-  // The old tab still runs old code: no bypass header, same URL, another shop, slow network.
-  server.setApiDelay(SLOW_NETWORK_MS);
-  const { value, elapsedMs } = await timed(() => fetchTenant(page, 'Shop-B'));
-
-  expect(value).toBe('Shop-B');
-  await expect(page.locator('#out')).toHaveText('Shop-B');
-  expect(elapsedMs).toBeGreaterThanOrEqual(SLOW_NETWORK_MS - 500);
+  // Old code: no bypass header, same URL, another shop, slow network.
+  await expectSlowShopBAnswered(page);
   expect(await legacyProtectedEntries(page)).toEqual([]);
+});
+
+test('lone_old_tab_is_covered_by_the_browser_update_check: no page of this build needed', async ({ page, context }) => {
+  await warmLegacyTab(page);
+  server.useCurrentDeployment();
+
+  // Any navigation in scope makes the browser check the registered script, which is now the wrapper.
+  const blank = await context.newPage();
+  await blank.goto(`${server.origin}/__harness`);
+
+  await waitForProtectedWorker(page);
+  await expectSlowShopBAnswered(page);
+});
+
+test('old_code_registration_cannot_reinstate_the_old_worker: re-registering the shared URL changes nothing', async ({
+  page,
+  context,
+}) => {
+  await warmLegacyTab(page);
+  await openThisBuild(context);
+  await waitForProtectedWorker(page);
+
+  // What an older build does once per load: register its worker URL, which is this one.
+  const olderPage = await context.newPage();
+  await openHarness(olderPage);
+  await olderPage.evaluate(async () => {
+    await navigator.serviceWorker.register('/ngsw-worker.js');
+  });
+
+  expect(await controlledByProtectedWorker(page)).toBe(true);
+  await expectSlowShopBAnswered(page);
+});
+
+test('rollout_flip_is_undone_by_an_open_page_of_this_build', async ({ page, context }) => {
+  const legacyManifest = await warmLegacyTab(page);
+  await openThisBuild(context);
+  await waitForProtectedWorker(page);
+
+  // Mid-rollout, an update check reaches an old instance and reinstalls the old worker.
+  server.useLegacyDeployment(legacyManifest);
+  const olderPage = await context.newPage();
+  await openHarness(olderPage);
+  await olderPage.evaluate(async () => {
+    await (await navigator.serviceWorker.getRegistration())?.update();
+  });
+  await expect.poll(() => controlledByProtectedWorker(page), { timeout: HANDOVER_MS }).toBe(false);
+  server.useCurrentDeployment();
+
+  // The open app tab sees the controller change and replaces the worker again.
+  await waitForProtectedWorker(page);
+  await expectSlowShopBAnswered(page);
 });
 
 test('cleanup_preserves_unsynced_invoice: the purge leaves queued sales exactly as they were', async ({ page, context }) => {
@@ -251,12 +329,11 @@ test('cleanup_preserves_unsynced_invoice: the purge leaves queued sales exactly 
     database.close();
   }, UNSYNCED_SALES);
 
-  const newTab = await context.newPage();
-  await deployCurrentBuild(newTab);
-  await waitForController(page, APP_WORKER);
+  const appTab = await openThisBuild(context);
+  await waitForProtectedWorker(page);
   await expect.poll(() => legacyProtectedEntries(page), { timeout: 15_000 }).toEqual([]);
 
-  const stored = await newTab.evaluate(async () => {
+  const stored = await appTab.evaluate(async () => {
     const database = await new Promise<IDBDatabase>((resolveOpen, rejectOpen) => {
       const request = indexedDB.open('intelibill-offline-sales-queue', 1);
       request.onsuccess = () => resolveOpen(request.result);
@@ -276,7 +353,7 @@ test('cleanup_preserves_unsynced_invoice: the purge leaves queued sales exactly 
 
 test('assets_offline_api_fails_closed: the shell opens offline, a protected request does not', async ({ page, context }) => {
   await openHarness(page);
-  await registerWorker(page, APP_WORKER);
+  await registerWorker(page);
   // The app group is prefetched on install; translations are cached the first time they are read.
   await expect
     .poll(async () => (await cacheInventory(page)).flatMap((cache) => cache.urls).some((url) => url.endsWith('/index.html')), {
