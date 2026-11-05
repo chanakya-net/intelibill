@@ -86,6 +86,51 @@ public sealed class ItemQuantityPrecisionUpgradeTests(PostgreSqlTestFixture fixt
         Assert.Equal("ck_items_quantity_scale", ex.ConstraintName);
     }
 
+    [Fact]
+    public async Task RolloutScript_MapsOnlyUnclassifiedItemsAndIsSafeToRerun()
+    {
+        await using (var context = CreateMigratorContext())
+        {
+            await context.Database.MigrateAsync();
+        }
+
+        var shop = Guid.NewGuid();
+        await SeedShopAsync(shop);
+
+        var resolved = await SeedItemAsync(shop, "Cloth", "PCS");
+        await ExecuteAsync(
+            "update items set unit_code = 'PCS', quantity_scale = 0, unit_review_required = false where id = @id",
+            ("id", resolved));
+        await SeedBatchAsync(shop, resolved, 2.5m);
+
+        var unclassified = await SeedItemAsync(shop, "Rice", "KG");
+        var tabbed = await SeedItemAsync(shop, "Dal", "kg\t");
+
+        var script = await File.ReadAllTextAsync(FindRepoFile("scripts", "db", "backfill-item-quantity-precision.sql"));
+
+        await ExecuteAsync(script);
+        Assert.Equal(("PCS", 0, false), await ReadItemAsync(resolved));
+        Assert.Equal(("KG", 3, false), await ReadItemAsync(unclassified));
+        Assert.Equal(("KG", 3, false), await ReadItemAsync(tabbed));
+
+        await ExecuteAsync(script);
+        Assert.Equal(("PCS", 0, false), await ReadItemAsync(resolved));
+        Assert.Equal(("KG", 3, false), await ReadItemAsync(unclassified));
+        Assert.Equal(("KG", 3, false), await ReadItemAsync(tabbed));
+    }
+
+    private static string FindRepoFile(params string[] segments)
+    {
+        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
+        {
+            var candidate = Path.Combine([dir.FullName, .. segments]);
+            if (File.Exists(candidate))
+                return candidate;
+        }
+
+        throw new FileNotFoundException("Repository file not found: " + Path.Combine(segments));
+    }
+
     private ApplicationDbContext CreateMigratorContext() => new(
         new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseNpgsql(MigratorConnectionString)

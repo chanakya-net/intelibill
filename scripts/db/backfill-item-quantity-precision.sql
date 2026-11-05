@@ -1,13 +1,20 @@
 -- Classifies items by their free-text unit label (quantity-units/1 catalog) and flags items whose
 -- recorded quantities carry decimals while the item is classified whole-unit.
--- Same statements as migration AddItemQuantityPrecision, except the "unrecognized label needs review"
--- flag, which runs in the migration only. Idempotent: re-run it as the migrator role once every API
--- instance runs the new version, to cover items an old instance created between the migration and
--- the rollout. Run it once after the rollout, not routinely: a merchant who has resolved a flagged
--- item as whole-unit would be flagged again while old fractional history remains.
+-- Same mapping and fractional-history rule as migration AddItemQuantityPrecision, restricted to
+-- rows no one has classified yet (unit_code IS NULL), in a single statement so a row is written once.
+-- Safe to re-run: an item that already has a unit_code, including one a merchant resolved, is never
+-- touched, and the review flag is only raised on rows this statement maps to a whole-unit code whose
+-- recorded quantities carry decimals. Run it as the migrator role once every API instance runs the new
+-- version, to cover items an old instance created between the migration and the rollout.
 -- No quantity column is touched. Rows are tenant data under RLS; the migrator role is exempt.
 UPDATE items i
-SET unit_code = m.code, quantity_scale = m.scale
+SET unit_code = m.code,
+    quantity_scale = m.scale,
+    unit_review_required = i.unit_review_required
+        OR (m.scale = 0
+            AND (EXISTS (SELECT 1 FROM inventory_batches b WHERE b.item_id = i.id AND (b.quantity <> trunc(b.quantity) OR b.original_quantity <> trunc(b.original_quantity)))
+              OR EXISTS (SELECT 1 FROM stock_transactions t WHERE t.item_id = i.id AND t.quantity <> trunc(t.quantity))
+              OR EXISTS (SELECT 1 FROM sale_items s WHERE s.item_id = i.id AND s.quantity <> trunc(s.quantity))))
 FROM (VALUES
         ('PCS', 'PCS', 0),
         ('PC', 'PCS', 0),
@@ -81,12 +88,5 @@ FROM (VALUES
         ('CENTIMETERS', 'CM', 0)
     ) AS m(alias, code, scale)
 WHERE i.unit_code IS NULL
-  AND upper(btrim(i.uom)) = m.alias;
+  AND upper(btrim(i.uom, E' \t\r\n')) = m.alias;
 
-UPDATE items i
-SET unit_review_required = true
-WHERE i.quantity_scale = 0
-  AND i.unit_review_required = false
-  AND (EXISTS (SELECT 1 FROM inventory_batches b WHERE b.item_id = i.id AND (b.quantity <> trunc(b.quantity) OR b.original_quantity <> trunc(b.original_quantity)))
-    OR EXISTS (SELECT 1 FROM stock_transactions t WHERE t.item_id = i.id AND t.quantity <> trunc(t.quantity))
-    OR EXISTS (SELECT 1 FROM sale_items s WHERE s.item_id = i.id AND s.quantity <> trunc(s.quantity)));

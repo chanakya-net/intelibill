@@ -119,7 +119,7 @@ namespace Intelibill.Infrastructure.Migrations
                         ('CENTIMETERS', 'CM', 0)
                     ) AS m(alias, code, scale)
                 WHERE i.unit_code IS NULL
-                  AND upper(btrim(i.uom)) = m.alias;
+                  AND upper(btrim(i.uom, E' \t\r\n')) = m.alias;
                 """);
 
             migrationBuilder.Sql("""
