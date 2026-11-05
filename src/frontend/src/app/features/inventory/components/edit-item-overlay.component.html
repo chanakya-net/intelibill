@@ -80,7 +80,7 @@
 
       @if (item.unitReviewRequired) {
         <div class="info-banner" role="note" data-testid="unit-review-note">
-          {{ 'inventory.unitReview.note' | transloco }}
+          {{ (form.controls.quantityScale.disabled ? 'inventory.unitReview.confirmNote' : 'inventory.unitReview.note') | transloco }}
         </div>
       }
 

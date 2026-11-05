@@ -828,7 +828,8 @@
     "unitReview": {
       "badge": "Review unit",
       "badgeHint": "This item's unit was set before quantity precision existed. Open it to choose how its quantity may be divided.",
-      "note": "This item's unit was set before quantity precision existed. Choose the precision that fits its unit; it must cover the stock on hand."
+      "note": "This item's unit was set before quantity precision existed. Choose the precision that fits its unit; it must cover the stock on hand.",
+      "confirmNote": "This item's unit was set before quantity precision existed. Save to confirm its unit and precision."
     },
     "quantityPrecisionExceeded": "A quantity has more decimal places than its item's unit allows. Correct it and try again."
   },
