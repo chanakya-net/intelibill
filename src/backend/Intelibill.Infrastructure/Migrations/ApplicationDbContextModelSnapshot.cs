@@ -1615,9 +1615,26 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("character varying(180)")
                         .HasColumnName("name");
 
+                    b.Property<short>("QuantityScale")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("smallint")
+                        .HasDefaultValue((short)0)
+                        .HasColumnName("quantity_scale");
+
                     b.Property<Guid>("ShopId")
                         .HasColumnType("uuid")
                         .HasColumnName("shop_id");
+
+                    b.Property<string>("UnitCode")
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)")
+                        .HasColumnName("unit_code");
+
+                    b.Property<bool>("UnitReviewRequired")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("unit_review_required");
 
                     b.Property<string>("Uom")
                         .IsRequired()
@@ -1653,7 +1670,10 @@ namespace Intelibill.Infrastructure.Migrations
                     b.HasIndex("ShopId", "Name")
                         .HasDatabaseName("ix_items_shop_id_name");
 
-                    b.ToTable("items", (string)null);
+                    b.ToTable("items", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_items_quantity_scale", "quantity_scale BETWEEN 0 AND 3");
+                        });
                 });
 
             modelBuilder.Entity("Intelibill.Domain.Entities.ItemBarcodeSequence", b =>

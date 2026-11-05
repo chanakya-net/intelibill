@@ -1,5 +1,6 @@
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Interfaces.Repositories;
+using Intelibill.Domain.ValueObjects;
 using Intelibill.Infrastructure.Data;
 using Intelibill.Application.Features.Items.Queries.GetItems;
 using Microsoft.EntityFrameworkCore;
@@ -52,6 +53,25 @@ internal sealed class ItemRepository(ApplicationDbContext context)
         return await DbSet
             .Where(i => itemIds.Contains(i.Id))
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task<ItemStockHistory> GetStockHistoryAsync(Guid shopId, Guid itemId, CancellationToken cancellationToken = default)
+    {
+        var hasBatches = await _context.InventoryBatches
+            .AnyAsync(b => b.ShopId == shopId && b.ItemId == itemId, cancellationToken);
+        var hasMovements = hasBatches || await _context.StockTransactions
+            .AnyAsync(t => t.ShopId == shopId && t.ItemId == itemId, cancellationToken);
+
+        if (!hasMovements)
+            return ItemStockHistory.None;
+
+        var onHand = await _context.InventoryBatches
+            .AsNoTracking()
+            .Where(b => b.ShopId == shopId && b.ItemId == itemId && !b.IsVoided && b.Quantity > 0m)
+            .Select(b => b.Quantity)
+            .ToListAsync(cancellationToken);
+
+        return new ItemStockHistory(true, onHand.Count == 0 ? 0 : onHand.Max(QuantityPolicy.ScaleOf));
     }
 
 	    public async Task<ItemCatalogResultReadModel> GetCatalogAsync(
