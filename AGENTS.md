@@ -8,7 +8,7 @@
 - Test full: `dotnet test src/backend/Intelibill.slnx`
 - Test unit: `dotnet test tests/backend/unit/Intelibill.Domain.Unit.Tests`, `Application.Unit.Tests`, `Api.Unit.Tests`
 - Test integration: `dotnet test tests/backend/integration/Intelibill.Integration.Tests` (requires Docker)
-- Snapshot: 347 + 1558 + 576 + 627 = 3108 tests (2481 non-integration), all passing as of 5 November 2026
+- Snapshot: 354 + 1563 + 576 + 627 = 3120 tests (2493 non-integration), all passing as of 6 November 2026
 
 **Migrations** (EF Core) — API startup does **not** apply them; run `database update` yourself after pulling schema changes (deployed environments use the migration job):
 ```bash

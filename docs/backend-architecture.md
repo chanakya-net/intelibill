@@ -878,10 +878,10 @@ data stays valid in `numeric(18,3)`, and no quantity is downgraded.
 
 | Suite | Path | Count |
 |---|---|---|
-| Domain unit | `tests/backend/unit/Intelibill.Domain.Unit.Tests/` | 329 |
-| Application unit | `tests/backend/unit/Intelibill.Application.Unit.Tests/` | 1506 |
-| API unit | `tests/backend/unit/Intelibill.Api.Unit.Tests/` | 562 |
-| Integration | `tests/backend/integration/Intelibill.Integration.Tests/` | 619 |
-| **Total** | | **3016** |
+| Domain unit | `tests/backend/unit/Intelibill.Domain.Unit.Tests/` | 354 |
+| Application unit | `tests/backend/unit/Intelibill.Application.Unit.Tests/` | 1563 |
+| API unit | `tests/backend/unit/Intelibill.Api.Unit.Tests/` | 576 |
+| Integration | `tests/backend/integration/Intelibill.Integration.Tests/` | 627 |
+| **Total** | | **3120** |
 
-Integration tests use `WebApplicationFactory<Program>` backed by **Testcontainers** (`Testcontainers.PostgreSql`) — Docker required. Non-integration suite: 2397 passing.
+Integration tests use `WebApplicationFactory<Program>` backed by **Testcontainers** (`Testcontainers.PostgreSql`) — Docker required. Non-integration suite: 2493 passing.
