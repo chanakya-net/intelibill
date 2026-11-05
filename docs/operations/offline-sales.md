@@ -84,9 +84,9 @@ Run this checklist against a production build because Angular's service worker i
 
 - Build with `cd src/frontend && bun run build`.
 - Serve the production output over `http://localhost:<port>` or another local HTTPS/localhost origin, for example `PORT=4207 node dist/INVENTORY/server/server.mjs`.
-- Run `bun run audit:ui:release` against that build: it drives the built worker through cross-shop, offline, old-tab upgrade and queued-sale cases.
-- Open the app, verify `app-worker.js` registers (it imports `ngsw-worker.js`), and verify `ngsw.json` lists the app shell and has no data group over `/api`.
-- Reload once after registration so the controlled page uses the service worker.
+- Run `bun run audit:ui:release` against that build. It drives the built worker against a legacy deployment: cross-shop, offline, old-tab upgrade, re-registration, rollout flip and queued-sale cases.
+- Check `dist/INVENTORY/browser/ngsw-worker.js`: it must start with `/* intelibill:protected-api-worker */`, with Angular's worker beside it as `ngsw-angular-worker.js`. `ngsw.json` must list the app shell and have no data group over `/api`.
+- Open the app and verify `ngsw-worker.js` registers. The page is controlled once the worker activates; it claims open tabs itself.
 - Toggle the browser offline in DevTools or browser automation and verify the installed/app-shell route still loads.
 - Verify no API response is served from the service worker: every `/api` request appears in DevTools as a network request, never "(ServiceWorker)", and CacheStorage holds no `api-fresh`, `ping-no-cache` or `offline-sales-api-no-cache` entries. See `docs/frontend-architecture.md` § Protected API Cache Isolation.
 - While online with a test shop, enable offline billing as Owner/Manager and confirm snapshot completion plus invoice lease persistence.
@@ -94,5 +94,7 @@ Run this checklist against a production build because Angular's service worker i
 - As Staff on a new browser profile/device, confirm enablement is blocked.
 - Create test offline invoices for Cash, UPI, Card, and Credit/Due with a cached customer; confirm due sale without cached customer is blocked.
 - Restore API connectivity, confirm queued sales advance through sync states, and review any `SyncedWithWarnings` or `NeedsReview` records.
+
+Service worker rollback: never deploy a build whose `ngsw-worker.js` is Angular's bare worker with `/api` rules. The browser's update check would install it in every open tab, and `Cache-Control: no-store` on the API does not stop that worker replaying stored answers. A rollback build must still run `build:worker`. To switch the worker off entirely, serve Angular's `safety-worker.js` as `ngsw-worker.js`. See `docs/frontend-architecture.md` § Protected API Cache Isolation.
 
 Current QA status for issue #367: automated production app-shell QA was attempted locally on May 22, 2026 and should be recorded with the implementation result. Human QA remains required for role-specific enablement, live offline sale payment flows, and operations wording review against shop procedures.

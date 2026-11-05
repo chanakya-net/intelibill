@@ -25,6 +25,14 @@
 | The API sets `no-store` on three actions only | `ItemsController.cs:60`, `SalesController.cs:73`, `ConnectivityController.cs:10` | No defence in depth for the browser HTTP cache. |
 | Live UI config blocks service workers. No plan-48 release harness exists | `tests/ui-audit/live/playwright.live.config.ts:30` | This plan adds a focused release harness against the built output. |
 
+### Amendment after review (supersedes the `app-worker.js` parts of Tasks 2, 4 and 5)
+
+The first implementation registered the wrapper at a new URL, `app-worker.js`. Review found that an older page's once-per-load `register('ngsw-worker.js')` is a different script URL, so it runs Update and reinstates Angular's bare worker for every tab. Angular 21.2.8's `ngsw-worker.js` is also byte-identical across these builds, so the browser's own update checks never helped. The wrapper therefore ships **at `ngsw-worker.js`**:
+- `scripts/finalize-service-worker.mjs` (`build:worker`, run by `bun run build`) moves Angular's worker to `ngsw-angular-worker.js` and writes `service-worker/protected-api-worker.js` in its place.
+- The registration is unchanged from earlier builds (no `updateViaCache` option, so old and new pages register identically).
+- A page tells the wrapper from an earlier worker with a `MessageChannel` query (`PROTECTED_WORKER_QUERY`, protocol 1). The migration replaces an earlier worker with `registration.update()` instead of a second registration. It re-checks on `controllerchange` and leaves the worker alone when `SwRegistrationOptions.enabled` is false.
+- New release cases: a lone old tab covered by the browser's update check, an older page re-registering the URL, a mid-rollout flip undone by an open app tab, and the built app (not a blank page) driving the replacement.
+
 ### Deviations from the pasted plan
 
 1. **Wrapper worker added.** The pasted plan protects only pages that run the new code. An old tab keeps its old version's `api-fresh` rule until it reloads. Only a new worker script, which claims every client, closes RF3.
