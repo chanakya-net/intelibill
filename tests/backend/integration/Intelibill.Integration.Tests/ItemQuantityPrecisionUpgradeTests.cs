@@ -13,23 +13,43 @@ namespace Intelibill.Integration.Tests;
 /// whose recorded quantities already carry decimals is flagged even when its label says pieces.
 /// No quantity is ever rewritten.
 /// </summary>
-/// <remarks>Runs on a database of its own so it can migrate to the revision before this work and seed it.</remarks>
+/// <remarks>
+/// Runs on a database of its own so it can migrate to the revision before this work and seed it. The
+/// migrations and the rollout script run as a table-owner role that is neither superuser nor BYPASSRLS,
+/// as the deployed migrator is: FORCE row level security binds an owner, so a backfill that sets no shop
+/// context sees no rows and changes nothing. Running them as the container superuser would hide that.
+/// </remarks>
 [Collection("Integration Tests")]
 public sealed class ItemQuantityPrecisionUpgradeTests(PostgreSqlTestFixture fixture) : IAsyncLifetime
 {
     private const string RevisionBeforeThisWork = "20261103145848_AddIssuedInvoiceSnapshotsAndFiscalSeries";
 
-    private readonly string _database = "qty_upgrade_" + Guid.NewGuid().ToString("N")[..12];
+    private readonly string _suffix = Guid.NewGuid().ToString("N")[..12];
+
+    private string _database => "qty_upgrade_" + _suffix;
+
+    private string _owner => "qty_owner_" + _suffix;
 
     private string MigratorConnectionString =>
-        new NpgsqlConnectionStringBuilder(fixture.MigratorConnectionString) { Database = _database }.ConnectionString;
+        new NpgsqlConnectionStringBuilder(fixture.MigratorConnectionString)
+        {
+            Database = _database,
+            Username = _owner,
+            Password = "owner_password",
+        }.ConnectionString;
 
-    public async Task InitializeAsync() => await ExecuteOnServerAsync("create database " + _database);
+    public async Task InitializeAsync()
+    {
+        await ExecuteOnServerAsync(
+            $"create role {_owner} login password 'owner_password' nosuperuser nocreatedb nocreaterole nobypassrls");
+        await ExecuteOnServerAsync($"create database {_database} owner {_owner}");
+    }
 
     public async Task DisposeAsync()
     {
         NpgsqlConnection.ClearAllPools();
         await ExecuteOnServerAsync("drop database if exists " + _database + " with (force)");
+        await ExecuteOnServerAsync($"drop role if exists {_owner}");
     }
 
     [Fact]
@@ -49,20 +69,30 @@ public sealed class ItemQuantityPrecisionUpgradeTests(PostgreSqlTestFixture fixt
         var piecesWithDecimals = await SeedItemAsync(shop, "Cloth", "PCS");
         var batch = await SeedBatchAsync(shop, piecesWithDecimals, 2.5m);
         var wholeBatch = await SeedBatchAsync(shop, pieces, 4m);
+        var kgWithFraction = await SeedItemAsync(shop, "Sugar", "KG");
+        await SeedBatchAsync(shop, kgWithFraction, 1.25m);
+
+        var otherShop = Guid.NewGuid();
+        await SeedShopAsync(otherShop);
+        var otherKg = await SeedItemAsync(otherShop, "Flour", "Kilos");
+        var otherCustom = await SeedItemAsync(otherShop, "Roll", "Roll");
 
         await using (var context = CreateMigratorContext())
         {
             await context.Database.MigrateAsync();
         }
 
-        Assert.Equal(("KG", 3, false), await ReadItemAsync(kgUpper));
-        Assert.Equal(("KG", 3, false), await ReadItemAsync(kgLower));
-        Assert.Equal(("PCS", 0, false), await ReadItemAsync(pieces));
-        Assert.Equal((null, 0, true), await ReadItemAsync(custom));
-        Assert.Equal(("PCS", 0, true), await ReadItemAsync(piecesWithDecimals));
+        Assert.Equal(("KG", 3, false), await ReadItemAsync(shop, kgUpper));
+        Assert.Equal(("KG", 3, false), await ReadItemAsync(shop, kgLower));
+        Assert.Equal(("PCS", 0, false), await ReadItemAsync(shop, pieces));
+        Assert.Equal((null, 0, true), await ReadItemAsync(shop, custom));
+        Assert.Equal(("PCS", 0, true), await ReadItemAsync(shop, piecesWithDecimals));
+        Assert.Equal(("KG", 3, false), await ReadItemAsync(shop, kgWithFraction));
+        Assert.Equal(("KG", 3, false), await ReadItemAsync(otherShop, otherKg));
+        Assert.Equal((null, 0, true), await ReadItemAsync(otherShop, otherCustom));
 
-        Assert.Equal(2.5m, await ReadBatchQuantityAsync(batch));
-        Assert.Equal(4m, await ReadBatchQuantityAsync(wholeBatch));
+        Assert.Equal(2.5m, await ReadBatchQuantityAsync(shop, batch));
+        Assert.Equal(4m, await ReadBatchQuantityAsync(shop, wholeBatch));
     }
 
     [Fact]
@@ -99,24 +129,31 @@ public sealed class ItemQuantityPrecisionUpgradeTests(PostgreSqlTestFixture fixt
 
         var resolved = await SeedItemAsync(shop, "Cloth", "PCS");
         await ExecuteAsync(
+            "select set_config('app.active_shop_id', @shop::text, false); " +
             "update items set unit_code = 'PCS', quantity_scale = 0, unit_review_required = false where id = @id",
-            ("id", resolved));
+            ("shop", shop), ("id", resolved));
         await SeedBatchAsync(shop, resolved, 2.5m);
 
         var unclassified = await SeedItemAsync(shop, "Rice", "KG");
         var tabbed = await SeedItemAsync(shop, "Dal", "kg\t");
+        var wholeWithFraction = await SeedItemAsync(shop, "Cord", "Pieces");
+        await SeedBatchAsync(shop, wholeWithFraction, 0.5m);
+
+        var otherShop = Guid.NewGuid();
+        await SeedShopAsync(otherShop);
+        var otherKg = await SeedItemAsync(otherShop, "Flour", "Kilos");
 
         var script = await File.ReadAllTextAsync(FindRepoFile("scripts", "db", "backfill-item-quantity-precision.sql"));
 
-        await ExecuteAsync(script);
-        Assert.Equal(("PCS", 0, false), await ReadItemAsync(resolved));
-        Assert.Equal(("KG", 3, false), await ReadItemAsync(unclassified));
-        Assert.Equal(("KG", 3, false), await ReadItemAsync(tabbed));
-
-        await ExecuteAsync(script);
-        Assert.Equal(("PCS", 0, false), await ReadItemAsync(resolved));
-        Assert.Equal(("KG", 3, false), await ReadItemAsync(unclassified));
-        Assert.Equal(("KG", 3, false), await ReadItemAsync(tabbed));
+        for (var run = 0; run < 2; run++)
+        {
+            await ExecuteAsync(script);
+            Assert.Equal(("PCS", 0, false), await ReadItemAsync(shop, resolved));
+            Assert.Equal(("KG", 3, false), await ReadItemAsync(shop, unclassified));
+            Assert.Equal(("KG", 3, false), await ReadItemAsync(shop, tabbed));
+            Assert.Equal(("PCS", 0, true), await ReadItemAsync(shop, wholeWithFraction));
+            Assert.Equal(("KG", 3, false), await ReadItemAsync(otherShop, otherKg));
+        }
     }
 
     private static string FindRepoFile(params string[] segments)
@@ -172,25 +209,34 @@ public sealed class ItemQuantityPrecisionUpgradeTests(PostgreSqlTestFixture fixt
         return id;
     }
 
-    private async Task<(string? UnitCode, int Scale, bool Review)> ReadItemAsync(Guid itemId)
+    private async Task<(string? UnitCode, int Scale, bool Review)> ReadItemAsync(Guid shopId, Guid itemId)
     {
         await using var connection = new NpgsqlConnection(MigratorConnectionString);
         await connection.OpenAsync();
         await using var command = new NpgsqlCommand(
+            "select set_config('app.active_shop_id', @shop::text, false); " +
             "select unit_code, quantity_scale, unit_review_required from items where id = @id", connection);
+        command.Parameters.AddWithValue("shop", shopId);
         command.Parameters.AddWithValue("id", itemId);
         await using var reader = await command.ExecuteReaderAsync();
+        Assert.True(await reader.NextResultAsync());
         Assert.True(await reader.ReadAsync());
         return (reader.IsDBNull(0) ? null : reader.GetString(0), reader.GetInt16(1), reader.GetBoolean(2));
     }
 
-    private async Task<decimal> ReadBatchQuantityAsync(Guid batchId)
+    private async Task<decimal> ReadBatchQuantityAsync(Guid shopId, Guid batchId)
     {
         await using var connection = new NpgsqlConnection(MigratorConnectionString);
         await connection.OpenAsync();
-        await using var command = new NpgsqlCommand("select quantity from inventory_batches where id = @id", connection);
+        await using var command = new NpgsqlCommand(
+            "select set_config('app.active_shop_id', @shop::text, false); " +
+            "select quantity from inventory_batches where id = @id", connection);
+        command.Parameters.AddWithValue("shop", shopId);
         command.Parameters.AddWithValue("id", batchId);
-        return (decimal)(await command.ExecuteScalarAsync())!;
+        await using var reader = await command.ExecuteReaderAsync();
+        Assert.True(await reader.NextResultAsync());
+        Assert.True(await reader.ReadAsync());
+        return reader.GetDecimal(0);
     }
 
     private async Task ExecuteAsync(string sql, params (string Name, object Value)[] parameters)
