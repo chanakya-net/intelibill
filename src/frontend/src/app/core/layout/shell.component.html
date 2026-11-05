@@ -187,10 +187,17 @@
     </header>
 
     @if (cacheSafetyNoticeKey(); as noticeKey) {
-      <div class="shell-cache-notice" role="alert">
+      <div
+        class="shell-cache-notice flex flex-wrap items-center gap-3 border-b border-orange-300 bg-orange-50 px-4 py-2 text-sm text-orange-900"
+        role="alert"
+      >
         <i class="pi pi-exclamation-triangle" aria-hidden="true"></i>
-        <span class="shell-cache-notice-text">{{ noticeKey | transloco }}</span>
-        <button type="button" class="shell-cache-notice-action" (click)="onReloadForCacheSafety()">
+        <span class="flex-1">{{ noticeKey | transloco }}</span>
+        <button
+          type="button"
+          class="shell-cache-notice-action cursor-pointer rounded-lg border border-orange-700 bg-white px-3 py-1 font-semibold text-orange-800"
+          (click)="onReloadForCacheSafety()"
+        >
           {{ 'shell.cacheSafety.reload' | transloco }}
         </button>
       </div>
