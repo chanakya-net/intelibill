@@ -242,11 +242,10 @@ export class SaleReturnPreviewDialogComponent {
 
   updateReturnQuantity(item: SaleItemDto, quantity: number | string | null): void {
     const typed = Number(quantity);
-    // A quantity the unit cannot hold is kept as typed (and refused by validation), never rounded or clamped.
+    // A typed quantity is kept as typed, whether the unit can hold it and whether the line has that much to return:
+    // validation refuses what is wrong, nothing is rounded or clamped. Empty or not a number reads as none.
     const normalizedQuantity =
-      quantity !== null && quantity !== '' && Number.isFinite(typed) && !fitsQuantityScale(typed, this.returnScale(item))
-        ? typed
-        : this.clampNumber(typed, 0, item.returnableQuantity);
+      quantity !== null && quantity !== '' && Number.isFinite(typed) && typed >= 0 ? typed : 0;
     const maxRefund = this.getMaxRefundAmount(item, normalizedQuantity);
 
     this.updateDraft(item.saleItemId, (draft) => ({

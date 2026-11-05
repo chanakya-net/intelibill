@@ -788,6 +788,21 @@ describe('SaleReturnPreviewDialogComponent', () => {
       expect(component.returnStep(item)).toBe(1);
     });
 
+    it('keeps a quantity above the returnable amount and refuses it instead of clamping', async () => {
+      const { fixture, component } = await createComponent();
+      component.sale = { ...makeSale(), items: [makeGoodsItem({ quantity: 2, returnableQuantity: 2 })] };
+      component.visible = true;
+      fixture.detectChanges();
+      const item = component.sale!.items[0];
+      component.toggleReturnLine(item, true);
+
+      component.updateReturnQuantity(item, 5);
+
+      expect(component.getDraft(item.saleItemId)?.quantity).toBe(5);
+      const errors = (component as unknown as Probe).validateReturnDrafts();
+      expect(errors.some((e) => e.includes('exceeds returnable quantity'))).toBe(true);
+    });
+
     it('accepts 0.1 on a three-decimal line', async () => {
       const { fixture, component } = await createComponent();
       component.sale = {
