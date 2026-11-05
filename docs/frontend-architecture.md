@@ -285,14 +285,27 @@ may hold a protected answer now:
 - **Drafts carry the unit.** Cart lines and their IndexedDB drafts (keyed by user and shop) store `uom`,
   `quantityScale` and `documentUnit`. An offline snapshot row without `quantityScale` falls back to scale 0
   and `NOS`, so an old snapshot sells whole units only.
-- **Errors.** Server answers go through the problem-code helper (`shared/utils/problem-code.util.ts`,
-  `features/sales/utils/sale-quantity-error.ts`): `Sale.`, `SaleReturn.` and
-  `Inventory.QuantityPrecisionExceeded` map to localized text that names the unit, as do
-  `Item.UnitChangeWithHistory` and `Item.QuantityScale*`.
+- **Errors.** Server answers are matched with the problem-code helper (`shared/utils/problem-code.util.ts`).
+  `features/sales/utils/sale-quantity-error.ts` maps `Sale.` and `SaleReturn.QuantityPrecisionExceeded`;
+  `features/inventory/state/inventory.effects.ts` maps `Item.UnitChangeWithHistory` and `Item.QuantityScale*`; the
+  stock count and adjustment pages map `Inventory.QuantityPrecisionExceeded` to `inventory.quantityPrecisionExceeded`.
+  A cart refusal for a too-precise quantity names the line's unit and allowed decimals (the server's own refusal
+  does too when exactly one cart line is over its unit's precision; otherwise the generic text stays).
+- **Stock count and adjustment.** `InventoryBatchDto` carries the item's `uom` and `quantityScale`. Both forms
+  take up to 3 decimals, refuse an entry finer than the item's unit before submit
+  (`shared/quantity/quantity-messages.ts` names the unit and the allowed decimals) and preview the result
+  unrounded. An API that predates units sends neither field, and the storage ceiling of 3 applies.
 - **Item form.** Add and edit item overlays pick a unit and a precision. A catalog unit fixes the
-  precision; a custom name offers a 0 to 3 decimals select, and an item flagged for review shows a note
-  and a badge until the merchant classifies it.
-- **Returns.** The return form allows `max(item scale, scale of the sold quantity)` decimals per line.
+  precision; a custom name offers a 0 to 3 decimals select (changing back from a catalog label restores the
+  custom precision the item had, whole numbers by default), and an item flagged for review shows a badge until
+  the merchant saves it: a catalog-unit item is told that saving confirms the unit, a custom one to choose the
+  precision.
+- **Returns.** The return form allows `max(item scale, scale of the sold quantity)` decimals per line. A typed
+  quantity above the returnable amount is kept and refused by the form's validation, never clamped.
+- **Mocked UI proof.** The fractional-sale flow runs against mocked APIs in
+  `tests/ui-audit/mock/new-sale-fractional-quantity.spec.ts`. Run it alone from `src/frontend` with
+  `bun x playwright test --config playwright.config.ts tests/ui-audit/mock/new-sale-fractional-quantity.spec.ts`
+  (`audit:ui:mocked` ignores a file argument).
 
 ## Key Patterns
 

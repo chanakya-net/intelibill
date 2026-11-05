@@ -843,7 +843,11 @@ device-side GST printing, credit-note documents. (Per-item units now live in § 
   (movements, batches or sale lines exist). With history, changing the unit or scale is refused with 409
   `Item.UnitChangeWithHistory`; a relabel that keeps code and scale (`kg` to `KGS`) is allowed. A legacy
   item flagged `UnitReviewRequired` may be classified once to a scale that covers its on-hand
-  stock, which clears the flag.
+  stock, which clears the flag. Saving a flagged item at the unit and scale it already has clears the flag
+  when that scale covers the stock on hand (otherwise the flag stays and the other edits save). An item
+  nobody has classified yet (`UnitCode` null) saved with a label naming the same catalog unit as its
+  stored label, at a catalog scale that covers the stock on hand, is classified, not changed: no 409.
+  The update handler loads the stock history for a flagged item too.
 - **Documents.** `InvoiceDocumentBuilder` prints the item's document unit on each goods line (`KGS`,
   `MTR`, `NOS`), and a service line still prints `NA`. Offline sync takes the document unit from the live
   `Item.DocumentUnit` at sync time, not the device's frozen value. The only case where a reprint can
@@ -858,7 +862,16 @@ device-side GST printing, credit-note documents. (Per-item units now live in § 
 classified whole-unit whose recorded quantities carry decimals. Defaults keep old instances working. Once
 every API instance runs the new version, run `scripts/db/backfill-item-quantity-precision.sql` once as
 the migrator role for items an old instance created in between (idempotent: an item with a `unit_code`
-is never touched). Rolling back means deploying the previous API: it ignores the new columns, fractional
+is never touched). Both the migration and the script run shop by shop with `app.active_shop_id` set,
+because FORCE row level security binds the migrator as table owner; a backfill without a shop context
+updates no rows. `ItemQuantityPrecisionUpgradeTests` applies the migration and the script as a
+`NOSUPERUSER NOBYPASSRLS` owner role to prove it. Rollout window caveat: an old instance that relabels an
+already-mapped item (for example `kg` to `pcs`) updates `uom` but not `unit_code`, and the script skips the
+row because `unit_code` is set. Spot such rows with
+`SELECT id, uom, unit_code FROM items WHERE unit_code IS NOT NULL` compared against the catalog (a
+label that no longer resolves to its `unit_code`), and fix them by clearing `unit_code`, `quantity_scale`
+and `unit_review_required` on those rows (per shop context) before re-running the script; stocked items
+should be reviewed by the merchant rather than silently remapped. Rolling back means deploying the previous API: it ignores the new columns, fractional
 data stays valid in `numeric(18,3)`, and no quantity is downgraded.
 
 ## Test Structure
