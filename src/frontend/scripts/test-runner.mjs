@@ -6,6 +6,9 @@ const runIndex = args.indexOf('--run');
 
 let commandArgs = ['test'];
 let command = 'ng';
+// The whole suite, not one file or pattern: then the Bun script specs run too, whatever flags were
+// forwarded (CI passes --watch=false --coverage).
+let runsFullSuite = false;
 
 if (runIndex !== -1) {
   const includePath = args[runIndex + 1];
@@ -49,6 +52,7 @@ if (runIndex !== -1) {
       '../tests/ui-audit/route-manifest.spec.ts',
       ...args,
     ];
+    runsFullSuite = true;
   }
 }
 
@@ -62,7 +66,7 @@ function run(executable, executableArgs) {
 }
 
 let exitCode = run(command, commandArgs);
-if (exitCode === 0 && args.length === 0) {
+if (exitCode === 0 && runsFullSuite) {
   exitCode = run('bun', ['test', 'scripts/tests']);
 }
 process.exit(exitCode);
