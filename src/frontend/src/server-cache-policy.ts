@@ -1,14 +1,15 @@
 /**
  * Files at the build root whose name never changes between deployments. A browser must revalidate
  * them on every load: `index.html` names the hashed bundles, and the worker files decide which
- * version runs. A year-long copy of `ngsw-worker.js` would also be what `app-worker.js` imports.
+ * version runs. `ngsw-worker.js` imports `ngsw-angular-worker.js` through the HTTP cache, so a
+ * year-long copy of it would keep an older Angular worker running.
  */
 const REVALIDATED_ROOT_FILES: ReadonlySet<string> = new Set([
   'index.html',
   'index.csr.html',
   'ngsw.json',
   'ngsw-worker.js',
-  'app-worker.js',
+  'ngsw-angular-worker.js',
   'safety-worker.js',
   'worker-basic.min.js',
   'manifest.webmanifest',

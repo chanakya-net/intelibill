@@ -19,12 +19,16 @@ export class ProtectedCacheSafetyService {
 
   private readonly stateSignal = signal<CacheSafetyState | 'checking'>('checking');
   private started = false;
+  private checking = false;
+  private checkAgain = false;
 
   readonly state = this.stateSignal.asReadonly();
 
   /**
-   * Runs the migration once, in the background, and purges again on every change of user or shop:
-   * an older build still open in another tab may have stored an answer since.
+   * Checks in the background now and again whenever another worker takes control of this page (a
+   * deployment mid-rollout can briefly serve an earlier one). Each change of user or shop also
+   * removes answers stored by an earlier worker since: that keeps them off disk, though only
+   * replacing the worker stops one that is still running from replaying what it holds.
    */
   start(): void {
     if (this.started) {
@@ -33,14 +37,35 @@ export class ProtectedCacheSafetyService {
     this.started = true;
 
     this.shopContext.onDetach(() => this.purgeOnScopeChange());
-    this.migration.ensureSafeVersion().then(
-      (state) => this.stateSignal.set(state),
-      () => this.stateSignal.set('blocked'),
-    );
+    this.migration.watchWorkerChanges(() => this.check());
+    this.check();
   }
 
   reload(): void {
     this.appReload.reloadPage();
+  }
+
+  /** One check at a time; a change seen during a check runs one more after it. */
+  private check(): void {
+    if (this.checking) {
+      this.checkAgain = true;
+      return;
+    }
+
+    this.checking = true;
+    this.migration
+      .ensureSafeVersion()
+      .then(
+        (state) => this.stateSignal.set(state),
+        () => this.stateSignal.set('blocked'),
+      )
+      .finally(() => {
+        this.checking = false;
+        if (this.checkAgain) {
+          this.checkAgain = false;
+          this.check();
+        }
+      });
   }
 
   private purgeOnScopeChange(): Promise<boolean> {

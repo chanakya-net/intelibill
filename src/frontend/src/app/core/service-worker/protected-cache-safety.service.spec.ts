@@ -7,9 +7,14 @@ import { CacheSafetyState, ProtectedCacheMigrationService } from './protected-ca
 import { ProtectedCacheSafetyService } from './protected-cache-safety.service';
 
 describe('ProtectedCacheSafetyService', () => {
+  let workerChanged: (() => void) | null = null;
   const migration = {
     ensureSafeVersion: vi.fn<() => Promise<CacheSafetyState>>(),
     purgeLegacyCaches: vi.fn<() => Promise<boolean>>(),
+    watchWorkerChanges: vi.fn((listener: () => void) => {
+      workerChanged = listener;
+      return () => (workerChanged = null);
+    }),
   };
   const appReload = { restartAtAppRoot: vi.fn(), reloadPage: vi.fn() };
 
@@ -24,7 +29,10 @@ describe('ProtectedCacheSafetyService', () => {
   }
 
   afterEach(() => {
-    vi.resetAllMocks();
+    vi.clearAllMocks();
+    migration.ensureSafeVersion.mockReset();
+    migration.purgeLegacyCaches.mockReset();
+    workerChanged = null;
     TestBed.resetTestingModule();
   });
 
@@ -48,6 +56,35 @@ describe('ProtectedCacheSafetyService', () => {
     service.start();
 
     expect(migration.ensureSafeVersion).toHaveBeenCalledTimes(1);
+  });
+
+  it('checks again when another worker takes control, so a late hand-over clears the notice', async () => {
+    migration.ensureSafeVersion.mockResolvedValueOnce('reloadRequired').mockResolvedValueOnce('safe');
+    const { service } = setup();
+    service.start();
+    await vi.waitFor(() => expect(service.state()).toBe('reloadRequired'));
+
+    workerChanged?.();
+
+    await vi.waitFor(() => expect(service.state()).toBe('safe'));
+    expect(migration.ensureSafeVersion).toHaveBeenCalledTimes(2);
+  });
+
+  it('never runs two checks at once: a change during a check runs one more after it', async () => {
+    let finishFirst!: (state: CacheSafetyState) => void;
+    migration.ensureSafeVersion
+      .mockReturnValueOnce(new Promise((resolve) => (finishFirst = resolve)))
+      .mockResolvedValue('safe');
+    const { service } = setup();
+    service.start();
+
+    workerChanged?.();
+    workerChanged?.();
+    expect(migration.ensureSafeVersion).toHaveBeenCalledTimes(1);
+
+    finishFirst('reloadRequired');
+    await vi.waitFor(() => expect(service.state()).toBe('safe'));
+    expect(migration.ensureSafeVersion).toHaveBeenCalledTimes(2);
   });
 
   it('treats a migration that throws as blocked', async () => {

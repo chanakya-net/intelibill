@@ -5,9 +5,13 @@ import vm from 'node:vm';
 import { describe, expect, it } from 'vitest';
 
 import { isLegacyProtectedCacheName } from '../../src/app/core/service-worker/protected-cache-names';
+import {
+  PROTECTED_WORKER_PROTOCOL,
+  PROTECTED_WORKER_QUERY,
+} from '../../src/app/core/service-worker/service-worker-registration';
 
 const frontendRoot = join(import.meta.dir, '..', '..');
-const workerSource = readFileSync(join(frontendRoot, 'public', 'app-worker.js'), 'utf8');
+const workerSource = readFileSync(join(frontendRoot, 'service-worker', 'protected-api-worker.js'), 'utf8');
 
 const ORIGIN = 'https://shop.test';
 
@@ -75,6 +79,7 @@ interface LoadedWorker {
   readonly steps: string[];
   readonly caches: FakeCacheStorage;
   dispatchFetch(url: string): { stopped: boolean; responded: boolean };
+  dispatchMessage(data: unknown): { stopped: boolean; replies: unknown[] };
   dispatchActivate(): Promise<void>;
 }
 
@@ -82,7 +87,7 @@ function loadWorker(cacheNames: readonly string[] = CACHE_FIXTURES): LoadedWorke
   const steps: string[] = [];
   const listeners = new Map<string, ((event: unknown) => void)[]>();
   const caches = new FakeCacheStorage(cacheNames);
-  const location = new URL(`${ORIGIN}/app-worker.js`);
+  const location = new URL(`${ORIGIN}/ngsw-worker.js`);
   const self = {
     location,
     caches,
@@ -117,6 +122,22 @@ function loadWorker(cacheNames: readonly string[] = CACHE_FIXTURES): LoadedWorke
       }
       return outcome;
     },
+    dispatchMessage(data: unknown) {
+      const outcome = { stopped: false, replies: [] as unknown[] };
+      const port = { postMessage: (reply: unknown) => outcome.replies.push(reply) };
+      const event = {
+        data,
+        ports: [port],
+        stopImmediatePropagation: () => {
+          outcome.stopped = true;
+        },
+      };
+      for (const listener of listeners.get('message') ?? []) {
+        listener(event);
+        if (outcome.stopped) break;
+      }
+      return outcome;
+    },
     async dispatchActivate() {
       const pending: Promise<unknown>[] = [];
       const event = { waitUntil: (promise: Promise<unknown>) => pending.push(promise) };
@@ -128,15 +149,35 @@ function loadWorker(cacheNames: readonly string[] = CACHE_FIXTURES): LoadedWorke
   };
 }
 
-describe('app-worker.js', () => {
-  it('listens for fetches before Angular does', () => {
+describe('protected-api-worker.js', () => {
+  it('listens before Angular does, then loads Angular from beside itself', () => {
     const worker = loadWorker();
 
-    const fetchListener = worker.steps.indexOf('listen:fetch');
-    const angular = worker.steps.indexOf('import:./ngsw-worker.js');
-    expect(fetchListener).toBeGreaterThanOrEqual(0);
-    expect(angular).toBeGreaterThan(fetchListener);
+    const angular = worker.steps.indexOf('import:./ngsw-angular-worker.js');
+    expect(angular).toBe(worker.steps.length - 1);
+    for (const type of ['fetch', 'message', 'activate']) {
+      const listener = worker.steps.indexOf(`listen:${type}`);
+      expect(listener, type).toBeGreaterThanOrEqual(0);
+      expect(listener, type).toBeLessThan(angular);
+    }
   });
+
+  it('starts with the marker the build step looks for', () => {
+    expect(workerSource.startsWith('/* intelibill:protected-api-worker */')).toBe(true);
+  });
+
+  it('answers the isolation query, which an earlier worker at the same URL cannot', () => {
+    const outcome = loadWorker().dispatchMessage({ action: PROTECTED_WORKER_QUERY });
+
+    expect(outcome).toEqual({ stopped: true, replies: [{ protectedApiIsolation: PROTECTED_WORKER_PROTOCOL }] });
+  });
+
+  it.each([{ action: 'CHECK_FOR_UPDATES' }, { action: 'ACTIVATE_UPDATE' }, null, 'text'])(
+    'leaves Angular its own messages (%j)',
+    (data) => {
+      expect(loadWorker().dispatchMessage(data)).toEqual({ stopped: false, replies: [] });
+    },
+  );
 
   it.each([
     `${ORIGIN}/api/customers`,

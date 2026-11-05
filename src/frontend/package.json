@@ -5,7 +5,7 @@
   "scripts": {
     "ng": "ng",
     "start": "NODE_NO_WARNINGS=1 ng serve",
-    "build": "ng build && bun run build:server",
+    "build": "ng build && bun run build:worker && bun run build:server",
     "watch": "ng build --watch --configuration development",
     "test": "node ./scripts/test-runner.mjs",
     "audit:styles": "bun run scripts/audit-unused-styles.mjs",
@@ -15,6 +15,7 @@
     "audit:ui:baseline": "bun run scripts/run-ui-audit.mjs --baseline",
     "audit:ui:live": "bun x playwright test --config tests/ui-audit/live/playwright.live.config.ts",
     "audit:ui:release": "bun x playwright test --config tests/ui-audit/release/playwright.release.config.ts",
+    "build:worker": "bun run scripts/finalize-service-worker.mjs",
     "build:server": "bun build src/server.ts --target=node --outfile=dist/INVENTORY/server/server.mjs",
     "serve": "node dist/INVENTORY/server/server.mjs"
   },

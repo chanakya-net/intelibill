@@ -19,7 +19,6 @@ const BUILT_FILES: Readonly<Record<string, string>> = {
   '/main-ABC123.js': 'main',
   '/chunk-DEF456.js': 'chunk',
   '/styles-GHI789.css': 'body{}',
-  '/app-worker.js': 'importScripts("./ngsw-worker.js")',
   '/favicon.ico': 'ico',
   '/manifest.webmanifest': '{}',
   '/assets/i18n/en-IN.json': '{}',
@@ -127,12 +126,6 @@ describe('ngsw-config.json', () => {
     ]) {
       expect(listed, file).toContain(file);
     }
-  });
-
-  it('leaves the worker script itself to the browser', async () => {
-    const manifest = await generate();
-
-    expect(manifest.assetGroups.flatMap((group) => group.urls)).not.toContain('/app-worker.js');
   });
 
   it('never answers a navigation to a protected path with the app shell', async () => {

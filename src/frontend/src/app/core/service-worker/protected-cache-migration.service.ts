@@ -1,14 +1,14 @@
 import { Injectable, InjectionToken, inject } from '@angular/core';
+import { SwRegistrationOptions } from '@angular/service-worker';
 
 import { isLegacyProtectedCacheName } from './protected-cache-names';
-import { APP_WORKER_REGISTRATION, APP_WORKER_SCRIPT, isAppWorkerScript } from './service-worker-registration';
+import { PROTECTED_WORKER_PROTOCOL, PROTECTED_WORKER_QUERY } from './service-worker-registration';
 
 /**
- * - `safe`: no legacy cache holds a protected answer, and no worker that could store one controls
- *   this page.
- * - `reloadRequired`: this page is still controlled by a worker registered before this build and
- *   the app worker did not take over in time (offline at upgrade, say). Requests from this page
- *   still bypass that worker; a reload finishes the update.
+ * - `safe`: the worker serving this origin, if any, keeps protected traffic away from every cache,
+ *   and no legacy cache holds an answer.
+ * - `reloadRequired`: an earlier worker still serves this origin and could not be replaced now
+ *   (offline, say). Requests from this page still bypass it; a reload tries again.
  * - `blocked`: the browser refused the cleanup, so earlier answers may still be stored. A reload
  *   tries again. Local business data (queued invoices, drafts) is never touched either way.
  */
@@ -27,15 +27,21 @@ export const PROTECTED_CACHE_ENVIRONMENT = new InjectionToken<ProtectedCacheEnvi
   }),
 });
 
-/** How long a page under an older worker waits for the app worker to take control of it. */
-export const CONTROLLER_HANDOVER_TIMEOUT_MS = 15_000;
+/** How long a worker has to answer the isolation query; an earlier worker never does. */
+export const WORKER_QUERY_TIMEOUT_MS = 2_000;
+/** How long a replacement worker has to activate once the browser has fetched it. */
+export const WORKER_HANDOVER_TIMEOUT_MS = 15_000;
+
+type WorkerCheck = 'none' | 'protected' | 'replaced' | 'stale';
 
 /**
  * Moves a browser off the cache rules of earlier builds.
  *
- * Earlier builds let Angular's worker store `/api` answers by URL. This removes what they stored
- * and, when an older worker still controls the page, registers the app worker straight away rather
- * than when the app is next stable, so tabs still running an older build are covered sooner.
+ * Earlier builds let Angular's worker store `/api` answers by URL and replay them. Only replacing that
+ * worker stops the replay: a running worker keeps reading the caches it has open, whatever a page
+ * deletes. So this asks the active worker whether it is Intelibill's (which keeps protected traffic
+ * out of every cache), and if not asks the browser to fetch the current script now rather than at
+ * its next update check. It also removes the answers earlier workers stored, so none stays on disk.
  * Only the caches named by `isLegacyProtectedCacheName` are touched: app assets, other caches and
  * every IndexedDB database stay as they are. Each step is safe to repeat.
  * See docs/frontend-architecture.md § Protected API Cache Isolation.
@@ -43,29 +49,27 @@ export const CONTROLLER_HANDOVER_TIMEOUT_MS = 15_000;
 @Injectable({ providedIn: 'root' })
 export class ProtectedCacheMigrationService {
   private readonly environment = inject(PROTECTED_CACHE_ENVIRONMENT);
+  /** Development builds register no worker; one left over from a production build is not theirs to manage. */
+  private readonly workerEnabled = inject(SwRegistrationOptions, { optional: true })?.enabled ?? false;
 
   async ensureSafeVersion(): Promise<CacheSafetyState> {
-    if (!this.environment.caches) {
-      // No CacheStorage means no worker either: nothing could have been stored.
-      return 'safe';
-    }
-
     const purged = await this.purgeLegacyCaches();
-    if (!this.isControlledByOlderWorker()) {
-      return purged ? 'safe' : 'blocked';
-    }
 
-    if (!(await this.handOverToAppWorker())) {
-      return 'reloadRequired';
+    switch (await this.checkWorker()) {
+      case 'stale':
+        return 'reloadRequired';
+      case 'replaced':
+        // Purged again: the earlier worker kept storing answers for older tabs until it was replaced.
+        return (await this.purgeLegacyCaches()) ? 'safe' : 'blocked';
+      default:
+        return purged ? 'safe' : 'blocked';
     }
-
-    // Purged again: the older worker kept serving tabs on older builds until the hand-over.
-    return (await this.purgeLegacyCaches()) ? 'safe' : 'blocked';
   }
 
   /**
-   * Empties and removes every legacy protected cache. True when none holds an entry afterwards. An
-   * older app version still open in another tab may recreate such a cache empty, which is fine.
+   * Empties and removes every legacy protected cache. True when none holds an entry afterwards (an
+   * older app version still open in another tab may recreate one empty, which is fine), or when the
+   * browser denies this origin CacheStorage altogether: then no worker can read it either.
    */
   async purgeLegacyCaches(): Promise<boolean> {
     const storage = this.environment.caches;
@@ -75,7 +79,7 @@ export class ProtectedCacheMigrationService {
 
     try {
       for (const name of (await storage.keys()).filter(isLegacyProtectedCacheName)) {
-        // Entries first: a running older worker may hold a handle to this cache, and deleting the
+        // Entries first: a running earlier worker may hold a handle to this cache, and deleting the
         // name alone would leave that handle's entries readable.
         const cache = await storage.open(name);
         for (const request of await cache.keys()) {
@@ -90,38 +94,98 @@ export class ProtectedCacheMigrationService {
         }
       }
       return true;
-    } catch {
-      return false;
+    } catch (error) {
+      return error instanceof DOMException && error.name === 'SecurityError';
     }
   }
 
-  private isControlledByOlderWorker(): boolean {
-    const controller = this.environment.serviceWorker?.controller;
-    return !!controller && !isAppWorkerScript(controller.scriptURL);
-  }
-
-  /** Registers the app worker and waits for it to claim this page, which Angular's worker does on activation. */
-  private handOverToAppWorker(): Promise<boolean> {
+  /** Calls `listener` whenever another worker takes control of this page. Returns the unsubscribe. */
+  watchWorkerChanges(listener: () => void): () => void {
     const container = this.environment.serviceWorker;
-    if (!container) {
-      return Promise.resolve(false);
+    if (!this.workerEnabled || !container) {
+      return () => undefined;
     }
 
-    return new Promise<boolean>((resolve) => {
-      const finish = (handedOver: boolean): void => {
-        clearTimeout(timer);
-        container.removeEventListener('controllerchange', onControllerChange);
-        resolve(handedOver);
-      };
-      const onControllerChange = (): void => {
-        if (container.controller && isAppWorkerScript(container.controller.scriptURL)) {
-          finish(true);
-        }
-      };
-      const timer = setTimeout(() => finish(false), CONTROLLER_HANDOVER_TIMEOUT_MS);
+    container.addEventListener('controllerchange', listener);
+    return () => container.removeEventListener('controllerchange', listener);
+  }
 
-      container.addEventListener('controllerchange', onControllerChange);
-      container.register(APP_WORKER_SCRIPT, APP_WORKER_REGISTRATION).then(onControllerChange, () => finish(false));
+  private async checkWorker(): Promise<WorkerCheck> {
+    const container = this.environment.serviceWorker;
+    if (!this.workerEnabled || !container) {
+      return 'none';
+    }
+
+    let registration: ServiceWorkerRegistration | undefined;
+    try {
+      registration = await container.getRegistration();
+    } catch {
+      return 'none';
+    }
+
+    const active = registration?.active;
+    if (!registration || !active) {
+      return 'none';
+    }
+    if (await this.isProtectedWorker(active)) {
+      return 'protected';
+    }
+
+    try {
+      await registration.update();
+    } catch {
+      return 'stale';
+    }
+
+    const incoming = registration.installing ?? registration.waiting;
+    if (incoming && !(await this.activation(incoming))) {
+      return 'stale';
+    }
+
+    const current = registration.active;
+    return current && (await this.isProtectedWorker(current)) ? 'replaced' : 'stale';
+  }
+
+  private isProtectedWorker(worker: ServiceWorker): Promise<boolean> {
+    return new Promise<boolean>((resolve) => {
+      const channel = new MessageChannel();
+      const finish = (isProtected: boolean): void => {
+        clearTimeout(timer);
+        channel.port1.close();
+        resolve(isProtected);
+      };
+      const timer = setTimeout(() => finish(false), WORKER_QUERY_TIMEOUT_MS);
+
+      channel.port1.onmessage = (event: MessageEvent<{ protectedApiIsolation?: number } | null>) =>
+        finish(event.data?.protectedApiIsolation === PROTECTED_WORKER_PROTOCOL);
+      try {
+        worker.postMessage({ action: PROTECTED_WORKER_QUERY }, [channel.port2]);
+      } catch {
+        finish(false);
+      }
+    });
+  }
+
+  /** Resolves true once `worker` is activated (Angular's worker skips waiting), false if it fails or stalls. */
+  private activation(worker: ServiceWorker): Promise<boolean> {
+    return new Promise<boolean>((resolve) => {
+      const settle = (): boolean => {
+        if (worker.state === 'activated' || worker.state === 'redundant') {
+          finish(worker.state === 'activated');
+          return true;
+        }
+        return false;
+      };
+      const finish = (activated: boolean): void => {
+        clearTimeout(timer);
+        worker.removeEventListener('statechange', settle);
+        resolve(activated);
+      };
+      const timer = setTimeout(() => finish(false), WORKER_HANDOVER_TIMEOUT_MS);
+
+      if (!settle()) {
+        worker.addEventListener('statechange', settle);
+      }
     });
   }
 }
