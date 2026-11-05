@@ -198,6 +198,46 @@ with a tab-local `epoch`.
   or the offline invoices `Failed` (`offline_sync.scope_changed`, retried by their issuer) — never another
   owner's draft rewritten or a verdict applied under another token.
 
+## Protected API Cache Isolation
+
+An answer under `/api` or `/hubs` belongs to the user and shop that asked for it, and every cache keys what it
+stores by URL. Builds up to `fbff57b09` declared an `api-fresh` data group over `/api/**` (1 h, 8 s timeout,
+`ignoreVary`), so a slow request in shop B was answered with shop A's stored body. Nothing in the service worker
+may hold a protected answer now:
+
+- **Worker.** The page registers `app-worker.js` (`public/`, `APP_WORKER_SCRIPT`, `updateViaCache: 'none'`), which
+  runs a `fetch` listener and then imports Angular's `ngsw-worker.js`. For a same-origin request under `/api/` or
+  `/hubs/`, the listener calls `stopImmediatePropagation()` without `respondWith`, so the browser fetches it from
+  the network and no app version's rules see it. A tab keeps the app version it loaded with (and that version's
+  data groups) until it reloads, which is why the configuration change alone would leave an open old tab exposed.
+  As a new worker script, `app-worker.js` takes control of every open tab (`skipWaiting` + `clients.claim`), old
+  ones included. On activation it empties and deletes the legacy protected caches.
+- **Configuration.** `ngsw-config.json` has no data groups. `navigationUrls` excludes `/api/**` and `/hubs/**`, and
+  the `app` group excludes `/app-worker.js`. `scripts/tests/ngsw-config.spec.ts` compiles the config with
+  Angular's own `Generator` and fails if any rule covers a protected URL. A future per-feature API cache needs its
+  own identity and tenant design; generic authenticated GET caching never comes back.
+- **Requests.** `authInterceptor` sends the bearer token only to `API_BASE_URL` (`classifyApiRequest`); anything
+  else goes out untouched, with no refresh on its 401. Same-origin API requests also carry `ngsw-bypass: true`,
+  which every Angular worker honours before matching a rule. Raw `fetch` callers (catalog stream, offline
+  snapshot, ping) use `withServiceWorkerBypassQuery` and `cache: 'no-store'`. The API answers every `/api` and
+  `/hubs` response `Cache-Control: no-store` (`ProtectedResponseCacheMiddleware`, ahead of the error handler).
+- **Migration.** `ProtectedCacheSafetyService.start()` runs from the app initializer without blocking it, and
+  `ProtectedCacheMigrationService.ensureSafeVersion()` returns `safe | reloadRequired | blocked`. It purges the
+  caches `isLegacyProtectedCacheName` names (Angular 21's `ngsw:<scope>:<v>:data:<group>:cache` and
+  `ngsw:<scope>:db:<v>:data:<group>:{age,lru}` for `api-fresh`, `ping-no-cache` and
+  `offline-sales-api-no-cache`), emptying each one before deleting it. When an older worker still controls the
+  page, it registers the app worker at once and waits up to `CONTROLLER_HANDOVER_TIMEOUT_MS` for the hand-over.
+  It purges again on every change of owner (`onDetach`, which a restart waits for). App asset caches, other
+  caches and IndexedDB are never touched, so queued invoices and drafts survive. Requests never wait on the
+  state: `reloadRequired` and `blocked` only show the shell's `shell.cacheSafety.*` notice with a reload button.
+  Never advise clearing all site storage.
+- **Serving.** `src/server.ts` revalidates `index.html`, `ngsw.json`, the worker scripts and
+  `manifest.webmanifest` on every load (`server-cache-policy.ts`); hashed bundles keep `max-age=1y`.
+- **Proof.** `bun run build && bun run audit:ui:release` (`tests/ui-audit/release/`) runs the built worker in
+  Chromium. A control test reproduces the old leak with the deployed config. The others cover a slow cross-shop
+  request, a new user offline, an open old tab upgraded from another tab, queued sales surviving the purge, the
+  shell opening offline while the API fails closed, and the production interceptor's headers.
+
 ## Key Patterns
 
 - **Standalone components** — no NgModules; all imports declared per component

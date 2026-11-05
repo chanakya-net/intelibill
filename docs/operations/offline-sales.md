@@ -84,10 +84,11 @@ Run this checklist against a production build because Angular's service worker i
 
 - Build with `cd src/frontend && bun run build`.
 - Serve the production output over `http://localhost:<port>` or another local HTTPS/localhost origin, for example `PORT=4207 node dist/INVENTORY/server/server.mjs`.
-- Open the app, verify `ngsw-worker.js` registers, and verify `ngsw.json` contains the app shell and the no-cache offline correctness data groups.
+- Run `bun run audit:ui:release` against that build: it drives the built worker through cross-shop, offline, old-tab upgrade and queued-sale cases.
+- Open the app, verify `app-worker.js` registers (it imports `ngsw-worker.js`), and verify `ngsw.json` lists the app shell and has no data group over `/api`.
 - Reload once after registration so the controlled page uses the service worker.
 - Toggle the browser offline in DevTools or browser automation and verify the installed/app-shell route still loads.
-- Verify no API response from `/api/ping`, `/api/sales/offline-snapshot/stream`, `/api/sales/invoice-leases/reserve`, or `/api/sales/offline-sync` is served stale from the service-worker API cache.
+- Verify no API response is served from the service worker: every `/api` request appears in DevTools as a network request, never "(ServiceWorker)", and CacheStorage holds no `api-fresh`, `ping-no-cache` or `offline-sales-api-no-cache` entries. See `docs/frontend-architecture.md` § Protected API Cache Isolation.
 - While online with a test shop, enable offline billing as Owner/Manager and confirm snapshot completion plus invoice lease persistence.
 - As Staff on the same enabled device, confirm offline sale flow can open after API loss.
 - As Staff on a new browser profile/device, confirm enablement is blocked.
