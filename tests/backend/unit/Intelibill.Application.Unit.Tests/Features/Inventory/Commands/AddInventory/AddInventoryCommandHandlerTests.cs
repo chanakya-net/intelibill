@@ -466,6 +466,43 @@ public class AddInventoryCommandHandlerTests
             Arg.Any<CancellationToken>());
     }
 
+    [Fact]
+    public async Task HandleAsync_WhenFractionOfWholeUnitItem_ReturnsQuantityPrecisionExceeded()
+    {
+        SetupSystemSupplierLookup();
+        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
+        var existing = Item.Create(shop.Id, "Rice", "d", "PCS", "111", true, actor.Id);
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _itemRepository.GetByBarcodeAsync(shop.Id, "111", Arg.Any<CancellationToken>()).Returns(existing);
+        _itemRepository.GetByNameAsync(shop.Id, "Rice", Arg.Any<CancellationToken>()).Returns(existing);
+
+        var result = await CreateHandler().HandleAsync(CreateCommand(actor.Id, shop.Id, quantity: 2.5m), CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("Inventory.QuantityPrecisionExceeded", result.FirstError.Code);
+        await _inventoryBatchRepository.DidNotReceive().AddAsync(Arg.Any<InventoryBatch>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenFractionOfKgIntoNewItem_Succeeds()
+    {
+        SetupSystemSupplierLookup();
+        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _itemRepository.GetByBarcodeAsync(shop.Id, "111", Arg.Any<CancellationToken>()).Returns((Item?)null);
+        _itemRepository.GetByNameAsync(shop.Id, "Rice", Arg.Any<CancellationToken>()).Returns((Item?)null);
+
+        var result = await CreateHandler().HandleAsync(CreateCommand(actor.Id, shop.Id, quantity: 2.5m), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(2.5m, result.Value.BatchQuantity);
+    }
+
     private AddInventoryCommandHandler CreateHandler() =>
         new(_userRepository, _supplierRepository, _itemRepository, _inventoryBatchRepository, _stockTransactionRepository, _supplierLedgerEntryRepository, _purchaseReceiptValueRepository, _inventoryRepository, _unitOfWork);
 

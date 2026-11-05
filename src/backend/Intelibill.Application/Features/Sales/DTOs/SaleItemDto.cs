@@ -63,4 +63,6 @@ public sealed record SaleItemDto
     public decimal ReturnedQuantity { get; init; }
     public decimal ReturnableQuantity { get; init; }
     public string ReturnStatus { get; init; }
+    public string? Uom { get; init; }
+    public int QuantityScale { get; init; }
 }

@@ -126,6 +126,7 @@ public class GetAvailableBatchesQueryHandlerTests
         Assert.Equal(expectedBatchId, result.Value[0].InventoryBatchId);
         Assert.Equal(batch.Quantity, result.Value[0].Quantity);
         Assert.Equal(batch.SalesPrice, result.Value[0].SalesPrice);
+        Assert.Equal((item.Uom, 3), (result.Value[0].Uom, result.Value[0].QuantityScale));
 
         await _batchRepository.Received(1).SearchAvailableByProductNameOrBatchNumberAsync(shop.Id, searchTerm, Arg.Any<CancellationToken>());
         await _batchRepository.DidNotReceive().GetAvailableByBarcodeAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>());

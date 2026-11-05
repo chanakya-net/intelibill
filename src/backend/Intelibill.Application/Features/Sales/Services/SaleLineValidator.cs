@@ -98,6 +98,11 @@ internal sealed class SaleLineValidator(
                 return Errors.Sale.ServiceInactive;
             }
 
+            if (!QuantityPolicy.FitsScale(cmd.Quantity, QuantityUnits.MaxScale))
+            {
+                return Errors.Sale.QuantityPrecisionExceeded(service.Code, "units", QuantityUnits.MaxScale);
+            }
+
             var hasMismatch = cmd.SalesPrice != service.Price
                 || cmd.TaxRatePercent != service.TaxRatePercent
                 || cmd.IsPriceIncludingTax != service.TaxIncluded;
@@ -179,6 +184,14 @@ internal sealed class SaleLineValidator(
 
             if (batch.IsVoided)
                 return Errors.Sale.BatchVoided(cmdItem.Barcode, cmdItem.BatchNumber);
+
+            var quantityCheck = QuantityPolicy.Validate(cmdItem.Quantity, item.QuantityScale, item.Uom);
+            if (quantityCheck.IsError)
+            {
+                return quantityCheck.FirstError.Code == "Quantity.PrecisionExceeded"
+                    ? Errors.Sale.QuantityPrecisionExceeded(cmdItem.Barcode, item.Uom, item.QuantityScale)
+                    : Errors.Sale.OfflineLineQuantityMustBePositive;
+            }
 
             if (!allowInsufficientStock && requestedQuantityByBatchId[batch.Id] > batch.Quantity)
                 return Errors.Sale.InsufficientStock(cmdItem.Barcode, cmdItem.BatchNumber);

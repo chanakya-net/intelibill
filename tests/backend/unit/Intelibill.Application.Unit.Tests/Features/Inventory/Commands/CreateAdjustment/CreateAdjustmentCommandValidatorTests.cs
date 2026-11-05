@@ -10,12 +10,20 @@ public sealed class CreateAdjustmentCommandValidatorTests
     private readonly CreateAdjustmentCommandValidator _validator = new();
 
     [Fact]
-    public void Validate_WhenQuantityHasMoreThanTwoDecimalPlaces_ReturnsError()
+    public void Validate_WhenQuantityHasMoreThanThreeDecimalPlaces_ReturnsError()
     {
-        var result = _validator.TestValidate(Valid() with { Quantity = 1.123m });
+        var result = _validator.TestValidate(Valid() with { Quantity = 1.1234m });
 
         result.ShouldHaveValidationErrorFor(x => x.Quantity)
             .WithErrorCode(Errors.Inventory.AdjustmentQuantityScaleInvalid.Code);
+    }
+
+    [Fact]
+    public void Validate_WhenQuantityHasThreeDecimalPlaces_HasNoErrors()
+    {
+        var result = _validator.TestValidate(Valid() with { Quantity = 0.125m });
+
+        result.ShouldNotHaveValidationErrorFor(x => x.Quantity);
     }
 
     [Fact]

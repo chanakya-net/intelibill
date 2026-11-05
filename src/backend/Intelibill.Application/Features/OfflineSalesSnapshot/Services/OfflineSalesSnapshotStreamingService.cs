@@ -59,7 +59,9 @@ public sealed class OfflineSalesSnapshotStreamingService(
                     TaxRatePercent: batch.TaxRatePercent,
                     TaxIncluded: batch.TaxIncluded,
                     PurchaseTaxIncluded: batch.PurchaseTaxIncluded,
-                    ExpiryDate: batch.ExpiryDate));
+                    ExpiryDate: batch.ExpiryDate,
+                    QuantityScale: batch.Item.QuantityScale,
+                    DocumentUnit: batch.Item.DocumentUnit));
             batchCount++;
         }
 

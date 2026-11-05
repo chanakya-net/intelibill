@@ -3,6 +3,7 @@ using Intelibill.Application.Common.Errors;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
+using Intelibill.Domain.ValueObjects;
 
 namespace Intelibill.Application.Features.Sales.Services.Returns;
 
@@ -13,7 +14,8 @@ internal sealed class SaleReturnValidator(
     ISaleReturnRepository saleReturnRepository,
     IInventoryBatchRepository inventoryBatchRepository,
     ICustomerLedgerEntryRepository customerLedgerEntryRepository,
-    ISaleReturnCalculator saleReturnCalculator)
+    ISaleReturnCalculator saleReturnCalculator,
+    IItemRepository itemRepository)
     : ISaleReturnValidator
 {
     public async Task<ErrorOr<SaleReturnValidationResult>> ValidateAsync(
@@ -56,6 +58,15 @@ internal sealed class SaleReturnValidator(
                     g.Sum(i => i.TaxAmount)));
 
         var saleItemsById = sale.Items.ToDictionary(i => i.Id);
+        var itemIds = sale.Items
+            .Where(i => i.LineType == SaleLineType.Goods && i.ItemId.HasValue)
+            .Select(i => i.ItemId!.Value)
+            .Distinct()
+            .ToList();
+        var itemScaleById = itemIds.Count == 0
+            ? new Dictionary<Guid, int>()
+            : (await itemRepository.GetByIdsAsync(request.ShopId, itemIds, cancellationToken))
+                .ToDictionary(i => i.Id, i => i.QuantityScale);
         var lineInputs = new List<ValidatedSaleReturnLine>();
         var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
 
@@ -70,6 +81,22 @@ internal sealed class SaleReturnValidator(
             if (saleItem.LineType != item.LineType)
             {
                 validationErrors.Add(Errors.Sale.ReturnLineTypeMismatch(item.SaleItemId));
+                continue;
+            }
+
+            int? itemScale = saleItem.LineType == SaleLineType.Goods
+                && saleItem.ItemId.HasValue
+                && itemScaleById.TryGetValue(saleItem.ItemId.Value, out var knownScale)
+                    ? knownScale
+                    : null;
+            var allowedScale = saleItem.LineType == SaleLineType.Service
+                ? QuantityUnits.MaxScale
+                : QuantityPolicy.ReturnScale(itemScale, saleItem.Quantity);
+            if (!QuantityPolicy.FitsScale(item.Quantity, allowedScale))
+            {
+                validationErrors.Add(Errors.Sale.ReturnQuantityPrecisionExceeded(
+                    string.IsNullOrWhiteSpace(saleItem.LineName) ? saleItem.LineCode : saleItem.LineName,
+                    allowedScale));
                 continue;
             }
 

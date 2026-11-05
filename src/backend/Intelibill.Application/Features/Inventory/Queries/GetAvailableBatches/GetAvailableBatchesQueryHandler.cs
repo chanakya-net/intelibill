@@ -44,7 +44,9 @@ public sealed class GetAvailableBatchesQueryHandler(
                 b.TaxRatePercent,
                 b.TaxIncluded,
                 b.PurchaseTaxIncluded,
-                b.ExpiryDate))
+                b.ExpiryDate,
+                b.Item?.Uom ?? "",
+                b.Item?.QuantityScale ?? 0))
             .ToList();
     }
 }

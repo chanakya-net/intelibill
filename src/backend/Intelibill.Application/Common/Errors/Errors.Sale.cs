@@ -4,6 +4,13 @@ namespace Intelibill.Application.Common.Errors;
 
 public static partial class Errors
 {
+    private static string DecimalPlaces(int scale) => scale switch
+    {
+        0 => "whole numbers only",
+        1 => "at most 1 decimal place",
+        _ => $"at most {scale} decimal places",
+    };
+
     public static class Sale
     {
         public static Error ItemsRequired =>
@@ -146,6 +153,11 @@ public static partial class Errors
 
         public static Error ServiceIdRequired =>
             Error.Validation("Sale.ServiceIdRequired", "Service id is required for service lines.");
+        public static Error QuantityPrecisionExceeded(string barcode, string unit, int scale) =>
+            Error.Validation(
+                "Sale.QuantityPrecisionExceeded",
+                $"Quantity for '{barcode}' is sold in {unit} and allows {DecimalPlaces(scale)}.");
+
         public static Error OfflineLineQuantityMustBePositive =>
             Error.Validation("Sale.QuantityMustBePositive", "Quantity must be greater than zero.");
 
@@ -175,6 +187,11 @@ public static partial class Errors
 
         public static Error ReturnQuantityMustBePositive(Guid saleItemId) =>
             Error.Validation("SaleReturn.QuantityMustBePositive", $"Return quantity for sale item '{saleItemId}' must be greater than zero.");
+
+        public static Error ReturnQuantityPrecisionExceeded(string lineName, int scale) =>
+            Error.Validation(
+                "SaleReturn.QuantityPrecisionExceeded",
+                $"Return quantity for '{lineName}' allows {DecimalPlaces(scale)}.");
 
         public static Error ReturnDuplicateSaleItem(Guid saleItemId) =>
             Error.Validation("SaleReturn.DuplicateSaleItem", $"Sale item '{saleItemId}' appears more than once in the return request.");

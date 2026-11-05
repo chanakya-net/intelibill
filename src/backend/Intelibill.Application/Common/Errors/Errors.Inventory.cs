@@ -24,6 +24,11 @@ public static partial class Errors
         public static Error QuantityMustBePositive =>
             Error.Validation("Inventory.QuantityMustBePositive", "Quantity must be greater than zero.");
 
+        public static Error QuantityPrecisionExceeded(string unit, int scale) =>
+            Error.Validation(
+                "Inventory.QuantityPrecisionExceeded",
+                $"Quantity is measured in {unit} and allows {DecimalPlaces(scale)}.");
+
         public static Error UserIsNotOwnerOrManager =>
             Error.Forbidden("Inventory.UserIsNotOwnerOrManager", "Only owner or manager can add inventory.");
 
@@ -52,7 +57,7 @@ public static partial class Errors
             Error.Validation("Inventory.SupplierLedgerEntryInvalid", "Supplier ledger entry is invalid.");
 
         public static Error AdjustmentQuantityScaleInvalid =>
-            Error.Validation("Inventory.AdjustmentQuantityScaleInvalid", "Adjustment quantity cannot have more than two decimal places.");
+            Error.Validation("Inventory.AdjustmentQuantityScaleInvalid", "Adjustment quantity cannot have more than three decimal places.");
 
         public static Error AdjustmentPerformedAtInFuture =>
             Error.Validation("Inventory.AdjustmentPerformedAtInFuture", "Adjustment performed timestamp cannot be in the future.");

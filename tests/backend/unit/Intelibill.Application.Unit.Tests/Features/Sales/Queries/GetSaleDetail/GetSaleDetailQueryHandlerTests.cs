@@ -148,6 +148,23 @@ public class GetSaleDetailQueryHandlerTests
     }
 
     [Fact]
+    public async Task Handle_CarriesTheItemUnitAndQuantityScaleOnGoodsLines()
+    {
+        var user = MakeUser();
+        var shop = MakeShop();
+        var item = Item.Create(shop.Id, "Rice", null, "kg", "BC-001", true, user.Id);
+        var sale = MakeSale(shop.Id, MakeSaleItem(shop.Id, item.Id, quantity: 0.25m));
+        ArrangeAuthorizedSale(user, shop, sale, item);
+        _saleReturnRepository.GetBySaleAsync(shop.Id, sale.Id, Arg.Any<CancellationToken>()).Returns([]);
+
+        var result = await CreateHandler().Handle(new GetSaleDetailQuery(user.Id, shop.Id, sale.Id), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        var line = Assert.Single(result.Value.Items);
+        Assert.Equal(("kg", 3), (line.Uom, line.QuantityScale));
+    }
+
+    [Fact]
     public async Task Handle_WhenUserNotFound_ReturnsNotFoundError()
     {
         var userId = Guid.NewGuid();

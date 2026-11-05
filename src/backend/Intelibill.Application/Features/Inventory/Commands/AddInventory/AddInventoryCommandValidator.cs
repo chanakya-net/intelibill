@@ -1,5 +1,6 @@
 using FluentValidation;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Domain.ValueObjects;
 
 namespace Intelibill.Application.Features.Inventory.Commands.AddInventory;
 
@@ -24,7 +25,10 @@ internal sealed class AddInventoryCommandValidator : AbstractValidator<AddInvent
             .MaximumLength(80);
 
         RuleFor(x => x.Quantity)
-            .GreaterThan(0).WithErrorCode(Errors.Inventory.QuantityMustBePositive.Code);
+            .GreaterThan(0).WithErrorCode(Errors.Inventory.QuantityMustBePositive.Code)
+            .Must(q => QuantityPolicy.FitsScale(q, QuantityUnits.MaxScale))
+            .WithErrorCode("Inventory.QuantityPrecisionExceeded")
+            .WithMessage("Quantity allows at most 3 decimal places.");
 
         RuleFor(x => x.TotalPurchaseCost)
             .GreaterThanOrEqualTo(0);

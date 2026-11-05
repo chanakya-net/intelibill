@@ -11,4 +11,6 @@ public sealed record AvailableBatchDto(
     decimal TaxRatePercent,
     bool TaxIncluded,
     bool PurchaseTaxIncluded,
-    DateOnly? ExpiryDate);
+    DateOnly? ExpiryDate,
+    string Uom,
+    int QuantityScale);

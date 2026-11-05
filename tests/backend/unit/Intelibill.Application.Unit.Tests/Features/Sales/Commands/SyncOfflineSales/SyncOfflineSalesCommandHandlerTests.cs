@@ -242,6 +242,53 @@ public class SyncOfflineSalesCommandHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_WhenOfflineLineFractionsAWholeUnitItem_FailsWithQuantityPrecisionExceeded()
+    {
+        var shopId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var deviceId = "device-1";
+        var item = Item.Create(shopId, "Rice", "desc", "PCS", "BC-001", true, Guid.NewGuid());
+        var batch = CreateBatch(shopId, item.Id);
+        var inventory = CreateInventory(shopId, item.Id);
+        var sale = CreateSale(
+            $"offline-{Guid.NewGuid():N}",
+            paidAmount: 59m,
+            items: [CreateLine(batch.Id, quantity: 0.5m)]);
+        var command = new SyncOfflineSalesCommand(actorId, shopId, deviceId, [sale]);
+
+        var itemRepository = Substitute.For<IItemRepository>();
+        var batchRepository = Substitute.For<IInventoryBatchRepository>();
+        var inventoryRepository = Substitute.For<IInventoryRepository>();
+        batchRepository.GetByIdWithItemAsync(batch.Id, shopId, Arg.Any<CancellationToken>()).Returns(batch);
+        itemRepository.GetByIdsAsync(shopId, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>()).Returns([item]);
+        inventoryRepository.GetByItemIdsAsync(shopId, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>()).Returns([inventory]);
+        var realValidator = new SaleLineValidator(itemRepository, batchRepository, inventoryRepository);
+        _saleLineValidator.ValidateLinesAsync(
+                shopId,
+                Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(),
+                Arg.Any<List<string>>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>())
+            .Returns(call => realValidator.ValidateLinesAsync(
+                call.ArgAt<Guid>(0),
+                call.ArgAt<IReadOnlyList<RecordSaleItemCommand>>(1),
+                call.ArgAt<List<string>>(2),
+                call.ArgAt<CancellationToken>(3),
+                call.ArgAt<bool>(4)));
+        _userRepository.GetByIdWithDetailsAsync(actorId, Arg.Any<CancellationToken>())
+            .Returns(CreateMemberUser(shopId));
+        StubLeases(shopId, deviceId, CreateLease(shopId, deviceId));
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        var syncResult = Assert.Single(result.Value.Results);
+        Assert.Equal("failed", syncResult.Status);
+        Assert.Contains(syncResult.Errors, error => error.Code == "Sale.QuantityPrecisionExceeded");
+        await _saleRepository.DidNotReceive().AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task HandleAsync_WhenOfflineLineAmountIsNegative_ReturnsFailedResult()
     {
         var shopId = Guid.NewGuid();

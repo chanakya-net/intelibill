@@ -86,6 +86,23 @@ public class OfflineSalesSnapshotStreamingServiceTests
     }
 
     [Fact]
+    public async Task StreamAsync_BatchCarriesTheItemQuantityScaleAndDocumentUnit()
+    {
+        var shopId = Guid.NewGuid();
+        var item = Item.Create(shopId, "Rice", null, "kg", "BC-1", true, Guid.NewGuid());
+        var batch = InventoryBatch.Create(shopId, item.Id, "B-1", 5m, 80m, 120m, 100m, 18m, false, null, null, null, Guid.NewGuid()).Value;
+        typeof(InventoryBatch).GetProperty(nameof(InventoryBatch.Item))!.SetValue(batch, item);
+        ArrangeEmptyStreams();
+        _inventoryBatchRepository.StreamActiveSellableWithItemByShopAsync(shopId, Arg.Any<CancellationToken>())
+            .Returns(StreamOf(batch));
+
+        var records = await CollectAsync(shopId);
+
+        var dto = Assert.Single(records.OfType<OfflineSalesSnapshotBatchRecord>()).Batch;
+        Assert.Equal((3, "KGS"), (dto.QuantityScale, dto.DocumentUnit));
+    }
+
+    [Fact]
     public async Task StreamAsync_CustomerCarriesTheBuyerParticularsADocumentNeeds()
     {
         var shopId = Guid.NewGuid();

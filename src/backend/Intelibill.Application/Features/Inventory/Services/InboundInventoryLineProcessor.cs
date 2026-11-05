@@ -2,6 +2,7 @@ using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Interfaces.Repositories;
+using Intelibill.Domain.ValueObjects;
 
 namespace Intelibill.Application.Features.Inventory.Services;
 
@@ -25,6 +26,14 @@ internal sealed class InboundInventoryLineProcessor(
             return itemOrError.Errors;
 
         var item = itemOrError.Value;
+
+        var quantityCheck = QuantityPolicy.Validate(input.Quantity, item.QuantityScale, item.Uom);
+        if (quantityCheck.IsError)
+        {
+            return quantityCheck.FirstError.Code == "Quantity.PrecisionExceeded"
+                ? Errors.Inventory.QuantityPrecisionExceeded(item.Uom, item.QuantityScale)
+                : Errors.Inventory.QuantityMustBePositive;
+        }
 
         var supplierOrError = await supplierResolver.ResolveAsync(shopId, input.SupplierId, cancellationToken);
         if (supplierOrError.IsError)

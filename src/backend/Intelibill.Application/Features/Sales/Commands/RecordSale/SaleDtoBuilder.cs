@@ -2,6 +2,7 @@ using Intelibill.Application.Features.Sales.DTOs;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
+using Intelibill.Domain.ValueObjects;
 
 namespace Intelibill.Application.Features.Sales.Commands.RecordSale;
 
@@ -94,6 +95,7 @@ public sealed class SaleDtoBuilder(IItemRepository itemRepository)
                 TotalAmount = si.TotalAmount,
                 HsnCode = si.HsnCode,
                 SavingsAmount = si.ItemDiscountAmount + si.SaleDiscountAmount,
+                QuantityScale = QuantityPolicy.ReturnScale(null, si.Quantity),
             }).ToList(),
             warnings)
         {

@@ -49,7 +49,9 @@ public sealed class SearchSellablesQueryHandler(
                 batch.TaxRatePercent,
                 batch.TaxIncluded,
                 batch.PurchaseTaxIncluded,
-                batch.ExpiryDate))
+                batch.ExpiryDate,
+                batch.Item?.Uom,
+                batch.Item?.QuantityScale))
             .Concat(services
                 .Select(service => SellableDto.FromService(
                     service.Id,

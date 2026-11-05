@@ -6,6 +6,7 @@ using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
+using Intelibill.Domain.ValueObjects;
 
 namespace Intelibill.Application.Features.Inventory.Commands.CreateAdjustment;
 
@@ -16,7 +17,8 @@ public sealed class CreateAdjustmentCommandHandler(
     IStockTransactionRepository stockTransactionRepository,
     IInventoryAdjustmentRepository inventoryAdjustmentRepository,
     IInventoryAdjustmentNumberGenerator adjustmentNumberGenerator,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    IItemRepository itemRepository)
 {
     private static readonly CreateAdjustmentCommandValidator Validator = new();
 
@@ -49,6 +51,11 @@ public sealed class CreateAdjustmentCommandHandler(
 
         if (batch.IsVoided)
             return Errors.Inventory.BatchAlreadyVoided;
+
+        var items = await itemRepository.GetByIdsAsync(command.ActiveShopId, [batch.ItemId], cancellationToken);
+        var item = (items.Count > 0 ? items[0] : null);
+        if (item is not null && !QuantityPolicy.FitsScale(command.Quantity, item.QuantityScale))
+            return Errors.Inventory.QuantityPrecisionExceeded(item.Uom, item.QuantityScale);
 
         var inventory = await inventoryRepository.GetByItemAsync(command.ActiveShopId, batch.ItemId, cancellationToken);
         if (inventory is null)

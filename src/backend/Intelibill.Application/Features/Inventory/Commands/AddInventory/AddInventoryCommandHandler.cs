@@ -5,6 +5,7 @@ using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
+using Intelibill.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 using DomainInventory = Intelibill.Domain.Entities.Inventory;
 
@@ -70,9 +71,19 @@ public sealed class AddInventoryCommandHandler(
                 isActive: true,
                 createdBy: command.ActorUserId);
 
-            await itemRepository.AddAsync(item, cancellationToken);
             isNewItem = true;
         }
+
+        var quantityCheck = QuantityPolicy.Validate(command.Quantity, item.QuantityScale, item.Uom);
+        if (quantityCheck.IsError)
+        {
+            return quantityCheck.FirstError.Code == "Quantity.PrecisionExceeded"
+                ? Errors.Inventory.QuantityPrecisionExceeded(item.Uom, item.QuantityScale)
+                : Errors.Inventory.QuantityMustBePositive;
+        }
+
+        if (isNewItem)
+            await itemRepository.AddAsync(item, cancellationToken);
 
         var hsnCode = string.IsNullOrWhiteSpace(command.HsnCode) ? item.HsnCode : command.HsnCode;
         item.UpdateTaxDefaults(hsnCode, command.TaxRatePercent, command.TaxIncluded);
