@@ -1661,6 +1661,29 @@ public class SyncOfflineSalesCommandHandlerTests
     }
 
     [Fact]
+    public async Task StageAsync_WhenAWeighedQuantityIsSold_PostsItAndPrintsTheKilogramUnit()
+    {
+        var shopId = Guid.NewGuid();
+        var item = CreateItem(shopId);
+        var batch = CreateBatch(shopId, item.Id, quantity: 5m);
+        var inventory = CreateInventory(shopId, item.Id, quantity: 5m);
+        var sale = CreateSale($"offline-{Guid.NewGuid():N}", "A/2526/000201", paidAmount: 29.5m, items: [CreateLine(batch.Id, quantity: 0.25m)]);
+        var lease = InvoiceLease.Create(shopId, Guid.NewGuid(), "device-1", 2025, "A/2526/", 201, 400, 6, Now.AddDays(-1), Now.AddDays(6), sellerProfile: FrozenProfile(TaxRegime.Regular, "Main Shop Pvt Ltd"));
+        SetupSuccessfulLineValidation(_saleLineValidator, shopId, item, batch, inventory);
+        Sale? staged = null;
+        _saleRepository.When(r => r.AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>())).Do(call => staged = call.Arg<Sale>());
+        CaptureReconciliationIssues();
+
+        var outcome = await Poster().StageAsync(PostingRequest(shopId, sale, lease), CancellationToken.None);
+
+        Assert.IsType<OfflineSalePostingOutcome.Staged>(outcome);
+        var line = Assert.Single(staged!.InvoiceDocument!.Lines);
+        Assert.Equal("KGS", line.Uom);
+        Assert.Equal(0.25m, line.Quantity);
+        Assert.Equal(0.25m, Assert.Single(staged.Items).Quantity);
+    }
+
+    [Fact]
     public async Task StageAsync_WhenTheFrozenProfileCannotIssue_PostsWithoutADocumentAndFilesAReview()
     {
         var shopId = Guid.NewGuid();

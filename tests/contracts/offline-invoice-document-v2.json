@@ -305,6 +305,34 @@
           "components": [["Cgst", 2.5, 100, 2.5], ["Sgst", 2.5, 100, 2.5]]
         }
       }
+    },
+    {
+      "name": "a custom fractional unit prints OTH",
+      "seller": "regularKarnataka",
+      "customer": null,
+      "saleCustomerName": "Ravi",
+      "saleCustomerPhone": "9876543210",
+      "lines": [
+        { "lineType": "goods", "description": "Loose cloth by the bundle", "hsn": "5208", "documentUnit": "OTH", "quantity": 0.25, "unitPrice": 400, "discountAmount": 0, "taxableAmount": 100, "taxRatePercent": 5, "taxAmount": 5, "lineTotal": 105 }
+      ],
+      "expected": {
+        "documentType": "TaxInvoice",
+        "isInterstate": false,
+        "placeOfSupplyStateCode": "29",
+        "placeOfSupplyStateName": "Karnataka",
+        "buyer": { "name": "Ravi", "phone": "9876543210", "address": null, "gstin": null, "stateCode": null, "stateName": null },
+        "declarations": [],
+        "lines": [
+          { "uom": "OTH", "isExempt": false, "components": [["Cgst", 2.5, 100, 2.5], ["Sgst", 2.5, 100, 2.5]] }
+        ],
+        "totals": {
+          "taxableValue": 100,
+          "exemptValue": 0,
+          "totalTax": 5,
+          "invoiceTotal": 105,
+          "components": [["Cgst", 2.5, 100, 2.5], ["Sgst", 2.5, 100, 2.5]]
+        }
+      }
     }
   ]
 }
