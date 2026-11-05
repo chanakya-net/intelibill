@@ -130,7 +130,12 @@
     "mainNavigation": "Main navigation",
     "offlineReconciliation": "Offline reconciliation",
     "scopeTransition": "Switching to the selected store…",
-    "signedOut": "You have been signed out. Taking you to sign in…"
+    "signedOut": "You have been signed out. Taking you to sign in…",
+    "cacheSafety": {
+      "reloadRequired": "Intelibill could not finish updating on this device. Reload this page to try again.",
+      "blocked": "Cached data from an earlier version could not be cleared. Reload this page to try again; your sales and drafts are not affected.",
+      "reload": "Reload"
+    }
   },
   "dashboard": {
     "header": {

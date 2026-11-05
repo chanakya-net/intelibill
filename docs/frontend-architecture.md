@@ -198,6 +198,78 @@ with a tab-local `epoch`.
   or the offline invoices `Failed` (`offline_sync.scope_changed`, retried by their issuer) — never another
   owner's draft rewritten or a verdict applied under another token.
 
+## Protected API Cache Isolation
+
+An answer under `/api` or `/hubs` belongs to the user and shop that asked for it, and every cache keys what it
+stores by URL. Builds up to `fbff57b09` declared an `api-fresh` data group over `/api/**` (1 h, 8 s timeout,
+`ignoreVary`), so a slow request in shop B was answered with shop A's stored body. Nothing in the service worker
+may hold a protected answer now:
+
+- **Worker.** `bun run build` runs `build:worker` (`scripts/finalize-service-worker.mjs`) after `ng build`. That
+  step moves Angular's worker to `ngsw-angular-worker.js` and publishes `service-worker/protected-api-worker.js`
+  as `ngsw-worker.js`, the URL every build has registered. The wrapper's `fetch` listener runs before Angular's.
+  For a same-origin request under `/api/` or `/hubs/`, it calls `stopImmediatePropagation()` without
+  `respondWith`, so the browser fetches it from the network and no app version's rules see it. On activation it
+  empties and deletes the legacy protected caches. It answers the `PROTECTED_WORKER_QUERY` message, which an
+  earlier worker at the same URL cannot. A tab keeps the app version it loaded with, and that version's data
+  groups, until it reloads, so the configuration change alone would leave an open old tab exposed. Once the
+  wrapper is installed, Angular's code in it takes control of every open tab (`skipWaiting` + `clients.claim`),
+  old ones included. Keeping the URL is what makes this stick: the browser's own update check on any in-scope
+  navigation installs the wrapper, and an older page that registers `ngsw-worker.js` again cannot reinstate
+  Angular's bare worker.
+- **Configuration.** `ngsw-config.json` has no data groups, and `navigationUrls` excludes `/api/**` and `/hubs/**`.
+  `scripts/tests/ngsw-config.spec.ts` compiles the config with Angular's own `Generator` and fails if any rule
+  covers a protected URL. A future per-feature API cache needs its own identity and tenant design; generic
+  authenticated GET caching never comes back.
+- **Requests.** `authInterceptor` sends the bearer token only to `API_BASE_URL` (`classifyApiRequest`); anything
+  else goes out untouched, with no refresh on its 401. Same-origin API requests also carry `ngsw-bypass: true`,
+  which every Angular worker honours before matching a rule, so this build's own requests never reach an old
+  worker. Raw `fetch` callers (catalog stream, offline snapshot, ping) use `withServiceWorkerBypassQuery` and
+  `cache: 'no-store'`. The API answers every `/api` and `/hubs` response `Cache-Control: no-store`
+  (`ProtectedResponseCacheMiddleware`, ahead of the error handler). Angular's worker ignores that header, so it
+  protects the browser HTTP cache only.
+- **Migration.** `ProtectedCacheSafetyService.start()` runs from the app initializer without blocking it.
+  `ProtectedCacheMigrationService.ensureSafeVersion()` returns `safe | reloadRequired | blocked`:
+  - It asks the registration's active worker the isolation query (`WORKER_QUERY_TIMEOUT_MS`). If no answer comes,
+    it calls `registration.update()` and waits up to `WORKER_HANDOVER_TIMEOUT_MS` for the wrapper to activate.
+  - It purges the caches `isLegacyProtectedCacheName` names (Angular 21's `ngsw:<scope>:<v>:data:<group>:cache`
+    and `ngsw:<scope>:db:<v>:data:<group>:{age,lru}` for `api-fresh`, `ping-no-cache` and
+    `offline-sales-api-no-cache`), emptying each one before deleting it.
+  - It re-checks whenever another worker takes control (`controllerchange`) and asks for the current script
+    again. An open page of this build undoes a mid-rollout flip to an old instance once that request reaches an
+    instance of this build.
+  - It purges again on every change of owner (`onDetach`, which a restart waits for). That keeps earlier answers
+    off disk, but a page cannot stop a running old worker from replaying an answer it holds open. Only replacing
+    that worker does.
+  - App asset caches, other caches and IndexedDB are never touched, so queued invoices and drafts survive.
+    Requests never wait on the state: `reloadRequired` and `blocked` only show the shell's `shell.cacheSafety.*`
+    notice with a reload button. Development builds (worker disabled) leave any worker alone. Never advise
+    clearing all site storage.
+- **Coverage.** A tab still running an older build is protected once a page of this build loads anywhere in that
+  browser, or the browser makes its next update check of `ngsw-worker.js` (any in-scope navigation). Until then,
+  only that tab's own requests can be answered from its old caches.
+- **Serving.** `src/server.ts` revalidates `index.html`, `ngsw.json`, the worker scripts and
+  `manifest.webmanifest` on every load (`server-cache-policy.ts`); hashed bundles keep `max-age=1y`.
+- **Rollback and kill switch.** Never deploy Angular's bare worker at `ngsw-worker.js` again, so never roll back
+  below this change. The browser's update check would install it in every tab, and any bare worker re-reads the
+  stored manifests of earlier versions (with their `/api` rules) for tabs still assigned to them. A rollback build
+  must keep `build:worker`. Angular's kill switch still works at the same URL: serve `safety-worker.js` as
+  `ngsw-worker.js`. It deletes every `ngsw:` cache, the app shell included, so offline billing cannot open while it
+  is served. Queued sales in IndexedDB survive. Each page load registers it again, and it unregisters itself again.
+- **Proof.** `bun run build && bun run audit:ui:release` (`tests/ui-audit/release/`) runs the built worker in
+  Chromium against a legacy deployment: Angular's bare worker and the old configuration served over the current
+  build files. No old app code runs; old-code requests are raw `fetch` calls without the bypass header. A control
+  test reproduces the old leak. The other tests cover:
+  - a slow cross-shop request;
+  - a new user offline;
+  - the first load of this build replacing the worker under an open old tab;
+  - a lone old tab covered by the browser's update check;
+  - an older page re-registering the URL mid-rollout (no script fetch);
+  - a mid-rollout flip undone by the open app tab's own migration;
+  - queued sales surviving the purge;
+  - the shell opening offline while the API fails closed;
+  - the production interceptor's headers.
+
 ## Key Patterns
 
 - **Standalone components** — no NgModules; all imports declared per component

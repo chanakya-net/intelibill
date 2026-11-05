@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 
 import { AuthService } from '../../../core/auth/auth.service';
 import { SALE_ENDPOINTS } from '../../../core/auth/auth.constants';
+import { withServiceWorkerBypassQuery } from '../../../core/service-worker/service-worker-bypass';
 import {
   OfflineSalesSnapshotIndexedDbService,
   type OfflineActiveLeaseSnapshot,
@@ -11,8 +12,6 @@ import {
   type OfflineSellableBatchSnapshot,
   type OfflineSellableServiceSnapshot,
 } from '../../../core/storage/offline-sales-snapshot-indexeddb.service';
-
-const SERVICE_WORKER_BYPASS_QUERY = 'ngsw-bypass=true';
 
 type OfflineSnapshotStreamRecord =
   | { readonly type: 'metadata'; readonly metadata: OfflineSalesSnapshotMetadata }
@@ -52,7 +51,7 @@ export class OfflineSalesSnapshotSyncService {
     let snapshotId: string | null = null;
 
     try {
-      const response = await fetch(this.withServiceWorkerBypass(SALE_ENDPOINTS.offlineSnapshotStream), {
+      const response = await fetch(withServiceWorkerBypassQuery(SALE_ENDPOINTS.offlineSnapshotStream), {
         cache: 'no-store',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -168,10 +167,5 @@ export class OfflineSalesSnapshotSyncService {
         await this.snapshotDb.markFailed(snapshotId, shopId, 'OfflineSnapshot.StreamFailed', message);
       }
     }
-  }
-
-  private withServiceWorkerBypass(url: string): string {
-    const separator = url.includes('?') ? '&' : '?';
-    return `${url}${separator}${SERVICE_WORKER_BYPASS_QUERY}`;
   }
 }

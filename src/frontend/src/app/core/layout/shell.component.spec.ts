@@ -22,6 +22,8 @@ import { DEFAULT_LANGUAGE, SupportedLanguage } from '../i18n/language.constants'
 import { ShellComponent } from './shell.component';
 import { ShopContextService } from '../context/shop-context.service';
 import { AppReloadService } from '../services/app-reload.service';
+import { CacheSafetyState } from '../service-worker/protected-cache-migration.service';
+import { ProtectedCacheSafetyService } from '../service-worker/protected-cache-safety.service';
 import { selectSidebarCollapsed, selectSidebarPinned } from '../state/app-shell.selectors';
 
 @Component({ standalone: true, template: '<p>Account content</p>' })
@@ -479,5 +481,49 @@ describe('ShellComponent', () => {
     } finally {
       Object.assign(authService, { session: original });
     }
+  });
+
+  describe('cache safety notice', () => {
+    const cacheState = signal<CacheSafetyState | 'checking'>('checking');
+    const cacheSafety = { state: cacheState, reload: vi.fn() };
+
+    function createWithCacheState(state: CacheSafetyState | 'checking') {
+      cacheState.set(state);
+      cacheSafety.reload.mockReset();
+      configureTestBed();
+      TestBed.overrideProvider(ProtectedCacheSafetyService, { useValue: cacheSafety });
+      const fixture = TestBed.createComponent(ShellComponent);
+      fixture.detectChanges();
+      return fixture;
+    }
+
+    it.each(['checking', 'safe'] as const)('stays out of the way while %s', (state) => {
+      const fixture = createWithCacheState(state);
+
+      expect(fixture.nativeElement.querySelector('.shell-cache-notice')).toBeNull();
+    });
+
+    it.each([
+      ['reloadRequired', 'shell.cacheSafety.reloadRequired'],
+      ['blocked', 'shell.cacheSafety.blocked'],
+    ] as const)('offers a reload when %s', (state, key) => {
+      const fixture = createWithCacheState(state);
+      const notice: HTMLElement | null = fixture.nativeElement.querySelector('.shell-cache-notice');
+
+      expect(notice?.getAttribute('role')).toBe('alert');
+      expect(notice?.textContent).toContain(key.split('.').pop());
+      notice?.querySelector<HTMLButtonElement>('.shell-cache-notice-action')?.click();
+      expect(cacheSafety.reload).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps routed content available: the notice never blocks work', async () => {
+      const fixture = createWithCacheState('blocked');
+      const router = TestBed.inject(Router);
+      router.resetConfig([{ path: 'users', component: AccountRouteStub }]);
+      await router.navigateByUrl('/users');
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.textContent).toContain('Account content');
+    });
   });
 });

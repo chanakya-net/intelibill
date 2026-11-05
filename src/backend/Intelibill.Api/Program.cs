@@ -192,6 +192,8 @@ var app = builder.Build();
 // ingress every request otherwise looks like plain HTTP arriving from the proxy.
 app.UseForwardedHeaders();
 
+// Ahead of the error handler, so a refusal or failure is as uncacheable as a success.
+app.UseMiddleware<ProtectedResponseCacheMiddleware>();
 app.UseMiddleware<RequestDatabaseTelemetryMiddleware>();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 

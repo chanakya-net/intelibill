@@ -14,6 +14,7 @@ import { API_BASE_URL, AUTH_ENDPOINTS, SHOP_ENDPOINTS } from '../auth/auth.const
 import { AuthService } from '../auth/auth.service';
 import { REQUEST_SCOPE, ScopeMismatchError, StaleScopeError } from '../context/scoped-request';
 import { ShopContextService } from '../context/shop-context.service';
+import { SERVICE_WORKER_BYPASS_HEADER, classifyApiRequest } from '../service-worker/service-worker-bypass';
 
 const REFRESH_ATTEMPTED = new HttpContextToken<boolean>(() => false);
 
@@ -27,6 +28,13 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
   if (owner && !shopContext.isCurrent(owner)) {
     return throwError(() => new ScopeMismatchError());
   }
+  // Credentials and the worker bypass are for this application's API only. Anything else (static
+  // assets, a third-party URL) goes out exactly as asked: no token to leak, no refresh to trigger.
+  const routing = classifyApiRequest(request.url, API_BASE_URL, document.baseURI);
+  if (!routing.isApiRequest) {
+    return next(request);
+  }
+
   const epochAtRequest = shopContext.epoch();
 
   const accessToken = authService.getAccessToken();
@@ -36,9 +44,14 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
   // Who the request was made as. A renewal can finish after this tab moved to another account;
   // replaying the request then would act as someone who never made it.
   const userAtRequest = authService.session()?.user?.id ?? null;
-  const authorizedRequest = accessToken
-    ? request.clone({ setHeaders: { Authorization: `Bearer ${accessToken}` } })
-    : request;
+  // A protected answer belongs to the identity that asked for it. The bypass keeps every service
+  // worker version, including one deployed before this build, from storing or replaying it.
+  const workerBypass: Record<string, string> = routing.bypassServiceWorker
+    ? { [SERVICE_WORKER_BYPASS_HEADER]: 'true' }
+    : {};
+  const authorizedRequest = request.clone({
+    setHeaders: accessToken ? { ...workerBypass, Authorization: `Bearer ${accessToken}` } : workerBypass,
+  });
 
   const answer = next(authorizedRequest).pipe(
     catchError((error: unknown) => {
@@ -92,7 +105,7 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
           }
 
           const retryRequest = request.clone({
-            setHeaders: { Authorization: `Bearer ${session.accessToken}` },
+            setHeaders: { ...workerBypass, Authorization: `Bearer ${session.accessToken}` },
             context: request.context.set(REFRESH_ATTEMPTED, true),
           });
 
