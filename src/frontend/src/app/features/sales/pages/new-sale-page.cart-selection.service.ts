@@ -1,5 +1,5 @@
 import { NewSalePageSearchCustomerService } from './new-sale-page.search-customer.service';
-import { QUANTITY_REFUSAL_KEYS } from './new-sale-page.state.service';
+import { QUANTITY_REFUSAL_MESSAGE_KEYS, QuantityRefusalLine } from './new-sale-page.state.service';
 import { AvailableBatchDto } from '../../inventory/services/inventory.models';
 import { PAYMENT_METHOD_VALUES, PaymentMethod } from '../services/sale.models';
 import type { QuantityChangeResult } from '../services/sale-cart-state.service';
@@ -9,8 +9,6 @@ import {
   CartQuantityChangedEvent,
 } from '../components/new-sale/cart-table.component';
 import { batchToGoodsSellable } from '../utils/sellable-goods.mapper';
-
-const QUANTITY_REFUSAL_MESSAGES: ReadonlySet<string> = new Set(Object.values(QUANTITY_REFUSAL_KEYS));
 
 export abstract class NewSalePageCartSelectionService extends NewSalePageSearchCustomerService {
   onSelectBatch(batch: AvailableBatchDto): void {
@@ -25,20 +23,24 @@ export abstract class NewSalePageCartSelectionService extends NewSalePageSearchC
       return;
     }
 
-    this.reportQuantityChange(this.cartState.setQuantity(event.itemId, event.qty));
+    this.reportQuantityChange(
+      this.cartState.setQuantity(event.itemId, event.qty),
+      this.cart().find((item) => item.clientLineKey === event.itemId),
+    );
   }
 
   /** Shows why a quantity was refused (the line is unchanged); a change that lands clears that message. */
-  protected reportQuantityChange(result: QuantityChangeResult): void {
+  protected reportQuantityChange(result: QuantityChangeResult, line?: QuantityRefusalLine | null): void {
     if (result === 'ok' || result === 'unchanged') {
-      if (QUANTITY_REFUSAL_MESSAGES.has(this.batchSearchError())) {
+      if (QUANTITY_REFUSAL_MESSAGE_KEYS.has(this.batchSearchError())) {
         this.batchSearchError.set('');
+        this.batchSearchErrorParams.set(null);
       }
       return;
     }
 
     if (result !== 'notFound') {
-      this.batchSearchError.set(this.quantityRefusalKey(result));
+      this.showQuantityRefusal(result, line);
     }
   }
 

@@ -30,6 +30,12 @@ export function quantityPrecisionMessage(
     return null;
   }
 
+  return tooPreciseMessage(unit, scale, locale);
+}
+
+/** The refusal naming a unit and the decimal places it allows, for a quantity that has more. */
+export function tooPreciseMessage(unit: string, quantityScale: number | null | undefined, locale: string): QuantityMessage {
+  const scale = entryScaleOf(quantityScale);
   return {
     key: scale > 0 ? 'common.quantity.errors.tooPrecise' : 'common.quantity.errors.tooPreciseWhole',
     params: { unit, decimals: scale, step: formatQuantity(quantityStep(scale), scale, locale) },

@@ -27,7 +27,7 @@ export abstract class NewSalePageCartSubmitService extends NewSalePageCartSelect
       if (!result.added) {
         const refusal = result.refusal ?? 'exceedsStock';
         this.batchPickerForm.controls.quantity.setErrors({ [refusal]: true });
-        this.batchSearchError.set(this.quantityRefusalKey(refusal));
+        this.showQuantityRefusal(refusal, sellable);
         return;
       }
 
@@ -39,7 +39,7 @@ export abstract class NewSalePageCartSubmitService extends NewSalePageCartSelect
       if (!Number.isInteger(qty) || qty <= 0) {
         const refusal = qty > 0 ? 'tooPrecise' : 'notPositive';
         this.batchPickerForm.controls.quantity.setErrors({ [refusal]: true });
-        this.batchSearchError.set(this.quantityRefusalKey(refusal));
+        this.showQuantityRefusal(refusal, { serviceName: sellable.name, quantityScale: 0 });
         return;
       }
       const lineKey = this.cartState.addServiceToCart(sellable);
@@ -78,7 +78,10 @@ export abstract class NewSalePageCartSubmitService extends NewSalePageCartSelect
     if (value === null || value === undefined) {
       return;
     }
-    this.reportQuantityChange(this.cartState.setServiceQuantity(clientLineKey, value));
+    this.reportQuantityChange(
+      this.cartState.setServiceQuantity(clientLineKey, value),
+      this.serviceCart().find((item) => item.clientLineKey === clientLineKey),
+    );
   }
 
   onClearCart(): void {

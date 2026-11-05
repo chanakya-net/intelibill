@@ -281,13 +281,17 @@ export abstract class NewSalePageLifecycleService extends NewSalePageStateServic
             const batch = goodsSellableToBatch(sellable);
             const result = this.cartState.addBatchToCart(batch, 1);
             if (!result.added) {
-              if (result.refusal === 'exceedsStock' && batch.quantity > 0 && (batch.quantityScale ?? 0) > 0) {
+              if (
+                result.refusal === 'exceedsStock' &&
+                (batch.quantityScale ?? 0) > 0 &&
+                this.remainingStock(batch) > 0
+              ) {
                 // Less than one unit of a weighed item is left: let the cashier enter the part quantity.
                 this.availableBatches.set([batch]);
                 this.showBatchPicker.set(true);
                 return;
               }
-              this.batchSearchError.set(this.quantityRefusalKey(result.refusal ?? 'exceedsStock'));
+              this.showQuantityRefusal(result.refusal ?? 'exceedsStock', batch);
               return;
             }
             if (result.addedLineKey) {

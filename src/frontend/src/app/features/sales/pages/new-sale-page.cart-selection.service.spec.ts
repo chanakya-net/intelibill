@@ -14,7 +14,10 @@ function harness(result: QuantityChangeResult = 'ok') {
     onDecreaseCartItem: vi.fn(),
   };
   const page = Object.assign(Object.create(NewSalePageCartSelectionService.prototype), {
-    cart: signal([{ clientLineKey: 'line-1', quantity: 1, quantityScale: 3, availableQuantity: 50 }]),
+    cart: signal([{ clientLineKey: 'line-1', itemName: 'Rice', uom: 'kg', quantity: 1, quantityScale: 3, availableQuantity: 50 }]),
+    serviceCart: signal([]),
+    transloco: { getActiveLang: () => 'en' },
+    batchSearchErrorParams: signal<unknown>(null),
     cartState,
     batchSearchError: signal(''),
     selectedSellable: signal<SellableDto | null>(null),
@@ -59,11 +62,58 @@ describe('NewSalePageCartSelectionService', () => {
 
     const tooPrecise = harness('tooPrecise');
     tooPrecise.page.onCartTableQuantityChanged({ itemId: 'line-1', qty: 0.0001 });
-    expect(tooPrecise.page.batchSearchError()).toBe('sales.newSale.quantityPrecisionExceeded');
+    expect(tooPrecise.page.batchSearchError()).toBe('common.quantity.errors.tooPrecise');
 
     refused.cartState.setQuantity.mockReturnValue('ok');
     refused.page.onCartTableQuantityChanged({ itemId: 'line-1', qty: 2 });
     expect(refused.page.batchSearchError()).toBe('');
+  });
+
+  it('names the line unit and allowed decimals when a quantity is too precise', () => {
+    const { page } = harness('tooPrecise');
+
+    page.onCartTableQuantityChanged({ itemId: 'line-1', qty: 0.0001 });
+
+    expect(page.batchSearchError()).toBe('common.quantity.errors.tooPrecise');
+    expect(page.batchSearchErrorParams()).toEqual({ unit: 'kg', decimals: 3, step: '0.001' });
+  });
+
+  it('names a whole-unit line and clears the unit once a change lands', () => {
+    const { page, cartState } = harness('tooPrecise');
+    page.cart.set([{ clientLineKey: 'line-1', itemName: 'Pen', uom: 'PCS', quantity: 1, quantityScale: 0, availableQuantity: 9 }] as never);
+
+    page.onCartTableQuantityChanged({ itemId: 'line-1', qty: 1.5 });
+    expect(page.batchSearchError()).toBe('common.quantity.errors.tooPreciseWhole');
+    expect(page.batchSearchErrorParams()).toEqual({ unit: 'PCS', decimals: 0, step: '1' });
+
+    cartState.setQuantity.mockReturnValue('ok');
+    page.onCartTableQuantityChanged({ itemId: 'line-1', qty: 2 });
+    expect(page.batchSearchError()).toBe('');
+    expect(page.batchSearchErrorParams()).toBeNull();
+  });
+
+  it('names the unit of the one line the server refused, and stays generic otherwise', () => {
+    const { page } = harness();
+    const serverError = signal<string | null>('sales.newSale.quantityPrecisionExceeded');
+    Object.assign(page, { serverError });
+
+    // Every line fits its own unit: the offending line cannot be identified.
+    expect(page.serverErrorMessage()).toEqual({ key: 'sales.newSale.quantityPrecisionExceeded', params: null });
+
+    page.cart.set([
+      { clientLineKey: 'a', itemName: 'Rice', uom: 'kg', quantity: 1.5, quantityScale: 3, availableQuantity: 9 },
+      { clientLineKey: 'b', itemName: 'Pen', uom: 'PCS', quantity: 2.5, quantityScale: 0, availableQuantity: 9 },
+    ] as never);
+    expect(page.serverErrorMessage()).toEqual({
+      key: 'common.quantity.errors.tooPreciseWhole',
+      params: { unit: 'PCS', decimals: 0, step: '1' },
+    });
+
+    page.cart.update((lines) => [...lines, { ...lines[0], clientLineKey: 'c', quantity: 0.5, quantityScale: 0 }] as never);
+    expect(page.serverErrorMessage().params).toBeNull();
+
+    serverError.set('errors.sales.recordFailed');
+    expect(page.serverErrorMessage()).toEqual({ key: 'errors.sales.recordFailed', params: null });
   });
 
   it('leaves an unrelated search message alone', () => {
