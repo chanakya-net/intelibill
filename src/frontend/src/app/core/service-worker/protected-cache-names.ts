@@ -10,8 +10,8 @@ export const LEGACY_PROTECTED_DATA_GROUPS = ['api-fresh', 'ping-no-cache', 'offl
  * (`ngsw-worker.js`, `DataGroup` and `CacheDatabase`). The version is the group's own `version`, not
  * the app hash, so it survives app updates.
  *
- * `public/app-worker.js` carries the same pattern; `scripts/tests/app-worker.spec.ts` keeps the two
- * in step.
+ * `service-worker/protected-api-worker.js` carries the same pattern;
+ * `scripts/tests/protected-api-worker.spec.ts` keeps the two in step.
  */
 const LEGACY_PROTECTED_CACHE_NAME = new RegExp(
   `^ngsw:[^:]*:(?:db:)?\\d+:data:(?:${LEGACY_PROTECTED_DATA_GROUPS.join('|')}):(?:cache|age|lru)$`,

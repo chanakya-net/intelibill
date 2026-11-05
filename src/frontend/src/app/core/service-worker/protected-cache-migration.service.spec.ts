@@ -8,6 +8,7 @@ import {
   ProtectedCacheMigrationService,
   WORKER_HANDOVER_TIMEOUT_MS,
   WORKER_QUERY_TIMEOUT_MS,
+  WORKER_UPDATE_TIMEOUT_MS,
 } from './protected-cache-migration.service';
 import { PROTECTED_WORKER_PROTOCOL, PROTECTED_WORKER_QUERY } from './service-worker-registration';
 
@@ -272,6 +273,21 @@ describe('ProtectedCacheMigrationService', () => {
       await expect(result).resolves.toBe('reloadRequired');
     });
 
+    it('is reload required when the update check never settles, and stays free to check again', async () => {
+      vi.useFakeTimers();
+      const registration = new FakeRegistration(new FakeWorker(false));
+      registration.update.mockReturnValue(new Promise(() => undefined));
+      const service = createService({
+        caches: asCaches(new FakeCacheStorage([])),
+        serviceWorker: asContainer(new FakeContainer(registration)),
+      });
+
+      const result = service.ensureSafeVersion();
+      await vi.advanceTimersByTimeAsync(WORKER_QUERY_TIMEOUT_MS + WORKER_UPDATE_TIMEOUT_MS);
+
+      await expect(result).resolves.toBe('reloadRequired');
+    });
+
     it('is reload required when the server still serves the earlier script', async () => {
       vi.useFakeTimers();
       const registration = new FakeRegistration(new FakeWorker(false));
@@ -325,6 +341,25 @@ describe('ProtectedCacheMigrationService', () => {
       await vi.advanceTimersByTimeAsync(WORKER_QUERY_TIMEOUT_MS);
 
       await expect(result).resolves.toBe('reloadRequired');
+    });
+
+    it('reads a missing enabled flag the way Angular does: as on', async () => {
+      TestBed.configureTestingModule({
+        providers: [
+          {
+            provide: PROTECTED_CACHE_ENVIRONMENT,
+            useValue: {
+              caches: asCaches(new FakeCacheStorage([])),
+              serviceWorker: asContainer(new FakeContainer(new FakeRegistration(new FakeWorker(true)))),
+            },
+          },
+          { provide: SwRegistrationOptions, useValue: {} },
+        ],
+      });
+      const container = TestBed.inject(PROTECTED_CACHE_ENVIRONMENT).serviceWorker as unknown as FakeContainer;
+
+      await expect(TestBed.inject(ProtectedCacheMigrationService).ensureSafeVersion()).resolves.toBe('safe');
+      expect(container.getRegistration).toHaveBeenCalledTimes(1);
     });
 
     it('leaves a worker alone where this build registers none (development)', async () => {
