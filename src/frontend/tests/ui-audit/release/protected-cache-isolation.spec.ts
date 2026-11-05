@@ -244,13 +244,14 @@ test('new_user_offline_never_reads_old_user: offline, a protected request fails 
   expect(await storedProbeAnswers(page)).toEqual([]);
 });
 
-test('old_worker_open_tab_cannot_serve_protected_body: the built app replaces the old worker under an open old tab', async ({
+test('old_worker_open_tab_cannot_serve_protected_body: once this build loads, the old worker is replaced under an open old tab', async ({
   page,
   context,
 }) => {
   await warmLegacyTab(page);
 
-  // The first page of this build loads in another tab; the old tab stays open on old code.
+  // The first page of this build loads in another tab; the old tab stays open on old code. That
+  // navigation's own update check, or the app's migration, installs the wrapper: whichever is first.
   await openThisBuild(context);
   await waitForProtectedWorker(page);
   await expect.poll(() => legacyProtectedEntries(page), { timeout: 15_000 }).toEqual([]);
@@ -272,41 +273,48 @@ test('lone_old_tab_is_covered_by_the_browser_update_check: no page of this build
   await expectSlowShopBAnswered(page);
 });
 
-test('old_code_registration_cannot_reinstate_the_old_worker: re-registering the shared URL changes nothing', async ({
+test('old_code_registration_cannot_reinstate_the_old_worker: re-registering the shared URL fetches nothing', async ({
   page,
   context,
 }) => {
-  await warmLegacyTab(page);
-  await openThisBuild(context);
-  await waitForProtectedWorker(page);
-
-  // What an older build does once per load: register its worker URL, which is this one.
-  const olderPage = await context.newPage();
-  await openHarness(olderPage);
-  await olderPage.evaluate(async () => {
-    await navigator.serviceWorker.register('/ngsw-worker.js');
-  });
-
-  expect(await controlledByProtectedWorker(page)).toBe(true);
-  await expectSlowShopBAnswered(page);
-});
-
-test('rollout_flip_is_undone_by_an_open_page_of_this_build', async ({ page, context }) => {
   const legacyManifest = await warmLegacyTab(page);
   await openThisBuild(context);
   await waitForProtectedWorker(page);
 
-  // Mid-rollout, an update check reaches an old instance and reinstalls the old worker.
+  // Mid-rollout an old instance would answer with the bare worker. The old tab, already open, does
+  // what older builds do once per load: register their worker URL, which is this one. (A navigation
+  // would itself run the browser's update check, so the call comes from a page that stays put.)
   server.useLegacyDeployment(legacyManifest);
-  const olderPage = await context.newPage();
-  await openHarness(olderPage);
-  await olderPage.evaluate(async () => {
+  const scriptFetches = (): number => server.requests.filter((request) => request.path === '/ngsw-worker.js').length;
+  const before = scriptFetches();
+  await page.evaluate(async () => {
+    await navigator.serviceWorker.register('/ngsw-worker.js');
+  });
+  await page.waitForTimeout(1_000);
+
+  expect(scriptFetches()).toBe(before);
+  expect(await controlledByProtectedWorker(page)).toBe(true);
+  server.useCurrentDeployment();
+  await expectSlowShopBAnswered(page);
+});
+
+test('rollout_flip_is_undone_by_an_open_page_of_this_build: its migration replaces the worker again', async ({
+  page,
+  context,
+}) => {
+  const legacyManifest = await warmLegacyTab(page);
+  await openThisBuild(context);
+  await waitForProtectedWorker(page);
+
+  // One update check reaches an old instance and reinstalls the bare worker; the next reaches this
+  // build. Run from the open old tab: a new page's navigation would add an update check of its own.
+  server.serveLegacyWorkerOnce(legacyManifest);
+  await page.evaluate(async () => {
     await (await navigator.serviceWorker.getRegistration())?.update();
   });
   await expect.poll(() => controlledByProtectedWorker(page), { timeout: HANDOVER_MS }).toBe(false);
-  server.useCurrentDeployment();
 
-  // The open app tab sees the controller change and replaces the worker again.
+  // No page navigates: only the open app tab's controllerchange re-check can call update() now.
   await waitForProtectedWorker(page);
   await expectSlowShopBAnswered(page);
 });

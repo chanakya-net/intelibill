@@ -24,6 +24,11 @@ export interface ReleaseServer {
    * manifest compiled from their configuration.
    */
   useLegacyDeployment(manifest: object): void;
+  /**
+   * Serves the legacy worker script to the next request for it only, then this build again: one
+   * update check that reaches an old instance mid-rollout.
+   */
+  serveLegacyWorkerOnce(manifest: object): void;
   /** Serves the build as it is: the wrapper at `/ngsw-worker.js` and the built manifest. */
   useCurrentDeployment(): void;
   /** Holds every `/api/review-tenant` answer this long, to push a worker into its timeout fallback. */
@@ -57,6 +62,7 @@ export async function startReleaseServer(root: string): Promise<ReleaseServer> {
   const requests: RecordedRequest[] = [];
   const timers = new Set<NodeJS.Timeout>();
   let legacyManifest: object | null = null;
+  let legacyWorkerOnce = false;
   let apiDelayMs = 0;
 
   const server = http.createServer(async (req, res) => {
@@ -77,6 +83,10 @@ export async function startReleaseServer(root: string): Promise<ReleaseServer> {
     }
 
     if (url.pathname === '/ngsw-worker.js' && legacyManifest) {
+      if (legacyWorkerOnce) {
+        legacyWorkerOnce = false;
+        legacyManifest = null;
+      }
       return send(res, 200, await readFile(join(root, 'ngsw-angular-worker.js')), CONTENT_TYPES['.js'], 'no-cache');
     }
 
@@ -121,9 +131,15 @@ export async function startReleaseServer(root: string): Promise<ReleaseServer> {
     requests,
     useLegacyDeployment(manifest) {
       legacyManifest = manifest;
+      legacyWorkerOnce = false;
+    },
+    serveLegacyWorkerOnce(manifest) {
+      legacyManifest = manifest;
+      legacyWorkerOnce = true;
     },
     useCurrentDeployment() {
       legacyManifest = null;
+      legacyWorkerOnce = false;
     },
     setApiDelay(ms) {
       apiDelayMs = ms;
