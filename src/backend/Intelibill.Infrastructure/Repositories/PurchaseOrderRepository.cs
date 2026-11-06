@@ -1,3 +1,4 @@
+using Intelibill.Domain.ValueObjects;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Infrastructure.Data;
@@ -115,16 +116,11 @@ internal sealed class PurchaseOrderRepository(ApplicationDbContext context)
         if (filter.Status is not null)
             query = query.Where(po => po.Status == filter.Status);
 
-        if (filter.OrderDateFrom is not null)
+        if (filter.CreatedWindow is { } window)
         {
-            var start = ToUtcStart(filter.OrderDateFrom.Value);
-            query = query.Where(po => po.CreatedAt >= start);
-        }
-
-        if (filter.OrderDateTo is not null)
-        {
-            var endExclusive = ToUtcStart(filter.OrderDateTo.Value.AddDays(1));
-            query = query.Where(po => po.CreatedAt < endExclusive);
+            var start = window.StartInclusive;
+            var endExclusive = window.EndExclusive;
+            query = query.Where(po => po.CreatedAt >= start && po.CreatedAt < endExclusive);
         }
 
         if (!string.IsNullOrWhiteSpace(filter.Search))
@@ -148,7 +144,4 @@ internal sealed class PurchaseOrderRepository(ApplicationDbContext context)
 
         return (items, totalCount);
     }
-
-    private static DateTimeOffset ToUtcStart(DateOnly date) =>
-        new(DateTime.SpecifyKind(date.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc));
 }

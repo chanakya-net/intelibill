@@ -1,5 +1,6 @@
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
+using Intelibill.Domain.ValueObjects;
 
 namespace Intelibill.Domain.Interfaces.Repositories;
 
@@ -38,8 +39,7 @@ public interface ISaleRepository : IRepository<Sale>
     Task<IReadOnlyDictionary<Guid, CustomerSalesMetricsReadModel>> GetCustomerSalesMetricsAsync(
         Guid shopId,
         IReadOnlyCollection<Guid> customerIds,
-        DateTime monthStartUtc,
-        DateTime nextMonthStartUtc,
+        UtcDateWindow month,
         CancellationToken cancellationToken = default);
 }
 

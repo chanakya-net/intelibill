@@ -1,3 +1,4 @@
+using Intelibill.Domain.ValueObjects;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
@@ -58,19 +59,15 @@ internal sealed class InventoryAdjustmentRepository : RepositoryBase<InventoryAd
 
     public async Task<IReadOnlyList<InventoryAdjustment>> GetByShopAndDateRangeAsync(
         Guid shopId,
-        DateOnly startDate,
-        DateOnly endDate,
+        UtcDateWindow window,
         CancellationToken cancellationToken = default)
     {
-        var start = ToUtcStart(startDate);
-        var exclusiveEnd = ToUtcStart(endDate.AddDays(1));
-
         return await DbSet
             .Include(a => a.Item)
             .Include(a => a.InventoryBatch)
             .Where(a => a.ShopId == shopId
-                && a.PerformedAt >= start
-                && a.PerformedAt < exclusiveEnd)
+                && a.PerformedAt >= window.StartInclusive
+                && a.PerformedAt < window.EndExclusive)
             .OrderByDescending(a => a.PerformedAt)
             .ToListAsync(cancellationToken);
     }
@@ -85,9 +82,6 @@ internal sealed class InventoryAdjustmentRepository : RepositoryBase<InventoryAd
                 && !a.IsVoided)
             .OrderByDescending(a => a.PerformedAt)
             .ToListAsync(cancellationToken);
-
-    private static DateTime ToUtcStart(DateOnly utcDate) =>
-        DateTime.SpecifyKind(utcDate.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
 
     public async Task<(IReadOnlyList<InventoryAdjustmentHistoryReadModel> Items, int TotalCount)> GetHistoryAsync(
         InventoryAdjustmentHistoryFilter filter,

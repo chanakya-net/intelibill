@@ -1,5 +1,6 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Time;
 using Intelibill.Application.Features.Exports.ProfitLoss.DTOs;
 using Intelibill.Application.Features.Sales.Queries.GetProfitLossReport;
 using Intelibill.Domain.Enums;
@@ -13,7 +14,8 @@ public sealed class ExportProfitLossQueryHandler(
     IUserRepository userRepository,
     IShopRepository shopRepository,
     ProfitLossReportBuilder reportBuilder,
-    IProfitLossExcelExportRenderer excelRenderer)
+    IProfitLossExcelExportRenderer excelRenderer,
+    IBusinessClock businessClock)
 {
     public async Task<ErrorOr<ProfitLossExportResult>> Handle(
         ExportProfitLossQuery query,
@@ -42,7 +44,9 @@ public sealed class ExportProfitLossQueryHandler(
             return Errors.Export.UserIsNotOwnerOrManager;
         }
 
-        var report = await reportBuilder.BuildAsync(query.ShopId, query.From, query.To, query.Type, query.Search, cancellationToken);
+        var to = query.To ?? businessClock.Today(shop.BusinessTimeZoneId);
+        var from = query.From ?? to.AddDays(-6);
+        var report = await reportBuilder.BuildAsync(query.ShopId, shop.BusinessTimeZoneId, from, to, query.Type, query.Search, cancellationToken);
 
         var dataset = new ProfitLossExportDatasetDto(
             new ProfitLossExportMetadataDto(

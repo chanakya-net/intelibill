@@ -131,6 +131,7 @@ public sealed class SalesExportDatasetBuilder : ISalesExportDatasetBuilder
         return new SalesExportSummaryRowDto(
             sale.InvoiceNumber,
             sale.SoldAt,
+            sale.BusinessDate,
             sale.CustomerName,
             sale.PaymentMethod.ToString(),
             sale.PaidAmount,
@@ -175,6 +176,7 @@ public sealed class SalesExportDatasetBuilder : ISalesExportDatasetBuilder
         return new SalesExportLineItemRowDto(
             sale.InvoiceNumber,
             sale.SoldAt,
+            sale.BusinessDate,
             sale.CustomerName,
             lineName,
             saleItem.Quantity,

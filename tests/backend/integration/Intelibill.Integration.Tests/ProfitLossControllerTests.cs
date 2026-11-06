@@ -188,12 +188,16 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
         return inventoryBody.GetProperty("inventoryBatchId").GetGuid();
     }
 
+    private static DateOnly IstDate(DateTimeOffset instant) =>
+        DateOnly.FromDateTime(instant.ToOffset(TimeSpan.FromHours(5.5)).DateTime);
+
     private async Task SetSaleSoldAtAsync(Guid saleId, DateTimeOffset soldAt)
     {
         await using var scope = _factory.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var sale = await db.Sales.SingleAsync(s => s.Id == saleId);
         db.Entry(sale).Property(nameof(Sale.SoldAt)).CurrentValue = soldAt;
+        db.Entry(sale).Property(nameof(Sale.BusinessDate)).CurrentValue = IstDate(soldAt);
         await db.SaveChangesAsync();
     }
 

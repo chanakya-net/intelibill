@@ -5,5 +5,5 @@ public sealed record ExportSalesQuery(
     Guid ShopId,
     string Format,
     string Level,
-    DateOnly StartDate,
-    DateOnly EndDate);
+    DateOnly? StartDate,
+    DateOnly? EndDate);

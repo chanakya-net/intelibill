@@ -3,6 +3,7 @@ using Intelibill.Application.Features.Exports.Sales;
 using Intelibill.Application.Features.Exports.Sales.DTOs;
 using Intelibill.Application.Features.Exports.Sales.Queries.ExportSales;
 using Intelibill.Application.Features.Exports.Sales.Services;
+using Intelibill.Application.Unit.Tests.Common.Time;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
@@ -21,7 +22,7 @@ public class ExportSalesQueryHandlerTests
     private readonly IExportFileNameBuilder _fileNameBuilder = Substitute.For<IExportFileNameBuilder>();
 
     private ExportSalesQueryHandler CreateHandler() =>
-        new(_userRepository, _shopRepository, _datasetBuilder, _excelRenderer, _pdfRenderer, _tallyRenderer, _fileNameBuilder);
+        new(_userRepository, _shopRepository, _datasetBuilder, _excelRenderer, _pdfRenderer, _tallyRenderer, _fileNameBuilder, BusinessTestDoubles.RealClock());
 
     private static User MakeUser() =>
         User.CreateWithEmail("export@test.com", "hash", "Export", "User");
@@ -381,7 +382,7 @@ public class ExportSalesQueryHandlerTests
                 DateOnly.FromDateTime(DateTime.UtcNow),
                 SalesExportLevel.LineItems),
             Array.Empty<SalesExportSummaryRowDto>(),
-            [new SalesExportLineItemRowDto("INV-001", DateTimeOffset.UtcNow, "Alice", "Apple", 1m, 10m, 0m, 0m, 5m, 10m, 0.5m, 10.5m, false, 0m, null, null)],
+            [new SalesExportLineItemRowDto("INV-001", DateTimeOffset.UtcNow, DateOnly.FromDateTime(DateTime.UtcNow), "Alice", "Apple", 1m, 10m, 0m, 0m, 5m, 10m, 0.5m, 10.5m, false, 0m, null, null)],
             Array.Empty<SalesExportTaxBreakupDto>(),
             []);
         var expectedResult = new SalesExportResult([1, 2, 3], "application/pdf", "sales.pdf");
@@ -426,7 +427,7 @@ public class ExportSalesQueryHandlerTests
         var ownerMembership = MakeMembership(shop.Id, user.Id, ShopRole.Owner);
 
         var rows = Enumerable.Range(1, 2001)
-            .Select(i => new SalesExportSummaryRowDto($"INV-{i:D4}", DateTimeOffset.UtcNow, null, "Cash", 0m, 0m, 0m, 0m, 0m, 0m, 0m, null, 0m, 0m, 0m, 0m, false, 0))
+            .Select(i => new SalesExportSummaryRowDto($"INV-{i:D4}", DateTimeOffset.UtcNow, DateOnly.FromDateTime(DateTime.UtcNow), null, "Cash", 0m, 0m, 0m, 0m, 0m, 0m, 0m, null, 0m, 0m, 0m, 0m, false, 0))
             .ToArray();
 
         var dataset = new SalesExportDatasetDto(
@@ -488,7 +489,7 @@ public class ExportSalesQueryHandlerTests
                 DateOnly.FromDateTime(DateTime.UtcNow),
                 SalesExportLevel.LineItems),
             Array.Empty<SalesExportSummaryRowDto>(),
-            [new SalesExportLineItemRowDto("INV-001", DateTimeOffset.UtcNow, "Alice", "Apple", 1m, 10m, 0m, 0m, 5m, 10m, 0.5m, 10.5m, false, 0m, null, null)],
+            [new SalesExportLineItemRowDto("INV-001", DateTimeOffset.UtcNow, DateOnly.FromDateTime(DateTime.UtcNow), "Alice", "Apple", 1m, 10m, 0m, 0m, 5m, 10m, 0.5m, 10.5m, false, 0m, null, null)],
             Array.Empty<SalesExportTaxBreakupDto>(),
             []);
         var expectedResult = new SalesExportResult([1, 2, 3], "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "sales.xlsx");
@@ -533,7 +534,7 @@ public class ExportSalesQueryHandlerTests
         var ownerMembership = MakeMembership(shop.Id, user.Id, ShopRole.Owner);
 
         var rows = Enumerable.Range(1, 2001)
-            .Select(i => new SalesExportLineItemRowDto($"INV-{i:D4}", DateTimeOffset.UtcNow, null, "Item", 1m, 1m, 0m, 0m, 0m, 1m, 0m, 1m, false, 0m, null, null))
+            .Select(i => new SalesExportLineItemRowDto($"INV-{i:D4}", DateTimeOffset.UtcNow, DateOnly.FromDateTime(DateTime.UtcNow), null, "Item", 1m, 1m, 0m, 0m, 0m, 1m, 0m, 1m, false, 0m, null, null))
             .ToArray();
 
         var dataset = new SalesExportDatasetDto(

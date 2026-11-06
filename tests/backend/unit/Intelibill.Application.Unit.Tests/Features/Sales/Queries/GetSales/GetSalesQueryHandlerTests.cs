@@ -1,6 +1,7 @@
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Sales.DTOs;
 using Intelibill.Application.Features.Sales.Queries.GetSales;
+using Intelibill.Application.Unit.Tests.Common.Time;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
@@ -14,7 +15,7 @@ public sealed class GetSalesQueryHandlerTests
     private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
     private readonly ISaleRepository _saleRepository = Substitute.For<ISaleRepository>();
 
-    private GetSalesQueryHandler CreateHandler() => new(_userRepository, _shopRepository, _saleRepository);
+    private GetSalesQueryHandler CreateHandler() => new(_userRepository, _shopRepository, _saleRepository, BusinessTestDoubles.RealClock());
 
     private static User MakeUser() =>
         User.CreateWithEmail("sales@test.com", "hash", "Sales", "User");

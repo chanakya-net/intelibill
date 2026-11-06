@@ -14,12 +14,6 @@ public sealed class ExportProfitLossQueryValidator : AbstractValidator<ExportPro
         RuleFor(x => x.ShopId)
             .NotEmpty();
 
-        RuleFor(x => x.From)
-            .NotEmpty();
-
-        RuleFor(x => x.To)
-            .NotEmpty();
-
         RuleFor(x => x.Format)
             .Must(BeSupportedFormat)
             .WithErrorCode("Exports.ProfitLoss.InvalidFormat")
@@ -43,5 +37,5 @@ public sealed class ExportProfitLossQueryValidator : AbstractValidator<ExportPro
         type is null || AllowedTypes.Contains(type, StringComparer.OrdinalIgnoreCase);
 
     private static bool HaveValidDateRange(ExportProfitLossQuery query) =>
-        query.From <= query.To;
+        query.From is not { } from || query.To is not { } to || from <= to;
 }

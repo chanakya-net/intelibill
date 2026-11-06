@@ -1,4 +1,5 @@
 using System.Globalization;
+using Intelibill.Application.Common.Time;
 using Intelibill.Application.Features.Exports.Accounting;
 using Intelibill.Application.Features.Sales.DTOs;
 using Intelibill.Domain.Enums;
@@ -9,10 +10,12 @@ namespace Intelibill.Application.Features.Sales.Queries.GetProfitLossReport;
 public sealed class ProfitLossReportBuilder(
     ISaleRepository saleRepository,
     ReturnAdjustmentReader returnAdjustmentReader,
-    IInventoryAdjustmentRepository inventoryAdjustmentRepository)
+    IInventoryAdjustmentRepository inventoryAdjustmentRepository,
+    IBusinessClock businessClock)
 {
     public async Task<ProfitLossReportBuildResult> BuildAsync(
         Guid shopId,
+        string timeZoneId,
         DateOnly from,
         DateOnly to,
         string? type,
@@ -23,7 +26,10 @@ public sealed class ProfitLossReportBuilder(
 
         var salesInRange = await saleRepository.GetByShopAndDateRangeAsync(shopId, from, to, cancellationToken);
         var returnAdjustments = await returnAdjustmentReader.ReadAsync(shopId, from, to, salesInRange, cancellationToken);
-        var adjustmentsInRange = await inventoryAdjustmentRepository.GetByShopAndDateRangeAsync(shopId, from, to, cancellationToken);
+        var adjustmentsInRange = await inventoryAdjustmentRepository.GetByShopAndDateRangeAsync(
+            shopId,
+            businessClock.GetUtcWindow(from, to, timeZoneId),
+            cancellationToken);
 
         var report = new List<ProfitLossReportItemDto>();
 

@@ -1,6 +1,8 @@
+using Intelibill.Application.Unit.Tests.Common.Time;
 using Intelibill.Application.Features.Customers.Queries.GetCustomers;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Interfaces.Repositories;
+using Intelibill.Domain.ValueObjects;
 using NSubstitute;
 
 namespace Intelibill.Application.Unit.Tests.Features.Customers.Queries.GetCustomers;
@@ -10,11 +12,12 @@ public class GetCustomersQueryHandlerTests
     private readonly ICustomerRepository _customerRepository = Substitute.For<ICustomerRepository>();
     private readonly ICustomerLedgerEntryRepository _customerLedgerEntryRepository = Substitute.For<ICustomerLedgerEntryRepository>();
     private readonly ISaleRepository _saleRepository = Substitute.For<ISaleRepository>();
+    private readonly MutableTimeProvider _time = MutableTimeProvider.At("2026-10-20T20:30:00+00:00");
     private readonly GetCustomersQueryHandler _handler;
 
     public GetCustomersQueryHandlerTests()
     {
-        _handler = new GetCustomersQueryHandler(_customerRepository, _customerLedgerEntryRepository, _saleRepository);
+        _handler = new GetCustomersQueryHandler(_customerRepository, _customerLedgerEntryRepository, _saleRepository, BusinessTestDoubles.AnyShop(), BusinessTestDoubles.ClockAt(_time));
     }
 
     [Fact]
@@ -23,7 +26,7 @@ public class GetCustomersQueryHandlerTests
         var shopId = Guid.NewGuid();
         _customerRepository.GetByShopIdAsync(shopId, Arg.Any<CancellationToken>())
             .Returns(Array.Empty<Customer>());
-        _saleRepository.GetCustomerSalesMetricsAsync(shopId, Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<DateTime>(), Arg.Any<DateTime>(), Arg.Any<CancellationToken>())
+        _saleRepository.GetCustomerSalesMetricsAsync(shopId, Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<UtcDateWindow>(), Arg.Any<CancellationToken>())
             .Returns(new Dictionary<Guid, CustomerSalesMetricsReadModel>());
 
         var result = await _handler.HandleAsync(new GetCustomersQuery(shopId), CancellationToken.None);
@@ -46,7 +49,7 @@ public class GetCustomersQueryHandlerTests
                 [c1.Id] = 15m,
                 [c2.Id] = 0m,
             });
-        _saleRepository.GetCustomerSalesMetricsAsync(shopId, Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<DateTime>(), Arg.Any<DateTime>(), Arg.Any<CancellationToken>())
+        _saleRepository.GetCustomerSalesMetricsAsync(shopId, Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<UtcDateWindow>(), Arg.Any<CancellationToken>())
             .Returns(new Dictionary<Guid, CustomerSalesMetricsReadModel>());
 
         var result = await _handler.HandleAsync(new GetCustomersQuery(shopId), CancellationToken.None);
@@ -78,7 +81,7 @@ public class GetCustomersQueryHandlerTests
             .Returns(new[] { c1 });
         _customerLedgerEntryRepository.GetCustomerBalancesAsync(shopId, Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(new Dictionary<Guid, decimal> { [c1.Id] = 15m });
-        _saleRepository.GetCustomerSalesMetricsAsync(shopId, Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<DateTime>(), Arg.Any<DateTime>(), Arg.Any<CancellationToken>())
+        _saleRepository.GetCustomerSalesMetricsAsync(shopId, Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<UtcDateWindow>(), Arg.Any<CancellationToken>())
             .Returns(new Dictionary<Guid, CustomerSalesMetricsReadModel>
             {
                 [c1.Id] = new CustomerSalesMetricsReadModel(c1.Id, 5, 500m, 120m)
@@ -94,7 +97,7 @@ public class GetCustomersQueryHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_QueriesSalesMetricsWithExpectedCurrentMonthUtcBoundaries()
+    public async Task HandleAsync_QueriesSalesMetricsForTheShopsCurrentMonth()
     {
         var shopId = Guid.NewGuid();
         var c1 = Customer.Create(shopId, "Alice", "+919000000001", "Addr1");
@@ -102,20 +105,20 @@ public class GetCustomersQueryHandlerTests
             .Returns(new[] { c1 });
         _customerLedgerEntryRepository.GetCustomerBalancesAsync(shopId, Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(new Dictionary<Guid, decimal> { [c1.Id] = 0m });
-        _saleRepository.GetCustomerSalesMetricsAsync(shopId, Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<DateTime>(), Arg.Any<DateTime>(), Arg.Any<CancellationToken>())
+        _saleRepository.GetCustomerSalesMetricsAsync(shopId, Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<UtcDateWindow>(), Arg.Any<CancellationToken>())
             .Returns(new Dictionary<Guid, CustomerSalesMetricsReadModel>());
 
-        var result = await _handler.HandleAsync(new GetCustomersQuery(shopId), CancellationToken.None);
+        await _handler.HandleAsync(new GetCustomersQuery(shopId), CancellationToken.None);
 
-        var todayUtc = DateTimeOffset.UtcNow.UtcDateTime;
-        var expectedMonthStart = new DateTime(todayUtc.Year, todayUtc.Month, 1, 0, 0, 0, DateTimeKind.Utc);
-        var expectedNextMonthStart = expectedMonthStart.AddMonths(1);
-
+        // 21 October in India (the clock reads 20 October UTC): October runs from 30 September
+        // 18:30 UTC to 31 October 18:30 UTC.
+        var october = new UtcDateWindow(
+            new DateTimeOffset(2026, 9, 30, 18, 30, 0, TimeSpan.Zero),
+            new DateTimeOffset(2026, 10, 31, 18, 30, 0, TimeSpan.Zero));
         await _saleRepository.Received(1).GetCustomerSalesMetricsAsync(
             shopId,
             Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.Contains(c1.Id)),
-            Arg.Is<DateTime>(dt => dt == expectedMonthStart),
-            Arg.Is<DateTime>(dt => dt == expectedNextMonthStart),
+            october,
             Arg.Any<CancellationToken>());
     }
 }

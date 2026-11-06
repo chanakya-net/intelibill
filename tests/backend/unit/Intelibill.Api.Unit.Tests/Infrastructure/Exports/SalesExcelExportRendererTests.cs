@@ -24,8 +24,8 @@ public sealed class SalesExcelExportRendererTests
 
         var summaryRows = new List<SalesExportSummaryRowDto>
         {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Cash", 1200m, 40m, 900m, 0m, 120m, 21.6m, 1161.6m, null, 0m, 0m, 0m, 1161.6m, false, 2),
-            new("INV-002", new DateTimeOffset(2026, 5, 2, 11, 0, 0, TimeSpan.Zero), "Bob", "UPI", 400m, 20m, 700m, 0m, 300m, 54m, 754m, "R-001", 200m, 50m, 9m, 554m, true, 2)
+            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), new DateOnly(2026, 5, 1), "Alice", "Cash", 1200m, 40m, 900m, 0m, 120m, 21.6m, 1161.6m, null, 0m, 0m, 0m, 1161.6m, false, 2),
+            new("INV-002", new DateTimeOffset(2026, 5, 2, 11, 0, 0, TimeSpan.Zero), new DateOnly(2026, 5, 2), "Bob", "UPI", 400m, 20m, 700m, 0m, 300m, 54m, 754m, "R-001", 200m, 50m, 9m, 554m, true, 2)
         };
 
         var taxBreakup = new List<SalesExportTaxBreakupDto>
@@ -101,6 +101,7 @@ public sealed class SalesExcelExportRendererTests
             new(
                 "INV-001",
                 new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero),
+                new DateOnly(2026, 5, 1),
                 "Alice",
                 "Cash",
                 1200m,
@@ -171,9 +172,9 @@ public sealed class SalesExcelExportRendererTests
 
         var lineItemRows = new List<SalesExportLineItemRowDto>
         {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Tomato", 10m, 50m, 3m, 2m, 5m, 500m, 25m, 520m, false, 0m, null, null),
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Potato", 20m, 30m, 0m, 0m, 5m, 600m, 30m, 630m, false, 5m, "Partial", "RET-001"),
-            new("INV-002", new DateTimeOffset(2026, 5, 2, 11, 0, 0, TimeSpan.Zero), "Bob", "Onion", 15m, 40m, 6m, 4m, 18m, 450m, 81m, 541m, true, 0m, null, null)
+            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), new DateOnly(2026, 5, 1), "Alice", "Tomato", 10m, 50m, 3m, 2m, 5m, 500m, 25m, 520m, false, 0m, null, null),
+            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), new DateOnly(2026, 5, 1), "Alice", "Potato", 20m, 30m, 0m, 0m, 5m, 600m, 30m, 630m, false, 5m, "Partial", "RET-001"),
+            new("INV-002", new DateTimeOffset(2026, 5, 2, 11, 0, 0, TimeSpan.Zero), new DateOnly(2026, 5, 2), "Bob", "Onion", 15m, 40m, 6m, 4m, 18m, 450m, 81m, 541m, true, 0m, null, null)
         };
 
         var taxBreakup = new List<SalesExportTaxBreakupDto>
@@ -309,7 +310,7 @@ public sealed class SalesExcelExportRendererTests
     {
         var summaryRows = new List<SalesExportSummaryRowDto>
         {
-            new("INV-002", new DateTimeOffset(2026, 5, 3, 10, 0, 0, TimeSpan.Zero), "Bob", "Cash", 118m, 0m, 118m, 0m, 100m, 18m, 118m, "RET-2", 118m, 100m, 18m, 0m, true, 1)
+            new("INV-002", new DateTimeOffset(2026, 5, 3, 10, 0, 0, TimeSpan.Zero), new DateOnly(2026, 5, 3), "Bob", "Cash", 118m, 0m, 118m, 0m, 100m, 18m, 118m, "RET-2", 118m, 100m, 18m, 0m, true, 1)
         };
         var inPeriod = Adjustment("RET-2", "INV-002", 118m, 100m, 18m,
             new ReturnAdjustmentSettlement(ReturnSettlementKind.ExternalRefund, 118m, null, null, null));
@@ -401,12 +402,15 @@ public sealed class SalesExcelExportRendererTests
         new(
             ReturnAdjustmentEntryKind.Return,
             new DateTimeOffset(2026, 5, 4, 12, 0, 0, TimeSpan.Zero),
+            new DateOnly(2026, 5, 4),
             Guid.NewGuid(),
             returnNumber,
             new DateTimeOffset(2026, 5, 4, 12, 0, 0, TimeSpan.Zero),
+            new DateOnly(2026, 5, 4),
             Guid.NewGuid(),
             invoiceNumber,
             new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero),
+            new DateOnly(2026, 5, 1),
             "Alice",
             ReturnAccountingStatus.Balanced,
             "proportional-line-tax/1",

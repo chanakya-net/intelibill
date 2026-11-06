@@ -31,18 +31,14 @@ public sealed class ExportsController : AuthenticatedControllerBase
         var auth = CheckAuthAndShop();
         if (auth is not null) return auth;
 
-        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
-        var resolvedEndDate = endDate ?? today;
-        var resolvedStartDate = startDate ?? resolvedEndDate.AddDays(-29);
-
         var result = await Bus.InvokeAsync<ErrorOr<SalesExportResult>>(
             new ExportSalesQuery(
                 UserId!.Value,
                 ActiveShopId!.Value,
                 format,
                 level,
-                resolvedStartDate,
-                resolvedEndDate),
+                startDate,
+                endDate),
             cancellationToken);
 
         return result.ToActionResult(export =>
@@ -62,16 +58,12 @@ public sealed class ExportsController : AuthenticatedControllerBase
         var auth = CheckAuthAndShop();
         if (auth is not null) return auth;
 
-        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
-        var resolvedTo = to ?? today;
-        var resolvedFrom = from ?? resolvedTo.AddDays(-6);
-
         var result = await Bus.InvokeAsync<ErrorOr<ProfitLossExportResult>>(
             new ExportProfitLossQuery(
                 UserId!.Value,
                 ActiveShopId!.Value,
-                resolvedFrom,
-                resolvedTo,
+                from,
+                to,
                 type,
                 search,
                 format),

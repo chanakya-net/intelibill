@@ -114,7 +114,7 @@ internal static class SalesExcelLineItemRenderer
         int rowNum)
     {
         worksheet.Cell(rowNum, columnPlan.InvoiceNumberColumn).Value = row.InvoiceNumber;
-        worksheet.Cell(rowNum, columnPlan.DateColumn).Value = row.SaleDate.UtcDateTime;
+        worksheet.Cell(rowNum, columnPlan.DateColumn).Value = row.BusinessDate.ToDateTime(TimeOnly.MinValue);
         worksheet.Cell(rowNum, columnPlan.DateColumn).Style.DateFormat.Format = "yyyy-MM-dd";
         worksheet.Cell(rowNum, columnPlan.CustomerColumn).Value = row.CustomerName ?? string.Empty;
         worksheet.Cell(rowNum, columnPlan.ItemNameColumn).Value = row.ItemName;

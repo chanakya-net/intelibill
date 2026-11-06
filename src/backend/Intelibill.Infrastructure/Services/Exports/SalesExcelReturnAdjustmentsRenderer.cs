@@ -89,7 +89,7 @@ internal static class SalesExcelReturnAdjustmentsRenderer
 
     private static void RenderRow(IXLWorksheet worksheet, ReturnAdjustmentEntry entry, int row)
     {
-        worksheet.Cell(row, 1).Value = entry.PostedAt.UtcDateTime;
+        worksheet.Cell(row, 1).Value = entry.BusinessDate.ToDateTime(TimeOnly.MinValue);
         worksheet.Cell(row, 1).Style.DateFormat.Format = "yyyy-MM-dd";
         worksheet.Cell(row, 2).Value = entry.IsReversal ? "Void reversal" : "Return";
         worksheet.Cell(row, 3).Value = entry.ReturnNumber;
